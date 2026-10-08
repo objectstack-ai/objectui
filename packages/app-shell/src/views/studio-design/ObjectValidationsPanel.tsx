@@ -41,6 +41,17 @@ import { readFields } from '../metadata-admin/previews/object-fields-io.js';
 import { t, useMetadataLocale } from '../metadata-admin/i18n.js';
 import type { ExpressionInput } from '@objectstack/spec/shared';
 
+/**
+ * objectui#11781 — the look a disabled control takes: the pair the
+ * `@object-ui/components` primitives (`Input`, `SelectTrigger`, `Textarea`)
+ * carry, and so the one the read-only field inspector's inputs wear. This
+ * panel's controls are plain elements, which keep the editable look (white
+ * fill, dark text) when disabled unless they are given it too. Plain
+ * checkboxes are left to the browser's own disabled look, as the inspector's
+ * are.
+ */
+const DISABLED_LOOK = 'disabled:cursor-not-allowed disabled:opacity-50';
+
 type RuleType = 'script' | 'cross_field' | 'state_machine' | 'format' | 'json_schema' | 'conditional';
 
 interface ValidationRuleDraft {
@@ -220,7 +231,7 @@ function JsonField({
             setErr(t('engine.studio.rules.invalidJson', locale));
           }
         }}
-        className="w-full rounded border bg-background px-2 py-1 font-mono text-[11px]"
+        className={`w-full rounded border bg-background px-2 py-1 font-mono text-[11px] ${DISABLED_LOOK}`}
       />
       {err && <span className="mt-1 block text-[11px] text-destructive">{err}</span>}
     </label>
@@ -261,7 +272,7 @@ function TransitionsField({
             disabled={disabled}
             placeholder={t('engine.studio.rules.transitionFrom', locale)}
             onChange={(e) => setRow(i, e.target.value, to)}
-            className="w-32 rounded border bg-background px-2 py-1 text-[12px]"
+            className={`w-32 rounded border bg-background px-2 py-1 text-[12px] ${DISABLED_LOOK}`}
           />
           <span className="text-muted-foreground">→</span>
           <input
@@ -271,7 +282,7 @@ function TransitionsField({
             onChange={(e) =>
               setRow(i, from, e.target.value.split(',').map((s) => s.trim()).filter(Boolean))
             }
-            className="min-w-0 flex-1 rounded border bg-background px-2 py-1 text-[12px]"
+            className={`min-w-0 flex-1 rounded border bg-background px-2 py-1 text-[12px] ${DISABLED_LOOK}`}
           />
           {!disabled && (
             <button
@@ -323,7 +334,7 @@ function RuleTypeFields({
         value={value ?? ''}
         disabled={disabled}
         onChange={(e) => onSet(e.target.value)}
-        className="w-full rounded border bg-background px-2 py-1 text-[12px]"
+        className={`w-full rounded border bg-background px-2 py-1 text-[12px] ${DISABLED_LOOK}`}
       >
         <option value="">{t('engine.studio.rules.pickField', locale)}</option>
         {fields.map((f) => (
@@ -448,7 +459,7 @@ function RuleTypeFields({
               value={typeof rule.format === 'string' ? rule.format : ''}
               disabled={disabled}
               onChange={(e) => patch({ format: e.target.value || undefined })}
-              className="w-full rounded border bg-background px-2 py-1 text-[12px]"
+              className={`w-full rounded border bg-background px-2 py-1 text-[12px] ${DISABLED_LOOK}`}
             >
               {BUILTIN_FORMATS.map((f) => (
                 <option key={f || 'none'} value={f}>
@@ -464,7 +475,7 @@ function RuleTypeFields({
               disabled={disabled}
               placeholder="^[A-Z]{2}\\d{4}$"
               onChange={(e) => patch({ regex: e.target.value || undefined })}
-              className="w-full rounded border bg-background px-2 py-1 font-mono text-[12px]"
+              className={`w-full rounded border bg-background px-2 py-1 font-mono text-[12px] ${DISABLED_LOOK}`}
             />
           </label>
         </>
@@ -715,7 +726,7 @@ export function ObjectValidationsPanel({
                 value={selType}
                 disabled={disabled}
                 onChange={(e) => changeType(sel.name!, e.target.value as RuleType)}
-                className="w-full rounded border bg-background px-2 py-1 text-[12px]"
+                className={`w-full rounded border bg-background px-2 py-1 text-[12px] ${DISABLED_LOOK}`}
               >
                 {RULE_TYPES.map((rt) => (
                   <option key={rt.value} value={rt.value}>
@@ -734,7 +745,7 @@ export function ObjectValidationsPanel({
                   patchRule(sel.name!, { name });
                   setSelected(name);
                 }}
-                className="w-full rounded border bg-background px-2 py-1 text-[12px]"
+                className={`w-full rounded border bg-background px-2 py-1 text-[12px] ${DISABLED_LOOK}`}
               />
             </label>
             <label className="block">
@@ -743,7 +754,7 @@ export function ObjectValidationsPanel({
                 value={sel.label ?? ''}
                 disabled={disabled}
                 onChange={(e) => patchRule(sel.name!, { label: e.target.value || undefined })}
-                className="w-full rounded border bg-background px-2 py-1 text-[12px]"
+                className={`w-full rounded border bg-background px-2 py-1 text-[12px] ${DISABLED_LOOK}`}
               />
             </label>
             <label className="block">
@@ -753,7 +764,7 @@ export function ObjectValidationsPanel({
                 disabled={disabled}
                 onChange={(e) => patchRule(sel.name!, { message: e.target.value })}
                 placeholder={t('engine.studio.rules.messagePlaceholder', locale)}
-                className="w-full rounded border bg-background px-2 py-1 text-[12px]"
+                className={`w-full rounded border bg-background px-2 py-1 text-[12px] ${DISABLED_LOOK}`}
               />
             </label>
 
@@ -799,7 +810,7 @@ export function ObjectValidationsPanel({
                   value={sel.severity ?? 'error'}
                   disabled={disabled}
                   onChange={(e) => patchRule(sel.name!, { severity: e.target.value as ValidationRuleDraft['severity'] })}
-                  className="rounded border bg-background px-1.5 py-0.5 text-[12px]"
+                  className={`rounded border bg-background px-1.5 py-0.5 text-[12px] ${DISABLED_LOOK}`}
                 >
                   <option value="error">{t('engine.studio.rules.severityError', locale)}</option>
                   <option value="warning">warning</option>
@@ -815,7 +826,7 @@ export function ObjectValidationsPanel({
                   onChange={(e) =>
                     patchRule(sel.name!, { priority: e.target.value === '' ? undefined : Number(e.target.value) })
                   }
-                  className="w-20 rounded border bg-background px-1.5 py-0.5 text-[12px]"
+                  className={`w-20 rounded border bg-background px-1.5 py-0.5 text-[12px] ${DISABLED_LOOK}`}
                 />
               </label>
               <label className="flex items-center gap-1.5 text-[12px]">

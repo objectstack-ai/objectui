@@ -141,7 +141,7 @@ async function railDot(label: string): Promise<HTMLElement> {
 }
 
 describe('the Automations rail reads `triggerType` and `reason` from the runtime rows (objectui#11281)', () => {
-  it('titles a policy-unbound schedule flow with the platform reason, verbatim, and keeps it "On"', async () => {
+  it('titles a policy-unbound schedule flow with the platform reason, verbatim, and reads "Not running here", not "On"', async () => {
     render(
       <MemoryRouter initialEntries={[`/studio/${PKG}/automations`]}>
         <AutomationsPillar packageId={PKG} />
@@ -150,7 +150,9 @@ describe('the Automations rail reads `triggerType` and `reason` from the runtime
     const dot = await railDot('Nightly digest');
     expect(dot).toHaveAttribute('title', REASON);
     expect(dot).not.toHaveAttribute('title', t('engine.studio.auto.onUnbound', 'en'));
-    expect(within(dot).getByText(t('engine.studio.auto.on', 'en'))).toBeInTheDocument();
+    // objectui#11779 — visible without hovering: the deployment does not run it.
+    expect(dot).toHaveTextContent(t('engine.studio.auto.notRunning', 'en'));
+    expect(within(dot).queryByText(t('engine.studio.auto.on', 'en'))).toBeNull();
   });
 
   it('a flow with no declared trigger still says "no trigger"; bound and disabled flows are unchanged — the controls', async () => {

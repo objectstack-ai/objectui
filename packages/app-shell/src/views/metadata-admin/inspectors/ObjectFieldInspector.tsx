@@ -42,7 +42,14 @@ import {
 } from '@objectstack/spec/data';
 import { ValueDomainSchema } from '@objectstack/spec/shared';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
-import { MetadataClient } from '@object-ui/data-objectstack';
+import {
+  assertObjectMetadataWritable,
+  CHOICE_TYPES_REQUIRING_OPTIONS,
+  MetadataClient,
+  OBJECT_METADATA_TYPE,
+  RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+} from '@object-ui/data-objectstack';
+import { useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
 import { useMetadataClient } from '../useMetadata.js';
 import {
   InspectorShell,
@@ -58,6 +65,7 @@ import {
 import { Button, Input, Label, Badge } from '@object-ui/components';
 import { Plus, X, ArrowUp, ArrowDown, Copy, AlertTriangle } from 'lucide-react';
 import { InspectorComboField, type InspectorComboOption } from './InspectorComboField.js';
+import { ObjectPicker } from './ObjectPicker.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
 import {
   readFields,
@@ -74,7 +82,7 @@ import {
 } from '../previews/field-types.js';
 import { CelPredicateField } from '../CelPredicateField.js';
 import type { CelLintIssue } from '../celAuthoring.js';
-import { t, tFormat } from '../i18n.js';
+import { t, tFormat, type SupportedLocale } from '../i18n.js';
 import { usePickerLoad, type LoadState } from '../loadState.js';
 
 
@@ -286,6 +294,35 @@ function isLookup(type: string): boolean {
   return type === 'lookup' || type === 'master_detail' || type === 'tree';
 }
 
+/**
+ * objectui#11786 — what the object write guard holds this field for: its
+ * options (a choice type with no option source) or its target (a relationship
+ * with no usable `reference`), else nothing. Asked of the guard itself, on the
+ * field alone, so the hint under the input names exactly what keeps the save
+ * from going: Studio's autosave holds the edit on the same verdict, and the
+ * other hosts' doors refuse on it.
+ */
+function guardHeldNeed(name: string, def: Record<string, unknown>): 'options' | 'target' | null {
+  try {
+    assertObjectMetadataWritable(OBJECT_METADATA_TYPE, { fields: { [name]: def } }, 'ObjectFieldInspector');
+    return null;
+  } catch {
+    const type = String(def.type);
+    if (CHOICE_TYPES_REQUIRING_OPTIONS.includes(type)) return 'options';
+    if (RELATIONSHIP_TYPES_REQUIRING_REFERENCE.includes(type)) return 'target';
+    return null;
+  }
+}
+
+/** objectui#11786 — the inline hint under the input that holds the save. */
+function HeldHint({ children }: { children: React.ReactNode }) {
+  return (
+    <p data-testid="field-held-hint" className="text-[11px] leading-snug text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
 function isComputed(type: string): boolean {
   return type === 'formula' || type === 'summary';
 }
@@ -489,7 +526,6 @@ export function ObjectFieldInspector({
     ? ((draft as any).fieldGroups as Array<{ key?: string; label?: string }>)
     : [];
 
-  const objectOptions = useObjectOptions(locale);
   // objectui#10202 — the picklists the runtime serves, for the "use picklist"
   // picker. A `LoadState`, so a failed read is never shown as "no picklists".
   const picklistRoster = usePicklistRoster();
@@ -879,6 +915,8 @@ export function ObjectFieldInspector({
   );
 
   const typeMetaLabel = typeMeta ? t(`engine.fieldType.${typeMeta.id}`, locale) : undefined;
+  // objectui#11786 — read off the field as it stands, for the hints below.
+  const heldNeed = readOnly ? null : guardHeldNeed(entry.name, def);
 
   return (
     <InspectorShell
@@ -925,6 +963,12 @@ export function ObjectFieldInspector({
           }}
           disabled={readOnly}
           testId="field-label-input"
+        />
+        <LabelTranslationHint
+          objectName={objectName}
+          fieldName={entry.name}
+          sourceLabel={typeof def.label === 'string' ? (def.label as string) : ''}
+          locale={locale}
         />
         <InspectorSelectField
           label={tr('designer.field.type')}
@@ -1003,16 +1047,18 @@ export function ObjectFieldInspector({
               locale={locale}
             />
           )}
+          {heldNeed === 'options' && <HeldHint>{tr('designer.field.hint.addOption')}</HeldHint>}
           {isLookup(type) && (
             <>
               <ObjectPicker
                 label={tr('designer.field.relatedObject')}
                 value={typeof def.reference === 'string' ? (def.reference as string) : ''}
-                options={objectOptions}
                 onCommit={(v) => patchDef({ reference: v || undefined })}
                 disabled={readOnly}
                 placeholder={tr('designer.field.objectNamePlaceholder')}
+                locale={locale}
               />
+              {heldNeed === 'target' && <HeldHint>{tr('designer.field.hint.pickTarget')}</HeldHint>}
               <InspectorTextField
                 label={tr('designer.field.relationshipName')}
                 value={typeof def.relationshipName === 'string' ? (def.relationshipName as string) : ''}
@@ -1068,7 +1114,6 @@ export function ObjectFieldInspector({
             <SummaryConfigFields
               def={def}
               patchDef={patchDef}
-              objectOptions={objectOptions}
               readOnly={readOnly}
               locale={locale}
             />
@@ -1276,6 +1321,55 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/**
+ * The label this field is SHOWN with, when a translation overrides the source
+ * label the Label input edits (objectui#11782).
+ *
+ * The input edits `def.label`, the field's source label. Every surface that
+ * shows the field reads its label through `@object-ui/i18n`'s
+ * `useSafeFieldLabel().fieldLabel(object, field, fallback)`, and a translation
+ * for the active language wins over the source there: the Data pillar's grid
+ * headers (`ObjectGrid`) and its form canvas (`ObjectFormDesigner`) both call
+ * it. So the showcase's `showcase_account.tax_id` read "Tax ID" on the canvas
+ * beside an input reading "Tax ID (EIN)", and nothing on screen said why.
+ *
+ * Three readings keep this line from disagreeing with the canvas:
+ *
+ *   • The label comes from that SAME resolver, never from a second lookup.
+ *   • The fallback handed to it is `''`. The resolver returns the fallback
+ *     exactly when no translation exists, so an empty answer means "nothing
+ *     overrides the source label", whatever the input currently holds.
+ *   • The language named is the i18next language the resolver reads its bundle
+ *     for, not the designer's `locale` prop: that one picks between this
+ *     designer's two string tables and is `'en-US'` for every language that is
+ *     not zh (`useMetadataLocale`), so a `ja` session would be told "en".
+ *
+ * Shown only when the translation differs from the input's CURRENT value. A
+ * field with no translation, or one whose translation equals the label being
+ * edited, renders nothing. How translations resolve is not changed here.
+ */
+function LabelTranslationHint({
+  objectName,
+  fieldName,
+  sourceLabel,
+  locale,
+}: {
+  objectName: string;
+  fieldName: string;
+  sourceLabel: string;
+  locale?: string;
+}) {
+  const { fieldLabel } = useSafeFieldLabel();
+  const { i18n } = useObjectTranslation();
+  const translated = objectName ? fieldLabel(objectName, fieldName, '') : '';
+  if (!translated || translated === sourceLabel) return null;
+  return (
+    <p className="-mt-1 text-[11px] leading-4 text-muted-foreground" data-testid="field-label-translation-hint">
+      {tFormat('designer.field.labelTranslated', locale, { label: translated, language: i18n.language })}
+    </p>
+  );
+}
+
 /** Type-aware default-value editor. Stores the literal on `Field.defaultValue`. */
 function DefaultValueField({
   kind,
@@ -1381,43 +1475,6 @@ function TextareaField({
           (mono ? 'font-mono text-xs ' : '')
         }
       />
-    </div>
-  );
-}
-
-function ObjectPicker({
-  label,
-  value,
-  options,
-  onCommit,
-  disabled,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onCommit: (v: string) => void;
-  disabled?: boolean;
-  placeholder?: string;
-}) {
-  // List may be empty (still loading or no objects). Allow free-text fallback.
-  const listId = React.useId();
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <Input
-        list={listId}
-        value={value}
-        onChange={(e) => onCommit(e.target.value)}
-        disabled={disabled}
-        className="h-8 text-sm font-mono"
-        placeholder={placeholder ?? 'object_name'}
-      />
-      <datalist id={listId}>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </datalist>
     </div>
   );
 }
@@ -1982,15 +2039,13 @@ const summaryValueToText = (v: unknown): string => (Array.isArray(v) ? v.join(',
 function SummaryConfigFields({
   def,
   patchDef,
-  objectOptions,
   readOnly,
   locale,
 }: {
   def: Record<string, unknown>;
   patchDef: (patch: Record<string, unknown>) => void;
-  objectOptions: Array<{ value: string; label: string }>;
   readOnly?: boolean;
-  locale?: string;
+  locale?: SupportedLocale;
 }) {
   const tr = (key: string) => t(key, locale);
   const ops = readSummaryOps(def);
@@ -2041,10 +2096,10 @@ function SummaryConfigFields({
       <ObjectPicker
         label={tr('designer.field.summary.object')}
         value={childObject}
-        options={objectOptions}
         onCommit={(v) => patchOps({ object: v || undefined })}
         disabled={readOnly}
         placeholder={tr('designer.field.objectNamePlaceholder')}
+        locale={locale}
       />
       <InspectorSelectField
         label={tr('designer.field.summary.function')}
@@ -2293,53 +2348,4 @@ function BoundPicklistOptions({
       )}
     </div>
   );
-}
-
-/* ─────────────── Hook: load object list for lookup picker ─────────────── */
-
-function useObjectOptions(locale?: string): Array<{ value: string; label: string }> {
-  const client: MetadataClient = useMetadataClient();
-  const [opts, setOpts] = React.useState<Array<{ value: string; label: string }>>([]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      client.list<{ name?: string; label?: string }>('object'),
-      // Draft objects are not yet published, so `list('object')` can't see
-      // them. Include them so a lookup can target a SIBLING object being
-      // designed in the same authoring pass (before the package's first
-      // publish) instead of forcing the author to type an API name blind.
-      client.listDrafts({ type: 'object' }).catch(() => [] as Array<{ name?: string }>),
-    ])
-      .then(([published, drafts]) => {
-        if (cancelled) return;
-        const byName = new Map<string, { value: string; label: string }>();
-        for (const i of published ?? []) {
-          if (typeof i?.name === 'string' && i.name && !byName.has(i.name)) {
-            byName.set(i.name, {
-              value: i.name,
-              label: i.label ? `${i.label} (${i.name})` : i.name,
-            });
-          }
-        }
-        for (const d of drafts ?? []) {
-          const name = (d as { name?: string }).name;
-          if (typeof name === 'string' && name && !byName.has(name)) {
-            byName.set(name, {
-              value: name,
-              label: `${name} ${t('engine.inspector.draftSuffix', locale)}`,
-            });
-          }
-        }
-        setOpts([...byName.values()].sort((a, b) => a.value.localeCompare(b.value)));
-      })
-      .catch(() => {
-        // Empty list — picker falls back to free-text. No banner needed.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [client, locale]);
-
-  return opts;
 }

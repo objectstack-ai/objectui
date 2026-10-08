@@ -3,7 +3,9 @@
 /**
  * flow-canvas-parts — presentational building blocks for `FlowCanvas.tsx`:
  * the per-node-type icon/tone mapping, the node card, and the add-node
- * palette popover. Kept dependency-free and Shadcn-native (Tailwind + lucide).
+ * palette popover (the one picker every add-node entry point opens, and the
+ * list the inspector's Node Type select offers). Kept dependency-free and
+ * Shadcn-native (Tailwind + lucide).
  */
 
 import * as React from 'react';
@@ -445,7 +447,17 @@ export interface NodeCardProps {
   badge?: { level: 'error' | 'warning'; title: string };
   onPointerDown?: (e: React.PointerEvent) => void;
   onSelect?: () => void;
-  onAppend?: () => void;
+  /**
+   * objectui#11778 — the bottom "+" ("Add connected node") opens the add-node
+   * palette, and this receives the node type the author picked there. The
+   * canvas decides where the node goes (after this one, in its path).
+   */
+  onAppend?: (type: string) => void;
+  /** The palette's node types, as the canvas's toolbar palette offers them. */
+  paletteItems?: PaletteItem[];
+  /** Whether this card's "+" palette is the one open on the canvas. */
+  appendPaletteOpen?: boolean;
+  onAppendPaletteOpenChange?: (open: boolean) => void;
   /**
    * ADR-0044: when set (approval nodes without an existing revise loop), render
    * the one-click "add revision loop" affordance — drops a wait node + the
@@ -486,7 +498,7 @@ export interface NodeCardProps {
 /**
  * A single draggable flow node rendered at an absolute canvas coordinate.
  * The card body drives selection + reposition; a dedicated bottom "+" handle
- * (edit mode only) appends a connected child without ambiguity.
+ * (edit mode only) opens the add-node palette to add a node after this one.
  */
 export function NodeCard({
   id,
@@ -504,6 +516,9 @@ export function NodeCard({
   onPointerDown,
   onSelect,
   onAppend,
+  paletteItems,
+  appendPaletteOpen,
+  onAppendPaletteOpenChange,
   onAddReviseLoop,
   regions,
   expanded,
@@ -642,22 +657,30 @@ export function NodeCard({
         </span>
       )}
       {editable && type !== 'end' && (
-        <button
-          type="button"
-          title={tr('engine.flowCanvas.addConnected', locale)}
-          aria-label={tr('engine.flowCanvas.addConnected', locale)}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onAppend?.();
-          }}
-          className={cn(
-            'absolute left-1/2 -bottom-3 z-10 inline-flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors',
-            'opacity-0 hover:border-primary hover:text-primary group-hover:opacity-100 focus-visible:opacity-100',
-          )}
+        // objectui#11778 — the same palette the toolbar's Add node opens: the
+        // author picks the type here, rather than getting a `create_record`.
+        <NodePalette
+          locale={locale}
+          items={paletteItems}
+          open={!!appendPaletteOpen}
+          onOpenChange={(open) => onAppendPaletteOpenChange?.(open)}
+          onPick={(picked) => onAppend?.(picked)}
         >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
+          <button
+            type="button"
+            title={tr('engine.flowCanvas.addConnected', locale)}
+            aria-label={tr('engine.flowCanvas.addConnected', locale)}
+            onPointerDown={(e) => e.stopPropagation()}
+            // Stops the card's own select; the palette trigger still toggles.
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              'absolute left-1/2 -bottom-3 z-10 inline-flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors',
+              'opacity-0 hover:border-primary hover:text-primary group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100',
+            )}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </NodePalette>
       )}
       {onAddReviseLoop && (
         <button
@@ -692,6 +715,24 @@ export interface NodePaletteProps {
   onOpenChange: (open: boolean) => void;
   /** The trigger button — rendered as the Popover anchor. */
   children: React.ReactNode;
+}
+
+/**
+ * objectui#11778 — the palette's node types as one flat option list, for the
+ * inspector's Node Type select: the order the palette shows them in (category
+ * sections in {@link NODE_CATEGORY_ORDER}, registry order inside each) and the
+ * palette's display names. One list for both, so the select can offer every
+ * type the palette adds (`notify` included) and none it does not.
+ */
+export function paletteTypeOptions(
+  items: PaletteItem[],
+  locale?: string,
+): Array<{ value: string; label: string }> {
+  const rank = (item: PaletteItem) => NODE_CATEGORY_ORDER.indexOf(item.category ?? nodeCategory(item.type));
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => rank(a.item) - rank(b.item) || a.index - b.index)
+    .map(({ item }) => ({ value: item.type, label: translateNodeLabel(item.type, locale, item.label) }));
 }
 
 /** Section heading style shared by the category groups and the recents group. */
@@ -816,6 +857,13 @@ export function NodePalette({ locale, items = NODE_PALETTE, onPick, open, onOpen
           e.preventDefault();
           inputRef.current?.focus();
         }}
+        // objectui#11778 — a palette opened from an edge or a node card sits
+        // INSIDE the canvas viewport in the React tree (the portal moves only
+        // the DOM), so a press on an item would bubble to the viewport's pan
+        // handler: it clears the selection and takes pointer capture, and the
+        // browser then fires the click at the viewport, not at the item
+        // (objectui#11546's shape). The press is the palette's.
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <Command shouldFilter={false} loop className="bg-transparent">
           <CommandInput

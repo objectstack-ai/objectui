@@ -45,6 +45,17 @@
  * `StudioDesignSurface.designerRegistryPartial.test.tsx` pins as still deserving
  * the ordinary "click a block" rail. That file is the live fence: gate on
  * `isEditable` and it goes red.
+ *
+ * ## objectui#11823 — the `object` leaf's panel now edits its list view
+ *
+ * The statement below is still true of a studio-canvas leaf in general, and
+ * still what its rail says, but no longer of `object`: the list an `object`
+ * leaf's canvas shows IS package metadata, and its Properties panel edits that
+ * list view (`StudioDesignSurface.listViewInspector-11823.test.tsx`). So the
+ * statement's pins are taken on a second studio-canvas type, `report` (a stub
+ * canvas registered below), and the `object` leaf keeps the pins that are
+ * still true of it: no Design/Run switch, no "click a block" invitation, no
+ * foreign block opened.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -62,11 +73,14 @@ const objectDef = {
 /**
  * One leaf of each kind, in one app: `object` opts into the studio canvas,
  * `dashboard` does not (it is an ordinary block-canvas designer). The contrast
- * is the point — the second leaf is the regression fence.
+ * is the point — the second leaf is the regression fence. `report` is a
+ * studio-canvas leaf of another type (objectui#11823): the leaf the
+ * no-blocks statement is pinned on now that `object`'s panel edits its list.
  */
 const NAV = [
   { id: 'nav_obj', type: 'object', label: 'Tasks', objectName: 'showcase_task' },
   { id: 'nav_dash', type: 'dashboard', label: 'Overview', dashboardName: 'sales_overview' },
+  { id: 'nav_report', type: 'report', label: 'Pipeline', reportName: 'pipeline_report' },
 ];
 
 const mockClient = {
@@ -105,7 +119,13 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 import { InterfacesPillar } from './StudioDesignSurface';
 import { listMetadataPreviewTypes, registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { listMetadataInspectorTypes, registerMetadataInspector } from '../metadata-admin/inspector-registry';
-import { listStudioCanvasPreviewTypes } from './studio-canvas-preview';
+import { listStudioCanvasPreviewTypes, registerStudioCanvasPreview } from './studio-canvas-preview';
+
+/** objectui#11823 — a studio canvas for a type other than `object`. */
+function StubReportCanvas(): React.ReactElement {
+  return <div data-testid="stub-report-canvas" />;
+}
+registerStudioCanvasPreview('report', StubReportCanvas);
 
 const CLICK_A_BLOCK = 'Click a block on the canvas,';
 
@@ -165,8 +185,9 @@ function expectPopulatedRegistries() {
   expect(listMetadataPreviewTypes()).toContain('dashboard');
   expect(listMetadataPreviewTypes().length).toBeGreaterThan(0);
   expect(listMetadataInspectorTypes()).toContain('object');
-  // ...and the leaf under test really is a studio-canvas leaf.
+  // ...and the leaves under test really are studio-canvas leaves.
   expect(listStudioCanvasPreviewTypes()).toContain('object');
+  expect(listStudioCanvasPreviewTypes()).toContain('report');
 }
 
 async function openLeaf(title: string) {
@@ -192,8 +213,8 @@ describe('Interfaces pillar — affordances beside a studio-canvas leaf (#7121)'
 
   it('replaces the impossible "click a block" invitation with what is true', async () => {
     expectPopulatedRegistries();
-    await openLeaf('object · showcase_task');
-    await waitFor(() => expect(bodyText()).toContain('Runtime list preview'), { timeout: 4000 });
+    await openLeaf('report · pipeline_report');
+    await waitFor(() => expect(screen.getByTestId('stub-report-canvas')).toBeInTheDocument(), { timeout: 4000 });
 
     await waitFor(() =>
       expect(bodyText()).toContain('This canvas renders the running app, not a block tree'),
@@ -207,15 +228,16 @@ describe('Interfaces pillar — affordances beside a studio-canvas leaf (#7121)'
 
   it('promises no recovery — there is nothing to wait for', async () => {
     expectPopulatedRegistries();
-    await openLeaf('object · showcase_task');
+    await openLeaf('report · pipeline_report');
     await waitFor(() => expect(bodyText()).toContain('This canvas renders the running app'), {
       timeout: 4000,
     });
 
-    // Scoped to the RAIL, not the document: the canvas beside it renders the
-    // real records grid, which in jsdom (no data source) says "Error loading
-    // grid" — its own honest state, and nothing this card may speak for. A
-    // document-wide scan would read that as the rail promising recovery.
+    // Scoped to the RAIL, not the document: on the `object` leaf this pin was
+    // first taken on, the canvas beside it renders the real records grid,
+    // which in jsdom (no data source) says "Error loading grid" — its own
+    // honest state, and nothing this card may speak for. A document-wide scan
+    // would read that as the rail promising recovery.
     const railBlock = screen.getByText(/This canvas renders the running app/).closest('div');
     const rail = railBlock?.textContent ?? '';
     // Control: the scoped read must actually have found the message.
@@ -224,6 +246,18 @@ describe('Interfaces pillar — affordances beside a studio-canvas leaf (#7121)'
     for (const promise of ['Loading', 'loading', 'try again', 'Try again', 'not yet', 'in progress']) {
       expect(rail).not.toContain(promise);
     }
+  });
+
+  it('on an object leaf, the panel edits the list view, and still invites no block click', async () => {
+    expectPopulatedRegistries();
+    await openLeaf('object · showcase_task');
+    await waitFor(() => expect(bodyText()).toContain('Runtime list preview'), { timeout: 4000 });
+
+    // objectui#11823 — what is true of this leaf now: its panel edits the
+    // list the canvas shows. Still no block, so still no invitation to click one.
+    await screen.findByTestId('studio-list-view-inspector', undefined, { timeout: 4000 });
+    expect(bodyText()).not.toContain(CLICK_A_BLOCK);
+    expect(bodyText()).not.toContain('This canvas renders the running app, not a block tree');
   });
 
   it('does not open a scoped inspector for a block selected on a DIFFERENT leaf', async () => {
@@ -258,7 +292,8 @@ describe('Interfaces pillar — affordances beside a studio-canvas leaf (#7121)'
 
     // The block belongs to another leaf's canvas and does not exist on this one.
     expect(screen.queryByTestId('stub-object-inspector')).not.toBeInTheDocument();
-    expect(bodyText()).toContain('This canvas renders the running app, not a block tree');
+    // objectui#11823 — the rail holds this leaf's list-view panel instead.
+    expect(await screen.findByTestId('studio-list-view-inspector', undefined, { timeout: 4000 })).toBeInTheDocument();
     // ...and the rail must not contradict itself by offering to clear a
     // selection it just said cannot exist here.
     expect(screen.queryByLabelText('Clear selection')).not.toBeInTheDocument();

@@ -440,7 +440,6 @@ export function ViewVariantInspector({
         label={t('engine.inspector.view.object', locale)}
         value={binding.value}
         onCommit={setObject}
-        placeholder={t('engine.inspector.view.objectPlaceholder', locale)}
         searchPlaceholder={t('engine.inspector.dataset.searchObjects', locale)}
         disabled={readOnly}
       />

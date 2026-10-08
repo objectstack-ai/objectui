@@ -20,7 +20,7 @@ import {
   valueEnvelopeRefusal,
   writeValueEnvelope,
 } from './flow-value-envelope';
-import { FLOW_NODE_TYPE_OPTIONS, fieldsForNodeType } from './flow-node-config';
+import { FLOW_NODE_CONFIG_TYPES, fieldsForNodeType } from './flow-node-config';
 
 describe('isValueEnvelopeSlot — read off the spec expression ledger (objectui#7588)', () => {
   it('answers true for the assignment node’s `assignments` map', () => {
@@ -44,7 +44,7 @@ describe('isValueEnvelopeSlot — read off the spec expression ledger (objectui#
     // It went red at `@objectstack/spec` 17.5.0, which declares
     // `create_record` / `update_record` `fields.*` as `value`-role slots, and the
     // confirmation it asks for is the next case (objectui#11073).
-    const keyValueFields = FLOW_NODE_TYPE_OPTIONS.flatMap((type) =>
+    const keyValueFields = FLOW_NODE_CONFIG_TYPES.flatMap((type) =>
       fieldsForNodeType(type)
         .filter((f) => f.kind === 'keyValue')
         .map((f) => ({ type, path: f.path })),

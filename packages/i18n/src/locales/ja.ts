@@ -155,6 +155,7 @@ const ja = {
       copyAll: 'すべてコピー',
     },
     notAvailableHere: '「{{action}}」は現在のページでは利用できません。',
+    notAvailableForRecord: 'このレコードでは利用できません',
     completedSuccessfully: '操作が正常に完了しました',
     failed: '操作に失敗しました',
     parallelFailed: '1 つ以上の並列操作が失敗しました',
@@ -3875,6 +3876,10 @@ const ja = {
       is_not_null: "null でない",
       exists: "設定済み",
       notExists: "未設定",
+    },
+    emptyCheckHint: {
+      text: '「{{isEmpty}}」は空白のテキストにも一致します。「{{isNull}}」は値がない場合にのみ一致します。',
+      list: '「{{isEmpty}}」は空のリストにも一致します。「{{isNull}}」は値がない場合にのみ一致します。',
     },
   },
   sortBuilder: {

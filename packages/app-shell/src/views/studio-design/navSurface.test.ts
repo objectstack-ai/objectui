@@ -21,7 +21,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { NavigationItemSchema, type I18nLabel } from '@objectstack/spec/ui';
 import type { NavTargetLabelResolver } from '@object-ui/layout';
-import { resolveSurface, findSurfaceInTree, type NavNode } from './navSurface';
+import { resolveSurface, findSurfaceInTree, isSameSurface, type NavNode } from './navSurface';
 
 /**
  * The designer locale these binding cases run in. The binding never reads it;
@@ -49,6 +49,7 @@ describe('resolveSurface — action nav items (objectui#4019)', () => {
       type: 'action',
       name: 'sync_now',
       label: 'Run Sync',
+      navId: 'nav_run_sync',
     });
   });
 
@@ -83,6 +84,7 @@ describe('resolveSurface — action nav items (objectui#4019)', () => {
       type: 'action',
       name: 'sync_now',
       label: 'Run Sync',
+      navId: 'nav_run_sync',
     });
   });
 });
@@ -162,7 +164,7 @@ describe.each(VARIANTS)(
     it('the canonical fixture is spec-VALID and resolves to its surface', () => {
       const node = { id: `nav_${name}`, type, label, [canonicalKey]: name } as NavNode;
       expect(NavigationItemSchema.safeParse(node).success).toBe(true);
-      expect(resolveSurface(node, LOCALE)).toEqual({ type, name, label });
+      expect(resolveSurface(node, LOCALE)).toEqual({ type, name, label, navId: `nav_${name}` });
     });
 
     it('the bare spelling is `unrecognized_keys` in the spec AND unresolved here', () => {
@@ -204,7 +206,15 @@ describe('resolveSurface — there is no `view` nav variant (objectui#4881)', ()
     // property of an object nav item, not a navigation variant of its own.
     const node = { id: 'nav_lead', type: 'object', label: 'Leads', objectName: 'crm_lead', viewName: 'all' } as NavNode;
     expect(NavigationItemSchema.safeParse(node).success).toBe(true);
-    expect(resolveSurface(node, LOCALE)).toEqual({ type: 'object', name: 'crm_lead', label: 'Leads' });
+    // objectui#11774 — and the entry's `viewName` rides on the Surface, as
+    // authored, for the canvas preview; the binding is still `object:crm_lead`.
+    expect(resolveSurface(node, LOCALE)).toEqual({
+      type: 'object',
+      name: 'crm_lead',
+      label: 'Leads',
+      navId: 'nav_lead',
+      viewName: 'all',
+    });
   });
 
   it('the bare `view` key is `unrecognized_keys` even on an otherwise valid object item', () => {
@@ -241,7 +251,7 @@ describe('resolveSurface resolves a locale-map label in the designer locale (obj
     ['en-US', 'Home'],
     ['zh-CN', '首页'],
   ])('under %s the Surface carries the text %s, not the map', (locale, text) => {
-    expect(resolveSurface(MAP_NODE, locale)).toEqual({ type: 'page', name: 'home', label: text });
+    expect(resolveSurface(MAP_NODE, locale)).toEqual({ type: 'page', name: 'home', label: text, navId: 'nav_home' });
   });
 
   it('a plain-string label is carried as authored in both locales (the control)', () => {
@@ -256,13 +266,13 @@ describe('resolveSurface resolves a locale-map label in the designer locale (obj
     // its `pageName` — so the caption, breadcrumb and chip name the leaf as
     // the rail does. The inheritance cases themselves are pinned below.
     const node: NavNode = { id: 'nav_home', type: 'page', pageName: 'home' };
-    expect(resolveSurface(node, 'zh-CN')).toEqual({ type: 'page', name: 'home', label: 'home' });
+    expect(resolveSurface(node, 'zh-CN')).toEqual({ type: 'page', name: 'home', label: 'home', navId: 'nav_home' });
   });
 
-  it('`findSurfaceInTree` matches on {type,name} alone, so the same leaf is found in both locales', () => {
+  it('`findSurfaceInTree` matches on {type,name} (no nav id asked), so the same leaf is found in both locales', () => {
     const tree: NavNode[] = [{ id: 'nav_main', type: 'group', label: { en: 'Main', 'zh-CN': '主要' }, children: [MAP_NODE] }];
-    expect(findSurfaceInTree(tree, { type: 'page', name: 'home' }, 'en-US')).toEqual({ type: 'page', name: 'home', label: 'Home' });
-    expect(findSurfaceInTree(tree, { type: 'page', name: 'home' }, 'zh-CN')).toEqual({ type: 'page', name: 'home', label: '首页' });
+    expect(findSurfaceInTree(tree, { type: 'page', name: 'home' }, 'en-US')).toEqual({ type: 'page', name: 'home', label: 'Home', navId: 'nav_home' });
+    expect(findSurfaceInTree(tree, { type: 'page', name: 'home' }, 'zh-CN')).toEqual({ type: 'page', name: 'home', label: '首页', navId: 'nav_home' });
   });
 });
 
@@ -287,7 +297,7 @@ describe('resolveSurface names a label-less leaf by what it inherits (objectui#1
   });
 
   it("with the resolver, a label-less object leaf carries its object's label", () => {
-    expect(resolveSurface(LABEL_LESS, LOCALE, targetLabel)).toEqual({ type: 'object', name: 'crm_lead', label: 'Leads' });
+    expect(resolveSurface(LABEL_LESS, LOCALE, targetLabel)).toEqual({ type: 'object', name: 'crm_lead', label: 'Leads', navId: 'nav_lead' });
   });
 
   it('without one, it carries the rule’s machine-name rung, as the console does before its metadata loads', () => {
@@ -305,5 +315,116 @@ describe('resolveSurface names a label-less leaf by what it inherits (objectui#1
   it('`findSurfaceInTree` (the `?surface=` restore) hands the resolver to the leaf it finds', () => {
     const tree: NavNode[] = [{ id: 'nav_main', type: 'group', children: [LABEL_LESS] }];
     expect(findSurfaceInTree(tree, { type: 'object', name: 'crm_lead' }, LOCALE, targetLabel)?.label).toBe('Leads');
+  });
+});
+
+/**
+ * objectui#11774 — a Surface is a nav ENTRY, and several entries can open one
+ * target. The showcase app's nav holds five entries on `showcase_task`: the
+ * plain list, three data slices (`filters`) and one named view (`viewName`).
+ * Each binds `object:showcase_task`; before this card each resolved to exactly
+ * `{type, name, label}`, so the rail, the deep link and the canvas could not
+ * tell them apart — all five highlighted, one unfiltered preview, and a reload
+ * landed on the first.
+ *
+ * The fixture parses against the spec (`id` is required on every nav item),
+ * so it is an input the designer must handle.
+ */
+describe('one object, five entries — a Surface carries its entry (objectui#11774)', () => {
+  const TASKS: NavNode = { id: 'nav_tasks', type: 'object', objectName: 'showcase_task', label: 'Tasks' };
+  const IN_PROGRESS: NavNode = {
+    id: 'nav_slice_in_progress',
+    type: 'object',
+    objectName: 'showcase_task',
+    filters: { status: 'in_progress' },
+    label: 'In-Progress Tasks',
+  };
+  const URGENT: NavNode = {
+    id: 'nav_slice_urgent',
+    type: 'object',
+    objectName: 'showcase_task',
+    filters: { priority: 'urgent' },
+    label: 'Urgent Tasks',
+  };
+  const IN_REVIEW: NavNode = {
+    id: 'nav_slice_review',
+    type: 'object',
+    objectName: 'showcase_task',
+    filters: { status: 'in_review' },
+    label: 'In-Review Tasks',
+  };
+  const TASK_LIST: NavNode = {
+    id: 'nav_report_tabular',
+    type: 'object',
+    objectName: 'showcase_task',
+    viewName: 'tabular',
+    label: 'Task List',
+  };
+  const ENTRIES = [TASKS, IN_PROGRESS, URGENT, IN_REVIEW, TASK_LIST];
+  const HOME: NavNode = { id: 'nav_home', type: 'page', pageName: 'home', label: 'Home' };
+  const TREE: NavNode[] = [
+    HOME,
+    { id: 'grp_data', type: 'group', label: 'Data Model', children: [TASKS] },
+    { id: 'grp_slices', type: 'group', label: 'Data Slices', children: [IN_PROGRESS, URGENT, IN_REVIEW] },
+    { id: 'grp_analytics', type: 'group', label: 'Analytics', children: [TASK_LIST] },
+  ];
+
+  it('the fixture is spec-VALID, entry by entry', () => {
+    for (const node of ENTRIES) expect(NavigationItemSchema.safeParse(node).success).toBe(true);
+  });
+
+  it('each entry resolves to the same target, carrying its own id and its own slice or view', () => {
+    expect(ENTRIES.map((n) => resolveSurface(n, LOCALE))).toEqual([
+      { type: 'object', name: 'showcase_task', label: 'Tasks', navId: 'nav_tasks' },
+      { type: 'object', name: 'showcase_task', label: 'In-Progress Tasks', navId: 'nav_slice_in_progress', filters: { status: 'in_progress' } },
+      { type: 'object', name: 'showcase_task', label: 'Urgent Tasks', navId: 'nav_slice_urgent', filters: { priority: 'urgent' } },
+      { type: 'object', name: 'showcase_task', label: 'In-Review Tasks', navId: 'nav_slice_review', filters: { status: 'in_review' } },
+      { type: 'object', name: 'showcase_task', label: 'Task List', navId: 'nav_report_tabular', viewName: 'tabular' },
+    ]);
+  });
+
+  it('`isSameSurface` holds for an entry and itself only — never across two entries of one target', () => {
+    const surfaces = ENTRIES.map((n) => resolveSurface(n, LOCALE)!);
+    for (const a of surfaces) {
+      expect(surfaces.filter((b) => isSameSurface(a, b))).toEqual([a]);
+    }
+  });
+
+  it('an id-less side is compared by {type,name}, the rule before ids were carried', () => {
+    const urgent = resolveSurface(URGENT, LOCALE)!;
+    expect(isSameSurface(urgent, { type: 'object', name: 'showcase_task' })).toBe(true);
+    expect(isSameSurface({ type: 'object', name: 'showcase_task' }, urgent)).toBe(true);
+    expect(isSameSurface(urgent, { type: 'object', name: 'showcase_project' })).toBe(false);
+  });
+
+  it('a deep link that names a nav id opens THAT entry, not the first of its target', () => {
+    expect(
+      findSurfaceInTree(TREE, { type: 'object', name: 'showcase_task', navId: 'nav_slice_urgent' }, LOCALE)?.label,
+    ).toBe('Urgent Tasks');
+    expect(
+      findSurfaceInTree(TREE, { type: 'object', name: 'showcase_task', navId: 'nav_report_tabular' }, LOCALE)?.viewName,
+    ).toBe('tabular');
+  });
+
+  it('BACK-COMPAT: a `<type>:<name>` link with no nav id resolves as before, to the first matching entry', () => {
+    expect(findSurfaceInTree(TREE, { type: 'object', name: 'showcase_task' }, LOCALE)?.navId).toBe('nav_tasks');
+  });
+
+  it('a nav id no entry carries any more falls back exactly as the same link without it does', () => {
+    const gone = { type: 'object', name: 'showcase_task', navId: 'nav_deleted' };
+    expect(findSurfaceInTree(TREE, gone, LOCALE)).toEqual(
+      findSurfaceInTree(TREE, { type: 'object', name: 'showcase_task' }, LOCALE),
+    );
+    // An unknown target too: nothing found, so the pillar opens its first leaf.
+    expect(findSurfaceInTree(TREE, { type: 'object', name: 'deleted_object', navId: 'nav_deleted' }, LOCALE)).toBeNull();
+  });
+
+  it('CONTROL: entries on distinct objects keep resolving one target each', () => {
+    const distinct: NavNode[] = [
+      { id: 'nav_projects', type: 'object', objectName: 'showcase_project', label: 'Projects' },
+      { id: 'nav_tasks', type: 'object', objectName: 'showcase_task', label: 'Tasks' },
+    ];
+    expect(findSurfaceInTree(distinct, { type: 'object', name: 'showcase_task' }, LOCALE)?.label).toBe('Tasks');
+    expect(findSurfaceInTree(distinct, { type: 'object', name: 'showcase_project' }, LOCALE)?.label).toBe('Projects');
   });
 });

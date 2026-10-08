@@ -203,25 +203,32 @@ export function InboxPopover({
     rememberPickedTab(value);
   };
 
-  const goToApprovals = () => {
-    setOpen(false);
-    const app = currentAppName ?? params.appName;
-    navigate(app ? `/apps/${app}/system/approvals` : '/apps/setup/system/approvals');
-  };
-
   /**
-   * Which app hosts the two full-page drills below (objectui#4074).
+   * Which app hosts the three full-page drills below (objectui#4074,
+   * objectui#11818).
    *
-   * `sys_inbox_message` is the canonical full-page inbox (ADR-0030 L5) and
-   * `sys_activity` the full activity stream; both are framework-owned objects,
-   * so they are app-INDEPENDENT — which is precisely why they render under
-   * whatever app the user can open, exactly like `system/approvals` above.
-   * These two used to hardcode `/apps/setup/...`, and being app-independent
-   * argued for neither half of that: it sent every business user without setup
-   * access to a page they cannot read, and switched everyone else out of the
-   * app they were in without saying so.
+   * `system/approvals` is mounted for every app, `sys_inbox_message` is the
+   * canonical full-page inbox (ADR-0030 L5) and `sys_activity` the full
+   * activity stream; the two objects are framework-owned. All three are
+   * app-INDEPENDENT — which is precisely why they render under whatever app the
+   * user can open. The two objects used to hardcode `/apps/setup/...`, and
+   * being app-independent argued for neither half of that: it sent every
+   * business user without setup access to a page they cannot read, and
+   * switched everyone else out of the app they were in without saying so.
+   *
+   * The resolver returns the app's ROUTE SEGMENT (ADR-0048 option A: its
+   * package id), never the raw hint. `currentAppName` is the app's `name` —
+   * what `ConsoleLayout` publishes — so splicing it in directly addressed the
+   * same app by a second URL: the approvals link built that way took a user on
+   * `/apps/com.example.showcase/…` to `/apps/showcase_app/system/approvals`
+   * (objectui#11818).
    */
   const hostAppSegment = resolveHostAppSegment(apps, currentAppName ?? params.appName);
+
+  const goToApprovals = () => {
+    setOpen(false);
+    navigate(`/apps/${hostAppSegment}/system/approvals`);
+  };
 
   const goToAllNotifications = () => {
     setOpen(false);

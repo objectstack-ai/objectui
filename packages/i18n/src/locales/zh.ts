@@ -162,6 +162,7 @@ const zh = {
       copyAll: '全部复制',
     },
     notAvailableHere: '「{{action}}」在当前页面不可用。',
+    notAvailableForRecord: '对此记录不可用',
     completedSuccessfully: '操作已成功完成',
     failed: '操作失败',
     parallelFailed: '一个或多个并行操作失败',
@@ -3944,6 +3945,10 @@ const zh = {
       is_not_null: '不为 null',
       exists: '已设置',
       notExists: '未设置',
+    },
+    emptyCheckHint: {
+      text: '「{{isEmpty}}」也匹配空白文本；「{{isNull}}」只匹配没有值的记录。',
+      list: '「{{isEmpty}}」也匹配空列表；「{{isNull}}」只匹配没有值的记录。',
     },
   },
   sortBuilder: {

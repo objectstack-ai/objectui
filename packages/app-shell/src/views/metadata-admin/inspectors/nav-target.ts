@@ -14,9 +14,134 @@
  * item to spec shape ("edit is the migration").
  */
 
-/** Nav item types the inspector offers (spec union minus separator/action). */
+import type { NavigationItemType } from '@object-ui/types';
+
+/**
+ * Nav item types `AppNavInspector` (the Setup app editor) offers: six of the
+ * spec union's members — not `action`, `component`, `doc` or `separator`. The
+ * Studio's nav editor offers every member ({@link NAV_ENTRY_TYPES}).
+ */
 export const NAV_ITEM_TYPES = ['object', 'page', 'dashboard', 'report', 'url', 'group'] as const;
 export type NavItemType = (typeof NAV_ITEM_TYPES)[number];
+
+/**
+ * Every `type` the spec's `NavigationItemSchema` declares, in the order the
+ * Studio's nav editor offers them (objectui#11790).
+ *
+ * Keyed by the spec-derived `NavigationItemType` (`@object-ui/types` reads it
+ * off the spec union's discriminant), so a member the spec adds or drops stops
+ * this file compiling until the table follows: a `Record` must name every
+ * member and a fresh literal may name no other. The runtime half, against the
+ * INSTALLED spec's union, is pinned beside this file
+ * (`nav-target.navEntryTypes-11790.test.ts`).
+ */
+const NAV_ENTRY_TYPE_TABLE: Record<NavigationItemType, true> = {
+  object: true,
+  page: true,
+  dashboard: true,
+  report: true,
+  url: true,
+  action: true,
+  component: true,
+  doc: true,
+  group: true,
+  separator: true,
+};
+
+/** The Studio nav editor's type list: exactly the spec's members ({@link NAV_ENTRY_TYPE_TABLE}). */
+export const NAV_ENTRY_TYPES = Object.keys(NAV_ENTRY_TYPE_TABLE) as ReadonlyArray<NavigationItemType>;
+
+/** Whether `value` names a member of the spec's nav-item union. */
+export function isNavEntryType(value: unknown): value is NavigationItemType {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(NAV_ENTRY_TYPE_TABLE, value);
+}
+
+/**
+ * The keys every nav entry but a separator declares: the spec's shared base,
+ * which each target-bearing branch, and `group`, spreads. They describe the
+ * entry, not what it opens, so a change of type keeps them.
+ */
+const NAV_ENTRY_BASE_KEYS = [
+  'id',
+  'label',
+  'icon',
+  'order',
+  'badge',
+  'badgeVariant',
+  'visible',
+  'requiredPermissions',
+  'requiresObject',
+  'requiresService',
+] as const;
+
+/** A separator is a divider: it declares `type`, an optional `id` and `order`, and nothing else. */
+const NAV_SEPARATOR_KEYS = ['id', 'order'] as const;
+
+/**
+ * Whether a nav editor offers the describing field `key` (its label, icon, …)
+ * on an entry of `type` (objectui#11847): exactly when the spec's member for
+ * that type declares it. Every member is strict, so a value typed into a field
+ * the member does not declare is a key the save refuses (`unrecognized_keys`).
+ * A separator declares only its `id` and `order`: neither Setup's app editor
+ * (`AppNavInspector`) nor the Studio's nav inspector offers it a label or an
+ * icon. Every other member declares the whole shared base.
+ *
+ * `null` is an entry with no type the spec declares (an untyped placeholder or
+ * a legacy spelling). Neither editor turns one into a separator, so it is
+ * offered the shared base, as before. The answer reads the same two tables
+ * {@link retypedNavEntry} keeps on a change of type, so what a retype carries
+ * and what the editors offer cannot drift apart; both are pinned against the
+ * INSTALLED spec's members beside this file.
+ */
+export function navEntryOffersField(
+  type: NavigationItemType | null,
+  key: (typeof NAV_ENTRY_BASE_KEYS)[number],
+): boolean {
+  const declared: ReadonlyArray<string> = type === 'separator' ? NAV_SEPARATOR_KEYS : NAV_ENTRY_BASE_KEYS;
+  return declared.includes(key);
+}
+
+/**
+ * The members that accept `children`: an `object` entry nesting its views, and
+ * a `group`, which requires them. Every other member refuses the key.
+ */
+const NAV_TYPES_WITH_CHILDREN: ReadonlySet<NavigationItemType> = new Set<NavigationItemType>(['object', 'group']);
+
+/** Whether an entry of `type` may carry `children`. */
+export function navTypeAcceptsChildren(type: NavigationItemType): boolean {
+  return NAV_TYPES_WITH_CHILDREN.has(type);
+}
+
+/**
+ * The entry a change of `type` leaves (objectui#11790): the keys the new type
+ * declares, read off the old entry, and nothing else.
+ *
+ * Every member of the spec's union is strict, so a key the new type does not
+ * declare is refused at save (`unrecognized_keys`). What the entry opened goes
+ * (its target is the old type's), and the entry is unbound until a target is
+ * picked: the save leaves it out until then and the editor keeps it in its
+ * place (`navPayloadOf`, objectui#11776). What describes the entry stays — its
+ * `id`, label, icon, gates and badge — except on a separator, which keeps only
+ * its `id` and `order`. `children` stay on a type that accepts them, and a
+ * `group` is born with an empty list, which its member requires. The same
+ * `type` answers the entry unchanged.
+ */
+export function retypedNavEntry(
+  entry: Record<string, unknown>,
+  type: NavigationItemType,
+): Record<string, unknown> {
+  if (entry.type === type) return entry;
+  const keep: ReadonlyArray<string> = type === 'separator' ? NAV_SEPARATOR_KEYS : NAV_ENTRY_BASE_KEYS;
+  const next: Record<string, unknown> = {};
+  if (entry.id !== undefined) next.id = entry.id;
+  next.type = type;
+  for (const key of keep) {
+    if (key !== 'id' && entry[key] !== undefined) next[key] = entry[key];
+  }
+  if (NAV_TYPES_WITH_CHILDREN.has(type) && Array.isArray(entry.children)) next.children = entry.children;
+  if (type === 'group' && !Array.isArray(next.children)) next.children = [];
+  return next;
+}
 
 /** Landing modes for `type: 'object'`, in resolveHref precedence order. */
 export const OBJECT_TARGET_MODES = ['default', 'view', 'record', 'filters'] as const;

@@ -76,6 +76,8 @@ import { CapabilityMultiSelectField, parseCapabilityNames } from '@object-ui/fie
 import { PageShell } from './PageShell.js';
 import { HistoryPanel } from './ResourceHistoryPage.js';
 import { useMetadataClient, useMetadataTypes, type RichMetadataTypeEntry } from './useMetadata.js';
+// objectui#11773 — the package door's draft save sends the version it was built on.
+import { useDraftSaveGuard } from './DraftConflictDialog.js';
 import { t as translate, tFormat, useMetadataLocale } from './i18n.js';
 import { PermissionAdvancedFacets } from './PermissionAdvancedFacets.js';
 import { errorCodeIs } from '@object-ui/types';
@@ -436,6 +438,15 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     // is enough: the anchor is a JSON snapshot, so a copy is anchor-identical.
     setDraft({ ...next });
   }, []);
+  // objectui#11773 — the version the package door's draft was saved at, sent as
+  // `If-Match` by its next draft save. A conflict's "reload" re-runs the load.
+  const [reloadNonce, setReloadNonce] = React.useState(0);
+  const reloadSet = React.useCallback(() => setReloadNonce((n) => n + 1), []);
+  const {
+    save: saveVersioned,
+    forget: forgetSetVersion,
+    dialog: draftConflictDialog,
+  } = useDraftSaveGuard(client, reloadSet);
   const [objects, setObjects] = React.useState<ObjectSummary[]>([]);
   const [fieldsByObject, setFieldsByObject] = React.useState<Record<string, FieldSummary[]>>({});
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
@@ -571,6 +582,8 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         } else {
           resetDraftBaseline(full);
         }
+        // objectui#11773 — a read serves no version: the next save is unpinned.
+        forgetSetVersion();
       } catch (err: any) {
         setError(err?.message ?? String(err));
       } finally {
@@ -580,7 +593,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     return () => {
       cancelled = true;
     };
-  }, [client, type, name, packageId, publishNonce, resetDraftBaseline]);
+  }, [client, type, name, packageId, publishNonce, resetDraftBaseline, reloadNonce, forgetSetVersion]);
 
   /* ── Lazy-load fields when an object is expanded ─────────── */
   async function ensureFields(objectName: string) {
@@ -855,10 +868,14 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
       // (stamped with `packageId`) that the package's atomic Publish promotes,
       // exactly like the Data/Interfaces pillars — NOT a live record write.
       // Environment door (no packageId) stays live (config).
-      await client.save<PermissionSetDraft>(type, payload.name, toSave, {
+      // objectui#11773 — the guard pins the package door's DRAFT save; the
+      // environment door's live write passes through it unpinned, as before.
+      const outcome = await saveVersioned(type, payload.name, toSave, {
         force,
         ...(packageId ? { mode: 'draft' as const, packageId } : {}),
       });
+      // The author chose the saved version; the load replaces the matrix.
+      if (outcome === 'reloaded') return;
       if (packageId) {
         // The draft is now the pending truth for display; the published baseline
         // hasn't moved. Show what we just staged and let the surface count it.
@@ -1439,6 +1456,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           </SheetContent>
         </Sheet>
       )}
+      {draftConflictDialog}
     </PageShell>
   );
 }

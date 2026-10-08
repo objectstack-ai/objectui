@@ -26,6 +26,8 @@ import {
   useSensors,
   useDroppable,
   pointerWithin,
+  closestCorners,
+  type CollisionDetection,
   type DragStartEvent,
   type DragOverEvent,
   type DragEndEvent,
@@ -55,12 +57,78 @@ import {
 } from '../metadata-admin/previews/object-fields-io.js';
 import { useSafeFieldLabel } from '@object-ui/i18n';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { isStudioHiddenSystemField } from './studioHiddenSystemField.js';
+import { formDndAccessibility, type FormDndLookups, type FormDndSlot } from './formDndAnnouncements.js';
 
 const UNGROUPED = '__ungrouped__';
+
+/**
+ * Kept off the layout canvas, and written back untouched on every commit: a
+ * field the host names in `systemFieldNames`, or one the platform injects AND
+ * hides (`system: true` + `hidden: true` — `__search`,
+ * `owning_business_unit_id`; objectui#11780). One test for all three readers
+ * below — the density count, the containers, and the write-back — so a field
+ * can never be hidden from the canvas and then dropped by the commit.
+ */
+function isKeptOffLayout(entry: FieldEntry, systemFieldNames: ReadonlySet<string>): boolean {
+  return systemFieldNames.has(entry.name) || isStudioHiddenSystemField(entry.def);
+}
 const cid = (key: string) => `g:${key}`; // container (section) droppable id
 const fid = (name: string) => `f:${name}`; // sortable field id
 const unCid = (id: string) => id.slice(2);
 const unFid = (id: string) => id.slice(2);
+
+/**
+ * Which droppable a drag is over (objectui#11871). A pointer drag keeps
+ * `pointerWithin`: the droppable under the pointer, or none. A keyboard drag
+ * has no pointer: dnd-kit reads pointer coordinates off the activator event,
+ * and a `KeyboardEvent` has none, so `pointerWithin` answered nothing and
+ * every keyboard drop missed. It reads `closestCorners`, the measure
+ * `sortableKeyboardCoordinates` picks each arrow-key step's target by, so the
+ * drag is over the droppable the step moved it to.
+ */
+const formCollision: CollisionDetection = (args) =>
+  args.pointerCoordinates ? pointerWithin(args) : closestCorners(args);
+
+/** A field's place in a container map: the container id, a 0-based index and the container's size. */
+interface LayoutPlace {
+  container: string;
+  index: number;
+  total: number;
+}
+
+/** Where a field sits in a container map, or `null` when no container holds it. */
+function placeIn(layout: Record<string, string[]>, id: string): LayoutPlace | null {
+  const container = Object.keys(layout).find((k) => layout[k].includes(id));
+  return container ? { container, index: layout[container].indexOf(id), total: layout[container].length } : null;
+}
+
+/**
+ * Where a drop of `activeId` on `overId` lands, read off the same container
+ * map `onDragEnd` reads and with the same arithmetic, so the place the live
+ * region announces is the place the drop commits (objectui#11802). `null`
+ * where `onDragEnd` returns without moving anything. The handler is the rule;
+ * this restates it for the announcements, and the pins in
+ * `ObjectFormDesigner.dndAnnouncements-11802.test.tsx` compare the two on
+ * every drop they make.
+ */
+function dropPlaceIn(layout: Record<string, string[]>, activeId: string, overId: string): LayoutPlace | null {
+  const inContainer = (id: string): string | undefined =>
+    id.startsWith('g:') && id in layout ? id : Object.keys(layout).find((k) => layout[k].includes(id));
+  const from = inContainer(activeId);
+  const to = inContainer(overId);
+  if (!from || !to) return null;
+  if (from === to) {
+    const list = layout[from];
+    const oldIndex = list.indexOf(activeId);
+    const newIndex = overId.startsWith('g:') ? list.length - 1 : list.indexOf(overId);
+    // `onDragEnd` keeps the field where it is when either index is missing.
+    return { container: from, index: newIndex < 0 ? oldIndex : newIndex, total: list.length };
+  }
+  const toItems = layout[to];
+  const overIndex = overId.startsWith('g:') ? toItems.length : toItems.indexOf(overId);
+  return { container: to, index: overIndex < 0 ? toItems.length : overIndex, total: toItems.length + 1 };
+}
 
 export interface ObjectFormDesignerProps {
   /** Object metadata draft (reads `fields` + `fieldGroups`). */
@@ -72,7 +140,11 @@ export interface ObjectFormDesignerProps {
    * more reliable handle (a freshly created draft may not have been named yet).
    */
   objectName?: string;
-  /** Field names to hide from the layout (system/audit) but preserve on write. */
+  /**
+   * Field names to hide from the layout (system/audit) but preserve on write.
+   * A field marked `system: true` + `hidden: true` is hidden and preserved the
+   * same way without being named here (objectui#11780).
+   */
   systemFieldNames: Set<string>;
   /** Persist a partial object-draft patch (fields / fieldGroups) + mark dirty. */
   onChange: (patch: Record<string, unknown>) => void;
@@ -141,6 +213,7 @@ function SortableField({
   columns,
   selected,
   onSelect,
+  readOnly = false,
 }: {
   entry: FieldEntry;
   /** Already resolved through the project's field translations. */
@@ -148,6 +221,11 @@ function SortableField({
   columns: number;
   selected: boolean;
   onSelect: () => void;
+  /**
+   * objectui#11781 — a read-only package's card only opens the (greyed)
+   * inspector: it neither says nor looks draggable.
+   */
+  readOnly?: boolean;
 }): React.ReactElement {
   const locale = useMetadataLocale();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fid(entry.name) });
@@ -168,17 +246,24 @@ function SortableField({
       onClick={onSelect}
       {...attributes}
       {...listeners}
-      aria-label={tFormat('engine.studio.designer.fieldAria', locale, { label })}
+      aria-label={
+        readOnly
+          ? tFormat('engine.studio.designer.fieldAriaReadOnly', locale, { label })
+          : tFormat('engine.studio.designer.fieldAria', locale, { label })
+      }
       className={
-        'group relative flex cursor-grab touch-none select-none items-start gap-1.5 rounded-md border bg-background px-2 py-2 active:cursor-grabbing ' +
+        'group relative flex touch-none select-none items-start gap-1.5 rounded-md border bg-background px-2 py-2 ' +
+        (readOnly ? 'cursor-pointer ' : 'cursor-grab active:cursor-grabbing ') +
         (spanFull ? 'col-span-full ' : '') +
         (selected ? 'ring-2 ring-primary' : 'hover:border-foreground/25') +
         (isDragging ? ' opacity-40' : '')
       }
     >
-      <span className="mt-0.5 text-muted-foreground opacity-0 group-hover:opacity-100">
-        <GripVertical className="h-3.5 w-3.5" />
-      </span>
+      {!readOnly && (
+        <span className="mt-0.5 text-muted-foreground opacity-0 group-hover:opacity-100">
+          <GripVertical className="h-3.5 w-3.5" />
+        </span>
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1 text-xs font-medium">
           <span className="truncate">{label}</span>
@@ -328,6 +413,7 @@ function Section({
                 columns={columns}
                 selected={selectedField === name}
                 onSelect={() => onSelectField(name)}
+                readOnly={readOnly}
               />
             );
           })}
@@ -379,7 +465,7 @@ export function ObjectFormDesigner({
   // designer reads at the same density end users see. Each section's container
   // queries then clamp this cap to the actually-rendered width.
   const formColumns = React.useMemo(
-    () => inferColumns(view.entries.filter((e) => !systemFieldNames.has(e.name)).length),
+    () => inferColumns(view.entries.filter((e) => !isKeptOffLayout(e, systemFieldNames)).length),
     [view.entries, systemFieldNames],
   );
 
@@ -401,7 +487,7 @@ export function ObjectFormDesigner({
     const map: Record<string, string[]> = {};
     for (const c of containerOrder) map[c] = [];
     for (const e of view.entries) {
-      if (systemFieldNames.has(e.name)) continue;
+      if (isKeptOffLayout(e, systemFieldNames)) continue;
       const g = typeof e.def.group === 'string' ? e.def.group : '';
       const target = g && map[cid(g)] ? cid(g) : cid(UNGROUPED);
       map[target].push(fid(e.name));
@@ -421,6 +507,33 @@ export function ObjectFormDesigner({
   React.useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  // What the drag live region speaks (objectui#11802): the labels the cards and
+  // section headers render, never the `f:` / `g:` ids, and places read off the
+  // container map `onDragEnd` reads (`itemsRef` holds this render's `items`).
+  // dnd-kit subscribes the newest object each time a render commits, so a
+  // sentence always reads the committed layout and labels. A rebuild, here or
+  // on React's own account, changes no sentence.
+  const dndAccessibility = React.useMemo(() => {
+    const slot = (place: LayoutPlace | null): FormDndSlot | null =>
+      place && {
+        container: place.container,
+        group: labelOf.get(place.container) ?? t('engine.studio.designer.ungrouped', locale),
+        position: place.index + 1,
+        total: place.total,
+      };
+    const lookups: FormDndLookups = {
+      fieldLabel: (id) => {
+        const entry = entryByName.get(unFid(id));
+        // A drag starts only on a rendered card, which has an entry.
+        return entry ? fieldLabelOf(entry) : unFid(id);
+      },
+      slotOf: (id) => slot(placeIn(items, id)),
+      dropSlot: (id, overId) => slot(dropPlaceIn(items, id, overId)),
+      committedSlotOf: (id) => slot(placeIn(derived, id)),
+    };
+    return formDndAccessibility(locale, lookups);
+  }, [locale, items, derived, labelOf, entryByName, fieldLabelOf]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -450,7 +563,9 @@ export function ObjectFormDesigner({
           editable.push({ name: e.name, def });
         }
       }
-      const system = view.entries.filter((e) => systemFieldNames.has(e.name));
+      // Every field the canvas does not show rides back unchanged — the same
+      // test that kept it off the containers (objectui#11780).
+      const system = view.entries.filter((e) => isKeptOffLayout(e, systemFieldNames));
       const finalView: FieldsView = { shape: view.shape, entries: [...system, ...editable] };
       onChange({ fields: writeFields(finalView) });
     },
@@ -527,7 +642,10 @@ export function ObjectFormDesigner({
     <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-background p-4">
       <div className="mb-3 flex items-center gap-2">
         <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Rows3 className="h-3.5 w-3.5" /> {t('engine.studio.designer.hint', locale)}
+          {/* objectui#11781 — a read-only package has no drag and no edit, so
+              its hint says what it is and what a click still does. */}
+          <Rows3 className="h-3.5 w-3.5" />{' '}
+          {readOnly ? t('engine.studio.designer.hintReadOnly', locale) : t('engine.studio.designer.hint', locale)}
         </span>
         {!readOnly && (
           <>
@@ -553,7 +671,8 @@ export function ObjectFormDesigner({
 
       <DndContext
         sensors={readOnly ? [] : sensors}
-        collisionDetection={pointerWithin}
+        collisionDetection={formCollision}
+        accessibility={dndAccessibility}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}

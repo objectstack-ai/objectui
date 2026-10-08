@@ -50,6 +50,9 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+// The page asks the router where the anonymous route is served (objectui#11769),
+// so it renders inside one, as it does in the app.
+import { MemoryRouter } from 'react-router-dom';
 import { FormViewSchema } from '@objectstack/spec/ui';
 
 /**
@@ -118,7 +121,7 @@ function setUrl(field: HTMLElement, value: string) {
 
 /** Open the row's editor and switch the post-submit behavior to `redirect`. */
 async function openRedirectEditor(user: ReturnType<typeof userEvent.setup>) {
-  render(<PublicFormsPage />);
+  render(<PublicFormsPage />, { wrapper: MemoryRouter });
   await user.click(
     await screen.findByRole('button', { name: /Edit sharing & post-submit behavior/i }),
   );
@@ -231,7 +234,7 @@ describe('in-contract values still save (#4990)', () => {
    */
   it('leaves thank-you title/message unvalidated — the spec declares them free text', async () => {
     const user = userEvent.setup();
-    render(<PublicFormsPage />);
+    render(<PublicFormsPage />, { wrapper: MemoryRouter });
     await user.click(
       await screen.findByRole('button', { name: /Edit sharing & post-submit behavior/i }),
     );

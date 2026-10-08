@@ -65,6 +65,40 @@ import {
  */
 const DEFAULT_MAP_STYLE = 'https://demotiles.maplibre.org/style.json';
 
+/**
+ * Can this browser start a MapLibre map at all (objectui#11819)?
+ *
+ * MapLibre draws through WebGL2 and nothing else. Without it the `Map`
+ * constructor does not throw: `_setupPainter` emits a `GPUInitializationError`
+ * and the constructor returns a map with no painter. That event fires INSIDE
+ * the constructor, before react-map-gl attaches its listeners, so `onError`
+ * never hears it (MapLibre prints it to the console instead). react-map-gl then
+ * hands the painter-less map to the `Marker` children, whose `map.project`
+ * throws, and the error boundary's unmount runs `map.remove()`, which throws
+ * again on the missing painter — `Cannot read properties of undefined (reading
+ * 'destroy')`, the crash card the page used to show.
+ *
+ * So the question is asked here, before `MapGL` mounts, with the call MapLibre
+ * itself makes. A map that is never constructed has nothing to clean up. The
+ * probe's own context is released at once rather than left to the collector:
+ * browsers cap the live WebGL contexts a page may hold.
+ *
+ * With no DOM (a server render) there is nothing to probe and nothing would be
+ * constructed either — react-map-gl builds the map in an effect — so the
+ * answer is yes, and the browser's own render asks again.
+ */
+function canStartMap(): boolean {
+  if (typeof document === 'undefined') return true;
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return false;
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface ObjectMapProps {
   schema: ObjectMapSchema;
   dataSource?: DataSource;
@@ -651,6 +685,10 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
   const handleMapError = useCallback((e: { error?: Error & { status?: number } }) => {
     setMapStyleError(e?.error?.message || 'Failed to load the map style/tiles.');
   }, []);
+  // Asked once per mount, before `MapGL` is ever mounted: a browser without
+  // WebGL2 gets the record list instead of a map (see `canStartMap`). Not a
+  // style/tile failure — that one keeps the map and its markers, above.
+  const [mapCanStart] = useState(canStartMap);
   const requestUserLocation = useCallback(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setGeoError('Geolocation is not available in this browser.');
@@ -1191,6 +1229,14 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
     onRowClick,
   });
 
+  // What choosing one record does: a marker click on the map, or a row of the
+  // list shown instead of the map when it cannot start. One path, so they agree.
+  const selectMarker = (marker: MarkerData) => {
+    setSelectedMarkerId(marker.id);
+    navigation.handleClick(marker.data);
+    onMarkerClick?.(marker.data);
+  };
+
   const filteredMarkers = useMemo(() => {
     if (!searchQuery.trim()) return markers;
     const q = searchQuery.toLowerCase();
@@ -1345,6 +1391,43 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
         </div>
       )}
       <div className="relative border rounded-lg overflow-hidden bg-muted h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] w-full">
+         {!mapCanStart ? (
+           // No WebGL2: `MapGL` is never mounted (see `canStartMap`), so the
+           // records the markers would draw are listed here instead — the same
+           // `filteredMarkers` the search box above narrows, each row taking
+           // the marker's own click path.
+           <div className="flex h-full flex-col" data-testid="map-webgl2-fallback">
+             <div
+               role="alert"
+               className="p-2 text-sm text-center text-amber-900 bg-amber-50 border-b border-amber-200"
+             >
+               Map failed to load (this browser does not provide WebGL2, which the map needs). The records are
+               listed below; turn on hardware acceleration or use a browser with WebGL2 to see the map.
+             </div>
+             <ul className="min-h-0 flex-1 overflow-y-auto divide-y bg-background" aria-label="Locations">
+               {filteredMarkers.length === 0 && (
+                 <li className="px-3 py-2 text-sm text-muted-foreground">No locations to list.</li>
+               )}
+               {filteredMarkers.map((marker) => (
+                 <li key={marker.id}>
+                   <button
+                     type="button"
+                     onClick={() => selectMarker(marker)}
+                     className={cn(
+                       'block w-full px-3 py-2 text-left hover:bg-accent focus:outline-none focus-visible:bg-accent',
+                       marker.id === selectedMarkerId && 'bg-accent',
+                     )}
+                   >
+                     <span className="block truncate text-sm font-medium">{marker.title}</span>
+                     {marker.description && (
+                       <span className="block truncate text-xs text-muted-foreground">{marker.description}</span>
+                     )}
+                   </button>
+                 </li>
+               ))}
+             </ul>
+           </div>
+         ) : (
          <MapGL
             ref={(r) => { mapRef.current = r as any; }}
             initialViewState={initialViewState}
@@ -1430,10 +1513,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
                     anchor="bottom"
                     onClick={(e) => {
                         e.originalEvent.stopPropagation();
-                        const marker = cluster.markers[0];
-                        setSelectedMarkerId(marker.id);
-                        navigation.handleClick(marker.data);
-                        onMarkerClick?.(marker.data);
+                        selectMarker(cluster.markers[0]);
                     }}
                 >
                     <div className="text-2xl cursor-pointer hover:scale-110 transition-transform">
@@ -1468,6 +1548,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
                 </Popup>
             )}
          </MapGL>
+         )}
          {/* Mobile UX (round 3) — bottom-sheet record card replaces the
              Popup on small viewports for a native-feeling mobile pattern. */}
          {selectedMarker && isMobile && (

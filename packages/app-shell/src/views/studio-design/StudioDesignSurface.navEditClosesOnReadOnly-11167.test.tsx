@@ -38,6 +38,8 @@ const NAV = [
 const APP = { name: 'acme_app', label: 'Acme', navigation: NAV };
 const HOME = { name: 'home', label: 'Home', type: 'app', regions: [{ name: 'main', components: [] }] };
 const LANDING = { name: 'landing', label: 'Landing', type: 'app', regions: [{ name: 'main', components: [] }] };
+/** The object the appended item is bound to (objectui#11776). */
+const TASK = { name: 'acme_task', label: 'Task', fields: [{ name: 'title', label: 'Title', type: 'text' }] };
 
 const server = vi.hoisted(() => ({
   active: new Map<string, Record<string, unknown>>(),
@@ -141,6 +143,7 @@ beforeEach(() => {
   server.active.set(key('app', APP.name), JSON.parse(JSON.stringify(APP)));
   server.active.set(key('page', HOME.name), JSON.parse(JSON.stringify(HOME)));
   server.active.set(key('page', LANDING.name), JSON.parse(JSON.stringify(LANDING)));
+  server.active.set(key('object', TASK.name), JSON.parse(JSON.stringify(TASK)));
   // The surface's pending-drafts counter polls over raw fetch — stub it flat.
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => [] })) as unknown as typeof fetch);
 });
@@ -202,11 +205,14 @@ function navEditingOpen(): boolean {
 /**
  * The item "Add nav item" appends, wherever it shows: a canvas row, the rail's
  * tree, an inspector field. objectui#11196: it is born with no `label` (it was
- * born "New item"), so it shows its `id` as text, and as the placeholder of
- * the inspector's Label field.
+ * born "New item"). objectui#11776: an entry is sent only once it names a
+ * target, so the edit binds it to the fixture's object, and the label-less
+ * entry shows that object's name: as a row's or a tree entry's name, and as
+ * the inspector picker's value.
  */
 function addedItemOnScreen(): boolean {
-  return screen.queryAllByText('nav_item_3').length + screen.queryAllByPlaceholderText('nav_item_3').length > 0;
+  const named = new RegExp(TASK.name);
+  return screen.queryAllByRole('button', { name: named }).length + screen.queryAllByDisplayValue(named).length > 0;
 }
 
 /** True while the surface's leave guard holds unsaved nav edits (it cancels `beforeunload`). */
@@ -216,10 +222,13 @@ function leaveGuarded(): boolean {
   return e.defaultPrevented;
 }
 
-/** Open nav editing through the toggle, and take one edit: append an item. */
+/** Open nav editing through the toggle, and take one edit: append an item, bound to the fixture's object. */
 async function openEditingAndAddItem(): Promise<void> {
   fireEvent.click(screen.getByTitle(/^Edit navigation/));
   fireEvent.click(await screen.findByRole('button', { name: /Add nav item/ }, { timeout: 8000 }));
+  const picker = screen.getAllByRole('combobox').find((s) => within(s).queryByRole('option', { name: new RegExp(TASK.name) }));
+  if (!picker) throw new Error('the new entry\'s inspector offers no object to bind it to');
+  fireEvent.change(picker, { target: { value: TASK.name } });
   expect(addedItemOnScreen()).toBe(true);
 }
 

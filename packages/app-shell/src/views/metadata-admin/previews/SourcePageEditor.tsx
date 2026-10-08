@@ -127,8 +127,9 @@ export function SourcePageEditor({
 
   // Monaco-unavailable fallback (headless / CSP / air-gapped) → plain textarea.
   // Fast-fails the moment the CDN loader rejects instead of waiting the full
-  // grace period; see useMonacoFallback.
-  const [monacoUnavailable, containerRef] = useMonacoFallback(fallbackDelayMs);
+  // grace period, and mounts the editor only once the loader has resolved
+  // (objectui#11800); see useMonacoFallback.
+  const [monacoStatus, containerRef] = useMonacoFallback(fallbackDelayMs);
 
   const [theme, setTheme] = React.useState<'vs-dark' | 'light'>(() =>
     typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'vs-dark' : 'light',
@@ -156,7 +157,7 @@ export function SourcePageEditor({
 
   const editorEl = (
     <div ref={containerRef} className="h-full min-h-[260px] overflow-hidden bg-background">
-      {monacoUnavailable ? (
+      {monacoStatus === 'unavailable' ? (
         <textarea
           value={text}
           onChange={(e) => handleChange(e.target.value)}
@@ -165,6 +166,8 @@ export function SourcePageEditor({
           aria-label={tr('engine.sourcePageEditor.source', locale)}
           className="h-full w-full resize-none bg-background p-3 font-mono text-xs leading-relaxed outline-none"
         />
+      ) : monacoStatus === 'loading' ? (
+        <Skeleton className="h-full w-full" />
       ) : (
         <React.Suspense fallback={<Skeleton className="h-full w-full" />}>
           <LazyMonaco

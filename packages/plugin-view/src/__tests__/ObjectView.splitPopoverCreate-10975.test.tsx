@@ -97,7 +97,10 @@ async function formIn(mode: string): Promise<HTMLElement> {
   return form;
 }
 
-const inDrawer = (el: HTMLElement) => el.closest('[data-vaul-drawer]') !== null;
+// The drawer is the right-hand Sheet on a desktop and vaul's bottom sheet on a
+// phone (objectui#11775); the modal is a centred dialog, neither of the two.
+const inDrawer = (el: HTMLElement) =>
+  el.closest('[role="dialog"].inset-y-0.right-0') !== null || el.closest('[data-vaul-drawer]') !== null;
 const inDialog = (el: HTMLElement) => el.closest('[role="dialog"]') !== null;
 
 describe('objectui#10975 — New opens a create form under `split` and `popover`', () => {

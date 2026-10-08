@@ -78,6 +78,7 @@ vi.mock('react-map-gl/maplibre', () => ({
 }));
 
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 const MAP = { latitudeField: 'latitude', longitudeField: 'longitude', titleField: 'name' };
 

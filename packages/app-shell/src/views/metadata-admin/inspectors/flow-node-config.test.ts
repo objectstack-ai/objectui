@@ -274,8 +274,9 @@ describe('notify node — first-class static config editor (#1895)', () => {
     );
   });
 
-  it('models recipients + channels as stringList and message as textarea', () => {
-    expect(fields.find((f) => f.id === 'recipients')!.kind).toBe('stringList');
+  it('models recipients as the recipient picker, channels as stringList and message as textarea', () => {
+    // objectui#11788 — recipients are picked (field / user / team / email), not typed.
+    expect(fields.find((f) => f.id === 'recipients')!.kind).toBe('recipients');
     expect(fields.find((f) => f.id === 'channels')!.kind).toBe('stringList');
     expect(fields.find((f) => f.id === 'message')!.kind).toBe('textarea');
   });

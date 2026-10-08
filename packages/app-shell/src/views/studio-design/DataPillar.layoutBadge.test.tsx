@@ -82,8 +82,10 @@ async function openFormTab(props: Partial<React.ComponentProps<typeof DataPillar
   );
   // First object auto-selects; the Form tab is the second segmented control.
   fireEvent.click(await screen.findByRole('button', { name: 'Form' }));
-  // `formMode` defaults to 'layout', so the layout caption is on screen now.
-  await screen.findByText('Draft layout', { exact: false });
+  // `formMode` defaults to 'layout', so the layout caption is on screen once
+  // its sub-mode control is. (Not awaited on the caption text: a read-only
+  // package has its own caption since objectui#11781.)
+  await screen.findByRole('button', { name: 'Layout', pressed: true });
 }
 
 describe('DataPillar form tab — the layout caption tells the truth (#4036)', () => {
@@ -91,8 +93,10 @@ describe('DataPillar form tab — the layout caption tells the truth (#4036)', (
     await openFormTab({ readOnly: true });
 
     expect(screen.queryByText(CLAIM)).toBeNull();
-    // The neutral caption still names what you are looking at.
-    expect(screen.getByText('Draft layout', { exact: true })).toBeInTheDocument();
+    // Nor a draft caption at all: a read-only package has no draft layout, so
+    // its caption says what it is (objectui#11781 — pinned by key, with its
+    // writable control, in StudioDesignSurface.readOnlyWording-11781.test.tsx).
+    expect(screen.queryByText('Draft layout', { exact: true })).toBeNull();
   });
 
   it('writable package, nothing edited yet: still no claim', async () => {

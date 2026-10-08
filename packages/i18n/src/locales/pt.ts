@@ -160,6 +160,7 @@ const pt = {
       copyAll: 'Copiar tudo',
     },
     notAvailableHere: '"{{action}}" não está disponível na página atual.',
+    notAvailableForRecord: 'Não disponível para este registro',
     completedSuccessfully: 'A ação foi concluída com sucesso',
     failed: 'A ação falhou',
     parallelFailed: 'Uma ou mais ações paralelas falharam',
@@ -3950,6 +3951,10 @@ const pt = {
       is_not_null: "Não é null",
       exists: "Está definido",
       notExists: "Não está definido",
+    },
+    emptyCheckHint: {
+      text: '"{{isEmpty}}" também corresponde a texto em branco; "{{isNull}}" apenas a um valor ausente.',
+      list: '"{{isEmpty}}" também corresponde a uma lista vazia; "{{isNull}}" apenas a um valor ausente.',
     },
   },
   sortBuilder: {

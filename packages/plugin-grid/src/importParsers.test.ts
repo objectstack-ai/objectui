@@ -52,6 +52,61 @@ describe('inferColumnType', () => {
   });
 });
 
+// `Date.parse` reads `Phase 2` as 2001-02-01, so a text column whose values end
+// in a number used to infer as a date and draw a "Looks like Date" hint.
+describe('inferColumnType: text ending in a number is not a date (objectui#11813)', () => {
+  const TEXT_ENDING_IN_A_NUMBER = ['Phase 2', 'Building 7', 'Room 12', 'Imported QA task 1'];
+  // Same defect, other shapes: a word whose first letters spell a month, a
+  // month word beside other words, a code, a version.
+  const OTHER_TEXT_DATE_PARSE_ACCEPTS = ['Marketing 2026', 'Room 101, Oct', 'A-12', 'task-1', '1.2.3'];
+
+  it.each([...TEXT_ENDING_IN_A_NUMBER, ...OTHER_TEXT_DATE_PARSE_ACCEPTS])('infers %j as text', (value) => {
+    expect(inferColumnType([value])).toBe('text');
+  });
+
+  it('infers whole columns of such values as text', () => {
+    expect(inferColumnType(TEXT_ENDING_IN_A_NUMBER)).toBe('text');
+    expect(inferColumnType(['Imported QA task 1', 'Imported QA task 2'])).toBe('text');
+  });
+
+  // A soft name match onto a text field is halved for a column inferred as a
+  // date, which drops `Task title` → `title` below the auto-apply threshold.
+  it('feeds text, not date, to the mapping suggestion for such a column', () => {
+    const [title] = suggestColumnMappings(
+      ['Task title'],
+      [{ name: 'title', label: 'Title', type: 'text' }],
+      [['Imported QA task 1'], ['Imported QA task 2']],
+    );
+    expect(title.inferredType).toBe('text');
+    expect(title.fieldName).toBe('title');
+  });
+
+  // Control: real dates keep their inference.
+  it.each([
+    ['2026-10-07', 'date'],
+    ['2026/10/07', 'date'],
+    ['2026-10', 'date'],
+    ['10/07/2026', 'date'],
+    ['7.10.2026', 'date'],
+    ['10/7/26', 'date'],
+    ['Oct 7, 2026', 'date'],
+    ['7 October 2026', 'date'],
+    ['7-Oct-2026', 'date'],
+    ['Tuesday, October 7, 2026', 'date'],
+    ['2026-10-07T12:00:00Z', 'datetime'],
+    ['2024-03-14T08:30:00.000Z', 'datetime'],
+    ['2026-10-07 12:00:00 GMT+0800', 'datetime'],
+    ['10/07/2026 2:30 PM', 'datetime'],
+    ['Wed, 07 Oct 2026 12:00:00 GMT', 'datetime'],
+  ])('still infers %j as %s', (value, type) => {
+    expect(inferColumnType([value])).toBe(type);
+  });
+
+  it('still infers a column of real dates as date', () => {
+    expect(inferColumnType(['2026-10-07', '10/07/2026', '7.10.2026', 'Oct 7, 2026', '7 October 2026'])).toBe('date');
+  });
+});
+
 describe('isTypeCompatible', () => {
   it('maps numeric inference to number/currency/percent', () => {
     expect(isTypeCompatible('number', 'currency')).toBe(true);

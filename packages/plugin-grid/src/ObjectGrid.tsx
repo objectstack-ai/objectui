@@ -26,14 +26,14 @@ import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, T
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { parseFilterAST, resolveFieldScale, type FilterCondition } from '@objectstack/spec/data';
-import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, useDataInvalidation, useFilterScope } from '@object-ui/react';
+import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, RelatedRecordActionsProvider, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 // objectui#8920 — the grid reaches a cell renderer through THIS module and
 // nowhere else. `getCellRenderer` / `resolveCellRendererType` are deliberately
 // NOT imported here: six sites spelling the resolve three different ways is
 // what dropped a `format`-hinted column's renderer, and one shared owner is
 // what stops a seventh site picking a convention of its own.
-import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
+import { resolveGridCellRendering, gridCellRendererForFixedKey, linkCellRenderer, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { isMaskedGridColumn, isWithheldGridColumn } from './maskedColumn';
 import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
@@ -57,7 +57,7 @@ import {
   DataEmptyState, resolveIcon,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, type FilterTokenScope } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -65,7 +65,7 @@ import {
 } from '@object-ui/plugin-detail';
 import { ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Download, Rows2, Rows3, Rows4, AlignJustify, Type, Hash, Calendar, CheckSquare, User, Tag, Clock, Loader2 } from 'lucide-react';
 import { useRowColor } from './useRowColor';
-import { useGroupedData, usableGroupingFields, type ServerGroupSource } from './useGroupedData';
+import { useGroupedDataInOptionOrder, usableGroupingFields, type GroupOptionRanks, type ServerGroupSource } from './useGroupedData';
 import { groupSearchOf, useServerGroupHeaders, useServerGroupRows, type ServerGroupLeaf } from './useServerGrouping';
 import { GroupRow } from './GroupRow';
 import { useColumnSummary } from './useColumnSummary';
@@ -365,7 +365,16 @@ const LinkCell: React.FC<{
       ? host.recordHref(objectName, recordId)
       : null;
 
-  if (href) {
+  if (href && host) {
+    // objectui#11817 — no anchor inside this anchor. A reference value in the
+    // cell (`LookupCellRenderer`'s `ReferencedRecordLink`) draws its own `a`
+    // whenever the host answers `recordHref` for the referenced object, so the
+    // children are rendered under the same host with no record destination:
+    // "the host cannot route to that object", which the context documents as
+    // render the plain value. The self-linking faces (`mailto:`, URL, `tel:`)
+    // never ask the host; the cell is handed their text face instead
+    // (`linkCellRenderer` in `./cellRendererResolution`).
+    const unlinkedHost = { ...host, recordHref: undefined, openRecord: undefined };
     return (
       <a
         href={href}
@@ -395,7 +404,7 @@ const LinkCell: React.FC<{
           }
         }}
       >
-        {children}
+        <RelatedRecordActionsProvider value={unlinkedHost}>{children}</RelatedRecordActionsProvider>
       </a>
     );
   }
@@ -2981,7 +2990,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // A select value's label is the OBJECT FIELD's option label (objectui#11544).
   const groupValueFormatter = React.useMemo(() => {
     // [objectui#7217] ONE normalized entry list, shared with the
-    // `useGroupedData` call below. Reading `grouping.fields` raw here threw
+    // `useGroupedDataInOptionOrder` call below. Reading `grouping.fields` raw here threw
     // `TypeError: Cannot read properties of null (reading 'field')` on a null
     // hole — the whole grid gone, during render, before any projection was
     // built. `usableGroupingFields` admits exactly the entries
@@ -3117,7 +3126,30 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     [serverGroupedFetch, groupHeaderRows, groupKeyLabels],
   );
 
-  const { groups, isGrouped, toggleGroup } = useGroupedData(
+  // [objectui#11809] Each grouping field's DECLARED option order: the object
+  // field's `options` read through core's `buildCategoryOrder` /
+  // `buildCategoryRank`, the same reading the dashboard's category axis and
+  // the funnel use. A select field's groups then follow the order the author
+  // declared (Backlog → To Do → In Progress …), as the Kanban lanes do, rather
+  // than the order of their labels; empty and undeclared values sit last. A
+  // field with no options keeps label order. Keyed on the order itself (a
+  // string), not on `schema.grouping`, which a host rebuilds every render.
+  const groupOptionOrderKey = JSON.stringify(
+    usableGroupingFields(schema.grouping?.fields).flatMap((gf) => {
+      const order = buildCategoryOrder(objectFields?.[gf.field]?.options);
+      return order ? [[gf.field, order]] : [];
+    }),
+  );
+  const groupOptionRanks = React.useMemo((): GroupOptionRanks | undefined => {
+    const ranks = new Map<string, ReadonlyMap<string, number>>();
+    for (const [field, order] of JSON.parse(groupOptionOrderKey) as Array<[string, string[]]>) {
+      const rank = buildCategoryRank(order);
+      if (rank) ranks.set(field, rank);
+    }
+    return ranks.size > 0 ? ranks : undefined;
+  }, [groupOptionOrderKey]);
+
+  const { groups, isGrouped, toggleGroup } = useGroupedDataInOptionOrder(
     serverGroupedFetch
       ? (schema.grouping ? { ...schema.grouping, fields: serverGroupingFields } : undefined)
       : groupingForRender,
@@ -3125,6 +3157,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     schema.aggregations,
     groupValueFormatter,
     serverGroupSource,
+    groupOptionRanks,
   );
 
   // Reset grouped pagination to page 1 whenever the grouping config, page size
@@ -3554,12 +3587,15 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // Auto-link primary field (first column) to record detail (Airtable-style)
             const isPrimaryField = colIndex === 0 && !col.link && !col.action;
             const isLinked = col.link || isPrimaryField;
+            // The face the value takes INSIDE the link: never an anchor of its
+            // own (objectui#11817, `linkCellRenderer`).
+            const LinkContentRenderer = linkCellRenderer(inferredType, CellRenderer);
 
             if ((col.link && col.action) || (isPrimaryField && col.action)) {
               // Both link and action: link takes priority for navigation, action executes on secondary interaction
               cellRenderer = (value: any, row: any) => {
-                const displayContent = CellRenderer
-                  ? <CellRenderer value={value} field={fieldMeta as any} />
+                const displayContent = LinkContentRenderer
+                  ? <LinkContentRenderer value={value} field={fieldMeta as any} />
                   : (value != null && value !== '' ? String(value) : <EmptyValue />);
                 return (
                   <LinkCell
@@ -3576,8 +3612,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             } else if (isLinked) {
               // Link column: clicking navigates to the record detail
               cellRenderer = (value: any, row: any) => {
-                const displayContent = CellRenderer
-                  ? <CellRenderer value={value} field={fieldMeta as any} />
+                const displayContent = LinkContentRenderer
+                  ? <LinkContentRenderer value={value} field={fieldMeta as any} />
                   : (value != null && value !== '' ? String(value) : <EmptyValue />);
                 return (
                   <LinkCell
@@ -3785,9 +3821,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           const isPrimaryField = colIndex === 0;
           let cellRenderer: ((value: any, row?: any) => React.ReactNode) | undefined;
 
-          if (isPrimaryField && CellRenderer) {
+          // The face the value takes inside the link (objectui#11817).
+          const LinkContentRenderer = linkCellRenderer(rendererType, CellRenderer);
+
+          if (isPrimaryField && LinkContentRenderer) {
             cellRenderer = (value: any, row: any) => {
-              const displayContent = <CellRenderer value={value} field={fieldMeta as any} />;
+              const displayContent = <LinkContentRenderer value={value} field={fieldMeta as any} />;
               return (
                 <LinkCell
                   testId="primary-field-link"

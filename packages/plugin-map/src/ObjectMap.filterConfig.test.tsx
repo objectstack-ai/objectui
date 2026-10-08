@@ -33,6 +33,7 @@ import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 // Imported at module scope, not in a hook: the binding case below renders
 // through the registry (AGENTS.md — dynamic import in a hook is lint-blocked).
 import './index';
+import './__tests__/webgl2Available';
 
 let capturedProps: any = null;
 

@@ -137,11 +137,24 @@ describe('objectui#4271 · the getDraft() envelope asymmetry is preserved', () =
     // PermissionMatrixEditor). Routing getDraft through the unwrapping get()
     // would silently empty every one of them.
     const draftEnvelope = { type: 'object', name: 'showcase_project', item: OBJECT_BODY };
-    const { c, urls } = clientAnswering(draftEnvelope);
+    // objectui#11799 — the item read follows the drafts ledger, which lists it.
+    const urls: string[] = [];
+    const c = new MetadataClient({
+      baseUrl: 'http://localhost:3000',
+      fetch: mockFetch(async (url) => {
+        urls.push(url);
+        return jsonResponse(
+          url.endsWith('/meta/_drafts') ? { drafts: [{ type: 'object', name: 'showcase_project' }] } : draftEnvelope,
+        );
+      }),
+    });
     const draft = await c.getDraft<Record<string, unknown>>('object', 'showcase_project');
     expect(draft).toEqual(draftEnvelope);
     expect((draft as any)?.item).toEqual(OBJECT_BODY);
-    expect(urls[0]).toBe('http://localhost:3000/api/v1/meta/object/showcase_project?state=draft');
+    expect(urls).toEqual([
+      'http://localhost:3000/api/v1/meta/_drafts',
+      'http://localhost:3000/api/v1/meta/object/showcase_project?state=draft',
+    ]);
   });
 
   it('A11: get(state:draft) unwraps like any other get()', async () => {

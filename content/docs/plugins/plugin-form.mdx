@@ -321,6 +321,11 @@ the object's `fieldGroups`) follow one rule for a section's divider row:
 - The **divider row is drawn when the section has a `label` or a
   `description`**. With a `description` alone it is a blurb-only row: no
   heading, just the blurb.
+- A section **without a row is still its own block.** When it follows a
+  section that has one, its fields start below a rule of their own instead of
+  continuing under that heading. This is how the fields that belong to no
+  declared `fieldGroups` entry render: after the groups, apart from the last
+  one, with no heading and no placeholder title.
 - The **collapse control sits on that row**, so `collapsible` / `collapsed`
   work on a titled row and on a blurb-only row alike (`collapsed: true` implies
   `collapsible`).

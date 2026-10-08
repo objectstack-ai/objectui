@@ -29,6 +29,10 @@ const PILLAR_ROWS = [
   'engine.studio.auto.offTitle',
   'engine.studio.auto.onBound',
   'engine.studio.auto.onUnbound',
+  // objectui#11779 — the run status's "not running here" and "not deployed" words.
+  'engine.studio.auto.notRunning',
+  'engine.studio.auto.notRunningTitle',
+  'engine.studio.auto.unpublishedTitle',
   'engine.studio.auto.enabled',
   'engine.studio.auto.disabled',
   'engine.studio.auto.enableTitle',

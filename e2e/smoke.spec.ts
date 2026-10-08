@@ -98,7 +98,10 @@ test.describe('Console App – Smoke', () => {
    * The set below stays CLOSED on purpose: a blank page, a crashed render or an
    * error boundary matches none of these three and still fails the test. What
    * changes is that every state the app is legitimately allowed to be in is now
-   * terminal-stable, so passing no longer depends on winning a race.
+   * terminal-stable, including the sign-in screen's final state with no backend:
+   * the "Cannot connect to server" panel that replaces the form once the
+   * auth-config read fails (objectui#11806), so passing no longer depends on
+   * winning a race.
    */
   test('should settle into a recognised boot state (app shell, loading screen or sign-in)', async ({
     page,
@@ -110,9 +113,12 @@ test.describe('Console App – Smoke', () => {
     // The signed-out sign-in screen, matched structurally rather than by its
     // copy so a locale change cannot silently stop matching it: the auth-config
     // spinner it opens with, then the identifier field of whichever sign-in
-    // mode the server reports (`LoginForm.tsx`).
+    // mode the server reports (`LoginForm.tsx`), or the unreachable panel that
+    // replaces the form when that read fails (objectui#11806).
     const signInScreen = page
-      .locator('[data-testid="login-config-loading"], #login-email, #login-phone')
+      .locator(
+        '[data-testid="login-config-loading"], #login-email, #login-phone, [data-testid="auth-server-unreachable"]',
+      )
       .first();
 
     await expect(

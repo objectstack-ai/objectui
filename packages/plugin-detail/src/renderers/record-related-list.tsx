@@ -88,6 +88,38 @@ const rowId = (row: any): string | number | null => row?.id ?? row?._id ?? null;
  */
 const SPEC_DEFAULT_LIMIT = 5;
 
+/**
+ * The ADR-0066 capability that answers "may this viewer change the page" —
+ * the console's metadata-edit capability, read here for the action-refusal
+ * notice's audience (objectui#11768).
+ *
+ * It is the name `@object-ui/app-shell` exports as `AUTHORING_CAPABILITY` and
+ * reads through `useCanAuthorMetadata()`, the answer Studio's affordances (the
+ * App → Studio bridge, the page editor entry, the builder CTAs) consult. It is
+ * spelled out rather than imported because this package cannot import
+ * app-shell (app-shell depends on this package, not the reverse) and no package
+ * this one depends on exports the name. Module-local on purpose: it is not
+ * part of this package's surface.
+ */
+const METADATA_AUTHORING_CAPABILITY = 'manage_metadata';
+
+/**
+ * Dev mode, in this repository's established spelling for it — the build's
+ * `NODE_ENV` — the same guard `plugin-gantt`, `plugin-map` and
+ * `@object-ui/core` put on their authoring diagnostics. Read per call, not
+ * captured at module load, so the answer is the running build's.
+ *
+ * What it answers where this renderer runs: the console's production bundle
+ * folds the expression to `false` at build time (Vite's `NODE_ENV` define),
+ * so the console's `window.process` shim in `index.html`, which claims
+ * `development`, never reaches it there; the console's dev server leaves the
+ * expression as written and that shim answers `true`; a published consumer
+ * gets whatever its own bundler defines.
+ */
+const isDevBuild = (): boolean =>
+  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+    ?.NODE_ENV !== 'production';
+
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
   return { designer: { 'data-obj-id': id, 'data-obj-type': type, style }, rest };
@@ -454,10 +486,33 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
       : undefined
     : handlers?.rowActions;
   const refusedActions = placedActions?.refused ?? [];
+  /**
+   * WHO sees the refusal notice (objectui#11768). An authored id this list
+   * cannot draw is an authoring fault, and `os validate` already refuses it at
+   * build time (objectstack-ai/objectstack#20936); the notice is its runtime
+   * echo for the person who can fix the page. So it is drawn for a viewer
+   * holding the metadata-edit capability, or in dev mode — never for an end
+   * user, who can act on neither the id nor the object it names.
+   *
+   * What does NOT depend on the viewer: the refused entry stays undrawn for
+   * everyone, and the entries that did resolve render for everyone. Only the
+   * notice's audience is scoped.
+   *
+   * The capability is read as `useCanAuthorMetadata()` reads it — through
+   * `hasCapabilities`, which fails OPEN when the provider never reported
+   * `systemPermissions` (a backend predating ADR-0066, the role-based
+   * provider, no provider at all: the Studio designer and standalone embeds)
+   * and gates strictly on a reported set, a reported empty one included
+   * (objectui#4656). The hosted workspace owner whose reported set carries no
+   * `manage_metadata` (objectstack#8270) therefore does not see it.
+   */
+  const showActionRefusals =
+    refusedActions.length > 0 &&
+    (isDevBuild() || perms.hasCapabilities([METADATA_AUTHORING_CAPABILITY]));
 
   return (
     <div className={className} {...designer} {...ariaProps}>
-      {refusedActions.length > 0 && (
+      {showActionRefusals && (
         // The author-visible refusal the ruling asks for: an authored entry
         // this list cannot draw is named here, where the lookup answered,
         // never dropped without a word. Beside the list, not in place of it —

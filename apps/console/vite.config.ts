@@ -957,7 +957,50 @@ export default defineConfig({
         // explicitly partitions modules with priority/test/name semantics.
         advancedChunks: {
           groups: [
-            { name: 'vendor-react', test: /[\\/]node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/, priority: 100 },
+            //
+            // ## `use-sync-external-store` is React glue, so `vendor-react` names it (objectui#11798)
+            //
+            // Recharts reaches the page only through `import()` (the lazy
+            // `chart` / `object-chart` registrations in `register-plugins.ts`,
+            // and the lazy `ChartRenderer` in app-shell's dataset preview), so
+            // `vendor-charts` is meant to load with the first chart. It loaded
+            // with EVERY page instead. A group captures its `test` matches AND,
+            // by rolldown's default `includeDependenciesRecursively: true`,
+            // everything they import, and recharts imports
+            // `use-sync-external-store/shim` through `react-redux`. Unnamed by
+            // any group, that shim went to `vendor-charts`, which won the
+            // priority-90 tie for it against `vendor-i18n` (listed below it).
+            // `react-i18next`'s `useTranslation` imports the same shim
+            // statically, so the eager `vendor-i18n` chunk imported
+            // `vendor-charts`, and the whole chart engine (recharts and d3) rode
+            // into the eager closure on a few hundred bytes of React glue. No
+            // chart module was statically reachable from the entry: the chunk
+            // rule alone made them eager, the objectui#5266 mechanism one group
+            // over.
+            //
+            // The repair names the shim's owner. This group outranks every
+            // other, so it claims `use-sync-external-store` first, and rolldown
+            // removes a module a higher-priority group claimed from the groups
+            // below it. `vendor-charts` keeps its default recursive capture and
+            // its own members; it just no longer holds a module an eager chunk
+            // needs. Whether a `vendor-charts` file is in the closure is what
+            // `apps/console/dist/eager-closure.json` answers after a build, and
+            // `pnpm check:eager-closure` weighs it.
+            //
+            // ⛔ Not `includeDependenciesRecursively: false` on `vendor-charts`,
+            // the other way to stop that capture. Measured on the console build
+            // of `8cc10b9` (a historical reading, ⛔ not re-derived by anything):
+            // recharts' other dependencies then fell to the recursive
+            // `plugin-charts` group, `plugin-charts` and `vendor-charts` imported
+            // each other, and a `chart` node rendered "Failed to load plugin: A
+            // is not a function" instead of a chart. That is the invalid-chunk
+            // risk rolldown documents for the flag, which the `data-adapter`
+            // note below says a new group taking it must re-check.
+            {
+              name: 'vendor-react',
+              test: /[\\/]node_modules[\\/](react|react-dom|react-router|scheduler|use-sync-external-store)[\\/]/,
+              priority: 100,
+            },
             { name: 'vendor-radix', test: /[\\/]node_modules[\\/]@radix-ui[\\/]/, priority: 95 },
             //
             // ## `tags: ['$initial']` — this group claims only what the first screen runs (objectui#11101)
@@ -1043,6 +1086,9 @@ export default defineConfig({
             },
             { name: 'vendor-ui-utils', test: /[\\/]node_modules[\\/](class-variance-authority|clsx|tailwind-merge|sonner)[\\/]/, priority: 90 },
             { name: 'vendor-zod', test: /[\\/]node_modules[\\/]zod[\\/]/, priority: 90 },
+            // `vendor-charts` stays out of the eager closure because `vendor-react`
+            // claims `use-sync-external-store`; see the note on that group
+            // (objectui#11798).
             { name: 'vendor-charts', test: /[\\/]node_modules[\\/](recharts|d3-|victory-)/, priority: 90 },
             { name: 'vendor-dndkit', test: /[\\/]node_modules[\\/]@dnd-kit[\\/]/, priority: 90 },
             { name: 'vendor-i18n', test: /[\\/]node_modules[\\/](i18next|react-i18next)[\\/]/, priority: 90 },
@@ -1322,9 +1368,42 @@ export default defineConfig({
             { name: 'plugin-calendar', test: /[\\/]packages[\\/]plugin-calendar[\\/]/, priority: 70 },
             { name: 'plugin-kanban', test: /[\\/]packages[\\/]plugin-kanban[\\/]/, priority: 70 },
             { name: 'plugin-chatbot', test: /[\\/]packages[\\/]plugin-chatbot[\\/]/, priority: 70 },
-            // react-markdown / remark / micromark family — heavy markdown
-            // pipeline pulled in only by markdown/chatbot plugins.
-            { name: 'vendor-markdown', test: /[\\/]node_modules[\\/](react-markdown|remark-|rehype-|micromark|mdast-|hast-|unified|unist-|vfile|bail|trough|character-entities|decode-named-character-reference|devlop|estree-|comma-separated-tokens|space-separated-tokens|property-information|html-url-attributes|zwitch)/, priority: 85 },
+            //
+            // ## `vendor-markdown` claims only what the first load reaches (objectui#11854)
+            //
+            // The remark / rehype / micromark family. The chatbot's message
+            // renderer (`streamdown`, imported statically by `plugin-chatbot`)
+            // reaches most of it on every page, so this chunk is eager. Without
+            // the tag the group also claimed the family members that only
+            // `plugin-markdown` reaches — `rehype-highlight` with `lowlight` and
+            // `highlight.js`, `rehype-slug`, `rehype-autolink-headings`,
+            // `remark-github-blockquote-alert` and their helpers — and one eager
+            // member made all of them eager: the objectui#11798 capture
+            // mechanism, one group over. `tags: ['$initial']` is the same option,
+            // for the same reason, as on `vendor-objectstack` above
+            // (objectui#11101): the group claims a family member only when a
+            // static import from the entry reaches it, and the rest follows its
+            // importer, `plugin-markdown`'s own group, behind that plugin's lazy
+            // registration and the docs reader's lazy route. The bytes are
+            // recorded once, on `BASELINE` in
+            // `scripts/check-eager-closure-budget.mjs`, ⛔ not here.
+            //
+            // ⛔ Not `includeDependenciesRecursively: false`, the flag
+            // objectui#11798 measured into a chunk cycle on `vendor-charts`; the
+            // tag narrows what the group claims and leaves its capture alone.
+            //
+            // `react-markdown` is the one member with no static path from the
+            // entry that the first load still needs. `MarkdownContent` in
+            // `packages/fields` imports it statically, and that widget sits in
+            // the EAGER `ui-components` chunk although it is only reached through
+            // `React.lazy` — the co-tenancy recorded in
+            // `scripts/vite-ineffective-dynamic-imports.ts` (objectui#5325). Left
+            // unclaimed, `ui-components` (priority 80) would take it by its own
+            // capture, onto a budgeted line; claimed by the tagged group it
+            // cannot be. So it gets a group of its own here, and its chunk loads
+            // with whichever importer loads first.
+            { name: 'vendor-markdown', test: /[\\/]node_modules[\\/](remark-|rehype-|micromark|mdast-|hast-|unified|unist-|vfile|bail|trough|character-entities|decode-named-character-reference|devlop|estree-|comma-separated-tokens|space-separated-tokens|property-information|html-url-attributes|zwitch)/, priority: 85, tags: ['$initial'] },
+            { name: 'vendor-react-markdown', test: /[\\/]node_modules[\\/]react-markdown[\\/]/, priority: 84 },
             // Sentry — only fetched when the RUNTIME serves a DSN on
             // /api/v1/runtime/config (objectstack#12681); a deployment that
             // configured none never requests this chunk at all.

@@ -27,9 +27,13 @@
  *     Referenced BARE on the start node's own entry condition (`status`,
  *     matching the engine's trigger-evaluation context where the changed
  *     record's fields are top-level) and as `record.<field>` on every
- *     downstream node (the convention the showcase flows use). The object's
- *     field list is fetched lazily by the React layer (see useFlowScope); this
- *     module only resolves the object NAME and the correct token prefix.
+ *     downstream node (the convention the showcase flows use). The whole
+ *     `record` is in scope at BOTH (objectui#11789): the engine's run seeding
+ *     binds `record` beside the flattened fields before the start-condition
+ *     gate runs, so `record.status` is as valid in an entry condition as the
+ *     bare `status`. The object's field list is fetched lazily by the React
+ *     layer (see useFlowScope); this module only resolves the object NAME and
+ *     the correct token prefix.
  *
  * The graph-walk here is the unit-tested heart of the picker; async field-list
  * expansion and rendering live in the React layer so this module stays pure.
@@ -73,7 +77,7 @@ export interface TriggerScope {
   objectName: string;
   /** Per-field token prefix: '' on the start node (bare), 'record.' downstream. */
   fieldPrefix: string;
-  /** Also emit `previous.<field>` refs (update / change / before-update triggers). */
+  /** Also emit `previous.<field>` refs — the triggers whose run binds a pre-image (`PREVIOUS_TRIGGER_TYPES`). */
   includePrevious: boolean;
 }
 
@@ -123,14 +127,29 @@ const RECORD_TRIGGER_TYPES = new Set([
   'record-before-update',
   'record-after-delete',
 ]);
-/** Trigger types that carry a meaningful `previous` snapshot of the record.
- *  `record-*-write` fires on update too, so `previous` is offered (empty on the
- *  create leg — `previous == null` is how authors branch on which happened). */
+/**
+ * Trigger types whose run binds `previous` to a record (objectui#11789). The
+ * engine's run seeding binds `previous` on every run, to the pre-image the
+ * record-change trigger hands it or to `null` when there is none, so the
+ * question per trigger is whether a pre-image exists:
+ *
+ *   - update (`record-after-update`, `record-before-update`) — the prior row;
+ *   - create-or-update (`record-*-write`) — the prior row on the update leg and
+ *     `null` on the create leg: `previous == null` is how authors branch on
+ *     which happened;
+ *   - delete (`record-after-delete`) — the deleted row: the data engine binds
+ *     the pre-image before the delete runs, and it is what the trigger reads
+ *     for `record` too;
+ *   - create (`record-after-create`) — NOT here: there is no prior row, so
+ *     `previous` is always `null`, every member read of it faults, and
+ *     `previous == null` is constantly true. Flagging it is the useful verdict.
+ */
 const PREVIOUS_TRIGGER_TYPES = new Set([
   'record-after-update',
   'record-before-update',
   'record-after-write',
   'record-before-write',
+  'record-after-delete',
 ]);
 
 function asArray(v: unknown): unknown[] {
@@ -386,12 +405,11 @@ export function resolveFlowScope(
     if (isRecordTrigger && objectName && startInScope) {
       const onStart = startId === nodeId;
       const includePrevious = PREVIOUS_TRIGGER_TYPES.has(triggerType);
-      // On the start node the record's fields ARE the bare evaluation context
-      // (`status`), so the whole record is not a named ref there; `previous` is
-      // (`previous.status`). Downstream the record is the named `record` object.
-      if (!onStart) {
-        refs.push({ token: 'record', label: 'record', detail: tFormat('engine.flowScope.detail.triggerRecord', locale, { object: objectName }), group: 'trigger' });
-      }
+      // The whole record is a named ref at EVERY node, the start node included
+      // (objectui#11789): the engine binds `record` beside the flattened fields
+      // before it evaluates the entry condition. What differs on the start node
+      // is only the per-field prefix below — bare there, `record.` downstream.
+      refs.push({ token: 'record', label: 'record', detail: tFormat('engine.flowScope.detail.triggerRecord', locale, { object: objectName }), group: 'trigger' });
       if (includePrevious) {
         refs.push({ token: 'previous', label: 'previous', detail: t('engine.flowScope.detail.previousRecord', locale), group: 'trigger' });
       }

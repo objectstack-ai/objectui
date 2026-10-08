@@ -64,6 +64,7 @@ vi.mock('react-map-gl/maplibre', () => ({
 
 // Registers `object-map` through this package's own entry, at module scope.
 import '../index';
+import './webgl2Available';
 
 const OBJECT = 'store';
 const MAP = { latitudeField: 'lat', longitudeField: 'lng', titleField: 'name' };

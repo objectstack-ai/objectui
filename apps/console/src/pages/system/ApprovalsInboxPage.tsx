@@ -1034,6 +1034,8 @@ export function ApprovalsInboxPage() {
    * cannot read (approver routing goes by position; record visibility is a
    * separate gate). The link below then dead-ends on the record page's
    * "may have been deleted", so it is suppressed for exactly those rows.
+   * objectui#11878 adds the approver with no read of the object at all, whose
+   * probe the server refuses (403): same link, same suppression.
    *
    * One batched list read per distinct object covers the whole page — see
    * `recordReadability.ts` for the cost model, the fail-open rule, and why
@@ -1051,15 +1053,19 @@ export function ApprovalsInboxPage() {
   /**
    * objectui#8631 — the cause-free branch, wired to that same probe.
    *
-   * ⛔ The probe's answer is taken exactly as it is reported: `isUnreadable` is
-   * true only once the probe has ANSWERED "not in this viewer's row set", and
-   * an unknown (unprobed, failed, no data source) target keeps today's
+   * ⛔ The probe's answer is taken exactly as it is reported: `isOutsideRowSet`
+   * is true only once the probe has ANSWERED "not in this viewer's row set",
+   * and an unknown (unprobed, failed, no data source) target keeps today's
    * rendering because the probe fails open. Nothing here re-asks, re-derives,
    * or narrows what that answer means.
+   *
+   * objectui#11878: a REFUSED read (403) withholds the link through
+   * `isUnreadable` and deliberately not this label — the ruling moves the
+   * link alone, so a refused row keeps the reference text it always had.
    */
   const unresolvableLabelFor = useCallback(
     (r: ApprovalRequestRow | null | undefined): string | null =>
-      (isUnresolvableRecordReference(r, !!r && readability.isUnreadable(r))
+      (isUnresolvableRecordReference(r, !!r && readability.isOutsideRowSet(r))
         ? unresolvableReferenceLabel
         : null),
     [readability, unresolvableReferenceLabel],

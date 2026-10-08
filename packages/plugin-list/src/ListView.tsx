@@ -4547,11 +4547,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * preset tabs carry filters, not a field list, and pass through unchanged.
    */
   const filterElements = React.useMemo(() => {
-    const fields = resolvedUserFilters?.fields;
-    if (!fields?.length) return resolvedUserFilters;
+    if (!resolvedUserFilters?.fields?.length) return resolvedUserFilters;
     const held = new Set(Object.keys(userFilterSelections ?? {}).filter((field) => userFilterSelections?.[field]?.length));
     for (const condition of userFilterConditions) if (Array.isArray(condition)) held.add(condition[0]);
-    return { ...resolvedUserFilters, fields: fields.filter((f) => held.has(f.field) || canReadField(perms, schema.objectName, f.field)) };
+    return {
+      ...resolvedUserFilters,
+      fields: resolvedUserFilters.fields.filter((f) => held.has(f.field) || canReadField(perms, schema.objectName, f.field)),
+    };
   }, [resolvedUserFilters, userFilterConditions, userFilterSelections, perms, schema.objectName]);
 
   /**

@@ -71,12 +71,17 @@ failOnAbsorbedFetchError();
 
 afterEach(cleanup);
 
-/** The en-US row for `key`, which must exist: `t` echoes a missing key. */
+/**
+ * The en-US row for `key`, which must exist: `t` echoes a missing key. Used for
+ * what MUST render; what must not render reads plain `t`, so a writable control
+ * does not depend on the read-only rows existing.
+ */
 function row(key: string, vars?: Record<string, string>): string {
   const text = vars ? tFormat(key, 'en-US', vars) : t(key, 'en-US');
   expect(t(key, 'en-US'), `no en-US row for ${key}`).not.toBe(key);
   return text;
 }
+const absent = (key: string) => t(key, 'en-US');
 
 /** Render the Data pillar and open Form; its Layout sub-view is the default. */
 async function openForm(readOnly: boolean): Promise<HTMLElement> {
@@ -94,11 +99,11 @@ describe('Data pillar Form view — a read-only package reads as read-only (obje
     const card = await openForm(true);
 
     expect(screen.getByText(row('engine.studio.data.form.layoutBadgeReadOnly'))).toBeInTheDocument();
-    expect(screen.queryByText(row('engine.studio.data.form.layoutBadgeClean'), { exact: true })).toBeNull();
-    expect(screen.queryByText(row('engine.studio.data.form.layoutBadge'))).toBeNull();
+    expect(screen.queryByText(absent('engine.studio.data.form.layoutBadgeClean'), { exact: true })).toBeNull();
+    expect(screen.queryByText(absent('engine.studio.data.form.layoutBadge'))).toBeNull();
 
     expect(screen.getByText(row('engine.studio.designer.hintReadOnly'))).toBeInTheDocument();
-    expect(screen.queryByText(row('engine.studio.designer.hint'))).toBeNull();
+    expect(screen.queryByText(absent('engine.studio.designer.hint'))).toBeNull();
 
     expect(card).toHaveAttribute('aria-label', row('engine.studio.designer.fieldAriaReadOnly', { label: 'Title' }));
     expect(card).not.toHaveClass('cursor-grab');
@@ -108,10 +113,10 @@ describe('Data pillar Form view — a read-only package reads as read-only (obje
     const card = await openForm(false);
 
     expect(screen.getByText(row('engine.studio.data.form.layoutBadgeClean'), { exact: true })).toBeInTheDocument();
-    expect(screen.queryByText(row('engine.studio.data.form.layoutBadgeReadOnly'))).toBeNull();
+    expect(screen.queryByText(absent('engine.studio.data.form.layoutBadgeReadOnly'))).toBeNull();
 
     expect(screen.getByText(row('engine.studio.designer.hint'))).toBeInTheDocument();
-    expect(screen.queryByText(row('engine.studio.designer.hintReadOnly'))).toBeNull();
+    expect(screen.queryByText(absent('engine.studio.designer.hintReadOnly'))).toBeNull();
 
     expect(card).toHaveAttribute('aria-label', row('engine.studio.designer.fieldAria', { label: 'Title' }));
     expect(card).toHaveClass('cursor-grab');
@@ -132,7 +137,7 @@ describe('Access pillar banner — a read-only package saves no draft (objectui#
 
     const banner = await screen.findByText(row('engine.studio.access.bannerReadOnly'));
     expect(banner).toHaveAttribute('title', row('engine.studio.access.bannerTitleReadOnly'));
-    expect(screen.queryByText(row('engine.studio.access.banner'))).toBeNull();
+    expect(screen.queryByText(absent('engine.studio.access.banner'))).toBeNull();
   });
 
   it('CONTROL — writable: still says its edits save as a draft', async () => {
@@ -140,6 +145,6 @@ describe('Access pillar banner — a read-only package saves no draft (objectui#
 
     const banner = await screen.findByText(row('engine.studio.access.banner'));
     expect(banner).toHaveAttribute('title', row('engine.studio.access.bannerTitle'));
-    expect(screen.queryByText(row('engine.studio.access.bannerReadOnly'))).toBeNull();
+    expect(screen.queryByText(absent('engine.studio.access.bannerReadOnly'))).toBeNull();
   });
 });

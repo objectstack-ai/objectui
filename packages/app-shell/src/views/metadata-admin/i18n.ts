@@ -2607,6 +2607,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.field.moveUp': 'Move up',
   'designer.field.moveDown': 'Move down',
   'designer.field.removeValue': 'Remove',
+  // objectui#11786 — the inline hint under the input that holds the save: the
+  // object write guard refuses this field until it is filled in.
+  'designer.field.hint.addOption': 'Add at least one option. Changes are saved once the field has one.',
+  'designer.field.hint.pickTarget': 'Pick the object to link to. Changes are saved once the field has one.',
   'designer.field.relatedObject': 'Related object',
   'designer.field.relationshipName': 'Relationship name',
   'designer.field.relationshipNameHint': 'Inverse collection key on the parent',
@@ -2815,6 +2819,16 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.refusal.navItemInput': '{input} on the navigation item “{item}”',
   'engine.studio.refusal.details': 'Details',
   'engine.studio.refusal.show': 'Show me',
+  // objectui#11786 — an edit held, not refused: an incomplete-but-normal body
+  // (a choice field before its options, a relationship before its target, a
+  // step before its required inputs) stays on screen unsent. Each `needs*` row
+  // is a clause the held line and the Publish refusal both build on.
+  'engine.studio.held.needsOptions': 'the field “{field}” needs at least one option',
+  'engine.studio.held.needsTarget': 'the field “{field}” needs the object it links to',
+  'engine.studio.held.needsInput': '{input} on the step “{step}” needs a value',
+  'engine.studio.held.line': 'Not saved yet: {clause}. Your changes are kept here and saved once it is filled in.',
+  'engine.studio.held.publish': 'Not published: {clause}, so that change is not saved yet. Finish it, then publish.',
+  'engine.studio.held.inputHint': 'Required. Changes are saved once this has a value.',
   'engine.studio.unpublishedDraft': 'Unpublished draft',
   'engine.studio.unpublished': 'Unpublished',
   'engine.studio.new': 'New',
@@ -2940,6 +2954,16 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.designer.hint': 'Drag to reorder / move across groups · click a field to edit its properties',
   'engine.studio.designer.hintReadOnly': 'Read-only package · click a field to view its properties',
   'engine.studio.designer.addGroup': 'Add group',
+  // What the form designer's drag live region says (objectui#11802): labels,
+  // never the canvas's internal ids, and the place as "N of M" in the group.
+  'engine.studio.formDnd.instructions':
+    'To pick up a field, press Space or Enter. While dragging, use the arrow keys to move it. Press Space or Enter again to drop it in its new place, or press Escape to cancel.',
+  'engine.studio.formDnd.start': 'Picked up {field}. It is in {group}, position {position} of {total}.',
+  'engine.studio.formDnd.over': '{field} is over {group}, position {position} of {total}.',
+  'engine.studio.formDnd.overNone': '{field} is not over a group.',
+  'engine.studio.formDnd.end': '{field} moved to {group}, position {position} of {total}.',
+  'engine.studio.formDnd.endNone': '{field} was dropped outside the groups and is back in {group}, position {position} of {total}.',
+  'engine.studio.formDnd.cancel': 'Dragging cancelled. {field} is back in {group}, position {position} of {total}.',
   'engine.studio.rules.title': 'Validation rules',
   'engine.studio.rules.none': 'No validation rules yet.',
   'engine.studio.rules.explain': 'Rules run when a record is saved: when the condition is true, the save is rejected with the message.',
@@ -3118,6 +3142,19 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // to wait for — `StudioCanvasPreviewProps` carries no selection by contract.
   'engine.studio.inspector.studioCanvasNoBlocks':
     'This canvas renders the running app, not a block tree — it has no blocks to select, and nothing here is edited from this panel.',
+  // objectui#11823 — an `object` leaf's panel: the list view its canvas shows.
+  'engine.studio.inspector.listView.kind': 'List view',
+  'engine.studio.inspector.listView.intro':
+    'The list on the canvas. Its columns, filter and sort save to this package\'s draft and show on the canvas at once.',
+  'engine.studio.inspector.listView.notCreated':
+    'There is no list view {view} yet. Your first change here creates it in this package\'s draft.',
+  'engine.studio.inspector.listView.readOnly': 'This package is read-only: the list view is shown here, not edited.',
+  'engine.studio.inspector.listView.notList': '{view} is not a list view, so it is not edited here.',
+  'engine.studio.inspector.listView.filter': 'Filter',
+  'engine.studio.inspector.listView.sort': 'Sort',
+  'engine.studio.inspector.listView.addSort': '+ Add sort…',
+  'engine.studio.inspector.listView.sortAsc': '{field} ascending',
+  'engine.studio.inspector.listView.sortDesc': '{field} descending',
   'engine.studio.inspector.designersMissing':
     'No metadata designers are registered in this session, so there is nothing to edit here.',
   'engine.studio.inspector.noPageSchema': 'Page settings are unavailable — the page schema could not be loaded.',
@@ -3169,6 +3206,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.api.copyCurl': 'Copy as cURL',
   'engine.studio.api.copied': 'Copied',
   'engine.studio.api.body': 'Example body',
+  'engine.studio.api.bodyOmitted': 'Required fields come first. Optional fields not shown: {fields}',
   // Hooks view
   'engine.studio.hooks.none': 'No hooks target this object.',
   'engine.studio.hooks.async': 'async',
@@ -5645,6 +5683,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.field.moveUp': '上移',
   'designer.field.moveDown': '下移',
   'designer.field.removeValue': '删除',
+  'designer.field.hint.addOption': '请至少添加一个选项。字段有选项后才会保存更改。',
+  'designer.field.hint.pickTarget': '请选择要关联的对象。选定后才会保存更改。',
   'designer.field.relatedObject': '关联对象',
   'designer.field.relationshipName': '关系名称',
   'designer.field.relationshipNameHint': '父对象上的反向集合键',
@@ -5825,6 +5865,12 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.refusal.navItemInput': '导航项「{item}」的「{input}」',
   'engine.studio.refusal.details': '详情',
   'engine.studio.refusal.show': '定位',
+  'engine.studio.held.needsOptions': '字段「{field}」至少需要一个选项',
+  'engine.studio.held.needsTarget': '字段「{field}」需要指定要关联的对象',
+  'engine.studio.held.needsInput': '步骤「{step}」的「{input}」需要填写',
+  'engine.studio.held.line': '尚未保存：{clause}。更改已保留在此处，补全后会自动保存。',
+  'engine.studio.held.publish': '未发布：{clause}，该更改尚未保存。请先补全，再发布。',
+  'engine.studio.held.inputHint': '必填。填写后才会保存更改。',
   'engine.studio.unpublishedDraft': '未发布草稿',
   'engine.studio.unpublished': '未发布',
   'engine.studio.new': '新建',
@@ -5949,6 +5995,14 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.designer.hint': '拖动字段排序 / 拖到其它分组 · 点选字段改属性',
   'engine.studio.designer.hintReadOnly': '只读软件包 · 点选字段查看属性',
   'engine.studio.designer.addGroup': '添加分组',
+  'engine.studio.formDnd.instructions':
+    '按空格键或回车键拿起字段。拖动时用方向键移动，再按空格键或回车键放到新位置，按 Esc 键取消。',
+  'engine.studio.formDnd.start': '已拿起 {field}，当前在 {group}，第 {position} 个，共 {total} 个。',
+  'engine.studio.formDnd.over': '{field} 正移到 {group}，第 {position} 个，共 {total} 个。',
+  'engine.studio.formDnd.overNone': '{field} 不在任何分组上。',
+  'engine.studio.formDnd.end': '{field} 已移到 {group}，第 {position} 个，共 {total} 个。',
+  'engine.studio.formDnd.endNone': '{field} 没有放到分组里，已回到 {group}，第 {position} 个，共 {total} 个。',
+  'engine.studio.formDnd.cancel': '已取消拖动。{field} 已回到 {group}，第 {position} 个，共 {total} 个。',
   'engine.studio.rules.title': '验证规则',
   'engine.studio.rules.none': '还没有验证规则。',
   'engine.studio.rules.explain': '规则在保存记录时执行:条件为真 ⇒ 拒绝保存并提示消息。',
@@ -6071,7 +6125,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.nav.chooseObject': '— 选择对象 —',
   'engine.studio.nav.boundHint': '这个菜单项会打开该对象的记录列表。',
   'engine.studio.nav.unboundHint': '选择一个对象,菜单项将打开它的记录列表。',
-  'engine.studio.nav.noObjects': '这个软件包还没有对象 — 先到 Data 支柱创建。',
+  'engine.studio.nav.noObjects': '这个软件包还没有对象 — 请先在「数据」中创建一个。',
   // Interfaces pillar
   'engine.studio.if.pickLeft': '从左侧选择一个菜单项',
   'engine.studio.if.internalId': '内部标识',
@@ -6088,8 +6142,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.if.noAppHint': '创建一个应用来设计它的导航与界面。',
   'engine.studio.if.designersMissing': '本次会话没有注册任何元数据设计器,因此无法在这里预览或设计 {type}。',
   'engine.studio.if.noDesigner': '没有为 {type} 注册设计器,因此无法在这里预览或设计。',
-  'engine.studio.if.objectHintPre': '运行态列表预览 · 改字段 / 结构请到 ',
-  'engine.studio.if.objectHintPost': ' 支柱',
+  'engine.studio.if.objectHintPre': '运行态列表预览 · 改字段 / 结构请到「',
+  'engine.studio.if.objectHintPost': '」',
   'engine.studio.inspector.props': '属性',
   'engine.studio.inspector.collapse': '收起属性',
   'engine.studio.inspector.expand': '展开属性',
@@ -6099,6 +6153,16 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.inspector.emptyLine2': '它的属性会在这里直接编辑。',
   'engine.studio.inspector.studioCanvasNoBlocks':
     '此画布渲染的是运行态应用，而不是积木树 —— 这里没有可选中的积木，也没有可在本面板编辑的内容。',
+  'engine.studio.inspector.listView.kind': '列表视图',
+  'engine.studio.inspector.listView.intro': '画布上的就是这个列表。它的列、筛选与排序保存到本包的草稿,并立即显示在画布上。',
+  'engine.studio.inspector.listView.notCreated': '还没有列表视图 {view}。在这里做的第一次修改会在本包的草稿中创建它。',
+  'engine.studio.inspector.listView.readOnly': '本包只读:这里展示列表视图,不能编辑。',
+  'engine.studio.inspector.listView.notList': '{view} 不是列表视图,因此不在这里编辑。',
+  'engine.studio.inspector.listView.filter': '筛选',
+  'engine.studio.inspector.listView.sort': '排序',
+  'engine.studio.inspector.listView.addSort': '+ 添加排序…',
+  'engine.studio.inspector.listView.sortAsc': '{field} 升序',
+  'engine.studio.inspector.listView.sortDesc': '{field} 降序',
   'engine.studio.inspector.designersMissing': '本次会话没有注册任何元数据设计器,这里没有可编辑的内容。',
   'engine.studio.inspector.noPageSchema': '页面设置不可用——无法加载页面 schema。',
   'engine.studio.inspector.sourcePageLine1': '这个页面是 {kind} 源码,不是积木树 ——',
@@ -6147,6 +6211,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.api.copyCurl': '复制为 cURL',
   'engine.studio.api.copied': '已复制',
   'engine.studio.api.body': '示例请求体',
+  'engine.studio.api.bodyOmitted': '必填字段排在最前。未列出的可选字段：{fields}',
   // Hooks view
   'engine.studio.hooks.none': '没有钩子作用于该对象。',
   'engine.studio.hooks.async': '异步',

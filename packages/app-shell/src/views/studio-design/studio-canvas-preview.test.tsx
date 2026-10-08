@@ -25,9 +25,11 @@ import {
   registerStudioCanvasPreview,
   listStudioCanvasPreviewTypes,
   navEntryListTarget,
+  StudioCanvasListViewContext,
   StudioCanvasNavEntryContext,
   StudioObjectRecordsCanvas,
 } from './studio-canvas-preview';
+import type { StudioCanvasListView } from './studio-canvas-preview';
 
 describe('studio-canvas-preview registry', () => {
   it('ships a built-in default for `object` (the records grid)', () => {
@@ -167,5 +169,88 @@ describe('StudioObjectRecordsCanvas — renders the entry it is open on (objectu
     expect(renderedSchema({ navId: 'nav_tasks' })).toEqual({ type: 'object-view', objectName: 'showcase_task' });
     cleanup();
     expect(renderedSchema(null)).toEqual({ type: 'object-view', objectName: 'showcase_task' });
+  });
+});
+
+/**
+ * objectui#11823 — the canvas shows the list view the Properties panel beside
+ * it is editing: the panel's buffer, handed over through
+ * `StudioCanvasListViewContext` (beside the published props, like the entry).
+ */
+describe('StudioObjectRecordsCanvas — shows the list view its panel edits (objectui#11823)', () => {
+  function ObjectViewRecorder({ schema }: { schema: Record<string, unknown> }) {
+    return <pre data-testid="object-view-schema">{JSON.stringify(schema)}</pre>;
+  }
+  const CACHED = { name: 'showcase_task.tabular', label: 'Task List', type: 'grid', columns: [{ field: 'title' }] };
+  const METADATA: MetadataContextValue = {
+    apps: [],
+    objects: [{ name: 'showcase_task', label: 'Task', listViews: { 'showcase_task.tabular': CACHED } }],
+    dashboards: [],
+    reports: [],
+    pages: [],
+    loading: false,
+    error: null,
+    refresh: async () => {},
+    invalidate: () => {},
+    ensureType: async () => [],
+    getItem: async () => null,
+    getItemsByType: () => [],
+  };
+  const EDITED: StudioCanvasListView = {
+    objectName: 'showcase_task',
+    viewId: 'showcase_task.tabular',
+    view: { label: 'Task List', type: 'grid', columns: [{ field: 'status' }], sort: [{ field: 'status', order: 'desc' }] },
+  };
+
+  beforeAll(() => {
+    ComponentRegistry.register('object-view', ObjectViewRecorder as never, { namespace: 'plugin-view' });
+  });
+  afterEach(cleanup);
+
+  function renderedSchema(entry: StudioCanvasNavEntry | null, edited: StudioCanvasListView | null): Record<string, unknown> {
+    render(
+      <MetadataCtx.Provider value={METADATA}>
+        <StudioCanvasNavEntryContext.Provider value={entry}>
+          <StudioCanvasListViewContext.Provider value={edited}>
+            <StudioObjectRecordsCanvas type="object" name="showcase_task" draft={{}} />
+          </StudioCanvasListViewContext.Provider>
+        </StudioCanvasNavEntryContext.Provider>
+      </MetadataCtx.Provider>,
+    );
+    return JSON.parse(screen.getByTestId('object-view-schema').textContent ?? 'null');
+  }
+
+  it('the panel\'s view is the one opened, over the cached copy of the same view', () => {
+    expect(renderedSchema({ navId: 'nav_report_tabular', viewName: 'tabular' }, EDITED)).toEqual({
+      type: 'object-view',
+      objectName: 'showcase_task',
+      listViews: { 'showcase_task.tabular': EDITED.view },
+      defaultListView: 'showcase_task.tabular',
+    });
+  });
+
+  it('a plain entry opens the panel\'s view (the default list view), and a slice still applies over it', () => {
+    const edited = { ...EDITED, viewId: 'showcase_task.default' };
+    expect(renderedSchema({ navId: 'nav_tasks' }, edited)).toEqual({
+      type: 'object-view',
+      objectName: 'showcase_task',
+      listViews: { 'showcase_task.default': EDITED.view },
+      defaultListView: 'showcase_task.default',
+    });
+    cleanup();
+    expect(renderedSchema({ navId: 'nav_slice_urgent', filters: { priority: 'urgent' } }, edited)).toEqual({
+      type: 'object-view',
+      objectName: 'showcase_task',
+      table: { filter: [['priority', '=', 'urgent']] },
+      listViews: { 'showcase_task.default': EDITED.view },
+      defaultListView: 'showcase_task.default',
+    });
+  });
+
+  it('CONTROL: a panel view of another object is not shown', () => {
+    expect(renderedSchema({ navId: 'nav_tasks' }, { ...EDITED, objectName: 'showcase_project' })).toEqual({
+      type: 'object-view',
+      objectName: 'showcase_task',
+    });
   });
 });

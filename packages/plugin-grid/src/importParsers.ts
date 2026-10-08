@@ -191,7 +191,58 @@ const INFER_SAMPLE_LIMIT = 50;
 const isNumberLike = (s: string) => s !== '' && !isNaN(Number(s));
 const isBooleanLike = (s: string) => BOOLEAN_TOKENS.has(s.toLowerCase());
 const hasTimeComponent = (s: string) => /\d{1,2}:\d{2}/.test(s) || /T\d{2}:\d{2}/.test(s);
-const isDateLike = (s: string) => !isNumberLike(s) && !isNaN(Date.parse(s));
+
+// ── Date shapes ──────────────────────────────────────────────────────────
+// `Date.parse` alone is not a date test: V8's legacy parser skips unknown
+// words before the first number and reads any word whose first three letters
+// spell a month, so `Phase 2`, `Room 12`, `Imported QA task 1` and
+// `Marketing 2026` all parse (objectui#11813). A value must first have an
+// explicit date shape; `Date.parse` then only confirms the parts are in range.
+// Shape only: which of day and month comes first in `07/10/2026` stays
+// `Date.parse`'s call.
+
+/** A clock time that may follow a numeric date: `T12:00`, ` 09:30:15.250`, ` 2:30 PM`, with an optional zone. */
+const TIME_SUFFIX = String.raw`(?:(?:T|,?\s+)\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:\s*[ap]m)?(?:\s*(?:z|utc|gmt))?(?:\s*[+-]\d{2}:?\d{2})?)?`;
+
+/**
+ * Numeric dates: year first (`2026-10-07`, `2026/10/07`, ISO-8601 date-times
+ * such as `2026-10-07T12:00:00Z`), or day and month first with a two- or
+ * four-digit year (`10/07/2026`, `7.10.2026`, `10/7/26`). Both separators must
+ * match, so a code like `A-12` or a version like `1.2.3` has no date shape.
+ */
+const NUMERIC_DATE = new RegExp(
+  String.raw`^(?:\d{4}([-/.])\d{1,2}\1\d{1,2}|\d{1,2}([-/.])\d{1,2}\2(?:\d{4}|\d{2}))${TIME_SUFFIX}$`,
+  'i',
+);
+/** ISO-8601 year and month: `2026-10`. */
+const ISO_YEAR_MONTH = /^\d{4}-\d{1,2}$/;
+
+/** English month names and their abbreviations: the only month words `Date.parse` reads by name. */
+const MONTH_WORDS = new Set([
+  'jan', 'january', 'feb', 'february', 'mar', 'march', 'apr', 'april', 'may', 'jun', 'june',
+  'jul', 'july', 'aug', 'august', 'sep', 'sept', 'september', 'oct', 'october', 'nov', 'november',
+  'dec', 'december',
+]);
+/** Every other word a month-name date may carry: weekdays, meridiem and zone markers. */
+const CALENDAR_WORDS = new Set([
+  ...MONTH_WORDS,
+  'mon', 'monday', 'tue', 'tues', 'tuesday', 'wed', 'wednesday', 'thu', 'thur', 'thurs', 'thursday',
+  'fri', 'friday', 'sat', 'saturday', 'sun', 'sunday', 'am', 'pm', 'utc', 'gmt', 'z',
+]);
+
+/**
+ * Month-name dates (`Oct 7, 2026`, `7 October 2026`, `7-Oct-2026`,
+ * `Wed, 07 Oct 2026 12:00:00 GMT`): a digit, a month name, and no word that is
+ * not a calendar word — so `Room 101, Oct` and `Marketing 2026` are text.
+ */
+function isMonthNameDate(s: string): boolean {
+  if (!/\d/.test(s)) return false;
+  const words = s.toLowerCase().match(/\p{L}+/gu) ?? [];
+  return words.some((w) => MONTH_WORDS.has(w)) && words.every((w) => CALENDAR_WORDS.has(w));
+}
+
+const hasDateShape = (s: string) => NUMERIC_DATE.test(s) || ISO_YEAR_MONTH.test(s) || isMonthNameDate(s);
+const isDateLike = (s: string) => !isNumberLike(s) && hasDateShape(s) && !isNaN(Date.parse(s));
 
 /**
  * Infer a column's semantic type from a sample of its values. Empty cells are

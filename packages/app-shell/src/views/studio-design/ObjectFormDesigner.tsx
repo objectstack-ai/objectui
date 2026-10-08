@@ -56,6 +56,7 @@ import {
 import { useSafeFieldLabel } from '@object-ui/i18n';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
 import { isStudioHiddenSystemField } from './studioHiddenSystemField.js';
+import { formDndAccessibility, type FormDndLookups, type FormDndSlot } from './formDndAnnouncements.js';
 
 const UNGROUPED = '__ungrouped__';
 
@@ -74,6 +75,46 @@ const cid = (key: string) => `g:${key}`; // container (section) droppable id
 const fid = (name: string) => `f:${name}`; // sortable field id
 const unCid = (id: string) => id.slice(2);
 const unFid = (id: string) => id.slice(2);
+
+/** A field's place in a container map: the container id, a 0-based index and the container's size. */
+interface LayoutPlace {
+  container: string;
+  index: number;
+  total: number;
+}
+
+/** Where a field sits in a container map, or `null` when no container holds it. */
+function placeIn(layout: Record<string, string[]>, id: string): LayoutPlace | null {
+  const container = Object.keys(layout).find((k) => layout[k].includes(id));
+  return container ? { container, index: layout[container].indexOf(id), total: layout[container].length } : null;
+}
+
+/**
+ * Where a drop of `activeId` on `overId` lands, read off the same container
+ * map `onDragEnd` reads and with the same arithmetic, so the place the live
+ * region announces is the place the drop commits (objectui#11802). `null`
+ * where `onDragEnd` returns without moving anything. The handler is the rule;
+ * this restates it for the announcements, and the pins in
+ * `ObjectFormDesigner.dndAnnouncements-11802.test.tsx` compare the two on
+ * every drop they make.
+ */
+function dropPlaceIn(layout: Record<string, string[]>, activeId: string, overId: string): LayoutPlace | null {
+  const inContainer = (id: string): string | undefined =>
+    id.startsWith('g:') && id in layout ? id : Object.keys(layout).find((k) => layout[k].includes(id));
+  const from = inContainer(activeId);
+  const to = inContainer(overId);
+  if (!from || !to) return null;
+  if (from === to) {
+    const list = layout[from];
+    const oldIndex = list.indexOf(activeId);
+    const newIndex = overId.startsWith('g:') ? list.length - 1 : list.indexOf(overId);
+    // `onDragEnd` keeps the field where it is when either index is missing.
+    return { container: from, index: newIndex < 0 ? oldIndex : newIndex, total: list.length };
+  }
+  const toItems = layout[to];
+  const overIndex = overId.startsWith('g:') ? toItems.length : toItems.indexOf(overId);
+  return { container: to, index: overIndex < 0 ? toItems.length : overIndex, total: toItems.length + 1 };
+}
 
 export interface ObjectFormDesignerProps {
   /** Object metadata draft (reads `fields` + `fieldGroups`). */
@@ -453,6 +494,33 @@ export function ObjectFormDesigner({
     itemsRef.current = items;
   }, [items]);
 
+  // What the drag live region speaks (objectui#11802): the labels the cards and
+  // section headers render, never the `f:` / `g:` ids, and places read off the
+  // container map `onDragEnd` reads (`itemsRef` holds this render's `items`).
+  // dnd-kit subscribes the newest object each time a render commits, so a
+  // sentence always reads the committed layout and labels. A rebuild, here or
+  // on React's own account, changes no sentence.
+  const dndAccessibility = React.useMemo(() => {
+    const slot = (place: LayoutPlace | null): FormDndSlot | null =>
+      place && {
+        container: place.container,
+        group: labelOf.get(place.container) ?? t('engine.studio.designer.ungrouped', locale),
+        position: place.index + 1,
+        total: place.total,
+      };
+    const lookups: FormDndLookups = {
+      fieldLabel: (id) => {
+        const entry = entryByName.get(unFid(id));
+        // A drag starts only on a rendered card, which has an entry.
+        return entry ? fieldLabelOf(entry) : unFid(id);
+      },
+      slotOf: (id) => slot(placeIn(items, id)),
+      dropSlot: (id, overId) => slot(dropPlaceIn(items, id, overId)),
+      committedSlotOf: (id) => slot(placeIn(derived, id)),
+    };
+    return formDndAccessibility(locale, lookups);
+  }, [locale, items, derived, labelOf, entryByName, fieldLabelOf]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -590,6 +658,7 @@ export function ObjectFormDesigner({
       <DndContext
         sensors={readOnly ? [] : sensors}
         collisionDetection={pointerWithin}
+        accessibility={dndAccessibility}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}

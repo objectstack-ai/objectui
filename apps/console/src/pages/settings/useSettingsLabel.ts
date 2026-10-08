@@ -76,6 +76,17 @@ export function useSettingsLabel(namespace: string): SettingsLabelHelpers {
         const namespaces = discoverNamespaces();
         for (const ns of namespaces) {
           const key = `${ns}.settings.${namespace}.${suffix}`;
+          // objectui#11801 — a probe is a CONVENTION lookup, so a miss is the
+          // design working (the manifest literal renders), not a missing
+          // string. Ask i18next whether the key exists first: `exists()`
+          // never reaches the dev missing-key handler, while a `t()` miss
+          // logs one "Missing translation" warning per key. Discovery admits
+          // built-in groups whose `settings` member is a menu label
+          // (`workspace`, `sidebar`, `user`) or another page's strings
+          // (`organization`), and the server translates `label`/`help` but
+          // not every option, so most probes here miss on purpose.
+          // `useObjectLabel` excludes its own convention probes the same way.
+          if (!i18n.exists(key)) continue;
           const translated = t(key, { defaultValue: '' });
           if (translated && translated !== key && translated !== '') {
             return translated;

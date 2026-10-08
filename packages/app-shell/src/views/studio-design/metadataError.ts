@@ -25,10 +25,17 @@ import {
   type MetadataError,
   type MetadataValidationIssue,
 } from '@object-ui/data-objectstack';
+import { resolveFlowTriggerKind } from '@objectstack/spec/automation';
 import type { NavTargetLabelResolver } from '@object-ui/layout';
 import type { MetadataSelection } from '../metadata-admin/preview-registry.js';
 import { t, tFormat, translateValidationMessage } from '../metadata-admin/i18n.js';
-import { fieldsForNodeType, localizeFlowFields } from '../metadata-admin/inspectors/flow-node-config.js';
+import {
+  fieldsForNodeType,
+  getFieldValue,
+  isFieldVisible,
+  localizeFlowFields,
+} from '../metadata-admin/inspectors/flow-node-config.js';
+import { specRequiresField } from '../metadata-admin/inspectors/flow-required-keys.js';
 import { navEntryLabelText, type NavEntryLike } from '../metadata-admin/previews/navItemLabel.js';
 
 /** A single failed draft from a publish response's `data.failed[]`. */
@@ -355,4 +362,112 @@ export function navEntryLocator(opts: {
       selection: { kind: 'nav', id: `navigation[${index}]` },
     };
   };
+}
+
+// ---------------------------------------------------------------------------
+// objectui#11786 — an edit held, not refused.
+//
+// The ordinary path through Studio passes through incomplete shapes: a field
+// switched to a choice type before its options exist, or to a relationship
+// before its target is picked, and a flow step added before its required inputs
+// are filled. Sent, each is refused: the object write guard throws before any
+// request, and the flow parse answers 422. Studio's autosave therefore HOLDS
+// such a body: the edit stays on screen, dirty and unsent, the pillar shows a
+// neutral line naming what it still needs, and Publish refuses while it is held.
+//
+// Each predicate asks the judge that would refuse the body, ⛔ never a list kept
+// here: the object write guard itself, on the body that would be sent; and, per
+// flow step, `specRequiresField` (the spec's own flow judges) over the inputs
+// the step's inspector shows. A body neither predicate holds is sent, and any
+// refusal it draws is shown as before ({@link StudioRefusal}): errors are for
+// what the author finished.
+// ---------------------------------------------------------------------------
+
+/** An edit a pillar holds unsent because its body is incomplete (objectui#11786). */
+export interface StudioHeld {
+  /**
+   * What the edit still needs, as a clause the held line and the Publish
+   * refusal both build on, e.g. `the field “Status” needs at least one option`.
+   */
+  clause: string;
+  /** The selection that opens the input the edit needs. */
+  target: MetadataSelection;
+}
+
+/** What the write guard asks of a field it refuses: its options, its target, or nothing it names. */
+function guardNeedOf(def: SentBody): 'options' | 'target' | null {
+  const type = String(def.type);
+  if (CHOICE_TYPES_REQUIRING_OPTIONS.includes(type)) return 'options';
+  if (RELATIONSHIP_TYPES_REQUIRING_REFERENCE.includes(type)) return 'target';
+  return null;
+}
+
+/**
+ * The edit the Data pillar holds for `body`, the object document its autosave
+ * would send, or `null` when the write guard lets it through.
+ *
+ * The field is the first one the guard refuses on its own, in the guard's own
+ * order, as {@link guardRefusalOf} finds it. A field the editor cannot select
+ * (an array entry with no name) or a refusal naming neither options nor target
+ * is not held: the save is sent, and its refusal shows as it always did.
+ */
+export function objectHeldEdit(body: SentBody, locale: string): StudioHeld | null {
+  if (guardMessageFor(body) === null) return null;
+  for (const { name, def, named } of guardFieldEntries(body.fields)) {
+    if (guardMessageFor({ fields: { [name]: def } }) === null) continue;
+    const need = guardNeedOf(def);
+    if (!named || !need) return null;
+    return {
+      clause: tFormat(
+        need === 'options' ? 'engine.studio.held.needsOptions' : 'engine.studio.held.needsTarget',
+        locale,
+        { field: fieldLabelOf(name, def) },
+      ),
+      target: { kind: 'field', id: name },
+    };
+  }
+  return null;
+}
+
+/**
+ * The first input of `node`'s inspector table that holds no value while the
+ * installed spec refuses the node without it, or `null`.
+ *
+ * "No value" is the key's absence (its `fallbackPath` read too): that is the
+ * state the spec's judges refuse, and what `specRequiresField` asks about. An
+ * input it shows only in another configuration is not asked, so a step is held
+ * only for an input its inspector offers to fill.
+ */
+function heldInputOf(node: SentBody, flowKind: ReturnType<typeof resolveFlowTriggerKind>) {
+  if (typeof node.type !== 'string') return null;
+  const fields = fieldsForNodeType(node.type);
+  for (const field of fields) {
+    if (getFieldValue(node, field) !== undefined) continue;
+    if (!isFieldVisible(field, node, fields, flowKind)) continue;
+    if (specRequiresField(node, field)) return field;
+  }
+  return null;
+}
+
+/**
+ * The edit the Automations pillar holds for `draft`, the flow its autosave
+ * would send, or `null`: the first top-level step one of whose inspector inputs
+ * the spec requires and the step leaves out. A step inside a container region
+ * is not asked; its refusal shows as the server words it.
+ */
+export function flowHeldEdit(draft: SentBody, locale: string): StudioHeld | null {
+  if (!Array.isArray(draft.nodes)) return null;
+  const flowKind = resolveFlowTriggerKind(draft);
+  for (const node of draft.nodes) {
+    if (!isSentBody(node) || typeof node.id !== 'string' || node.id === '') continue;
+    const field = heldInputOf(node, flowKind);
+    if (!field) continue;
+    const step = typeof node.label === 'string' && node.label.trim() !== '' ? node.label.trim() : node.id;
+    const input = flowInputLabel(node.type, field.path, locale) ?? field.label;
+    return {
+      clause: tFormat('engine.studio.held.needsInput', locale, { input, step }),
+      target: { kind: 'node', id: node.id },
+    };
+  }
+  return null;
 }

@@ -42,7 +42,13 @@ import {
 } from '@objectstack/spec/data';
 import { ValueDomainSchema } from '@objectstack/spec/shared';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
-import { MetadataClient } from '@object-ui/data-objectstack';
+import {
+  assertObjectMetadataWritable,
+  CHOICE_TYPES_REQUIRING_OPTIONS,
+  MetadataClient,
+  OBJECT_METADATA_TYPE,
+  RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+} from '@object-ui/data-objectstack';
 import { useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
 import { useMetadataClient } from '../useMetadata.js';
 import {
@@ -286,6 +292,35 @@ function takesPicklist(type: string): boolean {
 
 function isLookup(type: string): boolean {
   return type === 'lookup' || type === 'master_detail' || type === 'tree';
+}
+
+/**
+ * objectui#11786 — what the object write guard holds this field for: its
+ * options (a choice type with no option source) or its target (a relationship
+ * with no usable `reference`), else nothing. Asked of the guard itself, on the
+ * field alone, so the hint under the input names exactly what keeps the save
+ * from going: Studio's autosave holds the edit on the same verdict, and the
+ * other hosts' doors refuse on it.
+ */
+function guardHeldNeed(name: string, def: Record<string, unknown>): 'options' | 'target' | null {
+  try {
+    assertObjectMetadataWritable(OBJECT_METADATA_TYPE, { fields: { [name]: def } }, 'ObjectFieldInspector');
+    return null;
+  } catch {
+    const type = String(def.type);
+    if (CHOICE_TYPES_REQUIRING_OPTIONS.includes(type)) return 'options';
+    if (RELATIONSHIP_TYPES_REQUIRING_REFERENCE.includes(type)) return 'target';
+    return null;
+  }
+}
+
+/** objectui#11786 — the inline hint under the input that holds the save. */
+function HeldHint({ children }: { children: React.ReactNode }) {
+  return (
+    <p data-testid="field-held-hint" className="text-[11px] leading-snug text-muted-foreground">
+      {children}
+    </p>
+  );
 }
 
 function isComputed(type: string): boolean {
@@ -880,6 +915,8 @@ export function ObjectFieldInspector({
   );
 
   const typeMetaLabel = typeMeta ? t(`engine.fieldType.${typeMeta.id}`, locale) : undefined;
+  // objectui#11786 — read off the field as it stands, for the hints below.
+  const heldNeed = readOnly ? null : guardHeldNeed(entry.name, def);
 
   return (
     <InspectorShell
@@ -1010,6 +1047,7 @@ export function ObjectFieldInspector({
               locale={locale}
             />
           )}
+          {heldNeed === 'options' && <HeldHint>{tr('designer.field.hint.addOption')}</HeldHint>}
           {isLookup(type) && (
             <>
               <ObjectPicker
@@ -1020,6 +1058,7 @@ export function ObjectFieldInspector({
                 placeholder={tr('designer.field.objectNamePlaceholder')}
                 locale={locale}
               />
+              {heldNeed === 'target' && <HeldHint>{tr('designer.field.hint.pickTarget')}</HeldHint>}
               <InspectorTextField
                 label={tr('designer.field.relationshipName')}
                 value={typeof def.relationshipName === 'string' ? (def.relationshipName as string) : ''}

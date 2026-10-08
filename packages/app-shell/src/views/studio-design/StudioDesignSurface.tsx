@@ -60,6 +60,9 @@ import {
   Table2,
   Folder,
   Compass,
+  Link as LinkIcon,
+  Puzzle,
+  BookOpen,
   Workflow,
   SlidersHorizontal,
   MousePointer2,
@@ -145,6 +148,15 @@ import {
   type NavEntryLike,
 } from '../metadata-admin/previews/navItemLabel.js';
 import { useNavTargetLabel } from '../../hooks/useNavTargetLabel.js';
+import { listAppComponents } from '../../services/componentRegistry.js';
+import {
+  NAV_ENTRY_TYPES,
+  isNavEntryType,
+  isStaticPageOption,
+  navTypeAcceptsChildren,
+  retypedNavEntry,
+} from '../metadata-admin/inspectors/nav-target.js';
+import type { NavigationItemType } from '@object-ui/types';
 import {
   readFields,
   writeFields,
@@ -401,6 +413,12 @@ const KIND_ICON: Record<string, LucideIcon> = {
   report: BarChart3,
   view: Table2,
   action: MousePointer2,
+  // objectui#11790 — the types the nav editor can now add. A url / component /
+  // doc row opens no design surface (`resolveSurface`), so it renders disabled,
+  // under its own glyph rather than the generic compass.
+  url: LinkIcon,
+  component: Puzzle,
+  doc: BookOpen,
 };
 const navIcon = (type?: string): LucideIcon => KIND_ICON[type ?? ''] ?? Compass;
 
@@ -1761,8 +1779,9 @@ function NavTree({
 /**
  * StudioNavItemInspector — right-panel editor for the selected nav item while
  * editing an app's navigation. The Studio adds flat top-level items
- * (`navigation[i]`), so binding is a business-friendly object picker rather
- * than the raw path field of the generic AppNavInspector: picking an object
+ * (`navigation[i]`), so binding is a business-friendly picker per type (below,
+ * objectui#11790) rather than the raw path field of the generic
+ * AppNavInspector. For an `object` entry, picking an object
  * writes `{ type: 'object', objectName }` (which the runtime resolves to that
  * object's record list) and leaves the label as it is (objectui#11196, the
  * shape `AppNavInspector`'s picker has). A label-less entry stays label-less,
@@ -1794,6 +1813,23 @@ function NavTree({
  * inheriting. `title` / `name` are not nav-item keys and are not read as the
  * label.
  *
+ * Every type the spec declares (objectui#11790). The nav editor's *Add nav
+ * item* births an `object` entry and selects it; this inspector's Type choice
+ * then offers exactly the members of the spec's `NavigationItemSchema`
+ * (`NAV_ENTRY_TYPES`, keyed by the spec-derived `NavigationItemType`). A change
+ * of type keeps what describes the entry and drops what it opened
+ * (`retypedNavEntry`), so every write is a shape the spec's strict member for
+ * that type takes. Each target-bearing type then picks its target from what the
+ * package already has — its pages, dashboards, reports, actions, docs and
+ * books, published and draft alike, as the object picker reads the pillar's
+ * objects — or, for a `component`, from the screens registered with this
+ * console; a `url` is typed. A `group` made here is born with no children
+ * (this editor edits top-level entries only, so nothing is nested under it
+ * from here), and a `separator` carries no label. An entry holding children
+ * changes only to a type that keeps them. An
+ * entry whose target is not picked yet, or is cleared, stays in the editor and
+ * is left out of what a save sends (`navPayloadOf`, objectui#11776).
+ *
  * Exported for tests (`StudioDesignSurface.navItemInspector.test.tsx`) — the
  * object picker's canonical-key binding is pinned there directly rather than
  * by driving the whole pillar. Not re-exported from the package index.
@@ -1802,18 +1838,22 @@ export function StudioNavItemInspector({
   navId,
   appDraft,
   objects,
+  packageId,
   onNavPatch,
   onClear,
 }: {
   navId: string;
   appDraft: Record<string, unknown>;
   objects: Array<{ name: string; label: string }>;
+  /** The package whose items the non-object pickers offer (objectui#11790). */
+  packageId: string;
   onNavPatch: (patch: Record<string, unknown>) => void;
   onClear: () => void;
 }): React.ReactElement {
   const locale = useMetadataLocale();
   // The console's own resolver for what a label-less entry inherits.
   const targetLabel = useNavTargetLabel();
+  const typeGroupName = React.useId();
   const idx = React.useMemo(() => {
     const m = /^navigation\[(\d+)\]$/.exec(navId);
     return m ? Number(m[1]) : -1;
@@ -1823,6 +1863,12 @@ export function StudioNavItemInspector({
     [appDraft],
   );
   const node = idx >= 0 ? nav[idx] : null;
+  // A type the spec declares, else `null`: an untyped entry (what an object
+  // unbind leaves) or a spelling no member declares.
+  const kind: NavigationItemType | null = node && isNavEntryType(node.type) ? node.type : null;
+  // Hooks run before the not-found return below; `undefined` fetches nothing.
+  const targets = usePackageNavTargets(packageId, kind ? NAV_TARGET_METADATA[kind] : undefined);
+  const books = usePackageNavTargets(packageId, kind === 'doc' ? 'book' : undefined);
   if (!node) {
     return (
       <div className="px-2 py-10 text-center text-xs text-muted-foreground">{t('engine.studio.nav.selectItem', locale)}</div>
@@ -1831,6 +1877,29 @@ export function StudioNavItemInspector({
   const patch = (updates: Record<string, unknown>) => {
     onNavPatch({ navigation: nav.map((n, i) => (i === idx ? { ...n, ...updates } : n)) });
   };
+  /** Replace the entry whole: a write that must leave no key behind. */
+  const replace = (next: Record<string, unknown>) => {
+    onNavPatch({ navigation: nav.map((n, i) => (i === idx ? next : n)) });
+  };
+  /**
+   * Set the entry's target `key`, or remove it when `value` is empty. ⛔ Never
+   * written as `''`: a key holding a string is a target the save sends
+   * (`navPayloadOf`), and an emptied picker means the entry is unbound again.
+   */
+  const setTarget = (key: string, value: string) => {
+    const next = { ...node };
+    if (value) next[key] = value;
+    else delete next[key];
+    replace(next);
+  };
+  /** An `action` entry's target is the action it runs: `actionDef.actionName`. */
+  const setAction = (actionName: string) => {
+    const next = { ...node };
+    if (actionName) next.actionDef = { actionName };
+    else delete next.actionDef;
+    replace(next);
+  };
+  const hasChildren = Array.isArray(node.children) && node.children.length > 0;
   // Canonical key FIRST (objectui#4881). `object` is a spelling `AppSchema`
   // rejects with `unrecognized_keys`, so it can only ever appear on a draft
   // that cannot be saved; when a draft carries both, the picker must show the
@@ -1876,48 +1945,167 @@ export function StudioNavItemInspector({
       path: undefined,
     });
   };
+  const optionsOf = (rows: ReadonlyArray<NavTargetRow>) =>
+    rows.map((row) => {
+      const text = navItemLabelText(row.label, locale).trim();
+      return { value: row.name, label: text && text !== row.name ? `${text} (${row.name})` : row.name };
+    });
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+  const actionDef = node.actionDef as { actionName?: unknown } | undefined;
+  // Whether the entry names a target for its type yet (a group and a
+  // separator name none, and are never unbound).
+  const unbound =
+    (kind === 'page' && !str(node.pageName)) ||
+    (kind === 'dashboard' && !str(node.dashboardName)) ||
+    (kind === 'report' && !str(node.reportName)) ||
+    (kind === 'url' && !str(node.url)) ||
+    (kind === 'component' && !str(node.componentRef)) ||
+    (kind === 'action' && !str(actionDef?.actionName)) ||
+    (kind === 'doc' && !str(node.doc) && !str(node.book));
+  const labelField = (
+    <div>
+      <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.label', locale)}</label>
+      <input
+        value={navItemLabelText(label, locale)}
+        onChange={(e) => editLabel(e.target.value)}
+        placeholder={inheritedNavEntryText(node as NavEntryLike, targetLabel)}
+        className="w-full rounded border bg-background px-2 py-1 text-xs"
+      />
+    </div>
+  );
   return (
     <div className="space-y-3">
-      <div>
-        <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.label', locale)}</label>
-        <input
-          value={navItemLabelText(label, locale)}
-          onChange={(e) => editLabel(e.target.value)}
-          placeholder={inheritedNavEntryText(node as NavEntryLike, targetLabel)}
-          className="w-full rounded border bg-background px-2 py-1 text-xs"
-        />
-      </div>
-      <div>
-        <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.linkObject', locale)}</label>
-        <select
-          value={boundObject}
-          onChange={(e) => {
-            const objName = e.target.value;
-            if (!objName) {
-              // Unbind → back to an (invalid, dropped-on-save) placeholder.
-              patch({ type: undefined, objectName: undefined, object: undefined });
-              return;
-            }
-            bindObject(objName);
-          }}
-          className="w-full rounded border bg-background px-2 py-1 text-xs"
-        >
-          <option value="">{t('engine.studio.nav.chooseObject', locale)}</option>
-          {objects.map((o) => (
-            <option key={o.name} value={o.name}>
-              {o.label} ({o.name})
-            </option>
-          ))}
-        </select>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          {boundObject ? t('engine.studio.nav.boundHint', locale) : t('engine.studio.nav.unboundHint', locale)}
-        </p>
-        {objects.length === 0 && (
-          <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
-            {t('engine.studio.nav.noObjects', locale)}
+      <fieldset>
+        <legend className="mb-1 block text-[11px] font-medium text-muted-foreground">
+          {t('engine.inspector.appNav.typeField', locale)}
+        </legend>
+        <div className="flex flex-wrap gap-1">
+          {NAV_ENTRY_TYPES.map((type) => {
+            // An entry holding children changes only to a type that keeps them.
+            const disabled = hasChildren && !navTypeAcceptsChildren(type);
+            return (
+              <label key={type} className={cn('relative', disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer')}>
+                <input
+                  type="radio"
+                  name={typeGroupName}
+                  value={type}
+                  checked={kind === type}
+                  disabled={disabled}
+                  onChange={() => replace(retypedNavEntry(node, type))}
+                  className="peer sr-only"
+                />
+                <span className="inline-flex rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-foreground peer-focus-visible:ring-1 peer-focus-visible:ring-ring">
+                  {t(`engine.inspector.appNav.type.${type}`, locale)}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+      {(kind === 'object' || kind === null) && (
+        <div>
+          <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.linkObject', locale)}</label>
+          <select
+            value={boundObject}
+            onChange={(e) => {
+              const objName = e.target.value;
+              if (!objName) {
+                // Unbind → back to an (invalid, dropped-on-save) placeholder.
+                patch({ type: undefined, objectName: undefined, object: undefined });
+                return;
+              }
+              bindObject(objName);
+            }}
+            className="w-full rounded border bg-background px-2 py-1 text-xs"
+          >
+            <option value="">{t('engine.studio.nav.chooseObject', locale)}</option>
+            {objects.map((o) => (
+              <option key={o.name} value={o.name}>
+                {o.label} ({o.name})
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {boundObject ? t('engine.studio.nav.boundHint', locale) : t('engine.studio.nav.unboundHint', locale)}
           </p>
-        )}
-      </div>
+          {objects.length === 0 && (
+            <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+              {t('engine.studio.nav.noObjects', locale)}
+            </p>
+          )}
+        </div>
+      )}
+      {(kind === 'page' || kind === 'dashboard' || kind === 'report') && (
+        <NavTargetSelect
+          label={t(`engine.inspector.appNav.type.${kind}`, locale)}
+          value={str(node[NAV_TARGET_KEY[kind]])}
+          options={optionsOf(targets.rows)}
+          loading={targets.loading}
+          onPick={(v) => setTarget(NAV_TARGET_KEY[kind], v)}
+          locale={locale}
+        />
+      )}
+      {kind === 'action' && (
+        <NavTargetSelect
+          label={t('engine.inspector.appNav.type.action', locale)}
+          value={str(actionDef?.actionName)}
+          options={optionsOf(targets.rows)}
+          loading={targets.loading}
+          onPick={setAction}
+          hint={t('engine.inspector.appNav.actionHint', locale)}
+          locale={locale}
+        />
+      )}
+      {kind === 'component' && (
+        <NavTargetSelect
+          label={t('engine.inspector.appNav.type.component', locale)}
+          value={str(node.componentRef)}
+          options={listAppComponents().map((c) => ({
+            value: c.ref,
+            label: c.label && c.label !== c.ref ? `${c.label} (${c.ref})` : c.ref,
+          }))}
+          loading={false}
+          onPick={(v) => setTarget('componentRef', v)}
+          locale={locale}
+        />
+      )}
+      {kind === 'doc' && (
+        <>
+          <NavTargetSelect
+            label={t('engine.inspector.appNav.docPage', locale)}
+            value={str(node.doc)}
+            options={optionsOf(targets.rows)}
+            loading={targets.loading}
+            onPick={(v) => setTarget('doc', v)}
+            locale={locale}
+          />
+          <NavTargetSelect
+            label={t('engine.inspector.appNav.book', locale)}
+            value={str(node.book)}
+            options={optionsOf(books.rows)}
+            loading={books.loading}
+            onPick={(v) => setTarget('book', v)}
+            hint={t('engine.inspector.appNav.docHint', locale)}
+            locale={locale}
+          />
+        </>
+      )}
+      {kind === 'url' && (
+        <NavUrlFields
+          url={str(node.url)}
+          target={str(node.target) || '_self'}
+          onUrl={(v) => setTarget('url', v)}
+          onTarget={(v) => setTarget('target', v)}
+          locale={locale}
+        />
+      )}
+      {unbound && <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.unboundHint', locale)}</p>}
+      {kind === 'group' && <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.groupHint', locale)}</p>}
+      {kind === 'separator' ? (
+        <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.separatorHint', locale)}</p>
+      ) : (
+        labelField
+      )}
       <button
         type="button"
         onClick={onClear}
@@ -1925,6 +2113,191 @@ export function StudioNavItemInspector({
       >
         {t('engine.studio.deselect', locale)}
       </button>
+    </div>
+  );
+}
+
+/** A nav target the package holds: its machine name and, when published, its label. */
+interface NavTargetRow {
+  name: string;
+  label?: I18nLabel;
+}
+
+/**
+ * The metadata type each target-bearing nav type picks its target from
+ * (objectui#11790). `object` reads the pillar's own object list, `component`
+ * the component registry, and a `url` is typed; a `doc` entry also picks a
+ * `book`.
+ */
+const NAV_TARGET_METADATA: Partial<Record<NavigationItemType, string>> = {
+  page: 'page',
+  dashboard: 'dashboard',
+  report: 'report',
+  action: 'action',
+  doc: 'doc',
+};
+
+/** The key a `page` / `dashboard` / `report` entry names its target with — the spec member's own key. */
+const NAV_TARGET_KEY = {
+  page: 'pageName',
+  dashboard: 'dashboardName',
+  report: 'reportName',
+} as const;
+
+/**
+ * Whether a listed row can be a nav target. A record page needs a record id a
+ * `page` entry cannot pass (`isStaticPageOption`), and an action bound to an
+ * object is not addressable from the nav, which runs GLOBAL actions only
+ * (`useNavActionDispatch`). Only a CONFIRMED one is left out: a draft header
+ * carries no body, so a draft-only row is kept, as `isStaticPageOption` keeps
+ * a row with no `type`.
+ */
+function isNavTargetRow(metaType: string, row: Record<string, unknown>): boolean {
+  if (metaType === 'page') return isStaticPageOption(row as { type?: string });
+  if (metaType === 'action') return !row.objectName;
+  return true;
+}
+
+/**
+ * The package's items of `metaType`, published ∪ draft by name (the published
+ * row wins, for its label), as the pillar's object list is read
+ * (objectui#11790). `undefined` reads nothing. A failed read leaves the
+ * picker empty, as the object picker's does.
+ */
+function usePackageNavTargets(
+  packageId: string,
+  metaType: string | undefined,
+): { rows: ReadonlyArray<NavTargetRow>; loading: boolean } {
+  const client = useMetadataClient();
+  const key = metaType ? `${metaType}:${packageId}` : '';
+  const [state, setState] = React.useState<{ key: string; rows: NavTargetRow[] } | null>(null);
+  React.useEffect(() => {
+    if (!metaType) return;
+    let cancelled = false;
+    (async () => {
+      const byName = new Map<string, NavTargetRow>();
+      try {
+        const [published, drafts] = await Promise.all([
+          client.list(metaType, { packageId }) as Promise<Array<Record<string, unknown>> | null | undefined>,
+          client.listDrafts({ packageId, type: metaType }).catch(() => [] as Array<{ name?: string | null }>),
+        ]);
+        for (const row of published ?? []) {
+          const name = typeof row?.name === 'string' ? row.name : '';
+          if (!name || byName.has(name) || !isNavTargetRow(metaType, row)) continue;
+          byName.set(name, { name, label: row.label as I18nLabel | undefined });
+        }
+        for (const draft of drafts ?? []) {
+          const name = typeof draft?.name === 'string' ? draft.name : '';
+          if (name && !byName.has(name)) byName.set(name, { name });
+        }
+      } catch {
+        /* non-fatal — the picker just stays empty */
+      }
+      if (!cancelled) setState({ key, rows: [...byName.values()] });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client, packageId, metaType, key]);
+  if (!metaType) return { rows: [], loading: false };
+  return state?.key === key ? { rows: state.rows, loading: false } : { rows: [], loading: true };
+}
+
+/**
+ * One nav target picker: the package's items of one type, plus the entry's own
+ * target when the list does not hold it (a target another package owns, or a
+ * list still loading), so a bound entry never reads as unbound.
+ */
+function NavTargetSelect({
+  label,
+  value,
+  options,
+  loading,
+  onPick,
+  hint,
+  locale,
+}: {
+  label: string;
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  loading: boolean;
+  onPick: (value: string) => void;
+  hint?: string;
+  locale: string;
+}): React.ReactElement {
+  const id = React.useId();
+  const shown = value && !options.some((o) => o.value === value) ? [{ value, label: value }, ...options] : options;
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1 block text-[11px] font-medium text-muted-foreground">
+        {label}
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onPick(e.target.value)}
+        className="w-full rounded border bg-background px-2 py-1 text-xs"
+      >
+        <option value="">{t('engine.inspector.appNav.choose', locale)}</option>
+        {shown.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
+      {!loading && options.length === 0 && (
+        <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">{t('engine.inspector.appNav.noTargets', locale)}</p>
+      )}
+    </div>
+  );
+}
+
+/** A `url` entry's address, typed, and the window it opens in. */
+function NavUrlFields({
+  url,
+  target,
+  onUrl,
+  onTarget,
+  locale,
+}: {
+  url: string;
+  target: string;
+  onUrl: (value: string) => void;
+  onTarget: (value: string) => void;
+  locale: string;
+}): React.ReactElement {
+  const urlId = React.useId();
+  const targetId = React.useId();
+  return (
+    <div className="space-y-2">
+      <div>
+        <label htmlFor={urlId} className="mb-1 block text-[11px] font-medium text-muted-foreground">
+          {t('engine.inspector.appNav.url', locale)}
+        </label>
+        <input
+          id={urlId}
+          type="url"
+          value={url}
+          onChange={(e) => onUrl(e.target.value)}
+          placeholder="https://"
+          className="w-full rounded border bg-background px-2 py-1 font-mono text-xs"
+        />
+      </div>
+      <div>
+        <label htmlFor={targetId} className="mb-1 block text-[11px] font-medium text-muted-foreground">
+          {t('engine.inspector.appNav.urlTarget', locale)}
+        </label>
+        <select
+          id={targetId}
+          value={target}
+          onChange={(e) => onTarget(e.target.value)}
+          className="w-full rounded border bg-background px-2 py-1 text-xs"
+        >
+          <option value="_self">{t('engine.inspector.appNav.urlTargetSelf', locale)}</option>
+          <option value="_blank">{t('engine.inspector.appNav.urlTargetBlank', locale)}</option>
+        </select>
+      </div>
     </div>
   );
 }
@@ -2912,6 +3285,7 @@ export function InterfacesPillar({
           navId={navSel.id}
           appDraft={appDraft}
           objects={pkgObjects}
+          packageId={packageId}
           onNavPatch={onNavPatch}
           onClear={() => setNavSel(null)}
         />

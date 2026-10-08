@@ -3148,6 +3148,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.api.copyCurl': 'Copy as cURL',
   'engine.studio.api.copied': 'Copied',
   'engine.studio.api.body': 'Example body',
+  'engine.studio.api.bodyOmitted': 'Required fields come first. Optional fields not shown: {fields}',
   // Hooks view
   'engine.studio.hooks.none': 'No hooks target this object.',
   'engine.studio.hooks.async': 'async',
@@ -6098,6 +6099,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.api.copyCurl': '复制为 cURL',
   'engine.studio.api.copied': '已复制',
   'engine.studio.api.body': '示例请求体',
+  'engine.studio.api.bodyOmitted': '必填字段排在最前。未列出的可选字段：{fields}',
   // Hooks view
   'engine.studio.hooks.none': '没有钩子作用于该对象。',
   'engine.studio.hooks.async': '异步',

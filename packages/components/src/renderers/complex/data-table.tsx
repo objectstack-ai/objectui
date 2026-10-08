@@ -2498,7 +2498,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     (Array.isArray(schema.rowActionDefs) && schema.rowActionDefs.length > 0 && schema.onRowActionDef)
   );
   const rowActionsColumnIsEditOnly = editable && !!(schema.onRowSave || schema.onBatchSave) && !rowMenuDeclared;
-  const showToolbar =searchEnabled || exportable || (showSelectionCount && selectable && selectedRowIds.size > 0) || hasPendingChanges;
+  const showToolbar = searchEnabled || exportable || (showSelectionCount && selectable && selectedRowIds.size > 0) || hasPendingChanges;
 
   return (
     <div className={`flex flex-col h-full gap-2 sm:gap-4 ${className || ''}`}>

@@ -10,13 +10,21 @@
  * INSTALLED `@objectstack/spec`'s `NavigationItemSchema` discriminants rather
  * than from a list written here, so it follows whatever spec it runs against.
  * The key sets `retypedNavEntry` keeps are judged the same way: by the spec
- * members' own shapes and by a parse, never by a second list.
+ * members' own shapes and by a parse, never by a second list. So is
+ * `navEntryOffersField` (objectui#11847), which reads the same key sets to
+ * answer which describing fields the nav editors offer an entry.
  */
 
 import { describe, expect, it } from 'vitest';
 import { NavigationItemSchema } from '@objectstack/spec/ui';
 import type { NavigationItemType } from '@object-ui/types';
-import { NAV_ENTRY_TYPES, isNavEntryType, navTypeAcceptsChildren, retypedNavEntry } from './nav-target';
+import {
+  NAV_ENTRY_TYPES,
+  isNavEntryType,
+  navEntryOffersField,
+  navTypeAcceptsChildren,
+  retypedNavEntry,
+} from './nav-target';
 
 /**
  * Walk `.unwrap()` (the spec wraps its schemas lazily) until the node carries
@@ -199,5 +207,56 @@ describe('retypedNavEntry — a change of type writes what the new member takes 
 
   it('the same type answers the entry unchanged (the same object)', () => {
     expect(retypedNavEntry(FULL_OBJECT_ENTRY, 'object')).toBe(FULL_OBJECT_ENTRY);
+  });
+});
+
+describe('navEntryOffersField — the describing fields a nav editor offers are the ones the member declares (objectui#11847)', () => {
+  type DescribingKey = Parameters<typeof navEntryOffersField>[1];
+  /** The describing keys, read off the spec: its shared base, less the discriminant. */
+  const DESCRIBING_KEYS = [...SPEC_BASE_KEYS].filter((key) => key !== 'type') as DescribingKey[];
+
+  it('reads a describing vocabulary that holds the label and the icon (non-vacuity)', () => {
+    expect(DESCRIBING_KEYS).toContain('label');
+    expect(DESCRIBING_KEYS).toContain('icon');
+  });
+
+  it('answers, for every member and every describing key, whether the INSTALLED spec member declares it', () => {
+    for (const member of SPEC_MEMBERS) {
+      const type = member.type as NavigationItemType;
+      for (const key of DESCRIBING_KEYS) {
+        expect({ type, key, offered: navEntryOffersField(type, key) }).toEqual({
+          type,
+          key,
+          offered: member.keys.includes(key),
+        });
+      }
+    }
+  });
+
+  it('a separator is offered no label and no icon; every other member is offered both', () => {
+    expect(navEntryOffersField('separator', 'label')).toBe(false);
+    expect(navEntryOffersField('separator', 'icon')).toBe(false);
+    for (const type of NAV_ENTRY_TYPES.filter((t) => t !== 'separator')) {
+      expect({ type, label: navEntryOffersField(type, 'label'), icon: navEntryOffersField(type, 'icon') }).toEqual({
+        type,
+        label: true,
+        icon: true,
+      });
+    }
+  });
+
+  it('an entry with no spec type (`null`) is offered the shared base, as before', () => {
+    for (const key of DESCRIBING_KEYS) expect({ key, offered: navEntryOffersField(null, key) }).toEqual({ key, offered: true });
+  });
+
+  it('agrees with `retypedNavEntry`: a retype keeps exactly the describing keys the new type is offered', () => {
+    const entry: Record<string, unknown> = { type: 'object', objectName: 'acme_task' };
+    for (const key of DESCRIBING_KEYS) entry[key] = BASE_VALUES[key];
+    for (const type of NAV_ENTRY_TYPES.filter((t) => t !== 'object')) {
+      const retyped = retypedNavEntry(entry, type);
+      for (const key of DESCRIBING_KEYS) {
+        expect({ type, key, kept: key in retyped }).toEqual({ type, key, kept: navEntryOffersField(type, key) });
+      }
+    }
   });
 });

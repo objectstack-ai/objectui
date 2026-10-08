@@ -1043,7 +1043,36 @@ export default defineConfig({
             },
             { name: 'vendor-ui-utils', test: /[\\/]node_modules[\\/](class-variance-authority|clsx|tailwind-merge|sonner)[\\/]/, priority: 90 },
             { name: 'vendor-zod', test: /[\\/]node_modules[\\/]zod[\\/]/, priority: 90 },
-            { name: 'vendor-charts', test: /[\\/]node_modules[\\/](recharts|d3-|victory-)/, priority: 90 },
+            //
+            // ## `vendor-charts` claims the chart engines and NOTHING they import (objectui#11798)
+            //
+            // Recharts reaches the page only through `import()` (the lazy
+            // `chart` / `object-chart` registrations in `register-plugins.ts`,
+            // and the lazy `ChartRenderer` in app-shell's dataset preview), so
+            // this group's chunk is meant to load with the first chart. It
+            // loaded with EVERY page instead. With the default
+            // `includeDependenciesRecursively: true` the group also claimed
+            // recharts' own dependencies, `use-sync-external-store/shim`
+            // (through `react-redux`) among them, and won the priority-90 tie
+            // for it against `vendor-i18n`, which lists `react-i18next` below
+            // this line. `react-i18next`'s `useTranslation` imports that shim
+            // statically, so the eager `vendor-i18n` chunk imported this one,
+            // and the whole chart engine (recharts and d3) rode into the eager
+            // closure on a few hundred bytes of React glue. No chart module
+            // was statically reachable from the entry; the chunk rule alone
+            // made them eager, the objectui#5266 mechanism one group over.
+            //
+            // `false` keeps the claim to the modules this test names. A
+            // dependency they share with eager code now lands with that code,
+            // and the ones only they reach still load with the chart. Read
+            // `apps/console/dist/eager-closure.json` after a build for whether
+            // a `vendor-charts` file is in the closure.
+            {
+              name: 'vendor-charts',
+              test: /[\\/]node_modules[\\/](recharts|d3-|victory-)/,
+              priority: 90,
+              includeDependenciesRecursively: false,
+            },
             { name: 'vendor-dndkit', test: /[\\/]node_modules[\\/]@dnd-kit[\\/]/, priority: 90 },
             { name: 'vendor-i18n', test: /[\\/]node_modules[\\/](i18next|react-i18next)[\\/]/, priority: 90 },
             // Workspace packages — match by realpath, since pnpm may resolve

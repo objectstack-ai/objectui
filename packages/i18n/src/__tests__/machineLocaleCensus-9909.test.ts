@@ -258,6 +258,15 @@ const DECLARED: Exemption[] = [
       '`resolvedOptions()` the locale does not decide; nothing is formatted and no face is rendered.',
   },
   {
+    file: 'packages/app-shell/src/console/organizations/CreateWorkspaceDialog.tsx',
+    expression: 'const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;',
+    count: 1,
+    verdict: 'not applicable',
+    reason:
+      'reads the HOST time zone a new workspace is seeded with at creation (objectui#11908), the one member of ' +
+      '`resolvedOptions()` the locale does not decide; nothing is formatted and no face is rendered.',
+  },
+  {
     file: 'packages/components/src/ui/calendar.tsx',
     expression: 'data-day={day.date.toLocaleDateString()}',
     count: 1,

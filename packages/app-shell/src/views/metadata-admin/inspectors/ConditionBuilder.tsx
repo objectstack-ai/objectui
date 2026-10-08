@@ -13,6 +13,12 @@
  * parses AND round-trips byte-for-byte (whitespace-normalised). Anything it
  * can't round-trip cleanly opens in a raw expression textarea, so hand-authored
  * complex CEL is never silently rewritten.
+ *
+ * The two operators that take no value are TYPED by the field catalog
+ * (objectui#11894): on a boolean field they are "is true" / "is false" and
+ * compile to the bare subject and its negation, as they always did; on any
+ * other declared field they are "is not empty" / "is empty" and compile to a
+ * null-or-empty check — see {@link compileRow}.
  */
 
 import * as React from 'react';
@@ -21,6 +27,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@object-ui/components';
 import { Plus, X, Code2, ListFilter } from 'lucide-react';
+import { BOOLEAN_VALUE_TYPES, expandEmptyOperator, type EmptyOperatorArm } from '@objectstack/spec/data';
 import { useObjectFields } from '../previews/useObjectFields.js';
 import { CelPredicateField } from '../CelPredicateField.js';
 import type { CelLintIssue } from '../celAuthoring.js';
@@ -35,18 +42,126 @@ type Quote = '"' | "'";
 
 interface Row { subject: string; op: Op; value: string; quote?: Quote }
 
-/** Operator choices: a catalogue key for the worded ones, a bare symbol for
- *  `≥` / `≤`, which read the same in every locale (objectui#10586). */
-const COMPARE_OPS: ReadonlyArray<{ value: Op; labelKey: string } | { value: Op; symbol: string }> = [
+type OpChoice = { value: Op; labelKey: string } | { value: Op; symbol: string };
+
+/** The operators that compare with a value: a catalogue key for the worded
+ *  ones, a bare symbol for `≥` / `≤`, which read the same in every locale
+ *  (objectui#10586). */
+const COMPARE_OPS: ReadonlyArray<OpChoice> = [
   { value: '==', labelKey: 'engine.inspector.condition.op.equals' },
   { value: '!=', labelKey: 'engine.inspector.condition.op.notEquals' },
   { value: '>', labelKey: 'engine.inspector.condition.op.greaterThan' },
   { value: '<', labelKey: 'engine.inspector.condition.op.lessThan' },
   { value: '>=', symbol: '≥' },
   { value: '<=', symbol: '≤' },
-  { value: 'truthy', labelKey: 'engine.inspector.condition.op.truthy' },
-  { value: 'falsy', labelKey: 'engine.inspector.condition.op.falsy' },
 ];
+
+/**
+ * What the field catalog DECLARES about a subject's value (objectui#11894):
+ * `'boolean'`, or the row of the spec's ruled 「is empty」 table the field
+ * takes. A subject the catalog does not declare has no answer — `undefined`,
+ * never a guess. See {@link declaredSubjectValue}.
+ */
+type SubjectValue = 'boolean' | EmptyOperatorArm;
+type SubjectValueOf = (subject: string) => SubjectValue | undefined;
+const NOTHING_DECLARED: SubjectValueOf = () => undefined;
+
+/**
+ * The words the two value-less operators take, by what the catalog declares
+ * about the row's subject (objectui#11894). The operator VALUES stay `truthy`
+ * / `falsy` whatever the subject, so a row keeps its operator when its subject
+ * changes and only the wording and the emitted CEL follow the new subject.
+ *
+ * - `boolean` — "is true" / "is false", compiled to the bare subject and `!`.
+ * - `emptiable` — every other declared field: "is not empty" / "is empty".
+ * - `undeclared` — a subject the catalog does not type (a context subject, a
+ *   flow variable, a field whose catalog row carries no type): the wording it
+ *   always had, because which of the two it means cannot be read off anything
+ *   this component holds.
+ */
+const VALUELESS_OP_KEYS: Readonly<Record<'boolean' | 'emptiable' | 'undeclared', { truthy: string; falsy: string }>> = {
+  boolean: {
+    truthy: 'engine.inspector.condition.op.isTrue',
+    falsy: 'engine.inspector.condition.op.isFalse',
+  },
+  emptiable: {
+    truthy: 'engine.inspector.condition.op.isNotEmpty',
+    falsy: 'engine.inspector.condition.op.isEmpty',
+  },
+  undeclared: {
+    truthy: 'engine.inspector.condition.op.truthy',
+    falsy: 'engine.inspector.condition.op.falsy',
+  },
+};
+
+/** The operator list one row offers: the compare operators, then the
+ *  value-less pair worded for that row's subject (objectui#11894). */
+function opChoicesFor(declared: SubjectValue | undefined): ReadonlyArray<OpChoice> {
+  const keys = VALUELESS_OP_KEYS[
+    declared === undefined ? 'undeclared' : declared === 'boolean' ? 'boolean' : 'emptiable'
+  ];
+  return [
+    ...COMPARE_OPS,
+    { value: 'truthy', labelKey: keys.truthy },
+    { value: 'falsy', labelKey: keys.falsy },
+  ];
+}
+
+/** One entry of the field catalog the builder reads its subjects from. */
+interface CatalogField {
+  name: string;
+  label?: string;
+  hidden?: boolean;
+  /** The field's declared type — the value-less operators are worded and
+   *  compiled by it (objectui#11894). Absent ⇒ the subject is undeclared. */
+  type?: string;
+  /** `multiple: true` — a multi-capable type whose stored value is a list. */
+  multiple?: boolean;
+}
+
+/**
+ * What one catalog field declares about its value (objectui#11894).
+ *
+ * - A boolean type is a member of the spec's `BOOLEAN_VALUE_TYPES`, read by
+ *   reference — the one set CEL's `!` and a bare `&&` operand are well typed
+ *   for.
+ * - Every other type takes the row of the ruled 「is empty」 table that the
+ *   spec's `expandEmptyOperator` assigns it, keyed on the type and `multiple`
+ *   — the one function the list filter builder and every server face expand
+ *   `$empty` with. ⛔ No local copy of that table.
+ * - A `formula` is undeclared: its value takes its `returnType`, which no
+ *   catalog row carries. That is the spec's own reading — its boolean comparand
+ *   door judges a `formula` by `returnType` and defers one without a readable
+ *   one — and it keeps "is true" on a boolean formula compiling as it did.
+ * - A row with no type is undeclared too.
+ */
+function declaredSubjectValue(field: CatalogField): SubjectValue | undefined {
+  const { type } = field;
+  if (typeof type !== 'string' || type === '' || type === 'formula') return undefined;
+  if (BOOLEAN_VALUE_TYPES.has(type)) return 'boolean';
+  return expandEmptyOperator({ type, multiple: field.multiple === true }).arm;
+}
+
+/**
+ * Every subject the catalog types, keyed by the spelling the subject dropdown
+ * emits for it — `FIELDPREFIX + name`, and `previous.` + name where the mount
+ * offers `previous` — so a stored subject is typed exactly when it names a
+ * catalog field. Hidden fields are typed too: a stored row may name one.
+ */
+function declaredSubjectValues(
+  fields: ReadonlyArray<CatalogField>,
+  fieldPrefix: string,
+  includePrevious: boolean,
+): Map<string, SubjectValue> {
+  const out = new Map<string, SubjectValue>();
+  for (const f of fields) {
+    const declared = declaredSubjectValue(f);
+    if (declared === undefined) continue;
+    out.set(`${fieldPrefix}${f.name}`, declared);
+    if (includePrevious) out.set(`previous.${f.name}`, declared);
+  }
+  return out;
+}
 
 /**
  * The context subjects a record-scoped mount site binds. This is the DEFAULT
@@ -475,47 +590,185 @@ function unfmtValue(raw: string): { value: string; quote?: Quote } {
   return { value: t };
 }
 
+/**
+ * The clauses of a null-or-empty check on `subject`, by the row of the ruled
+ * 「is empty」 table its field takes (objectui#11894): `empty` ⇒ the clauses
+ * of "is empty", OR-joined; otherwise those of "is not empty", AND-joined —
+ * the exact complement.
+ *
+ * - `null_only` — null only: `S == null`.
+ * - `text` — null or `''`.
+ * - `multi_value` — null or an empty list: `size(S) == 0`.
+ *
+ * `== null` and not `has()`: the server evaluates a validation rule or a hook
+ * condition against a record whose DECLARED fields are all present (a field
+ * with no value holds `null`), so `has()` is true for an empty field — the
+ * platform's own contract tests emptiness with `!= null` and keeps `has()` for
+ * an undeclared key. Each clause is well typed for every value it can meet:
+ * CEL's `==` against `null` or `''` is false across types rather than a fault,
+ * and `size()` is reached only past the null clause.
+ */
+function emptyCheckClauses(subject: string, arm: EmptyOperatorArm, empty: boolean): string[] {
+  const nullClause = `${subject} ${empty ? '==' : '!='} null`;
+  if (arm === 'text') return [nullClause, `${subject} ${empty ? '==' : '!='} ''`];
+  if (arm === 'multi_value') return [nullClause, `size(${subject}) ${empty ? '==' : '!='} 0`];
+  return [nullClause];
+}
+
+/** One row's CEL, and whether it is more than one clause — such a row is
+ *  parenthesised when it is joined with others. */
+function compileRow(r: Row, valueOf: SubjectValueOf): { cel: string; compound: boolean } {
+  if (r.op === 'truthy' || r.op === 'falsy') {
+    const declared = valueOf(r.subject);
+    // A boolean compiles as it always did, and so does an undeclared subject:
+    // nothing here says which check it needs, and a guessed one is worse than
+    // the form the author can read in the compiled line below the rows.
+    if (declared === undefined || declared === 'boolean') {
+      return { cel: r.op === 'truthy' ? r.subject : `!${r.subject}`, compound: false };
+    }
+    // Any other declared field: `!S` and a bare `S` are not well typed —
+    // CEL's `!` and a bare `&&` operand take a bool, so a date, text or lookup
+    // field faults (`no such overload: !null` / `!string`) and the server
+    // refuses the write. A null-or-empty check is well typed for every value.
+    const empty = r.op === 'falsy';
+    const clauses = emptyCheckClauses(r.subject, declared, empty);
+    return { cel: clauses.join(empty ? ' || ' : ' && '), compound: clauses.length > 1 };
+  }
+  return { cel: `${r.subject} ${r.op} ${fmtValue(r.value, r.quote)}`, compound: false };
+}
+
 /** Compile rows → CEL. Rows without a subject are skipped (in-progress). */
-function compile(rows: Row[], join: '&&' | '||'): string {
-  return rows
-    .filter((r) => r.subject)
-    .map((r) => {
-      if (r.op === 'truthy') return r.subject;
-      if (r.op === 'falsy') return `!${r.subject}`;
-      return `${r.subject} ${r.op} ${fmtValue(r.value, r.quote)}`;
-    })
+function compile(rows: Row[], join: '&&' | '||', valueOf: SubjectValueOf = NOTHING_DECLARED): string {
+  const terms = rows.filter((r) => r.subject).map((r) => compileRow(r, valueOf));
+  return terms
+    .map((term) => (term.compound && terms.length > 1 ? `(${term.cel})` : term.cel))
     .join(` ${join} `);
 }
 
-/** Parse a simple AND/OR predicate. Returns null if it isn't the simple shape. */
-function parse(expr: string): { rows: Row[]; join: '&&' | '||' } | null {
-  const s = norm(expr);
-  if (!s) return { rows: [], join: '&&' };
-  const hasAnd = s.includes('&&');
-  const hasOr = s.includes('||');
-  if (hasAnd && hasOr) return null; // mixed joins → too complex
-  const join: '&&' | '||' = hasOr ? '||' : '&&';
-  const parts = s.split(hasOr ? '||' : '&&').map((p) => p.trim());
-  const rows: Row[] = [];
-  for (const p of parts) {
-    const cmp = /^([a-zA-Z_][\w.]*)\s*(==|!=|>=|<=|>|<)\s*(.+)$/.exec(p);
-    if (cmp) {
-      const v = unfmtValue(cmp[3]);
-      rows.push({ subject: cmp[1], op: cmp[2] as Op, value: v.value, quote: v.quote });
+/**
+ * Walk `s` outside its string literals, handing each character and the
+ * parenthesis depth it sits at to `visit`; `visit` returning `false` stops the
+ * walk. Returns `false` when the quotes or parentheses do not balance.
+ */
+function walkCode(s: string, visit: (i: number, depth: number) => boolean | void): boolean {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (quote) {
+      if (c === '\\') i++;
+      else if (c === quote) quote = null;
       continue;
     }
-    const neg = /^!\s*([a-zA-Z_][\w.]*)$/.exec(p);
-    if (neg) { rows.push({ subject: neg[1], op: 'falsy', value: '' }); continue; }
-    const truthy = /^([a-zA-Z_][\w.]*)$/.exec(p);
-    if (truthy) { rows.push({ subject: truthy[1], op: 'truthy', value: '' }); continue; }
-    return null; // unrecognised term
+    if (c === "'" || c === '"') { quote = c; continue; }
+    if (c === '(') depth++;
+    if (visit(i, depth) === false) return true;
+    if (c === ')' && --depth < 0) return false;
   }
-  return { rows, join };
+  return quote === null && depth === 0;
 }
 
-function initFrom(value: string): { rows: Row[]; join: '&&' | '||'; raw: boolean } {
-  const p = parse(value || '');
-  if (p && norm(compile(p.rows, p.join)) === norm(value || '')) {
+/**
+ * Split at the AND/OR joins that sit outside parentheses and string literals.
+ * `null` for mixed joins, or for text whose quotes or parentheses do not
+ * balance — neither is a shape the rows can hold.
+ */
+function splitTopLevel(s: string): { parts: string[]; join: '&&' | '||' } | null {
+  const parts: string[] = [];
+  let join: '&&' | '||' | null = null;
+  let start = 0;
+  let mixed = false;
+  const balanced = walkCode(s, (i, depth) => {
+    if (depth !== 0) return;
+    const two = s.slice(i, i + 2);
+    if (two !== '&&' && two !== '||') return;
+    if (join && join !== two) { mixed = true; return false; }
+    join = two;
+    parts.push(s.slice(start, i).trim());
+    start = i + 2;
+  });
+  if (mixed || !balanced) return null;
+  parts.push(s.slice(start).trim());
+  return { parts, join: join ?? '&&' };
+}
+
+/** The inside of `(…)` when one pair of parentheses encloses all of `p`. */
+function enclosedGroup(p: string): string | null {
+  if (!p.startsWith('(') || !p.endsWith(')')) return null;
+  let whole = true;
+  walkCode(p, (i, depth) => {
+    if (p[i] === ')' && depth === 1 && i !== p.length - 1) { whole = false; return false; }
+  });
+  return whole ? p.slice(1, -1).trim() : null;
+}
+
+/**
+ * Read `text` back as the null-or-empty check row it compiles from, or `null`
+ * (objectui#11894). Recognised by compiling the candidate row for the
+ * subject's DECLARED value and comparing, so it accepts exactly the emitted
+ * text: a check on an undeclared or boolean subject, or one spelled for a
+ * different row of the table than the field takes, is not this row.
+ */
+function parseEmptyCheck(text: string, valueOf: SubjectValueOf): Row | null {
+  const head = /^([a-zA-Z_][\w.]*)\s*(==|!=)\s*null\b/.exec(text);
+  if (!head) return null;
+  const declared = valueOf(head[1]);
+  if (declared === undefined || declared === 'boolean') return null;
+  const row: Row = { subject: head[1], op: head[2] === '==' ? 'falsy' : 'truthy', value: '' };
+  return compileRow(row, valueOf).cel === text ? row : null;
+}
+
+/** Read one AND/OR term back as a row, or `null` when it is not a row's shape. */
+function parseTerm(p: string, valueOf: SubjectValueOf): Row | null {
+  const group = enclosedGroup(p);
+  if (group !== null) return parseEmptyCheck(group, valueOf);
+  const check = parseEmptyCheck(p, valueOf);
+  if (check) return check;
+  const cmp = /^([a-zA-Z_][\w.]*)\s*(==|!=|>=|<=|>|<)\s*(.+)$/.exec(p);
+  if (cmp) {
+    const v = unfmtValue(cmp[3]);
+    return { subject: cmp[1], op: cmp[2] as Op, value: v.value, quote: v.quote };
+  }
+  const neg = /^!\s*([a-zA-Z_][\w.]*)$/.exec(p);
+  if (neg) return { subject: neg[1], op: 'falsy', value: '' };
+  const truthy = /^([a-zA-Z_][\w.]*)$/.exec(p);
+  if (truthy) return { subject: truthy[1], op: 'truthy', value: '' };
+  return null; // unrecognised term
+}
+
+/** Parse a simple AND/OR predicate. Returns null if it isn't the simple shape. */
+function parse(
+  expr: string,
+  valueOf: SubjectValueOf = NOTHING_DECLARED,
+): { rows: Row[]; join: '&&' | '||' } | null {
+  const s = norm(expr);
+  if (!s) return { rows: [], join: '&&' };
+  // A lone row whose check is several clauses compiles without parentheses,
+  // so the whole text is tried as that one row before it is split.
+  const whole = parseEmptyCheck(s, valueOf);
+  if (whole) return { rows: [whole], join: '&&' };
+  const split = splitTopLevel(s);
+  if (!split) return null;
+  const rows: Row[] = [];
+  for (const p of split.parts) {
+    const row = parseTerm(p, valueOf);
+    if (!row) return null;
+    rows.push(row);
+  }
+  return { rows, join: split.join };
+}
+
+/**
+ * Rows for `value` when it round-trips under what the catalog declares, else
+ * the raw editor. `!record.due_date` on a date field reads as an "is empty"
+ * row that now compiles to `record.due_date == null`; that is not the text the
+ * author stored, so it opens in the raw editor verbatim rather than being
+ * rewritten on their next edit (objectui#11894) — the rule this component's
+ * header states for every expression it cannot reproduce.
+ */
+function initFrom(value: string, valueOf: SubjectValueOf): { rows: Row[]; join: '&&' | '||'; raw: boolean } {
+  const p = parse(value || '', valueOf);
+  if (p && norm(compile(p.rows, p.join, valueOf)) === norm(value || '')) {
     return { rows: p.rows, join: p.join, raw: false };
   }
   return { rows: [], join: '&&', raw: !!value };
@@ -527,8 +780,10 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
   onCommit: (cel: string) => void;
   objectName?: string;
   /** Pre-fetched field catalog (e.g. from the generic form's widget context);
-   *  when omitted, fields are loaded from `objectName`. */
-  fields?: Array<{ name: string; label?: string; hidden?: boolean }>;
+   *  when omitted, fields are loaded from `objectName`. A field's `type` (and
+   *  `multiple`) is what words and compiles its value-less operators
+   *  (objectui#11894); a field without one keeps the untyped pair. */
+  fields?: ReadonlyArray<CatalogField>;
   disabled?: boolean;
   /**
    * Report how many BLOCKING author-time issues this editor is showing — a CEL
@@ -646,11 +901,30 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
     () => fields.filter((f) => !f.hidden).map((f) => f.name),
     [fields],
   );
+  /**
+   * What the catalog declares about each subject (objectui#11894), and the
+   * same answer as a string. The re-read below keys on the STRING, never on
+   * the memoised map's identity (AGENTS.md #10).
+   */
+  const subjectValues = React.useMemo(
+    () => declaredSubjectValues(fields, fieldPrefix, includePrevious),
+    [fields, fieldPrefix, includePrevious],
+  );
+  const valueOf: SubjectValueOf = (subject) => subjectValues.get(subject);
+  const declaredKey = [...subjectValues].map(([s, v]) => `${s}=${v}`).sort().join('|');
+  // Held in a ref so the effects below read this render's catalog without
+  // listing a function that is new every render.
+  const valueOfRef = React.useRef(valueOf);
+  React.useEffect(() => {
+    valueOfRef.current = valueOf;
+  });
 
-  const init = React.useMemo(() => initFrom(value), []); // first mount only
+  const init = React.useMemo(() => initFrom(value, valueOf), []); // first mount only
   const [rows, setRowsState] = React.useState<Row[]>(init.rows);
   const [join, setJoin] = React.useState<'&&' | '||'>(init.join);
   const [raw, setRaw] = React.useState<boolean>(init.raw);
+  /** The author has edited since the value was last read into rows. */
+  const editedSinceRead = React.useRef(false);
 
   // Adopt an externally-changed value (e.g. switching records, or a raw edit
   // from elsewhere) when it isn't the CEL we just emitted.
@@ -659,18 +933,40 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
     const v = value || '';
     if (v === lastEmitted.current) return;
     lastEmitted.current = v;
-    const next = initFrom(v);
+    editedSinceRead.current = false;
+    const next = initFrom(v, valueOfRef.current);
     setRowsState(next.rows);
     setJoin(next.join);
     setRaw(next.raw);
   }, [value]);
 
+  // Re-read the value when what the catalog declares changes — above all when
+  // a catalog fetched by `objectName` lands after the first render, which read
+  // every subject as undeclared (objectui#11894). Without this, how a stored
+  // condition opens would turn on network timing: a row built here as "is
+  // empty" on a text field would reopen in the raw editor at every mount that
+  // fetches its catalog, and a stored `!record.due_date` would open as a row
+  // there but in the raw editor at a mount handed its fields. Only while the
+  // author has not edited since the last read: after an edit the rows are
+  // theirs, including a row they have not given a subject yet.
+  const readDeclaredKey = React.useRef(declaredKey);
+  React.useEffect(() => {
+    if (readDeclaredKey.current === declaredKey) return;
+    readDeclaredKey.current = declaredKey;
+    if (editedSinceRead.current) return;
+    const next = initFrom(lastEmitted.current, valueOfRef.current);
+    setRowsState(next.rows);
+    setJoin(next.join);
+    setRaw(next.raw);
+  }, [declaredKey]);
+
   const emit = (nextRows: Row[], nextJoin: '&&' | '||') => {
-    const cel = compile(nextRows, nextJoin);
+    const cel = compile(nextRows, nextJoin, valueOf);
     lastEmitted.current = cel;
     onCommit(cel);
   };
   const update = (nextRows: Row[], nextJoin: '&&' | '||' = join) => {
+    editedSinceRead.current = true;
     setRowsState(nextRows);
     setJoin(nextJoin);
     emit(nextRows, nextJoin);
@@ -707,7 +1003,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
     onBlockingIssuesChangeRef.current?.(blockingIssues);
   }, [blockingIssues]);
 
-  const compiled = compile(rows, join);
+  const compiled = compile(rows, join, valueOf);
 
   if (raw) {
     return (
@@ -715,7 +1011,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
         <div className="flex items-center justify-between">
           {label ? <Label className="text-xs text-muted-foreground">{label}</Label> : <span />}
           <button type="button" disabled={disabled}
-            onClick={() => { const n = initFrom(value); if (!value || !n.raw) { setRowsState(n.rows); setJoin(n.join); setRaw(false); } }}
+            onClick={() => { const n = initFrom(value, valueOf); if (!value || !n.raw) { editedSinceRead.current = false; setRowsState(n.rows); setJoin(n.join); setRaw(false); } }}
             className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50">
             <ListFilter className="h-3 w-3" /> {tLocal('engine.inspector.condition.builder')}
           </button>
@@ -726,7 +1022,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
         <CelPredicateField
           label={tLocal('engine.condition.celLabel')}
           value={value}
-          onChange={(v) => { lastEmitted.current = v; onCommit(v); }}
+          onChange={(v) => { lastEmitted.current = v; editedSinceRead.current = true; onCommit(v); }}
           onLintChange={reportCel}
           disabled={disabled}
           /* objectui#9952 — DERIVED from the same offered set the autocomplete
@@ -750,7 +1046,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
           scopeIssue={scopeIssue}
           t={tLocal}
         />
-        {value && !parse(value) && (
+        {value && !parse(value, valueOf) && (
           <div className="text-[10px] text-muted-foreground/70">{tLocal('engine.condition.advancedHint')}</div>
         )}
       </div>
@@ -806,7 +1102,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
                   <Select value={r.op} onValueChange={(v) => update(rows.map((x, j) => j === i ? { ...x, op: v as Op } : x))} disabled={disabled}>
                     <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {COMPARE_OPS.map((o) => <SelectItem key={o.value} value={o.value}>{'symbol' in o ? o.symbol : tLocal(o.labelKey)}</SelectItem>)}
+                      {opChoicesFor(valueOf(r.subject)).map((o) => <SelectItem key={o.value} value={o.value}>{'symbol' in o ? o.symbol : tLocal(o.labelKey)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -820,8 +1116,13 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
         </div>
       )}
 
+      {/* objectui#11894 — a new row starts on `equals`, an operator that
+          compiles to well-typed CEL whatever subject is then picked. It
+          started on `truthy`, so a row whose operator the author never
+          touched compiled to the bare subject — not a bool on a date, text
+          or lookup field. */}
       {!disabled && (
-        <Button type="button" variant="outline" size="sm" onClick={() => update([...rows, { subject: '', op: 'truthy', value: '' }])}>
+        <Button type="button" variant="outline" size="sm" onClick={() => update([...rows, { subject: '', op: '==', value: '' }])}>
           <Plus className="mr-1 h-3.5 w-3.5" /> {tLocal('engine.inspector.condition.add')}
         </Button>
       )}

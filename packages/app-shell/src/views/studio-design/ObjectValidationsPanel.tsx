@@ -139,8 +139,12 @@ interface FieldOpt {
   name: string;
   label?: string;
   hidden?: boolean;
-  /** Read by the New menu's presets only (objectui#11861), to pick their fields. */
+  /** The field's declared type and `multiple` flag — what `ConditionBuilder`
+   *  words and compiles its value-less operators by (objectui#11894). The New
+   *  menu's presets also pick their fields by `type` (objectui#11861). */
   type?: string;
+  multiple?: boolean;
+  /** Read by the New menu's presets only (objectui#11861), to pick their fields. */
   system?: boolean;
 }
 
@@ -726,7 +730,16 @@ export function ObjectValidationsPanel({
         name: e.name,
         label: typeof e.def.label === 'string' ? (e.def.label as string) : undefined,
         hidden: e.def.hidden === true,
+        // objectui#11894 — the type the condition builder compiles "is empty"
+        // by. Without it every field here read as undeclared, and a rule built
+        // as "due date is empty" saved as `!record.due_date`, which the server
+        // cannot evaluate on a date, so it refused every matching write.
+        // `multiple` puts a multi-capable field declared `multiple` on the
+        // null-or-empty-list check.
         type: typeof e.def.type === 'string' ? (e.def.type as string) : undefined,
+        multiple: e.def.multiple === true,
+        // objectui#11861 — the New menu's presets pick their fields by `type`
+        // and leave out `system` ones.
         system: e.def.system === true,
       })),
     [draft.fields],

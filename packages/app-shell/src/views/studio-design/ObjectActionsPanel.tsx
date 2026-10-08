@@ -151,26 +151,39 @@ export function ObjectActionsPanel({
 
   const addAction = React.useCallback(() => {
     const name = nextActionName(objectName, actions.map((a) => String(a.name ?? '')));
-    // Minimal *valid* skeleton: a script action bound to this object, seeded
-    // with a runnable body. The body's `language` discriminator is required —
-    // an unseeded `type:'script'` action 422s the whole draft save the moment
-    // the user types into the body (same dead-end class as a fresh validation
-    // rule needing a placeholder condition). The user configures the rest
-    // (behavior/placement/…) in the form on the right.
+    // Minimal *valid* skeleton, and a DECLARATIVE one (objectui#11820): an
+    // "Update fields on this record" action — `operation: 'update'` with an
+    // empty `patch` — bound to this object. It used to start as a script with a
+    // sandboxed-JS body, so the first thing every new action offered was code.
     //
-    // `locations` is seeded for the same reason (objectui#3142): an action
-    // that declares no location renders in no located surface, so an unseeded
-    // skeleton would save clean and then be invisible everywhere — the author
-    // would have no button to click and nothing to tell them why. Placement
-    // stays fully editable in the Placement checkboxes; `record_header` is
-    // just the starting point.
+    // Why this declarative shape and no other: it is the only one the spec
+    // accepts with nothing filled in. `update_field` is not an `ActionType`;
+    // the field write is `operation: 'update'` beside the default `script`
+    // route (spec #14092), and every other declarative type (`url`, `flow`,
+    // `modal`, `api`, `form`) is refused without a `target`, so its skeleton
+    // would 422 the object draft on the first autosave. An empty `patch` is
+    // accepted at authoring; the author adds field values in the "What it
+    // does" editor (until then the spec's executor contract answers a click
+    // with a refusal for an empty write, not a success — the `patch` row of
+    // `@objectstack/spec`'s action liveness ledger). `type` is left off, as the
+    // spec asks of an update action: it defaults to `script`, the route the
+    // write is performed on. `newActionPin` parses this skeleton through the
+    // spec's `ActionSchema` and `ObjectSchema`.
+    //
+    // `locations` is seeded for the same reason as before (objectui#3142): an
+    // action that declares no location renders in no located surface, so an
+    // unseeded skeleton would save clean and then be invisible everywhere — the
+    // author would have no button to click and nothing to tell them why.
+    // Placement stays fully editable in the Placement checkboxes;
+    // `record_header` is just the starting point (an update action may not sit
+    // in `list_toolbar`, which has no current record).
     const fresh: ActionItem = {
       name,
       label: t('engine.studio.actions.newLabel', locale),
-      type: 'script',
       objectName,
       locations: ['record_header'],
-      body: { language: 'js', source: 'return { ok: true };' },
+      operation: 'update',
+      patch: {},
     };
     onPatch({ actions: [...actions, fresh] });
     setSelected(name);

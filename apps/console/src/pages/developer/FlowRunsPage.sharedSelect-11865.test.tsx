@@ -126,7 +126,7 @@ const RUN_WRITES: ReadonlyArray<
 ];
 
 describe('every flow, picked, is the one the page runs', () => {
-  it.each(RUN_WRITES)('from %s, picking %s', async (from, fromLabel, label, executed, listed) => {
+  it.each(RUN_WRITES)('from %s (shown as %s), picking %s', async (from, fromLabel, label, executed, listed) => {
     render(<FlowRunsPage />);
     await picker();
     if (from !== 'reassign_wizard') await pick(fromLabel);

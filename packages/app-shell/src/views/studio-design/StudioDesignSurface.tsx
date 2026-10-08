@@ -121,13 +121,16 @@ import { SourcePageEditor } from '../metadata-admin/previews/SourcePageEditor.js
 import { fetchPendingDrafts, usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/assistantBus.js';
 import {
+  flowHeldEdit,
   flowSaveRefusal,
   formatPublishFailures,
   issueRefusal,
   navEntryLocator,
+  objectHeldEdit,
   objectSaveRefusal,
   plainRefusal,
   type PublishFailure,
+  type StudioHeld,
   type StudioRefusal,
 } from './metadataError.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
@@ -399,6 +402,69 @@ function useDraftAutoSave(opts: {
     return () => clearTimeout(timer);
   }, [dirty, blocked, snapKey, api]);
   return { flush: api.flush, sending: api.sending, loaded: loadedFor === target };
+}
+
+/**
+ * objectui#11786 — tells the surface's Publish what edit a pillar holds unsent
+ * (`StudioHeld.clause`, or `null`), and takes it back when the pillar unmounts,
+ * so a pillar left behind never keeps Publish refusing.
+ *
+ * Keyed on the clause, a string, never on the view model's identity (AGENTS.md
+ * #10); the reporter is read through a ref, so an unmemoised one cannot re-fire it.
+ */
+function useHeldEditReport(report: ((clause: string | null) => void) | undefined, clause: string | null): void {
+  const reportRef = React.useRef(report);
+  React.useLayoutEffect(() => {
+    reportRef.current = report;
+  });
+  React.useEffect(() => {
+    reportRef.current?.(clause);
+  }, [clause]);
+  React.useEffect(() => () => reportRef.current?.(null), []);
+}
+
+/**
+ * objectui#11786 — the line a pillar shows, in place of a refusal, while its
+ * autosave holds an incomplete-but-normal edit: what the edit still needs, that
+ * it is kept and not yet saved, and a "Show me" that opens the input when it is
+ * not the one already open. Neutral on purpose: nothing was refused, and the
+ * author has not finished.
+ *
+ * Exported for its pins; `index.ts` does not re-export it.
+ */
+export function StudioHeldNotice({
+  held,
+  locale,
+  onShow,
+  className,
+}: {
+  held: StudioHeld;
+  locale: string;
+  /** Opens the held input; omitted while that input is the one open. */
+  onShow?: (target: MetadataSelection) => void;
+  /** Spacing and type size, which differ by pillar. */
+  className?: string;
+}): React.ReactElement {
+  return (
+    <div
+      data-testid="studio-held"
+      role="status"
+      className={cn('flex items-start gap-2 rounded-md border bg-muted/40 text-muted-foreground', className)}
+    >
+      <p data-testid="studio-held-message" className="min-w-0 flex-1">
+        {tFormat('engine.studio.held.line', locale, { clause: held.clause })}
+      </p>
+      {onShow && (
+        <button
+          type="button"
+          onClick={() => onShow(held.target)}
+          className="shrink-0 rounded border px-1.5 py-0.5 font-medium text-foreground hover:bg-muted"
+        >
+          {t('engine.studio.refusal.show', locale)}
+        </button>
+      )}
+    </div>
+  );
 }
 
 // objectui#5813 — Access is a low-frequency ADMIN surface, demoted from the
@@ -1195,7 +1261,17 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     void refreshPending();
   }, [refreshPending, publishNonce, draftNonce]);
 
+  // objectui#11786 — what the open pillar's autosave holds unsent (an
+  // incomplete-but-normal edit), as the clause naming what it needs. A publish
+  // promotes the drafts the server holds, which do not carry that edit, so it is
+  // refused while one is held rather than going around it silently.
+  const [heldEdit, setHeldEdit] = React.useState<string | null>(null);
+
   const doPublish = React.useCallback(async () => {
+    if (heldEdit !== null) {
+      toast.error(tFormat('engine.studio.held.publish', locale, { clause: heldEdit }));
+      return;
+    }
     setPublishing(true);
     try {
       if (packageId === null) {
@@ -1285,7 +1361,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       setPublishing(false);
     }
     await refreshPending();
-  }, [shellClient, packageId, refreshPending, locale]);
+  }, [shellClient, packageId, refreshPending, locale, heldEdit]);
 
   const onDraftSaved = React.useCallback(() => setDraftNonce((n) => n + 1), []);
   const hasPending = (pendingCount ?? 0) > 0;
@@ -1654,6 +1730,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   publishNonce={publishNonce}
                   onDraftSaved={onDraftSaved}
                   readOnly={readOnly}
+                  onHeldEditChange={setHeldEdit}
                 />
               ) : (
                 <Navigate to={studioOrgScopePath()} replace />
@@ -1665,6 +1742,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 publishNonce={publishNonce}
                 onDraftSaved={onDraftSaved}
                 readOnly={readOnly}
+                onHeldEditChange={setHeldEdit}
               />
             ) : tab === 'automations' ? (
               <AutomationsPillar
@@ -1673,6 +1751,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 publishNonce={publishNonce}
                 onDraftSaved={onDraftSaved}
                 readOnly={readOnly}
+                onHeldEditChange={setHeldEdit}
               />
             ) : tab === 'access' ? (
               <AccessPillar
@@ -3947,12 +4026,15 @@ export function DataPillar({
   publishNonce = 0,
   onDraftSaved,
   readOnly = false,
+  onHeldEditChange,
 }: {
   packageId: string;
   publishNonce?: number;
   onDraftSaved?: () => void;
   /** Courtesy gate: hide/disable metadata-authoring affordances (records stay usable). */
   readOnly?: boolean;
+  /** objectui#11786 — the clause of the edit the autosave holds unsent, for the surface's Publish. */
+  onHeldEditChange?: (clause: string | null) => void;
 }): React.ReactElement {
   const client = useMetadataClient();
   const adapter = useAdapter();
@@ -4433,17 +4515,30 @@ export function DataPillar({
     }
   }, [saveObjDraft, current, objDraft, onDraftSaved, packageId, locale]);
 
+  // objectui#11786 — an edit whose body the write guard would refuse (a choice
+  // field before its options, a relationship before its target) is held, not
+  // sent: it stays dirty and on screen, the field's inspector hints what it
+  // needs, and the line below names it. Asked of the guard on the body `doSave`
+  // would send, so it holds exactly what the door would refuse.
+  const objIncomplete = React.useMemo(
+    () => (dirty ? objectHeldEdit(dropServedPicklistOptions(objDraft), locale) : null),
+    [dirty, objDraft, locale],
+  );
+
   // objectui#5813 — auto-save replaces the Save draft button; the blocked guard
-  // is the button's old disabled-condition verbatim.
+  // is the button's old disabled-condition verbatim, plus the hold above.
   const { sending: sendingObjDraft, loaded: objLoaded } = useDraftAutoSave({
     // objectui#11232 — the object `doSave` addresses.
     target: `object:${current?.name ?? ''}`,
     loadedFor: objDraftFor,
     dirty,
-    blocked: !current || !!saving || readOnly || saveBlocking > 0,
+    blocked: !current || !!saving || readOnly || saveBlocking > 0 || objIncomplete !== null,
     snapshot: objDraft,
     save: doSave,
   });
+  // Only the open object's own buffer is held (objectui#11272).
+  const objHeld = objLoaded ? objIncomplete : null;
+  useHeldEditReport(onHeldEditChange, objHeld?.clause ?? null);
 
   // "+ add field": append a fresh text field and select it for editing in the panel.
   // Guarded in addition to being hidden — it's also reachable through
@@ -4759,6 +4854,19 @@ export function DataPillar({
                   locale={locale}
                   // objectui#11785 — "Show me" opens the named field's inspector.
                   onShow={(target) => setFieldSel({ kind: target.kind, id: target.id })}
+                  className="mb-2 px-3 py-1.5 text-[11px]"
+                />
+              )}
+              {objHeld && (
+                <StudioHeldNotice
+                  held={objHeld}
+                  locale={locale}
+                  // objectui#11786 — no "Show me" while that field is the one open.
+                  onShow={
+                    fieldSel?.kind === objHeld.target.kind && fieldSel.id === objHeld.target.id
+                      ? undefined
+                      : (target) => setFieldSel({ kind: target.kind, id: target.id })
+                  }
                   className="mb-2 px-3 py-1.5 text-[11px]"
                 />
               )}
@@ -5309,6 +5417,7 @@ export function AutomationsPillar({
   publishNonce = 0,
   onDraftSaved,
   readOnly = false,
+  onHeldEditChange,
 }: {
   /**
    * The package whose flows the rail lists, or `null` for the package-less
@@ -5320,6 +5429,8 @@ export function AutomationsPillar({
   onDraftSaved?: () => void;
   /** Courtesy gate: hide/disable flow-authoring affordances. */
   readOnly?: boolean;
+  /** objectui#11786 — the clause of the edit the autosave holds unsent, for the surface's Publish. */
+  onHeldEditChange?: (clause: string | null) => void;
 }): React.ReactElement {
   const client = useMetadataClient();
   const locale = useMetadataLocale();
@@ -5593,15 +5704,27 @@ export function AutomationsPillar({
       setSaving(false);
     }
   }, [saveFlowDraft, current, draft, draftPackageId, onDraftSaved, locale]);
+  // objectui#11786 — an edit that leaves a step's required input out (a step
+  // just added, before it is filled in) is held, not sent: the server would
+  // refuse the flow with a 422 naming that input. The step's inspector hints the
+  // input, and the line below names it. Asked of the spec's own flow judges
+  // (`specRequiresField`) over the inputs each step's inspector offers.
+  const flowIncomplete = React.useMemo(
+    () => (autoDirty ? flowHeldEdit(draft, locale) : null),
+    [autoDirty, draft, locale],
+  );
   const { sending: sendingFlowDraft, loaded: flowLoaded } = useDraftAutoSave({
     // objectui#11232 — the flow `doSave` addresses.
     target: `flow:${current?.name ?? ''}`,
     loadedFor: draftFor,
     dirty: autoDirty,
-    blocked: !current || !isEditable || !!saving || readOnly,
+    blocked: !current || !isEditable || !!saving || readOnly || flowIncomplete !== null,
     snapshot: draft,
     save: doSave,
   });
+  // Only the open flow's own buffer is held (objectui#11272).
+  const flowHeld = flowLoaded ? flowIncomplete : null;
+  useHeldEditReport(onHeldEditChange, flowHeld?.clause ?? null);
 
   // Enable/disable persists via the flow's deployment `status` (active = on,
   // obsolete = off) — the engine honors it on the next publish. The switch flips
@@ -5790,6 +5913,19 @@ export function AutomationsPillar({
               // objectui#11785 — "Show me" selects the named step, which opens
               // its inspector in the right rail.
               onShow={(target) => setSelection({ kind: target.kind, id: target.id })}
+              className="mb-3 shrink-0 px-3 py-2 text-xs"
+            />
+          )}
+          {flowHeld && (
+            <StudioHeldNotice
+              held={flowHeld}
+              locale={locale}
+              // objectui#11786 — no "Show me" while that step is the one open.
+              onShow={
+                selection?.kind === flowHeld.target.kind && selection.id === flowHeld.target.id
+                  ? undefined
+                  : (target) => setSelection({ kind: target.kind, id: target.id })
+              }
               className="mb-3 shrink-0 px-3 py-2 text-xs"
             />
           )}

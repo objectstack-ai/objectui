@@ -20,6 +20,10 @@
  * The held save must also say why on screen, naming the field, and adding one
  * option must let the next autosave go (the control that proves the pillar is
  * not simply refusing every select).
+ *
+ * Since objectui#11786 the pillar asks the same guard before sending, so "held"
+ * is a neutral line naming the field by its label (`studio-held`), not a
+ * refusal: the wire claim above is unchanged, and so is its control.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -91,6 +95,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 import { DataPillar } from './StudioDesignSurface';
 import { createEmptyDataSource } from './__tests__/emptyDataSource';
 import { registerBuiltinInspectors } from '../metadata-admin/inspectors';
+import { tFormat } from '../metadata-admin/i18n';
 
 const dataSource = createEmptyDataSource();
 registerBuiltinInspectors();
@@ -139,6 +144,13 @@ function controlUnder(label: string): HTMLElement {
   return lab.parentElement!.querySelector('input, [role="combobox"]') as HTMLElement;
 }
 
+/** The held line naming `label`'s missing options (objectui#11786). */
+function heldOptionsLine(label: string): string {
+  return tFormat('engine.studio.held.line', 'en', {
+    clause: tFormat('engine.studio.held.needsOptions', 'en', { field: label }),
+  });
+}
+
 /** Add a field on the Form tab and turn it into the given choice type. */
 async function addFieldAndType(typeLabel: RegExp): Promise<string> {
   render(
@@ -163,12 +175,12 @@ describe('Studio data page — a new choice field is not sent without options (o
   ] as const) {
     it(`add a field, type it \`${type}\`, wait out the autosave: no request carries it without options`, async () => {
       const fieldName = await addFieldAndType(typeLabel);
+      const fieldLabel = (controlUnder('Label') as HTMLInputElement).value;
       await outlastDebounce();
       expect(choiceWithoutOptions()).toEqual([]);
 
       // The held save says why, and names the field.
-      const banner = await screen.findByText(new RegExp(`\`${fieldName}\``));
-      expect(banner).toHaveTextContent(/no options/);
+      expect(await screen.findByTestId('studio-held-message')).toHaveTextContent(heldOptionsLine(fieldLabel));
 
       // CONTROL: one option lets the next autosave go, and the banner clears.
       const before = puts.length;
@@ -178,7 +190,7 @@ describe('Studio data page — a new choice field is not sent without options (o
       expect(sent?.type).toBe(type);
       expect(sent?.options).toEqual([expect.objectContaining({ value: 'open' })]);
       expect(choiceWithoutOptions()).toEqual([]);
-      await waitFor(() => expect(screen.queryByText(new RegExp(`\`${fieldName}\``))).toBeNull());
+      await waitFor(() => expect(screen.queryByTestId('studio-held')).toBeNull());
     });
   }
 });
@@ -209,7 +221,7 @@ describe('Studio data page — an object that already stores an empty select (ob
 
     // Held: nothing reached the wire, and the banner names the STORED field.
     expect(puts).toEqual([]);
-    expect(await screen.findByText(/`status`/)).toHaveTextContent(/no options/);
+    expect(await screen.findByTestId('studio-held-message')).toHaveTextContent(heldOptionsLine('Status'));
 
     // Cleared on screen: the stored field's own inspector carries the editor.
     await selectCard('Status');

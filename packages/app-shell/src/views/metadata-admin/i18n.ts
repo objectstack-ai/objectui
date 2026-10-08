@@ -2606,6 +2606,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.field.moveUp': 'Move up',
   'designer.field.moveDown': 'Move down',
   'designer.field.removeValue': 'Remove',
+  // objectui#11786 — the inline hint under the input that holds the save: the
+  // object write guard refuses this field until it is filled in.
+  'designer.field.hint.addOption': 'Add at least one option. Changes are saved once the field has one.',
+  'designer.field.hint.pickTarget': 'Pick the object to link to. Changes are saved once the field has one.',
   'designer.field.relatedObject': 'Related object',
   'designer.field.relationshipName': 'Relationship name',
   'designer.field.relationshipNameHint': 'Inverse collection key on the parent',
@@ -2814,6 +2818,16 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.refusal.navItemInput': '{input} on the navigation item “{item}”',
   'engine.studio.refusal.details': 'Details',
   'engine.studio.refusal.show': 'Show me',
+  // objectui#11786 — an edit held, not refused: an incomplete-but-normal body
+  // (a choice field before its options, a relationship before its target, a
+  // step before its required inputs) stays on screen unsent. Each `needs*` row
+  // is a clause the held line and the Publish refusal both build on.
+  'engine.studio.held.needsOptions': 'the field “{field}” needs at least one option',
+  'engine.studio.held.needsTarget': 'the field “{field}” needs the object it links to',
+  'engine.studio.held.needsInput': '{input} on the step “{step}” needs a value',
+  'engine.studio.held.line': 'Not saved yet: {clause}. Your changes are kept here and saved once it is filled in.',
+  'engine.studio.held.publish': 'Not published: {clause}, so that change is not saved yet. Finish it, then publish.',
+  'engine.studio.held.inputHint': 'Required. Changes are saved once this has a value.',
   'engine.studio.unpublishedDraft': 'Unpublished draft',
   'engine.studio.unpublished': 'Unpublished',
   'engine.studio.new': 'New',
@@ -5666,6 +5680,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.field.moveUp': '上移',
   'designer.field.moveDown': '下移',
   'designer.field.removeValue': '删除',
+  'designer.field.hint.addOption': '请至少添加一个选项。字段有选项后才会保存更改。',
+  'designer.field.hint.pickTarget': '请选择要关联的对象。选定后才会保存更改。',
   'designer.field.relatedObject': '关联对象',
   'designer.field.relationshipName': '关系名称',
   'designer.field.relationshipNameHint': '父对象上的反向集合键',
@@ -5846,6 +5862,12 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.refusal.navItemInput': '导航项「{item}」的「{input}」',
   'engine.studio.refusal.details': '详情',
   'engine.studio.refusal.show': '定位',
+  'engine.studio.held.needsOptions': '字段「{field}」至少需要一个选项',
+  'engine.studio.held.needsTarget': '字段「{field}」需要指定要关联的对象',
+  'engine.studio.held.needsInput': '步骤「{step}」的「{input}」需要填写',
+  'engine.studio.held.line': '尚未保存：{clause}。更改已保留在此处，补全后会自动保存。',
+  'engine.studio.held.publish': '未发布：{clause}，该更改尚未保存。请先补全，再发布。',
+  'engine.studio.held.inputHint': '必填。填写后才会保存更改。',
   'engine.studio.unpublishedDraft': '未发布草稿',
   'engine.studio.unpublished': '未发布',
   'engine.studio.new': '新建',

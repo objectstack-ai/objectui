@@ -71,10 +71,23 @@ import {
   useRegisteredMetadataInspector,
 } from '@object-ui/app-shell';
 import type { MetadataSelection } from '@object-ui/app-shell';
+// ⚠️ A workspace SOURCE path, not an `@object-ui/app-shell/<subpath>` specifier
+// — the package publishes no subpath, and `registerBuiltinDesigners` is not on
+// its barrel. `src/inbox-arrival-preview.tsx` explains why a dev-only fixture
+// imports that way; it is the module the alias in `vite.config.ts` already
+// resolves the package entry's own dynamic import to, so it is the SAME module
+// instance and the same registries.
+import { registerBuiltinDesigners } from '../../../packages/app-shell/src/views/metadata-admin/register-builtin-designers';
 import { SAMPLES } from './preview-samples';
 
-// Importing the @object-ui/app-shell root registers built-in previews and
-// inspectors as a module side-effect, so no explicit registration is needed.
+// The explicit registration (objectui#11939 step 2). Importing the
+// @object-ui/app-shell root still registers the built-in previews and
+// inspectors, but from a chunk it loads with a dynamic `import()`, so they land
+// AFTER this module has rendered. The gallery is the designers' browser
+// verification path (the `verify` skill), so it registers them here, before its
+// first render, and never lists zero designers while that chunk is in flight.
+// The entry's own call then finds every type registered and changes nothing.
+registerBuiltinDesigners();
 
 const ORDER = [
   'object',

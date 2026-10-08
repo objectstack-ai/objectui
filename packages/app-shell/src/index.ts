@@ -368,14 +368,33 @@ import './views/global-notifications-renderer.js';
 // `nav:menu`, is not in the eager `PALETTE_PLACEHOLDER_BLOCKS` set).
 import './views/app-launcher-renderer.js';
 import './views/nav-menu-renderer.js';
-// The metadata-admin engine's five load-time registrations (built-in anchors,
-// default JSONSchemas, the datasource resource, built-in previews, built-in
-// inspectors). objectui#6776 moved them OUT of `views/metadata-admin/index.ts`
-// into this leaf so the page barrel became shakeable; the bare import lives
-// HERE, on the package entry, and must not be moved onto the page barrel —
-// `scripts/vite-declared-lazy-views.ts` reads a bare import as "this module is
-// not pure" and the whole eager closure comes back. See the leaf's own header.
+// The metadata-admin engine's three eager load-time registrations (built-in
+// anchors, default JSONSchemas, the datasource resource). objectui#6776 moved
+// them OUT of `views/metadata-admin/index.ts` into this leaf so the page barrel
+// became shakeable; the bare import lives HERE, on the package entry, and must
+// not be moved onto the page barrel — `scripts/vite-declared-lazy-views.ts`
+// reads a bare import as "this module is not pure" and the whole eager closure
+// comes back. See the leaf's own header.
 import './views/metadata-admin/register-builtins.js';
+// The built-in metadata DESIGNERS (every Preview and Inspector) are registered
+// from a chunk of their own, loaded here, at the entry's module scope, so
+// importing the package still registers them with no action from the host —
+// once the chunk has arrived rather than during this module's evaluation
+// (objectui#11939 step 2). Their three registries are observable (step 1), so
+// a reader that rendered first shows its "designer missing" state and then the
+// designer. A host's own registration is kept whichever comes first: see
+// `registerAsBuiltIns` in `views/metadata-admin/preview-registry.ts`.
+//
+// ⛔ Keep this edge DYNAMIC. A static import of that module, or of the
+// previews/inspectors it registers, from anything this entry reaches statically
+// puts every designer back on every console page's first load, and
+// `scripts/check-eager-closure-budget.mjs` is sized on the bytes that left.
+import('./views/metadata-admin/register-builtin-designers.js')
+  .then(({ registerBuiltinDesigners }) => registerBuiltinDesigners())
+  .catch((error: unknown) => {
+    // The readers keep their "designer missing" states; say why once, here.
+    console.error('[@object-ui/app-shell] The built-in metadata designers failed to load.', error);
+  });
 
 // Phase 3c — generic metadata admin engine. Re-exported so plugins
 // can call `registerMetadataResource()` to override the per-type

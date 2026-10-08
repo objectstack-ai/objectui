@@ -521,7 +521,7 @@ function initFrom(value: string): { rows: Row[]; join: '&&' | '||'; raw: boolean
   return { rows: [], join: '&&', raw: !!value };
 }
 
-export function ConditionBuilder({ label, value, onCommit, objectName, fields: fieldsProp, disabled, onBlockingIssuesChange, subjects, scope, roots }: {
+export function ConditionBuilder({ label, value, onCommit, objectName, fields: fieldsProp, disabled, onBlockingIssuesChange, subjects, scope, roots, scopeIssue }: {
   label?: string;
   value: string;
   onCommit: (cel: string) => void;
@@ -598,6 +598,13 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
    * than a spelling.
    */
   roots?: string[];
+  /**
+   * The host's scope verdict on `value` found a problem it renders itself
+   * (objectui#11789) — forwarded to `CelPredicateField`, which then withholds
+   * "Valid CEL" so the raw editor and the host's note cannot disagree. The row
+   * builder renders no verdict of its own, so it does not read this.
+   */
+  scopeIssue?: boolean;
 }) {
   const { fields: hookFields } = useObjectFields(objectName);
   const fields = fieldsProp ?? hookFields;
@@ -740,6 +747,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
              with no `scope` still forwards `undefined` here, so its offered
              roots are the engine's own, unchanged. */
           roots={offeredRoots}
+          scopeIssue={scopeIssue}
           t={tLocal}
         />
         {value && !parse(value) && (

@@ -55,6 +55,7 @@ function renderInspector(node: Record<string, unknown>, onNavPatch = vi.fn()) {
       navId="navigation[0]"
       appDraft={{ navigation: [node] }}
       objects={OBJECTS}
+      packageId="com.acme.app"
       onNavPatch={onNavPatch}
       onClear={vi.fn()}
     />,

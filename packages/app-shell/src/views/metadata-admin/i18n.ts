@@ -549,6 +549,22 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.appNav.urlTargetSelf': 'Same tab',
   'engine.inspector.appNav.urlTargetBlank': 'New tab',
   'engine.inspector.appNav.preview': 'Resolved link',
+  // objectui#11790 — the Studio nav editor's Type choice offers every member
+  // of the spec's nav-item union; these are the members, and the pickers'
+  // texts, the rows above did not carry.
+  'engine.inspector.appNav.type.action': 'Action',
+  'engine.inspector.appNav.type.component': 'Component',
+  'engine.inspector.appNav.type.doc': 'Documentation',
+  'engine.inspector.appNav.type.separator': 'Separator',
+  'engine.inspector.appNav.choose': '— Choose —',
+  'engine.inspector.appNav.noTargets': 'There is nothing of this type to link to yet.',
+  'engine.inspector.appNav.unboundHint': 'Until a target is chosen, this item stays here but is left out of the saved navigation.',
+  'engine.inspector.appNav.actionHint': 'Only actions not bound to an object can run from the menu.',
+  'engine.inspector.appNav.docPage': 'Doc page',
+  'engine.inspector.appNav.book': 'Book',
+  'engine.inspector.appNav.docHint': 'Choose a doc page, a book, or both.',
+  'engine.inspector.appNav.groupHint': 'A group is a titled section of the menu. Items are not nested under it from this editor.',
+  'engine.inspector.appNav.separatorHint': 'A separator is a divider: it has no label and opens nothing.',
   // View column inspector
   'engine.inspector.viewColumn.kind': 'Column',
   'engine.inspector.viewColumn.close': 'Close column',
@@ -2760,6 +2776,23 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.publish': 'Publish',
   'engine.studio.loading': 'Loading…',
   'engine.studio.loadFailed': 'Failed to load',
+  // objectui#11785 — a refused save, in the author's words. The strip shows one
+  // of these sentences; the raw refusal (field paths, codes) stays under
+  // `engine.studio.refusal.details`, and `show` opens the input it names.
+  'engine.studio.refusal.choiceWithoutOptions':
+    'Changes not saved: the field “{field}” needs at least one option. Add an option, or change the field to a type that is not a choice.',
+  'engine.studio.refusal.relationshipWithoutTarget':
+    'Changes not saved: the field “{field}” does not say which object it links to. Pick the object, or change the field to a type that is not a relationship.',
+  'engine.studio.refusal.issue': 'Changes not saved. Check {where} — {problem}',
+  'engine.studio.refusal.more': '({count} more under Details)',
+  'engine.studio.refusal.unlocated': 'Changes not saved: the server refused this draft. Details say what to change.',
+  'engine.studio.refusal.field': 'the field “{field}”',
+  'engine.studio.refusal.step': 'the step “{step}”',
+  'engine.studio.refusal.stepInput': '{input} on the step “{step}”',
+  'engine.studio.refusal.navItem': 'the navigation item “{item}”',
+  'engine.studio.refusal.navItemInput': '{input} on the navigation item “{item}”',
+  'engine.studio.refusal.details': 'Details',
+  'engine.studio.refusal.show': 'Show me',
   'engine.studio.unpublishedDraft': 'Unpublished draft',
   'engine.studio.unpublished': 'Unpublished',
   'engine.studio.new': 'New',
@@ -3663,6 +3696,20 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.appNav.urlTargetSelf': '当前标签页',
   'engine.inspector.appNav.urlTargetBlank': '新标签页',
   'engine.inspector.appNav.preview': '运行期落点',
+  // objectui#11790 — the Studio nav editor's Type choice and pickers.
+  'engine.inspector.appNav.type.action': '动作',
+  'engine.inspector.appNav.type.component': '组件',
+  'engine.inspector.appNav.type.doc': '文档',
+  'engine.inspector.appNav.type.separator': '分隔线',
+  'engine.inspector.appNav.choose': '— 请选择 —',
+  'engine.inspector.appNav.noTargets': '还没有可链接的此类型条目。',
+  'engine.inspector.appNav.unboundHint': '选定目标之前,该导航项保留在此处,但不会写入保存的导航。',
+  'engine.inspector.appNav.actionHint': '只有未绑定到对象的动作才能从菜单运行。',
+  'engine.inspector.appNav.docPage': '文档页',
+  'engine.inspector.appNav.book': '文档集',
+  'engine.inspector.appNav.docHint': '选择文档页、文档集,或两者都选。',
+  'engine.inspector.appNav.groupHint': '分组是菜单中带标题的分区。此编辑器不支持把导航项嵌套到分组下。',
+  'engine.inspector.appNav.separatorHint': '分隔线只是一条分隔:没有名称,也不打开任何内容。',
   // View column inspector
   'engine.inspector.viewColumn.kind': '列',
   'engine.inspector.viewColumn.close': '关闭列',
@@ -5722,6 +5769,20 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.publish': '发布',
   'engine.studio.loading': '加载中…',
   'engine.studio.loadFailed': '加载失败',
+  'engine.studio.refusal.choiceWithoutOptions':
+    '更改未保存：字段「{field}」至少需要一个选项。请添加选项，或将该字段改为非选项类型。',
+  'engine.studio.refusal.relationshipWithoutTarget':
+    '更改未保存：字段「{field}」未指定要关联的对象。请选择对象，或将该字段改为非关联类型。',
+  'engine.studio.refusal.issue': '更改未保存。请检查{where} —— {problem}',
+  'engine.studio.refusal.more': '（另有 {count} 处，见详情）',
+  'engine.studio.refusal.unlocated': '更改未保存：服务端拒绝了此草稿。详情中说明了需要修改的内容。',
+  'engine.studio.refusal.field': '字段「{field}」',
+  'engine.studio.refusal.step': '步骤「{step}」',
+  'engine.studio.refusal.stepInput': '步骤「{step}」的「{input}」',
+  'engine.studio.refusal.navItem': '导航项「{item}」',
+  'engine.studio.refusal.navItemInput': '导航项「{item}」的「{input}」',
+  'engine.studio.refusal.details': '详情',
+  'engine.studio.refusal.show': '定位',
   'engine.studio.unpublishedDraft': '未发布草稿',
   'engine.studio.unpublished': '未发布',
   'engine.studio.new': '新建',

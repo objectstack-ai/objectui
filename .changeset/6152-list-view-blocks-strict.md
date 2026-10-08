@@ -10,7 +10,9 @@ Clause-②: no
 a strict object. `@object-ui/types` kept the four as the named spec schema `.partial()` plus
 `.passthrough()`, with four accepted aliases and an objectui-only `calendar.defaultView`. So
 `ListViewSchema`, `AnyComponentSchema`, `safeValidateSchema` (`objectui validate`) and the TypeScript
-`ListViewSchema` accepted what the spec refuses. Each block is now the spec's own slot, taken by
+`ListViewSchema` accepted what the spec refuses. The strict authoring face, `StrictAnyComponentSchema`,
+narrows too: it already refused an undeclared key, but it accepted the aliases, `calendar.defaultView`
+and a calendar block without `startDateField`. Each block is now the spec's own slot, taken by
 reference, and the TypeScript face derived from it loses its index signature. What is refused now,
 and what to write instead:
 

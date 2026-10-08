@@ -153,13 +153,12 @@ describe('Studio Data pillar — a draft-only object is listed by its draft\'s l
 
   it('lists a draft-only object that declares no label by its name', async () => {
     renderPillar();
-    await screen.findByRole('button', { name: 'Repair Ticket' });
-    expect(screen.getByRole('button', { name: 'repairs_note' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'repairs_note' })).toBeInTheDocument();
   });
 
   it('control: published rows, the members and their order are as before; a pending draft does not relabel a published object', async () => {
     renderPillar();
-    await screen.findByRole('button', { name: 'Repair Ticket' });
+    await screen.findByRole('button', { name: 'Technician' });
     // Published first, in the published list's order, then the draft-only
     // objects in the draft headers' order. `repairs_orphan` is served only by
     // the overlaid read and is not a member; the published Technician keeps

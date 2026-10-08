@@ -123,9 +123,9 @@ export interface LocatedInput {
 /** Places one issue path, split on `.`, on the body that was sent; `null` when it cannot. */
 export type IssueLocator = (path: readonly string[]) => LocatedInput | null;
 
-type Doc = Record<string, unknown>;
+type SentBody = Record<string, unknown>;
 
-function isDoc(value: unknown): value is Doc {
+function isSentBody(value: unknown): value is SentBody {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
@@ -168,7 +168,7 @@ export function issueRefusal(e: unknown, locale: string, locate?: IssueLocator):
 }
 
 /** A field's label as the editor shows it, its API name when it has none. */
-function fieldLabelOf(name: string, def: Doc): string {
+function fieldLabelOf(name: string, def: SentBody): string {
   return typeof def.label === 'string' && def.label.trim() !== '' ? def.label.trim() : name;
 }
 
@@ -178,16 +178,16 @@ function fieldLabelOf(name: string, def: Doc): string {
  * record's keys, or an array entry's `name` (`[index]` without one). `named`
  * says whether the editor can select it.
  */
-function guardFieldEntries(fields: unknown): Array<{ name: string; def: Doc; named: boolean }> {
+function guardFieldEntries(fields: unknown): Array<{ name: string; def: SentBody; named: boolean }> {
   if (Array.isArray(fields)) {
     return fields.flatMap((raw, index) => {
-      if (!isDoc(raw)) return [];
+      if (!isSentBody(raw)) return [];
       const named = typeof raw.name === 'string' && raw.name !== '';
       return [{ name: named ? (raw.name as string) : `[${index}]`, def: raw, named }];
     });
   }
-  if (isDoc(fields)) {
-    return Object.entries(fields).flatMap(([name, def]) => (isDoc(def) ? [{ name, def, named: true }] : []));
+  if (isSentBody(fields)) {
+    return Object.entries(fields).flatMap(([name, def]) => (isSentBody(def) ? [{ name, def, named: true }] : []));
   }
   return [];
 }
@@ -195,7 +195,7 @@ function guardFieldEntries(fields: unknown): Array<{ name: string; def: Doc; nam
 const GUARD_PROBE = 'studio-refusal-probe';
 
 /** The message the write guard throws for `body`, or `null` when it lets it through. */
-function guardMessageFor(body: Doc): string | null {
+function guardMessageFor(body: SentBody): string | null {
   try {
     assertObjectMetadataWritable(OBJECT_METADATA_TYPE, body, GUARD_PROBE);
     return null;
@@ -215,7 +215,7 @@ function guardMessageFor(body: Doc): string | null {
  * field is the first one the guard refuses on its own, by the same equality.
  * Anything else falls through, and the strip shows the failure as it was.
  */
-function guardRefusalOf(e: unknown, sent: Doc, locale: string): StudioRefusal | null {
+function guardRefusalOf(e: unknown, sent: SentBody, locale: string): StudioRefusal | null {
   if (!(e instanceof Error)) return null;
   if ((e as Partial<MetadataError>).status !== undefined || issuesOf(e).length > 0) return null;
   if (guardMessageFor(sent) !== e.message) return null;
@@ -243,22 +243,22 @@ function guardRefusalOf(e: unknown, sent: Doc, locale: string): StudioRefusal | 
  * Data pillar: `fields.NAME…` on the object body that was sent (a record keyed
  * by name, or an array addressed by index or by `name`), placed on that field.
  */
-export function objectFieldLocator(sent: Doc, locale: string): IssueLocator {
+export function objectFieldLocator(sent: SentBody, locale: string): IssueLocator {
   return (path) => {
     if (path[0] !== 'fields' || path.length < 2) return null;
     const key = path[1];
     const fields = sent.fields;
     let name: string | null = null;
-    let def: Doc | null = null;
+    let def: SentBody | null = null;
     if (Array.isArray(fields)) {
-      const raw = /^\d+$/.test(key) ? fields[Number(key)] : fields.find((f) => isDoc(f) && f.name === key);
-      if (isDoc(raw) && typeof raw.name === 'string' && raw.name !== '') {
+      const raw = /^\d+$/.test(key) ? fields[Number(key)] : fields.find((f) => isSentBody(f) && f.name === key);
+      if (isSentBody(raw) && typeof raw.name === 'string' && raw.name !== '') {
         name = raw.name;
         def = raw;
       }
-    } else if (isDoc(fields) && isDoc(fields[key])) {
+    } else if (isSentBody(fields) && isSentBody(fields[key])) {
       name = key;
-      def = fields[key] as Doc;
+      def = fields[key] as SentBody;
     }
     if (name === null || def === null) return null;
     return {
@@ -269,7 +269,7 @@ export function objectFieldLocator(sent: Doc, locale: string): IssueLocator {
 }
 
 /** A refused save of an object body, as the Data pillar's strip shows it. */
-export function objectSaveRefusal(e: unknown, sent: Doc, locale: string): StudioRefusal {
+export function objectSaveRefusal(e: unknown, sent: SentBody, locale: string): StudioRefusal {
   return guardRefusalOf(e, sent, locale) ?? issueRefusal(e, locale, objectFieldLocator(sent, locale));
 }
 
@@ -295,11 +295,11 @@ function flowInputLabel(type: unknown, rest: readonly string[], locale: string):
  * that node (the step), and on its inspector input when the node's table
  * declares one at the rest of the path.
  */
-export function flowNodeLocator(sent: Doc, locale: string): IssueLocator {
+export function flowNodeLocator(sent: SentBody, locale: string): IssueLocator {
   return (path) => {
     if (path[0] !== 'nodes' || !/^\d+$/.test(path[1] ?? '')) return null;
     const node = Array.isArray(sent.nodes) ? sent.nodes[Number(path[1])] : undefined;
-    if (!isDoc(node) || typeof node.id !== 'string' || node.id === '') return null;
+    if (!isSentBody(node) || typeof node.id !== 'string' || node.id === '') return null;
     const step = typeof node.label === 'string' && node.label.trim() !== '' ? node.label.trim() : node.id;
     const input = flowInputLabel(node.type, path.slice(2), locale);
     return {
@@ -312,7 +312,7 @@ export function flowNodeLocator(sent: Doc, locale: string): IssueLocator {
 }
 
 /** A refused save of a flow body, as the Automations pillar's strip shows it. */
-export function flowSaveRefusal(e: unknown, sent: Doc, locale: string): StudioRefusal {
+export function flowSaveRefusal(e: unknown, sent: SentBody, locale: string): StudioRefusal {
   return issueRefusal(e, locale, flowNodeLocator(sent, locale));
 }
 
@@ -340,9 +340,9 @@ export function navEntryLocator(opts: {
   return (path) => {
     if (path[0] !== 'navigation' || !/^\d+$/.test(path[1] ?? '') || path[2] === 'children') return null;
     const entry = sent[Number(path[1])];
-    if (!isDoc(entry)) return null;
+    if (!isSentBody(entry)) return null;
     const index = editor.findIndex(
-      (e) => e === entry || (isDoc(e) && typeof e.id === 'string' && e.id !== '' && e.id === entry.id),
+      (e) => e === entry || (isSentBody(e) && typeof e.id === 'string' && e.id !== '' && e.id === entry.id),
     );
     if (index < 0) return null;
     const own = editor[index] as NavEntryLike;

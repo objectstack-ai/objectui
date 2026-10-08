@@ -362,7 +362,8 @@ describe('RecordPickerDialog — no cell renders as a link (objectui#11903, poin
           const Renderer = getCellRenderer(type);
           return (
             <div key={type} data-type={type}>
-              <Renderer value={PROBE_VALUE[type] ?? 'probe'} field={{ name: `f_${type}`, ...fields[`f_${type}`] }} />
+              {/* A census spans every type, so no one `FieldMetadata` member names the def. */}
+              <Renderer value={PROBE_VALUE[type] ?? 'probe'} field={{ name: `f_${type}`, ...fields[`f_${type}`] } as never} />
             </div>
           );
         })}

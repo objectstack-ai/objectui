@@ -250,14 +250,16 @@ describe('ListView spec parity (#2231 drift guard)', () => {
 });
 
 /**
- * Per-view-type configs — derived from the spec configs, not forked (#2231).
+ * Per-view-type configs — derived from the spec, not forked (#2231), and since
+ * objectui#6152 round 11 each is the spec's own list-view slot BY REFERENCE.
  *
  * These used to be hand-written objects with their own vocabulary
- * (`groupField`/`cardFields`/`imageField`/`dateField`), which is how a
- * spec-authored `kanban: { groupByField }` — exactly what `CreateViewDialog`
- * emits — could pass the ListView capability gate and still render the wrong
- * lanes. They now carry the spec's field set; only the keys asserted below are
- * local, and each is either a deprecated alias or has no spec counterpart.
+ * (`groupField`/`cardFields`/`imageField`/`dateField`). They carry the spec's
+ * field set; the keys asserted below are the only local ones, and each is a
+ * named REFUSAL arm (a pre-#2231 alias, or the list-view `calendar.defaultView`
+ * the spec has no member for). Why `.partial()` stays on kanban and timeline
+ * is said once, in the note above the blocks in `zod/objectql.zod.ts`.
+ * Verdict equality with the slots: `list-view-blocks-by-reference-6152.test.ts`.
  */
 describe('per-view-type configs derive from the spec', () => {
   const CONFIGS = {
@@ -269,10 +271,10 @@ describe('per-view-type configs derive from the spec', () => {
     kanban: { spec: SpecKanbanConfigSchema, local: ['groupField', 'cardFields', 'groupBy'] },
     // `dateField` / `endField` are the same shape one config over: objectui#8355
     // alias-refusal arms, declared exactly so the two retired spellings are
-    // refused BY NAME instead of riding this mirror's `.passthrough()` into
-    // `ListView`'s calendar branch. ⚠️ Their presence here is NOT a widening —
-    // `z.input` of each is `undefined`, so no document that parsed green starts
-    // parsing green, and the TypeScript face carries `?: never`.
+    // refused BY NAME. `defaultView` became one more by objectui#6152 round 11
+    // (the spec has no such member on this block). ⚠️ Their presence here is NOT
+    // a widening — `z.input` of each is `undefined`, so no document that parsed
+    // green starts parsing green, and the TypeScript face carries `?: never`.
     calendar: { spec: SpecCalendarConfigSchema, local: ['defaultView', 'dateField', 'endField'] },
     gantt: { spec: SpecGanttConfigSchema, local: [] },
     gallery: { spec: SpecGalleryConfigSchema, local: ['imageField'] },
@@ -309,7 +311,12 @@ describe('per-view-type configs derive from the spec', () => {
     expect(result.success && result.data.timeline).toMatchObject({ scale: 'month' });
   });
 
-  it('still accepts the deprecated pre-#2231 aliases so stored views keep validating', () => {
+  it('refuses the pre-#2231 aliases and the list-view `calendar.defaultView` BY NAME (objectui#6152 round 11)', () => {
+    // Until round 11 this row pinned the opposite ("still accepts … so stored
+    // views keep validating"). The census on objectui#6152 read no writer of
+    // any of these keys on the declared blocks, and the spec slots refuse them,
+    // so the door now refuses each at its own path. A stored view that carries
+    // one still RENDERS: `normalizeListViewSchema` folds the aliases forward.
     const result = OuiListViewSchema.safeParse({
       type: 'list-view',
       objectName: 'accounts',
@@ -318,17 +325,22 @@ describe('per-view-type configs derive from the spec', () => {
       timeline: { dateField: 'due_date' },
       calendar: { startDateField: 'starts_at', defaultView: 'week' },
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    const refusedAt = result.success ? [] : result.error.issues.map((i) => `${i.code}@${i.path.join('.')}`).sort();
+    expect(refusedAt).toEqual([
+      'invalid_type@calendar.defaultView',
+      'invalid_type@gallery.imageField',
+      'invalid_type@kanban.cardFields',
+      'invalid_type@kanban.groupField',
+      'invalid_type@timeline.dateField',
+    ]);
   });
 
-  it('⛔ …but the CALENDAR pair is retired — objectui#8355 narrowed exactly those two', () => {
-    // The row above says the deprecated vocabulary still validates, and it is
-    // still true for every alias it names. This row is the exception the
-    // director seat ruled, kept beside it so the two cannot be read as one
-    // blanket promise: `calendar.dateField` / `calendar.endField` are refused
-    // BY NAME now, while `timeline.dateField` one line up is untouched and
-    // stays live. The full refusal contract is pinned in
-    // `calendar-date-alias-refusal-8355.test.ts`.
+  it('⛔ …and the CALENDAR pair was retired first — objectui#8355 narrowed exactly those two', () => {
+    // objectui#8355 refused `calendar.dateField` / `calendar.endField` BY NAME
+    // before round 11 closed the rest of the vocabulary; the row is kept so its
+    // own ruling stays pinned where it was. The full refusal contract is pinned
+    // in `calendar-date-alias-refusal-8355.test.ts`.
     for (const alias of ['dateField', 'endField']) {
       const result = OuiListViewSchema.safeParse({
         type: 'list-view',
@@ -340,8 +352,8 @@ describe('per-view-type configs derive from the spec', () => {
   });
 
   it('does not require the spec-required sub-fields the product authors partially', () => {
-    // CreateViewDialog emits `kanban: { groupByField }` with no `columns`; spec
-    // marks `columns` required, so the derivation must stay `.partial()`.
+    // The producer and the reason are named once, in the note above the blocks
+    // in `zod/objectql.zod.ts` (app-shell's derived kanban default).
     expect(OuiListViewSchema.safeParse({
       type: 'list-view',
       objectName: 'accounts',

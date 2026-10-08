@@ -43,7 +43,7 @@ import {
 } from '@objectstack/spec/ui';
 import type { ObjectCalendarProps as SpecObjectCalendarProps } from '@objectstack/spec/ui';
 import type { ObjectCalendarBlockConfig, ObjectCalendarSchema as TsObjectCalendarSchema } from '../objectql';
-import { ListViewSchema, ObjectCalendarSchema } from '../zod/objectql.zod.js';
+import { ObjectCalendarSchema } from '../zod/objectql.zod.js';
 import { AnyComponentSchema, StrictAnyComponentSchema, safeValidateSchema } from '../zod/index.zod.js';
 
 /* ── Instruments ─────────────────────────────────────────────────────────────── */
@@ -107,11 +107,11 @@ describe('objectui#6152 round 9 — the installed `object-calendar` `calendar` s
   it('is `optional` around a STRICT object', () => {
     expect(wrapperChain(SLOT)).toEqual(['optional', 'object']);
     expect(catchallOf(SLOT_BLOCK)).toBe('never');
-    // CONTROL — the same reading answers differently on a block that is still open: the
-    // list VIEW's calendar block in this package stays `.passthrough()` (a different
-    // contract, not this round's).
-    const viewBlock = (ListViewSchema as unknown as Zod).shape.calendar.unwrap();
-    expect(catchallOf(viewBlock)).toBe('unknown');
+    // CONTROL — the same reading answers differently on an object that is still open: the
+    // `object-calendar` NODE itself, whose `BaseSchema` envelope is `.passthrough()`. (This
+    // control used to read the list VIEW's calendar block, which objectui#6152 round 11
+    // closed: it is the spec's list-view slot by reference now.)
+    expect(catchallOf(ObjectCalendarSchema as unknown as Zod)).toBe('unknown');
   });
 
   it('is a copy of the list view\'s block: not the same object, the same member objects', () => {

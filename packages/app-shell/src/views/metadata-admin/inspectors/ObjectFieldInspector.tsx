@@ -425,6 +425,14 @@ type DefaultKind = 'bool' | 'number' | 'picklist' | 'text';
  * Which default-value editor (if any) fits a field type. Computed,
  * relational, media and structural types have no meaningful literal
  * default in this UI, so they return null (no editor rendered).
+ *
+ * The structural row holds types whose stored value is an object or an
+ * array (objectui#11947): `FieldSchema` judges a literal default against the
+ * field's own stored value contract, so the string the text editor writes is
+ * refused for them, and no editor here can author the structured value. A
+ * default such a field already carries (authored in code) stays on the field
+ * untouched. `ObjectFieldInspector.recordNoDefault-11947.test.tsx` pins
+ * `record`, `location` and `address` through this inspector.
  */
 function defaultValueKind(type: string): DefaultKind | null {
   if (type === 'boolean' || type === 'toggle') return 'bool';
@@ -434,7 +442,7 @@ function defaultValueKind(type: string): DefaultKind | null {
     'formula', 'summary', 'autonumber',
     'lookup', 'master_detail', 'tree',
     'file', 'image', 'avatar', 'video', 'audio', 'signature', 'qrcode',
-    'composite', 'repeater', 'vector',
+    'composite', 'repeater', 'record', 'location', 'address', 'vector',
     'multiselect', 'checkboxes', 'tags',
   ];
   if (noDefault.includes(type)) return null;

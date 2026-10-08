@@ -417,12 +417,14 @@ import { isEntrypoint } from './invoked-as.mjs';
  *     header for both builds and the three control rows that show the bytes
  *     LEFT rather than moved.
  *
- * Headroom above {@link BASELINE} is 26,363 bytes — 0.29x
- * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, on the pair objectui#11798
- * re-pinned when the Studio builder and the chart engine left the first load,
- * lowering the ceiling by exactly the bytes that left (the header's
- * objectui#11798 entry says why that band sits under the 0.50x design point);
- * before it, the pair
+ * Headroom above {@link BASELINE} is 11,020 bytes — 0.12x
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, on the pair objectui#11854
+ * re-pinned when the markdown highlighter and the docs-only markdown plugins
+ * left the first load, lowering the ceiling by exactly the bytes that left
+ * (the header's objectui#11854 entry says why that band sits under the 0.50x
+ * design point); before it, the pair objectui#11798 re-pinned when the Studio
+ * builder and the chart engine left the first load carried 26,363 bytes
+ * (0.29x), the pair
  * objectui#11717 re-pinned under the ruling recorded in the header's fourth
  * raise carried 45,972 bytes (0.50x), and the pair objectui#11438 re-pinned
  * when the `@objectstack/*` 17.6.0 bump paid back the rest of the spec-root
@@ -930,8 +932,81 @@ import { isEntrypoint } from './invoked-as.mjs';
  * the budgeted chunks moved by at most 2 bytes across the two builds, so
  * {@link PER_CHUNK_GZIP_CEILINGS} and {@link PER_CHUNK_BASELINE} stand. Not
  * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added.
+ *
+ * ## ⭐ LOWERED WHEN THE MARKDOWN HIGHLIGHTER LEFT THE FIRST LOAD (objectui#11854)
+ *
+ * From 3,444,622 to 3,386,364: down by 58,258 bytes, exactly what
+ * objectui#11854 took out of the closure. Lowered by the amount recovered, as
+ * the objectui#11798 entry above was: ⛔ not re-derived as the new reading plus
+ * half a regression, which would also have absorbed `main`'s drift since the
+ * `c1d378ec` reading (a raise under another name), and ⛔ not rounded.
+ *
+ * WHAT LEFT — two console builds, one container, one instrument, each under
+ * `scripts/pm/os-verify-lock.sh`: the console's own
+ * `apps/console/vite.config.ts` run through Vite's `build()` with one read-only
+ * module-graph dump appended, reading the `eager-closure.json` the build
+ * writes. `9cb4e29` is `main`; `406f760` is that tree plus the chunk-group
+ * change to `vendor-markdown` in `apps/console/vite.config.ts`, and nothing
+ * else. Gzipped bytes:
+ *
+ *   | chunk                         |  `9cb4e29` |  `406f760` |   delta |
+ *   |-------------------------------|-----------:|-----------:|--------:|
+ *   | `vendor-markdown`             |    163,717 |    104,286 | -59,431 |
+ *   | `vendor-react-markdown`, new  |          — |      1,144 |  +1,144 |
+ *   | `ui-components`               |    284,424 |    284,433 |      +9 |
+ *   | everything else               |  2,985,461 |  2,985,481 |     +20 |
+ *   | ⇒ aggregate                   |  3,433,602 |  3,375,344 | -58,258 |
+ *
+ * The builds weigh 333 of 2456 chunks (`9cb4e29`) and 334 of 2457
+ * (`406f760`); the one new chunk is `vendor-react-markdown`, and it is eager.
+ * The +20 is import bookkeeping spread over 19 chunks, none by more than 5,
+ * ⛔ not attributed further; every `vendor-icon-*` chunk is unmoved.
+ *
+ *   - THE CAPTURE. On `9cb4e29` `vendor-markdown` held 296 modules, and 53 of
+ *     them no static import from the entry reaches: `highlight.js` (39 of the
+ *     53, most of the bytes), `lowlight`, `rehype-highlight`, `rehype-slug`,
+ *     `github-slugger`, `rehype-autolink-headings`,
+ *     `remark-github-blockquote-alert`, the five hast and unist helpers they
+ *     import, and `react-markdown`. The chunk was eager for the other 243,
+ *     which the chat message renderer reaches, so the group's capture made all
+ *     296 eager. With `tags: ['$initial']` the group holds the 243 alone (the
+ *     comment on the group in `apps/console/vite.config.ts` says why), and 52
+ *     of the 53 follow their importer into `plugin-markdown`'s lazy chunk,
+ *     which went from 4,342 to 62,888 gzipped bytes across the two builds.
+ *   - `react-markdown`, the 53rd, stays eager in the new chunk: `MarkdownContent`
+ *     in `packages/fields` imports it statically, and that widget sits in the
+ *     eager `ui-components` chunk although only `React.lazy` reaches it (the
+ *     objectui#5325 co-tenancy, recorded in
+ *     `scripts/vite-ineffective-dynamic-imports.ts`). A chunk of its own keeps
+ *     its bytes off the budgeted `ui-components` line, which would otherwise
+ *     take it by its own capture.
+ *
+ * ⛔ What it did NOT recover. The 243 modules left in `vendor-markdown` are the
+ * pipeline the chat message renderer runs on every page: `streamdown` imports
+ * `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-raw`,
+ * `rehype-sanitize`, `rehype-harden`, `unified` and `hast-util-to-jsx-runtime`
+ * statically, and `plugin-chatbot`, which imports `streamdown` statically, is
+ * eager. Moving them would lazy-load a module the first load reaches, which is
+ * objectui#11798's question under the objectui#6795 ruling, ⛔ not a chunk
+ * group's.
+ *
+ * Headroom 11,020 bytes = 0.12x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}
+ * over {@link BASELINE}: exactly the headroom `main` had on `9cb4e29` before
+ * this change (3,444,622 − 3,433,602), because the ceiling came down by the
+ * aggregate's own delta. It sits under the 0.29x the objectui#11798 entry left
+ * because `9cb4e29` weighed 15,343 bytes more than the `c1d378ec` reading that
+ * entry was sized on — `main`'s drift since, ⛔ not attributed here. No build
+ * that passed before this edit and measures under 3,386,364 fails after it,
+ * and the `9cb4e29` build, which is this change reverted, lands over it.
+ *
+ * ⛔ What moved with it, and what did not. None of the four per-chunk rows:
+ * `ui-components` moved by 9 bytes across the two builds and the other three
+ * budgeted chunks by none, so {@link PER_CHUNK_GZIP_CEILINGS} and
+ * {@link PER_CHUNK_BASELINE} stand; `vendor-markdown` has no row and gets
+ * none. Not {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was
+ * added.
  */
-export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_444_622;
+export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_386_364;
 
 /**
  * The measurement the ceiling above was derived from. Exported so the two
@@ -943,6 +1018,28 @@ export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_444_622;
 export const BASELINE = Object.freeze({
   /**
    * `emitEagerClosureReport`'s `eagerGzipBytes` on this commit.
+   *
+   * `406f760` is objectui#11854's branch commit that narrows `vendor-markdown`
+   * to what the first load reaches: `main` at `9cb4e29` plus that one
+   * chunk-group change in `apps/console/vite.config.ts`, re-pinned with the
+   * ceiling it was lowered with (the objectui#11854 entry on
+   * {@link MAX_EAGER_CLOSURE_GZIP_BYTES} carries its table and its `9cb4e29`
+   * control, ⛔ not restated here). It is a branch commit for the reason the
+   * paragraphs below give for `c1d378ec`: the pull request's own diff is what
+   * moved the figure. Measured by the console's own
+   * `apps/console/vite.config.ts` run through Vite's `build()` with one
+   * read-only module-graph dump appended, reading the `eager-closure.json` the
+   * build writes, under `scripts/pm/os-verify-lock.sh`, in the same container
+   * as the `9cb4e29` control build. The console's ordinary build of `57a1066`
+   * (`CI=true pnpm exec turbo run build --filter=@object-ui/console...
+   * --concurrency=2`, exit 0) wrote the same figure to the byte, which is this
+   * instrument's calibration. The commits after `406f760` on the branch (this
+   * re-pin, its unit test and the changeset) reach no bundler input, so they
+   * cannot move the figure it pins.
+   *
+   * ⚠️ The paragraph below describes the reading this one superseded, the
+   * previous baseline `c1d378ec` (3,418,259 across 333 of 2456 chunks), kept as
+   * its provenance.
    *
    * `c1d378ec` is objectui#11798's branch tip: `main` at `455c6466` merged into
    * the branch that takes the Studio builder and the chart engine out of the
@@ -1026,10 +1123,10 @@ export const BASELINE = Object.freeze({
    * and not from `main` once it is squash-merged — the dead end objectui#9355
    * added `squashMerge` below to route around.
    */
-  gzipBytes: 3_418_259,
-  chunks: 333,
-  totalChunks: 2456,
-  commit: 'c1d378ec',
+  gzipBytes: 3_375_344,
+  chunks: 334,
+  totalChunks: 2457,
+  commit: '406f760',
 
   /**
    * The squash merge that carried the reading above onto `main`, recorded when
@@ -1038,7 +1135,7 @@ export const BASELINE = Object.freeze({
    * measurement gets a handle rather than a dead end.
    *
    * `null` since objectui#10996, and `null` again after objectui#11101,
-   * objectui#11438, objectui#11717 and objectui#11798, deliberately. This field can only ever be BACK-FILLED: a squash sha does
+   * objectui#11438, objectui#11717, objectui#11798 and objectui#11854, deliberately. This field can only ever be BACK-FILLED: a squash sha does
    * not exist until the pull request merges, so the change that re-pins the
    * field above ⛔ cannot write its own here. ⛔ Do not guess one: a wrong sha in
    * this position is worse than an absent one, because it RESOLVES, and a
@@ -1714,8 +1811,12 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * objectui#11717's `c1e32e96`, the 17.7.0 bump's build, re-pinned both, as
  * objectui#11438's `2ba091c`, objectui#11101's `4acbea07` and objectui#11073's
  * `048e7f6` had before it. objectui#11798 re-pinned the aggregate onto
- * BASELINE's `c1d378ec` and left this key at `c1e32e96`: that chunk moved by 0
- * bytes across objectui#11798's two builds, and its ceiling did not move. The
+ * `c1d378ec` and left this key at `c1e32e96`: that chunk moved by 0
+ * bytes across objectui#11798's two builds, and its ceiling did not move.
+ * objectui#11854 re-pinned the aggregate onto BASELINE's `406f760` and left
+ * every key where it was: `vendor-objectstack`, `framework` and
+ * `i18n-locale-en` moved by 0 bytes across objectui#11854's two builds and
+ * `ui-components` by 9, and no ceiling moved. The
  * aggregate is the later reading for every key: `c1e32e96` for
  * `vendor-objectstack`, `bbf6b02d9` (2026-09-13, objectui#9251) for `ui-components`,
  * and `3f775eeb8` for `framework`. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it

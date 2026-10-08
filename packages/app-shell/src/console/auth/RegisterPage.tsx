@@ -18,6 +18,12 @@
  * check answers with a user, the page sends them where it sends a visitor
  * after a successful sign-up (`/`) — the console's own register page does the
  * same — and never renders the form, the notice, or an empty layout for them.
+ *
+ * Nothing is offered until the config read ANSWERS (objectui#11806): while it
+ * is pending the page renders an empty layout, and when it fails it shows the
+ * same "Cannot connect to server" panel with Retry as `./LoginPage`, in place
+ * of the form. The sign-up request goes to the same server, so a live-looking
+ * form would only have deferred that news to the submit.
  */
 
 import { useEffect, useState } from 'react';
@@ -35,6 +41,7 @@ import { AuthPageLayout } from './AuthPageLayout.js';
 import { signUpRefusalMessages } from './signUpRefusalMessages.js';
 import { decideSignUpOffer, isInvitationRedirect, needsBootstrapProbe } from './signUpOffer.js';
 import { useBootstrapStatus } from './bootstrapStatus.js';
+import { ServerUnreachable } from './LoginPage.js';
 
 const RouterLink = ({ href, className, children }: AuthLinkComponentProps) => (
   <Link to={href} className={className}>{children}</Link>
@@ -56,11 +63,16 @@ export function RegisterPage() {
   const [sessionChecked, setSessionChecked] = useState(!isLoading);
   if (!isLoading && !sessionChecked) setSessionChecked(true);
 
-  // `null` until the public auth config has been read; then `{ config }`,
-  // whose `config` is `null` when the read failed — answered as "offer the
-  // form", leaving the server's own gate as the source of truth. Nothing is
-  // rendered before the read, so the form never flashes.
-  const [configRead, setConfigRead] = useState<{ config: AuthPublicConfig | null } | null>(null);
+  // The public auth config and where its read stands (objectui#11806), as on
+  // `./LoginPage`: `loading` until `getAuthConfig()` settles, `failed` once it
+  // rejected — the auth client has already retried by then — and `known` once
+  // the server answered. `authConfig` stays `null` until `known`, and the offer
+  // is consulted only once the read is `known`; nothing is rendered before
+  // then, so the form never flashes. `configReadAttempt` counts Retry presses,
+  // and re-runs the read below.
+  const [authConfig, setAuthConfig] = useState<AuthPublicConfig | null>(null);
+  const [configRead, setConfigRead] = useState<'loading' | 'failed' | 'known'>('loading');
+  const [configReadAttempt, setConfigReadAttempt] = useState(0);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [resendError, setResendError] = useState<string | null>(null);
@@ -68,16 +80,27 @@ export function RegisterPage() {
   useEffect(() => {
     let cancelled = false;
     getAuthConfig()
-      .then(cfg => { if (!cancelled) setConfigRead({ config: cfg ?? null }); })
-      .catch(() => { if (!cancelled) setConfigRead({ config: null }); });
+      .then(cfg => {
+        if (cancelled) return;
+        setAuthConfig(cfg ?? null);
+        setConfigRead('known');
+      })
+      .catch(() => { if (!cancelled) setConfigRead('failed'); });
     return () => { cancelled = true; };
-  }, [getAuthConfig]);
+  }, [getAuthConfig, configReadAttempt]);
+  const retryConfigRead = () => {
+    setConfigRead('loading');
+    setConfigReadAttempt(n => n + 1);
+  };
+  // A retry in flight keeps the unreachable state up (its button reads
+  // "Retrying…") rather than flashing the form before the server has answered.
+  const serverUnreachable =
+    configRead === 'failed' || (configRead === 'loading' && configReadAttempt > 0);
 
   // objectui#11705 — the offer reads `disableSignUp` AND the audience posture;
   // the bootstrap probe runs only when the posture is closed to strangers and
   // the visitor did not come from an invitation. See `./signUpOffer`. It is
   // asked only for a visitor known to be signed out (objectui#11714).
-  const authConfig = configRead ? configRead.config : null;
   const invitationRedirect = isInvitationRedirect(redirect);
   const signedOut = sessionChecked && !user;
   const bootstrap = useBootstrapStatus(signedOut && needsBootstrapProbe(authConfig, invitationRedirect));
@@ -95,7 +118,15 @@ export function RegisterPage() {
   // waiting for the config or the probe. `<Navigate>` renders nothing.
   if (user) return <Navigate to="/" replace />;
 
-  if (!signedOut || configRead === null || signUpOffer === 'closed' || signUpOffer === 'pending') {
+  if (signedOut && serverUnreachable) {
+    return (
+      <AuthPageLayout>
+        <ServerUnreachable retrying={configRead === 'loading'} onRetry={retryConfigRead} />
+      </AuthPageLayout>
+    );
+  }
+
+  if (!signedOut || configRead !== 'known' || signUpOffer === 'closed' || signUpOffer === 'pending') {
     // Render nothing until the offer is known — prevents a flash of the form.
     return <AuthPageLayout>{null}</AuthPageLayout>;
   }

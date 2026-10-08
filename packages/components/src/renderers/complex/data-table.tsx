@@ -13,7 +13,7 @@ import { resolveIcon } from '../action/resolve-icon';
 import { hasDeclaredVisibilityGate } from '../action/visibility-gate';
 import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
-import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, hasDeclaredPredicate, formatDateTime, fromDateTimeInputValue, getSortValue, isImpossibleStoredDay, toDateInputValue, toDateTimeInputValue } from '@object-ui/core';
+import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, hasDeclaredPredicate, formatDateTime, fromDateTimeInputValue, getSortValue, isEmptyValue, isImpossibleStoredDay, toDateInputValue, toDateTimeInputValue } from '@object-ui/core';
 import type { DataTableSchema, TableColumn, TableSortItem, TableColumnType } from '@object-ui/types';
 import type { SortDirection } from '@objectstack/spec/shared';
 import { SchemaRenderer, toRenderableSchema, useCapabilityGate, useRowPredicate, usePredicateScope } from '@object-ui/react';
@@ -44,6 +44,7 @@ import {
   Search,
   Download,
   Edit,
+  Pencil,
   Trash2,
   ChevronLeft,
   ChevronRight,
@@ -85,6 +86,92 @@ import {
 // longer reach this set. Typed as `TableColumnType` so re-adding one is a tsc
 // error rather than a silent re-opening of the undeclared dialect.
 const NUMERIC_EDIT_TYPES = new Set<TableColumnType>(['number', 'currency', 'percent']);
+
+/** One staged cell edit per column key, per page-local row index. */
+type PendingChanges = Map<number, Record<string, any>>;
+
+/** A decimal numeral, as a number `<input>` hands it back — never hex, `Infinity` or blank. */
+const DECIMAL_NUMERAL = /^[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?$/;
+
+/** A number and the decimal string that spells it (`5` and `'5.0'`) are one value. */
+function isSameCellScalar(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a === 'number' && typeof b === 'string') {
+    const s = b.trim();
+    return DECIMAL_NUMERAL.test(s) && Number(s) === a;
+  }
+  if (typeof b === 'number' && typeof a === 'string') return isSameCellScalar(b, a);
+  if (a !== null && b !== null && typeof a === 'object' && typeof b === 'object') {
+    try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+  }
+  return false;
+}
+
+/**
+ * Whether a value an inline editor hands back is the value the row LOADED with
+ * (objectui#11816) — the one question that decides whether a cell is staged as
+ * an edit. Before this, every commit was staged, so clicking into a cell and
+ * out again showed "1 row modified · Save All (1)" for a row nobody changed.
+ *
+ * Each rule answers a round trip the editors measurably make:
+ *
+ * - **The emptiness floor** (`isEmptyValue`, `@object-ui/core`): `null`,
+ *   `undefined`, `''` and `[]` are one blank here. `startEdit` seeds the
+ *   editor with `''` for a cell that loaded `null`, so a text cell left as it
+ *   was hands back `''`, and an emptied multi-select hands back `[]`.
+ * - **A number against its decimal string**: the built-in number editor stores
+ *   the `<input>`'s string, so retyping `5` over a loaded `5` hands back `'5'`.
+ * - **A multi-value set in another order**: toggling an option off and on
+ *   again appends it, so `['a', 'b']` comes back as `['b', 'a']`.
+ * - **Two objects that serialize alike** are the same value.
+ *
+ * ⚠️ The failure direction is asymmetric, as `isSameStoredValue` in
+ * `@object-ui/plugin-form` says of its own rule: "unchanged" about a changed
+ * pair drops the user's edit, "changed" about an equal pair costs one redundant
+ * write. So nothing else is equal — in particular a select's stored code is
+ * never compared with an option LABEL: the table holds no options, and the
+ * option widgets hand back `option.value`, the code the row stores.
+ */
+function isUnchangedCellValue(staged: unknown, loaded: unknown): boolean {
+  if (isEmptyValue(staged) && isEmptyValue(loaded)) return true;
+  if (Array.isArray(staged) && Array.isArray(loaded)) {
+    if (staged.length !== loaded.length) return false;
+    const unmatched = [...loaded];
+    return staged.every((item) => {
+      const at = unmatched.findIndex((other) => isSameCellScalar(item, other));
+      if (at < 0) return false;
+      unmatched.splice(at, 1);
+      return true;
+    });
+  }
+  return isSameCellScalar(staged, loaded);
+}
+
+/**
+ * `prev` with one cell's edit staged — or, when `value` is the loaded value,
+ * with that cell's entry REMOVED, and the row's with it once nothing else is
+ * staged on it (objectui#11816). That is what makes staging a value back to
+ * the loaded one un-mark the row. Returns `prev` itself when nothing changes,
+ * so a no-op commit schedules no state update.
+ */
+function stageCellChange(
+  prev: PendingChanges,
+  rowIndex: number,
+  columnKey: string,
+  value: unknown,
+  loaded: unknown,
+): PendingChanges {
+  const current = prev.get(rowIndex);
+  const unchanged = isUnchangedCellValue(value, loaded);
+  if (unchanged && !(current && columnKey in current)) return prev;
+  const next = new Map(prev);
+  const rowChanges = { ...(current || {}) };
+  if (unchanged) delete rowChanges[columnKey];
+  else rowChanges[columnKey] = value;
+  if (Object.keys(rowChanges).length > 0) next.set(rowIndex, rowChanges);
+  else next.delete(rowIndex);
+  return next;
+}
 
 /**
  * Human label for an object/array cell value (e.g. an expanded reference like
@@ -1307,7 +1394,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const editingCellRef = useRef<{ rowIndex: number; columnKey: string } | null>(null);
   const [editValue, setEditValue] = useState<any>('');
   // Track pending changes for multi-cell editing: rowIndex -> { columnKey -> newValue }
-  const [pendingChanges, setPendingChanges] = useState<Map<number, Record<string, any>>>(new Map());
+  const [pendingChanges, setPendingChanges] = useState<PendingChanges>(new Map());
 
   // objectui#7188 — the row merged with its STAGED edits, handed to the host
   // editor as `pendingRow` next to the persisted `row`. Cached per row object
@@ -1922,12 +2009,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     // via `explicitValue` — their `setEditValue` hasn't flushed to state yet.
     const valueToStage = explicitValue !== undefined ? explicitValue : editValue;
 
-    // Update pending changes
-    const newPendingChanges = new Map(pendingChanges);
-    const rowChanges = newPendingChanges.get(rowIndex) || {};
-    rowChanges[columnKey] = valueToStage;
-    newPendingChanges.set(rowIndex, rowChanges);
-    setPendingChanges(newPendingChanges);
+    // Update pending changes — or drop this cell's entry when the committed
+    // value is the one the row loaded with (objectui#11816).
+    setPendingChanges(stageCellChange(pendingChanges, rowIndex, columnKey, valueToStage, row?.[columnKey]));
 
     // Call the legacy onCellChange callback if provided
     if (schema.onCellChange) {
@@ -1993,14 +2077,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const stageEdit = (value: any) => {
     if (!editingCell) return;
     const { rowIndex, columnKey } = editingCell;
+    // The row the edit is addressed to, the way `saveEdit` addresses it.
+    const row = sortedData[manualPagination ? rowIndex : (effectivePage - 1) * pageSize + rowIndex];
     setEditValue(value);
-    setPendingChanges((prev) => {
-      const next = new Map(prev);
-      const rowChanges = { ...(next.get(rowIndex) || {}) };
-      rowChanges[columnKey] = value;
-      next.set(rowIndex, rowChanges);
-      return next;
-    });
+    setPendingChanges((prev) => stageCellChange(prev, rowIndex, columnKey, value, row?.[columnKey]));
   };
 
   // Commit the in-flight edit when the input loses focus (e.g. the user clicks
@@ -2403,6 +2483,21 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   }) && !allPageRowsSelected;
 
   const hasPendingChanges = pendingChanges.size > 0;
+  // objectui#11816 — the trailing `rowActions` column is an EDIT column, not an
+  // actions column, when nothing can put a row menu in it: the table is
+  // editable with a save path, and no menu handler is supplied. Its cells then
+  // only ever hold a modified row's cancel/save pair. That is the shape
+  // `ObjectGrid` builds — its row menu lives in a host column of its own,
+  // already headed "Actions" — so titling this one "Actions" as well drew two
+  // columns of that name side by side. It is headed by the pencil the
+  // toolbar's "Edit inline" toggle carries, named `table.edit` for assistive
+  // tech. The same three menu inputs `DataTableRowActionsMenu` reads.
+  const rowMenuDeclared = !!(
+    schema.onRowEdit ||
+    schema.onRowDelete ||
+    (Array.isArray(schema.rowActionDefs) && schema.rowActionDefs.length > 0 && schema.onRowActionDef)
+  );
+  const rowActionsColumnIsEditOnly = editable && !!(schema.onRowSave || schema.onBatchSave) && !rowMenuDeclared;
   const showToolbar = searchEnabled || exportable || (showSelectionCount && selectable && selectedRowIds.size > 0) || hasPendingChanges;
 
   return (
@@ -2644,9 +2739,23 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                   </TableHead>
                 );
               })}
-              {rowActions && (
-                <TableHead className="w-24 text-right bg-background">{t('common.actions')}</TableHead>
-              )}
+              {/* The label sits in the same `text-xs` muted span every data
+                  column's header label uses (objectui#11816): a bare string
+                  here took the cell's larger default type. */}
+              {rowActions && (rowActionsColumnIsEditOnly ? (
+                <TableHead
+                  className="w-24 text-right bg-background"
+                  title={t('table.edit')}
+                  data-testid="data-table-edit-column-header"
+                >
+                  <Pencil aria-hidden="true" className="inline-block h-3.5 w-3.5" />
+                  <span className="sr-only">{t('table.edit')}</span>
+                </TableHead>
+              ) : (
+                <TableHead className="w-24 text-right bg-background">
+                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{t('common.actions')}</span>
+                </TableHead>
+              ))}
               {addColumnEnabled && (
                 <TableHead className="w-10 bg-background px-1 text-center">
                   <button

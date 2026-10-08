@@ -26,6 +26,8 @@ import {
   useSensors,
   useDroppable,
   pointerWithin,
+  closestCorners,
+  type CollisionDetection,
   type DragStartEvent,
   type DragOverEvent,
   type DragEndEvent,
@@ -75,6 +77,18 @@ const cid = (key: string) => `g:${key}`; // container (section) droppable id
 const fid = (name: string) => `f:${name}`; // sortable field id
 const unCid = (id: string) => id.slice(2);
 const unFid = (id: string) => id.slice(2);
+
+/**
+ * Which droppable a drag is over (objectui#11871). A pointer drag keeps
+ * `pointerWithin`: the droppable under the pointer, or none. A keyboard drag
+ * has no pointer: dnd-kit reads pointer coordinates off the activator event,
+ * and a `KeyboardEvent` has none, so `pointerWithin` answered nothing and
+ * every keyboard drop missed. It reads `closestCorners`, the measure
+ * `sortableKeyboardCoordinates` picks each arrow-key step's target by, so the
+ * drag is over the droppable the step moved it to.
+ */
+const formCollision: CollisionDetection = (args) =>
+  args.pointerCoordinates ? pointerWithin(args) : closestCorners(args);
 
 /** A field's place in a container map: the container id, a 0-based index and the container's size. */
 interface LayoutPlace {
@@ -657,7 +671,7 @@ export function ObjectFormDesigner({
 
       <DndContext
         sensors={readOnly ? [] : sensors}
-        collisionDetection={pointerWithin}
+        collisionDetection={formCollision}
         accessibility={dndAccessibility}
         onDragStart={onDragStart}
         onDragOver={onDragOver}

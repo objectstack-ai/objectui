@@ -1119,16 +1119,55 @@ export class MetadataClient {
    * (app-shell) and `unwrapViewDraft` (this package) read a draft that arrived
    * through {@link get}, which already unwrapped the envelope. They split on
    * which method feeds them, not on what they mean — all three strip.
+   *
+   * objectui#11799 — whether a draft exists is answered by the pending-drafts
+   * ledger first (see {@link draftLedgerMayHold}), and `?state=draft` is sent
+   * only when the ledger lists the name. The item read answers 404 when there
+   * is no draft, so opening every item in Studio used to log one error per
+   * item for an answer the ledger gives with a 200.
    */
   async getDraft<T = unknown>(
     type: string,
     name: string,
     options: { packageId?: string } = {},
   ): Promise<T | null> {
+    if (!(await this.draftLedgerMayHold(name))) return null;
     return this.readItemResponse<T>(type, name, {
       state: 'draft',
       ...(options.packageId ? { packageId: options.packageId } : {}),
     });
+  }
+
+  /**
+   * Whether the pending-drafts ledger (`GET /meta/_drafts`) may hold a draft
+   * named `name` (objectui#11799).
+   *
+   * Read through {@link listDrafts}, the shared read objectui#11797 made: a
+   * question asked while a ledger read is pending waits for it, and a write
+   * through this transport drops it when the write lands ({@link sendWrite}),
+   * so a draft saved a moment ago is never reported absent by a read sent
+   * before the save.
+   *
+   * The WHOLE ledger, matched by name. The `?state=draft` read finds a row
+   * under either spelling of the type, and, when it names a package, that
+   * package's row or the package-less one. The ledger's `type` and `packageId`
+   * filters are exact, so a filtered ledger could miss a draft the item read
+   * would serve, and the editor would open the published body over a pending
+   * draft. Unfiltered, every miss here is a real absence; a same-name row of
+   * another type or package only costs the item read that was always sent.
+   *
+   * A ledger that cannot be read (403 without an authoring capability, 501 on
+   * a kernel without drafts, a network fault) is UNKNOWN, not empty: the item
+   * read is sent, as before.
+   */
+  private async draftLedgerMayHold(name: string): Promise<boolean> {
+    let drafts: MetadataDraftHeader[];
+    try {
+      drafts = await this.listDrafts();
+    } catch {
+      return true;
+    }
+    return drafts.some((d) => d?.name === name);
   }
 
   /**

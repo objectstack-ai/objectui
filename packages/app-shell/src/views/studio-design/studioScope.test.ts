@@ -21,16 +21,16 @@ import {
   isStudioOrgScope,
   studioOrgScopePath,
 } from './studioScope';
-import { PACKAGE_ID_RE, sanitizePackageId } from './packages-io';
+import { isSpecPackageId, sanitizePackageId } from './packages-io';
 import { parseSurfaceParam } from '../metadata-admin/nav-selection';
 
 describe('the reserved segment cannot name a package (objectui#11553)', () => {
-  it('is refused by the spec manifest-id rule and by this app’s own', () => {
+  it('is refused by the spec manifest-id rule and by the predicate this app judges ids by', () => {
     expect(MANIFEST_ID_PATTERN.test(STUDIO_ORG_SCOPE_SEGMENT)).toBe(false);
-    expect(PACKAGE_ID_RE.test(STUDIO_ORG_SCOPE_SEGMENT)).toBe(false);
-    // Control: both rules accept a real reverse-domain id.
+    expect(isSpecPackageId(STUDIO_ORG_SCOPE_SEGMENT)).toBe(false);
+    // Control: both accept a real reverse-domain id.
     expect(MANIFEST_ID_PATTERN.test('com.example.showcase')).toBe(true);
-    expect(PACKAGE_ID_RE.test('com.example.showcase')).toBe(true);
+    expect(isSpecPackageId('com.example.showcase')).toBe(true);
   });
 
   it('cannot be typed into a package id: the sanitizer drops its first character', () => {

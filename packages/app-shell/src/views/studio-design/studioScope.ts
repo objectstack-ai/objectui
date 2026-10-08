@@ -19,9 +19,10 @@
  * ## The segment cannot name a package
  *
  * `~` is outside every package-id alphabet in play: the spec's
- * `MANIFEST_ID_PATTERN` (lowercase letters, digits, hyphens, dots) and this
- * app's own `PACKAGE_ID_RE` and `sanitizePackageId` (`packages-io.ts`, which
- * also allow underscores). So no package id can ever equal it.
+ * `MANIFEST_ID_PATTERN` (lowercase letters, digits, hyphens, dots), which this
+ * app judges ids by (`isSpecPackageId`), and the alphabet `sanitizePackageId`
+ * keeps (`packages-io.ts`, which also keeps underscores). So no package id can
+ * ever equal it.
  *
  * ## What the scope offers, and what it does not
  *

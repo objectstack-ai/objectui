@@ -323,6 +323,24 @@ declare module '@object-ui/types' {
 }
 
 /**
+ * A stored inline metric widget's `options`, without the retired sub-caption
+ * key `description` (objectui#11389, ruling C).
+ *
+ * Both surfaces' metric arms spread a dataset-less widget's `options` onto the
+ * {@link DashboardMetricNodeSchema} node, and `MetricWidget` draws the node's
+ * `description` as the line under the value. So the spread alone would keep
+ * drawing a stored `options.description` as a sub-caption after every read that
+ * named it was removed. Both arms drop it here, so the two surfaces cannot
+ * disagree about it. The node's own `description` member stays: it is
+ * `MetricWidget`'s prop, which a node sets directly, not a key of a dashboard
+ * widget's options bag.
+ */
+export function withoutRetiredSubCaption<T extends Record<string, unknown>>(options: T): Omit<T, 'description'> {
+  const { description: _retiredSubCaption, ...rest } = options;
+  return rest;
+}
+
+/**
  * `node` with its `type` moved onto the namespaced key {@link
  * DASHBOARD_NODE_TYPES} names, or `node` itself when the type has no row.
  *

@@ -42,13 +42,16 @@
  *
  * ## Reachability, deliberately NOT pinned here
  *
- * `undoable` and `recordIdField` are absent from these payloads on purpose, and
- * asserting they arrive would pin a fiction. Both are read only under a
- * `rowRecord` guard, and `rowRecord` is `params._rowRecord` — written by the
- * spread-based hosts (`DeclaredActionsBar`, `RelatedRecordActionsBridge`,
- * `ObjectGrid`, `page:header`), never by these renderers. `action:button`
- * forwards them INERTLY on this path; the menu omitting them costs nothing.
- * That verdict is carried, with its evidence, in the gate's JUSTIFIED table.
+ * `undoable` and `recordIdField` are absent from these payloads on purpose.
+ * Both are read only under a `rowRecord` guard, and `rowRecord` is
+ * `params._rowRecord` — written by the spread-based hosts
+ * (`DeclaredActionsBar`, `RelatedRecordActionsBridge`, `ObjectGrid`,
+ * `page:header`) and, since objectui#11168, by `action:button` itself for an
+ * `undoable` `operation: 'update'` of the record in scope (pinned in
+ * `action-button-undoable-11168.test.tsx`). The menu, the group and the icon
+ * write it nowhere, so on them both keys stay unreachable and omitting them
+ * costs nothing. That verdict is carried, with its evidence, in the gate's
+ * JUSTIFIED table.
  */
 
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';

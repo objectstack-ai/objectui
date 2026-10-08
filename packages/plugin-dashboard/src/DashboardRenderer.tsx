@@ -41,11 +41,10 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
-import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboardNodeType, resolveWidgetType, isSlotComponentEntry, unsupportedWidgetSchema, entryComponent, type DashboardWidgetSlotEntry } from './widgetDispatch';
+import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboardNodeType, resolveWidgetType, isSlotComponentEntry, unsupportedWidgetSchema, entryComponent, withoutRetiredSubCaption, type DashboardWidgetSlotEntry } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget, isRetiredEnvelopeNode } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import type { DashboardChartRenderSchema } from './chartRenderHandoff';
-import { useWidgetSubCaption } from './widgetSubCaption';
 import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
 import { DashboardFilterBar } from './DashboardFilterBar';
 
@@ -292,8 +291,8 @@ export interface DashboardRendererProps
    * it.
    *
    * When true, the texts the server translated — the dashboard `label` and
-   * `description`, and each widget's `title`, `description` and sub-caption
-   * (`options.description`) — are drawn as given: an inline per-locale map is
+   * `description`, and each widget's `title` and `description` — are drawn as
+   * given: an inline per-locale map is
    * still collapsed to the active language, but no client bundle lookup runs
    * over them. A second pass over a served value is what let the packaged
    * catalog win again, client-side, over a published edit (objectui#11295).
@@ -501,53 +500,6 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
       },
       [localized, dashName, widgetDescription, resolveLabel],
     );
-
-    /**
-     * Translate a metric card's SUB-CAPTION — the line under the big number —
-     * using the `{ns}.dashboards.{dashName}.widgets.{widgetId}.subCaption`
-     * convention (objectui#4032 item 4).
-     *
-     * The authored field is `widget.options.description`, NOT
-     * `widget.description`. They are two different authored fields with two
-     * different keys (objectstack#5428 item-4 ruling: 「两个作者字段两个
-     * key」), which is why PR #4358 stopped here instead of routing the
-     * sub-caption through `tWidgetDescription`: `widget.description` feeds the
-     * shared Card header, and on a `kpi` / `gauge` / `bullet` widget BOTH are
-     * on screen at once, so one shared key would make a single translation
-     * entry overwrite the other field's text.
-     *
-     * `subCaption` is the widget-translation-node member objectstack#8056
-     * added, shipped in `@objectstack/spec@17.0.0` (the version this repo
-     * pins). The server already reads the same key on the `/meta` path —
-     * `translateDashboard` overlays it onto `options.description` — so a served
-     * document needs no client work; this is the same key path resolved for the
-     * app bundles objectui loads into `I18nProvider` itself.
-     *
-     * Composition order is the one `tWidgetTitle` fixed: the authored value is
-     * collapsed to the active language FIRST (an inline per-locale map — the
-     * #4208 `pickLocalized` seam), and the plain string that falls out is
-     * offered to the bundle as its fallback, so a bundle entry always wins over
-     * an inline map and the two channels can never disagree about what "the
-     * authored sub-caption" is.
-     *
-     * A translation with no authored counterpart is legitimate and matches the
-     * server: `translateDashboard` writes `options.description` whenever the
-     * bundle carries a non-empty `subCaption`, whether or not the author wrote
-     * one. Absent both, this answers `undefined` rather than `''` —
-     * `MetricWidget` gates its whole caption row on the value's truthiness.
-     *
-     * ⚠️ The composition itself no longer lives here (objectui#8889). It moved
-     * to `useWidgetSubCaption` so that BOTH dashboard surfaces —
-     * `DashboardRenderer` and `DashboardGridLayout`, which route a
-     * dataset-bound widget to the same `DatasetWidget` (objectui#4614) — resolve
-     * it through ONE decision point. An invariant that says two channels can
-     * never disagree cannot be enforced by two independent resolvers; see that
-     * module's header. The limbs, their order and the `undefined`-never-`''`
-     * contract are unchanged, which is why the pins in
-     * `__tests__/DashboardRenderer.metricSubCaption.test.tsx` did not move.
-     * A `localized` document skips limb 2, as the title does (objectui#11295).
-     */
-    const tWidgetSubCaption = useWidgetSubCaption(dashName, localized);
 
     // Install host-supplied modal/script handlers on the underlying ActionRunner.
     useEffect(() => {
@@ -915,16 +867,6 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 // spec-valid inline map that `resolveLabel` could not read, so
                 // an authored title silently became the string `"metric"`.
                 const label = tWidgetTitle(widget) || widgetType;
-                // objectui#4032 item 4 — and the card's SUB-CAPTION comes from
-                // its own key, `…widgets.{id}.subCaption`, because it is a
-                // different authored field (`options.description`) from the
-                // shared header's `widget.description`. Assigned AFTER the
-                // `...options` spread in the branch below: the spread is
-                // what carries the raw authored `options.description` through,
-                // and this is the resolved value that replaces it. When nothing
-                // translates it, `tWidgetSubCaption` hands back exactly what the
-                // spread would have — so an untranslated dashboard is byte-identical.
-                const subCaption = tWidgetSubCaption(widget);
                 // Static value: an inline `options.value`, else the first row's
                 // measure from an inline data array.
                 const rows = Array.isArray(widgetData) ? widgetData : widgetData?.items || [];
@@ -936,9 +878,11 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                     // `CustomNodeRegistry` entry `./widgetDispatch` adds
                     // (objectui#11466).
                     type: DASHBOARD_NODE_TYPES.metric,
-                    ...options,
+                    // The card draws no sub-caption from `options` (objectui#11389,
+                    // ruling C): the spread drops the retired `description` key,
+                    // the same way `DashboardGridLayout`'s metric arm does.
+                    ...withoutRetiredSubCaption(options),
                     label,
-                    description: subCaption,
                     value: options.value ?? rows[0]?.[valueField] ?? '—',
                 };
             }
@@ -1145,15 +1089,6 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                           ? <DatasetWidget
                               widget={datasetWidget}
                               dataSource={dataSource}
-                              /* objectui#8889 — dispatch site 1 of 2. Both must pass this;
-                                 passing it from one surface only is objectui#4614's lesson
-                                 repeated. `?? null` is the "resolved to nothing" signal:
-                                 `undefined` would mean "nobody resolved it" and send
-                                 `DatasetWidget` back to its own authored-only limb, which
-                                 is how a bundle entry that resolves to empty would lose to
-                                 the authored value on THIS surface while the inline arms of
-                                 `getComponentSchema()` above render nothing. */
-                              subCaption={tWidgetSubCaption(datasetWidget) ?? null}
                             />
                           : <SchemaRenderer schema={componentSchema} dataSource={dataSource} />}
                     </div>

@@ -55,14 +55,15 @@ vi.mock('./packages-io', async (importOriginal) => {
 // The Advanced views live in a Radix DropdownMenu; this suite measures the
 // pillar's selection, not radix's open/close machinery, so the menu renders as
 // plain passthroughs (the convention of DataPillar.panelGate.test.tsx).
+type PassthroughProps = { children?: React.ReactNode; onSelect?: () => void };
 vi.mock('@object-ui/components', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@object-ui/components')>();
   return {
     ...mod,
-    DropdownMenu: (p: any) => <div>{p.children}</div>,
-    DropdownMenuTrigger: (p: any) => <div>{p.children}</div>,
-    DropdownMenuContent: (p: any) => <div>{p.children}</div>,
-    DropdownMenuItem: (p: any) => (
+    DropdownMenu: (p: PassthroughProps) => <div>{p.children}</div>,
+    DropdownMenuTrigger: (p: PassthroughProps) => <div>{p.children}</div>,
+    DropdownMenuContent: (p: PassthroughProps) => <div>{p.children}</div>,
+    DropdownMenuItem: (p: PassthroughProps) => (
       <button type="button" onClick={() => p.onSelect?.()}>{p.children}</button>
     ),
   };

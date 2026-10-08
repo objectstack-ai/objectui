@@ -52,6 +52,7 @@ const state = vi.hoisted(() => {
   return {
     metadataClient: {
       get: vi.fn(() => pending.current),
+      withPreviewDrafts() { return this; },
       list: vi.fn(async () => [] as unknown[]),
     },
     /** Arm a fresh unsettled response; call before mounting. */

@@ -106,7 +106,8 @@ describe('a new validation rule waits for its condition (objectui#11820)', () =>
     addFromMenu('Script — CEL fail condition');
     expect(screen.getByRole('checkbox', { name: 'Create' })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Update' })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: 'Delete' })).not.toBeChecked();
+    // objectui#11923 — the row offers only the spec's events: no Delete box.
+    expect(screen.queryByRole('checkbox', { name: 'Delete' })).toBeNull();
   });
 
   it('edits before the condition stay unsent and ride along when it is written', () => {

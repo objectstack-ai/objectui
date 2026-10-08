@@ -117,6 +117,7 @@ const mockClient = {
   }),
   getDraft: vi.fn(async () => null),
   get: vi.fn(async () => undefined),
+  withPreviewDrafts() { return this; },
 };
 
 vi.mock('../metadata-admin/useMetadata', async (importOriginal) => {

@@ -211,6 +211,9 @@ export const ObjectGridRenderer: React.FC<{ schema: any; [key: string]: any }> =
  * turned it into a retired-key tombstone the protocol refuses by name, and
  * objectui#5861 removed every renderer read of it (ADR-0049 enforce-or-remove).
  * It stays off this list because the contract refuses it, not by exemption.
+ * `resizableColumns` followed the same way: spec 17.7.0 tombstoned it
+ * (objectstack#21445), and objectui#6152 round 7 removed `ObjectGrid`'s
+ * `resizable ?? resizableColumns` read, so `resizable` is its only spelling.
  *
  * ## `description`, `emptyState` and `keyboardNavigation`: the 17.6.0 keys
  *
@@ -298,7 +301,7 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
   // ── presentation ──────────────────────────────────────────────────────────
   { name: 'rowHeight', type: 'enum', enum: ['compact', 'short', 'medium', 'tall', 'extra_tall'], description: 'Row density. An unrecognised value falls back to `compact` rather than erroring.' },
   { name: 'frozenColumns', type: 'number', description: 'How many leading columns stay pinned while the grid scrolls horizontally.' },
-  { name: 'resizable', type: 'boolean', description: 'Let users drag column borders to resize. The canonical spelling — the deprecated `resizableColumns` is only read when this is absent.' },
+  { name: 'resizable', type: 'boolean', description: 'Let users drag column borders to resize. On by default. The only spelling — the legacy `resizableColumns` is retired and refused by name (objectui#6152).' },
   { name: 'reorderableColumns', type: 'boolean', description: 'Let users drag columns into a different order.' },
   { name: 'showColumnTypeIcons', type: 'boolean', description: 'Show a field-type icon in each column header. Off by default — the type is usually obvious from the cell content, and the icons compete with the column labels.' },
   { name: 'rowColor', type: 'object', description: 'Rules that colour whole rows from a field value.' },

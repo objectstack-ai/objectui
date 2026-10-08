@@ -68,6 +68,7 @@ import { expressionSource, writeExpressionSource } from '../metadata-admin/inspe
 import { readFields } from '../metadata-admin/previews/object-fields-io.js';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
 import type { ExpressionInput } from '@objectstack/spec/shared';
+import { ScriptValidationSchema, type ScriptValidationParsed } from '@objectstack/spec/data';
 
 /**
  * objectui#11781 — the look a disabled control takes: the pair the
@@ -136,7 +137,59 @@ const RULE_TYPES: ReadonlyArray<{ value: RuleType; labelKey: string }> = [
   { value: 'conditional', labelKey: 'engine.studio.rules.typeConditional' },
 ];
 
-const EVENTS = ['insert', 'update', 'delete'] as const;
+/** An event a validation rule may run on: the spec's enum, not a local list. */
+type RuleEvent = ScriptValidationParsed['events'][number];
+
+/**
+ * objectui#11923 — the "Runs on" row reads the spec's `events` contract
+ * (`events` in `BASE_VALIDATION_SHAPE`, which every rule type spreads). A local
+ * list here offered `delete`, which the spec refuses (the server's rule
+ * validator runs only on insert and update), and showed a rule with no `events`
+ * key as running on nothing, while the spec defaults it to both and the server
+ * runs it on both.
+ *
+ * Both halves come off the spec's own schema: the enum's options are the boxes
+ * the row offers, and what the schema makes of an absent key is what the row
+ * shows for one. Read on first use rather than at import, as the spec builds
+ * its schemas lazily. `ScriptValidationSchema` is read because every rule type
+ * spreads the same key; `ObjectValidationsPanel.runsOn-11923.test.tsx` pins
+ * that every type's schema agrees.
+ */
+let runsOnSpec: { offered: readonly RuleEvent[]; absent: readonly RuleEvent[] } | undefined;
+function runsOnContract(): { offered: readonly RuleEvent[]; absent: readonly RuleEvent[] } {
+  if (!runsOnSpec) {
+    const events = ScriptValidationSchema.shape.events;
+    runsOnSpec = { offered: events.unwrap().element.options, absent: events.parse(undefined) };
+  }
+  return runsOnSpec;
+}
+
+/**
+ * The events a rule runs on, as the "Runs on" boxes show them: its own list, or
+ * the spec's default when it names none. The one place the row reads `events`,
+ * so no box falls back on its own.
+ *
+ * A stored value the spec does not offer (a `delete` written before
+ * objectui#11923) has no box. The server never ran a rule on it, so the boxes
+ * still show what the rule runs on; an unrelated edit keeps it, and the next
+ * write from this row leaves it out (see `writeRunsOn`).
+ */
+function ruleRunsOn(rule: ValidationRuleDraft): readonly string[] {
+  if (rule.events === undefined) return runsOnContract().absent;
+  return Array.isArray(rule.events) ? rule.events : [];
+}
+
+/**
+ * The full list a tick or an untick on the "Runs on" row writes: every offered
+ * event whose box is checked afterwards, in the spec's order. Unticking the last
+ * box writes `[]`, which the spec accepts and the server reads as running on
+ * nothing; it is not the absent key, so the row then shows no box checked.
+ */
+function writeRunsOn(rule: ValidationRuleDraft, event: RuleEvent, on: boolean): RuleEvent[] {
+  const current = ruleRunsOn(rule);
+  return runsOnContract().offered.filter((ev) => (ev === event ? on : current.includes(ev)));
+}
+
 /**
  * The events a NEW rule starts on: Create + Update (objectui#11820). They are
  * also the spec's own default for a rule that names none (`events` in
@@ -923,28 +976,21 @@ export function ObjectValidationsPanel({
               missing={selMissing}
             />
 
-            {/* runs-on events */}
+            {/* runs-on events: the spec's events, an absent key shown as its default (objectui#11923) */}
             <div>
               <span className="mb-1 block text-[11px] text-muted-foreground">{t('engine.studio.rules.events', locale)}</span>
               <div className="flex items-center gap-4">
-                {EVENTS.map((ev) => {
-                  const on = Array.isArray(sel.events) ? sel.events.includes(ev) : false;
-                  return (
-                    <label key={ev} className="flex items-center gap-1.5 text-[12px]">
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        disabled={disabled}
-                        onChange={(e) => {
-                          const cur = Array.isArray(sel.events) ? sel.events : [];
-                          const next = e.target.checked ? [...new Set([...cur, ev])] : cur.filter((x) => x !== ev);
-                          patchRule(sel.name!, { events: next });
-                        }}
-                      />
-                      {t(`engine.studio.rules.event.${ev}`, locale)}
-                    </label>
-                  );
-                })}
+                {runsOnContract().offered.map((ev) => (
+                  <label key={ev} className="flex items-center gap-1.5 text-[12px]">
+                    <input
+                      type="checkbox"
+                      checked={ruleRunsOn(sel).includes(ev)}
+                      disabled={disabled}
+                      onChange={(e) => patchRule(sel.name!, { events: writeRunsOn(sel, ev, e.target.checked) })}
+                    />
+                    {t(`engine.studio.rules.event.${ev}`, locale)}
+                  </label>
+                ))}
               </div>
             </div>
 

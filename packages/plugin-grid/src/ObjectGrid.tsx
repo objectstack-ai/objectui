@@ -5431,7 +5431,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // `editable` produces no such column today. Following the same verdict is
     // what makes the gated grid identical to the non-editable one.
     rowActions: !!(inlineEditable && hasActions),
-    resizableColumns: schema.resizable ?? schema.resizableColumns ?? true,
+    // `resizable` alone (objectui#6152 round 7): the legacy `resizableColumns`
+    // spelling is retired on both faces and by `@objectstack/spec` 17.7.0, so
+    // it is no longer read here. (`resizableColumns` on the left is DataTable's
+    // own prop, a different block's key.)
+    resizableColumns: schema.resizable ?? true,
     reorderableColumns: schema.reorderableColumns ?? false,
     // [#5143] The authored key ∧ this principal's write verdict on the object.
     editable: inlineEditable,

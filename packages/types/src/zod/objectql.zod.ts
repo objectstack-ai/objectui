@@ -303,6 +303,19 @@ const OBJECT_GRID_SHOW_FILTERS_RETIRED =
   + '`showFilters`, so an authored value drew nothing. The filter builder is the `list-view` toolbar\'s: '
   + 'author a `list-view` and switch the builder with its `userActions.filter`. To narrow the rows this '
   + 'grid fetches, write `filter`.';
+/**
+ * objectui#6152 round 7 — the same one-string shape for `resizableColumns`, retired
+ * with `ObjectGrid`'s fallback read of it. It names `properties.resizable` because an
+ * AUTHORED `object-grid` takes its props in the spec row's `properties` bag
+ * (objectui#11276); a node composed in code writes `resizable` on the node, and the
+ * hoist makes the two spellings one key.
+ */
+const OBJECT_GRID_RESIZABLE_COLUMNS_RETIRED =
+  'RETIRED (objectui#6152, ADR-0049) — `resizableColumns` was the legacy second spelling of `resizable`, '
+  + 'read only when `resizable` was absent, and `ObjectGrid` no longer reads it, so an authored value would '
+  + 'draw nothing; `@objectstack/spec` 17.7.0 refuses it by name on `object-grid` too. Rename the key to '
+  + '`resizable` — on an authored node, `properties.resizable`: '
+  + '`{ "type": "object-grid", "properties": { "resizable": false } }`.';
 
 /**
  * objectui#11070 — ONE `.describe()` string for every object-bound arm that declares
@@ -627,6 +640,17 @@ export const ObjectGridSchema = BaseSchema.extend({
     + 'Rename the key to `sort` and wrap the value in an array: `sort: [{ field, order }]`.',
   ),
   defaultFilters: z.record(z.string(), z.any()).optional(),
+  // objectui#6152 round 7 — RETIRED under ADR-0049, in lockstep with the `?: never`
+  // twin on the interface. `@objectstack/spec` 17.7.0 (objectstack#21445) refuses
+  // this key BY NAME on `object-grid` (a retired-key tombstone in the row that
+  // judges the authored `properties` bag), and `ObjectGrid` dropped its
+  // `resizable ?? resizableColumns` fallback in the same change, so a declared
+  // member here would parse green and draw nothing. A tombstone rather than a
+  // deletion, as for `defaultSort`: `BaseSchema` is `.passthrough()`, so an
+  // undeclared key is KEPT unexamined, not refused. The `object-view` `table`
+  // slot below keeps its own refusal of the key, which overrides this member
+  // there, as it does for the five objectui#11068 retired.
+  resizableColumns: retirementTombstone(OBJECT_GRID_RESIZABLE_COLUMNS_RETIRED),
   // The legacy caption/export-title fallback — `ObjectGrid.tsx` draws it at
   // exactly two sites, the export file name's `viewLabel` and the table
   // `caption`, each resolving `label` first and this key only when `label`
@@ -734,8 +758,8 @@ export const ObjectGridSchema = BaseSchema.extend({
   // row's own member (`reorderableColumns`, `singleClickEdit`), and
   // `conditionalFormatting` is the spec list view's own rule BY REFERENCE (the shared
   // `ConditionalFormattingRuleSchema` above, objectui#11533); the rest restate the
-  // twin's local shapes. ⛔ `resizableColumns`, the eleventh, is NOT here: its route
-  // is open on objectui#6152 (the entry in `zod-mirror-parity.test.ts` says why).
+  // twin's local shapes. ⛔ `resizableColumns`, the eleventh, was never mirrored:
+  // objectui#6152 round 7 RETIRED it (the tombstone above, beside `defaultFilters`).
   aggregations: z.array(ObjectGridAggregationSchema).optional().describe('Per-group aggregations drawn in each group header, e.g. [{ field: "amount", type: "sum" }]'),
   bulkActionDefs: z.array(ObjectGridBulkActionDefSchema).optional().describe('Rich bulk action definitions; each opens the bulk action dialog (params, confirm, progress) for the selected rows'),
   conditionalFormatting: z.array(ConditionalFormattingRuleSchema).optional().describe('Conditional formatting rules for row styling — `[{ condition, style }]`, the rules a list view declares: the first rule whose CEL `condition` holds applies its CSS `style` map to the row'),
@@ -1062,7 +1086,8 @@ export const ObjectFormSchema = BaseSchema.extend({
  * itself declares (`body`, `children`, `defaultSort`) are inherited unchanged;
  * the five it retired later (`name`, `placeholder`, `rowSpecActions`,
  * `bulkSpecActions`, `showFilters`, objectui#11068) are overridden below by this
- * slot's own refusal.
+ * slot's own refusal, and so is `resizableColumns`, which the slot withheld as
+ * a legacy alias before objectui#6152 round 7 retired it on the grid itself.
  */
 const tableKeyRefusal = (key: string, why: string) =>
   retirementTombstone(

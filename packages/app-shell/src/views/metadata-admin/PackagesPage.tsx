@@ -675,10 +675,16 @@ export function PackageDetailSheet({
           <>
             <Separator className="my-4" />
             <div className="space-y-2">
-              <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {/* A `div`, not a `p` (objectui#11804): the draft-count `Badge`
+                  renders a `<div>`, and a `<div>` inside a `<p>` is invalid
+                  HTML — React logged "In HTML, <div> cannot be a descendant of
+                  <p>" every time a package with pending drafts opened this
+                  sheet. Same classes; Tailwind's preflight zeroes a `p`'s
+                  margins, so the swap changes no spacing. */}
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {t('engine.packages.detail.pendingChanges', locale)}
                 <Badge variant="secondary">{drafts.length}</Badge>
-              </p>
+              </div>
               <p className="text-xs text-muted-foreground">
                 {t('engine.packages.detail.pendingHint', locale)}
               </p>

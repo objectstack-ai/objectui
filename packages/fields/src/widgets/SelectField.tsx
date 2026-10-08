@@ -183,16 +183,32 @@ function SingleSelectField({
   //   the trigger as well would give the state a second, OR-merged author.
   const { name: domName, disabled: _domDisabled, ...triggerDomProps } = toDomProps(props);
 
+  // `null` is how an empty value arrives — the cascade clear above emits it
+  // (objectui#10291), and so does a record whose column is empty. Radix shows
+  // the placeholder only for `''` / `undefined`, so a raw `null` paints a blank
+  // trigger; `''` is the controlled spelling of "nothing chosen".
+  //
+  // `undefined` maps to `''` too, but only for a host that OWNS the value — one
+  // that hands this widget an `onChange` (objectui#11804). A create form keeps
+  // a field nobody seeded as `undefined` until the user picks, so Radix's
+  // `Select` started uncontrolled and flipped to controlled on that first pick,
+  // logging "Select is changing from uncontrolled to controlled". Controlled
+  // from the first render, it never flips. Display is unchanged (Radix renders
+  // `''` and `undefined` alike), and so is what gets saved: this is the
+  // control's value only — the host's own state still holds `undefined`, and
+  // `onValueChange` fires on a pick exactly as before. A host with no
+  // `onChange` (a bare SDUI `field:select` node) still gets `undefined` and
+  // stays uncontrolled: mapped to `''`, its control would freeze on the
+  // placeholder, since nothing would ever hand it the picked value back.
+  const controlValue =
+    (value as string | null) === null || (value === undefined && typeof onChange === 'function')
+      ? ''
+      : value;
+
   return (
     <Select
       name={domName}
-      // `null` is how an empty value arrives — the cascade clear above emits it
-      // (objectui#10291), and so does a record whose column is empty. Radix
-      // shows the placeholder only for `''` / `undefined`, so a raw `null` paints
-      // a blank trigger; `''` is the controlled spelling of "nothing chosen".
-      // `undefined` passes through untouched: mapping it too would move every
-      // host that never sets a value from uncontrolled to controlled mode.
-      value={(value as string | null) === null ? '' : value}
+      value={controlValue}
       onValueChange={onChange}
       disabled={readonly || props.disabled}
     >

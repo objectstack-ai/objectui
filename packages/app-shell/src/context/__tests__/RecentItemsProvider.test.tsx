@@ -371,7 +371,7 @@ describe('RecentItemsProvider — reading a list stored before the identity shap
 describe('RecentItemsProvider — a Studio package entry (objectui#11863)', () => {
   beforeEach(() => {
     localStorage.clear();
-    mockUser.current = { id: 'user-1', name: 'Alice', email: 'a@x' } as any;
+    mockUser.current = { id: 'user-1', name: 'Alice', email: 'a@x' };
   });
 
   it('is kept by identity: no display text is stored, even when one is handed in', () => {

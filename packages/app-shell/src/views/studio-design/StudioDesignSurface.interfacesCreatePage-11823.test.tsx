@@ -174,7 +174,7 @@ describe('the Interfaces pillar creates a page and opens it on source plus live 
     await ready();
     const dialog = await openNewPage();
     typeName(dialog, 'Team handbook');
-    expect(within(dialog).getByTestId('create-page-kind')).toHaveTextContent('HTML');
+    expect(within(dialog).getByTestId('create-page-kind').textContent).toBe('HTML');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save as draft' }));
 
     await waitFor(() => expect(savesOf('app')).toHaveLength(1), { timeout: 8000 });

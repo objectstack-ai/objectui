@@ -176,12 +176,12 @@ describe('ReportCreateFields (objectui#11823 step 2)', () => {
   it('chooses nothing for the author, and a dataset change clears the measure', async () => {
     render(<Host />);
     const dataset = await screen.findByTestId('create-report-dataset');
-    expect(dataset).toHaveTextContent(t('engine.studio.interfaces.create.datasetPlaceholder', 'en-US'));
+    expect(dataset.textContent).toBe(t('engine.studio.interfaces.create.datasetPlaceholder', 'en-US'));
     expect(screen.queryByTestId('create-report-measure')).toBeNull();
 
     await pickOption('create-report-dataset', 'Orders (orders_ds)');
     const measure = await screen.findByTestId('create-report-measure');
-    expect(measure).toHaveTextContent(t('engine.studio.interfaces.create.measurePlaceholder', 'en-US'));
+    expect(measure.textContent).toBe(t('engine.studio.interfaces.create.measurePlaceholder', 'en-US'));
     await pickOption('create-report-measure', 'Revenue (revenue)');
     expect(screen.getByTestId('binding')).toHaveTextContent('{"dataset":"orders_ds","measure":"revenue"}');
 
@@ -277,7 +277,7 @@ describe('PageCreateFields (objectui#11823 step 3)', () => {
 
   it('offers html and react, starting on html, and the hint follows the choice', async () => {
     render(<Host />);
-    expect(screen.getByTestId('create-page-kind')).toHaveTextContent('HTML');
+    expect(screen.getByTestId('create-page-kind').textContent).toBe('HTML');
     expect(screen.getByTestId('create-page-kind-hint')).toHaveTextContent(
       t('engine.studio.interfaces.create.pageKindHtmlHint', 'en-US'),
     );

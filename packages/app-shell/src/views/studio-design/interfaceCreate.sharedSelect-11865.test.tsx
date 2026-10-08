@@ -27,14 +27,16 @@
  * read-only package shows no create entry", "a read-only package shows no New
  * menu").
  *
- * DIRECTION, observed against the native control: every pin here is red
- * there, because each one reads the pickers as the primitive's triggers. What
- * makes the write pins guards of "the conversion changed nothing the form
- * writes" is the literal each compares against: a `change` event on the
- * pre-conversion form's native control wrote that same JSON, read once on
- * that component with these fixtures. The names were read there the same
- * way. That probe's `change` event fired for the current option too, which a
- * browser's native select does not do, so the re-pick rows pin the primitive.
+ * DIRECTION, observed against the native control: every pin here but the
+ * name pin is red there, because each one reads the pickers as the
+ * primitive's triggers. The name pin is green there too: it pins what the
+ * conversion kept. What makes the write pins guards of "the conversion
+ * changed nothing the form writes" is the literal each compares against: a
+ * `change` event on the pre-conversion form's native control wrote that same
+ * JSON, read once on that component with these fixtures. The names were read
+ * there the same way. That probe's `change` event fired for the current
+ * option too, which a browser's native select does not do, so the re-pick
+ * rows pin the primitive.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -143,10 +145,11 @@ describe('the create form pickers are the shared Select (objectui#11865)', () =>
 
   it('a report form opens on "Choose a dataset…", with no measure picker yet', async () => {
     await renderReport({ dataset: '', measure: '' });
-    expect(screen.getByTestId('create-report-dataset')).toHaveTextContent(DATASET_PLACEHOLDER);
+    expect(screen.getByTestId('create-report-dataset').textContent).toBe(DATASET_PLACEHOLDER);
     expect(screen.queryByTestId('create-report-measure')).toBeNull();
   });
 
+  // Green against the native control too, by design: it pins what the conversion kept.
   it('each picker keeps the name its label gave the native control', async () => {
     renderPage();
     expect(screen.getByRole('combobox', { name: en('engine.studio.interfaces.create.pageKind') })).toBe(
@@ -267,7 +270,7 @@ describe('a value no option carries is what the trigger shows', () => {
   it('a dataset the catalog does not list: shown and listed first, and re-picking it writes nothing', async () => {
     const { onChange } = await renderReport({ dataset: 'ghost_ds', measure: '' });
     // The native control showed "Choose a dataset…" here, as if no dataset were chosen.
-    expect(screen.getByTestId('create-report-dataset')).toHaveTextContent('ghost_ds');
+    expect(screen.getByTestId('create-report-dataset').textContent).toBe('ghost_ds');
     const listed = (await openPicker('create-report-dataset')).map((o) => o.textContent);
     expect(listed).toEqual([
       'ghost_ds',
@@ -281,13 +284,13 @@ describe('a value no option carries is what the trigger shows', () => {
 
   it('a measure the dataset does not have is shown, not "Choose a measure…"', async () => {
     await renderReport({ dataset: 'orders_ds', measure: 'ghost_measure' });
-    expect(screen.getByTestId('create-report-measure')).toHaveTextContent('ghost_measure');
+    expect(screen.getByTestId('create-report-measure').textContent).toBe('ghost_measure');
   });
 
   it('a react page kind where react pages are turned off is shown, not "HTML"', () => {
     disableCapability(CAP_REACT_PAGES);
     renderPage('react');
-    expect(screen.getByTestId('create-page-kind')).toHaveTextContent('react');
+    expect(screen.getByTestId('create-page-kind').textContent).toBe('react');
   });
 });
 

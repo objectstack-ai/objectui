@@ -28,7 +28,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, act, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, act, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const TYPE = 'gizmo_11939';
@@ -37,7 +37,7 @@ const doc = { name: 'g1', label: 'Gizmo one' };
 const mockClient = {
   list: vi.fn(async () => []),
   listDrafts: vi.fn(async () => []),
-  layered: vi.fn(async () => ({ effective: doc, code: doc, editable: true })),
+  layered: vi.fn(async (_type: string, _name: string) => ({ effective: doc, code: doc, editable: true })),
   getDraft: vi.fn(async () => null),
   get: vi.fn(async () => null),
   saveDraft: vi.fn(async () => ({})),
@@ -104,8 +104,9 @@ describe('MetadataResourceEditPage — designers registered late reach the open 
         <MetadataResourceEditPage type={TYPE} name="g1" />
       </MemoryRouter>,
     );
-    // The editor has loaded: the document's own label is on screen.
-    expect((await screen.findAllByText(/Gizmo one/)).length).toBeGreaterThan(0);
+    // The editor has loaded: its "Loading TYPE/NAME…" placeholder is gone.
+    await waitFor(() => expect(screen.queryByText(`Loading ${TYPE}/g1…`)).toBeNull());
+    expect(mockClient.layered.mock.calls.some(([t, n]) => t === TYPE && n === 'g1')).toBe(true);
     // Before: no designer for this type, so no canvas (fallback before registration: true).
     expect(screen.queryByTestId('late-canvas')).toBeNull();
 

@@ -212,15 +212,17 @@ describe('a failed load renders a retryable load error, not not-found (objectui#
     absent(/may have been deleted/);
     expect(pageReads(findOne)).toBe(1);
 
-    // The server recovers; Retry re-runs the page's own read, once.
+    // The server recovers; Retry re-runs the page's own read, once. The click
+    // handler calls the load synchronously, so the count is read right after
+    // it — before the recovered page mounts blocks that read on their own.
     answer = 'ok';
     fireEvent.click(screen.getByRole('button', { name: /Retry/ }));
-
-    expect((await screen.findAllByText(RECORD.name, undefined, { timeout: 5000 })).length).toBeGreaterThan(0);
-    expect(screen.queryByTestId('record-load-failed')).toBeNull();
     expect(pageReads(findOne)).toBe(2);
     // The retry is the SAME read: the same object, id and expansion as the first.
     expect(findOne.mock.calls[1]).toEqual(findOne.mock.calls[0]);
+
+    expect((await screen.findAllByText(RECORD.name, undefined, { timeout: 5000 })).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('record-load-failed')).toBeNull();
   });
 
   it('en: a transport failure → the same retryable load error', async () => {

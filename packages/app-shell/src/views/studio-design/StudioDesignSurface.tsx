@@ -1843,6 +1843,32 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
 }
 
 /**
+ * A Studio list row's name (objectui#11862, on the maintainer's word
+ * 「所有地方以标签为主，机器名只作为次要信息」): the label as the primary text, and
+ * the machine name beneath it as secondary text — smaller and monospace — when
+ * it differs from the label. With no label the name alone is the text.
+ *
+ * Display only: it reads what the row already holds and writes nothing. The
+ * secondary name is `aria-hidden`, so a row's accessible name stays the label
+ * it was; the nav rail carries the machine name for assistive tech on the
+ * row's `title` (`type · name`), as it did before.
+ */
+function StudioNameLabel({ label, name }: { label: string; name?: string }): React.ReactElement {
+  const primary = label.trim() ? label : (name ?? '');
+  const secondary = name && name !== primary ? name : '';
+  return (
+    <span className="flex min-w-0 flex-1 flex-col">
+      <span className="truncate">{primary}</span>
+      {secondary ? (
+        <span aria-hidden="true" className="truncate font-mono text-[10px] leading-tight text-muted-foreground">
+          {secondary}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/**
  * Recursive App-navigation tree: groups, separators and typed leaves.
  *
  * objectui#11791 — the rail draws a `separator` and a leaf's `badge` /
@@ -1904,6 +1930,14 @@ function NavTree({
         // The same resolver names the Surface a click opens, so the caption,
         // the breadcrumb and the copilot chip read what this row reads.
         const surface = resolveSurface(node, locale, targetLabel);
+        // objectui#11862 — an entry that names no target yet ("Add nav item"
+        // left unbound, which the editor keeps showing in its place) inherits
+        // only its minted `id`. It reads as the editor's untitled wording
+        // instead, never `nav_item_N`. "No target" is the save's own rule
+        // (`navPayloadOf` leaves exactly these entries out), and an authored
+        // label still renders verbatim.
+        const untitled = node.label === undefined && navPayloadOf([node]).length === 0;
+        const rowText = untitled ? tFormat('engine.appNav.item', locale, { n: i + 1 }) : labelText || surface?.name || '';
         // Icon precedence: the nav item's own `icon` (honoured — it was ignored
         // before), then an object surface's own metadata icon, then the
         // type-generic fallback.
@@ -1917,7 +1951,7 @@ function NavTree({
             key={node.id ?? i}
             onClick={() => surface && onPick(surface)}
             disabled={!surface}
-            title={surface ? `${surface.type} · ${surface.name}` : labelText || undefined}
+            title={surface ? `${surface.type} · ${surface.name}` : rowText || undefined}
             className={
               'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs disabled:opacity-40 ' +
               (isActive ? 'bg-muted font-medium' : 'text-foreground/90 hover:bg-muted/60')
@@ -1928,8 +1962,10 @@ function NavTree({
                 an EMPTY row. It now shows what it inherits (objectui#11196): its
                 target's current label, else the target's internal name, which
                 is the fallback #7254 chose. `surface?.name` stays for a label
-                that is present but resolves to nothing (an empty map). */}
-            <span className="flex-1 truncate">{labelText || surface?.name}</span>
+                that is present but resolves to nothing (an empty map).
+                objectui#11862 — the label is the primary text and the target's
+                machine name the secondary text, shown when the two differ. */}
+            <StudioNameLabel label={rowText} name={surface?.name} />
             {/* objectui#11791 — the spec's `badge` / `badgeVariant`, drawn when
                 the sidebar row draws them (a present `badge`, a count `0`
                 included) with the same `Badge` and the same variant: an absent
@@ -2146,13 +2182,21 @@ export function StudioNavItemInspector({
     (kind === 'component' && !str(node.componentRef)) ||
     (kind === 'action' && !str(actionDef?.actionName)) ||
     (kind === 'doc' && !str(node.doc) && !str(node.book));
+  // objectui#11862 — an entry that names no target yet inherits only its
+  // minted `id`; the field offers the editor's untitled wording instead, as the
+  // rail names that entry, never `nav_item_N`. "No target" is the save's own
+  // rule (`navPayloadOf`).
+  const placeholderText =
+    navPayloadOf([node]).length === 0
+      ? tFormat('engine.appNav.item', locale, { n: idx + 1 })
+      : inheritedNavEntryText(node as NavEntryLike, targetLabel);
   const labelField = (
     <div>
       <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.label', locale)}</label>
       <input
         value={navItemLabelText(label, locale)}
         onChange={(e) => editLabel(e.target.value)}
-        placeholder={inheritedNavEntryText(node as NavEntryLike, targetLabel)}
+        placeholder={placeholderText}
         className="w-full rounded border bg-background px-2 py-1 text-xs"
       />
     </div>
@@ -6453,7 +6497,11 @@ export function AccessPillar({
                 }
               >
                 <Shield className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="flex-1 truncate">{p.label}</span>
+                {/* objectui#11862 — the set's label first, its machine name as
+                    secondary text. A set listed from its draft header alone
+                    has no label in hand (the header carries none), so its
+                    name is the text, as before. */}
+                <StudioNameLabel label={p.label} name={p.name} />
                 {p.isDefault && (
                   <span className="text-[9px] uppercase tracking-wide text-muted-foreground/60">
                     default

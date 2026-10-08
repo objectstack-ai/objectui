@@ -55,7 +55,7 @@ import {
 import { useMetadata } from '@object-ui/react';
 import { useAuth } from '@object-ui/auth';
 import { resolveViewId } from '@object-ui/core';
-import { extractDraftBody, formatMetadataError, type MetadataClient } from '@object-ui/data-objectstack';
+import { extractDraftBody, type MetadataClient } from '@object-ui/data-objectstack';
 import { stripReadDecorations } from '@objectstack/spec/kernel';
 import { resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
 import { InspectorReorderButtons, InspectorShell } from '../metadata-admin/inspectors/_shared.js';
@@ -75,6 +75,7 @@ import {
   type StudioCanvasNavEntry,
 } from './studio-canvas-preview.js';
 import type { Surface } from './navSurface.js';
+import { issueRefusal, plainRefusal } from './metadataError.js';
 
 type Row = Record<string, unknown>;
 
@@ -196,8 +197,12 @@ export interface ObjectListViewDraft {
   /** A draft of the view is pending in the package. */
   hasDraft: boolean;
   saving: boolean;
-  /** The last load's or save's failure. */
-  error: string | null;
+  /**
+   * The last load's or save's failure, as thrown. Read at render, in the
+   * designer locale, the way the pillar reads its own (objectui#11785): a
+   * refused save as an author sentence over its raw text, a load as the text.
+   */
+  failure: { during: 'load' | 'save'; error: unknown } | null;
   /** Replace the view item with an edited one. */
   edit: (row: Row) => void;
   /** Send the buffer to the package draft — the autosave's `save`. */
@@ -255,7 +260,7 @@ export function useObjectListViewDraft({
     dirty: false,
     hasDraft: false,
   });
-  const [error, setError] = React.useState<string | null>(null);
+  const [failure, setFailure] = React.useState<ObjectListViewDraft['failure']>(null);
   const [saving, setSaving] = React.useState(false);
   const [reloadNonce, setReloadNonce] = React.useState(0);
   const reload = React.useCallback(() => setReloadNonce((n) => n + 1), []);
@@ -263,7 +268,7 @@ export function useObjectListViewDraft({
   const { save: guardedSave, forget, dialog: conflictDialog } = useDraftSaveGuard(client, reload);
 
   React.useEffect(() => {
-    setError(null);
+    setFailure(null);
     if (!viewId) {
       setBuffer({ for: '', row: null, dirty: false, hasDraft: false });
       return;
@@ -286,7 +291,7 @@ export function useObjectListViewDraft({
         forget();
         setBuffer({ for: `view:${viewId}`, row, dirty: false, hasDraft: !!draft });
       } catch (e) {
-        if (!cancelled) setError(formatMetadataError(e));
+        if (!cancelled) setFailure({ during: 'load', error: e });
       }
     })();
     return () => {
@@ -311,10 +316,10 @@ export function useObjectListViewDraft({
         // objectui#11204 — clean only if nothing was edited while it was in flight.
         const clean = sent.unmoved();
         setBuffer((b) => (b.for === `view:${viewId}` ? { ...b, hasDraft: true, dirty: clean ? false : b.dirty } : b));
-        setError(null);
+        setFailure(null);
         onDraftSaved?.();
       } catch (e) {
-        setError(formatMetadataError(e));
+        setFailure({ during: 'save', error: e });
       } finally {
         setSaving(false);
       }
@@ -350,7 +355,7 @@ export function useObjectListViewDraft({
     dirty: buffer.dirty,
     hasDraft: current && buffer.hasDraft,
     saving,
-    error,
+    failure,
     edit,
     save,
     conflictDialog,
@@ -399,12 +404,17 @@ export function ObjectListViewInspector({
   readOnly: boolean;
   locale: string;
 }): React.ReactElement | null {
-  const { target, row, notList, seedColumns, error, saving, hasDraft, edit, loadedFor, targetKey } = listView;
+  const { target, row, notList, seedColumns, failure, saving, hasDraft, edit, loadedFor, targetKey } = listView;
   const objectName = target?.objectName;
   const fieldState = useObjectFields(objectName);
   const [selected, setSelected] = React.useState<{ key: string; index: number | null }>({ key: '', index: null });
   if (!target) return null;
   const isLoaded = loadedFor === targetKey;
+  const refusal = !failure
+    ? null
+    : failure.during === 'save'
+      ? issueRefusal(failure.error, locale)
+      : plainRefusal(failure.error);
   const working = row ?? newListViewItem(target, seedColumns);
   const body = listBodyOf(working);
   const columns = Array.isArray(body.columns) ? (body.columns as unknown[]) : [];
@@ -451,21 +461,28 @@ export function ObjectListViewInspector({
       }
     >
       <div data-testid="studio-list-view-inspector" className="space-y-3">
-        <p className="text-[11px] leading-snug text-muted-foreground">
-          {t('engine.studio.inspector.listView.intro', locale)}
-        </p>
-        {readOnly && (
+        {readOnly ? (
           <p className="rounded-md border bg-muted/40 px-2 py-1.5 text-[11px] leading-snug text-muted-foreground" data-testid="list-view-read-only">
             {t('engine.studio.inspector.listView.readOnly', locale)}
           </p>
-        )}
-        {error && (
-          <p className="whitespace-pre-line rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive" role="alert">
-            {error}
+        ) : (
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            {t('engine.studio.inspector.listView.intro', locale)}
           </p>
         )}
+        {refusal && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive" role="alert" data-testid="list-view-refusal">
+            <p className="whitespace-pre-line">{refusal.message}</p>
+            {refusal.detail && (
+              <details className="mt-1">
+                <summary className="cursor-pointer select-none opacity-80">{t('engine.studio.refusal.details', locale)}</summary>
+                <pre className="mt-1 whitespace-pre-wrap break-words font-mono opacity-90">{refusal.detail}</pre>
+              </details>
+            )}
+          </div>
+        )}
         {!isLoaded ? (
-          error ? null : (
+          failure ? null : (
             <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" /> {t('engine.studio.loading', locale)}
             </p>

@@ -98,6 +98,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 
 import { InterfacesPillar } from './StudioDesignSurface';
 import { registerStudioCanvasPreview } from './studio-canvas-preview';
+import { t } from '../metadata-admin/i18n';
 
 /** Stands in for `plugin-view`'s `object-view`, recording the schema the canvas hands it. */
 function ObjectViewRecorder({ schema }: { schema: Record<string, unknown> }) {
@@ -262,6 +263,24 @@ describe('an object leaf\'s Properties panel edits its list view (objectui#11823
     fireEvent.click(within(panel).getByTestId('list-view-sort-trigger'));
     await new Promise((r) => setTimeout(r, 2500));
     expect(viewSaves()).toEqual([]);
+  });
+
+  it('a refused save is said in the panel, as the pillar says a refusal: a sentence over its raw text', async () => {
+    const refusal = Object.assign(new Error('view/showcase_task.default failed spec validation: 1 issue'), {
+      status: 422,
+      code: 'INVALID_METADATA',
+      issues: [{ path: 'config.sort.0.order', message: 'Invalid option', code: 'invalid_value' }],
+    });
+    mockClient.save.mockRejectedValueOnce(refusal);
+    const panel = await openObjectLeaf();
+    await waitFor(() => expect(within(panel).getByTestId('list-view-columns')).toHaveTextContent('status'));
+    await addSortOnFirstField(panel);
+
+    const strip = await within(panel).findByTestId('list-view-refusal', undefined, { timeout: 8000 });
+    expect(strip).toHaveTextContent(t('engine.studio.refusal.unlocated', 'en'));
+    expect(within(strip).getByText('Details')).toBeInTheDocument();
+    // The raw refusal (its issue paths) stays behind the disclosure.
+    expect(strip).toHaveTextContent('config.sort.0.order');
   });
 
   it('a form view at the view\'s name is shown as such, never edited, and the canvas keeps its own copy', async () => {

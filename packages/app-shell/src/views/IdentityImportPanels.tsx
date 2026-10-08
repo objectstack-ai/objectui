@@ -133,13 +133,22 @@ export function IdentityImportResultExtra({ serverResult }: { serverResult?: Imp
  *  The email column is typed `email` and flagged `emailRule: 'identity'`, so
  *  the wizard's preview checks it by the identity endpoint's rule: a non-ASCII
  *  or placeholder address is marked, as the endpoint refuses it with
- *  `INVALID_EMAIL` (objectui#11913). */
+ *  `INVALID_EMAIL` (objectui#11913).
+ *
+ *  The flag is typed where it is written, against the wizard's own field type,
+ *  and the return type does not name it. `ObjectView` passes this list or
+ *  `importTargetFields`' list into the wizard's `fields` through one
+ *  conditional, and that expression compiles only while this return type is a
+ *  supertype of `ImportTargetField`, which declares no `emailRule`. */
 export function identityImportFields(
   objectFields: Record<string, any> | undefined,
-): ImportWizardProps['fields'] {
+): Array<{ name: string; label: string; type: string; required?: boolean }> {
   const label = (name: string, fallback: string) => objectFields?.[name]?.label || fallback;
+  const email: ImportWizardProps['fields'][number] = {
+    name: 'email', label: label('email', 'Email'), type: 'email', emailRule: 'identity',
+  };
   return [
-    { name: 'email', label: label('email', 'Email'), type: 'email', emailRule: 'identity' },
+    email,
     { name: 'phone_number', label: label('phone_number', 'Phone Number'), type: 'text' },
     { name: 'name', label: label('name', 'Name'), type: 'text' },
     { name: 'role', label: label('role', 'Platform Role'), type: 'text' },

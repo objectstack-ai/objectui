@@ -26,8 +26,8 @@ import * as React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { ManifestSchema, deriveNamespaceFromPackageId } from '@objectstack/spec/kernel';
 import { useAuth } from '@object-ui/auth';
-import { NAMESPACE_RE } from '../studio-design/packages-io.js';
-import { PackageIdInput, type PackageIdRule } from '../studio-design/PackageIdInput.js';
+import { NAMESPACE_RE, isSpecPackageId } from '../studio-design/packages-io.js';
+import { PackageIdInput } from '../studio-design/PackageIdInput.js';
 import {
   Button,
   Dialog,
@@ -64,20 +64,6 @@ const CREATE_HIDDEN_FIELDS = ['id'];
  */
 function isSpecPackageVersion(v: string): boolean {
   return ManifestSchema.shape.version.safeParse(v).success;
-}
-
-/**
- * Is `v` a package id the INSTALLED `@objectstack/spec` accepts?
- *
- * Same reasoning as {@link isSpecPackageVersion}, and the same declaration the
- * server refuses by: `POST /api/v1/packages` parses the raw id with
- * `ManifestSchema.shape.id` before it installs anything, answering 400
- * otherwise (objectui#11792). ⛔ Not `PACKAGE_ID_RE` from `packages-io`: that
- * hand-copied grammar admits underscores and refuses a digit-led first segment,
- * so it disagrees with this rule in both directions.
- */
-function isSpecPackageId(v: string): boolean {
-  return ManifestSchema.shape.id.safeParse(v).success;
 }
 
 /**
@@ -333,16 +319,6 @@ export function PackageFormDialog({
     });
   }, [open, createMode, orgSlug]);
 
-  // The create-mode id field judges by the spec's id rule and says so in its
-  // own words (objectui#11792); the landing duplicate form keeps its own.
-  const idRule: PackageIdRule = React.useMemo(
-    () => ({
-      test: isSpecPackageId,
-      formatHint: tFormat('engine.packages.idRule.formatHint', locale, { example: 'com.acme.crm' }),
-      strippedNotice: t('engine.packages.idRule.strippedNotice', locale),
-    }),
-    [locale],
-  );
   // The help line SchemaForm would have shown under the id: the localized row
   // when there is one, else the spec's own `.describe()` (see package-schema).
   const idHelp = tOptional('engine.packages.form.help.id', locale) ?? ManifestSchema.shape.id.description;
@@ -495,7 +471,6 @@ export function PackageFormDialog({
                 onChange={handleIdChange}
                 placeholder="com.acme.crm"
                 locale={locale}
-                rule={idRule}
                 inputClassName="h-10 px-3 py-2 text-base md:text-sm"
                 testId="package-form-id-input"
               />

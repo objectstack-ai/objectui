@@ -1,8 +1,10 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * Package-identifier input, used by the landing "duplicate package" form and
- * by the create mode of the spec-driven PackageFormDialog (objectui#11792).
+ * Package-identifier input, used by the landing "duplicate package" form, the
+ * package sheet's "duplicate" form and the create mode of the spec-driven
+ * PackageFormDialog (objectui#11792). All three judge by the input's default
+ * rule, the spec's id rule (objectui#11855).
  * Fixes the dogfood wizard findings (framework#2615 P2): illegal characters
  * are still normalized
  * away, but no longer silently — a notice says so — and while the value
@@ -13,8 +15,8 @@
 
 import * as React from 'react';
 import { cn } from '@object-ui/components';
-import { PACKAGE_ID_RE, sanitizePackageId } from './packages-io.js';
-import { t } from '../metadata-admin/i18n.js';
+import { isSpecPackageId, sanitizePackageId } from './packages-io.js';
+import { t, tFormat } from '../metadata-admin/i18n.js';
 
 /**
  * The id rule an input judges by, with the two sentences that describe it to
@@ -31,6 +33,20 @@ export interface PackageIdRule {
   strippedNotice: string;
 }
 
+/**
+ * The spec's package-id rule ({@link isSpecPackageId}, the declaration the
+ * server refuses by) with the two sentences that describe it: the input's
+ * default, so every package-id form in this app judges by one rule in one
+ * wording (objectui#11855).
+ */
+function specPackageIdRule(locale?: string): PackageIdRule {
+  return {
+    test: isSpecPackageId,
+    formatHint: tFormat('engine.packages.idRule.formatHint', locale, { example: 'com.acme.crm' }),
+    strippedNotice: t('engine.packages.idRule.strippedNotice', locale),
+  };
+}
+
 export interface PackageIdInputProps {
   value: string;
   /** Receives the sanitized value on every keystroke. */
@@ -45,8 +61,8 @@ export interface PackageIdInputProps {
   id?: string;
   /**
    * The rule to judge by, and its wording (objectui#11792). Omitted → the
-   * landing duplicate form's own `PACKAGE_ID_RE` and its two `engine.studio.pkg.*`
-   * sentences, unchanged.
+   * spec's id rule in its shared wording, {@link specPackageIdRule}, which is
+   * what every form in this app judges by (objectui#11855).
    */
   rule?: PackageIdRule;
   /** Extra classes merged onto the input (a host sizing it to its own form). */
@@ -69,8 +85,8 @@ export function PackageIdInput({
   // "I typed something and it vanished" — show what was dropped until the
   // next clean keystroke.
   const [strippedNotice, setStrippedNotice] = React.useState(false);
-  const accepts = rule ? rule.test : (v: string) => PACKAGE_ID_RE.test(v);
-  const invalid = value.trim().length > 0 && !accepts(value.trim());
+  const active = rule ?? specPackageIdRule(locale);
+  const invalid = value.trim().length > 0 && !active.test(value.trim());
 
   return (
     <div className="flex flex-col gap-1">
@@ -96,12 +112,12 @@ export function PackageIdInput({
       />
       {strippedNotice && (
         <p className="text-[10px] text-amber-600 dark:text-amber-400" data-testid="pkg-id-stripped">
-          {rule ? rule.strippedNotice : t('engine.studio.pkg.idStrippedNotice', locale)}
+          {active.strippedNotice}
         </p>
       )}
       {invalid && (
         <p className="text-[10px] text-muted-foreground" data-testid="pkg-id-format-hint">
-          {rule ? rule.formatHint : t('engine.studio.pkg.idFormatHint', locale)}
+          {active.formatHint}
         </p>
       )}
     </div>

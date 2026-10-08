@@ -4047,7 +4047,7 @@ const ja = {
   },
   element: {
     number: {
-      noObject: "オブジェクトが指定されていません。object または dataSource.object を設定してください。",
+      noObject: "オブジェクトが指定されていません。dataSource.object を設定してください。",
     },
   },
 };

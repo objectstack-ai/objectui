@@ -75,7 +75,16 @@
 
 import React from 'react';
 import { Plus, Trash2, ShieldAlert, ChevronDown, ChevronRight } from 'lucide-react';
-import { Popover, PopoverTrigger, PopoverContent } from '@object-ui/components';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@object-ui/components';
 import { ConditionBuilder, RECORD_CONDITION_SUBJECTS } from '../metadata-admin/inspectors/ConditionBuilder.js';
 import { expressionSource, writeExpressionSource } from '../metadata-admin/inspectors/expression-envelope.js';
 import { readFields } from '../metadata-admin/previews/object-fields-io.js';
@@ -88,12 +97,83 @@ import { VALIDATION_PRESETS, type PresetPlan, type ValidationPreset } from './va
  * objectui#11781 — the look a disabled control takes: the pair the
  * `@object-ui/components` primitives (`Input`, `SelectTrigger`, `Textarea`)
  * carry, and so the one the read-only field inspector's inputs wear. This
- * panel's controls are plain elements, which keep the editable look (white
- * fill, dark text) when disabled unless they are given it too. Plain
- * checkboxes are left to the browser's own disabled look, as the inspector's
- * are.
+ * panel's text controls are plain elements, which keep the editable look
+ * (white fill, dark text) when disabled unless they are given it too. Its
+ * pickers are the primitive itself ({@link RulePicker}) and wear its look
+ * without help. Plain checkboxes are left to the browser's own disabled look,
+ * as the inspector's are.
  */
 const DISABLED_LOOK = 'disabled:cursor-not-allowed disabled:opacity-50';
+
+/** The item a stored value none of a picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — one of the rule editor's pickers (type, field, format,
+ * severity), drawn with the shared `Select`, the control the condition
+ * builder beside it already picks with. It used to be a browser-native
+ * `<select>`. What a pick writes is unchanged: `onPick` receives the picked
+ * option's own `value`, the string the native control's `change` carried, and
+ * re-picking the current option writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value. The field and format
+ *   pickers open on an option whose value is `''`, which `SelectItem`
+ *   refuses; an index cannot collide with a field's name, as any stand-in
+ *   string could.
+ * - A stored value none of the options carries gets an item of its own,
+ *   labelled with the value, so the trigger shows what the rule holds. The
+ *   native control showed its first option instead ("pick a field", "none",
+ *   "error"), which is not what the rule says. Picking that item writes
+ *   nothing.
+ * - Read-only follows the primitive (objectui#11781): `disabled` disables
+ *   the trigger, which wears `SelectTrigger`'s own disabled look.
+ * - Each caller keeps the picker inside its `<label>`, which names the
+ *   trigger as it named the native control.
+ */
+function RulePicker({
+  value,
+  options,
+  onPick,
+  disabled,
+  className,
+  testId,
+}: {
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  disabled?: boolean;
+  className: string;
+  testId: string;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  const outside = at === -1 && value !== '';
+  return (
+    <Select
+      value={at !== -1 ? String(at) : outside ? OUTSIDE_OPTIONS : ''}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the stored value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger data-testid={testId} className={className}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {outside && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** The classes a full-width picker takes, to sit at the height of the editor's inputs. */
+const PICKER_FULL = 'h-7 px-2 py-1 text-[12px]';
 
 type RuleType = 'script' | 'cross_field' | 'state_machine' | 'format' | 'json_schema' | 'conditional';
 
@@ -494,19 +574,20 @@ function RuleTypeFields({
   const fieldSelect = (label: string, value: string | undefined, onSet: (v: string) => void) => (
     <label className="block">
       <span className="mb-1 block text-[11px] text-muted-foreground">{label}</span>
-      <select
+      <RulePicker
+        testId="rule-field"
         value={value ?? ''}
         disabled={disabled}
-        onChange={(e) => onSet(e.target.value)}
-        className={`w-full rounded border bg-background px-2 py-1 text-[12px] ${DISABLED_LOOK}`}
-      >
-        <option value="">{t('engine.studio.rules.pickField', locale)}</option>
-        {fields.map((f) => (
-          <option key={f.name} value={f.name}>
-            {f.label && f.label !== f.name ? `${f.label} (${f.name})` : f.name}
-          </option>
-        ))}
-      </select>
+        onPick={onSet}
+        className={PICKER_FULL}
+        options={[
+          { value: '', label: t('engine.studio.rules.pickField', locale) },
+          ...fields.map((f) => ({
+            value: f.name,
+            label: f.label && f.label !== f.name ? `${f.label} (${f.name})` : f.name,
+          })),
+        ]}
+      />
     </label>
   );
 
@@ -627,18 +708,14 @@ function RuleTypeFields({
           {fieldSelect(t('engine.studio.rules.field', locale), rule.field, (v) => patch({ field: v }))}
           <label className="block">
             <span className="mb-1 block text-[11px] text-muted-foreground">{t('engine.studio.rules.format', locale)}</span>
-            <select
+            <RulePicker
+              testId="rule-format"
               value={typeof rule.format === 'string' ? rule.format : ''}
               disabled={disabled}
-              onChange={(e) => patch({ format: e.target.value || undefined })}
-              className={`w-full rounded border bg-background px-2 py-1 text-[12px] ${DISABLED_LOOK}`}
-            >
-              {BUILTIN_FORMATS.map((f) => (
-                <option key={f || 'none'} value={f}>
-                  {f || t('engine.studio.rules.formatNone', locale)}
-                </option>
-              ))}
-            </select>
+              onPick={(v) => patch({ format: v || undefined })}
+              className={PICKER_FULL}
+              options={BUILTIN_FORMATS.map((f) => ({ value: f, label: f || t('engine.studio.rules.formatNone', locale) }))}
+            />
           </label>
           <label className="block">
             <span className="mb-1 block text-[11px] text-muted-foreground">{t('engine.studio.rules.regex', locale)}</span>
@@ -1062,18 +1139,14 @@ export function ObjectValidationsPanel({
             )}
             <label className="block">
               <span className="mb-1 block text-[11px] text-muted-foreground">{t('engine.studio.rules.type', locale)}</span>
-              <select
+              <RulePicker
+                testId="rule-type"
                 value={selType}
                 disabled={disabled}
-                onChange={(e) => changeType(sel.name!, e.target.value as RuleType)}
-                className={`w-full rounded border bg-background px-2 py-1 text-[12px] ${DISABLED_LOOK}`}
-              >
-                {RULE_TYPES.map((rt) => (
-                  <option key={rt.value} value={rt.value}>
-                    {t(rt.labelKey, locale)}
-                  </option>
-                ))}
-              </select>
+                onPick={(v) => changeType(sel.name!, v as RuleType)}
+                className={PICKER_FULL}
+                options={RULE_TYPES.map((rt) => ({ value: rt.value, label: t(rt.labelKey, locale) }))}
+              />
             </label>
             <label className="block">
               <span className="mb-1 block text-[11px] text-muted-foreground">{t('engine.studio.rules.nameLabel', locale)}</span>
@@ -1141,16 +1214,18 @@ export function ObjectValidationsPanel({
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-1.5 text-[12px]">
                 <span className="text-muted-foreground">{t('engine.studio.rules.severity', locale)}</span>
-                <select
+                <RulePicker
+                  testId="rule-severity"
                   value={sel.severity ?? 'error'}
                   disabled={disabled}
-                  onChange={(e) => patchRule(sel.name!, { severity: e.target.value as ValidationRuleDraft['severity'] })}
-                  className={`rounded border bg-background px-1.5 py-0.5 text-[12px] ${DISABLED_LOOK}`}
-                >
-                  <option value="error">{t('engine.studio.rules.severityError', locale)}</option>
-                  <option value="warning">warning</option>
-                  <option value="info">info</option>
-                </select>
+                  onPick={(v) => patchRule(sel.name!, { severity: v as ValidationRuleDraft['severity'] })}
+                  className="h-6 w-auto gap-1.5 px-1.5 py-0.5 text-[12px]"
+                  options={[
+                    { value: 'error', label: t('engine.studio.rules.severityError', locale) },
+                    { value: 'warning', label: 'warning' },
+                    { value: 'info', label: 'info' },
+                  ]}
+                />
               </label>
               <label className="flex items-center gap-1.5 text-[12px]">
                 <span className="text-muted-foreground">{t('engine.studio.rules.priority', locale)}</span>

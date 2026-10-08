@@ -87,6 +87,10 @@ const DECLARED_KEYS = [
   'reference',
   'min',
   'max',
+  // objectui#11070 round 13 — the decimal places the number-family widgets
+  // read, and the currency widget's fixed-currency declaration, by reference.
+  'scale',
+  'currencyConfig',
   'minLength',
   'maxLength',
   'pattern',

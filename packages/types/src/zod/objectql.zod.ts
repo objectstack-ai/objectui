@@ -1884,71 +1884,47 @@ const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial()
  * from {@link CalendarConfig} above, which is a list VIEW's calendar block, and
  * the reason the two are not one const (objectui#8651).
  *
- * Both derive from the same spec object. They differ on exactly one member, and
- * the difference is a read site, not a preference:
+ * ⭐ BY REFERENCE since objectui#6152 round 9: this IS the `object-calendar`
+ * row's own `calendar` member (`ComponentPropsMap['object-calendar'].calendar`,
+ * unwrapped from its `optional`), extended by nothing but objectui's two named
+ * alias refusals below. Through `@objectstack/spec` 17.6.0 the spec supplied no
+ * shape here — the slot was `z.unknown().optional()` — so the member list was
+ * objectui's own. 17.7.0 types the slot (objectstack#21464 stage 2,
+ * `7d674dfc`) as a strict copy of the list view's calendar block: the same five
+ * member objects `CalendarConfigSchema` holds, with `startDateField` REQUIRED and
+ * every other key refused by the spec's own `unrecognized_keys` diagnostic.
  *
- *   - a VIEW's block carries `defaultView`, and `ListView` LIFTS it onto the
- *     node it builds (`plugin-list/src/ListView.tsx`, the `calendar` branch),
- *     so the key is honoured from there.
- *   - this ELEMENT's block does not, because `ObjectCalendar` seeds its view
- *     state from the FLAT `defaultView` member of this schema and never looks
- *     inside the container. Declaring it here would advertise a write this
- *     renderer drops — `plugin-calendar/src/index.tsx` names that as this
- *     gate's own failure mode one layer in.
+ * Taken from the ROW, not from `CalendarConfigSchema`, although today the two
+ * give the same verdict on every input: the row is the contract this element is
+ * judged by, so if the spec ever gives the element a block of its own this
+ * declaration follows without an edit. `.extend()` keeps the slot's strictness
+ * and its unknown-key message. The verdict-equality pin over a set of inputs,
+ * and the measurement of the slot itself, are in
+ * `../__tests__/object-calendar-container-by-reference-6152.test.ts`.
  *
- * ⚠️ THE MEMBER LIST IS objectui's OWN. Through 17.6.0 the spec did NOT
- * supply one: `ComponentPropsMap['object-calendar'].calendar` was
- * `z.unknown().optional()` (measured on 17.4.0, 17.5.0 and 17.6.0), so at THIS
- * position the protocol accepted everything — a nonsense key, a wrong-typed
- * member, even `calendar: 42`. `@objectstack/spec` 17.7.0 types it
- * (objectstack#21464 stage 2, `7d674dfc`). MEASURED on the installed 17.7.0:
- * the slot is the list view's own `calendar` member (wrapper chain
- * `["optional","object"]`, a strict copy of `CalendarConfigSchema`, not the
- * same object reference), so a nonsense key, the alias `dateField`,
- * `calendar: 42` and `calendar: { startDateField: 42 }` are all refused there
- * now. `CalendarConfigSchema` is the strict object the spec uses for a LIST
- * VIEW's calendar block — four keys through 17.4.0, five since 17.5.0 declared
- * `allDayField` (objectui#11073).
+ * What following the slot narrowed. Until this round the container was
+ * `CalendarConfigSchema` `.partial()` + `.passthrough()`, so it admitted two
+ * things the slot refuses, the direction objectui#8327's triage ruling forbids:
  *
- * The shape below is still objectui's, chosen as exactly the five members
- * `ObjectCalendar.tsx`'s events pass destructures out of the resolved config.
- * Through 17.4.0 that was the spec's four plus objectui's own `allDayField`, the
- * same objectui-local lane objectui#8466 took for the FLAT spelling of this
- * vocabulary, on this same interface, for the same renderer; since 17.5.0 it is
- * the list view block's five exactly.
+ *   - an unexamined KEY (`calendar.defaultView`, a misspelling such as
+ *     `calendar.startDate`), now refused with the spec's `unrecognized_keys`;
+ *   - a block WITHOUT `startDateField` (`calendar: { titleField }`), now refused
+ *     at `calendar.startDateField`.
  *
- * Through 17.6.0 that made this mirror STRICTER than the protocol at this
- * position, the sanctioned direction (objectui#8327's triage ruling forbids
- * accepting what the platform REFUSES). ⚠️ Since 17.7.0 it is not, for KEYS:
- * the `.passthrough()` below admits an unexamined key the spec now refuses.
- * The objectui#11717 bump records that difference by row and leaves the
- * declaration as it is; it narrows nothing on its own.
+ * Neither cost a reader. `getCalendarConfig` (`plugin-calendar/src/ObjectCalendar.tsx`)
+ * returns this block WHOLE and the events pass reads the five members only, so
+ * an extra key was dropped unread, and a block without a start binding mounted
+ * a calendar that placed nothing. The same test file's corpus census re-derives,
+ * on every run, that each authored container still parses.
  *
- * ⛔ `.passthrough()` is kept, so this declaration refuses no KEY that parses
- * today: a `calendar` block carrying `defaultView`, or any other unexamined
- * key, still parses exactly as it did through `BaseSchema`'s own
- * `.passthrough()`. It does refuse VALUES, which is the whole of what declaring
- * buys — `calendar: 42` and `calendar: { startDateField: 42 }` are refused
- * where both were admitted unexamined before.
- *
- * ⚠️ The key/value split is stated that way on purpose. An earlier cut wrote
- * "REFUSES NOTHING that parses today", which is literally false for
- * `calendar: 42`: it parsed at the merge-base and is refused here. The colon
- * scoped it to keys and the next sentence gave the value narrowing, so it was
- * defensible — but a sentence that needs its own punctuation to stay true is
- * one reader away from being wrong, and the narrowing is the point of the
- * declaration rather than a footnote to it.
+ * `defaultView` is the one member where the two contracts differ, and the
+ * difference is a read site: a VIEW's block carries it and `ListView` LIFTS it
+ * onto the node it builds, while this ELEMENT seeds its view state from the
+ * FLAT `defaultView` member of this schema and never looks inside the
+ * container. The slot does not declare it either, so it is refused here like
+ * any other key.
  */
-const ObjectCalendarBlockConfigSchema = stripImportedDefaults(SpecCalendarConfigSchema).partial().extend({
-  // Through `@objectstack/spec` 17.4.0 this member was objectui-local (see
-  // objectui#8466 for that measurement). 17.5.0 declares `allDayField` on
-  // `CalendarConfigSchema` itself as `z.string().optional()`, so this extension
-  // now restates the spec's member with the SAME accept set: removing it would
-  // change nothing a parse decides (objectui#8831 reports that and leaves the
-  // removal to its own change). The renderer honours the key in BOTH
-  // positions: this container, which is where it is authored, and the flat
-  // member of the node, which is the runtime handoff.
-  allDayField: z.string().optional().describe('Field carrying the all-day flag. Declared by the spec\'s CalendarConfigSchema since 17.5.0, with the same accept set as this member. LOAD-BEARING since objectui#8026'),
+const ObjectCalendarBlockConfigSchema = stripImportedDefaults(SpecObjectCalendarPropsSchema).shape.calendar.unwrap().extend({
   // ⭐ objectui#8355 — the same two spellings the view-level block above refuses,
   // and deliberately NOT the same string: `getCalendarConfig` reads this
   // container FIRST and returns it WHOLE, so a retired spelling here never
@@ -1956,9 +1932,13 @@ const ObjectCalendarBlockConfigSchema = stripImportedDefaults(SpecCalendarConfig
   // calendar that places nothing. Measured per surface; see the consequence
   // table. Leaving this nesting silent is the half-measure the objectui#8365
   // precedent names and refuses.
+  //
+  // The strict slot refuses both spellings already, as unrecognized keys. These
+  // arms keep the by-name message, which names the canonical key and the
+  // consequence at the key's own path; that message is why they stay.
   dateField: CalendarContainerDateAliasRefusals.dateField,
   endField: CalendarContainerDateAliasRefusals.endField,
-}).passthrough();
+});
 
 /**
  * The inferred twin of {@link ObjectCalendarBlockConfigSchema}, exported so the
@@ -3006,7 +2986,12 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // `calendar: { startDateField, endDateField, titleField, colorField, allDayField }`,
   // so this description names the container as the place to write them, and
   // the five flat members below describe themselves as the runtime handoff.
-  calendar: ObjectCalendarBlockConfigSchema.optional().describe('Calendar configuration container, and the AUTHORED spelling of the five field-name keys: startDateField, endDateField, titleField, colorField, allDayField. Read FIRST by getCalendarConfig, ahead of the flat members, which are the runtime handoff and not a second authorable spelling'),
+  //
+  // objectui#6152 round 9 — the container's SHAPE is the row's own slot now,
+  // by reference: strict, `startDateField` required (see
+  // `ObjectCalendarBlockConfigSchema` above). The `calendar` key itself stays
+  // optional on both faces, as before.
+  calendar: ObjectCalendarBlockConfigSchema.optional().describe('Calendar configuration container, and the AUTHORED spelling of the five field-name keys: startDateField (required), endDateField, titleField, colorField, allDayField; any other key is refused, as ComponentPropsMap[\'object-calendar\'].calendar refuses it. Read FIRST by getCalendarConfig, ahead of the flat members, which are the runtime handoff and not a second authorable spelling'),
   startDateField: z.string().optional().describe(objectCalendarFlatField('Start date field', 'startDateField')),
   endDateField: z.string().optional().describe(objectCalendarFlatField('End date field', 'endDateField')),
   // ⭐ objectui#8355 — the FLAT spelling the retired ladder actually read, and

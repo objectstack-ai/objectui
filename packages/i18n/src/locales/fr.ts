@@ -4132,7 +4132,7 @@ const fr = {
   },
   element: {
     number: {
-      noObject: "Aucun objet indiqué : définissez object ou dataSource.object.",
+      noObject: "Aucun objet indiqué : définissez dataSource.object.",
     },
   },
 };

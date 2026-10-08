@@ -4166,31 +4166,32 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * runtime handoff, declared because the renderer reads them, not a second
    * spelling to write.
    *
-   * `@objectstack/spec` declares the KEY —
-   * `ComponentPropsMap['object-calendar'].calendar` — and this package's
-   * registration `inputs` publishes it, so authors are offered it. ⚠️ The spec
-   * does NOT declare its SHAPE: measured on 17.4.0, and again on 17.5.0, that
-   * slot is `z.unknown().optional()`, not `CalendarConfigSchema`, so the protocol
-   * accepts any value there at all. The member list below is objectui's own —
-   * see the mirror for the grounds. Both published faces of THIS package stayed
-   * silent about the key until objectui#8651,
-   * which is the objectui#6914 class: the value rode {@link BaseSchema}'s
-   * `[key: string]: any` here and `.passthrough()` on the mirror, admitted and
-   * never examined. `calendar: 42` type-checked, parsed green, and drew an
-   * empty calendar.
+   * `@objectstack/spec` declares the KEY and, since 17.7.0, its SHAPE:
+   * `ComponentPropsMap['object-calendar'].calendar` is a strict copy of the list
+   * view's calendar block (objectstack#21464 stage 2), five members with
+   * `startDateField` required. This package's registration `inputs` publishes
+   * the key, so authors are offered it. Through 17.6.0 the slot was
+   * `z.unknown().optional()`, and both published faces of THIS package stayed
+   * silent about the key until objectui#8651, which is the objectui#6914 class:
+   * the value rode {@link BaseSchema}'s `[key: string]: any` here and
+   * `.passthrough()` on the mirror, admitted and never examined. `calendar: 42`
+   * type-checked, parsed green, and drew an empty calendar.
    *
    * DERIVED from the mirror rather than re-spelled, so the two faces cannot
    * fork — the same construction {@link ListViewSchema} uses through
-   * `ListViewInferred`. What the mirror declares is the five members
-   * `ObjectCalendar`'s events pass destructures out of the resolved config.
-   * Through `@objectstack/spec` 17.4.0 that was the spec's four plus objectui's
-   * own `allDayField`; since 17.5.0 `CalendarConfigSchema` declares all five.
+   * `ListViewInferred`. Since objectui#6152 round 9 the mirror is the row's own
+   * slot BY REFERENCE, plus the two by-name alias refusals (objectui#8355), so
+   * this type is closed: `startDateField` is required, the four others are
+   * optional, and a fresh literal carrying any other key is a compile error, as
+   * the spec refuses it at parse. Until that round the mirror was `.partial()`
+   * and `.passthrough()`, so this type carried an index signature and an
+   * optional `startDateField`, and admitted both shapes the slot refuses.
    *
-   * ⛔ `defaultView` is deliberately NOT a member of this container even though
-   * a list VIEW's calendar block carries one: this renderer seeds its view state
-   * from {@link ObjectCalendarSchema.defaultView}, the FLAT member below, and
-   * never looks inside here. The container stays `.passthrough()`, so a block
-   * carrying it still parses — it is simply not advertised.
+   * ⛔ `defaultView` is NOT a member of this container even though a list
+   * VIEW's calendar block carries one: this renderer seeds its view state from
+   * {@link ObjectCalendarSchema.defaultView}, the FLAT member below, and never
+   * looks inside here, and the slot does not declare it either. Written inside
+   * the block, it is refused; write it flat.
    */
   calendar?: ObjectCalendarBlockConfig;
   /**

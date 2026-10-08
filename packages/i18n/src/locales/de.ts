@@ -4046,7 +4046,7 @@ const de = {
   },
   element: {
     number: {
-      noObject: "Kein Objekt angegeben: Legen Sie object oder dataSource.object fest.",
+      noObject: "Kein Objekt angegeben: Legen Sie dataSource.object fest.",
     },
   },
 };

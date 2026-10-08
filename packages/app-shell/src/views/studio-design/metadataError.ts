@@ -488,27 +488,76 @@ export function flowHeldEdit(draft: SentBody, locale: string): StudioHeld | null
 // schema, asked of each widget as it stands. What is kept here is only which
 // inputs the widget inspector's dataset binding offers to fill, so a widget is
 // held only for an input the author can reach.
+//
+// objectui#11951 — an input the author EMPTIED is unset too. Removing a
+// widget's last measure is the normal way to change its measure, so the
+// `values: []` it leaves is held like an absent `values`, not sent to draw the
+// spec's refusal before the author can pick another.
 // ---------------------------------------------------------------------------
 
-/** The inputs of the widget inspector's dataset binding, in the order it shows them. */
-const WIDGET_BINDING_INPUTS: ReadonlyArray<{ key: string; labelKey: string }> = [
-  { key: 'dataset', labelKey: 'engine.inspector.widget.dataset' },
-  { key: 'dimensions', labelKey: 'engine.inspector.widget.dimensions' },
-  { key: 'values', labelKey: 'engine.inspector.widget.values' },
+/**
+ * The inputs of the widget inspector's dataset binding, in the order it shows
+ * them. `list` is the shape the inspector writes: a list of member names, or
+ * one dataset name.
+ */
+const WIDGET_BINDING_INPUTS: ReadonlyArray<{ key: string; labelKey: string; list: boolean }> = [
+  { key: 'dataset', labelKey: 'engine.inspector.widget.dataset', list: false },
+  { key: 'dimensions', labelKey: 'engine.inspector.widget.dimensions', list: true },
+  { key: 'values', labelKey: 'engine.inspector.widget.values', list: true },
 ];
 
+type WidgetBindingInput = (typeof WIDGET_BINDING_INPUTS)[number];
+
 /**
- * The binding inputs `widget` leaves out that the installed spec refuses it
+ * Whether `value` leaves `input` unset (objectui#11951): absent, a list
+ * emptied of its last member, or a name cleared to `''`. Anything else, a
+ * list holding a blank member or a name of spaces included, is a value, and
+ * the spec's verdict on it stands.
+ */
+function bindingUnset(input: WidgetBindingInput, value: unknown): boolean {
+  if (value === undefined) return true;
+  return input.list ? Array.isArray(value) && value.length === 0 : value === '';
+}
+
+/**
+ * A stand-in name for {@link unsetInputBehind}'s question. Never written
+ * anywhere: the spec checks a dataset name's shape and a member name not at
+ * all, so it only asks whether SOME value in that input would do.
+ */
+const BINDING_PROBE = 'probe';
+
+/**
+ * The unset binding input behind the spec's refusal at the filled input `key`,
+ * or `null`. Some refusals of a filled input turn on an unset sibling: two
+ * measures on a `scatter` with no dimension are refused at `values`. So the
+ * spec is asked again with each unset sibling set, and the one whose value
+ * clears every issue at `key` is the input the widget still needs.
+ */
+function unsetInputBehind(widget: SentBody, key: string): string | null {
+  for (const input of WIDGET_BINDING_INPUTS) {
+    if (input.key === key || !bindingUnset(input, widget[input.key])) continue;
+    const again = DashboardWidgetSchema.safeParse({
+      ...widget,
+      [input.key]: input.list ? [BINDING_PROBE] : BINDING_PROBE,
+    });
+    if (again.success || !again.error.issues.some((issue) => String(issue.path[0]) === key)) return input.key;
+  }
+  return null;
+}
+
+/**
+ * The binding inputs `widget` leaves unset that the installed spec refuses it
  * without, in the inspector's order, or none when the widget is not merely
  * unfinished.
  *
  * Unfinished means the spec's `DashboardWidgetSchema` refuses the widget, and
- * every issue it names is the absence of one of those inputs. A widget the spec
- * refuses for anything else (a value it holds that is wrong, a type outside the
- * spec's, a missing key the inspector does not offer) answers none: it is
- * finished but wrong, or not the inspector's to finish, so it is sent, and the
- * refusal it draws shows as before. Absent, not empty: an empty `values` list is
- * a value, and the spec's verdict on it shows as the refusal.
+ * every issue it names is on one of those inputs, either unset itself
+ * ({@link bindingUnset}: absent, emptied or cleared) or refused only for want
+ * of an unset sibling ({@link unsetInputBehind}). A widget the spec refuses for
+ * anything else (a value it holds that is wrong, a type outside the spec's, a
+ * missing key the inspector does not offer) answers none: it is finished but
+ * wrong, or not the inspector's to finish, so it is sent, and the refusal it
+ * draws shows as before.
  */
 export function widgetMissingInputs(widget: unknown): string[] {
   if (!isSentBody(widget)) return [];
@@ -517,10 +566,11 @@ export function widgetMissingInputs(widget: unknown): string[] {
   const missing = new Set<string>();
   for (const issue of result.error.issues) {
     const key = issue.path.length === 1 ? String(issue.path[0]) : null;
-    if (key === null || widget[key] !== undefined || !WIDGET_BINDING_INPUTS.some((input) => input.key === key)) {
-      return [];
-    }
-    missing.add(key);
+    const input = WIDGET_BINDING_INPUTS.find((entry) => entry.key === key);
+    if (!input) return [];
+    const needed = bindingUnset(input, widget[input.key]) ? input.key : unsetInputBehind(widget, input.key);
+    if (needed === null) return [];
+    missing.add(needed);
   }
   return WIDGET_BINDING_INPUTS.filter((input) => missing.has(input.key)).map((input) => input.key);
 }
@@ -538,7 +588,7 @@ export function dashboardHeldEdit(draft: SentBody, locale: string): StudioHeld |
     const [key] = widgetMissingInputs(widget);
     const input = WIDGET_BINDING_INPUTS.find((entry) => entry.key === key);
     if (!input) continue;
-    // The spec has judged `title` an `I18nLabel` here: its only issues are absent inputs.
+    // The spec has judged `title` an `I18nLabel` here: its only issues are unset inputs.
     const title = resolveI18nLabel(widget.title as I18nLabel | undefined, locale)?.trim();
     return {
       clause: tFormat('engine.studio.held.widgetNeedsInput', locale, {

@@ -83,14 +83,21 @@ describe('ObjectHooksPanel — a new hook (objectui#11820)', () => {
     fireEvent.click(screen.getByRole('button', { name: /New/ }));
     await waitFor(() => expect(mockClient.save).toHaveBeenCalledTimes(1));
 
+    // Two reads answer at their own pace (objectui#11978): the panel's read of
+    // this package's objects draws the "This package" group, and the editor's
+    // own read of the object roster draws the labels and the "Other objects"
+    // group. Until the roster answers, the selected object is drawn by its
+    // bare name — deliberately, it asserts nothing (objectui#10585) — so the
+    // group can be on screen while its checkbox is still named `invoice`.
+    // Every read below whose answer the roster draws waits for it.
     const own = await screen.findByRole('group', { name: 'This package' });
-    expect(within(own).getByRole('checkbox', { name: 'Invoice (invoice)' })).toBeChecked();
-    expect(within(own).getByRole('checkbox', { name: 'Invoice line (invoice_line)' })).toBeInTheDocument();
+    expect(await within(own).findByRole('checkbox', { name: 'Invoice (invoice)' })).toBeChecked();
+    expect(await within(own).findByRole('checkbox', { name: 'Invoice line (invoice_line)' })).toBeInTheDocument();
 
-    const outside = screen.getByRole('group', { name: 'Other objects' });
+    const outside = await screen.findByRole('group', { name: 'Other objects' });
     expect(within(outside).getByTestId('hook-object-outside-reach')).toBeInTheDocument();
-    expect(within(outside).getByRole('checkbox', { name: 'User (sys_user)' })).not.toBeChecked();
-    expect(within(outside).getByRole('checkbox', { name: 'Employee (hr_employee)' })).toBeInTheDocument();
+    expect(await within(outside).findByRole('checkbox', { name: 'User (sys_user)' })).not.toBeChecked();
+    expect(await within(outside).findByRole('checkbox', { name: 'Employee (hr_employee)' })).toBeInTheDocument();
 
     // The package's list was read for THIS package, published and draft.
     expect(mockClient.list).toHaveBeenCalledWith('object', { packageId: PACKAGE });

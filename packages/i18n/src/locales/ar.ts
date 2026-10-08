@@ -4414,7 +4414,7 @@ const ar = {
   },
   element: {
     number: {
-      noObject: "لم يُحدَّد أي كائن: عيّن object أو dataSource.object.",
+      noObject: "لم يُحدَّد أي كائن: عيّن dataSource.object.",
     },
   },
 };

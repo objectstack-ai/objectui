@@ -37,6 +37,7 @@ import * as React from 'react';
 import {
   FieldSchema,
   MULTI_OPTION_TYPES,
+  NUMERIC_VALUE_TYPES,
   SINGLE_OPTION_TYPES,
   VALUE_DOMAIN_FIELD_TYPES,
 } from '@objectstack/spec/data';
@@ -433,10 +434,20 @@ type DefaultKind = 'bool' | 'number' | 'picklist' | 'text';
  * default such a field already carries (authored in code) stays on the field
  * untouched. `ObjectFieldInspector.recordNoDefault-11947.test.tsx` pins
  * `record`, `location` and `address` through this inspector.
+ *
+ * The number editor serves every type in the spec's numeric value class,
+ * `NUMERIC_VALUE_TYPES`, read from the installed contract rather than
+ * re-listed (objectui#11966): `FieldSchema` judges a literal default of such a
+ * field as a number, and a hand list here once left `rating`, `slider` and
+ * `progress` on the text editor, whose string the spec refuses. A computed
+ * member of the class (`summary`) still gets no editor. A default already
+ * stored as a string is not converted: it stays on the field until the author
+ * types a number over it. `ObjectFieldInspector.numericDefault-11966.test.tsx`
+ * pins the three types through this inspector.
  */
 function defaultValueKind(type: string): DefaultKind | null {
   if (type === 'boolean' || type === 'toggle') return 'bool';
-  if (type === 'number' || type === 'currency' || type === 'percent') return 'number';
+  if (NUMERIC_VALUE_TYPES.has(type) && !isComputed(type)) return 'number';
   if (type === 'select' || type === 'radio') return 'picklist';
   const noDefault = [
     'formula', 'summary', 'autonumber',

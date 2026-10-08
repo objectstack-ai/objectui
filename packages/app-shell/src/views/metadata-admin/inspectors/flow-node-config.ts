@@ -737,7 +737,18 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     cfg('url', 'URL', 'text', { placeholder: 'https://api.example.com/v1/contracts' }),
     cfg('headers', 'Headers', 'keyValue', { help: 'Request headers (e.g. Authorization, Content-Type).' }),
     cfg('body', 'Body', 'textarea', { placeholder: '{ "key": "value" }', help: 'Request payload (JSON or expression).' }),
-    cfg('outputVariable', 'Output variable', 'text', { placeholder: 'response' }),
+    // objectui#11968 — deliberately NO `outputVariable` row, the objectui#9335
+    // shape on another node. The `http` executor contract (`HttpConfigSchema`,
+    // reached through the spec's `getBuiltinNodeConfigContracts()`) is strict
+    // and declares no such key, the executor never reads it, and the engine's
+    // registration refuses a flow carrying it. This group renders only while
+    // the server's descriptor is loading or unavailable, so the row turned an
+    // ordinary fallback edit into a flow that saved and then never registered;
+    // the online form, built from the descriptor, never offered it. A stored
+    // one is not hidden: an unowned config key falls through to the Advanced
+    // (JSON) block, where it stays visible and clearable.
+    // `flow-node-config.contractKeys-11968.test.tsx` holds every group here to
+    // the keys its node's contract declares.
     { id: 'timeoutMs', path: ['timeoutMs'], label: 'Timeout (ms)', kind: 'number', placeholder: '30000' },
   ],
   // Script — one thing: call a registered function (framework#1870).
@@ -1120,7 +1131,12 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // Click-through target (objectstack-ai/objectstack#2675): deep-link the notification to a record.
     cfg('sourceObject', 'Link object', 'text', { placeholder: 'sys_approval_request', help: 'Object of the record the notification links to (requires Link record id).' }),
     cfg('sourceId', 'Link record id', 'text', { help: 'Record id the notification links to (requires Link object).' }),
-    cfg('url', 'Click-through URL', 'text', { help: 'Explicit link; overrides the one synthesized from Link object/record.' }),
+    // objectui#11968 — the canonical key. This row wrote `url`, which
+    // `NotifyConfigSchema` does not declare: it is the converted spelling the
+    // engine's conversion rewrites to `actionUrl`, so the form was authoring
+    // an alias rather than the contract. The online form already writes
+    // `actionUrl`; a stored `url` shows in the Advanced (JSON) block.
+    cfg('actionUrl', 'Click-through URL', 'text', { help: 'Explicit link; overrides the one synthesized from Link object/record.' }),
   ],
   connector_action: [
     at('connectorConfig', 'connectorId', 'Connector', 'reference', { ref: { kind: 'connector' }, placeholder: 'slack · email · salesforce' }),

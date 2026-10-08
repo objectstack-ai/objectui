@@ -3337,6 +3337,17 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
     'No action editor is registered in this session, so this action’s properties cannot be edited here.',
   'engine.studio.actions.newLabel': 'New action',
   'engine.studio.actions.delete': 'Delete',
+  // objectui#11861 — the New menu's starting points (`actionPresets.ts`).
+  'engine.studio.actions.presets': 'Common actions',
+  'engine.studio.actions.notSaved': 'Not saved — needs “{input}”',
+  'engine.studio.actions.heldNeeds': 'the action “{action}” needs “{input}”',
+  'engine.studio.actions.preset.change': 'Change a picklist field',
+  'engine.studio.actions.preset.changeHint': 'Asks for a new “{field}”, then saves it.',
+  'engine.studio.actions.preset.changeNeeds': 'Needs a picklist field on this object.',
+  'engine.studio.actions.preset.changeLabel': 'Change {field}',
+  'engine.studio.actions.preset.runFlow': 'Run a flow',
+  'engine.studio.actions.preset.openUrl': 'Open a web page',
+  'engine.studio.actions.preset.openPage': 'Open a page in a dialog',
   // API view
   'engine.studio.api.subtitle':
     'Auto-generated REST endpoints for this object, derived from its current schema. Copy a request as cURL and call it with your API token.',
@@ -6463,6 +6474,16 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.actions.editorMissing': '本次会话没有注册操作编辑器,因此无法在这里编辑该操作的属性。',
   'engine.studio.actions.newLabel': '新操作',
   'engine.studio.actions.delete': '删除',
+  'engine.studio.actions.presets': '常用操作',
+  'engine.studio.actions.notSaved': '未保存 —— 需要「{input}」',
+  'engine.studio.actions.heldNeeds': '操作「{action}」需要「{input}」',
+  'engine.studio.actions.preset.change': '修改下拉选择字段',
+  'engine.studio.actions.preset.changeHint': '询问新的「{field}」,然后保存。',
+  'engine.studio.actions.preset.changeNeeds': '需要该对象有一个下拉选择字段。',
+  'engine.studio.actions.preset.changeLabel': '修改{field}',
+  'engine.studio.actions.preset.runFlow': '运行流程',
+  'engine.studio.actions.preset.openUrl': '打开网页',
+  'engine.studio.actions.preset.openPage': '在对话框中打开页面',
   // API view
   'engine.studio.api.subtitle':
     '该对象自动生成的 REST 端点,依据当前 schema 派生。可复制为 cURL,带上你的 API 令牌调用。',
@@ -6826,7 +6847,8 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     url: { label: 'URL' },
     headers: { label: '请求头', help: '请求头(如 Authorization、Content-Type)。' },
     body: { label: '请求体', help: '请求负载(JSON 或表达式)。' },
-    outputVariable: { label: '输出变量' },
+    // objectui#11968 — no `outputVariable` overlay: the `http` contract declares
+    // no such key, so neither form offers a field for it.
     durable: { label: '持久化(异步)', help: '通过持久化队列即发即忘(异步投递)。' },
     signingSecret: { label: '签名密钥', help: 'HMAC-SHA256 密钥 → 写入 X-Objectstack 签名请求头。' },
     timeoutMs: { label: '超时(毫秒)' },
@@ -6954,8 +6976,8 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     errorVariable: { label: '错误变量', help: '在 catch 区域内绑定所捕获错误的变量。' },
     retry: { label: '重试' },
   },
-  // notify has no client field table (offline → Advanced JSON); these localize
-  // the engine-published configSchema fields shown when online.
+  // notify's offline table and the engine-published configSchema share these
+  // field ids, so one overlay localizes both forms.
   notify: {
     recipients: { label: '收件人', help: '接收通知的人：触发记录的某个字段、用户、团队或邮箱地址。至少需要一个。' },
     title: { label: '标题', help: '通知标题(别名:subject)。' },
@@ -6966,7 +6988,9 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     sourceObject: { label: '来源对象', help: '通知所关联记录的对象名。' },
     sourceId: { label: '来源记录', help: '通知链接到的记录 id。' },
     actorId: { label: '触发用户', help: '引发该事件的用户 id。' },
-    url: { label: '链接 URL', help: '显式的点击跳转 URL;覆盖默认值。' },
+    // objectui#11968 — keyed `actionUrl`, the key the contract declares and both
+    // forms now write; the `url` spelling is the converted alias.
+    actionUrl: { label: '链接 URL', help: '显式的点击跳转 URL;覆盖默认值。' },
     payload: { label: '附加数据', help: '合并进模板输入的额外数据。' },
   },
   boundary_event: {

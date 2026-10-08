@@ -144,6 +144,10 @@ vi.mock('../../providers/AdapterProvider', () => ({
 }));
 
 import { AppHeader } from '../AppHeader';
+// The `app` variant lives under `ConsoleLayout`'s palette provider; without one
+// the header draws no search trigger (objectui#11912), and the first case below
+// reads that trigger as its "the header rendered" control.
+import { CommandPaletteProvider } from '../../context/CommandPaletteProvider';
 
 function mePermissions(systemPermissions: string[]): MePermissionsResponse {
   return {
@@ -166,7 +170,9 @@ const AUTHOR = mePermissions(['manage_metadata', 'studio.access', 'setup.access'
 function mount(perms: MePermissionsResponse) {
   return render(
     <MePermissionsProvider initialPermissions={perms}>
-      <AppHeader variant="app" appName="Cloud" activeAppName="cloud_control" objects={[]} />
+      <CommandPaletteProvider>
+        <AppHeader variant="app" appName="Cloud" activeAppName="cloud_control" objects={[]} />
+      </CommandPaletteProvider>
     </MePermissionsProvider>,
   );
 }

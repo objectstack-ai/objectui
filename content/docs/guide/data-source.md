@@ -303,20 +303,23 @@ rows, a form's inline fields — `customFields`, or `sections` whose every field
 inline — a chart's `dataset`, a `bind` path, or a metric's `fallbackValue`) draws
 from that source and shows no hint.
 
-The two `element:*` rows keep their configuration in the node's `properties` bag,
-so the binding does not land on a schema key there: each reads it directly, and
-`dataSource.object` wins over `properties.object`. They differ on `filter`.
-`element:record_picker` takes the binding's (or its view's) filter in place of
-`properties.filter`, which applies only when neither supplies one.
-`element:number` AND-combines `properties.filter` with the binding's filter and
-its view's — the rule the gate-wrapped blocks above follow — so neither is
-dropped, and a filter refused while combining them shows the configuration-error
-panel instead of a count. On `element:number`,
+The two `element:*` rows keep their display configuration in the node's
+`properties` bag and take their query from the binding **only**: every query
+key either one reads comes from `dataSource` and from nowhere else. The flat
+`properties.object`, `properties.filter`, `properties.sort` and
+`properties.limit` that the spec still declares on these two elements are not
+read, and `@objectstack/spec` retires them in v18 (objectstack#11509). The
+binding's filter is AND-combined with its view's filter, as on every block
+above. On `element:number`,
 `{ "dataSource": { "object": "contact" }, "properties": { "aggregate": "count" } }`
 is a complete metric; its `sort` and `limit` are not read, because an aggregate
-has no ordering and a capped count would be a wrong number. An `element:number`
-that sets `aggregate` but names no object in either place (no `properties.object`,
-no `dataSource.object`) shows a short "no object named" notice instead of a count.
+has no ordering and a capped count would be a wrong number, and a filter the
+converter refuses shows the configuration-error panel instead of a count. An
+element whose node names no `dataSource.object` issues no query: an
+`element:number` that sets `aggregate` shows a short "No object named: set
+dataSource.object." notice instead of a count, and an `element:record_picker`
+offers no records. The Studio page designer writes the metric's object into
+`dataSource`.
 
 #### Scoping a filter to the record in view: `{record_id}`
 

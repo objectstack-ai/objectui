@@ -15,6 +15,11 @@
  * Mounted with a metadata client double that records every save, the real
  * `DashboardPreview` canvas (its *Add widget* picker) and the real
  * `DashboardWidgetInspector`.
+ *
+ * objectui#11951: removing a bound widget's last measure (or the last dimension
+ * a two-measure scatter needs) is held the same way, not sent as a shape the
+ * spec refuses; the second `describe` pins it through the inspector's own
+ * remove buttons.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -60,6 +65,8 @@ const DATASETS = [
 const TASK = { name: 'acme_task', label: 'Task' };
 
 let refuseDashboard: Error | null;
+/** The dashboard the metadata double serves; objectui#11951's pins swap in their own. */
+let dashFixture: Record<string, unknown> = SALES_DASH;
 
 const mockClient = {
   save: vi.fn(async (type: string, _name: string, _body: Record<string, unknown>) => {
@@ -69,14 +76,14 @@ const mockClient = {
   list: vi.fn(async (type: string) => {
     if (type === 'app') return [{ name: 'acme_app', label: 'Acme' }];
     if (type === 'dataset') return DATASETS;
-    if (type === 'dashboard') return [SALES_DASH];
+    if (type === 'dashboard') return [dashFixture];
     if (type === 'object') return [TASK];
     return [];
   }),
   listDrafts: vi.fn(async () => []),
   layered: vi.fn(async (type: string) => {
     if (type === 'app') return { effective: { name: 'acme_app', label: 'Acme', active: true, navigation: NAV } };
-    if (type === 'dashboard') return { effective: JSON.parse(JSON.stringify(SALES_DASH)) };
+    if (type === 'dashboard') return { effective: JSON.parse(JSON.stringify(dashFixture)) };
     return { code: null, overlay: null, overlayScope: null, effective: null };
   }),
   getDraft: vi.fn(async () => null),
@@ -112,6 +119,7 @@ registerMetadataInspector('dashboard', DashboardWidgetInspector);
 
 beforeEach(() => {
   refuseDashboard = null;
+  dashFixture = SALES_DASH;
   for (const fn of Object.values(mockClient)) fn.mockClear();
 });
 afterEach(cleanup);
@@ -296,5 +304,138 @@ describe('a new dashboard widget is held until it is bound (objectui#11910)', ()
     });
     expect(dashboardSaves(), 'the widget is still held').toEqual([]);
     expect(screen.getByTestId('studio-held')).toBeInTheDocument();
+  });
+});
+
+describe('a bound widget whose binding the author empties is held, not sent refused (objectui#11951)', () => {
+  /** A bar with one dimension and a scatter with two measures, beside the bound metric. */
+  const BINDINGS_DASH = {
+    ...SALES_DASH,
+    widgets: [
+      ...SALES_DASH.widgets,
+      {
+        id: 'by_stage',
+        type: 'bar',
+        title: 'By stage',
+        dataset: 'sales_ds',
+        dimensions: ['stage'],
+        values: ['revenue'],
+        layout: { x: 3, y: 0, w: 3, h: 2 },
+      },
+      {
+        id: 'spread',
+        type: 'scatter',
+        title: 'Spread',
+        dataset: 'sales_ds',
+        dimensions: ['stage'],
+        values: ['revenue', 'deal_count'],
+        layout: { x: 6, y: 0, w: 3, h: 2 },
+      },
+    ],
+  };
+
+  /** Selects the canvas widget `id`, whose inspector opens on `title`. */
+  async function selectWidget(id: string, title: string): Promise<void> {
+    const [tile] = await screen.findAllByTestId(`dashboard-preview-widget-${id}`, undefined, { timeout: 8000 });
+    fireEvent.click(tile);
+    await within(rail()).findByDisplayValue(title, undefined, { timeout: 8000 });
+  }
+
+  /** The inspector's own remove button on the member `name` of a binding list. */
+  function remove(name: string): void {
+    fireEvent.click(
+      within(rail()).getByRole('button', { name: tFormat('engine.viewColumnPanes.remove', 'en', { label: name }) }),
+    );
+  }
+
+  it('the precondition: the dashboard as served parses with the spec', () => {
+    expect(DashboardSchema.safeParse(BINDINGS_DASH).success).toBe(true);
+  });
+
+  it('removing a metric\'s last measure sends nothing and shows no red strip; picking another sends it', async () => {
+    const report = vi.fn();
+    mountPillar(report);
+    await ready();
+    await selectWidget('pipeline', 'Pipeline');
+    remove('revenue');
+    await outlastDebounce();
+
+    expect(dashboardSaves(), 'the emptied measure list is not sent').toEqual([]);
+    expect(screen.queryByTestId('studio-refusal'), 'no red strip while the author is mid-way').toBeNull();
+    expect(screen.getByTestId('studio-held-message')).toHaveTextContent(
+      heldLine('engine.inspector.widget.values', 'Pipeline'),
+    );
+    expect(within(rail()).getByTestId('widget-field-held-hint-values')).toHaveTextContent(
+      t('engine.studio.held.inputHint', 'en'),
+    );
+    expect(report).toHaveBeenLastCalledWith(
+      tFormat('engine.studio.held.widgetNeedsInput', 'en', {
+        input: t('engine.inspector.widget.values', 'en'),
+        widget: 'Pipeline',
+      }),
+    );
+
+    await addMeasure();
+    await waitFor(() => expect(dashboardSaves()).toHaveLength(1), { timeout: 4000 });
+    const [sent] = dashboardSaves();
+    expect((sent.widgets as unknown[])[0]).toMatchObject({ id: 'pipeline', values: ['revenue'] });
+    expect(DashboardSchema.safeParse(sent).success, 'the body sent is one the door accepts').toBe(true);
+    await waitFor(() => expect(screen.queryByTestId('studio-held')).toBeNull());
+    expect(within(rail()).queryByTestId('widget-field-held-hint-values')).toBeNull();
+    expect(report).toHaveBeenLastCalledWith(null);
+  });
+
+  it('removing a one-measure bar\'s last dimension saves at once, as the spec accepts it', async () => {
+    dashFixture = BINDINGS_DASH;
+    mountPillar();
+    await ready();
+    await selectWidget('by_stage', 'By stage');
+    remove('stage');
+    await waitFor(() => expect(dashboardSaves()).toHaveLength(1), { timeout: 4000 });
+    const [sent] = dashboardSaves();
+    expect((sent.widgets as unknown[])[1]).toMatchObject({ id: 'by_stage', dimensions: [], values: ['revenue'] });
+    expect(DashboardSchema.safeParse(sent).success, 'an emptied dimension list is one the door accepts').toBe(true);
+    expect(screen.queryByTestId('studio-held')).toBeNull();
+    expect(within(rail()).queryByTestId('widget-field-held-hint-dimensions')).toBeNull();
+  });
+
+  it('removing a two-measure scatter\'s last dimension holds it, and the inspector names the dimensions', async () => {
+    dashFixture = BINDINGS_DASH;
+    mountPillar();
+    await ready();
+    await selectWidget('spread', 'Spread');
+    remove('stage');
+    await outlastDebounce();
+
+    expect(dashboardSaves(), 'a scatter the spec refuses for want of a dimension is not sent').toEqual([]);
+    expect(screen.queryByTestId('studio-refusal')).toBeNull();
+    expect(screen.getByTestId('studio-held-message')).toHaveTextContent(
+      heldLine('engine.inspector.widget.dimensions', 'Spread'),
+    );
+    expect(within(rail()).getByTestId('widget-field-held-hint-dimensions')).toHaveTextContent(
+      t('engine.studio.held.inputHint', 'en'),
+    );
+    expect(within(rail()).queryByTestId('widget-field-held-hint-values')).toBeNull();
+  });
+
+  // CONTROL: a finished but wrong widget is still sent when the author empties
+  // a binding beside what is wrong, and the refusal shows.
+  it('a widget with a dataset the author wrote wrong is sent when its last measure is removed, and the refusal shows', async () => {
+    dashFixture = {
+      ...SALES_DASH,
+      widgets: [{ ...SALES_DASH.widgets[0], dataset: 'Sales Pipeline' }],
+    };
+    refuseDashboard = Object.assign(new Error('Validation failed'), {
+      status: 422,
+      issues: [{ path: 'widgets.0.dataset', message: 'Identifier must be lowercase snake_case' }],
+    });
+    mountPillar();
+    await ready();
+    await selectWidget('pipeline', 'Pipeline');
+    remove('revenue');
+    await waitFor(() => expect(dashboardSaves()).toHaveLength(1), { timeout: 4000 });
+    expect((dashboardSaves()[0].widgets as unknown[])[0]).toMatchObject({ dataset: 'Sales Pipeline', values: [] });
+    expect(await screen.findByTestId('studio-refusal')).toBeInTheDocument();
+    expect(screen.queryByTestId('studio-held')).toBeNull();
   });
 });

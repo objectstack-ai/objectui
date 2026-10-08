@@ -1026,6 +1026,31 @@ function retiredGridFieldKey(alias: GridFieldRetiredKey) {
   );
 }
 
+/**
+ * The refusal of `scale` on a `currency` form field (objectui#11070 round 13).
+ *
+ * `FormFieldSchema.scale` is the spec's `FieldSchema.scale` by reference, but a
+ * member taken off `.shape` does not bring the spec's cross-key rules with it,
+ * and the spec refuses this key on exactly one field type: `currency`
+ * (objectstack-ai/objectstack#19629, ruling B — a currency amount's decimal
+ * places are its currency's). The `currency` widget does not read `scale`, so
+ * the key would be accepted here and do nothing. So this one rule is carried,
+ * keyed on `type` as the spec keys it, with the spec's own wording: the spec
+ * exports neither the rule nor its text, so the text is held identical here and
+ * `strict-face-read-keys-11070.test.ts` pins it equal to the spec's issue for the
+ * same entry. The spec's other cross-key rules (`rows`, `minLength` /
+ * `maxLength`, `multiple`) are not carried: they key on the spec's field-type
+ * sets, and this face's `type` is a widget id (`input`, `select`, …) the spec
+ * does not know.
+ */
+const CURRENCY_FIELD_SCALE_REFUSAL =
+  '`scale` is not valid on a `currency` field — delete the key. A currency amount\'s decimal '
+  + 'places are its currency\'s, not a field setting: the currency\'s ISO 4217 minor unit (2 for '
+  + 'USD, 0 for JPY, 3 for KWD) decides how the amount displays, and the field\'s write allowance '
+  + 'stays unconstrained — a currency write is accepted with the decimals it carries, as it always '
+  + 'was on a currency field that declared no `scale`. The key\'s one enforced effect was refusing '
+  + 'writes with more decimals, which this field type no longer does.';
+
 export const FormFieldSchema = z.object({
   id: z.string().optional().describe('Field ID'),
   name: z.string().describe('Field name (form data path)'),
@@ -1080,6 +1105,13 @@ export const FormFieldSchema = z.object({
   reference: stripImportedDefaults(SpecFieldSchema).shape.reference,
   min: stripImportedDefaults(SpecFieldSchema).shape.min,
   max: stripImportedDefaults(SpecFieldSchema).shape.max,
+  // objectui#11070 round 13 — the decimal places the `number`, `percent`,
+  // `formula` and `summary` widgets read, and the fixed-currency declaration
+  // the `currency` widget reads through `resolveFieldCurrency`. The spec's
+  // `FieldSchema` refuses `scale` on a `currency` field; the superRefine
+  // below carries that one rule (`CURRENCY_FIELD_SCALE_REFUSAL`).
+  scale: stripImportedDefaults(SpecFieldSchema).shape.scale,
+  currencyConfig: stripImportedDefaults(SpecFieldSchema).shape.currencyConfig,
   minLength: stripImportedDefaults(SpecFieldSchema).shape.minLength,
   maxLength: stripImportedDefaults(SpecFieldSchema).shape.maxLength,
   pattern: z.string().optional()
@@ -1128,6 +1160,11 @@ export const FormFieldSchema = z.object({
   add_label: retiredGridFieldKey('add_label'),
   sort_field: retiredGridFieldKey('sort_field'),
 }).superRefine((field, ctx) => {
+  // objectui#11070 round 13 — the spec's one cross-key rule on `scale`; see
+  // CURRENCY_FIELD_SCALE_REFUSAL.
+  if (field.type === 'currency' && field.scale !== undefined) {
+    ctx.addIssue({ code: 'custom', path: ['scale'], message: CURRENCY_FIELD_SCALE_REFUSAL });
+  }
   // objectui#5449 — the namespace rule `@object-ui/core` has enforced since
   // objectui#5375, stated here so `objectui validate` (which reaches this
   // schema via `safeValidateSchema`) stops green-lighting a document the

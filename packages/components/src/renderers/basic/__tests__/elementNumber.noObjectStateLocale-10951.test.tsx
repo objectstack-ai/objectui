@@ -52,7 +52,7 @@ describe('element:number "no object named" notice — localized (objectui#10951)
     // `waitFor`, not `findBy`: a lazily loaded catalogue may land after the
     // first paint, and the element exists (in English) before it does.
     await waitFor(() =>
-      expect(screen.getByTestId(NOTICE_ID).textContent).toBe('未指定对象：请设置 object 或 dataSource.object。'),
+      expect(screen.getByTestId(NOTICE_ID).textContent).toBe('未指定对象：请设置 dataSource.object。'),
     );
   });
 
@@ -60,7 +60,7 @@ describe('element:number "no object named" notice — localized (objectui#10951)
     renderIn('de');
     await waitFor(() =>
       expect(screen.getByTestId(NOTICE_ID).textContent).toBe(
-        'Kein Objekt angegeben: Legen Sie object oder dataSource.object fest.',
+        'Kein Objekt angegeben: Legen Sie dataSource.object fest.',
       ),
     );
   });

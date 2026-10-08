@@ -14,6 +14,13 @@
  * provider holds and the copy it writes to localStorage: a transcription of the
  * route tree, or a stubbed store, would be free to agree with itself.
  *
+ * "Writes nothing" is read off that persisted copy: absent when nothing was
+ * ever written (the provider only reads on mount), and byte-identical, its
+ * `visitedAt` included, when a later visit must not have written. A
+ * `Storage.prototype.setItem` spy is not the instrument here: under this
+ * project's DOM environment it counted zero calls for a write the persisted
+ * copy shows, so a zero from it says nothing.
+ *
  * The builder itself is a stub (`./studioBuilder`), as in
  * `StudioRoute.lazyBuilder-11798.test.tsx`: what is measured is what the ROUTE
  * records, not what the builder renders.
@@ -21,7 +28,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
@@ -119,22 +126,18 @@ const recent = () => JSON.parse(screen.getByTestId('recent').textContent ?? '[]'
 const holder = async () =>
   jsonResponse({ authenticated: true, userId: 'u1', systemPermissions: [STUDIO_ENTRY_CAPABILITY], objects: {}, fields: {} });
 
-let setItem: ReturnType<typeof vi.spyOn>;
+/** The persisted copy of the list, as written; `null` when nothing was ever written. */
+const persisted = () => localStorage.getItem(STORAGE_KEY);
 
 beforeEach(() => {
   auth = { isAuthenticated: true, isLoading: false, user: { id: 'u1' } };
   permissionsFetch = holder;
   localStorage.clear();
-  setItem = vi.spyOn(Storage.prototype, 'setItem');
 });
 
 afterEach(() => {
   cleanup();
-  setItem.mockRestore();
 });
-
-/** The writes of the recent list itself, leaving out anything else the tree stores. */
-const recentWrites = () => setItem.mock.calls.filter(([key]) => key === STORAGE_KEY);
 
 describe('/studio/PKG/TAB records the package as a recent entry (objectui#11863)', () => {
   it('a pillar visit writes one package entry, keyed by the package id, with no label', async () => {
@@ -165,13 +168,17 @@ describe('/studio/PKG/TAB records the package as a recent entry (objectui#11863)
   it('switching pillars inside the same package changes nothing, so it writes nothing', async () => {
     renderStudio('/studio/com.acme.crm/data');
     await waitFor(() => expect(recent()).toHaveLength(1));
-    expect(recentWrites()).toHaveLength(1);
+    const before = persisted();
+    expect(before).not.toBeNull();
+    // Long enough that a second write would carry a different `visitedAt`.
+    await new Promise((r) => setTimeout(r, 20));
 
-    screen.getByTestId('go:/studio/com.acme.crm/automations').click();
+    act(() => screen.getByTestId('go:/studio/com.acme.crm/automations').click());
     await waitFor(() => expect(screen.getByTestId('pathname')).toHaveTextContent('/studio/com.acme.crm/automations'));
+    await screen.findByTestId('studio-pillar-builder');
 
-    expect(recent()).toHaveLength(1);
-    expect(recentWrites()).toHaveLength(1);
+    expect(persisted()).toBe(before);
+    expect(recent()).toEqual(JSON.parse(before ?? '[]'));
   });
 
   it('the package-less scope is not a package, and the landing is not a visit: neither records anything', async () => {
@@ -183,7 +190,7 @@ describe('/studio/PKG/TAB records the package as a recent entry (objectui#11863)
     await screen.findByTestId('studio-front-door');
 
     expect(recent()).toEqual([]);
-    expect(recentWrites()).toHaveLength(0);
+    expect(persisted()).toBeNull();
   });
 
   it('a principal the entry gate refuses records nothing: the visit is recorded behind the gate', async () => {
@@ -192,6 +199,6 @@ describe('/studio/PKG/TAB records the package as a recent entry (objectui#11863)
 
     await waitFor(() => expect(screen.getByTestId('pathname')).toHaveTextContent('/home'));
     expect(recent()).toEqual([]);
-    expect(recentWrites()).toHaveLength(0);
+    expect(persisted()).toBeNull();
   });
 });

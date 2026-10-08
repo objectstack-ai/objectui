@@ -130,7 +130,7 @@ describe('UnifiedSidebar — a recent package is not drawn without a package lis
     render(sidebarUi());
 
     const group = openRecent();
-    expect(within(group).getByRole('link', { name: 'account' })).toHaveAttribute('href', METADATA.href);
+    expect(within(group).getByRole('link', { name: /\baccount$/ })).toHaveAttribute('href', METADATA.href);
     expect(within(group).queryByText('com.acme.crm')).not.toBeInTheDocument();
     expect(group.querySelector(`a[href="${PACKAGE.href}"]`)).toBeNull();
   });
@@ -147,6 +147,6 @@ describe('UnifiedSidebar — a recent package is not drawn without a package lis
     recent.items = [METADATA];
     render(sidebarUi());
 
-    expect(within(openRecent()).getByRole('link', { name: 'account' })).toBeInTheDocument();
+    expect(within(openRecent()).getByRole('link', { name: /\baccount$/ })).toBeInTheDocument();
   });
 });

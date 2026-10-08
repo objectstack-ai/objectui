@@ -45,9 +45,17 @@ export interface SortItem extends SpecSortItem {
 }
 
 export interface SortBuilderProps {
-  fields?: Array<{ 
+  fields?: Array<{
     value: string
     label: string
+    /**
+     * Listed but not choosable (objectui#11943). A disabled entry still names
+     * a row whose current field it is, so that row shows its label and can be
+     * changed or removed, but no row's dropdown lets the user pick it and
+     * "Add sort" never seeds it. "Add sort" seeds the first entry that is not
+     * disabled, and is itself disabled when every entry is.
+     */
+    disabled?: boolean
   }>;
   value?: SortItem[];
   onChange?: (value: SortItem[]) => void;
@@ -89,10 +97,14 @@ export function SortBuilder({
     onChange?.(newItems);
   };
 
+  // A new row starts on the first field the user may choose: a disabled
+  // entry is only there for the row that already names it.
+  const firstChoosable = fields.find((f) => !f.disabled);
+
   const addItem = () => {
     const newItem: SortItem = {
       id: crypto.randomUUID(),
-      field: fields[0]?.value || "",
+      field: firstChoosable?.value || "",
       order: 'asc',
     };
     handleChange([...items, newItem]);
@@ -124,7 +136,7 @@ export function SortBuilder({
                   </SelectTrigger>
                   <SelectContent>
                     {fields.map(f => (
-                      <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                      <SelectItem key={f.value} value={f.value} disabled={f.disabled}>{f.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -159,7 +171,7 @@ export function SortBuilder({
         size="sm"
         onClick={addItem}
         className="h-8"
-        disabled={fields.length === 0}
+        disabled={!firstChoosable}
       >
         <Plus className="h-3 w-3 mr-2" />
         {t('sortBuilder.addSort')}

@@ -85,6 +85,7 @@ import {
   convertSortToQueryParams,
   recordDelete,
   resolveFilterPlaceholders,
+  toFilterNodeSafely,
   type FilterTokenScope,
 } from '@object-ui/core';
 import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema, notifyDataChanged, useDataInvalidation, useFilterScope } from '@object-ui/react';
@@ -408,6 +409,29 @@ interface AuthoredFilterSegments {
   view: NamedListView['filter'];
   table: ObjectGridSchema['filter'];
   tableDefaults: ObjectGridSchema['defaultFilters'];
+}
+
+/**
+ * objectui#11880 item 5 — the `table` rung of the filter this component hands
+ * the grid it draws: `table.filter`, unless it lowers to nothing, else the
+ * deprecated `table.defaultFilters`.
+ *
+ * This is the choice `ObjectGrid` made itself while the two arrived in two
+ * slots (it read `defaultFilters` only when `filter` lowered to nothing), now
+ * made here so both reach it in `filter` alone — `ObjectGrid`'s export and
+ * page reset read that slot only. "Lowers to nothing" is the sink's own
+ * answer (`toFilterNodeSafely`: absent, `[]`, `{}`, a record of nulls), not a
+ * truthiness test, so an empty `table.filter` beside a `table.defaultFilters`
+ * keeps the grid's answer: the legacy rung applies.
+ *
+ * A REFUSED `table.filter` is kept, not skipped: it reaches `ObjectGrid`, which
+ * draws its malformed-filter panel, as it did before. Skipping it would let
+ * the legacy rung answer a query the author's canonical filter forbids.
+ */
+function gridTableFilterRung(segments: AuthoredFilterSegments): ObjectGridSchema['filter'] {
+  const canonical = toFilterNodeSafely(segments.table);
+  if (!canonical.ok || canonical.node !== undefined) return segments.table;
+  return segments.tableDefaults;
 }
 
 /**
@@ -2424,14 +2448,20 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // on the floor. An author who wrote the canonical shape the type recommends
   // got a compile-clean, semantically correct, RUNTIME-INERT view.
   //
-  // ObjectGrid reads both spellings of the first three and resolves them
+  // ObjectGrid reads both spellings of the first two and resolves them
   // canonical-first (`schema.pagination?.pageSize ?? schema.pageSize`;
-  // `if (schema.selection?.type) … else if (schema.selectable !== undefined)`;
-  // `schemaFilter !== undefined ? … : schema.defaultFilters`), so the fix is
-  // forwarding, not translation — and the precedence is not a free choice
-  // here: emitting both slots lets ObjectGrid's existing canonical-wins rule
-  // decide, which is the only answer that keeps the two layers saying the
-  // same thing.
+  // `if (schema.selection?.type) … else if (schema.selectable !== undefined)`),
+  // so for those the fix is forwarding, not translation: emitting both slots
+  // lets ObjectGrid's existing canonical-wins rule decide.
+  //
+  // objectui#11880 item 5: the filter pair is resolved HERE instead, and
+  // handed over in `filter` alone (see `gridTableFilterRung`). ObjectGrid does
+  // not read its two filter slots alike: its server export and its page reset
+  // read only `filter`, so a filter riding `defaultFilters` narrowed the rows
+  // on screen while the downloaded file held every record, and changing it in
+  // place kept the old page. `@objectstack/spec` also retires
+  // `object-grid.defaultFilters` (objectstack#11509, A-narrow), so this
+  // component no longer writes it at all.
   //
   // objectui#5861: the fourth pair is no longer a pair. `defaultSort` was
   // RETIRED under ADR-0049 — `@objectstack/spec` refuses it by name on
@@ -2459,14 +2489,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   const gridSchema: ObjectGridSchema = useMemo(() => {
     // The two segments ahead of the `table` one, resolved once.
     //
-    // `viewFilter` keeps riding the LEGACY slot it rides today:
-    // `filter`/`defaultFilters` are not interchangeable downstream —
-    // ObjectGrid lowers the canonical slot through `toFilterNode` and
-    // raw-assigns the legacy one — so moving a named-view filter across would
-    // change the wire shape of a path objectui#5270 does not own. Sort has no
-    // such asymmetry to preserve: its canonical slot is the only one left
-    // (the legacy `defaultSort` is retired, objectui#5861), and it is the one
-    // that can hold more than a single key.
+    // objectui#11880 item 5: `viewFilter` rides the CANONICAL slot, `filter`,
+    // as the `table` rung does when no view filter is present. Both slots
+    // reach the wire through the same `toFilterNode` sink in ObjectGrid
+    // (objectui#4082), so the query is unchanged; what moves is that the
+    // export and the page reset, which read `filter` only, now see it.
     //
     // objectui#10506: all three filter segments are read RESOLVED (see
     // `authoredFilters`), and held while their inputs are unchanged — ObjectGrid
@@ -2514,14 +2541,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         ...gridOperations,
         create: false, // Create is handled by the view's create button
       },
-      defaultFilters: viewFilter || authoredFilters.tableDefaults,
-      // Canonical `table` keys, at last forwarded. `filter` carries the
-      // `table` segment ONLY: the view segment resolved above already occupies
-      // the legacy slot, and ObjectGrid prefers this slot over that one — so
-      // handing it `table.filter` while a named view is active would let the
-      // table default outrank the view, inverting the precedence the two
-      // untouched segments exist to express.
-      filter: viewFilter ? undefined : authoredFilters.table,
+      // objectui#11880 item 5 — the whole filter chain in ONE slot: the active
+      // view's filter (any truthy value, an empty array included, as before),
+      // else the `table` rung (`gridTableFilterRung`). No `defaultFilters`:
+      // ObjectGrid's export and page reset read `filter` only.
+      filter: viewFilter || gridTableFilterRung(authoredFilters),
       // `sort` carries the WHOLE chain instead — view segments first, then the
       // `table` one. Same precedence as `mergedSort` and the non-grid fetch
       // express; what changes is only WHICH slot a view's sort arrives in, and

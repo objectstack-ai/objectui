@@ -10,16 +10,27 @@
  * objectui#11880 item 5 — the filter `ObjectView` hands the `ObjectGrid` it draws,
  * read through the REAL grid and an adapter that APPLIES the `$filter` it receives.
  *
- * The node this component builds for its own grid carries the authored filter
- * rungs across two slots: an active view's filter and the deprecated
- * `table.defaultFilters` in `defaultFilters`, and `table.filter` in `filter`
- * (written only when no view filter is present). `ObjectGrid` reads `filter`
- * first and `defaultFilters` only when `filter` lowers to nothing.
+ * The node this component builds for its own grid carries the whole authored
+ * filter chain in ONE slot, `filter`: an active view's filter, else `table.filter`
+ * unless it lowers to nothing, else the deprecated `table.defaultFilters`. Before
+ * this card the chain was split across two slots (the view's filter and
+ * `table.defaultFilters` in `defaultFilters`, `table.filter` in `filter`), and
+ * `ObjectGrid` read `defaultFilters` only when `filter` lowered to nothing.
  *
- * Every reading here is of what the grid SENDS and what it DRAWS, plus the
- * three readers inside `ObjectGrid` that look at one slot and not the other:
- * the server-streamed export, the page reset on a query change, and the
- * refused-filter state.
+ * Every reading here is of what the grid SENDS and what it DRAWS:
+ *
+ *   - the rung order, which the move to one slot does not change (each rung and
+ *     each pair reads the same `$filter` and rows as on the two-slot hand-off);
+ *   - the three readers inside `ObjectGrid` that look at `filter` and not at
+ *     `defaultFilters`: the server-streamed export and the page reset, whose
+ *     answers this card CORRECTS (a filter riding `defaultFilters` narrowed the
+ *     rows but not the downloaded file, and changing it in place kept the old
+ *     page), and the refused-filter state, which it keeps.
+ *
+ * The corrected rows were lit by their before-readings: on the two-slot hand-off
+ * (the objectui#11880 PR records the ablation) the export was handed no filter
+ * and the next query kept a page index above 0, while every rung row stayed
+ * green.
  */
 
 import React from 'react';
@@ -217,19 +228,19 @@ describe('objectui#11880 item 5 — the rung order through the real grid', () =>
 });
 
 describe('objectui#11880 item 5 — the server-streamed export', () => {
-  it('a named view filter: what the export is handed', async () => {
+  it('a named view filter reaches the export, as it reaches the rows', async () => {
     const r = await exported({ view: VIEW });
     expect(r.fetched).toEqual(VIEW_AST);
-    expect(r.filter).toBeUndefined();
+    expect(r.filter).toEqual(VIEW_AST);
   });
 
-  it('`table.defaultFilters` alone: what the export is handed', async () => {
+  it('`table.defaultFilters` alone reaches the export, as it reaches the rows', async () => {
     const r = await exported({ tableDefaults: DEFAULTS });
     expect(r.fetched).toEqual(DEFAULTS_AST);
-    expect(r.filter).toBeUndefined();
+    expect(r.filter).toEqual(DEFAULTS_AST);
   });
 
-  it('LIT CONTROL: `table.filter` reaches the export', async () => {
+  it('CONTROL: `table.filter` reaches the export, as before', async () => {
     const r = await exported({ table: TABLE });
     expect(r.fetched).toEqual(TABLE_AST);
     expect(r.filter).toEqual(TABLE_AST);
@@ -269,21 +280,21 @@ describe('objectui#11880 item 5 — the page reset when the filter changes in pl
     return objectFinds(ds).at(-1)?.[1].$skip ?? 0;
   }
 
-  it('a named view filter changed in place: the page the next query asks for', async () => {
-    expect(await skipAfterChange({ view: EAST }, { view: WEST })).toBeGreaterThan(0);
+  it('a named view filter changed in place returns to page 1', async () => {
+    expect(await skipAfterChange({ view: EAST }, { view: WEST })).toBe(0);
   });
 
-  it('`table.defaultFilters` changed in place: the page the next query asks for', async () => {
-    expect(await skipAfterChange({ tableDefaults: EAST }, { tableDefaults: WEST })).toBeGreaterThan(0);
+  it('`table.defaultFilters` changed in place returns to page 1', async () => {
+    expect(await skipAfterChange({ tableDefaults: EAST }, { tableDefaults: WEST })).toBe(0);
   });
 
-  it('LIT CONTROL: `table.filter` changed in place returns to page 1', async () => {
+  it('CONTROL: `table.filter` changed in place returns to page 1, as before', async () => {
     expect(await skipAfterChange({ table: EAST }, { table: WEST })).toBe(0);
   });
 });
 
-describe('objectui#11880 item 5 — a refused named-view filter', () => {
-  it('names the operator and queries nothing', async () => {
+describe('objectui#11880 item 5 — a refused filter still draws its panel', () => {
+  it('a refused named-view filter names the operator and queries nothing', async () => {
     const ds = makeAdapter();
     mount(viewSchema({ view: [{ field: 'stage', operator: 'equals', value: ['a', 'b'] }] }), ds);
     const headline = await screen.findByTestId('grid-malformed-filter-subject');
@@ -291,5 +302,14 @@ describe('objectui#11880 item 5 — a refused named-view filter', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(objectFinds(ds)).toHaveLength(0);
     expect(document.body.textContent).not.toMatch(/error loading grid/i);
+  });
+
+  it('a refused `table.filter` is kept, not skipped for `table.defaultFilters`', async () => {
+    const ds = makeAdapter();
+    mount(viewSchema({ table: [{ field: 'stage', operator: 'equals', value: ['a', 'b'] }], tableDefaults: DEFAULTS }), ds);
+    const headline = await screen.findByTestId('grid-malformed-filter-subject');
+    expect(headline.textContent).toContain('equals');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(objectFinds(ds)).toHaveLength(0);
   });
 });

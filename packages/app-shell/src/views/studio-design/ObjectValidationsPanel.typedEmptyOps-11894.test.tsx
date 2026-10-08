@@ -1,17 +1,18 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * The Studio Rules tab hands the condition builder each field's declared type,
- * so the benchmark's validation rule compiles to CEL the server can evaluate
- * (objectui#11894).
+ * The Studio Rules tab hands the condition builder each field's declared type
+ * and `multiple` flag, so the benchmark's validation rule compiles to CEL the
+ * server can evaluate (objectui#11894).
  *
  * The measured failure: a rule built here as `record.status` *equals* `done`
  * AND `record.due_date` *is false / empty* saved as
  * `record.status == 'done' && !record.due_date`, and every write to a done
  * record was refused (`no such overload: !null` / `!string`). The builder
  * types its value-less operators by the field list it is given, and this panel
- * gave it names, labels and hidden flags only — so every field here read as
- * undeclared and kept the `!` form.
+ * then gave it names, labels and hidden flags only — so every field here read
+ * as undeclared and kept the `!` form. The panel now copies `type` (also read
+ * by the New menu's presets, objectui#11861) and `multiple`.
  *
  * Each verdict is read off what the panel WRITES through `onPatch` and
  * evaluated with `@objectstack/formula`'s `ExpressionEngine.evaluate`, called
@@ -48,6 +49,7 @@ function draftWith(condition: string) {
       status: { type: 'select', label: 'Status' },
       due_date: { type: 'date', label: 'Due date' },
       urgent: { type: 'boolean', label: 'Urgent' },
+      watchers: { type: 'lookup', label: 'Watchers', reference: 'sys_user', multiple: true },
     },
     validations: [
       { type: 'script', name: 'done_needs_due_date', message: 'A done ticket needs a due date', condition, severity: 'error' },
@@ -107,6 +109,17 @@ describe('the Rules tab types the condition builder (objectui#11894)', () => {
     expect(raw, 'expected the raw CEL editor').toBeTruthy();
     expect(raw!.value).toBe(stored);
     expect(onPatch).not.toHaveBeenCalled();
+  });
+
+  it('a lookup declared `multiple` builds "is empty" as null or an empty list — the flag reaches the builder', async () => {
+    const onPatch = vi.fn();
+    render(<ObjectValidationsPanel draft={draftWith("record.status == 'done' && record.watchers == 'x'")} onPatch={onPatch} />);
+    await pickOp('record.watchers', 'is empty');
+    const cel = writtenCondition(onPatch) as string;
+    expect(cel).toBe("record.status == 'done' && (record.watchers == null || size(record.watchers) == 0)");
+    expect(evaluate(cel, { status: 'done', watchers: [] })).toEqual({ ok: true, value: true });
+    expect(evaluate(cel, { status: 'done', watchers: null })).toEqual({ ok: true, value: true });
+    expect(evaluate(cel, { status: 'done', watchers: ['u1'] })).toEqual({ ok: true, value: false });
   });
 
   it('CONTROL — a boolean field on the same draft still compiles to the bare field and its negation', async () => {

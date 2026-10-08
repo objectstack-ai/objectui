@@ -109,7 +109,7 @@ describe('Studio data page — a held Picklist reads as a sentence (objectui#117
     expect(apiName, 'the new field has no API name: the harness is dead').not.toBe('');
     expect(label, 'the new field has no label: the harness is dead').not.toBe('');
     await userEvent.click(controlUnder('Type'));
-    await userEvent.click(await screen.findByRole('option', { name: /· Picklist$/ }));
+    await userEvent.click(await screen.findByRole('option', { name: /^Picklist$/ }));
 
     // Past the autosave's 1.5 s debounce: the guard holds the save.
     await act(async () => {
@@ -142,7 +142,7 @@ describe('Studio data page — a held Picklist reads as a sentence (objectui#117
     await screen.findByText('Type', { selector: 'label' }, { timeout: 4000 });
     const apiName = (controlUnder('API name') as HTMLInputElement).value;
     await userEvent.click(controlUnder('Type'));
-    await userEvent.click(await screen.findByRole('option', { name: /· Picklist$/ }));
+    await userEvent.click(await screen.findByRole('option', { name: /^Picklist$/ }));
     await act(async () => {
       await new Promise((r) => setTimeout(r, 2300));
     });

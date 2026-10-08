@@ -135,7 +135,7 @@ const heldLine = (clause: string) => tFormat('engine.studio.held.line', 'en', { 
 
 describe('Studio data page — Picklist is held until it has an option (objectui#11786)', () => {
   it('sends no save and shows no red strip; the options editor carries the hint; one option lets the save go', async () => {
-    const { name, label } = await addFieldAs(/· Picklist$/);
+    const { name, label } = await addFieldAs(/^Picklist$/);
     await outlastDebounce();
 
     expect(puts, 'an incomplete Picklist is not sent').toEqual([]);
@@ -159,7 +159,7 @@ describe('Studio data page — Picklist is held until it has an option (objectui
   });
 
   it('"Show me" on the line reopens the held field once its inspector is closed', async () => {
-    const { name } = await addFieldAs(/· Picklist$/);
+    const { name } = await addFieldAs(/^Picklist$/);
     await outlastDebounce();
 
     const railHeader = screen.getByText(t('engine.studio.data.fieldProps', 'en')).closest('header') as HTMLElement;
@@ -176,7 +176,7 @@ describe('Studio data page — Picklist is held until it has an option (objectui
 
 describe('Studio data page — Lookup is held until it has a target (objectui#11786)', () => {
   it('sends no save and shows no red strip; the related-object picker carries the hint; a target lets the save go', async () => {
-    const { name, label } = await addFieldAs(/· Lookup$/);
+    const { name, label } = await addFieldAs(/^Lookup$/);
     await outlastDebounce();
 
     expect(puts, 'a Lookup with no target is not sent').toEqual([]);

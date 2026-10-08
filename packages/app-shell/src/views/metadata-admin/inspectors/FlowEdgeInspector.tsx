@@ -10,8 +10,21 @@
  * branch `label` (e.g. an Approval node's `approve` / `reject` out-edge, a
  * Decision branch name), a guard `condition` (a CEL expression the engine
  * evaluates to pick the branch), and an `isDefault` flag marking the fallback
- * ("else") branch. Source / target are shown read-only — rewiring is done on
- * the canvas, not here — so the edge's identity key stays stable across edits.
+ * ("else") branch.
+ *
+ * From / To re-point the connection to another node of the flow, through the
+ * same patch (objectui#11905); the edge keeps its routing as written. The
+ * canvas draws a NEW connection between two nodes the flow already has, by a
+ * drag from a node's connect handle (`FlowCanvas`). Both doors refuse the same
+ * connections through one rule, `edgeConnectionRefusal` (`flow-problems`): a
+ * node to itself, a pair another edge already joins, a node the flow does not
+ * have. A refusal writes nothing and says why under To. An endpoint naming a
+ * node the flow does not have shows flagged in its picker, where picking a
+ * real node repairs the edge.
+ *
+ * An edge without an `id` is selected by a key built from its endpoints
+ * (`edgeKey`), so a re-pointed one is re-selected under its new key; every
+ * re-point re-selects, so the panel's title names the new endpoints.
  */
 
 import * as React from 'react';
@@ -35,6 +48,7 @@ import { useConnectorRegistry } from './connector-input-fields.js';
 import { VariableTextInput } from './VariableTextInput.js';
 import { findUnknownRefs, scopeRoots, describeUnknownRefs } from './flow-ref-check.js';
 import { writeExpressionSource } from './expression-envelope.js';
+import { describeEdgeConnectionRefusal, edgeConnectionRefusal } from '../previews/flow-problems.js';
 // objectui#7265 — the selected edge as this panel reads it out of the draft.
 // This file used to declare its own `interface FlowEdge`, a THIRD hand copy of
 // the designer dialect below: `FlowNodeInspector` and `FlowPreview` already
@@ -49,23 +63,22 @@ import { writeExpressionSource } from './expression-envelope.js';
 // than aliasing the spec's over it.
 import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 
-
-/** Read-only display of an edge endpoint (source / target node id). */
-function EndpointRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <div className="flex h-8 items-center rounded border bg-muted/30 px-2 font-mono text-sm text-muted-foreground">
-        {value}
-      </div>
-    </div>
-  );
-}
-
-export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection, locale, readOnly }: MetadataInspectorProps) {
+export function FlowEdgeInspector({
+  selection,
+  draft,
+  onPatch,
+  onClearSelection,
+  onSelectionChange,
+  locale,
+  readOnly,
+}: MetadataInspectorProps) {
   const edges = Array.isArray((draft as any).edges) ? ((draft as any).edges as FlowDesignerEdge[]) : [];
   const index = edges.findIndex((e, i) => edgeKey(e, i) === selection.id);
   const edge = index >= 0 ? edges[index] : null;
+  // objectui#11905 — the reason the last From / To pick was refused, kept for
+  // the edge it was made on: the panel stays mounted when another edge is
+  // selected, and that edge has no refusal to show.
+  const [endpointRefusal, setEndpointRefusal] = React.useState<{ key: string; text: string } | null>(null);
   // The runtime connector registry, read only when the flow holds a committed
   // `connector_action` node, so the guard's scope offers that action's declared
   // output keys (objectui#11028).
@@ -89,10 +102,10 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
     );
   }
 
-  // Splice an updated edge in place. A field edit never moves the edge in the
-  // array, so the row index is stable; but an edge without an explicit `id`
-  // keys off `source->target#index`, so we re-point the selection to the fresh
-  // key after the patch to keep the panel attached to the same edge.
+  // Splice an updated edge in place. An edit never moves the edge in the
+  // array, so the row index is stable; an edge without an explicit `id` keys
+  // off `source->target#index`, so only a From / To edit changes its key, and
+  // `reconnect` re-selects it under the new one.
   const patchEdge = (updates: Partial<FlowDesignerEdge>) => {
     const next: FlowDesignerEdge = { ...edge, ...updates };
     // Prune empty optional keys so a cleared field doesn't linger in the draft.
@@ -117,6 +130,31 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
     ? ((draft as { nodes: Array<Record<string, unknown>> }).nodes)
     : [];
   const sourceNode = nodes.find((n) => n.id === edge.source);
+
+  // objectui#11905 — From / To: every node of the flow, by label and id. A
+  // stored endpoint naming no node is drawn flagged by the picker itself.
+  const nodeOptions = nodes.flatMap((n) => {
+    const id = n?.id;
+    if (typeof id !== 'string' || !id) return [];
+    const label = typeof n.label === 'string' ? n.label.trim() : '';
+    return [{ value: id, label: label && label !== id ? `${label} · ${id}` : id }];
+  });
+  // Re-point one end through `patchEdge`, unless `edgeConnectionRefusal` (the
+  // rule the canvas's connect drag also calls) refuses the pair; then nothing
+  // is written and the reason shows under To.
+  const reconnect = (end: 'source' | 'target', id: string) => {
+    const source = end === 'source' ? id : edge.source;
+    const target = end === 'target' ? id : edge.target;
+    if (source === edge.source && target === edge.target) return;
+    const refusal = edgeConnectionRefusal({ nodes, edges }, source, target, index);
+    if (refusal) {
+      setEndpointRefusal({ key: selection.id, text: describeEdgeConnectionRefusal(refusal, source, target, locale) });
+      return;
+    }
+    setEndpointRefusal(null);
+    patchEdge({ source, target });
+    onSelectionChange?.({ kind: 'edge', id: edgeKey({ ...edge, source, target }, index), label: `${source} → ${target}` });
+  };
   const branches =
     sourceNode?.type === 'decision' &&
     Array.isArray((sourceNode.config as Record<string, unknown> | undefined)?.conditions)
@@ -178,8 +216,25 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
         />
       }
     >
-      <EndpointRow label={t('engine.inspector.flowEdge.source', locale)} value={edge.source} />
-      <EndpointRow label={t('engine.inspector.flowEdge.target', locale)} value={edge.target} />
+      <InspectorSelectField
+        label={t('engine.inspector.flowEdge.source', locale)}
+        value={edge.source}
+        options={nodeOptions}
+        onCommit={(v) => reconnect('source', v)}
+        disabled={readOnly}
+      />
+      <InspectorSelectField
+        label={t('engine.inspector.flowEdge.target', locale)}
+        value={edge.target}
+        options={nodeOptions}
+        onCommit={(v) => reconnect('target', v)}
+        disabled={readOnly}
+      />
+      {endpointRefusal && endpointRefusal.key === selection.id && (
+        <p className="text-[11px] leading-snug text-destructive" role="alert">
+          {endpointRefusal.text}
+        </p>
+      )}
 
       <div className="flex items-center gap-2 pt-1">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

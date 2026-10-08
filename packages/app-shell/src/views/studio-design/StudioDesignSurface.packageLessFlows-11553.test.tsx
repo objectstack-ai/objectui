@@ -226,7 +226,7 @@ function canvasStatus(): string {
 }
 
 async function openedFlow(name: string): Promise<void> {
-  await screen.findByText(`flow · ${name}`, undefined, { timeout: 8000 });
+  await screen.findByTitle(`API name: ${name}`, undefined, { timeout: 8000 });
   await waitFor(() => expect(canvasStatus()).toBe(t('engine.studio.auto.enabled', 'en')), { timeout: 8000 });
 }
 
@@ -288,7 +288,7 @@ describe('the deep link to a package-less flow opens that flow, not another (obj
     renderAt('/studio/~org/automations?surface=flow%3Aqa_urgent_alert_clone');
 
     await openedFlow('qa_urgent_alert_clone');
-    expect(screen.queryByText('flow · aa_first_org_flow')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('API name: aa_first_org_flow')).not.toBeInTheDocument();
     expect(location()).toBe('/studio/~org/automations?surface=flow%3Aqa_urgent_alert_clone');
   });
 

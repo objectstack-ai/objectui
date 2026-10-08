@@ -823,3 +823,70 @@ export function boundaryRefsAfterNodeRename<N extends { id?: unknown; boundaryCo
   });
   return moved ? next : nodesAfter;
 }
+
+// ── Connecting two nodes the flow already has (objectui#11905) ─────────────
+
+/** Why a connection between two nodes is refused (objectui#11905); see {@link edgeConnectionRefusal}. */
+export type EdgeConnectionRefusal = 'missing-source' | 'missing-target' | 'self' | 'repeat';
+
+/**
+ * Whether the connection `source → target` may be drawn (objectui#11905):
+ * `null` when it may, else why not. ONE rule for both doors that connect two
+ * nodes the flow already has, the canvas's drag from a node's connect handle
+ * (`FlowCanvas`) and the edge inspector's From / To (`FlowEdgeInspector`), so
+ * the two refuse the same connections and give the same reason
+ * ({@link describeEdgeConnectionRefusal}).
+ *
+ * - `'missing-source'` / `'missing-target'`: the endpoint names no node of the
+ *   flow. The edge would be a dangling edge, which `validateFlowDraft` reports
+ *   as an error (`engine.flowValidate.edgeSourceMissing` / `edgeTargetMissing`),
+ *   and a socket the next node given that id plugs into (see `freshNodeId`).
+ *   The ids are the top-level `nodes[]` ones, the set those rows check an edge
+ *   against.
+ * - `'self'`: the node itself. A self-loop is the one-node cycle `findCycle`
+ *   reports as an un-declared cycle.
+ * - `'repeat'`: another edge already joins `source → target`. This is wider
+ *   than the Problems row a repeat draws (`edgeRouteKey`, which leaves two
+ *   edges routed differently between one pair unflagged): a new connection is
+ *   refused on the pair. The canvas draws every edge between one pair on the
+ *   same path, with its label pill on the same spot, so a second one drawn by
+ *   a door could be neither seen nor selected apart from the first.
+ *
+ * `ignoreIndex` is the edge being re-pointed (the inspector's), which is not a
+ * repeat of itself.
+ *
+ * Not refused: a connection that closes a cycle. It is the first hop of a
+ * revise loop as much as a mistake; the Problems panel names an un-declared
+ * cycle, and the edge inspector's Type marks its closing hop a back-edge
+ * (ADR-0044).
+ */
+export function edgeConnectionRefusal(
+  flow: { nodes: ReadonlyArray<{ id?: unknown } | null | undefined>; edges: ReadonlyArray<FlowDesignerEdge> },
+  source: string,
+  target: string,
+  ignoreIndex?: number,
+): EdgeConnectionRefusal | null {
+  const has = (id: string) => flow.nodes.some((n) => n?.id === id);
+  if (!has(source)) return 'missing-source';
+  if (!has(target)) return 'missing-target';
+  if (source === target) return 'self';
+  if (flow.edges.some((e, i) => i !== ignoreIndex && e?.source === source && e?.target === target)) return 'repeat';
+  return null;
+}
+
+const CONNECT_REFUSAL_KEY: Record<EdgeConnectionRefusal, string> = {
+  'missing-source': 'engine.flowProblems.connectRefused.missingSource',
+  'missing-target': 'engine.flowProblems.connectRefused.missingTarget',
+  self: 'engine.flowProblems.connectRefused.self',
+  repeat: 'engine.flowProblems.connectRefused.repeat',
+};
+
+/** The reason both connecting doors show for a refused connection (objectui#11905). */
+export function describeEdgeConnectionRefusal(
+  refusal: EdgeConnectionRefusal,
+  source: string,
+  target: string,
+  locale?: string,
+): string {
+  return tFormat(CONNECT_REFUSAL_KEY[refusal], locale, { source, target });
+}

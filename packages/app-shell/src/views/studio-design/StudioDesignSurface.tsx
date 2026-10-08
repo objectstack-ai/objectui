@@ -1310,8 +1310,21 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
           // Not all-or-nothing: the drafts that went live stay live, and the
           // ones that did not are named with the server's own reason.
           toast.error(formatPublishFailures(failed));
+        } else if (pending.length === 0) {
+          // objectui#11807 — nothing was pending by the time this read ran, so
+          // nothing went live: said as such, never as a success.
+          toast.info(t('engine.studio.publishNoneTitle', locale));
+          setChangesOpen(false);
         } else {
-          toast.success(t('engine.studio.org.published', locale));
+          // objectui#11807 — how many went live: every draft read above, as
+          // none failed.
+          toast.success(
+            tFormat(
+              pending.length === 1 ? 'engine.studio.publishedAllFlowsOne' : 'engine.studio.publishedAllFlows',
+              locale,
+              { count: pending.length },
+            ),
+          );
           setChangesOpen(false);
         }
         setPublishNonce((n) => n + 1);
@@ -1330,15 +1343,43 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       // PR objectui#10038 made for the two sibling call sites.
       const payload = (await shellClient.publishPackageDrafts(packageId)) as {
         success?: boolean;
+        outcome?: string;
         error?: { message?: string; details?: { issues?: unknown } };
         failed?: PublishFailure[];
+        published?: unknown[];
       };
       // A non-2xx now throws inside the client, already carrying the server's
       // message AND the field-anchored `error.details.issues` on
       // `MetadataError.issues` — which is exactly what `formatMetadataError`
       // in the catch below reads, so the hard-failure branch keeps its shape
       // without restating it. What is left here is the 2xx batch verdict.
-      if (payload?.success === false) {
+      //
+      // `failed[]` off the body the client returns: it unwraps the
+      // dispatcher's `{ success, data }` for this route (the one route whose
+      // spec declaration says it arrives inside one), so the enveloped and
+      // unenveloped compositions read through ONE spelling here.
+      const failed = payload?.failed ?? [];
+      if (payload?.outcome === 'nothing_to_publish') {
+        // objectui#11807 — the batch's zero answer: nothing went live and
+        // nothing was refused. `success` is false on it too, and the spec says
+        // to read `outcome` rather than that boolean
+        // (`PublishPackageDraftsResponseSchema`), so it is neither the failure
+        // below nor a success.
+        toast.info(t('engine.studio.publishNoneTitle', locale));
+        setChangesOpen(false);
+      } else if (failed.length > 0) {
+        // Partial publish: some drafts did NOT go live. The server returns 200
+        // with them buried in `failed[]`, so the UI used to claim success and
+        // swallow the reason — surface which drafts failed and why instead.
+        //
+        // objectui#11807 — read BEFORE `success === false`, because a refusal
+        // carries both: the batch's own `success` is false on `refused`, and
+        // `failed[]` is where its reasons are. Asked in the other order (as
+        // since objectui#10039 moved this call onto the client, which unwraps
+        // the dispatcher's envelope and so hands back the batch's own
+        // `success`), every refusal reached the author as "Action failed".
+        toast.error(formatPublishFailures(failed));
+      } else if (payload?.success === false) {
         // The status is no longer in hand — a non-2xx threw above — so the
         // last rung is a sentence rather than "HTTP 200".
         throw Object.assign(
@@ -1351,19 +1392,21 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
           ),
           { issues: payload?.error?.details?.issues },
         );
-      }
-      // `failed[]` off the body the client returns: it unwraps the
-      // dispatcher's `{ success, data }` for this route (the one route whose
-      // spec declaration says it arrives inside one), so the enveloped and
-      // unenveloped compositions read through ONE spelling here.
-      const failed = payload?.failed ?? [];
-      if (failed.length > 0) {
-        // Partial publish: some drafts did NOT go live. The server returns 200
-        // with them buried in `failed[]`, so the UI used to claim success and
-        // swallow the reason — surface which drafts failed and why instead.
-        toast.error(formatPublishFailures(failed));
       } else {
-        toast.success(t('engine.studio.publishedAll', locale));
+        // objectui#11807 — name how many items went live, read off the batch's
+        // own `published[]` (every promoted draft, a draft that changed
+        // nothing included). A runtime that answers without it gets the
+        // sentence that names no number.
+        const published = payload?.published;
+        toast.success(
+          Array.isArray(published)
+            ? tFormat(
+                published.length === 1 ? 'engine.studio.publishedAllCountOne' : 'engine.studio.publishedAllCount',
+                locale,
+                { count: published.length },
+              )
+            : t('engine.studio.publishedAll', locale),
+        );
         setChangesOpen(false);
       }
       setPublishNonce((n) => n + 1);
@@ -1857,6 +1900,32 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
 }
 
 /**
+ * A Studio list row's name (objectui#11862, on the maintainer's word
+ * 「所有地方以标签为主，机器名只作为次要信息」): the label as the primary text, and
+ * the machine name beneath it as secondary text — smaller and monospace — when
+ * it differs from the label. With no label the name alone is the text.
+ *
+ * Display only: it reads what the row already holds and writes nothing. The
+ * secondary name is `aria-hidden`, so a row's accessible name stays the label
+ * it was; the nav rail carries the machine name for assistive tech on the
+ * row's `title` (`type · name`), as it did before.
+ */
+function StudioNameLabel({ label, name }: { label: string; name?: string }): React.ReactElement {
+  const primary = label.trim() ? label : (name ?? '');
+  const secondary = name && name !== primary ? name : '';
+  return (
+    <span className="flex min-w-0 flex-1 flex-col">
+      <span className="truncate">{primary}</span>
+      {secondary ? (
+        <span aria-hidden="true" className="truncate font-mono text-[10px] leading-tight text-muted-foreground">
+          {secondary}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/**
  * Recursive App-navigation tree: groups, separators and typed leaves.
  *
  * objectui#11791 — the rail draws a `separator` and a leaf's `badge` /
@@ -1918,6 +1987,14 @@ function NavTree({
         // The same resolver names the Surface a click opens, so the caption,
         // the breadcrumb and the copilot chip read what this row reads.
         const surface = resolveSurface(node, locale, targetLabel);
+        // objectui#11862 — an entry that names no target yet ("Add nav item"
+        // left unbound, which the editor keeps showing in its place) inherits
+        // only its minted `id`. It reads as the editor's untitled wording
+        // instead, never `nav_item_N`. "No target" is the save's own rule
+        // (`navPayloadOf` leaves exactly these entries out), and an authored
+        // label still renders verbatim.
+        const untitled = node.label === undefined && navPayloadOf([node]).length === 0;
+        const rowText = untitled ? tFormat('engine.appNav.item', locale, { n: i + 1 }) : labelText || surface?.name || '';
         // Icon precedence: the nav item's own `icon` (honoured — it was ignored
         // before), then an object surface's own metadata icon, then the
         // type-generic fallback.
@@ -1931,7 +2008,7 @@ function NavTree({
             key={node.id ?? i}
             onClick={() => surface && onPick(surface)}
             disabled={!surface}
-            title={surface ? `${surface.type} · ${surface.name}` : labelText || undefined}
+            title={surface ? `${surface.type} · ${surface.name}` : rowText || undefined}
             className={
               'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs disabled:opacity-40 ' +
               (isActive ? 'bg-muted font-medium' : 'text-foreground/90 hover:bg-muted/60')
@@ -1942,8 +2019,10 @@ function NavTree({
                 an EMPTY row. It now shows what it inherits (objectui#11196): its
                 target's current label, else the target's internal name, which
                 is the fallback #7254 chose. `surface?.name` stays for a label
-                that is present but resolves to nothing (an empty map). */}
-            <span className="flex-1 truncate">{labelText || surface?.name}</span>
+                that is present but resolves to nothing (an empty map).
+                objectui#11862 — the label is the primary text and the target's
+                machine name the secondary text, shown when the two differ. */}
+            <StudioNameLabel label={rowText} name={surface?.name} />
             {/* objectui#11791 — the spec's `badge` / `badgeVariant`, drawn when
                 the sidebar row draws them (a present `badge`, a count `0`
                 included) with the same `Badge` and the same variant: an absent
@@ -2160,13 +2239,21 @@ export function StudioNavItemInspector({
     (kind === 'component' && !str(node.componentRef)) ||
     (kind === 'action' && !str(actionDef?.actionName)) ||
     (kind === 'doc' && !str(node.doc) && !str(node.book));
+  // objectui#11862 — an entry that names no target yet inherits only its
+  // minted `id`; the field offers the editor's untitled wording instead, as the
+  // rail names that entry, never `nav_item_N`. "No target" is the save's own
+  // rule (`navPayloadOf`).
+  const placeholderText =
+    navPayloadOf([node]).length === 0
+      ? tFormat('engine.appNav.item', locale, { n: idx + 1 })
+      : inheritedNavEntryText(node as NavEntryLike, targetLabel);
   const labelField = (
     <div>
       <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.label', locale)}</label>
       <input
         value={navItemLabelText(label, locale)}
         onChange={(e) => editLabel(e.target.value)}
-        placeholder={inheritedNavEntryText(node as NavEntryLike, targetLabel)}
+        placeholder={placeholderText}
         className="w-full rounded border bg-background px-2 py-1 text-xs"
       />
     </div>
@@ -6164,7 +6251,22 @@ export function AutomationsPillar({
                 ? t('engine.studio.auto.canvasHint', locale)
                 : t('engine.studio.auto.designersMissing', locale)}
             </span>
-            {current && <span className="text-[11px] text-muted-foreground">flow · {current.name}</span>}
+            {/* objectui#11665 — the header names the open flow by its LABEL,
+                the string its rail row prints, never by `flow · NAME`: the
+                metadata type word was developer vocabulary inside the
+                author's own copy (objectui#11659 ruling 6). The API name
+                moves to the tooltip for the authors who need it, as the
+                Interfaces caption keeps its internal id (objectui#7254). A
+                label that resolves to nothing falls back to the name. */}
+            {current && (
+              <span
+                className="text-[11px] text-muted-foreground"
+                title={`${t('designer.field.apiName', locale)}: ${current.name}`}
+                data-testid="auto-canvas-caption"
+              >
+                {current.label || current.name}
+              </span>
+            )}
           </div>
           {error && (
             <StudioRefusalStrip
@@ -6712,7 +6814,11 @@ export function AccessPillar({
                 }
               >
                 <Shield className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="flex-1 truncate">{p.label}</span>
+                {/* objectui#11862 — the set's label first, its machine name as
+                    secondary text. A set listed from its draft header alone
+                    has no label in hand (the header carries none), so its
+                    name is the text, as before. */}
+                <StudioNameLabel label={p.label} name={p.name} />
                 {p.isDefault && (
                   <span className="text-[9px] uppercase tracking-wide text-muted-foreground/60">
                     default

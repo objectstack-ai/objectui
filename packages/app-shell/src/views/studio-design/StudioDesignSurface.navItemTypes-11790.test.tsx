@@ -483,8 +483,10 @@ describe('Interfaces nav editor — Add nav item offers every spec type (objectu
     ]);
     // Every save the editor made was one the spec took.
     expect(server.appSaves.every((s) => s.accepted)).toBe(true);
-    // The unbound url entry is on the canvas, not on the server.
-    expect(rail().textContent).toContain('nav_item_6');
+    // The unbound url entry is on the canvas, not on the server. objectui#11862 —
+    // its card reads the positional wording by its place, never its minted id.
+    expect(rail().textContent).toContain('Item 6');
+    expect(rail().textContent).not.toContain('nav_item_6');
   });
 
   it('the rail shows the new entries once editing is done', async () => {

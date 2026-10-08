@@ -181,7 +181,7 @@ async function outlastDebounce(): Promise<void> {
 
 async function openFlow(): Promise<void> {
   renderAt(`/studio/${PKG}/automations`);
-  await screen.findByText('flow · approval', undefined, { timeout: 8000 });
+  await screen.findByTitle('API name: approval', undefined, { timeout: 8000 });
 }
 
 async function addNotify(): Promise<void> {

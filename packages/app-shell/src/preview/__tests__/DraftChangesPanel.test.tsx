@@ -27,7 +27,7 @@ afterEach(() => {
 /* ─────────────── computeChangeDetail (pure) ─────────────── */
 
 describe('computeChangeDetail', () => {
-  it('classifies a NEW item: every field added, top-level keys changed', () => {
+  it('classifies a NEW item: every field and every top-level key added', () => {
     const draft = {
       name: 'ticket',
       label: 'Ticket',
@@ -37,7 +37,7 @@ describe('computeChangeDetail', () => {
     expect(d.fields?.added.sort()).toEqual(['status', 'title']);
     expect(d.fields?.changed).toEqual([]);
     expect(d.fields?.removed).toEqual([]);
-    expect(d.changedKeys).toEqual(['label', 'name']);
+    expect(d.keys).toEqual({ added: ['label', 'name'], changed: [], removed: [] });
   });
 
   it('diffs an UPDATE: added / changed (with keys) / removed fields, unchanged keys dropped', () => {
@@ -62,7 +62,8 @@ describe('computeChangeDetail', () => {
     expect(d.fields?.added).toEqual(['status']);
     expect(d.fields?.changed).toEqual([{ name: 'title', keys: ['label'] }]);
     expect(d.fields?.removed).toEqual(['old_notes']);
-    expect(d.changedKeys).toEqual(['label']); // `name` unchanged, `fields` handled separately
+    // `name` unchanged, `fields` handled separately
+    expect(d.keys).toEqual({ added: [], changed: ['label'], removed: [] });
   });
 
   it('handles field-less metadata types with a plain top-level key diff', () => {
@@ -70,7 +71,7 @@ describe('computeChangeDetail', () => {
     const draft = { name: 'crm', label: 'CRM', navigation: [{ id: 'a' }, { id: 'b' }] };
     const d = computeChangeDetail(published, draft);
     expect(d.fields).toBeNull();
-    expect(d.changedKeys).toEqual(['navigation']);
+    expect(d.keys).toEqual({ added: [], changed: ['navigation'], removed: [] });
   });
 
   it('reports no differences when draft matches published', () => {
@@ -79,7 +80,7 @@ describe('computeChangeDetail', () => {
     expect(d.fields?.added).toEqual([]);
     expect(d.fields?.changed).toEqual([]);
     expect(d.fields?.removed).toEqual([]);
-    expect(d.changedKeys).toEqual([]);
+    expect(d.keys).toEqual({ added: [], changed: [], removed: [] });
   });
 });
 

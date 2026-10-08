@@ -599,6 +599,7 @@ const zh = {
       invalidBoolean: '"{{value}}" 不是有效的是/否值',
       invalidNumber: '"{{value}}" 不是有效的数字',
       invalidDate: '"{{value}}" 不是有效的日期',
+      invalidTime: '"{{value}}" 不是有效的时间',
       invalidOption: '"{{value}}" 不在允许的选项范围内',
       requiredValue: '此字段为必填项',
       matchAmbiguous: '匹配到多条已有记录，请使用唯一值或记录 ID',
@@ -4120,7 +4121,7 @@ const zh = {
   },
   element: {
     number: {
-      noObject: '未指定对象：请设置 object 或 dataSource.object。',
+      noObject: '未指定对象：请设置 dataSource.object。',
     },
   },
 } as const;

@@ -28,6 +28,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { t } from '../metadata-admin/i18n';
 
 const PKG = 'com.acme.app';
 
@@ -216,9 +217,12 @@ describe('StudioDesignSurface — every load site takes the served draft as-is, 
     await userEvent.click(advanced);
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Settings' }));
 
-    const internal = (await screen.findByTestId('owd-internal-select', undefined, { timeout: 8000 })) as HTMLSelectElement;
+    // The dial is the shared Select's trigger (objectui#11865), so what it shows
+    // is its text: a button's `value` is '' whatever the dial holds.
+    const internal = await screen.findByTestId('owd-internal-select', undefined, { timeout: 8000 });
     // Red on base: the spread over `effective` showed `private` from the published row.
-    expect(internal.value).toBe('');
+    expect(internal).toHaveTextContent(t('engine.studio.settings.sharingUnset', 'en-US'));
+    expect(internal).not.toHaveTextContent(t('engine.studio.settings.sharingPrivate', 'en-US'));
   });
 
   it('Automations pillar: the flow draft is the served draft, and the enable switch saves exactly that draft — no published key comes back', async () => {

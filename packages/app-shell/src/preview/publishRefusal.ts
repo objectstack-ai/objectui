@@ -20,12 +20,11 @@
  * When every element is aborted (the producer could not attribute the
  * failure), the first one's sentence is still the server's own.
  *
- * Not `formatPublishFailures` (`studio-design/metadataError.ts`), and measured
- * rather than assumed: it tells a rolled-back sibling by the pre-ADR-0112
- * spelling `batch_aborted` compared with `===`, so on the producer's
- * `BATCH_ABORTED` it lists every sibling as a parallel error and never reaches
- * its own rolled-back banner; and its banner is English, where the package
- * sheet answers in its own localized rows. `errorCodeIs` matches both spellings.
+ * Not `formatPublishFailures` (`studio-design/metadataError.ts`): its banner is
+ * English, where the package sheet answers in its own localized rows. The two
+ * also tell a rolled-back sibling apart differently: `errorCodeIs` here ignores
+ * case, while `formatPublishFailures` matches the producer's `BATCH_ABORTED`
+ * exactly (objectui#11985).
  */
 
 import { errorCodeIs } from '@object-ui/types';

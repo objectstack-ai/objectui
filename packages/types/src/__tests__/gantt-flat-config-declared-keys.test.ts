@@ -100,6 +100,7 @@
 import { describe, it, expect } from 'vitest';
 import { ObjectGanttSchema } from '../zod/objectql.zod.js';
 import type { GanttConfig, ObjectGanttSchema as ObjectGanttSchemaTS, SortConfig } from '../objectql.js';
+import type { ViewFilterRule } from '@objectstack/spec/ui';
 
 const MINIMAL = {
   type: 'object-gantt',
@@ -179,7 +180,9 @@ const GOOD = {
   timeZone: 'Asia/Shanghai',
   dependencyTypes: false,
   staticData: [{ id: 1, name: 'Task' }],
-  filter: [['name', '=', 'Task']],
+  // objectui#6152 round 10 — the `object-gantt` row's `ViewFilterRule` array; the AST
+  // tuple array this used to carry is the row's refusal now, on both faces.
+  filter: [{ field: 'name', operator: 'equals' as const, value: 'Task' }],
   sort: [{ field: 'name', order: 'desc' as const }],
 };
 
@@ -400,7 +403,8 @@ describe('ObjectGanttSchema (TS) — compile-time pin on every declared key', ()
     const dependencyTypes: ObjectGanttSchemaTS['dependencyTypes'] = 'yes';
     // @ts-expect-error — `staticData` is declared `any[] | undefined`.
     const staticData: ObjectGanttSchemaTS['staticData'] = { id: 1 };
-    // @ts-expect-error — `filter` is declared `any[] | undefined`.
+    // @ts-expect-error — `filter` is declared `ViewFilterRule[] | undefined` (the
+    // `object-gantt` row's own member, objectui#6152 round 10).
     const filter: ObjectGanttSchemaTS['filter'] = 'name = 1';
     // @ts-expect-error — `sort` is declared `SortConfig[] | undefined` (the legacy
     // string clause was retired in objectui#8221).
@@ -440,10 +444,10 @@ type Expect<T extends true> = T;
  * ablation on this tree: deleting any one of the three from `ObjectGanttSchema`
  * turns its row red while its directive above stays green; restored, green.
  */
-// The two `any[]` below restate the members' own declared type (`staticData?: any[]`,
-// `filter?: any[]` in `objectql.ts`); `Equal` is strict, so a narrower spelling would be red.
+// The `any[]` below restates the member's own declared type (`staticData?: any[]` in
+// `objectql.ts`); `Equal` is strict, so a narrower spelling would be red. `filter` is the
+// `object-gantt` row's `ViewFilterRule` array since objectui#6152 round 10 (was `any[]`).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type _StaticDataIsDeclared = Expect<Equal<ObjectGanttSchemaTS['staticData'], any[] | undefined>>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type _FilterIsDeclared = Expect<Equal<ObjectGanttSchemaTS['filter'], any[] | undefined>>;
+export type _FilterIsDeclared = Expect<Equal<ObjectGanttSchemaTS['filter'], ViewFilterRule[] | undefined>>;
 export type _SortIsDeclared = Expect<Equal<ObjectGanttSchemaTS['sort'], SortConfig[] | undefined>>;

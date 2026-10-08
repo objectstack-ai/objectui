@@ -78,6 +78,16 @@
  *           every value by name. `@object-ui/test-support`'s `isShapeKeyTombstoned`
  *           is the shared judge (objectui#3809 / objectui#4947).
  *
+ * ## A control homed in the `dataSource` binding is judged by the binding
+ *
+ * A field marked `at: 'dataSource'` (objectui#11880) writes the node-level
+ * `dataSource.<name>`, not `properties.<name>`, so the block's props row is the
+ * wrong oracle for it: it is judged against the spec's `ElementDataSourceSchema`
+ * — the schema `PageComponentSchema.dataSource` is — on the SPEC face, and is
+ * not judged by the block's props on either face. Judging it at the props row
+ * would read a binding control as a retired flat key the day the spec
+ * tombstones `element:number.object`, which is exactly the move it made.
+ *
  * The REQUIRED direction — a schema-required key with no control — is measured
  * and reported on objectui#8216, and deliberately NOT gated here: objectui#7772's
  * triage records "an inspector need not expose every declared key" as a product
@@ -98,7 +108,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ComponentPropsMap } from '@objectstack/spec/ui';
+import { ComponentPropsMap, ElementDataSourceSchema } from '@objectstack/spec/ui';
 import * as objectUiZod from '@object-ui/types/zod';
 import {
   arrayElementSchema,
@@ -240,8 +250,13 @@ function judge(schema: unknown, name: string): Omit<Violation, 'id'> | undefined
 function census(): Violation[] {
   const found: Violation[] = [];
   for (const [blockType, fields] of Object.entries(BLOCK_CONFIG)) {
+    // Binding controls are judged by the binding's own schema, once.
+    for (const field of fields.filter((f) => f.at === 'dataSource')) {
+      const bound = judge(ElementDataSourceSchema, field.name);
+      if (bound) found.push({ id: `${blockType}::dataSource.${field.name}@spec`, ...bound });
+    }
     for (const { face, schema } of oraclesFor(blockType)) {
-      for (const field of fields) {
+      for (const field of fields.filter((f) => f.at !== 'dataSource')) {
         const top = judge(schema, field.name);
         if (top) found.push({ id: `${blockType}::${field.name}@${face}`, ...top });
 
@@ -323,6 +338,17 @@ describe('BLOCK_CONFIG ↔ node-schema parity — the instruments (objectui#8216
     // …and on the node face, where `retirementTombstone()` lives.
     expect(judge(NODE_ORACLES['object-kanban'], 'groupField')?.kind).toBe('RETIRED');
     expect(judge(NODE_ORACLES['object-kanban'], 'groupBy')).toBeUndefined();
+  });
+
+  it('the binding oracle can say no — and yes — for a control homed in `dataSource` (objectui#11880)', () => {
+    expect(judge(ElementDataSourceSchema, 'object')).toBeUndefined();
+    expect(judge(ElementDataSourceSchema, 'limit')).toBeUndefined();
+    expect(judge(ElementDataSourceSchema, 'titleField')?.kind).toBe('MISSING');
+    // The population is real: element:number's Object picker lives there.
+    const homed = Object.entries(BLOCK_CONFIG).flatMap(([type, fields]) =>
+      fields.filter((f) => f.at === 'dataSource').map((f) => `${type}.${f.name}`),
+    );
+    expect(homed).toContain('element:number.object');
   });
 
   it('the SPEC face really refuses an undeclared key by name, not silently', () => {

@@ -16,7 +16,7 @@
  * into the URL makes filter selections survive a reload and makes filtered
  * lists shareable as links — Airtable Interfaces parity.
  *
- * objectui#11860 extends the same family, under three more reserved keys, to
+ * objectui#11860 extends the same family, under four more reserved keys, to
  * the rest of the list toolbar's state — the maintainer's contract for the list
  * surface: views, filters, sort and grouping go into the URL, transient panels
  * and dialogs do not. Each value is a spec shape serialized as JSON, never a
@@ -27,6 +27,7 @@
  * | `uf__filter` | the Filter panel's conditions             | `{ logic, conditions }`, each condition one spec `ViewFilterRule` |
  * | `uf__search` | the search term                           | the term itself                         |
  * | `uf__sort`   | the sort                                  | the spec `ListViewSchema.sort` array    |
+ * | `uf__group`  | the toolbar grouping                      | the spec `GroupingConfig`               |
  *
  * - `uf__filter` is the FilterBuilder group (`FilterGroup`, `@object-ui/types`
  *   — `logic` is its own key) with every row folded to the spec's
@@ -41,14 +42,16 @@
  *   row comes back expanded into an OR of equalities).
  * - Reading is strict and quiet: a value that does not parse, a condition the
  *   spec's `ViewFilterRuleSchema` refuses, a sort entry `ListViewSchema.sort`
- *   refuses, and an entry naming a field the caller does not accept are each
- *   DROPPED, and the list still opens. Nothing here throws.
- * - Grouping is not here: the list reports no grouping change to its host, so
- *   there is nothing to write it from (objectui#11860, reported on the card).
+ *   refuses, a grouping level or envelope `GroupingConfigSchema` refuses, and
+ *   an entry naming a field the caller does not accept are each DROPPED, and
+ *   the list still opens. Nothing here throws.
+ * - `uf__group` has no empty form: the spec's `GroupingConfig` requires at
+ *   least one level, so a cleared grouping deletes the param, and a list
+ *   opened without it shows the grouping its view declares.
  */
 
-import { ListViewSchema, ViewFilterRuleSchema } from '@objectstack/spec/ui';
-import type { ViewFilterRule } from '@objectstack/spec/ui';
+import { GroupingConfigSchema, ListViewSchema, ViewFilterRuleSchema } from '@objectstack/spec/ui';
+import type { GroupingConfig, ViewFilterRule } from '@objectstack/spec/ui';
 import type { FilterGroup } from '@object-ui/components';
 import { toFilterGroup } from '@object-ui/plugin-view';
 import { foldFilterGroupToSpecRules } from './viewFilterFold.js';
@@ -61,6 +64,8 @@ export const LIST_FILTER_PARAM = `${PREFIX}_filter`;
 export const LIST_SEARCH_PARAM = `${PREFIX}_search`;
 /** The list's sort (objectui#11860). */
 export const LIST_SORT_PARAM = `${PREFIX}_sort`;
+/** The list's toolbar grouping (objectui#11860). */
+export const LIST_GROUP_PARAM = `${PREFIX}_group`;
 
 /**
  * The reserved keys that are list state, not quick-filter selections. Kept out
@@ -71,6 +76,7 @@ const LIST_STATE_PARAMS: ReadonlySet<string> = new Set([
   LIST_FILTER_PARAM,
   LIST_SEARCH_PARAM,
   LIST_SORT_PARAM,
+  LIST_GROUP_PARAM,
 ]);
 
 /** Read `uf_*` params into the UserFilters `initialSelections` shape. */
@@ -139,6 +145,8 @@ export interface ListUrlState {
   search?: string;
   /** The sort, in the spec's `ListViewSchema.sort` shape. */
   sort?: ListSortRule[];
+  /** The grouping, in the spec's `GroupingConfig` shape — ready for `schema.grouping`. */
+  grouping?: GroupingConfig;
 }
 
 /**
@@ -149,6 +157,7 @@ export interface ListUrlState {
 export type ListUrlFieldGate = (field: string) => boolean;
 
 const SORT_ENTRY_SCHEMA = ListViewSchema.shape.sort.unwrap().element;
+const GROUPING_LEVEL_SCHEMA = GroupingConfigSchema.shape.fields.element;
 
 function parseJson(raw: string | null): unknown {
   if (!raw) return undefined;
@@ -192,6 +201,26 @@ function parseSortParam(raw: string | null, acceptField: ListUrlFieldGate): List
   return parsed.length === 0 || sort.length > 0 ? sort : undefined;
 }
 
+function parseGroupingParam(raw: string | null, acceptField: ListUrlFieldGate): GroupingConfig | undefined {
+  const parsed = parseJson(raw);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+  const { fields } = parsed as { fields?: unknown };
+  if (!Array.isArray(fields)) return undefined;
+  // Level by level, as the sort is read entry by entry: a level the spec
+  // refuses, or one naming a field the caller does not accept, is dropped and
+  // the levels around it keep their order.
+  const levels: GroupingConfig['fields'] = [];
+  for (const entry of fields) {
+    const level = GROUPING_LEVEL_SCHEMA.safeParse(entry);
+    if (level.success && acceptField(level.data.field)) levels.push(level.data);
+  }
+  if (levels.length === 0) return undefined;
+  // The envelope is the spec's too: a key `GroupingConfigSchema` does not
+  // declare beside `fields` drops the whole value.
+  const config = GroupingConfigSchema.safeParse({ ...parsed, fields: levels });
+  return config.success ? config.data : undefined;
+}
+
 /**
  * Read the list state a URL carries. Each piece is `undefined` when the URL
  * does not carry it, or when nothing in it survives the checks above.
@@ -207,6 +236,8 @@ export function parseListStateParams(
   if (search) state.search = search;
   const sort = parseSortParam(searchParams.get(LIST_SORT_PARAM), acceptField);
   if (sort) state.sort = sort;
+  const grouping = parseGroupingParam(searchParams.get(LIST_GROUP_PARAM), acceptField);
+  if (grouping) state.grouping = grouping;
   return state;
 }
 
@@ -215,6 +246,7 @@ export interface ListStatePatch {
   filters?: FilterGroup | null;
   search?: string | null;
   sort?: ReadonlyArray<{ field: string; order: 'asc' | 'desc' }> | null;
+  grouping?: GroupingConfig | null;
 }
 
 function serializeFilterGroup(group: FilterGroup | null | undefined): string | undefined {
@@ -243,6 +275,15 @@ export function applyListStateParams(prev: URLSearchParams, patch: ListStatePatc
     write(
       LIST_SORT_PARAM,
       patch.sort ? JSON.stringify(patch.sort.map(({ field, order }) => ({ field, order }))) : undefined,
+    );
+  }
+  if ('grouping' in patch) {
+    const levels = patch.grouping?.fields ?? [];
+    write(
+      LIST_GROUP_PARAM,
+      levels.length > 0
+        ? JSON.stringify({ fields: levels.map(({ field, order, collapsed }) => ({ field, order, collapsed })) })
+        : undefined,
     );
   }
   return next;

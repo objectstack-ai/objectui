@@ -75,7 +75,8 @@ function BoundValue() {
   return <span data-testid="bound-value">{String(variables.sel)}</span>;
 }
 
-const PICKER = { type: 'element:record_picker', id: 'picker', properties: { object: 'account' } };
+// The picker reads its object from the node-level `dataSource` binding (objectui#11880).
+const PICKER = { type: 'element:record_picker', id: 'picker', dataSource: { object: 'account' } };
 
 function mountPicker(stored: Row[], node: Record<string, unknown> = PICKER) {
   const made = makeAdapter(stored);

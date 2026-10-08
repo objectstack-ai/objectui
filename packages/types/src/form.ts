@@ -2014,6 +2014,35 @@ export interface FormField {
    */
   max?: SpecField['max'];
   /**
+   * Decimal places, a non-negative integer of at most 100. The `number`
+   * widget reads it as its `step` and its read-only width, the `percent`
+   * widget as the decimals of the percentage-point value (`scale: 2` reads
+   * 12.34%), and the `formula` and `summary` widgets when they draw a number;
+   * each resolves an absent `scale` through the spec's `resolveFieldScale`.
+   *
+   * ⛔ Not on a `currency` field. The `currency` widget does not read it: an
+   * amount's decimal places are its currency's ISO 4217 minor unit. So the
+   * zod face refuses `scale` on an entry of `type: 'currency'`, as the
+   * spec's `FieldSchema` refuses it (objectstack-ai/objectstack#19629),
+   * keyed on `type` as the spec keys it. A typed literal cannot refuse it,
+   * because this interface keeps an index signature (objectui#11070).
+   */
+  scale?: SpecField['scale'];
+  /**
+   * The currency of a `currency` field: `{ currencyMode: 'fixed',
+   * defaultCurrency: 'EUR' }` gives the field one currency. The `currency`
+   * widget resolves its code through `resolveFieldCurrency`
+   * (`@object-ui/i18n`), which reads `defaultCurrency` only under
+   * `currencyMode: 'fixed'`. Under `dynamic`, the spec's mode when none is
+   * written, the amount shows in the tenant default currency.
+   *
+   * A `currency` code written on the entry itself is still read first by
+   * `resolveFieldCurrency`, but the spec's `FieldSchema` refuses it as a
+   * field key, so it is ⛔ NOT declared here and the strict face refuses it
+   * (objectui#11070).
+   */
+  currencyConfig?: SpecField['currencyConfig'];
+  /**
    * Minimum character length. The built-in `input` and `textarea` branches
    * put it on the native control as `minlength`, which the browser enforces
    * at submit. For a react-hook-form rule with its own message, write

@@ -32,6 +32,7 @@ import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLoc
 // on the FLAT `schema.ariaLabel` and is resolved by `SchemaRenderer` instead
 // (objectui#5134).
 import { resolveI18nLabel as resolveInlineI18nLabel, normalizeFilterOperator, PaginationConfigSchema } from '@objectstack/spec/ui';
+import type { GroupingConfig } from '@objectstack/spec/ui';
 import { usePermissions } from '@object-ui/permissions';
 
 /**
@@ -289,6 +290,18 @@ export interface ListViewProps {
    * decides whether platform-unsortable entries are still present (#6455).
    */
   onSortChange?: (sort: SortItem[]) => void;
+  /**
+   * Fires with the grouping after a user edit in either grouping editor: the
+   * toolbar's Group panel (a level added, changed or removed, or Clear) and the
+   * compact toolbar's settings popover. `undefined` when the grouping is
+   * cleared.
+   *
+   * The value is the spec's `GroupingConfig`, the shape `schema.grouping`
+   * takes, so a host hands it back through `schema.grouping` unchanged
+   * (objectui#11860). Not fired when the list re-reads a changed
+   * `schema.grouping` or `groupBy`: that value came from the host.
+   */
+  onGroupingChange?: (grouping: GroupingConfig | undefined) => void;
   onSearchChange?: (search: string) => void;
   /** Called when the user toggles fields via the Hide Fields popover. */
   onHiddenFieldsChange?: (hidden: string[]) => void;
@@ -1153,6 +1166,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   onViewChange,
   onFilterChange,
   onSortChange,
+  onGroupingChange,
   onSearchChange,
   onHiddenFieldsChange,
   onInlineEditChange,
@@ -1522,6 +1536,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   }, [schema.grouping, schema.groupBy, schema.groupBy2]);
   const [groupingConfig, setGroupingConfig] = React.useState(initialGroupingConfig);
   const [showGroupPopover, setShowGroupPopover] = React.useState(false);
+  // The one door a USER's grouping edit goes through, from both editors, so
+  // the host hears of it (objectui#11860). The re-sync below sets the state
+  // directly: a schema delta is the host's own value, not news to report.
+  const changeGrouping = React.useCallback((next: GroupingConfig | undefined) => {
+    setGroupingConfig(next);
+    onGroupingChange?.(next);
+  }, [onGroupingChange]);
 
   // Re-sync grouping when the underlying schema-driven config changes (e.g. the
   // user edits `groupBy` in the view designer). User-driven changes via the
@@ -4749,7 +4770,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 <div className="flex items-center justify-between border-b pb-2">
                   <h4 className="font-medium text-sm">{t('list.groupBy')}</h4>
                   {groupingConfig && (
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setGroupingConfig(undefined)} data-testid="clear-grouping">
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => changeGrouping(undefined)} data-testid="clear-grouping">
                       {t('list.clear')}
                     </Button>
                   )}
@@ -4764,7 +4785,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                       collapseTitle: t('list.collapsedByDefault', { defaultValue: 'Collapsed by default' }),
                       removeTitle: t('list.removeGroup', { defaultValue: 'Remove' }),
                     }}
-                    onChange={(next) => setGroupingConfig(next as any)}
+                    onChange={changeGrouping}
                   />
                 </div>
               </div>
@@ -4981,7 +5002,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               allFields={allFields as any}
               showGroup={toolbarFlags.showGroup}
               groupingConfig={groupingConfig}
-              setGroupingConfig={setGroupingConfig}
+              setGroupingConfig={changeGrouping}
               showColor={toolbarFlags.showColor}
               rowColorConfig={rowColorConfig}
               setRowColorConfig={setRowColorConfig}

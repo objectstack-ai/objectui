@@ -833,6 +833,7 @@ const en = {
       invalidBoolean: '"{{value}}" is not a valid true/false value',
       invalidNumber: '"{{value}}" is not a valid number',
       invalidDate: '"{{value}}" is not a valid date',
+      invalidTime: '"{{value}}" is not a valid time',
       invalidOption: '"{{value}}" is not one of the allowed options',
       requiredValue: 'This field is required',
       matchAmbiguous: 'Matches more than one existing record — use a unique value or the record id',
@@ -1268,7 +1269,8 @@ const en = {
     // objectui#11605 — an object-bound block whose node names its object in
     // neither place (no own key, no `dataSource.object`). `{{property}}` is the
     // block's object key (`objectName`), interpolated and never translated; the
-    // wording is `element.number.noObject`'s with the property as a hole.
+    // wording was `element.number.noObject`'s with the property as a hole,
+    // before objectui#11880 dropped that notice's flat `object`.
     noObject: 'No object named: set {{property}} or dataSource.object.',
   },
   detail: {
@@ -4730,10 +4732,10 @@ const en = {
   },
   element: {
     // objectui#10951 — `element:number` authored with an aggregate and no
-    // object (neither `object` nor `dataSource.object`). Kept terse: this pack
-    // is eager, and the console closure budget weighs it.
+    // `dataSource.object` (objectui#11880: the flat `object` is not read). Kept
+    // terse: this pack is eager, and the console closure budget weighs it.
     number: {
-      noObject: 'No object named: set object or dataSource.object.',
+      noObject: 'No object named: set dataSource.object.',
     },
   },
 } as const;

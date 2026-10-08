@@ -30,6 +30,11 @@ import {
   Badge,
   Button,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -90,6 +95,77 @@ import type {
 /** Operation vocabulary, derived from the spec's own report type. */
 type ExplainOperation = ExplainDecision['operation'];
 const OPERATIONS = ['read', 'create', 'update', 'delete', 'transfer', 'restore', 'purge'] as const satisfies readonly ExplainOperation[];
+
+/** The item a value none of a picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — the request form's two pickers (object, operation), drawn
+ * with the shared `Select`, the control the validation rule editor's pickers
+ * (`RulePicker`) pick with. Both used to be browser-native `<select>`s. What a
+ * pick sets is unchanged:
+ * `onPick` receives the picked option's own `value`, the string the native
+ * control's `change` carried, and re-picking the current option sets nothing,
+ * as it did there.
+ *
+ * - Items carry their option's INDEX, not its value. The object picker opens
+ *   on "select an object", whose value is `''`, which `SelectItem` refuses; an
+ *   index cannot collide with an object's name, as a stand-in string could.
+ * - A value none of the options carries gets an item of its own, labelled
+ *   with the value, so the trigger shows what Explain will ask about. The
+ *   native control showed its first option ("select an object") there.
+ *   Picking that item sets nothing.
+ * - `id` lands on the trigger, so the caller's `<label htmlFor>` names it as
+ *   it named the native control.
+ *
+ * `Select` and not the shared `Combobox` for the object list, although the
+ * list is open-ended: inside this panel's `Sheet`, the `Combobox`'s list did
+ * not scroll under the mouse wheel, where the `Select`'s did, and the
+ * `Select` jumps to an object by its typed leading letters. That is a
+ * one-time Chromium reading taken for objectui#11865 (a package of 25
+ * objects); no test re-derives it, because the test DOM does not scroll. The
+ * `Combobox` also reports a re-pick of its current option as `''`.
+ */
+function ExplainPicker({
+  id,
+  value,
+  options,
+  onPick,
+  className,
+}: {
+  id: string;
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  className: string;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the current value, so there is nothing to set.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger id={id} className={className}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** The classes a picker takes, to sit at the height of the form's inputs. */
+const PICKER_CLASS = 'h-8 px-2 text-xs';
 
 /** Pipeline layer ids, derived from the spec's `ExplainLayer` (C2 adds `tenant_isolation`). */
 export type ExplainLayerId = ExplainLayer['layer'];
@@ -368,19 +444,21 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
                 // objectui#2600 B2 — package-scoped dropdown: the object must be
                 // one of this package's ~20 objects, so free-text (with an
                 // example that isn't even in the package) only invites typos.
-                <select
+                // objectui#11865 — the shared Select (ExplainPicker), not a
+                // native <select>.
+                <ExplainPicker
                   id="explain-object"
+                  className={PICKER_CLASS}
                   value={objectName}
-                  onChange={(e) => setObjectName(e.target.value)}
-                  className="h-8 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="">{t('engine.studio.access.explain.objectSelect', locale)}</option>
-                  {objectOptions.map((o) => (
-                    <option key={o.name} value={o.name}>
-                      {o.label && o.label !== o.name ? `${o.label} (${o.name})` : o.name}
-                    </option>
-                  ))}
-                </select>
+                  onPick={setObjectName}
+                  options={[
+                    { value: '', label: t('engine.studio.access.explain.objectSelect', locale) },
+                    ...objectOptions.map((o) => ({
+                      value: o.name,
+                      label: o.label && o.label !== o.name ? `${o.label} (${o.name})` : o.name,
+                    })),
+                  ]}
+                />
               ) : (
                 <Input
                   id="explain-object"
@@ -395,18 +473,16 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
               <label htmlFor="explain-operation" className="text-xs font-medium text-muted-foreground">
                 {t('engine.studio.access.explain.operation', locale)}
               </label>
-              <select
+              <ExplainPicker
                 id="explain-operation"
+                className={PICKER_CLASS}
                 value={operation}
-                onChange={(e) => setOperation(e.target.value as ExplainOperation)}
-                className="h-8 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-primary"
-              >
-                {OPERATIONS.map((op) => (
-                  <option key={op} value={op}>
-                    {opLabel(op)}
-                  </option>
-                ))}
-              </select>
+                onPick={(picked) => {
+                  const op = OPERATIONS.find((o) => o === picked);
+                  if (op) setOperation(op);
+                }}
+                options={OPERATIONS.map((op) => ({ value: op, label: opLabel(op) }))}
+              />
             </div>
           </div>
 

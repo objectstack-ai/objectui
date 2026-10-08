@@ -19,7 +19,8 @@ import {
   BOOLEAN_VALUE_TYPES, MULTI_OPTION_TYPES, NUMERIC_VALUE_TYPES, SINGLE_OPTION_TYPES,
 } from '@objectstack/spec/data';
 import {
-  BOOLEAN_IMPORT_TOKENS, REFERENCE_IMPORT_TYPES, isImportableDateCell, isRecordEmail,
+  BOOLEAN_IMPORT_TOKENS, REFERENCE_IMPORT_TYPES, isIdentityEmail, isImportableDateCell, isImportableTimeCell,
+  isRecordEmail,
 } from './importCoercionContract';
 import type {
   DataSource,
@@ -173,6 +174,7 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.invalidBoolean': '"{{value}}" is not a valid true/false value',
   'grid.import.invalidNumber': '"{{value}}" is not a valid number',
   'grid.import.invalidDate': '"{{value}}" is not a valid date',
+  'grid.import.invalidTime': '"{{value}}" is not a valid time',
   'grid.import.invalidOption': '"{{value}}" is not one of the allowed options',
   'grid.import.requiredValue': 'This field is required',
   'grid.import.matchAmbiguous': 'Matches more than one existing record — use a unique value or the record id',
@@ -361,6 +363,13 @@ export interface ImportWizardProps {
      *  engine strips readonly values from updates and respects explicitly
      *  seeded values on insert. */
     matchOnly?: boolean;
+    /** Which rule the preview checks an `email` column's cells by. Left out,
+     *  it is the record validator's rule, the one the generic import meets.
+     *  `'identity'` is the user import endpoint's own rule (printable ASCII,
+     *  at most 254 characters, no placeholder address), for a host
+     *  that writes the column through that endpoint, as the identity import
+     *  does. Only an `email` field reads it. */
+    emailRule?: 'identity';
   }>;
   dataSource: any;
   onComplete?: (result: ImportResult) => void;
@@ -493,6 +502,8 @@ function formatDryRunError(
       return { fieldLabel, message: t('grid.import.invalidNumber', { value: shown }) };
     case 'invalid_date':
       return { fieldLabel, message: t('grid.import.invalidDate', { value: shown }) };
+    case 'invalid_time':
+      return { fieldLabel, message: t('grid.import.invalidTime', { value: shown }) };
     case 'invalid_option':
       return { fieldLabel, message: t('grid.import.invalidOption', { value: shown }) };
     case 'required':
@@ -616,7 +627,7 @@ function refusedOptionValue(
 type CellRefusal =
   | { code: 'required' }
   | {
-      code: 'invalid_number' | 'invalid_boolean' | 'invalid_date' | 'invalid_email' | 'invalid_option';
+      code: 'invalid_number' | 'invalid_boolean' | 'invalid_date' | 'invalid_time' | 'invalid_email' | 'invalid_option';
       /** The refused value: the trimmed cell, or the refused token of a multi-value cell. */
       value: string;
     };
@@ -643,6 +654,9 @@ interface CellCheckOptions {
  * `number` (objectui#11889). A `date` / `datetime` cell is read by the server's
  * grammar and supported years, and an `email` cell by the record validator's
  * rule, which takes a non-ASCII address (both in `importCoercionContract.ts`).
+ * A `time` cell is read the way the server reads a time of day, and an `email`
+ * column flagged `emailRule: 'identity'` by the user import endpoint's rule
+ * instead of the record validator's (objectui#11913).
  */
 function checkImportCell(
   cell: string,
@@ -661,7 +675,11 @@ function checkImportCell(
   if (type === 'date' || type === 'datetime') {
     return isImportableDateCell(value, type) ? undefined : { code: 'invalid_date', value };
   }
-  if (type === 'email') return isRecordEmail(value) ? undefined : { code: 'invalid_email', value };
+  if (type === 'time') return isImportableTimeCell(value) ? undefined : { code: 'invalid_time', value };
+  if (type === 'email') {
+    const takes = field.emailRule === 'identity' ? isIdentityEmail(value) : isRecordEmail(value);
+    return takes ? undefined : { code: 'invalid_email', value };
+  }
   const refused = refusedOptionValue(cell, field, opts.keepUnknownOptions);
   return refused === undefined ? undefined : { code: 'invalid_option', value: refused };
 }
@@ -677,6 +695,7 @@ function cellRefusalMessage(
     case 'invalid_number': return t('grid.import.invalidNumber', { value: refusal.value });
     case 'invalid_boolean': return t('grid.import.invalidBoolean', { value: refusal.value });
     case 'invalid_date': return t('grid.import.invalidDate', { value: refusal.value });
+    case 'invalid_time': return t('grid.import.invalidTime', { value: refusal.value });
     case 'invalid_option': return t('grid.import.invalidOption', { value: refusal.value });
     case 'invalid_email': return t('grid.import.invalidType', { type: field.type });
   }

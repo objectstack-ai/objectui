@@ -45,7 +45,11 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { I18nProvider } from '@object-ui/i18n';
+// @ts-expect-error — plain-JS gate script, intentionally untyped (`allowJs: false`)
 import { readDesignerPairs } from '../../../../../scripts/check-i18n-designer-table-parity.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const readTables: (root: string) => Map<string, Map<string, string>> = readDesignerPairs;
 
 const objectDef = {
   name: 'showcase_task',
@@ -99,7 +103,7 @@ const ZH_DATA = t('engine.studio.pillar.data', 'zh-CN');
 
 describe('zh-CN names a pillar by its tab label (objectui#11801)', () => {
   it('no zh value in the designer string tables says 支柱', () => {
-    const tables = readDesignerPairs(REPO_ROOT) as Map<string, Map<string, string>>;
+    const tables = readTables(REPO_ROOT);
     const zh = tables.get('ENGINE_STRINGS_ZH');
     // Lit control: the extractor reads the table `t()` serves.
     expect(zh?.get('engine.studio.pillar.data')).toBe(ZH_DATA);

@@ -3490,7 +3490,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             aria: viewDef.aria ?? listSchema.aria,
             // (the legacy `filters` twin of the `filter` above lived here until
             // #2890 — see the note at its single remaining computation)
-            ...(viewDef.sort?.length ? { sort: viewDef.sort } : {}),
+            //
+            // objectui#11860 — and a second `sort` write lived here, the view's
+            // own sort spread in AFTER the `sort` rung above. Redundant with
+            // that rung while it read the view alone; once the rung put a
+            // URL-carried sort first, this spread overrode it on every view
+            // that declares a sort, so a link's sort reached the address bar
+            // and never the query. The rung is the one `sort` write.
             // objectui#10380 — for each kind the stored row's legacy `options`
             // bag carries, the view's own top-level block goes out at the top
             // level, as `InterfaceListPage` sends it. `ListView` then lays it

@@ -14,7 +14,7 @@
  * apps that drive `useChat` themselves (e.g. Studio, which needs a custom
  * `prepareSendMessagesRequest` transport).
  */
-import { BUILD_PROGRESS_FRAME_TYPE, BUILD_PROGRESS_PHASES } from '@objectstack/spec/ai';
+import type { BUILD_PROGRESS_FRAME_TYPE, BuildProgressPhase } from '@objectstack/spec/ai';
 import type { ChatMessage, ChatToolInvocation, ChatSource, ChatBuildProgress, ChatBlueprintProgress, ChatChart } from './ChatbotEnhanced';
 
 interface AnyPart {
@@ -825,6 +825,20 @@ function extractSources(parts: AnyPart[]): ChatSource[] | undefined {
 }
 
 /**
+ * The build-progress frame vocabulary of `@objectstack/spec/ai`, read through
+ * its TYPES (objectui#11988). Both tables are typed by the spec's own
+ * declarations, so the compiler refuses a value the spec does not declare and,
+ * for the phases, requires a row for every phase it does: neither can drift
+ * from the vocabulary. The spec's runtime `BUILD_PROGRESS_PHASES` is not
+ * imported: its module does not tree-shake, and a value import of it moved the
+ * console's eager closure about 27 KB gzipped over budget (a one-time reading
+ * of `pnpm check:eager-closure` against `fff07fbba`, objectui#11988). The test
+ * beside the panel reads the runtime array and pins every member.
+ */
+const BUILD_FRAME_TYPE: typeof BUILD_PROGRESS_FRAME_TYPE = 'data-build-progress';
+const BUILD_PHASES: Record<BuildProgressPhase, true> = { structure: true, data: true, verify: true, done: true };
+
+/**
  * The part id cloud's post-apply verification loop reports on (cloud PR #2721's
  * wire shape, cloud#2172 ruling A). It rides the same `data-build-progress`
  * type as the apply_blueprint tree but under its own stable id, so the two
@@ -838,12 +852,14 @@ const BUILD_VERIFY_PART_ID = 'build-verify';
  * finished build used to read as "Building" (objectui#7388).
  */
 function readBuildPhase(phase: unknown): ChatBuildProgress['phase'] {
-  return BUILD_PROGRESS_PHASES.find((p) => p === phase) ?? 'unknown';
+  return typeof phase === 'string' && Object.prototype.hasOwnProperty.call(BUILD_PHASES, phase)
+    ? (phase as BuildProgressPhase)
+    : 'unknown';
 }
 
 /** The `data` of the LAST `data-build-progress` part on the message that `pick` keeps. */
 function buildFrame(parts: AnyPart[], pick: (id?: string) => boolean): Record<string, unknown> | undefined {
-  const data = parts.filter((p) => p.type === BUILD_PROGRESS_FRAME_TYPE && pick(p.id)).pop()?.data;
+  const data = parts.filter((p) => p.type === BUILD_FRAME_TYPE && pick(p.id)).pop()?.data;
   return data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined;
 }
 

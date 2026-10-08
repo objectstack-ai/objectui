@@ -175,6 +175,7 @@ import {
   NAV_ENTRY_TYPES,
   isNavEntryType,
   isStaticPageOption,
+  navEntryOffersField,
   navTypeAcceptsChildren,
   retypedNavEntry,
 } from '../metadata-admin/inspectors/nav-target.js';
@@ -2284,10 +2285,10 @@ export function StudioNavItemInspector({
       )}
       {unbound && <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.unboundHint', locale)}</p>}
       {kind === 'group' && <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.groupHint', locale)}</p>}
-      {kind === 'separator' ? (
-        <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.separatorHint', locale)}</p>
-      ) : (
+      {navEntryOffersField(kind, 'label') ? (
         labelField
+      ) : (
+        <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.separatorHint', locale)}</p>
       )}
       <button
         type="button"

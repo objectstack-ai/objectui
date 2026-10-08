@@ -29,6 +29,12 @@
  * locale map keeps every other language), and emptying the field restores
  * inheritance by removing the key — never by writing `''`. `title` / `name`
  * are not nav-item keys and are not read as the label.
+ *
+ * The describing fields an entry is offered (objectui#11847) are the ones its
+ * spec member declares, answered by `navEntryOffersField`, the rule the
+ * Studio's nav inspector reads too. A separator declares neither a `label` nor
+ * an `icon`, so it is offered neither field: a value typed there used to write
+ * a key the save refused (`unrecognized_keys`).
  */
 
 import * as React from 'react';
@@ -70,7 +76,9 @@ import {
   deriveObjectTargetMode,
   clearedTargetPatch,
   ensureNavId,
+  isNavEntryType,
   isStaticPageOption,
+  navEntryOffersField,
 } from './nav-target.js';
 
 interface NavItem {
@@ -338,6 +346,12 @@ export function AppNavInspector({ selection, draft, name, onPatch, onClearSelect
   // item the runtime's rule cannot name either.
   const labelOf = navEntryLabelText(node, locale, targetLabel).trim() || selection.id;
 
+  // The spec member the entry IS decides which describing fields it is
+  // offered (objectui#11847), not `navType`: that is the six-type picker's
+  // reading and answers `null` for a separator, whose member declares no
+  // `label` and no `icon` — a value typed there is refused at save.
+  const entryType = isNavEntryType(node.type) ? node.type : null;
+
   /**
    * Every write enforces the spec invariants: snake_case `id`, an explicit
    * `type`, and the caller-provided field clears — editing a legacy item
@@ -420,14 +434,20 @@ export function AppNavInspector({ selection, draft, name, onPatch, onClearSelect
       }
       footer={<InspectorRemoveButton label={t('engine.inspector.appNav.remove', locale)} onClick={remove} disabled={readOnly} />}
     >
-      <InspectorTextField
-        label={t('engine.inspector.appNav.label', locale)}
-        value={navItemLabelText(node.label, locale)}
-        placeholder={inheritedNavEntryText(node, targetLabel)}
-        onCommit={commitLabel}
-        disabled={readOnly}
-      />
-      <InspectorTextField label={t('engine.inspector.appNav.icon', locale)} value={String(node.icon ?? '')} onCommit={(v) => patch({ icon: v })} disabled={readOnly} />
+      {navEntryOffersField(entryType, 'label') ? (
+        <InspectorTextField
+          label={t('engine.inspector.appNav.label', locale)}
+          value={navItemLabelText(node.label, locale)}
+          placeholder={inheritedNavEntryText(node, targetLabel)}
+          onCommit={commitLabel}
+          disabled={readOnly}
+        />
+      ) : (
+        <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.separatorHint', locale)}</p>
+      )}
+      {navEntryOffersField(entryType, 'icon') && (
+        <InspectorTextField label={t('engine.inspector.appNav.icon', locale)} value={String(node.icon ?? '')} onCommit={(v) => patch({ icon: v })} disabled={readOnly} />
+      )}
 
       <InspectorSelectField
         label={t('engine.inspector.appNav.typeField', locale)}

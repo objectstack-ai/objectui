@@ -4,7 +4,10 @@
  * A ⌘+K (Ctrl+K) command palette for quick navigation across apps, objects,
  * dashboards, pages, reports, and global actions.
  *
- * Uses Shadcn's Command (cmdk) component — keyboard-accessible, fuzzy search.
+ * Uses Shadcn's Command (cmdk) component — keyboard-accessible. The palette
+ * matches its navigation entries and built-in commands itself, on word
+ * prefixes and contiguous substrings (`matchesPaletteQuery`, objectui#11812),
+ * and renders only those that match; record hits come from the server search.
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
@@ -41,6 +44,7 @@ import { resolveHref, resolveNavItemLabel } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
 import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useAuth } from '@object-ui/auth';
+import { matchesPaletteQuery } from './paletteMatch.js';
 
 interface CommandPaletteProps {
   apps: any[];
@@ -96,6 +100,31 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
   const navItems = flattenNavigation(activeApp?.navigation || []).filter(
     (item) => evaluateVisibility(item.visible ?? item.visibleOn, evaluator)
   );
+
+  // The entries the palette shows for the query: a navigation entry or app by
+  // its label and its machine name, a built-in command by its value. They are
+  // matched here, on word prefixes and contiguous substrings, and only the
+  // matches are rendered, so cmdk's default subsequence scorer (it found
+  // "Field Zoo" for `zzzz`) no longer decides what shows (objectui#11812).
+  const matches = (...terms: Array<string | undefined>) => matchesPaletteQuery(inputValue, terms);
+  const navOfType = (type: string, nameKey: string) =>
+    navItems.filter((item) => item.type === type && matches(navLabel(item), item[nameKey]));
+  const objectItems = navOfType('object', 'objectName');
+  const dashboardItems = navOfType('dashboard', 'dashboardName');
+  const pageItems = navOfType('page', 'pageName');
+  const reportItems = navOfType('report', 'reportName');
+  const switchableApps = apps.filter((a) => a.active !== false);
+  const appItems =
+    switchableApps.length > 1
+      ? switchableApps.filter((app) => matches(resolveKeyedI18nLabel(app.label, t), app.name))
+      : [];
+  const themeCommands = THEME_COMMANDS.filter((command) => matches(command.value));
+  const themeLabel = {
+    light: t('console.commandPalette.lightTheme'),
+    dark: t('console.commandPalette.darkTheme'),
+    system: t('console.commandPalette.systemTheme'),
+  };
+  const showFullSearch = matches(FULL_SEARCH_VALUE);
 
   // Whitelist of object names visible in this app's nav — used as the search
   // scope so we don't fan out to every object in the tenant.
@@ -271,10 +300,9 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
           );
         })}
         {/* Object Navigation */}
-        {navItems.filter(i => i.type === 'object').length > 0 && (
+        {objectItems.length > 0 && (
           <CommandGroup heading={t('console.commandPalette.objects')}>
-            {navItems
-              .filter(i => i.type === 'object')
+            {objectItems
               .map(item => {
                 const Icon = getIcon(item.icon);
                 return (
@@ -292,10 +320,9 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
         )}
 
         {/* Dashboards */}
-        {navItems.filter(i => i.type === 'dashboard').length > 0 && (
+        {dashboardItems.length > 0 && (
           <CommandGroup heading={t('console.commandPalette.dashboards')}>
-            {navItems
-              .filter(i => i.type === 'dashboard')
+            {dashboardItems
               .map(item => (
                 <CommandItem
                   key={item.id}
@@ -310,10 +337,9 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
         )}
 
         {/* Pages */}
-        {navItems.filter(i => i.type === 'page').length > 0 && (
+        {pageItems.length > 0 && (
           <CommandGroup heading={t('console.commandPalette.pages')}>
-            {navItems
-              .filter(i => i.type === 'page')
+            {pageItems
               .map(item => (
                 <CommandItem
                   key={item.id}
@@ -328,10 +354,9 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
         )}
 
         {/* Reports */}
-        {navItems.filter(i => i.type === 'report').length > 0 && (
+        {reportItems.length > 0 && (
           <CommandGroup heading={t('console.commandPalette.reports')}>
-            {navItems
-              .filter(i => i.type === 'report')
+            {reportItems
               .map(item => (
                 <CommandItem
                   key={item.id}
@@ -346,12 +371,11 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
         )}
 
         {/* App Switching */}
-        {apps.filter(a => a.active !== false).length > 1 && (
+        {appItems.length > 0 && (
           <>
             <CommandSeparator />
             <CommandGroup heading={t('console.commandPalette.switchApp')}>
-              {apps
-                .filter(a => a.active !== false)
+              {appItems
                 .map(app => {
                   const Icon = getIcon(app.icon);
                   return (
@@ -373,38 +397,50 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
         )}
 
         {/* Theme */}
-        <CommandSeparator />
-        <CommandGroup heading={t('console.commandPalette.preferences')}>
-          <CommandItem value="theme light" onSelect={() => runCommand(() => setTheme('light'))}>
-            <Sun className="mr-2 h-4 w-4" />
-            <span>{t('console.commandPalette.lightTheme')}</span>
-          </CommandItem>
-          <CommandItem value="theme dark" onSelect={() => runCommand(() => setTheme('dark'))}>
-            <Moon className="mr-2 h-4 w-4" />
-            <span>{t('console.commandPalette.darkTheme')}</span>
-          </CommandItem>
-          <CommandItem value="theme system" onSelect={() => runCommand(() => setTheme('system'))}>
-            <Monitor className="mr-2 h-4 w-4" />
-            <span>{t('console.commandPalette.systemTheme')}</span>
-          </CommandItem>
-        </CommandGroup>
+        {themeCommands.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading={t('console.commandPalette.preferences')}>
+              {themeCommands.map(({ value, theme, Icon }) => (
+                <CommandItem key={value} value={value} onSelect={() => runCommand(() => setTheme(theme))}>
+                  <Icon className="mr-2 h-4 w-4" />
+                  <span>{themeLabel[theme]}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
 
         {/* Full Search Page */}
-        <CommandSeparator />
-        <CommandGroup heading={t('console.commandPalette.actions')}>
-          {/* Manual "Create App" deprecated — AI-first builder is the path. */}
-          <CommandItem
-            value="search all results full page"
-            onSelect={() => runCommand(() => navigate(`${baseUrl}/search`))}
-          >
-            <Search className="mr-2 h-4 w-4" />
-            <span>{t('console.commandPalette.openFullSearch')}</span>
-          </CommandItem>
-        </CommandGroup>
+        {showFullSearch && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading={t('console.commandPalette.actions')}>
+              {/* Manual "Create App" deprecated — AI-first builder is the path. */}
+              <CommandItem
+                value={FULL_SEARCH_VALUE}
+                onSelect={() => runCommand(() => navigate(`${baseUrl}/search`))}
+              >
+                <Search className="mr-2 h-4 w-4" />
+                <span>{t('console.commandPalette.openFullSearch')}</span>
+              </CommandItem>
+            </CommandGroup>
+          </>
+        )}
       </CommandList>
     </CommandDialog>
   );
 }
+
+/** The theme commands, matched by their value (objectui#11812). */
+const THEME_COMMANDS = [
+  { value: 'theme light', theme: 'light', Icon: Sun },
+  { value: 'theme dark', theme: 'dark', Icon: Moon },
+  { value: 'theme system', theme: 'system', Icon: Monitor },
+] as const;
+
+/** The full-search command's value, which it is matched by (objectui#11812). */
+const FULL_SEARCH_VALUE = 'search all results full page';
 
 /** Flatten nested navigation groups into a flat list of leaf items */
 function flattenNavigation(items: any[]): any[] {

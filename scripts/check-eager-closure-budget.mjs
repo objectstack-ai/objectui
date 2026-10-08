@@ -893,7 +893,8 @@ import { isEntrypoint } from './invoked-as.mjs';
  *   | ⇒ aggregate                                 |  3,610,637 |  3,418,259 | -192,378 |
  *
  * The builds weigh 336 of 2452 chunks and 333 of 2456. Two mechanisms, each
- * measured alone by reverting the other's source in the same way:
+ * weighed by reverting only its own source on the `c1d378ec` tree, built the
+ * same way:
  *
  *   - THE CHART ENGINE (-158,535 alone). Recharts and d3 were reached only
  *     through `import()`, but `vendor-charts` captured
@@ -903,12 +904,13 @@ import { isEntrypoint } from './invoked-as.mjs';
  *     claims the shim (the comment on that group in `apps/console/vite.config.ts`
  *     says why the flag that would also have stopped the capture was refused);
  *     the shim's bytes are the `vendor-react` row.
- *   - THE STUDIO BUILDER (-33,833 alone). `StudioDesignSurface` and
+ *   - THE STUDIO BUILDER (-33,928 alone). `StudioDesignSurface` and
  *     `BuilderLanding` load through the console-local `import()` in
  *     `apps/console/src/components/studioBuilder.ts`. Most of what `index` lost
- *     is the builder; the `studioScope` row is NOT new payload but modules the
- *     first screen already ran (the app header, the AI chat page), which the
- *     bundler split out of `index` because the lazy builder imports them too.
+ *     is the builder; the `studioScope` row is NOT new payload but 49 modules
+ *     `index` held on `455c6466` (the app header and the AI chat page among
+ *     them), which the bundler split out because the lazy builder imports
+ *     them too.
  *
  * ⛔ What it did NOT recover. The flow designer, its canvas among them, and
  * every other metadata-admin designer stay eager: `@object-ui/app-shell`'s

@@ -127,6 +127,8 @@ import { SurfaceDeepLinkProvider, useRequestedSurface } from './surfaceDeepLinkC
 import { buildObjectSkeleton, buildFlowSkeleton, buildAppSkeleton, buildPermissionSkeleton, type AppNavSeed } from './skeletons.js';
 import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-sharing.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { fieldsForNodeType, localizeFlowFields, type FlowConfigField } from '../metadata-admin/inspectors/flow-node-config.js';
+import { ObjectPicker } from '../metadata-admin/inspectors/ObjectPicker.js';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas, navPayloadOf } from '../metadata-admin/previews/AppNavCanvas.js';
@@ -4675,6 +4677,55 @@ export function FlowStatusDot({ state, locale }: { state?: FlowRailState; locale
   );
 }
 
+/** The trigger the New automation dialog chose (objectui#11788). */
+export interface NewFlowTrigger {
+  triggerType: string;
+  /** The object a record trigger watches, when the author named one. */
+  objectName?: string;
+}
+
+/**
+ * The Start node's own trigger and object fields, localized — the source of the
+ * New automation dialog's choices (objectui#11788), so the dialog offers what
+ * the Start node offers, under the same labels, and shows the object picker for
+ * exactly the triggers the Start node shows it for (`objectName`'s `showWhen`).
+ */
+function newFlowTriggerFields(locale: string): { trigger?: FlowConfigField; object?: FlowConfigField } {
+  const start = localizeFlowFields('start', fieldsForNodeType('start'), locale);
+  return {
+    trigger: start.find((f) => f.id === 'triggerType'),
+    object: start.find((f) => f.id === 'objectName'),
+  };
+}
+
+/**
+ * `flow` with the chosen trigger written on its Start node, where the Start
+ * node's trigger field writes it (`config.triggerType`, and `config.objectName`
+ * for the object) — objectui#11788. No choice leaves the skeleton as it was.
+ */
+export function withStartTrigger(
+  flow: Record<string, unknown>,
+  trigger: NewFlowTrigger | null,
+): Record<string, unknown> {
+  if (!trigger) return flow;
+  const nodes = Array.isArray(flow.nodes) ? (flow.nodes as Array<Record<string, unknown>>) : [];
+  return {
+    ...flow,
+    nodes: nodes.map((n) => {
+      if (n.type !== 'start') return n;
+      const config = n.config && typeof n.config === 'object' && !Array.isArray(n.config) ? (n.config as Record<string, unknown>) : {};
+      return {
+        ...n,
+        config: {
+          ...config,
+          triggerType: trigger.triggerType,
+          ...(trigger.objectName ? { objectName: trigger.objectName } : {}),
+        },
+      };
+    }),
+  };
+}
+
 export function AutomationsPillar({
   packageId,
   publishNonce = 0,
@@ -4745,6 +4796,18 @@ export function AutomationsPillar({
   // offer a way to author the first one (mirrors the object/app creators).
   const [creating, setCreating] = React.useState(false);
   const [createBusy, setCreateBusy] = React.useState(false);
+  // objectui#11788 — the trigger the New dialog asks for (unset = choose it
+  // later on the Start node), and the object a record trigger watches. Both
+  // start empty each time the dialog opens, as its own inputs do.
+  const [newTrigger, setNewTrigger] = React.useState('');
+  const [newTriggerObject, setNewTriggerObject] = React.useState('');
+  React.useEffect(() => {
+    if (creating) {
+      setNewTrigger('');
+      setNewTriggerObject('');
+    }
+  }, [creating]);
+  const startTrigger = React.useMemo(() => newFlowTriggerFields(locale), [locale]);
   // objectui#11591 — keyed on the pillar's one type, as the inspector beside
   // it is, never on the open flow's: with no flow open (a deep link naming one
   // this rail does not hold, or an empty rail) a selection-keyed read found no
@@ -4841,7 +4904,7 @@ export function AutomationsPillar({
   }, [client, packageId, publishNonce, metadataRefreshNonce]);
 
   const doCreateFlow = React.useCallback(
-    async (label: string, name: string) => {
+    async (label: string, name: string, trigger: NewFlowTrigger | null) => {
       setCreateBusy(true);
       setError(null);
       try {
@@ -4855,15 +4918,18 @@ export function AutomationsPillar({
         // a package publish armed it as soon as it had a trigger. `obsolete` is
         // what the switch itself writes for Off; enabling it is the author's
         // own flip.
-        const skeleton = {
-          ...buildFlowSkeleton(
-            name,
-            label,
-            t('engine.studio.auto.nodeStart', locale),
-            t('engine.studio.auto.nodeEnd', locale),
-          ),
-          status: 'obsolete',
-        };
+        const skeleton = withStartTrigger(
+          {
+            ...buildFlowSkeleton(
+              name,
+              label,
+              t('engine.studio.auto.nodeStart', locale),
+              t('engine.studio.auto.nodeEnd', locale),
+            ),
+            status: 'obsolete',
+          },
+          trigger,
+        );
         await client.save('flow', name, skeleton, { mode: 'draft', packageId: draftPackageId });
         const item: Surface = { type: 'flow', name, label };
         setFlows((fs) => [...fs.filter((f) => f.name !== name), item]);
@@ -5252,7 +5318,60 @@ export function AutomationsPillar({
         busy={createBusy}
         error={error}
         locale={locale}
-        onSubmit={({ label, name }) => void doCreateFlow(label, name)}
+        extra={
+          /* objectui#11788 — the trigger, asked for here rather than found
+             later inside the Start node. The choices, their labels and which
+             of them watch an object are the Start node's own trigger field
+             (`fieldsForNodeType('start')`), so the two can never offer
+             different triggers; what is chosen is written where that field
+             writes it. */
+          startTrigger.trigger && (
+            <div className="space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">{startTrigger.trigger.label}</span>
+                <select
+                  value={newTrigger}
+                  data-testid="create-flow-trigger"
+                  onChange={(e) => setNewTrigger(e.target.value)}
+                  className="w-full rounded border bg-background px-2 py-1.5 text-sm"
+                >
+                  <option value="">{t('engine.studio.newAutoTrigger.later', locale)}</option>
+                  {(startTrigger.trigger.options ?? []).map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {startTrigger.trigger.help && (
+                <p className="-mt-2 text-[11px] text-muted-foreground">{startTrigger.trigger.help}</p>
+              )}
+              {startTrigger.object && newTrigger && startTrigger.object.showWhen?.equals.includes(newTrigger) && (
+                <ObjectPicker
+                  label={startTrigger.object.label}
+                  value={newTriggerObject}
+                  onCommit={setNewTriggerObject}
+                  locale={locale}
+                />
+              )}
+            </div>
+          )
+        }
+        onSubmit={({ label, name }) =>
+          void doCreateFlow(
+            label,
+            name,
+            newTrigger
+              ? {
+                  triggerType: newTrigger,
+                  objectName:
+                    startTrigger.object?.showWhen?.equals.includes(newTrigger) && newTriggerObject.trim()
+                      ? newTriggerObject.trim()
+                      : undefined,
+                }
+              : null,
+          )
+        }
       />
     </div>
   );

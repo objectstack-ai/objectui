@@ -3179,6 +3179,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.auto.none': 'No automations yet — click “New” to start',
   'engine.studio.auto.namePlaceholder': 'Name (e.g. Offer Notice)',
   'engine.studio.auto.idPlaceholder': 'Identifier (e.g. offer_notice)',
+  // objectui#11788 — the New automation dialog's trigger choice, left unset.
+  'engine.studio.newAutoTrigger.later': 'Choose later on the Start node',
   'engine.studio.auto.canvasHint': 'Visual orchestration · click a node to configure',
   'engine.studio.auto.pick': 'Select an automation',
   'engine.studio.auto.config': 'Configuration',
@@ -6100,6 +6102,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.auto.none': '还没有自动化 — 点「新建」开始',
   'engine.studio.auto.namePlaceholder': '名称(如:录用通知)',
   'engine.studio.auto.idPlaceholder': '标识符(如:offer_notice)',
+  // objectui#11788 — 新建自动化对话框里不选触发方式时的选项。
+  'engine.studio.newAutoTrigger.later': '稍后在开始节点上选择',
   'engine.studio.auto.canvasHint': '点选画布上的节点即可配置',
   'engine.studio.auto.pick': '选择一个自动化',
   'engine.studio.auto.config': '配置',

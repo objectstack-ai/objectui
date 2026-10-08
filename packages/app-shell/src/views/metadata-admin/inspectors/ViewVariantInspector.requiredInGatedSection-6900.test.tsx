@@ -37,6 +37,7 @@ const state = vi.hoisted(() => ({
   metadataClient: {
     get: null as unknown as (type: string, name: string) => Promise<unknown>,
     list: async () => [] as unknown[],
+    withPreviewDrafts() { return this; },
   },
 }));
 

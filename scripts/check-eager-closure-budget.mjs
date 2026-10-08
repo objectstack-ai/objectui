@@ -417,12 +417,15 @@ import { isEntrypoint } from './invoked-as.mjs';
  *     header for both builds and the three control rows that show the bytes
  *     LEFT rather than moved.
  *
- * Headroom above {@link BASELINE} is 11,020 bytes — 0.12x
- * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, on the pair objectui#11854
- * re-pinned when the markdown highlighter and the docs-only markdown plugins
- * left the first load, lowering the ceiling by exactly the bytes that left
- * (the header's objectui#11854 entry says why that band sits under the 0.50x
- * design point); before it, the pair objectui#11798 re-pinned when the Studio
+ * Headroom above {@link BASELINE} is 16,140 bytes — 0.18x
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, on the pair objectui#11942
+ * left when it added a fixed allowance of 5,120 bytes to the ceiling (its
+ * entry, the last below, says what the allowance buys and when it comes back
+ * off); before it, the pair objectui#11854 re-pinned when the markdown
+ * highlighter and the docs-only markdown plugins left the first load, lowering
+ * the ceiling by exactly the bytes that left, carried 11,020 bytes (0.12x; the
+ * header's objectui#11854 entry says why that band sits under the 0.50x design
+ * point), the pair objectui#11798 re-pinned when the Studio
  * builder and the chart engine left the first load carried 26,363 bytes
  * (0.29x), the pair
  * objectui#11717 re-pinned under the ruling recorded in the header's fourth
@@ -1005,8 +1008,61 @@ import { isEntrypoint } from './invoked-as.mjs';
  * {@link PER_CHUNK_BASELINE} stand; `vendor-markdown` has no row and gets
  * none. Not {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was
  * added.
+ *
+ * ## ⚠️ RAISED A FIFTH TIME, BY A FIXED ALLOWANCE, ON EXPLICIT MAINTAINER RULING (objectui#11942)
+ *
+ * From 3,386,364 to 3,391,484: up by exactly 5,120 gzip bytes, an ALLOWANCE
+ * and ⛔ not a re-baseline. {@link BASELINE} did not move, because nothing was
+ * measured: the ruling sized the allowance, not a build. ⛔ Not re-derived as a
+ * reading plus half a regression, and ⛔ not rounded — either would move the
+ * line by an amount other than the one ruled. The ruling is record 6056819248
+ * on objectui#11942 (director-seat batch #292 item 3, letters B then C), the
+ * maintainer's 「同意」 to the seat's recommendation. Its step 2, verbatim:
+ *
+ *     B. Then one PR raises `MAX_EAGER_CLOSURE_GZIP_BYTES` by a fixed
+ *     allowance of at most 5 KB, carrying this card's number; the constant's
+ *     docblock states what the bytes buy (Studio fixes while the designers are
+ *     eager by design) and the reclaim condition.
+ *
+ * Its step 1 put objectui#11937 first: `main` comes back under the previous
+ * line by rollback or plugging, ⛔ never by this allowance.
+ *
+ * WHAT THE BYTES BUY: Studio fixes while the metadata-admin designers are
+ * eager by design. Ruling A on objectui#11798 (record 6054102412) keeps the
+ * designers on the first load until objectui#6795's order moves them, so a
+ * Studio fix that edits a designer adds first-load bytes however small it is.
+ * The fixes the ruling names — objectui#11921's pull request objectui#11941,
+ * objectui#11923, objectui#11909, and any later Studio fix that adds bytes —
+ * land against this line; a byte-neutral fix lands as it did before. ⛔ It is
+ * NOT headroom for any other growth, and NOT a new console capability.
+ *
+ * ⚠️ An allowance is not a reading, so this entry carries no rows: no build
+ * was taken. What it absorbs is whatever lands under it — a named Studio fix
+ * and `main`'s own drift alike — and nothing in this file tells the two apart
+ * (the header's "What a re-baseline ABSORBS" section). Each Studio fix's bytes
+ * are read where they arrive: the `Bundle Analysis` comment on its own pull
+ * request.
+ *
+ * ⭐ RECLAIM: objectui#11939, step 3 of the same ruling. The pull request that
+ * moves the designers out of the first load lowers this ceiling by the bytes
+ * that leave PLUS these 5,120, in the same change. ⛔ Not by the bytes that
+ * leave alone: that keeps the allowance after its reason is gone, which is a
+ * raise under another name.
+ *
+ * Headroom 16,140 bytes = 0.18x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}
+ * over {@link BASELINE} (3,391,484 − 3,375,344); the allowance alone is 0.06x.
+ * The 89 KiB regression this gate exists to catch is still caught: added to
+ * the baseline it lands at 3,466,480, 74,996 bytes over this line. ⚠️ That is
+ * arithmetic on two constants, as above — the live headroom is what
+ * `pnpm check:eager-closure` prints, and it is smaller by `main`'s drift since
+ * the `406f760` reading.
+ *
+ * ⛔ What moved with it, and what did not. Not {@link BASELINE}, not
+ * {@link PER_CHUNK_GZIP_CEILINGS} or {@link PER_CHUNK_BASELINE}, and not
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added and no
+ * import was made lazy.
  */
-export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_386_364;
+export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_391_484;
 
 /**
  * The measurement the ceiling above was derived from. Exported so the two

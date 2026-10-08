@@ -86,7 +86,7 @@ import {
   type DatasetDrillRange,
 } from '@object-ui/core';
 import { cn, Skeleton, ChartSkeleton, GridSkeleton, RefreshIndicator } from '@object-ui/components';
-import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale } from '@object-ui/i18n';
 import { AlertTriangle, ShieldAlert, Download, ArrowUpIcon, ArrowDownIcon, MinusIcon, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 // objectui#7063 — the default empty state is stated ONCE for the dashboard
 // surface (see that component's header for why it is dashboard-local).
@@ -538,30 +538,20 @@ const CHART_TYPE_MAP: Record<string, string> = {
 export { chartConfigPresentation } from '@object-ui/core';
 
 /**
- * The sub-caption a dashboard surface already resolved for this tile
- * (objectui#8889). Three states, and the difference between two of them is
- * load-bearing:
+ * A dataset-bound widget: a metric tile, a table / pivot, or a chart, drawn
+ * from one dataset query.
  *
- *  - **omitted (`undefined`)** — nobody upstream resolved it. This component is
- *    rendering outside a dashboard surface (a standalone host, a preview, a
- *    test), so there is no dashboard `name` in existence and therefore no
- *    bundle key to look up. The AUTHORED limb is resolved locally, which is
- *    exactly what objectui#7293 landed and what keeps rendering.
- *  - **a string** — that is the answer; render it.
- *  - **`null`** — a surface DID resolve it, to nothing. Render nothing, and in
- *    particular do NOT fall back to the authored value: a bundle entry that
- *    resolves to empty is the bundle winning, and the inline arms of
- *    `getComponentSchema()` render nothing in that same case. Falling back here
- *    is how the two surfaces would start to disagree.
- *
- * ⛔ Never widened to "the dashboard name" or "the widget's translation node".
- * Handing this component the INPUTS would put a second copy of the
- * authored-vs-bundle composition inside it, and the field's own invariant — "a
- * bundle entry always wins over an inline map and the two channels can never
- * disagree" — needs a single decision point to be true. That point is
- * `useWidgetSubCaption`; what arrives here is its answer.
+ * ⛔ No sub-caption prop, and no read of a `description` key in the options
+ * bag: the metric sub-caption is retired at both ends (objectui#11389, ruling
+ * C, after objectstack's half in `@objectstack/spec` 17.7.0). A widget keeps
+ * one authored description, `widget.description`, which the dashboard surface
+ * draws as the card-header subtitle. If a caption under a metric's value
+ * returns, it returns as a declared widget-level key outside the options bag,
+ * never as a key inside it. The options census in `@object-ui/sdui-parser`
+ * reads this file's text, comments included, which is why this note does not
+ * spell the bag's member access.
  */
-export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any; dataSource: unknown; subCaption?: string | null }) {
+export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource: unknown }) {
   const datasetName = String(widget?.dataset ?? '');
   const dimensions: string[] = useMemo(() => (Array.isArray(widget?.dimensions) ? widget.dimensions.filter(Boolean) : []), [widget]);
   const values: string[] = useMemo(() => (Array.isArray(widget?.values) ? widget.values.filter(Boolean) : []), [widget]);
@@ -715,12 +705,6 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // dependency array to add it to; the sites below are all in the render body
   // and re-run whenever the provider changes.
   const displayLocale = useDisplayLocale();
-  // The UI LANGUAGE, deliberately distinct from `displayLocale` above: that one
-  // is the NUMBER locale (objectui#4566 / #4033 — the tenant regional default
-  // outranks the UI language), this one is what authored TEXT follows. Swapping
-  // either for the other silently changes the other surface's behaviour, which
-  // is why `MetricWidget` keeps the same two channels apart by name.
-  const { language } = useObjectTranslation();
 
   // ADR-0021 dual-form: the widget's presentation-scope `filter` must flow into
   // the dataset query as `runtimeFilter`, or a dataset-bound widget renders the
@@ -1234,65 +1218,14 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     // `undefined`, which `cn` drops: the markup of every widget that never
     // declared the key stays byte-identical.
     const accentClass = metricAccentTextClass(widget?.colorVariant);
-    // ── The declared sub-caption (objectui#7293) ───────────────────────────
-    // `options.description` is the metric tile's SUB-CAPTION slot. Before
-    // #7293 it was wired end to end and reached nothing here: it has its own
-    // translation key (`{ns}.dashboards.{dash}.widgets.{id}.subCaption`,
-    // objectui#4032 item 4 / objectstack#8056), the server's
-    // `translateDashboard` OVERLAYS that translation onto this very key, and
-    // `DashboardRenderer.tWidgetSubCaption` resolved it — but only onto the two
-    // INLINE arms of `getComponentSchema`.
-    //
-    // ⚠️ Wired, not DECLARED (objectui#11070 round 11). `@objectstack/spec`'s
-    // `DashboardWidgetOptionsSchema` has no `description` member; its open bag
-    // admits the key without judging it. `translateDashboard` writes it on the
-    // served path (objectstack's `check:widget-option-census` ledgers it as an
-    // undeclared resolver output). objectui's strict authoring face refuses an
-    // authored one with the inline-dialect keys (objectui#11228 ruling C).
-    // Which way it goes — a spec declaration, a declared home for the overlay,
-    // or retiring both ends — is an open decision on objectui#11070; this read
-    // stays meanwhile, because its writer is live.
-    // `dataset` is REQUIRED on `DashboardWidgetSchema` (verified against the
-    // published @objectstack/spec@17.4.0: required keys are id/dataset/values),
-    // so every spec-legal widget renders HERE instead, and every author who
-    // wrote a sub-caption got silence — the ADR-0049 declared-but-unenforced
-    // shape, same as `colorVariant` above.
-    //
-    // ── The BUNDLE limb (objectui#8889) ────────────────────────────────────
-    // #7293 (above) landed the AUTHORED limb here, reading the key at the
-    // caption row rather than taking a prop, and its reason was sound at the
-    // time: BOTH dashboard surfaces route a dataset-bound widget to this
-    // component (`DashboardRenderer` and `DashboardGridLayout`, objectui#4614),
-    // so a prop from ONE dispatch site fixes one surface and leaves the other
-    // silently unchanged (objectui#4614 is that lesson's original card).
-    //
-    // What it could not deliver is the SECOND limb: a client i18n bundle entry
-    // at `{ns}.dashboards.{dash}.widgets.{id}.subCaption` overriding the
-    // authored value. That limb needs the dashboard NAME, and this component
-    // does not know which dashboard it is on — it is handed a widget, not a
-    // position. So an app-bundle dashboard whose sub-caption was written ONLY
-    // in the bundle (no `options.description` at all) rendered nothing here,
-    // even though `tWidgetSubCaption`'s own docblock calls that shape
-    // legitimate: "A translation with no authored counterpart is legitimate and
-    // matches the server."
-    //
-    // The answer now arrives resolved, from `useWidgetSubCaption` — ONE
-    // composition, called by BOTH dispatch sites (the #4614 requirement is met
-    // by changing both, not by moving the read down here). See the `subCaption`
-    // prop's docblock for the three states and why `null` must not fall back.
-    //
-    // The local limb below is what remains of #7293, and it still runs for a
-    // host that passes no prop. `pickLocalized` (the objectui#4208 seam), not a
-    // `typeof === 'string'` test: an authored inline per-locale map is the
-    // vocabulary this field admits, and re-implementing a narrower resolver
-    // here is exactly the fourth dialect objectstack#4115 exists to prevent
-    // (objectui#4032 is what a private resolver that could not read the map
-    // already cost). A miss answers `''`, which collapses to `undefined` and
-    // renders NO node at all — a tile that declares no sub-caption keeps
-    // byte-identical markup.
-    const resolvedSubCaption = subCaption === undefined
-      ? (pickLocalized(options.description, language) || undefined)
-      : (subCaption || undefined);
+    // ── No sub-caption (objectui#11389, ruling C) ──────────────────────────
+    // The tile draws the value, the delta and the measure label, and nothing
+    // from the options bag. Its `description` key was the sub-caption
+    // (objectui#7293), fed by the server's `subCaption` overlay and a client
+    // bundle limb; both ends are retired, and the spec never declared the key.
+    // An authored one now draws the parser's `unconsumed-widget-option` warning
+    // instead of a caption node. The card-header subtitle, `widget.description`,
+    // is the surface's to draw, not this tile's.
     return (
       // Positioned only while a re-read is in flight, for the refresh bar: the
       // idle tile's markup is pinned byte-for-byte (`DatasetWidget.colorVariant`,
@@ -1317,9 +1250,6 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
           </div>
         )}
         <span className="text-xs text-muted-foreground">{headerLabel(tileMeasure)}</span>
-        {resolvedSubCaption && (
-          <span className="text-xs text-muted-foreground" data-testid="dataset-metric-subcaption">{resolvedSubCaption}</span>
-        )}
       </div>
     );
   }

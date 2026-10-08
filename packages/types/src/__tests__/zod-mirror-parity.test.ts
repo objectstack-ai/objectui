@@ -396,7 +396,12 @@
  *     and 37 / 53 until objectui#7344 swept the string / `z.any()` handler mirrors:
  *     `DetailSchema` and `DetailViewSchema` entered (one `onBack` each) and
  *     `CalendarViewSchema` grew by `onEventClick`.
- *   - **5 entries** in `UnmirroredDeclared`, **6 keys** across them — 5 / 16 until
+ *   - **4 entries** in `UnmirroredDeclared`, **5 keys** across them — 5 / 6 until
+ *     objectui#6152 round 7 RETIRED `ObjectGridSchema.resizableColumns` on both faces
+ *     (`?: never` on the interface, a `retirementTombstone()` on the mirror, and
+ *     `ObjectGrid`'s fallback read dropped) once `@objectstack/spec` 17.7.0 refused it in
+ *     the `object-grid` row. A tombstone is a mirrored member, so the entry's one key went
+ *     and the entry with it — ⛔ nothing mirrored, nothing reclassified; 5 / 16 until
  *     objectui#6152 round 6 MIRRORED ten of `ObjectGridSchema`'s eleven keys, each
  *     measured READ by `ObjectGrid` (a type-checker census and a runtime probe through the
  *     real registry) and each a member of the spec's `object-grid` row — four as the spec
@@ -591,8 +596,12 @@
  *     two. ⭐ The direction is the one this ledger is meant to drain in: a
  *     runtime-only key leaves by being declared on the mirror, never by being
  *     quietly refiled.
- *     **0 of the 5** are a subset of the **5** pairs above, so
- *     the union of the two unmirrored ledgers is **10** pairs, being **5** from `UnmirroredDeclared` plus **5** recorded ONLY in `RuntimeOnlyDeclared`.
+ *     **0 of the 5** are a subset of the **4** pairs above, so
+ *     the union of the two unmirrored ledgers is **9** pairs, being **4** from `UnmirroredDeclared` plus **5** recorded ONLY in `RuntimeOnlyDeclared`.
+ *     ⭐ objectui#6152 round 7 moved the union from 10 to 9 and nothing else: the entry it
+ *     closed (`ObjectGridSchema`, whose one key `resizableColumns` it retired on both
+ *     faces) was in `UnmirroredDeclared` alone, so the shared count stays zero. It read
+ *     `0 of the 5` against `5` pairs, a union of `10`, until then.
  *     ⭐ objectui#11434's reader change moved the union from 11 to 10 and nothing else: the
  *     designer entry it closed (`ProcessDesignerSchema`, whose `lanes` and `version` it
  *     mirrored) was in `UnmirroredDeclared` alone, so the shared count stays zero. It read
@@ -629,13 +638,16 @@
  *     drained it by MIRRORING the key as a named refusal. ⛔ The difference figure
  *     is not recoverable by editing this sentence — it is a fact about the ledgers,
  *     and it returns only when some pair is again runtime-only and nothing else.
- *     ⚠️ Every live figure in these two sentences is pinned: the `0` (a quantity
- *     of its own — how many entries the two unmirrored ledgers share), the `13` (the
- *     union) and the `5` after `plus` (the pairs recorded only as runtime-only), and
- *     three RESTATEMENTS of counts already stated above — the `5` in `of the 5` and
- *     both `8`s. (This list was amended by objectui#6152 round 3, which reshaped the
- *     sentence, and re-read by rounds 4 and 5, by objectui#10859 batch 7 and by
- *     objectui#11355 round 2, which moved only its digits.)
+ *     ⚠️ Every live figure in these two sentences is pinned: the shared count before
+ *     `of the` (a quantity of its own — how many entries the two unmirrored ledgers
+ *     share), the union, and the figure after `plus` (the pairs recorded only as
+ *     runtime-only), and three RESTATEMENTS of counts already stated above — the
+ *     `RuntimeOnlyDeclared` entry count after `of the`, and both restatements of the
+ *     `UnmirroredDeclared` entry count. (This list was amended by objectui#6152 round 3,
+ *     which reshaped the sentence, and re-read by rounds 4 and 5, by objectui#10859
+ *     batch 7 and by objectui#11355 round 2, which moved only its digits. objectui#6152
+ *     round 7 names the figures by role, not by digit: the digits this list used to
+ *     spell had gone stale while the pinned ones moved.)
  *     They were spelled as English WORDS
  *     until objectui#8222, which is why no instrument had ever read them: a figure
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
@@ -2785,7 +2797,7 @@ interface KnownDrift {
  *
  * objectui#6058 seeded this ledger at **121 keys**, and — on ONE line, because the
  * pin below reads this sentence off disk —
- * **6 keys** is what this ledger records today.
+ * **5 keys** is what this ledger records today.
  * The movements between the two are different facts. objectui#6152 measured the 23
  * callback-shaped (`on*`) keys and ruled that mirroring is the wrong remedy for every
  * one of them;
@@ -2826,6 +2838,10 @@ interface KnownDrift {
  * round 6 MIRRORED ten of `ObjectGridSchema`'s eleven keys, each measured READ — all of it
  * by REPAIR — and stopped at the eleventh, `resizableColumns`, whose ruled retirement
  * objectui#11276's move of the authored node into the spec's `properties` bag left open.
+ * Then objectui#6152 round 7 RETIRED that eleventh key on both faces, once
+ * `@objectstack/spec` 17.7.0 refused it in the `object-grid` row: `?: never` on the
+ * interface, a `retirementTombstone()` on the mirror and `ObjectGrid`'s fallback read
+ * dropped — a shrink by RETIREMENT, ⛔ not a repair, and the entry went with its one key.
  *
  * ## The decomposition of "121" — a reading at NAMED REVISIONS, so it cannot rot
  *
@@ -2911,7 +2927,10 @@ interface KnownDrift {
  * explicit that forcing the 121 per-key decisions now would be wrong. Two splits
  * are recorded here so whoever works them off does not re-derive them:
  *
- *   - **SPEC-DERIVED (3 entries, 4 keys)** — it was 3 / 14 until objectui#6152 round 6
+ *   - **SPEC-DERIVED (2 entries, 3 keys)** — it was 3 / 4 until objectui#6152 round 7
+ *     RETIRED `ObjectGridSchema.resizableColumns` on both faces (a tombstone is a mirrored
+ *     member): the entry emptied, so the half lost an entry and a key, and ⛔ nothing was
+ *     mirrored. It was 3 / 14 until objectui#6152 round 6
  *     MIRRORED ten of `ObjectGridSchema`'s eleven keys: the entry kept `resizableColumns`,
  *     so it stayed in this half and only the keys moved, all ten by REPAIR. It was 4 / 16
  *     until objectui#6152 round 3
@@ -3104,9 +3123,11 @@ interface KnownDrift {
  * `version` got their reader and were MIRRORED — one entry and two keys gone. objectui#6152
  * round 6 then moved only the SPEC-DERIVED half, by the REPAIR route: ten of
  * `ObjectGridSchema`'s eleven keys MIRRORED, the entry kept `resizableColumns`, so no entry
- * left and the LOCAL half did not move. The ledger
+ * left and the LOCAL half did not move. objectui#6152 round 7 then moved only the
+ * SPEC-DERIVED half again, by the RETIREMENT route: `resizableColumns` retired on both
+ * faces, so `ObjectGridSchema`'s entry left with its one key. The ledger
  * now totals — on ONE line, because the pin below reads this sentence off disk —
- * **5 entries / 6 keys** — 3 / 4 spec-derived, 2 / 2 local.
+ * **4 entries / 5 keys** — 2 / 3 spec-derived, 2 / 2 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -3300,52 +3321,21 @@ interface UnmirroredDeclared {
   // single shrink by REPAIR), and 26 before that: the five `on*` keys went to
   // `RuntimeOnlyDeclared` at objectui#6152's reclassification and left it by
   // objectui#7804's named refusals.
-  /**
-   * SPEC-DERIVED by MEMBERSHIP since objectui#7762, LOCAL before it: that card mirrored
-   * `exportOptions` as the spec's OBJECT ARM by reference, which puts a `Spec…` symbol in
-   * this mirror's initializer, so `SPEC_DERIVED_PAIRS` re-derives the pair — the same
-   * mechanism that moved `ObjectViewSchema` at objectui#7779, and the second pair to reach
-   * this half by a single mirrored member.
-   *
-   * ⚠️ Read the half as MEMBERSHIP, not as a remedy: the key below is a plain
-   * hand-written omission on a `BaseSchema.extend({…})` mirror — the ordinary local
-   * route (objectui#6152's worklist), NOT objectui#2231's unification question, which is
-   * what the SPEC-DERIVED half means for a mirror that IS the spec schema by reference.
-   * This is the per-key reading objectui#7279 recorded on `ObjectViewSchema` for the same
-   * reason, kept here so whoever works these off does not re-derive it.
-   *
-   * ⚠️ `resizableColumns` is NOT mirroring debt in waiting, and ⛔ it is not mirrored: the
-   * seat's answer A on objectui#6152 retires it (`resizable` is canonical; the spec half
-   * forks to objectstack). objectui#6152 round 6 STOPPED at it rather than execute that
-   * answer, because objectui#11276 moved the AUTHORED `object-grid` node to the spec's
-   * `properties` bag after the answer was given: the bag is `ComponentPropsMap['object-grid']`
-   * by reference, which still declares `resizableColumns` ("Alternate spelling of
-   * `resizable`"), so retiring the key here and dropping `ObjectGrid`'s read would leave
-   * the authored bag accepting a key nothing reads. Its route is the open question on that
-   * round's report; the key stays here until it is answered.
-   *
-   * It was 11 until objectui#6152 round 6 MIRRORED ten keys, each measured READ by
-   * `ObjectGrid` (a type-checker census, and a runtime probe through the real registry
-   * that varied one key at a time) and each a member of the spec's `object-grid` row:
-   * `grouping`, `navigation`, `rowColor` and `rowHeight` as the spec schemas the twin
-   * names, BY REFERENCE; `reorderableColumns` and `singleClickEdit` as the row's own
-   * members, BY REFERENCE; `aggregations`, `bulkActionDefs`, `conditionalFormatting` and
-   * `operations` as restatements of the twin's local shapes (the conditional-formatting
-   * rule shared with `ListViewSchema`'s mirror). A shrink by REPAIR, the objectui#6639
-   * route; the entry kept one key, so only the key total moved.
-   *
-   * It was 14 until objectui#11068 MIRRORED `emptyState` (read by `ObjectGrid` from that
-   * card on) and TOMBSTONED `rowSpecActions` / `bulkSpecActions` (second spellings of
-   * `rowActions` / `bulkActions` that nothing read) — a tombstone is a mirrored member.
-   *
-   * It was 15 until objectui#7762 MIRRORED `exportOptions` — the ledger's shrink by REPAIR
-   * on the route objectui#6639 opened, and the first one that also moved its entry between
-   * the split's halves. It was 17: `onNavigate` is in `RuntimeOnlyDeclared` below
-   * (objectui#6152), and `title` was MIRRORED by objectui#6639 (census-directed ruling
-   * 2026-08-29, declare branch) — the ledger's first shrink by REPAIR rather than
-   * reclassification.
-   */
-  'objectql.zod.ts#ObjectGridSchema': 'resizableColumns';
+  // `objectql.zod.ts#ObjectGridSchema` recorded `resizableColumns` here (SPEC-DERIVED by
+  // membership since objectui#7762, as a plain hand-written omission) until objectui#6152
+  // round 7 RETIRED it on both faces, on the seat's answer that `resizable` is canonical
+  // and the alias retires with no window: `?: never` on the interface, a
+  // `retirementTombstone()` on the mirror naming `properties.resizable`, and `ObjectGrid`'s
+  // `resizable ?? resizableColumns` fallback read dropped. It waited on the spec half:
+  // once objectui#11276 made the authored node's `properties` bag the spec row by
+  // reference, a local retirement alone would have left that bag accepting a key nothing
+  // read, so round 6 STOPPED at it, and round 7 ran only once `@objectstack/spec` 17.7.0
+  // (objectstack#21445), which objectui resolves since objectui#11717, refused it in the
+  // row. ⛔ Nothing was mirrored: a tombstone is a mirrored member, so one key off a
+  // one-key entry took the entry with it. It was 11 keys until round 6 MIRRORED ten, each
+  // measured READ; 14 until objectui#11068; 15 until objectui#7762; and 17 until
+  // `onNavigate` went to `RuntimeOnlyDeclared` (objectui#6152) and objectui#6639 MIRRORED
+  // `title`.
   // `reports.zod.ts#ReportComponentSchema` recorded three keys here (LOCAL). objectui#6152
   // round 3 MIRRORED `conditionalFormatting`, which `ReportViewer` reads per cell, and
   // round 4 RETIRED the other two on both faces under ADR-0049 enforce-or-remove:
@@ -3381,7 +3371,7 @@ interface UnmirroredDeclared {
  *
  * `UnmirroredDeclared` above was seeded at **121 keys** by objectui#6058, and — on
  * ONE line, because the pin below reads this sentence off disk —
- * `UnmirroredDeclared` records **6 keys** today.
+ * `UnmirroredDeclared` records **5 keys** today.
  * These 23 moved here whole. Keys have since left that ledger by MIRRORING and by
  * RETIREMENT, but the move recorded HERE is neither and repaired nothing. ⛔ Nothing
  * was mirrored by it, no declaration was removed, no defect was repaired and nothing was

@@ -26,6 +26,11 @@
  *
  * Directions, written before the run: the edited cells RED before the change
  * (the bundle answered), GREEN after; the unedited cells GREEN on both sides.
+ *
+ * The widget's retired sub-caption (objectui#11389, ruling C) stays in the
+ * fixtures — an `options.description` on the served widget and the bundle's
+ * `subCaption` entries — and every case pins that none of it draws on the
+ * console page.
  */
 
 import * as React from 'react';
@@ -63,6 +68,7 @@ const BUNDLE = {
         system_overview: {
           label: 'System Overview',
           description: 'Platform health at a glance',
+          // `subCaption` is refused by the installed spec; kept to pin that it draws nothing.
           widgets: { widget_total_users: { title: 'Total Users', description: 'Active accounts', subCaption: 'Across all organizations' } },
         },
       },
@@ -86,15 +92,17 @@ interface Texts {
   description: string;
   title: string;
   widgetDescription: string;
-  subCaption: string;
 }
+
+/** The retired sub-caption, authored and bundled: none of it may draw. */
+const RETIRED_SUB_CAPTION = 'All orgs (edited-11295)';
+const RETIRED_TEXTS = [RETIRED_SUB_CAPTION, 'Across all organizations', '覆盖所有组织'];
 
 const EDITED: Texts = {
   label: 'Operations board (edited-11295)',
   description: 'What the ops team watches (edited-11295)',
   title: 'Total Users (edited-11295)',
   widgetDescription: 'Accounts (edited-11295)',
-  subCaption: 'All orgs (edited-11295)',
 };
 
 const SERVED_UNEDITED: Record<'en' | 'zh-CN', Texts> = {
@@ -103,14 +111,12 @@ const SERVED_UNEDITED: Record<'en' | 'zh-CN', Texts> = {
     description: 'Platform health at a glance',
     title: 'Total Users',
     widgetDescription: 'Active accounts',
-    subCaption: 'Across all organizations',
   },
   'zh-CN': {
     label: '系统概览',
     description: '平台健康一览',
     title: '用户总数',
     widgetDescription: '活跃账户',
-    subCaption: '覆盖所有组织',
   },
 };
 
@@ -126,7 +132,7 @@ function served(texts: Texts) {
         type: 'kpi',
         title: texts.title,
         description: texts.widgetDescription,
-        options: { value: 42, description: texts.subCaption },
+        options: { value: 42, description: RETIRED_SUB_CAPTION },
       },
     ],
   };
@@ -167,6 +173,7 @@ describe('DashboardView — a served dashboard is drawn as served (objectui#1129
     expect(h1.textContent).toBe(EDITED.label);
     for (const text of Object.values(EDITED)) expect(screen.getAllByText(text).length).toBeGreaterThan(0);
     for (const text of Object.values(SERVED_UNEDITED[language])) expect(screen.queryByText(text)).toBeNull();
+    for (const text of RETIRED_TEXTS) expect(screen.queryByText(text)).toBeNull();
   });
 
   it.each(['en', 'zh-CN'] as const)('%s: an unedited dashboard shows the translation the server put in', async (language) => {
@@ -175,5 +182,6 @@ describe('DashboardView — a served dashboard is drawn as served (objectui#1129
 
     expect(h1.textContent).toBe(texts.label);
     for (const text of Object.values(texts)) expect(screen.getAllByText(text).length).toBeGreaterThan(0);
+    for (const text of RETIRED_TEXTS) expect(screen.queryByText(text)).toBeNull();
   });
 });

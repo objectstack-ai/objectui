@@ -13,8 +13,8 @@
  *
  * A dashboard read from the server's `/meta` route is already resolved for the
  * request's locale: `translateDashboard` (`@objectstack/spec`) overlays the
- * packaged catalog onto `label`, `description` and each widget's `title`,
- * `description` and sub-caption (`options.description`), and since
+ * packaged catalog onto `label`, `description` and each widget's `title` and
+ * `description`, and since
  * objectstack#20680 / #20730 it keeps a published edit over that catalog (an
  * explicit override beats the packaged default). The renderer then ran the
  * client bundle over the served strings AGAIN, offering each served value as
@@ -29,7 +29,7 @@
  * `DashboardRenderer` cannot see where its document came from, so the host that
  * read it says so: `localized` is set by the console's dashboard page, which
  * draws a document from the `/meta` read (`DashboardView`). With it, the served
- * title, description and sub-caption are drawn as given. Without it — an inline
+ * title and description are drawn as given. Without it — an inline
  * or preview document the server never translated — the bundle composition is
  * unchanged, and the last block below is the control for that.
  *
@@ -42,6 +42,13 @@
  *    edited;
  *  - inline, the same edited document with no `localized` → GREEN on both
  *    sides: the bundle still wins there, which is the control.
+ *
+ * ## The retired sub-caption (objectui#11389)
+ *
+ * The widget used to carry a fifth text, its sub-caption
+ * (`options.description`, translated by a `subCaption` bundle entry). Ruling C
+ * retired it at both ends, so the fixtures keep both on the widget and in the
+ * bundle, and every case pins that neither draws, served or inline.
  */
 
 import * as React from 'react';
@@ -72,6 +79,7 @@ const BUNDLE = {
             widget_total_users: {
               title: 'Total Users',
               description: 'Active accounts',
+              // Refused by the installed spec; kept to pin that it draws nothing.
               subCaption: 'Across all organizations',
             },
           },
@@ -103,8 +111,14 @@ interface Texts {
   description: string;
   title: string;
   widgetDescription: string;
-  subCaption: string;
 }
+
+/**
+ * The retired sub-caption: authored on the widget's `options` and translated
+ * by the bundle's `subCaption` entries above. None of these may draw.
+ */
+const RETIRED_SUB_CAPTION = 'All orgs (edited-11295)';
+const RETIRED_TEXTS = [RETIRED_SUB_CAPTION, 'Across all organizations', '覆盖所有组织'];
 
 /** A published edit, as the server serves it in every locale. */
 const EDITED: Texts = {
@@ -112,7 +126,6 @@ const EDITED: Texts = {
   description: 'What the ops team watches (edited-11295)',
   title: 'Total Users (edited-11295)',
   widgetDescription: 'Accounts (edited-11295)',
-  subCaption: 'All orgs (edited-11295)',
 };
 
 /** The unedited document, as the server serves it per locale: already translated. */
@@ -122,22 +135,20 @@ const SERVED_UNEDITED: Record<'en' | 'zh-CN', Texts> = {
     description: 'Platform health at a glance',
     title: 'Total Users',
     widgetDescription: 'Active accounts',
-    subCaption: 'Across all organizations',
   },
   'zh-CN': {
     label: '系统概览',
     description: '平台健康一览',
     title: '用户总数',
     widgetDescription: '活跃账户',
-    subCaption: '覆盖所有组织',
   },
 };
 
 /**
  * One `kpi` widget: metric-family but not self-contained, so the card header
- * draws `title` + `description` AND the metric inside draws the sub-caption —
- * all three widget channels on screen at once. `header` makes the renderer's
- * own title and description visible too.
+ * draws `title` + `description` and the metric inside draws its value. Its
+ * `options.description` is the retired sub-caption, kept to pin its absence.
+ * `header` makes the renderer's own title and description visible too.
  */
 function dashboard(texts: Texts): DashboardComponentSchema {
   return {
@@ -152,7 +163,7 @@ function dashboard(texts: Texts): DashboardComponentSchema {
         type: 'kpi',
         title: texts.title,
         description: texts.widgetDescription,
-        options: { value: 42, description: texts.subCaption },
+        options: { value: 42, description: RETIRED_SUB_CAPTION },
       },
     ],
   } as unknown as DashboardComponentSchema;
@@ -171,7 +182,7 @@ function expectDrawn(texts: Texts) {
   for (const text of Object.values(texts)) expect(screen.getAllByText(text).length).toBeGreaterThan(0);
 }
 
-function expectAbsent(texts: Texts) {
+function expectAbsent(texts: Texts | readonly string[]) {
   for (const text of Object.values(texts)) expect(screen.queryByText(text)).toBeNull();
 }
 
@@ -182,12 +193,14 @@ describe('DashboardRenderer — a served dashboard is drawn as served (objectui#
     expectDrawn(EDITED);
     // The packaged catalog must not win a second time, client-side.
     expectAbsent(SERVED_UNEDITED[language]);
+    expectAbsent(RETIRED_TEXTS);
   });
 
   it.each(['en', 'zh-CN'] as const)('%s: an unedited widget still shows the packaged translation the server put in', (language) => {
     renderIn(language, dashboard(SERVED_UNEDITED[language]), true);
 
     expectDrawn(SERVED_UNEDITED[language]);
+    expectAbsent(RETIRED_TEXTS);
   });
 });
 
@@ -199,5 +212,6 @@ describe('DashboardRenderer — an inline document keeps the bundle composition 
 
     expectDrawn(SERVED_UNEDITED[language]);
     expectAbsent(EDITED);
+    expectAbsent(RETIRED_TEXTS);
   });
 });

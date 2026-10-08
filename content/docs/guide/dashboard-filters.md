@@ -78,7 +78,10 @@ into it as `runtimeFilter`.
 > `gauge`, `solid-gauge`, `kpi`, `bullet`, or a widget with no `type`) whose
 > `options.data` is a `{ "provider": "object", … }` query shows the
 > retired-format prompt below instead of its number (objectui#11525), as a
-> `pivot` widget with that query already did.
+> `pivot` widget with that query already did. And one key no longer draws on
+> any widget: `options.description`, the metric sub-caption, is retired at both
+> ends (objectui#11389), so a stored one draws nothing. A widget's one authored
+> description is `widget.description`, the card-header subtitle.
 
 > **Retired: the top-level inline analytics shape.** `object` +
 > `categoryField` / `valueField` / `aggregate` on the widget itself (and the

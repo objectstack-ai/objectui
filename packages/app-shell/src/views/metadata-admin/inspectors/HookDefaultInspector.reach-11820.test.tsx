@@ -28,6 +28,7 @@ import { render, screen, cleanup, fireEvent, within } from '@testing-library/rea
 const state = vi.hoisted(() => ({
   metadataClient: {
     get: vi.fn(async () => undefined),
+    withPreviewDrafts() { return this; },
     list: vi.fn(
       async () =>
         [

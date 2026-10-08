@@ -21,7 +21,7 @@ import React, { forwardRef, useCallback, useState } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { ActionDef } from '@object-ui/core';
 import type { UIActionSchema } from '@object-ui/types';
-import { useAction } from '@object-ui/react';
+import { useAction, useRecordContext } from '@object-ui/react';
 import { useCondition, toPredicateInput, usePredicateRecordContext } from '@object-ui/react';
 import { Button } from '../../ui';
 import { cn } from '../../lib/utils';
@@ -32,6 +32,53 @@ import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { useAutoTriggerOnce } from './auto-trigger';
 import { readStaticParamValues } from './static-params';
 import { DisabledReasonTrigger, describedByWithReason, useDisabledReason } from './disabled-reason';
+
+/** A record value: a plain object, never `null` or an array. */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value != null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+/**
+ * The static values this button hands the runner, with the record in scope
+ * attached as the Undo baseline when the action is an `undoable` update of that
+ * record (objectui#11168, ruling B on objectui#11754, record 6030342264).
+ *
+ * The runner's `operation: 'update'` path offers Undo only when the invoking
+ * surface hands it the record the update writes, under `params._rowRecord`: it
+ * reads the prior value of every written field off that record
+ * (`captureUpdateUndoData`). The record page's declared-actions bar, the
+ * related-record bridge, `page:header` and the grid's rows already hand it one.
+ * This button handed it nothing, so a declared `undoable` was dropped one hop
+ * before the runner. This is the same spelling those hosts use; the dispatch
+ * strips the stash before it POSTs.
+ *
+ * Attached only when all of these hold, and otherwise `values` is returned
+ * as it came, the same object:
+ *
+ * - the action declares `undoable` and `operation: 'update'`, the path the
+ *   ruling names. On an `api` action the console's handler reads the stash for
+ *   more than Undo (it fills `{field}` tokens in the URL and seeds
+ *   `recordIdParam`), and this ruling does not change that path.
+ * - a record is in scope.
+ * - the update writes THAT record. The id the dispatch resolves (an explicit
+ *   `recordId` value, else the record's `recordIdField`, `id` by default) must
+ *   be the record's own `id`, because the runner keys the Undo by
+ *   `recordId ?? record.id`. A button in a record's scope that writes another
+ *   record would otherwise get the scoped record's values as its Undo, and an
+ *   Undo that restores the wrong values is worse than none.
+ */
+function withUndoBaseline(
+  schema: Pick<UIActionSchema, 'undoable' | 'operation' | 'recordIdField'>,
+  values: Record<string, unknown> | undefined,
+  record: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!schema.undoable || schema.operation !== 'update' || !record) return values;
+  const writtenId = values?.recordId ?? record[schema.recordIdField || 'id'];
+  if (writtenId == null || record.id == null || String(writtenId) !== String(record.id)) return values;
+  return { ...values, _rowRecord: record };
+}
 
 /**
  * The declared props. `schema` is `UIActionSchema` (objectui#4418): every key
@@ -115,6 +162,15 @@ const ActionButtonRenderer = forwardRef<
     // the fail-closed `visible` below turned that into "hidden".
     const recordData = usePredicateRecordContext(data);
 
+    // The record in scope for an `undoable` update's Undo baseline
+    // (objectui#11168, see `withUndoBaseline`): the row the host binds through
+    // `data` (a table's row, `DetailView`'s header, an `action:bar` member),
+    // else the record page's own record. An authored record page renders this
+    // node through `SchemaRenderer` with no `data`; its record is the
+    // `RecordContext` one, the record `${record.*}` in `properties` reads.
+    const recordContext = useRecordContext();
+    const recordInScope = asRecord(data) ?? asRecord(recordContext?.data);
+
     // Evaluate visibility and disabled conditions with record data context.
     // `visible` fails CLOSED on a throwing predicate (mirrors ActionEngine's
     // getActionsForLocation) — a precondition that can't be evaluated should
@@ -185,7 +241,14 @@ const ActionButtonRenderer = forwardRef<
         //
         // The two channels are independent, so the input-list branch forwards
         // the static values too.
-        const staticValues = readStaticParamValues(schema, 'action:button');
+        //
+        // An `undoable` update of the record in scope also carries that record
+        // as its Undo baseline (objectui#11168); see `withUndoBaseline`.
+        const staticValues = withUndoBaseline(
+          schema,
+          readStaticParamValues(schema, 'action:button'),
+          recordInScope,
+        );
         const paramsPayload: ActionDef = Array.isArray(schema.params)
           ? { actionParams: schema.params as any, params: staticValues }
           : { params: staticValues };
@@ -330,7 +393,7 @@ const ActionButtonRenderer = forwardRef<
       } finally {
         setLoading(false);
       }
-    }, [schema, execute, loading, localContext]);
+    }, [schema, execute, loading, localContext, recordInScope]);
 
     // Client-side auto-trigger (#844): a caller (e.g. a welcome-page CTA that
     // deep-links into "create") can mark an action `autoTrigger: true` to run
@@ -427,11 +490,14 @@ ComponentRegistry.register('button', ActionButtonRenderer, {
   // declare (and its renderer does not forward); the two are kept literal so
   // the source readers that census registrations can still name every entry.
   //
-  // Two spec keys stay unpublished, each with its measurement on objectui#11168:
-  // `endpoint` (the runner's built-in `api` executor reads it, but the console
-  // registers its own `api` handler, which reads `target` and never `endpoint`)
-  // and `undoable` (the runner's update path offers Undo only with a host row
-  // stash this block never writes).
+  // `undoable` was held back by slice 1 with its measurement: the runner's
+  // update path offers Undo only when the invoking surface hands it the
+  // record it writes, and this block handed it none. Ruling B on objectui#11754
+  // (record 6030342264) made the block deliver it: an `undoable` update of the
+  // record in scope now carries that record as its Undo baseline
+  // (`withUndoBaseline` above), and the key is published at the end of this
+  // list. Pinned in `__tests__/action-button-undoable-11168.test.tsx`.
+  // `endpoint` is not on this row: 17.6.0 refuses it in favour of `target`.
   //
   // `outcomeMessages` is FORWARDED above but not published here
   // (objectui#11344): it is an `ActionSchema` key, which reaches this renderer
@@ -582,6 +648,12 @@ ComponentRegistry.register('button', ActionButtonRenderer, {
       type: 'string',
       description:
         'For a `script` action run against a single selected row: the row field whose value is sent as the record id (default `id`)',
+    },
+    {
+      name: 'undoable',
+      type: 'boolean',
+      description:
+        'Offer an Undo affordance after an update action: once an `operation: update` succeeds, its success toast offers Undo, which writes back the values the fields it wrote held on the record in scope (the record page\'s record, or the row the host binds), provided that record carries each of them. The one limit: a button with no record in scope (standalone, or writing a record other than the one in scope) offers no Undo, because there is no row to restore',
     },
   ],
   defaultProps: {

@@ -71,23 +71,14 @@ import {
   useRegisteredMetadataInspector,
 } from '@object-ui/app-shell';
 import type { MetadataSelection } from '@object-ui/app-shell';
-// ⚠️ A workspace SOURCE path, not an `@object-ui/app-shell/<subpath>` specifier
-// — the package publishes no subpath, and `registerBuiltinDesigners` is not on
-// its barrel. `src/inbox-arrival-preview.tsx` explains why a dev-only fixture
-// imports that way; it is the module the alias in `vite.config.ts` already
-// resolves the package entry's own dynamic import to, so it is the SAME module
-// instance and the same registries.
-import { registerBuiltinDesigners } from '../../../packages/app-shell/src/views/metadata-admin/register-builtin-designers';
 import { SAMPLES } from './preview-samples';
 
-// The explicit registration (objectui#11939 step 2). Importing the
-// @object-ui/app-shell root still registers the built-in previews and
-// inspectors, but from a chunk it loads with a dynamic `import()`, so they land
-// AFTER this module has rendered. The gallery is the designers' browser
-// verification path (the `verify` skill), so it registers them here, before its
-// first render, and never lists zero designers while that chunk is in flight.
-// The entry's own call then finds every type registered and changes nothing.
-registerBuiltinDesigners();
+// Importing the @object-ui/app-shell root registers the built-in previews and
+// inspectors, from a chunk the package entry loads with a dynamic `import()`
+// (objectui#11939 step 2) — so they land AFTER this module has rendered once.
+// The gallery is the designers' browser-verification path (the `verify` skill),
+// so it waits for that chunk (`GalleryOnceDesignersArrive` below) and never
+// lists zero designers while it is in flight.
 
 const ORDER = [
   'object',
@@ -388,10 +379,24 @@ function Gallery() {
   );
 }
 
+/**
+ * The await of the package entry's own designer chunk. Its registrations
+ * notify the observable registry (objectui#11939), so this re-renders when they
+ * land and only then mounts the gallery. Until then it says what is happening;
+ * if the chunk fails, the package entry reports why on the console.
+ */
+function GalleryOnceDesignersArrive() {
+  const types = useRegisteredMetadataPreviewTypes();
+  if (types.length === 0) {
+    return <p className="p-6 text-sm text-muted-foreground">Loading the built-in designers…</p>;
+  }
+  return <Gallery />;
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <I18nProvider config={{ defaultLanguage: 'en' }}>
-      <Gallery />
+      <GalleryOnceDesignersArrive />
     </I18nProvider>
   </React.StrictMode>,
 );

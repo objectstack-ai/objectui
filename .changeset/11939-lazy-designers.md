@@ -15,4 +15,4 @@ The three registrations whose registries are not observable stay where they were
 
 `sideEffects` in `@object-ui/app-shell`'s `package.json` is unchanged. The module that registers the designers performs no registration at load time: the entry calls the function it exports.
 
-No export is added, removed or changed. The console's dev-only designer gallery registers the designers itself before its first render, so it lists every designer from the start.
+No export is added, removed or changed. The console's dev-only designer gallery waits for the built-in designers to arrive before it renders its list, so it never lists zero designers.

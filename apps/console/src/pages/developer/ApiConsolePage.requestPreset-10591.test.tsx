@@ -130,11 +130,18 @@ import { systemRoutes } from '../../AppContent';
 import { ApiConsolePage } from './ApiConsolePage';
 // The built-in designers. Importing the @object-ui/app-shell root registers them
 // from a chunk it loads with a dynamic `import()` (objectui#11939 step 2), so
-// they land after this module has run. Registered here, at module scope, by the
-// function that chunk's caller runs, so the registry read below returns the
-// real built-in designer. A workspace SOURCE path: the package publishes no
-// subpath and the function is not on its barrel.
-import { registerBuiltinDesigners } from '../../../../../packages/app-shell/src/views/metadata-admin/register-builtin-designers';
+// they land after this module has run. Loaded and registered here, at module
+// scope — the import phase, outside every test's window — by the function the
+// root calls when that chunk arrives, so the registry read below returns the
+// real built-in designer.
+//
+// `vi.importActual` and a workspace SOURCE path, not an `import` statement: the
+// package publishes no subpath and the function is not on its barrel, and a
+// static import would put the designers' sources into this app's `tsc` program,
+// which checks them under rules their own package does not apply.
+const { registerBuiltinDesigners } = await vi.importActual<{ registerBuiltinDesigners: () => void }>(
+  '../../../../../packages/app-shell/src/views/metadata-admin/register-builtin-designers',
+);
 registerBuiltinDesigners();
 // Side effect under test: registers `developer:api-console`, the way `main.tsx` does.
 import '../../registerDeveloperComponents';

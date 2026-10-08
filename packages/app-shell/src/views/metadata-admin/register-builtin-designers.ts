@@ -48,10 +48,10 @@
  *
  * ## Who else calls it
  *
- * Tests that need the designers synchronously, and the console's dev-only
- * preview gallery (`apps/console/src/preview-gallery.tsx`), which renders every
- * designer and so registers them explicitly before its first render. Calling
- * it again is harmless: every type then has an entry, and the pass skips it.
+ * Tests that need the designers before their first render. Calling it again is
+ * harmless: every type then has an entry, and the pass skips it. (The console's
+ * dev-only preview gallery does NOT call it: it imports only the package, and
+ * mounts its list once the entry's own call has filled the registry.)
  */
 
 import { registerAsBuiltIns } from './preview-registry.js';

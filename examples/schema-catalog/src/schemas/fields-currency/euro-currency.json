@@ -8,7 +8,10 @@
       "label": "Price (EUR)",
       "type": "currency",
       "placeholder": "€0.00",
-      "currency": "EUR"
+      "currencyConfig": {
+        "currencyMode": "fixed",
+        "defaultCurrency": "EUR"
+      }
     }
   ]
 }

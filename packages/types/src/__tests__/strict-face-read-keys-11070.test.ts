@@ -26,8 +26,10 @@
  *     `returnType` and `summaryOperations`, since round 7 the `grid`
  *     widget's `columns`, the spec's `inlineColumns` list, and since round 10
  *     the `grid` widget's eight field-level keys, `GridFieldMetadata`'s own
- *     members), which the renderer hands each field widget as its metadata
- *     carrier;
+ *     members, and since round 13 `scale` and `currencyConfig`), which the
+ *     renderer hands each field widget as its metadata carrier. `scale`
+ *     carries the spec's one cross-key rule with it: it is refused on a
+ *     `currency` entry, with the spec's own refusal;
  *   - `dataSource` on `object-grid`, `object-form`, `object-kanban`,
  *     `list-view`, `object-gantt`, `object-map`, `object-calendar` and, since
  *     round 7, `object-chart` — the spec's per-element binding, which each
@@ -93,6 +95,7 @@ import { DetailViewFieldSchema } from '../zod/views.zod.js';
 import { SidebarSchema } from '../zod/navigation.zod.js';
 import type { ElementDataSource as SpecElementDataSource } from '@objectstack/spec/ui';
 import type { Field as SpecField } from '@objectstack/spec/data';
+import { FieldSchema as SpecFieldSchema } from '@objectstack/spec/data';
 import { AnyComponentSchema, StrictAnyComponentSchema } from '../zod/index.zod.js';
 
 type Issue = { code: string; path: PropertyKey[]; keys?: string[]; errors?: Issue[][] };
@@ -169,6 +172,12 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     ['summaryOperations', { type: 'summary', summaryOperations: { object: 'orders', field: 'amount', function: 'sum' } }],
     // Round 7: the `grid` widget's columns, the spec's `inlineColumns` list.
     ['columns', { type: 'grid', columns: [{ name: 'qty', type: 'number' }, { name: 'sku' }] }],
+    // Round 13: the spec's `scale`, read by the `number` and `percent`
+    // widgets, and its fixed-currency declaration, read by the `currency`
+    // widget through `resolveFieldCurrency`. Each was refused by name at the
+    // round's base (`fields.0.KEY`).
+    ['scale', { type: 'number', scale: 2 }],
+    ['currencyConfig', { type: 'currency', currencyConfig: { currencyMode: 'fixed', defaultCurrency: 'EUR' } }],
     // Round 10: the `grid` widget's field-level keys, `GridFieldMetadata`'s
     // members, each on a grid entry. Every row was refused by name at the
     // round's base (`fields.0.KEY`), so each one is a refusal that flipped;
@@ -190,6 +199,21 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     expect(parsed.success).toBe(true);
     expect(parsed.success && (parsed.data as { fields: Record<string, unknown>[] }).fields[0])
       .toMatchObject(GRID_FIELD_KEYS);
+  });
+
+  it('`scale` and `currencyConfig` keep their values on the tolerant face, and no spec default is written in (round 13)', () => {
+    // At the round's base the tolerant face STRIPPED both keys.
+    const fieldsOf = (doc: unknown) => {
+      const parsed = AnyComponentSchema.safeParse(doc);
+      expect(parsed.success).toBe(true);
+      return (parsed.data as { fields: Record<string, unknown>[] }).fields;
+    };
+    expect(fieldsOf(form({ type: 'percent', scale: 1 }))[0]).toMatchObject({ scale: 1 });
+    const fixed = { currencyMode: 'fixed', defaultCurrency: 'USD' };
+    expect(fieldsOf(form({ type: 'currency', currencyConfig: fixed }))[0].currencyConfig).toEqual(fixed);
+    // The spec's `CurrencyConfigSchema` defaults the two members (`dynamic`,
+    // `CNY`); the imported-defaults boundary keeps them out of the document.
+    expect(fieldsOf(form({ type: 'currency', currencyConfig: {} }))[0].currencyConfig).toEqual({});
   });
 
   const BINDING = { object: 'task', filter: [{ field: 'project', operator: 'equals', value: 'acme' }] };
@@ -274,11 +298,42 @@ describe('objectui#11070 — a declared key is judged by its declared type on bo
     // tolerant face kept any value unjudged, so each row is red there.
     ['a `sidebar.side` that is not an edge shadcn draws (`top`)', { type: 'sidebar', side: 'top' }],
     ['a boolean `sidebar.side`', { type: 'sidebar', side: true }],
+    // Round 13: `scale` and `currencyConfig` are judged by the spec's own
+    // members. At the round's base the tolerant face STRIPPED both keys and
+    // accepted the document, so each row is red there.
+    ['a non-integer `scale`', form({ type: 'number', scale: 2.5 })],
+    ['a negative `scale`', form({ type: 'percent', scale: -1 })],
+    ['a `scale` past the platform ceiling of 100', form({ type: 'number', scale: 101 })],
+    ['a string `scale`', form({ type: 'number', scale: '2' })],
+    ['a `currencyMode` the spec does not list', form({ type: 'currency', currencyConfig: { currencyMode: 'auto', defaultCurrency: 'EUR' } })],
+    ['a `defaultCurrency` that is not a three-letter code', form({ type: 'currency', currencyConfig: { currencyMode: 'fixed', defaultCurrency: 'EURO' } })],
+    ['the removed `currencyConfig.precision` (the spec closes the config)', form({ type: 'currency', currencyConfig: { currencyMode: 'fixed', defaultCurrency: 'EUR', precision: 2 } })],
   ];
 
   it.each(WRONG)('refuses %s', (_label, doc) => {
     expect(issuesOf(AnyComponentSchema, doc)).not.toBeNull();
     expect(issuesOf(StrictAnyComponentSchema, doc)).not.toBeNull();
+  });
+
+  // Round 13: `FieldSchema` refuses `scale` on a `currency` field
+  // (objectstack-ai/objectstack#19629), and the `currency` widget does not read
+  // it, so the flat face carries that one rule rather than accept a key that
+  // does nothing. The text is the spec's: the first two assertions go red if
+  // the spec drops the rule or rewords it, and either is this face's cue.
+  it('`scale` on a `currency` entry is refused AT `scale` on both faces, with the spec\'s own refusal (round 13)', () => {
+    const spec = SpecFieldSchema.safeParse({ name: 'amount', type: 'currency', scale: 2 });
+    const specIssue = (spec.error?.issues ?? []).find((i) => i.path.length === 1 && i.path[0] === 'scale');
+    expect(specIssue?.code).toBe('custom');
+    const fixed = { currencyMode: 'fixed', defaultCurrency: 'EUR' };
+    for (const schema of [AnyComponentSchema, StrictAnyComponentSchema]) {
+      const issues = (issuesOf(schema, form({ type: 'currency', currencyConfig: fixed, scale: 2 })) ?? []) as unknown as { code: string; path: PropertyKey[]; message: string }[];
+      expect(issues.map((i) => [i.path.map(String).join('.'), i.code])).toEqual([['fields.0.scale', 'custom']]);
+      expect(issues[0]?.message).toBe(specIssue?.message);
+    }
+    // CONTROLS: the same `scale` on a `number` entry, and the same `currency`
+    // entry without it, parse on the strict face.
+    expect(issuesOf(StrictAnyComponentSchema, form({ type: 'number', scale: 2 }))).toBeNull();
+    expect(issuesOf(StrictAnyComponentSchema, form({ type: 'currency', currencyConfig: fixed }))).toBeNull();
   });
 
   it('a wrong `sidebar.side` is refused AT `side`, by the value check (round 12)', () => {
@@ -330,6 +385,28 @@ describe('objectui#11070 — the retired spellings stay refused on the strict fa
   // Pinned on every face in `grid-field-keys-camelcase-11610.test.ts`.
   it.each(RETIRED)('the retired `fields[].%s` is refused by name', (key, field) => {
     expect(undeclared(issuesOf(StrictAnyComponentSchema, form(field)))).toEqual([`fields.0.${key}`]);
+  });
+
+  // Round 13 (the seat's answer B): `currency` on a form field is RUNTIME-ONLY.
+  // `resolveFieldCurrency` still reads it first, but the spec's `FieldSchema`
+  // refuses it as a field key, so it stays undeclared and the catalog writes
+  // the spec's `currencyConfig` instead (block 1).
+  it('`fields[].currency` stays refused by name on the strict face (round 13)', () => {
+    expect(undeclared(issuesOf(StrictAnyComponentSchema, form({ type: 'currency', currency: 'EUR' }))))
+      .toEqual(['fields.0.currency']);
+  });
+
+  // Round 13 (the seat's answer C): the guide's `action:button` example names
+  // its endpoint `target`, the spec's `action:button` row's spelling; the
+  // retired `endpoint` stays refused in the bag on both faces.
+  it('the `action:button` the schema-rendering guide teaches parses with `target`; `endpoint` stays refused (round 13)', () => {
+    const properties = { name: 'call_api', label: 'Click Me', actionType: 'api', method: 'POST' };
+    const taught = { type: 'action:button', properties: { ...properties, target: '/api/action' } };
+    expect(issuesOf(StrictAnyComponentSchema, taught)).toBeNull();
+    expect(issuesOf(AnyComponentSchema, taught)).toBeNull();
+    const retired = { type: 'action:button', properties: { ...properties, endpoint: '/api/action' } };
+    expect(issuesOf(StrictAnyComponentSchema, retired)).not.toBeNull();
+    expect(issuesOf(AnyComponentSchema, retired)).not.toBeNull();
   });
 
   it('the authored detail-view field declares `reference`, and `reference_to` is not in its mirror (round 4)', () => {
@@ -516,6 +593,17 @@ export type assertionReferenceIsTheOnlyTargetSpelling = [
   Expect<Equal<Extract<keyof DetailViewField, 'reference_to'>, never>>,
 ];
 export type assertionShowSubmitIsBoolean = Expect<Equal<FormSchema['showSubmit'], boolean | undefined>>;
+/**
+ * Round 13: `scale` and `currencyConfig` are the spec's `FieldSchema` members
+ * BY REFERENCE on the form-field face — an exact match, so a restated type (or
+ * a drift after a spec release) fails here, and a deleted member falls to the
+ * index signature's `any`, which the first row refuses.
+ */
+export type assertionScaleAndCurrencyConfigBySpecReference = [
+  Expect<Equal<IsAny<FormField['scale'] | FormField['currencyConfig']>, false>>,
+  Expect<Equal<FormField['scale'], SpecField['scale']>>,
+  Expect<Equal<FormField['currencyConfig'], SpecField['currencyConfig']>>,
+];
 /**
  * Round 12: `sidebar.side` is the two edges on BOTH faces — an exact match, so
  * a widened or narrowed value on either face fails here, and a member deleted

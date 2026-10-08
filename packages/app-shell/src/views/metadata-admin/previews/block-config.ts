@@ -115,10 +115,10 @@ export type PlaceholderSpec = { key: string; literal?: never } | { literal: stri
  * `at` says where the value lives on the block node (objectui#11880). Absent,
  * the default, is `properties.<name>`. `'dataSource'` is the node-level
  * `dataSource.<name>`: a member of the spec's `ElementDataSourceSchema`
- * binding, which `element:repeater`, `element:number` and
- * `element:record_picker` read their query from and nowhere else
- * (objectstack#11509, ruled A-narrow). Honoured on a block's top-level fields;
- * an `array` field's item editors always write into the item.
+ * binding, which `element:number` and `element:record_picker` read their
+ * query from and nowhere else (objectstack#11509, ruled A-narrow). Honoured on
+ * a block's top-level fields; an `array` field's item editors always write
+ * into the item.
  */
 export type BlockPropField = (
   | { name: string; label: string; kind: 'text'; placeholder?: PlaceholderSpec }
@@ -335,21 +335,19 @@ export const BLOCK_CONFIG: Record<string, BlockPropField[]> = {
     { name: 'columns', label: 'engine.inspector.pageBlock.field.element:definition-list.columns', kind: 'number', placeholder: { literal: '1' } },
     { name: 'inline', label: 'engine.inspector.pageBlock.field.element:definition-list.inline', kind: 'boolean' },
   ],
-  // objectui#11880 — the list's query is the node-level `dataSource` binding,
-  // the only place `element:repeater` reads it from, so `object` and `limit`
-  // write `dataSource.object` / `dataSource.limit` and the field pickers read
-  // their object from there. They wrote `properties.object` / `.limit` before:
-  // keys the renderer no longer reads and the spec retires in v18.
   'element:repeater': [
-    { name: 'object', label: 'engine.inspector.pageBlock.field.element:repeater.object', kind: 'object-picker', at: 'dataSource' },
-    { name: 'titleField', label: 'engine.inspector.pageBlock.field.element:repeater.titleField', kind: 'field-picker', objectFrom: 'dataSource' },
-    { name: 'fields', label: 'engine.inspector.pageBlock.field.element:repeater.fields', kind: 'field-list', objectFrom: 'dataSource' },
-    { name: 'limit', label: 'engine.inspector.pageBlock.field.element:repeater.limit', kind: 'number', placeholder: { literal: '10' }, at: 'dataSource' },
+    { name: 'object', label: 'engine.inspector.pageBlock.field.element:repeater.object', kind: 'object-picker' },
+    { name: 'titleField', label: 'engine.inspector.pageBlock.field.element:repeater.titleField', kind: 'field-picker', objectFrom: 'self', objectProp: 'object' },
+    { name: 'fields', label: 'engine.inspector.pageBlock.field.element:repeater.fields', kind: 'field-list', objectFrom: 'self', objectProp: 'object' },
+    { name: 'limit', label: 'engine.inspector.pageBlock.field.element:repeater.limit', kind: 'number', placeholder: { literal: '10' } },
     { name: 'emptyText', label: 'engine.inspector.pageBlock.field.element:repeater.emptyText', kind: 'text' },
     { name: 'divided', label: 'engine.inspector.pageBlock.field.element:repeater.divided', kind: 'boolean' },
   ],
-  // objectui#11880 — the same move for the metric: its object is
-  // `dataSource.object`, and the measure picker reads its object from there.
+  // objectui#11880 — the metric's query is the node-level `dataSource`
+  // binding, the only place `element:number` reads its object from, so the
+  // Object picker writes `dataSource.object` and the measure picker reads its
+  // object from there. It wrote `properties.object` before: a key the renderer
+  // no longer reads and the spec retires in v18.
   'element:number': [
     { name: 'object', label: 'engine.inspector.pageBlock.field.element:number.object', kind: 'object-picker', at: 'dataSource' },
     { name: 'field', label: 'engine.inspector.pageBlock.field.element:number.field', kind: 'field-picker', objectFrom: 'dataSource' },

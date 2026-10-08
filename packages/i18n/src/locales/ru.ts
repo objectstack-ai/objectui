@@ -4239,7 +4239,7 @@ const ru = {
   },
   element: {
     number: {
-      noObject: "Объект не указан: задайте object или dataSource.object.",
+      noObject: "Объект не указан: задайте dataSource.object.",
     },
   },
 };

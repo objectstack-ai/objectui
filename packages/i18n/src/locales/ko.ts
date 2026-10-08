@@ -4043,7 +4043,7 @@ const ko = {
   },
   element: {
     number: {
-      noObject: "개체가 지정되지 않았습니다. object 또는 dataSource.object를 설정하세요.",
+      noObject: "개체가 지정되지 않았습니다. dataSource.object를 설정하세요.",
     },
   },
 };

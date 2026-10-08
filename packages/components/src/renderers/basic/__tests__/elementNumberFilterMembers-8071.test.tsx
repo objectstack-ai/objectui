@@ -11,8 +11,9 @@
  *
  * ⚠️ objectui#11880 moved the door: the metric reads its filter from the
  * node-level `dataSource.filter` only (objectstack#11509, ruled A-narrow), and
- * the flat `properties.filter` this file first pinned is neither published nor
- * read. Every row below drives the binding. What changed on the wire is the
+ * the flat `properties.filter` this file first pinned stays published (until
+ * the spec's v18 retirement) and is not read. Every row below drives the
+ * binding. What changed on the wire is the
  * SHAPE of the value: the binding's filter is lowered to the ObjectQL AST
  * (`toFilterNodeSafely`) before it reaches either spelling, where the flat key
  * used to arrive verbatim. The two spellings and the by-value rule are

@@ -14,21 +14,12 @@
  *                               row, no toolbar/card/pagination.
  *
  * Props are read off `schema.properties` (spec convention) with a `schema.props`
- * fallback, matching the other `element:*` renderers. The repeater's DATA
- * binding is not a prop: it is the node-level `dataSource` (objectui#11880).
+ * fallback, matching the other `element:*` renderers.
  */
 
 import * as React from 'react';
-import { ComponentRegistry, elementDataSourceBlock } from '@object-ui/core';
-import {
-  ElementDataSourceErrorPanel,
-  ElementDataSourceLoadingPanel,
-  useAdapter,
-  useDataInvalidation,
-  useElementDataSource,
-  useFilterScope,
-  useResolvedFilter,
-} from '@object-ui/react';
+import { ComponentRegistry } from '@object-ui/core';
+import { useAdapter, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import { cn } from '../../lib/utils';
 import { readProps } from './readProps';
 
@@ -132,45 +123,34 @@ interface RepeaterColumn {
 
 function RepeaterRenderer({ schema }: { schema: any }) {
   const props = readProps<{
+    object?: string;
     titleField?: string;
     fields?: Array<string | RepeaterColumn>;
+    filter?: unknown;
+    sort?: any;
+    limit?: number;
     emptyText?: string;
     divided?: boolean;
     className?: string;
   }>(schema);
 
   const adapter = useAdapter() as any;
-  // objectui#11880 — the node-level `dataSource` binding (the spec's
-  // `ElementDataSourceSchema`) is the ONE place this list's query is read
-  // from: its `object`, its `filter`, its `sort` and its `limit`, composed with
-  // the saved view its `view` names (objectstack#11509, ruled A-narrow). The
-  // flat `properties.object` / `filter` / `sort` / `limit` are not read: a
-  // repeater bound only through `dataSource` used to render "No records",
-  // and one that names no `dataSource.object` now issues no query at all.
-  // While a named `view` is unresolved (or unresolvable) there is no object,
-  // so nothing is listed over the wider set the view was written to narrow;
-  // the render reports instead. The repeater's own adapter is passed so the
-  // view resolves against the source its rows come from.
-  const dataBinding = useElementDataSource(schema, adapter);
-  const composed = dataBinding.composed;
-  const object = composed?.object;
-  const sort = composed?.sort;
-  const limit = composed?.limit;
   const [rows, setRows] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  // objectui#10666 — the binding's `filter`, with every context token
+  // objectui#10666 — the repeater's own `filter`, with every context token
   // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
   // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
   // session scope the host provides, and HELD by structure (`useResolvedFilter`
-  // in `@object-ui/react`). The query and its content key below read THIS.
+  // in `@object-ui/react`). It sent the literal token on `$filter` before. The
+  // query and its content key below read THIS, never the raw `props.filter`.
   const filterScope = useFilterScope();
-  const queryFilter = useResolvedFilter(composed?.filter, filterScope);
+  const queryFilter = useResolvedFilter(props.filter, filterScope);
   const filterKey = React.useMemo(() => (queryFilter ? JSON.stringify(queryFilter) : ''), [queryFilter]);
   // objectui#10664 — the sort reaches `$orderby` below, so the fetch effect
   // keys on it, by CONTENT the way `filterKey` keys the filter: a fresh array
   // with the same entries is not a change (AGENTS.md #10).
-  const sortKey = React.useMemo(() => (sort ? JSON.stringify(sort) : ''), [sort]);
+  const sortKey = React.useMemo(() => (props.sort ? JSON.stringify(props.sort) : ''), [props.sort]);
 
   const cols: RepeaterColumn[] = React.useMemo(
     () => (props.fields ?? []).map((f) => (typeof f === 'string' ? { field: f } : f)),
@@ -183,12 +163,12 @@ function RepeaterRenderer({ schema }: { schema: any }) {
   // below names it, so the rows are re-read. Subscribed only when the effect
   // can query: without an adapter `find` there is no read to repeat.
   const invalidationNonce = useDataInvalidation(
-    adapter && typeof adapter.find === 'function' ? object : undefined,
+    adapter && typeof adapter.find === 'function' ? props.object : undefined,
   );
 
   React.useEffect(() => {
     let cancelled = false;
-    if (!adapter || !object || typeof adapter.find !== 'function') {
+    if (!adapter || !props.object || typeof adapter.find !== 'function') {
       setLoading(false);
       return;
     }
@@ -198,9 +178,9 @@ function RepeaterRenderer({ schema }: { schema: any }) {
       try {
         const query: any = {};
         if (queryFilter) query.$filter = queryFilter;
-        if (sort) query.$orderby = sort;
-        if (limit) query.$top = limit;
-        const res = await adapter.find(object, query);
+        if (props.sort) query.$orderby = props.sort;
+        if (props.limit) query.$top = props.limit;
+        const res = await adapter.find(props.object, query);
         // `data` is the ONE rows member `QueryResult` (`@object-ui/types`)
         // declares; the bare-array arm stays because fakes at this seam really
         // do answer with a plain array. A `res?.records` arm sat between them
@@ -221,22 +201,8 @@ function RepeaterRenderer({ schema }: { schema: any }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adapter, object, filterKey, sortKey, limit, invalidationNonce]);
+  }, [adapter, props.object, filterKey, sortKey, props.limit, invalidationNonce]);
 
-  // After every hook above, so hook order stays stable across resolution
-  // states — the same two panels `element:record_picker` draws.
-  if (dataBinding.status === 'missing') {
-    return (
-      <ElementDataSourceErrorPanel
-        testId="repeater"
-        title="This repeater’s data source could not be resolved"
-        message={dataBinding.error}
-      />
-    );
-  }
-  if (dataBinding.status === 'loading') {
-    return <ElementDataSourceLoadingPanel testId="repeater" />;
-  }
   if (loading) return <p className="py-2 text-sm text-muted-foreground">Loading…</p>;
   if (error) return <p className="py-2 text-sm text-destructive">{error}</p>;
   if (rows.length === 0) {
@@ -264,27 +230,32 @@ function RepeaterRenderer({ schema }: { schema: any }) {
   );
 }
 
-// The renderer READS the node-level `dataSource` binding (objectui#11880), so
-// it declares it from the seam every reader of the binding declares it from:
-// the marker makes `Registry.register` emit `ELEMENT_DATA_SOURCE_INPUT` into
-// these `inputs`. The seam comes from `@object-ui/core`, for the measured
-// reason `element:record_picker`'s registration states.
-ComponentRegistry.register('repeater', elementDataSourceBlock(RepeaterRenderer), {
+ComponentRegistry.register('repeater', RepeaterRenderer, {
   namespace: 'element',
   skipFallback: true,
   label: 'Repeater',
   category: 'content',
-  // objectui#11168 slice 2 — what the renderer prints for each `fields` entry
-  // is pinned in `__tests__/element-list-inputs-11168.test.tsx`. The query
-  // keys `object` / `filter` / `sort` / `limit` are not inputs: the list reads
-  // them from the injected `dataSource` binding only (objectui#11880).
+  // objectui#11168 slice 2 — the members of `fields`, `filter` and `sort` are
+  // pinned in `__tests__/element-list-inputs-11168.test.tsx`: what the
+  // renderer prints for each `fields` entry, and what it hands the adapter for
+  // `filter` (context tokens resolved first) and `sort`.
   inputs: [
+    { name: 'object', type: 'string', required: true, description: 'Object whose records the list repeats over' },
     { name: 'titleField', type: 'string' },
     {
       name: 'fields',
       type: 'array',
       description: 'Fields shown after the title on each line, in order: a bare field name, or `{ field }`',
     },
+    {
+      name: 'filter',
+      type: 'array',
+      of: 'object',
+      description:
+        'Filter rules `[{ field, operator, value }]`. A string `value` may be a context token such as `{current_user_id}`, resolved before the query',
+    },
+    { name: 'sort', type: 'array', of: 'object', description: 'Sort order `[{ field, order }]`, applied in list order' },
+    { name: 'limit', type: 'number' },
     { name: 'emptyText', type: 'string' },
     { name: 'divided', type: 'boolean', description: 'Separator between rows' },
   ],

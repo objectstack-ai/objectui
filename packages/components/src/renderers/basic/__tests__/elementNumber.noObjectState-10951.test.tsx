@@ -51,7 +51,8 @@ const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve
 
 const NOTICE_ID = 'element-number-no-object';
 /** Written out, not read from the pack: a pin must not agree by construction. */
-const NOTICE_EN = 'No object named: set object or dataSource.object.';
+// objectui#11880: the notice names only the binding member the metric reads.
+const NOTICE_EN = 'No object named: set dataSource.object.';
 
 /**
  * An adapter that can aggregate and can list saved views. `views` decides what

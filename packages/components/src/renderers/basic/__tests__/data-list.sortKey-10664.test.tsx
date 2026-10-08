@@ -45,8 +45,7 @@ const Host = React.forwardRef<HostHandle, { adapter: any }>(function Host({ adap
   const [sort, setSort] = React.useState<unknown>(BY_NAME_ASC);
   React.useImperativeHandle(ref, () => ({ setSort }), []);
   const schema = React.useMemo(
-    // The sort is the binding's: the repeater reads its query from `dataSource` only (objectui#11880).
-    () => ({ type: 'element:repeater', id: 'rep', dataSource: { object: 'contact', sort }, properties: { fields: ['name'] } }),
+    () => ({ type: 'element:repeater', id: 'rep', properties: { object: 'contact', fields: ['name'], sort } }),
     [sort],
   );
   return (

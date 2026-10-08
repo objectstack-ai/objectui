@@ -1,17 +1,17 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * objectui#11880 — the page designer writes an `element:*` block's data
- * binding into the node-level `dataSource`, the one place the renderer reads it.
+ * objectui#11880 — the page designer writes `element:number`'s data binding
+ * into the node-level `dataSource`, the one place the renderer reads it.
  *
- * `element:repeater` and `element:number` read their object (and the repeater
- * its row cap) from `dataSource` only (objectstack#11509, ruled A-narrow). The
- * inspector's curated Object picker and the repeater's Limit box wrote
- * `properties.object` / `properties.limit` — keys the renderers no longer
- * read, so a block built in Studio would render nothing. These rows drive the
- * REAL inspector and assert the patch it hands the editor: the value lands at
- * node level under `dataSource`, never under `properties`, and the field
- * pickers resolve their object from `dataSource.object`.
+ * `element:number` reads its object from `dataSource` only (objectstack#11509,
+ * ruled A-narrow). The inspector's curated Object picker wrote
+ * `properties.object` — a key the renderer no longer reads, so a metric built
+ * in Studio would show its no-object notice. These rows drive the REAL
+ * inspector and assert the patch it hands the editor: the value lands at node
+ * level under `dataSource`, never under `properties`, and the measure picker
+ * resolves its object from `dataSource.object`. (`element:repeater` is not in
+ * this change: its binding is deferred, objectui#11880.)
  */
 
 import { describe, it, expect, vi, afterEach, type Mock } from 'vitest';
@@ -76,37 +76,34 @@ function renderInspector(draft: Record<string, unknown>): Mock<MetadataInspector
 const committedBlock = (onPatch: Mock<MetadataInspectorProps['onPatch']>): Record<string, unknown> =>
   (onPatch.mock.calls.at(-1)![0] as any).regions[0].components[0];
 
-describe('the designer writes the node-level `dataSource` for the element blocks (objectui#11880)', () => {
-  it.each(['element:repeater', 'element:number'])('%s: the Object picker writes `dataSource.object`, not `properties.object`', (type) => {
-    const onPatch = renderInspector(pageDraft({ type, properties: {} }));
+describe('the designer writes the node-level `dataSource` for element:number (objectui#11880)', () => {
+  it('the Object picker writes `dataSource.object`, not `properties.object`', () => {
+    const onPatch = renderInspector(pageDraft({ type: 'element:number', properties: {} }));
     fireEvent.change(screen.getByLabelText('Object'), { target: { value: 'contact' } });
     const block = committedBlock(onPatch);
     expect(block.dataSource).toEqual({ object: 'contact' });
+    // The parsed page's empty bag, untouched: no `properties.object`.
     expect(block.properties).toEqual({});
   });
 
-  it('element:repeater: the Limit box writes `dataSource.limit`, beside the bound object', () => {
-    const onPatch = renderInspector(pageDraft({ type: 'element:repeater', dataSource: { object: 'contact' } }));
-    fireEvent.change(screen.getByLabelText('Limit'), { target: { value: '5' } });
+  it('CONTROL: a display control on the same block still writes `properties`, beside the binding', () => {
+    const onPatch = renderInspector(pageDraft({ type: 'element:number', dataSource: { object: 'contact' } }));
+    fireEvent.change(screen.getByLabelText('Prefix'), { target: { value: '$' } });
     const block = committedBlock(onPatch);
-    expect(block.dataSource).toEqual({ object: 'contact', limit: 5 });
-    // The parsed page's empty bag, untouched: no `properties.limit`.
-    expect(block.properties).toEqual({});
-  });
-
-  it('CONTROL: a display control on the same block still writes `properties`', () => {
-    const onPatch = renderInspector(pageDraft({ type: 'element:repeater', dataSource: { object: 'contact' } }));
-    fireEvent.change(screen.getByLabelText('Empty text'), { target: { value: 'None yet' } });
-    const block = committedBlock(onPatch);
-    expect(block.properties).toEqual({ emptyText: 'None yet' });
+    expect(block.properties).toEqual({ prefix: '$' });
     expect(block.dataSource).toEqual({ object: 'contact' });
   });
 
-  it.each([
-    ['element:repeater', ['Title field', 'Fields']],
-    ['element:number', ['Field']],
-  ])('%s: the field pickers read their object from `dataSource.object`', (type) => {
-    renderInspector(pageDraft({ type, dataSource: { object: 'contact' }, properties: { object: 'lead' } }));
+  it('CONTROL: element:repeater, outside this change, still writes `properties.object`', () => {
+    const onPatch = renderInspector(pageDraft({ type: 'element:repeater', properties: {} }));
+    fireEvent.change(screen.getByLabelText('Object'), { target: { value: 'contact' } });
+    const block = committedBlock(onPatch);
+    expect(block.properties).toEqual({ object: 'contact' });
+    expect(block.dataSource).toBeUndefined();
+  });
+
+  it('the measure picker reads its object from `dataSource.object`, not a flat `properties.object`', () => {
+    renderInspector(pageDraft({ type: 'element:number', dataSource: { object: 'contact' }, properties: { object: 'lead' } }));
     const asked = new Set(fieldsFor.mock.calls.map((call) => call[0]));
     expect(asked).toContain('contact');
     expect(asked).not.toContain('lead');

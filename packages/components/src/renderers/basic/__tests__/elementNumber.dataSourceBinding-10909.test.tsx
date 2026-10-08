@@ -350,16 +350,19 @@ describe('element:number — the `dataSource` members it reads, and the ones it 
 describe('element:number declares the `dataSource` binding it reads (objectui#10909)', () => {
   const inputs = () => ComponentRegistry.getMeta('element:number')?.inputs ?? [];
 
-  it('the registration declares dataSource as an object binding, and publishes neither flat `object` nor `filter` (objectui#11880)', () => {
+  it('the registration declares dataSource as an object binding; the flat `object` / `filter` say they are not read (objectui#11880)', () => {
     const dataSource = inputs().find((input) => input.name === 'dataSource');
     expect(dataSource, 'element:number publishes no dataSource input').toBeTruthy();
     expect((dataSource as { binding?: string }).binding).toBe('object');
-    const names = inputs().map((input) => input.name);
-    expect(names).not.toContain('object');
-    expect(names).not.toContain('filter');
-    // CONTROL: the aggregate's own keys stay published.
-    expect(names).toContain('aggregate');
-    expect(names).toContain('field');
+    // Published until the spec's v18 retirement (objectstack#11509), never
+    // required, and each description names the binding member that IS read.
+    const object = inputs().find((input) => input.name === 'object');
+    expect(object?.required).not.toBe(true);
+    expect(object?.description).toMatch(/NOT READ/);
+    expect(object?.description).toMatch(/dataSource\.object/);
+    const filter = inputs().find((input) => input.name === 'filter');
+    expect(filter?.description).toMatch(/NOT READ/);
+    expect(filter?.description).toMatch(/dataSource\.filter/);
   });
 
   it('the html tier accepts the dataSource form without a diagnostic', () => {

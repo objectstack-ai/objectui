@@ -385,13 +385,67 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
   skipFallback: true,
   label: 'Record Picker',
   category: 'input',
-  // The query keys `object` / `filter` / `sort` / `limit` are NOT inputs
-  // (objectui#11880): the picker reads them from the node-level `dataSource`
-  // binding only, which `elementDataSourceBlock` above declares through the
-  // injected `ELEMENT_DATA_SOURCE_INPUT`. Publishing the flat four would
-  // advertise keys the renderer drops — the spec retires them in v18
-  // (objectstack#11509, ruled A-narrow).
+  // ⚠️ objectui#11880: the four query keys `object` / `filter` / `sort` /
+  // `limit` below stay PUBLISHED and are NOT READ. The picker reads its query
+  // from the node-level `dataSource` binding only (objectstack#11509, ruled
+  // A-narrow); the spec still declares the flat four, and their published
+  // retirement (tombstones, the `validate-component-props` refusal) ships with
+  // the spec half and the pin bump that carries it. Until then each
+  // description says the key is not read and names the binding member that is.
+  // The history below is why each was declared in the first place.
+  //
+  // `filter` is DECLARED, not merely honoured (objectui#3830) — the fourth key
+  // of objectui#3808's A class, which that issue's own three-way triage dropped
+  // between the raw key dump and the lists. The renderer read it then
+  // (`composed?.filter ?? props.filter`, into `query.$filter`), and the
+  // spec declares it (`ElementRecordPickerProps.filter`), but while it was
+  // missing from this list every layer that reads a manifest said the opposite:
+  // `element:record_picker` is not in `PUBLIC_BLOCKS` ("record picking is a
+  // field widget, not a page block"), so the gap was not in `sdui.manifest.json`
+  // — it was in the JSX-page compiler's prop whitelist, which
+  // `renderers/layout/page.tsx` builds from `getKnownTypes()` plus these same
+  // `inputs`. A JSX page writing `filter` got an `unknown-prop` warning from
+  // `sdui-parser/src/validate.ts` on a key the renderer then went on to filter
+  // by. That is objectui#3407 in the same shape as `readonly` — honoured,
+  // undiscoverable — and the reverse half of the parity gate in
+  // `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`, whose
+  // explicit exemption for this key is deleted by the same change.
   inputs: [
+    {
+      name: 'object',
+      type: 'string',
+      description:
+        'NOT READ (objectui#11880): the picker queries the object the node-level `dataSource.object` names, and a node without one offers no records. `@objectstack/spec` retires this flat key in v18 (objectstack#11509).',
+    },
+    {
+      name: 'filter',
+      // `'array'` is the spec's shape, not a chosen arm. objectstack#14406
+      // CONVERGED this key onto `z.array(ViewFilterRuleSchema)` — the last
+      // record-form `filter` in `ComponentPropsMap`, closing the maintainer's
+      // 2026-08-25 ruling that the platform carries one filter orthography
+      // (objectui#6206-B). It was `FilterConditionSchema` (the MongoDB-style
+      // `z.record(z.string(), z.unknown()).and(z.object({ $and, $or, $not }))`)
+      // until then, and this entry said `'object'` for exactly that reason.
+      // `checkType`'s `'array'` case in `sdui-parser/src/validate.ts` accepts
+      // what the spec now accepts here and rejects what it rejects — the record
+      // form included, which the spec refuses by KIND. Both halves are verified
+      // against `ElementRecordPickerPropsSchema.safeParse` in the parity test
+      // next to this file. So this stays the case in the family where the
+      // coarse vocabulary lines up with the contract exactly as declared: one
+      // arm, no union to spell. ⚠️ The array is a rule-OBJECT list, not a tuple
+      // list: `[['a', '=', 1]]` is refused at `filter.0`, and the coarse
+      // `'array'` cannot say so — which is what the description below is for.
+      // Contrast `element:text_input.defaultValue`, whose `string | number`
+      // needs two arms (objectui#3832), and `emptyText` below, which declares
+      // two for the same reason once its render site learned to resolve both
+      // (objectui#5590).
+      type: 'array',
+      // Taken from what the renderer DOES with the key: since objectui#11880
+      // it reads `dataSource.filter` only, so the description says this key is
+      // not read and names the binding member that is.
+      description:
+        'NOT READ (objectui#11880): the picker\'s filter is the node-level `dataSource.filter` — AND-combined with the filter of the saved view its `view` names, because the spec calls the binding\'s filter *additional* — and it becomes the `$filter` of the picker\'s own query, so it decides which records exist for the user. This flat key is not merged with it and never applies; `@objectstack/spec` retires it in v18 (objectstack#11509). Either door takes a ViewFilterRule ARRAY — `[{ field: "status", operator: "equals", value: "open" }, …]`, the one filter orthography this map\'s array-declared `filter` doors share; the MongoDB-style record form (`{ status: "open" }`, `{ $and: [ … ] }`) was retired by objectstack#14406, and a bare tuple (`["a", "=", 1]`) is refused as a member because each entry must be an object.',
+    },
     { name: 'labelField', type: 'string' },
     { name: 'valueField', type: 'string' },
     {
@@ -422,6 +476,41 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
       type: ['string', 'object'],
       description:
         'Caption rendered above the picker, in a `<label>` element — tied to the control by `htmlFor` when the node carries an `id`, so clicking it focuses the picker and the text becomes the combobox’s accessible name (objectui#5771), unless the block’s `aria.ariaLabel` names the combobox, which wins. Display-only — it never reaches the query, and it is OMITTED entirely when the key is absent or resolves to an empty string. Accepts either a plain string or an inline per-locale map (`{ en: "Owner", "zh-CN": "负责人" }`), the `I18nLabel` union rc.6 widened this key to; the renderer resolves the map against the active language at the read site, with the same fallback chain as `placeholder`. Distinct from `labelField`, which names the RECORD field each offered row is titled by.',
+    },
+    // ── sort / limit / emptyText — declared on the rc.6 bump (objectui#4167) ──
+    // `@objectstack/spec` 17.0.0-rc.6 lands objectstack#5775's other half: these
+    // three arrive as newly DECLARED keys on `ElementRecordPickerProps`, and the
+    // reverse direction of the parity gate went red demanding them the moment
+    // the pin moved. That red was predicted, in writing, by the exemption that
+    // covered the retired trio ("`sort` / `limit` / `emptyText` … become
+    // brand-new A-class gaps, and this gate will go RED demanding them. That red
+    // is correct and wanted"). All three were already READ here before they were
+    // declared anywhere, which is the objectui#3407 shape — honoured, and
+    // undiscoverable to every layer that reads a manifest.
+    {
+      name: 'sort',
+      // `'array'` is the spec's shape, not a chosen arm: `sort` is
+      // `z.array(z.object({ field, order: 'asc'|'desc' })).optional()`. Verified
+      // against `ElementRecordPickerPropsSchema.safeParse` — the array of
+      // `{ field, order }` parses, and the terse string spelling `'name asc'`
+      // does NOT, which is worth saying in the description because it is the
+      // form an author is most likely to reach for.
+      type: 'array',
+      // The MEMBER kind, machine-readable rather than only described
+      // (objectui#8067). `z.array(z.object({ … }))` accepts exactly one coarse
+      // kind at its member position — an object — so the fact the paragraph
+      // below spends a sentence on ("the terse string form is not accepted") is
+      // now a claim the repo-wide parity gate compares against the contract,
+      // `validateTree` reports on, and `sdui-intrinsics.d.ts` types.
+      of: 'object',
+      description:
+        'NOT READ (objectui#11880): the picker\'s row order is the node-level `dataSource.sort` (else the sort of the saved view its `view` names), which becomes the `$orderby` of the picker\'s own query. This flat key never applies; `@objectstack/spec` retires it in v18 (objectstack#11509). Either door takes an array of `{ field, order }` entries — `[{ field: "name", order: "asc" }]`, `order` `asc` or `desc`; the terse string form (`"name asc"`) is not accepted by the contract.',
+    },
+    {
+      name: 'limit',
+      type: 'number',
+      description:
+        'NOT READ (objectui#11880): the number of records the picker offers is capped by, first source that supplies a cap: (1) `dataSource.limit`; (2) the row cap of the saved view that `dataSource.view` names; (3) 50. The cap becomes the `$top` of the picker\'s own query, so a record outside it cannot be picked at all. A cap in (1) or (2) counts only when it is a positive integer — one the contract refuses (`0`, a negative, a non-integer) is treated as NOT AUTHORED and falls through exactly as an absent one does (objectui#10016). This flat key is not among the sources; `@objectstack/spec` retires it in v18 (objectstack#11509).',
     },
     {
       name: 'emptyText',

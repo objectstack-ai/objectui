@@ -12,8 +12,9 @@
  * The flat `properties.sort` was a registered input (`type: 'array', of:
  * 'object'`) read as `composed?.sort ?? props.sort`. objectstack#11509 (ruled
  * A-narrow) retires it with the other flat query keys, and the picker now
- * reads `dataSource.sort` only, so the flat key is neither published nor read.
- * The member contract is unchanged and is pinned below on the binding.
+ * reads `dataSource.sort` only: the flat key stays published until the spec's
+ * v18 retirement ships, and is not read. The member contract is unchanged and
+ * is pinned below on the binding.
  *
  * ## Where the read happens, and why it is an IDENTITY pin
  *
@@ -90,8 +91,12 @@ const input = (name: string) =>
   ComponentRegistry.getConfig('element:record_picker')?.inputs?.find((i) => i.name === name);
 
 describe('element:record_picker — the `sort` MEMBER shape the renderer reads (objectui#8068, objectui#11880)', () => {
-  it('CONTROL — the flat `sort` is not a published input; the binding is declared instead', () => {
-    expect(input('sort')).toBeUndefined();
+  it('CONTROL — the flat `sort` is still declared as an array of OBJECTS, and says it is not read', () => {
+    // Published until the spec's v18 retirement (objectstack#11509); the
+    // description is what tells an author the binding is the door.
+    expect(input('sort')?.type).toBe('array');
+    expect(input('sort')?.of).toBe('object');
+    expect(input('sort')?.description).toMatch(/NOT READ/);
     expect(input('dataSource')).toBeDefined();
   });
 

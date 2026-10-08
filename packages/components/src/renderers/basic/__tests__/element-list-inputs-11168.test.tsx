@@ -37,12 +37,8 @@
  *     `label` member: the list has no header row, so it was never printed, and
  *     the spec refuses it.
  *   - `element:repeater.filter` / `.sort` — declared as lists of objects
- *     (`of: 'object'`) by this slice, and their members pinned at the adapter
- *     seam below. objectui#11880 moved both into the node-level `dataSource`
- *     binding, the only place the list reads its query from, so they are no
- *     longer inputs; the member rows below now drive `dataSource.filter` /
- *     `dataSource.sort`, the members `data-list.elementDataSource-11880.test.tsx`
- *     pins with the rest of the binding.
+ *     (`of: 'object'`), the only member kind the spec rows accept, and their
+ *     members pinned at the adapter seam below.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -53,7 +49,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import { AdapterCtx, FilterScopeProvider, SchemaRenderer } from '@object-ui/react';
 import { manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
 import type { SchemaElement } from '@object-ui/sdui-parser';
-import { ComponentPropsMap, ElementDataSourceSchema } from '@objectstack/spec/ui';
+import { ComponentPropsMap } from '@objectstack/spec/ui';
 // Registers every `element:*` renderer at module scope, not in a hook
 // (object-ui/no-dynamic-import-in-test-hook, objectui#3010).
 import '../../../renderers';
@@ -162,11 +158,10 @@ describe('element:definition-list.items — optional, as the renderer and the sp
   });
 
   it('CONTROL: a required input on a sibling block is still reported when it is missing', () => {
-    // `element:number.aggregate` IS required, so the empty verdict above is
-    // the declaration, not a validator that stopped checking. (This row named
-    // `element:repeater.object` until objectui#11880 moved the repeater's
-    // object into the `dataSource` binding.)
-    expect(diagnose({ type: 'element:number' })).toEqual([{ severity: 'error', code: 'missing-required-prop' }]);
+    // `element:repeater.object` IS required (the renderer never queries
+    // without it), so the empty verdict above is the declaration, not a
+    // validator that stopped checking.
+    expect(diagnose({ type: REPEATER })).toEqual([{ severity: 'error', code: 'missing-required-prop' }]);
   });
 
   it('is published as a list of objects', () => {
@@ -220,19 +215,13 @@ describe('element:definition-list.items — the members the renderer reads (obje
 
 const ROW = { id: 'r1', name: 'Ada', owner: 'u1', email: 'ada@example.com' };
 
-/**
- * Mount a repeater bound to `contact` through its `dataSource` (objectui#11880),
- * plus any further binding members, over an adapter that records every query
- * and answers {@link ROW}.
- */
-function mountRepeater(properties: Record<string, unknown>, binding: Record<string, unknown> = {}) {
+/** Mount a repeater over an adapter that records every query and answers {@link ROW}. */
+function mountRepeater(properties: Record<string, unknown>) {
   const find = vi.fn(async (_object: string, _query: Record<string, unknown>) => ({ data: [ROW] }));
   render(
     <FilterScopeProvider currentUserId="user-1" currentOrgId="org-1">
       <AdapterCtx.Provider value={{ find } as never}>
-        <SchemaRenderer
-          schema={{ type: REPEATER, dataSource: { object: 'contact', ...binding }, properties } as never}
-        />
+        <SchemaRenderer schema={{ type: REPEATER, properties: { object: 'contact', ...properties } } as never} />
       </AdapterCtx.Provider>
     </FilterScopeProvider>,
   );
@@ -275,9 +264,9 @@ describe('element:repeater.fields — what each entry prints (objectui#11168)', 
   });
 });
 
-describe('element:repeater dataSource.filter — the rules the adapter is handed (objectui#11168, objectui#11880)', () => {
+describe('element:repeater.filter — the rules the adapter is handed (objectui#11168)', () => {
   it('the rules reach `$filter` member for member, with a context token in `value` resolved first', async () => {
-    const find = mountRepeater({}, {
+    const find = mountRepeater({
       filter: [
         { field: 'owner', operator: 'equals', value: '{current_user_id}' },
         { field: 'org', operator: 'equals', value: '{current_org_id}' },
@@ -297,7 +286,7 @@ describe('element:repeater dataSource.filter — the rules the adapter is handed
 
   it('CONTROL: a token-free rule list arrives unchanged, and no `filter` sends no `$filter`', async () => {
     const rules = [{ field: 'status', operator: 'not_equals', value: 'lost' }];
-    const find = mountRepeater({}, { filter: rules });
+    const find = mountRepeater({ filter: rules });
     await waitFor(() => expect(find).toHaveBeenCalled());
     for (const query of queries(find)) expect(query.$filter).toEqual(rules);
     cleanup();
@@ -306,23 +295,21 @@ describe('element:repeater dataSource.filter — the rules the adapter is handed
     for (const query of queries(bare)) expect(query).not.toHaveProperty('$filter');
   });
 
-  it('is not a published input — the binding carries it — and the binding refuses the record form', () => {
-    expect(inputsOf(REPEATER).has('filter')).toBe(false);
-    const refused = ElementDataSourceSchema.safeParse({ object: 'contact', filter: { owner: 'u1' } });
-    expect(refused.error?.issues.map((issue) => ({ code: issue.code, path: issue.path.join('.') }))).toEqual([
+  it('is published as a list of objects, and the spec refuses the record form', () => {
+    expect(inputsOf(REPEATER).get('filter')?.of).toBe('object');
+    expect(refusal(REPEATER, { object: 'contact', filter: { owner: 'u1' } })).toEqual([
       { code: 'invalid_type', path: 'filter' },
     ]);
-    expect(ElementDataSourceSchema.safeParse({ object: 'contact', filter: [{ field: 'owner', operator: 'equals', value: 'u1' }] }).success).toBe(true);
   });
 });
 
-describe('element:repeater dataSource.sort — the items the adapter is handed (objectui#11168, objectui#11880)', () => {
+describe('element:repeater.sort — the items the adapter is handed (objectui#11168)', () => {
   it('the items reach `$orderby` unchanged and in list order', async () => {
     const sort = [
       { field: 'name', order: 'desc' },
       { field: 'email', order: 'asc' },
     ];
-    const find = mountRepeater({}, { sort });
+    const find = mountRepeater({ sort });
     await waitFor(() => expect(find).toHaveBeenCalled());
     for (const query of queries(find)) expect(query.$orderby).toEqual(sort);
   });
@@ -333,10 +320,9 @@ describe('element:repeater dataSource.sort — the items the adapter is handed (
     for (const query of queries(find)) expect(query).not.toHaveProperty('$orderby');
   });
 
-  it('is not a published input — the binding carries it — and the binding refuses a bare field name as a member', () => {
-    expect(inputsOf(REPEATER).has('sort')).toBe(false);
-    const refused = ElementDataSourceSchema.safeParse({ object: 'contact', sort: ['name'] });
-    expect(refused.error?.issues.map((issue) => ({ code: issue.code, path: issue.path.join('.') }))).toEqual([
+  it('is published as a list of objects, and the spec refuses a bare field name as a member', () => {
+    expect(inputsOf(REPEATER).get('sort')?.of).toBe('object');
+    expect(refusal(REPEATER, { object: 'contact', sort: ['name'] })).toEqual([
       { code: 'invalid_type', path: 'sort.0' },
     ]);
   });

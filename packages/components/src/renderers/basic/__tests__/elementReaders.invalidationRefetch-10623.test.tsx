@@ -61,16 +61,27 @@ function mount(schema: Record<string, unknown>, adapter: ReturnType<typeof makeA
   );
 }
 
-// Both read their object from the node-level `dataSource` binding (objectui#11880).
+// The metric reads its object from the node-level `dataSource` binding
+// (objectui#11880); the repeater from its own `properties.object`.
 const NUMBER = { type: 'element:number', id: 'n', dataSource: { object: 'contact' }, properties: { aggregate: 'count' } };
-const REPEATER = { type: 'element:repeater', id: 'rep', dataSource: { object: 'contact' }, properties: { fields: ['name'] } };
+const REPEATER = { type: 'element:repeater', id: 'rep', properties: { object: 'contact', fields: ['name'] } };
 
 const cases = [
-  { block: 'element:number', schema: NUMBER, read: (a: ReturnType<typeof makeAdapter>) => a.aggregate },
-  { block: 'element:repeater', schema: REPEATER, read: (a: ReturnType<typeof makeAdapter>) => a.find },
+  {
+    block: 'element:number',
+    schema: NUMBER,
+    unbound: { type: 'element:number', id: 'n', properties: { aggregate: 'count' } },
+    read: (a: ReturnType<typeof makeAdapter>) => a.aggregate,
+  },
+  {
+    block: 'element:repeater',
+    schema: REPEATER,
+    unbound: { type: 'element:repeater', id: 'rep', properties: { fields: ['name'] } },
+    read: (a: ReturnType<typeof makeAdapter>) => a.find,
+  },
 ] as const;
 
-describe.each(cases)('$block re-reads on the data-invalidation bus (objectui#10623)', ({ schema, read }) => {
+describe.each(cases)('$block re-reads on the data-invalidation bus (objectui#10623)', ({ schema, unbound, read }) => {
   it('an unscoped change (objectName "*") re-runs its read once', async () => {
     const adapter = makeAdapter();
     mount(schema, adapter);
@@ -108,7 +119,6 @@ describe.each(cases)('$block re-reads on the data-invalidation bus (objectui#106
 
   it('a block with no object binding reads nothing on an invalidation', async () => {
     const adapter = makeAdapter();
-    const { dataSource: _dataSource, ...unbound } = schema;
     mount(unbound, adapter);
     await settle();
 

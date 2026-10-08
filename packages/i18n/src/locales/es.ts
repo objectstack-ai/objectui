@@ -4134,7 +4134,7 @@ const es = {
   },
   element: {
     number: {
-      noObject: "No se ha indicado ningún objeto: define object o dataSource.object.",
+      noObject: "No se ha indicado ningún objeto: define dataSource.object.",
     },
   },
 };

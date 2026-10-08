@@ -86,7 +86,7 @@
  * — the schema `PageComponentSchema.dataSource` is — on the SPEC face, and is
  * not judged by the block's props on either face. Judging it at the props row
  * would read a binding control as a retired flat key the day the spec
- * tombstones `element:repeater.object`, which is exactly the move it made.
+ * tombstones `element:number.object`, which is exactly the move it made.
  *
  * The REQUIRED direction — a schema-required key with no control — is measured
  * and reported on objectui#8216, and deliberately NOT gated here: objectui#7772's
@@ -344,13 +344,11 @@ describe('BLOCK_CONFIG ↔ node-schema parity — the instruments (objectui#8216
     expect(judge(ElementDataSourceSchema, 'object')).toBeUndefined();
     expect(judge(ElementDataSourceSchema, 'limit')).toBeUndefined();
     expect(judge(ElementDataSourceSchema, 'titleField')?.kind).toBe('MISSING');
-    // The population is real: the element blocks' Object pickers live there.
+    // The population is real: element:number's Object picker lives there.
     const homed = Object.entries(BLOCK_CONFIG).flatMap(([type, fields]) =>
       fields.filter((f) => f.at === 'dataSource').map((f) => `${type}.${f.name}`),
     );
-    expect(homed).toEqual(
-      expect.arrayContaining(['element:repeater.object', 'element:repeater.limit', 'element:number.object']),
-    );
+    expect(homed).toContain('element:number.object');
   });
 
   it('the SPEC face really refuses an undeclared key by name, not silently', () => {

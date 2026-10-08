@@ -4116,7 +4116,7 @@ const zh = {
   },
   element: {
     number: {
-      noObject: '未指定对象：请设置 object 或 dataSource.object。',
+      noObject: '未指定对象：请设置 dataSource.object。',
     },
   },
 } as const;

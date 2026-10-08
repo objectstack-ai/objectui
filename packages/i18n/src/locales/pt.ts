@@ -4129,7 +4129,7 @@ const pt = {
   },
   element: {
     number: {
-      noObject: "Nenhum objeto indicado: defina object ou dataSource.object.",
+      noObject: "Nenhum objeto indicado: defina dataSource.object.",
     },
   },
 };

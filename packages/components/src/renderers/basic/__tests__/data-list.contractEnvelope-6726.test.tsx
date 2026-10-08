@@ -57,10 +57,9 @@ function mount(envelope: Envelope) {
           {
             type: 'element:repeater',
             id: 'rep',
-            // Display config lives in the `properties` bag (`readProps`); the
-            // query is the node-level `dataSource` binding (objectui#11880).
-            dataSource: { object: 'contact' },
-            properties: { fields: ['name'] },
+            // Element config lives in the `properties` bag (`readProps`), not
+            // on the node — the same door an authored page writes through.
+            properties: { object: 'contact', fields: ['name'] },
           } as never
         }
       />

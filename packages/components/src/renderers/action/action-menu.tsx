@@ -113,7 +113,7 @@ export const ActionMenuItem: React.FC<{
   // drawn the menu-item way: a visible second line that is the item's
   // description. See `./disabled-reason`.
   const disabledReason = useDisabledReason(
-    hasDeclaredVisibilityGate((action as any).disabled) && isDisabledPred,
+    hasDeclaredVisibilityGate(action.disabled) && isDisabledPred,
   );
 
   const iconElement = useMemo(() => {

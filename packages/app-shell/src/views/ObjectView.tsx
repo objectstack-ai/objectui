@@ -2890,9 +2890,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     if (listIdentityKey && ufSelectionsRef.current?.key !== listIdentityKey) {
         ufSelectionsRef.current = { key: listIdentityKey, selections: parseUserFilterParams(searchParams) };
     }
-    const initialUfSelections = ufSelectionsRef.current?.key === listIdentityKey
-        ? ufSelectionsRef.current.selections
-        : undefined;
+    const initialUfSelections = listIdentityKey ? ufSelectionsRef.current?.selections : undefined;
     const handleUserFilterSelectionsChange = useCallback(
         (selections: Record<string, Array<string | number | boolean>>) => {
             setSearchParams(prev => {

@@ -38,7 +38,7 @@
  */
 
 import '@testing-library/jest-dom/vitest';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
@@ -127,6 +127,15 @@ const answer = (systemPermissions: string[]) => async () =>
 
 beforeEach(() => {
   auth = { isAuthenticated: true, isLoading: false, user: { id: 'u1' } };
+  // The landing mounts the real `AppHeader` (objectui#11863), which reads its
+  // user-scoped feeds and the AI agent catalogue on mount; each answers empty
+  // here, so no request leaves the process. The entry gate's own read goes
+  // through the mocked `createAuthenticatedFetch`, not this.
+  vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [] })));
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('/studio/* — the builder module loads behind the gate (objectui#11798)', () => {
@@ -171,7 +180,8 @@ describe('/studio/* — the builder module loads behind the gate (objectui#11798
     renderStudio('/studio');
 
     await waitFor(() => expect(screen.getByTestId('studio-front-door')).toBeInTheDocument());
-    // The wordmark header is the frame the landing's fallback sits under.
+    // The console header is the frame the landing's fallback sits under; its
+    // brand links home (objectui#11863).
     expect(screen.getByRole('link', { name: 'ObjectOS' })).toHaveAttribute('href', '/home');
     // Both `lazy()` declarations name one specifier, so one module serves both.
     expect(builderModuleLoads.count).toBe(1);

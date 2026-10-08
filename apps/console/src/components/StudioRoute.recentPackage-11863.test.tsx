@@ -133,10 +133,16 @@ beforeEach(() => {
   auth = { isAuthenticated: true, isLoading: false, user: { id: 'u1' } };
   permissionsFetch = holder;
   localStorage.clear();
+  // The landing mounts the real `AppHeader` (objectui#11863), which reads its
+  // user-scoped feeds and the AI agent catalogue on mount; each answers empty
+  // here, so no request leaves the process. The entry gate's own read goes
+  // through the mocked `createAuthenticatedFetch`, not this.
+  vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [] })));
 });
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 describe('/studio/PKG/TAB records the package as a recent entry (objectui#11863)', () => {

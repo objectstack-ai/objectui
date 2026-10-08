@@ -35,13 +35,13 @@
  */
 
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
-import { Link, Navigate, Outlet, Route, useParams } from 'react-router-dom';
+import { Navigate, Outlet, Route, useParams } from 'react-router-dom';
 import {
+  AppHeader,
   LoadingFallback,
   LoadingScreen,
   STUDIO_ORG_SCOPE_PILLAR,
   STUDIO_ORG_SCOPE_SEGMENT,
-  getProductName,
   useHomePath,
   useRecentItems,
 } from '@object-ui/app-shell';
@@ -125,7 +125,7 @@ export function StudioRoute() {
 
 /**
  * What a Studio builder screen shows INSIDE an already-painted frame while its
- * chunk loads (objectui#11798): the `/studio` landing under its wordmark header,
+ * chunk loads (objectui#11798): the `/studio` landing under its console header,
  * and the `studio:builder` registry entry inside the app shell. One line of the
  * shared `common.loading` text, as `registerAccountComponents` shows for its own
  * lazy page. The full-screen pillar builder has no frame of its own, so it
@@ -146,34 +146,19 @@ export function StudioBuilderLoading() {
  * The `/studio` front door: pick or create a writable package, or open the
  * organization's package-less flows.
  *
- * Standalone frame — the landing must never be a navigation dead end, so the
- * wordmark walks back to the platform Home.
- *
- * Its sibling screen inside the same frame — `StudioDesignSurface`'s header
- * Home button — follows the declared landing since objectui#7373, and two
- * affordances one route apart must not name two different homes (the very
- * defect objectui#7256 measured), so this one reads the same hook.
- *
- * The wordmark's tooltip resolves through `useObjectTranslation` and the
- * `console.*` bundle, which is how every other user-visible string in this
- * app is written (objectui#10043; objectui#4024 ruled the same way for the
- * settings screen, whose chrome was hardcoded beside a keyed sibling). It
- * shipped as a raw literal in one language before that — a title attribute
- * is user-visible text, which AGENTS.md commandment #-1 names by category.
+ * Its header is the console's own (objectui#11863): `AppHeader`'s `studio`
+ * variant, as `/home` mounts the `home` one, with the same account menu, inbox
+ * and help, and the brand, then a fixed Studio crumb. The brand links to
+ * `useHomePath()`, so the landing is never a navigation dead end, and it names
+ * the same home as `StudioDesignSurface`'s Home button one route apart
+ * (objectui#7256, objectui#7373). No command palette is mounted here, so the
+ * header draws no search trigger (objectui#11912).
  */
 function StudioLanding() {
-  const homePath = useHomePath();
-  const { t } = useObjectTranslation();
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="flex shrink-0 items-center border-b px-3 py-2">
-        <Link
-          to={homePath}
-          title={t('console.studio.backToHome')}
-          className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] font-semibold hover:bg-muted"
-        >
-          {getProductName()}
-        </Link>
+      <header className="sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4">
+        <AppHeader variant="studio" />
       </header>
       <div className="min-h-0 flex-1 overflow-auto">
         {/* The frame above stays painted while the landing's chunk loads. */}

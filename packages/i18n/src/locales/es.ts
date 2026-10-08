@@ -1648,7 +1648,7 @@ const es = {
   },
   console: {
     studio: {
-      backToHome: "Volver al inicio",
+      title: "Studio",
     },
     saveAdvisoryTitle: "Guardado: la comprobación de creación generó {{count}} recomendación(es)",
     saveAdvisoryTitle_one: "Guardado: la comprobación de creación generó {{count}} recomendación",

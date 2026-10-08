@@ -49,9 +49,11 @@ import { HookBodySchema } from '@objectstack/spec/data';
 
 // objectui#4697: the inspector calls `useObjectOptions()` / `useObjectFields()`
 // / `useMetaOptions()` on mount. Stub the shared client so nothing reaches the
-// network. Nothing below reads the catalog.
+// network. Nothing below reads the catalog. `useObjectFields()` reads through
+// `withPreviewDrafts(true)` since objectui#11895, so the stub answers it with
+// itself, as the sibling inspector suites' stubs do.
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({ useMetadataClient: () => state.metadataClient }));
 

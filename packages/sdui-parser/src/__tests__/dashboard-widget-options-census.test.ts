@@ -53,6 +53,8 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { DashboardWidgetOptionsSchema, DashboardWidgetSchema } from '@objectstack/spec/ui';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { stripComments } from '../../../../scripts/js-comment-mask.mjs';
 import {
   CONSUMED_WIDGET_OPTION_KEYS,
   UNCONSUMED_WIDGET_OPTION,
@@ -190,7 +192,12 @@ describe('leg 2 — the renderer side: DatasetWidget source census', () => {
 });
 
 describe('leg 3 — the retired sub-caption has no reader left (objectui#11389)', () => {
-  /** Every non-test TS/TSX source file of `plugin-dashboard`, comments stripped. */
+  /**
+   * Every non-test TS/TSX source file of `plugin-dashboard`, comments stripped
+   * through the repo's one comment scanner (`scripts/js-comment-mask.mjs`).
+   * `stripComments`, not `maskComments`: this leg reports file names only,
+   * never a line or an offset.
+   */
   const sources = (): Array<[string, string]> => {
     const out: Array<[string, string]> = [];
     const walk = (dir: string): void => {
@@ -200,8 +207,8 @@ describe('leg 3 — the retired sub-caption has no reader left (objectui#11389)'
         if (entry.isDirectory()) walk(p);
         else if (/\.(ts|tsx)$/.test(entry.name) && !/\.test\.|\.d\.ts$/.test(entry.name)) {
           // Comments may NAME the retired key (they explain its retirement); a
-          // read is code. Block and line comments are dropped before matching.
-          const code = readFileSync(p, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+          // read is code, so comments are dropped before matching.
+          const code = stripComments(readFileSync(p, 'utf8')) as string;
           out.push([relative(repoRoot, p).replace(/\\/g, '/'), code]);
         }
       }

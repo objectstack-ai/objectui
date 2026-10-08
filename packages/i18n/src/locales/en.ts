@@ -1957,11 +1957,11 @@ const en = {
     },
   },
   console: {
-    // The Studio front door's wordmark (objectui#10043). Its sibling one
-    // route away -- `StudioDesignSurface`'s header Home button -- walks back
-    // to the same place, so both read as the same affordance.
+    // The fixed crumb `AppHeader`'s `studio` variant draws on the Studio front
+    // door (objectui#11863), as `organizations.title` is the `orgs` variant's.
+    // A product name, which every pack writes as is.
     studio: {
-      backToHome: 'Back to home',
+      title: 'Studio',
     },
     saveAdvisoryTitle: 'Saved — the authoring check raised {{count}} advisory finding(s)',
     saveAdvisoryTitle_one: 'Saved — the authoring check raised {{count}} advisory finding',

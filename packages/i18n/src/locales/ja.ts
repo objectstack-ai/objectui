@@ -1606,7 +1606,7 @@ const ja = {
   },
   console: {
     studio: {
-      backToHome: "ホームに戻る",
+      title: "Studio",
     },
     saveAdvisoryTitle: "保存しました — 編集チェックで {{count}} 件の推奨事項が見つかりました",
     saveAdvisoryTitle_one: "保存しました — 編集チェックで {{count}} 件の推奨事項が見つかりました",

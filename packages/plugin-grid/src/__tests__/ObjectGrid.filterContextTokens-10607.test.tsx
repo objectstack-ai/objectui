@@ -34,13 +34,20 @@ import { render, waitFor, act, cleanup } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider, FilterScopeProvider } from '@object-ui/react';
 import { resolveFilterPlaceholders } from '@object-ui/core';
 import type { DataSource, ObjectGridSchema } from '@object-ui/types';
+import type { ViewFilterRule } from '@objectstack/spec/ui';
 // Registers `object-grid`.
 import '../index';
 
 const USER = 'usr_42';
 const ORG = 'org_7';
 
-const MINE = [['owner', '=', '{current_user_id}']];
+/**
+ * The authored `filter` is the `ViewFilterRule` array: objectui#6152 round 8 respelled this
+ * file's fixtures from the AST tuple array (`[['owner', '=', '{current_user_id}']]`), which
+ * the `object-grid` row refuses. `ObjectGrid` lowers the rule to the AST node the
+ * assertions read off `$filter`, so the operator arrives as the rule's `equals`.
+ */
+const MINE: ViewFilterRule[] = [{ field: 'owner', operator: 'equals', value: '{current_user_id}' }];
 
 function makeAdapter() {
   return {
@@ -104,13 +111,13 @@ describe('object-grid — the node’s own filter reaches the query resolved (ob
   it('sends the signed-in user id for {current_user_id}, not the literal token', async () => {
     const adapter = makeAdapter();
     render(ui(adapter, gridNode({ filter: MINE })));
-    expect(await queriedFilter(adapter.find)).toEqual([['owner', '=', USER]]);
+    expect(await queriedFilter(adapter.find)).toEqual([['owner', 'equals', USER]]);
   });
 
   it('sends the active organization id for {current_org_id}', async () => {
     const adapter = makeAdapter();
-    render(ui(adapter, gridNode({ filter: [['org', '=', '{current_org_id}']] })));
-    expect(await queriedFilter(adapter.find)).toEqual([['org', '=', ORG]]);
+    render(ui(adapter, gridNode({ filter: [{ field: 'org', operator: 'equals', value: '{current_org_id}' }] })));
+    expect(await queriedFilter(adapter.find)).toEqual([['org', 'equals', ORG]]);
   });
 
   it('resolves the deprecated `defaultFilters` alias too, when `filter` is absent', async () => {
@@ -123,14 +130,14 @@ describe('object-grid — the node’s own filter reaches the query resolved (ob
 
   it('CONTROL: a token-free filter reaches the query unchanged', async () => {
     const adapter = makeAdapter();
-    render(ui(adapter, gridNode({ filter: [['owner', '=', 'usr_literal']] })));
-    expect(await queriedFilter(adapter.find)).toEqual([['owner', '=', 'usr_literal']]);
+    render(ui(adapter, gridNode({ filter: [{ field: 'owner', operator: 'equals', value: 'usr_literal' }] })));
+    expect(await queriedFilter(adapter.find)).toEqual([['owner', 'equals', 'usr_literal']]);
   });
 
   it('keeps the token literal with no user in scope, and the shared resolver names it (no fallback)', async () => {
     const adapter = makeAdapter();
     render(ui(adapter, gridNode({ filter: MINE }), null, null));
-    expect(await queriedFilter(adapter.find)).toEqual([['owner', '=', '{current_user_id}']]);
+    expect(await queriedFilter(adapter.find)).toEqual([['owner', 'equals', '{current_user_id}']]);
     expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('{current_user_id}'))).toBe(true);
   });
 
@@ -138,13 +145,13 @@ describe('object-grid — the node’s own filter reaches the query resolved (ob
     const adapter = makeAdapter();
     const node = gridNode({ filter: MINE });
     const { rerender } = render(ui(adapter, node));
-    expect(await queriedFilter(adapter.find, 0)).toEqual([['owner', '=', USER]]);
+    expect(await queriedFilter(adapter.find, 0)).toEqual([['owner', 'equals', USER]]);
     await settle();
     const before = adapter.find.mock.calls.length;
     await act(async () => {
       rerender(ui(adapter, node, 'usr_99'));
     });
-    expect(await queriedFilter(adapter.find, before)).toEqual([['owner', '=', 'usr_99']]);
+    expect(await queriedFilter(adapter.find, before)).toEqual([['owner', 'equals', 'usr_99']]);
   });
 
   it('re-queries with the new id when the user changes and only `defaultFilters` carries the token', async () => {
@@ -182,9 +189,9 @@ describe('object-grid — the resolved filter is held, so an equal filter does n
     // A host that writes the node inline hands a fresh, structurally equal
     // filter on every render; the hold compares by structure.
     const adapter = makeAdapter();
-    const fresh = () => gridNode({ filter: MINE.map((rule) => [...rule]) });
+    const fresh = () => gridNode({ filter: MINE.map((rule) => ({ ...rule })) });
     const { rerender } = render(ui(adapter, fresh()));
-    expect(await queriedFilter(adapter.find)).toEqual([['owner', '=', USER]]);
+    expect(await queriedFilter(adapter.find)).toEqual([['owner', 'equals', USER]]);
     await settle();
     const settled = adapter.find.mock.calls.length;
     for (let i = 0; i < 3; i++) {
@@ -205,7 +212,8 @@ describe('object-grid — the resolved filter is held, so an equal filter does n
     const handed = resolveFilterPlaceholders(MINE, { currentUserId: USER, currentOrgId: ORG });
     const node = gridNode({ filter: handed });
     const { rerender } = render(ui(adapter, node, 'someone_else'));
-    expect(await queriedFilter(adapter.find)).toEqual(handed);
+    // The handed rule arrives lowered, exactly as an unresolved one does above.
+    expect(await queriedFilter(adapter.find)).toEqual([['owner', 'equals', USER]]);
     await settle();
     await act(async () => {
       rerender(ui(adapter, node, 'someone_else'));

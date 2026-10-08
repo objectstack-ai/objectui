@@ -40,12 +40,18 @@
  * every change through the `onChange` it is handed. Everything asserted is
  * `CodeWidget`'s own read (what it hands the editor) and write (what it hands
  * its host).
+ *
+ * The editor mounts only once the page's Monaco loader probe has resolved
+ * (objectui#11858), so the loader is stubbed to resolve, and the sink paints
+ * one `.view-line` row as a loaded Monaco does: this file is the
+ * reachable-CDN page. The failing page is
+ * `CodeWidget.loaderFallback-11858.test.tsx`.
  */
 
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { FieldSchema, hookForm, objectForm } from '@objectstack/spec/data';
 
 vi.mock('@object-ui/plugin-editor', () => ({
@@ -58,14 +64,23 @@ vi.mock('@object-ui/plugin-editor', () => ({
     onChange?: (next: string | undefined) => void;
     schema: { language?: string };
   }) => (
-    <textarea
-      data-testid="code-editor-sink"
-      data-language={schema.language}
-      value={value ?? ''}
-      onChange={(e) => onChange?.(e.target.value)}
-    />
+    <div>
+      <div className="view-line" />
+      <textarea
+        data-testid="code-editor-sink"
+        data-language={schema.language}
+        value={value ?? ''}
+        onChange={(e) => onChange?.(e.target.value)}
+      />
+    </div>
   ),
 }));
+
+// The CDN is reachable: the page's one `loader.init()` resolves.
+vi.mock('@monaco-editor/react', () => {
+  const Editor = () => null;
+  return { Editor, default: Editor, loader: { init: () => Promise.resolve({}) } };
+});
 
 // The module `CodeWidget`'s `React.lazy` factory imports, loaded here at module
 // scope so the lazy boundary resolves at once instead of racing a `findBy`
@@ -212,5 +227,22 @@ describe('CodeWidget — an expression slot goes through the ADR-0089 envelope (
     fireEvent.change(sink, { target: { value: '' } });
     // The string path still writes '' for a cleared editor.
     expect(onChange).toHaveBeenLastCalledWith('');
+  });
+});
+
+describe('CodeWidget — control: a reachable Monaco loader keeps the editor (objectui#11858)', () => {
+  it('mounts the editor, not the textarea fallback, and keeps it past the fallback backstop', async () => {
+    renderCode(JAVASCRIPT_ROW, 'return 1;');
+    const sink = await editor();
+
+    // `useMonacoFallback` looks once, its default `fallbackDelayMs` after
+    // mount, for a painted Monaco row, and falls back to the textarea without
+    // one. The wait must outlast that look for this control to mean anything.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 4500));
+    });
+
+    expect(screen.getByTestId('code-editor-sink'), 'the editor stayed mounted').toBe(sink);
+    expect(screen.getAllByRole('textbox'), 'a fallback textarea beside or instead of the editor').toEqual([sink]);
   });
 });

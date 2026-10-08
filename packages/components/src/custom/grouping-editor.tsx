@@ -63,9 +63,8 @@ const DEFAULT_LABELS = {
  * user sees the active selection.
  *
  * The field selector is the shared `Select` primitive, the control the Filter
- * and Sort panels beside this one pick a field with over the same list, so the
- * three panels look and behave alike and the primitive's own disabled styling
- * applies here (objectui#11865). It used to be a browser-native `<select>`.
+ * and Sort panels beside this one pick a field with, so the three panels look
+ * and behave alike (objectui#11865). It used to be a browser-native `<select>`.
  */
 export function GroupingEditor({
   value,

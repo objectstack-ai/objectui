@@ -10,8 +10,8 @@
  * The list Group panel picks its field with the shared `Select` (objectui#11865).
  *
  * `GroupingEditor` used to render a browser-native select for each level's
- * field, beside the Filter and Sort panels that pick a field from the same list
- * with the shared Radix `Select`. The card asks for one control for one kind of
+ * field, beside the Filter and Sort panels that pick a field with the shared
+ * Radix `Select`. The card asks for one control for one kind of
  * choice, surface by surface; this suite covers the Group panel's surface.
  *
  * What is pinned:
@@ -24,10 +24,13 @@
  *     its trigger instead of a blank one (the objectui#4874 invariant);
  *   - selection works from the keyboard alone, through the primitive.
  *
- * DIRECTION, predicted before running against the native control: the first
- * pin (the control is the primitive) and the outside-options pin are RED there;
- * the round-trip, empty-state and add/remove pins are GREEN in both directions,
- * because they guard that the conversion changed nothing the panel writes.
+ * DIRECTION, observed against the native control: only the empty-state and
+ * add / remove pins are green there. Every other pin is red, the
+ * round-trip ones included, because they open the primitive's listbox, which a
+ * native select does not have. What makes them guards of "the conversion
+ * changed nothing the panel writes" is the literal they compare against: a
+ * `change` event on the native control wrote that same JSON, and its per-row
+ * option list was the same, read once on the pre-conversion component.
  */
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';

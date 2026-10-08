@@ -487,7 +487,6 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       label: 'Sweep object',
       kind: 'reference',
       ref: { kind: 'object' },
-      placeholder: 'contracts',
       help: 'Object whose records are swept each run.',
       showWhen: { field: 'triggerType', equals: ['time_relative'] },
     },
@@ -701,25 +700,25 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     cfg('collection', 'Collection', 'expression', { placeholder: '{items}', refMode: 'template', help: 'Expression resolving to the array to process, one item at a time.' }),
     cfg('flowName', 'Per-item flow', 'reference', { ref: { kind: 'flow' }, placeholder: 'one_task_signoff', help: 'Subflow run for each item — it may pause (e.g. an approval).' }),
     cfg('iteratorVariable', 'Item variable', 'text', { placeholder: 'item' }),
-    cfg('itemObject', 'Item object', 'reference', { ref: { kind: 'object' }, placeholder: 'showcase_task', help: 'When items are records, the object they belong to (exposes each item as the child’s record).' }),
+    cfg('itemObject', 'Item object', 'reference', { ref: { kind: 'object' }, help: 'When items are records, the object they belong to (exposes each item as the child’s record).' }),
     cfg('outputVariable', 'Output variable', 'text', { placeholder: 'results', help: 'Each item’s subflow output, collected in order.' }),
   ],
   create_record: [
-    cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' }, placeholder: 'contract' }),
+    cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' } }),
     cfg('fields', 'Field values', 'keyValue', { help: 'Field values to write on the new record.' }),
     cfg('outputVariable', 'Output variable', 'text', { placeholder: 'newRecord' }),
   ],
   update_record: [
-    cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' }, placeholder: 'contract' }),
+    cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' } }),
     cfg('filter', 'Filter', 'keyValue', { help: 'Field/value pairs identifying the record(s) to update (e.g. id → {recordId}).' }),
     cfg('fields', 'Field values', 'keyValue', { help: 'Field values to write.' }),
   ],
   delete_record: [
-    cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' }, placeholder: 'contract' }),
+    cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' } }),
     cfg('filter', 'Filter', 'keyValue', { help: 'Field/value pairs identifying the record(s) to delete.' }),
   ],
   get_record: [
-    cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' }, placeholder: 'contract' }),
+    cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' } }),
     cfg('filter', 'Filter', 'keyValue', { help: 'Field/value pairs to match (e.g. status → active). Operator values like {"$ne": null} are preserved.' }),
     cfg('limit', 'Limit', 'number', { placeholder: '100' }),
     cfg('outputVariable', 'Output variable', 'text', { placeholder: 'records' }),
@@ -823,7 +822,6 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     }),
     cfg('objectName', 'Object form', 'reference', {
       ref: { kind: 'object' },
-      placeholder: 'crm_account',
       help: 'Render this object\u2019s full create/edit form (incl. master-detail) instead of a flat field list.',
     }),
     cfg('idVariable', 'Saved-record variable', 'text', {
@@ -1197,7 +1195,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
    */
   legacy_action: [
     cfg('action', 'Action', 'text', { placeholder: 'sendEmail · createTask · update · query' }),
-    cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' }, placeholder: 'contract' }),
+    cfg('objectName', 'Object', 'reference', { ref: { kind: 'object' } }),
     cfg('recordId', 'Record', 'expression', { placeholder: 'record.id' }),
     cfg('params', 'Parameters', 'keyValue', { help: 'Action inputs. Values auto-typed: 3 \u2192 number, true \u2192 boolean.' }),
     cfg('fields', 'Field values', 'keyValue' ),

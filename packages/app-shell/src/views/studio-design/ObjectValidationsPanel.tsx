@@ -20,9 +20,7 @@
  *   - json_schema   — a JSON field validated against a JSON Schema.
  *   - conditional   — a CEL guard + a nested rule applied when it holds.
  *
- * Adding a rule starts from the "New" menu, which opens on a few common rules in
- * plain words (objectui#11861, `validationPresets.ts`) and keeps every spec type
- * under "Advanced" — see "Starting points" below. A new rule starts on
+ * Adding a rule offers every type (the "New" menu). A new rule starts on
  * Create + Update (objectui#11820). A type whose rule carries a CEL guard
  * (`script`, `cross_field`, `conditional`) is NOT written to the object draft
  * until the author gives it a condition — see "A new rule waits for its
@@ -60,28 +58,16 @@
  * An EXISTING rule is edited exactly as before, including a type switch, which
  * still seeds the `'false'` placeholder: a rule already in the draft must stay
  * saveable while it is being reshaped.
- *
- * ## Starting points (objectui#11861)
- *
- * "New" opens on the presets of `validationPresets.ts` — each a rule of a type
- * the spec already has, labelled by what it does rather than by its type — and
- * the per-type list, unchanged, under "Advanced". A preset is applied through
- * the same door as a type: the new-rule skeleton, then the keys the preset
- * fills. So the hold above covers it as it covers any new rule: a preset that
- * fills its condition from the object's fields is written at once, and one that
- * leaves it empty is held, and opens with the condition editor focused. A preset
- * whose fields the object lacks is listed disabled, saying what it needs.
  */
 
 import React from 'react';
-import { Plus, Trash2, ShieldAlert, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, ShieldAlert, ChevronDown } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@object-ui/components';
 import { ConditionBuilder, RECORD_CONDITION_SUBJECTS } from '../metadata-admin/inspectors/ConditionBuilder.js';
 import { expressionSource, writeExpressionSource } from '../metadata-admin/inspectors/expression-envelope.js';
 import { readFields } from '../metadata-admin/previews/object-fields-io.js';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
 import type { ExpressionInput } from '@objectstack/spec/shared';
-import { VALIDATION_PRESETS, type PresetPlan, type ValidationPreset } from './validationPresets.js';
 
 /**
  * objectui#11781 — the look a disabled control takes: the pair the
@@ -138,9 +124,6 @@ interface FieldOpt {
   name: string;
   label?: string;
   hidden?: boolean;
-  /** Read by the New menu's presets only (objectui#11861), to pick their fields. */
-  type?: string;
-  system?: boolean;
 }
 
 /** Rule types, in menu order. `json_schema` matches the spec literal (not `json`). */
@@ -406,7 +389,6 @@ function RuleTypeFields({
   locale,
   onBlockingIssuesChange,
   missing,
-  guardRef,
 }: {
   rule: ValidationRuleDraft;
   fields: FieldOpt[];
@@ -420,13 +402,7 @@ function RuleTypeFields({
    * ({@link missingGuard}); the input it names carries the hold's hint.
    */
   missing?: 'rule' | 'then' | null;
-  /**
-   * objectui#11861 — the condition group, which the panel focuses when a
-   * preset leaves the condition to the author.
-   */
-  guardRef?: React.Ref<HTMLDivElement>;
 }) {
-  const captionId = React.useId();
   // The hint the Data pillar's hold puts under the input an edit waits on
   // (objectui#11786), under the input this rule waits on.
   const heldHint = (
@@ -460,17 +436,8 @@ function RuleTypeFields({
   const guard = guardKey(rule.type);
 
   const conditionField = (
-    // A group named by its caption, and focusable from script only
-    // (`tabIndex={-1}`): where a preset that leaves the condition empty puts
-    // the author (objectui#11861).
-    <div
-      ref={guardRef}
-      role="group"
-      aria-labelledby={captionId}
-      tabIndex={-1}
-      className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <span id={captionId} className="mb-1 block text-[11px] text-muted-foreground">
+    <div>
+      <span className="mb-1 block text-[11px] text-muted-foreground">
         {t('engine.studio.rules.celPre', locale)}
         <b>{t('engine.studio.rules.celTrue', locale)}</b>
         {t('engine.studio.rules.celMid', locale)}
@@ -673,26 +640,10 @@ export function ObjectValidationsPanel({
         name: e.name,
         label: typeof e.def.label === 'string' ? (e.def.label as string) : undefined,
         hidden: e.def.hidden === true,
-        type: typeof e.def.type === 'string' ? (e.def.type as string) : undefined,
-        system: e.def.system === true,
       })),
     [draft.fields],
   );
   const firstField = fields.find((f) => !f.hidden)?.name ?? fields[0]?.name;
-
-  // objectui#11861 — what each preset would do on THIS object, read before the
-  // author picks one so its menu row can say which fields it uses, or what the
-  // object lacks.
-  const presetPlans = React.useMemo(
-    () => VALIDATION_PRESETS.map((preset) => ({ preset, plan: preset.plan(fields, locale) })),
-    [fields, locale],
-  );
-  const [advancedOpen, setAdvancedOpen] = React.useState(false);
-  const presetIds = React.useId();
-  // Set when a preset leaves its condition to the author: the menu's closing
-  // focus goes to the condition editor instead of back to "New".
-  const focusGuardOnClose = React.useRef(false);
-  const guardRef = React.useRef<HTMLDivElement>(null);
 
   /* ─── Blocking CEL verdicts → the Data pillar's Save gate (objectui#4527) ──
    *
@@ -759,32 +710,13 @@ export function ObjectValidationsPanel({
     commit(rules.map((r) => (r.name === name ? { ...r, ...patch } : r)));
   };
 
-  /** Put a new rule in place: written when it lacks no guard, held otherwise (objectui#11820). */
-  const placeNewRule = (rule: ValidationRuleDraft) => {
+  const addRule = (type: RuleType) => {
+    const name = nextRuleName(listed.map((r) => r.name ?? ''));
+    const rule = newRule(type, name, firstField);
     // A type with no guard has nothing to wait for: written at once, as before.
     if (missingGuard(rule) === null) commit([...rules, rule]);
     else setUnsaved((prev) => [...prev, rule]);
-    setSelected(rule.name ?? null);
-  };
-
-  const addRule = (type: RuleType) => {
-    placeNewRule(newRule(type, nextRuleName(listed.map((r) => r.name ?? '')), firstField));
-  };
-
-  /**
-   * objectui#11861 — the same new rule a type gets, then the keys the preset
-   * fills. Its condition decides the rest: filled ⇒ written now; empty ⇒ held,
-   * and the editor opens on the condition.
-   */
-  const addPreset = (preset: ValidationPreset, plan: Extract<PresetPlan, { ready: true }>) => {
-    const rule: ValidationRuleDraft = {
-      ...newRule(preset.type, nextRuleName(listed.map((r) => r.name ?? '')), firstField),
-      message: plan.message,
-    };
-    if (plan.fields) rule.fields = plan.fields;
-    if (plan.condition) rule[guardKey(preset.type)] = plan.condition;
-    focusGuardOnClose.current = missingGuard(rule) !== null;
-    placeNewRule(rule);
+    setSelected(name);
   };
 
   const removeRule = (name: string) => {
@@ -838,14 +770,7 @@ export function ObjectValidationsPanel({
           <span className="text-[13px] font-medium">{t('engine.studio.rules.title', locale)}</span>
           <span className="text-[11px] text-muted-foreground">({listed.length})</span>
           {!disabled && (
-            <Popover
-              open={addOpen}
-              onOpenChange={(open) => {
-                setAddOpen(open);
-                // Every opening starts on the presets, Advanced folded.
-                if (open) setAdvancedOpen(false);
-              }}
-            >
+            <Popover open={addOpen} onOpenChange={setAddOpen}>
               <PopoverTrigger asChild>
                 <button
                   type="button"
@@ -855,78 +780,23 @@ export function ObjectValidationsPanel({
                   <ChevronDown className="h-3 w-3 text-muted-foreground" />
                 </button>
               </PopoverTrigger>
-              <PopoverContent
-                align="end"
-                sideOffset={4}
-                className="w-64 p-1"
-                onCloseAutoFocus={(e) => {
-                  // objectui#11861 — a preset that left its condition empty
-                  // hands focus to the condition editor, not back to "New".
-                  if (!focusGuardOnClose.current) return;
-                  focusGuardOnClose.current = false;
-                  e.preventDefault();
-                  guardRef.current?.focus();
-                }}
-              >
+              <PopoverContent align="end" sideOffset={4} className="w-56 p-1">
                 <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {t('engine.studio.rules.presets', locale)}
+                  {t('engine.studio.rules.newType', locale)}
                 </p>
-                {presetPlans.map(({ preset, plan }) => (
+                {RULE_TYPES.map((rt) => (
                   <button
-                    key={preset.id}
+                    key={rt.value}
                     type="button"
-                    data-testid={`rule-preset-${preset.id}`}
-                    disabled={!plan.ready}
-                    aria-labelledby={`${presetIds}-${preset.id}-label`}
-                    aria-describedby={`${presetIds}-${preset.id}-hint`}
                     onClick={() => {
-                      if (!plan.ready) return;
-                      addPreset(preset, plan);
+                      addRule(rt.value);
                       setAddOpen(false);
                     }}
-                    className="flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                    className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-[12px] hover:bg-muted"
                   >
-                    <span id={`${presetIds}-${preset.id}-label`} className="text-[12px]">
-                      {t(preset.labelKey, locale)}
-                    </span>
-                    <span id={`${presetIds}-${preset.id}-hint`} className="text-[11px] text-muted-foreground">
-                      {plan.hint}
-                    </span>
+                    {t(rt.labelKey, locale)}
                   </button>
                 ))}
-                <div className="my-1 border-t" />
-                <button
-                  type="button"
-                  aria-expanded={advancedOpen}
-                  // Names the list only while it is on the page.
-                  aria-controls={advancedOpen ? `${presetIds}-advanced` : undefined}
-                  onClick={() => setAdvancedOpen((v) => !v)}
-                  className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-muted"
-                >
-                  {advancedOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                  {t('engine.studio.rules.advanced', locale)}
-                </button>
-                {/* The per-type menu, unchanged, folded under Advanced. */}
-                {advancedOpen && (
-                  <div id={`${presetIds}-advanced`}>
-                    <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                      {t('engine.studio.rules.newType', locale)}
-                    </p>
-                    {RULE_TYPES.map((rt) => (
-                      <button
-                        key={rt.value}
-                        type="button"
-                        onClick={() => {
-                          addRule(rt.value);
-                          setAddOpen(false);
-                        }}
-                        className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-[12px] hover:bg-muted"
-                      >
-                        {t(rt.labelKey, locale)}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </PopoverContent>
             </Popover>
           )}
@@ -1051,7 +921,6 @@ export function ObjectValidationsPanel({
               locale={locale}
               onBlockingIssuesChange={(count) => reportCel(sel.name!, count)}
               missing={selMissing}
-              guardRef={guardRef}
             />
 
             {/* runs-on events */}

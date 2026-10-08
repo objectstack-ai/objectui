@@ -100,26 +100,31 @@ function onLoaderFailure(reason: unknown): void {
 }
 
 /**
- * Call `loader.init()` once for the page. Returns `null` when there is no
- * loader to probe — a test that mocks '@monaco-editor/react' without a
- * `loader` export — so the editor mounts and only the DOM-poll backstop runs.
+ * Whether there is a loader to probe. Optional-chained so a test that mocks
+ * '@monaco-editor/react' without a `loader` export mounts the editor at once
+ * and relies on the DOM-poll backstop alone.
  */
-function probeMonacoLoader(): Promise<LoaderOutcome> | null {
-  if (loaderProbe) return loaderProbe;
-  const init = loader?.init?.();
-  if (!init || typeof init.then !== 'function') return null;
-  loaderProbe = init.then(
-    (): LoaderOutcome => (loaderOutcome = { ok: true }),
-    (reason: unknown): LoaderOutcome => {
-      loaderOutcome = { ok: false, reason };
-      onLoaderFailure(reason);
-      return loaderOutcome;
-    },
-  );
+function hasLoader(): boolean {
+  return typeof loader?.init === 'function';
+}
+
+/** Call `loader.init()` once for the page; every caller reads that one outcome. */
+function probeMonacoLoader(): Promise<LoaderOutcome> {
+  if (!loaderProbe) {
+    loaderProbe = Promise.resolve(loader.init()).then(
+      (): LoaderOutcome => (loaderOutcome = { ok: true }),
+      (reason: unknown): LoaderOutcome => {
+        loaderOutcome = { ok: false, reason };
+        onLoaderFailure(reason);
+        return loaderOutcome;
+      },
+    );
+  }
   return loaderProbe;
 }
 
-function statusFromOutcome(): MonacoStatus {
+function initialStatus(): MonacoStatus {
+  if (!hasLoader()) return 'ready';
   if (!loaderOutcome) return 'loading';
   return loaderOutcome.ok ? 'ready' : 'unavailable';
 }
@@ -128,19 +133,15 @@ export function useMonacoFallback(
   fallbackDelayMs = 4000,
 ): readonly [MonacoStatus, React.RefObject<HTMLDivElement | null>] {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const [status, setStatus] = React.useState<MonacoStatus>(statusFromOutcome);
+  const [status, setStatus] = React.useState<MonacoStatus>(initialStatus);
   const unavailable = status === 'unavailable';
 
   // Fast fail: read the page's one loader probe. A fallback already taken
   // (the backstop below) is never undone by a late answer.
   React.useEffect(() => {
-    const probe = probeMonacoLoader();
-    if (!probe) {
-      setStatus((s) => (s === 'loading' ? 'ready' : s));
-      return;
-    }
+    if (!hasLoader()) return;
     let cancelled = false;
-    void probe.then((outcome) => {
+    void probeMonacoLoader().then((outcome) => {
       if (cancelled) return;
       setStatus((s) => (s === 'unavailable' ? s : outcome.ok ? 'ready' : 'unavailable'));
     });

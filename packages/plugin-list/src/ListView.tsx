@@ -4548,16 +4548,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    */
   const filterElements = React.useMemo(() => {
     const fields = resolvedUserFilters?.fields;
-    if (!resolvedUserFilters || !fields || fields.length === 0) return resolvedUserFilters;
-    const held = new Set<string>();
-    for (const condition of userFilterConditions) {
-      if (Array.isArray(condition) && typeof condition[0] === 'string') held.add(condition[0]);
-    }
-    for (const [field, values] of Object.entries(userFilterSelections ?? {})) {
-      if (values && values.length > 0) held.add(field);
-    }
-    const offered = fields.filter((f) => held.has(f.field) || canReadField(perms, schema.objectName, f.field));
-    return offered.length === fields.length ? resolvedUserFilters : { ...resolvedUserFilters, fields: offered };
+    if (!fields?.length) return resolvedUserFilters;
+    const held = new Set(Object.keys(userFilterSelections ?? {}).filter((field) => userFilterSelections?.[field]?.length));
+    for (const condition of userFilterConditions) if (Array.isArray(condition)) held.add(condition[0]);
+    return { ...resolvedUserFilters, fields: fields.filter((f) => held.has(f.field) || canReadField(perms, schema.objectName, f.field)) };
   }, [resolvedUserFilters, userFilterConditions, userFilterSelections, perms, schema.objectName]);
 
   /**

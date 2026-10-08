@@ -8,7 +8,9 @@
  *   1. `validateFlowDraft` (client, structural): no resolvable entry,
  *      unreachable nodes, a decision with no default branch, duplicate node
  *      ids, dangling edges, un-declared cycles — plus, from this module, a
- *      connection drawn more than once ({@link edgeRouteKey}, objectui#11772).
+ *      connection drawn more than once ({@link edgeRouteKey}, objectui#11772),
+ *      and `missingNodeRefDiagnostics`: an expression reference or a boundary
+ *      event that names a node the flow does not have (objectui#11838).
  *   2. The server `_diagnostics` already attached to the layered record
  *      (schema validation), each keyed by a dotted JSON path.
  *
@@ -21,10 +23,11 @@
 
 import { createContext } from 'react';
 import { collectFlowGraphs } from '@objectstack/spec/automation';
-import { validateFlowDraft } from './simulator/flow-sim-validate.js';
+import { missingNodeRefDiagnostics, validateFlowDraft } from './simulator/flow-sim-validate.js';
 import type { Diagnostic, DiagnosticLevel, SimEdge, SimNode } from './simulator/flow-sim-types.js';
 import { conditionText, edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
 import { flowExpressionProblems } from './flow-expr-problems.js';
+import { describeExprSite, flowNodeIds, nodeIdPositions, type ExprSite } from './flow-node-refs.js';
 import { t, tFormat } from '../i18n.js';
 import { uniqueId } from '../inspectors/unique-id.js';
 
@@ -230,11 +233,11 @@ export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, 
   const problems: FlowProblem[] = [];
 
   const v = validateFlowDraft(nodes as unknown as SimNode[], edges as unknown as SimEdge[], locale);
-  const pushStructural = (level: DiagnosticLevel, list: Diagnostic[]) => {
+  const pushStructural = (level: DiagnosticLevel, list: Diagnostic[], tag = '') => {
     list.forEach((diag, i) => {
       const { target, highlight } = structuralMapping(diag, edges);
       problems.push({
-        id: `structural:${level}:${i}:${targetKey(target)}`,
+        id: `structural:${level}${tag}:${i}:${targetKey(target)}`,
         level,
         message: diag.message,
         target,
@@ -244,6 +247,9 @@ export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, 
     });
   };
   pushStructural('error', v.errors);
+  // objectui#11838 — the other positions that name a node by id: an expression
+  // reference rooted at a missing node, a boundary event on a missing host.
+  pushStructural('error', missingNodeRefDiagnostics({ nodes, edges, variables }, locale), ':ref');
   problems.push(...repeatedEdgeProblems(edges, locale));
   pushStructural('warning', v.warnings);
 
@@ -503,6 +509,15 @@ export function deriveInvalidElements(problems: FlowProblem[]): {
 // keeps, and what a node rename may take and must carry. The canvas
 // (`FlowCanvas`, `FlowPreview`) and the node inspector import them from this
 // component-free module rather than from a component.
+//
+// A rename's expression half — every reference rooted at the old id, read
+// through the expression parsers — is `expressionRefsAfterNodeRename` in
+// `./flow-node-refs.ts` (objectui#11838), beside the one list of positions that
+// name a node id (`nodeIdPositions`). It lives there rather than here because
+// the Problems rows for those positions (`missingNodeRefDiagnostics`) read the
+// same list from `./simulator/flow-sim-validate.ts`, which this module imports.
+// A removal reads that list too (`nodeRemovalRefusal`, below): what it cannot
+// carry — a boundary event's host, an expression root — refuses it.
 
 /**
  * A fresh node id (objectui#11772): `uniqueId('node', …)` over every id the
@@ -607,6 +622,93 @@ export function edgesAfterNodeRemoval(
   const route = edgeRouteKey(reconnected);
   if (kept.some((e) => edgeRouteKey(e) === route)) return kept;
   return edges.flatMap((e) => (e === edgeIn ? [reconnected] : touches(e) ? [] : [e]));
+}
+
+/**
+ * One place a removal would leave naming the removed node (objectui#11838); see
+ * {@link nodeRemovalRefusal}.
+ */
+export type NodeRemovalSite =
+  /** A boundary event (`nodeId`) whose `boundaryConfig.attachedToNodeId` is the node. */
+  | { kind: 'boundary-host'; nodeId: string }
+  /** An expression whose reference (`ref`, e.g. `x.decision`) is rooted at the node. */
+  | { kind: 'expression'; site: ExprSite; ref: string };
+
+/**
+ * Whether the node `removedId` may be removed (objectui#11838): `null` when it
+ * may, else every place the removal would leave naming a node that no longer
+ * exists — ONE rule for both removal gestures, the node inspector's "Remove
+ * node" and the canvas's Delete key, as {@link edgesAfterNodeRemoval} is one
+ * rule for the edges they drop.
+ *
+ * The edges are not among them: the removal carries those itself. What it
+ * cannot carry is a boundary event's host and an expression reference rooted
+ * at the node (`x.decision == 'approve'`, `{x.field}`) — the other kinds of
+ * position `nodeIdPositions` (`./flow-node-refs.ts`) lists. A removed node has
+ * no new id for them to follow, and cascading them would delete or rewrite
+ * what the author did not select, so the removal is refused instead, naming
+ * each one, until the author changes or removes them. Left behind, each would
+ * be a Problems error and a run fault where the engine reads it.
+ *
+ * Not counted, because the removal itself takes them away: an expression held
+ * by the removed node (its regions included), one on an edge the removal drops
+ * (`edgesAfterNodeRemoval`; the edge in that a splice reconnects keeps its
+ * guard, so a reference there is counted), and a boundary event inside the
+ * removed node. A source that does not parse names no position here; the
+ * expression checks already report it as malformed.
+ *
+ * `flow` is the draft before the removal. While another node, at any depth,
+ * still carries `removedId` (a duplicate id, itself a Problems error), the
+ * references are that node's too and nothing is refused — the rule the edge
+ * half applies to the same draft.
+ */
+export function nodeRemovalRefusal(
+  flow: { nodes?: unknown; edges?: unknown },
+  removedId: string,
+): NodeRemovalSite[] | null {
+  const nodes: unknown[] = Array.isArray(flow.nodes) ? flow.nodes : [];
+  const edges: FlowDesignerEdge[] = Array.isArray(flow.edges) ? (flow.edges as FlowDesignerEdge[]) : [];
+  const index = nodes.findIndex((n) => (n as { id?: unknown } | null)?.id === removedId);
+  if (index < 0) return null;
+  const others = nodes.filter((_, i) => i !== index);
+  if (flowNodeIds({ nodes: others }).has(removedId)) return null;
+  const gone = flowNodeIds({ nodes: [nodes[index]] });
+  const remaining = new Set(others.flatMap((n) => {
+    const id = (n as { id?: unknown } | null)?.id;
+    return typeof id === 'string' ? [id] : [];
+  }));
+  const after = edgesAfterNodeRemoval(edges, removedId, remaining);
+  const spliced = after.some((e) => !edges.includes(e));
+  // The edge at `i` outlives the removal: kept as it is, or the one edge in that a splice retargets.
+  const outlives = (i: number) => after.includes(edges[i]) || (spliced && edges[i]?.target === removedId);
+
+  const sites: NodeRemovalSite[] = [];
+  const seen = new Set<ExprSite>();
+  for (const p of nodeIdPositions({ nodes, edges })) {
+    if (p.id !== removedId) continue;
+    if (p.kind === 'boundary-host') {
+      if (!gone.has(p.nodeId)) sites.push({ kind: 'boundary-host', nodeId: p.nodeId });
+    } else if (p.kind === 'expression-root') {
+      const owner = p.site.owner;
+      if (owner.kind === 'node' ? owner.index === index : !outlives(owner.index)) continue;
+      if (seen.has(p.site)) continue;
+      seen.add(p.site);
+      sites.push({ kind: 'expression', site: p.site, ref: p.ref.text });
+    }
+  }
+  return sites.length > 0 ? sites : null;
+}
+
+/**
+ * The refusal both removal gestures show (objectui#11838), naming each site in
+ * the rename refusal's locale-free form — `be › boundaryConfig.attachedToNodeId:
+ * \`x\``, `d › config.conditions[0].expression: \`x.decision == 'approve'\``.
+ */
+export function describeNodeRemovalRefusal(removedId: string, sites: ReadonlyArray<NodeRemovalSite>, locale?: string): string {
+  const refs = sites
+    .map((s) => (s.kind === 'boundary-host' ? `${s.nodeId} › boundaryConfig.attachedToNodeId: \`${removedId}\`` : describeExprSite(s.site)))
+    .join('; ');
+  return tFormat('engine.inspector.flowNode.removeRefused', locale, { id: removedId, refs });
 }
 
 /** Why a node may not be renamed to an id (objectui#11827); see {@link nodeRenameRefusal}. */

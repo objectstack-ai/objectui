@@ -42,6 +42,7 @@ import { AddWidgetPicker } from '../previews/AddWidgetPicker.js';
 import { WIDGET_TYPE_META, UnknownWidgetIcon } from '../previews/widget-types.js';
 import type { MetadataDefaultInspectorProps } from '../default-inspector-registry.js';
 import { SchemaForm } from '../SchemaForm.js';
+import type { FormViewSpec } from '../SchemaForm.js';
 import { getDashboardForm, getDashboardSchema } from '../dashboard-schema.js';
 import { mergeServerFields } from '../mergeServerFields.js';
 import { t, tFormat } from '../i18n.js';
@@ -67,6 +68,41 @@ const DASHBOARD_CURATED_FIELDS = new Set([
   'description',
   'widgets',
 ]);
+
+/**
+ * objectui#11796 — this inspector is a narrow side panel, so every section of
+ * the spec form renders as ONE column here.
+ *
+ * `dashboardForm` lays its Layout section out in three columns, which suits a
+ * full-width form and squeezed Columns / Gap / Refresh Interval Seconds into a
+ * third of this panel each: a two-digit value lost a digit and the labels
+ * wrapped onto several lines. A section's `columns` is a layout hint for the
+ * form's host, and this host is a single column, so the fields keep their
+ * declared order and stack. A field's `colSpan` is clamped with its section:
+ * a span wider than a one-column grid adds implicit columns and pushes the
+ * section past the panel's edge.
+ *
+ * Scoped to this panel on purpose: `SchemaForm` still honours `columns` for
+ * every other form it renders.
+ */
+function stackSectionsForNarrowPanel(form: FormViewSpec | undefined): FormViewSpec | undefined {
+  if (!form?.sections) return form;
+  return {
+    ...form,
+    sections: form.sections.map((section) => ({
+      ...section,
+      columns: 1,
+      // A `{ group }` section declares no `fields`; it is left as it came.
+      ...(section.fields
+        ? {
+            fields: section.fields.map((f) =>
+              typeof f === 'string' || f.colSpan == null ? f : { ...f, colSpan: 1 as const },
+            ),
+          }
+        : {}),
+    })),
+  };
+}
 
 export function DashboardDefaultInspector({
   draft,
@@ -126,19 +162,19 @@ export function DashboardDefaultInspector({
 
   // Graft any server-only top-level dashboard fields onto the bundled-spec
   // form so they are editable even when the bundled spec lags the server.
-  const { schema, form } = React.useMemo(
-    () =>
-      mergeServerFields({
-        bundledSchema: getDashboardSchema(),
-        // objectui#7254 — the spec form is English; the locale overlay lives
-        // inside `getDashboardForm` so every consumer of it gets the same copy.
-        bundledForm: getDashboardForm(locale),
-        serverSchema,
-        excludeFields: DASHBOARD_CURATED_FIELDS,
-        sectionTitle: t('engine.inspector.moreFields', locale),
-      }),
-    [serverSchema, locale],
-  );
+  const { schema, form } = React.useMemo(() => {
+    const merged = mergeServerFields({
+      bundledSchema: getDashboardSchema(),
+      // objectui#7254 — the spec form is English; the locale overlay lives
+      // inside `getDashboardForm` so every consumer of it gets the same copy.
+      bundledForm: getDashboardForm(locale),
+      serverSchema,
+      excludeFields: DASHBOARD_CURATED_FIELDS,
+      sectionTitle: t('engine.inspector.moreFields', locale),
+    });
+    // After the graft, so a server-only section stacks too (objectui#11796).
+    return { schema: merged.schema, form: stackSectionsForNarrowPanel(merged.form) };
+  }, [serverSchema, locale]);
 
   return (
     <InspectorShell

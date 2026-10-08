@@ -121,7 +121,7 @@ const mockClient = vi.hoisted(() => {
     listDrafts: vi.fn(async () => []),
     listTypes: vi.fn(async () => ({ entries: [] })),
     get: vi.fn(async () => null),
-    withPreviewDrafts() { return this; },
+    withPreviewDrafts: vi.fn((): unknown => mockClient),
     references: vi.fn(async () => []),
     layered: vi.fn(async (type: string, name: string) => {
       const hold = server.loadHold.get(k(type, name));

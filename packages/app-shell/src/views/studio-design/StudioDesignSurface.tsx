@@ -1296,8 +1296,21 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
           // Not all-or-nothing: the drafts that went live stay live, and the
           // ones that did not are named with the server's own reason.
           toast.error(formatPublishFailures(failed));
+        } else if (pending.length === 0) {
+          // objectui#11807 — nothing was pending by the time this read ran, so
+          // nothing went live: said as such, never as a success.
+          toast.info(t('engine.studio.publishNoneTitle', locale));
+          setChangesOpen(false);
         } else {
-          toast.success(t('engine.studio.org.published', locale));
+          // objectui#11807 — how many went live: every draft read above, as
+          // none failed.
+          toast.success(
+            tFormat(
+              pending.length === 1 ? 'engine.studio.publishedAllFlowsOne' : 'engine.studio.publishedAllFlows',
+              locale,
+              { count: pending.length },
+            ),
+          );
           setChangesOpen(false);
         }
         setPublishNonce((n) => n + 1);
@@ -1316,15 +1329,31 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       // PR objectui#10038 made for the two sibling call sites.
       const payload = (await shellClient.publishPackageDrafts(packageId)) as {
         success?: boolean;
+        outcome?: string;
         error?: { message?: string; details?: { issues?: unknown } };
         failed?: PublishFailure[];
+        published?: unknown[];
       };
       // A non-2xx now throws inside the client, already carrying the server's
       // message AND the field-anchored `error.details.issues` on
       // `MetadataError.issues` — which is exactly what `formatMetadataError`
       // in the catch below reads, so the hard-failure branch keeps its shape
       // without restating it. What is left here is the 2xx batch verdict.
-      if (payload?.success === false) {
+      //
+      // `failed[]` off the body the client returns: it unwraps the
+      // dispatcher's `{ success, data }` for this route (the one route whose
+      // spec declaration says it arrives inside one), so the enveloped and
+      // unenveloped compositions read through ONE spelling here.
+      const failed = payload?.failed ?? [];
+      if (payload?.outcome === 'nothing_to_publish') {
+        // objectui#11807 — the batch's zero answer: nothing went live and
+        // nothing was refused. `success` is false on it too, and the spec says
+        // to read `outcome` rather than that boolean
+        // (`PublishPackageDraftsResponseSchema`), so it is neither the failure
+        // below nor a success.
+        toast.info(t('engine.studio.publishNoneTitle', locale));
+        setChangesOpen(false);
+      } else if (payload?.success === false) {
         // The status is no longer in hand — a non-2xx threw above — so the
         // last rung is a sentence rather than "HTTP 200".
         throw Object.assign(
@@ -1337,19 +1366,26 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
           ),
           { issues: payload?.error?.details?.issues },
         );
-      }
-      // `failed[]` off the body the client returns: it unwraps the
-      // dispatcher's `{ success, data }` for this route (the one route whose
-      // spec declaration says it arrives inside one), so the enveloped and
-      // unenveloped compositions read through ONE spelling here.
-      const failed = payload?.failed ?? [];
-      if (failed.length > 0) {
+      } else if (failed.length > 0) {
         // Partial publish: some drafts did NOT go live. The server returns 200
         // with them buried in `failed[]`, so the UI used to claim success and
         // swallow the reason — surface which drafts failed and why instead.
         toast.error(formatPublishFailures(failed));
       } else {
-        toast.success(t('engine.studio.publishedAll', locale));
+        // objectui#11807 — name how many items went live, read off the batch's
+        // own `published[]` (every promoted draft, a draft that changed
+        // nothing included). A runtime that answers without it gets the
+        // sentence that names no number.
+        const published = payload?.published;
+        toast.success(
+          Array.isArray(published)
+            ? tFormat(
+                published.length === 1 ? 'engine.studio.publishedAllCountOne' : 'engine.studio.publishedAllCount',
+                locale,
+                { count: published.length },
+              )
+            : t('engine.studio.publishedAll', locale),
+        );
         setChangesOpen(false);
       }
       setPublishNonce((n) => n + 1);

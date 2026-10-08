@@ -1158,11 +1158,12 @@ export interface ObjectGridSchema extends BaseSchema {
    * `table` slot, while the protocol refused it. Write
    * `[{ field: 'status', operator: 'equals', value: 'open' }]` instead — or, better,
    * move it to `filter`. ⚠️ The read did not narrow: the sink still lowers a record
-   * or an AST array that reaches the slot at runtime (`ObjectView` hands it an
-   * active named view's `filter`, which {@link NamedListView.filter} types
-   * `any[]`), which is not a shape an author writes here, so this face does not
-   * publish it (the objectui#10199 split, as {@link ObjectGridSchema.filter}
-   * makes it).
+   * or an AST array that reaches the slot at runtime, which is not a shape an
+   * author writes here, so this face does not publish it (the objectui#10199
+   * split, as {@link ObjectGridSchema.filter} makes it). Since objectui#11880
+   * item 5 `ObjectView` no longer writes this slot on the grid it draws: an
+   * active named view's `filter` and an authored `table.defaultFilters` both
+   * reach that grid in `filter`, so its export and page reset follow them.
    *
    * @deprecated Use filter instead — the same rule array; this key is read only
    * when `filter` is absent.

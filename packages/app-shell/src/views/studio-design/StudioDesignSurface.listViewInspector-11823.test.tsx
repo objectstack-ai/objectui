@@ -13,7 +13,8 @@
  *  - the canvas beside it (the real `StudioObjectRecordsCanvas`, with a
  *    recorder standing in for `object-view`) is handed the edited view;
  *  - a view that does not exist yet is created by the first edit, at
- *    `<object>.default`, seeded with the running app's default columns;
+ *    `<object>.default`, seeded with the running app's default columns,
+ *    which the canvas shows until then;
  *  - a read-only package shows the panel read-only and writes nothing;
  *  - CONTROL: a studio-canvas leaf of another type keeps the statement.
  */
@@ -217,8 +218,15 @@ describe('an object leaf\'s Properties panel edits its list view (objectui#11823
     views = {};
     const panel = await openObjectLeaf();
     await waitFor(() => expect(within(panel).getByTestId('list-view-not-created')).toHaveTextContent('showcase_task.default'));
-    // Nothing exists, so the canvas renders the plain list it always rendered.
-    expect(canvasSchema()).toEqual({ type: 'object-view', objectName: 'showcase_task' });
+    // Nothing is saved yet, and the canvas shows the list the running app
+    // shows an object with no view: its default columns.
+    await waitFor(() => expect(canvasSchema().defaultListView).toBe('showcase_task.default'));
+    expect((canvasSchema().listViews as Record<string, unknown>)['showcase_task.default']).toEqual({
+      type: 'grid',
+      data: { provider: 'object', object: 'showcase_task' },
+      columns: ['title', 'status', 'priority'],
+    });
+    expect(viewSaves()).toEqual([]);
 
     await addSortOnFirstField(panel);
 
@@ -253,6 +261,23 @@ describe('an object leaf\'s Properties panel edits its list view (objectui#11823
 
     fireEvent.click(within(panel).getByTestId('list-view-sort-trigger'));
     await new Promise((r) => setTimeout(r, 2500));
+    expect(viewSaves()).toEqual([]);
+  });
+
+  it('a form view at the view\'s name is shown as such, never edited, and the canvas keeps its own copy', async () => {
+    views = {
+      'showcase_task.default': {
+        name: 'showcase_task.default',
+        object: 'showcase_task',
+        viewKind: 'form',
+        config: { type: 'simple', sections: [] },
+      },
+    };
+    const panel = await openObjectLeaf();
+    await waitFor(() => expect(within(panel).getByTestId('list-view-not-list')).toHaveTextContent('showcase_task.default'));
+    expect(within(panel).queryByTestId('list-view-columns')).not.toBeInTheDocument();
+    expect(canvasSchema()).toEqual({ type: 'object-view', objectName: 'showcase_task' });
+    await new Promise((r) => setTimeout(r, 2000));
     expect(viewSaves()).toEqual([]);
   });
 

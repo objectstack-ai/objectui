@@ -146,6 +146,19 @@ function listBodyOf(row: Row): Row {
   return isPlainObject(row.config) ? row.config : row;
 }
 
+/**
+ * Whether a stored view item is a LIST view this panel can edit: the spec's
+ * family discriminant says so (`viewKind: 'list'`), or, on a row that carries
+ * none, its body lists `columns` (a list view's one required member). A form
+ * view (`viewKind: 'form'`) or a body that is neither is not edited here, so
+ * a save can never overwrite it.
+ */
+export function isListViewRow(row: Row): boolean {
+  if (row.viewKind === 'list') return true;
+  if (row.viewKind !== undefined) return false;
+  return Array.isArray(listBodyOf(row).columns);
+}
+
 function withListBody(row: Row, body: Row): Row {
   return isPlainObject(row.config) ? { ...row, config: body } : { ...row, ...body };
 }
@@ -175,6 +188,8 @@ export interface ObjectListViewDraft {
   loadedFor: string;
   /** The view item as the server holds it (draft, else published), with edits; `null` when it does not exist yet. */
   row: Row | null;
+  /** The item at the view's name is not a list view (`isListViewRow`): shown as such, never edited. */
+  notList: boolean;
   /** The columns a view created here starts with. */
   seedColumns: string[];
   dirty: boolean;
@@ -189,7 +204,7 @@ export interface ObjectListViewDraft {
   save: (sent: DraftSendClaim) => Promise<void>;
   /** The version-conflict dialog of this buffer's guard; render it once. */
   conflictDialog: React.ReactElement;
-  /** What the canvas shows (`StudioCanvasListViewContext`); `null` with no view. */
+  /** What the canvas shows (`StudioCanvasListViewContext`); `null` with nothing to show. */
   canvas: StudioCanvasListView | null;
 }
 
@@ -284,9 +299,10 @@ export function useObjectListViewDraft({
   }, []);
 
   const row = buffer.row;
+  const notList = !!row && !isListViewRow(row);
   const save = React.useCallback(
     async (sent: DraftSendClaim) => {
-      if (!viewId || !row) return;
+      if (!viewId || !row || notList) return;
       setSaving(true);
       try {
         const outcome = await guardedSave('view', viewId, row, { mode: 'draft', packageId });
@@ -303,21 +319,33 @@ export function useObjectListViewDraft({
         setSaving(false);
       }
     },
-    [guardedSave, viewId, row, packageId, onDraftSaved],
+    [guardedSave, viewId, row, notList, packageId, onDraftSaved],
   );
 
   const current = buffer.for === targetKey && targetKey !== '';
   const objectOf = target?.objectName;
-  const canvas = React.useMemo<StudioCanvasListView | null>(
-    () => (current && row && objectOf ? { objectName: objectOf, viewId, view: namedListViewOf(row) } : null),
-    [current, row, objectOf, viewId],
-  );
+  const isDefaultTarget = !!target?.isDefault;
+  // What the canvas shows: the view, edits included. A default list view that
+  // does not exist yet shows the columns the running app shows such an object
+  // (its "all records" list, `defaultListColumnsFromObject`), which is also
+  // what the first edit starts from. A named view that does not exist shows
+  // nothing new: the canvas keeps its own fallback.
+  const canvas = React.useMemo<StudioCanvasListView | null>(() => {
+    if (!current || !objectOf || notList) return null;
+    const shown =
+      row ??
+      (isDefaultTarget && seedColumns.length > 0
+        ? newListViewItem({ objectName: objectOf, viewId, isDefault: true }, seedColumns)
+        : null);
+    return shown ? { objectName: objectOf, viewId, view: namedListViewOf(shown) } : null;
+  }, [current, row, notList, objectOf, viewId, isDefaultTarget, seedColumns]);
 
   return {
     target,
     targetKey,
     loadedFor: buffer.for,
     row: current ? row : null,
+    notList: current && notList,
     seedColumns,
     dirty: buffer.dirty,
     hasDraft: current && buffer.hasDraft,
@@ -371,7 +399,7 @@ export function ObjectListViewInspector({
   readOnly: boolean;
   locale: string;
 }): React.ReactElement | null {
-  const { target, row, seedColumns, error, saving, hasDraft, edit, loadedFor, targetKey } = listView;
+  const { target, row, notList, seedColumns, error, saving, hasDraft, edit, loadedFor, targetKey } = listView;
   const objectName = target?.objectName;
   const fieldState = useObjectFields(objectName);
   const [selected, setSelected] = React.useState<{ key: string; index: number | null }>({ key: '', index: null });
@@ -442,6 +470,10 @@ export function ObjectListViewInspector({
               <Loader2 className="h-3 w-3 animate-spin" /> {t('engine.studio.loading', locale)}
             </p>
           )
+        ) : notList ? (
+          <p className="rounded-md border border-dashed px-2 py-1.5 text-[11px] leading-snug text-muted-foreground" data-testid="list-view-not-list">
+            {tFormat('engine.studio.inspector.listView.notList', locale, { view: target.viewId })}
+          </p>
         ) : (
           <>
             {!row && (

@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { ViewItemSchema } from '@objectstack/spec/ui';
-import { listViewTargetOf, namedListViewOf, newListViewItem } from './ObjectListViewInspector';
+import { isListViewRow, listViewTargetOf, namedListViewOf, newListViewItem } from './ObjectListViewInspector';
 
 const VIEWS = {
   'showcase_task.default': { name: 'showcase_task.default', type: 'grid', columns: [], isDefault: true },
@@ -71,5 +71,17 @@ describe('namedListViewOf — the canvas copy of a view item (objectui#11823)', 
     expect(
       namedListViewOf({ name: 'a.b', config: { type: 'kanban', columns: [], options: { kanban: { groupByField: 's' } } } }),
     ).toEqual({ type: 'kanban', columns: [], kanban: { groupByField: 's' } });
+  });
+});
+
+describe('isListViewRow — only a list view is edited (objectui#11823)', () => {
+  it('reads the spec\'s family discriminant, and a list body\'s required `columns` on a row with none', () => {
+    expect(isListViewRow({ name: 'a.b', object: 'a', viewKind: 'list', config: { type: 'grid', columns: [] } })).toBe(true);
+    expect(isListViewRow({ name: 'a.b', object: 'a', type: 'grid', columns: ['x'] })).toBe(true);
+  });
+
+  it('a form view, or a body that is no list, is never taken for one', () => {
+    expect(isListViewRow({ name: 'a.b', object: 'a', viewKind: 'form', config: { type: 'simple', sections: [] } })).toBe(false);
+    expect(isListViewRow({ name: 'a.b', label: 'a.b' })).toBe(false);
   });
 });

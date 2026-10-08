@@ -66,10 +66,13 @@ import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 import { ScreenPreview } from '../previews/ScreenPreview.js';
 import {
   boundaryRefsAfterNodeRename,
+  describeNodeRemovalRefusal,
   edgesAfterNodeRemoval,
   edgesAfterNodeRename,
+  nodeRemovalRefusal,
   nodeRenameRefusal,
 } from '../previews/flow-problems.js';
+import { describeExprSite, expressionRefsAfterNodeRename, type ExprRenameRefusal } from '../previews/flow-node-refs.js';
 
 /**
  * The node and edge shapes this panel edits — ALIASED, never restated
@@ -402,6 +405,17 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
   const [advOpen, setAdvOpen] = React.useState(extraJson.trim() !== '');
   // Reveals the optional custom-keys editor on nodes that currently have none.
   const [advReveal, setAdvReveal] = React.useState(false);
+  // objectui#11838 — the node whose "Remove node" was refused. The message is
+  // derived from the draft while that node stays selected, so it names what
+  // still blocks the removal and goes away once nothing does. Reset while
+  // rendering when another node is shown, as `FlowNodeIdField` resets its own.
+  const [removeRefusedId, setRemoveRefusedId] = React.useState<string | null>(null);
+  const shownNodeId = node?.id ?? null;
+  const [refusalShownFor, setRefusalShownFor] = React.useState(shownNodeId);
+  if (refusalShownFor !== shownNodeId) {
+    setRefusalShownFor(shownNodeId);
+    setRemoveRefusedId(null);
+  }
   React.useEffect(() => {
     setAdvText(extraJson);
     setAdvError(null);
@@ -528,7 +542,18 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
   // Writing `null` to the node alone left every edge naming it behind, and the
   // next node minted with that id inherited them all. Top-level only: a nested
   // node has no Remove (its routing lives in its region, not on `draft.edges`).
+  //
+  // objectui#11838 — and it is refused, writing nothing, while a boundary
+  // event's host or an expression root still names the node: a removal has no
+  // new id for those to follow. `nodeRemovalRefusal` is the one rule the
+  // canvas's Delete key applies too; the refusal names each site under the
+  // button, and the node stays selected.
+  const removalSites = removeRefusedId === node.id ? nodeRemovalRefusal(draft as Record<string, unknown>, node.id) : null;
   const remove = () => {
+    if (nodeRemovalRefusal(draft as Record<string, unknown>, node.id)) {
+      setRemoveRefusedId(node.id);
+      return;
+    }
     const patch = loc?.write(null);
     if (patch && !loc?.nested) {
       const draftEdges = Array.isArray((draft as { edges?: unknown }).edges)
@@ -550,6 +575,35 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
   // renamed node ran disconnected. The selection then follows the node, or the
   // inspector would be left on an id the draft no longer holds. Top-level only:
   // a nested node's id is read-only here (its region routing is not managed).
+  //
+  // objectui#11838 — the same patch carries every expression reference whose
+  // root is the old id (`expressionRefsAfterNodeRename`): a later branch's
+  // `x.decision == 'approve'`, a record field's `{x.field}` / `{{x.field}}`,
+  // read through the expression parsers. A reference no parser can place is
+  // not guessed at: the rename is refused, naming it. `renamePatch` is the one
+  // build both the refusal and the commit read, so the field refuses exactly
+  // what the commit could not carry.
+  const renamePatch = (nextId: string): { patch: Record<string, unknown> } | { refusal: ExprRenameRefusal } | null => {
+    if (!loc || loc.nested) return null;
+    const oldId = node.id;
+    const patch = loc.write(withoutSpecRefusedKeys({ ...node, id: nextId }));
+    if (!patch) return null;
+    const nodesAfter = Array.isArray(patch.nodes) ? (patch.nodes as Array<{ id?: unknown; boundaryConfig?: unknown } | null>) : [];
+    const draftEdges = Array.isArray((draft as { edges?: unknown }).edges)
+      ? ((draft as { edges: FlowEdge[] }).edges)
+      : [];
+    const idsAfter = new Set(nodesAfter.flatMap((n) => (typeof n?.id === 'string' ? [n.id] : [])));
+    const edges = edgesAfterNodeRename(draftEdges, oldId, nextId, idsAfter);
+    const carried = expressionRefsAfterNodeRename(
+      { nodes: boundaryRefsAfterNodeRename(nodesAfter, oldId, nextId), edges, variables: (draft as { variables?: unknown }).variables },
+      oldId,
+      nextId,
+    );
+    if (!carried.ok) return { refusal: carried.refusal };
+    patch.nodes = carried.nodes;
+    if (carried.edges !== draftEdges) patch.edges = carried.edges;
+    return { patch };
+  };
   const idRefusal = (next: string): string | null => {
     switch (nodeRenameRefusal(draft as Record<string, unknown>, node.id, next)) {
       case 'empty':
@@ -558,24 +612,19 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
         return tFormat('engine.inspector.flowNode.idTaken', locale, { id: next });
       case 'edge':
         return tFormat('engine.inspector.flowNode.idEdgeNamed', locale, { id: next });
-      default:
-        return null;
     }
+    const built = renamePatch(next);
+    if (!built || !('refusal' in built)) return null;
+    const { refusal } = built;
+    const refs = refusal.sites.map(describeExprSite).join('; ');
+    return refusal.kind === 'unparsed'
+      ? tFormat('engine.inspector.flowNode.idRefsUnparsed', locale, { id: node.id, refs })
+      : tFormat('engine.inspector.flowNode.idRefsAmbiguous', locale, { name: refusal.name, refs });
   };
   const rename = (nextId: string) => {
-    if (!loc || loc.nested) return;
-    const oldId = node.id;
-    const patch = loc.write(withoutSpecRefusedKeys({ ...node, id: nextId }));
-    if (!patch) return;
-    const nodesAfter = Array.isArray(patch.nodes) ? (patch.nodes as Array<{ id?: unknown; boundaryConfig?: unknown } | null>) : [];
-    patch.nodes = boundaryRefsAfterNodeRename(nodesAfter, oldId, nextId);
-    const draftEdges = Array.isArray((draft as { edges?: unknown }).edges)
-      ? ((draft as { edges: FlowEdge[] }).edges)
-      : [];
-    const idsAfter = new Set(nodesAfter.flatMap((n) => (typeof n?.id === 'string' ? [n.id] : [])));
-    const edges = edgesAfterNodeRename(draftEdges, oldId, nextId, idsAfter);
-    if (edges !== draftEdges) patch.edges = edges;
-    onPatch(patch);
+    const built = renamePatch(nextId);
+    if (!built || !('patch' in built)) return;
+    onPatch(built.patch);
     onSelectionChange?.({ kind: 'node', id: nextId, label: node.label || nextId });
   };
 
@@ -599,7 +648,18 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
       title={node.label || node.id}
       onClose={onClearSelection}
       closeLabel={t('engine.inspector.flowNode.close', locale)}
-      footer={nested ? undefined : <InspectorRemoveButton label={t('engine.inspector.flowNode.remove', locale)} onClick={remove} disabled={readOnly} />}
+      footer={
+        nested ? undefined : (
+          <div className="space-y-1.5">
+            {removalSites && (
+              <p className="text-[11px] leading-snug text-destructive" role="alert">
+                {describeNodeRemovalRefusal(node.id, removalSites, locale)}
+              </p>
+            )}
+            <InspectorRemoveButton label={t('engine.inspector.flowNode.remove', locale)} onClick={remove} disabled={readOnly} />
+          </div>
+        )
+      }
     >
       {nested && (
         <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground" aria-label={t('engine.inspector.flowNode.nestedLocation', locale)}>

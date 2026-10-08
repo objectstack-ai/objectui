@@ -417,13 +417,77 @@ const CATEGORY_AXIS_CHART_TYPES: ReadonlySet<string> = new Set([
 const X_AXIS_ALL_LABELS_MAX_BUCKETS = 5;
 
 /**
- * Longest rotated x-axis label kept before it is ellipsised, so a label the
- * bound above newly forces into view cannot overrun the 60px the axis reserves:
- * 12 chars ≈ 78px of text, × sin(35°) ≈ 45px of height, inside 60 − 10
- * (`tickMargin`). Deliberately scoped to that branch — charts above the bound
- * render their labels exactly as they did before.
+ * Longest rotated x-axis label kept before it is ellipsised (objectui#7247).
+ *
+ * It applies to EVERY rotated label, on both sides of the bound above
+ * (objectui#11796): the axis band below is sized from the longest label it
+ * draws, so an unbounded label would need an unbounded band, eating the plot.
+ * A shortened name is still a name; a clipped one reads as a different
+ * category. The full name stays on the bar's tooltip.
  */
 const ROTATED_X_LABEL_MAX_CHARS = 12;
+
+/** Degrees a rotated x-axis label is turned, away from the plot. */
+const ROTATED_X_LABEL_ANGLE = 35;
+
+/** The category x axis's `tickMargin`: the gap between a tick and its label. */
+const X_AXIS_TICK_MARGIN = 10;
+
+/**
+ * recharts' default `tickSize`. The x axis hides its tick LINES
+ * (`tickLine={false}`), but recharts still places each label `tickSize` +
+ * `tickMargin` away from the axis line.
+ */
+const RECHARTS_TICK_SIZE = 6;
+
+/** The axis tick text's font size: `ChartContainer`'s `text-xs`. */
+const AXIS_TICK_FONT_PX = 12;
+
+/**
+ * The advance, in em, {@link estimateLabelWidthPx} charges one glyph that is
+ * not wide: about the all-capitals advance of the sans fonts the tick text
+ * inherits, so it over-charges a mixed-case label rather than under-charging
+ * a capitalised one. A deliberate upper estimate, not a measurement of any
+ * one font: the tick text has no width before it is painted, and recharts'
+ * own measuring helper is not part of its public API.
+ */
+const NARROW_GLYPH_EM = 0.65;
+
+/** Glyphs set a full em wide: CJK ideographs, kana, Hangul, full-width forms. */
+const WIDE_GLYPH = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\u3000-\u303f\uff00-\uffef]/u;
+
+/** An upper estimate of one tick label's painted width, in px. */
+function estimateLabelWidthPx(label: string): number {
+  let ems = 0;
+  for (const glyph of label) ems += WIDE_GLYPH.test(glyph) ? 1 : NARROW_GLYPH_EM;
+  return ems * AXIS_TICK_FONT_PX;
+}
+
+/**
+ * The height the x axis reserves for its rotated labels (objectui#11796),
+ * derived from the longest label it draws.
+ *
+ * A rotated label is anchored at its END (`textAnchor: 'end'`), `tickSize` +
+ * `tickMargin` from the axis line, and turned away from the plot, so its
+ * START is the part farthest from the plot: the text drops
+ * `width · sin(angle)`, plus its line box below the anchor (about 1em: the
+ * baseline offset recharts gives a tick's first line, and the descent), turned
+ * by the same angle, `1em · cos(angle)`.
+ *
+ * The fixed 60px this replaced counted the text width alone, so the longest
+ * labels the cap above lets through ran past it, and the chart surface cut off
+ * the START of each label ("acklog" for Backlog). What the band reserves
+ * against what Chromium paints is the harness reading recorded on
+ * objectui#11796's pull request, taken once and not re-derived here;
+ * `AdvancedChartImpl.rotatedLabelBand-11796.test.tsx` pins the band itself.
+ */
+function rotatedXAxisHeight(labels: readonly string[]): number {
+  const rad = (ROTATED_X_LABEL_ANGLE * Math.PI) / 180;
+  const widest = labels.reduce((max, label) => Math.max(max, estimateLabelWidthPx(label)), 0);
+  return Math.ceil(
+    RECHARTS_TICK_SIZE + X_AXIS_TICK_MARGIN + AXIS_TICK_FONT_PX * Math.cos(rad) + widest * Math.sin(rad),
+  );
+}
 
 /**
  * Symbol AREA budget the scatter's edge margin below is sized against, in px².
@@ -1827,24 +1891,31 @@ function AdvancedChartImplInner({
   );
 
   /**
-   * The x-axis formatter, plus the ellipsis step objectui#7247's label policy
-   * owes: once every bucket is drawn, a long rotated name would run past the
-   * 60px the axis reserves and be clipped mid-word. A shortened name is still
-   * a name; a clipped one reads as a different category.
+   * The x-axis formatter, plus the ellipsis step a rotated label owes
+   * (objectui#7247, every rotated label since objectui#11796): the axis band
+   * is sized from the longest label drawn, so the cap is what keeps that band
+   * bounded. See `ROTATED_X_LABEL_MAX_CHARS`.
    *
    * Kept separate from `xTickFormatter` on purpose — that one also formats the
    * horizontal-bar family's CATEGORY axis, which is the y axis, sizes its own
    * width from the longest label, and already draws all of them.
    */
   const xAxisTickFormatter = React.useMemo(() => {
-    if (!labelEveryBucket || !rotateXLabels) return xTickFormatter;
+    if (!rotateXLabels) return xTickFormatter;
     return (value: any): string => {
       const label = String(xTickFormatter(value) ?? '');
       return label.length > ROTATED_X_LABEL_MAX_CHARS
         ? `${label.slice(0, ROTATED_X_LABEL_MAX_CHARS - 1)}…`
         : label;
     };
-  }, [labelEveryBucket, rotateXLabels, xTickFormatter]);
+  }, [rotateXLabels, xTickFormatter]);
+
+  // objectui#11796 — the band a rotated x axis reserves, from the longest
+  // label it draws (see `rotatedXAxisHeight`). A number, so the axis props
+  // below key on the value rather than on this render's formatter.
+  const rotatedXAxisBand = rotateXLabels
+    ? rotatedXAxisHeight(data.map((d) => String(xAxisTickFormatter(d?.[xAxisKey]) ?? '')))
+    : undefined;
   const yTickFormatter = React.useMemo(
     () => formatterFor(primaryY?.format, displayLocale) ?? formatYTick,
     [primaryY?.format, displayLocale, formatYTick],
@@ -2014,7 +2085,7 @@ function AdvancedChartImplInner({
   // overlap, unchanged in kind from before this change.
   const xAxisCommonProps = React.useMemo(() => ({
     tickLine: false as const,
-    tickMargin: 10,
+    tickMargin: X_AXIS_TICK_MARGIN,
     axisLine: false as const,
     // A short categorical axis names every bucket; everything above the
     // bound now leans on recharts' own measured-overlap check with no added
@@ -2029,9 +2100,14 @@ function AdvancedChartImplInner({
     ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, ...xAxisTitleLayoutFor(xAxisAcross) } } : {}),
     // A rotated label hangs AWAY from the plot: down-left under a bottom axis
     // (`-35`), and up-left over a top one (`35`) — the same `-35` above the
-    // plot would slant every label down into the marks.
-    ...(rotateXLabels && { angle: xAxisAcross === 'top' ? 35 : -35, textAnchor: 'end' as const, height: 60 }),
-  }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title, xAxisAcross]);
+    // plot would slant every label down into the marks. Its band is sized
+    // from the longest label drawn (objectui#11796, `rotatedXAxisHeight`).
+    ...(rotateXLabels && {
+      angle: xAxisAcross === 'top' ? ROTATED_X_LABEL_ANGLE : -ROTATED_X_LABEL_ANGLE,
+      textAnchor: 'end' as const,
+      height: rotatedXAxisBand,
+    }),
+  }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title, xAxisAcross, rotatedXAxisBand]);
 
   // #2942 — the non-series spec families used to fall through the component
   // map's `|| BarChart` into a bar shell whose series marks all returned

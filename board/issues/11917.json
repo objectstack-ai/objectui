@@ -1,0 +1,33 @@
+{
+  "number": 11917,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Studio's automation canvas header names the open flow by its label, not the type word `flow` (objectui#11665)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-08T06:26:41Z",
+  "updated_at": "2026-10-08T07:16:04Z",
+  "closed_at": "2026-10-08T07:16:03Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-10-08T07:16:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11917",
+  "body": "Fixes #11665\n\nStudio's automation canvas header named the open flow with the literal chip `flow · NAME` in every locale, the residual of objectui#11659 ruling 6. This PR makes it print the flow's label and keeps the API name on hover, in zh and in en alike. Parent epic: objectstack-ai/cloud#2636.\n\n## What changed\n\n- `StudioDesignSurface.tsx`, the automation canvas header (the span after the `canvasHint` chip): the chip now prints `current.label`, the string the flow's rail row prints, falling back to the API name when the label resolves to nothing. Its `title` is the designer's existing `designer.field.apiName` row, then the API name: `API name: NAME` in en, `API 名称: NAME` in zh. The sibling Interfaces caption already keeps its internal id on the tooltip the same way (objectui#7254).\n- No locale row is added or changed, so the i18n tables are untouched.\n- New `StudioDesignSurface.flowCanvasChip-11665.test.tsx`. It renders the real `AutomationsPillar` with the real registered `FlowPreview` under an `I18nProvider` in zh and in en, and pins: the chip text is the label, the header strip (the neighbouring `canvasHint` chip included) holds no whole-word `flow` in any case and does not hold the API name, the tooltip names the API name with no `flow` token, and an empty label falls back to the name. It carries a positive control for the type-word pattern.\n- Three existing suites used the old chip, or the bare label text, to tell which flow was open; the chip now duplicates the rail label, so they read the tooltip or the rail row by role instead: `StudioDesignSurface.automationsReadOnly-11124.test.tsx`, `StudioDesignSurface.packageLessFlows-11553.test.tsx`, `StudioDesignSurface.designerRegistryMissing.test.tsx`.\n- Changeset `.changeset/11665-automation-canvas-header-label.md`, a patch on `@object-ui/app-shell`.\n\n## Evidence\n\nAll run from the repository root on head `8c3686786`, unless stated.\n\n- `pnpm exec vitest run` on `packages/app-shell/src/views/studio-design/` plus the 11659 copy pin, `studio-locale.i18n`, `automationPreviews.i18n-10862`, `AiChatPage.builtLandsRunning-11658`, and `StudioRoute` / `StudioRoute.landingI18n` under `apps/console`: 99 files, 634 tests, all passed (exit 0).\n- `pnpm --filter @object-ui/app-shell type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`): exit 0.\n- `pnpm --filter @object-ui/app-shell lint`: exit 0, 0 errors; the 3546 warnings are the package's existing `no-explicit-any` set, none at the edited lines.\n- `node scripts/check-changeset-presence.mjs`, `check-changeset-no-major.mjs`, `check-changeset-claims.mjs`, `check-i18n-call-site-keys.mjs`, `check-i18n-designer-table-parity.mjs`, `check-new-cross-file-line-citations.mjs`: all exit 0.\n- The first full run of the studio-design directory had one red, `designerRegistryMissing`, which found the rail row by the bare text of its label and now met two elements. It is repaired in its own commit and the directory is green above. Dependencies were built first (`pnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' build`, exit 0).\n\n## Ablation\n\nRun after the fix was committed; each leg mutated the committed file, ran the new test file, then restored from `HEAD` and proved the restore by blob hash and an empty `git diff HEAD`.\n\n- Leg A, the old chip text put back (`flow · {current.name}`, testid and tooltip kept): 3 red, 1 green. Red: zh, en, and the empty-label fallback; the received text was `flow · nightly_digest`. The positive control stayed green.\n- Leg B, the tooltip attribute removed: 2 red, 2 green. Red: zh and en.\n- Control after restore: 4 of 4 green; the file's blob hash equals the `HEAD` blob and `git diff HEAD` is empty.\n- A first attempt at leg A was a no-op: its anchor hit 3 times, the script refused before writing, and nothing was mutated. The anchor was made unique and the leg re-run.\n\n## Acceptance notes\n\n- NOT VERIFIED IN BROWSER. The epic's final re-walk covers the header on a live Studio.\n- The chip now repeats the rail row's label text on screen. Any script or acceptance walk that locates the open flow by its label text will see two matches; one in-repo suite did, and is repaired above.\n- A neighbouring dead string, the `hint` given to `PreviewShell` in `FlowPreview.tsx` (`flow · N nodes`), is not rendered anywhere: `PreviewShell` documents it as kept for call-site compatibility and no longer drawn. It is outside this card and untouched.\n\nSession: `https://claude.ai/code/session_64cb68a6-01c7-4dc6-acc6-ccb459c90ef2`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_64cb68a6-01c7-4dc6-acc6-ccb459c90ef2)_\n"
+}

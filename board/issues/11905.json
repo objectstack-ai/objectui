@@ -1,0 +1,37 @@
+{
+  "number": 11905,
+  "kind": "issue",
+  "title": "[repo:objectui] Studio flow designer: no gesture connects two existing nodes, so a node left unconnected can only be deleted and re-added, losing its configuration",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-08T05:37:23Z",
+  "updated_at": "2026-10-08T07:46:40Z",
+  "closed_at": "2026-10-08T07:46:01Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11905",
+  "body": "**Filing gate ① — a user-visible defect with a named site**, filed on the maintainer's word: 「把流程设计器那几个问题也立卡」. If triage reads it as a capability proposal instead, it is a ② candidate; the reproduction below is the case for ①.\n\n**Who acts on it:** an objectui `app-shell` executor. The fix lands in objectstack-ai/objectui (`packages/app-shell/src/views/metadata-admin/previews/FlowCanvas.tsx` and `inspectors/FlowEdgeInspector.tsx`). The card sits on the objectstack board because the session that found it could not read or search objectstack-ai/objectui issues.\n\n## What happens\n\nThe flow designer creates an edge in only three ways, all of them while **adding a new node**:\n\n- the edge's **+** (splits that edge);\n- a card's *Add connected node*;\n- the toolbar *Add node*, placed after the selection.\n\nThe revise-loop helper is a special case. Nothing connects two nodes that already exist. The connection inspector shows *From* / *To* read-only. Its own docblock says \"rewiring is done on the canvas, not here\", but the canvas has no such gesture.\n\nSo once a node is left without an edge, the Problems panel names it unreachable, and the only way back is to delete it, re-add it from a connected anchor, and configure it again.\n\n## Reach\n\n**Measured** on a fresh showcase boot: objectstack `8fc50b7647d30db2a0837877cf251c1163a3239e`, console at the `.objectui-sha` pin `a58626c88dc85954bd0af24f16ebb69454c03eee`.\n\nDuring the Studio task benchmark a configured-to-be Notify node and the End node ended up with no edges (start, end and notify all disconnected). No drag, handle or inspector field could connect Start → Notify → End. Recovery took:\n\n1. delete the Notify node;\n2. select Start → toolbar *Add node* → Notify;\n3. delete the orphaned End;\n4. select Notify → *Add node* → End.\n\nThe flow draft PUT answered `422 INVALID_METADATA` throughout, until the graph was rebuilt that way.\n\n**On `main`** (`b6f8fc8718e4`, 2026-10-08) the disconnected state is still reachable by the product's own rules:\n\n- objectui#11778 (`32124ac`) records that, with \"no single path to insert into — an End reached by several paths or by none, or a flow with no Start and nothing selected: N is added with no edge, and the Problems panel names it unreachable\".\n- objectui#11772's fix (`2b30d39`) splices a removed node's predecessor to its successor only for a node on a single path; removing a node on a branching path still leaves what followed it unconnected.\n\n`FlowCanvas.tsx` on `main` builds edges only in `addNode` (from an anchor), `insertOnEdge` and the revise-loop helper. `FlowEdgeInspector.tsx` renders the endpoints with a read-only `EndpointRow`.\n\n## Expected\n\nAn author can connect two existing nodes without code. Any of these would do:\n\n- drag from a node's out-handle to another node;\n- a *Connect to…* action on a card that lists the reachable targets;\n- editable *To* / *From* on the connection inspector.\n\nIdeally the Problems panel's \"unreachable\" entry offers that action, so the error it names has a fix in the UI. The connection inspector's docblock should stop pointing at a canvas gesture that does not exist.\n\n`Seam: renderer:objectui FlowCanvas (edge creation only via add-node paths) · FlowEdgeInspector (read-only endpoints) — consumer: none for rewiring`\n\n## Related, not duplicates\n\n- objectui#11778 (closed) — the three add-node paths share one palette and insert into the path; it adds no way to connect existing nodes.\n- objectui#11772 (closed), objectstack-ai/objectstack#22088 (closed) — edges left behind by node removal (both halves); not rewiring.\n- objectstack-ai/objectstack#22137 — the Studio task benchmark whose step 5 met this (`docs/qa/studio-benchmark/baselines/2026-10-08-8fc50b76-a58626c8.md`, *Warnings and notes*; PR objectstack-ai/objectstack#22180).\n\n## Duplicate check\n\n- Semantic issue search on objectstack-ai/objectstack (open and closed), *flow designer cannot connect two existing nodes, orphaned unreachable node can only be deleted*: 0 hits.\n- *flow edge rewire source target read-only draw connection between nodes*: 1 hit (#22088 — the spec half of dangling edges), not this.\n- Positive control in the same search family: *flow designer insert node on edge defaults to create_record, node type dropdown missing notify* returned objectstack-ai/objectstack#22081, objectstack-ai/objectstack#11940 and objectstack-ai/objectstack#3427 (flow-designer cards exist and are found).\n- objectstack-ai/objectui issues: **NOT MEASURED** — no issue read access in this session. The objectui `main` commit messages since the pin (79 commits) name no connect or rewire gesture.\n\nDedupe words: flow designer connect existing nodes · rewire edge source target · unreachable node no fix\n\nFiled by Claude Code (session `session_01VenZErfhzG51sJBHRM1pWJ`) from the Studio task benchmark baseline run on objectstack-ai/objectstack#22137.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -18,16 +18,16 @@
     "priority:p2"
   ],
   "assignees": [
-    "huangyiirene"
+    "os-support-ai"
   ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-07T17:55:03Z",
-  "updated_at": "2026-10-08T01:31:01Z",
+  "updated_at": "2026-10-08T08:27:03Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 2,
+  "comments": 14,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11823",
   "body": "Blocked-by: objectstack-ai/objectui#11790\n\nFiled by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`) as the foreseen second step of objectstack-ai/objectui#11790. ⛔ Not a claim.\n\nGoverning text: ADR-0084 (Accepted). The Interface pillar holds app · page · view · form · dashboard · report, and its editor is \"a **builder** (canvas + palette) or **source + preview**\" (objectstack `docs/adr/0084-application-builder-information-architecture.md:46`).\n\n## What is missing (measured in the 2026-10-07 QA pass, on objectui#11790)\n\n- Studio's create dialogs exist for app, object, flow and permission set only. A writable package cannot create a list or form view, a dashboard, a report or a page.\n- The object canvas' Properties panel edits nothing (\"nothing here is edited from this panel\").\n\n## Direction, in this order\n\n1. **List view:** columns, filters and sort in that Properties panel, saved to the package draft.\n2. **Dashboard and report:** a create flow that opens the structured canvas (objectstack `docs/design/builder-ui.md` §6).\n3. **Page:** a create flow that opens source plus live preview.\n\nEach step may land as its own PR under this card.\n\n## Why blocked\n\n#11790 first adds every nav item type to the same nav editor, so a surface created here can be linked at once. Both cards edit `packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx`.\n\n`Clause-②: no`. Patch changesets in objectui.\n\nDedupe: `studio interfaces create dashboard report page list view` · `ADR-0084 Interface pillar create flow` · `#11790 step 2`."

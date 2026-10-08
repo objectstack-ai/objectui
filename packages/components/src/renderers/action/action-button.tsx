@@ -353,7 +353,6 @@ const ActionButtonRenderer = forwardRef<
     // this gate is the only one on that path. See `hasDeclaredVisibilityGate`.
     if (hasDeclaredVisibilityGate(schema.visible) && !isVisible) return null;
 
-    const domProps = toFormControlDomProps(rest);
     const button = (
       <Button
         ref={ref}
@@ -395,10 +394,10 @@ const ActionButtonRenderer = forwardRef<
               : false
         ) || loading}
         onClick={handleClick}
-        {...domProps}
+        {...toFormControlDomProps(rest)}
         // After the pass-through, so an authored `ariaDescribedBy` and the
         // reason are both kept (objectui#11839).
-        aria-describedby={describedByWithReason(domProps['aria-describedby'], disabledReason)}
+        aria-describedby={describedByWithReason(rest['aria-describedby'], disabledReason)}
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
       >
         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

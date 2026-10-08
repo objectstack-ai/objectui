@@ -251,7 +251,6 @@ const ActionIconRenderer = forwardRef<
     // "no gate". See `hasDeclaredVisibilityGate`.
     if (hasDeclaredVisibilityGate(schema.visible) && !isVisible) return null;
 
-    const domProps = toFormControlDomProps(rest);
     const button = (
       <Button
         ref={ref}
@@ -287,11 +286,11 @@ const ActionIconRenderer = forwardRef<
         ) || loading}
         onClick={handleClick}
         aria-label={schema.label || schema.name}
-        {...domProps}
+        {...toFormControlDomProps(rest)}
         // After the pass-through, so an authored `ariaDescribedBy` and the
         // reason are both kept (objectui#11839). The reason is the icon's
         // DESCRIPTION; its name stays the `aria-label` above.
-        aria-describedby={describedByWithReason(domProps['aria-describedby'], disabledReason)}
+        aria-describedby={describedByWithReason(rest['aria-describedby'], disabledReason)}
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
       >
         {loading ? (

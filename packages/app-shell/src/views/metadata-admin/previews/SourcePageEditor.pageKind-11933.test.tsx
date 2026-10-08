@@ -34,13 +34,22 @@
  */
 
 import * as React from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import { PageTypeSchema } from '@objectstack/spec/ui';
 // Registers `PageRenderer` under each page kind and the html tier's blocks the
 // preview compiles the source to. Module scope, not a hook (AGENTS.md's flaky
 // test discipline).
 import '@object-ui/components';
+
+// The editor half is not under test (the canvas mounts the preview half only),
+// but the component asks the Monaco loader either way. Offline, as in the
+// sibling source-page tests, so no CDN script is requested.
+vi.mock('@monaco-editor/react', () => {
+  const Editor = () => null;
+  return { Editor, default: Editor, loader: { init: () => Promise.reject(new Error('offline')) } };
+});
+
 import { SourcePageEditor } from './SourcePageEditor';
 
 const LABEL = 'Team handbook';

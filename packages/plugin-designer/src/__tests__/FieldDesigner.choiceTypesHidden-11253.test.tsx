@@ -28,7 +28,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react';
 import type { DesignerFieldDefinition } from '@object-ui/types';
 import { CHOICE_TYPES_REQUIRING_OPTIONS } from '@object-ui/data-objectstack';
 import { FieldDesigner } from '../FieldDesigner';
@@ -123,11 +123,15 @@ describe('FieldDesigner — the drawer offers no choice type without an options 
     expect(stage?.options).toEqual([{ label: 'Open', value: 'open' }]);
   });
 
-  it('the list FILTER still lists every type, so existing picklists stay findable', () => {
+  it('the list FILTER still lists every type, so existing picklists stay findable', async () => {
     render(<FieldDesigner objectName="deal" fields={FIELDS} onFieldsChange={() => {}} />);
-    const filter = screen.getByTestId('field-designer-type-filter') as HTMLSelectElement;
-    const values = Array.from(filter.querySelectorAll('option')).map((o) => o.value);
-    expect(values).toContain('select');
-    expect(values).toContain('text');
+    // The filter is the shared Select (objectui#11865): its options are read
+    // from the open list, by label — `select` is listed as "Picklist".
+    fireEvent.keyDown(screen.getByTestId('field-designer-type-filter'), { key: 'ArrowDown' });
+    const labels = within(await screen.findByRole('listbox'))
+      .getAllByRole('option')
+      .map((o) => o.textContent);
+    expect(labels).toContain('Picklist');
+    expect(labels).toContain('Text');
   });
 });

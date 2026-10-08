@@ -70,7 +70,7 @@ const HOT_VIEW = {
 
 function makeAdapter(rows: Array<Record<string, unknown>> = [{ id: 'r1', name: 'Ada' }]) {
   return {
-    find: vi.fn(async () => ({ data: rows, total: rows.length })),
+    find: vi.fn(async (..._args: unknown[]) => ({ data: rows, total: rows.length })),
     getObjectSchema: vi.fn(async () => ({ name: 'contact', fields: {}, listViews: { hot: HOT_VIEW } })),
   };
 }
@@ -86,7 +86,7 @@ function mount(fields: Record<string, unknown>, adapter = makeAdapter()) {
 
 /** The object and query of the first read the repeater issued. */
 const firstRead = (adapter: ReturnType<typeof makeAdapter>) => {
-  const [object, query] = adapter.find.mock.calls[0] as unknown as [string, Record<string, unknown>];
+  const [object, query] = adapter.find.mock.calls[0] as [string, Record<string, unknown>];
   return { object, query };
 };
 

@@ -2897,13 +2897,17 @@ export function InterfacesPillar({
         }
         setAppLabel(label);
         setAppName(name);
+        // objectui#11799 — an app the published list does not hold was found
+        // in the drafts ledger: it has never been saved, so it has no layer to
+        // read and `/layers` would answer 404. Its draft is the whole document.
+        const saved = !!published?.[0]?.name;
         const [layRaw, appDraftResp] = await Promise.all([
-          client.layered<Record<string, unknown>>('app', name),
+          saved ? client.layered<Record<string, unknown>>('app', name) : null,
           client.getDraft<Record<string, unknown>>('app', name).catch(() => null),
         ]);
         if (cancelled) return;
-        const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
-        const eff = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
+        const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> } | null;
+        const eff = (lay?.effective ?? lay?.code ?? {}) as Record<string, unknown>;
         const appDraftBody = extractDraftBody(appDraftResp);
         // A served draft is the whole document — taken as-is, never spread
         // over the published layer (objectui#10765; the rule is stated once
@@ -3074,15 +3078,19 @@ export function InterfacesPillar({
     setSelection(null);
     (async () => {
       try {
-        const [lay, draftResp] = await Promise.all([
-          client.layered<Record<string, unknown>>(current.type, current.name),
-          client.getDraft<Record<string, unknown>>(current.type, current.name).catch(() => null),
-        ]);
+        const draftResp = await client
+          .getDraft<Record<string, unknown>>(current.type, current.name)
+          .catch(() => null);
         if (cancelled) return;
-        const baseline = ((lay as { effective?: unknown; code?: unknown }).effective ??
-          (lay as { code?: unknown }).code ??
-          {}) as Record<string, unknown>;
         const body = extractDraftBody(draftResp);
+        // objectui#11799 — the baseline is read only when it is used, for a
+        // leaf with no pending draft. An unsaved leaf always has one, so it
+        // never asks `/layers`, which answers 404 for a name with no layer.
+        const lay = body ? null : await client.layered<Record<string, unknown>>(current.type, current.name);
+        if (cancelled) return;
+        const baseline = ((lay as { effective?: unknown; code?: unknown } | null)?.effective ??
+          (lay as { code?: unknown } | null)?.code ??
+          {}) as Record<string, unknown>;
         // Served draft as-is, baseline only without one (objectui#10765): a
         // spread over `effective` resurrects every key the draft deleted.
         setDraft(body ?? baseline);
@@ -5671,14 +5679,18 @@ export function AutomationsPillar({
     setSelection(null);
     (async () => {
       try {
-        const [layRaw, draftResp] = await Promise.all([
-          client.layered<Record<string, unknown>>('flow', current.name),
-          client.getDraft<Record<string, unknown>>('flow', current.name).catch(() => null),
-        ]);
+        const draftResp = await client
+          .getDraft<Record<string, unknown>>('flow', current.name)
+          .catch(() => null);
         if (cancelled) return;
-        const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
-        const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
         const draftBody = extractDraftBody(draftResp);
+        // objectui#11799 — the baseline is read only for a flow with no
+        // pending draft, the one case it is used. An unsaved flow always has
+        // one, so it never asks `/layers`, which answers 404 for it.
+        const layRaw = draftBody ? null : await client.layered<Record<string, unknown>>('flow', current.name);
+        if (cancelled) return;
+        const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> } | null;
+        const baseline = (lay?.effective ?? lay?.code ?? {}) as Record<string, unknown>;
         // Served draft as-is, baseline only without one (objectui#10765).
         setDraft(draftBody ?? baseline);
         setDraftFor(`flow:${current.name}`);

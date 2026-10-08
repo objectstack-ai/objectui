@@ -65,7 +65,7 @@ const PICKERS = ['rls-operation-0', 'rls-operation-1', 'tab-visibility-a_tab', '
  */
 function mount(draft: Draft = DRAFT(), writable = true) {
   const writes: string[] = [];
-  const setDraft = (updater: (prev: any) => any) => {
+  const setDraft = (updater: (prev: Draft) => Draft) => {
     writes.push(JSON.stringify(updater(draft)));
   };
   const utils = render(

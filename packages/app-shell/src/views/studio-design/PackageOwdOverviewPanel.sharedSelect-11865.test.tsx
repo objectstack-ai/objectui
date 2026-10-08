@@ -57,7 +57,7 @@ function makeServer(objects: Record<string, Body>) {
       objects[name] = body;
       return body;
     },
-  } as any;
+  } as unknown as React.ComponentProps<typeof PackageOwdOverviewPanel>['client'];
   return { client, saved };
 }
 

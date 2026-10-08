@@ -41,7 +41,7 @@ import { t } from '../i18n';
  * fetched object list/fields.
  */
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,

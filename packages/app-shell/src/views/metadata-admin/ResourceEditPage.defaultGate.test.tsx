@@ -50,6 +50,7 @@ const mockClient = {
   layered: vi.fn(async () => ({ effective: viewDef, code: viewDef, editable: true })),
   getDraft: vi.fn(async () => null),
   get: vi.fn(async () => null),
+  withPreviewDrafts() { return this; },
   saveDraft: vi.fn(async () => ({})),
 };
 

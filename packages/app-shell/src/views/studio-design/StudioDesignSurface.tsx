@@ -3516,6 +3516,35 @@ export function DataPillar({
   // Validations edits `validations` rules; Settings edits object basics +
   // the ADR-0085 semantic roles. All patch the one `objDraft`.
   const [viewMode, setViewMode] = React.useState<'grid' | 'form' | 'rules' | 'settings' | 'hooks' | 'actions' | 'api'>('grid');
+  // objectui#11781 — the field inspector belongs to the view that opened it,
+  // so a view switch closes it, the same act as its own Close: the selection
+  // goes, and its blocking count expires with it (see `blockingReport`). Left
+  // open, a Records/Form selection stayed beside Validations, Hooks, Actions,
+  // API and Settings, where nothing on screen is that field.
+  const selectViewMode = (next: typeof viewMode) => {
+    if (next !== viewMode) setFieldSel(null);
+    setViewMode(next);
+  };
+  // objectui#11781 — Escape closes it too, but only an Escape nothing else
+  // took: a layer that answers Escape itself (a Radix menu, select or dialog,
+  // an autocomplete, an inline edit) prevents its default, and that keystroke
+  // stays the layer's. Read on the document because a click on the form
+  // preview leaves focus on the body, and kept to this pillar and the body so
+  // a keystroke in another surface is not read as one.
+  const pillarRef = React.useRef<HTMLDivElement>(null);
+  const inspectorOpen = fieldSel !== null;
+  React.useEffect(() => {
+    if (!inspectorOpen) return;
+    const closeOnEscape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      if (target !== document.body && !pillarRef.current?.contains(target)) return;
+      setFieldSel(null);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [inspectorOpen]);
   // Stamp + read for the panel-family count declared above.
   const panelKey = `${current?.name ?? ''}:${viewMode}`;
   const panelBlocking = panelBlockingReport.key === panelKey ? panelBlockingReport.count : 0;
@@ -3964,7 +3993,7 @@ export function DataPillar({
   );
 
   return (
-    <div className="flex h-full flex-col">
+    <div ref={pillarRef} className="flex h-full flex-col">
       {objConflictDialog}
       <div className="flex items-center gap-3 border-b px-3 py-2">
         <button
@@ -4126,7 +4155,7 @@ export function DataPillar({
                     <button
                       key={tab.key}
                       type="button"
-                      onClick={() => setViewMode(tab.key)}
+                      onClick={() => selectViewMode(tab.key)}
                       aria-pressed={viewMode === tab.key}
                       className={
                         'rounded-md px-3 py-1 text-[13px] transition-all ' +
@@ -4164,7 +4193,7 @@ export function DataPillar({
                       {advancedDataTabs.map((tab) => (
                         <DropdownMenuItem
                           key={tab.key}
-                          onSelect={() => setViewMode(tab.key)}
+                          onSelect={() => selectViewMode(tab.key)}
                           className={viewMode === tab.key ? 'font-medium text-primary' : undefined}
                         >
                           {tab.label}
@@ -4243,7 +4272,7 @@ export function DataPillar({
                   <button
                     type="button"
                     onClick={() => {
-                      setViewMode('form');
+                      selectViewMode('form');
                       setFormMode('layout');
                     }}
                     className="mt-1 inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs hover:bg-muted"
@@ -4349,14 +4378,17 @@ export function DataPillar({
                     // package where `Save draft` is disabled and the designer has
                     // no draggable at all (objectui#4036). Say it only when it
                     // is true: real local edits, on a surface that can save
-                    // them. `!readOnly` is belt-and-braces — `dirty` is set only
-                    // by the edit paths, which the package gate already blocks —
-                    // but it makes "no unsaved-changes claim where nothing can
-                    // be saved" a property of this line rather than an
-                    // inference about a state machine two hundred lines up.
-                    dirty && !readOnly
-                      ? t('engine.studio.data.form.layoutBadge', locale)
-                      : t('engine.studio.data.form.layoutBadgeClean', locale)
+                    // them. A read-only package is asked first: it has no draft
+                    // layout at all, so neither draft caption is true of it
+                    // (objectui#11781), and "no unsaved-changes claim where
+                    // nothing can be saved" stays a property of this line
+                    // rather than an inference about a state machine two
+                    // hundred lines up.
+                    readOnly
+                      ? t('engine.studio.data.form.layoutBadgeReadOnly', locale)
+                      : dirty
+                        ? t('engine.studio.data.form.layoutBadge', locale)
+                        : t('engine.studio.data.form.layoutBadgeClean', locale)
                   ) : (
                     t('engine.studio.data.form.previewBadge', locale)
                   )}
@@ -5483,12 +5515,24 @@ export function AccessPillar({
           <ShieldQuestion className="h-3.5 w-3.5" />
           {t('engine.studio.access.explain.open', locale)}
         </button>
-        <span
-          title={t('engine.studio.access.bannerTitle', locale)}
-          className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
-        >
-          {t('engine.studio.access.banner', locale)}
-        </span>
+        {/* objectui#11781 — "saved as draft" is what an editable package does;
+            a read-only one saves nothing, so it says what it is, in the muted
+            look of the rail's own read-only note rather than the draft amber. */}
+        {readOnly ? (
+          <span
+            title={t('engine.studio.access.bannerTitleReadOnly', locale)}
+            className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+          >
+            {t('engine.studio.access.bannerReadOnly', locale)}
+          </span>
+        ) : (
+          <span
+            title={t('engine.studio.access.bannerTitle', locale)}
+            className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
+          >
+            {t('engine.studio.access.banner', locale)}
+          </span>
+        )}
       </div>
 
       {/* ADR-0090 D5/D9 — this package's pending suggested audience bindings

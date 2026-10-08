@@ -2855,6 +2855,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.designer.select': 'Select…',
   'engine.studio.designer.pickDate': 'Pick a date…',
   'engine.studio.designer.fieldAria': '{label} — click to edit properties, drag to reorder',
+  // objectui#11781 — a read-only package's card only opens the greyed inspector.
+  'engine.studio.designer.fieldAriaReadOnly': '{label} — click to view properties',
   'engine.studio.designer.groupUp': 'Move group up',
   'engine.studio.designer.groupDown': 'Move group down',
   'engine.studio.designer.groupDelete': 'Delete group',
@@ -2863,6 +2865,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.designer.ungrouped': 'Ungrouped',
   'engine.studio.designer.newGroup': 'New group',
   'engine.studio.designer.hint': 'Drag to reorder / move across groups · click a field to edit its properties',
+  'engine.studio.designer.hintReadOnly': 'Read-only package · click a field to view its properties',
   'engine.studio.designer.addGroup': 'Add group',
   'engine.studio.rules.title': 'Validation rules',
   'engine.studio.rules.none': 'No validation rules yet.',
@@ -3115,6 +3118,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // (objectui#4036).
   'engine.studio.data.form.layoutBadge': 'Draft layout — your unsaved changes',
   'engine.studio.data.form.layoutBadgeClean': 'Draft layout',
+  // objectui#11781 — a read-only package has no draft layout: it says what it is.
+  'engine.studio.data.form.layoutBadgeReadOnly': 'Read-only layout — this package cannot be edited',
   'engine.studio.data.form.previewBadge': 'Preview of the published version',
   'engine.studio.data.form.previewWarn':
     'You have unpublished changes — this preview shows the pre-publish (published) state; confirm the draft in “Layout”, and to see the post-publish result, click “Publish” in the top bar first.',
@@ -3175,6 +3180,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.access.bannerTitle':
     'This matrix lists only the objects this package declares, and “Save” merges just that slice — grants contributed by other packages are preserved. Edits are saved as package drafts and go live when you Publish the package (top bar), exactly like Data and Interfaces.',
   'engine.studio.access.banner': 'This package’s objects · saved as draft',
+  // objectui#11781 — a read-only package saves no draft: the banner says what it is.
+  'engine.studio.access.bannerTitleReadOnly':
+    'This matrix lists only the objects this package declares. The package is read-only: its permission sets can be viewed here, but not changed.',
+  'engine.studio.access.bannerReadOnly': 'This package’s objects · read-only',
   // ADR-0090 D5/D9 — pending suggested audience bindings (isDefault sets
   // awaiting the admin's confirm; the server never auto-binds).
   'engine.studio.access.suggestPromptEveryone': 'This package suggests granting "{set}" to all signed-in users (Everyone).',
@@ -5797,6 +5806,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.designer.select': '请选择…',
   'engine.studio.designer.pickDate': '选择日期…',
   'engine.studio.designer.fieldAria': '{label} — 点选改属性,拖动排序',
+  'engine.studio.designer.fieldAriaReadOnly': '{label} — 点选查看属性',
   'engine.studio.designer.groupUp': '上移分组',
   'engine.studio.designer.groupDown': '下移分组',
   'engine.studio.designer.groupDelete': '删除分组',
@@ -5805,6 +5815,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.designer.ungrouped': '未分组',
   'engine.studio.designer.newGroup': '新分组',
   'engine.studio.designer.hint': '拖动字段排序 / 拖到其它分组 · 点选字段改属性',
+  'engine.studio.designer.hintReadOnly': '只读软件包 · 点选字段查看属性',
   'engine.studio.designer.addGroup': '添加分组',
   'engine.studio.rules.title': '验证规则',
   'engine.studio.rules.none': '还没有验证规则。',
@@ -6022,6 +6033,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.data.form.preview': '预览',
   'engine.studio.data.form.layoutBadge': '草稿布局 · 含未保存改动',
   'engine.studio.data.form.layoutBadgeClean': '草稿布局',
+  'engine.studio.data.form.layoutBadgeReadOnly': '只读布局 · 本软件包不可编辑',
   'engine.studio.data.form.previewBadge': '预览已发布版本(不含草稿改动)',
   'engine.studio.data.form.previewWarn':
     '有未发布改动 — 此预览为发布前(已发布)的效果;草稿确认用「布局」,看发布后效果请先点顶栏「发布」',
@@ -6077,6 +6089,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.access.bannerTitle':
     '此矩阵仅列出本包声明的对象,「Save」只合并本包切片 —— 其他包贡献的授权原样保留。编辑保存为软件包草稿,点击顶栏「发布」后随整个包一起生效(与数据、界面一致)。',
   'engine.studio.access.banner': '仅本包对象 · 保存为草稿',
+  'engine.studio.access.bannerTitleReadOnly':
+    '此矩阵仅列出本包声明的对象。本软件包为只读:其权限集可在此查看,但不能修改。',
+  'engine.studio.access.bannerReadOnly': '仅本包对象 · 只读',
   // ADR-0090 D5/D9 — 待确认的受众绑定建议(isDefault 权限集,管理员确认后生效,服务端绝不自动绑定)
   'engine.studio.access.suggestPromptEveryone': '此包建议将「{set}」授予所有已登录用户(Everyone 岗位)。',
   'engine.studio.access.suggestPromptGuest': '此包建议将「{set}」授予未登录访客(Guest 岗位)。',

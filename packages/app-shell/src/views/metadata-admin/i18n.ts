@@ -1167,6 +1167,24 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.reference.actionsOf': 'Actions of {connector}.',
   'engine.inspector.reference.chooseConnector': 'Choose a Connector above to list its actions.',
   'engine.inspector.reference.declarative': 'declarative',
+  // objectui#11788 — the notify node's recipient picker (`FlowRecipientsField`).
+  'engine.inspector.recipients.kindLabel': 'Recipient type',
+  'engine.inspector.recipients.kind.field': 'Record field',
+  'engine.inspector.recipients.kind.user': 'User',
+  'engine.inspector.recipients.kind.team': 'Team',
+  'engine.inspector.recipients.kind.email': 'Email address',
+  'engine.inspector.recipients.kind.custom': 'Other',
+  'engine.inspector.recipients.placeholder.field': 'Field of the trigger record',
+  'engine.inspector.recipients.placeholder.user': 'Pick a user',
+  'engine.inspector.recipients.placeholder.team': 'Pick a team',
+  'engine.inspector.recipients.placeholder.email': 'name@example.com',
+  'engine.inspector.recipients.placeholder.custom': 'Saved as typed, e.g. {ownerId}',
+  'engine.inspector.recipients.add': 'Add recipient',
+  'engine.inspector.recipients.remove': 'Remove recipient',
+  'engine.inspector.recipients.empty': 'No recipients yet.',
+  'engine.inspector.recipients.notEmail': 'Not an email address — the messaging service would read it as a user id.',
+  // objectui#11788 — the create/update record nodes' field-value keys, picked from the target object.
+  'engine.inspector.fieldMap.chooseObject': 'Choose the Object above to list its fields.',
   // objectui#11783 — the shared object picker (inspectors/ObjectPicker.tsx).
   'engine.inspector.objectPicker.groupPackage': 'This package',
   'engine.inspector.objectPicker.groupOther': 'Other objects',
@@ -2910,6 +2928,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.designer.select': 'Select…',
   'engine.studio.designer.pickDate': 'Pick a date…',
   'engine.studio.designer.fieldAria': '{label} — click to edit properties, drag to reorder',
+  // objectui#11781 — a read-only package's card only opens the greyed inspector.
+  'engine.studio.designer.fieldAriaReadOnly': '{label} — click to view properties',
   'engine.studio.designer.groupUp': 'Move group up',
   'engine.studio.designer.groupDown': 'Move group down',
   'engine.studio.designer.groupDelete': 'Delete group',
@@ -2918,6 +2938,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.designer.ungrouped': 'Ungrouped',
   'engine.studio.designer.newGroup': 'New group',
   'engine.studio.designer.hint': 'Drag to reorder / move across groups · click a field to edit its properties',
+  'engine.studio.designer.hintReadOnly': 'Read-only package · click a field to view its properties',
   'engine.studio.designer.addGroup': 'Add group',
   'engine.studio.rules.title': 'Validation rules',
   'engine.studio.rules.none': 'No validation rules yet.',
@@ -3097,6 +3118,19 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // to wait for — `StudioCanvasPreviewProps` carries no selection by contract.
   'engine.studio.inspector.studioCanvasNoBlocks':
     'This canvas renders the running app, not a block tree — it has no blocks to select, and nothing here is edited from this panel.',
+  // objectui#11823 — an `object` leaf's panel: the list view its canvas shows.
+  'engine.studio.inspector.listView.kind': 'List view',
+  'engine.studio.inspector.listView.intro':
+    'The list on the canvas. Its columns, filter and sort save to this package\'s draft and show on the canvas at once.',
+  'engine.studio.inspector.listView.notCreated':
+    'There is no list view {view} yet. Your first change here creates it in this package\'s draft.',
+  'engine.studio.inspector.listView.readOnly': 'This package is read-only: the list view is shown here, not edited.',
+  'engine.studio.inspector.listView.notList': '{view} is not a list view, so it is not edited here.',
+  'engine.studio.inspector.listView.filter': 'Filter',
+  'engine.studio.inspector.listView.sort': 'Sort',
+  'engine.studio.inspector.listView.addSort': '+ Add sort…',
+  'engine.studio.inspector.listView.sortAsc': '{field} ascending',
+  'engine.studio.inspector.listView.sortDesc': '{field} descending',
   'engine.studio.inspector.designersMissing':
     'No metadata designers are registered in this session, so there is nothing to edit here.',
   'engine.studio.inspector.noPageSchema': 'Page settings are unavailable — the page schema could not be loaded.',
@@ -3170,6 +3204,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // (objectui#4036).
   'engine.studio.data.form.layoutBadge': 'Draft layout — your unsaved changes',
   'engine.studio.data.form.layoutBadgeClean': 'Draft layout',
+  // objectui#11781 — a read-only package has no draft layout: it says what it is.
+  'engine.studio.data.form.layoutBadgeReadOnly': 'Read-only layout — this package cannot be edited',
   'engine.studio.data.form.previewBadge': 'Preview of the published version',
   'engine.studio.data.form.previewWarn':
     'You have unpublished changes — this preview shows the pre-publish (published) state; confirm the draft in “Layout”, and to see the post-publish result, click “Publish” in the top bar first.',
@@ -3216,6 +3252,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.auto.none': 'No automations yet — click “New” to start',
   'engine.studio.auto.namePlaceholder': 'Name (e.g. Offer Notice)',
   'engine.studio.auto.idPlaceholder': 'Identifier (e.g. offer_notice)',
+  // objectui#11788 — the New automation dialog's trigger choice, left unset.
+  'engine.studio.newAutoTrigger.later': 'Choose later on the Start node',
   'engine.studio.auto.canvasHint': 'Visual orchestration · click a node to configure',
   'engine.studio.auto.pick': 'Select an automation',
   'engine.studio.auto.config': 'Configuration',
@@ -3230,6 +3268,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.access.bannerTitle':
     'This matrix lists only the objects this package declares, and “Save” merges just that slice — grants contributed by other packages are preserved. Edits are saved as package drafts and go live when you Publish the package (top bar), exactly like Data and Interfaces.',
   'engine.studio.access.banner': 'This package’s objects · saved as draft',
+  // objectui#11781 — a read-only package saves no draft: the banner says what it is.
+  'engine.studio.access.bannerTitleReadOnly':
+    'This matrix lists only the objects this package declares. The package is read-only: its permission sets can be viewed here, but not changed.',
+  'engine.studio.access.bannerReadOnly': 'This package’s objects · read-only',
   // ADR-0090 D5/D9 — pending suggested audience bindings (isDefault sets
   // awaiting the admin's confirm; the server never auto-binds).
   'engine.studio.access.suggestPromptEveryone': 'This package suggests granting "{set}" to all signed-in users (Everyone).',
@@ -4275,6 +4317,24 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.reference.actionsOf': '{connector} 的动作。',
   'engine.inspector.reference.chooseConnector': '请先在上方选择连接器，才能列出其动作。',
   'engine.inspector.reference.declarative': '声明式',
+  // objectui#11788 — 通知节点的收件人选择器(`FlowRecipientsField`)。
+  'engine.inspector.recipients.kindLabel': '收件人类型',
+  'engine.inspector.recipients.kind.field': '记录字段',
+  'engine.inspector.recipients.kind.user': '用户',
+  'engine.inspector.recipients.kind.team': '团队',
+  'engine.inspector.recipients.kind.email': '邮箱地址',
+  'engine.inspector.recipients.kind.custom': '其他',
+  'engine.inspector.recipients.placeholder.field': '触发记录的字段',
+  'engine.inspector.recipients.placeholder.user': '选择用户',
+  'engine.inspector.recipients.placeholder.team': '选择团队',
+  'engine.inspector.recipients.placeholder.email': 'name@example.com',
+  'engine.inspector.recipients.placeholder.custom': '按原样保存，例如 {ownerId}',
+  'engine.inspector.recipients.add': '添加收件人',
+  'engine.inspector.recipients.remove': '移除收件人',
+  'engine.inspector.recipients.empty': '还没有收件人。',
+  'engine.inspector.recipients.notEmail': '这不是邮箱地址 —— 消息服务会把它当作用户 id。',
+  // objectui#11788 — 新建/更新记录节点的字段值键,从目标对象中选取。
+  'engine.inspector.fieldMap.chooseObject': '请先在上方选择对象，才能列出它的字段。',
   // objectui#11783 — the shared object picker (inspectors/ObjectPicker.tsx).
   'engine.inspector.objectPicker.groupPackage': '本软件包',
   'engine.inspector.objectPicker.groupOther': '其他对象',
@@ -5891,6 +5951,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.designer.select': '请选择…',
   'engine.studio.designer.pickDate': '选择日期…',
   'engine.studio.designer.fieldAria': '{label} — 点选改属性,拖动排序',
+  'engine.studio.designer.fieldAriaReadOnly': '{label} — 点选查看属性',
   'engine.studio.designer.groupUp': '上移分组',
   'engine.studio.designer.groupDown': '下移分组',
   'engine.studio.designer.groupDelete': '删除分组',
@@ -5899,6 +5960,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.designer.ungrouped': '未分组',
   'engine.studio.designer.newGroup': '新分组',
   'engine.studio.designer.hint': '拖动字段排序 / 拖到其它分组 · 点选字段改属性',
+  'engine.studio.designer.hintReadOnly': '只读软件包 · 点选字段查看属性',
   'engine.studio.designer.addGroup': '添加分组',
   'engine.studio.rules.title': '验证规则',
   'engine.studio.rules.none': '还没有验证规则。',
@@ -6022,7 +6084,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.nav.chooseObject': '— 选择对象 —',
   'engine.studio.nav.boundHint': '这个菜单项会打开该对象的记录列表。',
   'engine.studio.nav.unboundHint': '选择一个对象,菜单项将打开它的记录列表。',
-  'engine.studio.nav.noObjects': '这个软件包还没有对象 — 先到 Data 支柱创建。',
+  'engine.studio.nav.noObjects': '这个软件包还没有对象 — 请先在「数据」中创建一个。',
   // Interfaces pillar
   'engine.studio.if.pickLeft': '从左侧选择一个菜单项',
   'engine.studio.if.internalId': '内部标识',
@@ -6039,8 +6101,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.if.noAppHint': '创建一个应用来设计它的导航与界面。',
   'engine.studio.if.designersMissing': '本次会话没有注册任何元数据设计器,因此无法在这里预览或设计 {type}。',
   'engine.studio.if.noDesigner': '没有为 {type} 注册设计器,因此无法在这里预览或设计。',
-  'engine.studio.if.objectHintPre': '运行态列表预览 · 改字段 / 结构请到 ',
-  'engine.studio.if.objectHintPost': ' 支柱',
+  'engine.studio.if.objectHintPre': '运行态列表预览 · 改字段 / 结构请到「',
+  'engine.studio.if.objectHintPost': '」',
   'engine.studio.inspector.props': '属性',
   'engine.studio.inspector.collapse': '收起属性',
   'engine.studio.inspector.expand': '展开属性',
@@ -6050,6 +6112,16 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.inspector.emptyLine2': '它的属性会在这里直接编辑。',
   'engine.studio.inspector.studioCanvasNoBlocks':
     '此画布渲染的是运行态应用，而不是积木树 —— 这里没有可选中的积木，也没有可在本面板编辑的内容。',
+  'engine.studio.inspector.listView.kind': '列表视图',
+  'engine.studio.inspector.listView.intro': '画布上的就是这个列表。它的列、筛选与排序保存到本包的草稿,并立即显示在画布上。',
+  'engine.studio.inspector.listView.notCreated': '还没有列表视图 {view}。在这里做的第一次修改会在本包的草稿中创建它。',
+  'engine.studio.inspector.listView.readOnly': '本包只读:这里展示列表视图,不能编辑。',
+  'engine.studio.inspector.listView.notList': '{view} 不是列表视图,因此不在这里编辑。',
+  'engine.studio.inspector.listView.filter': '筛选',
+  'engine.studio.inspector.listView.sort': '排序',
+  'engine.studio.inspector.listView.addSort': '+ 添加排序…',
+  'engine.studio.inspector.listView.sortAsc': '{field} 升序',
+  'engine.studio.inspector.listView.sortDesc': '{field} 降序',
   'engine.studio.inspector.designersMissing': '本次会话没有注册任何元数据设计器,这里没有可编辑的内容。',
   'engine.studio.inspector.noPageSchema': '页面设置不可用——无法加载页面 schema。',
   'engine.studio.inspector.sourcePageLine1': '这个页面是 {kind} 源码,不是积木树 ——',
@@ -6116,6 +6188,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.data.form.preview': '预览',
   'engine.studio.data.form.layoutBadge': '草稿布局 · 含未保存改动',
   'engine.studio.data.form.layoutBadgeClean': '草稿布局',
+  'engine.studio.data.form.layoutBadgeReadOnly': '只读布局 · 本软件包不可编辑',
   'engine.studio.data.form.previewBadge': '预览已发布版本(不含草稿改动)',
   'engine.studio.data.form.previewWarn':
     '有未发布改动 — 此预览为发布前(已发布)的效果;草稿确认用「布局」,看发布后效果请先点顶栏「发布」',
@@ -6158,6 +6231,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.auto.none': '还没有自动化 — 点「新建」开始',
   'engine.studio.auto.namePlaceholder': '名称(如:录用通知)',
   'engine.studio.auto.idPlaceholder': '标识符(如:offer_notice)',
+  // objectui#11788 — 新建自动化对话框里不选触发方式时的选项。
+  'engine.studio.newAutoTrigger.later': '稍后在开始节点上选择',
   'engine.studio.auto.canvasHint': '点选画布上的节点即可配置',
   'engine.studio.auto.pick': '选择一个自动化',
   'engine.studio.auto.config': '配置',
@@ -6171,6 +6246,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.access.bannerTitle':
     '此矩阵仅列出本包声明的对象,「Save」只合并本包切片 —— 其他包贡献的授权原样保留。编辑保存为软件包草稿,点击顶栏「发布」后随整个包一起生效(与数据、界面一致)。',
   'engine.studio.access.banner': '仅本包对象 · 保存为草稿',
+  'engine.studio.access.bannerTitleReadOnly':
+    '此矩阵仅列出本包声明的对象。本软件包为只读:其权限集可在此查看,但不能修改。',
+  'engine.studio.access.bannerReadOnly': '仅本包对象 · 只读',
   // ADR-0090 D5/D9 — 待确认的受众绑定建议(isDefault 权限集,管理员确认后生效,服务端绝不自动绑定)
   'engine.studio.access.suggestPromptEveryone': '此包建议将「{set}」授予所有已登录用户(Everyone 岗位)。',
   'engine.studio.access.suggestPromptGuest': '此包建议将「{set}」授予未登录访客(Guest 岗位)。',
@@ -6574,7 +6652,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
   // notify has no client field table (offline → Advanced JSON); these localize
   // the engine-published configSchema fields shown when online.
   notify: {
-    recipients: { label: '收件人', help: '接收通知的用户 id / 受众。' },
+    recipients: { label: '收件人', help: '接收通知的人：触发记录的某个字段、用户、团队或邮箱地址。至少需要一个。' },
     title: { label: '标题', help: '通知标题(别名:subject)。' },
     message: { label: '内容', help: '通知正文(别名:body)。' },
     channels: { label: '渠道', help: '扇出投递的渠道(默认站内)。' },

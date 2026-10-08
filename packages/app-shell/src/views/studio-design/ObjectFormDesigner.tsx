@@ -158,6 +158,7 @@ function SortableField({
   columns,
   selected,
   onSelect,
+  readOnly = false,
 }: {
   entry: FieldEntry;
   /** Already resolved through the project's field translations. */
@@ -165,6 +166,11 @@ function SortableField({
   columns: number;
   selected: boolean;
   onSelect: () => void;
+  /**
+   * objectui#11781 — a read-only package's card only opens the (greyed)
+   * inspector: it neither says nor looks draggable.
+   */
+  readOnly?: boolean;
 }): React.ReactElement {
   const locale = useMetadataLocale();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fid(entry.name) });
@@ -185,17 +191,24 @@ function SortableField({
       onClick={onSelect}
       {...attributes}
       {...listeners}
-      aria-label={tFormat('engine.studio.designer.fieldAria', locale, { label })}
+      aria-label={
+        readOnly
+          ? tFormat('engine.studio.designer.fieldAriaReadOnly', locale, { label })
+          : tFormat('engine.studio.designer.fieldAria', locale, { label })
+      }
       className={
-        'group relative flex cursor-grab touch-none select-none items-start gap-1.5 rounded-md border bg-background px-2 py-2 active:cursor-grabbing ' +
+        'group relative flex touch-none select-none items-start gap-1.5 rounded-md border bg-background px-2 py-2 ' +
+        (readOnly ? 'cursor-pointer ' : 'cursor-grab active:cursor-grabbing ') +
         (spanFull ? 'col-span-full ' : '') +
         (selected ? 'ring-2 ring-primary' : 'hover:border-foreground/25') +
         (isDragging ? ' opacity-40' : '')
       }
     >
-      <span className="mt-0.5 text-muted-foreground opacity-0 group-hover:opacity-100">
-        <GripVertical className="h-3.5 w-3.5" />
-      </span>
+      {!readOnly && (
+        <span className="mt-0.5 text-muted-foreground opacity-0 group-hover:opacity-100">
+          <GripVertical className="h-3.5 w-3.5" />
+        </span>
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1 text-xs font-medium">
           <span className="truncate">{label}</span>
@@ -345,6 +358,7 @@ function Section({
                 columns={columns}
                 selected={selectedField === name}
                 onSelect={() => onSelectField(name)}
+                readOnly={readOnly}
               />
             );
           })}
@@ -546,7 +560,10 @@ export function ObjectFormDesigner({
     <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-background p-4">
       <div className="mb-3 flex items-center gap-2">
         <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Rows3 className="h-3.5 w-3.5" /> {t('engine.studio.designer.hint', locale)}
+          {/* objectui#11781 — a read-only package has no drag and no edit, so
+              its hint says what it is and what a click still does. */}
+          <Rows3 className="h-3.5 w-3.5" />{' '}
+          {readOnly ? t('engine.studio.designer.hintReadOnly', locale) : t('engine.studio.designer.hint', locale)}
         </span>
         {!readOnly && (
           <>

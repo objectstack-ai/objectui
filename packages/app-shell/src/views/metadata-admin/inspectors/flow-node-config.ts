@@ -30,6 +30,7 @@
  */
 
 import type { FlowTriggerKind } from '@objectstack/spec/automation';
+import type { DeclaredConfigKey } from './json-schema-to-fields.js';
 import { flowFieldZh, isZhLocale } from '../i18n.js';
 
 export type FlowConfigFieldKind =
@@ -47,7 +48,12 @@ export type FlowConfigFieldKind =
   // A write-only credential (objectui#11054). Rendered through the metadata
   // form's existing `secret` widget; a value already on the node is never put
   // back into the control, and leaving it blank writes nothing.
-  | 'secret';
+  | 'secret'
+  // The notify node's audience (objectui#11788): one row per recipient — a
+  // trigger-record field, a user, a team or an email address — rendered by
+  // `FlowRecipientsField`, which writes only the spellings the messaging
+  // service's recipient resolver reads.
+  | 'recipients';
 
 /**
  * What a `reference` field points at — the picker's data source. Most kinds
@@ -1096,7 +1102,11 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
   // first-class static editor so the node is authorable offline, not only when
   // the running engine publishes its descriptor (framework#1878/#1895).
   notify: [
-    cfg('recipients', 'Recipients', 'stringList', { help: 'User id(s) / audience selector(s) to notify. At least one is required.' }),
+    // objectui#11788 — a picker, not a free-text list, and it renders online
+    // too: the published descriptor declares `recipients` untyped (the contract
+    // takes a string or a string array), so `mergeServerFlowFields` keeps this
+    // editor for it rather than leaving the key to Advanced (JSON).
+    cfg('recipients', 'Recipients', 'recipients', { help: 'Who receives the notification: a field of the trigger record, a user, a team or an email address. At least one is required.' }),
     cfg('title', 'Title', 'text', { placeholder: 'Your request was approved', help: 'Notification title (required).' }),
     cfg('message', 'Message', 'textarea', { placeholder: 'Supports {var} template references.', help: 'Notification body.' }),
     cfg('channels', 'Channels', 'stringList', { help: 'Channels to fan out to (default: inbox — e.g. inbox · email · push).' }),
@@ -1258,10 +1268,20 @@ function isConfigRooted(field: FlowConfigField): boolean {
  * executor reads), and the hand-written non-config fields are always preserved,
  * in their declared order, after them. When no schema is published the
  * hand-written group is used whole, unchanged.
+ *
+ * objectui#11788 — one exception inside the config-rooted half. A key the
+ * schema DECLARES (`declaredKeys`, from `declaredConfigKeys`) but the mapper
+ * emitted no field for — `notify.recipients`, published untyped because the
+ * contract takes a string or a string array — keeps the hand-written editor for
+ * that key, in the key's declared position. Without it the online form dropped
+ * the field the offline form shows, and the author met the key only as Advanced
+ * (JSON). A key the schema does not declare is never brought back: the engine
+ * rejects undeclared config keys at `registerFlow()`.
  */
 export function mergeServerFlowFields(
   serverFields: FlowConfigField[] | null | undefined,
   type?: string,
+  declaredKeys?: ReadonlyArray<DeclaredConfigKey> | null,
 ): FlowConfigField[] {
   const handWritten = fieldsForNodeType(type);
   if (!serverFields) return handWritten;
@@ -1271,10 +1291,50 @@ export function mergeServerFlowFields(
   const serverConfigFields = serverFields.filter(isConfigRooted);
   const preserved = handWritten.filter((f) => !isConfigRooted(f));
   const preservedKeys = new Set(preserved.map((f) => f.path[f.path.length - 1]));
-  return [
-    ...serverConfigFields.filter((f) => !preservedKeys.has(f.path[f.path.length - 1])),
-    ...preserved,
-  ];
+  const served = serverConfigFields.filter((f) => !preservedKeys.has(f.path[f.path.length - 1]));
+  return [...withUnmappedDeclaredKeys(served, handWritten, preservedKeys, declaredKeys), ...preserved];
+}
+
+/**
+ * `served` with the hand-written editor of every declared-but-unmapped config
+ * key put back at that key's declared position (objectui#11788), labelled and
+ * described by the schema where it says something — the server owns the words
+ * for its keys as it does for every field it maps (`meta()` in
+ * `json-schema-to-fields.ts`); the table lends only the control. The served
+ * fields keep their own order: the mapper emits them in declaration order, so
+ * walking the declared keys reproduces it.
+ */
+function withUnmappedDeclaredKeys(
+  served: FlowConfigField[],
+  handWritten: FlowConfigField[],
+  preservedKeys: ReadonlySet<string>,
+  declaredKeys: ReadonlyArray<DeclaredConfigKey> | null | undefined,
+): FlowConfigField[] {
+  if (!declaredKeys?.length) return served;
+  const configKey = (f: FlowConfigField) => f.path[1];
+  const out: FlowConfigField[] = [];
+  const placed = new Set<FlowConfigField>();
+  for (const declared of declaredKeys) {
+    const mapped = served.filter((f) => configKey(f) === declared.key);
+    if (mapped.length || preservedKeys.has(declared.key)) {
+      for (const f of mapped) {
+        out.push(f);
+        placed.add(f);
+      }
+      continue;
+    }
+    for (const f of handWritten) {
+      if (!isConfigRooted(f) || configKey(f) !== declared.key) continue;
+      out.push({
+        ...f,
+        ...(declared.title ? { label: declared.title } : {}),
+        ...(declared.description ? { help: declared.description } : {}),
+      });
+    }
+  }
+  // Defensive: a served field under a key the declared list does not name.
+  for (const f of served) if (!placed.has(f)) out.push(f);
+  return out;
 }
 
 /** Overlay a column's zh label / option labels (English is the fallback). */

@@ -44,7 +44,7 @@ import {
   configKeyOf,
   type FlowConfigField,
 } from './flow-node-config.js';
-import { jsonSchemaToFlowFields } from './json-schema-to-fields.js';
+import { declaredConfigKeys, jsonSchemaToFlowFields } from './json-schema-to-fields.js';
 import {
   applyConnectorInputForm,
   connectorActionInputSchema,
@@ -337,7 +337,9 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     // the config-rooted fields — the spec-structured sibling blocks
     // (connectorConfig / waitEventConfig / boundaryConfig) and top-level
     // `timeoutMs` are always kept from the hand-written group (framework#4045).
-    const resolved = mergeServerFlowFields(serverFields, nodeType);
+    // A key it declares but the mapper cannot type keeps its hand-written
+    // editor (objectui#11788 — `notify.recipients`).
+    const resolved = mergeServerFlowFields(serverFields, nodeType, schema !== undefined ? declaredConfigKeys(schema) : null);
     // Localize both the hardcoded table and the engine-published configSchema
     // fields (they share field ids for built-in nodes); no-op for English.
     const localized = localizeFlowFields(nodeType, resolved, locale);

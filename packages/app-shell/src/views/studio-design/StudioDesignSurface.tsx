@@ -44,6 +44,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  Badge,
+  Separator,
 } from '@object-ui/components';
 import { ObjectView as PluginObjectView } from '@object-ui/plugin-view';
 import { ListView } from '@object-ui/plugin-list';
@@ -92,7 +94,13 @@ import {
   listMetadataPreviewTypes,
   type MetadataSelection,
 } from '../metadata-admin/preview-registry.js';
-import { getStudioCanvasPreview, StudioCanvasNavEntryContext, type StudioCanvasNavEntry } from './studio-canvas-preview.js';
+import {
+  getStudioCanvasPreview,
+  StudioCanvasListViewContext,
+  StudioCanvasNavEntryContext,
+  type StudioCanvasNavEntry,
+} from './studio-canvas-preview.js';
+import { ObjectListViewInspector, useObjectListViewDraft } from './ObjectListViewInspector.js';
 import { PermissionMatrixEditPage } from '../metadata-admin/PermissionMatrixEditor.js';
 import { AccessExplainPanel } from '../metadata-admin/AccessExplainPanel.js';
 import {
@@ -139,6 +147,8 @@ import { SurfaceDeepLinkProvider, useRequestedSurface } from './surfaceDeepLinkC
 import { buildObjectSkeleton, buildFlowSkeleton, buildAppSkeleton, buildPermissionSkeleton, type AppNavSeed } from './skeletons.js';
 import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-sharing.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { fieldsForNodeType, localizeFlowFields, type FlowConfigField } from '../metadata-admin/inspectors/flow-node-config.js';
+import { ObjectPicker } from '../metadata-admin/inspectors/ObjectPicker.js';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas, navPayloadOf } from '../metadata-admin/previews/AppNavCanvas.js';
@@ -1753,7 +1763,17 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   );
 }
 
-/** Recursive App-navigation tree (groups + typed leaves). */
+/**
+ * Recursive App-navigation tree: groups, separators and typed leaves.
+ *
+ * objectui#11791 — the rail draws a `separator` and a leaf's `badge` /
+ * `badgeVariant` with the decisions the running app's sidebar makes
+ * (`NavigationRenderer` in `@object-ui/layout`, which `UnifiedSidebar` mounts),
+ * so the design surface agrees with the app it designs. Mirrored, not
+ * imported: the sidebar draws both inline in its row renderer, and its rows
+ * are `SidebarMenu` items this rail does not use. The pin that holds the two
+ * together renders both: `StudioDesignSurface.railSeparatorBadge-11791.test.tsx`.
+ */
 function NavTree({
   nodes,
   active,
@@ -1779,6 +1799,16 @@ function NavTree({
         // through the family's one helper, in the designer locale.
         // objectui#11196 — an ABSENT label shows the text the entry inherits:
         // the runtime's own rule, never a second copy of it.
+        // objectui#11791 — a `separator` is a rule between rows, not an entry.
+        // It used to fall through to the leaf branch below, which drew it as a
+        // disabled, unlabeled button with the generic glyph. The sidebar's
+        // decision, mirrored: a decorative `Separator` (`role="none"`), so it
+        // is no row to click, no stop for the keyboard, and nothing a screen
+        // reader announces. The spec's separator carries `type`, `id` and
+        // `order` only, so there is no label or badge to draw.
+        if (node.type === 'separator') {
+          return <Separator key={node.id ?? i} className="my-2" />;
+        }
         const labelText = navEntryLabelText(node, locale, targetLabel);
         if (node.type === 'group' || (Array.isArray(node.children) && node.children.length)) {
           return (
@@ -1821,6 +1851,19 @@ function NavTree({
                 is the fallback #7254 chose. `surface?.name` stays for a label
                 that is present but resolves to nothing (an empty map). */}
             <span className="flex-1 truncate">{labelText || surface?.name}</span>
+            {/* objectui#11791 — the spec's `badge` / `badgeVariant`, drawn when
+                the sidebar row draws them (a present `badge`, a count `0`
+                included) with the same `Badge` and the same variant: an absent
+                `badgeVariant` is `Badge`'s own default, which is the
+                sidebar's. On every leaf, a disabled one too, as the sidebar
+                draws it on every entry it draws; never on a group heading,
+                where the sidebar draws none. Before the label's kind chip, so
+                the pill sits beside the text it qualifies. */}
+            {node.badge != null && (
+              <Badge variant={node.badgeVariant} className="shrink-0 px-1.5 py-0 text-[10px]">
+                {node.badge}
+              </Badge>
+            )}
             {surface && surface.type !== 'page' && (
               // The kind chip was the raw English metadata type in an otherwise
               // localized rail. `uppercase` is dropped with it: it is a
@@ -3030,6 +3073,19 @@ export function InterfacesPillar({
     save: doSave,
   });
 
+  // objectui#11823 — an `object` leaf's list view: the third buffer, edited in
+  // the Properties panel and shown on the canvas, autosaved to the package
+  // draft like the other two. Blocked on `readOnly` like them.
+  const listView = useObjectListViewDraft({ client, packageId, leaf: current, publishNonce, onDraftSaved });
+  useDraftAutoSave({
+    target: listView.targetKey,
+    loadedFor: listView.loadedFor,
+    dirty: listView.dirty,
+    blocked: !listView.target || listView.saving || readOnly,
+    snapshot: listView.row,
+    save: listView.save,
+  });
+
   // nav editing — patch appDraft.navigation, then save/publish the App overlay
   const onNavPatch = React.useCallback((patch: Record<string, unknown>) => {
     setAppDraft((d) => ({ ...d, ...patch }));
@@ -3269,8 +3325,11 @@ export function InterfacesPillar({
           // objectui#11774 — the open nav entry rides beside the props, not in
           // them (`StudioCanvasPreviewProps` is a published face): the default
           // object canvas previews the entry's slice or named view.
+          // objectui#11823 — and so does the list view the panel is editing.
           <StudioCanvasNavEntryContext.Provider value={canvasNavEntry}>
-            <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+            <StudioCanvasListViewContext.Provider value={listView.canvas}>
+              <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+            </StudioCanvasListViewContext.Provider>
           </StudioCanvasNavEntryContext.Provider>
         ) : isSourcePage ? (
           // Source pages have no block tree — the canvas shows only the live
@@ -3306,7 +3365,7 @@ export function InterfacesPillar({
       </div>
       {!isEditable && current?.type === 'object' ? (
         <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Database className="h-3 w-3" /> {t('engine.studio.if.objectHintPre', locale)}<span className="font-medium">Data</span>{t('engine.studio.if.objectHintPost', locale)}
+          <Database className="h-3 w-3" /> {t('engine.studio.if.objectHintPre', locale)}<span className="font-medium">{t('engine.studio.pillar.data', locale)}</span>{t('engine.studio.if.objectHintPost', locale)}
         </p>
       ) : null}
     </main>
@@ -3406,12 +3465,24 @@ export function InterfacesPillar({
       // `Map`s read during render with no subscription. Here the statement is
       // not even about registration — this canvas has no blocks by contract,
       // so there is nothing to wait for.
-      <div className="min-h-0 flex-1 overflow-auto p-3">
-        <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
-          <Eye className="h-5 w-5" />
-          {t('engine.studio.inspector.studioCanvasNoBlocks', locale)}
+      //
+      // objectui#11823 — except the list itself. An `object` leaf's canvas is
+      // the object's running list, and the list view it shows IS package
+      // metadata: this panel edits its columns, filter and sort (the view the
+      // canvas opens, see `ObjectListViewInspector`). Still no block, still no
+      // selection. Every other studio-canvas type keeps the statement below.
+      current.type === 'object' && listView.target ? (
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <ObjectListViewInspector listView={listView} readOnly={readOnly} locale={locale} />
         </div>
-      </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto p-3">
+          <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
+            <Eye className="h-5 w-5" />
+            {t('engine.studio.inspector.studioCanvasNoBlocks', locale)}
+          </div>
+        </div>
+      )
     ) : current && !draftLoaded ? (
       // objectui#11272 — no editor over another leaf's buffer: the canvas
       // beside it says whether this leaf's own document is on its way.
@@ -3531,6 +3602,7 @@ export function InterfacesPillar({
     <div className="flex h-full flex-col">
       {leafConflictDialog}
       {navConflictDialog}
+      {listView.conflictDialog}
       <div className="flex items-center gap-2 border-b px-3 py-1.5">
         <button
           type="button"
@@ -3981,6 +4053,35 @@ export function DataPillar({
   // Validations edits `validations` rules; Settings edits object basics +
   // the ADR-0085 semantic roles. All patch the one `objDraft`.
   const [viewMode, setViewMode] = React.useState<'grid' | 'form' | 'rules' | 'settings' | 'hooks' | 'actions' | 'api'>('grid');
+  // objectui#11781 — the field inspector belongs to the view that opened it,
+  // so a view switch closes it, the same act as its own Close: the selection
+  // goes, and its blocking count expires with it (see `blockingReport`). Left
+  // open, a Records/Form selection stayed beside Validations, Hooks, Actions,
+  // API and Settings, where nothing on screen is that field.
+  const selectViewMode = (next: typeof viewMode) => {
+    if (next !== viewMode) setFieldSel(null);
+    setViewMode(next);
+  };
+  // objectui#11781 — Escape closes it too, but only an Escape nothing else
+  // took: a layer that answers Escape itself (a Radix menu, select or dialog,
+  // an autocomplete, an inline edit) prevents its default, and that keystroke
+  // stays the layer's. Read on the document because a click on the form
+  // preview leaves focus on the body, and kept to this pillar and the body so
+  // a keystroke in another surface is not read as one.
+  const pillarRef = React.useRef<HTMLDivElement>(null);
+  const inspectorOpen = fieldSel !== null;
+  React.useEffect(() => {
+    if (!inspectorOpen) return;
+    const closeOnEscape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      if (target !== document.body && !pillarRef.current?.contains(target)) return;
+      setFieldSel(null);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [inspectorOpen]);
   // Stamp + read for the panel-family count declared above.
   const panelKey = `${current?.name ?? ''}:${viewMode}`;
   const panelBlocking = panelBlockingReport.key === panelKey ? panelBlockingReport.count : 0;
@@ -4433,7 +4534,7 @@ export function DataPillar({
   );
 
   return (
-    <div className="flex h-full flex-col">
+    <div ref={pillarRef} className="flex h-full flex-col">
       {objConflictDialog}
       <div className="flex items-center gap-3 border-b px-3 py-2">
         <button
@@ -4595,7 +4696,7 @@ export function DataPillar({
                     <button
                       key={tab.key}
                       type="button"
-                      onClick={() => setViewMode(tab.key)}
+                      onClick={() => selectViewMode(tab.key)}
                       aria-pressed={viewMode === tab.key}
                       className={
                         'rounded-md px-3 py-1 text-[13px] transition-all ' +
@@ -4633,7 +4734,7 @@ export function DataPillar({
                       {advancedDataTabs.map((tab) => (
                         <DropdownMenuItem
                           key={tab.key}
-                          onSelect={() => setViewMode(tab.key)}
+                          onSelect={() => selectViewMode(tab.key)}
                           className={viewMode === tab.key ? 'font-medium text-primary' : undefined}
                         >
                           {tab.label}
@@ -4716,7 +4817,7 @@ export function DataPillar({
                   <button
                     type="button"
                     onClick={() => {
-                      setViewMode('form');
+                      selectViewMode('form');
                       setFormMode('layout');
                     }}
                     className="mt-1 inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs hover:bg-muted"
@@ -4822,14 +4923,17 @@ export function DataPillar({
                     // package where `Save draft` is disabled and the designer has
                     // no draggable at all (objectui#4036). Say it only when it
                     // is true: real local edits, on a surface that can save
-                    // them. `!readOnly` is belt-and-braces — `dirty` is set only
-                    // by the edit paths, which the package gate already blocks —
-                    // but it makes "no unsaved-changes claim where nothing can
-                    // be saved" a property of this line rather than an
-                    // inference about a state machine two hundred lines up.
-                    dirty && !readOnly
-                      ? t('engine.studio.data.form.layoutBadge', locale)
-                      : t('engine.studio.data.form.layoutBadgeClean', locale)
+                    // them. A read-only package is asked first: it has no draft
+                    // layout at all, so neither draft caption is true of it
+                    // (objectui#11781), and "no unsaved-changes claim where
+                    // nothing can be saved" stays a property of this line
+                    // rather than an inference about a state machine two
+                    // hundred lines up.
+                    readOnly
+                      ? t('engine.studio.data.form.layoutBadgeReadOnly', locale)
+                      : dirty
+                        ? t('engine.studio.data.form.layoutBadge', locale)
+                        : t('engine.studio.data.form.layoutBadgeClean', locale)
                   ) : (
                     t('engine.studio.data.form.previewBadge', locale)
                   )}
@@ -5152,6 +5256,55 @@ export function FlowStatusDot({ state, locale }: { state?: FlowRailState; locale
   );
 }
 
+/** The trigger the New automation dialog chose (objectui#11788). */
+export interface NewFlowTrigger {
+  triggerType: string;
+  /** The object a record trigger watches, when the author named one. */
+  objectName?: string;
+}
+
+/**
+ * The Start node's own trigger and object fields, localized — the source of the
+ * New automation dialog's choices (objectui#11788), so the dialog offers what
+ * the Start node offers, under the same labels, and shows the object picker for
+ * exactly the triggers the Start node shows it for (`objectName`'s `showWhen`).
+ */
+function newFlowTriggerFields(locale: string): { trigger?: FlowConfigField; object?: FlowConfigField } {
+  const start = localizeFlowFields('start', fieldsForNodeType('start'), locale);
+  return {
+    trigger: start.find((f) => f.id === 'triggerType'),
+    object: start.find((f) => f.id === 'objectName'),
+  };
+}
+
+/**
+ * `flow` with the chosen trigger written on its Start node, where the Start
+ * node's trigger field writes it (`config.triggerType`, and `config.objectName`
+ * for the object) — objectui#11788. No choice leaves the skeleton as it was.
+ */
+function withStartTrigger(
+  flow: Record<string, unknown>,
+  trigger: NewFlowTrigger | null,
+): Record<string, unknown> {
+  if (!trigger) return flow;
+  const nodes = Array.isArray(flow.nodes) ? (flow.nodes as Array<Record<string, unknown>>) : [];
+  return {
+    ...flow,
+    nodes: nodes.map((n) => {
+      if (n.type !== 'start') return n;
+      const config = n.config && typeof n.config === 'object' && !Array.isArray(n.config) ? (n.config as Record<string, unknown>) : {};
+      return {
+        ...n,
+        config: {
+          ...config,
+          triggerType: trigger.triggerType,
+          ...(trigger.objectName ? { objectName: trigger.objectName } : {}),
+        },
+      };
+    }),
+  };
+}
+
 export function AutomationsPillar({
   packageId,
   publishNonce = 0,
@@ -5224,6 +5377,13 @@ export function AutomationsPillar({
   // offer a way to author the first one (mirrors the object/app creators).
   const [creating, setCreating] = React.useState(false);
   const [createBusy, setCreateBusy] = React.useState(false);
+  // objectui#11788 — the trigger the New dialog asks for (unset = choose it
+  // later on the Start node), and the object a record trigger watches. The
+  // New button empties both each time it opens the dialog, as the dialog
+  // empties its own inputs.
+  const [newTrigger, setNewTrigger] = React.useState('');
+  const [newTriggerObject, setNewTriggerObject] = React.useState('');
+  const startTrigger = React.useMemo(() => newFlowTriggerFields(locale), [locale]);
   // objectui#11591 — keyed on the pillar's one type, as the inspector beside
   // it is, never on the open flow's: with no flow open (a deep link naming one
   // this rail does not hold, or an empty rail) a selection-keyed read found no
@@ -5320,7 +5480,7 @@ export function AutomationsPillar({
   }, [client, packageId, publishNonce, metadataRefreshNonce]);
 
   const doCreateFlow = React.useCallback(
-    async (label: string, name: string) => {
+    async (label: string, name: string, trigger: NewFlowTrigger | null) => {
       setCreateBusy(true);
       setError(null);
       try {
@@ -5334,15 +5494,18 @@ export function AutomationsPillar({
         // a package publish armed it as soon as it had a trigger. `obsolete` is
         // what the switch itself writes for Off; enabling it is the author's
         // own flip.
-        const skeleton = {
-          ...buildFlowSkeleton(
-            name,
-            label,
-            t('engine.studio.auto.nodeStart', locale),
-            t('engine.studio.auto.nodeEnd', locale),
-          ),
-          status: 'obsolete',
-        };
+        const skeleton = withStartTrigger(
+          {
+            ...buildFlowSkeleton(
+              name,
+              label,
+              t('engine.studio.auto.nodeStart', locale),
+              t('engine.studio.auto.nodeEnd', locale),
+            ),
+            status: 'obsolete',
+          },
+          trigger,
+        );
         await client.save('flow', name, skeleton, { mode: 'draft', packageId: draftPackageId });
         const item: Surface = { type: 'flow', name, label };
         setFlows((fs) => [...fs.filter((f) => f.name !== name), item]);
@@ -5569,6 +5732,8 @@ export function AutomationsPillar({
                 type="button"
                 onClick={() => {
                   setError(null);
+                  setNewTrigger('');
+                  setNewTriggerObject('');
                   setCreating(true);
                 }}
                 title={t('engine.studio.auto.newTitle', locale)}
@@ -5738,7 +5903,60 @@ export function AutomationsPillar({
         busy={createBusy}
         error={error?.message ?? null}
         locale={locale}
-        onSubmit={({ label, name }) => void doCreateFlow(label, name)}
+        extra={
+          /* objectui#11788 — the trigger, asked for here rather than found
+             later inside the Start node. The choices, their labels and which
+             of them watch an object are the Start node's own trigger field
+             (`fieldsForNodeType('start')`), so the two can never offer
+             different triggers; what is chosen is written where that field
+             writes it. */
+          startTrigger.trigger && (
+            <div className="space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">{startTrigger.trigger.label}</span>
+                <select
+                  value={newTrigger}
+                  data-testid="create-flow-trigger"
+                  onChange={(e) => setNewTrigger(e.target.value)}
+                  className="w-full rounded border bg-background px-2 py-1.5 text-sm"
+                >
+                  <option value="">{t('engine.studio.newAutoTrigger.later', locale)}</option>
+                  {(startTrigger.trigger.options ?? []).map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {startTrigger.trigger.help && (
+                <p className="-mt-2 text-[11px] text-muted-foreground">{startTrigger.trigger.help}</p>
+              )}
+              {startTrigger.object && newTrigger && startTrigger.object.showWhen?.equals.includes(newTrigger) && (
+                <ObjectPicker
+                  label={startTrigger.object.label}
+                  value={newTriggerObject}
+                  onCommit={setNewTriggerObject}
+                  locale={locale}
+                />
+              )}
+            </div>
+          )
+        }
+        onSubmit={({ label, name }) =>
+          void doCreateFlow(
+            label,
+            name,
+            newTrigger
+              ? {
+                  triggerType: newTrigger,
+                  objectName:
+                    startTrigger.object?.showWhen?.equals.includes(newTrigger) && newTriggerObject.trim()
+                      ? newTriggerObject.trim()
+                      : undefined,
+                }
+              : null,
+          )
+        }
       />
     </div>
   );
@@ -5969,12 +6187,24 @@ export function AccessPillar({
           <ShieldQuestion className="h-3.5 w-3.5" />
           {t('engine.studio.access.explain.open', locale)}
         </button>
-        <span
-          title={t('engine.studio.access.bannerTitle', locale)}
-          className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
-        >
-          {t('engine.studio.access.banner', locale)}
-        </span>
+        {/* objectui#11781 — "saved as draft" is what an editable package does;
+            a read-only one saves nothing, so it says what it is, in the muted
+            look of the rail's own read-only note rather than the draft amber. */}
+        {readOnly ? (
+          <span
+            title={t('engine.studio.access.bannerTitleReadOnly', locale)}
+            className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+          >
+            {t('engine.studio.access.bannerReadOnly', locale)}
+          </span>
+        ) : (
+          <span
+            title={t('engine.studio.access.bannerTitle', locale)}
+            className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
+          >
+            {t('engine.studio.access.banner', locale)}
+          </span>
+        )}
       </div>
 
       {/* ADR-0090 D5/D9 — this package's pending suggested audience bindings

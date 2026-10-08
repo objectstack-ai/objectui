@@ -26,14 +26,23 @@
  *
  * The inspector is taken from the registry rather than imported, which is the
  * route the console itself uses (`getMetadataInspector('object')`, registered by
- * app-shell's `register-builtins` on package entry). So this renders the
- * designer as WIRED, not a component picked out by hand.
+ * app-shell's `registerBuiltinDesigners`, which the package entry runs once the
+ * chunk it imports dynamically has loaded). So this renders the designer as
+ * WIRED, not a component picked out by hand.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { getMetadataInspector } from '@object-ui/app-shell';
 import { SAMPLES } from '../preview-samples';
+// The built-in designers. Importing the @object-ui/app-shell root registers them
+// from a chunk it loads with a dynamic `import()` (objectui#11939 step 2), so
+// they land after this module has run. Registered here, at module scope, by the
+// function that chunk's caller runs, so the registry read below returns the
+// real built-in designer. A workspace SOURCE path: the package publishes no
+// subpath and the function is not on its barrel.
+import { registerBuiltinDesigners } from '../../../../packages/app-shell/src/views/metadata-admin/register-builtin-designers';
+registerBuiltinDesigners();
 
 /**
  * ONE fetch double, installed at module scope and never torn down

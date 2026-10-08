@@ -135,6 +135,14 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { getMetadataPreview } from '@object-ui/app-shell';
 import { App } from '../App';
+// The built-in designers. Importing the @object-ui/app-shell root registers them
+// from a chunk it loads with a dynamic `import()` (objectui#11939 step 2), so
+// they land after this module has run. Registered here, at module scope, by the
+// function that chunk's caller runs, so the registry read below returns the
+// real built-in designer. A workspace SOURCE path: the package publishes no
+// subpath and the function is not on its barrel.
+import { registerBuiltinDesigners } from '../../../../packages/app-shell/src/views/metadata-admin/register-builtin-designers';
+registerBuiltinDesigners();
 
 /** The pre-fix link, byte for byte what `AgentPreview` used to draw. */
 const PRE_FIX_HREF = '/console/ai/agents/sales_copilot/chat';

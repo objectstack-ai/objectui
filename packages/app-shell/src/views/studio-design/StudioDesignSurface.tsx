@@ -90,8 +90,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
-  getMetadataPreview,
-  listMetadataPreviewTypes,
+  useRegisteredMetadataPreview,
+  useRegisteredMetadataPreviewTypes,
   type MetadataSelection,
 } from '../metadata-admin/preview-registry.js';
 import {
@@ -118,10 +118,10 @@ import {
 import { PermissionMatrixEditPage } from '../metadata-admin/PermissionMatrixEditor.js';
 import { AccessExplainPanel } from '../metadata-admin/AccessExplainPanel.js';
 import {
-  getMetadataInspector,
-  listMetadataInspectorTypes,
+  useRegisteredMetadataInspector,
+  useRegisteredMetadataInspectorTypes,
 } from '../metadata-admin/inspector-registry.js';
-import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
+import { useRegisteredMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import { getMetadataResource } from '../metadata-admin/registry.js';
 import { useMetadataClient, useMetadataTypes } from '../metadata-admin/useMetadata.js';
 // objectui#11773 — every draft save of an existing item sends the version its buffer was built on.
@@ -3072,7 +3072,7 @@ export function InterfacesPillar({
     };
   }, [client, packageId, publishNonce, draftNonce, metadataRefreshNonce, navReloadNonce, forgetNavVersion]);
 
-  const Preview = getMetadataPreview(current?.type ?? '');
+  const Preview = useRegisteredMetadataPreview(current?.type ?? '');
   // Studio-canvas surface override: the SAME type can render as a different
   // surface here than in the Data pillar. Only `object` opts in today (→ the
   // runtime records grid, not the field-form designer that is `object`'s
@@ -3085,12 +3085,12 @@ export function InterfacesPillar({
     () => (current ? { navId: current.navId, filters: current.filters, viewName: current.viewName } : null),
     [current],
   );
-  const Inspector = getMetadataInspector(current?.type ?? '');
+  const Inspector = useRegisteredMetadataInspector(current?.type ?? '');
   // The "home" (no-selection) inspector for the surface type — e.g. a page's
   // interfaceConfig form. Interface/list pages (kanban/calendar boards) have no
   // block tree, so `selection` never populates; without this the panel would
   // sit permanently on the "click a block" empty state.
-  const DefaultInspector = getMetadataDefaultInspector(current?.type ?? '');
+  const DefaultInspector = useRegisteredMetadataDefaultInspector(current?.type ?? '');
   // objectui#6795 part C — WHY the three reads above can be `undefined` decides
   // what this pillar may truthfully say, and there are exactly two causes:
   //   1. no designer is registered for THIS type (others are) — a product fact;
@@ -3101,15 +3101,16 @@ export function InterfacesPillar({
   // either way. `list*Types()` is a read of the SAME already-imported registry
   // module, so telling the two apart costs nothing and invents no state.
   //
-  // ⛔ Neither branch may promise recovery. These registries are plain `Map`s
-  // with no change notification and every read here happens during render with
-  // no subscription, so a consumer that reads an empty registry never recovers
-  // when registration lands later (measured on #6795: "still fallback after
-  // registration: true | late inspector rendered: false"). "Loading…" / "try
-  // again" would swap one false statement for another; making recovery real is
-  // part A of that card.
+  // Every read here is observed (objectui#11939): a registration that lands
+  // after this pillar rendered re-renders it, so it leaves these fallbacks by
+  // itself. ⛔ Neither branch may promise that recovery all the same: nothing
+  // here knows a registration is on its way, so "Loading…" / "try again" would
+  // be a statement this pillar cannot back. Both type lists are read
+  // unconditionally — a hook behind `&&` would be a conditional hook.
+  const registeredPreviewTypes = useRegisteredMetadataPreviewTypes();
+  const registeredInspectorTypes = useRegisteredMetadataInspectorTypes();
   const designersUnregistered =
-    listMetadataPreviewTypes().length === 0 && listMetadataInspectorTypes().length === 0;
+    registeredPreviewTypes.length === 0 && registeredInspectorTypes.length === 0;
   // Blocking author-time issues the right-rail inspector is showing — a CEL
   // predicate that does not parse must not be saveable here either
   // (objectui#4527). #4306 wired the Data pillar only, which left the SAME
@@ -4940,7 +4941,9 @@ export function DataPillar({
     [saveObjDraft, current, objDraft, onDraftSaved, sendingObjDraft, packageId, locale],
   );
 
-  const inspector = getMetadataInspector('object');
+  // Observed (objectui#11939): an object inspector registered after this pillar
+  // rendered fills the field rail below without a remount.
+  const inspector = useRegisteredMetadataInspector('object');
 
   // The object-level tabs (Data pillar). A shadcn/HIG segmented control: a
   // recessed `bg-muted` track with an elevated `bg-background` pill on the
@@ -5537,11 +5540,10 @@ export function DataPillar({
                   locale,
                 })
               ) : (
-                /* No field inspector registered. ⛔ Not "loading…" — these
-                 * registries have no change notification and this read happens
-                 * during render with no subscription, so a late registration
-                 * never reaches this component (measured on #6795). State the
-                 * fact; recovery is part A. */
+                /* No field inspector registered. ⛔ Not "loading…": the read
+                 * is observed (objectui#11939), so a late registration does
+                 * replace this note with the inspector, but nothing here knows
+                 * one is on its way. State the fact. */
                 <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
                   <Ban className="h-5 w-5" />
                   {t('engine.studio.data.fieldInspectorMissing', locale)}
@@ -5842,8 +5844,8 @@ export function AutomationsPillar({
   // this rail does not hold, or an empty rail) a selection-keyed read found no
   // designer and the canvas chip below said none were registered, on a page
   // whose designers are.
-  const Preview = getMetadataPreview('flow');
-  const inspector = getMetadataInspector('flow');
+  const Preview = useRegisteredMetadataPreview('flow');
+  const inspector = useRegisteredMetadataInspector('flow');
   const isEditable = !!Preview;
   // objectui#6795 part C — the FOURTH site, found by sweeping past the three the
   // ruling named. Same class as the Interfaces rail: with the registries
@@ -5851,9 +5853,13 @@ export function AutomationsPillar({
   // header chip ("click a node to configure") and the rail ("Click a node on the
   // canvas, and its configuration appears here") went on instructing the author
   // to click nodes that are not rendered. Same constraint on the wording — ⛔ no
-  // "loading…"/"try again": a late registration never reaches this render.
+  // "loading…"/"try again": the reads are observed (objectui#11939), so a late
+  // registration does bring the canvas back, but nothing here knows one is on
+  // its way. Both type lists are read unconditionally (no hook behind `&&`).
+  const registeredPreviewTypes = useRegisteredMetadataPreviewTypes();
+  const registeredInspectorTypes = useRegisteredMetadataInspectorTypes();
   const designersUnregistered =
-    listMetadataPreviewTypes().length === 0 && listMetadataInspectorTypes().length === 0;
+    registeredPreviewTypes.length === 0 && registeredInspectorTypes.length === 0;
 
   // Runtime enable/bound state per flow (GET /automation/_status). Persisted
   // `status` is intent; this is what's actually live in the engine — the truth

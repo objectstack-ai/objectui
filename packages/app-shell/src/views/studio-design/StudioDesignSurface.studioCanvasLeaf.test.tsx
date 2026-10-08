@@ -30,10 +30,12 @@
  *
  * ## ⛔ The message promises no recovery
  *
- * Part C established by measurement that these registries are plain `Map`s read
- * during render with no subscription, so a consumer that read an empty one
- * never recovers ("late inspector rendered: false") — no "loading…", no "try
- * again". Here the constraint is even stricter: the statement is not about
+ * Part C measured that these registries, then plain `Map`s read during render
+ * with no subscription, left a consumer that read an empty one on its fallback
+ * for good ("late inspector rendered: false") — so no "loading…", no "try
+ * again". objectui#11939 made the reads observable, and a late registration now
+ * does reach the consumer; the wording rule stands, because nothing on the page
+ * knows a registration is on its way. Here the constraint is even stricter: the statement is not about
  * registration at all. This canvas has no blocks **by contract**, so there is
  * nothing to wait for, and the last test pins the absence of recovery language.
  *

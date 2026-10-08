@@ -31,7 +31,7 @@ import React from 'react';
 import { Webhook, Plus, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { SchemaForm } from '../metadata-admin/SchemaForm.js';
-import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
+import { useRegisteredMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import { HookTargetScopeContext, type HookTargetScope } from '../metadata-admin/inspectors/HookDefaultInspector.js';
 import { loadPackageSurfaces } from './packageSurfaces.js';
 import { useMetadataClient } from '../metadata-admin/useMetadata.js';
@@ -104,8 +104,9 @@ export function ObjectHooksPanel({
   const locale = useMetadataLocale();
   const client = useMetadataClient();
   // Curated hook authoring surface (object picker + events + dedicated body
-  // editor); falls back to the generic SchemaForm if unregistered.
-  const HookInspector = getMetadataDefaultInspector('hook');
+  // editor); falls back to the generic SchemaForm if unregistered, and swaps
+  // the curated surface in if it is registered later (objectui#11939).
+  const HookInspector = useRegisteredMetadataDefaultInspector('hook');
   const [hooks, setHooks] = React.useState<HookItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -353,7 +354,7 @@ export function ObjectHooksPanel({
             <div className="min-h-0 flex-1 overflow-auto">
               {HookInspector ? (
                 <HookTargetScopeContext.Provider value={hookTargetScope}>
-                  {/* eslint-disable-next-line react-hooks/static-components -- getMetadataDefaultInspector returns a registered component (stable), not one created during render */}
+                  {/* eslint-disable-next-line react-hooks/static-components -- useRegisteredMetadataDefaultInspector returns a registered component (stable), not one created during render */}
                   <HookInspector
                     type="hook"
                     name={String(draft.name ?? '')}

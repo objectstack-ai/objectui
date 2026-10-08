@@ -25,7 +25,7 @@
 import React from 'react';
 import { Ban, Zap, Plus, Trash2 } from 'lucide-react';
 import { getIcon } from '../../utils/getIcon.js';
-import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
+import { useRegisteredMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { t, useMetadataLocale } from '../metadata-admin/i18n.js';
 import { navItemLabelText } from '../metadata-admin/previews/navItemLabel.js';
@@ -99,7 +99,9 @@ export function ObjectActionsPanel({
   const effectiveSelected = actions.some((a) => a.name === selected) ? selected : (actions[0]?.name ?? null);
   const sel = actions.find((a) => a.name === effectiveSelected) ?? null;
 
-  const Inspector = getMetadataDefaultInspector('action');
+  // Observed (objectui#11939): an action inspector registered after this panel
+  // mounted replaces the "no editor" pane below without a remount.
+  const Inspector = useRegisteredMetadataDefaultInspector('action');
 
   // Apply a shallow patch to the SELECTED action within the object's inline
   // actions array, then hand the whole array back up so the object draft (and
@@ -267,7 +269,7 @@ export function ObjectActionsPanel({
                 </button>
               </div>
             )}
-            {/* eslint-disable-next-line react-hooks/static-components -- getMetadataDefaultInspector returns a registered component (stable), not one created during render */}
+            {/* eslint-disable-next-line react-hooks/static-components -- useRegisteredMetadataDefaultInspector returns a registered component (stable), not one created during render */}
             <Inspector
               type="action"
               name={String(sel.name ?? '')}
@@ -286,11 +288,10 @@ export function ObjectActionsPanel({
            * missing editor. Keep the label (it says WHICH action is selected)
            * and add the reason there is no form under it.
            *
-           * ⛔ Not "loading…" / "try again". `getMetadataDefaultInspector` reads
-           * a plain `Map` with no change notification, during render, with no
-           * subscription — measured on #6795, a registration that lands later
-           * never reaches this component, so promising recovery would just swap
-           * one false statement for another. Making recovery real is part A. */
+           * ⛔ Not "loading…" / "try again". The read above is observed since
+           * objectui#11939, so a registration that lands later does replace
+           * this pane with the editor; but nothing here knows that one is on
+           * its way, so the note says what is true now and promises nothing. */
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-[12px] text-muted-foreground">
             <Ban className="h-5 w-5" />
             <span className="font-medium text-foreground">

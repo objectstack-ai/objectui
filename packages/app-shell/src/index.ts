@@ -380,7 +380,7 @@ import './views/metadata-admin/register-builtins.js';
 // list / edit / create components, and host apps can compose the
 // page primitives directly when needed.
 //
-// ⚠️ These 25 runtime re-exports name the LEAF modules, never
+// ⚠️ These runtime re-exports name the LEAF modules, never
 // `./views/metadata-admin/index.js` (objectui#6776). The names and their types
 // are unchanged — an out-of-package consumer imports exactly what it imported
 // before — but a named re-export is an ordinary STATIC EDGE, and the console's
@@ -413,15 +413,22 @@ export {
   useGlobalDiagnostics,
   matchesQuery,
 } from './views/metadata-admin/useMetadata.js';
+// objectui#11939 — the `useRegistered*` hooks are the render-time reads of the
+// two designer registries: a component that reads through them re-renders when
+// a designer is registered after its first render. `get*` / `list*` remain the
+// reads for non-render code.
 export {
   registerMetadataPreview,
   getMetadataPreview,
   listMetadataPreviewTypes,
+  useRegisteredMetadataPreview,
+  useRegisteredMetadataPreviewTypes,
 } from './views/metadata-admin/preview-registry.js';
 export {
   registerMetadataInspector,
   getMetadataInspector,
   listMetadataInspectorTypes,
+  useRegisteredMetadataInspector,
 } from './views/metadata-admin/inspector-registry.js';
 export type {
   MetadataResourceConfig,

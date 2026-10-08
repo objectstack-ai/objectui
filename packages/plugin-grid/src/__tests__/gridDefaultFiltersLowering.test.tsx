@@ -28,8 +28,10 @@
  * is the `400 INVALID_FILTER` measured against a real backend in
  * objectui#3431:
  *
- *   - the declared `Record<string, any>` (MongoDB-style) — a plain OBJECT
- *     where the wire expects an AST node;
+ *   - the `Record<string, any>` (MongoDB-style) the key was declared as until
+ *     objectui#6152 round 10 — a plain OBJECT where the wire expects an AST
+ *     node (the key is the row's `ViewFilterRule` array since, and the record
+ *     no longer validates, but the sink still lowers one that reaches the slot);
  *   - a `ViewFilterRule[]` — an array of rule OBJECTS, which `plugin-view`
  *     forwards into this slot for an active named view (`ObjectView.tsx`, the
  *     `gridSchema` memo: `defaultFilters: viewFilter || …`).
@@ -129,10 +131,11 @@ async function findParamsFor(schema: Record<string, unknown>) {
 const BASE = { type: 'object-grid', objectName: 'account', columns: [{ field: 'name' }] };
 
 describe('object-grid — legacy `defaultFilters` is lowered before the wire (objectui#4082)', () => {
-  it('lowers the declared `Record<string, any>` shape to AST', async () => {
-    // The shape the key is actually DECLARED as
-    // (`packages/types/src/objectql.ts:682`). `isFilterAST` is false for a
-    // plain object, so this is the case that used to guarantee a 400.
+  it('lowers the legacy `Record<string, any>` shape to AST', async () => {
+    // The shape the key was DECLARED as until objectui#6152 round 10
+    // (`ObjectGridSchema.defaultFilters` in `@object-ui/types`; the row's rule
+    // array since). `isFilterAST` is false for a plain object, so this is the
+    // case that used to guarantee a 400.
     const params = await findParamsFor({ ...BASE, defaultFilters: { status: 'active' } });
     expect(params.$filter).toEqual(['status', '=', 'active']);
   });

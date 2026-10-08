@@ -3179,6 +3179,9 @@ const pt = {
   cloudPlanStatus: {
     current: "Plano atual",
   },
+  cloudWorkspaceTimezoneNotice: {
+    seeded: "O fuso horário do workspace foi definido como {{zone}} com base no seu navegador quando ele foi criado. Você pode alterá-lo em Configurações → Localização.",
+  },
   ai: {
     nlQuery: {
       placeholder: "Faça uma pergunta sobre seus dados…",

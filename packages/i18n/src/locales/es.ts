@@ -3184,6 +3184,9 @@ const es = {
   cloudPlanStatus: {
     current: "Plan actual",
   },
+  cloudWorkspaceTimezoneNotice: {
+    seeded: "La zona horaria del espacio de trabajo se configuró en {{zone}} a partir de su navegador al crearlo. Puede cambiarla en Configuración → Localización.",
+  },
   ai: {
     nlQuery: {
       placeholder: "Haga una pregunta sobre sus datos…",

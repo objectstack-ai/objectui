@@ -3720,6 +3720,12 @@ const en = {
   cloudPlanStatus: {
     current: 'Current plan',
   },
+  // `cloud:workspace-timezone-notice` — the Cloud welcome page's line naming the
+  // timezone a workspace was seeded with at creation (objectui#11930). `{{zone}}`
+  // is the seed, an IANA id printed verbatim.
+  cloudWorkspaceTimezoneNotice: {
+    seeded: 'The workspace timezone was set to {{zone}} from your browser when the workspace was created. You can change it in Settings → Localization.',
+  },
   // `@object-ui/plugin-ai` — the `nl-query`, `ai-form-assist` and
   // `ai-recommendations` components (objectui#10232). The two count labels are
   // i18next count families (objectui#11445): the component passes `count` and

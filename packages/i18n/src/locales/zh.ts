@@ -3271,6 +3271,9 @@ const zh = {
   cloudPlanStatus: {
     current: '当前套餐',
   },
+  cloudWorkspaceTimezoneNotice: {
+    seeded: '工作区时区在创建时已按你的浏览器设为 {{zone}}，可在「设置 → 本地化」中修改。',
+  },
   ai: {
     nlQuery: {
       placeholder: '就您的数据提问…',

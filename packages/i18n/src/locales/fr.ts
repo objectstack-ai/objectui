@@ -3181,6 +3181,9 @@ const fr = {
   cloudPlanStatus: {
     current: "Offre actuelle",
   },
+  cloudWorkspaceTimezoneNotice: {
+    seeded: "Le fuseau horaire de l’espace de travail a été défini sur {{zone}} d’après votre navigateur lors de sa création. Vous pouvez le modifier dans Paramètres → Localisation.",
+  },
   ai: {
     nlQuery: {
       placeholder: "Posez une question sur vos données…",

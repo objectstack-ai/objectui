@@ -3123,6 +3123,9 @@ const ko = {
   cloudPlanStatus: {
     current: "현재 요금제",
   },
+  cloudWorkspaceTimezoneNotice: {
+    seeded: "워크스페이스 시간대는 생성 시 브라우저에 맞춰 {{zone}}(으)로 설정되었습니다. 설정 → 현지화에서 변경할 수 있습니다.",
+  },
   ai: {
     nlQuery: {
       placeholder: "데이터에 대해 질문하세요…",

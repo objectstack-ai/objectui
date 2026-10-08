@@ -3371,6 +3371,9 @@ const ar = {
   cloudPlanStatus: {
     current: "الخطة الحالية",
   },
+  cloudWorkspaceTimezoneNotice: {
+    seeded: "تم تعيين المنطقة الزمنية لمساحة العمل إلى {{zone}} وفقًا لمتصفحك عند إنشائها. يمكنك تغييرها من الإعدادات → التوطين.",
+  },
   ai: {
     nlQuery: {
       placeholder: "اطرح سؤالًا حول بياناتك…",

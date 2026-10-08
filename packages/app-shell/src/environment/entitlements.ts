@@ -189,6 +189,13 @@ export interface EnvironmentEntitlementsSummary {
   seatCount?: number;
   upgradeUrl?: string;
   contactSalesUrl?: string;
+  /**
+   * The IANA timezone the workspace was seeded with at creation, from the
+   * creator's browser (objectstack-ai/cloud#2676). Additive: absent when no
+   * seed was recorded, which includes every workspace created before the seed
+   * existed and every control plane that does not send it yet.
+   */
+  workspaceTimezoneSeed?: string;
 }
 
 /** Combined client state (authoritative summary, or a row-derived fallback). */
@@ -206,6 +213,13 @@ export interface EnvironmentEntitlementsState {
    */
   upgradeUrl?: string;
   contactSalesUrl?: string;
+  /**
+   * The summary's `workspaceTimezoneSeed`, verbatim. Absent when the control
+   * plane sent none — including the row-derived and unknown states, which
+   * never had one — and then the `cloud:workspace-timezone-notice` widget
+   * renders nothing (objectui#11930).
+   */
+  workspaceTimezoneSeed?: string;
   /** Where the signal came from — telemetry + degradation note + tests. */
   source: 'summary' | 'derived' | 'unknown';
 }

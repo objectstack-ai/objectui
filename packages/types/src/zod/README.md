@@ -280,9 +280,10 @@ The last six arrived with `@objectstack/spec` 17.5.0, whose rows for them were m
 - `AppSchemaRendererNodeSchema` — `app-schema-renderer`, `@object-ui/layout`'s whole-shell node (objectui#11440). It declares its registration's three inputs: `schema`, the app document the shell draws, which is the `app` document's own arm in `app.zod.ts`, the same schema object, by reference (objectui#11494); `mobileNavMode` (`'drawer'` | `'bottom_nav'`); and `basePath`. The document is nested, `{ "type": "app-schema-renderer", "schema": { "type": "app", "navigation": [...] } }`, and keeps its own refusals there (`mobileNavMode` inside `schema` is refused, objectui#11363). Its keys written flat on the node are refused by the strict face as unrecognized keys, and the node does not draw them: one spelling. Both content channels are refused: a node draws neither.
 - `DetailSectionNodeSchema` — `detail-section`, one field section of `@object-ui/plugin-detail` as a node (objectui#11440): the ten `DetailViewSectionSchema` members its registration publishes, flat on the node, `fields` required. It is not `record:details`'s section shape (that one names its heading `label` and takes field names), so it is a node of its own.
 
-### Cloud Widgets (1)
+### Cloud Widgets (2)
 `@object-ui/app-shell`'s `cloud:` SDUI widgets. `@objectstack/spec` has no `ComponentPropsMap` row for them, so each arm is declared here from the keys its widget reads.
 - `CloudPlanStatusSchema` — `cloud:plan-status`, the pricing page's "current plan" marker: `properties` must be exactly `{ plan }`, a non-empty plan code.
+- `CloudWorkspaceTimezoneNoticeSchema` — `cloud:workspace-timezone-notice`, the welcome page's line naming the workspace's seeded timezone: the widget reads no prop, so `properties` may only be `{}`. The zone comes from the organization's entitlements summary.
 
 ## Schema Structure
 

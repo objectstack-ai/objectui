@@ -3124,6 +3124,9 @@ const de = {
   cloudPlanStatus: {
     current: "Aktueller Tarif",
   },
+  cloudWorkspaceTimezoneNotice: {
+    seeded: "Die Zeitzone des Workspace wurde beim Erstellen anhand Ihres Browsers auf {{zone}} festgelegt. Sie können sie unter Einstellungen → Lokalisierung ändern.",
+  },
   ai: {
     nlQuery: {
       placeholder: "Stellen Sie eine Frage zu Ihren Daten…",

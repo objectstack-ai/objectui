@@ -336,6 +336,8 @@ import './console/connect/ConnectAgentWidget.js';
 import './console/home/CloudOnboardingNext.js';
 // SDUI widget for the Cloud pricing page's "current plan" marker (objectui#10919).
 import './console/home/CloudPlanStatus.js';
+// SDUI widget for the Cloud welcome page's seeded workspace-timezone line (objectui#11930).
+import './console/home/CloudWorkspaceTimezoneNotice.js';
 // SDUI widget: read-only admin diagnostic for the env's effective AI model
 // (cloud#797) — fetches GET /api/v1/ai/effective-model.
 import './console/diagnostics/CloudAiModelStatus.js';

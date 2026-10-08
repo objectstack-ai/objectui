@@ -37,7 +37,8 @@
  * What the ceiling does not cap is the VALUE dimension, and that is the half
  * this file pins:
  *
- * - TS: the member narrows `any` to `any[]` / `SortConfig[]`. `filter: 'a = b'`
+ * - TS: the member narrows `any` to `any[]` / `SortConfig[]` (and `filter`
+ *   further, to the protocol's `ViewFilterRule[]`, in objectui#6152 round 8). `filter: 'a = b'`
  *   and `sort: 'name asc'` were assignable through the index signature and are
  *   now type errors. Each `@ts-expect-error` below goes UNUSED — TS2578, a hard
  *   type-check failure — the moment its member is widened; since objectui#8347 a
@@ -76,6 +77,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { ComponentPropsMap } from '@objectstack/spec/ui';
+import type { ViewFilterRule } from '@objectstack/spec/ui';
 
 import { ObjectCalendarSchema, ObjectKanbanSchema, safeValidateSchema } from '../zod/index.zod';
 import type {
@@ -107,8 +109,14 @@ const MISSPELLING = 'filtr';
 const KANBAN_NODE = { type: 'object-kanban', objectName: 'opportunity', groupBy: 'stage' } as const;
 const CALENDAR_NODE = { type: 'object-calendar', objectName: 'event' } as const;
 
-/** A well-formed value for each declared member. */
-const FILTER_VALUE = [['status', '=', 'open']];
+/**
+ * A well-formed value for each declared member. `filter` is the protocol's
+ * `ViewFilterRule` array since objectui#6152 round 8, when both faces took the
+ * row's own member by reference; this file's value used to be the tuple array
+ * `[['status', '=', 'open']]`, which both faces now refuse (the rows in the
+ * `it.each` below, and `grid-kanban-calendar-members-round8-6152.test.ts`).
+ */
+const FILTER_VALUE: ViewFilterRule[] = [{ field: 'status', operator: 'equals', value: 'open' }];
 const SORT_VALUE: SortConfig[] = [{ field: 'start_date', order: 'asc' }];
 
 /* ── Type-level pins (invariant equality, house form) ─────────────────────── */
@@ -121,14 +129,15 @@ type IsAny<T> = 0 extends (1 & T) ? true : false;
 /** An object with no keys is assignable to `Pick<T, K>` only when `K` is optional on `T`. */
 type IsOptional<T, K extends keyof T> = Record<string, never> extends Pick<T, K> ? true : false;
 
-// `filter` on BOTH interfaces: declared `any[]`, optional, not `any`. Deleting
+// `filter` on BOTH interfaces: declared, optional, not `any` — the protocol's
+// `ViewFilterRule[]` since objectui#6152 round 8 (it was `any[]`). Deleting
 // either member made the indexed access fall back to `[key: string]: any`,
-// making `IsAny` true and `Equal<any, any[] | undefined>` false; since
-// objectui#8347 the indexed access stops compiling instead.
-export type _KanbanFilterIsArray = Expect<Equal<TsObjectKanbanSchema['filter'], any[] | undefined>>;
+// making `IsAny` true and the `Equal` row false; since objectui#8347 the
+// indexed access stops compiling instead.
+export type _KanbanFilterIsArray = Expect<Equal<TsObjectKanbanSchema['filter'], ViewFilterRule[] | undefined>>;
 export type _KanbanFilterIsNotAny = Expect<Equal<IsAny<TsObjectKanbanSchema['filter']>, false>>;
 export type _KanbanFilterIsOptional = Expect<IsOptional<TsObjectKanbanSchema, 'filter'>>;
-export type _CalendarFilterIsArray = Expect<Equal<TsObjectCalendarSchema['filter'], any[] | undefined>>;
+export type _CalendarFilterIsArray = Expect<Equal<TsObjectCalendarSchema['filter'], ViewFilterRule[] | undefined>>;
 export type _CalendarFilterIsNotAny = Expect<Equal<IsAny<TsObjectCalendarSchema['filter']>, false>>;
 export type _CalendarFilterIsOptional = Expect<IsOptional<TsObjectCalendarSchema, 'filter'>>;
 // `sort` on the CALENDAR only: declared `SortConfig[]`, optional, not `any`.
@@ -162,9 +171,9 @@ const calendarLiteral: TsObjectCalendarSchema = { ...CALENDAR_NODE, filter: FILT
 // directive goes unused — TS2578, a hard failure — if its member is widened. A
 // deletion keeps it used since objectui#8347 (the value is refused as an
 // undeclared key) and is caught by the `Equal` rows above.
-// @ts-expect-error — `filter` is `any[]`; a string clause is not a JSON-Rules filter
+// @ts-expect-error — `filter` is the `ViewFilterRule` array; a string clause is not one
 const kanbanBadFilter: TsObjectKanbanSchema = { ...KANBAN_NODE, filter: 'status = open' };
-// @ts-expect-error — `filter` is `any[]`; a string clause is not a JSON-Rules filter
+// @ts-expect-error — `filter` is the `ViewFilterRule` array; a string clause is not one
 const calendarBadFilter: TsObjectCalendarSchema = { ...CALENDAR_NODE, filter: 'status = open' };
 // @ts-expect-error — the legacy string `sort` clause is RETIRED (objectui#8221); author `[{ field, order }]`
 const calendarRetiredSort: TsObjectCalendarSchema = { ...CALENDAR_NODE, sort: 'start_date asc' };
@@ -335,6 +344,12 @@ describe('objectui#8174 — the mirrors declare what the interfaces declare', ()
     ['object-kanban', 'filter', 'status = open'],
     ['object-kanban', 'filter', 42],
     ['object-calendar', 'filter', 'status = open'],
+    // objectui#6152 round 8: the row's own member refuses the AST tuple array and
+    // the MongoDB-style record, which `z.array(z.any())` admitted.
+    ['object-kanban', 'filter', [['status', '=', 'open']]],
+    ['object-kanban', 'filter', { status: 'open' }],
+    ['object-calendar', 'filter', [['status', '=', 'open']]],
+    ['object-calendar', 'filter', { status: 'open' }],
     // The objectui#8221 string clause. Undeclared, it parsed green here and was
     // then dropped by `convertSortToQueryParams`, drawing an unsorted calendar.
     ['object-calendar', 'sort', 'start_date asc'],

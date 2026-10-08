@@ -29,14 +29,18 @@
  *
  * ## What the member contract actually is here, measured
  *
- * `@objectstack/spec`'s `ComponentPropsMap['object-kanban'].filter` is
- * `z.unknown().optional()` — the contract constrains the VALUE not at all, and
- * so it cannot be the thing a member pin compares against. What constrains the
- * members is the wire: `ObjectKanban.tsx:363` passes the authored value to
+ * When this file was written, `@objectstack/spec`'s
+ * `ComponentPropsMap['object-kanban'].filter` was `z.unknown().optional()`. The
+ * installed row now types the AUTHORED value as the `ViewFilterRule` array
+ * `[{ field, operator, value }]`, refusing the record and the array-of-arrays
+ * forms, and `@object-ui/types` takes that member by reference (objectui#6152
+ * round 8). That fixes what an author may write; it says nothing about what
+ * the board does with a value once it reaches the node. What constrains that
+ * is the wire: `ObjectKanban.tsx` passes the value it holds to
  * `dataSource.find` as `$filter`, verbatim, and nothing between the schema and
- * that call reads a member key. The member contract of `filter` is therefore
- * ObjectQL's `$filter` element contract, and this block's entire obligation is
- * to add nothing to it and subtract nothing from it.
+ * that call reads a member key. This block's entire obligation is therefore to
+ * add nothing to the value and subtract nothing from it, whichever form
+ * reaches it (a host composes the array-of-arrays form at runtime).
  *
  * A pass-through is a member claim, not the absence of one. Its negation is
  * concrete and this repo has shipped it TWICE:

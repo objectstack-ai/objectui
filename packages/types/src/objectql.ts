@@ -166,6 +166,10 @@ import type {
   // objectui#11168 slice 3 — `ComponentPropsMap['object-form']`'s author state,
   // so `ObjectFormSchema.layout` takes the row's own enum by reference.
   ObjectFormProps as SpecObjectFormProps,
+  // objectui#6152 round 8 — `ComponentPropsMap['object-grid']`'s author state,
+  // so `ObjectGridSchema.operations` and `.filter` take the row's own members
+  // by reference. Aliased for the reason `SpecObjectCalendarProps` above is.
+  ObjectGridProps as SpecObjectGridProps,
   // objectui#11355 — `ComponentPropsMap['object-kanban']`'s author state, so
   // `ObjectKanbanSchema.swimlaneField` takes the row's own type by reference.
   ObjectKanbanProps as SpecObjectKanbanProps,
@@ -966,13 +970,26 @@ export interface ObjectGridSchema extends BaseSchema {
    * - Array of ListColumn objects (enhanced): [{ field: 'name', label: 'Full Name', width: 200 }]
    */
   columns?: string[] | ListColumn[];
-  
+
   /**
-   * Filter criteria (JSON Rules format)
-   * Array-based filter configuration
+   * Base query filter — the protocol's `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`, taken BY REFERENCE from the
+   * `object-grid` row (`ComponentPropsMap['object-grid'].filter`), which
+   * refuses the MongoDB-style record and the AST tuple array by name.
+   * `ObjectGrid` lowers it through `@object-ui/core`'s `toFilterNode` onto
+   * `$filter`.
+   *
+   * objectui#6152 round 8: this was `any[]`, so a tuple array such as
+   * `[['status', '=', 'open']]` type-checked here while the protocol refused
+   * it. ⚠️ What did NOT narrow is the read: `toFilterNode` still lowers an AST
+   * array, because hosts compose one onto the node at runtime (a grouped
+   * `ListView` grid, `ElementDataSourceGate`'s merged binding) through their
+   * own untyped copies. That value is not a shape an author writes, so this
+   * face does not publish it (the objectui#10199 split, as
+   * `RecordRelatedListComponentProps.filter` makes it).
    */
-  filter?: any[];
-  
+  filter?: SpecObjectGridProps['filter'];
+
   /**
    * Sort Configuration
    *
@@ -1189,52 +1206,43 @@ export interface ObjectGridSchema extends BaseSchema {
   description?: string | I18nLabel;
   
   /**
-   * Enable/disable built-in operations
-   * NOTE: This is ObjectUI-specific and not part of @objectstack/spec
+   * Built-in affordance toggles — the protocol's strict
+   * `{ create?, update?, delete?, export? }` block, taken BY REFERENCE from
+   * the `object-grid` row (`ComponentPropsMap['object-grid'].operations`,
+   * declared by `@objectstack/spec` 17.7.0). The four members are the four
+   * `ObjectGrid` reads:
    *
-   * `update` / `delete` are the CEILING over {@link rowActions}: `update: false`
-   * (or `delete: false`) withholds the row menu's generic Edit (or Delete)
-   * entry whatever `rowActions` says. A declared block REPLACES the default
-   * rather than merging under it, so a member the block does not name is
-   * withheld too; omit the whole block to keep the default (Edit / Delete
-   * offered wherever the host wires `onEdit` / `onDelete`).
+   *   - `create` offers the add-record row (the create permission gates it too);
+   *   - `update` / `delete` are the CEILING over {@link rowActions}: `false`
+   *     withholds the row menu's generic Edit (or Delete) entry whatever
+   *     `rowActions` says;
+   *   - `export: false` withholds the export button that {@link exportOptions}
+   *     enables; absent, export stays offered.
+   *
+   * A declared block REPLACES the default rather than merging under it, so an
+   * `update` / `delete` the block does not name is withheld too; omit the whole
+   * block to keep the default (Edit / Delete offered wherever the host wires
+   * `onEdit` / `onDelete`).
+   *
+   * objectui#6152 round 8 retired `read` and `import` (the protocol refuses
+   * both by name): no `object-grid` code reads either. `?: never` is this
+   * package's tombstone convention (see {@link defaultSort}), in lockstep with
+   * the zod twin's `retirementTombstone()` arms.
    */
-  operations?: {
+  operations?: NonNullable<SpecObjectGridProps['operations']> & {
     /**
-     * Enable create operation
-     * @default true
+     * @deprecated RETIRED (objectui#6152 round 8) — `object-grid` has no reader
+     * of `operations.read`: the grid always lists the records it is bound to.
+     * Delete the key. On an `object-view`, whether a row click opens the record
+     * is the view's own: write `navigation: { mode: 'none' }` (or
+     * `operations: { read: false }`) on the `object-view` node, not in `table`.
      */
-    create?: boolean;
-
+    read?: never;
     /**
-     * Enable read/view operation
-     * @default true
+     * @deprecated RETIRED (objectui#6152 round 8) — `object-grid` draws no
+     * import affordance, so `operations.import` toggled nothing. Delete the key.
      */
-    read?: boolean;
-
-    /**
-     * Enable update operation. Not named in a declared block ⇒ withheld;
-     * block omitted ⇒ allowed wherever the host wires `onEdit`.
-     */
-    update?: boolean;
-
-    /**
-     * Enable delete operation. Not named in a declared block ⇒ withheld;
-     * block omitted ⇒ allowed wherever the host wires `onDelete`.
-     */
-    delete?: boolean;
-
-    /**
-     * Enable export operation
-     * @default false
-     */
-    export?: boolean;
-
-    /**
-     * Enable import operation
-     * @default false
-     */
-    import?: boolean;
+    import?: never;
   };
 
   /**
@@ -4308,12 +4316,13 @@ export interface ObjectCalendarSchema extends BaseSchema {
    */
   defaultView?: 'month' | 'week' | 'day';
   /**
-   * Query filter (JSON Rules format), forwarded as `$filter` on the
+   * Query filter — the protocol's `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`, forwarded as `$filter` on the
    * calendar's own fetch — `plugin-calendar/src/ObjectCalendar.tsx` holds it
    * through `useResolvedFilter` (`@object-ui/react`), with its
    * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666),
    * and reads the held value at the `dataSource.find` call and again in that
-   * effect's dependency list.
+   * effect's dependency list. The data adapter lowers the rule array.
    *
    * Undeclared here until objectui#8174, so an authored value reached the
    * renderer only through {@link BaseSchema}'s `[key: string]: any` — admitted,
@@ -4324,10 +4333,17 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * `inputs` declares it, the renderer reads it — this declaration face was the
    * only one that stayed silent.
    *
-   * Spelled exactly as {@link ObjectGanttSchema.filter}, so the two views'
-   * query keys cannot fork.
+   * objectui#6152 round 8: the type is the row's own member BY REFERENCE
+   * (`ComponentPropsMap['object-calendar'].filter`, which refuses the
+   * MongoDB-style record and the AST tuple array by name). It was `any[]`,
+   * spelled as {@link ObjectGanttSchema.filter} is, so a tuple array
+   * type-checked here while the protocol refused it. The renderer adds nothing
+   * to the value and subtracts nothing, so an AST array a host composes at
+   * runtime (`ElementDataSourceGate`'s merged binding) still reaches the wire:
+   * that value is not a shape an author writes, and this face does not
+   * publish it (the objectui#10199 split).
    */
-  filter?: any[];
+  filter?: SpecObjectCalendarProps['filter'];
   /**
    * Sort configuration, forwarded as `$orderby` via `convertSortToQueryParams`
    * (`plugin-calendar/src/ObjectCalendar.tsx`, the same `dataSource.find` call
@@ -4767,7 +4783,8 @@ export interface ObjectKanbanSchema extends BaseSchema {
    */
   limit?: number;
   /**
-   * Query filter (JSON Rules format), forwarded as `$filter` on the board's
+   * Query filter — the protocol's `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`, forwarded as `$filter` on the board's
    * own fetch — `plugin-kanban/src/ObjectKanban.tsx` holds it through
    * `useResolvedFilter` (`@object-ui/react`), with its
    * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666),
@@ -4783,8 +4800,16 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * declares it, the renderer reads it — this declaration face was the only one
    * that stayed silent.
    *
-   * Spelled exactly as {@link ObjectGanttSchema.filter}, so the two views'
-   * query keys cannot fork.
+   * objectui#6152 round 8: the type is the row's own member BY REFERENCE
+   * (`ComponentPropsMap['object-kanban'].filter`, which refuses the
+   * MongoDB-style record and the AST tuple array by name), as
+   * {@link ObjectCalendarSchema.filter}'s is. It was `any[]`, spelled as
+   * {@link ObjectGanttSchema.filter} is, so a tuple array type-checked here
+   * while the protocol refused it. The board adds nothing to the value and
+   * subtracts nothing, so an AST array a host composes at runtime
+   * (`ElementDataSourceGate`'s merged binding) still reaches the wire, where
+   * the data adapter lowers either form: that value is not a shape an author
+   * writes, and this face does not publish it (the objectui#10199 split).
    *
    * ⚠️ There is deliberately NO `sort` twin on this interface: the spec's
    * `object-kanban` entry declares no top-level `sort` (and refuses one). The
@@ -4794,7 +4819,7 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * read is the gate's carrier, not an authoring key. Only
    * {@link ObjectCalendarSchema} declares both keys.
    */
-  filter?: any[];
+  filter?: SpecObjectKanbanProps['filter'];
   /**
    * The record field rendered as each card's title — the CANONICAL spelling of
    * the one card-title choice this board reads two ways

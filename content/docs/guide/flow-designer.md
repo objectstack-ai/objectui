@@ -26,7 +26,11 @@ its config. Edges are the arrows between them.
 | Click a card | Select it (opens the node inspector) |
 | Drag a card | Reposition it |
 | Hover a card → click the bottom **+** | Append a connected child node |
+| Drag a card's connect handle (the dot beside its bottom **+**) onto another node | Connect the two nodes. Refused, with the reason shown, for the node itself, a (source, target) pair another connection already joins, or a node the flow does not have |
 | Zoom controls / **Fit** | Scale and re-center the graph |
+
+A selected connection's **From** and **To**, in its inspector, re-point it to
+other nodes of the flow, under the same refusals.
 
 Structural problems (an undeclared cycle, an unreachable node) surface three
 ways at once: a red ring on the offending card, a badge in its corner, and an

@@ -1238,6 +1238,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowCanvas.summary.approversOther': '{count} approvers',
   'engine.flowCanvas.summary.unanimous': 'all',
   'engine.flowCanvas.summary.code': 'code',
+  // objectui#11905 — the connect handle on a node card (FlowCanvas): drag it
+  // onto another node to draw a connection between two existing nodes.
+  'engine.flowCanvas.connect': 'Drag onto another node to connect',
   // Nested structured-region tray headers (FlowRegionView / extractRegions).
   'engine.flowRegion.branchN': 'Branch {n}',
   'engine.flowRegion.try': 'Try',
@@ -2004,6 +2007,13 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // objectui#11772 — one extra copy of a connection (`edgeRouteKey`): the
   // engine follows every copy, so the target runs once per copy.
   'engine.flowProblems.repeatedEdge': 'Connection {source} → {target} is repeated; the flow runs "{target}" once for each copy. Remove this copy.',
+  // objectui#11905 — why a connection between two existing nodes is refused,
+  // shown by both doors that draw one: the canvas's connect handle and the
+  // connection inspector's From / To (`edgeConnectionRefusal`).
+  'engine.flowProblems.connectRefused.missingSource': 'Cannot connect: this flow has no node "{source}".',
+  'engine.flowProblems.connectRefused.missingTarget': 'Cannot connect: this flow has no node "{target}".',
+  'engine.flowProblems.connectRefused.self': 'Cannot connect "{source}" to itself.',
+  'engine.flowProblems.connectRefused.repeat': '"{source}" already connects to "{target}". Select that connection to change it.',
   // References side panel (ResourceEditPage) empty state.
   'engine.edit.refsScanning': 'Scanning references…',
   'engine.edit.refsEmptyTitle': 'No references found',
@@ -4552,6 +4562,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowCanvas.summary.approversOther': '{count} 位审批人',
   'engine.flowCanvas.summary.unanimous': '全员',
   'engine.flowCanvas.summary.code': '代码',
+  // objectui#11905 — the connect handle (see the en row).
+  'engine.flowCanvas.connect': '拖到另一个节点上以连线',
   // Nested structured-region tray headers.
   'engine.flowRegion.branchN': '分支 {n}',
   'engine.flowRegion.try': '尝试',
@@ -5213,6 +5225,11 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowProblems.sourceExpression': '表达式',
   // objectui#11772 — one extra copy of a connection (see the en row).
   'engine.flowProblems.repeatedEdge': '连线 {source} → {target} 重复;流程会为每一条副本各运行一次 “{target}”。请删除这条副本。',
+  // objectui#11905 — a refused connection (see the en rows).
+  'engine.flowProblems.connectRefused.missingSource': '无法连线：此流程中没有节点 “{source}”。',
+  'engine.flowProblems.connectRefused.missingTarget': '无法连线：此流程中没有节点 “{target}”。',
+  'engine.flowProblems.connectRefused.self': '无法将 “{source}” 连到它自身。',
+  'engine.flowProblems.connectRefused.repeat': '“{source}” 已经连到 “{target}”。请选中那条连线再修改。',
   // 引用关系侧栏(ResourceEditPage)空态。
   'engine.edit.refsScanning': '正在扫描引用…',
   'engine.edit.refsEmptyTitle': '未找到引用',

@@ -91,20 +91,38 @@ function suffixedSlug(base: string): string {
 }
 
 /**
+ * The creator's browser zone, or `undefined` when the browser reports none
+ * (objectui#11908). A new workspace takes this zone at creation, so its first
+ * administrator is not asked for a zone the browser already knows. The same
+ * read as the console's `browserTimeZone()`, which this package cannot import;
+ * the server judges the value and keeps its default for one it refuses.
+ */
+function browserTimeZone(): string | undefined {
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return typeof zone === 'string' && zone.length > 0 ? zone : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Create the organization under the generated slug, retrying a slug collision
  * with a suffixed variant (at most `SLUG_ATTEMPTS` calls in all). The user
  * cannot see or edit the slug in this dialog, so a collision is not theirs to
- * resolve; any other refusal is rethrown unchanged.
+ * resolve; any other refusal is rethrown unchanged. Every attempt carries the
+ * same `timezone`, and none carries the key when there is no zone.
  */
 async function createWithGeneratedSlug(
-  create: (data: { name: string; slug: string }) => Promise<AuthOrganization>,
+  create: (data: { name: string; slug: string; timezone?: string }) => Promise<AuthOrganization>,
   name: string,
   slug: string,
+  timezone: string | undefined,
 ): Promise<AuthOrganization> {
   let attemptSlug = slug;
   for (let attempt = 1; ; attempt++) {
     try {
-      return await create({ name, slug: attemptSlug });
+      return await create({ name, slug: attemptSlug, ...(timezone ? { timezone } : {}) });
     } catch (err) {
       if (attempt >= SLUG_ATTEMPTS || !isSlugTaken(err)) throw err;
       attemptSlug = suffixedSlug(slug);
@@ -180,7 +198,12 @@ export function CreateWorkspaceDialog({
       setError(null);
 
       try {
-        const org = await createWithGeneratedSlug(createOrganization, name.trim(), slug.trim());
+        const org = await createWithGeneratedSlug(
+          createOrganization,
+          name.trim(),
+          slug.trim(),
+          browserTimeZone(),
+        );
         // Born-with-env: eagerly ensure the new org's production environment so
         // the user lands in a ready workspace with no onboarding-wizard detour.
         // `createOrganization` already switched the active org; we also pass

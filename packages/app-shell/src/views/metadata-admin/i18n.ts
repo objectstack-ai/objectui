@@ -634,6 +634,12 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.condition.op.lessThan': 'less than',
   'engine.inspector.condition.op.truthy': 'is set / true',
   'engine.inspector.condition.op.falsy': 'is empty / false',
+  // objectui#11894 — the value-less pair, worded by the subject's declared
+  // type; the two rows above stay for a subject the catalog does not type.
+  'engine.inspector.condition.op.isTrue': 'is true',
+  'engine.inspector.condition.op.isFalse': 'is false',
+  'engine.inspector.condition.op.isNotEmpty': 'is not empty',
+  'engine.inspector.condition.op.isEmpty': 'is empty',
   // objectui#10748 — the lookup filter's operator words the four above do not
   // cover (`ObjectFieldInspector` `LOOKUP_OPERATORS`, which reads the four as
   // well; the symbol a label leads with stays outside the word).
@@ -3092,7 +3098,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.rules.events': 'Runs on',
   'engine.studio.rules.event.insert': 'Create',
   'engine.studio.rules.event.update': 'Update',
-  'engine.studio.rules.event.delete': 'Delete',
   'engine.studio.rules.priority': 'Priority',
   'engine.studio.settings.basics': 'Basics',
   'engine.studio.settings.noInspector': 'No default object inspector registered.',
@@ -3948,6 +3953,10 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.condition.op.lessThan': '小于',
   'engine.inspector.condition.op.truthy': '已设置 / 为真',
   'engine.inspector.condition.op.falsy': '为空 / 为假',
+  'engine.inspector.condition.op.isTrue': '为真',
+  'engine.inspector.condition.op.isFalse': '为假',
+  'engine.inspector.condition.op.isNotEmpty': '不为空',
+  'engine.inspector.condition.op.isEmpty': '为空',
   'engine.inspector.condition.op.atLeast': '至少',
   'engine.inspector.condition.op.atMost': '至多',
   'engine.inspector.condition.op.contains': '包含',
@@ -6230,7 +6239,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.rules.events': '触发时机',
   'engine.studio.rules.event.insert': '新建',
   'engine.studio.rules.event.update': '更新',
-  'engine.studio.rules.event.delete': '删除',
   'engine.studio.rules.priority': '优先级',
   'engine.studio.settings.basics': '基础信息',
   'engine.studio.settings.noInspector': '未注册对象默认检查器。',

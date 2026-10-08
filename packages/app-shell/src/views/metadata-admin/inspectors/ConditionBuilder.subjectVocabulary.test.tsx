@@ -53,7 +53,7 @@ import userEvent from '@testing-library/user-event';
 // keep mount-time fetches off the network. Same mechanism as
 // ConditionBuilder.test.tsx.
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,

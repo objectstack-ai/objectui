@@ -788,11 +788,14 @@ export interface UIActionSchema {
    * along; only this read side was missing, so the forward was typed `any` in
    * both directions.
    *
-   * Reachability is unchanged and is not what this declares: the runtime reads
-   * the key only under a `rowRecord` guard that `action:button` never seeds,
-   * which `check:action-forward-parity`'s JUSTIFIED table records for the three
-   * sibling surfaces. Declaring the key does not make it reachable; it makes
-   * the forward compiler-checked.
+   * Reachability is not what this declares: the runtime reads the key only
+   * under a `rowRecord` guard, the record the invoking surface hands it. Since
+   * objectui#11168 (ruling B on objectui#11754) `action:button` hands it the
+   * record in scope for an `undoable` `operation: 'update'` of that record, so
+   * on that block the key is reachable. `action:icon`, `action:group`
+   * and `action:menu` hand it none, which `check:action-forward-parity`'s
+   * JUSTIFIED table records. Declaring the key makes the forward
+   * compiler-checked.
    */
   undoable?: SpecAction['undoable'];
 

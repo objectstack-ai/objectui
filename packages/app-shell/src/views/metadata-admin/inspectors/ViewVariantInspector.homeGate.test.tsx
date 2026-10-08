@@ -30,7 +30,7 @@ import type { MetadataDefaultInspectorProps } from '../default-inspector-registr
 // escapes to the real network; see PageBlockInspector.i18n.test.tsx for the
 // full mechanism.
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,

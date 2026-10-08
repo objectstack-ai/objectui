@@ -25,6 +25,7 @@ import {
   Label,
 } from '@object-ui/components';
 import { withConsoleBase } from '../../utils/consoleBase';
+import { browserTimeZone } from '../settings/workspaceTimezonePrompt';
 
 const AUTH_BASE = `${import.meta.env.VITE_SERVER_URL || ''}/api/v1/auth`;
 
@@ -159,9 +160,14 @@ export function SetupPage() {
             });
             activeOrgId = personal.id;
           } else {
+            // objectui#11908: a workspace created here takes the creator's
+            // browser zone, so its first administrator is not asked for one.
+            // No zone, no key: the server keeps its default.
+            const timezone = browserTimeZone();
             const created = await createOrganization({
               name: trimmedName,
               slug: slug || `org-${Date.now().toString(36)}`,
+              ...(timezone ? { timezone } : {}),
             });
             activeOrgId = created?.id;
           }

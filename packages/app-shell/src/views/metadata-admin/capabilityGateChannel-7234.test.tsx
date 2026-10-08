@@ -82,7 +82,7 @@ vi.mock('@object-ui/permissions', async (importOriginal) => {
 // ConditionBuilders, which call the shared metadata client at mount. Stub it so
 // no fetch escapes; same mechanism ActionDefaultInspector.celGate.test.tsx uses.
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('./useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,

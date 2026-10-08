@@ -31,12 +31,15 @@
  * and `objectName` are the ones `scripts/check-action-forward-parity.mjs`
  * extracts from its runtime.
  *
- * NOT published, and so not pinned here — each stays booked to objectui#11168
- * with its measurement on the card: `endpoint` on both blocks (the runner's
- * built-in `api` executor reads it, the console's own `api` handler reads
- * `target` and never `endpoint`) and `undoable` on `action:button` (the
- * runner's update path offers Undo only with a host row stash this block never
- * writes).
+ * Held back by slice 1, each with its measurement on the card: `endpoint` on
+ * both blocks (the runner's built-in `api` executor reads it, the console's own
+ * `api` handler reads `target` and never `endpoint`; 17.6.0 then refused the
+ * key in favour of `target`) and `undoable` on `action:button` (the runner's
+ * update path offered Undo only with a host row stash this block did not
+ * write). Ruling B on objectui#11754 made the block hand the runner the record
+ * in scope, and `undoable` is published on `action:button` since: its
+ * behaviour is pinned in `action-button-undoable-11168.test.tsx`, and its row
+ * in `DECLARED` below.
  *
  * Slice 2 added the `size` rows at the end: `action:button` publishes the five
  * sizes its spec row declares. The renderer hands `default`, `sm`, `lg` and
@@ -85,7 +88,7 @@ const LEAF_KEYS = [
 
 /** The keys each block now publishes, beyond the ones it published before. */
 const DECLARED: Record<Block, string[]> = {
-  'action:button': [...LEAF_KEYS, 'recordIdField'],
+  'action:button': [...LEAF_KEYS, 'recordIdField', 'undoable'],
   'action:icon': LEAF_KEYS,
 };
 

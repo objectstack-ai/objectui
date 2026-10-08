@@ -18,6 +18,7 @@ import type { MetadataPreviewProps } from '../preview-registry.js';
 import { PreviewShell, PreviewErrorBoundary, PreviewMessage } from './PreviewShell.js';
 import { OutlineStrip } from './OutlineStrip.js';
 import { SourcePageEditor } from './SourcePageEditor.js';
+import { pageKindNode } from '../../pageKindNode.js';
 import { PageBlockCanvas } from './PageBlockCanvas.js';
 import { InterfaceListPage } from '../../InterfaceListPage.js';
 import { t as tr, tFormat } from '../i18n.js';
@@ -25,13 +26,16 @@ import { t as tr, tFormat } from '../i18n.js';
 interface Block { type?: string; id?: string; children?: Block[]; [k: string]: unknown }
 
 export function PagePreview({ draft, editing, selection, onSelectionChange, onPatch, locale }: MetadataPreviewProps) {
-  const schema = React.useMemo(() => {
-    // SchemaRenderer needs a `type` discriminator. Page schemas may
-    // omit it (Page is the implicit type at this metadata level), so
-    // we inject it if missing while preserving any explicit override.
-    const t = (draft as { type?: string }).type ?? 'page';
-    return { ...(draft as Record<string, unknown>), type: t };
-  }, [draft]);
+  const schema = React.useMemo(
+    // SchemaRenderer needs a `type` discriminator (`'page'` when the draft
+    // declares no kind), and PageRenderer reads the page's KIND off
+    // `pageType` for its width and title heading — both written by the one
+    // builder the running app's PageView uses. Writing `type` alone drew an
+    // app or home page as a record page in the Run-mode canvas
+    // (objectui#11933).
+    () => ({ ...(draft as Record<string, unknown>), ...pageKindNode(draft as { type?: string }) }),
+    [draft],
+  );
 
   const designMode = !!(editing && onSelectionChange);
   const canEdit = designMode && !!onPatch;
@@ -324,8 +328,10 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
   }
 
   // Empty draft → no preview; but if we're in design mode show the
-  // canvas so users can author from scratch.
-  if (!schema || Object.keys(schema).length <= 1) {
+  // canvas so users can author from scratch. "Empty" is the DRAFT's own
+  // keys, a `type` aside: the keys `schema` adds for the renderer are not
+  // content (objectui#11933).
+  if (!schema || Object.keys(draft as Record<string, unknown>).every((k) => k === 'type')) {
     return (
       <PreviewShell hint={`page${designMode ? ' · design' : ''}`}>
         {designMode && shape === 'regions' ? (

@@ -293,12 +293,11 @@ describe('Interfaces pillar — a block selection expires with its leaf (#7137)'
     mountPillar();
     await selectBlockOnDashboardLeaf();
 
-    // Walk to population (a).
+    // Walk to population (a). objectui#11823 — its rail is the list-view
+    // panel now (an `object` leaf's panel edits the list its canvas shows),
+    // ordered where the no-blocks statement was: ahead of the selection branch.
     fireEvent.click(screen.getByTitle('object · showcase_task'));
-    await waitFor(
-      () => expect(bodyText()).toContain('This canvas renders the running app, not a block tree'),
-      { timeout: 4000 },
-    );
+    await screen.findByTestId('studio-list-view-inspector', undefined, { timeout: 4000 });
 
     const foreign = mounts.filter((m) => m.startsWith('object:') && m.includes('blk_1'));
     expect(foreign).toEqual([]);
@@ -318,8 +317,8 @@ describe('Interfaces pillar — a block selection expires with its leaf (#7137)'
 
     // ⭐ The card's `centerTab` sub-claim, measured. A surviving selection keeps
     // `hasInspectorTarget` true across the leaf change, so `nextCenterTab` sees
-    // no edge and the author lands on Properties — on a leaf whose Properties
-    // panel can only say the canvas has no blocks. With the selection scoped to
+    // no edge and the author lands on Properties — on a leaf with no block to
+    // inspect there. With the selection scoped to
     // its leaf the target CLEARS, and the folded layout returns to the canvas
     // that actually has something to show.
     fireEvent.click(screen.getByTitle('object · showcase_task'));

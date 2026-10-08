@@ -92,7 +92,13 @@ import {
   listMetadataPreviewTypes,
   type MetadataSelection,
 } from '../metadata-admin/preview-registry.js';
-import { getStudioCanvasPreview, StudioCanvasNavEntryContext, type StudioCanvasNavEntry } from './studio-canvas-preview.js';
+import {
+  getStudioCanvasPreview,
+  StudioCanvasListViewContext,
+  StudioCanvasNavEntryContext,
+  type StudioCanvasNavEntry,
+} from './studio-canvas-preview.js';
+import { ObjectListViewInspector, useObjectListViewDraft } from './ObjectListViewInspector.js';
 import { PermissionMatrixEditPage } from '../metadata-admin/PermissionMatrixEditor.js';
 import { AccessExplainPanel } from '../metadata-admin/AccessExplainPanel.js';
 import {
@@ -2962,6 +2968,19 @@ export function InterfacesPillar({
     save: doSave,
   });
 
+  // objectui#11823 — an `object` leaf's list view: the third buffer, edited in
+  // the Properties panel and shown on the canvas, autosaved to the package
+  // draft like the other two. Blocked on `readOnly` like them.
+  const listView = useObjectListViewDraft({ client, packageId, leaf: current, publishNonce, onDraftSaved });
+  useDraftAutoSave({
+    target: listView.targetKey,
+    loadedFor: listView.loadedFor,
+    dirty: listView.dirty,
+    blocked: !listView.target || listView.saving || readOnly,
+    snapshot: listView.row,
+    save: listView.save,
+  });
+
   // nav editing — patch appDraft.navigation, then save/publish the App overlay
   const onNavPatch = React.useCallback((patch: Record<string, unknown>) => {
     setAppDraft((d) => ({ ...d, ...patch }));
@@ -3180,8 +3199,11 @@ export function InterfacesPillar({
           // objectui#11774 — the open nav entry rides beside the props, not in
           // them (`StudioCanvasPreviewProps` is a published face): the default
           // object canvas previews the entry's slice or named view.
+          // objectui#11823 — and so does the list view the panel is editing.
           <StudioCanvasNavEntryContext.Provider value={canvasNavEntry}>
-            <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+            <StudioCanvasListViewContext.Provider value={listView.canvas}>
+              <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+            </StudioCanvasListViewContext.Provider>
           </StudioCanvasNavEntryContext.Provider>
         ) : isSourcePage ? (
           // Source pages have no block tree — the canvas shows only the live
@@ -3317,12 +3339,24 @@ export function InterfacesPillar({
       // `Map`s read during render with no subscription. Here the statement is
       // not even about registration — this canvas has no blocks by contract,
       // so there is nothing to wait for.
-      <div className="min-h-0 flex-1 overflow-auto p-3">
-        <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
-          <Eye className="h-5 w-5" />
-          {t('engine.studio.inspector.studioCanvasNoBlocks', locale)}
+      //
+      // objectui#11823 — except the list itself. An `object` leaf's canvas is
+      // the object's running list, and the list view it shows IS package
+      // metadata: this panel edits its columns, filter and sort (the view the
+      // canvas opens, see `ObjectListViewInspector`). Still no block, still no
+      // selection. Every other studio-canvas type keeps the statement below.
+      current.type === 'object' && listView.target ? (
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <ObjectListViewInspector listView={listView} readOnly={readOnly} locale={locale} />
         </div>
-      </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto p-3">
+          <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
+            <Eye className="h-5 w-5" />
+            {t('engine.studio.inspector.studioCanvasNoBlocks', locale)}
+          </div>
+        </div>
+      )
     ) : current && !draftLoaded ? (
       // objectui#11272 — no editor over another leaf's buffer: the canvas
       // beside it says whether this leaf's own document is on its way.
@@ -3442,6 +3476,7 @@ export function InterfacesPillar({
     <div className="flex h-full flex-col">
       {leafConflictDialog}
       {navConflictDialog}
+      {listView.conflictDialog}
       <div className="flex items-center gap-2 border-b px-3 py-1.5">
         <button
           type="button"

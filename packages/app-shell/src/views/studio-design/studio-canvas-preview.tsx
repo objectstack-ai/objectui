@@ -106,6 +106,29 @@ export interface StudioCanvasNavEntry {
 
 export const StudioCanvasNavEntryContext = React.createContext<StudioCanvasNavEntry | null>(null);
 
+/**
+ * The list view the Properties panel beside the canvas is editing
+ * (objectui#11823), in the named-view shape `object-view` reads: the buffer
+ * the panel saves to the package draft, unsaved edits included.
+ *
+ * ⛔ Studio-internal, for the reason {@link StudioCanvasNavEntry} is: a
+ * context beside the published props, never a member of
+ * {@link StudioCanvasPreviewProps}. The Interfaces pillar provides it while
+ * its panel holds a view for the open `object` leaf; a canvas rendered
+ * outside the pillar, or a leaf whose view does not exist yet, sees `null`
+ * and renders as it did before.
+ */
+export interface StudioCanvasListView {
+  /** The object the view lists. The canvas uses the view only for this object. */
+  objectName: string;
+  /** The view item's name, `<object>.<key>`. */
+  viewId: string;
+  /** The view's list body, as a named view of `object-view`'s `listViews`. */
+  view: Record<string, unknown>;
+}
+
+export const StudioCanvasListViewContext = React.createContext<StudioCanvasListView | null>(null);
+
 /** What an entry changes about the object's list: the slice's conditions, or the named view to open. */
 export interface NavEntryListTarget {
   /** The entry's `filters` as the `/data` surface reads them; empty when it lands elsewhere. */
@@ -174,11 +197,19 @@ export function navEntryListTarget(
  * handed to the renderer as the Studio's view preview hands one. With no entry
  * (or a plain one) the schema is exactly the one this rendered before.
  *
+ * objectui#11823 — while the Properties panel beside it holds a list view of
+ * this object ({@link StudioCanvasListViewContext}), that view is the one
+ * shown: the panel's buffer, so an edit shows here before it is published.
+ * The panel holds the view this canvas opens (the entry's named view, else the
+ * object's default list view, as the running app opens it).
+ *
  * Exported so downstream renderers can compose/wrap it; override the default
  * wholesale via `registerStudioCanvasPreview('object', …)`.
  */
 export function StudioObjectRecordsCanvas({ name }: StudioCanvasPreviewProps) {
   const entry = React.useContext(StudioCanvasNavEntryContext);
+  const edited = React.useContext(StudioCanvasListViewContext);
+  const editedView = edited && edited.objectName === name ? edited : null;
   const { user, activeOrganization } = useAuth();
   const currentUserId = user?.id ?? null;
   const currentOrgId = activeOrganization?.id ?? null;
@@ -191,11 +222,16 @@ export function StudioObjectRecordsCanvas({ name }: StudioCanvasPreviewProps) {
     return navEntryListTarget(name, { navId, filters, viewName: entryViewName }, { currentUserId, currentOrgId });
   }, [name, navId, filtersKey, entryViewName, currentUserId, currentOrgId]);
   // Read only for an entry that names a view: a plain entry asks the metadata
-  // cache for nothing, as before.
+  // cache for nothing, as before. The panel's view, when there is one, is
+  // shown instead of the cache's (objectui#11823).
   const metadata = useMetadata();
-  const objectViews = target.viewName ? listViewsOf(findByName(metadata.objects, name)) : undefined;
-  const viewId = objectViews && target.viewName ? resolveViewId(target.viewName, Object.keys(objectViews), name) : undefined;
-  const view = viewId ? objectViews?.[viewId] : undefined;
+  const objectViews = !editedView && target.viewName ? listViewsOf(findByName(metadata.objects, name)) : undefined;
+  const viewId = editedView
+    ? editedView.viewId
+    : objectViews && target.viewName
+      ? resolveViewId(target.viewName, Object.keys(objectViews), name)
+      : undefined;
+  const view = editedView ? editedView.view : viewId ? objectViews?.[viewId] : undefined;
   const schema = {
     type: 'object-view',
     objectName: name,
@@ -208,7 +244,7 @@ export function StudioObjectRecordsCanvas({ name }: StudioCanvasPreviewProps) {
 }
 
 /** An object definition's merged `listViews` map, or `{}` when it has none. */
-function listViewsOf(def: { listViews?: unknown } | undefined): Record<string, unknown> {
+export function listViewsOf(def: { listViews?: unknown } | undefined): Record<string, unknown> {
   const views = def?.listViews;
   return views && typeof views === 'object' ? (views as Record<string, unknown>) : {};
 }

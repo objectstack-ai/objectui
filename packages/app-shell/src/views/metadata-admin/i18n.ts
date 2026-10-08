@@ -3058,6 +3058,18 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // to wait for — `StudioCanvasPreviewProps` carries no selection by contract.
   'engine.studio.inspector.studioCanvasNoBlocks':
     'This canvas renders the running app, not a block tree — it has no blocks to select, and nothing here is edited from this panel.',
+  // objectui#11823 — an `object` leaf's panel: the list view its canvas shows.
+  'engine.studio.inspector.listView.kind': 'List view',
+  'engine.studio.inspector.listView.intro':
+    'The list on the canvas. Its columns, filter and sort save to this package\'s draft and show on the canvas at once.',
+  'engine.studio.inspector.listView.notCreated':
+    'There is no list view {view} yet. Your first change here creates it in this package\'s draft.',
+  'engine.studio.inspector.listView.readOnly': 'This package is read-only: the list view is shown here, not edited.',
+  'engine.studio.inspector.listView.filter': 'Filter',
+  'engine.studio.inspector.listView.sort': 'Sort',
+  'engine.studio.inspector.listView.addSort': '+ Add sort…',
+  'engine.studio.inspector.listView.sortAsc': '{field} ascending',
+  'engine.studio.inspector.listView.sortDesc': '{field} descending',
   'engine.studio.inspector.designersMissing':
     'No metadata designers are registered in this session, so there is nothing to edit here.',
   'engine.studio.inspector.noPageSchema': 'Page settings are unavailable — the page schema could not be loaded.',
@@ -5986,6 +5998,15 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.inspector.emptyLine2': '它的属性会在这里直接编辑。',
   'engine.studio.inspector.studioCanvasNoBlocks':
     '此画布渲染的是运行态应用，而不是积木树 —— 这里没有可选中的积木，也没有可在本面板编辑的内容。',
+  'engine.studio.inspector.listView.kind': '列表视图',
+  'engine.studio.inspector.listView.intro': '画布上的就是这个列表。它的列、筛选与排序保存到本包的草稿,并立即显示在画布上。',
+  'engine.studio.inspector.listView.notCreated': '还没有列表视图 {view}。在这里做的第一次修改会在本包的草稿中创建它。',
+  'engine.studio.inspector.listView.readOnly': '本包只读:这里展示列表视图,不能编辑。',
+  'engine.studio.inspector.listView.filter': '筛选',
+  'engine.studio.inspector.listView.sort': '排序',
+  'engine.studio.inspector.listView.addSort': '+ 添加排序…',
+  'engine.studio.inspector.listView.sortAsc': '{field} 升序',
+  'engine.studio.inspector.listView.sortDesc': '{field} 降序',
   'engine.studio.inspector.designersMissing': '本次会话没有注册任何元数据设计器,这里没有可编辑的内容。',
   'engine.studio.inspector.noPageSchema': '页面设置不可用——无法加载页面 schema。',
   'engine.studio.inspector.sourcePageLine1': '这个页面是 {kind} 源码,不是积木树 ——',

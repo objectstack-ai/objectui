@@ -70,13 +70,17 @@ vi.mock('../../../../packages/auth/src/useAuth', async (importOriginal) => ({
   useAuth: () => auth,
 }));
 
-// Every name `StudioRoute.tsx` and `ProtectedRoute.tsx` read from the barrel,
-// and nothing else: no `importOriginal()`, whose whole-barrel transform
-// `StudioRoute.test.tsx` measured at ten seconds. The builder components are
-// deliberately ABSENT here. They reach the route only through the mocked
-// `./studioBuilder` below, so a regression that imports them from the barrel
-// again fails on vitest's missing-export error instead of passing.
-vi.mock('@object-ui/app-shell', () => ({
+// The real barrel's surface is inherited (`check:vi-mock-inherit`), and the
+// names `StudioRoute.tsx` and `ProtectedRoute.tsx` render are overridden. The
+// barrel's OWN builder components are overridden with a marker the cases below
+// never look for: the route must reach the builder only through the mocked
+// `./studioBuilder`, so a regression that imports it from the barrel again
+// renders the marker instead of `studio-pillar-builder`, leaves the module
+// count at zero, and reds the holder case.
+vi.mock('@object-ui/app-shell', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  BuilderLanding: () => <div data-testid="barrel-builder" />,
+  StudioDesignSurface: () => <div data-testid="barrel-builder" />,
   ConnectedShell: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
   RequireOrganization: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
   RedirectWithSplash: () => <div data-testid="redirect" />,

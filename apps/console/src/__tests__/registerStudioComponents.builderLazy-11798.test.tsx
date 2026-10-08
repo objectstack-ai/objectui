@@ -44,11 +44,18 @@ const { registrations, builderModuleLoads } = vi.hoisted(() => ({
 }));
 
 // Mocked at the specifier the module under test imports, so the entry exercised
-// below is the production registration itself.
-vi.mock('@object-ui/app-shell', () => ({
+// below is the production registration itself. The real barrel's surface is
+// inherited (`check:vi-mock-inherit`); only the names this file's graph renders
+// or records are overridden.
+vi.mock('@object-ui/app-shell', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   registerAppComponent: (entry: Registration) => {
     registrations.push(entry);
   },
+  // The barrel's own builder, as a marker: the entry must reach the landing
+  // only through the deferred module below, so registering this one instead
+  // commits the marker with no loading line and reds the render case.
+  BuilderLanding: () => <div data-testid="barrel-builder" />,
   // `StudioRoute.tsx` is imported for its shared loading line; these are the
   // other names its module graph reads from the barrel.
   ConnectedShell: ({ children }: { children?: ReactNode }) => <>{children}</>,

@@ -94,6 +94,7 @@ function mountInspector(fields: Record<string, Row>, selected: string, locale: S
         }}
         onClearSelection={() => {}}
         onSelectionChange={() => {}}
+        readOnly={false}
         locale={locale}
       />
     );

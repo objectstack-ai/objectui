@@ -256,6 +256,7 @@ ignores would be accepted and dropped, which is the defect this binding removes.
 | `object-grid` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `element:record_picker` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `element:number` | ✅ | filter | ✅ | — single value | — single value |
+| `element:repeater` | ✅ | filter / sort / limit | ✅ | ✅ | ✅ |
 | `record:related_list` | ✅ | columns / filter / sort / limit | ✅ | ✅ | ✅ |
 | `object-calendar` | ✅ | filter / sort | ✅ | ✅ | — platform ceiling |
 | `object-kanban` | ✅ | filter / limit | ✅ | — no ordering | ✅ (`limit`) |
@@ -303,20 +304,37 @@ rows, a form's inline fields — `customFields`, or `sections` whose every field
 inline — a chart's `dataset`, a `bind` path, or a metric's `fallbackValue`) draws
 from that source and shows no hint.
 
-The two `element:*` rows keep their configuration in the node's `properties` bag,
-so the binding does not land on a schema key there: each reads it directly, and
-`dataSource.object` wins over `properties.object`. They differ on `filter`.
-`element:record_picker` takes the binding's (or its view's) filter in place of
-`properties.filter`, which applies only when neither supplies one.
-`element:number` AND-combines `properties.filter` with the binding's filter and
-its view's — the rule the gate-wrapped blocks above follow — so neither is
-dropped, and a filter refused while combining them shows the configuration-error
-panel instead of a count. On `element:number`,
+The three `element:*` rows keep their display configuration in the node's
+`properties` bag and take their query from the binding **only**: `object`,
+`filter`, `sort` and `limit` are read from `dataSource` and from nowhere else.
+There is no `properties.object`, `properties.filter`, `properties.sort` or
+`properties.limit` on these three elements — the renderers do not read them, and
+`@objectstack/spec` retires them in v18 (objectstack#11509). The binding's filter
+is AND-combined with its view's filter, as on every block above. A repeater is
+bound like this:
+
+```json
+{
+  "type": "element:repeater",
+  "dataSource": {
+    "object": "contact",
+    "sort": [{ "field": "name", "order": "asc" }],
+    "limit": 10
+  },
+  "properties": { "titleField": "name", "fields": ["email"] }
+}
+```
+
+On `element:number`,
 `{ "dataSource": { "object": "contact" }, "properties": { "aggregate": "count" } }`
 is a complete metric; its `sort` and `limit` are not read, because an aggregate
-has no ordering and a capped count would be a wrong number. An `element:number`
-that sets `aggregate` but names no object in either place (no `properties.object`,
-no `dataSource.object`) shows a short "no object named" notice instead of a count.
+has no ordering and a capped count would be a wrong number, and a filter the
+converter refuses shows the configuration-error panel instead of a count. An
+element whose node names no `dataSource.object` issues no query: an
+`element:number` that sets `aggregate` shows a short "no object named" notice
+instead of a count, an `element:record_picker` offers no records, and an
+`element:repeater` shows its empty-state text. The Studio page designer writes
+these elements' object (and the repeater's row cap) into `dataSource`.
 
 #### Scoping a filter to the record in view: `{record_id}`
 

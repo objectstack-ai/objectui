@@ -309,9 +309,12 @@ function EntryDetail({
   const [detail, setDetail] = useState<EntryChangeDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Read through a ref so the load below keys on the entry alone, never on the
-  // identity of the callback the panel hands down (AGENTS.md #10).
+  // identity of the callback the panel hands down (AGENTS.md #10). Kept current
+  // from an effect, not during render.
   const onComparedRef = useRef(onCompared);
-  onComparedRef.current = onCompared;
+  useEffect(() => {
+    onComparedRef.current = onCompared;
+  });
 
   useEffect(() => {
     let cancelled = false;

@@ -31,6 +31,7 @@ import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { useAutoTriggerOnce } from './auto-trigger';
 import { readStaticParamValues } from './static-params';
+import { DisabledReasonTrigger, describedByWithReason, useDisabledReason } from './disabled-reason';
 
 /**
  * The declared props. `schema` is `UIActionSchema` (objectui#4418): every key
@@ -133,6 +134,13 @@ const ActionButtonRenderer = forwardRef<
     // business here instead of `any`'s.
     const isDisabled = useCondition(toPredicateInput(schema.disabled), recordData);
     const isEnabled = useCondition(toPredicateInput(schema.enabled), recordData);
+    // The reason a greyed-out button gives (objectui#11839): only the DECLARED
+    // `disabled` predicate, evaluated true, earns it — the verdict that is a
+    // fact about the record. `hostDisabled`, `loading` and the legacy `enabled`
+    // leg disable the button without one. See `./disabled-reason`.
+    const disabledReason = useDisabledReason(
+      hasDeclaredVisibilityGate(schema.disabled) && isDisabled,
+    );
 
     // Resolve icon
     const Icon = resolveIcon(schema.icon);
@@ -345,7 +353,7 @@ const ActionButtonRenderer = forwardRef<
     // this gate is the only one on that path. See `hasDeclaredVisibilityGate`.
     if (hasDeclaredVisibilityGate(schema.visible) && !isVisible) return null;
 
-    return (
+    const button = (
       <Button
         ref={ref}
         type="button"
@@ -387,6 +395,9 @@ const ActionButtonRenderer = forwardRef<
         ) || loading}
         onClick={handleClick}
         {...toFormControlDomProps(rest)}
+        // After the pass-through, so an authored `ariaDescribedBy` and the
+        // reason are both kept (objectui#11839).
+        aria-describedby={describedByWithReason(rest['aria-describedby'], disabledReason)}
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
       >
         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -394,6 +405,9 @@ const ActionButtonRenderer = forwardRef<
         {schema.label}
       </Button>
     );
+    // A predicate-disabled button is wrapped in the trigger that carries its
+    // reason (objectui#11839); any other button is returned as it was.
+    return <DisabledReasonTrigger reason={disabledReason}>{button}</DisabledReasonTrigger>;
   },
 );
 

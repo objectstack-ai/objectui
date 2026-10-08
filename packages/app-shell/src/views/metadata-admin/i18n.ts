@@ -2553,6 +2553,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.field.section.options': '{type} options',
   'designer.field.apiName': 'API name',
   'designer.field.label': 'Label',
+  // objectui#11782 — under the Label input: the label a translation shows instead.
+  'designer.field.labelTranslated': 'Shown as “{label}” in {language}: the app’s translation bundle overrides this label.',
   'designer.field.type': 'Type',
   'designer.field.required': 'Required',
   'designer.field.unique': 'Unique',
@@ -5561,6 +5563,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.field.section.options': '{type} 选项',
   'designer.field.apiName': 'API 名称',
   'designer.field.label': '显示名',
+  // objectui#11782.
+  'designer.field.labelTranslated': '在 {language} 中显示为“{label}”：应用的翻译包覆盖了此显示名。',
   'designer.field.type': '类型',
   'designer.field.required': '必填',
   'designer.field.unique': '唯一',

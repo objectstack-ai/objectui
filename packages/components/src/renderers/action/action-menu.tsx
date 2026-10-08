@@ -34,6 +34,7 @@ import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { useAutoTriggerOnce } from './auto-trigger';
 import { readActionEntryParamValues } from './static-params';
+import { DisabledReasonMenuLabel, menuItemReasonAria, useDisabledReason } from './disabled-reason';
 
 function useMoreActionsLabel(): string {
   // useObjectTranslation is provider-safe (never throws); no try/catch, which
@@ -107,6 +108,13 @@ export const ActionMenuItem: React.FC<{
   // was wired; this renderer ignored a spec-authored `disabled`).
   const isDisabledPred = useCondition(toPredicateInput((action as any).disabled), recordData);
   const isEnabled = useCondition(toPredicateInput(action.enabled), recordData);
+  // The reason a greyed-out item gives (objectui#11839): only its DECLARED
+  // `disabled` predicate, evaluated true — the rule `action:button` follows —
+  // drawn the menu-item way: a visible second line that is the item's
+  // description. See `./disabled-reason`.
+  const disabledReason = useDisabledReason(
+    hasDeclaredVisibilityGate(action.disabled) && isDisabledPred,
+  );
 
   const iconElement = useMemo(() => {
     const Icon = resolveIcon(action.icon);
@@ -134,6 +142,7 @@ export const ActionMenuItem: React.FC<{
         : hasDeclaredVisibilityGate(action.enabled)
           ? !isEnabled
           : false}
+      {...menuItemReasonAria(disabledReason)}
       onSelect={(e) => {
         e.preventDefault();
         onExecute(action);
@@ -144,7 +153,7 @@ export const ActionMenuItem: React.FC<{
       )}
     >
       {iconElement}
-      <span>{action.label || action.name}</span>
+      <DisabledReasonMenuLabel reason={disabledReason}>{action.label || action.name}</DisabledReasonMenuLabel>
     </DropdownMenuItem>
   );
 };

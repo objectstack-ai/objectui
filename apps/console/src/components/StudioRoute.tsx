@@ -34,15 +34,13 @@
  * Studio exists for. The gate belongs here, in this app's router.
  */
 
-import type { ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { Link, Navigate, Outlet, Route } from 'react-router-dom';
 import {
-  BuilderLanding,
   LoadingFallback,
   LoadingScreen,
   STUDIO_ORG_SCOPE_PILLAR,
   STUDIO_ORG_SCOPE_SEGMENT,
-  StudioDesignSurface,
   getProductName,
   useHomePath,
 } from '@object-ui/app-shell';
@@ -50,6 +48,27 @@ import { useObjectTranslation } from '@object-ui/i18n';
 
 import { ProtectedRoute } from './ProtectedRoute';
 import { holdsStudioAccess, useStudioEntry } from './studioEntry';
+
+/*
+ * The two builder screens load WITH THEIR ROUTE, not with the console
+ * (objectui#11798). Imported statically, `StudioDesignSurface` and
+ * `BuilderLanding` (and the modules only they reach, such as the pillar panels
+ * and the form designer) sat in the eager closure of every console page, for
+ * every user, on deployments where most principals can never enter Studio.
+ *
+ * Only the builder is deferred. The gate above it (`StudioRoute` →
+ * `RequireStudioAccess`) stays in this eager module on purpose: it decides
+ * BEFORE the builder's chunk is even requested, so a non-holder never downloads
+ * the builder, and the pending / failed / denied states render exactly as they
+ * did. `./studioBuilder` says why the specifier is a console-local module and
+ * not the `@object-ui/app-shell` barrel.
+ */
+const StudioDesignSurface = lazy(() =>
+  import('./studioBuilder').then((m) => ({ default: m.StudioDesignSurface })),
+);
+const BuilderLanding = lazy(() =>
+  import('./studioBuilder').then((m) => ({ default: m.BuilderLanding })),
+);
 
 /**
  * Renders `children` only for a principal whose LOADED capability set contains
@@ -104,6 +123,25 @@ export function StudioRoute() {
 }
 
 /**
+ * What a Studio builder screen shows INSIDE an already-painted frame while its
+ * chunk loads (objectui#11798): the `/studio` landing under its wordmark header,
+ * and the `studio:builder` registry entry inside the app shell. One line of the
+ * shared `common.loading` text, as `registerAccountComponents` shows for its own
+ * lazy page. The full-screen pillar builder has no frame of its own, so it
+ * falls back to `LoadingFallback`, the splash the gate's pending state already
+ * shows, and the two waits read as one. `role="status"` lets assistive
+ * technology announce the wait, and it is what the tests find the line by.
+ */
+export function StudioBuilderLoading() {
+  const { t } = useObjectTranslation();
+  return (
+    <div role="status" className="p-6 text-sm text-muted-foreground">
+      {t('common.loading', { defaultValue: 'Loading…' })}
+    </div>
+  );
+}
+
+/**
  * The `/studio` front door: pick or create a writable package, or open the
  * organization's package-less flows.
  *
@@ -137,7 +175,10 @@ function StudioLanding() {
         </Link>
       </header>
       <div className="min-h-0 flex-1 overflow-auto">
-        <BuilderLanding />
+        {/* The frame above stays painted while the landing's chunk loads. */}
+        <Suspense fallback={<StudioBuilderLoading />}>
+          <BuilderLanding />
+        </Suspense>
       </div>
     </div>
   );
@@ -173,6 +214,13 @@ export const studioRoutes = (
       element={<Navigate to={STUDIO_ORG_SCOPE_PILLAR} replace />}
     />
     <Route path=":packageId" element={<Navigate to="data" replace />} />
-    <Route path=":packageId/:tab" element={<StudioDesignSurface />} />
+    <Route
+      path=":packageId/:tab"
+      element={
+        <Suspense fallback={<LoadingFallback />}>
+          <StudioDesignSurface />
+        </Suspense>
+      }
+    />
   </Route>
 );

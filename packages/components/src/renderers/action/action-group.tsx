@@ -36,6 +36,12 @@ import { Loader2, ChevronDown } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { readActionEntryParamValues } from './static-params';
+import {
+  DisabledReasonMenuLabel,
+  DisabledReasonTrigger,
+  menuItemReasonAria,
+  useDisabledReason,
+} from './disabled-reason';
 
 // No group-level `name` (objectui#11168): nothing renders, forwards or keys on
 // it, and `@objectstack/spec` refuses it on this block, so the registration
@@ -118,6 +124,12 @@ const InlineActionButton: React.FC<{
   // is now the primary control; `enabled` stays as a deprecated fallback.
   const isDisabledPred = useCondition(toPredicateInput((action as any).disabled), recordData);
   const isEnabled = useCondition(toPredicateInput(action.enabled), recordData);
+  // The reason a greyed-out member gives (objectui#11839): only its DECLARED
+  // `disabled` predicate, evaluated true. The group's `hostDisabled` and this
+  // member's `loading` disable it without one. See `./disabled-reason`.
+  const disabledReason = useDisabledReason(
+    hasDeclaredVisibilityGate(action.disabled) && isDisabledPred,
+  );
 
   const Icon = resolveIcon(action.icon);
   const btnVariant = (action.variant as string) === 'primary' ? 'default' : (action.variant || variant || 'outline');
@@ -137,7 +149,7 @@ const InlineActionButton: React.FC<{
   // and render it (objectui#3812) — see `hasDeclaredVisibilityGate`.
   if (hasDeclaredVisibilityGate(action.visible) && !isVisible) return null;
 
-  return (
+  const button = (
     <Button
       type="button"
       variant={btnVariant as any}
@@ -163,6 +175,7 @@ const InlineActionButton: React.FC<{
             ? !isEnabled
             : false
       ) || loading}
+      aria-describedby={disabledReason?.id}
       onClick={handleClick}
     >
       {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -171,6 +184,7 @@ const InlineActionButton: React.FC<{
       {action.label}
     </Button>
   );
+  return <DisabledReasonTrigger reason={disabledReason}>{button}</DisabledReasonTrigger>;
 };
 
 InlineActionButton.displayName = 'InlineActionButton';
@@ -207,6 +221,12 @@ export const DropdownActionItem: React.FC<{
   // InlineActionButton above — objectstack-ai/objectstack#1885 follow-through).
   const isDisabledPred = useCondition(toPredicateInput((action as any).disabled), recordData);
   const isEnabled = useCondition(toPredicateInput(action.enabled), recordData);
+  // The same reason as `InlineActionButton`'s, on the same verdict
+  // (objectui#11839), drawn the menu-item way: a visible second line that is the
+  // item's description. See `./disabled-reason`.
+  const disabledReason = useDisabledReason(
+    hasDeclaredVisibilityGate(action.disabled) && isDisabledPred,
+  );
   // Same declared-gate rule as `InlineActionButton` above — one action cannot be
   // hidden in one display mode and shown in the other (objectui#3812).
   if (hasDeclaredVisibilityGate(action.visible) && !isVisible) return null;
@@ -227,6 +247,7 @@ export const DropdownActionItem: React.FC<{
       {showSeparator && <DropdownMenuSeparator />}
       <DropdownMenuItem
         disabled={isDisabled}
+        {...menuItemReasonAria(disabledReason)}
         onSelect={async (e) => {
           e.preventDefault();
           if (isDisabled) return;
@@ -240,7 +261,7 @@ export const DropdownActionItem: React.FC<{
         {/* Dynamic icon resolution from Lucide, not component creation during render */}
         {/* eslint-disable-next-line react-hooks/static-components */}
         {Icon && <Icon className="mr-2 h-4 w-4" />}
-        <span>{action.label || action.name}</span>
+        <DisabledReasonMenuLabel reason={disabledReason}>{action.label || action.name}</DisabledReasonMenuLabel>
       </DropdownMenuItem>
     </>
   );

@@ -111,6 +111,8 @@ describe('SortBuilder honours `disabled` on a fields entry (objectui#11943)', ()
     fireEvent.pointerDown(secret, { pointerType: 'mouse' });
     fireEvent.pointerUp(secret, { pointerType: 'mouse' });
     expect(onChange).not.toHaveBeenCalled();
+    // Nothing was chosen, so the list is still open; close it to read the row.
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' });
     expect(fieldTriggers()[0]).toHaveTextContent('Title');
 
     cleanup();

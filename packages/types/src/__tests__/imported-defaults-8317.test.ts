@@ -90,6 +90,9 @@ import {
   ObjectMapPropsSchema as SpecObjectMapPropsSchema,
   ObjectGanttPropsSchema as SpecObjectGanttPropsSchema,
   ObjectGridPropsSchema as SpecObjectGridPropsSchema,
+  // objectui#6152 round 8 — the rows whose `filter` the flat kanban / calendar arms read.
+  ObjectKanbanPropsSchema as SpecObjectKanbanPropsSchema,
+  ObjectCalendarPropsSchema as SpecObjectCalendarPropsSchema,
   // objectui#11440 — the report definition the authored `report` node wraps.
   ReportSchema as SpecReportSchema,
   // objectui#6152 round 6 — the spec schemas `ObjectGridSchema`'s mirror reads.
@@ -313,6 +316,11 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // the row's key set off the crossed copy. This row carries defaults too
   // (`data`'s `api` provider), so the boundary returns a rebuilt copy.
   ['ObjectGridPropsSchema', SpecObjectGridPropsSchema],
+  // objectui#6152 round 8: the flat `ObjectKanbanSchema` / `ObjectCalendarSchema`
+  // arms read their row's `filter` member (the `ViewFilterRule` array) by
+  // reference, each row crossed through this boundary.
+  ['ObjectKanbanPropsSchema', SpecObjectKanbanPropsSchema],
+  ['ObjectCalendarPropsSchema', SpecObjectCalendarPropsSchema],
   // objectui#6152 round 6: the flat `ObjectGridSchema` mirror reads `rowColor` /
   // `rowHeight` as the spec schemas its twin names, and one `bulkActionDefs`
   // entry's `operation` and `visible` slot, each crossed through this boundary.

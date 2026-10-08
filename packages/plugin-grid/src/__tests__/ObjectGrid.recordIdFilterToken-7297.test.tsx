@@ -39,7 +39,15 @@ function makeAdapter() {
 
 type Adapter = ReturnType<typeof makeAdapter>;
 
-const NODE: ObjectGridSchema = { type: 'object-grid', objectName: 'task', columns: ['name'], filter: [['assignee', '=', '{record_id}']] };
+// The authored `filter` is the `ViewFilterRule` array (objectui#6152 round 8 respelled it
+// from the AST tuple array `[['assignee', '=', '{record_id}']]`, which the row refuses);
+// `ObjectGrid` lowers it to the AST node the assertions below read off `$filter`.
+const NODE: ObjectGridSchema = {
+  type: 'object-grid',
+  objectName: 'task',
+  columns: ['name'],
+  filter: [{ field: 'assignee', operator: 'equals', value: '{record_id}' }],
+};
 
 function ui(adapter: Adapter, recordId?: string) {
   const grid = (
@@ -76,7 +84,7 @@ describe('object-grid — {record_id} is the mounted record (objectui#7297)', ()
   it('queries with the record in view, and again with the next one, without a remount', async () => {
     const adapter = makeAdapter();
     const { rerender } = render(ui(adapter, 'rec_ada'));
-    expect(await queriedFilter(adapter.find, 0)).toEqual([['assignee', '=', 'rec_ada']]);
+    expect(await queriedFilter(adapter.find, 0)).toEqual([['assignee', 'equals', 'rec_ada']]);
     await act(async () => {
       await new Promise((r) => setTimeout(r, 30));
     });
@@ -84,13 +92,13 @@ describe('object-grid — {record_id} is the mounted record (objectui#7297)', ()
     await act(async () => {
       rerender(ui(adapter, 'rec_grace'));
     });
-    expect(await queriedFilter(adapter.find, before)).toEqual([['assignee', '=', 'rec_grace']]);
+    expect(await queriedFilter(adapter.find, before)).toEqual([['assignee', 'equals', 'rec_grace']]);
   });
 
   it('with no record in context: left as written, and named in the warning', async () => {
     const adapter = makeAdapter();
     render(ui(adapter));
-    expect(await queriedFilter(adapter.find, 0)).toEqual([['assignee', '=', '{record_id}']]);
+    expect(await queriedFilter(adapter.find, 0)).toEqual([['assignee', 'equals', '{record_id}']]);
     expect(
       warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('"{record_id}"') && String(c[0]).includes('no record in context')),
     ).toBe(true);

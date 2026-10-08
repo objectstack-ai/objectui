@@ -434,7 +434,7 @@ export const ObjectCalendarRenderer: React.FC<{ schema: any; [key: string]: any 
 const OBJECT_CALENDAR_INPUTS: ComponentInput[] = [
   { name: 'objectName', type: 'string', description: 'ObjectQL object name. The record source is one of `data`, `staticData` and `objectName`; the `object-calendar` schema refuses a block that declares none of them, unless the node\'s `dataSource.object` names the object, which then lands on this key.' },
   { name: 'calendar', type: 'object', description: 'startDateField, endDateField, titleField, colorField' },
-  { name: 'filter', type: 'array', description: 'Filter criteria in JSON-rules form, narrowing the records the calendar fetches. Lowered to `$filter` on the query.' },
+  { name: 'filter', type: 'array', description: 'Base query filter — the `ViewFilterRule` array `[{ field, operator, value }, ...]`, narrowing the records the calendar fetches. Lowered to `$filter` on the query.' },
   { name: 'sort', type: 'array', description: 'Sort order in `[{ field, order }]` form, ordering the records the calendar fetches. Lowered to `$orderby` on the query.' },
   { name: 'defaultView', type: 'enum', enum: ['month', 'week', 'day'], description: 'The grid the calendar opens on. A narrow viewport downgrades `day` to `month`; the author’s choice is otherwise honoured on first render.' },
   { name: 'locale', type: 'string', description: 'BCP-47 tag used to format the dates and times this calendar renders. A tag `Intl` refuses is dropped — the same answer as an absent key — rather than passed through to throw out of render.' },

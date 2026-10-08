@@ -60,6 +60,10 @@ import {
   // objectui#11276 — the `object-grid` row, read as the authored arm's
   // `properties` bag, by reference (`ObjectGridBlockSchema` below).
   ObjectGridPropsSchema as SpecObjectGridPropsSchema,
+  // objectui#6152 round 8 — the `object-kanban` and `object-calendar` rows, read
+  // for ONE member each: the flat arms' `filter`, by reference.
+  ObjectKanbanPropsSchema as SpecObjectKanbanPropsSchema,
+  ObjectCalendarPropsSchema as SpecObjectCalendarPropsSchema,
   // objectui#6152 round 6 — the spec schemas `ObjectGridSchema`'s TypeScript twin
   // declares itself aligned with, read by reference for the members it mirrors
   // (`rowColor`, `rowHeight`, and the `operation` / `visible` members of one
@@ -487,18 +491,40 @@ const ObjectGridAggregationSchema = z.strictObject({
 });
 
 /**
- * objectui#6152 round 6 — `ObjectGridSchema.operations`, restating the interface's
- * six toggles member for member. Strict, as `emptyState` is: an unknown member is
- * named rather than dropped, so a misspelt `creat: false` cannot leave the add-record
- * row on in silence.
+ * objectui#6152 round 8 — the two `operations` members `@objectstack/spec` 17.7.0
+ * refuses on `object-grid`, retired here with a remedy that also serves the
+ * `object-view` `table` slot built from this mirror. `ObjectView` reads `read`
+ * off the VIEW's own `operations` (its row-click gate), falling back to
+ * `table.operations` only when the view declares none, so the remedy for an
+ * inert row names the view node rather than "delete the key" alone.
  */
-const ObjectGridOperationsSchema = z.strictObject({
-  create: z.boolean().optional().describe('Offer the add-record row (it also needs the create permission)'),
-  read: z.boolean().optional(),
-  update: z.boolean().optional().describe('Ceiling over `rowActions`: `false` withholds the generic Edit entry'),
-  delete: z.boolean().optional().describe('Ceiling over `rowActions`: `false` withholds the generic Delete entry'),
-  export: z.boolean().optional().describe('`false` withholds the export button even when `exportOptions` is set'),
-  import: z.boolean().optional(),
+const OBJECT_GRID_OPERATIONS_READ_RETIRED =
+  'RETIRED on `object-grid` (objectui#6152, ADR-0049) — `operations.read` has no reader on a grid: it always lists '
+  + 'the records it is bound to, so the toggle toggled nothing, and `@objectstack/spec` 17.7.0 refuses it by name. '
+  + 'Delete the key. On an `object-view`, whether a row click opens the record is the VIEW\'s own: write '
+  + '`navigation: { mode: \'none\' }` (or `operations: { read: false }`) on the `object-view` node, not inside `table`.';
+const OBJECT_GRID_OPERATIONS_IMPORT_RETIRED =
+  'RETIRED on `object-grid` (objectui#6152, ADR-0049) — `operations.import` has no reader: the grid draws no '
+  + 'import affordance, so the toggle toggled nothing, and `@objectstack/spec` 17.7.0 refuses it by name. '
+  + 'Delete the key.';
+
+/**
+ * `ObjectGridSchema.operations` — the `object-grid` row's own strict
+ * `{ create?, update?, delete?, export? }` block BY REFERENCE (`@objectstack/spec`
+ * 17.7.0), the four toggles `ObjectGrid` reads, with the spec's own descriptions and
+ * its own refusal of an unknown member (`creat: false` is named, not dropped).
+ *
+ * objectui#6152 round 8: round 6 restated the interface's six toggles here,
+ * `read` and `import` among them, which nothing reads and the row now refuses. The
+ * two are declared and unwritable (`retirementTombstone()`), on the
+ * `ConditionalFormattingRuleSchema` precedent above: `.extend()` keeps the row's
+ * strictness and its unknown-key message, and each retired key is refused at its
+ * own path with the remedy. `z.input` of each is `undefined`, which is the TS
+ * twin's `?: never`.
+ */
+const ObjectGridOperationsSchema = stripImportedDefaults(SpecObjectGridPropsSchema).shape.operations.unwrap().extend({
+  read: retirementTombstone(OBJECT_GRID_OPERATIONS_READ_RETIRED),
+  import: retirementTombstone(OBJECT_GRID_OPERATIONS_IMPORT_RETIRED),
 });
 
 /**
@@ -597,7 +623,13 @@ export const ObjectGridSchema = BaseSchema.extend({
     .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
   data: ViewDataSchema.optional().describe('Data source configuration'),
   columns: z.union([z.array(z.string()), z.array(ListColumnSchema)]).optional().describe('Columns configuration'),
-  filter: z.array(z.any()).optional().describe('Filter criteria'),
+  // objectui#6152 round 8 — the `object-grid` row's own `filter` member BY
+  // REFERENCE: the `ViewFilterRule` array, with the row's refusal of the
+  // MongoDB-style record and the AST tuple array. It was `z.array(z.any())`, so
+  // the `object-view` `table` slot built from this mirror accepted both. The read
+  // is wider on purpose: `ObjectGrid` lowers an AST array a host composes at
+  // runtime, which is not an authored shape (see the TS twin's member).
+  filter: stripImportedDefaults(SpecObjectGridPropsSchema).shape.filter,
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration (array only; the legacy string clause is retired — objectui#8221)'),
   searchableFields: z.array(z.string()).optional().describe('Searchable fields'),
   resizable: z.boolean().optional().describe('Enable column resizing'),
@@ -685,7 +717,7 @@ export const ObjectGridSchema = BaseSchema.extend({
   // `unrecognized_keys` whose message prescribes the rename in the protocol's
   // own words — "Did you mean `operators` → `operations`?" — while the same
   // document spelled `operations` parses green. The twin `ObjectGridSchema`
-  // interface declares `operations` too (the `{ create, read, update, delete }`
+  // interface declares `operations` too (the `{ create, update, delete, export }`
   // affordance toggles). ⇒ the correct spelling is MEASURED upstream, not
   // inherited from this comment; `object-grid-operators-tombstone-9739.test.ts`
   // re-derives both halves against the installed package.
@@ -700,7 +732,7 @@ export const ObjectGridSchema = BaseSchema.extend({
     'RETIRED (objectui#9739, ADR-0049) — `operators` is not a key of this component; you meant `operations`. '
     + 'The upstream protocol refuses `operators` by name on `object-grid` and prescribes that rename itself; '
     + 'nothing in this renderer ever read the key, so an authored value parsed green and drew nothing. '
-    + '`operations` is the CRUD-affordance toggle object ({ create, read, update, delete }).',
+    + '`operations` is the affordance toggle object ({ create, update, delete, export }).',
   ),
   rowActions: z.array(z.string()).optional().describe(
     'Names of actions offered on each row\'s menu. `edit` and `delete` are canonical: they select the grid\'s generic Edit / Delete entries; '
@@ -758,14 +790,16 @@ export const ObjectGridSchema = BaseSchema.extend({
   // row's own member (`reorderableColumns`, `singleClickEdit`), and
   // `conditionalFormatting` is the spec list view's own rule BY REFERENCE (the shared
   // `ConditionalFormattingRuleSchema` above, objectui#11533); the rest restate the
-  // twin's local shapes. ⛔ `resizableColumns`, the eleventh, was never mirrored:
+  // twin's local shapes, except `operations`, which round 8 moved onto the row's own
+  // block with `read` / `import` retired (`ObjectGridOperationsSchema` above).
+  // ⛔ `resizableColumns`, the eleventh, was never mirrored:
   // objectui#6152 round 7 RETIRED it (the tombstone above, beside `defaultFilters`).
   aggregations: z.array(ObjectGridAggregationSchema).optional().describe('Per-group aggregations drawn in each group header, e.g. [{ field: "amount", type: "sum" }]'),
   bulkActionDefs: z.array(ObjectGridBulkActionDefSchema).optional().describe('Rich bulk action definitions; each opens the bulk action dialog (params, confirm, progress) for the selected rows'),
   conditionalFormatting: z.array(ConditionalFormattingRuleSchema).optional().describe('Conditional formatting rules for row styling — `[{ condition, style }]`, the rules a list view declares: the first rule whose CEL `condition` holds applies its CSS `style` map to the row'),
   grouping: stripImportedDefaults(SpecGroupingConfigSchema).optional().describe('Row grouping: the spec GroupingConfig, by reference'),
   navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Row-click navigation: the spec NavigationConfig, by reference'),
-  operations: ObjectGridOperationsSchema.optional().describe('Built-in operation toggles { create, read, update, delete, export, import }; a declared block replaces the default'),
+  operations: ObjectGridOperationsSchema.optional().describe('Built-in operation toggles { create, update, delete, export }; a declared block replaces the default (`read` / `import` are retired, objectui#6152)'),
   reorderableColumns: stripImportedDefaults(SpecObjectGridPropsSchema).shape.reorderableColumns,
   rowColor: stripImportedDefaults(SpecRowColorConfigSchema).optional().describe('Row colour rules: the spec RowColorConfig, by reference'),
   rowHeight: stripImportedDefaults(SpecRowHeightSchema).optional().describe('Row height preset: the spec RowHeight, by reference'),
@@ -3017,10 +3051,10 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // on `ComponentPropsMap['object-calendar']` and the plugin's registration
   // `inputs` publishes both, but neither published face of THIS package named
   // them: they rode `BaseSchema`'s `.passthrough()` here and its
-  // `[key: string]: any` on the TS side. Spelled exactly as
-  // `ObjectGanttSchema` above spells them, and mirrored at the SAME
-  // requiredness as `../objectql.ts` (both optional) so the zod-mirror-parity
-  // ratchet stays at zero drift for this pair.
+  // `[key: string]: any` on the TS side. Spelled as `ObjectGanttSchema` above
+  // spelled them then (`filter` has since moved to the row, objectui#6152 round
+  // 8, below), and mirrored at the SAME requiredness as `../objectql.ts` (both
+  // optional) so the zod-mirror-parity ratchet stays at zero drift for this pair.
   //
   // What declaring buys under `.passthrough()` is NOT capped by objectui#7927's
   // index-signature ceiling: that ceiling is about a MISSPELLED key, which
@@ -3030,7 +3064,12 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // clause objectui#8221 retired, moves from "parses green here, then silently
   // dropped by `convertSortToQueryParams` at runtime" to "refused at authoring
   // time".
-  filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter with its context tokens ({current_user_id}, {current_org_id}, date macros) resolved first'),
+  //
+  // objectui#6152 round 8 — `filter` is no longer spelled as the gantt's: it is
+  // the `object-calendar` row's own member BY REFERENCE, the `ViewFilterRule`
+  // array, with the row's refusal of the MongoDB-style record and the AST tuple
+  // array (`z.array(z.any())` admitted both). The TS twin takes the same member.
+  filter: stripImportedDefaults(SpecObjectCalendarPropsSchema).shape.filter,
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration, forwarded as $orderby (array only; the legacy string clause is retired — objectui#8221)'),
   // objectui#8652 — ruling B, verbatim 「B」: `navigation` is declared on the
   // platform element schema first (`ComponentPropsMap['object-calendar']`,
@@ -3298,16 +3337,21 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // `limit` above feeds. Same position `groupBy` and `limit` were in before
   // objectui#7322: declared by the spec (`ComponentPropsMap['object-kanban']`)
   // and by the plugin's registration `inputs`, read by the renderer, and named
-  // by neither published face of this package. Spelled exactly as
-  // `ObjectGanttSchema` above spells it, and mirrored at the SAME requiredness
-  // as `../objectql.ts` (optional) so the zod-mirror-parity ratchet stays at
-  // zero drift for this pair.
+  // by neither published face of this package. Spelled as `ObjectGanttSchema`
+  // above spelled it then (it has since moved to the row, objectui#6152 round 8,
+  // below), and mirrored at the SAME requiredness as `../objectql.ts` (optional)
+  // so the zod-mirror-parity ratchet stays at zero drift for this pair.
   //
   // ⚠️ No `sort` twin here: the spec's `object-kanban` entry declares no
   // top-level `sort`. `ObjectKanban.tsx` reads `schema.sort` only as the
   // `ElementDataSourceGate` carrier for the binding's `dataSource.sort`
   // (objectui#10068). Only `ObjectCalendarSchema` above carries both.
-  filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter with its context tokens ({current_user_id}, {current_org_id}, date macros) resolved first'),
+  //
+  // objectui#6152 round 8 — no longer spelled as the gantt's: the
+  // `object-kanban` row's own `filter` member BY REFERENCE, the `ViewFilterRule`
+  // array, with the row's refusal of the MongoDB-style record and the AST tuple
+  // array (`z.array(z.any())` admitted both), as `ObjectCalendarSchema` takes its own.
+  filter: stripImportedDefaults(SpecObjectKanbanPropsSchema).shape.filter,
   // objectui#9606 — the CANONICAL card-title spelling, declared beside the
   // legacy alias below exactly as `@objectstack/spec` declares the pair on
   // `ObjectKanbanPropsSchema` (`cardTitle` first, `titleField` as its fallback).

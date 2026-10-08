@@ -338,6 +338,11 @@ function SortableField({
       onClick={onSelect}
       {...attributes}
       {...listeners}
+      // objectui#11924 — dnd-kit points every card's `aria-describedby` at the
+      // canvas's drag instructions, and `useSortable` cannot take it away
+      // (`disabled` keeps it and adds `aria-disabled`, though a click still
+      // selects). A read-only card cannot be dragged, so it names none.
+      aria-describedby={readOnly ? undefined : attributes['aria-describedby']}
       aria-label={
         readOnly
           ? tFormat('engine.studio.designer.fieldAriaReadOnly', locale, { label })

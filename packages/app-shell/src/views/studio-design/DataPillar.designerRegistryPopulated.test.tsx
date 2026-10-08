@@ -69,8 +69,9 @@ const mockClient = {
   layered: vi.fn(async () => ({ effective: objectDef, code: objectDef })),
   getDraft: vi.fn(async () => null),
   // The curated hook editor resolves the bound object's field catalog through
-  // `useObjectFields` -> `client.get`.
+  // `useObjectFields` -> `client.withPreviewDrafts(true).get`.
   get: vi.fn(async () => null),
+  withPreviewDrafts() { return this; },
 };
 
 vi.mock('../metadata-admin/useMetadata', async (importOriginal) => {

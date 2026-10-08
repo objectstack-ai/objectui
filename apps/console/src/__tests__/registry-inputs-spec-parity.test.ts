@@ -846,24 +846,13 @@ const FIELD_SECURITY_TRIPLE = ['enforceFieldSecurity', 'redactFields', 'required
 /** Every entry the ruling books starts with this, so the caps can count them. */
 const OWED_PREFIX = 'OWED TO ';
 
-/** One ruled entry's reason: owner first, then what is owed, then the ruling and the expiry. */
-const OWED_TO = (owner: Objectui11111Owner, what: string): string => {
-  const { bump, bookedBy, expires } = OBJECTUI_11111_BOOKINGS[owner];
-  return (
-    `${OWED_PREFIX}${owner}. ${what} Booked by ${bookedBy}: ` +
-    `the ${bump} bump re-pins and declares nothing; ${owner} decides it by its own measurement. ` +
-    `Expires ${expires}, or when ${owner} lands, whichever is first.`
-  );
-};
-
-/** `BLOCK.KEY` entries for every listed key of one block, all with the same owner and reason. */
-const owedEntries = (
-  type: string,
-  keys: readonly string[],
-  owner: Objectui11111Owner,
-  what: string,
-): Record<string, string> =>
-  Object.fromEntries(keys.map((key) => [`${type}.${key}`, OWED_TO(owner, what)]));
+// The two helpers that wrote a booked entry — `OWED_TO` (the reason: owner,
+// what is owed, the booking record and the expiry) and `owedEntries` (one
+// entry per key of a block) — left with the last entry they wrote:
+// `action:button.undoable`, struck by objectui#11168's last slice. Every ledger
+// is empty and every cap below is 0. The cap test still reads each ledger for
+// the `OWED TO ` prefix, so anything booked again is counted against a cap of 0
+// and goes red until a ruling books it with an owner and an expiry.
 
 /** Which owner the ruling routes an entry id to — asserted against every entry's reason. */
 function objectui11111OwnerOf(id: string): Objectui11111Owner {
@@ -892,7 +881,7 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 0, // objectui#11168 loaded and judged all four: slice 3 object-map and object-tree, slice 4 object-gantt, slice 5 object-timeline
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
-  unpublishedKeys: 1, // objectui#11168: 1 (action:button undoable; the two `endpoint` entries left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0, objectui#8649: 0, objectui#11536: 0 and objectui#11068: 0 (each struck by its landing; objectui#11536 declared all ten record:line_items keys, objectui#11068's build published object-grid keyboardNavigation)
+  unpublishedKeys: 0, // objectui#11168: 0 (its last slice declared action:button undoable, ruling B on objectui#11754; the two `endpoint` entries had left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0, objectui#8649: 0, objectui#11536: 0 and objectui#11068: 0 (each struck by its landing; objectui#11536 declared all ten record:line_items keys, objectui#11068's build published object-grid keyboardNavigation)
   refusedArms: 0, // objectui#11168: slice 2 narrowed element:definition-list.columns, slice 3 object-form.layout
   memberPins: 0, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536 pinned record:line_items columns and dataSource
 } as const;
@@ -1529,13 +1518,13 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // at the 17.6.0 bump (objectui#11438): 17.6.0 refuses `endpoint` on both
   // blocks (objectstack `b3917d90`, the rename to `target`), so the entries no
   // longer named a key the spec declares and `every unpublished-key exemption
-  // names a key the spec really declares` went red on them. One is left.
-  ...owedEntries(
-    'action:button',
-    ['undoable'],
-    'objectui#11168',
-    'A SPEC KEY HELD UNPUBLISHED AFTER MEASUREMENT (slice 1): the block forwards `undoable`, but the runner\'s `operation: update` path and the console runtime offer Undo only with a host `_rowRecord` stash this block never writes; only the record page\'s own `api` handler honours it.',
-  ),
+  // names a key the spec really declares` went red on them. The third,
+  // `action:button.undoable`, is STRUCK: ruling B on objectui#11754 (record
+  // 6030342264) had the block hand the runner the record in scope as the Undo
+  // baseline its `operation: update` path reads, and the key is DECLARED on
+  // the block's `inputs`
+  // (`packages/components/src/renderers/action/__tests__/action-button-undoable-11168.test.tsx`).
+  // It was objectui#11168's last entry, so every owner's count below is 0.
   // `action:group`'s `location` / `visible` and `action:menu`'s `size` /
   // `visible` stood here until objectui#11168 slice 1 measured each against its
   // renderer through the real `SchemaRenderer` and DECLARED all four — the
@@ -6014,7 +6003,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
         ]),
       ),
     ).toEqual({
-      'objectui#11168': 1,
+      'objectui#11168': 0,
       'objectui#8652': 0,
       'objectui#8649': 0,
       'objectui#11536': 0,

@@ -12,6 +12,10 @@
  * The hook is defensive: a missing object name, a 404, or a transport
  * error all resolve to an empty list with `error` set, so the configurator
  * can gracefully fall back to manual column entry.
+ *
+ * It reads the draft-overlaid object (`?preview=draft`, objectui#11895), so a
+ * pending draft's fields are offered before the object's first publish and a
+ * published object with no draft reads as it always did.
  */
 
 import * as React from 'react';
@@ -85,7 +89,29 @@ export function useObjectFields(
     }
     let cancelled = false;
     setState((s) => ({ result: { ...s.result, loading: true, error: null }, notFound: false }));
+    // objectui#11895 — read the DRAFT-OVERLAID object (`?preview=draft`), the
+    // read objectui#11783's object picker already makes for the list. Every
+    // caller that reaches this fetch is an authoring surface (Studio and the
+    // metadata-admin designers; the runtime `ViewConfigPanel` passes
+    // `override` and stops above), and an author builds automations, views
+    // and pages before the object's first publish. The published read answers
+    // 404 for a draft-only object, so every field picker reading this hook
+    // offered no fields for it — the flow entry-condition builder only
+    // `previous`.
+    //
+    // One request answers both cases, so there is no second, published read:
+    // the framework's `getMetaItem({ previewDrafts: true })` serves the
+    // pending draft when there is one and falls back to the active object
+    // otherwise (never `no_draft`), and a caller the server does not admit to
+    // drafts is answered the published object as if it had not asked. A 404
+    // here therefore means neither a draft nor a published object exists.
+    //
+    // Derived here rather than memoised: the effect keys on `client`
+    // (AGENTS.md #10), and the derived client shares `client`'s transport, so
+    // a read already in flight for the same URL is still shared
+    // (objectui#11797).
     client
+      .withPreviewDrafts(true)
       .get<Record<string, unknown>>('object', objectName)
       .then((obj) => {
         if (cancelled) return;

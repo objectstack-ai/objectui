@@ -2757,6 +2757,10 @@ const de = {
     back: "Zurück",
     recordNotFound: "Datensatz nicht gefunden",
     recordNotFoundDescription: "Der gesuchte Datensatz existiert nicht oder wurde möglicherweise gelöscht.",
+    recordAccessDenied: "Kein Zugriff auf {{object}}-Datensätze",
+    recordAccessDeniedDescription: "Sie haben keine Berechtigung, Datensätze dieses Typs anzuzeigen. Wenden Sie sich an Ihren Administrator, wenn Sie Zugriff benötigen.",
+    recordLoadFailed: "Dieser Datensatz konnte nicht geladen werden",
+    recordLoadFailedDescription: "Beim Laden ist etwas schiefgelaufen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
   },
   actionDialog: {
     title: "Aktionsparameter",

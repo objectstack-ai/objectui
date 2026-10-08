@@ -206,7 +206,7 @@ describe('AppNavCanvas — the remove control is reachable by keyboard (objectui
   it.each([['Enter', '{Enter}'], ['Space', ' ']])('%s on it removes that entry, and only that one', async (_name, keys) => {
     const user = userEvent.setup();
     const onPatch = renderCanvas();
-    const placeholder = card('nav_item_2');
+    const placeholder = card('Item 2');
     within(placeholder).getByRole('button', { name: 'Remove nav item' }).focus();
     await user.keyboard(keys);
     expect(onPatch).toHaveBeenCalledTimes(1);

@@ -2805,6 +2805,10 @@ const pt = {
     back: "Voltar",
     recordNotFound: "Registro não encontrado",
     recordNotFoundDescription: "O registro que você está procurando não existe ou pode ter sido excluído.",
+    recordAccessDenied: "Você não tem acesso aos registros de {{object}}",
+    recordAccessDeniedDescription: "Você não tem permissão para ver registros deste tipo. Contate seu administrador se acha que deveria ter acesso.",
+    recordLoadFailed: "Não foi possível carregar este registro",
+    recordLoadFailedDescription: "Algo deu errado ao carregá-lo. Verifique sua conexão e tente novamente.",
   },
   actionDialog: {
     title: "Parâmetros de ação",

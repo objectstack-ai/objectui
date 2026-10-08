@@ -367,7 +367,14 @@ required), the renderers read exactly:
 | `sortBy` / `sortOrder` | orders by a projected dimension or measure |
 | `limit` | caps the row count |
 | `stageOrder` | explicit stage order for `funnel` / `pyramid` |
-| `description` | metric-card sub-caption; the `widgets.{id}.subCaption` translation channel writes this key |
+
+These are the five keys the spec declares, and nothing else is read.
+`options.description` is not among them: it was the metric-card sub-caption,
+retired at both ends (objectui#11389). `@objectstack/spec` no longer writes
+it from a translation, and objectui no longer draws it. A widget has one
+authored description, `widget.description`, drawn as the card-header subtitle.
+If a caption under a metric's value returns, it returns as a declared
+widget-level key, not as an `options` key.
 
 Every other `options` key on a dataset-bound widget **reaches no renderer**.
 The authoring validator (`validateTree` in `@object-ui/sdui-parser`) reports
@@ -518,8 +525,10 @@ which lists the records for either form and draws no report.
 ## Translations — a served dashboard is translated once
 
 Widget texts have a client translation channel: bundle keys under
-`dashboards.<name>.widgets.<id>` (`title`, `description`, `subCaption`), plus
-`dashboards.<name>.label` and `.description`. A document read from
+`dashboards.<name>.widgets.<id>` (`title`, `description`), plus
+`dashboards.<name>.label` and `.description`. There is no `subCaption` key:
+the translation schema in `@objectstack/spec` refuses it by name in a bundle,
+and the renderer reads no such key (objectui#11389). A document read from
 ObjectStack's `/meta` route does not need it. The server has already applied
 those keys for the request's locale, and it keeps a published edit over them:
 an explicit override beats the packaged default.

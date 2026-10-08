@@ -2976,6 +2976,10 @@ const ar = {
     back: "رجوع",
     recordNotFound: "السجل غير موجود",
     recordNotFoundDescription: "السجل الذي تبحث عنه غير موجود أو ربما تم حذفه.",
+    recordAccessDenied: "ليس لديك صلاحية الوصول إلى سجلات {{object}}",
+    recordAccessDeniedDescription: "ليس لديك إذن لعرض السجلات من هذا النوع. تواصل مع المسؤول إذا كنت تعتقد أنه يجب أن يكون لديك وصول.",
+    recordLoadFailed: "تعذّر تحميل هذا السجل",
+    recordLoadFailedDescription: "حدث خطأ أثناء التحميل. تحقق من اتصالك وحاول مرة أخرى.",
   },
   actionDialog: {
     title: "معامِلات الإجراء",

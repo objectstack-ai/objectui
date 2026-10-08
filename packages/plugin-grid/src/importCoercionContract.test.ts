@@ -24,7 +24,9 @@ import {
   BOOLEAN_FALSE_IMPORT_TOKENS,
   BOOLEAN_IMPORT_TOKENS,
   BOOLEAN_TRUE_IMPORT_TOKENS,
+  IMPORT_TEMPORAL_YEARS,
   REFERENCE_IMPORT_TYPES,
+  isImportableDateCell,
 } from './importCoercionContract';
 
 describe('BOOLEAN_IMPORT_TOKENS (server BOOL_TRUE/BOOL_FALSE mirror)', () => {
@@ -85,6 +87,72 @@ describe('REFERENCE_IMPORT_TYPES (derived from spec REFERENCE_VALUE_TYPES)', () 
     // make the vocabulary change a deliberate review.
     for (const type of ['lookup', 'master_detail', 'user', 'tree', 'reference']) {
       expect(REFERENCE_IMPORT_TYPES.has(type), `'${type}' no longer covered — spec vocabulary moved?`).toBe(true);
+    }
+  });
+});
+
+describe('isImportableDateCell (server parseDateCell mirror, objectui#11889)', () => {
+  // The grammar lives in `@objectstack/core`'s `import-coerce.ts`
+  // (`readIsoTemporalCell`, `readYearFirstCell`) and the years in its
+  // `SUPPORTED_TEMPORAL_YEARS`; the spec publishes neither, so these
+  // inventories are the tripwire. If one fails you changed what the preview
+  // takes: check `parseDateCell` and the engine's write validation take the
+  // same cells before re-pinning, or the import button miscounts.
+
+  it('pins the supported years', () => {
+    expect(IMPORT_TEMPORAL_YEARS).toEqual({
+      date: { first: 1, last: 9999 },
+      datetime: { first: 1000, last: 9999 },
+    });
+  });
+
+  it('takes the ISO 8601 shapes, the export shape and the year-first date', () => {
+    const taken = [
+      '2026-07-15', ' 2026-07-15 ', '2024-02-29', '2026-07-15T10:00', '2026-07-15T10:00:30.250',
+      '2026-07-15 10:00', '2026-07-15 10:00:30', '2026-07-15T10:00:00Z', '2026-07-15T10:00+08:00',
+      '2026-07-15T10:00+0800', '2026-07-15T24:00Z', '2026/7/15', '2026/07/15', '2026-7-15',
+      '2026/7/15 9:00', '2026/08/01 06:00:00', '2026-07-15 9:00',
+    ];
+    for (const cell of taken) {
+      expect(isImportableDateCell(cell, 'date'), `date ${cell}`).toBe(true);
+      expect(isImportableDateCell(cell, 'datetime'), `datetime ${cell}`).toBe(true);
+    }
+  });
+
+  it('refuses a locale or prose spelling, an impossible day or clock, and a misplaced zone', () => {
+    const refused = [
+      '07/15/2026', 'July 15, 2026', '1/2/26', '15 July 2026', '15/07/2026', '26/7/15', '2026', '20260715', 'abc',
+      '2026-02-29', '2026-02-30', '2026-04-31', '2026/2/30', '2026-13-01', '2026-07-15 24:00', '2026-07-15T23:60',
+      '2026-07-15T24:01Z', '2026-07-15T24:00:00.5Z', '2026-07-15T10:00+24:00', '2026-07-15T10:00+08:60',
+      '2026-07-15 10:00Z', '2026-07-15t10:00z', '2026/7-15', '2026/7/15T9:00', '2026/7/15 9:00Z', '+010000-01-01',
+    ];
+    for (const cell of refused) {
+      expect(isImportableDateCell(cell, 'date'), `date ${cell}`).toBe(false);
+      expect(isImportableDateCell(cell, 'datetime'), `datetime ${cell}`).toBe(false);
+    }
+  });
+
+  it('refuses a year outside the kind\'s supported years, reading a zoned cell in UTC', () => {
+    expect(isImportableDateCell('0500-07-15', 'date')).toBe(true);
+    expect(isImportableDateCell('0500-07-15', 'datetime')).toBe(false);
+    expect(isImportableDateCell('0000-06-15', 'date')).toBe(false);
+    expect(isImportableDateCell('1000-01-01', 'datetime')).toBe(true);
+    expect(isImportableDateCell('1000-01-01T00:00:00+08:00', 'datetime')).toBe(false);
+    expect(isImportableDateCell('9999-12-31T23:59:59-01:00', 'date')).toBe(false);
+    expect(isImportableDateCell('9999-12-31', 'datetime')).toBe(true);
+  });
+
+  it('reads a zoned ISO cell exactly where the V8 Date.parse the server runs on reads one', () => {
+    // The mirror computes the instant with the UTC setters so that a browser's
+    // own date parser does not decide the verdict. The tests run on Node, the
+    // server's engine, so this keeps that arithmetic honest.
+    const clocks = ['00:00', '10:00:30', '10:00:30.250', '23:59:59', '23:60', '23:59:60', '24:00', '24:00:00.000', '24:00:00.001', '25:00'];
+    const zones = ['Z', '+08:00', '+0800', '-01:00', '+23:59', '+24:00', '+08:60', '-00:00'];
+    for (const clock of clocks) {
+      for (const zone of zones) {
+        const cell = `2026-07-15T${clock}${zone}`;
+        expect(isImportableDateCell(cell, 'datetime'), cell).toBe(!Number.isNaN(Date.parse(cell)));
+      }
     }
   });
 });

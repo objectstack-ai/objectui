@@ -20,6 +20,11 @@
  * same surface the metadata admin uses to edit a hook — with a per-hook Save.
  * There's no curated `hook` inspector, so SchemaForm synthesises a structured
  * form from the hook's shape.
+ *
+ * A new hook targets the object it is created from (`addHook`). Its target
+ * picker is told which objects belong to this package (objectui#11820), so it
+ * lists them first and puts every other object — other packages' and the
+ * platform's own — under a heading that warns about the reach.
  */
 
 import React from 'react';
@@ -27,6 +32,8 @@ import { Webhook, Plus, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { SchemaForm } from '../metadata-admin/SchemaForm.js';
 import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
+import { HookTargetScopeContext, type HookTargetScope } from '../metadata-admin/inspectors/HookDefaultInspector.js';
+import { loadPackageSurfaces } from './packageSurfaces.js';
 import { useMetadataClient } from '../metadata-admin/useMetadata.js';
 // objectui#11773 — the hook's draft save sends the version it was built on.
 import { useDraftSaveGuard } from '../metadata-admin/DraftConflictDialog.js';
@@ -120,6 +127,38 @@ export function ObjectHooksPanel({
   React.useEffect(() => {
     forgetHookVersion();
   }, [publishNonce, forgetHookVersion]);
+
+  /* ─── objectui#11820 — the objects of this package, for the target picker ──
+   *
+   * The package's own list — published and draft, the merge the pillars' rails
+   * use (`loadPackageSurfaces`) — plus the object this panel is open on, which
+   * the Data pillar only offers from this package. Held in state, stamped with
+   * the package it was read for, so the context value keeps its identity
+   * between reads and a scope read for another package is never applied.
+   * Until it answers, and if it fails, the picker shows its flat list. */
+  const [packageScope, setPackageScope] = React.useState<
+    (HookTargetScope & { packageId: string; objectName: string }) | null
+  >(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadPackageSurfaces(client, 'object', packageId)
+      .then((items) => {
+        if (cancelled) return;
+        const names = new Set(items.map((i) => i.name));
+        names.add(objectName);
+        setPackageScope({ packageId, objectName, packageObjects: names });
+      })
+      .catch(() => {
+        if (!cancelled) setPackageScope(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, packageId, objectName]);
+  const hookTargetScope =
+    packageScope && packageScope.packageId === packageId && packageScope.objectName === objectName
+      ? packageScope
+      : null;
 
   /* ─── Blocking CEL verdicts → this panel's OWN Save (objectui#4527) ────────
    *
@@ -313,20 +352,22 @@ export function ObjectHooksPanel({
             </div>
             <div className="min-h-0 flex-1 overflow-auto">
               {HookInspector ? (
-                // eslint-disable-next-line react-hooks/static-components -- getMetadataDefaultInspector returns a registered component (stable), not one created during render
-                <HookInspector
-                  type="hook"
-                  name={String(draft.name ?? '')}
-                  draft={draft as Record<string, unknown>}
-                  onPatch={(patch) => {
-                    setDraft((d) => ({ ...(d as HookItem), ...patch }));
-                    setDirty(true);
-                  }}
-                  readOnly={!!disabled}
-                  locale={locale}
-                  serverSchema={hookSchema}
-                  onBlockingIssuesChange={reportCel}
-                />
+                <HookTargetScopeContext.Provider value={hookTargetScope}>
+                  {/* eslint-disable-next-line react-hooks/static-components -- getMetadataDefaultInspector returns a registered component (stable), not one created during render */}
+                  <HookInspector
+                    type="hook"
+                    name={String(draft.name ?? '')}
+                    draft={draft as Record<string, unknown>}
+                    onPatch={(patch) => {
+                      setDraft((d) => ({ ...(d as HookItem), ...patch }));
+                      setDirty(true);
+                    }}
+                    readOnly={!!disabled}
+                    locale={locale}
+                    serverSchema={hookSchema}
+                    onBlockingIssuesChange={reportCel}
+                  />
+                </HookTargetScopeContext.Provider>
               ) : (
                 <div className="p-3">
                   <SchemaForm

@@ -1125,10 +1125,24 @@ export interface ObjectGridSchema extends BaseSchema {
   defaultFilters?: Record<string, any>;
   
   /**
-   * @deprecated Moved to top-level resizable
-   * Legacy resizable columns flag
+   * RETIRED (objectui#6152 round 7, ADR-0049) — the legacy second spelling of
+   * {@link ObjectGridSchema.resizable}, read only when `resizable` was absent.
+   * `@objectstack/spec` 17.7.0 (objectstack#21445) converted
+   * `ComponentPropsMap['object-grid'].resizableColumns` to a retired-key
+   * tombstone, so the protocol refuses an authored value by name, written flat
+   * on the node or in its `properties` bag; and `ObjectGrid` no longer reads it
+   * (its `resizable ?? resizableColumns` fallback went in the same change).
+   *
+   * `?: never`, not a deletion — this package's tombstone convention (see
+   * `defaultSort` above): a deletion is refused only on a fresh literal, so the
+   * retired spelling would type-check green through a widened value and do
+   * nothing. Lockstep with the Zod twin (`zod/objectql.zod.ts`,
+   * `retirementTombstone()`).
+   *
+   * @deprecated RETIRED (objectui#6152) — write `resizable` instead (on an
+   * authored node, `properties.resizable`).
    */
-  resizableColumns?: boolean;
+  resizableColumns?: never;
   
   /**
    * @deprecated Use label instead

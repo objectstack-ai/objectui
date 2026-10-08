@@ -486,10 +486,15 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // All permission-set api-names — the admin-scope editor's assignable
   // allowlist picks from these (ADR-0056 P3).
   const [allSetNames, setAllSetNames] = React.useState<string[]>([]);
+  // objectui#11799 — the same published read, held for the load below: a set
+  // it does not list has never been published. The load runs after this
+  // effect, so it reads this request rather than sending one of its own.
+  const publishedSetsRef = React.useRef<Promise<Array<{ name?: string }>> | null>(null);
   React.useEffect(() => {
     let cancelled = false;
-    client
-      .list<{ name?: string }>('permission', {})
+    const published = client.list<{ name?: string }>('permission', {});
+    publishedSetsRef.current = published;
+    published
       .then((rows) => {
         if (!cancelled)
           setAllSetNames(
@@ -519,18 +524,40 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     setCloneNotice(null);
     (async () => {
       try {
+        // ADR-0086 P2 (D6): under the package door a set is draft/published
+        // metadata, so surface the PENDING draft if one exists — otherwise a
+        // just-saved-not-yet-published edit would appear lost on reopen. Draft
+        // reads return the `{ type, name, item }` envelope; `null` = no draft.
+        const draftRead = packageId
+          ? client.getDraft<{ item?: PermissionSetDraft } | PermissionSetDraft>(type, name, { packageId }).catch(() => null)
+          : Promise.resolve(null);
+        const readLayered = () => client.layered<PermissionSetDraft>(type, name).catch(() => null);
+        // objectui#11799 — a set "+ New" created and nobody published has a
+        // draft and no layer, and `GET …/layers` answers 404 for it. Under the
+        // package door the layered envelope is used only without a pending
+        // draft: the draft wins for display, and the artifact tier it also
+        // feeds applies at environment scope only (`artifactTierApplies`). So
+        // a set the published list above does not hold is not asked while its
+        // draft is in hand. A listed set, a set with no draft and every
+        // environment-scope read are read as before; an unreadable list says
+        // nothing, and the set is read as before too. The list is the one read
+        // with this editor: a set published since has no draft (a publish
+        // drains it), so it is read again here.
+        const publishedSets = publishedSetsRef.current;
+        const neverPublished =
+          packageId && type === 'permission' && publishedSets
+            ? publishedSets.then((rows) => !(rows || []).some((r) => r?.name === name), () => false)
+            : Promise.resolve(false);
         const [lay, objList, pendingDraft] = await Promise.all([
-          client.layered<PermissionSetDraft>(type, name).catch(() => null),
+          packageId
+            ? neverPublished.then((unlisted) =>
+                unlisted ? draftRead.then((d) => (d ? null : readLayered())) : readLayered(),
+              )
+            : readLayered(),
           // In package scope, list only the objects this package declares
           // (ADR-0086 P0) — otherwise the whole environment leaks into the panel.
           client.list<any>('object', packageId ? { packageId } : {}).catch(() => []),
-          // ADR-0086 P2 (D6): under the package door a set is draft/published
-          // metadata, so surface the PENDING draft if one exists — otherwise a
-          // just-saved-not-yet-published edit would appear lost on reopen. Draft
-          // reads return the `{ type, name, item }` envelope; `null` = no draft.
-          packageId
-            ? client.getDraft<{ item?: PermissionSetDraft } | PermissionSetDraft>(type, name, { packageId }).catch(() => null)
-            : Promise.resolve(null),
+          draftRead,
         ]);
         if (cancelled) return;
         // ARTIFACT tier input (objectui#4518) — the `code` layer, and its

@@ -214,10 +214,10 @@ function headerPill(label: string): { pill: HTMLElement; value: string } {
   return { pill: labelEl.parentElement as HTMLElement, value: labelEl.nextElementSibling?.textContent ?? '' };
 }
 
-/** Open the flow labelled `label` from the rail and wait until its header shows `flow · name`. */
+/** Open the flow labelled `label` from the rail and wait until its header names it (the API name on the chip's tooltip). */
 async function openFlow(label: string, name: string): Promise<void> {
   fireEvent.click(await screen.findByRole('button', { name: new RegExp(label) }, { timeout: 8000 }));
-  await screen.findByText(`flow · ${name}`, undefined, { timeout: 8000 });
+  await screen.findByTitle(`API name: ${name}`, undefined, { timeout: 8000 });
   await screen.findByText('Status:', undefined, { timeout: 8000 });
 }
 

@@ -2756,6 +2756,10 @@ const ko = {
     back: "뒤로",
     recordNotFound: "레코드를 찾을 수 없습니다",
     recordNotFoundDescription: "찾고 있는 레코드가 존재하지 않거나 삭제되었을 수 있습니다.",
+    recordAccessDenied: "{{object}} 레코드에 접근할 권한이 없습니다",
+    recordAccessDeniedDescription: "이 유형의 레코드를 볼 권한이 없습니다. 접근이 필요하면 관리자에게 문의하세요.",
+    recordLoadFailed: "이 레코드를 불러오지 못했습니다",
+    recordLoadFailedDescription: "불러오는 중 문제가 발생했습니다. 연결을 확인하고 다시 시도하세요.",
   },
   actionDialog: {
     title: "작업 매개변수",

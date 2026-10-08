@@ -90,6 +90,7 @@ const mockClient = {
     type === 'object' && name === 'employee' ? employeeObject() : null,
   ),
   saveDraft: vi.fn(async () => ({})),
+  withPreviewDrafts() { return this; },
 };
 
 vi.mock('./useMetadata', async (importOriginal) => {

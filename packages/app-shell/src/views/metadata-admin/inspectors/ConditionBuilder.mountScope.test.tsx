@@ -79,7 +79,7 @@ import '@objectstack/formula';
 // engine reports a bare reference from the SCOPE, not from the field list
 // (measured with `fields: []` and with `fields: undefined` — identical).
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,

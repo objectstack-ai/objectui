@@ -10,7 +10,10 @@
  * The slice of the server's import-coercion contract (`import-coerce.ts` in
  * the framework) that the Import Wizard's preview step re-checks client-side,
  * so a cell is flagged red here exactly when the server would reject it —
- * and never flagged for a value the server would take (objectui#3017).
+ * and never flagged for a value the server would take (objectui#3017). It
+ * also carries the two checks the import meets after coercion, at the engine's
+ * write door, that the preview repeats: a `date` / `datetime` value's
+ * supported years and an `email` value's shape (objectui#11889).
  */
 
 import { REFERENCE_VALUE_TYPES } from '@objectstack/spec/data';
@@ -55,3 +58,163 @@ export const REFERENCE_IMPORT_TYPES: ReadonlySet<string> = new Set([
   ...REFERENCE_VALUE_TYPES,
   'reference',
 ]);
+
+// ── dates (objectui#11889) ─────────────────────────────────────────────────
+//
+// The server reads a `date` / `datetime` cell with `parseDateCell` in
+// `@objectstack/core`'s `import-coerce.ts`, a package this browser package does
+// not import, and the spec publishes neither the grammar nor the years. So
+// both are restated here, and the paired inventory in
+// `importCoercionContract.test.ts` is the tripwire that keeps edits deliberate.
+// `Date.parse` did this job before and took what the server refuses
+// (`07/15/2026`, `July 15, 2026`, `1/2/26`).
+
+/**
+ * The years a stored `date` / `datetime` may name, first and last inclusive:
+ * core's `SUPPORTED_TEMPORAL_YEARS`. The engine's write validation refuses a
+ * value outside them with `invalid_date`, so an import cell the server's
+ * coercion reads into such a year is refused too.
+ */
+export const IMPORT_TEMPORAL_YEARS: Readonly<Record<'date' | 'datetime', Readonly<{ first: number; last: number }>>> =
+  Object.freeze({
+    date: Object.freeze({ first: 1, last: 9999 }),
+    datetime: Object.freeze({ first: 1000, last: 9999 }),
+  });
+
+/**
+ * The server's `ISO_TEMPORAL_CELL`: `YYYY-MM-DD`, then optionally a `T` or one
+ * space, `HH:MM`, optional `:SS` and fraction, and a `Z` or `±HH[:]MM` zone.
+ */
+const ISO_TEMPORAL_CELL =
+  /^(\d{4})-(\d{2})-(\d{2})(?:(T| )(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+/**
+ * The server's `YEAR_FIRST_CELL`: `YYYY/M/D` or `YYYY-M-D`, the same separator
+ * twice, then optionally one space and a zone-naive `H:MM[:SS]`.
+ */
+const YEAR_FIRST_CELL = /^(\d{4})([/-])(\d{1,2})\2(\d{1,2})(?: (\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
+
+/** The server's `namesRealCalendarDay`: the day exists, February 29 only in a leap year. */
+function namesRealCalendarDay(year: number, month: number, day: number): boolean {
+  if (month < 1 || month > 12 || day < 1) return false;
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const length = month === 2 ? (leap ? 29 : 28) : month === 4 || month === 6 || month === 9 || month === 11 ? 30 : 31;
+  return day <= length;
+}
+
+/** A wall clock the server reads: hour 0..23, minute and second 0..59. */
+function isWallClock(hour: number, minute: number, second: number): boolean {
+  return hour <= 23 && minute <= 59 && second <= 59;
+}
+
+/**
+ * The UTC year of a zone-bearing ISO cell, or `undefined` where the server's
+ * `Date.parse` (V8) reads no instant: hour 0..23, or 24 with zero minutes,
+ * seconds and fraction (the next day's midnight); minute and second 0..59; an
+ * offset of at most 23 hours and 59 minutes. Computed with the UTC setters, so
+ * the answer does not depend on the browser's date parser.
+ */
+function zonedCellUtcYear(
+  parts: { year: number; month: number; day: number; hour: number; minute: number; second: number; fraction: string },
+  zone: string,
+): number | undefined {
+  const { year, month, day, hour, minute, second, fraction } = parts;
+  if (minute > 59 || second > 59) return undefined;
+  if (hour > 24 || (hour === 24 && (minute !== 0 || second !== 0 || /[1-9]/.test(fraction)))) return undefined;
+  let offsetMinutes = 0;
+  if (zone !== 'Z') {
+    const offsetHours = Number(zone.slice(1, 3));
+    const offsetMins = Number(zone.slice(-2));
+    if (offsetHours > 23 || offsetMins > 59) return undefined;
+    offsetMinutes = (zone[0] === '-' ? -1 : 1) * (offsetHours * 60 + offsetMins);
+  }
+  const t = new Date(0);
+  t.setUTCFullYear(year, month - 1, day);
+  t.setUTCHours(hour, minute, second, Number(fraction.slice(0, 3).padEnd(3, '0')));
+  return new Date(t.getTime() - offsetMinutes * 60_000).getUTCFullYear();
+}
+
+/**
+ * The year of the value the server stores for this trimmed cell, or
+ * `undefined` where `parseDateCell` refuses the cell (`readIsoTemporalCell`,
+ * then `readYearFirstCell`). A bare day and a wall clock keep the year they are
+ * written with; a zone-bearing cell is the instant it names, and both kinds
+ * store that instant's UTC day or time.
+ *
+ * One reading is not the server's exactly: a zone-naive `datetime` wall clock
+ * is read there in the importing user's business timezone, which the wizard
+ * does not know, and here as UTC. The two differ in year only within a day of
+ * the first or last supported year.
+ */
+function importDateCellYear(s: string): number | undefined {
+  const iso = ISO_TEMPORAL_CELL.exec(s);
+  if (iso) {
+    const [, y, mo, d, sep, hh, mi, ss, frac, zone] = iso;
+    const year = Number(y);
+    if (namesRealCalendarDay(year, Number(mo), Number(d))) {
+      if (sep === undefined) return year;
+      if (zone !== undefined) {
+        if (sep === 'T') {
+          return zonedCellUtcYear({
+            year, month: Number(mo), day: Number(d),
+            hour: Number(hh), minute: Number(mi), second: ss ? Number(ss) : 0, fraction: frac ?? '',
+          }, zone);
+        }
+      } else if (isWallClock(Number(hh), Number(mi), ss ? Number(ss) : 0)) {
+        return year;
+      }
+    }
+  }
+  const yearFirst = YEAR_FIRST_CELL.exec(s);
+  if (!yearFirst) return undefined;
+  const [, y, , mo, d, hh, mi, ss] = yearFirst;
+  const year = Number(y);
+  if (!namesRealCalendarDay(year, Number(mo), Number(d))) return undefined;
+  if (hh !== undefined && !isWallClock(Number(hh), Number(mi), ss ? Number(ss) : 0)) return undefined;
+  return year;
+}
+
+/**
+ * Whether the server's import takes this `date` / `datetime` cell: its
+ * `parseDateCell` reads it, and the value it stores names a year in
+ * {@link IMPORT_TEMPORAL_YEARS}. Accept or refuse only; the preview never
+ * stores the value.
+ *
+ * Taken: `2026-07-15`, `2026-07-15T10:00:00Z`, `2026-07-15 10:00`,
+ * `2026/7/15`, `2026-7-15 9:00`. Refused: `07/15/2026`, `July 15, 2026`,
+ * `1/2/26`, `2026-02-30`, `2026-07-15 24:00`, `2026-07-15 10:00Z`, and a
+ * `datetime` in year 0500.
+ */
+export function isImportableDateCell(cell: string, kind: 'date' | 'datetime'): boolean {
+  const year = importDateCellYear(cell.trim());
+  if (year === undefined) return false;
+  const { first, last } = IMPORT_TEMPORAL_YEARS[kind];
+  return year >= first && year <= last;
+}
+
+// ── email (objectui#11889) ─────────────────────────────────────────────────
+
+/**
+ * Whether the engine's record validator takes this `email` value: its
+ * `EMAIL_RE`, `^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$` — a local part, one `@`, at
+ * least two non-empty dot-separated domain labels, and no whitespace anywhere.
+ * Non-ASCII is taken (`735431496@柴仟.com`), and there is no length cap but a
+ * field's own `maxLength`. The server's import passes an `email` cell through
+ * coercion untouched, so this check is the import's verdict on it.
+ *
+ * Restated as one pass over the string rather than as the pattern, so it cannot
+ * backtrack whatever the input. The pattern itself is the oracle the paired
+ * test compares this against.
+ *
+ * The stricter identity rule (`isLikelyEmail`: printable ASCII, at most 254
+ * characters, framework#3566) belongs to the user import, whose endpoint applies
+ * it in its dry run; the user import's email column reaches the wizard typed
+ * `text`, so this check never runs there.
+ */
+export function isRecordEmail(value: string): boolean {
+  if (/\s/.test(value)) return false;
+  const at = value.indexOf('@');
+  if (at <= 0 || at !== value.lastIndexOf('@')) return false;
+  const labels = value.slice(at + 1).split('.');
+  return labels.length >= 2 && labels.every((label) => label.length > 0);
+}

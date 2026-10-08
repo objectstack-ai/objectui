@@ -20,8 +20,12 @@
  *   - json_schema   — a JSON field validated against a JSON Schema.
  *   - conditional   — a CEL guard + a nested rule applied when it holds.
  *
- * Adding a rule offers every type (the "New" menu), each seeded with a VALID
- * skeleton so the immediate object-draft save never 422s. The common fields
+ * Adding a rule offers every type (the "New" menu). A new rule starts on
+ * Create + Update (objectui#11820). A type whose rule carries a CEL guard
+ * (`script`, `cross_field`, `conditional`) is NOT written to the object draft
+ * until the author gives it a condition — see "A new rule waits for its
+ * condition" below. The other types are written at once, each seeded with a
+ * VALID skeleton so the object-draft save never 422s. The common fields
  * (name / label / message / severity / events / priority / active) are shared
  * by all types; the type-specific fields render below them. CEL conditions
  * reuse the metadata-admin `ConditionBuilder`, fed the DRAFT field list so
@@ -30,6 +34,30 @@
  * Persistence: like actions, validations live ON the object draft — this panel
  * calls `onPatch({ validations })` and the Data pillar's Save draft owns the
  * write. Nothing here fetches or saves on its own.
+ *
+ * ## A new rule waits for its condition (objectui#11820)
+ *
+ * A guard-bearing rule used to be written at once with the placeholder guard
+ * `'false'`: the draft autosave stored a rule that can never fire, and nothing
+ * on screen said so. Now the new rule is held HERE, in the panel, until its
+ * guard is non-empty (for `conditional`, its `then` rule's guard too). It is
+ * listed and editable like any rule, marked as not saved, and the editor shows
+ * the line the Data pillar uses for an edit it holds (objectui#11786,
+ * `engine.studio.held.line`) plus that hold's input hint under the guard. The
+ * first edit that gives it a guard writes it to the draft; from then on it is an
+ * ordinary rule.
+ *
+ * Why the panel and not the pillar's hold: the pillar holds a draft its write
+ * guard would refuse (`objectHeldEdit` in `metadataError.ts`) and routes "Show
+ * me" to a field. A rule that has never been written is not an edit of that
+ * draft, and nothing it needs lives in the draft yet. The known cost, which the
+ * pillar's hold does not have: leaving the Rules view, or the object, before the
+ * rule has a condition drops it, and Publish does not wait for it (it was never
+ * in the draft, and the line says it is not saved).
+ *
+ * An EXISTING rule is edited exactly as before, including a type switch, which
+ * still seeds the `'false'` placeholder: a rule already in the draft must stay
+ * saveable while it is being reshaped.
  */
 
 import React from 'react';
@@ -38,8 +66,9 @@ import { Popover, PopoverTrigger, PopoverContent } from '@object-ui/components';
 import { ConditionBuilder, RECORD_CONDITION_SUBJECTS } from '../metadata-admin/inspectors/ConditionBuilder.js';
 import { expressionSource, writeExpressionSource } from '../metadata-admin/inspectors/expression-envelope.js';
 import { readFields } from '../metadata-admin/previews/object-fields-io.js';
-import { t, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
 import type { ExpressionInput } from '@objectstack/spec/shared';
+import { ScriptValidationSchema, type ScriptValidationParsed } from '@objectstack/spec/data';
 
 /**
  * objectui#11781 — the look a disabled control takes: the pair the
@@ -108,8 +137,70 @@ const RULE_TYPES: ReadonlyArray<{ value: RuleType; labelKey: string }> = [
   { value: 'conditional', labelKey: 'engine.studio.rules.typeConditional' },
 ];
 
-const EVENTS = ['insert', 'update', 'delete'] as const;
+/** An event a validation rule may run on: the spec's enum, not a local list. */
+type RuleEvent = ScriptValidationParsed['events'][number];
+
+/**
+ * objectui#11923 — the "Runs on" row reads the spec's `events` contract
+ * (`events` in `BASE_VALIDATION_SHAPE`, which every rule type spreads). A local
+ * list here offered `delete`, which the spec refuses (the server's rule
+ * validator runs only on insert and update), and showed a rule with no `events`
+ * key as running on nothing, while the spec defaults it to both and the server
+ * runs it on both.
+ *
+ * Both halves come off the spec's own schema: the enum's options are the boxes
+ * the row offers, and what the schema makes of an absent key is what the row
+ * shows for one. Read on first use rather than at import, as the spec builds
+ * its schemas lazily. `ScriptValidationSchema` is read because every rule type
+ * spreads the same key; `ObjectValidationsPanel.runsOn-11923.test.tsx` pins
+ * that every type's schema agrees.
+ */
+let runsOnSpec: { offered: readonly RuleEvent[]; absent: readonly RuleEvent[] } | undefined;
+function runsOnContract(): { offered: readonly RuleEvent[]; absent: readonly RuleEvent[] } {
+  if (!runsOnSpec) {
+    const events = ScriptValidationSchema.shape.events;
+    runsOnSpec = { offered: events.unwrap().element.options, absent: events.parse(undefined) };
+  }
+  return runsOnSpec;
+}
+
+/**
+ * The events a rule runs on, as the "Runs on" boxes show them: its own list, or
+ * the spec's default when it names none. The one place the row reads `events`,
+ * so no box falls back on its own.
+ *
+ * A stored value the spec does not offer (a `delete` written before
+ * objectui#11923) has no box. The server never ran a rule on it, so the boxes
+ * still show what the rule runs on; an unrelated edit keeps it, and the next
+ * write from this row leaves it out (see `writeRunsOn`).
+ */
+function ruleRunsOn(rule: ValidationRuleDraft): readonly string[] {
+  if (rule.events === undefined) return runsOnContract().absent;
+  return Array.isArray(rule.events) ? rule.events : [];
+}
+
+/**
+ * The full list a tick or an untick on the "Runs on" row writes: every offered
+ * event whose box is checked afterwards, in the spec's order. Unticking the last
+ * box writes `[]`, which the spec accepts and the server reads as running on
+ * nothing; it is not the absent key, so the row then shows no box checked.
+ */
+function writeRunsOn(rule: ValidationRuleDraft, event: RuleEvent, on: boolean): RuleEvent[] {
+  const current = ruleRunsOn(rule);
+  return runsOnContract().offered.filter((ev) => (ev === event ? on : current.includes(ev)));
+}
+
+/**
+ * The events a NEW rule starts on: Create + Update (objectui#11820). They are
+ * also the spec's own default for a rule that names none (`events` in
+ * `BASE_VALIDATION_SHAPE`), so writing them changes nothing the server runs —
+ * it makes the "Runs on" boxes say what the rule does.
+ */
+const NEW_RULE_EVENTS = ['insert', 'update'] as const;
 const BUILTIN_FORMATS = ['', 'url', 'email', 'phone', 'json'] as const;
+
+/** The rule types whose rule carries a CEL guard (`guardKey` names its key). */
+const GUARDED_TYPES: ReadonlySet<string> = new Set(['script', 'cross_field', 'conditional']);
 
 function readRules(input: unknown): ValidationRuleDraft[] {
   if (!Array.isArray(input)) return [];
@@ -143,25 +234,36 @@ function guardKey(type: unknown): 'when' | 'condition' {
 }
 
 /**
- * A VALID minimal skeleton for a rule of `type` — every required field is
- * present with a save-safe value. An empty guard is rejected by the spec's
- * ExpressionInputSchema, so CEL-bearing types default to `false` (a
- * never-firing no-op); required `field`/`fields` seed from the first field.
- * The guard's KEY is per-type (`guardKey`) — `conditional` spells it `when`.
+ * A minimal skeleton for a rule of `type`; required `field`/`fields` seed from
+ * the first field. The guard's KEY is per-type (`guardKey`) — `conditional`
+ * spells it `when`.
  *
- * "Valid" here is a claim about a foreign schema, so it is pinned against that
- * schema rather than asserted in prose: `whenKeyPin` parses every skeleton this
- * function emits through the spec's own `ValidationRuleSchema` and
- * `ObjectSchema`. Before that pin, this docblock's promise was re-derived by
- * nothing, and the `conditional` skeleton contradicted it for its whole life.
+ * `guard` is what the guard-bearing types are seeded with:
+ *
+ *   - `'false'` — a VALID skeleton (an empty guard is rejected by the spec's
+ *     ExpressionInputSchema), used when an EXISTING rule switches type: it is
+ *     already in the draft, so the next save must not 422. `'false'` never
+ *     fires, which the editor's guard caption says.
+ *   - `''` — a NEW rule (objectui#11820): the guard is left for the author,
+ *     and the panel keeps the rule out of the draft until it is filled
+ *     ({@link missingGuard}). The conditional's nested `then` gets the same
+ *     empty `condition`, so its JSON shows where the condition goes.
+ *
+ * "Valid" is a claim about a foreign schema, so it is pinned against that
+ * schema rather than asserted in prose: `whenKeyPin` parses what this panel
+ * emits through the spec's own `ValidationRuleSchema` and `ObjectSchema`.
+ * Before that pin, this docblock's promise was re-derived by nothing, and the
+ * `conditional` skeleton contradicted it for its whole life.
  */
-function makeSkeleton(type: RuleType, name: string, firstField?: string): ValidationRuleDraft {
+function makeSkeleton(type: RuleType, name: string, firstField: string | undefined, guard: 'false' | ''): ValidationRuleDraft {
   const base = { name, message: '', severity: 'error' as const, active: true };
+  // A new rule leaves its guard key out; `missingGuard` reads absent as empty.
+  const own = guard ? { [guardKey(type)]: guard } : {};
   switch (type) {
     case 'script':
-      return { ...base, type, condition: 'false' };
+      return { ...base, type, ...own };
     case 'cross_field':
-      return { ...base, type, condition: 'false', fields: firstField ? [firstField] : [] };
+      return { ...base, type, ...own, fields: firstField ? [firstField] : [] };
     case 'state_machine':
       return { ...base, type, field: firstField ?? '', transitions: {} };
     case 'format':
@@ -172,11 +274,32 @@ function makeSkeleton(type: RuleType, name: string, firstField?: string): Valida
       return {
         ...base,
         type,
-        when: 'false',
+        ...own,
         // The nested branch is a `script` rule, so ITS guard stays `condition`.
-        then: { type: 'script', name: `${name}_then`, message: '', condition: 'false', severity: 'error' },
+        then: { type: 'script', name: `${name}_then`, message: '', condition: guard, severity: 'error' },
       };
   }
+}
+
+/** A rule the "New" menu adds: an empty guard and Create + Update (objectui#11820). */
+function newRule(type: RuleType, name: string, firstField?: string): ValidationRuleDraft {
+  return { ...makeSkeleton(type, name, firstField, ''), events: [...NEW_RULE_EVENTS] };
+}
+
+/**
+ * Which guard a rule still lacks, or `null` when it has every guard its type
+ * carries: `'rule'` — its own (`condition`, or `when` on a `conditional`);
+ * `'then'` — a `conditional` whose own guard is set but whose `then` rule's is
+ * not. A guard is lacking when its source is blank, the state the spec's
+ * ExpressionInputSchema refuses. A type with no guard never lacks one.
+ */
+function missingGuard(rule: ValidationRuleDraft): 'rule' | 'then' | null {
+  if (typeof rule.type !== 'string' || !GUARDED_TYPES.has(rule.type)) return null;
+  if (!expressionSource(rule[guardKey(rule.type)]).trim()) return 'rule';
+  if (rule.type === 'conditional' && rule.then && typeof rule.then === 'object' && !Array.isArray(rule.then)) {
+    if (missingGuard(rule.then as ValidationRuleDraft) !== null) return 'then';
+  }
+  return null;
 }
 
 /** A JSON <textarea> that keeps invalid text local and only commits parsed objects. */
@@ -318,6 +441,7 @@ function RuleTypeFields({
   disabled,
   locale,
   onBlockingIssuesChange,
+  missing,
 }: {
   rule: ValidationRuleDraft;
   fields: FieldOpt[];
@@ -326,7 +450,19 @@ function RuleTypeFields({
   locale: string;
   /** Blocking CEL error count for this rule's guard (objectui#4527). */
   onBlockingIssuesChange?: (count: number) => void;
+  /**
+   * objectui#11820 — the guard a new, not-yet-saved rule still needs
+   * ({@link missingGuard}); the input it names carries the hold's hint.
+   */
+  missing?: 'rule' | 'then' | null;
 }) {
+  // The hint the Data pillar's hold puts under the input an edit waits on
+  // (objectui#11786), under the input this rule waits on.
+  const heldHint = (
+    <span data-testid="rule-held-hint" className="mt-1 block text-[11px] text-muted-foreground">
+      {t('engine.studio.held.inputHint', locale)}
+    </span>
+  );
   const fieldSelect = (label: string, value: string | undefined, onSet: (v: string) => void) => (
     <label className="block">
       <span className="mb-1 block text-[11px] text-muted-foreground">{label}</span>
@@ -358,8 +494,6 @@ function RuleTypeFields({
         {t('engine.studio.rules.celPre', locale)}
         <b>{t('engine.studio.rules.celTrue', locale)}</b>
         {t('engine.studio.rules.celMid', locale)}
-        <code className="rounded bg-muted px-1">false</code>
-        {t('engine.studio.rules.celPost', locale)}
       </span>
       {/* `scope="record"` (objectui#8167). The authority for a validation rule
           is the SERVER: objectql's rule validator evaluates a `script` /
@@ -402,6 +536,7 @@ function RuleTypeFields({
         subjects={{ context: RECORD_CONDITION_SUBJECTS }}
         onBlockingIssuesChange={onBlockingIssuesChange}
       />
+      {missing === 'rule' && heldHint}
     </div>
   );
 
@@ -497,13 +632,16 @@ function RuleTypeFields({
       return (
         <>
           {conditionField}
-          <JsonField
-            label={t('engine.studio.rules.then', locale)}
-            value={rule.then}
-            onCommit={(parsed) => patch({ then: parsed })}
-            disabled={disabled}
-            locale={locale}
-          />
+          <div>
+            <JsonField
+              label={t('engine.studio.rules.then', locale)}
+              value={rule.then}
+              onCommit={(parsed) => patch({ then: parsed })}
+              disabled={disabled}
+              locale={locale}
+            />
+            {missing === 'then' && heldHint}
+          </div>
           <JsonField
             label={t('engine.studio.rules.otherwise', locale)}
             value={rule.otherwise}
@@ -537,12 +675,17 @@ export function ObjectValidationsPanel({
 }) {
   const locale = useMetadataLocale();
   const rules = React.useMemo(() => readRules(draft.validations), [draft.validations]);
+  // objectui#11820 — new rules still waiting for their condition: listed and
+  // edited here, and NOT in the draft (see "A new rule waits for its condition"
+  // in the header). The first edit that gives one its guard writes it.
+  const [unsaved, setUnsaved] = React.useState<ValidationRuleDraft[]>([]);
+  const listed = React.useMemo(() => [...rules, ...unsaved], [rules, unsaved]);
   const [selected, setSelected] = React.useState<string | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   // Default to the first rule so the detail pane isn't a dead "pick one" empty
   // state whenever rules already exist. Falls back automatically when `selected`
   // no longer matches the current rule list (deleted, or the object switched).
-  const effectiveSelected = rules.some((r) => r.name === selected) ? selected : (rules[0]?.name ?? null);
+  const effectiveSelected = listed.some((r) => r.name === selected) ? selected : (listed[0]?.name ?? null);
 
   const fields = React.useMemo<FieldOpt[]>(
     () =>
@@ -595,30 +738,61 @@ export function ObjectValidationsPanel({
 
   const commit = (next: ValidationRuleDraft[]) => onPatch({ validations: next });
 
-  const patchRule = (name: string, patch: Partial<ValidationRuleDraft>) =>
+  const isUnsaved = (name: string | undefined) => unsaved.some((r) => r.name === name);
+
+  /**
+   * objectui#11820 — put `next` in place of the unsaved rule named `name`: it
+   * stays here while it still lacks a guard, and is written to the draft (and
+   * leaves this list) the moment it has every guard its type carries.
+   */
+  const settleUnsaved = (name: string, next: ValidationRuleDraft) => {
+    if (missingGuard(next) === null) {
+      commit([...rules, next]);
+      setUnsaved((prev) => prev.filter((r) => r.name !== name));
+      return;
+    }
+    setUnsaved((prev) => prev.map((r) => (r.name === name ? next : r)));
+  };
+
+  const patchRule = (name: string, patch: Partial<ValidationRuleDraft>) => {
+    const pending = unsaved.find((r) => r.name === name);
+    if (pending) {
+      settleUnsaved(name, { ...pending, ...patch });
+      return;
+    }
     commit(rules.map((r) => (r.name === name ? { ...r, ...patch } : r)));
+  };
 
   const addRule = (type: RuleType) => {
-    const name = nextRuleName(rules.map((r) => r.name ?? ''));
-    commit([...rules, makeSkeleton(type, name, firstField)]);
+    const name = nextRuleName(listed.map((r) => r.name ?? ''));
+    const rule = newRule(type, name, firstField);
+    // A type with no guard has nothing to wait for: written at once, as before.
+    if (missingGuard(rule) === null) commit([...rules, rule]);
+    else setUnsaved((prev) => [...prev, rule]);
     setSelected(name);
   };
 
   const removeRule = (name: string) => {
-    commit(rules.filter((r) => r.name !== name));
+    if (isUnsaved(name)) setUnsaved((prev) => prev.filter((r) => r.name !== name));
+    else commit(rules.filter((r) => r.name !== name));
     if (selected === name) setSelected(null);
   };
 
-  const sel = rules.find((r) => r.name === effectiveSelected) ?? null;
+  const sel = listed.find((r) => r.name === effectiveSelected) ?? null;
   const selType = (typeof sel?.type === 'string' ? sel.type : 'script') as RuleType;
+  const selUnsaved = sel !== null && isUnsaved(sel.name);
+  const selMissing = selUnsaved && sel ? missingGuard(sel) : null;
 
   // Switching a rule's type REPLACES it with a fresh valid skeleton (so stale
   // type-specific keys — a state_machine's `transitions`, a format's `regex` —
   // don't linger on the new shape) while carrying the shared fields across.
   const changeType = (name: string, nextType: RuleType) => {
-    const cur = rules.find((r) => r.name === name);
+    const cur = listed.find((r) => r.name === name);
     if (!cur) return;
-    const next = makeSkeleton(nextType, name, firstField);
+    const unsavedRule = isUnsaved(name);
+    // An existing rule is reshaped into a VALID skeleton (it is in the draft);
+    // an unsaved one keeps its empty guard (objectui#11820).
+    const next = makeSkeleton(nextType, name, firstField, unsavedRule ? '' : 'false');
     // Carry a CEL condition across the types that share one — envelope
     // INCLUDED. A `typeof === 'string'` test here dropped a persisted guard on
     // the floor and left the skeleton's never-firing `'false'` in its place
@@ -636,7 +810,8 @@ export function ObjectValidationsPanel({
     for (const k of ['label', 'description', 'message', 'severity', 'active', 'events', 'priority'] as const) {
       if (cur[k] !== undefined) (next as Record<string, unknown>)[k] = cur[k];
     }
-    commit(rules.map((r) => (r.name === name ? next : r)));
+    if (unsavedRule) settleUnsaved(name, next);
+    else commit(rules.map((r) => (r.name === name ? next : r)));
   };
 
   return (
@@ -646,7 +821,7 @@ export function ObjectValidationsPanel({
         <header className="flex items-center gap-2 border-b px-3 py-2">
           <ShieldAlert className="h-3.5 w-3.5" />
           <span className="text-[13px] font-medium">{t('engine.studio.rules.title', locale)}</span>
-          <span className="text-[11px] text-muted-foreground">({rules.length})</span>
+          <span className="text-[11px] text-muted-foreground">({listed.length})</span>
           {!disabled && (
             <Popover open={addOpen} onOpenChange={setAddOpen}>
               <PopoverTrigger asChild>
@@ -680,14 +855,14 @@ export function ObjectValidationsPanel({
           )}
         </header>
         <div className="min-h-0 flex-1 overflow-auto">
-          {rules.length === 0 ? (
+          {listed.length === 0 ? (
             <p className="px-3 py-6 text-center text-[11px] leading-5 text-muted-foreground">
               {t('engine.studio.rules.none', locale)}
               <br />
               {t('engine.studio.rules.explain', locale)}
             </p>
           ) : (
-            rules.map((r) => (
+            listed.map((r) => (
               <button
                 key={r.name}
                 type="button"
@@ -702,6 +877,11 @@ export function ObjectValidationsPanel({
                   <span className="block truncate text-[11px] text-muted-foreground">
                     {r.message || t('engine.studio.rules.noMessage', locale)}
                   </span>
+                  {isUnsaved(r.name) && (
+                    <span data-testid="rule-unsaved" className="block truncate text-[11px] italic text-muted-foreground">
+                      {t('engine.studio.rules.notSaved', locale)}
+                    </span>
+                  )}
                 </span>
                 <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
                   {r.type ?? 'script'}
@@ -720,6 +900,23 @@ export function ObjectValidationsPanel({
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
+            {/* objectui#11820 — the line the Data pillar shows for an edit it
+                holds (objectui#11786), for a new rule this panel holds. */}
+            {selMissing && (
+              <p
+                data-testid="rule-held"
+                role="status"
+                className="rounded-md border bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground"
+              >
+                {tFormat('engine.studio.held.line', locale, {
+                  clause: tFormat(
+                    selMissing === 'then' ? 'engine.studio.held.needsThenCondition' : 'engine.studio.held.needsCondition',
+                    locale,
+                    { rule: sel.label || sel.name || '' },
+                  ),
+                })}
+              </p>
+            )}
             <label className="block">
               <span className="mb-1 block text-[11px] text-muted-foreground">{t('engine.studio.rules.type', locale)}</span>
               <select
@@ -776,30 +973,24 @@ export function ObjectValidationsPanel({
               disabled={disabled}
               locale={locale}
               onBlockingIssuesChange={(count) => reportCel(sel.name!, count)}
+              missing={selMissing}
             />
 
-            {/* runs-on events */}
+            {/* runs-on events: the spec's events, an absent key shown as its default (objectui#11923) */}
             <div>
               <span className="mb-1 block text-[11px] text-muted-foreground">{t('engine.studio.rules.events', locale)}</span>
               <div className="flex items-center gap-4">
-                {EVENTS.map((ev) => {
-                  const on = Array.isArray(sel.events) ? sel.events.includes(ev) : false;
-                  return (
-                    <label key={ev} className="flex items-center gap-1.5 text-[12px]">
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        disabled={disabled}
-                        onChange={(e) => {
-                          const cur = Array.isArray(sel.events) ? sel.events : [];
-                          const next = e.target.checked ? [...new Set([...cur, ev])] : cur.filter((x) => x !== ev);
-                          patchRule(sel.name!, { events: next });
-                        }}
-                      />
-                      {t(`engine.studio.rules.event.${ev}`, locale)}
-                    </label>
-                  );
-                })}
+                {runsOnContract().offered.map((ev) => (
+                  <label key={ev} className="flex items-center gap-1.5 text-[12px]">
+                    <input
+                      type="checkbox"
+                      checked={ruleRunsOn(sel).includes(ev)}
+                      disabled={disabled}
+                      onChange={(e) => patchRule(sel.name!, { events: writeRunsOn(sel, ev, e.target.checked) })}
+                    />
+                    {t(`engine.studio.rules.event.${ev}`, locale)}
+                  </label>
+                ))}
               </div>
             </div>
 

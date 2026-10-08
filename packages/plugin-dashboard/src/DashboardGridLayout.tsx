@@ -17,12 +17,12 @@ import {
   resolveWidgetType,
   toDashboardNodeType,
   unsupportedWidgetSchema,
+  withoutRetiredSubCaption,
   type DashboardWidgetSlotEntry,
 } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget, isRetiredEnvelopeNode } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import type { DashboardChartRenderSchema } from './chartRenderHandoff';
-import { useWidgetSubCaption } from './widgetSubCaption';
 import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
 
 /** Bridges editMode transitions to the ObjectUI DnD system when a DndProvider is present. */
@@ -175,22 +175,6 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
       composeSeriesLabel(t, fieldLabel, objectName, yField, aggFn),
     [t, fieldLabel],
   );
-  /**
-   * The metric tile's sub-caption resolver — objectui#8889.
-   *
-   * This surface routes a dataset-bound widget to `DatasetWidget` exactly as
-   * `DashboardRenderer` does (objectui#4614), so it owes that component the
-   * same resolved sub-caption. It is the SAME hook the sibling calls, not a
-   * second copy of the composition: the field's invariant is that its two
-   * channels "can never disagree", and two independent resolvers are precisely
-   * how they would.
-   *
-   * `schema.name` is the dashboard name every convention key on this surface is
-   * built from (`BaseSchema.name`, which `DashboardComponentSchema` extends).
-   * Absent it the hook degrades to the authored value alone — the same silent
-   * degradation the sibling's title/description lookups perform.
-   */
-  const tWidgetSubCaption = useWidgetSubCaption(schema.name);
   // The refresh indicator, the manual handler and the auto-refresh timer come
   // from the one implementation this component shares with `DashboardRenderer`
   // (objectui#8820), which is also the only place `refreshIntervalSeconds` is
@@ -415,7 +399,10 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
         // Its declared type is `DashboardMetricNodeSchema`, the
         // `CustomNodeRegistry` entry `./widgetDispatch` adds (objectui#11466).
         type: DASHBOARD_NODE_TYPES.metric,
-        ...options,
+        // The card draws no sub-caption from `options` (objectui#11389, ruling
+        // C): the spread drops the retired `description` key, the same way
+        // `DashboardRenderer`'s metric arm does.
+        ...withoutRetiredSubCaption(options),
         label,
         value: options.value ?? rows[0]?.[valueField] ?? '—',
       };
@@ -711,13 +698,6 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
                           ? <DatasetWidget
                               widget={datasetWidget}
                               dataSource={dataSource}
-                              /* objectui#8889 — dispatch site 2 of 2, and the half that
-                                 objectui#4614 exists to stop anyone from forgetting: the
-                                 sibling passing this alone would fix one surface and leave
-                                 this one silently unchanged. `?? null` says "a surface
-                                 resolved it, to nothing", which is NOT the same as the
-                                 prop being absent — see the prop's docblock. */
-                              subCaption={tWidgetSubCaption(datasetWidget) ?? null}
                             />
                           : <SchemaRenderer schema={componentSchema} />}
                       </div>

@@ -98,9 +98,14 @@ window.matchMedia = ((query: string) => ({
     disconnect() {}
   };
 
-/** A batch answer in the envelope `PublishPackageDraftsResponseSchema` declares. */
+/**
+ * A batch answer as the producer sends it: the protocol's result, which carries
+ * its own `success` (`=== (outcome === 'published')`, pinned upstream), inside
+ * the dispatcher's `{ success: true, data }` envelope — `true` on every 200,
+ * the refusals and `nothing_to_publish` included.
+ */
 function batch(data: Record<string, unknown>) {
-  return { success: data.outcome === 'published', data };
+  return { success: true, data: { success: data.outcome === 'published', ...data } };
 }
 
 const published = (...names: string[]) =>

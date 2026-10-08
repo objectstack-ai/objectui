@@ -165,9 +165,11 @@ describe('ListView', () => {
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
+      // The spec's lane key: the bag refuses the legacy `groupField` alias by
+      // name since objectui#6152 round 12, and the gate reads either.
       options: {
         kanban: {
-          groupField: 'status',
+          groupByField: 'status',
         },
       },
     };
@@ -1779,7 +1781,7 @@ describe('ListView', () => {
         fields: ['name', 'email'],
         appearance: { allowedVisualizations: ['grid', 'kanban'] },
         options: {
-          kanban: { groupField: 'status' },
+          kanban: { groupByField: 'status' },
           calendar: { startDateField: 'date' },
         },
       };

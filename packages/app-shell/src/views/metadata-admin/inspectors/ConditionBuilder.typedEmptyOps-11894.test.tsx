@@ -77,7 +77,9 @@ function evaluate(source: string, record: Record<string, unknown>): { ok: true; 
   return res.ok ? { ok: true, value: res.value } : { ok: false, error: String(res.error?.message ?? res.error) };
 }
 
-function Harness({ initial, fields }: { initial: string; fields: ReadonlyArray<{ name: string; label?: string; type?: string; multiple?: boolean }> }) {
+type CatalogRow = { name: string; label?: string; type?: string; multiple?: boolean };
+
+function Harness({ initial, fields }: { initial: string; fields: ReadonlyArray<CatalogRow> }) {
   const [v, setV] = React.useState(initial);
   return (
     <div>
@@ -105,7 +107,7 @@ async function pickOp(c: HTMLElement, label: string) {
 }
 
 /** A two-row builder whose second row names `subject`, ready for an operator. */
-function mountBenchmark(subject: string, fields = TYPED_FIELDS) {
+function mountBenchmark(subject: string, fields: ReadonlyArray<CatalogRow> = TYPED_FIELDS) {
   return render(<Harness initial={`record.status == 'done' && ${subject} == 'x'`} fields={fields} />);
 }
 

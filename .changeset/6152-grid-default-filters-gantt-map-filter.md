@@ -2,6 +2,7 @@
 '@object-ui/types': minor
 '@object-ui/core': patch
 '@object-ui/plugin-grid': patch
+'@object-ui/plugin-map': patch
 '@object-ui/plugin-view': patch
 ---
 
@@ -42,4 +43,6 @@ What did not move: the renderers' reads. `ObjectGrid` lowers `defaultFilters` th
 rows as the same array written as `filter`; the sink still lowers a record or an AST that reaches
 the slot at runtime, and `ObjectGantt` / `ObjectMap` still forward an AST a host composes. The
 `@object-ui/core`, `@object-ui/plugin-grid` and `@object-ui/plugin-view` entries are comment
-repairs to sentences that called the key `Record<string, any>`, and the `plugin-grid` tests.
+repairs to sentences that called the key `Record<string, any>`. `@object-ui/plugin-grid`,
+`@object-ui/plugin-view` and `@object-ui/plugin-map` also carry typed test fixtures re-spelled to
+the rule array, and `@object-ui/plugin-grid` a pin of the above through the real renderer.

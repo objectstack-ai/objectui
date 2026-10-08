@@ -21,7 +21,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { ViewFilterRuleSchema } from '@objectstack/spec/ui';
-import type { FilterGroup } from '@object-ui/components';
+import type { FilterGroup, SortItem } from '@object-ui/components';
 import {
   LIST_FILTER_PARAM,
   LIST_SEARCH_PARAM,
@@ -175,12 +175,12 @@ describe('a malformed or stale `uf__filter` is dropped, and nothing throws (obje
 
 describe('the sort and the search term (objectui#11860)', () => {
   it('the sort round-trips in the spec `ListViewSchema.sort` shape, row ids stripped', () => {
-    const params = applyListStateParams(new URLSearchParams(), {
-      sort: [
-        { id: 'x', field: 'due_date', order: 'asc' },
-        { id: 'y', field: 'name', order: 'desc' },
-      ] as Array<{ field: string; order: 'asc' | 'desc' }>,
-    });
+    // What `ListView` reports through `onSortChange`: builder rows, id included.
+    const reported: SortItem[] = [
+      { id: 'x', field: 'due_date', order: 'asc' },
+      { id: 'y', field: 'name', order: 'desc' },
+    ];
+    const params = applyListStateParams(new URLSearchParams(), { sort: reported });
     expect(JSON.parse(params.get(LIST_SORT_PARAM)!)).toEqual([
       { field: 'due_date', order: 'asc' },
       { field: 'name', order: 'desc' },

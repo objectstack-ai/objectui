@@ -18,8 +18,10 @@
  *
  * Two mechanisms, one per way a cell value draws an anchor:
  *
- *   - `email` / `url` / `phone` draw theirs unconditionally, so a link cell is
- *     handed their TEXT face (`linkCellRenderer` in `cellRendererResolution`);
+ *   - `email` / `url` / `phone` and the file family draw theirs without asking
+ *     the host, so a link cell is handed their TEXT face (`linkCellRenderer`
+ *     in `cellRendererResolution`). The file family joined the set because
+ *     the census below found its download link nested in a link cell;
  *   - the reference family draws one only when the host's `recordHref` answers
  *     for the referenced object, so `LinkCell` renders its children under the
  *     same host with no record destination.
@@ -72,14 +74,17 @@ function nestedAnchors(container: HTMLElement): Element[] {
   return Array.from(container.querySelectorAll('a a'));
 }
 
+const CONTRACT = { url: 'https://cdn.example.com/contract.pdf', name: 'contract.pdf' };
+
 const SELF_LINKING = [
-  { type: 'email', value: 'ada@example.com', scheme: 'mailto:' },
-  { type: 'url', value: 'https://example.com/ada', scheme: 'https:' },
-  { type: 'phone', value: '+15550100', scheme: 'tel:' },
+  { type: 'email', value: 'ada@example.com', text: 'ada@example.com', scheme: 'mailto:' },
+  { type: 'url', value: 'https://example.com/ada', text: 'https://example.com/ada', scheme: 'https:' },
+  { type: 'phone', value: '+15550100', text: '+15550100', scheme: 'tel:' },
+  { type: 'file', value: CONTRACT, text: 'contract.pdf', scheme: 'https:' },
 ] as const;
 
 describe('objectui#11817 — the primary column holds its value as text, inside one anchor', () => {
-  it.each(SELF_LINKING)('a `$type` first column: one anchor to the record, the value as its text', async ({ type, value, scheme }) => {
+  it.each(SELF_LINKING)('a `$type` first column: one anchor to the record, the value as its text', async ({ type, value, text, scheme }) => {
     const { container } = renderGrid({
       columns: [
         { field: 'contact', label: 'Contact', type },
@@ -92,7 +97,7 @@ describe('objectui#11817 — the primary column holds its value as text, inside 
     const link = container.querySelector('[data-testid="primary-field-link"]')!;
     expect(link.tagName).toBe('A');
     expect(link).toHaveAttribute('href', '/apps/demo/test_object/record/r1');
-    expect(link).toHaveTextContent(value);
+    expect(link).toHaveTextContent(text);
     expect(link.querySelector('a')).toBeNull();
     expect(link.querySelector('button')).toBeNull();
     expect(container.querySelector(`a[href^="${scheme}"]`)).toBeNull();
@@ -167,13 +172,16 @@ describe('objectui#11817 — controls: outside a link cell, nothing changes', ()
 
 /**
  * Probe values per registry key. A key with no entry gets a plain string,
- * which every renderer accepts. The four that draw an anchor get a value
+ * which every renderer accepts. The families that draw an anchor get a value
  * that makes them draw it — the control below holds them to that.
  */
 const PROBE_VALUE: Record<string, unknown> = {
   email: 'ada@example.com',
   url: 'https://example.com/ada',
   phone: '+15550100',
+  file: CONTRACT,
+  video: CONTRACT,
+  audio: CONTRACT,
   lookup: { id: 'r2', name: 'Grace' },
   master_detail: { id: 'r2', name: 'Grace' },
   tree: { id: 'r2', name: 'Grace' },
@@ -198,7 +206,7 @@ function censusGrid(link: boolean) {
 }
 
 describe('objectui#11817 — census: every registered cell type, drawn in a link column', () => {
-  it('control: outside a link cell the probe values draw mailto, URL, tel and record anchors', async () => {
+  it('control: outside a link cell the probe values draw mailto, URL, tel, download and record anchors', async () => {
     const { container, types } = censusGrid(false);
     expect(types.length).toBeGreaterThan(20);
     await waitFor(() => expect(container.querySelector('a[href^="mailto:"]')).not.toBeNull());
@@ -206,6 +214,7 @@ describe('objectui#11817 — census: every registered cell type, drawn in a link
     expect(container.querySelector('a[href="mailto:ada@example.com"]')).not.toBeNull();
     expect(container.querySelector('a[href="https://example.com/ada"]')).not.toBeNull();
     expect(container.querySelector('a[href="tel:+15550100"]')).not.toBeNull();
+    expect(container.querySelectorAll('a[href="https://cdn.example.com/contract.pdf"]')).toHaveLength(3);
     expect(container.querySelector('a[href="/apps/demo/test_object/record/r2"]')).not.toBeNull();
   });
 

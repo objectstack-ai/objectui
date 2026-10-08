@@ -26,6 +26,14 @@
  * page — a warning against a key the renderer then filtered the picker's whole
  * candidate set by. The last test in this file is that path, end to end.
  *
+ * ⚠️ objectui#11880: the flat `filter` (with `object`, `sort` and `limit`)
+ * stays PUBLISHED and is NOT READ. The picker reads its query from the
+ * node-level `dataSource` binding only (objectstack#11509, ruled A-narrow); the
+ * pinned spec still declares the flat keys, and their published retirement
+ * ships with the spec half and the pin bump that carries it. So the parity
+ * rows below still hold, and the description rows pin that the published
+ * text says the key is not read and names the binding member that is.
+ *
  * Expectations are derived from the spec at runtime, not restated.
  */
 
@@ -119,7 +127,7 @@ describe('element:record_picker — registry inputs vs @objectstack/spec', () =>
     expect(specTopLevelKeys().length).toBeGreaterThan(0);
   });
 
-  it('publishes `filter`, which the renderer has read all along', () => {
+  it('publishes `filter` while the pinned spec declares it (not read since objectui#11880)', () => {
     // A KEY-reachability claim, so the criterion is that the key SURVIVES the
     // parse — not that the parse succeeds. Neither refusal mode makes
     // `success === true` proof on its own: under rc.6's strip mode an
@@ -244,18 +252,16 @@ describe('element:record_picker — registry inputs vs @objectstack/spec', () =>
     expect(codesFor('[["a","=",1]]')).toEqual([]);
   });
 
-  it('the `filter` description says which of the two filters an author writes wins', () => {
-    // The renderer reads `composed?.filter ?? props.filter`, so a node that
-    // carries a `dataSource` filter DROPS this key rather than combining with
-    // it — while the binding's own filter AND-combines with the saved view it
-    // names. A description saying only "filter criteria" would be true and
-    // useless: an author writing both would have no way to know which one
-    // decides the candidate set, which is the one thing objectui#3830 insists
-    // this entry has to state.
+  it('the `filter` description says the key is not read, and names the binding member that is (objectui#11880)', () => {
+    // The renderer reads `composed?.filter` only, so this key never applies —
+    // the one thing an author cannot read off the spec, which still declares
+    // it. objectui#3830 insisted the entry state which filter decides the
+    // candidate set; since objectui#11880 the answer is the binding's.
     const description = filterDescription();
-    expect(description).toMatch(/dataSource/);
-    expect(description).toMatch(/precedence/i);
+    expect(description).toMatch(/NOT READ/);
+    expect(description).toMatch(/dataSource\.filter/);
     expect(description).toMatch(/\$filter/);
+    expect(description).not.toMatch(/precedence/i);
   });
 
   it('the `limit` description states the composer\'s precedence, not the pre-objectui#10016 one (objectui#10399)', () => {
@@ -275,6 +281,8 @@ describe('element:record_picker — registry inputs vs @objectstack/spec', () =>
     // The fall-through itself, by concept rather than by sentence.
     expect(description).toMatch(/dataSource\.view/);
     expect(description).toMatch(/not authored/i);
+    // objectui#11880: this key is not among the sources any more.
+    expect(description).toMatch(/NOT READ/);
   });
 
   it('declares no default for `filter` — the spec parses none in', () => {
@@ -320,9 +328,10 @@ describe('element:record_picker — registry inputs vs @objectstack/spec', () =>
     expect(unknownProps.join(' | ')).toMatch(/searchFields/);
     expect(unknownProps.join(' | ')).not.toMatch(/"filter"/);
 
-    // And the key survives into the compiled tree as itself — the whole point of
-    // publishing it is that the author's `filter` reaches the renderer, which
-    // turns it into the picker query's `$filter`.
+    // And the key survives into the compiled tree as itself. Since
+    // objectui#11880 the renderer does not read it (the binding's
+    // `dataSource.filter` is the picker's `$filter`); the key stays accepted
+    // until the spec's v18 retirement refuses it.
     expect(r.tree).toMatchObject({ type: TYPE, filter: RULE_ARRAY });
     expect(r.diagnostics.some((d) => d.severity === 'error')).toBe(false);
   });

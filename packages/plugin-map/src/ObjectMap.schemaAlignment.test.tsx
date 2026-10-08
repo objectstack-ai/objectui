@@ -96,7 +96,9 @@ describe('ObjectMapSchema declares what the renderer reads (type pins)', () => {
       objectName: 'stores',
       staticData: [{ id: '1' }],
       data: { provider: 'value', items: [{ id: '1' }] },
-      filter: [['status', '=', 'open']],
+      // objectui#6152 round 10: `filter` is the `object-map` row's `ViewFilterRule` array
+      // (it was `any[]`; this cell carried the AST tuple array the row refuses).
+      filter: [{ field: 'status', operator: 'equals', value: 'open' }],
       sort: [{ field: 'name', order: 'desc' }],
       map: {
         latitudeField: 'lat',

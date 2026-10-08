@@ -310,9 +310,9 @@ import type { ObjectCalendarSchema } from '@object-ui/types';
 // `calendar: { titleField: 42 }` are both compile errors, and
 // `check:doc-snippets` re-runs that check on every commit. Top-level key NAMES
 // are checked too since objectui#8347 removed `BaseSchema`'s `[key: string]: any`,
-// but NOT inside the `calendar` block, which is open (its type is inferred from
-// a `.passthrough()` schema), so a misspelt key there still compiles clean. Read
-// the `calendar` block as type-checked values, never as a guarded key set.
+// and since objectui#6152 so are the key names inside the `calendar` block: its
+// type is the spec's strict `object-calendar` slot, so a misspelt key there, or
+// a block without `startDateField`, is a compile error as well as a parse error.
 const schema: ObjectCalendarSchema = {
   type: 'object-calendar',
   objectName: 'events',

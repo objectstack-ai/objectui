@@ -33,13 +33,13 @@
  * ## Why the form is driven with `fireEvent`, not `userEvent`
  *
  * Measured here, not preferred on style. Under the DOM environment these
- * console tests run in, `userEvent.selectOptions` leaves this controlled
- * `<select>`'s `value` at `''`, and a `userEvent.click` on the submit button
- * never reaches the form's `onSubmit` — so the save cases would fail for
- * reasons that have nothing to do with the control. `fireEvent.change` +
- * `fireEvent.submit` are what this repo's other form tests use for the same
- * reason. The button is still asserted present and ENABLED at that moment, so
- * "the user could reach this submit" stays pinned.
+ * console tests run in, a `userEvent.click` on the submit button never reaches
+ * the form's `onSubmit` — so the save cases would fail for reasons that have
+ * nothing to do with the control. `fireEvent.submit` is what this repo's other
+ * form tests use for the same reason. The button is still asserted present and
+ * ENABLED at that moment, so "the user could reach this submit" stays pinned.
+ * The control is the shared `Select` (objectui#11865), picked the way a
+ * keyboard user picks: open the trigger, choose the option.
  *
  * ## Reverse verification — both legs run, from the committed fix
  *
@@ -55,7 +55,7 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { normaliseClientError } from '@object-ui/data-objectstack';
 
 const { user, updateUser, findOne, update, offerable, writable } = vi.hoisted(() => ({
@@ -101,9 +101,16 @@ vi.mock('@object-ui/i18n', async (importOriginal) => ({
   }),
 }));
 
+/**
+ * A STABLE adapter, as the app's provider hands out: a fresh object per render
+ * re-runs the card's row read on every render, and its answer resets the
+ * picked language to the stored one before Save can be reached.
+ */
+const ADAPTER = vi.hoisted(() => ({ findOne, update }));
+
 vi.mock('@object-ui/react', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  useAdapter: () => ({ findOne, update }),
+  useAdapter: () => ADAPTER,
 }));
 
 vi.mock('@object-ui/permissions', async (importOriginal) => ({
@@ -113,10 +120,28 @@ vi.mock('@object-ui/permissions', async (importOriginal) => ({
 
 const { ProfilePage } = await import('../ProfilePage');
 
-/** The select, once the row read has settled and the card has mounted. */
+/** The picker's trigger, once the row read has settled and the card has mounted. */
 async function renderProfile() {
   render(<ProfilePage />);
-  return (await screen.findByTestId('profile-language-select')) as HTMLSelectElement;
+  return screen.findByTestId('profile-language-select');
+}
+
+/** Open the picker and return the labels it lists, in order. */
+async function listed(trigger: HTMLElement): Promise<string[]> {
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  const listbox = await screen.findByRole('listbox');
+  const labels = within(listbox).getAllByRole('option').map((o) => o.textContent ?? '');
+  fireEvent.keyDown(listbox, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
+  return labels;
+}
+
+/** Pick one option by its label. */
+async function pick(trigger: HTMLElement, label: string) {
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  const listbox = await screen.findByRole('listbox');
+  fireEvent.click(within(listbox).getByRole('option', { name: label }));
+  await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
 }
 
 describe('ProfilePage — my language (objectui#7501)', () => {
@@ -133,9 +158,10 @@ describe('ProfilePage — my language (objectui#7501)', () => {
     const select = await renderProfile();
 
     expect(findOne).toHaveBeenCalledWith('sys_user', 'usr_1');
-    const options = Array.from(select.options);
-    expect(options.map((o) => o.value)).toEqual(['', 'en', 'zh', 'ja']);
-    expect(options.map((o) => o.textContent)).toEqual([
+    // What each option writes is pinned option by option in
+    // `ProfilePage.sharedSelect-11865`; here, what the menu offers.
+    const options = await listed(select);
+    expect(options).toEqual([
       'Use the deployment default',
       'English',
       '中文',
@@ -144,22 +170,28 @@ describe('ProfilePage — my language (objectui#7501)', () => {
     // The list is the provider's, not a built-in ten: `ko`/`de`/`fr` ship
     // catalogues in this repo and are deliberately NOT in `offerableLanguages`
     // here. A hard-coded menu would light these up.
-    expect(options.map((o) => o.value)).not.toContain('ko');
-    expect(options.map((o) => o.value)).not.toContain('de');
+    expect(options).not.toContain('한국어');
+    expect(options).not.toContain('Deutsch');
   });
 
   it('seeds from the stored tag, and shows one the deployment no longer publishes', async () => {
     findOne.mockResolvedValue({ id: 'usr_1', locale: 'pt-BR' });
     const select = await renderProfile();
 
-    expect(select.value).toBe('pt-BR');
-    expect(Array.from(select.options).map((o) => o.value)).toEqual(['', 'pt-BR', 'en', 'zh', 'ja']);
+    expect(select).toHaveTextContent('Português (Brasil)');
+    expect(await listed(select)).toEqual([
+      'Use the deployment default',
+      'Português (Brasil)',
+      'English',
+      '中文',
+      '日本語',
+    ]);
   });
 
   it('saves the pick through the data API — not through better-auth', async () => {
     const select = await renderProfile();
 
-    fireEvent.change(select, { target: { value: 'ja' } });
+    await pick(select, '日本語');
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
     fireEvent.submit(select.closest('form')!);
 
@@ -174,9 +206,9 @@ describe('ProfilePage — my language (objectui#7501)', () => {
   it('clears back to the deployment default by writing null, not an empty tag', async () => {
     findOne.mockResolvedValue({ id: 'usr_1', locale: 'ja' });
     const select = await renderProfile();
-    expect(select.value).toBe('ja');
+    expect(select).toHaveTextContent('日本語');
 
-    fireEvent.change(select, { target: { value: '' } });
+    await pick(select, 'Use the deployment default');
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
     fireEvent.submit(select.closest('form')!);
 
@@ -202,7 +234,7 @@ describe('ProfilePage — my language (objectui#7501)', () => {
     );
 
     const select = await renderProfile();
-    fireEvent.change(select, { target: { value: 'zh' } });
+    await pick(select, '中文');
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
     fireEvent.submit(select.closest('form')!);
 

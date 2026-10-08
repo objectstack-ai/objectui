@@ -51,11 +51,13 @@
  * - DARK CONTROL (the canonical spelling alone) parses GREEN on every surface.
  *   Without it, "the door refuses the fixture" is satisfied by a door that
  *   refuses everything.
- * - PASSTHROUGH CONTROL (an undeclared nonsense key) still parses GREEN. Every
- *   calendar block stays `.passthrough()` for renderer-ahead knobs
- *   (`allDayField` is the live one); this card declared exactly two named
- *   refusal arms and did not close any object. Without this arm a later
- *   `.strict()` would satisfy every other assertion here.
+ * - UNDECLARED-KEY CONTROL. This card declared exactly two named refusal arms
+ *   and did not close any object, so an undeclared nonsense key parsed GREEN
+ *   here. objectui#6152 round 11 has since CLOSED the view-level block (it is the
+ *   spec's strict list-view slot by reference): on surface 1 the control now
+ *   pins the OTHER code — the spec's own `unrecognized_keys` at `calendar` —
+ *   so the by-name arms stay distinguishable from a plain unknown-key refusal.
+ *   The node face (surface 3) is still `BaseSchema`'s `.passthrough()`.
  * - CANONICAL-TARGET CONTROL — the message points at `startDateField` for
  *   `dateField` and at `endDateField` for `endField`. ⚠️ This is the arm that
  *   holds the line against the upstream divergence recorded at the declaration
@@ -182,9 +184,16 @@ describe('objectui#8355 · surface 1 — the view-level `calendar` block', () =>
     expect(ok.success, JSON.stringify(ok.error?.issues)).toBe(true);
   });
 
-  it('PASSTHROUGH CONTROL: an undeclared key still parses — the block was NOT closed', () => {
-    const ok = listView({ calendar: { startDateField: 'kickoff', [CONTROL_KEY]: 'x' } });
-    expect(ok.success, JSON.stringify(ok.error?.issues)).toBe(true);
+  it('UNDECLARED-KEY CONTROL: an undeclared key is refused with the spec\'s own `unrecognized_keys` (objectui#6152 round 11 closed the block)', () => {
+    // Until round 11 this row pinned the block OPEN. The by-name arms above
+    // report `invalid_type` at their own path; a key no arm names reports the
+    // spec slot's `unrecognized_keys` at the block — two codes, so the arms
+    // cannot be read as a plain strictness refusal.
+    const r = listView({ calendar: { startDateField: 'kickoff', [CONTROL_KEY]: 'x' } });
+    expect(r.success).toBe(false);
+    const issue = issueAt(r, 'calendar') as { code?: string; keys?: string[] } | undefined;
+    expect(issue?.code).toBe('unrecognized_keys');
+    expect(issue?.keys).toEqual([CONTROL_KEY]);
   });
 });
 
@@ -338,15 +347,19 @@ describe('objectui#8355 · surface 5 — a NAMED VIEW, and the ledger it must no
   });
 });
 
-describe('objectui#8355 · the TIMELINE alias is NOT this card, and stays live', () => {
-  it('`timeline.dateField` still parses GREEN — the ruling retired the CALENDAR pair', () => {
-    // ⛔ SCOPE ARM, not an omission. The card's own boundaries put the map /
-    // gantt / timeline / kanban ladders on their own cards, and `timeline`'s
-    // alias has live consumers this change does not touch: `normalizeListViewSchema`
-    // folds it onto `startDateField`, `ObjectView` reads it, and app-shell pins
-    // that it still renders. If a later sweep retires it, this row reddens and
-    // whoever does it has to say so rather than carrying it in silently.
-    const ok = listView({ timeline: { dateField: 'kickoff' } });
-    expect(ok.success, JSON.stringify(ok.error?.issues)).toBe(true);
+describe('objectui#8355 · the TIMELINE alias was NOT this card — objectui#6152 round 11 retired it at the door', () => {
+  it('`timeline.dateField` is refused BY NAME at its own path, naming `startDateField`', () => {
+    // ⛔ SCOPE ARM, re-spelled by the round that retired it, as this row asked.
+    // objectui#8355 retired the CALENDAR pair only. objectui#6152 round 11 took
+    // the list view's `timeline` block from the spec slot by reference and
+    // refused `dateField` there by name (the seat's Q1 → A on that card). Its
+    // READERS stay: `normalizeListViewSchema` still folds a stored one onto
+    // `startDateField`, so a stored view keeps rendering. The full pin is
+    // `list-view-blocks-by-reference-6152.test.ts`.
+    const r = listView({ timeline: { dateField: 'kickoff' } });
+    expect(r.success).toBe(false);
+    const issue = issueAt(r, 'timeline.dateField');
+    expect(issue?.code).toBe('invalid_type');
+    expect(issue?.message).toContain('Did you mean `dateField` → `startDateField`?');
   });
 });

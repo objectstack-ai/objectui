@@ -5,8 +5,9 @@
  *
  * The page block inspector renders these as typed fields that edit the block's
  * `properties` (the spec convention; the renderer hoists `properties.*` to the
- * top level). Keep each field `name` aligned with the property name the
- * corresponding renderer reads. Add block types here as they are needed.
+ * top level), or — for a field marked `at: 'dataSource'` — the node-level
+ * `dataSource` binding. Keep each field `name` aligned with the property name
+ * the corresponding renderer reads. Add block types here as they are needed.
  *
  * Field kinds:
  *   text | number | boolean | select  — scalar props
@@ -76,8 +77,13 @@
 
 /** Where a field/field-list picker resolves its object from:
  *  - 'page' — the record page's bound object (draft.object)
- *  - 'self' — a sibling property on the same block (objectProp) */
-export type ObjectSource = { objectFrom: 'page' } | { objectFrom: 'self'; objectProp: string };
+ *  - 'self' — a sibling property on the same block (objectProp)
+ *  - 'dataSource' — the block's node-level `dataSource.object` binding, the
+ *    one place an `element:*` block reads its object from (objectui#11880) */
+export type ObjectSource =
+  | { objectFrom: 'page' }
+  | { objectFrom: 'self'; objectProp: string }
+  | { objectFrom: 'dataSource' };
 
 /**
  * A field's input hint — EXACTLY ONE of two shapes, chosen where the field is
@@ -105,8 +111,16 @@ export type PlaceholderSpec = { key: string; literal?: never } | { literal: stri
  * One curated property editor. Every `label` is a translation key, and every
  * `placeholder` declares whether it is one — see the file header for the five
  * key shapes and the tests that enforce them.
+ *
+ * `at` says where the value lives on the block node (objectui#11880). Absent,
+ * the default, is `properties.<name>`. `'dataSource'` is the node-level
+ * `dataSource.<name>`: a member of the spec's `ElementDataSourceSchema`
+ * binding, which `element:number` and `element:record_picker` read their
+ * query from and nowhere else (objectstack#11509, ruled A-narrow). Honoured on
+ * a block's top-level fields; an `array` field's item editors always write
+ * into the item.
  */
-export type BlockPropField =
+export type BlockPropField = (
   | { name: string; label: string; kind: 'text'; placeholder?: PlaceholderSpec }
   | { name: string; label: string; kind: 'number'; placeholder?: PlaceholderSpec }
   | { name: string; label: string; kind: 'boolean' }
@@ -123,7 +137,8 @@ export type BlockPropField =
   // Schema-driven pickers — dropdowns populated from the live metadata.
   | { name: string; label: string; kind: 'object-picker'; placeholder?: PlaceholderSpec }
   | ({ name: string; label: string; kind: 'field-picker'; placeholder?: PlaceholderSpec } & ObjectSource)
-  | ({ name: string; label: string; kind: 'field-list'; placeholder?: PlaceholderSpec } & ObjectSource);
+  | ({ name: string; label: string; kind: 'field-list'; placeholder?: PlaceholderSpec } & ObjectSource)
+) & { at?: 'dataSource' };
 
 /** Shared alignment options. The keys name the field (`align`), so reusing this
  *  const on a field called anything else turns the key-derivation pin red. */
@@ -328,9 +343,14 @@ export const BLOCK_CONFIG: Record<string, BlockPropField[]> = {
     { name: 'emptyText', label: 'engine.inspector.pageBlock.field.element:repeater.emptyText', kind: 'text' },
     { name: 'divided', label: 'engine.inspector.pageBlock.field.element:repeater.divided', kind: 'boolean' },
   ],
+  // objectui#11880 — the metric's query is the node-level `dataSource`
+  // binding, the only place `element:number` reads its object from, so the
+  // Object picker writes `dataSource.object` and the measure picker reads its
+  // object from there. It wrote `properties.object` before: a key the renderer
+  // no longer reads and the spec retires in v18.
   'element:number': [
-    { name: 'object', label: 'engine.inspector.pageBlock.field.element:number.object', kind: 'object-picker' },
-    { name: 'field', label: 'engine.inspector.pageBlock.field.element:number.field', kind: 'field-picker', objectFrom: 'self', objectProp: 'object' },
+    { name: 'object', label: 'engine.inspector.pageBlock.field.element:number.object', kind: 'object-picker', at: 'dataSource' },
+    { name: 'field', label: 'engine.inspector.pageBlock.field.element:number.field', kind: 'field-picker', objectFrom: 'dataSource' },
     {
       name: 'aggregate',
       label: 'engine.inspector.pageBlock.field.element:number.aggregate',

@@ -45,7 +45,11 @@ const draft = {
 function addAction(): Record<string, unknown> {
   const onPatch = vi.fn();
   render(<ObjectActionsPanel draft={draft} onPatch={onPatch} />);
+  // objectui#11861 — New opens on presets; this skeleton is the blank action,
+  // still named "New action", folded under Advanced.
   fireEvent.click(screen.getByRole('button', { name: /New/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
+  fireEvent.click(screen.getByRole('button', { name: 'New action' }));
   expect(onPatch).toHaveBeenCalledTimes(1);
   const actions = onPatch.mock.calls[0][0].actions as Array<Record<string, unknown>>;
   expect(actions).toHaveLength(2);

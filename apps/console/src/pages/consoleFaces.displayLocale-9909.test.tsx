@@ -66,13 +66,17 @@ const { STORED, approvalsApiStub, ADAPTER, AUTH, I18N } = vi.hoisted(() => {
     reject: async () => ({ data: ROW, finalized: true }),
   };
   const listRuns = async () => ({ runs: [{ id: 'run_1', status: 'completed', startedAt: STORED, durationMs: 9 }] });
+  // One client, as the real adapter's `getClient()` hands out: Flow Runs keys
+  // its flow and run loads on it, so a fresh one per call re-ran them on every
+  // render and its runs table never settled (objectui#11865 surfaced it).
+  const client = {
+    meta: { getItems: async (type: string) => (type === 'flow' ? [{ spec: { name: 'sync_flow', label: 'Sync' } }] : []) },
+    automation: { execute: async () => ({ success: true }), listRuns, getRun: async () => ({ run: null }) },
+  };
   const ADAPTER = {
     find: async () => ({ data: [{ id: 'po_1' }] }),
     getObjectSchema: async () => ({ fields: {} }),
-    getClient: () => ({
-      meta: { getItems: async (type: string) => (type === 'flow' ? [{ spec: { name: 'sync_flow', label: 'Sync' } }] : []) },
-      automation: { execute: async () => ({ success: true }), listRuns, getRun: async () => ({ run: null }) },
-    }),
+    getClient: () => client,
   };
   const AUTH = { user: { id: 'u_1', email: 'approver@example.com' } };
   const I18N = {

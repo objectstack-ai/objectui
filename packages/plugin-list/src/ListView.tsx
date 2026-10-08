@@ -32,6 +32,7 @@ import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLoc
 // on the FLAT `schema.ariaLabel` and is resolved by `SchemaRenderer` instead
 // (objectui#5134).
 import { resolveI18nLabel as resolveInlineI18nLabel, normalizeFilterOperator, PaginationConfigSchema } from '@objectstack/spec/ui';
+import type { GroupingConfig } from '@objectstack/spec/ui';
 import { usePermissions } from '@object-ui/permissions';
 
 /**
@@ -289,6 +290,18 @@ export interface ListViewProps {
    * decides whether platform-unsortable entries are still present (#6455).
    */
   onSortChange?: (sort: SortItem[]) => void;
+  /**
+   * Fires with the grouping after a user edit in either grouping editor: the
+   * toolbar's Group panel (a level added, changed or removed, or Clear) and the
+   * compact toolbar's settings popover. `undefined` when the grouping is
+   * cleared.
+   *
+   * The value is the spec's `GroupingConfig`, the shape `schema.grouping`
+   * takes, so a host hands it back through `schema.grouping` unchanged
+   * (objectui#11860). Not fired when the list re-reads a changed
+   * `schema.grouping` or `groupBy`: that value came from the host.
+   */
+  onGroupingChange?: (grouping: GroupingConfig | undefined) => void;
   onSearchChange?: (search: string) => void;
   /** Called when the user toggles fields via the Hide Fields popover. */
   onHiddenFieldsChange?: (hidden: string[]) => void;
@@ -1153,6 +1166,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   onViewChange,
   onFilterChange,
   onSortChange,
+  onGroupingChange,
   onSearchChange,
   onHiddenFieldsChange,
   onInlineEditChange,
@@ -1522,6 +1536,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   }, [schema.grouping, schema.groupBy, schema.groupBy2]);
   const [groupingConfig, setGroupingConfig] = React.useState(initialGroupingConfig);
   const [showGroupPopover, setShowGroupPopover] = React.useState(false);
+  // The one door a USER's grouping edit goes through, from both editors, so
+  // the host hears of it (objectui#11860). The re-sync below sets the state
+  // directly: a schema delta is the host's own value, not news to report.
+  const changeGrouping = React.useCallback((next: GroupingConfig | undefined) => {
+    setGroupingConfig(next);
+    onGroupingChange?.(next);
+  }, [onGroupingChange]);
 
   // Re-sync grouping when the underlying schema-driven config changes (e.g. the
   // user edits `groupBy` in the view designer). User-driven changes via the
@@ -3188,8 +3209,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // it can. The Filter panel's list and the Sort picker's list ask through
   // `canReadField` (objectui#11925, objectui#11943). One exception: the Sort
   // picker keeps a field the current sort already names, so its row can be
-  // removed. Until objectui#11943's follow-up that field is also still
-  // choosable in the picker's other rows.
+  // removed. It lists that field disabled, so no other row and no "Add sort"
+  // can choose it.
   const effectiveFields = React.useMemo(() => {
     // Defensive: `columns` is `string[] | ListColumn[]`, but metadata is
     // user-authored — anything non-array degrades to "no declared columns".
@@ -4123,12 +4144,18 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // user may not read is not offered: the server answers a sort on it with a
   // 403, and the list blanks to its no-access state. A dropped field does not
   // raise the relational hint either; the hint explains a missing relation the
-  // user could otherwise read. The in-use exception covers this rule too. A
+  // user could otherwise read. The in-use exception covers this rule too: a
   // field the current sort already names (a stored or URL sort) stays listed,
-  // exactly as the two rules above would list it and with no mark, so its row
-  // is not blank and can be removed. Until objectui#11943's follow-up it is
-  // also still choosable in every other row, and by "Add sort" when it comes
-  // first: listing it as removable only needs a `SortBuilder` change.
+  // so its row is not blank and can be removed.
+  //
+  // An entry the exception alone keeps is listed REMOVABLE ONLY
+  // (objectui#11943): it carries `disabled`, which `SortBuilder` renders as an
+  // unavailable option. Its own row still shows its label and can be changed
+  // to another field or removed, but no row's dropdown offers it as a choice
+  // and "Add sort" never seeds it. That holds for each reason the exception
+  // keeps a field: unreadable, relational, or refused by the platform (or by
+  // the type read when no projection is served). A field the two rules list
+  // anyway carries no flag, whether or not the sort names it.
   //
   // ONE read of the served projection, for BOTH legs below — the list this
   // picker renders, and the sort it emits for a host to persist. Read twice,
@@ -4143,21 +4170,25 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   const { sortFields, sortHasRelationalField } = React.useMemo(() => {
     const inUse = new Set(currentSort.map((item) => item.field).filter(Boolean));
     let excluded = false;
-    const fields: Array<{ value: string; label: string }> = [];
+    const fields: Array<{ value: string; label: string; disabled?: boolean }> = [];
     for (const field of candidateFields) {
-      if (!inUse.has(field.value) && !canReadField(perms, schema.objectName, field.value)) continue;
+      const readable = canReadField(perms, schema.objectName, field.value);
+      if (!readable && !inUse.has(field.value)) continue;
       const relational = EXPANDABLE_FIELD_TYPES.has(field.type);
       const platformSortable = platformSortability
         ? isPlatformSortableField(platformSortability, field.value)
         : !UNMATERIALIZED_FIELD_TYPES.has(field.type);
-      if (!relational && platformSortable) {
+      if (readable && !relational && platformSortable) {
         fields.push({ value: field.value, label: field.label });
         continue;
       }
       if (inUse.has(field.value)) {
+        // Listed only because the current sort names it: `disabled`, so its
+        // own row shows it and can drop it, and nothing can choose it anew.
         fields.push({
           value: field.value,
           label: relational ? `${field.label} ${t('list.sortByIdSuffix')}` : field.label,
+          disabled: true,
         });
         continue;
       }
@@ -4739,7 +4770,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 <div className="flex items-center justify-between border-b pb-2">
                   <h4 className="font-medium text-sm">{t('list.groupBy')}</h4>
                   {groupingConfig && (
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setGroupingConfig(undefined)} data-testid="clear-grouping">
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => changeGrouping(undefined)} data-testid="clear-grouping">
                       {t('list.clear')}
                     </Button>
                   )}
@@ -4754,7 +4785,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                       collapseTitle: t('list.collapsedByDefault', { defaultValue: 'Collapsed by default' }),
                       removeTitle: t('list.removeGroup', { defaultValue: 'Remove' }),
                     }}
-                    onChange={(next) => setGroupingConfig(next as any)}
+                    onChange={changeGrouping}
                   />
                 </div>
               </div>
@@ -4971,7 +5002,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               allFields={allFields as any}
               showGroup={toolbarFlags.showGroup}
               groupingConfig={groupingConfig}
-              setGroupingConfig={setGroupingConfig}
+              setGroupingConfig={changeGrouping}
               showColor={toolbarFlags.showColor}
               rowColorConfig={rowColorConfig}
               setRowColorConfig={setRowColorConfig}

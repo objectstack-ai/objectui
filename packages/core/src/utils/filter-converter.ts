@@ -1397,8 +1397,12 @@ function viewFilterRuleToNode(rule: ViewFilterRuleLike): FilterNode {
  *
  * The third is the one that kept getting lost. Renderers tested `source.length
  * > 0` before using it, which is `undefined > 0` for an object — so a
- * `table.defaultFilters` (declared `Record<string, any>`) was DROPPED and the
- * view returned every record. Silently: no error, just a wider answer.
+ * `table.defaultFilters` (declared `Record<string, any>` until objectui#6152
+ * round 10; the protocol's `ViewFilterRule` array since, and the record no
+ * longer validates there) was DROPPED and the view returned every record.
+ * Silently: no error, just a wider answer. That narrowing moved what an author
+ * may write, not this sink: the object arm below still lowers a record whatever
+ * caller hands it one.
  *
  * The FIRST never worked at all (objectui#3431). The array branch returned
  * every array VERBATIM, so a saved view's `ViewFilterRule[]` travelled to

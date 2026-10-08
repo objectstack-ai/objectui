@@ -2398,10 +2398,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
 
     /**
      * objectui#11860 — the list's toolbar state in the URL: the Filter panel's
-     * conditions, the search term and the sort, under the `uf_` family
-     * `userFilterUrlState` owns (its header names the params and their shapes).
-     * Panels and dialogs stay out of it; grouping is not here, because the
-     * list reports no grouping change to its host.
+     * conditions, the search term, the sort and the grouping, under the `uf_`
+     * family `userFilterUrlState` owns (its header names the params and their
+     * shapes). Panels and dialogs stay out of it.
      *
      * The SEED — what the list opens with — is decided once per list identity
      * (object + view, the same identity `renderListView` keys the list on;
@@ -2413,7 +2412,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      *    same list for everyone who may read it. A piece the URL lacks is
      *    absent, not filled from storage.
      * 2. Otherwise the per-user cache (`listFilterStorage`, unchanged) for the
-     *    Filter panel and the search; the view's own sort.
+     *    Filter panel and the search; the view's own sort and grouping.
      *
      * Then the seed is written back into the URL (replace, never a new history
      * entry), so the address bar shows the list on screen: a restored filter
@@ -2465,6 +2464,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             filters: seed.state.filters ?? null,
             search: seed.state.search ?? null,
             sort: seed.state.sort ?? null,
+            grouping: seed.state.grouping ?? null,
         });
         // Only a mirror of the CACHE is this page's own write. A link's params,
         // even rewritten, stay the link's: the identity can still move to the
@@ -2871,13 +2871,26 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
 
     /**
      * End-user filter selections restored from `uf_*` URL params (ADR-0047
-     * persistence). Captured once per ObjectView mount — UserFilters only
-     * reads them at its own mount, and later URL writes must not churn the
-     * schema memo.
+     * persistence), read from the CURRENT location once per list identity —
+     * the identity `listSeedRef` seeds on and `renderListView` keys the list
+     * on (objectui#11992). A view switch keeps this page mounted and remounts
+     * the list, whose `UserFilters` read these once, at that mount. So each
+     * view starts from the selections its own URL carries: none on the bare
+     * path a view tab navigates to, the link's on a link, the entry's own on
+     * Back. A capture once per PAGE mount restored the first view's selections
+     * on every view after it, while their address bar showed none.
+     *
+     * Held per identity rather than re-read every render: the list's own
+     * writes (below) reach the URL after the list already shows them, and a
+     * new object here would rebuild the list's schema on every chip click.
+     * The router's location is read, not `window.location`: it is the one this
+     * page writes to and the one `listSeedRef` reads.
      */
-    const [initialUfSelections] = useState<Record<string, string[]> | undefined>(
-        () => parseUserFilterParams(new URLSearchParams(window.location.search)),
-    );
+    const ufSelectionsRef = useRef<{ key: string; selections: Record<string, string[]> | undefined } | undefined>(undefined);
+    if (listIdentityKey && ufSelectionsRef.current?.key !== listIdentityKey) {
+        ufSelectionsRef.current = { key: listIdentityKey, selections: parseUserFilterParams(searchParams) };
+    }
+    const initialUfSelections = listIdentityKey ? ufSelectionsRef.current?.selections : undefined;
     const handleUserFilterSelectionsChange = useCallback(
         (selections: Record<string, Array<string | number | boolean>>) => {
             setSearchParams(prev => {
@@ -3261,6 +3274,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // returns to the sort the link opened with, the way it returns to
             // a stored one.
             sort: listSeed?.sort ?? (viewDef as any).sort ?? listSchema.sort,
+            // objectui#11860 — and a grouping the URL carries is laid over the
+            // view's, which the caller composed into `listSchema` (the census
+            // declares `grouping` relayed upstream; this reads no `viewDef`).
+            // `ListView` seeds its toolbar grouping from this value.
+            grouping: listSeed?.grouping ?? listSchema.grouping,
             // The ONE place this view's effective filter is computed (#2890).
             // It used to be computed twice — once here as `filter` for the child
             // views, once further down as `filters` for ListView — with the two
@@ -3485,7 +3503,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             aria: viewDef.aria ?? listSchema.aria,
             // (the legacy `filters` twin of the `filter` above lived here until
             // #2890 — see the note at its single remaining computation)
-            ...(viewDef.sort?.length ? { sort: viewDef.sort } : {}),
+            //
+            // objectui#11860 — and a second `sort` write lived here, the view's
+            // own sort spread in AFTER the `sort` rung above. Redundant with
+            // that rung while it read the view alone; once the rung put a
+            // URL-carried sort first, this spread overrode it on every view
+            // that declares a sort, so a link's sort reached the address bar
+            // and never the query. The rung is the one `sort` write.
             // objectui#10380 — for each kind the stored row's legacy `options`
             // bag carries, the view's own top-level block goes out at the top
             // level, as `InterfaceListPage` sends it. `ListView` then lays it
@@ -3653,6 +3677,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     persistViewPatch(viewDef.id, viewDef, { sort });
                     writeListUrlState({ sort });
                 }}
+                // objectui#11860 — the URL only: nothing else stores the
+                // toolbar grouping, and the view's own stays as authored.
+                onGroupingChange={(grouping) => writeListUrlState({ grouping: grouping ?? null })}
                 onFilterChange={(filter: any) => {
                     // SESSION state only (objectui#4155) — localStorage keeps
                     // the BUILDER's group verbatim, read back into

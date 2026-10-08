@@ -10,10 +10,10 @@
  * - Writes are debounced and pushed to the adapter; localStorage stays in
  *   sync as a cold-start cache.
  * - Storage key is scoped by `user.id` to avoid cross-account leakage.
- * - An object, dashboard, page or report entry is stored by IDENTITY — its
- *   `type` and `name` — never by display text; its label is resolved when it is
- *   rendered (`useRecentItemLabel`), in the language of that render
- *   (objectui#11678).
+ * - An object, dashboard, page, report or Studio package entry is stored by
+ *   IDENTITY — its `type` and `name` — never by display text; its label is
+ *   resolved when it is rendered (`useRecentItemLabel`), in the language of
+ *   that render (objectui#11678; the package kind, objectui#11863).
  * - A list equal to the one already persisted is not written again: a visit
  *   that does not change the list writes nothing, whoever reported the visit.
  *
@@ -51,7 +51,7 @@ import {
  * members (`pnpm check:i18n-keys`); the two entry shapes below take their arms
  * from it.
  */
-export type RecentItemType = 'object' | 'dashboard' | 'page' | 'report' | 'record' | 'metadata';
+export type RecentItemType = 'object' | 'dashboard' | 'page' | 'report' | 'package' | 'record' | 'metadata';
 
 interface RecentItemBase {
   /** Unique key, e.g. "object:contact" or "dashboard:sales_overview" */
@@ -62,8 +62,8 @@ interface RecentItemBase {
 }
 
 /**
- * An object, dashboard, page or report — stored by its identity, `type` and
- * `name`, and by no display text (objectui#11678).
+ * An object, dashboard, page, report or Studio package — stored by its
+ * identity, `type` and `name`, and by no display text (objectui#11678).
  *
  * Its label is resolved every time it is rendered, from the item's own
  * metadata in the current language (`useRecentItemLabel`). A label stored at
@@ -74,7 +74,12 @@ interface RecentItemBase {
  */
 export interface RecentNamedItem extends RecentItemBase {
   type: Exclude<RecentItemType, 'record' | 'metadata'>;
-  /** The item's machine name: the object's, dashboard's, page's or report's `name`. */
+  /**
+   * The item's machine name: the object's, dashboard's, page's or report's
+   * `name`, or a package's `id` (objectui#11863). A package is the one kind
+   * with no metadata cache behind it: its label comes from the package list
+   * the rendering surface has loaded (`useRecentItemLabel`'s `packages`).
+   */
   name: string;
 }
 
@@ -106,7 +111,7 @@ interface RecentItemsContextValue {
 const STORAGE_BASE_KEY = 'objectui-recent-items';
 const MAX_RECENT = 8;
 
-const NAMED_TYPES: ReadonlySet<string> = new Set(['object', 'dashboard', 'page', 'report']);
+const NAMED_TYPES: ReadonlySet<string> = new Set(['object', 'dashboard', 'page', 'report', 'package']);
 const TEXT_TYPES: ReadonlySet<string> = new Set(['record', 'metadata']);
 
 /**

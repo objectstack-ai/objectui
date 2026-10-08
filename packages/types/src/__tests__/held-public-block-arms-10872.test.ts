@@ -175,7 +175,7 @@ describe('objectui#10872 batch 4 — the arm follows the row, which follows the 
       .toBe(true);
   });
 
-  it.each(FACES)('%s face: `element:repeater` requires `object` — no `dataSource` waiver, it never reads one', (_face, judge) => {
+  it.each(FACES)('%s face: `element:repeater` requires `object` — no `dataSource` waiver, the binding does not stand in for it (objectui#11880)', (_face, judge) => {
     const result = judge({ type: 'element:repeater', properties: { limit: 5 } });
     expect(result.success).toBe(false);
     expect(at(result, 'properties.object').length).toBeGreaterThan(0);

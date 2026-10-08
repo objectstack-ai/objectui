@@ -49,9 +49,17 @@ const RULES = [
   { type: 'json_schema', name: 'payload_shape', message: 'Bad payload', field: 'payload', schema: { type: 'object' } },
 ];
 
-/** The panel's text-like controls; checkboxes are excluded (see header). */
+/**
+ * The panel's text-like controls and its pickers; checkboxes are excluded (see
+ * header). The pickers are the shared `Select` since objectui#11865, so a
+ * picker is its trigger, the `role="combobox"` button.
+ */
 function controls(container: HTMLElement): HTMLElement[] {
-  return [...container.querySelectorAll<HTMLElement>('input:not([type="checkbox"]), select, textarea')];
+  return [
+    ...container.querySelectorAll<HTMLElement>(
+      'input:not([type="checkbox"]), select, textarea, button[role="combobox"]',
+    ),
+  ];
 }
 
 describe('ObjectValidationsPanel — read-only controls look disabled (objectui#11781)', () => {

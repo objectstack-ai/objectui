@@ -32,7 +32,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { ObjectSchema } from '@objectstack/spec/data';
 
 import { ObjectValidationsPanel } from './ObjectValidationsPanel';
@@ -78,6 +78,12 @@ function typeGuard(cel: string) {
   fireEvent.click(screen.getByRole('button', { name: /Expression/ }));
   const box = screen.getAllByRole('combobox').find((el) => el.tagName === 'TEXTAREA') as HTMLTextAreaElement;
   fireEvent.change(box, { target: { value: cel } });
+}
+
+/** Pick `label` in the open rule's Type picker, the shared `Select` (objectui#11865). */
+async function pickType(label: string): Promise<void> {
+  fireEvent.keyDown(screen.getByTestId('rule-type'), { key: 'ArrowDown' });
+  fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: label }));
 }
 
 function lastValidations(onPatch: ReturnType<typeof vi.fn>): Array<Record<string, unknown>> {
@@ -186,14 +192,15 @@ describe('a new validation rule waits for its condition (objectui#11820)', () =>
     expect(screen.queryByTestId('rule-unsaved')).toBeNull();
   });
 
-  it('control — an existing rule switched to a guarded type is still written at once with the valid placeholder', () => {
+  it('control — an existing rule switched to a guarded type is still written at once with the valid placeholder', async () => {
     const onPatch = vi.fn();
     const initial = {
       ...baseDraft,
       validations: [{ type: 'format', name: 'code_format', message: 'bad', field: 'name', regex: '^[A-Z]+$' }],
     };
     render(<Harness onPatch={onPatch} initial={initial} />);
-    fireEvent.change(screen.getByDisplayValue('Format — regex / built-in format'), { target: { value: 'script' } });
+    expect(screen.getByTestId('rule-type')).toHaveTextContent('Format — regex / built-in format');
+    await pickType('Script — CEL fail condition');
     expect(onPatch).toHaveBeenCalledTimes(1);
     const written = lastValidations(onPatch)[0];
     expect(written).toMatchObject({ type: 'script', name: 'code_format', message: 'bad', condition: 'false' });

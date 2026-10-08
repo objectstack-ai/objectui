@@ -589,6 +589,7 @@ const es = {
       invalidBoolean: "«{{value}}» no es un valor verdadero/falso válido",
       invalidNumber: "«{{value}}» no es un número válido",
       invalidDate: "«{{value}}» no es una fecha válida",
+      invalidTime: "«{{value}}» no es una hora válida",
       invalidOption: "«{{value}}» no es una de las opciones permitidas",
       requiredValue: "Este campo es obligatorio",
       matchAmbiguous: "Coincide con más de un registro existente: use un valor único o el id del registro",
@@ -1647,7 +1648,7 @@ const es = {
   },
   console: {
     studio: {
-      backToHome: "Volver al inicio",
+      title: "Studio",
     },
     saveAdvisoryTitle: "Guardado: la comprobación de creación generó {{count}} recomendación(es)",
     saveAdvisoryTitle_one: "Guardado: la comprobación de creación generó {{count}} recomendación",
@@ -2697,6 +2698,7 @@ const es = {
         dashboard: "Panel",
         page: "Página",
         report: "Informe",
+        package: "Paquete",
         record: "Registro",
         metadata: "Metadatos",
       },
@@ -4134,7 +4136,7 @@ const es = {
   },
   element: {
     number: {
-      noObject: "No se ha indicado ningún objeto: define object o dataSource.object.",
+      noObject: "No se ha indicado ningún objeto: define dataSource.object.",
     },
   },
 };

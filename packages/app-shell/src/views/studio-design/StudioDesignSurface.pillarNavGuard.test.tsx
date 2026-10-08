@@ -72,6 +72,7 @@ vi.mock('../../preview/DraftChangesPanel', () => ({
   DraftChangesPanel: () => null,
 }));
 
+import { t } from '../metadata-admin/i18n';
 import { StudioDesignSurface } from './StudioDesignSurface';
 
 // jsdom has no matchMedia — useIsMobile / useIsWideViewport need a stub.
@@ -240,13 +241,17 @@ describe('Studio header — unsaved pillar edits guard (#2600)', () => {
     // panel's dirty report crosses AccessPillar into the surface guard.
     fireEvent.click(screen.getByRole('button', { name: 'Record sharing (OWD)' }));
     await screen.findByTestId('owd-internal-a_account');
-    fireEvent.change(screen.getByTestId('owd-internal-a_account'), { target: { value: 'private' } });
+    // The dial is the shared Select (objectui#11865): open it and pick, as a user does.
+    const owdPrivate = t('engine.studio.settings.sharingPrivate', 'en-US');
+    fireEvent.keyDown(screen.getByTestId('owd-internal-a_account'), { key: 'ArrowDown' });
+    const listbox = await screen.findByRole('listbox');
+    fireEvent.click(within(listbox).getByRole('option', { name: owdPrivate }));
 
     confirmSpy.mockReturnValueOnce(false);
     fireEvent.click(screen.getByRole('link', { name: 'Interfaces' }));
     expect(confirmSpy).toHaveBeenCalledTimes(1);
     // Still on the overview, edit intact.
-    expect((screen.getByTestId('owd-internal-a_account') as HTMLSelectElement).value).toBe('private');
+    expect(screen.getByTestId('owd-internal-a_account').textContent).toBe(owdPrivate);
 
     // Confirming discards and leaves; the unmounting pillar resets the guard,
     // so walking back to Access must NOT prompt again.

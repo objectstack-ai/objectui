@@ -1392,9 +1392,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       if (!objectSchemaReady) return;
 
       try {
-        // `mergeFilterNodes` rescues an OBJECT source: `table.defaultFilters` is
-        // declared `Record<string, any>`, and the `baseFilter.length > 0` test
-        // this replaced read false for it — so a view's default filter was
+        // `mergeFilterNodes` rescues an OBJECT source: `table.defaultFilters` was
+        // declared `Record<string, any>` (until objectui#6152 round 10; the
+        // grid row's `ViewFilterRule` array since), and the `baseFilter.length
+        // > 0` test this replaced read false for it — so a view's default filter was
         // dropped and every record came back. The grid path (ObjectGrid) always
         // assigned it directly and was unaffected, so the same view filtered
         // correctly as a grid and returned everything as a calendar/kanban/

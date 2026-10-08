@@ -10,8 +10,9 @@
  *
  * Data binding follows the spec's ElementDataSource (`schema.dataSource`):
  *   { object, view?, filter?, sort?, limit? }
- * with `properties.object` accepted as a fallback. Display config is read off
- * `schema.properties`:
+ * and is read from there ONLY: the flat `properties.object` / `filter` /
+ * `sort` / `limit` are not read (objectui#11880, objectstack#11509 ruled
+ * A-narrow). Display config is read off `schema.properties`:
  *   { labelField='name', valueField='id', label?, placeholder?, emptyText? }
  *
  * The selection is written through `usePageVariableBinding(schema.id)`: the
@@ -71,7 +72,6 @@ function toText(v: unknown): string {
 
 function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   const props = readProps<{
-    object?: string;
     labelField?: string;
     valueField?: string;
     // All three are `string | I18nLabel` because that is what the contract says:
@@ -84,16 +84,14 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
     label?: string | I18nLabel;
     placeholder?: string | I18nLabel;
     emptyText?: string | I18nLabel;
-    filter?: unknown;
-    sort?: any;
-    limit?: number;
     aria?: AriaProps;
   }>(schema);
 
   const adapter = useAdapter() as any;
 
-  // Per-element data binding (ElementDataSourceSchema) takes precedence over the
-  // flat `properties.object` shorthand. `dataBinding.composed` carries the
+  // The per-element data binding (ElementDataSourceSchema) is the ONE source of
+  // the picker's query (objectui#11880): with no `dataSource.object` there is
+  // no object, and the picker issues no read. `dataBinding.composed` carries the
   // binding's own keys already combined with the saved view its `view` names —
   // the view supplies the baseline, an explicit binding key overrides it, and
   // `filter` AND-combines because the spec calls the binding's filter
@@ -110,18 +108,18 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   // narrow. `undefined` parks the fetch effect below; the render returns a
   // status panel instead.
   const unresolved = dataBinding.status === 'loading' || dataBinding.status === 'missing';
-  const object = unresolved ? undefined : (composed?.object ?? props.object);
-  // objectui#10666 — whichever filter wins (the binding's, or the node's own),
-  // with every context token (`{current_user_id}`, `{current_org_id}`, the date
+  const object = unresolved ? undefined : composed?.object;
+  // objectui#10666 — the binding's filter (AND-combined with its view's), with
+  // every context token (`{current_user_id}`, `{current_org_id}`, the date
   // macros) resolved ONCE through `@object-ui/core`'s shared
   // `resolveFilterPlaceholders`, against the session scope the host provides,
   // and HELD by structure (`useResolvedFilter` in `@object-ui/react`). The
   // picker sent the literal token on `$filter` before; the query and its
   // content key read this value.
   const filterScope = useFilterScope();
-  const filter = useResolvedFilter(composed?.filter ?? props.filter, filterScope);
-  const sort = composed?.sort ?? props.sort;
-  const limit = composed?.limit ?? props.limit ?? 50;
+  const filter = useResolvedFilter(composed?.filter, filterScope);
+  const sort = composed?.sort;
+  const limit = composed?.limit ?? 50;
   const labelField = props.labelField ?? 'name';
   const valueField = props.valueField ?? 'id';
 
@@ -364,8 +362,8 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
 }
 
 // This block CONSUMES the gate's family without the JSX wrapper — the hook plus
-// the two status panels — because its object lives under `properties` rather
-// than on a schema key the gate could write. It reads `dataSource` exactly as
+// the two status panels — because its query has no schema key of its own the
+// gate could write the binding onto. It reads `dataSource` exactly as
 // the wrapping blocks do, so it declares it from the same seam: the marker is
 // applied to the renderer at its registration rather than at a gate tag it does
 // not have. Found by the render probe in
@@ -387,10 +385,19 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
   skipFallback: true,
   label: 'Record Picker',
   category: 'input',
+  // ⚠️ objectui#11880: the four query keys `object` / `filter` / `sort` /
+  // `limit` below stay PUBLISHED and are NOT READ. The picker reads its query
+  // from the node-level `dataSource` binding only (objectstack#11509, ruled
+  // A-narrow); the spec still declares the flat four, and their published
+  // retirement (tombstones, the `validate-component-props` refusal) ships with
+  // the spec half and the pin bump that carries it. Until then each
+  // description says the key is not read and names the binding member that is.
+  // The history below is why each was declared in the first place.
+  //
   // `filter` is DECLARED, not merely honoured (objectui#3830) — the fourth key
   // of objectui#3808's A class, which that issue's own three-way triage dropped
-  // between the raw key dump and the lists. The renderer has read it all along
-  // (`composed?.filter ?? props.filter` above, into `query.$filter`), and the
+  // between the raw key dump and the lists. The renderer read it then
+  // (`composed?.filter ?? props.filter`, into `query.$filter`), and the
   // spec declares it (`ElementRecordPickerProps.filter`), but while it was
   // missing from this list every layer that reads a manifest said the opposite:
   // `element:record_picker` is not in `PUBLIC_BLOCKS` ("record picking is a
@@ -404,7 +411,12 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
   // `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`, whose
   // explicit exemption for this key is deleted by the same change.
   inputs: [
-    { name: 'object', type: 'string' },
+    {
+      name: 'object',
+      type: 'string',
+      description:
+        'NOT READ (objectui#11880): the picker queries the object the node-level `dataSource.object` names, and a node without one offers no records. `@objectstack/spec` retires this flat key in v18 (objectstack#11509).',
+    },
     {
       name: 'filter',
       // `'array'` is the spec's shape, not a chosen arm. objectstack#14406
@@ -428,11 +440,11 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
       // two for the same reason once its render site learned to resolve both
       // (objectui#5590).
       type: 'array',
-      // Taken from what the renderer DOES with the key, because the one thing
-      // an author cannot read off the spec is which of the two places they may
-      // write a filter actually wins.
+      // Taken from what the renderer DOES with the key: since objectui#11880
+      // it reads `dataSource.filter` only, so the description says this key is
+      // not read and names the binding member that is.
       description:
-        'Filter rules narrowing which records the picker offers, as a ViewFilterRule ARRAY — `[{ field: "status", operator: "equals", value: "open" }, …]`, the one filter orthography this map\'s array-declared `filter` doors share. It becomes the `$filter` of the picker\'s own query, so it decides which records exist for the user, not merely how they are shown. PRECEDENCE: a node-level `dataSource` binding wins outright. The renderer reads `dataSource.filter ?? filter`, so when the binding — or the saved view its `view` names, which AND-combine with each other because the spec calls the binding\'s filter *additional* — supplies a filter, THIS key is dropped entirely rather than merged into it; it applies only when the node carries no `dataSource`, or that `dataSource` and its view both leave `filter` unset. MEMBERS ARE RULE OBJECTS: the MongoDB-style record form (`{ status: "open" }`, `{ $and: [ … ] }`) was retired by objectstack#14406 and the spec now refuses it by kind, and a bare tuple (`["a", "=", 1]`) is refused as a member because each entry must be an object.',
+        'NOT READ (objectui#11880): the picker\'s filter is the node-level `dataSource.filter` — AND-combined with the filter of the saved view its `view` names, because the spec calls the binding\'s filter *additional* — and it becomes the `$filter` of the picker\'s own query, so it decides which records exist for the user. This flat key is not merged with it and never applies; `@objectstack/spec` retires it in v18 (objectstack#11509). Either door takes a ViewFilterRule ARRAY — `[{ field: "status", operator: "equals", value: "open" }, …]`, the one filter orthography this map\'s array-declared `filter` doors share; the MongoDB-style record form (`{ status: "open" }`, `{ $and: [ … ] }`) was retired by objectstack#14406, and a bare tuple (`["a", "=", 1]`) is refused as a member because each entry must be an object.',
     },
     { name: 'labelField', type: 'string' },
     { name: 'valueField', type: 'string' },
@@ -492,13 +504,13 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
       // `validateTree` reports on, and `sdui-intrinsics.d.ts` types.
       of: 'object',
       description:
-        'Row order, as an array of `{ field, order }` entries — `[{ field: "name", order: "asc" }]`. It becomes the `$orderby` of the picker\'s own query, so it decides the order records are offered in. `order` is `asc` or `desc`; the terse string form (`"name asc"`) is not accepted by the contract. PRECEDENCE: identical to `filter` above and for the same reason — the renderer reads `dataSource.sort ?? sort`, so a node-level `dataSource` binding (or the saved view its `view` names) REPLACES this key outright rather than merging with it; it applies only when the node carries no `dataSource`, or that `dataSource` and its view both leave `sort` unset.',
+        'NOT READ (objectui#11880): the picker\'s row order is the node-level `dataSource.sort` (else the sort of the saved view its `view` names), which becomes the `$orderby` of the picker\'s own query. This flat key never applies; `@objectstack/spec` retires it in v18 (objectstack#11509). Either door takes an array of `{ field, order }` entries — `[{ field: "name", order: "asc" }]`, `order` `asc` or `desc`; the terse string form (`"name asc"`) is not accepted by the contract.',
     },
     {
       name: 'limit',
       type: 'number',
       description:
-        'Maximum number of records the picker offers, as a whole number. It becomes the `$top` of the picker\'s own query, so it bounds what the user can choose from rather than how the list is displayed — a record outside the limit cannot be picked at all, and the control gives no sign that more exist. PRECEDENCE, first source that supplies a cap wins: (1) `dataSource.limit`; (2) the row cap of the saved view that `dataSource.view` names; (3) THIS key; (4) 50. A cap in (1) or (2) counts only when it is a positive integer — one the contract refuses (`0`, a negative, a non-integer) is treated as NOT AUTHORED and falls through to the next source exactly as an absent one does (objectui#10016), so a refused `dataSource.limit` does not win. DEFAULT: the 50 in (4) is applied by the renderer — the trailing `?? 50` where the picker resolves its `limit` — not by the schema.',
+        'NOT READ (objectui#11880): the number of records the picker offers is capped by, first source that supplies a cap: (1) `dataSource.limit`; (2) the row cap of the saved view that `dataSource.view` names; (3) 50. The cap becomes the `$top` of the picker\'s own query, so a record outside it cannot be picked at all. A cap in (1) or (2) counts only when it is a positive integer — one the contract refuses (`0`, a negative, a non-integer) is treated as NOT AUTHORED and falls through exactly as an absent one does (objectui#10016). This flat key is not among the sources; `@objectstack/spec` retires it in v18 (objectstack#11509).',
     },
     {
       name: 'emptyText',
@@ -519,7 +531,7 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
       // render, never before and never after.
       type: ['string', 'object'],
       description:
-        'Text shown in place of the row list when the query returns no records (renderer default "No records", `record-picker.tsx:213`). Unlike `filter` / `sort` / `limit` this is display-only — it never reaches the query, and a node-level `dataSource` binding does not override it. Accepts either a plain string or an inline per-locale map (`{ en: "None", "zh-CN": "无记录" }`) — the `I18nLabel` union rc.6 widened this key to — and the renderer resolves the map against the active language at the read site, falling back through base language, `default`, then `en`. An authored empty string stays empty; the "No records" default applies only when the key is absent.',
+        'Text shown in place of the row list when the query returns no records (renderer default "No records"). Unlike the node-level `dataSource` binding\'s `filter` / `sort` / `limit` this is display-only — it never reaches the query, and the binding does not override it. Accepts either a plain string or an inline per-locale map (`{ en: "None", "zh-CN": "无记录" }`) — the `I18nLabel` union rc.6 widened this key to — and the renderer resolves the map against the active language at the read site, falling back through base language, `default`, then `en`. An authored empty string stays empty; the "No records" default applies only when the key is absent.',
     },
   ],
 });

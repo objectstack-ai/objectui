@@ -31,7 +31,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { ValidationRuleSchema, ObjectSchema } from '@objectstack/spec/data';
 
 import { ObjectValidationsPanel } from './ObjectValidationsPanel';
@@ -91,6 +91,12 @@ function typeGuard(cel: string) {
   fireEvent.click(screen.getByRole('button', { name: /Expression/ }));
   const box = screen.getAllByRole('combobox').find((el) => el.tagName === 'TEXTAREA') as HTMLTextAreaElement;
   fireEvent.change(box, { target: { value: cel } });
+}
+
+/** Pick `label` in the open rule's Type picker, the shared `Select` (objectui#11865). */
+async function pickType(label: string): Promise<void> {
+  fireEvent.keyDown(screen.getByTestId('rule-type'), { key: 'ArrowDown' });
+  fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: label }));
 }
 
 /**
@@ -212,13 +218,12 @@ describe('whenKeyPin — ObjectValidationsPanel emits spec-parseable metadata', 
     expectSpecAccepts(written, 'edited script');
   });
 
-  it('carries the guard across a type switch in each side\'s own spelling', () => {
+  it('carries the guard across a type switch in each side\'s own spelling', async () => {
     // script (`condition`) → conditional (`when`)
     const onPatch = vi.fn();
     render(<ObjectValidationsPanel draft={baseDraft} onPatch={onPatch} />);
-    fireEvent.change(screen.getByDisplayValue('Script — CEL fail condition'), {
-      target: { value: 'conditional' },
-    });
+    expect(screen.getByTestId('rule-type')).toHaveTextContent('Script — CEL fail condition');
+    await pickType('Conditional — apply a rule when a guard holds');
     const toConditional = onPatch.mock.calls[0][0].validations[0];
     expect(toConditional.when).toBe('record.amount < 0');
     expect(toConditional).not.toHaveProperty('condition');
@@ -241,9 +246,8 @@ describe('whenKeyPin — ObjectValidationsPanel emits spec-parseable metadata', 
       ],
     };
     render(<ObjectValidationsPanel draft={conditionalDraft} onPatch={onPatch2} />);
-    fireEvent.change(screen.getByDisplayValue('Conditional — apply a rule when a guard holds'), {
-      target: { value: 'script' },
-    });
+    expect(screen.getByTestId('rule-type')).toHaveTextContent('Conditional — apply a rule when a guard holds');
+    await pickType('Script — CEL fail condition');
     const toScript = onPatch2.mock.calls[0][0].validations[0];
     expect(toScript.condition).toBe('record.amount > 100');
     expect(toScript).not.toHaveProperty('when');

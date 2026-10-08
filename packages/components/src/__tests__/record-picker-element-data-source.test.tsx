@@ -22,6 +22,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import React from 'react';
 import { AdapterCtx, SchemaRenderer } from '@object-ui/react';
 // Registers `element:record_picker` at module scope (not in a hook) — the
@@ -141,9 +142,35 @@ describe('element:record_picker — dataSource.view (objectstack#6953)', () => {
     expect(adapter.getObjectSchema).not.toHaveBeenCalled();
   });
 
-  it('still honours the flat `properties.object` shorthand', async () => {
+  // objectui#11880 — the binding is the picker's ONE source. Until then a flat
+  // `properties.object` / `filter` / `sort` / `limit` stood in for whichever
+  // binding member was absent (`composed?.x ?? props.x`); objectstack#11509
+  // retires those keys, and the picker reads none of them.
+  it('a flat `properties.object` alone binds nothing: no query, and the control is disabled', async () => {
     const adapter = makeAdapter();
-    renderPicker({ properties: { object: 'account' } }, adapter);
-    await waitFor(() => expect(adapter.find).toHaveBeenCalledWith('account', expect.any(Object)));
+    const { container } = renderPicker({ properties: { object: 'account' } }, adapter);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(adapter.find).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="record-picker-trigger"]')).toBeDisabled();
+  });
+
+  it('beside a binding, the flat `filter` / `sort` / `limit` are not read', async () => {
+    const adapter = makeAdapter();
+    renderPicker(
+      {
+        dataSource: { object: 'account' },
+        properties: {
+          object: 'lead',
+          filter: [{ field: 'owner', operator: 'equals', value: 'me' }],
+          sort: [{ field: 'name', order: 'asc' }],
+          limit: 12,
+        },
+      },
+      adapter,
+    );
+    await waitFor(() => expect(adapter.find).toHaveBeenCalled());
+    expect(adapter.find.mock.calls[0][0]).toBe('account');
+    // Only the renderer's own default cap: no flat key reaches the query.
+    expect(firstQuery(adapter)).toEqual({ $top: 50 });
   });
 });

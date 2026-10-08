@@ -568,6 +568,7 @@ const ko = {
       invalidBoolean: "\"{{value}}\"은(는) 유효한 true/false 값이 아닙니다",
       invalidNumber: "\"{{value}}\"은(는) 유효한 숫자가 아닙니다",
       invalidDate: "\"{{value}}\"은(는) 유효한 날짜가 아닙니다",
+      invalidTime: "\"{{value}}\"은(는) 유효한 시간이 아닙니다",
       invalidOption: "\"{{value}}\"은(는) 허용된 선택지에 없습니다",
       requiredValue: "필수 필드입니다",
       matchAmbiguous: "기존 레코드 여러 건과 일치합니다 — 고유한 값이나 레코드 ID를 사용하세요",
@@ -1605,7 +1606,7 @@ const ko = {
   },
   console: {
     studio: {
-      backToHome: "홈으로 돌아가기",
+      title: "Studio",
     },
     saveAdvisoryTitle: "저장되었습니다 — 작성 검사에서 {{count}}건의 권장 사항이 발견되었습니다",
     saveAdvisoryTitle_one: "저장되었습니다 — 작성 검사에서 {{count}}건의 권장 사항이 발견되었습니다",
@@ -2645,6 +2646,7 @@ const ko = {
         dashboard: "대시보드",
         page: "페이지",
         report: "보고서",
+        package: "패키지",
         record: "레코드",
         metadata: "메타데이터",
       },
@@ -4043,7 +4045,7 @@ const ko = {
   },
   element: {
     number: {
-      noObject: "개체가 지정되지 않았습니다. object 또는 dataSource.object를 설정하세요.",
+      noObject: "개체가 지정되지 않았습니다. dataSource.object를 설정하세요.",
     },
   },
 };

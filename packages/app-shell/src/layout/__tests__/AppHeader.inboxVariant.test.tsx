@@ -356,7 +356,8 @@ describe('AppHeader — the bell polls the inbox in every variant (#4110)', () =
  *
  * `variant="home"` is also the AI screen — `AiChatPage` renders
  * `<AppHeader variant="home" />`; there is no separate `ai-chat` variant
- * (`AppHeaderVariant = 'app' | 'home' | 'orgs'`).
+ * (see `AppHeaderVariant`). `studio` is the `/studio` front door
+ * (objectui#11863).
  */
 describe('AppHeader — Approvals + Activity fill in every variant (#4197)', () => {
   beforeEach(() => {
@@ -365,7 +366,7 @@ describe('AppHeader — Approvals + Activity fill in every variant (#4197)', () 
   });
 
   // 'app' is the control: it was green before the fix and must stay green.
-  for (const variant of ['home', 'orgs', 'app'] as const) {
+  for (const variant of ['home', 'orgs', 'studio', 'app'] as const) {
     it(`fills the Approvals tab on the ${variant} variant`, async () => {
       render(<AppHeader variant={variant} appName={variant === 'app' ? 'ehr' : undefined} />);
 
@@ -724,8 +725,8 @@ describe('AppHeader — the bell panel renders what the inbox returns, under BOT
 
   it('holds on every console surface, not only inside an app', async () => {
     // The #4110/#4230 signature is variant-shaped: `app` kept working while the
-    // off-app surfaces went dark. Both filters, both off-app variants.
-    for (const variant of ['home', 'orgs'] as const) {
+    // off-app surfaces went dark. Both filters, every off-app variant.
+    for (const variant of ['home', 'orgs', 'studio'] as const) {
       const view = render(<AppHeader variant={variant} />);
       expect(await screen.findByText('Approval reminder: INV-1008')).toBeInTheDocument();
       clickAll();

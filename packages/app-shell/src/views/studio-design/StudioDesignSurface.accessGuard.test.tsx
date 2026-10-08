@@ -52,6 +52,7 @@ vi.mock('./StudioAiCopilot', () => ({
   StudioChatDock: () => null,
 }));
 
+import { t } from '../metadata-admin/i18n';
 import { AccessPillar } from './StudioDesignSurface';
 
 // jsdom has no matchMedia — useIsMobile (rail overlay) needs a stub.
@@ -229,12 +230,18 @@ describe('AccessPillar — unsaved matrix edits guard', () => {
 async function openAndDirtyTheOwd() {
   fireEvent.click(screen.getByRole('button', { name: 'Record sharing (OWD)' }));
   await screen.findByTestId('owd-internal-a_account');
-  fireEvent.change(screen.getByTestId('owd-internal-a_account'), { target: { value: 'private' } });
+  // The dial is the shared Select (objectui#11865): open it and pick, as a user does.
+  fireEvent.keyDown(screen.getByTestId('owd-internal-a_account'), { key: 'ArrowDown' });
+  const listbox = await screen.findByRole('listbox');
+  fireEvent.click(within(listbox).getByRole('option', { name: OWD_PRIVATE }));
   await screen.findByTestId('owd-dirty-a_account');
 }
 
-const owdInternalValue = () =>
-  (screen.getByTestId('owd-internal-a_account') as HTMLSelectElement).value;
+const OWD_PRIVATE = t('engine.studio.settings.sharingPrivate', 'en-US');
+const OWD_UNSET = t('engine.studio.settings.sharingUnset', 'en-US');
+
+/** What the dial's trigger shows. */
+const owdInternalValue = () => screen.getByTestId('owd-internal-a_account').textContent;
 
 describe('AccessPillar — unsaved OWD overview edits guard (#2600)', () => {
   it('asks before swapping a dirty overview for a set; cancel keeps the edits', async () => {
@@ -245,7 +252,7 @@ describe('AccessPillar — unsaved OWD overview edits guard (#2600)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Set A' }));
     expect(confirmSpy).toHaveBeenCalledTimes(1);
     // Still on the overview, edit intact.
-    expect(owdInternalValue()).toBe('private');
+    expect(owdInternalValue()).toBe(OWD_PRIVATE);
 
     // Confirming the same swap discards and mounts the set A matrix.
     confirmSpy.mockReturnValueOnce(true);
@@ -258,7 +265,7 @@ describe('AccessPillar — unsaved OWD overview edits guard (#2600)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Record sharing (OWD)' }));
     expect(confirmSpy).toHaveBeenCalledTimes(2);
     await screen.findByTestId('owd-internal-a_account');
-    expect(owdInternalValue()).toBe('');
+    expect(owdInternalValue()).toBe(OWD_UNSET);
   });
 
   it('never prompts when re-clicking the OWD rail entry (nothing remounts)', async () => {
@@ -269,7 +276,7 @@ describe('AccessPillar — unsaved OWD overview edits guard (#2600)', () => {
 
     expect(confirmSpy).not.toHaveBeenCalled();
     // Not remounted — the unsaved edit is still visible.
-    expect(owdInternalValue()).toBe('private');
+    expect(owdInternalValue()).toBe(OWD_PRIVATE);
   });
 
   it('gates the create-set flow, and creating lands on the new set matrix', async () => {
@@ -281,7 +288,7 @@ describe('AccessPillar — unsaved OWD overview edits guard (#2600)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'New permission set' }));
     expect(confirmSpy).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(owdInternalValue()).toBe('private');
+    expect(owdInternalValue()).toBe(OWD_PRIVATE);
 
     // Confirm opens the creator; submitting swaps the overview out for the
     // new set's matrix (the discard the gate warned about).

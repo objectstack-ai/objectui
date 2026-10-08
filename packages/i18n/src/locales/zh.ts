@@ -599,6 +599,7 @@ const zh = {
       invalidBoolean: '"{{value}}" 不是有效的是/否值',
       invalidNumber: '"{{value}}" 不是有效的数字',
       invalidDate: '"{{value}}" 不是有效的日期',
+      invalidTime: '"{{value}}" 不是有效的时间',
       invalidOption: '"{{value}}" 不在允许的选项范围内',
       requiredValue: '此字段为必填项',
       matchAmbiguous: '匹配到多条已有记录，请使用唯一值或记录 ID',
@@ -1671,7 +1672,7 @@ const zh = {
   },
   console: {
     studio: {
-      backToHome: '返回首页',
+      title: 'Studio',
     },
     saveAdvisoryTitle: '已保存 — 编辑检查提出了 {{count}} 条建议',
     saveAdvisoryTitle_one: '已保存 — 编辑检查提出了 {{count}} 条建议',
@@ -2732,6 +2733,7 @@ const zh = {
         dashboard: '仪表盘',
         page: '页面',
         report: '报表',
+        package: '软件包',
         record: '记录',
         metadata: '元数据',
       },
@@ -4116,7 +4118,7 @@ const zh = {
   },
   element: {
     number: {
-      noObject: '未指定对象：请设置 object 或 dataSource.object。',
+      noObject: '未指定对象：请设置 dataSource.object。',
     },
   },
 } as const;

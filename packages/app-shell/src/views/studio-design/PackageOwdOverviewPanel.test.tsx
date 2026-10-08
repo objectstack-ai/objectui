@@ -20,7 +20,25 @@ import React from 'react';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+import { t } from '../metadata-admin/i18n';
 import { PackageOwdOverviewPanel } from './PackageOwdOverviewPanel';
+
+const en = (key: string) => t(key, 'en-US');
+
+/** What each dial lists an OWD value under; the dials are the shared Select (objectui#11865). */
+const OWD_LABEL: Record<string, string> = {
+  '': en('engine.studio.settings.sharingUnset'),
+  private: en('engine.studio.settings.sharingPrivate'),
+  public_read: en('engine.studio.settings.sharingPublicRead'),
+  public_read_write: en('engine.studio.settings.sharingPublicReadWrite'),
+};
+
+/** Pick a dial's option by its label, through the trigger, as a user does. */
+async function pickOwd(testId: string, label: string): Promise<void> {
+  fireEvent.keyDown(screen.getByTestId(testId), { key: 'ArrowDown' });
+  const listbox = await screen.findByRole('listbox');
+  fireEvent.click(within(listbox).getByRole('option', { name: label }));
+}
 
 interface Server {
   /** Merged object bodies keyed by name (what layered() returns as `effective`). */
@@ -87,8 +105,8 @@ describe('PackageOwdOverviewPanel — list render', () => {
     await screen.findByTestId('owd-row-crm_account');
     expect(screen.getByTestId('owd-row-crm_contact')).toBeTruthy();
     expect(screen.getByTestId('owd-row-crm_case')).toBeTruthy();
-    expect((screen.getByTestId('owd-internal-crm_account') as HTMLSelectElement).value).toBe('public_read_write');
-    expect((screen.getByTestId('owd-internal-crm_contact') as HTMLSelectElement).value).toBe('private');
+    expect(screen.getByTestId('owd-internal-crm_account').textContent).toBe(OWD_LABEL.public_read_write);
+    expect(screen.getByTestId('owd-internal-crm_contact').textContent).toBe(OWD_LABEL.private);
   });
 
   it('includes draft-only objects from listDrafts', async () => {
@@ -110,7 +128,7 @@ describe('PackageOwdOverviewPanel — edit → per-object draft', () => {
     expect((screen.getByTestId('owd-save') as HTMLButtonElement).disabled).toBe(true);
 
     // Widen crm_contact private → public_read.
-    fireEvent.change(screen.getByTestId('owd-internal-crm_contact'), { target: { value: 'public_read' } });
+    await pickOwd('owd-internal-crm_contact', OWD_LABEL.public_read);
     expect(screen.getByTestId('owd-dirty-crm_contact')).toBeTruthy();
     expect((screen.getByTestId('owd-save') as HTMLButtonElement).disabled).toBe(false);
 
@@ -127,7 +145,7 @@ describe('PackageOwdOverviewPanel — edit → per-object draft', () => {
     const server = freshServer();
     renderPanel(server);
     await screen.findByTestId('owd-row-crm_account');
-    fireEvent.change(screen.getByTestId('owd-internal-crm_account'), { target: { value: '' } });
+    await pickOwd('owd-internal-crm_account', OWD_LABEL['']);
     fireEvent.click(screen.getByTestId('owd-save'));
     await waitFor(() => expect(server.saved.length).toBe(1));
     expect('sharingModel' in server.saved[0].body).toBe(false);
@@ -140,7 +158,7 @@ describe('PackageOwdOverviewPanel — validation (ADR-0090 D11)', () => {
     renderPanel(server);
     await screen.findByTestId('owd-row-crm_contact');
     // internal private, external public_read → wider.
-    fireEvent.change(screen.getByTestId('owd-external-crm_contact'), { target: { value: 'public_read' } });
+    await pickOwd('owd-external-crm_contact', OWD_LABEL.public_read);
     expect(screen.getByTestId('owd-error-crm_contact')).toBeTruthy();
     expect(screen.getByTestId('owd-invalid-banner')).toBeTruthy();
     expect((screen.getByTestId('owd-save') as HTMLButtonElement).disabled).toBe(true);
@@ -185,16 +203,16 @@ describe('PackageOwdOverviewPanel — onDirtyChange contract (objectui#2600)', (
     await screen.findByTestId('owd-row-crm_contact');
     expect(onDirtyChange).toHaveBeenLastCalledWith(false);
 
-    fireEvent.change(screen.getByTestId('owd-internal-crm_contact'), { target: { value: 'public_read' } });
+    await pickOwd('owd-internal-crm_contact', OWD_LABEL.public_read);
     expect(onDirtyChange).toHaveBeenLastCalledWith(true);
 
     // Reverting the edit back to the baseline reports clean again.
-    fireEvent.change(screen.getByTestId('owd-internal-crm_contact'), { target: { value: 'private' } });
+    await pickOwd('owd-internal-crm_contact', OWD_LABEL.private);
     expect(onDirtyChange).toHaveBeenLastCalledWith(false);
 
     // Dirty again, then unmount — a deliberately-discarded panel must clear
     // the host's guard by itself (same contract as PermissionMatrixEditPage).
-    fireEvent.change(screen.getByTestId('owd-internal-crm_contact'), { target: { value: 'public_read' } });
+    await pickOwd('owd-internal-crm_contact', OWD_LABEL.public_read);
     expect(onDirtyChange).toHaveBeenLastCalledWith(true);
     unmount();
     expect(onDirtyChange).toHaveBeenLastCalledWith(false);
@@ -206,7 +224,7 @@ describe('PackageOwdOverviewPanel — onDirtyChange contract (objectui#2600)', (
     renderPanel(server, { onDirtyChange });
     await screen.findByTestId('owd-row-crm_contact');
 
-    fireEvent.change(screen.getByTestId('owd-internal-crm_contact'), { target: { value: 'public_read' } });
+    await pickOwd('owd-internal-crm_contact', OWD_LABEL.public_read);
     expect(onDirtyChange).toHaveBeenLastCalledWith(true);
 
     fireEvent.click(screen.getByTestId('owd-save'));

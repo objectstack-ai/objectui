@@ -170,6 +170,13 @@ import type {
   // so `ObjectGridSchema.operations` and `.filter` take the row's own members
   // by reference. Aliased for the reason `SpecObjectCalendarProps` above is.
   ObjectGridProps as SpecObjectGridProps,
+  // objectui#6152 round 10 — `ComponentPropsMap['object-gantt']` /
+  // `['object-map']`'s author states, so the flat `ObjectGanttSchema.filter` /
+  // `ObjectMapSchema.filter` take their rows' own member by reference. Aliased
+  // for the reason `SpecObjectCalendarProps` above is (`ObjectGanttProps` is
+  // also `plugin-gantt`'s own component props name).
+  ObjectGanttProps as SpecObjectGanttProps,
+  ObjectMapProps as SpecObjectMapProps,
   // objectui#11355 — `ComponentPropsMap['object-kanban']`'s author state, so
   // `ObjectKanbanSchema.swimlaneField` takes the row's own type by reference.
   ObjectKanbanProps as SpecObjectKanbanProps,
@@ -221,9 +228,10 @@ export type ListViewTimelineConfig = TimelineConfig & {
  * exactly, and `KanbanConfigSchema` is `$strict`, so there was never a
  * divergence to preserve — only a second declaration under the spec's own name
  * for the next agent to read as canonical (objectstack#4115). The zod side has
- * derived from the spec all along (`zod/objectql.zod.ts`, which additionally
- * carries the `groupField` / `cardFields` legacy aliases); this alias is now
- * bound to the same source.
+ * derived from the spec all along (`zod/objectql.zod.ts`, which since
+ * objectui#6152 round 11 takes the list view's own `kanban` slot by reference and
+ * refuses the `groupField` / `cardFields` legacy aliases by name); this alias is
+ * now bound to the same source.
  */
 export type { KanbanConfig } from '@objectstack/spec/ui';
 
@@ -1136,10 +1144,30 @@ export interface ObjectGridSchema extends BaseSchema {
   defaultSort?: never;
 
   /**
-   * @deprecated Use filter instead
-   * Legacy default filters
+   * The legacy base-filter fallback, read only when {@link ObjectGridSchema.filter}
+   * is absent — the SAME `ViewFilterRule` array, `[{ field, operator, value }, ...]`,
+   * taken BY REFERENCE from the `object-grid` row
+   * (`ComponentPropsMap['object-grid'].defaultFilters`), which has declared it so
+   * since `@objectstack/spec` 17.6.0 and refuses the MongoDB-style record, a bare
+   * string and the AST tuple array. `ObjectGrid` lowers it through the same
+   * `toFilterNode` sink as `filter`, so a rule array here sends the same `$filter`
+   * as the same rule array written as `filter`.
+   *
+   * objectui#6152 round 10: this was `Record<string, any>`, so the record form
+   * (`{ status: 'open' }`) type-checked here, and through the `object-view`
+   * `table` slot, while the protocol refused it. Write
+   * `[{ field: 'status', operator: 'equals', value: 'open' }]` instead — or, better,
+   * move it to `filter`. ⚠️ The read did not narrow: the sink still lowers a record
+   * or an AST array that reaches the slot at runtime (`ObjectView` hands it an
+   * active named view's `filter`, which {@link NamedListView.filter} types
+   * `any[]`), which is not a shape an author writes here, so this face does not
+   * publish it (the objectui#10199 split, as {@link ObjectGridSchema.filter}
+   * makes it).
+   *
+   * @deprecated Use filter instead — the same rule array; this key is read only
+   * when `filter` is absent.
    */
-  defaultFilters?: Record<string, any>;
+  defaultFilters?: SpecObjectGridProps['defaultFilters'];
   
   /**
    * RETIRED (objectui#6152 round 7, ADR-0049) — the legacy second spelling of
@@ -3139,11 +3167,13 @@ export interface NamedListView {
    * spellings work and the declared one wins key-by-key; each block reaches the
    * renderer `ObjectView` already dispatches to for that `type`.
    *
-   * The four with a local dialect (`kanban` `calendar` `gallery` `timeline`)
-   * index this package's mirror deliberately: those shapes are the spec config
-   * `.partial()`-ed plus the legacy field aliases the renderers still read
-   * (`groupField`, `imageField`, `dateField`). `gantt` `map` `chart` `tree`
-   * arrive in that mirror straight from `SpecListViewSchema.shape`.
+   * The four with local refusals (`kanban` `calendar` `gallery` `timeline`)
+   * index this package's mirror deliberately: since objectui#6152 round 11 each is
+   * the spec's own list-view slot by reference, strict, `.partial()` on `kanban`
+   * and `timeline` only, with the pre-#2231 aliases (`groupField`, `cardFields`,
+   * `imageField`, `dateField`) and the list-view `calendar.defaultView` refused by
+   * name. `gantt` `map` `chart` `tree` arrive in that mirror straight from
+   * `SpecListViewSchema.shape`.
    */
 
   /** Kanban board configuration. Consumed by `ObjectKanban` (`@object-ui/plugin-kanban`). */
@@ -3473,10 +3503,22 @@ export interface ObjectMapSchema extends BaseSchema {
   /** Inline records, wrapped into a `{ provider: 'value' }` data config; read SECOND */
   staticData?: any[];
   /**
-   * Query filter, forwarded as `$filter` with its
-   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
+   * Query filter — the protocol's `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`, taken BY REFERENCE from the `object-map`
+   * row (`ComponentPropsMap['object-map'].filter`), which refuses the
+   * MongoDB-style record and the AST tuple array by name. Forwarded as `$filter`
+   * with its context tokens (`{current_user_id}`, `{current_org_id}`, the date
+   * macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders`
+   * (objectui#10666).
+   *
+   * objectui#6152 round 10: this was `any[]`, so a tuple array type-checked here
+   * while the row refused it. ⚠️ What did NOT narrow is the read: `ObjectMap`
+   * still forwards an AST a host composes at runtime (`ElementDataSourceGate`'s
+   * merged binding), which is not a shape an author writes, so this face does
+   * not publish it (the objectui#10199 split, as {@link ObjectGridSchema.filter}
+   * makes it).
    */
-  filter?: any[];
+  filter?: SpecObjectMapProps['filter'];
   /** Sort configuration, forwarded as `$orderby`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
   /**
@@ -4024,10 +4066,22 @@ export interface ObjectGanttSchema extends BaseSchema {
   /** Inline records, wrapped into a `{ provider: 'value' }` config by `resolveRecordSourceConfig`. */
   staticData?: any[];
   /**
-   * Query filter (JSON Rules format), forwarded as `$filter` with its
-   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
+   * Query filter — the protocol's `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`, taken BY REFERENCE from the
+   * `object-gantt` row (`ComponentPropsMap['object-gantt'].filter`), which refuses
+   * the MongoDB-style record and the AST tuple array by name. Forwarded as
+   * `$filter` with its context tokens (`{current_user_id}`, `{current_org_id}`,
+   * the date macros) resolved first through `@object-ui/core`'s
+   * `resolveFilterPlaceholders` (objectui#10666).
+   *
+   * objectui#6152 round 10: this was `any[]`, so a tuple array type-checked here
+   * while the row refused it. ⚠️ What did NOT narrow is the read: `ObjectGantt`
+   * still forwards an AST a host composes at runtime (`ElementDataSourceGate`'s
+   * merged binding, `ListView`'s effective filter), which is not a shape an
+   * author writes, so this face does not publish it (the objectui#10199 split, as
+   * {@link ObjectGridSchema.filter} makes it).
    */
-  filter?: any[];
+  filter?: SpecObjectGanttProps['filter'];
   /** Sort configuration, forwarded as `$orderby` via `convertSortToQueryParams`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
   /**
@@ -4166,31 +4220,32 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * runtime handoff, declared because the renderer reads them, not a second
    * spelling to write.
    *
-   * `@objectstack/spec` declares the KEY —
-   * `ComponentPropsMap['object-calendar'].calendar` — and this package's
-   * registration `inputs` publishes it, so authors are offered it. ⚠️ The spec
-   * does NOT declare its SHAPE: measured on 17.4.0, and again on 17.5.0, that
-   * slot is `z.unknown().optional()`, not `CalendarConfigSchema`, so the protocol
-   * accepts any value there at all. The member list below is objectui's own —
-   * see the mirror for the grounds. Both published faces of THIS package stayed
-   * silent about the key until objectui#8651,
-   * which is the objectui#6914 class: the value rode {@link BaseSchema}'s
-   * `[key: string]: any` here and `.passthrough()` on the mirror, admitted and
-   * never examined. `calendar: 42` type-checked, parsed green, and drew an
-   * empty calendar.
+   * `@objectstack/spec` declares the KEY and, since 17.7.0, its SHAPE:
+   * `ComponentPropsMap['object-calendar'].calendar` is a strict copy of the list
+   * view's calendar block (objectstack#21464 stage 2), five members with
+   * `startDateField` required. This package's registration `inputs` publishes
+   * the key, so authors are offered it. Through 17.6.0 the slot was
+   * `z.unknown().optional()`, and both published faces of THIS package stayed
+   * silent about the key until objectui#8651, which is the objectui#6914 class:
+   * the value rode {@link BaseSchema}'s `[key: string]: any` here and
+   * `.passthrough()` on the mirror, admitted and never examined. `calendar: 42`
+   * type-checked, parsed green, and drew an empty calendar.
    *
    * DERIVED from the mirror rather than re-spelled, so the two faces cannot
    * fork — the same construction {@link ListViewSchema} uses through
-   * `ListViewInferred`. What the mirror declares is the five members
-   * `ObjectCalendar`'s events pass destructures out of the resolved config.
-   * Through `@objectstack/spec` 17.4.0 that was the spec's four plus objectui's
-   * own `allDayField`; since 17.5.0 `CalendarConfigSchema` declares all five.
+   * `ListViewInferred`. Since objectui#6152 round 9 the mirror is the row's own
+   * slot BY REFERENCE, plus the two by-name alias refusals (objectui#8355), so
+   * this type is closed: `startDateField` is required, the four others are
+   * optional, and a fresh literal carrying any other key is a compile error, as
+   * the spec refuses it at parse. Until that round the mirror was `.partial()`
+   * and `.passthrough()`, so this type carried an index signature and an
+   * optional `startDateField`, and admitted both shapes the slot refuses.
    *
-   * ⛔ `defaultView` is deliberately NOT a member of this container even though
-   * a list VIEW's calendar block carries one: this renderer seeds its view state
-   * from {@link ObjectCalendarSchema.defaultView}, the FLAT member below, and
-   * never looks inside here. The container stays `.passthrough()`, so a block
-   * carrying it still parses — it is simply not advertised.
+   * ⛔ `defaultView` is NOT a member of this container (nor, since objectui#6152
+   * round 11, of a list VIEW's calendar block): this renderer seeds its view state from
+   * {@link ObjectCalendarSchema.defaultView}, the FLAT member below, and never
+   * looks inside here, and the slot does not declare it either. Written inside
+   * the block, it is refused; write it flat.
    */
   calendar?: ObjectCalendarBlockConfig;
   /**
@@ -4595,11 +4650,11 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * (`zod/objectql.zod.ts`, `retirementTombstone()`): both halves or neither.
    * Absent stays valid on both, so a node that never wrote the key is untouched.
    *
-   * ⚠️ NODE-LOCAL. The VIEW-LEVEL kanban config's `groupField` is a live legacy
-   * alias of the spec's `groupByField` and is NOT retired:
-   * `packages/core/src/utils/normalize-list-view.ts` maps it, and
-   * `plugin-list`'s `ListView` and `plugin-view`'s `ObjectView` still read it.
-   * `groupField` is dead only on the `object-kanban` node.
+   * ⚠️ NODE-LOCAL, and a different refusal. The VIEW-LEVEL kanban config refuses
+   * `groupField` by name too since objectui#6152 round 11, naming `groupByField`,
+   * but its READERS stay: `packages/core/src/utils/normalize-list-view.ts` still
+   * folds a stored one forward, and `plugin-list`'s `ListView` and `plugin-view`'s
+   * `ObjectView` still read it. On the `object-kanban` node nothing reads it.
    *
    * @deprecated RETIRED (objectui#7322) — author `groupBy` instead.
    */

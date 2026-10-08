@@ -94,7 +94,10 @@ const DOMAIN_ORDER = ['data', 'ui', 'automation', 'ai', 'identity', 'security', 
 /** Types that are most useful to surface as one-click "New …" actions. */
 const QUICK_CREATE_ORDER = ['object', 'view', 'page', 'dashboard', 'report', 'flow', 'action', 'agent'];
 
-const RECENT_ICONS: Record<RecentItem['type'], React.ComponentType<{ className?: string }>> = {
+/** The kinds this page lists: every kind but a Studio package (see `recentItems` below). */
+type ListedRecentType = Exclude<RecentItem['type'], 'package'>;
+
+const RECENT_ICONS: Record<ListedRecentType, React.ComponentType<{ className?: string }>> = {
   object: Table2,
   dashboard: LayoutDashboard,
   page: FileText,
@@ -146,7 +149,14 @@ function relativeTime(iso: string, locale: string): string {
 export function StudioHomePage() {
   const client = useMetadataClient();
   const { loading, entries } = useMetadataTypes(client);
-  const { recentItems } = useRecentItems();
+  const { recentItems: allRecentItems } = useRecentItems();
+  // A Studio package entry is labelled from the package list (objectui#11863).
+  // This page's own list holds the writable bases only
+  // (`buildPackageScopeOptions`), so a read-only package would draw as its id:
+  // package entries are left out, and the Studio landing lists them.
+  const recentItems = allRecentItems.filter(
+    (item): item is RecentItem & { type: ListedRecentType } => item.type !== 'package',
+  );
   // An entry's text is resolved on this render, never stored (objectui#11678).
   const recentLabel = useRecentItemLabel();
   const locale = useMetadataLocale();

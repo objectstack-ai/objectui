@@ -41,10 +41,100 @@
 
 import React from 'react';
 import { Settings2, ShieldCheck, Sparkles, ToggleRight, X } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@object-ui/components';
 import { useRegisteredMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
-import { readFields } from '../metadata-admin/previews/object-fields-io.js';
+import { readFields, type FieldEntry } from '../metadata-admin/previews/object-fields-io.js';
 import { t, tFormat, type SupportedLocale } from '../metadata-admin/i18n.js';
 import { isExternalWider } from './owd-sharing.js';
+
+/** The item a stored value none of a picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — one of this panel's pickers (the internal and external
+ * sharing model, the name field, the lifecycle field, and the highlight
+ * fields' "add field"), drawn with the shared `Select`, the control the
+ * validation rule editor's pickers (`RulePicker`) pick with. They used to be
+ * browser-native `<select>`s. What a pick writes is unchanged: `onPick`
+ * receives the picked option's own `value`, the string the native control's
+ * `change` carried, and each caller turns it into the same patch as before.
+ * Re-picking the current option writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value. Every picker here opens
+ *   on an option whose value is `''` ("not set", "auto-derived",
+ *   "auto-detect", "add field"), which `SelectItem` refuses; an index cannot
+ *   collide with a field's name, as any stand-in string could.
+ * - A stored value none of the options carries gets an item of its own,
+ *   labelled with the value, so the trigger shows what the object holds. The
+ *   native control showed its first option there ("not set", "auto-derived",
+ *   "auto-detect"), which is not what the object says. Picking that item
+ *   writes nothing.
+ * - Read-only follows the primitive (objectui#11781): `disabled` disables the
+ *   trigger, which wears `SelectTrigger`'s own disabled look.
+ * - Each caller keeps the picker inside its `<label>`, which names the trigger
+ *   as it named the native control. The "add field" picker had no label and
+ *   still has none.
+ */
+function SettingsPicker({
+  value,
+  options,
+  onPick,
+  disabled,
+  className,
+  testId,
+}: {
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  disabled?: boolean;
+  className: string;
+  testId: string;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the stored value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger data-testid={testId} className={className}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** The classes a full-width picker takes, at the height the native control had. */
+const PICKER_FULL = 'h-7 px-2 py-1 text-[12px]';
+
+/** The classes the inline "add field" picker takes, sized to its label as the native control was. */
+const PICKER_INLINE = 'h-6 w-auto gap-1 px-1.5 py-0.5 text-[11px] text-muted-foreground';
+
+/** A field as a picker option: its label and name, or its name alone. */
+function fieldOption(e: FieldEntry): { value: string; label: string } {
+  return {
+    value: e.name,
+    label: typeof e.def.label === 'string' ? `${e.def.label} (${e.name})` : e.name,
+  };
+}
 
 export function ObjectSettingsPanel({
   name,
@@ -103,6 +193,14 @@ export function ObjectSettingsPanel({
           : sharingModel === 'controlled_by_parent'
             ? 'engine.studio.settings.sharingDescControlledByParent'
             : 'engine.studio.settings.sharingDescUnset';
+  // Both dials offer the same models; only the unset option's wording differs.
+  const owdOptions = (unsetKey: string) => [
+    { value: '', label: t(unsetKey, locale) },
+    { value: 'private', label: t('engine.studio.settings.sharingPrivate', locale) },
+    { value: 'public_read', label: t('engine.studio.settings.sharingPublicRead', locale) },
+    { value: 'public_read_write', label: t('engine.studio.settings.sharingPublicReadWrite', locale) },
+    { value: 'controlled_by_parent', label: t('engine.studio.settings.sharingControlledByParent', locale) },
+  ];
 
   // Capabilities (`enable.*`, framework#2707/#2727). Checked = the flag's
   // EFFECTIVE runtime value; toggling writes an explicit boolean into the
@@ -175,23 +273,14 @@ export function ObjectSettingsPanel({
             <span className="mb-1 block text-[11px] text-muted-foreground">
               {t('engine.studio.settings.sharingModel', locale)}
             </span>
-            <select
+            <SettingsPicker
+              testId="owd-internal-select"
               value={sharingModel}
               disabled={disabled}
-              data-testid="owd-internal-select"
-              onChange={(e) =>
-                onPatch(e.target.value ? { sharingModel: e.target.value } : { sharingModel: undefined })
-              }
-              className="w-full rounded border bg-background px-2 py-1 text-[12px]"
-            >
-              <option value="">{t('engine.studio.settings.sharingUnset', locale)}</option>
-              <option value="private">{t('engine.studio.settings.sharingPrivate', locale)}</option>
-              <option value="public_read">{t('engine.studio.settings.sharingPublicRead', locale)}</option>
-              <option value="public_read_write">{t('engine.studio.settings.sharingPublicReadWrite', locale)}</option>
-              <option value="controlled_by_parent">
-                {t('engine.studio.settings.sharingControlledByParent', locale)}
-              </option>
-            </select>
+              onPick={(v) => onPatch(v ? { sharingModel: v } : { sharingModel: undefined })}
+              className={PICKER_FULL}
+              options={owdOptions('engine.studio.settings.sharingUnset')}
+            />
           </label>
           {/* An UNSET internal OWD is not a neutral state — the publish door
               refuses it (`security-owd-unset`). Styled as the problem it is,
@@ -213,27 +302,16 @@ export function ObjectSettingsPanel({
             <span className="mb-1 block text-[11px] text-muted-foreground">
               {t('engine.studio.settings.sharingExternal', locale)}
             </span>
-            <select
+            <SettingsPicker
+              testId="owd-external-select"
               value={externalSharingModel}
               disabled={disabled}
-              data-testid="owd-external-select"
-              onChange={(e) =>
-                onPatch(
-                  e.target.value
-                    ? { externalSharingModel: e.target.value }
-                    : { externalSharingModel: undefined },
-                )
+              onPick={(v) =>
+                onPatch(v ? { externalSharingModel: v } : { externalSharingModel: undefined })
               }
-              className="w-full rounded border bg-background px-2 py-1 text-[12px]"
-            >
-              <option value="">{t('engine.studio.settings.sharingExternalUnset', locale)}</option>
-              <option value="private">{t('engine.studio.settings.sharingPrivate', locale)}</option>
-              <option value="public_read">{t('engine.studio.settings.sharingPublicRead', locale)}</option>
-              <option value="public_read_write">{t('engine.studio.settings.sharingPublicReadWrite', locale)}</option>
-              <option value="controlled_by_parent">
-                {t('engine.studio.settings.sharingControlledByParent', locale)}
-              </option>
-            </select>
+              className={PICKER_FULL}
+              options={owdOptions('engine.studio.settings.sharingExternalUnset')}
+            />
           </label>
           <p
             data-testid="owd-external-desc"
@@ -267,19 +345,17 @@ export function ObjectSettingsPanel({
             <span className="mb-1 block text-[11px] text-muted-foreground">
               {t('engine.studio.settings.nameField', locale)}
             </span>
-            <select
+            <SettingsPicker
+              testId="name-field-select"
               value={nameField}
               disabled={disabled}
-              onChange={(e) => onPatch(e.target.value ? { nameField: e.target.value } : { nameField: undefined })}
-              className="w-full rounded border bg-background px-2 py-1 text-[12px]"
-            >
-              <option value="">{t('engine.studio.settings.autoDerive', locale)}</option>
-              {fields.map((e) => (
-                <option key={e.name} value={e.name}>
-                  {typeof e.def.label === 'string' ? `${e.def.label} (${e.name})` : e.name}
-                </option>
-              ))}
-            </select>
+              onPick={(v) => onPatch(v ? { nameField: v } : { nameField: undefined })}
+              className={PICKER_FULL}
+              options={[
+                { value: '', label: t('engine.studio.settings.autoDerive', locale) },
+                ...fields.map(fieldOption),
+              ]}
+            />
           </label>
 
           {/* stageField */}
@@ -287,23 +363,18 @@ export function ObjectSettingsPanel({
             <span className="mb-1 block text-[11px] text-muted-foreground">
               {t('engine.studio.settings.stageField', locale)}
             </span>
-            <select
+            <SettingsPicker
+              testId="stage-field-select"
               value={stageField === false ? '__none__' : (stageField ?? '')}
               disabled={disabled}
-              onChange={(e) => {
-                const v = e.target.value;
-                onPatch({ stageField: v === '__none__' ? false : v === '' ? undefined : v });
-              }}
-              className="w-full rounded border bg-background px-2 py-1 text-[12px]"
-            >
-              <option value="">{t('engine.studio.settings.autoDetect', locale)}</option>
-              <option value="__none__">{t('engine.studio.settings.stageNone', locale)}</option>
-              {selectFields.map((e) => (
-                <option key={e.name} value={e.name}>
-                  {typeof e.def.label === 'string' ? `${e.def.label} (${e.name})` : e.name}
-                </option>
-              ))}
-            </select>
+              onPick={(v) => onPatch({ stageField: v === '__none__' ? false : v === '' ? undefined : v })}
+              className={PICKER_FULL}
+              options={[
+                { value: '', label: t('engine.studio.settings.autoDetect', locale) },
+                { value: '__none__', label: t('engine.studio.settings.stageNone', locale) },
+                ...selectFields.map(fieldOption),
+              ]}
+            />
           </label>
 
           {/* highlightFields */}
@@ -331,21 +402,19 @@ export function ObjectSettingsPanel({
                 </span>
               ))}
               {!disabled && highlightCandidates.length > 0 && (
-                <select
+                <SettingsPicker
+                  testId="highlight-add-select"
                   value=""
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    onPatch({ highlightFields: [...highlightFields, e.target.value] });
+                  onPick={(v) => {
+                    if (!v) return;
+                    onPatch({ highlightFields: [...highlightFields, v] });
                   }}
-                  className="rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground"
-                >
-                  <option value="">{t('engine.studio.settings.addFieldOption', locale)}</option>
-                  {highlightCandidates.map((e) => (
-                    <option key={e.name} value={e.name}>
-                      {typeof e.def.label === 'string' ? `${e.def.label} (${e.name})` : e.name}
-                    </option>
-                  ))}
-                </select>
+                  className={PICKER_INLINE}
+                  options={[
+                    { value: '', label: t('engine.studio.settings.addFieldOption', locale) },
+                    ...highlightCandidates.map(fieldOption),
+                  ]}
+                />
               )}
               {highlightFields.length === 0 && (
                 <span className="text-[11px] text-muted-foreground">{t('engine.studio.settings.undeclared', locale)}</span>

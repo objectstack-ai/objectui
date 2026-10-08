@@ -22,13 +22,12 @@
  * All props are read off `schema.properties` per the spec's
  * `UIComponent.properties` convention; `schema.props` is also accepted
  * as a fallback so authors transitioning between conventions keep working.
- * `element:number` also reads the node-level `dataSource` binding: its
- * `object` wins over the flat one, and its filter is AND-combined with the
- * flat one (objectui#10909).
+ * `element:number` reads its query from the node-level `dataSource` binding
+ * ONLY: its `object` and its `filter` (objectui#10909, objectui#11880).
  */
 
 import * as React from 'react';
-import { ComponentRegistry, elementDataSourceBlock, mergeFilterNodes, toFilterNodeSafely } from '@object-ui/core';
+import { ComponentRegistry, elementDataSourceBlock, toFilterNodeSafely } from '@object-ui/core';
 import type { ActionDef, FilterOperatorError } from '@object-ui/core';
 import {
   ElementDataSourceErrorPanel,
@@ -474,10 +473,8 @@ function formatValue(
 
 function ElementNumberRenderer({ schema }: { schema: any }) {
   const props = readProps<{
-    object?: string;
     field?: string;
     aggregate?: 'count' | 'sum' | 'avg' | 'min' | 'max';
-    filter?: unknown;
     format?: 'number' | 'currency' | 'percent';
     prefix?: string;
     suffix?: string;
@@ -486,10 +483,10 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   const adapter = useAdapter() as any;
   // objectui#10909 — the spec's per-element binding (`PageComponentSchema
   // .dataSource`), resolved the way the element twin `element:record_picker`
-  // resolves it: through `useElementDataSource`. The spec lint gate waives a
-  // missing `properties.object` when `dataSource.object` names one, on the
-  // precedence `ds.object ?? props.object`; before this, a metric bound only
-  // through the binding issued no query and painted the empty dash.
+  // resolves it: through `useElementDataSource`. Since objectui#11880 it is
+  // the ONLY source of the metric's object and filter: the flat
+  // `properties.object` / `filter` are not read (objectstack#11509, ruled
+  // A-narrow).
   //
   // `object` resolves ONCE, here, and that one value is the fetch guard, the
   // `aggregate` / `find` target and the bus key below. A named `view` is
@@ -504,29 +501,23 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   const dataBinding = useElementDataSource(schema, adapter);
   const composed = dataBinding.composed;
   const { t } = useObjectTranslation();
-  // The filter this metric aggregates over. With no binding it is the node's
-  // own `filter` exactly as authored, so the `properties` form is unchanged.
-  // With one, the node's own filter is AND-combined with the binding's (which
-  // `useElementDataSource` has already AND-combined with its view's): neither
-  // is dropped, so a validated `properties.filter` can never be discarded and
-  // widen the count. That is the rule `ElementDataSourceGate` applies for every
-  // gate-wrapped block that reads a filter, lowered and merged the same way
-  // (`toFilterNodeSafely` + `mergeFilterNodes`). A source the converter
-  // refuses is kept as a VALUE and answered with the configuration-error panel
-  // below — never merged as "no filter", which would count every row.
-  // Memoised for cost only: the result is read by content (`useResolvedFilter`
-  // holds it by structure), never by identity (AGENTS.md #10).
+  // The filter this metric aggregates over: the binding's (which
+  // `useElementDataSource` has already AND-combined with its view's), lowered
+  // the way `ElementDataSourceGate` lowers a filter (`toFilterNodeSafely`). A
+  // filter the converter refuses is kept as a VALUE and answered with the
+  // configuration-error panel below — never read as "no filter", which would
+  // count every row. Memoised for cost only: the result is read by content
+  // (`useResolvedFilter` holds it by structure), never by identity
+  // (AGENTS.md #10).
   const scopedFilter = React.useMemo((): { filter: unknown; refusal?: FilterOperatorError } => {
-    if (!composed) return { filter: props.filter };
-    const own = toFilterNodeSafely(props.filter);
-    if (!own.ok) return { filter: undefined, refusal: own.refusal };
+    if (!composed) return { filter: undefined };
     const bound = toFilterNodeSafely(composed.filter);
     if (!bound.ok) return { filter: undefined, refusal: bound.refusal };
-    return { filter: mergeFilterNodes(own.node, bound.node) };
-  }, [composed, props.filter]);
+    return { filter: bound.node };
+  }, [composed]);
   const filterRefusal = scopedFilter.refusal;
   const unresolved = dataBinding.status === 'loading' || dataBinding.status === 'missing';
-  const object = unresolved || filterRefusal ? undefined : (composed?.object ?? props.object);
+  const object = unresolved || filterRefusal ? undefined : composed?.object;
   // Tenant default currency (ADR-0053) for a `currency`-format metric; the
   // display locale resolves through the shared precedence (tenant regional
   // default → active UI language), so the metric follows a language switch even
@@ -542,9 +533,8 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   // session scope the host provides, and HELD by structure (`useResolvedFilter`
   // in `@object-ui/react`). Both reads below (the `aggregate` filter and the
   // `find` fallback's `$filter`) sent the literal token before; they and the
-  // content key read THIS, never the raw `props.filter`. What it resolves is
-  // the scoped filter above: the node's own, AND-combined with the binding's
-  // when there is one (objectui#10909).
+  // content key read THIS. What it resolves is the binding's filter above
+  // (objectui#10909, objectui#11880).
   const filterScope = useFilterScope();
   const queryFilter = useResolvedFilter(scopedFilter.filter, filterScope);
   const filterKey = React.useMemo(() => (queryFilter ? JSON.stringify(queryFilter) : ''), [queryFilter]);
@@ -636,21 +626,20 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   if (dataBinding.status === 'loading') {
     return <ElementDataSourceLoadingPanel testId="element-number" />;
   }
-  // objectui#10951 — an aggregate that names no object at all, in either
-  // place. `object` stopped being `required` when the binding became a second
-  // way to supply it (objectui#10944), and the manifest cannot say "one of the
-  // two", so the html tier no longer reports this node: say it here rather
-  // than paint the dash. Only AUTHORED absence qualifies (`absent` = no
-  // binding naming an object); a binding whose view is still resolving or
-  // failed to resolve is answered by the two panels above.
-  if (props.aggregate && !props.object && dataBinding.status === 'absent') {
+  // objectui#10951 — an aggregate whose node names no `dataSource.object`
+  // (objectui#11880: a flat `properties.object` names nothing any more). The
+  // manifest cannot require a binding member, so the html tier does not report
+  // this node: say it here rather than paint the dash. Only AUTHORED absence
+  // qualifies (`absent` = no binding naming an object); a binding whose view is
+  // still resolving or failed to resolve is answered by the two panels above.
+  if (props.aggregate && dataBinding.status === 'absent') {
     return (
       <div
         className={cn('text-xs text-muted-foreground', schema?.className)}
         data-testid="element-number-no-object"
         {...resolveInlineAriaProps(props.aria, locale)}
       >
-        {t('element.number.noObject', { defaultValue: 'No object named: set object or dataSource.object.' })}
+        {t('element.number.noObject', { defaultValue: 'No object named: set dataSource.object.' })}
       </div>
     );
   }
@@ -668,9 +657,13 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
 // The renderer READS the node-level `dataSource` binding (objectui#10909), so it
 // declares it from the seam every reader of the binding declares it from: the
 // marker below makes `Registry.register` emit `ELEMENT_DATA_SOURCE_INPUT` into
-// these `inputs`, and `object` is no longer `required` because the binding can
-// supply it. Same shape as `element:record_picker`'s registration, and the seam
-// comes from `@object-ui/core` for the same measured reason stated there.
+// these `inputs`. The flat `object` / `filter` stay PUBLISHED and are NOT
+// READ: the binding is the only place the metric reads them from
+// (objectui#11880). The spec still declares both, and their published
+// retirement ships with the spec half of objectstack#11509 and the pin bump
+// that carries it; until then each description says so. Same shape as
+// `element:record_picker`'s registration, and the seam comes from
+// `@object-ui/core` for the same measured reason stated there.
 ComponentRegistry.register('number', elementDataSourceBlock(ElementNumberRenderer), {
   namespace: 'element',
   skipFallback: true,
@@ -681,7 +674,7 @@ ComponentRegistry.register('number', elementDataSourceBlock(ElementNumberRendere
       name: 'object',
       type: 'string',
       description:
-        'Object the aggregate runs over. Required unless a node-level `dataSource` binding names one; when both are set, `dataSource.object` wins.',
+        'NOT READ (objectui#11880): the aggregate runs over the object the node-level `dataSource.object` names, and a node without one shows the "no object named" notice. `@objectstack/spec` retires this flat key in v18 (objectstack#11509).',
     },
     { name: 'aggregate', type: 'enum', enum: ['count', 'sum', 'avg', 'min', 'max'], required: true },
     { name: 'field', type: 'string', description: 'Measure field (required for every aggregate except count)' },
@@ -689,7 +682,7 @@ ComponentRegistry.register('number', elementDataSourceBlock(ElementNumberRendere
       name: 'filter',
       type: 'array',
       description:
-        'Criteria the aggregate is scoped by. When a node-level `dataSource` binding also supplies a filter (its own, or the saved view its `view` names), the two are AND-combined: neither is dropped.',
+        'NOT READ (objectui#11880): the aggregate is scoped by the node-level `dataSource.filter`, AND-combined with the filter of the saved view its `view` names. This flat key is not combined with it and never applies; `@objectstack/spec` retires it in v18 (objectstack#11509).',
     },
     { name: 'format', type: 'enum', enum: ['number', 'currency', 'percent'] },
     { name: 'prefix', type: 'string' },

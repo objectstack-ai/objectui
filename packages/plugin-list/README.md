@@ -108,7 +108,12 @@ import { ListView } from '@object-ui/plugin-list';
 ```
 
 When both are present, `grouping` wins. End users can also add or remove
-grouping fields at runtime via the Group toolbar button.
+grouping fields at runtime via the Group toolbar button. Every such edit, in
+the toolbar's Group panel or in the compact toolbar's View settings popover
+(Clear included), fires `onGroupingChange` with the spec `GroupingConfig`, or
+with `undefined` when the grouping is cleared. A changed `schema.grouping` that
+the list re-reads does not fire it: that value came from the host
+(objectui#11860).
 
 A grouped **grid** is grouped on the server: over a data source that answers
 the group header query (`dataSource.queryGroupHeaders`), `ListView` hands the
@@ -172,6 +177,7 @@ import { ListView } from '@object-ui/plugin-list';
   onSearchChange={(search) => console.log('Search:', search)}
   onSortChange={(sort) => console.log('Sort:', sort)}
   onFilterChange={(filters) => console.log('Filters:', filters)}
+  onGroupingChange={(grouping) => console.log('Grouping:', grouping)}
 />
 ```
 

@@ -648,6 +648,7 @@ const ar = {
       invalidBoolean: "«{{value}}» ليست قيمة صواب/خطأ صالحة",
       invalidNumber: "«{{value}}» ليست رقمًا صالحًا",
       invalidDate: "«{{value}}» ليست تاريخًا صالحًا",
+      invalidTime: "«{{value}}» ليست وقتًا صالحًا",
       invalidOption: "«{{value}}» ليست ضمن الخيارات المسموح بها",
       requiredValue: "هذا الحقل مطلوب",
       matchAmbiguous: "يطابق أكثر من سجل موجود — استخدم قيمة فريدة أو معرّف السجل",
@@ -1774,7 +1775,7 @@ const ar = {
   },
   console: {
     studio: {
-      backToHome: "العودة إلى الرئيسية",
+      title: "Studio",
     },
     saveAdvisoryTitle: "تم الحفظ — أنتج فحص التأليف {{count}} ملاحظة إرشادية",
     saveAdvisoryTitle_zero: "تم الحفظ — أنتج فحص التأليف {{count}} ملاحظة إرشادية",
@@ -2854,6 +2855,7 @@ const ar = {
         dashboard: "لوحة تحكم",
         page: "صفحة",
         report: "تقرير",
+        package: "حزمة",
         record: "سجل",
         metadata: "البيانات الوصفية",
       },
@@ -4413,7 +4415,7 @@ const ar = {
   },
   element: {
     number: {
-      noObject: "لم يُحدَّد أي كائن: عيّن object أو dataSource.object.",
+      noObject: "لم يُحدَّد أي كائن: عيّن dataSource.object.",
     },
   },
 };

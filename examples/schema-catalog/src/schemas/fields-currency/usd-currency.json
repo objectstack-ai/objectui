@@ -8,7 +8,10 @@
       "label": "Amount",
       "type": "currency",
       "placeholder": "$0.00",
-      "currency": "USD"
+      "currencyConfig": {
+        "currencyMode": "fixed",
+        "defaultCurrency": "USD"
+      }
     }
   ]
 }

@@ -610,6 +610,7 @@ const ru = {
       invalidBoolean: "«{{value}}» не является допустимым значением true/false",
       invalidNumber: "«{{value}}» не является допустимым числом",
       invalidDate: "«{{value}}» не является допустимой датой",
+      invalidTime: "«{{value}}» не является допустимым временем",
       invalidOption: "«{{value}}» не входит в число допустимых вариантов",
       requiredValue: "Это поле обязательно",
       matchAmbiguous: "Соответствует нескольким существующим записям — используйте уникальное значение или идентификатор записи",
@@ -1696,7 +1697,7 @@ const ru = {
   },
   console: {
     studio: {
-      backToHome: "На главную",
+      title: "Studio",
     },
     saveAdvisoryTitle: "Сохранено — проверка авторинга выдала рекомендаций: {{count}}",
     saveAdvisoryTitle_one: "Сохранено — проверка авторинга выдала рекомендаций: {{count}}",
@@ -2761,6 +2762,7 @@ const ru = {
         dashboard: "Панель",
         page: "Страница",
         report: "Отчёт",
+        package: "Пакет",
         record: "Запись",
         metadata: "Метаданные",
       },
@@ -4239,7 +4241,7 @@ const ru = {
   },
   element: {
     number: {
-      noObject: "Объект не указан: задайте object или dataSource.object.",
+      noObject: "Объект не указан: задайте dataSource.object.",
     },
   },
 };

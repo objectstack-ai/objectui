@@ -139,7 +139,9 @@ const RELAYED: Required<Pick<TableSlot, RelayKey>> = {
 const BY_NAME: Required<Pick<TableSlot, Exclude<ByNameKey, 'operations'>>> = {
   className: 'table-probe',
   columns: ['subject', 'stage'],
-  defaultFilters: { stage: 'open' },
+  // objectui#6152 round 10: the grid row's rule array (the slot's type was a `Record`). Its
+  // value differs from `filter`'s below, so a swap of the two slots cannot read as arrival.
+  defaultFilters: [{ field: 'stage', operator: 'equals', value: 'lost' }],
   fields: ['subject', 'stage'],
   filter: [{ field: 'stage', operator: 'equals', value: 'open' }],
   pageSize: 50,

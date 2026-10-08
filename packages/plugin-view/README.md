@@ -246,7 +246,7 @@ just no longer the one to reach for:
 | --- | --- |
 | `pagination: { pageSize, pageSizeOptions? }` | `pageSize: number` |
 | `selection: { type: 'single' \| 'multiple' \| 'none' }` | `selectable: boolean \| 'single' \| 'multiple'` |
-| `filter: [{ field, operator, value }, …]` (same shape as a named view's `filter`) | `defaultFilters: Record<field, value>` (equality-only) |
+| `filter: [{ field, operator, value }, …]` (same shape as a named view's `filter`) | `defaultFilters: [{ field, operator, value }, …]` — the same rule array; TypeScript and the validator refuse the record form `{ field: value }` (objectui#6152 round 10) |
 
 **Precedence when a key is written both ways** — `table: { pagination: {
 pageSize: 10 }, pageSize: 50 }`, say — the canonical spelling wins. That is

@@ -12,8 +12,8 @@
  * The maintainer's contract for the list surface: views, filters, sort and
  * grouping go into the URL; transient panels and dialogs do not. This pins the
  * console object page's half of it for the Filter panel's conditions, the
- * search term and the sort (grouping has no change notification on `ListView`
- * to write it from — reported on the card, not done here):
+ * search term, the sort and the toolbar grouping (`ListView` reports a user's
+ * grouping change through `onGroupingChange`):
  *
  *   - a URL that carries list state opens that list, and wins over the
  *     per-user cache WHOLE — a shared link opens the same list for everyone;
@@ -86,9 +86,13 @@ vi.mock('./MetadataInspector', () => ({
 vi.mock('./RecordDetailView', () => ({ RecordDetailView: () => null }));
 
 import { ObjectView } from './ObjectView';
+// The grid registers `object-grid` on import. A grouped grid asks the server
+// for its groups itself, and that header query is where the grouping the list
+// opened with is read (objectui#11860's grouping pins below).
+import '@object-ui/plugin-grid';
 import { ExpressionProvider } from '../providers/ExpressionProvider';
 import { buildListFilterKey } from './listFilterStorage';
-import { LIST_FILTER_PARAM, LIST_SEARCH_PARAM, LIST_SORT_PARAM } from './userFilterUrlState';
+import { LIST_FILTER_PARAM, LIST_GROUP_PARAM, LIST_SEARCH_PARAM, LIST_SORT_PARAM } from './userFilterUrlState';
 
 const OBJ = 'url_task';
 const VIEW = `/apps/demo/${OBJ}/view`;
@@ -107,23 +111,40 @@ const OBJECTS = [
     listViews: {
       all: { label: 'All', type: 'grid', columns: ['name', 'priority', 'status', 'due_date'] },
       board: { label: 'Board', type: 'kanban', columns: ['name', 'priority'], kanban: { groupByField: 'status' } },
+      grouped: {
+        label: 'By status',
+        type: 'grid',
+        columns: ['name', 'priority', 'status'],
+        grouping: { fields: [{ field: 'status', order: 'asc', collapsed: false }] },
+      },
+      sorted: { label: 'By name', type: 'grid', columns: ['name', 'priority', 'due_date'], sort: [{ field: 'name', order: 'asc' }] },
     },
   },
 ];
 
 /** The list queries `ListView` issued, newest last. The record-count probe (`$top: 0`) is excluded. */
 let listQueries: any[] = [];
+/** The group header queries a grouped grid issued, newest last (objectui#11860's grouping). */
+let groupQueries: Array<{ groupBy?: string[] }> = [];
 let failWith: unknown = undefined;
 let savedViews: Promise<any[]> | undefined;
+/** The rows `find` answers with. A list with none shows its empty state and mounts no grid. */
+let rows: Array<Record<string, unknown>> = [];
 
 function makeDataSource() {
   const ds: any = {
     find: vi.fn(async (_object: string, params: any) => {
       if (params?.$top !== 0) listQueries.push(params);
       if (failWith) throw failWith;
-      return { data: [], total: 0 };
+      return { data: rows, total: rows.length };
     }),
     findOne: vi.fn(async () => null),
+    // A grouped grid asks the server for its groups (objectui#10881); recorded
+    // so a test can read which fields the list is grouped by.
+    queryGroupHeaders: vi.fn(async (_object: string, query: { groupBy?: string[] }) => {
+      groupQueries.push(query);
+      return [];
+    }),
     create: vi.fn(async () => ({})),
     update: vi.fn(async () => ({})),
     delete: vi.fn(async () => ({})),
@@ -191,11 +212,12 @@ async function mountHost(entries: string[]): Promise<Host> {
 }
 
 /** Build a query string the way a copied link carries one. */
-function link(path: string, state: { filter?: unknown; search?: string; sort?: unknown; extra?: Record<string, string> }) {
+function link(path: string, state: { filter?: unknown; search?: string; sort?: unknown; group?: unknown; extra?: Record<string, string> }) {
   const params = new URLSearchParams(state.extra);
   if (state.filter !== undefined) params.set(LIST_FILTER_PARAM, typeof state.filter === 'string' ? state.filter : JSON.stringify(state.filter));
   if (state.search !== undefined) params.set(LIST_SEARCH_PARAM, state.search);
   if (state.sort !== undefined) params.set(LIST_SORT_PARAM, typeof state.sort === 'string' ? state.sort : JSON.stringify(state.sort));
+  if (state.group !== undefined) params.set(LIST_GROUP_PARAM, typeof state.group === 'string' ? state.group : JSON.stringify(state.group));
   return `${path}?${params.toString()}`;
 }
 
@@ -209,6 +231,8 @@ beforeEach(() => {
   cleanup();
   localStorage.clear();
   listQueries = [];
+  groupQueries = [];
+  rows = [];
   failWith = undefined;
   savedViews = undefined;
   perms.isLoaded = false;
@@ -434,5 +458,142 @@ describe('a user the server refuses (objectui#11860)', () => {
     expect(filterOf(lastQuery())).toContain('"priority","=","urgent"');
     const linked = screen.getByTestId('list-error-state');
     expect({ kind: linked.getAttribute('data-error-kind'), text: linked.textContent }).toEqual(bareRefusal);
+  });
+});
+
+/**
+ * The fields the list is grouped by, outermost first: the deepest group header
+ * query of the newest batch (one query per depth, each naming the levels down
+ * to it). `undefined` when the list asked for no groups.
+ */
+const groupedBy = (): string[] | undefined => {
+  const query = groupQueries[groupQueries.length - 1];
+  return query ? [...(query.groupBy ?? [])] : undefined;
+};
+const groupParamOf = (host: Host) => {
+  const raw = new URLSearchParams(host.search()).get(LIST_GROUP_PARAM);
+  return raw === null ? null : JSON.parse(raw);
+};
+const BY_PRIORITY = { fields: [{ field: 'priority', order: 'desc', collapsed: false }] };
+
+async function openGroupPanel() {
+  fireEvent.click(screen.getByRole('button', { name: /^group/i }));
+  await settle();
+}
+
+describe('the toolbar grouping is in the URL too (objectui#11860)', () => {
+  // One row, so the list draws its grid; a grouped grid then asks for its groups.
+  beforeEach(() => {
+    rows = [{ id: 'r1', name: 'One', priority: 'urgent', status: 'open', due_date: '2026-11-01' }];
+  });
+
+  it('a link groups the list it opens, over the grouping its view declares', async () => {
+    const host = await mountHost([link(`${VIEW}/grouped`, { group: BY_PRIORITY })]);
+    expect(groupedBy()).toEqual(['priority']);
+    // The link's param stays as it came.
+    expect(groupParamOf(host)).toEqual(BY_PRIORITY);
+  });
+
+  it('without one, the view\'s declared grouping stands and the address bar carries none', async () => {
+    const host = await mountHost([`${VIEW}/grouped`]);
+    expect(groupedBy()).toEqual(['status']);
+    expect(groupParamOf(host)).toBeNull();
+  });
+
+  it('a grouping change is written with replace, a cleared one leaves the URL, and Back leaves the list', async () => {
+    const host = await mountHost(['/elsewhere', `${VIEW}/all`]);
+    expect(groupedBy()).toBeUndefined();
+    await openGroupPanel();
+    fireEvent.click(screen.getByTestId('grouping-add'));
+    await settle();
+    const written = groupParamOf(host);
+    expect(written?.fields).toHaveLength(1);
+    expect(written.fields[0]).toMatchObject({ order: 'asc', collapsed: false });
+    // The list is grouped by what the URL now says.
+    expect(groupedBy()).toEqual([written.fields[0].field]);
+
+    fireEvent.click(screen.getByTestId('clear-grouping'));
+    await settle();
+    expect(groupParamOf(host)).toBeNull();
+
+    expect(host.navigations().length).toBeGreaterThan(0);
+    expect(host.navigations().every((type) => type === 'REPLACE')).toBe(true);
+    await host.go(-1);
+    expect(host.pathname()).toBe('/elsewhere');
+  });
+
+  it('the grouping a user set on a link survives a reload of that link', async () => {
+    const host = await mountHost([`${VIEW}/all`]);
+    await openGroupPanel();
+    fireEvent.click(screen.getByTestId('grouping-add'));
+    await settle();
+    const url = `${host.pathname()}${host.search()}`;
+    const field = groupParamOf(host).fields[0].field;
+    cleanup();
+    groupQueries = [];
+    await mountHost([url]);
+    expect(groupedBy()).toEqual([field]);
+  });
+
+  it('CONTROL: opening and closing the Group panel leaves the URL unchanged', async () => {
+    const host = await mountHost([link(`${VIEW}/grouped`, { group: BY_PRIORITY })]);
+    const before = host.search();
+    const navigationsBefore = host.navigations().length;
+    await openGroupPanel();
+    expect(screen.getByTestId('group-field-list')).toBeDefined();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    await settle();
+    expect(host.search()).toBe(before);
+    expect(host.navigations().length).toBe(navigationsBefore);
+  });
+
+  it('a malformed or stale grouping is dropped: the view\'s own grouping stands and the address bar loses it', async () => {
+    for (const group of ['{not json', { fields: [{ field: 'ghost' }] }, { fields: [{ field: 'priority', order: 'up' }] }]) {
+      cleanup();
+      groupQueries = [];
+      const host = await mountHost([link(`${VIEW}/grouped`, { group, extra: { keep: '1' } })]);
+      expect(groupedBy()).toEqual(['status']);
+      expect(groupParamOf(host)).toBeNull();
+      expect(new URLSearchParams(host.search()).get('keep')).toBe('1');
+    }
+  });
+
+  it('a level naming a field this user cannot read is dropped once permissions are loaded', async () => {
+    perms.isLoaded = true;
+    perms.checkField = (_object, field) => field !== 'priority';
+    const host = await mountHost([
+      link(`${VIEW}/all`, {
+        group: { fields: [{ field: 'priority', order: 'asc', collapsed: false }, { field: 'status', order: 'asc', collapsed: false }] },
+      }),
+    ]);
+    expect(groupedBy()).toEqual(['status']);
+    expect(groupParamOf(host)).toEqual({ fields: [{ field: 'status', order: 'asc', collapsed: false }] });
+  });
+
+  it('another view starts clean, on its own declared grouping; Back returns to the link\'s', async () => {
+    const host = await mountHost([link(`${VIEW}/all`, { group: BY_PRIORITY })]);
+    expect(groupedBy()).toEqual(['priority']);
+    await host.go(`${VIEW}/grouped`);
+    expect(groupedBy()).toEqual(['status']);
+    expect(groupParamOf(host)).toBeNull();
+    await host.go(-1);
+    expect(groupedBy()).toEqual(['priority']);
+    expect(groupParamOf(host)).toEqual(BY_PRIORITY);
+  });
+});
+
+describe('a link\'s sort wins over the sort its view declares (objectui#11860)', () => {
+  it('the link\'s sort reaches the query, not only the address bar', async () => {
+    const host = await mountHost([link(`${VIEW}/sorted`, { sort: [{ field: 'due_date', order: 'desc' }] })]);
+    expect(lastQuery().$orderby).toEqual([{ field: 'due_date', order: 'desc' }]);
+    expect(JSON.parse(new URLSearchParams(host.search()).get(LIST_SORT_PARAM)!)).toEqual([
+      { field: 'due_date', order: 'desc' },
+    ]);
+  });
+
+  it('without one, the view\'s declared sort stands', async () => {
+    const host = await mountHost([`${VIEW}/sorted`]);
+    expect(lastQuery().$orderby).toEqual([{ field: 'name', order: 'asc' }]);
+    expect(new URLSearchParams(host.search()).has(LIST_SORT_PARAM)).toBe(false);
   });
 });

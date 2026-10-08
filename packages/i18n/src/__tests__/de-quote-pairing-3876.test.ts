@@ -313,7 +313,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // `.list`, the filter builder's note on how its two empty checks differ,
     // which each quote both operator labels („{{isEmpty}}“ / „{{isNull}}“) —
     // four interpolated spans, the dropdown's own labels.
-    expect(okSpans, 'correctly paired spans').toBe(75);
+    // 76 once objectui#11913 added `grid.import.invalidTime`, the import
+    // preview's refusal of a time cell, which quotes the cell („{{value}}“) —
+    // one interpolated span, runtime data.
+    expect(okSpans, 'correctly paired spans').toBe(76);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -354,8 +357,9 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // `_other` carry one matched pair each and `resultsCountPlural` left.
     // 71 / 71 / 0 after objectui#11695 added `objectActions.deleteConfirmTitle`,
     // one more matched pair. 75 / 75 / 0 after objectui#11810 added the two
-    // `filterBuilder.emptyCheckHint` values, two matched pairs each.
-    expect({ open, close, rdq }).toEqual({ open: 75, close: 75, rdq: 0 });
+    // `filterBuilder.emptyCheckHint` values, two matched pairs each. 76 / 76 / 0
+    // after objectui#11913 added `grid.import.invalidTime`, one more matched pair.
+    expect({ open, close, rdq }).toEqual({ open: 76, close: 76, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

@@ -12,6 +12,8 @@
  *              logo. Used by `/home`.
  *   - `orgs` : no breadcrumb; logo + "Organizations" title. Used by the
  *              `/organizations` landing page.
+ *   - `studio`: no breadcrumb; logo + a fixed "Studio" crumb, as `orgs` draws
+ *              its own. Used by the `/studio` front door (objectui#11863).
  *
  * The user avatar dropdown includes the organization (workspace) switcher at
  * the top so the same chrome lets users change orgs from any page.
@@ -73,7 +75,7 @@ import { resolveKeyedI18nLabel, preferLocal, matchAppBySegment, appRouteSegment,
 import { getIcon } from '../utils/getIcon.js';
 import { useMobileViewSwitcher } from './MobileViewSwitcherContext.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
-import { useCommandPalette } from '../context/CommandPaletteProvider.js';
+import { useCommandPalette, useCommandPaletteProviderMounted } from '../context/CommandPaletteProvider.js';
 import { useUrlOverlay } from '../hooks/useUrlOverlay.js';
 import { KEYBOARD_SHORTCUTS_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRecordTrailHref } from '../urlParams.js';
 import { useAiSurfaceEnabled } from '../hooks/useAiSurface.js';
@@ -126,7 +128,7 @@ function PathSep() {
 // header doesn't ship phantom collaborators in production.
 const EMPTY_PRESENCE_USERS: PresenceUser[] = [];
 
-export type AppHeaderVariant = 'app' | 'home' | 'orgs';
+export type AppHeaderVariant = 'app' | 'home' | 'orgs' | 'studio';
 
 export interface AppHeaderProps {
   variant?: AppHeaderVariant;
@@ -162,6 +164,12 @@ export function AppHeader({
   // Idempotent, direct open of the ⌘K command palette (ADR-0054 C1). Replaces a
   // synthetic `⌘K` KeyboardEvent re-dispatch that did nothing under automation.
   const { openCommandPalette } = useCommandPalette();
+  // objectui#11912 — the search trigger is drawn only where a palette is
+  // mounted. Outside a `CommandPaletteProvider` (the `home` / `orgs` / `studio`
+  // frames: `/home`, `/ai`, the organizations pages, `/studio`)
+  // `openCommandPalette` is the inert fallback and no ⌘K handler is installed,
+  // so a "Search ⌘K" there opens nothing.
+  const hasCommandPalette = useCommandPaletteProviderMounted();
   // Click-reachable entry for the keyboard-shortcuts dialog (was `?`-key only).
   // Shares the `?shortcuts=1` URL param with KeyboardShortcutsDialog (C2/C3).
   const { openOverlay: openShortcuts } = useUrlOverlay(KEYBOARD_SHORTCUTS_PARAM);
@@ -509,7 +517,7 @@ export function AppHeader({
         )}
 
         {/* Platform-stage chip — sits in the brand zone so it rides along on
-            every console surface (home / app / orgs) while the whole platform
+            every console surface (home / app / orgs / studio) while the whole platform
             is in preview. Desktop-only to spare the crowded mobile top bar;
             renders nothing once runtime-config reports GA. */}
         <PreviewBadge className="ml-2 hidden sm:inline-flex" />
@@ -528,6 +536,15 @@ export function AppHeader({
             <PathSep />
             <span className="text-sm font-medium text-foreground/80 px-1.5">
               {t('organizations.title', { defaultValue: 'Workspaces' })}
+            </span>
+          </>
+        )}
+
+        {resolvedVariant === 'studio' && (
+          <>
+            <PathSep />
+            <span className="text-sm font-medium text-foreground/80 px-1.5">
+              {t('console.studio.title')}
             </span>
           </>
         )}
@@ -674,37 +691,40 @@ export function AppHeader({
         )}
 
         {/* Group 1: Search */}
-        <div data-topbar-group className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-          {/* Search — desktop */}
-          <button
-            type="button"
-            data-testid="action:command-palette:open"
-            aria-label={t('console.search', { defaultValue: 'Search…' })}
-            aria-keyshortcuts="Meta+K Control+K"
-            onClick={openCommandPalette}
-            className="hidden lg:flex relative items-center gap-2 w-48 xl:w-64 h-8 px-3 text-sm rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors"
-          >
-            <Search className="h-3.5 w-3.5 shrink-0" />
-            <span className="flex-1 text-left text-xs">
-              {t('console.search', { defaultValue: 'Search…' })}
-            </span>
-            <kbd className="pointer-events-none inline-flex h-5 items-center gap-0.5 rounded border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
-              <span className="text-xs">⌘</span>K
-            </kbd>
-          </button>
+        {/* Only where a palette is mounted (objectui#11912) — see `hasCommandPalette`. */}
+        {hasCommandPalette && (
+          <div data-topbar-group className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+            {/* Search — desktop */}
+            <button
+              type="button"
+              data-testid="action:command-palette:open"
+              aria-label={t('console.search', { defaultValue: 'Search…' })}
+              aria-keyshortcuts="Meta+K Control+K"
+              onClick={openCommandPalette}
+              className="hidden lg:flex relative items-center gap-2 w-48 xl:w-64 h-8 px-3 text-sm rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <Search className="h-3.5 w-3.5 shrink-0" />
+              <span className="flex-1 text-left text-xs">
+                {t('console.search', { defaultValue: 'Search…' })}
+              </span>
+              <kbd className="pointer-events-none inline-flex h-5 items-center gap-0.5 rounded border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
+                <span className="text-xs">⌘</span>K
+              </kbd>
+            </button>
 
-          {/* Search — mobile/tablet */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden h-8 w-8 shrink-0"
-            data-testid="action:command-palette:open-mobile"
-            onClick={openCommandPalette}
-            aria-label={t('console.search', { defaultValue: 'Search…' })}
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-        </div>
+            {/* Search — mobile/tablet */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden h-8 w-8 shrink-0"
+              data-testid="action:command-palette:open-mobile"
+              onClick={openCommandPalette}
+              aria-label={t('console.search', { defaultValue: 'Search…' })}
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
 
         {/* Group 2: Inbox (notifications + approvals + activity) & Help */}
         <div data-topbar-group className="flex items-center gap-0.5 shrink-0">

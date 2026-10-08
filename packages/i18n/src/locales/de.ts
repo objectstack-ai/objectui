@@ -568,6 +568,7 @@ const de = {
       invalidBoolean: "„{{value}}“ ist kein gültiger Wahr/Falsch-Wert",
       invalidNumber: "„{{value}}“ ist keine gültige Zahl",
       invalidDate: "„{{value}}“ ist kein gültiges Datum",
+      invalidTime: "„{{value}}“ ist keine gültige Uhrzeit",
       invalidOption: "„{{value}}“ gehört nicht zu den zulässigen Optionen",
       requiredValue: "Dieses Feld ist erforderlich",
       matchAmbiguous: "Passt zu mehreren vorhandenen Datensätzen — verwenden Sie einen eindeutigen Wert oder die Datensatz-ID",
@@ -1605,7 +1606,7 @@ const de = {
   },
   console: {
     studio: {
-      backToHome: "Zurück zur Startseite",
+      title: "Studio",
     },
     saveAdvisoryTitle: "Gespeichert — die Autorenprüfung ergab {{count}} Hinweis(e)",
     saveAdvisoryTitle_one: "Gespeichert — die Autorenprüfung ergab {{count}} Hinweis",
@@ -2646,6 +2647,7 @@ const de = {
         dashboard: "Dashboard",
         page: "Seite",
         report: "Bericht",
+        package: "Paket",
         record: "Datensatz",
         metadata: "Metadaten",
       },
@@ -4045,7 +4047,7 @@ const de = {
   },
   element: {
     number: {
-      noObject: "Kein Objekt angegeben: Legen Sie object oder dataSource.object fest.",
+      noObject: "Kein Objekt angegeben: Legen Sie dataSource.object fest.",
     },
   },
 };

@@ -197,13 +197,12 @@ describe('the Sort picker field list asks the column read check (objectui#11943)
     });
   });
 
-  it('a field the current sort already names stays listed (the known half-state)', async () => {
+  it('a field the current sort already names stays listed, so its row is named', async () => {
     // objectui#11943's ruling keeps such a field listed so its row is not
-    // blank and can be removed. This pins the half shipped here: it stays
-    // listed exactly as before, with no mark, and it is still choosable in the
-    // picker's other rows. Listing it as removable only (marked unavailable,
-    // never offered as a new choice) needs a `SortBuilder` change and is
-    // objectui#11943's follow-up, which will change this pin.
+    // blank and can be removed. It is listed as removable only: disabled, so
+    // no other row and no "Add sort" can choose it. That half is pinned, for
+    // each reason the picker keeps a field, in
+    // `ListView.sortRemovableOnly-11943.test.tsx`.
     mount({ perms: RESTRICTED, sort: [{ field: 'secret_note', order: 'asc' }] });
     const labels = await openSortOptions();
     expect(labels).toContain('Secret Note');

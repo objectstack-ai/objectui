@@ -320,7 +320,7 @@ written flat on the node:
     "name": "call_api",
     "label": "Click Me",
     "actionType": "api",
-    "endpoint": "/api/action",
+    "target": "/api/action",
     "method": "POST"
   }
 }
@@ -334,8 +334,9 @@ throws on the first click: "Expected `onClick` listener to be a function, instea
 value of `object` type." The execution type is `actionType`, and the built-in vocabulary
 is `script` | `url` | `modal` | `flow` | `api` | `form` (plus objectui's `navigation`
 alias) — anything else must be a handler your host registered on `ActionProvider`. `ajax`
-is neither. And the endpoint key is `endpoint`, with `method`; `api` is not a key any
-action renderer forwards.
+is neither. And an `api` action's endpoint is its `target`, with the verb in `method`: the
+spec's `action:button` row refuses `endpoint` and names `target` in its place, and `api` is
+not a key any action renderer forwards.
 
 ## Performance Optimization
 

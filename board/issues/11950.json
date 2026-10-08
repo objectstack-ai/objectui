@@ -2,8 +2,8 @@
   "number": 11950,
   "kind": "issue",
   "title": "studio(interfaces): after a refused leaf save, the red \"Changes not saved\" strip stays on screen once a later save goes through — InterfacesPillar's doSave never clears its error",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,9 +22,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-08T09:37:19Z",
-  "updated_at": "2026-10-08T14:02:10Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-08T14:32:42Z",
+  "closed_at": "2026-10-08T14:32:02Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 4,
   "locked": false,

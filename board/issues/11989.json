@@ -1,0 +1,39 @@
+{
+  "number": 11989,
+  "kind": "pull_request",
+  "title": "fix(components,app-shell,i18n): element:record_picker and element:number bind data through the node-level dataSource only",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "package: app-shell",
+    "package: components",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-08T16:10:17Z",
+  "updated_at": "2026-10-08T16:50:06Z",
+  "closed_at": "2026-10-08T16:50:04Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-08T16:50:04Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11989",
+  "body": "Part of #11880\n\nItems 2-4 of objectui#11880 for `element:record_picker` and `element:number`, as narrowed by the seat's rulings on claim `6062231663`. Ruling of record: objectstack-ai/objectstack#11509 comment `6051498447` (A-narrow, objectui first).\n\n## What changes\n\n- **Fallbacks dropped (item 2).** `element:record_picker` reads `object`, `filter`, `sort` and `limit` from the node-level `dataSource` only. It no longer reads `composed?.x ?? props.x`. `element:number` reads its `object` and `filter` from the binding only. Its AND-combination with `properties.filter` is gone, so its filter is the binding's (AND-combined with its view's), lowered by `toFilterNodeSafely`.\n- **No `dataSource.object`, no query.** A number with an `aggregate` shows its no-object notice. A picker offers no records.\n- **Designer (item 3).** `BlockPropField` gains `at: 'dataSource'`, and `ObjectSource` gains `objectFrom: 'dataSource'`.\n  - `element:number`'s Object picker writes `dataSource.object` at node level, through `PageBlockInspector`'s node-level patch path, the way `visibleWhen` is patched.\n  - Its measure picker reads the object from there.\n  - A stored flat `properties.object` stays visible under Advanced, which no longer counts a binding-homed field as curated.\n  - Existing label keys are reused.\n- **Docs (item 4).** The `element:*` paragraph in `content/docs/guide/data-source.md` states the dataSource-only rule for the two elements.\n- **B3, bounded amendment.** `element.number.noObject` now reads \"No object named: set dataSource.object.\" in all ten language packs, and the inline `defaultValue` in `elements.tsx` matches. This is a value change only, with no new key. The change made the old sentence (\"set object or ...\") false.\n\n## What is NOT in this PR\n\n- **The `element:repeater` half is deferred.** The seat ruled it out of this PR: at the pin, the spec still declares the repeater's flat `object` REQUIRED and documents that its node `dataSource` is not read. Triage rules on that fork. Deferred with it:\n  - item 1, the repeater registration in `data-list.tsx`;\n  - the repeater's designer rows;\n  - its docs row;\n  - its fixtures;\n  - the `apps/console/src/dev/DevLists.tsx` harness.\n  \n  Their earlier commits on this branch are reverted by a new commit.\n- **Item 5 (`object-grid.defaultFilters`)** is left to objectui#6152 round 10.\n- **The flat inputs stay published** (seat ruling B1, option B). `element:record_picker`'s `object` / `filter` / `sort` / `limit` and `element:number`'s `object` / `filter` stay in `inputs` until the spec's v18 retirement ships with the pin bump. Each description now says the key is NOT READ and names the binding member that is, because the old descriptions stated a precedence that is now false. The `MEMBER_PINS` prose in `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` that described the flat precedence is corrected for the same reason. No row, exemption or count there changes.\n\n## Verification (HEAD `400f1f352`)\n\n- **Union run** (repo root, `pnpm exec vitest run`): every test naming record-picker / elements / data-list / repeater / block-config / PageBlockInspector, every test authoring the three elements, `packages/i18n/`, `column-identity.ratchet` and `one-authority-per-exported-name-6273`. Result: `Test Files 186 passed (186)`, `Tests 4642 passed | 13 skipped (4655)`.\n- **Type-check:** `pnpm --filter @object-ui/components type-check` and `pnpm --filter @object-ui/app-shell type-check` both exit 0, after a turbo build of the app-shell closure.\n- **Gate scripts, all exit 0:**\n  - `check-changeset-presence`, `check-changeset-no-major`, `check:changeset-claims`;\n  - `check:new-line-citations` (0 new);\n  - `check:control-bytes`;\n  - `check:i18n-keys`, `check:i18n-drift` (\"Every changed en value was followed by all nine translation packs\"), `check:i18n-designer-parity`, `check:i18n-dead-keys`;\n  - `check:spec-symbols`, `check:element-data-source-declaration`;\n  - `check:doc-types`, `check:doc-fences`, `check:doc-example-ids`, `check:doc-example-readers`, `docs:check-links`.\n- **Lint:** `eslint` on the 31 touched ts/tsx files: 0 errors.\n- **Not measured:** `check:doc-snippets` / `check:doc-examples` (exit 2: their closure is unbuilt; the diff adds no ts/tsx fence and no `@example`).\n- **Ablations** at the same HEAD, each through `ablation-replace` with its restore proven (blob equals HEAD and the diff against HEAD is empty):\n  - picker `?? props.object` put back: 1 red, 6 green;\n  - number `?? props.object` put back: 3 red, 22 green;\n  - number AND with `properties.filter` put back: 2 red, 16 green;\n  - the number's Object picker without `at: 'dataSource'`: 2 red, 3 green (the repeater control row stays green).\n\n## Acceptance notes\n\n- A docblock in `packages/react` (`ElementDataSourceNoObjectPanel`) says its wording is `element:number`'s notice with the property as a hole. After B3 that is approximate, because the number's sentence no longer has an \"X or\" part. It is a comment, not published text, and the file is off this PR's surface.\n- `check-changeset-presence` counts four released packages: components, app-shell, i18n, and console via a test fixture. It passes with the one changeset, which declares components, app-shell and i18n.\n\nClause-②: no\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01MgfduSkFrfM3eorB3UGfAU)_\n"
+}

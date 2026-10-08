@@ -48,6 +48,7 @@ import React from 'react';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 // Same stub the sibling ObjectMap pins use (no WebGL in this lane), widened on
 // `Marker` by the longitude it is handed: the marker array carries `[lng, lat]`

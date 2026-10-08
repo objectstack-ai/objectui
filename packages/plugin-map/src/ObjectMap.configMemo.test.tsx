@@ -84,6 +84,7 @@ vi.mock('react-map-gl/maplibre', () => {
 });
 
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 /**
  * Inline rows via the array shorthand: the `value` provider settles in one

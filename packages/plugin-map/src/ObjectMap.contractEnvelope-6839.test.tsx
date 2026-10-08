@@ -79,6 +79,7 @@ vi.mock('react-map-gl/maplibre', () => {
 });
 
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 const ROWS = [
   { id: '1', name: 'Harbour Depot', latitude: 47.6062, longitude: -122.3321 },

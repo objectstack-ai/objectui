@@ -48,6 +48,7 @@ import { fileURLToPath } from 'node:url';
 import { SchemaRenderer, SchemaRendererProvider, toRenderableSchema } from '@object-ui/react';
 import { safeValidateSchema } from '@object-ui/types/zod';
 import './index';
+import './__tests__/webgl2Available';
 
 vi.mock('react-map-gl/maplibre', () => ({
   default: (props: any) => <div aria-label="Map">{props.children}</div>,

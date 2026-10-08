@@ -43,6 +43,7 @@ import { SchemaRendererProvider } from '@object-ui/react';
 import { ListView } from '@object-ui/plugin-list';
 import { ObjectMap } from './ObjectMap';
 import { FIT_MAX_ZOOM, FIT_PADDING_PX } from './camera';
+import './__tests__/webgl2Available';
 
 let capturedProps: any = null;
 

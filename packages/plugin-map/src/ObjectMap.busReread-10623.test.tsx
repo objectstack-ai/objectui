@@ -33,6 +33,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act, cleanup, screen, waitFor } from '@testing-library/react';
 import { notifyDataChanged } from '@object-ui/react';
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 /** The camera each `MapGL` mount was handed, in mount order. */
 let mountedCameras: any[] = [];

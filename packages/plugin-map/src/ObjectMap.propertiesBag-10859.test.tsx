@@ -54,6 +54,7 @@ vi.mock('react-map-gl/maplibre', () => ({
 // Module scope, not a hook: this import IS the registration (AGENTS.md
 // test-discipline section).
 import './index';
+import './__tests__/webgl2Available';
 
 const MAP = { latitudeField: 'lat', longitudeField: 'lng', titleField: 'name' };
 // `as const` keeps `operator` the literal the bag's filter row declares; a

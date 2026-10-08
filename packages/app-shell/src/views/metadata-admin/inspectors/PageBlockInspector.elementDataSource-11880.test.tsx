@@ -90,7 +90,8 @@ describe('the designer writes the node-level `dataSource` for the element blocks
     fireEvent.change(screen.getByLabelText('Limit'), { target: { value: '5' } });
     const block = committedBlock(onPatch);
     expect(block.dataSource).toEqual({ object: 'contact', limit: 5 });
-    expect(block.properties).toBeUndefined();
+    // The parsed page's empty bag, untouched: no `properties.limit`.
+    expect(block.properties).toEqual({});
   });
 
   it('CONTROL: a display control on the same block still writes `properties`', () => {

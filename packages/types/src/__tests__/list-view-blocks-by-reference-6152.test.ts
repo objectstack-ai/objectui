@@ -208,10 +208,11 @@ describe('objectui#6152 round 11 — verdict equality: the mirror block answers 
   });
 
   // The ONE sanctioned difference, row by row, each naming the producer that needs it.
-  it.each([
+  const PARTIAL_ROWS: ReadonlyArray<readonly [Kind, Record<string, unknown>, string, string]> = [
     ['kanban', { groupByField: 'stage' }, 'columns', '`defaultKanbanFromObject` (InterfaceListPage, ObjectDataPage)'],
     ['timeline', { startDateField: 'starts_at' }, 'titleField', "InterfaceListPage's timeline default (`defaultCalendarFromObject`)"],
-  ] as const)('`.partial()` on %s: the slot refuses %j for its missing `%s`, the mirror accepts it — for %s', (k, block, missing) => {
+  ];
+  it.each(PARTIAL_ROWS)('`.partial()` on %s: the slot refuses %j for its missing `%s`, the mirror accepts it — for %s', (k, block, missing) => {
     expect(codeAndPath(slotBlock(k).safeParse(block))).toEqual([{ code: 'invalid_type', path: missing }]);
     expect(mirrorBlock(k).safeParse(block).success).toBe(true);
   });

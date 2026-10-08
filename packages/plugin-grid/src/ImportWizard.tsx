@@ -15,8 +15,12 @@ import { useObjectTranslation, notifyDataChanged } from '@object-ui/react';
 import { sanitizeFileNameBase } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
-import { MULTI_OPTION_TYPES, SINGLE_OPTION_TYPES } from '@objectstack/spec/data';
-import { BOOLEAN_IMPORT_TOKENS, REFERENCE_IMPORT_TYPES } from './importCoercionContract';
+import {
+  BOOLEAN_VALUE_TYPES, MULTI_OPTION_TYPES, NUMERIC_VALUE_TYPES, SINGLE_OPTION_TYPES,
+} from '@objectstack/spec/data';
+import {
+  BOOLEAN_IMPORT_TOKENS, REFERENCE_IMPORT_TYPES, isImportableDateCell, isRecordEmail,
+} from './importCoercionContract';
 import type {
   DataSource,
   ImportRequestOptions,
@@ -505,24 +509,6 @@ function formatDryRunError(
   return { fieldLabel, message };
 }
 
-/**
- * Plausible email? Mirrors the server's `isLikelyEmail` (structure + ASCII) so
- * an obviously-bad address — e.g. a non-ASCII domain like `x@柴仟.com` — is
- * flagged red in the preview here, instead of passing client + dry-run
- * validation only to be rejected by better-auth at real-import time
- * (framework#3566). Deliberately not a regex: a single-pass structural check
- * has no backtracking (cf. the server-side ReDoS note).
- */
-export function isPlausibleEmail(value: string): boolean {
-  if (value.length === 0 || value.length > 254 || /\s/.test(value)) return false;
-  if (/[^\x20-\x7e]/.test(value)) return false; // printable ASCII only, like the server
-  const at = value.indexOf('@');
-  if (at <= 0 || at !== value.lastIndexOf('@') || at === value.length - 1) return false;
-  const domain = value.slice(at + 1);
-  const dot = domain.lastIndexOf('.');
-  return dot > 0 && dot < domain.length - 1;
-}
-
 // ── The preview's cell check (objectui#11814) ─────────────────────────────
 //
 // A cell is flagged here only where the server's import refuses it, because the
@@ -650,6 +636,13 @@ interface CellCheckOptions {
 /**
  * The reason the server refuses this cell, or `undefined` when it takes it. A
  * blank or whitespace-only cell is empty, as the server's `isBlank` reads it.
+ *
+ * The arms run in the order the server's `coerceFieldValue` runs them, and the
+ * boolean and numeric types are the spec's sets, the ones the server reads, so
+ * `toggle`, `rating`, `slider` and `progress` are checked like `boolean` and
+ * `number` (objectui#11889). A `date` / `datetime` cell is read by the server's
+ * grammar and supported years, and an `email` cell by the record validator's
+ * rule, which takes a non-ASCII address (both in `importCoercionContract.ts`).
  */
 function checkImportCell(
   cell: string,
@@ -658,16 +651,17 @@ function checkImportCell(
 ): CellRefusal | undefined {
   const value = cell.trim();
   if (value === '') return field.required && opts.requireValues ? { code: 'required' } : undefined;
-  switch (field.type) {
-    case 'number': case 'currency': case 'percent':
-      return parseImportNumber(value) === undefined ? { code: 'invalid_number', value } : undefined;
-    case 'boolean':
-      return BOOLEAN_IMPORT_TOKENS.has(value.toLowerCase()) ? undefined : { code: 'invalid_boolean', value };
-    case 'date': case 'datetime':
-      return isNaN(Date.parse(value)) ? { code: 'invalid_date', value } : undefined;
-    case 'email':
-      return isPlausibleEmail(value) ? undefined : { code: 'invalid_email', value };
+  const { type } = field;
+  if (BOOLEAN_VALUE_TYPES.has(type)) {
+    return BOOLEAN_IMPORT_TOKENS.has(value.toLowerCase()) ? undefined : { code: 'invalid_boolean', value };
   }
+  if (NUMERIC_VALUE_TYPES.has(type)) {
+    return parseImportNumber(value) === undefined ? { code: 'invalid_number', value } : undefined;
+  }
+  if (type === 'date' || type === 'datetime') {
+    return isImportableDateCell(value, type) ? undefined : { code: 'invalid_date', value };
+  }
+  if (type === 'email') return isRecordEmail(value) ? undefined : { code: 'invalid_email', value };
   const refused = refusedOptionValue(cell, field, opts.keepUnknownOptions);
   return refused === undefined ? undefined : { code: 'invalid_option', value: refused };
 }

@@ -61,8 +61,9 @@ function mount(schema: Record<string, unknown>, adapter: ReturnType<typeof makeA
   );
 }
 
-const NUMBER = { type: 'element:number', id: 'n', properties: { object: 'contact', aggregate: 'count' } };
-const REPEATER = { type: 'element:repeater', id: 'rep', properties: { object: 'contact', fields: ['name'] } };
+// Both read their object from the node-level `dataSource` binding (objectui#11880).
+const NUMBER = { type: 'element:number', id: 'n', dataSource: { object: 'contact' }, properties: { aggregate: 'count' } };
+const REPEATER = { type: 'element:repeater', id: 'rep', dataSource: { object: 'contact' }, properties: { fields: ['name'] } };
 
 const cases = [
   { block: 'element:number', schema: NUMBER, read: (a: ReturnType<typeof makeAdapter>) => a.aggregate },
@@ -107,8 +108,8 @@ describe.each(cases)('$block re-reads on the data-invalidation bus (objectui#106
 
   it('a block with no object binding reads nothing on an invalidation', async () => {
     const adapter = makeAdapter();
-    const { object: _object, ...unbound } = schema.properties;
-    mount({ ...schema, properties: unbound }, adapter);
+    const { dataSource: _dataSource, ...unbound } = schema;
+    mount(unbound, adapter);
     await settle();
 
     await act(async () => {

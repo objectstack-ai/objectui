@@ -21,8 +21,10 @@
  *
  *   - an aggregate with neither object: the notice, not the dash, and no query;
  *   - a `dataSource` that names no object is still authored absence;
- *   - controls, each able to fail: `properties.object` alone and
- *     `dataSource.object` alone aggregate as before; a binding whose `view` is
+ *   - since objectui#11880 a flat `properties.object` alone is authored absence
+ *     too: the binding is the only place the metric reads its object from;
+ *   - controls, each able to fail: `dataSource.object` alone aggregates as
+ *     before; a binding whose `view` is
  *     still resolving, or failed to resolve, keeps its own panel and never
  *     shows the new state; a node with no `aggregate` keeps today's dash.
  *
@@ -103,16 +105,21 @@ describe('element:number — an aggregate naming no object shows the "no object 
   });
 });
 
-describe('element:number — controls: every form that names an object is unchanged (objectui#10951)', () => {
-  it('control: properties.object alone aggregates and paints the value', async () => {
+describe('element:number — a flat properties.object names nothing (objectui#11880)', () => {
+  it('properties.object alone is authored absence too: the notice, and nothing is queried', async () => {
+    // The row that was this file's first control until objectui#11880: the
+    // metric reads its object from `dataSource.object` only.
     const adapter = makeAdapter();
     mount({ type: 'element:number', id: 'n', properties: { object: 'contact', aggregate: 'count' } }, adapter);
+    await settle();
 
-    await waitFor(() => expect(screen.getByText('7')).toBeTruthy());
-    expect(adapter.aggregate.mock.calls.map((c) => c[0])).toEqual(['contact']);
-    expect(screen.queryByTestId(NOTICE_ID)).toBeNull();
+    expect(screen.getByTestId(NOTICE_ID).textContent).toBe(NOTICE_EN);
+    expect(adapter.aggregate).not.toHaveBeenCalled();
+    expect(adapter.find).not.toHaveBeenCalled();
   });
+});
 
+describe('element:number — controls: every form that names an object is unchanged (objectui#10951)', () => {
   it('control: dataSource.object alone aggregates and paints the value', async () => {
     const adapter = makeAdapter();
     mount(

@@ -1368,9 +1368,42 @@ export default defineConfig({
             { name: 'plugin-calendar', test: /[\\/]packages[\\/]plugin-calendar[\\/]/, priority: 70 },
             { name: 'plugin-kanban', test: /[\\/]packages[\\/]plugin-kanban[\\/]/, priority: 70 },
             { name: 'plugin-chatbot', test: /[\\/]packages[\\/]plugin-chatbot[\\/]/, priority: 70 },
-            // react-markdown / remark / micromark family — heavy markdown
-            // pipeline pulled in only by markdown/chatbot plugins.
-            { name: 'vendor-markdown', test: /[\\/]node_modules[\\/](react-markdown|remark-|rehype-|micromark|mdast-|hast-|unified|unist-|vfile|bail|trough|character-entities|decode-named-character-reference|devlop|estree-|comma-separated-tokens|space-separated-tokens|property-information|html-url-attributes|zwitch)/, priority: 85 },
+            //
+            // ## `vendor-markdown` claims only what the first load reaches (objectui#11854)
+            //
+            // The remark / rehype / micromark family. The chatbot's message
+            // renderer (`streamdown`, imported statically by `plugin-chatbot`)
+            // reaches most of it on every page, so this chunk is eager. Without
+            // the tag the group also claimed the family members that only
+            // `plugin-markdown` reaches — `rehype-highlight` with `lowlight` and
+            // `highlight.js`, `rehype-slug`, `rehype-autolink-headings`,
+            // `remark-github-blockquote-alert` and their helpers — and one eager
+            // member made all of them eager: the objectui#11798 capture
+            // mechanism, one group over. `tags: ['$initial']` is the same option,
+            // for the same reason, as on `vendor-objectstack` above
+            // (objectui#11101): the group claims a family member only when a
+            // static import from the entry reaches it, and the rest follows its
+            // importer, `plugin-markdown`'s own group, behind that plugin's lazy
+            // registration and the docs reader's lazy route. The bytes are
+            // recorded once, on `BASELINE` in
+            // `scripts/check-eager-closure-budget.mjs`, ⛔ not here.
+            //
+            // ⛔ Not `includeDependenciesRecursively: false`, the flag
+            // objectui#11798 measured into a chunk cycle on `vendor-charts`; the
+            // tag narrows what the group claims and leaves its capture alone.
+            //
+            // `react-markdown` is the one member with no static path from the
+            // entry that the first load still needs. `MarkdownContent` in
+            // `packages/fields` imports it statically, and that widget sits in
+            // the EAGER `ui-components` chunk although it is only reached through
+            // `React.lazy` — the co-tenancy recorded in
+            // `scripts/vite-ineffective-dynamic-imports.ts` (objectui#5325). Left
+            // unclaimed, `ui-components` (priority 80) would take it by its own
+            // capture, onto a budgeted line; claimed by the tagged group it
+            // cannot be. So it gets a group of its own here, and its chunk loads
+            // with whichever importer loads first.
+            { name: 'vendor-markdown', test: /[\\/]node_modules[\\/](remark-|rehype-|micromark|mdast-|hast-|unified|unist-|vfile|bail|trough|character-entities|decode-named-character-reference|devlop|estree-|comma-separated-tokens|space-separated-tokens|property-information|html-url-attributes|zwitch)/, priority: 85, tags: ['$initial'] },
+            { name: 'vendor-react-markdown', test: /[\\/]node_modules[\\/]react-markdown[\\/]/, priority: 84 },
             // Sentry — only fetched when the RUNTIME serves a DSN on
             // /api/v1/runtime/config (objectstack#12681); a deployment that
             // configured none never requests this chunk at all.

@@ -18,12 +18,26 @@
  *    for an invitation redirect or a deployment with no owner yet — see
  *    `decideSignUpOffer` in `@object-ui/app-shell`, the one decision this page
  *    shares with the package's exported `DefaultLoginPage` (objectui#11691,
- *    objectui#11705).
+ *    objectui#11705). The link waits for the config read to ANSWER: while it
+ *    is pending, or after it failed, the posture is unknown and nothing is
+ *    offered (objectui#11806).
+ *  - Says so when the server cannot be reached: a failed config read replaces
+ *    the form with "Cannot connect to server" and a Retry that reads it again
+ *    (objectui#11806). The sign-in request goes to the same server, so a
+ *    live-looking form would only have deferred that news to the submit.
  */
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth, LoginForm, AuthErrorBanner } from '@object-ui/auth';
+import {
+  useAuth,
+  LoginForm,
+  AuthErrorBanner,
+  AuthAlertIcon,
+  AuthFormHeader,
+  AuthSpinner,
+  AUTH_PRIMARY_BUTTON_CLASS,
+} from '@object-ui/auth';
 import type { AuthPublicConfig } from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { Card } from '@object-ui/components';
@@ -70,10 +84,24 @@ export function LoginPage() {
     getAuthConfig,
   } = useAuth();
 
-  // The public auth config, once read — `null` until then (and after a failed
-  // read), which `decideSignUpOffer` answers as "offer the link", the
-  // behaviour before the config is known.
+  // The public auth config and where its read stands (objectui#11806):
+  // `loading` until `getAuthConfig()` settles, `failed` once it rejected — the
+  // auth client has already retried by then — and `known` once the server
+  // answered. `authConfig` stays `null` until `known`; `decideSignUpOffer`
+  // answers `null` as "offer the link", so the page consults it only once the
+  // read is `known`. `configReadAttempt` counts Retry presses, and re-runs the
+  // read below.
   const [authConfig, setAuthConfig] = useState<AuthPublicConfig | null>(null);
+  const [configRead, setConfigRead] = useState<'loading' | 'failed' | 'known'>('loading');
+  const [configReadAttempt, setConfigReadAttempt] = useState(0);
+  const retryConfigRead = () => {
+    setConfigRead('loading');
+    setConfigReadAttempt((n) => n + 1);
+  };
+  // A retry in flight keeps the unreachable state up (its button reads
+  // "Retrying…") rather than flashing the form before the server has answered.
+  const serverUnreachable =
+    configRead === 'failed' || (configRead === 'loading' && configReadAttempt > 0);
   // Dev-only seeded-admin hint (15.1 third-party eval): the runtime seeds
   // admin@objectos.ai on an empty dev DB, but nothing on this page said so —
   // new users clicked "Sign up" and landed in an empty non-admin workspace.
@@ -151,14 +179,16 @@ export function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Read public auth config once to know whether sign-up is offered and
-  // whether the dev-seeded admin credentials should be surfaced.
+  // Read public auth config to know whether sign-up is offered and whether
+  // the dev-seeded admin credentials should be surfaced — once on mount, and
+  // again on each Retry after a failed read.
   useEffect(() => {
     let cancelled = false;
     getAuthConfig()
       .then((cfg) => {
         if (cancelled) return;
         setAuthConfig(cfg ?? null);
+        setConfigRead('known');
         const seed = (cfg as { devSeedAdmin?: { email?: unknown; password?: unknown } } | null)
           ?.devSeedAdmin;
         setDevSeedAdmin(
@@ -171,12 +201,14 @@ export function LoginPage() {
         );
       })
       .catch(() => {
-        /* leave defaults — server-side gate is the source of truth */
+        // The server did not answer (the auth client retried first): say so
+        // instead of drawing a form whose submit goes to the same server.
+        if (!cancelled) setConfigRead('failed');
       });
     return () => {
       cancelled = true;
     };
-  }, [getAuthConfig]);
+  }, [getAuthConfig, configReadAttempt]);
 
   // Post-login orchestration — fires once we observe an authenticated user.
   useEffect(() => {
@@ -319,13 +351,59 @@ export function LoginPage() {
           </div>
         ) : null}
         <Card className="border-border/60 px-4 py-8 shadow-sm shadow-primary/5 backdrop-blur supports-[backdrop-filter]:bg-card/95">
-          <LoginFormCard
-            registerUrl={signUpOffer === 'form' ? registerUrl : undefined}
-            redirect={redirect}
-          />
+          {serverUnreachable ? (
+            <ServerUnreachable
+              retrying={configRead === 'loading'}
+              onRetry={retryConfigRead}
+            />
+          ) : (
+            <LoginFormCard
+              registerUrl={
+                configRead === 'known' && signUpOffer === 'form' ? registerUrl : undefined
+              }
+              redirect={redirect}
+            />
+          )}
         </Card>
       </div>
     </AuthLayout>
+  );
+}
+
+/**
+ * In place of the form while the server cannot be reached (objectui#11806);
+ * `RegisterPage` shows the same panel. Built from `@object-ui/auth`'s own form
+ * primitives so it sits where `<LoginForm>` would, at the same width and in
+ * the same visual language.
+ */
+export function ServerUnreachable({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
+  const { t } = useObjectTranslation();
+  return (
+    <div
+      data-testid="auth-server-unreachable"
+      className="mx-auto flex w-full flex-col justify-center space-y-7 sm:w-[400px]"
+    >
+      <div role="alert">
+        <AuthFormHeader
+          icon={<AuthAlertIcon className="h-6 w-6 text-destructive" />}
+          title={t('console.error.connectionFailed', { defaultValue: 'Cannot connect to server' })}
+          description={t('console.error.checkServer', {
+            defaultValue: 'Please check your network connection or that the backend is running.',
+          })}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        className={AUTH_PRIMARY_BUTTON_CLASS}
+      >
+        {retrying ? <AuthSpinner /> : null}
+        {retrying
+          ? t('console.actions.retrying', { defaultValue: 'Retrying…' })
+          : t('console.actions.retry', { defaultValue: 'Retry' })}
+      </button>
+    </div>
   );
 }
 

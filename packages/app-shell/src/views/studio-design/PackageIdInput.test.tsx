@@ -4,8 +4,10 @@ import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import { sanitizePackageId, PACKAGE_ID_RE } from './packages-io';
+import { ManifestSchema } from '@objectstack/spec/kernel';
+import { sanitizePackageId, isSpecPackageId } from './packages-io';
 import { PackageIdInput } from './PackageIdInput';
+import { tFormat } from '../metadata-admin/i18n';
 
 afterEach(cleanup);
 
@@ -54,7 +56,7 @@ describe('PackageIdInput', () => {
     render(<Harness />);
     const input = screen.getByTestId('id-input');
     fireEvent.change(input, { target: { value: 'badid' } });
-    expect(PACKAGE_ID_RE.test('badid')).toBe(false);
+    expect(isSpecPackageId('badid')).toBe(false);
     expect(screen.getByTestId('pkg-id-format-hint')).toBeInTheDocument();
     fireEvent.change(input, { target: { value: 'com.example.app' } });
     expect(screen.queryByTestId('pkg-id-format-hint')).not.toBeInTheDocument();
@@ -64,5 +66,26 @@ describe('PackageIdInput', () => {
     render(<Harness />);
     expect(screen.queryByTestId('pkg-id-format-hint')).not.toBeInTheDocument();
     expect(screen.queryByTestId('pkg-id-stripped')).not.toBeInTheDocument();
+  });
+});
+
+describe('PackageIdInput — the default rule is the spec’s id rule (objectui#11855)', () => {
+  it('the predicate is the installed declaration', () => {
+    for (const id of ['163.com.crm', 'com.acme.my_app', 'com.-x', 'a..b', 'com.example.myapp']) {
+      expect(isSpecPackageId(id)).toBe(ManifestSchema.shape.id.safeParse(id).success);
+    }
+  });
+
+  it('with no rule passed, a digit-led segment passes and an underscore stays in the field, refused', () => {
+    render(<Harness />);
+    const input = screen.getByTestId('id-input');
+    fireEvent.change(input, { target: { value: '163.com.crm' } });
+    expect(screen.queryByTestId('pkg-id-format-hint')).not.toBeInTheDocument();
+    fireEvent.change(input, { target: { value: 'com.acme.my_app' } });
+    expect(input).toHaveValue('com.acme.my_app');
+    expect(screen.queryByTestId('pkg-id-stripped')).not.toBeInTheDocument();
+    expect(screen.getByTestId('pkg-id-format-hint')).toHaveTextContent(
+      tFormat('engine.packages.idRule.formatHint', 'en-US', { example: 'com.acme.crm' }),
+    );
   });
 });

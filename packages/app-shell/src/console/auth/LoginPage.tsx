@@ -6,12 +6,28 @@
  * an audience posture closed to strangers (`invite_only`, the default) only
  * for an invitation redirect or a deployment with no owner yet. The decision
  * is `decideSignUpOffer` (`./signUpOffer`), the same one the console's own
- * login page calls (objectui#11691, objectui#11705).
+ * login page calls (objectui#11691, objectui#11705). The link waits for the
+ * config read to ANSWER: while it is pending, or after it failed, the posture
+ * is unknown and nothing is offered (objectui#11806).
+ *
+ * When that read fails the page says the server cannot be reached, with a
+ * Retry that reads it again, in place of the form (objectui#11806). The
+ * sign-in request goes to the same server, so a live-looking form would only
+ * have deferred that news to the submit.
  */
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { LoginForm, useAuth, type AuthLinkComponentProps, type AuthPublicConfig } from '@object-ui/auth';
+import {
+  LoginForm,
+  useAuth,
+  AuthAlertIcon,
+  AuthFormHeader,
+  AuthSpinner,
+  AUTH_PRIMARY_BUTTON_CLASS,
+  type AuthLinkComponentProps,
+  type AuthPublicConfig,
+} from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { AuthPageLayout } from './AuthPageLayout.js';
 import { signInRefusalMessages } from './signInRefusalMessages.js';
@@ -22,6 +38,39 @@ const RouterLink = ({ href, className, children }: AuthLinkComponentProps) => (
   <Link to={href} className={className}>{children}</Link>
 );
 
+/**
+ * In place of the form while the server cannot be reached (objectui#11806);
+ * `./RegisterPage` shows the same panel. Built from `@object-ui/auth`'s own
+ * form primitives so it sits where the form would, at the same width. Not
+ * exported from the package entry.
+ */
+export function ServerUnreachable({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
+  const { t } = useObjectTranslation();
+  return (
+    <div
+      data-testid="auth-server-unreachable"
+      className="mx-auto flex w-full flex-col justify-center space-y-7 sm:w-[400px]"
+    >
+      <div role="alert">
+        <AuthFormHeader
+          icon={<AuthAlertIcon className="h-6 w-6 text-destructive" />}
+          title={t('console.error.connectionFailed')}
+          description={t('console.error.checkServer')}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        className={AUTH_PRIMARY_BUTTON_CLASS}
+      >
+        {retrying ? <AuthSpinner /> : null}
+        {retrying ? t('console.actions.retrying') : t('console.actions.retry')}
+      </button>
+    </div>
+  );
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -29,17 +78,35 @@ export function LoginPage() {
   const { t } = useObjectTranslation();
   const { user, getAuthConfig } = useAuth();
 
-  // The public auth config, once read — `null` until then (and after a failed
-  // read), which `decideSignUpOffer` answers as "offer the link", the
-  // behaviour before the config is known.
+  // The public auth config and where its read stands (objectui#11806):
+  // `loading` until `getAuthConfig()` settles, `failed` once it rejected — the
+  // auth client has already retried by then — and `known` once the server
+  // answered. `authConfig` stays `null` until `known`; `decideSignUpOffer`
+  // answers `null` as "offer the link", so the page consults it only once the
+  // read is `known`. `configReadAttempt` counts Retry presses, and re-runs the
+  // read below.
   const [authConfig, setAuthConfig] = useState<AuthPublicConfig | null>(null);
+  const [configRead, setConfigRead] = useState<'loading' | 'failed' | 'known'>('loading');
+  const [configReadAttempt, setConfigReadAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     getAuthConfig()
-      .then(cfg => { if (!cancelled) setAuthConfig(cfg ?? null); })
-      .catch(() => { /* leave `null` — the server-side gate is the source of truth */ });
+      .then(cfg => {
+        if (cancelled) return;
+        setAuthConfig(cfg ?? null);
+        setConfigRead('known');
+      })
+      .catch(() => { if (!cancelled) setConfigRead('failed'); });
     return () => { cancelled = true; };
-  }, [getAuthConfig]);
+  }, [getAuthConfig, configReadAttempt]);
+  const retryConfigRead = () => {
+    setConfigRead('loading');
+    setConfigReadAttempt(n => n + 1);
+  };
+  // A retry in flight keeps the unreachable state up (its button reads
+  // "Retrying…") rather than flashing the form before the server has answered.
+  const serverUnreachable =
+    configRead === 'failed' || (configRead === 'loading' && configReadAttempt > 0);
 
   // objectui#11705 — whether this visitor is offered "Sign up". The bootstrap
   // probe runs only when the posture is closed to strangers and the visitor
@@ -54,11 +121,19 @@ export function LoginPage() {
     ? `/register?redirect=${encodeURIComponent(redirect)}`
     : '/register';
 
+  if (serverUnreachable) {
+    return (
+      <AuthPageLayout>
+        <ServerUnreachable retrying={configRead === 'loading'} onRetry={retryConfigRead} />
+      </AuthPageLayout>
+    );
+  }
+
   return (
     <AuthPageLayout>
       <LoginForm
         onSuccess={() => navigate('/')}
-        registerUrl={signUpOffer === 'form' ? registerUrl : undefined}
+        registerUrl={configRead === 'known' && signUpOffer === 'form' ? registerUrl : undefined}
         forgotPasswordUrl="/forgot-password"
         title={t('auth.login.title')}
         description={t('auth.login.description')}

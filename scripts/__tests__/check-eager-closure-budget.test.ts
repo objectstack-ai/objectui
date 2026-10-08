@@ -635,8 +635,11 @@ describe('chunk attribution (objectui#7399)', () => {
       expect(group!.options).toContain(`tags: ['$initial']`);
       // The control: the parse reads the tag off THIS group, not off every
       // group — a tail-blind or table-wide match would satisfy the line above.
+      // objectui#11854 tags `vendor-markdown` the same way, for the same
+      // reason, so the exact set names both, in table order.
       expect(groups.filter((g) => g.options.includes('$initial')).map((g) => g.name)).toEqual([
         'vendor-objectstack',
+        'vendor-markdown',
       ]);
     });
 
@@ -811,10 +814,11 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
     // `@objectstack/*` 17.6.0's spec root shed its migration chain,
     // objectui#11717 UP to 3506.9 on the ruled raise for `@objectstack/*`
     // 17.7.0, ruling 6027998226, objectui#11798 down to 3338.1 when the Studio
-    // builder and the chart engine left the first load) — a rendering derived
+    // builder and the chart engine left the first load, objectui#11854 down to
+    // 3296.2 when the markdown highlighter left it) — a rendering derived
     // in the test would agree with the renderer by construction and pin
     // nothing.
-    expect(result.message).toContain('3338.1');
+    expect(result.message).toContain('3296.2');
   });
 
   it('is exactly one regression wide, from either side of the line', () => {
@@ -1644,7 +1648,7 @@ describe('main', () => {
     // about the FIXTURE while the gate under test behaved correctly. The number
     // this case is actually about is "the report's chunk count, echoed".
     expect(outputs.closure_chunks).toBe(String(fixture.files.length));
-    expect(outputs.closure_gzip_kb).toBe('3338.1');
+    expect(outputs.closure_gzip_kb).toBe('3296.2');
   });
 
   it('exits 1 — a verdict about the BUNDLE — when over budget', () => {
@@ -1737,8 +1741,16 @@ describe('main', () => {
    * past its own line. Before objectui#5490 that run exited 0.
    */
   it('exits 1 when one chunk is over its ceiling while the aggregate is green', () => {
+    // The chunk grows past its line while the rest of the closure shrinks by
+    // the same bytes, so the TOTAL stays on the baseline — the shape the
+    // per-chunk header names: one chunk grows by the whole allowance while the
+    // others shrink. Without the offset the total rode on the aggregate
+    // headroom, and when objectui#11854 lowered the aggregate ceiling the
+    // chunk's overage alone was larger than that headroom, so the aggregate
+    // went red too and the run stopped testing what its name says.
+    const over = PER_CHUNK_GZIP_CEILINGS['vendor-objectstack'] + 1;
     const { code, outputs } = run(
-      budgeted({ 'vendor-objectstack': PER_CHUNK_GZIP_CEILINGS['vendor-objectstack'] + 1 }),
+      budgeted({ 'vendor-objectstack': over }, -(over - PER_CHUNK_BASELINE['vendor-objectstack'])),
     );
     expect(code).toBe(1);
     expect(outputs.closure_status).toBe('pass');

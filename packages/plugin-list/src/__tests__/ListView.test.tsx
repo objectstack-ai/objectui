@@ -2670,6 +2670,28 @@ describe('ListView — inline-edit toggle drives grid editability', () => {
     expect(screen.getByTestId('grid-editable')).toHaveTextContent('false');
     expect(editableCalls.at(-1)).toBe(false);
   });
+
+  it('the toggle announces its state with aria-pressed (objectui#11816)', async () => {
+    mockDataSource.find.mockResolvedValue([{ id: '1', name: 'Alice', email: 'alice@test.com' }]);
+    const schema: ListViewSchema = {
+      type: 'list-view',
+      objectName: 'contacts',
+      viewType: 'grid',
+      fields: ['name', 'email'],
+    };
+
+    renderWithProvider(
+      <ListView schema={schema} dataSource={mockDataSource} onInlineEditChange={vi.fn()} />,
+    );
+    await screen.findByTestId('grid-editable');
+
+    const toggle = screen.getByTestId('toolbar-inline-edit-toggle');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  });
 });
 
 describe('ListView — gantt view fed by an api-provider ViewData', () => {

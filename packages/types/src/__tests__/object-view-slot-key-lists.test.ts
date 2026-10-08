@@ -152,7 +152,12 @@ const TABLE_WITHHELD_BY_REASON = {
    * of these to it.
    */
   nodeLevel: ['ariaLabel', 'disabled', 'disabledOn', 'hidden', 'hiddenOn', 'responsiveStyles', 'style', 'testId', 'visible', 'visibleOn', 'visibleWhen'],
-  /** The legacy alias of a relayed key: `bulkActions`, `resizable`. */
+  /**
+   * The legacy alias of a relayed key: `bulkActions`, `resizable`. `resizableColumns`
+   * is also a retirement tombstone on `ObjectGridSchema` itself since objectui#6152
+   * round 7 (`ObjectGrid` no longer reads it); the slot still refuses it with its own
+   * message, as it does the `unread` five.
+   */
   alias: ['batchActions', 'resizableColumns'],
 } as const;
 
@@ -163,7 +168,8 @@ const TABLE_WITHHELD_KEYS: readonly string[] = Object.values(TABLE_WITHHELD_BY_R
  * faces) that the slot keeps: they type nothing, and they carry the named
  * refusal and its guidance onto this face too. The five the grid retired in
  * objectui#11068 are in the withheld set above instead, refused by the slot's
- * own message.
+ * own message, and so is `resizableColumns`, which the grid retired in
+ * objectui#6152 round 7.
  */
 const TABLE_INHERITED_TOMBSTONES = ['body', 'children', 'defaultSort'] as const;
 

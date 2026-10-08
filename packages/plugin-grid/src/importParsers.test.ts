@@ -69,10 +69,12 @@ describe('inferColumnType: text ending in a number is not a date (objectui#11813
     expect(inferColumnType(['Imported QA task 1', 'Imported QA task 2'])).toBe('text');
   });
 
+  // A soft name match onto a text field is halved for a column inferred as a
+  // date, which drops `Task title` → `title` below the auto-apply threshold.
   it('feeds text, not date, to the mapping suggestion for such a column', () => {
     const [title] = suggestColumnMappings(
-      ['Title'],
-      [{ name: 'title', label: 'Title', type: 'text' }, { name: 'due_date', label: 'Due Date', type: 'date' }],
+      ['Task title'],
+      [{ name: 'title', label: 'Title', type: 'text' }],
       [['Imported QA task 1'], ['Imported QA task 2']],
     );
     expect(title.inferredType).toBe('text');

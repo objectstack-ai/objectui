@@ -59,7 +59,7 @@ const USER_FIELDS: Record<string, { type: string; label: string }> = {
   email_verified: { type: 'boolean', label: 'Email verified' },
 };
 
-/** A role's Assign user: name, email, email verified. */
+/** A related list's Add picker: name, email, email verified. */
 const THREE_COLUMNS = ['name', 'email', 'email_verified'];
 
 function makeDataSource(rows: Record<string, unknown>[] = USERS) {

@@ -191,7 +191,7 @@ function DesignerCard({ type }: { type: string }) {
  * objectui#11903 — the record picker, on a page a human can look at.
  *
  * `RecordPickerDialog` in `multiple` mode over three columns, the shape of a
- * role's *Assign user* (name, email, email verified), served by an in-memory
+ * related list's *Add* (name, email, email verified), served by an in-memory
  * data source so the dialog's layout can be judged by eye without a backend.
  * Twelve users, so the footer bar carries its page controls too.
  *

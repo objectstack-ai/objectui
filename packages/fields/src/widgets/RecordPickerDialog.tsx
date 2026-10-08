@@ -70,7 +70,7 @@ const SKELETON_ROW_COUNT = 5;
  * objectui#11903 — the dialog's width follows the number of columns it draws.
  *
  * It used to be one fixed `lg:max-w-5xl` whatever the column count, so a
- * three-column picker (a role's *Assign user*: name, email, email verified)
+ * three-column picker (a related list's *Add*: name, email, email verified)
  * stretched to about a thousand pixels. Each rung is the `sm:` (and, for the
  * widest, `lg:`) max width for that many drawn columns; past the last rung the
  * old fixed width stays as the ceiling. Below `sm` the dialog is `95vw`, as it

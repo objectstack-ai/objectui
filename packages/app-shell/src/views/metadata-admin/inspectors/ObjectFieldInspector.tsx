@@ -43,6 +43,7 @@ import {
 import { ValueDomainSchema } from '@objectstack/spec/shared';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
 import { MetadataClient } from '@object-ui/data-objectstack';
+import { useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
 import { useMetadataClient } from '../useMetadata.js';
 import {
   InspectorShell,
@@ -926,6 +927,12 @@ export function ObjectFieldInspector({
           disabled={readOnly}
           testId="field-label-input"
         />
+        <LabelTranslationHint
+          objectName={objectName}
+          fieldName={entry.name}
+          sourceLabel={typeof def.label === 'string' ? (def.label as string) : ''}
+          locale={locale}
+        />
         <InspectorSelectField
           label={tr('designer.field.type')}
           value={type}
@@ -1272,6 +1279,55 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       </div>
       <div className="space-y-2">{children}</div>
     </div>
+  );
+}
+
+/**
+ * The label this field is SHOWN with, when a translation overrides the source
+ * label the Label input edits (objectui#11782).
+ *
+ * The input edits `def.label`, the field's source label. Every surface that
+ * shows the field reads its label through `@object-ui/i18n`'s
+ * `useSafeFieldLabel().fieldLabel(object, field, fallback)`, and a translation
+ * for the active language wins over the source there: the Data pillar's grid
+ * headers (`ObjectGrid`) and its form canvas (`ObjectFormDesigner`) both call
+ * it. So the showcase's `showcase_account.tax_id` read "Tax ID" on the canvas
+ * beside an input reading "Tax ID (EIN)", and nothing on screen said why.
+ *
+ * Three readings keep this line from disagreeing with the canvas:
+ *
+ *   • The label comes from that SAME resolver, never from a second lookup.
+ *   • The fallback handed to it is `''`. The resolver returns the fallback
+ *     exactly when no translation exists, so an empty answer means "nothing
+ *     overrides the source label", whatever the input currently holds.
+ *   • The language named is the i18next language the resolver reads its bundle
+ *     for, not the designer's `locale` prop: that one picks between this
+ *     designer's two string tables and is `'en-US'` for every language that is
+ *     not zh (`useMetadataLocale`), so a `ja` session would be told "en".
+ *
+ * Shown only when the translation differs from the input's CURRENT value. A
+ * field with no translation, or one whose translation equals the label being
+ * edited, renders nothing. How translations resolve is not changed here.
+ */
+function LabelTranslationHint({
+  objectName,
+  fieldName,
+  sourceLabel,
+  locale,
+}: {
+  objectName: string;
+  fieldName: string;
+  sourceLabel: string;
+  locale?: string;
+}) {
+  const { fieldLabel } = useSafeFieldLabel();
+  const { i18n } = useObjectTranslation();
+  const translated = objectName ? fieldLabel(objectName, fieldName, '') : '';
+  if (!translated || translated === sourceLabel) return null;
+  return (
+    <p className="-mt-1 text-[11px] leading-4 text-muted-foreground" data-testid="field-label-translation-hint">
+      {tFormat('designer.field.labelTranslated', locale, { label: translated, language: i18n.language })}
+    </p>
   );
 }
 

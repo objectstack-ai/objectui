@@ -166,6 +166,7 @@ function bind(node: Record<string, unknown>, objectName: string): Record<string,
       navId="navigation[0]"
       appDraft={{ navigation: [node] }}
       objects={PICKER_OBJECTS}
+      packageId="com.acme.app"
       onNavPatch={onNavPatch}
       onClear={vi.fn()}
     />,

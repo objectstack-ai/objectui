@@ -331,7 +331,10 @@ export function AppNavCanvas({
     // Spec invariants from birth (#2245): a snake_case `id` and a `type`
     // (object is the 80% case per the app-composition guide) — never the
     // old `{label, path:''}` placeholder that failed save validation. The
-    // item completes once the inspector's object picker fills `objectName`.
+    // item completes once the inspector's object picker fills `objectName`,
+    // or once the inspector changes its type and picks that type's target
+    // (the Studio's nav editor offers every type the spec declares,
+    // objectui#11790).
     //
     // Born with NO `label` (objectui#11196). An absent label inherits, so the
     // card shows the entry's `id` until a target is bound and then that
@@ -663,7 +666,11 @@ function NavCard({
           <span
             className="flex-1 min-w-0 truncate font-medium"
             onDoubleClick={(e) => {
-              if (!canEdit) return;
+              // A separator declares no `label` (the spec's separator member is
+              // `type` / `id` / `order`), so it has none to rename: a label
+              // written here is refused at save (objectui#11790, which lets the
+              // Studio's nav editor make separators).
+              if (!canEdit || kind === 'separator') return;
               e.stopPropagation();
               setEditing(true);
             }}

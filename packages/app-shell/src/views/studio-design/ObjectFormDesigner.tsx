@@ -228,7 +228,14 @@ function SortableField({
   readOnly?: boolean;
 }): React.ReactElement {
   const locale = useMetadataLocale();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fid(entry.name) });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: fid(entry.name),
+    // objectui#11872 — the role a screen reader announces for the card, in the
+    // author's locale; left unset, dnd-kit writes its English `sortable`. A
+    // read-only card is not draggable, so it gets none: ARIA does not expose a
+    // blank `aria-roledescription`, and the card reads as the button it is.
+    attributes: { roleDescription: readOnly ? '' : t('engine.studio.designer.fieldRole', locale) },
+  });
   const type = String(entry.def.type ?? 'text');
   const required = !!entry.def.required;
   // Mirror the real form: wide widgets (textarea/markdown/html/…) take the whole

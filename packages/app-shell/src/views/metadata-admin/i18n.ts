@@ -2943,6 +2943,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.designer.fieldAria': '{label} — click to edit properties, drag to reorder',
   // objectui#11781 — a read-only package's card only opens the greyed inspector.
   'engine.studio.designer.fieldAriaReadOnly': '{label} — click to view properties',
+  // objectui#11872 — a field card's `aria-roledescription`: the role read after
+  // its label, in place of dnd-kit's English default `sortable`.
+  'engine.studio.designer.fieldRole': 'draggable field',
   'engine.studio.designer.groupUp': 'Move group up',
   'engine.studio.designer.groupDown': 'Move group down',
   'engine.studio.designer.groupDelete': 'Delete group',
@@ -5983,6 +5986,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.designer.pickDate': '选择日期…',
   'engine.studio.designer.fieldAria': '{label} — 点选改属性,拖动排序',
   'engine.studio.designer.fieldAriaReadOnly': '{label} — 点选查看属性',
+  'engine.studio.designer.fieldRole': '可拖动字段',
   'engine.studio.designer.groupUp': '上移分组',
   'engine.studio.designer.groupDown': '下移分组',
   'engine.studio.designer.groupDelete': '删除分组',

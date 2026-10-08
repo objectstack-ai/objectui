@@ -438,7 +438,6 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     }),
     cfg('objectName', 'Object', 'reference', {
       ref: { kind: 'object' },
-      placeholder: 'crm_lead',
       help: 'Target object for record / scheduled-scan triggers.',
       showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'api'] },
     }),

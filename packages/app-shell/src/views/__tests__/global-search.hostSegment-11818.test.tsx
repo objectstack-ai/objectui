@@ -14,13 +14,14 @@
  * only a fallback alias. Inside the `/apps/:appName/*` router the block builds
  * on the URL's own segment. Outside it — a page block has no route of its own
  * there — it fell back to `currentAppName`, which the shell publishes as the
- * app's NAME, spliced in raw; with no app remembered it built `/apps//…`, a
- * path no route matches. It now resolves the hint through
- * `resolveHostAppSegment`, as the inbox drills do.
+ * app's NAME, spliced in raw; with no app remembered the segment was empty,
+ * and the rendered link collapsed `/apps//OBJECT/record/ID` to
+ * `/apps/OBJECT/record/ID` — the object's name in the app's place. It now
+ * resolves the hint through `resolveHostAppSegment`, as the inbox drills do.
  *
  * Direction, written before the run: on the pre-fix fallback both "outside the
- * app router" cases are RED (`/apps/showcase_app/…`, `/apps//…`); the in-router
- * controls are GREEN on both sides.
+ * app router" cases are RED; the in-router controls are GREEN on both sides.
+ * Observed on that run: `/apps/showcase_app/…` and `/apps/showcase_task/…`.
  */
 
 import * as React from 'react';

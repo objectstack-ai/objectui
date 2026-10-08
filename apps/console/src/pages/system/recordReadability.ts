@@ -33,6 +33,30 @@
  * the signed-in viewer, under the viewer's own grants — the same read the
  * record page would perform one click later. It only moves the answer earlier.
  *
+ * ## A refused read is an answer too (objectui#11878)
+ *
+ * An approver with no object-level read at all (the platform's default member
+ * permission set carries no wildcard grant) never gets a row set: the server
+ * refuses the probe's list read with `403 PERMISSION_DENIED`, and the record
+ * page's own read gets the same refusal one click later, after which that page
+ * renders its catch-all "may have been deleted". The ruling (ruling C on
+ * objectstack-ai/objectstack#7497, Q5) treats that refusal as "cannot read"
+ * **for the record link only**, exactly as an answer that leaves the id out:
+ * the link is not rendered, and nothing else about the request changes.
+ *
+ * - **What counts.** The `forbidden` kind of `classifyLoadError`
+ *   (`@object-ui/react`), the read classifier `ListView`'s error panel,
+ *   `RecordAttachmentsPanel` and the record activity feed already share:
+ *   a 403, or the permission-denied envelope the server sends with it. Nothing
+ *   here reads a status or a code of its own.
+ * - **It discloses nothing.** The refusal is about the OBJECT, not any record:
+ *   the server answers it identically for every id, existing or not, so
+ *   withholding the link says nothing about whether the record exists.
+ * - **It feeds the link and nothing else.** {@link RecordReadability} keeps
+ *   the two answers apart: `isUnreadable` (either answer — the link) and
+ *   `isOutsideRowSet` (only the row-set answer — the cause-free label of
+ *   objectui#8631, which the ruling leaves as it was).
+ *
  * ## Cost — why this is batchable
  *
  * The probe is **per distinct object, not per row**: every row's `record_id` for
@@ -49,10 +73,17 @@
  * server stays the only authority — so the failure mode of the probe must be
  * today's behaviour (a link that may dead-end), never a link withheld from
  * someone who could have used it.
+ *
+ * A refusal (above) is not a failure: it is the server's answer, and the same
+ * answer on every retry. Every other rejection stays unknown — a transport
+ * error, a 5xx, a 401, an `enable`-block denial — as do a target not yet
+ * probed and a page with no data source, so a transient error never hides a
+ * link.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAdapter } from '@object-ui/app-shell';
+import { classifyLoadError } from '@object-ui/react';
 import type { QueryParams } from '@object-ui/types';
 
 /** The two fields of an approval request that address its target record. */
@@ -139,11 +170,25 @@ function rowsOf(result: unknown): Array<Record<string, unknown>> {
 }
 
 /**
+ * The probe's answer for one target.
+ *
+ * - `true` — the read answered and the id is in this viewer's row set.
+ * - `false` — the read answered and left the id out (objectui#5211).
+ * - `'refused'` — the server refused the read itself, which is the
+ *   `forbidden` kind of `classifyLoadError` (objectui#11878).
+ *
+ * No answer at all is not a member: it is the key's absence (unknown).
+ */
+export type ReadabilityAnswer = boolean | 'refused';
+
+/**
  * Ask the data source which of `targets` this viewer can read.
  *
- * Returns a map of {@link readabilityKey} → readable. A key is **absent** when
- * its group's read failed — unknown, never guessed — because callers must
- * fail open (see the module header).
+ * Returns a map of {@link readabilityKey} → {@link ReadabilityAnswer}. A key is
+ * **absent** when its group's read failed for any reason other than a refusal
+ * — unknown, never guessed — because callers must fail open (see the module
+ * header). A refusal answers `'refused'` for every id of its group: it is a
+ * verdict about the object, so it holds for each of them alike.
  *
  * Never rejects: a per-group failure drops that group's answers and leaves the
  * rest intact, so one denied object cannot blank the whole inbox.
@@ -151,8 +196,8 @@ function rowsOf(result: unknown): Array<Record<string, unknown>> {
 export async function probeRecordReadability(
   source: ReadabilityProbeSource,
   targets: readonly ReadabilityTarget[],
-): Promise<Map<string, boolean>> {
-  const out = new Map<string, boolean>();
+): Promise<Map<string, ReadabilityAnswer>> {
+  const out = new Map<string, ReadabilityAnswer>();
   const groups = planReadabilityProbe(targets);
   await Promise.all(groups.map(async ({ objectName, ids }) => {
     let readable: Set<string>;
@@ -170,10 +215,17 @@ export async function probeRecordReadability(
           .map((row) => row?.id)
           .filter((id): id is string => typeof id === 'string' && id !== ''),
       );
-    } catch {
-      // Unknown, so the caller keeps the link. Deliberately silent: a viewer
-      // without access to an object hits this on every load, and a console
-      // error per row would be noise, not a signal.
+    } catch (err) {
+      // Deliberately silent either way: a viewer without access to an object
+      // hits this on every load, and a console error per row would be noise,
+      // not a signal.
+      //
+      // A refusal is the server's answer about this object (objectui#11878),
+      // so every id of the group gets it. Anything else is unknown, so the
+      // caller keeps the link.
+      if (classifyLoadError(err) === 'forbidden') {
+        for (const id of ids) out.set(readabilityKey(objectName, id), 'refused');
+      }
       return;
     }
     for (const id of ids) out.set(readabilityKey(objectName, id), readable.has(id));
@@ -184,11 +236,20 @@ export async function probeRecordReadability(
 /** What a row asks the probe at render time. */
 export interface RecordReadability {
   /**
-   * `true` only when the probe has answered and the answer is "cannot read".
-   * Unknown (not yet probed, probe failed, no data source) reads as `false`,
-   * which keeps the link — see the module header on failing open.
+   * `true` only when the probe has answered and the answer is "cannot read":
+   * the read left the id out of this viewer's row set (objectui#5211), or the
+   * server refused the read (objectui#11878). This is the record LINK's
+   * question. Unknown (not yet probed, probe failed, no data source) reads as
+   * `false`, which keeps the link — see the module header on failing open.
    */
   isUnreadable(target: ReadabilityTarget): boolean;
+  /**
+   * `true` only when the read answered and left the id out of this viewer's
+   * row set — never for a refusal and never for unknown. This is the question
+   * objectui#8631's cause-free label asks; the ruling on objectui#11878 moves
+   * the link alone, so a refusal is kept out of this answer.
+   */
+  isOutsideRowSet(target: ReadabilityTarget): boolean;
 }
 
 /**
@@ -203,7 +264,7 @@ export interface RecordReadability {
  */
 export function useRecordReadability(targets: readonly ReadabilityTarget[]): RecordReadability {
   const adapter = useAdapter();
-  const [known, setKnown] = useState<ReadonlyMap<string, boolean>>(() => new Map());
+  const [known, setKnown] = useState<ReadonlyMap<string, ReadabilityAnswer>>(() => new Map());
   /** Keys already handed to a probe — the "probe once" ledger. */
   const attempted = useRef<Set<string>>(new Set());
   /** Latest targets without making them an effect dependency (see `signature`). */
@@ -241,9 +302,15 @@ export function useRecordReadability(targets: readonly ReadabilityTarget[]): Rec
     return () => { cancelled = true; };
   }, [adapter, signature]);
 
-  return useMemo<RecordReadability>(() => ({
-    isUnreadable: (target) =>
-      probeable(target)
-      && known.get(readabilityKey(target.object_name, target.record_id)) === false,
-  }), [known]);
+  return useMemo<RecordReadability>(() => {
+    const answerFor = (target: ReadabilityTarget): ReadabilityAnswer | undefined =>
+      (probeable(target) ? known.get(readabilityKey(target.object_name, target.record_id)) : undefined);
+    return {
+      isUnreadable: (target) => {
+        const answer = answerFor(target);
+        return answer === false || answer === 'refused';
+      },
+      isOutsideRowSet: (target) => answerFor(target) === false,
+    };
+  }, [known]);
 }

@@ -1107,6 +1107,30 @@ function describeRefusedPageSize(
 }
 
 /**
+ * Field-level READ for the field lists the toolbar offers: the Filter panel's
+ * (`filterFields`, objectui#11925) and the Sort picker's (`sortFields`,
+ * objectui#11943). The two lists used to disagree: objectui#11925 wrote this
+ * predicate inside the filter memo, so the sort picker never asked it. It now
+ * lives once, here, and both lists call it.
+ *
+ * It is the same call the column gate (`effectiveFields`) makes,
+ * `perms.checkField(objectName, field, 'read')`, behind the same gate: until
+ * the permission answer has loaded, or with no object to ask about, it answers
+ * true. An unanswered policy filters nothing, exactly as the columns defer.
+ *
+ * A plain function of the permission value and the object name rather than a
+ * hook. Both memos already depend on those two, so neither memo depends on a
+ * function's identity (AGENTS.md #10).
+ */
+function canReadField(
+  perms: ReturnType<typeof usePermissions>,
+  objectName: string | undefined,
+  field: string,
+): boolean {
+  return !perms?.isLoaded || !objectName || perms.checkField(objectName, field, 'read');
+}
+
+/**
  * Imperative handle exposed by ListView via React.forwardRef.
  * Allows parent components to trigger a data refresh programmatically.
  *
@@ -3150,12 +3174,22 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         })
       : t('detail.recordDetail');
 
-  // Field-level permission gate. Filter unreadable columns from the
-  // field list BEFORE any downstream column construction so they also
-  // disappear from the hide-fields popover, filter/sort builders, and
-  // grid `$select`. (`perms` was hoisted to before the data-fetch
-  // effect so $select can be gated server-side too.)
-  // Apply hiddenFields and fieldOrder to produce effective fields
+  // The columns this view draws: the declared columns, minus the ones the user
+  // may not read (`perms.checkField(objectName, field, 'read')`, skipped until
+  // the permission answer loads or when there is no object name), minus the
+  // hidden ones, in `fieldOrder`. Every child view receives it as `fields`, and
+  // the grid also as `columns` when the author declared any. The kanban card
+  // fields and the tree fields fall back to it, and the export's columns are
+  // built from it. The Filter panel reads it only to order its list.
+  //
+  // The other field lists are not built from it, and each asks the same read
+  // itself. The `$select` projection in the data-fetch effect filters the
+  // declared columns with the same call; `perms` is read before that effect so
+  // it can. The Filter panel's list and the Sort picker's list ask through
+  // `canReadField` (objectui#11925, objectui#11943). One exception: the Sort
+  // picker keeps a field the current sort already names, so its row can be
+  // removed. Until objectui#11943's follow-up that field is also still
+  // choosable in the picker's other rows.
   const effectiveFields = React.useMemo(() => {
     // Defensive: `columns` is `string[] | ListColumn[]`, but metadata is
     // user-authored — anything non-array degrades to "no declared columns".
@@ -4001,10 +4035,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * drifted. Both candidate sources pass through this one gate, the
    * definition's fields and the declared-columns fallback alike. An
    * unanswered policy filters nothing, exactly as the column gate defers.
+   * The predicate is `canReadField`, which the Sort picker shares
+   * (objectui#11943).
    */
   const filterFields = React.useMemo(() => {
-    const canRead = (name: string) =>
-      !perms?.isLoaded || !schema.objectName || perms.checkField(schema.objectName, name, 'read');
     const whitelist =
       schema.filterableFields && schema.filterableFields.length > 0
         ? new Set<string>(schema.filterableFields)
@@ -4022,7 +4056,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     const tierOf = (name: string) =>
       isHidden(name) ? 3 : columnRank.has(name) ? 0 : isSystemManagedField(name, defs?.[name]) ? 2 : 1;
     return candidateFields
-      .filter((f) => canRead(f.value))
+      .filter((f) => canReadField(perms, schema.objectName, f.value))
       .filter((f) => (!whitelist || whitelist.has(f.value)) && (!isHidden(f.value) || !!whitelist || held.has(f.value)))
       .map((field, index) => ({ field, index, tier: tierOf(field.value) }))
       .sort((a, b) =>
@@ -4084,6 +4118,18 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // For a platform-refused field that exception is the only way to REMOVE the
   // offending row, since the sort it names is one the server refuses outright.
   //
+  // Field-level read (objectui#11943) is asked before either rule, through
+  // `canReadField`, the predicate the Filter panel's list uses. A field the
+  // user may not read is not offered: the server answers a sort on it with a
+  // 403, and the list blanks to its no-access state. A dropped field does not
+  // raise the relational hint either; the hint explains a missing relation the
+  // user could otherwise read. The in-use exception covers this rule too. A
+  // field the current sort already names (a stored or URL sort) stays listed,
+  // exactly as the two rules above would list it and with no mark, so its row
+  // is not blank and can be removed. Until objectui#11943's follow-up it is
+  // also still choosable in every other row, and by "Add sort" when it comes
+  // first: listing it as removable only needs a `SortBuilder` change.
+  //
   // ONE read of the served projection, for BOTH legs below — the list this
   // picker renders, and the sort it emits for a host to persist. Read twice,
   // the two copies could answer differently about the same field on the same
@@ -4099,6 +4145,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     let excluded = false;
     const fields: Array<{ value: string; label: string }> = [];
     for (const field of candidateFields) {
+      if (!inUse.has(field.value) && !canReadField(perms, schema.objectName, field.value)) continue;
       const relational = EXPANDABLE_FIELD_TYPES.has(field.type);
       const platformSortable = platformSortability
         ? isPlatformSortableField(platformSortability, field.value)
@@ -4117,7 +4164,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       if (relational) excluded = true;
     }
     return { sortFields: fields, sortHasRelationalField: excluded };
-  }, [candidateFields, currentSort, t, platformSortability]);
+  }, [candidateFields, currentSort, t, platformSortability, perms, schema.objectName]);
 
   /**
    * [#6455] THE persist boundary: what this picker LISTS is not what it

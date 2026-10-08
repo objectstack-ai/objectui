@@ -6,9 +6,18 @@
  *
  * The card's measured case: add a field, switch its type to Picklist, and the
  * draft autosave is held because a choice field has no options. The strip used
- * to print the guard's message verbatim (a class name and tracker ids). It now
- * shows a sentence naming the field by its label, a "Show me" button that
+ * to print the guard's message verbatim (a class name and tracker ids). It then
+ * showed a sentence naming the field by its label, a "Show me" button that
  * opens that field, and the raw text inside a closed "Details" disclosure.
+ *
+ * objectui#11786 moved this case off the refusal strip: the pillar now asks the
+ * same guard BEFORE sending, so the edit is held unsent and named on a neutral
+ * line instead of refused (`DataPillar.heldIncomplete-11786.test.tsx`). What
+ * this card required still holds there, and is pinned here on that line: the
+ * field is named by its label, no developer text reaches the author, and
+ * "Show me" reopens the field. Nothing was refused, so there is no Details. The
+ * guard's refusal in the author's words, Details included, is still the view
+ * model a refused save shows (`metadataError.authorRefusal-11785.test.ts`).
  *
  * The client is a real `MetadataClient`, so the door that runs the guard is the
  * production one; only the transport under it is a double, as in
@@ -85,8 +94,8 @@ function controlUnder(label: string): HTMLElement {
   return lab.parentElement!.querySelector('input, [role="combobox"]') as HTMLElement;
 }
 
-describe('Studio data page — a held Picklist reads as a sentence (objectui#11785)', () => {
-  it('names the field by its label, shows no developer text, and keeps the raw text under Details', async () => {
+describe('Studio data page — a held Picklist reads as a sentence (objectui#11785, held since objectui#11786)', () => {
+  it('names the field by its label and shows no developer text', async () => {
     render(
       <MemoryRouter initialEntries={['/studio/com.example.showcase/data']}>
         <DataPillar packageId="com.example.showcase" />
@@ -108,25 +117,18 @@ describe('Studio data page — a held Picklist reads as a sentence (objectui#117
     });
     expect(puts, 'the guard must hold this save').toEqual([]);
 
-    const strip = await screen.findByTestId('studio-refusal');
-    const message = within(strip).getByTestId('studio-refusal-message');
+    expect(screen.queryByTestId('studio-refusal'), 'held, not refused (objectui#11786)').toBeNull();
+    const held = await screen.findByTestId('studio-held');
+    const message = within(held).getByTestId('studio-held-message');
     expect(message).toHaveTextContent(
-      tFormat('engine.studio.refusal.choiceWithoutOptions', 'en', { field: label }),
+      tFormat('engine.studio.held.line', 'en', {
+        clause: tFormat('engine.studio.held.needsOptions', 'en', { field: label }),
+      }),
     );
     expect(message.textContent).not.toMatch(/MetadataClient|objectstack#|objectui#|`/);
     // The API name is the guard's word for the field; the author reads its label.
     expect(label).not.toBe(apiName);
     expect(message.textContent).not.toContain(apiName);
-
-    // The raw text is still there, closed until the author asks for it.
-    const details = within(strip).getByTestId('studio-refusal-detail') as HTMLDetailsElement;
-    expect(details.open).toBe(false);
-    expect(within(details).getByText(t('engine.studio.refusal.details', 'en'))).toBeVisible();
-    const raw = details.querySelector('pre')!;
-    expect(raw).not.toBeVisible();
-    expect(raw).toHaveTextContent(new RegExp(`\`${apiName}\` is a \`select\` with no options`));
-    fireEvent.click(within(details).getByText(t('engine.studio.refusal.details', 'en')));
-    expect(details.open).toBe(true);
   });
 
   it('"Show me" opens the named field\'s inspector after it was closed', async () => {
@@ -144,7 +146,7 @@ describe('Studio data page — a held Picklist reads as a sentence (objectui#117
     await act(async () => {
       await new Promise((r) => setTimeout(r, 2300));
     });
-    const strip = await screen.findByTestId('studio-refusal');
+    const strip = await screen.findByTestId('studio-held');
 
     // The rail's own header close (the field inspector inside carries another).
     const railHeader = screen.getByText(t('engine.studio.data.fieldProps', 'en')).closest('header') as HTMLElement;

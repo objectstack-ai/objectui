@@ -44,7 +44,7 @@ import {
   configKeyOf,
   type FlowConfigField,
 } from './flow-node-config.js';
-import { jsonSchemaToFlowFields } from './json-schema-to-fields.js';
+import { declaredConfigKeys, jsonSchemaToFlowFields } from './json-schema-to-fields.js';
 import {
   applyConnectorInputForm,
   connectorActionInputSchema,
@@ -337,7 +337,9 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     // the config-rooted fields — the spec-structured sibling blocks
     // (connectorConfig / waitEventConfig / boundaryConfig) and top-level
     // `timeoutMs` are always kept from the hand-written group (framework#4045).
-    const resolved = mergeServerFlowFields(serverFields, nodeType);
+    // A key it declares but the mapper cannot type keeps its hand-written
+    // editor (objectui#11788 — `notify.recipients`).
+    const resolved = mergeServerFlowFields(serverFields, nodeType, schema !== undefined ? declaredConfigKeys(schema) : null);
     // Localize both the hardcoded table and the engine-published configSchema
     // fields (they share field ids for built-in nodes); no-op for English.
     const localized = localizeFlowFields(nodeType, resolved, locale);
@@ -734,28 +736,39 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
               // objectui#11660 — `readFieldValue`: a block switch over an
               // absent block draws OFF, not its declared default.
               : readFieldValue(node, effField);
+        const required = requiredness.get(field.id)?.required;
         return (
-          <FlowNodeConfigField
-            key={field.id}
-            field={effField}
-            value={value}
-            onCommit={(v) => setField(field, v)}
-            disabled={readOnly}
-            locale={locale}
-            context={{ draft, node }}
-            scopeGroups={scopeGroups}
-            approvalScopeGroups={approvalExpressionGroups}
-            triggerScope={triggerScope}
-            // objectui#6499 — a gated field that survived the filter above ONLY
-            // because it holds a stored value is inert config wearing a live
-            // control's clothes. Name it, and offer the deliberate clear.
-            // Computed from `field` (not `effField`): the read is by `path`,
-            // which the nested-branch rewrite above does not touch.
-            inactiveRetained={inactiveRetainedKind(field, node, fields, flowKind)}
-            onClearInactive={readOnly ? undefined : () => setField(field, undefined)}
-            required={requiredness.get(field.id)?.required}
-            requiredColumns={requiredness.get(field.id)?.columns}
-          />
+          <React.Fragment key={field.id}>
+            <FlowNodeConfigField
+              field={effField}
+              value={value}
+              onCommit={(v) => setField(field, v)}
+              disabled={readOnly}
+              locale={locale}
+              context={{ draft, node }}
+              scopeGroups={scopeGroups}
+              approvalScopeGroups={approvalExpressionGroups}
+              triggerScope={triggerScope}
+              // objectui#6499 — a gated field that survived the filter above ONLY
+              // because it holds a stored value is inert config wearing a live
+              // control's clothes. Name it, and offer the deliberate clear.
+              // Computed from `field` (not `effField`): the read is by `path`,
+              // which the nested-branch rewrite above does not touch.
+              inactiveRetained={inactiveRetainedKind(field, node, fields, flowKind)}
+              onClearInactive={readOnly ? undefined : () => setField(field, undefined)}
+              required={required}
+              requiredColumns={requiredness.get(field.id)?.columns}
+            />
+            {/* objectui#11786 — a required input the node leaves out is what holds
+                Studio's autosave of this step (and what the server refuses), so
+                it says so under the marker. Absent, not blank: the spec's judges
+                refuse the key's absence. */}
+            {required && getFieldValue(node, field) === undefined && (
+              <p data-testid="flow-field-held-hint" className="-mt-1 text-[11px] leading-snug text-muted-foreground">
+                {t('engine.studio.held.inputHint', locale)}
+              </p>
+            )}
+          </React.Fragment>
         );
       })}
 

@@ -213,6 +213,15 @@ export interface FlowKeyValueFieldProps {
   };
   /** The spec requires this map (objectui#10948): the label carries {@link RequiredMarker}. */
   required?: boolean;
+  /**
+   * objectui#11788: suggestions for the KEY cell — the target object's fields
+   * on a record node's field-value map. The key stays free text (a field the
+   * catalog does not list yet is still typeable); omitted, the key is a plain
+   * box as before.
+   */
+  keyOptions?: ReadonlyArray<{ value: string; label: string }>;
+  /** One line under the rows about where {@link keyOptions} come from. */
+  keyHint?: string;
 }
 
 /**
@@ -245,7 +254,11 @@ export function FlowKeyValueField({
   scopeGroups,
   valueEnvelope,
   required,
+  keyOptions,
+  keyHint,
 }: FlowKeyValueFieldProps) {
+  const keyListId = React.useId();
+  const suggestsKeys = !!keyOptions && keyOptions.length > 0;
   // Preserve whichever shape the value was authored in (object map vs the
   // assignment-node array form) across edits.
   const arrayShape = Array.isArray(value);
@@ -324,6 +337,7 @@ export function FlowKeyValueField({
             <div key={row.id} className="space-y-1">
               <div className="flex items-center gap-1.5">
                 <Input
+                  list={suggestsKeys ? keyListId : undefined}
                   value={row.key}
                   onChange={(e) => setRowField(row.id, { key: e.target.value })}
                   onBlur={flushShown}
@@ -404,6 +418,16 @@ export function FlowKeyValueField({
         <Plus className="mr-1 h-3.5 w-3.5" />
         {addLabel}
       </Button>
+      {suggestsKeys && keyOptions && (
+        <datalist id={keyListId}>
+          {keyOptions.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </datalist>
+      )}
+      {keyHint && <p className="text-[11px] leading-snug text-muted-foreground">{keyHint}</p>}
       {help && <p className="text-[11px] leading-snug text-muted-foreground">{help}</p>}
     </div>
   );

@@ -10,8 +10,9 @@
  * (`getMetadataPreview` canvas + `getMetadataInspector` / default inspector).
  * A leaf that resolves to `null` renders DISABLED — correct for the nav
  * variants whose target is not an authorable metadata item (`url` points out of
- * the product, `separator` is a divider, `component` names a first-party UI
- * shipped in code), and a dead entry for any variant that does have one.
+ * the product, `component` names a first-party UI shipped in code), and a dead
+ * entry for any variant that does have one. A `separator` resolves to `null`
+ * too, but it is no leaf row: the rail draws it as a divider (objectui#11791).
  *
  * Extracted from `StudioDesignSurface.tsx` so the binding is unit-testable
  * without mounting the pillar — the same reason `packageSurfaces.ts` and
@@ -115,6 +116,13 @@ export interface NavNode {
    */
   filters?: ObjectNavItem['filters'];
   viewName?: ObjectNavItem['viewName'];
+  /**
+   * The spec's nav-item `badge` / `badgeVariant`, typed as the spec types them
+   * (objectui#11791). The rail draws them as the runtime sidebar does; the
+   * binding never reads them.
+   */
+  badge?: ObjectNavItem['badge'];
+  badgeVariant?: ObjectNavItem['badgeVariant'];
   /**
    * `ActionNavItemSchema.actionDef` — a `.strict()` object of exactly
    * `{ actionName, params? }`. The spec answers `action` / `name` / `args` /

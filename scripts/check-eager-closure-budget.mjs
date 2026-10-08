@@ -417,13 +417,16 @@ import { isEntrypoint } from './invoked-as.mjs';
  *     header for both builds and the three control rows that show the bytes
  *     LEFT rather than moved.
  *
- * Headroom above {@link BASELINE} is 45,972 bytes — 0.50x
- * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, on the pair objectui#11717
- * re-pinned under the ruling recorded in the header's fourth raise; before it,
- * the pair objectui#11438 re-pinned when the `@objectstack/*` 17.6.0 bump paid
- * back the rest of the spec-root part of objectui#11073's raise carried 24,091
- * bytes (0.26x), and the header's objectui#11101 entry says why that band sat
- * under the 0.50x design point. ⚠️ That
+ * Headroom above {@link BASELINE} is 26,363 bytes — 0.29x
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, on the pair objectui#11798
+ * re-pinned when the Studio builder and the chart engine left the first load,
+ * lowering the ceiling by exactly the bytes that left (the header's
+ * objectui#11798 entry says why that band sits under the 0.50x design point);
+ * before it, the pair
+ * objectui#11717 re-pinned under the ruling recorded in the header's fourth
+ * raise carried 45,972 bytes (0.50x), and the pair objectui#11438 re-pinned
+ * when the `@objectstack/*` 17.6.0 bump paid back the rest of the spec-root
+ * part of objectui#11073's raise carried 24,091 bytes (0.26x). ⚠️ That
  * is arithmetic on two
  * constants in this file, so it stays true while they do — it is NOT what the
  * closure has left today, which is smaller by every byte the payload has
@@ -857,8 +860,78 @@ import { isEntrypoint } from './invoked-as.mjs';
  * per-chunk rows passed and did not move. Not
  * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added and no
  * import was made lazy.
+ *
+ * ## ⭐ LOWERED WHEN THE STUDIO BUILDER AND THE CHART ENGINE LEFT THE FIRST LOAD (objectui#11798)
+ *
+ * From 3,637,000 to 3,444,622: down by 192,378 bytes, exactly what
+ * objectui#11798 took out of the closure. Lowered by the amount recovered, as
+ * the two paybacks above were: ⛔ not re-derived as the new reading plus half a
+ * regression, which would also have absorbed `main`'s drift since the
+ * `c1e32e96` reading (a raise under another name), and ⛔ not rounded.
+ *
+ * WHAT LEFT — two console builds of one tree, one container, one instrument,
+ * each under `scripts/pm/os-verify-lock.sh`: the console's own
+ * `apps/console/vite.config.ts` run through Vite's `build()` with one read-only
+ * module-graph dump appended, reading the `eager-closure.json` the build
+ * writes. `455c6466` is `main`; `c1d378ec` is objectui#11798's branch with
+ * `455c6466` merged in. The `main` tree was built in the branch's worktree with
+ * the branch's bundler inputs (`apps/console/vite.config.ts`, `StudioRoute.tsx`,
+ * `registerStudioComponents.tsx`) checked out from `455c6466`, its new
+ * `studioBuilder.ts` removed, and each file's blob hash compared against
+ * `455c6466` before the build. Gzipped bytes:
+ *
+ *   | chunk                                       | `455c6466` | `c1d378ec` |    delta |
+ *   |---------------------------------------------|-----------:|-----------:|---------:|
+ *   | `vendor-charts`                             |    158,827 |       lazy | -158,827 |
+ *   | `index`                                     |    161,208 |     88,295 |  -72,913 |
+ *   | `studioScope`, new                          |          — |     40,375 |  +40,375 |
+ *   | `vendor-icon-*`                             |     83,412 |     81,994 |   -1,418 |
+ *   | `useNavSelDeepLink`                         |      1,282 |       lazy |   -1,282 |
+ *   | `nav-selection` + `useRecentItemLabel`, new |          — |      1,088 |   +1,088 |
+ *   | `vendor-react`                              |     72,584 |     73,143 |     +559 |
+ *   | everything else                             |  3,133,324 |  3,133,364 |      +40 |
+ *   | ⇒ aggregate                                 |  3,610,637 |  3,418,259 | -192,378 |
+ *
+ * The builds weigh 336 of 2452 chunks and 333 of 2456. Two mechanisms, each
+ * weighed by reverting only its own source on the `c1d378ec` tree, built the
+ * same way:
+ *
+ *   - THE CHART ENGINE (-158,535 alone). Recharts and d3 were reached only
+ *     through `import()`, but `vendor-charts` captured
+ *     `use-sync-external-store/shim` through its default recursive capture,
+ *     and `react-i18next` imports that shim on every page, so the eager
+ *     `vendor-i18n` chunk imported the whole chart engine. `vendor-react` now
+ *     claims the shim (the comment on that group in `apps/console/vite.config.ts`
+ *     says why the flag that would also have stopped the capture was refused);
+ *     the shim's bytes are the `vendor-react` row.
+ *   - THE STUDIO BUILDER (-33,928 alone). `StudioDesignSurface` and
+ *     `BuilderLanding` load through the console-local `import()` in
+ *     `apps/console/src/components/studioBuilder.ts`. Most of what `index` lost
+ *     is the builder; the `studioScope` row is NOT new payload but 49 modules
+ *     `index` held on `455c6466` (the app header and the AI chat page among
+ *     them), which the bundler split out because the lazy builder imports
+ *     them too.
+ *
+ * ⛔ What it did NOT recover. The flow designer, its canvas among them, and
+ * every other metadata-admin designer stay eager: `@object-ui/app-shell`'s
+ * package entry imports `views/metadata-admin/register-builtins.ts` for its
+ * side effects, which a console-side `import()` cannot move.
+ *
+ * Headroom 26,363 bytes = 0.29x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}
+ * over {@link BASELINE}: exactly the headroom `main` had on `455c6466` before
+ * this change (3,637,000 − 3,610,637), because the ceiling came down by the
+ * aggregate's own delta. It sits under the 0.50x design point because
+ * `455c6466` weighed 19,609 bytes more than the `c1e32e96` reading the fourth
+ * raise was sized on — `main`'s drift since, ⛔ not attributed here. No build
+ * that passed before this edit and measures under 3,444,622 fails after it,
+ * and either mechanism above, reverted alone, lands over it.
+ *
+ * ⛔ What moved with it, and what did not. None of the four per-chunk rows:
+ * the budgeted chunks moved by at most 2 bytes across the two builds, so
+ * {@link PER_CHUNK_GZIP_CEILINGS} and {@link PER_CHUNK_BASELINE} stand. Not
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added.
  */
-export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_637_000;
+export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_444_622;
 
 /**
  * The measurement the ceiling above was derived from. Exported so the two
@@ -870,6 +943,26 @@ export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_637_000;
 export const BASELINE = Object.freeze({
   /**
    * `emitEagerClosureReport`'s `eagerGzipBytes` on this commit.
+   *
+   * `c1d378ec` is objectui#11798's branch tip: `main` at `455c6466` merged into
+   * the branch that takes the Studio builder and the chart engine out of the
+   * first load, re-pinned with the ceiling it was lowered with (the
+   * objectui#11798 entry on {@link MAX_EAGER_CLOSURE_GZIP_BYTES} carries its
+   * table and its `455c6466` control, ⛔ not restated here). It is a branch tip
+   * for the reason the paragraphs below give for `2ba091c` and `4acbea07`: the
+   * pull request's own diff is what moved the figure. Measured by the console's
+   * own `apps/console/vite.config.ts` run through Vite's `build()` with one
+   * read-only module-graph dump appended, reading the `eager-closure.json` the
+   * build writes, under `scripts/pm/os-verify-lock.sh`, in the same container
+   * as the `455c6466` control build. The console's ordinary build of the same
+   * tree (`pnpm exec turbo run build --filter=@object-ui/console...`, exit 0)
+   * wrote the same figure to the byte, which is this instrument's calibration.
+   * The commit that re-pins this file reaches no bundler input, so it cannot
+   * move the figure it pins.
+   *
+   * ⚠️ The paragraph below describes the reading this one superseded, the
+   * previous baseline `c1e32e96` (3,591,028 across 331 of 2451 chunks), kept as
+   * its provenance.
    *
    * `c1e32e96` is objectui#11717's branch tip: `main` at `9b673e54` merged into
    * the branch that carries `@objectstack/*` 17.7.0 and the bump's own edits,
@@ -933,10 +1026,10 @@ export const BASELINE = Object.freeze({
    * and not from `main` once it is squash-merged — the dead end objectui#9355
    * added `squashMerge` below to route around.
    */
-  gzipBytes: 3_591_028,
-  chunks: 331,
-  totalChunks: 2451,
-  commit: 'c1e32e96',
+  gzipBytes: 3_418_259,
+  chunks: 333,
+  totalChunks: 2456,
+  commit: 'c1d378ec',
 
   /**
    * The squash merge that carried the reading above onto `main`, recorded when
@@ -945,7 +1038,7 @@ export const BASELINE = Object.freeze({
    * measurement gets a handle rather than a dead end.
    *
    * `null` since objectui#10996, and `null` again after objectui#11101,
-   * objectui#11438 and objectui#11717, deliberately. This field can only ever be BACK-FILLED: a squash sha does
+   * objectui#11438, objectui#11717 and objectui#11798, deliberately. This field can only ever be BACK-FILLED: a squash sha does
    * not exist until the pull request merges, so the change that re-pins the
    * field above ⛔ cannot write its own here. ⛔ Do not guess one: a wrong sha in
    * this position is worse than an absent one, because it RESOLVES, and a
@@ -1547,7 +1640,7 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * three numbers taken on two is the drift objectui#6631 is open about:
  *
  *   - `vendor-objectstack` — `c1e32e96` (objectui#11717), the 17.7.0 bump's
- *     build the aggregate also reads, re-measured when this chunk's ceiling
+ *     build the aggregate also read until objectui#11798, re-measured when this chunk's ceiling
  *     fired and went up with the aggregate's under ruling 6027998226. It
  *     supersedes `2ba091c` (objectui#11438), the 17.6.0 bump's build,
  *     re-measured when the spec's root entry shed its migration chain and this
@@ -1610,17 +1703,21 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * Exported so the ceilings are CHECKED against it instead of merely asserted
  * in this comment.
  *
- * ⚠️ These readings are on DIFFERENT commits from {@link BASELINE} above,
- * except `vendor-objectstack` since objectui#11073, and again since objectui#11101 —
- * `i18n-locale-en` shared BASELINE's commit from objectui#7479 until
- * objectui#9251, and `ui-components` from objectui#9251 until objectui#10996
- * re-pinned the aggregate onto a `main` commit; today neither does — and
+ * ⚠️ These readings are on DIFFERENT commits from {@link BASELINE} above —
+ * `vendor-objectstack` shared the aggregate's commit from objectui#11073 until
+ * objectui#11798, `i18n-locale-en` from objectui#7479 until objectui#9251, and
+ * `ui-components` from objectui#9251 until objectui#10996 re-pinned the
+ * aggregate onto a `main` commit; today none does — and
  * WHICH ONE IS LATER flips every time either side is re-baselined, so read the
- * commit names, never a direction asserted here. As of objectui#11717,
- * `vendor-objectstack` SHARES the aggregate's reading: BASELINE's `c1e32e96`,
- * the 17.7.0 bump's build, re-pinned both, as objectui#11438's `2ba091c`,
- * objectui#11101's `4acbea07` and objectui#11073's `048e7f6` had before it. The aggregate is the later reading for the
- * other keys: `bbf6b02d9` (2026-09-13, objectui#9251) for `ui-components`,
+ * commit names, never a direction asserted here. From objectui#11717 until
+ * objectui#11798, `vendor-objectstack` shared the aggregate's reading:
+ * objectui#11717's `c1e32e96`, the 17.7.0 bump's build, re-pinned both, as
+ * objectui#11438's `2ba091c`, objectui#11101's `4acbea07` and objectui#11073's
+ * `048e7f6` had before it. objectui#11798 re-pinned the aggregate onto
+ * BASELINE's `c1d378ec` and left this key at `c1e32e96`: that chunk moved by 0
+ * bytes across objectui#11798's two builds, and its ceiling did not move. The
+ * aggregate is the later reading for every key: `c1e32e96` for
+ * `vendor-objectstack`, `bbf6b02d9` (2026-09-13, objectui#9251) for `ui-components`,
  * and `3f775eeb8` for `framework`. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it
  * was taken and the aggregate has moved on since, which is exactly why the two
  * are named per key rather than described by a direction.
@@ -1680,8 +1777,9 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * measurement with no ceiling weighs nothing.
  */
 export const PER_CHUNK_BASELINE = Object.freeze({
-  // `c1e32e96`, the same build as BASELINE above (objectui#11717), re-pinned
-  // with its ceiling by the fourth raise. It supersedes objectui#11438's
+  // `c1e32e96`, the build BASELINE above carried from objectui#11717 until
+  // objectui#11798 (which left this key alone), re-pinned with its ceiling by
+  // the fourth raise. It supersedes objectui#11438's
   // `2ba091c` reading of 1,420,958 (re-pinned with its ceiling by the second
   // payback), which superseded objectui#11101's `4acbea07` reading of 1,670,964, which superseded objectui#11073's
   // `048e7f6` reading of 1,703,690 (landed on `main` as `81f8498`), which

@@ -42,7 +42,14 @@ import {
 } from '@objectstack/spec/data';
 import { ValueDomainSchema } from '@objectstack/spec/shared';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
-import { MetadataClient } from '@object-ui/data-objectstack';
+import {
+  assertObjectMetadataWritable,
+  CHOICE_TYPES_REQUIRING_OPTIONS,
+  MetadataClient,
+  OBJECT_METADATA_TYPE,
+  RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+} from '@object-ui/data-objectstack';
+import { useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
 import { useMetadataClient } from '../useMetadata.js';
 import {
   InspectorShell,
@@ -285,6 +292,35 @@ function takesPicklist(type: string): boolean {
 
 function isLookup(type: string): boolean {
   return type === 'lookup' || type === 'master_detail' || type === 'tree';
+}
+
+/**
+ * objectui#11786 — what the object write guard holds this field for: its
+ * options (a choice type with no option source) or its target (a relationship
+ * with no usable `reference`), else nothing. Asked of the guard itself, on the
+ * field alone, so the hint under the input names exactly what keeps the save
+ * from going: Studio's autosave holds the edit on the same verdict, and the
+ * other hosts' doors refuse on it.
+ */
+function guardHeldNeed(name: string, def: Record<string, unknown>): 'options' | 'target' | null {
+  try {
+    assertObjectMetadataWritable(OBJECT_METADATA_TYPE, { fields: { [name]: def } }, 'ObjectFieldInspector');
+    return null;
+  } catch {
+    const type = String(def.type);
+    if (CHOICE_TYPES_REQUIRING_OPTIONS.includes(type)) return 'options';
+    if (RELATIONSHIP_TYPES_REQUIRING_REFERENCE.includes(type)) return 'target';
+    return null;
+  }
+}
+
+/** objectui#11786 — the inline hint under the input that holds the save. */
+function HeldHint({ children }: { children: React.ReactNode }) {
+  return (
+    <p data-testid="field-held-hint" className="text-[11px] leading-snug text-muted-foreground">
+      {children}
+    </p>
+  );
 }
 
 function isComputed(type: string): boolean {
@@ -879,6 +915,8 @@ export function ObjectFieldInspector({
   );
 
   const typeMetaLabel = typeMeta ? t(`engine.fieldType.${typeMeta.id}`, locale) : undefined;
+  // objectui#11786 — read off the field as it stands, for the hints below.
+  const heldNeed = readOnly ? null : guardHeldNeed(entry.name, def);
 
   return (
     <InspectorShell
@@ -925,6 +963,12 @@ export function ObjectFieldInspector({
           }}
           disabled={readOnly}
           testId="field-label-input"
+        />
+        <LabelTranslationHint
+          objectName={objectName}
+          fieldName={entry.name}
+          sourceLabel={typeof def.label === 'string' ? (def.label as string) : ''}
+          locale={locale}
         />
         <InspectorSelectField
           label={tr('designer.field.type')}
@@ -1003,6 +1047,7 @@ export function ObjectFieldInspector({
               locale={locale}
             />
           )}
+          {heldNeed === 'options' && <HeldHint>{tr('designer.field.hint.addOption')}</HeldHint>}
           {isLookup(type) && (
             <>
               <ObjectPicker
@@ -1013,6 +1058,7 @@ export function ObjectFieldInspector({
                 placeholder={tr('designer.field.objectNamePlaceholder')}
                 locale={locale}
               />
+              {heldNeed === 'target' && <HeldHint>{tr('designer.field.hint.pickTarget')}</HeldHint>}
               <InspectorTextField
                 label={tr('designer.field.relationshipName')}
                 value={typeof def.relationshipName === 'string' ? (def.relationshipName as string) : ''}
@@ -1272,6 +1318,55 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       </div>
       <div className="space-y-2">{children}</div>
     </div>
+  );
+}
+
+/**
+ * The label this field is SHOWN with, when a translation overrides the source
+ * label the Label input edits (objectui#11782).
+ *
+ * The input edits `def.label`, the field's source label. Every surface that
+ * shows the field reads its label through `@object-ui/i18n`'s
+ * `useSafeFieldLabel().fieldLabel(object, field, fallback)`, and a translation
+ * for the active language wins over the source there: the Data pillar's grid
+ * headers (`ObjectGrid`) and its form canvas (`ObjectFormDesigner`) both call
+ * it. So the showcase's `showcase_account.tax_id` read "Tax ID" on the canvas
+ * beside an input reading "Tax ID (EIN)", and nothing on screen said why.
+ *
+ * Three readings keep this line from disagreeing with the canvas:
+ *
+ *   • The label comes from that SAME resolver, never from a second lookup.
+ *   • The fallback handed to it is `''`. The resolver returns the fallback
+ *     exactly when no translation exists, so an empty answer means "nothing
+ *     overrides the source label", whatever the input currently holds.
+ *   • The language named is the i18next language the resolver reads its bundle
+ *     for, not the designer's `locale` prop: that one picks between this
+ *     designer's two string tables and is `'en-US'` for every language that is
+ *     not zh (`useMetadataLocale`), so a `ja` session would be told "en".
+ *
+ * Shown only when the translation differs from the input's CURRENT value. A
+ * field with no translation, or one whose translation equals the label being
+ * edited, renders nothing. How translations resolve is not changed here.
+ */
+function LabelTranslationHint({
+  objectName,
+  fieldName,
+  sourceLabel,
+  locale,
+}: {
+  objectName: string;
+  fieldName: string;
+  sourceLabel: string;
+  locale?: string;
+}) {
+  const { fieldLabel } = useSafeFieldLabel();
+  const { i18n } = useObjectTranslation();
+  const translated = objectName ? fieldLabel(objectName, fieldName, '') : '';
+  if (!translated || translated === sourceLabel) return null;
+  return (
+    <p className="-mt-1 text-[11px] leading-4 text-muted-foreground" data-testid="field-label-translation-hint">
+      {tFormat('designer.field.labelTranslated', locale, { label: translated, language: i18n.language })}
+    </p>
   );
 }
 

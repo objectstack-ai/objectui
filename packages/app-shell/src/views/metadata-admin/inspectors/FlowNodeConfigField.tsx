@@ -9,7 +9,8 @@
 import * as React from 'react';
 import { isUnsetFieldValue, unsetNoticeApplies } from './flow-node-config.js';
 import type { FlowConfigField, InactiveRetainedKind } from './flow-node-config.js';
-import { t } from '../i18n.js';
+import { t, tFormat } from '../i18n.js';
+import { useObjectFields } from '../previews/useObjectFields.js';
 import { WIDGETS, OBJECTUI_SECRET_MASK } from '../widgets.js';
 import {
   InspectorNumberField,
@@ -19,9 +20,10 @@ import {
   flagUnknownValue,
 } from './_shared.js';
 import { Button, Label } from '@object-ui/components';
-import { FlowKeyValueField } from './FlowKeyValueField.js';
+import { FlowKeyValueField, type FlowKeyValueFieldProps } from './FlowKeyValueField.js';
 import { isValueEnvelopeSlot } from './flow-value-envelope.js';
 import { FlowStringListField } from './FlowStringListField.js';
+import { FlowRecipientsField } from './FlowRecipientsField.js';
 import { FlowObjectListField } from './FlowObjectListField.js';
 import { FlowReferenceField, type FlowReferenceContext } from './FlowReferenceField.js';
 import { validateExpressionClient } from './expression-validate.js';
@@ -48,6 +50,73 @@ import { findUnknownRefs, scopeRoots, describeUnknownRefs } from './flow-ref-che
  * who needs one still has the raw CEL escape hatch.
  */
 const FLOW_TRIGGER_CONTEXT_SUBJECTS: ReadonlyArray<{ value: string; label?: string }> = [];
+
+/**
+ * The field-value maps whose KEYS are fields of the node's own target object
+ * (`config.objectName`) — objectui#11788. `CreateRecordConfigSchema.fields` and
+ * `UpdateRecordConfigSchema.fields` (in `@objectstack/spec/automation`) map a
+ * field name to the value written to it.
+ *
+ * Keyed by node type and PATH, not by a descriptor member, like
+ * `BLOCK_SWITCHES` in `flow-node-config.ts`: the offline table and the
+ * engine-published `configSchema` (`additionalProperties` → `keyValue`) both
+ * emit this path, so the picker holds whichever of the two drew the field.
+ * Only the key cell changes; the value cell keeps the slot's own dialect.
+ */
+const FIELD_VALUE_MAPS: ReadonlyArray<{ nodeType: string; path: readonly string[] }> = [
+  { nodeType: 'create_record', path: ['config', 'fields'] },
+  { nodeType: 'update_record', path: ['config', 'fields'] },
+];
+
+/**
+ * The target object whose fields key the map at `path` on `node`: its
+ * `config.objectName` ('' while none is chosen), or `null` when `path` is not a
+ * field-value map.
+ */
+function fieldValueMapObject(
+  node: Record<string, unknown> | null | undefined,
+  path: readonly string[],
+): string | null {
+  const type = node?.type;
+  if (typeof type !== 'string') return null;
+  const hit = FIELD_VALUE_MAPS.some(
+    (m) => m.nodeType === type && m.path.length === path.length && m.path.every((seg, i) => path[i] === seg),
+  );
+  if (!hit) return null;
+  const cfg = node?.config;
+  const objectName =
+    cfg && typeof cfg === 'object' && !Array.isArray(cfg) ? (cfg as Record<string, unknown>).objectName : undefined;
+  return typeof objectName === 'string' ? objectName.trim() : '';
+}
+
+/** A record node's field-value map: the key-value editor with the object's fields as key suggestions. */
+function FieldValueMapField({
+  objectName,
+  locale,
+  ...kv
+}: FlowKeyValueFieldProps & { objectName: string; locale?: string }) {
+  // The same field source the reference picker's `object-field` kind reads.
+  const { fields } = useObjectFields(objectName || undefined);
+  const keyOptions = React.useMemo(
+    () =>
+      fields.map((f) => ({
+        value: f.name,
+        label: f.label && f.label !== f.name ? `${f.label} (${f.name})` : f.name,
+      })),
+    [fields],
+  );
+  return (
+    <FlowKeyValueField
+      {...kv}
+      keyOptions={keyOptions}
+      keyHint={
+        objectName
+          ? tFormat('engine.inspector.reference.fieldsOf', locale, { object: objectName })
+          : t('engine.inspector.fieldMap.chooseObject', locale)
+      }
+    />
+  );
+}
 
 /** The metadata form's write-only credential input, reused as-is (objectui#11054). */
 const SecretWidget = WIDGETS['secret'];
@@ -237,33 +306,40 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             required={required}
           />
         );
-      case 'keyValue':
-        return (
-          <FlowKeyValueField
-            label={field.label}
-            value={value}
-            onCommit={(v) => onCommit(v)}
-            disabled={disabled}
-            addLabel={t('engine.inspector.flowNode.kv.add', locale)}
-            keyLabel={t('engine.inspector.flowNode.kv.key', locale)}
-            valueLabel={t('engine.inspector.flowNode.kv.value', locale)}
-            removeLabel={t('engine.inspector.flowNode.kv.remove', locale)}
-            emptyLabel={t('engine.inspector.flowNode.kv.empty', locale)}
-            scopeGroups={scopeGroups}
-            required={required}
-            // objectui#7588 — the per-value text / expression toggle, offered
-            // only on a map the spec's expression ledger declares `value`-role
-            // for this node type (today the assignment node's `assignments`).
-            valueEnvelope={
-              isValueEnvelopeSlot(context?.node?.type, field.path)
-                ? {
-                    toggleLabel: t('engine.inspector.flowNode.kv.asExpression', locale),
-                    expressionPlaceholder: t('engine.inspector.flowNode.kv.expressionPlaceholder', locale),
-                  }
-                : undefined
-            }
-          />
+      case 'keyValue': {
+        const kv: FlowKeyValueFieldProps = {
+          label: field.label,
+          value,
+          onCommit: (v) => onCommit(v),
+          disabled,
+          addLabel: t('engine.inspector.flowNode.kv.add', locale),
+          keyLabel: t('engine.inspector.flowNode.kv.key', locale),
+          valueLabel: t('engine.inspector.flowNode.kv.value', locale),
+          removeLabel: t('engine.inspector.flowNode.kv.remove', locale),
+          emptyLabel: t('engine.inspector.flowNode.kv.empty', locale),
+          scopeGroups,
+          required,
+          // objectui#7588 — the per-value text / expression toggle, offered
+          // only on a map the spec's expression ledger
+          // (`FLOW_NODE_EXPRESSION_PATHS`) declares `value`-role for this
+          // node type.
+          valueEnvelope: isValueEnvelopeSlot(context?.node?.type, field.path)
+            ? {
+                toggleLabel: t('engine.inspector.flowNode.kv.asExpression', locale),
+                expressionPlaceholder: t('engine.inspector.flowNode.kv.expressionPlaceholder', locale),
+              }
+            : undefined,
+        };
+        // objectui#11788 — a record node's field-value map: its keys are fields
+        // of the node's own target object, so the key cell lists them. The
+        // value cell is untouched.
+        const fieldMapObject = fieldValueMapObject(context?.node, field.path);
+        return fieldMapObject !== null ? (
+          <FieldValueMapField {...kv} objectName={fieldMapObject} locale={locale} />
+        ) : (
+          <FlowKeyValueField {...kv} />
         );
+      }
       case 'stringList':
         return (
           <FlowStringListField
@@ -276,6 +352,19 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             itemLabel={t('engine.inspector.flowNode.list.item', locale)}
             removeLabel={t('engine.inspector.flowNode.list.remove', locale)}
             emptyLabel={t('engine.inspector.flowNode.list.empty', locale)}
+          />
+        );
+      case 'recipients':
+        return (
+          <FlowRecipientsField
+            label={field.label}
+            value={value}
+            onCommit={(v) => onCommit(v)}
+            disabled={disabled}
+            locale={locale}
+            context={context}
+            scopeGroups={scopeGroups}
+            required={required}
           />
         );
       case 'numberList':

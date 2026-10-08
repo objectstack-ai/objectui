@@ -27,6 +27,7 @@ import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { useAutoTriggerOnce } from './auto-trigger';
 import { readStaticParamValues } from './static-params';
+import { DisabledReasonTrigger, describedByWithReason, useDisabledReason } from './disabled-reason';
 
 /**
  * The declared props. `schema` is `UIActionSchema` (objectui#4418) for the same
@@ -114,6 +115,12 @@ const ActionIconRenderer = forwardRef<
     // since objectui#8648 — see `action-button.tsx` for the reading.
     const isDisabledPred = useCondition(toPredicateInput(schema.disabled), recordData);
     const isEnabled = useCondition(toPredicateInput(schema.enabled), recordData);
+    // The reason a greyed-out icon gives (objectui#11839) — the same rule as
+    // `action:button`: only the DECLARED `disabled` predicate, evaluated true,
+    // earns it. See `./disabled-reason`.
+    const disabledReason = useDisabledReason(
+      hasDeclaredVisibilityGate(schema.disabled) && isDisabledPred,
+    );
 
     const Icon = resolveIcon(schema.icon);
     const variant = schema.variant === 'primary' ? 'default' : (schema.variant || 'ghost');
@@ -280,6 +287,10 @@ const ActionIconRenderer = forwardRef<
         onClick={handleClick}
         aria-label={schema.label || schema.name}
         {...toFormControlDomProps(rest)}
+        // After the pass-through, so an authored `ariaDescribedBy` and the
+        // reason are both kept (objectui#11839). The reason is the icon's
+        // DESCRIPTION; its name stays the `aria-label` above.
+        aria-describedby={describedByWithReason(rest['aria-describedby'], disabledReason)}
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
       >
         {loading ? (
@@ -291,6 +302,17 @@ const ActionIconRenderer = forwardRef<
         )}
       </Button>
     );
+
+    // A predicate-disabled icon (objectui#11839): its label tooltip below can
+    // never open, since the trigger is the disabled button itself, so the
+    // wrapper's tooltip carries the label above the reason.
+    if (disabledReason) {
+      return (
+        <DisabledReasonTrigger reason={disabledReason} heading={schema.label || schema.description}>
+          {button}
+        </DisabledReasonTrigger>
+      );
+    }
 
     // Wrap with tooltip if label is provided
     if (schema.label || schema.description) {

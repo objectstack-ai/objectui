@@ -139,6 +139,10 @@ const moreTrigger = () => screen.queryByRole('button', { name: MORE });
 /**
  * Open the overflow menu and return its item labels, in order. Radix opens on
  * `pointerdown` (a plain click does nothing) and mounts the content in a portal.
+ *
+ * A label is the item's NAME: an item greyed out by its declared `disabled`
+ * shows the reason as a second line and names itself by its label element
+ * (`aria-labelledby`, objectui#11839), so its text is the label plus the reason.
  */
 async function openMenuLabels(): Promise<string[]> {
   const trigger = moreTrigger();
@@ -147,7 +151,11 @@ async function openMenuLabels(): Promise<string[]> {
   const menu = await screen.findByRole('menu');
   return within(menu)
     .queryAllByRole('menuitem')
-    .map((item) => (item.textContent ?? '').trim());
+    .map((item) => {
+      const labelledBy = item.getAttribute('aria-labelledby');
+      const label = labelledBy ? document.getElementById(labelledBy) : item;
+      return (label?.textContent ?? '').trim();
+    });
 }
 
 /**
@@ -358,7 +366,10 @@ describe('a relocated member is gated exactly as an inline one (objectui#10345)'
   it('a disabled menu-placed member is a disabled menu item', async () => {
     renderBar({ actions: [CONTROL, { ...MEMBER, component: 'action:menu', disabled: true }] });
     expect(await openMenuLabels()).toEqual(['Member']);
-    expect(screen.getByRole('menuitem', { name: 'Member' })).toHaveAttribute('data-disabled');
+    const item = screen.getByRole('menuitem', { name: 'Member' });
+    expect(item).toHaveAttribute('data-disabled');
+    // Its declared `disabled` says why, as the item's description (objectui#11839).
+    expect(item).toHaveAccessibleDescription('Not available for this record');
   });
 
   it.each<[string, Placement]>([

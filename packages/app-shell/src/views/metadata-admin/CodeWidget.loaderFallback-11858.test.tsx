@@ -10,21 +10,23 @@
  *
  * `CodeWidget` rendered `@object-ui/plugin-editor`'s `CodeEditorRenderer`, the
  * bare Monaco `<Editor>`, with no fallback. With the CDN blocked it stayed on
- * Monaco's own "Loading..." with nothing editable, so a hook body or a field's
- * `visibleWhen` could not be written at all, and each editor's own
- * `loader.init()` logged "Monaco initialization: error" and leaked an uncaught
- * rejection. The source editors already fell back through `useMonacoFallback`
- * (objectui#11800); the widget now reads that same one-per-page loader probe.
+ * Monaco's own "Loading..." with nothing editable, so a hook body could not be
+ * written at all, and each editor's own `loader.init()` logged "Monaco
+ * initialization: error" and leaked an uncaught rejection. The source editors
+ * already fell back through `useMonacoFallback` (objectui#11800); the widget
+ * now reads that same one-per-page loader probe.
  *
- * ## The host is real
+ * ## The rows
  *
- * The rows are rendered by `SchemaForm` from the installed `@objectstack/spec`
- * forms, with each type's JSON Schema derived through the same `z.toJSONSchema`
- * call `/meta/types` serves it with: `hookForm`'s `body.source` (what the hook
- * edit page renders) and `fieldForm`'s `visibleWhen` (what the field detail
- * drawer renders, scoped as the drawer scopes it). "Saves" is read as the next
- * draft the form hands its host carrying the edit, and that draft passing the
- * type's own spec schema.
+ *  - `hookForm`'s `body.source` (`language: 'javascript'`), rendered by
+ *    `SchemaForm` from the installed `@objectstack/spec` form, with the hook's
+ *    JSON Schema derived through the same `z.toJSONSchema` call `/meta/types`
+ *    serves it with: what the hook edit page renders. "Saves" is read as the
+ *    next draft the form hands its host carrying the edit, and that draft
+ *    passing the spec's own `HookSchema`.
+ *  - `objectForm`'s per-field `expression` (`language: 'expression'`), a
+ *    formula's ADR-0089 envelope parsed by the spec: the envelope write the
+ *    editor makes (objectui#10963) is the one the textarea makes.
  *
  * ## Nothing about Monaco is mocked
  *
@@ -51,7 +53,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, fireEvent, cleanup } from '@testing-library/react';
 import { z } from 'zod';
-import { FieldSchema, HookSchema, fieldForm, hookForm } from '@objectstack/spec/data';
+import { FieldSchema, HookSchema, hookForm, objectForm } from '@objectstack/spec/data';
 
 // The modules behind the widget's two lazy boundaries, loaded at module scope
 // so both `React.lazy` factories resolve at once (the repo's lazy-boundary
@@ -62,7 +64,7 @@ import { FieldSchema, HookSchema, fieldForm, hookForm } from '@objectstack/spec/
 import '@object-ui/plugin-editor';
 import '../../../../plugin-editor/src/MonacoImpl';
 
-import { SchemaForm, DRAWER_EMBEDDED_ITEM_ID_SCOPE } from './SchemaForm';
+import { SchemaForm } from './SchemaForm';
 import { CodeWidget } from './widgets';
 import type { FormFieldSpec, FormViewSpec } from './form-spec';
 
@@ -116,13 +118,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const TO_JSON_SCHEMA = { io: 'input', unrepresentable: 'any' } as const;
-const HOOK_SCHEMA = z.toJSONSchema(HookSchema, TO_JSON_SCHEMA) as Record<string, unknown>;
-const FIELD_SCHEMA = z.toJSONSchema(FieldSchema, TO_JSON_SCHEMA) as Record<string, unknown>;
-const HOOK_FORM = hookForm as unknown as FormViewSpec;
-const FIELD_FORM = fieldForm as unknown as FormViewSpec;
-
-/** A row of a spec form by name, at the top level or one composite deep. */
+/** A row of a spec form by path through composite / repeater `fields`. */
 function specRow(form: unknown, path: string[]): FormFieldSpec {
   type Row = Record<string, unknown> & { field?: string; fields?: Row[] };
   let rows: Row[] = ((form as { sections: Array<{ fields: Row[] }> }).sections ?? []).flatMap((s) => s.fields ?? []);
@@ -135,8 +131,8 @@ function specRow(form: unknown, path: string[]): FormFieldSpec {
   return hit as unknown as FormFieldSpec;
 }
 
-const META = { rationale: 'Only invoices carry an amount', generatedBy: 'agent:invoice-form' };
-
+const HOOK_SCHEMA = z.toJSONSchema(HookSchema, { io: 'input', unrepresentable: 'any' }) as Record<string, unknown>;
+const HOOK_FORM = hookForm as unknown as FormViewSpec;
 const HOOK_DRAFT: Record<string, unknown> = {
   name: 'invoice_guard',
   label: 'Invoice guard',
@@ -145,58 +141,48 @@ const HOOK_DRAFT: Record<string, unknown> = {
   body: { language: 'js', source: 'return;' },
 };
 
-/** A stored field with a `visibleWhen`, authored with `meta` and parsed by the spec. */
-const FIELD_DRAFT = FieldSchema.parse({
-  name: 'amount',
-  label: 'Amount',
-  type: 'number',
-  visibleWhen: { dialect: 'cel', source: "record.type == 'invoice'", meta: META },
-}) as Record<string, unknown>;
-
-/** The widget's own editing surface: a textarea named by the row's label. */
-async function codeTextarea(name: RegExp): Promise<HTMLTextAreaElement> {
-  const box = await screen.findByRole('textbox', { name }, { timeout: 2000 });
-  expect(box.tagName, `the ${name} row's editing surface`).toBe('TEXTAREA');
-  return box as HTMLTextAreaElement;
-}
+/** `objectForm`'s per-field `expression` row: `type: 'code'`, `language: 'expression'`. */
+const EXPRESSION_ROW = specRow(objectForm, ['fields', 'expression']);
+const META = { rationale: 'Twice the amount', generatedBy: 'agent:invoice-form' };
+/** A stored formula `expression`, authored with `meta` and parsed by the spec. */
+const STORED_EXPRESSION = FieldSchema.parse({
+  name: 'total',
+  type: 'formula',
+  returnType: 'number',
+  expression: { dialect: 'cel', source: 'record.amount * 2', meta: META },
+}).expression;
 
 describe('CodeWidget — a failing Monaco loader falls back to an editable textarea (objectui#11858)', () => {
-  it('the rows are what they claim: spec rows rendered through the code widget', () => {
+  it('the rows are what they claim: spec code rows, and a spec-parsed envelope', () => {
     // Guards the premises, so a spec that renames a row or changes its type
     // fails here instead of turning the pins below into tests of nothing.
     expect(specRow(hookForm, ['body', 'source'])).toMatchObject({ type: 'code', language: 'javascript' });
-    expect(specRow(fieldForm, ['visibleWhen'])).toMatchObject({ type: 'code', language: 'expression' });
-    expect(FIELD_DRAFT.visibleWhen).toEqual({ dialect: 'cel', source: "record.type == 'invoice'", meta: META });
+    expect(EXPRESSION_ROW).toMatchObject({ type: 'code', language: 'expression' });
+    expect(STORED_EXPRESSION).toEqual({ dialect: 'cel', source: 'record.amount * 2', meta: META });
     expect(HookSchema.safeParse(HOOK_DRAFT).success, 'the hook fixture is a valid hook').toBe(true);
   });
 
-  it('a hook body and a visibleWhen row are editable and save; one report, nothing uncaught, and a reopen adds nothing', async () => {
+  it('a hook body and an expression row are editable and save; one report, nothing uncaught, and a reopen adds nothing', async () => {
     const consoleError = vi.spyOn(console, 'error');
     const consoleWarn = vi.spyOn(console, 'warn');
     const onHookChange = vi.fn();
-    const onFieldChange = vi.fn();
+    const onExpressionChange = vi.fn();
 
-    // The hook edit page's form and the field drawer's form on one page, each
-    // with several code rows; StrictMode doubles every effect, as the dev
-    // build does.
+    // The hook edit page's form and a formula's expression row on one page;
+    // StrictMode doubles every effect, as the dev build does.
     render(
       <React.StrictMode>
         <SchemaForm schema={HOOK_SCHEMA} form={HOOK_FORM} value={HOOK_DRAFT} onChange={onHookChange} />
-        <SchemaForm
-          schema={FIELD_SCHEMA}
-          form={FIELD_FORM}
-          idPath={DRAWER_EMBEDDED_ITEM_ID_SCOPE}
-          value={FIELD_DRAFT}
-          onChange={onFieldChange}
+        <span id="formula-expression-label">Formula expression</span>
+        <CodeWidget
+          schema={{ type: 'string' }}
+          fieldSpec={EXPRESSION_ROW}
+          value={STORED_EXPRESSION}
+          onChange={onExpressionChange}
+          ariaLabelledBy="formula-expression-label"
         />
       </React.StrictMode>,
     );
-    // `visibleWhen` sits in the field form's collapsed Advanced section.
-    const advanced = screen.getByText('Advanced').closest('button');
-    expect(advanced, 'the Advanced section trigger').not.toBeNull();
-    expect(advanced).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.click(advanced!);
-    expect(advanced).toHaveAttribute('aria-expanded', 'true');
     await settle();
 
     expect(heldLoaderScripts, 'the loader appends its script once per page').toHaveLength(1);
@@ -210,22 +196,23 @@ describe('CodeWidget — a failing Monaco loader falls back to an editable texta
       loaderScript.dispatchEvent(new Event('error'));
     });
 
-    const hookBody = await codeTextarea(/^source/i);
-    const visibleWhen = await codeTextarea(/^visible when/i);
+    const hookBody = (await screen.findByRole('textbox', { name: /^source/i }, { timeout: 2000 })) as HTMLTextAreaElement;
+    expect(hookBody.tagName, "the hook body's editing surface").toBe('TEXTAREA');
     expect(hookBody.value).toBe('return;');
-    expect(visibleWhen.value, 'the envelope is read through its `source`').toBe("record.type == 'invoice'");
+    const expression = screen.getByRole('textbox', { name: 'Formula expression' }) as HTMLTextAreaElement;
+    expect(expression.tagName, "the expression row's editing surface").toBe('TEXTAREA');
+    expect(expression.value, 'the envelope is read through its `source`').toBe('record.amount * 2');
 
-    // Edit both, and read what each form hands its host to save.
+    // The hook body: the next draft the form hands its host to save.
     fireEvent.change(hookBody, { target: { value: 'if (!ctx.record.amount) throw new Error("amount");' } });
     const savedHook = onHookChange.mock.lastCall?.[0] as Record<string, unknown>;
     expect(savedHook.body).toEqual({ language: 'js', source: 'if (!ctx.record.amount) throw new Error("amount");' });
     expect(HookSchema.safeParse(savedHook).success, 'the saved hook is a valid hook').toBe(true);
 
-    fireEvent.change(visibleWhen, { target: { value: "record.type == 'credit_note'" } });
-    const savedField = onFieldChange.mock.lastCall?.[0] as Record<string, unknown>;
-    // The same write the editor makes: the envelope keeps `dialect` and `meta`.
-    expect(savedField.visibleWhen).toEqual({ dialect: 'cel', source: "record.type == 'credit_note'", meta: META });
-    expect(FieldSchema.safeParse(savedField).success, 'the saved field is a valid field').toBe(true);
+    // The expression row: the same write the editor makes, an envelope that
+    // keeps `dialect` and `meta` with the new `source`.
+    fireEvent.change(expression, { target: { value: 'record.amount * 3' } });
+    expect(onExpressionChange).toHaveBeenLastCalledWith({ dialect: 'cel', source: 'record.amount * 3', meta: META });
 
     await settle();
     // Soft, so a regression reports every reading at once, not just the first.
@@ -244,19 +231,19 @@ describe('CodeWidget — a failing Monaco loader falls back to an editable texta
     cleanup();
     render(
       <>
-        <span id="required-when-label">Required when</span>
+        <span id="hook-body-label">Hook body</span>
         <CodeWidget
           schema={{ type: 'string' }}
-          fieldSpec={specRow(fieldForm, ['requiredWhen'])}
-          value="record.stage == 'closed'"
+          fieldSpec={specRow(hookForm, ['body', 'source'])}
+          value="return;"
           onChange={() => {}}
           readOnly
-          ariaLabelledBy="required-when-label"
+          ariaLabelledBy="hook-body-label"
         />
       </>,
     );
-    const reopened = screen.getByRole('textbox', { name: 'Required when' }) as HTMLTextAreaElement;
-    expect(reopened.value).toBe("record.stage == 'closed'");
+    const reopened = screen.getByRole('textbox', { name: 'Hook body' }) as HTMLTextAreaElement;
+    expect(reopened.value).toBe('return;');
     expect(reopened.readOnly).toBe(true);
     await settle();
 

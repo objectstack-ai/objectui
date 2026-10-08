@@ -2871,13 +2871,26 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
 
     /**
      * End-user filter selections restored from `uf_*` URL params (ADR-0047
-     * persistence). Captured once per ObjectView mount — UserFilters only
-     * reads them at its own mount, and later URL writes must not churn the
-     * schema memo.
+     * persistence), read from the CURRENT location once per list identity —
+     * the identity `listSeedRef` seeds on and `renderListView` keys the list
+     * on (objectui#11992). A view switch keeps this page mounted and remounts
+     * the list, whose `UserFilters` read these once, at that mount. So each
+     * view starts from the selections its own URL carries: none on the bare
+     * path a view tab navigates to, the link's on a link, the entry's own on
+     * Back. A capture once per PAGE mount restored the first view's selections
+     * on every view after it, while their address bar showed none.
+     *
+     * Held per identity rather than re-read every render: the list's own
+     * writes (below) reach the URL after the list already shows them, and a
+     * new object here would rebuild the list's schema on every chip click.
+     * The router's location is read, not `window.location`: it is the one this
+     * page writes to and the one `listSeedRef` reads.
      */
-    const [initialUfSelections] = useState<Record<string, string[]> | undefined>(
-        () => parseUserFilterParams(new URLSearchParams(window.location.search)),
-    );
+    const ufSelectionsRef = useRef<{ key: string; selections: Record<string, string[]> | undefined } | undefined>(undefined);
+    if (listIdentityKey && ufSelectionsRef.current?.key !== listIdentityKey) {
+        ufSelectionsRef.current = { key: listIdentityKey, selections: parseUserFilterParams(searchParams) };
+    }
+    const initialUfSelections = listIdentityKey ? ufSelectionsRef.current?.selections : undefined;
     const handleUserFilterSelectionsChange = useCallback(
         (selections: Record<string, Array<string | number | boolean>>) => {
             setSearchParams(prev => {

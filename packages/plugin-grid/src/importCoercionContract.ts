@@ -13,10 +13,12 @@
  * and never flagged for a value the server would take (objectui#3017). It
  * also carries the two checks the import meets after coercion, at the engine's
  * write door, that the preview repeats: a `date` / `datetime` value's
- * supported years and an `email` value's shape (objectui#11889).
+ * supported years and an `email` value's shape (objectui#11889). A `time`
+ * cell's reading and the user import's stricter email rule joined them in
+ * objectui#11913.
  */
 
-import { REFERENCE_VALUE_TYPES } from '@objectstack/spec/data';
+import { ClockTimeValueSchema, REFERENCE_VALUE_TYPES } from '@objectstack/spec/data';
 
 /**
  * Truthy tokens the server's boolean coercion accepts (`BOOL_TRUE`), compared
@@ -165,6 +167,15 @@ function importDateCellYear(s: string): number | undefined {
       }
     }
   }
+  return yearFirstCellYear(s);
+}
+
+/**
+ * The year of a trimmed cell the server's `readYearFirstCell` reads, or
+ * `undefined` where it reads none: a real calendar day and, when the cell
+ * carries one, a wall clock in range.
+ */
+function yearFirstCellYear(s: string): number | undefined {
   const yearFirst = YEAR_FIRST_CELL.exec(s);
   if (!yearFirst) return undefined;
   const [, y, , mo, d, hh, mi, ss] = yearFirst;
@@ -192,6 +203,59 @@ export function isImportableDateCell(cell: string, kind: 'date' | 'datetime'): b
   return year >= first && year <= last;
 }
 
+// ── times (objectui#11913) ─────────────────────────────────────────────────
+//
+// The server reads a `time` cell with the same `parseDateCell`, asking it for a
+// time of day: `readTimeOfDayCell` first, then `readYearFirstCell` alone, never
+// `readIsoTemporalCell`. `readTimeOfDayCell` asks core's comparand rule
+// (`isUninterpretableTemporalComparand`), the rule the engine's write door
+// judges a `time` value by too, so a time of day it stores is never refused
+// after coercion. That rule takes a wall clock the spec's `ClockTimeValueSchema`
+// takes, which is imported rather than restated, because the spec publishes it
+// and the server reads that very schema. It also takes an instant in an ISO
+// 8601 spelling. It refuses a `{placeholder}` filter token, and none of the
+// three readings below can match one.
+
+/**
+ * Whether core's `readsAsInstant` and `keepsTimeOfDay` both take this trimmed
+ * cell: an ISO 8601 day or date-time (the `T` form with or without a zone, the
+ * space form without one) on a real calendar day, whose instant has a four-digit
+ * UTC year, because the time of day is read back out of `toISOString`. A
+ * zone-naive clock is read as UTC there, and `24:00` as the next day's midnight,
+ * the way V8's `Date.parse` reads it.
+ */
+function isoCellKeepsTimeOfDay(s: string): boolean {
+  const iso = ISO_TEMPORAL_CELL.exec(s);
+  if (!iso) return false;
+  const [, y, mo, d, sep, hh, mi, ss, frac, zone] = iso;
+  const year = Number(y);
+  if (!namesRealCalendarDay(year, Number(mo), Number(d))) return false;
+  if (sep === undefined) return true;
+  if (sep === ' ' && zone !== undefined) return false;
+  const utcYear = zonedCellUtcYear({
+    year, month: Number(mo), day: Number(d),
+    hour: Number(hh), minute: Number(mi), second: ss ? Number(ss) : 0, fraction: frac ?? '',
+  }, zone ?? 'Z');
+  return utcYear !== undefined && utcYear >= 0 && utcYear <= 9999;
+}
+
+/**
+ * Whether the server's import takes this `time` cell: its `parseDateCell` reads
+ * a time of day from it, or the import refuses it with `invalid_time`. Accept or
+ * refuse only; the preview never stores the value. No supported years apply,
+ * because the engine checks none for a `time`.
+ *
+ * Taken: `10:00`, `09:30:15`, `23:59:59.5`, `2026-07-15T10:00:00Z`,
+ * `2026-07-15 10:00`, `2026-07-15`, `2026/7/15 9:00`. Refused: `25:00`, `abc`,
+ * `10:00Z`, `9am`, `9:00`, `24:00`, `2026-07-15 10:00Z`, `2026/7/15 24:00`.
+ */
+export function isImportableTimeCell(cell: string): boolean {
+  const s = cell.trim();
+  return ClockTimeValueSchema.safeParse(s).success
+    || isoCellKeepsTimeOfDay(s)
+    || yearFirstCellYear(s) !== undefined;
+}
+
 // ── email (objectui#11889) ─────────────────────────────────────────────────
 
 /**
@@ -206,10 +270,10 @@ export function isImportableDateCell(cell: string, kind: 'date' | 'datetime'): b
  * backtrack whatever the input. The pattern itself is the oracle the paired
  * test compares this against.
  *
- * The stricter identity rule (`isLikelyEmail`: printable ASCII, at most 254
- * characters, framework#3566) belongs to the user import, whose endpoint applies
- * it in its dry run; the user import's email column reaches the wizard typed
- * `text`, so this check never runs there.
+ * The user import's email column is not read by this rule. Its endpoint applies
+ * its own, {@link isIdentityEmail}, and the column reaches the wizard flagged
+ * `emailRule: 'identity'`, so the preview asks that rule there instead of this
+ * one (objectui#11913).
  */
 export function isRecordEmail(value: string): boolean {
   if (/\s/.test(value)) return false;
@@ -217,4 +281,40 @@ export function isRecordEmail(value: string): boolean {
   if (at <= 0 || at !== value.lastIndexOf('@')) return false;
   const labels = value.slice(at + 1).split('.');
   return labels.length >= 2 && labels.every((label) => label.length > 0);
+}
+
+/**
+ * The domain plugin-auth mints a placeholder address under for a user with no
+ * real email (`PLACEHOLDER_EMAIL_DOMAIN`). It is an RFC 2606 reserved name, so
+ * no address on it can be delivered.
+ */
+const PLACEHOLDER_EMAIL_DOMAIN = 'placeholder.invalid';
+
+/**
+ * Whether the user import's endpoint (`/api/v1/auth/admin/import-users`) takes
+ * this trimmed email cell. Its `resolveRowIdentity` (plugin-auth's
+ * `admin-import-users.ts`) refuses the row with `INVALID_EMAIL`, in its dry run
+ * too, in two cases:
+ *
+ * - `isLikelyEmail` refuses the cell. It takes at most 254 characters of
+ *   printable ASCII with no whitespace, one `@` that is neither first nor last,
+ *   and a domain whose last dot is neither its first nor its last character
+ *   (framework#3566).
+ * - `isPlaceholderEmail` takes it: an address on {@link PLACEHOLDER_EMAIL_DOMAIN},
+ *   in any case.
+ *
+ * This is not a stricter {@link isRecordEmail}. It takes `a@b..c`, which the
+ * record validator refuses, and refuses `735431496@柴仟.com`, which that one
+ * takes. So the preview reads an identity email column by this rule instead of
+ * the record rule, and never by both.
+ */
+export function isIdentityEmail(value: string): boolean {
+  if (value.length === 0 || value.length > 254 || /\s/.test(value)) return false;
+  if (/[^\x20-\x7e]/.test(value)) return false;
+  const at = value.indexOf('@');
+  if (at <= 0 || at !== value.lastIndexOf('@') || at === value.length - 1) return false;
+  const domain = value.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+  if (!(dot > 0 && dot < domain.length - 1)) return false;
+  return !value.toLowerCase().endsWith(`@${PLACEHOLDER_EMAIL_DOMAIN}`);
 }

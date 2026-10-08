@@ -29,16 +29,16 @@
  *   - a value no option carries is what the trigger shows;
  *   - the keyboard alone opens a picker and selects.
  *
- * DIRECTION, observed against the native control: every pin here but the
- * name pin is red there, because each one reads the pickers as the
- * primitive's triggers. The name pin is green there too: it pins what the
- * conversion kept. What makes the write pins guards of "the conversion
- * changed nothing the panel writes" is the literal each compares against: a
- * `change` event on the pre-conversion panel's native control wrote that same
- * JSON, read once on that component with these fixtures, and the names were
- * read there the same way. That probe's `change` event fired for the current
- * option too, which a browser's native select does not do, so the re-pick
- * rows pin the primitive.
+ * DIRECTION, observed against the native control: every pin here but two is
+ * red there, because each one reads the pickers as the primitive's triggers.
+ * The name pin and the read-only CONTROL (a writable panel's triggers are
+ * enabled) are green there too: they pin what the conversion kept. What makes
+ * the write pins guards of "the conversion changed nothing the panel writes"
+ * is the literal each compares against: a `change` event on the
+ * pre-conversion panel's native control wrote that same JSON, read once on
+ * that component with these fixtures, and the names were read there the same
+ * way. That probe's `change` event fired for the current option too, which a
+ * browser's native select does not do, so the re-pick rows pin the primitive.
  */
 
 import '@testing-library/jest-dom/vitest';

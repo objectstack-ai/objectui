@@ -21,7 +21,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, act, waitFor, within } from '@testing-library/react';
 
-import { t } from '../i18n';
+import { t, tFormat } from '../i18n';
 import { FlowPreview } from './FlowPreview';
 
 afterEach(() => {
@@ -129,7 +129,11 @@ describe('FlowPreview — the Problems panel judges a connector action’s decla
     await mount(draft('ghost.ok == true'), fetchMock);
 
     expect(badgeTitles().filter(naming('ghost'))).toHaveLength(1);
-    expect(panelMessages().filter(naming('ghost'))).toHaveLength(1);
+    // objectui#11838 — `ghost.ok` reads a node this flow does not have, so beside
+    // the scope warning the panel lists that as an error of its own.
+    const rows = panelMessages().filter(naming('ghost'));
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toBe(tFormat('engine.flowValidate.exprRefNodeMissing', 'en-US', { ref: 'ghost.ok', id: 'ghost' }));
   });
 
   it('a flow with no committed connector action never reads the registry', async () => {

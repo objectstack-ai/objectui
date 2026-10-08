@@ -957,7 +957,50 @@ export default defineConfig({
         // explicitly partitions modules with priority/test/name semantics.
         advancedChunks: {
           groups: [
-            { name: 'vendor-react', test: /[\\/]node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/, priority: 100 },
+            //
+            // ## `use-sync-external-store` is React glue, so `vendor-react` names it (objectui#11798)
+            //
+            // Recharts reaches the page only through `import()` (the lazy
+            // `chart` / `object-chart` registrations in `register-plugins.ts`,
+            // and the lazy `ChartRenderer` in app-shell's dataset preview), so
+            // `vendor-charts` is meant to load with the first chart. It loaded
+            // with EVERY page instead. A group captures its `test` matches AND,
+            // by rolldown's default `includeDependenciesRecursively: true`,
+            // everything they import, and recharts imports
+            // `use-sync-external-store/shim` through `react-redux`. Unnamed by
+            // any group, that shim went to `vendor-charts`, which won the
+            // priority-90 tie for it against `vendor-i18n` (listed below it).
+            // `react-i18next`'s `useTranslation` imports the same shim
+            // statically, so the eager `vendor-i18n` chunk imported
+            // `vendor-charts`, and the whole chart engine (recharts and d3) rode
+            // into the eager closure on a few hundred bytes of React glue. No
+            // chart module was statically reachable from the entry: the chunk
+            // rule alone made them eager, the objectui#5266 mechanism one group
+            // over.
+            //
+            // The repair names the shim's owner. This group outranks every
+            // other, so it claims `use-sync-external-store` first, and rolldown
+            // removes a module a higher-priority group claimed from the groups
+            // below it. `vendor-charts` keeps its default recursive capture and
+            // its own members; it just no longer holds a module an eager chunk
+            // needs. Whether a `vendor-charts` file is in the closure is what
+            // `apps/console/dist/eager-closure.json` answers after a build, and
+            // `pnpm check:eager-closure` weighs it.
+            //
+            // ⛔ Not `includeDependenciesRecursively: false` on `vendor-charts`,
+            // the other way to stop that capture. Measured on the console build
+            // of `8cc10b9` (a historical reading, ⛔ not re-derived by anything):
+            // recharts' other dependencies then fell to the recursive
+            // `plugin-charts` group, `plugin-charts` and `vendor-charts` imported
+            // each other, and a `chart` node rendered "Failed to load plugin: A
+            // is not a function" instead of a chart. That is the invalid-chunk
+            // risk rolldown documents for the flag, which the `data-adapter`
+            // note below says a new group taking it must re-check.
+            {
+              name: 'vendor-react',
+              test: /[\\/]node_modules[\\/](react|react-dom|react-router|scheduler|use-sync-external-store)[\\/]/,
+              priority: 100,
+            },
             { name: 'vendor-radix', test: /[\\/]node_modules[\\/]@radix-ui[\\/]/, priority: 95 },
             //
             // ## `tags: ['$initial']` — this group claims only what the first screen runs (objectui#11101)
@@ -1043,6 +1086,9 @@ export default defineConfig({
             },
             { name: 'vendor-ui-utils', test: /[\\/]node_modules[\\/](class-variance-authority|clsx|tailwind-merge|sonner)[\\/]/, priority: 90 },
             { name: 'vendor-zod', test: /[\\/]node_modules[\\/]zod[\\/]/, priority: 90 },
+            // `vendor-charts` stays out of the eager closure because `vendor-react`
+            // claims `use-sync-external-store`; see the note on that group
+            // (objectui#11798).
             { name: 'vendor-charts', test: /[\\/]node_modules[\\/](recharts|d3-|victory-)/, priority: 90 },
             { name: 'vendor-dndkit', test: /[\\/]node_modules[\\/]@dnd-kit[\\/]/, priority: 90 },
             { name: 'vendor-i18n', test: /[\\/]node_modules[\\/](i18next|react-i18next)[\\/]/, priority: 90 },

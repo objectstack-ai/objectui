@@ -57,8 +57,10 @@ import { useFlowNodePalette } from './useFlowNodePalette.js';
 import {
   indexProblemBadges,
   edgeProblemKey,
+  describeNodeRemovalRefusal,
   edgesAfterNodeRemoval,
   freshNodeId,
+  nodeRemovalRefusal,
   type FlowProblem,
 } from './flow-problems.js';
 import type { NestedNodePath } from '../inspectors/flow-nested-selection.js';
@@ -257,6 +259,24 @@ export function FlowCanvas({
   // the same `problems` list as the panel/badges so the three stay in lock-step.
   const bannerErrors = React.useMemo(() => (problems ?? []).filter((p) => p.level === 'error'), [problems]);
 
+  // objectui#11838 — the node whose Delete-key removal was refused. Its message
+  // sits at the top of that same inline alert stack, derived from the draft
+  // while the node stays selected: it names what still blocks the removal, and
+  // goes away once nothing does or another element is selected. Reset while
+  // rendering when the selection moves (the pattern `FlowNodeIdField` uses), so
+  // re-selecting the node does not bring back a refusal nobody asked for again.
+  const [deleteRefusedId, setDeleteRefusedId] = React.useState<string | null>(null);
+  const [refusalSelection, setRefusalSelection] = React.useState(selectedId);
+  if (refusalSelection !== selectedId) {
+    setRefusalSelection(selectedId);
+    setDeleteRefusedId(null);
+  }
+  const deleteRefusal = React.useMemo(() => {
+    if (!deleteRefusedId || deleteRefusedId !== selectedId) return null;
+    const sites = nodeRemovalRefusal({ nodes, edges }, deleteRefusedId);
+    return sites ? describeNodeRemovalRefusal(deleteRefusedId, sites, locale) : null;
+  }, [deleteRefusedId, selectedId, nodes, edges, locale]);
+
   const positionOf = React.useCallback(
     (id: string): Point => {
       if (dragPos && dragPos.id === id) return { x: dragPos.x, y: dragPos.y };
@@ -446,6 +466,13 @@ export function FlowCanvas({
   const deleteNode = React.useCallback(
     (id: string) => {
       if (!onPatch) return;
+      // objectui#11838 — the inspector's "Remove node" rule: refused, writing
+      // nothing, while a boundary event's host or an expression root still
+      // names the node. The refusal is shown in the alert stack above.
+      if (nodeRemovalRefusal({ nodes, edges }, id)) {
+        setDeleteRefusedId(id);
+        return;
+      }
       const nextNodes = nodes.filter((n) => n.id !== id);
       // objectui#11772 — the same removal the inspector's "Remove node" makes.
       const nextEdges = edgesAfterNodeRemoval(edges, id, new Set(nextNodes.map((n) => n.id)));
@@ -623,8 +650,17 @@ export function FlowCanvas({
           errors directly on the canvas so the author needn't open Debug. Each row
           with a concrete target is clickable — it selects + pans to the offending
           node/edge (the same reveal the Problems panel does). */}
-      {bannerErrors.length > 0 && (
+      {(deleteRefusal || bannerErrors.length > 0) && (
         <div className="absolute left-2 top-2 z-30 max-w-[min(60%,420px)] space-y-1">
+          {deleteRefusal && (
+            <p
+              role="alert"
+              className="flex w-full items-start gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-left text-[11px] leading-snug text-destructive shadow-sm backdrop-blur-sm"
+            >
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>{deleteRefusal}</span>
+            </p>
+          )}
           {bannerErrors.slice(0, 3).map((p) => {
             const clickable = !!onRevealProblem && p.target.kind !== 'flow';
             return (

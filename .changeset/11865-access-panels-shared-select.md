@@ -2,14 +2,12 @@
 '@object-ui/app-shell': patch
 ---
 
-Studio's Access pillar picks with the shared `Select` in two more places: the package's record sharing overview (each object's internal and external sharing model) and a permission set's advanced facets (a row-level security policy's operation and a tab's visibility). They are the control Studio's object Settings tab already picks the same sharing models with (objectui#11865, the access panels part of that card).
+Studio's package record sharing overview picks each object's internal and external sharing model with the shared `Select`. That is the control Studio's object Settings tab already uses for the same two sharing models (objectui#11865, the overview's part of that card). A permission set's advanced facets keep their native selects for now: the shared `Select` adds bytes to the console's first load there, and the first-load budget has no room for them yet.
 
-The four pickers were browser-native selects, so they looked and behaved differently from Studio's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
+The overview's two dials were browser-native selects, so they looked and behaved differently from Studio's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
 
-What they write is unchanged. In the sharing overview, each option leaves the row with the same working value as before, so Save sends the same object draft: "not set" still drops the key. In the facets, each option writes the same draft as before: an operation sets that policy's `operation`, and a visibility sets that tab's entry. Re-picking the current option writes nothing. None of the four native selects had a label, and the new triggers have none either.
+What they write is unchanged. Each option leaves the row with the same working value as before, so Save sends the same object draft, and "not set" still drops the key. Re-picking the current option changes nothing. The native selects had no label, and the new triggers have none either. A read-only package still shows each value as text, with no picker, as before.
 
-On a read-only permission set the two facet pickers are disabled and wear the shared control's own disabled look (objectui#11781). A read-only package's sharing overview still shows each value as text, with no picker, as before.
+One display change: a stored sharing model that neither dial offers now shows as itself. The native select showed "not set" instead, which is not what the object says.
 
-One display change: a stored value that is not among a picker's options now shows that value. This happens, for example, with a policy operation the picker does not list. The native select showed its first option instead ("not set", "all" or "Visible"), which is not what the metadata says.
-
-**Clause-②: no.** No published face moves: `PackageOwdOverviewPanel` and `PermissionAdvancedFacets` take the same props, the package entry exports the same names, and no i18n key is added. What moves is the two panels' own markup, described above.
+**Clause-②: no.** No published face moves: `PackageOwdOverviewPanel` takes the same props, the package entry exports the same names, and no i18n key is added. What moves is the overview's own markup, described above.

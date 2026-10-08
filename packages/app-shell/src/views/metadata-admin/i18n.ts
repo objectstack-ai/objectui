@@ -444,6 +444,15 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.flowNode.idRequired': 'Not renamed: a node needs an id.',
   'engine.inspector.flowNode.idTaken': 'Not renamed: another node in this flow already has the id "{id}".',
   'engine.inspector.flowNode.idEdgeNamed': 'Not renamed: an edge still names "{id}", a node that is no longer in the flow. Remove or reconnect that edge first.',
+  // objectui#11838 — the rename carries every expression reference to the node
+  // through the parsers; these name the ones it cannot carry. `{refs}` lists
+  // each as `<node or edge> › <path>: <expression>`.
+  'engine.inspector.flowNode.idRefsUnparsed': 'Not renamed: these expressions read "{id}" but do not parse, so the rename cannot carry them: {refs}. Fix them first.',
+  'engine.inspector.flowNode.idRefsAmbiguous': 'Not renamed: "{name}" is also the name of a variable in this flow, so these expressions could read either and cannot be carried: {refs}. Rename the variable first, or edit them by hand.',
+  // objectui#11838 — a removal cannot carry a boundary event's host or an
+  // expression root, so it is refused while one names the node (the Remove
+  // node button and the canvas Delete key both show this).
+  'engine.inspector.flowNode.removeRefused': 'Not removed: these still name "{id}" and would name a node that no longer exists: {refs}. Change or remove them first.',
   'engine.inspector.flowNode.label': 'Label',
   'engine.inspector.flowNode.type': 'Node Type',
   'engine.inspector.flowNode.configuration': 'Configuration',
@@ -1910,6 +1919,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowValidate.duplicateNodeId': 'Duplicate node id "{id}".',
   'engine.flowValidate.edgeSourceMissing': 'Edge source "{source}" does not exist.',
   'engine.flowValidate.edgeTargetMissing': 'Edge target "{target}" does not exist.',
+  // objectui#11838 — the other positions that name a node by id.
+  'engine.flowValidate.exprRefNodeMissing': 'Expression "{ref}" reads node "{id}", which does not exist.',
+  'engine.flowValidate.boundaryHostMissing': 'Boundary event "{id}" is attached to node "{host}", which does not exist.',
   'engine.flowValidate.startHasIncoming': 'Start node has an incoming edge.',
   'engine.flowValidate.multipleStart': 'Flow has {count} start nodes; expected one.',
   'engine.flowValidate.noStartUsingRoot': 'No "start" node; using the only root node as the entry.',
@@ -2215,6 +2227,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.packages.create.id': 'Package ID',
   'engine.packages.create.namespace': 'Object namespace',
   'engine.packages.create.name': 'Display name',
+  // objectui#11792 — the create dialog's Package ID field (PackageIdInput),
+  // which judges by the spec's id rule rather than the landing form's own.
+  'engine.packages.idRule.formatHint': 'Use a reverse-domain id like {example}: two or more parts separated by dots, each made of lowercase letters, digits and inner hyphens. Underscores are not allowed.',
+  'engine.packages.idRule.strippedNotice': 'Unsupported characters were removed — allowed: lowercase letters, digits, dots and hyphens',
+  'engine.packages.idRule.derived': 'Filled in from the display name until you edit it.',
   'engine.packages.create.version': 'Version',
   'engine.packages.create.versionInvalid': 'Use semantic version, e.g. 0.1.0',
   'engine.packages.create.creating': 'Creating…',
@@ -2701,6 +2718,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.cancel': 'Cancel',
   'engine.studio.create': 'Create',
   'engine.studio.creating': 'Creating…',
+  // objectui#11792 — CreateItemDialog's preview of the name the item is saved
+  // under, shown when the caller supplies that rule (an object's namespace prefix).
+  'engine.studio.createItem.savedAs': 'Saved as',
   // `383502b23` — this is the CONFIRM control of the shared create dialog.
   // Never give it a name that shares a leading run with the affordance that
   // OPENS that dialog (`engine.studio.app.create`, `Create app` — and the
@@ -2758,6 +2778,23 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.publish': 'Publish',
   'engine.studio.loading': 'Loading…',
   'engine.studio.loadFailed': 'Failed to load',
+  // objectui#11785 — a refused save, in the author's words. The strip shows one
+  // of these sentences; the raw refusal (field paths, codes) stays under
+  // `engine.studio.refusal.details`, and `show` opens the input it names.
+  'engine.studio.refusal.choiceWithoutOptions':
+    'Changes not saved: the field “{field}” needs at least one option. Add an option, or change the field to a type that is not a choice.',
+  'engine.studio.refusal.relationshipWithoutTarget':
+    'Changes not saved: the field “{field}” does not say which object it links to. Pick the object, or change the field to a type that is not a relationship.',
+  'engine.studio.refusal.issue': 'Changes not saved. Check {where} — {problem}',
+  'engine.studio.refusal.more': '({count} more under Details)',
+  'engine.studio.refusal.unlocated': 'Changes not saved: the server refused this draft. Details say what to change.',
+  'engine.studio.refusal.field': 'the field “{field}”',
+  'engine.studio.refusal.step': 'the step “{step}”',
+  'engine.studio.refusal.stepInput': '{input} on the step “{step}”',
+  'engine.studio.refusal.navItem': 'the navigation item “{item}”',
+  'engine.studio.refusal.navItemInput': '{input} on the navigation item “{item}”',
+  'engine.studio.refusal.details': 'Details',
+  'engine.studio.refusal.show': 'Show me',
   'engine.studio.unpublishedDraft': 'Unpublished draft',
   'engine.studio.unpublished': 'Unpublished',
   'engine.studio.new': 'New',
@@ -3572,6 +3609,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.flowNode.idRequired': '未重命名：节点必须有 ID。',
   'engine.inspector.flowNode.idTaken': '未重命名：此流程中已有另一个节点的 ID 是“{id}”。',
   'engine.inspector.flowNode.idEdgeNamed': '未重命名：仍有连线指向“{id}”，而该节点已不在流程中。请先删除或重新连接那条连线。',
+  'engine.inspector.flowNode.idRefsUnparsed': '未重命名：以下表达式引用了“{id}”，但无法解析，重命名无法同步更新它们：{refs}。请先修正。',
+  'engine.inspector.flowNode.idRefsAmbiguous': '未重命名：“{name}”同时也是此流程中某个变量的名称，以下表达式可能引用其中任何一个，无法同步更新：{refs}。请先重命名该变量，或手动修改这些表达式。',
+  'engine.inspector.flowNode.removeRefused': '未删除：以下位置仍引用“{id}”，删除后将指向不存在的节点：{refs}。请先修改或删除它们。',
   'engine.inspector.flowNode.label': '标签',
   'engine.inspector.flowNode.type': '节点类型',
   'engine.inspector.flowNode.configuration': '配置',
@@ -4960,6 +5000,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowValidate.duplicateNodeId': '重复的节点 id “{id}”。',
   'engine.flowValidate.edgeSourceMissing': '连线的源节点 “{source}” 不存在。',
   'engine.flowValidate.edgeTargetMissing': '连线的目标节点 “{target}” 不存在。',
+  'engine.flowValidate.exprRefNodeMissing': '表达式 “{ref}” 读取的节点 “{id}” 不存在。',
+  'engine.flowValidate.boundaryHostMissing': '边界事件 “{id}” 附着的节点 “{host}” 不存在。',
   'engine.flowValidate.startHasIncoming': '开始节点存在入边。',
   'engine.flowValidate.multipleStart': '流程有 {count} 个开始节点;应只有一个。',
   'engine.flowValidate.noStartUsingRoot': '没有“开始”节点;以唯一的根节点作为入口。',
@@ -5218,6 +5260,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.packages.create.id': '软件包 ID',
   'engine.packages.create.namespace': '对象命名空间',
   'engine.packages.create.name': '显示名称',
+  'engine.packages.idRule.formatHint': '请使用反向域名格式的 ID，例如 {example}：由点分隔的两段或更多段，每段只含小写字母、数字和段内连字符，不能使用下划线。',
+  'engine.packages.idRule.strippedNotice': '已移除不支持的字符——仅允许小写字母、数字、点和连字符',
+  'engine.packages.idRule.derived': '编辑前会根据显示名称自动填写。',
   'engine.packages.create.version': '版本',
   'engine.packages.create.versionInvalid': '请使用语义化版本号，例如 0.1.0',
   'engine.packages.create.creating': '创建中…',
@@ -5686,6 +5731,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.cancel': '取消',
   'engine.studio.create': '创建',
   'engine.studio.creating': '创建中…',
+  'engine.studio.createItem.savedAs': '保存为',
   // `383502b23` — see the English entry. This value must share no leading
   // run with `engine.studio.app.create`, which opens the same dialog.
   'engine.studio.createDraft': '存为草稿',
@@ -5723,6 +5769,20 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.publish': '发布',
   'engine.studio.loading': '加载中…',
   'engine.studio.loadFailed': '加载失败',
+  'engine.studio.refusal.choiceWithoutOptions':
+    '更改未保存：字段「{field}」至少需要一个选项。请添加选项，或将该字段改为非选项类型。',
+  'engine.studio.refusal.relationshipWithoutTarget':
+    '更改未保存：字段「{field}」未指定要关联的对象。请选择对象，或将该字段改为非关联类型。',
+  'engine.studio.refusal.issue': '更改未保存。请检查{where} —— {problem}',
+  'engine.studio.refusal.more': '（另有 {count} 处，见详情）',
+  'engine.studio.refusal.unlocated': '更改未保存：服务端拒绝了此草稿。详情中说明了需要修改的内容。',
+  'engine.studio.refusal.field': '字段「{field}」',
+  'engine.studio.refusal.step': '步骤「{step}」',
+  'engine.studio.refusal.stepInput': '步骤「{step}」的「{input}」',
+  'engine.studio.refusal.navItem': '导航项「{item}」',
+  'engine.studio.refusal.navItemInput': '导航项「{item}」的「{input}」',
+  'engine.studio.refusal.details': '详情',
+  'engine.studio.refusal.show': '定位',
   'engine.studio.unpublishedDraft': '未发布草稿',
   'engine.studio.unpublished': '未发布',
   'engine.studio.new': '新建',

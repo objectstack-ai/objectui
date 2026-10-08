@@ -126,13 +126,44 @@ describe('resolveFlowScope — graph-aware in-scope references', () => {
     expect(scope.trigger).toEqual({ objectName: 'crm_lead', fieldPrefix: 'record.', includePrevious: true });
   });
 
-  it('uses a BARE field prefix on the start node itself (entry condition)', () => {
+  it('uses a BARE field prefix on the start node itself (entry condition), and the whole `record` is in scope there too (objectui#11789)', () => {
     const scope = resolveFlowScope(draft, 'start');
     expect(scope.trigger).toEqual({ objectName: 'crm_lead', fieldPrefix: '', includePrevious: true });
-    // No whole-`record` token on the start node (fields are the bare context).
-    expect(groupTokens(scope, 'trigger')).not.toContain('record');
+    // The engine binds `record` beside the flattened fields before it runs the
+    // entry condition, so `record.status` is as valid there as bare `status`.
+    expect(groupTokens(scope, 'trigger')).toContain('record');
     // `previous` is still available on an update trigger.
     expect(groupTokens(scope, 'trigger')).toContain('previous');
+  });
+
+  /**
+   * The per-trigger table (objectui#11789), read off the engine: its run
+   * seeding binds `record` (with the record's fields flattened beside it)
+   * whenever the trigger hands it a record, and binds `previous` on EVERY run —
+   * to the pre-image when one exists, to `null` otherwise. So `record` follows
+   * "is this a record trigger", and `previous` follows "is there a pre-image".
+   * Each row is asserted at the start node AND downstream: one run, one scope.
+   */
+  it.each([
+    ['record-after-update', true, true],
+    ['record-before-update', true, true],
+    ['record-after-write', true, true],
+    ['record-before-write', true, true],
+    // The deleted row is the pre-image; the trigger reads `record` off it too.
+    ['record-after-delete', true, true],
+    // No prior row: `previous` is always `null`, so it is not offered.
+    ['record-after-create', true, false],
+    // No record is handed to these runs at all.
+    ['schedule', false, false],
+    ['manual', false, false],
+    ['api', false, false],
+  ])('%s: `record` in scope = %s, `previous` in scope = %s — at the start node and downstream', (triggerType, hasRecord, hasPrevious) => {
+    const flow = { ...draft, nodes: [{ id: 'start', type: 'start', config: { triggerType, objectName: 'crm_lead' } }, ...draft.nodes.slice(1)] };
+    for (const at of ['start', 'decide']) {
+      const trigger = groupTokens(resolveFlowScope(flow, at), 'trigger');
+      expect(trigger.includes('record'), `${triggerType} at ${at}: record`).toBe(hasRecord);
+      expect(trigger.includes('previous'), `${triggerType} at ${at}: previous`).toBe(hasPrevious);
+    }
   });
 
   it('omits the trigger record for a non-record trigger', () => {
@@ -142,7 +173,7 @@ describe('resolveFlowScope — graph-aware in-scope references', () => {
     expect(groupTokens(scope, 'trigger')).toEqual([]);
   });
 
-  it('omits `previous` for a create trigger', () => {
+  it('omits `previous` for a create trigger (the engine binds it only as `null` there)', () => {
     const create = { ...draft, nodes: [{ id: 'start', type: 'start', config: { triggerType: 'record-after-create', objectName: 'crm_lead' } }, ...draft.nodes.slice(1)] };
     expect(groupTokens(resolveFlowScope(create, 'decide'), 'trigger')).not.toContain('previous');
   });

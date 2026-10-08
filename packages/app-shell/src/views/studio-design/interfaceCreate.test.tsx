@@ -1,17 +1,24 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * objectui#11823 (step 2) — what the Interfaces pillar's New dashboard / New
- * report write, judged by the spec, and the report's dataset/measure fields.
- * The pillar-level pins (the writes, the rail, the canvas) are in
- * `StudioDesignSurface.interfacesCreate-11823.test.tsx`.
+ * objectui#11823 (steps 2 and 3) — what the Interfaces pillar's New dashboard /
+ * New report / New page write, judged by the spec, the report's
+ * dataset/measure fields and the page's source-kind field. The pillar-level
+ * pins (the writes, the rail, the canvas) are in
+ * `StudioDesignSurface.interfacesCreate-11823.test.tsx` (dashboard, report)
+ * and `StudioDesignSurface.interfacesCreatePage-11823.test.tsx` (page).
  */
 
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { AppSchema, DashboardSchema, NavigationItemSchema, ReportSchema } from '@objectstack/spec/ui';
+import { AppSchema, DashboardSchema, NavigationItemSchema, PageSchema, ReportSchema } from '@objectstack/spec/ui';
+import { CAP_REACT_PAGES, disableCapability, enableCapability } from '@object-ui/core';
+import { SchemaRenderer } from '@object-ui/react';
+// The runtime page renderer and the html tier's blocks, registered at import
+// (module scope, per AGENTS.md's flaky-test discipline).
+import '@object-ui/components';
 
 let datasets: Array<Record<string, unknown>>;
 const mockClient = {
@@ -25,15 +32,25 @@ vi.mock('../metadata-admin/useMetadata', async (importOriginal) => {
 });
 
 import {
+  DEFAULT_PAGE_SOURCE_KIND,
   NO_REPORT_BINDING,
+  PageCreateFields,
   ReportCreateFields,
   buildDashboardSkeleton,
+  buildPageSkeleton,
   buildReportSkeleton,
   interfaceNavEntry,
   isReportBindingComplete,
+  pageStarterSource,
+  type PageSourceKind,
   type ReportBinding,
 } from './interfaceCreate';
 import type { NavNode } from './navSurface';
+import { t, type SupportedLocale } from '../metadata-admin/i18n';
+import { isStaticPageOption } from '../metadata-admin/inspectors/nav-target';
+
+const LOCALES: SupportedLocale[] = ['en-US', 'zh-CN'];
+const starterOf = (locale: SupportedLocale) => t('engine.studio.interfaces.create.pageStarter', locale);
 
 beforeEach(() => {
   datasets = [
@@ -108,8 +125,17 @@ describe('the navigation entry that links a new item (objectui#11823 step 2)', (
     });
   });
 
+  it("a page entry carries the author's label: a label-less page entry shows its pageName (objectui#11823 step 3)", () => {
+    expect(interfaceNavEntry('page', 'team_handbook', 'Team handbook', navigation)).toEqual({
+      id: 'nav_team_handbook',
+      type: 'page',
+      pageName: 'team_handbook',
+      label: 'Team handbook',
+    });
+  });
+
   it('each entry parses as a navigation item, and in an app document beside the entries it joins', () => {
-    for (const kind of ['dashboard', 'report'] as const) {
+    for (const kind of ['dashboard', 'report', 'page'] as const) {
       const entry = interfaceNavEntry(kind, 'sales', 'Sales', navigation);
       const item = NavigationItemSchema.safeParse(entry);
       expect(item.success, JSON.stringify(item.error?.issues)).toBe(true);
@@ -153,5 +179,107 @@ describe('ReportCreateFields (objectui#11823 step 2)', () => {
       'There is no dataset to report on yet.',
     );
     expect(screen.queryByTestId('create-report-dataset')).toBeNull();
+  });
+});
+
+describe('the page create body (objectui#11823 step 3)', () => {
+  it.each(['html', 'react'] as const)('a %s source page parses with the spec, as an app page', (kind) => {
+    const body = buildPageSkeleton('team_handbook', 'Team handbook', kind, starterOf('en-US'));
+    expect(body).toEqual({
+      name: 'team_handbook',
+      label: 'Team handbook',
+      type: 'app',
+      kind,
+      source: pageStarterSource(kind, starterOf('en-US')),
+    });
+    const parsed = PageSchema.safeParse(body);
+    expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
+    expect(parsed.data?.type).toBe('app');
+    // A navigation entry can open it: the nav editor's own page picker keeps it.
+    expect(isStaticPageOption(parsed.data as { type?: string })).toBe(true);
+  });
+
+  it('CONTROL: without its page type the spec reads it as a record page, which a page nav entry cannot open', () => {
+    const { type: _type, ...untyped } = buildPageSkeleton('team_handbook', 'Team handbook', 'html', starterOf('en-US')) as Record<
+      string,
+      unknown
+    >;
+    const parsed = PageSchema.safeParse(untyped);
+    expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
+    expect(parsed.data?.type).toBe('record');
+    expect(isStaticPageOption(parsed.data as { type?: string })).toBe(false);
+  });
+
+  it('CONTROL: the spec refuses a source page with an empty source, which is why it starts from one', () => {
+    const parsed = PageSchema.safeParse({
+      ...buildPageSkeleton('team_handbook', 'Team handbook', 'html', starterOf('en-US')),
+      source: '',
+    });
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues.map((i) => i.path.join('.'))).toEqual(['source']);
+  });
+
+  it('the dialog starts on html, the tier every deployment renders', () => {
+    expect(DEFAULT_PAGE_SOURCE_KIND).toBe('html');
+  });
+
+  it.each(LOCALES)("the %s starter line holds nothing the html parser stops at or that JSX text refuses", (locale) => {
+    const text = starterOf(locale);
+    expect(text).not.toBe('engine.studio.interfaces.create.pageStarter');
+    expect(text).not.toMatch(/[<>{}]/);
+  });
+});
+
+describe('the page starter renders through the runtime page renderer (objectui#11823 step 3)', () => {
+  it.each(LOCALES)('the html starter compiles and renders, in %s', async (locale) => {
+    const body = buildPageSkeleton('team_handbook', 'Team handbook', 'html', starterOf(locale));
+    render(<SchemaRenderer schema={body as never} />);
+    expect(await screen.findByText(starterOf(locale))).toBeInTheDocument();
+    expect(screen.queryByText(/HTML page failed to compile/)).toBeNull();
+  });
+
+  it('the react starter runs and renders', async () => {
+    const body = buildPageSkeleton('team_handbook', 'Team handbook', 'react', starterOf('en-US'));
+    render(<SchemaRenderer schema={body as never} />);
+    expect(await screen.findByText(starterOf('en-US'), undefined, { timeout: 8000 })).toBeInTheDocument();
+  });
+});
+
+describe('PageCreateFields (objectui#11823 step 3)', () => {
+  function Host({ initial = DEFAULT_PAGE_SOURCE_KIND }: { initial?: PageSourceKind }) {
+    const [value, setValue] = React.useState<PageSourceKind>(initial);
+    return (
+      <>
+        <PageCreateFields value={value} onChange={setValue} locale="en-US" />
+        <output data-testid="kind">{value}</output>
+      </>
+    );
+  }
+
+  afterEach(() => enableCapability(CAP_REACT_PAGES));
+
+  it('offers html and react, starting on html, and the hint follows the choice', () => {
+    render(<Host />);
+    const select = screen.getByTestId('create-page-kind') as HTMLSelectElement;
+    expect(Array.from(select.options).map((o) => [o.value, o.textContent])).toEqual([
+      ['html', 'HTML'],
+      ['react', 'React'],
+    ]);
+    expect(select.value).toBe('html');
+    expect(screen.getByTestId('create-page-kind-hint')).toHaveTextContent(
+      t('engine.studio.interfaces.create.pageKindHtmlHint', 'en-US'),
+    );
+    fireEvent.change(select, { target: { value: 'react' } });
+    expect(screen.getByTestId('kind')).toHaveTextContent('react');
+    expect(screen.getByTestId('create-page-kind-hint')).toHaveTextContent(
+      t('engine.studio.interfaces.create.pageKindReactHint', 'en-US'),
+    );
+  });
+
+  it('offers no react on a deployment that turned react pages off', () => {
+    disableCapability(CAP_REACT_PAGES);
+    render(<Host />);
+    const select = screen.getByTestId('create-page-kind') as HTMLSelectElement;
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(['html']);
   });
 });

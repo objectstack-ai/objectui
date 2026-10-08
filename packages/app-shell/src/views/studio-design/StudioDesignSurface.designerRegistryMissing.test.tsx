@@ -299,7 +299,9 @@ describe('Automations pillar — the fourth site, found by sweeping (#6795 C, si
         <AutomationsPillar packageId="com.acme.app" />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByText('Nightly'));
+    // The rail row, by role: the open flow's label now also heads the canvas
+    // (objectui#11665), so the bare text 'Nightly' names two elements.
+    fireEvent.click(await screen.findByRole('button', { name: /Nightly/ }));
 
     await waitFor(
       async () => {

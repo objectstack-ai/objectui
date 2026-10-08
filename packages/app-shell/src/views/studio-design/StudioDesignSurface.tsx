@@ -6196,7 +6196,22 @@ export function AutomationsPillar({
                 ? t('engine.studio.auto.canvasHint', locale)
                 : t('engine.studio.auto.designersMissing', locale)}
             </span>
-            {current && <span className="text-[11px] text-muted-foreground">flow · {current.name}</span>}
+            {/* objectui#11665 — the header names the open flow by its LABEL,
+                the string its rail row prints, never by `flow · NAME`: the
+                metadata type word was developer vocabulary inside the
+                author's own copy (objectui#11659 ruling 6). The API name
+                moves to the tooltip for the authors who need it, as the
+                Interfaces caption keeps its internal id (objectui#7254). A
+                label that resolves to nothing falls back to the name. */}
+            {current && (
+              <span
+                className="text-[11px] text-muted-foreground"
+                title={`${t('designer.field.apiName', locale)}: ${current.name}`}
+                data-testid="auto-canvas-caption"
+              >
+                {current.label || current.name}
+              </span>
+            )}
           </div>
           {error && (
             <StudioRefusalStrip

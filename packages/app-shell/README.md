@@ -656,6 +656,11 @@ save-time error rather than a detail left to the reader.
 - **Append** — the bottom `+` handle on a node adds a connected child.
 - **Insert on edge** — the `+` on a connector splices a node between two nodes,
   preserving the original branch condition on the first segment.
+- **Connect** — drag from a node's connect handle (the dot beside its bottom
+  `+`; an End has none) onto another node to connect the two; a selected
+  connection's **From** / **To** in `FlowEdgeInspector` re-point it. Both refuse,
+  with the reason, a node to itself, a (source, target) pair another edge
+  already joins, and a node the flow does not have (`edgeConnectionRefusal`).
 - **Reposition** — drag a node (committed on pointer-up).
 - **Delete** — `Delete` / `Backspace` removes the selected node and its edges.
 - **Navigate** — fit-to-view, zoom in/out, and background pan.
@@ -730,8 +735,10 @@ stored on `config.conditions`. Picking a target creates or retargets the
 branch's out-edge carrying its condition/label/default; clearing it detaches
 (removes) that edge — never the node. Because edges stay the single source of
 truth, it round-trips with the reciprocal per-edge **Branch** picker in
-`FlowEdgeInspector` (#1930) and with canvas rewiring; custom hand-written edge
-guards and fault/back edges are never touched (`flow-decision-edges.ts`).
+`FlowEdgeInspector` (#1930), with that panel's **From** / **To**, and with
+connections drawn from a node's connect handle on the canvas; custom
+hand-written edge guards and fault/back edges are never touched
+(`flow-decision-edges.ts`).
 
 Anything still not covered by a field (nested objects, arrays, plugin-specific
 keys) lives in an **optional** Advanced (JSON) escape hatch: it is shown only

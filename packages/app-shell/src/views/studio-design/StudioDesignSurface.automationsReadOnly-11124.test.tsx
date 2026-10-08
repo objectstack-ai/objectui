@@ -267,7 +267,7 @@ describe('A refused status toggle rolls back to the server state (objectui#11124
     // Open the second flow — served with status `obsolete`, the very status the
     // pending toggle wrote — then let the first flow's save be refused.
     fireEvent.click(screen.getByRole('button', { name: /Nightly digest/ }));
-    await waitFor(() => expect(screen.getByText('flow · nightly_digest')).toBeInTheDocument(), { timeout: 8000 });
+    await waitFor(() => expect(screen.getByTitle('API name: nightly_digest')).toBeInTheDocument(), { timeout: 8000 });
     await waitFor(() => expect(canvasStatus()).toBe(STATUS_OFF), { timeout: 8000 });
 
     open();

@@ -101,6 +101,16 @@ import {
   type StudioCanvasNavEntry,
 } from './studio-canvas-preview.js';
 import { ObjectListViewInspector, useObjectListViewDraft } from './ObjectListViewInspector.js';
+import {
+  NO_REPORT_BINDING,
+  ReportCreateFields,
+  buildDashboardSkeleton,
+  buildReportSkeleton,
+  interfaceNavEntry,
+  isReportBindingComplete,
+  type InterfaceCreateKind,
+  type ReportBinding,
+} from './interfaceCreate.js';
 import { PermissionMatrixEditPage } from '../metadata-admin/PermissionMatrixEditor.js';
 import { AccessExplainPanel } from '../metadata-admin/AccessExplainPanel.js';
 import {
@@ -3169,7 +3179,10 @@ export function InterfacesPillar({
     setAppDraft((d) => ({ ...d, ...patch }));
     setNavDirty(true);
   }, []);
-  const doNavSave = React.useCallback(async (sent: DraftSend) => {
+  // objectui#11823 (step 2) — `doc` is the app document to send: the buffer
+  // (`appDraft`, what the autosave sends), unless a caller that sends its own
+  // write names the document it built (a create's link, below).
+  const doNavSave = React.useCallback(async (sent: DraftSend, doc: Record<string, unknown> = appDraft) => {
     if (!appName) return;
     setNavSaving('draft');
     // objectui#11776 — "Add nav item" births `{ id, type: 'object' }`, which
@@ -3182,7 +3195,7 @@ export function InterfacesPillar({
     // moves another entry's id. objectui#11785 — computed before the save so
     // a refusal is placed on the entry it names: its path indexes `sentNav`,
     // and `editorNav` keeps the editor's indexes.
-    const rawNav = Array.isArray(appDraft.navigation) ? appDraft.navigation : [];
+    const rawNav = Array.isArray(doc.navigation) ? doc.navigation : [];
     const editorNav = rawNav.map((n, i) => {
       const item = n as Record<string, unknown>;
       if (!item || typeof item !== 'object' || (typeof item.id === 'string' && item.id)) return n;
@@ -3191,7 +3204,7 @@ export function InterfacesPillar({
     const sentNav = navPayloadOf(editorNav);
     try {
       const leftOut = sentNav.length !== editorNav.length || sentNav.some((n, i) => n !== editorNav[i]);
-      const saved = { ...appDraft, navigation: sentNav };
+      const saved = { ...doc, navigation: sentNav };
       const outcome = await saveNavDraft('app', appName, saved, { mode: 'draft', packageId });
       // objectui#11773 — the author chose the saved version; the load replaces
       // the buffer, and with it any failure this editor showed (objectui#11776).
@@ -3226,7 +3239,7 @@ export function InterfacesPillar({
     }
   }, [saveNavDraft, appName, appDraft, onDraftSaved, packageId, publishNonce, locale]);
   // objectui#5813 — nav edits auto-save while edit mode is open.
-  const { flush: flushNavSave } = useDraftAutoSave({
+  const { flush: flushNavSave, sending: navSending } = useDraftAutoSave({
     // objectui#11232 — the app `doNavSave` addresses. The package is this
     // pillar's mount (it is keyed by package where the surface renders it).
     target: `app:${appName ?? ''}`,
@@ -3250,6 +3263,83 @@ export function InterfacesPillar({
     setEditNav(false);
     setNavSel(null);
   }, [navClosing, navSaving, navDirty, flushNavSave]);
+
+  // objectui#11823 (step 2) — *New dashboard* / *New report* (ADR-0084: the
+  // Interface pillar holds dashboards and reports). The rail is the app's
+  // navigation, so a create writes the item's draft AND the entry that links
+  // it, then opens the new leaf on the canvas this pillar renders for its type
+  // (the structured canvas, builder-ui §6). Offered only while nav editing is
+  // closed: the nav buffer is then the app document as the server holds it,
+  // and no nav save is in flight ("Done" closes only once the buffer is clean).
+  const [createKind, setCreateKind] = React.useState<InterfaceCreateKind | null>(null);
+  const [createBusy, setCreateBusy] = React.useState(false);
+  const [createError, setCreateError] = React.useState<string | null>(null);
+  const [reportBinding, setReportBinding] = React.useState<ReportBinding>(NO_REPORT_BINDING);
+  const openCreate = React.useCallback((kind: InterfaceCreateKind) => {
+    setCreateError(null);
+    setReportBinding(NO_REPORT_BINDING);
+    setCreateKind(kind);
+  }, []);
+  const doCreateSurface = React.useCallback(
+    async (kind: InterfaceCreateKind, label: string, name: string, binding: ReportBinding) => {
+      if (readOnly || !appName || editNav) return;
+      if (kind === 'report' && !isReportBindingComplete(binding)) {
+        setCreateError(t('engine.studio.interfaces.create.needsBinding', locale));
+        return;
+      }
+      setCreateBusy(true);
+      setCreateError(null);
+      try {
+        // A name an item of this type already holds, in this package or any
+        // other, is refused here and nothing is written. The draft door is a
+        // PUT by name: it would write this skeleton over that item, in this
+        // package's draft, and the entry below would open whichever one the
+        // server resolves.
+        const [published, drafts] = await Promise.all([
+          client.list<Record<string, unknown>>(kind),
+          client.listDrafts({ type: kind }),
+        ]);
+        if ([...(published ?? []), ...(drafts ?? [])].some((row) => row?.name === name)) {
+          setCreateError(
+            tFormat(
+              kind === 'dashboard'
+                ? 'engine.studio.interfaces.create.dashboardTaken'
+                : 'engine.studio.interfaces.create.reportTaken',
+              locale,
+              { name },
+            ),
+          );
+          return;
+        }
+        const body =
+          kind === 'dashboard' ? buildDashboardSkeleton(name, label) : buildReportSkeleton(name, label, binding);
+        await client.save(kind, name, body, { mode: 'draft', packageId });
+        onDraftSaved?.();
+        // The entry that links it, appended to the app document and sent
+        // through the nav editor's own save, as an edit there would be: its
+        // refusal shows in the canvas strip and keeps the buffer dirty, so the
+        // leave guard holds and the next nav edit sends it again.
+        const base = navBaselineRef.current;
+        const navigation = Array.isArray(base.navigation) ? (base.navigation as NavNode[]) : [];
+        const entry = interfaceNavEntry(kind, name, label, navigation);
+        const linked = { ...base, navigation: [...navigation, entry] };
+        setAppDraft(linked);
+        setNavDirty(true);
+        setCreateKind(null);
+        const surface = resolveSurface(entry, locale, targetLabelRef.current);
+        if (surface) setCurrent(surface);
+        setCanvasMode('design');
+        if (isMobile) setRailOpen(false);
+        await doNavSave(navSending(linked) ?? { unmoved: () => false }, linked);
+      } catch (e) {
+        // Shown in the create dialog, which prints the message only.
+        setCreateError(plainRefusal(e).message);
+      } finally {
+        setCreateBusy(false);
+      }
+    },
+    [readOnly, appName, editNav, locale, client, packageId, onDraftSaved, setCanvasMode, isMobile, doNavSave, navSending],
+  );
 
   // ADR-0057 P3c — the canvas and the inspector are rendered by BOTH layouts
   // below (the classic three-zone row, and the folded center-tabs grid that
@@ -3681,6 +3771,55 @@ export function InterfacesPillar({
       {leafConflictDialog}
       {navConflictDialog}
       {listView.conflictDialog}
+      {/* objectui#11823 (step 2) — the shared create dialog; a report also
+          asks for its dataset and one measure (`ReportCreateFields`). */}
+      <CreateItemDialog
+        open={createKind !== null && !readOnly}
+        onOpenChange={(open) => {
+          if (!open) setCreateKind(null);
+        }}
+        title={t(
+          createKind === 'report'
+            ? 'engine.studio.interfaces.create.report'
+            : 'engine.studio.interfaces.create.dashboard',
+          locale,
+        )}
+        description={tFormat('engine.studio.interfaces.create.description', locale, {
+          app: navItemLabelText(appLabel, locale),
+        })}
+        labelFieldLabel={t(
+          createKind === 'report'
+            ? 'engine.studio.interfaces.create.reportNameLabel'
+            : 'engine.studio.interfaces.create.dashboardNameLabel',
+          locale,
+        )}
+        labelPlaceholder={t(
+          createKind === 'report'
+            ? 'engine.studio.interfaces.create.reportNamePlaceholder'
+            : 'engine.studio.interfaces.create.dashboardNamePlaceholder',
+          locale,
+        )}
+        idFieldLabel={t('engine.studio.interfaces.create.idLabel', locale)}
+        idPlaceholder={t(
+          createKind === 'report'
+            ? 'engine.studio.interfaces.create.reportIdPlaceholder'
+            : 'engine.studio.interfaces.create.dashboardIdPlaceholder',
+          locale,
+        )}
+        submitLabel={t('engine.studio.createDraft', locale)}
+        submittingLabel={t('engine.studio.creating', locale)}
+        busy={createBusy}
+        error={createError}
+        locale={locale}
+        extra={
+          createKind === 'report' ? (
+            <ReportCreateFields value={reportBinding} onChange={setReportBinding} locale={locale} />
+          ) : undefined
+        }
+        onSubmit={({ label, name }) => {
+          if (createKind) void doCreateSurface(createKind, label, name, reportBinding);
+        }}
+      />
       <div className="flex items-center gap-2 border-b px-3 py-1.5">
         <button
           type="button"
@@ -3743,6 +3882,33 @@ export function InterfacesPillar({
           <div className="shrink-0 border-b px-2 py-1.5">
             <div className="flex items-center justify-between gap-1">
               <p className="truncate text-[11px] font-medium text-muted-foreground">{tFormat('engine.studio.if.navHeading', locale, { app: navItemLabelText(appLabel, locale) })}</p>
+              {/* objectui#11823 (step 2) — New dashboard / report: an app to
+                  link it from, a writable package, nav editing closed (see
+                  `doCreateSurface`). */}
+              {appStatus === 'ready' && !readOnly && !editNav && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      data-testid="if-create-menu"
+                      title={t('engine.studio.interfaces.create.menuTitle', locale)}
+                      className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted"
+                    >
+                      <Plus className="h-3 w-3" /> {t('engine.studio.new', locale)}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem data-testid="if-create-dashboard" onSelect={() => openCreate('dashboard')}>
+                      <LayoutDashboard className="mr-2 h-3.5 w-3.5" />
+                      {t('engine.studio.interfaces.create.dashboard', locale)}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem data-testid="if-create-report" onSelect={() => openCreate('report')}>
+                      <BarChart3 className="mr-2 h-3.5 w-3.5" />
+                      {t('engine.studio.interfaces.create.report', locale)}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               {appStatus === 'ready' && !readOnly && (
                 <button
                   type="button"

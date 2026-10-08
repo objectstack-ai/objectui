@@ -153,8 +153,8 @@ describe('ObjectValidationsPanel — blocking CEL issues reach the Data pillar (
     fireEvent.change(rawEditor(), { target: { value: 'record.status ==' } });
     await waitFor(() => expect(current()).toBe(1), { timeout: 3000 });
 
-    // `getByText('Delete')` is ambiguous — a lifecycle-event checkbox carries
-    // the same word; the rule's own delete affordance is the BUTTON.
+    // The rule's own delete affordance is the BUTTON: queried by role, so no
+    // other text on the page that says Delete can be clicked in its place.
     fireEvent.click(screen.getByRole('button', { name: /Delete/ }));
     await waitFor(() => expect(current()).toBe(0), { timeout: 3000 });
   });

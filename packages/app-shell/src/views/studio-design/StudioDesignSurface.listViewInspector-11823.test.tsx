@@ -79,6 +79,7 @@ const mockClient = {
   }),
   getDraft: vi.fn(async () => null),
   get: vi.fn(async (type: string) => (type === 'object' ? OBJECT_DEF : undefined)),
+  withPreviewDrafts() { return this; },
 };
 
 vi.mock('../metadata-admin/useMetadata', async (importOriginal) => {

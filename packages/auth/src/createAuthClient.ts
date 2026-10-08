@@ -822,11 +822,18 @@ export function createAuthClient(config: AuthClientConfig): AuthClient {
       return (data ?? []) as AuthOrganization[];
     },
 
-    async createOrganization(orgData: { name: string; slug: string; logo?: string }): Promise<AuthOrganization> {
+    async createOrganization(orgData: { name: string; slug: string; logo?: string; timezone?: string }): Promise<AuthOrganization> {
+      // objectui#11908: the creator's zone rides the QUERY (`?timezone=`), the
+      // shape the server's create route reads it from; the body stays
+      // `{ name, slug, logo }`. better-auth's client proxy lifts
+      // `fetchOptions.query` onto the URL and keeps it out of the body. An
+      // absent or empty zone sends no parameter at all.
+      const { timezone } = orgData;
       const { data, error } = await (betterAuth as any).organization.create({
         name: orgData.name,
         slug: orgData.slug,
         logo: orgData.logo,
+        ...(timezone ? { fetchOptions: { query: { timezone } } } : {}),
       });
       if (error) throw toAuthError(error, 'Failed to create organization');
       return data as unknown as AuthOrganization;

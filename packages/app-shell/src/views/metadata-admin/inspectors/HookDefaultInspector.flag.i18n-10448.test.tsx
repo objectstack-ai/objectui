@@ -29,6 +29,7 @@ import { render, screen, cleanup } from '@testing-library/react';
 const state = vi.hoisted(() => ({
   metadataClient: {
     get: vi.fn(async () => undefined),
+    withPreviewDrafts() { return this; },
     list: vi.fn(async () => [{ name: 'account', label: 'Account' }] as unknown[]),
   },
 }));

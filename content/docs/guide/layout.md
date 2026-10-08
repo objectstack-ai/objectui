@@ -684,6 +684,12 @@ registration's `inputs` lists, with a `description` per key. For an `api` action
 the request URL in `target`: `endpoint` is not published, because the console's `api`
 handler never reads it.
 
+`undoable: true` on an `operation: update` makes the success toast offer Undo, which
+writes back the prior values of the fields the update wrote. `action:button` reads those
+values off the record in scope: the record page's record, or the row the host binds
+through `data`. A button with no record in scope offers no Undo, because there is no row
+to restore; neither does one whose `recordId` names a record other than the one in scope.
+
 ## Responsive Behavior
 
 The shell has exactly **one** layout breakpoint, at **768px** — Tailwind's `md`, and

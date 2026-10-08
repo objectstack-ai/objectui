@@ -36,7 +36,7 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/re
 // fetches for real. Stub the shared client so neither escapes to the real
 // network; see PageBlockInspector.i18n.test.tsx for the full mechanism.
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,

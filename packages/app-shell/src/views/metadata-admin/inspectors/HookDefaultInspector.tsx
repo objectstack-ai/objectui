@@ -22,6 +22,15 @@
  * array. Any already-selected object not in the live catalog is preserved as a
  * synthesized option so a value is never silently dropped; it is flagged as not
  * published only once the catalog has answered (objectui#10585).
+ *
+ * Reach (objectui#11820). A hook on an object runs on that object's events
+ * wherever they happen, so the picker says so where the reach widens: when a
+ * host tells it which objects belong to the package the hook is authored in
+ * ({@link HookTargetScopeContext} — Studio's hooks panel does), the list splits
+ * into this package's objects and the rest, and the rest (other packages'
+ * objects and the platform's own) sit under their own heading with a one-line
+ * warning. "All objects" carries the same warning. A host that knows no package
+ * (the metadata admin's editor) gets the flat list, as before.
  */
 
 import * as React from 'react';
@@ -67,6 +76,28 @@ const QUERY_EVENTS = [
 ];
 
 const ALL_OBJECTS = '*';
+
+/**
+ * objectui#11820 — what the host knows about where the hook is authored: the
+ * names of the objects of that package, published and draft. Membership is
+ * the package's own list (the server's package filter on `_packageId`, plus
+ * the package's pending drafts), never a name prefix; an object outside it
+ * belongs to another package, to the platform, or to no package, and each of
+ * those widens the hook's reach beyond the package.
+ */
+export interface HookTargetScope {
+  packageObjects: ReadonlySet<string>;
+}
+
+/**
+ * Provided by a host that knows the hook's package (Studio's hooks panel).
+ * `null` — no package known — keeps the picker one flat list.
+ *
+ * A context rather than a prop because the host renders this inspector through
+ * the default-inspector registry, whose props are every type's. Module-private:
+ * imported by that host, exported from no barrel.
+ */
+export const HookTargetScopeContext = React.createContext<HookTargetScope | null>(null);
 
 /** Keys this inspector edits with its own controls — hidden from the fallback. */
 const CURATED_FIELDS = [
@@ -156,6 +187,26 @@ export function HookDefaultInspector({
   }, [objectOptions, objectNames, locale, rosterAnswered]);
   const rosterFailure = roster.status === 'error' ? roster.message : undefined;
 
+  // objectui#11820 — with a known package, this package's objects first and
+  // every other object under its own heading and reach warning. A cheap
+  // partition, recomputed each render: nothing keys on its identity.
+  const scope = React.useContext(HookTargetScopeContext);
+  const groups = scope
+    ? {
+        own: pickerOptions.filter((o) => scope.packageObjects.has(o.value)),
+        outside: pickerOptions.filter((o) => !scope.packageObjects.has(o.value)),
+      }
+    : null;
+  const renderObjectOption = (o: { value: string; label: string }) => (
+    <InspectorCheckboxField
+      key={o.value}
+      label={o.label}
+      value={objectNames.includes(o.value)}
+      onCommit={(on) => toggleObject(o.value, on)}
+      disabled={readOnly}
+    />
+  );
+
   const patchBody = (p: Record<string, unknown>) => onPatch({ body: { ...body, ...p } });
 
   const toggleObject = (name: string, on: boolean) => {
@@ -224,6 +275,11 @@ export function HookDefaultInspector({
           onCommit={(on) => onPatch({ object: on ? ALL_OBJECTS : writeObjects(false, objectNames) })}
           disabled={readOnly}
         />
+        {allObjects && (
+          <p data-testid="hook-all-objects-reach" className="text-[11px] leading-snug text-amber-600 dark:text-amber-400">
+            {tr('engine.inspector.hook.allObjectsReach')}
+          </p>
+        )}
         {/* The empty-list copy is a MEASUREMENT ("no objects found"), so only
             an answered roster may print it; in flight it says it is loading.
             A failed roster with nothing selected draws no list at all — the
@@ -236,16 +292,43 @@ export function HookDefaultInspector({
                   ? tr('engine.inspector.hook.noObjects')
                   : tr('engine.form.loadingOptions')}
               </p>
+            ) : groups ? (
+              <>
+                {groups.own.length > 0 && (
+                  <div
+                    role="group"
+                    aria-label={tr('engine.inspector.objectPicker.groupPackage')}
+                    data-testid="hook-object-group-package"
+                    className="space-y-1"
+                  >
+                    <div aria-hidden className="text-[11px] font-medium text-muted-foreground">
+                      {tr('engine.inspector.objectPicker.groupPackage')}
+                    </div>
+                    {groups.own.map(renderObjectOption)}
+                  </div>
+                )}
+                {groups.outside.length > 0 && (
+                  <div
+                    role="group"
+                    aria-label={tr('engine.inspector.objectPicker.groupOther')}
+                    data-testid="hook-object-group-outside"
+                    className="space-y-1 pt-1"
+                  >
+                    <div aria-hidden className="text-[11px] font-medium text-muted-foreground">
+                      {tr('engine.inspector.objectPicker.groupOther')}
+                    </div>
+                    <p
+                      data-testid="hook-object-outside-reach"
+                      className="text-[11px] leading-snug text-amber-600 dark:text-amber-400"
+                    >
+                      {tr('engine.inspector.hook.outsideReach')}
+                    </p>
+                    {groups.outside.map(renderObjectOption)}
+                  </div>
+                )}
+              </>
             ) : (
-              pickerOptions.map((o) => (
-                <InspectorCheckboxField
-                  key={o.value}
-                  label={o.label}
-                  value={objectNames.includes(o.value)}
-                  onCommit={(on) => toggleObject(o.value, on)}
-                  disabled={readOnly}
-                />
-              ))
+              pickerOptions.map(renderObjectOption)
             )}
           </div>
         )}

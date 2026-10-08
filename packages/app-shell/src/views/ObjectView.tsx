@@ -12,7 +12,15 @@
 import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense, type ComponentType } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { resolveFilterPlaceholders, DENSITY_MODE_TO_ROW_HEIGHT, normalizeListViewSchema, leadWithNameField, type FilterTokenScope } from '@object-ui/core';
-import { parseUserFilterParams, applyUserFilterParams } from './userFilterUrlState.js';
+import {
+    parseUserFilterParams,
+    applyUserFilterParams,
+    parseListStateParams,
+    applyListStateParams,
+    userFilterParamsKey,
+    type ListStatePatch,
+    type ListUrlState,
+} from './userFilterUrlState.js';
 import { buildListFilterKey, readListFilterState, writeListFilterState } from './listFilterStorage.js';
 import { VALUELESS_FILTER_OPERATORS } from './viewFilterFold.js';
 import { parseUrlEqualityFilterTriples } from './drillUrlFilters.js';
@@ -2388,6 +2396,97 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         ? Array.isArray(viewDraft!.columns) && viewDraft!.columns.length > 0
         : activeTabDeclaresColumns;
 
+    /**
+     * objectui#11860 — the list's toolbar state in the URL: the Filter panel's
+     * conditions, the search term and the sort, under the `uf_` family
+     * `userFilterUrlState` owns (its header names the params and their shapes).
+     * Panels and dialogs stay out of it; grouping is not here, because the
+     * list reports no grouping change to its host.
+     *
+     * The SEED — what the list opens with — is decided once per list identity
+     * (object + view, the same identity `renderListView` keys the list on;
+     * `ListView` reads its initial filters and search once, at mount):
+     *
+     * 1. The URL, when it carries any `uf_*` state this page did not write
+     *    itself — an opened link, a reload, Back. It is then the WHOLE state:
+     *    the per-browser cache is not consulted, so a shared link opens the
+     *    same list for everyone who may read it. A piece the URL lacks is
+     *    absent, not filled from storage.
+     * 2. Otherwise the per-user cache (`listFilterStorage`, unchanged) for the
+     *    Filter panel and the search; the view's own sort.
+     *
+     * Then the seed is written back into the URL (replace, never a new history
+     * entry), so the address bar shows the list on screen: a restored filter
+     * is in the link a user copies, and an entry dropped on load (a field the
+     * object does not declare or the user cannot read, a condition the spec
+     * refuses) leaves the address bar too.
+     *
+     * "Did this page write it" is `ownListParamsRef`: the `uf_*` params as the
+     * last write by this page left them. It matters when the identity moves
+     * WITHOUT a navigation — the saved views arrive after the first render and
+     * the active view resolves to another one — where params this page wrote
+     * for the first view would otherwise read as a link to the second. A real
+     * view switch navigates to a path with no query string, so it starts from
+     * the cache, and the ad-hoc params never follow the user into another view.
+     */
+    const listIdentityKey = activeView?.id ? `${objectName}-${activeView.id}` : undefined;
+    const listSeedRef = useRef<{ key: string; source: 'url' | 'storage'; state: ListUrlState } | undefined>(undefined);
+    const ownListParamsRef = useRef<string | undefined>(undefined);
+    if (listIdentityKey && listSeedRef.current?.key !== listIdentityKey) {
+        const carried = userFilterParamsKey(searchParams);
+        if (carried && carried !== ownListParamsRef.current) {
+            // A field the object does not declare (a stale link) or one this
+            // user cannot read is dropped. Field-level permissions gate only
+            // once loaded — the same gate `ListView` puts on its columns.
+            const acceptField = (field: string) =>
+                !!objectDef.fields?.[field]
+                && (!perms.isLoaded || perms.checkField(objectDef.name, field, 'read'));
+            listSeedRef.current = {
+                key: listIdentityKey,
+                source: 'url',
+                state: parseListStateParams(searchParams, acceptField),
+            };
+        } else {
+            const stored = readListFilterState(buildListFilterKey(user?.id, objectName, activeView.id));
+            listSeedRef.current = {
+                key: listIdentityKey,
+                source: 'storage',
+                state: {
+                    filters: (stored?.filters ?? undefined) as ListUrlState['filters'],
+                    search: stored?.search || undefined,
+                },
+            };
+        }
+    }
+    useEffect(() => {
+        const seed = listSeedRef.current;
+        if (!seed || seed.key !== listIdentityKey) return;
+        const next = applyListStateParams(searchParams, {
+            filters: seed.state.filters ?? null,
+            search: seed.state.search ?? null,
+            sort: seed.state.sort ?? null,
+        });
+        // Only a mirror of the CACHE is this page's own write. A link's params,
+        // even rewritten, stay the link's: the identity can still move to the
+        // view the link names once the saved views arrive.
+        if (seed.source === 'storage') ownListParamsRef.current = userFilterParamsKey(next);
+        if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+        // Once per list identity, by design: later URL writes are the list's
+        // own changes, already on screen.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+    }, [listIdentityKey]);
+    /** Write the list's own change into the URL — replace, never a history entry per keystroke. */
+    const writeListUrlState = useCallback(
+        (patch: ListStatePatch) => {
+            setSearchParams(prev => {
+                const next = applyListStateParams(prev, patch);
+                ownListParamsRef.current = userFilterParamsKey(next);
+                return next;
+            }, { replace: true });
+        },
+        [setSearchParams],
+    );
+
     /** Real-time draft field update — propagates each toggle/input change immediately */
     const handleViewUpdate = useCallback((field: string, value: any) => {
         setViewDraft(prev => ({
@@ -2781,7 +2880,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     );
     const handleUserFilterSelectionsChange = useCallback(
         (selections: Record<string, Array<string | number | boolean>>) => {
-            setSearchParams(prev => applyUserFilterParams(prev, selections), { replace: true });
+            setSearchParams(prev => {
+                const next = applyUserFilterParams(prev, selections);
+                // objectui#11860 — this page's own write (see `ownListParamsRef`).
+                ownListParamsRef.current = userFilterParamsKey(next);
+                return next;
+            }, { replace: true });
         },
         [setSearchParams],
     );
@@ -2940,7 +3044,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         // survive that (the nav link has no query string). Keyed on the signed-in
         // user so two accounts on one browser never share filter values.
         const listFilterKey = buildListFilterKey(user?.id, objectName, activeView.id);
-        const storedListFilters = readListFilterState(listFilterKey);
+        // objectui#11860 — what the list opens with: the URL's state, else this
+        // cache (see `listSeedRef`). Same identity as the list's `key`.
+        const listSeed = listSeedRef.current?.key === identityKey ? listSeedRef.current.state : undefined;
 
         // Warn in dev mode if flat properties are used instead of nested spec format
         if (process.env.NODE_ENV === 'development') {
@@ -3148,7 +3254,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // client-side). All four below go through the same
             // persistViewPatch helper which debounces and batches concurrent
             // toggles.
-            sort: (viewDef as any).sort ?? listSchema.sort,
+            //
+            // objectui#11860 — a sort the URL carries is applied over the
+            // view's: an opened link sorts as it was sorted. `ListView` reads
+            // this as the list's declared sort too, so its "reset to default"
+            // returns to the sort the link opened with, the way it returns to
+            // a stored one.
+            sort: listSeed?.sort ?? (viewDef as any).sort ?? listSchema.sort,
             // The ONE place this view's effective filter is computed (#2890).
             // It used to be computed twice — once here as `filter` for the child
             // views, once further down as `filters` for ListView — with the two
@@ -3539,6 +3651,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 }}
                 onSortChange={(sort: any) => {
                     persistViewPatch(viewDef.id, viewDef, { sort });
+                    writeListUrlState({ sort });
                 }}
                 onFilterChange={(filter: any) => {
                     // SESSION state only (objectui#4155) — localStorage keeps
@@ -3549,9 +3662,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     // writes an empty group through this same handler. Nothing
                     // here touches the view's stored body.
                     writeListFilterState(listFilterKey, { filters: filter });
+                    // objectui#11860 — and the URL, so the list is a link.
+                    writeListUrlState({ filters: filter });
                 }}
                 onSearchChange={(search: string) => {
                     writeListFilterState(listFilterKey, { search });
+                    writeListUrlState({ search });
                 }}
                 onHiddenFieldsChange={persistHiddenFields}
                 onInlineEditChange={(next: boolean) => {
@@ -3562,12 +3678,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 }}
                 userFilterSelections={initialUfSelections}
                 onUserFilterSelectionsChange={handleUserFilterSelectionsChange}
-                initialFilters={storedListFilters?.filters as any}
-                initialSearchTerm={storedListFilters?.search}
+                initialFilters={listSeed?.filters}
+                initialSearchTerm={listSeed?.search}
                 dataSource={ds}
             />
         );
-    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, user?.id, pageOffersCreate]);
+    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).

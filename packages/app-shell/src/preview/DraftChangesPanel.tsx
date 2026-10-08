@@ -11,9 +11,12 @@
  * user commits. Lists every pending ADR-0033 draft grouped by metadata type,
  * and classifies each as NEW (no published version exists — publishing adds
  * it) or UPDATE (a published version exists — publishing overwrites it).
- * Each entry expands into a field-level diff (objects) / changed-key summary
- * (everything else), lazily fetched on first expand. This is the review
- * surface that turns Publish from a leap of faith into an informed click.
+ * Each entry expands into the fields (objects) and top-level keys it adds,
+ * changes and removes, lazily fetched on first expand. An entry whose drill-in
+ * finds the draft equal to its published version drops the UPDATE mark
+ * (objectui#11807): publishing still promotes it, but it changes nothing. This
+ * is the review surface that turns Publish from a leap of faith into an
+ * informed click.
  *
  * Read-only by default: fetches `_drafts` + published lists on open, and
  * never writes. When the caller passes `onPublish`, the panel additionally
@@ -21,8 +24,8 @@
  * publish action itself still belongs to the caller.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, FilePlus2, FilePen, Loader2, Rocket, ShieldAlert } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight, Equal, FilePlus2, FilePen, Loader2, Rocket, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Badge,
@@ -130,6 +133,15 @@ async function listPendingDrafts(packageId?: string | null): Promise<DraftChange
  * a draft whose name is absent here is NEW; present means publish UPDATES it.
  * (A per-item `/published` probe would be O(drafts) requests, and the REST
  * tree has no such sub-route — the generic :name handler answers anything.)
+ *
+ * A name match says a published version EXISTS, not that the draft differs
+ * from it (objectui#11807). Answering that needs both bodies of every entry —
+ * two item reads per draft at open, the O(drafts) cost this read avoids — and
+ * neither `_drafts` (type, name, scope, package, updatedAt, updatedBy) nor
+ * this list can stand in: the list read is projected (doc content slimmed,
+ * object fields masked per caller), so two list bodies can compare equal
+ * while the documents differ. So an UPDATE that changes nothing is found
+ * where both bodies are already read — the entry's drill-in, below.
  */
 async function publishedNamesOf(type: string): Promise<Set<string>> {
   // `type` is already the canonical singular — folded in `listPendingDrafts`.
@@ -203,8 +215,17 @@ export interface EntryChangeDetail {
     changed: Array<{ name: string; keys: string[] }>;
     removed: string[];
   } | null;
-  /** Top-level keys (other than `fields`) whose values differ. */
-  changedKeys: string[];
+  /**
+   * Top-level keys (other than `fields`) whose values differ, split the way the
+   * `fields` diff is (objectui#11807): `added` has no published value, `removed`
+   * has no draft value, `changed` has both. An absent key and a `null` one read
+   * as the same value, as they always have here.
+   */
+  keys: {
+    added: string[];
+    changed: string[];
+    removed: string[];
+  };
 }
 
 /** Stable equality for metadata values (small JSON — order-sensitive is fine). */
@@ -212,11 +233,24 @@ function valueEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
 
+/** True when the detail lists nothing: no field row and no key row. */
+function isEmptyChangeDetail(detail: EntryChangeDetail): boolean {
+  const { fields, keys } = detail;
+  const fieldRows = fields ? fields.added.length + fields.changed.length + fields.removed.length : 0;
+  return fieldRows + keys.added.length + keys.changed.length + keys.removed.length === 0;
+}
+
 /**
  * What publishing this draft actually changes, computed client-side from the
  * published body (null when the item is NEW) and the pending draft body.
  * `fields` gets the dedicated designer diff; every other top-level key is
  * compared wholesale — enough to answer "which parts of this item move".
+ *
+ * Why not `computeDiffRows` from `LayeredDiff.tsx`, which splits top-level keys
+ * the same way: that module imports the metadata-admin string table
+ * (`./i18n.js`) at module scope, and this panel sits on the console's EAGER
+ * graph (`ConsoleLayout` → `DraftPreviewBar` → here). An import would carry
+ * the module, and the table with it, onto every page load.
  */
 export function computeChangeDetail(
   published: Record<string, unknown> | null,
@@ -239,22 +273,48 @@ export function computeChangeDetail(
       removed: d.removed.map((e) => e.name).sort(),
     };
   }
-  const keys = new Set([...Object.keys(pub), ...Object.keys(cur)]);
-  keys.delete('fields');
-  const changedKeys = [...keys]
-    .filter((k) => !valueEqual((pub as Record<string, unknown>)[k], (cur as Record<string, unknown>)[k]))
-    .sort();
-  return { fields, changedKeys };
+  const names = new Set([...Object.keys(pub), ...Object.keys(cur)]);
+  names.delete('fields');
+  const keys: EntryChangeDetail['keys'] = { added: [], changed: [], removed: [] };
+  for (const k of [...names].sort()) {
+    const before = (pub as Record<string, unknown>)[k];
+    const after = (cur as Record<string, unknown>)[k];
+    if (valueEqual(before, after)) continue;
+    if (before == null) keys.added.push(k);
+    else if (after == null) keys.removed.push(k);
+    else keys.changed.push(k);
+  }
+  return { fields, keys };
 }
 
 /**
  * Lazily-loaded drill-in for one draft entry: published vs draft, rendered as
- * added / changed / removed field rows plus a changed-top-level-keys strip.
+ * added / changed / removed field rows, then the top-level keys split the same
+ * way.
+ *
+ * `onCompared` reports whether the two bodies compared equal — true only when
+ * BOTH reads returned a body and the diff lists nothing (objectui#11807). It is
+ * the comparison this drill-in renders, read-decoration strip included, so the
+ * row can never call a draft unchanged on any other evidence: a NEW item (no
+ * published body) and a draft that is gone (no draft body) are never equal.
  */
-function EntryDetail({ entry }: { entry: DraftChangeEntry }) {
+function EntryDetail({
+  entry,
+  onCompared,
+}: {
+  entry: DraftChangeEntry;
+  onCompared?: (unchanged: boolean) => void;
+}) {
   const { t } = useObjectTranslation();
   const [detail, setDetail] = useState<EntryChangeDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Read through a ref so the load below keys on the entry alone, never on the
+  // identity of the callback the panel hands down (AGENTS.md #10). Kept current
+  // from an effect, not during render.
+  const onComparedRef = useRef(onCompared);
+  useEffect(() => {
+    onComparedRef.current = onCompared;
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -265,7 +325,10 @@ function EntryDetail({ entry }: { entry: DraftChangeEntry }) {
           fetchItemBody(entry.type, entry.name, { packageId: entry.packageId }),
           fetchItemBody(entry.type, entry.name, { draft: true, packageId: entry.packageId }),
         ]);
-        if (!cancelled) setDetail(computeChangeDetail(published, draft));
+        if (cancelled) return;
+        const computed = computeChangeDetail(published, draft);
+        setDetail(computed);
+        onComparedRef.current?.(published !== null && draft !== null && isEmptyChangeDetail(computed));
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
       }
@@ -292,9 +355,9 @@ function EntryDetail({ entry }: { entry: DraftChangeEntry }) {
     );
   }
 
-  const { fields, changedKeys } = detail;
-  const hasFieldRows = !!fields && (fields.added.length > 0 || fields.changed.length > 0 || fields.removed.length > 0);
-  if (!hasFieldRows && changedKeys.length === 0) {
+  const { fields, keys } = detail;
+  const hasKeyRows = keys.added.length > 0 || keys.changed.length > 0 || keys.removed.length > 0;
+  if (isEmptyChangeDetail(detail)) {
     return (
       <p className="px-2 py-1 text-xs text-muted-foreground">
         {t('preview.changes.detailNone', {
@@ -322,12 +385,26 @@ function EntryDetail({ entry }: { entry: DraftChangeEntry }) {
           − {name}
         </p>
       ))}
-      {changedKeys.length > 0 && (
+      {hasKeyRows && (
         <p className="text-xs text-muted-foreground">
-          {t('preview.changes.detailChangedKeys', { defaultValue: 'Also changed:' })}{' '}
-          <span className="font-mono">{changedKeys.join(', ')}</span>
+          {t('preview.changes.detailChangedKeys', { defaultValue: 'Also changed:' })}
         </p>
       )}
+      {keys.added.map((name) => (
+        <p key={`k+${name}`} className="font-mono text-xs text-emerald-700 dark:text-emerald-400">
+          + {name}
+        </p>
+      ))}
+      {keys.changed.map((name) => (
+        <p key={`k~${name}`} className="font-mono text-xs text-amber-700 dark:text-amber-400">
+          ~ {name}
+        </p>
+      ))}
+      {keys.removed.map((name) => (
+        <p key={`k-${name}`} className="font-mono text-xs text-red-700 line-through dark:text-red-400">
+          − {name}
+        </p>
+      ))}
     </div>
   );
 }
@@ -385,6 +462,12 @@ export function DraftChangesPanel({
    */
   const openSurface = useSurfaceNavigator();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  /**
+   * Entries whose drill-in compared the two bodies equal (objectui#11807): a
+   * draft identical to its published version. Learned on expand, where both
+   * bodies are read anyway, rather than by reading every body at open.
+   */
+  const [unchanged, setUnchanged] = useState<ReadonlySet<string>>(new Set());
 
   const toggleExpanded = useCallback((key: string) => {
     setExpanded((prev) => {
@@ -395,10 +478,21 @@ export function DraftChangesPanel({
     });
   }, []);
 
+  const markCompared = (key: string, isUnchanged: boolean) => {
+    setUnchanged((prev) => {
+      if (prev.has(key) === isUnchanged) return prev;
+      const next = new Set(prev);
+      if (isUnchanged) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  };
+
   const load = useCallback(async () => {
     setEntries(null);
     setError(null);
     setProblems([]);
+    setUnchanged(new Set());
     try {
       const listed = await listPendingDrafts(packageId);
       const drafts = include ? listed.filter(include) : listed;
@@ -476,6 +570,10 @@ export function DraftChangesPanel({
     if (open) toast.dismiss();
   }, [open]);
 
+  const noChangeText = t('preview.changes.detailNone', {
+    defaultValue: 'No differences detected — the draft matches the published version.',
+  });
+
   const byType = new Map<string, DraftChangeEntry[]>();
   for (const entry of entries ?? []) {
     const bucket = byType.get(entry.type) ?? [];
@@ -528,12 +626,16 @@ export function DraftChangesPanel({
                   {items.map((entry) => {
                     const key = `${entry.type}:${entry.name}`;
                     const isExpanded = expanded.has(key);
+                    // objectui#11807 — the drill-in found nothing this publish
+                    // changes: not an UPDATE, whatever the name list said.
+                    const isUnchanged = unchanged.has(key);
                     return (
                       <li key={key} className="rounded-md border text-sm">
                         <button
                           type="button"
                           onClick={() => toggleExpanded(key)}
                           aria-expanded={isExpanded}
+                          title={isUnchanged ? noChangeText : undefined}
                           className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left hover:bg-muted/50"
                           data-testid="draft-entry-toggle"
                         >
@@ -542,7 +644,16 @@ export function DraftChangesPanel({
                           ) : (
                             <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
                           )}
-                          {entry.kind === 'new' ? (
+                          {isUnchanged ? (
+                            // Named, not hidden: this glyph is where the row
+                            // says why it carries no badge. The drill-in under
+                            // it prints the same sentence as text.
+                            <Equal
+                              role="img"
+                              aria-label={noChangeText}
+                              className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                            />
+                          ) : entry.kind === 'new' ? (
                             <FilePlus2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
                           ) : entry.kind === 'update' ? (
                             <FilePen className="h-3.5 w-3.5 shrink-0 text-amber-600" />
@@ -550,7 +661,7 @@ export function DraftChangesPanel({
                             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
                           )}
                           <span className="min-w-0 flex-1 truncate font-mono text-xs">{entry.name}</span>
-                          {entry.kind ? (
+                          {!isUnchanged && entry.kind ? (
                             <Badge
                               variant="outline"
                               className={
@@ -567,7 +678,7 @@ export function DraftChangesPanel({
                         </button>
                         {isExpanded && (
                           <div className="border-t bg-muted/20">
-                            <EntryDetail entry={entry} />
+                            <EntryDetail entry={entry} onCompared={(same) => markCompared(key, same)} />
                           </div>
                         )}
                       </li>

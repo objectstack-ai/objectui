@@ -77,9 +77,9 @@ import {
 } from '../previews/object-fields-io.js';
 import {
   FIELD_TYPE_META,
-  TYPES_BY_CATEGORY,
   type FieldTypeId,
 } from '../previews/field-types.js';
+import { FieldTypePicker } from './FieldTypePicker.js';
 import { CelPredicateField } from '../CelPredicateField.js';
 import type { CelLintIssue } from '../celAuthoring.js';
 import { t, tFormat, type SupportedLocale } from '../i18n.js';
@@ -482,18 +482,6 @@ function writePredicate(orig: unknown, next: string): unknown {
   return next;
 }
 
-function buildTypeOptions(locale?: string): Array<{ value: string; label: string }> {
-  // Type and category names come from the Studio catalog rather than the
-  // `labelZh` column that used to sit on FIELD_TYPE_META, so this no longer
-  // needs a zh/en branch (objectui#2871).
-  return TYPES_BY_CATEGORY.flatMap((g) =>
-    g.types.map((id) => ({
-      value: id,
-      label: `${t(`engine.fieldCategory.${g.category}`, locale)} · ${t(`engine.fieldType.${id}`, locale)}`,
-    })),
-  );
-}
-
 /* ─────────────── Inspector ─────────────── */
 
 /**
@@ -516,7 +504,6 @@ export function ObjectFieldInspector({
   locale,
 }: MetadataInspectorProps) {
   const tr = React.useCallback((key: string) => t(key, locale), [locale]);
-  const typeOptions = React.useMemo(() => buildTypeOptions(locale), [locale]);
   const view: FieldsView = React.useMemo(() => readFields((draft as any).fields), [draft]);
   const name = String(selection.id);
   const idx = indexOfField(view, name);
@@ -970,12 +957,14 @@ export function ObjectFieldInspector({
           sourceLabel={typeof def.label === 'string' ? (def.label as string) : ''}
           locale={locale}
         />
-        <InspectorSelectField
+        {/* objectui#11793 — searchable, grouped by category, an icon and a
+            one-line description per type; a choice still goes to `changeType`. */}
+        <FieldTypePicker
           label={tr('designer.field.type')}
           value={type}
-          options={typeOptions}
           onCommit={changeType}
           disabled={readOnly}
+          locale={locale}
         />
         <div className="flex items-center gap-4 pt-1">
           <InspectorCheckboxField

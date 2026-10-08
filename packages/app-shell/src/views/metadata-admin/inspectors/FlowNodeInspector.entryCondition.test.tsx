@@ -123,7 +123,8 @@ describe('#6226 the flow inspector hands the entry condition its trigger vocabul
     const opts = (await screen.findAllByRole('option')).map((o) => o.textContent ?? '');
     expect(opts).toContain('status');
     expect(opts).toContain('previous.status');
-    // The root this site does not bind never reaches the author.
+    // One subject per value: the bare spelling, never `record.FIELD` beside it
+    // (the engine binds both at this gate, objectui#11789).
     expect(opts).not.toContain('record.id');
     expect(opts.filter((o) => o.startsWith('record.'))).toEqual([]);
   });

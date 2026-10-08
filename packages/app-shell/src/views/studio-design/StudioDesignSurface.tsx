@@ -112,7 +112,16 @@ import { useNavSelDeepLink } from '../metadata-admin/useNavSelDeepLink.js';
 import { SourcePageEditor } from '../metadata-admin/previews/SourcePageEditor.js';
 import { fetchPendingDrafts, usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/assistantBus.js';
-import { formatPublishFailures, type PublishFailure } from './metadataError.js';
+import {
+  flowSaveRefusal,
+  formatPublishFailures,
+  issueRefusal,
+  navEntryLocator,
+  objectSaveRefusal,
+  plainRefusal,
+  type PublishFailure,
+  type StudioRefusal,
+} from './metadataError.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { loadPackageLessSurfaces, loadPackageSurfaces } from './packageSurfaces.js';
 import {
@@ -422,6 +431,58 @@ const KIND_ICON: Record<string, LucideIcon> = {
 };
 const navIcon = (type?: string): LucideIcon => KIND_ICON[type ?? ''] ?? Compass;
 
+
+/**
+ * objectui#11785 — the strip a pillar shows for a failed save or load. It
+ * shows the refusal's sentence, a "Show me" button that opens the input the
+ * sentence names, and the raw text (field paths, codes) inside a closed
+ * "Details" disclosure. A failure with nothing rewritten (`plainRefusal`) has
+ * no detail and renders as the single line it always was.
+ *
+ * Exported for its pins; `index.ts` does not re-export it.
+ */
+export function StudioRefusalStrip({
+  refusal,
+  locale,
+  onShow,
+  className,
+}: {
+  refusal: StudioRefusal;
+  locale: string;
+  /** Opens the target's input in the pillar that raised the refusal. */
+  onShow?: (target: MetadataSelection) => void;
+  /** Spacing and type size, which differ by pillar. */
+  className?: string;
+}): React.ReactElement {
+  const { message, target, detail } = refusal;
+  return (
+    <div
+      data-testid="studio-refusal"
+      className={cn('rounded-md border border-destructive/40 bg-destructive/10 text-destructive', className)}
+    >
+      <div className="flex items-start gap-2">
+        <p data-testid="studio-refusal-message" className="min-w-0 flex-1 whitespace-pre-line">
+          {message}
+        </p>
+        {target && onShow && (
+          <button
+            type="button"
+            onClick={() => onShow(target)}
+            className="shrink-0 rounded border border-destructive/40 px-1.5 py-0.5 font-medium hover:bg-destructive/10"
+          >
+            {t('engine.studio.refusal.show', locale)}
+          </button>
+        )}
+      </div>
+      {detail && (
+        <details data-testid="studio-refusal-detail" className="mt-1">
+          <summary className="cursor-pointer select-none opacity-80">{t('engine.studio.refusal.details', locale)}</summary>
+          <pre className="mt-1 whitespace-pre-wrap break-words font-mono opacity-90">{detail}</pre>
+        </details>
+      )}
+    </div>
+  );
+}
 
 /** Top-bar package switcher: list app packages (writable base vs read-only
  * code), switch by navigation, create a new writable base via the standard
@@ -2391,8 +2452,9 @@ export function InterfacesPillar({
   // in the canvas banner beside the pillar's `error` until a nav save lands,
   // or the buffer it was about is put back. Held apart from `error` so a nav
   // save that lands clears its own failure and never one a leaf load or save
-  // is still showing.
-  const [navError, setNavError] = React.useState<string | null>(null);
+  // is still showing. objectui#11785 — held as a refusal: the author sentence,
+  // the nav entry it names, and the raw text behind Details.
+  const [navError, setNavError] = React.useState<StudioRefusal | null>(null);
 
   // App resolution status — tells "still loading" apart from "this package has
   // no app", so the canvas shows a real empty state instead of an endless
@@ -2634,7 +2696,9 @@ export function InterfacesPillar({
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState<false | 'draft' | 'publish'>(false);
   const [hasDraft, setHasDraft] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  // objectui#11785 — a load failure as it was (`plainRefusal`), a refused leaf
+  // save as an author sentence with the raw text behind Details.
+  const [error, setError] = React.useState<StudioRefusal | null>(null);
   // Objects in THIS package (published ∪ draft) — the nav item inspector's
   // object picker, so nav can be wired to sibling objects before publishing.
   const [pkgObjects, setPkgObjects] = React.useState<Array<{ name: string; label: string; icon?: string }>>([]);
@@ -2770,7 +2834,7 @@ export function InterfacesPillar({
         setCurrent((cur) => cur ?? deepLinked ?? firstLeaf);
       } catch (e) {
         if (!cancelled) {
-          setError(formatMetadataError(e));
+          setError(plainRefusal(e));
           setAppStatus('missing');
         }
       }
@@ -2905,7 +2969,7 @@ export function InterfacesPillar({
         setHasDraft(!!body);
         setIfDirty(false);
       } catch (e) {
-        if (!cancelled) setError(formatMetadataError(e));
+        if (!cancelled) setError(plainRefusal(e));
       } finally {
         settled = true;
         if (!cancelled) setLoading(false);
@@ -2947,11 +3011,14 @@ export function InterfacesPillar({
       if (sent.unmoved()) setIfDirty(false);
       onDraftSaved?.();
     } catch (e) {
-      setError(formatMetadataError(e));
+      // objectui#11785 — no locator: a leaf's issue paths (page blocks,
+      // dashboard widgets) name no input this pillar can open, so the sentence
+      // says the draft was refused and Details keep every path.
+      setError(issueRefusal(e, locale));
     } finally {
       setSaving(false);
     }
-  }, [saveLeafDraft, current, draft, onDraftSaved, packageId]);
+  }, [saveLeafDraft, current, draft, onDraftSaved, packageId, locale]);
   const { loaded: draftLoaded } = useDraftAutoSave({
     // objectui#11232 — the leaf `doSave` addresses, `type:name`.
     target: leafKey,
@@ -2970,22 +3037,24 @@ export function InterfacesPillar({
   const doNavSave = React.useCallback(async (sent: DraftSend) => {
     if (!appName) return;
     setNavSaving('draft');
+    // objectui#11776 — "Add nav item" births `{ id, type: 'object' }`, which
+    // the spec refuses until a target is picked in the inspector, and an
+    // unbind leaves an entry with no `type`. The save sends the editor's
+    // navigation less every entry that names no target for its `type`, at
+    // every depth (`navPayloadOf`); the editor keeps showing it, in its
+    // place. A root entry with no `id` is given one by its place in the
+    // EDITOR, before anything is left out, so leaving an entry out never
+    // moves another entry's id. objectui#11785 — computed before the save so
+    // a refusal is placed on the entry it names: its path indexes `sentNav`,
+    // and `editorNav` keeps the editor's indexes.
+    const rawNav = Array.isArray(appDraft.navigation) ? appDraft.navigation : [];
+    const editorNav = rawNav.map((n, i) => {
+      const item = n as Record<string, unknown>;
+      if (!item || typeof item !== 'object' || (typeof item.id === 'string' && item.id)) return n;
+      return { ...item, id: `nav_item_${i + 1}` };
+    });
+    const sentNav = navPayloadOf(editorNav);
     try {
-      // objectui#11776 — "Add nav item" births `{ id, type: 'object' }`, which
-      // the spec refuses until a target is picked in the inspector, and an
-      // unbind leaves an entry with no `type`. The save sends the editor's
-      // navigation less every entry that names no target for its `type`, at
-      // every depth (`navPayloadOf`); the editor keeps showing it, in its
-      // place. A root entry with no `id` is given one by its place in the
-      // EDITOR, before anything is left out, so leaving an entry out never
-      // moves another entry's id.
-      const rawNav = Array.isArray(appDraft.navigation) ? appDraft.navigation : [];
-      const editorNav = rawNav.map((n, i) => {
-        const item = n as Record<string, unknown>;
-        if (!item || typeof item !== 'object' || (typeof item.id === 'string' && item.id)) return n;
-        return { ...item, id: `nav_item_${i + 1}` };
-      });
-      const sentNav = navPayloadOf(editorNav);
       const leftOut = sentNav.length !== editorNav.length || sentNav.some((n, i) => n !== editorNav[i]);
       const saved = { ...appDraft, navigation: sentNav };
       const outcome = await saveNavDraft('app', appName, saved, { mode: 'draft', packageId });
@@ -3010,11 +3079,17 @@ export function InterfacesPillar({
       if (sent.unmoved() && !leftOut) setNavDirty(false);
       onDraftSaved?.();
     } catch (e) {
-      setNavError(formatMetadataError(e));
+      setNavError(
+        issueRefusal(
+          e,
+          locale,
+          navEntryLocator({ sent: sentNav, editor: editorNav, locale, targetLabel: targetLabelRef.current }),
+        ),
+      );
     } finally {
       setNavSaving(false);
     }
-  }, [saveNavDraft, appName, appDraft, onDraftSaved, packageId, publishNonce]);
+  }, [saveNavDraft, appName, appDraft, onDraftSaved, packageId, publishNonce, locale]);
   // objectui#5813 — nav edits auto-save while edit mode is open.
   const { flush: flushNavSave } = useDraftAutoSave({
     // objectui#11232 — the app `doNavSave` addresses. The package is this
@@ -3122,10 +3197,23 @@ export function InterfacesPillar({
         )}
       </div>
       {(error || navError) && (
-        <div className="mb-3 shrink-0 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive whitespace-pre-line">
+        <div className="mb-3 flex shrink-0 flex-col gap-1.5">
           {/* objectui#11776 — the pillar's failure and the nav editor's own,
-              each cleared by what settles it. */}
-          {error && navError && error !== navError ? `${error}\n${navError}` : (error ?? navError)}
+              each cleared by what settles it, the same failure shown once.
+              objectui#11785 — each as a refusal strip; the nav editor's "Show
+              me" opens nav editing on the entry it names. */}
+          {error && <StudioRefusalStrip refusal={error} locale={locale} className="px-3 py-2 text-xs" />}
+          {navError && !(error && error.message === navError.message && error.detail === navError.detail) && (
+            <StudioRefusalStrip
+              refusal={navError}
+              locale={locale}
+              onShow={(target) => {
+                setEditNav(true);
+                setNavSel({ kind: target.kind, id: target.id });
+              }}
+              className="px-3 py-2 text-xs"
+            />
+          )}
         </div>
       )}
       <div
@@ -3852,7 +3940,9 @@ export function DataPillar({
   // written where the load below installs it, and nowhere else.
   const [objDraftFor, setObjDraftFor] = React.useState('');
   const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  // objectui#11785 — a load failure as it was (`plainRefusal`), a refused save
+  // as an author sentence naming the field, with the raw text behind Details.
+  const [error, setError] = React.useState<StudioRefusal | null>(null);
   // field management — a selected field opens ObjectFieldInspector (full type + config)
   const [fieldSel, setFieldSel] = React.useState<MetadataSelection | null>(null);
   // Blocking author-time issues the field inspector is showing — a CEL formula
@@ -4002,7 +4092,7 @@ export function DataPillar({
         // empty package (dogfood #2555). The empty-state panel carries the
         // create CTA instead.
       } catch (e) {
-        if (!cancelled) setError(formatMetadataError(e));
+        if (!cancelled) setError(plainRefusal(e));
       } finally {
         if (!cancelled) setObjectsLoaded(true);
       }
@@ -4056,7 +4146,7 @@ export function DataPillar({
         // column the data API can answer yet (see `gridColumns`).
         setPublishedFieldNames(new Set(readFields(baseline.fields).entries.map((e) => e.name)));
       } catch (e) {
-        if (!cancelled) setError(formatMetadataError(e));
+        if (!cancelled) setError(plainRefusal(e));
       } finally {
         settled = true;
         if (!cancelled) setLoading(false);
@@ -4190,7 +4280,7 @@ export function DataPillar({
       // object can't be authored; the rule lives in packages-io/spec.
       const name = prefixObjectName(rawName, namespace);
       if (objects.some((o) => o.name === name)) {
-        setError(tFormat('engine.studio.data.idExists', locale, { name }));
+        setError({ message: tFormat('engine.studio.data.idExists', locale, { name }) });
         return;
       }
       setCreateBusy(true);
@@ -4206,7 +4296,8 @@ export function DataPillar({
         setCreating(false);
         onDraftSaved?.();
       } catch (e) {
-        setError(formatMetadataError(e));
+        // Shown in the create dialog, which prints the message only: kept whole.
+        setError(plainRefusal(e));
       } finally {
         setCreateBusy(false);
       }
@@ -4218,11 +4309,13 @@ export function DataPillar({
     if (!current) return;
     setSaving('draft');
     setError(null);
+    // objectui#10202 — the buffer was seeded from the served object, whose
+    // picklist-bound fields carry the list's resolved `options`; the door
+    // refuses them beside `picklist`, so they stay out of the body.
+    // objectui#11785 — kept, so a refusal is read against what was sent.
+    const body = dropServedPicklistOptions(objDraft);
     try {
-      // objectui#10202 — the buffer was seeded from the served object, whose
-      // picklist-bound fields carry the list's resolved `options`; the door
-      // refuses them beside `picklist`, so they stay out of the body.
-      const outcome = await saveObjDraft('object', current.name, dropServedPicklistOptions(objDraft), { mode: 'draft', packageId });
+      const outcome = await saveObjDraft('object', current.name, body, { mode: 'draft', packageId });
       // objectui#11773 — the author chose the saved version; the load replaces the buffer.
       if (outcome === 'reloaded') return;
       setHasDraft(true);
@@ -4233,7 +4326,7 @@ export function DataPillar({
       // every editing pause — the quiet last-saved hint is the affordance.
       onDraftSaved?.();
     } catch (e) {
-      setError(formatMetadataError(e));
+      setError(objectSaveRefusal(e, body, locale));
     } finally {
       setSaving(false);
     }
@@ -4290,21 +4383,22 @@ export function DataPillar({
       setObjDraft(body);
       setSaving('draft');
       setError(null);
+      // objectui#10202 — same served `options` as `doSave` above.
+      const wire = dropServedPicklistOptions(body);
       try {
-        // objectui#10202 — same served `options` as `doSave` above.
-        const outcome = await saveObjDraft('object', current.name, dropServedPicklistOptions(body), { mode: 'draft', packageId });
+        const outcome = await saveObjDraft('object', current.name, wire, { mode: 'draft', packageId });
         if (outcome === 'reloaded') return;
         setHasDraft(true);
         if (sent.unmoved()) setDirty(false);
         onDraftSaved?.();
         setGridVer((v) => v + 1); // remount so the grid reflects the new (draft) order
       } catch (e) {
-        setError(formatMetadataError(e));
+        setError(objectSaveRefusal(e, wire, locale));
       } finally {
         setSaving(false);
       }
     },
-    [saveObjDraft, current, objDraft, onDraftSaved, sendingObjDraft, packageId],
+    [saveObjDraft, current, objDraft, onDraftSaved, sendingObjDraft, packageId, locale],
   );
 
   const inspector = getMetadataInspector('object');
@@ -4559,9 +4653,13 @@ export function DataPillar({
                 )}
               </div>
               {error && (
-                <div className="mb-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[11px] text-destructive whitespace-pre-line">
-                  {error}
-                </div>
+                <StudioRefusalStrip
+                  refusal={error}
+                  locale={locale}
+                  // objectui#11785 — "Show me" opens the named field's inspector.
+                  onShow={(target) => setFieldSel({ kind: target.kind, id: target.id })}
+                  className="mb-2 px-3 py-1.5 text-[11px]"
+                />
               )}
               {!objLoaded ? (
                 // objectui#11272 — no view of another object's buffer under
@@ -4910,7 +5008,7 @@ export function DataPillar({
         submitLabel={t('engine.studio.createDraft', locale)}
         submittingLabel={t('engine.studio.creating', locale)}
         busy={createBusy}
-        error={error}
+        error={error?.message ?? null}
         locale={locale}
         extra={
           /* Record sharing (OWD) — the third thing `New object` must ask for
@@ -5106,7 +5204,9 @@ export function AutomationsPillar({
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState<false | 'draft' | 'publish'>(false);
   const [hasDraft, setHasDraft] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  // objectui#11785 — a load failure as it was (`plainRefusal`), a refused save
+  // as an author sentence naming the step and its input, raw text behind Details.
+  const [error, setError] = React.useState<StudioRefusal | null>(null);
   // Tells "still fetching the list" apart from "fetched, package has no flows"
   // — without it the empty rail showed an endless "Loading…" for a fresh package.
   const [listed, setListed] = React.useState(false);
@@ -5204,7 +5304,7 @@ export function AutomationsPillar({
         }
         setCurrent((c) => c ?? deepLinked ?? (named ? null : items[0]) ?? null);
       } catch (e) {
-        if (!cancelled) setError(formatMetadataError(e));
+        if (!cancelled) setError(plainRefusal(e));
       } finally {
         if (!cancelled) setListed(true);
       }
@@ -5247,7 +5347,8 @@ export function AutomationsPillar({
         onDraftSaved?.();
         toast.success(tFormat('engine.studio.auto.savedDraft', locale, { label }));
       } catch (e) {
-        setError(formatMetadataError(e));
+        // Shown in the create dialog, which prints the message only: kept whole.
+        setError(plainRefusal(e));
       } finally {
         setCreateBusy(false);
       }
@@ -5280,7 +5381,7 @@ export function AutomationsPillar({
         forgetFlowVersion();
         setHasDraft(!!draftBody);
       } catch (e) {
-        if (!cancelled) setError(formatMetadataError(e));
+        if (!cancelled) setError(plainRefusal(e));
       } finally {
         settled = true;
         if (!cancelled) {
@@ -5319,11 +5420,12 @@ export function AutomationsPillar({
       if (sent.unmoved()) setAutoDirty(false);
       onDraftSaved?.();
     } catch (e) {
-      setError(formatMetadataError(e));
+      // objectui#11785 — read against `draft`, the body this save sent.
+      setError(flowSaveRefusal(e, draft, locale));
     } finally {
       setSaving(false);
     }
-  }, [saveFlowDraft, current, draft, draftPackageId, onDraftSaved]);
+  }, [saveFlowDraft, current, draft, draftPackageId, onDraftSaved, locale]);
   const { sending: sendingFlowDraft, loaded: flowLoaded } = useDraftAutoSave({
     // objectui#11232 — the flow `doSave` addresses.
     target: `flow:${current?.name ?? ''}`,
@@ -5378,7 +5480,7 @@ export function AutomationsPillar({
         const { status: _refused, ...rest } = d;
         return 'status' in prevDraft ? { ...rest, status: prevDraft.status } : rest;
       });
-      setError(formatMetadataError(e));
+      setError(flowSaveRefusal(e, nextDraft, locale));
     } finally {
       setSaving(false);
     }
@@ -5513,9 +5615,14 @@ export function AutomationsPillar({
             {current && <span className="text-[11px] text-muted-foreground">flow · {current.name}</span>}
           </div>
           {error && (
-            <div className="mb-3 shrink-0 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive whitespace-pre-line">
-              {error}
-            </div>
+            <StudioRefusalStrip
+              refusal={error}
+              locale={locale}
+              // objectui#11785 — "Show me" selects the named step, which opens
+              // its inspector in the right rail.
+              onShow={(target) => setSelection({ kind: target.kind, id: target.id })}
+              className="mb-3 shrink-0 px-3 py-2 text-xs"
+            />
           )}
           {/* `flex-1 min-h-0` so the canvas fills the pillar's full remaining
             * height instead of shrinking to FlowCanvas's intrinsic content
@@ -5624,7 +5731,7 @@ export function AutomationsPillar({
         submitLabel={t('engine.studio.createDraft', locale)}
         submittingLabel={t('engine.studio.creating', locale)}
         busy={createBusy}
-        error={error}
+        error={error?.message ?? null}
         locale={locale}
         onSubmit={({ label, name }) => void doCreateFlow(label, name)}
       />

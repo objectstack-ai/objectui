@@ -107,6 +107,16 @@ export interface CelPredicateFieldProps {
    * on the inferred-result-type affordance.
    */
   role?: 'predicate' | 'value';
+  /**
+   * Set by a host that judges this expression against a scope the lint cannot
+   * see, when that verdict found a problem — the flow inspector's in-scope
+   * references at the node, which name an out-of-scope root (objectui#11789).
+   * The host renders that verdict; this editor then withholds its "Valid CEL"
+   * affordance, so one expression reads one verdict. The lint itself, its
+   * findings and `onLintChange` are unaffected. Omitted on every surface that
+   * has no such second verdict (the permission matrix included).
+   */
+  scopeIssue?: boolean;
   /** Reports the current lint issues up so the editor can gate Save on errors. */
   onLintChange?: (issues: CelLintIssue[]) => void;
   /**
@@ -146,6 +156,7 @@ export function CelPredicateField({
   roots,
   slot,
   role,
+  scopeIssue,
   onLintChange,
   onInferredTypeChange,
   t,
@@ -342,7 +353,9 @@ export function CelPredicateField({
 
   const errors = issues.filter((i) => i.severity === 'error');
   const warnings = issues.filter((i) => i.severity === 'warning');
-  const clean = linted && !!value.trim() && issues.length === 0;
+  // "Valid CEL" only when nothing — the lint, or the host's scope verdict —
+  // says otherwise (objectui#11789).
+  const clean = linted && !!value.trim() && issues.length === 0 && !scopeIssue;
   // Result-type affordance (role="value"): shown once the expression parses,
   // even alongside warnings — the type is what dataset measure eligibility
   // keys off, so the author should see it whenever it is known.

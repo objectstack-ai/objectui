@@ -2760,6 +2760,23 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.publish': 'Publish',
   'engine.studio.loading': 'Loading…',
   'engine.studio.loadFailed': 'Failed to load',
+  // objectui#11785 — a refused save, in the author's words. The strip shows one
+  // of these sentences; the raw refusal (field paths, codes) stays under
+  // `engine.studio.refusal.details`, and `show` opens the input it names.
+  'engine.studio.refusal.choiceWithoutOptions':
+    'Changes not saved: the field “{field}” needs at least one option. Add an option, or change the field to a type that is not a choice.',
+  'engine.studio.refusal.relationshipWithoutTarget':
+    'Changes not saved: the field “{field}” does not say which object it links to. Pick the object, or change the field to a type that is not a relationship.',
+  'engine.studio.refusal.issue': 'Changes not saved. Check {where} — {problem}',
+  'engine.studio.refusal.more': '({count} more under Details)',
+  'engine.studio.refusal.unlocated': 'Changes not saved: the server refused this draft. Details say what to change.',
+  'engine.studio.refusal.field': 'the field “{field}”',
+  'engine.studio.refusal.step': 'the step “{step}”',
+  'engine.studio.refusal.stepInput': '{input} on the step “{step}”',
+  'engine.studio.refusal.navItem': 'the navigation item “{item}”',
+  'engine.studio.refusal.navItemInput': '{input} on the navigation item “{item}”',
+  'engine.studio.refusal.details': 'Details',
+  'engine.studio.refusal.show': 'Show me',
   'engine.studio.unpublishedDraft': 'Unpublished draft',
   'engine.studio.unpublished': 'Unpublished',
   'engine.studio.new': 'New',
@@ -5718,6 +5735,20 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.publish': '发布',
   'engine.studio.loading': '加载中…',
   'engine.studio.loadFailed': '加载失败',
+  'engine.studio.refusal.choiceWithoutOptions':
+    '更改未保存：字段「{field}」至少需要一个选项。请添加选项，或将该字段改为非选项类型。',
+  'engine.studio.refusal.relationshipWithoutTarget':
+    '更改未保存：字段「{field}」未指定要关联的对象。请选择对象，或将该字段改为非关联类型。',
+  'engine.studio.refusal.issue': '更改未保存。请检查{where} —— {problem}',
+  'engine.studio.refusal.more': '（另有 {count} 处，见详情）',
+  'engine.studio.refusal.unlocated': '更改未保存：服务端拒绝了此草稿。详情中说明了需要修改的内容。',
+  'engine.studio.refusal.field': '字段「{field}」',
+  'engine.studio.refusal.step': '步骤「{step}」',
+  'engine.studio.refusal.stepInput': '步骤「{step}」的「{input}」',
+  'engine.studio.refusal.navItem': '导航项「{item}」',
+  'engine.studio.refusal.navItemInput': '导航项「{item}」的「{input}」',
+  'engine.studio.refusal.details': '详情',
+  'engine.studio.refusal.show': '定位',
   'engine.studio.unpublishedDraft': '未发布草稿',
   'engine.studio.unpublished': '未发布',
   'engine.studio.new': '新建',

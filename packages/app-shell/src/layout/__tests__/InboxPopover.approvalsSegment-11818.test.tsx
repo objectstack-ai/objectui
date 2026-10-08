@@ -171,10 +171,12 @@ describe('InboxPopover approvals link keys on the route segment (objectui#11818)
       expect(await viewApprovals()).toBe('/apps/crm/system/approvals');
     });
 
-    it('a user inside setup stays in setup', async () => {
-      currentAppNameFixture = 'setup';
-      routeAppNameFixture = 'com.objectstack.setup';
-      expect(await viewApprovals()).toBe('/apps/com.objectstack.setup/system/approvals');
+    it('with no app name published, the URL segment was already the answer', async () => {
+      // The defect is precisely the NAME winning: with only the route's own
+      // segment to read, the old expression already produced the right path.
+      currentAppNameFixture = undefined;
+      routeAppNameFixture = 'com.example.showcase';
+      expect(await viewApprovals()).toBe('/apps/com.example.showcase/system/approvals');
     });
   });
 });

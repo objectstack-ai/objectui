@@ -79,11 +79,9 @@ registerMetadataDefaultInspector('action', HostActionInspector);
 // …and then the built-in designers land, as the package entry's `.then` does.
 registerBuiltinDesigners();
 
-/** Prints which component the observed read returns for `type`, and counts its renders. */
-const renders: Record<string, number> = {};
+/** Prints which component the observed read returns for `type`. */
 function Probe({ type }: { type: string }) {
   const Preview = useRegisteredMetadataPreview(type);
-  renders[type] = (renders[type] ?? 0) + 1;
   const name = Preview ? (Preview.name || 'anonymous') : 'none';
   return <div data-testid={`probe-${type}`}>{name}</div>;
 }
@@ -114,13 +112,20 @@ describe('built-in designers and a host registration (objectui#11939 step 2)', (
 
   it('a second built-in pass changes no entry and re-renders no reader', () => {
     const before = new Map(listMetadataPreviewTypes().map((t) => [t, getMetadataPreview(t)]));
-    render(<Probe type="dashboard" />);
+    // Every commit of the reader's subtree, counted by React itself.
+    let commits = 0;
+    render(
+      <React.Profiler id="dashboard-reader" onRender={() => { commits += 1; }}>
+        <Probe type="dashboard" />
+      </React.Profiler>,
+    );
     expect(screen.getByTestId('probe-dashboard')).toHaveTextContent('DashboardPreview');
-    const rendersBefore = renders.dashboard;
+    const commitsBefore = commits;
+    expect(commitsBefore).toBeGreaterThan(0);
 
     act(() => registerBuiltinDesigners());
 
     expect(new Map(listMetadataPreviewTypes().map((t) => [t, getMetadataPreview(t)]))).toEqual(before);
-    expect(renders.dashboard).toBe(rendersBefore);
+    expect(commits).toBe(commitsBefore);
   });
 });

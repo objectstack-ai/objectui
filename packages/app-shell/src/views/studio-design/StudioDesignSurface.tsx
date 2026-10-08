@@ -3242,6 +3242,10 @@ export function InterfacesPillar({
   const doSave = React.useCallback(async (sent: DraftSend) => {
     if (!current) return;
     setSaving('draft');
+    // objectui#11950 — each save starts clear, as the Data and Automations
+    // pillars' do: a refusal is about the body its save sent, so it goes when
+    // a later save is sent, and a save refused again shows its own.
+    setError(null);
     try {
       const outcome = await saveLeafDraft(current.type, current.name, interfacesSaveBody(current.type, draft), { mode: 'draft', packageId });
       // objectui#11773 — the author chose the saved version; the load replaces the buffer.

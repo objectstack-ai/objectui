@@ -44,6 +44,7 @@ import type {
   ReportNavItem,
 } from '@objectstack/spec/ui';
 import { CAP_REACT_PAGES, isCapabilityEnabled } from '@object-ui/core';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { t, tFormat, type SupportedLocale } from '../metadata-admin/i18n.js';
 import { useDatasetCatalog, useDatasetSemantics } from '../metadata-admin/previews/useDatasetCatalog.js';
 import { datasetSelectOptions, labelBesideName } from '../metadata-admin/inspectors/dataset-picker-options.js';
@@ -186,6 +187,70 @@ export function interfaceNavEntry(
   return { id, type: 'page', pageName: name, label };
 }
 
+/** The item a value none of a picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/** The classes a picker takes, at the size the native control had. */
+const PICKER = 'h-auto px-2 py-1.5 text-sm';
+
+/**
+ * objectui#11865 — one of the create dialog's pickers (the page's source kind,
+ * the report's dataset and its measure), drawn with the shared `Select`, the
+ * control the rest of Studio picks with. They used to be browser-native
+ * `<select>`s. What a pick writes is unchanged: `onPick` receives the picked
+ * option's own `value`, the string the native control's `change` carried, and
+ * each caller turns it into the same `onChange` value as before. Re-picking
+ * the current option writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value. The dataset and measure
+ *   pickers open on an option whose value is `''` ("Choose a dataset…",
+ *   "Choose a measure…"), which `SelectItem` refuses; an index cannot collide
+ *   with a dataset's or a measure's name, as any stand-in string could.
+ * - A value none of the options carries gets an item of its own, labelled with
+ *   the value, so the trigger shows what the form holds and would write. The
+ *   native control showed its first option there ("HTML", "Choose a
+ *   dataset…", "Choose a measure…"). Picking that item writes nothing.
+ * - Read-only has no state here: a read-only package offers no create entry,
+ *   so the dialog never opens there.
+ * - Each caller keeps the picker inside its `<label>`, which names the trigger
+ *   as it named the native control.
+ */
+function CreatePicker({
+  value,
+  options,
+  onPick,
+  testId,
+}: {
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  testId: string;
+}): React.ReactElement {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the form's own value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger data-testid={testId} className={PICKER}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 /**
  * The page's source kind in the create dialog, from the kinds this deployment
  * renders ({@link offeredPageSourceKinds}). The kind cannot be changed in the
@@ -201,25 +266,23 @@ export function PageCreateFields({
   onChange: (next: PageSourceKind) => void;
   locale: SupportedLocale;
 }): React.ReactElement {
-  const kinds = offeredPageSourceKinds();
+  const kinds = offeredPageSourceKinds().map((kind) => ({
+    value: kind,
+    label:
+      kind === 'react'
+        ? t('engine.studio.interfaces.create.pageKindReact', locale)
+        : t('engine.studio.interfaces.create.pageKindHtml', locale),
+  }));
   return (
     <div className="space-y-1.5">
       <label className="block">
         <span className="mb-1 block text-sm font-medium">{t('engine.studio.interfaces.create.pageKind', locale)}</span>
-        <select
+        <CreatePicker
           value={value}
-          data-testid="create-page-kind"
-          onChange={(e) => onChange(e.target.value === 'react' ? 'react' : 'html')}
-          className="w-full rounded border bg-background px-2 py-1.5 text-sm"
-        >
-          {kinds.map((kind) => (
-            <option key={kind} value={kind}>
-              {kind === 'react'
-                ? t('engine.studio.interfaces.create.pageKindReact', locale)
-                : t('engine.studio.interfaces.create.pageKindHtml', locale)}
-            </option>
-          ))}
-        </select>
+          options={kinds}
+          onPick={(picked) => onChange(picked === 'react' ? 'react' : 'html')}
+          testId="create-page-kind"
+        />
       </label>
       <p className="text-[11px] text-muted-foreground" data-testid="create-page-kind-hint">
         {value === 'react'
@@ -247,7 +310,14 @@ export function ReportCreateFields({
 }): React.ReactElement {
   const catalog = useDatasetCatalog();
   const semantics = useDatasetSemantics(value.dataset || undefined, catalog);
-  const datasetOptions = datasetSelectOptions(catalog.datasets);
+  const datasetOptions = [
+    { value: '', label: t('engine.studio.interfaces.create.datasetPlaceholder', locale) },
+    ...datasetSelectOptions(catalog.datasets),
+  ];
+  const measureOptions = [
+    { value: '', label: t('engine.studio.interfaces.create.measurePlaceholder', locale) },
+    ...semantics.measures.map((m) => ({ value: m.name, label: labelBesideName(m.name, m.label) })),
+  ];
 
   if (catalog.loading) {
     return <p className="text-xs text-muted-foreground">{t('engine.studio.loading', locale)}</p>;
@@ -270,19 +340,12 @@ export function ReportCreateFields({
     <div className="space-y-3">
       <label className="block">
         <span className="mb-1 block text-sm font-medium">{t('engine.studio.interfaces.create.dataset', locale)}</span>
-        <select
+        <CreatePicker
           value={value.dataset}
-          data-testid="create-report-dataset"
-          onChange={(e) => onChange({ dataset: e.target.value, measure: '' })}
-          className="w-full rounded border bg-background px-2 py-1.5 text-sm"
-        >
-          <option value="">{t('engine.studio.interfaces.create.datasetPlaceholder', locale)}</option>
-          {datasetOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          options={datasetOptions}
+          onPick={(picked) => onChange({ dataset: picked, measure: '' })}
+          testId="create-report-dataset"
+        />
       </label>
       {value.dataset !== '' && (
         <label className="block">
@@ -294,19 +357,12 @@ export function ReportCreateFields({
               {semantics.error ?? t('engine.studio.interfaces.create.noMeasures', locale)}
             </span>
           ) : (
-            <select
+            <CreatePicker
               value={value.measure}
-              data-testid="create-report-measure"
-              onChange={(e) => onChange({ dataset: value.dataset, measure: e.target.value })}
-              className="w-full rounded border bg-background px-2 py-1.5 text-sm"
-            >
-              <option value="">{t('engine.studio.interfaces.create.measurePlaceholder', locale)}</option>
-              {semantics.measures.map((m) => (
-                <option key={m.name} value={m.name}>
-                  {labelBesideName(m.name, m.label)}
-                </option>
-              ))}
-            </select>
+              options={measureOptions}
+              onPick={(picked) => onChange({ dataset: value.dataset, measure: picked })}
+              testId="create-report-measure"
+            />
           )}
         </label>
       )}

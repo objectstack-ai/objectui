@@ -322,10 +322,11 @@ that includes `defaultView`, which the renderer reads from the node itself, not
 from this block. Values are checked too, so `calendar: { startDateField: 42 }` is
 refused. The retired `dateField` / `endField` are refused by name
 (objectui#8355), and the message names the key to write instead. On the list-view
-path the container is a different contract: objectui's own mirror of
-`CalendarConfigSchema`, still `.passthrough()`, while the spec's own list-view
-block is strict. Annotating that block `CalendarConfig` is what narrows it to the
-spec's five.
+path the `calendar` block is a different contract with the same verdicts: since
+objectui#6152 (round 11) it is `@objectstack/spec`'s own list-view slot, taken by
+reference, so it is strict, requires `startDateField`, and refuses a sixth key.
+`defaultView` is refused there by name, because the spec declares no such member
+on a list view's calendar block.
 
 ## Configuration
 

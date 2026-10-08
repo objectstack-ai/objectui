@@ -15,8 +15,12 @@
  *      `CalendarViewMode` reference — which is exactly why #5740's narrowing
  *      did not move it),
  *   2. the zod `ObjectCalendarSchema`,
- *   3. the list-view `calendar` config (`CalendarConfig`, the objectui-only
- *      `defaultView` extension of the spec's `CalendarConfigSchema`).
+ *   3. the list-view `calendar` config (`CalendarConfig`, then the objectui-only
+ *      `defaultView` extension of the spec's `CalendarConfigSchema`). Since
+ *      objectui#6152 round 11 that block is the spec's list-view slot by
+ *      reference and refuses `defaultView` by name for EVERY value, so this face
+ *      no longer carries a vocabulary to retire from; its describe below pins the
+ *      refusal instead.
  *
  * The enforcement points read three values: `ObjectCalendar`'s props declare
  * `defaultView?: 'month' | 'week' | 'day'`, its schema read casts to the same
@@ -117,25 +121,32 @@ describe("zod ObjectCalendarSchema.defaultView — the NEW rejection this retire
   });
 });
 
-describe("ListViewSchema `calendar.defaultView` — the objectui-only extension moves in lockstep", () => {
-  it("rejects `calendar: { defaultView: 'agenda' }` on the `calendar.defaultView` path", () => {
+describe("ListViewSchema `calendar.defaultView` — refused by name for every value since objectui#6152 round 11", () => {
+  // The list view's calendar block is the spec's slot by reference, which has
+  // no `defaultView` member. 'agenda' and the three survivors are refused alike,
+  // at the key's own path, by the named arm (not the spec's block-level
+  // `unrecognized_keys`). The element's FLAT `defaultView` above is unaffected.
+  // Full pin: `list-view-blocks-by-reference-6152.test.ts`.
+  it.each([RETIRED, ...SURVIVORS])("refuses `calendar: { defaultView: '%s' }` on the `calendar.defaultView` path", (value) => {
     const result = ListViewSchema.safeParse({
       type: 'list-view',
       objectName: 'events',
-      calendar: { startDateField: 'starts_at', defaultView: RETIRED },
+      calendar: { startDateField: 'starts_at', defaultView: value },
     });
-    expectDefaultViewRefusal(result, 'calendar.defaultView');
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const issues = result.error.issues.filter((i) => i.path.join('.') === 'calendar.defaultView');
+    expect(issues).toHaveLength(1);
+    expect(issues[0].code).toBe('invalid_type');
   });
 
-  it('still accepts every rendered view mode in full', () => {
-    for (const survivor of SURVIVORS) {
-      const result = ListViewSchema.safeParse({
-        type: 'list-view',
-        objectName: 'events',
-        calendar: { startDateField: 'starts_at', defaultView: survivor },
-      });
-      expect(result.success).toBe(true);
-    }
+  it('CONTROL: the same block without the key parses in full', () => {
+    const result = ListViewSchema.safeParse({
+      type: 'list-view',
+      objectName: 'events',
+      calendar: { startDateField: 'starts_at' },
+    });
+    expect(result.success).toBe(true);
   });
 });
 

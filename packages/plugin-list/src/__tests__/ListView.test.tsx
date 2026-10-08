@@ -1803,11 +1803,13 @@ describe('ListView', () => {
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
-        kanban: { groupField: 'priority' },
+        // The spec key. This fixture wrote the pre-#2231 alias `groupField`, which
+        // the typed face refuses by name since objectui#6152 round 11.
+        kanban: { groupByField: 'priority' },
       };
 
       renderWithProvider(<ListView schema={schema} showViewSwitcher={true} />);
-      // Should enable kanban view since kanban.groupField is set
+      // Should enable kanban view since kanban.groupByField is set
       openViewSwitcher();
       expect(queryViewOption('Kanban')).toBeInTheDocument();
     });

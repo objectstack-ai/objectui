@@ -383,8 +383,16 @@ export interface AuthClient {
 
   /** List organizations the current user belongs to */
   listOrganizations: () => Promise<AuthOrganization[]>;
-  /** Create a new organization */
-  createOrganization: (data: { name: string; slug: string; logo?: string }) => Promise<AuthOrganization>;
+  /**
+   * Create a new organization.
+   *
+   * `timezone` (objectui#11908) is the creator's IANA zone, for example the
+   * browser's `Intl.DateTimeFormat().resolvedOptions().timeZone`. It travels
+   * as the `timezone` QUERY parameter of `POST /organization/create`, never in
+   * the body, which stays `{ name, slug, logo }`. Omitted or empty, nothing is
+   * sent and the server keeps its default zone; the server judges the value.
+   */
+  createOrganization: (data: { name: string; slug: string; logo?: string; timezone?: string }) => Promise<AuthOrganization>;
   /** Set the active organization for the current session */
   setActiveOrganization: (orgId: string) => Promise<AuthOrganization | null>;
   /** Get the full active organization object */

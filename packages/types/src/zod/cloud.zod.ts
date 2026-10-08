@@ -100,7 +100,9 @@ const CLOUD_WORKSPACE_TIMEZONE_NOTICE_NEITHER_CHANNEL =
   'REFUSED (objectui#11930) — `cloud:workspace-timezone-notice` reads NEITHER content channel: its '
   + 'registration hands the node to `CloudWorkspaceTimezoneNotice`, which reads only `className`, and '
   + '`SchemaRenderer` strips both channels out of the props bag it spreads. An authored value would '
-  + 'render NOTHING. What it renders instead: one line naming the timezone the workspace was seeded '
+  + 'render NOTHING — no render-time error or warning and no element; only the parser tier\'s '
+  + '`not-a-container` warning (objectui#9910) noticed it, because the registration declares no '
+  + '`children` input. What it renders instead: one line naming the timezone the workspace was seeded '
   + 'with, read from the organization\'s entitlements summary, and nothing when the summary carries no seed.';
 
 /**

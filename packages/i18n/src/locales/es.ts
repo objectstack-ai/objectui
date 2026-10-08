@@ -2810,6 +2810,10 @@ const es = {
     back: "Atrás",
     recordNotFound: "Registro no encontrado",
     recordNotFoundDescription: "El registro que busca no existe o puede haber sido eliminado.",
+    recordAccessDenied: "No tiene acceso a los registros de {{object}}",
+    recordAccessDeniedDescription: "No tiene permiso para ver registros de este tipo. Contacte a su administrador si cree que debería tener acceso.",
+    recordLoadFailed: "No se pudo cargar este registro",
+    recordLoadFailedDescription: "Algo salió mal al cargarlo. Compruebe su conexión y vuelva a intentarlo.",
   },
   actionDialog: {
     title: "Parámetros de acción",

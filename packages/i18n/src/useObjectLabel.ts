@@ -469,7 +469,7 @@ export function useObjectLabel() {
      * (objectui#11389, ruling C): `@objectstack/spec` 17.7.0 refuses it by
      * name in a translation bundle, and nothing here reads it.
      */
-    widgetDescription:(dashboardName: string, widgetId: string, fallback?: string) => {
+    widgetDescription: (dashboardName: string, widgetId: string, fallback?: string) => {
       const fb = fallback ?? '';
       const resolved = resolve(dashboardSuffixes(dashboardName, `widgets.${widgetId}.description`), fb);
       return resolved || undefined;

@@ -3086,7 +3086,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.rules.events': 'Runs on',
   'engine.studio.rules.event.insert': 'Create',
   'engine.studio.rules.event.update': 'Update',
-  'engine.studio.rules.event.delete': 'Delete',
   'engine.studio.rules.priority': 'Priority',
   // objectui#11861 — the New menu's starting points, and the type list under Advanced.
   'engine.studio.rules.presets': 'Common rules',
@@ -6231,7 +6230,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.rules.events': '触发时机',
   'engine.studio.rules.event.insert': '新建',
   'engine.studio.rules.event.update': '更新',
-  'engine.studio.rules.event.delete': '删除',
   'engine.studio.rules.priority': '优先级',
   'engine.studio.rules.presets': '常用规则',
   'engine.studio.rules.advanced': '高级',

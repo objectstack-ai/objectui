@@ -56,11 +56,11 @@
  *      ⚠️ TWO NESTINGS, and the second one is load-bearing rather than thorough.
  *      `ListView` merges `{ ...options.kanban, ...kanban }`, and the producer
  *      objectui#8213 retired wrote into `options.kanban` — so that is where the
- *      stored views this ruling is ABOUT carry the key. `options` is
- *      `z.record(z.string(), z.any())` and can declare no member, so it takes the
- *      declared arm's guidance as a CHECK (`custom`) while the declared `kanban`
- *      slot reports the arm itself (`invalid_type`). Two codes, ONE message —
- *      asserted below, because a refusal that only reached the declared nesting
+ *      stored views this ruling is ABOUT carry the key. `options` was a record
+ *      that could declare no member, so it took the declared arm's guidance as a
+ *      CHECK (`custom`); since objectui#6152 round 12 it nests the declared slot's
+ *      own block, so both nestings report the arm itself (`invalid_type`). ONE
+ *      message — asserted below, because a refusal that only reached the declared nesting
  *      would leave exactly the affected population silently re-grouped, i.e.
  *      option A wearing option B's name.
  *
@@ -224,12 +224,12 @@ describe('objectui#8365 · half 2 — the stray key is REFUSED at the read door'
   it('the distinguishing fixture is refused BY NAME, pointing at `groupByField`', () => {
     const issues = refusalIssuesFor(DISTINGUISHING_VIEW);
     expect(issues).toHaveLength(1);
-    // ⭐ THE LEGACY NESTING. `options` is `z.record(z.string(), z.any())` and can
-    // declare no MEMBER, so the refusal there is a CHECK — `custom`, not
-    // `invalid_type`. Two codes, ONE message (the check reads the declared arm's
-    // own `.description`), which is why the message assertions below are shared
-    // between the two nestings while the code assertions are not.
-    expect(issues[0].code).toBe('custom');
+    // ⭐ THE LEGACY NESTING. Until objectui#6152 round 12 `options` was a record
+    // that could declare no MEMBER, so the refusal there was a CHECK (`custom`).
+    // Since that round the bag is the spec's list-overlay bag by reference and
+    // nests the declared slot's own block, so the arm is a member there too:
+    // `invalid_type`, the same code and ONE message in both nestings.
+    expect(issues[0].code).toBe('invalid_type');
     expect(issues[0].path.join('.')).toBe('options.kanban.groupBy');
     // The lead sentence is the one the protocol's own `strictObject({ aliases })`
     // answers with, so an author meets ONE remedy on both faces.

@@ -9,7 +9,7 @@
  * `import('./studioBuilder')`, behind a `lazy()` boundary. Nothing in the
  * console imports this module statically, and nothing may: that is what lets
  * the bundler place `StudioDesignSurface`, `BuilderLanding` and the modules only
- * they reach (the pillar panels, the form designer, `@dnd-kit`) in a chunk that
+ * they reach (such as the pillar panels and the form designer) in a chunk that
  * is fetched when a Studio screen first renders, instead of in the eager
  * closure every console page load pays for.
  *

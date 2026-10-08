@@ -52,8 +52,8 @@ import { holdsStudioAccess, useStudioEntry } from './studioEntry';
 /*
  * The two builder screens load WITH THEIR ROUTE, not with the console
  * (objectui#11798). Imported statically, `StudioDesignSurface` and
- * `BuilderLanding` (and everything only they reach: the pillar panels, the form
- * designer, `@dnd-kit`) sat in the eager closure of every console page, for
+ * `BuilderLanding` (and the modules only they reach, such as the pillar panels
+ * and the form designer) sat in the eager closure of every console page, for
  * every user, on deployments where most principals can never enter Studio.
  *
  * Only the builder is deferred. The gate above it (`StudioRoute` →
@@ -129,12 +129,13 @@ export function StudioRoute() {
  * shared `common.loading` text, as `registerAccountComponents` shows for its own
  * lazy page. The full-screen pillar builder has no frame of its own, so it
  * falls back to `LoadingFallback`, the splash the gate's pending state already
- * shows, and the two waits read as one.
+ * shows, and the two waits read as one. `role="status"` lets assistive
+ * technology announce the wait, and it is what the tests find the line by.
  */
 export function StudioBuilderLoading() {
   const { t } = useObjectTranslation();
   return (
-    <div className="p-6 text-sm text-muted-foreground">
+    <div role="status" className="p-6 text-sm text-muted-foreground">
       {t('common.loading', { defaultValue: 'Loading…' })}
     </div>
   );

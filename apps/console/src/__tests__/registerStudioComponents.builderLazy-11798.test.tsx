@@ -95,11 +95,13 @@ describe('studio:builder registration (objectui#11798)', () => {
 
     // No `await`: the first commit. A boundary that deferred nothing would have
     // committed the landing here, which is the objectui#5486 shape.
+    // The fallback is found by its role, not by its copy: the words are the
+    // translation catalogue's, and this file pins only that a wait is shown.
     expect(screen.queryByTestId('builder-landing')).not.toBeInTheDocument();
-    expect(screen.getByText('Loading…')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toBeInTheDocument();
 
     expect(await screen.findByTestId('builder-landing')).toBeInTheDocument();
-    expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(builderModuleLoads.count).toBe(1);
   });
 });

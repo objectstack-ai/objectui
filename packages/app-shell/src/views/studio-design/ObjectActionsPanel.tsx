@@ -133,13 +133,17 @@ export function ObjectActionsPanel({
     [held, objectName],
   );
   const listed = React.useMemo(() => [...actions, ...heldHere], [actions, heldHere]);
-  const isHeld = (name: unknown) => heldHere.some((a) => a.name === name);
+  // What each held action still needs, by name: the catalogue key of the input.
+  const heldNeeds = React.useMemo(
+    () => new Map(heldHere.map((a) => [String(a.name ?? ''), heldInputKey(a)])),
+    [heldHere],
+  );
   const [selected, setSelected] = React.useState<string | null>(null);
   // Default-select the first action so the detail pane isn't a dead end when
   // actions exist; fall back when the selection no longer matches.
   const effectiveSelected = listed.some((a) => a.name === selected) ? selected : (listed[0]?.name ?? null);
   const sel = listed.find((a) => a.name === effectiveSelected) ?? null;
-  const selHeldInput = sel && isHeld(sel.name) ? heldInputKey(sel) : null;
+  const selHeldInput = heldNeeds.get(String(effectiveSelected ?? '')) ?? null;
 
   // Observed (objectui#11939): an action inspector registered after this panel
   // mounted replaces the "no editor" pane below without a remount.
@@ -153,7 +157,7 @@ export function ObjectActionsPanel({
   const patchSelected = React.useCallback(
     (patch: Record<string, unknown>) => {
       if (!sel) return;
-      if (heldHere.some((a) => a.name === sel.name)) {
+      if (heldNeeds.has(String(sel.name ?? ''))) {
         const next = { ...sel, ...patch };
         const mine = (h: { on: string; action: ActionItem }) => h.on === objectName && h.action.name === sel.name;
         if (heldInputKey(next) === null) {
@@ -167,7 +171,7 @@ export function ObjectActionsPanel({
       }
       if (typeof patch.name === 'string' && patch.name !== sel.name) setSelected(patch.name);
     },
-    [actions, heldHere, objectName, sel, onPatch],
+    [actions, heldNeeds, objectName, sel, onPatch],
   );
 
   /* ─── Blocking CEL verdicts → the Data pillar's Save gate (objectui#4527) ──
@@ -253,8 +257,8 @@ export function ObjectActionsPanel({
     () =>
       readFields(draft.fields).entries.map((e) => ({
         name: e.name,
-        label: typeof e.def.label === 'string' ? e.def.label : undefined,
-        type: typeof e.def.type === 'string' ? e.def.type : undefined,
+        label: typeof e.def.label === 'string' ? (e.def.label as string) : undefined,
+        type: typeof e.def.type === 'string' ? (e.def.type as string) : undefined,
         hidden: e.def.hidden === true,
         system: e.def.system === true,
         readonly: e.def.readonly === true,
@@ -290,14 +294,14 @@ export function ObjectActionsPanel({
 
   const removeAction = React.useCallback(
     (name: string) => {
-      if (heldHere.some((a) => a.name === name)) {
+      if (heldNeeds.has(name)) {
         setHeld((prev) => prev.filter((h) => !(h.on === objectName && h.action.name === name)));
       } else {
         onPatch({ actions: actions.filter((a) => a.name !== name) });
       }
       setSelected(null);
     },
-    [actions, heldHere, objectName, onPatch],
+    [actions, heldNeeds, objectName, onPatch],
   );
 
   return (
@@ -393,7 +397,7 @@ export function ObjectActionsPanel({
             listed.map((a) => {
               const Icon = getIcon(typeof a.icon === 'string' ? a.icon : undefined);
               const type = typeof a.type === 'string' ? a.type : '';
-              const needs = isHeld(a.name) ? heldInputKey(a) : null;
+              const needs = heldNeeds.get(String(a.name ?? '')) ?? null;
               return (
                 <button
                   key={String(a.name)}

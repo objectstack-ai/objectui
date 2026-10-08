@@ -26,19 +26,13 @@ import {
   useSensors,
   useDroppable,
   pointerWithin,
-  closestCorners,
   type CollisionDetection,
+  type KeyboardCoordinateGetter,
   type DragStartEvent,
   type DragOverEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-  sortableKeyboardCoordinates,
-} from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Plus, Trash2, ChevronUp, ChevronDown, Rows3, Settings2 } from 'lucide-react';
 import { inferColumns, containerGridColsFor, isWideFieldType } from '@object-ui/plugin-form';
@@ -79,16 +73,107 @@ const unCid = (id: string) => id.slice(2);
 const unFid = (id: string) => id.slice(2);
 
 /**
- * Which droppable a drag is over (objectui#11871). A pointer drag keeps
- * `pointerWithin`: the droppable under the pointer, or none. A keyboard drag
- * has no pointer: dnd-kit reads pointer coordinates off the activator event,
- * and a `KeyboardEvent` has none, so `pointerWithin` answered nothing and
- * every keyboard drop missed. It reads `closestCorners`, the measure
- * `sortableKeyboardCoordinates` picks each arrow-key step's target by, so the
- * drag is over the droppable the step moved it to.
+ * Which droppable a drag is over (objectui#11871, objectui#11898). A pointer
+ * drag keeps `pointerWithin`: the droppable under the pointer, or none. A
+ * keyboard drag has no pointer: dnd-kit reads pointer coordinates off the
+ * activator event, and a `KeyboardEvent` has none, so `pointerWithin` answered
+ * nothing and every keyboard drop missed (objectui#11871). A keyboard drag is
+ * over the droppable `keyboardOver` names for it: the place its arrow keys
+ * chose, read off the layout (see {@link keyboardOverAt}). Not a rect test:
+ * moving the field into another group re-lays the canvas under the chip, and a
+ * rect test then lands on a neighbour of the place just announced
+ * (objectui#11898).
  */
-const formCollision: CollisionDetection = (args) =>
-  args.pointerCoordinates ? pointerWithin(args) : closestCorners(args);
+function formCollision(keyboardOver: (activeId: string) => string): CollisionDetection {
+  return (args) => (args.pointerCoordinates ? pointerWithin(args) : [{ id: keyboardOver(String(args.active.id)) }]);
+}
+
+/**
+ * Where a keyboard drag would put the dragged field (objectui#11898): a
+ * container, and the field's 0-based index in it once dropped there, the field
+ * itself counted.
+ */
+interface KeyboardSlot {
+  container: string;
+  index: number;
+}
+
+/**
+ * The droppable a keyboard drag at `slot` is over: the one a drop on which
+ * lands `activeId` at `slot` by `onDragEnd`'s arithmetic (`dropPlaceIn` reads
+ * the same). In the field's own group, the field at that index, which is the
+ * field itself once `onDragOver` has carried it there; in another group, the
+ * field it goes before, or the group's section when it goes last. `null` slot:
+ * the drag has not stepped, so it is over its own card.
+ */
+function keyboardOverAt(layout: Record<string, string[]>, activeId: string, slot: KeyboardSlot | null): string {
+  const list = slot ? layout[slot.container] : undefined;
+  if (!slot || !list) return activeId;
+  return list[slot.index] ?? (list.includes(activeId) ? activeId : slot.container);
+}
+
+/**
+ * One arrow-key step of a keyboard drag, in the layout's reading order
+ * (objectui#11898): ArrowDown and ArrowRight take the field one place later,
+ * ArrowUp and ArrowLeft one place earlier, whatever the canvas's column count.
+ * Past either end of a group the step enters the next group shown, first
+ * place going down and last place going up, so an empty group is one step
+ * like any other. `null`: the field is already at that end of the canvas.
+ * `shown` says whether a group's section is on the canvas; the layout's keys
+ * are in canvas order, the order `derived` builds them in.
+ */
+function stepSlot(
+  layout: Record<string, string[]>,
+  activeId: string,
+  from: KeyboardSlot,
+  step: 1 | -1,
+  shown: (container: string) => boolean,
+): KeyboardSlot | null {
+  const places = (c: string) => layout[c].length + (layout[c].includes(activeId) ? 0 : 1);
+  const index = from.index + step;
+  if (index >= 0 && index < places(from.container)) return { container: from.container, index };
+  const order = Object.keys(layout).filter((c) => c === from.container || shown(c));
+  const next = order[order.indexOf(from.container) + step];
+  return next ? { container: next, index: step > 0 ? 0 : places(next) - 1 } : null;
+}
+
+const STEP_BY_KEY: Readonly<Record<string, 1 | -1>> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+
+/**
+ * One arrow key of a keyboard drag, for the keyboard sensor's coordinate
+ * getter (objectui#11898). dnd-kit's `sortableKeyboardCoordinates` picked each
+ * step's target by corner distance among the droppables in the arrow's
+ * direction. A section's droppable spans its whole grid, so on a multi-column
+ * canvas the nearest card won and an empty group was never reached; upward, a
+ * field's own section was the nearest, so the first ArrowUp from a group's
+ * first field went nowhere, and a full-row field's chip, as wide as the
+ * section, matched its own section's corners. This steps from `from` (`null`:
+ * the field's own place) through `layout` with `stepSlot`, hands the new place
+ * to `moveTo` for {@link formCollision}, and moves the chip onto the droppable
+ * the drag is now over: the card, an empty group's section, or the foot of a
+ * group the field joins last. `undefined`: not an arrow key, or nowhere to go.
+ */
+function keyboardStep(
+  event: KeyboardEvent,
+  { active, context }: Parameters<KeyboardCoordinateGetter>[1],
+  layout: Record<string, string[]>,
+  from: KeyboardSlot | null,
+  moveTo: (slot: KeyboardSlot) => void,
+): ReturnType<KeyboardCoordinateGetter> {
+  const step = STEP_BY_KEY[event.code];
+  if (!step) return undefined;
+  event.preventDefault();
+  const { collisionRect, droppableRects } = context;
+  const activeId = String(active);
+  const at = from ?? placeIn(layout, activeId);
+  const to = at && stepSlot(layout, activeId, at, step, (c) => droppableRects.has(c));
+  const overId = to && keyboardOverAt(layout, activeId, to);
+  const rect = overId ? droppableRects.get(overId) : undefined;
+  if (!collisionRect || !to || !rect) return undefined;
+  moveTo(to);
+  const atFoot = overId === to.container && layout[to.container].length > 0;
+  return { x: rect.left, y: atFoot ? rect.bottom - collisionRect.height : rect.top };
+}
 
 /** A field's place in a container map: the container id, a 0-based index and the container's size. */
 interface LayoutPlace {
@@ -542,9 +627,23 @@ export function ObjectFormDesigner({
     return formDndAccessibility(locale, lookups);
   }, [locale, items, derived, labelOf, entryByName, fieldLabelOf]);
 
+  // Where a keyboard drag's arrow keys have taken the field (objectui#11898),
+  // `null` from each keyboard pick-up until its first step. Held twice: the
+  // collision reads the state while it renders, and the coordinate getter,
+  // which the sensor keeps from the pick-up on, reads the ref when a key comes.
+  const [keyboardSlot, setKeyboardSlot] = React.useState<KeyboardSlot | null>(null);
+  const keyboardSlotRef = React.useRef<KeyboardSlot | null>(null);
+  const placeKeyboardDrag = (slot: KeyboardSlot | null) => {
+    keyboardSlotRef.current = slot;
+    setKeyboardSlot(slot);
+  };
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: (event, args) =>
+        keyboardStep(event, args, itemsRef.current, keyboardSlotRef.current, placeKeyboardDrag),
+      onActivation: () => placeKeyboardDrag(null),
+    }),
   );
 
   const findContainer = React.useCallback(
@@ -678,7 +777,7 @@ export function ObjectFormDesigner({
 
       <DndContext
         sensors={readOnly ? [] : sensors}
-        collisionDetection={formCollision}
+        collisionDetection={formCollision((id) => keyboardOverAt(items, id, keyboardSlot))}
         accessibility={dndAccessibility}
         onDragStart={onDragStart}
         onDragOver={onDragOver}

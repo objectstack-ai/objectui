@@ -49,6 +49,7 @@ const state = vi.hoisted(() => ({
 state.metadataClient = {
   get: (type: string, name: string) => state.get(type, name),
   list: (type: string) => state.list(type),
+  withPreviewDrafts() { return this; },
 };
 
 vi.mock('../useMetadata', async (importOriginal) => ({

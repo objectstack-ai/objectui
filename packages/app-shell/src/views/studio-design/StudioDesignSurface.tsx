@@ -131,6 +131,7 @@ import { SourcePageEditor } from '../metadata-admin/previews/SourcePageEditor.js
 import { fetchPendingDrafts, usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/assistantBus.js';
 import {
+  dashboardHeldEdit,
   flowHeldEdit,
   flowSaveRefusal,
   formatPublishFailures,
@@ -1838,6 +1839,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 foldInspector={chatDockMode}
                 onDirtyChange={setPillarDirty}
                 onSurfaceLabelChange={setSurfaceLabel}
+                onHeldEditChange={setHeldEdit}
               />
             )}
           </div>
@@ -2597,6 +2599,7 @@ export function InterfacesPillar({
   foldInspector = false,
   onDirtyChange,
   onSurfaceLabelChange,
+  onHeldEditChange,
 }: {
   packageId: string;
   publishNonce?: number;
@@ -2637,6 +2640,10 @@ export function InterfacesPillar({
    * leaf is open, when its display text is empty (a label that is present but
    * resolves to nothing), and on unmount. */
   onSurfaceLabelChange?: (surface: StudioSurfaceLabel | null) => void;
+  /** objectui#11910 — the clause of the dashboard edit the leaf autosave holds
+   * unsent (a widget not yet bound), or `null`, as the Data and Automations
+   * pillars report theirs (objectui#11786); `null` on unmount. */
+  onHeldEditChange?: (clause: string | null) => void;
 }): React.ReactElement {
   const client = useMetadataClient();
   const locale = useMetadataLocale();
@@ -3247,15 +3254,29 @@ export function InterfacesPillar({
       setSaving(false);
     }
   }, [saveLeafDraft, current, draft, onDraftSaved, packageId, locale]);
+  // objectui#11910 — a dashboard edit that leaves a widget's binding out (a
+  // widget just added, before its dataset and measures are picked) is held, not
+  // sent: the draft door would refuse it with a 422 naming that input. The
+  // widget's inspector hints the input, and the line on the canvas names it.
+  // Asked of the spec's own widget schema (`dashboardHeldEdit`); a widget that
+  // is finished but wrong is sent, and its refusal shows as before.
+  const leafType = current?.type;
+  const leafIncomplete = React.useMemo(
+    () => (ifDirty && leafType === 'dashboard' ? dashboardHeldEdit(draft, locale) : null),
+    [ifDirty, leafType, draft, locale],
+  );
   const { loaded: draftLoaded } = useDraftAutoSave({
     // objectui#11232 — the leaf `doSave` addresses, `type:name`.
     target: leafKey,
     loadedFor: draftFor,
     dirty: ifDirty,
-    blocked: !current || !isEditable || !!saving || readOnly || inspectorBlocking > 0,
+    blocked: !current || !isEditable || !!saving || readOnly || inspectorBlocking > 0 || leafIncomplete !== null,
     snapshot: draft,
     save: doSave,
   });
+  // Only the open leaf's own buffer is held (objectui#11272).
+  const leafHeld = draftLoaded ? leafIncomplete : null;
+  useHeldEditReport(onHeldEditChange, leafHeld?.clause ?? null);
 
   // objectui#11823 — an `object` leaf's list view: the third buffer, edited in
   // the Properties panel and shown on the canvas, autosaved to the package
@@ -3517,7 +3538,7 @@ export function InterfacesPillar({
           </span>
         )}
       </div>
-      {(error || navError) && (
+      {(error || navError || leafHeld) && (
         <div className="mb-3 flex shrink-0 flex-col gap-1.5">
           {/* objectui#11776 — the pillar's failure and the nav editor's own,
               each cleared by what settles it, the same failure shown once.
@@ -3532,6 +3553,19 @@ export function InterfacesPillar({
                 setEditNav(true);
                 setNavSel({ kind: target.kind, id: target.id });
               }}
+              className="px-3 py-2 text-xs"
+            />
+          )}
+          {leafHeld && (
+            <StudioHeldNotice
+              held={leafHeld}
+              locale={locale}
+              // objectui#11910 — no "Show me" while that widget is the one open.
+              onShow={
+                selection?.kind === leafHeld.target.kind && selection.id === leafHeld.target.id
+                  ? undefined
+                  : (target) => setSelection(target)
+              }
               className="px-3 py-2 text-xs"
             />
           )}

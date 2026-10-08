@@ -26,6 +26,7 @@ import {
   type MetadataValidationIssue,
 } from '@object-ui/data-objectstack';
 import { resolveFlowTriggerKind } from '@objectstack/spec/automation';
+import { DashboardWidgetSchema, resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
 import type { NavTargetLabelResolver } from '@object-ui/layout';
 import type { MetadataSelection } from '../metadata-admin/preview-registry.js';
 import { t, tFormat, translateValidationMessage } from '../metadata-admin/i18n.js';
@@ -467,6 +468,84 @@ export function flowHeldEdit(draft: SentBody, locale: string): StudioHeld | null
     return {
       clause: tFormat('engine.studio.held.needsInput', locale, { input, step }),
       target: { kind: 'node', id: node.id },
+    };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// objectui#11910 — a dashboard widget held until it is bound.
+//
+// *Add widget* births `{ id, type, title }`, and the installed spec's
+// `DashboardWidgetSchema` refuses every type the picker offers until it names a
+// `dataset` and its `values` (ADR-0021: every widget is dataset-bound). A widget
+// cannot be born valid without a dataset the author has not chosen, so the
+// Interfaces pillar holds such a dashboard as the Data and Automations pillars
+// hold theirs (objectui#11786): unsent, with a neutral line naming the input,
+// and Publish refusing while it is held.
+//
+// ⛔ No list of required keys lives here. The judge is the spec's own widget
+// schema, asked of each widget as it stands. What is kept here is only which
+// inputs the widget inspector's dataset binding offers to fill, so a widget is
+// held only for an input the author can reach.
+// ---------------------------------------------------------------------------
+
+/** The inputs of the widget inspector's dataset binding, in the order it shows them. */
+const WIDGET_BINDING_INPUTS: ReadonlyArray<{ key: string; labelKey: string }> = [
+  { key: 'dataset', labelKey: 'engine.inspector.widget.dataset' },
+  { key: 'dimensions', labelKey: 'engine.inspector.widget.dimensions' },
+  { key: 'values', labelKey: 'engine.inspector.widget.values' },
+];
+
+/**
+ * The binding inputs `widget` leaves out that the installed spec refuses it
+ * without, in the inspector's order, or none when the widget is not merely
+ * unfinished.
+ *
+ * Unfinished means the spec's `DashboardWidgetSchema` refuses the widget, and
+ * every issue it names is the absence of one of those inputs. A widget the spec
+ * refuses for anything else (a value it holds that is wrong, a type outside the
+ * spec's, a missing key the inspector does not offer) answers none: it is
+ * finished but wrong, or not the inspector's to finish, so it is sent, and the
+ * refusal it draws shows as before. Absent, not empty: an empty `values` list is
+ * a value, and the spec's verdict on it shows as the refusal.
+ */
+export function widgetMissingInputs(widget: unknown): string[] {
+  if (!isSentBody(widget)) return [];
+  const result = DashboardWidgetSchema.safeParse(widget);
+  if (result.success) return [];
+  const missing = new Set<string>();
+  for (const issue of result.error.issues) {
+    const key = issue.path.length === 1 ? String(issue.path[0]) : null;
+    if (key === null || widget[key] !== undefined || !WIDGET_BINDING_INPUTS.some((input) => input.key === key)) {
+      return [];
+    }
+    missing.add(key);
+  }
+  return WIDGET_BINDING_INPUTS.filter((input) => missing.has(input.key)).map((input) => input.key);
+}
+
+/**
+ * The edit the Interfaces pillar holds for `draft`, the dashboard its leaf
+ * autosave would send, or `null`: the first widget the spec refuses only for a
+ * binding input it leaves out ({@link widgetMissingInputs}), named by its title
+ * in the designer locale and selected as the canvas selects it.
+ */
+export function dashboardHeldEdit(draft: SentBody, locale: string): StudioHeld | null {
+  if (!Array.isArray(draft.widgets)) return null;
+  for (const widget of draft.widgets) {
+    if (!isSentBody(widget) || typeof widget.id !== 'string' || widget.id === '') continue;
+    const [key] = widgetMissingInputs(widget);
+    const input = WIDGET_BINDING_INPUTS.find((entry) => entry.key === key);
+    if (!input) continue;
+    // The spec has judged `title` an `I18nLabel` here: its only issues are absent inputs.
+    const title = resolveI18nLabel(widget.title as I18nLabel | undefined, locale)?.trim();
+    return {
+      clause: tFormat('engine.studio.held.widgetNeedsInput', locale, {
+        input: t(input.labelKey, locale),
+        widget: title || widget.id,
+      }),
+      target: { kind: 'widget', id: widget.id },
     };
   }
   return null;

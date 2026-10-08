@@ -187,7 +187,7 @@ The providers debounce backend writes with a 500ms window via `createDebouncedFl
 
 ## Recent items store identity, not labels
 
-An object, dashboard, page or report entry in the recent list is stored as its `type` and `name` (plus `href` and `visitedAt`), never as display text, so a rename or a language switch shows on the next render instead of being frozen at visit time. Surfaces label an entry with `useRecentItemLabel()`, which asks the resolver the console already uses for that kind; an item whose metadata is not loaded yet shows its machine name. Record entries (`type: 'record'`) and Studio metadata entries (`type: 'metadata'`) carry a `label`: a record's title, a metadata item's name.
+An object, dashboard, page or report entry in the recent list is stored as its `type` and `name` (plus `href` and `visitedAt`), never as display text, so a rename or a language switch shows on the next render instead of being frozen at visit time. Surfaces label an entry with `useRecentItemLabel()`, which asks the resolver the console already uses for that kind; an item whose metadata is not loaded yet shows its machine name. A Studio package entry (`type: 'package'`) is stored the same way; label it with `useRecentItemLabel({ packages })`, passing the package list you loaded, or leave it out where you have no list. Record entries (`type: 'record'`) and Studio metadata entries (`type: 'metadata'`) carry a `label`: a record's title, a metadata item's name.
 
 The provider writes nothing when a visit leaves the list unchanged: re-adding the entry already at the head keeps its `visitedAt` and costs no `save()`. Lists persisted in the earlier label-carrying shape are read by identity (the name is the part of `id` after `type:`) and their stored label is dropped.
 

@@ -444,6 +444,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.flowNode.idRequired': 'Not renamed: a node needs an id.',
   'engine.inspector.flowNode.idTaken': 'Not renamed: another node in this flow already has the id "{id}".',
   'engine.inspector.flowNode.idEdgeNamed': 'Not renamed: an edge still names "{id}", a node that is no longer in the flow. Remove or reconnect that edge first.',
+  // objectui#11838 — the rename carries every expression reference to the node
+  // through the parsers; these name the ones it cannot carry. `{refs}` lists
+  // each as `<node or edge> › <path>: <expression>`.
+  'engine.inspector.flowNode.idRefsUnparsed': 'Not renamed: these expressions read "{id}" but do not parse, so the rename cannot carry them: {refs}. Fix them first.',
+  'engine.inspector.flowNode.idRefsAmbiguous': 'Not renamed: "{name}" is also the name of a variable in this flow, so these expressions could read either and cannot be carried: {refs}. Rename the variable first, or edit them by hand.',
   'engine.inspector.flowNode.label': 'Label',
   'engine.inspector.flowNode.type': 'Node Type',
   'engine.inspector.flowNode.configuration': 'Configuration',
@@ -1887,6 +1892,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowValidate.duplicateNodeId': 'Duplicate node id "{id}".',
   'engine.flowValidate.edgeSourceMissing': 'Edge source "{source}" does not exist.',
   'engine.flowValidate.edgeTargetMissing': 'Edge target "{target}" does not exist.',
+  // objectui#11838 — the other positions that name a node by id.
+  'engine.flowValidate.exprRefNodeMissing': 'Expression "{ref}" reads node "{id}", which does not exist.',
+  'engine.flowValidate.boundaryHostMissing': 'Boundary event "{id}" is attached to node "{host}", which does not exist.',
   'engine.flowValidate.startHasIncoming': 'Start node has an incoming edge.',
   'engine.flowValidate.multipleStart': 'Flow has {count} start nodes; expected one.',
   'engine.flowValidate.noStartUsingRoot': 'No "start" node; using the only root node as the entry.',
@@ -3540,6 +3548,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.flowNode.idRequired': '未重命名：节点必须有 ID。',
   'engine.inspector.flowNode.idTaken': '未重命名：此流程中已有另一个节点的 ID 是“{id}”。',
   'engine.inspector.flowNode.idEdgeNamed': '未重命名：仍有连线指向“{id}”，而该节点已不在流程中。请先删除或重新连接那条连线。',
+  'engine.inspector.flowNode.idRefsUnparsed': '未重命名：以下表达式引用了“{id}”，但无法解析，重命名无法同步更新它们：{refs}。请先修正。',
+  'engine.inspector.flowNode.idRefsAmbiguous': '未重命名：“{name}”同时也是此流程中某个变量的名称，以下表达式可能引用其中任何一个，无法同步更新：{refs}。请先重命名该变量，或手动修改这些表达式。',
   'engine.inspector.flowNode.label': '标签',
   'engine.inspector.flowNode.type': '节点类型',
   'engine.inspector.flowNode.configuration': '配置',
@@ -4907,6 +4917,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowValidate.duplicateNodeId': '重复的节点 id “{id}”。',
   'engine.flowValidate.edgeSourceMissing': '连线的源节点 “{source}” 不存在。',
   'engine.flowValidate.edgeTargetMissing': '连线的目标节点 “{target}” 不存在。',
+  'engine.flowValidate.exprRefNodeMissing': '表达式 “{ref}” 读取的节点 “{id}” 不存在。',
+  'engine.flowValidate.boundaryHostMissing': '边界事件 “{id}” 附着的节点 “{host}” 不存在。',
   'engine.flowValidate.startHasIncoming': '开始节点存在入边。',
   'engine.flowValidate.multipleStart': '流程有 {count} 个开始节点;应只有一个。',
   'engine.flowValidate.noStartUsingRoot': '没有“开始”节点;以唯一的根节点作为入口。',

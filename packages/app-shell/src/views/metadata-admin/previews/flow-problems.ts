@@ -8,7 +8,9 @@
  *   1. `validateFlowDraft` (client, structural): no resolvable entry,
  *      unreachable nodes, a decision with no default branch, duplicate node
  *      ids, dangling edges, un-declared cycles — plus, from this module, a
- *      connection drawn more than once ({@link edgeRouteKey}, objectui#11772).
+ *      connection drawn more than once ({@link edgeRouteKey}, objectui#11772),
+ *      and `missingNodeRefDiagnostics`: an expression reference or a boundary
+ *      event that names a node the flow does not have (objectui#11838).
  *   2. The server `_diagnostics` already attached to the layered record
  *      (schema validation), each keyed by a dotted JSON path.
  *
@@ -21,7 +23,7 @@
 
 import { createContext } from 'react';
 import { collectFlowGraphs } from '@objectstack/spec/automation';
-import { validateFlowDraft } from './simulator/flow-sim-validate.js';
+import { missingNodeRefDiagnostics, validateFlowDraft } from './simulator/flow-sim-validate.js';
 import type { Diagnostic, DiagnosticLevel, SimEdge, SimNode } from './simulator/flow-sim-types.js';
 import { conditionText, edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
 import { flowExpressionProblems } from './flow-expr-problems.js';
@@ -230,11 +232,11 @@ export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, 
   const problems: FlowProblem[] = [];
 
   const v = validateFlowDraft(nodes as unknown as SimNode[], edges as unknown as SimEdge[], locale);
-  const pushStructural = (level: DiagnosticLevel, list: Diagnostic[]) => {
+  const pushStructural = (level: DiagnosticLevel, list: Diagnostic[], tag = '') => {
     list.forEach((diag, i) => {
       const { target, highlight } = structuralMapping(diag, edges);
       problems.push({
-        id: `structural:${level}:${i}:${targetKey(target)}`,
+        id: `structural:${level}${tag}:${i}:${targetKey(target)}`,
         level,
         message: diag.message,
         target,
@@ -244,6 +246,9 @@ export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, 
     });
   };
   pushStructural('error', v.errors);
+  // objectui#11838 — the other positions that name a node by id: an expression
+  // reference rooted at a missing node, a boundary event on a missing host.
+  pushStructural('error', missingNodeRefDiagnostics({ nodes, edges, variables }, locale), ':ref');
   problems.push(...repeatedEdgeProblems(edges, locale));
   pushStructural('warning', v.warnings);
 
@@ -503,6 +508,13 @@ export function deriveInvalidElements(problems: FlowProblem[]): {
 // keeps, and what a node rename may take and must carry. The canvas
 // (`FlowCanvas`, `FlowPreview`) and the node inspector import them from this
 // component-free module rather than from a component.
+//
+// A rename's expression half — every reference rooted at the old id, read
+// through the expression parsers — is `expressionRefsAfterNodeRename` in
+// `./flow-node-refs.ts` (objectui#11838), beside the one list of positions that
+// name a node id (`nodeIdPositions`). It lives there rather than here because
+// the Problems rows for those positions (`missingNodeRefDiagnostics`) read the
+// same list from `./simulator/flow-sim-validate.ts`, which this module imports.
 
 /**
  * A fresh node id (objectui#11772): `uniqueId('node', …)` over every id the

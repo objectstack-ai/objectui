@@ -29,3 +29,8 @@ READMEs parses on the narrowed container.
 
 What did not move: the list view's own `calendar` block, which keeps `.passthrough()` and
 `defaultView`, and the renderers' reads.
+
+**Note added 2026-10-08 (objectui#6152 round 11):** the list view's `calendar` block no longer keeps
+`.passthrough()` or `defaultView`. It is now the spec's own list-view slot by reference, strict, with
+`defaultView` refused by name; see `.changeset/6152-list-view-blocks-strict.md`. The renderers' reads
+still have not moved.

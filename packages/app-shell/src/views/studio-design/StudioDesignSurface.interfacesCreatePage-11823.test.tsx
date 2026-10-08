@@ -174,7 +174,7 @@ describe('the Interfaces pillar creates a page and opens it on source plus live 
     await ready();
     const dialog = await openNewPage();
     typeName(dialog, 'Team handbook');
-    expect((within(dialog).getByTestId('create-page-kind') as HTMLSelectElement).value).toBe('html');
+    expect(within(dialog).getByTestId('create-page-kind').textContent).toBe('HTML');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save as draft' }));
 
     await waitFor(() => expect(savesOf('app')).toHaveLength(1), { timeout: 8000 });
@@ -215,7 +215,10 @@ describe('the Interfaces pillar creates a page and opens it on source plus live 
     await ready();
     const dialog = await openNewPage();
     typeName(dialog, 'Team handbook');
-    fireEvent.change(within(dialog).getByTestId('create-page-kind'), { target: { value: 'react' } });
+    // The kind picker is the shared `Select` (objectui#11865); its list opens in
+    // a portal outside the dialog.
+    fireEvent.keyDown(within(dialog).getByTestId('create-page-kind'), { key: 'ArrowDown' });
+    fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'React' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save as draft' }));
 
     await waitFor(() => expect(savesOf('app')).toHaveLength(1), { timeout: 8000 });

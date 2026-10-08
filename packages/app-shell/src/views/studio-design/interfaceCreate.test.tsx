@@ -12,7 +12,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { AppSchema, DashboardSchema, NavigationItemSchema, PageSchema, ReportSchema } from '@objectstack/spec/ui';
 import { CAP_REACT_PAGES, disableCapability, enableCapability } from '@object-ui/core';
 import { SchemaRenderer } from '@object-ui/react';
@@ -145,6 +145,23 @@ describe('the navigation entry that links a new item (objectui#11823 step 2)', (
   });
 });
 
+/**
+ * The options a create-form picker lists, opened from the keyboard. The pickers
+ * are the shared `Select` (objectui#11865); `interfaceCreate.sharedSelect-11865`
+ * pins the conversion itself.
+ */
+async function listed(testId: string): Promise<HTMLElement[]> {
+  fireEvent.keyDown(screen.getByTestId(testId), { key: 'ArrowDown' });
+  return within(await screen.findByRole('listbox')).getAllByRole('option');
+}
+
+/** Pick the option labelled `label` from a create-form picker. */
+async function pickOption(testId: string, label: string): Promise<void> {
+  const option = (await listed(testId)).find((o) => o.textContent === label);
+  if (!option) throw new Error(`${testId} lists no "${label}"`);
+  fireEvent.click(option);
+}
+
 describe('ReportCreateFields (objectui#11823 step 2)', () => {
   function Host({ initial = NO_REPORT_BINDING }: { initial?: ReportBinding }) {
     const [value, setValue] = React.useState<ReportBinding>(initial);
@@ -159,16 +176,16 @@ describe('ReportCreateFields (objectui#11823 step 2)', () => {
   it('chooses nothing for the author, and a dataset change clears the measure', async () => {
     render(<Host />);
     const dataset = await screen.findByTestId('create-report-dataset');
-    expect((dataset as HTMLSelectElement).value).toBe('');
+    expect(dataset.textContent).toBe(t('engine.studio.interfaces.create.datasetPlaceholder', 'en-US'));
     expect(screen.queryByTestId('create-report-measure')).toBeNull();
 
-    fireEvent.change(dataset, { target: { value: 'orders_ds' } });
+    await pickOption('create-report-dataset', 'Orders (orders_ds)');
     const measure = await screen.findByTestId('create-report-measure');
-    expect((measure as HTMLSelectElement).value).toBe('');
-    fireEvent.change(measure, { target: { value: 'revenue' } });
+    expect(measure.textContent).toBe(t('engine.studio.interfaces.create.measurePlaceholder', 'en-US'));
+    await pickOption('create-report-measure', 'Revenue (revenue)');
     expect(screen.getByTestId('binding')).toHaveTextContent('{"dataset":"orders_ds","measure":"revenue"}');
 
-    fireEvent.change(dataset, { target: { value: 'tickets_ds' } });
+    await pickOption('create-report-dataset', 'Tickets (tickets_ds)');
     expect(screen.getByTestId('binding')).toHaveTextContent('{"dataset":"tickets_ds","measure":""}');
   });
 
@@ -258,28 +275,24 @@ describe('PageCreateFields (objectui#11823 step 3)', () => {
 
   afterEach(() => enableCapability(CAP_REACT_PAGES));
 
-  it('offers html and react, starting on html, and the hint follows the choice', () => {
+  it('offers html and react, starting on html, and the hint follows the choice', async () => {
     render(<Host />);
-    const select = screen.getByTestId('create-page-kind') as HTMLSelectElement;
-    expect(Array.from(select.options).map((o) => [o.value, o.textContent])).toEqual([
-      ['html', 'HTML'],
-      ['react', 'React'],
-    ]);
-    expect(select.value).toBe('html');
+    expect(screen.getByTestId('create-page-kind').textContent).toBe('HTML');
     expect(screen.getByTestId('create-page-kind-hint')).toHaveTextContent(
       t('engine.studio.interfaces.create.pageKindHtmlHint', 'en-US'),
     );
-    fireEvent.change(select, { target: { value: 'react' } });
+    const options = await listed('create-page-kind');
+    expect(options.map((o) => o.textContent)).toEqual(['HTML', 'React']);
+    fireEvent.click(options[1]);
     expect(screen.getByTestId('kind')).toHaveTextContent('react');
     expect(screen.getByTestId('create-page-kind-hint')).toHaveTextContent(
       t('engine.studio.interfaces.create.pageKindReactHint', 'en-US'),
     );
   });
 
-  it('offers no react on a deployment that turned react pages off', () => {
+  it('offers no react on a deployment that turned react pages off', async () => {
     disableCapability(CAP_REACT_PAGES);
     render(<Host />);
-    const select = screen.getByTestId('create-page-kind') as HTMLSelectElement;
-    expect(Array.from(select.options).map((o) => o.value)).toEqual(['html']);
+    expect((await listed('create-page-kind')).map((o) => o.textContent)).toEqual(['HTML']);
   });
 });

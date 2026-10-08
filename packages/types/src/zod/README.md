@@ -19,8 +19,9 @@ This directory contains runtime validation schemas using [Zod](https://github.co
 Only the component envelope (`type: 'list-view'` + `objectName`), the legacy objectui
 vocabulary (`viewType`/`fields`/`filters`/`show*`/`densityMode`/…), and the handful of
 configs whose objectui shape is intentionally broader than spec's (`userFilters`,
-`sharing`, `aria`, and the per-view-type
-`kanban`/`calendar`/`gantt`/`gallery`/`timeline`) are declared locally on top.
+`sharing`, `aria`) are declared locally on top. The per-view-type
+`kanban`/`calendar`/`gallery`/`timeline` blocks are declared locally too, but only to add
+named refusals: each is the spec's own list-view slot by reference (below).
 `conditionalFormatting` is declared locally too, but it is no longer broader than spec
 (objectui#11533): it is the spec list view's own `{ condition, style }` rule, by
 reference, with objectui's string `condition` arm and the retired native dialect
@@ -30,25 +31,32 @@ is `z.infer<typeof ListViewSchema> & ListViewRuntimeProps`. A drift-guard test
 (`__tests__/list-view-spec-parity.test.ts`) fails if the spec grows a field objectui
 hasn't triaged. **Do not hand-add spec-owned fields here** — import them from the spec.
 
-### Per-view-type configs derive from the spec — #2231
+### Per-view-type configs are the spec's list-view slots, by reference — #2231, objectui#6152
 
-`kanban` / `calendar` / `gantt` / `gallery` / `timeline` on `ListViewSchema` are the
-spec's config schemas `.partial()`-ed (the product authors partial configs, and spec
-marks `columns` / `titleField` / `startDateField` required). `gantt` has no local
-schema at all — it flows in with the rest of `SpecListViewFields`.
+`kanban` / `calendar` / `gallery` / `timeline` on `ListViewSchema` are each the spec
+`ListViewSchema` slot of that name, by reference (objectui#6152 round 11): strict, so an
+undeclared key is refused with the spec's own `unrecognized_keys`. `kanban` and
+`timeline` stay `.partial()`, because app-shell installs derived defaults that leave out
+a member the spec requires (`columns`, `titleField`); `calendar` requires
+`startDateField`, as the spec does; the gallery slot requires nothing. `gantt` has no
+local schema at all — it flows in with the rest of `SpecListViewFields`.
 
-Only these keys are local, and each is asserted in the drift guard:
+Only these keys are local, each a named REFUSAL that names what to write instead, and
+each is asserted in the drift guard:
 
-| config | local key | why |
+| config | refused key | write instead |
 | :--- | :--- | :--- |
-| `kanban` | `groupField`, `cardFields` | deprecated aliases for spec `groupByField` / `columns` |
-| `calendar` | `defaultView` | no spec counterpart — promote it rather than growing this |
-| `gallery` | `imageField` | deprecated alias for spec `coverField` |
-| `timeline` | `dateField` | deprecated alias for spec `startDateField` |
+| `kanban` | `groupField`, `cardFields` | `groupByField`, `columns` |
+| `kanban` | `groupBy` (objectui#8365) | `groupByField` |
+| `calendar` | `defaultView` | nothing on this block: the spec has no such member here |
+| `calendar` | `dateField`, `endField` (objectui#8355) | `startDateField`, `endDateField` |
+| `gallery` | `imageField` | `coverField` |
+| `timeline` | `dateField` | `startDateField` |
 
-**The spec key is canonical and wins at every read-site.** The aliases exist so stored
-view metadata keeps validating; don't author new metadata with them, and don't add a
-new alias here — rename at the producer instead.
+**The spec key is canonical.** A stored view that still carries a pre-#2231 alias keeps
+rendering, because `normalizeListViewSchema` (`@object-ui/core`) folds it forward, but
+the door refuses it on authored metadata. Don't add a new local key here: declare it in
+`@objectstack/spec`, or rename at the producer.
 
 ### Spec sub-schemas are re-exported by reference (not mirrored) — #2231
 

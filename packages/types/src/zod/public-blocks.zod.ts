@@ -1353,22 +1353,29 @@ export const ElementDefinitionListBlockSchema = BaseSchema.extend({
 const ELEMENT_REPEATER_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'element:repeater',
   'its registration (`element:repeater`, `@object-ui/components`) hands the node to `RepeaterRenderer`, an '
-    + '`any`-typed renderer that reads the props bag (`readProps`) and `className` and nothing else off the node',
-  'one line per record of `properties.object` that its query returns, printing that record\'s '
-    + '`titleField` and `fields` values. It has NO content channel: no per-row template and no child slot',
+    + '`any`-typed renderer that reads the props bag (`readProps`), the node\'s `dataSource` binding and `className`',
+  'one line per record its query returns (over `dataSource.object`, else `properties.object`), printing that '
+    + 'record\'s `titleField` and `fields` values. It has NO content channel: no per-row template and no child slot',
 );
 
 /**
  * `element:repeater` — `ComponentPropsMap['element:repeater']` (objectui#10872
- * batch 4).
+ * batch 4), plus the node's `dataSource` binding (objectui#11880).
  *
- * Its renderer reads the props bag only (`readProps`), and never the node's
- * `dataSource` binding, so the row's query keys are the only way to aim it. The
- * row requires `object`, as `element:number`'s does, but with NO waiver: a
- * repeater with no `object` never queries, so a bag without one is refused at
- * `properties.object`. A `fields` entry is a bare name or a strict `{ field }`;
- * a `label` there is refused by name, because the list has no header row to
- * print it in.
+ * Its renderer reads the node's `dataSource` binding FIRST and the row's flat
+ * query keys (`object`, `filter`, `sort`, `limit`) as the fallback, until the
+ * spec retires those keys at the v18 pin bump (objectstack#11509, ruled
+ * A-narrow, objectui first). So the arm declares `dataSource` as the spec's
+ * `ElementDataSourceSchema`, by reference, as `element:number` and
+ * `record:line_items` do; left undeclared, the strict face refused, as an
+ * unrecognized key, the one binding the renderer reads first.
+ *
+ * The row requires `object`, as `element:number`'s does, but with NO waiver:
+ * the spec row requires it and this step changes no requiredness, so a bag
+ * without `object` is refused at `properties.object` whatever the binding
+ * says. A node with no bag at all is not judged, as on every arm here. A
+ * `fields` entry is a bare name or a strict `{ field }`; a `label` there is
+ * refused by name, because the list has no header row to print it in.
  *
  * It has no content channel at all — each row prints fields of the queried
  * record, and nothing an author writes is placed inside a row — so the node's
@@ -1381,6 +1388,13 @@ export const ElementRepeaterBlockSchema = BaseSchema.extend({
   // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
   ...flatPropRefusals('element:repeater', stripImportedDefaults(SpecElementRepeaterPropsSchema)),
   properties: propsBag('element:repeater', stripImportedDefaults(SpecElementRepeaterPropsSchema)),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(
+      'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
+      + '`PageComponentSchema.dataSource` declares, by reference. The repeater reads it first, and its flat '
+      + '`properties` query keys only as the fallback; `properties.object` stays required, as the spec row requires it.',
+    ),
   // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,
   // each kept a MEMBER (see "The content channels" above).
   body: retirementTombstone(ELEMENT_REPEATER_NEITHER_CHANNEL),

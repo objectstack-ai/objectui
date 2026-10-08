@@ -27,12 +27,29 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MetadataClient } from '@object-ui/data-objectstack';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+import { t } from '../metadata-admin/i18n';
 import { PackageOwdOverviewPanel } from './PackageOwdOverviewPanel';
+
+const en = (key: string) => t(key, 'en-US');
+
+/** What each dial lists an OWD value under; the dials are the shared Select (objectui#11865). */
+const OWD_LABEL: Record<string, string> = {
+  '': en('engine.studio.settings.sharingUnset'),
+  private: en('engine.studio.settings.sharingPrivate'),
+  public_read: en('engine.studio.settings.sharingPublicRead'),
+};
+
+/** Pick a dial's option by its label, through the trigger, as a user does. */
+async function pickOwd(testId: string, label: string): Promise<void> {
+  fireEvent.keyDown(screen.getByTestId(testId), { key: 'ArrowDown' });
+  const listbox = await screen.findByRole('listbox');
+  fireEvent.click(within(listbox).getByRole('option', { name: label }));
+}
 
 const PKG = 'com.acme.app';
 
@@ -162,19 +179,19 @@ describe('PackageOwdOverviewPanel — an unsaved object is not asked for /layers
     const row = screen.getByTestId(`owd-row-${FRESH.name}`);
     expect(row).toHaveTextContent('Fresh');
     expect(row).toHaveTextContent('Unpublished draft');
-    expect((screen.getByTestId(`owd-internal-${FRESH.name}`) as HTMLSelectElement).value).toBe('private');
-    expect((screen.getByTestId(`owd-external-${FRESH.name}`) as HTMLSelectElement).value).toBe('private');
+    expect(screen.getByTestId(`owd-internal-${FRESH.name}`).textContent).toBe(OWD_LABEL.private);
+    expect(screen.getByTestId(`owd-external-${FRESH.name}`).textContent).toBe(OWD_LABEL.private);
     // CONTROL: the published object's row is its baseline.
-    expect((screen.getByTestId(`owd-internal-${ACCOUNT.name}`) as HTMLSelectElement).value).toBe('public_read');
+    expect(screen.getByTestId(`owd-internal-${ACCOUNT.name}`).textContent).toBe(OWD_LABEL.public_read);
   });
 
   it('SAVE: the unsaved object is saved over its draft with no /layers; the published one is re-read once', async () => {
     await openPanel();
     const before = { fresh: layersAsked(FRESH.name), account: layersAsked(ACCOUNT.name) };
 
-    fireEvent.change(screen.getByTestId(`owd-internal-${FRESH.name}`), { target: { value: 'public_read' } });
-    fireEvent.change(screen.getByTestId(`owd-external-${FRESH.name}`), { target: { value: 'public_read' } });
-    fireEvent.change(screen.getByTestId(`owd-internal-${ACCOUNT.name}`), { target: { value: 'private' } });
+    await pickOwd(`owd-internal-${FRESH.name}`, OWD_LABEL.public_read);
+    await pickOwd(`owd-external-${FRESH.name}`, OWD_LABEL.public_read);
+    await pickOwd(`owd-internal-${ACCOUNT.name}`, OWD_LABEL.private);
     fireEvent.click(screen.getByTestId('owd-save'));
     await waitFor(() => expect(draftPuts(FRESH.name)).toHaveLength(1));
     await waitFor(() => expect(draftPuts(ACCOUNT.name)).toHaveLength(1));
@@ -198,7 +215,7 @@ describe('PackageOwdOverviewPanel — an unsaved object is not asked for /layers
     // The draft read failed, so the baseline is the only source left: read, as
     // before (the framework answers 404, and the row stays on nothing, as before).
     expect(layersAsked(FRESH.name)).toBe(1);
-    expect((screen.getByTestId(`owd-internal-${FRESH.name}`) as HTMLSelectElement).value).toBe('');
+    expect(screen.getByTestId(`owd-internal-${FRESH.name}`).textContent).toBe(OWD_LABEL['']);
     expect(screen.getByTestId(`owd-row-${FRESH.name}`)).not.toHaveTextContent('Unpublished draft');
   });
 });

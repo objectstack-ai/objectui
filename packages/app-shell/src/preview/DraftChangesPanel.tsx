@@ -642,7 +642,14 @@ export function DraftChangesPanel({
                             <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
                           )}
                           {isUnchanged ? (
-                            <Equal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            // Named, not hidden: this glyph is where the row
+                            // says why it carries no badge. The drill-in under
+                            // it prints the same sentence as text.
+                            <Equal
+                              role="img"
+                              aria-label={noChangeText}
+                              className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                            />
                           ) : entry.kind === 'new' ? (
                             <FilePlus2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
                           ) : entry.kind === 'update' ? (
@@ -651,9 +658,7 @@ export function DraftChangesPanel({
                             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
                           )}
                           <span className="min-w-0 flex-1 truncate font-mono text-xs">{entry.name}</span>
-                          {isUnchanged ? (
-                            <span className="sr-only">{noChangeText}</span>
-                          ) : entry.kind ? (
+                          {!isUnchanged && entry.kind ? (
                             <Badge
                               variant="outline"
                               className={

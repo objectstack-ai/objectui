@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import React from 'react';
 import { ObjectValidationsPanel } from './ObjectValidationsPanel';
 
@@ -43,8 +43,8 @@ describe('ObjectValidationsPanel', () => {
     fireEvent.click(screen.getByText('New'));
     // The per-type list sits under Advanced since objectui#11861.
     fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
-    // Target the menu <button> (the Type <select> has an <option> of the same
-    // text — a native option is role "option", not "button").
+    // Target the menu <button> (the Type picker shows the same text — its
+    // trigger is role "combobox", not "button").
     fireEvent.click(screen.getByRole('button', { name: 'Script — CEL fail condition' }));
     // An empty condition 422s the whole draft save (spec ExpressionInputSchema),
     // and the old `'false'` placeholder saved a rule that never fires — so a new
@@ -93,13 +93,18 @@ describe('ObjectValidationsPanel', () => {
     expect(patch.validations[1].type).toBe('state_machine');
   });
 
-  it('converts a rule to another type, reseeding type-specific fields', () => {
+  it('converts a rule to another type, reseeding type-specific fields', async () => {
     const onPatch = vi.fn();
     render(<ObjectValidationsPanel draft={draft} onPatch={onPatch} />);
     fireEvent.click(screen.getByText('no_negative'));
-    // The Type <select> holds the current type; switching it converts the rule.
-    const typeSelect = screen.getByDisplayValue('Script — CEL fail condition');
-    fireEvent.change(typeSelect, { target: { value: 'format' } });
+    // The Type picker (the shared Select, objectui#11865) holds the current
+    // type; switching it converts the rule.
+    const typePicker = screen.getByTestId('rule-type');
+    expect(typePicker).toHaveTextContent('Script — CEL fail condition');
+    fireEvent.keyDown(typePicker, { key: 'ArrowDown' });
+    fireEvent.click(
+      within(await screen.findByRole('listbox')).getByRole('option', { name: 'Format — regex / built-in format' }),
+    );
     const patch = onPatch.mock.calls[0][0];
     expect(patch.validations[0]).toMatchObject({ type: 'format', name: 'no_negative', message: '金额不能为负' });
     // format has no `condition`; the reseed drops it.

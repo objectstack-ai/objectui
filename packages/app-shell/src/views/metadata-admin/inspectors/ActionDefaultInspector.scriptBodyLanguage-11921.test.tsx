@@ -32,6 +32,12 @@
  * the empty `patch` the spec requires of it; the Type control's write for every
  * non-script type is unchanged and writes no body; an action bound to a
  * registered function by `target` gets no body seeded.
+ *
+ * Parity: the writer's per-language key list, `BODY_KEYS_BY_LANGUAGE`, is
+ * written out in the inspector so the spec's body schema stays out of the
+ * console's first load. The last block compares it with the spec's own union,
+ * `HookBodySchema.options`, in both directions: the same languages, and per
+ * language the same keys. The spec is imported here, test-side only.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -39,6 +45,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { ActionSchema } from '@objectstack/spec/ui';
+import { HookBodySchema } from '@objectstack/spec/data';
 
 // objectui#4697: the inspector calls `useObjectOptions()` / `useObjectFields()`
 // / `useMetaOptions()` on mount. Stub the shared client so nothing reaches the
@@ -48,7 +55,7 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock('../useMetadata', () => ({ useMetadataClient: () => state.metadataClient }));
 
-import { ActionDefaultInspector } from './ActionDefaultInspector';
+import { ActionDefaultInspector, BODY_KEYS_BY_LANGUAGE } from './ActionDefaultInspector';
 
 afterEach(cleanup);
 
@@ -286,5 +293,22 @@ describe('scriptBodyPin — controls: the other writes (objectui#11921)', () => 
     await pick('What it does', RUN_A_SCRIPT);
     expect(seen.writes.at(-1)).toStrictEqual({ operation: undefined, patch: undefined });
     expect(refusals(seen.draft)).toEqual([]);
+  });
+});
+
+describe('scriptBodyPin — the writer key list matches the spec body union (objectui#11921)', () => {
+  /** The spec's own answer: each `HookBodySchema` shape, keyed by its `language` literal. */
+  const specKeys = new Map<string, string[]>(
+    HookBodySchema.options.map((shape) => [shape.shape.language.value, Object.keys(shape.shape).sort()]),
+  );
+
+  it('names the same languages as the spec union', () => {
+    expect([...BODY_KEYS_BY_LANGUAGE.keys()].sort()).toEqual([...specKeys.keys()].sort());
+  });
+
+  it('admits, per language, exactly the keys the spec shape declares: none missing, none extra', () => {
+    for (const [language, keys] of specKeys) {
+      expect([...(BODY_KEYS_BY_LANGUAGE.get(language) ?? [])].sort(), language).toEqual(keys);
+    }
   });
 });

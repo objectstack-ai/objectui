@@ -31,7 +31,6 @@
 import * as React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { ActionLocation } from '@objectstack/spec/ui';
-import { HookBodySchema } from '@objectstack/spec/data';
 import {
   ACTION_PARAM_FIELD_TYPES,
   OBJECTUI_LOCAL_PARAM_FIELD_TYPES,
@@ -143,13 +142,24 @@ const BODY_LANG_OPTS: KeyedOption[] = [
 ];
 
 /**
- * The keys each body language admits, read off the spec's own union
- * (`HookBodySchema.options`) rather than listed here: a key the spec adds to,
- * or retires from, either shape moves this map with it.
+ * The keys each body language admits: the two shapes of the spec's
+ * `HookBodySchema` union, keyed by their `language` literal.
+ *
+ * Listed here rather than read off the spec at runtime. That read imported the
+ * schema into the console's first load, which only the parity pin in
+ * `ActionDefaultInspector.scriptBodyLanguage-11921.test.tsx` needs. That pin
+ * compares this list with `HookBodySchema.options` both ways, so a key the spec
+ * adds to or retires from either shape fails it, and so does a language.
+ *
+ * Exported for that pin alone, the way `PARAM_TYPE_OPTS` is for objectui#6538's:
+ * no barrel re-exports this module, so it is not package surface. The cost is
+ * this panel's fast refresh, which the directive below accepts by name.
  */
-const BODY_KEYS_BY_LANGUAGE: ReadonlyMap<string, ReadonlySet<string>> = new Map(
-  HookBodySchema.options.map((shape) => [shape.shape.language.value, new Set(Object.keys(shape.shape))] as const),
-);
+// eslint-disable-next-line react-refresh/only-export-components -- see above
+export const BODY_KEYS_BY_LANGUAGE: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['expression', new Set(['language', 'source'])],
+  ['js', new Set(['language', 'source', 'capabilities', 'timeoutMs', 'memoryMb'])],
+]);
 
 /** A body's authored language, or `undefined` when it names none. */
 function bodyLanguageOf(body: Record<string, unknown>): string | undefined {

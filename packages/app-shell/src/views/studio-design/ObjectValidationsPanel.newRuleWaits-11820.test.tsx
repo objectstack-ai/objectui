@@ -68,6 +68,8 @@ function Harness({ onPatch, initial = baseDraft }: { onPatch: (p: Record<string,
 
 function addFromMenu(label: string) {
   fireEvent.click(screen.getByText('New'));
+  // The per-type list sits under Advanced since objectui#11861.
+  fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
   fireEvent.click(screen.getByRole('button', { name: label }));
 }
 

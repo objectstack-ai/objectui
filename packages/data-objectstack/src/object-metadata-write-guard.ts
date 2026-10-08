@@ -215,33 +215,46 @@ function fieldEntries(fields: unknown): Array<{ name: string; def: Record<string
  * `fields` member — this door serves `view`, `app`, `flow`, `permission`,
  * `hook` and `dashboard` writes too, and has no opinion about them.
  *
- * @param type   the metadata type segment of the write (`'object'`, `'view'`, …)
- * @param item   the body about to be serialised onto the wire
- * @param writer a short label for the door, so the message names where it fired
+ * ## The message is the same at every door, and names no code (objectui#11785)
+ *
+ * The thrown text reaches authors: Studio keeps it under a refusal's Details,
+ * and the other surfaces that save through a door show it as their banner. So
+ * it names the field, its type and the remedy, and ⛔ no class, package or
+ * tracker id. The rationale for each rule lives in this module's docblock, not
+ * in the runtime string. The door's label is not printed either, which makes the
+ * text a function of the body alone: a caller that kept the body it sent can
+ * re-run this guard on it and get the identical message, which is how Studio
+ * tells this refusal apart from any other failure without parsing the prose.
+ *
+ * @param type    the metadata type segment of the write (`'object'`, `'view'`, …)
+ * @param item    the body about to be serialised onto the wire
+ * @param _writer the door's label. Every door still names itself at the call,
+ *                and the stack trace says where the write stopped; the message
+ *                does not print it (see above)
  * @throws Error naming the offending field, before any request is issued
  */
-export function assertObjectMetadataWritable(type: unknown, item: unknown, writer: string): void {
+export function assertObjectMetadataWritable(type: unknown, item: unknown, _writer: string): void {
   if (String(type) !== OBJECT_METADATA_TYPE) return;
   if (!item || typeof item !== 'object') return;
   const fields = (item as Record<string, unknown>).fields;
   for (const { name, def } of fieldEntries(fields)) {
     if (CHOICE_TYPES_REQUIRING_OPTIONS.includes(String(def.type)) && !hasOptionSource(def)) {
       throw new Error(
-        `${writer} refused this object metadata write: the field \`${name}\` is a ` +
+        `The object was not saved: the field \`${name}\` is a ` +
           `\`${String(def.type)}\` with no options: it carries ${describeOptions(def.options)}, so it ` +
           'offers nothing to choose and nothing to check a stored value against. A choice field ' +
-          'needs at least one option or a shared `picklist` (objectstack#20827), so this draft ' +
-          'stays here until it has one. Add an option, or change the field to a non-choice type.',
+          'needs at least one option or a shared `picklist`, so this draft stays here until it ' +
+          'has one. Add an option, or change the field to a non-choice type.',
       );
     }
     if (!RELATIONSHIP_TYPES_REQUIRING_REFERENCE.includes(String(def.type))) continue;
     if (isUsableTarget(def.reference)) continue;
     throw new Error(
-      `${writer} refused this object metadata write: the field \`${name}\` is a ` +
+      `The object was not saved: the field \`${name}\` is a ` +
         `\`${String(def.type)}\` and carries ${describeTarget(def.reference)}, so it names no object ` +
-        'to link to. `@objectstack/spec` refuses the same document at the server with a 422 on ' +
+        'to link to. The server refuses the same document with a 422 on ' +
         `\`fields.${name}.reference\`, and that refusal blocks every later save of this object for ` +
-        'as long as the half-filled field rides along in the draft (objectui#7714). ' +
+        'as long as the half-filled field rides along in the draft. ' +
         'Pick the target object, or change the field to a non-relationship type.',
     );
   }

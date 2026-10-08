@@ -781,7 +781,7 @@ await client.save('object', 'account', {
   name: 'account',
   fields: { owner: { type: 'lookup', label: 'Owner' } },
 });
-// throws: MetadataClient.save refused this object metadata write: the field
+// throws: The object was not saved: the field
 // `owner` is a `lookup` and carries no `reference` key at all ...
 ```
 
@@ -808,7 +808,7 @@ await client.save('object', 'deal', {
   name: 'deal',
   fields: { stage: { type: 'select', label: 'Stage', options: [] } },
 });
-// throws: MetadataClient.save refused this object metadata write: the field
+// throws: The object was not saved: the field
 // `stage` is a `select` with no options ...
 ```
 

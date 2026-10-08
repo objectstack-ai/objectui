@@ -191,6 +191,7 @@ const ar = {
       copyAll: 'نسخ الكل',
     },
     notAvailableHere: '"{{action}}" غير متاح في الصفحة الحالية.',
+    notAvailableForRecord: 'غير متاح لهذا السجل',
     completedSuccessfully: 'اكتمل الإجراء بنجاح',
     failed: 'فشل الإجراء',
     parallelFailed: 'فشل إجراء متوازٍ واحد أو أكثر',

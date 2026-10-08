@@ -47,7 +47,7 @@ entries — no code round-trip required:
 
 | Tab | Edits | Panel |
 |-----|-------|-------|
-| **Validations** | the object's inline `validations[]` (spec `ValidationRuleSchema`) | Master-detail covering **every** rule type — `script`, `cross_field`, `state_machine`, `format`, `json_schema`, `conditional`. The **New** menu adds any type (seeded with a valid, never-firing skeleton); a rule's type can be switched in place. CEL predicates reuse the shared `ConditionBuilder`, fed the object's draft fields. |
+| **Validations** | the object's inline `validations[]` (spec `ValidationRuleSchema`) | Master-detail covering **every** rule type — `script`, `cross_field`, `state_machine`, `format`, `json_schema`, `conditional`. The **New** menu opens on common rules in plain words (*End date on or after start date*, *Number can't be negative*, *Reject the save when…*); each writes a working rule, or waits for the condition the author gives. Every rule type is under **Advanced**. A new rule whose type carries a condition (`script`, `cross_field`, `conditional`) is saved only once it has one; a rule's type can still be switched in place. CEL predicates reuse the shared `ConditionBuilder`, fed the object's draft fields. |
 | **Hooks** | the separate `hook` metadata type targeting this object | Master-detail whose editor is the platform `SchemaForm` **driven by the live `hook` JSONSchema from `/meta/types`**, so its fields and enums always match the running server's contract. |
 | **Actions** | the object's inline `actions[]` (spec `ActionSchema`) | Master-detail using the type-aware `ActionDefaultInspector`; anything not curated falls through to a **"More fields"** form fed the live `action` JSONSchema, so no spec property is un-editable. |
 

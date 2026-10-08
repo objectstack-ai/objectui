@@ -1599,7 +1599,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // `ObjectView.pageSurfaceFallback-11015.test.tsx`.
   const recordSurface = layout === 'page' && !schema.onNavigate ? 'drawer' : layout;
 
-  // Determine enabled operations
+  // Determine enabled operations. `read` is THIS view's member (the row-click
+  // gate in `handleRowClick`), read off the view's own `operations`; the
+  // `table.operations` fallback is the grid's block, which retired `read`
+  // (objectui#6152 round 8), and the grid node below is handed the toggles
+  // without it.
   const operations = schema.operations || schema.table?.operations || {
     create: true,
     read: true,
@@ -2467,6 +2471,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // `authoredFilters`), and held while their inputs are unchanged — ObjectGrid
     // keys its fetch on `schema.filter`'s identity.
     const viewFilter = authoredFilters.view;
+    // objectui#6152 round 8 — the grid's `operations` block is the row's
+    // `{ create, update, delete, export }`. `read` is this view's own toggle (its
+    // row-click gate, `handleRowClick`), which `ObjectGrid` never read and the
+    // row refuses by name, so it stays here and is not handed on.
+    const { read: _viewRowClickGate, ...gridOperations } = operations;
     // objectui#7928: see the non-grid fetch above. A retired string `sort` on a
     // named view reaches `ObjectGrid` unchanged, which refuses it out loud.
     const viewSort = (currentNamedViewConfig?.sort as ObjectGridSchema['sort']) || activeView?.sort;
@@ -2501,7 +2510,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         hiddenFields,
       ), fieldOrder),
       operations: {
-        ...operations,
+        ...gridOperations,
         create: false, // Create is handled by the view's create button
       },
       defaultFilters: viewFilter || authoredFilters.tableDefaults,

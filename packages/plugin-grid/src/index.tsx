@@ -264,7 +264,7 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
       'Object this grid lists. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline `data` rows, the grid shows an error saying an object name is required and fetches nothing.',
   },
   { name: 'columns', type: 'array', description: 'Columns to show, either field names (`["name", "email"]`) or column objects (`[{ field: "name", label: "Full Name", width: 200 }]`). The canonical spelling — the deprecated `fields` is only read when this is absent.' },
-  { name: 'filter', type: 'array', description: 'Filter criteria in JSON-rules form. The canonical spelling — the deprecated `defaultFilters` is only read when this is absent.' },
+  { name: 'filter', type: 'array', description: 'Base query filter — the `ViewFilterRule` array `[{ field, operator, value }, ...]`, lowered to `$filter`. The canonical spelling — the deprecated `defaultFilters` is only read when this is absent.' },
   // ── identity ──────────────────────────────────────────────────────────────
   // `label` is an `I18nLabel` in the spec row (`ComponentPropsMap['object-grid']`),
   // and every read of it in `ObjectGrid` (the table caption, the export title,
@@ -330,7 +330,7 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
   // relay are `ObjectGrid`'s (`ObjectGrid.keyboardNavigation-11068.test.tsx`).
   { name: 'keyboardNavigation', type: 'boolean', description: 'Arrow-key cell navigation on the WAI-ARIA grid pattern: the grid\'s data cells take one place in the Tab order instead of one each (a link or button inside a cell keeps its own), and the arrow keys move focus between them (Home / End to the ends of the row, Ctrl+Home / Ctrl+End to the ends of the page). Enter still opens an editable cell, and an edit ended with Enter or Escape returns focus to its cell. Defaults to on when the grid renders editable; a read-only grid keeps every cell its own Tab stop unless this is `true`, and `false` turns it off on an editable grid.' },
   { name: 'navigation', type: 'object', description: 'What a row click does, `{ mode: "page" | "drawer" | "modal" | "split" | "none", … }`.' },
-  { name: 'operations', type: 'object', description: 'Toggles for the built-in create/read/update/delete/export/import affordances, e.g. `{ delete: false }`.' },
+  { name: 'operations', type: 'object', description: 'Toggles for the built-in affordances, `{ create, update, delete, export }`, e.g. `{ delete: false }`. A declared block replaces the default, so an `update` / `delete` it does not name is withheld.' },
   { name: 'exportOptions', type: 'object', description: 'Export config, `{ formats, maxRecords, includeHeaders, fileNamePrefix, streaming }`. `streaming` (default true) picks server-side streaming vs browser-side assembly for the export — a behaviour fork, not decoration; set it to `false` to force browser-side assembly. Needs `operations.export` to be reachable from the toolbar.' },
 ];
 

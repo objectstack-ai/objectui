@@ -193,7 +193,9 @@ describe('the positive direction — the declared members still parse', () => {
     ['groupBy', 'status'],
     ['limit', 50],
     ['columns', [{ id: 'todo', title: 'To Do' }]],
-    ['filter', [['status', '=', 'open']]],
+    // The `ViewFilterRule` array: respelled (objectui#6152 round 8) from the AST
+    // tuple array `[['status', '=', 'open']]`, which the row now refuses.
+    ['filter', [{ field: 'status', operator: 'equals', value: 'open' }]],
     ['titleField', 'name'],
     ['cardFields', ['owner']],
     // `quickAdd` left this list when objectui#8285 retired it on this arm.

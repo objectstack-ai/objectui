@@ -38,7 +38,7 @@
  */
 
 import '@testing-library/jest-dom/vitest';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
@@ -143,6 +143,14 @@ function attributeValues(): string[] {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The real `AppHeader` reads its user-scoped feeds (the inbox, approvals) and
+  // the AI agent catalogue on mount; each answers empty here, so no request
+  // leaves the process.
+  vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [] })));
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('the Han sweep is a live instrument', () => {

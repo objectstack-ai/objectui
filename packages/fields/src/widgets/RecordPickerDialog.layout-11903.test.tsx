@@ -53,7 +53,7 @@ const USERS = Array.from({ length: 12 }, (_, i) => {
   return { id: `u${n}`, name: `User ${n}`, email: `user${n}@example.com`, email_verified: i % 3 !== 0 };
 });
 
-const USER_FIELDS: Record<string, any> = {
+const USER_FIELDS: Record<string, { type: string; label: string }> = {
   name: { type: 'text', label: 'Name' },
   email: { type: 'email', label: 'Email' },
   email_verified: { type: 'boolean', label: 'Email verified' },
@@ -64,7 +64,7 @@ const THREE_COLUMNS = ['name', 'email', 'email_verified'];
 
 function makeDataSource(rows: Record<string, unknown>[] = USERS) {
   return {
-    find: vi.fn(async (_objectName: string, params?: Record<string, any>) => {
+    find: vi.fn(async (_objectName: string, params?: { $skip?: number; $top?: number }) => {
       const skip = params?.$skip ?? 0;
       const top = params?.$top ?? rows.length;
       return { data: rows.slice(skip, skip + top), total: rows.length };
@@ -342,7 +342,7 @@ const PROBE_VALUE: Record<string, unknown> = {
 const REFERENCE_TYPES = new Set(['lookup', 'master_detail', 'tree']);
 
 function censusFields(types: readonly string[]) {
-  const fields: Record<string, any> = { name: { type: 'text', label: 'Name' } };
+  const fields: Record<string, Record<string, unknown>> = { name: { type: 'text', label: 'Name' } };
   for (const type of types) {
     fields[`f_${type}`] = REFERENCE_TYPES.has(type)
       ? { type, label: type, reference: 'census' }

@@ -185,9 +185,9 @@ export function PageView() {
                   // turns it red. Both directions were measured on objectui#9718.
                   //
                   // The pair is built by `pageKindNode`, the ONE builder this
-                  // writer shares with Studio's source-page live preview
-                  // (objectui#11933): the preview used to write `type` alone,
-                  // so it drew an app or home page as a record page.
+                  // writer shares with Studio's page previews (objectui#11933):
+                  // they used to write `type` alone, so they drew an app or
+                  // home page as a record page.
                   ...pageKindNode(page),
                   // `context` is built here, never read off the page: `PageSchema`
                   // refuses a page-level `context` key, so no parsed page can

@@ -155,7 +155,8 @@ export function SourcePageEditor({
   // the node `type` the registry dispatches on and the `pageType` PageRenderer
   // reads for the page width and the title heading. Writing `type` alone drew
   // every source page as a record page — record width, no title — whatever
-  // its kind (objectui#11933). One shared builder writes both, for both.
+  // its kind (objectui#11933). One shared builder writes both keys, for the
+  // running app and for both Studio page previews.
   const previewSchema = React.useMemo(
     () => ({ ...(draft as Record<string, unknown>), ...pageKindNode(draft as { type?: string }) }),
     [draft],

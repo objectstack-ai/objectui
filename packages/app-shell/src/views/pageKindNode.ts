@@ -22,20 +22,22 @@
  *   heading. Without it every page falls back to `'record'`: the record width
  *   and no title.
  *
- * ⭐ ONE builder, because there are two writers and they drifted: `PageView`
- * (the running app) wrote both keys, while Studio's source-page live preview
- * (`SourcePageEditor`) wrote only `type`, so an `app` or `home` page previewed
- * as a record page while the running app drew it with its title and its own
- * width. That broke the preview's contract — "a live preview rendered through
- * the runtime SchemaRenderer". Both writers now spread this one builder, so
- * the two cannot drift apart again.
+ * ⭐ ONE builder, because the writers drifted: `PageView` (the running app)
+ * wrote both keys, while Studio's two page previews wrote only `type` — the
+ * source-page live preview (`SourcePageEditor`) and the Run-mode page canvas
+ * (`PagePreview`). So an `app` or `home` page previewed as a record page while
+ * the running app drew it with its title and its own width. That broke the
+ * previews' contract — "a live preview rendered through the runtime
+ * SchemaRenderer". All three writers now spread this one builder, so they
+ * cannot drift apart again.
  *
  * ⛔ Page shape only. Data and context wiring (`PageView`'s `context: { params }`
  * and the providers around it) stay with each writer: a preview has no URL.
  *
  * Pins: `page-kind-writing-end-9718` in `views/__tests__` (the running app's
- * write, kind by kind) and `SourcePageEditor.pageKind-11933` beside the
- * preview (the preview's render, through the real `PageRenderer`).
+ * write, kind by kind), and `SourcePageEditor.pageKind-11933` and
+ * `PagePreview.pageKind-11933` beside the previews (each preview's render,
+ * through the real `PageRenderer`).
  *
  * Module-private: not exported from the package entry.
  */

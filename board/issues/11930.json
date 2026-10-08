@@ -2,8 +2,8 @@
   "number": 11930,
   "kind": "issue",
   "title": "console(cloud home): a `cloud:workspace-timezone-notice` widget for the welcome page — one line naming the workspace timezone seeded at creation (objectui half of cloud#2676 step 3)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:i18n",
     "domain:ui",
     "enhancement",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-08T07:53:37Z",
-  "updated_at": "2026-10-08T07:53:37Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-08T12:44:02Z",
+  "closed_at": "2026-10-08T12:42:05Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11930",
   "body": "Filed by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). ⛔ Not a claim. This is the objectui carrier the `repo:cloud` seat asked for on objectstack-ai/cloud#2676 (retriage ask `6054981769`, seat answer Q1 → A). It is a maintainer-directed task: the cloud card quotes the maintainer's word verbatim, 「同意，按你说的立卡，不需要决策」, and its acceptance asks for a one-line notice on the welcome page.\n\n## Why objectui\n\nThe welcome page is cloud metadata (cloud `packages/service-tenant/src/pages/welcome.page.ts`), but nothing the console renders today can show a per-environment value on it. The cloud dev measured this at objectui `179f6fe9`, in report `6054952529` on the cloud card:\n- `element:text` prints its content verbatim;\n- the expression scope has no organization or environment root;\n- page variables never fetch;\n- `element:repeater` would print the whole `metadata` blob.\n\nThe pricing page hit the same wall and was answered with a registered widget, `cloud:plan-status`. This card does the same.\n\n## Scope\n\n1. **A registered widget, `cloud:workspace-timezone-notice`,** beside `cloud:plan-status` and `cloud:onboarding-next` in `packages/app-shell/src/console/home/`.\n   - It reads one additive field on the organization-scoped summary that `CloudOnboardingNext` / `CloudPlanStatus` already read (`GET /api/v1/cloud/environment-entitlements`): **`workspaceTimezoneSeed`**, a string, absent when no seed was recorded. That wire name is fixed by the cloud seat in `6054981769`.\n   - **It renders nothing when the field is absent.** That covers workspaces created before the seed existed, and servers that do not send the field yet.\n   - When the field is present, it renders one line with no dismissal state. The suggested copy, from the cloud seat: 「工作区时区在创建时已按你的浏览器设为 Asia/Shanghai，可在「设置 → 本地化」中修改」. Text only, no link: the seat answered Q2 that way, because a relative link from the control plane opens the control plane's own settings.\n2. **The new type name** joins the known schema types the CLI accepts (`packages/cli/src/utils/known-schema-types.ts`, where `cloud:plan-status` sits).\n3. **Copy** goes in `packages/i18n` for every pack, as `cloud:plan-status`'s rows do.\n\n⛔ Out of scope:\n- the cloud field itself (cloud#2676 step 2);\n- the welcome-page node (cloud#2676 step 4, after cloud's `.objectui-sha` carries this widget);\n- the console's `?timezone=` on `organization/create` (objectstack-ai/objectui#11908).\n\n## Acceptance\n\n- With `workspaceTimezoneSeed: 'Asia/Shanghai'` in the summary, the widget renders the line in EN and ZH. Without the field, it renders nothing, which is the control.\n- If the summary request fails, it renders nothing and does not throw.\n- A test pins both cases, with a reverse check.\n\n## Related\n\nobjectstack-ai/cloud#2676 (the ruling; steps 2 to 4 are cloud's) · objectstack-ai/objectui#11908 (the creation half) · objectui#10919 (`cloud:plan-status`, the precedent)\n\nDuplicate-search terms: workspace timezone notice, welcome page timezone, workspaceTimezoneSeed, cloud widget welcome"

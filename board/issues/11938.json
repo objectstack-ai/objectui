@@ -1,0 +1,35 @@
+{
+  "number": 11938,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): the Filter panel's field list asks the column read check (objectui#11925)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-08T08:58:43Z",
+  "updated_at": "2026-10-08T10:53:19Z",
+  "closed_at": "2026-10-08T10:53:18Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-08T10:53:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11938",
+  "body": "Fixes #11925\n\nClause-②: no\n\n## What this does\n\nThe list's columns drop a field the user may not read through `perms.checkField(objectName, field, 'read')`. The Filter panel's field list (`filterFields` in `packages/plugin-list/src/ListView.tsx`, built from `candidateFields`) applied no read check, so a field the grid had dropped could still be chosen as a filter condition, and the two field lists could drift apart.\n\n`filterFields` now drops every candidate for which that same call answers false, behind the same `perms.isLoaded` gate as the column list (`effectiveFields`):\n\n- **Both candidate sources pass the check:** the object definition's fields, and the declared-columns fallback used while the definition has no field map.\n- **Nothing keeps an unreadable field listed:** not the view's `filterableFields` whitelist, and not a condition the panel already holds.\n- **Nothing else changes.** The whitelist, the hidden-field rule and the ordering are as they were. With full read, or before the permission answer has loaded, the list is today's list. The memo's dependency list gains `schema.objectName` and `perms`, the inputs the column list already reads.\n\nNo export, prop, type member or accepted input changes. `perms` was already in scope where `filterFields` is computed, so no provider or prop is added.\n\n## Reach\n\nReach was measured as the card asks: a booted published server at this repository's pin, and the console from this branch in a real browser, before and after the fix. Per the card's security posture, the readings are with the seat and are not written here.\n\n## Pins\n\n`packages/plugin-list/src/__tests__/ListView.filterFieldRead-11925.test.tsx` mounts `ListView` under `MePermissionsProvider` (the provider the console mounts), hydrated with a `/me/permissions`-shaped answer, on a synthetic fixture object:\n\n- an unreadable field is absent from the Filter panel's field list, and every readable field is present;\n- the filter list and the grid's `$select` projection drop the same field;\n- control: a user who may read every field gets today's list, the same list as with no permission answer at all;\n- the `filterableFields` whitelist does not bring the field back;\n- a held condition on the field does not bring it back;\n- the declared-columns fallback drops it too, with its own full-read control.\n\n## Reverse check\n\nRun on the fix commit `6f78583`, under the shared verify lock, with `scripts/ablation-replace.mjs` (objectstack) in wrap mode. Anchor `.filter((f) => canRead(f.value))`, replaced by `.filter((f) => true || canRead(f.value))`: anchor count 1 to 0, replacement count 0 to 1, blob `889a68d78a6b` to `750c8c2a23fd`.\n\n- Predicted: the five absent pins go red and both controls stay green.\n- Observed: `Tests 5 failed | 2 passed (7)`, exactly those five red and both controls green.\n- Restore: blob after restore equals the HEAD blob `889a68d78a6b`, and `git diff HEAD` is empty.\n\nThe test imports `../ListView` from source, so no build sits between the mutation and the run.\n\n## Local gates (HEAD `878e110`, after merging `origin/main`)\n\nEach line is command, exit code, then the gate's own verdict line.\n\n- `pnpm --workspace-concurrency=2 --filter '@object-ui/plugin-list^...' build` (under the verify lock) → 0 → `VERDICT command-exit 0` (`Scope: 13 of 47 workspace projects`).\n- `pnpm exec vitest run --maxWorkers=2` over 21 files → 0 → `Test Files 21 passed (21)`, `Tests 302 passed (302)`. The files are the `git grep -l -e checkField -e filterFields` set in `packages/plugin-list/src`, every `ListView` test named for filter, permission or field, and `ListView.test.tsx`.\n- `pnpm --filter @object-ui/plugin-list type-check` → 0. Its test program (`tsconfig.test.json`) lists the new test file, measured with `--listFilesOnly`.\n- `pnpm check:control-bytes` → 0 → `check-control-bytes: OK`.\n- `pnpm check:new-line-citations` → 0 → `VERDICT new-cross-file-line-citations: 0 new citation(s)`.\n- `pnpm check:changeset-claims` → 0 → `No pending changeset names a file this change touches.`\n- `pnpm check:pending-changeset-literals` → 0 → `No test source names a pending changeset.`\n- Added from the diff (the new test uses `vi.mock` and imports workspace packages): `check:vi-mock-specifiers`, `check:vi-mock-inherit`, `check:vi-mock-override-shape`, `check:test-path-roots`, `check:phantom-deps` and `check:unreferenced-sources`, all 0 and OK. `scripts/check-changeset-presence.mjs` → 0 (one changeset added for one released package), and `scripts/check-changeset-no-major.mjs` → 0.\n- **Lint, narrowed and measured:** `eslint --no-inline-config --format json` over the two touched TypeScript files → 2 files, 0 errors. `ListView.tsx` has the same warning count as its base version linted over stdin, and the new test has none. The root `eslint.config.js` enables no type-aware linting (no `project` or `projectService`), and no rule in `eslint-rules/` reads the filesystem, so this diff cannot move an untouched file's verdict. Repo-wide `pnpm lint` and the full test farm are CI's.\n\n## Acceptance notes\n\n- A condition the panel already holds on a field the user may not read no longer finds that field in the list, so that row's field picker shows no field. The hidden-field rule keeps a held hidden field listed. The ruling makes the read rule unconditional, so the read rule does not. This was not reproduced in a browser.\n- The commit trailers are the model-free pair that `AGENTS.md` names.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01DrKzdPdyLLBW3qpZ4vtk7z)_"
+}

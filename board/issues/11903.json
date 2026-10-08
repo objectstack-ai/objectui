@@ -2,8 +2,8 @@
   "number": 11903,
   "kind": "issue",
   "title": "fields(RecordPickerDialog): one picker, one dialog layout — recompose from the design system's primitives (header rhythm, one search border, Checkbox rows, width by columns, one footer bar, confirm disabled at zero, no link cells)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -15,7 +15,6 @@
     "bug",
     "domain:ui",
     "package: fields",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -24,11 +23,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-08T05:45:43Z",
-  "updated_at": "2026-10-08T06:36:17Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-08T12:47:21Z",
+  "closed_at": "2026-10-08T12:44:05Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11903",
   "body": "Filing gate: **① a product defect with a named landing spot and a reproduction**, filed on the maintainer's word. Filed by the director seat (objectstack seat post objectstack-ai/objectstack#12708, summon #35, `session_01VYToj6PQehTEKNrjGM9akg`). The maintainer opened a role's Assigned Users section, pressed Assign user, and sent the screenshot with 「我发现了很丑的界面」; after the seat's analysis below the maintainer answered 「同意,立卡」.\n\nReader: the ui lane dev. Landing spot: `packages/fields/src/widgets/RecordPickerDialog.tsx` (`@object-ui/fields`), plus a wrapper under `packages/components/src/custom/` if a primitive needs composing (⛔ never `packages/components/src/ui/**`, the Shadcn no-touch zone, `AGENTS.md` rule #7).\n\nReproduction: console → a role → Assigned Users → Assign user (`AssignedUsersSection` renders `RecordPickerDialog` with `multiple`, object `sys_user`, three columns: name, email, email verified). The same dialog opens from every multi-select lookup field and related list.\n\nReach: ten call sites import the dialog — `LookupField`, `PeoplePicker`, `lookupColumnDisplay`, the `@object-ui/fields` index, plugin-list `ListView`, plugin-detail `RelatedList` and its index, app-shell `AccessExplainPanel` and `AssignedUsersSection`. One fix changes all of them; that is also why the fix is a contract, not a patch.\n\n## What the screenshot shows, and the override behind each\n\n| seen | cause in the component |\n|---|---|\n| the title sits on the search box with no space | the `DialogContent` wrapper sets `gap-0`, which removes the spacing the design system gives the header |\n| the search box shows a doubled, pill-shaped outline | a hand-rolled bordered wrapper `div` around an `Input` whose own border is switched off; two style sets stack |\n| the leading column is blank; nothing says the list is multi-select | the header renders an empty `w-10` cell and a row shows a `Check` icon only after it is selected; the `Checkbox` primitive is imported but not used in rows |\n| three columns stretched to about a thousand pixels | the dialog width is fixed at `lg:max-w-5xl` whatever the column count |\n| \"3 records\" and \"0 selected\" on two lines, a few pixels out of line with each other | the pagination bar carries its own horizontal padding, the `DialogFooter` does not; two status texts live in two bars that do not know about each other |\n| Confirm enabled with nothing selected | the confirm button has no `disabled` binding to the pending selection |\n| the email column renders as blue links inside a picker | the cell renderer follows the field type; inside a picker a link is a click target competing with row selection |\n\nEach fix in this file's history was correct for its issue (the file pins at least five of them in comments). The whole is wrong because nothing states what the whole must look like. This card states it.\n\n## The contract (acceptance; each point is checkable)\n\n1. **Header rhythm.** `DialogContent` keeps the design system's header and footer spacing; no `gap-0` or equivalent override at the container. The title-to-search distance is what `DialogHeader` gives every other dialog.\n2. **One search border.** The search field is the `Input` primitive with a leading icon in the design system's own pattern; at rest exactly one border, on focus exactly one ring. No wrapper carrying a second border.\n3. **Checkbox rows.** In `multiple` mode each row's leading cell renders the `Checkbox` primitive reflecting the selected state; the header cell renders the design system's table-selection pattern (a select-all for the page, or an accessible empty head — the dev picks what the Table primitive supports and says which). Row click still toggles; keyboard behaviour (arrow keys, Enter) unchanged.\n4. **Width by columns.** The dialog's max width follows the column count: a three-column picker is not wider than it needs; a ladder of width classes keyed on column count is acceptable, so is a measured width. The `lg:max-w-5xl` ceiling may remain as the ceiling.\n5. **One footer bar.** The record count, the page controls and the selected count sit on one bar with one horizontal padding, Cancel and Confirm right-aligned on that same bar in `multiple` mode. Single-select mode keeps its one bar without buttons.\n6. **Confirm disabled at zero.** The confirm control carries `disabled` while the pending selection is empty.\n7. **No link cells.** Inside the picker a cell never renders as a navigational link: email, url and lookup values render as text (the row is the only click target). The inline `LookupField` dropdown and the grid slot (`renderGrid`) keep their own rendering — out of scope here.\n8. **Reviewable by eye and by test.** The console preview gallery (`apps/console/src/preview-gallery.tsx`) shows the dialog in `multiple` mode with three columns so a human can look at it; one pin per DOM-checkable point (3, 6, 2's single border, 5's single bar) in the package's test suite; the existing two-surface agreement pin (objectui#5492) and the keyboard pin (objectui#7154) stay green.\n\n## ⛔ Out of scope\n\n- The inline lookup dropdown, the filter bar and panel, the external grid slot, the `ui/` primitives themselves.\n- Any new primitive or theme token; the fix uses what `@object-ui/components` already ships.\n- Other surfaces with the same class of defect: the coverage-sweep angle filed in objectstack (titled \"qa(checklist): the coverage sweep gains an angle — surface kinds vs the one design system\") enumerates them; each gets its own card.\n\nPriority: p2 — the picker is on the North Star path (records · lookup-picker-create-new; identity · admin-lifecycle-operations) and it runs but renders wrong (priority rule 2, 「能跑但出错 ⇒ P2」). The North Star sentence this card is the first application of is the companion objectstack card \"docs(north-star): priority rule 4 gains the human-facing standard\".\n\nDedupe: the 59 open objectui issues were listed through the repository endpoint and scanned (title and body) for RecordPickerDialog / record picker / lookup picker / dialog layout / design system / 美观 / 视觉 / Assign user: 0.\n\nRelated: `packages/fields/src/widgets/RecordPickerDialog.tsx` · `packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx` · `packages/components/src/custom/` · `apps/console/src/preview-gallery.tsx` · `AGENTS.md` rules #3 and #7 · objectui#5492 · objectui#7154.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

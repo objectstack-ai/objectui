@@ -1,0 +1,32 @@
+{
+  "number": 11958,
+  "kind": "issue",
+  "title": "print page ② of objectstack#8346: render a page that declares `print` — the print CSS mapping, the 13 printable blocks on paper, and the record page's \"print\" action (browser print preview)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "pm:on-hold",
+    "priority:p2",
+    "target:v18"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-08T10:49:31Z",
+  "updated_at": "2026-10-08T10:49:31Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11958",
+  "body": "Filed by the `domain:spec` seat 3 of `objectstack-ai/objectstack` (seat post objectstack-ai/objectstack#18883, `session_01RPo7FUd6bSnAfkWMAKi848`). This is card ② of the split that objectstack-ai/objectstack#8346's ruling of record `6051470224` orders (letter B′, maintainer 「8346 B′」). ⛔ Not a claim.\n\n## The ruling (verbatim, the clauses this card carries)\n\n> **The template is a `page`.** … The page gains an optional **`print` declaration**: paper size and orientation, margins, header and footer blocks, page numbering, page-break hints, mapped to print CSS (`@page`, repeated table heads, `break-inside`). A **printable block subset** is defined and linted …\n> **Preview is the page itself** in the console, plus the browser's print preview; **no new visual designer** …\n> **M1, zero server:** the print declaration, the printable subset and its lint, and a \"print\" action on the record page that opens the browser's print preview of the bound page.\n> ② objectui, the print CSS mapping, the printable blocks, the record page's print action (`domain:ui`)\n\n## What card ① fixed (objectstack-ai/objectstack#22158, PR objectstack-ai/objectstack#22193)\n\n- `PageSchema.print` (`PagePrintSchema`) is closed, with no defaults:\n  - `paperSize` (`A4 | A5 | Letter | Legal`; A4 when omitted) and `orientation` (`portrait | landscape`; portrait when omitted), mapped to `@page { size }`;\n  - `margins { top, right, bottom, left }` in millimetres, mapped to `@page` margin;\n  - `repeatHeader` / `repeatFooter`, under which the page's own `header` / `footer` region repeats on every sheet;\n  - `pageNumbers`, mapped to a `@page` margin box with `counter(page)` / `counter(pages)`;\n  - `repeatTableHeaders` (on when omitted), mapped to `thead { display: table-header-group }`;\n  - `avoidBreakInside`, mapped to `break-inside: avoid` on every block.\n  \n  Every key's describe names this card as its consumer. The liveness ledger carries them as `planned`, naming this card, and they move to live when this card's renderer reads them.\n- `print` is accepted only on `record`, `home` and `app` pages with regions. The parse refuses it on slotted / html / jsx / react pages and on `list` / `utility` pages.\n- `PRINTABLE_PAGE_COMPONENT_TYPES` (13) and `PRINT_REFUSED_PAGE_COMPONENT_TYPES` (39, each with its reason) are exported from `@objectstack/spec/ui`. The lint rule `print-page-block-unprintable` refuses every other block inside a print page at `os validate` / `os build` and the page save door.\n\n## What this card does (objectui)\n\n1. **Print CSS from `page.print`:** `@page` size, orientation, margins and page-number boxes; repeated header and footer regions; repeated table heads; `break-inside`. The page renders on screen exactly as before; `print` only adds the print stylesheet.\n2. **The 13 printable blocks print whole.** Read the subset from the spec's exported set; do not keep a second list.\n   - **Known gap (from the contract review of ①):** `record:line_items` prints every line only up to its renderer cap, 500 unless `limit` is set. Under `print`, lift the cap, or make the truncation visible on paper. A silent partial table is the failure the subset exists to prevent.\n3. **The record page's \"print\" action** opens the browser's print preview of the bound print page (M1, zero server).\n4. **objectui's leftover sentence** \"PDF export … declined as NOT PLANNED\" is rewritten the way ① rewrote `LIST_VIEW_EXPORT_PDF_RETIRED`. It appears in `types/src/objectql.ts`, `ListView.tsx`, `ReportViewer.tsx` and the app-shell `styles.css` (measured by ①'s dev).\n\n## Unlock\n\nobjectui consumes `@objectstack/spec` as a published package, so this card is workable once an installable `@objectstack/spec` exports `PagePrintSchema` and `PRINTABLE_PAGE_COMPONENT_TYPES`. That means the v18 pre line (`next` dist-tag), or a stable release. The card is filed `pm:on-hold` for that reason.\n\nRestart-when: an installable `@objectstack/spec` (npm, any dist-tag) exports `PagePrintSchema` and `PRINTABLE_PAGE_COMPONENT_TYPES`\n\nReader who acts: the objectui `domain:ui` execution seat, once restarted. `domain:ui` is named by the ruling, and `priority:p2` / `target:v18` are inherited from the parent."
+}

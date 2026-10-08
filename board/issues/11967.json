@@ -1,0 +1,36 @@
+{
+  "number": 11967,
+  "kind": "pull_request",
+  "title": "revert(app-shell): re-land Studio's validation presets (objectui#11931) and the Interfaces page-create (objectui#11932)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-08T12:40:40Z",
+  "updated_at": "2026-10-08T13:15:53Z",
+  "closed_at": "2026-10-08T13:15:51Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-08T13:15:51Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11967",
+  "body": "Part of #11861\nRe-lands objectui#11823 step 3: objectui#11932, the Studio Interfaces page-create (seat `domain:ui#3`). That card stays open.\nClause-②: no\nHeld as a draft until objectui#11949 (the +5,120 B allowance, ruling `6056819248` step 2) lands.\nWhen this PR was opened, objectui#11949 was already on `main` as `1c51e973b`, and this branch has merged it.\n\n## What this is\n\nA plain `git revert 3c888c6`, followed by merges of `main`. `3c888c6` is the rollback PR objectui#11956, a single-parent squash, so `-m 1` does not apply. It brings back:\n\n- objectui#11931: Studio's validation \"New\" menu opens on common rules, with the rule types under \"Advanced\". This is the validation-rule entry of objectui#11861.\n- objectui#11932: objectui#11823 step 3. The Interfaces pillar creates a page and opens it on its source beside a live preview.\n\nClaim `6057967120` on objectui#11861 · review `6057399892` on objectui#11937 · ruling `6056819248` on objectui#11942.\n\n## Tree proof\n\n- The revert commit `7eeffd29b` has the tree of `f3a0488` (`011fe521e`), so `git diff f3a0488 7eeffd29b --stat` prints nothing.\n- `.changeset/11937-eager-budget-rollback.md` was added by `3c888c6` and never existed at `f3a0488`. Its removal therefore shows against `3c888c6`, not against `f3a0488`.\n- Against `main`, the branch changes the 15 paths `3c888c6` changed, and no other path.\n- Twelve of the 15 hold their `f3a0488` blob byte for byte. The other three were also changed on `main` after `3c888c6`, and they carry both intents (next section).\n\n## Merges of main, and the conflicts\n\nThe branch merged `main` five times: at `1c51e973b`, `d73d98770`, `70e3d7721`, `ccc2824cf` and `247f50349`. Only two of the PRs these brought in touch a restored file.\n\n**objectui#11945** (objectui#11923, the *Runs on* row), merged at `70e3d7721`.\n- One conflicting hunk, in the import block of `ObjectValidationsPanel.tsx`. This side imports `validationPresets.js`; `main` imports `ScriptValidationSchema` / `ScriptValidationParsed` from `@objectstack/spec/data`. Both lines are kept.\n- Two files merged without conflict:\n  - `metadata-admin/i18n.ts`: `main` removes the `engine.studio.rules.event.delete` row, en and zh. It stays removed.\n  - the `newRuleWaits-11820` pin: `main` asserts there is no Delete box. That assertion stays.\n- Check, per file: the changed lines of the merge against `main` equal the re-land's own changed lines (`3c888c6..f3a0488`). The changed lines of the merge against this branch's previous head equal objectui#11945's own diff. Both comparisons were identical for all three files.\n\n**objectui#11935** (objectui#11894, typed is-empty operators), merged at `247f50349`.\n- Two conflicting hunks, both in `ObjectValidationsPanel.tsx`. Each side added the same `FieldOpt` member, `type`.\n  - The interface keeps one `type`, `main`'s `multiple` and the presets' `system`. One doc comment names both readers of `type`.\n  - The field mapping keeps one `type` line, `main`'s `multiple` line with its comment, and the presets' `system` line.\n- `i18n.ts` merged without conflict, and both sides' rows are kept.\n- The same check, run on this merge, leaves only the shared `type` member and the merged comments as residual lines.\n\n`main` moved on after `247f50349` (objectui#11961, #11962, #11944). None of those touches any of the 15 paths, so they are not merged here.\n\n## Changesets\n\n- Restored: `.changeset/11861-validation-presets.md` and `.changeset/11823-page-create.md`, both `@object-ui/app-shell: patch`.\n- Removed: `.changeset/11937-eager-budget-rollback.md` (`@object-ui/app-shell: patch`). This re-land supersedes it.\n- `check-changeset-overwrite` is report-only and exits 0. It reports one pre-existing changeset deleted, with `@object-ui/app-shell` \"GONE from the declaration\" of that file.\n  - The package still bumps, because both restored changesets declare it. This is the gate's case 3: a changeset superseded by a replacement in the same change.\n\n## Gates, on head `fb0c91d45` (every merge above included)\n\nTests use the repo-root `pnpm exec vitest run` and run under the shared verify lock.\n\n- **Named set:** 98 files and 631 tests, all passed. It covers:\n  - all eight `ObjectValidationsPanel*` suites, including objectui#11945's `runsOn-11923` and objectui#11935's `typedEmptyOps-11894`;\n  - every test file that imports `interfaceCreate` or `StudioDesignSurface`;\n  - `column-identity.ratchet.test.ts`;\n  - the `main` pins next to the conflicts: `ConditionBuilder.typedEmptyOps-11894`, `PagePreview.pageKind-11933` and `SourcePageEditor.pageKind-11933`.\n- **Widened set:** 87 files and 1,103 tests, all passed. It covers every other test that imports `validationPresets`, `ObjectValidationsPanel` or the designer string table `metadata-admin/i18n.ts`.\n- `pnpm --filter @object-ui/app-shell type-check` passes, after a turbo build of the app-shell dependency closure (28 of 28 tasks).\n- Each of these gates exits 0:\n  - `check:i18n-keys`, `check:i18n-designer-parity`, `check:i18n-drift`;\n  - `check-changeset-presence`, `check-changeset-fixed`, `check-changeset-no-major`, `check:changeset-claims`, `check:pending-changeset-literals`, `check-changeset-overwrite` (report-only, see above);\n  - `check:unreferenced-sources`.\n- eslint on the 11 touched source and test files reports 0 errors and 22 warnings. The repo sets no `--max-warnings`. The warnings are the ones already in these files at `f3a0488`, and the merge adds none.\n- `check-governed-queue-guard --test` reports NOT GOVERNED: none of the 15 paths is on a governed surface.\n- Not run: the console build. CI's `Bundle Analysis` measures the first-load bytes against the ceiling that objectui#11949 raised. `scripts/check-eager-closure-budget.mjs` is not touched.\n- Reference point: on its push run, `f3a0488` (the tree this re-land restores) had 66 check runs succeed, 6 skipped and 1 fail, `Bundle Analysis`. That is 73 of 73 runs read.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01MgfduSkFrfM3eorB3UGfAU)_\n"
+}

@@ -2,7 +2,7 @@
   "number": 11931,
   "kind": "pull_request",
   "title": "feat(app-shell): Studio's validation New menu opens on common rules, with the rule types under Advanced (part of objectui#11861)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -21,10 +21,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-08T08:02:19Z",
-  "updated_at": "2026-10-08T08:27:55Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-08T08:44:45Z",
+  "closed_at": "2026-10-08T08:44:43Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-08T08:44:43Z",
   "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/11931",

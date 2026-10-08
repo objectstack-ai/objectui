@@ -1,0 +1,32 @@
+{
+  "number": 11949,
+  "kind": "pull_request",
+  "title": "chore(scripts): raise the console eager-closure ceiling by a fixed 5,120-byte allowance for Studio repairs while the designers are eager (objectui#11942)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-08T09:36:31Z",
+  "updated_at": "2026-10-08T10:53:36Z",
+  "closed_at": "2026-10-08T10:53:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-08T10:53:34Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11949",
+  "body": "Fixes #11942\n\nClause-②: no\n\nHeld as a draft until objectui#11937 lands (ruling `6056819248` step 1).\n\n## What changed\n\nStep 2 (letter B) of ruling `6056819248` on objectui#11942: `MAX_EAGER_CLOSURE_GZIP_BYTES` in `scripts/check-eager-closure-budget.mjs` goes from 3,386,364 to **3,391,484**, exactly **+5,120 gzip bytes**. `main` still read 3,386,364 at `f3a0488`, the value at dispatch, so the allowance is added to it as dispatched.\n\n- The constant's docblock gains one history entry, \"RAISED A FIFTH TIME, BY A FIXED ALLOWANCE, ON EXPLICIT MAINTAINER RULING (objectui#11942)\", in the shape of the file's earlier raises. It quotes the ruling's step 2 verbatim and states what the bytes buy, the reclaim condition and the sensitivity arithmetic.\n- The paragraph that states the two constants' headroom now reads 16,140 bytes (0.18x) for the new pair. The objectui#11854 pair's 11,020 bytes (0.12x) moves into its history list.\n- Nothing else changed: `BASELINE`, `PER_CHUNK_GZIP_CEILINGS`, `PER_CHUNK_BASELINE` and `REGRESSION_THIS_GATE_MUST_CATCH_BYTES` are untouched. No test and no workflow is edited.\n\n## What the bytes buy\n\nStudio repairs while the metadata-admin designers are eager by design (ruling A on objectui#11798, `6054102412`). A Studio change that edits a designer adds first-load bytes, however small it is. The parked changes the ruling names land against this line: objectui#11921's PR objectui#11941, objectui#11923, objectui#11909, and any later Studio change that adds bytes. Byte-neutral changes land as before. The allowance is not headroom for any other growth.\n\n⚠️ An allowance is not a reading. No console build was taken, so there are no rows. Whatever lands under the line uses it up, whether that is a named Studio change or `main`'s own drift. Each Studio PR's own `Bundle Analysis` comment is where its bytes are read.\n\n## Reclaim condition\n\nobjectui#11939, step 3 of the same ruling. The PR that moves the designers out of the first load lowers the ceiling by the bytes that leave **plus these 5,120**, in the same change.\n\n## Sensitivity\n\nHeadroom over `BASELINE` (3,375,344 on `406f760`): 3,391,484 − 3,375,344 = 16,140 bytes = 0.18x `REGRESSION_THIS_GATE_MUST_CATCH_BYTES` (91,136). The allowance alone is 0.06x. The 89 KiB regression this gate exists to catch still fails the gate: baseline + 91,136 = 3,466,480, which is 74,996 bytes over the new line. The constant-vs-constant guard (\"would have failed on the regression it exists to catch\") and the live-sensitivity pins pass unchanged.\n\n## Verification (on `1e3d87909`)\n\n| command | verdict |\n|---|---|\n| `pnpm exec vitest run scripts/__tests__/check-eager-closure-budget.test.ts scripts/__tests__/ci-cd-pipeline-doc.test.ts scripts/__tests__/render-budget-comment.test.ts`, under `os-verify-lock.sh` | `Test Files 3 passed (3)`, `Tests 304 passed (304)`, `VERDICT command-exit 0` |\n| `node scripts/check-changeset-presence.mjs` | exit 0: \"No source or published contract of a released package changed in this range, so no changeset is owed.\" |\n| `node scripts/check-changeset-no-major.mjs` | exit 0: \"No changeset declares a `major` bump.\" |\n| `pnpm check:new-line-citations` | exit 0: `VERDICT new-cross-file-line-citations: 0 new citation(s), enforcement report-only -> exit 0` |\n| `pnpm check:control-bytes` | exit 0: \"check-control-bytes: OK (scanned 7996 tracked text file(s); skipped 85 binary).\" |\n| `pnpm exec eslint --format json scripts/check-eager-closure-budget.mjs` | exit 0: 1 file, 0 errors, 0 warnings |\n| objectstack `check-governed-merges.mjs --branch claude/issue-11942-eager-allowance` | exit 0: NOT governed, 1 path |\n\nThe three test files are every test that imports or reads `scripts/check-eager-closure-budget.mjs`, found by `git grep` on the file name.\n\nLint narrowing: every rule block in `eslint.config.js` is scoped to TS/TSX globs. `--print-config` for this `.mjs` file shows zero rules and no `parserOptions.project` or `projectService`, so linting is not type-aware and this diff cannot change the verdict on any untouched file. The repo-wide `pnpm lint` is left to CI.\n\nNOT MEASURED: `Bundle Analysis`, because `pnpm check:eager-closure` needs a console build, so CI measures it. On this PR it weighs the merge ref, and `main` stays red until objectui#11937 lands, so its verdict here does not measure the allowance.\n\nNo changeset: see the presence gate's verdict above. In `.github/workflows/performance-budget.yml`, the prose next to the ceiling history names only the retired 4,086,000 to 3,345,000 move at `0409b766d`, not the current value, so it is untouched.\n\n## Acceptance notes\n\n- Two older passages in the same file no longer match the ceiling's history. The list opening \"Re-baselined DOWNWARD four times\" names four downward moves, and the later ones are recorded in their own entries. The header section \"The ceiling, and why it is this number\" still says the ceiling is the measurement plus half a regression, which stopped being true after the exact-amount paybacks and this allowance. Both are prose drift, left alone because they are outside the claim's file surface. Carrier: objectui#11939's lazy-loading PR, which edits this docblock.\n\nSession: `https://claude.ai/code/session_01MgfduSkFrfM3eorB3UGfAU`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01MgfduSkFrfM3eorB3UGfAU)_\n"
+}

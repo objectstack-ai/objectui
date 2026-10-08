@@ -2,8 +2,8 @@
   "number": 11908,
   "kind": "issue",
   "title": "console: send the creator's browser timezone when a workspace is created, so a new workspace never shows the timezone prompt (objectui half of cloud#2676)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:i18n",
     "domain:ui",
     "enhancement",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-08T06:06:34Z",
-  "updated_at": "2026-10-08T07:57:51Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-08T11:54:02Z",
+  "closed_at": "2026-10-08T11:52:21Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 9,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11908",
   "body": "**⛔ BLOCKED — the request shape is fixed by the cloud half, objectstack-ai/cloud#2676.**\n\nBlocked-by: objectstack-ai/cloud#2676\n\nFiled by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). ⛔ Not a claim. This is the carrier the `repo:cloud` seat asked for on objectstack-ai/cloud#2676 (its seat cannot write to objectui). It is a maintainer-directed task, not a decision card. The maintainer's word, given on the cloud card, verbatim: 「同意，按你说的立卡，不需要决策」.\n\n## Why\n\nThe maintainer's ruling on objectstack-ai/cloud#2676 replaces the new-workspace half of the objectstack-ai/objectui#11693 B2 ruling: a new workspace takes the creator's browser timezone at creation, and no prompt is shown. Existing workspaces are left as they are.\n\n## What the console does today (read on `main`)\n\n- **Two creation call sites** send no timezone:\n  - `packages/app-shell/src/console/organizations/CreateWorkspaceDialog.tsx:183`;\n  - `apps/console/src/pages/auth/SetupPage.tsx:162`.\n- **The auth package's `createOrganization` type** carries `{ name, slug, logo? }` only (`packages/auth/src/AuthContext.ts:140`; `AuthProvider.tsx:845`).\n- **The prompt's own guard** already skips a workspace whose `localization.timezone` is no longer the manifest default: `findTimezoneOffer` returns `null` unless the resolved value's `source` is `default` (`apps/console/src/pages/settings/workspaceTimezonePrompt.ts:204`). So once the cloud half seeds the value through the settings service, the environment surface should stop asking without a code change here. Measure it; do not assume it.\n\n## Scope\n\n1. Both creation call sites send `Intl.DateTimeFormat().resolvedOptions().timeZone` (the same read as `browserTimeZone()` in the prompt module; `packages/app-shell` cannot import from `apps/console`), in the request shape the cloud half's PR accepts. A missing or empty zone sends nothing.\n2. The `createOrganization` type in `packages/auth` gains the optional field the cloud half names. Optional only, so existing callers stay valid.\n3. Prompt: confirm on both surfaces (the cloud home and the environment) that a new, seeded workspace does not show `WorkspaceTimezonePrompt`. If a surface still asks, narrow the prompt to workspaces with no seed record there. ⛔ Do not delete the prompt: existing workspaces keep it (「存量不动」).\n\n⛔ Out of scope:\n- the welcome-page notice: the welcome page is cloud metadata (cloud `packages/service-tenant/src/pages/welcome.page.ts`), so it rides objectstack-ai/cloud#2676;\n- any change to the prompt for existing workspaces.\n\n## Acceptance\n\n- A zh-CN user whose browser zone is `Asia/Shanghai` signs up, creates a workspace and enters the environment. No timezone prompt appears on either surface. The environment's `localization.timezone` reads `Asia/Shanghai`.\n- A workspace created before this change, still on the manifest default, gets the prompt exactly as today.\n- Unit tests cover both call sites sending the zone, and sending nothing when the browser reports none.\n\n## Related\n\nobjectstack-ai/cloud#2676 (cloud half, maintainer ruling) · objectstack-ai/objectui#11693 (B2 ruling, new-workspace half superseded) · objectstack-ai/objectui#11758 (the prompt) · objectstack-ai/cloud#2635 (locale seeding, the same channel)\n\nDuplicate-search terms: workspace timezone prompt, createOrganization timeZone, WorkspaceTimezonePrompt, browser timezone seed"

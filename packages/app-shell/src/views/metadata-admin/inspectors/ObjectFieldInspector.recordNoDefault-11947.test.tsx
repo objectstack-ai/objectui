@@ -134,15 +134,19 @@ describe('ObjectFieldInspector — a default authored in code survives an unrela
     expect(before.success, 'the stored default is one the spec admits').toBe(true);
 
     const { field } = mount({ type: 'record', label: 'F', defaultValue: structuredClone(stored) });
-    // Nothing renders the stored record as text, so nothing can overwrite it
-    // with one.
-    expect(screen.queryByDisplayValue('[object Object]')).toBeNull();
-
     fireEvent.click(screen.getByRole('checkbox', { name: t('designer.field.required', 'en-US') }));
 
     expect(field().required).toBe(true);
     expect(field().defaultValue).toEqual(stored);
     const parsed = FieldSchema.safeParse(field());
     expect(parsed.success, parsed.success ? '' : JSON.stringify(parsed.error.issues)).toBe(true);
+  });
+
+  it('nothing shows the stored record as text, so no keystroke can overwrite it with a string', () => {
+    // The text control showed it as "[object Object]", and that control
+    // commits the box's text as the default on every keystroke.
+    mount({ type: 'record', label: 'F', defaultValue: structuredClone(stored) });
+    expect(screen.queryByDisplayValue('[object Object]')).toBeNull();
+    expect(defaultControls()).toHaveLength(0);
   });
 });

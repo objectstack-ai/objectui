@@ -127,7 +127,7 @@ describe('objectui#11933 — a source page previews as its own page kind', () =>
     expect(untyped.headings).toEqual([]);
   });
 
-  it.each(['app', 'home'])('a %s page previews with its title heading and not the record width', (kind) => {
+  it.each(['app', 'home'])('a page of kind %s previews with its title heading and not the record width', (kind) => {
     const recordWidth = preview({ type: 'record' }).width;
     const drawn = preview({ type: kind });
 

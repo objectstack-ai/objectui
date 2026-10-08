@@ -1163,7 +1163,7 @@ export interface ObjectGridSchema extends BaseSchema {
    * publish it (the objectui#10199 split, as {@link ObjectGridSchema.filter}
    * makes it).
    *
-   * @deprecated Use `filter` instead — the same rule array; this key is read only
+   * @deprecated Use filter instead — the same rule array; this key is read only
    * when `filter` is absent.
    */
   defaultFilters?: SpecObjectGridProps['defaultFilters'];

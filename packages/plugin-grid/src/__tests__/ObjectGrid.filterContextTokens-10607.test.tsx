@@ -122,7 +122,9 @@ describe('object-grid — the node’s own filter reaches the query resolved (ob
 
   it('resolves the deprecated `defaultFilters` alias too, when `filter` is absent', async () => {
     const adapter = makeAdapter();
-    render(ui(adapter, gridNode({ defaultFilters: { owner: '{current_user_id}' } })));
+    // objectui#6152 round 10: `defaultFilters` is the row's rule array too (it was a
+    // `Record`, the `{ owner: '{current_user_id}' }` this cell used to write).
+    render(ui(adapter, gridNode({ defaultFilters: MINE })));
     const sent = JSON.stringify(await queriedFilter(adapter.find));
     expect(sent).toContain(USER);
     expect(sent).not.toContain('{current_user_id}');
@@ -156,7 +158,7 @@ describe('object-grid — the node’s own filter reaches the query resolved (ob
 
   it('re-queries with the new id when the user changes and only `defaultFilters` carries the token', async () => {
     const adapter = makeAdapter();
-    const node = gridNode({ defaultFilters: { owner: '{current_user_id}' } });
+    const node = gridNode({ defaultFilters: MINE });
     const { rerender } = render(ui(adapter, node));
     expect(JSON.stringify(await queriedFilter(adapter.find, 0))).toContain(USER);
     await settle();

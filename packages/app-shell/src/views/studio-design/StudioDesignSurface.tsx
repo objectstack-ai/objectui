@@ -3305,7 +3305,7 @@ export function InterfacesPillar({
       </div>
       {!isEditable && current?.type === 'object' ? (
         <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Database className="h-3 w-3" /> {t('engine.studio.if.objectHintPre', locale)}<span className="font-medium">Data</span>{t('engine.studio.if.objectHintPost', locale)}
+          <Database className="h-3 w-3" /> {t('engine.studio.if.objectHintPre', locale)}<span className="font-medium">{t('engine.studio.pillar.data', locale)}</span>{t('engine.studio.if.objectHintPost', locale)}
         </p>
       ) : null}
     </main>

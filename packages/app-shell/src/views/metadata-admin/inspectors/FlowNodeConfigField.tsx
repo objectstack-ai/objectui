@@ -74,7 +74,7 @@ const FIELD_VALUE_MAPS: ReadonlyArray<{ nodeType: string; path: readonly string[
  * `config.objectName` ('' while none is chosen), or `null` when `path` is not a
  * field-value map.
  */
-export function fieldValueMapObject(
+function fieldValueMapObject(
   node: Record<string, unknown> | null | undefined,
   path: readonly string[],
 ): string | null {

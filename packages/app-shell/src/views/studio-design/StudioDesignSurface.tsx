@@ -4703,7 +4703,7 @@ function newFlowTriggerFields(locale: string): { trigger?: FlowConfigField; obje
  * node's trigger field writes it (`config.triggerType`, and `config.objectName`
  * for the object) — objectui#11788. No choice leaves the skeleton as it was.
  */
-export function withStartTrigger(
+function withStartTrigger(
   flow: Record<string, unknown>,
   trigger: NewFlowTrigger | null,
 ): Record<string, unknown> {
@@ -4797,16 +4797,11 @@ export function AutomationsPillar({
   const [creating, setCreating] = React.useState(false);
   const [createBusy, setCreateBusy] = React.useState(false);
   // objectui#11788 — the trigger the New dialog asks for (unset = choose it
-  // later on the Start node), and the object a record trigger watches. Both
-  // start empty each time the dialog opens, as its own inputs do.
+  // later on the Start node), and the object a record trigger watches. The
+  // New button empties both each time it opens the dialog, as the dialog
+  // empties its own inputs.
   const [newTrigger, setNewTrigger] = React.useState('');
   const [newTriggerObject, setNewTriggerObject] = React.useState('');
-  React.useEffect(() => {
-    if (creating) {
-      setNewTrigger('');
-      setNewTriggerObject('');
-    }
-  }, [creating]);
   const startTrigger = React.useMemo(() => newFlowTriggerFields(locale), [locale]);
   // objectui#11591 — keyed on the pillar's one type, as the inspector beside
   // it is, never on the open flow's: with no flow open (a deep link naming one
@@ -5154,6 +5149,8 @@ export function AutomationsPillar({
                 type="button"
                 onClick={() => {
                   setError(null);
+                  setNewTrigger('');
+                  setNewTriggerObject('');
                   setCreating(true);
                 }}
                 title={t('engine.studio.auto.newTitle', locale)}

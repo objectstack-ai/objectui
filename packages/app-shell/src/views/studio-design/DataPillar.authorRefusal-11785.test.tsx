@@ -146,7 +146,9 @@ describe('Studio data page — a held Picklist reads as a sentence (objectui#117
     });
     const strip = await screen.findByTestId('studio-refusal');
 
-    fireEvent.click(screen.getByRole('button', { name: t('engine.studio.close', 'en') }));
+    // The rail's own header close (the field inspector inside carries another).
+    const railHeader = screen.getByText(t('engine.studio.data.fieldProps', 'en')).closest('header') as HTMLElement;
+    fireEvent.click(within(railHeader).getByRole('button', { name: t('engine.studio.close', 'en') }));
     expect(screen.queryByText('API name', { selector: 'label' })).toBeNull();
 
     fireEvent.click(within(strip).getByRole('button', { name: t('engine.studio.refusal.show', 'en') }));

@@ -370,8 +370,8 @@ required), the renderers read exactly:
 
 These are the five keys the spec declares, and nothing else is read.
 `options.description` is not among them: it was the metric-card sub-caption,
-retired at both ends (objectui#11389). `@objectstack/spec` 17.7.0 no longer
-writes it from a translation, and objectui no longer draws it. A widget has one
+retired at both ends (objectui#11389). `@objectstack/spec` no longer writes
+it from a translation, and objectui no longer draws it. A widget has one
 authored description, `widget.description`, drawn as the card-header subtitle.
 If a caption under a metric's value returns, it returns as a declared
 widget-level key, not as an `options` key.
@@ -527,8 +527,8 @@ which lists the records for either form and draws no report.
 Widget texts have a client translation channel: bundle keys under
 `dashboards.<name>.widgets.<id>` (`title`, `description`), plus
 `dashboards.<name>.label` and `.description`. There is no `subCaption` key:
-`@objectstack/spec` 17.7.0 refuses it by name in a translation bundle, and the
-renderer reads no such key (objectui#11389). A document read from
+the translation schema in `@objectstack/spec` refuses it by name in a bundle,
+and the renderer reads no such key (objectui#11389). A document read from
 ObjectStack's `/meta` route does not need it. The server has already applied
 those keys for the request's locale, and it keeps a published edit over them:
 an explicit override beats the packaged default.

@@ -26,7 +26,7 @@ import React from 'react';
 // inside this file's waits, not after them (AGENTS.md, test discipline: a
 // module load never runs inside a bounded window).
 import 'maplibre-gl';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import type { ObjectMapSchema } from '@object-ui/types';
 import { ObjectMap } from './ObjectMap';
@@ -98,16 +98,18 @@ describe('ObjectMap without WebGL2 (objectui#11819)', () => {
   it('shows the "Map failed to load" alert naming WebGL2 and lists the records, constructing no map', async () => {
     const { container } = mount();
 
-    const alert = await screen.findByRole('alert');
+    // Settled into one of the two outcomes; the crash, if that is the one, is
+    // read first so a failure here names what was thrown.
+    await waitFor(() => expect(screen.queryByRole('alert') ?? screen.queryByTestId('crash-card')).not.toBeNull());
+    expect(caught.map((error) => error.message)).toEqual([]);
+    expect(gpuErrorsPrinted()).toEqual([]);
+    expect(container.querySelector('.maplibregl-map')).toBeNull();
+
+    const alert = screen.getByRole('alert');
     expect(alert).toHaveTextContent('Map failed to load');
     expect(alert).toHaveTextContent('WebGL2');
     expect(screen.getByRole('button', { name: /Install rooftop unit/ })).toHaveTextContent('North wing');
     expect(screen.getByRole('button', { name: /Replace boiler/ })).toHaveTextContent('Basement');
-
-    expect(caught).toEqual([]);
-    expect(screen.queryByTestId('crash-card')).toBeNull();
-    expect(container.querySelector('.maplibregl-map')).toBeNull();
-    expect(gpuErrorsPrinted()).toEqual([]);
   });
 
   it('keeps the records searchable: the search box narrows the list', async () => {

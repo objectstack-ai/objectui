@@ -38,6 +38,39 @@ const RouterLink = ({ href, className, children }: AuthLinkComponentProps) => (
   <Link to={href} className={className}>{children}</Link>
 );
 
+/**
+ * In place of the form while the server cannot be reached (objectui#11806);
+ * `./RegisterPage` shows the same panel. Built from `@object-ui/auth`'s own
+ * form primitives so it sits where the form would, at the same width. Not
+ * exported from the package entry.
+ */
+export function ServerUnreachable({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
+  const { t } = useObjectTranslation();
+  return (
+    <div
+      data-testid="auth-server-unreachable"
+      className="mx-auto flex w-full flex-col justify-center space-y-7 sm:w-[400px]"
+    >
+      <div role="alert">
+        <AuthFormHeader
+          icon={<AuthAlertIcon className="h-6 w-6 text-destructive" />}
+          title={t('console.error.connectionFailed')}
+          description={t('console.error.checkServer')}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        className={AUTH_PRIMARY_BUTTON_CLASS}
+      >
+        {retrying ? <AuthSpinner /> : null}
+        {retrying ? t('console.actions.retrying') : t('console.actions.retry')}
+      </button>
+    </div>
+  );
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -89,27 +122,9 @@ export function LoginPage() {
     : '/register';
 
   if (serverUnreachable) {
-    const retrying = configRead === 'loading';
     return (
       <AuthPageLayout>
-        <div className="mx-auto flex w-full flex-col justify-center space-y-7 sm:w-[400px]">
-          <div role="alert">
-            <AuthFormHeader
-              icon={<AuthAlertIcon className="h-6 w-6 text-destructive" />}
-              title={t('console.error.connectionFailed')}
-              description={t('console.error.checkServer')}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={retryConfigRead}
-            disabled={retrying}
-            className={AUTH_PRIMARY_BUTTON_CLASS}
-          >
-            {retrying ? <AuthSpinner /> : null}
-            {retrying ? t('console.actions.retrying') : t('console.actions.retry')}
-          </button>
-        </div>
+        <ServerUnreachable retrying={configRead === 'loading'} onRetry={retryConfigRead} />
       </AuthPageLayout>
     );
   }

@@ -371,14 +371,18 @@ export function LoginPage() {
 }
 
 /**
- * In place of the form while the server cannot be reached (objectui#11806).
- * Built from `@object-ui/auth`'s own form primitives so it sits where
- * `<LoginForm>` would, at the same width and in the same visual language.
+ * In place of the form while the server cannot be reached (objectui#11806);
+ * `RegisterPage` shows the same panel. Built from `@object-ui/auth`'s own form
+ * primitives so it sits where `<LoginForm>` would, at the same width and in
+ * the same visual language.
  */
-function ServerUnreachable({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
+export function ServerUnreachable({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
   const { t } = useObjectTranslation();
   return (
-    <div className="mx-auto flex w-full flex-col justify-center space-y-7 sm:w-[400px]">
+    <div
+      data-testid="auth-server-unreachable"
+      className="mx-auto flex w-full flex-col justify-center space-y-7 sm:w-[400px]"
+    >
       <div role="alert">
         <AuthFormHeader
           icon={<AuthAlertIcon className="h-6 w-6 text-destructive" />}

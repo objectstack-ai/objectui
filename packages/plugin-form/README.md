@@ -273,7 +273,8 @@ the form looks validated while validating nothing.
 ### What a create form opens with
 
 A create form has no persisted record, so its opening values come from the
-object schema's declared field `defaultValue`s. Every object-form container
+object schema's declared defaults: a field's `defaultValue`, or the option its
+option list marks `default: true`. Every object-form container
 (`ObjectForm`, `ModalForm`, `DrawerForm`, `TabbedForm`, `SplitForm`,
 `WizardForm`) resolves them the same way, through `schemaDefaults`:
 
@@ -282,20 +283,22 @@ object schema's declared field `defaultValue`s. Every object-form container
 | `defaultValue: 'draft'` (any static literal) | `draft`, preselected and submittable | the value is known; making the user pick it is busywork, and on a status-like field every wrong option is one click away |
 | `defaultValue: 'NOW()'` / `'current_user'` (a runtime token) | empty | the token is an *instruction*, not a value. The server resolves it at insert — but only for fields that arrive empty, so seeding the literal text would suppress it |
 | `defaultValue: cel\`today()\`` (an Expression envelope) | empty | same reason: the server evaluates it per insert |
-| an option's `default: true` | empty | see below |
+| an option's `default: true`, and no `defaultValue` | that option, preselected and submittable | the server stores the marked option when the field is omitted; see below |
 | nothing | empty | no default is invented |
 
 `initialData` / `initialValues` passed by the caller always outrank a schema
 default — a lookup prefill or a "duplicate this record" seed is the more
 specific instruction.
 
-Only the **field-level** `defaultValue` is read, never a select option's
-`default: true`, even though `@objectstack/spec`'s `SelectOptionSchema` declares
-that key. The server's insert path resolves `defaultValue` and nothing else, so
-a form that also seeded from option-level `default` would preselect values the
-server would never have applied on its own — a renderer-side second default
-contract (AGENTS.md #0.1). If option-level `default` is meant to mean "the
-initial value", that belongs at the producer.
+An option's `default: true` is read the way the server's insert path reads it
+(`ObjectQL.applyFieldDefaults`, which falls back to the marked option), so the
+form preselects exactly what omitting the field would store:
+
+- only when the field declares no `defaultValue` — a field-level default,
+  static or runtime, always wins, and the flag is then not seeded at all;
+- a single-valued field takes the **first** marked option;
+- a multi-valued field (`@objectstack/spec`'s `isMultiValueField`: `multiselect`,
+  or `select` with `multiple: true`) takes **every** marked option, as an array.
 
 **Edit forms are never seeded.** An edit form shows the row as the server holds
 it; folding a default in over a column the record leaves unset would arm a

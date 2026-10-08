@@ -158,12 +158,20 @@ describe('objectui#11788 — notify recipients renders with the published descri
   });
 
   it('an offline row whose key the schema does not declare is not brought back online', () => {
-    // The offline table's `url` row: the descriptor declares `actionUrl`, and the
-    // engine rejects an undeclared config key at registerFlow().
+    // The engine rejects an undeclared config key at registerFlow(). This case
+    // used to read the offline table's `url` row; objectui#11968 made that row
+    // write the declared `actionUrl`, and its pin holds every offline row to the
+    // node's contract, so the real table no longer has such a row. The case is
+    // read instead off a schema that leaves out a key the offline table has.
+    const { topic: _topic, ...withoutTopic } = NOTIFY_SCHEMA.properties;
+    const schema = { ...NOTIFY_SCHEMA, properties: withoutTopic };
     const offline = mergeServerFlowFields(null, 'notify');
-    expect(offline.some((f) => f.id === 'url')).toBe(true);
-    const online = mergeServerFlowFields(jsonSchemaToFlowFields(NOTIFY_SCHEMA), 'notify', declaredConfigKeys(NOTIFY_SCHEMA));
-    expect(online.some((f) => f.id === 'url')).toBe(false);
+    expect(offline.some((f) => f.id === 'topic')).toBe(true);
+    const online = mergeServerFlowFields(jsonSchemaToFlowFields(schema), 'notify', declaredConfigKeys(schema));
+    expect(online.some((f) => f.id === 'topic')).toBe(false);
+    // The lit control: with the full schema the same key IS on the online form.
+    const full = mergeServerFlowFields(jsonSchemaToFlowFields(NOTIFY_SCHEMA), 'notify', declaredConfigKeys(NOTIFY_SCHEMA));
+    expect(full.some((f) => f.id === 'topic')).toBe(true);
   });
 
   it('without the declared list the merge is what it was: the published fields alone', () => {

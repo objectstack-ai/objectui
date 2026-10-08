@@ -567,6 +567,19 @@ export const ADJUDICATED = new Map([
       ],
     },
   ],
+  // objectui#6152 round 9 -- the corpus census of `object-calendar` containers.
+  // It walks the authored trees, reads every markdown document in them that
+  // names `object-calendar`, and parses each fenced element's `calendar`
+  // container -- so an edit to any of those documents IS an edit to this
+  // test's input. It reads the root `README.md` and every package's
+  // `README.md`, the second through the `packages` tree.
+  [
+    'packages/types/src/__tests__/object-calendar-container-by-reference-6152.test.ts',
+    {
+      reads: ['README.md', 'apps/**', 'content/**', 'docs/**', 'examples/**', 'packages/**', 'skills/**'],
+      walker: 'markdown-tree: walks `examples`, `content`, `skills`, `docs` and `apps`, and every package `README.md`, and parses the fences of each `.md`/`.mdx` that names `object-calendar`',
+    },
+  ],
   [
     'packages/types/src/__tests__/object-calendar-record-source-7313.test.ts',
     { reads: ['content/docs/plugins/plugin-calendar.mdx'] },

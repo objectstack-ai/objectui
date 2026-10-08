@@ -20,15 +20,43 @@
  * uses — rather than a hand-rolled panel. Selecting an action feeds that one
  * array element to the inspector; its onPatch writes the element back into the
  * array. Global actions (no objectName) are not object-scoped and live elsewhere.
+ *
+ * ## Starting points (objectui#11861)
+ *
+ * "New" opens on the presets of `actionPresets.ts` — each an action of a shape
+ * the spec already has, labelled by what it does — and the blank action, the
+ * starting point every type and operation is reached from, under "Advanced".
+ * A preset whose object lacks what it needs is listed disabled, saying what.
+ *
+ * ## A new action waits for its target
+ *
+ * A preset that opens a flow, a page or a web address cannot know which one:
+ * the spec refuses such an action without a `target`, so it is held HERE, in
+ * the panel, until it has one — listed and edited like any action, marked as
+ * not saved, with the line the Data pillar uses for an edit it holds
+ * (objectui#11786, `engine.studio.held.line`) naming the input. The first edit
+ * that gives it a target writes it to the draft; from then on it is an ordinary
+ * action. Same hold, and same known cost, as a new validation rule waiting for
+ * its condition (objectui#11820, `ObjectValidationsPanel.tsx`): leaving the
+ * view or the object first drops it, and Publish does not wait for it.
  */
 
 import React from 'react';
-import { Ban, Zap, Plus, Trash2 } from 'lucide-react';
+import { Ban, Zap, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Popover, PopoverTrigger, PopoverContent } from '@object-ui/components';
 import { getIcon } from '../../utils/getIcon.js';
 import { useRegisteredMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import type { I18nLabel } from '@objectstack/spec/ui';
-import { t, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { readFields } from '../metadata-admin/previews/object-fields-io.js';
 import { navItemLabelText } from '../metadata-admin/previews/navItemLabel.js';
+import {
+  ACTION_PRESETS,
+  heldInputKey,
+  type ActionPreset,
+  type ActionPresetPlan,
+  type ActionPresetFieldOpt,
+} from './actionPresets.js';
 
 interface ActionItem {
   name?: string;
@@ -93,11 +121,29 @@ export function ObjectActionsPanel({
 }) {
   const locale = useMetadataLocale();
   const actions = React.useMemo(() => readActions(draft.actions), [draft.actions]);
+  const objectName = typeof draft.name === 'string' ? draft.name : '';
+  // objectui#11861 — new actions still waiting for their target: listed and
+  // edited here, and NOT in the draft (see "A new action waits for its target"
+  // above). Each is kept with the object it was started on (`on`, not the
+  // action's own `objectName`, which the editor can change), so it never shows
+  // on another object's list.
+  const [held, setHeld] = React.useState<Array<{ on: string; action: ActionItem }>>([]);
+  const heldHere = React.useMemo(
+    () => held.filter((h) => h.on === objectName).map((h) => h.action),
+    [held, objectName],
+  );
+  const listed = React.useMemo(() => [...actions, ...heldHere], [actions, heldHere]);
+  // What each held action still needs, by name: the catalogue key of the input.
+  const heldNeeds = React.useMemo(
+    () => new Map(heldHere.map((a) => [String(a.name ?? ''), heldInputKey(a)])),
+    [heldHere],
+  );
   const [selected, setSelected] = React.useState<string | null>(null);
   // Default-select the first action so the detail pane isn't a dead end when
   // actions exist; fall back when the selection no longer matches.
-  const effectiveSelected = actions.some((a) => a.name === selected) ? selected : (actions[0]?.name ?? null);
-  const sel = actions.find((a) => a.name === effectiveSelected) ?? null;
+  const effectiveSelected = listed.some((a) => a.name === selected) ? selected : (listed[0]?.name ?? null);
+  const sel = listed.find((a) => a.name === effectiveSelected) ?? null;
+  const selHeldInput = heldNeeds.get(String(effectiveSelected ?? '')) ?? null;
 
   // Observed (objectui#11939): an action inspector registered after this panel
   // mounted replaces the "no editor" pane below without a remount.
@@ -106,17 +152,27 @@ export function ObjectActionsPanel({
   // Apply a shallow patch to the SELECTED action within the object's inline
   // actions array, then hand the whole array back up so the object draft (and
   // its Save draft) owns persistence — exactly like ObjectValidationsPanel.
+  // A held action (objectui#11861) is patched here instead, and written to the
+  // draft by the first patch that leaves it needing no input.
   const patchSelected = React.useCallback(
     (patch: Record<string, unknown>) => {
       if (!sel) return;
-      const next = actions.map((a) => (a.name === sel.name ? { ...a, ...patch } : a));
-      onPatch({ actions: next });
+      if (heldNeeds.has(String(sel.name ?? ''))) {
+        const next = { ...sel, ...patch };
+        const mine = (h: { on: string; action: ActionItem }) => h.on === objectName && h.action.name === sel.name;
+        if (heldInputKey(next) === null) {
+          onPatch({ actions: [...actions, next] });
+          setHeld((prev) => prev.filter((h) => !mine(h)));
+        } else {
+          setHeld((prev) => prev.map((h) => (mine(h) ? { on: h.on, action: next } : h)));
+        }
+      } else {
+        onPatch({ actions: actions.map((a) => (a.name === sel.name ? { ...a, ...patch } : a)) });
+      }
       if (typeof patch.name === 'string' && patch.name !== sel.name) setSelected(patch.name);
     },
-    [actions, sel, onPatch],
+    [actions, heldNeeds, objectName, sel, onPatch],
   );
-
-  const objectName = typeof draft.name === 'string' ? draft.name : '';
 
   /* ─── Blocking CEL verdicts → the Data pillar's Save gate (objectui#4527) ──
    *
@@ -151,8 +207,11 @@ export function ObjectActionsPanel({
     onBlockingIssuesChangeRef.current?.(blockingIssues);
   }, [blockingIssues]);
 
+  // objectui#11861 — the blank action, under New's "Advanced": what New wrote
+  // before the presets, unchanged. Its name is unique among the held actions
+  // too.
   const addAction = React.useCallback(() => {
-    const name = nextActionName(objectName, actions.map((a) => String(a.name ?? '')));
+    const name = nextActionName(objectName, listed.map((a) => String(a.name ?? '')));
     // Minimal *valid* skeleton, and a DECLARATIVE one (objectui#11820): an
     // "Update fields on this record" action — `operation: 'update'` with an
     // empty `patch` — bound to this object. It used to start as a script with a
@@ -189,14 +248,60 @@ export function ObjectActionsPanel({
     };
     onPatch({ actions: [...actions, fresh] });
     setSelected(name);
-  }, [actions, objectName, onPatch, locale]);
+  }, [actions, listed, objectName, onPatch, locale]);
+
+  // objectui#11861 — what each preset would do on THIS object, read before the
+  // author picks one so its menu row can say which field it asks about, or
+  // what the object lacks.
+  const presetFields = React.useMemo<ActionPresetFieldOpt[]>(
+    () =>
+      readFields(draft.fields).entries.map((e) => ({
+        name: e.name,
+        label: typeof e.def.label === 'string' ? (e.def.label as string) : undefined,
+        type: typeof e.def.type === 'string' ? (e.def.type as string) : undefined,
+        hidden: e.def.hidden === true,
+        system: e.def.system === true,
+        readonly: e.def.readonly === true,
+      })),
+    [draft.fields],
+  );
+  const presetPlans = React.useMemo(
+    () => ACTION_PRESETS.map((preset: ActionPreset) => ({ preset, plan: preset.plan(presetFields, locale) })),
+    [presetFields, locale],
+  );
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [advancedOpen, setAdvancedOpen] = React.useState(false);
+  const presetIds = React.useId();
+
+  /**
+   * objectui#11861 — the seed the blank action starts from (name, label,
+   * object, placement), then the keys the preset fills. Its target decides the
+   * rest: none needed ⇒ written now; one the spec needs ⇒ held until given.
+   */
+  const addPreset = (plan: Extract<ActionPresetPlan, { ready: true }>) => {
+    const name = nextActionName(objectName, listed.map((a) => String(a.name ?? '')));
+    const fresh: ActionItem = {
+      name,
+      label: t('engine.studio.actions.newLabel', locale),
+      objectName,
+      locations: ['record_header'],
+      ...plan.keys,
+    };
+    if (heldInputKey(fresh) === null) onPatch({ actions: [...actions, fresh] });
+    else setHeld((prev) => [...prev, { on: objectName, action: fresh }]);
+    setSelected(name);
+  };
 
   const removeAction = React.useCallback(
     (name: string) => {
-      onPatch({ actions: actions.filter((a) => a.name !== name) });
+      if (heldNeeds.has(name)) {
+        setHeld((prev) => prev.filter((h) => !(h.on === objectName && h.action.name === name)));
+      } else {
+        onPatch({ actions: actions.filter((a) => a.name !== name) });
+      }
       setSelected(null);
     },
-    [actions, onPatch],
+    [actions, heldNeeds, objectName, onPatch],
   );
 
   return (
@@ -206,26 +311,96 @@ export function ObjectActionsPanel({
         <header className="flex items-center gap-2 border-b px-3 py-2">
           <Zap className="h-3.5 w-3.5" />
           <span className="text-[13px] font-medium">{t('engine.studio.data.tab.actions', locale)}</span>
-          <span className="text-[11px] text-muted-foreground">({actions.length})</span>
+          <span className="text-[11px] text-muted-foreground">({listed.length})</span>
           {!disabled && (
-            <button
-              type="button"
-              onClick={addAction}
-              className="ml-auto inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] hover:bg-muted"
+            <Popover
+              open={addOpen}
+              onOpenChange={(open) => {
+                setAddOpen(open);
+                // Every opening starts on the presets, Advanced folded.
+                if (open) setAdvancedOpen(false);
+              }}
             >
-              <Plus className="h-3 w-3" /> {t('engine.studio.new', locale)}
-            </button>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="ml-auto inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] hover:bg-muted"
+                >
+                  <Plus className="h-3 w-3" /> {t('engine.studio.new', locale)}
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" sideOffset={4} className="w-64 p-1">
+                <p className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {t('engine.studio.actions.presets', locale)}
+                </p>
+                {presetPlans.map(({ preset, plan }) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    data-testid={`action-preset-${preset.id}`}
+                    disabled={!plan.ready}
+                    aria-labelledby={`${presetIds}-${preset.id}-label`}
+                    aria-describedby={plan.hint ? `${presetIds}-${preset.id}-hint` : undefined}
+                    onClick={() => {
+                      if (!plan.ready) return;
+                      addPreset(plan);
+                      setAddOpen(false);
+                    }}
+                    className="flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                  >
+                    <span id={`${presetIds}-${preset.id}-label`} className="text-[12px]">
+                      {t(preset.labelKey, locale)}
+                    </span>
+                    {plan.hint && (
+                      <span id={`${presetIds}-${preset.id}-hint`} className="text-[11px] text-muted-foreground">
+                        {plan.hint}
+                      </span>
+                    )}
+                  </button>
+                ))}
+                <div className="my-1 border-t" />
+                <button
+                  type="button"
+                  aria-expanded={advancedOpen}
+                  // Names the list only while it is on the page.
+                  aria-controls={advancedOpen ? `${presetIds}-advanced` : undefined}
+                  onClick={() => setAdvancedOpen((v) => !v)}
+                  className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-muted"
+                >
+                  {advancedOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  {/* The Validations menu's own word for the same fold. */}
+                  {t('engine.studio.rules.advanced', locale)}
+                </button>
+                {/* The blank action, unchanged and named as before, folded under Advanced. */}
+                {advancedOpen && (
+                  <div id={`${presetIds}-advanced`}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addAction();
+                        setAddOpen(false);
+                      }}
+                      className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-[12px] hover:bg-muted"
+                    >
+                      {t('engine.studio.actions.newLabel', locale)}
+                    </button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
           )}
         </header>
         <div className="min-h-0 flex-1 overflow-auto">
-          {actions.length === 0 ? (
+          {listed.length === 0 ? (
             <p className="px-3 py-6 text-center text-[11px] leading-5 text-muted-foreground">
               {t('engine.studio.actions.none', locale)}
             </p>
           ) : (
-            actions.map((a) => {
+            listed.map((a) => {
               const Icon = getIcon(typeof a.icon === 'string' ? a.icon : undefined);
               const type = typeof a.type === 'string' ? a.type : '';
+              const needs = heldNeeds.get(String(a.name ?? '')) ?? null;
               return (
                 <button
                   key={String(a.name)}
@@ -237,7 +412,14 @@ export function ObjectActionsPanel({
                   }
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate font-medium">{labelText(a.label, String(a.name ?? ''), locale)}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{labelText(a.label, String(a.name ?? ''), locale)}</span>
+                    {needs && (
+                      <span data-testid="action-not-saved" className="block truncate text-[11px] italic text-muted-foreground">
+                        {tFormat('engine.studio.actions.notSaved', locale, { input: t(needs, locale) })}
+                      </span>
+                    )}
+                  </span>
                   {type && (
                     <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                       {type}
@@ -252,6 +434,22 @@ export function ObjectActionsPanel({
 
       {/* properties — the real Action metadata form */}
       <div className="flex min-w-0 flex-1 flex-col overflow-auto rounded-lg border">
+        {/* objectui#11861 — the line the Data pillar shows for an edit it
+            holds (objectui#11786), for a new action this panel holds. */}
+        {sel && selHeldInput && (
+          <p
+            data-testid="action-held"
+            role="status"
+            className="m-2 shrink-0 rounded-md border bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground"
+          >
+            {tFormat('engine.studio.held.line', locale, {
+              clause: tFormat('engine.studio.actions.heldNeeds', locale, {
+                action: labelText(sel.label, String(sel.name ?? ''), locale),
+                input: t(selHeldInput, locale),
+              }),
+            })}
+          </p>
+        )}
         {!sel ? (
           <div className="flex flex-1 items-center justify-center p-6 text-center text-[12px] text-muted-foreground">
             {t('engine.studio.actions.pick', locale)}

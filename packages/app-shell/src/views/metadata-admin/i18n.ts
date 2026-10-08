@@ -2984,7 +2984,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.pkg.readonlyHint': 'Read-only package — switch to or create a writable package to edit.',
   'engine.studio.app.scaffoldNav': "Add this package's objects as menu items",
   'engine.studio.landing.title': 'App Builder',
-  'engine.studio.landing.description': 'Design objects, forms, automations and interfaces inside a writable package; edits save as drafts and the whole package publishes in one release. Code-loaded packages are read-only (browse only).',
+  'engine.studio.landing.description': 'Design objects, forms, automations and interfaces inside a writable package; edits save as drafts and the whole package publishes in one release. Code and installed packages are read-only: browse them here, and customize them with an org overlay.',
   'engine.studio.landing.mineHeading': 'My packages (writable)',
   'engine.studio.landing.noneWritable': 'No writable packages yet — create one to start.',
   'engine.studio.landing.dup': 'Duplicate',
@@ -2995,6 +2995,12 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.landing.dupGo': 'Duplicate and open the builder',
   'engine.studio.landing.dupCreated': 'Duplicated into writable package “{name}”',
   'engine.studio.landing.installedHeading': 'Installed (read-only · browsable)',
+  // objectui#11808 — the routes a read-only package does have (ADR-0070 D2,
+  // ADR-0005): an org overlay, and the marketplace where the runtime has one.
+  'engine.studio.landing.readonlyHint': 'Code and installed packages are read-only, so they are not edited or duplicated here. Customize one with an org overlay, for the metadata types that accept one.',
+  'engine.studio.landing.overlay': 'Customize with an overlay',
+  'engine.studio.landing.overlayTitle': 'Open this package’s metadata: each type shows whether it accepts an org overlay',
+  'engine.studio.landing.marketplace': 'Or install a template app from the marketplace',
   // objectui#11553 — the package-less scope: the organization's own flows.
   'engine.studio.landing.orgHeading': 'Not in a package',
   'engine.studio.org.name': 'Organization flows',
@@ -6116,7 +6122,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.pkg.readonlyHint': '只读软件包 — 请切换或新建可写软件包后再编辑。',
   'engine.studio.app.scaffoldNav': '将本包的对象添加为菜单项',
   'engine.studio.landing.title': '应用构建',
-  'engine.studio.landing.description': '在一个可写软件包里设计对象、表单、自动化与界面;编辑存为草稿,整包一次发布。源码加载的软件包为只读(仅可浏览)。',
+  'engine.studio.landing.description': '在一个可写软件包里设计对象、表单、自动化与界面;编辑存为草稿,整包一次发布。源码与已安装的软件包为只读：可在此浏览，并用组织覆盖进行定制。',
   'engine.studio.landing.mineHeading': '我的软件包(可写)',
   'engine.studio.landing.noneWritable': '还没有可写软件包 — 新建一个开始。',
   'engine.studio.landing.dup': '复制',
@@ -6127,6 +6133,11 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.landing.dupGo': '复制并进入构建器',
   'engine.studio.landing.dupCreated': '已复制为可写软件包「{name}」',
   'engine.studio.landing.installedHeading': '已安装(只读 · 可浏览)',
+  // objectui#11808 — the routes a read-only package does have.
+  'engine.studio.landing.readonlyHint': '源码与已安装的软件包为只读，不能在此编辑或复制。对于接受组织覆盖的元数据类型，可用组织覆盖（overlay）进行定制。',
+  'engine.studio.landing.overlay': '用覆盖定制',
+  'engine.studio.landing.overlayTitle': '打开该软件包的元数据：每种类型都会标明是否接受组织覆盖',
+  'engine.studio.landing.marketplace': '或从应用市场安装一个模板应用',
   // objectui#11553 — the package-less scope: the organization's own flows.
   'engine.studio.landing.orgHeading': '不属于软件包',
   'engine.studio.org.name': '组织流程',

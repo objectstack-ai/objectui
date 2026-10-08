@@ -257,6 +257,21 @@ function readActivePackageBinding(): string | undefined {
 }
 
 /**
+ * Whether a layered answer this page already read holds no layer at all: no
+ * packaged baseline, no customisation row, no effective value. That is what
+ * `MetadataClient.layered()` resolves for the server's 404, an item that has
+ * never been saved (objectui#11799). `null` (nothing read yet) is not that
+ * answer.
+ *
+ * A draft-mode save or a draft discard makes no layer, so after either one
+ * such an item still has none, and asking `/layers` again only logs the same
+ * 404.
+ */
+function holdsNoLayer(layered: MetadataLayered<unknown> | null): boolean {
+  return !!layered && layered.code == null && layered.overlay == null && layered.effective == null;
+}
+
+/**
  * Decide whether the validation-diagnostics banner should render at all.
  *
  * The gate has two reasons to stay hidden:
@@ -1522,11 +1537,17 @@ function MetadataResourceEditPageImpl({
       // as the initial load (ADR-0048) so a same-name collision re-reads this
       // package's own row, not another's.
       const refreshScope = ownerPackageId ? { packageId: ownerPackageId } : {};
+      // objectui#11799 — this save went into a draft, which makes no layer. An
+      // item this page loaded with no layer still has none, and an item it
+      // just created has never been published (the page then navigates to the
+      // item, whose load reads it afresh). `/layers` answers 404 for both, so
+      // it is not asked: the answer already held stands.
+      const layerless = createMode || (savedName === name && holdsNoLayer(layered));
       const [lay, draftResp] = await Promise.all([
-        client.layered<any>(type, savedName, refreshScope),
+        layerless ? layered : client.layered<any>(type, savedName, refreshScope),
         client.getDraft<any>(type, savedName, refreshScope).catch(() => null),
       ]);
-      setLayered(lay);
+      if (!layerless) setLayered(lay);
       const draftReal = extractDraftBody(draftResp);
       setHasDraft(!!draftReal);
       // The served draft is the whole document the save just stored (see the
@@ -1535,7 +1556,7 @@ function MetadataResourceEditPageImpl({
       // key this save deleted straight back into the editor, invisibly, for
       // the next save to send. The baseline is only for a save that left no
       // draft row to read back.
-      const freshBaseline = (lay.effective ?? itemToSave) as Record<string, unknown>;
+      const freshBaseline = (lay?.effective ?? itemToSave) as Record<string, unknown>;
       const rawFresh: Record<string, unknown> = draftReal ?? freshBaseline;
       // Re-normalise the refreshed wire shape so the editor keeps showing
       // the canonical draft shape after a save (e.g. the backend re-expands
@@ -1749,7 +1770,9 @@ function MetadataResourceEditPageImpl({
       await client.reset(type, name, { state: 'draft' });
       // objectui#11773 — the discard dropped the draft the version named.
       forgetDraftVersion();
-      const lay = await client.layered<any>(type, name);
+      // objectui#11799 — a discard makes no layer: an item this page loaded
+      // with no layer still has none, and `/layers` would answer 404.
+      const lay = layered && holdsNoLayer(layered) ? layered : await client.layered<any>(type, name);
       setLayered(lay);
       const fresh = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
       setDraft(fresh);

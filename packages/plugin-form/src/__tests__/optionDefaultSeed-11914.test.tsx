@@ -37,8 +37,9 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { registerAllFields } from '@object-ui/fields';
+import type { DataSource, ObjectFormSchema } from '@object-ui/types';
 import { schemaDefaultValues, seedCreateValues } from '../schemaDefaults';
-import { ModalForm } from '../ModalForm';
+import { ModalForm, type ModalFormSchema } from '../ModalForm';
 import { ObjectForm } from '../ObjectForm';
 
 registerAllFields();
@@ -86,13 +87,17 @@ const TICKET = {
   },
 };
 
-const makeDS = (objectSchema: unknown = TICKET, record?: unknown) =>
-  ({
+/** A partial data-source double: the four methods these forms call. */
+const makeDS = (objectSchema: unknown = TICKET, record?: unknown) => {
+  const mocks = {
     getObjectSchema: vi.fn().mockResolvedValue(objectSchema),
     create: vi.fn().mockResolvedValue({ id: 't1' }),
     update: vi.fn().mockResolvedValue({ id: 't1' }),
     findOne: vi.fn().mockResolvedValue(record ?? { id: 't1' }),
-  }) as any;
+  };
+  return { ...mocks, dataSource: mocks as unknown as DataSource };
+};
+type MockDS = ReturnType<typeof makeDS>;
 
 const triggerText = (field: string) =>
   document.body.querySelector(`[data-testid="select-trigger-${field}"]`)?.textContent ?? '';
@@ -187,7 +192,7 @@ describe('schemaDefaultValues — an option marked `default: true` (objectui#119
   });
 });
 
-const renderModalCreate = (ds: any, extra: Record<string, unknown> = {}) =>
+const renderModalCreate = (ds: MockDS, extra: Partial<ModalFormSchema> = {}) =>
   render(
     <ModalForm
       schema={{
@@ -200,8 +205,8 @@ const renderModalCreate = (ds: any, extra: Record<string, unknown> = {}) =>
           { name: 'basics', label: 'Basics', fields: ['subject', 'priority', 'status', 'channel'] },
         ],
         ...extra,
-      } as any}
-      dataSource={ds}
+      }}
+      dataSource={ds.dataSource}
     />,
   );
 
@@ -296,12 +301,8 @@ describe('ModalForm (the console create dialog) — option defaults (objectui#11
 
 describe('ObjectForm (the page-mode create form) — option defaults (objectui#11914)', () => {
   it('opens the tutorial ticket with Priority and Status preselected', async () => {
-    render(
-      <ObjectForm
-        schema={{ type: 'object-form', objectName: 'support_desk_ticket', mode: 'create' } as any}
-        dataSource={makeDS()}
-      />,
-    );
+    const schema: ObjectFormSchema = { type: 'object-form', objectName: 'support_desk_ticket', mode: 'create' };
+    render(<ObjectForm schema={schema} dataSource={makeDS().dataSource} />);
 
     await waitFor(() => expect(triggerText('priority')).toContain('Low'));
     expect(triggerText('status')).toContain('Open');
@@ -310,12 +311,13 @@ describe('ObjectForm (the page-mode create form) — option defaults (objectui#1
 
   it('does not apply the option flag to an EDIT form over the stored record', async () => {
     const ds = makeDS(TICKET, { id: 't1', subject: 'Printer on fire' });
-    render(
-      <ObjectForm
-        schema={{ type: 'object-form', objectName: 'support_desk_ticket', mode: 'edit', recordId: 't1' } as any}
-        dataSource={ds}
-      />,
-    );
+    const schema: ObjectFormSchema = {
+      type: 'object-form',
+      objectName: 'support_desk_ticket',
+      mode: 'edit',
+      recordId: 't1',
+    };
+    render(<ObjectForm schema={schema} dataSource={ds.dataSource} />);
 
     await waitFor(() => expect(ds.findOne).toHaveBeenCalled());
     await waitFor(() => {

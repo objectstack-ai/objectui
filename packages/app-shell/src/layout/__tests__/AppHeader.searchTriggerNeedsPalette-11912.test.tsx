@@ -148,6 +148,7 @@ function PaletteProbe() {
 const FRAME: Record<AppHeaderVariant, string> = {
   home: '/home',
   orgs: '/organizations',
+  studio: '/studio',
   app: '/apps/crm',
 };
 
@@ -164,10 +165,11 @@ afterEach(() => {
 });
 
 describe('the header search trigger renders only where a command palette is mounted (objectui#11912)', () => {
-  // `home` is /home and /ai; `orgs` is /organizations and /organizations/SLUG.
+  // `home` is /home and /ai; `orgs` is /organizations and /organizations/SLUG;
+  // `studio` is the /studio front door, which mounts no palette (objectui#11863).
   // `app` without a provider is not a console frame, but it pins that the gate
   // is the palette's presence, not the variant name.
-  it.each<AppHeaderVariant>(['home', 'orgs', 'app'])(
+  it.each<AppHeaderVariant>(['home', 'orgs', 'studio', 'app'])(
     'the `%s` variant with no CommandPaletteProvider draws neither trigger',
     (variant) => {
       render(<MemoryRouter initialEntries={[FRAME[variant]]}>{header(variant)}</MemoryRouter>);

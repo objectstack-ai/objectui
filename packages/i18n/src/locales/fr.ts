@@ -1645,7 +1645,7 @@ const fr = {
   },
   console: {
     studio: {
-      backToHome: "Retour à l'accueil",
+      title: "Studio",
     },
     saveAdvisoryTitle: "Enregistré — le contrôle de création a signalé {{count}} recommandation(s)",
     saveAdvisoryTitle_one: "Enregistré — le contrôle de création a signalé {{count}} recommandation",

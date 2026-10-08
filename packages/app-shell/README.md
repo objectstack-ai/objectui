@@ -1176,8 +1176,8 @@ go down"):
 
 While the whole platform is pre-GA, the top bar (`AppHeader`) shows a small
 **Preview** chip next to the product wordmark on every console surface (home /
-app / orgs). It's rendered by `PreviewBadge`, driven by the platform stage in
-runtime-config:
+app / orgs / studio). It's rendered by `PreviewBadge`, driven by the platform
+stage in runtime-config:
 
 ```ts
 // packages/app-shell/src/runtime-config.ts — `RuntimeBranding.stage`

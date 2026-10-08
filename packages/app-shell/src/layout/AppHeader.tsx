@@ -12,6 +12,8 @@
  *              logo. Used by `/home`.
  *   - `orgs` : no breadcrumb; logo + "Organizations" title. Used by the
  *              `/organizations` landing page.
+ *   - `studio`: no breadcrumb; logo + a fixed "Studio" crumb, as `orgs` draws
+ *              its own. Used by the `/studio` front door (objectui#11863).
  *
  * The user avatar dropdown includes the organization (workspace) switcher at
  * the top so the same chrome lets users change orgs from any page.
@@ -126,7 +128,7 @@ function PathSep() {
 // header doesn't ship phantom collaborators in production.
 const EMPTY_PRESENCE_USERS: PresenceUser[] = [];
 
-export type AppHeaderVariant = 'app' | 'home' | 'orgs';
+export type AppHeaderVariant = 'app' | 'home' | 'orgs' | 'studio';
 
 export interface AppHeaderProps {
   variant?: AppHeaderVariant;
@@ -163,9 +165,10 @@ export function AppHeader({
   // synthetic `⌘K` KeyboardEvent re-dispatch that did nothing under automation.
   const { openCommandPalette } = useCommandPalette();
   // objectui#11912 — the search trigger is drawn only where a palette is
-  // mounted. Outside a `CommandPaletteProvider` (the `home` / `orgs` frames:
-  // `/home`, `/ai`, the organizations pages) `openCommandPalette` is the inert
-  // fallback and no ⌘K handler is installed, so a "Search ⌘K" there opens nothing.
+  // mounted. Outside a `CommandPaletteProvider` (the `home` / `orgs` / `studio`
+  // frames: `/home`, `/ai`, the organizations pages, `/studio`)
+  // `openCommandPalette` is the inert fallback and no ⌘K handler is installed,
+  // so a "Search ⌘K" there opens nothing.
   const hasCommandPalette = useCommandPaletteProviderMounted();
   // Click-reachable entry for the keyboard-shortcuts dialog (was `?`-key only).
   // Shares the `?shortcuts=1` URL param with KeyboardShortcutsDialog (C2/C3).
@@ -514,7 +517,7 @@ export function AppHeader({
         )}
 
         {/* Platform-stage chip — sits in the brand zone so it rides along on
-            every console surface (home / app / orgs) while the whole platform
+            every console surface (home / app / orgs / studio) while the whole platform
             is in preview. Desktop-only to spare the crowded mobile top bar;
             renders nothing once runtime-config reports GA. */}
         <PreviewBadge className="ml-2 hidden sm:inline-flex" />
@@ -533,6 +536,15 @@ export function AppHeader({
             <PathSep />
             <span className="text-sm font-medium text-foreground/80 px-1.5">
               {t('organizations.title', { defaultValue: 'Workspaces' })}
+            </span>
+          </>
+        )}
+
+        {resolvedVariant === 'studio' && (
+          <>
+            <PathSep />
+            <span className="text-sm font-medium text-foreground/80 px-1.5">
+              {t('console.studio.title')}
             </span>
           </>
         )}

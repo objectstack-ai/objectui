@@ -58,6 +58,19 @@ rendering, because `normalizeListViewSchema` (`@object-ui/core`) folds it forwar
 the door refuses it on authored metadata. Don't add a new local key here: declare it in
 `@objectstack/spec`, or rename at the producer.
 
+### The legacy `options` bag is the spec's list-overlay bag, by reference — objectui#6152
+
+`ListViewSchema.options` is `@objectstack/spec`'s own legacy bag, read off the flattened
+list overlay on the view write door (`VIEW_METADATA_MEMBERS.listOverlay.shape.options`,
+objectui#6152 round 12): a strict object of the eight kinds that name a block (`kanban`,
+`gallery`, `calendar`, `timeline`, `gantt`, `map`, `chart`, `tree`), each kind its
+list-view slot with every key optional. A key that is not a kind is refused at `options`
+with the spec's message, and `options.grid` with the spec's guidance (a grid has no
+per-kind block). The bag's `kanban`, `calendar`, `gallery` and `timeline` are the blocks
+above (`calendar` `.partial()` here), so every refusal in the table applies under
+`options.KIND` too, with the same message. The spec's authoring list view declares no
+bag at all; author the top-level blocks.
+
 ### Spec sub-schemas are re-exported by reference (not mirrored) — #2231
 
 The schemas that used to be hand-written "mirrors" of `@objectstack/spec/ui` are now the

@@ -38,3 +38,8 @@ What did not move: the renderers. `normalizeListViewSchema` still folds the four
 canonical keys, and `ListView` still lifts `calendar.defaultView` and spreads the rest of the kanban
 and calendar blocks onto the node it builds. A view stored with one of these keys therefore renders as
 before; only authored metadata meets the refusal. The legacy `options.KIND` bag is unchanged.
+
+**Note added 2026-10-08 (objectui#6152 round 12):** the legacy `options.KIND` bag is no longer
+unchanged. It is now the spec's list-overlay bag by reference, with these four blocks in it, so each
+refusal above also applies under `options.KIND`, with the same message; see
+`.changeset/6152-list-view-options-bag.md`. The renderers' reads still have not moved.

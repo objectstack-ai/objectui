@@ -91,28 +91,33 @@ describe('galleryViewOptions — the object page forwards, it does not invent (o
     expect(out).not.toHaveProperty('coverField');
   });
 
-  it('CONTROL: a declared `coverField` cross-fills the legacy `imageField`', () => {
-    // The spec spelling is `coverField`; `ObjectGallery` still consults the
-    // legacy `imageField`, and `ListView`'s gate reads `imageField` out of this
-    // bag. Cross-filling a DECLARED name is forwarding, not inventing.
+  it('CONTROL: a declared `coverField` goes out as `coverField` ALONE (objectui#6152 round 12)', () => {
+    // The spec spelling is `coverField`. This used to cross-fill the legacy
+    // `imageField` beside it, because `ListView`'s gate read only `imageField`
+    // out of this bag. Since objectui#6152 round 12 the typed bag refuses
+    // `options.gallery.imageField` by name and the gate reads `coverField` too,
+    // so the cover goes out under the spec key only.
     const out = galleryViewOptions({ gallery: { coverField: 'photo' } });
     expect(out.coverField).toBe('photo');
-    expect(out.imageField).toBe('photo');
+    expect(out).not.toHaveProperty('imageField');
   });
 
-  it('CONTROL: a declared legacy `imageField` cross-fills `coverField`', () => {
+  it('CONTROL: a stored legacy `imageField` still answers `coverField`', () => {
+    // The legacy READ is not this round's to retire: a row stored before the
+    // view write door judged it can still carry `imageField`, and its cover
+    // still binds. The block spread forwards the stored key as it was stored;
+    // nothing here SYNTHESIZES it.
     const out = galleryViewOptions({ gallery: { imageField: 'logo' } });
-    expect(out.imageField).toBe('logo');
     expect(out.coverField).toBe('logo');
+    expect(out.imageField).toBe('logo');
   });
 
-  it('CONTROL: both spellings declared — each keeps its own value', () => {
-    // The pre-#7547 precedence, unchanged: `imageField` prefers itself then
-    // `coverField`, `coverField` prefers itself then `imageField`. Only the
-    // `'image'` tail was removed, so a view declaring both is unaffected.
+  it('CONTROL: both spellings stored — `coverField` keeps its own value', () => {
+    // `coverField` prefers itself, then the legacy spelling; the stored legacy
+    // key rides the spread unchanged.
     const out = galleryViewOptions({ gallery: { imageField: 'logo', coverField: 'photo' } });
-    expect(out.imageField).toBe('logo');
     expect(out.coverField).toBe('photo');
+    expect(out.imageField).toBe('logo');
   });
 
   it('CONTROL: forwards a fully declared block verbatim — every spec key survives', () => {
@@ -127,9 +132,9 @@ describe('galleryViewOptions — the object page forwards, it does not invent (o
         titleField: 'subject',
       },
     });
+    expect(out).not.toHaveProperty('imageField');
     expect(out).toMatchObject({
       coverField: 'photo',
-      imageField: 'photo',
       coverFit: 'contain',
       cardSize: 'small',
       visibleFields: ['name', 'owner'],

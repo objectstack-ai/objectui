@@ -126,10 +126,14 @@ const OBJECT_BOUND_TIMELINE_VARIANTS = ['vertical', 'horizontal'] as const;
  * the refusal's message interpolates THIS list rather than restating it in
  * prose, so a rung added to (or retired from) the resolver cannot leave the
  * diagnostic naming a vocabulary the resolver no longer has. Every entry is a
- * DECLARED binding — the first two on `ListViewTimelineConfig`
- * (`@object-ui/types`), the last three on this component's own props and on
- * `TimelineExtensionSchema` — which is the property that distinguishes them
- * from the `'date'` literal objectui#7459 retired from the end of that chain.
+ * key an author can name — the first two on the nested `timeline` block
+ * (`ListViewTimelineConfig`, `@object-ui/types`), the last three on this
+ * component's own props and on `TimelineExtensionSchema` — which is the property
+ * that distinguishes them from the `'date'` literal objectui#7459 retired from
+ * the end of that chain. ⚠️ `timeline.dateField` is the pre-#2231 alias, and
+ * since objectui#6152 round 12 `ListViewTimelineConfig` refuses it by name (as
+ * the spec's slot does); the READ stays until the readers' retirement round, so
+ * a block stored with it still binds.
  *
  * Ordered canonical-first: the message tells the author which one to prefer by
  * position rather than by a second prose sentence that could drift from it.
@@ -167,9 +171,15 @@ export interface ObjectTimelineProps {
   schema: TimelineSchema & {
     objectName?: string;
     /**
-     * Spec-compliant nested timeline config. Typed as `ListViewTimelineConfig`
-     * — the spec shape plus the legacy `dateField` alias that `@object-ui/types`
-     * has always declared on it, and that this renderer now actually reads.
+     * The nested timeline block. `ListViewTimelineConfig` is
+     * `NonNullable<ListViewSchema['timeline']>` since objectui#6152 round 12
+     * (seat answer Q2 → B): the `@objectstack/spec` list-view slot by reference,
+     * strict and `.partial()`, with the legacy `dateField` refused by name
+     * (write `startDateField`). It is what this component receives on both
+     * routes: an authored `object-timeline` node's block (judged by the spec's
+     * element row) and the block `ListView` builds, which can leave out
+     * `titleField` or `startDateField`. It was the spec's `TimelineConfig` plus
+     * `dateField?: string` and a string index signature of `any`.
      */
     timeline?: ListViewTimelineConfig;
     /**
@@ -555,7 +565,8 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   const titleField = timelineConfig?.titleField ?? schema.mapping?.title ?? schema.titleField ?? 'name';
   // `dateField` is the pre-#2231 alias for `startDateField`. It was honored on
   // the FLAT prop (`schema.dateField`) but never on the nested config, even
-  // though `ListViewTimelineConfig` declares it there and both `ObjectView`
+  // though `ListViewTimelineConfig` declared it there (until objectui#6152
+  // round 12, which refuses it by name on that type) and both `ObjectView`
   // read-sites resolve it. A view authored as `timeline: { dateField }` therefore
   // fell all the way through to the caller's default (`created_at` / `due_date`),
   // which is usually absent from the projection — so every record bucketed into

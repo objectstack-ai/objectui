@@ -490,7 +490,6 @@ export type {
   KanbanConfig,
   CalendarConfig,
   GanttConfig,
-  ListViewGalleryConfig,
   ListViewTimelineConfig,
   SortConfig,
   // ConditionalFormatting: the spec rule, and the grid / list-view rule built on it

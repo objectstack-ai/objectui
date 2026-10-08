@@ -2997,7 +2997,19 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     }
 
     // Check for Gallery capabilities (spec config takes precedence)
-    if (schema.gallery?.coverField || schema.gallery?.imageField || schema.options?.gallery?.imageField) {
+    //
+    // The bag's CANONICAL rung (objectui#6152 round 12), the objectui#8193 kanban
+    // repair a fourth time: the gate asked `options.gallery` for the legacy
+    // `imageField` only, so a bag binding its cover under the spec's `coverField`
+    // rendered a gallery the switcher never offered. app-shell's relay writes
+    // `coverField` alone since that round. ⛔ The alias rung stays: the readers'
+    // retirement is a later round.
+    if (
+      schema.gallery?.coverField ||
+      schema.gallery?.imageField ||
+      schema.options?.gallery?.coverField ||
+      schema.options?.gallery?.imageField
+    ) {
       resolvable.push('gallery');
     }
 

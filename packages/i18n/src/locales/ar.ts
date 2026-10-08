@@ -648,6 +648,7 @@ const ar = {
       invalidBoolean: "«{{value}}» ليست قيمة صواب/خطأ صالحة",
       invalidNumber: "«{{value}}» ليست رقمًا صالحًا",
       invalidDate: "«{{value}}» ليست تاريخًا صالحًا",
+      invalidTime: "«{{value}}» ليست وقتًا صالحًا",
       invalidOption: "«{{value}}» ليست ضمن الخيارات المسموح بها",
       requiredValue: "هذا الحقل مطلوب",
       matchAmbiguous: "يطابق أكثر من سجل موجود — استخدم قيمة فريدة أو معرّف السجل",

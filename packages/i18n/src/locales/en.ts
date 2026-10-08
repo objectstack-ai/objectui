@@ -833,6 +833,7 @@ const en = {
       invalidBoolean: '"{{value}}" is not a valid true/false value',
       invalidNumber: '"{{value}}" is not a valid number',
       invalidDate: '"{{value}}" is not a valid date',
+      invalidTime: '"{{value}}" is not a valid time',
       invalidOption: '"{{value}}" is not one of the allowed options',
       requiredValue: 'This field is required',
       matchAmbiguous: 'Matches more than one existing record — use a unique value or the record id',

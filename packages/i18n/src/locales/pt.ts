@@ -584,6 +584,7 @@ const pt = {
       invalidBoolean: "\"{{value}}\" não é um valor verdadeiro/falso válido",
       invalidNumber: "\"{{value}}\" não é um número válido",
       invalidDate: "\"{{value}}\" não é uma data válida",
+      invalidTime: "\"{{value}}\" não é uma hora válida",
       invalidOption: "\"{{value}}\" não está entre as opções permitidas",
       requiredValue: "Este campo é obrigatório",
       matchAmbiguous: "Corresponde a mais de um registro existente — use um valor único ou o id do registro",

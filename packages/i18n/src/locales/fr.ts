@@ -585,6 +585,7 @@ const fr = {
       invalidBoolean: "« {{value}} » n'est pas une valeur vrai/faux valide",
       invalidNumber: "« {{value}} » n'est pas un nombre valide",
       invalidDate: "« {{value}} » n'est pas une date valide",
+      invalidTime: "« {{value}} » n'est pas une heure valide",
       invalidOption: "« {{value}} » ne fait pas partie des options autorisées",
       requiredValue: "Ce champ est obligatoire",
       matchAmbiguous: "Correspond à plusieurs enregistrements existants — utilisez une valeur unique ou l'identifiant de l'enregistrement",

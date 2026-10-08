@@ -12,6 +12,7 @@ import {
 } from '@object-ui/components';
 import { Download, KeyRound, ShieldAlert } from 'lucide-react';
 import type { ImportRecordsResult } from '@object-ui/types';
+import type { ImportWizardProps } from '@object-ui/plugin-grid';
 import { useSafeTranslate } from '@object-ui/i18n';
 import {
   buildTemporaryPasswordCsv,
@@ -127,13 +128,18 @@ export function IdentityImportResultExtra({ serverResult }: { serverResult?: Imp
 
 /** Curated importable columns for sys_user. The generic writable-field filter
  *  would drop `phone_number` (readonly for CRUD — identity writes go through
- *  better-auth), so identity import declares its own target set. */
+ *  better-auth), so identity import declares its own target set.
+ *
+ *  The email column is typed `email` and flagged `emailRule: 'identity'`, so
+ *  the wizard's preview checks it by the identity endpoint's rule: a non-ASCII
+ *  or placeholder address is marked, as the endpoint refuses it with
+ *  `INVALID_EMAIL` (objectui#11913). */
 export function identityImportFields(
   objectFields: Record<string, any> | undefined,
-): Array<{ name: string; label: string; type: string; required?: boolean }> {
+): ImportWizardProps['fields'] {
   const label = (name: string, fallback: string) => objectFields?.[name]?.label || fallback;
   return [
-    { name: 'email', label: label('email', 'Email'), type: 'text' },
+    { name: 'email', label: label('email', 'Email'), type: 'email', emailRule: 'identity' },
     { name: 'phone_number', label: label('phone_number', 'Phone Number'), type: 'text' },
     { name: 'name', label: label('name', 'Name'), type: 'text' },
     { name: 'role', label: label('role', 'Platform Role'), type: 'text' },

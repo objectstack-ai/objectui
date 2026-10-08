@@ -568,6 +568,7 @@ const ja = {
       invalidBoolean: "「{{value}}」は有効な true/false の値ではありません",
       invalidNumber: "「{{value}}」は有効な数値ではありません",
       invalidDate: "「{{value}}」は有効な日付ではありません",
+      invalidTime: "「{{value}}」は有効な時刻ではありません",
       invalidOption: "「{{value}}」は許可された選択肢に含まれていません",
       requiredValue: "この項目は必須です",
       matchAmbiguous: "既存の複数レコードに一致します — 一意の値かレコード ID を使用してください",

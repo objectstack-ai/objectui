@@ -3138,6 +3138,7 @@ const en = {
         dashboard: 'Dashboard',
         page: 'Page',
         report: 'Report',
+        package: 'Package',
         record: 'Record',
         metadata: 'Metadata',
       },

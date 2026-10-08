@@ -2692,6 +2692,7 @@ const pt = {
         dashboard: "Painel",
         page: "Página",
         report: "Relatório",
+        package: "Pacote",
         record: "Registro",
         metadata: "Metadados",
       },

@@ -90,3 +90,27 @@ describe('useRecentItemLabel (objectui#11678)', () => {
     ).toBe('sys_user');
   });
 });
+
+describe('useRecentItemLabel — a Studio package (objectui#11863)', () => {
+  const PKG: RecentItem = { id: 'package:com.acme.crm', type: 'package', name: 'com.acme.crm', href: '/studio/com.acme.crm', visitedAt: at };
+
+  it('is labelled by its row in the package list the surface hands in, read on each render', () => {
+    let packages = [{ id: 'com.acme.crm', name: 'Acme CRM' }];
+    const { result, rerender } = renderHook(() => useRecentItemLabel({ packages }), { wrapper: wrapper('en') });
+    expect(result.current(PKG)).toBe('Acme CRM');
+
+    // A rename reaches the next render: nothing about the name was stored.
+    packages = [{ id: 'com.acme.crm', name: 'Acme Sales' }];
+    rerender();
+    expect(result.current(PKG)).toBe('Acme Sales');
+  });
+
+  it('a package the list does not have, or a call with no list, shows the machine name, as a missing page does', () => {
+    const missing = renderHook(() => useRecentItemLabel({ packages: [{ id: 'com.acme.hr', name: 'Acme HR' }] }), {
+      wrapper: wrapper('en'),
+    });
+    expect(missing.result.current(PKG)).toBe('com.acme.crm');
+    const noList = renderHook(() => useRecentItemLabel(), { wrapper: wrapper('en') });
+    expect(noList.result.current(PKG)).toBe('com.acme.crm');
+  });
+});

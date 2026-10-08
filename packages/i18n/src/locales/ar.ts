@@ -2854,6 +2854,7 @@ const ar = {
         dashboard: "لوحة تحكم",
         page: "صفحة",
         report: "تقرير",
+        package: "حزمة",
         record: "سجل",
         metadata: "البيانات الوصفية",
       },

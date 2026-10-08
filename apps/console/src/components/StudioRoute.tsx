@@ -34,8 +34,8 @@
  * Studio exists for. The gate belongs here, in this app's router.
  */
 
-import { lazy, Suspense, type ReactNode } from 'react';
-import { Link, Navigate, Outlet, Route } from 'react-router-dom';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
+import { Link, Navigate, Outlet, Route, useParams } from 'react-router-dom';
 import {
   LoadingFallback,
   LoadingScreen,
@@ -43,6 +43,7 @@ import {
   STUDIO_ORG_SCOPE_SEGMENT,
   getProductName,
   useHomePath,
+  useRecentItems,
 } from '@object-ui/app-shell';
 import { useObjectTranslation } from '@object-ui/i18n';
 
@@ -185,6 +186,43 @@ function StudioLanding() {
 }
 
 /**
+ * A package's pillar builder, which records the visit as a recent `package`
+ * entry (objectui#11863), so the landing can list the packages an author was
+ * last in. `useTrackRouteAsRecent` reads `/apps/APP` routes only, and this
+ * module owns the `/studio` subtree, so the record is made here, behind the
+ * entry gate: a refused principal never mounts this element.
+ *
+ * The entry is the package's IDENTITY — its id, and `href` its bare route,
+ * which lands on the Data pillar — and no label: the landing labels it from the
+ * package list it loads (objectui#11678's shape). Keyed on the package, not the
+ * pillar, so moving between pillars of one package leaves the list as it is,
+ * and the provider writes nothing. The package-less scope (`~org`) is not a
+ * package and records nothing.
+ */
+function StudioPackageBuilder() {
+  const { packageId } = useParams();
+  const { addRecentItem } = useRecentItems();
+  useEffect(() => {
+    if (!packageId || packageId === STUDIO_ORG_SCOPE_SEGMENT) return;
+    addRecentItem({
+      id: `package:${packageId}`,
+      type: 'package',
+      name: packageId,
+      href: `/studio/${encodeURIComponent(packageId)}`,
+    });
+    // Driven by the package alone. `addRecentItem` is a `useCallback` result,
+    // whose identity is not a dependency (AGENTS.md #10), as in
+    // `useTrackRouteAsRecent`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packageId]);
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <StudioDesignSurface />
+    </Suspense>
+  );
+}
+
+/**
  * The whole `/studio` subtree (ADR-0080/0084), as ONE element `App.tsx` drops
  * into its `<Routes>` — the same shape `AppContent`'s `systemRoutes` uses.
  *
@@ -196,7 +234,7 @@ function StudioLanding() {
  *   `/studio`                    front door (pick / create a writable package)
  *   `/studio/~org`               the package-less scope lands on its one pillar
  *   `/studio/:packageId`         a package lands on its Data pillar
- *   `/studio/:packageId/:tab`    the pillar builder
+ *   `/studio/:packageId/:tab`    the pillar builder (a recent-package visit)
  *
  * `~org` is the reserved segment for the organization's own, package-less
  * flows (objectui#11553; `studioScope.ts` in app-shell says why `~` can never
@@ -214,13 +252,6 @@ export const studioRoutes = (
       element={<Navigate to={STUDIO_ORG_SCOPE_PILLAR} replace />}
     />
     <Route path=":packageId" element={<Navigate to="data" replace />} />
-    <Route
-      path=":packageId/:tab"
-      element={
-        <Suspense fallback={<LoadingFallback />}>
-          <StudioDesignSurface />
-        </Suspense>
-      }
-    />
+    <Route path=":packageId/:tab" element={<StudioPackageBuilder />} />
   </Route>
 );

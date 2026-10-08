@@ -2761,6 +2761,7 @@ const ru = {
         dashboard: "Панель",
         page: "Страница",
         report: "Отчёт",
+        package: "Пакет",
         record: "Запись",
         metadata: "Метаданные",
       },

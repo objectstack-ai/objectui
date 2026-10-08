@@ -2697,6 +2697,7 @@ const es = {
         dashboard: "Panel",
         page: "Página",
         report: "Informe",
+        package: "Paquete",
         record: "Registro",
         metadata: "Metadatos",
       },

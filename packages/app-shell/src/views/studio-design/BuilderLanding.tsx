@@ -9,7 +9,8 @@
  * (`/studio/:packageId/:tab`). Also served standalone at bare `/studio` so the
  * builder is bookmarkable.
  *
- * Writable bases (where authoring happens) lead; the organization's own
+ * The packages the author was last in lead, when there are any (objectui#11863).
+ * Writable bases (where authoring happens) follow; the organization's own
  * package-less flows have one entry of their own (objectui#11553); read-only
  * code and installed packages are listed last: they open for browsing, and each
  * card points at the routes that customize one (objectui#11808). Writability is
@@ -19,8 +20,10 @@
 
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Boxes, Building2, Hammer, Layers, Lock, Plus, Loader2, Copy, Store } from 'lucide-react';
+import { Boxes, Building2, Clock, Hammer, Layers, Lock, Plus, Loader2, Copy, Store } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRecentItems, type RecentNamedItem } from '../../context/RecentItemsProvider.js';
+import { useRecentItemLabel } from '../../hooks/useRecentItemLabel.js';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
 import { PackageFormDialog } from '../metadata-admin/PackageFormDialog.js';
 import { isMarketplaceEnabled } from '../../runtime-config.js';
@@ -44,6 +47,9 @@ const MARKETPLACE_PATH = '/apps/setup/system/marketplace';
 const overlayPath = (packageId: string) =>
   `/apps/setup/metadata?package=${encodeURIComponent(packageId)}`;
 
+/** objectui#11863 — how many recent packages the landing lists: one row of cards. */
+const RECENT_PACKAGES_SHOWN = 3;
+
 export function BuilderLanding(): React.ReactElement {
   const navigate = useNavigate();
   const locale = useMetadataLocale();
@@ -66,6 +72,21 @@ export function BuilderLanding(): React.ReactElement {
   }, []);
 
   const open = (id: string) => navigate(`/studio/${encodeURIComponent(id)}/data`);
+
+  // objectui#11863 — the packages the author was last in, newest first, as the
+  // console's route owner records them (`StudioRoute`). An entry stores the
+  // package's identity only, and is labelled here from the list this page just
+  // loaded, so a renamed package shows its new name (objectui#11678's shape).
+  // Listed only once that list has answered, so no entry is drawn as its id
+  // while it loads; nothing is listed when there are none.
+  const { recentItems } = useRecentItems();
+  const recentLabel = useRecentItemLabel({ packages: pkgs });
+  const recentPackages =
+    pkgs === null
+      ? []
+      : recentItems
+          .filter((item): item is RecentNamedItem => item.type === 'package')
+          .slice(0, RECENT_PACKAGES_SHOWN);
 
   const writable = pkgs?.filter((p) => p.writable) ?? [];
   const readonly = pkgs?.filter((p) => !p.writable) ?? [];
@@ -126,6 +147,31 @@ export function BuilderLanding(): React.ReactElement {
         <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[11px] text-destructive">
           {error}
         </div>
+      )}
+
+      {recentPackages.length > 0 && (
+        <>
+          <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {t('engine.home.recent', locale)}
+          </h2>
+          <div data-testid="studio-landing-recent" className="mb-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            {recentPackages.map((item) => (
+              <Link
+                key={item.id}
+                to={item.href}
+                className="flex items-center gap-2.5 rounded-lg border bg-background px-3 py-2.5 text-left hover:bg-muted/40"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Clock className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-medium">{recentLabel(item)}</span>
+                  <span className="block truncate font-mono text-[10px] text-muted-foreground">{item.name}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </>
       )}
 
       <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">

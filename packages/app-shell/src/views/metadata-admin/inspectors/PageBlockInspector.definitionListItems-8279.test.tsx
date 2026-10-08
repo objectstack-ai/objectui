@@ -58,7 +58,7 @@ import '@object-ui/components';
 // objectui#4697 — the same STABLE stub the sibling inspector suites use,
 // short-circuiting the mount-time metadata fetch. Nothing here reads it.
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,

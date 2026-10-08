@@ -102,8 +102,6 @@ function addFromMenu(label: string): Record<string, unknown> {
   const onPatch = vi.fn();
   render(<ObjectValidationsPanel draft={baseDraft} onPatch={onPatch} />);
   fireEvent.click(screen.getByText('New'));
-  // The per-type list sits under Advanced since objectui#11861.
-  fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
   fireEvent.click(screen.getByRole('button', { name: label }));
   const type = MENU.find(([, l]) => l === label)?.[0] ?? '';
   if (GUARDED.has(type)) {

@@ -44,6 +44,7 @@ const mockClient = vi.hoisted(() => ({
   ),
   getDraft: vi.fn(async () => null),
   get: vi.fn(async () => null),
+  withPreviewDrafts() { return this; },
   save: vi.fn(async (_type: string, _name: string, body: Record<string, unknown>) => {
     state.hooks = [...state.hooks, body];
     return {};

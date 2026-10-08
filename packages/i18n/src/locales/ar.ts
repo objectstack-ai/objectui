@@ -4209,6 +4209,10 @@ const ar = {
       exists: "محدد",
       notExists: "غير محدد",
     },
+    emptyCheckHint: {
+      text: '"{{isEmpty}}" يطابق أيضًا النص الفارغ؛ "{{isNull}}" يطابق القيمة المفقودة فقط.',
+      list: '"{{isEmpty}}" يطابق أيضًا القائمة الفارغة؛ "{{isNull}}" يطابق القيمة المفقودة فقط.',
+    },
   },
   sortBuilder: {
     sortBy: "ترتيب حسب",

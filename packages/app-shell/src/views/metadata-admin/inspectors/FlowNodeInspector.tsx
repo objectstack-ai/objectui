@@ -22,8 +22,9 @@
 import * as React from 'react';
 import { Plus } from 'lucide-react';
 import { resolveFlowTriggerKind } from '@objectstack/spec/automation';
+import { Input, Label } from '@object-ui/components';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
-import { t } from '../i18n.js';
+import { t, tFormat } from '../i18n.js';
 import {
   InspectorShell,
   InspectorTextField,
@@ -63,7 +64,12 @@ import { NESTED_NODE_KIND, parseNestedNodeId, locateFlowNode, type InspectorFlow
 import { displayRegionLabel } from '../previews/flow-region-label.js';
 import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 import { ScreenPreview } from '../previews/ScreenPreview.js';
-import { edgesAfterNodeRemoval } from '../previews/flow-problems.js';
+import {
+  boundaryRefsAfterNodeRename,
+  edgesAfterNodeRemoval,
+  edgesAfterNodeRename,
+  nodeRenameRefusal,
+} from '../previews/flow-problems.js';
 
 /**
  * The node and edge shapes this panel edits — ALIASED, never restated
@@ -159,7 +165,99 @@ function setAtPath(obj: Record<string, unknown>, path: string[], value: unknown)
   return next;
 }
 
-export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection, locale, readOnly }: MetadataInspectorProps) {
+/**
+ * The node's ID field (objectui#11827). Unlike the panel's other text fields it
+ * holds what the author types as a DRAFT and commits only a finished id — on
+ * blur or Enter — because an id is not a value like a label: it is the handle
+ * every edge names. Committed per keystroke, each intermediate spelling was a
+ * rename of its own, and the first one already left the inspector's selection
+ * naming an id that no longer existed.
+ *
+ * `refusalOf` judges the finished id; a refused id is never handed to
+ * `onRename`, the field shows the stored id again, and the reason stays under
+ * it until the author edits again. Escape puts the stored id back. An Enter that
+ * ends an IME composition is the composition's, not a commit.
+ *
+ * Local to this panel on purpose: the shared `InspectorTextField` commits on
+ * every change, which is right for every field but this one.
+ */
+function FlowNodeIdField({
+  label,
+  id,
+  disabled,
+  refusalOf,
+  onRename,
+}: {
+  label: string;
+  /** The node's stored id. */
+  id: string;
+  disabled?: boolean;
+  /** Why `next` may not be the node's id, as the text to show — or null when it may. */
+  refusalOf: (next: string) => string | null;
+  onRename: (next: string) => void;
+}) {
+  const inputId = React.useId();
+  const refusalId = `${inputId}-refusal`;
+  const [text, setText] = React.useState(id);
+  const [refusal, setRefusal] = React.useState<string | null>(null);
+  // The stored id moved under the field — the rename landed, or another node
+  // was selected — so the field shows it and drops any earlier refusal. Adjusted
+  // while rendering (React's documented pattern for state that follows a prop):
+  // no effect, and no remount, so the input keeps focus after an Enter.
+  const [shownId, setShownId] = React.useState(id);
+  if (shownId !== id) {
+    setShownId(id);
+    setText(id);
+    setRefusal(null);
+  }
+
+  const commit = () => {
+    if (text === id) return;
+    const refused = refusalOf(text);
+    if (refused) {
+      setRefusal(refused);
+      setText(id);
+      return;
+    }
+    onRename(text);
+  };
+
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={inputId} className="text-xs text-muted-foreground">{label}</Label>
+      <Input
+        id={inputId}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setRefusal(null);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return;
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          } else if (e.key === 'Escape') {
+            setText(id);
+            setRefusal(null);
+          }
+        }}
+        disabled={disabled}
+        aria-invalid={refusal ? true : undefined}
+        aria-describedby={refusal ? refusalId : undefined}
+        className="h-8 font-mono text-sm"
+      />
+      {refusal && (
+        <p id={refusalId} className="text-[11px] leading-snug text-destructive" role="alert">
+          {refusal}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection, onSelectionChange, locale, readOnly }: MetadataInspectorProps) {
   // Resolve the selection to a node + how to write it back — a top-level draft
   // node, or a node nested inside a container region (#2670). Every edit goes
   // through loc.write, so the inspector never branches on where the node lives.
@@ -445,6 +543,42 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     onClearSelection();
   };
 
+  // objectui#11827 — renaming a node carries every reference to it in the
+  // SAME patch: each edge endpoint that named the old id (`edgesAfterNodeRename`)
+  // and a boundary event's host (`boundaryRefsAfterNodeRename`). Writing the
+  // node's id alone left every edge naming a node that no longer existed, so the
+  // renamed node ran disconnected. The selection then follows the node, or the
+  // inspector would be left on an id the draft no longer holds. Top-level only:
+  // a nested node's id is read-only here (its region routing is not managed).
+  const idRefusal = (next: string): string | null => {
+    switch (nodeRenameRefusal(draft as Record<string, unknown>, node.id, next)) {
+      case 'empty':
+        return t('engine.inspector.flowNode.idRequired', locale);
+      case 'node':
+        return tFormat('engine.inspector.flowNode.idTaken', locale, { id: next });
+      case 'edge':
+        return tFormat('engine.inspector.flowNode.idEdgeNamed', locale, { id: next });
+      default:
+        return null;
+    }
+  };
+  const rename = (nextId: string) => {
+    if (!loc || loc.nested) return;
+    const oldId = node.id;
+    const patch = loc.write(withoutSpecRefusedKeys({ ...node, id: nextId }));
+    if (!patch) return;
+    const nodesAfter = Array.isArray(patch.nodes) ? (patch.nodes as Array<{ id?: unknown; boundaryConfig?: unknown } | null>) : [];
+    patch.nodes = boundaryRefsAfterNodeRename(nodesAfter, oldId, nextId);
+    const draftEdges = Array.isArray((draft as { edges?: unknown }).edges)
+      ? ((draft as { edges: FlowEdge[] }).edges)
+      : [];
+    const idsAfter = new Set(nodesAfter.flatMap((n) => (typeof n?.id === 'string' ? [n.id] : [])));
+    const edges = edgesAfterNodeRename(draftEdges, oldId, nextId, idsAfter);
+    if (edges !== draftEdges) patch.edges = edges;
+    onPatch(patch);
+    onSelectionChange?.({ kind: 'node', id: nextId, label: node.label || nextId });
+  };
+
   // objectui#11778 — the palette's list (it once was a hand list here that
   // missed `notify` and showed raw type names). A stored type the palette does
   // not offer (`start`, an alias like `http_request`, a plugin type whose engine
@@ -482,7 +616,13 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
           <span className="max-w-[45%] truncate font-medium text-foreground">{node.label || node.id}</span>
         </div>
       )}
-      <InspectorTextField label={t('engine.inspector.flowNode.id', locale)} value={node.id} onCommit={(v) => patchNode({ id: v })} disabled={readOnly || nested} mono />
+      <FlowNodeIdField
+        label={t('engine.inspector.flowNode.id', locale)}
+        id={node.id}
+        refusalOf={idRefusal}
+        onRename={rename}
+        disabled={readOnly || nested}
+      />
       {nested && (
         <p className="-mt-1 text-[11px] leading-snug text-muted-foreground">{t('engine.inspector.flowNode.nestedIdHint', locale)}</p>
       )}

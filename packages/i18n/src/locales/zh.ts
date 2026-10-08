@@ -3945,6 +3945,10 @@ const zh = {
       exists: '已设置',
       notExists: '未设置',
     },
+    emptyCheckHint: {
+      text: '「{{isEmpty}}」也匹配空白文本；「{{isNull}}」只匹配没有值的记录。',
+      list: '「{{isEmpty}}」也匹配空列表；「{{isNull}}」只匹配没有值的记录。',
+    },
   },
   sortBuilder: {
     sortBy: '排序依据',

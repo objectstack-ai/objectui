@@ -3953,6 +3953,10 @@ const fr = {
       exists: "Est défini",
       notExists: "N'est pas défini",
     },
+    emptyCheckHint: {
+      text: '« {{isEmpty}} » correspond aussi à un texte vide ; « {{isNull}} » uniquement à une valeur absente.',
+      list: '« {{isEmpty}} » correspond aussi à une liste vide ; « {{isNull}} » uniquement à une valeur absente.',
+    },
   },
   sortBuilder: {
     sortBy: "Trier par",

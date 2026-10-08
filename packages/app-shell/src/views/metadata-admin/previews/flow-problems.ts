@@ -20,6 +20,7 @@
  */
 
 import { createContext } from 'react';
+import { collectFlowGraphs } from '@objectstack/spec/automation';
 import { validateFlowDraft } from './simulator/flow-sim-validate.js';
 import type { Diagnostic, DiagnosticLevel, SimEdge, SimNode } from './simulator/flow-sim-types.js';
 import { conditionText, edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
@@ -493,14 +494,15 @@ export function deriveInvalidElements(problems: FlowProblem[]): {
   return { invalidNodeIds: [...nodeSet], invalidEdges: edgeSet };
 }
 
-// ── Edits that cannot draw these problems (objectui#11772) ─────────────────
+// ── Edits that cannot draw these problems (objectui#11772, objectui#11827) ──
 //
 // The designer's own writes must never produce the two edge problems flagged
 // above — an edge naming a node that does not exist, and a repeated
-// connection — so the two writers that can are here, beside the key they
-// share: the id a new node gets, and the edges a node removal keeps. The
-// canvas (`FlowCanvas`, `FlowPreview`) and the node inspector import them from
-// this component-free module rather than from a component.
+// connection — nor a duplicate node id, so the writers that can are here,
+// beside the key they share: the id a new node gets, the edges a node removal
+// keeps, and what a node rename may take and must carry. The canvas
+// (`FlowCanvas`, `FlowPreview`) and the node inspector import them from this
+// component-free module rather than from a component.
 
 /**
  * A fresh node id (objectui#11772): `uniqueId('node', …)` over every id the
@@ -605,4 +607,117 @@ export function edgesAfterNodeRemoval(
   const route = edgeRouteKey(reconnected);
   if (kept.some((e) => edgeRouteKey(e) === route)) return kept;
   return edges.flatMap((e) => (e === edgeIn ? [reconnected] : touches(e) ? [] : [e]));
+}
+
+/** Why a node may not be renamed to an id (objectui#11827); see {@link nodeRenameRefusal}. */
+export type NodeRenameRefusal = 'empty' | 'node' | 'edge';
+
+/**
+ * Whether the node `oldId` may be renamed `nextId` (objectui#11827): `null`
+ * when it may (or when the id is unchanged, so there is nothing to do), else
+ * why not.
+ *
+ * - `'empty'` — no id at all. The spec's `FlowNodeSchema.id` is a bare
+ *   `z.string()`, but the designer's own structural check already reports a
+ *   node without an id as an error (`validateFlowDraft`'s
+ *   `engine.flowValidate.nodeMissingId` row), so its own write never makes one.
+ * - `'node'` — another node already has it. This is the spec's one rule about
+ *   a node id: a duplicate is refused by `FlowSchema`, and a flow has ONE node
+ *   id space — the top-level `nodes[]` and every ADR-0031 region body at every
+ *   depth — walked here with the spec's own `collectFlowGraphs`, so a region
+ *   node's id is taken too.
+ * - `'edge'` — no node has it, but an edge still names it. The rename would
+ *   pick that stale edge up: an edge left naming a missing node is a socket
+ *   the next node given that id plugs into (the reason `freshNodeId` counts
+ *   edge endpoints as taken), and the node would silently gain a connection
+ *   the author never drew — or a second copy of one it has.
+ *
+ * Nothing else is refused: an id seen earlier in the session but no longer in
+ * the draft is free to take by a deliberate rename (only a minted id avoids
+ * it), and no format rule is invented beyond the spec's.
+ */
+export function nodeRenameRefusal(
+  flow: { nodes?: unknown; edges?: unknown },
+  oldId: string,
+  nextId: string,
+): NodeRenameRefusal | null {
+  if (nextId === oldId) return null;
+  if (nextId === '') return 'empty';
+  // `collectFlowGraphs` is the walk `FlowSchema` itself runs for its duplicate
+  // rule, built to read stored data as it is: it drops a member that is not a
+  // record, so a mid-edit draft with a hole in it is read, not thrown on.
+  const graphs = collectFlowGraphs({
+    nodes: Array.isArray(flow.nodes) ? flow.nodes : [],
+    edges: Array.isArray(flow.edges) ? flow.edges : [],
+  } as Parameters<typeof collectFlowGraphs>[0]);
+  if (graphs.some((g) => g.nodes.some((n) => n.id === nextId))) return 'node';
+  if (graphs.some((g) => g.edges.some((e) => e.source === nextId || e.target === nextId))) return 'edge';
+  return null;
+}
+
+/**
+ * The edges a flow keeps when the node `oldId` is renamed `newId`
+ * (objectui#11827): every edge endpoint that named the old id names the new
+ * one, in the same patch as the node — the rename's counterpart of
+ * {@link edgesAfterNodeRemoval}.
+ *
+ * Only `source` / `target` move. Each edge keeps its id, guard, label,
+ * default flag and type, and its place in the list (the declaration order a
+ * decision's branches are tried in); an edge that does not name the node is
+ * handed back as the same object, and with no edge naming it the very same
+ * array comes back.
+ *
+ * `nodeIdsAfter` are the flow's node ids after the rename. While another node
+ * still carries `oldId` (a draft holding a duplicate id, itself a
+ * Problems-panel error), the edges are that node's too and are kept as they
+ * are — the rule {@link edgesAfterNodeRemoval} applies to the same draft.
+ */
+export function edgesAfterNodeRename(
+  edges: FlowDesignerEdge[],
+  oldId: string,
+  newId: string,
+  nodeIdsAfter: ReadonlySet<string>,
+): FlowDesignerEdge[] {
+  if (oldId === newId || nodeIdsAfter.has(oldId)) return edges;
+  let moved = false;
+  const next = edges.map((edge) => {
+    if (edge.source !== oldId && edge.target !== oldId) return edge;
+    moved = true;
+    const renamed: FlowDesignerEdge = { ...edge };
+    if (edge.source === oldId) renamed.source = newId;
+    if (edge.target === oldId) renamed.target = newId;
+    return renamed;
+  });
+  return moved ? next : edges;
+}
+
+/**
+ * The flow's nodes with every boundary event that monitored the node `oldId`
+ * monitoring it as `newId` (objectui#11827). `boundaryConfig.attachedToNodeId`
+ * is the one key on the spec's `FlowNodeSchema` besides an edge endpoint that
+ * names another node by id ("Host node ID this boundary event monitors"), so a
+ * rename carries it in the same patch rather than leave the event attached to
+ * nothing — which no Problems row would name.
+ *
+ * `nodesAfter` are the top-level nodes with the rename already written.
+ * Untouched nodes are handed back as the same objects, and with nothing
+ * attached to the node the very same array comes back. While another node
+ * still carries `oldId`, the reference is that node's too and stays, as the
+ * edges do ({@link edgesAfterNodeRename}).
+ */
+export function boundaryRefsAfterNodeRename<N extends { id?: unknown; boundaryConfig?: unknown } | null>(
+  nodesAfter: N[],
+  oldId: string,
+  newId: string,
+): N[] {
+  if (oldId === newId || nodesAfter.some((n) => n?.id === oldId)) return nodesAfter;
+  let moved = false;
+  const next = nodesAfter.map((node) => {
+    const bc = node?.boundaryConfig;
+    if (!bc || typeof bc !== 'object' || Array.isArray(bc)) return node;
+    if ((bc as { attachedToNodeId?: unknown }).attachedToNodeId !== oldId) return node;
+    moved = true;
+    return { ...node, boundaryConfig: { ...(bc as Record<string, unknown>), attachedToNodeId: newId } };
+  });
+  return moved ? next : nodesAfter;
 }

@@ -3874,6 +3874,10 @@ const de = {
       exists: "Ist gesetzt",
       notExists: "Ist nicht gesetzt",
     },
+    emptyCheckHint: {
+      text: '„{{isEmpty}}“ trifft auch auf leeren Text zu; „{{isNull}}“ nur auf einen fehlenden Wert.',
+      list: '„{{isEmpty}}“ trifft auch auf eine leere Liste zu; „{{isNull}}“ nur auf einen fehlenden Wert.',
+    },
   },
   sortBuilder: {
     sortBy: "Sortieren nach",

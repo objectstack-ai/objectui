@@ -128,18 +128,74 @@ export function parsePackages(payload: unknown): PkgEntry[] {
  * `StudioDesignSurface.packageListErrorPosture` / `manageSnapshotRefresh` pin
  * that the three-state switcher and the refresh report keep working when the
  * wire answers with nothing readable.
+ *
+ * Concurrent callers share one request — see {@link readPackagesPayload}.
  */
 export async function fetchPackages(): Promise<PkgEntry[]> {
-  const res = await fetch('/api/v1/packages', {
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-    cache: 'no-store',
-  });
-  if (!res.ok) {
-    const payload = await res.json().catch(() => null);
-    throw new Error(readEnvelopeFailureText(payload) ?? `HTTP ${res.status}`);
+  return parsePackages(await readPackagesPayload());
+}
+
+/**
+ * The `GET /api/v1/packages` request currently on the wire, per `fetch`
+ * (objectui#11797).
+ *
+ * Opening a package mounts three readers at once — the switcher list, the
+ * writability courtesy gate and the namespace lookup — and each one sent its
+ * own request, so the same list crossed the wire three times in one
+ * navigation. A caller that arrives while a request is pending now waits for
+ * that request instead of sending another.
+ *
+ * ⛔ Not a response cache, deliberately:
+ *  - the entry goes the moment the request settles, so a call made after an
+ *    answer always reaches the network. There is no reuse window because no
+ *    client-side list can name every write that changes the package list (an
+ *    agent creates packages server-side), and a window would answer the read
+ *    after such a write with the list from before it;
+ *  - a failure reaches the callers already waiting and is then forgotten;
+ *  - the writes this module can see drop the pending request — its own
+ *    `duplicatePackage` and the `objectui:packages-changed` announcement — so
+ *    a read asked after either is never answered by a request sent before it.
+ *
+ * Keyed by the `fetch` the request went through: a request only answers
+ * callers of the same transport. Each caller parses the shared payload itself,
+ * so every caller still gets its own `PkgEntry[]`.
+ */
+const pendingPackageReads = new WeakMap<typeof fetch, Promise<unknown>>();
+let packagesChangedObserved = false;
+
+function dropPendingPackageRead(): void {
+  pendingPackageReads.delete(globalThis.fetch);
+}
+
+function readPackagesPayload(): Promise<unknown> {
+  // Registered on first use rather than at import, and so before the
+  // switcher's own `objectui:packages-changed` listener (it calls this first,
+  // then subscribes): the drop runs before the refetch that event triggers.
+  if (!packagesChangedObserved && typeof window !== 'undefined') {
+    packagesChangedObserved = true;
+    window.addEventListener('objectui:packages-changed', dropPendingPackageRead);
   }
-  return parsePackages(await res.json());
+  const transport = globalThis.fetch;
+  const pending = pendingPackageReads.get(transport);
+  if (pending) return pending;
+  const read = (async () => {
+    const res = await fetch('/api/v1/packages', {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const payload = await res.json().catch(() => null);
+      throw new Error(readEnvelopeFailureText(payload) ?? `HTTP ${res.status}`);
+    }
+    return res.json() as Promise<unknown>;
+  })();
+  pendingPackageReads.set(transport, read);
+  const settle = () => {
+    if (pendingPackageReads.get(transport) === read) pendingPackageReads.delete(transport);
+  };
+  read.then(settle, settle);
+  return read;
 }
 
 /**
@@ -209,12 +265,15 @@ function describeDuplicateFailure(outcome: DuplicateOutcome): string {
  * `preview/commitHistory.ts`.
  */
 export async function duplicatePackage(sourceId: string, targetId: string, targetName?: string): Promise<void> {
+  // objectui#11797 — a list read still pending when this write lands was asked
+  // before it, so a read asked after it must not join that one. Dropped however
+  // the write ends: a failed duplicate may still have copied part of a package.
   const res = await fetch(`/api/v1/packages/${encodeURIComponent(sourceId)}/duplicate`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ targetPackageId: targetId, ...(targetName ? { targetName } : {}) }),
-  });
+  }).finally(dropPendingPackageRead);
   const payload = (await res.json().catch(() => null)) as Record<string, unknown> | null;
   if (!res.ok) {
     // The error envelope IS top-level (`{ success: false, error }`) — no `data`

@@ -778,6 +778,64 @@ function isMetaItemEnvelope(
 }
 
 /**
+ * Metadata GETs currently on the wire, per transport (objectui#11797).
+ *
+ * Keyed by the `fetch` a client was built with, not by the client: the console
+ * mints a client per component (`useMetadataClient`), and every one of them is
+ * built on the same authenticated fetch, so a per-instance map would never see
+ * the sibling that is asking the same question. See
+ * {@link MetadataClient.shareRead} for the rules.
+ */
+const pendingReads = new WeakMap<typeof fetch, Map<string, PendingRead>>();
+
+interface PendingRead {
+  /** The one request every sharer waits on. ⛔ Never handed to a caller itself. */
+  read: Promise<unknown>;
+  /** Sharers that have asked and not yet been handed their answer. */
+  waiting: number;
+}
+
+function pendingReadsOn(transport: typeof fetch): Map<string, PendingRead> {
+  let reads = pendingReads.get(transport);
+  if (!reads) {
+    reads = new Map();
+    pendingReads.set(transport, reads);
+  }
+  return reads;
+}
+
+/**
+ * Every sharer gets an answer no other sharer holds, so sharing the request
+ * never means sharing the object: before the request was shared every caller
+ * parsed its own body, and one caller editing what it got back must still not
+ * change what another caller holds.
+ *
+ * Each sharer is handed its answer in its own reaction on the pending read,
+ * registered when it asked — the request's first caller included, whose code
+ * would otherwise run ahead of the copies and could edit the very object they
+ * are taken from. The LAST sharer to be handed the answer takes the parsed
+ * original and every earlier one a copy of it, so nothing is copied when
+ * nobody joined. The count is final by the first hand-out: a caller can only
+ * join while the entry is in the map, and the entry's own settle reaction,
+ * registered before any hand-out, takes it out.
+ */
+function handOut(entry: PendingRead): Promise<unknown> {
+  entry.waiting += 1;
+  return entry.read.then((value) => {
+    entry.waiting -= 1;
+    return entry.waiting === 0 ? value : ownCopy(value);
+  });
+}
+
+/** The answers are parsed JSON, which `structuredClone` copies exactly. */
+function ownCopy<R>(value: R): R {
+  if (value === null || typeof value !== 'object') return value;
+  return typeof structuredClone === 'function'
+    ? structuredClone(value)
+    : (JSON.parse(JSON.stringify(value)) as R);
+}
+
+/**
  * MetadataClient — read/write protocol metadata via the framework REST API.
  *
  * @example
@@ -848,23 +906,81 @@ export class MetadataClient {
     });
   }
 
+  /**
+   * Share one in-flight GET among the callers asking the same method for the
+   * same URL with the same headers through the same transport (objectui#11797).
+   *
+   * Opening a Studio package mounts several readers that ask the same
+   * question at once, and each one sent its own request. The first call for a
+   * key sends `read()`; a call that arrives while it is pending waits for that
+   * request instead of sending another.
+   *
+   * ⛔ Not a response cache, deliberately — the rules `findOne` keeps on the
+   * data adapter (objectui#11699):
+   *  - the entry goes the moment the read settles, so a call made after an
+   *    answer always reaches the network (there is no reuse window: a client
+   *    cannot see every write that changes metadata, an agent's server-side
+   *    edits among them, and a window would answer the read after such a write
+   *    with the state from before it);
+   *  - a rejection reaches every caller already waiting and is not remembered;
+   *  - a write sent through the same transport drops every pending read when
+   *    it lands (see {@link sendWrite}), so a read asked after a save or a
+   *    publish is never answered by a request sent before it;
+   *  - every caller, the first one included, gets an answer no other caller
+   *    holds (see {@link handOut}).
+   */
+  private shareRead<R>(reader: string, url: string, read: () => Promise<R>): Promise<R> {
+    const reads = pendingReadsOn(this.fetchImpl);
+    // `reader` names the method: two methods reading one URL read different
+    // answers out of it (`list('_drafts')` and `listDrafts()` share a URL).
+    const key = JSON.stringify([reader, url, Object.entries(this.headers).sort(([a], [b]) => a.localeCompare(b))]);
+    let entry = reads.get(key);
+    if (!entry) {
+      const created: PendingRead = { read: read(), waiting: 0 };
+      reads.set(key, created);
+      const settle = () => {
+        if (reads.get(key) === created) reads.delete(key);
+      };
+      created.read.then(settle, settle);
+      entry = created;
+    }
+    return handOut(entry) as Promise<R>;
+  }
+
+  /**
+   * Send a write, then drop every read still pending on this transport
+   * (objectui#11797): a read on the wire when the write lands was asked before
+   * it, so a caller asking after the write must not join it. Dropped however
+   * the write ends — a refused or interrupted write may still have changed
+   * something. The callers already holding a pending read keep its answer.
+   */
+  private async sendWrite(url: string, init: RequestInit): Promise<Response> {
+    try {
+      return await this.fetchImpl(url, init);
+    } finally {
+      pendingReads.get(this.fetchImpl)?.clear();
+    }
+  }
+
   /** List all registered metadata types (returns the registry rows). */
   async listTypes(): Promise<unknown[]> {
-    const res = await this.fetchImpl(this.base, { method: 'GET', headers: this.headers, cache: 'no-store' });
-    if (!res.ok) throw await parseError(res);
-    const data = await res.json();
-    if (Array.isArray(data)) return data;
-    // Framework REST returns `{ types: string[], entries: TypeEntry[] }`
-    // where `entries` is the rich per-type registry row. Older / scoped
-    // shapes may use `items`. Prefer `entries` (rich), fall back to
-    // `items` (legacy), then synthesize stub entries from `types[]`
-    // if neither is present.
-    if (data && Array.isArray((data as any).entries)) return (data as any).entries;
-    if (data && Array.isArray((data as any).items)) return (data as any).items;
-    if (data && Array.isArray((data as any).types)) {
-      return (data as any).types.map((t: string) => ({ type: t }));
-    }
-    return [];
+    return this.shareRead('listTypes', this.base, async () => {
+      const res = await this.fetchImpl(this.base, { method: 'GET', headers: this.headers, cache: 'no-store' });
+      if (!res.ok) throw await parseError(res);
+      const data = await res.json();
+      if (Array.isArray(data)) return data;
+      // Framework REST returns `{ types: string[], entries: TypeEntry[] }`
+      // where `entries` is the rich per-type registry row. Older / scoped
+      // shapes may use `items`. Prefer `entries` (rich), fall back to
+      // `items` (legacy), then synthesize stub entries from `types[]`
+      // if neither is present.
+      if (data && Array.isArray((data as any).entries)) return (data as any).entries;
+      if (data && Array.isArray((data as any).items)) return (data as any).items;
+      if (data && Array.isArray((data as any).types)) {
+        return (data as any).types.map((t: string) => ({ type: t }));
+      }
+      return [];
+    });
   }
 
   /** List items of a metadata type (e.g. `object`, `field`, `view`). */
@@ -874,14 +990,16 @@ export class MetadataClient {
     if (this.previewDrafts) params.push('preview=draft');
     const qs = params.length ? `?${params.join('&')}` : '';
     const url = `${this.base}/${encodeURIComponent(type)}${qs}`;
-    const res = await this.fetchImpl(url, { method: 'GET', headers: this.headers, cache: 'no-store' });
-    if (!res.ok) throw await parseError(res);
-    const data = await res.json();
-    if (Array.isArray(data)) return data as T[];
-    if (data && Array.isArray((data as { items?: unknown[] }).items)) {
-      return (data as { items: T[] }).items;
-    }
-    return [];
+    return this.shareRead('list', url, async () => {
+      const res = await this.fetchImpl(url, { method: 'GET', headers: this.headers, cache: 'no-store' });
+      if (!res.ok) throw await parseError(res);
+      const data = await res.json();
+      if (Array.isArray(data)) return data as T[];
+      if (data && Array.isArray((data as { items?: unknown[] }).items)) {
+        return (data as { items: T[] }).items;
+      }
+      return [];
+    });
   }
 
   /**
@@ -900,13 +1018,15 @@ export class MetadataClient {
     if (options.type) params.push(`type=${encodeURIComponent(options.type)}`);
     const qs = params.length ? `?${params.join('&')}` : '';
     const url = `${this.base}/_drafts${qs}`;
-    const res = await this.fetchImpl(url, { method: 'GET', headers: this.headers, cache: 'no-store' });
-    if (!res.ok) throw await parseError(res);
-    const data = (await res.json()) as
-      | MetadataDraftHeader[]
-      | { drafts?: MetadataDraftHeader[]; data?: { drafts?: MetadataDraftHeader[] } };
-    if (Array.isArray(data)) return data;
-    return data?.drafts ?? data?.data?.drafts ?? [];
+    return this.shareRead('listDrafts', url, async () => {
+      const res = await this.fetchImpl(url, { method: 'GET', headers: this.headers, cache: 'no-store' });
+      if (!res.ok) throw await parseError(res);
+      const data = (await res.json()) as
+        | MetadataDraftHeader[]
+        | { drafts?: MetadataDraftHeader[]; data?: { drafts?: MetadataDraftHeader[] } };
+      if (Array.isArray(data)) return data;
+      return data?.drafts ?? data?.data?.drafts ?? [];
+    });
   }
 
   /**
@@ -932,10 +1052,12 @@ export class MetadataClient {
     if (options.packageId) params.push(`package=${encodeURIComponent(options.packageId)}`);
     const qs = params.length ? `?${params.join('&')}` : '';
     const url = `${this.base}/${encodeURIComponent(type)}/${encodeURIComponent(name)}${qs}`;
-    const res = await this.fetchImpl(url, { method: 'GET', headers: this.headers, cache: 'no-store' });
-    if (res.status === 404) return null;
-    if (!res.ok) throw await parseError(res);
-    return (await res.json()) as T;
+    return this.shareRead('readItemResponse', url, async () => {
+      const res = await this.fetchImpl(url, { method: 'GET', headers: this.headers, cache: 'no-store' });
+      if (res.status === 404) return null;
+      if (!res.ok) throw await parseError(res);
+      return (await res.json()) as T;
+    });
   }
 
   /**
@@ -1074,7 +1196,7 @@ export class MetadataClient {
       'Content-Type': 'application/json',
     };
     if (options.ifMatch) headers['If-Match'] = options.ifMatch;
-    const res = await this.fetchImpl(url, {
+    const res = await this.sendWrite(url, {
       method: 'PUT',
       headers,
       body: JSON.stringify(item),
@@ -1166,7 +1288,7 @@ export class MetadataClient {
     seedApplied?: { success: boolean; inserted?: number; updated?: number; error?: string; errors?: unknown[] };
   } & Record<string, unknown>> {
     const url = `${this.base}/${encodeURIComponent(type)}/${encodeURIComponent(name)}/publish`;
-    const res = await this.fetchImpl(url, {
+    const res = await this.sendWrite(url, {
       method: 'POST',
       headers: { ...this.headers, 'Content-Type': 'application/json', Accept: 'application/json' },
       body: '{}',
@@ -1235,7 +1357,7 @@ export class MetadataClient {
       );
     }
     const url = `${packagesBaseOf(this.base)}/${encodeURIComponent(packageId)}/publish-drafts`;
-    const res = await this.fetchImpl(url, {
+    const res = await this.sendWrite(url, {
       method: 'POST',
       // Both call sites this replaces sent the session cookie, and the client's
       // own fetch adds the console's Bearer token — so the routed call carries a
@@ -1461,7 +1583,7 @@ export class MetadataClient {
     const url = `${this.base}/${encodeURIComponent(type)}/${encodeURIComponent(name)}${qs}`;
     const headers: Record<string, string> = { ...this.headers };
     if (options.ifMatch) headers['If-Match'] = options.ifMatch;
-    const res = await this.fetchImpl(url, { method: 'DELETE', headers });
+    const res = await this.sendWrite(url, { method: 'DELETE', headers });
     if (!res.ok) throw await parseError(res);
     return (await res.json()) as T;
   }
@@ -1503,7 +1625,7 @@ export class MetadataClient {
       ...this.headers,
       'Content-Type': 'application/json',
     };
-    const res = await this.fetchImpl(url, {
+    const res = await this.sendWrite(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(options.message ? { message: options.message } : {}),
@@ -1542,7 +1664,7 @@ export class MetadataClient {
       ...this.headers,
       'Content-Type': 'application/json',
     };
-    const res = await this.fetchImpl(url, {
+    const res = await this.sendWrite(url, {
       method: 'POST',
       headers,
       body: JSON.stringify({

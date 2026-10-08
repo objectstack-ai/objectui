@@ -275,11 +275,11 @@ function violationsOf(group: string, fields: readonly FlowConfigField[]): string
         const contract = configContractOf(type);
         if (!contract) continue;
         const why = undeclaredAt(contract, write.path.slice(1));
-        if (why) out.push(`${group} (node type '${type}') writes ${fmt(write.path)}: ${why} by its config contract`);
+        if (why) out.push(`${group} (node type '${type}') writes ${fmt(write.path)}: ${why} in its config contract`);
       }
     } else {
       const why = undeclaredAt(Automation.FlowNodeSchema, write.path);
-      if (why) out.push(`${group} writes ${fmt(write.path)}: ${why} by FlowNodeSchema`);
+      if (why) out.push(`${group} writes ${fmt(write.path)}: ${why} in FlowNodeSchema`);
     }
   }
   return out;
@@ -301,23 +301,23 @@ describe('the contract walk can fail, at every depth it judges (objectui#11968)'
   it('flags an undeclared config key, naming the group, the node type and the key', () => {
     const stray = [...fieldsForNodeType('http_request'), field(['config', 'outputVariable'])];
     expect(violationsOf('http_request', stray)).toEqual([
-      "http_request (node type 'http') writes config.outputVariable: 'outputVariable' is not declared by its config contract",
+      "http_request (node type 'http') writes config.outputVariable: 'outputVariable' is not declared in its config contract",
     ]);
   });
 
   it('flags one inside a nested block, an array element and a sibling block, and a tombstone', () => {
     expect(violationsOf('approval', [field(['config', 'escalation', 'bogusKey'])])).toEqual([
-      "approval (node type 'approval') writes config.escalation.bogusKey: 'bogusKey' is not declared by its config contract",
+      "approval (node type 'approval') writes config.escalation.bogusKey: 'bogusKey' is not declared in its config contract",
     ]);
     expect(violationsOf('screen', [field(['config', 'fields', EACH, 'bogusKey'])])).toEqual([
-      "screen (node type 'screen') writes config.fields[].bogusKey: 'bogusKey' is not declared by its config contract",
+      "screen (node type 'screen') writes config.fields[].bogusKey: 'bogusKey' is not declared in its config contract",
     ]);
     expect(violationsOf('wait', [field(['waitEventConfig', 'bogusKey'])])).toEqual([
-      "wait writes waitEventConfig.bogusKey: 'bogusKey' is not declared by FlowNodeSchema",
+      "wait writes waitEventConfig.bogusKey: 'bogusKey' is not declared in FlowNodeSchema",
     ]);
     // `script.template` survives in the shape only as a `[REMOVED]` tombstone.
     expect(violationsOf('script', [field(['config', 'template'])])).toEqual([
-      "script (node type 'script') writes config.template: 'template' is a retired tombstone by its config contract",
+      "script (node type 'script') writes config.template: 'template' is a retired tombstone in its config contract",
     ]);
   });
 

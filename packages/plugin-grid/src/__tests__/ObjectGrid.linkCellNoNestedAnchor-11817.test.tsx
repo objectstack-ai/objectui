@@ -38,7 +38,7 @@ import React from 'react';
 
 import { ObjectGrid } from '../ObjectGrid';
 import { registerAllFields, listCellRendererTypes } from '@object-ui/fields';
-import { ActionProvider, RelatedRecordActionsProvider } from '@object-ui/react';
+import { ActionProvider, RelatedRecordActionsProvider, type RelatedRecordActionsValue } from '@object-ui/react';
 
 registerAllFields();
 
@@ -47,19 +47,19 @@ registerAllFields();
  * shape, the widest one. The list page's host answers only its own object,
  * which this one covers.
  */
-const host = {
+const host: RelatedRecordActionsValue = {
   resolve: () => ({}),
-  recordHref: (objectName: string, recordId: string | number) =>
+  recordHref: (objectName, recordId) =>
     `/apps/demo/${objectName}/record/${encodeURIComponent(String(recordId))}`,
   openRecord: () => {},
-} as any;
+};
 
-function renderGrid(schemaOverrides: Record<string, any>, objectFields?: Record<string, unknown>) {
-  const schema: any = {
+function renderGrid(schemaOverrides: Record<string, unknown>, objectFields?: Record<string, unknown>) {
+  const schema = {
     type: 'object-grid' as const,
     objectName: 'test_object',
     ...schemaOverrides,
-  };
+  } as React.ComponentProps<typeof ObjectGrid>['schema'];
   return render(
     <ActionProvider>
       <RelatedRecordActionsProvider value={host}>

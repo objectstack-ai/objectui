@@ -211,7 +211,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mountList(objectName: string, viewId: string, objects: any[], rows: any[] = []) {
+function mountList(
+  objectName: string,
+  viewId: string,
+  objects: Array<{ name: string }>,
+  rows: Array<Record<string, unknown>> = [],
+) {
   const i18n = createI18n({ defaultLanguage: 'en', detectBrowserLanguage: false });
   const dataSource = {
     find: vi.fn(async () => ({ data: rows, total: rows.length })),

@@ -50,6 +50,13 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@object-ui/components';
 import { DASHBOARD_COMPONENT_WIDGET_TYPES, completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 import { DashboardWidgetSchema as DashboardWidgetDoor } from '@object-ui/types/zod';
 import { pickLocalized, setLocalized } from '@object-ui/i18n';
@@ -385,6 +392,102 @@ function WidgetCard({
 // Widget Property Panel
 // ============================================================================
 
+/**
+ * The colour variants the panel offers, in the order the native control
+ * listed them. TYPED to the widget's own `colorVariant`, so a pick reaches
+ * `onChange` as that type with no cast of a DOM string.
+ */
+const COLOR_VARIANTS: ReadonlyArray<{
+  value: NonNullable<DashboardWidgetSchema['colorVariant']>;
+  label: string;
+}> = [
+  { value: 'default', label: 'Default' },
+  { value: 'blue', label: 'Blue' },
+  { value: 'teal', label: 'Teal' },
+  { value: 'orange', label: 'Orange' },
+  { value: 'purple', label: 'Purple' },
+  { value: 'success', label: 'Success' },
+  { value: 'warning', label: 'Warning' },
+  { value: 'danger', label: 'Danger' },
+];
+
+/** The item a stored value none of a picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/** The classes a picker takes, at the size of the inputs beside it. */
+const PICKER = 'h-auto border-gray-300 px-2.5 py-1.5 text-sm';
+
+/**
+ * objectui#11865 — one of the property panel's pickers (the widget's type and
+ * its colour variant), drawn with the shared `Select`, the control the rest of
+ * the console picks with. They used to be browser-native `<select>`s. What a
+ * pick writes is unchanged: `onPick` receives the picked option's own `value`,
+ * the string the native control's `change` carried, and each caller turns it
+ * into the same `onChange` update as before. Re-picking the current option
+ * writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value, so the picked option is
+ *   resolved against the very list that rendered the items, and no option
+ *   value can collide with the outside item below.
+ * - An option may be `disabled`, as a native `<option>` was: the type picker
+ *   disables the types the widget door refuses this widget's measures under.
+ * - A stored value none of the options carries gets an item of its own,
+ *   labelled with the value, so the trigger shows what the widget holds (a
+ *   stored `area`, a `metric-card` entry). The native control showed its first
+ *   option there ("KPI Metric", "Default"), which is not what the widget says.
+ *   Picking that item writes nothing. An empty value gets no such item: the
+ *   trigger shows nothing.
+ * - Read-only follows the primitive (objectui#11781): `disabled` disables the
+ *   trigger, which wears `SelectTrigger`'s own disabled look.
+ * - `id` lands on the trigger, so the caller's `<label htmlFor>` names it as it
+ *   named the native control.
+ */
+function WidgetPropPicker<V extends string>({
+  id,
+  testId,
+  value,
+  options,
+  onPick,
+  disabled,
+}: {
+  id: string;
+  testId: string;
+  value: string;
+  options: ReadonlyArray<{ value: V; label: string; disabled?: boolean }>;
+  onPick: (value: V) => void;
+  disabled: boolean;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  const outside = at === -1 && value !== '';
+  return (
+    <Select
+      value={at !== -1 ? String(at) : outside ? OUTSIDE_OPTIONS : ''}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the stored value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger id={id} data-testid={testId} className={PICKER}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {outside && (
+          <SelectItem value={OUTSIDE_OPTIONS} data-option-value={value}>
+            {value}
+          </SelectItem>
+        )}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)} disabled={o.disabled} data-option-value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 interface WidgetPropertyPanelProps {
   widget: DashboardWidgetEntry;
   /** The widget's position in `widgets[]`, which the grid auto-places it by. */
@@ -478,30 +581,27 @@ function WidgetPropertyPanel({
       {/* Type */}
       <div className="space-y-1">
         <label htmlFor="widget-type" className="text-xs font-medium text-gray-600">Type</label>
-        <select
+        <WidgetPropPicker
           id="widget-type"
-          data-testid="widget-prop-type"
-          value={widget.type ?? 'metric'}
-          onChange={(e) => {
-            // Resolve the DOM string against the very list that rendered the
-            // options, rather than casting it onto the closed type. No cast, no
-            // tolerance: a value not in the palette writes nothing at all,
+          testId="widget-prop-type"
+          value={currentType}
+          options={WIDGET_TYPES.map((t) => ({
+            value: t.type,
+            label: t.label,
+            disabled: t.type !== currentType && refusedUnder(t.type),
+          }))}
+          onPick={(type) => {
+            // The picker resolves its item against the very list that rendered
+            // the options, so the type arrives typed off the palette, never as a
+            // cast DOM string: a value not in the palette writes nothing at all,
             // instead of storing a `type` the platform refuses at publish.
             // A type the door refuses this widget's measures under writes
-            // nothing either (objectui#8894): its option is disabled, and this
-            // keeps a programmatic change from storing what publish refuses.
-            const picked = WIDGET_TYPES.find((t) => t.type === e.target.value);
-            if (picked && (picked.type === currentType || !refusedUnder(picked.type))) onChange({ type: picked.type });
+            // nothing either (objectui#8894): its item is disabled, and this
+            // keeps any other route to it from storing what publish refuses.
+            if (type === currentType || !refusedUnder(type)) onChange({ type });
           }}
           disabled={readOnly}
-          className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
-        >
-          {WIDGET_TYPES.map((t) => (
-            <option key={t.type} value={t.type} disabled={t.type !== currentType && refusedUnder(t.type)}>
-              {t.label}
-            </option>
-          ))}
-        </select>
+        />
         {currentRefusal && (
           <p role="alert" data-testid="widget-prop-measure-refusal" className="break-words text-xs text-red-600">
             {currentRefusal}
@@ -522,23 +622,14 @@ function WidgetPropertyPanel({
       {widgetArm && (
         <div className="space-y-1">
           <label htmlFor="widget-color" className="text-xs font-medium text-gray-600">Color Variant</label>
-          <select
+          <WidgetPropPicker
             id="widget-color"
-            data-testid="widget-prop-color"
+            testId="widget-prop-color"
             value={widgetArm.colorVariant ?? 'default'}
-            onChange={(e) => onChange({ colorVariant: e.target.value as DashboardWidgetSchema['colorVariant'] })}
+            options={COLOR_VARIANTS}
+            onPick={(colorVariant) => onChange({ colorVariant })}
             disabled={readOnly}
-            className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
-          >
-            <option value="default">Default</option>
-            <option value="blue">Blue</option>
-            <option value="teal">Teal</option>
-            <option value="orange">Orange</option>
-            <option value="purple">Purple</option>
-            <option value="success">Success</option>
-            <option value="warning">Warning</option>
-            <option value="danger">Danger</option>
-          </select>
+          />
         </div>
       )}
 

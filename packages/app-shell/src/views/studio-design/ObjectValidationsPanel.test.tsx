@@ -41,8 +41,6 @@ describe('ObjectValidationsPanel', () => {
     const onPatch = vi.fn();
     render(<ObjectValidationsPanel draft={draft} onPatch={onPatch} />);
     fireEvent.click(screen.getByText('New'));
-    // The per-type list sits under Advanced since objectui#11861.
-    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
     // Target the menu <button> (the Type <select> has an <option> of the same
     // text — a native option is role "option", not "button").
     fireEvent.click(screen.getByRole('button', { name: 'Script — CEL fail condition' }));
@@ -58,7 +56,6 @@ describe('ObjectValidationsPanel', () => {
     const onPatch = vi.fn();
     render(<ObjectValidationsPanel draft={draft} onPatch={onPatch} />);
     fireEvent.click(screen.getByText('New'));
-    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
     fireEvent.click(screen.getByRole('button', { name: 'State machine — allowed transitions' }));
     const patch = onPatch.mock.calls[0][0];
     const added = patch.validations[patch.validations.length - 1];

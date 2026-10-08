@@ -233,9 +233,10 @@ export interface HeaderBarSchema extends BaseSchema {
 /**
  * Sidebar component
  *
- * The node draws its `children` inside one shadcn sidebar region, and reads
- * `collapsible` and `variant`. It composes what it draws through `children`;
- * an app's navigation lives in the app's metadata, not on this node.
+ * The node draws its `children` inside one shadcn sidebar region. It reads
+ * `collapsible`, and hands `side` and `variant` to shadcn's `Sidebar` through
+ * the props it forwards. It composes what it draws through `children`; an
+ * app's navigation lives in the app's metadata, not on this node.
  *
  * Nine keys this declaration used to offer had no reader and are RETIRED
  * (objectui#11465, ADR-0049): `title`, `nav`, `content`, `footer`,
@@ -278,7 +279,8 @@ export interface SidebarSchema extends BaseSchema {
   footer?: never;
   /**
    * RETIRED (objectui#11465, ADR-0049) — every value drew the sidebar at the
-   * same edge. Delete the key.
+   * same edge. Delete the key. To draw the sidebar against the right edge,
+   * write `side: 'right'` (objectui#11070).
    * @deprecated Nothing reads it; the zod mirror refuses it by name.
    */
   position?: never;
@@ -334,6 +336,21 @@ export interface SidebarSchema extends BaseSchema {
    * @default 'sidebar'
    */
   variant?: 'sidebar' | 'floating' | 'inset';
+  /**
+   * The viewport edge the sidebar is drawn against — shadcn's two, the values
+   * the `sidebar` registration offers (objectui#11070). `left` pins the panel
+   * to the left edge with its border on its right; `right` pins it to the
+   * right edge with its border on its left, and on a narrow viewport the
+   * sheet slides in from the right. It shows on the collapsible form only:
+   * with `collapsible: false` the node draws an in-flow column, placed by the
+   * page's layout, and every value draws the same.
+   *
+   * Declared here, flat: `@objectstack/spec` has no `sidebar` row to take it
+   * from (`pnpm check:component-surface-parity --type ui:sidebar` prints the
+   * spec entry it reads).
+   * @default 'left'
+   */
+  side?: 'left' | 'right';
 }
 
 /**

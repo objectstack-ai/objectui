@@ -32,7 +32,13 @@
  *     `list-view`, `object-gantt`, `object-map`, `object-calendar` and, since
  *     round 7, `object-chart` — the spec's per-element binding, which each
  *     block's gate-wrapped registration reads off the node through
- *     `ElementDataSourceGate`.
+ *     `ElementDataSourceGate`;
+ *   - since round 12, `sidebar.side` — the viewport edge shadcn's `Sidebar`
+ *     is drawn against, which the `sidebar` node hands it through the props it
+ *     forwards. `@objectstack/spec` has no `sidebar` row, so it is declared
+ *     locally and flat, with the two values the registration offers; the
+ *     registration and render half is
+ *     `components/src/renderers/__tests__/sidebar-side-registration-11070.test.tsx`.
  *
  * Each read is reasoned on the TypeScript member that declares it.
  *
@@ -82,7 +88,9 @@ import type {
   UrlFieldMetadata,
 } from '../field-types.js';
 import type { DetailViewField } from '../views.js';
+import type { SidebarSchema as Ts_SidebarSchema } from '../navigation.js';
 import { DetailViewFieldSchema } from '../zod/views.zod.js';
+import { SidebarSchema } from '../zod/navigation.zod.js';
 import type { ElementDataSource as SpecElementDataSource } from '@objectstack/spec/ui';
 import type { Field as SpecField } from '@objectstack/spec/data';
 import { AnyComponentSchema, StrictAnyComponentSchema } from '../zod/index.zod.js';
@@ -213,6 +221,18 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     expect(undeclared(issuesOf(StrictAnyComponentSchema, { type, ...rest, dataSource: BINDING, dataSourc: BINDING })))
       .toEqual(['dataSourc']);
   });
+
+  // Round 12: the shipped strict face refused `side` by name at the round's
+  // base (`unrecognized_keys` at the root), so each row is a refusal that
+  // flipped. The tolerant face kept the value unjudged there and keeps it,
+  // judged, now.
+  it.each(['left', 'right'])('`sidebar.side: %s` parses on both faces and keeps its value; `sidee` beside it is refused by name', (side) => {
+    const node = { type: 'sidebar', side, children: [{ type: 'text', content: 'Menu' }] };
+    expect(issuesOf(StrictAnyComponentSchema, node)).toBeNull();
+    const parsed = AnyComponentSchema.safeParse(node);
+    expect(parsed.success && (parsed.data as { side?: unknown }).side).toBe(side);
+    expect(undeclared(issuesOf(StrictAnyComponentSchema, { ...node, sidee: side }))).toEqual(['sidee']);
+  });
 });
 
 /* ── 2. judged by the declared type, on both faces ───────────────────────── */
@@ -250,11 +270,22 @@ describe('objectui#11070 — a declared key is judged by its declared type on bo
     ['a numeric `sortField`', form({ ...GRID_ENTRY, sortField: 0 })],
     ['a `null` `object-chart` binding (the adapter placeholder the wrapper no longer writes)', { type: 'object-chart', properties: { objectName: 'task', chartType: 'bar' }, dataSource: null }],
     ['an adapter-shaped `object-chart` binding', { type: 'object-chart', properties: { objectName: 'task', chartType: 'bar' }, dataSource: 'objectstack' }],
+    // Round 12: `sidebar.side` is one of the two edges. At the round's base the
+    // tolerant face kept any value unjudged, so each row is red there.
+    ['a `sidebar.side` that is not an edge shadcn draws (`top`)', { type: 'sidebar', side: 'top' }],
+    ['a boolean `sidebar.side`', { type: 'sidebar', side: true }],
   ];
 
   it.each(WRONG)('refuses %s', (_label, doc) => {
     expect(issuesOf(AnyComponentSchema, doc)).not.toBeNull();
     expect(issuesOf(StrictAnyComponentSchema, doc)).not.toBeNull();
+  });
+
+  it('a wrong `sidebar.side` is refused AT `side`, by the value check (round 12)', () => {
+    for (const schema of [AnyComponentSchema, StrictAnyComponentSchema]) {
+      const issues = issuesOf(schema, { type: 'sidebar', side: 'top' }) ?? [];
+      expect(issues.map((i) => [i.path.map(String).join('.'), i.code])).toEqual([['side', 'invalid_value']]);
+    }
   });
 });
 
@@ -331,6 +362,20 @@ describe('objectui#11070 — the retired spellings stay refused on the strict fa
   it.each(DASHBOARD_DIALECT)('the inline dashboard dialect `widgets[].%s` is refused by name (objectui#11228 ruling C)', (key, extra) => {
     const doc = { type: 'dashboard', widgets: [{ ...datasetWidget, ...extra }] };
     expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).toContain(`widgets.0.${key}`);
+  });
+
+  // Round 12: objectui#11465 retired `position` with "delete the key" and
+  // deliberately did not point at `side`, which was undeclared then. With
+  // `side` declared, the refusal names it for an author who meant the right
+  // edge; the key itself stays retired on every face.
+  it('the retired `sidebar.position` stays refused by name, and its refusal names `side` (round 12)', () => {
+    const doc = { type: 'sidebar', position: 'right' };
+    for (const schema of [AnyComponentSchema, StrictAnyComponentSchema]) {
+      expect((issuesOf(schema, doc) ?? []).map((i) => [i.path.map(String).join('.'), i.code])).toEqual([['position', 'invalid_type']]);
+    }
+    const [issue] = (SidebarSchema.safeParse(doc).error?.issues ?? []) as unknown as { code: string; message: string }[];
+    expect(issue?.code).toBe('invalid_type');
+    expect(issue?.message).toContain("side: 'right'");
   });
 
   it('`object-chart.dataSource` stays on the NODE: in the bag it is refused by name, not taken for the binding (round 7)', () => {
@@ -471,6 +516,19 @@ export type assertionReferenceIsTheOnlyTargetSpelling = [
   Expect<Equal<Extract<keyof DetailViewField, 'reference_to'>, never>>,
 ];
 export type assertionShowSubmitIsBoolean = Expect<Equal<FormSchema['showSubmit'], boolean | undefined>>;
+/**
+ * Round 12: `sidebar.side` is the two edges on BOTH faces — an exact match, so
+ * a widened or narrowed value on either face fails here, and a member deleted
+ * from either face fails to compile.
+ */
+type SidebarSideInput = z.input<(typeof SidebarSchema)['shape']['side']>;
+export type assertionSidebarSideIsTheTwoEdges = [
+  Expect<Equal<Ts_SidebarSchema['side'], 'left' | 'right' | undefined>>,
+  Expect<Equal<SidebarSideInput, 'left' | 'right' | undefined>>,
+];
+// @ts-expect-error objectui#11070 round 12 — `top` is not an edge the sidebar is drawn against.
+export const sidebarSideTop: Ts_SidebarSchema = { type: 'sidebar', side: 'top' };
+export const sidebarSideRight: Ts_SidebarSchema = { type: 'sidebar', side: 'right' };
 /**
  * Each binding member IS the spec's `ElementDataSource` — an exact match, not a
  * mere "not `any`": `ListViewSchema` is derived from its zod mirror, and a member

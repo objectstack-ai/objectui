@@ -1142,6 +1142,13 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.reference.actionsOf': 'Actions of {connector}.',
   'engine.inspector.reference.chooseConnector': 'Choose a Connector above to list its actions.',
   'engine.inspector.reference.declarative': 'declarative',
+  // objectui#11783 — the shared object picker (inspectors/ObjectPicker.tsx).
+  'engine.inspector.objectPicker.groupPackage': 'This package',
+  'engine.inspector.objectPicker.groupOther': 'Other objects',
+  'engine.inspector.objectPicker.groupSystem': 'System objects',
+  'engine.inspector.objectPicker.showSystem': 'Show system objects ({count})',
+  'engine.inspector.objectPicker.hideSystem': 'Hide system objects',
+  'engine.inspector.objectPicker.noMatch': 'No object matches. Press Enter to keep what you typed.',
   // Add affordances (used by OutlineStrip + custom previews)
   'engine.inspector.add.widget': 'Add widget',
   'engine.inspector.add.block': 'Add block',
@@ -4196,6 +4203,13 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.reference.actionsOf': '{connector} 的动作。',
   'engine.inspector.reference.chooseConnector': '请先在上方选择连接器，才能列出其动作。',
   'engine.inspector.reference.declarative': '声明式',
+  // objectui#11783 — the shared object picker (inspectors/ObjectPicker.tsx).
+  'engine.inspector.objectPicker.groupPackage': '本软件包',
+  'engine.inspector.objectPicker.groupOther': '其他对象',
+  'engine.inspector.objectPicker.groupSystem': '系统对象',
+  'engine.inspector.objectPicker.showSystem': '显示系统对象（{count}）',
+  'engine.inspector.objectPicker.hideSystem': '隐藏系统对象',
+  'engine.inspector.objectPicker.noMatch': '没有匹配的对象。按 Enter 保留输入的内容。',
   // Add affordances
   'engine.inspector.add.widget': '添加组件',
   'engine.inspector.add.block': '添加区块',

@@ -175,6 +175,7 @@ const ru = {
       copyAll: 'Копировать всё',
     },
     notAvailableHere: '«{{action}}» недоступно на текущей странице.',
+    notAvailableForRecord: 'Недоступно для этой записи',
     completedSuccessfully: 'Действие успешно выполнено',
     failed: 'Действие не выполнено',
     parallelFailed: 'Одно или несколько параллельных действий не выполнены',
@@ -4053,6 +4054,10 @@ const ru = {
       is_not_null: "Не равно null",
       exists: "Задано",
       notExists: "Не задано",
+    },
+    emptyCheckHint: {
+      text: '«{{isEmpty}}» также находит пустой текст; «{{isNull}}» — только отсутствующее значение.',
+      list: '«{{isEmpty}}» также находит пустой список; «{{isNull}}» — только отсутствующее значение.',
     },
   },
   sortBuilder: {

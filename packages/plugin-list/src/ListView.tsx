@@ -19,7 +19,7 @@ import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateSc
 import type { LoadErrorKind } from '@object-ui/react';
 import { useDensityMode, resolveInlineAriaProps } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
-import { detectStatusField } from '@object-ui/types';
+import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
@@ -3964,16 +3964,59 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   }, [objectDef, schema.columns, schema.objectName, tFieldLabel, translateOptions]);
 
   /**
-   * The FILTER builder's candidates: the view's `filterableFields` whitelist,
-   * applied to the full set. Behaviour is unchanged by objectui#4243 — the
-   * whitelist simply moved out of the shared memo into the one builder it was
-   * authored for, so widening the SORT picker cannot widen this.
+   * The FILTER builder's candidates, in the order its field list draws them.
+   *
+   * Membership: the view's `filterableFields` whitelist, applied to the full
+   * set (objectui#4243 moved it out of the shared memo into the one builder it
+   * was authored for, so widening the SORT picker cannot widen this).
+   *
+   * objectui#11810 — the object definition is served with the injected system
+   * columns FIRST, and this list used to be that map verbatim: the builder's
+   * field list led with Organization, Created By, Owner …, and "Add filter"
+   * (which seeds a row on the list's first entry) started every condition on
+   * the HIDDEN `organization_id`. Now:
+   *
+   *   - a field the definition marks `hidden: true` (`organization_id`,
+   *     `owning_business_unit_id`, the `__search` companion) is not offered —
+   *     unless the author named it in `filterableFields`, or a condition the
+   *     panel already holds filters on it, which would otherwise draw a BLANK
+   *     field trigger (a filter restored from the per-user cache, saved back
+   *     when "Add filter" still defaulted to Organization);
+   *   - the order is this view's columns, in the order the grid shows them
+   *     (`effectiveFields`), then every other business field, then the system
+   *     fields (the shared `isSystemManagedField`, which reads the spec's
+   *     `system` flag), then a hidden field kept by the rule above; within a
+   *     tier the definition's own order holds.
+   *
+   * So "Add filter" starts on the view's first visible column — no default is
+   * chosen here or in the builder beyond "the first entry of this list".
    */
   const filterFields = React.useMemo(() => {
-    if (!schema.filterableFields || schema.filterableFields.length === 0) return candidateFields;
-    const allowed = new Set(schema.filterableFields);
-    return candidateFields.filter(f => allowed.has(f.value));
-  }, [candidateFields, schema.filterableFields]);
+    const whitelist =
+      schema.filterableFields && schema.filterableFields.length > 0
+        ? new Set<string>(schema.filterableFields)
+        : undefined;
+    const defs: Record<string, { hidden?: unknown; system?: boolean } | undefined> | undefined = objectDef?.fields;
+    const isHidden = (name: string) => defs?.[name]?.hidden === true;
+    const held = new Set((currentFilters.conditions ?? []).map((c) => c.field));
+    const columnRank = new Map<string, number>();
+    for (const column of effectiveFields) {
+      const name = columnIdentity(column);
+      if (name && !columnRank.has(name)) columnRank.set(name, columnRank.size);
+    }
+    // 0: a column of this view · 1: another business field · 2: a system
+    // field · 3: a hidden field kept only because it was named.
+    const tierOf = (name: string) =>
+      isHidden(name) ? 3 : columnRank.has(name) ? 0 : isSystemManagedField(name, defs?.[name]) ? 2 : 1;
+    return candidateFields
+      .filter((f) => (!whitelist || whitelist.has(f.value)) && (!isHidden(f.value) || !!whitelist || held.has(f.value)))
+      .map((field, index) => ({ field, index, tier: tierOf(field.value) }))
+      .sort((a, b) =>
+        a.tier - b.tier ||
+        (a.tier === 0 ? columnRank.get(a.field.value)! - columnRank.get(b.field.value)! : a.index - b.index),
+      )
+      .map(({ field }) => field);
+  }, [candidateFields, currentFilters.conditions, effectiveFields, objectDef, schema.filterableFields]);
 
   // Sort candidates: ALL fields the view can name, minus the ones the sort
   // cannot honestly reach (objectui#4243 — previously ⊂ filter candidates).

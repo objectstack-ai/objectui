@@ -184,6 +184,12 @@ const en = {
     // `visible` gate outranks (objectui#4191) — the deep link or host asked
     // for it, but the author hid it on this surface.
     notAvailableHere: '"{{action}}" is not available on the current page.',
+    // The reason a record action greyed out by its declared `disabled`
+    // predicate gives on hover, on focus and as its accessible description
+    // (objectui#11811): the generic one, since the action spec carries no
+    // author-written reason. Not `notAvailableHere` — that one is about the
+    // page, this one about the record.
+    notAvailableForRecord: 'Not available for this record',
     // The success toast the action runner shows when no `outcomeMessages`
     // entry applies to the answer and the action declares no `successMessage`;
     // the server's message plays no part (objectui#11344). It is the one
@@ -4410,6 +4416,10 @@ const en = {
       is_not_null: 'Is not null',
       exists: 'Is set',
       notExists: 'Is not set',
+    },
+    emptyCheckHint: {
+      text: '"{{isEmpty}}" also matches blank text; "{{isNull}}" matches only a missing value.',
+      list: '"{{isEmpty}}" also matches an empty list; "{{isNull}}" matches only a missing value.',
     },
   },
   sortBuilder: {

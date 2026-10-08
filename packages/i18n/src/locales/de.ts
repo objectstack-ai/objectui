@@ -155,6 +155,7 @@ const de = {
       copyAll: 'Alle kopieren',
     },
     notAvailableHere: '„{{action}}“ ist auf der aktuellen Seite nicht verfügbar.',
+    notAvailableForRecord: 'Für diesen Datensatz nicht verfügbar',
     completedSuccessfully: 'Aktion erfolgreich abgeschlossen',
     failed: 'Aktion fehlgeschlagen',
     parallelFailed: 'Eine oder mehrere parallele Aktionen sind fehlgeschlagen',
@@ -3873,6 +3874,10 @@ const de = {
       is_not_null: "Ist nicht null",
       exists: "Ist gesetzt",
       notExists: "Ist nicht gesetzt",
+    },
+    emptyCheckHint: {
+      text: '„{{isEmpty}}“ trifft auch auf leeren Text zu; „{{isNull}}“ nur auf einen fehlenden Wert.',
+      list: '„{{isEmpty}}“ trifft auch auf eine leere Liste zu; „{{isNull}}“ nur auf einen fehlenden Wert.',
     },
   },
   sortBuilder: {

@@ -20,6 +20,10 @@
  * a strict select over a closed enum, `manager` is auto-resolved (disabled
  * cell), and `queue` warns that the runtime doesn't resolve it.
  *
+ * An `object` reference renders the shared {@link ObjectPicker} instead
+ * (objectui#11783): still suggest-but-allow-anything, but the value is committed
+ * once, on a choice, Enter or blur, rather than on every keystroke.
+ *
  * Two layers:
  *   • {@link ReferenceCombobox} — the bare control, given an already-resolved
  *     concrete kind. Reused by the `objectList` repeater for per-row reference
@@ -48,6 +52,7 @@ import { useMetadataClient } from '../useMetadata.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
 import { t, tFormat, useMetadataLocale, type SupportedLocale } from '../i18n.js';
 import { flagUnknownValue, RequiredMarker } from './_shared.js';
+import { ObjectPicker } from './ObjectPicker.js';
 
 /** Context the reference picker needs to resolve dynamic option sources. */
 export interface FlowReferenceContext {
@@ -76,9 +81,10 @@ interface Option {
  * so the picker queried `GET /api/v1/meta/user` (which lists no `sys_user`
  * rows), came back empty, and silently degraded to a free-text id box
  * (objectstack-ai/objectstack#3508). They live in {@link KIND_TO_RECORD_LOOKUP} instead.
+ * `object` is absent too: it renders the shared {@link ObjectPicker}, which
+ * reads its own catalog (objectui#11783).
  */
 const KIND_TO_META_TYPE: Partial<Record<ReferenceKind, string>> = {
-  object: 'object',
   flow: 'flow',
   connector: 'connector',
   'email-template': 'email_template',
@@ -626,6 +632,11 @@ export interface ReferenceComboboxProps {
   context?: FlowReferenceContext;
   /** Show the "Fields of X." / unresolved hint under the control (default true). */
   showHint?: boolean;
+  /**
+   * The control's accessible name, for a caller that draws the visible label
+   * itself (the inspector field wrapper below). Read by the object picker.
+   */
+  ariaLabel?: string;
 }
 
 /**
@@ -637,7 +648,7 @@ export interface ReferenceComboboxProps {
  * (objectstack-ai/objectstack#3508). Hooks are called unconditionally (kind-gated args) so the
  * component is safe to use in a repeater where the kind changes per row.
  */
-export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect, disabled, placeholder, context, showHint = true }: ReferenceComboboxProps) {
+export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect, disabled, placeholder, context, showHint = true, ariaLabel }: ReferenceComboboxProps) {
   const listId = React.useId();
   // No `locale` prop here: the out-of-enum tier flag reads the designer's
   // locale itself, as the sibling `FlowObjectListField` does (objectui#10448).
@@ -659,7 +670,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
   // instances, ADR-0096), NOT the generic declared-metadata list — see the hook.
   const { options: connectorListOptions } = useConnectorListOptions(kind === 'connector', locale);
 
-  // Flat metadata-list kinds (object / flow / role / user / team / …).
+  // Flat metadata-list kinds (flow / connector / email-template).
   const listType =
     kind && kind !== 'object-field' && kind !== 'node' && kind !== 'connector-action' && kind !== 'connector'
       ? KIND_TO_META_TYPE[kind]
@@ -790,6 +801,24 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
     );
   }
 
+  // An object name (objectui#11783) → the shared picker: the catalog grouped
+  // and labelled, the platform's own objects collapsed under System, and the
+  // value committed ONCE — on a choice, Enter or blur — so nothing that
+  // resolves the trigger's object refetches per keystroke. Text that names no
+  // object (an expression, a template) is still committed as typed.
+  if (kind === 'object') {
+    return (
+      <ObjectPicker
+        ariaLabel={ariaLabel}
+        value={value != null ? String(value) : ''}
+        onCommit={commitSelection}
+        disabled={disabled}
+        placeholder={placeholder}
+        locale={locale}
+      />
+    );
+  }
+
   return (
     <div className="w-full space-y-1">
       <Input
@@ -859,6 +888,7 @@ export function FlowReferenceField({ field, value, onCommit, disabled, context, 
         disabled={disabled}
         placeholder={field.placeholder}
         context={context}
+        ariaLabel={field.label}
       />
     </div>
   );

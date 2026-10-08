@@ -161,6 +161,7 @@ const fr = {
       copyAll: 'Tout copier',
     },
     notAvailableHere: '« {{action}} » n\'est pas disponible sur la page actuelle.',
+    notAvailableForRecord: 'Non disponible pour cet enregistrement',
     completedSuccessfully: 'Action effectuée avec succès',
     failed: "Échec de l'action",
     parallelFailed: 'Une ou plusieurs actions parallèles ont échoué',
@@ -3952,6 +3953,10 @@ const fr = {
       is_not_null: "N'est pas null",
       exists: "Est défini",
       notExists: "N'est pas défini",
+    },
+    emptyCheckHint: {
+      text: '« {{isEmpty}} » correspond aussi à un texte vide ; « {{isNull}} » uniquement à une valeur absente.',
+      list: '« {{isEmpty}} » correspond aussi à une liste vide ; « {{isNull}} » uniquement à une valeur absente.',
     },
   },
   sortBuilder: {

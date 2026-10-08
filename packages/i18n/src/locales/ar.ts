@@ -191,6 +191,7 @@ const ar = {
       copyAll: 'نسخ الكل',
     },
     notAvailableHere: '"{{action}}" غير متاح في الصفحة الحالية.',
+    notAvailableForRecord: 'غير متاح لهذا السجل',
     completedSuccessfully: 'اكتمل الإجراء بنجاح',
     failed: 'فشل الإجراء',
     parallelFailed: 'فشل إجراء متوازٍ واحد أو أكثر',
@@ -4208,6 +4209,10 @@ const ar = {
       is_not_null: "لا يساوي null",
       exists: "محدد",
       notExists: "غير محدد",
+    },
+    emptyCheckHint: {
+      text: '"{{isEmpty}}" يطابق أيضًا النص الفارغ؛ "{{isNull}}" يطابق القيمة المفقودة فقط.',
+      list: '"{{isEmpty}}" يطابق أيضًا القائمة الفارغة؛ "{{isNull}}" يطابق القيمة المفقودة فقط.',
     },
   },
   sortBuilder: {

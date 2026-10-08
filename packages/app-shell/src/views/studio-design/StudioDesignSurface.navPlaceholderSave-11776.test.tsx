@@ -244,7 +244,10 @@ describe('Interfaces nav save — an entry with no target is left out of what is
     render(<NavHost />);
     await openEditing();
     addItem();
-    expect((rail().textContent ?? '').match(/nav_item_3/g)).toHaveLength(1);
+    // objectui#11862 — the unbound card reads the positional wording by its
+    // place, never the id the canvas minted.
+    expect((rail().textContent ?? '').match(/Item 3/g)).toHaveLength(1);
+    expect(rail().textContent).not.toContain('nav_item_3');
 
     await waitFor(() => expect(server.appSaves).toHaveLength(1), { timeout: 8000 });
     expect(server.appSaves[0]).toEqual({ navigation: NAV, accepted: true });
@@ -264,11 +267,11 @@ describe('Interfaces nav save — an entry with no target is left out of what is
       { timeout: 8000 },
     );
     await settle();
-    const rows = within(rail()).getAllByRole('button', { name: /menu|nav_item_\d+/ });
-    expect(rows.map((r) => (r.textContent ?? '').match(/Home menu|Landing menu|nav_item_\d+/)?.[0])).toEqual([
+    const rows = within(rail()).getAllByRole('button', { name: /menu|Item \d+/ });
+    expect(rows.map((r) => (r.textContent ?? '').match(/Home menu|Landing menu|Item \d+/)?.[0])).toEqual([
       'Home menu',
       'Landing menu',
-      'nav_item_3',
+      'Item 3',
     ]);
     // It is on screen and not on the server: the buffer stays unsent, so the
     // leave guard holds, and nothing more is sent until it is edited.
@@ -286,7 +289,7 @@ describe('Interfaces nav save — an entry with no target is left out of what is
     expect(sentIds(1)).toEqual(['nav_home', 'nav_landing', 'nav_item_4']);
     expect(server.appSaves[0].accepted).toBe(true);
 
-    fireEvent.click(within(rail()).getByRole('button', { name: /nav_item_3/ }));
+    fireEvent.click(within(rail()).getByRole('button', { name: /Item 3/ }));
     await bindSelected(TASK.name);
     await waitFor(() => expect(server.appSaves).toHaveLength(2), { timeout: 8000 });
     expect(sentIds(2)).toEqual(['nav_home', 'nav_landing', 'nav_item_3', 'nav_item_4']);

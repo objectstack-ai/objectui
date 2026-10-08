@@ -170,8 +170,8 @@ async function addFieldAndType(typeLabel: RegExp): Promise<string> {
 
 describe('Studio data page — a new choice field is not sent without options (objectui#11253)', () => {
   for (const [type, typeLabel] of [
-    ['select', /· Picklist$/],
-    ['radio', /· Radio$/],
+    ['select', /^Picklist$/],
+    ['radio', /^Radio$/],
   ] as const) {
     it(`add a field, type it \`${type}\`, wait out the autosave: no request carries it without options`, async () => {
       const fieldName = await addFieldAndType(typeLabel);

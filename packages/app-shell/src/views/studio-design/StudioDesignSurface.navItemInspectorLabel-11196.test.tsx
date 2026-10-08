@@ -80,10 +80,13 @@ describe('objectui#11196 — the Studio nav-item inspector shows what a label-le
     expect(labelField()).toHaveAttribute('placeholder', 'Customers');
   });
 
-  it('a new canvas entry, not yet bound: the placeholder is its id, the rule’s last rung', () => {
+  // objectui#11862 — the rule's last rung would name an unbound entry by the id
+  // the canvas minted; the field offers the editor's untitled wording instead,
+  // by the entry's place ("Item 1" at `navigation[0]`), never `nav_item_3`.
+  it('a new canvas entry, not yet bound: the placeholder is the untitled wording, not its id', () => {
     renderInspector({ id: 'nav_item_3', type: 'object' });
     expect(labelField()).toHaveValue('');
-    expect(labelField()).toHaveAttribute('placeholder', 'nav_item_3');
+    expect(labelField()).toHaveAttribute('placeholder', 'Item 1');
   });
 
   it('CONTROL: an authored label is the value, verbatim; the placeholder is still what it would inherit', () => {

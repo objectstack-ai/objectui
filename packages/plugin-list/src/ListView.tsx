@@ -4531,6 +4531,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               variant="ghost"
               size="sm"
               onClick={() => updateInlineEdit(!inlineEdit)}
+              // A toggle button announces its state (objectui#11816): the
+              // `text-primary` tint below was the mode's only signal.
+              aria-pressed={inlineEdit}
               className={cn(
                 "hidden sm:inline-flex h-7 px-2 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
                 inlineEdit && "text-primary"

@@ -203,16 +203,23 @@ server states that rule in two keys of `GET /api/v1/auth/config`:
 `features.audiencePosture` (who may self-register). Under the default
 `invite_only` posture the server keeps `disableSignUp` off so that a pending
 invitee can still register, and refuses anyone else with
-`SELF_REGISTRATION_CLOSED`. The pages read both keys (objectui#11705):
+`SELF_REGISTRATION_CLOSED`. The pages read both keys (objectui#11705), and
+offer nothing until that read has answered (objectui#11806):
 
 | the visitor | `/login` | `/register` |
 | --- | --- | --- |
 | signed in | as in the rows below | sent on to `/`, where a successful sign-up lands; no row below applies |
+| the config read is still pending | the form, behind its own spinner, with no "Sign up" link | nothing yet |
+| the config read failed (the auth client retries it first) | "Cannot connect to server" with Retry, in place of the form; no "Sign up" link | the same |
 | `disableSignUp: true` | no "Sign up" link | bounces to `/login` |
 | posture `open` or `email_domain`, or no posture sent | "Sign up" link | the form |
 | `invite_only`, `?redirect=` is an invitation (`/accept-invitation/ID`) | "Sign up" link, carrying the redirect | the form |
 | `invite_only`, the deployment has no owner yet | "Sign up" link | the form |
 | `invite_only`, anyone else | no "Sign up" link | "registration is by invitation", before any form |
+
+Retry reads the config again. While that read is in flight the panel stays up
+and its button reads "Retrying…"; once the server answers, the row for that
+answer applies.
 
 The decision is one exported function, which the console's own login and
 register pages call too, so a host that builds its own pages can follow the
@@ -230,19 +237,29 @@ import {
   type SignUpOffer,
 } from '@object-ui/app-shell';
 
-/** 'signed-in' | 'form' | 'by-invitation' | 'closed' | 'pending' */
-export function useSignUpOffer(): SignUpOffer | 'signed-in' {
+type ConfigRead =
+  | { status: 'loading' }
+  | { status: 'failed' }
+  | { status: 'known'; config: AuthPublicConfig | null };
+
+/** 'signed-in' | 'unreachable' | 'form' | 'by-invitation' | 'closed' | 'pending' */
+export function useSignUpOffer(): SignUpOffer | 'signed-in' | 'unreachable' {
   const [searchParams] = useSearchParams();
   const { user, isLoading, getAuthConfig } = useAuth();
   // Whether the first session check has answered. Every sign-up in flight
   // raises `isLoading` again, so latch the first time it clears.
   const [sessionChecked, setSessionChecked] = useState(!isLoading);
   if (!isLoading && !sessionChecked) setSessionChecked(true);
-  // `null` until `/auth/config` has been read (and after a failed read).
-  const [authConfig, setAuthConfig] = useState<AuthPublicConfig | null>(null);
+  // Where the `/auth/config` read stands. The auth client retries a failed
+  // read before it rejects, so `failed` means the server did not answer.
+  const [read, setRead] = useState<ConfigRead>({ status: 'loading' });
   useEffect(() => {
-    getAuthConfig().then(setAuthConfig, () => undefined);
+    getAuthConfig().then(
+      (config) => setRead({ status: 'known', config: config ?? null }),
+      () => setRead({ status: 'failed' }),
+    );
   }, [getAuthConfig]);
+  const authConfig = read.status === 'known' ? read.config : null;
 
   const invitationRedirect = isInvitationRedirect(searchParams.get('redirect'));
   // Probes GET /api/v1/auth/bootstrap-status only for a visitor known to be
@@ -251,6 +268,9 @@ export function useSignUpOffer(): SignUpOffer | 'signed-in' {
   const bootstrap = useBootstrapStatus(signedOut && needsBootstrapProbe(authConfig, invitationRedirect));
   if (user) return 'signed-in';
   if (!signedOut) return 'pending';
+  // Ask the decision only once the read has answered.
+  if (read.status === 'failed') return 'unreachable';
+  if (read.status === 'loading') return 'pending';
   return decideSignUpOffer(authConfig, { invitationRedirect, bootstrap });
 }
 ```
@@ -258,8 +278,15 @@ export function useSignUpOffer(): SignUpOffer | 'signed-in' {
 A signed-in visitor is not who the offer is about, so the hook answers
 `signed-in` before anything else, without the probe: move that visitor on.
 `DefaultRegisterPage` sends them to `/`, where it sends a visitor after a
-successful sign-up (objectui#11714). A `null` config answers `form`, leaving
-the server's own gate as the source of truth. An invitation redirect is an
+successful sign-up (objectui#11714). The hook asks `decideSignUpOffer` only
+once the config read has answered (objectui#11806): while the read is pending
+it answers `pending`, and when the read failed it answers `unreachable`, which
+the default pages render as "Cannot connect to server" with a Retry. To offer
+Retry, keep an attempt counter in the effect's dependencies and bump it, as the
+default pages do. `decideSignUpOffer` itself is unchanged: it still answers a
+`null` config with `form`, leaving the server's own gate as the source of
+truth, which is why a read that has not answered must not reach it. An
+invitation redirect is an
 affordance, not an authorization: the server still refuses a non-invitee's
 sign-up.
 

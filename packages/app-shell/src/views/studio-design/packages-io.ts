@@ -27,7 +27,7 @@
  * verdict says: that filter is about visibility, not writability.
  */
 
-import { deriveNamespaceFromPackageId, validateObjectNamespacePrefix } from '@objectstack/spec/kernel';
+import { ManifestSchema, deriveNamespaceFromPackageId, validateObjectNamespacePrefix } from '@objectstack/spec/kernel';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 
 export interface PkgEntry {
@@ -300,7 +300,27 @@ export async function duplicatePackage(sourceId: string, targetId: string, targe
   }
 }
 
-export const PACKAGE_ID_RE = /^[a-z][a-z0-9_.-]*(\.[a-z0-9_-]+)+$/;
+/**
+ * Is `v` a package id the INSTALLED `@objectstack/spec` accepts?
+ *
+ * The one id rule every package-id form in this app judges by: the *New
+ * package* dialog, the Studio landing's *Duplicate* form and the package
+ * sheet's *Duplicate* form (objectui#11792, objectui#11855). It is the
+ * declaration the server refuses by: `POST /api/v1/packages` and
+ * `POST /api/v1/packages/:id/duplicate` both parse the id with
+ * `ManifestSchema.shape.id` before anything is written, answering 400
+ * otherwise.
+ *
+ * Judged by the field schema, never by a grammar copied into this repo: the
+ * hand-copied regex this replaces admitted underscores and refused a digit-led
+ * first segment, so it disagreed with the server in both directions
+ * (`com.acme.my_app` passed, `163.com.crm` did not). Reading the field schema
+ * also survives the spec renaming or retiring whatever pattern constant backs
+ * it.
+ */
+export function isSpecPackageId(v: string): boolean {
+  return ManifestSchema.shape.id.safeParse(v).success;
+}
 
 /**
  * Object-namespace format (framework#2694 / `@objectstack/spec/kernel`): a
@@ -328,8 +348,11 @@ export function prefixObjectName(rawName: string, namespace: string | null | und
  * Normalize raw package-id keystrokes to the allowed alphabet, and SAY when
  * something was dropped — the wizard used to strip illegal characters
  * silently (`bad id!!` → `badid`), which reads as the input eating keys.
- * The `stripped` flag drives an inline notice; PACKAGE_ID_RE stays the
- * format authority (reverse-domain, e.g. `com.example.myapp`).
+ * The `stripped` flag drives an inline notice. This is an input normalizer,
+ * not the format authority: {@link isSpecPackageId} is. The alphabet keeps `_`
+ * on purpose, although the spec admits none, so an underscore stays in the
+ * field and the rule's hint, which names underscores, says why the id is
+ * refused instead of the keystroke vanishing.
  */
 export function sanitizePackageId(raw: string): { value: string; stripped: boolean } {
   const value = raw.toLowerCase().replace(/[^a-z0-9_.-]/g, '');

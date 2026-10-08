@@ -75,7 +75,7 @@ import { useMetadataClient } from './useMetadata.js';
 import { PackageFormDialog } from './PackageFormDialog.js';
 import { errorCodeIs } from '@object-ui/types';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
-import { duplicatePackage, PACKAGE_ID_RE } from '../studio-design/packages-io.js';
+import { duplicatePackage, isSpecPackageId } from '../studio-design/packages-io.js';
 import { PackageIdInput } from '../studio-design/PackageIdInput.js';
 
 /* -------------------------------------------------------------------------- */
@@ -368,8 +368,9 @@ export function PackageDetailSheet({
   // title shows.
   const displayName = pkg.manifest.name || id;
   const deleteArmed = deleteMode !== '' && deleteTyped.trim() === displayName.trim();
-  // The landing's duplicate form's own rule (`PACKAGE_ID_RE`), not a second one.
-  const dupArmed = dupName.trim().length > 0 && PACKAGE_ID_RE.test(dupId.trim());
+  // The spec's id rule (`isSpecPackageId`), the one the landing's duplicate form
+  // and the duplicate route judge by, not a second one (objectui#11855).
+  const dupArmed = dupName.trim().length > 0 && isSpecPackageId(dupId.trim());
 
   async function run(action: string, fn: () => Promise<any>, okText: string) {
     setBusy(action);
@@ -550,7 +551,7 @@ export function PackageDetailSheet({
   // ADR-0070 D4 — duplicate this base into a NEW writable package
   // (re-namespaced). The Studio landing's inline duplicate form, on this sheet
   // (objectui#11784): the same id input (`PackageIdInput`), the same id rule
-  // (`PACKAGE_ID_RE`) and the same call (`duplicatePackage`, which also refuses
+  // (`isSpecPackageId`) and the same call (`duplicatePackage`, which also refuses
   // a 200 whose verdict is `success: false`), instead of a `window.prompt`.
   const toggleDuplicate = () => {
     if (dupOpen) {
@@ -565,7 +566,7 @@ export function PackageDetailSheet({
   const duplicateApp = async () => {
     const target = dupId.trim();
     const name = dupName.trim();
-    if (!name || !PACKAGE_ID_RE.test(target)) return;
+    if (!name || !isSpecPackageId(target)) return;
     setBusy('duplicate');
     setMsg(null);
     try {

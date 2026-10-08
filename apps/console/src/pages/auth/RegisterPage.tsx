@@ -13,6 +13,11 @@
  *    BEFORE the form — see `decideSignUpOffer` in `@object-ui/app-shell`, the
  *    one decision this page shares with the package's exported
  *    `DefaultRegisterPage` (objectui#11691, objectui#11705).
+ *  - Offers nothing until the config read ANSWERS (objectui#11806): while it
+ *    is pending the page shows its spinner, and when it fails it shows the
+ *    same "Cannot connect to server" panel with Retry as `/login`, in place
+ *    of the form. The sign-up request goes to the same server, so a
+ *    live-looking form would only have deferred that news to the submit.
  *  - Routes to `/verify-email-prompt` when the server requires email
  *    verification before sign-in, and carries `?redirect=` into the
  *    verification mail's link so it survives the inbox (objectui#10893).
@@ -38,6 +43,7 @@ import { followOauthAuthorize } from './followAuthorize';
 // Was a second module-private copy of LoginPage's helper; both now share one
 // implementation — objectui#4181. Behaviour here is unchanged.
 import { withConsoleBase, withConsoleBaseRootRelative } from '../../utils/consoleBase';
+import { ServerUnreachable } from './LoginPage';
 
 function isSafeRedirect(target: string | null): target is string {
   return !!target && target.startsWith('/') && !target.startsWith('//');
@@ -66,10 +72,23 @@ export function RegisterPage() {
     getAuthConfig,
   } = useAuth();
 
-  // `null` until the public auth config has been read; then `{ config }`,
-  // whose `config` is `null` when the read failed — answered as "offer the
-  // form", leaving the server's own gate as the source of truth.
-  const [configRead, setConfigRead] = useState<{ config: AuthPublicConfig | null } | null>(null);
+  // The public auth config and where its read stands (objectui#11806), as on
+  // `/login`: `loading` until `getAuthConfig()` settles, `failed` once it
+  // rejected — the auth client has already retried by then — and `known` once
+  // the server answered. `authConfig` stays `null` until `known`, and the
+  // offer is consulted only once the read is `known`. `configReadAttempt`
+  // counts Retry presses, and re-runs the read below.
+  const [authConfig, setAuthConfig] = useState<AuthPublicConfig | null>(null);
+  const [configRead, setConfigRead] = useState<'loading' | 'failed' | 'known'>('loading');
+  const [configReadAttempt, setConfigReadAttempt] = useState(0);
+  const retryConfigRead = () => {
+    setConfigRead('loading');
+    setConfigReadAttempt((n) => n + 1);
+  };
+  // A retry in flight keeps the unreachable state up (its button reads
+  // "Retrying…") rather than flashing the form before the server has answered.
+  const serverUnreachable =
+    configRead === 'failed' || (configRead === 'loading' && configReadAttempt > 0);
   const [autoSelectingOrg, setAutoSelectingOrg] = useState(false);
   // Fire the OAuth hand-off fetch at most once (see LoginPage).
   const ssoHandoffStartedRef = useRef(false);
@@ -84,28 +103,32 @@ export function RegisterPage() {
   }, [isLoading]);
 
   // Probe public auth config — what this visitor is offered follows from it.
+  // Once on mount, and again on each Retry after a failed read.
   useEffect(() => {
     let cancelled = false;
     getAuthConfig()
       .then((cfg) => {
-        if (!cancelled) setConfigRead({ config: cfg ?? null });
+        if (cancelled) return;
+        setAuthConfig(cfg ?? null);
+        setConfigRead('known');
       })
       .catch(() => {
-        if (!cancelled) setConfigRead({ config: null });
+        // The server did not answer (the auth client retried first): say so
+        // instead of drawing a form whose submit goes to the same server.
+        if (!cancelled) setConfigRead('failed');
       });
     return () => {
       cancelled = true;
     };
-  }, [getAuthConfig]);
+  }, [getAuthConfig, configReadAttempt]);
 
   // objectui#11691 — the offer reads `disableSignUp` AND the audience posture;
   // the bootstrap probe runs only when the posture is closed to strangers and
   // the visitor did not come from an invitation. See app-shell's
   // `decideSignUpOffer`.
-  const authConfig = configRead ? configRead.config : null;
   const invitationRedirect = isInvitationRedirect(redirect);
   const bootstrap = useBootstrapStatus(
-    configRead !== null &&
+    configRead === 'known' &&
       hasBootstrapped &&
       !user &&
       needsBootstrapProbe(authConfig, invitationRedirect),
@@ -163,12 +186,24 @@ export function RegisterPage() {
     switchOrganization,
   ]);
 
+  // The first session check has answered and nobody is signed in: the page is
+  // talking to a visitor, so a failed config read is theirs to see.
+  const awaitingSession = (isLoading && !hasBootstrapped) || !!user;
+  if (!awaitingSession && serverUnreachable) {
+    return (
+      <AuthLayout formWidth="md">
+        <Card className="border-border/60 px-4 py-8 shadow-sm shadow-primary/5 backdrop-blur supports-[backdrop-filter]:bg-card/95">
+          <ServerUnreachable retrying={configRead === 'loading'} onRetry={retryConfigRead} />
+        </Card>
+      </AuthLayout>
+    );
+  }
+
   if (
-    configRead === null ||
+    awaitingSession ||
+    configRead !== 'known' ||
     signUpOffer === 'closed' ||
-    signUpOffer === 'pending' ||
-    (isLoading && !hasBootstrapped) ||
-    user
+    signUpOffer === 'pending'
   ) {
     return (
       <AuthLayout>

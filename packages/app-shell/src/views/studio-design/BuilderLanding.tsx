@@ -21,7 +21,7 @@ import { Boxes, Building2, Hammer, Lock, Plus, Loader2, Copy } from 'lucide-reac
 import { toast } from 'sonner';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
 import { PackageFormDialog } from '../metadata-admin/PackageFormDialog.js';
-import { fetchPackages, duplicatePackage, PACKAGE_ID_RE, type PkgEntry } from './packages-io.js';
+import { fetchPackages, duplicatePackage, isSpecPackageId, type PkgEntry } from './packages-io.js';
 import { PackageIdInput } from './PackageIdInput.js';
 import { studioOrgScopePath } from './studioScope.js';
 
@@ -67,11 +67,13 @@ export function BuilderLanding(): React.ReactElement {
     setDupId(`${p.id}-copy`);
     setDupErr(null);
   };
+  // objectui#11855 — the target id is judged by the spec's id rule, the one the
+  // duplicate route refuses by and the id input below shows its hint for.
   const doDup = async () => {
     if (!dupFor) return;
     const id = dupId.trim();
     const name = dupName.trim();
-    if (!PACKAGE_ID_RE.test(id) || !name) return;
+    if (!isSpecPackageId(id) || !name) return;
     setDupBusy(true);
     setDupErr(null);
     try {
@@ -169,7 +171,7 @@ export function BuilderLanding(): React.ReactElement {
                   <button
                     type="button"
                     onClick={() => void doDup()}
-                    disabled={dupBusy || !dupName.trim() || !PACKAGE_ID_RE.test(dupId.trim())}
+                    disabled={dupBusy || !dupName.trim() || !isSpecPackageId(dupId.trim())}
                     className="inline-flex flex-1 items-center justify-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground disabled:opacity-50"
                   >
                     {dupBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}

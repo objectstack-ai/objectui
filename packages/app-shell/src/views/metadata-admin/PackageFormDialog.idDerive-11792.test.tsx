@@ -20,7 +20,6 @@ import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ManifestSchema } from '@objectstack/spec/kernel';
-import { PACKAGE_ID_RE } from '../studio-design/packages-io';
 import { PackageFormDialog } from './PackageFormDialog';
 import { t } from './i18n';
 
@@ -154,14 +153,18 @@ describe('New package — an id the spec refuses never leaves the dialog (object
   });
 
   // The verdict is the spec's in BOTH directions. Each probe is judged by the
-  // installed schema here rather than by a literal, and the list is chosen so
-  // `PACKAGE_ID_RE` (the landing form's grammar) disagrees with it on some —
-  // asserted below, so the probes cannot quietly stop exercising that.
+  // installed schema here rather than by a literal, and the list holds the
+  // shapes a hand-copied reverse-domain grammar gets wrong: a digit-led segment
+  // the spec accepts, an underscore it refuses (objectui#11855 retired the
+  // duplicate forms' own regex, which had both backwards). Asserted below, so
+  // the probes cannot quietly stop exercising both arms.
   const probes = ['com.acme.crm', 'com.acme.my_app', '163.com.crm', 'com.-x', 'a..b', 'org.example.help-desk'];
 
-  it('the probe list really separates the two grammars', () => {
-    expect(probes.filter((p) => isSpecId(p) && !PACKAGE_ID_RE.test(p)).length).toBeGreaterThan(0);
-    expect(probes.filter((p) => !isSpecId(p) && PACKAGE_ID_RE.test(p)).length).toBeGreaterThan(0);
+  it('the probe list exercises both verdicts, on the shapes a copied grammar gets wrong', () => {
+    expect(isSpecId('163.com.crm')).toBe(true);
+    expect(isSpecId('com.acme.my_app')).toBe(false);
+    expect(probes.filter(isSpecId).length).toBeGreaterThan(0);
+    expect(probes.filter((p) => !isSpecId(p)).length).toBeGreaterThan(0);
   });
 
   it.each(probes)('submit for %s is enabled exactly when the spec accepts it', (probe) => {

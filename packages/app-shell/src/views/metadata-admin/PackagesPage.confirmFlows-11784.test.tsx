@@ -17,7 +17,8 @@
  *     `?keepData=true`; *structure and data* sends no query.
  *   - Discard asks once, naming the draft count; its Cancel sends nothing.
  *   - Duplicate is the Studio landing's inline form: the typed id is what is
- *     sent, and an id `PACKAGE_ID_RE` refuses never reaches the server.
+ *     sent, and an id the spec's id rule (`isSpecPackageId`, objectui#11855)
+ *     refuses never reaches the server.
  *   - None of the three calls `window.confirm` or `window.prompt`.
  *
  * Every request is recorded by the fetch stub, so "sends nothing" is read off
@@ -310,7 +311,7 @@ describe('PackageDetailSheet — Duplicate is the landing inline form (objectui#
     expect(screen.queryByTestId('pkg-detail-dup-form')).toBeNull();
   });
 
-  it('refuses an id `PACKAGE_ID_RE` rejects: the button stays disabled and nothing is sent', async () => {
+  it('refuses an id the spec rule rejects: the button stays disabled and nothing is sent', async () => {
     renderSheet();
     fireEvent.click(await screen.findByRole('button', { name: 'Duplicate' }));
     const form = await screen.findByTestId('pkg-detail-dup-form');

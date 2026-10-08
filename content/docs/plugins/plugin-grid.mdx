@@ -776,13 +776,16 @@ const persistence = (
 ```
 
 **Features:**
-- **Pending changes tracking**: edit multiple cells across rows before saving
+- **Pending changes tracking**: edit multiple cells across rows before saving; a
+  cell edited back to the value it loaded with is not a pending change, and its
+  row is no longer counted as modified
 - **Visual indicators**: modified rows highlighted in amber, modified cells in bold
 - **Row-level save/cancel**: individual row save and cancel buttons
 - **Batch operations**: Save All and Cancel All buttons for bulk actions
 - **Flexible callbacks** — all three are `ObjectGridComponentProps`, never schema
   keys: `onRowSave` for a single row, `onBatchSave` for many, `onCellChange` for
-  each staged cell edit
+  each committed cell edit, including one that leaves the value as loaded (only a
+  real change is staged)
 
 ## TypeScript Support
 

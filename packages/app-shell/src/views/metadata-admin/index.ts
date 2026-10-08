@@ -72,9 +72,10 @@ export type {
  * The five built-in registrations (`registerBuiltinAnchors`,
  * `registerDefaultMetadataSchemas`, `registerDatasourceResource`,
  * `registerBuiltinPreviews`, `registerBuiltinInspectors`) used to run here.
- * They now live in `./register-builtins.js`, which the PACKAGE ENTRY
- * (`packages/app-shell/src/index.ts`) bare-imports; that file carries the
- * reasoning. In one line: a module that registers at load time is named by
+ * The first three now live in `./register-builtins.js`, which the PACKAGE
+ * ENTRY (`packages/app-shell/src/index.ts`) bare-imports; the last two run from
+ * `./register-builtin-designers.js`, which the entry loads with a dynamic
+ * `import()` (objectui#11939). Those two files carry the reasoning. In one line: a module that registers at load time is named by
  * `@object-ui/app-shell`'s published `sideEffects` array, an array entry is
  * unshakeable, and the package barrel re-exports 25 runtime values from HERE —
  * so a registration in this file drags every page, preview and inspector under

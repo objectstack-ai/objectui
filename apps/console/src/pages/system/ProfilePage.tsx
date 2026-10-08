@@ -6,7 +6,14 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useAuth, getUserInitials } from '@object-ui/auth';
+import {
+  useAuth,
+  getUserInitials,
+  useWorkspaceAdminStatus,
+  ORG_ROLE_ADMIN,
+  ORG_ROLE_MEMBER,
+  ORG_ROLE_LABELS,
+} from '@object-ui/auth';
 import {
   Button,
   Input,
@@ -24,14 +31,44 @@ import {
   AlertDescription,
 } from '@object-ui/components';
 import { useUpload } from '@object-ui/providers';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useObjectTranslation, type TranslateFn } from '@object-ui/i18n';
 import { useAdapter, extractFieldErrors, extractWriteErrorMessage } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { CheckCircle2, AlertCircle, User, Lock, Upload, Loader2, X, Globe } from 'lucide-react';
 
+/**
+ * The access the console resolves for the signed-in user, as a translated word
+ * — or `null` while that answer is still settling (objectui#11866).
+ *
+ * The source is `useWorkspaceAdminStatus`, the same verdict every console gate
+ * acts on (Setup, Studio, the marketplace, the storage and read-rate banners).
+ * ⛔ Not the session's `user.role`: that is better-auth's own scalar, which the
+ * server deliberately no longer overwrites, so a platform administrator whose
+ * standing comes from the posture rung (`isPlatformAdmin`) still carries
+ * better-auth's default there and the page used to tell them they were a
+ * plain "user". The hook reads the rung, the membership row and the narrow
+ * `positions[]` vocabulary — what the console actually grants on.
+ *
+ * The words are the console's existing membership-grade labels
+ * (`ORG_ROLE_LABELS`, the one list the organization screens read), because
+ * the verdict is the same two-way grade those screens print: an administrator
+ * of this workspace, or a member of it. No second vocabulary is introduced.
+ *
+ * Before the verdict settles (`isResolved` false), this answers `null` and the
+ * page shows nothing: "not an admin yet" is not "not an admin", and a word the
+ * page would have to take back is worse than a blank.
+ */
+function useResolvedAccessLabel(t: TranslateFn): string | null {
+  const { isAdmin, isResolved } = useWorkspaceAdminStatus();
+  if (!isResolved) return null;
+  const label = ORG_ROLE_LABELS[isAdmin ? ORG_ROLE_ADMIN : ORG_ROLE_MEMBER];
+  return t(label.key, { defaultValue: label.defaultValue });
+}
+
 export function ProfilePage() {
   const { t } = useObjectTranslation();
   const { user, updateUser, isLoading, changePassword, setInitialPassword, hasLocalPassword } = useAuth();
+  const accessLabel = useResolvedAccessLabel(t);
   const { upload } = useUpload();
   const [name, setName] = useState(user?.name ?? '');
   const [saved, setSaved] = useState(false);
@@ -116,7 +153,11 @@ export function ProfilePage() {
             <div className="min-w-0 flex-1">
               <p className="text-lg font-semibold truncate">{user.name ?? 'User'}</p>
               <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-              <Badge variant="secondary" className="mt-1">{user.role ?? 'member'}</Badge>
+              {accessLabel !== null && (
+                <Badge variant="secondary" className="mt-1" data-testid="profile-access-badge">
+                  {accessLabel}
+                </Badge>
+              )}
             </div>
             <div className="flex flex-col gap-2 shrink-0">
               <input
@@ -225,15 +266,18 @@ export function ProfilePage() {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label>{t('profile.info.role', { defaultValue: 'Role' })}</Label>
-              <Input
-                type="text"
-                value={user.role ?? 'member'}
-                disabled
-                className="bg-muted text-muted-foreground"
-              />
-            </div>
+            {accessLabel !== null && (
+              <div className="space-y-2">
+                <Label htmlFor="profile-role">{t('profile.info.role', { defaultValue: 'Role' })}</Label>
+                <Input
+                  id="profile-role"
+                  type="text"
+                  value={accessLabel}
+                  disabled
+                  className="bg-muted text-muted-foreground"
+                />
+              </div>
+            )}
 
             <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
               {isLoading

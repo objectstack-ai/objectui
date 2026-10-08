@@ -25,10 +25,19 @@
  * (endpoint absent on an older backend, OSS, no seat) or the pool is unmetered, the
  * whole indicator renders nothing — a missing endpoint degrades to no widget, never
  * a broken one.
+ *
+ * objectui#11799 — and with AI off it asks nothing. AI is on for this viewer when
+ * the access-filtered agent catalog at the same base (`GET {apiBase}/agents`)
+ * lists an agent: the signal `useAiSurfaceEnabled` gates every AI entry point
+ * on, whose header says why it is not discovery's `services.ai`. An open-edition
+ * server answers that catalog with its empty-list courtesy and every other
+ * `/ai/*` route with 501, so the Studio dock — drawn while the catalog loads —
+ * used to log a 501 for the usage read on every mount.
  */
 import * as React from 'react';
 import { cn, Button, Popover, PopoverTrigger, PopoverContent } from '@object-ui/components';
 import { formatNumber, useObjectTranslation } from '@object-ui/i18n';
+import { useAgents } from '@object-ui/plugin-chatbot';
 import { useAiUsage, type AiMeterUsage } from '../hooks/useAiUsage.js';
 import { cloudConsoleUrl } from '../console/marketplace/marketplaceApi.js';
 
@@ -130,7 +139,11 @@ export interface AiUsageIndicatorProps {
  */
 export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsageIndicatorProps) {
   const { t, language } = useObjectTranslation();
-  const { usage } = useAiUsage({ apiBase, enabled });
+  // objectui#11799 — no usage read until the catalog lists an agent (see the
+  // file header). The catalog read is shared with the dock's own: `useAgents`
+  // keeps one request per base in flight and its answer for a short while.
+  const { agents } = useAgents({ apiBase, enabled });
+  const { usage } = useAiUsage({ apiBase, enabled: enabled && agents.length > 0 });
 
   // "Now", read OUTSIDE render (react-hooks/purity forbids `Date.now()` in the
   // render body — it is non-deterministic and the compiler assumes render can

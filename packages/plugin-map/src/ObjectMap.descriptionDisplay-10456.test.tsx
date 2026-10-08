@@ -36,6 +36,7 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 vi.mock('react-map-gl/maplibre', () => ({
   default: ({ children }: any) => <div aria-label="Map">{children}</div>,

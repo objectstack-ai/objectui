@@ -593,7 +593,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.view.labelPlaceholder': 'e.g. All Leads',
   'engine.inspector.view.type': 'View type',
   'engine.inspector.view.object': 'Object',
-  'engine.inspector.view.objectPlaceholder': 'e.g. crm_lead',
   'engine.inspector.view.noSchema': 'Spec schema unavailable — basic properties only.',
   // objectui#6900 — an object-required field inside a predicate-gated form
   // section (ruling 5749269225): name both facts, then the three remedies.
@@ -3800,7 +3799,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.view.labelPlaceholder': '例如：全部线索',
   'engine.inspector.view.type': '视图类型',
   'engine.inspector.view.object': '对象',
-  'engine.inspector.view.objectPlaceholder': '例如：crm_lead',
   'engine.inspector.view.noSchema': 'spec 模式不可用 —— 仅显示基础属性。',
   // objectui#6900 — 见英文表同名条目。
   'engine.inspector.view.gatedRequired.title': '保存已被拦截：必填字段位于条件区块中。',

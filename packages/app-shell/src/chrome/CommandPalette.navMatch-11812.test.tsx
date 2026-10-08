@@ -20,8 +20,8 @@
  * values. Record hits are unchanged: the server search finds them.
  *
  * Pinned through the real `CommandPaletteProvider` (opened by its `?palette=1`
- * deep link) over the showcase's own labels, with a `searchAll` stub standing
- * in for the server search. What is pinned is what the DOM holds, since cmdk
+ * deep link) under a real `I18nProvider` in `en`, over the showcase's own
+ * labels, with a `searchAll` stub standing in for the server search. What is pinned is what the DOM holds, since cmdk
  * leaves an item it filters out unrendered:
  *
  *  - `zzzz` shows no entry and "No results", once the record search settles;
@@ -38,6 +38,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, waitFor, cleanup, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { createI18n, I18nProvider } from '@object-ui/i18n';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -111,17 +112,19 @@ function mount(query: string) {
     })),
   };
   render(
-    <MemoryRouter initialEntries={['/apps/showcase_app?palette=1']}>
-      <CommandPaletteProvider>
-        <CommandPalette
-          apps={[SHOWCASE, CRM]}
-          activeApp={SHOWCASE}
-          objects={OBJECTS}
-          onAppChange={() => {}}
-          dataSource={dataSource}
-        />
-      </CommandPaletteProvider>
-    </MemoryRouter>,
+    <I18nProvider instance={createI18n({ defaultLanguage: 'en', detectBrowserLanguage: false })} persistLanguage={false}>
+      <MemoryRouter initialEntries={['/apps/showcase_app?palette=1']}>
+        <CommandPaletteProvider>
+          <CommandPalette
+            apps={[SHOWCASE, CRM]}
+            activeApp={SHOWCASE}
+            objects={OBJECTS}
+            onAppChange={() => {}}
+            dataSource={dataSource}
+          />
+        </CommandPaletteProvider>
+      </MemoryRouter>
+    </I18nProvider>,
   );
   const input = document.querySelector('[cmdk-input]');
   if (!input) throw new Error('the palette did not open');

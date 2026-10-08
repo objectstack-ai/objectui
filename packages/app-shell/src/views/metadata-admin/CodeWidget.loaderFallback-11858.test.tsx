@@ -189,7 +189,7 @@ describe('CodeWidget — a failing Monaco loader falls back to an editable texta
     const [loaderScript] = heldLoaderScripts;
     // Before the network answers, no Monaco editor is mounted: it would show
     // its own "Loading..." and call `loader.init()` itself.
-    expect(screen.queryByText('Loading...'), 'a Monaco editor mounted before the loader answered').toBeNull();
+    expect.soft(screen.queryAllByText('Loading...'), 'Monaco editors mounted before the loader answered').toHaveLength(0);
 
     // The network answers: the loader script failed to load.
     act(() => {
@@ -224,7 +224,7 @@ describe('CodeWidget — a failing Monaco loader falls back to an editable texta
     const reports = monacoReports(consoleWarn.mock.calls);
     expect.soft(reports, 'console lines reporting the Monaco failure').toHaveLength(1);
     expect.soft(reports.join('\n'), 'the report names the loader script URL').toContain(loaderScript.src);
-    expect.soft(screen.queryByText('Loading...'), 'a Monaco editor mounted after the failure').toBeNull();
+    expect.soft(screen.queryAllByText('Loading...'), 'Monaco editors mounted after the failure').toHaveLength(0);
 
     // Reopen: a code row mounted after the failure is known renders the
     // textarea at once, read-only when the row is, with no loading state.

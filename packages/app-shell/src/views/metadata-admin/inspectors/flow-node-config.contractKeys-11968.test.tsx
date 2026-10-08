@@ -76,9 +76,11 @@ import { FlowNodeInspector } from './FlowNodeInspector';
 import {
   fieldsForNodeType,
   FLOW_NODE_CONFIG_TYPES,
+  localizeFlowFields,
   type FlowConfigColumn,
   type FlowConfigField,
 } from './flow-node-config';
+import { flowFieldZh } from '../i18n';
 import type { MetadataSelection } from '../preview-registry';
 
 /* ── The contract walk ────────────────────────────────────────────────────── */
@@ -523,5 +525,16 @@ describe('the notify Click-through URL row writes `actionUrl` (objectui#11968)',
   it('a stored `url` is not hidden: it shows in Advanced (JSON)', () => {
     renderNode('notify', { ...BASE, url: 'https://x.test/legacy' });
     expect(JSON.parse(advancedEditor()!.value)).toEqual({ url: 'https://x.test/legacy' });
+  });
+
+  it('the zh overlay follows the key, so the renamed row keeps its translation', () => {
+    // The overlay is keyed by field id; a row renamed without it would fall
+    // back to English in zh-CN on both forms.
+    const en = fieldsForNodeType('notify');
+    const zh = localizeFlowFields('notify', en, 'zh-CN');
+    const label = (fields: FlowConfigField[], id: string) => fields.find((f) => f.id === id)?.label;
+    expect(label(zh, 'title'), 'the lit control: a sibling row is translated').not.toBe(label(en, 'title'));
+    expect(label(zh, 'actionUrl')).toBe(flowFieldZh('notify', 'actionUrl')?.label);
+    expect(label(zh, 'actionUrl'), 'and the translation differs from the English label').not.toBe(label(en, 'actionUrl'));
   });
 });

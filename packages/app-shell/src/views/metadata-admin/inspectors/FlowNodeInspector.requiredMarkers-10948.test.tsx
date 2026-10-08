@@ -115,7 +115,9 @@ describe('each seeded kind: markers exactly where the spec requires the key (obj
     ['update_record', ['Object'], ['Filter', 'Field values']],
     ['get_record', ['Object'], ['Filter', 'Limit', 'Output variable']],
     ['delete_record', ['Object'], ['Filter']],
-    ['http', ['URL'], ['Method', 'Headers', 'Body', 'Output variable', 'Timeout (ms)']],
+    // objectui#11968 removed the http group's Output variable row: the `http`
+    // contract declares no `outputVariable`.
+    ['http', ['URL'], ['Method', 'Headers', 'Body', 'Timeout (ms)']],
     ['notify', ['Recipients', 'Title'], ['Message', 'Channels', 'Topic', 'Severity', 'Click-through URL']],
     ['script', ['Function'], ['Inputs', 'Output variable', 'Timeout (ms)']],
     ['subflow', ['Flow'], ['Input mapping', 'Output variable', 'Timeout (ms)']],
@@ -210,7 +212,9 @@ describe('the requirement reaches the control, not only the eye (objectui#10948)
     expect(screen.getByPlaceholderText('https://api.example.com/v1/contracts').getAttribute('aria-required')).toBe(
       'true',
     );
-    expect(screen.getByPlaceholderText('response').getAttribute('aria-required')).toBeNull();
+    // The optional sibling is the Body text control (objectui#11968 removed the
+    // Output variable row this read before).
+    expect(screen.getByPlaceholderText('{ "key": "value" }').getAttribute('aria-required')).toBeNull();
   });
 
   it('a required select carries `aria-required` on its trigger', () => {

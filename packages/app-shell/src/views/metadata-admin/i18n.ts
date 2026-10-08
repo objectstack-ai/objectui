@@ -6826,7 +6826,8 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     url: { label: 'URL' },
     headers: { label: '请求头', help: '请求头(如 Authorization、Content-Type)。' },
     body: { label: '请求体', help: '请求负载(JSON 或表达式)。' },
-    outputVariable: { label: '输出变量' },
+    // objectui#11968 — no `outputVariable` overlay: the `http` contract declares
+    // no such key, so neither form offers a field for it.
     durable: { label: '持久化(异步)', help: '通过持久化队列即发即忘(异步投递)。' },
     signingSecret: { label: '签名密钥', help: 'HMAC-SHA256 密钥 → 写入 X-Objectstack 签名请求头。' },
     timeoutMs: { label: '超时(毫秒)' },
@@ -6954,8 +6955,8 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     errorVariable: { label: '错误变量', help: '在 catch 区域内绑定所捕获错误的变量。' },
     retry: { label: '重试' },
   },
-  // notify has no client field table (offline → Advanced JSON); these localize
-  // the engine-published configSchema fields shown when online.
+  // notify's offline table and the engine-published configSchema share these
+  // field ids, so one overlay localizes both forms.
   notify: {
     recipients: { label: '收件人', help: '接收通知的人：触发记录的某个字段、用户、团队或邮箱地址。至少需要一个。' },
     title: { label: '标题', help: '通知标题(别名:subject)。' },
@@ -6966,7 +6967,9 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     sourceObject: { label: '来源对象', help: '通知所关联记录的对象名。' },
     sourceId: { label: '来源记录', help: '通知链接到的记录 id。' },
     actorId: { label: '触发用户', help: '引发该事件的用户 id。' },
-    url: { label: '链接 URL', help: '显式的点击跳转 URL;覆盖默认值。' },
+    // objectui#11968 — keyed `actionUrl`, the key the contract declares and both
+    // forms now write; the `url` spelling is the converted alias.
+    actionUrl: { label: '链接 URL', help: '显式的点击跳转 URL;覆盖默认值。' },
     payload: { label: '附加数据', help: '合并进模板输入的额外数据。' },
   },
   boundary_event: {

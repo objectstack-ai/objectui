@@ -1,44 +1,42 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * Canonical field-type catalog for the object form designer.
+ * Field-type catalog for the object form designer: one entry per member of
+ * `@objectstack/spec`'s `FieldType` enum, grouped into the user-facing
+ * categories the type picker and the canvas's add-field palette draw.
  *
- * Mirrors `@objectstack/spec`'s `FieldType` discriminated union (46
- * entries as of spec 7.1) but grouped into the 9 user-facing
- * categories used by the type picker and inspector.
+ * The type set is the spec's, not a list kept here: `FieldTypeId` below is
+ * the spec's `FieldType`, so `FIELD_TYPE_META` (a total `Record` over it)
+ * fails type-check while it lacks a member the installed spec declares, and
+ * `field-types.spec-parity-11909.test.ts` fails at test time naming any
+ * member missing in either direction. No count is written here (it would
+ * be true once and never re-checked); that pin is the instrument for it.
  *
- * Adding a new type here is enough — the canvas and inspector both
- * key off `FIELD_TYPE_META` for icon / label / category lookup, and
- * the picker auto-includes any new entry.
+ * A new entry needs three things: its row in `FIELD_TYPE_META` (category,
+ * icon, English search label), and its `engine.fieldType.<id>` name and
+ * `engine.fieldTypeDesc.<id>` description rows, en and zh, in the
+ * designer's table (`../i18n.ts`). The canvas, the inspector's Type
+ * control and both pickers then pick it up from `TYPES_BY_CATEGORY`.
  */
 
 import type { LucideIcon } from 'lucide-react';
+import type { FieldType } from '@objectstack/spec/data';
 import {
-  Type, AlignLeft, AtSign, Globe, Phone, Lock, FileText, Code, Sparkles,
+  Type, AlignLeft, AtSign, Globe, Phone, Lock, KeyRound, FileText, Code, Sparkles,
   Hash, DollarSign, Percent,
   Calendar, Clock,
   ToggleLeft,
   ListOrdered, ListChecks, CircleDot, CheckSquare,
-  Link2, Workflow, Network,
+  Link2, Workflow, Network, User,
   Image, Paperclip, UserCircle, Video, Music,
   Calculator, Sigma,
-  Boxes, Repeat2,
+  Boxes, Repeat2, Braces,
   MapPin, Map,
   FileJson, Palette, Star, SlidersHorizontal, PenLine, QrCode, BarChart3, Tags, Atom,
 } from 'lucide-react';
 
-export type FieldTypeId =
-  | 'text' | 'textarea' | 'email' | 'url' | 'phone' | 'password' | 'markdown' | 'html' | 'richtext'
-  | 'number' | 'currency' | 'percent'
-  | 'date' | 'datetime' | 'time'
-  | 'boolean' | 'toggle'
-  | 'select' | 'multiselect' | 'radio' | 'checkboxes'
-  | 'lookup' | 'master_detail' | 'tree'
-  | 'image' | 'file' | 'avatar' | 'video' | 'audio'
-  | 'formula' | 'summary' | 'autonumber'
-  | 'composite' | 'repeater'
-  | 'location' | 'address'
-  | 'code' | 'json' | 'color' | 'rating' | 'slider' | 'signature' | 'qrcode' | 'progress' | 'tags' | 'vector';
+/** A field type id: the spec's own `FieldType`, never a list re-typed here. */
+export type FieldTypeId = FieldType;
 
 export type FieldTypeCategory =
   | 'text' | 'number' | 'date' | 'logic' | 'selection'
@@ -66,7 +64,10 @@ export const FIELD_TYPE_META: Record<FieldTypeId, FieldTypeMeta> = {
   url:         M('url',         'URL',       'text',       Globe),
   phone:       M('phone',       'Phone',       'text',       Phone),
   password:    M('password',    'Password',       'text',       Lock),
-  markdown:    M('markdown',    'Markdown',   'text',       FileText),
+  // A reversible machine credential (API key, token): the spec declares it
+  // beside `password`, encrypted at rest and masked on read.
+  secret:      M('secret',      'Secret',      'text',       KeyRound),
+  markdown:   M('markdown',    'Markdown',   'text',       FileText),
   html:        M('html',        'HTML',       'text',       Code),
   richtext:    M('richtext',    'Rich Text',     'text',       Sparkles),
 
@@ -89,6 +90,9 @@ export const FIELD_TYPE_META: Record<FieldTypeId, FieldTypeMeta> = {
   lookup:        M('lookup',        'Lookup', 'relation', Link2),
   master_detail: M('master_detail', 'Master-Detail', 'relation', Workflow),
   tree:          M('tree',          'Tree', 'relation', Network),
+  // The spec's lookup specialised to users: its target is a constant of the
+  // type, so a `user` field needs no `reference` to be complete.
+  user:          M('user',          'User', 'relation', User),
 
   image:       M('image',       'Image',       'media',      Image),
   file:        M('file',        'File',       'media',      Paperclip),
@@ -102,6 +106,9 @@ export const FIELD_TYPE_META: Record<FieldTypeId, FieldTypeMeta> = {
 
   composite:   M('composite',   'Composite',   'advanced',   Boxes),
   repeater:    M('repeater',    'Repeater',   'advanced',   Repeat2),
+  // The third embedded structure beside composite and repeater: sub-field
+  // groups keyed by name rather than by position.
+  record:      M('record',      'Record Map', 'advanced',   Braces),
   location:    M('location',    'Location',   'advanced',   MapPin),
   address:     M('address',     'Address',       'advanced',   Map),
   code:        M('code',        'Code',       'advanced',   Code),

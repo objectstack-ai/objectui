@@ -200,7 +200,10 @@ describe('the page create body (objectui#11823 step 3)', () => {
   });
 
   it('CONTROL: without its page type the spec reads it as a record page, which a page nav entry cannot open', () => {
-    const { type: _type, ...untyped } = buildPageSkeleton('p', 'P', 'html', starterOf('en-US')) as Record<string, unknown>;
+    const { type: _type, ...untyped } = buildPageSkeleton('team_handbook', 'Team handbook', 'html', starterOf('en-US')) as Record<
+      string,
+      unknown
+    >;
     const parsed = PageSchema.safeParse(untyped);
     expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
     expect(parsed.data?.type).toBe('record');
@@ -208,9 +211,12 @@ describe('the page create body (objectui#11823 step 3)', () => {
   });
 
   it('CONTROL: the spec refuses a source page with an empty source, which is why it starts from one', () => {
-    const parsed = PageSchema.safeParse({ ...buildPageSkeleton('p', 'P', 'html', starterOf('en-US')), source: '' });
+    const parsed = PageSchema.safeParse({
+      ...buildPageSkeleton('team_handbook', 'Team handbook', 'html', starterOf('en-US')),
+      source: '',
+    });
     expect(parsed.success).toBe(false);
-    expect(parsed.error?.issues.map((i) => i.path.join('.'))).toContain('source');
+    expect(parsed.error?.issues.map((i) => i.path.join('.'))).toEqual(['source']);
   });
 
   it('the dialog starts on html, the tier every deployment renders', () => {

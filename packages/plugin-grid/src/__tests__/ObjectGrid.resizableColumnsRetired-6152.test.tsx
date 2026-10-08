@@ -15,6 +15,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
+import type { ObjectGridSchema } from '@object-ui/types';
 
 import { ObjectGrid } from '../ObjectGrid';
 import { __clearRecordCrudVerdictCache } from '../hooks/useRecordCrudVerdicts';
@@ -37,9 +38,9 @@ const rows = [
 
 /** Render a two-column grid and count the header resize handles it draws. */
 async function resizeHandles(extra: Record<string, unknown>): Promise<number> {
-  // `any`: the retired spelling is a `tsc` error on `ObjectGridSchema` now, and this
-  // writes it on purpose, as a node composed past the type would.
-  const schema: any = {
+  // Cast through `unknown`: the retired spelling is a `tsc` error on `ObjectGridSchema`
+  // now, and this writes it on purpose, as a node composed past the type would.
+  const schema = {
     type: 'object-grid',
     objectName: 'test_object',
     columns: [
@@ -48,7 +49,7 @@ async function resizeHandles(extra: Record<string, unknown>): Promise<number> {
     ],
     data: { provider: 'value', items: rows },
     ...extra,
-  };
+  } as unknown as ObjectGridSchema;
   const { container, unmount } = render(
     <ActionProvider>
       <ObjectGrid schema={schema} />

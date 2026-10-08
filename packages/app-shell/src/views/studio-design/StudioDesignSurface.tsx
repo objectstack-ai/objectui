@@ -44,6 +44,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  Badge,
+  Separator,
 } from '@object-ui/components';
 import { ObjectView as PluginObjectView } from '@object-ui/plugin-view';
 import { ListView } from '@object-ui/plugin-list';
@@ -1752,7 +1754,17 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   );
 }
 
-/** Recursive App-navigation tree (groups + typed leaves). */
+/**
+ * Recursive App-navigation tree: groups, separators and typed leaves.
+ *
+ * objectui#11791 — the rail draws a `separator` and a leaf's `badge` /
+ * `badgeVariant` with the decisions the running app's sidebar makes
+ * (`NavigationRenderer` in `@object-ui/layout`, which `UnifiedSidebar` mounts),
+ * so the design surface agrees with the app it designs. Mirrored, not
+ * imported: the sidebar draws both inline in its row renderer, and its rows
+ * are `SidebarMenu` items this rail does not use. The pin that holds the two
+ * together renders both: `StudioDesignSurface.railSeparatorBadge-11791.test.tsx`.
+ */
 function NavTree({
   nodes,
   active,
@@ -1778,6 +1790,16 @@ function NavTree({
         // through the family's one helper, in the designer locale.
         // objectui#11196 — an ABSENT label shows the text the entry inherits:
         // the runtime's own rule, never a second copy of it.
+        // objectui#11791 — a `separator` is a rule between rows, not an entry.
+        // It used to fall through to the leaf branch below, which drew it as a
+        // disabled, unlabeled button with the generic glyph. The sidebar's
+        // decision, mirrored: a decorative `Separator` (`role="none"`), so it
+        // is no row to click, no stop for the keyboard, and nothing a screen
+        // reader announces. The spec's separator carries `type`, `id` and
+        // `order` only, so there is no label or badge to draw.
+        if (node.type === 'separator') {
+          return <Separator key={node.id ?? i} className="my-2" />;
+        }
         const labelText = navEntryLabelText(node, locale, targetLabel);
         if (node.type === 'group' || (Array.isArray(node.children) && node.children.length)) {
           return (
@@ -1820,6 +1842,19 @@ function NavTree({
                 is the fallback #7254 chose. `surface?.name` stays for a label
                 that is present but resolves to nothing (an empty map). */}
             <span className="flex-1 truncate">{labelText || surface?.name}</span>
+            {/* objectui#11791 — the spec's `badge` / `badgeVariant`, drawn when
+                the sidebar row draws them (a present `badge`, a count `0`
+                included) with the same `Badge` and the same variant: an absent
+                `badgeVariant` is `Badge`'s own default, which is the
+                sidebar's. On every leaf, a disabled one too, as the sidebar
+                draws it on every entry it draws; never on a group heading,
+                where the sidebar draws none. Before the label's kind chip, so
+                the pill sits beside the text it qualifies. */}
+            {node.badge != null && (
+              <Badge variant={node.badgeVariant} className="shrink-0 px-1.5 py-0 text-[10px]">
+                {node.badge}
+              </Badge>
+            )}
             {surface && surface.type !== 'page' && (
               // The kind chip was the raw English metadata type in an otherwise
               // localized rail. `uppercase` is dropped with it: it is a

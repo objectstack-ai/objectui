@@ -59,7 +59,7 @@ vi.mock('../metadata-admin/useMetadata', async (importOriginal) => {
 });
 
 import { ObjectActionsPanel } from './ObjectActionsPanel';
-import { ACTION_PRESETS, TARGET_INPUT_KEYS, heldInputKey, type PresetFieldOpt } from './actionPresets';
+import { ACTION_PRESETS, TARGET_INPUT_KEYS, heldInputKey, type ActionPresetFieldOpt } from './actionPresets';
 import { ActionDefaultInspector } from '../metadata-admin/inspectors/ActionDefaultInspector';
 import { registerMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry';
 import { t } from '../metadata-admin/i18n';
@@ -355,7 +355,7 @@ describe('the preset module’s written-out tables agree with the spec (objectui
     'a picklist named %s is offered exactly when the spec accepts it as a param field',
     (name) => {
       const change = ACTION_PRESETS.find((p) => p.id === 'change_choice')!;
-      const fields: PresetFieldOpt[] = [{ name, type: 'select', label: 'Status' }];
+      const fields: ActionPresetFieldOpt[] = [{ name, type: 'select', label: 'Status' }];
       const accepted = !refusedAt({ ...seed, operation: 'update', params: [{ field: name }] }, 'params.0.field');
       expect(change.plan(fields, EN).ready).toBe(accepted);
     },

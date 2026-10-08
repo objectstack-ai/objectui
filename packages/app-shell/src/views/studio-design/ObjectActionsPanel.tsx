@@ -55,7 +55,7 @@ import {
   heldInputKey,
   type ActionPreset,
   type ActionPresetPlan,
-  type PresetFieldOpt,
+  type ActionPresetFieldOpt,
 } from './actionPresets.js';
 
 interface ActionItem {
@@ -253,7 +253,7 @@ export function ObjectActionsPanel({
   // objectui#11861 — what each preset would do on THIS object, read before the
   // author picks one so its menu row can say which field it asks about, or
   // what the object lacks.
-  const presetFields = React.useMemo<PresetFieldOpt[]>(
+  const presetFields = React.useMemo<ActionPresetFieldOpt[]>(
     () =>
       readFields(draft.fields).entries.map((e) => ({
         name: e.name,

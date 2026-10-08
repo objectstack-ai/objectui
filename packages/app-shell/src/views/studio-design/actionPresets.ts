@@ -33,8 +33,13 @@
 
 import { t, tFormat } from '../metadata-admin/i18n.js';
 
-/** What a preset reads off one of the object's fields. */
-export interface PresetFieldOpt {
+/**
+ * What a preset reads off one of the object's fields. Its own name, not the
+ * Validations presets' `PresetFieldOpt`: this shape also reads `readonly`, so
+ * the two are different declarations (one authority per exported name,
+ * objectui#6273).
+ */
+export interface ActionPresetFieldOpt {
   name: string;
   label?: string;
   type?: string;
@@ -63,7 +68,7 @@ export interface ActionPreset {
   id: 'change_choice' | 'run_flow' | 'open_url' | 'open_page';
   /** The menu row's plain-language label. */
   labelKey: string;
-  plan: (fields: readonly PresetFieldOpt[], locale: string) => ActionPresetPlan;
+  plan: (fields: readonly ActionPresetFieldOpt[], locale: string) => ActionPresetPlan;
 }
 
 /**
@@ -107,7 +112,7 @@ const PARAM_FIELD = /^[a-z][a-z0-9_]+$/;
  * platform's, a hidden one is not on screen, and a read-only one is not the
  * user's to change.
  */
-function changeableChoice(fields: readonly PresetFieldOpt[]): PresetFieldOpt | undefined {
+function changeableChoice(fields: readonly ActionPresetFieldOpt[]): ActionPresetFieldOpt | undefined {
   return fields.find(
     (f) => f.type === 'select' && !f.hidden && !f.system && !f.readonly && PARAM_FIELD.test(f.name),
   );

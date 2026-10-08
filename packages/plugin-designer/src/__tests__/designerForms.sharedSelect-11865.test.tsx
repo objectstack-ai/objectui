@@ -33,9 +33,14 @@
  * on it does not select the entity card, and Delete or Escape on it does not
  * act on the canvas.
  *
- * DIRECTION, observed against the native controls: every pin here but the two
- * name pins is red there, because each one reads the controls as the
- * primitive's triggers. What makes the write pins guards of "the conversion
+ * DIRECTION, observed against the native controls: the pins that read a
+ * control as the primitive's trigger are red there. Green there too, by
+ * design, are the pins of what the conversion kept: the two names, the three
+ * read-only states, the read-only data model's type text, and the
+ * field-type picker's own keys (the native control was a `SELECT`, which the
+ * canvas shortcuts already skipped). That last pin goes red when the canvas
+ * guard's combobox line is removed, and the card pin goes red when either
+ * click stop is removed. What makes the write pins guards of "the conversion
  * changed nothing the forms write" is the literal each compares against: a
  * `change` event on the pre-conversion native control wrote that same JSON,
  * read once on those components with these fixtures. The names were read

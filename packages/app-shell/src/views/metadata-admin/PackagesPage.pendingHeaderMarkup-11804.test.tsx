@@ -90,10 +90,10 @@ describe('PackageDetailSheet — the pending-changes header is valid markup (obj
     const header = await screen.findByText('Pending changes');
     // The count badge still sits inside the header, beside its label.
     expect(header.textContent).toBe(`Pending changes${drafts.length}`);
-    expect(header.tagName).not.toBe('P');
 
-    expect(paragraphsHoldingBlocks()).toEqual([]);
     expect(errors.filter((e) => NESTING.test(e))).toEqual([]);
+    expect(paragraphsHoldingBlocks()).toEqual([]);
+    expect(header.tagName).not.toBe('P');
   });
 
   it('a package with no drafts renders no header and logs no nesting error', async () => {

@@ -271,7 +271,8 @@ describe('a new dashboard widget is held until it is bound (objectui#11910)', ()
   it('an edit to a dashboard whose widgets are all bound saves at once, with no line', async () => {
     mountPillar();
     await ready();
-    fireEvent.click(await screen.findByRole('button', { name: /Pipeline/ }, { timeout: 8000 }));
+    const [pipeline] = await screen.findAllByTestId('dashboard-preview-widget-pipeline', undefined, { timeout: 8000 });
+    fireEvent.click(pipeline);
     const title = await within(rail()).findByDisplayValue('Pipeline');
     fireEvent.change(title, { target: { value: 'Pipeline value' } });
     await waitFor(() => expect(dashboardSaves()).toHaveLength(1), { timeout: 4000 });

@@ -454,7 +454,7 @@ const AXIS_TICK_FONT_PX = 12;
 const NARROW_GLYPH_EM = 0.65;
 
 /** Glyphs set a full em wide: CJK ideographs, kana, Hangul, full-width forms. */
-const WIDE_GLYPH = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}　-〿＀-￯]/u;
+const WIDE_GLYPH = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\u3000-\u303f\uff00-\uffef]/u;
 
 /** An upper estimate of one tick label's painted width, in px. */
 function estimateLabelWidthPx(label: string): number {
@@ -1914,7 +1914,7 @@ function AdvancedChartImplInner({
   // label it draws (see `rotatedXAxisHeight`). A number, so the axis props
   // below key on the value rather than on this render's formatter.
   const rotatedXAxisBand = rotateXLabels
-    ? rotatedXAxisHeight(data.map((d: any) => String(xAxisTickFormatter(d?.[xAxisKey]) ?? '')))
+    ? rotatedXAxisHeight(data.map((d) => String(xAxisTickFormatter(d?.[xAxisKey]) ?? '')))
     : undefined;
   const yTickFormatter = React.useMemo(
     () => formatterFor(primaryY?.format, displayLocale) ?? formatYTick,

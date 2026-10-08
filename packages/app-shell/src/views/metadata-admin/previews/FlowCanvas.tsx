@@ -15,6 +15,14 @@
  *     after that node in its path (`placeAfter`), the "+" at an edge's
  *     midpoint splits that edge A→B into A→N→B; the new node is left unpinned
  *     so the layered auto-layout places it,
+ *   - connect two nodes the flow already has (objectui#11905): press the
+ *     connect handle (the dot on a card's bottom edge, beside its "+"), drag
+ *     and drop on another node. The new edge is the one a "+" would draw out
+ *     of that node (`outEdge`); `edgeConnectionRefusal` (`flow-problems`),
+ *     the rule the edge inspector's From / To also call, refuses a node to
+ *     itself, a pair already connected and a node the flow does not have, and
+ *     the reason shows in the alert stack. Dropped on no node, the drag is let
+ *     go and nothing is written,
  *   - delete the selected node (Delete/Backspace) with full edge cleanup,
  *   - pan (background drag) and zoom / fit-to-view.
  *
@@ -57,10 +65,13 @@ import { useFlowNodePalette } from './useFlowNodePalette.js';
 import {
   indexProblemBadges,
   edgeProblemKey,
+  describeEdgeConnectionRefusal,
   describeNodeRemovalRefusal,
+  edgeConnectionRefusal,
   edgesAfterNodeRemoval,
   freshNodeId,
   nodeRemovalRefusal,
+  type EdgeConnectionRefusal,
   type FlowProblem,
 } from './flow-problems.js';
 import type { NestedNodePath } from '../inspectors/flow-nested-selection.js';
@@ -84,6 +95,29 @@ interface PanState {
   originX: number;
   originY: number;
 }
+
+/**
+ * objectui#11905 — a drag from a node's connect handle, while it lasts. Kept in
+ * a ref (the window listeners read it), mirrored into state for the preview.
+ */
+interface ConnectState {
+  /** The node whose handle was pressed: the new edge's source. */
+  source: string;
+  /** Client coordinates of the press. */
+  startX: number;
+  startY: number;
+  /** Past `DRAG_THRESHOLD`: a press that never moves is let go, not refused. */
+  moved: boolean;
+  /** The pointer, in canvas coordinates: the preview line's loose end. */
+  pointer: Point;
+  /** The node under the pointer, if any. */
+  overId: string | null;
+}
+
+/** Horizontal offset of the connect handle from the card's centre: clear of the 24px "+" there. */
+const CONNECT_HANDLE_DX = 36;
+/** The connect handle's diameter. */
+const CONNECT_HANDLE_SIZE = 14;
 
 export interface FlowCanvasProps {
   nodes: FlowDesignerNode[];
@@ -266,16 +300,30 @@ export function FlowCanvas({
   // rendering when the selection moves (the pattern `FlowNodeIdField` uses), so
   // re-selecting the node does not bring back a refusal nobody asked for again.
   const [deleteRefusedId, setDeleteRefusedId] = React.useState<string | null>(null);
+  // objectui#11905 — a drag from a connect handle while it lasts (`ConnectState`),
+  // and the connection the last drop was refused. Its reason sits in the same
+  // alert stack until the next press on the canvas or a change of selection.
+  const connectRef = React.useRef<ConnectState | null>(null);
+  const [connectView, setConnectView] = React.useState<ConnectState | null>(null);
+  const [connectRefused, setConnectRefused] = React.useState<{
+    source: string;
+    target: string;
+    refusal: EdgeConnectionRefusal;
+  } | null>(null);
   const [refusalSelection, setRefusalSelection] = React.useState(selectedId);
   if (refusalSelection !== selectedId) {
     setRefusalSelection(selectedId);
     setDeleteRefusedId(null);
+    setConnectRefused(null);
   }
   const deleteRefusal = React.useMemo(() => {
     if (!deleteRefusedId || deleteRefusedId !== selectedId) return null;
     const sites = nodeRemovalRefusal({ nodes, edges }, deleteRefusedId);
     return sites ? describeNodeRemovalRefusal(deleteRefusedId, sites, locale) : null;
   }, [deleteRefusedId, selectedId, nodes, edges, locale]);
+  const connectRefusal = connectRefused
+    ? describeEdgeConnectionRefusal(connectRefused.refusal, connectRefused.source, connectRefused.target, locale)
+    : null;
 
   const positionOf = React.useCallback(
     (id: string): Point => {
@@ -325,33 +373,7 @@ export function FlowCanvas({
       };
       const nextNodes = appendArray(nodes, newNode);
       const patch: Record<string, unknown> = { nodes: nextNodes };
-      if (opts?.from) {
-        const newEdge: FlowDesignerEdge = {
-          id: uniqueId('edge', edges.map((e) => e.id).filter(Boolean) as string[]),
-          source: opts.from,
-          target: id,
-        };
-        // When the source is a decision, carry its matching branch (by order:
-        // the k-th out-edge takes the k-th branch) onto the new edge so it
-        // actually routes. The decision's config.conditions are otherwise
-        // disconnected from the edges, leaving every branch unconditional.
-        const fromNode = nodes.find((n) => n.id === opts.from);
-        if (fromNode?.type === 'decision') {
-          const branches = Array.isArray(fromNode.config?.conditions)
-            ? (fromNode.config!.conditions as Array<Record<string, unknown>>)
-            : [];
-          const outCount = edges.filter((e) => e.source === opts.from).length;
-          const branch = branches[outCount];
-          if (branch && typeof branch === 'object') {
-            const expr = typeof branch.expression === 'string' ? branch.expression.trim() : '';
-            const label = typeof branch.label === 'string' ? branch.label.trim() : '';
-            if (label) newEdge.label = label;
-            if (expr === 'true') newEdge.isDefault = true;
-            else if (expr) newEdge.condition = expr;
-          }
-        }
-        patch.edges = appendArray(edges, newEdge);
-      }
+      if (opts?.from) patch.edges = appendArray(edges, outEdge(opts.from, id, nodes, edges));
       onPatch(patch);
       onSelect(newNode);
       setPaletteAt(null);
@@ -496,6 +518,7 @@ export function FlowCanvas({
       // still pans.
       if (!editable && !designMode) return;
       e.stopPropagation();
+      setConnectRefused(null);
       if (!editable) return;
       const origin = positionOf(id);
       dragRef.current = {
@@ -540,11 +563,125 @@ export function FlowCanvas({
     [dragPos, persistPosition],
   );
 
+  // ── Connect (objectui#11905): drag from a connect handle, drop on a node ───
+
+  /** Client coordinates to canvas coordinates: the inverse of the pan/zoom transform. */
+  const toCanvasPoint = React.useCallback(
+    (clientX: number, clientY: number): Point => {
+      const rect = viewportRef.current?.getBoundingClientRect();
+      return { x: (clientX - (rect?.left ?? 0) - pan.x) / zoom, y: (clientY - (rect?.top ?? 0) - pan.y) / zoom };
+    },
+    [pan.x, pan.y, zoom],
+  );
+
+  /**
+   * The node of THIS canvas a pointer event is over: the card (its
+   * `data-node-id` element) holding the element the browser hit-tests at the
+   * event's point, else the one holding the event's own target. The hit-test
+   * comes first because a touch pointer is captured by the handle it pressed,
+   * so its release targets the handle rather than the card under the finger.
+   */
+  const nodeUnder = React.useCallback(
+    (e: PointerEvent): string | null => {
+      const idOf = (el: unknown): string | null => {
+        const vp = viewportRef.current;
+        if (!vp || !el || typeof (el as Element).closest !== 'function' || !vp.contains(el as Node)) return null;
+        const id = (el as Element).closest('[data-node-id]')?.getAttribute('data-node-id');
+        return id && nodes.some((n) => n.id === id) ? id : null;
+      };
+      const hit = typeof document.elementFromPoint === 'function' ? document.elementFromPoint(e.clientX, e.clientY) : null;
+      return idOf(hit) ?? idOf(e.target);
+    },
+    [nodes],
+  );
+
+  const onConnectPointerDown = React.useCallback(
+    (source: string) => (e: React.PointerEvent) => {
+      if (e.button !== 0 || !editable) return;
+      // The press is the handle's: not a pan or a selection clear (the
+      // viewport's), not a card drag, and no text selection while it lasts.
+      e.stopPropagation();
+      e.preventDefault();
+      setConnectRefused(null);
+      const state: ConnectState = {
+        source,
+        startX: e.clientX,
+        startY: e.clientY,
+        moved: false,
+        pointer: toCanvasPoint(e.clientX, e.clientY),
+        overId: null,
+      };
+      connectRef.current = state;
+      setConnectView(state);
+    },
+    [editable, toCanvasPoint],
+  );
+
+  /** The drop: connect the source to the node under the pointer, or say why not. */
+  const finishConnect = React.useCallback(
+    (e: PointerEvent) => {
+      const c = connectRef.current;
+      connectRef.current = null;
+      setConnectView(null);
+      if (!c || !c.moved || !onPatch) return;
+      const target = nodeUnder(e);
+      if (!target) return;
+      const refusal = edgeConnectionRefusal({ nodes, edges }, c.source, target);
+      if (refusal) {
+        setConnectRefused({ source: c.source, target, refusal });
+        return;
+      }
+      const edge = outEdge(c.source, target, nodes, edges);
+      // The patch holds the edges alone: no node is rewritten, so a node that
+      // is reconnected keeps its configuration exactly as stored.
+      onPatch({ edges: appendArray(edges, edge) });
+      onSelectEdge?.(edge, edgeKey(edge, edges.length));
+    },
+    [edges, nodes, nodeUnder, onPatch, onSelectEdge],
+  );
+
+  // While a connect drag lasts the window carries it, so a release outside the
+  // viewport still ends it; Escape or a cancelled pointer lets it go.
+  const connecting = connectView !== null;
+  React.useEffect(() => {
+    if (!connecting) return;
+    const move = (e: PointerEvent) => {
+      const c = connectRef.current;
+      if (!c) return;
+      const next: ConnectState = {
+        ...c,
+        moved: c.moved || Math.hypot(e.clientX - c.startX, e.clientY - c.startY) >= DRAG_THRESHOLD,
+        pointer: toCanvasPoint(e.clientX, e.clientY),
+        overId: nodeUnder(e),
+      };
+      connectRef.current = next;
+      setConnectView(next);
+    };
+    const cancel = () => {
+      connectRef.current = null;
+      setConnectView(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') cancel();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', finishConnect);
+    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', finishConnect);
+      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [connecting, finishConnect, nodeUnder, toCanvasPoint]);
+
   // ── Pan (background drag) ──────────────────────────────────────────────────
 
   const onBgPointerDown = React.useCallback(
     (e: React.PointerEvent) => {
       if (e.button !== 0) return;
+      setConnectRefused(null);
       onSelect(null);
       panRef.current = { startX: e.clientX, startY: e.clientY, originX: pan.x, originY: pan.y };
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -644,22 +781,36 @@ export function FlowCanvas({
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  // objectui#11905 — the node a connect drag is over, and whether a drop there
+  // would be refused (the ring drawn on it says which).
+  const connectTarget =
+    connectView?.moved && connectView.overId
+      ? {
+          id: connectView.overId,
+          at: positionOf(connectView.overId),
+          refused: edgeConnectionRefusal({ nodes, edges }, connectView.source, connectView.overId) !== null,
+        }
+      : null;
+
   return (
     <div className="relative h-full min-h-[320px] w-full overflow-hidden">
       {/* Inline structural-validation banner (ADR-0044 cycle surfacing): shows
           errors directly on the canvas so the author needn't open Debug. Each row
           with a concrete target is clickable — it selects + pans to the offending
           node/edge (the same reveal the Problems panel does). */}
-      {(deleteRefusal || bannerErrors.length > 0) && (
+      {(deleteRefusal || connectRefusal || bannerErrors.length > 0) && (
         <div className="absolute left-2 top-2 z-30 max-w-[min(60%,420px)] space-y-1">
-          {deleteRefusal && (
-            <p
-              role="alert"
-              className="flex w-full items-start gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-left text-[11px] leading-snug text-destructive shadow-sm backdrop-blur-sm"
-            >
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{deleteRefusal}</span>
-            </p>
+          {[deleteRefusal, connectRefusal].map((refusal, i) =>
+            refusal ? (
+              <p
+                key={i}
+                role="alert"
+                className="flex w-full items-start gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-left text-[11px] leading-snug text-destructive shadow-sm backdrop-blur-sm"
+              >
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{refusal}</span>
+              </p>
+            ) : null,
           )}
           {bannerErrors.slice(0, 3).map((p) => {
             const clickable = !!onRevealProblem && p.target.kind !== 'flow';
@@ -975,59 +1126,158 @@ export function FlowCanvas({
                 </g>
               );
             })}
+            {/* objectui#11905 — the connection a connect drag would draw, from
+                the source's bottom anchor (where the edge will leave) to the
+                pointer. */}
+            {connectView?.moved && (
+              <path
+                data-connect-preview=""
+                d={edgePath(
+                  bottomAnchor(positionOf(connectView.source), heights.get(connectView.source) ?? NODE_H),
+                  connectView.pointer,
+                )}
+                strokeDasharray="6 4"
+                strokeWidth={2}
+                className="fill-none stroke-primary"
+                markerEnd="url(#flow-arrow)"
+              />
+            )}
           </svg>
 
           {/* Node layer */}
           {nodes.map((node) => {
             const runState = activeNodeId === node.id ? 'active' : visitedSet.has(node.id) ? 'visited' : undefined;
+            const pos = positionOf(node.id);
             return (
-              <NodeCard
-                key={node.id}
-                id={node.id}
-                locale={locale}
-                type={node.type}
-                label={node.label || node.id}
-                summary={nodeSummary(node, locale)}
-                position={positionOf(node.id)}
-                selected={selectedId === node.id}
-                editable={editable}
-                runState={runState}
-                dimmed={simRunning && !runState}
-                onPointerDown={onNodePointerDown(node.id)}
-                onSelect={() => designMode && onSelect(node)}
-                onAppend={(type) => addAfter(node.id, type)}
-                paletteItems={paletteItems}
-                appendPaletteOpen={paletteAt === `node:${node.id}`}
-                onAppendPaletteOpenChange={(open) => setPaletteAt(open ? `node:${node.id}` : null)}
-                onAddReviseLoop={
-                  editable && node.type === 'approval' && !reviseLoopSources.has(node.id)
-                    ? () => addReviseLoop(node.id)
-                    : undefined
-                }
-                invalid={invalidNodeSet.has(node.id)}
-                badge={nodeBadges.get(node.id)}
-                regions={regionsByNode.get(node.id)}
-                expanded={expandedIds.has(node.id)}
-                onToggleExpand={regionsByNode.has(node.id) ? () => toggleExpanded(node.id) : undefined}
-                height={heights.get(node.id)}
-                selectedNestedNode={
-                  selectedNestedPath?.containerId === node.id
-                    ? { regionKey: selectedNestedPath.regionKey, nodeId: selectedNestedPath.nodeId }
-                    : null
-                }
-                onSelectNestedNode={
-                  designMode && onSelectNested
-                    ? (regionKey, nested) =>
-                        onSelectNested({ containerId: node.id, regionKey, nodeId: nested.id }, nested)
-                    : undefined
-                }
-              />
+              <React.Fragment key={node.id}>
+                <NodeCard
+                  id={node.id}
+                  locale={locale}
+                  type={node.type}
+                  label={node.label || node.id}
+                  summary={nodeSummary(node, locale)}
+                  position={pos}
+                  selected={selectedId === node.id}
+                  editable={editable}
+                  runState={runState}
+                  dimmed={simRunning && !runState}
+                  onPointerDown={onNodePointerDown(node.id)}
+                  onSelect={() => designMode && onSelect(node)}
+                  onAppend={(type) => addAfter(node.id, type)}
+                  paletteItems={paletteItems}
+                  appendPaletteOpen={paletteAt === `node:${node.id}`}
+                  onAppendPaletteOpenChange={(open) => setPaletteAt(open ? `node:${node.id}` : null)}
+                  onAddReviseLoop={
+                    editable && node.type === 'approval' && !reviseLoopSources.has(node.id)
+                      ? () => addReviseLoop(node.id)
+                      : undefined
+                  }
+                  invalid={invalidNodeSet.has(node.id)}
+                  badge={nodeBadges.get(node.id)}
+                  regions={regionsByNode.get(node.id)}
+                  expanded={expandedIds.has(node.id)}
+                  onToggleExpand={regionsByNode.has(node.id) ? () => toggleExpanded(node.id) : undefined}
+                  height={heights.get(node.id)}
+                  selectedNestedNode={
+                    selectedNestedPath?.containerId === node.id
+                      ? { regionKey: selectedNestedPath.regionKey, nodeId: selectedNestedPath.nodeId }
+                      : null
+                  }
+                  onSelectNestedNode={
+                    designMode && onSelectNested
+                      ? (regionKey, nested) =>
+                          onSelectNested({ containerId: node.id, regionKey, nodeId: nested.id }, nested)
+                      : undefined
+                  }
+                />
+                {/* objectui#11905 — the connect handle: press, drag, drop on
+                    another node. On the card's bottom edge beside its "+", and,
+                    like the "+", absent on an End, which has no way on. A
+                    pointer gesture only: the keyboard re-points an existing
+                    connection in the edge inspector's From / To. */}
+                {editable && node.type !== 'end' && (
+                  <span
+                    aria-hidden
+                    title={tr('engine.flowCanvas.connect', locale)}
+                    data-connect-handle={node.id}
+                    onPointerDown={onConnectPointerDown(node.id)}
+                    className={cn(
+                      'absolute z-10 cursor-crosshair touch-none rounded-full border-2 bg-background shadow-sm transition-[transform,border-color] duration-150 hover:scale-125 hover:border-primary',
+                      connectView?.source === node.id ? 'scale-125 border-primary' : 'border-muted-foreground/50',
+                    )}
+                    style={{
+                      left: pos.x + NODE_W / 2 + CONNECT_HANDLE_DX - CONNECT_HANDLE_SIZE / 2,
+                      top: pos.y + (heights.get(node.id) ?? NODE_H) - CONNECT_HANDLE_SIZE / 2,
+                      width: CONNECT_HANDLE_SIZE,
+                      height: CONNECT_HANDLE_SIZE,
+                    }}
+                  />
+                )}
+              </React.Fragment>
             );
           })}
+          {/* objectui#11905 — the node a connect drag is over: ringed in the
+              primary colour when the drop would connect, in the destructive one
+              when `edgeConnectionRefusal` would refuse it. */}
+          {connectTarget && (
+            <div
+              aria-hidden
+              data-connect-target={connectTarget.refused ? 'refused' : 'connects'}
+              className={cn(
+                'pointer-events-none absolute z-20 rounded-xl ring-2 ring-offset-2 ring-offset-background',
+                connectTarget.refused ? 'ring-destructive' : 'ring-primary',
+              )}
+              style={{
+                left: connectTarget.at.x,
+                top: connectTarget.at.y,
+                width: NODE_W,
+                height: heights.get(connectTarget.id) ?? NODE_H,
+              }}
+            />
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+/**
+ * The edge drawn out of `fromId` to `targetId`: by a node's "+" and the
+ * toolbar's Add node when they append (`addNode`), and by a drag from the
+ * node's connect handle (objectui#11905), so a connection reads the same
+ * whichever of them drew it. A fresh `edge` id; when the source is a decision,
+ * its matching branch (by order: the k-th out-edge takes the k-th branch) is
+ * carried onto the edge so it actually routes. The decision's
+ * `config.conditions` are otherwise disconnected from the edges, leaving every
+ * branch unconditional.
+ */
+function outEdge(
+  fromId: string,
+  targetId: string,
+  nodes: FlowDesignerNode[],
+  edges: FlowDesignerEdge[],
+): FlowDesignerEdge {
+  const edge: FlowDesignerEdge = {
+    id: uniqueId('edge', edges.map((e) => e.id).filter(Boolean) as string[]),
+    source: fromId,
+    target: targetId,
+  };
+  const fromNode = nodes.find((n) => n.id === fromId);
+  if (fromNode?.type === 'decision') {
+    const branches = Array.isArray(fromNode.config?.conditions)
+      ? (fromNode.config!.conditions as Array<Record<string, unknown>>)
+      : [];
+    const outCount = edges.filter((e) => e.source === fromId).length;
+    const branch = branches[outCount];
+    if (branch && typeof branch === 'object') {
+      const expr = typeof branch.expression === 'string' ? branch.expression.trim() : '';
+      const label = typeof branch.label === 'string' ? branch.label.trim() : '';
+      if (label) edge.label = label;
+      if (expr === 'true') edge.isDefault = true;
+      else if (expr) edge.condition = expr;
+    }
+  }
+  return edge;
 }
 
 /**

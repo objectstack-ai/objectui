@@ -50,6 +50,11 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@object-ui/components';
 import { ObjectView as PluginObjectView } from '@object-ui/plugin-view';
 import { ListView } from '@object-ui/plugin-list';
@@ -2311,10 +2316,13 @@ export function StudioNavItemInspector({
       {(kind === 'object' || kind === null) && (
         <div>
           <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.linkObject', locale)}</label>
-          <select
+          <StudioPicker
             value={boundObject}
-            onChange={(e) => {
-              const objName = e.target.value;
+            options={[
+              { value: '', label: t('engine.studio.nav.chooseObject', locale) },
+              ...objects.map((o) => ({ value: o.name, label: `${o.label} (${o.name})` })),
+            ]}
+            onPick={(objName) => {
               if (!objName) {
                 // Unbind → back to an (invalid, dropped-on-save) placeholder.
                 patch({ type: undefined, objectName: undefined, object: undefined });
@@ -2322,15 +2330,9 @@ export function StudioNavItemInspector({
               }
               bindObject(objName);
             }}
-            className="w-full rounded border bg-background px-2 py-1 text-xs"
-          >
-            <option value="">{t('engine.studio.nav.chooseObject', locale)}</option>
-            {objects.map((o) => (
-              <option key={o.name} value={o.name}>
-                {o.label} ({o.name})
-              </option>
-            ))}
-          </select>
+            className={PICKER_XS}
+            testId="nav-link-object"
+          />
           <p className="mt-1 text-[11px] text-muted-foreground">
             {boundObject ? t('engine.studio.nav.boundHint', locale) : t('engine.studio.nav.unboundHint', locale)}
           </p>
@@ -2509,6 +2511,80 @@ function usePackageNavTargets(
   return state?.key === key ? { rows: state.rows, loading: false } : { rows: [], loading: true };
 }
 
+/** The item a value none of a picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/** The classes a nav-inspector picker takes, at the size the native control had. */
+const PICKER_XS = 'h-auto rounded px-2 py-1 text-xs';
+
+/**
+ * objectui#11865 — one of the design surface's own pickers, drawn with the
+ * shared `Select`, the control the rest of Studio picks with: the nav-item
+ * inspector's object, target and *Open in* pickers, and the record sharing
+ * and trigger pickers of the *New object* and *New automation* dialogs. They
+ * used to be browser-native select elements. What a pick writes is unchanged:
+ * `onPick` receives the picked option's own `value`, the string the native
+ * control's `change` carried, and re-picking the current option writes
+ * nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value. The object, target and
+ *   trigger pickers open on an option whose value is `''` ("Choose object",
+ *   "Choose", "Choose later on the Start node"), which `SelectItem` refuses;
+ *   an index cannot collide with an object's or a target's name, as any
+ *   stand-in string could.
+ * - A value none of the options carries gets an item of its own, labelled
+ *   with the value, so the trigger shows what the entry holds. The native
+ *   control showed its first option there ("Choose object", "Same tab").
+ *   Picking that item writes nothing. A nav target picker never needs it: it
+ *   lists the entry's own target already ({@link NavTargetSelect}).
+ * - Read-only has no state here: a read-only package closes nav editing, which
+ *   unmounts the inspector, and offers neither *New* entry, so neither dialog
+ *   opens there.
+ * - Each caller keeps the name its native control had: a `<label htmlFor>`
+ *   names the trigger by `id`, and a wrapping `<label>` names it as it named
+ *   the native control. The object picker had none and still has none.
+ */
+function StudioPicker({
+  id,
+  value,
+  options,
+  onPick,
+  className,
+  testId,
+}: {
+  id?: string;
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  className: string;
+  testId?: string;
+}): React.ReactElement {
+  const at = options.findIndex((o) => o.value === value);
+  const outside = at === -1 && value !== '';
+  return (
+    <Select
+      value={at !== -1 ? String(at) : outside ? OUTSIDE_OPTIONS : ''}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the stored value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger id={id} data-testid={testId} className={className}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {outside && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 /**
  * One nav target picker: the package's items of one type, plus the entry's own
  * target when the list does not hold it (a target another package owns, or a
@@ -2538,19 +2614,13 @@ function NavTargetSelect({
       <label htmlFor={id} className="mb-1 block text-[11px] font-medium text-muted-foreground">
         {label}
       </label>
-      <select
+      <StudioPicker
         id={id}
         value={value}
-        onChange={(e) => onPick(e.target.value)}
-        className="w-full rounded border bg-background px-2 py-1 text-xs"
-      >
-        <option value="">{t('engine.inspector.appNav.choose', locale)}</option>
-        {shown.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+        options={[{ value: '', label: t('engine.inspector.appNav.choose', locale) }, ...shown]}
+        onPick={onPick}
+        className={PICKER_XS}
+      />
       {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
       {!loading && options.length === 0 && (
         <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">{t('engine.inspector.appNav.noTargets', locale)}</p>
@@ -2594,15 +2664,16 @@ function NavUrlFields({
         <label htmlFor={targetId} className="mb-1 block text-[11px] font-medium text-muted-foreground">
           {t('engine.inspector.appNav.urlTarget', locale)}
         </label>
-        <select
+        <StudioPicker
           id={targetId}
           value={target}
-          onChange={(e) => onTarget(e.target.value)}
-          className="w-full rounded border bg-background px-2 py-1 text-xs"
-        >
-          <option value="_self">{t('engine.inspector.appNav.urlTargetSelf', locale)}</option>
-          <option value="_blank">{t('engine.inspector.appNav.urlTargetBlank', locale)}</option>
-        </select>
+          options={[
+            { value: '_self', label: t('engine.inspector.appNav.urlTargetSelf', locale) },
+            { value: '_blank', label: t('engine.inspector.appNav.urlTargetBlank', locale) },
+          ]}
+          onPick={onTarget}
+          className={PICKER_XS}
+        />
       </div>
     </div>
   );
@@ -5644,18 +5715,13 @@ export function DataPillar({
             <span className="mb-1 block text-[11px] text-muted-foreground">
               {t('engine.studio.data.owdLabel', locale)}
             </span>
-            <select
+            <StudioPicker
               value={createOwd}
-              data-testid="create-object-owd"
-              onChange={(e) => setCreateOwd(e.target.value as OwdCreateModel)}
-              className="w-full rounded border bg-background px-2 py-1 text-[12px]"
-            >
-              {OWD_CREATE_MODELS.map((m) => (
-                <option key={m} value={m}>
-                  {t(OWD_OPTION_LABEL_KEY[m], locale)}
-                </option>
-              ))}
-            </select>
+              options={OWD_CREATE_MODELS.map((m) => ({ value: m, label: t(OWD_OPTION_LABEL_KEY[m], locale) }))}
+              onPick={(m) => setCreateOwd(m as OwdCreateModel)}
+              className="h-auto rounded px-2 py-1 text-[12px]"
+              testId="create-object-owd"
+            />
             <span className="mt-1 block text-[11px] text-muted-foreground">
               {t(OWD_OPTION_DESC_KEY[createOwd], locale)}
             </span>
@@ -6571,19 +6637,16 @@ export function AutomationsPillar({
                 <div className="ml-6 mt-1.5 space-y-3">
                   <label className="block">
                     <span className="mb-1 block text-sm font-medium">{startTrigger.trigger.label}</span>
-                    <select
+                    <StudioPicker
                       value={newTrigger}
-                      data-testid="create-flow-trigger"
-                      onChange={(e) => setNewTrigger(e.target.value)}
-                      className="w-full rounded border bg-background px-2 py-1.5 text-sm"
-                    >
-                      <option value="">{t('engine.studio.newAutoTrigger.later', locale)}</option>
-                      {(startTrigger.trigger.options ?? []).map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '', label: t('engine.studio.newAutoTrigger.later', locale) },
+                        ...(startTrigger.trigger.options ?? []).map((o) => ({ value: o.value, label: o.label })),
+                      ]}
+                      onPick={setNewTrigger}
+                      className="h-auto rounded px-2 py-1.5 text-sm"
+                      testId="create-flow-trigger"
+                    />
                   </label>
                   {startTrigger.trigger.help && (
                     <p className="-mt-2 text-[11px] text-muted-foreground">{startTrigger.trigger.help}</p>

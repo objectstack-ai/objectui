@@ -168,6 +168,39 @@ import { MaskedCellRenderer } from '@object-ui/fields';
 const withheldCell = (value: unknown) => <MaskedCellRenderer value={value} />;
 ```
 
+### Polymorphic pointer pairs (`referenceVia`)
+
+A `text` field that declares `@objectstack/spec`'s `referenceVia` is the id half
+of a two-column pointer pair: its value is a record id of the object that the
+sibling column it names holds, on the same row (`sys_approval_request.record_id`
+with `referenceVia: 'object_name'`, or `sys_activity.source_id` with
+`referenceVia: 'source_object'`). The target changes per row, and a cell
+renderer gets one value and no row, so the pair is resolved by the caller that
+holds the row (objectui#12045):
+
+- `resolveRecordPointer(field, row)` is the one place the rule lives. It
+  returns `{ objectName, recordId }` (a `RecordPointer`) for a `text` field with
+  a non-empty `referenceVia` whose row fills both halves, and `null` otherwise.
+- `RECORD_POINTER_CARD_TYPE` is the registry key a resolved pair is drawn with,
+  the pair as the renderer's `value`. This package registers a default under it
+  that draws the record id as text, so nothing changes for a host that does not
+  register a face. `@object-ui/app-shell` registers its record preview card
+  there.
+
+The record details grid in `@object-ui/plugin-detail` is the call site today;
+list cells are not one yet.
+
+```tsx
+import { getCellRenderer, resolveRecordPointer, RECORD_POINTER_CARD_TYPE } from '@object-ui/fields';
+
+function PointerValue({ field, row }: { field: { name: string; type: string; referenceVia?: string }; row: Record<string, unknown> }) {
+  const pointer = resolveRecordPointer(field, row);
+  if (!pointer) return <>{String(row[field.name] ?? '')}</>;
+  const Face = getCellRenderer(RECORD_POINTER_CARD_TYPE);
+  return <Face value={pointer} field={{ name: field.name, type: 'text' }} />;
+}
+```
+
 ### File uploads in line-item grids
 
 `GridField` (the master-detail line-items grid) supports `type: 'file'` columns:

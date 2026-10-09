@@ -134,6 +134,19 @@ browser could not read the box at all. Silence means the browser read
 (reference codes, serial numbers, anything where `1.2.3` is meaningful), declare
 a `text` field, not a numeric one.
 
+## Polymorphic pointer pairs (`referenceVia`)
+
+A `text` field that declares `referenceVia` holds a record id of the object its
+sibling column names, row by row: `sys_approval_request.record_id` points at the
+record `object_name` names, and `sys_activity.source_id` at the one
+`source_object` names. The record details grid resolves the pair from the row
+with `resolveRecordPointer(field, row)` and draws it with the renderer
+registered under `RECORD_POINTER_CARD_TYPE`. The fields package's default draws
+the record id as text; the console registers a record preview card there, so a
+pointer field on a record page shows the record it points at. Nothing is
+authored for this: the `referenceVia` declaration on the field is the whole
+contract. List cells are not a call site yet.
+
 ## Using Renderers in Custom Components
 
 If you are building your own custom component (like a Kanban board card), you can leverage the registry to render fields without reinventing the wheel.

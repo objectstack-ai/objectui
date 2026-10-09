@@ -2233,7 +2233,6 @@ const fr = {
     nav: {
       pinItem: "Épingler {{name}}",
       unpinItem: "Désépingler {{name}}",
-      dragToReorder: "Glisser pour réorganiser",
       favorites: "Favoris",
       launcherLabel: "Lanceur d'applications",
       menuLabel: "Navigation de l'application",

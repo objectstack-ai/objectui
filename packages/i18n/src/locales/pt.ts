@@ -2231,7 +2231,6 @@ const pt = {
     nav: {
       pinItem: "Fixar {{name}}",
       unpinItem: "Desafixar {{name}}",
-      dragToReorder: "Arrastar para reordenar",
       favorites: "Favoritos",
       launcherLabel: "Iniciador de aplicativos",
       menuLabel: "Navegação do aplicativo",

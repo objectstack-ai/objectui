@@ -46,8 +46,8 @@
  *  - icon — `resolveIcon`, pinned in this file.
  *  - `badge` / `badgeVariant` — the bar used to drop them; now drawn with the
  *    same `Badge` and the same variant, pinned in this file.
- *  - drag-reorder — the sidebar hands the new positions to the host's
- *    `onReorder` as `order` values, so the bar follows through `order`.
+ *  - drag-reorder — none since objectui#12059: the sidebar's menu reorder is
+ *    retired, so the menu, and the bar with it, follows the authored `order`.
  *
  * Deliberately bar-specific, each pinned in this file with its reason:
  *  - `type: 'separator'` — a rule between rows, not a destination: no tab and

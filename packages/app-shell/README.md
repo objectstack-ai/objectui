@@ -1027,6 +1027,13 @@ adapter syncs both flows. The legacy `objectui-nav-pins` localStorage key is
 migrated on first mount and then removed. Content favorites (20) and nav
 pins (20) each have an independent cap. See the guide below for details.
 
+The sidebar's Pinned section keeps the user's order, stored with the pins:
+`pinnedIds` lists them in it, a new pin joins the end, and
+`reorderPins(orderedIds)` saves a new order. The sidebar passes both to
+`NavigationRenderer` (`pinnedOrder` / `onPinnedReorder`), which lets a user
+drag a pinned row, or move it from the keyboard. The app's own menu is not
+reorderable: its order is authored in Studio.
+
 See [User-Scoped State Persistence](../../content/docs/guide/user-state-persistence.md)
 for the adapter contract, backend schema, and how to plug in your own backend.
 

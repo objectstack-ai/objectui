@@ -17,7 +17,9 @@
  * Enhanced with:
  * - Search filtering across navigation tree
  * - Pin/favorite navigation items (pinned items in "Favorites" section)
- * - Drag-to-reorder navigation items via @dnd-kit
+ * - The pinned section in the user's order, rearranged by dragging a row
+ *   (via @dnd-kit). The app's own menu is never reorderable here: its order
+ *   is authored in Studio (objectui#12059).
  *
  * @module NavigationRenderer
  */
@@ -27,7 +29,6 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   ChevronRight,
   FileText,
-  GripVertical,
   Pin,
   PinOff,
   Star,
@@ -38,17 +39,20 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  useDndContext,
   useSensor,
   useSensors,
+  type DragCancelEvent,
   type DragEndEvent,
-  type DraggableAttributes,
   type DraggableSyntheticListeners,
+  type KeyboardSensorOptions,
 } from '@dnd-kit/core';
 import {
   SortableContext,
-  verticalListSortingStrategy,
   useSortable,
   arrayMove,
+  sortableKeyboardCoordinates,
+  type SortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -222,27 +226,29 @@ export interface NavigationRendererProps {
     basePath?: string,
   ) => void;
 
-  /**
-   * Enable drag-to-reorder for navigation items.
-   *
-   * An entry moves within its own level only: among the top-level entries of a
-   * menu with no groups, among one group's children, or, in a grouped menu,
-   * among a run of top-level entries between two groups. It never moves into or
-   * out of a group (objectui#11626): which group an entry sits in is the app's
-   * structure, not a personal order. While `searchQuery` narrows a grouped
-   * menu, the menu offers no grip, because a narrowed group shows only some of
-   * its children.
-   */
-  enableReorder?: boolean;
+  // RETIRED (objectui#12059): `enableReorder` / `onReorder`, drag-to-reorder of
+  // the app's menu. A menu's order is authored in Studio and every user sees
+  // that order (maintainer ruling on objectui#12059, reversing objectui#11626).
+  // Personal ordering lives in the pinned section only — `pinnedOrder` /
+  // `onPinnedReorder` below. Do not re-add a menu reorder here.
 
   /**
-   * Called when navigation items are reordered via drag, always with the
-   * top-level list. After a move among top-level entries, that list is
-   * reordered. After a move within a group, the top-level list is as drawn and
-   * that group's `children` are reordered (objectui#11626). The moved level's
-   * entries carry their new positions as `order` (0, 1, 2, …).
+   * The ids of the pinned entries in the user's order (objectui#12059). The
+   * pinned section draws its entries in this order; a pinned entry it does not
+   * name follows, in menu order. Omitted ⇒ the pinned section follows the menu.
    */
-  onReorder?: (reorderedItems: NavigationItem[]) => void;
+  pinnedOrder?: string[];
+
+  /**
+   * Makes the pinned section reorderable (objectui#12059): a pinned row is
+   * dragged by the row itself, with no grip at rest (`cursor: grab`, and an
+   * insertion line while dragging), or from the keyboard with dnd-kit's
+   * keyboard sensor (Space picks the focused row up, the arrow keys move it,
+   * Space drops it, Escape cancels). Called on a drop with the ids of the rows
+   * the section draws, in their new order. Only the pinned section reorders;
+   * the menu itself never does.
+   */
+  onPinnedReorder?: (pinnedIds: string[]) => void;
 
   // RETIRED (objectui#11299): `resolveObjectLabel` / `resolveDashboardLabel` /
   // `resolveViewLabel`, the three convention resolvers of the retired
@@ -1123,66 +1129,43 @@ export function filterNavigationItems(
   }, []);
 }
 
-/** Minimum drag distance in pixels to activate reorder */
+// ---------------------------------------------------------------------------
+// The pinned section's own order (objectui#12059)
+// ---------------------------------------------------------------------------
+
+/** Minimum pointer travel, in pixels, before a press on a pinned row becomes a drag; less is a click. */
 const DRAG_ACTIVATION_DISTANCE = 5;
 
-// ---------------------------------------------------------------------------
-// Within-level reorder for a grouped menu (objectui#11626)
-// ---------------------------------------------------------------------------
+/**
+ * The keyboard drag of a pinned row: Space picks the focused row up and drops
+ * it, the arrow keys move it, Escape cancels. Not Enter, which dnd-kit binds
+ * too by default: a pinned row is a link (or an action entry's button), and
+ * Enter is how the keyboard follows it.
+ */
+const PINNED_KEYBOARD_SENSOR: KeyboardSensorOptions = {
+  coordinateGetter: sortableKeyboardCoordinates,
+  keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space'] },
+};
+
+/** The other rows hold still while a pinned row is dragged; the insertion line shows where it lands. */
+const holdRowsStill: SortingStrategy = () => null;
+
+/** Whether a drag was started from the keyboard; any other drag was started by a pointer. */
+const startedByKeyboard = (event: { activatorEvent: Event | null }) =>
+  event.activatorEvent?.type === 'keydown';
 
 /**
- * One level moved: the entry `activeId` taken out and put where `overId` was,
- * every entry of the level carrying its new position as `order`, which is how
- * the group-free arm reports a move too. `null` when either id is not in
- * `level`.
- *
- * `level` is the WHOLE level as the renderer orders it, gated-away entries
- * included, so the entries a user cannot see keep their places relative to the
- * ones the user moved, and the reported level loses none of them.
+ * Swallows the click that ends a pointer drag of a pinned row. The dragged row
+ * follows the pointer, so the button is released over the row's own link and
+ * the browser clicks it. dnd-kit stops that click's propagation, so the
+ * router's `Link` never handles it, but nothing prevents its default: the
+ * browser would follow the link with a full page load. The guard lasts as long
+ * as dnd-kit's own (50ms after the drop).
  */
-function moveWithinLevel(
-  level: NavigationItem[],
-  activeId: string,
-  overId: string,
-): NavigationItem[] | null {
-  const oldIndex = level.findIndex((i) => i.id === activeId);
-  const newIndex = level.findIndex((i) => i.id === overId);
-  if (oldIndex === -1 || newIndex === -1) return null;
-  return arrayMove(level, oldIndex, newIndex).map((item, idx) => ({ ...item, order: idx }));
-}
-
-/** `items` with the children of the group `groupId` replaced, at any depth. */
-function withGroupChildren(
-  items: NavigationItem[],
-  groupId: string,
-  children: NavigationItem[],
-): NavigationItem[] {
-  return items.map((item) => {
-    if (item.type !== 'group') return item;
-    if (item.id === groupId) return { ...item, children };
-    if (!item.children?.length) return item;
-    return { ...item, children: withGroupChildren(item.children, groupId, children) };
-  });
-}
-
-/**
- * Reports a move within the group `groupId`: its children, already moved by
- * {@link moveWithinLevel}. Provided by the grouped arm of
- * {@link NavigationRenderer}. `null` means the menu offers no grip on a group's
- * children: reorder is off, the menu has no groups, or a search narrows it.
- */
-type GroupChildrenReorder = (groupId: string, reorderedChildren: NavigationItem[]) => void;
-const GroupReorderContext = React.createContext<GroupChildrenReorder | null>(null);
-
-/**
- * Whether `item` draws anything: the decisions `NavigationItemRenderer` takes
- * before it returns `null`, asked through the same shared guard statement and
- * predicate. A sortable wrapper is put only around an entry that draws, so a
- * gated-away entry does not leave an empty wrapper behind as a drop target.
- */
-function drawsNavItem(item: NavigationItem, options: NavigationVisibilityOptions): boolean {
-  if (item.type === 'separator') return passesNavItemGuards(item, options);
-  return hasVisibleNavigationItems([item], options);
+function swallowClickAfterPointerDrag(): void {
+  const swallow = (event: MouseEvent) => event.preventDefault();
+  window.addEventListener('click', swallow, { capture: true });
+  window.setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 50);
 }
 
 /** The props every row renderer takes besides its `item`. */
@@ -1202,38 +1185,51 @@ interface NavRowProps {
 }
 
 /**
- * One level of a grouped menu as a sortable list: its own `DndContext`, so a
- * drag starts, moves and drops within this list only and no other list is a
- * drop target. The rows are the group-free arm's `SortableNavigationItem`.
+ * The pinned section as a sortable list: its own `DndContext`, so a pinned row
+ * moves among the pinned rows only. A drop reports the ids of the rows drawn
+ * here, in their new order.
  */
-function SortableNavigationList({
-  contextId,
+function PinnedNavigationList({
   items,
-  onMove,
+  onReorder,
   rowProps,
 }: {
-  contextId: string;
   items: NavigationItem[];
-  onMove: (activeId: string, overId: string) => void;
+  onReorder: (pinnedIds: string[]) => void;
   rowProps: NavRowProps;
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } }),
-    useSensor(KeyboardSensor),
+    useSensor(KeyboardSensor, PINNED_KEYBOARD_SENSOR),
   );
+  const ids = items.map((item) => item.id);
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (!startedByKeyboard(event)) swallowClickAfterPointerDrag();
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    onMove(String(active.id), String(over.id));
+    const from = ids.indexOf(String(active.id));
+    const to = ids.indexOf(String(over.id));
+    if (from === -1 || to === -1) return;
+    onReorder(arrayMove(ids, from, to));
+  };
+
+  const handleDragCancel = (event: DragCancelEvent) => {
+    if (!startedByKeyboard(event)) swallowClickAfterPointerDrag();
   };
 
   return (
-    <DndContext id={contextId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+    <DndContext
+      id="nav-pinned"
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <SortableContext items={ids} strategy={holdRowsStill}>
         <SidebarMenu>
           {items.map((item) => (
-            <SortableNavigationItem key={item.id} item={item} enableReorder {...rowProps} />
+            <PinnedNavigationRow key={`fav-${item.id}`} item={item} rowProps={rowProps} />
           ))}
         </SidebarMenu>
       </SortableContext>
@@ -1241,69 +1237,45 @@ function SortableNavigationList({
   );
 }
 
-/** A sortable row's grip: dnd-kit's activator node setter, its ARIA attributes and its listeners. */
-interface NavDragHandle {
-  activator: (element: HTMLElement | null) => void;
-  attributes: DraggableAttributes;
+/**
+ * What a sortable row hands the element that starts its drag, the row's own
+ * link (or an action entry's button): dnd-kit's activator ref, the listeners
+ * of both sensors, and the id of dnd-kit's keyboard instructions. No grip and
+ * no extra focus stop: the element a user already reaches is the handle.
+ */
+interface NavDragActivator {
+  ref: (element: HTMLElement | null) => void;
   listeners: DraggableSyntheticListeners;
+  describedBy: string;
 }
 
-/** The drag grip drawn at the start of a sortable row; the row's one drag activator. */
-function NavDragGrip({
-  handle: { activator, attributes, listeners },
-  t,
-}: {
-  handle: NavDragHandle;
-  t?: NavigationRendererProps['t'];
-}) {
-  return (
-    <span
-      ref={activator}
-      className="absolute left-0.5 top-1/2 -translate-y-1/2 cursor-grab text-muted-foreground"
-      {...attributes}
-      {...listeners}
-      aria-label={t ? t('console.nav.dragToReorder', { defaultValue: 'Drag to reorder' }) : 'Drag to reorder'}
-    >
-      <GripVertical className="h-3.5 w-3.5" />
-    </span>
-  );
+/**
+ * The props that make a row's own link or button its drag activator. dnd-kit's
+ * `role="button"` / `tabIndex` are left off, so a link stays a link. Releasing
+ * Space is held back: Space picks the row up and drops it, and on an action
+ * entry's button its release would also press the button.
+ */
+function dragActivatorProps(activator: NavDragActivator) {
+  return {
+    ref: activator.ref,
+    ...activator.listeners,
+    'aria-describedby': activator.describedBy,
+    onKeyUp: (event: React.KeyboardEvent) => {
+      if (event.code === 'Space') event.preventDefault();
+    },
+  };
 }
 
-// ---------------------------------------------------------------------------
-// SortableNavigationItem (drag-reorder wrapper)
-// ---------------------------------------------------------------------------
+/** What a sortable list hands the row it wraps: dnd-kit's node ref and transform for the row's own `<li>`, and the insertion line. */
+interface NavRowNode {
+  ref: (element: HTMLElement | null) => void;
+  style: React.CSSProperties;
+  /** Where the dragged row would land, drawn as a line on this row's edge. */
+  dropIndicator: 'before' | 'after' | null;
+}
 
-function SortableNavigationItem({
-  item,
-  basePath,
-  evalVis,
-  checkPerm,
-  checkCap,
-  checkDocTarget,
-  onAction,
-  enablePinning,
-  onPinToggle,
-  enableReorder,
-  resolveTargetLabel,
-  locale,
-  t: tProp,
-  templateContext,
-}: {
-  item: NavigationItem;
-  basePath: string;
-  evalVis: VisibilityEvaluator;
-  checkPerm: PermissionChecker;
-  checkCap: CapabilityChecker;
-  checkDocTarget?: DocTargetChecker;
-  onAction?: (item: NavigationItem) => void;
-  enablePinning?: boolean;
-  onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
-  enableReorder?: boolean;
-  resolveTargetLabel?: NavTargetLabelResolver;
-  locale?: string;
-  t?: (key: string, options?: any) => string;
-  templateContext?: NavTemplateContext;
-}) {
+/** One pinned row, sortable by the row itself. */
+function PinnedNavigationRow({ item, rowProps }: { item: NavigationItem; rowProps: NavRowProps }) {
   const {
     attributes,
     listeners,
@@ -1312,50 +1284,51 @@ function SortableNavigationItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id, disabled: !enableReorder });
+    isOver,
+    activeIndex,
+    index,
+  } = useSortable({ id: item.id });
+  const { activatorEvent } = useDndContext();
 
+  // A pointer drag carries the row under the pointer. A keyboard drag leaves
+  // it in place, dimmed, so it never covers the row it is over: the insertion
+  // line alone shows where it lands.
+  const heldInPlace = isDragging && activatorEvent?.type === 'keydown';
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
+    transform: heldInPlace ? undefined : CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : undefined,
     zIndex: isDragging ? 10 : undefined,
   };
+  const dropIndicator =
+    isOver && !isDragging && activeIndex !== -1 ? (activeIndex < index ? 'after' : 'before') : null;
 
-  // The grip is the drag activator: dnd-kit's `attributes` (`role="button"`,
-  // `tabIndex={0}`, the sortable ARIA description) go on it together with the
-  // `listeners`, so the one element a keyboard can focus is the one the
-  // KeyboardSensor listens on. On the row wrapper they made every row a
-  // focusable "button" that no key could start a drag from (objectui#11626).
-  //
-  // The sortable NODE is the row's own `<li>` (`row`), not a wrapper around
-  // it: a `<div>` between the menu's `<ul>` and its `<li>`s broke the list
-  // for assistive tech — a list whose children are not items, and items with
-  // no list (axe `list` / `listitem`, objectui#11690).
   return (
     <NavigationItemRenderer
       item={item}
-      basePath={basePath}
-      evalVis={evalVis}
-      checkPerm={checkPerm}
-      checkCap={checkCap}
-      checkDocTarget={checkDocTarget}
-      onAction={onAction}
-      enablePinning={enablePinning}
-      onPinToggle={onPinToggle}
-      dragHandle={enableReorder ? { activator: setActivatorNodeRef, attributes, listeners } : undefined}
-      row={{ ref: setNodeRef, style }}
-      resolveTargetLabel={resolveTargetLabel}
-      locale={locale}
-      t={tProp}
-      templateContext={templateContext}
+      {...rowProps}
+      dragActivator={{
+        ref: setActivatorNodeRef,
+        listeners,
+        describedBy: attributes['aria-describedby'],
+      }}
+      row={{ ref: setNodeRef, style, dropIndicator }}
     />
   );
 }
 
-/** What a sortable list hands the row it wraps: dnd-kit's node ref and transform, for the row's own `<li>`. */
-interface NavRowNode {
-  ref: (element: HTMLElement | null) => void;
-  style: React.CSSProperties;
+/** The insertion line on a row's edge while a pinned row is dragged over it. */
+function DropIndicator({ at }: { at: 'before' | 'after' }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-drop-indicator={at}
+      className={cn(
+        'pointer-events-none absolute inset-x-2 h-0.5 rounded-full bg-primary',
+        at === 'before' ? '-top-px' : '-bottom-px',
+      )}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1372,7 +1345,7 @@ function NavigationItemRenderer({
   onAction,
   enablePinning,
   onPinToggle,
-  dragHandle,
+  dragActivator,
   row,
   inList = true,
   resolveTargetLabel,
@@ -1389,8 +1362,9 @@ function NavigationItemRenderer({
   onAction?: (item: NavigationItem) => void;
   enablePinning?: boolean;
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
-  dragHandle?: NavDragHandle;
-  /** The sortable node this row is, when a sortable list draws it. */
+  /** The row's own link or button starts its drag, when the pinned section's sortable list draws it. */
+  dragActivator?: NavDragActivator;
+  /** The sortable node this row is, when the pinned section's sortable list draws it. */
   row?: NavRowNode;
   /**
    * Whether this entry is drawn as a child of a menu `<ul>` — every entry
@@ -1444,7 +1418,6 @@ function NavigationItemRenderer({
       ? true
       : (explicitOpen ?? (childCount >= AUTO_COLLAPSE_THRESHOLD ? false : true));
   const [isOpen, setIsOpen] = useState(initialOpen);
-  const reorderGroup = React.useContext(GroupReorderContext);
 
   // --- Per-item guards: `visible`, `requiredPermissions`, and the
   // runtime-capability gates (an entry whose required object/service is not
@@ -1465,7 +1438,7 @@ function NavigationItemRenderer({
   // item (objectui#11690).
   if (item.type === 'separator') {
     return (
-      <li ref={row?.ref} style={row?.style} aria-hidden="true">
+      <li aria-hidden="true">
         <Separator className="my-2" />
       </li>
     );
@@ -1488,9 +1461,6 @@ function NavigationItemRenderer({
 
     const groupLabel = resolveNavItemLabel(item, tProp, resolveTargetLabel, locale);
 
-    // objectui#11626: with reorder on, this group's children are one sortable
-    // list of their own. The move is taken over ALL of `children` (gated-away
-    // entries keep their places) and reported up as this group's new children.
     const rowProps: NavRowProps = {
       basePath,
       evalVis,
@@ -1519,27 +1489,15 @@ function NavigationItemRenderer({
           </SidebarGroupLabel>
           <CollapsibleContent>
             <SidebarGroupContent>
-              {reorderGroup ? (
-                <SortableNavigationList
-                  contextId={`nav-reorder-group-${item.id}`}
-                  items={children.filter((child) => drawsNavItem(child, guardOptions))}
-                  onMove={(activeId, overId) => {
-                    const moved = moveWithinLevel(children, activeId, overId);
-                    if (moved) reorderGroup(item.id, moved);
-                  }}
-                  rowProps={rowProps}
-                />
-              ) : (
-                <SidebarMenu>
-                  {children.map((child) => (
-                    <NavigationItemRenderer
-                      key={child.id}
-                      item={child}
-                      {...rowProps}
-                    />
-                  ))}
-                </SidebarMenu>
-              )}
+              <SidebarMenu>
+                {children.map((child) => (
+                  <NavigationItemRenderer
+                    key={child.id}
+                    item={child}
+                    {...rowProps}
+                  />
+                ))}
+              </SidebarMenu>
             </SidebarGroupContent>
           </CollapsibleContent>
         </SidebarGroup>
@@ -1549,7 +1507,7 @@ function NavigationItemRenderer({
     // and every row inside the nested group would show its hover-only pin
     // action whenever the pointer is anywhere over the group.
     return inList ? (
-      <li ref={row?.ref} style={row?.style}>
+      <li>
         {group}
       </li>
     ) : (
@@ -1574,11 +1532,12 @@ function NavigationItemRenderer({
     const actionLabel = resolveNavItemLabel(item, tProp, resolveTargetLabel, locale);
     return (
       <SidebarMenuItem ref={row?.ref} style={row?.style}>
-        {dragHandle && <NavDragGrip handle={dragHandle} t={tProp} />}
+        {row?.dropIndicator && <DropIndicator at={row.dropIndicator} />}
         <SidebarMenuButton
           tooltip={actionLabel}
           onClick={() => onAction?.(item)}
-          className={mobileBtnClass}
+          className={cn(mobileBtnClass, dragActivator && 'cursor-grab')}
+          {...(dragActivator ? dragActivatorProps(dragActivator) : {})}
         >
           {/* eslint-disable-next-line react-hooks/static-components -- resolveIcon returns a stable icon component from a static registry, not a component created during render */}
           <Icon className={navIconClass} />
@@ -1632,16 +1591,25 @@ function NavigationItemRenderer({
     </>
   );
 
+  // A pinned row in a sortable pinned section is dragged by its own link: no
+  // grip at rest, a grab cursor, and the link stays the row's one focus stop.
+  const activatorProps = dragActivator ? dragActivatorProps(dragActivator) : {};
+
   return (
     <SidebarMenuItem ref={row?.ref} style={row?.style}>
-      {dragHandle && <NavDragGrip handle={dragHandle} t={tProp} />}
-      <SidebarMenuButton asChild isActive={isActive} tooltip={itemLabel} className={mobileBtnClass}>
+      {row?.dropIndicator && <DropIndicator at={row.dropIndicator} />}
+      <SidebarMenuButton
+        asChild
+        isActive={isActive}
+        tooltip={itemLabel}
+        className={cn(mobileBtnClass, dragActivator && 'cursor-grab')}
+      >
         {external ? (
-          <a href={href} target="_blank" rel="noopener noreferrer">
+          <a href={href} target="_blank" rel="noopener noreferrer" {...activatorProps}>
             {content}
           </a>
         ) : (
-          <Link to={href}>
+          <Link to={href} {...activatorProps}>
             {content}
           </Link>
         )}
@@ -1685,8 +1653,8 @@ function NavigationItemRenderer({
  * - RBAC permission guards
  * - Active-route highlighting
  * - Search filtering across navigation tree
- * - Pin/favorite items with dedicated "Favorites" section
- * - Drag-to-reorder navigation items
+ * - Pin/favorite items with dedicated "Favorites" section, in the user's
+ *   order and reorderable by dragging a pinned row (objectui#12059)
  *
  * @example
  * ```tsx
@@ -1698,8 +1666,8 @@ function NavigationItemRenderer({
  *   searchQuery={searchTerm}
  *   enablePinning
  *   onPinToggle={(id, pinned) => updatePin(id, pinned)}
- *   enableReorder
- *   onReorder={(items) => saveOrder(items)}
+ *   pinnedOrder={pinnedIds}
+ *   onPinnedReorder={(ids) => savePinOrder(ids)}
  * />
  * ```
  */
@@ -1714,8 +1682,8 @@ export function NavigationRenderer({
   searchQuery,
   enablePinning,
   onPinToggle,
-  enableReorder,
-  onReorder,
+  pinnedOrder,
+  onPinnedReorder,
   resolveTargetLabel,
   locale,
   t: tProp,
@@ -1744,43 +1712,27 @@ export function NavigationRenderer({
     [items, searchQuery, tProp, resolveTargetLabel, locale],
   );
 
-  // --- Pinned items (favorites section) ---
+  // --- Pinned items (favorites section) --- in the user's order when the
+  // host passes one (objectui#12059), else in menu order.
   const pinnedItems = useMemo(
-    () => collectPinnedItems(filteredItems, {
-      evaluateVisibility: evalVis,
-      checkPermission: checkPerm,
-      checkCapability: checkCap,
-      checkDocTarget,
-    }),
-    [filteredItems, evalVis, checkPerm, checkCap, checkDocTarget],
+    () =>
+      orderPinnedItems(
+        collectPinnedItems(filteredItems, {
+          evaluateVisibility: evalVis,
+          checkPermission: checkPerm,
+          checkCapability: checkCap,
+          checkDocTarget,
+        }),
+        pinnedOrder,
+      ),
+    [filteredItems, evalVis, checkPerm, checkCap, checkDocTarget, pinnedOrder],
   );
 
   // --- Sort top-level items by order --- (the one comparator the tab bar uses too, objectui#11395)
   const sorted = filteredItems.slice().sort(byNavOrder);
 
-  // --- Drag-reorder sensors ---
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } }),
-    useSensor(KeyboardSensor),
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id || !onReorder) return;
-
-    const oldIndex = sorted.findIndex((i) => i.id === active.id);
-    const newIndex = sorted.findIndex((i) => i.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const reordered = arrayMove(sorted, oldIndex, newIndex).map((item, idx) => ({
-      ...item,
-      order: idx,
-    }));
-    onReorder(reordered);
-  };
-
   // --- Shared renderer props ---
-  const itemProps = {
+  const itemProps: NavRowProps = {
     basePath,
     evalVis,
     checkPerm,
@@ -1797,7 +1749,8 @@ export function NavigationRenderer({
 
   const hasGroups = sorted.some((i) => i.type === 'group');
 
-  // --- Favorites section (pinned items) ---
+  // --- Favorites section (pinned items) --- the one place a user orders the
+  // sidebar (objectui#12059): sortable when the host stores the order.
   const favoritesSection = pinnedItems.length > 0 && enablePinning ? (
     <SidebarGroup>
       <SidebarGroupLabel className="flex items-center gap-1.5">
@@ -1805,56 +1758,39 @@ export function NavigationRenderer({
         {tProp ? tProp('console.nav.favorites', { defaultValue: 'Favorites' }) : 'Favorites'}
       </SidebarGroupLabel>
       <SidebarGroupContent>
-        <SidebarMenu>
-          {pinnedItems.map((item) => (
-            <NavigationItemRenderer
-              key={`fav-${item.id}`}
-              item={item}
-              {...itemProps}
-            />
-          ))}
-        </SidebarMenu>
+        {onPinnedReorder ? (
+          <PinnedNavigationList items={pinnedItems} onReorder={onPinnedReorder} rowProps={itemProps} />
+        ) : (
+          <SidebarMenu>
+            {pinnedItems.map((item) => (
+              <NavigationItemRenderer
+                key={`fav-${item.id}`}
+                item={item}
+                {...itemProps}
+              />
+            ))}
+          </SidebarMenu>
+        )}
       </SidebarGroupContent>
     </SidebarGroup>
   ) : null;
 
   // --- No explicit groups → wrap in a single SidebarGroup ---
   if (!hasGroups) {
-    const topLevelIds = sorted.filter((i) => i.type !== 'group').map((i) => i.id);
-
-    const menuContent = enableReorder ? (
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={topLevelIds} strategy={verticalListSortingStrategy}>
-          <SidebarMenu>
-            {sorted.map((item) => (
-              <SortableNavigationItem
-                key={item.id}
-                item={item}
-                enableReorder={enableReorder}
-                {...itemProps}
-              />
-            ))}
-          </SidebarMenu>
-        </SortableContext>
-      </DndContext>
-    ) : (
-      <SidebarMenu>
-        {sorted.map((item) => (
-          <NavigationItemRenderer
-            key={item.id}
-            item={item}
-            {...itemProps}
-          />
-        ))}
-      </SidebarMenu>
-    );
-
     return (
       <ActiveNavIdContext.Provider value={activeNavId}>
         {favoritesSection}
         <SidebarGroup>
           <SidebarGroupContent>
-            {menuContent}
+            <SidebarMenu>
+              {sorted.map((item) => (
+                <NavigationItemRenderer
+                  key={item.id}
+                  item={item}
+                  {...itemProps}
+                />
+              ))}
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </ActiveNavIdContext.Provider>
@@ -1865,31 +1801,6 @@ export function NavigationRenderer({
   const fragments: React.ReactNode[] = [];
   let leafBuffer: NavigationItem[] = [];
 
-  // --- Grouped drag-reorder (objectui#11626) --- each group's children, and
-  // each run of top-level entries between two groups, is a sortable list of
-  // its own; nothing moves into or out of a group. Off while a search narrows
-  // the tree: a narrowed group shows only some of its children, and an order
-  // taken among some of them is not the group's order.
-  const groupedReorder = !!enableReorder && !searchQuery?.trim();
-  const reorderGroup: GroupChildrenReorder | null = groupedReorder
-    ? (groupId, reorderedChildren) => {
-        if (!onReorder) return;
-        onReorder(withGroupChildren(sorted, groupId, reorderedChildren));
-      }
-    : null;
-  const moveTopLevel = (activeId: string, overId: string) => {
-    if (!onReorder) return;
-    const moved = moveWithinLevel(sorted, activeId, overId);
-    if (moved) onReorder(moved);
-  };
-  const itemGuards: NavigationVisibilityOptions = {
-    evaluateVisibility: evalVis,
-    checkPermission: checkPerm,
-    checkCapability: checkCap,
-    checkDocTarget,
-    hasActionHandler: !!onAction,
-  };
-
   const flushLeaves = (key: string) => {
     if (leafBuffer.length === 0) return;
     const leaves = leafBuffer;
@@ -1897,24 +1808,15 @@ export function NavigationRenderer({
     fragments.push(
       <SidebarGroup key={key}>
         <SidebarGroupContent>
-          {groupedReorder ? (
-            <SortableNavigationList
-              contextId={`nav-reorder-top-${leaves[0].id}`}
-              items={leaves.filter((item) => drawsNavItem(item, itemGuards))}
-              onMove={moveTopLevel}
-              rowProps={itemProps}
-            />
-          ) : (
-            <SidebarMenu>
-              {leaves.map((item) => (
-                <NavigationItemRenderer
-                  key={item.id}
-                  item={item}
-                  {...itemProps}
-                />
-              ))}
-            </SidebarMenu>
-          )}
+          <SidebarMenu>
+            {leaves.map((item) => (
+              <NavigationItemRenderer
+                key={item.id}
+                item={item}
+                {...itemProps}
+              />
+            ))}
+          </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>,
     );
@@ -1941,11 +1843,33 @@ export function NavigationRenderer({
   return (
     <ActiveNavIdContext.Provider value={activeNavId}>
       {favoritesSection}
-      <GroupReorderContext.Provider value={reorderGroup}>
-        {fragments}
-      </GroupReorderContext.Provider>
+      {fragments}
     </ActiveNavIdContext.Provider>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Helper: the pinned entries in the user's order (objectui#12059)
+// ---------------------------------------------------------------------------
+
+/**
+ * The pinned entries, each once: those `order` names first, in its order, then
+ * any it does not name, in menu order. Without an order, menu order.
+ */
+function orderPinnedItems(pinned: NavigationItem[], order: string[] | undefined): NavigationItem[] {
+  const unique: NavigationItem[] = [];
+  const seen = new Set<string>();
+  for (const item of pinned) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    unique.push(item);
+  }
+  if (!order?.length) return unique;
+  const rank = new Map(order.map((id, i) => [id, i]));
+  return unique
+    .map((item, i) => ({ item, key: rank.get(item.id) ?? order.length + i }))
+    .sort((a, b) => a.key - b.key)
+    .map(({ item }) => item);
 }
 
 // ---------------------------------------------------------------------------

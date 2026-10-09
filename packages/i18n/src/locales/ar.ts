@@ -2390,7 +2390,6 @@ const ar = {
     nav: {
       pinItem: "تثبيت {{name}}",
       unpinItem: "إلغاء تثبيت {{name}}",
-      dragToReorder: "اسحب لإعادة الترتيب",
       favorites: "المفضلة",
       launcherLabel: "مشغّل التطبيقات",
       menuLabel: "تنقّل التطبيق",

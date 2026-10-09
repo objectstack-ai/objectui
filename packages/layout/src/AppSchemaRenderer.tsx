@@ -141,11 +141,9 @@ export interface AppSchemaRendererProps {
   /** Called when a navigation item is pinned or unpinned */
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
 
-  /** Enable drag-to-reorder for navigation items */
-  enableReorder?: boolean;
-
-  /** Called when navigation items are reordered via drag */
-  onReorder?: (reorderedItems: NavigationItem[]) => void;
+  // RETIRED (objectui#12059): `enableReorder` / `onReorder`. They only handed
+  // `NavigationRenderer`'s menu reorder through, which is retired: an app's
+  // menu order is authored in Studio, and every user sees it. Do not re-add.
 }
 
 // ---------------------------------------------------------------------------
@@ -417,8 +415,6 @@ function InternalSidebar({
   enableSearch,
   enablePinning,
   onPinToggle,
-  enableReorder,
-  onReorder,
 }: {
   schema: AppComponentSchema;
   basePath: string;
@@ -438,8 +434,6 @@ function InternalSidebar({
   enableSearch?: boolean;
   enablePinning?: boolean;
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
-  enableReorder?: boolean;
-  onReorder?: (reorderedItems: NavigationItem[]) => void;
 }) {
   // The app logo is `branding.logo`, an image URL (objectui#10827) — the one
   // spelling `@objectstack/spec` declares. An icon NAME comes from `icon`, the
@@ -517,8 +511,6 @@ function InternalSidebar({
           searchQuery={searchQuery}
           enablePinning={enablePinning}
           onPinToggle={onPinToggle}
-          enableReorder={enableReorder}
-          onReorder={onReorder}
         />
 
         {/* Extra sidebar content slot (e.g. favorites, recent items) */}
@@ -580,8 +572,6 @@ export function AppSchemaRenderer({
   enableSearch,
   enablePinning,
   onPinToggle,
-  enableReorder,
-  onReorder,
 }: AppSchemaRendererProps) {
   // Default evaluators
   const evalVis: VisibilityEvaluator = evalVisProp ?? ((expr) => {
@@ -675,8 +665,6 @@ export function AppSchemaRenderer({
       enableSearch={enableSearch}
       enablePinning={enablePinning}
       onPinToggle={onPinToggle}
-      enableReorder={enableReorder}
-      onReorder={onReorder}
     />
   );
 

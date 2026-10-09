@@ -2188,7 +2188,6 @@ const ja = {
     nav: {
       pinItem: "{{name}} をピン留め",
       unpinItem: "{{name}} のピンを外す",
-      dragToReorder: "ドラッグして並べ替え",
       favorites: "お気に入り",
       launcherLabel: "アプリランチャー",
       menuLabel: "アプリナビゲーション",

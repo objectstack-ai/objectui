@@ -667,17 +667,9 @@ describe('AppSchemaRenderer', () => {
     });
   });
 
-  // --- P1.7: Drag reorder ---
-
-  describe('drag reorder', () => {
-    it('passes enableReorder to navigation renderer', () => {
-      const onReorder = vi.fn();
-      renderApp(schemaWithNav, { enableReorder: true, onReorder });
-      // Navigation items should still render
-      expect(screen.getByText('Accounts')).toBeTruthy();
-      expect(screen.getByText('Overview')).toBeTruthy();
-    });
-  });
+  // --- P1.7: Drag reorder --- retired (objectui#12059): an app's menu order is
+  // authored in Studio. The retired props are pinned absent in
+  // `NavigationRenderer.pinnedOrder-12059.test.tsx`.
 
   // --- Slot system ---
 

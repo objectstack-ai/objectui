@@ -2186,7 +2186,6 @@ const de = {
     nav: {
       pinItem: "{{name}} anheften",
       unpinItem: "{{name}} loslösen",
-      dragToReorder: "Zum Neuanordnen ziehen",
       favorites: "Favoriten",
       launcherLabel: "App-Launcher",
       menuLabel: "App-Navigation",

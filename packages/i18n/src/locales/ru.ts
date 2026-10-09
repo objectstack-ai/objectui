@@ -2298,7 +2298,6 @@ const ru = {
     nav: {
       pinItem: "Закрепить {{name}}",
       unpinItem: "Открепить {{name}}",
-      dragToReorder: "Перетащите для изменения порядка",
       favorites: "Избранное",
       launcherLabel: "Панель приложений",
       menuLabel: "Навигация приложения",

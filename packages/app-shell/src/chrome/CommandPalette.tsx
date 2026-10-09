@@ -551,6 +551,14 @@ interface StudioPaletteEntry {
   packageName?: string;
 }
 
+/** The fields of a served object or flow the Studio groups read. */
+interface StudioServedItem {
+  name?: unknown;
+  label?: Parameters<typeof resolveKeyedI18nLabel>[0];
+  /** The owning package's machine id (the spec's `MetadataProtectionFields`). */
+  _packageId?: unknown;
+}
+
 interface StudioPaletteEntries {
   packages: StudioPaletteEntry[];
   objects: StudioPaletteEntry[];
@@ -620,8 +628,8 @@ function useStudioPaletteEntries(enabled: boolean): StudioPaletteEntries {
 
   // Read only while open: each read starts that type's fetch when it has not
   // been loaded yet, and the provider re-renders this palette when it answers.
-  const objectItems: any[] = metadata.objects;
-  const flowItems: any[] = metadata.getItemsByType('flow');
+  const objectItems: StudioServedItem[] = metadata.objects;
+  const flowItems: StudioServedItem[] = metadata.getItemsByType('flow');
   const typeLoading = (type: string) => {
     const status = metadata.getTypeStatus?.(type);
     return status === 'idle' || status === 'loading';
@@ -630,14 +638,15 @@ function useStudioPaletteEntries(enabled: boolean): StudioPaletteEntries {
   if (packages === null) return { ...NO_STUDIO_ENTRIES, loading };
 
   const byId = new Map(packages.map((pkg) => [pkg.id, pkg]));
-  const ownPackage = (item: any): PkgEntry | undefined =>
-    typeof item?._packageId === 'string' ? byId.get(item._packageId) : undefined;
-  const hasName = (item: any): boolean => typeof item?.name === 'string' && item.name !== '';
+  const ownPackage = (item: StudioServedItem): PkgEntry | undefined =>
+    typeof item._packageId === 'string' ? byId.get(item._packageId) : undefined;
+  const named = (item: StudioServedItem): item is StudioServedItem & { name: string } =>
+    typeof item.name === 'string' && item.name !== '';
 
   const objects: StudioPaletteEntry[] = [];
   for (const item of objectItems) {
     const pkg = ownPackage(item);
-    if (!pkg || !hasName(item)) continue;
+    if (!pkg || !named(item)) continue;
     objects.push({
       key: `${pkg.id}:${item.name}`,
       label: resolveKeyedI18nLabel(item.label, t) || item.name,
@@ -649,7 +658,7 @@ function useStudioPaletteEntries(enabled: boolean): StudioPaletteEntries {
 
   const flows: StudioPaletteEntry[] = [];
   for (const item of flowItems) {
-    if (!hasName(item)) continue;
+    if (!named(item)) continue;
     const label = resolveKeyedI18nLabel(item.label, t) || item.name;
     if (isPackageLessItem(item)) {
       flows.push({

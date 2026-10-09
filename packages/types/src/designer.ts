@@ -853,16 +853,29 @@ export interface UnifiedViewConfig {
     dependenciesField?: string;
     colorField?: string;
   };
-  /** Chart-specific options */
-  chart?: {
-    chartType?: string;
-    xAxisField?: string;
-    yAxisFields?: string[];
-    aggregation?: string;
-    series?: any[];
-    config?: any;
-    filter?: any;
-  };
+  /**
+   * RETIRED (objectui#12063, ADR-0049) — this block declared the list-view
+   * chart's pre-ADR-0021 inline query: `chartType` beside `xAxisField`,
+   * `yAxisFields`, `aggregation`, `series`, `config` and `filter`. No route
+   * reads those axes since objectui#6152 round 15: every list-view door refuses
+   * them by name, and a chart list view binds only an ADR-0021 dataset. Nothing
+   * read or wrote `UnifiedViewConfig.chart` either, in this repository or in
+   * ObjectStack (a one-time census on objectui#12063; nothing re-derives it).
+   *
+   * **Instead:** write the spec's list chart block, `ListChartConfig` from
+   * `@objectstack/spec/ui` (the `chart` member of its `ListView`): `chartType`,
+   * `dataset`, `dimensions` and `values`, which bind the chart to an ADR-0021
+   * dataset by name, e.g.
+   * `{ chartType: 'bar', dataset: 'task_stats', dimensions: ['status'], values: ['total_estimate'] }`.
+   *
+   * A tombstone rather than a deletion: this interface keeps a
+   * `[key: string]: any` index signature, so a deleted member would admit
+   * `chart` at any value, on a fresh literal too. The interface has no zod
+   * mirror. Pinned in `__tests__/unified-view-config-chart-retired-12063.test.ts`.
+   * @deprecated Not part of this contract — write the spec's list chart block
+   * (`dataset`, `values`, `dimensions`, `chartType`).
+   */
+  chart?: never;
 
   /** Catch-all for additional properties */
   [key: string]: any;

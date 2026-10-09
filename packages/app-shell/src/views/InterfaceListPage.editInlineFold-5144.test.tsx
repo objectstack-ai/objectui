@@ -120,7 +120,7 @@ describe('InterfaceListPage: editInline reads the same as ListView after the fol
     expect(editInlineRead(schema)).toBe(false);
   });
 
-  it('CONTROL: a page that opts in reads on, on both', async () => {
+  it('a page that opts in reads on, on both', async () => {
     const schema = await composedSchema({ editInline: true });
     expect(schema.inlineEdit).toBe(true);
     expect(editInlineRead(schema)).toBe(true);

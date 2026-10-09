@@ -30,8 +30,13 @@ const PUBLISHED = {
 
 const LAYERED = { effective: PUBLISHED, code: null, overlay: null, overlayScope: null };
 
+/** A saved permission set, as far as these pins read it. */
+interface SavedSet {
+  objects: Record<string, Record<string, boolean>>;
+}
+
 interface Server {
-  saved: Array<Record<string, unknown>>;
+  saved: SavedSet[];
   savedOpts: Array<Record<string, unknown> | undefined>;
 }
 
@@ -44,7 +49,10 @@ function deferred() {
   return { promise, resolve };
 }
 
-function makeClient(server: Server, opts: { holdFirstSave?: Promise<void> } = {}) {
+/** The slice of the metadata client the editor calls here. */
+type FakeClient = Record<string, (...args: never[]) => Promise<unknown>>;
+
+function makeClient(server: Server, opts: { holdFirstSave?: Promise<void> } = {}): FakeClient {
   return {
     layered: async () => LAYERED,
     getDraft: async () => null,
@@ -56,15 +64,15 @@ function makeClient(server: Server, opts: { holdFirstSave?: Promise<void> } = {}
       payload: Record<string, unknown>,
       saveOpts?: Record<string, unknown>,
     ) => {
-      server.saved.push(JSON.parse(JSON.stringify(payload)));
+      server.saved.push(JSON.parse(JSON.stringify(payload)) as SavedSet);
       server.savedOpts.push(saveOpts);
       if (server.saved.length === 1 && opts.holdFirstSave) await opts.holdFirstSave;
       return payload;
     },
-  } as any;
+  };
 }
 
-let clientImpl: any;
+let clientImpl: FakeClient;
 
 vi.mock('./useMetadata', () => ({
   useMetadataClient: () => clientImpl,
@@ -117,7 +125,7 @@ describe('the package door autosaves to the package draft (objectui#11787)', () 
     expect(server.saved).toHaveLength(0);
 
     await waitFor(() => expect(server.saved).toHaveLength(1), AUTOSAVE);
-    expect((server.saved[0] as any).objects.a_account).toEqual({});
+    expect(server.saved[0].objects.a_account).toEqual({});
     expect(server.savedOpts[0]).toMatchObject({ mode: 'draft', packageId: 'app.a' });
     // The surface's pending-changes count hears of it.
     await waitFor(() => expect(onDraftSaved).toHaveBeenCalledTimes(1));
@@ -146,8 +154,8 @@ describe('the package door autosaves to the package draft (objectui#11787)', () 
     expect(readBox()).toBeChecked();
     // …and the edit, still unsent, goes out next.
     await waitFor(() => expect(server.saved).toHaveLength(2), AUTOSAVE);
-    expect((server.saved[0] as any).objects.a_account).toEqual({});
-    expect((server.saved[1] as any).objects.a_account).toEqual({ allowRead: true });
+    expect(server.saved[0].objects.a_account).toEqual({});
+    expect(server.saved[1].objects.a_account).toEqual({ allowRead: true });
   });
 
   it('fixes the api name: it is the draft’s identity, set by "+ New"', async () => {
@@ -179,7 +187,7 @@ describe('the environment door keeps its explicit Save: live config never autosa
     // CONTROL: the edit is real, and the door's own Save writes it, live.
     fireEvent.click(saveButton()!);
     await waitFor(() => expect(server.saved).toHaveLength(1));
-    expect((server.saved[0] as any).objects.a_account).toEqual({});
+    expect(server.saved[0].objects.a_account).toEqual({});
     expect(server.savedOpts[0]).toEqual({ force: false });
     expect(onDraftSaved).not.toHaveBeenCalled();
   });

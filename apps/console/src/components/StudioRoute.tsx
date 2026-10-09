@@ -38,6 +38,8 @@ import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, useParams } from 'react-router-dom';
 import {
   AppHeader,
+  CommandPalette,
+  CommandPaletteProvider,
   LoadingFallback,
   LoadingScreen,
   STUDIO_ORG_SCOPE_PILLAR,
@@ -151,22 +153,30 @@ export function StudioBuilderLoading() {
  * and help, and the brand, then a fixed Studio crumb. The brand links to
  * `useHomePath()`, so the landing is never a navigation dead end, and it names
  * the same home as `StudioDesignSurface`'s Home button one route apart
- * (objectui#7256, objectui#7373). No command palette is mounted here, so the
- * header draws no search trigger (objectui#11912).
+ * (objectui#7256, objectui#7373).
+ *
+ * The frame mounts the command palette in its `studio` scope (objectui#11863):
+ * no app is active here, so it lists the Studio's packages, objects and flows
+ * instead of an app's entries. Under its `CommandPaletteProvider` the header
+ * draws the search trigger, as it does wherever a palette is mounted
+ * (objectui#11912), and `⌘K` opens it.
  */
 function StudioLanding() {
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4">
-        <AppHeader variant="studio" />
-      </header>
-      <div className="min-h-0 flex-1 overflow-auto">
-        {/* The frame above stays painted while the landing's chunk loads. */}
-        <Suspense fallback={<StudioBuilderLoading />}>
-          <BuilderLanding />
-        </Suspense>
+    <CommandPaletteProvider>
+      <div className="flex min-h-screen flex-col bg-background text-foreground">
+        <header className="sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4">
+          <AppHeader variant="studio" />
+        </header>
+        <CommandPalette scope="studio" />
+        <div className="min-h-0 flex-1 overflow-auto">
+          {/* The frame above stays painted while the landing's chunk loads. */}
+          <Suspense fallback={<StudioBuilderLoading />}>
+            <BuilderLanding />
+          </Suspense>
+        </div>
       </div>
-    </div>
+    </CommandPaletteProvider>
   );
 }
 

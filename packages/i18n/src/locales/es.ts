@@ -2065,6 +2065,8 @@ const es = {
       placeholder: "Escriba un comando o busque…",
       noResults: "No se encontraron resultados.",
       objects: "Objetos",
+      packages: "Paquetes",
+      flows: "Flujos",
       dashboards: "Paneles",
       pages: "Páginas",
       reports: "Informes",

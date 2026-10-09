@@ -2020,6 +2020,8 @@ const ja = {
       placeholder: "コマンドを入力または検索…",
       noResults: "結果が見つかりません。",
       objects: "オブジェクト",
+      packages: "パッケージ",
+      flows: "フロー",
       dashboards: "ダッシュボード",
       pages: "ページ",
       reports: "レポート",

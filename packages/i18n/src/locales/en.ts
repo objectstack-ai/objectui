@@ -2128,6 +2128,8 @@ const en = {
       records: 'Records',
       recentRecords: 'Recently viewed',
       objects: 'Objects',
+      packages: 'Packages',
+      flows: 'Flows',
       dashboards: 'Dashboards',
       pages: 'Pages',
       reports: 'Reports',

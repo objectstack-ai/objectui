@@ -11,8 +11,9 @@
  * `defaultChildren` (objectui#5051, ADR-0049 enforce-or-remove; maintainer
  * ruling of 2026-08-19 adopted option B, "retire the key everywhere").
  *
- * `ComponentMeta` here is the registration surface every `ComponentRegistry.register`
- * call is checked against, so it is the twin a producer would re-grow the key
+ * `RegistryComponentMeta` here is the registration surface every `ComponentRegistry.register`
+ * call is checked against (it was published as `ComponentMeta` until
+ * objectui#6349 gave it its own name), so it is the twin a producer would re-grow the key
  * through: the eleven producers retired alongside it (`sidebar.tsx` x10,
  * `span.tsx`) were all written against THIS type. Its three siblings — the two
  * `ComponentMeta` interfaces and the `ComponentMetaSchema` validator in
@@ -28,11 +29,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { ComponentMeta } from '../Registry';
+import type { RegistryComponentMeta } from '../Registry';
 
-describe('ComponentMeta (core registry) — the retired key is gone from the registration surface', () => {
+describe('RegistryComponentMeta (core registry) — the retired key is gone from the registration surface', () => {
   it('rejects `defaultChildren` at compile time', () => {
-    const retired: ComponentMeta = {
+    const retired: RegistryComponentMeta = {
       label: 'Inline Container',
       // @ts-expect-error `defaultChildren` was retired by objectui#5051 — the
       // designer's drop path reads `defaultProps` only, so the declared default
@@ -48,7 +49,7 @@ describe('ComponentMeta (core registry) — the retired key is gone from the reg
   it('still offers the twin the designer actually reads', () => {
     // Positive control: the surface is not simply refusing everything. This is
     // the key `PageDesigner` consumes on drop, and it is untouched by #5051.
-    const legal: ComponentMeta = {
+    const legal: RegistryComponentMeta = {
       label: 'Inline Container',
       defaultProps: { className: 'px-1.5 py-0.5' },
       isContainer: true,

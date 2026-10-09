@@ -21,49 +21,43 @@
  * redirect handling, action chaining, custom handler registration.
  */
 
-import type { RunnableActionType, UIActionSchema } from '@object-ui/types';
+import type { ActionContext, ActionResult, RunnableActionType, UIActionSchema } from '@object-ui/types';
 import type { Action as SpecActionInput } from '@objectstack/spec/ui';
 import { ExpressionEvaluator } from '../evaluator/ExpressionEvaluator.js';
 import { hasDeclaredPredicate } from '../evaluator/declaredPredicate.js';
-import { globalUndoManager, type UndoableOperation } from './UndoManager.js';
+import { globalUndoManager } from './UndoManager.js';
 import { warnOnDeprecatedObjectParams, warnOnUnknownActionKeys } from './actionKeys.js';
 import { readActionPayload } from './actionResponse.js';
 import { toPredicateRecord, type FieldContainerLike } from '../utils/predicate-record.js';
 
-export interface ActionResult {
-  success: boolean;
-  data?: any;
-  error?: string;
-  reload?: boolean;
-  close?: boolean;
-  redirect?: string;
-  /** Modal schema to render (for type: 'modal') */
-  modal?: any;
-  /**
-   * Suppress the automatic success toast for this result. A handler sets this
-   * when the action only HANDED OFF to a follow-up UI rather than completing —
-   * e.g. a `flow` action that paused at a screen and opened the flow-runner. The
-   * action hasn't "completed yet", so a "success" toast on open would be
-   * misleading; the follow-up surface owns its own completion messaging.
-   */
-  silent?: boolean;
-  /**
-   * An undoable operation captured by the handler (e.g. an `undoable` update
-   * action's prior field values). When present, the runner pushes it onto the
-   * global UndoManager and the success toast offers an "Undo" affordance.
-   */
-  undo?: UndoableOperation;
-}
+/**
+ * What an action handler returns and the runner reads — ONE authority, in
+ * `@object-ui/types` (objectui#6349, batch 4), re-exported here exactly as
+ * {@link ActionContext} is below. The members this module used to declare
+ * (`reload`, `redirect`, `modal`, `silent`, `undo`) moved down with it, and
+ * `UndoableOperation`, which types `undo`, moved down beside it
+ * (`./UndoManager.js` re-exports that one). The gate that counts authorities is
+ * `scripts/__tests__/one-authority-per-exported-name-6273.test.ts`; a re-export
+ * is not one.
+ */
+export type { ActionResult } from '@object-ui/types';
 
-export interface ActionContext {
-  data?: Record<string, any>;
-  record?: any;
-  selectedRecords?: Record<string, any>[];
-  /** Live page-variable snapshot (ADR-0049), published by PageVariableActionBridge. */
-  pageVariables?: Record<string, any>;
-  user?: any;
-  [key: string]: any;
-}
+/**
+ * The context a runner executes actions in — ONE authority, in
+ * `@object-ui/types` (objectui#6349, batch 4). This module RE-EXPORTS that
+ * declaration instead of declaring a second one, so an import of
+ * `ActionContext` from `@object-ui/core` and one from `@object-ui/types` are
+ * the same type. `@object-ui/types` is the dependency-legal side: it depends on
+ * no `@object-ui/*` package, and this package depends on it.
+ *
+ * A re-export is not a second authority —
+ * `scripts/__tests__/one-authority-per-exported-name-6273.test.ts` counts
+ * declarations and ALIASING re-exports, never `export type { X } from …` —
+ * which is why this convergence takes `ActionContext` off that gate's
+ * `KNOWN_COLLISIONS` baseline. The member drift it removed is recorded on the
+ * declaration itself.
+ */
+export type { ActionContext } from '@object-ui/types';
 
 /**
  * API configuration for complex requests.

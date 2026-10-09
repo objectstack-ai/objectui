@@ -37,13 +37,25 @@ import {
 
 const RUNNER = join(dirname(fileURLToPath(import.meta.url)), '..', 'ActionRunner.ts');
 
-/** The named interface's members, read off `ActionRunner.ts` itself. */
-function interfaceMembers(name: string): readonly ts.TypeElement[] {
-  const sf = ts.createSourceFile(RUNNER, readFileSync(RUNNER, 'utf8'), ts.ScriptTarget.Latest, true);
+/**
+ * Where `ActionContext` is DECLARED. Since objectui#6349 (batch 4) its one
+ * declaration lives in `@object-ui/types`' `ui-action.ts` and `ActionRunner.ts`
+ * re-exports it, so the index-signature half of the pin below reads the
+ * authority. Reading the runner module would find no interface at all, and
+ * `interfaceMembers` throws on that rather than reading it as "no signature".
+ */
+const CONTEXT_AUTHORITY = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..', '..', '..', '..', 'types', 'src', 'ui-action.ts',
+);
+
+/** The named interface's members, read off the declaring file itself (`ActionRunner.ts` unless named). */
+function interfaceMembers(name: string, file: string = RUNNER): readonly ts.TypeElement[] {
+  const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
   for (const stmt of sf.statements) {
     if (ts.isInterfaceDeclaration(stmt) && stmt.name.text === name) return stmt.members;
   }
-  throw new Error(`${name} interface not found in ActionRunner.ts`);
+  throw new Error(`${name} interface not found in ${file}`);
 }
 
 /** `ActionDef`'s declared property names, read off the interface itself. */
@@ -55,8 +67,8 @@ function declaredActionDefKeys(): string[] {
 }
 
 /** Does the named interface end with an `[key: string]: any`-style catch-all? */
-function hasIndexSignature(name: string): boolean {
-  return interfaceMembers(name).some(ts.isIndexSignatureDeclaration);
+function hasIndexSignature(name: string, file: string = RUNNER): boolean {
+  return interfaceMembers(name, file).some(ts.isIndexSignatureDeclaration);
 }
 
 /**
@@ -107,7 +119,7 @@ describe('action key inventory (objectstack#4075 step 1)', () => {
     // through a change that "tidied up" `ActionContext` too.
     expect({
       ActionDef: hasIndexSignature('ActionDef'),
-      ActionContext: hasIndexSignature('ActionContext'),
+      ActionContext: hasIndexSignature('ActionContext', CONTEXT_AUTHORITY),
     }).toEqual({ ActionDef: false, ActionContext: true });
   });
 

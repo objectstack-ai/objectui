@@ -61,7 +61,10 @@ export interface PendingDraftEntry {
  *  - the publish pulse (`emitMetadataRefresh`, the contract every publish path
  *    keeps — see the module doc) drops the pending requests before the hooks
  *    it wakes read again, so their read is never answered by a request sent
- *    before the publish.
+ *    before the publish;
+ *  - a draft save does the same for the read it asks for
+ *    (`refresh({ afterSave: true })`, objectui#11787): a request sent before
+ *    the save landed cannot count the draft it wrote.
  *
  * Keyed by the `fetch` the request went through: a request only answers
  * callers of the same transport. Each caller parses the shared payload itself,
@@ -69,6 +72,10 @@ export interface PendingDraftEntry {
  */
 const pendingDraftReads = new WeakMap<typeof fetch, Map<string, Promise<unknown>>>();
 let publishPulseObserved = false;
+
+function draftsUrl(packageId?: string | null): string {
+  return `/api/v1/meta/_drafts${packageId ? `?packageId=${encodeURIComponent(packageId)}` : ''}`;
+}
 
 function readDraftsPayload(url: string): Promise<unknown> {
   // Registered on first use rather than at import, and so before the hook's
@@ -107,8 +114,7 @@ function readDraftsPayload(url: string): Promise<unknown> {
 export async function fetchPendingDrafts(
   packageId?: string | null,
 ): Promise<PendingDraftEntry[]> {
-  const qs = packageId ? `?packageId=${encodeURIComponent(packageId)}` : '';
-  const data = (await readDraftsPayload(`/api/v1/meta/_drafts${qs}`)) as
+  const data = (await readDraftsPayload(draftsUrl(packageId))) as
     | Array<Record<string, unknown>>
     | { drafts?: Array<Record<string, unknown>>; data?: { drafts?: Array<Record<string, unknown>> } };
   const list = Array.isArray(data) ? data : (data?.drafts ?? data?.data?.drafts ?? []);
@@ -132,8 +138,25 @@ export interface UsePendingDraftsResult {
   /** null until the first successful read (lets callers hold rendering). */
   count: number | null;
   entries: PendingDraftEntry[];
-  /** Manual refetch — for surface-local triggers (draft saved, turn idle). */
-  refresh: () => Promise<void>;
+  /**
+   * Manual refetch — for surface-local triggers (draft saved, turn idle).
+   *
+   * objectui#11787 — `afterSave`: a draft save in this scope has just landed.
+   * The read is then sent fresh rather than joining one already on the wire,
+   * which was sent before the save and cannot count its draft, and
+   * {@link UsePendingDraftsResult.behindSave} holds until a read sent after it
+   * answers.
+   */
+  refresh: (opts?: { afterSave?: boolean }) => Promise<void>;
+  /**
+   * objectui#11787 — a draft save reported through `refresh({ afterSave: true })`
+   * has landed, and no read sent after it has answered yet. The draft it wrote
+   * exists, so a surface showing the count knows it is at least one: a header
+   * that said "nothing to publish" beside an item's "unpublished draft" chip
+   * was showing a count from before the save. Stays true when that read fails,
+   * since the save itself is not in doubt; a later answer clears it.
+   */
+  behindSave: boolean;
 }
 
 export function usePendingDrafts(opts: UsePendingDraftsOptions = {}): UsePendingDraftsResult {
@@ -143,15 +166,28 @@ export function usePendingDrafts(opts: UsePendingDraftsOptions = {}): UsePending
   // A single in-flight guard + generation counter: a refresh started before a
   // scope change must not land its stale answer on the new scope.
   const genRef = useRef(0);
+  // objectui#11787 — draft saves reported (`savesRef`, mirrored in `saves`
+  // for render), and how many of them the installed answer was sent after.
+  const savesRef = useRef(0);
+  const [saves, setSaves] = useState(0);
+  const [counted, setCounted] = useState(0);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (opts?: { afterSave?: boolean }) => {
     if (!enabled) return;
+    if (opts?.afterSave) {
+      savesRef.current += 1;
+      setSaves(savesRef.current);
+      // Never joined to a request sent before the save (objectui#11787).
+      pendingDraftReads.get(globalThis.fetch)?.delete(draftsUrl(packageId));
+    }
+    const sentAfter = savesRef.current;
     const gen = ++genRef.current;
     try {
       const list = await fetchPendingDrafts(packageId);
       if (genRef.current !== gen) return;
       setEntries(list);
       setCount(list.length);
+      setCounted(sentAfter);
     } catch {
       // An errored read means UNKNOWN, not zero: count stays null so surfaces
       // that must fail SAFE on unknown (the preview bar keeps its Publish
@@ -176,5 +212,5 @@ export function usePendingDrafts(opts: UsePendingDraftsOptions = {}): UsePending
     });
   }, [refresh, enabled]);
 
-  return { count, entries, refresh };
+  return { count, entries, refresh, behindSave: counted < saves };
 }

@@ -155,9 +155,9 @@ describe('PermissionMatrixEditPage — package scope + slice merge (ADR-0086 P0)
     const row = screen.getByText('a_account').closest('tr')!;
     fireEvent.click(within(row).getByRole('button', { name: 'None' }));
 
-    // 3) Save.
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
-    await waitFor(() => expect(server.saved).toHaveLength(1));
+    // 3) Save — the package door autosaves the edit to its draft after the
+    // shared autosave's pause (objectui#11787); it has no Save button.
+    await waitFor(() => expect(server.saved).toHaveLength(1), { timeout: 4000 });
 
     const saved = server.saved[0] as any;
     // Package B's contributed rows are preserved byte-for-byte.

@@ -35,10 +35,11 @@
  *
  * "`client.save` was not called" is an absence, and an absence is worth nothing
  * without a control that can produce the presence. The resolving-arm test in
- * this file is that control: the same harness, the same edit, the same click —
- * only the re-read's answer differs — and it PUTs, with package B's rows
- * intact. The refusal test additionally asserts `layeredCalls === 2`, so the
- * empty `saved` cannot be a Save button that was never reached.
+ * this file is that control: the same harness, the same edit, the same
+ * autosave (objectui#11787: the package door has no Save button) — only the
+ * re-read's answer differs — and it PUTs, with package B's rows intact. The
+ * refusal test additionally asserts `layeredCalls === 2`, so the empty `saved`
+ * cannot be a save that never ran.
  *
  * ## What is deliberately NOT refused
  *
@@ -203,6 +204,13 @@ function clickSave() {
   fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
 }
 
+/**
+ * objectui#11787 — the package door has no Save button: an edit autosaves to
+ * the package draft after the shared autosave's pause (1.5s), so a wait on a
+ * package-door save allows for that pause.
+ */
+const AUTOSAVE = { timeout: 4000 };
+
 describe('PermissionMatrixEditPage — the PACKAGE door refuses rather than delete (objectui#9420)', () => {
   it('does NOT call client.save when the save-time layered re-read rejects', async () => {
     const server = freshServer();
@@ -211,14 +219,14 @@ describe('PermissionMatrixEditPage — the PACKAGE door refuses rather than dele
     await screen.findByText('a_account');
 
     editAccountRow();
-    clickSave();
 
     // Settle on EITHER arm before asserting — the refusal reaching the screen,
     // or a PUT landing. Waiting on the refusal alone would make the pre-fix
     // reading a timeout instead of the PUT it is, and waiting on
     // `layeredCalls` alone would race the save that follows it.
-    await waitFor(() =>
-      expect(server.saved.length > 0 || screen.queryByText(REFUSAL) !== null).toBe(true),
+    await waitFor(
+      () => expect(server.saved.length > 0 || screen.queryByText(REFUSAL) !== null).toBe(true),
+      AUTOSAVE,
     );
 
     // CONTROL: the re-read really was attempted and really did reject, so the
@@ -234,8 +242,9 @@ describe('PermissionMatrixEditPage — the PACKAGE door refuses rather than dele
     // the same strip a failed `client.save` renders into. No new toast path.
     expect(screen.getByText(REFUSAL)).toBeInTheDocument();
 
-    // The page is usable again: `saving` cleared, so the author can retry.
-    expect(screen.getByRole('button', { name: /^Save$/ })).toBeEnabled();
+    // The page is usable again: `saving` cleared, so the next edit is sent
+    // (objectui#11787 — the autosave retries on the author's next edit).
+    expect(screen.queryByTestId('perm-autosaving')).toBeNull();
   });
 
   it('CONTROL — the same harness PUTs, with package B intact, when the re-read resolves', async () => {
@@ -245,9 +254,8 @@ describe('PermissionMatrixEditPage — the PACKAGE door refuses rather than dele
     await screen.findByText('a_account');
 
     editAccountRow();
-    clickSave();
 
-    await waitFor(() => expect(server.saved).toHaveLength(1));
+    await waitFor(() => expect(server.saved).toHaveLength(1), AUTOSAVE);
     const body = server.saved[0] as any;
 
     // The author's edit is on the wire…
@@ -276,9 +284,8 @@ describe('PermissionMatrixEditPage — the PACKAGE door refuses rather than dele
     await screen.findByText('a_account');
 
     editAccountRow();
-    clickSave();
 
-    await waitFor(() => expect(server.saved).toHaveLength(1));
+    await waitFor(() => expect(server.saved).toHaveLength(1), AUTOSAVE);
     expect((server.saved[0] as any).objects.a_account).toEqual({});
     // objectui#11799 — the load reads no layers for this set: the published
     // set list does not hold it and its draft is in hand. The one read is the

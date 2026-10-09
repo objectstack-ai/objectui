@@ -247,7 +247,8 @@ describe('PermissionMatrixEditPage — MUST NOT CHANGE: what the artifact tier m
     codeLayer = { _packageId: 'com.example.showcase' };
     await renderMatrix({ packageId: 'com.example.showcase' });
 
-    expect(screen.getByRole('button', { name: /^Save$/ })).toBeEnabled();
+    // objectui#11787 — the package door autosaves: no Save button; the live controls are the writability read.
+    expect(screen.queryByRole('button', { name: /^Save$/ })).toBeNull();
     expect(screen.getByLabelText('a_account Read')).toBeEnabled();
     const row = screen.getByText('Account').closest('tr')!;
     for (const n of ['R', 'CRUD', 'All', 'None']) {
@@ -269,7 +270,8 @@ describe('PermissionMatrixEditPage — MUST NOT CHANGE: what the artifact tier m
     codeLayer = null;
     await renderMatrix({ packageId: 'com.example.showcase' });
 
-    expect(screen.getByRole('button', { name: /^Save$/ })).toBeEnabled();
+    // objectui#11787 — the package door autosaves: no Save button; the live controls are the writability read.
+    expect(screen.queryByRole('button', { name: /^Save$/ })).toBeNull();
     expect(screen.getByLabelText('a_account Read')).toBeEnabled();
     expect(lockBadge()).toBeNull();
   });

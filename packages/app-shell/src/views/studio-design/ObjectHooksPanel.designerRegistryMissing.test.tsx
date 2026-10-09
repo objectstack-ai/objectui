@@ -8,8 +8,8 @@
  * undefined the panel falls back to the generic `SchemaForm`, which synthesises
  * a control per top-level key of the selected hook. That is a working editor,
  * not an empty state — so the pin has to prove it WORKS, not merely that
- * something rendered: an edit in the generic form dirties the panel, enables
- * its own Save, and the save writes the edited value through.
+ * something rendered: an edit in the generic form dirties the panel, and the
+ * panel's autosave (objectui#11787) writes the edited value through.
  *
  * "Something rendered" would pass on the hook's bare label — exactly the shape
  * of the `ObjectActionsPanel` defect the card repaired — which is why the
@@ -91,15 +91,13 @@ describe('ObjectHooksPanel — no curated hook editor registered (#6846)', () =>
     // state — it is an editor.
     expect(document.body.textContent ?? '').not.toMatch(/loading|try again/i);
 
-    // "Working": an edit in the generic form dirties the panel and enables
-    // its own Save…
-    const save = screen.getByRole('button', { name: /Save/i });
-    expect(save).toBeDisabled();
+    // "Working": an edit in the generic form dirties the panel, and its
+    // autosave (objectui#11787 — no Save button) writes the edited value
+    // through, as a draft of THIS hook, after the shared autosave's pause.
+    expect(screen.queryByRole('button', { name: /Save/i })).toBeNull();
+    expect(mockClient.save).not.toHaveBeenCalled();
     fireEvent.change(handler, { target: { value: 'guard_fn_v2' } });
-    await waitFor(() => expect(save).toBeEnabled());
-    // …and Save writes the edited value through, as a draft of THIS hook.
-    fireEvent.click(save);
-    await waitFor(() => expect(mockClient.save).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockClient.save).toHaveBeenCalledTimes(1), { timeout: 4000 });
     expect(mockClient.save).toHaveBeenCalledWith(
       'hook',
       'guard_hook',

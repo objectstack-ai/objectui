@@ -178,7 +178,8 @@ describe('PermissionMatrixEditPage — read-only package gate (host readOnly)', 
     renderMatrix();
     await screen.findByText('Account');
 
-    expect(screen.getByRole('button', { name: /^Save$/ })).toBeEnabled();
+    // objectui#11787 — the package door autosaves: no Save button; the live controls are the writability read.
+    expect(screen.queryByRole('button', { name: /^Save$/ })).toBeNull();
     expect(screen.getByLabelText('a_account Read')).toBeEnabled();
     expect(screen.queryByText('Read-only', { exact: true })).toBeNull();
     expect(screen.queryByText(/OS_METADATA_WRITABLE/)).toBeNull();
@@ -229,7 +230,8 @@ describe('PermissionMatrixEditPage — type-level gate keeps its own wording', (
     renderMatrix();
     await screen.findByText('Account');
 
-    expect(screen.getByRole('button', { name: /^Save$/ })).toBeEnabled();
+    // objectui#11787 — the package door autosaves: no Save button; the live controls are the writability read.
+    expect(screen.queryByRole('button', { name: /^Save$/ })).toBeNull();
     expect(screen.getByLabelText('a_account Read')).toBeEnabled();
 
     // Row bulk-set buttons are live too — `writable` drives all of them.
@@ -266,7 +268,8 @@ describe('PermissionMatrixEditPage — type-level gate keeps its own wording', (
     renderMatrix();
     await screen.findByText('Account');
 
-    expect(screen.getByRole('button', { name: /^Save$/ })).toBeEnabled();
+    // objectui#11787 — the package door autosaves: no Save button; the live controls are the writability read.
+    expect(screen.queryByRole('button', { name: /^Save$/ })).toBeNull();
     expect(screen.getByLabelText('a_account Read')).toBeEnabled();
     expect(screen.queryByText('Read-only', { exact: true })).toBeNull();
     expect(screen.queryByText(/no runtime write channel/)).toBeNull();

@@ -298,7 +298,8 @@ describe('AccessPillar — unsaved OWD overview edits guard (#2600)', () => {
     fireEvent.change(within(dialog).getByPlaceholderText('Display name (e.g. Sales permissions)'), {
       target: { value: 'Set C' },
     });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    // objectui#11787 — the create dialog's one label: it writes a draft.
+    fireEvent.click(within(dialog).getByRole('button', { name: t('engine.studio.createDraft', 'en-US') }));
 
     await findInMatrix('set_c');
     expect(screen.queryByTestId('owd-overview')).not.toBeInTheDocument();

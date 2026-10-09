@@ -1111,7 +1111,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   const [changesOpen, setChangesOpen] = React.useState(false);
   const [publishing, setPublishing] = React.useState(false);
   const [publishNonce, setPublishNonce] = React.useState(0); // ↑ → pillars re-read the published baseline
-  const [draftNonce, setDraftNonce] = React.useState(0); // ↑ → refresh the pending-draft count
+  const [draftNonce, setDraftNonce] = React.useState(0); // ↑ → a draft save landed (`onDraftSaved`)
 
   // objectui#5801 — the shared pending-drafts source: same fetch, same count,
   // and the assistant bus's metadata-refresh pulse keeps this topbar in step
@@ -1125,13 +1125,20 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     count: feedCount,
     entries: pendingEntries,
     refresh: refreshPending,
+    behindSave,
   } = usePendingDrafts({ packageId });
   const pendingCount =
     packageId !== null ? feedCount : feedCount === null ? null : pendingEntries.filter(isOrgScopeDraft).length;
 
+  // A draft save asks for its own read (`onDraftSaved` below, objectui#11787);
+  // this one serves the mount and a publish.
   React.useEffect(() => {
     void refreshPending();
-  }, [refreshPending, publishNonce, draftNonce]);
+  }, [refreshPending, publishNonce]);
+  const refreshPendingRef = React.useRef(refreshPending);
+  React.useLayoutEffect(() => {
+    refreshPendingRef.current = refreshPending;
+  });
 
   // objectui#11786 — what the open pillar's autosave holds unsent (an
   // incomplete-but-normal edit), as the clause naming what it needs. A publish
@@ -1278,8 +1285,19 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     await refreshPending();
   }, [shellClient, packageId, refreshPending, locale, heldEdit]);
 
-  const onDraftSaved = React.useCallback(() => setDraftNonce((n) => n + 1), []);
-  const hasPending = (pendingCount ?? 0) > 0;
+  // objectui#11787 — a Studio draft save reports here when it lands, and the
+  // count follows it: the read it asks for is sent after the save, never
+  // answered by a read already on the wire, and until that read answers the
+  // count is at least the one draft the save wrote (`behindSave`). So the
+  // header stops saying "No drafts pending publish" in the same render that
+  // shows an item's "Unpublished draft" chip, both being set by the save that
+  // landed. Pinned by `StudioDesignSurface.changesCount-11787.test.tsx`.
+  const onDraftSaved = React.useCallback(() => {
+    setDraftNonce((n) => n + 1);
+    void refreshPendingRef.current({ afterSave: true });
+  }, []);
+  const shownPendingCount = behindSave ? Math.max(pendingCount ?? 0, 1) : pendingCount;
+  const hasPending = (shownPendingCount ?? 0) > 0;
   const publishNoneReasonId = React.useId();
 
   // Builder → running-app bridge (Airtable's Launch): the builder edits the
@@ -1347,14 +1365,14 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         toast.success(tFormat('engine.studio.app.savedDraft', locale, { label }));
         setAppDraftPending(label);
         setAppCreating(false);
-        setDraftNonce((n) => n + 1);
+        onDraftSaved();
       } catch (e) {
         setAppErr(formatMetadataError(e));
       } finally {
         setAppBusy(false);
       }
     },
-    [appAddObjects, loadPackageObjects, shellClient, packageId, locale],
+    [appAddObjects, loadPackageObjects, shellClient, packageId, locale, onDraftSaved],
   );
 
   // objectui#5800, fixed in passing — the topbar's app detection used to
@@ -1584,7 +1602,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <GitBranch className="h-3.5 w-3.5" />
-                {t('engine.studio.changes', locale)}{hasPending ? ` · ${pendingCount}` : ''}
+                {t('engine.studio.changes', locale)}{hasPending ? ` · ${shownPendingCount}` : ''}
               </button>
               {/* objectui#8219 — with nothing to publish, say so on the page
                   rather than only in the hover tooltip. */}
@@ -5156,6 +5174,7 @@ export function DataPillar({
                   disabled={readOnly}
                   hookSchema={typeSchemas.hook}
                   publishNonce={publishNonce}
+                  onDraftSaved={onDraftSaved}
                 />
               ) : viewMode === 'actions' ? (
                 <ObjectActionsPanel
@@ -6895,7 +6914,7 @@ export function AccessPillar({
           ) : current ? (
             /* The existing Salesforce-style matrix page, embedded unchanged —
              * objects × CRUD/VAMA/lifecycle up top, per-object field-level R/W
-             * below, its own Save + destructive-change guard included. The
+             * below, its own autosave + destructive-change guard included. The
              * read-only OWD badge deep-links to the overview above. */
             <PermissionMatrixEditPage
               key={current}
@@ -6933,7 +6952,8 @@ export function AccessPillar({
         labelPlaceholder={t('engine.studio.access.labelPlaceholder', locale)}
         idFieldLabel={t('engine.studio.access.idLabel', locale)}
         idPlaceholder={t('engine.studio.access.idPlaceholder', locale)}
-        submitLabel={t('engine.studio.create', locale)}
+        // objectui#11787 — one label on every Studio create dialog: each writes a draft.
+        submitLabel={t('engine.studio.createDraft', locale)}
         submittingLabel={t('engine.studio.creating', locale)}
         busy={busy}
         error={createErr}

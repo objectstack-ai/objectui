@@ -135,6 +135,15 @@ async function save(server: FakeServer) {
   return server.saved!;
 }
 
+/**
+ * objectui#11787 — the package door has no Save button: the edit autosaves to
+ * the package draft after the shared autosave's pause. Return what it sent.
+ */
+async function autosaved(server: FakeServer) {
+  await waitFor(() => expect(server.saved).not.toBeNull(), { timeout: 4000 });
+  return server.saved!;
+}
+
 describe('PermissionMatrixEditor · bulk buttons vs unmodelled keys (objectui#6605)', () => {
   it('"All" — the widening shape — grants every column AND the saved row keeps readScope / writeScope / allowExport', async () => {
     const server = await renderMatrix({
@@ -238,7 +247,7 @@ describe('PermissionMatrixEditor · bulk buttons vs unmodelled keys (objectui#66
     );
 
     fireEvent.click(bulkButton('a_account', 'All'));
-    const payload = await save(server);
+    const payload = await autosaved(server);
 
     const row = payload.objects.a_account;
     for (const key of MATRIX_KEYS) expect(row[key], key).toBe(true);

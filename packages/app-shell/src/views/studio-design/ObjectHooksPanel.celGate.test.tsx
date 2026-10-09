@@ -1,16 +1,21 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * The object hooks panel owns its OWN per-hook Save (it writes the hook
- * directly with `client.save('hook', …, { mode: 'draft' })` — the object's Save
+ * The object hooks panel owns its OWN per-hook save (it writes the hook
+ * directly with `client.save('hook', …, { mode: 'draft' })` — the object's
  * draft does not cover hooks), so it must refuse to write a guard whose CEL
  * does not parse — objectui#4527 phase 2.
  *
  * Of the four panel hosts the #4547 census surfaced, this is the only one that
- * owns a Save button; the other three write through the Data pillar's draft and
- * report upward instead. So this suite is the end-to-end proof for the
- * hook branch of the default-inspector family: HookDefaultInspector's verdict
- * has to reach a real disabled button, not just a callback.
+ * owns its save; the other three write through the Data pillar's draft and
+ * report upward instead. So this suite is the end-to-end proof for the hook
+ * branch of the default-inspector family: HookDefaultInspector's verdict has to
+ * reach the save itself, not just a callback.
+ *
+ * objectui#11787 — that save is now the panel's autosave (the shared one every
+ * Studio editor runs), so the verdict HOLDS it: a malformed guard is never
+ * sent, however long the pause, and the panel says why. Each absence is read
+ * against the same harness sending the same hook once the guard parses.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -71,7 +76,10 @@ afterEach(() => {
   __setCelFormulaLoader(undefined);
 });
 
-const saveButton = () => screen.getByRole('button', { name: /Save/i });
+/** Longer than the shared autosave's pause (1.5s). */
+const PAST_THE_PAUSE = 2200;
+const AUTOSAVE = { timeout: 4000 };
+const pause = () => new Promise((resolve) => setTimeout(resolve, PAST_THE_PAUSE));
 
 /** Open the panel, select the hook, and switch its guard into raw CEL mode. */
 async function openGuard() {
@@ -81,35 +89,41 @@ async function openGuard() {
   return screen.getAllByRole('combobox').find((el) => el.tagName === 'TEXTAREA') as HTMLTextAreaElement;
 }
 
-describe('ObjectHooksPanel — its own Save refuses a guard that does not parse (#4527)', () => {
-  it('disables Save while the hook guard is malformed', async () => {
-    const box = await openGuard();
+describe('ObjectHooksPanel — its autosave holds a guard that does not parse (#4527, objectui#11787)', () => {
+  beforeEach(() => mockClient.save.mockClear());
 
-    // A valid guard first: dirties the draft (so Save is live at all) and pins
-    // the must-not-change half — a good guard never blocks.
-    fireEvent.change(box, { target: { value: "record.status == 'open'" } });
-    await waitFor(() => expect(saveButton()).toBeEnabled(), { timeout: 4000 });
+  it('holds the malformed hook, and says why', async () => {
+    const box = await openGuard();
+    // No Save button: the panel autosaves.
+    expect(screen.queryByRole('button', { name: /Save/i })).toBeNull();
 
     fireEvent.change(box, { target: { value: 'record.status ==' } });
-    await waitFor(() => expect(saveButton()).toBeDisabled(), { timeout: 4000 });
-  });
-
-  it('re-enables Save once the guard parses again', async () => {
-    const box = await openGuard();
-
-    fireEvent.change(box, { target: { value: 'record.status ==' } });
-    await waitFor(() => expect(saveButton()).toBeDisabled(), { timeout: 4000 });
-
-    fireEvent.change(box, { target: { value: "record.status == 'open'" } });
-    await waitFor(() => expect(saveButton()).toBeEnabled(), { timeout: 4000 });
-  });
-
-  it('never writes the malformed hook', async () => {
-    const box = await openGuard();
-    fireEvent.change(box, { target: { value: 'record.status ==' } });
-    await waitFor(() => expect(saveButton()).toBeDisabled(), { timeout: 4000 });
-
-    fireEvent.click(saveButton());
+    expect(await screen.findByTestId('hooks-autosave-held', undefined, AUTOSAVE)).toBeInTheDocument();
+    await pause();
     expect(mockClient.save).not.toHaveBeenCalled();
+  });
+
+  it('sends the hook once the guard parses again', async () => {
+    const box = await openGuard();
+
+    fireEvent.change(box, { target: { value: 'record.status ==' } });
+    await screen.findByTestId('hooks-autosave-held', undefined, AUTOSAVE);
+
+    fireEvent.change(box, { target: { value: "record.status == 'open'" } });
+    await waitFor(() => expect(mockClient.save).toHaveBeenCalledTimes(1), AUTOSAVE);
+    expect(mockClient.save).toHaveBeenCalledWith(
+      'hook',
+      'guard_hook',
+      expect.objectContaining({ object: 'invoice' }),
+      expect.objectContaining({ mode: 'draft', packageId: 'com.example.showcase' }),
+    );
+    expect(screen.queryByTestId('hooks-autosave-held')).toBeNull();
+  });
+
+  it('CONTROL — a good guard is sent after the pause, never held', async () => {
+    const box = await openGuard();
+    fireEvent.change(box, { target: { value: "record.status == 'open'" } });
+    await waitFor(() => expect(mockClient.save).toHaveBeenCalledTimes(1), AUTOSAVE);
+    expect(screen.queryByTestId('hooks-autosave-held')).toBeNull();
   });
 });

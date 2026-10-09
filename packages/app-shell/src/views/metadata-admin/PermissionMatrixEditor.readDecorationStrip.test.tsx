@@ -174,8 +174,9 @@ describe('PermissionMatrixEditPage — read decorations never reach the save (ob
     const row = screen.getByText('a_account').closest('tr')!;
     fireEvent.click(within(row).getByRole('button', { name: 'None' }));
 
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
-    await waitFor(() => expect(server.saved).toHaveLength(1));
+    // objectui#11787 — the package door autosaves the edit to its draft after
+    // the shared autosave's pause; it has no Save button.
+    await waitFor(() => expect(server.saved).toHaveLength(1), { timeout: 4000 });
     const body = server.saved[0] as Record<string, any>;
 
     // ── CONTROLS. Every absence below is meaningless without these. ──

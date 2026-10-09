@@ -226,34 +226,34 @@ function resolveListMapConfig(schema: { map?: unknown; options?: { map?: unknown
  * rather than merge, and the gate inherits whichever the renderer uses so the
  * two can never judge different configs.
  *
- * `resolves` is the "renders from names the AUTHOR wrote" question, one leg per
- * shape:
- *   - ADR-0021 (objectstack-ai/objectstack#1890): a `dataset` with at least one measure in `values`. The
- *     dimensions are what it plots BY, and a block may legitimately declare
- *     none (a single aggregate), so they are not required here.
- *   - legacy: a declared category (`xAxisField` / `categoryField`) AND a
- *     declared measure (`yAxisFields[0]` / `valueField`) — exactly what the
- *     legacy leg reads BEFORE its `'name'` / `'value'` floors. A block that
- *     declares neither reaches the renderer only through the schema-viewType
- *     leg, where those floors invent a binding; retiring THAT is objectui#7547
- *     (the #7029 / `5f4514f7b` family) and is out of scope here. The gate simply
- *     never offers a switch into it.
+ * `resolves` is the "renders from names the AUTHOR wrote" question: an ADR-0021
+ * (objectstack-ai/objectstack#1890) `dataset` with at least one measure in
+ * `values`. The dimensions are what it plots BY, and a block may legitimately
+ * declare none (a single aggregate), so they are not required here.
+ *
+ * ⛔ THERE IS NO SECOND SHAPE (objectui#6152 round 15). The pre-ADR-0021 inline
+ * axes (`xAxisField` / `categoryField`, `yAxisFields` / `valueField`,
+ * `aggregation`) were the legacy leg of this resolver, read in both nestings;
+ * every door refuses them by name (the spec's `ListChartConfigSchema` is a
+ * strict object of `chartType` / `dataset` / `dimensions` / `values`, and the
+ * bag is that block's own partial), so the leg and its `'name'` / `'value'`
+ * floors retired with the render path they fed. A block that names no
+ * `dataset` is `'unbound'`: the gate never offers a switch into it, and a view
+ * whose `viewType` forces it reaches `case 'chart'`'s unbound node, which
+ * `ObjectChart` refuses on screen (objectui#8168) instead of plotting a binding
+ * nobody wrote.
  */
 interface ListChartBinding {
-  /** The effective chart block — view-level `chart`, else the legacy `options.chart` bag. */
+  /** The effective chart block — view-level `chart`, else the `options.chart` bag. */
   config: Record<string, any>;
-  /** Which shape the render branch routes to for this block. */
-  shape: 'dataset' | 'legacy';
+  /** `'dataset'` when the block names an ADR-0021 `dataset`, else `'unbound'`. */
+  shape: 'dataset' | 'unbound';
   /** Whether the block declares everything its shape needs to plot authored names. */
   resolves: boolean;
   /** ADR-0021 semantic dataset, as authored. */
   dataset?: any;
   dimensions: string[];
   values: string[];
-  /** Legacy category binding, floor NOT applied — `undefined` means undeclared. */
-  categoryField?: string;
-  /** Legacy measure binding, floor NOT applied — `undefined` means undeclared. */
-  valueField?: string;
 }
 
 function resolveListChartBinding(schema: { chart?: unknown; options?: { chart?: unknown } }): ListChartBinding {
@@ -265,17 +265,7 @@ function resolveListChartBinding(schema: { chart?: unknown; options?: { chart?: 
     return { config, shape: 'dataset', resolves: values.length > 0, dataset: config.dataset, dimensions, values };
   }
 
-  const valueField = ((Array.isArray(config.yAxisFields) && config.yAxisFields[0]) || config.valueField) || undefined;
-  const categoryField = (config.xAxisField || config.categoryField) || undefined;
-  return {
-    config,
-    shape: 'legacy',
-    resolves: Boolean(categoryField && valueField),
-    dimensions: [],
-    values: [],
-    categoryField,
-    valueField,
-  };
+  return { config, shape: 'unbound', resolves: false, dimensions: [], values: [] };
 }
 
 /**
@@ -1398,8 +1388,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * Asked of `resolveListChartBinding`, the SAME resolver `case 'chart'` routes
    * on, so the toolbar and the render branch cannot disagree about the shape.
    * A primitive, so the memo below keys on the answer, not on an identity
-   * (AGENTS.md #10). ⛔ The object-bound (`'legacy'`) chart keeps both
-   * controls: its node carries the effective filter (objectui#10250).
+   * (AGENTS.md #10). ⛔ The `'unbound'` chart keeps both controls: its node
+   * carries the effective filter (objectui#10250), and `ObjectChart` refuses
+   * it on screen (objectui#8168). The object-bound chart that used to draw
+   * here retired with the legacy axes (objectui#6152 round 15).
    */
   const datasetChartOnScreen =
     currentView === 'chart' && resolveListChartBinding(schema).shape === 'dataset';
@@ -3446,8 +3438,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    *     `schema.filter` to `$filter`;
    *   - `tree`: `ObjectTree`'s object-provider branch runs its own `find` with
    *     `$filter: schema.filter`, and it runs BEFORE its host-`data` branch;
-   *   - `chart` (the object-bound shape): `ObjectChart` reads no host rows and
-   *     aggregates with `schema.filter`.
+   *   - `chart` (the `'unbound'` shape, objectui#6152 round 15): `ObjectChart`
+   *     reads no host rows, and the only query it runs before refusing the
+   *     node takes `schema.filter`.
    *
    * Each of those nodes therefore carries the SAME effective filter this
    * component's own fetch sends (`buildEffectiveFilter`: authored filter AND
@@ -3995,9 +3988,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         };
       }
       case 'chart': {
-        // A `chart` list view renders an aggregated chart of the object's
-        // records (e.g. sum of estimate_hours grouped by status), delegating
-        // to the same object-chart component the dashboard uses.
+        // A `chart` list view renders a chart of an ADR-0021 `dataset`,
+        // delegating to the same object-chart component the dashboard uses.
         // Read through `resolveListChartBinding` — the one source the capability
         // gate in `availableViews` also asks (objectui#7544). The routing and
         // the precedence below are its answers, not a second reading of the
@@ -4030,34 +4022,24 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             className: 'h-[400px] w-full',
           };
         }
-        // Legacy inline aggregate (deprecated — pre-ADR-0021 metadata). Kept as a
-        // fallback so existing authored chart views keep rendering.
-        //
-        // The two floors below are reached only when NOTHING was declared —
-        // i.e. through the schema-viewType leg, never through the capability
-        // gate, which refuses to offer a switch into an invented binding. The
-        // floors themselves are objectui#7547 (#7029 / `5f4514f7b` family) and are
-        // deliberately untouched here.
-        const valueField = chartBinding.valueField || 'value';
-        const categoryField = chartBinding.categoryField || 'name';
+        // ⛔ NO LEGACY INLINE AGGREGATE (objectui#6152 round 15). A block that
+        // names no `dataset` used to be translated from the pre-ADR-0021 axes
+        // (`xAxisField` / `categoryField`, `yAxisFields` / `valueField`,
+        // `aggregation`) into an `aggregate`, floored at `'name'` / `'value'`
+        // when it declared none. Every door refuses those axes by name, so that
+        // render path retired with them, floors included (the remainder of
+        // objectui#7547). What is left is the UNBOUND chart — reached only
+        // through a `viewType` that forces it, since the gate never offers it:
+        // an object-bound node that names no category, which `ObjectChart`
+        // refuses on screen (objectui#8168, `chart-missing-category-axis`)
+        // instead of aggregating on a name nobody wrote. It still carries the
+        // effective filter (objectui#10250), which is all it hands a query.
+        // ⛔ Do not restore a floor here: that is the binding nobody wrote.
         return {
           type: 'object-chart',
           objectName: schema.objectName,
           chartType: chartCfg.chartType || 'bar',
-          // `ObjectChart` reads `schema.filter` and never read `filters`, so a
-          // chart list view with a base filter used to aggregate the WHOLE
-          // object (#2890). It reads no host rows either, so this key is also
-          // the only way the toolbar Filter and the chips reach the aggregate:
-          // the EFFECTIVE filter, not the authored one (objectui#10250). See
-          // `selfQueryFilter` above.
           filter: selfQueryFilter,
-          aggregate: {
-            field: valueField,
-            function: chartCfg.aggregation || 'count',
-            groupBy: categoryField,
-          },
-          xAxisKey: categoryField,
-          series: [{ dataKey: valueField, label: valueField }],
           className: 'h-[400px] w-full',
         };
       }

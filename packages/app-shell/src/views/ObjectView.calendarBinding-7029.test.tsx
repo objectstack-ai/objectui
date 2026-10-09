@@ -157,28 +157,17 @@ describe('no invented calendar field name survives in the source (objectui#7029)
     expect(CODE.filter((l) => l.includes("'name'")).length).toBeGreaterThan(0);
   });
 
-  it('CONTROL (same class): the scan still sees a REMAINING fabricated field name', () => {
-    // Can this filter see the specific thing it exists to hunt — a one-rung
-    // `|| 'literal'` field-name floor?
-    //
-    // RE-ANCHORED by objectui#7547, following this case's own instruction. It
-    // used to sit on the gallery branch's `imageField: … || 'image'`; #7547
-    // retired that literal, so the anchor moved rather than the case being
-    // dropped — a scan whose last live control is deleted is a test that passes
-    // over nothing, which is the class this whole card family is about.
-    //
-    // The new anchor is the CHART branch's measure floor
-    // (`chartConfig.yAxisFields[0] || 'value'`): the same one-rung class, still
-    // present, and deliberately left standing by #7547 — deleting it needs a
-    // refusal path `ObjectChart` does not have yet, so it is reported as its own
-    // card rather than decided here.
-    //
-    // ⚠️ TO WHOEVER RETIRES `'value'`: this going red is the mechanic working,
-    // not a broken test. RE-ANCHOR it onto whatever fabrication legitimately
-    // remains in this file — do not delete it, and do not weaken it to the
-    // machinery control above. If nothing of this class remains anywhere in this
-    // face, say so in the PR body and convert this case into the assertion that
-    // NONE remains, so the scan keeps making a claim about the tree.
-    expect(CODE.filter((l) => /\|\| 'value'/.test(l)).length).toBeGreaterThan(0);
+  it('CONVERTED (objectui#6152 round 15): NO fabricated field-name floor remains in this face', () => {
+    // This case read "the scan still sees a REMAINING fabricated field name",
+    // anchored on the chart branch's measure floor
+    // (`chartConfig.yAxisFields[0] || 'value'`). objectui#6152 round 15 retired
+    // that floor with the legacy chart axes, and with it the last one-rung
+    // `|| 'literal'` binding floor in this file: what is left floors a display
+    // title or label at `'name'` (the machinery control's anchor, not a
+    // fabrication), a view `type` at `'grid'` or a chart family at `'bar'`.
+    // So, as this case instructed, it now asserts that NONE remains — the scan
+    // keeps making a claim about the tree, and a floor copied back in reds here.
+    expect(CODE.filter((l) => /\|\| 'value'/.test(l))).toEqual([]);
+    expect(CODE.filter((l) => /\b(?!titleField\b|labelField\b)\w*Field\b[^|\n]*\|\| '[A-Za-z_]+'/.test(l))).toEqual([]);
   });
 });

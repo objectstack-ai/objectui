@@ -33,9 +33,11 @@
  *   - The held state is KEPT, not cleared: a switch back to the grid applies
  *     the same group again, the builder shows it, and the host is never told
  *     to drop it. Chips toggled on the grid are withheld on the chart too.
- *   - CONTROLS: on a grid, and on a chart bound to the list object (whose node
+ *   - CONTROLS: on a grid, and on a chart that names no dataset (whose node
  *     carries the effective filter, objectui#10250), the restored group still
- *     narrows the fetch.
+ *     narrows the fetch. (That second control was a chart bound to the list
+ *     object through the legacy inline axes until objectui#6152 round 15
+ *     retired them; a `chart` view naming no `dataset` is what it became.)
  *   - With nothing held, the withholding does not reopen objectui#7394. With a
  *     `pageSize` declared, the switch into the dataset chart re-issues no
  *     query. With none declared, it re-issues exactly one, and only because
@@ -116,7 +118,6 @@ function makeDataSource() {
 }
 
 const DATASET_BLOCK = { chartType: 'bar', dataset: 'task_ds', dimensions: ['status'], values: ['total_estimate'] };
-const OBJECT_BLOCK = { chartType: 'bar', xAxisField: 'status', yAxisFields: ['estimate'], aggregation: 'sum' };
 /** A `UserFilters` toggle chip, OFF at mount; clicking it adds `priority != null`. */
 const TOGGLE_CHIP = { element: 'toggle', fields: [{ field: 'priority' }] };
 /** The view's own `filter` — authored, or merged in by the host (URL filters). */
@@ -168,8 +169,8 @@ describe('objectui#10512 — a held user filter does not narrow ListView\'s fetc
     await waitFor(() => expect(countBar()).toHaveTextContent('1 record'));
   });
 
-  it('CONTROL: on a chart bound to the list object, a restored Filter group still narrows the fetch', async () => {
-    const dataSource = mount({ viewType: 'chart', chart: OBJECT_BLOCK }, { initialFilters: RESTORED_FILTERS });
+  it('CONTROL: on a chart that names no dataset, a restored Filter group still narrows the fetch', async () => {
+    const dataSource = mount({ viewType: 'chart' }, { initialFilters: RESTORED_FILTERS });
     await onScreen('chart-standin');
     expect(chartNodes.at(-1)).toMatchObject({ type: 'object-chart', objectName: 'duly_task' });
     await waitFor(() => expect(dataSource.find).toHaveBeenCalled());

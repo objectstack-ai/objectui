@@ -80,10 +80,12 @@ const OBJECT_BOUND_CHART_CATEGORY_BINDINGS = [
  * one layer up, on the AUTHORED list-view chart block.
  *
  * ⚠️ It is one layer up, not this layer. `resolveListChartBinding` reads
- * `{ chart, options.chart }` with `xAxisField` / `categoryField` / `yAxisFields`
- * — the block an author writes on a LIST VIEW. By the time a schema reaches
- * this component the relays have already translated that block into
- * `{ objectName, aggregate, xAxisKey, series }`, and the producers that never
+ * `{ chart, options.chart }` — the block an author writes on a LIST VIEW, whose
+ * only binding since objectui#6152 round 15 is an ADR-0021 `dataset` (its
+ * pre-ADR-0021 `xAxisField` / `categoryField` / `yAxisFields` leg retired). By
+ * the time a schema reaches this component the relays have already translated
+ * that block into `{ dataset, dimensions, values }`, or, for a block naming no
+ * dataset, into an object-bound node naming no category, and the producers that never
  * had such a block at all (the two dashboard surfaces, and directly authored
  * `object-chart` metadata) compose the translated shape straight away. So the
  * upstream resolver cannot be CALLED here — asked for `schema.chart` it would
@@ -1359,8 +1361,8 @@ export const ObjectChart = (props: ObjectChartProps) => {
    * ## Why it keys on the CATEGORY alone
    *
    * `resolveListChartBinding`'s `resolves` (the upstream gate, objectui#7544)
-   * is `Boolean(categoryField && valueField)`, so its negation refuses when
-   * EITHER is missing. That is the right question for a capability gate deciding
+   * was `Boolean(categoryField && valueField)` on its legacy leg (retired in
+   * objectui#6152 round 15), so its negation refused when EITHER was missing. That is the right question for a capability gate deciding
    * whether to OFFER a chart, and the wrong one for a renderer deciding whether
    * to DRAW one: a measure may legitimately be absent, because `count` takes no
    * field (`aggregateValueKey` projects it under the literal `'count'`), so
@@ -1389,13 +1391,16 @@ export const ObjectChart = (props: ObjectChartProps) => {
    * ## What this does NOT do
    *
    * It does not retire the six `'name'` / `'value'` floors at the three relay
-   * faces — that is the remainder of objectui#7547 and is mechanical only once
-   * this screen exists. Until they go, the relays always hand this component a
-   * category, so this branch is reached today only from a directly authored
+   * faces — that was the remainder of objectui#7547, mechanical only once this
+   * screen existed, and objectui#6152 round 15 did it with the legacy chart
+   * axes. Since then a relay hands this component an object-bound node naming
+   * no category whenever a chart view names no `dataset`, so this branch is
+   * reached from the three relays as well as from a directly authored
    * `object-chart` that declares none. Pinned by
    * `ObjectChart.absentCategoryAxisRefusal-8168.test.tsx`, which measures both
-   * halves: that the refusal fires, and that it does NOT fire on the schema
-   * every producer composes today.
+   * halves: that the refusal fires (the relays' unbound node included), and
+   * that it does NOT fire on the schema every producer composes for a chart
+   * that declares a category.
    */
   if (drawsFetchedObjectRows && !resolveChartCategoryField(schema)) {
       return (

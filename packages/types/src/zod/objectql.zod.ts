@@ -2080,9 +2080,10 @@ const TimelineConfig = stripImportedDefaults(SpecListViewSchema).shape.timeline.
  * ⚠️ THE READERS MOVED SECOND (objectui#6152 round 14). `ListView` still merges
  * each `options.KIND` under the top-level block, but it reads each kind's
  * declared keys only: the alias rungs, the `options.grid` spread and the spreads
- * of the rest of a block onto the node it builds are retired. The one exception
- * is `chart`, whose legacy axes `ListView` still reads until the next round on
- * objectui#6152 (the legacy chart binding is its own round). The render path
+ * of the rest of a block onto the node it builds are retired. `chart` followed
+ * in round 15: its legacy axes (`xAxisField` / `categoryField`, `yAxisFields` /
+ * `valueField`, `aggregation`) are read by no route, so a chart block that names
+ * no `dataset` binds nothing and `ObjectChart` refuses it on screen. The render path
  * parses nothing, so a row stored before the view write door judged the bag
  * (`@objectstack/spec` 17.5.0) still renders, without what a refused key used to
  * bind. This mirror is the door an author meets. The writers moved with it in
@@ -3762,8 +3763,9 @@ export const ObjectChartSchema = BaseSchema.extend({
   // ── objectui#10608: three list-view spellings, RETIRED on this node ──
   //
   // `xAxisField` / `yAxisFields` / `aggregation` are the LIST-VIEW chart
-  // block's vocabulary; the list-view relays translate that block before they
-  // compose this node, and no `object-chart` reader consumes the three. Kept
+  // block's pre-ADR-0021 vocabulary, which every list-view door refuses and no
+  // list-view relay reads since objectui#6152 round 15; no `object-chart`
+  // reader consumes the three either. Kept
   // declared and unwritable (ADR-0049): `BaseSchema` is `.passthrough()`, so a
   // deleted arm would KEEP an authored value in silence instead of refusing it.
   // Each refusal names the spec spelling as its remedy. The TS twin in

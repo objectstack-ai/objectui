@@ -22,8 +22,10 @@
  * chart, in both spellings of the block (`chart` and the legacy
  * `options.chart` bag), and absent only while the chart is ON SCREEN: a grid
  * view that can switch to the same chart offers them on the grid. The CONTROL
- * is the object-bound (`'legacy'`) chart, whose node carries the effective
- * filter (objectui#10250) and which keeps both controls.
+ * is the `'unbound'` chart, whose node carries the effective filter
+ * (objectui#10250) and which keeps both controls. (It was the object-bound
+ * `'legacy'` chart until objectui#6152 round 15 retired the legacy axes; a
+ * `chart` view that names no `dataset` is what that population became.)
  *
  * Each dataset case first waits for the chart stand-in, so a mount that never
  * reached `case 'chart'` reads as a broken harness, never as a pass.
@@ -71,7 +73,6 @@ function makeDataSource() {
 }
 
 const DATASET_BLOCK = { chartType: 'bar', dataset: 'task_ds', dimensions: ['status'], values: ['total_estimate'] };
-const OBJECT_BLOCK = { chartType: 'bar', xAxisField: 'status', yAxisFields: ['estimate'], aggregation: 'sum' };
 /** A `UserFilters` toggle chip — rendered under `data-testid="user-filters"`. */
 const TOGGLE_CHIP = { element: 'toggle', fields: [{ field: 'priority' }] };
 
@@ -96,8 +97,8 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('objectui#10327 — no filter control on a dataset-bound chart view', () => {
-  it('CONTROL: an object-bound chart offers the Filter builder and the chips', async () => {
-    mount({ viewType: 'chart', chart: OBJECT_BLOCK });
+  it('CONTROL: a chart that names no dataset offers the Filter builder and the chips', async () => {
+    mount({ viewType: 'chart' });
     await chartOnScreen();
     expect(filterButton()).toBeInTheDocument();
     expect(chips()).toBeInTheDocument();
@@ -140,8 +141,8 @@ describe('objectui#10327 — no filter control on a dataset-bound chart view', (
     expect(chips()).toBeInTheDocument();
   });
 
-  it('`userActions.filter: false` still hides the builder on the object-bound chart — the opt-out is unchanged', async () => {
-    mount({ viewType: 'chart', chart: OBJECT_BLOCK, userActions: { filter: false } });
+  it('`userActions.filter: false` still hides the builder on a chart that names no dataset — the opt-out is unchanged', async () => {
+    mount({ viewType: 'chart', userActions: { filter: false } });
     await chartOnScreen();
     expect(filterButton()).not.toBeInTheDocument();
     expect(chips()).toBeInTheDocument();

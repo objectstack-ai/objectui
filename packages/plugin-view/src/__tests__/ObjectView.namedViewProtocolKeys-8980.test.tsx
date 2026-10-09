@@ -243,14 +243,15 @@ describe('objectui#8980 — a canonical top-level view-kind block reaches the re
     // drop either member from the type.
     // ⚠️ MEASURED WHILE WRITING THIS FILE, and reported on objectui#8980: the
     // protocol's chart config is the ADR-0021 DATASET-BOUND shape alone
-    // (`dataset` + `values`, required). The renderer still carries a legacy
+    // (`dataset` + `values`, required). The renderer carried a legacy
     // inline-aggregate branch below it (`xAxisField` / `valueField` /
-    // `aggregation`), and the declared face cannot express that branch — tsc
-    // refuses the fixture. That is the protocol narrowing a legacy escape
-    // hatch, ⛔ not a defect in this declaration, and ⛔ not licence to widen
-    // the type locally: the legacy shape still reaches the branch through the
-    // host `views` entry (a named view's own `options.chart` bag is folded at
-    // `ViewPreview` since objectui#7928, onto this same top-level block).
+    // `aggregation`) that the declared face could not express — tsc refused
+    // the fixture. That was the protocol narrowing a legacy escape hatch,
+    // ⛔ not a defect in this declaration, and ⛔ not licence to widen the type
+    // locally. objectui#6152 round 15 retired that branch on every route: a
+    // chart block naming no `dataset` now builds the unbound node, which
+    // `ObjectChart` refuses on screen (a named view's own `options.chart` bag
+    // is folded at `ViewPreview` since objectui#7928, onto this same block).
     const chartNode = await generatedNodeFor(
       { label: 'Agg', chart: { dataset: 'deals_by_stage', dimensions: ['stage'], values: ['amount'], chartType: 'line' } },
       [{ id: 'c', label: 'Agg', type: 'chart' }],

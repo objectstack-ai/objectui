@@ -26,11 +26,19 @@
  *
  * BOTH HALVES ARE PINNED HERE ON PURPOSE. Offering `chart` whenever it is
  * whitelisted would pass the first half and is worse than the bug: with no
- * block the legacy render branch invents its binding (`xAxisKey: 'name'`,
- * value `'value'` — the objectui#7029 / #7070 / #7547 family, out of scope
- * here), so an unbound chart plots nothing an author declared. The gate must
- * offer exactly the blocks that render from the author's own names, and the
- * last describe below pins that equivalence against the render branch itself.
+ * block the render branch has nothing an author declared to plot. The gate
+ * must offer exactly the blocks that render from the author's own names, and
+ * the last describe below pins that equivalence against the render branch
+ * itself.
+ *
+ * ⚠️ objectui#6152 round 15: the pre-ADR-0021 inline axes (`xAxisField` /
+ * `categoryField`, `yAxisFields` / `valueField`, `aggregation`) were a second,
+ * LEGACY shape here, offered and drawn. Every door refuses them by name, and
+ * the resolver's legacy leg retired with the render path it fed (and its
+ * `'name'` / `'value'` floors, objectui#7547's remainder). Their arms below
+ * were TURNED, not deleted: a block spelled that way is now withheld, and a
+ * view that forces `chart` renders the unbound node, which `ObjectChart`
+ * refuses on screen (objectui#8168).
  */
 
 import React from 'react';
@@ -105,14 +113,30 @@ describe('the capability gate resolves `chart` from a declared chart block (obje
     expect(chartOffered({ chart: { dataset: 'ds', dimensions: ['status'], values: ['n'] } })).toBe(true);
   });
 
-  it('offers Chart for the legacy `xAxisField` / `yAxisFields` block', () => {
-    expect(chartOffered({ chart: { xAxisField: 'status', yAxisFields: ['hours'] } })).toBe(true);
+  // TURNED (objectui#6152 round 15): these two read `true` while the resolver
+  // had a legacy leg. The render branch reads neither spelling now, and the
+  // gate asks the same resolver, so it offers neither.
+  it('does NOT offer Chart for the retired `xAxisField` / `yAxisFields` block (objectui#6152 round 15)', () => {
+    expect(chartOffered({ chart: { xAxisField: 'status', yAxisFields: ['hours'] } })).toBe(false);
   });
 
-  it('offers Chart for the legacy `categoryField` / `valueField` spelling', () => {
-    // The render branch reads both spellings for both roles; the gate asks the
-    // same resolver, so it cannot recognize a narrower set than what renders.
-    expect(chartOffered({ chart: { categoryField: 'status', valueField: 'hours' } })).toBe(true);
+  it('does NOT offer Chart for the retired `categoryField` / `valueField` spelling (objectui#6152 round 15)', () => {
+    expect(chartOffered({ chart: { categoryField: 'status', valueField: 'hours' } })).toBe(false);
+  });
+
+  it('does NOT offer Chart for the retired axes in the `options.chart` bag either (objectui#6152 round 15)', () => {
+    expect(chartOffered({ options: { chart: { xAxisField: 'status', yAxisFields: ['hours'], aggregation: 'sum' } } })).toBe(false);
+  });
+
+  // These two pinned the legacy leg's PARTIAL declarations (a category with no
+  // measure, and the reverse). Kept, renamed: with the leg retired, a lone
+  // retired axis is withheld for the same reason a complete set is.
+  it('does NOT offer Chart for a retired axis written alone — category only', () => {
+    expect(chartOffered({ chart: { xAxisField: 'status' } })).toBe(false);
+  });
+
+  it('does NOT offer Chart for a retired axis written alone — measure only', () => {
+    expect(chartOffered({ chart: { yAxisFields: ['hours'] } })).toBe(false);
   });
 
   it('CONTROL: the legacy `options.chart` bag resolves the capability too', () => {
@@ -146,13 +170,6 @@ describe('the capability gate resolves `chart` from a declared chart block (obje
     expect(chartOffered({ chart: { dataset: 'ds', dimensions: ['status'] } })).toBe(false);
   });
 
-  it('does NOT offer Chart for a legacy block that declares only a category', () => {
-    expect(chartOffered({ chart: { xAxisField: 'status' } })).toBe(false);
-  });
-
-  it('does NOT offer Chart for a legacy block that declares only a measure', () => {
-    expect(chartOffered({ chart: { yAxisFields: ['hours'] } })).toBe(false);
-  });
 
   it('CONTROL: `viewType: "chart"` is still offered with no block — the schema-viewType leg is untouched', () => {
     // The "always allow switching back to the viewType defined in schema" leg
@@ -261,25 +278,35 @@ describe('the gate and the render branch answer from one source (objectui#7544)'
     expect(schema.xAxisKey).toBe('status');
   });
 
-  it('an offered legacy block renders from the author names', async () => {
+  // TURNED (objectui#6152 round 15). This arm read "an offered legacy block
+  // renders from the author names": the block was offered and its axes became
+  // the node's `aggregate` / `xAxisKey`. The axes are read by nothing now, so
+  // the block is withheld AND, on a view that forces `chart`, binds nothing.
+  it('a retired legacy block is withheld, and a forced chart view binds none of its axes', async () => {
     const block = { chart: { xAxisField: 'status', yAxisFields: ['hours'], aggregation: 'sum' } };
-    expect(chartOffered(block)).toBe(true);
+    expect(chartOffered(block)).toBe(false);
 
     const schema = await chartSchemaFor(block);
-    expect(schema.xAxisKey).toBe('status');
-    expect(schema.aggregate).toMatchObject({ field: 'hours', groupBy: 'status', function: 'sum' });
+    expect(schema.type).toBe('object-chart');
+    expect(schema.objectName).toBe('task');
+    expect(schema.aggregate).toBeUndefined();
+    expect(schema.xAxisKey).toBeUndefined();
+    expect(schema.series).toBeUndefined();
   });
 
-  it('the block the gate withholds is exactly the one the render branch has to invent for', async () => {
-    // Documents WHY the negative half is not cosmetic, and pins the invented
-    // floor as the reason rather than as a thing to copy: with no block the
-    // legacy branch still returns a chart, bound to names no author wrote.
-    // That floor is objectui#7547 (#7029 / #7070 family) and is deliberately
-    // untouched here — this asserts the gate's answer, not the floor's merit.
+  it('the block the gate withholds is exactly the one the render branch binds nothing for', async () => {
+    // Documents WHY the negative half is not cosmetic. With no block the
+    // render branch used to return a chart bound to names no author wrote
+    // (`xAxisKey: 'name'`, measure `'value'`, objectui#7547's floors). Those
+    // floors retired in objectui#6152 round 15: the node now names no category,
+    // which `ObjectChart` refuses on screen (objectui#8168) — the gate and the
+    // branch still agree that nothing here is plottable.
     expect(chartOffered({})).toBe(false);
 
     const schema = await chartSchemaFor({});
-    expect(schema.xAxisKey).toBe('name');
-    expect(schema.aggregate).toMatchObject({ field: 'value', groupBy: 'name' });
+    expect(schema.type).toBe('object-chart');
+    expect(schema.objectName).toBe('task');
+    expect(schema.aggregate).toBeUndefined();
+    expect(schema.xAxisKey).toBeUndefined();
   });
 });

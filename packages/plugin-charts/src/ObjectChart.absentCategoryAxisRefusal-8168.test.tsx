@@ -197,53 +197,21 @@ describe('ObjectChart — absent category axis refusal (objectui#8168)', () => {
  * per leg. Each cites the line it came from so the transcription can be
  * re-checked rather than trusted.
  *
- * The shared fact that makes them all safe: every one of the five floors its
+ * The shared fact that made them all safe: every one of the five floored its
  * own category — the three relays through the `|| 'name'` literals objectui#7547
- * will retire, the two dashboard surfaces through `options.xField || 'name'`,
- * which is NOT part of #7547's six and stays. So none of them can reach this
- * refusal today, and after #7547 retires the relay floors the three that lose
- * theirs reach it exactly when the author declared nothing — which is the point.
+ * would retire, the two dashboard surfaces through `options.xField || 'name'`,
+ * which is NOT part of #7547's six and stays. So none of them could reach this
+ * refusal, and once the relay floors retired the three that lost theirs would
+ * reach it exactly when the author declared nothing — which is the point.
+ *
+ * ⚠️ objectui#6152 round 15 retired the three relay legs (ListView's
+ * `case 'chart'`, plugin-view's `generateViewSchema` and app-shell's object
+ * page), floors and legacy axes together. Their transcriptions here pinned
+ * code that no longer exists, so they moved to the next describe, re-transcribed
+ * from the relays' new unbound node, where the refusal FIRES. The two dashboard
+ * legs below still floor their own category and stay.
  */
-describe('objectui#8168 stop condition — the refusal fires on NO producer that renders today', () => {
-  it('plugin-list ListView `case chart` legacy leg', async () => {
-    // `const valueField = chartBinding.valueField || 'value';`
-    // `const categoryField = chartBinding.categoryField || 'name';`
-    renderChart({
-      objectName: 'crm_opportunity',
-      filter: undefined,
-      aggregate: { field: 'value', function: 'count', groupBy: 'name' },
-      xAxisKey: 'name',
-      series: [{ dataKey: 'value', label: 'value' }],
-      className: 'h-[400px] w-full',
-    });
-    await expectNoRefusal();
-  });
-
-  it('plugin-view ObjectView `case chart` legacy leg', async () => {
-    renderChart({
-      objectName: 'crm_opportunity',
-      aggregate: { field: 'value', function: 'count', groupBy: 'name' },
-      xAxisKey: 'name',
-      series: [{ dataKey: 'value', label: 'value' }],
-      className: 'h-[400px] w-full',
-    });
-    await expectNoRefusal();
-  });
-
-  it('app-shell ObjectView chart viewDef legacy leg', async () => {
-    // `const categoryField = chartConfig.xAxisField || 'name';`
-    // `const valueField = (Array.isArray(...yAxisFields) && ...[0]) || 'value';`
-    renderChart({
-      objectName: 'crm_opportunity',
-      aggregate: { field: 'value', function: 'count', groupBy: 'name' },
-      xAxisKey: 'name',
-      series: [{ dataKey: 'value', label: 'value' }],
-      filter: undefined,
-      className: 'h-[400px] w-full',
-    });
-    await expectNoRefusal();
-  });
-
+describe('objectui#8168 stop condition — the refusal fires on no producer that floors its own category', () => {
   it('DashboardRenderer object-provider widget WITH a provider aggregate', async () => {
     // `const xAxisKey = options.xField || 'name';` — floored before the
     // provider is consulted, so this leg carries a category unconditionally.
@@ -292,14 +260,63 @@ describe('objectui#8168 stop condition — the refusal fires on NO producer that
 });
 
 /**
+ * objectui#6152 round 15 — the three relays' UNBOUND node reaches the refusal.
+ *
+ * A list view whose chart block names no `dataset` (no block, a bag without
+ * one, or a stored row spelled with the retired inline axes) used to be
+ * translated by each relay into a legacy `aggregate`, floored at `'name'` /
+ * `'value'`. That path retired with the axes, so each relay now composes the
+ * node below, transcribed from its composing source. It names no category,
+ * and this screen refuses it on screen instead of aggregating on a name nobody
+ * wrote — the outcome this file's docblock said the floors' retirement would
+ * produce. One `it` per relay, so a relay that grows a floor back reds BY NAME.
+ */
+describe('objectui#6152 round 15 — the relays\' unbound chart node is refused', () => {
+  it('plugin-list ListView `case chart`, unbound leg', async () => {
+    // `{ type: 'object-chart', objectName, chartType, filter: selfQueryFilter, className }`
+    renderChart({
+      objectName: 'crm_opportunity',
+      chartType: 'bar',
+      filter: undefined,
+      className: 'h-[400px] w-full',
+    });
+    const box = await screen.findByTestId(REFUSAL);
+    expect(box).toHaveAttribute('role', 'alert');
+  });
+
+  it('plugin-view ObjectView `case chart`, unbound leg', async () => {
+    // `{ type: 'object-chart', objectName, chartType, className }`
+    renderChart({ objectName: 'crm_opportunity', chartType: 'bar', className: 'h-[400px] w-full' });
+    expect(await screen.findByTestId(REFUSAL)).toHaveAttribute('role', 'alert');
+  });
+
+  it('app-shell ObjectView chart viewDef, unbound leg', async () => {
+    // `{ type: 'object-chart', objectName: objectDef.name, chartType, className }`
+    renderChart({ objectName: 'crm_opportunity', chartType: 'line', className: 'h-[400px] w-full' });
+    expect(await screen.findByTestId(REFUSAL)).toHaveAttribute('role', 'alert');
+  });
+
+  it('CONTROL: the same node with a category declared draws, so the refusal above is the missing category', async () => {
+    renderChart({
+      objectName: 'crm_opportunity',
+      chartType: 'bar',
+      aggregate: { field: 'amount', function: 'sum', groupBy: 'stage' },
+      className: 'h-[400px] w-full',
+    });
+    await expectNoRefusal();
+  });
+});
+
+/**
  * The four carve-outs the condition makes, each one a configuration that
  * renders correctly today and must keep rendering.
  */
 describe('objectui#8168 — what the refusal deliberately does not touch', () => {
   it('a `count` aggregate with a declared category and NO measure', async () => {
     // The arm that decides the predicate's shape. `resolveListChartBinding`'s
-    // `resolves` is `Boolean(categoryField && valueField)`, so its negation
-    // refuses when EITHER is missing — right for a capability gate deciding
+    // `resolves` was `Boolean(categoryField && valueField)` on its legacy leg
+    // (retired in objectui#6152 round 15), so its negation refused when EITHER
+    // was missing — right for a capability gate deciding
     // whether to OFFER a chart, wrong for a renderer deciding whether to DRAW
     // one: `count` takes no field (`aggregateValueKey` projects it under the
     // literal `'count'`), and this chart renders.

@@ -5438,18 +5438,19 @@ export interface KanbanConditionalFormattingRule extends SpecConditionalFormatti
  * ## Three list-view spellings, RETIRED on this node (objectui#10608, ADR-0049)
  *
  * `xAxisField`, `yAxisFields` and `aggregation` are the LIST-VIEW chart
- * block's vocabulary (`chart.xAxisField` and its siblings on a `chart` list
- * view). The list-view relays translate that block into `aggregate` /
- * `xAxisKey` / `series` before they compose this node, so on this node the
- * three were declared and read by nothing: a node written with them drew no
- * category axis and no series. Each is now a `?: never` tombstone whose zod
+ * block's pre-ADR-0021 vocabulary (`chart.xAxisField` and its siblings on a
+ * `chart` list view). The list-view relays used to translate that block into
+ * `aggregate` / `xAxisKey` / `series` before they composed this node, so on
+ * this node the three were declared and read by nothing: a node written with
+ * them drew no category axis and no series. Each is now a `?: never` tombstone whose zod
  * twin refuses it by name with the spec spelling as the remedy — `xAxis:
  * { field }`, `yAxis: [{ field }]`, `aggregate: { field, function, groupBy }`.
  * The measurement and the producer census are on the card's PR; the pin is
  * `__tests__/object-chart-legacy-axis-keys-retired-10608.test.ts`.
  *
- * ⛔ The LIST-VIEW carriers keep these names: they are a different node, they
- * read them, and nothing here touches them.
+ * The LIST-VIEW carriers are a different node, and nothing here touches them.
+ * They no longer read these names either: every list-view door refuses them,
+ * and the list-view relays' legacy chart path retired in objectui#6152 round 15.
  *
  * ## The react tier's node, and the two chart-family keys (objectui#10770)
  *

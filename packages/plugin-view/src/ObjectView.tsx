@@ -2138,10 +2138,15 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // reads. ⛔ Not `options.KIND`: this component reads no `options` bag since
     // objectui#7928, and a named view refuses `options` by name, so that text
     // sent an author to a place that is ignored or refused (objectui#10868).
+    //
+    // ⛔ Only keys some spec per-kind block DECLARES (objectui#6152 round 15).
+    // The list also named `dateField`, `groupBy`, `groupField`, `imageField` and
+    // `subtitleField` and told an author to move them into the block, where
+    // every door refuses them by name and no reader reads them (objectui#6152
+    // rounds 14 and 15).
     if (process.env.NODE_ENV === 'development') {
-        const flatKeys = ['startDateField', 'endDateField', 'dateField', 'groupBy', 'groupField',
-            'locationField', 'imageField', 'dependenciesField', 'progressField', 'titleField',
-            'subtitleField', 'latitudeField', 'longitudeField'];
+        const flatKeys = ['startDateField', 'endDateField', 'locationField', 'dependenciesField',
+            'progressField', 'titleField', 'latitudeField', 'longitudeField'];
         const nestedConfig = viewOptions[viewType] || {};
         const found = flatKeys.filter(k => k in viewOptions && !(k in nestedConfig));
         if (found.length > 0) {
@@ -2222,10 +2227,21 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // (`objectName`) override the node's own value; `ListView`'s twin
         // retired the same spread in the same round.
         //
-        // Forward conditional formatting to kanban (issue #1584): nested
-        // `options.kanban.conditionalFormatting` wins, then the view-level rule.
-        // Those are the two places the key is DECLARED — `ObjectKanbanSchema`
-        // for the nested block, the named/active view for the other.
+        // Forward conditional formatting to kanban (issue #1584) from the
+        // view-level `conditionalFormatting` of the active host `views` entry
+        // (`activeView`), the place a list view declares the key.
+        //
+        // ⛔ No `kanban.conditionalFormatting` rung (objectui#6152 round 15).
+        // It used to win over the view-level rule, on the reading that
+        // `ObjectKanbanSchema` declares the key. That declaration is the
+        // `object-kanban` NODE's, not the list view's per-kind block: the
+        // protocol's kanban block is `groupByField` / `columns` / `titleField` /
+        // `summarizeField`, and every door that judges it refuses
+        // `kanban.conditionalFormatting` by name (the named-view record, the
+        // spec's list view and view write door, and `ListViewSchema` in both
+        // nestings). A host `views` entry declares no `kanban` block at all.
+        // `ListView`'s twin stopped forwarding the key in round 14, so the two
+        // routes now answer it alike.
         //
         // objectui#5248 — a THIRD fallback used to sit at the end of this chain,
         // `(schema as any).conditionalFormatting`, reading the key off the
@@ -2247,16 +2263,15 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // genuinely host-only, and the objectui#5097 basis holds for all 27.
         //
         // ⛔ Do not restore this fallback as a convenience. Authoring
-        // kanban conditional formatting has two declared homes; a top-level key
+        // kanban conditional formatting has one declared home, the view-level
+        // key above (the nested one retired, objectui#6152 round 15); a top-level key
         // that nothing declares, nothing publishes in the registry `inputs` and
         // tsc could not see (BaseSchema's index signature, until objectui#8347) is
         // precisely the
         // "renderer reads it, manifest denies it" condition objectui#4648 /
         // objectui#5091 exist to close. The host `renderListView` delegation
         // below still reads and forwards the key — that half is NOT narrowed.
-        const kanbanConditionalFormatting =
-          kanbanCfg.conditionalFormatting ??
-          activeView?.conditionalFormatting;
+        const kanbanConditionalFormatting = activeView?.conditionalFormatting;
         // `groupBy` is the lane key and the ONLY one written here. This node
         // used to carry `groupField: groupBy` alongside it — a duplicate the
         // `object-kanban` renderer never read (zero `groupField` sites under
@@ -2477,7 +2492,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // shape below is reachable only through a host `views` prop. Ruled
         // RECORDED, not declared, 2026-08-20.
         //
-        // Aggregated chart of the object's records, delegating to the same
+        // A chart of an ADR-0021 `dataset`, delegating to the same
         // object-chart component the dashboard uses.
         const chartCfg = viewOptions.chart || {};
         // ADR-0021 (objectstack-ai/objectstack#1890): dataset-bound chart — the single author-facing shape.
@@ -2495,21 +2510,23 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
             className: 'h-[400px] w-full',
           };
         }
-        // Legacy inline aggregate (deprecated — pre-ADR-0021 metadata).
-        const valueField = (Array.isArray(chartCfg.yAxisFields) && chartCfg.yAxisFields[0])
-          || chartCfg.valueField || 'value';
-        const categoryField = chartCfg.xAxisField || chartCfg.categoryField || 'name';
+        // ⛔ NO LEGACY INLINE AGGREGATE (objectui#6152 round 15). A block that
+        // names no `dataset` used to be translated here from the pre-ADR-0021
+        // axes (`xAxisField` / `categoryField`, `yAxisFields` / `valueField`,
+        // `aggregation`), floored at `'name'` / `'value'` when it declared
+        // none. The protocol's chart block refuses those axes by name (a named
+        // view meets that refusal; a host `views` entry declares no `chart`
+        // block at all), so the path retired with them, floors included — the
+        // same retirement as `ListView`'s
+        // `case 'chart'` and app-shell's object page. What is left is the
+        // UNBOUND chart: an object-bound node that names no category, which
+        // `ObjectChart` refuses on screen (objectui#8168,
+        // `chart-missing-category-axis`) instead of aggregating on a name
+        // nobody wrote. ⛔ Do not restore a floor here.
         return {
           type: 'object-chart',
           objectName: schema.objectName,
           chartType: chartCfg.chartType || 'bar',
-          aggregate: {
-            field: valueField,
-            function: chartCfg.aggregation || 'count',
-            groupBy: categoryField,
-          },
-          xAxisKey: categoryField,
-          series: [{ dataKey: valueField, label: valueField }],
           className: 'h-[400px] w-full',
         };
       }

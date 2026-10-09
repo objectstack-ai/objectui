@@ -13,9 +13,10 @@
  *
  * ## The failure this pin exists to prevent
  *
- * The three are the LIST-VIEW chart block's vocabulary. The list-view relays
- * translate that block into `aggregate` / `xAxisKey` / `series` before they
- * compose an `object-chart` node, and nothing on the node's own render path
+ * The three are the LIST-VIEW chart block's pre-ADR-0021 vocabulary. The
+ * list-view relays translated that block into `aggregate` / `xAxisKey` /
+ * `series` before they composed an `object-chart` node (until objectui#6152
+ * round 15 retired that path), and nothing on the node's own render path
  * reads them — so both published faces declared three keys that type-checked,
  * parsed green through `objectui validate`, and drew no category axis and no
  * series. An author (or an AI author reading the `.d.ts`) had every signal that
@@ -47,7 +48,7 @@
  * ## The lit controls
  *
  * Block (b): the spec spelling of the same intent parses on the same node, at
- * the same door. Block (e): the LIST-VIEW carrier that reads these names (the
+ * the same door. Block (e): the LIST-VIEW carrier that read these names (the
  * `options.chart` bag) accepted them until objectui#6152 round 12, which made
  * the bag the spec's list-overlay bag; its dataset-only chart block refuses all
  * three, so the boundary this block pinned is gone and it now pins the refusal.
@@ -195,8 +196,9 @@ describe('objectui#10608 (e) — the list-view carrier refuses these names too (
    * list-overlay bag by reference, whose chart block is the spec's dataset-only
    * list chart (as the top-level `chart` already was), so the bag refuses them
    * with the spec's own `unrecognized_keys` at `options.chart`. The renderer's
-   * legacy read is not that round's to retire, so a view stored with them still
-   * renders.
+   * legacy read was not that round's to retire; objectui#6152 round 15 retired
+   * it on every route, so a view stored with them binds nothing and
+   * `ObjectChart` refuses it on screen.
    */
   it('a `chart` list view authoring `xAxisField` / `yAxisFields` / `aggregation` in `options.chart` is refused, on both doors', () => {
     const view = {

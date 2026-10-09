@@ -31,8 +31,8 @@
  *     defaultOpen={false}` around `div.w-full.p-4` (`SchemaThumbnail`,
  *     `InteractiveDemo`, `LiveSplitDemo`): still one provider — the host's,
  *     never shadowed — and still the in-flow form;
- *   - both validator faces: `safeValidateSchema` (the `objectui validate`
- *     face) and `StrictAnyComponentSchema`.
+ *   - both validator faces: `safeValidateSchema` (the tolerant face) and
+ *     `StrictAnyComponentSchema` (the face `objectui validate` runs).
  */
 
 import { describe, it, expect, afterEach } from 'vitest';

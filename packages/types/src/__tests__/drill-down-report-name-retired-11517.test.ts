@@ -15,8 +15,8 @@
  * `{ name }` drill listed the records and drew no report (measured through the
  * real drawer by objectui#11506's dev), and nothing produced it. So the arm
  * leaves the TypeScript face, the tolerant zod face (`DrillDownConfigSchema`,
- * and `safeValidateSchema`, which `objectui validate` runs) and the strict
- * authoring face (`StrictAnyComponentSchema`), and both zod faces refuse a bare
+ * and `safeValidateSchema`) and the strict authoring face
+ * (`StrictAnyComponentSchema`, which `objectui validate` runs), and both zod faces refuse a bare
  * `{ name }` with an issue that names the retirement and the remedy.
  *
  * The same change names the pre-9.0 `objectName` form's retirement

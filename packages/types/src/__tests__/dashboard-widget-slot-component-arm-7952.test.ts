@@ -61,8 +61,8 @@
  *      That the same card with `title` draws its heading is pinned where it renders,
  *      `@object-ui/plugin-dashboard`'s `metricCardLabelRefusedTitleHeading-4425.test.tsx`;
  *   8. objectui#11709: inside a widget's legacy `component` envelope, a `metric-card`
- *      is judged by the arm ALONE on the tolerant face too (`safeValidateSchema`,
- *      which `objectui validate` runs). One enumeration pin derives every refusal
+ *      is judged by the arm ALONE on the tolerant face too
+ *      (`safeValidateSchema`). One enumeration pin derives every refusal
  *      from the arm's own members and proves each is refused there with the
  *      member's own message, and with no `BaseSchema` fallback beside it. It
  *      replaced the two "MEASURED LIMIT" notes that recorded the fallback.
@@ -378,7 +378,7 @@ describe('objectui#4425 — `label` on the slot\'s `metric-card` is refused by n
   });
 
   it.each([
-    ['the tolerant face (`objectui validate`)', DashboardComponentZod],
+    ['the tolerant face', DashboardComponentZod],
     ['the strict authoring face', StrictAnyComponentSchema],
   ] as const)('%s refuses `label` at the key\'s own path, and the message names `title`', (_face, face) => {
     for (const widget of [{ ...card, label: 'Total Revenue' }, { ...card, title: 'Total Revenue', label: 'Total Revenue' }]) {

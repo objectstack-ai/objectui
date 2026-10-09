@@ -15,8 +15,8 @@
  * The key was `z.number()` on the mirror and `number` on the declaration. The
  * renderer reads `schema.padding ?? 4` and tests it against one branch per step
  * (0 through 8, 10, 12, 16), so `padding: 9` or `padding: 20` parsed green on
- * the tolerant face (`safeValidateSchema`, what `objectui validate` runs) and
- * on the strict authoring face, and the container rendered with no padding
+ * the tolerant face (`safeValidateSchema`) and on the strict authoring face,
+ * which `objectui validate` runs, and the container rendered with no padding
  * class at all — not the default either, because `??` supplies it only for an
  * absent key.
  *

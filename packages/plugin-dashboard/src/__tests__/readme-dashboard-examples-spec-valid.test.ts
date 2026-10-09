@@ -8,8 +8,8 @@
 
 /**
  * Every dashboard example on this package's front page must survive the SHIPPED
- * contract — `@object-ui/types/zod`'s `DashboardComponentSchema`, the same
- * schema `objectui validate` runs.
+ * contract — `@object-ui/types/zod`'s `DashboardComponentSchema`, the
+ * tolerant mirror whose strict twin `objectui validate` runs.
  *
  * ## The hole this closes (objectui#7035)
  *

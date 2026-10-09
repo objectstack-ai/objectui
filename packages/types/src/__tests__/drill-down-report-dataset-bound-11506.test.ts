@@ -26,7 +26,7 @@
  * face (`StrictAnyComponentSchema`) refuse the retired form; the
  * `@ts-expect-error` lines below are checked by `tsc -p tsconfig.test.json`,
  * the package's `type-check`. The tolerant face (`DrillDownConfigSchema` and
- * `safeValidateSchema`, which is what `objectui validate` runs) refuses it too
+ * `safeValidateSchema`) refuses it too
  * since objectui#11517, by name: until then its `{ name }` reference arm read a
  * value that failed the inline arm as a reference, stripped to that member, and
  * reported it valid. That arm is retired, and its own refusal is pinned in

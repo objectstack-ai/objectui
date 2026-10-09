@@ -278,7 +278,7 @@ describe('object-timeline publishes the ten spec keys its renderer honours (obje
     expect(description).toContain('`mapping.description` outranks it');
   });
 
-  it('the authoring door `objectui validate` reads accepts the same timelines, by reference to the row', () => {
+  it('the tolerant authoring face accepts the same timelines, by reference to the row', () => {
     // No mirror edit is owed: `ObjectTimelineBlockSchema` takes the 17.5.0 row
     // by reference (objectui#10859 batch 3), where `objectName` is optional.
     expect(safeValidateSchema({ type: TYPE, properties: { items: ITEMS } }).success).toBe(true);

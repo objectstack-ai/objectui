@@ -509,8 +509,8 @@ renderer does not apply it.
 
 Two other drill-report forms are retired, with no alias window. The TypeScript
 declaration refuses both, and so do both validators, each naming the
-retirement: `objectui validate` (the tolerant face) and the strict authoring
-face (`StrictAnyComponentSchema`).
+retirement: the tolerant face (`safeValidateSchema`) and the strict authoring
+face (`StrictAnyComponentSchema`, which `objectui validate` runs).
 
 - The pre-9.0 object-bound report, `objectName` plus column objects
   (objectui#11506). Write `dataset` where it had `objectName`, and dimension

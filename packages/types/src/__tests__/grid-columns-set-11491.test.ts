@@ -18,8 +18,8 @@
  * declaration and `z.number()` in both arms of the mirror. `grid.tsx` spells
  * `grid-cols-1` to `grid-cols-12` once per breakpoint and nothing else, so a
  * count outside that set parsed green on the tolerant face
- * (`safeValidateSchema`, what `objectui validate` runs) and on the strict
- * authoring face, and drew no column class where it was authored: a bare `13`
+ * (`safeValidateSchema`) and on the strict authoring face, which
+ * `objectui validate` runs, and drew no column class where it was authored: a bare `13`
  * drew `grid-cols-1 sm:grid-cols-2` and lost its `md` count, `{ md: 13 }` drew
  * nothing at `md`, and `{ xs: 13 }`, `0` and `-1` drew `grid-cols-2` through a
  * fallback the renderer no longer has.

@@ -11,8 +11,8 @@
  *
  * `@object-ui/core`'s `validateFieldWidgetNamespace` has refused a
  * colon-qualified form-field widget id outside the `field:` namespace since
- * #5375. This schema — the one `objectui validate` reaches through
- * `safeValidateSchema` — declared `type`/`widget` as bare optional strings, so
+ * #5375. This schema — the one `objectui validate` reaches, through its strict
+ * twin — declared `type`/`widget` as bare optional strings, so
  * it green-lit the same document. An author who ran the CLI before shipping
  * got a tick on metadata that renders a secret into a clear-text box.
  *
@@ -149,12 +149,12 @@ describe('FormFieldSchema still accepts every legitimate widget id', () => {
 });
 
 /**
- * The entry point the card is actually about: `objectui validate` calls
- * `safeValidateSchema`, which routes a `type: 'form'` document to `FormSchema`
- * and its `fields` array. The refusal has to survive that trip with a path an
+ * The entry point the card was about: `safeValidateSchema`, the call
+ * `objectui validate` made then (it runs the strict twin since objectui#5250).
+ * It routes a `type: 'form'` document to `FormSchema` and its `fields` array. The refusal has to survive that trip with a path an
  * author can act on.
  */
-describe('safeValidateSchema — the path `objectui validate` takes', () => {
+describe('safeValidateSchema — the tolerant face', () => {
   const badForm = { type: 'form', fields: [{ name: 'pw', type: 'ui:password' }] };
 
   it('rejects the document core rejects', () => {

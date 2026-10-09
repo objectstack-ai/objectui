@@ -16,8 +16,8 @@
  * The containers take their child lists in the bag (`properties.children`;
  * `properties.items[].children` on `page:tabs` / `page:accordion`), and the
  * spec rows the arms read by reference type every one of those slots
- * `z.array(z.unknown())`. So `safeValidateSchema` (what `objectui validate`
- * runs) and `StrictAnyComponentSchema` passed a malformed nested block, and a
+ * `z.array(z.unknown())`. So `safeValidateSchema` and `StrictAnyComponentSchema`
+ * (what `objectui validate` runs) passed a malformed nested block, and a
  * nested `type` no arm declares, while the same child in a node-level child
  * slot was refused. Every row in (a) below parsed green on both faces before
  * this card; the last row of (b) is the node-level slot that already judged.

@@ -73,7 +73,7 @@ const draw = (surface: 'renderer' | 'grid' | 'registration', widget: Record<stri
 
 describe('objectui#4425 — the card with `label` is refused, and the remedy names `title`', () => {
   it.each([
-    ['the tolerant face (`objectui validate`)', AnyComponentSchema],
+    ['the tolerant face', AnyComponentSchema],
     ['the strict authoring face', StrictAnyComponentSchema],
   ] as const)('%s', (_face, face) => {
     const refused = face.safeParse(doc(LABELLED));

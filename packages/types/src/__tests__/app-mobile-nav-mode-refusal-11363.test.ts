@@ -23,8 +23,8 @@
  *   (b) the refusal opens with the sentence the spec answers the key with
  *       (read from the spec at run time, not copied) and names both read
  *       channels;
- *   (c) the validator `objectui validate` runs (`safeValidateSchema`) and the
- *       strict authoring face refuse it at the same path;
+ *   (c) the tolerant validator (`safeValidateSchema`) and the strict authoring
+ *       face, which `objectui validate` runs, refuse it at the same path;
  *   (d) the TypeScript face refuses it at the authoring site;
  *   (e) the refusal does not reach an `app-schema-renderer` node: a legal
  *       value adds no issue there, on either face, so the node channel is not
@@ -93,7 +93,7 @@ describe('objectui#11363 — the zod mirror refuses `mobileNavMode` on the app d
 });
 
 describe('objectui#11363 — the validator and the strict face refuse it at the same path', () => {
-  it.each(VALUES)('`safeValidateSchema` (what `objectui validate` runs) refuses %j at `mobileNavMode`', (value) => {
+  it.each(VALUES)('`safeValidateSchema` (the tolerant face) refuses %j at `mobileNavMode`', (value) => {
     const issues = validatorIssues({ ...DOC, mobileNavMode: value });
     expect(issues?.map((i) => [i.code, i.path])).toEqual([['invalid_type', 'mobileNavMode']]);
   });

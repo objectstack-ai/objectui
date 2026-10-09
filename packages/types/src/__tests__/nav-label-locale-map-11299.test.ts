@@ -13,8 +13,8 @@
  * `@objectstack/spec`'s shared nav-item base declares
  * `label: I18nLabelSchema.optional()`, so `{ en: 'Accounts', 'zh-CN': '客户' }`
  * is a spec-valid entry label and the platform's save door (`os validate`)
- * accepts it. This mirror declared `z.string()`, so `safeValidateSchema` — the
- * function `objectui validate` calls — refused the same document with
+ * accepts it. This mirror declared `z.string()`, so `safeValidateSchema` —
+ * then the function `objectui validate` called — refused the same document with
  * "expected string, received object". The mirror now takes the spec's
  * `I18nLabelSchema` by reference, so the two doors judge a label alike.
  *

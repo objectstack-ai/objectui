@@ -94,7 +94,7 @@ type _StoredViewTypeKeepsGantt = Assert<Equal<'gantt' extends NonNullable<NamedL
 type _SurvivorIsTagged = Assert<Equal<ObjectKanbanSchema['type'], 'object-kanban'>>;
 
 /* -------------------------------------------------------------------------- */
-/* Runtime — through `safeValidateSchema`, the union the CLI applies.          */
+/* Runtime — through `safeValidateSchema`, the tolerant node union.           */
 /* -------------------------------------------------------------------------- */
 
 interface IssueLike {

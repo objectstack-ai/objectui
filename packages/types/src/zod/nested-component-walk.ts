@@ -17,8 +17,8 @@
  * `page:sidebar`, and `properties.items[].children` on `page:tabs` /
  * `page:accordion`. Their arms read the spec's `ComponentPropsMap` rows by
  * reference (`propsBag` in `./public-blocks.zod.ts`), and every one of those
- * slots is `z.array(z.unknown())` in the row. So `safeValidateSchema` (what
- * `objectui validate` runs) and `StrictAnyComponentSchema` never looked inside
+ * slots is `z.array(z.unknown())` in the row. So `safeValidateSchema` and
+ * `StrictAnyComponentSchema` (what `objectui validate` runs) never looked inside
  * a bag child list: a malformed nested block, or a nested `type` no arm
  * declares, parsed green, while the same child written in a node-level child
  * slot is judged by the node union at every depth (objectui#8344).

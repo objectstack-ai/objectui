@@ -27,8 +27,8 @@
  *   - BY REFERENCE: a column's schema IS the spec schema as it crosses the
  *     import boundary, so a faithful hand copy turns this red. The TypeScript
  *     face IS the spec's `InlineGridColumn` (judged by `tsc -p tsconfig.test.json`).
- *   - THE VERDICTS, on the tolerant face (`safeValidateSchema`, which
- *     `objectui validate` runs) and on the strict authoring face. An undeclared
+ *   - THE VERDICTS, on the tolerant face (`safeValidateSchema`) and on the
+ *     strict authoring face, which `objectui validate` runs. An undeclared
  *     column key is refused at the column, with the key named. A `scale` on a
  *     column that DECLARES `type: 'currency'` is refused at that `scale`. A bare
  *     field-name string is refused at the column. A column `{ name }` is
@@ -115,7 +115,7 @@ const FLAT_COLUMN = ['subforms', 0, 'columns', 0];
 
 type Face = { name: string; parse: (doc: unknown) => ReturnType<typeof safeValidateSchema> };
 const FACES: ReadonlyArray<Face> = [
-  { name: 'tolerant (`safeValidateSchema`, which `objectui validate` runs)', parse: (doc) => safeValidateSchema(doc) },
+  { name: 'tolerant (`safeValidateSchema`)', parse: (doc) => safeValidateSchema(doc) },
   { name: 'strict authoring face', parse: (doc) => StrictAnyComponentSchema.safeParse(doc) as ReturnType<typeof safeValidateSchema> },
 ];
 

@@ -13,8 +13,8 @@
  * stored `{ name }` value as it did before.
  *
  * Each case takes ONE `object-pivot` document, validates it on the strict
- * authoring face (`StrictAnyComponentSchema`) and on the tolerant one
- * (`safeValidateSchema`, which `objectui validate` runs), then mounts the REAL
+ * authoring face (`StrictAnyComponentSchema`, which `objectui validate` runs)
+ * and on the tolerant one (`safeValidateSchema`), then mounts the REAL
  * `DrillDownDrawer` with that document's `drillDown.report` over the REAL
  * `report` registration of `@object-ui/plugin-report` (the pairing a drill runs
  * in, which is why this lives in the console, the package that depends on

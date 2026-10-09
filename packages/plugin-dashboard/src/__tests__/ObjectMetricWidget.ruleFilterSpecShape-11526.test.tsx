@@ -51,8 +51,8 @@ const aggregatingAdapter = (rows: Record<string, unknown>[]) => ({
  * The authored node, in the `properties` form. The card's document, the
  * showcase-shaped one and each per-operator document are checked on the
  * block's own arm (`ObjectMetricBlockSchema`) and on both authoring faces:
- * `safeValidateSchema` (the tolerant `AnyComponentSchema`, which
- * `objectui validate` runs) and `StrictAnyComponentSchema`.
+ * `safeValidateSchema` (the tolerant `AnyComponentSchema`) and
+ * `StrictAnyComponentSchema`, which `objectui validate` runs.
  */
 const node = (properties: Record<string, unknown>) => ({ type: 'object-metric', properties });
 

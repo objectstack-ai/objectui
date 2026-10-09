@@ -215,7 +215,8 @@ describe('@object-ui/cli bin', () => {
 
   // objectui#10524 — `check` is an advisory sweep, not a validator: a file whose
   // root carries a structural key is recognised by that key and never parsed,
-  // and only unreadable JSON exits non-zero. Its help line used to read
+  // and it exits non-zero only on unreadable JSON or on a `${…}` refused on a
+  // text key its node never evaluates (objectui#4795). Its help line used to read
   // "Validate schema files". These assert the kind of claim and the command it
   // names, not the wording.
   describe('check --help does not present `check` as the validator (objectui#10524)', () => {

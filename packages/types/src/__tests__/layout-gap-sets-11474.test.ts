@@ -18,8 +18,8 @@
  * map closed sets: `stack.tsx` and `flex.tsx` test `schema.gap ?? 2` against
  * one branch per step, so `{ type: 'stack', gap: 7 }` and
  * `{ type: 'flex', properties: { gap: 9 } }` parsed green on the tolerant face
- * (`safeValidateSchema`, what `objectui validate` runs) and on the strict
- * authoring face, and drew no gap class at all. `grid.tsx` builds
+ * (`safeValidateSchema`) and on the strict authoring face, which
+ * `objectui validate` runs, and drew no gap class at all. `grid.tsx` builds
  * `gap-[N*0.25rem]` at runtime for a number outside its map, a class no
  * compiled stylesheet defines.
  *

@@ -21,8 +21,8 @@
  *
  * What this file holds, per face of `@object-ui/types`:
  *
- *   1. zod — the form-field mirror, the tolerant face (`safeValidateSchema`,
- *      the `objectui validate` door) and the strict authoring face each answer
+ *   1. zod — the form-field mirror, the tolerant face (`safeValidateSchema`)
+ *      and the strict authoring face (the `objectui validate` door) each answer
  *      a snake_case key with exactly one `invalid_type` issue at that key,
  *      whose message names the camelCase replacement; the camelCase key with
  *      the same value parses on all three (the lit control);
@@ -119,7 +119,7 @@ describe.each(DOORS)('objectui#11610 — %s', (_door, parse, at) => {
   });
 });
 
-describe('objectui#11610 — the camelCase keys are kept by the parse that `objectui validate` runs', () => {
+describe('objectui#11610 — the camelCase keys are kept by the tolerant parse', () => {
   it('a grid entry carrying all eight camelCase keys parses on the tolerant face with every value kept', () => {
     const camel = Object.fromEntries(RETIRED.map(([snake, key]) => [key, VALUE[snake]]));
     const parsed = safeValidateSchema(formWith(camel));

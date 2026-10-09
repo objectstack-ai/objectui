@@ -38,7 +38,7 @@
  *
  * By the issue ENVELOPE — `code` and `path`, and that it is the ONLY issue, so a
  * refusal cannot ride on some other failure of the same document — at the public
- * door `safeValidateSchema` (what `objectui validate` / `objectui check` run) and
+ * door `safeValidateSchema` (the tolerant face) and
  * on the mirror. The wording is not pinned; that the message and the published
  * `.describe()` metadata are one string is.
  *

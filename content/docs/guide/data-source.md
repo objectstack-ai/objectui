@@ -286,8 +286,8 @@ of its own, and the page compile accepts it; a node that names its child object 
 neither place shows a configuration hint naming `childObject` and loads nothing.
 
 Because the binding lands on `objectName`, a node bound this way needs no
-`objectName` of its own. The schema validator (`safeValidateSchema`, which
-`objectui validate` runs) counts the binding as a record source of `list-view`,
+`objectName` of its own. The schema validator (`StrictAnyComponentSchema`, which
+`objectui validate` runs, and the tolerant `safeValidateSchema` alike) counts the binding as a record source of `list-view`,
 `object-grid`, `object-kanban`, `object-calendar`, `object-gantt` and `object-map`,
 and still refuses one of those nodes that declares no other record source and names
 its object in neither place. A binding with an empty `object` names nothing.

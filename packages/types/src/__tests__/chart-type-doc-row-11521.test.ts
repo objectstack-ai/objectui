@@ -40,8 +40,8 @@
  *   value twice.
  * - The declared set is the installed spec's `ChartTypeSchema`.
  * - Each value the row lists parses on the tolerant face
- *   (`safeValidateSchema`, what `objectui validate` runs) and on the strict
- *   authoring face, and `heatmap` is refused at `chartType` on both, as one
+ *   (`safeValidateSchema`) and on the strict authoring face, which
+ *   `objectui validate` runs, and `heatmap` is refused at `chartType` on both, as one
  *   `invalid_value` whose `values` are the declared set. That is the row's
  *   "refused with the set named".
  *

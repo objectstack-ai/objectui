@@ -24,8 +24,8 @@
  *
  *   - BY REFERENCE, at the type level: the bag's `details` entry IS the spec's
  *     entry (judged by `tsc -p tsconfig.test.json`).
- *   - THE VERDICTS, on the tolerant face (`safeValidateSchema`, which
- *     `objectui validate` runs) and on the strict authoring face, for a node
+ *   - THE VERDICTS, on the tolerant face (`safeValidateSchema`) and on the
+ *     strict authoring face, which `objectui validate` runs, for a node
  *     authored in the spec's `{ type, properties }` form: an undeclared entry
  *     key is refused at the entry with the key named; an entry with no
  *     `childObject` is refused at that member; a bare field-name column is
@@ -93,7 +93,7 @@ const nodeWith = (entry: unknown) => ({
 
 type Face = { name: string; parse: (doc: unknown) => { success: boolean; error?: { issues: Issue[] } } };
 const FACES: Face[] = [
-  { name: 'tolerant (`safeValidateSchema`, which `objectui validate` runs)', parse: (doc) => safeValidateSchema(doc) as never },
+  { name: 'tolerant (`safeValidateSchema`)', parse: (doc) => safeValidateSchema(doc) as never },
   { name: 'strict authoring face', parse: (doc) => StrictAnyComponentSchema.safeParse(doc) as never },
 ];
 

@@ -30,7 +30,7 @@
  *    list's filter, row cap and report have nothing to act on, and
  *    `'navigate'` (the object's list page) is the wrong destination. This is
  *    the one block with a zod door that reads its drill members
- *    (`safeValidateSchema`, which `objectui validate` runs), so it is pinned on
+ *    (`safeValidateSchema`, the tolerant face), so it is pinned on
  *    both doors.
  *
  * ## Two instruments

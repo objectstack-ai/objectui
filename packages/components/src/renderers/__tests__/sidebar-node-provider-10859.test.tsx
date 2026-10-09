@@ -32,7 +32,7 @@
  * renderer applied before (`offcanvas`). Before this phase the boolean reached
  * the DOM verbatim as `data-collapsible="true"`, which no rule matches.
  *
- * Each node rendered here is also validated on both `objectui validate` faces,
+ * Each node rendered here is also validated on both validator faces,
  * because the ruling measures the taught node "by a render AND by
  * `objectui validate`".
  */

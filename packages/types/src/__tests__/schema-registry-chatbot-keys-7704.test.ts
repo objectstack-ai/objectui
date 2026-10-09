@@ -187,7 +187,7 @@ describe('each newly named key selects its own arm end to end (objectui#7704)', 
   const ENHANCED_NODE = { type: 'chatbot-enhanced', messages: [] };
   const FLOATING_NODE = { type: 'chatbot-floating', messages: [] };
 
-  it('a minimal node of either key passes safeValidateSchema — the union the CLI applies', () => {
+  it('a minimal node of either key passes safeValidateSchema — the tolerant node union', () => {
     expect(safeValidateSchema(ENHANCED_NODE).success).toBe(true);
     expect(safeValidateSchema(FLOATING_NODE).success).toBe(true);
   });

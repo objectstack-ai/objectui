@@ -62,8 +62,8 @@
  * - its zod declaration, at the authored spelling (flat on the node, or in the
  *   `properties` bag when the node refuses it flat, as `flex` does; the
  *   breakpoint object for a breakpoint position), accepts exactly the mapped
- *   set on the tolerant face (`safeValidateSchema`, what `objectui validate`
- *   runs) and on the strict authoring face — except an input in
+ *   set on the tolerant face (`safeValidateSchema`) and on the strict
+ *   authoring face, which `objectui validate` runs — except an input in
  *   {@link REGISTERED_NOT_DECLARED}, whose reading is held instead;
  * - its registration input publishes a closed `enum` of exactly the mapped
  *   set, and a breakpoint position's input publishes an `object` arm whose

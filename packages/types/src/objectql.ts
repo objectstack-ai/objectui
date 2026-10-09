@@ -5554,8 +5554,8 @@ export interface ObjectChartSchema extends BaseSchema {
    */
   specType?: SpecChartType;
   /**
-   * RETIRED (objectui#10608, ADR-0049) — the list-view chart block's spelling,
-   * read by no `object-chart` reader. Write the spec's {@link xAxis} object,
+   * RETIRED (objectui#10608, ADR-0049) — no `object-chart` reader consumes
+   * `xAxisField`. Write the spec's {@link xAxis} object,
    * `xAxis: { field: 'status' }`; on the inline `objectName` path the category
    * is `aggregate.groupBy`.
    *
@@ -5567,8 +5567,8 @@ export interface ObjectChartSchema extends BaseSchema {
    */
   xAxisField?: never;
   /**
-   * RETIRED (objectui#10608, ADR-0049) — the list-view chart block's spelling,
-   * read by no `object-chart` reader. Write the spec's {@link yAxis} list,
+   * RETIRED (objectui#10608, ADR-0049) — no `object-chart` reader consumes
+   * `yAxisFields`. Write the spec's {@link yAxis} list,
    * `yAxis: [{ field: 'amount' }]` — one entry per value axis, and each entry's
    * `field` is a plotted column when no `series` is written. On the inline
    * `objectName` path the measure is `aggregate.field`; a dataset-bound chart
@@ -5578,8 +5578,8 @@ export interface ObjectChartSchema extends BaseSchema {
    */
   yAxisFields?: never;
   /**
-   * RETIRED (objectui#10608, ADR-0049) — the list-view chart block's spelling,
-   * read by no `object-chart` reader. Write the spec's {@link aggregate},
+   * RETIRED (objectui#10608, ADR-0049) — no `object-chart` reader consumes
+   * `aggregation`. Write the spec's {@link aggregate},
    * `aggregate: { field, function, groupBy }`, whose `function` is the spec's
    * own vocabulary; a dataset-bound chart takes its aggregation from the
    * dataset's measures.

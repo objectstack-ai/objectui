@@ -24,6 +24,8 @@ positive control. It is a one-time reading, recorded on the pull request, and no
 Host applications built on the published package were not measured.
 
 **Changed, `@object-ui/types`.** The `object-chart` node's refusals of `xAxisField`, `yAxisFields` and
-`aggregation` no longer call each key "the list-view chart block's spelling": no list-view route reads
-that spelling, and the list view's chart block refuses it. Each refusal still names its key and the
-same remedy: `xAxis: { field }`, `yAxis: [{ field }]` and `aggregate: { field, function, groupBy }`.
+`aggregation`, and the docblocks of the same three `ObjectChartSchema` members in the published
+`.d.ts`, no longer call each key "the list-view chart block's spelling": no list-view route reads that
+spelling, and the list view's chart block refuses it. Each refusal and each docblock still names its
+key and the same remedy: `xAxis: { field }`, `yAxis: [{ field }]` and
+`aggregate: { field, function, groupBy }`.

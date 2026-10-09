@@ -19,9 +19,10 @@
  *
  * - Signed out: no request. The sign-in page renders from the built-in
  *   language packs alone.
- * - Signed in: the read goes through `createAuthenticatedFetch()`, the request
- *   path the data adapter uses for every signed-in read (bearer, `X-Tenant-ID`,
- *   `Accept-Language`, session-rotation adoption).
+ * - Signed in: the read goes through `withSettleSignal(createAuthenticatedFetch())`,
+ *   the request path the data adapter uses for every signed-in read (bearer,
+ *   `X-Tenant-ID`, `Accept-Language`, session-rotation adoption, and the
+ *   in-flight count an automated driver waits on).
  * - Not answered yet (the provider's `isLoading`): the loader waits. The wait
  *   ends when the session read does, and it never rejects.
  *
@@ -34,6 +35,7 @@
  * navigation, would keep the built-in packs until the next page load.
  */
 import { createAuthenticatedFetch, type AuthState } from '@object-ui/auth';
+import { withSettleSignal } from '@object-ui/app-shell';
 
 /** `null` while the session is unanswered: before the first read, and while it re-resolves. */
 let signedIn: boolean | null = null;
@@ -64,5 +66,5 @@ export function whenSessionAnswered(): Promise<boolean> {
   });
 }
 
-/** The data adapter's own authenticated request path, for the two `/i18n` reads. */
-export const i18nFetch = createAuthenticatedFetch();
+/** The data adapter's own request path (`AdapterProvider`), for the two `/i18n` reads. */
+export const i18nFetch = withSettleSignal(createAuthenticatedFetch());

@@ -130,6 +130,10 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
   // at node level beside its bag — `ElementDataSourceGate` lands
   // `dataSource.object` on the row's optional `childObject`.
   'record:line_items',
+  // objectui#11880: `element:repeater` reads the binding first (its flat query
+  // keys are the fallback until the v18 pin bump), so its arm declares it at
+  // node level beside its bag, whose `object` stays required.
+  'element:repeater',
 ]);
 
 /**

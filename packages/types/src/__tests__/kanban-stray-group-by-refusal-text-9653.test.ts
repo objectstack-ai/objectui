@@ -62,7 +62,9 @@ function refusalMessage(doc: Record<string, unknown>, path: string, code: string
 
 const CHANNELS = [
   { name: 'declared `kanban` slot', doc: { kanban: { groupByField: 'stage', groupBy: 'stage' } }, path: 'kanban.groupBy', code: 'invalid_type' },
-  { name: 'legacy `options.kanban` bag', doc: { options: { kanban: { groupBy: 'stage' } } }, path: 'options.kanban.groupBy', code: 'custom' },
+  // `invalid_type` since objectui#6152 round 12: the bag nests the declared slot's
+  // own block, so the arm is a member there too (it was a `custom` check).
+  { name: 'legacy `options.kanban` bag', doc: { options: { kanban: { groupBy: 'stage' } } }, path: 'options.kanban.groupBy', code: 'invalid_type' },
 ] as const;
 
 describe('objectui#9653 · the stray-`groupBy` refusal does not deny the validation that emits it', () => {

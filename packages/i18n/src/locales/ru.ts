@@ -1697,7 +1697,7 @@ const ru = {
   },
   console: {
     studio: {
-      backToHome: "На главную",
+      title: "Studio",
     },
     saveAdvisoryTitle: "Сохранено — проверка авторинга выдала рекомендаций: {{count}}",
     saveAdvisoryTitle_one: "Сохранено — проверка авторинга выдала рекомендаций: {{count}}",
@@ -2762,6 +2762,7 @@ const ru = {
         dashboard: "Панель",
         page: "Страница",
         report: "Отчёт",
+        package: "Пакет",
         record: "Запись",
         metadata: "Метаданные",
       },

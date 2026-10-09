@@ -10,10 +10,10 @@
  * useRecentItemLabel — what a "recently accessed" entry is called NOW, in the
  * current language (objectui#11678).
  *
- * An object, dashboard, page or report entry stores its identity only
- * (`RecentNamedItem`: `type` + `name`), so this hook is where its text comes
- * from — on every render, never stored. A rename, or a switch of language,
- * shows on the next render; nothing is minted from the route.
+ * An object, dashboard, page, report or Studio package entry stores its
+ * identity only (`RecentNamedItem`: `type` + `name`), so this hook is where its
+ * text comes from — on every render, never stored. A rename, or a switch of
+ * language, shows on the next render; nothing is minted from the route.
  *
  * It holds no labelling rule of its own. Each kind asks what the console
  * already asks for that kind:
@@ -32,11 +32,20 @@
  *    cached metadata `label`, through `useObjectLabel`'s `pageLabel` /
  *    `reportLabel`. `useNavTargetLabel` has no page or report target because
  *    the navigation ruling names none, so the pair is composed here from the
- *    same two helpers it uses.
+ *    same two helpers it uses;
+ *  - a Studio package (objectui#11863): the `name` its row in `packages` has —
+ *    the package list the rendering surface loaded, as the Studio landing does
+ *    with `fetchPackages()`. A package has no metadata cache behind it, so the
+ *    list is handed in rather than read here. The spec's manifest `name` is a
+ *    plain string with no per-language form, so a rename shows on the next
+ *    render and a switch of language leaves it as declared.
  *
  * With no label anywhere the entry shows its machine name — the backstop the
  * navigation renderer uses too, including before the type's metadata has
- * loaded.
+ * loaded. That covers a package missing from `packages`, or a call that passes
+ * no list: ⛔ so a surface that has no package list does not draw package
+ * entries at all, rather than show their ids (the app sidebar and the
+ * metadata-admin app's home, `StudioHomePage`, leave them out for that reason).
  *
  * A record or a Studio metadata item (`RecentTextItem`) carries its own text,
  * which is returned as stored.
@@ -56,7 +65,13 @@ function nonEmpty(text: string | undefined): string | undefined {
   return typeof text === 'string' && text.trim() !== '' ? text : undefined;
 }
 
-export function useRecentItemLabel(): RecentItemLabelResolver {
+export function useRecentItemLabel(
+  sources: {
+    /** The package list the surface loaded, which labels a `package` entry by its row's `name`. */
+    packages?: ReadonlyArray<{ id: string; name: string }> | null;
+  } = {},
+): RecentItemLabelResolver {
+  const { packages } = sources;
   const targetLabel = useNavTargetLabel();
   const metadata = useMetadata();
   const { objectPluralLabel, pageLabel, reportLabel } = useObjectLabel();
@@ -83,10 +98,12 @@ export function useRecentItemLabel(): RecentItemLabelResolver {
           const text = metadataText(findByName(metadata.reports, item.name)?.label, language);
           return nonEmpty(reportLabel({ name: item.name, label: text ?? '' })) ?? item.name;
         }
+        case 'package':
+          return nonEmpty(packages?.find((p) => p.id === item.name)?.name) ?? item.name;
         default:
           return item.label;
       }
     },
-    [targetLabel, metadata, objectPluralLabel, pageLabel, reportLabel, language],
+    [targetLabel, metadata, objectPluralLabel, pageLabel, reportLabel, language, packages],
   );
 }

@@ -27,7 +27,12 @@ import { ListViewSchema, safeValidateSchema } from '../zod/index.zod';
 const REMEDY = "a dataset chart's scope is written in the dataset.";
 
 const DATASET_BLOCK = { chartType: 'bar', dataset: 'task_ds', dimensions: ['status'], values: ['total_estimate'] };
-const OBJECT_BAG = { chartType: 'bar', xAxisField: 'status', yAxisFields: ['estimate'], aggregation: 'sum' };
+// A legacy `options.chart` bag that binds NO dataset. It carried the object-bound
+// axes (`xAxisField` / `yAxisFields` / `aggregation`) until objectui#6152 round 12,
+// when the bag became the spec's list-overlay bag, whose chart block refuses
+// them (pinned in `list-view-options-bag-6152.test.ts`). What this control
+// guards is unchanged: the filter refusal reads `dataset`, nothing else.
+const OBJECT_BAG = { chartType: 'bar' };
 const VIEW_FILTER = [{ field: 'status', operator: 'equals', value: 'open' }];
 const LEGACY_FILTERS = [['status', '=', 'open']];
 
@@ -71,7 +76,7 @@ describe('objectui#10327 — a view filter on a dataset-bound chart view is refu
 
 describe('objectui#10327 — controls: every neighbour of the refused shape parses', () => {
   it.each([
-    ['an object-bound chart (legacy `options.chart` bag) with a view filter', { viewType: 'chart', options: { chart: OBJECT_BAG }, filter: VIEW_FILTER }],
+    ['a chart whose legacy `options.chart` bag binds no dataset, with a view filter', { viewType: 'chart', options: { chart: OBJECT_BAG }, filter: VIEW_FILTER }],
     ['a chart view declaring no block, with a view filter', { viewType: 'chart', filter: VIEW_FILTER }],
     ['a dataset-bound chart with no view filter', { viewType: 'chart', chart: DATASET_BLOCK }],
     ['a dataset-bound chart with an EMPTY view filter', { viewType: 'chart', chart: DATASET_BLOCK, filter: [] }],

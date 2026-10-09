@@ -1643,7 +1643,7 @@ const pt = {
   },
   console: {
     studio: {
-      backToHome: "Voltar ao início",
+      title: "Studio",
     },
     saveAdvisoryTitle: "Salvo — a verificação de criação gerou {{count}} recomendação(ões)",
     saveAdvisoryTitle_one: "Salvo — a verificação de criação gerou {{count}} recomendação",
@@ -2693,6 +2693,7 @@ const pt = {
         dashboard: "Painel",
         page: "Página",
         report: "Relatório",
+        package: "Pacote",
         record: "Registro",
         metadata: "Metadados",
       },

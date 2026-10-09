@@ -196,9 +196,20 @@ describe('objectui#10976 — a key written on `table` reaches the grid `ObjectVi
   it('CONTROL: each by-name key still arrives, and `operations` still merges the view\'s `create: false`', async () => {
     const s = await gridNode({ table: { ...BY_NAME, operations: { update: false } } });
     for (const [key, value] of Object.entries(BY_NAME)) {
+      // objectui#11880 item 5: `defaultFilters` is still read by name, but the
+      // filter pair is resolved before the node is built and handed over in
+      // `filter` alone; its arrival is pinned in the case below.
+      if (key === 'defaultFilters') continue;
       expect(s[key], `\`table.${key}\` no longer reaches the grid`).toEqual(value);
     }
+    expect(s.defaultFilters).toBeUndefined();
     expect(s.operations).toMatchObject({ update: false, create: false });
+  });
+
+  it('`table.defaultFilters` still arrives, in `filter`, when `table.filter` is absent (objectui#11880 item 5)', async () => {
+    const s = await gridNode({ table: { defaultFilters: BY_NAME.defaultFilters } });
+    expect(s.filter).toEqual(BY_NAME.defaultFilters);
+    expect(s.defaultFilters).toBeUndefined();
   });
 });
 

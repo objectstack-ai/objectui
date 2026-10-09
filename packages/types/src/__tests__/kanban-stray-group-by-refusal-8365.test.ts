@@ -46,8 +46,8 @@ const strayGroupByIsRefusedByTsc: ListViewInferred = {
   kanban: {
     groupByField: 'stage',
     // @ts-expect-error objectui#8365 — `groupBy` is a declared refusal on
-    // `KanbanConfig`; write `groupByField` (above) or the deprecated
-    // `groupField`. Removing the arm makes this directive unused → TS2578.
+    // `KanbanConfig`; write `groupByField` (above). Removing the arm makes this
+    // directive unused → TS2578.
     groupBy: 'stage',
   },
 };
@@ -59,11 +59,18 @@ const canonicalCompiles: ListViewInferred = {
   kanban: { groupByField: 'stage' },
 };
 
-/** POSITIVE CONTROL: the live legacy alias still compiles — this card narrowed ONE key. */
-const legacyAliasCompiles: ListViewInferred = {
+/**
+ * The legacy alias, which this card left compiling (it narrowed ONE key). objectui#6152
+ * round 11 refused it too, by name, naming `groupByField`: this row was the control that
+ * said "only `groupBy`", and it is re-spelled by the round that moved it.
+ */
+const legacyAliasRefusedByTsc: ListViewInferred = {
   type: 'list-view',
   objectName: 'deal',
-  kanban: { groupField: 'stage' },
+  kanban: {
+    // @ts-expect-error objectui#6152 round 11 — `groupField` is a declared refusal now.
+    groupField: 'stage',
+  },
 };
 
 describe('objectui#8365 · the type face refuses `kanban.groupBy`', () => {
@@ -72,7 +79,7 @@ describe('objectui#8365 · the type face refuses `kanban.groupBy`', () => {
     // they are checked by `tsc`, not here. This runtime arm exists so the file
     // is not an empty suite and so the fixtures cannot be dropped as unused.
     expect(canonicalCompiles.kanban).toEqual({ groupByField: 'stage' });
-    expect(legacyAliasCompiles.kanban).toEqual({ groupField: 'stage' });
+    expect((legacyAliasRefusedByTsc.kanban as Record<string, unknown>).groupField).toBe('stage');
     expect((strayGroupByIsRefusedByTsc.kanban as Record<string, unknown>).groupBy).toBe('stage');
   });
 

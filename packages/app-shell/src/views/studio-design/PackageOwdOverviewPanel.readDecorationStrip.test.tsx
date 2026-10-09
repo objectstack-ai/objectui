@@ -34,12 +34,20 @@
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+import { t } from '../metadata-admin/i18n';
 import { PackageOwdOverviewPanel } from './PackageOwdOverviewPanel';
+
+/** Pick a dial's option by its label, through the trigger, as a user does; the dials are the shared Select (objectui#11865). */
+async function pickOwd(testId: string, label: string): Promise<void> {
+  fireEvent.keyDown(screen.getByTestId(testId), { key: 'ArrowDown' });
+  const listbox = await screen.findByRole('listbox');
+  fireEvent.click(within(listbox).getByRole('option', { name: label }));
+}
 
 /** Exactly what the framework attaches to a `?state=draft` read. */
 const DECORATIONS = { _diagnostics: { valid: true, errors: [] }, _draft: true };
@@ -102,9 +110,7 @@ describe('PackageOwdOverviewPanel — read decorations never reach the save (obj
     );
     await screen.findByTestId('owd-row-crm_contact');
 
-    fireEvent.change(screen.getByTestId('owd-internal-crm_contact'), {
-      target: { value: 'public_read' },
-    });
+    await pickOwd('owd-internal-crm_contact', t('engine.studio.settings.sharingPublicRead', 'en-US'));
     fireEvent.click(screen.getByTestId('owd-save'));
 
     // CONTROL: the save really happened, and really carried the edit. Every

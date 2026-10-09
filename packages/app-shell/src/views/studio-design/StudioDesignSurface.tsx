@@ -3804,10 +3804,11 @@ export function InterfacesPillar({
       // staying correct.
       //
       // ⛔ Says what is true and promises no recovery — no "loading…", no "try
-      // again". Same constraint part C established: these registries are plain
-      // `Map`s read during render with no subscription. Here the statement is
-      // not even about registration — this canvas has no blocks by contract,
-      // so there is nothing to wait for.
+      // again". Same constraint part C established for the designer strings
+      // (the comment above `engine.studio.if.designersMissing` in
+      // `metadata-admin/i18n.ts`). Here the statement is not even about
+      // registration — this canvas has no blocks by contract, so there is
+      // nothing to wait for.
       //
       // objectui#11823 — except the list itself. An `object` leaf's canvas is
       // the object's running list, and the list view it shows IS package

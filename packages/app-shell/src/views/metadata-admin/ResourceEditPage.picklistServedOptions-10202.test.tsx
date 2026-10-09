@@ -150,6 +150,11 @@ import { getMetadataResource } from './registry';
 // package entry runs them.
 import './register-builtins';
 import '../../services/builtinComponents.js';
+// The built-in designers, which the package entry registers from a chunk it
+// loads with a dynamic `import()` (objectui#11939 step 2): called here, at
+// module scope, so they are registered before the first render.
+import { registerBuiltinDesigners } from './register-builtin-designers';
+registerBuiltinDesigners();
 
 afterEach(() => {
   cleanup();

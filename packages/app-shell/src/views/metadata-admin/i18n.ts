@@ -3208,14 +3208,21 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.if.noAppTitle': 'This package has no app yet',
   'engine.studio.if.noAppHint': 'Create an app to design its navigation and interfaces.',
   /* objectui#6795 part C — the three designer registries (`preview-registry`,
-   * `inspector-registry`, `default-inspector-registry`) are plain `Map`s filled
-   * by a module-scope side effect, with no change notification. A consumer that
-   * reads one before that registration has landed gets `undefined` and NEVER
-   * recovers — measured on this card: `fallback before registration: true |
-   * still fallback after registration: true | late inspector rendered: false`.
-   * So every string in this family states what is TRUE and must NOT promise
-   * recovery: no "loading…", no "try again", no spinner. That would replace one
-   * false statement with another; making recovery real is part A of #6795.
+   * `inspector-registry`, `default-inspector-registry`) were plain `Map`s with
+   * no change notification, so a consumer that read one before registration
+   * landed NEVER recovered (measured on #6795: `late inspector rendered:
+   * false`). Part A has since landed in two steps (objectui#11939): the
+   * registries are observable and their readers re-render on registration
+   * (step 1), and the package entry registers the built-in designers from a
+   * chunk it loads with a dynamic `import()` (step 2). So a reader that renders
+   * before that chunk arrives shows these strings and then the designer; a
+   * session whose chunk never loads (or that registers no designers at all)
+   * keeps them.
+   *
+   * Every string in this family still states only what is TRUE at the moment
+   * it renders and promises nothing: no "loading…", no "try again", no
+   * spinner. Recovery is now real, but whether it comes depends on a chunk
+   * the string cannot see, so promising it would be a new false statement.
    *
    * The retired `engine.studio.if.readonlyPreview` ("{type} shows a read-only
    * preview for now; design support is in progress.") was false twice over: this

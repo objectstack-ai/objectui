@@ -37,11 +37,13 @@
  *   2. `ListViewSchema.options.calendar` — the LEGACY nesting. `ListView` merges
  *      `{ ...options.calendar, ...calendar }` before it reads anything, and
  *      app-shell's `calendarViewOptions` forwards a view's declared block into
- *      it, so stored views carry the aliases here too. `options` is
- *      `z.record(z.string(), z.any())` and can declare no MEMBER, so this one is
- *      a CHECK (`custom`) carrying the declared arm's own message —
- *      two codes, ONE string. Covering only surface 1 is the half-measure the
- *      objectui#8365 precedent names and refuses.
+ *      it, so stored views carry the aliases here too. Until objectui#6152
+ *      round 12 `options` was a record that could declare no MEMBER, so this
+ *      surface took a CHECK (`custom`) carrying the declared arm's own message.
+ *      Since that round the bag is the spec's list-overlay bag by reference and
+ *      nests surface 1's own block, so the arm is a member here too: the same
+ *      `invalid_type`, the same ONE string. Covering only surface 1 is the
+ *      half-measure the objectui#8365 precedent names and refuses.
  *   3. `ObjectCalendarSchema` — the FLAT node face, which is where the retired
  *      ladder actually read and what `ListView` used to flatten the block into.
  *   4. `ObjectCalendarSchema.calendar` — the element's own container.
@@ -51,11 +53,13 @@
  * - DARK CONTROL (the canonical spelling alone) parses GREEN on every surface.
  *   Without it, "the door refuses the fixture" is satisfied by a door that
  *   refuses everything.
- * - PASSTHROUGH CONTROL (an undeclared nonsense key) still parses GREEN. Every
- *   calendar block stays `.passthrough()` for renderer-ahead knobs
- *   (`allDayField` is the live one); this card declared exactly two named
- *   refusal arms and did not close any object. Without this arm a later
- *   `.strict()` would satisfy every other assertion here.
+ * - UNDECLARED-KEY CONTROL. This card declared exactly two named refusal arms
+ *   and did not close any object, so an undeclared nonsense key parsed GREEN
+ *   here. objectui#6152 round 11 has since CLOSED the view-level block (it is the
+ *   spec's strict list-view slot by reference): on surface 1 the control now
+ *   pins the OTHER code — the spec's own `unrecognized_keys` at `calendar` —
+ *   so the by-name arms stay distinguishable from a plain unknown-key refusal.
+ *   The node face (surface 3) is still `BaseSchema`'s `.passthrough()`.
  * - CANONICAL-TARGET CONTROL — the message points at `startDateField` for
  *   `dateField` and at `endDateField` for `endField`. ⚠️ This is the arm that
  *   holds the line against the upstream divergence recorded at the declaration
@@ -182,22 +186,31 @@ describe('objectui#8355 · surface 1 — the view-level `calendar` block', () =>
     expect(ok.success, JSON.stringify(ok.error?.issues)).toBe(true);
   });
 
-  it('PASSTHROUGH CONTROL: an undeclared key still parses — the block was NOT closed', () => {
-    const ok = listView({ calendar: { startDateField: 'kickoff', [CONTROL_KEY]: 'x' } });
-    expect(ok.success, JSON.stringify(ok.error?.issues)).toBe(true);
+  it('UNDECLARED-KEY CONTROL: an undeclared key is refused with the spec\'s own `unrecognized_keys` (objectui#6152 round 11 closed the block)', () => {
+    // Until round 11 this row pinned the block OPEN. The by-name arms above
+    // report `invalid_type` at their own path; a key no arm names reports the
+    // spec slot's `unrecognized_keys` at the block — two codes, so the arms
+    // cannot be read as a plain strictness refusal.
+    const r = listView({ calendar: { startDateField: 'kickoff', [CONTROL_KEY]: 'x' } });
+    expect(r.success).toBe(false);
+    const issue = issueAt(r, 'calendar') as { code?: string; keys?: string[] } | undefined;
+    expect(issue?.code).toBe('unrecognized_keys');
+    expect(issue?.keys).toEqual([CONTROL_KEY]);
   });
 });
 
 describe('objectui#8355 · surface 2 — the legacy `options.calendar` nesting', () => {
-  it.each(RETIRED)('refuses `%s` there too, with the SAME message and the `custom` code', (alias, canonical) => {
+  it.each(RETIRED)('refuses `%s` there too, with the SAME message and the SAME `invalid_type` code', (alias, canonical) => {
     const result = listView({ options: { calendar: { startDateField: 'kickoff', [alias]: 'kickoff' } } });
     expect(result.success, `${alias} still parses green under options.calendar`).toBe(false);
     const issue = issueAt(result, `options.calendar.${alias}`);
-    // `options` is an open record and can declare no MEMBER, so the refusal is
-    // a CHECK. Two codes, ONE message — that is the point of reading the arm's
-    // own `.description` rather than re-spelling it.
-    expect(issue?.code).toBe('custom');
+    // objectui#6152 round 12: the bag nests surface 1's own block, so the arm is
+    // a declared MEMBER here too (it was a `custom` check while `options` was an
+    // open record). One code and ONE message in both nestings.
+    expect(issue?.code).toBe('invalid_type');
     expect(issue?.message).toContain(`Did you mean \`${alias}\` → \`${canonical}\`?`);
+    const surface1 = issueAt(listView({ calendar: { startDateField: 'kickoff', [alias]: 'kickoff' } }), `calendar.${alias}`);
+    expect(issue?.message).toBe(surface1?.message);
   });
 
   it('DARK CONTROL: a canonical legacy block parses GREEN', () => {
@@ -205,15 +218,22 @@ describe('objectui#8355 · surface 2 — the legacy `options.calendar` nesting',
     expect(ok.success, JSON.stringify(ok.error?.issues)).toBe(true);
   });
 
-  it('SCOPE CONTROL: nothing else under `options.calendar` is judged here', () => {
-    const ok = listView({ options: { calendar: { [CONTROL_KEY]: 'x' } } });
-    expect(ok.success, JSON.stringify(ok.error?.issues)).toBe(true);
+  it('UNDECLARED-KEY CONTROL: an undeclared key is refused with the spec\'s own `unrecognized_keys` (objectui#6152 round 12 closed the bag)', () => {
+    // Until round 12 this row pinned the nesting OPEN ("nothing else under
+    // `options.calendar` is judged here"). The by-name arms above report
+    // `invalid_type` at their own path; a key no arm names reports the spec
+    // slot's `unrecognized_keys` at the block, as on surface 1.
+    const r = listView({ options: { calendar: { [CONTROL_KEY]: 'x' } } });
+    expect(r.success).toBe(false);
+    const issue = issueAt(r, 'options.calendar') as { code?: string; keys?: string[] } | undefined;
+    expect(issue?.code).toBe('unrecognized_keys');
+    expect(issue?.keys).toEqual([CONTROL_KEY]);
   });
 
   it('SIBLING CONTROL: the objectui#8365 `options.kanban.groupBy` refusal still fires', () => {
-    // The calendar check was added inside the same `.check()` that carries the
-    // kanban one, so this row is what reports a refactor that dropped the
-    // earlier card's refusal on the way past.
+    // The calendar refusal and the kanban one rode the same `.check()` until
+    // objectui#6152 round 12 made both arms of the nested blocks, so this row is
+    // what reports a refactor that dropped the earlier card's refusal on the way past.
     const result = listView({ options: { kanban: { groupBy: 'stage' } } });
     expect(result.success).toBe(false);
     expect(issueAt(result, 'options.kanban.groupBy')?.message)
@@ -338,15 +358,19 @@ describe('objectui#8355 · surface 5 — a NAMED VIEW, and the ledger it must no
   });
 });
 
-describe('objectui#8355 · the TIMELINE alias is NOT this card, and stays live', () => {
-  it('`timeline.dateField` still parses GREEN — the ruling retired the CALENDAR pair', () => {
-    // ⛔ SCOPE ARM, not an omission. The card's own boundaries put the map /
-    // gantt / timeline / kanban ladders on their own cards, and `timeline`'s
-    // alias has live consumers this change does not touch: `normalizeListViewSchema`
-    // folds it onto `startDateField`, `ObjectView` reads it, and app-shell pins
-    // that it still renders. If a later sweep retires it, this row reddens and
-    // whoever does it has to say so rather than carrying it in silently.
-    const ok = listView({ timeline: { dateField: 'kickoff' } });
-    expect(ok.success, JSON.stringify(ok.error?.issues)).toBe(true);
+describe('objectui#8355 · the TIMELINE alias was NOT this card — objectui#6152 round 11 retired it at the door', () => {
+  it('`timeline.dateField` is refused BY NAME at its own path, naming `startDateField`', () => {
+    // ⛔ SCOPE ARM, re-spelled by the round that retired it, as this row asked.
+    // objectui#8355 retired the CALENDAR pair only. objectui#6152 round 11 took
+    // the list view's `timeline` block from the spec slot by reference and
+    // refused `dateField` there by name (the seat's Q1 → A on that card). Its
+    // READERS stay: `normalizeListViewSchema` still folds a stored one onto
+    // `startDateField`, so a stored view keeps rendering. The full pin is
+    // `list-view-blocks-by-reference-6152.test.ts`.
+    const r = listView({ timeline: { dateField: 'kickoff' } });
+    expect(r.success).toBe(false);
+    const issue = issueAt(r, 'timeline.dateField');
+    expect(issue?.code).toBe('invalid_type');
+    expect(issue?.message).toContain('Did you mean `dateField` → `startDateField`?');
   });
 });

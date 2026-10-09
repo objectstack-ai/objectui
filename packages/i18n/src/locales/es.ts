@@ -1648,7 +1648,7 @@ const es = {
   },
   console: {
     studio: {
-      backToHome: "Volver al inicio",
+      title: "Studio",
     },
     saveAdvisoryTitle: "Guardado: la comprobación de creación generó {{count}} recomendación(es)",
     saveAdvisoryTitle_one: "Guardado: la comprobación de creación generó {{count}} recomendación",
@@ -2698,6 +2698,7 @@ const es = {
         dashboard: "Panel",
         page: "Página",
         report: "Informe",
+        package: "Paquete",
         record: "Registro",
         metadata: "Metadatos",
       },

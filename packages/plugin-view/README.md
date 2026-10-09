@@ -250,11 +250,16 @@ just no longer the one to reach for:
 
 **Precedence when a key is written both ways** — `table: { pagination: {
 pageSize: 10 }, pageSize: 50 }`, say — the canonical spelling wins. That is
-`ObjectGrid`'s own existing resolution (`schema.pagination?.pageSize ||
-schema.pageSize`; `if (schema.selection?.type) … else if (schema.selectable
-!== undefined)`; `schemaFilter !== undefined ? … : schema.defaultFilters`), and `ObjectView`
-defers to it by forwarding both slots rather than re-resolving the pair
-itself:
+`ObjectGrid`'s own existing resolution for the paging pairs
+(`schema.pagination?.pageSize || schema.pageSize`; `if
+(schema.selection?.type) … else if (schema.selectable !== undefined)`), and
+`ObjectView` defers to it by forwarding both slots rather than re-resolving
+the pair itself. The filter pair is the exception: `ObjectView` resolves it
+and hands the grid the winner in `filter` alone (objectui#11880). `table.filter`
+wins unless it lowers to nothing (absent, `[]` or `{}`), and then
+`table.defaultFilters` applies. Because the grid then has one filter slot,
+its export carries the filter in force and a change to it returns the grid to
+page 1, as `table.filter` always did:
 
 ```typescript
 import type { ObjectViewSchema } from '@object-ui/types';

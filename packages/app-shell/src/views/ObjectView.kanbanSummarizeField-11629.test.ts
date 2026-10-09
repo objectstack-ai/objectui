@@ -42,7 +42,7 @@ describe('the object page relays the view\'s `summarizeField` (objectui#11629)',
     expect(out.summarizeField).toBe('amount');
     // The neighbouring forwards are untouched by the relay.
     expect(out.groupByField).toBe('stage');
-    expect(out.cardFields).toEqual(['name']);
+    expect(out.columns).toEqual(['name']);
   });
 
   it('carries it on the detector path too, where the view names no lane', () => {

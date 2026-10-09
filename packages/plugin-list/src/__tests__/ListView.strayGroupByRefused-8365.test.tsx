@@ -56,11 +56,11 @@
  *      ⚠️ TWO NESTINGS, and the second one is load-bearing rather than thorough.
  *      `ListView` merges `{ ...options.kanban, ...kanban }`, and the producer
  *      objectui#8213 retired wrote into `options.kanban` — so that is where the
- *      stored views this ruling is ABOUT carry the key. `options` is
- *      `z.record(z.string(), z.any())` and can declare no member, so it takes the
- *      declared arm's guidance as a CHECK (`custom`) while the declared `kanban`
- *      slot reports the arm itself (`invalid_type`). Two codes, ONE message —
- *      asserted below, because a refusal that only reached the declared nesting
+ *      stored views this ruling is ABOUT carry the key. `options` was a record
+ *      that could declare no member, so it took the declared arm's guidance as a
+ *      CHECK (`custom`); since objectui#6152 round 12 it nests the declared slot's
+ *      own block, so both nestings report the arm itself (`invalid_type`). ONE
+ *      message — asserted below, because a refusal that only reached the declared nesting
  *      would leave exactly the affected population silently re-grouped, i.e.
  *      option A wearing option B's name.
  *
@@ -69,11 +69,12 @@
  * - DARK CONTROL (`groupByField` alone) — parses GREEN through the same door.
  *   Without it, "the door refuses the fixture" is satisfied by a door that
  *   refuses everything.
- * - PASSTHROUGH CONTROL (an undeclared `zzzBogusKey`) — still parses GREEN.
- *   `KanbanConfig` stays `.passthrough()` for renderer-ahead knobs
- *   (`swimlaneField` is the live one); this card declared exactly ONE named
- *   refusal arm and did not close the object. Without this arm a later
- *   `.strict()` would satisfy every other assertion here.
+ * - UNDECLARED-KEY CONTROL (an undeclared `zzzBogusKey`). This card declared
+ *   exactly ONE named refusal arm and did not close the object, so the key
+ *   parsed GREEN here. objectui#6152 round 11 has since CLOSED `KanbanConfig`
+ *   (it is the spec's strict list-view slot by reference), so the control now
+ *   pins the OTHER code: the spec's own `unrecognized_keys` at `kanban`, which
+ *   keeps the by-name `groupBy` arm distinguishable from a plain unknown key.
  * - PROTOCOL CONTROL — `@objectstack/spec`'s own `KanbanConfigSchema` refuses
  *   `groupBy` by name, with a lit control (`zzzBogusKey`) firing and a dark
  *   control (`groupByField` alone) drawing no `unrecognized_keys`. This is what
@@ -223,12 +224,12 @@ describe('objectui#8365 · half 2 — the stray key is REFUSED at the read door'
   it('the distinguishing fixture is refused BY NAME, pointing at `groupByField`', () => {
     const issues = refusalIssuesFor(DISTINGUISHING_VIEW);
     expect(issues).toHaveLength(1);
-    // ⭐ THE LEGACY NESTING. `options` is `z.record(z.string(), z.any())` and can
-    // declare no MEMBER, so the refusal there is a CHECK — `custom`, not
-    // `invalid_type`. Two codes, ONE message (the check reads the declared arm's
-    // own `.description`), which is why the message assertions below are shared
-    // between the two nestings while the code assertions are not.
-    expect(issues[0].code).toBe('custom');
+    // ⭐ THE LEGACY NESTING. Until objectui#6152 round 12 `options` was a record
+    // that could declare no MEMBER, so the refusal there was a CHECK (`custom`).
+    // Since that round the bag is the spec's list-overlay bag by reference and
+    // nests the declared slot's own block, so the arm is a member there too:
+    // `invalid_type`, the same code and ONE message in both nestings.
+    expect(issues[0].code).toBe('invalid_type');
     expect(issues[0].path.join('.')).toBe('options.kanban.groupBy');
     // The lead sentence is the one the protocol's own `strictObject({ aliases })`
     // answers with, so an author meets ONE remedy on both faces.
@@ -262,15 +263,22 @@ describe('objectui#8365 · half 2 — the stray key is REFUSED at the read door'
     expect(result.success).toBe(true);
   });
 
-  it('PASSTHROUGH CONTROL: an undeclared sibling key still rides through GREEN', () => {
-    // `KanbanConfig` keeps `.passthrough()` for renderer-ahead knobs. This card
-    // declared ONE named refusal arm; it did not close the object.
+  it('UNDECLARED-KEY CONTROL: an undeclared sibling key is refused with the spec\'s own `unrecognized_keys` (objectui#6152 round 11 closed the block)', () => {
+    // Until round 11 this row pinned the block OPEN. `groupBy` is refused at its
+    // own path with `invalid_type`; a key no arm names is refused at `kanban`
+    // with the spec slot's `unrecognized_keys` — two codes, so the arm cannot be
+    // read as a plain strictness refusal.
     const result = safeValidateSchema({
       type: 'list-view',
       objectName: OBJECT,
-      kanban: { groupByField: CANONICAL, zzzBogusKey: 'still accepted' },
+      kanban: { groupByField: CANONICAL, zzzBogusKey: 'refused now' },
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    const issue = result.success
+      ? undefined
+      : (result.error.issues.find((i) => i.path.join('.') === 'kanban') as { code?: string; keys?: string[] } | undefined);
+    expect(issue?.code).toBe('unrecognized_keys');
+    expect(issue?.keys).toEqual(['zzzBogusKey']);
   });
 });
 

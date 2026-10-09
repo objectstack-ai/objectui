@@ -1606,7 +1606,7 @@ const de = {
   },
   console: {
     studio: {
-      backToHome: "Zurück zur Startseite",
+      title: "Studio",
     },
     saveAdvisoryTitle: "Gespeichert — die Autorenprüfung ergab {{count}} Hinweis(e)",
     saveAdvisoryTitle_one: "Gespeichert — die Autorenprüfung ergab {{count}} Hinweis",
@@ -2647,6 +2647,7 @@ const de = {
         dashboard: "Dashboard",
         page: "Seite",
         report: "Bericht",
+        package: "Paket",
         record: "Datensatz",
         metadata: "Metadaten",
       },

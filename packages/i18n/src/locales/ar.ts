@@ -1775,7 +1775,7 @@ const ar = {
   },
   console: {
     studio: {
-      backToHome: "العودة إلى الرئيسية",
+      title: "Studio",
     },
     saveAdvisoryTitle: "تم الحفظ — أنتج فحص التأليف {{count}} ملاحظة إرشادية",
     saveAdvisoryTitle_zero: "تم الحفظ — أنتج فحص التأليف {{count}} ملاحظة إرشادية",
@@ -2855,6 +2855,7 @@ const ar = {
         dashboard: "لوحة تحكم",
         page: "صفحة",
         report: "تقرير",
+        package: "حزمة",
         record: "سجل",
         metadata: "البيانات الوصفية",
       },

@@ -1606,7 +1606,7 @@ const ko = {
   },
   console: {
     studio: {
-      backToHome: "홈으로 돌아가기",
+      title: "Studio",
     },
     saveAdvisoryTitle: "저장되었습니다 — 작성 검사에서 {{count}}건의 권장 사항이 발견되었습니다",
     saveAdvisoryTitle_one: "저장되었습니다 — 작성 검사에서 {{count}}건의 권장 사항이 발견되었습니다",
@@ -2646,6 +2646,7 @@ const ko = {
         dashboard: "대시보드",
         page: "페이지",
         report: "보고서",
+        package: "패키지",
         record: "레코드",
         metadata: "메타데이터",
       },

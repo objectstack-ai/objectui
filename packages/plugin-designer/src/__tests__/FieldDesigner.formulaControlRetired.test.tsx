@@ -51,7 +51,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react';
 import type { DesignerFieldDefinition } from '@object-ui/types';
 import { FieldDesigner } from '../FieldDesigner';
 
@@ -178,15 +178,19 @@ describe('objectui#6043 · the form model carries no formula expression', () => 
     // Measured on `@objectstack/spec` 17.2.0: `FieldSchema.safeParse({ type:
     // 'formula', label: 'Tax' })` succeeds. Only the expression key was refused,
     // so removing the type would have broken formula fields outright — the
-    // opposite of this card. The grouped type `<select>` is the palette's own
+    // opposite of this card. The grouped type filter is the palette's own
     // surface, so the option living there is the checkable form of that claim.
     renderDesigner();
-    const filter = screen.getByTestId('field-designer-type-filter') as HTMLSelectElement;
-    const values = Array.from(filter.querySelectorAll('option')).map((o) => o.value);
+    // The filter is the shared Select (objectui#11865): its options are read
+    // from the open list, by label.
+    fireEvent.keyDown(screen.getByTestId('field-designer-type-filter'), { key: 'ArrowDown' });
+    const labels = within(await screen.findByRole('listbox'))
+      .getAllByRole('option')
+      .map((o) => o.textContent);
 
-    expect(values).toContain('formula');
+    expect(labels).toContain('Formula');
     // Control: the list is populated, so the presence above is a real reading.
-    expect(values).toContain('lookup');
-    expect(values.length).toBeGreaterThan(5);
+    expect(labels).toContain('Lookup');
+    expect(labels.length).toBeGreaterThan(5);
   });
 });

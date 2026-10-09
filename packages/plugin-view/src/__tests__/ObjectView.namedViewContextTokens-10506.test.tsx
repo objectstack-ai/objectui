@@ -204,7 +204,9 @@ describe('named view / table filter → the `object-grid` schema handed to Objec
     const ds = makeAdapter();
     render(<Scoped><ObjectView schema={namedView('grid', MINE)} dataSource={ds as any} /></Scoped>);
     await waitFor(() => expect(gridSchemas.length).toBeGreaterThan(0));
-    expect(gridSchemas.at(-1).defaultFilters).toEqual([{ field: 'owner', operator: 'equals', value: USER }]);
+    // objectui#11880 item 5: in `filter`, the one filter slot the grid node carries.
+    expect(gridSchemas.at(-1).filter).toEqual([{ field: 'owner', operator: 'equals', value: USER }]);
+    expect(gridSchemas.at(-1).defaultFilters).toBeUndefined();
   });
 
   it('hands ObjectGrid the resolved canonical table.filter', async () => {

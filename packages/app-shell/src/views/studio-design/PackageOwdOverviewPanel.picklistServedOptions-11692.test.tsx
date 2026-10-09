@@ -20,14 +20,22 @@
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
 import { MetadataClient } from '@object-ui/data-objectstack';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { toast } from 'sonner';
+import { t } from '../metadata-admin/i18n';
 import { PackageOwdOverviewPanel } from './PackageOwdOverviewPanel';
+
+/** Pick a dial's option by its label, through the trigger, as a user does; the dials are the shared Select (objectui#11865). */
+async function pickOwd(testId: string, label: string): Promise<void> {
+  fireEvent.keyDown(screen.getByTestId(testId), { key: 'ArrowDown' });
+  const listbox = await screen.findByRole('listbox');
+  fireEvent.click(within(listbox).getByRole('option', { name: label }));
+}
 
 type Row = Record<string, unknown>;
 
@@ -123,7 +131,7 @@ afterEach(() => {
 async function changeSharingAndSave(client: MetadataClient): Promise<void> {
   render(<PackageOwdOverviewPanel client={client} packageId={PKG} locale="en-US" />);
   await screen.findByTestId('owd-row-acme_account');
-  fireEvent.change(screen.getByTestId('owd-internal-acme_account'), { target: { value: 'public_read' } });
+  await pickOwd('owd-internal-acme_account', t('engine.studio.settings.sharingPublicRead', 'en-US'));
   fireEvent.click(screen.getByTestId('owd-save'));
   await waitFor(() => expect(puts).toHaveLength(1));
 }

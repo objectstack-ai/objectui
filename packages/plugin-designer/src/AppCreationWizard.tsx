@@ -42,6 +42,7 @@ import {
   Globe,
   X,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { resolveNavItemLabel, type NavTargetLabelResolver } from '@object-ui/layout';
@@ -280,6 +281,69 @@ function StepIndicator({ steps, currentIndex, onStepClick }: StepIndicatorProps)
 // Step 1: Basic Info
 // ============================================================================
 
+/** The item a template none of the options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — the basic step's template picker, drawn with the shared
+ * `Select`, the control the rest of the designer picks with. It used to be a
+ * browser-native `<select>`. What a pick writes is unchanged: `onPick`
+ * receives the picked option's own value, the string the native control's
+ * `change` carried (`''` for "None", else the template's id). Re-picking the
+ * current option writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value: "None" is the option
+ *   whose value is `''`, which `SelectItem` refuses.
+ * - A template none of the options carries gets an item of its own, labelled
+ *   with its id, so the trigger shows what the draft holds. The native control
+ *   showed "None" there. Picking that item writes nothing.
+ * - `disabled` reaches the trigger through the primitive, as it reached the
+ *   native control.
+ * - `id` goes on the trigger, so the `<label htmlFor>` names it as it named the
+ *   native control.
+ */
+function TemplatePicker({
+  id,
+  value,
+  options,
+  onPick,
+  disabled,
+}: {
+  id: string;
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  disabled: boolean;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the draft's own template, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        id={id}
+        className="h-auto rounded-md border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:ring-offset-0 disabled:bg-gray-50"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 interface BasicInfoStepProps {
   draft: AppWizardDraft;
   templates: Array<{ id: string; label: string; description?: string }>;
@@ -385,20 +449,16 @@ function BasicInfoStep({ draft, templates, readOnly, onChange, t }: BasicInfoSte
           <label htmlFor="app-template" className="block text-sm font-medium text-gray-700">
             {t('appDesigner.template')}
           </label>
-          <select
+          <TemplatePicker
             id="app-template"
             value={draft.template ?? ''}
-            onChange={(e) => onChange({ template: e.target.value })}
+            options={[
+              { value: '', label: 'None' },
+              ...templates.map((template) => ({ value: template.id, label: template.label })),
+            ]}
+            onPick={(template) => onChange({ template })}
             disabled={readOnly}
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
-          >
-            <option value="">None</option>
-            {templates.map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       )}
     </div>

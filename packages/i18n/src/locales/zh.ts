@@ -1672,7 +1672,7 @@ const zh = {
   },
   console: {
     studio: {
-      backToHome: '返回首页',
+      title: 'Studio',
     },
     saveAdvisoryTitle: '已保存 — 编辑检查提出了 {{count}} 条建议',
     saveAdvisoryTitle_one: '已保存 — 编辑检查提出了 {{count}} 条建议',
@@ -2733,6 +2733,7 @@ const zh = {
         dashboard: '仪表盘',
         page: '页面',
         report: '报表',
+        package: '软件包',
         record: '记录',
         metadata: '元数据',
       },

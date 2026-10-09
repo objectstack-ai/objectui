@@ -20,7 +20,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import type { DashboardComponentSchema } from '@object-ui/types';
 import { DashboardEditor } from '../DashboardEditor';
 
@@ -37,9 +37,11 @@ function openPanelFor(id: string) {
 }
 
 describe('DashboardEditor — the widget-only Color Variant is offered on the widget arm alone (objectui#11598)', () => {
-  it('a widget-arm entry is offered it, and a pick writes `colorVariant` on that widget', () => {
+  it('a widget-arm entry is offered it, and a pick writes `colorVariant` on that widget', async () => {
     const onChange = openPanelFor('w1');
-    fireEvent.change(screen.getByTestId('widget-prop-color'), { target: { value: 'blue' } });
+    // Picked through the shared Select's trigger (objectui#11865).
+    fireEvent.keyDown(screen.getByTestId('widget-prop-color'), { key: 'ArrowDown' });
+    fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'Blue' }));
     const schema = onChange.mock.calls[onChange.mock.calls.length - 1][0] as DashboardComponentSchema;
     expect(schema.widgets.find((w) => w.id === 'w1')).toMatchObject({ colorVariant: 'blue' });
   });

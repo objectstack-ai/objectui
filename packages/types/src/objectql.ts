@@ -143,7 +143,6 @@ import type {
   GroupingConfig,
   RowColorConfig,
   GalleryConfig,
-  TimelineConfig,
   NavigationConfig,
   ChartAggregate,
   GanttConfig as SpecGanttConfig,
@@ -200,24 +199,23 @@ import type {
 } from '@objectstack/spec/ui';
 
 /**
- * Gallery configuration extended with legacy fields for backward compatibility.
- * Spec fields from GalleryConfigSchema take priority; legacy fields serve as fallbacks.
+ * A list view's `timeline` block, as the list view hands it to `ObjectTimeline`
+ * (`@object-ui/plugin-timeline`, the nested `schema.timeline` prop).
+ *
+ * ONE declaration since objectui#6152 round 12 (seat answer Q2 → B): this is
+ * {@link ListViewSchema}'s own `timeline` member, which round 11 made the
+ * `@objectstack/spec` list-view slot by reference: strict, `.partial()` (the
+ * list-view route can hand over a block without `titleField` or
+ * `startDateField`), with the pre-#2231 `dateField` refused by name (write
+ * `startDateField`). It was a hand-written intersection of the spec's
+ * `TimelineConfig` with `dateField?: string` and a string index signature of
+ * `any`, through which nothing read a key.
+ *
+ * ⛔ `ListViewGalleryConfig`, its sibling, is RETIRED (seat answer Q3 → A): it
+ * had no consumer and no element row in the spec. Write the spec's
+ * `GalleryConfig`, which this package re-exports.
  */
-export type ListViewGalleryConfig = GalleryConfig & {
-  /** Legacy: image field (deprecated, use coverField) */
-  imageField?: string;
-  [key: string]: any;
-};
-
-/**
- * Timeline configuration extended with legacy fields for backward compatibility.
- * Spec fields from TimelineConfigSchema take priority; legacy fields serve as fallbacks.
- */
-export type ListViewTimelineConfig = TimelineConfig & {
-  /** Legacy: date field (deprecated, use startDateField) */
-  dateField?: string;
-  [key: string]: any;
-};
+export type ListViewTimelineConfig = NonNullable<ListViewSchema['timeline']>;
 
 /**
  * Kanban Configuration
@@ -228,9 +226,10 @@ export type ListViewTimelineConfig = TimelineConfig & {
  * exactly, and `KanbanConfigSchema` is `$strict`, so there was never a
  * divergence to preserve — only a second declaration under the spec's own name
  * for the next agent to read as canonical (objectstack#4115). The zod side has
- * derived from the spec all along (`zod/objectql.zod.ts`, which additionally
- * carries the `groupField` / `cardFields` legacy aliases); this alias is now
- * bound to the same source.
+ * derived from the spec all along (`zod/objectql.zod.ts`, which since
+ * objectui#6152 round 11 takes the list view's own `kanban` slot by reference and
+ * refuses the `groupField` / `cardFields` legacy aliases by name); this alias is
+ * now bound to the same source.
  */
 export type { KanbanConfig } from '@objectstack/spec/ui';
 
@@ -1157,11 +1156,12 @@ export interface ObjectGridSchema extends BaseSchema {
    * `table` slot, while the protocol refused it. Write
    * `[{ field: 'status', operator: 'equals', value: 'open' }]` instead — or, better,
    * move it to `filter`. ⚠️ The read did not narrow: the sink still lowers a record
-   * or an AST array that reaches the slot at runtime (`ObjectView` hands it an
-   * active named view's `filter`, which {@link NamedListView.filter} types
-   * `any[]`), which is not a shape an author writes here, so this face does not
-   * publish it (the objectui#10199 split, as {@link ObjectGridSchema.filter}
-   * makes it).
+   * or an AST array that reaches the slot at runtime, which is not a shape an
+   * author writes here, so this face does not publish it (the objectui#10199
+   * split, as {@link ObjectGridSchema.filter} makes it). Since objectui#11880
+   * item 5 `ObjectView` no longer writes this slot on the grid it draws: an
+   * active named view's `filter` and an authored `table.defaultFilters` both
+   * reach that grid in `filter`, so its export and page reset follow them.
    *
    * @deprecated Use filter instead — the same rule array; this key is read only
    * when `filter` is absent.
@@ -3166,11 +3166,13 @@ export interface NamedListView {
    * spellings work and the declared one wins key-by-key; each block reaches the
    * renderer `ObjectView` already dispatches to for that `type`.
    *
-   * The four with a local dialect (`kanban` `calendar` `gallery` `timeline`)
-   * index this package's mirror deliberately: those shapes are the spec config
-   * `.partial()`-ed plus the legacy field aliases the renderers still read
-   * (`groupField`, `imageField`, `dateField`). `gantt` `map` `chart` `tree`
-   * arrive in that mirror straight from `SpecListViewSchema.shape`.
+   * The four with local refusals (`kanban` `calendar` `gallery` `timeline`)
+   * index this package's mirror deliberately: since objectui#6152 round 11 each is
+   * the spec's own list-view slot by reference, strict, `.partial()` on `kanban`
+   * and `timeline` only, with the pre-#2231 aliases (`groupField`, `cardFields`,
+   * `imageField`, `dateField`) and the list-view `calendar.defaultView` refused by
+   * name. `gantt` `map` `chart` `tree` arrive in that mirror straight from
+   * `SpecListViewSchema.shape`.
    */
 
   /** Kanban board configuration. Consumed by `ObjectKanban` (`@object-ui/plugin-kanban`). */
@@ -4238,8 +4240,8 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * and `.passthrough()`, so this type carried an index signature and an
    * optional `startDateField`, and admitted both shapes the slot refuses.
    *
-   * ⛔ `defaultView` is NOT a member of this container even though a list
-   * VIEW's calendar block carries one: this renderer seeds its view state from
+   * ⛔ `defaultView` is NOT a member of this container (nor, since objectui#6152
+   * round 11, of a list VIEW's calendar block): this renderer seeds its view state from
    * {@link ObjectCalendarSchema.defaultView}, the FLAT member below, and never
    * looks inside here, and the slot does not declare it either. Written inside
    * the block, it is refused; write it flat.
@@ -4647,11 +4649,11 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * (`zod/objectql.zod.ts`, `retirementTombstone()`): both halves or neither.
    * Absent stays valid on both, so a node that never wrote the key is untouched.
    *
-   * ⚠️ NODE-LOCAL. The VIEW-LEVEL kanban config's `groupField` is a live legacy
-   * alias of the spec's `groupByField` and is NOT retired:
-   * `packages/core/src/utils/normalize-list-view.ts` maps it, and
-   * `plugin-list`'s `ListView` and `plugin-view`'s `ObjectView` still read it.
-   * `groupField` is dead only on the `object-kanban` node.
+   * ⚠️ NODE-LOCAL, and a different refusal. The VIEW-LEVEL kanban config refuses
+   * `groupField` by name too since objectui#6152 round 11, naming `groupByField`,
+   * but its READERS stay: `packages/core/src/utils/normalize-list-view.ts` still
+   * folds a stored one forward, and `plugin-list`'s `ListView` and `plugin-view`'s
+   * `ObjectView` still read it. On the `object-kanban` node nothing reads it.
    *
    * @deprecated RETIRED (objectui#7322) — author `groupBy` instead.
    */

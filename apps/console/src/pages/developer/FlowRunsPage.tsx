@@ -45,6 +45,11 @@ import {
   SheetTitle,
   SheetDescription,
   ScrollArea,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@object-ui/components';
 import {
   Play, Loader2, CheckCircle2, XCircle, Clock, AlertCircle, RefreshCw, Workflow,
@@ -127,6 +132,61 @@ function JsonBlock({ data }: { data: unknown }) {
     <pre className="rounded border bg-muted/30 p-2 text-xs font-mono overflow-auto whitespace-pre-wrap break-all max-h-96">
       {JSON.stringify(data, null, 2)}
     </pre>
+  );
+}
+
+/** The item a value none of the picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — the flow picker, drawn with the shared `Select` the rest of
+ * the console picks with. It used to be a browser-native `<select>`. What a
+ * pick writes is unchanged: `onPick` receives the picked flow's `name`, the
+ * string the native control's `change` carried. Re-picking the current flow
+ * writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not the flow's name, as the card's other
+ *   pickers do; an index cannot collide with a name.
+ * - A value none of the options carries gets an item of its own, labelled with
+ *   the value: a flow picked before a Refresh that no longer lists it. The
+ *   trigger then shows the flow the page still holds (no runner is shown for
+ *   it). The native control showed the first flow there. Picking that item
+ *   writes nothing.
+ * - Like the native control, the trigger has no label: none is associated
+ *   with it today, and this swap keeps the name it had.
+ * - The page has no read-only state.
+ */
+function FlowPicker({
+  value,
+  options,
+  onPick,
+}: {
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the page's own value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger className="h-9 max-w-md">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -216,17 +276,14 @@ export function FlowRunsPage() {
             <p className="text-sm text-muted-foreground">No flow definitions found.</p>
           )}
           {!flowsLoading && !flowsError && flows.length > 0 && (
-            <select
+            <FlowPicker
               value={selectedFlowName}
-              onChange={e => setSelectedFlowName(e.target.value)}
-              className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              {flows.map(f => (
-                <option key={f.name} value={f.name}>
-                  {f.label ? `${f.label} (${f.name})` : f.name}
-                </option>
-              ))}
-            </select>
+              options={flows.map(f => ({
+                value: f.name,
+                label: f.label ? `${f.label} (${f.name})` : f.name,
+              }))}
+              onPick={setSelectedFlowName}
+            />
           )}
         </CardContent>
       </Card>

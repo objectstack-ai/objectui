@@ -279,7 +279,11 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
     };
   }, [isMobile, setOpenMobile]);
 
-  const { recentItems } = useRecentItems();
+  const { recentItems: allRecentItems } = useRecentItems();
+  // A Studio package entry is labelled from the package list (objectui#11863),
+  // which this sidebar does not load, so it is left out here rather than drawn
+  // as its id. The Studio landing lists the recent packages.
+  const recentItems = allRecentItems.filter(item => item.type !== 'package');
   // A recent entry's text is the item's own, resolved on this render
   // (objectui#11678); the entry stores identity only.
   const recentLabel = useRecentItemLabel();

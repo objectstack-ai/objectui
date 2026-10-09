@@ -124,7 +124,11 @@ export type MetadataPreview = ComponentType<MetadataPreviewProps>;
  * take their shared types from here.
  */
 export interface ObservableTypeRegistry<T> {
-  /** Store `value` under `type`, replacing any earlier entry, and notify subscribers. */
+  /**
+   * Store `value` under `type`, replacing any earlier entry, and notify subscribers —
+   * except inside a built-in pass ({@link registerAsBuiltIns}), which never
+   * replaces an entry that is already there.
+   */
   set(type: string, value: T): void;
   /** The entry for `type` as it is now. */
   get(type: string): T | undefined;
@@ -140,6 +144,42 @@ export interface ObservableTypeRegistry<T> {
    * then.
    */
   useTypes(): readonly string[];
+}
+
+/**
+ * How many built-in registration passes are running (objectui#11939 step 2).
+ * Shared by every store this module creates, so one pass covers all three
+ * designer registries. See {@link registerAsBuiltIns}.
+ */
+let builtInPasses = 0;
+
+/**
+ * Run `register` as a BUILT-IN registration pass: while it runs, a
+ * registration into any of the three designer registries stores its component
+ * only for a type that has no entry yet, and leaves an existing entry — and its
+ * readers — untouched.
+ *
+ * Why (objectui#11939 step 2): the package entry loads the built-in designers
+ * with a dynamic `import()`, so they arrive AFTER the host's own start-up code
+ * has run. A host that registers its own designer right after importing the
+ * entry — the override `previews/index.ts` documents — would otherwise be
+ * overwritten by the built-in that lands later (measured on objectui#11798).
+ * Through this pass the host's entry is kept, whichever of the two comes first:
+ *
+ *   - host first, built-ins later: the built-in for that type is skipped;
+ *   - built-ins first, host later: `register*` replaces the built-in, as it
+ *     always has — outside a pass every registration is last-write-wins.
+ *
+ * Module-internal: the package entry does not re-export it. The one caller
+ * outside tests is `register-builtin-designers.ts`.
+ */
+export function registerAsBuiltIns(register: () => void): void {
+  builtInPasses += 1;
+  try {
+    register();
+  } finally {
+    builtInPasses -= 1;
+  }
 }
 
 export function createObservableTypeRegistry<T>(): ObservableTypeRegistry<T> {
@@ -163,6 +203,10 @@ export function createObservableTypeRegistry<T>(): ObservableTypeRegistry<T> {
   return {
     set(type, value) {
       const known = entries.has(type);
+      // A built-in never displaces an entry that is already there — the host's
+      // own registration, made before the lazily loaded built-ins arrived
+      // (`registerAsBuiltIns`).
+      if (known && builtInPasses > 0) return;
       // Re-registering the component already stored changes nothing a reader
       // can see, so it notifies no one.
       if (known && entries.get(type) === value) return;

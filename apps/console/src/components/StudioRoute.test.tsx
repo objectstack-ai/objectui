@@ -36,7 +36,7 @@
  */
 
 import '@testing-library/jest-dom/vitest';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
@@ -207,6 +207,15 @@ beforeEach(() => {
   builderLanding.mockClear();
   designSurface.mockClear();
   answerWith(TENANT_OWNER_CAPS);
+  // The landing mounts the real `AppHeader` (objectui#11863), which reads its
+  // user-scoped feeds and the AI agent catalogue on mount; each answers empty
+  // here, so no request leaves the process. The entry gate's own read goes
+  // through the mocked `createAuthenticatedFetch`, not this.
+  vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ data: [] })));
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 /**
@@ -322,10 +331,12 @@ describe('/studio/* — the entry decision, both ways', () => {
     expect(pathname()).toBe('/studio/hotcrm/data');
   });
 
-  it("the front door's wordmark walks back to the same home the gate bounces to", async () => {
-    // Two affordances one route apart — this wordmark and the pillar builder's
-    // header Home button — must not name two different homes; that asymmetry is
-    // the defect objectui#7256 measured and objectui#7373 finished removing.
+  it("the front door's header brand walks back to the same home the gate bounces to", async () => {
+    // Two affordances one route apart — this brand (the `studio` variant of
+    // `AppHeader` since objectui#11863, the wordmark before it) and the pillar
+    // builder's header Home button — must not name two different homes; that
+    // asymmetry is the defect objectui#7256 measured and objectui#7373 finished
+    // removing.
     answerWith(OPERATOR_CAPS);
     renderStudioDeepLink('/studio/', CONTROL_PLANE_APPS);
 

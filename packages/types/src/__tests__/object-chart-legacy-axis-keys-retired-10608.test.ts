@@ -48,9 +48,10 @@
  * ## The lit controls
  *
  * Block (b): the spec spelling of the same intent parses on the same node, at
- * the same door. Block (e): the LIST-VIEW carrier that does read these names
- * (the `options.chart` bag) still accepts them — the retirement is scoped to
- * this node, and that boundary is pinned rather than stated.
+ * the same door. Block (e): the LIST-VIEW carrier that reads these names (the
+ * `options.chart` bag) accepted them until objectui#6152 round 12, which made
+ * the bag the spec's list-overlay bag; its dataset-only chart block refuses all
+ * three, so the boundary this block pinned is gone and it now pins the refusal.
  *
  * The `@ts-expect-error` directives in block (f) are REAL enforcement: this
  * package type-checks its tests through `tsconfig.test.json`, so re-widening a
@@ -184,23 +185,45 @@ describe('objectui#10608 (d) — CONTROL: an undeclared spelling is KEPT by `.pa
   });
 });
 
-/* ── (e) the boundary: the LIST-VIEW carrier keeps these names ────────────── */
+/* ── (e) the list-view carrier refuses these names too (objectui#6152 round 12) */
 
-describe('objectui#10608 (e) — CONTROL: the list-view carrier still takes these names', () => {
+describe('objectui#10608 (e) — the list-view carrier refuses these names too (objectui#6152 round 12)', () => {
   /*
-   * The carrier the authoring door still admits them on is the legacy
-   * `options.chart` bag — the one `resolveListChartBinding` reads beside
-   * `chart` and translates before it composes an `object-chart` node. (The
-   * spec's own `chart` block is dataset-only and refuses them already; that is
-   * the spec's ruling, not this card's, and is not pinned here.)
+   * Until objectui#6152 round 12 this block was a CONTROL: the legacy
+   * `options.chart` bag, which `resolveListChartBinding` reads beside `chart`,
+   * still admitted the three names, so the retirement above was scoped to the
+   * `object-chart` node. Round 12 made `ListViewSchema.options` the spec's
+   * list-overlay bag by reference, whose chart block is the spec's dataset-only
+   * list chart (as the top-level `chart` already was), so the bag refuses them
+   * with the spec's own `unrecognized_keys` at `options.chart`. The renderer's
+   * legacy read is not that round's to retire, so a view stored with them still
+   * renders.
    */
-  it('a `chart` list view authoring `xAxisField` / `yAxisFields` / `aggregation` in `options.chart` parses, on both doors', () => {
+  it('a `chart` list view authoring `xAxisField` / `yAxisFields` / `aggregation` in `options.chart` is refused, on both doors', () => {
     const view = {
       type: 'list-view',
       objectName: 'task',
       columns: ['name'],
       viewType: 'chart',
       options: { chart: { chartType: 'bar', xAxisField: 'status', yAxisFields: ['estimate'], aggregation: 'sum' } },
+    };
+    for (const r of [ListViewSchema.safeParse(view), safeValidateSchema(view)]) {
+      expect(r.success).toBe(false);
+      const issue = (r.error?.issues ?? []).find((i) => i.path.join('.') === 'options.chart') as
+        | { code?: string; keys?: string[] }
+        | undefined;
+      expect(issue?.code).toBe('unrecognized_keys');
+      expect([...(issue?.keys ?? [])].sort()).toEqual(['aggregation', 'xAxisField', 'yAxisFields']);
+    }
+  });
+
+  it('CONTROL: the dataset-bound spelling parses in the same bag, on both doors', () => {
+    const view = {
+      type: 'list-view',
+      objectName: 'task',
+      columns: ['name'],
+      viewType: 'chart',
+      options: { chart: { chartType: 'bar', dataset: 'task_ds', dimensions: ['status'], values: ['total_estimate'] } },
     };
     expect(issuesOf(ListViewSchema.safeParse(view))).toEqual([]);
     expect(issuesOf(safeValidateSchema(view))).toEqual([]);

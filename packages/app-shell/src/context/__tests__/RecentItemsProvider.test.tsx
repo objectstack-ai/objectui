@@ -367,3 +367,40 @@ describe('RecentItemsProvider — reading a list stored before the identity shap
     expect(JSON.stringify(saved)).not.toContain('Showcase Ops Dashboard');
   });
 });
+
+describe('RecentItemsProvider — a Studio package entry (objectui#11863)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mockUser.current = { id: 'user-1', name: 'Alice', email: 'a@x' };
+  });
+
+  it('is kept by identity: no display text is stored, even when one is handed in', () => {
+    const { result } = renderHook(() => useRecentItems(), { wrapper });
+    act(() =>
+      result.current.addRecentItem({
+        id: 'package:com.acme.crm',
+        type: 'package',
+        name: 'com.acme.crm',
+        href: '/studio/com.acme.crm',
+        // Not part of the shape; a caller that mints one anyway stores nothing of it.
+        label: 'Acme CRM',
+      } as never),
+    );
+    const [entry] = result.current.recentItems;
+    expect(entry).toEqual({
+      id: 'package:com.acme.crm',
+      type: 'package',
+      name: 'com.acme.crm',
+      href: '/studio/com.acme.crm',
+      visitedAt: expect.any(String),
+    });
+    expect(localStorage.getItem('objectui-recent-items:u:user-1')).not.toContain('Acme CRM');
+  });
+
+  it('reads back from storage as the same entry', () => {
+    const stored = { id: 'package:com.acme.crm', type: 'package', name: 'com.acme.crm', href: '/studio/com.acme.crm', visitedAt: '2026-10-08T09:00:00.000Z' };
+    localStorage.setItem('objectui-recent-items:u:user-1', JSON.stringify([stored]));
+    const { result } = renderHook(() => useRecentItems(), { wrapper });
+    expect(result.current.recentItems).toEqual([stored]);
+  });
+});

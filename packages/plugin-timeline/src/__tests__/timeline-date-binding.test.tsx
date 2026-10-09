@@ -21,6 +21,26 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ObjectTimeline } from '../ObjectTimeline';
+import type { ObjectTimelineProps } from '../ObjectTimeline';
+import type { ListViewSchema, ListViewTimelineConfig } from '@object-ui/types';
+
+/**
+ * objectui#6152 round 12 (seat answer Q2 → B): the component's nested
+ * `timeline` prop is the list view's own block, `NonNullable<ListViewSchema['timeline']>`,
+ * and that type refuses the legacy `dateField` by name. Compile-time pins: the
+ * equality below, and the `@ts-expect-error` on a typed block carrying the alias
+ * (the directive itself fails to compile if the type ever admits it again).
+ */
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+const nestedTimelineIsTheListViewBlock: Equal<
+  NonNullable<ObjectTimelineProps['schema']['timeline']>,
+  NonNullable<ListViewSchema['timeline']>
+> = true;
+const aliasRefusedByTheType: ListViewTimelineConfig = {
+  // @ts-expect-error `dateField` is refused by name: write `startDateField`.
+  dateField: 'start_date',
+  titleField: 'name',
+};
 
 vi.mock('@object-ui/react', async (importOriginal) => {
   const actual = await (importOriginal() as Promise<Record<string, unknown>>);
@@ -78,11 +98,18 @@ describe('ObjectTimeline — honours the configured date field (objectui#3129)',
   });
 
   it('buckets by the nested LEGACY alias `timeline.dateField`', async () => {
-    // `ListViewTimelineConfig` has always declared `dateField` on the nested
-    // config, and both `ObjectView` read-sites resolve it — but this renderer
-    // only ever read the FLAT `schema.dateField`, so the alias fell through to
-    // the caller's default (`created_at` / `due_date`). That field is normally
-    // absent from the projection, so every record landed under "No date".
+    // `ListViewTimelineConfig` declared `dateField` on the nested config, and
+    // both `ObjectView` read-sites resolve it — but this renderer only ever read
+    // the FLAT `schema.dateField`, so the alias fell through to the caller's
+    // default (`created_at` / `due_date`). That field is normally absent from
+    // the projection, so every record landed under "No date".
+    //
+    // objectui#6152 round 12: the TYPE now refuses the alias by name (pinned at
+    // the top of this file), and the READ stays until the readers' retirement
+    // round. So this fixture is what it models: a block stored before the doors
+    // closed, handed in untyped, which must still bind.
+    expect(nestedTimelineIsTheListViewBlock).toBe(true);
+    expect(aliasRefusedByTheType.titleField).toBe('name');
     await renderTimeline({
       type: 'object-timeline',
       objectName: 'crm_campaign',

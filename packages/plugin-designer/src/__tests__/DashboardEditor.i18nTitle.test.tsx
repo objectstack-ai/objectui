@@ -41,7 +41,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import type { DashboardComponentSchema } from '@object-ui/types';
 import { DashboardEditor } from '../DashboardEditor';
 
@@ -184,12 +184,14 @@ describe('DashboardEditor — the title INPUT is a write path, not a display (#4
     expect(reopened.value).toBe('Pipelinex');
   });
 
-  it('an inline map survives an UNRELATED edit-and-save round trip untouched', () => {
+  it('an inline map survives an UNRELATED edit-and-save round trip untouched', async () => {
     // The ruling's acceptance criterion, end to end: the author changes
     // something else entirely on the same widget, and the stored map comes back
-    // byte-identical rather than flattened to one locale.
+    // byte-identical rather than flattened to one locale. The colour is picked
+    // through the shared Select's trigger (objectui#11865).
     const onChange = openPanelFor(schemaWith(MAP_TITLE), 'dashboard-widget-w1');
-    fireEvent.change(screen.getByTestId('widget-prop-color'), { target: { value: 'blue' } });
+    fireEvent.keyDown(screen.getByTestId('widget-prop-color'), { key: 'ArrowDown' });
+    fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'Blue' }));
 
     expect(onChange).toHaveBeenCalled();
     const saved = lastSchema(onChange);

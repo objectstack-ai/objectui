@@ -70,8 +70,10 @@
  * ## Node-local, and the second control that proves it
  *
  * `groupField` is NOT a dead key in general. The VIEW-LEVEL kanban config's
- * `groupField` is a live legacy alias of the spec's `groupByField`:
- * `normalize-list-view.ts` maps it and `ListView` / `ObjectView` read it. Those
+ * `groupField` is a legacy alias of the spec's `groupByField` that is still READ:
+ * `normalize-list-view.ts` maps it and `ListView` / `ObjectView` read it (the
+ * view-level door has refused it by name since objectui#6152 round 11, so a
+ * stored view that carries it still renders but an authored one is refused). Those
  * sites are pinned OFF DISK below as a control — if one stops reading the alias
  * this file turns red, because the retirement's stated boundary moved.
  */
@@ -154,8 +156,14 @@ const VIEW_LEVEL_ALIAS_SITES: ReadonlyArray<readonly [file: string, text: string
   ],
   ['packages/plugin-view/src/ObjectView.tsx', 'kanbanCfg.groupField ||'],
 ];
-/** …and the same alias, still DECLARED on the view-level config in this very mirror file. */
-const VIEW_LEVEL_ALIAS_MIRROR_TEXT = "groupField: z.string().optional().describe('Deprecated alias for groupByField')";
+/**
+ * …and the same alias, still DECLARED on the view-level config in this very mirror file —
+ * since objectui#6152 round 11 as a by-name REFUSAL naming `groupByField` (the spec's
+ * list-view kanban slot refuses it), while the readers above stay live. A different
+ * refusal from this node's tombstone: that one says nothing reads the key, this one
+ * names what to write and leaves the stored-view fold in place.
+ */
+const VIEW_LEVEL_ALIAS_MIRROR_TEXT = 'groupField: KanbanBlockAliasRefusals.groupField,';
 
 /** The documented row-cap node; every assertion below is a delta on it. */
 const NODE = { type: 'object-kanban', objectName: 'opportunity', groupBy: 'stage' } as const;
@@ -438,7 +446,7 @@ describe('objectui#7322 — the control key stays undeclared, so nothing outside
   });
 });
 
-describe('objectui#7322 — the tombstone is NODE-LOCAL: the view-level `groupField` alias is live', () => {
+describe('objectui#7322 — the tombstone is NODE-LOCAL: the view-level `groupField` alias is still READ', () => {
   it.each(VIEW_LEVEL_ALIAS_SITES)('%s still reads the view-level alias', (file, text) => {
     // If a site stops reading `groupField`, the retirement's stated boundary
     // has moved and the docblocks on both faces are wrong: re-derive, do not
@@ -446,7 +454,7 @@ describe('objectui#7322 — the tombstone is NODE-LOCAL: the view-level `groupFi
     expect(readRepo(file), `${file} no longer reads the view-level \`groupField\` alias as \`${text}\``).toContain(text);
   });
 
-  it('the view-level alias is still DECLARED on `KanbanConfig` in the same mirror file', () => {
+  it('the view-level alias is still DECLARED on `KanbanConfig` in the same mirror file, as a by-name refusal (objectui#6152 round 11)', () => {
     expect(readRepo(MIRROR)).toContain(VIEW_LEVEL_ALIAS_MIRROR_TEXT);
   });
 });

@@ -2997,7 +2997,19 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     }
 
     // Check for Gallery capabilities (spec config takes precedence)
-    if (schema.gallery?.coverField || schema.gallery?.imageField || schema.options?.gallery?.imageField) {
+    //
+    // The bag's CANONICAL rung (objectui#6152 round 12), the objectui#8193 kanban
+    // repair a fourth time: the gate asked `options.gallery` for the legacy
+    // `imageField` only, so a bag binding its cover under the spec's `coverField`
+    // rendered a gallery the switcher never offered. app-shell's relay writes
+    // `coverField` alone since that round. ⛔ The alias rung stays: the readers'
+    // retirement is a later round.
+    if (
+      schema.gallery?.coverField ||
+      schema.gallery?.imageField ||
+      schema.options?.gallery?.coverField ||
+      schema.options?.gallery?.imageField
+    ) {
       resolvable.push('gallery');
     }
 
@@ -3465,7 +3477,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...((schema as any).rowActionDefs ? { rowActionDefs: (schema as any).rowActionDefs } : {}),
           ...(schema.bulkActions ? { batchActions: schema.bulkActions } : {}),
           ...((schema as any).bulkActionDefs ? { bulkActionDefs: (schema as any).bulkActionDefs } : {}),
-          ...(schema.options?.grid || {}),
+          // objectui#6152 round 12: `grid` is no longer a member of the typed
+          // `options` bag. The spec's list-overlay bag refuses it (a grid has no
+          // per-kind block), and so does `ListViewSchema.options`. The READ stays,
+          // typed here as the stored input it is, for a row stored before the view
+          // write door judged the bag; it retires with the other legacy readers.
+          ...((schema.options as { grid?: Record<string, unknown> } | undefined)?.grid || {}),
         };
       case 'kanban': {
         // The spec's lane field is `groupByField`; `groupField` is the legacy

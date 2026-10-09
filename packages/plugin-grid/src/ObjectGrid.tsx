@@ -2632,11 +2632,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // carries. `defaultFilters` was declared `Record<string, any>`
             // (the MongoDB-style shape) until objectui#6152 round 10 — it is the
             // row's `ViewFilterRule` array since, the shape `filter` takes — and
-            // `isFilterAST` is false for a plain object; `plugin-view` also
-            // forwards an active named view's `ViewFilterRule[]` into this slot
-            // (`ObjectView.tsx`, the `gridSchema` memo), and `isFilterAST` is
-            // false for an array of rule objects too. Either one answers `400
-            // INVALID_FILTER` (measured against a real backend in objectui#3431).
+            // `isFilterAST` is false for a plain object; a rule array is the
+            // other shape (`plugin-view`'s `ObjectView` forwarded an active
+            // named view's `ViewFilterRule[]` into this slot until objectui#11880
+            // item 5, and hands its whole filter chain to `filter` since), and
+            // `isFilterAST` is false for an array of rule objects too. Either one
+            // answers `400 INVALID_FILTER` (measured against a real backend in
+            // objectui#3431).
             //
             // `toFilterNode` handles both without new logic: objects route
             // through `convertFiltersToAST`, rule arrays lower element-wise,

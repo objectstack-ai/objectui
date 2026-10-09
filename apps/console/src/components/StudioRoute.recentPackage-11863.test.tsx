@@ -203,7 +203,9 @@ describe('/studio/PKG/TAB records the package as a recent entry (objectui#11863)
     permissionsFetch = async () => jsonResponse({ authenticated: true, systemPermissions: ['setup.access'] });
     renderStudio('/studio/com.acme.crm/data');
 
-    await waitFor(() => expect(screen.getByTestId('pathname')).toHaveTextContent('/home'));
+    // The refusal, said in place since objectui#12035, is the decided state.
+    expect(await screen.findByTestId('studio-access-required')).toBeInTheDocument();
+    expect(screen.getByTestId('pathname')).toHaveTextContent('/studio/com.acme.crm/data');
     expect(recent()).toEqual([]);
     expect(persisted()).toBeNull();
   });

@@ -101,8 +101,13 @@ describe('objectui#12063 — `UnifiedViewConfig.chart` is RETIRED', () => {
     ];
     // A WIDENED value is refused too: the member is declared, so it is checked
     // on every assignment, where a deletion would have handed it to the index
-    // signature at `any`.
-    const widened = { id: 'widened', chart: LEGACY_BLOCK };
+    // signature at `any`. Mutable on purpose (not `LEGACY_BLOCK`): its type is
+    // assignable to the retired declaration, so this row fails on the
+    // tombstone and on nothing else.
+    const widened = {
+      id: 'widened',
+      chart: { chartType: 'bar', xAxisField: 'status', yAxisFields: ['estimate'], aggregation: 'sum' },
+    };
     // @ts-expect-error — retired: a value that reached the annotation through a wider variable
     const viaVariable: UnifiedViewConfig = widened;
     expect([...refused, viaVariable]).toHaveLength(3);

@@ -35,6 +35,8 @@ const mocks = vi.hoisted(() => ({ save: vi.fn() }));
 
 vi.mock('./useMetadata', () => ({
   useMetadataClient: () => ({
+    // No pending draft: the save reads the published parent (objectui#12027).
+    getDraft: async () => null,
     layered: async () => ({
       effective: { name: 'sales_order', fields: { amount: { type: 'number', label: 'Amount' } } },
       code: null,

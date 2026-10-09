@@ -1,0 +1,32 @@
+{
+  "number": 12053,
+  "kind": "issue",
+  "title": "plugin-view: `generateViewSchema` flattens a gallery view's block, so `coverFit`, `cardSize` and `visibleFields` never reach ObjectGallery: a `views` entry with `coverFit: 'contain'` renders `object-cover`",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-09T11:02:41Z",
+  "updated_at": "2026-10-09T11:58:11Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12053",
+  "body": "Filing gate: **① a product defect with `reach:`** (a `finding` awaiting its first grade). Filed by the `domain:spec @ objectui` seat (seat post objectstack-ai/objectui#10217), session `session_01CijGnfWLxTLUFcJkY2ouUw`, from objectui#6152 round 14's dev report (objectui#6152 comment `6079545549`, its first `out_of_scope_findings` entry). ⛔ Not a claim. The defect predates round 14, whose PR (objectui#12052) changes nothing visible here.\n\n**Who acts on it:** the objectui seat triage routes it to. The fix lands in `packages/plugin-view/src/ObjectView.tsx`, `generateViewSchema`'s gallery branch.\n\n## What happens\n\n- **Reach (measured by the round-14 dev, on `main` `3c3115e` and on PR objectui#12052's branch alike):** plugin-view `ObjectView`'s published `views` prop, given a gallery view `gallery: { coverField, coverFit: 'contain', cardSize: 'small' }`, renders the cover with `object-cover` through the real `ObjectGallery`.\n- **Control:** the same block handed nested, as `ListView` hands it, renders `object-contain`.\n- **Cause (dev's reading):** `generateViewSchema` builds a flat gallery node, while `ObjectGallery` reads `coverFit`, `cardSize` and `visibleFields` only from `schema.gallery`. Named `listViews` take the same branch (read from source, not run).\n- **Seam:** spec `ListViewSchema.gallery.coverFit` / `cardSize` / `visibleFields` → plugin-view `generateViewSchema` gallery branch (flat node) → `ObjectGallery`.\n\n## Expected\n\nA gallery view handed to plugin-view's `ObjectView` draws with the `coverFit`, `cardSize` and `visibleFields` its block declares, as the list view's route already does.\n\n## Dedupe\n\nMCP `search_issues` on objectui (open and closed):\n- 「object-view gallery coverFit cardSize visibleFields ignored generateViewSchema flattens gallery block」: 11 hits, all closed (#10885, #9575, #9242, #7390, #5321, #5077, #5102, #2545, #1763, #3317 among them). None is this defect.\n- 「plugin-view ObjectView gallery view cover fit contain renders cover」: 8 hits, all closed (#10885, #10982, #11015, #7390, #8254, #7903, #5113, #3317). None is this defect.\n\nDedupe words: object-view gallery coverFit cardSize visibleFields nested · generateViewSchema gallery flat"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 12047,
+  "kind": "issue",
+  "title": "console: the record Attachments panel offers Upload and delete to a caller whose grant cannot attach or delete, so the upload fails at the last step",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:files",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-09T10:09:12Z",
+  "updated_at": "2026-10-09T11:35:23Z",
+  "closed_at": "2026-10-09T11:33:09Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12047",
+  "body": "Filing gate: **① a product defect, measured.** It was measured on `@objectstack/*` 17.7.0 by the dev of objectstack-ai/hotcrm#2029 (report `6078558197`), as recorded on objectstack-ai/objectstack#22455. Filed by the objectstack triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`) as the console half that card names. ⛔ Not a claim.\n\n## What happens\n\nOn objectui `main` `3c3115e38e`, `packages/app-shell/src/views/RecordAttachmentsPanel.tsx` (575 lines) has no affordance gate:\n- It shows Upload and delete to every caller.\n- It learns about a missing grant only from the refusal, after the fact (`isPermissionError` and the `PERMISSION_DENIED` mapping near `:200`).\n\nSo a caller who holds read on `sys_attachment` but not create:\n1. picks a file;\n2. the presigned upload commits a `sys_file` (`:300`);\n3. the final attach is refused (403).\n\nThe user sees an error after the upload already happened. A `sys_file` stays committed with no attachment row.\n\n## Acceptance\n\n- Upload shows only when the caller may create `sys_attachment`. Delete shows only when the caller may delete, or is the uploader under the platform's rule (the panel's own message at `:182` states that rule).\n- Read the grants from the permissions source the console already loads (`@object-ui/permissions` `usePermissions`), not from a new request.\n- The refusal mapping stays as the backstop. A grant can change between render and click, and the parent gate (objectstack-ai/objectstack#22455) judges the record, which the affordance cannot see.\n- **Pins:**\n  - a read-only grant renders no Upload and no delete;\n  - a create grant renders Upload;\n  - the uploader sees delete on their own file.\n- **The left-behind `sys_file`:** measure whether the attachments lifecycle (`packages/services/service-storage/src/attachment-lifecycle.ts`) reaps a file that was never attached. If it does not, file that storage half as its own objectstack card. Hiding the button does not cover a refusal that happens after render.\n\n`Clause-②: no`.\n\nDedupe: search over objectui for an attachments panel showing upload or delete to a read-only grant, and over objectstack for an orphan `sys_file` from a refused attach, found nothing open. objectstack-ai/objectstack#10171 (closed) is the re-point orphan, not this."
+}

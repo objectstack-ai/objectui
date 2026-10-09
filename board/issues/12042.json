@@ -2,7 +2,7 @@
   "number": 12042,
   "kind": "pull_request",
   "title": "fix(console): the sign-in page renders from the built-in packs, and the application's translations load after sign-in (objectui#12034)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -20,10 +20,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-09T08:14:07Z",
-  "updated_at": "2026-10-09T08:32:52Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-09T08:51:51Z",
+  "closed_at": "2026-10-09T08:51:49Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-09T08:51:49Z",
   "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/12042",

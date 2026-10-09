@@ -1,0 +1,32 @@
+{
+  "number": 12055,
+  "kind": "issue",
+  "title": "providers: createObjectStackUploadAdapter documents `scope` as a free key prefix and forwards a generic `path` as the scope, but the server takes only its storage-scope vocabulary",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:files",
+    "bug",
+    "domain:ui",
+    "pm:blocked",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-09T11:56:37Z",
+  "updated_at": "2026-10-09T13:26:41Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12055",
+  "body": "Blocked-by: objectstack-ai/objectstack#22470\n\nFiling gate: **① a product defect, measured server side.** objectstack-ai/objectstack#22470's dev (report `6079733604`) measured that an upload start naming a scope outside the server's vocabulary fails: today it answers `500 INTERNAL`, and after objectstack-ai/objectstack#22470 it answers `400`. Filed by the objectstack triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`) as the objectui half that card names. ⛔ Not a claim.\n\n## What the adapter does (objectui `main` `972e56659f`, `packages/providers/src/UploadProvider.tsx`)\n\n- `:200`–`:203` documents `scope?: string` as a \"Logical key prefix … (e.g. \"avatars\", \"logos\", \"attachments/case\")\". The server accepts only `StorageScopeSchema` (`@objectstack/spec`): `user`, `tenant`, `public`, `private`, `temp`, `attachments`. objectstack-ai/objectstack#22443 retires `public`. Each example in the docblock but `attachments` fails, and so does `attachments/case`.\n- `:258` and `:311` send `scope: opts.scope ?? options.path`. An upload's generic `path` option, a different concept, becomes the scope whenever the adapter was built without one. The console's app-wide adapter (`apps/console/src/App.tsx:173`) is built without a scope, so any caller that passes a `path` sends it as the scope.\n- In-repo callers today: `RecordAttachmentsPanel` passes `scope: 'attachments'`. The app-wide adapter passes none, and no in-repo upload passes a `path`. Third-party authors follow the docblock.\n\n## Acceptance\n\n- `scope` is typed as the server's scope vocabulary, from `@objectstack/spec`'s `StorageScope` type. It is not a free string. The docblock says what each value means and drops the prefix examples.\n- The `options.path` fallback is removed: a path is not a scope. With no scope, the adapter sends none and the server's default applies.\n- The owner declares `Clause-②`: a published option type narrows.\n- **Pins:**\n  - an adapter built without a scope, uploading with a `path`, sends no `scope`;\n  - a typed scope is forwarded unchanged;\n  - a type-level pin refuses `scope: 'avatars'`.\n\nDedupe: search over objectui for the adapter's scope option, free key prefixes and the path fallback found nothing.\n"
+}

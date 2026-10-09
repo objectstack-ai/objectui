@@ -3772,19 +3772,19 @@ export const ObjectChartSchema = BaseSchema.extend({
   // `../objectql.ts` carries the ground; the pin is
   // `../__tests__/object-chart-legacy-axis-keys-retired-10608.test.ts`.
   xAxisField: retirementTombstone(
-    'RETIRED (objectui#10608, ADR-0049) — `xAxisField` is the list-view chart block\'s spelling and no '
-    + '`object-chart` reader consumes it: a node written with it draws no category axis. Write the spec\'s '
+    'RETIRED (objectui#10608, ADR-0049) — no `object-chart` reader consumes `xAxisField`: '
+    + 'a node written with it draws no category axis. Write the spec\'s '
     + '`xAxis: { field: \'status\' }` instead; on the inline `objectName` path the category is `aggregate.groupBy`.',
   ),
   yAxisFields: retirementTombstone(
-    'RETIRED (objectui#10608, ADR-0049) — `yAxisFields` is the list-view chart block\'s spelling and no '
-    + '`object-chart` reader consumes it: a node written with it plots no series. Write the spec\'s '
+    'RETIRED (objectui#10608, ADR-0049) — no `object-chart` reader consumes `yAxisFields`: '
+    + 'a node written with it plots no series. Write the spec\'s '
     + '`yAxis: [{ field: \'amount\' }]` instead, one entry per value axis; on the inline `objectName` path the '
     + 'measure is `aggregate.field`, and a dataset-bound chart selects `values` by name.',
   ),
   aggregation: retirementTombstone(
-    'RETIRED (objectui#10608, ADR-0049) — `aggregation` is the list-view chart block\'s spelling and no '
-    + '`object-chart` reader consumes it: a node written with it aggregates nothing. Write the spec\'s '
+    'RETIRED (objectui#10608, ADR-0049) — no `object-chart` reader consumes `aggregation`: '
+    + 'a node written with it aggregates nothing. Write the spec\'s '
     + '`aggregate: { field, function, groupBy }` instead, `function` one of `count`, `sum`, `avg`, `min`, '
     + '`max`; a dataset-bound chart takes its aggregation from the dataset\'s measures.',
   ),

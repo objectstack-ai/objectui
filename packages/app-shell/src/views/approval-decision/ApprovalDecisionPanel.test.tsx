@@ -18,6 +18,10 @@
  * location, what happens after a decision). The real bar, its dialog and the
  * POST it sends are pinned over the real record page in the console's
  * `approvalRequestsDataSource.decisionPage.test.tsx`.
+ *
+ * Off a request page the node draws a localized notice instead of nothing
+ * (objectui#12072), so a block placed on the wrong page is visible to its
+ * author. On a request page whose row has not loaded it still draws nothing.
  */
 
 import * as React from 'react';
@@ -34,6 +38,8 @@ vi.mock('../DeclaredActionsBar.js', () => ({
 
 import { ComponentRegistry } from '@object-ui/core';
 import { RecordContextProvider, subscribeDataChanges, type DataChange } from '@object-ui/react';
+import { I18nProvider } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 import { ApprovalDecisionRenderer } from './ApprovalDecisionPanel';
 
 afterEach(() => {
@@ -60,6 +66,16 @@ function mountOn(objectName: string, data: Record<string, unknown> | undefined) 
   );
 }
 
+/** The notice's pack key, and what one pack says for it. */
+const NOTICE_KEY = 'approvalsInbox.decisionPanelOffRequestPage';
+const packNotice = (language: string): unknown =>
+  NOTICE_KEY.split('.').reduce<unknown>(
+    (node, part) => (node as Record<string, unknown> | undefined)?.[part],
+    (builtInLocales as Record<string, unknown>)[language],
+  );
+
+const noticeText = () => screen.getByTestId('approval-decision-off-request-page').textContent;
+
 describe('the approval decision panel (objectui#12045)', () => {
   it('is module-internal this round: loading it registers no component type', () => {
     expect(ComponentRegistry.has('record:approval_decision')).toBe(false);
@@ -77,6 +93,8 @@ describe('the approval decision panel (objectui#12045)', () => {
     expect(props.location).toBe('record_section');
     expect(props.record).toMatchObject({ id: 'req_12045', viewer: REQUEST.viewer });
     expect(props.exclude, 'nothing is excluded: no other part of this page offers a decision').toBeUndefined();
+    expect(screen.getByTestId('approval-decision-panel')).toBeTruthy();
+    expect(screen.queryByTestId('approval-decision-off-request-page'), 'no notice on a request page').toBeNull();
   });
 
   it('draws no tally for a node that carries none, and still offers the actions', () => {
@@ -100,12 +118,62 @@ describe('the approval decision panel (objectui#12045)', () => {
     ]);
   });
 
-  it.each([
-    ['another object', 'invoice', { id: 'inv_1' }],
-    ['a request page whose record has not loaded', 'sys_approval_request', undefined],
-  ])('renders nothing on %s', (_case, objectName, data) => {
-    const { container } = mountOn(objectName, data);
+  it('renders nothing on a request page whose record has not loaded', () => {
+    const { container } = mountOn('sys_approval_request', undefined);
     expect(container.innerHTML).toBe('');
     expect(barProps).toHaveLength(0);
+  });
+});
+
+describe('off an approval request page, a localized notice instead of nothing (objectui#12072)', () => {
+  it.each([
+    ["another object's record page", () => mountOn('invoice', { id: 'inv_1' })],
+    ['a page with no record context', () => render(<ApprovalDecisionRenderer />)],
+  ])('draws the notice on %s, and no panel', (_case, mount) => {
+    mount();
+    expect(noticeText()).toBe(packNotice('en'));
+    expect(screen.queryByTestId('approval-decision-panel')).toBeNull();
+    expect(barProps).toHaveLength(0);
+  });
+
+  it("keeps the node's className and designer attributes on the notice", () => {
+    render(<ApprovalDecisionRenderer className="mt-4" data-obj-id="node_1" data-obj-type="record:approval_decision" />);
+    const wrapper = screen.getByTestId('approval-decision-off-request-page').parentElement!;
+    expect(wrapper.className).toBe('mt-4');
+    expect(wrapper.getAttribute('data-obj-id')).toBe('node_1');
+    expect(wrapper.getAttribute('data-obj-type')).toBe('record:approval_decision');
+  });
+
+  it('the notice copy is a key in all ten language packs', () => {
+    const languages = Object.keys(builtInLocales);
+    expect(languages).toHaveLength(10);
+    for (const language of languages) {
+      const value = packNotice(language);
+      expect(typeof value, `${language} defines ${NOTICE_KEY}`).toBe('string');
+      expect((value as string).trim(), `${language} defines ${NOTICE_KEY}`).not.toBe('');
+    }
+  });
+
+  it('renders the active language: the zh pack value under a zh provider', () => {
+    render(
+      <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false }} persistLanguage={false}>
+        <RecordContextProvider objectName="invoice" recordId="inv_1" data={{ id: 'inv_1' }}>
+          <ApprovalDecisionRenderer />
+        </RecordContextProvider>
+      </I18nProvider>,
+    );
+    expect(noticeText()).toBe(packNotice('zh'));
+  });
+
+  it('CONTROL: the en provider renders the en value, and the two packs differ', () => {
+    render(
+      <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }} persistLanguage={false}>
+        <RecordContextProvider objectName="invoice" recordId="inv_1" data={{ id: 'inv_1' }}>
+          <ApprovalDecisionRenderer />
+        </RecordContextProvider>
+      </I18nProvider>,
+    );
+    expect(noticeText()).toBe(packNotice('en'));
+    expect(packNotice('zh')).not.toBe(packNotice('en'));
   });
 });

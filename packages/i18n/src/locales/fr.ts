@@ -3684,6 +3684,7 @@ const fr = {
     progressEligible_other: '{{count}} approbateurs éligibles',
     progressBar: 'Avancement de la décision',
     declaredActions: 'Actions',
+    decisionPanelOffRequestPage: 'Le panneau de décision d\'approbation ne fonctionne que sur les pages de demande d\'approbation.',
     attachmentChip: 'Pièce jointe',
     attachmentOpenFailed: "Impossible d'ouvrir la pièce jointe — veuillez réessayer",
     approveOneTitle: 'Approuver « {{title}} » ?',

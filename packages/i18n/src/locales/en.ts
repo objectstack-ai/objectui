@@ -4247,6 +4247,7 @@ const en = {
     progressEligible_other: '{{count}} eligible approvers',
     progressBar: 'Decision progress',
     declaredActions: 'Actions',
+    decisionPanelOffRequestPage: 'The approval decision panel only works on approval request pages.',
     attachmentChip: 'Attachment',
     attachmentOpenFailed: 'Could not open the attachment — please try again',
     approveOneTitle: 'Approve "{{title}}"?',

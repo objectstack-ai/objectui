@@ -24,7 +24,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
-let clientImpl: any;
+let clientImpl: ReturnType<typeof makeClient>;
 
 vi.mock('../metadata-admin/useMetadata', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -64,10 +64,10 @@ window.matchMedia = ((query: string) => ({
   addListener: () => {},
   removeListener: () => {},
   dispatchEvent: () => false,
-})) as any;
+})) as unknown as typeof window.matchMedia;
 
-(globalThis as any).ResizeObserver =
-  (globalThis as any).ResizeObserver ??
+(globalThis as { ResizeObserver?: unknown }).ResizeObserver =
+  (globalThis as { ResizeObserver?: unknown }).ResizeObserver ??
   class {
     observe() {}
     unobserve() {}
@@ -108,7 +108,7 @@ function makeClient(s: Server) {
       if (type === 'app') s.appDraft = { name, body };
       return body;
     }),
-  } as any;
+  };
 }
 
 let confirmSpy: ReturnType<typeof vi.fn>;

@@ -25,17 +25,22 @@
  *   - the keyboard alone opens a picker and selects.
  *
  * Read-only: none of the five has such a state. A read-only package closes
- * nav editing, which unmounts the inspector, and offers neither *New* entry;
- * the pillar suites pin that (`StudioDesignSurface.navEditClosesOnReadOnly-11167`,
- * "a read-only package shows no create entry").
+ * nav editing, which unmounts the inspector
+ * (`StudioDesignSurface.navEditClosesOnReadOnly-11167`, "closes nav editing
+ * and the linked item’s inspector"), and offers no *New object*
+ * (`StudioDesignSurface.emptyPackage`, "hides the CTA on a read-only
+ * package"). The Automations rail's *New* is gated on the same `readOnly` in
+ * the source; no suite pins that one.
  *
- * DIRECTION, observed against the native controls: every pin here but the
- * name pins is red there, because each one reads a picker as the primitive's
- * trigger. The name pins are green there too: they pin what the conversion
- * kept. What makes the write pins guards of "the conversion changed nothing
- * the surface writes" is the literal each compares against: a `change` event
- * on the pre-conversion surface's native control wrote that same value, read
- * once on that component with these fixtures, and so were the names. That
+ * DIRECTION, observed against the native controls: every pin here but two
+ * is red there, because each one reads a picker as the primitive's trigger
+ * (the object picker by a test id the native control did not carry). The two
+ * green there too pin what the conversion kept: the trigger picker's name,
+ * and the record sharing default saved untouched. What makes the write pins
+ * guards of "the conversion changed nothing the surface writes" is the
+ * literal each compares against: a `change` event on the pre-conversion
+ * surface's native control wrote that same value, read once on that
+ * component with these fixtures, and so were the names. That
  * probe's `change` event fired for the current option too, which a browser's
  * native select does not do, so the re-pick rows pin the primitive. On an
  * entry whose value no option carried, the native control showed its first
@@ -331,7 +336,7 @@ describe('the nav-item inspector picks with the shared Select (objectui#11865)',
     });
   });
 
-  // Green against the native controls too, by design: it pins what the conversion kept.
+  // The names were read on the native controls; red there only because the object picker is found by its test id.
   it('each picker keeps the name its label gave the native control; the object picker had none', async () => {
     const names: Record<string, string[]> = {};
     for (const key of ['objBorn', 'pageBorn', 'dashBound', 'reportBorn', 'actionBorn', 'compBorn', 'docBorn', 'urlDefault']) {
@@ -486,7 +491,7 @@ describe('New object picks its record sharing with the shared Select (objectui#1
     expect(await listed(trigger)).toEqual([OWD_PRIVATE, OWD_PUBLIC_READ, OWD_PUBLIC_READ_WRITE]);
   });
 
-  // Green against the native control too, by design: it pins what the conversion kept.
+  // The two names were read on the native control; red there only because the second is read after a pick in the list.
   it('keeps the name its wrapping label gave the native control, the chosen model’s gloss included', async () => {
     const trigger = await openNewObject();
     expect(trigger).toHaveAccessibleName(owdName('engine.studio.settings.sharingDescPrivate'));

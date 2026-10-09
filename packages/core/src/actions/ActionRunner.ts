@@ -21,7 +21,7 @@
  * redirect handling, action chaining, custom handler registration.
  */
 
-import type { RunnableActionType, UIActionSchema } from '@object-ui/types';
+import type { ActionContext, RunnableActionType, UIActionSchema } from '@object-ui/types';
 import type { Action as SpecActionInput } from '@objectstack/spec/ui';
 import { ExpressionEvaluator } from '../evaluator/ExpressionEvaluator.js';
 import { hasDeclaredPredicate } from '../evaluator/declaredPredicate.js';
@@ -55,15 +55,22 @@ export interface ActionResult {
   undo?: UndoableOperation;
 }
 
-export interface ActionContext {
-  data?: Record<string, any>;
-  record?: any;
-  selectedRecords?: Record<string, any>[];
-  /** Live page-variable snapshot (ADR-0049), published by PageVariableActionBridge. */
-  pageVariables?: Record<string, any>;
-  user?: any;
-  [key: string]: any;
-}
+/**
+ * The context a runner executes actions in — ONE authority, in
+ * `@object-ui/types` (objectui#6349, batch 4). This module RE-EXPORTS that
+ * declaration instead of declaring a second one, so an import of
+ * `ActionContext` from `@object-ui/core` and one from `@object-ui/types` are
+ * the same type. `@object-ui/types` is the dependency-legal side: it depends on
+ * no `@object-ui/*` package, and this package depends on it.
+ *
+ * A re-export is not a second authority —
+ * `scripts/__tests__/one-authority-per-exported-name-6273.test.ts` counts
+ * declarations and ALIASING re-exports, never `export type { X } from …` —
+ * which is why this convergence takes `ActionContext` off that gate's
+ * `KNOWN_COLLISIONS` baseline. The member drift it removed is recorded on the
+ * declaration itself.
+ */
+export type { ActionContext } from '@object-ui/types';
 
 /**
  * API configuration for complex requests.

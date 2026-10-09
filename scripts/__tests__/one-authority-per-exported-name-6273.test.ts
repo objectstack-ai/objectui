@@ -351,7 +351,14 @@ const filesOf = (sites: readonly Located[]): string[] => [
  * real tree.
  */
 const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
-  ['ActionContext', ['packages/core/src/actions/ActionRunner.ts', 'packages/types/src/ui-action.ts']],
+  // `ActionContext` sat here, colliding between
+  // `packages/core/src/actions/ActionRunner.ts` and `packages/types/src/ui-action.ts`.
+  // One concept (the runner's execution data bag) whose copies had drifted on
+  // three members: `data` existed only on the runner's copy, and `record` /
+  // `user` were `any` there and `Record<string, any>` in `@object-ui/types`.
+  // `@object-ui/types` is the one authority — it gained `data`, kept the
+  // narrower `record` / `user` — and `ActionRunner.ts` now RE-EXPORTS it
+  // (objectui#6349, batch 4).
   ['ActionResult', ['packages/core/src/actions/ActionRunner.ts', 'packages/types/src/ui-action.ts']],
   ['AggregationConfig', ['packages/plugin-grid/src/useGroupedData.ts', 'packages/types/src/data-protocol.ts']],
   ['AppShellProps', ['packages/app-shell/src/types.ts', 'packages/layout/src/AppShell.tsx']],

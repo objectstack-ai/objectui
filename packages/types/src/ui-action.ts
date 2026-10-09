@@ -1006,9 +1006,28 @@ export interface ActionBarSchema {
 }
 
 /**
- * Action execution context
+ * Action execution context — the ONE declaration of this name (objectui#6349,
+ * batch 4). `@object-ui/core`'s `ActionRunner` module used to declare a second
+ * `ActionContext`; it now re-exports this one, so `@object-ui/core` and
+ * `@object-ui/types` publish the same type under the name.
+ *
+ * The two copies had drifted on three members. `data` existed only on the
+ * runner's copy (the runner reads it as the fallback record id and as an API
+ * request body), so it is declared here. `record` and `user` were `any` on the
+ * runner's copy and `Record<string, any>` here; the narrower spelling stays,
+ * because the packages that build or read a runner context compile against it.
+ * That is a reading, not a guarantee: the instrument is `pnpm --filter PKG
+ * type-check` over the packages that import `ActionContext` or drive an
+ * `ActionRunner`, and it is what to re-run before trusting this sentence.
+ *
+ * The index signature stays: this is a runtime data bag whose keys are
+ * genuinely open (a host passes whatever its handlers read), unlike the closed
+ * action contract `ActionDef` in `@object-ui/core`.
  */
 export interface ActionContext {
+  /** Current form or scope data; the runner reads `data.id` when no `record` is set. */
+  data?: Record<string, any>;
+
   /** Current record data */
   record?: Record<string, any>;
   

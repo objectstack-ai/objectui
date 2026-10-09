@@ -7,9 +7,11 @@
  */
 
 /**
- * `record:approval_decision` (objectui#12045, B1 of objectui#2763): the
- * registration, and how the panel composes A3's progress with the request's
- * declared decision actions over the bound record.
+ * The approval decision panel (objectui#12045, B1 of objectui#2763): how it
+ * composes A3's progress with the request's declared decision actions over the
+ * bound record, and that this round registers it as no type (claim amendment 3,
+ * `6081385696`: the registration lands with its zod arm, derived from the v18
+ * spec row, in the page-mount step).
  *
  * The bar is doubled to a probe that records the props it was handed: what is
  * under test here is the panel's wiring (which object, which record, which
@@ -58,11 +60,10 @@ function mountOn(objectName: string, data: Record<string, unknown> | undefined) 
   );
 }
 
-describe('record:approval_decision (objectui#12045)', () => {
-  it('is registered under the record namespace, with no bare fallback and no inputs', () => {
-    expect(ComponentRegistry.get('record:approval_decision')).toBe(ApprovalDecisionRenderer);
+describe('the approval decision panel (objectui#12045)', () => {
+  it('is module-internal this round: loading it registers no component type', () => {
+    expect(ComponentRegistry.has('record:approval_decision')).toBe(false);
     expect(ComponentRegistry.has('approval_decision')).toBe(false);
-    expect(ComponentRegistry.getMeta('record:approval_decision')?.inputs).toEqual([]);
   });
 
   it("draws the request's tally and runs its declared actions at record_section against the request row", () => {

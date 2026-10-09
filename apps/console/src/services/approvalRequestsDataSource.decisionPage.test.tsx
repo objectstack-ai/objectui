@@ -9,6 +9,12 @@
  * The page fixture is the shape objectstack-ai/objectstack#22473 proposes for
  * plugin-approvals: a `kind: 'slotted'` record page for `sys_approval_request`
  * whose `actions` slot holds the decision panel and whose discussion is empty.
+ *
+ * The panel is module-internal this round (claim amendment 3 on objectui#12045,
+ * `6081385696`): nothing in source registers it, because a registered type
+ * needs a zod arm derived from the v18 spec row (objectstack-ai/objectstack#22472).
+ * So this file registers the shipped renderer itself, under the proposed name,
+ * before anything renders, as the page-mount step's registration will.
  * Everything else on it is synthesized from the object, as on a served page.
  * Only the HTTP transport and the console adapter are doubled, so what the page
  * reads, and from where, is what the shipped code sends:
@@ -55,6 +61,14 @@ import {
 } from './approvalRequestsDataSource';
 import { approvalRequestRoutes } from '../AppContent';
 import { PageSchema } from '@objectstack/spec/ui';
+import { ComponentRegistry } from '@object-ui/core';
+
+// The shipped renderer, from its module (the package entry does not export it),
+// registered here under the proposed type name; see the header.
+const { ApprovalDecisionRenderer } = await vi.importActual<{
+  ApprovalDecisionRenderer: Parameters<typeof ComponentRegistry.register>[1];
+}>('../../../../packages/app-shell/src/views/approval-decision/ApprovalDecisionPanel');
+ComponentRegistry.register('approval_decision', ApprovalDecisionRenderer, { namespace: 'record', skipFallback: true });
 
 const REQ = 'req_12045';
 const VIEWER = { can_act: true, is_submitter: false, can_override: false };

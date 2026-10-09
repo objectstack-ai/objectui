@@ -7,9 +7,9 @@
  */
 
 /**
- * `record:approval_decision` — the decision panel of an approval request's
- * record page (objectui#12045, B1 of objectui#2763; ruling 6079807016,
- * letter 乙).
+ * The decision panel of an approval request's record page (objectui#12045, B1
+ * of objectui#2763; ruling 6079807016, letter 乙), proposed to the spec as the
+ * page component type `record:approval_decision`.
  *
  * One node, two parts, both already shipped and both reused as they are:
  *
@@ -34,8 +34,7 @@
  * actions. objectstack-ai/objectstack#22472 proposes exactly this contract
  * for the spec, a `ComponentPropsMap` row that is an empty strict object, so a
  * misspelled key on an authored node is a validation finding instead of a
- * silently ignored prop. The registration below declares no inputs for the
- * same reason.
+ * silently ignored prop.
  *
  * Outside a `sys_approval_request` record page there is no request to decide
  * on, and the panel renders nothing.
@@ -48,14 +47,27 @@
  * decision appends a `sys_approval_action` row), both through the
  * invalidation bus their readers already subscribe to.
  *
- * Registered in app-shell rather than plugin-detail for the reason
- * `record:approvals` is: the bar's runtime depends on `@object-ui/auth`, which
- * plugin-detail deliberately does not pull in. The side-effect registration is
- * imported from the app-shell barrel (`src/index.ts`).
+ * ## Module-internal until the spec row exists
+ *
+ * Nothing registers this renderer yet, and nothing re-exports it from the
+ * package entry (claim amendment 3 on objectui#12045, `6081385696`). A
+ * registered type that page metadata can reference needs an arm in
+ * `@object-ui/types/zod`, and an arm is derived from the spec's
+ * `ComponentPropsMap` row, which `@objectstack/spec` 17.7.0 does not carry for
+ * this type (objectstack-ai/objectstack#22472 adds it on v18). Registering it
+ * without one is what `registered-types-validate-ratchet-10859` in
+ * `@object-ui/cli` refuses. So the registration under the name the spec seat
+ * settles, its side-effect import from `src/index.ts`, its
+ * `known-schema-types.ts` line and its zod arm land together in the page-mount
+ * step. Until then spec 17.7.0's lint and `objectui validate` both refuse an
+ * authored node of this type, consistently.
+ *
+ * It lives in app-shell rather than plugin-detail for the reason
+ * `record:approvals` does: the bar's runtime depends on `@object-ui/auth`,
+ * which plugin-detail deliberately does not pull in.
  */
 
 import * as React from 'react';
-import { ComponentRegistry } from '@object-ui/core';
 import { notifyDataChanged, useRecordContext } from '@object-ui/react';
 import { cn } from '@object-ui/components';
 import { DecisionProgressIndicator } from '../approval-progress/DecisionProgressIndicator.js';
@@ -111,7 +123,7 @@ export interface ApprovalDecisionRendererProps {
   [k: string]: unknown;
 }
 
-/** The registered renderer: the panel over the bound request, or nothing. */
+/** The node renderer: the panel over the bound request, or nothing. */
 export const ApprovalDecisionRenderer: React.FC<ApprovalDecisionRendererProps> = ({
   schema: _schema,
   className,
@@ -127,14 +139,3 @@ export const ApprovalDecisionRenderer: React.FC<ApprovalDecisionRendererProps> =
     </div>
   );
 };
-
-ComponentRegistry.register('approval_decision', ApprovalDecisionRenderer, {
-  namespace: 'record',
-  skipFallback: true,
-  category: 'record',
-  label: 'Approval decision',
-  icon: 'Stamp',
-  inputs: [],
-});
-
-export default ApprovalDecisionRenderer;

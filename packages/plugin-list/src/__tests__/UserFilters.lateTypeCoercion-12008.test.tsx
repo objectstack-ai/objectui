@@ -403,6 +403,22 @@ describe('the late typing settles once per field and only moves a starting value
     expect(screen.queryByTestId('filter-clear-is_active')).toBeNull();
   });
 
+  it('A USER CHOICE SURVIVES: a value picked before the definition loads is not coerced after it', () => {
+    const onFilterChange = vi.fn();
+    // Authored options let the user pick before the definition types the
+    // field; the definition then makes it boolean.
+    const { arrive } = mountBar({
+      fields: [{ field: 'is_active', options: [{ value: 'true', label: 'Yes' }, { value: 'false', label: 'No' }] }],
+      onFilterChange,
+    });
+    fireEvent.click(screen.getByTestId('filter-badge-is_active'));
+    fireEvent.click(within(screen.getByTestId('filter-options-is_active')).getByLabelText('Yes'));
+    expect(onFilterChange).toHaveBeenLastCalledWith([['is_active', 'in', ['true']]]);
+    const settled = onFilterChange.mock.calls.length;
+    arrive();
+    expect(onFilterChange.mock.calls.length).toBe(settled);
+  });
+
   it('ONE COMMIT: a field typed late and a field that arrives with the definition both reach the last emit', () => {
     const onFilterChange = vi.fn();
     const initialSelections = { is_active: ['true'], points: ['2'] };

@@ -89,7 +89,9 @@ function payload(grant: Grant): MePermissionsResponse {
   };
 }
 
-function makeDataSource(overrides: Partial<Record<'find' | 'create' | 'delete', any>> = {}) {
+type DataSourceMethod = (...args: unknown[]) => Promise<unknown>;
+
+function makeDataSource(overrides: Partial<Record<'find' | 'create' | 'delete', DataSourceMethod>> = {}) {
   return {
     find: vi.fn(async () => [OTHERS_ROW, OWN_ROW]),
     create: vi.fn(async () => ({ id: 'a3' })),
@@ -98,7 +100,7 @@ function makeDataSource(overrides: Partial<Record<'find' | 'create' | 'delete', 
   };
 }
 
-function panel(dataSource: any) {
+function panel(dataSource: unknown) {
   return (
     <RecordAttachmentsPanel
       objectName="att_case"
@@ -109,7 +111,7 @@ function panel(dataSource: any) {
   );
 }
 
-function renderWithGrant(grant: Grant, dataSource: any = makeDataSource()) {
+function renderWithGrant(grant: Grant, dataSource: unknown = makeDataSource()) {
   return render(
     <MePermissionsProvider initialPermissions={payload(grant)}>{panel(dataSource)}</MePermissionsProvider>,
   );

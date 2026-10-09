@@ -40,8 +40,7 @@
  *
  * By the issue ENVELOPE — `code` and `path`, and that it is the ONLY issue, so
  * a refusal cannot ride on some other failure of the same document — at the
- * public door `safeValidateSchema` (what `objectui validate` / `objectui check`
- * run) and on the mirror. The message is asserted to carry the remedy's own
+ * public door `safeValidateSchema` (the tolerant face) and on the mirror. The message is asserted to carry the remedy's own
  * spelling, which IS the contract here (triage's execution note: tombstones
  * naming the spec spelling); nothing else of its wording is pinned.
  *

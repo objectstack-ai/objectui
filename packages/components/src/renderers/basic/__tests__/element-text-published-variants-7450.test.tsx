@@ -30,7 +30,7 @@
  *    does not synthesise it (objectui#6942);
  *  - every objectui authoring gate accepts exactly the installed contract's set
  *    for this key: the registry `inputs` enum, the html tier compiled from it,
- *    and `safeValidateSchema` (`objectui validate`).
+ *    and `safeValidateSchema` (the tolerant face).
  *
  * ## Derived, never restated
  *
@@ -156,7 +156,7 @@ describe('objectui#11717 — the retired pair is refused at every objectui gate,
     expect(diagnostics.filter((d) => d.severity === 'error').map((d) => d.code)).toEqual(['invalid-enum']);
   });
 
-  it.each(RETIRED_PAIR)('objectui validate (safeValidateSchema) refuses %s on element:text', (variant) => {
+  it.each(RETIRED_PAIR)('safeValidateSchema (the tolerant face) refuses %s on element:text', (variant) => {
     expect(safeValidateSchema({ type: 'element:text', properties: { content: CONTENT, variant } }).success).toBe(false);
   });
 
@@ -204,12 +204,12 @@ describe('objectui#7450 — every objectui gate accepts exactly the installed co
     expect(errors[0]?.code).toBe('invalid-enum');
   });
 
-  it.each(CONTRACT)('objectui validate (safeValidateSchema) accepts variant %s on element:text', (variant) => {
+  it.each(CONTRACT)('safeValidateSchema (the tolerant face) accepts variant %s on element:text', (variant) => {
     const result = safeValidateSchema({ type: 'element:text', properties: { content: CONTENT, variant } });
     expect(result.success).toBe(true);
   });
 
-  it('CONTROL — objectui validate refuses a value outside the contract', () => {
+  it('CONTROL — safeValidateSchema refuses a value outside the contract', () => {
     const result = safeValidateSchema({ type: 'element:text', properties: { content: CONTENT, variant: 'title' } });
     expect(result.success).toBe(false);
   });

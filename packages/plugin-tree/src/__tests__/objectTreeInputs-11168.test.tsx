@@ -204,7 +204,7 @@ describe('object-tree publishes the keys its renderer honours (objectui#11168)',
 
 // ── The authoring door ─────────────────────────────────────────────────────
 
-/** What `objectui validate` prints for one node: `safeValidateSchema`'s issues, as `{ code, path }`. */
+/** The tolerant face's issues for one node (`safeValidateSchema`), as `{ code, path }`. */
 const authoringIssues = (node: Record<string, unknown>) => {
   const result = safeValidateSchema({ type: 'object-tree', ...node });
   return result.success
@@ -218,7 +218,7 @@ const authoringIssues = (node: Record<string, unknown>) => {
       }));
 };
 
-describe('the authoring door `objectui validate` reads — `ObjectTreeSchema` (objectui#11168)', () => {
+describe('the tolerant authoring face — `ObjectTreeSchema` (objectui#11168)', () => {
   it('accepts a tree on inline rows alone, on a `data` configuration alone, and with `tree` + `navigation`', () => {
     // Before this slice the first two were refused: `invalid_type` at
     // `objectName`, on trees that draw (the rows above).

@@ -19,7 +19,7 @@
  *
  *   - a key the node base (`BaseSchema`) does not declare —
  *     `{ "type": "record:details", "columns": "2" }` — passed the tolerant face
- *     (`safeValidateSchema`, what `objectui validate` runs) UNJUDGED, and the
+ *     (`safeValidateSchema`) UNJUDGED, and the
  *     strict authoring face refused it only as an unnamed `unrecognized_keys`;
  *   - a key the base does declare (`visible`, `disabled`, `name`,
  *     `description`, `data`) passed BOTH faces, judged by the base's own type.

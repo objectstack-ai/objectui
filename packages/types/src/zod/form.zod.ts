@@ -1167,7 +1167,7 @@ export const FormFieldSchema = z.object({
   }
   // objectui#5449 — the namespace rule `@object-ui/core` has enforced since
   // objectui#5375, stated here so `objectui validate` (which reaches this
-  // schema via `safeValidateSchema`) stops green-lighting a document the
+  // schema via its strict twin, `StrictAnyComponentSchema`) stops green-lighting a document the
   // runtime rejects. Rule, census and the drift pin: FIELD_WIDGET_NAMESPACE.
   const id = resolveAuthoredFieldWidgetId(field);
   if (!id || !id.includes(':') || id.startsWith(FIELD_WIDGET_NAMESPACE)) return;

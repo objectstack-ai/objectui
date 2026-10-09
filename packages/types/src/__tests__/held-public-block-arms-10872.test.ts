@@ -254,7 +254,7 @@ describe('objectui#10872 batch 4 — a page with an `action:button` validates', 
     expect(node).not.toHaveProperty('target');
   });
 
-  it('the taught node, in a page, passes the tolerant face `objectui validate` runs', () => {
+  it('the taught node, in a page, passes the tolerant face', () => {
     const page = { type: 'page', title: 'Users', children: [{ type: 'page:header', properties: { title: 'Users' } }, taughtActionButton()] };
     const result = safeValidateSchema(page);
     expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);

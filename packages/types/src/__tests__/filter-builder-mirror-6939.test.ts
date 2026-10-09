@@ -747,7 +747,7 @@ describe('objectui#6939 — the catalog entries the mirror refused', () => {
 
   it('the `stack`-rooted fifth entry: its nested filter-builder validates as well', () => {
     // `search-interface.json` roots at `stack`, so `objectui check` (which runs
-    // `safeValidateSchema` on the ROOT only — the `check` command validates the
+    // the strict authoring face on the ROOT only — the `check` command validates the
     // parsed document, not its children) counts four entries for this row, not
     // five. The nested node is measured here so the fifth file is not silently
     // unexamined.

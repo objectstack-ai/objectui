@@ -2789,7 +2789,7 @@ export interface CommandSchema extends BaseSchema {
  *
  * Declared here — rather than only in the plugin — for the reason `markdown`
  * and `kanban` already are: `AnyComponentSchema` in `./zod/index.zod.ts` is the
- * validator `objectui validate` and `objectui check` read, and a registered
+ * union whose strict twin `objectui validate` and `objectui check` read, and a registered
  * component type absent from it validates as nothing at all (objectui#6318).
  * `@object-ui/types` has zero dependencies, so it cannot import the plugin's
  * own `CodeEditorSchema`; this is the same twin-declaration shape `markdown`

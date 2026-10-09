@@ -33,8 +33,8 @@
  *
  * ## What is asserted
  *
- * - REFUSED through the published door (`safeValidateSchema`, which
- *   `objectui validate` runs): the protocol's `unrecognized_keys` at the block,
+ * - REFUSED through the published tolerant door (`safeValidateSchema`):
+ *   the protocol's `unrecognized_keys` at the block,
  *   naming the key (since objectui#11073; until then also objectui's pointer,
  *   a message EQUAL to the one the `list-view` route gives).
  * - DARK CONTROL: the canonical named view parses green through the same door.

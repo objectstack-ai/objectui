@@ -35,8 +35,7 @@
  *
  * ## What is pinned, for each example
  *
- *   1. The tolerant face (`safeValidateSchema`, what `objectui validate` runs)
- *      accepts the node.
+ *   1. The tolerant face (`safeValidateSchema`) accepts the node.
  *   2. The strict authoring face (`StrictAnyComponentSchema`) accepts it, so
  *      every key it writes is declared.
  *   3. `@objectstack/spec`'s `PageComponentSchema` accepts it, which judges the
@@ -223,7 +222,7 @@ describe('public-block examples outside objectui#11183\'s roots are written in t
     expect(Object.keys(node.properties ?? {}).length).toBeGreaterThan(0);
   });
 
-  it.each(EXAMPLES)('%s — the tolerant face (`objectui validate`) accepts it', (label, { node }) => {
+  it.each(EXAMPLES)('%s — the tolerant face accepts it', (label, { node }) => {
     const result = safeValidateSchema(node) as Parse;
     expect(describeIssues(result), `${label} is refused`).toBe('');
     expect(result.success).toBe(true);

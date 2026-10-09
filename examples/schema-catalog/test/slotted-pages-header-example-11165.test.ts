@@ -38,7 +38,7 @@
  * ## What is pinned
  *
  *   1. The example's header node passes objectui's schema mirror
- *      (`safeValidateSchema`, the face `objectui validate` runs).
+ *      (`safeValidateSchema`, the tolerant face).
  *   2. Its `properties` pass the spec row `ComponentPropsMap['page:header']`
  *      in a FULL parse, so values are judged as well as keys.
  *   3. CONTROL: the same node with `eyebrow` and `icon` put back, which is the

@@ -13,7 +13,7 @@
  * Every arm below is registered through `elementDataSourceBlock`, so
  * `ElementDataSourceGate` (`@object-ui/react`) lands a binding's `object` on
  * `objectName` before the renderer reads the node. The tolerant face
- * (`safeValidateSchema`, which `objectui validate` runs) refused the bindings
+ * (`safeValidateSchema`) refused the bindings
  * the docs teach anyway: `object-grid` and `list-view` required `objectName`,
  * and the `object-kanban` / `object-calendar` / `object-gantt` / `object-map`
  * record-source ladders had no rung for the binding.

@@ -33,8 +33,8 @@
  * ## The two halves below
  *
  * The contract half asserts each refusal on BOTH faces, because they are two
- * different doors: `objectui validate` runs the tolerant one today, and the
- * strict one is what the doc gates are ruled to run. The guide half runs every
+ * different doors: `safeValidateSchema` is the tolerant one, and the strict
+ * one is what `objectui validate` runs and the doc gates are ruled to run. The guide half runs every
  * `type: "page"` JSON fence in the guide through both faces, so a corrected
  * snippet that only one face accepts goes red here.
  */

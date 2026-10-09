@@ -35,7 +35,7 @@
  * ## How refusals are asserted
  *
  * By the issue ENVELOPE — `code` and `path`, and that it is the ONLY issue —
- * at the public door `safeValidateSchema` (what `objectui validate` runs) and
+ * at the public door `safeValidateSchema` (the tolerant face) and
  * on the mirror. The message is asserted to carry the remedy's own spelling
  * (`navigation`, `type: 'action'`, `actionDef`), which is the contract here;
  * nothing else of its wording is pinned.

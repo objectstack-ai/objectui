@@ -259,10 +259,10 @@ describe('fixture census — the in-repo bar stock, read from disk', () => {
   });
 });
 
-describe('the same verdict through the real door the CLI applies (`safeValidateSchema`)', () => {
-  // `TimelineSchema.safeParse` above is the declaration; this is the union
-  // `objectui validate` actually runs. A `.passthrough()` arm elsewhere in the
-  // union could have re-admitted the document, so the door is measured, not
+describe('the same verdict through the tolerant node union (`safeValidateSchema`)', () => {
+  // `TimelineSchema.safeParse` above is the declaration; this is the tolerant
+  // node union. A `.passthrough()` arm elsewhere in the
+  // union could have re-admitted the document, so the union is measured, not
   // assumed — and the good half is asserted beside it so a green refusal is
   // not just "no arm matched anything".
   it("a well-formed gantt document validates through the union", () => {

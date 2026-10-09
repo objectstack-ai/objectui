@@ -29,7 +29,7 @@
  *   (a) the spec side: the react block publishes `type` and `series` over
  *       `ChartConfigSchema`, whose series arm is `{ name }`;
  *   (b) the showcase node parses, on the mirror and through
- *       `safeValidateSchema` (the `objectui validate` door) — at the door in
+ *       `safeValidateSchema` (the tolerant door) — at the door in
  *       the authored spelling, its props in the `properties` bag, since
  *       objectui#11276 armed the authored node with `ObjectChartBlockSchema`;
  *       the wrapper's flat node is the mirror's (post-hoist) reading;
@@ -133,7 +133,7 @@ describe('objectui#10770 (b) — the react tier\'s showcase node parses', () => 
     expect(r.success).toBe(true);
   });
 
-  it('through `safeValidateSchema`, the parse `objectui validate` runs', () => {
+  it('through `safeValidateSchema`, the tolerant parse', () => {
     const r = safeValidateSchema(SHOWCASE_AUTHORED);
     expect(r.error?.issues ?? []).toEqual([]);
     expect(r.success).toBe(true);

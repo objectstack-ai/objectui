@@ -176,10 +176,10 @@ const NOT_COVERED: Readonly<Record<string, readonly string[]>> = {
   'object-grid': ['grouping'],
 };
 
-/** The faces an authored document meets. `objectui validate` runs `safeValidateSchema`. */
+/** The faces an authored document meets. `objectui validate` runs the strict one. */
 const facesFor = (arm: z.ZodType): ReadonlyArray<readonly [string, (doc: unknown) => Parsed]> => [
   ['the tolerant face (`AnyComponentSchema`)', (d) => AnyComponentSchema.safeParse(d)],
-  ['`safeValidateSchema` (what `objectui validate` runs)', (d) => safeValidateSchema(d)],
+  ['`safeValidateSchema` (the tolerant parse)', (d) => safeValidateSchema(d)],
   ['the strict face (`StrictAnyComponentSchema`)', (d) => StrictAnyComponentSchema.safeParse(d)],
   ['the exported mirror, parsed directly', (d) => arm.safeParse(d)],
 ];

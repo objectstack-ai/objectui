@@ -29,7 +29,7 @@
  * ## What this file pins
  *
  * - the zod face, through the arm itself, through `safeValidateSchema` (the
- *   function `objectui validate` calls) and through the strict face: a bind-only
+ *   tolerant face) and through the strict face `objectui validate` runs: a bind-only
  *   `list`, an items-only one and one carrying both are accepted, and one with
  *   neither is refused ONCE, at the node, keyed `LIST_ENTRIES_REQUIRED`;
  * - the TypeScript face: the bind-only literal compiles. That half is judged by

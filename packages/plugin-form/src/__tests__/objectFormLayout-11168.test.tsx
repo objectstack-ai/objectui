@@ -66,14 +66,14 @@ describe('`object-form.layout` publishes the spec row\'s two values (objectui#11
     expect(layout?.enum).toEqual(['vertical', 'horizontal']);
   });
 
-  it.each(RETIRED)('`objectui validate` refuses `layout: "%s"` on an authored object-form', (layout) => {
+  it.each(RETIRED)('`safeValidateSchema` refuses `layout: "%s"` on an authored object-form', (layout) => {
     // The acceptance row: the authored arm reads the spec row by reference.
     expect(refusal(safeValidateSchema({ type: 'object-form', properties: { objectName: 'contact', layout } }) as never)).toEqual([
       { code: 'invalid_value', path: 'properties.layout' },
     ]);
   });
 
-  it.each(LIVE)('LIT CONTROL: `objectui validate` accepts `layout: "%s"`', (layout) => {
+  it.each(LIVE)('LIT CONTROL: `safeValidateSchema` accepts `layout: "%s"`', (layout) => {
     expect(safeValidateSchema({ type: 'object-form', properties: { objectName: 'contact', layout } }).success).toBe(true);
   });
 

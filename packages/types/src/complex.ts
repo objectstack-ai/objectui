@@ -1663,8 +1663,8 @@ export interface ChatbotSchema extends BaseSchema {
    * through `@object-ui/core`'s hand-written `validateSchema`, which walks base
    * keys and recurses into content — it never consults these mirrors, so it has
    * no per-component key to refuse. ⇒ an authored `body` that meets neither
-   * `tsc` nor a root parse (`objectui validate`, which calls
-   * `safeValidateSchema`) is dropped exactly as silently after this change as
+   * `tsc` nor a root parse (`objectui validate`, which runs the strict
+   * authoring face) is dropped exactly as silently after this change as
    * before it. The refusal is delivered where documents are AUTHORED and
    * CHECKED, not where they are rendered.
    * `objectui check` does not deliver it: `body` is one of the structural root

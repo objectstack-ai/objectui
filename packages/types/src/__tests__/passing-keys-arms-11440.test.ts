@@ -13,7 +13,7 @@
  *
  * Each of `home`, `record`, `utility`, `app-schema-renderer`, `object-pivot`,
  * `embeddable-form` and `detail-section` was registered and refused by
- * `safeValidateSchema` (what `objectui validate` runs) with one
+ * `safeValidateSchema` (then what `objectui validate` ran) with one
  * `invalid_union` at `type`. The bare-key count is ratcheted in
  * `packages/cli/src/__tests__/registered-types-validate-ratchet-10859.test.ts`;
  * this file pins what each arm accepts and refuses, on BOTH faces — the

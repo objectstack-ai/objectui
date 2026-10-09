@@ -212,7 +212,7 @@ describe('objectui#10518 (b) — LIT CONTROL: the showcase producer\'s node pars
     expect(parsed(SHOWCASE_NODE).yAxis).toEqual([{ field: 'task_count', stepSize: 1 }]);
   });
 
-  it('through `safeValidateSchema`, the door `objectui validate` / `objectui check` run', () => {
+  it('through `safeValidateSchema`, the tolerant face', () => {
     expect(safeValidateSchema(SHOWCASE_AUTHORED).success).toBe(true);
   });
 });
@@ -355,7 +355,7 @@ describe('objectui#10518 (g) — LIT CONTROL: the showcase `renewals-pipeline` a
     expect(out.yAxis).toEqual([{ field: 'total', format: '$0,0' }]);
   });
 
-  it('through `safeValidateSchema`, the door `objectui validate` / `objectui check` run', () => {
+  it('through `safeValidateSchema`, the tolerant face', () => {
     expect(safeValidateSchema(authored(RENEWALS_AXES)).success).toBe(true);
   });
 });

@@ -51,7 +51,7 @@ const ROW = (ComponentPropsMap as unknown as Record<string, z.ZodObject>)[TYPE];
 
 type Result = { success: boolean; error?: { issues: z.core.$ZodIssue[] } };
 
-/** The two faces a document is judged on: the tolerant one `objectui validate` runs, and the strict twin. */
+/** The two faces a document is judged on: the tolerant one, and the strict twin `objectui validate` runs. */
 const FACES: ReadonlyArray<readonly [string, (document: unknown) => Result]> = [
   ['tolerant', (document) => safeValidateSchema(document)],
   ['strict', (document) => StrictAnyComponentSchema.safeParse(document)],

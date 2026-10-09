@@ -9,7 +9,7 @@
 /**
  * The "Schema-Driven Usage" example on `@object-ui/plugin-timeline`'s README
  * must survive the contract this package ships — `safeValidateSchema` from
- * `@object-ui/types/zod`, the call `objectui validate` makes (objectui#10824).
+ * `@object-ui/types/zod`, the tolerant face (objectui#10824).
  *
  * ## The hole this closes
  *
@@ -152,7 +152,7 @@ describe('plugin-timeline README "Schema-Driven Usage" example (objectui#10824)'
     expect(blocks.map((b) => b.line)).toHaveLength(1);
   });
 
-  it('validates against safeValidateSchema — the call `objectui validate` makes', () => {
+  it('validates against safeValidateSchema — the tolerant face', () => {
     const result = safeValidateSchema(documentOf(blocks[0])) as Parse;
     expect(describeIssues(result), `packages/plugin-timeline/README.md:${blocks[0].line} is refused`).toBe('');
     expect(result.success).toBe(true);

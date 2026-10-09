@@ -131,7 +131,7 @@ describe('NavigationAreaSchema derives from the spec', () => {
 
   it('keeps `description`, one of the two keys the hand copy dropped', () => {
     // objectui#3088: an area authored with a sort weight or a description lost
-    // both — `objectui validate` is strip-mode, so the loss was silent. `order`
+    // both — `objectui validate` was strip-mode then, so the loss was silent. `order`
     // was the other one; spec 17.0.0 retired it at area level, so only
     // `description` is still a spec key this can be asserted about.
     const parsed = NavigationAreaSchema.parse({

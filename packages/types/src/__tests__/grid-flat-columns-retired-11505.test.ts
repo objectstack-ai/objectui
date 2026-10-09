@@ -16,8 +16,8 @@
  * The `grid` registration offered the four keys as inputs and the renderer
  * read them over the breakpoint object, but no face of `GridSchema` declared
  * them: the strict authoring face refused each key at every value
- * (`unrecognized_keys`), and the tolerant face (`safeValidateSchema`, what
- * `objectui validate` runs) passed any value through `BaseSchema`'s
+ * (`unrecognized_keys`), and the tolerant face (`safeValidateSchema`) passed
+ * any value through `BaseSchema`'s
  * `.passthrough()`, so `mdColumns: 'wide'` validated. Triage's ruling A on the
  * card: retire the flat channel, with no alias and no deprecation window.
  *

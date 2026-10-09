@@ -80,7 +80,7 @@ void liveLiteral;
 void retiredLiteral;
 
 /* -------------------------------------------------------------------------- */
-/* Runtime — through `safeValidateSchema`, the union the CLI applies.          */
+/* Runtime — through `safeValidateSchema`, the tolerant node union.           */
 /* -------------------------------------------------------------------------- */
 
 interface IssueLike {

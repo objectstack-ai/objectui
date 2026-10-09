@@ -94,7 +94,7 @@ void liveLiteral;
 void retiredLiteral;
 
 /* -------------------------------------------------------------------------- */
-/* Runtime — the zod mirror, and `safeValidateSchema`, the union the CLI uses. */
+/* Runtime — the zod mirror, and `safeValidateSchema`, the tolerant union.     */
 /* -------------------------------------------------------------------------- */
 
 const shape = (ObjectKanbanSchema as unknown as { shape: Record<string, { description?: string } | undefined> }).shape;

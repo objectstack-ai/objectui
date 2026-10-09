@@ -15,7 +15,7 @@
  *
  * `record:line_items` is registered (`@object-ui/plugin-form`), curated in
  * `PUBLIC_BLOCKS` and, since 17.6.0, declared by the spec. `AnyComponentSchema`
- * had no arm for it, so `safeValidateSchema` (what `objectui validate` runs)
+ * had no arm for it, so `safeValidateSchema` (then what `objectui validate` ran)
  * and the strict authoring face refused every document naming it with one
  * `invalid_union` at `type`, whatever the rest of the node said.
  *

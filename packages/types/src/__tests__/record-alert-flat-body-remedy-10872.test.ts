@@ -25,7 +25,7 @@
  * `properties.body`; the accept set is the one `BaseSchema` gave it, so a flat
  * `body` is still refused with `invalid_type` at `body` on both faces, and
  * `properties.body` still parses. Every row below reads both faces: the
- * tolerant one `objectui validate` runs, and its derived strict twin.
+ * tolerant one, and its derived strict twin, which `objectui validate` runs.
  */
 
 import { describe, expect, it } from 'vitest';

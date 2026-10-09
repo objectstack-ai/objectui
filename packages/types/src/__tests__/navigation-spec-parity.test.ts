@@ -11,7 +11,8 @@
  *
  * `NavigationItemSchema` is the only navigation schema with a *runtime*
  * consumer: `@object-ui/cli`'s published `objectui validate` command parses
- * metadata through `AnyComponentSchema`, which reaches it via `AppSchema`.
+ * metadata through the strict twin of `AnyComponentSchema`, which reaches it
+ * via `AppSchema`.
  * Renderers read plain objects and never parse, so every gap below was a CLI
  * defect — and a strip-mode schema fails silently, which is why they survived.
  *

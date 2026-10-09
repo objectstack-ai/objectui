@@ -247,8 +247,9 @@ describe('objectui check — the closing line is a tally, never a pass', () => {
   });
 
   it('keeps the parse-error close as it was', async () => {
-    // The other branch of the close is untouched: unreadable JSON is the one
-    // thing `check` fails a run on, and the tally is not printed over it.
+    // The other branch of the close is untouched: unreadable JSON fails the run
+    // (as a refused `${…}` expression does, objectui#4795), and the tally is not
+    // printed over it.
     writeFileSync(join(cwd, 'broken.json'), '{ "type": "card", "children": [ }');
     await check(cwd);
     expect(plainLines()).toContain('Found 1 errors');

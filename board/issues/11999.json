@@ -2,7 +2,7 @@
   "number": 11999,
   "kind": "pull_request",
   "title": "fix(plugin-list): the hide-fields, Group and Row color lists and the user-filter chips ask the field read (objectui#11984)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": true,
   "author": {
@@ -20,10 +20,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-08T19:00:09Z",
-  "updated_at": "2026-10-08T20:22:22Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-08T20:38:34Z",
+  "closed_at": "2026-10-08T20:38:32Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-08T20:38:31Z",
   "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/11999",

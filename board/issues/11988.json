@@ -2,8 +2,8 @@
   "number": 11988,
   "kind": "issue",
   "title": "plugin-chatbot: read the `verify` / `done` build-progress phases on the `build-verify` part — the receiver cloud#2172's ruling A re-files (objectui#7388 piece 2, never carried)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:ai",
     "bug",
     "domain:ui",
-    "pm:blocked",
     "priority:p2"
   ],
   "assignees": [
@@ -23,12 +22,16 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-08T16:02:58Z",
-  "updated_at": "2026-10-08T18:47:20Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-09T01:19:56Z",
+  "closed_at": "2026-10-09T01:18:24Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 7,
+  "comments": 10,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11988",
-  "body": "Filed by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). ⛔ Not a claim.\n\n**Why this card exists.** objectstack-ai/cloud#2172's ruling (letter A, maintainer 「同意」, `5696721651`) orders that \"the objectui receiver card is re-filed against a declared vocabulary\". It was never re-filed:\n- objectui#7388, the old receiver card, closed on 2026-09-27 on the maintainer's word with piece 2 \"not tracked here\" (`5852222070`);\n- the cloud sender is now built (cloud PR #2721) and held as a draft until cloud's `.objectui-sha` carries a receiver (seat review `6062743414`).\n\nThis card is that receiver. The direction is ruled, so this is not a decision card.\n\n## The wire shape it reads\n\nTaken from cloud PR #2721's **Wire shape** section, which the cloud seat keeps authoritative:\n- part type `data-build-progress` (`BUILD_PROGRESS_FRAME_TYPE`, `@objectstack/spec/ai`);\n- part id **`build-verify`**, stable within a turn and separate from `build-progress` (the `apply_blueprint` tree). Both can be on one message, and this one never overwrites the tree;\n- a hop: `{ phase: 'verify', hop, tool }`;\n- the exit: `{ phase: 'done' }`;\n- every `data` parses with `BuildProgressFrameSchema`, and every phase is in `BUILD_PROGRESS_PHASES`.\n\n## What the receiver does today (cloud's reading at objectui `f1781be3`)\n\nIn `packages/plugin-chatbot/src`:\n- `mapMessages.ts:832`: `extractBuildProgress` takes the last `data-build-progress` part on the message, whatever its id;\n- `:841`: any phase other than `data` / `done` is coerced to `structure`;\n- `ChatbotEnhanced.tsx` renders `BuildProgressPanel` from it.\n\nSo a `build-verify` part would replace the finished build tree and read \"Building your app…\".\n\n## Scope\n\n1. `extractBuildProgress` keeps the `build-progress` tree and the `build-verify` part apart, keyed by part id. A `build-verify` part never displaces the tree.\n2. The `verify` phase renders its own line (for example \"Checking the change… step N\"), and `done` closes it. The phase values are read from the spec vocabulary, ⛔ not restated.\n3. An unknown phase is surfaced as unknown (a warning), not coerced to `structure`: the ruling's \"an unknown phase value is something the receiver can warn about\".\n4. Copy goes through `packages/i18n`, like the panel's other strings (objectui#8888's keys).\n\n## Acceptance\n\n- A message carrying cloud PR #2721's measured frames shows the finished tree **and** a verify line that advances per hop and closes on `done`.\n- Control: a message with only `build-progress` is unchanged.\n- An unknown phase is not rendered as \"Building\".\n\n## Unlock for cloud\n\nobjectstack-ai/cloud#2172 unlocks when cloud's `.objectui-sha` carries this card's merge (the install face). Cloud PR #2721 is then readied.\n\nDuplicate-search terms: build-verify part, verify phase receiver, data-build-progress verify, extractBuildProgress coerces phase\n\nBlocked-by: #11939\nUnlock-action: re-check #11939 when label needs-user-decision absent"
+  "body": "Filed by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). ⛔ Not a claim.\n\n**Why this card exists.** objectstack-ai/cloud#2172's ruling (letter A, maintainer 「同意」, `5696721651`) orders that \"the objectui receiver card is re-filed against a declared vocabulary\". It was never re-filed:\n- objectui#7388, the old receiver card, closed on 2026-09-27 on the maintainer's word with piece 2 \"not tracked here\" (`5852222070`);\n- the cloud sender is now built (cloud PR #2721) and held as a draft until cloud's `.objectui-sha` carries a receiver (seat review `6062743414`).\n\nThis card is that receiver. The direction is ruled, so this is not a decision card.\n\n## The wire shape it reads\n\nTaken from cloud PR #2721's **Wire shape** section, which the cloud seat keeps authoritative:\n- part type `data-build-progress` (`BUILD_PROGRESS_FRAME_TYPE`, `@objectstack/spec/ai`);\n- part id **`build-verify`**, stable within a turn and separate from `build-progress` (the `apply_blueprint` tree). Both can be on one message, and this one never overwrites the tree;\n- a hop: `{ phase: 'verify', hop, tool }`;\n- the exit: `{ phase: 'done' }`;\n- every `data` parses with `BuildProgressFrameSchema`, and every phase is in `BUILD_PROGRESS_PHASES`.\n\n## What the receiver does today (cloud's reading at objectui `f1781be3`)\n\nIn `packages/plugin-chatbot/src`:\n- `mapMessages.ts:832`: `extractBuildProgress` takes the last `data-build-progress` part on the message, whatever its id;\n- `:841`: any phase other than `data` / `done` is coerced to `structure`;\n- `ChatbotEnhanced.tsx` renders `BuildProgressPanel` from it.\n\nSo a `build-verify` part would replace the finished build tree and read \"Building your app…\".\n\n## Scope\n\n1. `extractBuildProgress` keeps the `build-progress` tree and the `build-verify` part apart, keyed by part id. A `build-verify` part never displaces the tree.\n2. The `verify` phase renders its own line (for example \"Checking the change… step N\"), and `done` closes it. The phase values are read from the spec vocabulary, ⛔ not restated.\n3. An unknown phase is surfaced as unknown (a warning), not coerced to `structure`: the ruling's \"an unknown phase value is something the receiver can warn about\".\n4. Copy goes through `packages/i18n`, like the panel's other strings (objectui#8888's keys).\n\n## Acceptance\n\n- A message carrying cloud PR #2721's measured frames shows the finished tree **and** a verify line that advances per hop and closes on `done`.\n- Control: a message with only `build-progress` is unchanged.\n- An unknown phase is not rendered as \"Building\".\n\n## Unlock for cloud\n\nobjectstack-ai/cloud#2172 unlocks when cloud's `.objectui-sha` carries this card's merge (the install face). Cloud PR #2721 is then readied.\n\nDuplicate-search terms: build-verify part, verify phase receiver, data-build-progress verify, extractBuildProgress coerces phase"
 }

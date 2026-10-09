@@ -1,0 +1,35 @@
+{
+  "number": 12016,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): re-land the toolbar field-list read, rolled back for first-load bytes only (objectui#11984)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-09T00:49:53Z",
+  "updated_at": "2026-10-09T01:27:02Z",
+  "closed_at": "2026-10-09T01:27:00Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-09T01:27:00Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12016",
+  "body": "Fixes #11984\nClause-②: no\n\nThis re-lands the reviewed toolbar field-list read change, unchanged. It first landed as `aa67386a5` (PR objectui#11999; review `6067089341`, addendum `6068120860`). `902fbe190` (PR objectui#12009, anchor objectui#12007) rolled it back for first-load bytes only. objectui#11939's reclaim (PR objectui#11982, `4babf40`) re-pinned the eager-closure ceiling with room for it, so the card's hold `6069699361` is met. Claim: `6071749217`.\n\n## What this PR is\n\n- One commit: `git cherry-pick aa67386a5` onto `main` `5d77c099b`. It applied with no conflict.\n- The commit keeps the original squash message. A first line naming the re-land is added above it, and its trailers are the model-free pair.\n- The same three files as `aa67386a5`:\n  - `packages/plugin-list/src/ListView.tsx`;\n  - `packages/plugin-list/src/__tests__/ListView.fieldListRead-11984.test.tsx`;\n  - `.changeset/11984-toolbar-field-lists-read.md`.\n- What the change does is objectui#11999's reviewed description, not repeated here. In short:\n  - `allFields` asks `canReadField` behind `isLoaded`. It is the list the hide-fields popover, the Group editor, the Row color select and the compact View settings popover's same three sections offer.\n  - The user-filter chips ask it too, with the Sort picker's in-use exception.\n  - Stored grouping, hidden-field and row-color settings on an unreadable field are kept as stored.\n\n## Same change, measured (H1)\n\n- `git diff aa67386a5^ aa67386a5` and `git diff 5d77c099b HEAD` give the same `git patch-id --stable` (`e4d60e6d8e55`), and their added and removed lines are identical.\n- Only hunk offsets moved, by 12 and then 17 lines. The cause is objectui#12014's two edits above them: the gallery capability check and the grid case's options spread. No hunk overlaps them, so **no adjustment was made**.\n- The two added files are the same blobs as in `aa67386a5`.\n\n## Gates, on HEAD `602e4b9cd`\n\n- `pnpm --workspace-concurrency=2 --filter '@object-ui/plugin-list^...' build`, under the verify lock: `Scope: 13 of 47 workspace projects`, `VERDICT command-exit 0`.\n- `pnpm --filter @object-ui/plugin-list type-check`, which echoes `tsc --noEmit && tsc -p tsconfig.test.json`: `VERDICT command-exit 0`. `tsc -p tsconfig.test.json --listFilesOnly` lists the new pin.\n- `pnpm exec vitest run --maxWorkers=2 packages/plugin-list/ packages/core/src/utils/__tests__/column-identity.ratchet.test.ts scripts/__tests__/one-authority-per-exported-name-6273.test.ts`, from the repo root under the lock:\n  - `Test Files  122 passed (122)`, `Tests  1297 passed (1297)`, `VERDICT command-exit 0`.\n  - That is the whole `plugin-list` directory. It is a superset of the 102 files that name `ListView`, `canReadField`, `hiddenFields`, `rowColor` or `GroupingEditor`.\n- Each of these exits 0:\n  - `node scripts/check-changeset-presence.mjs`: `2 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s)`.\n  - `node scripts/check-changeset-no-major.mjs`.\n  - `node scripts/check-changeset-overwrite.mjs`: `1 changeset(s) added, 0 modified, 0 deleted`.\n  - `pnpm check:new-line-citations`: `VERDICT new-cross-file-line-citations: 0 new citation(s)`.\n  - `pnpm check:control-bytes`.\n  - Also `check:changeset-claims`, `pending-changeset-literals`, `test-path-roots`, `vi-mock-specifiers`, `vi-mock-inherit`, `vi-mock-override-shape`, `i18n-keys`, `shell-escape-residue`, `unreferenced-sources`, `phantom-deps`, `handler-key-reads` and `metadata-write-doors`.\n- **Lint, narrowed and measured:**\n  - `pnpm exec eslint --format json` over the two touched TS files. The population is the config's `**/*.{ts,tsx}`.\n  - The JSON reports 2 files and 0 errors. `ListView.tsx` has 187 warnings, equal to `main`'s blob linted over stdin. The new pin has 0.\n  - `eslint.config.js` sets no `parserOptions.project` or `projectService`, so the diff cannot move an untouched file's verdict. Repo-wide lint is CI's.\n\n## Reverse check (H2), on committed `602e4b9cd`\n\n- `ListView.tsx` was put back on `main`'s blob (`95728f40b987`) by `git checkout 5d77c099b`, under a trap restore. On disk, `canReadField` went from 13 to 6.\n- The pin, run alone under the lock: `Tests  15 failed | 5 passed (20)`. The failures were both enumeration sweeps, every per-position pin, the before-`isLoaded` pin and the four stored-configuration pins.\n- Restored with `git checkout HEAD`: the on-disk blob equals HEAD's (`565dae2c04a8`), and `git diff HEAD` is empty.\n- On HEAD: `Tests  20 passed (20)`.\n\n## First-load bytes (H3)\n\n- The ceiling is the one objectui#11982 re-pinned. This PR's `Bundle Analysis` budget bot reads the eager closure.\n- That reading, and `main`'s, go in the dev report on the card after CI. ⛔ `scripts/check-eager-closure-budget.mjs` is not touched.\n\n## Acceptance notes\n\n- **Docs:** as on the first landing, the package README and `content/docs` say nothing about which toolbar lists ask the field read, so nothing there became false. They are outside the claim's file surface.\n- **Two pending changesets:** `.changeset/12007-revert-toolbar-field-list-read.md` stays as it is, per the claim. No release has run since the first landing: `packages/plugin-list/CHANGELOG.md` names neither this card nor objectui#11925, which landed earlier. So the next release notes carry both the rollback entry and this card's entry. Whether to drop the rollback entry before that release is the seat's call; this PR does not touch it.\n- **No new findings.** The first landing's out-of-scope finding, the restored derived-chip selection, went to the seat with that report.\n\nSession: `https://claude.ai/code/session_01MgfduSkFrfM3eorB3UGfAU`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01MgfduSkFrfM3eorB3UGfAU)_\n"
+}

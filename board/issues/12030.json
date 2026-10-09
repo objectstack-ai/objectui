@@ -1,0 +1,29 @@
+{
+  "number": 12030,
+  "kind": "issue",
+  "title": "deps(v18): move objectui's @objectstack/* dependencies to the `next` prereleases (18.0.0-next.N) ahead of 18.0 GA — the maintainer's ruling, since 17.x ships no new release",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-09T06:13:35Z",
+  "updated_at": "2026-10-09T06:13:35Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12030",
+  "body": "**Filing gate ③ — a task the maintainer directed.** In the `domain:ui` seat 3 session (`session_01CGZy1BGCjdN5cXqL9cnvB8`), on 2026-10-09, verbatim:\n- 「让 objectui 提前改用 next 预发布版」\n- 「17.x 不会发新版」\n\nThis is the decision objectstack-ai/objectstack#22050 left open (\"moving objectui to `next` earlier would be its own decision card, if anyone asks for it\"; ruling `6037890422`). The maintainer has now made it.\n\n**Who acts on it:** the objectui `domain:ui` execution seat 3 (seat post objectui#9800) claims it once the restart condition below holds. Routed through the maintainer's direct-dispatch channel; triage may grade it on first touch.\n\nRestart-when: `npm view @objectstack/spec dist-tags.next` prints an `18.0.0-next.N` version, so a v18 prerelease is installable under the `next` dist-tag.\n\n## Why it waits\n\nOn npm today, `@objectstack/spec`'s dist-tags are `latest` 17.7.0 and `rc` 17.0.0-rc.6; there is no `next` and no `18.x` version. objectstack's `main` has been in Changesets pre mode since 2026-10-08 (`.changeset/pre.json`: `mode: pre`, `tag: next`, PR objectstack-ai/objectstack#22084). However, the version PR objectstack-ai/objectstack#21988 still reads 17.8.0, last refreshed 2026-10-08T06:19Z. Its scheduled refresh has failed three times since (the latest is run 37864901478, job `Version PR maintenance`):\n- the post-version tree fails `check:release-notes`, `check:spec-changes` and `check:upgrade-guide`;\n- the job says the version pass \"moved the protocol major\", which a reviewed change must decide first.\n\nBoth halves are in flight on the objectstack side:\n- objectstack-ai/objectstack#22085 (`domain:devx`, p1): the version-PR lane at the major boundary;\n- objectstack-ai/objectstack#22130 (`domain:spec`, p1): `PROTOCOL_VERSION` 17 → 18 in an ordinary PR.\n\nOnce both land, the version PR can refresh into `18.0.0-next.0`. Publishing it is the maintainer's release action.\n\n## The move, when it wakes\n\n- **Shape:** the same as the last bumps (objectui#11717 to 17.7.0, objectui#11438, objectui#11073): the repo's bump tooling, the lockfile, and a list of the held cards the bump unlocks.\n- **Manifests:** 31 `package.json` files on objectui `main` `8f815f4fed` name an `@objectstack/*` package. Today their ranges sit between `^17.0.0` and `^17.7.0`. Move every one to `^18.0.0-next.N`, the published prerelease, through the repo's own tooling and lockfile regeneration, ⛔ never by hand-editing the lockfile.\n- **Breaks:** v18 is landing breaking stages on objectstack `main`, so the bump can break objectui's build, types or tests. The dev measures the break list first and reports it before fixing. If the list is large, it splits into a mechanical bump PR plus per-area fix cards, rather than one oversized PR.\n- **Cards this unlocks:** each card's own `Restart-when:` asks for a release carrying an objectstack fix, installed by objectui. They become satisfiable once objectui resolves a `next` prerelease that carries those fixes:\n  - objectui#11773 (**p1**, the If-Match draft pin, objectstack PR #22126);\n  - objectui#11545 (objectstack PR #22056);\n  - objectui#11681 (objectstack-ai/objectstack#21995's fix);\n  - objectui#11970 (objectstack PR #22282);\n  - objectui#11958 (`PagePrintSchema`);\n  - objectui#11864 (the v18 spec bump);\n  - objectui#11762 (a release carrying `93125aeeb8`).\n\n## Consequences to settle at the move (recorded, not decided here)\n\n- **cloud:** objectstack-ai/objectstack#22050 kept objectui `^17`-compatible partly so that cloud's objectui pin could keep moving. After this move, a newer objectui pin brings v18 prerelease dependencies into cloud.\n- **objectui's own releases:** `@object-ui/*` packages that depend on `@objectstack/*` will name a prerelease range. Whether objectui enters its own Changesets pre mode at the same time is a release-process call.\n\n## Duplicate check\n\n- Semantic issue search on objectstack-ai/objectui (open and closed), *move objectstack dependencies to next prerelease 18.0.0-next*: 24 hits (1 open, 23 closed). None is this move. Related: objectui#11717, objectui#11438 and objectui#11073 (closed, the 17.x bumps), and objectui#11762 (open, one of the cards this unlocks).\n- objectstack-ai/objectstack#22050 is the ruling that named this as a separate decision.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

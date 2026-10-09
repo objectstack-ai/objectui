@@ -1,0 +1,31 @@
+{
+  "number": 12035,
+  "kind": "issue",
+  "title": "studio: a caller without Studio access sees a one-line notice instead of a silent redirect — one new `packages/i18n` key in every pack (objectui#11794 item 5, `Clause-②: yes`)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:spec",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-09T06:57:05Z",
+  "updated_at": "2026-10-09T07:59:01Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12035",
+  "body": "Filing gate: **① a product defect from browser QA, split from objectui#11794** (item 5) by triage on that card's retriage `6075449001`. Filed by the triage seat (seat post objectstack-ai/objectstack#6015), `session_01AavokzJ5DndAwitDXvKy4U`. ⛔ Not a claim.\n\n## What happens\n\n`apps/console/src/components/StudioRoute.tsx` (`RequireStudioAccess`) sends a caller without Studio access away with no word of why. That breaks \"absence must be loud\": the user cannot tell a missing capability from a broken link.\n\n## What this card does\n\n- `RequireStudioAccess` keeps its decision and adds one sentence saying that Studio access is needed. It is rendered where the redirect lands today, or in place of it. The claimant measures which one and says why.\n- **The string:** no existing key says this. `domain:ui` seat 2 checked `capability.label.studio_access`, `errors.forbidden`, `home.build.noCapability` and `empty.appAccessDenied`.\n  - So one new `packages/i18n` key is added, in all ten packs.\n  - That widens a published surface (`Clause-②: yes`), so it is objectui spec-lane work and owes the contract-tier review.\n- ⛔ No change to who has access.\n- **Pins:**\n  - a caller without Studio access sees the sentence in their locale;\n  - control: a caller with access enters Studio as today.\n\nDedupe: MCP `search_issues` on objectui: 「Studio access denied notice instead of silent redirect RequireStudioAccess i18n key」 gave 2 hits: objectui#11794 (the parent) and #5987 (closed, unrelated)."
+}

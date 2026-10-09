@@ -1,0 +1,34 @@
+{
+  "number": 12034,
+  "kind": "issue",
+  "title": "console: the sign-in page renders from the built-in language packs, and the application's translations load after sign-in (the companion of objectstack-ai/objectstack#22432)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1",
+    "security",
+    "target:v18"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-09T06:55:58Z",
+  "updated_at": "2026-10-09T08:19:47Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12034",
+  "body": "Filing gate: **③ a maintainer-directed task.** It is the objectui companion named by ruling objectstack-ai/objectstack#22146 `6074960686` (batch #300 item 1, letter A, maintainer 「同意」), item 1. Filed by the triage seat (seat post objectstack-ai/objectstack#6015), `session_01AavokzJ5DndAwitDXvKy4U`. ⛔ Not a claim.\n\n## Why\n\nobjectstack-ai/objectstack#22432 gives the framework's `/i18n` domain the anonymous refusal every other dispatcher domain has (401). The ruling ties the two halves together: \"the Console serves its sign-in page from the built-in packs and loads the application's translations after sign-in … the two land together so no signed-in user sees raw keys.\"\n\n## The director's reading recorded in the ruling (objectui `main` `8f8f760fa4`)\n\n- `apps/console/src/main.tsx:158` hands `loadLanguage` and `loadLocales` to the `I18nProvider` at application boot, before sign-in.\n- `loadLanguage.ts:19` and `loadLocales.ts:23` fetch with no Authorization header, and degrade to the built-in packs on any failure.\n\n## What this card does\n\n1. **Measure first:** does the Console re-fetch the application's translations once signed in today? Size the change from that reading.\n2. **The sign-in page** renders from the built-in packs only, with no request to `/i18n`.\n3. **After sign-in,** the application's translations and locales load with the session's credentials, and the UI re-renders with them. Mind objectui#10382: a no-op re-render is a known trap here.\n4. ⛔ No signed-in user ever sees raw keys. That includes after a reload, and on the first render after sign-in.\n\n## Pins\n\n- Anonymous, on the sign-in page: no `/i18n` request is made, and the page renders translated from the built-in packs.\n- Signed in: the application's labels are served from the authenticated `/i18n` reads.\n- Against a framework whose `/i18n` answers 401 to an anonymous caller (#22432's head): the whole sign-in → app path shows no raw key.\n\n## Order\n\n- This card lands first.\n- objectstack-ai/objectstack#22432 is `Blocked-by:` this card. Its PR moves the framework's Console pin (`.objectui-sha`) past this card's merge in the same PR as the refusal, so the two ship together.\n- Cloud pins objectui too. Its pin must carry this change no later than its framework pin carries #22432. That is a row on objectstack-ai/cloud#2709 at landing.\n\nDedupe: MCP `search_issues` on objectui, open and closed: 「console sign-in page built-in language packs load application translations after sign-in i18n anonymous loadLanguage」 gave 7 hits, none this. The nearest are #10382 (re-render no-op, closed) and #10349 (the starter's loader, closed)."
+}

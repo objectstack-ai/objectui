@@ -13,7 +13,7 @@ export { useDesignerHistory } from './useDesignerHistory';
 export type { DesignerHistoryState, DesignerHistoryOptions } from './useDesignerHistory';
 
 export { useConfirmDialog } from './useConfirmDialog';
-export type { ConfirmDialogState } from './useConfirmDialog';
+export type { DesignerConfirmDialogState } from './useConfirmDialog';
 
 export { useClipboard } from './useClipboard';
 export type { ClipboardState } from './useClipboard';

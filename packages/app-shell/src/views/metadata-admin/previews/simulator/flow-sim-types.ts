@@ -120,7 +120,16 @@ export interface SimState {
 
 export type DiagnosticLevel = 'error' | 'warning';
 
-export interface Diagnostic {
+/**
+ * One finding of the client-side structural check (`validateFlowDraft`,
+ * `missingNodeRefDiagnostics`), anchored on a node, an edge or a cycle.
+ *
+ * Named `FlowSimDiagnostic`, not `Diagnostic`: `@object-ui/sdui-parser`
+ * publishes `Diagnostic` for a parser finding (`severity` + `code`), a
+ * different thing, and one exported name has one authority (objectui#6349,
+ * batch 6).
+ */
+export interface FlowSimDiagnostic {
   level: DiagnosticLevel;
   /** The node this diagnostic points at (for an inline badge + click-to-reveal). */
   nodeId?: string;
@@ -138,8 +147,8 @@ export interface Diagnostic {
 }
 
 export interface FlowValidation {
-  errors: Diagnostic[];
-  warnings: Diagnostic[];
+  errors: FlowSimDiagnostic[];
+  warnings: FlowSimDiagnostic[];
   /** Resolved entry node id, when exactly one is determinable. */
   startNodeId?: string;
 }

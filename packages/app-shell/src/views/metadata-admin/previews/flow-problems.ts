@@ -24,7 +24,7 @@
 import { createContext } from 'react';
 import { collectFlowGraphs } from '@objectstack/spec/automation';
 import { missingNodeRefDiagnostics, validateFlowDraft } from './simulator/flow-sim-validate.js';
-import type { Diagnostic, DiagnosticLevel, SimEdge, SimNode } from './simulator/flow-sim-types.js';
+import type { FlowSimDiagnostic, DiagnosticLevel, SimEdge, SimNode } from './simulator/flow-sim-types.js';
 import { conditionText, edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
 import { flowExpressionProblems } from './flow-expr-problems.js';
 import { describeExprSite, flowNodeIds, nodeIdPositions, type ExprSite } from './flow-node-refs.js';
@@ -158,7 +158,7 @@ interface StructuralMapping {
  * the author marks as a back-edge to resolve it — but flags EVERY hop (nodes +
  * edges) for the red error highlight so the whole loop reads as the problem.
  */
-function structuralMapping(diag: Diagnostic, edges: FlowDesignerEdge[]): StructuralMapping {
+function structuralMapping(diag: FlowSimDiagnostic, edges: FlowDesignerEdge[]): StructuralMapping {
   if (diag.edge) {
     const { source, target } = diag.edge;
     return { target: { kind: 'edge', source, target, edgeKey: resolveEdgeKey(edges, source, target) } };
@@ -233,7 +233,7 @@ export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, 
   const problems: FlowProblem[] = [];
 
   const v = validateFlowDraft(nodes as unknown as SimNode[], edges as unknown as SimEdge[], locale);
-  const pushStructural = (level: DiagnosticLevel, list: Diagnostic[], tag = '') => {
+  const pushStructural = (level: DiagnosticLevel, list: FlowSimDiagnostic[], tag = '') => {
     list.forEach((diag, i) => {
       const { target, highlight } = structuralMapping(diag, edges);
       problems.push({

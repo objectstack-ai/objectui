@@ -29,7 +29,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { runDiagnostics, countIssues, type Diagnostic } from '../commands/doctor.js';
+import { runDiagnostics, countIssues, type DoctorDiagnostic } from '../commands/doctor.js';
 
 let cwd: string;
 
@@ -52,9 +52,9 @@ function writePkg(pkg: Record<string, unknown>): void {
   write('package.json', JSON.stringify(pkg, null, 2));
 }
 
-const ids = (results: readonly Diagnostic[]): string[] => results.map((r) => r.id);
+const ids = (results: readonly DoctorDiagnostic[]): string[] => results.map((r) => r.id);
 
-function find(results: readonly Diagnostic[], id: string): Diagnostic | undefined {
+function find(results: readonly DoctorDiagnostic[], id: string): DoctorDiagnostic | undefined {
   return results.find((r) => r.id === id);
 }
 

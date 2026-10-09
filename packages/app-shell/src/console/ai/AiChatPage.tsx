@@ -91,16 +91,16 @@ import {
   // The ENHANCED message shape — the one `<ChatbotEnhanced>` renders and the
   // one this file actually produces (`toolInvocations`, `buildProgress`).
   //
-  // `@object-ui/plugin-chatbot` publishes ONE chat-message contract: its
-  // barrel's `ChatMessage` IS this type, and `ChatbotEnhancedMessage` is a
-  // deprecated alias of the same declaration, kept so this import (PR #4379)
-  // keeps compiling. The collision that made the alias necessary is gone —
-  // the barrel used to DECLARE a second, minimal `ChatMessage` of its own
-  // (id/role/content/timestamp/avatar only) and the natural name resolved to
-  // it, which is how this file once could not read `toolInvocations` off its
-  // own function's return (objectui#4040). Retired in objectui#4383 / PR
-  // #4400; pinned in the plugin's `chat-message-contract.test.ts`. New code
-  // here should spell `ChatMessage`.
+  // `ChatbotEnhancedMessage` is the plugin's one name for its RUNTIME
+  // chat-message contract, not an alias of anything. The plugin root publishes
+  // no `ChatMessage` at all, so the bare name means only the `@object-ui/types`
+  // AUTHORING contract (objectui#6349, batch 5). The `as ChatMessage` below is
+  // a local rename only; this file never imports the authoring type.
+  // History: the barrel once DECLARED a second, minimal `ChatMessage` of its
+  // own (id/role/content/timestamp/avatar only) and the natural name resolved
+  // to it, which is how this file once could not read `toolInvocations` off
+  // its own function's return (objectui#4040; retired in objectui#4383 / PR
+  // #4400). Pinned in the plugin's `chat-message-contract.test.ts`.
   type ChatbotEnhancedMessage as ChatMessage,
 } from '@object-ui/plugin-chatbot';
 

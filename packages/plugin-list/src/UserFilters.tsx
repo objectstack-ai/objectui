@@ -446,6 +446,15 @@ function coerceToOptionTypes(selection: DropdownSelection, resolvedFields: Resol
   return changed ? coerced : selection;
 }
 
+/**
+ * What `coerceToOptionTypes` reads of a field: its resolved type and its option
+ * values. A field declared without its type gets both from the object
+ * definition, so they move when that definition loads (objectui#12008).
+ */
+function typingOf(field: ResolvedField): string {
+  return JSON.stringify([field.type, field.options.map(o => o.value)]);
+}
+
 function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, className, initialSelections, onSelectionsChange }: DropdownFiltersProps) {
   const { fieldLabel, translateOptions } = useSafeFieldLabel();
   const moreLabel = useMoreLabel();
@@ -473,6 +482,11 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
   if (settledFieldsRef.current === null) {
     settledFieldsRef.current = new Set(fields.map(f => f.field));
   }
+
+  // Per field name, the typing (`typingOf`) its starting selection was last
+  // coerced against, or `null` once that value is final: coerced again after
+  // the definition moved the typing (objectui#12008), or changed by the user.
+  const typingRef = React.useRef(new Map<string, string | null>());
 
   // Option counts must reflect the result set BEFORE the field's own
   // selection narrows it — the server returns already-filtered rows, so
@@ -529,6 +543,7 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
   );
 
   const handleChange = (field: string, values: (string | number | boolean)[]) => {
+    typingRef.current.set(field, null);
     const next = { ...selectedValues, [field]: values };
     setSelectedValues(next);
     emitFilters(next);
@@ -546,33 +561,58 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // A field that appears AFTER mount gets the starting selection the mount
-  // would have given it, once (objectui#12001). That is how a URL-restored
-  // selection reaches chips derived from an object definition that loaded
-  // after the list mounted: the chip shows it and the query carries it. Like
-  // the mount emit above, it reports through `onFilterChange` only; the
-  // selection came from the host, so nothing is echoed back through
-  // `onSelectionsChange`. A list with declared fields settles them all at
-  // mount, so this adopts nothing there unless the declared list itself grows.
+  // A starting selection is settled after mount in two steps, each at most
+  // once per field:
   //
-  // Keyed on the field NAMES, a primitive, not on the `fields` array: the
-  // host rebuilds that array on every definition render (AGENTS.md #10).
+  // - ARRIVAL (objectui#12001). A field that appears AFTER mount gets the
+  //   starting selection the mount would have given it. That is how a
+  //   URL-restored selection reaches chips derived from an object definition
+  //   that loaded after the list mounted: the chip shows it and the query
+  //   carries it. A list with declared fields settles them all at mount, so
+  //   this adopts nothing there unless the declared list itself grows.
+  // - TYPING (objectui#12008). A starting value is coerced against its field's
+  //   typing at that moment. A field declared without its type takes its type
+  //   and options from the definition, which loads after the list mounts, so
+  //   a restored 'true' stayed a string: no box ticked and the query filtered
+  //   on the string. The first time a field's typing moves, its value is
+  //   coerced once more, unless the user has changed it since. A field typed
+  //   at mount keeps its typing, so it is not coerced again.
+  //
+  // Like the mount emit above, both report through `onFilterChange` only; the
+  // selection came from the host, so nothing is echoed back through
+  // `onSelectionsChange`. One effect runs both steps, so an arrival and a late
+  // typing in the same commit reach the same emit.
+  //
+  // Keyed on primitives, not on the `fields` array, which the host rebuilds
+  // on every definition render, nor on the `resolvedFields` memo's identity
+  // (AGENTS.md #10).
   const fieldNamesKey = JSON.stringify(fields.map(f => f.field));
+  const typingKey = JSON.stringify(resolvedFields.map(typingOf));
   React.useEffect(() => {
     const settled = settledFieldsRef.current!;
+    const typing = typingRef.current;
     const arrived = fields.filter(f => !settled.has(f.field));
-    if (arrived.length === 0) return;
     arrived.forEach(f => settled.add(f.field));
-    const adopted = coerceToOptionTypes(
-      startingSelections(arrived, initialSelections, controlKinds),
-      resolvedFields,
-    );
-    if (Object.keys(adopted).length === 0) return;
+    const retyped: DropdownSelection = {};
+    resolvedFields.forEach(f => {
+      const was = typing.get(f.field);
+      // First sight: the typing the mount effect, or the arrival below, has
+      // just coerced this field's starting value against.
+      if (was === undefined) typing.set(f.field, typingOf(f));
+      else if (was !== null && was !== typingOf(f)) {
+        typing.set(f.field, null);
+        if (selectedValues[f.field]) retyped[f.field] = selectedValues[f.field];
+      }
+    });
+    const start = startingSelections(arrived, initialSelections, controlKinds);
+    const due = { ...retyped, ...start };
+    const adopted = coerceToOptionTypes(due, resolvedFields);
+    if (adopted === due && Object.keys(start).length === 0) return;
     const next = { ...selectedValues, ...adopted };
     setSelectedValues(next);
     emitFilters(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fieldNamesKey]);
+  }, [fieldNamesKey, typingKey]);
 
   // Split fields into visible and overflow based on maxVisible
   const visibleFields = maxVisible !== undefined && maxVisible < resolvedFields.length

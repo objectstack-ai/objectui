@@ -447,18 +447,21 @@ Validation happens at three doors, all of them outside the render path:
    `_diagnostics` envelope, which Studio surfaces. See
    [Metadata Diagnostics](./metadata-diagnostics.md).
 2. **Authoring time — `objectui validate`.** It parses one document, JSON or YAML, against the
-   published schema, prints the schema's own errors when it fails, and exits non-zero. That exit
+   published schema's strict authoring face — which refuses, by name, any key no schema declares,
+   on every node — prints the schema's own errors when it fails, and exits non-zero. That exit
    code is the CLI's validation verdict. `objectui check` does not give it. `check` sweeps a
    project's JSON files and checks the `type` of each file it recognises, and a file whose root
    carries an ObjectUI structural key (`children`, `className`, `body`, …) is recognised by that
    key alone, without being parsed against the schema — so an invalid document of that shape is
    not reported at all. Only a file with none of those keys is parsed; it is listed by name when
    its root `type` names a registered component but the document does not validate, and that
-   list is advisory: `check` exits non-zero on unreadable JSON only. See
-   [`objectui check`](/docs/utilities/cli#objectui-check).
-3. **Wherever else you need it — `safeValidateSchema`.** Exported from `@object-ui/types/zod`,
-   it is the parse `objectui validate` runs, so a build step, a CI job or a save handler can
-   apply the identical contract.
+   list is advisory: being listed does not fail the run. `check` exits non-zero on unreadable
+   JSON, and on a `${…}` expression on a text key its node never evaluates, in a listed file as
+   in a recognised one. See [`objectui check`](/docs/utilities/cli#objectui-check).
+3. **Wherever else you need it — `StrictAnyComponentSchema.safeParse`.** Exported from
+   `@object-ui/types/zod`, it is the parse `objectui validate` runs, so a build step, a CI job or
+   a save handler can apply the identical contract. `safeValidateSchema`, from the same module,
+   is the tolerant parse: it keeps a key no schema declares, unjudged, the way the renderer does.
 
 Put the check where documents are authored, saved or loaded — not in the paint. A document that
 reaches the browser without passing one of those doors is drawn as best the renderer can, in

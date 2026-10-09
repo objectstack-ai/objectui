@@ -17,11 +17,11 @@
  *
  * It is a SECOND face over the SAME declarations. `BaseSchemaCore` stays
  * `.passthrough()` and every published mirror keeps the accept set it has: this
- * module adds a face, it does not change the existing one. Nothing in this
- * repository consumes it yet — wiring `objectui validate`, the JSON-fence gate
- * and `objectui check` is the devx half of the ruling and is ruled to come
- * after, so the only consumer of these exports today is the pin file that
- * measures them.
+ * module adds a face, it does not change the existing one. `objectui validate`
+ * and `objectui check` consume it: both judge an authored document through
+ * `StrictAnyComponentSchema`, by way of `@object-ui/cli`'s
+ * `validateAuthoredDocument` (objectui#5250, slice A). The JSON-fence gate is
+ * the ruling's next slice.
  *
  * It is DERIVED, never hand-written. A second hand-maintained copy of the 107
  * component schemas would be a parity ledger nobody can keep honest — this

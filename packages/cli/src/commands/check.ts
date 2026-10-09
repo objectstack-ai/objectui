@@ -11,8 +11,8 @@ import { globSync } from 'glob';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { parse as parseJsonc, printParseErrorCode, type ParseError } from 'jsonc-parser';
-import { safeValidateSchema } from '@object-ui/types/zod';
 
+import { describeUndeclaredKey, validateAuthoredDocument } from '../utils/authoring-face.js';
 import { formatIssuePath } from '../utils/issue-path.js';
 import { isKnownSchemaType } from '../utils/known-schema-types.js';
 import { didYouMeanClause } from '../utils/known-type-case-suggestion.js';
@@ -21,6 +21,7 @@ import {
   findUnbindableTextExpressions,
   workingChannels,
 } from '../utils/unbindable-text-expressions.js';
+import { findUndeclaredKeys } from '../utils/union-arm-diagnostics.js';
 
 /**
  * Root keys that positively identify a file as an ObjectUI schema node.
@@ -106,8 +107,11 @@ const OBJECTUI_STRUCTURAL_KEYS: readonly string[] = [
 
 /** The part of a Zod issue this command prints. */
 interface IssueLike {
+  code?: string;
   path?: readonly PropertyKey[];
   message: string;
+  /** Present on `unrecognized_keys`; read by `findUndeclaredKeys`. */
+  keys?: readonly string[];
 }
 
 type Recognition =
@@ -138,7 +142,10 @@ type Recognition =
  *    test over the parsed root, and the cheap one. It runs first so the
  *    common case never pays for arm 2.
  * 2. The validity arm — the document parses as an ObjectUI component schema
- *    under `@object-ui/types`' own Zod union. This is the recogniser the
+ *    under `@object-ui/types`' STRICT authoring face (objectui#5250), the same
+ *    parse `objectui validate` gives its verdict with — so a document carrying
+ *    a key no schema declares does not validate here either, and is reported
+ *    below with that key named. This is the recogniser the
  *    2026-08-25 ruling on objectui#5392 selected (Option B, no shipped schema
  *    artifact): measured over this repository it admits schemas the structural
  *    arm cannot see — leaf nodes that carry only their own vocabulary — while
@@ -173,7 +180,7 @@ function recogniseObjectUiSchemaFile(content: Record<string, unknown>): Recognit
   if (OBJECTUI_STRUCTURAL_KEYS.some((key) => key in content)) {
     return { recognised: true, validated: false };
   }
-  const result = safeValidateSchema(content);
+  const result = validateAuthoredDocument(content);
   return result.success
     ? { recognised: true, validated: true }
     : { recognised: false, issues: result.error.issues };
@@ -331,11 +338,35 @@ export async function check(cwd: string = process.cwd()) {
     file: string;
     type: string;
     issues: readonly IssueLike[];
+    document: unknown;
   }[] = [];
   // Recognised files, split by the arm that admitted them — the closing line
   // reports them apart because only one arm validated anything (objectui#11007).
   let validated = 0;
   let notValidated = 0;
+
+  // objectui#4795, ruling item 2: a `${…}` on a closed text key its component
+  // node never evaluates reaches the user as literal text. Refused on a
+  // registered type, warned on any other (sub-rule ii). A refusal fails the run.
+  //
+  // Judged on every file that reads as ObjectUI content: the files either
+  // recogniser arm admitted, AND the registered-type files the strict authoring
+  // face refused (the third bucket below). The second half is objectui#5250's:
+  // a document carrying one undeclared key is refused by the strict face, and
+  // ⛔ that refusal must not switch this one off — the two are separate
+  // findings on the same file, and both are reported.
+  const judgeTextExpressions = (file: string, document: unknown): void => {
+    for (const finding of findUnbindableTextExpressions(document)) {
+      const line = `${file} ${describeUnbindableTextExpression(finding)}`;
+      if (finding.severity === 'refusal') {
+        console.log(chalk.red(`x Unevaluated expression in ${line}`));
+        console.log(chalk.dim(`   ${workingChannels(finding)}`));
+        errors++;
+      } else {
+        console.log(chalk.yellow(`⚠️ Expression not judged in ${line}`));
+      }
+    }
+  };
 
   for (const file of files) {
     try {
@@ -396,7 +427,9 @@ export async function check(cwd: string = process.cwd()) {
                   file,
                   type: content.type,
                   issues: recognition.issues,
+                  document: content,
                 });
+                judgeTextExpressions(file, content);
               } else {
                 skipped++;
               }
@@ -422,20 +455,8 @@ export async function check(cwd: string = process.cwd()) {
                 )
               );
             }
-            // objectui#4795, ruling item 2: a `${…}` on a closed text key its
-            // component node never evaluates reaches the user as literal
-            // text. Refused on a registered type, warned on any other
-            // (sub-rule ii). Judged on recognised files only, from either arm.
-            for (const finding of findUnbindableTextExpressions(content)) {
-              const line = `${file} ${describeUnbindableTextExpression(finding)}`;
-              if (finding.severity === 'refusal') {
-                console.log(chalk.red(`x Unevaluated expression in ${line}`));
-                console.log(chalk.dim(`   ${workingChannels(finding)}`));
-                errors++;
-              } else {
-                console.log(chalk.yellow(`⚠️ Expression not judged in ${line}`));
-              }
-            }
+            // objectui#4795 — see `judgeTextExpressions` above.
+            judgeTextExpressions(file, content);
           }
         }
       }
@@ -457,13 +478,22 @@ export async function check(cwd: string = process.cwd()) {
         `⚠️ ${n} file${n === 1 ? '' : 's'} carr${n === 1 ? 'ies' : 'y'} a registered ObjectUI component type but did not validate as an ObjectUI schema:`
       )
     );
-    for (const { file, type, issues } of unvalidatedCandidates) {
+    for (const { file, type, issues, document } of unvalidatedCandidates) {
       console.log(chalk.yellow(`   ${file} (type "${type}")`));
       // Indented under its file, so it reads as that file's reason and never
       // as another entry (objectui#11007).
       const firstIssue = describeFirstIssue(issues);
       if (firstIssue !== undefined) {
         console.log(chalk.yellow(`     ${firstIssue}`));
+      }
+      // Every undeclared key the strict face refused, named with its path and
+      // what to do — the same reader and wording `objectui validate` prints
+      // (objectui#5250). The first issue alone cannot carry them: it is one
+      // issue of several, and at a union the object fits more than one arm of
+      // (a dashboard widget) it is an `Invalid input` that names no key. Same
+      // indent as the issue line, so none of these reads as another file.
+      for (const finding of findUndeclaredKeys(issues)) {
+        console.log(chalk.yellow(`     ${describeUndeclaredKey(finding, document)}`));
       }
     }
     console.log(

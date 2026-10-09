@@ -353,8 +353,12 @@ describe('sub-rule (ii): a type no registered component answers to warns, never 
   });
 });
 
-describe('only recognised ObjectUI files are judged', () => {
-  it('judges a file the validity arm admitted, with no structural key', async () => {
+describe('only files that read as ObjectUI content are judged', () => {
+  it('judges a registered-type file with no structural key, though the strict face refuses it', async () => {
+    // `statistic` declares no `title`, so the strict authoring face refuses this
+    // document and `check` lists it as a registered type that did not validate
+    // (objectui#5250). Its expression is judged all the same: the two refusals
+    // are separate findings on one file.
     const document = { type: 'statistic', label: 'Total', value: '1', title: EXPR };
     writeFileSync(join(cwd, 'leaf.json'), JSON.stringify(document));
     await check(cwd);

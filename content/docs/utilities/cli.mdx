@@ -174,6 +174,22 @@ the report says so and offers the nearest few of the accepted values instead:
 A document with no `type` at all is reported the same way, without a candidate
 list — there is nothing for the suggestions to be near.
 
+#### Undeclared keys
+
+`objectui validate` parses through the **strict authoring face**: a key that no
+schema declares is refused, on the root node and on every nested node, where the
+renderer would silently ignore it. Each refused key is named once more after the
+numbered issues, with a prescription — including one inside a union the node fits
+more than one arm of, such as a dashboard widget, which the issue list reports
+only as an `Invalid input` that names no key:
+
+```text
+Undeclared keys — the strict authoring face refuses them:
+   Undeclared key "nonsense" at children → 0 (type "input"): no schema declares it there. Remove it, or check its spelling against the keys declared at that position.
+```
+
+There is no flag to relax this: remove the key, or correct its spelling.
+
 ### `objectui check`
 
 Scan the project for ObjectUI schema files and report on the ones it
@@ -181,8 +197,10 @@ recognises. No flags.
 
 A JSON file with a root `type` is recognised when its root carries an ObjectUI
 structural key (`children`, `className`, …) **or** when the whole
-document validates as an ObjectUI component schema. Recognised files have their
-`type` checked against the component types this build registers.
+document validates as an ObjectUI component schema — through the same strict
+parse `objectui validate` runs, so a document carrying an undeclared key does not
+validate here either. Recognised files have their `type` checked against the
+component types this build registers.
 
 The two ways in are not equal. A document recognised by validating was parsed
 in full, nested nodes included. A document recognised by a structural key was
@@ -197,7 +215,8 @@ distinction matters:
   That is ObjectUI content the validator could not accept — either the document
   is off-spec, or its component type is not modelled by `@object-ui/types`.
   Under each file, `check` prints the validator's first issue: its path, spelled
-  as `objectui validate` spells it, and its message. Run
+  as `objectui validate` spells it, and its message — then one line per
+  undeclared key, worded as `objectui validate` words it. Run
   `objectui validate <file>` for the full diagnosis.
 - **Counted as skipped** otherwise. A root `type` heads several unrelated JSON
   vocabularies — `package.json`'s `"type": "module"` most of all — and those are
@@ -215,7 +234,9 @@ distinction matters:
 `label`, `value` and `description` only where `@objectstack/spec`'s
 `expressionBindableTextKeysFor(type)` lists that key for the node's type. On any
 other type, the expression is never resolved: the user sees its literal text, or
-nothing. `objectui check` refuses it in every recognised file:
+nothing. `objectui check` refuses it in every recognised file, and in every file
+it reports by name as a registered type that did not validate — a document
+carrying an undeclared key is still judged for its expressions:
 
 - **Component nodes only.** The file's root node, every node its `children`
   hold, and every node under a slot the node's type declares — a dialog's

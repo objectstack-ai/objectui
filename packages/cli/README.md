@@ -95,6 +95,11 @@ Generate new resources (`resource`/`object`, `page`, `plugin`).
 
 Validate a schema file against the ObjectUI specification.
 
+The document is judged through the strict authoring face: a key no schema
+declares is refused, at any depth, and each one is named with the path of the
+object carrying it and what to do — remove it, or check its spelling against
+the keys declared at that position.
+
 A failure is reported at the document root and then narrowed to the union arm
 your `type` selected — the `1.1`-style entries under a numbered issue are that
 arm's own diagnosis, at the real path of the node that failed. When no component

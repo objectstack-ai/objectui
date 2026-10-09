@@ -42,7 +42,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { safeValidateSchema } from '@object-ui/types/zod';
+import { validateAuthoredDocument } from '../utils/authoring-face.js';
 
 import { check, closingLine } from '../commands/check.js';
 
@@ -249,9 +249,11 @@ describe('objectui check — a broken ObjectUI schema is never filed as a foreig
     // bare `expected +0 to be 1`. If this fires: the objectstack#8593 ruling has
     // been revisited — re-read this case, then pick another registered type with
     // no member in `AnyComponentSchema` and update the counts above.
+    // Read through the door `check` recognises with — the strict authoring
+    // face since objectui#5250 — so this precondition is about `check` itself.
     expect(
-      safeValidateSchema({ type: 'plugin-dashboard:metric-card', title: 'Total Revenue', value: '$123,456' }).success,
-      '`plugin-dashboard:metric-card` is now modelled by AnyComponentSchema — this fixture needs a type that still is not; see the comment above',
+      validateAuthoredDocument({ type: 'plugin-dashboard:metric-card', title: 'Total Revenue', value: '$123,456' }).success,
+      '`plugin-dashboard:metric-card` now validates as a root document — this fixture needs a type that still does not; see the comment above',
     ).toBe(false);
     await check(cwd);
     expect(candidateCount()).toBe(1);

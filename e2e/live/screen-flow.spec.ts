@@ -4,7 +4,7 @@ import { expectToast } from './helpers';
 /**
  * Live e2e for the screen-flow round trip (framework ADR-0019).
  *
- * A `type: 'flow'` action triggers the run; when it pauses at a `screen` node
+ * A `type: 'flow'` action starts the run; when it pauses at a `screen` node
  * the console must render that screen and POST the collected values back to
  * `/automation/{flow}/runs/{runId}/resume`. Nothing covered this seam before:
  * the unit tests stub the runner out of the action runtime, and the runner's
@@ -16,15 +16,22 @@ import { expectToast } from './helpers';
  * Drives `showcase_bulk_reassign` (list row action) → `showcase_reassign_wizard`,
  * whose `screen` node collects `new_assignee` and writes it back with
  * `update_record`, so the assertion runs all the way to persisted data.
+ *
+ * The run starts through the ACTION door, `POST /actions/showcase_task/
+ * showcase_bulk_reassign`, not the trigger route (objectui#12037): the click
+ * names an action the object declares with `type: 'flow'` and this target, so
+ * the server applies that action's own gates before the flow starts. A flow
+ * start that names no declared action keeps `/automation/{flow}/trigger`.
  */
 test('a row flow action renders its screen and resumes the run', async ({ page }) => {
   const assignee = `e2e-${Date.now()}@example.com`;
 
-  // Capture the automation traffic: the bug class here is a MISSING request,
-  // so the resume POST is asserted directly rather than inferred from the UI.
+  // Capture the flow traffic on both doors: the bug class here is a MISSING
+  // request, so the launch and resume POSTs are asserted directly rather than
+  // inferred from the UI.
   const automation: Array<{ url: string; body: unknown }> = [];
   page.on('request', (r) => {
-    if (r.method() === 'POST' && r.url().includes('/api/v1/automation/')) {
+    if (r.method() === 'POST' && /\/api\/v1\/(automation|actions)\//.test(r.url())) {
       let body: unknown = null;
       try { body = r.postDataJSON(); } catch { /* non-JSON body — keep null */ }
       automation.push({ url: r.url(), body });
@@ -49,8 +56,12 @@ test('a row flow action renders its screen and resumes the run', async ({ page }
   await expectToast(page, /Done|reassign/i);
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
-  const trigger = automation.find((r) => /\/automation\/[^/]+\/trigger$/.test(r.url));
-  expect(trigger, 'the flow action never triggered a run').toBeTruthy();
+  const launch = automation.find((r) => /\/actions\/showcase_task\/showcase_bulk_reassign$/.test(r.url));
+  expect(launch, 'the declared flow action never started its run through the action door').toBeTruthy();
+  expect(
+    automation.filter((r) => /\/automation\/[^/]+\/trigger$/.test(r.url)),
+    'a declared flow action must not start its flow by name on the trigger route',
+  ).toHaveLength(0);
 
   const resume = automation.find((r) => /\/runs\/[^/]+\/resume$/.test(r.url));
   expect(resume, 'Submit did not call the resume endpoint — the run is stranded').toBeTruthy();

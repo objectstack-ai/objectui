@@ -1917,29 +1917,38 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * and the Studio designer keep today's behavior — the same fail-open the
    * bulk gate above relies on.
    *
-   * ## Gap 2 — consuming the declared `userActions.editInline`
+   * ## Gap 2 — the declared `userActions.editInline`, with the spec's default
    *
-   * `ListViewSchema.userActions.editInline` is spec-declared and, on this
-   * toolbar, was read by nothing: an author could not switch inline editing off
-   * even unconditionally. It is read here as an explicit opt-OUT (`!== false`).
+   * `ListViewSchema.userActions.editInline` is spec-declared with
+   * `.default(false)`: "the list is read-only unless the author opts in". It is
+   * read here with that default (`=== true`), so a view that declares nothing
+   * is not offered inline editing. That is the same reading the ADR-0047
+   * interface page takes.
    *
-   * That default is deliberate and it does NOT enforce the spec's
-   * `.default(false)`. Enforcing it would take the toggle away from every
-   * existing console list view in one release, since nothing folds a legacy key
-   * into `editInline` and no stored view declares it — the console's own
-   * channel for this capability is the view's `inlineEdit` property, which the
-   * host relays as `onInlineEditChange`. This is `toolbarFlags`' stated rule
-   * for exactly this block (defaults "matching what these flags have always
-   * done"; `hideFields`/`rowColor` keep their historical OFF because flipping
-   * them "would grow two buttons on every existing view") applied in the
-   * direction that would REMOVE one. So: an explicit `false` is honoured, an
-   * explicit `true` is honoured, and absence defers to the host channel that
-   * already governs this surface. `InterfaceListPage` — the other consumer of
-   * this key — reads the absent case as OFF (`=== true`), because the
-   * ADR-0047 interface page has no such host channel to defer to.
+   * The console's channel for this capability reaches this read through the
+   * fold, not around it (objectui#5144). The console persists the toggle as the
+   * view's `inlineEdit`, relayed as `onInlineEditChange`, and
+   * `normalizeListViewSchema` folds a boolean `inlineEdit` into
+   * `userActions.editInline` when the view declares no `editInline` of its own.
+   * So:
+   *  - a stored `inlineEdit: true` still offers the toggle;
+   *  - a stored `inlineEdit: false` reads off;
+   *  - an explicit `editInline` wins over a stored `inlineEdit`, either way;
+   *  - a view with neither key reads off.
+   *
+   * This gate decides whether the toggle is offered. Whether the grid is in edit
+   * mode is the `inlineEdit` state above, seeded from the view's `inlineEdit`,
+   * which the fold keeps. A view with `editInline: true` and no `inlineEdit`
+   * offers the toggle and opens out of edit mode.
+   *
+   * ⚠️ The remedy for a view that relied on the old default: declare
+   * `userActions.editInline: true`, or keep the stored `inlineEdit: true`. A
+   * console user who switches the toggle off writes `inlineEdit: false`. Unless
+   * the view declares `editInline`, that view then reads off on its next load,
+   * and the toggle is no longer offered.
    */
   const inlineEditOffered = React.useMemo(() => {
-    if ((schema.userActions as Record<string, boolean | undefined> | undefined)?.editInline === false) {
+    if ((schema.userActions as Record<string, boolean | undefined> | undefined)?.editInline !== true) {
       return false;
     }
     return (

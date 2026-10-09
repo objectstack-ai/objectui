@@ -304,16 +304,25 @@ function registerRecordingGrid() {
   });
 }
 
+/**
+ * The author's opt-in (objectui#5144). `userActions.editInline` is read with the
+ * spec's `.default(false)`, so a view that declares nothing is offered no inline
+ * editing at all. A permission-gate case opts in first. Without it, "the
+ * principal loses the toggle" would pass for every principal.
+ */
+const OPTED_IN = { userActions: { editInline: true } } as Partial<ListViewSchema>;
+
 /** `permissions: null` renders with NO PermissionProvider at all. */
 function renderInlineEdit(
   permissions: ObjectPermissionConfig | null,
   schemaOverride?: Partial<ListViewSchema>,
+  onInlineEditChange: (next: boolean) => void = vi.fn(),
 ) {
   const view = (
     <ListView
       schema={{ ...inlineEditSchema, ...schemaOverride } as ListViewSchema}
       dataSource={mockDataSource as any}
-      onInlineEditChange={vi.fn()}
+      onInlineEditChange={onInlineEditChange}
     />
   );
   return render(
@@ -346,19 +355,19 @@ describe('ListView – inline-edit toggle vs the principal permission gate (#464
   });
 
   it('a principal WITH update keeps the inline-edit toggle', async () => {
-    renderInlineEdit(makeUpdatePermissions(true));
+    renderInlineEdit(makeUpdatePermissions(true), OPTED_IN);
     await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
     expect(screen.queryByTestId('toolbar-inline-edit-toggle')).not.toBeNull();
   });
 
   it('a principal WITHOUT update loses it', async () => {
-    renderInlineEdit(makeUpdatePermissions(false));
+    renderInlineEdit(makeUpdatePermissions(false), OPTED_IN);
     await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
     expect(screen.queryByTestId('toolbar-inline-edit-toggle')).toBeNull();
   });
 
   it('with NO PermissionProvider the toggle survives (fail-open preserved)', async () => {
-    renderInlineEdit(null);
+    renderInlineEdit(null, OPTED_IN);
     await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
     expect(screen.queryByTestId('toolbar-inline-edit-toggle')).not.toBeNull();
   });
@@ -443,12 +452,15 @@ describe('ListView – the declared userActions.editInline switch (#4647 gap 2)'
   });
 
   it('`editInline: false` also withholds edit MODE from a stored inlineEdit:true view', async () => {
+    // objectui#5144: the explicit spec key wins over the stored `inlineEdit`,
+    // so the fold leaves `editInline: false` in place. The toggle goes as well.
     renderInlineEdit(makeUpdatePermissions(true), {
       inlineEdit: true,
       userActions: { editInline: false },
     } as Partial<ListViewSchema>);
     await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
     expect(screen.getByTestId('grid-stub')).toHaveTextContent('false');
+    expect(screen.queryByTestId('toolbar-inline-edit-toggle')).toBeNull();
   });
 
   it('`editInline: true` offers the toggle', async () => {
@@ -459,17 +471,113 @@ describe('ListView – the declared userActions.editInline switch (#4647 gap 2)'
     expect(screen.queryByTestId('toolbar-inline-edit-toggle')).not.toBeNull();
   });
 
-  it('an ABSENT editInline defers to the host channel, keeping existing views intact', async () => {
-    // The deliberate divergence from the spec's `.default(false)`, pinned so a
-    // future change to it is a decision rather than an accident: enforcing that
-    // default would take the toggle off every stored console view at once,
-    // since nothing folds a legacy key into `editInline`. `toolbarFlags`' own
-    // rule for this block — defaults matching what the flags have always done —
-    // applied in the direction that would REMOVE an affordance.
+  it('an ABSENT editInline reads OFF, the spec default (objectui#5144)', async () => {
+    // This case used to pin the opposite: "an ABSENT editInline defers to the
+    // host channel, keeping existing views intact". That was the interim
+    // reading, kept because nothing folded the console's channel into
+    // `editInline`, so enforcing `.default(false)` would have taken the toggle
+    // off every stored console view. objectui#5144 is the maintainer's B-fold:
+    // `normalizeListViewSchema` now folds a stored `inlineEdit` into
+    // `editInline` (the stored-view cases below), so the spec default can be
+    // read as written. A view with neither key is not offered inline editing.
     renderInlineEdit(makeUpdatePermissions(true), {
       userActions: { search: false },
     } as Partial<ListViewSchema>);
     await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
+    expect(screen.queryByTestId('toolbar-inline-edit-toggle')).toBeNull();
+    expect(screen.getByTestId('grid-stub')).toHaveTextContent('false');
+  });
+
+  it('…and the COMPACT entry reads off for an absent editInline too', async () => {
+    // The second render site of the same verdict. The entry's checkbox sits in
+    // a section whose `defaultOpen` is `!!inlineEdit`, so with `inlineEdit`
+    // absent it would be missing for every input. The section's TITLE renders
+    // whether or not the section is open, so the title is what this case and
+    // its control below look for.
+    renderInlineEdit(makeUpdatePermissions(true), {
+      compactToolbar: true,
+    } as Partial<ListViewSchema>);
+    await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('view-settings-trigger'));
+    const content = await screen.findByTestId('view-settings-content');
+    expect(content).not.toHaveTextContent('Record editing');
+  });
+
+  it('…control: the same compact popover offers the entry once the view opts in', async () => {
+    renderInlineEdit(makeUpdatePermissions(true), {
+      compactToolbar: true,
+      ...OPTED_IN,
+    } as Partial<ListViewSchema>);
+    await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('view-settings-trigger'));
+    const content = await screen.findByTestId('view-settings-content');
+    expect(content).toHaveTextContent('Record editing');
+  });
+});
+
+/**
+ * objectui#5144 — the console's stored `inlineEdit`, read through the fold.
+ *
+ * The console persists the toolbar toggle as the view's `inlineEdit` (relayed
+ * as `onInlineEditChange`), and declares no `userActions.editInline`.
+ * `normalizeListViewSchema` folds the first into the second, so every case here
+ * declares `inlineEdit` and leaves `editInline` out. The fold's own table is
+ * pinned in `@object-ui/core`'s
+ * `normalize-list-view.inlineEditFold-5144.test.ts`. This block pins what the
+ * toolbar does with it.
+ */
+describe('ListView – a stored inlineEdit folds into editInline (objectui#5144)', () => {
+  let prevGrid: ReturnType<typeof ComponentRegistry.get>;
+
+  beforeEach(() => {
+    mockDataSource.find.mockClear();
+    gridEditableCalls = [];
+    prevGrid = ComponentRegistry.get('object-grid');
+    registerRecordingGrid();
+  });
+
+  afterEach(() => {
+    cleanup();
+    if (prevGrid) ComponentRegistry.register('object-grid', prevGrid);
+    else ComponentRegistry.unregister('object-grid');
+  });
+
+  it('a stored `inlineEdit: true` folds to on: the toggle is offered and the grid opens editable', async () => {
+    renderInlineEdit(makeUpdatePermissions(true), { inlineEdit: true } as Partial<ListViewSchema>);
+    await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
     expect(screen.queryByTestId('toolbar-inline-edit-toggle')).not.toBeNull();
+    expect(screen.getByTestId('grid-stub')).toHaveTextContent('true');
+  });
+
+  it('a stored `inlineEdit: false` reads off: no toggle and no edit mode', async () => {
+    renderInlineEdit(makeUpdatePermissions(true), { inlineEdit: false } as Partial<ListViewSchema>);
+    await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
+    expect(screen.queryByTestId('toolbar-inline-edit-toggle')).toBeNull();
+    expect(screen.getByTestId('grid-stub')).toHaveTextContent('false');
+  });
+
+  it('an explicit `editInline: true` wins over a stored `inlineEdit: false`: offered, out of edit mode', async () => {
+    // The remedy the changeset names. The explicit spec key keeps the toggle
+    // offered, and the stored `inlineEdit` still decides the mode.
+    renderInlineEdit(makeUpdatePermissions(true), {
+      inlineEdit: false,
+      userActions: { editInline: true },
+    } as Partial<ListViewSchema>);
+    await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
+    expect(screen.queryByTestId('toolbar-inline-edit-toggle')).not.toBeNull();
+    expect(screen.getByTestId('grid-stub')).toHaveTextContent('false');
+  });
+
+  it('the toggle still writes the host channel: switching off reports `false` and leaves edit mode', async () => {
+    // The write path. The toggle reports through `onInlineEditChange`, which
+    // the console persists as the view's `inlineEdit`. The fold reads that key
+    // on the next load (the `inlineEdit: false` case above).
+    const onInlineEditChange = vi.fn();
+    renderInlineEdit(makeUpdatePermissions(true), { inlineEdit: true } as Partial<ListViewSchema>, onInlineEditChange);
+    await waitFor(() => expect(screen.getByTestId('grid-stub')).toHaveTextContent('true'));
+    fireEvent.click(screen.getByTestId('toolbar-inline-edit-toggle'));
+    await waitFor(() => expect(screen.getByTestId('grid-stub')).toHaveTextContent('false'));
+    expect(onInlineEditChange).toHaveBeenCalledTimes(1);
+    expect(onInlineEditChange).toHaveBeenLastCalledWith(false);
   });
 });

@@ -18,7 +18,7 @@
  *  - streaming markdown via streamdown (used by Message internals)
  */
 import * as React from 'react';
-import { cn } from '@object-ui/components';
+import { cn, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { SchemaRenderer } from '@object-ui/react';
 import { useObjectTranslation, useSafeTranslate } from '@object-ui/i18n';
 import { AlertCircle, ArrowRight, Copy, Check, RefreshCw, CornerDownLeft, Bot, Eye, GitCompareArrows, Rocket, Clock3, CheckCircle2, XCircle, Loader2, ShieldCheck, TriangleAlert, ClipboardList, HelpCircle, Table2, WifiOff, Sparkles, Hourglass } from 'lucide-react';
@@ -923,6 +923,63 @@ export interface ChatbotModelOption {
   id: string;
   label?: string;
   provider?: string;
+}
+
+/** The item a selected model none of the offered models carries is shown by. */
+const OUTSIDE_MODELS = 'outside';
+
+/**
+ * objectui#11865 — the composer's model picker, drawn with the shared `Select`,
+ * the control the rest of the console picks with. It used to be a
+ * browser-native `<select>`. What a pick writes is unchanged: `onPick` receives
+ * the picked model's `id`, the string the native control's `change` carried,
+ * and its accessible name is the same `aria-label`. Re-picking the current
+ * model writes nothing, as it did there.
+ *
+ * - Items carry the model's INDEX, not its id, as the card's other pickers do.
+ * - A selected id none of the offered models carries gets an item of its own,
+ *   labelled with the id, so the trigger shows the model the host holds. The
+ *   native control showed the first model there. Picking that item writes
+ *   nothing.
+ */
+function ModelPicker({
+  label,
+  models,
+  value,
+  onPick,
+}: {
+  label: string;
+  models: ReadonlyArray<ChatbotModelOption>;
+  value: string;
+  onPick: (modelId: string) => void;
+}) {
+  const at = models.findIndex((m) => m.id === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_MODELS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the host's own model, so there is nothing to write.
+        const picked = models[Number(token)];
+        if (picked) onPick(picked.id);
+      }}
+    >
+      <SelectTrigger
+        aria-label={label}
+        className="h-7 w-auto gap-1 px-2 text-xs text-muted-foreground hover:text-foreground focus:ring-1 focus:ring-offset-0"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_MODELS}>{value}</SelectItem>}
+        {models.map((m, i) => (
+          <SelectItem key={`${i}:${m.id}`} value={String(i)}>
+            {m.label ?? m.id}
+            {m.provider ? ` · ${m.provider}` : ''}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 function formatMessageProps(role: ChatMessage['role']): MessageProps['from'] {
@@ -3557,19 +3614,12 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                     envs (the backend returns one entry) get no dropdown — the
                     lone model is still sent via `selectedModelId`. */}
                 {models && models.length > 1 ? (
-                  <select
-                    aria-label={L.model}
+                  <ModelPicker
+                    label={L.model}
+                    models={models}
                     value={selectedModelId ?? models[0].id}
-                    onChange={(e) => onModelChange?.(e.target.value)}
-                    className="h-7 rounded-md border bg-background px-2 text-xs text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    {models.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label ?? m.id}
-                        {m.provider ? ` · ${m.provider}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    onPick={(modelId) => onModelChange?.(modelId)}
+                  />
                 ) : null}
                 {/* #2458 UX#7 — the composer sends on PLAIN Enter (Shift+Enter =
                     newline); the old `⌘` glyph implied Cmd+Enter and misled users.

@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react';
-import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder, NavigationOverlay, GroupingEditor, RefreshIndicator, DataEmptyState, DataErrorState, resolveIcon } from '@object-ui/components';
+import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder, NavigationOverlay, GroupingEditor, RefreshIndicator, DataEmptyState, DataErrorState, resolveIcon, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import type { SortItem } from '@object-ui/components';
 import { Search, SlidersHorizontal, ArrowUpDown, X, EyeOff, Pencil, Group, Paintbrush, Inbox, Download, Rows4, Rows3, Rows2, Share2, Printer, Plus, Trash2, CheckSquare, AlertTriangle, ShieldAlert, RotateCw, Loader2, type LucideIcon } from 'lucide-react';
 import type { FilterGroup } from '@object-ui/components';
@@ -1146,6 +1146,66 @@ function canReadField(
   field: string,
 ): boolean {
   return !perms?.isLoaded || !objectName || perms.checkField(objectName, field, 'read');
+}
+
+/** The item a value none of a picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — the toolbar's "Color by field" and the record-count bar's
+ * rows-per-page selector, drawn with the shared `Select`, the control the rest
+ * of the console picks with. Both used to be browser-native `<select>`
+ * elements. What a pick writes is unchanged: `onPick` receives the picked
+ * option's own value, the string the native control's `change` carried, and
+ * each caller turns it into what it wrote before. Re-picking the current
+ * option writes nothing, as it did there.
+ *
+ * "Color by field" is the twin of `ViewSettingsPopover`'s `ColorFieldPicker`
+ * (the compact toolbar's copy of this popover, whose header asks the two to
+ * stay in step), and it draws an outside value and "None" the same way:
+ *
+ * - Items carry their option's INDEX, not its value: "None" is the option whose
+ *   value is `''`, which `SelectItem` refuses.
+ * - A value none of the options carries gets an item of its own, labelled with
+ *   the value, so the trigger shows what the view holds. The native control
+ *   showed its first option there. Picking that item writes nothing.
+ */
+function ListOptionPicker({
+  value,
+  options,
+  onPick,
+  className,
+  testId,
+}: {
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  className: string;
+  testId: string;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the view's own value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger className={className} data-testid={testId}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 /**
@@ -4983,24 +5043,26 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 </div>
                 <div className="space-y-2" data-testid="color-field-list">
                   <label className="text-xs text-muted-foreground">{t('list.colorByField')}</label>
-                  <select
-                    className="w-full h-8 rounded border border-input bg-background px-2 text-xs"
+                  {/* The value is the OFFERED rule's field: a rule on a field
+                      the caller may not read reaches this picker as `''`
+                      ("None"), so its outside-value item can never name that
+                      field (objectui#11984). */}
+                  <ListOptionPicker
+                    className="h-8 rounded px-2 text-xs"
+                    testId="color-field-select"
                     value={offeredRowColorConfig?.field || ''}
-                    onChange={(e) => {
-                      const field = e.target.value;
+                    options={[
+                      { value: '', label: t('list.none') },
+                      ...allFields.map((field: any) => ({ value: field.name, label: field.label })),
+                    ]}
+                    onPick={(field) => {
                       if (!field) {
                         setRowColorConfig(undefined);
                       } else {
                         setRowColorConfig({ field, colors: offeredRowColorConfig?.colors || {} });
                       }
                     }}
-                    data-testid="color-field-select"
-                  >
-                    <option value="">{t('list.none')}</option>
-                    {allFields.map((field: any) => (
-                      <option key={field.name} value={field.name}>{field.label}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
             </PopoverContent>
@@ -5673,28 +5735,25 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           )}
           {/* Grid view delegates the rows-per-page selector to the DataTable's
               own server-driven pager (ObjectGrid passes pagination.pageSizeOptions
-              straight through). Rendering a second native <select> here produced a
+              straight through). Rendering a second selector here produced a
               duplicate control, so for grid we suppress it and only keep this
-              fallback selector for pager-less views (gallery/kanban/calendar). */}
+              fallback selector for pager-less views (gallery/kanban/calendar).
+              It is the shared `Select` (objectui#11865): a size in force that
+              is not one of the options shows as itself, not as the first one. */}
           {currentView !== 'grid' && schema.pagination?.pageSizeOptions && schema.pagination.pageSizeOptions.length > 0 && (
             <div className="ml-auto flex items-center gap-2">
               <span>{t('table.rowsPerPage', { defaultValue: 'Rows per page' })}</span>
-              <select
-                data-testid="page-size-selector"
-                className="h-7 w-[72px] px-2 py-1 text-xs rounded-md border border-input bg-background"
+              <ListOptionPicker
+                className="h-7 w-[72px] px-2 text-xs"
+                testId="page-size-selector"
                 value={String(effectivePageSize)}
-                onChange={(e) => {
-                  const newSize = Number(e.target.value);
+                options={schema.pagination.pageSizeOptions.map((size: any) => ({ value: String(size), label: String(size) }))}
+                onPick={(size) => {
+                  const newSize = Number(size);
                   setDynamicPageSize(newSize);
                   if (props.onPageSizeChange) props.onPageSizeChange(newSize);
                 }}
-              >
-                {schema.pagination.pageSizeOptions.map((size: any) => (
-                  <option key={size} value={String(size)}>
-                    {size}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           )}
         </div>

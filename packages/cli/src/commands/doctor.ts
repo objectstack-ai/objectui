@@ -60,10 +60,18 @@ import { existsSync, readFileSync } from 'fs';
 import { dirname, join, resolve as resolvePath } from 'path';
 
 /** `ok` never counts toward the issue total; `warn` and `error` both do. */
-export type DiagnosticLevel = 'ok' | 'warn' | 'error';
+export type DoctorDiagnosticLevel = 'ok' | 'warn' | 'error';
 
-export interface Diagnostic {
-  level: DiagnosticLevel;
+/**
+ * One `objectui doctor` check result.
+ *
+ * `Doctor`-prefixed, like its level: `@object-ui/sdui-parser` publishes
+ * `Diagnostic` for a parser finding, and the flow designer's `DiagnosticLevel`
+ * is `'error' | 'warning'` with no `ok` verdict — different things, and one
+ * exported name has one authority (objectui#6349, batch 6).
+ */
+export interface DoctorDiagnostic {
+  level: DoctorDiagnosticLevel;
   /** The single line rendered for this finding. */
   message: string;
   /**
@@ -198,8 +206,8 @@ function isInstalledFrom(cwd: string, specifier: string): boolean {
  * Run every diagnostic against `cwd` and return the findings in render order.
  * Pure with respect to stdout — see the module docblock.
  */
-export function runDiagnostics(cwd: string): Diagnostic[] {
-  const results: Diagnostic[] = [];
+export function runDiagnostics(cwd: string): DoctorDiagnostic[] {
+  const results: DoctorDiagnostic[] = [];
   const ok = (id: string, message: string): void => {
     results.push({ id, level: 'ok', message });
   };
@@ -391,7 +399,7 @@ export function runDiagnostics(cwd: string): Diagnostic[] {
 }
 
 /** Number of findings that count as problems. `ok` findings never do. */
-export function countIssues(results: readonly Diagnostic[]): number {
+export function countIssues(results: readonly DoctorDiagnostic[]): number {
   return results.filter((result) => result.level !== 'ok').length;
 }
 

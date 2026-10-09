@@ -998,11 +998,11 @@ export function useObjectChat(options: UseObjectChatOptions = {}): UseObjectChat
 
   const isLoading = status === 'submitted' || status === 'streaming';
 
-  // Vercel AI SDK v6 UIMessage → the runtime ChatMessage. The shared mapper
-  // handles parts (text, reasoning, tool-*, source-*), streaming-cursor
-  // flagging, and legacy `msg.toolInvocations` fallback. We splice `metadata`
-  // back in because `ChatbotEnhanced.ChatMessage` doesn't carry it but the
-  // authoring contract does.
+  // Vercel AI SDK v6 UIMessage → the runtime `ChatbotEnhancedMessage`. The
+  // shared mapper handles parts (text, reasoning, tool-*, source-*),
+  // streaming-cursor flagging, and legacy `msg.toolInvocations` fallback. We
+  // splice `metadata` back in because `ChatbotEnhancedMessage` doesn't carry it
+  // but the authoring contract does.
   //
   // objectui#4424: this used to end in `as OuiChatMessage[]`, and that cast was
   // the card. It erased `buildProgress`, `blueprintProgress`, `charts` and

@@ -184,9 +184,12 @@ async function authorGuide() {
     expect((document.getElementById('mdf-name') as HTMLInputElement).value).toBe('getting_started_guide'),
   );
   fireEvent.change(source, { target: { value: MARKDOWN } });
-  const picker = screen.getByRole('combobox', { name: 'Book section' });
-  await waitFor(() => expect(within(picker).getByRole('option', { name: 'Reference' })).toBeInTheDocument());
-  fireEvent.change(picker, { target: { value: 'reference' } });
+  // The book list has loaded once the placement readout shows; the section is
+  // then picked through the shared `Select` (objectui#11865).
+  await screen.findByTestId('doc-placement');
+  fireEvent.keyDown(screen.getByRole('combobox', { name: 'Book section' }), { key: 'ArrowDown' });
+  fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'Reference' }));
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
 }
 
 describe('MetadataResourceEditPage — `doc` is authored through the one edit flow (objectui#10188)', () => {
@@ -232,7 +235,7 @@ describe('MetadataResourceEditPage — `doc` is authored through the one edit fl
     const source = await screen.findByRole('textbox', { name: 'Markdown source' });
     expect(source).toHaveValue(MARKDOWN);
     expect(screen.getByTestId('markdown-render').textContent).toBe(MARKDOWN);
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Book section' })).toHaveValue('reference'));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Book section' })).toHaveTextContent(/^Reference$/));
     expect(screen.getByTestId('doc-placement')).toHaveTextContent('Appears in: Probe Manual › Reference');
     expect(mockClient.layered).toHaveBeenCalledWith('doc', 'getting_started_guide', expect.anything());
   });

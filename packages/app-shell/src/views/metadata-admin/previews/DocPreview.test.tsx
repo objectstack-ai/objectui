@@ -101,6 +101,21 @@ function Host({
   );
 }
 
+/**
+ * Open the book-section picker, the shared `Select` (objectui#11865), from the
+ * keyboard and return its listbox.
+ */
+async function openSections(): Promise<HTMLElement> {
+  fireEvent.keyDown(screen.getByRole('combobox', { name: 'Book section' }), { key: 'ArrowDown' });
+  return screen.findByRole('listbox');
+}
+
+/** Pick the book section named `name` through the picker. */
+async function pickSection(name: string): Promise<void> {
+  fireEvent.click(within(await openSections()).getByRole('option', { name }));
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+}
+
 function renderHost(initial: Record<string, unknown>, opts: { editing?: boolean; locale?: string } = {}) {
   let latest: Record<string, unknown> = initial;
   render(<Host initial={initial} {...opts} onDraft={(d) => (latest = d)} />);
@@ -191,14 +206,14 @@ describe('DocPreview — placing the doc in a book writes `doc.group` (objectui#
     const h = renderHost({ name: 'my_guide', content: 'x' });
     await waitFor(() => expect(screen.getByTestId('doc-placement')).toHaveTextContent('Not in any book section yet'));
 
-    const picker = screen.getByRole('combobox', { name: 'Book section' });
-    expect(within(picker).getByRole('group', { name: 'Probe Manual' })).toBeInTheDocument();
-    fireEvent.change(picker, { target: { value: 'reference' } });
+    const sections = await openSections();
+    expect(within(sections).getByRole('group', { name: 'Probe Manual' })).toBeInTheDocument();
+    fireEvent.click(within(sections).getByRole('option', { name: 'Reference' }));
 
     expect(h.draft().group).toBe('reference');
     expect(screen.getByTestId('doc-placement')).toHaveTextContent('Appears in: Probe Manual › Reference');
 
-    fireEvent.change(picker, { target: { value: '' } });
+    await pickSection('Not placed in a section');
     expect(h.draft().group).toBeUndefined();
     expect(mockClient.list).toHaveBeenCalledWith('book');
   });
@@ -225,8 +240,8 @@ describe('DocPreview — placing the doc in a book writes `doc.group` (objectui#
   it('keeps a group key no book declares visible instead of dropping it', async () => {
     renderHost({ name: 'my_guide', content: 'x', group: 'retired_section' });
     const picker = await screen.findByRole('combobox', { name: 'Book section' });
-    await waitFor(() => expect(picker).toHaveValue('retired_section'));
-    expect(within(picker).getByRole('option', { name: 'retired_section (not a section of any book)' })).toBeInTheDocument();
+    await waitFor(() => expect(picker).toHaveTextContent('retired_section (not a section of any book)'));
+    expect(within(await openSections()).getByRole('option', { name: 'retired_section (not a section of any book)' })).toBeInTheDocument();
   });
 
   it('says so when the book list cannot be read, rather than reporting no books', async () => {
@@ -243,8 +258,8 @@ describe('DocPreview — every key it writes is a key `DocSchema` declares (obje
   it('a draft edited through every control parses clean on the spec', async () => {
     const h = renderHost({ name: 'my_guide', label: 'Guide', content: '' });
     fireEvent.change(screen.getByRole('textbox', { name: 'Markdown source' }), { target: { value: MARKDOWN } });
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Book section' })).toContainHTML('Reference'));
-    fireEvent.change(screen.getByRole('combobox', { name: 'Book section' }), { target: { value: 'reference' } });
+    await waitFor(() => expect(screen.getByTestId('doc-placement')).toBeInTheDocument());
+    await pickSection('Reference');
     fireEvent.change(screen.getByRole('textbox', { name: 'New locale tag' }), { target: { value: 'ja' } });
     fireEvent.click(screen.getByRole('button', { name: 'Locale' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Summary' }), { target: { value: '概要' } });

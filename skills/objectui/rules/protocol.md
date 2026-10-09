@@ -277,9 +277,11 @@ component refuses a node-level `actionType` / `target` as mis-layered
 
 **❌ DO NOT** use function references or inline callbacks in JSON schemas, and
 **❌ DO NOT** author an `events` bag. `BaseSchema` declares no `events` member and no
-renderer reads `schema.events`: a typed literal refuses it (objectui#8347), and the
-tolerant zod face is `.passthrough()`, so one that arrives as data is kept, judged
-by nothing and run by nothing (objectui#6497). `ButtonSchema.onClick` is a
+renderer reads `schema.events`: a typed literal refuses it (objectui#8347), and one
+that arrives as data is refused by name as an undeclared key by `objectui validate`
+and named the same way by `objectui check`, which both judge through the strict
+authoring face (objectui#5250). The tolerant zod face is `.passthrough()`: it still
+keeps the bag, and nothing runs it (objectui#6497). `ButtonSchema.onClick` is a
 runtime slot for a host-supplied function and is refused by name for the same reason.
 
 ## Rule: Action Params Use Field Types (Shared Widget Renderer)

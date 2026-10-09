@@ -128,13 +128,17 @@ const SHOW_FLAG_TO_USER_ACTION: Record<string, string> = {
  * (objectui#5144, the maintainer's B-fold).
  *
  * The spec declares `userActions.editInline` with `.default(false)`: "the list
- * is read-only unless the author opts in". The console never wrote that key. It
- * persists the toolbar's inline-edit toggle as the view's `inlineEdit`
- * (`@object-ui/app-shell`'s `ObjectView`: `onInlineEditChange` →
- * `persistViewPatch`), and an authored view can declare the same key. Folding
- * it here puts the console's channel and the spec key on one vocabulary, so
- * `ListView` can read `editInline` with the spec default and a view that has
- * inline editing keeps it.
+ * is read-only unless the author opts in". It declares the view's `inlineEdit`
+ * as the same kind of permission ("allow inline editing"). Stored views carry
+ * `inlineEdit`, not `editInline`: authored views declare it, and the console's
+ * list toolbar used to write it. Folding it here puts both keys on one
+ * vocabulary, so `ListView` can read `editInline` with the spec default and a
+ * view that has inline editing keeps it.
+ *
+ * The console's toolbar no longer writes `inlineEdit` (objectui#5144, ruling
+ * E). It persisted a user's edit mode into this permission key, so switching
+ * the toggle off stored `inlineEdit: false` and the fold then read the view as
+ * not offering inline editing. The toggle is session state now.
  *
  * Two rules, each the same as a fold above:
  *  - The value carries over: `inlineEdit: true` folds to `editInline: true`,
@@ -144,11 +148,11 @@ const SHOW_FLAG_TO_USER_ACTION: Record<string, string> = {
  *
  * One departure, the `data` → `objectName` one: `inlineEdit` is KEPT. The other
  * folds delete because the legacy key has one meaning and one home.
- * `inlineEdit` has a second meaning. It is the spec's own
- * `ListView.inlineEdit`, and `ListView` seeds the grid's edit MODE from it,
- * which the toolbar toggle then flips. `editInline` decides whether the toggle
- * is offered at all. Deleting `inlineEdit` would open every such view out of
- * edit mode.
+ * `inlineEdit` has a second use. It is the spec's own `ListView.inlineEdit`,
+ * and `ListView` seeds the grid's edit MODE from it on each load. The toolbar
+ * toggle then flips that mode for the session. `editInline` decides whether
+ * the toggle is offered at all. Deleting `inlineEdit` would open every such
+ * view out of edit mode.
  */
 function foldsInlineEditIntoEditInline(s: Record<string, unknown>): boolean {
   if (typeof s.inlineEdit !== 'boolean') return false;

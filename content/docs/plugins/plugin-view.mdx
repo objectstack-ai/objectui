@@ -514,10 +514,12 @@ node takes the value from the active named view first, ahead of the host's
 `views` entry (objectui#10758).
 `src/__tests__/ObjectView.namedViewProtocolKeys-8980.test.tsx` pins each family.
 
-**Inline editing on that node is opt-in.** `ListView` reads the node's
-`userActions.editInline` with the spec's default, off, so a view that declares
-neither key below offers no inline editing (objectui#5144). When the node
-carries no `editInline` of its own, its `inlineEdit` stands in for it:
+**Inline editing on that node is opt-in.** Both keys below are the author's
+permission. `ListView` reads the node's `userActions.editInline` with the
+spec's default, off, so a view that declares neither key offers no inline
+editing (objectui#5144). When the node carries no `editInline` of its own, its
+`inlineEdit` stands in for it. The named view's keys win over the host
+`views` entry's, as for every member above:
 
 | The view declares | Inline-edit toggle | Grid opens in edit mode |
 | --- | --- | --- |
@@ -527,11 +529,13 @@ carries no `editInline` of its own, its `inlineEdit` stands in for it:
 | `userActions.editInline: true` | offered | only with `inlineEdit: true` |
 | `userActions.editInline: false` | not offered | no, whatever `inlineEdit` says |
 
-The toggle switches the edit mode and reports it through `ListView`'s
-`onInlineEditChange`; the console stores that as the view's `inlineEdit`. A
-view that should keep the toggle after a user switches it off declares
-`userActions.editInline: true`. Neither key opens editing past the object's
-own editability or the user's permission to update the object.
+The toggle switches the edit mode for the session and reports it through
+`ListView`'s `onInlineEditChange`. The console stores nothing for it: each load
+opens in the mode the view's `inlineEdit` declares, so a user's choice is not
+remembered across loads. A view where an earlier console stored
+`inlineEdit: false` still reads off; that data is not migrated. To offer inline
+editing, declare `userActions.editInline: true`. Neither key opens editing past
+the object's own editability or the user's permission to update the object.
 
 ### Update
 

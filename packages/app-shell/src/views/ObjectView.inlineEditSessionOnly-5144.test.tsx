@@ -7,47 +7,31 @@
  */
 
 /**
- * objectui#11643 — on an object that declares no list view, the tab the console
- * makes for it ("All Records", id `all`) keeps its toolbar changes for the
- * session and sends no metadata write.
+ * objectui#5144, triage's ruling E — the console's inline-edit toggle is
+ * session state and writes nothing.
  *
- * ## The defect this pins
- *
- * `buildViewTabs` pushes a console-made fallback tab when an object declares no
- * defined or primary view. Its toolbar changes went down `persistViewPatch`'s
- * overlay branch like a served view's: measured live on objectstack `main`
- * (showcase, `showcase_account`), a density toggle sent `PUT
- * /api/v1/meta/view/all` with `{ rowHeight, object, name: 'all', _isOverride }`
- * and no `viewKind`, the door answered `422 INVALID_METADATA`, and the density
- * was gone on reload.
- *
- * Triage's ruling (comment `5988346142`): the fallback tab's toolbar changes
- * apply for the session and send no `PUT /meta/view/…`; no view is created to
- * hold them. On an object with a served view the save path is unchanged.
+ * The view's `inlineEdit` and `userActions.editInline` are the author's
+ * permission keys, and `normalizeListViewSchema` folds the first into the
+ * second. The toggle used to persist a user's edit mode into `inlineEdit`
+ * through `persistViewPatch`. After the fold, switching it off stored
+ * `inlineEdit: false`, which reads as "not offered", so the toggle was gone
+ * from the next load. Ruling E removes that write.
  *
  * ## What runs
  *
- * The harness of `ObjectView.toolbarWritesCompose-11642.test.tsx`: the real
+ * The harness of `ObjectView.fallbackTabSessionOnly-11643.test.tsx`: the real
  * object page and the real `persistViewPatch` (its 300 ms debounce included),
  * over the real `ObjectStackAdapter`, whose metadata client is a store that
- * judges every PUT with the spec's own `ViewMetadataSchema` and keeps the parsed
- * value. `ListView` is stubbed to capture what the page hands it, so a toolbar
- * change is the page's own callback — every one that reaches `persistViewPatch`.
- * A "reload" unmounts the page and mounts it again over a fresh adapter on the
- * same store.
+ * judges every PUT with the spec's `ViewMetadataSchema`. `ListView` is stubbed
+ * to capture what the page hands it. Whether the toggle is OFFERED is
+ * `ListView`'s `inlineEditOffered`, which reads the folded
+ * `userActions.editInline` (pinned in `@object-ui/plugin-list`'s
+ * `ListView.permissions.test.tsx`). These cases read that input: the schema the
+ * page hands `ListView`, through the fold.
  *
- * ## Direction of the reverse-verification run
- *
- * - Guard removed: every case that drives the console-made tab goes red on its
- *   write count — the first test, and the first half of the saved-view test,
- *   which toggles that tab before it opens the saved view. The prediction named
- *   the first test only; the run showed both. The two cases keyed on `all`
- *   stay green.
- * - Guard keyed on the id `all` instead of the mark: the served view named `all`
- *   and the stored row named `all` go red (their writes stop); the two
- *   console-made-tab cases stay green. As predicted.
- * - The stored-row clause dropped: only the stored row named `all` goes red. As
- *   predicted.
+ * Every "writes nothing" case carries its firing control: a density change on
+ * the same view in the same test DOES write, so an empty write log is a
+ * reading of the toggle and not of a harness that cannot see writes.
  */
 
 import * as React from 'react';
@@ -128,10 +112,25 @@ const FIELDS = {
   status: { type: 'text', label: 'Status' },
 };
 
-/** An object that declares no list view: the page makes the "All Records" tab for it. */
-const VIEWLESS_OBJECT = { name: OBJECT_NAME, label: 'Note', fields: FIELDS };
+/** A served view that opts in to inline editing, the remedy the changeset names. */
+const OPTED_IN_OBJECT = {
+  name: OBJECT_NAME,
+  label: 'Note',
+  fields: FIELDS,
+  listViews: {
+    all: { label: 'All notes', type: 'grid', columns: ['title', 'status'], userActions: { editInline: true } },
+  },
+};
 
-/** A user-saved view on that object — a real row, beside the console-made tab. */
+/** A served view that declares neither key. */
+const PLAIN_OBJECT = {
+  name: OBJECT_NAME,
+  label: 'Note',
+  fields: FIELDS,
+  listViews: { all: { label: 'All notes', type: 'grid', columns: ['title', 'status'] } },
+};
+
+/** A user-saved view whose own row stores `inlineEdit: true`. */
 const SAVED_ROW = {
   name: SAVED_ID,
   object: OBJECT_NAME,
@@ -141,31 +140,16 @@ const SAVED_ROW = {
     type: 'grid',
     data: { provider: 'object', object: OBJECT_NAME },
     columns: ['title', 'status'],
-    filter: [{ field: 'status', operator: 'equals', value: 'mine' }],
+    inlineEdit: true,
   },
 };
 
 /**
- * A stored row whose name is `all` and that carries no overlay marker, so the
- * switcher lists it as a saved view and it shadows the console-made tab.
+ * A marked overlay on the served view from an earlier session, so the tab
+ * carries a `viewKind` and its density write is a row the door keeps (the
+ * same seed `ObjectView.fallbackTabSessionOnly-11643.test.tsx` uses).
  */
-const STORED_ALL_ROW = {
-  name: 'all',
-  object: OBJECT_NAME,
-  viewKind: 'list',
-  label: 'All (stored)',
-  type: 'grid',
-  columns: ['title', 'status'],
-};
-
-/** An object whose OWN `listViews` declares a served view under the bare key `all`. */
-const SERVED_ALL_OBJECT = {
-  ...VIEWLESS_OBJECT,
-  listViews: { all: { label: 'All notes', type: 'grid', columns: ['title', 'status'] } },
-};
-
-/** A marked overlay on that served view, from an earlier session. */
-const SERVED_ALL_OVERLAY = {
+const SERVED_OVERLAY = {
   name: 'all',
   object: OBJECT_NAME,
   viewKind: 'list',
@@ -173,10 +157,14 @@ const SERVED_ALL_OVERLAY = {
   _isOverride: true,
 };
 
-const SORT = [{ id: 'row-1', field: 'title', order: 'asc' }];
-
-/** The console-made tab's label: no locale bundle is loaded here, so the key renders. */
-const FALLBACK_TAB_LABEL = 'console.objectView.allRecords';
+/** An overlay the OLD toggle wrote on the served view: `inlineEdit: false`. */
+const OLD_TOGGLE_OVERLAY = {
+  name: 'all',
+  object: OBJECT_NAME,
+  viewKind: 'list',
+  inlineEdit: false,
+  _isOverride: true,
+};
 
 /**
  * A `sys_metadata`-shaped store: every PUT is judged by the spec's
@@ -268,18 +256,16 @@ async function openPage(meta: any, object: Record<string, any>, viewId?: string)
   return dataSource;
 }
 
-/** Unmount, then open the view again over a fresh adapter: what a reload renders. */
-async function reload(meta: any, object: Record<string, any>, viewId: string) {
-  cleanup();
-  await openPage(meta, object, viewId);
-  await waitFor(() => expect(listSchema?.options).toBeTruthy());
-  return (normalizeListViewSchema(listSchema) as { rowHeight?: unknown }).rowHeight;
+
+/** The schema the page hands `ListView`, through the fold `ListView` runs. */
+function folded(): { editInline: unknown; inlineEdit: unknown } {
+  const schema = normalizeListViewSchema(listSchema) as { userActions?: Record<string, unknown>; inlineEdit?: unknown };
+  return { editInline: schema.userActions?.editInline, inlineEdit: schema.inlineEdit };
 }
 
-/** The refusal `persistViewPatch` logs before it toasts. */
-function persistFailuresLogged(): unknown[][] {
-  return (console.error as unknown as { mock: { calls: unknown[][] } }).mock.calls
-    .filter((call) => String(call[0]).includes('Failed to persist view config'));
+/** Every body the store was asked to save that carries an `inlineEdit` anywhere. */
+function bodiesCarryingInlineEdit(bodies: any[]): any[] {
+  return bodies.filter((b) => b && ('inlineEdit' in b || (b.config && 'inlineEdit' in b.config)));
 }
 
 beforeEach(() => {
@@ -301,104 +287,89 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('objectui#11643 — the console-made tab of a view-less object keeps its toolbar changes for the session', () => {
-  it('every toolbar control on it sends no metadata write and raises no error', async () => {
-    const { meta, rows } = makeStore([]);
-    const ds = await openPage(meta, VIEWLESS_OBJECT);
-    // The page opened the tab it made: the object declares nothing else.
-    expect(listSchema.label).toBe(FALLBACK_TAB_LABEL);
+describe('objectui#5144 (ruling E) — the console inline-edit toggle writes nothing', () => {
+  it('switching the toggle on a served view sends no write; a density change beside it does', async () => {
+    const { meta, rows, bodies } = makeStore([SERVED_OVERLAY]);
+    const ds = await openPage(meta, OPTED_IN_OBJECT, 'all');
+    expect(listSchema.label).toBe('All notes');
+    expect(typeof listProps.onInlineEditChange).toBe('function');
 
-    // Every control that reaches `persistViewPatch`, through both the schema's
-    // and the list's own spelling of it. `onInlineEditChange` no longer reaches
-    // it at all (objectui#5144, ruling E: the toggle is session-only); it stays
-    // here because it must still write nothing.
     act(() => {
-      listSchema.onDensityChange('comfortable');
-      listSchema.onSortChange(SORT);
-      listSchema.onHiddenFieldsChange(['status']);
-      listSchema.onColumnStateChange({ widths: { title: 240 } });
-      listProps.onSortChange(SORT);
-      listProps.onHiddenFieldsChange(['status']);
       listProps.onInlineEditChange(true);
-      listProps.onColumnStateChange({ order: ['status', 'title'] });
+      listProps.onInlineEditChange(false);
     });
     // Past the 300 ms debounce and any round trip it would have started.
     await wait(700);
-
     expect(ds.updateViewConfig).not.toHaveBeenCalled();
     expect(meta.saveItem).not.toHaveBeenCalled();
-    expect(meta.getItem).not.toHaveBeenCalled();
-    expect(rows.size).toBe(0);
-    expect(toast.error).not.toHaveBeenCalled();
-    expect(persistFailuresLogged()).toEqual([]);
-  });
+    expect(rows.get('all')).toEqual(SERVED_OVERLAY);
 
-  it('a saved view beside it is a real row: its density change is still written and survives a reload', async () => {
-    const { meta, rows } = makeStore([SAVED_ROW]);
-
-    // The console-made tab sits beside the saved view and still sends nothing.
-    const onFallback = await openPage(meta, VIEWLESS_OBJECT, 'all');
-    expect(listSchema.label).toBe(FALLBACK_TAB_LABEL);
+    // Firing control: the same page, the same view, a toolbar control that is
+    // still persisted.
     act(() => listSchema.onDensityChange('comfortable'));
     await wait(700);
-    expect(onFallback.updateViewConfig).not.toHaveBeenCalled();
-    expect(meta.saveItem).not.toHaveBeenCalled();
+    expect(ds.updateViewConfig).toHaveBeenCalledTimes(1);
+    expect(rows.get('all').rowHeight).toBe('medium');
+    expect(rows.get('all')).not.toHaveProperty('inlineEdit');
+    expect(bodiesCarryingInlineEdit(bodies)).toEqual([]);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('two-way: on a view that declares `userActions.editInline: true`, the toggle is still offered after it is switched off and the view remounts', async () => {
+    const { meta, rows } = makeStore([SERVED_OVERLAY]);
+    await openPage(meta, OPTED_IN_OBJECT, 'all');
+    expect(folded().editInline).toBe(true);
+
+    act(() => listProps.onInlineEditChange(false));
+    await wait(700);
+    expect(rows.get('all')).toEqual(SERVED_OVERLAY);
 
     cleanup();
-    const onSaved = await openPage(meta, VIEWLESS_OBJECT, SAVED_ID);
+    await openPage(meta, OPTED_IN_OBJECT, 'all');
+    expect(folded().editInline).toBe(true);
+    // Nothing was stored, so the mode is seeded from the view again.
+    expect(folded().inlineEdit).toBeUndefined();
+  });
+
+  it('a saved view: the toggle switched off writes nothing, and the stored `inlineEdit: true` is what the next load reads', async () => {
+    // Recorded cost of ruling E: the edit mode is not remembered across loads.
+    const { meta, rows, bodies } = makeStore([SAVED_ROW]);
+    const ds = await openPage(meta, PLAIN_OBJECT, SAVED_ID);
     expect(listSchema.label).toBe('Mine');
+    expect(folded()).toEqual({ editInline: true, inlineEdit: true });
+
+    act(() => listProps.onInlineEditChange(false));
+    await wait(700);
+    expect(ds.updateViewConfig).not.toHaveBeenCalled();
+    expect(meta.saveItem).not.toHaveBeenCalled();
+
+    // Firing control: a density change on the same saved view writes its row
+    // whole. The row's own `inlineEdit` rides along unchanged, never the
+    // toggle's `false`.
     act(() => listSchema.onDensityChange('comfortable'));
     await wait(700);
-
-    expect(onSaved.updateViewConfig).toHaveBeenCalledTimes(1);
-    expect(onSaved.updateViewConfig.mock.calls[0][1]).toBe(SAVED_ID);
-    expect(onSaved.updateViewConfig.mock.calls[0][3]).toEqual({ isSavedView: true });
-    expect(toast.error).not.toHaveBeenCalled();
-    const stored = rows.get(SAVED_ID);
-    expect(stored.config.rowHeight).toBe('medium');
-    expect(stored.config.filter).toEqual(SAVED_ROW.config.filter);
-    expect(stored).not.toHaveProperty('_isOverride');
-
-    expect(await reload(meta, VIEWLESS_OBJECT, SAVED_ID)).toBe('medium');
-  });
-});
-
-describe('objectui#11643 — provenance decides, not the id `all`', () => {
-  it('a served view whose tab id is `all` keeps its overlay save path', async () => {
-    const { meta, rows } = makeStore([SERVED_ALL_OVERLAY]);
-    const ds = await openPage(meta, SERVED_ALL_OBJECT, 'all');
-    expect(listSchema.label).toBe('All notes');
-    act(() => listSchema.onDensityChange('comfortable'));
-    await wait(700);
-
     expect(ds.updateViewConfig).toHaveBeenCalledTimes(1);
-    expect(ds.updateViewConfig.mock.calls[0][1]).toBe('all');
-    expect(ds.updateViewConfig.mock.calls[0][3]).toEqual({ isSavedView: false });
-    expect(toast.error).not.toHaveBeenCalled();
-    const stored = rows.get('all');
-    expect(stored.rowHeight).toBe('medium');
-    expect(stored.columnState).toEqual(SERVED_ALL_OVERLAY.columnState);
-    expect(stored._isOverride).toBe(true);
+    expect(rows.get(SAVED_ID).config.rowHeight).toBe('medium');
+    expect(rows.get(SAVED_ID).config.inlineEdit).toBe(true);
+    expect(bodiesCarryingInlineEdit(bodies).every((b) => (b.config ?? b).inlineEdit === true)).toBe(true);
 
-    expect(await reload(meta, SERVED_ALL_OBJECT, 'all')).toBe('medium');
+    cleanup();
+    await openPage(meta, PLAIN_OBJECT, SAVED_ID);
+    expect(folded()).toEqual({ editInline: true, inlineEdit: true });
   });
 
-  it('a stored row named `all` that shadows the console-made tab is a real row and keeps its save path', async () => {
-    const { meta, rows } = makeStore([STORED_ALL_ROW]);
-    const ds = await openPage(meta, VIEWLESS_OBJECT, 'all');
-    // The stored row's own label: the switcher merged it onto the tab the page made.
-    expect(listSchema.label).toBe('All (stored)');
-    act(() => listSchema.onDensityChange('comfortable'));
-    await wait(700);
+  it('an overlay the old toggle wrote, `inlineEdit: false`, still reads off', async () => {
+    // Recorded cost of ruling E: existing data, and the maintainer's ruling
+    // rejects migrating it. `@object-ui/data-objectstack` still lists
+    // `inlineEdit` among the keys an overlay owns, so the row is read.
+    const { meta } = makeStore([OLD_TOGGLE_OVERLAY]);
+    await openPage(meta, PLAIN_OBJECT, 'all');
+    expect(folded()).toEqual({ editInline: false, inlineEdit: false });
+  });
 
-    expect(ds.updateViewConfig).toHaveBeenCalledTimes(1);
-    expect(ds.updateViewConfig.mock.calls[0][3]).toEqual({ isSavedView: true });
-    expect(toast.error).not.toHaveBeenCalled();
-    const stored = rows.get('all');
-    expect(stored.rowHeight).toBe('medium');
-    expect(stored.columns).toEqual(STORED_ALL_ROW.columns);
-    expect(stored).not.toHaveProperty('_isOverride');
-
-    expect(await reload(meta, VIEWLESS_OBJECT, 'all')).toBe('medium');
+  it('control: the same served view with no overlay declares nothing, and reads off by the spec default', async () => {
+    const { meta } = makeStore([]);
+    await openPage(meta, PLAIN_OBJECT, 'all');
+    expect(folded()).toEqual({ editInline: undefined, inlineEdit: undefined });
   });
 });

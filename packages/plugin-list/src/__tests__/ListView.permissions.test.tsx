@@ -373,9 +373,9 @@ describe('ListView – inline-edit toggle vs the principal permission gate (#464
   });
 
   it('a read-only principal cannot reach edit MODE through a stored inlineEdit:true view', async () => {
-    // The door that stays open if only the toggle is gated: the console
-    // persists `inlineEdit` per view, so the mode can be entered with no
-    // toggle press at all.
+    // The door that stays open if only the toggle is gated: a view can store
+    // `inlineEdit: true`, so the mode can be entered with no toggle press at
+    // all.
     renderInlineEdit(makeUpdatePermissions(false), { inlineEdit: true } as Partial<ListViewSchema>);
     await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
     expect(screen.getByTestId('grid-stub')).toHaveTextContent('false');
@@ -516,15 +516,18 @@ describe('ListView – the declared userActions.editInline switch (#4647 gap 2)'
 });
 
 /**
- * objectui#5144 — the console's stored `inlineEdit`, read through the fold.
+ * objectui#5144 — a view's stored `inlineEdit`, read through the fold.
  *
- * The console persists the toolbar toggle as the view's `inlineEdit` (relayed
- * as `onInlineEditChange`), and declares no `userActions.editInline`.
- * `normalizeListViewSchema` folds the first into the second, so every case here
- * declares `inlineEdit` and leaves `editInline` out. The fold's own table is
- * pinned in `@object-ui/core`'s
- * `normalize-list-view.inlineEditFold-5144.test.ts`. This block pins what the
- * toolbar does with it.
+ * Stored views carry `inlineEdit` (authored, or written by the console's old
+ * toolbar toggle) and no `userActions.editInline`. `normalizeListViewSchema`
+ * folds the first into the second, so every case here declares `inlineEdit`
+ * and leaves `editInline` out. The fold's own table is pinned in
+ * `@object-ui/core`'s `normalize-list-view.inlineEditFold-5144.test.ts`. This
+ * block pins what the toolbar does with it.
+ *
+ * Since triage's ruling E the console no longer persists the toggle, so it
+ * writes no new `inlineEdit` (pinned in `@object-ui/app-shell`'s
+ * `ObjectView.inlineEditSessionOnly-5144.test.tsx`).
  */
 describe('ListView – a stored inlineEdit folds into editInline (objectui#5144)', () => {
   let prevGrid: ReturnType<typeof ComponentRegistry.get>;
@@ -550,6 +553,10 @@ describe('ListView – a stored inlineEdit folds into editInline (objectui#5144)
   });
 
   it('a stored `inlineEdit: false` reads off: no toggle and no edit mode', async () => {
+    // A recorded cost of triage's ruling E (objectui#5144): a view or overlay
+    // the old toolbar toggle left at `inlineEdit: false` stays off. It is
+    // existing data, and the maintainer's ruling rejects migrating it. The
+    // remedy is declaring `userActions.editInline: true` (the case below).
     renderInlineEdit(makeUpdatePermissions(true), { inlineEdit: false } as Partial<ListViewSchema>);
     await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
     expect(screen.queryByTestId('toolbar-inline-edit-toggle')).toBeNull();
@@ -568,10 +575,11 @@ describe('ListView – a stored inlineEdit folds into editInline (objectui#5144)
     expect(screen.getByTestId('grid-stub')).toHaveTextContent('false');
   });
 
-  it('the toggle still writes the host channel: switching off reports `false` and leaves edit mode', async () => {
-    // The write path. The toggle reports through `onInlineEditChange`, which
-    // the console persists as the view's `inlineEdit`. The fold reads that key
-    // on the next load (the `inlineEdit: false` case above).
+  it('the toggle reports to the host: switching off reports `false` and leaves edit mode', async () => {
+    // The toggle flips the session's edit mode and reports it through
+    // `onInlineEditChange`. Since ruling E (objectui#5144) the console writes
+    // nothing for it, so the next load is seeded from the view's own
+    // `inlineEdit` again.
     const onInlineEditChange = vi.fn();
     renderInlineEdit(makeUpdatePermissions(true), { inlineEdit: true } as Partial<ListViewSchema>, onInlineEditChange);
     await waitFor(() => expect(screen.getByTestId('grid-stub')).toHaveTextContent('true'));

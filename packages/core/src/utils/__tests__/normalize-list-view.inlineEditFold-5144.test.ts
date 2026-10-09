@@ -9,13 +9,14 @@
 /**
  * objectui#5144 — a view's `inlineEdit` folds into `userActions.editInline`.
  *
- * The spec declares `userActions.editInline` with `.default(false)`. The console
- * never wrote that key. It persists the list toolbar's inline-edit toggle as the
- * view's `inlineEdit`. Until this fold, `ListView` could not read `editInline`
- * with the spec default without taking inline editing away from every stored
- * console view, so it read an absent `editInline` as "defer to the host". The
- * maintainer ruled the B-fold: the console's channel folds into the spec key,
- * and the spec default is read as written.
+ * The spec declares `userActions.editInline` with `.default(false)`. Stored
+ * views never carried that key: they carry `inlineEdit`, which authors declare
+ * and the console's list toolbar used to write. Until this fold, `ListView`
+ * could not read `editInline` with the spec default without taking inline
+ * editing away from every stored console view, so it read an absent
+ * `editInline` as "defer to the host". The maintainer ruled the B-fold: the
+ * stored key folds into the spec key, and the spec default is read as written.
+ * Triage's ruling E then stopped the toolbar writing `inlineEdit` at all.
  *
  * This file pins the fold's table. `@object-ui/plugin-list`'s
  * `ListView.permissions.test.tsx` pins what the toolbar does with its output.

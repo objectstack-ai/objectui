@@ -201,7 +201,9 @@ describe('objectui#8980 — a canonical top-level view-kind block reaches the re
   it('`gallery` → `object-gallery` (ObjectGallery)', async () => {
     const node = await generatedNodeFor({ label: 'Cards', type: 'gallery', gallery: { coverField: 'photo' } });
     expect(node.type).toBe('object-gallery');
-    expect(node.imageField).toBe('photo');
+    // Nested since objectui#12053: the node's own `gallery`, where
+    // `ObjectGallery` reads the cover binding.
+    expect(node.gallery.coverField).toBe('photo');
   });
 
   it('`timeline` → `object-timeline` (ObjectTimeline)', async () => {

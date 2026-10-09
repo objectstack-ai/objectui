@@ -221,6 +221,21 @@ const TIMELINE_CONFIG_SPELLING = {
 } as const satisfies Record<keyof NonNullable<SpecListView['timeline']>, string>;
 
 /**
+ * The gallery block's declared keys; see {@link GANTT_CONFIG_SPELLING}. One
+ * difference from the two tables above: the picked keys go out NESTED, as the
+ * node's own `gallery` block, because that is where `ObjectGallery` reads all
+ * five (`schema.gallery.KEY`, objectui#12053). The spec's block and the
+ * renderer's reads are the same five keys, so this table is both.
+ */
+const GALLERY_CONFIG_SPELLING = {
+  coverField: 'coverField',
+  coverFit: 'coverFit',
+  cardSize: 'cardSize',
+  titleField: 'titleField',
+  visibleFields: 'visibleFields',
+} as const satisfies Record<keyof NonNullable<SpecListView['gallery']>, string>;
+
+/**
  * Copy the declared keys an author actually wrote onto the flat product,
  * each under its flat spelling — the map's keys by default, another block's
  * when a branch passes its table.
@@ -2349,22 +2364,31 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         };
       }
       case 'gallery':
+        // objectui#12053 — the block goes out NESTED, as the node's own
+        // `gallery`, which is the shape `ListView` already hands
+        // `ObjectGallery`. `ObjectGallery` reads `coverFit`, `cardSize` and
+        // `visibleFields` off `schema.gallery` and nowhere else, so the flat
+        // node this branch used to build (`imageField` from `coverField`, plus
+        // `titleField`) dropped those three: a view declaring
+        // `coverFit: 'contain'` drew its covers cropped.
+        //
+        // ONE SPELLING PER KEY: no flat `imageField` or `titleField` beside the
+        // block. `ObjectGallery` reads `gallery.coverField` ahead of
+        // `imageField` and `gallery.titleField` ahead of `titleField`, so the
+        // flat pair could only restate the nested values. The branch's own
+        // `'name'` title floor moves into the block with the key it floors.
+        //
+        // ⛔ No raw spread of the block (objectui#6152 round 14): it carried
+        // every undeclared key, and a block key named like a node key
+        // (`objectName`) overrode the node's own value. The keys are picked by
+        // name through `GALLERY_CONFIG_SPELLING`, the spec's declared set.
         return {
           type: 'object-gallery',
           ...baseProps,
-          // `coverField` is the spec key. It goes out as the FLAT `imageField`
-          // prop, because this route hands `ObjectGallery` no nested `gallery`
-          // block and that flat prop is the one it reads after the nested
-          // `coverField`. objectui#6152 round 14 retired the pre-#2231
-          // `gallery.imageField` alias rung that followed it here.
-          imageField: viewOptions.gallery?.coverField,
-          titleField: viewOptions.gallery?.titleField || 'name',
-          // ⛔ No raw spread of the block onto this node (objectui#6152 round
-          // 14). `ObjectGallery` reads a FLAT `imageField` and `titleField`
-          // and nothing else flat from the block's vocabulary, so the spread
-          // delivered no declared key the two lines above do not; it delivered
-          // every undeclared one, and a block key named like a node key
-          // (`objectName`) overrode the node's own value.
+          gallery: {
+            ...pickFlatMapConfig(viewOptions.gallery, GALLERY_CONFIG_SPELLING),
+            titleField: viewOptions.gallery?.titleField || 'name',
+          },
         };
       case 'timeline': {
         // `04a67b9dc` (step ③): the SECOND route to `ObjectTimeline`, fixed the

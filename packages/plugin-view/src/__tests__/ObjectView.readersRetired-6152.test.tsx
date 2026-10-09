@@ -21,9 +21,10 @@
  *   2. The DECLARED keys keep their route, each beside the undeclared key the
  *      spread used to carry with it. The gantt and timeline arms are driven off
  *      the spec's own block shapes.
- *   3. The gallery cover still goes out as the FLAT `imageField` this route has
- *      always used (it hands `ObjectGallery` no nested block), from `coverField`
- *      only.
+ *   3. The gallery cover goes out from `coverField` only. Since objectui#12053
+ *      it rides the node's nested `gallery` block (the shape `ListView` hands
+ *      `ObjectGallery`), not the flat `imageField` this round left in place;
+ *      `ObjectView.galleryBlockNested-12053.test.tsx` pins the rest of the block.
  */
 
 import React from 'react';
@@ -151,13 +152,15 @@ describe('2 · the declared keys keep their route; the undeclared ones do not (o
 });
 
 describe('3 · the gallery cover goes out from `coverField` only (objectui#6152 round 14)', () => {
-  it('`coverField` becomes the flat `imageField` the gallery reads', async () => {
+  it('`coverField` becomes the nested `gallery.coverField` the gallery reads (objectui#12053)', async () => {
     const node = await generatedNode('gallery', { gallery: { coverField: 'photo' } });
-    expect(node.imageField).toBe('photo');
+    expect(node.gallery.coverField).toBe('photo');
   });
 
   it('the retired `imageField` alias binds no cover', async () => {
     const node = await generatedNode('gallery', { gallery: { imageField: 'photo' } });
-    expect(node.imageField).toBeUndefined();
+    expect(node.gallery).not.toHaveProperty('coverField');
+    expect(node.gallery).not.toHaveProperty('imageField');
+    expect(node).not.toHaveProperty('imageField');
   });
 });

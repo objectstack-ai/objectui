@@ -27,7 +27,14 @@ import {
 } from '@object-ui/components';
 import { ChevronDown, ChevronRight, Copy, Check, Eye, EyeOff, Pencil } from 'lucide-react';
 import { SchemaRenderer, toRenderableSchema, useInlineEdit } from '@object-ui/react';
-import { getCellRenderer, resolveCellRendererType, coerceToSafeValue, TextAreaField } from '@object-ui/fields';
+import {
+  getCellRenderer,
+  resolveCellRendererType,
+  resolveRecordPointer,
+  RECORD_POINTER_CARD_TYPE,
+  coerceToSafeValue,
+  TextAreaField,
+} from '@object-ui/fields';
 import type { DetailViewSection as DetailViewSectionType, DetailViewField, FieldMetadata } from '@object-ui/types';
 import { applyDetailAutoLayout } from './autoLayout';
 import { useDetailTranslation } from './useDetailTranslation';
@@ -413,6 +420,22 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
             title={t('detail.noValue', { defaultValue: 'No value' })}
           />
         );
+      }
+      // A polymorphic pointer pair (`referenceVia`, objectui#12045): the field's
+      // value is a record id of the object the SIBLING column names on this
+      // row, so it is resolved here, where the row is in hand, by the one rule
+      // `@object-ui/fields` owns. The pair is the renderer's `value`; the
+      // default face draws the record id as text, and a host that can read
+      // records registers its own under the same key. `referenceVia` is read
+      // off the OBJECT field (the spec declares it there), and `type` off the
+      // enriched field, so a view that re-types the field keeps its own face.
+      const pointer = resolveRecordPointer(
+        { name: field.name, type: enrichedField.type, referenceVia: objectDefField?.referenceVia },
+        data,
+      );
+      if (pointer) {
+        const PointerRenderer = getCellRenderer(RECORD_POINTER_CARD_TYPE);
+        return <PointerRenderer value={pointer} field={enrichedField as unknown as FieldMetadata} />;
       }
       // Use type-aware cell renderer; respect format hints (e.g.
       // text + format: 'phone' → PhoneCellRenderer with tel: link).

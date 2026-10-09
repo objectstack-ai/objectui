@@ -19,6 +19,7 @@
     "./dist/views/nav-menu-renderer.js",
     "./dist/views/record-approvals-renderer.js",
     "./dist/views/record-attachments-renderer.js",
+    "./dist/views/record-preview/record-pointer-card-renderer.js",
     "./dist/views/studio-design/studio-canvas-preview.js",
     "./src/index.ts",
     "./src/views/app-launcher-renderer.tsx",
@@ -36,6 +37,7 @@
     "./src/views/nav-menu-renderer.tsx",
     "./src/views/record-approvals-renderer.tsx",
     "./src/views/record-attachments-renderer.tsx",
+    "./src/views/record-preview/record-pointer-card-renderer.tsx",
     "./src/views/studio-design/studio-canvas-preview.tsx",
     "./src/styles.css"
   ],

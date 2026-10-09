@@ -152,6 +152,11 @@ const CENSUS: ReadonlyArray<readonly [type: string, text: string, verdict: Verdi
   ['secret', '••••••', 'fit'],
   ['vector', '[Vector]', 'fit'],
   ['grid', '[Grid]', 'fit'],
+  // `@object-ui/fields`' DEFAULT face for a pointer pair (objectui#12045): a
+  // value that is not a pair goes to the text cell unchanged. No chip resolves
+  // to this key (`resolveCellRendererType` never answers it; only a call site
+  // holding the row does, through `resolveRecordPointer`).
+  ['record_pointer_card', 'Acme Corp', 'fit'],
   // ── refused: a pill inside a pill ──────────────────────────────────────
   ['select', 'Acme Corp', 'pill-in-pill'],
   ['status', 'Acme Corp', 'pill-in-pill'],
@@ -335,7 +340,7 @@ describe('objectui#8464 — the Badge-fit census: A is not free, and here is whi
     // Refusing EVERY type also satisfies every refusal assertion above; this is
     // the half that is red for it.
     const fitting = CENSUS.filter(([, , v]) => v === 'fit');
-    expect(fitting.length, 'the fitting side is not empty').toBe(35);
+    expect(fitting.length, 'the fitting side is not empty').toBe(36);
 
     for (const [type] of fitting) {
       const { container } = renderChip(type);

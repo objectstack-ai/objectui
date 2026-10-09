@@ -288,6 +288,10 @@ const OBJECT_LITERAL_CENSUS: ReadonlyArray<readonly [type: string, text: string,
   ['grid', '[Grid]', false],
   // ── objectui#8581 LANDED: the hand-rolled dash became the affordance ──
   ['date', '—', true],
+  // ── objectui#12045: the pointer pair's default face ─────────────────────
+  // Its value is a `RecordPointer`; anything else (this `{}`) is handed to the
+  // text cell unchanged, so it reads exactly as `text` does.
+  ['record_pointer_card', '[Object]', false],
 ];
 
 /** A real value per type — the POPULATED half, which refuses the caricature. */
@@ -345,6 +349,7 @@ const POPULATED_CENSUS: ReadonlyArray<readonly [type: string, value: unknown]> =
   ['secret', 'hunter2'],
   ['vector', [1, 2, 3]],
   ['grid', [[1]]],
+  ['record_pointer_card', { objectName: 'invoice', recordId: 'inv_1' }],
 ];
 
 describe('objectui#8596 — an object literal is not a cell value, and these renderers invented one', () => {

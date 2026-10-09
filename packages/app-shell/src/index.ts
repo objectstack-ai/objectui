@@ -347,6 +347,10 @@ import './views/record-attachments-renderer.js';
 // `record:approvals` — schema-addressable approval panel referenced by
 // synthesized record pages when the record has approval requests (#3461).
 import './views/record-approvals-renderer.js';
+// A2's record card as the details grid's face for a `referenceVia` pointer
+// pair, registered under `@object-ui/fields`' `RECORD_POINTER_CARD_TYPE`
+// (objectui#12045).
+import './views/record-preview/record-pointer-card-renderer.js';
 // `global:search` / `global:notifications` — the two spec `PageComponentType`
 // members the 2026-08-26 ruling on objectstack#12183 kept declared because both
 // data sources shipped (`f99932a42`). Registered here, not in

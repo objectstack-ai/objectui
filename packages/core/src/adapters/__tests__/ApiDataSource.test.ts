@@ -217,6 +217,32 @@ describe('ApiDataSource — findOne', () => {
     const record = await ds.findOne('users', '999');
     expect(record).toBeNull();
   });
+
+  // objectui#12032 — `null` means "not found", and only a 404 says that. A
+  // refused or failed read used to resolve `null` too, so a record page read
+  // "no access" and "could not load" as "not found" (the objectui#11902 states).
+  // The rejection keeps the status in the message, which is what the shared
+  // load-error classifier reads ("HTTP 403 …").
+  it('rejects on 403 instead of resolving null', async () => {
+    const mockFetch = createMockFetch({ code: 'FORBIDDEN', error: 'not yours' }, { status: 403 });
+    const ds = new ApiDataSource({ read: { url: '/api/users' }, fetch: mockFetch });
+
+    await expect(ds.findOne('users', '42')).rejects.toThrow(/^ApiDataSource: HTTP 403\b/);
+  });
+
+  it('rejects on 500 instead of resolving null', async () => {
+    const mockFetch = createMockFetch({ code: 'INTERNAL_ERROR' }, { status: 500 });
+    const ds = new ApiDataSource({ read: { url: '/api/users' }, fetch: mockFetch });
+
+    await expect(ds.findOne('users', '42')).rejects.toThrow(/^ApiDataSource: HTTP 500\b/);
+  });
+
+  it('rejects when the transport itself fails', async () => {
+    const mockFetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    const ds = new ApiDataSource({ read: { url: '/api/users' }, fetch: mockFetch });
+
+    await expect(ds.findOne('users', '42')).rejects.toThrow(TypeError);
+  });
 });
 
 // ---------------------------------------------------------------------------

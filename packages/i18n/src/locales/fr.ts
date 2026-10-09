@@ -1646,6 +1646,7 @@ const fr = {
   console: {
     studio: {
       title: "Studio",
+      accessRequired: "Vous avez besoin de l'accès à Studio pour ouvrir Studio.",
     },
     saveAdvisoryTitle: "Enregistré — le contrôle de création a signalé {{count}} recommandation(s)",
     saveAdvisoryTitle_one: "Enregistré — le contrôle de création a signalé {{count}} recommandation",

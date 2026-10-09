@@ -35,7 +35,9 @@
  */
 
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
-import { Navigate, Outlet, Route, useParams } from 'react-router-dom';
+import { Link, Navigate, Outlet, Route, useParams } from 'react-router-dom';
+import { Lock } from 'lucide-react';
+import { Button, Empty, EmptyTitle } from '@object-ui/components';
 import {
   AppHeader,
   CommandPalette,
@@ -74,6 +76,42 @@ const BuilderLanding = lazy(() =>
 );
 
 /**
+ * What a principal without `studio.access` sees, at the Studio URL they opened
+ * (objectui#12035): one sentence saying Studio access is needed, and the way
+ * home.
+ *
+ * The gate used to redirect home with no word of why, so a missing capability
+ * read exactly like a broken link. This is the console's existing refusal
+ * screen, the shape `AppContent` renders for an app the session may not open
+ * (`empty.appAccessDenied`): said in place, as the permanent decision it is, so
+ * no Retry; and the URL stays, so the caller can send it to an administrator
+ * and reload once access is granted. No header frames this screen, so the way
+ * home is its own button, as there, and it reuses that screen's label.
+ */
+function StudioAccessRequired({ home }: { home: string }) {
+  const { t } = useObjectTranslation();
+  return (
+    <div className="flex h-screen items-center justify-center p-4">
+      <Empty data-testid="studio-access-required">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+          <Lock className="h-6 w-6 text-muted-foreground" />
+        </div>
+        <EmptyTitle>
+          {t('console.studio.accessRequired', {
+            defaultValue: 'You need Studio access to open Studio.',
+          })}
+        </EmptyTitle>
+        <div className="mt-4">
+          <Button asChild>
+            <Link to={home}>{t('empty.appAccessDeniedHome', { defaultValue: 'Back to home' })}</Link>
+          </Button>
+        </div>
+      </Empty>
+    </div>
+  );
+}
+
+/**
  * Renders `children` only for a principal whose LOADED capability set contains
  * `studio.access`; every other state renders something that is not the builder.
  *
@@ -82,16 +120,20 @@ const BuilderLanding = lazy(() =>
  */
 export function RequireStudioAccess({
   children,
-  redirectTo,
+  homeTo,
 }: {
   children: ReactNode;
   /**
-   * Where a non-holder lands. Home, not a dead end — same posture as
-   * `RequireAiSurface`. Defaults to the DECLARED landing (objectui#7373), which
-   * is the environment launcher wherever no app declares one; an explicit value
-   * still wins.
+   * Where the refusal's way home leads. Home, not a dead end. Defaults to the
+   * DECLARED landing (objectui#7373), which is the environment launcher
+   * wherever no app declares one; an explicit value still wins.
+   *
+   * It was `redirectTo` while a non-holder was redirected there, the posture of
+   * `RequireAiSurface`, which still redirects: a runtime that serves no agent
+   * has nothing to refuse, and what reaches it is a stale link. A non-holder
+   * here is refused a capability, and is now told so (objectui#12035).
    */
-  redirectTo?: string;
+  homeTo?: string;
 }) {
   const homePath = useHomePath();
   const entry = useStudioEntry();
@@ -107,8 +149,9 @@ export function RequireStudioAccess({
     return <LoadingScreen error={entry.error.message} onRetry={entry.retry} />;
   }
 
+  // Refused: the builder is never mounted, so its chunk is never requested.
   if (!holdsStudioAccess(entry.systemPermissions)) {
-    return <Navigate to={redirectTo ?? homePath} replace />;
+    return <StudioAccessRequired home={homeTo ?? homePath} />;
   }
 
   return <>{children}</>;

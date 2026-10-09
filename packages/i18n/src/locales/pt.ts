@@ -1644,6 +1644,7 @@ const pt = {
   console: {
     studio: {
       title: "Studio",
+      accessRequired: "Você precisa de acesso ao Studio para abrir o Studio.",
     },
     saveAdvisoryTitle: "Salvo — a verificação de criação gerou {{count}} recomendação(ões)",
     saveAdvisoryTitle_one: "Salvo — a verificação de criação gerou {{count}} recomendação",

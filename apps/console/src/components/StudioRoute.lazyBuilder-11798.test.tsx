@@ -20,7 +20,7 @@
  *  3. a holder gets the module, once, and the builder renders.
  *
  * `StudioRoute.test.tsx` keeps pinning the entry decision itself (who gets in,
- * where a refused principal lands); this file adds only the module dimension.
+ * what a refused principal is shown); this file adds only the module dimension.
  *
  * ## The instrument: a counted mock factory
  *
@@ -147,8 +147,9 @@ describe('/studio/* — the builder module loads behind the gate (objectui#11798
     permissionsFetch = answer(['setup.access']);
     renderStudio('/studio/hotcrm/data');
 
-    await waitFor(() => expect(screen.getByTestId('pathname').textContent).toBe('/home'));
-    expect(screen.getByTestId('home-launcher')).toBeInTheDocument();
+    // The refusal, said in place since objectui#12035, is the decided state.
+    expect(await screen.findByTestId('studio-access-required')).toBeInTheDocument();
+    expect(screen.getByTestId('pathname').textContent).toBe('/studio/hotcrm/data');
     expect(builderModuleLoads.count).toBe(0);
   });
 

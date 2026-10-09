@@ -1607,6 +1607,7 @@ const de = {
   console: {
     studio: {
       title: "Studio",
+      accessRequired: "Sie benötigen Studio-Zugriff, um Studio zu öffnen.",
     },
     saveAdvisoryTitle: "Gespeichert — die Autorenprüfung ergab {{count}} Hinweis(e)",
     saveAdvisoryTitle_one: "Gespeichert — die Autorenprüfung ergab {{count}} Hinweis",

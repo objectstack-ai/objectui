@@ -33,11 +33,22 @@
  * courtesy. So is the loading window — that is where a fail-open bug hides,
  * because "not yet loaded" is the state a route gate is most tempted to read
  * as permission.
+ *
+ * ## What a refused principal sees (objectui#12035)
+ *
+ * The refusal used to be a silent redirect home, so a missing capability read
+ * exactly like a broken link. It is now said in place: the URL the caller
+ * opened stays, one sentence says Studio access is needed, and a link leads
+ * home. Where that link leads is the home the redirect used to land on
+ * (objectui#7373), so those pins follow the link instead of the redirect. That
+ * the sentence arrives in the caller's language is pinned beside these, in
+ * `StudioRoute.accessNotice-12035.test.tsx`.
  */
 
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { MetadataCtx, type MetadataContextValue } from '@object-ui/react';
@@ -136,8 +147,27 @@ function LocationProbe() {
 const pathname = () => screen.getByTestId('pathname').textContent;
 
 /**
+ * The refusal's sentence and its way home, as this file renders them: no
+ * language instance is installed here, so the call site's `defaultValue`
+ * answers. That the packs answer in the caller's language is the sibling
+ * file's pin.
+ */
+const NOTICE = 'You need Studio access to open Studio.';
+const WAY_HOME = 'Back to home';
+
+/**
+ * The refusal, said at the URL that was opened: the sentence is on screen, the
+ * location has NOT moved, and the way home names `home`.
+ */
+async function expectRefusedAt(url: string, home: string) {
+  expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+  expect(pathname()).toBe(url);
+  expect(screen.getByRole('link', { name: WAY_HOME })).toHaveAttribute('href', home);
+}
+
+/**
  * The reference host's tree, reduced to the legs this question travels: the REAL
- * `/studio` subtree, the home a non-holder is sent to, and the login surface an
+ * `/studio` subtree, the home a non-holder's way home leads to, and the login surface an
  * unauthenticated visitor bounces to.
  */
 /**
@@ -254,42 +284,49 @@ describe('holdsStudioAccess — the entry policy', () => {
 });
 
 describe('/studio/* — the entry decision, both ways', () => {
-  it('a principal WITHOUT studio.access never reaches the authoring surface', async () => {
+  it('a principal WITHOUT studio.access never reaches the authoring surface, and is told why', async () => {
     renderStudioDeepLink('/studio/');
 
-    await waitFor(() => expect(pathname()).toBe('/home'));
-    // The load-bearing half: not "a redirect was requested" but "the builder was
+    // objectui#12035: said in place, not a silent bounce home.
+    await expectRefusedAt('/studio/', '/home');
+    // The load-bearing half: not "a notice was drawn" but "the builder was
     // never mounted", so nothing inside it could render or fetch.
     expect(builderLanding).not.toHaveBeenCalled();
     expect(designSurface).not.toHaveBeenCalled();
     expect(screen.queryByTestId('studio-front-door')).not.toBeInTheDocument();
     expect(screen.queryByTestId('studio-pillar-builder')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('home-launcher')).not.toBeInTheDocument();
   });
 
   it('the deep link straight at a package pillar is refused the same way', async () => {
     renderStudioDeepLink('/studio/hotcrm/data');
 
-    await waitFor(() => expect(pathname()).toBe('/home'));
+    await expectRefusedAt('/studio/hotcrm/data', '/home');
     expect(designSurface).not.toHaveBeenCalled();
     expect(screen.queryByTestId('studio-pillar-builder')).not.toBeInTheDocument();
   });
 
   it('the bare-package leg is covered too — the gate sits above the whole subtree', async () => {
     // `/studio/:packageId` used to carry no wrapper at all; it only redirects to
-    // the Data pillar, so gating it matters for what the hop leads to.
+    // the Data pillar, so gating it matters for what the hop leads to. Refused,
+    // the hop is never taken: the URL stays the one opened.
     renderStudioDeepLink('/studio/hotcrm');
 
-    await waitFor(() => expect(pathname()).toBe('/home'));
+    await expectRefusedAt('/studio/hotcrm', '/home');
     expect(designSurface).not.toHaveBeenCalled();
   });
 
-  it('a non-holder lands on the DECLARED landing where there is one (objectui#7373)', async () => {
+  it("the refusal's way home leads to the DECLARED landing where there is one (objectui#7373)", async () => {
     // The card's case on this gate: a control-plane customer who follows a
-    // `/studio` link they may not enter. Pre-#7373 `redirectTo` defaulted to the
+    // `/studio` link they may not enter. Pre-#7373 the way out defaulted to the
     // `/home` literal, which on that deployment is the environment launcher —
     // "Build an app" / "Start from a template" cards acting on an environment
     // the control plane does not have. This pin fails on that implementation.
+    // Since objectui#12035 the way out is the refusal's link, not a redirect.
     renderStudioDeepLink('/studio/hotcrm/data', CONTROL_PLANE_APPS);
+
+    await expectRefusedAt('/studio/hotcrm/data', '/apps/cloud_control');
+    await userEvent.click(screen.getByRole('link', { name: WAY_HOME }));
 
     await waitFor(() => expect(pathname()).toBe('/apps/cloud_control'));
     expect(screen.getByTestId('declared-landing')).toBeInTheDocument();
@@ -307,6 +344,9 @@ describe('/studio/* — the entry decision, both ways', () => {
       { name: 'setup', label: 'Setup' },
     ]);
 
+    await expectRefusedAt('/studio/hotcrm/data', '/home');
+    await userEvent.click(screen.getByRole('link', { name: WAY_HOME }));
+
     await waitFor(() => expect(pathname()).toBe('/home'));
     expect(screen.getByTestId('home-launcher')).toBeInTheDocument();
     expect(designSurface).not.toHaveBeenCalled();
@@ -320,6 +360,9 @@ describe('/studio/* — the entry decision, both ways', () => {
     await waitFor(() => expect(screen.getByTestId('studio-front-door')).toBeInTheDocument());
     expect(builderLanding).toHaveBeenCalled();
     expect(pathname()).toBe('/studio/');
+    // ...and is never shown the refusal (objectui#12035).
+    expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('studio-access-required')).not.toBeInTheDocument();
   });
 
   it('NEGATIVE CONTROL: a holder still gets the pillar builder, unchanged', async () => {
@@ -329,9 +372,10 @@ describe('/studio/* — the entry decision, both ways', () => {
     await waitFor(() => expect(screen.getByTestId('studio-pillar-builder')).toBeInTheDocument());
     expect(designSurface).toHaveBeenCalled();
     expect(pathname()).toBe('/studio/hotcrm/data');
+    expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
   });
 
-  it("the front door's header brand walks back to the same home the gate bounces to", async () => {
+  it("the front door's header brand walks back to the same home the gate's refusal names", async () => {
     // Two affordances one route apart — this brand (the `studio` variant of
     // `AppHeader` since objectui#11863, the wordmark before it) and the pillar
     // builder's header Home button — must not name two different homes; that
@@ -362,7 +406,7 @@ describe('/studio/* — the entry decision, both ways', () => {
   it('the package-less scope is behind the same entry gate (objectui#11553)', async () => {
     renderStudioDeepLink('/studio/~org/automations');
 
-    await waitFor(() => expect(pathname()).toBe('/home'));
+    await expectRefusedAt('/studio/~org/automations', '/home');
     expect(designSurface).not.toHaveBeenCalled();
   });
 
@@ -393,8 +437,10 @@ describe('/studio/* — the states that are not an answer', () => {
     expect(screen.getByTestId('loading')).toBeInTheDocument();
     expect(designSurface).not.toHaveBeenCalled();
     expect(screen.queryByTestId('studio-pillar-builder')).not.toBeInTheDocument();
-    // Still the requested URL — the gate holds, it does not bounce on `pending`.
+    // Still the requested URL — the gate holds, it does not bounce on `pending`,
+    // and "not yet loaded" is not a refusal either (objectui#12035).
     expect(pathname()).toBe('/studio/hotcrm/data');
+    expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
 
     // …and the same window resolves into the builder for a holder, so the
     // splash above is a WINDOW and not a dead end.
@@ -412,6 +458,8 @@ describe('/studio/* — the states that are not an answer', () => {
     expect(screen.getByTestId('error-screen')).toHaveTextContent('500');
     expect(designSurface).not.toHaveBeenCalled();
     expect(pathname()).toBe('/studio/hotcrm/data');
+    // A failed read is not a refusal: the retryable splash, not the notice.
+    expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
   });
 
   it('a 200 that carries no systemPermissions is refused, not waved through', async () => {
@@ -419,11 +467,11 @@ describe('/studio/* — the states that are not an answer', () => {
     answerWith(undefined);
     renderStudioDeepLink('/studio/hotcrm/data');
 
-    await waitFor(() => expect(pathname()).toBe('/home'));
+    await expectRefusedAt('/studio/hotcrm/data', '/home');
     expect(designSurface).not.toHaveBeenCalled();
   });
 
-  it('an unauthenticated visitor gets the auth contract, not the capability bounce', async () => {
+  it('an unauthenticated visitor gets the auth contract, not the capability refusal', async () => {
     // Ordering check: `ProtectedRoute` is above the gate, so the deep link is
     // preserved as `?redirect=` and comes back after sign-in.
     auth = { isAuthenticated: false, isLoading: false, user: null };
@@ -432,5 +480,6 @@ describe('/studio/* — the states that are not an answer', () => {
     await waitFor(() => expect(screen.getByTestId('login-page')).toBeInTheDocument());
     expect(pathname()).toBe('/login?redirect=%2Fstudio%2Fhotcrm%2Fdata');
     expect(designSurface).not.toHaveBeenCalled();
+    expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
   });
 });

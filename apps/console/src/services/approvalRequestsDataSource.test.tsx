@@ -18,7 +18,6 @@
  * `ListView` is the REAL component over the REAL door: what it sends is what a
  * list view on this source sends.
  */
-import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor, screen } from '@testing-library/react';
 import { SchemaRendererProvider } from '@object-ui/react';

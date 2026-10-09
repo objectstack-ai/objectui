@@ -162,7 +162,7 @@ export function createApprovalRequestsDataSource(
   const scopeParams = toScopeParams(scope);
   const itemDoor = new ApiDataSource<ApprovalRequestRow>({ read: { url, method: 'GET' }, fetch: fetchFn });
 
-  const find = async (resource: string, params?: QueryParams): Promise<QueryResult<any>> => {
+  const find = async (resource: string, params?: QueryParams): Promise<QueryResult<unknown>> => {
     if (resource !== APPROVAL_REQUEST_OBJECT) return host.find(resource, params);
     const query = toListQuery(params);
     if (scopeParams === null) return { data: [], total: 0 };
@@ -173,7 +173,7 @@ export function createApprovalRequestsDataSource(
     return listDoor.find(resource);
   };
 
-  const findOne = async (resource: string, id: string, params?: QueryParams): Promise<any> => {
+  const findOne = async (resource: string, id: string, params?: QueryParams): Promise<unknown> => {
     if (resource !== APPROVAL_REQUEST_OBJECT) return host.findOne(resource, id, params);
     return itemDoor.findOne(resource, encodeURIComponent(id));
   };

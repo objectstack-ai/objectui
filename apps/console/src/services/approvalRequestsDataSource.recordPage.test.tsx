@@ -13,7 +13,6 @@
  * These pins mount the page over the routed source with only the HTTP
  * transport doubled, so each answer reaches the page as the door hands it.
  */
-import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -86,7 +85,7 @@ vi.stubGlobal('fetch', vi.fn(async () => json(200, { success: true, data: [] }))
 
 /** The console's adapter, doubled: the page's side reads land here. */
 const host = {
-  find: vi.fn(async () => ({ data: [], total: 0 })),
+  find: vi.fn(async (_resource: string, _params?: unknown) => ({ data: [], total: 0 })),
   findOne: vi.fn(async () => null),
   create: vi.fn(), update: vi.fn(), delete: vi.fn(),
   getObjectSchema: vi.fn(async () => objectDef),

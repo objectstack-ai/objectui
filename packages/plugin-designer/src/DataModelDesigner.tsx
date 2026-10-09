@@ -9,6 +9,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { DataModelEntity, DataModelField, DataModelRelationship, DesignerCanvasConfig } from '@object-ui/types';
 import { Database, Plus, Trash2, Link2, Undo2, Redo2, Grid3X3, ZoomIn, ZoomOut, RotateCcw, ChevronDown, ChevronRight, Copy, Clipboard, Users } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useDesignerHistory } from './hooks/useDesignerHistory';
@@ -33,6 +34,68 @@ const DATA_MODEL_FIELD_TYPES = [
   'decimal', 'currency', 'percent', 'textarea', 'select',
   'multiselect', 'lookup', 'attachment', 'formula', 'autonumber',
 ] as const;
+
+/** The item a type none of the options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/** Stops a click inside the type picker from reaching the entity card, which selects on click. */
+const keepClickInPicker = (e: React.MouseEvent) => e.stopPropagation();
+
+/**
+ * objectui#11865 — a field row's type picker on an entity card, drawn with the
+ * shared `Select`, the control the rest of the designer picks with. It used to
+ * be a browser-native `<select>`. What a pick writes is unchanged: `onPick`
+ * receives the picked type, the string the native control's `change` carried,
+ * and re-picking the current type writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not the type, as the shared pickers do.
+ * - A type none of the options carries gets an item of its own, labelled with
+ *   the type, so the trigger shows what the field holds. The native control
+ *   showed its first option (`text`) there. Picking that item writes nothing.
+ * - A click on the trigger or in the open list does not reach the card: the
+ *   native control stopped its own click, and its list sent the page none. The
+ *   list renders in a portal, but React still bubbles its events through the
+ *   card.
+ * - Read-only has no picker: the row shows the type as text instead.
+ */
+function FieldTypePicker({
+  value,
+  onPick,
+  testId,
+}: {
+  value: string;
+  onPick: (type: string) => void;
+  testId: string;
+}) {
+  const at = DATA_MODEL_FIELD_TYPES.findIndex((type) => type === value);
+  const outside = at === -1 && value !== '';
+  return (
+    <Select
+      value={at !== -1 ? String(at) : outside ? OUTSIDE_OPTIONS : ''}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the field's own type, so there is nothing to write.
+        const picked = DATA_MODEL_FIELD_TYPES[Number(token)];
+        if (picked) onPick(picked);
+      }}
+    >
+      <SelectTrigger
+        data-testid={testId}
+        onClick={keepClickInPicker}
+        className="ml-auto h-auto w-auto cursor-pointer gap-0.5 rounded border-none bg-transparent p-0 text-xs text-muted-foreground focus:ring-1 focus:ring-primary focus:ring-offset-0"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent onClick={keepClickInPicker}>
+        {outside && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {DATA_MODEL_FIELD_TYPES.map((type, i) => (
+          <SelectItem key={type} value={String(i)}>
+            {type}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 /** Arrange entities in a grid layout */
 function calculateGridAutoLayout(
@@ -578,8 +641,12 @@ export function DataModelDesigner({
     const el = containerRef.current;
     if (!el) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
+      const target = e.target as HTMLElement;
+      const tag = target.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      // A field row's type picker (objectui#11865) is a `<button role="combobox">`,
+      // not a `SELECT`: its keys are its own, as they were the native control's.
+      if (target.getAttribute('role') === 'combobox') return;
 
       const isCtrl = e.ctrlKey || e.metaKey;
 
@@ -960,20 +1027,11 @@ export function DataModelDesigner({
                         </span>
                       )}
                       {!readOnly ? (
-                        <select
+                        <FieldTypePicker
                           value={field.type}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleFieldTypeChange(entity.id, fieldIndex, e.target.value);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-xs text-muted-foreground ml-auto bg-transparent border-none focus:ring-1 focus:ring-primary rounded cursor-pointer p-0"
-                          data-testid={`field-type-${entity.id}-${fieldIndex}`}
-                        >
-                          {DATA_MODEL_FIELD_TYPES.map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                          ))}
-                        </select>
+                          onPick={(type) => handleFieldTypeChange(entity.id, fieldIndex, type)}
+                          testId={`field-type-${entity.id}-${fieldIndex}`}
+                        />
                       ) : (
                         <span className="text-muted-foreground ml-auto">{field.type}</span>
                       )}

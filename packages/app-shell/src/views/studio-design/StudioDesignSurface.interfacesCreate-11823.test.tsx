@@ -152,6 +152,23 @@ function typeName(dialog: HTMLElement, placeholder: string, text: string) {
   fireEvent.change(within(dialog).getByPlaceholderText(placeholder), { target: { value: text } });
 }
 
+/**
+ * The options a create-dialog picker lists, opened from the keyboard. The
+ * pickers are the shared `Select` (objectui#11865), whose list opens in a
+ * portal outside the dialog.
+ */
+async function listed(dialog: HTMLElement, testId: string): Promise<HTMLElement[]> {
+  fireEvent.keyDown(await within(dialog).findByTestId(testId), { key: 'ArrowDown' });
+  return within(await screen.findByRole('listbox')).getAllByRole('option');
+}
+
+/** Pick the option labelled `label` from a create-dialog picker. */
+async function pickOption(dialog: HTMLElement, testId: string, label: string): Promise<void> {
+  const option = (await listed(dialog, testId)).find((o) => o.textContent === label);
+  if (!option) throw new Error(`${testId} lists no "${label}"`);
+  fireEvent.click(option);
+}
+
 function savesOf(type: string): Array<[string, string, Record<string, unknown>, Record<string, unknown>]> {
   return mockClient.save.mock.calls.filter((c) => c[0] === type) as never;
 }
@@ -206,14 +223,14 @@ describe('the Interfaces pillar creates a dashboard and a report (objectui#11823
     const dialog = await openCreate('New report');
     typeName(dialog, 'Report name (e.g. Revenue by region)', 'Revenue by region');
 
-    fireEvent.change(await within(dialog).findByTestId('create-report-dataset'), { target: { value: 'orders_ds' } });
-    const measure = await within(dialog).findByTestId('create-report-measure');
-    expect(within(measure).getAllByRole('option').map((o) => o.textContent)).toEqual([
+    await pickOption(dialog, 'create-report-dataset', 'Orders (orders_ds)');
+    const measures = await listed(dialog, 'create-report-measure');
+    expect(measures.map((o) => o.textContent)).toEqual([
       'Choose a measure…',
       'Revenue (revenue)',
       'Order count (order_count)',
     ]);
-    fireEvent.change(measure, { target: { value: 'revenue' } });
+    fireEvent.click(measures[1]);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save as draft' }));
 
     await waitFor(() => expect(savesOf('app')).toHaveLength(1), { timeout: 8000 });
@@ -289,8 +306,8 @@ describe('the Interfaces pillar creates a dashboard and a report (objectui#11823
     await ready();
     const dialog = await openCreate('New report');
     typeName(dialog, 'Report name (e.g. Revenue by region)', 'Revenue by region');
-    fireEvent.change(await within(dialog).findByTestId('create-report-dataset'), { target: { value: 'orders_ds' } });
-    fireEvent.change(await within(dialog).findByTestId('create-report-measure'), { target: { value: 'revenue' } });
+    await pickOption(dialog, 'create-report-dataset', 'Orders (orders_ds)');
+    await pickOption(dialog, 'create-report-measure', 'Revenue (revenue)');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save as draft' }));
 
     expect(

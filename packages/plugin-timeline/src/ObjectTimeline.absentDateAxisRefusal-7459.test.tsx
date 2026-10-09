@@ -56,6 +56,13 @@ import React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ObjectTimeline } from './ObjectTimeline';
+import type { ListViewTimelineConfig } from '@object-ui/types';
+
+// objectui#6152 round 12: the typed nested block refuses the alias by name.
+const aliasRefusedByTheType: ListViewTimelineConfig = {
+  // @ts-expect-error `dateField` is refused by name: write `startDateField`.
+  dateField: 'start_date',
+};
 
 vi.mock('@object-ui/react', async (importOriginal) => {
   const actual = await (importOriginal() as Promise<Record<string, unknown>>);
@@ -177,12 +184,18 @@ describe('ObjectTimeline — an undeclared date axis is REFUSED (objectui#7459)'
 describe('ObjectTimeline — every DECLARED rung still resolves (objectui#7459)', () => {
   // Without these a fix that refused EVERYTHING would pass the block above,
   // and retiring the floor could have taken a declared binding with it. Each
-  // case is one rung of the resolver chain, in its own spelling; all five are
-  // declared bindings (`ListViewTimelineConfig` for the first two, this
-  // component's props and `TimelineExtensionSchema` for the rest).
+  // case is one rung of the resolver chain, in its own spelling: the nested
+  // `timeline` block for the first two, this component's props and
+  // `TimelineExtensionSchema` for the rest.
+  //
+  // ⚠️ `timeline.dateField` is the pre-#2231 alias. Since objectui#6152 round 12
+  // `ListViewTimelineConfig` (the nested block's type) refuses it by name, as
+  // the spec's slot does; the `@ts-expect-error` below pins that. Its READ stays
+  // until the readers' retirement round, so the row models a block stored
+  // before the doors closed, handed in untyped, and it must still resolve.
   const RUNGS: Array<[string, Record<string, unknown>]> = [
     ['timeline.startDateField', { timeline: { startDateField: 'start_date' } }],
-    ['timeline.dateField', { timeline: { dateField: 'start_date' } }],
+    ['timeline.dateField', { timeline: { ...aliasRefusedByTheType } }],
     ['mapping.date', { mapping: { date: 'start_date' } }],
     ['startDateField (flat, deprecated)', { startDateField: 'start_date' }],
     ['dateField (flat, deprecated)', { dateField: 'start_date' }],

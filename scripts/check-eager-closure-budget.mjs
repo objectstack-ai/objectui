@@ -388,7 +388,7 @@ import { isEntrypoint } from './invoked-as.mjs';
  * how this number was chosen; {@link BASELINE} names the measurement and the
  * commit it was taken on.
  *
- * Re-baselined DOWNWARD four times, each time toward a measurement the payload
+ * Re-baselined DOWNWARD five times, each time toward a measurement the payload
  * had already fallen to:
  *
  *   - objectui#5924, from 4,086,000 (derived from the 4,005,911 reading on
@@ -416,12 +416,19 @@ import { isEntrypoint } from './invoked-as.mjs';
  *     the shrink. See "Why `i18n-locales` became `i18n-locale-en`" in the
  *     header for both builds and the three control rows that show the bytes
  *     LEFT rather than moved.
+ *   - objectui#11939 (step 2), from 3,391,484 to 3,281,467 over 3,235,899 on
+ *     `f05f015`, under ruling 6070754914 (letter D). The built-in metadata
+ *     designers left the eager closure for a chunk the package entry imports
+ *     dynamically: −155,517 gzipped bytes, 1.71x the regression this gate must
+ *     catch. The header's objectui#11939 entry carries the builds, the ruling
+ *     and the end of objectui#11942's allowance.
  *
- * Headroom above {@link BASELINE} is 16,140 bytes — 0.18x
- * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, on the pair objectui#11942
- * left when it added a fixed allowance of 5,120 bytes to the ceiling (its
- * entry, the last below, says what the allowance buys and when it comes back
- * off); before it, the pair objectui#11854 re-pinned when the markdown
+ * Headroom above {@link BASELINE} is 45,568 bytes — 0.50x
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, on the pair objectui#11939
+ * re-pinned by the reading plus half a regression (its entry, the last below,
+ * says what the margin is for); before it, the pair objectui#11942 left when
+ * it added a fixed allowance of 5,120 bytes to the ceiling carried 16,140
+ * bytes (0.18x), and the pair objectui#11854 re-pinned when the markdown
  * highlighter and the docs-only markdown plugins left the first load, lowering
  * the ceiling by exactly the bytes that left, carried 11,020 bytes (0.12x; the
  * header's objectui#11854 entry says why that band sits under the 0.50x design
@@ -1049,6 +1056,11 @@ import { isEntrypoint } from './invoked-as.mjs';
  * leave alone: that keeps the allowance after its reason is gone, which is a
  * raise under another name.
  *
+ * ⚠️ AMENDED before it ran: ruling 6070754914 replaced this reclaim with the
+ * conventional re-pin, because the formula above would have landed under the
+ * measured first load. The objectui#11939 entry below carries the ruling, the
+ * end of this allowance and the drift it absorbed.
+ *
  * Headroom 16,140 bytes = 0.18x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}
  * over {@link BASELINE} (3,391,484 − 3,375,344); the allowance alone is 0.06x.
  * The 89 KiB regression this gate exists to catch is still caught: added to
@@ -1061,8 +1073,113 @@ import { isEntrypoint } from './invoked-as.mjs';
  * {@link PER_CHUNK_GZIP_CEILINGS} or {@link PER_CHUNK_BASELINE}, and not
  * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added and no
  * import was made lazy.
+ *
+ * ## ⭐ RE-BASELINED WHEN THE BUILT-IN DESIGNERS LEFT THE FIRST LOAD, ON EXPLICIT MAINTAINER RULING (objectui#11939)
+ *
+ * From 3,391,484 to 3,281,467: the reading 3,235,899 on `f05f015` plus
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES} / 2 = 45,568 — the
+ * conventional re-pin, ⛔ not "the bytes that left plus the allowance" the
+ * objectui#11942 entry above had scheduled, and ⛔ not rounded. The ruling is
+ * record 6070754914 on objectui#11939 (director-seat batch #294 item 3, letter
+ * D), the maintainer's 「11939 上线适当多预留一些没问题,不要一直因为这个改代码」. Its
+ * operative paragraph, verbatim:
+ *
+ *     **D — the conventional rebaseline.** The PR that moves the designers out
+ *     of the first load (objectui#11982) pins `MAX_EAGER_CLOSURE_GZIP_BYTES`
+ *     to the landing head's measured first load plus half a regression
+ *     (45,568 B), the formula the gate already documents for a re-pin, and
+ *     re-pins `BASELINE` in the same change. The docblock states what the
+ *     margin is for: catching an 89 KB-class regression, with room for the
+ *     copy-level and fix-level churn `main` takes every day, ⛔ not an
+ *     allowance to be spent on a feature. The 5,120 B Studio allowance of
+ *     objectui#11942 ends with this re-pin (its reason is gone), and the drift
+ *     it absorbed is recorded in the docblock, not reclaimed by a lower
+ *     ceiling. This amends item 3 of 6056819248 (objectui#11942), whose
+ *     literal formula would land below the measured figure, against the gate's
+ *     own rule.
+ *
+ * And the standing rule the same record draws from the maintainer's words: the
+ * ceiling "moves only on a measured move-out (re-pinned by this formula) or on
+ * a regression the gate catches; it is not re-pinned per pull request, and a
+ * fix that adds first-load bytes within the margin lands without a ruling."
+ *
+ * WHAT THE MARGIN IS FOR, in the ruling's words: catching an 89 KB-class
+ * regression, with room for the copy-level and fix-level churn `main` takes
+ * every day, ⛔ not an allowance to be spent on a feature. Headroom 45,568
+ * bytes = 0.50x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES} over
+ * {@link BASELINE}, the design point the header argues for; the 89 KiB
+ * regression added to the baseline lands at 3,327,035, 45,568 bytes over this
+ * line.
+ *
+ * WHAT LEFT — two console builds, one container, one instrument, each under
+ * `scripts/pm/os-verify-lock.sh`: the console's own
+ * `apps/console/vite.config.ts` run through Vite's `build()` with one
+ * read-only chunk-module dump appended, reading the `eager-closure.json` the
+ * build writes; the console's ordinary `pnpm exec vite build` of `f05f015`
+ * wrote the same figure to the byte, which is this instrument's calibration.
+ * `28557855` is `main`; `f05f015` is that tree merged into the branch that
+ * loads the built-in previews and inspectors from a chunk the package entry
+ * imports dynamically (`register-builtin-designers.ts`), and nothing else.
+ * Gzipped bytes:
+ *
+ *   | chunk                                   | `28557855` | `f05f015` |    delta |
+ *   |-----------------------------------------|-----------:|----------:|---------:|
+ *   | `src` (the app-shell entry's chunk)     |    192,138 |    41,442 | -150,696 |
+ *   | `RecordDetailView`                      |     38,985 |    19,503 |  -19,482 |
+ *   | `default-inspector-registry`, left      |     13,284 |         — |  -13,284 |
+ *   | `ReportDefaultInspector`, left          |      8,156 |         — |   -8,156 |
+ *   | `InterfaceListPage`, left               |      4,454 |         — |   -4,454 |
+ *   | `pageKindNode`, left                    |         80 |         — |      -80 |
+ *   | 56 `vendor-icon-*` chunks, left         |     16,781 |         — |  -16,781 |
+ *   | `vendor-objectstack`                    |  1,605,751 | 1,599,283 |   -6,468 |
+ *   | `createDerive`                          |      2,489 |       933 |   -1,556 |
+ *   | `ActionResultDialog`                    |     14,026 |    12,782 |   -1,244 |
+ *   | 13 chunks new to the closure's names    |          — |    66,548 |  +66,548 |
+ *   | 27 others, none by more than 19         |            |           |     +136 |
+ *   | ⇒ aggregate                             |  3,391,416 | 3,235,899 | -155,517 |
+ *
+ * The builds weigh 336 of 2458 chunks (`28557855`) and 289 of 2474
+ * (`f05f015`). The 13 new names hold no new module: the module-level read of
+ * the same two builds counts 165 modules leaving the eager closure and none
+ * joining, so they are modules that sat in `src` re-chunked under the name of
+ * a lazy neighbour (`ViewVariantInspector`, `PackagesPage`, …). The 165, by
+ * rendered bytes: `metadata-admin/previews` 554,838 (56 modules),
+ * `metadata-admin/inspectors` 396,857 (38), other `metadata-admin` 41,664 (12:
+ * the three designer registries, the external-datasource panels, three schema
+ * helpers and `metadata-form-i18n`), `lucide-react` icons 37,230 (56),
+ * `@objectstack/spec`'s `identity` entry 27,098 (1), and `InterfaceListPage`
+ * with `pageKindNode` 14,572 (2).
+ *
+ * ⭐ THE STUDIO ALLOWANCE ENDS HERE. The 5,120 bytes objectui#11942 added are
+ * not carried into this line: the ceiling is derived from the new reading
+ * alone. The drift the allowance absorbed is RECORDED, ⛔ not reclaimed by a
+ * lower ceiling, as the ruling says. Measured: `main` read 3,385,979 on
+ * `1c51e973`, the commit that landed the allowance (385 bytes under the
+ * pre-allowance line, 3,386,364), and 3,391,416 on `28557855` — +5,437, of
+ * which 5,052 sat above the pre-allowance line, leaving 68 bytes of the
+ * allowance unspent. By chunk, `1c51e973` to `28557855`: `src` +2,595,
+ * `i18n` (it holds `metadata-admin/i18n.ts`) +1,490, `SchemaForm` +903,
+ * `ui-components` +715, `nav-selection` +466, `plugin-grid` +358,
+ * `default-inspector-registry` +215, `index` +203, `plugin-form` +154,
+ * `InterfaceListPage` +141, `ReportDefaultInspector` +102,
+ * `useRecentItemLabel` −507, `studioScope` −1,604, and +206 over 30 rows of
+ * under 100 each — ⛔ not attributed to commits. Those 5,052 bytes stay on the
+ * first load after the designers leave: the objectui#11942 formula,
+ * 3,391,484 − 155,517 − 5,120 = 3,230,847, lands 5,052 bytes UNDER the
+ * `f05f015` reading, which is the gate's own "never lower a ceiling below the
+ * measured figure" (report 6062475046 on objectui#11939 measured the same gap
+ * as 4,057 bytes on `d7e9e9ab`, before `main` moved).
+ *
+ * ⛔ What moved with it, and what did not. {@link BASELINE}, in the same
+ * commit, onto `f05f015`. None of the four per-chunk rows: across the two
+ * builds `vendor-objectstack` moved by −6,468 (the `identity` entry above;
+ * 1,599,283 against its 1,623,000 ceiling is 0.26x), `ui-components` by −19,
+ * `framework` by +10 and `i18n-locale-en` by 0, so every per-chunk ceiling
+ * stays in range and {@link PER_CHUNK_GZIP_CEILINGS},
+ * {@link PER_CHUNK_BASELINE} and {@link PER_CHUNK_MEMBERSHIP} stand. Not
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added.
  */
-export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_391_484;
+export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_281_467;
 
 /**
  * The measurement the ceiling above was derived from. Exported so the two
@@ -1074,6 +1191,27 @@ export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_391_484;
 export const BASELINE = Object.freeze({
   /**
    * `emitEagerClosureReport`'s `eagerGzipBytes` on this commit.
+   *
+   * `f05f015` is objectui#11939's branch commit for step 2: `main` at
+   * `28557855` merged into the branch that loads the built-in metadata
+   * designers from a chunk the package entry imports dynamically, re-pinned
+   * with the ceiling under ruling 6070754914 (the objectui#11939 entry on
+   * {@link MAX_EAGER_CLOSURE_GZIP_BYTES} carries its table and its `28557855`
+   * control, ⛔ not restated here). It is a branch commit for the reason the
+   * paragraphs below give for `c1d378ec`: the pull request's own diff is what
+   * moved the figure. Measured by the console's own
+   * `apps/console/vite.config.ts` run through Vite's `build()` with one
+   * read-only module-graph dump appended, reading the `eager-closure.json` the
+   * build writes, under `scripts/pm/os-verify-lock.sh`, in the same container
+   * and the same lock hold as the `28557855` control build. The console's
+   * ordinary build of `f05f015` (`CI=true pnpm exec vite build`, exit 0) wrote
+   * the same figure to the byte, which is this instrument's calibration. The
+   * commit after `f05f015` on the branch (this re-pin and its unit test)
+   * reaches no bundler input, so it cannot move the figure it pins.
+   *
+   * ⚠️ The paragraph below describes the reading this one superseded, the
+   * previous baseline `406f760` (3,375,344 across 334 of 2457 chunks), kept as
+   * its provenance.
    *
    * `406f760` is objectui#11854's branch commit that narrows `vendor-markdown`
    * to what the first load reaches: `main` at `9cb4e29` plus that one
@@ -1179,10 +1317,10 @@ export const BASELINE = Object.freeze({
    * and not from `main` once it is squash-merged — the dead end objectui#9355
    * added `squashMerge` below to route around.
    */
-  gzipBytes: 3_375_344,
-  chunks: 334,
-  totalChunks: 2457,
-  commit: '406f760',
+  gzipBytes: 3_235_899,
+  chunks: 289,
+  totalChunks: 2474,
+  commit: 'f05f015',
 
   /**
    * The squash merge that carried the reading above onto `main`, recorded when
@@ -1191,7 +1329,8 @@ export const BASELINE = Object.freeze({
    * measurement gets a handle rather than a dead end.
    *
    * `null` since objectui#10996, and `null` again after objectui#11101,
-   * objectui#11438, objectui#11717, objectui#11798 and objectui#11854, deliberately. This field can only ever be BACK-FILLED: a squash sha does
+   * objectui#11438, objectui#11717, objectui#11798, objectui#11854 and
+   * objectui#11939, deliberately. This field can only ever be BACK-FILLED: a squash sha does
    * not exist until the pull request merges, so the change that re-pins the
    * field above ⛔ cannot write its own here. ⛔ Do not guess one: a wrong sha in
    * this position is worse than an absent one, because it RESOLVES, and a
@@ -1869,10 +2008,15 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * `048e7f6` had before it. objectui#11798 re-pinned the aggregate onto
  * `c1d378ec` and left this key at `c1e32e96`: that chunk moved by 0
  * bytes across objectui#11798's two builds, and its ceiling did not move.
- * objectui#11854 re-pinned the aggregate onto BASELINE's `406f760` and left
+ * objectui#11854 re-pinned the aggregate onto `406f760` and left
  * every key where it was: `vendor-objectstack`, `framework` and
  * `i18n-locale-en` moved by 0 bytes across objectui#11854's two builds and
- * `ui-components` by 9, and no ceiling moved. The
+ * `ui-components` by 9, and no ceiling moved. objectui#11939 re-pinned the
+ * aggregate onto BASELINE's `f05f015` and left every key where it was too:
+ * across its two builds `vendor-objectstack` moved by −6,468 (one
+ * `@objectstack/spec` entry left the first load with the designers),
+ * `ui-components` by −19, `framework` by +10 and `i18n-locale-en` by 0, every
+ * ceiling stayed in range, and no ceiling moved. The
  * aggregate is the later reading for every key: `c1e32e96` for
  * `vendor-objectstack`, `bbf6b02d9` (2026-09-13, objectui#9251) for `ui-components`,
  * and `3f775eeb8` for `framework`. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it

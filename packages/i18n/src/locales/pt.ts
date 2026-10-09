@@ -1643,7 +1643,7 @@ const pt = {
   },
   console: {
     studio: {
-      backToHome: "Voltar ao início",
+      title: "Studio",
     },
     saveAdvisoryTitle: "Salvo — a verificação de criação gerou {{count}} recomendação(ões)",
     saveAdvisoryTitle_one: "Salvo — a verificação de criação gerou {{count}} recomendação",

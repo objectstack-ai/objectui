@@ -10,9 +10,75 @@ import React, { useState, useCallback } from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@object-ui/components';
 
 function cn(...inputs: (string | undefined | false)[]) {
   return twMerge(clsx(inputs));
+}
+
+/** The item a value none of a select field's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — a `select` field's editor, drawn with the shared `Select`,
+ * the control the rest of the console picks with. It used to be a
+ * browser-native `<select>`. What a pick writes is unchanged: `onPick`
+ * receives the picked option's own `value`, the string the native control's
+ * `change` carried, and the field passes it to `onChange` as before.
+ * Re-picking the current option writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value. A caller's option may
+ *   carry `''`, which `SelectItem` refuses; an index cannot collide with any
+ *   option's value, as a stand-in string could.
+ * - The value is matched as the native control matched it: the field's value
+ *   as a string, `''` when it has none.
+ * - A value none of the options carries gets an item of its own, labelled
+ *   with the value, so the trigger shows what the field holds. The native
+ *   control showed its first option there, which is not what the field says.
+ *   Picking that item writes nothing. A field with no value gets no such item:
+ *   the trigger shows nothing.
+ * - The panel has no read-only state, and the field's caption names no
+ *   control, as it named none before.
+ */
+function PropertySelect({
+  value,
+  options,
+  onPick,
+}: {
+  value: string;
+  options: ReadonlyArray<{ label: string; value: string }>;
+  onPick: (value: string) => void;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  const outside = at === -1 && value !== '';
+  return (
+    <Select
+      value={at !== -1 ? String(at) : outside ? OUTSIDE_OPTIONS : ''}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the field's own value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger className="h-auto px-2 py-1 text-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {outside && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 export interface PropertyField {
@@ -147,15 +213,11 @@ function PropertyFieldEditor({ field, onChange }: { field: PropertyField; onChan
         </label>
       )}
       {field.type === 'select' && (
-        <select
+        <PropertySelect
           value={String(field.value ?? '')}
-          onChange={(e) => handleChange(e.target.value)}
-          className="w-full px-2 py-1 text-xs border rounded bg-background"
-        >
-          {field.options?.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+          options={field.options ?? []}
+          onPick={handleChange}
+        />
       )}
       {field.type === 'color' && (
         <div className="flex items-center gap-2">

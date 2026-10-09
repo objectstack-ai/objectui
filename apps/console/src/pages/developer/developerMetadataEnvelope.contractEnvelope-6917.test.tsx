@@ -47,19 +47,22 @@ import { MemoryRouter } from 'react-router-dom';
 
 /**
  * One mutable answer, read by BOTH pages' `meta.getItems`. A stable singleton
- * adapter: a fresh object per render loops the pages' load effects.
+ * adapter: a fresh object per render loops the pages' load effects. Its client
+ * is a singleton too, as the real adapter's `getClient()` is: Flow Runs keys its
+ * flow and run loads on the client, so a fresh one per call re-ran them on
+ * every render, and the flow picker's shared `Select` (objectui#11865) never
+ * settled long enough to show its value.
  */
 const { ADAPTER, state } = vi.hoisted(() => {
   const state: { answer: unknown } = { answer: [] };
-  const ADAPTER = {
-    getClient: () => ({
-      meta: {
-        getItems: async () => state.answer,
-        saveItem: vi.fn(async () => ({ ok: true })),
-      },
-      automation: { execute: vi.fn(), listRuns: async () => ({ runs: [] }) },
-    }),
+  const client = {
+    meta: {
+      getItems: async () => state.answer,
+      saveItem: vi.fn(async () => ({ ok: true })),
+    },
+    automation: { execute: vi.fn(), listRuns: async () => ({ runs: [] }) },
   };
+  const ADAPTER = { getClient: () => client };
   return { ADAPTER, state };
 });
 

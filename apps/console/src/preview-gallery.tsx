@@ -73,8 +73,12 @@ import {
 import type { MetadataSelection } from '@object-ui/app-shell';
 import { SAMPLES } from './preview-samples';
 
-// Importing the @object-ui/app-shell root registers built-in previews and
-// inspectors as a module side-effect, so no explicit registration is needed.
+// Importing the @object-ui/app-shell root registers the built-in previews and
+// inspectors, from a chunk the package entry loads with a dynamic `import()`
+// (objectui#11939 step 2) — so they land AFTER this module has rendered once.
+// The gallery is the designers' browser-verification path (the `verify` skill),
+// so it waits for that chunk (`GalleryOnceDesignersArrive` below) and never
+// lists zero designers while it is in flight.
 
 const ORDER = [
   'object',
@@ -375,10 +379,24 @@ function Gallery() {
   );
 }
 
+/**
+ * The await of the package entry's own designer chunk. Its registrations
+ * notify the observable registry (objectui#11939), so this re-renders when they
+ * land and only then mounts the gallery. Until then it says what is happening;
+ * if the chunk fails, the package entry reports why on the console.
+ */
+function GalleryOnceDesignersArrive() {
+  const types = useRegisteredMetadataPreviewTypes();
+  if (types.length === 0) {
+    return <p className="p-6 text-sm text-muted-foreground">Loading the built-in designers…</p>;
+  }
+  return <Gallery />;
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <I18nProvider config={{ defaultLanguage: 'en' }}>
-      <Gallery />
+      <GalleryOnceDesignersArrive />
     </I18nProvider>
   </React.StrictMode>,
 );

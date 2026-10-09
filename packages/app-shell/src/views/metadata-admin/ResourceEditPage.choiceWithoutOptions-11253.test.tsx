@@ -90,6 +90,11 @@ import { MetadataResourceEditPage } from './ResourceEditPage';
 // The load-time registrations, exactly as the package entry runs them, so the
 // object canvas and field inspector mounted here are the ones production mounts.
 import './register-builtins';
+// The built-in designers, which the package entry registers from a chunk it
+// loads with a dynamic `import()` (objectui#11939 step 2): called here, at
+// module scope, so they are registered before the first render.
+import { registerBuiltinDesigners } from './register-builtin-designers';
+registerBuiltinDesigners();
 
 afterEach(() => {
   cleanup();

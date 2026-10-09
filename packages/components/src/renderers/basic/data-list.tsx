@@ -14,12 +14,22 @@
  *                               row, no toolbar/card/pagination.
  *
  * Props are read off `schema.properties` (spec convention) with a `schema.props`
- * fallback, matching the other `element:*` renderers.
+ * fallback, matching the other `element:*` renderers. The repeater's query
+ * reads the node-level `dataSource` binding first (objectui#11880).
  */
 
 import * as React from 'react';
-import { ComponentRegistry } from '@object-ui/core';
-import { useAdapter, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
+import { ComponentRegistry, elementDataSourceBlock, mergeFilterNodes, toFilterNodeSafely } from '@object-ui/core';
+import type { FilterOperatorError } from '@object-ui/core';
+import {
+  ElementDataSourceErrorPanel,
+  ElementDataSourceLoadingPanel,
+  useAdapter,
+  useDataInvalidation,
+  useElementDataSource,
+  useFilterScope,
+  useResolvedFilter,
+} from '@object-ui/react';
 import { cn } from '../../lib/utils';
 import { readProps } from './readProps';
 
@@ -121,6 +131,15 @@ interface RepeaterColumn {
   field: string;
 }
 
+/**
+ * A row cap the contract admits (objectui#9899, objectui#10016): a positive
+ * integer. A LOCAL restatement of the predicate, as at every site that
+ * enforces it (`git grep 'isUsableRowLimit\|isUsablePageSize'` enumerates them).
+ */
+function isUsableRowLimit(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) > 0;
+}
+
 function RepeaterRenderer({ schema }: { schema: any }) {
   const props = readProps<{
     object?: string;
@@ -135,22 +154,65 @@ function RepeaterRenderer({ schema }: { schema: any }) {
   }>(schema);
 
   const adapter = useAdapter() as any;
+  // objectui#11880 — the spec's per-element binding (`PageComponentSchema
+  // .dataSource`), resolved through `useElementDataSource` as `element:number`
+  // and `element:record_picker` resolve theirs, against the repeater's own
+  // adapter. It is read FIRST; the flat `properties` query keys are the
+  // fallback until the spec retires them at the v18 pin bump (objectstack#11509,
+  // ruled A-narrow, objectui first). Where a node carries both, the precedence
+  // is the one table `ElementDataSourceGate` applies to every gate-wrapped
+  // block, so the repeater adds no dialect of its own:
+  //   - `object`: the binding's;
+  //   - `filter`: the flat one AND the binding's (which already ANDs its view's);
+  //   - `sort` / `limit`: the binding's own wins, the flat key wins over one
+  //     the binding's saved view supplied, and the view's is the baseline. A cap
+  //     the contract refuses is not authored (objectui#10016).
+  // A mechanical move of the flat keys into `dataSource` (filters concatenated,
+  // a key moved only where the binding lacks it) leaves that answer unchanged.
+  const dataBinding = useElementDataSource(schema, adapter);
+  const { composed, config } = dataBinding;
+  // The two filters merge only when BOTH are present, each lowered first the
+  // way the gate lowers them (`toFilterNodeSafely`); a lone one passes through
+  // verbatim, so a flat-only repeater sends exactly what it sent before. A
+  // filter the converter refuses is kept as a VALUE and answered with the
+  // configuration-error panel below — never read as "no filter", which would
+  // widen the list. Memoised for cost only: the result is read by content.
+  const scoped = React.useMemo((): { filter?: unknown; refusal?: FilterOperatorError } => {
+    const bound = composed?.filter;
+    if (bound === undefined || props.filter === undefined) return { filter: bound ?? props.filter };
+    const own = toFilterNodeSafely(props.filter);
+    if (!own.ok) return { refusal: own.refusal };
+    const lowered = toFilterNodeSafely(bound);
+    if (!lowered.ok) return { refusal: lowered.refusal };
+    return { filter: mergeFilterNodes(own.node, lowered.node) };
+  }, [composed, props.filter]);
+  // While a named view is unresolved (or unresolvable), or a filter is refused,
+  // there is NO object: reading one would fire the wider query the binding was
+  // written to narrow. The render reports instead.
+  const object =
+    dataBinding.status === 'loading' || dataBinding.status === 'missing' || scoped.refusal
+      ? undefined
+      : (composed?.object ?? props.object);
+  const sort = config?.sort ?? props.sort ?? composed?.sort;
+  const limit =
+    (isUsableRowLimit(config?.limit) ? config.limit : isUsableRowLimit(props.limit) ? props.limit : composed?.limit)
+    ?? props.limit;
   const [rows, setRows] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  // objectui#10666 — the repeater's own `filter`, with every context token
+  // objectui#10666 — the repeater's filter (above), with every context token
   // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
   // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
   // session scope the host provides, and HELD by structure (`useResolvedFilter`
   // in `@object-ui/react`). It sent the literal token on `$filter` before. The
-  // query and its content key below read THIS, never the raw `props.filter`.
+  // query and its content key below read THIS, never a raw filter.
   const filterScope = useFilterScope();
-  const queryFilter = useResolvedFilter(props.filter, filterScope);
+  const queryFilter = useResolvedFilter(scoped.filter, filterScope);
   const filterKey = React.useMemo(() => (queryFilter ? JSON.stringify(queryFilter) : ''), [queryFilter]);
   // objectui#10664 — the sort reaches `$orderby` below, so the fetch effect
   // keys on it, by CONTENT the way `filterKey` keys the filter: a fresh array
   // with the same entries is not a change (AGENTS.md #10).
-  const sortKey = React.useMemo(() => (props.sort ? JSON.stringify(props.sort) : ''), [props.sort]);
+  const sortKey = React.useMemo(() => (sort ? JSON.stringify(sort) : ''), [sort]);
 
   const cols: RepeaterColumn[] = React.useMemo(
     () => (props.fields ?? []).map((f) => (typeof f === 'string' ? { field: f } : f)),
@@ -161,14 +223,15 @@ function RepeaterRenderer({ schema }: { schema: any }) {
   // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
   // write to the object this list REPEATS over is declared, and the effect
   // below names it, so the rows are re-read. Subscribed only when the effect
-  // can query: without an adapter `find` there is no read to repeat.
+  // can query: without an adapter `find` there is no read to repeat. Keyed on
+  // the RESOLVED object, so a bound list re-reads for the object it lists.
   const invalidationNonce = useDataInvalidation(
-    adapter && typeof adapter.find === 'function' ? props.object : undefined,
+    adapter && typeof adapter.find === 'function' ? object : undefined,
   );
 
   React.useEffect(() => {
     let cancelled = false;
-    if (!adapter || !props.object || typeof adapter.find !== 'function') {
+    if (!adapter || !object || typeof adapter.find !== 'function') {
       setLoading(false);
       return;
     }
@@ -178,9 +241,9 @@ function RepeaterRenderer({ schema }: { schema: any }) {
       try {
         const query: any = {};
         if (queryFilter) query.$filter = queryFilter;
-        if (props.sort) query.$orderby = props.sort;
-        if (props.limit) query.$top = props.limit;
-        const res = await adapter.find(props.object, query);
+        if (sort) query.$orderby = sort;
+        if (limit) query.$top = limit;
+        const res = await adapter.find(object, query);
         // `data` is the ONE rows member `QueryResult` (`@object-ui/types`)
         // declares; the bare-array arm stays because fakes at this seam really
         // do answer with a plain array. A `res?.records` arm sat between them
@@ -201,8 +264,15 @@ function RepeaterRenderer({ schema }: { schema: any }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adapter, props.object, filterKey, sortKey, props.limit, invalidationNonce]);
+  }, [adapter, object, filterKey, sortKey, limit, invalidationNonce]);
 
+  // After every hook above, so hook order stays stable across resolution
+  // states. A `view` that names nothing, or a filter the merge refuses,
+  // reports rather than listing the wider set.
+  if (dataBinding.status === 'missing' || scoped.refusal) {
+    return <ElementDataSourceErrorPanel testId="repeater" message={scoped.refusal?.message ?? dataBinding.error} />;
+  }
+  if (dataBinding.status === 'loading') return <ElementDataSourceLoadingPanel testId="repeater" />;
   if (loading) return <p className="py-2 text-sm text-muted-foreground">Loading…</p>;
   if (error) return <p className="py-2 text-sm text-destructive">{error}</p>;
   if (rows.length === 0) {
@@ -230,7 +300,15 @@ function RepeaterRenderer({ schema }: { schema: any }) {
   );
 }
 
-ComponentRegistry.register('repeater', RepeaterRenderer, {
+// The renderer READS the node-level `dataSource` binding (objectui#11880), so
+// it declares it from the seam every reader of the binding declares it from:
+// the marker makes `Registry.register` emit `ELEMENT_DATA_SOURCE_INPUT` into
+// these `inputs`. The flat query keys stay published and READ, as the binding's
+// fallback, until the spec retires them at the v18 pin bump (objectstack#11509);
+// `object` stays required because the spec row requires it. The seam comes from
+// `@object-ui/core` for the measured reason `element:record_picker`'s
+// registration states.
+ComponentRegistry.register('repeater', elementDataSourceBlock(RepeaterRenderer), {
   namespace: 'element',
   skipFallback: true,
   label: 'Repeater',
@@ -240,7 +318,12 @@ ComponentRegistry.register('repeater', RepeaterRenderer, {
   // renderer prints for each `fields` entry, and what it hands the adapter for
   // `filter` (context tokens resolved first) and `sort`.
   inputs: [
-    { name: 'object', type: 'string', required: true, description: 'Object whose records the list repeats over' },
+    {
+      name: 'object',
+      type: 'string',
+      required: true,
+      description: 'Object whose records the list repeats over; a node-level `dataSource.object` wins',
+    },
     { name: 'titleField', type: 'string' },
     {
       name: 'fields',

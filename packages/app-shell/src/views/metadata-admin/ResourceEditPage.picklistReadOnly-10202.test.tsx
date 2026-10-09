@@ -100,6 +100,11 @@ import { MetadataResourceEditPage } from './ResourceEditPage';
 import { MetadataResourceListPage } from './ResourceListPage';
 import './register-builtins';
 import '../../services/builtinComponents.js';
+// The built-in designers, which the package entry registers from a chunk it
+// loads with a dynamic `import()` (objectui#11939 step 2): called here, at
+// module scope, so they are registered before the first render.
+import { registerBuiltinDesigners } from './register-builtin-designers';
+registerBuiltinDesigners();
 
 // Pre-declared so a regression to an enabled button or a link reads by name.
 const WRITE_VERB = /^(new|create|save|edit|delete|reset|publish|add)\b/i;

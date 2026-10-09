@@ -218,7 +218,10 @@ export function timelineViewOptions(viewDef: any): Record<string, unknown> {
         // Only ever restate a binding the view actually declared.
         ...(declaredStart ? { startDateField: declaredStart } : {}),
         titleField: viewDef?.timeline?.titleField || 'name',
-        descriptionField: viewDef?.timeline?.descriptionField,
+        // objectui#6152 round 12: no `descriptionField`. The spec's timeline block
+        // has no such member, the bag refuses it, and nothing drew it: it landed
+        // only in the generated node's nested block, which `ObjectTimeline` never
+        // reads for a description (measured on objectui#6152, report 6070437445).
     };
 }
 
@@ -335,23 +338,32 @@ export function ganttViewOptions(viewDef: any): Record<string, unknown> {
  * pre-empt that decision and light the capability gate on the way past.
  *
  * What stays here is the view's OWN declared block, spread whole so every spec
- * key survives (`cardSize` / `visibleFields` / `coverFit` / …), the two legacy
- * cover spellings cross-filled BUT ONLY WHEN ONE WAS DECLARED, and the
+ * key survives (`cardSize` / `visibleFields` / `coverFit` / …), the cover
+ * binding under `coverField` BUT ONLY WHEN ONE WAS DECLARED, and the
  * `titleField` `'name'` floor — a display-name default, not a binding, exactly
  * as `ganttViewOptions` above keeps it.
+ *
+ * objectui#6152 round 12 (seat answer Q1 → A): the legacy `imageField` is no
+ * longer written beside `coverField`. `@object-ui/types` judges this bag as the
+ * spec's list overlay judges it, and that refuses `options.gallery.imageField`
+ * by name. The gate the paragraph above describes learned
+ * `options.gallery.coverField` in the same round, so the toggle still lights
+ * from what this writes and still stays dark when the view declared no cover.
  *
  * Exported for the regression suite.
  */
 export function galleryViewOptions(viewDef: any): Record<string, unknown> {
     const gallery = viewDef?.gallery;
-    // `ObjectGallery` reads `coverField` and the legacy `imageField`; each
-    // spelling answers for the other, and NEITHER is invented. Both rungs are
-    // present or both absent, so the gate cannot be lit by half a declaration.
-    const declaredImage = gallery?.imageField || gallery?.coverField;
+    // The cover binding goes out under the spec's `coverField` ONLY, and is never
+    // invented. objectui#6152 round 12 dropped the legacy `imageField` this used
+    // to cross-fill beside it: the bag refuses that key, `ObjectGallery` reads the
+    // nested `coverField` first, and `ListView`'s capability gate now reads
+    // `options.gallery.coverField` too, so the Gallery toggle still lights from
+    // what this writes. The legacy READ below stays (renderer-side retirement is
+    // a later round on objectui#6152).
     const declaredCover = gallery?.coverField || gallery?.imageField;
     return {
         ...(gallery || {}),
-        ...(declaredImage ? { imageField: declaredImage } : {}),
         ...(declaredCover ? { coverField: declaredCover } : {}),
         // Spelled through `viewDef` rather than the `gallery` local above, and
         // that is load-bearing: `ObjectView.titleFieldConvergence.test.tsx`
@@ -439,14 +451,17 @@ export function galleryViewOptions(viewDef: any): Record<string, unknown> {
  * as an alias refusal naming `groupByField`, so the key is refused BY NAME at
  * the read door instead of riding the passthrough. ⛔ Do not re-file it.
  *
- * ⚠️ `titleField` AND `cardFields` BELOW ARE ALSO OUTSIDE `KanbanConfigSchema`,
- * and are deliberately NOT swept up here. `cardFields` is a DECLARED deprecated
- * alias of the spec's `columns` in this repo's own `KanbanConfig` mirror
- * (`@object-ui/types`), and `titleField` is live — `ListView` forwards it onto
- * the generated node. Neither is a second spelling of a key this expression
- * already writes correctly, which is the whole of objectui#8213. They are
- * pinned as the KNOWN residual in `ObjectView.kanbanGroupByRetired-8213`, so a
- * fourth undeclared key reddens instead of joining them quietly.
+ * ⭐ THE CARD FIELDS GO OUT AS `columns`, THE SPEC'S SPELLING (objectui#6152
+ * round 12, seat answer Q1 → A). This wrote the legacy `cardFields` alias, which
+ * objectui#8213 left as a known residual. `@object-ui/types` now judges this bag
+ * as the spec's list overlay does and refuses `options.kanban.cardFields` by
+ * name, and `ListView`'s kanban branch reads `columns` for the cards when no
+ * `cardFields` is present: measured on objectui#6152 (report 6070437445), the
+ * generated node and the `$select` are identical under either spelling.
+ * `titleField` is a member of the spec's kanban block (measured on 17.7.0). Every key this
+ * expression writes is therefore a spec key, and
+ * `ObjectView.kanbanGroupByRetired-8213` pins that, so an undeclared key
+ * reddens instead of joining them quietly.
  *
  * ADR-0085: when the view doesn't pick a lane field, the object's declared
  * lifecycle (`stageField`) decides — including the strict `stageField: false`
@@ -474,7 +489,10 @@ export function kanbanViewOptions(viewDef: any, objectDef: any): Record<string, 
     return {
         ...(lane ? { groupByField: lane } : {}),
         titleField: viewDef?.kanban?.titleField || 'name',
-        cardFields: viewDef?.kanban?.columns,
+        // The spec's own spelling of the card fields (objectui#6152 round 12): the
+        // bag refuses the legacy `cardFields` this used to write, and `ListView`
+        // reads `columns` for the cards, so the board is unchanged.
+        columns: viewDef?.kanban?.columns,
         ...(summarizeField ? { summarizeField } : {}),
     };
 }

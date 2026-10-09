@@ -21,7 +21,7 @@ used to bind. Write the spec's key instead:
 
 | stored key (either nesting) | what renders now | write instead |
 | :--- | :--- | :--- |
-| `kanban.groupField` | lanes from the object's declared lifecycle field, as for a view that names none | `kanban.groupByField` |
+| `kanban.groupField` | lanes as for a view that names none: the object's declared lifecycle field (`status` on an `object-view` element's own views) | `kanban.groupByField` |
 | `kanban.cardFields` | cards show `kanban.columns`, or the view's own fields | `kanban.columns` |
 | `gallery.imageField` | no cover binding: `ObjectGallery` tries `image`, and the Gallery view is not offered | `gallery.coverField` |
 | `timeline.dateField`, and `calendar.dateField` read as a timeline axis | no timeline axis: the timeline's refusal names the keys to write, and the Timeline view is not offered | `timeline.startDateField` (or `calendar.startDateField`) |

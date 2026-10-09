@@ -6,11 +6,12 @@
  *
  * Embedded items don't have their own HTTP endpoint (`PUT /meta/field/email`
  * does NOT exist for object-scoped fields) — so we:
- *   1. Re-fetch the parent's effective body.
- *   2. Render a SchemaForm using the registered sub-type's schema / form
+ *   1. Render a SchemaForm using the registered sub-type's schema / form
  *      (e.g. `field` for `object.fields`).
- *   3. On save: deep-clone the parent, splice the modified item back
- *      under `parent.<embeddedPath>.<itemName>`, and PUT the parent.
+ *   2. On save: re-read the parent (its pending draft when one exists, else
+ *      its published body), splice the modified item back under
+ *      `parent.<embeddedPath>.<itemName>`, and PUT the parent — into its
+ *      draft when the base was the draft (objectui#12027).
  *
  * If the sub-type isn't registered (e.g. `index` has no `editAs`), we
  * fall back to a raw-JSON editor so users can still hand-edit and save.
@@ -39,7 +40,8 @@ import type { FormViewSpec } from './form-spec.js';
 import { useMetadataLocale, t, tFormat, translateValidationMessage } from './i18n.js';
 import { errorCodeIsAnyOf } from '@object-ui/types';
 // objectui#11692 - the served -> authored conversion of a picklist-bound field.
-import { dropServedPicklistOptions } from '@object-ui/data-objectstack';
+// objectui#12027 - the parent's pending draft, unwrapped and stripped.
+import { dropServedPicklistOptions, extractDraftBody } from '@object-ui/data-objectstack';
 
 export interface EmbeddedItemEditorProps {
   parentType: string;
@@ -110,13 +112,43 @@ export function EmbeddedItemEditor({
     setError(null);
     setIssues([]);
     try {
-      // 1. Re-fetch parent to avoid clobbering concurrent edits.
-      const layered = await client.layered<Record<string, unknown>>(
-        parentType,
-        parentName,
+      // 1. Re-read the parent at save time, to avoid clobbering concurrent
+      // edits. objectui#12027 — its pending DRAFT is the base when one exists,
+      // and the save then goes back into that draft (`mode: 'draft'`): the
+      // author is mid-flight on the parent, and an item editor never writes
+      // live behind their back. A served draft is the whole document
+      // (objectui#10765), so every other field the draft holds rides along.
+      // A draft-read failure is the save's error, never "no draft": guessing
+      // there is none would send a publish-mode write over a pending one.
+      const parentDraft = extractDraftBody(
+        await client.getDraft(parentType, parentName),
       );
-      const parent =
-        (layered.effective ?? layered.code ?? {}) as Record<string, unknown>;
+      let parent: Record<string, unknown>;
+      if (parentDraft) {
+        parent = parentDraft;
+      } else {
+        // No draft: the published version, as before. `/layers` answers 404
+        // for a parent that was never published (objectstack-ai/objectstack#22397),
+        // which the client resolves as every layer `null`. ⛔ That absence is
+        // never a body: an empty base would PUT a stub of the one item over
+        // the parent. With nothing readable, the save is refused.
+        const layered = await client.layered<Record<string, unknown>>(
+          parentType,
+          parentName,
+        );
+        const published = layered.effective ?? layered.code;
+        if (!published) {
+          setError(
+            tFormat('engine.edit.loadFailed', locale, {
+              type: parentType,
+              name: parentName,
+              message: t('engine.form.notFound', locale),
+            }),
+          );
+          return;
+        }
+        parent = published;
+      }
 
       // 2. Splice modified item back into the parent collection.
       const updated = spliceEmbedded(parent, embeddedPath, itemName, draft);
@@ -126,12 +158,16 @@ export function EmbeddedItemEditor({
       // beside the options the runtime resolved from the list; the authoring
       // door refuses the pair for the whole object, whichever item was edited.
       // So the resolved `options` stay out of every bound field, and nothing
-      // else is touched. Other parent types are sent exactly as before.
-      await client.save(
-        parentType,
-        parentName,
-        parentType === 'object' ? dropServedPicklistOptions(updated) : updated,
-      );
+      // else is touched. Other parent types are sent exactly as before. A
+      // draft-based save stays a draft; a published parent with no pending
+      // draft saves as it always has.
+      const body =
+        parentType === 'object' ? dropServedPicklistOptions(updated) : updated;
+      if (parentDraft) {
+        await client.save(parentType, parentName, body, { mode: 'draft' });
+      } else {
+        await client.save(parentType, parentName, body);
+      }
       setSavedAt(Date.now());
       onSaved?.(draft);
     } catch (err: any) {

@@ -23,12 +23,12 @@
  *  - CONTROL: a failed `/layers` read (a 5xx) is the save's error, and nothing
  *    is PUT.
  *
- * Not covered, said here so it does not read as covered: what a SAVE does for
- * a draft-only parent. `MetadataClient.layered()` resolves the 404 as an
- * envelope with every layer null, so the read itself raises nothing; the save
- * then splices the item into an empty body and PUTs the parent in publish
- * mode. That PUT is outside objectui#11799 (its claim excludes it), and it is
- * not pinned here, so this file does not hold that body in place.
+ * Not covered here: what a SAVE does for a draft-only parent. That is
+ * objectui#12027's write side, pinned in
+ * `EmbeddedItemEditor.draftSave-12027.test.tsx`: the save reads the parent's
+ * pending draft first and writes it back in draft mode, so it sends no
+ * `/layers` read for such a parent at all. Both controls below have no draft,
+ * so they still reach `/layers`.
  */
 
 import '@testing-library/jest-dom/vitest';

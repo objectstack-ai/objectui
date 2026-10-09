@@ -988,7 +988,28 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // The re-read keeps the chart mounted (`RefreshIndicator` over the current
   // rows, not the skeleton), so an open drill drawer and the chart's own state
   // survive a save.
-  const fetchesForItself = !!(schema.objectName || schema.dataset) && !boundData && !schema.data;
+  //
+  // The path the objectui#8168 screen guards, as ONE predicate that screen,
+  // the category forward (`groupByCategoryKey`) and the fetch gate below all
+  // read: an object-bound chart (`objectName`, no `dataset`) drawing rows it
+  // fetched itself, not rows the author handed over (`data`, or a `bind`
+  // scope).
+  const hasAuthoredRows = !!boundData || Array.isArray(schema.data);
+  const drawsFetchedObjectRows = !!schema.objectName && !schema.dataset && !hasAuthoredRows;
+  // objectui#12061 — the refusal is decided BEFORE the fetch, the shape
+  // objectui#7390 gave `ObjectGallery`: decide the binding first, then fetch.
+  // The refusal used to be a render-time return only, so the fetch effect
+  // still issued the object-bound query (`find` with no `$top`, or
+  // `aggregate` with no `groupBy`) and threw the rows away to draw the
+  // refusal. Every chart list view naming no `dataset` composes exactly that
+  // node since objectui#6152 round 15. This one value is what the refusal
+  // below returns on and what keeps the fetch, and the invalidation
+  // subscription that would re-run it, from starting — ⛔ never a second copy
+  // of the rule, and ⛔ never a `$top` cap, which would shrink the read
+  // rather than remove it.
+  const refusesMissingCategoryAxis = drawsFetchedObjectRows && !resolveChartCategoryField(schema);
+  const fetchesForItself =
+    !!(schema.objectName || schema.dataset) && !boundData && !schema.data && !refusesMissingCategoryAxis;
   const invalidationNonce = useDataInvalidation(
     fetchesForItself ? (schema.dataset ? datasetObject : schema.objectName) : undefined,
   );
@@ -999,12 +1020,16 @@ export const ObjectChart = (props: ObjectChartProps) => {
     if (fetchesForItself) {
         fetchData(dataSource, mounted);
     } else if (mounted.current) {
-        // Have inline / bound data — won't fetch; clear loading.
+        // Have inline / bound data, or refused for a missing category axis —
+        // won't fetch; clear loading.
         setLoading(false);
     }
     return () => { mounted.current = false; };
+    // `fetchesForItself` is listed for the category half of its predicate: a
+    // spec `xAxis` that arrives later moves no other dependency here, and a
+    // chart refused at mount must fetch once a category is declared.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, datasetKey, dataSource, boundData, schema.data, filterKey, aggregateKey, compareToKey, fetchData, invalidationNonce]);
+  }, [schema.objectName, datasetKey, dataSource, boundData, schema.data, filterKey, aggregateKey, compareToKey, fetchData, invalidationNonce, fetchesForItself]);
 
   const rawData = boundData || schema.data || fetchedData;
   const finalData = Array.isArray(rawData) ? rawData : [];
@@ -1247,12 +1272,8 @@ export const ObjectChart = (props: ObjectChartProps) => {
       )
     : null;
 
-  // The path the objectui#8168 screen further down guards, as ONE predicate
-  // that screen and the category forward just below both read: an object-bound
-  // chart (`objectName`, no `dataset`) drawing rows it fetched itself, not rows
-  // the author handed over (`data`, or a `bind` scope).
-  const hasAuthoredRows = !!boundData || Array.isArray(schema.data);
-  const drawsFetchedObjectRows = !!schema.objectName && !schema.dataset && !hasAuthoredRows;
+  // `drawsFetchedObjectRows` — the path the objectui#8168 screen further down
+  // guards — is declared beside the fetch gate above, which reads it too.
 
   /**
    * objectui#10634 — the category column an object-bound chart forwards when
@@ -1387,6 +1408,9 @@ export const ObjectChart = (props: ObjectChartProps) => {
    *    as the timeline's: a static authoring fact that no fetch outcome
    *    changes. A skeleton that resolves into a refusal, or a network error
    *    shown first, would both send the author to debug the wrong layer.
+   *    And, since objectui#12061, decided before any fetch is issued: this
+   *    return and the fetch gate read one value, `refusesMissingCategoryAxis`,
+   *    so a chart that refuses reads nothing (no `find`, no `aggregate`).
    *
    * ## What this does NOT do
    *
@@ -1402,7 +1426,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
    * that it does NOT fire on the schema every producer composes for a chart
    * that declares a category.
    */
-  if (drawsFetchedObjectRows && !resolveChartCategoryField(schema)) {
+  if (refusesMissingCategoryAxis) {
       return (
         <div className={"p-4 text-destructive " + (schema.className || '')} data-testid="chart-missing-category-axis" role="alert">
             {tt(

@@ -2,8 +2,8 @@
   "number": 12059,
   "kind": "issue",
   "title": "console(nav): the runtime sidebar must not offer drag-to-reorder — arranging navigation is Studio's job (maintainer ruling 2026-10-09; reverses objectui#11626)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "hotlong",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -21,11 +20,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-09T12:58:06Z",
-  "updated_at": "2026-10-09T14:27:18Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-09T16:34:16Z",
+  "closed_at": "2026-10-09T16:31:49Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 8,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12059",
   "body": "## Ruling\n\n**The maintainer, in chat on 2026-10-09** (session `64cb68a6-01c7-4dc6-acc6-ccb459c90ef2`, looking at production demo.objectos.ai), verbatim:\n\n> 右侧浏览器，左侧菜单在用户界面不应该显示拖动按钮，拖动设计是studio的工作。\n\nThe runtime (user-facing) sidebar must not offer drag-to-reorder. Arranging an app's navigation is authoring work, and authoring belongs to Studio. **This reverses the direction of objectui#11626**, which extended drag-to-reorder to every grouped sidebar to satisfy `platform-core.shell-nav-personalization` acceptance[2].\n\n## What users see today (production demo.objectos.ai, HotCRM, 2026-10-09)\n\n- Every sidebar entry has a permanently visible grip. The page holds **11 of them**: `<span role=\"button\" aria-roledescription=\"sortable\" aria-label=\"拖动以重新排序\" aria-describedby=\"nav-reorder-top-nav_home\" class=\"absolute left-0.5 … cursor-grab …\">`, computed `opacity: 1`, `cursor: grab`.\n- Source: `packages/app-shell/src/layout/UnifiedSidebar.tsx` ~:677 passes `enableReorder={!isMobile}` and `onReorder={handleNavReorder}` to `NavigationRenderer` (`packages/layout/src/NavigationRenderer.tsx`: the sortable rows ~:1180–1330, `contextId` `nav-reorder-top-…` / `nav-reorder-group-…`). The order persists per user in localStorage (`objectui-nav-order-<app>`).\n\n## Scope\n\n1. **Runtime sidebar:** no drag grip and no drag reorder on any viewport. `UnifiedSidebar` stops passing `enableReorder` / `onReorder`.\n2. **Stored per-user orders stop applying:** the sidebar renders the app's authored order. Any existing `objectui-nav-order-*` key is ignored and may be cleared, so a user who reordered before this change does not keep a private order that Studio cannot see or change.\n3. **Studio keeps its own arranging.** Navigation order is authored in Studio, the app/navigation designer, and every user sees that order. Check Studio's navigation editor still reorders, and if it has no reorder affordance, say so in the PR rather than adding one here.\n4. **Unchanged, outside the ruling:** sidebar collapse, nav pin/unpin, favorites and recents.\n5. **Tests:** pin that the runtime sidebar renders no `aria-roledescription=\"sortable\"` grip, and that a stored `objectui-nav-order-*` value does not change the rendered order.\n\n## Related\n- The framework's conformance item `platform-core.shell-nav-personalization` still requires drag-reorder (step 3, acceptance[2]). Its amendment is filed on objectstack and linked below, so the next release checklist does not fail this change.\n- objectui#11626 is the card this reverses.\n"

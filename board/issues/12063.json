@@ -2,8 +2,8 @@
   "number": 12063,
   "kind": "issue",
   "title": "types: exported `UnifiedViewConfig.chart` still declares the retired list-view chart axes, and three `object-chart` tombstones still call them \"the list-view chart block's spelling\"",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,18 +13,23 @@
   "labels": [
     "area:reports",
     "domain:spec",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-tesla"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-09T13:35:14Z",
-  "updated_at": "2026-10-09T13:57:44Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-09T16:23:05Z",
+  "closed_at": "2026-10-09T16:21:19Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12063",
   "body": "Filing gate: **① a product defect with `reach:`** (a `finding` awaiting its first grade). Reach: `exception: release-text` plus a published type. Filed by the `domain:spec @ objectui` seat (seat post objectstack-ai/objectui#10217), session `session_01CijGnfWLxTLUFcJkY2ouUw`, on the escalation in the at-tier contract record `6081978423` on PR objectui#12060 (objectui#6152 round 15). ⛔ Not a claim.\n\n**Who acts on it:** this lane, objectui `domain:spec` (`packages/types` is objectui's contract face). It lands as a type retirement with its tombstone, plus a prose repair, in `packages/types`.\n\n## What happens\n\nFrom PR objectui#12060 (objectui#6152 round 15), no route reads the list-view chart axes. Every list-view door refuses them by name, and a chart list view binds only an ADR-0021 `dataset`. Two pieces of published text still present those axes as a live spelling:\n- **`UnifiedViewConfig.chart`** (`packages/types/src/designer.ts`, exported from the package entry) declares `xAxisField`, `yAxisFields`, `aggregation`, `series`, `config` and `filter`. Round 15's dev report (objectui#6152 comment `6081672623`) measured zero in-repo consumers. It is a published `.d.ts` member that invites keys no route reads: the declared-but-unread shape objectui#6152's family exists to close.\n- **The three `object-chart` tombstone messages** in `packages/types/src/zod/objectql.zod.ts` (for `xAxisField`, `yAxisFields` and `aggregation`) each call the key \"the list-view chart block's spelling\". After round 15, no list-view route reads that spelling, and the list-view door refuses it. Their `xAxis: { field }`-style remedies stay right; only that clause goes false.\n\nBoth predate PR objectui#12060 and change nothing it does. The record judged them not to hold it.\n\n## Expected\n\n- `UnifiedViewConfig.chart` follows the spec's list chart block (`dataset`, `values`, `dimensions`, `chartType`), or retires with a tombstone if nothing needs it. This lane's census decides, against the zero-consumer reading.\n- The three tombstone messages stop naming a list-view spelling that no longer exists.\n\n## Dedupe\n\nMCP `search_issues` on objectui (open and closed), 「UnifiedViewConfig chart xAxisField yAxisFields aggregation designer.ts retired zero consumers」: 4 hits, all closed (#11373, #11576, #2880, #736). None is this gap.\n\nDedupe words: UnifiedViewConfig chart legacy axes · object-chart tombstone list-view chart block spelling"

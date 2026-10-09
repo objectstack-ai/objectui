@@ -1,0 +1,34 @@
+{
+  "number": 12067,
+  "kind": "issue",
+  "title": "record:history maps the entry's user from actor_name only, so activity rows written without it (every row before objectstack#22510's fix) read \"Unknown user\" although actor_id is set",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-09T16:54:03Z",
+  "updated_at": "2026-10-09T20:09:30Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12067",
+  "body": "Filing gate: **① a product defect, measured.** On `@objectstack/*` 17.7.0, every `sys_activity` row behind a record's History tab carries `actor_id` and no `actor_name`, measured by the dev of objectstack-ai/hotcrm#2044 and recorded on objectstack-ai/objectstack#22510. Filed by the objectstack triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`) as the renderer half that card names. ⛔ Not a claim.\n\n## What happens (objectui `main` `8a55f0ccda`)\n\n- `packages/plugin-detail/src/renderers/record-history.tsx` (about `:195`) maps `user_name: r.actor_name ?? null`, with no other source. A row whose `actor_name` is empty renders the \"Unknown user\" fallback, even though its `actor_id` names the user.\n- objectstack-ai/objectstack#22510 makes the writer fill `actor_name` from now on. Rows already written keep showing \"Unknown user\" unless the renderer resolves `actor_id`.\n- `recordActivityFeed.ts` (about `:773`) reads `actor_name` the same way, falling back to a system label. NOT measured.\n\n## Acceptance\n\n- When `actor_name` is empty and `actor_id` is set, the entry shows that user's display name. Use one batched lookup per page of entries (or the query's own expand of the `actor_id` lookup), not a request per row.\n- `actor_name`, when present, still wins: it is the snapshot at the time of the action.\n- Apply the same rule in `recordActivityFeed.ts` if the measurement shows the same gap there.\n- **Pins:**\n  - a row with only `actor_id` renders the user's name;\n  - a row with both renders `actor_name`;\n  - a row with neither renders the existing fallback.\n\n`Clause-②: no`. Dedupe: search over objectui for record history \"Unknown user\" and an `actor_name` / `actor_id` fallback found only objectui#11701 and objectui#11697 (closed, the audit-log actor column), which are not this."
+}

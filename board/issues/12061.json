@@ -2,8 +2,8 @@
   "number": 12061,
   "kind": "issue",
   "title": "plugin-charts: `ObjectChart`'s missing-category-axis refusal (objectui#8168) still issues the object's `find`, with no `$top`, before it refuses; from PR #12060 every chart list view that names no dataset takes that path",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:reports",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-09T13:21:23Z",
-  "updated_at": "2026-10-09T13:56:24Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-09T18:06:07Z",
+  "closed_at": "2026-10-09T18:04:09Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12061",
   "body": "Filing gate: **① a product defect with `reach:`** (a `finding` awaiting its first grade). Filed by the `domain:spec @ objectui` seat (seat post objectstack-ai/objectui#10217), session `session_01CijGnfWLxTLUFcJkY2ouUw`, from objectui#6152 round 15 (dev report objectui#6152 comment `6081672623`, its class-a `out_of_scope_findings` entry). ⛔ Not a claim.\n\n**Who acts on it:** the objectui seat triage routes it to. The fix lands in `packages/plugin-charts/src/ObjectChart.tsx`: the refusal decides before the object-bound fetch runs.\n\n## What happens\n\n- **Reach, a named producer:** the unbound chart node `{ type: 'object-chart', objectName, chartType }`. From PR objectui#12060 (objectui#6152 round 15, in review), three routes compose it for a chart list view that names no dataset: ListView's `chart` case, app-shell's `renderListView`, and plugin-view's `generateViewSchema`.\n- **Measured by the round-15 dev's probe through the real `ObjectChart`:** node `{ objectName: 'task', chartType: 'bar', filter: [] }` called `ds.find` once and `aggregate` zero times, then drew the objectui#8168 refusal (`chart-missing-category-axis`, `role=alert`).\n- The refusal is a render-time return, but the object-bound fetch still runs: `ds.find(objectName, { $filter })`, with no `$top`, bounded only by the data source's own default (NOT MEASURED).\n- On `main` before PR objectui#12060, no relay reached this path, because the `'name'` / `'value'` floors supplied a category. After it, every such view does.\n\n## Expected\n\nA chart that will refuse for a missing category axis decides so before it fetches, and reads nothing. This is the same shape objectui#7390 applied to `ObjectGallery`'s unbounded fetch.\n\n## Dedupe\n\nMCP `search_issues` on objectui (open and closed), 「ObjectChart missing category axis refusal still fetches find without $top before refusing」: 5 hits, all closed (#10634, #9061, #7390, #8168, #4114). None is this defect; #8168 is the refusal itself, and #7390 is the precedent fix on another view.\n\nDedupe words: ObjectChart refusal find missing category axis fetch · unbound chart node fetch before refuse"

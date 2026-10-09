@@ -37,7 +37,11 @@
  * silently ignored prop.
  *
  * Outside a `sys_approval_request` record page there is no request to decide
- * on, and the panel renders nothing.
+ * on, so the node draws a short notice saying it works only on approval request
+ * pages (objectui#12072). A block placed on another object's record page, or on
+ * a page with no record at all, is thereby visible to its author instead of
+ * silently empty. On a request page whose row has not loaded yet, the node
+ * still draws nothing.
  *
  * ## After a decision
  *
@@ -68,7 +72,7 @@
  */
 
 import * as React from 'react';
-import { notifyDataChanged, useRecordContext } from '@object-ui/react';
+import { notifyDataChanged, useObjectTranslation, useRecordContext } from '@object-ui/react';
 import { cn } from '@object-ui/components';
 import { DecisionProgressIndicator } from '../approval-progress/DecisionProgressIndicator.js';
 import { DeclaredActionsBar } from '../DeclaredActionsBar.js';
@@ -123,15 +127,37 @@ export interface ApprovalDecisionRendererProps {
   [k: string]: unknown;
 }
 
-/** The node renderer: the panel over the bound request, or nothing. */
+/**
+ * The node renderer: the panel over the bound request; off a request page, a
+ * notice that the block works only there; on a request page whose row has not
+ * loaded, nothing.
+ *
+ * The notice is the muted dashed placeholder `record:path` draws when it cannot
+ * do its job where it was placed, with its copy from the language packs.
+ */
 export const ApprovalDecisionRenderer: React.FC<ApprovalDecisionRendererProps> = ({
   schema: _schema,
   className,
   ...props
 }) => {
   const ctx = useRecordContext();
+  const { t } = useObjectTranslation();
   const designer = splitDesigner(props);
-  const row = ctx?.objectName === SYS_APPROVAL_REQUEST_OBJECT ? ctx.data : undefined;
+  if (ctx?.objectName !== SYS_APPROVAL_REQUEST_OBJECT) {
+    return (
+      <div className={className} {...designer}>
+        <div
+          className="text-xs text-muted-foreground italic px-3 py-2 border border-dashed rounded"
+          data-testid="approval-decision-off-request-page"
+        >
+          {String(t('approvalsInbox.decisionPanelOffRequestPage', {
+            defaultValue: 'The approval decision panel only works on approval request pages.',
+          }))}
+        </div>
+      </div>
+    );
+  }
+  const row = ctx.data;
   if (row == null || typeof row !== 'object' || (row as { id?: unknown }).id == null) return null;
   return (
     <div className={className} {...designer}>

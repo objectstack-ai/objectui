@@ -3618,6 +3618,7 @@ const ja = {
     progressEligible_other: '承認可能者 {{count}} 名',
     progressBar: '承認の進捗',
     declaredActions: 'アクション',
+    decisionPanelOffRequestPage: '承認の決定パネルは承認リクエストのページでのみ機能します。',
     attachmentChip: '添付ファイル',
     attachmentOpenFailed: '添付ファイルを開けませんでした。もう一度お試しください',
     approveOneTitle: '「{{title}}」を承認しますか？',

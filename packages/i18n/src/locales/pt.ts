@@ -3682,6 +3682,7 @@ const pt = {
     progressEligible_other: '{{count}} aprovadores elegíveis',
     progressBar: 'Progresso da decisão',
     declaredActions: 'Ações',
+    decisionPanelOffRequestPage: 'O painel de decisão de aprovação só funciona nas páginas de solicitações de aprovação.',
     attachmentChip: 'Anexo',
     attachmentOpenFailed: 'Não foi possível abrir o anexo — tente novamente',
     approveOneTitle: 'Aprovar "{{title}}"?',

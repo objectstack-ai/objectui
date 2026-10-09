@@ -3616,6 +3616,7 @@ const de = {
     progressEligible_other: '{{count}} berechtigte Genehmiger',
     progressBar: 'Entscheidungsfortschritt',
     declaredActions: 'Aktionen',
+    decisionPanelOffRequestPage: 'Der Entscheidungsbereich für Genehmigungen funktioniert nur auf Seiten von Genehmigungsanfragen.',
     attachmentChip: 'Anhang',
     attachmentOpenFailed: 'Anhang konnte nicht geöffnet werden – bitte erneut versuchen',
     approveOneTitle: '„{{title}}“ genehmigen?',

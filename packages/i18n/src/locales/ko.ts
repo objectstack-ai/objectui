@@ -3615,6 +3615,7 @@ const ko = {
     progressEligible_other: '승인 가능자 {{count}}명',
     progressBar: '결정 진행 상황',
     declaredActions: '작업',
+    decisionPanelOffRequestPage: '승인 결정 패널은 승인 요청 페이지에서만 작동합니다.',
     attachmentChip: '첨부 파일',
     attachmentOpenFailed: '첨부 파일을 열 수 없습니다. 다시 시도해 주세요',
     approveOneTitle: '"{{title}}"을(를) 승인할까요?',

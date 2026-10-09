@@ -3774,6 +3774,7 @@ const ru = {
     progressEligible_other: 'Доступных согласующих: {{count}}',
     progressBar: 'Ход решения',
     declaredActions: 'Действия',
+    decisionPanelOffRequestPage: 'Панель решения по согласованию работает только на страницах запросов на согласование.',
     attachmentChip: 'Вложение',
     attachmentOpenFailed: 'Не удалось открыть вложение — попробуйте ещё раз',
     approveOneTitle: 'Согласовать «{{title}}»?',

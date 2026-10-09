@@ -3767,6 +3767,7 @@ const zh = {
     progressEligible_other: '{{count}} 位可审批人',
     progressBar: '决策进度',
     declaredActions: '操作',
+    decisionPanelOffRequestPage: '审批决策面板仅在审批请求页面上可用。',
     attachmentChip: '附件',
     attachmentOpenFailed: '无法打开附件，请重试',
     approveOneTitle: '通过“{{title}}”？',

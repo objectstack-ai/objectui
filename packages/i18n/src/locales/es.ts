@@ -3687,6 +3687,7 @@ const es = {
     progressEligible_other: '{{count}} aprobadores elegibles',
     progressBar: 'Progreso de la decisión',
     declaredActions: 'Acciones',
+    decisionPanelOffRequestPage: 'El panel de decisión de aprobación solo funciona en las páginas de solicitudes de aprobación.',
     attachmentChip: 'Adjunto',
     attachmentOpenFailed: 'No se pudo abrir el archivo adjunto: inténtalo de nuevo',
     approveOneTitle: '¿Aprobar «{{title}}»?',

@@ -202,8 +202,8 @@ Each provider keeps a monotonic `hydrationToken`. If the user switches accounts 
 | `UserStateAdaptersProvider` | `@object-ui/app-shell` | Adapter registry; place above the providers. |
 | `useAttachUserStateAdapters()` | `@object-ui/app-shell` | Imperative API for a bridge component to attach/detach adapters. |
 | `useUserStateAdapter(kind)` | `@object-ui/app-shell` | Read the currently-attached adapter (rarely needed by app code). |
-| `useFavorites()` | `@object-ui/app-shell` | `{ favorites, addFavorite, removeFavorite, toggleFavorite, isFavorite, clearFavorites, setPinned, isPinned, pinnedNavIds }` |
-| `useNavPins()` | `@object-ui/app-shell` | Thin shim over `useFavorites` for sidebar pinning — `{ pinnedIds, togglePin, isPinned, applyPins, clearPins }`. |
+| `useFavorites()` | `@object-ui/app-shell` | `{ favorites, addFavorite, removeFavorite, toggleFavorite, isFavorite, clearFavorites, setPinned, isPinned, pinnedNavIds, reorderNavPins }` |
+| `useNavPins()` | `@object-ui/app-shell` | Thin shim over `useFavorites` for sidebar pinning — `{ pinnedIds, togglePin, isPinned, applyPins, clearPins, reorderPins }`. `pinnedIds` is in the user's pinned order. |
 | `useRecentItems()` | `@object-ui/app-shell` | `{ recentItems, addRecentItem, clearRecentItems }` |
 | `useRecentItemLabel()` | `@object-ui/app-shell` | `(item) => string` — a recent entry's label, resolved on render from the item's metadata in the current language. |
 | `useFlowPaletteRecents()` | `@object-ui/app-shell` | `{ recents, recordRecent }` — flow-designer add-node MRU; falls back to localStorage outside a provider. |
@@ -233,8 +233,13 @@ interface FavoriteItem {
 - **Cross-device sync.** Pinning a sidebar item on the desktop shows up in the same place on mobile, behind the same backend that already syncs Favorites.
 - **Bucketed caps.** Content favorites and nav pins each have an independent cap of 20 — migrating sidebar pins never evicts starred records.
 - **Legacy migration (one-shot).** The old `objectui-nav-pins` localStorage key (a plain `string[]`) is read once on first mount, converted to `type:'nav'` favorites with `pinned: true`, then removed. If an adapter is attached, the migrated set is also pushed to the backend on the next debounce window.
+- **The pinned order is the user's.** The order of the `type: 'nav'` entries in the stored list is the order of the sidebar's Pinned section, so it syncs with the pins. A new pin joins the end (a content favorite still goes first); unpinning removes the entry and leaves the others in order. `reorderNavPins(navIds)` (`useNavPins().reorderPins`) puts the named pins in a new order in the places they already hold, so a pin another app's sidebar draws, and every content favorite, stay where they are. At the nav-pin cap, a new pin still joins the end and the earliest-pinned one rolls off.
 
-UIs that surface "favorites" (HomePage Starred, the sidebar Favorites section) filter out `type === 'nav'` so nav-pin records don't pollute the user-visible list. The sidebar Pinned section is rendered from the live navigation tree decorated by `useNavPins.applyPins`.
+UIs that surface "favorites" (HomePage Starred, the sidebar Favorites section) filter out `type === 'nav'` so nav-pin records don't pollute the user-visible list. The sidebar Pinned section is rendered from the live navigation tree decorated by `useNavPins.applyPins`, in the order `pinnedIds` gives.
+
+### Ordering the sidebar
+
+The Pinned section is the only part of the console sidebar a user orders. They drag a pinned row by the row itself (no grip is drawn at rest; the cursor turns to a grab hand and a line marks where the row will land), or, with the row's link focused, press Space to pick it up, the arrow keys to move it, and Space to drop it (Escape cancels). The order is saved through `reorderPins`. The app's own menu is not reorderable in the console: its order is the one authored for the app in Studio, and every user sees that order.
 
 ## Record-overlay width
 

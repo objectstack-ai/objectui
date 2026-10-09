@@ -22,7 +22,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { FlowSchema, resolveFlowTriggerKind } from '@objectstack/spec/automation';
 
@@ -108,17 +108,33 @@ function renderPillar() {
 }
 
 /**
- * Open *New automation*, name it, and return the dialog's trigger select —
+ * Open *New automation*, name it, and return the dialog's trigger picker —
  * under *Advanced* since objectui#11861, where the dialog's presets put it.
+ * The picker is the shared `Select` since objectui#11865.
  */
-async function openNew(label: string): Promise<HTMLSelectElement> {
+async function openNew(label: string): Promise<HTMLElement> {
   renderPillar();
   fireEvent.click(await screen.findByTitle(en('engine.studio.auto.newTitle'), undefined, { timeout: 8000 }));
   fireEvent.change(await screen.findByPlaceholderText(en('engine.studio.auto.namePlaceholder')), {
     target: { value: label },
   });
   fireEvent.click(screen.getByRole('radio', { name: en('engine.studio.rules.advanced') }));
-  return screen.getByRole('combobox', { name: 'Trigger' }) as HTMLSelectElement;
+  return screen.getByRole('combobox', { name: 'Trigger' });
+}
+
+/** The Start node's own trigger choices, as the dialog lists them in English. */
+const startOptions = () => fieldsForNodeType('start').find((f) => f.id === 'triggerType')!.options!;
+
+/** Open the trigger picker and return its listbox. */
+async function openTriggerList(trigger: HTMLElement): Promise<HTMLElement> {
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  return await screen.findByRole('listbox');
+}
+
+/** Pick the trigger whose value is `value`, by the label the picker lists it under. */
+async function pickTrigger(trigger: HTMLElement, value: string): Promise<void> {
+  const label = startOptions().find((o) => o.value === value)!.label;
+  fireEvent.click(within(await openTriggerList(trigger)).getByRole('option', { name: label }));
 }
 
 async function submitAndReadSave(): Promise<Record<string, unknown>> {
@@ -137,18 +153,19 @@ const startOf = (flow: Record<string, unknown>) =>
 
 describe('objectui#11788 — New automation asks for the trigger', () => {
   it('offers the Start node\'s own triggers, after a "choose later" first choice', async () => {
-    const select = await openNew('Ticket done');
-    const startOptions = fieldsForNodeType('start').find((f) => f.id === 'triggerType')!.options!;
-    const offered = Array.from(select.options).map((o) => o.value);
-    expect(offered).toEqual(['', ...startOptions.map((o) => o.value)]);
-    expect(select.options[0].textContent).toBe(en('engine.studio.newAutoTrigger.later'));
-    expect(select.value).toBe('');
+    const trigger = await openNew('Ticket done');
+    // "Choose later" is what the picker shows, and the list's first choice.
+    expect(trigger.textContent).toBe(en('engine.studio.newAutoTrigger.later'));
+    const offered = within(await openTriggerList(trigger))
+      .getAllByRole('option')
+      .map((o) => o.textContent);
+    expect(offered).toEqual([en('engine.studio.newAutoTrigger.later'), ...startOptions().map((o) => o.label)]);
   });
 
   it('a record trigger asks for its object and is saved on the Start node, binding as a record change', async () => {
-    const select = await openNew('Ticket done');
+    const trigger = await openNew('Ticket done');
     expect(screen.queryByRole('combobox', { name: 'Object' })).toBeNull();
-    fireEvent.change(select, { target: { value: 'record-after-update' } });
+    await pickTrigger(trigger, 'record-after-update');
     const object = await screen.findByRole('combobox', { name: 'Object' });
     fireEvent.change(object, { target: { value: 'ticket' } });
     fireEvent.blur(object);
@@ -158,8 +175,8 @@ describe('objectui#11788 — New automation asks for the trigger', () => {
   });
 
   it('a trigger that watches no object shows no object picker and saves the trigger alone', async () => {
-    const select = await openNew('Run by hand');
-    fireEvent.change(select, { target: { value: 'manual' } });
+    const trigger = await openNew('Run by hand');
+    await pickTrigger(trigger, 'manual');
     expect(screen.queryByRole('combobox', { name: 'Object' })).toBeNull();
     const body = await submitAndReadSave();
     expect(startOf(body).config).toEqual({ triggerType: 'manual' });

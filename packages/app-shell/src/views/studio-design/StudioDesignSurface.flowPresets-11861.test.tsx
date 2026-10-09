@@ -23,7 +23,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, act, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { FlowSchema, resolveFlowTriggerKind } from '@objectstack/spec/automation';
 
@@ -115,6 +115,16 @@ async function openNew(label: string): Promise<void> {
   });
 }
 
+/**
+ * Pick the trigger whose value is `value` under *Advanced*, by the label the
+ * trigger picker lists it under: the shared `Select` since objectui#11865.
+ */
+async function pickTrigger(value: string): Promise<void> {
+  const label = startFields.find((f) => f.id === 'triggerType')!.options!.find((o) => o.value === value)!.label;
+  fireEvent.keyDown(screen.getByRole('combobox', { name: 'Trigger' }), { key: 'ArrowDown' });
+  fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: label }));
+}
+
 /** Name the object in the visible object picker (it commits on blur). */
 async function pickObject(name: string): Promise<void> {
   const object = await screen.findByRole('combobox', { name: 'Object' });
@@ -167,7 +177,8 @@ describe('objectui#11861 — New automation opens on starting points', () => {
     // The trigger form is not on the page until Advanced is chosen.
     expect(screen.queryByRole('combobox', { name: 'Trigger' })).toBeNull();
     fireEvent.click(screen.getByRole('radio', { name: ADVANCED() }));
-    expect((screen.getByRole('combobox', { name: 'Trigger' }) as HTMLSelectElement).value).toBe('');
+    // Nothing chosen: the picker shows "choose later".
+    expect(screen.getByRole('combobox', { name: 'Trigger' }).textContent).toBe(en('engine.studio.newAutoTrigger.later'));
     // Choosing a preset again folds it away.
     fireEvent.click(screen.getByRole('radio', { name: en(FLOW_PRESETS[1].labelKey) }));
     expect(screen.queryByRole('combobox', { name: 'Trigger' })).toBeNull();
@@ -218,7 +229,7 @@ describe('objectui#11861 — New automation opens on starting points', () => {
       // Through Advanced, with the same trigger and object.
       await openNew('From advanced');
       fireEvent.click(screen.getByRole('radio', { name: ADVANCED() }));
-      fireEvent.change(screen.getByRole('combobox', { name: 'Trigger' }), { target: { value: preset.triggerType } });
+      await pickTrigger(preset.triggerType);
       if (watches) await pickObject('ticket');
       create();
       const viaAdvanced = await savedBody(2);

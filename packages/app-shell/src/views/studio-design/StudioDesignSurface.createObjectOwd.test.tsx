@@ -43,6 +43,22 @@ vi.mock('./packages-io', async (importOriginal) => {
 });
 
 import { DataPillar } from './StudioDesignSurface';
+import { t } from '../metadata-admin/i18n';
+
+/**
+ * A model's label in the create dialog: the Settings tab's own string, read by
+ * its key. The picker is the shared `Select` since objectui#11865, so what it
+ * holds is read off its trigger and its list, by label.
+ */
+const modelLabel = (key: string) => t(`engine.studio.settings.${key}`, 'en');
+
+/** Open the record-sharing picker and return the labels it lists, in order. */
+async function listedModels(trigger: HTMLElement): Promise<string[]> {
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  return within(await screen.findByRole('listbox'))
+    .getAllByRole('option')
+    .map((o) => o.textContent ?? '');
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -93,8 +109,8 @@ function savedBody(): Record<string, unknown> {
 
 describe('新建对象 asks for the OWD (objectui#5418)', () => {
   it('offers the baseline, defaulted to the platform’s own recommended value', async () => {
-    const select = (await openCreateDialog()) as HTMLSelectElement;
-    expect(select.value).toBe('private');
+    const trigger = await openCreateDialog();
+    expect(trigger.textContent).toBe(modelLabel('sharingPrivate'));
   });
 
   it('offers exactly the three models a brand-new object can author', async () => {
@@ -103,10 +119,13 @@ describe('新建对象 asks for the OWD (objectui#5418)', () => {
     // `security-owd-unset` publish wall for the
     // `security-controlled-by-parent-no-relation` one. The Settings tab keeps
     // all four, where the object may since have gained a master-detail field.
-    const select = (await openCreateDialog()) as HTMLSelectElement;
-    const values = [...select.options].map((o) => o.value);
-    expect(values).toEqual(['private', 'public_read', 'public_read_write']);
-    expect(values).not.toContain('controlled_by_parent');
+    const labels = await listedModels(await openCreateDialog());
+    expect(labels).toEqual([
+      modelLabel('sharingPrivate'),
+      modelLabel('sharingPublicRead'),
+      modelLabel('sharingPublicReadWrite'),
+    ]);
+    expect(labels).not.toContain(modelLabel('sharingControlledByParent'));
   });
 
   it('saves the accepted default as an EXPLICIT baseline on the draft', async () => {
@@ -120,8 +139,9 @@ describe('新建对象 asks for the OWD (objectui#5418)', () => {
   });
 
   it('saves a changed choice instead of the default', async () => {
-    const select = await openCreateDialog();
-    fireEvent.change(select, { target: { value: 'public_read' } });
+    const trigger = await openCreateDialog();
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: modelLabel('sharingPublicRead') }));
     fillAndSubmit('Visit');
     await waitFor(() => expect(mockClient.save).toHaveBeenCalled());
     expect(savedBody()).toHaveProperty('sharingModel', 'public_read');

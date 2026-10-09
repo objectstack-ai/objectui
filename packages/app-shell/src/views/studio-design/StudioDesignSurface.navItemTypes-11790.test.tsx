@@ -231,11 +231,33 @@ function typeChoice(type: string, scope: HTMLElement = document.body): HTMLInput
   return hit as HTMLInputElement;
 }
 
-/** Pick `value` in the select named `name`, once the package's list has offered it. */
+/** Open the picker named `name` (the shared `Select` since objectui#11865) and return its listbox. */
+async function openPicker(name: string, scope: HTMLElement = document.body): Promise<HTMLElement> {
+  fireEvent.keyDown(within(scope).getByRole('combobox', { name }), { key: 'ArrowDown' });
+  return await screen.findByRole('listbox');
+}
+
+/** Pick `value` in the picker named `name`, once the package's list has offered it. */
 async function pick(name: string, value: string, scope: HTMLElement = document.body): Promise<void> {
-  const select = within(scope).getByRole('combobox', { name });
-  await within(select).findByRole('option', { name: new RegExp(`\\(${value}\\)|^${value}$`) }, { timeout: 8000 });
-  fireEvent.change(select, { target: { value } });
+  const listbox = await openPicker(name, scope);
+  fireEvent.click(
+    await within(listbox).findByRole('option', { name: new RegExp(`\\(${value}\\)|^${value}$`) }, { timeout: 8000 }),
+  );
+}
+
+/**
+ * The options the picker named `name` lists, once the package's list has
+ * offered `loaded`, in order; the list is closed again after.
+ */
+async function offered(name: string, loaded: RegExp): Promise<string[]> {
+  const listbox = await openPicker(name);
+  await within(listbox).findByRole('option', { name: loaded }, { timeout: 8000 });
+  const labels = within(listbox)
+    .getAllByRole('option')
+    .map((o) => o.textContent ?? '');
+  fireEvent.keyDown(listbox, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+  return labels;
 }
 
 // ---------------------------------------------------------------------------
@@ -310,11 +332,12 @@ describe('StudioNavItemInspector — each target-bearing type picks a target and
     expect(navPayloadOf([entry])).toEqual([entry]);
   });
 
-  it('url: the address is typed, and the entry parses', () => {
+  it('url: the address is typed, and the entry parses', async () => {
     render(<InspectorHost entry={BORN} />);
     fireEvent.click(typeChoice('url'));
     fireEvent.change(screen.getByRole('textbox', { name: 'URL' }), { target: { value: 'https://example.com/help' } });
-    fireEvent.change(screen.getByRole('combobox', { name: 'Open in' }), { target: { value: '_blank' } });
+    const listbox = await openPicker('Open in');
+    fireEvent.click(within(listbox).getByRole('option', { name: 'New tab' }));
     const entry = entryNow();
     expect(entry).toEqual({ id: 'nav_item_3', type: 'url', url: 'https://example.com/help', target: '_blank' });
     expect(NavigationItemSchema.safeParse(entry).success).toBe(true);
@@ -332,27 +355,20 @@ describe('StudioNavItemInspector — each target-bearing type picks a target and
   it('the pickers offer THIS package\'s items: published and draft, less record pages and object-bound actions', async () => {
     render(<InspectorHost entry={BORN} />);
     fireEvent.click(typeChoice('page'));
-    const pagePicker = screen.getByRole('combobox', { name: 'Page' });
-    await within(pagePicker).findByRole('option', { name: /draft_page/ }, { timeout: 8000 });
-    expect(within(pagePicker).getAllByRole('option').map((o) => (o as HTMLOptionElement).value)).toEqual([
-      '',
-      'home',
-      'landing',
-      'draft_page',
-    ]);
+    // Each item is listed as `Label (name)`, or by its name alone when it has no label.
+    expect(await offered('Page', /draft_page/)).toEqual(['— Choose —', 'Home (home)', 'Landing (landing)', 'draft_page']);
     expect(mockClient.list).toHaveBeenCalledWith('page', { packageId: PKG });
     expect(mockClient.listDrafts).toHaveBeenCalledWith({ packageId: PKG, type: 'page' });
 
     fireEvent.click(typeChoice('action'));
-    const actionPicker = screen.getByRole('combobox', { name: 'Action' });
-    await within(actionPicker).findByRole('option', { name: /sync_all/ }, { timeout: 8000 });
-    expect(within(actionPicker).getAllByRole('option').map((o) => (o as HTMLOptionElement).value)).toEqual(['', 'sync_all']);
+    expect(await offered('Action', /sync_all/)).toEqual(['— Choose —', 'Sync all (sync_all)']);
   });
 
   it('clearing a target unbinds the entry: the key is removed, never written as \'\', and the save leaves it out', async () => {
     render(<InspectorHost entry={{ id: 'nav_item_3', type: 'dashboard', dashboardName: 'ops_board' }} />);
-    await within(screen.getByRole('combobox', { name: 'Dashboard' })).findByRole('option', { name: /ops_board/ }, { timeout: 8000 });
-    fireEvent.change(screen.getByRole('combobox', { name: 'Dashboard' }), { target: { value: '' } });
+    const listbox = await openPicker('Dashboard');
+    await within(listbox).findByRole('option', { name: /ops_board/ }, { timeout: 8000 });
+    fireEvent.click(within(listbox).getByRole('option', { name: '— Choose —' }));
     expect(entryNow()).toEqual({ id: 'nav_item_3', type: 'dashboard' });
     expect(navPayloadOf([entryNow()])).toEqual([]);
   });
@@ -394,10 +410,11 @@ describe('StudioNavItemInspector — each target-bearing type picks a target and
     expect(enabled).toEqual(['group', 'object']);
   });
 
-  it('the control: *Link to object* binds an object entry as before', () => {
+  it('the control: *Link to object* binds an object entry as before', async () => {
     render(<InspectorHost entry={BORN} />);
     // The object entry's only combobox is its object picker.
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'acme_task' } });
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: 'Task (acme_task)' }));
     const entry = entryNow();
     expect(entry).toEqual({ id: 'nav_item_3', type: 'object', objectName: 'acme_task' });
     expect(NavigationItemSchema.safeParse(entry).success).toBe(true);

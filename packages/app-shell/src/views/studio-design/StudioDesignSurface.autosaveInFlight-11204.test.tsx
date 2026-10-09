@@ -379,11 +379,11 @@ describe('Interfaces nav autosave — the same claim, in place of its edit gener
   // Add here is bound to the fixture's object in its inspector, and the rail
   // shows it by that object's name.
   const addedItemsInRail = () => within(rail()).queryAllByRole('button', { name: new RegExp(OBJECT.name) }).length;
-  const addBoundItem = () => {
+  const addBoundItem = async () => {
     fireEvent.click(screen.getByRole('button', { name: /Add nav item/ }));
-    const picker = screen.getAllByRole('combobox').find((s) => within(s).queryByRole('option', { name: new RegExp(OBJECT.name) }));
-    if (!picker) throw new Error('the new entry\'s inspector offers no object to bind it to');
-    fireEvent.change(picker, { target: { value: OBJECT.name } });
+    // *Link object* is the shared `Select` since objectui#11865: open its list and pick.
+    fireEvent.keyDown(screen.getByTestId('nav-link-object'), { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: new RegExp(`\\(${OBJECT.name}\\)$`) }));
   };
   const navEditingOpen = () => screen.queryAllByRole('button', { name: /Add nav item/ }).length > 0;
   const savedNavEntries = () =>
@@ -400,9 +400,9 @@ describe('Interfaces nav autosave — the same claim, in place of its edit gener
     await screen.findByRole('button', { name: /Add nav item/ }, { timeout: 8000 });
 
     const release = holdNextSave();
-    addBoundItem();
+    await addBoundItem();
     await screen.findByTestId('nav-autosaving', undefined, { timeout: 8000 });
-    addBoundItem();
+    await addBoundItem();
     expect(addedItemsInRail()).toBe(2);
     // Undo it: the buffer is back to exactly what the save in flight carries.
     const rows = within(rail()).getAllByRole('button', { name: new RegExp(OBJECT.name) });

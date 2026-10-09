@@ -464,11 +464,11 @@ describe('Studio surface — a package switch over an unsaved nav edit (objectui
     fireEvent.click(screen.getByTitle(/^Edit navigation/));
     await screen.findByRole('button', { name: /Add nav item/ }, SLOW);
   }
-  const addItem = (objectName: string = TASK.name) => {
+  const addItem = async (objectName: string = TASK.name) => {
     fireEvent.click(screen.getByRole('button', { name: /Add nav item/ }));
-    const picker = screen.getAllByRole('combobox').find((s) => within(s).queryByRole('option', { name: new RegExp(objectName) }));
-    if (!picker) throw new Error('the new entry\'s inspector offers no object to bind it to');
-    fireEvent.change(picker, { target: { value: objectName } });
+    // *Link object* is the shared `Select` since objectui#11865: open its list and pick.
+    fireEvent.keyDown(screen.getByTestId('nav-link-object'), { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: new RegExp(`\\(${objectName}\\)$`) }));
   };
   async function switchTo(name: RegExp, confirmed: boolean): Promise<void> {
     fireEvent.click(await screen.findByTitle('Switch / create package', undefined, SLOW));
@@ -486,7 +486,7 @@ describe('Studio surface — a package switch over an unsaved nav edit (objectui
     render(surfaceTree());
     await screen.findByRole('button', { name: /Landing menu/ }, SLOW);
     await openEditing();
-    addItem();
+    await addItem();
     expect(addedItems()).toBe(1);
 
     await switchTo(/Beta/, true);
@@ -501,7 +501,7 @@ describe('Studio surface — a package switch over an unsaved nav edit (objectui
 
     // The control: an edit made after the switch saves normally, to the new package's app.
     await openEditing();
-    addItem(BETA_ITEM.name);
+    await addItem(BETA_ITEM.name);
     await waitFor(() => expect(server.saves.filter((s) => s.type === 'app')).toHaveLength(1), SLOW);
     expect(server.saves.map((s) => [s.type, s.name, s.packageId])).toEqual([['app', 'beta_app', PKG_B]]);
     expect(savedNav(server.saves[0].body)).toEqual(['Board menu', { id: 'nav_item_2' }]);
@@ -511,7 +511,7 @@ describe('Studio surface — a package switch over an unsaved nav edit (objectui
     render(surfaceTree());
     await screen.findByRole('button', { name: /Landing menu/ }, SLOW);
     await openEditing();
-    addItem();
+    await addItem();
 
     const release = holdLoad('app', 'beta_app');
     await switchTo(/Beta/, true);
@@ -549,7 +549,7 @@ describe('Studio surface — a package switch over an unsaved nav edit (objectui
     render(surfaceTree());
     await screen.findByRole('button', { name: /Landing menu/ }, SLOW);
     await openEditing();
-    addItem();
+    await addItem();
 
     await switchTo(/Beta/, false);
     expect(confirmSpy).toHaveBeenCalledTimes(1);

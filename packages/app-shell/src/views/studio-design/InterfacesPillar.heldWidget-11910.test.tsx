@@ -294,11 +294,9 @@ describe('a new dashboard widget is held until it is bound (objectui#11910)', ()
     await addMetric();
     fireEvent.click(screen.getByTitle(/^Edit navigation/));
     fireEvent.click(await screen.findByRole('button', { name: /Add nav item/ }, { timeout: 8000 }));
-    const picker = screen
-      .getAllByRole('combobox')
-      .find((s) => within(s).queryByRole('option', { name: new RegExp(TASK.name) }));
-    expect(picker, 'the new entry\'s inspector offers the object to bind it to').toBeTruthy();
-    fireEvent.change(picker!, { target: { value: TASK.name } });
+    // *Link object* is the shared `Select` since objectui#11865: open its list and pick.
+    fireEvent.keyDown(screen.getByTestId('nav-link-object'), { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: new RegExp(`\\(${TASK.name}\\)$`) }));
     await waitFor(() => expect(mockClient.save.mock.calls.filter((c) => c[0] === 'app')).toHaveLength(1), {
       timeout: 4000,
     });

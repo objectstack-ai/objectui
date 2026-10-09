@@ -251,11 +251,11 @@ async function openEditing(): Promise<void> {
  * the fixture's object in its inspector — objectui#11776: an unbound entry is
  * left out of what a save sends.
  */
-function addItem(): void {
+async function addItem(): Promise<void> {
   fireEvent.click(screen.getByRole('button', { name: /Add nav item/ }));
-  const picker = screen.getAllByRole('combobox').find((s) => within(s).queryByRole('option', { name: new RegExp(TASK.name) }));
-  if (!picker) throw new Error('the new entry\'s inspector offers no object to bind it to');
-  fireEvent.change(picker, { target: { value: TASK.name } });
+  // *Link object* is the shared `Select` since objectui#11865: open its list and pick.
+  fireEvent.keyDown(screen.getByTestId('nav-link-object'), { key: 'ArrowDown' });
+  fireEvent.click(await screen.findByRole('option', { name: new RegExp(`\\(${TASK.name}\\)$`) }));
 }
 
 async function clickDone(): Promise<void> {
@@ -280,7 +280,7 @@ describe('Studio surface — "Done" sends a shown nav edit (objectui#11189)', ()
     render(surfaceTree());
     await treeLoaded();
     await openEditing();
-    addItem();
+    await addItem();
     expect(addedItemsInRail()).toBe(1);
 
     const release = holdNextSave();
@@ -319,7 +319,7 @@ describe('Studio surface — "Done" sends a shown nav edit (objectui#11189)', ()
     render(surfaceTree());
     await treeLoaded();
     await openEditing();
-    addItem();
+    await addItem();
 
     server.fail = new Error('navigation.2: Invalid input');
     await clickDone();
@@ -340,11 +340,11 @@ describe('Studio surface — an edit taken while a nav save is in flight (object
     await openEditing();
 
     const release = holdNextSave();
-    addItem();
+    await addItem();
     // The autosave fires after its debounce and is held in flight.
     await screen.findByTestId('nav-autosaving', undefined, { timeout: 8000 });
     expect(server.appSaves).toHaveLength(1);
-    addItem();
+    await addItem();
     expect(addedItemsInRail()).toBe(2);
 
     await release();
@@ -373,9 +373,9 @@ describe('Studio surface — an edit taken while a nav save is in flight (object
     await openEditing();
 
     const releaseFirst = holdNextSave();
-    addItem();
+    await addItem();
     await screen.findByTestId('nav-autosaving', undefined, { timeout: 8000 });
-    addItem();
+    await addItem();
     await clickDone();
     // A save is in flight: "Done" waits for it rather than send beside it.
     expect(server.appSaves).toHaveLength(1);
@@ -410,7 +410,7 @@ describe('Interfaces pillar — a re-read of the same package over an unsent nav
     const { rerender } = render(pillarTree(0));
     await treeLoaded();
     await openEditing();
-    addItem();
+    await addItem();
     expect(addedItemsInRail()).toBe(1);
 
     // Another editor's save (a page draft, the create-app flow) re-reads the app.

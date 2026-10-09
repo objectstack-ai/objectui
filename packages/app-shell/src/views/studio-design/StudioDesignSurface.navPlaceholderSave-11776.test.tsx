@@ -204,12 +204,13 @@ function addItem(): void {
   fireEvent.click(screen.getByRole('button', { name: /Add nav item/ }));
 }
 
-/** Pick the object in the inspector of the selected entry. */
+/** Pick the object in the inspector of the selected entry: the shared `Select` since objectui#11865. */
 async function bindSelected(objectName: string): Promise<void> {
   const inspector = screen.getByRole('complementary');
   const picker = await within(inspector).findByRole('combobox');
-  await within(picker).findByRole('option', { name: new RegExp(objectName) }, { timeout: 8000 });
-  fireEvent.change(picker, { target: { value: objectName } });
+  fireEvent.keyDown(picker, { key: 'ArrowDown' });
+  const listbox = await screen.findByRole('listbox');
+  fireEvent.click(await within(listbox).findByRole('option', { name: new RegExp(`\\(${objectName}\\)$`) }, { timeout: 8000 }));
 }
 
 /** The ids a save carried, in order. */

@@ -159,7 +159,11 @@ const PICKER_OBJECTS = [
   { name: 'draft_thing', label: 'draft_thing' },
 ];
 
-function bind(node: Record<string, unknown>, objectName: string): Record<string, unknown> {
+/**
+ * Bind `objectName` in *Link object*, the shared `Select` since objectui#11865:
+ * open its list and pick the option the picker labels `Label (name)`.
+ */
+async function bind(node: Record<string, unknown>, objectName: string): Promise<Record<string, unknown>> {
   const onNavPatch = vi.fn();
   render(
     <StudioNavItemInspector
@@ -171,7 +175,9 @@ function bind(node: Record<string, unknown>, objectName: string): Record<string,
       onClear={vi.fn()}
     />,
   );
-  fireEvent.change(screen.getByRole('combobox'), { target: { value: objectName } });
+  const object = PICKER_OBJECTS.find((o) => o.name === objectName)!;
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+  fireEvent.click(await screen.findByRole('option', { name: `${object.label} (${object.name})` }));
   expect(onNavPatch).toHaveBeenCalledTimes(1);
   return (onNavPatch.mock.calls[0][0] as { navigation: Array<Record<string, unknown>> }).navigation[0];
 }
@@ -180,21 +186,21 @@ describe('objectui#11201 — binding an object to a placeholder entry leaves it 
   // objectui#11196 re-judged the placeholder: a new canvas entry is born with
   // no `label` (it was born "New item", which this bind then removed).
   for (const objectName of ['account', 'draft_thing']) {
-    it(`a new canvas entry, born label-less, bound to ${objectName} has NO \`label\` key, and parses`, () => {
-      const entry = bind({ id: 'nav_item_1', type: 'object' }, objectName);
+    it(`a new canvas entry, born label-less, bound to ${objectName} has NO \`label\` key, and parses`, async () => {
+      const entry = await bind({ id: 'nav_item_1', type: 'object' }, objectName);
       expect(entry).toMatchObject({ id: 'nav_item_1', type: 'object', objectName });
       expect(Object.prototype.hasOwnProperty.call(entry, 'label')).toBe(false);
       expect(NavigationItemSchema.safeParse(JSON.parse(JSON.stringify(entry))).success).toBe(true);
     });
   }
 
-  it('CONTROL — a label the author typed is kept as authored', () => {
-    const entry = bind({ id: 'nav_clients', type: 'object', label: 'Clients' }, 'account');
+  it('CONTROL — a label the author typed is kept as authored', async () => {
+    const entry = await bind({ id: 'nav_clients', type: 'object', label: 'Clients' }, 'account');
     expect(entry.label).toBe('Clients');
   });
 
-  it('a legacy stored "New item" label is a present label: kept verbatim, no sentinel matching (objectui#11196)', () => {
-    const entry = bind({ id: 'nav_item_2', type: 'object', label: 'New item' }, 'account');
+  it('a legacy stored "New item" label is a present label: kept verbatim, no sentinel matching (objectui#11196)', async () => {
+    const entry = await bind({ id: 'nav_item_2', type: 'object', label: 'New item' }, 'account');
     expect(entry.label).toBe('New item');
   });
 });

@@ -226,9 +226,9 @@ function leaveGuarded(): boolean {
 async function openEditingAndAddItem(): Promise<void> {
   fireEvent.click(screen.getByTitle(/^Edit navigation/));
   fireEvent.click(await screen.findByRole('button', { name: /Add nav item/ }, { timeout: 8000 }));
-  const picker = screen.getAllByRole('combobox').find((s) => within(s).queryByRole('option', { name: new RegExp(TASK.name) }));
-  if (!picker) throw new Error('the new entry\'s inspector offers no object to bind it to');
-  fireEvent.change(picker, { target: { value: TASK.name } });
+  // *Link object* is the shared `Select` since objectui#11865: open its list and pick.
+  fireEvent.keyDown(screen.getByTestId('nav-link-object'), { key: 'ArrowDown' });
+  fireEvent.click(await screen.findByRole('option', { name: new RegExp(`\\(${TASK.name}\\)$`) }));
   expect(addedItemOnScreen()).toBe(true);
 }
 

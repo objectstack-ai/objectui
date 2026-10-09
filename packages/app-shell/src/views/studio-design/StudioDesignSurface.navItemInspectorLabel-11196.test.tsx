@@ -124,18 +124,24 @@ describe('objectui#11196 — emptying the field restores inheritance', () => {
   });
 });
 
+/** Pick an object in *Link object*, the shared `Select` since objectui#11865. */
+async function pickObject(label: string): Promise<void> {
+  fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+  fireEvent.click(await screen.findByRole('option', { name: label }));
+}
+
 describe('objectui#11196 — binding an object leaves the label as it is', () => {
-  it('a label-less entry stays label-less', () => {
+  it('a label-less entry stays label-less', async () => {
     const onNavPatch = renderInspector({ id: 'nav_item_3', type: 'object' });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'account' } });
+    await pickObject('Customers (account)');
     const entry = written(onNavPatch);
     expect(entry).toMatchObject({ id: 'nav_item_3', type: 'object', objectName: 'account' });
     expect(has(entry, 'label')).toBe(false);
   });
 
-  it('a legacy stored "New item" label is a present label: it is kept, verbatim', () => {
+  it('a legacy stored "New item" label is a present label: it is kept, verbatim', async () => {
     const onNavPatch = renderInspector({ id: 'nav_item_3', type: 'object', label: 'New item' });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'account' } });
+    await pickObject('Customers (account)');
     expect(written(onNavPatch).label).toBe('New item');
   });
 });

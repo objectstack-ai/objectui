@@ -10,8 +10,8 @@
  * in Studio would show its no-object notice. These rows drive the REAL
  * inspector and assert the patch it hands the editor: the value lands at node
  * level under `dataSource`, never under `properties`, and the measure picker
- * resolves its object from `dataSource.object`. (`element:repeater` is not in
- * this change: its binding is deferred, objectui#11880.)
+ * resolves its object from `dataSource.object`. (`element:repeater` followed in
+ * objectui#12056; its rows are `PageBlockInspector.repeaterDataSource-12056.test.tsx`.)
  */
 
 import { describe, it, expect, vi, afterEach, type Mock } from 'vitest';
@@ -92,14 +92,6 @@ describe('the designer writes the node-level `dataSource` for element:number (ob
     const block = committedBlock(onPatch);
     expect(block.properties).toEqual({ prefix: '$' });
     expect(block.dataSource).toEqual({ object: 'contact' });
-  });
-
-  it('CONTROL: element:repeater, outside this change, still writes `properties.object`', () => {
-    const onPatch = renderInspector(pageDraft({ type: 'element:repeater', properties: {} }));
-    fireEvent.change(screen.getByLabelText('Object'), { target: { value: 'contact' } });
-    const block = committedBlock(onPatch);
-    expect(block.properties).toEqual({ object: 'contact' });
-    expect(block.dataSource).toBeUndefined();
   });
 
   it('the measure picker reads its object from `dataSource.object`, not a flat `properties.object`', () => {

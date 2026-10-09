@@ -335,11 +335,17 @@ export const BLOCK_CONFIG: Record<string, BlockPropField[]> = {
     { name: 'columns', label: 'engine.inspector.pageBlock.field.element:definition-list.columns', kind: 'number', placeholder: { literal: '1' } },
     { name: 'inline', label: 'engine.inspector.pageBlock.field.element:definition-list.inline', kind: 'boolean' },
   ],
+  // objectui#12056 — the repeater's query is the node-level `dataSource`
+  // binding, which its renderer reads first (objectui#11880), so the Object
+  // picker writes `dataSource.object`, the Limit box writes `dataSource.limit`,
+  // and both field pickers read their object from there. They wrote
+  // `properties.object` / `properties.limit` before: the flat keys the spec
+  // retires in v18 (objectstack#11509), as `element:number`'s row below was.
   'element:repeater': [
-    { name: 'object', label: 'engine.inspector.pageBlock.field.element:repeater.object', kind: 'object-picker' },
-    { name: 'titleField', label: 'engine.inspector.pageBlock.field.element:repeater.titleField', kind: 'field-picker', objectFrom: 'self', objectProp: 'object' },
-    { name: 'fields', label: 'engine.inspector.pageBlock.field.element:repeater.fields', kind: 'field-list', objectFrom: 'self', objectProp: 'object' },
-    { name: 'limit', label: 'engine.inspector.pageBlock.field.element:repeater.limit', kind: 'number', placeholder: { literal: '10' } },
+    { name: 'object', label: 'engine.inspector.pageBlock.field.element:repeater.object', kind: 'object-picker', at: 'dataSource' },
+    { name: 'titleField', label: 'engine.inspector.pageBlock.field.element:repeater.titleField', kind: 'field-picker', objectFrom: 'dataSource' },
+    { name: 'fields', label: 'engine.inspector.pageBlock.field.element:repeater.fields', kind: 'field-list', objectFrom: 'dataSource' },
+    { name: 'limit', label: 'engine.inspector.pageBlock.field.element:repeater.limit', kind: 'number', placeholder: { literal: '10' }, at: 'dataSource' },
     { name: 'emptyText', label: 'engine.inspector.pageBlock.field.element:repeater.emptyText', kind: 'text' },
     { name: 'divided', label: 'engine.inspector.pageBlock.field.element:repeater.divided', kind: 'boolean' },
   ],

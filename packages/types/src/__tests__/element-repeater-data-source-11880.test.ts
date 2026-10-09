@@ -8,9 +8,10 @@
 
 /**
  * `element:repeater` declares the node-level `dataSource` binding, by
- * reference to the spec's `ElementDataSourceSchema`, and keeps
- * `properties.object` required (objectui#11880, the repeater half; ruling
- * objectstack-ai/objectstack#11509, A-narrow, objectui first).
+ * reference to the spec's `ElementDataSourceSchema` (objectui#11880, the
+ * repeater half; ruling objectstack-ai/objectstack#11509, A-narrow, objectui
+ * first), and mirrors the spec gate's `object` waiver beside it
+ * (objectui#12056).
  *
  * ## The defect these pin
  *
@@ -31,9 +32,16 @@
  *     refused at `dataSource` on both faces.
  *   - the TypeScript authoring face (`PublicBlockNodeOf<'element:repeater'>`,
  *     derived from the arm's shape) types `dataSource` as the spec's binding.
- *   - NOT moved: `properties.object` stays REQUIRED. The spec row requires it,
- *     and this arm mirrors no waiver for it, so a bag without `object` is
- *     refused at `properties.object` on both faces whatever the binding says.
+ *   - objectui#12056: `properties.object` is required only where no binding
+ *     names the object. The spec row requires it, and the spec's props gate
+ *     waives it beside a non-empty `dataSource.object`, for every component
+ *     type (`suppliedByDataSource`, `@objectstack/lint`). Until objectui#12056
+ *     this arm mirrored no waiver, so the node the page designer writes once
+ *     its Object picker homes in the binding (`properties: {}` beside
+ *     `dataSource.object`) was refused at `properties.object` on both faces.
+ *     The arm now mirrors the waiver as `element:number`'s does: a bag that
+ *     omits `object` is accepted beside a binding that names one and refused
+ *     without it (`ELEMENT_REPEATER_OBJECT_REQUIRED`).
  */
 
 import { describe, expect, it } from 'vitest';
@@ -80,10 +88,40 @@ describe('`element:repeater` takes the node-level `dataSource` (objectui#11880)'
     }
   });
 
-  it('a binding does not stand in for `properties.object`: a bag without it is refused on both faces', () => {
-    const document = { type: TYPE, properties: { titleField: 'name' }, dataSource: { object: 'contact' } };
-    // The row requires `object` (control), and the arm mirrors no waiver.
-    expect(issuesAt(ROW.safeParse(document.properties) as Result, 'object').map((i) => i.code)).toEqual(['invalid_type']);
+  it('a binding that names the object stands in for `properties.object` on both faces (objectui#12056)', () => {
+    // The node the page designer writes once its Object picker homes in the
+    // binding, and the same with display members in the bag.
+    for (const properties of [{}, { titleField: 'name', fields: ['email'] }]) {
+      const document = { type: TYPE, properties, dataSource: { object: 'contact', limit: 10 } };
+      // Control: the row ALONE refuses this bag at `object`, so the acceptance
+      // below is the waiver's doing, not a bag that never needed it.
+      expect(issuesAt(ROW.safeParse(properties) as Result, 'object').map((i) => i.code)).toEqual(['invalid_type']);
+      for (const [face, parse] of FACES) {
+        expect(parse(document).success, `${face} ${JSON.stringify(properties)}`).toBe(true);
+      }
+    }
+  });
+
+  it('a bag with neither `properties.object` nor a binding naming one is refused at `properties.object` (objectui#12056)', () => {
+    for (const dataSource of [undefined, { object: '' }, { object: 42 }, 'contact', { limit: 10 }]) {
+      const document = { type: TYPE, properties: { titleField: 'name' }, ...(dataSource === undefined ? {} : { dataSource }) };
+      for (const [face, parse] of FACES) {
+        const result = parse(document);
+        const label = `${face} ${JSON.stringify(dataSource)}`;
+        expect(result.success, label).toBe(false);
+        const [issue] = issuesAt(result, 'properties.object');
+        expect(issue?.code, label).toBe('custom');
+        expect((issue as { params?: { code?: string } } | undefined)?.params?.code, label)
+          .toBe('ELEMENT_REPEATER_OBJECT_REQUIRED');
+      }
+    }
+    // Control: the spec's binding schema itself accepts the empty name, so the
+    // refusal of `{ object: '' }` is the waiver's non-empty rule.
+    expect(ElementDataSourceSchema.safeParse({ object: '' }).success).toBe(true);
+  });
+
+  it('the waiver covers an OMITTED `object` only: a wrong one beside a binding is the row\'s refusal (objectui#12056)', () => {
+    const document = { type: TYPE, properties: { object: 7 }, dataSource: { object: 'contact' } };
     for (const [face, parse] of FACES) {
       const result = parse(document);
       expect(result.success, face).toBe(false);
@@ -129,17 +167,25 @@ describe('`element:repeater` takes the node-level `dataSource` (objectui#11880)'
 /**
  * The differential: on every probe the strict face answers what the spec
  * answers — its node schema (`PageComponentSchema`, which judges `dataSource`)
- * together with its row over the bag, judged only when a bag is present, with
- * no waiver on `object`. The spec's props lint carries a type-blind
- * `dataSource` waiver that would let a `dataSource`-only repeater through; the
- * arm deliberately does not mirror it for this element (triage on
- * objectui#11880: `properties.object` stays required until the v18 pin bump).
+ * together with THIS FILE'S MODEL of the spec props gate's documented reading
+ * over the row: the row's issues, less a missing `object` beside a non-empty
+ * `dataSource.object` (`DATASOURCE_SUPPLIED_PROP`, type-blind), judged only
+ * when a bag is present. objectui#11880 modelled the row with no waiver; the
+ * arm mirrors the gate's since objectui#12056, as `element:number`'s does.
  */
-describe('the strict face answers as the spec node schema plus its row do (objectui#11880)', () => {
+describe('the strict face answers as the spec node schema plus the spec gate\'s reading do (objectui#11880, objectui#12056)', () => {
   const specAccepts = (node: Readonly<Record<string, unknown>>): boolean => {
     if (!PageComponentSchema.safeParse(node).success) return false;
     const bag = node.properties;
-    return bag === undefined || ROW.safeParse(bag).success;
+    if (bag === undefined) return true;
+    const parsed = ROW.safeParse(bag) as Result;
+    if (parsed.success) return true;
+    const ds = node.dataSource as { object?: unknown } | undefined;
+    const supplied = !!ds && typeof ds === 'object' && typeof ds.object === 'string' && ds.object.length > 0;
+    const absent = !!bag && typeof bag === 'object' && (bag as { object?: unknown }).object === undefined;
+    return parsed.error!.issues.every(
+      (issue) => supplied && absent && issue.path.length === 1 && issue.path[0] === 'object',
+    );
   };
 
   const PROBES: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
@@ -147,6 +193,10 @@ describe('the strict face answers as the spec node schema plus its row do (objec
     ['bag and binding', { properties: { ...BAG }, dataSource: { ...BINDING } }],
     ['bag and binding naming a saved view', { properties: { ...BAG }, dataSource: { object: 'contact', view: 'active' } }],
     ['bag without object, binding', { properties: { titleField: 'name' }, dataSource: { object: 'contact' } }],
+    ['empty bag, binding (the designer-written node)', { properties: {}, dataSource: { object: 'contact', limit: 10 } }],
+    ['bag without object, no binding', { properties: { titleField: 'name' } }],
+    ['bag without object, empty binding name', { properties: { titleField: 'name' }, dataSource: { object: '' } }],
+    ['bag without object, binding with a bad member', { properties: { titleField: 'name', limit: 'ten' }, dataSource: { object: 'contact' } }],
     ['binding only, no bag', { dataSource: { object: 'contact' } }],
     ['bag and a binding with an alias member', { properties: { ...BAG }, dataSource: { object: 'contact', objectName: 'contact' } }],
     ['bag and a binding that is a string', { properties: { ...BAG }, dataSource: 'contact' }],
@@ -198,6 +248,38 @@ describe('`dataSource` on the repeater arm IS the spec\'s binding (objectui#1188
       // @ts-expect-error `objectName` is not a member of the spec's ElementDataSourceSchema
       dataSource: { object: 'contact', objectName: 'contact' },
     };
-    expect([bound, aliased].map((node) => node.type)).toEqual([TYPE, TYPE]);
+    // objectui#12056: the bag's `object` is optional on the type too, so the
+    // node the page designer writes is a typed literal that compiles.
+    const bindingOnly: PublicBlockNodeOf<'element:repeater'> = {
+      type: TYPE,
+      properties: { titleField: 'name' },
+      dataSource: { object: 'contact', limit: 10 },
+    };
+    expect([bound, aliased, bindingOnly].map((node) => node.type)).toEqual([TYPE, TYPE, TYPE]);
+  });
+});
+
+describe('the repeater bag is its row with `object` alone made optional (objectui#12056)', () => {
+  /** The arm's `properties` member with its `.optional()` peeled off. */
+  const bag = (): z.ZodObject =>
+    ((ElementRepeaterBlockSchema.shape as unknown as Record<string, z.ZodType>).properties as unknown as z.ZodOptional)
+      .unwrap() as unknown as z.ZodObject;
+
+  it('the bag declares exactly the row\'s members, and is closed as the row is', () => {
+    expect(Object.keys(bag().shape).sort()).toEqual(Object.keys(ROW.shape).sort());
+    expect((bag() as unknown as { _zod: { def: { catchall?: { _zod: { def: { type: string } } } } } })._zod.def.catchall?._zod.def.type)
+      .toBe('never');
+  });
+
+  it('every member but `object` IS the row\'s own member object; `object` is the row\'s own, made optional', () => {
+    const rowShape = ROW.shape as Record<string, z.ZodType>;
+    const bagShape = bag().shape as Record<string, z.ZodType>;
+    for (const key of Object.keys(rowShape).filter((k) => k !== 'object')) {
+      expect(bagShape[key], key).toBe(rowShape[key]);
+    }
+    expect((bagShape.object as unknown as { _zod: { def: { type: string } } })._zod.def.type).toBe('optional');
+    expect((bagShape.object as unknown as z.ZodOptional).unwrap()).toBe(rowShape.object);
+    // Control: the row's own `object` is required, which is why the waiver exists.
+    expect(ROW.safeParse({ titleField: 'name' }).success).toBe(false);
   });
 });

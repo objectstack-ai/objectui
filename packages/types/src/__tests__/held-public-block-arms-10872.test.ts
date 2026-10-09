@@ -106,7 +106,11 @@ describe('objectui#10872 batch 4 — the six held blocks are armed, by reference
     expect(PageComponentSchema.safeParse({ type }).success).toBe(true);
   });
 
-  it.each(ARMS)('%s: the bag IS the spec row — nothing restated, nothing stripped', (type, arm) => {
+  // `element:repeater`'s bag is its row with `object` alone made optional since
+  // objectui#12056 (the spec gate's `dataSource` waiver, mirrored as
+  // `element:number`'s is), so it is a clone by construction, pinned member by
+  // member in `./element-repeater-data-source-11880.test.ts`.
+  it.each(ARMS.filter(([type]) => type !== 'element:repeater'))('%s: the bag IS the spec row — nothing restated, nothing stripped', (type, arm) => {
     const row = rowOf(type);
     // All six rows carry no default and no `z.lazy`, so the import boundary is
     // the identity function on them (objectui#8317)…
@@ -175,10 +179,11 @@ describe('objectui#10872 batch 4 — the arm follows the row, which follows the 
       .toBe(true);
   });
 
-  it.each(FACES)('%s face: `element:repeater` requires `object` — no `dataSource` waiver, the binding does not stand in for it (objectui#11880)', (_face, judge) => {
+  it.each(FACES)('%s face: `element:repeater` requires `object` unless a binding names it — the spec gate\'s waiver (objectui#12056)', (_face, judge) => {
     const result = judge({ type: 'element:repeater', properties: { limit: 5 } });
     expect(result.success).toBe(false);
     expect(at(result, 'properties.object').length).toBeGreaterThan(0);
+    expect(judge({ type: 'element:repeater', properties: { limit: 5 }, dataSource: { object: 'task' } }).success).toBe(true);
   });
 
   it.each(FACES)('%s face: `objectName` is the two single actions\' key, and each MEMBER\'s on the containers', (_face, judge) => {

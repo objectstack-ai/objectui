@@ -332,11 +332,14 @@ node carries both, the repeater follows the precedence `ElementDataSourceGate`
 applies to the object-bound blocks above: the binding's `object` wins; `properties.filter` is AND-combined
 with the binding's filter (and its view's), so neither is dropped; and for `sort`
 and `limit` the binding's own key wins, the flat key wins over one the named
-saved view supplies, and the view's is the baseline. The spec still **requires**
-`properties.object` on this element, and so does the schema validator
-(`safeValidateSchema`) on a `properties` bag that omits it, so a repeater names
-its object in its bag even when it binds through `dataSource`. The Studio page
-designer writes the repeater's object into `properties.object` for that reason.
+saved view supplies, and the view's is the baseline. The spec's props row
+declares `properties.object` required, and the spec's props gate waives it when
+`dataSource.object` names an object. The schema validator (`safeValidateSchema`,
+and `objectui validate` with it) applies the same waiver. A repeater that binds
+through `dataSource.object` needs no `properties.object`. A `properties` bag
+with neither is refused at `properties.object`. The Studio page designer writes
+the repeater's object and its row limit into `dataSource`, as it does the
+metric's object.
 
 ```json
 {
@@ -347,7 +350,7 @@ designer writes the repeater's object into `properties.object` for that reason.
     "sort": [{ "field": "due_date", "order": "asc" }],
     "limit": 5
   },
-  "properties": { "object": "task", "titleField": "subject", "fields": ["due_date"] }
+  "properties": { "titleField": "subject", "fields": ["due_date"] }
 }
 ```
 

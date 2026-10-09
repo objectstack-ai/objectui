@@ -32,9 +32,13 @@
  * neither `objectName` nor `dataset` renders blank, and a branch that returns
  * nothing leaves the memo `undefined`, which the render site dereferences.
  *
- * Rendered through the REAL `ObjectChart` (registered by importing
- * `@object-ui/plugin-charts`), so the assertion is what a reader sees, not the
- * node shape alone. Each arm asserts both the refusal and that no aggregate
+ * Rendered through the REAL `ListView` and the REAL `ObjectChart` (registered
+ * by importing `@object-ui/plugin-charts`), so the assertion is what a reader
+ * sees, not the node shape alone. It lives in app-shell because app-shell is
+ * the package that depends on both (`plugin-list` does not depend on
+ * `plugin-charts`); the node each relay composes is pinned beside each relay
+ * (`ListView.chart-capability-7544`, `ObjectView.chartConfigForward-7891`,
+ * plugin-view's `ObjectView.legacyChartRetired-6152`). Each arm asserts both the refusal and that no aggregate
  * query ran, so a branch that grew a floor back would red on the second half
  * even if a refusal still drew somewhere.
  *
@@ -58,7 +62,7 @@ vi.mock('recharts', async () => {
 // a hook, so the registration is not timed against a test's window (AGENTS.md,
 // test discipline).
 import '@object-ui/plugin-charts';
-import { ListView } from '../ListView';
+import { ListView } from '@object-ui/plugin-list';
 import { SchemaRendererProvider } from '@object-ui/react';
 
 const REFUSAL = 'chart-missing-category-axis';

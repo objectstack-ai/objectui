@@ -27,7 +27,7 @@ import {
   type AssignmentExpressionValue,
 } from '@objectstack/spec/automation';
 import { EVALUATED_EXPRESSION_SOURCE_REQUIRED, EvaluatedExpressionSchema } from '@objectstack/spec/shared';
-import type { Diagnostic, FlowValidation, SimEdge, SimNode } from './flow-sim-types.js';
+import type { FlowSimDiagnostic, FlowValidation, SimEdge, SimNode } from './flow-sim-types.js';
 import { conditionText } from '../flow-canvas-layout.js';
 import { missingNodePositions } from '../flow-node-refs.js';
 import { valueEnvelopeRefusal } from '../../inspectors/flow-value-envelope.js';
@@ -315,8 +315,8 @@ export function findCycle(nodeIds: string[], edges: SimEdge[]): string[] | null 
 
 /** Static structural checks; `errors` block Run, `warnings` are advisory. */
 export function validateFlowDraft(nodes: SimNode[], edges: SimEdge[], locale?: string): FlowValidation {
-  const errors: Diagnostic[] = [];
-  const warnings: Diagnostic[] = [];
+  const errors: FlowSimDiagnostic[] = [];
+  const warnings: FlowSimDiagnostic[] = [];
 
   const ids = nodes.map((n) => n.id);
   const idSet = new Set<string>();
@@ -443,11 +443,11 @@ export function validateFlowDraft(nodes: SimNode[], edges: SimEdge[], locale?: s
 export function missingNodeRefDiagnostics(
   flow: { nodes?: unknown; edges?: unknown; variables?: unknown },
   locale?: string,
-): Diagnostic[] {
-  const out: Diagnostic[] = [];
+): FlowSimDiagnostic[] {
+  const out: FlowSimDiagnostic[] = [];
   const seen = new Set<string>();
   for (const p of missingNodePositions(flow)) {
-    let diag: Diagnostic;
+    let diag: FlowSimDiagnostic;
     if (p.kind === 'boundary-host') {
       diag = { level: 'error', nodeId: p.nodeId, message: tFormat('engine.flowValidate.boundaryHostMissing', locale, { id: p.nodeId, host: p.id }) };
     } else if (p.kind === 'expression-root') {

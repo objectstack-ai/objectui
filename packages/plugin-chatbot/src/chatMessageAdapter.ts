@@ -10,16 +10,17 @@
  * The `@object-ui/types` <-> `@object-ui/plugin-chatbot` chat-message seam
  * (objectui#4399).
  *
- * Two `ChatMessage` types meet in `renderer.tsx`, both on purpose:
+ * Two chat-message types meet in `renderer.tsx`, both on purpose:
  *
  *   - `@object-ui/types`' `ChatMessage` is the **authoring** contract — the
  *     JSON an SDUI schema declares (`ChatMessageSchema` in
  *     `packages/types/src/zod/complex.zod.ts`), so it is deliberately wider:
  *     a `'tool'` role and a `Date` timestamp are authorable.
- *   - `./ChatbotEnhanced`'s `ChatMessage` is the **runtime** contract — what
- *     the React components actually render, so it is deliberately narrower
- *     (three roles, string timestamps) and carries render-only keys the
- *     authoring surface has no business declaring (`buildProgress`, `charts`).
+ *   - `./ChatbotEnhanced`'s `ChatbotEnhancedMessage` is the **runtime**
+ *     contract — what the React components actually render, so it is
+ *     deliberately narrower (three roles, string timestamps) and carries
+ *     render-only keys the authoring surface has no business declaring
+ *     (`buildProgress`, `charts`).
  *
  * Until this module they met as three `messages as any` casts, which erased
  * ALL of the drift rather than the parts that are intentional: a new authored
@@ -85,7 +86,7 @@ import type {
 /**
  * The render-only MESSAGE keys — declared by the runtime contract, never by the
  * authoring one. Named here (rather than spelled out at each use) so that
- * adding a render-only key to `ChatbotEnhanced.ChatMessage` and forgetting this
+ * adding a render-only key to `ChatbotEnhancedMessage` and forgetting this
  * list is a one-line fix in one place. objectui#4424.
  */
 type RuntimeOnlyMessageKeys = Pick<

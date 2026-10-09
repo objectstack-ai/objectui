@@ -8,7 +8,16 @@
 
 import { useState, useCallback, useRef } from 'react';
 
-export interface ConfirmDialogState {
+/**
+ * What {@link useConfirmDialog} returns: the dialog's state plus the
+ * functions that drive it.
+ *
+ * `Designer`-prefixed, as `DesignerHistoryState` is: app-shell's
+ * `ConfirmDialogState` is a different thing (the data its action-confirm
+ * dialog renders, with the promise's resolver), and one exported name has one
+ * authority (objectui#6349, batch 6).
+ */
+export interface DesignerConfirmDialogState {
   /** Whether the dialog is open */
   isOpen: boolean;
   /** Title for the dialog */
@@ -26,7 +35,7 @@ export interface ConfirmDialogState {
 /**
  * Hook for confirmation dialogs before destructive actions.
  */
-export function useConfirmDialog(): ConfirmDialogState {
+export function useConfirmDialog(): DesignerConfirmDialogState {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');

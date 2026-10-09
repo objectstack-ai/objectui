@@ -423,20 +423,41 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // `ConditionalFormattingRule` had a THIRD site, `packages/plugin-kanban/src/KanbanEnhanced.tsx`,
   // which left the tree when objectui#8932 deleted that module; the two below still collide.
   ['ConditionalFormattingRule', ['packages/plugin-kanban/src/KanbanImpl.tsx', 'packages/types/src/objectql.ts']],
-  ['ConfirmDialogState', ['packages/app-shell/src/views/ActionConfirmDialog.tsx', 'packages/plugin-designer/src/hooks/useConfirmDialog.ts']],
+  // `ConfirmDialogState` sat here, colliding between
+  // `packages/app-shell/src/views/ActionConfirmDialog.tsx` and
+  // `packages/plugin-designer/src/hooks/useConfirmDialog.ts`. Two meanings that
+  // share only `message`: app-shell's is the DATA its action-confirm dialog
+  // renders (`open`, `options`, the promise's `resolve`), the designer's is a
+  // hook RESULT (`isOpen`, `title` and the `confirm` / `onConfirm` / `onCancel`
+  // functions). Neither package's built entry exports the name. RENAME branch:
+  // the designer's declaration now spells `DesignerConfirmDialogState`
+  // (objectui#6349, batch 6).
   ['ConnectionState', ['packages/collaboration/src/useRealtimeSubscription.ts', 'packages/data-objectstack/src/index.ts']],
   ['DataSource', ['packages/app-shell/src/types.ts', 'packages/types/src/data.ts']],
-  ['Diagnostic', ['packages/app-shell/src/views/metadata-admin/previews/simulator/flow-sim-types.ts', 'packages/cli/src/commands/doctor.ts', 'packages/sdui-parser/src/types.ts']],
-  ['DiagnosticLevel', ['packages/app-shell/src/views/metadata-admin/previews/simulator/flow-sim-types.ts', 'packages/cli/src/commands/doctor.ts']],
+  // `Diagnostic` sat here with THREE sites and three meanings:
+  // `packages/sdui-parser/src/types.ts` (a parser finding: `severity`, `code`,
+  // `start`, `tag` — published at that package's root and read through it),
+  // `packages/app-shell/src/views/metadata-admin/previews/simulator/flow-sim-types.ts`
+  // (a flow structural-check finding anchored on a node, edge or cycle) and
+  // `packages/cli/src/commands/doctor.ts` (a doctor check result with a stable
+  // `id`). Only the first was reachable from its package's built entry, so it
+  // keeps the name; RENAME branch for the other two, which now spell
+  // `FlowSimDiagnostic` and `DoctorDiagnostic` (objectui#6349, batch 6).
+  // `DiagnosticLevel` sat here too, colliding between the same flow-sim and
+  // doctor files: `'error' | 'warning'` there, `'ok' | 'warn' | 'error'` here.
+  // The flow designer's is the one general level (its structural, server and
+  // expression problems all carry it), so it keeps the name and the doctor's
+  // now spells `DoctorDiagnosticLevel` (objectui#6349, batch 6).
   ['DomProps', ['packages/core/src/utils/dom-props.ts', 'packages/fields/src/widgets/toDomProps.ts']],
-  // ⚠️ `FilterBuilderCondition` / `FilterGroup` are NOT one shape declared twice:
-  // the component's condition carries a required `id`, a required narrow `value`
-  // and `operator: string` (the dropdown's camelCase ids); the types copy has no
-  // `id`, `value?: any` and `operator: FilterBuilderOperator` (the snake_case
-  // union). Both headers claim ONE concept, so the remedy is a re-point, and the
-  // only dependency-legal direction (components -> types) retypes `operator` —
-  // the vocabulary objectui#7561 is asking a maintainer to rule on. Both rows
-  // wait for that ruling (objectui#6349, batch 3, stop-and-report).
+  // ⚠️ `FilterBuilderCondition` / `FilterGroup` still carry two declarations,
+  // but no longer two unrelated shapes. objectui#7561 and objectui#9306 are
+  // closed: the maintainer's ruling on objectui#9306 (letter A, comment
+  // `5857342228`) landed as PR objectui#10823, and `@object-ui/components` now
+  // DERIVES both from `@object-ui/types`, restating only `operator` and `value`
+  // as named extensions on the row (and the row-typed `conditions` on the
+  // group). A derived declaration is still an authority to this gate, so both
+  // rows stay until a batch measures a rename against that ruling
+  // (objectui#6349, batch 3 parked them; batch 6 recorded the ruling).
   ['FilterBuilderCondition', ['packages/components/src/custom/filter-builder.tsx', 'packages/types/src/complex.ts']],
   ['FilterBuilderOperator', ['packages/components/src/custom/filter-builder.tsx', 'packages/types/src/complex.ts']],
   ['FilterGroup', ['packages/components/src/custom/filter-builder.tsx', 'packages/types/src/complex.ts']],

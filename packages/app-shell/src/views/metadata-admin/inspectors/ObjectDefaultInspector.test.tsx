@@ -176,7 +176,7 @@ describe('ObjectDefaultInspector — access section (ADR-0066 D2/D3/④/⑤)', (
       />,
     );
     expect(screen.getByText('Access')).toBeInTheDocument();
-    expect(screen.getByTestId('object-access-posture')).toHaveTextContent(/^Public/);
+    expect(screen.getByTestId('object-access-posture').textContent).toBe('Public — covered by wildcard grants (default)');
   });
 
   it('patches access.default=private and clears it back to the spec default', () => {
@@ -202,7 +202,7 @@ describe('ObjectDefaultInspector — access section (ADR-0066 D2/D3/④/⑤)', (
         readOnly={false}
       />,
     );
-    expect(screen.getByTestId('object-access-posture')).toHaveTextContent(/^Private/);
+    expect(screen.getByTestId('object-access-posture').textContent).toBe('Private — needs an explicit grant');
     // The private hint warns that a grant must exist before publishing.
     expect(screen.getByText(/Make sure some permission set grants/i)).toBeInTheDocument();
     pickPosture('Public');

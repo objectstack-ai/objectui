@@ -72,7 +72,7 @@ describe('the object inspector picks the access posture with the shared Select (
     const el = trigger();
     expect(el.tagName).toBe('BUTTON');
     expect(el).toHaveAttribute('role', 'combobox');
-    expect(el).toHaveTextContent(PUBLIC);
+    expect(el.textContent).toBe(PUBLIC);
     expect(el).not.toHaveAccessibleName();
   });
 
@@ -94,7 +94,7 @@ describe('the object inspector picks the access posture with the shared Select (
     ['an off-spec value', { access: { default: 'weird' } }, PUBLIC, PRIVATE, [MADE_PRIVATE]],
   ] as const)('stored %s: shown %s, picking %s writes %j', async (_name, draft, shown, picked, expected) => {
     const patches = mount(draft);
-    expect(trigger()).toHaveTextContent(shown);
+    expect(trigger().textContent).toBe(shown);
     fireEvent.keyDown(trigger(), { key: 'ArrowDown' });
     fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: picked }));
     await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
@@ -104,7 +104,7 @@ describe('the object inspector picks the access posture with the shared Select (
   it('read-only disables the trigger, which then opens nothing', () => {
     mount({ access: { default: 'private' } }, true);
     expect(trigger()).toBeDisabled();
-    expect(trigger()).toHaveTextContent(PRIVATE);
+    expect(trigger().textContent).toBe(PRIVATE);
     fireEvent.keyDown(trigger(), { key: 'ArrowDown' });
     expect(screen.queryByRole('listbox')).toBeNull();
   });

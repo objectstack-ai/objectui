@@ -1121,10 +1121,15 @@ function describeRefusedPageSize(
 
 /**
  * Field-level READ for the field lists the toolbar offers: the Filter panel's
- * (`filterFields`, objectui#11925) and the Sort picker's (`sortFields`,
- * objectui#11943). The two lists used to disagree: objectui#11925 wrote this
- * predicate inside the filter memo, so the sort picker never asked it. It now
- * lives once, here, and both lists call it.
+ * (`filterFields`, objectui#11925), the Sort picker's (`sortFields`,
+ * objectui#11943), and since objectui#11984 the list the hide-fields popover,
+ * the Group editor and the Row color select share (`allFields`, which the
+ * compact toolbar's View settings popover reads too) and the user-filter
+ * chips (`filterElements`). The first two lists used to disagree:
+ * objectui#11925 wrote this predicate inside the filter memo, so the sort
+ * picker never asked it. It now lives once, here, and every list calls it.
+ * Which lists exist is re-derived by the enumeration pin in
+ * `ListView.fieldListRead-11984.test.tsx`, not by this comment.
  *
  * It is the same call the column gate (`effectiveFields`) makes,
  * `perms.checkField(objectName, field, 'read')`, behind the same gate: until
@@ -1132,8 +1137,8 @@ function describeRefusedPageSize(
  * true. An unanswered policy filters nothing, exactly as the columns defer.
  *
  * A plain function of the permission value and the object name rather than a
- * hook. Both memos already depend on those two, so neither memo depends on a
- * function's identity (AGENTS.md #10).
+ * hook. Every memo that calls it already depends on those two, so none depends
+ * on a function's identity (AGENTS.md #10).
  */
 function canReadField(
   perms: ReturnType<typeof usePermissions>,
@@ -1678,9 +1683,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
     return { ...configured, fields: derivedFields };
   }, [schema.userFilters, objectDef, tFieldLabel]);
-
-  // ADR-0053: userFilters (dropdown | tabs) is the sole page filter control.
-  const filterElements = resolvedUserFilters;
+  // The chips the toolbar renders are `filterElements`, which asks the field
+  // read; it is declared below `perms` (objectui#11984).
 
   // Hidden Fields State (initialized from schema)
   const [hiddenFields, setHiddenFields] = React.useState<Set<string>>(
@@ -3218,11 +3222,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // The other field lists are not built from it, and each asks the same read
   // itself. The `$select` projection in the data-fetch effect filters the
   // declared columns with the same call; `perms` is read before that effect so
-  // it can. The Filter panel's list and the Sort picker's list ask through
-  // `canReadField` (objectui#11925, objectui#11943). One exception: the Sort
-  // picker keeps a field the current sort already names, so its row can be
-  // removed. It lists that field disabled, so no other row and no "Add sort"
-  // can choose it.
+  // it can. The Filter panel's list, the Sort picker's list, the list the
+  // hide-fields popover, the Group editor and the Row color select share
+  // (`allFields`), and the user-filter chips (`filterElements`) ask through
+  // `canReadField` (objectui#11925, objectui#11943, objectui#11984). Two
+  // exceptions keep a field the current state already names: the Sort picker
+  // lists it disabled, so its row can be removed but no other row and no "Add
+  // sort" can choose it; a user-filter chip whose field a held selection names
+  // stays, so that selection can be cleared.
   const effectiveFields = React.useMemo(() => {
     // Defensive: `columns` is `string[] | ListColumn[]`, but metadata is
     // user-authored — anything non-array degrades to "no declared columns".
@@ -4487,9 +4494,20 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   }, [data, effectiveFields, resolvedExportOptions, schema.objectName, authoredFilter, schema.searchableFields, exportPermitted, dataSource, appliedFilters, appliedUserFilterConditions, currentSort, searchTerm, objectDef, resolveObjectLabel]);
 
   // All available fields for hide/show (with i18n)
+  //
+  // objectui#11984 — this one list is what the hide-fields popover, the Group
+  // editor and the Row color select offer, in the toolbar and in the compact
+  // toolbar's View settings popover alike, so the field read is asked here,
+  // once, through `canReadField`: a column the caller may not read is offered
+  // by none of them. Until the permission answer loads, nothing is withheld,
+  // as the column gate defers. A grouping level that already names a withheld
+  // field still shows: `GroupingEditor` mounts a value its options do not
+  // carry as its own entry, labelled with the field name, so the level can be
+  // removed, and no other level or "Add group field" offers it.
   const allFields = React.useMemo(() => {
     return (Array.isArray(schema.columns) ? (schema.columns as any[]) : []).flatMap((f: any) => {
       if (typeof f === 'string') {
+        if (!canReadField(perms, schema.objectName, f)) return [];
         return [{ name: f, label: tFieldLabel(f, f) }];
       }
       // `name` here is this popover's OWN key (it drives `hiddenFields`), which
@@ -4498,10 +4516,62 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       const name = columnIdentity(f);
       // No resolvable identity → nothing to hide or show; it used to render a
       // checkbox keyed `undefined` that could never match a column.
-      if (!name) return [];
+      if (!name || !canReadField(perms, schema.objectName, name)) return [];
       return [{ name, label: tFieldLabel(name, f.label || name) }];
     });
-  }, [schema.columns, tFieldLabel]);
+  }, [schema.columns, tFieldLabel, perms, schema.objectName]);
+
+  // objectui#11984 — what the two hide-fields lists (the toolbar popover and
+  // the View settings section) are handed of `hiddenFields`. An entry naming a
+  // field the caller may not read is WITHHELD from them: not listed, not
+  // counted in their badges, not cleared by their "Show all", and put back by
+  // every write they make, so the stored list keeps it. Hiding such a column
+  // changes nothing for this caller, since the column gate already drops it,
+  // and a "Show all" that cleared it would rewrite the view for its other
+  // viewers through an entry this caller was never shown. With nothing
+  // withheld (full read, or no answer loaded yet) both are exactly
+  // `hiddenFields` and `updateHiddenFields`. Plain per-render values, not
+  // memos (AGENTS.md #10).
+  const withheldHiddenFields = [...hiddenFields].filter((name) => !canReadField(perms, schema.objectName, name));
+  const offeredHiddenFields = withheldHiddenFields.length === 0
+    ? hiddenFields
+    : new Set([...hiddenFields].filter((name) => !withheldHiddenFields.includes(name)));
+  const updateOfferedHiddenFields = (next: Set<string>) =>
+    updateHiddenFields(withheldHiddenFields.length === 0 ? next : new Set([...next, ...withheldHiddenFields]));
+
+  // objectui#11984 — a row-color rule on a field the caller may not read is
+  // withheld from both Row color selects the same way: they show "None" with
+  // no Clear, and the trigger is not marked active. The rule itself stays in
+  // `rowColorConfig`, which only a pick in those selects ever replaces. It
+  // colors nothing for this caller: their fetch does not ask for a field they
+  // may not read and the server masks it out of their rows, so the rows carry
+  // no value to color by.
+  const offeredRowColorConfig =
+    rowColorConfig && canReadField(perms, schema.objectName, rowColorConfig.field) ? rowColorConfig : undefined;
+
+  /**
+   * The user-filter chips the toolbar renders (ADR-0053: `userFilters`, dropdown
+   * or tabs, is the sole page filter control).
+   *
+   * objectui#11984 — the dropdown and toggle chips are a field list too, whether
+   * the author named the fields or `resolvedUserFilters` derived them from the
+   * object definition, so each asks `canReadField`. A chip on a field the caller
+   * may not read is dropped: a value chosen on it is a filter the server refuses
+   * with 403, and the list blanks. The exception is a chip whose field a held
+   * selection already names, the applied user filter or a selection the host
+   * restored (`userFilterSelections`): it stays, so the filter it holds can be
+   * cleared, as the Sort picker keeps a field its current sort names. The
+   * preset tabs carry filters, not a field list, and pass through unchanged.
+   */
+  const filterElements = React.useMemo(() => {
+    if (!resolvedUserFilters?.fields?.length) return resolvedUserFilters;
+    const held = new Set(Object.keys(userFilterSelections ?? {}).filter((field) => userFilterSelections?.[field]?.length));
+    for (const condition of userFilterConditions) if (Array.isArray(condition)) held.add(condition[0]);
+    return {
+      ...resolvedUserFilters,
+      fields: resolvedUserFilters.fields.filter((f) => held.has(f.field) || canReadField(perms, schema.objectName, f.field)),
+    };
+  }, [resolvedUserFilters, userFilterConditions, userFilterSelections, perms, schema.objectName]);
 
   /**
    * The list region's ARIA attributes, read through the ONE reader of the
@@ -4663,14 +4733,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 size="sm"
                 className={cn(
                   "hidden sm:inline-flex h-7 px-2 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
-                  hiddenFields.size > 0 && "text-primary"
+                  offeredHiddenFields.size > 0 && "text-primary"
                 )}
               >
                 <EyeOff className="h-3.5 w-3.5 mr-1.5" />
                 <span className="hidden sm:inline">{t('list.hideFields')}</span>
-                {hiddenFields.size > 0 && (
+                {offeredHiddenFields.size > 0 && (
                   <span className="ml-1 flex h-4 min-w-[16px] items-center justify-center text-[10px] font-medium text-muted-foreground tabular-nums">
-                    {hiddenFields.size}
+                    {offeredHiddenFields.size}
                   </span>
                 )}
               </Button>
@@ -4679,8 +4749,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               <div className="space-y-2">
                 <div className="flex items-center justify-between border-b pb-2">
                   <h4 className="font-medium text-sm">{t('list.hideFieldsTitle')}</h4>
-                  {hiddenFields.size > 0 && (
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => updateHiddenFields(new Set())}>
+                  {offeredHiddenFields.size > 0 && (
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => updateOfferedHiddenFields(new Set())}>
                       {t('list.showAll')}
                     </Button>
                   )}
@@ -4690,15 +4760,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                     <label key={field.name} className="flex items-center gap-2 text-sm py-1 px-1 rounded hover:bg-muted cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={!hiddenFields.has(field.name)}
+                        checked={!offeredHiddenFields.has(field.name)}
                         onChange={() => {
-                          const next = new Set(hiddenFields);
+                          const next = new Set(offeredHiddenFields);
                           if (next.has(field.name)) {
                             next.delete(field.name);
                           } else {
                             next.add(field.name);
                           }
-                          updateHiddenFields(next);
+                          updateOfferedHiddenFields(next);
                         }}
                         className="rounded border-input"
                       />
@@ -4894,7 +4964,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 size="sm"
                 className={cn(
                   "hidden sm:inline-flex h-7 px-2 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
-                  rowColorConfig && "text-foreground font-medium"
+                  offeredRowColorConfig && "text-foreground font-medium"
                 )}
               >
                 <Paintbrush className="h-3.5 w-3.5 mr-1.5" />
@@ -4905,7 +4975,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               <div className="space-y-2">
                 <div className="flex items-center justify-between border-b pb-2">
                   <h4 className="font-medium text-sm">{t('list.rowColor')}</h4>
-                  {rowColorConfig && (
+                  {offeredRowColorConfig && (
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setRowColorConfig(undefined)} data-testid="clear-row-color">
                       {t('list.clear')}
                     </Button>
@@ -4915,13 +4985,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                   <label className="text-xs text-muted-foreground">{t('list.colorByField')}</label>
                   <select
                     className="w-full h-8 rounded border border-input bg-background px-2 text-xs"
-                    value={rowColorConfig?.field || ''}
+                    value={offeredRowColorConfig?.field || ''}
                     onChange={(e) => {
                       const field = e.target.value;
                       if (!field) {
                         setRowColorConfig(undefined);
                       } else {
-                        setRowColorConfig({ field, colors: rowColorConfig?.colors || {} });
+                        setRowColorConfig({ field, colors: offeredRowColorConfig?.colors || {} });
                       }
                     }}
                     data-testid="color-field-select"
@@ -5021,13 +5091,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               groupingConfig={groupingConfig}
               setGroupingConfig={changeGrouping}
               showColor={toolbarFlags.showColor}
-              rowColorConfig={rowColorConfig}
+              rowColorConfig={offeredRowColorConfig}
               setRowColorConfig={setRowColorConfig}
               showDensity={toolbarFlags.showDensity}
               density={density as any}
               showHideFields={toolbarFlags.showHideFields}
-              hiddenFields={hiddenFields}
-              updateHiddenFields={updateHiddenFields}
+              hiddenFields={offeredHiddenFields}
+              updateHiddenFields={updateOfferedHiddenFields}
               /* [#4647] The compact toolbar's inline-edit entry — the SECOND
                  render site for this affordance, and the one with no gate at
                  all: it never even required `onInlineEditChange`. Same

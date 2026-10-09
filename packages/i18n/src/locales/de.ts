@@ -3317,6 +3317,10 @@ const de = {
         seed: "Beispieldaten",
       },
       moreArtifacts: "+{{n}} weitere",
+      verifying: "Änderung wird geprüft…",
+      verifyStep: "Schritt {{n}}",
+      verified: "Änderung geprüft",
+      unknownPhase: "Unbekannte Build-Phase",
     },
   },
   chatbotError: {

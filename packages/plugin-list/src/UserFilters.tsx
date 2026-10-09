@@ -388,6 +388,64 @@ interface DropdownFiltersProps {
   onSelectionsChange?: (selections: Record<string, Array<string | number | boolean>>) => void;
 }
 
+/** Selected values per field name, the dropdown bar's whole filter state. */
+type DropdownSelection = Record<string, (string | number | boolean)[]>;
+
+/**
+ * The starting selection for `fields`: the author's `defaultValues`,
+ * overridden by a restored selection (`initialSelections`, e.g. the host's
+ * `uf_*` URL params). One rule for the fields present at mount and for a
+ * field that appears later (objectui#12001).
+ */
+function startingSelections(
+  fields: DropdownFiltersProps['fields'],
+  initialSelections: DropdownFiltersProps['initialSelections'],
+  controlKinds: Map<string, (typeof FILTER_CONTROL_KINDS)[string] | undefined>,
+): DropdownSelection {
+  const init: DropdownSelection = {};
+  fields.forEach(f => {
+    if (f.defaultValues && f.defaultValues.length > 0) {
+      init[f.field] = f.defaultValues;
+    }
+    // Restored selections (e.g. from URL params) override author defaults.
+    const restored = initialSelections?.[f.field];
+    if (restored && restored.length > 0) {
+      init[f.field] = restored;
+    }
+    // A single-choice control can never hold more than one value, whatever
+    // an author default or a hand-edited URL claims. (A `range` holds its
+    // [from, to] pair; `text` its one query — both self-limit.)
+    if (controlKinds.get(f.field) === 'single-choice' && (init[f.field]?.length ?? 0) > 1) {
+      init[f.field] = init[f.field].slice(0, 1);
+    }
+  });
+  return init;
+}
+
+/**
+ * URL-restored values arrive as strings; coerce them against the resolved
+ * option value types so the checkbox state (`selected.includes(opt.value)`)
+ * matches typed options (numbers, booleans), and the query condition uses the
+ * same coerced value. Returns `selection` itself when nothing changed.
+ */
+function coerceToOptionTypes(selection: DropdownSelection, resolvedFields: ResolvedField[]): DropdownSelection {
+  const coerced: DropdownSelection = {};
+  let changed = false;
+  for (const [field, values] of Object.entries(selection)) {
+    const rf = resolvedFields.find(f => f.field === field);
+    const next = values.map(v => {
+      if (!rf || typeof v !== 'string') return v;
+      const opt = rf.options.find(o => String(o.value) === v);
+      if (opt && opt.value !== v) return opt.value;
+      if (rf.type === 'boolean' && (v === 'true' || v === 'false')) return v === 'true';
+      return v;
+    });
+    coerced[field] = next;
+    if (next.some((v, i) => v !== values[i])) changed = true;
+  }
+  return changed ? coerced : selection;
+}
+
 function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, className, initialSelections, onSelectionsChange }: DropdownFiltersProps) {
   const { fieldLabel, translateOptions } = useSafeFieldLabel();
   const moreLabel = useMoreLabel();
@@ -400,28 +458,21 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
     () => new Map(fields.map(f => [f.field, FILTER_CONTROL_KINDS[f.type ?? '']])),
     [fields],
   );
-  const [selectedValues, setSelectedValues] = React.useState<
-    Record<string, (string | number | boolean)[]>
-  >(() => {
-    const init: Record<string, (string | number | boolean)[]> = {};
-    fields.forEach(f => {
-      if (f.defaultValues && f.defaultValues.length > 0) {
-        init[f.field] = f.defaultValues;
-      }
-      // Restored selections (e.g. from URL params) override author defaults.
-      const restored = initialSelections?.[f.field];
-      if (restored && restored.length > 0) {
-        init[f.field] = restored;
-      }
-      // A single-choice control can never hold more than one value, whatever
-      // an author default or a hand-edited URL claims. (A `range` holds its
-      // [from, to] pair; `text` its one query — both self-limit.)
-      if (controlKinds.get(f.field) === 'single-choice' && (init[f.field]?.length ?? 0) > 1) {
-        init[f.field] = init[f.field].slice(0, 1);
-      }
-    });
-    return init;
-  });
+  const [selectedValues, setSelectedValues] = React.useState<DropdownSelection>(
+    () => startingSelections(fields, initialSelections, controlKinds),
+  );
+
+  // Field names whose starting selection this mount has already settled: the
+  // fields present at mount (the initializer above) and every field that has
+  // appeared since (the arrival effect below). A list whose chips derive from
+  // the object definition mounts with NO fields, because the definition loads
+  // after it (objectui#12001); settling each name exactly once is what keeps a
+  // later rebuild of the field list from overwriting a value the user has
+  // since chosen or cleared.
+  const settledFieldsRef = React.useRef<Set<string> | null>(null);
+  if (settledFieldsRef.current === null) {
+    settledFieldsRef.current = new Set(fields.map(f => f.field));
+  }
 
   // Option counts must reflect the result set BEFORE the field's own
   // selection narrows it — the server returns already-filtered rows, so
@@ -484,34 +535,44 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
     onSelectionsChange?.(next);
   };
 
-  // Emit default/restored filters on mount. URL-restored values arrive as
-  // strings; coerce them against the resolved option value types so the
-  // checkbox state (`selected.includes(opt.value)`) matches typed options
-  // (numbers, booleans) — the query condition uses the same coerced value.
+  // Emit default/restored filters on mount, coerced to the option value types
+  // (see `coerceToOptionTypes`) so the checkbox state and the query condition
+  // read the same typed value.
   React.useEffect(() => {
-    let current = selectedValues;
-    const coerced: Record<string, (string | number | boolean)[]> = {};
-    let changed = false;
-    for (const [field, values] of Object.entries(current)) {
-      const rf = resolvedFields.find(f => f.field === field);
-      const next = values.map(v => {
-        if (!rf || typeof v !== 'string') return v;
-        const opt = rf.options.find(o => String(o.value) === v);
-        if (opt && opt.value !== v) return opt.value;
-        if (rf.type === 'boolean' && (v === 'true' || v === 'false')) return v === 'true';
-        return v;
-      });
-      coerced[field] = next;
-      if (next.some((v, i) => v !== values[i])) changed = true;
-    }
-    if (changed) {
-      setSelectedValues(coerced);
-      current = coerced;
-    }
+    const current = coerceToOptionTypes(selectedValues, resolvedFields);
+    if (current !== selectedValues) setSelectedValues(current);
     const hasSelections = Object.values(current).some(v => v.length > 0);
     if (hasSelections) emitFilters(current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // A field that appears AFTER mount gets the starting selection the mount
+  // would have given it, once (objectui#12001). That is how a URL-restored
+  // selection reaches chips derived from an object definition that loaded
+  // after the list mounted: the chip shows it and the query carries it. Like
+  // the mount emit above, it reports through `onFilterChange` only; the
+  // selection came from the host, so nothing is echoed back through
+  // `onSelectionsChange`. A list with declared fields settles them all at
+  // mount, so this adopts nothing there unless the declared list itself grows.
+  //
+  // Keyed on the field NAMES, a primitive, not on the `fields` array: the
+  // host rebuilds that array on every definition render (AGENTS.md #10).
+  const fieldNamesKey = JSON.stringify(fields.map(f => f.field));
+  React.useEffect(() => {
+    const settled = settledFieldsRef.current!;
+    const arrived = fields.filter(f => !settled.has(f.field));
+    if (arrived.length === 0) return;
+    arrived.forEach(f => settled.add(f.field));
+    const adopted = coerceToOptionTypes(
+      startingSelections(arrived, initialSelections, controlKinds),
+      resolvedFields,
+    );
+    if (Object.keys(adopted).length === 0) return;
+    const next = { ...selectedValues, ...adopted };
+    setSelectedValues(next);
+    emitFilters(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fieldNamesKey]);
 
   // Split fields into visible and overflow based on maxVisible
   const visibleFields = maxVisible !== undefined && maxVisible < resolvedFields.length

@@ -324,6 +324,8 @@ describe('a new flow is born switched off, as the bar promises (objectui#11779)'
     fireEvent.change(await screen.findByPlaceholderText(en('engine.studio.auto.namePlaceholder')), {
       target: { value: 'Offer notice' },
     });
+    // objectui#11861 — the blank flow is the dialog's *Advanced* choice.
+    fireEvent.click(screen.getByRole('radio', { name: en('engine.studio.rules.advanced') }));
     fireEvent.click(screen.getByRole('button', { name: en('engine.studio.createDraft') }));
 
     await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 8000 });

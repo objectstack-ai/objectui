@@ -212,6 +212,9 @@ export function FlowCanvas({
   const nodes = React.useMemo(() => withCanonicalGeometry(storedNodes), [storedNodes]);
 
   const viewportRef = React.useRef<HTMLDivElement>(null);
+  // objectui#11795 — the viewport width the diagram was last framed at (the
+  // mount centering, or a re-fit after the canvas's width changed).
+  const framedWidthRef = React.useRef<number | null>(null);
   const [zoom, setZoom] = React.useState(1);
   const [pan, setPan] = React.useState<Point>({ x: 0, y: 0 });
   // objectui#11778 — which "+" has the add-node palette open: `toolbar`,
@@ -737,8 +740,42 @@ export function FlowCanvas({
       x: (vp.clientWidth - size.width) / 2,
       y: Math.max(16, (vp.clientHeight - size.height) / 2),
     });
+    framedWidthRef.current = vp.clientWidth;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // objectui#11795 — re-fit when the canvas's own WIDTH changes: a window
+  // resize, the Studio chat dock opening or closing, a side panel toggled
+  // beside the canvas. Without it the mount framing outlived its width: opened
+  // narrow and then widened, the diagram stayed where the narrow box put it,
+  // its cards clipped at the left edge. The fit is the toolbar's, capped at
+  // 100% so a small flow is not zoomed up past the scale it opens at.
+  //
+  // Width only, never height, which keeps the promise above: the size changes
+  // an edit causes are vertical — a held-edit or refused-save notice landing
+  // above the canvas, a Problems list growing under it — and must not yank the
+  // viewport from under the author. A node add, drag or edit changes the
+  // diagram, not the canvas, and re-arms this observer at the width it already
+  // framed, so it moves nothing. A 0 width is a hidden canvas: nothing to fit.
+  React.useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      const width = vp.clientWidth;
+      if (width === 0 || width === framedWidthRef.current) return;
+      framedWidthRef.current = width;
+      const pad = 32;
+      // 1 is under MAX_ZOOM, so only the MIN_ZOOM floor of `clampZoom` can bind.
+      const z = Math.max(MIN_ZOOM, Math.min(1, (width - pad) / size.width, (vp.clientHeight - pad) / size.height));
+      setZoom(z);
+      setPan({
+        x: (width - size.width * z) / 2,
+        y: Math.max(16, (vp.clientHeight - size.height * z) / 2),
+      });
+    });
+    observer.observe(vp);
+    return () => observer.disconnect();
+  }, [size.height, size.width]);
 
   // Pan to center an element when the Problems panel asks to reveal it. Driven
   // by a changing `nonce` so re-clicking the same problem re-centers it.

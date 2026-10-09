@@ -3316,6 +3316,10 @@ const ko = {
         seed: "샘플 데이터",
       },
       moreArtifacts: "외 {{n}}개",
+      verifying: "변경 사항 확인 중…",
+      verifyStep: "{{n}}단계",
+      verified: "변경 사항 확인 완료",
+      unknownPhase: "알 수 없는 빌드 단계",
     },
   },
   chatbotError: {

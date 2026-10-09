@@ -3847,6 +3847,9 @@ const en = {
   //                   `building`/`built` interpolate `appFallback` when the
   //                   build has no app label, so each pack must keep BOTH
   //                   frames in the one case/gender that noun phrase is in.
+  //                   `verifying`/`verifyStep`/`verified` are the post-apply
+  //                   verification line and `unknownPhase` the warning for a
+  //                   phase outside the spec's vocabulary (objectui#11988).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
   //                   FAMILIES: one slot per CLDR category the pack's language
   //                   selects (objectui#11432), plus the base key for a call
@@ -3935,6 +3938,10 @@ const en = {
         seed: 'Sample data',
       },
       moreArtifacts: '+{{n}} more',
+      verifying: 'Checking the change…',
+      verifyStep: 'step {{n}}',
+      verified: 'Checked the change',
+      unknownPhase: 'Unknown build phase',
     },
   },
   chatbotError: {

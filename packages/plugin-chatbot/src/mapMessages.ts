@@ -14,6 +14,7 @@
  * apps that drive `useChat` themselves (e.g. Studio, which needs a custom
  * `prepareSendMessagesRequest` transport).
  */
+import type { BUILD_PROGRESS_FRAME_TYPE, BuildProgressPhase } from '@objectstack/spec/ai';
 import type { ChatMessage, ChatToolInvocation, ChatSource, ChatBuildProgress, ChatBlueprintProgress, ChatChart } from './ChatbotEnhanced';
 
 interface AnyPart {
@@ -824,21 +825,76 @@ function extractSources(parts: AnyPart[]): ChatSource[] | undefined {
 }
 
 /**
- * Lift the live build progress from the stream's reconciled `data-build-progress`
+ * The build-progress frame vocabulary of `@objectstack/spec/ai`, read through
+ * its TYPES (objectui#11988). Both constants are typed by the spec's own
+ * declarations, so the compiler refuses a value the spec does not declare and,
+ * for the phases, requires a row for every phase it does: neither can drift
+ * from the vocabulary. The spec's runtime `BUILD_PROGRESS_PHASES` is not
+ * imported: its module does not tree-shake, and a value import of it moved the
+ * console's eager closure about 27 KB gzipped over budget (a one-time reading
+ * of `pnpm check:eager-closure` against `fff07fbba`, objectui#11988). The
+ * type-only import is erased from the published typings, so it asks nothing of
+ * the package's spec floor. `buildVerify-11988.test.tsx` reads the runtime
+ * array and pins every member.
+ */
+const BUILD_FRAME_TYPE: typeof BUILD_PROGRESS_FRAME_TYPE = 'data-build-progress';
+const BUILD_PHASES: Record<BuildProgressPhase, true> = { structure: true, data: true, verify: true, done: true };
+
+/**
+ * The part id cloud's post-apply verification loop reports on (cloud PR #2721's
+ * wire shape, cloud#2172 ruling A). It rides the same `data-build-progress`
+ * type as the apply_blueprint tree but under its own stable id, so the two
+ * reconcile side by side on one message (objectui#11988).
+ */
+const BUILD_VERIFY_PART_ID = 'build-verify';
+
+/**
+ * A frame's phase, read against the spec's closed vocabulary. A value outside
+ * it is `unknown` — never coerced to a neighbouring phase, which is how a
+ * finished build used to read as "Building" (objectui#7388).
+ */
+function readBuildPhase(phase: unknown): ChatBuildProgress['phase'] {
+  return typeof phase === 'string' && Object.prototype.hasOwnProperty.call(BUILD_PHASES, phase)
+    ? (phase as BuildProgressPhase)
+    : 'unknown';
+}
+
+/** The `data` of the LAST `data-build-progress` part on the message that `pick` keeps. */
+function buildFrame(parts: AnyPart[], pick: (id?: string) => boolean): Record<string, unknown> | undefined {
+  const data = parts.filter((p) => p.type === BUILD_FRAME_TYPE && pick(p.id)).pop()?.data;
+  return data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined;
+}
+
+/**
+ * The post-apply verification state, from the `build-verify` part: the hop
+ * the loop is on and the tool it runs, until a `done` frame closes it.
+ */
+function extractBuildVerify(parts: AnyPart[]): ChatBuildProgress['verify'] {
+  const d = buildFrame(parts, (id) => id === BUILD_VERIFY_PART_ID);
+  if (!d) return undefined;
+  return {
+    phase: readBuildPhase(d.phase),
+    ...(typeof d.hop === 'number' ? { hop: d.hop } : {}),
+    ...(typeof d.tool === 'string' ? { tool: d.tool } : {}),
+  };
+}
+
+/**
+ * Lift the live build TREE from the stream's reconciled `data-build-progress`
  * part (emitted by apply_blueprint via `ctx.onProgress`). With a stable id the
- * SDK keeps a single, in-place-updated part, so we just read the latest one.
+ * SDK keeps a single, in-place-updated part, so we just read the latest one —
+ * of the parts that are not the `build-verify` part, which never displaces the
+ * tree (objectui#11988).
  */
 function extractBuildProgress(parts: AnyPart[]): ChatBuildProgress | undefined {
-  const part = parts.filter((p) => p.type === 'data-build-progress').pop();
-  const data = part?.data;
-  if (!data || typeof data !== 'object') return undefined;
-  const d = data as Record<string, unknown>;
+  const d = buildFrame(parts, (id) => id !== BUILD_VERIFY_PART_ID);
+  if (!d) return undefined;
   const items = Array.isArray(d.items)
     ? (d.items as Array<Record<string, unknown>>)
         .filter((i) => typeof i?.type === 'string' && typeof i?.name === 'string')
         .map((i) => ({ type: i.type as string, name: i.name as string }))
     : [];
-  const phase = d.phase === 'data' || d.phase === 'done' ? d.phase : 'structure';
+  const phase = readBuildPhase(d.phase);
   return {
     phase,
     ...(typeof d.appLabel === 'string' ? { appLabel: d.appLabel } : {}),
@@ -961,11 +1017,14 @@ export function uiMessageToChatMessage(
   // the tool result — so the panel + its open/preview affordances survive a
   // refresh. Re-derived on every map (incl. useObjectChat's round-trip), so it
   // cannot be lost the way a one-shot hydration value would.
-  const buildProgress =
+  const tree =
     extractBuildProgress(parts) ??
     resolvedTools
       .map((tool) => buildProgressFromDraftReview(tool.draftReview))
       .find((bp): bp is ChatBuildProgress => Boolean(bp));
+  // The verification line rides on the tree it verifies (objectui#11988).
+  const verify = extractBuildVerify(parts);
+  const buildProgress = tree && verify ? { ...tree, verify } : tree;
   return {
     id: (msg.id ?? `msg-${Math.random().toString(36).slice(2, 8)}`) as string,
     role: (msg.role ?? 'assistant') as ChatMessage['role'],

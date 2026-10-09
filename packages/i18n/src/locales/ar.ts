@@ -3584,6 +3584,10 @@ const ar = {
         seed: "بيانات تجريبية",
       },
       moreArtifacts: "+{{n}} أخرى",
+      verifying: "جارٍ التحقق من التغيير…",
+      verifyStep: "الخطوة {{n}}",
+      verified: "تم التحقق من التغيير",
+      unknownPhase: "مرحلة إنشاء غير معروفة",
     },
   },
   chatbotError: {

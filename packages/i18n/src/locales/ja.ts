@@ -3319,6 +3319,10 @@ const ja = {
         seed: "サンプルデータ",
       },
       moreArtifacts: "他 {{n}} 件",
+      verifying: "変更を確認しています…",
+      verifyStep: "ステップ {{n}}",
+      verified: "変更を確認しました",
+      unknownPhase: "不明なビルドフェーズ",
     },
   },
   chatbotError: {

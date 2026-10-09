@@ -3463,6 +3463,10 @@ const ru = {
         seed: "Демоданные",
       },
       moreArtifacts: "ещё {{n}}",
+      verifying: "Проверка изменения…",
+      verifyStep: "шаг {{n}}",
+      verified: "Изменение проверено",
+      unknownPhase: "Неизвестный этап сборки",
     },
   },
   chatbotError: {

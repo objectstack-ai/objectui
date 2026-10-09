@@ -16,6 +16,11 @@ import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   cn,
 } from '@object-ui/components';
 import { ChevronRight, Plus, Trash2, Shield, Lock, PanelTop, FlaskConical } from 'lucide-react';
@@ -151,8 +156,67 @@ function asObject<T extends object = Record<string, unknown>>(v: unknown): T {
   return {} as T;
 }
 
-const selectCls =
-  'h-8 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50';
+/** The item a stored value none of a picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — an RLS policy's operation, or a tab's visibility, drawn with
+ * the shared `Select`, the control Studio's object settings dials
+ * (`SettingsPicker`) pick with. They used to be browser-native `<select>`s.
+ * What a pick writes is unchanged: `onPick` receives the picked option's own
+ * `value`, the string the native control's `change` carried, and each caller
+ * turns it into the same draft update as before. Re-picking the current option
+ * writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value, so a stored value that
+ *   none of the options carries gets an item of its own, labelled with the
+ *   value, even when that value is `''`, which `SelectItem` refuses. The
+ *   trigger shows what the draft holds; the native control showed its first
+ *   option there. Picking that item writes nothing.
+ * - Read-only follows the primitive (objectui#11781): `disabled` disables the
+ *   trigger, which wears `SelectTrigger`'s own disabled look.
+ * - The native controls had no label, so the triggers have no name either.
+ */
+function FacetPicker({
+  value,
+  options,
+  onPick,
+  disabled,
+  testId,
+}: {
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  disabled: boolean;
+  testId: string;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the stored value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger data-testid={testId} className="h-8 w-auto gap-2 px-2 text-sm">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+const RLS_OPERATION_OPTIONS = RLS_OPERATIONS.map((op) => ({ value: op, label: op }));
 
 interface FacetSectionProps {
   title: string;
@@ -380,22 +444,17 @@ export function PermissionAdvancedFacets({
                   }}
                   className="h-8 w-40"
                 />
-                <select
+                <FacetPicker
+                  testId={`rls-operation-${i}`}
                   value={pol.operation ?? 'all'}
                   disabled={!writable}
-                  onChange={(e) => {
+                  onPick={(v) => {
                     const next = [...policies];
-                    next[i] = { ...pol, operation: e.target.value };
+                    next[i] = { ...pol, operation: v };
                     setPolicies(next);
                   }}
-                  className={selectCls}
-                >
-                  {RLS_OPERATIONS.map((op) => (
-                    <option key={op} value={op}>
-                      {op}
-                    </option>
-                  ))}
-                </select>
+                  options={RLS_OPERATION_OPTIONS}
+                />
                 <label className="flex items-center gap-1.5 text-xs">
                   <Switch
                     checked={pol.enabled !== false}
@@ -518,18 +577,13 @@ export function PermissionAdvancedFacets({
                 }}
                 className="h-8 w-64"
               />
-              <select
+              <FacetPicker
+                testId={`tab-visibility-${tab}`}
                 value={vis}
                 disabled={!writable}
-                onChange={(e) => setTabs({ ...tabs, [tab]: e.target.value as TabVisibility })}
-                className={selectCls}
-              >
-                {TAB_VISIBILITIES.map((v) => (
-                  <option key={v} value={v}>
-                    {t(`perm.tabs.vis.${v}`)}
-                  </option>
-                ))}
-              </select>
+                onPick={(v) => setTabs({ ...tabs, [tab]: v as TabVisibility })}
+                options={TAB_VISIBILITIES.map((v) => ({ value: v, label: t(`perm.tabs.vis.${v}`) }))}
+              />
               {writable && (
                 <Button
                   variant="ghost"

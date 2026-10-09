@@ -2860,6 +2860,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.deselect': 'Clear selection',
   'engine.studio.toggleRail': 'Toggle sidebar',
   'engine.studio.home': 'Back to home',
+  // objectui#11795 — the one line a phone shows under the Studio header.
+  'engine.studio.desktopHint': 'Studio is built for a desktop screen.',
   // Pillar tab labels
   'engine.fieldType.text': 'Text',
   'engine.fieldType.textarea': 'Text Area',
@@ -3439,6 +3441,13 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.auto.idPlaceholder': 'Identifier (e.g. offer_notice)',
   // objectui#11788 — the New automation dialog's trigger choice, left unset.
   'engine.studio.newAutoTrigger.later': 'Choose later on the Start node',
+  // objectui#11861 — the New automation dialog's starting points (`flowPresets.ts`).
+  'engine.studio.auto.presets': 'When it runs',
+  'engine.studio.auto.preset.created': 'When a record is created',
+  'engine.studio.auto.preset.updated': 'When a record is updated',
+  'engine.studio.auto.preset.deleted': 'When a record is deleted',
+  'engine.studio.auto.preset.manual': 'When a button or another automation starts it',
+  'engine.studio.auto.preset.needsObject': 'Choose the object it watches.',
   'engine.studio.auto.canvasHint': 'Visual orchestration · click a node to configure',
   'engine.studio.auto.pick': 'Select an automation',
   'engine.studio.auto.config': 'Configuration',
@@ -6055,6 +6064,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.deselect': '取消选择',
   'engine.studio.toggleRail': '切换侧栏',
   'engine.studio.home': '返回主页',
+  'engine.studio.desktopHint': 'Studio 专为桌面屏幕设计。',
   // Pillar tab labels
   'engine.fieldType.text': '单行文本',
   'engine.fieldType.textarea': '多行文本',
@@ -6566,6 +6576,12 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.auto.idPlaceholder': '标识符(如:offer_notice)',
   // objectui#11788 — 新建自动化对话框里不选触发方式时的选项。
   'engine.studio.newAutoTrigger.later': '稍后在开始节点上选择',
+  'engine.studio.auto.presets': '何时运行',
+  'engine.studio.auto.preset.created': '新建记录时',
+  'engine.studio.auto.preset.updated': '更新记录时',
+  'engine.studio.auto.preset.deleted': '删除记录时',
+  'engine.studio.auto.preset.manual': '由按钮或其他自动化启动时',
+  'engine.studio.auto.preset.needsObject': '请选择它监视的对象。',
   'engine.studio.auto.canvasHint': '点选画布上的节点即可配置',
   'engine.studio.auto.pick': '选择一个自动化',
   'engine.studio.auto.config': '配置',

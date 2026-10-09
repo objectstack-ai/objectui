@@ -3464,6 +3464,10 @@ const zh = {
         seed: '示例数据',
       },
       moreArtifacts: '+{{n}} 个',
+      verifying: '正在检查改动…',
+      verifyStep: '第 {{n}} 步',
+      verified: '已检查改动',
+      unknownPhase: '未知的构建阶段',
     },
   },
   chatbotError: {

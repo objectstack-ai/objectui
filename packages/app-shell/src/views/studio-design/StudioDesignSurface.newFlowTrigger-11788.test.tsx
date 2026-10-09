@@ -107,13 +107,17 @@ function renderPillar() {
   );
 }
 
-/** Open *New automation*, name it, and return the dialog's trigger select. */
+/**
+ * Open *New automation*, name it, and return the dialog's trigger select —
+ * under *Advanced* since objectui#11861, where the dialog's presets put it.
+ */
 async function openNew(label: string): Promise<HTMLSelectElement> {
   renderPillar();
   fireEvent.click(await screen.findByTitle(en('engine.studio.auto.newTitle'), undefined, { timeout: 8000 }));
   fireEvent.change(await screen.findByPlaceholderText(en('engine.studio.auto.namePlaceholder')), {
     target: { value: label },
   });
+  fireEvent.click(screen.getByRole('radio', { name: en('engine.studio.rules.advanced') }));
   return screen.getByRole('combobox', { name: 'Trigger' }) as HTMLSelectElement;
 }
 

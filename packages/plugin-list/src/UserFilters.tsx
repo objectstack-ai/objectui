@@ -575,8 +575,9 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
   //   and options from the definition, which loads after the list mounts, so
   //   a restored 'true' stayed a string: no box ticked and the query filtered
   //   on the string. The first time a field's typing moves, its value is
-  //   coerced once more, unless the user has changed it since. A field typed
-  //   at mount keeps its typing, so it is not coerced again.
+  //   coerced once more, unless the user has changed it since. A field whose
+  //   type and options are known at mount keeps its typing, so it is not
+  //   coerced again; one coerced to the value it already holds emits nothing.
   //
   // Like the mount emit above, both report through `onFilterChange` only; the
   // selection came from the host, so nothing is echoed back through

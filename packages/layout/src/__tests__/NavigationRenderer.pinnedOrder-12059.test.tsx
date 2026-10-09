@@ -107,10 +107,13 @@ async function keyboardMove(label: string, arrows: string[], finish: 'Space' | '
   const indicatorAt = indicator
     ? { at: indicator.getAttribute('data-drop-indicator'), row: indicator.closest('li')?.textContent }
     : null;
+  // The dragged row's own box while it is held: a keyboard drag does not move it.
+  draggedTransform = (link.closest('li') as HTMLElement).style.transform;
   fireEvent.keyDown(document, { code: finish, key: finish === 'Space' ? ' ' : finish });
   await tick();
   return indicatorAt;
 }
+let draggedTransform = '';
 
 describe('objectui#12059 — the app’s menu is not user-reorderable', () => {
   it.each([
@@ -184,8 +187,10 @@ describe('objectui#12059 — the pinned section keeps the user’s order', () =>
 
     const line = await keyboardMove('NAV_ACCOUNTS', ['ArrowDown']);
 
-    // While dragging, the insertion line sat after the row it would land past.
+    // While dragging, the insertion line sat after the row it would land past,
+    // and the dragged row stayed in its own place rather than covering it.
     expect(line).toEqual({ at: 'after', row: 'NAV_CONTACTS' });
+    expect(draggedTransform).toBe('');
     expect(onPinnedReorder).toHaveBeenCalledTimes(1);
     expect(onPinnedReorder).toHaveBeenCalledWith(['nav_contacts', 'nav_accounts', 'nav_deals']);
     // The live region spoke about the moved row.

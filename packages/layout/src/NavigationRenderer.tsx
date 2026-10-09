@@ -39,6 +39,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  useDndContext,
   useSensor,
   useSensors,
   type DragCancelEvent,
@@ -1287,9 +1288,14 @@ function PinnedNavigationRow({ item, rowProps }: { item: NavigationItem; rowProp
     activeIndex,
     index,
   } = useSortable({ id: item.id });
+  const { activatorEvent } = useDndContext();
 
+  // A pointer drag carries the row under the pointer. A keyboard drag leaves
+  // it in place, dimmed, so it never covers the row it is over: the insertion
+  // line alone shows where it lands.
+  const heldInPlace = isDragging && activatorEvent?.type === 'keydown';
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
+    transform: heldInPlace ? undefined : CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : undefined,
     zIndex: isDragging ? 10 : undefined,

@@ -180,19 +180,18 @@ describe('no invented gallery cover name survives in the source (objectui#7547)'
     expect(CODE.filter((l) => l.includes("'name'")).length).toBeGreaterThan(0);
   });
 
-  it('CONTROL (same class): the scan still sees a REMAINING fabricated field name', () => {
-    // Can the filter see the specific thing it hunts — a one-rung `|| 'literal'`
-    // binding floor? Anchored on the CHART branch's measure floor
-    // (`chartConfig.yAxisFields[0] || 'value'`), which is the same class and is
-    // still there: retiring it needs a refusal path `ObjectChart` does not have,
-    // so #7547 measured it and reported it rather than deciding it here.
-    //
-    // ⚠️ TO WHOEVER RETIRES `'value'`: this going red is the mechanic working.
-    // RE-ANCHOR onto whatever fabrication legitimately remains — do not delete
-    // this case, and do not weaken it to the machinery control above. If nothing
-    // of this class remains in this face, convert it into the assertion that
-    // NONE remains, so the scan keeps making a claim about the tree.
-    expect(CODE.filter((l) => /\|\| 'value'/.test(l)).length).toBeGreaterThan(0);
+  it('CONVERTED (objectui#6152 round 15): NO fabricated field-name floor remains in this face', () => {
+    // This case read "the scan still sees a REMAINING fabricated field name",
+    // anchored on the chart branch's measure floor
+    // (`chartConfig.yAxisFields[0] || 'value'`). objectui#6152 round 15 retired
+    // that floor with the legacy chart axes, and with it the last one-rung
+    // `|| 'literal'` binding floor in this file: what is left floors a display
+    // title or label at `'name'` (the machinery control's anchor, not a
+    // fabrication), a view `type` at `'grid'` or a chart family at `'bar'`.
+    // So, as this case instructed, it now asserts that NONE remains — the scan
+    // keeps making a claim about the tree, and a floor copied back in reds here.
+    expect(CODE.filter((l) => /\|\| 'value'/.test(l))).toEqual([]);
+    expect(CODE.filter((l) => /\b(?!titleField\b|labelField\b)\w*Field\b[^|\n]*\|\| '[A-Za-z_]+'/.test(l))).toEqual([]);
   });
 
   it('CONTROL: the scan reads CODE, not the prose that records the deletion', () => {

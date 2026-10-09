@@ -143,18 +143,31 @@ describe('no invented gantt date name survives in the source (objectui#7070)', (
     // Without this the case above is green on any tree where the filter simply
     // matches nothing.
     //
-    // RE-ANCHORED by objectui#7547, following this control's own instruction:
-    // it sat on the gallery branch's `imageField … || 'image'` floor until #7547
-    // retired that literal. The anchor is now the CHART branch's measure floor
-    // (`chartConfig.yAxisFields[0] || 'value'`) — the same one-rung class, still
-    // present, and left standing by #7547 because deleting it needs a refusal
-    // path `ObjectChart` does not have yet.
-    //
-    // ⚠️ If you retire it, RE-ANCHOR this control onto whatever fabrication
-    // legitimately remains; do not delete it. (The twin of this control in
-    // `ObjectView.calendarBinding-7029.test.tsx` carries the same instruction,
-    // and explains why in full.)
-    expect(CODE.filter((l) => /\|\| 'value'/.test(l)).length).toBeGreaterThan(0);
+    // RE-ANCHORED twice, each time following this control's own instruction.
+    // It sat on the gallery branch's `imageField … || 'image'` floor until
+    // objectui#7547 retired that literal, then on the chart branch's measure
+    // floor (`chartConfig.yAxisFields[0] || 'value'`) until objectui#6152
+    // round 15 retired that one with the legacy chart axes. No fabricated
+    // binding floor remains in this face (the case below asserts that), so the
+    // anchor is now `'name'`, the display-name floor the twins in
+    // `ObjectView.calendarBinding-7029.test.tsx` and
+    // `ObjectView.galleryBinding-7547.test.tsx` already use for their machinery
+    // control: deliberately permanent, so this cannot go red as a side effect.
+    expect(CODE.filter((l) => l.includes("'name'")).length).toBeGreaterThan(0);
+  });
+
+  it('CONVERTED (objectui#6152 round 15): NO fabricated field-name floor remains in this face', () => {
+    // This case read "the scan still sees a REMAINING fabricated field name",
+    // anchored on the chart branch's measure floor
+    // (`chartConfig.yAxisFields[0] || 'value'`). objectui#6152 round 15 retired
+    // that floor with the legacy chart axes, and with it the last one-rung
+    // `|| 'literal'` binding floor in this file: what is left floors a display
+    // title or label at `'name'` (the machinery control's anchor, not a
+    // fabrication), a view `type` at `'grid'` or a chart family at `'bar'`.
+    // So, as this case instructed, it now asserts that NONE remains — the scan
+    // keeps making a claim about the tree, and a floor copied back in reds here.
+    expect(CODE.filter((l) => /\|\| 'value'/.test(l))).toEqual([]);
+    expect(CODE.filter((l) => /\b(?!titleField\b|labelField\b)\w*Field\b[^|\n]*\|\| '[A-Za-z_]+'/.test(l))).toEqual([]);
   });
 
   it('CONTROL: the scan reads CODE, not the prose that records the deletion', () => {

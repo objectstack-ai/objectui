@@ -20,18 +20,28 @@
  * The render tests go through the real loader — envelope unwrap, predicate,
  * transform — and hand its answer to i18next with the `addResourceBundle` call
  * `I18nProvider` makes, then draw the two readers the card names.
+ *
+ * The loader reads only for a signed-in page load (objectui#12034), so every
+ * test here runs signed in unless it says otherwise; the session rule itself
+ * is the last describe block.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { GetTranslationsResponseSchema } from '@objectstack/spec/api';
 import type { TranslationData } from '@objectstack/spec/system';
 import { createI18n, I18nProvider, useObjectLabel } from '@object-ui/i18n';
 import { FlowRunner, type ScreenFlowState } from '@object-ui/app-shell';
+import { TokenStorage } from '@object-ui/auth';
 import { loadLanguage } from './loadLanguage';
+import { publishAuthState } from './i18nSession';
 
-/** Serve `body` as the endpoint's JSON answer. */
+/**
+ * Serve `body` as the endpoint's JSON answer. A real `Response`: the loader
+ * reads through the console's authenticated fetch, which reads the answer's
+ * headers (objectui#12034).
+ */
 function respond(body: unknown) {
-  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => body })));
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body), { status: 200 })));
 }
 
 /** Serve `translations` inside the spec REST envelope, as the server does. */
@@ -48,9 +58,14 @@ async function loadedInstance(translations: TranslationData) {
   return instance;
 }
 
+beforeEach(() => {
+  publishAuthState({ isAuthenticated: true, isLoading: false });
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  TokenStorage.clear();
 });
 
 describe('loadLanguage — a spec payload is recognised by any group it carries (objectui#10235)', () => {
@@ -145,5 +160,34 @@ describe('loadLanguage — an already-namespaced tree is returned as-is', () => 
     const flat = { common: { save: '保存' } };
     respond(flat);
     await expect(loadLanguage('zh-CN')).resolves.toEqual(flat);
+  });
+});
+
+describe('loadLanguage — reads only for a signed-in page load, with its credentials (objectui#12034)', () => {
+  it('signed out: requests nothing and answers no translations', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    publishAuthState({ isAuthenticated: false, isLoading: false });
+
+    await expect(loadLanguage('zh-CN')).resolves.toEqual({});
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('unanswered: waits for the session, then reads with the bearer the data adapter sends', async () => {
+    serve({ objects: { crm_lead: { label: '线索' } } });
+    const fetchSpy = vi.mocked(fetch);
+    TokenStorage.set('tok-12034');
+    publishAuthState({ isAuthenticated: false, isLoading: true });
+
+    const pending = loadLanguage('zh-CN');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    publishAuthState({ isAuthenticated: true, isLoading: false });
+    expect(Object.keys(await pending)).toEqual(['app']);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/v1/i18n/translations/zh-CN');
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer tok-12034');
   });
 });

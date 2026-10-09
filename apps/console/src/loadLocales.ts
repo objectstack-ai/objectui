@@ -15,12 +15,19 @@
  * and local-dev servers, same degrade-quietly contract. A language menu is
  * never worth taking the console down for: every failure returns `[]`, which
  * the provider reads as "I don't know" and answers with the built-in packs.
+ *
+ * Same session rule as the sibling too (objectui#12034, see `./i18nSession.ts`):
+ * the read waits for this page load's session answer and is made only when
+ * signed in, with the session's credentials. Signed out, it requests nothing
+ * and answers `[]`.
  */
+import { i18nFetch, whenSessionAnswered } from './i18nSession';
 
 export async function loadLocales(): Promise<string[]> {
+  if (!(await whenSessionAnswered())) return [];
   try {
     const serverUrl = import.meta.env.VITE_SERVER_URL || '';
-    const res = await fetch(`${serverUrl}/api/v1/i18n/locales`);
+    const res = await i18nFetch(`${serverUrl}/api/v1/i18n/locales`);
     if (!res.ok) {
       console.warn(`[i18n] Failed to load the app locale list: HTTP ${res.status}`);
       return [];

@@ -1536,11 +1536,16 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 </Link>
               ))}
               {/* objectui#5813 — low-frequency surfaces live in "More". The
-                  trigger takes the active pillar styling when one of them is
-                  open, so the demotion never hides WHERE you are. Each item is
-                  a real router Link carrying the SAME dirty-guard as the
-                  primary pillars — an overflow entry must not become the one
-                  door that silently discards edits. None of them is in the
+                  trigger keeps its own name, More, whichever of them is open
+                  (objectui#11794, the rule the Data pillar's Advanced trigger
+                  follows): renamed to the open pillar ("Access ▾") it hid the
+                  one word that says this is the overflow menu. Where you are
+                  still shows twice — the trigger takes the active pillar
+                  styling while one of its pillars is open, and inside the menu
+                  that pillar's link is the current page (`aria-current`). Each
+                  item is a real router Link carrying the SAME dirty-guard as
+                  the primary pillars — an overflow entry must not become the
+                  one door that silently discards edits. None of them is in the
                   package-less scope (objectui#11553). */}
               {packageId !== null && (
               <Popover>
@@ -1555,9 +1560,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground')
                     }
                   >
-                    {OVERFLOW_PILLARS.some((p) => tab === p.key)
-                      ? t(`engine.studio.pillar.${tab}`, locale)
-                      : t('engine.studio.more', locale)}
+                    {t('engine.studio.more', locale)}
                     <ChevronDown className="h-3 w-3" />
                   </button>
                 </PopoverTrigger>
@@ -1566,6 +1569,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                     <Link
                       key={p.key}
                       to={`/studio/${scopeSegment}/${p.key}`}
+                      aria-current={tab === p.key ? 'page' : undefined}
                       onClick={(e) => {
                         if (tab === p.key) return;
                         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;

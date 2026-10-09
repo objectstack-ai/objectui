@@ -10,13 +10,20 @@
  * `@object-ui/i18n` (`transformSpecTranslations`) so that downstream forks
  * stay in lock-step with new spec scopes (e.g. `_views`, `_actions`, …)
  * without having to maintain their own copy of the transform.
+ *
+ * The read waits for this page load's session answer and is made only when
+ * signed in, with the session's credentials (objectui#12034, see
+ * `./i18nSession.ts`). Signed out, it requests nothing and answers `{}`, so the
+ * sign-in page renders from the built-in packs.
  */
 import { isSpecTranslationData, transformSpecTranslations } from '@object-ui/i18n';
+import { i18nFetch, whenSessionAnswered } from './i18nSession';
 
 export async function loadLanguage(lang: string): Promise<Record<string, unknown>> {
+  if (!(await whenSessionAnswered())) return {};
   try {
     const serverUrl = import.meta.env.VITE_SERVER_URL || '';
-    const res = await fetch(`${serverUrl}/api/v1/i18n/translations/${lang}`);
+    const res = await i18nFetch(`${serverUrl}/api/v1/i18n/translations/${lang}`);
     if (!res.ok) {
       console.warn(`[i18n] Failed to load translations for '${lang}': HTTP ${res.status}`);
       return {};

@@ -15,7 +15,7 @@
  * `prepareSendMessagesRequest` transport).
  */
 import type { BUILD_PROGRESS_FRAME_TYPE, BuildProgressPhase } from '@objectstack/spec/ai';
-import type { ChatMessage, ChatToolInvocation, ChatSource, ChatBuildProgress, ChatBlueprintProgress, ChatChart } from './ChatbotEnhanced';
+import type { ChatbotEnhancedMessage as ChatMessage, ChatbotEnhancedToolInvocation as ChatToolInvocation, ChatSource, ChatBuildProgress, ChatBlueprintProgress, ChatChart } from './ChatbotEnhanced';
 
 interface AnyPart {
   type?: string;

@@ -36,7 +36,7 @@
  * ```
  */
 import * as React from 'react';
-import type { ChatMessage, ToolDecisionState } from './ChatbotEnhanced';
+import type { ChatbotEnhancedMessage as ChatMessage, ToolDecisionState } from './ChatbotEnhanced';
 import type { ApproveOutcome, RejectOutcome } from './usePendingActions';
 
 export type { ToolDecisionState };

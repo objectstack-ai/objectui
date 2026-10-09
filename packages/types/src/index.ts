@@ -1173,9 +1173,8 @@ export type {
   TransactionIsolationLevel,
   TransactionConfig,
   TransactionResult,
-  UndoRedoEntry,
-  UndoRedoConfig,
-  UndoRedoState,
+  // `UndoRedoEntry` / `UndoRedoConfig` / `UndoRedoState` were retired here
+  // (objectui#6349, batch 5) — see the note at the end of `ui-action.ts`.
 } from './ui-action.js';
 
 export {

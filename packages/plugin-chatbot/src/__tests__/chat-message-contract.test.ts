@@ -8,7 +8,8 @@
 
 /**
  * `@object-ui/plugin-chatbot` — one name, one chat message contract
- * (objectui#4383).
+ * (objectui#4383), and since objectui#6349 (batch 5) one contract per name
+ * ACROSS packages as well.
  *
  * The barrel used to export TWO different `ChatMessage` types: a minimal one
  * it declared itself (`id`/`role`/`content`/`timestamp`/`avatar`/
@@ -23,6 +24,15 @@
  * (objectui#4040, re-pointed at the enhanced type in PR #4379 without touching
  * the collision itself).
  *
+ * objectui#4383 settled that inside this package by making `ChatMessage` the
+ * enhanced shape. But `@object-ui/types` publishes a `ChatMessage` too — the
+ * JSON/SDUI AUTHORING contract — so the same natural name still stood for two
+ * contracts, one per package, with an IDE auto-import choosing between them by
+ * alphabet. objectui#6349 (batch 5) gave the two meanings two names: the
+ * runtime declaration is `ChatbotEnhancedMessage` (its tool invocations are
+ * `ChatbotEnhancedToolInvocation`), and this package publishes no
+ * `ChatMessage` at all. The bare name now means only the authoring contract.
+ *
  * The pins below are what makes the convergence hold. They are COMPILE-TIME
  * assertions: a violation is a `tsc` error under this package's
  * `tsconfig.test.json`, not a runtime failure — vitest erases them entirely,
@@ -36,10 +46,25 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** The name the barrel publishes — what any importer gets by default. */
-import type { ChatMessage as BarrelChatMessage, ChatbotEnhancedMessage } from '../index';
-/** The shape `<ChatbotEnhanced>` renders and the mappers produce. */
-import type { ChatMessage as EnhancedChatMessage } from '../ChatbotEnhanced';
+/** The names the barrel publishes for the runtime contract. */
+import type {
+  ChatbotEnhancedMessage as BarrelChatMessage,
+  ChatbotEnhancedToolInvocation as BarrelToolInvocation,
+} from '../index';
+/** The shapes `<ChatbotEnhanced>` renders and the mappers produce. */
+import type {
+  ChatbotEnhancedMessage as EnhancedChatMessage,
+  ChatbotEnhancedToolInvocation as EnhancedToolInvocation,
+} from '../ChatbotEnhanced';
+// ⛔ The bare names are gone from this package, on purpose (objectui#6349,
+// batch 5): each line below is a compile error, and the directive turns into
+// one itself (TS2578) the moment either name comes back.
+// @ts-expect-error — the barrel no longer publishes `ChatMessage`; import `ChatbotEnhancedMessage`.
+import type { ChatMessage as RetiredBarrelName } from '../index';
+// @ts-expect-error — the runtime declaration is `ChatbotEnhancedMessage`, not `ChatMessage`.
+import type { ChatMessage as RetiredModuleMessageName } from '../ChatbotEnhanced';
+// @ts-expect-error — the runtime declaration is `ChatbotEnhancedToolInvocation`.
+import type { ChatToolInvocation as RetiredModuleToolName } from '../ChatbotEnhanced';
 /** The OTHER side of the seam: the JSON/SDUI authoring contract. */
 import type { ChatMessage as AuthoredChatMessage, ChatbotSchema } from '@object-ui/types';
 import type {
@@ -86,7 +111,7 @@ interface RetiredMinimalChatMessage {
   avatarFallback?: string;
 }
 
-describe("the barrel's ChatMessage IS the enhanced shape", () => {
+describe("the barrel's ChatbotEnhancedMessage IS the enhanced shape", () => {
   it('is pinned at compile time', () => {
     // Probe hygiene: an `any`/`unknown` on either side would make every
     // `Equal` below answer whatever it is asked, so check the probes first.
@@ -94,18 +119,26 @@ describe("the barrel's ChatMessage IS the enhanced shape", () => {
     type _BarrelNotUnknown = Assert<Equal<IsUnknown<BarrelChatMessage>, false>>;
     type _EnhancedNotAny = Assert<Equal<IsAny<EnhancedChatMessage>, false>>;
 
-    // The whole point of the card: the natural name resolves to the enhanced
-    // contract. Before the fix this was `false` — the barrel declared its own
-    // minimal interface — and this line alone turned `tsc` red.
+    // The whole point of objectui#4383: the published name resolves to the
+    // enhanced contract. Before that fix the barrel declared its own minimal
+    // interface under the published name, and this line alone turned `tsc` red.
     type _BarrelIsEnhanced = Assert<Equal<BarrelChatMessage, EnhancedChatMessage>>;
+    // ...and the same for the tool invocations it carries.
+    type _BarrelToolIsEnhanced = Assert<Equal<BarrelToolInvocation, EnhancedToolInvocation>>;
+    type _MessageCarriesThatTool = Assert<
+      Equal<NonNullable<EnhancedChatMessage['toolInvocations']>[number], EnhancedToolInvocation>
+    >;
 
-    // ...and the disambiguating alias kept for compat denotes the SAME type,
-    // so the two spellings are one contract rather than two shapes again.
-    type _AliasIsEnhanced = Assert<Equal<ChatbotEnhancedMessage, EnhancedChatMessage>>;
-    type _AliasIsBarrel = Assert<Equal<ChatbotEnhancedMessage, BarrelChatMessage>>;
+    // objectui#6349 (batch 5): the retired bare names are not merely absent
+    // but unresolvable — each probe above failed to import, so it is an error
+    // type, which `IsAny` reports as `any`. If one of them ever resolves to a
+    // real type again, its `@ts-expect-error` is what goes red first.
+    type _RetiredBarrelNameIsGone = Assert<Equal<IsAny<RetiredBarrelName>, true>>;
+    type _RetiredModuleMessageNameIsGone = Assert<Equal<IsAny<RetiredModuleMessageName>, true>>;
+    type _RetiredModuleToolNameIsGone = Assert<Equal<IsAny<RetiredModuleToolName>, true>>;
 
     // The negative half. `Equal` is structural, so re-declaring the retired
-    // members anywhere in the barrel's `ChatMessage` — not just restoring the
+    // members anywhere in the barrel's runtime message — not just restoring the
     // literal interface — trips this.
     type _NotTheRetiredShape = Assert<
       Equal<Equal<BarrelChatMessage, RetiredMinimalChatMessage>, false>
@@ -117,7 +150,7 @@ describe("the barrel's ChatMessage IS the enhanced shape", () => {
     type _NoIndexSignature = Assert<Equal<HasIndexSignature<BarrelChatMessage>, false>>;
 
     // The keys the retired shape did NOT have — i.e. exactly what an importer
-    // reaching for `ChatMessage` used to lose. Named individually so a future
+    // reaching for the published name used to lose. Named individually so a future
     // narrowing says WHICH capability it dropped instead of "types differ".
     type _HasStreaming = Assert<Has<BarrelChatMessage, 'streaming'>>;
     type _HasToolInvocations = Assert<Has<BarrelChatMessage, 'toolInvocations'>>;
@@ -131,7 +164,7 @@ describe("the barrel's ChatMessage IS the enhanced shape", () => {
     // The retirement is a WIDENING, which is what makes it safe for existing
     // callers: every field of the retired shape survives with the same type,
     // and everything added is optional — so anything that used to be a valid
-    // `ChatMessage` still is. If a future edit makes one of the added keys
+    // runtime message still is. If a future edit makes one of the added keys
     // required, this is the line that fails.
     type _RetiredStillAssignable = Assert<
       RetiredMinimalChatMessage extends BarrelChatMessage ? true : false
@@ -165,7 +198,7 @@ describe('the authoring ↔ runtime seam is an adapter, not a cast', () => {
 
     // 1. The adapter's output IS the runtime contract — not a lookalike, not a
     //    widened cousin. A narrowing anywhere in `chatMessageAdapter.ts` (say a
-    //    return type of `Omit<ChatMessage, 'charts'>`) turns this line red.
+    //    return type of `Omit<ChatbotEnhancedMessage, 'charts'>`) turns this line red.
     type _OutputIsRuntime = Assert<
       Equal<ReturnType<typeof authoredToRuntimeMessage>, EnhancedChatMessage>
     >;
@@ -335,7 +368,7 @@ describe('the runtime-only approval states are ONE vocabulary across the two pac
     // objectui#10018. `@object-ui/types` sheds the AI SDK's three approval
     // states from the authoring `state` union and names them only in a
     // NON-exported alias, which types `ChatbotSchema.onSend`'s messages. This
-    // package spells them on `ChatbotEnhanced.ChatToolInvocation['state']`.
+    // package spells them on `ChatbotEnhancedToolInvocation['state']`.
     // Two spellings of one set, so they are pinned EQUAL here — derived
     // through the published slot, since the alias has no name to import.
     type AuthoredState = NonNullable<
@@ -432,7 +465,7 @@ describe('the three renderer call sites go through the adapter', () => {
     expect(
       casts,
       'packages/plugin-chatbot/src/renderer.tsx casts a `messages` prop again. The ' +
-        '@object-ui/types ↔ plugin ChatMessage seam is `toRuntimeMessages` in ' +
+        '@object-ui/types ChatMessage ↔ ChatbotEnhancedMessage seam is `toRuntimeMessages` in ' +
         'chatMessageAdapter.ts — a cast there erases every narrowing decision it ' +
         'records (objectui#4399).',
     ).toEqual([]);
@@ -514,23 +547,35 @@ describe('the barrel no longer declares a message shape of its own', () => {
 
   it('finds the barrel it is guarding', () => {
     // If the file moves or is renamed, fail here rather than pass vacuously.
-    expect(source).toContain('export type { ChatMessage }');
+    expect(source).toContain('export type { ChatbotEnhancedMessage }');
   });
 
-  it('declares no local ChatMessage type', () => {
+  it('declares no local message type', () => {
     expect(
-      /^\s*(export\s+)?(interface|type)\s+ChatMessage\b/m.test(source),
-      'packages/plugin-chatbot/src/index.tsx declares a `ChatMessage` of its own again. ' +
+      /^\s*(export\s+)?(interface|type)\s+(ChatMessage|ChatbotEnhancedMessage)\b/m.test(source),
+      'packages/plugin-chatbot/src/index.tsx declares a message type of its own again. ' +
         'The barrel must RE-EXPORT the one from `./ChatbotEnhanced` — a second declaration ' +
         'is how the name came to mean two different shapes (objectui#4383).',
     ).toBe(false);
   });
 
-  it('re-exports the message contract from ChatbotEnhanced', () => {
-    expect(source).toMatch(/export type \{ ChatMessage \} from '\.\/ChatbotEnhanced';/);
-    expect(source).toMatch(
-      /export type \{ ChatMessage as ChatbotEnhancedMessage \} from '\.\/ChatbotEnhanced';/,
-    );
+  it('re-exports the message contract from ChatbotEnhanced under its own name', () => {
+    expect(source).toMatch(/export type \{ ChatbotEnhancedMessage \} from '\.\/ChatbotEnhanced';/);
+  });
+
+  it('publishes no `ChatMessage` (objectui#6349, batch 5)', () => {
+    // The bare name is `@object-ui/types`' AUTHORING contract. Publishing it
+    // here again — directly, or as an alias of the runtime shape — is the
+    // cross-package collision batch 5 removed.
+    const codeOnly = source
+      .split('\n')
+      .filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
+      .join('\n');
+    expect(
+      /export\s+(type\s+)?\{[^}]*\bChatMessage\b[^}]*\}/.test(codeOnly),
+      'packages/plugin-chatbot/src/index.tsx publishes a `ChatMessage` again. The runtime ' +
+        'contract is `ChatbotEnhancedMessage`; the bare name belongs to @object-ui/types.',
+    ).toBe(false);
   });
 });
 

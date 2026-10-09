@@ -24,12 +24,12 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { ChatbotEnhanced, type ChatMessage } from '../ChatbotEnhanced';
+import { ChatbotEnhanced, type ChatbotEnhancedMessage } from '../ChatbotEnhanced';
 
 const NOTE = 'AGENT_ACTIVITY_NOTE';
 
 /** One hydrated step turn: the placeholder text + the step's completed tool. */
-function stepTurn(id: string, toolName: string): ChatMessage {
+function stepTurn(id: string, toolName: string): ChatbotEnhancedMessage {
   return {
     id,
     role: 'assistant',

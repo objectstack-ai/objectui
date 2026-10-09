@@ -78,8 +78,8 @@ import type {
   ChatToolInvocation as AuthoredToolInvocation,
 } from '@object-ui/types';
 import type {
-  ChatMessage as RuntimeChatMessage,
-  ChatToolInvocation as RuntimeToolInvocation,
+  ChatbotEnhancedMessage as RuntimeChatMessage,
+  ChatbotEnhancedToolInvocation as RuntimeToolInvocation,
 } from './ChatbotEnhanced';
 
 /**

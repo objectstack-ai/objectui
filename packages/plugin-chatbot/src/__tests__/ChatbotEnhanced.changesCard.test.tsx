@@ -13,11 +13,11 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ChatbotEnhanced, type ChatMessage } from '../ChatbotEnhanced';
+import { ChatbotEnhanced, type ChatbotEnhancedMessage } from '../ChatbotEnhanced';
 
 const CJK = /[一-鿿]/;
 
-function changesMessage(): ChatMessage[] {
+function changesMessage(): ChatbotEnhancedMessage[] {
   return [
     {
       id: 'a1',

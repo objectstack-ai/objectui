@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useHitlInChat } from '../useHitlInChat';
-import type { ChatMessage } from '../ChatbotEnhanced';
+import type { ChatbotEnhancedMessage } from '../ChatbotEnhanced';
 
-const baseMessage = (pendingActionId: string, toolCallId = 'tc-1'): ChatMessage => ({
+const baseMessage = (pendingActionId: string, toolCallId = 'tc-1'): ChatbotEnhancedMessage => ({
   id: 'm-1',
   role: 'assistant',
   content: '',

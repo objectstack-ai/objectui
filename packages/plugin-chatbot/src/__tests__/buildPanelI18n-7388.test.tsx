@@ -32,7 +32,7 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
-import { ChatbotEnhanced, type ChatMessage } from '../ChatbotEnhanced';
+import { ChatbotEnhanced, type ChatbotEnhancedMessage } from '../ChatbotEnhanced';
 
 function renderIn(language: string, ui: React.ReactElement) {
   return render(
@@ -51,8 +51,8 @@ const ITEMS = [
 
 function buildMsg(
   phase: 'structure' | 'data' | 'done',
-  over: Partial<NonNullable<ChatMessage['buildProgress']>> = {},
-): ChatMessage {
+  over: Partial<NonNullable<ChatbotEnhancedMessage['buildProgress']>> = {},
+): ChatbotEnhancedMessage {
   return {
     id: 'a1',
     role: 'assistant',

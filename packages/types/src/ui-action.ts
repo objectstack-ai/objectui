@@ -1208,54 +1208,8 @@ export interface TransactionResult {
   rolledBack?: boolean;
 }
 
-// ============================================================================
-// Undo/Redo Support (Q2 2026 - Spec v2.0.1 Enhancement)
-// ============================================================================
-
-/** Undo/redo operation entry */
-export interface UndoRedoEntry {
-  /** Entry identifier */
-  id: string;
-  /** Action that was performed */
-  action: string;
-  /** Description of the action */
-  description: string;
-  /** Timestamp */
-  timestamp: string;
-  /** Data before the action (for undo) */
-  previousState: Record<string, unknown>;
-  /** Data after the action (for redo) */
-  nextState: Record<string, unknown>;
-  /** Target object */
-  object?: string;
-  /** Target record ID */
-  recordId?: string;
-}
-
-/** Undo/redo configuration */
-export interface UndoRedoConfig {
-  /** Enable undo/redo */
-  enabled: boolean;
-  /** Maximum history size */
-  maxHistorySize?: number;
-  /** Actions that support undo */
-  undoableActions?: string[];
-  /** Whether to group rapid changes */
-  groupChanges?: boolean;
-  /** Group timeout in milliseconds */
-  groupTimeout?: number;
-}
-
-/** Undo/redo state */
-export interface UndoRedoState {
-  /** Whether undo is available */
-  canUndo: boolean;
-  /** Whether redo is available */
-  canRedo: boolean;
-  /** Undo stack */
-  undoStack: UndoRedoEntry[];
-  /** Redo stack */
-  redoStack: UndoRedoEntry[];
-  /** Current position in history */
-  currentIndex: number;
-}
+// The undo/redo trio this file used to declare (`UndoRedoEntry`,
+// `UndoRedoConfig`, `UndoRedoState`) is retired (objectui#6349, batch 5): when
+// it was removed nothing in the repository read or wrote any of the three, and
+// `@objectstack/spec` declares no such shape. The undo state that exists is
+// the designer's `useUndoRedo` hook result in `@object-ui/plugin-designer`.

@@ -210,7 +210,10 @@ function substituteFilterTokens(filter: any, scope: FilterTokenScope): any {
  * Exported for the regression suite.
  */
 export function timelineViewOptions(viewDef: any): Record<string, unknown> {
-    const declaredStart = viewDef?.timeline?.startDateField || viewDef?.timeline?.dateField;
+    // The spec key only. objectui#6152 round 14 retired the pre-#2231
+    // `timeline.dateField` rung: every list-view door refuses the alias by name,
+    // and `ListView` no longer reads it either.
+    const declaredStart = viewDef?.timeline?.startDateField;
     return {
         // Spread the full view-defined timeline config first so the spec fields
         // (startDateField/endDateField/groupByField/colorField/scale) survive.
@@ -350,18 +353,20 @@ export function ganttViewOptions(viewDef: any): Record<string, unknown> {
  * `options.gallery.coverField` in the same round, so the toggle still lights
  * from what this writes and still stays dark when the view declared no cover.
  *
+ * objectui#6152 round 14: the legacy READ is retired too. The cover binding is
+ * read from the spec's `coverField` alone, so a stored `gallery.imageField`
+ * binds no cover here, offers no Gallery toggle, and leaves `ObjectGallery` on
+ * its own `'image'` floor.
+ *
  * Exported for the regression suite.
  */
 export function galleryViewOptions(viewDef: any): Record<string, unknown> {
     const gallery = viewDef?.gallery;
-    // The cover binding goes out under the spec's `coverField` ONLY, and is never
-    // invented. objectui#6152 round 12 dropped the legacy `imageField` this used
-    // to cross-fill beside it: the bag refuses that key, `ObjectGallery` reads the
-    // nested `coverField` first, and `ListView`'s capability gate now reads
-    // `options.gallery.coverField` too, so the Gallery toggle still lights from
-    // what this writes. The legacy READ below stays (renderer-side retirement is
-    // a later round on objectui#6152).
-    const declaredCover = gallery?.coverField || gallery?.imageField;
+    // The cover binding goes out under the spec's `coverField` ONLY, read from
+    // `coverField` ONLY, and is never invented. objectui#6152 round 12 dropped the
+    // legacy `imageField` this used to cross-fill beside it, and round 14 retired
+    // the alias rung that still READ it.
+    const declaredCover = gallery?.coverField;
     return {
         ...(gallery || {}),
         ...(declaredCover ? { coverField: declaredCover } : {}),
@@ -391,10 +396,11 @@ export function galleryViewOptions(viewDef: any): Record<string, unknown> {
  * carried along, so ONE producer surface spoke two vocabularies for one concept
  * depending on which entry point you arrived through.
  *
- * ⚠️ The alias is NOT retired and every alias READ stays exactly as it was:
- * stored metadata still authors `groupField`, and `ListView` resolving
- * `groupByField || groupField` is the whole reason the sibling could drop it.
- * What changed is only what this face WRITES.
+ * ⚠️ objectui#8193 changed only what this face WRITES; the alias READS stayed
+ * until objectui#6152 round 14 retired them here and in `ListView` alike. The
+ * lane is read from `groupByField` alone now, so a stored `kanban.groupField`
+ * no longer names it: the lane falls to the object's declared lifecycle, as for
+ * a view that names none.
  *
  * ⚠️ WRITING THE CANONICAL KEY HERE REQUIRED THE GATE TO LEARN IT, and that is
  * the half a reader will not guess from this file. `ListView.availableViews`
@@ -427,14 +433,14 @@ export function galleryViewOptions(viewDef: any): Record<string, unknown> {
  * The sibling producer `defaultKanbanFromObject` emits `{ groupByField }` alone
  * and always has.
  *
- * ⚠️ WHY THE ONE READER IS UNHARMED. `ListView`'s two projection/expand
- * collectors list `v.groupByField, v.groupField, v.groupBy` as candidates for
- * the same lane value, so `groupBy` did contribute a field NAME to the query
- * projection — and this same expression writes that identical value under
- * `groupByField`, which those collectors read first. The capability gate never
- * read `groupBy` at all (it resolves `groupByField || groupField` on both
- * nestings), and neither does the render branch (`groupByField || groupField ||
- * detectStatusField(...)`).
+ * ⚠️ WHY THE ONE READER WAS UNHARMED (as measured then). `ListView`'s two
+ * projection/expand collectors listed `v.groupByField, v.groupField, v.groupBy`
+ * as candidates for the same lane value, so `groupBy` did contribute a field
+ * NAME to the query projection — and this same expression writes that
+ * identical value under `groupByField`, which those collectors read first. The
+ * capability gate never read `groupBy` at all, and neither did the render
+ * branch. Since objectui#6152 round 14 the collectors, the gate and the render
+ * branch read `groupByField` alone.
  *
  * ⚠️ WHAT THIS CLOSED AND WHAT IT DID NOT — and what has since closed the rest.
  * `ListView`'s kanban branch destructured
@@ -482,7 +488,6 @@ export function galleryViewOptions(viewDef: any): Record<string, unknown> {
 export function kanbanViewOptions(viewDef: any, objectDef: any): Record<string, unknown> {
     const lane =
         viewDef?.kanban?.groupByField ||
-        viewDef?.kanban?.groupField ||
         detectStatusField(objectDef as any) ||
         undefined;
     const summarizeField = viewDef?.kanban?.summarizeField;
@@ -3589,9 +3594,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 tree: legacyOptions.tree ?? {
                     // Self-referencing tree-grid config (plugin-tree). Spread the
                     // full view-defined tree first so parentField/fields/
-                    // defaultExpandedDepth survive; labelField falls back to the
-                    // view's own `tree.titleField`, then to 'name'. parentField
-                    // auto-detects when omitted.
+                    // defaultExpandedDepth survive; labelField is floored at
+                    // 'name'. parentField auto-detects when omitted.
                     //
                     // Read AS `TreeViewConfig` (`@object-ui/types`, objectui#8253):
                     // `viewDef` is `Record<string, any>`, so the canonical rung
@@ -3606,18 +3610,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     // local: objectui#6557's convergence pin reads these seam lines
                     // out of this file and requires each to name `viewDef` itself.
                     //
-                    // ⛔ The `titleField` rung is deliberately NOT cast (objectui#8841).
-                    // `TreeViewConfig` is now the spec's `ListView.tree` block, and
-                    // `@objectstack/spec@17.4.0` refuses `titleField` there by name,
-                    // so casting to it would not compile and re-declaring the key
-                    // locally would fossilise a renderer-side alias into a second
-                    // contract — AGENTS.md #0.1, and the defect objectui#8841 exists
-                    // to undo. The rung stays as an UNDECLARED tolerant fallback,
-                    // read through `any`, kept so already-stored view records keep
-                    // resolving and so objectui#6557's pin on it stays honest. Its
-                    // retirement is a follow-up, ⛔ not a rider here.
+                    // ⛔ No `titleField` rung (objectui#6152 round 14). `TreeViewConfig`
+                    // is the spec's `ListView.tree` block, which refuses `titleField`
+                    // by name (objectui#8841); the undeclared fallback that still
+                    // read it is retired here and in `ListView` alike, so a stored
+                    // `tree.titleField` labels nothing and the tree falls to 'name'.
                     ...((viewDef.tree as TreeViewConfig | undefined) || {}),
-                    labelField: (viewDef.tree as TreeViewConfig | undefined)?.labelField || viewDef.tree?.titleField || 'name',
+                    labelField: (viewDef.tree as TreeViewConfig | undefined)?.labelField || 'name',
                 },
                 // The chart block the view DECLARED, forwarded WHOLE — a
                 // pointer, not a copy of its key set (objectui#7823).

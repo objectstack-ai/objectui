@@ -77,6 +77,7 @@ import { useObjectTranslation, createSafeTranslation, useDisplayLocale, pickLoca
 // string or an inline locale map) since `ObjectViewSchema.listViews` became its
 // record by reference. Resolved the way `ListView` resolves its own `label`.
 import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+import type { ListView as SpecListView } from '@objectstack/spec/ui';
 import {
   buildExpandFields,
   normalizeListViewSchema,
@@ -162,19 +163,81 @@ export const FLAT_MAP_CONFIG_SPELLING = {
 } as const satisfies Record<keyof ObjectMapConfig, string>;
 
 /**
- * Copy the declared map keys an author actually wrote onto the flat product,
- * each under its flat spelling.
+ * The flat products of `generateViewSchema`'s `gantt` and `timeline` branches,
+ * by the same mechanism as {@link FLAT_MAP_CONFIG_SPELLING}: one entry per key
+ * the `@objectstack/spec` list view's block of that kind declares, under the
+ * name the renderer reads it by on the node (the same name for every key).
+ * objectui#6152 round 14 put them in place of the raw spreads of each block,
+ * which forwarded every key a stored block carried, after the node's own keys:
+ * an undeclared key reached the node, a block key named like a node key
+ * (`objectName`) overrode the node's own value, and the timeline block's
+ * pre-#2231 `dateField` alias landed on `ObjectTimeline`'s FLAT `dateField`
+ * prop, where it bound the axis. `ListView` carries the same gantt table.
+ *
+ * TOTAL over the spec's own types: a key the spec adds to either block fails
+ * `tsc` here until it is listed. Type-only import, so the alias-closure walker
+ * the map table's docblock describes is not involved.
+ */
+const GANTT_CONFIG_SPELLING = {
+  startDateField: 'startDateField',
+  endDateField: 'endDateField',
+  titleField: 'titleField',
+  progressField: 'progressField',
+  dependenciesField: 'dependenciesField',
+  colorField: 'colorField',
+  parentField: 'parentField',
+  typeField: 'typeField',
+  baselineStartField: 'baselineStartField',
+  baselineEndField: 'baselineEndField',
+  groupByField: 'groupByField',
+  resourceView: 'resourceView',
+  assigneeField: 'assigneeField',
+  effortField: 'effortField',
+  capacity: 'capacity',
+  tooltipFields: 'tooltipFields',
+  quickFilters: 'quickFilters',
+  autoZoomToFilter: 'autoZoomToFilter',
+  viewMode: 'viewMode',
+  borderColorField: 'borderColorField',
+  lockField: 'lockField',
+  objectField: 'objectField',
+  summaryExtent: 'summaryExtent',
+  defaultCollapsedDepth: 'defaultCollapsedDepth',
+  dependencyTypes: 'dependencyTypes',
+  timeZone: 'timeZone',
+  exportFileName: 'exportFileName',
+  interactions: 'interactions',
+  timeSegments: 'timeSegments',
+} as const satisfies Record<keyof NonNullable<SpecListView['gantt']>, string>;
+
+/** The timeline block's declared keys; see {@link GANTT_CONFIG_SPELLING}. */
+const TIMELINE_CONFIG_SPELLING = {
+  startDateField: 'startDateField',
+  endDateField: 'endDateField',
+  titleField: 'titleField',
+  groupByField: 'groupByField',
+  colorField: 'colorField',
+  scale: 'scale',
+} as const satisfies Record<keyof NonNullable<SpecListView['timeline']>, string>;
+
+/**
+ * Copy the declared keys an author actually wrote onto the flat product,
+ * each under its flat spelling — the map's keys by default, another block's
+ * when a branch passes its table.
  *
  * Values travel AS WRITTEN: this is transport, not a second validation of the
  * declared block — that reading belongs to `getMapConfig` in `ObjectMap.tsx`
  * and stays there (objectui#5018). Discarding an ill-typed value here would
  * reintroduce exactly the silent drop objectui#9950 closed.
  */
-function pickFlatMapConfig(mapConfig: unknown): Record<string, unknown> {
+function pickFlatMapConfig(
+  mapConfig: unknown,
+  spelling: Readonly<Record<string, string>> = FLAT_MAP_CONFIG_SPELLING,
+): Record<string, unknown> {
   if (!mapConfig || typeof mapConfig !== 'object') return {};
   const source = mapConfig as Record<string, unknown>;
   return Object.fromEntries(
-    Object.entries(FLAT_MAP_CONFIG_SPELLING)
+    Object.entries(spelling)
       .filter(([declared]) => declared in source)
       .map(([declared, flat]) => [flat, source[declared]]),
   );
@@ -2035,8 +2098,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // each declared member gets a read point in the same delivery.
     //
     // MERGE, not replace, and per-KIND rather than wholesale: the legacy nesting
-    // stays working (stored views carry it, and it is where the legacy field
-    // aliases `groupField` / `imageField` / `dateField` live), while a canonical
+    // stays working (stored views carry it; the pre-#2231 field aliases that
+    // lived there, `groupField` / `imageField` / `dateField`, are no longer read
+    // since objectui#6152 round 14), while a canonical
     // block wins key-by-key over the legacy one for the same kind. A partially
     // declared canonical block therefore does not blank its legacy neighbour.
     // ⚠️ Since objectui#7928 the legacy side is the host `views` entry only; a
@@ -2099,13 +2163,13 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     switch (viewType) {
       case 'kanban': {
         // Per @objectstack/spec, kanban-specific config lives under view.kanban.*
-        // `groupByField` is the canonical name (spec); `groupField` is a legacy alias.
+        // `groupByField` is the spec's lane key and the only spelling read here:
+        // the pre-#2231 `groupField` alias retired in objectui#6152 round 14.
         // `kanban.columns` (when provided) lists the FIELDS to render on each card —
         // these are NOT lanes; lanes are derived from the groupBy field's options.
         const kanbanCfg = viewOptions.kanban || {};
         const groupBy =
           kanbanCfg.groupByField ||
-          kanbanCfg.groupField ||
           'status';
         // Card display fields: prefer explicit kanban.columns, fall back to the
         // view's outer columns. Strip out these from the spread below so they
@@ -2115,12 +2179,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           (Array.isArray(kanbanCfg.columns) && kanbanCfg.columns.length > 0
             ? kanbanCfg.columns
             : baseProps.fields) || [];
-        // ⭐ `groupBy` IS STRIPPED HERE (objectui#9242, maintainer ruling of
-        // 2026-09-12 — decision batch #117 item 5, option B). It is a THIRD
-        // spelling of the lane, and because it was NOT in this destructure it
-        // survived into `restKanban`, which the return below spreads AFTER the
-        // branch's own `groupBy` — so an authored `kanban.groupBy` OVERRODE the
-        // lane this branch had just resolved from `groupByField`.
+        // ⭐ `groupBy` NEVER REACHES THE NODE (objectui#9242, maintainer ruling
+        // of 2026-09-12 — decision batch #117 item 5, option B). It is a THIRD
+        // spelling of the lane, and while this branch spread the rest of the
+        // block AFTER its own `groupBy`, an authored `kanban.groupBy` OVERRODE
+        // the lane this branch had just resolved from `groupByField`. objectui#9242
+        // stripped it from that spread; objectui#6152 round 14 retired the spread.
         //
         // THE SECOND ROUTE. objectui#8365 / PR objectui#9236 closed the same
         // shape in `ListView`, but `generateViewSchema` runs precisely when no
@@ -2144,13 +2208,20 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // the protocol's own strict record, naming the key; objectui#10321's
         // pointer on that door was retired by objectui#11073, because the
         // protocol's refusal is terminal since `@objectstack/spec` 17.5.0.
-        // What this line closes is the BEHAVIOUR half: a document that reaches
-        // this branch carrying the key, whether or not it passed a validator.
-        // ⚠️ NODE-LOCAL vs VIEW-LEVEL, as everywhere in this branch: the
-        // `kanbanCfg.groupField` alias read above is LIVE and untouched, and
-        // `groupBy` on the RETURNED node is the canonical lane key
-        // `ObjectKanban` reads. Only the stray VIEW-CONFIG spelling is stripped.
-        const { columns: _kanbanColumns, groupByField: _gbf, groupField: _gf, titleField: _tf, conditionalFormatting: _kanbanCf, groupBy: _strayGroupBy, ...restKanban } = kanbanCfg;
+        // What this branch closes is the BEHAVIOUR half: a document that reaches
+        // it carrying the key, whether or not it passed a validator.
+        // ⚠️ NODE-LOCAL vs VIEW-LEVEL, as everywhere in this branch: `groupBy`
+        // on the RETURNED node is the canonical lane key `ObjectKanban` reads.
+        //
+        // ⭐ objectui#6152 round 14: the rest of the block is no longer spread
+        // onto the node at all. The spec's kanban block is `groupByField` /
+        // `columns` / `titleField` / `summarizeField`; the first three are read
+        // by name above and below, and `summarizeField` (objectui#11629) is now
+        // named too. The spread that carried it also carried every undeclared
+        // knob (`swimlaneField`, …) and let a block key named like a node key
+        // (`objectName`) override the node's own value; `ListView`'s twin
+        // retired the same spread in the same round.
+        //
         // Forward conditional formatting to kanban (issue #1584): nested
         // `options.kanban.conditionalFormatting` wins, then the view-level rule.
         // Those are the two places the key is DECLARED — `ObjectKanbanSchema`
@@ -2200,17 +2271,15 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // mirror, so the same node authored by hand was already rejected.
         // ⛔ Do not restore it: the tombstone is the contract.
         //
-        // ⚠️ NODE-LOCAL, and the distinction is the whole card: the VIEW-LEVEL
-        // `kanbanCfg.groupField` alias read above is LIVE (a legacy spelling of
-        // the spec's `groupByField`, mapped by `normalize-list-view.ts`) and is
-        // untouched. Only the write onto the generated node is dead.
+        // ⚠️ NODE-LOCAL: the VIEW-LEVEL `kanbanCfg.groupField` alias read here
+        // was a separate key, and objectui#6152 round 14 retired it.
         return {
           type: 'object-kanban',
           ...baseProps,
           groupBy,
           titleField: kanbanCfg.titleField || 'name',
           cardFields,
-          ...restKanban,
+          ...(kanbanCfg.summarizeField ? { summarizeField: kanbanCfg.summarizeField } : {}),
           ...(kanbanConditionalFormatting ? { conditionalFormatting: kanbanConditionalFormatting } : {}),
         };
       }
@@ -2243,34 +2312,44 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         //
         // ⛔ Deliberately NOT folded onto the canonical keys: option A was put to
         // the director seat and refused as the end state on the first route, and
-        // this route follows it rather than forking. The three reads above are
-        // already canonical-only.
-        const { dateField: _retiredDateField, endField: _retiredEndField, ...restCalendar } =
-          (viewOptions.calendar || {}) as Record<string, any>;
+        // this route follows it rather than forking. The reads below are
+        // canonical-only.
+        //
+        // ⭐ objectui#6152 round 14: the block's five DECLARED keys, each by name,
+        // and nothing else. objectui#8355 stripped `dateField` / `endField` from
+        // the trailing spread; this round retired the spread, which still carried
+        // every other key a stored block held (`defaultView`, an undeclared key,
+        // a block key named like a node key that overrode the node's own value).
+        // `colorField` and `allDayField`, which only the spread carried, are
+        // named now. `ListView`'s twin retired the same spread.
+        const calendarCfg = (viewOptions.calendar || {}) as Record<string, any>;
         return {
           type: 'object-calendar',
           ...baseProps,
-          ...(viewOptions.calendar?.startDateField
-            ? { startDateField: viewOptions.calendar.startDateField }
-            : {}),
-          ...(viewOptions.calendar?.endDateField
-            ? { endDateField: viewOptions.calendar.endDateField }
-            : {}),
-          ...(viewOptions.calendar?.titleField
-            ? { titleField: viewOptions.calendar.titleField }
-            : {}),
-          ...restCalendar,
+          ...(calendarCfg.startDateField ? { startDateField: calendarCfg.startDateField } : {}),
+          ...(calendarCfg.endDateField ? { endDateField: calendarCfg.endDateField } : {}),
+          ...(calendarCfg.titleField ? { titleField: calendarCfg.titleField } : {}),
+          ...(calendarCfg.colorField ? { colorField: calendarCfg.colorField } : {}),
+          ...(calendarCfg.allDayField ? { allDayField: calendarCfg.allDayField } : {}),
         };
       }
       case 'gallery':
         return {
           type: 'object-gallery',
           ...baseProps,
-          // `coverField` is the spec key; `imageField` is the legacy alias that
-          // ObjectGallery still consults as a flat prop.
-          imageField: viewOptions.gallery?.coverField || viewOptions.gallery?.imageField,
+          // `coverField` is the spec key. It goes out as the FLAT `imageField`
+          // prop, because this route hands `ObjectGallery` no nested `gallery`
+          // block and that flat prop is the one it reads after the nested
+          // `coverField`. objectui#6152 round 14 retired the pre-#2231
+          // `gallery.imageField` alias rung that followed it here.
+          imageField: viewOptions.gallery?.coverField,
           titleField: viewOptions.gallery?.titleField || 'name',
-          ...(viewOptions.gallery || {}),
+          // ⛔ No raw spread of the block onto this node (objectui#6152 round
+          // 14). `ObjectGallery` reads a FLAT `imageField` and `titleField`
+          // and nothing else flat from the block's vocabulary, so the spread
+          // delivered no declared key the two lines above do not; it delivered
+          // every undeclared one, and a block key named like a node key
+          // (`objectName`) overrode the node's own value.
         };
       case 'timeline': {
         // `04a67b9dc` (step ③): the SECOND route to `ObjectTimeline`, fixed the
@@ -2287,18 +2366,19 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // ⛔ `titleField` keeps its `'name'` floor: not a date axis, and the same
         // display-name rung the gallery and kanban branches carry here.
         //
-        // `startDateField` is the spec key; `dateField` is the legacy alias, and
-        // this flat prop is the only place on this face that translates one into
-        // the other — the trailing `...viewOptions.timeline` spread does not, so
-        // the alias has to be resolved before it, not folded into the spread.
-        const timelineStartDateField =
-          viewOptions.timeline?.startDateField || viewOptions.timeline?.dateField;
+        // ⭐ objectui#6152 round 14: the block's DECLARED keys only, flat, by
+        // `TIMELINE_CONFIG_SPELLING`. `startDateField` is the spec key and the
+        // only start binding read here. The pre-#2231 `dateField` alias had a
+        // rung, and the raw spread that followed it put a stored
+        // `timeline.dateField` onto the node's FLAT `dateField`, which
+        // `ObjectTimeline` reads as its own declared prop: the alias bound the
+        // axis twice over. Both retired, so a stored alias binds nothing and the
+        // component's refusal screen names the keys to write.
         return {
           type: 'object-timeline',
           ...baseProps,
-          ...(timelineStartDateField ? { startDateField: timelineStartDateField } : {}),
+          ...pickFlatMapConfig(viewOptions.timeline, TIMELINE_CONFIG_SPELLING),
           titleField: viewOptions.timeline?.titleField || 'name',
-          ...(viewOptions.timeline || {}),
         };
       }
       case 'gantt':
@@ -2322,7 +2402,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // `undefined` INDISTINGUISHABLE from that legitimate absence, so a
         // misspelt key hit a same-named column silently. Omitting keeps the
         // legitimate case rendering exactly as before while a declared value
-        // still passes verbatim through the `viewOptions.gantt` spread below.
+        // still passes verbatim through the declared-key copy below.
         // Deleting them cannot resurrect a config — `getGanttConfig` gates on
         // the two date fields alone, so the refusal screen stays as reachable
         // as it was (`plugin-gantt/src/ObjectGantt.unconfiguredRefusal-7070`).
@@ -2335,7 +2415,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           ...(viewOptions.gantt?.endDateField
             ? { endDateField: viewOptions.gantt.endDateField }
             : {}),
-          ...(viewOptions.gantt || {}),
+          // The block's DECLARED keys, where a raw spread of the whole block
+          // stood until objectui#6152 round 14. See `GANTT_CONFIG_SPELLING`.
+          ...pickFlatMapConfig(viewOptions.gantt, GANTT_CONFIG_SPELLING),
         };
       case 'map':
         // Whitelisted flatten (objectui#5177) — see `FLAT_MAP_CONFIG_SPELLING`,
@@ -2376,17 +2458,18 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // Single-parent pointer field; auto-detected from the object's
           // `tree`/self-reference field when not specified.
           parentField: viewOptions.tree?.parentField,
-          // ⚠️ `titleField` is an UNDECLARED tolerant fallback (objectui#8841),
-          // not part of the block: `@objectstack/spec@17.4.0` refuses
-          // `tree.titleField` by name and `TreeViewConfig` no longer carries it.
-          // The read survives because `viewOptions` is untyped here, and it is
-          // kept so view records already storing the key keep resolving.
-          // ⛔ Not to be re-declared anywhere; its retirement is a follow-up.
-          labelField: viewOptions.tree?.labelField || viewOptions.tree?.titleField || 'name',
+          // ⛔ No `titleField` rung (objectui#6152 round 14). The spec refuses
+          // `tree.titleField` by name and `TreeViewConfig` does not carry it
+          // (objectui#8841); the undeclared fallback that still read it is
+          // retired here, in `ListView` and in app-shell's relay alike.
+          labelField: viewOptions.tree?.labelField || 'name',
           // The view's columns double as the tree-grid's flat columns.
           fields: viewOptions.tree?.fields || baseProps.fields,
           defaultExpandedDepth: viewOptions.tree?.defaultExpandedDepth,
-          ...(viewOptions.tree || {}),
+          // ⛔ No raw spread of the block after these (objectui#6152 round 14):
+          // the spec's tree block is the four keys above, and the spread only
+          // added undeclared keys and let a block key named like a node key
+          // override the node's own value.
         };
       case 'chart': {
         // ⛔ HOST-COMPOSITION ONLY (objectui#5321) — the same record as

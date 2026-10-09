@@ -97,29 +97,29 @@ describe('ObjectTimeline — honours the configured date field (objectui#3129)',
     expect(bucketLabels()).toEqual(['Later']);
   });
 
-  it('buckets by the nested LEGACY alias `timeline.dateField`', async () => {
-    // `ListViewTimelineConfig` declared `dateField` on the nested config, and
-    // both `ObjectView` read-sites resolve it — but this renderer only ever read
-    // the FLAT `schema.dateField`, so the alias fell through to the caller's
-    // default (`created_at` / `due_date`). That field is normally absent from
-    // the projection, so every record landed under "No date".
-    //
-    // objectui#6152 round 12: the TYPE now refuses the alias by name (pinned at
-    // the top of this file), and the READ stays until the readers' retirement
-    // round. So this fixture is what it models: a block stored before the doors
-    // closed, handed in untyped, which must still bind.
+  it('binds NOTHING from the retired nested alias `timeline.dateField` (objectui#6152 round 14)', async () => {
+    // objectui#3129 gave this alias a rung on the nested config; objectui#6152
+    // round 12 refused it by name on the TYPE (pinned at the top of this file)
+    // and round 14 retired the READ. A block stored before the doors closed and
+    // handed in untyped therefore binds no axis. With no other binding the
+    // component refuses (objectui#7459) rather than inventing one, and the
+    // refusal no longer names the alias as something to write.
     expect(nestedTimelineIsTheListViewBlock).toBe(true);
     expect(aliasRefusedByTheType.titleField).toBe('name');
-    await renderTimeline({
-      type: 'object-timeline',
-      objectName: 'crm_campaign',
-      titleField: 'name',
-      timeline: { dateField: 'start_date', titleField: 'name' },
-      // What ListView/ObjectView pass alongside it when the alias goes
-      // unresolved — the whole point is that the nested config must win.
-      startDateField: 'created_at',
-    });
-    expect(bucketLabels()).toEqual(['Later']);
+    const props = {
+      schema: {
+        type: 'object-timeline',
+        objectName: 'crm_campaign',
+        titleField: 'name',
+        timeline: { dateField: 'start_date', titleField: 'name' },
+      },
+      data: rows,
+    } as unknown as React.ComponentProps<typeof ObjectTimeline>;
+    render(<ObjectTimeline {...props} />);
+    const refusal = await screen.findByTestId('timeline-missing-date-axis');
+    expect(refusal.textContent).toContain('timeline.startDateField');
+    expect(refusal.textContent).not.toContain('timeline.dateField');
+    expect(screen.queryByText('Spring Launch')).toBeNull();
   });
 
   it('still honours the flat legacy props when no nested config is given', async () => {

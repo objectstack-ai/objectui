@@ -138,13 +138,15 @@ describe('ObjectView.generateViewSchema — timeline restates only a DECLARED ax
     expect(schema.titleField).toBe('subject');
   });
 
-  it('CONTROL: still resolves the LEGACY `timeline.dateField` alias', async () => {
-    // The alias is the half a conditional spread is easiest to drop by accident:
-    // the flat prop is the ONLY place `dateField` was ever translated into the
-    // spec key on this face, and the trailing `...viewOptions.timeline` spread
-    // does not do it. A view authored pre-#2231 must keep rendering.
+  it('the retired LEGACY `timeline.dateField` alias binds no axis, under either flat name (objectui#6152 round 14)', async () => {
+    // This arm pinned that the alias still resolved: the flat prop was the one
+    // place it was translated into the spec key, and the raw block spread also
+    // put it on the node's FLAT `dateField`, which `ObjectTimeline` reads as a
+    // declared prop. objectui#6152 round 14 retired both, so a stored alias
+    // reaches neither, and the renderer's refusal answers instead.
     const schema = await renderTimelineView({ timeline: { dateField: 'start_date' } });
-    expect(schema.startDateField).toBe('start_date');
+    expect(schema.startDateField).toBeUndefined();
+    expect(schema).not.toHaveProperty('dateField');
   });
 
   it('CONTROL: the spec key still WINS over the legacy alias', async () => {

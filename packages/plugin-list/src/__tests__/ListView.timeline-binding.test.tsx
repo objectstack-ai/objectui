@@ -106,22 +106,31 @@ describe('ListView — timeline date binding reaches the renderer (objectui#3129
     // "No date" even though the rows carried the configured date all along.
     // (That floor is gone as of objectui#7070 step ③; an unresolved alias now
     // reaches the renderer's refusal instead of a wrong axis.)
+    //
+    // ⚠️ Holds at this commit only through `normalizeListViewSchema`'s fold
+    // (`@object-ui/core`), which rewrites a TOP-LEVEL `timeline.dateField` to
+    // `startDateField` before this branch reads anything: `ListView`'s own
+    // rung retired in objectui#6152 round 14. Retiring the fold is that round's
+    // leg that waits for PR objectui#12036, and that leg flips this arm.
     const props = await timelineProps({ ...BASE, timeline: { dateField: 'start_date' } });
     expect(props.schema.startDateField).toBe('start_date');
     expect(findCalls[0].$select).toContain('start_date');
   });
 
-  it('forwards the legacy `options.timeline` nesting (both keys)', async () => {
+  it('forwards the legacy `options.timeline` nesting by its spec key; the retired alias binds nothing (objectui#6152 round 14)', async () => {
     const viaStart = await timelineProps({
       ...BASE,
       options: { timeline: { startDateField: 'start_date', endDateField: 'end_date' } },
     });
     expect(viaStart.schema.startDateField).toBe('start_date');
 
+    // This half used to read `start_date` too: the bag's `dateField` was a rung
+    // of `resolveTimelineDateBinding`. Round 14 retired it, and no fold reaches
+    // into the bag, so the axis is absent and the renderer's refusal answers.
     captured = [];
     findCalls = [];
     const viaAlias = await timelineProps({ ...BASE, options: { timeline: { dateField: 'start_date' } } });
-    expect(viaAlias.schema.startDateField).toBe('start_date');
+    expect(viaAlias.schema.startDateField).toBeUndefined();
   });
 
   it('binds to the CALENDAR date axis when the view declares no timeline one', async () => {
@@ -187,7 +196,10 @@ describe('ListView — timeline date binding reaches the renderer (objectui#3129
     // the renderer could not use. Same function now answers both questions.
     expect(resolveTimelineDateBinding({ options: { calendar: { startDateField: 'start_date' } } }))
       .toEqual({ startDateField: 'start_date', endDateField: undefined, titleField: undefined });
-    expect(resolveTimelineDateBinding({ timeline: { dateField: 'a' }, calendar: { startDateField: 'b' } }).startDateField)
+    // The timeline's own axis wins over the calendar's. Re-spelled from the
+    // retired `timeline.dateField` (objectui#6152 round 14): the precedence was
+    // the subject, the alias only the spelling it was written in.
+    expect(resolveTimelineDateBinding({ timeline: { startDateField: 'a' }, calendar: { startDateField: 'b' } }).startDateField)
       .toBe('a');
     expect(resolveTimelineDateBinding({}).startDateField).toBeUndefined();
   });
@@ -195,6 +207,10 @@ describe('ListView — timeline date binding reaches the renderer (objectui#3129
   it('offers the Timeline visualization for a config using only the alias', async () => {
     // The capability gate had the same vocabulary gap, so a grid view carrying
     // only the aliased timeline config never offered the Timeline option.
+    //
+    // ⚠️ Holds at this commit only through `normalizeListViewSchema`'s fold of
+    // the TOP-LEVEL alias (see the arm above); the parked core leg of
+    // objectui#6152 round 14 flips it.
     const dataSource = makeDataSource() as any;
     render(
       <SchemaRendererProvider dataSource={dataSource}>

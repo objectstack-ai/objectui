@@ -43,3 +43,8 @@ before; only authored metadata meets the refusal. The legacy `options.KIND` bag 
 unchanged. It is now the spec's list-overlay bag by reference, with these four blocks in it, so each
 refusal above also applies under `options.KIND`, with the same message; see
 `.changeset/6152-list-view-options-bag.md`. The renderers' reads still have not moved.
+
+**Note added 2026-10-09 (objectui#6152 round 14):** the renderers' reads have moved. No renderer reads
+the four aliases, `calendar.defaultView` or an undeclared key of these blocks any longer, so a view
+stored with one of them renders without what that key used to bind; see
+`.changeset/6152-list-view-readers-retired.md` for what changes on screen and what to write instead.

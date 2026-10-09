@@ -53,10 +53,11 @@ each is asserted in the drift guard:
 | `gallery` | `imageField` | `coverField` |
 | `timeline` | `dateField` | `startDateField` |
 
-**The spec key is canonical.** A stored view that still carries a pre-#2231 alias keeps
-rendering, because `normalizeListViewSchema` (`@object-ui/core`) folds it forward, but
-the door refuses it on authored metadata. Don't add a new local key here: declare it in
-`@objectstack/spec`, or rename at the producer.
+**The spec key is canonical, at the door and at render.** The door refuses each refused
+key on authored metadata, and since objectui#6152 round 14 no renderer reads one either:
+a stored view that still carries a pre-#2231 alias, or `calendar.defaultView`, renders
+without what that key used to bind. Write the key in the right-hand column. Don't add a
+new local key here: declare it in `@objectstack/spec`, or rename at the producer.
 
 ### The legacy `options` bag is the spec's list-overlay bag, by reference — objectui#6152
 

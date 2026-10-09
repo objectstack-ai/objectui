@@ -202,10 +202,16 @@ describe('ListView — speculative view bindings are FLS-gated (objectui#7216)',
     ).toContain('end_date');
   });
 
-  // ── PIN 4: timeline `dateField` ─────────────────────────────────────────
+  // ── PIN 4: timeline start binding ───────────────────────────────────────
+  //
+  // RE-SPELLED by objectui#6152 round 14: the fixture wrote the pre-#2231
+  // `dateField`, which reached the collectors only as the core fold's
+  // `startDateField`. The collectors no longer list the alias, so once that
+  // fold retires the old fixture would project nothing for a reason that has
+  // nothing to do with FLS. The spec key keeps the pin about the gate.
   //
   // REWRITTEN by objectui#10222 (ruling batch #223 item 5b, letter A), not
-  // deleted: what it guards, the DENIED `dateField` binding, is unchanged.
+  // deleted: what it guards, the DENIED date binding, is unchanged.
   // Its fixture used to carry `metaFields: ['region']` as the permitted
   // binding beside it. That key is undeclared on the spec's timeline block and
   // the projection no longer reads it, so it can no longer be the live
@@ -218,7 +224,7 @@ describe('ListView — speculative view bindings are FLS-gated (objectui#7216)',
   it('does not project a DENIED timeline date binding', async () => {
     const select = await selectFor({
       columns: COLUMNS,
-      timeline: { dateField: 'due_date', endDateField: 'end_date' },
+      timeline: { startDateField: 'due_date', endDateField: 'end_date' },
     });
     expect(select).not.toContain('due_date');
     expect(

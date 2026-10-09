@@ -1553,14 +1553,19 @@ const LIST_VIEW_LOCAL_OVERRIDES = [
 // required `startDateField` (no producer leaves it out), and the gallery slot
 // requires nothing.
 //
-// ⚠️ WHAT DID NOT MOVE: the READERS. `normalizeListViewSchema` (`@object-ui/core`)
-// still folds the four aliases onto their canonical keys, `ListView` still lifts
-// `calendar.defaultView` onto the calendar it builds, and its kanban and calendar
-// branches still spread the rest of the block onto the generated node. The render
-// path parses nothing, so a view stored before the spec closed these slots still
-// renders. This mirror is the door an author meets (`safeValidateSchema`,
-// `objectui validate`, and the TypeScript face derived from it). Retiring those
-// readers is a later, renderer-side round on objectui#6152.
+// ⚠️ THE READERS MOVED SECOND, in their own round (objectui#6152 round 14, on the
+// census of round 13 and the seat's answer to it). Until then
+// `normalizeListViewSchema` (`@object-ui/core`) folded the four aliases onto their
+// canonical keys, `ListView` lifted `calendar.defaultView` onto the calendar it
+// built, and its kanban and calendar branches spread the rest of the block onto
+// the generated node, so a view stored before the spec closed these slots still
+// rendered as written. Since that round no renderer reads a key this mirror
+// refuses: the render path still parses nothing, so such a stored view renders,
+// but without what the refused key used to bind (the lane, the cards, the cover,
+// the timeline axis fall to their defaults or to the refusal screens). This
+// mirror is the door an author meets (`safeValidateSchema`, `objectui validate`,
+// and the TypeScript face derived from it), and its messages name the key to
+// write instead.
 //
 // ⚠️ THE MEASUREMENT THIS RESTS ON was taken once and is not re-derived by any
 // instrument (AGENTS.md #9): the census on objectui#6152 (round 11) read no
@@ -1583,8 +1588,8 @@ const LIST_VIEW_LOCAL_OVERRIDES = [
 const listViewBlockAliasDetail = (alias: string, canonical: string, meaning: string) =>
   `\`${alias}\` is the pre-#2231 objectui spelling of ${meaning}, refused on this list-view block since `
   + `objectui#6152 (round 11). \`@objectstack/spec\` judges the block as a strict object whose only spelling `
-  + `is \`${canonical}\`, and refuses \`${alias}\` there. A view that already carries it still renders, because `
-  + `the renderer folds it onto \`${canonical}\`; write \`${canonical}\`.`;
+  + `is \`${canonical}\`, and refuses \`${alias}\` there. The renderer no longer reads it either (round 14), `
+  + `so a view that already carries it renders without that binding; write \`${canonical}\`.`;
 
 /** `kanban.groupField` / `kanban.cardFields` — the two pre-#2231 kanban aliases. */
 const KanbanBlockAliasRefusals = {
@@ -1616,8 +1621,9 @@ const CalendarBlockDefaultViewRefusal = retirementTombstone(
   'Unrecognized key(s) on this calendar configuration: `defaultView`. `@objectstack/spec` has no '
   + '`defaultView` member on a list view\'s calendar block, so the spec refuses it there, and since '
   + 'objectui#6152 (round 11) this package does too. The initial view mode is a member of the '
-  + '`object-calendar` element (its flat `defaultView`), not of a list view\'s calendar block. A view '
-  + 'that already carries it still renders: the list view still lifts it onto the calendar it builds.',
+  + '`object-calendar` element (its flat `defaultView`), not of a list view\'s calendar block. The list '
+  + 'view no longer lifts it onto the calendar it builds (round 14), so a view that already carries it '
+  + 'opens on the calendar\'s own default view.',
 );
 
 // ALIAS REFUSAL — THE READ DOOR FOR A STORED VIEW'S KANBAN CONFIG
@@ -1659,12 +1665,10 @@ const CalendarBlockDefaultViewRefusal = retirementTombstone(
 //
 // ⛔ NOT A FOLD onto `groupByField`. A fold is only honest where the canonical
 // key is the READER's first limb; here the reader's first limb IS canonical
-// (`groupByField || groupField || detectStatusField(...)`), so folding the
-// alias in would re-create the very override this refusal closes.
-// ⛔ NOT the `groupField` / `cardFields` treatment above either: those two are
-// deprecated aliases the SPEC also models under its canonical names and
-// `normalize-list-view.ts` folds forward; `groupBy` is modelled nowhere and
-// folds nowhere.
+// (`groupByField || detectStatusField(...)` since objectui#6152 round 14), so
+// folding the alias in would re-create the very override this refusal closes.
+// `groupBy` is modelled nowhere and folds nowhere, and since that round the
+// `groupField` / `cardFields` aliases above fold nowhere either.
 //
 // ⚠️ NODE-LOCAL vs VIEW-LEVEL, the distinction this file has to keep straight:
 // this arm is the VIEW-LEVEL `kanban` config. `groupBy` on the generated
@@ -1677,7 +1681,7 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
   '`groupBy` is the lane key of the generated `object-kanban` NODE, not of the view-level '
   + 'kanban configuration (objectui#8365). `@objectstack/spec`\'s `KanbanConfigSchema` is a '
   + 'strict object of `columns` / `groupByField` / `summarizeField` and refuses `groupBy` by '
-  + 'name. Write `groupByField` (or the deprecated `groupField`, which folds onto it). This '
+  + 'name. Write `groupByField`. This '
   + 'package, by contrast, accepted the key green until this refusal: it passed '
   + '`safeValidateSchema` in either nesting, kept by this object\'s `.passthrough()` or by the '
   + 'untyped legacy `options` bag, and reached `ListView`\'s kanban branch, where it OVERRODE the '
@@ -1791,9 +1795,10 @@ const KanbanConfig = stripImportedDefaults(SpecListViewSchema).shape.kanban.unwr
  * The author-facing hazard was real all the same: an author who copied that
  * hint wrote `endDateField` and bound the END of an event to the date they
  * meant as the START — accepted by every layer, wrong on screen. Every objectui read site
- * folds this spelling onto the START: the ladder this card retires did,
- * `normalizeListViewSchema`'s `timeline` fold does, `resolveTimelineDateBinding`
- * documents it as "the pre-#2231 alias for `startDateField`", and this package
+ * folded this spelling onto the START until objectui#6152 round 14 retired them: the
+ * ladder this card retires did, `normalizeListViewSchema`'s `timeline` fold did,
+ * `resolveTimelineDateBinding` documented it as "the pre-#2231 alias for
+ * `startDateField`", and this package
  * published "Deprecated alias for startDateField" on `TimelineConfig` for
  * releases (until objectui#6152 round 11 refused it there, naming the same key).
  * So these arms name `startDateField`. The remedy upstream needed was
@@ -2004,8 +2009,8 @@ const CalendarConfig = stripImportedDefaults(SpecListViewSchema).shape.calendar.
  * `defaultView` is not a member of either block. This ELEMENT seeds its view
  * state from the FLAT `defaultView` member of this schema and never looks inside
  * the container, so the slot's refusal here costs nothing. A list VIEW's block
- * refuses it by name since objectui#6152 round 11 (`ListView` still lifts a
- * stored one onto the node it builds).
+ * refuses it by name since objectui#6152 round 11, and since round 14 `ListView`
+ * no longer lifts a stored one onto the node it builds.
  */
 const ObjectCalendarBlockConfigSchema = stripImportedDefaults(SpecObjectCalendarPropsSchema).shape.calendar.unwrap().extend({
   // ⭐ objectui#8355 — the same two spellings the view-level block above refuses,
@@ -2072,12 +2077,14 @@ const TimelineConfig = stripImportedDefaults(SpecListViewSchema).shape.timeline.
  * names do. `stripImportedDefaults` keeps a parse from writing the slots'
  * defaults (the chart block's `chartType`) into a bag that did not carry them.
  *
- * ⚠️ WHAT DID NOT MOVE: the READERS. `ListView` still merges each
- * `options.KIND` under the top-level block and spreads the rest of several of
- * them onto the node it builds. The render path parses nothing, so a row
- * stored before the view write door judged the bag (`@objectstack/spec` 17.5.0)
- * still renders. This mirror is the door an author meets. The writers moved
- * with it: app-shell's relay writes `kanban.columns` and no `gallery.imageField`
+ * ⚠️ THE READERS MOVED SECOND (objectui#6152 round 14). `ListView` still merges
+ * each `options.KIND` under the top-level block, but it reads each kind's
+ * declared keys only: the alias rungs, the `options.grid` spread and the spreads
+ * of the rest of a block onto the node it builds are retired. The render path
+ * parses nothing, so a row stored before the view write door judged the bag
+ * (`@objectstack/spec` 17.5.0) still renders, without what a refused key used to
+ * bind. This mirror is the door an author meets. The writers moved with it in
+ * round 12: app-shell's relay writes `kanban.columns` and no `gallery.imageField`
  * or `timeline.descriptionField` (`ObjectView.tsx`), and the `@object-ui/plugin-list`
  * README authors the top-level blocks instead of the bag.
  *

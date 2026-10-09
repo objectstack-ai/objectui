@@ -136,32 +136,37 @@ const CONTROL_KEY = 'laneField';
 const READ_CONTROL_KEY = 'objectName';
 
 /**
- * The VIEW-LEVEL `groupField` alias sites, off disk. `groupField` is LIVE at
- * every one of them; the tombstone is on the `object-kanban` NODE only.
+ * The VIEW-LEVEL `groupField` alias sites, off disk. The tombstone this file pins
+ * is on the `object-kanban` NODE only, and when it landed `groupField` was LIVE at
+ * every one of these sites. objectui#6152 round 14 retired the view-level reads
+ * too, on their own ruling (every list-view door refuses the alias), so the
+ * renderer sites below now pin the ABSENCE of the old read beside the PRESENCE of
+ * the canonical one that replaced it: a site that stopped reading the lane at all
+ * fails the presence half.
  */
-const VIEW_LEVEL_ALIAS_SITES: ReadonlyArray<readonly [file: string, text: string]> = [
-  ['packages/core/src/utils/normalize-list-view.ts', "kanban: { groupField: 'groupByField', cardFields: 'columns' }"],
-  // Multi-line since objectui#8193, which added the CANONICAL rung for the
-  // `options` bag next to the legacy one (the gate had been asking that bag for
-  // the deprecated spelling only, so a producer writing the spec key into it was
-  // invisible while rendering fine). The alias rungs are untouched — this pin
-  // now covers four and reads the wider expression verbatim, indentation
-  // included, exactly as it read the one-line form before.
+const RETIRED_VIEW_LEVEL_ALIAS_SITES: ReadonlyArray<readonly [file: string, retired: string, canonical: string]> = [
   [
     'packages/plugin-list/src/ListView.tsx',
-    `schema.kanban?.groupByField ||
-      schema.kanban?.groupField ||
-      schema.options?.kanban?.groupByField ||
-      schema.options?.kanban?.groupField`,
+    'schema.options?.kanban?.groupField',
+    'if (schema.kanban?.groupByField || schema.options?.kanban?.groupByField) {',
   ],
-  ['packages/plugin-view/src/ObjectView.tsx', 'kanbanCfg.groupField ||'],
+  ['packages/plugin-view/src/ObjectView.tsx', 'kanbanCfg.groupField ||', 'kanbanCfg.groupByField ||'],
 ];
+/**
+ * The core fold, which still reads the alias at this commit: its retirement is
+ * the leg of objectui#6152 round 14 that waits for PR objectui#12036 (the other
+ * edit to that file). That leg flips this entry.
+ */
+const VIEW_LEVEL_ALIAS_FOLD = [
+  'packages/core/src/utils/normalize-list-view.ts',
+  "kanban: { groupField: 'groupByField', cardFields: 'columns' }",
+] as const;
 /**
  * …and the same alias, still DECLARED on the view-level config in this very mirror file —
  * since objectui#6152 round 11 as a by-name REFUSAL naming `groupByField` (the spec's
- * list-view kanban slot refuses it), while the readers above stay live. A different
- * refusal from this node's tombstone: that one says nothing reads the key, this one
- * names what to write and leaves the stored-view fold in place.
+ * list-view kanban slot refuses it). A different refusal from this node's tombstone:
+ * that one says nothing reads the key, this one names what to write. Since
+ * objectui#6152 round 14 the renderer reads above are retired as well.
  */
 const VIEW_LEVEL_ALIAS_MIRROR_TEXT = 'groupField: KanbanBlockAliasRefusals.groupField,';
 
@@ -446,12 +451,16 @@ describe('objectui#7322 — the control key stays undeclared, so nothing outside
   });
 });
 
-describe('objectui#7322 — the tombstone is NODE-LOCAL: the view-level `groupField` alias is still READ', () => {
-  it.each(VIEW_LEVEL_ALIAS_SITES)('%s still reads the view-level alias', (file, text) => {
-    // If a site stops reading `groupField`, the retirement's stated boundary
-    // has moved and the docblocks on both faces are wrong: re-derive, do not
-    // widen the tombstone on the way past.
-    expect(readRepo(file), `${file} no longer reads the view-level \`groupField\` alias as \`${text}\``).toContain(text);
+describe('objectui#7322 — the tombstone is NODE-LOCAL; the view-level `groupField` alias retired on its own ruling (objectui#6152 round 14)', () => {
+  it.each(RETIRED_VIEW_LEVEL_ALIAS_SITES)('%s reads the view-level lane by the spec key only', (file, retired, canonical) => {
+    const src = readRepo(file);
+    expect(src, `${file} reads the retired view-level \`groupField\` alias as \`${retired}\` again`).not.toContain(retired);
+    expect(src, `${file} no longer reads the view-level lane as \`${canonical}\``).toContain(canonical);
+  });
+
+  it('the core fold still reads it at this commit (its leg of the retirement is parked)', () => {
+    const [file, text] = VIEW_LEVEL_ALIAS_FOLD;
+    expect(readRepo(file)).toContain(text);
   });
 
   it('the view-level alias is still DECLARED on `KanbanConfig` in the same mirror file, as a by-name refusal (objectui#6152 round 11)', () => {

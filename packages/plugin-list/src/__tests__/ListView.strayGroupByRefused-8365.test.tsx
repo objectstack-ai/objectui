@@ -210,6 +210,12 @@ describe('objectui#8365 · half 1 — the CANONICAL lane wins on the generated n
     // The VIEW-LEVEL legacy alias is LIVE and untouched by this card — only the
     // third spelling is refused. Without this arm the fix could have narrowed
     // the alias read as well and nothing here would notice.
+    //
+    // ⚠️ Holds at this commit only through `normalizeListViewSchema`'s fold
+    // (`@object-ui/core`), which rewrites a TOP-LEVEL `kanban.groupField` before
+    // `ListView` reads anything: `ListView`'s own alias rung retired in
+    // objectui#6152 round 14. Retiring the fold is that round's leg that waits
+    // for PR objectui#12036, and that leg flips this arm.
     const node = await generatedKanbanNode({ kanban: { groupField: CANONICAL } });
     expect(node.groupBy).toBe(CANONICAL);
   });

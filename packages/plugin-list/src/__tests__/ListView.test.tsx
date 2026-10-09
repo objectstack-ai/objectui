@@ -2853,6 +2853,11 @@ describe('ListView — kanban config speaks the spec vocabulary', () => {
   });
 
   it('still honors the deprecated `groupField` alias', async () => {
+    // ⚠️ Holds at this commit only through `normalizeListViewSchema`'s fold
+    // (`@object-ui/core`), which rewrites a TOP-LEVEL `kanban.groupField` before
+    // `ListView` reads anything: `ListView`'s own alias rung retired in
+    // objectui#6152 round 14. Retiring the fold is that round's leg that waits
+    // for PR objectui#12036, and that leg flips this arm.
     renderWithProvider(<ListView schema={kanbanSchema({ groupField: 'priority' })} dataSource={mockDataSource} />);
     expect(await screen.findByTestId('kanban-stub')).toBeInTheDocument();
 

@@ -22,9 +22,10 @@
  * objectui#6152 (report 6070437445): a `{ coverField }` bag was not offered, the
  * `{ imageField, coverField }` bag was, and a top-level `gallery.coverField` was.
  *
- * ⛔ NO ALIAS READ WAS REMOVED. Stored metadata written before the view write
- * door judged the bag may still carry `imageField`; the readers' retirement is a
- * later round on objectui#6152.
+ * ⛔ NO ALIAS READ WAS REMOVED by round 12. Stored metadata written before the
+ * view write door judged the bag may still carry `imageField`, and the readers'
+ * retirement was its own round: objectui#6152 round 14 removed the alias rungs,
+ * and the legacy-bag CONTROL below was re-judged into a refusal arm then.
  *
  * Both directions are pinned: the canonical-bag arms answer YES, and the arms at
  * the bottom answer NO for a bag with no cover binding, so the rung cannot
@@ -91,9 +92,11 @@ describe('the capability gate resolves gallery from the CANONICAL key in the opt
     expect(galleryOffered({ options: { gallery: { coverField: 'logo', titleField: 'name' } } })).toBe(true);
   });
 
-  it('CONTROL: still offers Gallery for the LEGACY `options.gallery.imageField`', () => {
-    // The rung that already worked: proves the change ADDED a rung.
-    expect(galleryOffered({ options: { gallery: { imageField: 'logo' } } })).toBe(true);
+  it('does NOT offer Gallery for the retired LEGACY `options.gallery.imageField` (objectui#6152 round 14)', () => {
+    // Round 12's CONTROL here proved its change ADDED a rung. Round 14 retired
+    // the alias rung itself: a stored `imageField` binds no cover, so the gate
+    // must not offer a gallery for it.
+    expect(galleryOffered({ options: { gallery: { imageField: 'logo' } } })).toBe(false);
   });
 
   it('CONTROL: still offers Gallery for the declared `gallery.coverField`', () => {

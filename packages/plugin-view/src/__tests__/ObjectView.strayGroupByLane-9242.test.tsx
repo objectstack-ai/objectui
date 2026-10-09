@@ -269,12 +269,14 @@ describe('objectui#9242 — the controls, each able to fire on its own', () => {
     expect(node.groupBy).toBe(CANONICAL);
   });
 
-  it('CONTROL: the LIVE legacy alias `kanban.groupField` still resolves the lane', async () => {
-    // ⚠️ The VIEW-LEVEL legacy alias is live and untouched by this card — only
-    // the third spelling is stripped. Without this arm the fix could have
-    // narrowed the alias read too and nothing here would have noticed.
+  it('the retired legacy alias `kanban.groupField` names no lane: the floor answers (objectui#6152 round 14)', async () => {
+    // This card left the VIEW-LEVEL alias live (only the third spelling was
+    // stripped), and this arm pinned that it still resolved the lane.
+    // objectui#6152 round 14 retired the alias read on its own ruling, so a
+    // stored `groupField` now gets the same lane as a block with no key.
     const node = await generatedKanbanNode({ groupField: CANONICAL });
-    expect(node.groupBy).toBe(CANONICAL);
+    expect(node.groupBy).toBe(FLOOR);
+    expect(node.groupBy).not.toBe(CANONICAL);
   });
 
   it('CONTROL: with neither declared key the lane is the floor, exactly as before this card', async () => {
@@ -282,13 +284,15 @@ describe('objectui#9242 — the controls, each able to fire on its own', () => {
     expect(node.groupBy).toBe(FLOOR);
   });
 
-  it('PASSTHROUGH CONTROL: an undeclared sibling key still rides through onto the node', async () => {
-    // The destructure strips exactly ONE more key. It does not close the bag:
-    // `restKanban` is still how renderer-ahead knobs reach the kanban node.
-    // Without this arm, someone could satisfy every assertion above by dropping
-    // the passthrough altogether.
-    const node = await generatedKanbanNode({ groupByField: CANONICAL, zzzBogusKey: 'rides-through' });
-    expect(node.zzzBogusKey).toBe('rides-through');
+  it('DECLARED-KEYS CONTROL: a declared sibling key reaches the node; an undeclared one does not (objectui#6152 round 14)', async () => {
+    // This card stripped exactly ONE more key and kept `restKanban` as the
+    // passthrough, and this arm pinned that an undeclared key still rode
+    // through. objectui#6152 round 14 retired the passthrough on purpose: the
+    // branch forwards the spec kanban block's keys by name, so the declared
+    // `summarizeField` still arrives and an undeclared key does not.
+    const node = await generatedKanbanNode({ groupByField: CANONICAL, summarizeField: 'amount', zzzBogusKey: 'rides-through' });
+    expect(node.summarizeField).toBe('amount');
+    expect(node).not.toHaveProperty('zzzBogusKey');
     expect(node.groupBy).toBe(CANONICAL);
   });
 

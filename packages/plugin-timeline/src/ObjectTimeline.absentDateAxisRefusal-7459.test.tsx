@@ -163,9 +163,25 @@ describe('ObjectTimeline — an undeclared date axis is REFUSED (objectui#7459)'
     // list is interpolated from the component's own
     // `OBJECT_BOUND_TIMELINE_DATE_BINDINGS`, so this asserts the real
     // vocabulary rather than a sentence that could drift from the resolver.
-    for (const binding of ['timeline.startDateField', 'timeline.dateField', 'mapping.date', 'dateField']) {
+    for (const binding of ['timeline.startDateField', 'mapping.date', 'dateField']) {
       expect(text, `the refusal does not name \`${binding}\``).toContain(binding);
     }
+    // objectui#6152 round 14: the nested alias is no longer read, so the
+    // refusal no longer sends the author to it.
+    expect(text, 'the refusal names the retired nested alias').not.toContain('timeline.dateField');
+  });
+
+  it('REFUSES a stored block that binds its axis only through the retired `timeline.dateField` (objectui#6152 round 14)', () => {
+    // The typed block refuses the alias by name (`aliasRefusedByTheType` above,
+    // objectui#6152 round 12), and round 14 retired the rung that still read
+    // it. A block stored before the doors closed, handed in untyped, therefore
+    // declares no axis this component reads, and it gets the same refusal as a
+    // block that declares none.
+    renderObjectBound({ ...OBJECT_BOUND, timeline: { ...aliasRefusedByTheType } }, ROWS_WITHOUT_DATE_COLUMN);
+
+    expect(refusal()).not.toBeNull();
+    expect(canvas()).toBeNull();
+    expect(screen.queryByText('Spring Launch')).toBeNull();
   });
 
   it('leaves the objectui#6655 variant refusal first for a composed gantt', () => {
@@ -185,17 +201,12 @@ describe('ObjectTimeline — every DECLARED rung still resolves (objectui#7459)'
   // Without these a fix that refused EVERYTHING would pass the block above,
   // and retiring the floor could have taken a declared binding with it. Each
   // case is one rung of the resolver chain, in its own spelling: the nested
-  // `timeline` block for the first two, this component's props and
-  // `TimelineExtensionSchema` for the rest.
-  //
-  // ⚠️ `timeline.dateField` is the pre-#2231 alias. Since objectui#6152 round 12
-  // `ListViewTimelineConfig` (the nested block's type) refuses it by name, as
-  // the spec's slot does; the `@ts-expect-error` below pins that. Its READ stays
-  // until the readers' retirement round, so the row models a block stored
-  // before the doors closed, handed in untyped, and it must still resolve.
+  // `timeline` block for the first, this component's props and
+  // `TimelineExtensionSchema` for the rest. The nested `timeline.dateField`
+  // alias is not a rung since objectui#6152 round 14; the refusal block above
+  // pins what a stored one gets.
   const RUNGS: Array<[string, Record<string, unknown>]> = [
     ['timeline.startDateField', { timeline: { startDateField: 'start_date' } }],
-    ['timeline.dateField', { timeline: { ...aliasRefusedByTheType } }],
     ['mapping.date', { mapping: { date: 'start_date' } }],
     ['startDateField (flat, deprecated)', { startDateField: 'start_date' }],
     ['dateField (flat, deprecated)', { dateField: 'start_date' }],

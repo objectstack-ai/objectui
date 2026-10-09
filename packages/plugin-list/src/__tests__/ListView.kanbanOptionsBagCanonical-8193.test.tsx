@@ -34,9 +34,9 @@
  * branch resolves `groupByField || groupField` off the MERGED config, so the
  * gate now recognizes the same four combinations that merge.
  *
- * ⛔ NO ALIAS READ WAS REMOVED. All three original rungs are still there;
- * stored metadata still authors `groupField`. This adds the canonical rung the
- * bag never had.
+ * ⛔ NO ALIAS READ WAS REMOVED by this card: it added the canonical rung the
+ * bag never had. The alias rungs went later, on their own ruling (objectui#6152
+ * round 14); the legacy-bag CONTROL below was re-judged into a refusal arm then.
  *
  * REVERSE VERIFICATION — direction predicted before running, then observed:
  * drop the `schema.options?.kanban?.groupByField` rung and the canonical-bag
@@ -123,11 +123,11 @@ describe('the capability gate resolves kanban from the CANONICAL key in the opti
     ).toBe(true);
   });
 
-  it('CONTROL: still offers Kanban for the LEGACY `options.kanban.groupField`', () => {
-    // The rung that already worked. Stored metadata still authors this
-    // spelling, so this arm is what proves the fix ADDED a rung rather than
-    // swapping one out.
-    expect(kanbanOffered({ options: { kanban: { groupField: 'stage' } } })).toBe(true);
+  it('does NOT offer Kanban for the retired LEGACY `options.kanban.groupField` (objectui#6152 round 14)', () => {
+    // This card's CONTROL here proved the fix ADDED a rung rather than swapping
+    // one out. Round 14 retired the alias rung: a stored bag `groupField` names
+    // no lane, so the gate must not offer a board for it.
+    expect(kanbanOffered({ options: { kanban: { groupField: 'stage' } } })).toBe(false);
   });
 
   it('CONTROL: still offers Kanban for the declared `kanban.groupByField`', () => {
@@ -135,6 +135,10 @@ describe('the capability gate resolves kanban from the CANONICAL key in the opti
   });
 
   it('CONTROL: still offers Kanban for the declared legacy `kanban.groupField`', () => {
+    // ⚠️ Holds at this commit only through `normalizeListViewSchema`'s fold
+    // (`@object-ui/core`), which rewrites a TOP-LEVEL `kanban.groupField` before
+    // the gate reads anything. Retiring that fold is the leg of objectui#6152
+    // round 14 that waits for PR objectui#12036; that leg flips this arm.
     expect(kanbanOffered({ kanban: { groupField: 'stage' } })).toBe(true);
   });
 

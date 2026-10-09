@@ -240,7 +240,10 @@ function codeUses(text: string, file: string, name: string): number[] {
  * identifier read beside the retired one in that file (the firing control).
  */
 const PACKAGES = [
-  { pkg: 'plugin-list', holder: 'ListView.tsx', sibling: 'cardFields' },
+  // `visibleFields`, not the `cardFields` this named until objectui#6152 round 14
+  // pruned that alias from the collectors: the control must be a key the
+  // collectors still read, beside the retired one.
+  { pkg: 'plugin-list', holder: 'ListView.tsx', sibling: 'visibleFields' },
   { pkg: 'plugin-timeline', holder: 'ObjectTimeline.tsx', sibling: 'colorField' },
 ] as const;
 

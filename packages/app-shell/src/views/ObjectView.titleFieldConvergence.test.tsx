@@ -297,13 +297,17 @@ describe('ObjectView view-config `titleField` — the middle rung is gone (objec
     });
   });
 
-  it("CONTROL: the tree's second view-declared rung (`tree.titleField`) still answers", async () => {
-    // The tree seam is the only one with TWO view-declared rungs; dropping the
-    // object rung must not have collapsed them into one.
+  it("the tree's retired `tree.titleField` rung answers nothing (objectui#6152 round 14)", async () => {
+    // The tree seam used to be the only one with TWO view-declared rungs, and
+    // this case pinned that dropping the object rung had not collapsed them. The
+    // second rung read a key the spec refuses by name on the tree block
+    // (objectui#8841), and objectui#6152 round 14 retired it, so a stored
+    // `tree.titleField` now floors at 'name' like an undeclared label. The
+    // declared `labelField` still wins (the CONTROL above).
     const seams = await resolveSeams(
       objectsWith({ titleField: REJECTED }, { tree: { titleField: 'v_tree_title' } }),
     );
-    expect(seams.tree).toBe('v_tree_title');
+    expect(seams.tree).toBe('name');
   });
 });
 

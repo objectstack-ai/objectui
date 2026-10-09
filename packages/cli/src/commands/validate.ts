@@ -194,10 +194,11 @@ export async function validate(schemaPath: string) {
       });
 
       // Every undeclared key, named with its path and what to do (objectui#5250).
-      // The issue list above already carries each one — but below a child slot
-      // only inside an arm's diagnosis, under an `Invalid input` that names no
-      // key, and nowhere with a prescription. This block is the loud form, and
-      // it is read off the same issues rather than a second parse.
+      // The issue list above already carries each one — but at a union the
+      // object fits more than one arm of (a dashboard widget) only inside an
+      // arm's diagnosis, under an `Invalid input` that names no key, and
+      // nowhere with a prescription. This block is the loud form, and it is
+      // read off the same issues rather than a second parse.
       const undeclared = findUndeclaredKeys(result.error.issues);
       if (undeclared.length > 0) {
         console.error(chalk.bold('\nUndeclared keys — the strict authoring face refuses them:'));

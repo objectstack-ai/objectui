@@ -179,8 +179,9 @@ list — there is nothing for the suggestions to be near.
 `objectui validate` parses through the **strict authoring face**: a key that no
 schema declares is refused, on the root node and on every nested node, where the
 renderer would silently ignore it. Each refused key is named once more after the
-numbered issues — including a nested one, which the issue list otherwise reports
-only as an `Invalid input` at the child slot:
+numbered issues, with a prescription — including one inside a union the node fits
+more than one arm of, such as a dashboard widget, which the issue list reports
+only as an `Invalid input` that names no key:
 
 ```text
 Undeclared keys — the strict authoring face refuses them:
@@ -233,7 +234,9 @@ distinction matters:
 `label`, `value` and `description` only where `@objectstack/spec`'s
 `expressionBindableTextKeysFor(type)` lists that key for the node's type. On any
 other type, the expression is never resolved: the user sees its literal text, or
-nothing. `objectui check` refuses it in every recognised file:
+nothing. `objectui check` refuses it in every recognised file, and in every file
+it reports by name as a registered type that did not validate — a document
+carrying an undeclared key is still judged for its expressions:
 
 - **Component nodes only.** The file's root node, every node its `children`
   hold, and every node under a slot the node's type declares — a dialog's

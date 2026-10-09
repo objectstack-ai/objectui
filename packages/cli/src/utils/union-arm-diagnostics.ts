@@ -482,12 +482,17 @@ function isViableArm(armIssues: readonly UnionIssueLike[]): boolean {
  *
  * The strict face (`StrictAnyComponentSchema`, objectui#8345) reports an
  * undeclared key as `unrecognized_keys` on the object that carries it. At the
- * document root that is a top-level issue. Below a child slot it is NOT: a slot
- * is `SchemaNode | SchemaNode[]`, an undiscriminated union, so the refusal sits
- * inside an arm's `errors` — twice nested for `children[0]`, once more per
- * level — under an `invalid_union` · `Invalid input` that names no key at all.
- * So this walks union arms, rebasing each path onto its union's node (header
- * fact 3), and reads only the VIABLE arms (see {@link isViableArm}).
+ * document root that is a top-level issue, and below a child slot that only
+ * one of its union arms fits it is one too: a `div`'s `children[0]` carrying
+ * an undeclared key is reported at `children → 0`, naming the key. Where MORE
+ * than one arm of a union fits the object — a dashboard widget is viable on the
+ * `metric-card` arm and on the generic widget arm — the union is reported as
+ * one `invalid_union` · `Invalid input` that names no key at all, and the
+ * refusal sits inside each arm's `errors`, once more nested per union level.
+ * Both shapes are pinned by `validate-strict-authoring-face-5250.test.ts`. So
+ * this reads top-level refusals and walks union arms, rebasing each path onto
+ * its union's node (header fact 3), reading only the VIABLE arms (see
+ * {@link isViableArm}).
  *
  * When more than one arm is viable, a key counts only when EVERY viable arm
  * refuses it. A key one viable arm declares is not undeclared — it may belong

@@ -455,8 +455,9 @@ Validation happens at three doors, all of them outside the render path:
    key alone, without being parsed against the schema — so an invalid document of that shape is
    not reported at all. Only a file with none of those keys is parsed; it is listed by name when
    its root `type` names a registered component but the document does not validate, and that
-   list is advisory: `check` exits non-zero on unreadable JSON only. See
-   [`objectui check`](/docs/utilities/cli#objectui-check).
+   list is advisory: being listed does not fail the run. `check` exits non-zero on unreadable
+   JSON, and on a `${…}` expression on a text key its node never evaluates, in a listed file as
+   in a recognised one. See [`objectui check`](/docs/utilities/cli#objectui-check).
 3. **Wherever else you need it — `StrictAnyComponentSchema.safeParse`.** Exported from
    `@object-ui/types/zod`, it is the parse `objectui validate` runs, so a build step, a CI job or
    a save handler can apply the identical contract. `safeValidateSchema`, from the same module,

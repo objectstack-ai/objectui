@@ -43,7 +43,8 @@ export function validateAuthoredDocument(document: unknown) {
  * The line that names one undeclared key, where it sits, and what to do.
  *
  * A strict refusal read off the issue list alone can be a bare `Invalid input`
- * at a child slot, or `Unrecognized key` with no word on what to do about it.
+ * at a union the object fits more than one arm of (a dashboard widget), or
+ * `Unrecognized key` with no word on what to do about it.
  * This is the loud form: the key, the path of the object carrying it (spelled
  * by `formatIssuePath`, like every other path the CLI prints), that object's
  * own `type` when it has one, and the prescription.

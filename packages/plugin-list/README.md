@@ -134,6 +134,11 @@ still grouped in the browser, exactly.
 
 ### With Multiple View Types
 
+Each view type's configuration is a block of that name at the top level of the
+schema: `kanban`, `calendar`, `gallery`, `timeline`, `gantt`, `map`, `chart`,
+`tree`. Each block is `@objectstack/spec`'s own list-view block, and an unknown
+key in it is refused by name.
+
 ```tsx
 import { ListView } from '@object-ui/plugin-list';
 
@@ -143,24 +148,31 @@ import { ListView } from '@object-ui/plugin-list';
     objectName: 'deals',
     viewType: 'kanban',
     columns: ['name', 'amount', 'stage', 'close_date'],
-    options: {
-      kanban: {
-        groupField: 'stage',
-        titleField: 'name',
-      },
-      calendar: {
-        startDateField: 'close_date',
-        titleField: 'name',
-      },
-      chart: {
-        chartType: 'bar',
-        xAxisField: 'stage',
-        yAxisFields: ['amount'],
-      }
-    }
+    kanban: {
+      groupByField: 'stage',
+      columns: ['name', 'amount'],
+      titleField: 'name',
+    },
+    calendar: {
+      startDateField: 'close_date',
+      titleField: 'name',
+    },
+    // A chart binds a semantic-layer dataset and selects its dimensions and
+    // measures by name (ADR-0021).
+    chart: {
+      chartType: 'bar',
+      dataset: 'deal_pipeline',
+      dimensions: ['stage'],
+      values: ['total_amount'],
+    },
   }}
 />
 ```
+
+A stored view may also carry the same blocks in a legacy `options` bag
+(`options.kanban`, …), which the platform's view write door judges key by key
+with the same block schemas. `ListView` reads it under the top-level block, which
+wins per key. Author the top-level blocks.
 
 ### With Callbacks
 
@@ -204,12 +216,11 @@ const view: ListViewSchema = {
   columns: ['title', 'status', 'assignee'],
   filters: [['status', '=', 'open']],
   sort: [{ field: 'title', order: 'asc' }],
-  options: {
-    grid: {},
-    kanban: { groupField: 'status', titleField: 'title', cardFields: ['assignee'] },
-    calendar: { startDateField: 'due_date', titleField: 'title' },
-    chart: { chartType: 'bar', xAxisField: 'status', yAxisFields: ['amount'] },
-  },
+  // One block per view type, at the top level. A grid has no block of its own:
+  // its settings are the top-level keys above.
+  kanban: { groupByField: 'status', columns: ['assignee'], titleField: 'title' },
+  calendar: { startDateField: 'due_date', titleField: 'title' },
+  chart: { chartType: 'bar', dataset: 'task_status', dimensions: ['status'], values: ['total_amount'] },
 };
 
 // `columns` also accepts ListColumn objects in place of the field-name strings.

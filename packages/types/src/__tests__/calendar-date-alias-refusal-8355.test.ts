@@ -37,11 +37,13 @@
  *   2. `ListViewSchema.options.calendar` — the LEGACY nesting. `ListView` merges
  *      `{ ...options.calendar, ...calendar }` before it reads anything, and
  *      app-shell's `calendarViewOptions` forwards a view's declared block into
- *      it, so stored views carry the aliases here too. `options` is
- *      `z.record(z.string(), z.any())` and can declare no MEMBER, so this one is
- *      a CHECK (`custom`) carrying the declared arm's own message —
- *      two codes, ONE string. Covering only surface 1 is the half-measure the
- *      objectui#8365 precedent names and refuses.
+ *      it, so stored views carry the aliases here too. Until objectui#6152
+ *      round 12 `options` was a record that could declare no MEMBER, so this
+ *      surface took a CHECK (`custom`) carrying the declared arm's own message.
+ *      Since that round the bag is the spec's list-overlay bag by reference and
+ *      nests surface 1's own block, so the arm is a member here too: the same
+ *      `invalid_type`, the same ONE string. Covering only surface 1 is the
+ *      half-measure the objectui#8365 precedent names and refuses.
  *   3. `ObjectCalendarSchema` — the FLAT node face, which is where the retired
  *      ladder actually read and what `ListView` used to flatten the block into.
  *   4. `ObjectCalendarSchema.calendar` — the element's own container.
@@ -198,15 +200,17 @@ describe('objectui#8355 · surface 1 — the view-level `calendar` block', () =>
 });
 
 describe('objectui#8355 · surface 2 — the legacy `options.calendar` nesting', () => {
-  it.each(RETIRED)('refuses `%s` there too, with the SAME message and the `custom` code', (alias, canonical) => {
+  it.each(RETIRED)('refuses `%s` there too, with the SAME message and the SAME `invalid_type` code', (alias, canonical) => {
     const result = listView({ options: { calendar: { startDateField: 'kickoff', [alias]: 'kickoff' } } });
     expect(result.success, `${alias} still parses green under options.calendar`).toBe(false);
     const issue = issueAt(result, `options.calendar.${alias}`);
-    // `options` is an open record and can declare no MEMBER, so the refusal is
-    // a CHECK. Two codes, ONE message — that is the point of reading the arm's
-    // own `.description` rather than re-spelling it.
-    expect(issue?.code).toBe('custom');
+    // objectui#6152 round 12: the bag nests surface 1's own block, so the arm is
+    // a declared MEMBER here too (it was a `custom` check while `options` was an
+    // open record). One code and ONE message in both nestings.
+    expect(issue?.code).toBe('invalid_type');
     expect(issue?.message).toContain(`Did you mean \`${alias}\` → \`${canonical}\`?`);
+    const surface1 = issueAt(listView({ calendar: { startDateField: 'kickoff', [alias]: 'kickoff' } }), `calendar.${alias}`);
+    expect(issue?.message).toBe(surface1?.message);
   });
 
   it('DARK CONTROL: a canonical legacy block parses GREEN', () => {
@@ -214,15 +218,22 @@ describe('objectui#8355 · surface 2 — the legacy `options.calendar` nesting',
     expect(ok.success, JSON.stringify(ok.error?.issues)).toBe(true);
   });
 
-  it('SCOPE CONTROL: nothing else under `options.calendar` is judged here', () => {
-    const ok = listView({ options: { calendar: { [CONTROL_KEY]: 'x' } } });
-    expect(ok.success, JSON.stringify(ok.error?.issues)).toBe(true);
+  it('UNDECLARED-KEY CONTROL: an undeclared key is refused with the spec\'s own `unrecognized_keys` (objectui#6152 round 12 closed the bag)', () => {
+    // Until round 12 this row pinned the nesting OPEN ("nothing else under
+    // `options.calendar` is judged here"). The by-name arms above report
+    // `invalid_type` at their own path; a key no arm names reports the spec
+    // slot's `unrecognized_keys` at the block, as on surface 1.
+    const r = listView({ options: { calendar: { [CONTROL_KEY]: 'x' } } });
+    expect(r.success).toBe(false);
+    const issue = issueAt(r, 'options.calendar') as { code?: string; keys?: string[] } | undefined;
+    expect(issue?.code).toBe('unrecognized_keys');
+    expect(issue?.keys).toEqual([CONTROL_KEY]);
   });
 
   it('SIBLING CONTROL: the objectui#8365 `options.kanban.groupBy` refusal still fires', () => {
-    // The calendar check was added inside the same `.check()` that carries the
-    // kanban one, so this row is what reports a refactor that dropped the
-    // earlier card's refusal on the way past.
+    // The calendar refusal and the kanban one rode the same `.check()` until
+    // objectui#6152 round 12 made both arms of the nested blocks, so this row is
+    // what reports a refactor that dropped the earlier card's refusal on the way past.
     const result = listView({ options: { kanban: { groupBy: 'stage' } } });
     expect(result.success).toBe(false);
     expect(issueAt(result, 'options.kanban.groupBy')?.message)

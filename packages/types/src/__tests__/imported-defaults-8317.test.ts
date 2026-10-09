@@ -141,6 +141,7 @@ import {
   checkDashboardWidgetMetricMeasureArity,
   checkDashboardWidgetChartMeasureArity,
   checkPageRequiresKind,
+  VIEW_METADATA_MEMBERS as SpecViewMetadataMembers,
 } from '@objectstack/spec/ui';
 import {
   FieldSchema as SpecFieldSchema,
@@ -392,6 +393,12 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // reaches no `z.lazy`, so the strip is the identity function: the row is here
   // because the census below requires every imported symbol to be measured.
   ['InlineGridColumnSchema', SpecInlineGridColumnSchema],
+  // objectui#6152 round 12: `ListViewSchema.options` is the flattened list
+  // overlay's own legacy `options` bag. The binding is `VIEW_METADATA_MEMBERS`, a
+  // RECORD of member schemas (see `SCHEMA_RECORDS` below), so what crosses is the
+  // bag read off it, and that is what this row measures. It carries a default
+  // (the chart block's `chartType`), so the boundary returns a rebuilt copy.
+  ['ViewMetadataMembers', SpecViewMetadataMembers.listOverlay.shape.options.unwrap() as unknown as z.ZodType],
 ] as const;
 
 /** The subset that actually carries an imported default — where the strip does work. */
@@ -691,10 +698,25 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       ['checkPageRequiresKind', checkPageRequiresKind],
     ]);
 
+    /**
+     * Spec RECORDS OF SCHEMAS a mirror reads one member of, keyed by binding name
+     * (objectui#6152 round 12). Such a binding has no Zod internals, so it cannot
+     * itself be the argument of `stripImportedDefaults`; the read is accepted only
+     * when the WHOLE member chain rooted at the binding is that argument
+     * (`stripImportedDefaults(SpecViewMetadataMembers.listOverlay.shape.options.unwrap())`),
+     * which still puts everything that crosses through the boundary. ⛔ Not a
+     * route for a schema binding: the assertion below requires each entry to be a
+     * non-Zod object whose every value is a schema, and a schema binding keeps the
+     * one-hop `stripImportedDefaults(<binding>)` spelling.
+     */
+    const SCHEMA_RECORDS = new Map<string, unknown>([
+      ['SpecViewMetadataMembers', SpecViewMetadataMembers],
+    ]);
+
     const isSpecModule = (m: string): boolean =>
       m === '@objectstack/spec' || m.startsWith('@objectstack/spec/');
 
-    interface Read { file: string; line: number; name: string; owner: string | null; wrapped: boolean; kind: 'value' | 'type' }
+    interface Read { file: string; line: number; name: string; owner: string | null; wrapped: boolean; wrappedViaMember: boolean; kind: 'value' | 'type' }
 
     const mirrorFiles = readdirSync(MIRROR_DIR).filter((f) => f.endsWith('.zod.ts')).sort();
     const reads: Read[] = [];
@@ -729,16 +751,28 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
           const inImport = importRanges.some(([a, b]) => pos >= a && pos < b);
           if (!inImport) {
             const parent = n.parent;
-            const wrapped =
-              !!parent && ts.isCallExpression(parent) &&
-              ts.isIdentifier(parent.expression) && parent.expression.text === 'stripImportedDefaults' &&
-              parent.arguments.length === 1 && parent.arguments[0] === n;
+            const isStripCallOn = (call: ts.Node | undefined, arg: ts.Node): boolean =>
+              !!call && ts.isCallExpression(call) &&
+              ts.isIdentifier(call.expression) && call.expression.text === 'stripImportedDefaults' &&
+              call.arguments.length === 1 && call.arguments[0] === arg;
+            const wrapped = isStripCallOn(parent, n);
+            // The member chain rooted at the binding (`.a.b`, `.unwrap()` calls),
+            // climbed to its top; see `SCHEMA_RECORDS`.
+            let chainTop: ts.Node = n;
+            for (;;) {
+              const up = chainTop.parent;
+              if (up && ts.isPropertyAccessExpression(up) && up.expression === chainTop) { chainTop = up; continue; }
+              if (up && ts.isCallExpression(up) && up.expression === chainTop) { chainTop = up; continue; }
+              break;
+            }
+            const wrappedViaMember = chainTop !== n && isStripCallOn(chainTop.parent, chainTop);
             reads.push({
               file,
               line: sf.getLineAndCharacterOfPosition(pos).line + 1,
               name: n.text,
               owner: owningConst(n),
               wrapped,
+              wrappedViaMember,
               kind: inTypePosition(n) ? 'type' : 'value',
             });
           }
@@ -758,7 +792,8 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       const offenders = reads
         .filter((r) => r.kind === 'value' && !r.wrapped)
         .filter((r) => !VOCABULARY_EXCEPTIONS.has(`${r.file}:${r.owner}`))
-        .filter((r) => !REFINEMENT_EXCEPTIONS.has(r.name));
+        .filter((r) => !REFINEMENT_EXCEPTIONS.has(r.name))
+        .filter((r) => !(SCHEMA_RECORDS.has(r.name) && r.wrappedViaMember));
       expect(
         offenders.map((r) => `${r.file}:${r.line} ${r.name} (in \`${r.owner ?? '<top level>'}\`)`),
         'an `@objectstack/spec` schema crosses into a mirror without the objectui#8317 import ' +
@@ -792,6 +827,21 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
         ).toBe(false);
         const matching = reads.filter((r) => r.name === name && r.kind === 'value');
         expect(matching.length, `declared exception ${name} matches no read — delete it`).toBeGreaterThan(0);
+      }
+    });
+
+    it('every declared schema record is a RECORD of schemas, read only through a wrapped member chain', () => {
+      expect(SCHEMA_RECORDS.size, 'the list is empty — delete it rather than leave a hole').toBeGreaterThan(0);
+      for (const [name, binding] of SCHEMA_RECORDS) {
+        expect('_zod' in Object(binding), `${name} is a schema — it crosses as \`stripImportedDefaults(${name})\``).toBe(false);
+        const values = Object.values(binding as Record<string, unknown>);
+        expect(values.length, `${name} holds nothing`).toBeGreaterThan(0);
+        for (const v of values) expect('_zod' in Object(v), `${name} holds a value that is not a schema`).toBe(true);
+        const matching = reads.filter((r) => r.name === name && r.kind === 'value');
+        expect(matching.length, `declared record ${name} matches no read — delete it`).toBeGreaterThan(0);
+        for (const r of matching) {
+          expect(r.wrappedViaMember, `${r.file}:${r.line} reads ${name} outside \`stripImportedDefaults(${name}.…)\``).toBe(true);
+        }
       }
     });
 

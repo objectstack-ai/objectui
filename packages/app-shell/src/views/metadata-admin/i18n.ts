@@ -2860,6 +2860,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.deselect': 'Clear selection',
   'engine.studio.toggleRail': 'Toggle sidebar',
   'engine.studio.home': 'Back to home',
+  // objectui#11795 — the one line a phone shows under the Studio header.
+  'engine.studio.desktopHint': 'Studio is built for a desktop screen.',
   // Pillar tab labels
   'engine.fieldType.text': 'Text',
   'engine.fieldType.textarea': 'Text Area',
@@ -6062,6 +6064,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.deselect': '取消选择',
   'engine.studio.toggleRail': '切换侧栏',
   'engine.studio.home': '返回主页',
+  'engine.studio.desktopHint': 'Studio 专为桌面屏幕设计。',
   // Pillar tab labels
   'engine.fieldType.text': '单行文本',
   'engine.fieldType.textarea': '多行文本',

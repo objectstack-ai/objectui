@@ -28,7 +28,7 @@ import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
 import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
-import { useIsWideViewport } from './wideViewport.js';
+import { AUTOMATIONS_CONFIG_FOLD_WIDTH, useIsNarrowerThan, useIsWideViewport } from './wideViewport.js';
 import {
   GridFieldAuthoringProvider,
   cn,
@@ -46,6 +46,10 @@ import {
   DropdownMenuItem,
   Badge,
   Separator,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
 } from '@object-ui/components';
 import { ObjectView as PluginObjectView } from '@object-ui/plugin-view';
 import { ListView } from '@object-ui/plugin-list';
@@ -1544,6 +1548,10 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // injected `aiSlot` (the cloud seam, ADR-0080) keeps the legacy left panel
   // — the cloud edition migrates on its own schedule.
   const chatDockMode = !aiSlot;
+  // objectui#11795 — Studio stays a desktop tool; on a phone it says so once,
+  // in one line under the header, rather than leave the cramped layout to
+  // speak for itself.
+  const isMobile = useIsMobile();
   // objectui#8219 — the Interfaces pillar's open leaf, lifted to the dock so
   // the copilot's "discussing" chip reads its display label (objectui#7254).
   // Display-only; the agent's context stays URL-derived. Other pillars report
@@ -1770,6 +1778,16 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
               </button>
             </div>
           </header>
+
+          {isMobile && (
+            <p
+              role="note"
+              data-testid="studio-desktop-hint"
+              className="shrink-0 border-b bg-muted/40 px-3 py-1 text-[11px] text-muted-foreground"
+            >
+              {t('engine.studio.desktopHint', locale)}
+            </p>
+          )}
 
           <div className="min-h-0 flex-1">
             {/* objectui#11272 — Data and Automations are keyed by package too,
@@ -5827,6 +5845,12 @@ export function AutomationsPillar({
   // See DataPillar's rail — same mobile-overlay treatment for the flow list.
   const isMobile = useIsMobile();
   const [railOpen, setRailOpen] = React.useState(false);
+  // objectui#11795 — on a row too narrow for the Configuration aside to sit
+  // beside the canvas (`AUTOMATIONS_CONFIG_FOLD_WIDTH`), the aside folds away
+  // and a selection opens the same configuration as a drawer over the canvas,
+  // so the canvas keeps the row's width. Wider rows keep the aside as it was.
+  const layoutRowRef = React.useRef<HTMLDivElement>(null);
+  const configFolded = useIsNarrowerThan(layoutRowRef, AUTOMATIONS_CONFIG_FOLD_WIDTH);
   const [flows, setFlows] = React.useState<Surface[]>([]);
   // objectui#7255 — same live-pulse subscription as the sibling rails; this
   // one only replaces the flow LIST, so it needs no edit-buffer hold either.
@@ -6176,6 +6200,37 @@ export function AutomationsPillar({
     }
   }, [saveFlowDraft, current, draft, draftPackageId, onDraftSaved, locale, readOnly, sendingFlowDraft]);
 
+  // The Configuration's body, in the aside beside the canvas or, on a folded
+  // row, in the drawer over it (objectui#11795).
+  const configBodyEl =
+    selection && inspector && current && flowLoaded ? (
+      React.createElement(inspector, {
+        type: 'flow',
+        name: current.name,
+        draft,
+        selection,
+        onPatch,
+        onClearSelection: () => setSelection(null),
+        onSelectionChange: setSelection,
+        // objectui#11124 — the pillar's real flag, threaded exactly as
+        // the Data pillar threads it (objectui#2259).
+        readOnly,
+        locale,
+      })
+    ) : designersUnregistered ? (
+      <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
+        <Ban className="h-5 w-5" />
+        {t('engine.studio.auto.designersMissing', locale)}
+      </div>
+    ) : (
+      <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
+        <MousePointer2 className="h-5 w-5" />
+        {t('engine.studio.auto.emptyLine1', locale)}
+        <br />
+        {t('engine.studio.auto.emptyLine2', locale)}
+      </div>
+    );
+
   return (
     <div className="flex h-full flex-col">
       {flowConflictDialog}
@@ -6229,7 +6284,7 @@ export function AutomationsPillar({
         )}
       </div>
 
-      <div className="relative flex min-h-0 flex-1">
+      <div ref={layoutRowRef} data-testid="auto-layout-row" className="relative flex min-h-0 flex-1">
         {isMobile && railOpen && (
           <div
             className="absolute inset-0 z-10 bg-black/30"
@@ -6395,6 +6450,27 @@ export function AutomationsPillar({
           </div>
         </main>
 
+        {configFolded ? (
+          // objectui#11795 — the folded row: no aside reserving width beside
+          // the canvas; the selection's configuration opens over it, and
+          // closing the drawer clears the selection, as the aside's ✕ does.
+          <Sheet open={selection !== null} onOpenChange={(open) => { if (!open) setSelection(null); }}>
+            <SheetContent
+              side="right"
+              aria-describedby={undefined}
+              data-testid="auto-config-drawer"
+              className="flex w-full flex-col gap-0 p-0 sm:max-w-sm"
+            >
+              <SheetHeader className="shrink-0 border-b px-3 py-2 pr-10">
+                <SheetTitle className="flex items-center gap-2 text-[13px] font-medium">
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  {t('engine.studio.auto.config', locale)}
+                </SheetTitle>
+              </SheetHeader>
+              <div className="min-h-0 flex-1 overflow-auto p-3">{configBodyEl}</div>
+            </SheetContent>
+          </Sheet>
+        ) : (
         <aside className="w-72 shrink-0 overflow-auto border-l">
           <header className="sticky top-0 z-10 flex items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur">
             <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -6410,36 +6486,9 @@ export function AutomationsPillar({
               </button>
             )}
           </header>
-          <div className="p-3">
-            {selection && inspector && current && flowLoaded ? (
-              React.createElement(inspector, {
-                type: 'flow',
-                name: current.name,
-                draft,
-                selection,
-                onPatch,
-                onClearSelection: () => setSelection(null),
-                onSelectionChange: setSelection,
-                // objectui#11124 — the pillar's real flag, threaded exactly as
-                // the Data pillar threads it (objectui#2259).
-                readOnly,
-                locale,
-              })
-            ) : designersUnregistered ? (
-              <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
-                <Ban className="h-5 w-5" />
-                {t('engine.studio.auto.designersMissing', locale)}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
-                <MousePointer2 className="h-5 w-5" />
-                {t('engine.studio.auto.emptyLine1', locale)}
-                <br />
-                {t('engine.studio.auto.emptyLine2', locale)}
-              </div>
-            )}
-          </div>
+          <div className="p-3">{configBodyEl}</div>
         </aside>
+        )}
       </div>
 
       <CreateItemDialog

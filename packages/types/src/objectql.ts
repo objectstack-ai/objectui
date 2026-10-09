@@ -143,7 +143,6 @@ import type {
   GroupingConfig,
   RowColorConfig,
   GalleryConfig,
-  TimelineConfig,
   NavigationConfig,
   ChartAggregate,
   GanttConfig as SpecGanttConfig,
@@ -200,24 +199,23 @@ import type {
 } from '@objectstack/spec/ui';
 
 /**
- * Gallery configuration extended with legacy fields for backward compatibility.
- * Spec fields from GalleryConfigSchema take priority; legacy fields serve as fallbacks.
+ * A list view's `timeline` block, as the list view hands it to `ObjectTimeline`
+ * (`@object-ui/plugin-timeline`, the nested `schema.timeline` prop).
+ *
+ * ONE declaration since objectui#6152 round 12 (seat answer Q2 → B): this is
+ * {@link ListViewSchema}'s own `timeline` member, which round 11 made the
+ * `@objectstack/spec` list-view slot by reference: strict, `.partial()` (the
+ * list-view route can hand over a block without `titleField` or
+ * `startDateField`), with the pre-#2231 `dateField` refused by name (write
+ * `startDateField`). It was a hand-written intersection of the spec's
+ * `TimelineConfig` with `dateField?: string` and a string index signature of
+ * `any`, through which nothing read a key.
+ *
+ * ⛔ `ListViewGalleryConfig`, its sibling, is RETIRED (seat answer Q3 → A): it
+ * had no consumer and no element row in the spec. Write the spec's
+ * `GalleryConfig`, which this package re-exports.
  */
-export type ListViewGalleryConfig = GalleryConfig & {
-  /** Legacy: image field (deprecated, use coverField) */
-  imageField?: string;
-  [key: string]: any;
-};
-
-/**
- * Timeline configuration extended with legacy fields for backward compatibility.
- * Spec fields from TimelineConfigSchema take priority; legacy fields serve as fallbacks.
- */
-export type ListViewTimelineConfig = TimelineConfig & {
-  /** Legacy: date field (deprecated, use startDateField) */
-  dateField?: string;
-  [key: string]: any;
-};
+export type ListViewTimelineConfig = NonNullable<ListViewSchema['timeline']>;
 
 /**
  * Kanban Configuration

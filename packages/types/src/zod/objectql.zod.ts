@@ -76,6 +76,10 @@ import {
   // `object-grid` row holds by reference since 17.6.0; `ObjectGridSchema.emptyState`
   // below takes it by reference too.
   EmptyStateSchema as SpecEmptyStateSchema,
+  // objectui#6152 round 12 — the view write door's members, read for ONE member:
+  // the flattened list overlay's legacy `options` bag (`ListViewOptionsBag`
+  // below, by reference). The bag's own schema is module-private in the spec.
+  VIEW_METADATA_MEMBERS as SpecViewMetadataMembers,
   checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
 // objectui#11266 — one inline master-detail grid column, the closed shape
@@ -1536,6 +1540,9 @@ const LIST_VIEW_LOCAL_OVERRIDES = [
 // block), and the three earlier arms (`kanban.groupBy`, objectui#8365;
 // `calendar.dateField` / `endField`, objectui#8355). The spec slot refuses every
 // one of them already; the arm keeps a message that names what to write instead.
+// Since objectui#6152 round 12 the legacy `options` bag nests these same four
+// blocks (`ListViewOptionsBag` below), so each arm gives one message in both
+// nestings.
 //
 // `.partial()` stays on KANBAN and TIMELINE only, for a MEASURED reason: app-shell
 // installs derived defaults on a `list-view` node's declared slots that leave out
@@ -1686,9 +1693,10 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
  * reads anything, so a stored view can carry the stray key under EITHER. The
  * declared `kanban` slot takes this arm as a DECLARED MEMBER (`invalid_type` at
  * `kanban.groupBy`, and `groupBy?: never` on the inferred TypeScript face).
- * The legacy `options` bag is `z.record(z.string(), z.any())` and can declare no
- * member at all, so it takes the SAME guidance as a check (`custom` at
- * `options.kanban.groupBy`) — see `ListViewSchema.options` below.
+ * The legacy `options` bag takes the SAME block since objectui#6152 round 12
+ * (`ListViewOptionsBag` below), so the arm is a declared member there too
+ * (`invalid_type` at `options.kanban.groupBy`). Until that round the bag was a
+ * record that could declare no member, and the arm rode it as a `custom` check.
  *
  * The second route is a named view on an `object-view` document, whose
  * `listViews` is the protocol's strict record by reference (objectui#7928), so
@@ -2037,6 +2045,55 @@ const TimelineConfig = stripImportedDefaults(SpecListViewSchema).shape.timeline.
   dateField: TimelineDateFieldRefusal,
 });
 
+/**
+ * THE LEGACY `options` BAG, BY REFERENCE (objectui#6152 round 12).
+ *
+ * `@objectstack/spec`'s authoring `ListViewSchema` declares no `options`. The
+ * bag's one home is the flattened LIST OVERLAY on the view write door
+ * (`VIEW_METADATA_MEMBERS.listOverlay`, the door objectui#10380 ruled A on): a
+ * strict object of the eight kinds that name a block, each kind judged by its
+ * own list-view slot with every key optional
+ * (`ListViewShapeSchema.shape.KIND.unwrap().partial()`), because the renderer
+ * reads the bag as a per-key UNDERLAY of the top-level block. objectui#8327
+ * forbids accepting what that door refuses, so this is that member's own
+ * `options`, unwrapped from its `optional`: the bag's closed key set, and its
+ * unknown-key message, which names `options.grid` with the spec's guidance (a
+ * grid has no per-kind block). ⛔ No member is hand-copied here.
+ *
+ * What objectui changes is the same as on the top-level blocks, and only that:
+ * `kanban`, `calendar`, `gallery` and `timeline` are this file's round-11
+ * blocks, so each named refusal arm (`kanban.groupField` / `cardFields` /
+ * `groupBy`, `calendar.defaultView` / `dateField` / `endField`,
+ * `gallery.imageField`, `timeline.dateField`) gives ONE message in both
+ * nestings, as `invalid_type` at the key's own path. `.partial()` makes the
+ * calendar's required `startDateField` optional here, as the bag does; the
+ * other three blocks require nothing on this face already. `gantt`, `map`,
+ * `chart` and `tree` stay the spec's own, as the top-level blocks of those
+ * names do. `stripImportedDefaults` keeps a parse from writing the slots'
+ * defaults (the chart block's `chartType`) into a bag that did not carry them.
+ *
+ * ⚠️ WHAT DID NOT MOVE: the READERS. `ListView` still merges each
+ * `options.KIND` under the top-level block and spreads the rest of several of
+ * them onto the node it builds. The render path parses nothing, so a row
+ * stored before the view write door judged the bag (`@objectstack/spec` 17.5.0)
+ * still renders. This mirror is the door an author meets. The writers moved
+ * with it: app-shell's relay writes `kanban.columns` and no `gallery.imageField`
+ * or `timeline.descriptionField` (`ObjectView.tsx`), and the `@object-ui/plugin-list`
+ * README authors the top-level blocks instead of the bag.
+ *
+ * ⚠️ THE MEASUREMENT THIS RESTS ON was taken once and is not re-derived by any
+ * instrument (AGENTS.md #9): the census on objectui#6152 (round 12, report
+ * 6070437445) read no other writer of a key this bag refuses, across the authored
+ * corpus, app-shell's producers and the view designer; only test fixtures wrote
+ * one. The verdict-equality pin is `../__tests__/list-view-options-bag-6152.test.ts`.
+ */
+const ListViewOptionsBag = stripImportedDefaults(SpecViewMetadataMembers.listOverlay.shape.options.unwrap()).extend({
+  kanban: KanbanConfig.optional(),
+  calendar: CalendarConfig.partial().optional(),
+  gallery: GalleryConfig.optional(),
+  timeline: TimelineConfig.optional(),
+});
+
 // View-kind enum reused from spec (unwrap its `.default('grid')`) so it cannot drift.
 const ViewKindEnum = SpecListViewSchema.shape.type.removeDefault();
 
@@ -2243,64 +2300,11 @@ export const ListViewSchema = BaseSchema
     addRecordViaForm: z.boolean().optional().describe('Add records via form dialog'),
     addDeleteRecordsInline: z.boolean().optional().describe('Enable inline add/delete'),
     collapseAllByDefault: z.boolean().optional().describe('Collapse all groups by default'),
-    // THE LEGACY BAG, and the ONE named refusal that reaches into it
-    // (objectui#8365). Everything in here is `z.any()` and stays that way: this
-    // is the pre-#2231 "component overrides" escape hatch, not an authoring
-    // surface the protocol models, and typing it is a much larger question than
-    // this card. ⚠️ But `ListView` merges `{ ...options.kanban, ...kanban }`
-    // before it reads anything, and the retired producer objectui#8213 removed
-    // wrote the stray `groupBy` into THIS nesting — so the stored views the
-    // objectui#8365 ruling is about carry it here. A refusal that covered only
-    // the declared `kanban` slot would leave exactly that population silently
-    // re-grouped, which is option A; the ruling took option B.
-    //
-    // A record can declare no MEMBER, so this is a check rather than an arm:
-    // same guidance string, read off {@link KanbanStrayGroupByRefusal}'s own
-    // `.description` so the two channels cannot drift, reported as `custom` at
-    // `options.kanban.groupBy` (the declared slot reports `invalid_type` at
-    // `kanban.groupBy` — two codes, one message, and the pin asserts both).
-    // ⛔ Scoped to the ONE key: no other member of `options.kanban`, and nothing
-    // else under `options`, is judged here.
-    options: z.record(z.string(), z.any())
-      .check((ctx) => {
-        const bag = ctx.value as Record<string, any> | undefined;
-        const kanban = bag?.kanban;
-        if (kanban && typeof kanban === 'object' && !Array.isArray(kanban)
-            && (kanban as Record<string, unknown>).groupBy !== undefined) {
-          ctx.issues.push({
-            code: 'custom',
-            message: KanbanStrayGroupByRefusal.description as string,
-            input: (kanban as Record<string, unknown>).groupBy,
-            path: ['kanban', 'groupBy'],
-          });
-        }
-        // ⭐ objectui#8355 — the SECOND key family that reaches into this bag,
-        // for the same reason and through the same door. `ListView` merges
-        // `{ ...options.calendar, ...calendar }` before it reads anything, and
-        // app-shell's `calendarViewOptions` forwards a view's declared block
-        // into THIS nesting — so a stored view carries the retired aliases here
-        // as readily as under the declared `calendar` slot. Same guidance
-        // strings, read off the arms' own `.description` so the two channels
-        // cannot drift, reported as `custom` at `options.calendar.<alias>` (the
-        // declared slot reports `invalid_type` at `calendar.<alias>` — two
-        // codes, one message, and the pin asserts both).
-        // ⛔ Scoped to the TWO keys: no other member of `options.calendar`, and
-        // nothing else under `options`, is judged here.
-        const calendar = bag?.calendar;
-        if (calendar && typeof calendar === 'object' && !Array.isArray(calendar)) {
-          for (const alias of ['dateField', 'endField'] as const) {
-            const written = (calendar as Record<string, unknown>)[alias];
-            if (written === undefined) continue;
-            ctx.issues.push({
-              code: 'custom',
-              message: CalendarBlockDateAliasRefusals[alias].description as string,
-              input: written,
-              path: ['calendar', alias],
-            });
-          }
-        }
-      })
-      .optional().describe('Component overrides (legacy)'),
+    // THE LEGACY BAG, by reference since objectui#6152 round 12: the list
+    // overlay's own `options`, with the four round-11 blocks' named refusals
+    // (objectui#8365 `kanban.groupBy`, objectui#8355 `calendar.dateField` /
+    // `endField` among them). See {@link ListViewOptionsBag}.
+    options: ListViewOptionsBag.optional().describe('Component overrides (legacy)'),
     operations: z.object({
       create: z.boolean().optional(),
       read: z.boolean().optional(),

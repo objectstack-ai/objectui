@@ -123,7 +123,7 @@ describe('the object page writes the SPEC lane key (objectui#8193)', () => {
       OBJECT_WITH_STAGE,
     );
     expect(out.titleField).toBe('subject');
-    expect(out.cardFields).toEqual(['amount']);
+    expect(out.columns).toEqual(['amount']);
   });
 
   it('floors `titleField` at `name`, as the four sibling faces do', () => {

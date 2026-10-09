@@ -41,7 +41,10 @@ const ADAPTER = vi.hoisted(() => {
   const client = { baseUrl: 'http://api.test' };
   return { getClient: () => client };
 });
-vi.mock('@object-ui/app-shell', () => ({ useAdapter: () => ADAPTER }));
+vi.mock('@object-ui/app-shell', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useAdapter: () => ADAPTER,
+}));
 
 import { ApiConsolePage } from './ApiConsolePage';
 

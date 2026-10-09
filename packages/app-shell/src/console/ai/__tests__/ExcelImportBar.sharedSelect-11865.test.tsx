@@ -54,7 +54,8 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
           headers: { 'content-type': 'application/json' },
         }),
 }));
-vi.mock('@object-ui/plugin-grid', () => ({
+vi.mock('@object-ui/plugin-grid', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   ImportWizard: (props: { objectName: string; objectLabel: string; fields: unknown; initialFile?: File }) => {
     h.wizard.push({
       objectName: props.objectName,

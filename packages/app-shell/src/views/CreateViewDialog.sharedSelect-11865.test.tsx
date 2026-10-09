@@ -173,7 +173,7 @@ async function create(onCreate: ReturnType<typeof vi.fn>): Promise<string | null
 
 beforeEach(() => {
   cleanup();
-  client = new MetadataClient({ baseUrl: 'http://localhost', fetch: wire() as any });
+  client = new MetadataClient({ baseUrl: 'http://localhost', fetch: wire() as unknown as typeof fetch });
 });
 
 describe('the config picks are the shared Select (objectui#11865)', () => {

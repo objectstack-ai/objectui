@@ -9,12 +9,14 @@
  */
 
 import { lazy, Suspense, useMemo } from 'react';
-import { Route, useParams, useLocation, Navigate } from 'react-router-dom';
-import { DefaultAppContent, LoadingScreen } from '@object-ui/app-shell';
+import { Route, useParams, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { DefaultAppContent, LoadingScreen, RecordDetailView, useAdapter, useMetadata } from '@object-ui/app-shell';
 import { MePermissionsProvider } from '@object-ui/permissions';
 import { createAuthenticatedFetch } from '@object-ui/auth';
+import type { DataSource } from '@object-ui/types';
 import { LocalizationFetchProvider } from './LocalizationFetchProvider';
 import { WorkspaceTimezonePrompt } from './pages/settings/WorkspaceTimezonePrompt';
+import { APPROVAL_REQUEST_OBJECT, createApprovalRequestsDataSource } from './services/approvalRequestsDataSource';
 
 const AppManagementPage = lazy(() => import('./pages/system/AppManagementPage').then(m => ({ default: m.AppManagementPage })));
 const ProfilePage = lazy(() => import('./pages/system/ProfilePage').then(m => ({ default: m.ProfilePage })));
@@ -273,6 +275,57 @@ export const systemRoutes = (
   </>
 );
 
+/**
+ * Every `sys_approval_request` record page reads through the approvals routes
+ * (objectui#12045, B1 of objectui#2763).
+ *
+ * The generic record route (`:objectName/record/:recordId`, declared by
+ * `DefaultAppContent` in `@object-ui/app-shell`) hands `RecordDetailView` the
+ * console's adapter, the data API. For an approval request that read is the
+ * wrong door: the data API attaches neither the `viewer` block the request's
+ * declared decision actions gate on nor the `decision_progress` tally, and it
+ * refuses the request's timeline (`sys_approval_action`) to an ordinary
+ * approver. The approvals routes answer all three for anyone who is a party to
+ * the request. So this route, more specific than the generic one and therefore
+ * the one React Router picks for this object, mounts the same view over the
+ * routed approvals source (`createApprovalRequestsDataSource`): the request is
+ * read from `GET /approvals/requests/:id`, its timeline from
+ * `GET /approvals/requests/:id/actions`, and every other read the page makes
+ * goes to the adapter unchanged.
+ *
+ * The page lists no requests of its own; the source's `all` scope only means
+ * one would be read within the approvals service's own visibility. Records of
+ * this object are engine-owned, so the page offers no edit; the handler opens
+ * the record's edit route, which is where the generic route's page-mode edit
+ * goes.
+ */
+function ApprovalRequestRecordRoute() {
+  const adapter = useAdapter();
+  const { objects } = useMetadata();
+  const navigate = useNavigate();
+  const dataSource = useMemo<DataSource | null>(
+    () =>
+      adapter
+        ? createApprovalRequestsDataSource({ host: adapter, scope: { kind: 'all' } })
+        : null,
+    [adapter],
+  );
+  return (
+    <RecordDetailView
+      dataSource={dataSource}
+      objects={objects}
+      objectNameOverride={APPROVAL_REQUEST_OBJECT}
+      onEdit={() => navigate('edit')}
+    />
+  );
+}
+
+// Exported for `services/approvalRequestsDataSource.recordRoute.test.tsx`,
+// which mounts this exact fragment beside the generic record route.
+export const approvalRequestRoutes = (
+  <Route path={`${APPROVAL_REQUEST_OBJECT}/record/:recordId`} element={<ApprovalRequestRecordRoute />} />
+);
+
 export function AppContent() {
   const serverUrl = import.meta.env.VITE_SERVER_URL || '';
   const endpoint = `${serverUrl}/api/v1/auth/me/permissions`;
@@ -308,7 +361,10 @@ export function AppContent() {
       errorFallback={(err, retry) => <LoadingScreen error={err.message} onRetry={retry} />}
     >
       <LocalizationFetchProvider endpoint={localizationEndpoint}>
-        <DefaultAppContent extraRoutes={systemRoutes} extraRoutesNoApp={systemRoutes} />
+        <DefaultAppContent
+          extraRoutes={<>{systemRoutes}{approvalRequestRoutes}</>}
+          extraRoutesNoApp={systemRoutes}
+        />
       </LocalizationFetchProvider>
       {/* objectui#11758 — asks an administrator once to set a still-default
           workspace timezone. Here, inside `MePermissionsProvider`, because

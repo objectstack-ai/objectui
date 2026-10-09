@@ -3057,6 +3057,87 @@ export function registerFieldRenderer(type: string, renderer: React.FC<CellRende
 }
 
 /**
+ * ## Polymorphic pointer pairs: `referenceVia` (objectui#12045)
+ *
+ * `@objectstack/spec`'s `FieldSchema.referenceVia` declares a `text` field as
+ * the ID HALF of a two-column pointer pair (ADR-0052 §5): its value is a
+ * record id of the object that the SIBLING column names, on the same row.
+ * `sys_approval_request.record_id` with `referenceVia: 'object_name'` is one;
+ * `sys_activity.source_id` with `referenceVia: 'source_object'` is another.
+ *
+ * The target object varies per ROW, so the pair is resolved where the row is
+ * in hand, at the call site. {@link CellRendererProps} carries one value and no
+ * row, which is why this is a function a call site asks and not a branch inside
+ * {@link getCellRenderer}, whose dispatch stays on the field type alone.
+ *
+ * ⭐ This is the one place the rule lives. A call site that holds the row asks
+ * `resolveRecordPointer(field, row)`, and draws a pair it gets back with the
+ * renderer registered under {@link RECORD_POINTER_CARD_TYPE}, passing the pair
+ * as that renderer's `value`. This package registers a default under that key
+ * which draws the record id as text, exactly as the field drew before its pair
+ * was read, so a host with nothing better changes nothing. A host that can read
+ * records registers a richer face under the same key with
+ * {@link registerFieldRenderer}: `@object-ui/app-shell` registers its record
+ * preview card there.
+ *
+ * The record details grid (`DetailSection` in `@object-ui/plugin-detail`) is
+ * the one call site today. ⛔ List cells are deliberately not one: a face that
+ * reads the target record costs one request per row there, so the list face
+ * waits for a read that batches target rows per object.
+ */
+export const RECORD_POINTER_CARD_TYPE = 'record_pointer_card';
+
+/** One resolved pointer pair: the record a `referenceVia` field points at. */
+export interface RecordPointer {
+  /** The target's object machine name: the sibling column's value. */
+  objectName: string;
+  /** The target's record id: the pointer field's own value. */
+  recordId: string;
+}
+
+/**
+ * Resolve the record a `referenceVia` pointer field points at on one row, or
+ * `null` when the field is not a pointer or the row does not address a record.
+ *
+ * - `field` must be a `text` field declaring a non-empty `referenceVia`; the
+ *   spec refuses the key on every other type, so nothing else qualifies here.
+ * - The pair is read from `row`: the id under the field's own name, the object
+ *   name under the sibling column the field names.
+ * - Both halves must be non-blank strings. A half-addressed row is not a
+ *   pointer this can draw, and the caller falls back to the field's ordinary
+ *   face (the stored text).
+ */
+export function resolveRecordPointer(
+  field: { readonly name: string; readonly type?: string | null; readonly referenceVia?: string | null } | null | undefined,
+  row: Readonly<Record<string, unknown>> | null | undefined,
+): RecordPointer | null {
+  if (!field || !row) return null;
+  if (field.type !== 'text') return null;
+  const via = field.referenceVia;
+  if (typeof via !== 'string' || via === '') return null;
+  const recordId = row[field.name];
+  const objectName = row[via];
+  if (typeof recordId !== 'string' || recordId.trim() === '') return null;
+  if (typeof objectName !== 'string' || objectName.trim() === '') return null;
+  return { objectName, recordId };
+}
+
+function isRecordPointer(value: unknown): value is RecordPointer {
+  if (value == null || typeof value !== 'object') return false;
+  const candidate = value as Partial<RecordPointer>;
+  return typeof candidate.objectName === 'string' && typeof candidate.recordId === 'string';
+}
+
+/**
+ * The default face for {@link RECORD_POINTER_CARD_TYPE}: the record id as
+ * text, which is what the pointer field drew before its pair was read. Any
+ * other value goes to the text cell unchanged.
+ */
+function RecordPointerTextCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
+  return <TextCellRenderer value={isRecordPointer(value) ? value.recordId : value} field={field} />;
+}
+
+/**
  * Format hints (e.g. `{ type: 'text', format: 'phone' }`) that should
  * map to a richer cell renderer than the bare type would imply. The
  * canonical ObjectStack pattern uses `Field.text({ format: 'phone' })`
@@ -3799,6 +3880,9 @@ registerFieldRenderer('master_detail', LookupCellRenderer);
 registerFieldRenderer('select', SelectCellRenderer);
 registerFieldRenderer('status', SelectCellRenderer);
 registerFieldRenderer('user', UserCellRenderer);
+// The pointer pair's default face (objectui#12045): the record id as text. A
+// host that can read records registers its own face under the same key.
+registerFieldRenderer(RECORD_POINTER_CARD_TYPE, RecordPointerTextCellRenderer);
 // `owner` was registered here to the same UserCellRenderer until objectui#4814
 // retired the spelling — see the TOMBSTONE below. `getCellRenderer('owner')`
 // now reports the prescription and falls to the text cell.

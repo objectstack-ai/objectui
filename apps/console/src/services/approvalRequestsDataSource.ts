@@ -61,6 +61,31 @@
  * through the data API: outside the scope and without `viewer`. Called for
  * approval requests, they reject with the same `UNSUPPORTED_QUERY_PARAM`
  * refusal. For every other resource they are the host's.
+ *
+ * ## One request's timeline reads through the actions route (objectui#12045)
+ *
+ * The request's record page lists its `sys_approval_action` rows as a related
+ * list. Through the data API that read is refused to an ordinary approver: the
+ * object is deliberately closed to ordinary positions, and the approvals
+ * service answers who may see a decision (can the caller see the PARENT
+ * request?) on `GET /approvals/requests/:id/actions`. So a `find` of
+ * `sys_approval_action` whose `$filter` is exactly one request's scope,
+ * `{ request_id: '<id>' }` (the shape a related list sends for its parent),
+ * reads that route instead. The route answers the request's whole timeline,
+ * oldest first, so the source applies the rest of the read itself:
+ *
+ *   - `$orderby` (the object-array form) is applied to the rows, by stored
+ *     value, as the data API orders them;
+ *   - `$top` / `$skip` window the ordered rows, and `total` is the timeline's
+ *     length, so a paged list pages over the right set;
+ *   - `$select` and `$expand` are dropped: they shape columns, never which
+ *     rows come back, and the route serves its own display names
+ *     (`actor_name`) in place of an expansion;
+ *   - any other name is REFUSED with the same `UNSUPPORTED_QUERY_PARAM`
+ *     refusal as the list, before any request goes out.
+ *
+ * A read of `sys_approval_action` with any other filter is not one request's
+ * timeline, and goes to the host unchanged.
  */
 import { ApiDataSource } from '@object-ui/core';
 import { createAuthenticatedFetch } from '@object-ui/auth';
@@ -69,6 +94,12 @@ import { API_BASE, type ApprovalRequestRow } from './approvalsApi';
 
 /** The object whose reads this source routes to the approvals routes. */
 export const APPROVAL_REQUEST_OBJECT = 'sys_approval_request';
+
+/** The timeline object: one request's rows read through the actions route. */
+export const APPROVAL_ACTION_OBJECT = 'sys_approval_action';
+
+/** The column that scopes a timeline row to its request. */
+const ACTION_REQUEST_FIELD = 'request_id';
 
 /** The inbox's three server-side scopes. */
 export type ApprovalRequestScope =
@@ -149,6 +180,69 @@ function toScopeParams(scope: ApprovalRequestScope): Record<string, string> | nu
   }
 }
 
+/** The one request a timeline read is scoped to, or `null` when it is not one. */
+function timelineRequestId(params: QueryParams | undefined): string | null {
+  const filter = params?.$filter;
+  if (filter == null || typeof filter !== 'object' || Array.isArray(filter)) return null;
+  const keys = Object.keys(filter);
+  if (keys.length !== 1 || keys[0] !== ACTION_REQUEST_FIELD) return null;
+  const id = (filter as Record<string, unknown>)[ACTION_REQUEST_FIELD];
+  return typeof id === 'string' && id.trim() !== '' ? id : null;
+}
+
+/** Names a timeline read applies itself, or drops because they shape columns. */
+const TIMELINE_APPLIED = new Set(['$filter', '$orderby', '$top', '$skip']);
+const TIMELINE_DROPPED = new Set(['$select', '$expand']);
+
+/** The refusal a timeline read throws: the same code `ListView` classifies. */
+function timelineRefusal(what: string): Error & { code: string } {
+  const err = new Error(
+    `${APPROVAL_ACTION_OBJECT}: one request's timeline cannot honour ${what}. ` +
+      'It orders ($orderby) and pages ($top, $skip) over that request\'s actions, and nothing else.',
+  ) as Error & { code: string };
+  err.code = 'UNSUPPORTED_QUERY_PARAM';
+  return err;
+}
+
+/** One `$orderby` term, as the object-array form spells it. */
+type OrderTerm = { field: string; order: 'asc' | 'desc' };
+
+function isOrderTerm(term: unknown): term is { field: string; order?: unknown } {
+  if (term == null || typeof term !== 'object') return false;
+  const { field } = term as { field?: unknown };
+  return typeof field === 'string' && field !== '';
+}
+
+/** The timeline's ordering, or a thrown refusal for a form it cannot apply. */
+function toOrderTerms(orderby: QueryParams['$orderby']): OrderTerm[] {
+  if (isAbsent(orderby)) return [];
+  const terms: unknown[] = Array.isArray(orderby) ? orderby : [];
+  const objectTerms = terms.filter(isOrderTerm);
+  if (terms.length === 0 || objectTerms.length !== terms.length) {
+    throw timelineRefusal('$orderby in any form but a list of { field, order }');
+  }
+  return objectTerms.map((term) => ({ field: term.field, order: term.order === 'desc' ? 'desc' : 'asc' }));
+}
+
+/** Stored-value comparison; an absent value sorts after every present one. */
+function compareStored(a: unknown, b: unknown): number {
+  const aAbsent = a === undefined || a === null;
+  const bAbsent = b === undefined || b === null;
+  if (aAbsent || bAbsent) return aAbsent === bAbsent ? 0 : aAbsent ? 1 : -1;
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  const as = String(a);
+  const bs = String(b);
+  return as < bs ? -1 : as > bs ? 1 : 0;
+}
+
+/** A non-negative integer window bound, or a thrown refusal. */
+function windowBound(name: '$top' | '$skip', value: unknown): number | undefined {
+  if (isAbsent(value)) return undefined;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0) throw timelineRefusal(`${name} = ${String(value)}`);
+  return n;
+}
+
 /**
  * Build the routed source for one scope. Hand it to `ListView` /
  * `RecordDetailView` as their `dataSource`; mount one per scope.
@@ -162,7 +256,41 @@ export function createApprovalRequestsDataSource(
   const scopeParams = toScopeParams(scope);
   const itemDoor = new ApiDataSource<ApprovalRequestRow>({ read: { url, method: 'GET' }, fetch: fetchFn });
 
+  /** One request's timeline, from the actions route, ordered and windowed here. */
+  const findTimeline = async (requestId: string, params: QueryParams): Promise<QueryResult<unknown>> => {
+    const refused = Object.keys(params)
+      .filter((key) => !TIMELINE_APPLIED.has(key) && !TIMELINE_DROPPED.has(key))
+      .filter((key) => !isAbsent((params as Record<string, unknown>)[key]));
+    if (refused.length > 0) throw timelineRefusal(refused.sort().join(', '));
+    const order = toOrderTerms(params.$orderby);
+    const top = windowBound('$top', params.$top);
+    const skip = windowBound('$skip', params.$skip) ?? 0;
+    const actionsDoor = new ApiDataSource<Record<string, unknown>>({
+      read: { url: `${url}/${encodeURIComponent(requestId)}/actions`, method: 'GET' },
+      fetch: fetchFn,
+    });
+    const { data } = await actionsDoor.find(APPROVAL_ACTION_OBJECT);
+    const rows = [...data];
+    if (order.length > 0) {
+      // Stable: `Array.prototype.sort` keeps the route's oldest-first order
+      // between rows the terms leave tied.
+      rows.sort((a, b) => {
+        for (const term of order) {
+          const c = compareStored(a[term.field], b[term.field]);
+          if (c !== 0) return term.order === 'desc' ? -c : c;
+        }
+        return 0;
+      });
+    }
+    const page = top === undefined ? rows.slice(skip) : rows.slice(skip, skip + top);
+    return { data: page, total: rows.length };
+  };
+
   const find = async (resource: string, params?: QueryParams): Promise<QueryResult<unknown>> => {
+    if (resource === APPROVAL_ACTION_OBJECT) {
+      const requestId = timelineRequestId(params);
+      return requestId === null ? host.find(resource, params) : findTimeline(requestId, params ?? {});
+    }
     if (resource !== APPROVAL_REQUEST_OBJECT) return host.find(resource, params);
     const query = toListQuery(params);
     if (scopeParams === null) return { data: [], total: 0 };

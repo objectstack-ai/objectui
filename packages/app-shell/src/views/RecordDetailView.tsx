@@ -1283,7 +1283,16 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // three things: the status badge / edit lock, the approvals panel (#3461),
   // and — since objectui#3055 — the pending `sys_approval_request` row that the
   // object's own SERVER-DECLARED decision actions run against.
-  const approvals = useRecordApprovals(objectName, pureRecordId);
+  //
+  // Not on an approval request's OWN page (objectui#12045): approvals are
+  // never opened ON a request, so the read could only answer empty, and the
+  // request's decisions are its own declared actions, drawn by
+  // `record:approval_decision` over the page record itself. With no object
+  // name the hook sends nothing and stays inert.
+  const approvals = useRecordApprovals(
+    objectName === SYS_APPROVAL_REQUEST_OBJECT ? undefined : objectName,
+    pureRecordId,
+  );
   // Hold latest approvals snapshot in a ref so the action handler
   // (memoized once inside ActionRunner) always sees fresh state instead of
   // the stale closure captured at the first render.

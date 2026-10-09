@@ -385,6 +385,7 @@ export const KNOWN_SCHEMA_TYPES: readonly string[] = [
   'record',
   'record:activity',
   'record:alert',
+  'record:approval_decision',
   'record:approvals',
   'record:attachments',
   'record:chatter',

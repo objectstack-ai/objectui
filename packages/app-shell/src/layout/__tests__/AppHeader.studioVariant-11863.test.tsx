@@ -18,9 +18,10 @@
  *   - the right-hand cluster is the console's: the inbox, the help menu and the
  *     account menu with profile, theme, language and sign-out.
  *
- * That the variant draws no search trigger, because `/studio` mounts no command
- * palette, is pinned where that rule lives:
- * `AppHeader.searchTriggerNeedsPalette-11912.test.tsx`.
+ * Whether the variant draws the search trigger follows whether a command
+ * palette is mounted, pinned where that rule lives:
+ * `AppHeader.searchTriggerNeedsPalette-11912.test.tsx`. The `/studio` landing
+ * mounts one (objectui#11863, Q2; `StudioRoute.searchPalette-11863.test.tsx`).
  *
  * ## Why `t` answers in keys
  *

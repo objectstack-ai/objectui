@@ -2121,6 +2121,8 @@ const ru = {
       placeholder: "Введите команду или поиск…",
       noResults: "Результаты не найдены.",
       objects: "Объекты",
+      packages: "Пакеты",
+      flows: "Потоки",
       dashboards: "Панели мониторинга",
       pages: "Страницы",
       reports: "Отчёты",

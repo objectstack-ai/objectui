@@ -65,7 +65,7 @@
  * compensate for: a claim wider than the thing behind it.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, act } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
@@ -78,6 +78,26 @@ import '../register-plugins';
 
 /** The object name every probed block is bound to; must appear in a data call. */
 const PROBE_OBJECT = 'probe_object__c';
+
+/**
+ * objectui#12061: the `object-chart` fixture now declares a category (see
+ * {@link sampleFor}), and a chart with a category also reads its option
+ * colours through the GLOBAL `fetch`, at `/api/v1/meta/object/OBJECT`, because
+ * this provider passes no `apiFetch`. That read is not a data-layer call and
+ * not what this probe measures. So it is answered here with an empty document,
+ * and every other request still goes to the network-escape guard's `fetch`, so
+ * any other escape stays a named red. Installed once, at module scope and never
+ * torn down, as the guard's own `Fix:` text prescribes for a read that can land
+ * after a test body returns.
+ */
+const guardedFetch = globalThis.fetch;
+vi.stubGlobal('fetch', ((input: unknown, init?: RequestInit) => {
+  const url = typeof input === 'string' ? input : String((input as { url?: string })?.url ?? input);
+  if (url.endsWith(`/api/v1/meta/object/${PROBE_OBJECT}`)) {
+    return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
+  }
+  return guardedFetch(input as Parameters<typeof fetch>[0], init);
+}) as typeof globalThis.fetch);
 
 /**
  * `DataSource` methods the recording stub carries as real own properties, so a
@@ -347,8 +367,19 @@ const SUPERSEDES_BINDING = new Set(['data', 'staticData', 'customFields']);
  * for as long as nobody looked. Both samples below are spec-valid on their own
  * merit, not as crash avoidance.
  */
-const sampleFor = (input: any): unknown => {
+const sampleFor = (input: any, blockType?: string): unknown => {
   if (input.name === 'objectName') return PROBE_OBJECT;
+  // objectui#12061: `object-chart` refuses a chart with no category axis BEFORE
+  // it fetches, and the generic `object` sample `{}` names none. It is also not
+  // an aggregate any author could publish: the spec's `ChartAggregateSchema`
+  // requires `function` and `groupBy`. So the chart gets the smallest aggregate
+  // that schema accepts, which gives it a category and keeps `objectName`'s data
+  // reach measured. Keyed by block TYPE as well as by name, because
+  // `object-metric` declares an `aggregate` too, and a metric reads it with its
+  // own requiredness (`groupBy` optional).
+  if (blockType === 'object-chart' && input.name === 'aggregate') {
+    return { function: 'count', groupBy: 'name' };
+  }
   // `record:related_list.add` — the generic `object` sample below is `{}`, and
   // `{}` is not a valid `add`: the spec makes `picker` required. An invalid one
   // did not merely under-configure this block, it CRASHED it
@@ -461,7 +492,7 @@ async function dataCallsFor(cfg: any): Promise<Mount> {
   const schema: Record<string, unknown> = { type: cfg.type };
   for (const input of cfg.inputs ?? []) {
     if (SUPERSEDES_BINDING.has(input.name)) continue;
-    schema[input.name] = sampleFor(input);
+    schema[input.name] = sampleFor(input, cfg.type);
   }
 
   const view = render(

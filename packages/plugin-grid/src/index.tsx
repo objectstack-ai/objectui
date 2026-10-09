@@ -50,7 +50,7 @@ export type { ObjectGridComponentProps as ObjectGridProps } from './ObjectGrid';
 export type { VirtualGridProps, VirtualGridColumn } from './VirtualGrid';
 export type { InlineEditingProps } from './InlineEditing';
 export type { ImportWizardProps, ImportResult } from './ImportWizard';
-export type { GroupEntry, UseGroupedDataResult, AggregationType, AggregationConfig, AggregationResult } from './useGroupedData';
+export type { GroupEntry, UseGroupedDataResult, AggregationType, GroupAggregationConfig, AggregationResult } from './useGroupedData';
 export type { GroupRowProps } from './GroupRow';
 export type { RowActionMenuProps } from './components/RowActionMenu';
 export type { BulkActionBarProps } from './components/BulkActionBar';

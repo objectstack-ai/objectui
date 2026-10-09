@@ -25,32 +25,31 @@ import {
 } from 'lucide-react';
 
 /**
- * The visualizations this switcher offers.
+ * The visualizations this switcher offers are `@object-ui/core`'s
+ * {@link ListViewVisualization} (`ca3942729`), which derives from
+ * `@objectstack/spec/ui` through `@object-ui/types`' `ViewType`.
  *
- * DERIVED from `@object-ui/core`'s {@link ListViewVisualization} (`ca3942729`),
- * which derives from `@objectstack/spec/ui` through `@object-ui/types`' `ViewType`.
- *
- * This nine-arm union was written out by hand here, and that is a THIRD
+ * A nine-arm union was once written out by hand here, and that was a THIRD
  * re-declaration of one vocabulary — the card behind `ca3942729` was filed against the two in
  * `@object-ui/types`, and the maps below were described there as total over the
  * shared union when they were in fact total over this private copy. A map that
  * is total over a copy is exactly as incomplete as the copy, so the two
- * `Record<ViewType, …>` below only became honest guards once this alias
- * replaced the copy: the next visualization the spec adds now fails the build
- * in both of them.
+ * `Record<ListViewVisualization, …>` below are honest guards only because they
+ * key on the derived union: the next visualization the spec adds fails the
+ * build in both of them.
  *
- * Exported unchanged in membership — this is the same nine names it always
- * carried. `page` is deliberately NOT among them: the spec models it as a list
- * view that mounts a published page rather than a visualization a user switches
- * into, and `AppearanceConfig.allowedVisualizations` excludes it for the same
- * reason.
+ * Spelled by that name, not re-exported as `ViewType`. This module used to
+ * publish an alias `ViewType = ListViewVisualization`, a second meaning behind
+ * the name `@object-ui/types` gives the whole view-type vocabulary — the alias
+ * lacked its `list` and `detail` arms (objectui#6349, batch 7). `page` is
+ * deliberately NOT a visualization: the spec models it as a list view that
+ * mounts a published page rather than one a user switches into, and
+ * `AppearanceConfig.allowedVisualizations` excludes it for the same reason.
  */
-export type ViewType = ListViewVisualization;
-
 export interface ViewSwitcherProps {
-  currentView: ViewType;
-  availableViews?: ViewType[];
-  onViewChange: (view: ViewType) => void;
+  currentView: ListViewVisualization;
+  availableViews?: ListViewVisualization[];
+  onViewChange: (view: ListViewVisualization) => void;
   className?: string;
   /** Enable animated transitions between views (default: true) */
   animated?: boolean;
@@ -75,7 +74,7 @@ export interface ViewSwitcherProps {
 // the same glyph for the same `ViewType` — #5586 landed `ChartGantt` for
 // `gantt` in `plugin-view`, and one view type showing two different icons
 // depending on which switcher is on screen is the drift worth avoiding.
-const VIEW_ICONS: Record<ViewType, React.ReactNode> = {
+const VIEW_ICONS: Record<ListViewVisualization, React.ReactNode> = {
   grid: <Grid3x3 className="h-4 w-4" />,
   kanban: <LayoutGrid className="h-4 w-4" />,
   gallery: <Images className="h-4 w-4" />,
@@ -102,7 +101,7 @@ const VIEW_ICONS: Record<ViewType, React.ReactNode> = {
  * this very namespace: `packages/plugin-view/src/ObjectView.tsx:83` resolves
  * `console.objectView.new`.
  */
-const VIEW_LABEL_KEYS: Record<ViewType, string> = {
+const VIEW_LABEL_KEYS: Record<ListViewVisualization, string> = {
   grid: 'console.objectView.viewTypeGrid',
   kanban: 'console.objectView.viewTypeKanban',
   gallery: 'console.objectView.viewTypeGallery',
@@ -144,16 +143,16 @@ const useViewSwitcherTranslation = createSafeTranslation(
 /**
  * Resolve every visualization's label once per render.
  *
- * Returns a total `Record<ViewType, string>` so the three call sites per button
+ * Returns a total `Record<ListViewVisualization, string>` so the three call sites per button
  * (visible span, `aria-label`, `title`) stay a plain map lookup and cannot
- * drift apart — and so a `ViewType` added to the union is a compile error
+ * drift apart — and so a visualization added to the union is a compile error
  * naming the missing key rather than a button labelled `undefined`.
  */
-function useViewLabels(): Record<ViewType, string> {
+function useViewLabels(): Record<ListViewVisualization, string> {
   const { t } = useViewSwitcherTranslation();
   return React.useMemo(() => {
-    const out = {} as Record<ViewType, string>;
-    for (const [view, key] of Object.entries(VIEW_LABEL_KEYS) as [ViewType, string][]) {
+    const out = {} as Record<ListViewVisualization, string>;
+    for (const [view, key] of Object.entries(VIEW_LABEL_KEYS) as [ListViewVisualization, string][]) {
       out[view] = t(key);
     }
     return out;
@@ -177,7 +176,7 @@ export const ViewSwitcherDropdown: React.FC<ViewSwitcherProps> = ({
   const VIEW_LABELS = useViewLabels();
 
   const handleViewChange = React.useCallback(
-    (view: ViewType) => {
+    (view: ListViewVisualization) => {
       setOpen(false);
       if (view === currentView) return;
       if (animated && typeof document !== 'undefined' && 'startViewTransition' in document) {
@@ -284,7 +283,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   const VIEW_LABELS = useViewLabels();
 
   const handleViewChange = React.useCallback(
-    (view: ViewType) => {
+    (view: ListViewVisualization) => {
       if (!animated || view === currentView) {
         onViewChange(view);
         return;

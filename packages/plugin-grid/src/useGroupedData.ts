@@ -13,8 +13,17 @@ import { deriveColumnSummary, type ListViewGroupHeaderRow } from '@objectstack/s
 /** Supported aggregation function types. */
 export type AggregationType = 'sum' | 'count' | 'avg' | 'min' | 'max' | 'count_distinct';
 
-/** Describes a single aggregation to compute per group. */
-export interface AggregationConfig {
+/**
+ * Describes a single aggregation to compute per group — one entry of
+ * `ObjectGridSchema.aggregations`, drawn in that group's header.
+ *
+ * Not named `AggregationConfig`: `@object-ui/types` publishes that name for
+ * the query-AST aggregation `DriverQueryConfig.aggregations` carries
+ * (`function`, `alias`, `distinct`, `separator`), which `@object-ui/core`'s
+ * `QueryASTBuilder` compiles. The two share only `field`, so this one carries
+ * the narrower name (objectui#6349, batch 7).
+ */
+export interface GroupAggregationConfig {
   /** The field to aggregate. */
   field: string;
   /** The aggregation function. */
@@ -180,7 +189,7 @@ function buildSegmentLabel(
  */
 function computeAggregations(
   rows: any[],
-  configs: AggregationConfig[],
+  configs: GroupAggregationConfig[],
 ): AggregationResult[] {
   return configs.map(({ field, type }) => {
     if (type === 'count_distinct') {
@@ -405,7 +414,7 @@ export function serverSummaryOf(type: AggregationType): (typeof SERVER_SUMMARY)[
  */
 function readServerAggregations(
   row: ListViewGroupHeaderRow,
-  configs: AggregationConfig[] | undefined,
+  configs: GroupAggregationConfig[] | undefined,
 ): AggregationResult[] {
   if (!configs || configs.length === 0) return [];
   const out: AggregationResult[] = [];
@@ -463,7 +472,7 @@ function sameGroupKey(a: unknown, b: unknown): boolean {
 export function useGroupedData(
   config: GroupingConfig | undefined,
   data: any[],
-  aggregations?: AggregationConfig[],
+  aggregations?: GroupAggregationConfig[],
   formatValue?: GroupValueFormatter,
   server?: ServerGroupSource,
 ): UseGroupedDataResult {
@@ -481,7 +490,7 @@ export function useGroupedData(
 export function useGroupedDataInOptionOrder(
   config: GroupingConfig | undefined,
   data: any[],
-  aggregations: AggregationConfig[] | undefined,
+  aggregations: GroupAggregationConfig[] | undefined,
   formatValue: GroupValueFormatter | undefined,
   server: ServerGroupSource | undefined,
   optionRanks: GroupOptionRanks | undefined,

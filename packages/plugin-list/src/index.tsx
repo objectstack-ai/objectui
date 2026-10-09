@@ -25,7 +25,10 @@ export { evaluateConditionalFormatting, normalizeFilterCondition, normalizeFilte
 export { LIST_DEFAULT_TRANSLATIONS } from './ListView';
 export type { ListViewProps, ListViewHandle } from './ListView';
 export type { ObjectGalleryProps } from './ObjectGallery';
-export type { ViewSwitcherProps, ViewType } from './ViewSwitcher';
+// The switcher's views are `@object-ui/core`'s `ListViewVisualization`. This
+// barrel no longer re-exports them as `ViewType`, the name `@object-ui/types`
+// gives the wider view-type vocabulary (objectui#6349, batch 7).
+export type { ViewSwitcherProps } from './ViewSwitcher';
 
 /**
  * Registry entry point for `<ListView>`. Both bridges it carries — the

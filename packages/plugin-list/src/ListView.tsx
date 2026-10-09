@@ -12,7 +12,7 @@ import type { SortItem } from '@object-ui/components';
 import { Search, SlidersHorizontal, ArrowUpDown, X, EyeOff, Pencil, Group, Paintbrush, Inbox, Download, Rows4, Rows3, Rows2, Share2, Printer, Plus, Trash2, CheckSquare, AlertTriangle, ShieldAlert, RotateCw, Loader2, type LucideIcon } from 'lucide-react';
 import type { FilterGroup } from '@object-ui/components';
 import { VALUELESS_FILTER_BUILDER_OPERATORS, isFilterValueComplete } from '@object-ui/components';
-import { ViewSwitcherDropdown, ViewType } from './ViewSwitcher';
+import { ViewSwitcherDropdown } from './ViewSwitcher';
 import { ViewSettingsPopover } from './components/ViewSettingsPopover';
 import { UserFilters } from './UserFilters';
 import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
@@ -21,7 +21,7 @@ import { useDensityMode, resolveInlineAriaProps } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
+import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -308,7 +308,7 @@ export interface ListViewProps {
    * is a separate change with its own consumer sweep.
    */
   dataSource?: any;
-  onViewChange?: (view: ViewType) => void;
+  onViewChange?: (view: ListViewVisualization) => void;
   /**
    * Fires with the advanced-filter group the toolbar's `FilterBuilder` emitted.
    *
@@ -1350,8 +1350,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
   // Declared ahead of `toolbarFlags`, which reads it: which view is ON SCREEN
   // decides whether a filter control has anything to reach (objectui#10327).
-  const [currentView, setCurrentView] = React.useState<ViewType>(
-    (schema.viewType as ViewType)
+  const [currentView, setCurrentView] = React.useState<ListViewVisualization>(
+    (schema.viewType as ListViewVisualization)
   );
 
   /**
@@ -3104,7 +3104,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // Capability-resolvable types: a visualization is only offered when its
     // required field bindings resolve (ADR-0047) — kanban needs a groupBy,
     // calendar a start date, etc. `grid` always renders.
-    const resolvable: ViewType[] = ['grid'];
+    const resolvable: ListViewVisualization[] = ['grid'];
 
     // Check for Kanban capabilities (spec config takes precedence)
     //
@@ -3187,7 +3187,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // undrawable kind (`page`) must NOT be pushed here: offering a switch into
     // a branch that falls through to `grid` is the silent downgrade wearing a
     // button.
-    if (schema.viewType && !resolvable.includes(schema.viewType as ViewType) &&
+    if (schema.viewType && !resolvable.includes(schema.viewType as ListViewVisualization) &&
        isListViewVisualization(schema.viewType)) {
       resolvable.push(schema.viewType);
     }
@@ -3198,8 +3198,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // field renders garbage, so it must not be offered.
     const whitelist = schema.appearance?.allowedVisualizations;
     if (Array.isArray(whitelist) && whitelist.length > 0) {
-      const filtered = whitelist.filter((v: any) => resolvable.includes(v)) as ViewType[];
-      return filtered.length > 0 ? filtered : (['grid'] as ViewType[]);
+      const filtered = whitelist.filter((v: any) => resolvable.includes(v)) as ListViewVisualization[];
+      return filtered.length > 0 ? filtered : (['grid'] as ListViewVisualization[]);
     }
 
     return resolvable;
@@ -3231,7 +3231,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // Sync view from props
   React.useEffect(() => {
      if (schema.viewType) {
-        setCurrentView(schema.viewType as ViewType);
+        setCurrentView(schema.viewType as ListViewVisualization);
      }
   }, [schema.viewType]);
 
@@ -3240,8 +3240,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   React.useEffect(() => {
     try {
       const savedView = localStorage.getItem(storageKey);
-      if (savedView && ['grid', 'kanban', 'calendar', 'timeline', 'gantt', 'map', 'gallery'].includes(savedView) && availableViews.includes(savedView as ViewType)) {
-        setCurrentView(savedView as ViewType);
+      if (savedView && ['grid', 'kanban', 'calendar', 'timeline', 'gantt', 'map', 'gallery'].includes(savedView) && availableViews.includes(savedView as ListViewVisualization)) {
+        setCurrentView(savedView as ListViewVisualization);
       }
     } catch (error) {
       console.warn('Failed to load view preference from localStorage:', error);
@@ -3249,7 +3249,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   }, [storageKey, availableViews]);
   */
 
-  const handleViewChange = React.useCallback((view: ViewType) => {
+  const handleViewChange = React.useCallback((view: ListViewVisualization) => {
     setCurrentView(view);
     try {
       localStorage.setItem(storageKey, view);

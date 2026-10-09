@@ -87,14 +87,14 @@ import {
   type ListViewGroupQuerySource,
 } from '@objectstack/spec/ui';
 import { isExpandableFieldType } from '@object-ui/core';
-import { serverSummaryOf, type AggregationConfig, type UsableGroupingField } from './useGroupedData';
+import { serverSummaryOf, type GroupAggregationConfig, type UsableGroupingField } from './useGroupedData';
 
 /**
  * `aggregations` as the summary columns the header query compiles from. An
  * entry naming no field or an unknown type contributes no node, so it renders
  * no number rather than a fabricated one.
  */
-function summaryColumnsOf(aggregations: AggregationConfig[] | undefined): NonNullable<ListViewGroupQuerySource['columns']> {
+function summaryColumnsOf(aggregations: GroupAggregationConfig[] | undefined): NonNullable<ListViewGroupQuerySource['columns']> {
   const out: Array<{ field: string; summary: NonNullable<ReturnType<typeof serverSummaryOf>> }> = [];
   for (const agg of aggregations ?? []) {
     if (!agg || typeof agg.field !== 'string' || agg.field === '') continue;
@@ -126,7 +126,7 @@ export interface ServerGroupHeadersInput {
   search?: string;
   searchFields?: readonly string[];
   /** `object-grid.aggregations` — the per-group numbers besides the count. */
-  aggregations?: AggregationConfig[];
+  aggregations?: GroupAggregationConfig[];
   /** The object's field catalogue, for reference-typed grouping keys. */
   objectFields?: Record<string, { type?: unknown; reference?: unknown; displayField?: unknown } | undefined>;
   /** Any change re-asks the server (refresh, data invalidation). */

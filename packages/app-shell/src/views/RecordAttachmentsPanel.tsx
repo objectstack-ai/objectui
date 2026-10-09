@@ -22,6 +22,7 @@ import {
 import { createObjectStackUploadAdapter } from '@object-ui/providers';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { useObjectTranslation, isPermissionError, classifyLoadError } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 
 /**
  * RecordAttachmentsPanel — generic record Attachments surface (objectstack-ai/objectstack#2727,
@@ -157,6 +158,40 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
    */
   const refreshSeqRef = React.useRef(0);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  /**
+   * objectui#12047 — the two write affordances follow the caller's grant on
+   * `sys_attachment`, read from the permissions the console already holds
+   * (`usePermissions`; no request of its own) with the same `can(object, verb)`
+   * call the other console CRUD affordances make.
+   *
+   * Upload needs `create`. Without it the three-step presigned flow below
+   * commits a `sys_file` and only the final `sys_attachment` insert is
+   * refused: the user meets the error after the bytes are stored, and the file
+   * stays committed with nothing attached to it.
+   *
+   * Delete needs `delete`, and being the uploader does not change that. The
+   * server asks the object grant first (plugin-security's CRUD check wraps the
+   * engine's `beforeDelete` hooks), and only a caller who passes it reaches
+   * service-storage's uploader-or-parent-editor rule. So `uploaded_by` cannot
+   * open a delete the grant withholds, and it cannot close one the grant
+   * allows either: the parent-editor half of that rule is not visible here.
+   * No row's `uploaded_by` enters this verdict for that reason.
+   *
+   * No flash while permissions load: the console's `MePermissionsProvider`
+   * renders none of its children until it holds an answer, and a refetch keeps
+   * answering from the answer it holds, so this panel's first render already
+   * has its verdict. A failed load never reaches this panel (the provider
+   * shows its error screen instead), and with no provider mounted `can`
+   * answers `true`, leaving the server's refusal as the gate.
+   *
+   * The refusal mapping in `friendlyError` stays as the backstop: a grant can
+   * change between render and click, and the parent-record gate judges the
+   * record, which this verdict cannot see.
+   */
+  const { can } = usePermissions();
+  const canUpload = can('sys_attachment', 'create');
+  const canDelete = can('sys_attachment', 'delete');
 
   // Same base-URL convention as RecordDetailView's raw API fetches: the
   // Vite dev console proxies same-origin `/api` unless VITE_SERVER_URL
@@ -332,10 +367,11 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
         await dataSource.delete('sys_attachment', row.id);
         setRows((prev) => prev.filter((r) => r.id !== row.id));
       } catch (err: any) {
-        // The delete button deliberately renders for every row: the server
-        // is the gate (uploader-or-parent-editor, objectstack-ai/objectstack#2755) and the client
-        // lacks the parent-edit data to pre-compute it — a denial surfaces
-        // here as friendly copy instead.
+        // With the `delete` grant, the button renders for every row: the
+        // server's record gate (uploader-or-parent-editor,
+        // objectstack-ai/objectstack#2755) is not something the client can
+        // pre-compute, so a denial surfaces here as friendly copy instead
+        // (objectui#12047 removed the button only where the grant is absent).
         setError(friendlyError(err));
       }
     },
@@ -418,9 +454,11 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
           every caller, so an upload attempt here is not merely unverified —
           it is guaranteed to fail the same way the list read just did.
 
-          Still shown while `loading` and while `loaded`, exactly as before.
+          Shown while `loading` and while `loaded` — and only to a caller
+          holding the `create` grant on `sys_attachment` (objectui#12047; see
+          `canUpload` above).
         */}
-        {status !== 'denied' && status !== 'api-unavailable' && status !== 'unavailable' && (
+        {canUpload && status !== 'denied' && status !== 'api-unavailable' && status !== 'unavailable' && (
           <div className="flex items-center gap-2">
             <input
               ref={inputRef}
@@ -555,15 +593,17 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
               >
                 <Download className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                aria-label={t('detail.deleteAttachment', { defaultValue: 'Delete attachment' })}
-                onClick={() => void handleDelete(row)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {canDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  aria-label={t('detail.deleteAttachment', { defaultValue: 'Delete attachment' })}
+                  onClick={() => void handleDelete(row)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </li>
           ))}
         </ul>

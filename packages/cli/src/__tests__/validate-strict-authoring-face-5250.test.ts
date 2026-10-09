@@ -24,11 +24,12 @@
  *     now, and the refusal NAMES the key, its path and what to do. Each refusal
  *     pin asserts the tolerant face still accepts the same document, so a red
  *     here can only mean the strict door moved, never that the fixture broke.
- *  2. A nested child's undeclared key is refused too, and named — although the
- *     issue list carries it only inside the arms of an `Invalid input` at the
- *     child slot (a slot is `SchemaNode | SchemaNode[]`, an undiscriminated
- *     union). The per-depth half of the programme (director pointer on
- *     objectui#5250) is what makes a nested child judged at all.
+ *  2. A nested child's undeclared key is refused too, and named at the
+ *     child's path. Where a union has more than one arm the document fits (a
+ *     dashboard widget), the refusal sits inside the arms of an `Invalid input`
+ *     that names no key, and it is still named. The per-depth half of the
+ *     programme (director pointer on objectui#5250) is what makes a nested
+ *     child judged at all.
  *  3. A key one viable union arm declares is NOT named, even when another
  *     viable arm refuses it — the `metric-card` widget case.
  *  4. Declared-only documents stay green: the positive control for every
@@ -36,6 +37,9 @@
  *  5. `objectui check` reads the same door: a leaf carrying an undeclared key
  *     leaves the "validated" count, is listed by name, and its undeclared key
  *     is named under it. Still advisory — the exit code does not move.
+ *  6. The strict refusal does not switch off objectui#4795's: a listed file
+ *     whose `${…}` sits on a text key its node never evaluates is refused for
+ *     that too, and the run fails.
  *
  * Harness (fixtures under `os.tmpdir()`, `process.exit` recorded rather than
  * taken) follows `validate-root-path-line.test.ts`.
@@ -50,6 +54,7 @@ import { safeValidateSchema } from '@object-ui/types/zod';
 import { check, closingLine, describeFirstIssue } from '../commands/check.js';
 import { validate } from '../commands/validate.js';
 import { describeUndeclaredKey, validateAuthoredDocument } from '../utils/authoring-face.js';
+import { findUnbindableTextExpressions } from '../utils/unbindable-text-expressions.js';
 import { findUndeclaredKeys, type UnionIssueLike } from '../utils/union-arm-diagnostics.js';
 
 /** See `validate-root-path-line.test.ts` — the escape byte is never spelled. */
@@ -92,6 +97,9 @@ const WIDGET_OPTIONS = {
   type: 'dashboard',
   widgets: [{ type: 'bar', title: 'Sales', options: { xField: 'month' } }],
 };
+
+/** A `${…}` expression, as objectui#4795's pins spell it. */
+const EXPRESSION = '${data.total}';
 
 /** The #3090 mixed-vocabulary entry: a runtime `name` plus the spec `field`. */
 const MIXED_FORM = { type: 'form', fields: [{ name: 'subject', field: 'subject_line', type: 'text' }] };
@@ -196,11 +204,19 @@ describe('objectui validate — an undeclared key is refused by name (objectui#5
 
   it('refuses an undeclared key on a nested child and names it at the child\'s path', async () => {
     expect(safeValidateSchema(NESTED_PROBE).success).toBe(true);
-    // The issue list alone does not name it at the top: the child slot is an
-    // undiscriminated union, so the first issue is an `Invalid input` there.
+    // The child slot is an undiscriminated union (`SchemaNode | SchemaNode[]`),
+    // but only one of its arms fits this child, so the parse reports the
+    // refusal at the child itself, as `unrecognized_keys`, naming the key.
+    // `findUndeclaredKeys` has to name it there too; the union-nested shape it
+    // also reads is pinned by the widget cases below.
     const result = validateAuthoredDocument(NESTED_PROBE);
     expect(result.success).toBe(false);
-    expect(result.error?.issues[0]).toMatchObject({ code: 'invalid_union', path: ['children'] });
+    expect(result.error?.issues).toMatchObject([
+      { code: 'unrecognized_keys', path: ['children', 0], keys: ['nonsense'] },
+    ]);
+    expect(findUndeclaredKeys(result.error!.issues as readonly UnionIssueLike[])).toEqual([
+      { path: ['children', 0], key: 'nonsense' },
+    ]);
 
     await runValidate('nested.json', NESTED_PROBE);
 
@@ -322,5 +338,33 @@ describe('objectui check — the validity arm reads the strict door too (objectu
     expect(under[0]).not.toContain('xField');
     // …so the undeclared-key line is what names it.
     expect(under.slice(1)).toEqual([expectedLine(WIDGET_OPTIONS, ['widgets', 0, 'options'], 'xField')]);
+  });
+
+  it('keeps the objectui#4795 expression refusal on a file the strict face refuses: both are reported, and the run fails', async () => {
+    // `alert` declares `title` and never evaluates it, so the expression is
+    // objectui#4795's refusal; `nonsense` is the undeclared key, the strict
+    // face's. Two findings on two different keys of one file.
+    const document = { type: 'alert', title: EXPRESSION, nonsense: 1 };
+    const strict = validateAuthoredDocument(document);
+    expect(strict.success).toBe(false);
+    expect(findUndeclaredKeys(strict.error!.issues as readonly UnionIssueLike[])).toEqual([
+      { path: [], key: 'nonsense' },
+    ]);
+    expect(findUnbindableTextExpressions(document)).toMatchObject([
+      { severity: 'refusal', type: 'alert', key: 'title', path: ['title'] },
+    ]);
+    writeSchema('alert.json', document);
+
+    await check(dir);
+
+    // Listed for the strict refusal, with its undeclared key named under it…
+    expect(linesUnder('alert.json')).toEqual([
+      describeFirstIssue(strict.error!.issues),
+      expectedLine(document, [], 'nonsense'),
+    ]);
+    // …and refused for the expression, which fails the run.
+    expect(plainLines().filter((l) => l.startsWith('x Unevaluated expression in alert.json '))).toHaveLength(1);
+    expect(plainLines()).toContain('Found 1 errors');
+    expect(exitCodes).toEqual([1]);
   });
 });

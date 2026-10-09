@@ -345,6 +345,29 @@ export async function check(cwd: string = process.cwd()) {
   let validated = 0;
   let notValidated = 0;
 
+  // objectui#4795, ruling item 2: a `${…}` on a closed text key its component
+  // node never evaluates reaches the user as literal text. Refused on a
+  // registered type, warned on any other (sub-rule ii). A refusal fails the run.
+  //
+  // Judged on every file that reads as ObjectUI content: the files either
+  // recogniser arm admitted, AND the registered-type files the strict authoring
+  // face refused (the third bucket below). The second half is objectui#5250's:
+  // a document carrying one undeclared key is refused by the strict face, and
+  // ⛔ that refusal must not switch this one off — the two are separate
+  // findings on the same file, and both are reported.
+  const judgeTextExpressions = (file: string, document: unknown): void => {
+    for (const finding of findUnbindableTextExpressions(document)) {
+      const line = `${file} ${describeUnbindableTextExpression(finding)}`;
+      if (finding.severity === 'refusal') {
+        console.log(chalk.red(`x Unevaluated expression in ${line}`));
+        console.log(chalk.dim(`   ${workingChannels(finding)}`));
+        errors++;
+      } else {
+        console.log(chalk.yellow(`⚠️ Expression not judged in ${line}`));
+      }
+    }
+  };
+
   for (const file of files) {
     try {
       // Basic JSON parsing check
@@ -406,6 +429,7 @@ export async function check(cwd: string = process.cwd()) {
                   issues: recognition.issues,
                   document: content,
                 });
+                judgeTextExpressions(file, content);
               } else {
                 skipped++;
               }
@@ -431,20 +455,8 @@ export async function check(cwd: string = process.cwd()) {
                 )
               );
             }
-            // objectui#4795, ruling item 2: a `${…}` on a closed text key its
-            // component node never evaluates reaches the user as literal
-            // text. Refused on a registered type, warned on any other
-            // (sub-rule ii). Judged on recognised files only, from either arm.
-            for (const finding of findUnbindableTextExpressions(content)) {
-              const line = `${file} ${describeUnbindableTextExpression(finding)}`;
-              if (finding.severity === 'refusal') {
-                console.log(chalk.red(`x Unevaluated expression in ${line}`));
-                console.log(chalk.dim(`   ${workingChannels(finding)}`));
-                errors++;
-              } else {
-                console.log(chalk.yellow(`⚠️ Expression not judged in ${line}`));
-              }
-            }
+            // objectui#4795 — see `judgeTextExpressions` above.
+            judgeTextExpressions(file, content);
           }
         }
       }
@@ -476,9 +488,10 @@ export async function check(cwd: string = process.cwd()) {
       }
       // Every undeclared key the strict face refused, named with its path and
       // what to do — the same reader and wording `objectui validate` prints
-      // (objectui#5250). The first issue alone cannot carry them: below a
-      // child slot it is an `Invalid input` that names no key. Same indent as
-      // the issue line, so none of these reads as another file.
+      // (objectui#5250). The first issue alone cannot carry them: it is one
+      // issue of several, and at a union the object fits more than one arm of
+      // (a dashboard widget) it is an `Invalid input` that names no key. Same
+      // indent as the issue line, so none of these reads as another file.
       for (const finding of findUndeclaredKeys(issues)) {
         console.log(chalk.yellow(`     ${describeUndeclaredKey(finding, document)}`));
       }

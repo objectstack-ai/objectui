@@ -491,7 +491,7 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
       type: 'report',
       report: { name: 'opp_by_stage', label: 'Opportunities by Stage', type: 'summary', dataset: 'pipeline', rows: ['stage'], values: ['amount_sum'] },
     };
-    expect(safeValidateSchema(wrapper).success).toBe(true);
+    expect(validateAuthoredDocument(wrapper).success).toBe(true);
   });
 
   it('the refused set is exactly the named remainder — the pin comment cannot drift (objectui#10859 batch 8)', () => {

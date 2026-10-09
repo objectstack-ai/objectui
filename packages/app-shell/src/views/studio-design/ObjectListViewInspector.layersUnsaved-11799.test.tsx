@@ -21,13 +21,17 @@
  *  - CONTROL: a published view with no draft sends exactly one `/layers`, and
  *    the buffer holds its published layer, as before.
  *
- * Not covered, said here so it does not read as covered: a view that exists
- * nowhere yet (no draft, no layer: the default list view of an object that has
- * none) still asks `/layers` and gets its 404. Nothing the hook holds says the
- * view was never saved: its draft read says only whether a draft is pending,
- * and the object's `listViews` from the metadata cache is not read as that
- * answer here (the 11823 pillar suite serves a default view its object
- * definition does not list).
+ * A view that exists nowhere yet (no draft, no layer: the default list view of
+ * an object that has none) still asks `/layers` and gets its 404. Nothing the
+ * hook holds says the view was never saved: its draft read says only whether a
+ * draft is pending, and the object's `listViews` from the metadata cache is not
+ * read as that answer here (the 11823 pillar suite serves a default view its
+ * object definition does not list). The framework keeps that 404 by design
+ * (objectstack-ai/objectstack#22397, answer (a)), and `MetadataClient.layered()`
+ * resolves it as an envelope with every layer null, so the buffer reads it as
+ * "not created yet": no row, no failure, and the canvas shows the view the first
+ * edit will create. Pinned in the second describe below, with a control: a
+ * failed `/layers` read (a 5xx) is still the buffer's load failure.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -64,6 +68,8 @@ const server = {
   active: new Map<string, Record<string, unknown>>(),
   drafts: new Map<string, Record<string, unknown>>(),
   requests: [] as Array<{ method: string; path: string; search: string; status: number }>,
+  /** Rows whose `/layers` read fails with a 5xx. */
+  failLayers: new Set<string>(),
 };
 
 const json = (status: number, body: unknown) =>
@@ -80,6 +86,8 @@ async function serve(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
     const seg = meta[1].split('/').map(decodeURIComponent);
     if (seg[0] === '_drafts') {
       body = { drafts: [...server.drafts.keys()].map((k) => ({ type: k.split('/')[0], name: k.split('/')[1], packageId: PKG })) };
+    } else if (seg.length === 3 && seg[2] === 'layers' && server.failLayers.has(`${seg[0]}/${seg[1]}`)) {
+      [status, body] = [500, { error: { code: 'INTERNAL_ERROR', message: 'metadata store unavailable' } }];
     } else if (seg.length === 3 && seg[2] === 'layers') {
       const row = server.active.get(`${seg[0]}/${seg[1]}`);
       if (row) body = { code: null, overlay: row, overlayScope: 'env', effective: row };
@@ -149,6 +157,7 @@ beforeEach(() => {
   server.active.clear();
   server.drafts.clear();
   server.requests = [];
+  server.failLayers.clear();
 });
 afterEach(cleanup);
 
@@ -174,5 +183,63 @@ describe('useObjectListViewDraft — an unpublished view is not asked for /layer
 
     expect(layersAsked()).toBe(1);
     expect(probe()).toEqual({ loadedFor: `listView:${VIEW}`, row: viewItem(['title']), hasDraft: false, failure: null });
+  });
+});
+
+/** What the buffer holds, plus the columns the canvas shows for it. */
+function CanvasProbe() {
+  const d = useObjectListViewDraft({ client, packageId: PKG, leaf: LEAF, publishNonce: 0 });
+  const view = d.canvas?.view as { columns?: unknown } | undefined;
+  return (
+    <pre data-testid="canvas-probe">
+      {JSON.stringify({
+        loadedFor: d.loadedFor,
+        row: d.row,
+        hasDraft: d.hasDraft,
+        failure: d.failure ? { during: d.failure.during, error: String(d.failure.error) } : null,
+        canvasColumns: view?.columns ?? null,
+      })}
+    </pre>
+  );
+}
+
+async function openLeafWithCanvas() {
+  render(
+    <MetadataCtx.Provider value={METADATA}>
+      <CanvasProbe />
+    </MetadataCtx.Provider>,
+  );
+  await act(async () => {
+    for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0));
+  });
+  return JSON.parse(screen.getByTestId('canvas-probe').textContent ?? '{}') as Record<string, unknown>;
+}
+
+const layersStatuses = () =>
+  server.requests.filter((r) => r.method === 'GET' && r.path === `/api/v1/meta/view/${VIEW}/layers`).map((r) => r.status);
+
+describe('useObjectListViewDraft — a view that exists nowhere reads its /layers 404 as "not created yet" (objectui#11799)', () => {
+  it('no draft and no layer: one /layers, its 404, no failure, and the canvas shows the view the first edit creates', async () => {
+    const seen = await openLeafWithCanvas();
+
+    expect(layersStatuses()).toEqual([404]);
+    expect(seen).toEqual({
+      loadedFor: `listView:${VIEW}`,
+      row: null,
+      hasDraft: false,
+      failure: null,
+      // `defaultListColumnsFromObject` over the object's two fields.
+      canvasColumns: ['title', 'status'],
+    });
+  });
+
+  it('CONTROL: a failed /layers read (a 5xx) is still the buffer\'s load failure', async () => {
+    server.failLayers.add(`view/${VIEW}`);
+    const seen = await openLeafWithCanvas();
+
+    expect(layersStatuses()).toEqual([500]);
+    expect(seen.loadedFor).toBe('');
+    expect(seen.canvasColumns).toBeNull();
+    expect(seen.failure).toEqual({ during: 'load', error: expect.stringContaining('metadata store unavailable') });
   });
 });

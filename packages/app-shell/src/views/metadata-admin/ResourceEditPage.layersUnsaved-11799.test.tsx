@@ -18,11 +18,16 @@
  * for `?state=draft` with no draft. Requests are counted on it. The `doc`
  * type's editor stands in for every type (the flow is the page's own).
  *
- * Not covered, said here so it does not read as covered: the page's LOAD of a
- * never-published item still asks `/layers` and gets its 404. Its answer feeds
- * the lock banner, the overlay diff and the reset verdict even with a draft,
- * and nothing the page holds before that read says the item was never saved
- * (the draft read only says a draft is pending).
+ * The page's LOAD of a never-published item still asks `/layers` and gets its
+ * 404: nothing the page holds before that read says the item was never saved
+ * (the draft read, sent beside it, only says a draft is pending). The framework
+ * keeps that 404 for every caller by design (objectstack-ai/objectstack#22397,
+ * answer (a)), so the page reads it as "never published": `MetadataClient.layered()`
+ * resolves the 404 as an envelope with every layer null, and the lock banner,
+ * the Layers sheet and the reset verdict show their no-published-version form,
+ * with no error. Pinned in the second describe below, with two controls: a
+ * published item still gets its layers, and a failed `/layers` read (a 5xx)
+ * still shows the load error.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -42,6 +47,10 @@ const server = {
   active: new Map<string, Record<string, unknown>>(),
   drafts: new Map<string, Record<string, unknown>>(),
   requests: [] as Array<{ method: string; path: string; search: string; status: number }>,
+  /** Protection fields a stored row's `/layers` answer carries beyond the defaults. */
+  layerExtras: new Map<string, Record<string, unknown>>(),
+  /** Rows whose `/layers` read fails with a 5xx. */
+  failLayers: new Set<string>(),
 };
 
 const json = (status: number, body: unknown) =>
@@ -61,9 +70,11 @@ async function serve(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
       body = { drafts: [...server.drafts.keys()].map((k) => ({ type: k.split('/')[0], name: k.split('/')[1], packageId: null })) };
     } else if (seg.length === 1) {
       body = { items: seg[0] === 'book' ? [BOOK] : [] };
+    } else if (seg.length === 3 && seg[2] === 'layers' && server.failLayers.has(key)) {
+      [status, body] = [500, { error: { code: 'INTERNAL_ERROR', message: 'metadata store unavailable' } }];
     } else if (seg.length === 3 && seg[2] === 'layers') {
       const row = server.active.get(key);
-      if (row) body = { code: null, overlay: row, overlayScope: 'env', effective: row, editable: true, deletable: true, resettable: false, lock: 'none' };
+      if (row) body = { code: null, overlay: row, overlayScope: 'env', effective: row, editable: true, deletable: true, resettable: false, lock: 'none', ...server.layerExtras.get(key) };
       else [status, body] = [404, { error: { code: 'NOT_FOUND', message: 'absent' } }];
     } else if (seg.length === 3 && seg[2] === 'references') {
       body = [];
@@ -128,6 +139,8 @@ beforeEach(() => {
   server.active.clear();
   server.drafts.clear();
   server.requests = [];
+  server.layerExtras.clear();
+  server.failLayers.clear();
   window.localStorage.setItem('metadata-admin:autosave', '0');
   Object.defineProperty(window, 'confirm', { configurable: true, writable: true, value: vi.fn(() => true) });
 });
@@ -264,5 +277,69 @@ describe('MetadataResourceEditPage — no /layers re-read for an item known to h
 
     expect(layersAsked('live_guide')).toBe(2);
     expect(await source()).toHaveValue('# Live');
+  });
+});
+
+/** The item's `/layers` reads, in order, as the server answered them. */
+const layersStatuses = (name: string) =>
+  server.requests.filter((r) => r.method === 'GET' && r.path === `/api/v1/meta/doc/${name}/layers`).map((r) => r.status);
+
+/** Opens the Layers sheet and returns the Overlay tab, whose badge names the overlay layer. */
+async function overlayTab() {
+  fireEvent.click(screen.getByTitle('Layers'));
+  return screen.findByRole('tab', { name: /Overlay/ });
+}
+
+describe('MetadataResourceEditPage — the LOAD reads a /layers 404 as "never published", with no error (objectui#11799)', () => {
+  it('a draft-only item opens on its draft: one /layers, its 404, and no error, lock banner or reset/delete control', async () => {
+    server.drafts.set('doc/fresh_guide', doc('fresh_guide', '# Draft'));
+    renderEdit('fresh_guide');
+    expect(await source()).toHaveValue('# Draft');
+    await settle();
+
+    expect(layersStatuses('fresh_guide')).toEqual([404]);
+    expect(screen.queryByText(/Failed to load/)).toBeNull();
+    // The draft is pending, and nothing says it is published, locked or resettable.
+    expect(screen.getByText(/Pending changes/)).toBeInTheDocument();
+    expect(screen.queryByTestId('lock-banner-title')).toBeNull();
+    expect(screen.queryByTestId('reset-or-delete-button')).toBeNull();
+    // The Layers sheet: no overlay layer, and no code layer to diff against.
+    expect(await overlayTab()).toHaveTextContent('none');
+    expect(screen.getByText(/No code-level artifact to compare against/)).toBeInTheDocument();
+  });
+
+  it('CONTROL: a published item gets its layers, and the page uses them: the delete control and the overlay layer', async () => {
+    server.active.set('doc/live_guide', doc('live_guide', '# Live'));
+    renderEdit('live_guide');
+    expect(await source()).toHaveValue('# Live');
+    await settle();
+
+    expect(layersStatuses('live_guide')).toEqual([200]);
+    expect(screen.queryByText(/Failed to load/)).toBeNull();
+    expect(screen.getByTestId('reset-or-delete-button')).toBeInTheDocument();
+    expect(await overlayTab()).toHaveTextContent('env');
+  });
+
+  it('CONTROL: a published item locked by its layers shows the lock banner from that answer', async () => {
+    server.active.set('doc/live_guide', doc('live_guide', '# Live'));
+    server.layerExtras.set('doc/live_guide', { lock: 'no-delete', deletable: false, lockReason: 'Shipped with the manual' });
+    renderEdit('live_guide');
+    expect(await source()).toHaveValue('# Live');
+    await settle();
+
+    expect(layersStatuses('live_guide')).toEqual([200]);
+    expect(screen.getByTestId('lock-banner-title')).toHaveTextContent('This item is locked and cannot be deleted.');
+    expect(screen.getByText('Shipped with the manual')).toBeInTheDocument();
+    expect(screen.queryByTestId('reset-or-delete-button')).toBeNull();
+  });
+
+  it('CONTROL: a failed /layers read (a 5xx) still shows the load error, even with a draft in hand', async () => {
+    server.drafts.set('doc/fresh_guide', doc('fresh_guide', '# Draft'));
+    server.failLayers.add('doc/fresh_guide');
+    renderEdit('fresh_guide');
+
+    expect(await screen.findByText('Failed to load doc/fresh_guide: metadata store unavailable', undefined, { timeout: 8000 })).toBeInTheDocument();
+    expect(layersStatuses('fresh_guide')).toEqual([500]);
+    expect(screen.queryByText(/Pending changes/)).toBeNull();
   });
 });

@@ -51,3 +51,9 @@ Not in this change: the legacy chart axes (`chart.xAxisField`, `yAxisFields`, `c
   these nested aliases by reference, with the alias in place; it no longer removes it either.
 - `@object-ui/types`: the refusal messages of these keys no longer say a stored view still renders
   through the alias, and the kanban `groupBy` refusal no longer suggests the refused `groupField`.
+
+**Note added 2026-10-09 (objectui#6152 round 15):** the legacy chart axes are no longer read either.
+`ListView`, the object page and `ObjectView`'s own views read no `xAxisField`, `yAxisFields`,
+`categoryField`, `valueField` or `aggregation` on a chart block, so a chart view that names no
+`dataset` binds nothing and `ObjectChart` refuses it on screen; see
+`.changeset/6152-list-view-legacy-chart-retired.md`.

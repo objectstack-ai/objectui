@@ -77,3 +77,7 @@ only: the legacy spellings, `options.grid` and the undeclared keys a bag carries
 so a view stored with one of them renders without what that key used to bind; see
 `.changeset/6152-list-view-readers-retired.md`. The legacy chart axes (`options.chart.xAxisField`
 and the rest) are still read until the next round on objectui#6152.
+
+**Note added 2026-10-09 (objectui#6152 round 15):** the legacy chart axes are no longer read, in the
+bag or at the top level: a chart block that names no `dataset` binds nothing, and `ObjectChart`
+refuses it on screen; see `.changeset/6152-list-view-legacy-chart-retired.md`.

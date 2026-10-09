@@ -12,14 +12,19 @@
  *
  * ## What this pins, and why it is a contract test rather than a refactor test
  *
- * `generateViewSchema`'s kanban branch resolves the rule list from a chain. Two
- * links are declared surface:
+ * `generateViewSchema`'s kanban branch resolves the rule list from ONE
+ * declared place: the active view's own `conditionalFormatting` — the view
+ * definition declares it, and it is what Studio's CEL editor writes.
  *
- *   - `options.kanban.conditionalFormatting` — `ObjectKanbanSchema` declares it
- *     (`packages/types/src/objectql.ts`, zod contract pinned in
- *     `packages/types/src/__tests__/kanban-conditional-formatting.test.ts`).
- *   - the active/named view's own `conditionalFormatting` — the view definition
- *     declares it, and it is what Studio's CEL editor writes.
+ * ⚠️ objectui#6152 round 15: a second link, the per-kind block's
+ * `kanban.conditionalFormatting`, used to win over it, on the reading that
+ * `ObjectKanbanSchema` declares the key. That declaration is the
+ * `object-kanban` NODE's (its pin is
+ * `packages/types/src/__tests__/kanban-conditional-formatting.test.ts`), not
+ * the list view's kanban block: the protocol's block is `groupByField` /
+ * `columns` / `titleField` / `summarizeField`, and every door that judges it
+ * refuses `kanban.conditionalFormatting` by name. The read retired; its two
+ * arms below were TURNED, not deleted.
  *
  * A third link used to sit at the end: `(schema as any).conditionalFormatting`,
  * read straight off the `object-view` node. Nothing declared it —
@@ -121,8 +126,8 @@ describe('the kanban branch reads `conditionalFormatting` only where it is decla
         + 'node again. Nothing declares that key there: it is not a member of ObjectViewSchema, the\n'
         + '`object-view` registration does not publish it in `inputs`, and BaseSchema\'s index\n'
         + 'signature keeps tsc silent — so honouring it is the "renderer reads it, manifest denies\n'
-        + 'it" condition. Ruled out on objectui#5248 (2026-08-19). Author it under\n'
-        + '`options.kanban.conditionalFormatting` or on the view.',
+        + 'it" condition. Ruled out on objectui#5248 (2026-08-19). Author it on the\n'
+        + 'view, as its view-level `conditionalFormatting` (objectui#6152 round 15).',
     ).toBe(false);
     expect(node.conditionalFormatting).toBeUndefined();
   });
@@ -132,14 +137,20 @@ describe('the kanban branch reads `conditionalFormatting` only where it is decla
     expect(node.conditionalFormatting).toEqual(VIEW_LEVEL_RULE);
   });
 
-  it('the NESTED `options.kanban` rule still reaches the kanban node', async () => {
+  // TURNED (objectui#6152 round 15): read `toEqual(NESTED_RULE)`.
+  it('the NESTED `kanban.conditionalFormatting` rule no longer reaches the kanban node (objectui#6152 round 15)', async () => {
     const node = await renderKanbanView({
       view: { kanban: { groupByField: 'stage', conditionalFormatting: NESTED_RULE } },
     });
-    expect(node.conditionalFormatting).toEqual(NESTED_RULE);
+    expect(Object.prototype.hasOwnProperty.call(node, 'conditionalFormatting')).toBe(false);
+    // The branch still built the board from the same block: a nested key that
+    // vanished with the whole node would pass the line above as well.
+    expect(node.groupBy).toBe('stage');
   });
 
-  it('nested wins over view-level, and neither is displaced by a top-level key', async () => {
+  // TURNED (objectui#6152 round 15): read "nested wins over view-level" and
+  // `toEqual(NESTED_RULE)`. The view-level rule is now the only one read.
+  it('the view-level rule is the one read: a nested block rule does not displace it, nor does a top-level key', async () => {
     const node = await renderKanbanView({
       schemaExtras: { conditionalFormatting: TOP_LEVEL_RULE },
       view: {
@@ -147,12 +158,13 @@ describe('the kanban branch reads `conditionalFormatting` only where it is decla
         kanban: { groupByField: 'stage', conditionalFormatting: NESTED_RULE },
       },
     });
-    expect(node.conditionalFormatting).toEqual(NESTED_RULE);
+    expect(node.conditionalFormatting).toEqual(VIEW_LEVEL_RULE);
   });
 
   it('a top-level key does not fill in for a view that declares none', async () => {
-    // The precedence chain is nested → view. With both of those absent the
-    // answer is "no conditional formatting", not "fall back to the undeclared
+    // The chain is the view-level key alone (the nested link retired in
+    // objectui#6152 round 15). With it absent the answer is "no conditional
+    // formatting", not "fall back to the undeclared
     // top-level key" — this is the case the dropped read used to serve, and the
     // only one whose behaviour objectui#5248 changes.
     const withTop = await renderKanbanView({ schemaExtras: { conditionalFormatting: TOP_LEVEL_RULE } });
@@ -175,7 +187,8 @@ describe('the kanban branch reads `conditionalFormatting` only where it is decla
     // and inverted so the history stays legible and so re-adding the write
     // reddens here, rather than being silently re-blessed by a missing
     // assertion. ⚠️ Node-local: the VIEW-LEVEL `kanban.groupField` alias this
-    // very view could have been authored with is still live and still read.
+    // very view could have been authored with is a separate key, retired on
+    // this route in objectui#6152 round 14.
     expect(node.groupField).toBeUndefined();
     expect(node.titleField).toBe('name');
     expect(node.cardFields).toEqual(['name', 'amount']);

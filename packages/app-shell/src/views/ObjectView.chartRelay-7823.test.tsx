@@ -51,8 +51,9 @@
  *
  * The whole relay is safe to write because `ListView` never SPREADS this block:
  * `resolveListChartBinding` and `case 'chart'` both read it BY NAME
- * (`dataset` / `dimensions` / `values` / `chartType` / `xAxisField` /
- * `yAxisFields` / `categoryField` / `valueField` / `aggregation` / `series`).
+ * (`dataset` / `dimensions` / `values` / `chartType`; the legacy `xAxisField` /
+ * `yAxisFields` / `categoryField` / `valueField` / `aggregation` / `series`
+ * were read too until objectui#6152 round 15 retired them).
  * Extra authored keys arrive and are ignored, exactly as they are for `gantt`
  * and `tree`, so no key this relay stops dropping can collide downstream.
  *
@@ -292,11 +293,13 @@ describe('the object-view relay forwards the authored chart block WHOLE (objectu
     expect(captured.options.chart).toEqual(ADR_0021_BLOCK);
   });
 
-  it('THE FIX: the legacy `categoryField` / `valueField` spelling survives too', async () => {
-    // Absent from the six-key list exactly as the ADR-0021 keys were, and read
-    // by the same resolver. One projection dropped both; one pointer carries
-    // both.
-    expect(await chartOffered({ chart: { categoryField: 'status', valueField: 'hours' } })).toBe(true);
+  it('THE FIX: the pointer carries a retired `categoryField` / `valueField` block whole; the gate offers it no toggle', async () => {
+    // Absent from the six-key list exactly as the ADR-0021 keys were. One
+    // projection dropped both; one pointer carries both — that half stands.
+    // TURNED (objectui#6152 round 15): the toggle half read `true` while the
+    // resolver had a legacy leg. Nothing reads these axes now, so the block
+    // arrives whole and is offered nothing.
+    expect(await chartOffered({ chart: { categoryField: 'status', valueField: 'hours' } })).toBe(false);
     await mountObjectList({ chart: { categoryField: 'status', valueField: 'hours' } });
     expect(captured.options.chart).toEqual({ categoryField: 'status', valueField: 'hours' });
   });
@@ -310,12 +313,12 @@ describe('the object-view relay forwards the authored chart block WHOLE (objectu
     expect(captured.options.chart).toEqual(block);
   });
 
-  it('CONTROL: the legacy `xAxisField` / `yAxisFields` block still resolves', async () => {
-    // GREEN in either world — these keys the old projection already carried.
-    // It is here so a regression in the relay's shape cannot hide behind the
-    // arms above, and to pin that the two authoring shapes now behave the same
-    // on this route, which is the asymmetry the card reported.
-    expect(await chartOffered({ chart: { xAxisField: 'status', yAxisFields: ['hours'] } })).toBe(true);
+  it('CONTROL: the retired `xAxisField` / `yAxisFields` block resolves no toggle (objectui#6152 round 15)', async () => {
+    // TURNED (objectui#6152 round 15). This read `true`: the old projection
+    // carried these keys and the resolver's legacy leg bound them. The leg
+    // retired, so both legacy spellings now answer alike — no toggle — which
+    // still pins that the two behave the same on this route.
+    expect(await chartOffered({ chart: { xAxisField: 'status', yAxisFields: ['hours'] } })).toBe(false);
   });
 
   it('NEGATIVE CONTROL: a view declaring no chart block is offered no toggle', async () => {

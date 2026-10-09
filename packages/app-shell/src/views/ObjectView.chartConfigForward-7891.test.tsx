@@ -167,7 +167,12 @@ const DATASET_BLOCK = {
   chartType: 'bar',
 };
 
-/** The pre-ADR-0021 inline spelling — `ObjectView`'s SECOND (legacy) branch. */
+/**
+ * The pre-ADR-0021 inline spelling. It was `ObjectView`'s SECOND (legacy)
+ * branch; since objectui#6152 round 15 nothing reads these axes, so a block
+ * spelled this way names no `dataset` and reaches the second branch as the
+ * UNBOUND chart.
+ */
 const LEGACY_BLOCK = {
   chartType: 'line',
   xAxisField: 'status',
@@ -175,7 +180,7 @@ const LEGACY_BLOCK = {
   aggregation: 'sum',
 };
 
-function objectsWith(chart: Record<string, unknown>) {
+function objectsWith(chart: Record<string, unknown>, viewExtras: Record<string, unknown> = {}) {
   return [
     {
       name: OBJECT_NAME,
@@ -187,7 +192,7 @@ function objectsWith(chart: Record<string, unknown>) {
         hours: { type: 'number', label: 'Hours' },
       },
       listViews: {
-        by_unit: { label: 'By business unit', type: 'chart', columns: ['name'], chart },
+        by_unit: { label: 'By business unit', type: 'chart', columns: ['name'], chart, ...viewExtras },
       },
     },
   ];
@@ -205,7 +210,7 @@ function makeDataSource() {
 }
 
 /** Mount the dedicated chart view for one authored block and capture the node. */
-async function mountChartView(chart: Record<string, unknown>) {
+async function mountChartView(chart: Record<string, unknown>, viewExtras: Record<string, unknown> = {}) {
   capturedChartSchema = null;
   const dataSource = makeDataSource();
   render(
@@ -214,7 +219,7 @@ async function mountChartView(chart: Record<string, unknown>) {
         <Routes>
           <Route
             path="/apps/:appName/:objectName"
-            element={<ObjectView dataSource={dataSource} objects={objectsWith(chart)} onEdit={() => {}} />}
+            element={<ObjectView dataSource={dataSource} objects={objectsWith(chart, viewExtras)} onEdit={() => {}} />}
           />
         </Routes>
       </MemoryRouter>
@@ -290,12 +295,77 @@ describe('ObjectView builds no `config` rung on the object-chart node (objectui#
     expect('config' in schema).toBe(false);
   });
 
-  it('LEGACY BRANCH POSITIVE CONTROL: the translated keys still arrive', async () => {
+  it('LEGACY BRANCH POSITIVE CONTROL: the node still arrives, with its declared keys', async () => {
+    // TURNED (objectui#6152 round 15). This read the TRANSLATED keys —
+    // `aggregate` / `xAxisKey` / `series` built from the legacy axes. That
+    // translation retired with the axes, so what arrives is the unbound node:
+    // the object and the declared `chartType`, and none of the axes.
     const schema = await mountChartView({ ...LEGACY_BLOCK, config: OFF_SPEC_CONFIG });
+    expect(schema.type).toBe('object-chart');
     expect(schema.objectName).toBe(OBJECT_NAME);
     expect(schema.chartType).toBe('line');
-    expect(schema.aggregate).toEqual({ field: 'hours', function: 'sum', groupBy: 'status' });
-    expect(schema.xAxisKey).toBe('status');
-    expect(schema.series).toEqual([{ dataKey: 'hours', label: 'hours' }]);
+  });
+
+  it('UNBOUND BRANCH (objectui#6152 round 15): the retired axes, `series` and `filter` on the block bind nothing', async () => {
+    // The five keys the legacy branch read off the block. Each is refused by
+    // name by the spec's strict `ListChartConfigSchema` at every door, and none
+    // reaches the node any more: no `aggregate`, no axis, no series, no filter.
+    // `ObjectChart` refuses such a node on screen (objectui#8168).
+    const schema = await mountChartView({
+      ...LEGACY_BLOCK,
+      series: [{ dataKey: 'hours', label: 'Hours' }],
+      filter: [['status', '=', 'open']],
+    });
+    expect(schema.objectName).toBe(OBJECT_NAME);
+    for (const key of ['aggregate', 'xAxisKey', 'series', 'filter', 'dataset'] as const) {
+      expect(key in schema, `\`${key}\` reached the unbound node`).toBe(false);
+    }
+  });
+
+  it('UNBOUND BRANCH (objectui#6152 round 15): a block with no binding at all invents no `name` / `value` floor', async () => {
+    const schema = await mountChartView({ chartType: 'bar' });
+    expect(schema.objectName).toBe(OBJECT_NAME);
+    expect(schema.chartType).toBe('bar');
+    expect('aggregate' in schema).toBe(false);
+    expect('xAxisKey' in schema).toBe(false);
+  });
+});
+
+/**
+ * objectui#6152 round 15 — the development-only flat-key warning on this page
+ * names only keys some spec per-kind block declares. It listed `dateField`,
+ * `groupBy`, `groupField`, `imageField`, `xAxisField`, `subjectField`,
+ * `endField`, `cardFields`, `subtitleField`, `yAxisFields`, `aggregation` and
+ * `series`, and told an author to move them under the view's block, where every
+ * door refuses each of them by name. Asserted on the console text the author
+ * reads; the lit control is `chartType` written flat on this chart view, which
+ * the chart block declares.
+ */
+describe('the flat-key warning names only declared keys (objectui#6152 round 15)', () => {
+  const RETIRED = ['dateField', 'groupBy', 'groupField', 'imageField', 'xAxisField', 'subjectField',
+    'endField', 'cardFields', 'subtitleField', 'yAxisFields', 'aggregation', 'series'];
+
+  it('a view carrying every retired key flat is warned about none of them; the declared one is named', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      // The block omits `chartType`, so the flat one is not shadowed by it.
+      await mountChartView({ dataset: 'task_throughput', dimensions: ['status'], values: ['hours'] }, {
+        ...Object.fromEntries(RETIRED.map((k) => [k, k === 'yAxisFields' || k === 'cardFields' || k === 'series' ? ['x'] : 'x'])),
+        chartType: 'bar',
+      });
+      const messages = warn.mock.calls
+        .map((c) => String(c[0]))
+        .filter((m) => m.startsWith('[Spec Compliance] View'));
+      // One print per render of the relay; every print must agree.
+      expect(messages.length).toBeGreaterThan(0);
+      for (const message of messages) {
+        expect(message).toContain('"chartType"');
+        for (const key of RETIRED) expect(message).not.toContain(`"${key}"`);
+      }
+    } finally {
+      warn.mockRestore();
+      vi.unstubAllEnvs();
+    }
   });
 });

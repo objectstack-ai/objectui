@@ -17,7 +17,10 @@
  *   - `tree`: `ObjectTree`'s object provider runs its own `find` with
  *     `$filter: schema.filter`, BEFORE it looks at the host `data`;
  *   - `chart` (the object-bound shape): `ObjectChart` reads no host rows and
- *     aggregates with `schema.filter`;
+ *     aggregates with `schema.filter`. Since objectui#6152 round 15 that shape
+ *     is the `'unbound'` chart (a `chart` view naming no `dataset`; the legacy
+ *     inline axes that used to bind it retired): `ObjectChart` refuses it on
+ *     screen, and the one query it runs first still takes `schema.filter`;
  *   - `gantt`: objectui#10037 forwarded the Filter and the chips, but the
  *     Search term never reached `ObjectGantt`'s query.
  *
@@ -138,7 +141,9 @@ const AUTHORED_FILTER = [['owner', '=', 'ada']];
 
 const VIEWS = {
   tree: { viewType: 'tree', tree: { parentField: 'parent' } },
-  chart: { viewType: 'chart', chart: { chartType: 'bar', xAxisField: 'status', yAxisFields: ['estimate'], aggregation: 'sum' } },
+  // Re-spelled in objectui#6152 round 15: the legacy inline axes this carried
+  // bind nothing now, so the view names no chart block (door-legal).
+  chart: { viewType: 'chart' },
   gantt: { viewType: 'gantt', gantt: { titleField: 'subject', startDateField: 'visible_from', endDateField: 'due_date' } },
 } as const;
 

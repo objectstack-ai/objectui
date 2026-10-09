@@ -291,7 +291,9 @@ describe('the object page refreshes its list in place after a write (objectui#10
       {
         type: 'grid',
         gantt: { startDateField: 'starts_on', endDateField: 'ends_on' },
-        chart: { xAxisField: 'stage', yAxisFields: ['name'] },
+        // The dataset block (objectui#6152 round 15 retired the legacy axes
+        // this case was spelled with; the gate no longer offers them).
+        chart: { dataset: 'deal_metrics', dimensions: ['stage'], values: ['total_amount'] },
         appearance: { allowedVisualizations: ['grid', 'gantt', 'chart'] },
       },
     ],

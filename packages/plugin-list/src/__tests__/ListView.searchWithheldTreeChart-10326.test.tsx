@@ -21,7 +21,8 @@
  * WHAT IS PINNED.
  *
  *   - Search is absent on `tree` and on `chart`, whatever the chart's binding
- *     (bound to the list object, or to a semantic dataset), and present on
+ *     (bound to a semantic dataset, or unbound — the object-bound legacy
+ *     binding this named retired in objectui#6152 round 15), and present on
  *     `grid` (the CONTROL) and on every other view kind, `gantt` included
  *     (objectui#10250 made its chart honour the term).
  *   - An authored `userActions.search: true` does not bring it back on those
@@ -99,7 +100,10 @@ function makeDataSource() {
 }
 
 const TREE_BLOCK = { parentField: 'parent' };
-const OBJECT_CHART_BLOCK = { chartType: 'bar', xAxisField: 'status', yAxisFields: ['estimate'], aggregation: 'sum' };
+// objectui#6152 round 15: this view was "a chart bound to the list object",
+// spelled with the legacy inline axes. Those axes are read by nothing now, so
+// it is re-spelled as what that population has become, a `chart` view that
+// names no `dataset` (the unbound node, which `ObjectChart` refuses on screen).
 const DATASET_CHART_BLOCK = { chartType: 'bar', dataset: 'task_ds', dimensions: ['status'], values: ['total_estimate'] };
 
 /** Every view kind, bound so its render branch has what it reads. */
@@ -112,7 +116,7 @@ const VIEWS = {
   gantt: { viewType: 'gantt', gantt: { titleField: 'subject', startDateField: 'visible_from', endDateField: 'due_date' } },
   map: { viewType: 'map', map: { latitudeField: 'lat', longitudeField: 'lng' } },
   tree: { viewType: 'tree', tree: TREE_BLOCK },
-  objectChart: { viewType: 'chart', chart: OBJECT_CHART_BLOCK },
+  unboundChart: { viewType: 'chart' },
   datasetChart: { viewType: 'chart', chart: DATASET_CHART_BLOCK },
 } as const;
 
@@ -125,7 +129,7 @@ const STANDIN_OF: Record<keyof typeof VIEWS, string> = {
   gantt: 'object-gantt-standin',
   map: 'object-map-standin',
   tree: 'object-tree-standin',
-  objectChart: 'object-chart-standin',
+  unboundChart: 'object-chart-standin',
   datasetChart: 'object-chart-standin',
 };
 
@@ -158,7 +162,7 @@ describe('objectui#10326 — the toolbar Search is offered only where the view o
 
   it.each([
     ['tree', 'tree'],
-    ['chart bound to the list object', 'objectChart'],
+    ['chart that names no dataset', 'unboundChart'],
     ['chart bound to a semantic dataset', 'datasetChart'],
   ] as const)('withholds Search on a %s view', async (_label, view) => {
     mount(VIEWS[view]);
@@ -177,7 +181,7 @@ describe('objectui#10326 — the toolbar Search is offered only where the view o
 
   it.each([
     ['tree', 'tree'],
-    ['chart', 'objectChart'],
+    ['chart', 'unboundChart'],
   ] as const)('an authored `userActions.search: true` does not bring Search back on a %s view', async (_label, view) => {
     mount({ ...VIEWS[view], userActions: { search: true } });
     await onScreen(STANDIN_OF[view]);
@@ -195,7 +199,7 @@ describe('objectui#10326 — a term already set does not narrow ListView\'s fetc
 
   it.each([
     ['tree', 'tree'],
-    ['chart bound to the list object', 'objectChart'],
+    ['chart that names no dataset', 'unboundChart'],
     ['chart bound to a semantic dataset', 'datasetChart'],
   ] as const)('on a %s view, a term the host restores at mount reaches no fetch', async (_label, view) => {
     const dataSource = mount(VIEWS[view], { initialSearchTerm: 'needle' });
@@ -211,7 +215,9 @@ describe('objectui#10326 — a term already set does not narrow ListView\'s fetc
       {
         viewType: 'grid',
         tree: TREE_BLOCK,
-        chart: OBJECT_CHART_BLOCK,
+        // The dataset block: the switcher offers only a chart that binds
+        // (objectui#6152 round 15 withdrew the legacy block's offer).
+        chart: DATASET_CHART_BLOCK,
         appearance: { allowedVisualizations: ['grid', 'tree', 'chart'] },
       },
       { showViewSwitcher: true, onSearchChange },
@@ -234,7 +240,7 @@ describe('objectui#10326 — a term already set does not narrow ListView\'s fetc
     await waitFor(() => expect(hostSearches(dataSource).at(-1)).toBeUndefined());
 
     pick('Chart');
-    await onScreen(STANDIN_OF.objectChart);
+    await onScreen(STANDIN_OF.datasetChart);
     expect(searchTrigger()).not.toBeInTheDocument();
     await settle();
     expect(hostSearches(dataSource).at(-1)).toBeUndefined();

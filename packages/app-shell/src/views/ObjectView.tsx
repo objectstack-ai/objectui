@@ -3110,13 +3110,17 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         // cache (see `listSeedRef`). Same identity as the list's `key`.
         const listSeed = listSeedRef.current?.key === identityKey ? listSeedRef.current.state : undefined;
 
-        // Warn in dev mode if flat properties are used instead of nested spec format
+        // Warn in dev mode if flat properties are used instead of nested spec format.
+        // ⛔ Only keys some spec per-kind block DECLARES (objectui#6152 round 15).
+        // This list also named `dateField`, `groupBy`, `groupField`, `imageField`,
+        // `xAxisField`, `subjectField`, `endField`, `cardFields`, `subtitleField`,
+        // `yAxisFields`, `aggregation` and `series`, and told an author to move
+        // them into the block, where every door refuses them by name and no
+        // reader reads them (objectui#6152 rounds 14 and 15).
         if (process.env.NODE_ENV === 'development') {
-            const flatKeys = ['startDateField', 'endDateField', 'dateField', 'groupBy', 'groupField',
-                'locationField', 'imageField', 'chartType', 'xAxisField', 'dependenciesField',
-                'progressField', 'colorField', 'allDayField', 'subjectField', 'endField',
-                'latitudeField', 'longitudeField', 'zoom', 'center', 'cardFields', 'subtitleField',
-                'descriptionField', 'yAxisFields', 'aggregation', 'series'];
+            const flatKeys = ['startDateField', 'endDateField', 'locationField', 'chartType',
+                'dependenciesField', 'progressField', 'colorField', 'allDayField',
+                'latitudeField', 'longitudeField', 'zoom', 'center', 'descriptionField'];
             const nestedConfig = (viewDef as any)[viewDef.type] || {};
             const found = flatKeys.filter(k => k in viewDef && !(k in nestedConfig));
             if (found.length > 0) {
@@ -3185,18 +3189,19 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     </Suspense>
                 );
             }
-            // ObjectChart consumes a structured `aggregate` ({ field, function,
-            // groupBy }) + `xAxisKey` + `series`, NOT the flat spec-level
-            // `xAxisField`/`yAxisFields`/`aggregation` keys. Translate here so the
-            // chart actually runs its aggregate query (otherwise it renders empty).
-            const categoryField = chartConfig.xAxisField || 'name';
-            const valueField =
-                (Array.isArray(chartConfig.yAxisFields) && chartConfig.yAxisFields[0]) || 'value';
-            const aggFn = chartConfig.aggregation || 'count';
-            const series =
-                chartConfig.series && chartConfig.series.length > 0
-                    ? chartConfig.series
-                    : [{ dataKey: valueField, label: valueField }];
+            // ⛔ NO LEGACY INLINE AGGREGATE (objectui#6152 round 15). A block
+            // that names no `dataset` used to be translated here from the
+            // pre-ADR-0021 axes (`xAxisField`, `yAxisFields[0]`, `aggregation`)
+            // plus a `series` and a `filter` read off the block, floored at
+            // `'name'` / `'value'` when it declared none. The spec's
+            // `ListChartConfigSchema` refuses all five by name at every door, so
+            // the path retired with them, floors included — the same retirement
+            // as `ListView`'s `case 'chart'` and `generateViewSchema`'s.
+            //
+            // What is left is the UNBOUND chart: an object-bound node that names
+            // no category, which `ObjectChart` refuses on screen (objectui#8168,
+            // `chart-missing-category-axis`) instead of aggregating on a name
+            // nobody wrote. ⛔ Do not restore a floor here.
             return (
                 <Suspense key={identityKey} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
                     <ObjectChart
@@ -3205,15 +3210,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                             type: 'object-chart',
                             objectName: objectDef.name,
                             chartType: chartConfig.chartType || 'bar',
-                            aggregate: {
-                                field: valueField,
-                                function: aggFn,
-                                groupBy: categoryField,
-                            },
-                            xAxisKey: categoryField,
-                            series,
                             // no `config` rung — see the block above (#7891)
-                            filter: chartConfig.filter,
                             className: 'h-[400px] w-full',
                         }}
                     />

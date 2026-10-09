@@ -129,8 +129,11 @@ const SWIMLANE_AXIS_X_PADDING = 'px-2 pl-36 sm:pl-44'
 export type { KanbanCard, KanbanColumn } from './types'
 
 // Card formatting is the spec `{ condition, style }` CEL rule — the one dialect
-// `object-kanban` declares since objectui#11522 — see @object-ui/types.
-export type ConditionalFormattingRule = KanbanConditionalFormattingRule
+// `object-kanban` declares since objectui#11522 — spelled by its own name,
+// `KanbanConditionalFormattingRule` from @object-ui/types. This module used to
+// alias it as `ConditionalFormattingRule`, a second meaning behind the name
+// `@object-ui/types` gives the grid's and list view's rule (objectui#6349,
+// batch 7); no package entry reached the alias.
 
 export interface KanbanBoardProps {
   columns: KanbanColumn[]
@@ -140,7 +143,7 @@ export interface KanbanBoardProps {
   quickAdd?: boolean
   onQuickAdd?: (columnId: string, title: string) => void
   coverImageField?: string
-  conditionalFormatting?: ConditionalFormattingRule[]
+  conditionalFormatting?: KanbanConditionalFormattingRule[]
   /** Object field definitions — see `getCardStyles` (objectui#3501). */
   objectFields?: unknown
   /** Field name for swimlane rows (2D grouping) */
@@ -169,7 +172,7 @@ export interface KanbanBoardProps {
 // `current_user.*` conditions resolve here exactly as they do on grid rows.
 function getCardStyles(
   card: KanbanCard,
-  rules?: ConditionalFormattingRule[],
+  rules?: KanbanConditionalFormattingRule[],
   scope?: Record<string, unknown>,
   objectFields?: unknown,
 ): React.CSSProperties {
@@ -183,7 +186,7 @@ function getCardStyles(
   return resolveConditionalFormatting(card as Record<string, unknown>, rules as any, scope, objectFields as never) as React.CSSProperties
 }
 
-function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }: { card: KanbanCard; onCardClick?: (card: KanbanCard, event?: React.MouseEvent) => void; conditionalFormatting?: ConditionalFormattingRule[]; objectFields?: unknown }) {
+function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }: { card: KanbanCard; onCardClick?: (card: KanbanCard, event?: React.MouseEvent) => void; conditionalFormatting?: KanbanConditionalFormattingRule[]; objectFields?: unknown }) {
   const {
     attributes,
     listeners,
@@ -547,7 +550,7 @@ function KanbanColumnView({
   onCardClick?: (card: KanbanCard, event?: React.MouseEvent) => void
   quickAdd?: boolean
   onQuickAdd?: (columnId: string, title: string) => void
-  conditionalFormatting?: ConditionalFormattingRule[]
+  conditionalFormatting?: KanbanConditionalFormattingRule[]
   /** Object field definitions — see `getCardStyles` (objectui#3501). */
   objectFields?: unknown
   /** Container-aware width override from useResizeObserver in KanbanBoardInner. */

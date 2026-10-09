@@ -56,7 +56,7 @@ import { blank, scanSource } from '../js-comment-mask.mjs';
  * ⛔ **Near-spellings and derived names are NOT collisions.** The matcher
  * anchors the name on both ends, so `ConditionalFormattingRule` does not match
  * `KanbanConditionalFormattingRule` (declared in `packages/types/src/objectql.ts`,
- * next to the contested name) or `KanbanNativeConditionalFormattingRule` — a
+ * next to the bare name) or `KanbanNativeConditionalFormattingRule` — a
  * derived name this repository declared there until objectui#11522 retired it,
  * kept below as a synthetic near-spelling.
  *
@@ -367,7 +367,15 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // members, `refresh` was retired, and `UndoableOperation` (which types `undo`)
   // moved down beside it, so `ActionRunner.ts` and `UndoManager.ts` both
   // RE-EXPORT (objectui#6349, batch 4).
-  ['AggregationConfig', ['packages/plugin-grid/src/useGroupedData.ts', 'packages/types/src/data-protocol.ts']],
+  // `AggregationConfig` sat here, colliding between
+  // `packages/plugin-grid/src/useGroupedData.ts` and
+  // `packages/types/src/data-protocol.ts`. Two meanings that share only `field`:
+  // `@object-ui/types`' is the query-AST aggregation `DriverQueryConfig` carries
+  // (`function`, `alias`, `distinct`, `separator`) and `@object-ui/core`'s
+  // `QueryASTBuilder` compiles; the grid's is one per-group header aggregation
+  // (`field`, `type`). RENAME branch: the general name stays on
+  // `@object-ui/types`, and the grid's declaration now spells
+  // `GroupAggregationConfig` (objectui#6349, batch 7).
   ['AppShellProps', ['packages/app-shell/src/types.ts', 'packages/layout/src/AppShell.tsx']],
   // `ActionSchema` sat here, colliding between `packages/types/src/crud.ts` and
   // `packages/types/src/ui-action.ts`. Structurally unrelated types — 28 members
@@ -420,9 +428,15 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // the general metadata plus five registry-only keys), so the remedy was the
   // RENAME branch: `Registry.ts` declares `RegistryComponentMeta` and
   // re-exports `@object-ui/types`' `ComponentMeta` (objectui#6349, batch 4).
-  // `ConditionalFormattingRule` had a THIRD site, `packages/plugin-kanban/src/KanbanEnhanced.tsx`,
-  // which left the tree when objectui#8932 deleted that module; the two below still collide.
-  ['ConditionalFormattingRule', ['packages/plugin-kanban/src/KanbanImpl.tsx', 'packages/types/src/objectql.ts']],
+  // `ConditionalFormattingRule` sat here. Its THIRD site,
+  // `packages/plugin-kanban/src/KanbanEnhanced.tsx`, left the tree when
+  // objectui#8932 deleted that module; the other two were
+  // `packages/plugin-kanban/src/KanbanImpl.tsx` and `packages/types/src/objectql.ts`.
+  // The board's was an ALIAS of `@object-ui/types`' `KanbanConditionalFormattingRule`,
+  // the object-kanban rule, behind the name the grid's and list view's rule carries
+  // — the two differ by the retired `expression` key. No package entry reached the
+  // alias, so the remedy was the DELETE branch: the board spells the kanban rule
+  // by its own name (objectui#6349, batch 7).
   // `ConfirmDialogState` sat here, colliding between
   // `packages/app-shell/src/views/ActionConfirmDialog.tsx` and
   // `packages/plugin-designer/src/hooks/useConfirmDialog.ts`. Two meanings that
@@ -551,7 +565,15 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // (objectui#6349).
   ['VersionEntry', ['packages/collaboration/src/useConflictResolution.ts', 'packages/plugin-designer/src/components/VersionHistory.tsx']],
   ['ViewSwitcherProps', ['packages/plugin-list/src/ViewSwitcher.tsx', 'packages/plugin-view/src/ViewSwitcher.tsx']],
-  ['ViewType', ['packages/plugin-list/src/ViewSwitcher.tsx', 'packages/types/src/views.ts']],
+  // `ViewType` sat here, colliding between
+  // `packages/plugin-list/src/ViewSwitcher.tsx` and `packages/types/src/views.ts`.
+  // Two meanings, not drift: `@object-ui/types`' is the whole view-type
+  // vocabulary (the spec's list-view types plus the `list` and `detail`
+  // categories), and plugin-list's was an ALIAS of `@object-ui/core`'s
+  // `ListViewVisualization` — the drawable subset, without those two arms.
+  // The narrower meaning already had its own name, so the alias was deleted:
+  // the switcher spells `ListViewVisualization`, and the plugin-list root no
+  // longer publishes a `ViewType` (objectui#6349, batch 7).
 ]);
 
 /**
@@ -701,7 +723,7 @@ describe('objectui#6273 — the matcher discriminates', () => {
         { rel: 'packages/types/src/app.ts', source: 'export interface MenuItem { id: string }' },
         { rel: 'packages/types/src/index.ts', source: "export type { MenuItem as AppMenuItem } from './app';" },
       ],
-      // Derived names next to the contested one. `KanbanConditionalFormattingRule`
+      // Derived names next to the bare one. `KanbanConditionalFormattingRule`
       // is real (packages/types/src/objectql.ts); the `KanbanNative…` spelling
       // was, until objectui#11522 retired it, and stays as a synthetic one.
       [

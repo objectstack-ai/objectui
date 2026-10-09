@@ -142,7 +142,7 @@ import type {
   GroupEntry,
   UseGroupedDataResult,
   AggregationType,
-  AggregationConfig,
+  GroupAggregationConfig,
   AggregationResult,
   CellRange,
   UseCellClipboardOptions,

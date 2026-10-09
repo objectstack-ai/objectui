@@ -213,6 +213,9 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
         $orderby: { timestamp: 'desc' },
         // One row past the window so "Load more" can be offered honestly.
         $top: Math.max(1, pageSize) + 1,
+        // The actor's record in place of its id, for a row with no
+        // `actor_name` (objectui#12067). See `activityActorName`.
+        $expand: ['actor_id'],
       }),
     )
       .then((res: any) => {

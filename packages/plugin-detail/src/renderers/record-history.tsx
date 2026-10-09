@@ -21,6 +21,7 @@
 import React from 'react';
 import { useRecordContext } from '@object-ui/react';
 import { HistoryTimeline, type HistoryEntry } from '../HistoryTimeline';
+import { activityActorName } from './recordActivityFeed';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -172,6 +173,10 @@ export const RecordHistoryRenderer: React.FC<RecordHistoryRendererProps> = ({
         $filter: { object_name: objectName, record_id: recordId },
         $orderby: { timestamp: 'desc' },
         $top: limit,
+        // Name the actor on this one read (objectui#12067): the engine
+        // batch-loads the page's `sys_user` rows and puts each record in place
+        // of its id. `activityActorName` reads it; never a request per row.
+        $expand: ['actor_id'],
       }),
     )
       .then((res: any) => {
@@ -192,7 +197,7 @@ export const RecordHistoryRenderer: React.FC<RecordHistoryRendererProps> = ({
               id: r.id,
               created_at: when,
               action: r.type,
-              user_name: r.actor_name ?? null,
+              user_name: activityActorName(r),
               user_avatar: r.actor_avatar_url ?? null,
               summary: r.summary ?? null,
             } as HistoryEntry;

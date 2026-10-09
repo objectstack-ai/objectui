@@ -28,8 +28,9 @@
  *   - the read-only transcript has no composer, so no picker, as before.
  *
  * DIRECTION, observed against the native control: every pin here reads the
- * control as the primitive's trigger, so each is red there except the
- * read-only row (green there by design: it keeps a behaviour). What makes the
+ * control as the primitive's trigger, so each is red there except the name
+ * row and the read-only row (green there by design: they keep a behaviour,
+ * the `aria-label` name and the composer-less transcript). What makes the
  * write rows guards of "the conversion changed nothing the composer writes" is
  * the literal each compares against: a `change` event on the pre-conversion
  * native control wrote that same JSON, read once on this component with these

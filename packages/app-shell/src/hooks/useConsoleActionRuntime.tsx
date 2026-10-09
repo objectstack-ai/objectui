@@ -50,7 +50,7 @@ import { resolveActionParams, withKnownObjects } from '../utils/resolveActionPar
 import { EnvironmentEntitlementDialog, type EntitlementDialogState } from '../environment/EnvironmentEntitlementDialog.js';
 import { entitlementDialogFromError, type EntitlementDialogSpec } from '../environment/entitlements.js';
 import { resolvePageVarTokens } from '../utils/resolvePageVarTokens.js';
-import { interpretFlowResponse, judgeFlowLaunch } from '../utils/flowResponse.js';
+import { launchConsoleFlow } from '../utils/flowLaunch.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
 import { actionContextOrg } from '../utils/actionContextOrg.js';
@@ -586,9 +586,30 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     }
   }, [dataSource, objApiName, objects, metadata, authFetch, activeOrganization, refresh, openEntitlementDialog, t]);
 
-  // Flow action handler — POST to /api/v1/automation/{name}/trigger.
-  // `context` is the shared ActionRunner context (registered handlers are
-  // invoked as `handler(action, runnerContext)`).
+  /**
+   * Flow action handler — starts the flow through one of two doors
+   * (objectui#12037, triage ruling B; the rule and its reasons live in
+   * `utils/flowLaunch`):
+   *
+   * - a click whose object and `name` resolve to a DECLARED `type: 'flow'`
+   *   action with the same target goes through the action door,
+   *   `POST /api/v1/actions/:object/:action`, so every server-side gate that
+   *   action declares applies to the click (ADR-0066 D4);
+   * - every other flow click — an inline page button with no or a
+   *   non-matching `name`, a dashboard header's synthesized
+   *   `name: actionUrl` — stays on `POST /api/v1/automation/:flow/trigger`.
+   *   An undeclared flow start has no action gate to apply, and ruling A's
+   *   elevation refusal already holds on the trigger route.
+   *
+   * The lookup reads the object metadata this hook already holds (the
+   * caller's `objects`, then the console's store, asked to load first as the
+   * param dialog asks). An object-less declared action or a standalone action
+   * row no object embeds is absent from it, so such a click keeps taking the
+   * trigger route, as every flow click did before.
+   *
+   * `context` is the shared ActionRunner context (registered handlers are
+   * invoked as `handler(action, runnerContext)`).
+   */
   const flowHandler = useCallback(async (action: ActionDef, context?: ActionContext): Promise<ActionResult> => {
     const flowName = action.target || action.name;
     if (!flowName) {
@@ -620,36 +641,34 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         }
       }
       if (recordId != null && params.recordId == null) params.recordId = recordId;
-      const res = await authFetch(
-        `${baseUrl}/api/v1/automation/${encodeURIComponent(flowName)}/trigger`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            recordId,
-            objectName: action.objectName || objApiName,
-            params,
-          }),
-        },
-      );
-      const json = await res.json().catch(() => null);
-      // Single source for the flow-response rule AND for what a launch does
-      // with it — shared with RecordDetailView's copy of this handler (and the
-      // interpretation with FlowRunner's resume). Each launch copy once held
-      // its own branch set, and each time a kind was missing it fell into the
-      // terminal-success tail: a failed run toasted green (#2958), and a run
-      // that ended `refused` without pausing toasted the action's
-      // `successMessage` and refreshed while the refusal was never shown
-      // (objectui#9973). See utils/flowResponse.
-      const judged = judgeFlowLaunch(
-        interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`),
-        action.refreshAfter,
-      );
+      // Ask the store for the object type BEFORE the lookup, as the param
+      // dialog does (`6cc910b6d`): it answers from cache once warm, and it is
+      // what makes "this click names no declared action" an answer rather
+      // than a race against a cold store.
+      await metadata.ensureType('object').catch(() => []);
+      // Single source for the door choice, the request, the flow-response
+      // rule AND what a launch does with it — shared with RecordDetailView's
+      // copy of this handler (and the interpretation with FlowRunner's
+      // resume). Each launch copy once held its own branch set, and each time
+      // a kind was missing it fell into the terminal-success tail: a failed
+      // run toasted green (#2958), and a run that ended `refused` without
+      // pausing toasted the action's `successMessage` and refreshed while the
+      // refusal was never shown (objectui#9973). See utils/flowLaunch.
+      const launch = await launchConsoleFlow<ScreenSpec>({
+        fetch: authFetch,
+        baseUrl,
+        action,
+        objectName: action.objectName || objApiName,
+        recordId,
+        triggerParams: params,
+        objects: withKnownObjects(objects, metadata.objects),
+      });
+      const judged = launch.judged;
       // Paused at a `screen` node: FlowRunner renders the form + resumes, and
       // refreshes on completion.
       if (judged.followUp?.kind === 'screen') {
         setScreenFlow({
-          flowName,
+          flowName: launch.flowName,
           flowLabel: judged.followUp.flowLabel,
           runId: judged.followUp.runId,
           screen: judged.followUp.screen,
@@ -665,7 +684,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
-  }, [authFetch, objApiName, refresh]);
+  }, [authFetch, objApiName, objects, metadata, refresh]);
 
   // Server-side action handler — POST /api/v1/actions/{object}/{action}, built
   // from @object-ui/core's `createServerActionHandler` via the shared console

@@ -38,7 +38,7 @@ import { resolveActionParams } from '../utils/resolveActionParams.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
 import { actionContextOrg } from '../utils/actionContextOrg.js';
-import { interpretFlowResponse, judgeFlowLaunch } from '../utils/flowResponse.js';
+import { launchConsoleFlow } from '../utils/flowLaunch.js';
 import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // Audit provenance renders as the one-line <RecordMetaFooter>; the other
 // framework-injected bookkeeping columns are hidden from the body outright.
@@ -1115,11 +1115,25 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // Sheet / Drawer by `placement`) and render arbitrary SchemaNode content.
   const { modalHandler, modalElement, resolveModalTarget } = useActionModal(dataSource);
 
-  // Flow action handler — POST to /api/v1/automation/{name}/trigger.
-  // Triggered when an Action with `type: 'flow'` is invoked from a record-level
-  // location (record_header, record_more, …). The server-side automation
-  // engine resolves `{name}` against the registered flow definitions and
-  // returns `{success, output, durationMs}`.
+  /**
+   * Flow action handler — triggered when an Action with `type: 'flow'` is
+   * invoked from a record-level location (record_header, record_more, …) or
+   * from a related list on this page. It starts the flow through one of two
+   * doors (objectui#12037, triage ruling B; the rule and its reasons live in
+   * `utils/flowLaunch`):
+   *
+   * - a click whose object and `name` resolve to a DECLARED `type: 'flow'`
+   *   action with the same target, in this page's `objects`, goes through the
+   *   action door, `POST /api/v1/actions/:object/:action`, so every
+   *   server-side gate that action declares applies to the click (ADR-0066
+   *   D4). A related-list row action addresses the CHILD object and the
+   *   child action's declared name, with the child row as `recordId`;
+   * - every other flow click stays on `POST /api/v1/automation/:flow/trigger`.
+   *   An undeclared flow start has no action gate to apply, and ruling A's
+   *   elevation refusal already holds on the trigger route. An object-less
+   *   declared action is absent from `objects`, so it keeps that route too,
+   *   as every flow click did before.
+   */
   const flowHandler = useCallback(async (action: ActionDef) => {
     const flowName = action.target || action.name;
     if (!flowName) {
@@ -1136,40 +1150,40 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           : {}),
       };
       delete flowParams._rowRecord;
-      const res = await authFetch(
-        `${baseUrl}/api/v1/automation/${encodeURIComponent(flowName)}/trigger`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            // Related-list row actions retarget the flow at a CHILD record via
-            // an explicit `recordId` / `objectName`; fall back to this page's
-            // record when the action carries none (header/more actions).
-            recordId: (action as any).recordId ?? pureRecordId,
-            objectName: action.objectName ?? objectName,
-            params: flowParams,
-          }),
-        },
-      );
-      const json = await res.json().catch(() => null);
-      // Single source for the flow-response rule AND for what a launch does
-      // with it — shared with useConsoleActionRuntime's copy of this handler
-      // (and the interpretation with FlowRunner's resume). This copy once
-      // checked only the transport envelope and treated everything else as
-      // terminal success, so a run that failed on its first node fired a green
-      // toast (#2958) and passed the nested `{code, message}` error through raw
-      // (React #31); later, a run that ended `refused` without pausing toasted
-      // the action's `successMessage` and refreshed while the refusal was never
-      // shown (objectui#9973). See utils/flowResponse.
-      const judged = judgeFlowLaunch(
-        interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`),
-        action.refreshAfter,
-      );
+      // Related-list row actions retarget the flow at a CHILD record via an
+      // explicit `recordId` / `objectName`. This page's record stands in only
+      // for an action on THIS page's object (header/more actions): a child
+      // action with no row — a related list's toolbar — is object-level, and
+      // handing it the PARENT's id addressed a child record that does not
+      // exist (the action door refuses that subject load with a 404).
+      const targetObject = action.objectName ?? objectName;
+      const recordId = (action as any).recordId
+        ?? (targetObject === objectName ? pureRecordId : undefined);
+      // Single source for the door choice, the request, the flow-response
+      // rule AND what a launch does with it — shared with
+      // useConsoleActionRuntime's copy of this handler (and the interpretation
+      // with FlowRunner's resume). This copy once checked only the transport
+      // envelope and treated everything else as terminal success, so a run
+      // that failed on its first node fired a green toast (#2958) and passed
+      // the nested `{code, message}` error through raw (React #31); later, a
+      // run that ended `refused` without pausing toasted the action's
+      // `successMessage` and refreshed while the refusal was never shown
+      // (objectui#9973). See utils/flowLaunch.
+      const launch = await launchConsoleFlow<ScreenSpec>({
+        fetch: authFetch,
+        baseUrl,
+        action,
+        objectName: targetObject,
+        recordId,
+        triggerParams: flowParams,
+        objects,
+      });
+      const judged = launch.judged;
       // Paused at a `screen` node: FlowRunner renders the form + resumes, and
       // refreshes on completion.
       if (judged.followUp?.kind === 'screen') {
         setScreenFlow({
-          flowName,
+          flowName: launch.flowName,
           flowLabel: judged.followUp.flowLabel,
           runId: judged.followUp.runId,
           screen: judged.followUp.screen,
@@ -1185,7 +1199,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
-  }, [authFetch, pureRecordId, objectName]);
+  }, [authFetch, pureRecordId, objectName, objects]);
 
   // Server-side action handler — POST /api/v1/actions/{object}/{action},
   // built from @object-ui/core's `createServerActionHandler` via the shared

@@ -571,7 +571,12 @@ describe('objectui#5233 ratchet — the owned-key list tracks the writers', () =
         const written = [...new Set([...objectViewSrc.matchAll(PERSIST_CALLS)].map((m) => m[1]!))];
         // Vacuous-pass guard: the call sites are the evidence, so an empty
         // match set means the regex stopped matching, not that nothing writes.
-        expect(written.length).toBeGreaterThanOrEqual(5);
+        // Four since objectui#5144 (triage's ruling E): the inline-edit toggle
+        // is session state and no longer persists `inlineEdit`. The adapter
+        // still lists `inlineEdit` as an owned key, so an overlay an earlier
+        // console wrote is still read; that is the reading the ruling keeps.
+        expect(written.length).toBeGreaterThanOrEqual(4);
+        expect(written).not.toContain('inlineEdit');
         for (const key of written) {
             expect(
                 VIEW_OVERLAY_OWNED_KEYS as readonly string[],

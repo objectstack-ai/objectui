@@ -34,3 +34,8 @@ What did not move: the list view's own `calendar` block, which keeps `.passthrou
 `.passthrough()` or `defaultView`. It is now the spec's own list-view slot by reference, strict, with
 `defaultView` refused by name; see `.changeset/6152-list-view-blocks-strict.md`. The renderers' reads
 still have not moved.
+
+**Note added 2026-10-09 (objectui#6152 round 14, PR objectui#12052):** the renderers' reads have now
+moved. The list view no longer lifts `calendar.defaultView` onto the calendar it builds, and the
+renderers' reads of the keys the list view's `kanban`, `calendar`, `gallery` and `timeline` blocks
+refuse are retired; see `.changeset/6152-list-view-readers-retired.md`.

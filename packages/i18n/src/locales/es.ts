@@ -1649,6 +1649,7 @@ const es = {
   console: {
     studio: {
       title: "Studio",
+      accessRequired: "Necesita acceso a Studio para abrir Studio.",
     },
     saveAdvisoryTitle: "Guardado: la comprobación de creación generó {{count}} recomendación(es)",
     saveAdvisoryTitle_one: "Guardado: la comprobación de creación generó {{count}} recomendación",

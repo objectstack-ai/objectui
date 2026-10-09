@@ -1607,6 +1607,7 @@ const ja = {
   console: {
     studio: {
       title: "Studio",
+      accessRequired: "Studio を開くには Studio へのアクセス権限が必要です。",
     },
     saveAdvisoryTitle: "保存しました — 編集チェックで {{count}} 件の推奨事項が見つかりました",
     saveAdvisoryTitle_one: "保存しました — 編集チェックで {{count}} 件の推奨事項が見つかりました",

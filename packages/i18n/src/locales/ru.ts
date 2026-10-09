@@ -1698,6 +1698,7 @@ const ru = {
   console: {
     studio: {
       title: "Studio",
+      accessRequired: "Чтобы открыть Studio, нужен доступ к Studio.",
     },
     saveAdvisoryTitle: "Сохранено — проверка авторинга выдала рекомендаций: {{count}}",
     saveAdvisoryTitle_one: "Сохранено — проверка авторинга выдала рекомендаций: {{count}}",

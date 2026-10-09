@@ -1962,6 +1962,9 @@ const en = {
     // A product name, which every pack writes as is.
     studio: {
       title: 'Studio',
+      // What a principal without `studio.access` reads at the Studio URL they
+      // opened (objectui#12035), in place of the silent redirect home.
+      accessRequired: 'You need Studio access to open Studio.',
     },
     saveAdvisoryTitle: 'Saved — the authoring check raised {{count}} advisory finding(s)',
     saveAdvisoryTitle_one: 'Saved — the authoring check raised {{count}} advisory finding',

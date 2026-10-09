@@ -1027,8 +1027,9 @@ export const ObjectChart = (props: ObjectChartProps) => {
     return () => { mounted.current = false; };
     // `fetchesForItself` is listed for the category half of its predicate: a
     // spec `xAxis` that arrives later moves no other dependency here, and a
-    // chart refused at mount must fetch once a category is declared.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // chart refused at mount must fetch once a category is declared. Listing
+    // it is also what made this list exhaustive, so it carries no lint
+    // suppression.
   }, [schema.objectName, datasetKey, dataSource, boundData, schema.data, filterKey, aggregateKey, compareToKey, fetchData, invalidationNonce, fetchesForItself]);
 
   const rawData = boundData || schema.data || fetchedData;

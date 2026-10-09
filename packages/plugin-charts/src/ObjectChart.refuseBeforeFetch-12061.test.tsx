@@ -50,7 +50,7 @@ import { render, screen, cleanup, waitFor, act } from '@testing-library/react';
 import { notifyDataChanged } from '@object-ui/react';
 
 vi.mock('./ChartRenderer', () => ({
-  ChartRenderer: ({ schema }: any) => (
+  ChartRenderer: ({ schema }: { schema?: { data?: unknown } }) => (
     <div
       data-testid="chart-renderer"
       data-rows={Array.isArray(schema?.data) ? schema.data.length : -1}

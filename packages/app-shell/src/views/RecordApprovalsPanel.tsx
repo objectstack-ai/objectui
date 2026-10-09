@@ -9,7 +9,7 @@
 import * as React from 'react';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { cn, Badge, Button } from '@object-ui/components';
-import { Stamp, Check, Circle, Paperclip, Loader2, Send, ShieldAlert } from 'lucide-react';
+import { Stamp, Check, Paperclip, Loader2, Send, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/react';
@@ -35,6 +35,7 @@ import {
   useApproverDirectory,
   type ApproverDirectory,
 } from '../hooks/useApproverDirectory.js';
+import { DecisionProgressIndicator } from './approval-progress/DecisionProgressIndicator.js';
 
 /**
  * RecordApprovalsPanel — the record page's read-only approval surface
@@ -439,68 +440,10 @@ export const RecordApprovalsPanel: React.FC<RecordApprovalsPanelProps> = ({
           </ol>
         )}
 
-        {/* Aggregation progress — server-computed tally (quorum/unanimous
-            approvals, per-group 会签 groups), never re-derived client-side. */}
-        {dp && (
-          <div>
-            <div className="flex items-baseline justify-between gap-2 mb-1.5">
-              <span className="text-[11px] text-muted-foreground">
-                {dp.behavior === 'per_group'
-                  ? tr('progressGroups', 'Sign-off progress — {{got}} of {{need}} groups', { got: dp.got, need: dp.need })
-                  : tr('progressApprovals', 'Approvals — {{got}} of {{need}}', { got: dp.got, need: dp.need })}
-              </span>
-              {dp.behavior !== 'per_group' && eligible > 0 && (
-                <span className="text-[11px] text-muted-foreground">
-                  {tr('progressEligible', '{{count}} eligible approver(s)', { count: eligible })}
-                </span>
-              )}
-            </div>
-            <div
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={dp.need}
-              aria-valuenow={Math.min(dp.got, dp.need)}
-              aria-label={tr('progressBar', 'Decision progress')}
-              className="flex gap-1"
-            >
-              {dp.need > 0 && dp.need <= 12 ? (
-                Array.from({ length: dp.need }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={cn('h-1.5 flex-1 rounded-full', i < dp.got ? 'bg-emerald-500' : 'bg-muted')}
-                  />
-                ))
-              ) : (
-                <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-emerald-500"
-                    style={{ width: `${dp.need > 0 ? Math.min(100, (dp.got / dp.need) * 100) : 0}%` }}
-                  />
-                </div>
-              )}
-            </div>
-            {dp.groups && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {dp.groups.map((g) => (
-                  <Badge
-                    key={g.group}
-                    variant="outline"
-                    className={cn(
-                      'text-[11px] gap-1',
-                      g.satisfied
-                        ? 'border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400'
-                        : 'text-muted-foreground',
-                    )}
-                    title={`${g.got}/${g.need}`}
-                  >
-                    {g.satisfied ? <Check className="h-3 w-3" /> : <Circle className="h-2.5 w-2.5" />}
-                    {g.group} {g.got}/{g.need}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {/* Aggregation progress — the pending node's server-computed tally
+            (unanimous / quorum approvals, per-group countersign), drawn by
+            the shared indicator and never re-derived client-side. */}
+        {dp && <DecisionProgressIndicator progress={dp} eligibleApprovers={eligible} />}
 
         {/* Who the pending step waits on — THE read this panel exists for:
             server-resolved names (group approvers labeled with their group),

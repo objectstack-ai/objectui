@@ -98,6 +98,11 @@ vi.mock('@object-ui/components', async (importOriginal) => {
     DropdownMenuItem: (p: Passthrough & { onSelect?: () => void }) => (
       <button type="button" onClick={() => p.onSelect?.()}>{p.children}</button>
     ),
+    // objectui#11794 — the Advanced items are radio items (the menu checks the open panel).
+    DropdownMenuRadioGroup: (p: Passthrough) => <div>{p.children}</div>,
+    DropdownMenuRadioItem: (p: Passthrough & { onSelect?: () => void }) => (
+      <button type="button" onClick={() => p.onSelect?.()}>{p.children}</button>
+    ),
   };
 });
 

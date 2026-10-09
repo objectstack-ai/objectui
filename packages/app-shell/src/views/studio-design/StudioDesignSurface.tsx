@@ -5182,15 +5182,11 @@ export function DataPillar({
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
-                      <DropdownMenuRadioGroup
-                        value={activeAdvancedTab?.key ?? ''}
-                        onValueChange={(key) => {
-                          const picked = advancedDataTabs.find((tabDef) => tabDef.key === key);
-                          if (picked) selectViewMode(picked.key);
-                        }}
-                      >
+                      {/* The group only marks which item is checked; each item
+                          selects its own panel, as the plain items did. */}
+                      <DropdownMenuRadioGroup value={activeAdvancedTab?.key ?? ''}>
                         {advancedDataTabs.map((tab) => (
-                          <DropdownMenuRadioItem key={tab.key} value={tab.key}>
+                          <DropdownMenuRadioItem key={tab.key} value={tab.key} onSelect={() => selectViewMode(tab.key)}>
                             {tab.label}
                           </DropdownMenuRadioItem>
                         ))}

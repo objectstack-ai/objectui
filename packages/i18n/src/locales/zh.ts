@@ -1718,7 +1718,6 @@ const zh = {
     nav: {
       pinItem: '固定 {{name}}',
       unpinItem: '取消固定 {{name}}',
-      dragToReorder: '拖动以重新排序',
       favorites: '收藏',
       launcherLabel: '应用启动台',
       menuLabel: '应用导航',

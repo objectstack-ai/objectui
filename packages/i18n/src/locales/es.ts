@@ -2236,7 +2236,6 @@ const es = {
     nav: {
       pinItem: "Fijar {{name}}",
       unpinItem: "Desfijar {{name}}",
-      dragToReorder: "Arrastrar para reordenar",
       favorites: "Favoritos",
       launcherLabel: "Lanzador de aplicaciones",
       menuLabel: "Navegación de la aplicación",

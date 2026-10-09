@@ -2186,7 +2186,6 @@ const ko = {
     nav: {
       pinItem: "{{name}} 고정",
       unpinItem: "{{name}} 고정 해제",
-      dragToReorder: "드래그하여 순서 변경",
       favorites: "즐겨찾기",
       launcherLabel: "앱 런처",
       menuLabel: "앱 탐색",

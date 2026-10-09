@@ -1999,7 +1999,6 @@ const en = {
     nav: {
       pinItem: 'Pin {{name}}',
       unpinItem: 'Unpin {{name}}',
-      dragToReorder: 'Drag to reorder',
       favorites: 'Favorites',
       launcherLabel: 'App launcher',
       menuLabel: 'App navigation',

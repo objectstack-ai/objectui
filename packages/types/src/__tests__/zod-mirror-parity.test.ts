@@ -4833,8 +4833,9 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "spec-owned BY REFERENCE — `BaseSchema` + the `record:line_items` literal + `properties`, which IS `ComponentPropsMap['record:line_items']`, + `dataSource`, which IS the spec's `ElementDataSourceSchema`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementTextBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `element:text` literal + `properties`, which IS `ComponentPropsMap['element:text']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
-  // objectui#10872 batch 2 — the one arm with a node-level refinement: the
-  // spec's `dataSource` waiver on the row's required `object`.
+  // objectui#10872 batch 2 — the first arm with a node-level refinement: the
+  // spec's `dataSource` waiver on the row's required `object`
+  // (`ElementRepeaterBlockSchema` mirrors the same waiver since objectui#12056).
   'public-blocks.zod.ts#ElementNumberBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `element:number` literal + `properties`, which IS `ComponentPropsMap['element:number']` with `object` alone made optional (`.partial({ object: true })`), + `dataSource`, which IS the spec's `ElementDataSourceSchema`, + the refinement that restores `object`'s requiredness wherever the spec gate's `dataSource` waiver does not apply, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementButtonBlockSchema':
@@ -4851,7 +4852,7 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'public-blocks.zod.ts#ElementDefinitionListBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `element:definition-list` literal + `properties`, which IS `ComponentPropsMap['element:definition-list']`, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementRepeaterBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `element:repeater` literal + `properties`, which IS `ComponentPropsMap['element:repeater']` (its `object` still required), + `dataSource`, which IS the spec's `ElementDataSourceSchema` (objectui#11880: the renderer reads the binding first, the flat query keys as the fallback), + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:repeater` literal + `properties`, which IS `ComponentPropsMap['element:repeater']` with `object` alone made optional (`.partial({ object: true })`, objectui#12056), + `dataSource`, which IS the spec's `ElementDataSourceSchema` (objectui#11880: the renderer reads the binding first, the flat query keys as the fallback), + the refinement that restores `object`'s requiredness wherever the spec gate's `dataSource` waiver does not apply (objectui#12056), + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ActionButtonBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `action:button` literal + `properties`, which IS `ComponentPropsMap['action:button']`, + the `onClick` runtime-slot refusal (objectui#6124) and the flat-`onSuccess` alias refusal naming `properties.onSuccess`, the two handler keys its renderer reads off the node, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ActionIconBlockSchema':

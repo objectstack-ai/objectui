@@ -178,8 +178,10 @@ describe('the bag is the spec row, read by reference (objectui#10872)', () => {
   // `element:divider` is restated (below); `element:number`'s bag is its row
   // with `object` alone made optional — the spec's `dataSource` waiver — so it
   // is a clone by construction, and `./element-number-arm-10872.test.ts` pins
-  // it member by member against the row instead.
-  it.each(ARMED.filter((type) => type !== 'element:divider' && type !== 'element:number'))(
+  // it member by member against the row instead. `element:repeater`'s bag is
+  // the same clone since objectui#12056, pinned member by member in
+  // `./element-repeater-data-source-11880.test.ts`.
+  it.each(ARMED.filter((type) => type !== 'element:divider' && type !== 'element:number' && type !== 'element:repeater'))(
     '%s: the bag is the spec\'s own row object wherever the import boundary has nothing to strip',
     (type) => {
       const row = rowOf(type);

@@ -132,7 +132,8 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
   'record:line_items',
   // objectui#11880: `element:repeater` reads the binding first (its flat query
   // keys are the fallback until the v18 pin bump), so its arm declares it at
-  // node level beside its bag, whose `object` stays required.
+  // node level beside its bag, whose `object` is required only where no binding
+  // names one (objectui#12056).
   'element:repeater',
 ]);
 

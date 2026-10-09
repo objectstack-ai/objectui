@@ -5,7 +5,8 @@
  * mounted (objectui#11912).
  *
  * `useCommandPalette()` answers an inert fallback outside a
- * `CommandPaletteProvider`, and only `ConsoleLayout` mounts one. `HomeLayout`
+ * `CommandPaletteProvider`, and only `ConsoleLayout` mounted one (the `/studio`
+ * landing mounts one too since objectui#11863). `HomeLayout`
  * and `AiChatPage` mount the `home` variant, `OrganizationsLayout` and
  * `OrganizationLayout` the `orgs` variant, all without a provider — so on
  * `/home`, `/ai` and the organizations frames the trigger was shown and a click

@@ -24,12 +24,13 @@
  * producers DRIFTED. So the vocabulary of both is derived and compared here —
  * whichever one a future edit moves, this file reddens.
  *
- * ⚠️ WHY `normalizeListViewSchema` CANNOT SAVE THIS. The alias fold maps
+ * ⚠️ WHY `normalizeListViewSchema` COULD NOT SAVE THIS. Its alias fold mapped
  * `kanban.groupField` to `groupByField` on the DECLARED path only, and its own
  * suite pins that boundary as intentional ("does not reach into the legacy
  * `options.*` twin"). `ObjectView` writes into `options.kanban`, on the far
  * side of that boundary, so nothing folded it and the alias read was
- * load-bearing purely because of where this producer wrote.
+ * load-bearing purely because of where this producer wrote. (The fold retired
+ * in objectui#6152 round 14, with the alias reads.)
  *
  * ⚠️ THIS CARD RETIRED NO ALIAS READ: it changed what this face WRITES. The
  * reads went later, on their own ruling (objectui#6152 round 14): this face,

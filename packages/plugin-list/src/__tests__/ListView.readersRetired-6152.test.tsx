@@ -30,9 +30,10 @@
  *   3. The retired keys reach nothing, each beside a CONTROL that writes the
  *      spec key in the same position, so no zero below is vacuous.
  *
- * Fixtures sit in the legacy `options` bag where the arm is about a reader in
- * this file: `normalizeListViewSchema` (`@object-ui/core`) touches neither the
- * bag nor any key but the four top-level aliases.
+ * Most fixtures sit in the legacy `options` bag; the arms in describe 4 write
+ * the TOP-LEVEL spelling, which `normalizeListViewSchema` (`@object-ui/core`)
+ * used to fold onto the spec key before `ListView` read anything. That fold
+ * retired in the same round, so both nestings answer the same.
  *
  * H2 of the dispatch (removing the flat `imageField` loses nothing, because the
  * nested `coverField` already reaches `ObjectGallery`) is measured at the end:
@@ -121,7 +122,9 @@ const VIEW_TYPE: Record<(typeof KINDS)[number], string> = {
 
 /** Mount `ListView` on a stored view and return the last node of `kind` it generated. */
 async function generatedNode(kind: (typeof KINDS)[number], view: Record<string, unknown>) {
-  // Per mount, so an arm that mounts twice reads its own node, not the first's.
+  // Per mount, so an arm that mounts twice reads its own node, not the first's:
+  // the previous mount is unmounted (a late re-render of it cannot push here).
+  cleanup();
   nodes[kind] = [];
   const dataSource = makeDataSource();
   render(
@@ -274,6 +277,26 @@ describe('3 · the retired keys reach nothing (objectui#6152 round 14)', () => {
     // CONTROL: the same key as a top-level key of the view does reach it.
     const control = await generatedNode('object-grid', { wrapHeaders: true });
     expect(control.wrapHeaders).toBe(true);
+  });
+});
+
+describe('4 · the TOP-LEVEL aliases the core fold used to rewrite reach nothing either (objectui#6152 round 14)', () => {
+  it('kanban: `groupField` names no lane and `cardFields` shows nothing', async () => {
+    const alias = await generatedNode('object-kanban', { kanban: { groupField: 'owner', cardFields: ['amount'] } });
+    const none = await generatedNode('object-kanban', { kanban: {} });
+    const control = await generatedNode('object-kanban', { kanban: { groupByField: 'owner', columns: ['amount'] } });
+    expect([control.groupBy, control.cardFields]).toEqual(['owner', ['amount']]);
+    expect(alias.groupBy).toBe(none.groupBy);
+    expect(alias.cardFields).not.toEqual(['amount']);
+  });
+
+  it('gallery: `imageField` binds no cover', async () => {
+    const alias = await generatedNode('object-gallery', { gallery: { imageField: 'cover' } });
+    expect(alias.gallery?.coverField).toBeUndefined();
+  });
+
+  it('timeline: `dateField` is no axis', () => {
+    expect(resolveTimelineDateBinding({ timeline: { dateField: 'due' } }).startDateField).toBeUndefined();
   });
 });
 

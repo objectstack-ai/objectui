@@ -164,12 +164,19 @@ describe('ListView → ObjectTimeline: an undeclared axis reaches the refusal (o
     // view), and this arm pinned that it still rendered. objectui#6152 round 14
     // retired the alias reads on their own ruling: every list-view door refuses
     // the key by name. A stored one now binds no axis, so it gets the refusal,
-    // which names the key to write. Written in the legacy `options` bag, which no
-    // fold reaches; the TOP-LEVEL spelling joins it with that round's core leg.
-    await mountListView({ ...LIST_BASE, options: { timeline: { dateField: 'start_date' } } });
+    // which names the key to write. The TOP-LEVEL spelling, which the core fold
+    // used to rewrite, retired in the same round; the legacy `options` bag is
+    // pinned beside it in the next arm.
+    await mountListView({ ...LIST_BASE, timeline: { dateField: 'start_date' } });
     await waitFor(() => expect(refusal()).not.toBeNull());
     expect(canvas()).toBeNull();
     expect(refusal()!.textContent ?? '').toContain('timeline.startDateField');
+  });
+
+  it('…and from the legacy `options` bag (objectui#6152 round 14)', async () => {
+    await mountListView({ ...LIST_BASE, options: { timeline: { dateField: 'start_date' } } });
+    await waitFor(() => expect(refusal()).not.toBeNull());
+    expect(canvas()).toBeNull();
   });
 
   it('CONTROL: a CALENDAR-bound view still renders its timeline', async () => {

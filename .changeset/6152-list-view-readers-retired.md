@@ -1,4 +1,5 @@
 ---
+'@object-ui/core': minor
 '@object-ui/plugin-list': minor
 '@object-ui/plugin-view': minor
 '@object-ui/app-shell': minor
@@ -14,9 +15,10 @@ Clause-②: no
 objectui#6152 closed the doors: `@object-ui/types`, `objectui validate` and `@objectstack/spec`'s
 view write door refuse these keys on a list view's per-kind blocks, top-level and under the legacy
 `options` bag. The renderers kept reading them, so a view stored before the doors closed still
-rendered as written. They no longer read them, on every route that did: `ListView`, the object
-page's relay (`@object-ui/app-shell`), `ObjectView`'s own views (`@object-ui/plugin-view`) and
-`ObjectTimeline`. A stored view that carries one of these keys still renders, without what the key
+rendered as written. They no longer read them, on every route that did: `normalizeListViewSchema`
+(`@object-ui/core`), which folded the four aliases onto their spec keys before anything else read
+the view, `ListView`, the object page's relay (`@object-ui/app-shell`), `ObjectView`'s own views
+(`@object-ui/plugin-view`) and `ObjectTimeline`. A stored view that carries one of these keys still renders, without what the key
 used to bind. Write the spec's key instead:
 
 | stored key (either nesting) | what renders now | write instead |
@@ -45,5 +47,7 @@ right.
 Not in this change: the legacy chart axes (`chart.xAxisField`, `yAxisFields`, `categoryField`,
 `valueField`, `aggregation`), which `ListView` still reads until the next round on objectui#6152.
 
+- `@object-ui/core`: `normalizeListViewSchema` returns a view whose only legacy vocabulary is one of
+  these nested aliases by reference, with the alias in place; it no longer removes it either.
 - `@object-ui/types`: the refusal messages of these keys no longer say a stored view still renders
   through the alias, and the kanban `groupBy` refusal no longer suggests the refused `groupField`.

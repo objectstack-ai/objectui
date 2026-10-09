@@ -2858,16 +2858,14 @@ describe('ListView — kanban config speaks the spec vocabulary', () => {
     expect(last?.schema?.groupField).toBeUndefined();
   });
 
-  it('still honors the deprecated `groupField` alias', async () => {
-    // ⚠️ Holds at this commit only through `normalizeListViewSchema`'s fold
-    // (`@object-ui/core`), which rewrites a TOP-LEVEL `kanban.groupField` before
-    // `ListView` reads anything: `ListView`'s own alias rung retired in
-    // objectui#6152 round 14. Retiring the fold is that round's leg that waits
-    // for PR objectui#12036, and that leg flips this arm.
+  it('no longer honors the retired `groupField` alias (objectui#6152 round 14)', async () => {
+    // It used to: the core fold rewrote it to `groupByField`, and `ListView`
+    // read it too. Round 14 retired both, so the lane is what a view with no
+    // lane key gets, never the alias's field.
     renderWithProvider(<ListView schema={kanbanSchema({ groupField: 'priority' })} dataSource={mockDataSource} />);
     expect(await screen.findByTestId('kanban-stub')).toBeInTheDocument();
 
-    expect(kanbanCalls.at(-1)?.schema?.groupBy).toBe('priority');
+    expect(kanbanCalls.at(-1)?.schema?.groupBy).not.toBe('priority');
   });
 
   it('lets the spec key win when both are present', async () => {

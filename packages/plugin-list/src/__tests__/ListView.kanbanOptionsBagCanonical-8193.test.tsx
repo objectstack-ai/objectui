@@ -134,12 +134,10 @@ describe('the capability gate resolves kanban from the CANONICAL key in the opti
     expect(kanbanOffered({ kanban: { groupByField: 'stage' } })).toBe(true);
   });
 
-  it('CONTROL: still offers Kanban for the declared legacy `kanban.groupField`', () => {
-    // ⚠️ Holds at this commit only through `normalizeListViewSchema`'s fold
-    // (`@object-ui/core`), which rewrites a TOP-LEVEL `kanban.groupField` before
-    // the gate reads anything. Retiring that fold is the leg of objectui#6152
-    // round 14 that waits for PR objectui#12036; that leg flips this arm.
-    expect(kanbanOffered({ kanban: { groupField: 'stage' } })).toBe(true);
+  it('does NOT offer Kanban for the retired declared-path `kanban.groupField` (objectui#6152 round 14)', () => {
+    // It did while `normalizeListViewSchema` folded a TOP-LEVEL alias onto
+    // `groupByField` before the gate read anything; round 14 retired that fold.
+    expect(kanbanOffered({ kanban: { groupField: 'stage' } })).toBe(false);
   });
 
   // THE OTHER HALF. Pinning only the arms above would let the fix degrade into

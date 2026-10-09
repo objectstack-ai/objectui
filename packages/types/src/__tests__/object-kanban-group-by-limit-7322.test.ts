@@ -153,9 +153,8 @@ const RETIRED_VIEW_LEVEL_ALIAS_SITES: ReadonlyArray<readonly [file: string, reti
   ['packages/plugin-view/src/ObjectView.tsx', 'kanbanCfg.groupField ||', 'kanbanCfg.groupByField ||'],
 ];
 /**
- * The core fold, which still reads the alias at this commit: its retirement is
- * the leg of objectui#6152 round 14 that waits for PR objectui#12036 (the other
- * edit to that file). That leg flips this entry.
+ * The core fold's alias table, retired in the same round: `normalizeListViewSchema`
+ * no longer folds the view-level alias onto the spec key either.
  */
 const VIEW_LEVEL_ALIAS_FOLD = [
   'packages/core/src/utils/normalize-list-view.ts',
@@ -458,9 +457,13 @@ describe('objectui#7322 — the tombstone is NODE-LOCAL; the view-level `groupFi
     expect(src, `${file} no longer reads the view-level lane as \`${canonical}\``).toContain(canonical);
   });
 
-  it('the core fold still reads it at this commit (its leg of the retirement is parked)', () => {
+  it('the core fold no longer folds it either', () => {
     const [file, text] = VIEW_LEVEL_ALIAS_FOLD;
-    expect(readRepo(file)).toContain(text);
+    const src = readRepo(file);
+    expect(src).not.toContain(text);
+    // CONTROL: the same instrument reads the file, which still holds the folds
+    // that live on (the toolbar flags' table, for one).
+    expect(src).toContain('SHOW_FLAG_TO_USER_ACTION');
   });
 
   it('the view-level alias is still DECLARED on `KanbanConfig` in the same mirror file, as a by-name refusal (objectui#6152 round 11)', () => {

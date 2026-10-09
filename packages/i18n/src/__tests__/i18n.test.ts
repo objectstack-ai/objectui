@@ -170,6 +170,23 @@ describe('@object-ui/i18n', () => {
       expect(msg).not.toMatch(GATE);
     });
 
+    it('the inline HITL deny reason never reads as approval, in any pack (objectui#11667)', () => {
+      // `console.ai.toolDenyReason` is a label — it follows the UI locale, so
+      // all ten packs define it — but it does not stay on screen: the reject
+      // request stores it, and `useHitlInChat` embeds it in the continuation
+      // prompt it sends into the thread after the reject. A translation the
+      // gate read as approval would turn the operator's rejection into a
+      // go-ahead in that thread.
+      for (const lang of ['en', 'zh', 'ja', 'ko', 'de', 'fr', 'es', 'pt', 'ru', 'ar']) {
+        const i18n = createI18n({ defaultLanguage: lang, detectBrowserLanguage: false });
+        const msg = i18n.t('console.ai.toolDenyReason');
+        expect(msg, `${lang} toolDenyReason must not fall through to its raw key`).not.toBe(
+          'console.ai.toolDenyReason',
+        );
+        expect(msg, `${lang} toolDenyReason reads as approval to the cloud APPROVAL_RE`).not.toMatch(GATE);
+      }
+    });
+
     it('translates common keys in Japanese', () => {
       const i18n = createI18n({ defaultLanguage: 'ja', detectBrowserLanguage: false });
       expect(i18n.t('common.save')).toBe('保存');
@@ -397,8 +414,28 @@ describe('@object-ui/i18n', () => {
     it('all locales have common section keys matching English', () => {
       const codes = Object.keys(builtInLocales) as Array<keyof typeof builtInLocales>;
       const enCommonKeys = Object.keys(builtInLocales.en.common).sort();
+      // The one key a pack may hold that `en` lacks: the slot of an `en` count
+      // family for a CLDR category the pack's OWN language selects — `ru`
+      // `itemCount_few`, `ar` `itemCount_two` (objectui#11432 / objectui#11445;
+      // `all-locales-key-parity.test.ts` owns that rule repo-wide).
+      const SUFFIXES = ['_zero', '_one', '_two', '_few', '_many', '_other'];
+      const stem = (k: string) => {
+        const s = SUFFIXES.find((x) => k.endsWith(x));
+        return s ? { base: k.slice(0, -s.length), category: s.slice(1) } : undefined;
+      };
+      const enFamilies = new Set(enCommonKeys.flatMap((k) => (stem(k) ? [stem(k)!.base] : [])));
+      const isLocalSlot = (code: string, k: string) => {
+        const s = stem(k);
+        return (
+          s !== undefined &&
+          !enCommonKeys.includes(k) &&
+          enFamilies.has(s.base) &&
+          (new Intl.PluralRules(code).resolvedOptions().pluralCategories as string[]).includes(s.category)
+        );
+      };
       for (const code of codes) {
-        expect(Object.keys(builtInLocales[code].common).sort()).toEqual(enCommonKeys);
+        const keys = Object.keys(builtInLocales[code].common).filter((k) => !isLocalSlot(code, k));
+        expect(keys.sort()).toEqual(enCommonKeys);
       }
     });
   });

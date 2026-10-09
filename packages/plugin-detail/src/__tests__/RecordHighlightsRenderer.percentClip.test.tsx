@@ -8,8 +8,9 @@
 
 /**
  * objectstack#5066 — a `percent` chip in `record:highlights` showed a smaller,
- * plausible number. The chip clips with `truncate` (`basis-[9rem]`, shrinking
- * toward `min-w-[7rem]` as more chips are added, so ~72-104px of content), and
+ * plausible number. The chip clips with `truncate` (then a fixed `basis-[9rem]`
+ * column, ~72-104px of content; since objectui#11684 a chip grows into its
+ * line's free width, but a full line still clips it), and
  * the percent display renderer put a `w-16 shrink-0` bar in front of a
  * shrinkable value span: bar (64) + gap (8) left the value 0-32px and `truncate`
  * removed the rest. Downstream a stored `33.33` was read off the screen as `3`
@@ -35,7 +36,11 @@ import { RecordHighlightsRenderer } from '../renderers/record-highlights';
 
 const objectSchema = {
   fields: {
-    supply_share: { type: 'percent' },
+    // objectui#11475 — `33.33` is percentage points, so the field declares
+    // whole-point storage (`max: 100`, the spec's `percentScaleOf`); the cell
+    // used to guess it from the value's size. The clip this file pins is
+    // unmoved.
+    supply_share: { type: 'percent', max: 100 },
     progress: { type: 'progress' },
     owner: { type: 'text' },
     stage: { type: 'text' },

@@ -30,8 +30,10 @@
  *   - WIDENS, in declaration only: `drillDown` / `onRowClick` are now DECLARED
  *     with real types — before, they compiled through the index signature as
  *     `any`, which is why a wrong-shaped `drillDown` compiled too.
- *   - UNCHANGED, pinned honestly: an unknown key still compiles, because
- *     `BaseSchema`'s `[key: string]: any` is inherited (objectui#5155).
+ *   - UNCHANGED then, pinned honestly: an unknown key still compiled, because
+ *     `BaseSchema`'s `[key: string]: any` was inherited (objectui#5155).
+ *     objectui#8347 removed it, and that row is flipped: an unknown key is
+ *     refused now.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -107,8 +109,10 @@ describe('ObjectDataTableProps.schema — anchored to ObjectDataTableSchema (obj
     expect(node.data).toBe('not-an-array');
   });
 
-  it('the ceiling, stated: an UNKNOWN key still compiles (inherited index signature, objectui#5155)', () => {
+  it('an UNKNOWN key is refused — the ceiling this row stated is gone (objectui#8347)', () => {
+    // The inherited index signature let it compile until objectui#8347 removed it.
+    // @ts-expect-error — `ObjectDataTableSchema` declares no `bogusKey`
     const node: Schema = { type: 'object-data-table', bogusKey: 1 };
-    expect(node.bogusKey).toBe(1);
+    expect(node.type).toBe('object-data-table');
   });
 });

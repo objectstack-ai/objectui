@@ -19,6 +19,7 @@
 
 import type { BaseSchema } from './base.js';
 import type { VisualizationType } from '@objectstack/spec/ui';
+import type { Field as SpecField } from '@objectstack/spec/data';
 
 // ============================================================================
 // Page Designer (Drag-and-Drop)
@@ -50,7 +51,11 @@ export interface DesignerCanvasConfig {
   snapToGrid?: boolean;
   /** Zoom level (1.0 = 100%) */
   zoom?: number;
-  /** Background color */
+  /**
+   * Background color — drawn on the canvas of the page, data-model and process
+   * designers alike, through a CSS custom property a static utility paints
+   * (objectui#11434), so a theme can still override it.
+   */
   backgroundColor?: string;
 }
 
@@ -66,15 +71,40 @@ export interface DesignerComponent {
   position: DesignerPosition;
   /** Component properties */
   props: Record<string, unknown>;
-  /** Child components */
+  /**
+   * Child components — drawn inside this component on the canvas, positioned
+   * within it, and indented under it in the component tree (objectui#11434).
+   */
   children?: DesignerComponent[];
-  /** Parent component ID */
-  parentId?: string;
-  /** Lock state */
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — a second spelling of the component
+   * tree. `children` is the canonical one (it is what the zod mirror recurses
+   * through), and a parent pointer beside it could only disagree with it.
+   * `PageDesigner` never read it: a runtime probe through the real registry drew
+   * the same markup with and without it, and nothing in this repository or in
+   * ObjectStack authored it.
+   *
+   * **Instead:** nest the child in its parent's `children` array, and delete the
+   * key.
+   *
+   * A tombstone rather than a deletion so the compile-time refusal names the
+   * key; the zod mirror refuses it by name with the same prescription
+   * (`retirementTombstone`), so the two faces agree.
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  parentId?: never;
+  /**
+   * Lock state — a locked component cannot be dragged or deleted on the
+   * canvas, and shows a lock. No delete path removes it: not its own delete
+   * button (withheld), not Delete / Backspace, not the toolbar's "Delete
+   * selected", which delete only the unlocked rest of a selection. A parent
+   * that holds a locked component anywhere inside it is kept as well, because
+   * deleting it would take the locked one with it.
+   */
   locked?: boolean;
-  /** Visibility */
+  /** Visibility — `false` draws the component faded, with a dashed edge and a hidden marker */
   visible?: boolean;
-  /** Z-index for layering */
+  /** Z-index for layering — the stacking order of overlapping components on the canvas */
   zIndex?: number;
 }
 
@@ -122,11 +152,13 @@ export interface PageDesignerSchema extends BaseSchema {
    * bag it spreads, so neither reaches the component by another route, and
    * the registration declares no `children` slot (objectui#9910).
    *
-   * This declaration has no zod mirror, so this face is the only gate.
+   * The zod arm (`zod/designer.zod.ts`, objectui#10859) refuses both
+   * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `PageDesigner` draws from its
-   * props; the registration declares `canvas`, `components`,
-   * `showComponentTree`, `undoRedo` and `readOnly` as its inputs.
+   * props; the registration declares `canvas`, `components`, `palette`,
+   * `propertyEditor`, `showComponentTree`, `undoRedo` and `readOnly` as its
+   * inputs.
    *
    * @deprecated Not a channel `page-designer` reads — nothing renders it.
    */
@@ -139,7 +171,7 @@ export interface DesignerPaletteCategory {
   name: string;
   /** Category label */
   label: string;
-  /** Category icon */
+  /** Category icon — a Lucide icon name, drawn beside the category label in the palette */
   icon?: string;
   /** Available components */
   items: DesignerPaletteItem[];
@@ -151,13 +183,13 @@ export interface DesignerPaletteItem {
   type: string;
   /** Display label */
   label: string;
-  /** Icon */
+  /** Icon — a Lucide icon name, drawn on the item's palette button in place of the generic "add" glyph */
   icon?: string;
   /** Default properties */
   defaultProps?: Record<string, unknown>;
   /** Default size */
   defaultSize?: { width: number | string; height: number | string };
-  /** Preview image URL */
+  /** Preview image URL — drawn as a thumbnail on the item's palette button */
   preview?: string;
 }
 
@@ -183,11 +215,18 @@ export interface DataModelEntity {
   description?: string;
 }
 
-/** Data model field definition */
+/**
+ * Data model field definition.
+ *
+ * Every member is drawn on the field's row of its entity card by
+ * `DataModelDesigner` (objectui#11434): `label` beside the name, `unique` as a
+ * `UQ` badge beside the `PK` one, `defaultValue` after the type, and
+ * `description` (with the default) as the row's tooltip.
+ */
 export interface DataModelField {
-  /** Field name */
+  /** Field name — the key a relationship's `sourceField` / `targetField` names */
   name: string;
-  /** Display label */
+  /** Display label, drawn beside the name */
   label?: string;
   /** Field data type */
   type: string;
@@ -195,11 +234,11 @@ export interface DataModelField {
   primaryKey?: boolean;
   /** Whether this field is required */
   required?: boolean;
-  /** Whether this field is unique */
+  /** Whether this field is unique — drawn as a `UQ` badge */
   unique?: boolean;
-  /** Default value */
+  /** Default value — drawn after the type, as JSON */
   defaultValue?: unknown;
-  /** Field description */
+  /** Field description — the row's tooltip */
   description?: string;
 }
 
@@ -209,20 +248,64 @@ export interface DataModelRelationship {
   id: string;
   /** Source entity ID */
   sourceEntity: string;
-  /** Source field */
+  /**
+   * Source field — the `name` of a field on the source entity.
+   * `DataModelDesigner` anchors the relationship line at that field's row; a
+   * name the entity does not declare anchors at the entity header, and the
+   * line's tooltip says so.
+   */
   sourceField: string;
   /** Target entity ID */
   targetEntity: string;
-  /** Target field */
+  /** Target field — the `name` of a field on the target entity, anchored like `sourceField` */
   targetField: string;
   /** Relationship type */
   type: 'one-to-one' | 'one-to-many' | 'many-to-many';
   /** Relationship label */
   label?: string;
-  /** Cascade behavior on delete */
-  onDelete?: 'cascade' | 'set-null' | 'restrict' | 'no-action';
-  /** Cascade behavior on update */
-  onUpdate?: 'cascade' | 'set-null' | 'restrict' | 'no-action';
+  /**
+   * What happens to the referencing records when the referenced one is
+   * deleted — `@objectstack/spec`'s vocabulary for a relationship field
+   * (`FieldSchema.deleteBehavior`): `'set_null'`, `'cascade'` or `'restrict'`.
+   * The type is read off the spec, so the two cannot drift. `DataModelDesigner`
+   * draws it beside the relationship label and in the line's tooltip.
+   */
+  deleteBehavior?: NonNullable<SpecField['deleteBehavior']>;
+  /**
+   * RESPELLED (objectui#11434, ADR-0049) — this was the designer's own
+   * spelling of the referential action, with its own vocabulary
+   * (`'cascade' | 'set-null' | 'restrict' | 'no-action'`), while the platform
+   * spells it `deleteBehavior` with `'set_null' | 'cascade' | 'restrict'`.
+   * `DataModelDesigner` never read it (a runtime probe drew the same markup with
+   * and without it), and nothing outside a test fixture authored it.
+   *
+   * **Migration:** rename the key to `deleteBehavior`: `'cascade'` and
+   * `'restrict'` keep their values, `'set-null'` becomes `'set_null'`, and
+   * `'no-action'` becomes `'restrict'` (the platform has no separate no-action;
+   * both refuse the delete while a reference remains).
+   *
+   * A tombstone rather than a deletion so the compile-time refusal names the
+   * key; the zod mirror refuses it by name with the same migration
+   * (`aliasKeyRefusal`, the spec's own "Did you mean" sentence).
+   * @deprecated Renamed to `deleteBehavior`.
+   */
+  onDelete?: never;
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — the platform's relationship contract
+   * has no update behaviour: `@objectstack/spec` models a relationship as a
+   * `lookup` / `master_detail` field whose referential action is
+   * `deleteBehavior` alone. A designer that drew this key would declare a
+   * capability no runtime delivers. `DataModelDesigner` never read it (a
+   * runtime probe drew the same markup with and without it), and nothing in
+   * this repository or in ObjectStack authored it.
+   *
+   * **Instead:** delete the key; there is nothing to configure in its place.
+   *
+   * A tombstone rather than a deletion so the compile-time refusal names the
+   * key; the zod mirror refuses it by name (`retirementTombstone`).
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  onUpdate?: never;
 }
 
 /** Data model designer schema */
@@ -236,8 +319,26 @@ export interface DataModelDesignerSchema extends BaseSchema {
   canvas?: DesignerCanvasConfig;
   /** Show relationship labels */
   showRelationshipLabels?: boolean;
-  /** Auto-layout enabled */
-  autoLayout?: boolean;
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — auto-layout is an ACTION, not authored
+   * state. `DataModelDesigner` never read this key: its toolbar's Auto Layout
+   * button arranges the entities on demand whatever the node says, and a
+   * runtime probe through the real registry drew the same markup with the key
+   * `true`, `false` and absent. Entity positions are required, so there is no
+   * unplaced entity for a flag to lay out. Nothing in this repository or in
+   * ObjectStack authored it.
+   *
+   * **Instead:** delete the key, and use the toolbar's Auto Layout button.
+   *
+   * A tombstone rather than a deletion on the grounds the AI declarations'
+   * retired members record: {@link BaseSchema} carried `[key: string]: any`, so a
+   * DELETED member was absorbed silently at any value (since objectui#8347,
+   * through a widened value only), and the tombstone is what makes the
+   * compile-time refusal exist, by name. The zod mirror refuses the
+   * key by name with the same prescription (`retirementTombstone`).
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  autoLayout?: never;
   /** Read-only mode */
   readOnly?: boolean;
   /**
@@ -268,11 +369,12 @@ export interface DataModelDesignerSchema extends BaseSchema {
    * props bag it spreads, so neither reaches the component by another route,
    * and the registration declares no `children` slot (objectui#9910).
    *
-   * This declaration has no zod mirror, so this face is the only gate.
+   * The zod arm (`zod/designer.zod.ts`, objectui#10859) refuses both
+   * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `DataModelDesigner` draws from
    * its props; the registration declares `entities`, `relationships`,
-   * `autoLayout` and `readOnly` as its inputs.
+   * `canvas`, `showRelationshipLabels` and `readOnly` as its inputs.
    *
    * @deprecated Not a channel `data-model-designer` reads — nothing renders
    * it.
@@ -321,16 +423,32 @@ export interface BPMNNode {
   label: string;
   /** Position on canvas */
   position: { x: number; y: number };
-  /** Node properties */
+  /**
+   * Node properties — free-form engine settings. `ProcessDesigner`'s property
+   * panel lists each one under its key, with a control for its value's type.
+   */
   properties?: Record<string, unknown>;
-  /** Assigned user/role (for user tasks) */
+  /** Assigned user/role (for user tasks) — a property-panel field on a user task */
   assignee?: string;
-  /** Due date expression */
+  /** Due date expression — a property-panel field on a user task */
   dueDate?: string;
-  /** Script content (for script tasks) */
+  /** Script content (for script tasks) — a property-panel field on a script task */
   script?: string;
-  /** Service endpoint (for service tasks) */
-  serviceEndpoint?: string;
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — the mainstream service task references
+   * an IMPLEMENTATION (a job type, a connector, a registered action), not an
+   * endpoint URL, so a URL here taught a model no BPMN engine uses.
+   * `ProcessDesigner` never read it (a runtime probe drew the same markup with
+   * and without it), and nothing in this repository or in ObjectStack authored
+   * it.
+   *
+   * **Instead:** delete the key; there is nothing to configure in its place.
+   *
+   * A tombstone rather than a deletion so the compile-time refusal names the
+   * key; the zod mirror refuses it by name (`retirementTombstone`).
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  serviceEndpoint?: never;
   /** Description */
   description?: string;
 }
@@ -343,15 +461,15 @@ export interface BPMNEdge {
   source: string;
   /** Target node ID */
   target: string;
-  /** Condition expression (for conditional flows) */
+  /** Condition expression (for conditional flows) — drawn on the flow, in brackets */
   condition?: string;
   /** Edge label */
   label?: string;
-  /** Whether this is the default flow */
+  /** Whether this is the default flow — drawn as BPMN's slash marker at the flow's source */
   isDefault?: boolean;
 }
 
-/** BPMN lane */
+/** BPMN lane — `ProcessDesigner` draws it as a band around the nodes `nodeIds` names */
 export interface BPMNLane {
   /** Lane identifier */
   id: string;
@@ -368,18 +486,35 @@ export interface ProcessDesignerSchema extends BaseSchema {
   type: 'process-designer';
   /** Process name */
   processName: string;
-  /** Process version */
+  /** Process version — drawn beside the process name in the toolbar */
   version?: string;
   /** BPMN nodes */
   nodes: BPMNNode[];
   /** BPMN edges/flows */
   edges: BPMNEdge[];
-  /** Swim lanes */
+  /** Swim lanes — each drawn as a band around its nodes, labelled with its label and role */
   lanes?: BPMNLane[];
   /** Canvas configuration */
   canvas?: DesignerCanvasConfig;
-  /** Process variables */
-  variables?: Array<{ name: string; type: string; defaultValue?: unknown }>;
+  /*
+   * There is deliberately no `variables` here (objectui#10859, ruling on that
+   * card: the two zero-read designer members are settled before their zod
+   * arms mirror them). It was declared as "Process variables", an array of
+   * `{ name, type, defaultValue? }`, and nothing read it: `ProcessDesigner`'s
+   * props do not declare the key and its body never names it, and no other
+   * package's source reads it off a `process-designer` node. Nothing produced
+   * it either — no doc, example, catalog document, generator or fixture
+   * authored it. A runtime probe through the real registry drew the same
+   * markup with and without an authored `variables` array.
+   *
+   * Removed outright rather than kept as a `?: never` tombstone: neither prong
+   * of the retire-vs-remove discriminator `./complex.ts` states holds — there
+   * is no live replacement key, and nothing taught the key as working. The zod
+   * arm (`zod/designer.zod.ts`) does not declare it either. The index
+   * signature `BaseSchema` carried admitted the key at any value until
+   * objectui#8347, which refuses it on a fresh literal now; the strict
+   * authoring face refuses it as an unrecognized key.
+   */
   /** Show minimap */
   showMinimap?: boolean;
   /** Show toolbar */
@@ -413,11 +548,13 @@ export interface ProcessDesignerSchema extends BaseSchema {
    * props bag it spreads, so neither reaches the component by another route,
    * and the registration declares no `children` slot (objectui#9910).
    *
-   * This declaration has no zod mirror, so this face is the only gate.
+   * The zod arm (`zod/designer.zod.ts`, objectui#10859) refuses both
+   * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `ProcessDesigner` draws from its
-   * props; the registration declares `processName`, `nodes`, `edges`,
-   * `showMinimap`, `showToolbar` and `readOnly` as its inputs.
+   * props; the registration declares `processName`, `version`, `nodes`,
+   * `edges`, `lanes`, `canvas`, `showMinimap`, `showToolbar` and `readOnly` as
+   * its inputs.
    *
    * @deprecated Not a channel `process-designer` reads — nothing renders it.
    */
@@ -439,11 +576,34 @@ export interface ReportDesignerElement {
   type: 'text' | 'field' | 'image' | 'chart' | 'table' | 'barcode' | 'line' | 'rectangle' | 'expression';
   /** Position within section */
   position: DesignerPosition;
-  /** Element properties */
+  /**
+   * Element properties — the type's own settings (a text element's `text`).
+   *
+   * One key is REFUSED here by the zod face, by name: `field` (objectui#11434,
+   * ADR-0049). A field element's binding is the element's own declared
+   * `dataBinding`, and `ReportDesigner` reads that alone; it used to draw this
+   * undeclared bag key instead (and wrote it when a field element was added),
+   * so a declared member and a bag key both claimed the binding, and the
+   * declared member wins. **Migration:** move the value to the element's
+   * `dataBinding`, and delete `properties.field`.
+   *
+   * The refusal lives on the zod face alone (`safeValidateSchema`, the strict
+   * authoring face, `objectui validate`): an open bag cannot refuse one key in
+   * its TypeScript type without parting from the zod mirror, whose record is
+   * what keeps every other key open on the strict face.
+   */
   properties: Record<string, unknown>;
-  /** Data binding expression */
+  /**
+   * Data binding expression — what a field element shows (drawn as
+   * `{BINDING}`), and what any other element is bound to. The property panel
+   * edits it for every element type.
+   */
   dataBinding?: string;
-  /** Formatting options */
+  /**
+   * Formatting options — drawn on the element's content: weight, style,
+   * alignment, colours, font, border and padding as its look, and
+   * `numberFormat` / `dateFormat` beside its binding.
+   */
   format?: {
     fontFamily?: string;
     fontSize?: number;
@@ -468,11 +628,11 @@ export interface ReportDesignerSection {
   height: number;
   /** Elements in this section */
   elements: ReportDesignerElement[];
-  /** Group field (for group headers/footers) */
+  /** Group field (for group headers/footers) — drawn in the section label, as `by FIELD` */
   groupField?: string;
   /** Whether section repeats */
   repeat?: boolean;
-  /** Page break before */
+  /** Page break before — drawn as a page-break rule across the top of the section */
   pageBreakBefore?: boolean;
 }
 
@@ -487,18 +647,48 @@ export interface ReportDesignerSchema extends BaseSchema {
   pageSize?: 'A4' | 'A3' | 'Letter' | 'Legal' | 'Tabloid';
   /** Page orientation */
   orientation?: 'portrait' | 'landscape';
-  /** Page margins */
+  /**
+   * Page margins — all four drawn as a dashed guide on the page; `left` also
+   * places a newly added element.
+   */
   margins?: { top: number; right: number; bottom: number; left: number };
   /** Report sections */
   sections: ReportDesignerSection[];
-  /** Report parameters */
-  parameters?: Array<{ name: string; type: string; label: string; defaultValue?: unknown }>;
+  /*
+   * There is deliberately no `parameters` here (objectui#10859, ruling on that
+   * card: the two zero-read designer members are settled before their zod
+   * arms mirror them). It was declared as "Report parameters", an array of
+   * `{ name, type, label, defaultValue? }`, and nothing read it:
+   * `ReportDesigner`'s props do not declare the key and its body never names
+   * it, and no other package's source reads it off a `report-designer` node.
+   * Nothing produced it either — no doc, example, catalog document, generator
+   * or fixture authored it. A runtime probe through the real registry drew the
+   * same markup with and without an authored `parameters` array.
+   *
+   * Removed outright rather than kept as a `?: never` tombstone, for the
+   * reasons the `variables` note on `ProcessDesignerSchema` above gives; the
+   * zod arm does not declare it either.
+   */
   /** Show designer toolbar */
   showToolbar?: boolean;
   /** Show property panel */
   showPropertyPanel?: boolean;
-  /** Preview mode */
-  previewMode?: boolean;
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — preview is a MODE of the tool (Report
+   * Builder's Run / Design toggle), not state a report document carries.
+   * `ReportDesigner` declared it on its props and never read it: a runtime probe
+   * through the real registry drew the same markup with and without it.
+   * Nothing in this repository or in ObjectStack authored it.
+   *
+   * **Instead:** delete the key. For a chrome-free, non-editable layout, author
+   * `readOnly: true`, `showToolbar: false` and `showPropertyPanel: false`.
+   *
+   * A tombstone rather than a deletion on the grounds {@link
+   * DataModelDesignerSchema.autoLayout} records; the zod mirror refuses the key
+   * by name with the same prescription (`retirementTombstone`).
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  previewMode?: never;
   /** Read-only mode */
   readOnly?: boolean;
   /**
@@ -528,11 +718,13 @@ export interface ReportDesignerSchema extends BaseSchema {
    * props bag it spreads, so neither reaches the component by another route,
    * and the registration declares no `children` slot (objectui#9910).
    *
-   * This declaration has no zod mirror, so this face is the only gate.
+   * The zod arm (`zod/designer.zod.ts`, objectui#10859) refuses both
+   * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `ReportDesigner` draws from its
-   * props; the registration declares `reportName`, `objectName`, `sections`,
-   * `showToolbar`, `showPropertyPanel` and `readOnly` as its inputs.
+   * props; the registration declares `reportName`, `objectName`, `pageSize`,
+   * `orientation`, `margins`, `sections`, `showToolbar`, `showPropertyPanel`
+   * and `readOnly` as its inputs.
    *
    * @deprecated Not a channel `report-designer` reads — nothing renders it.
    */
@@ -836,21 +1028,38 @@ export interface ObjectDefinition {
   isSystem?: boolean;
   /** Field count (read-only, for display) */
   fieldCount?: number;
-  /** Relationships to other objects */
-  relationships?: ObjectDefinitionRelationship[];
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — a relationship is a FIELD, not an
+   * object-level list. `@objectstack/spec`'s `ObjectSchema` refuses an
+   * object-level `relationships` array as an unrecognized key (objectui#6223
+   * already kept it off the wire), the spec models a relationship as a
+   * `lookup` / `master_detail` field with a `reference`, and this designer's
+   * field model carries that as {@link DesignerFieldDefinition.referenceTo}. Nothing read
+   * this list — not `ObjectManager`, not `MetadataObjectsPage` (whose
+   * `toObjectDefinition` never set it), not `MetadataService` — and only test
+   * fixtures authored it.
+   *
+   * Its element type `ObjectDefinitionRelationship` (`relatedObject`, `type`,
+   * `label`, `foreignKey`) left the package with it.
+   *
+   * **Instead:** declare the relationship on the referencing field — in this
+   * designer, a `lookup` field whose `referenceTo` names the related object (in
+   * `@objectstack/spec` metadata, a `lookup` / `master_detail` field whose
+   * `reference` names it) — and delete the key.
+   *
+   * A tombstone rather than a deletion so the compile-time refusal names the
+   * key; the zod mirror refuses it by name with the same prescription
+   * (`retirementTombstone`).
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  relationships?: never;
 }
 
-/** Relationship reference for Object Manager */
-export interface ObjectDefinitionRelationship {
-  /** Related object name */
-  relatedObject: string;
-  /** Relationship type */
-  type: 'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many';
-  /** Relationship label */
-  label?: string;
-  /** Foreign key field */
-  foreignKey?: string;
-}
+/*
+ * There is deliberately no `ObjectDefinitionRelationship` here any more
+ * (objectui#11434): it typed only `ObjectDefinition.relationships`, retired
+ * above. Its zod mirror left `zod/designer.zod.ts` in the same change.
+ */
 
 /** Object Manager component schema */
 export interface ObjectManagerSchema extends BaseSchema {
@@ -888,7 +1097,8 @@ export interface ObjectManagerSchema extends BaseSchema {
    * bag it spreads, so neither reaches the component by another route, and
    * the registration declares no `children` slot (objectui#9910).
    *
-   * This declaration has no zod mirror, so this face is the only gate.
+   * The zod arm (`zod/designer.zod.ts`, objectui#10859) refuses both
+   * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `ObjectManager` draws from its
    * props; the registration declares `objects`, `showSystemObjects` and
@@ -956,15 +1166,11 @@ export interface DesignerFieldOption {
   color?: string;
 }
 
-/** Validation rule for field designer */
-export interface DesignerValidationRule {
-  /** Rule type */
-  type: 'min' | 'max' | 'minLength' | 'maxLength' | 'pattern' | 'custom';
-  /** Rule value */
-  value: string | number;
-  /** Error message */
-  message?: string;
-}
+/*
+ * There is deliberately no `DesignerValidationRule` here any more
+ * (objectui#11434): it typed only `DesignerFieldDefinition.validationRules`,
+ * retired below. Its zod mirror left `zod/designer.zod.ts` in the same change.
+ */
 
 /** Field definition for the Field Designer */
 export interface DesignerFieldDefinition {
@@ -1017,8 +1223,30 @@ export interface DesignerFieldDefinition {
   placeholder?: string;
   /** Select options (for select type) */
   options?: DesignerFieldOption[];
-  /** Validation rules */
-  validationRules?: DesignerValidationRule[];
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — a spelling the platform refuses, with
+   * no reader and no producer. `@objectstack/spec`'s `FieldSchema` refuses
+   * `validationRules` as an unrecognized key; the spec carries numeric and
+   * length bounds as the field's own `min` / `max` / `minLength` /
+   * `maxLength` keys and every other rule as an entry of the OBJECT's `validations` list, which is also
+   * where mainstream platforms keep validation rules. `FieldDesigner` never
+   * offered an editor for it, and no converter carried it: `toDesignerField`
+   * never set it, and neither `fromDesignerField` nor
+   * `MetadataService.toFieldPayload` copied it to the wire.
+   *
+   * Its element type `DesignerValidationRule` (`type`, `value`, `message`) left
+   * the package with it.
+   *
+   * **Instead:** put bounds on the field as `min` / `max` / `minLength` /
+   * `maxLength` in the field metadata, and any other rule in the object's
+   * `validations`; delete the key here.
+   *
+   * A tombstone rather than a deletion so the compile-time refusal names the
+   * key; the zod mirror refuses it by name with the same prescription
+   * (`retirementTombstone`).
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  validationRules?: never;
   /** Whether this is a system field */
   isSystem?: boolean;
   /** External ID flag */
@@ -1096,7 +1324,8 @@ export interface FieldDesignerSchema extends BaseSchema {
    * bag it spreads, so neither reaches the component by another route, and
    * the registration declares no `children` slot (objectui#9910).
    *
-   * This declaration has no zod mirror, so this face is the only gate.
+   * The zod arm (`zod/designer.zod.ts`, objectui#10859) refuses both
+   * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `FieldDesigner` draws from its
    * props; the registration declares `objectName`, `fields` and `readOnly` as

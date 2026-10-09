@@ -15,7 +15,7 @@ The Data Table component provides comprehensive table functionality inspired by 
 
 ## Schema
 
-```plaintext
+```ts
 interface TableColumn {
   header: string;                        // Column header text
   accessorKey: string;                   // Data property key
@@ -44,19 +44,6 @@ interface DataTableSchema {
   // Advanced features
   resizableColumns?: boolean;            // Allow column resizing (default: true)
   reorderableColumns?: boolean;          // Allow column reordering (default: true)
-
-  // Inline editing
-  editable?: boolean;                    // Enable inline cell editing (default: false)
-  singleClickEdit?: boolean;             // Enter edit mode on single click (default: false)
-  renderCellEditor?: (ctx: {             // Host-supplied editor widget; null -> built-in input
-    column: any;
-    row: any;                            // the persisted record
-    pendingRow: any;                     // row + this row's staged, unsaved edits (#7188)
-    value: any;
-    stage: (v: any) => void;
-    commit: (v?: any) => void;
-    cancel: () => void;
-  }) => ReactNode;
 
   // Styling
   className?: string;                    // Tailwind CSS classes on the table wrapper
@@ -111,15 +98,41 @@ Drop the per-column half and the data cells stay at the table primitive's defaul
 
 ## Inline editing
 
-With `editable: true` a cell enters edit mode on double-click (or on single click
-with `singleClickEdit: true`) and the table renders one of its built-in editors —
-text, number, date — chosen from the column's `type`.
+Inline editing is a **host-paired** capability of this table, not a flag a document
+sets. The table only *stages* an edit; saving it is the job of callbacks that a host
+supplies in code (`onRowSave`, `onCellChange`, `onBatchSave`), and a JSON document
+cannot supply a function. So the keys that switch editing on — `editable`, and
+`singleClickEdit` for entering edit mode on the first click instead of a
+double-click — are set by the host on the `data-table` node it builds, together with
+that save path. `object-grid` is that host: it sets both keys on its table and
+passes its own save path, which writes through the data source.
 
-`renderCellEditor` lets the host supply a widget instead. The table calls it first
-for every cell it is about to edit; return a node to use it, or `null` to fall
-through to the built-in editor for that column. This is how `object-grid` gives a
-`select` or `lookup` cell the same dedicated control the form uses, without the
-component layer having to re-implement it.
+**Do not author `editable` or `singleClickEdit` on a `data-table` node.** Without a
+host save path the edits are staged in the table and nothing persists them. To edit
+records inline from a document, author an `object-grid` instead — see
+[Inline Editing](/docs/plugins/plugin-grid#inline-editing) in the grid plugin.
+
+When a host has switched editing on, a cell enters edit mode on double-click (or on
+a single click) and the table renders one of its built-in editors — text, number,
+date — chosen from the column's `type`.
+
+The host can also supply `renderCellEditor`, a function the table calls first for
+every cell it is about to edit; it returns a node to use, or `null` to fall through
+to the built-in editor for that column. This is how `object-grid` gives a `select`
+or `lookup` cell the same dedicated control the form uses, without the component
+layer having to re-implement it. Its context is:
+
+```plaintext
+renderCellEditor?: (ctx: {
+  column: any;
+  row: any;                            // the persisted record
+  pendingRow: any;                     // row + this row's staged, unsaved edits (#7188)
+  value: any;
+  stage: (v: any) => void;
+  commit: (v?: any) => void;
+  cancel: () => void;
+}) => ReactNode;
+```
 
 The returned node is wrapped by the table so it inherits the exit-edit
 affordances the built-in editors have: Enter commits from a single-line input,
@@ -132,6 +145,22 @@ The context carries the row twice, on purpose: `row` is the persisted record, an
 a sibling field — a `dependsOn` lookup — should read `pendingRow`, so a parent
 edited in the same row re-scopes the child before anything is saved; `row` stays
 the place to read what the data source last returned.
+
+## Keyboard navigation
+
+`keyboardNavigation` is set by the host in code too, beside `editable`, and is off
+unless a host turns it on. `object-grid` is that host: it resolves its own
+`keyboardNavigation` key (on by default when the grid renders editable) and sets
+the answer on its table — see
+[Keyboard navigation](/docs/plugins/plugin-grid#keyboard-navigation) in the grid
+plugin (objectui#11068).
+
+On, the table follows the WAI-ARIA grid pattern: it is exposed as a `grid`, its
+data cells take one place in the Tab order instead of one each (the cell that last
+held focus), the arrow keys move focus one cell, Home / End go to the ends of the
+row and Ctrl+Home / Ctrl+End to the ends of the page, and an edit ended with Enter
+or Escape hands focus back to its cell. A widget a cell renders keeps its own Tab
+stop. Off, every data cell is its own Tab stop, as before.
 
 ## Masked columns
 

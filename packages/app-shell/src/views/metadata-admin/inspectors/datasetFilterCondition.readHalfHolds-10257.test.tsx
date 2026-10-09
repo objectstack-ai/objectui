@@ -137,9 +137,23 @@ describe('class 1 — an incomplete stored value is not opened as a row the next
     { region: [] },
   ];
 
-  it('reachable: the spec accepts every one of them, so a Source-tab or AI-authored filter can carry it', () => {
+  it('reachable: the spec accepts all but one of them, so a Source-tab or AI-authored filter can carry it', () => {
+    // Through `@objectstack/spec` 17.4.0 the spec accepted EVERY row. 17.5.0
+    // refuses the bare-array implicit-equality comparand (`{ region: [] }`) at
+    // the door, by name, with its `$in` prescription (objectui#11073) — so that
+    // one row is reachable now only as a document stored before the bump, and
+    // the read-half cases below keep it for exactly that reason.
+    const refusedSince1750 = JSON.stringify({ region: [] });
     for (const c of INCOMPLETE) {
-      expect(FilterConditionSchema.safeParse(beside(c)).success, JSON.stringify(c)).toBe(true);
+      const parsed = FilterConditionSchema.safeParse(beside(c));
+      if (JSON.stringify(c) === refusedSince1750) {
+        expect(parsed.success, JSON.stringify(c)).toBe(false);
+        expect(parsed.success ? [] : parsed.error.issues.map((i) => `${i.code} @ ${i.path.join('.')}`)).toEqual([
+          'custom @ $and.1.region',
+        ]);
+        continue;
+      }
+      expect(parsed.success, JSON.stringify(c)).toBe(true);
     }
     expect(FieldOperatorsSchema.safeParse({ $eq: '' }).success).toBe(true);
     expect(FieldOperatorsSchema.safeParse({ $in: [] }).success).toBe(true);
@@ -194,7 +208,7 @@ describe('class 1 — an incomplete stored value is not opened as a row the next
   });
 
   it('CONTROL: the value-less tokens carry no value to be incomplete, and stay opened', () => {
-    for (const other of [{ name: { $exists: false } }, { name: { $null: true } }]) {
+    for (const other of [{ name: { $empty: true } }, { name: { $null: true } }]) {
       const { group, representable } = conditionToGroup(beside(other), FIELDS);
       expect(representable, JSON.stringify(other)).toBe(true);
       expect(editStage(group, 'lost')).toEqual({ $and: [{ stage: { $eq: 'lost' } }, other] });
@@ -210,7 +224,7 @@ describe('class 2 — a stored token is not opened as an operator the column\'s 
     { stored: { amount: { $in: [1, 2] } }, type: 'number', readAs: 'in' },
     // "Every token" includes the value-less arms: the boolean bucket offers
     // only `equals` / `notEquals`.
-    { stored: { flag: { $exists: true } }, type: 'boolean', readAs: 'is_not_empty' },
+    { stored: { flag: { $empty: false } }, type: 'boolean', readAs: 'is_not_empty' },
     { stored: { flag: { $null: false } }, type: 'boolean', readAs: 'is_not_null' },
   ];
 
@@ -248,7 +262,7 @@ describe('class 2 — a stored token is not opened as an operator the column\'s 
   });
 
   it('CONTROL: the value-less tokens on a column whose bucket offers them still open', () => {
-    for (const stored of [{ name: { $exists: true } }, { closed_at: { $null: false } }, { region: { $exists: false } }]) {
+    for (const stored of [{ name: { $empty: false } }, { closed_at: { $null: false } }, { region: { $empty: true } }]) {
       const { group, representable } = conditionToGroup(stored, FIELDS);
       expect(representable, JSON.stringify(stored)).toBe(true);
       expect(groupToCondition(group)).toEqual(stored);
@@ -301,7 +315,16 @@ describe('the invariant, swept: every row the read half opens, the panel draws a
       .flatMap((t) => SCALARS.map((v) => ({ stored: { [t]: v }, implicit: false }))),
     ...['$in', '$nin'].flatMap((t) => LISTS.map((v) => ({ stored: { [t]: v }, implicit: false }))),
     ...PAIRS.map((v) => ({ stored: { $between: v }, implicit: false })),
-    ...[true, false].flatMap((b) => [{ stored: { $exists: b }, implicit: false }, { stored: { $null: b }, implicit: false }]),
+    // `$empty` is what the empty pair writes since objectui#10813; `$exists`,
+    // what it wrote before, stays in the domain — it is now REFUSED (no
+    // operator this inspector offers reads it back), which the invariant
+    // accepts, and a read that still opened it would be named by the
+    // byte-identical check below.
+    ...[true, false].flatMap((b) => [
+      { stored: { $empty: b }, implicit: false },
+      { stored: { $exists: b }, implicit: false },
+      { stored: { $null: b }, implicit: false },
+    ]),
     ...[...SCALARS, ...LISTS].map((v) => ({ stored: v, implicit: true })),
   ];
 

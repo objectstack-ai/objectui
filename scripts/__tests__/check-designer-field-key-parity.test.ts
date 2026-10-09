@@ -1108,17 +1108,33 @@ describe('the real shapes, on the real tree', () => {
     }
   });
 
-  it('keeps `group`, `sortOrder` and `relationships` on the UI model and off every object wire shape', async () => {
+  it('keeps `group` and `sortOrder` on the UI model, `relationships` there only as a retired tombstone, and all three off every object wire shape', async () => {
     // The structural claim objectui#6223 landed, asserted on the real tree
-    // rather than on a fixture: the Object Manager may hold all three (they are
-    // its display category, its display order, and a UI-model relationship
-    // list), and no shape that becomes a PUT body may declare any of them.
+    // rather than on a fixture: the Object Manager may hold `group` and
+    // `sortOrder` (its display category and display order), and no shape that
+    // becomes a PUT body may declare any of the three.
+    //
+    // objectui#11434 then RETIRED `relationships` from the UI model too: a
+    // relationship is a field, and nothing read the list. It is still a property
+    // signature there — a `?: never` tombstone, so `tsc` refuses it by name — which
+    // is why this gate keeps listing it as UI-only. What this pins is that the
+    // signature can carry no value any more.
     const { uiOnly, violations } = await analyze(repoRoot);
     const onObjectDefinition = uiOnly.filter((u) => u.shape === 'ObjectDefinition').map((u) => u.key);
-    for (const key of ['group', 'sortOrder', 'relationships']) {
+    for (const key of ['group', 'sortOrder']) {
       expect(onObjectDefinition, `${key} left the UI model`).toContain(key);
+    }
+    for (const key of ['group', 'sortOrder', 'relationships']) {
       expect(violations.map((v) => v.key), `${key} is back on a wire shape`).not.toContain(key);
     }
+    const designer = fs.readFileSync(path.join(repoRoot, 'packages/types/src/designer.ts'), 'utf8');
+    const start = designer.indexOf('export interface ObjectDefinition {');
+    const body = designer.slice(start, designer.indexOf('\n}\n', start));
+    // Non-vacuity: the slice is the interface, holding a live member.
+    expect(start, 'ObjectDefinition not found in designer.ts').toBeGreaterThan(-1);
+    expect(body).toContain('sortOrder?: number;');
+    expect(body, 'ObjectDefinition.relationships is no longer the objectui#11434 tombstone').toContain('relationships?: never;');
+    expect(designer, 'the retired element type is declared again').not.toMatch(/\binterface ObjectDefinitionRelationship\b/);
     for (const id of ['ObjectMetadataPayload', 'ServerObjectSchema']) {
       const shape = PAYLOAD_SHAPES.find((s) => s.id === id)!;
       const { keys } = declaredKeys(repoRoot, shape);

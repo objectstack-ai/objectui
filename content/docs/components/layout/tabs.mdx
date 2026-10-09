@@ -9,7 +9,9 @@ description: "Organize content into switchable tabs"
 
 ## Schema
 
-```plaintext
+```ts
+import type { SchemaNode } from '@object-ui/types';
+
 interface TabsSchema {
   type: 'tabs';
   items: Array<{

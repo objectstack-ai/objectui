@@ -1,4 +1,21 @@
-@import 'tailwindcss';
+/*
+ * `source(none)` turns off Tailwind's AUTOMATIC source detection, so the only
+ * inputs are the `@source` lines below (objectui#11586). It is the same switch
+ * `packages/components/src/index.css` took in objectui#9569, and that file's
+ * header records the mechanism.
+ *
+ * Detection roots at the process CWD, which is this app's directory when it
+ * builds, and it scans every non-ignored file there, prose included.
+ * `pnpm changeset:version` writes each pending changeset body into
+ * `CHANGELOG.md`, so on the 17.7.0 release head the console sheet gained 11
+ * rules (9,450 bytes) compiled from changelog prose. Among them was the
+ * sentinel of components' own scan test, which the second test in
+ * `index-css-scan-excludes-tests.test.ts` asserts never reaches this sheet.
+ * On `main` it gained `.w-100`, out of a proposal under `docs/`.
+ * Ablated on objectui#11586: every rule that only detection supplied came from
+ * a `.md` file, and none came from source.
+ */
+@import 'tailwindcss' source(none);
 @import '@object-ui/app-shell/styles.css';
 
 /* Typography plugin — generates the `prose` utilities. plugin-markdown's

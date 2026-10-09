@@ -1,17 +1,19 @@
 {
   "type": "flex",
-  "direction": "col",
-  "gap": 4,
-  "children": [
-    {
-      "type": "label",
-      "text": "Birth Date",
-      "htmlFor": "birthdate"
-    },
-    {
-      "type": "date-picker",
-      "id": "birthdate",
-      "placeholder": "Select your birth date"
-    }
-  ]
+  "properties": {
+    "direction": "col",
+    "gap": 4,
+    "children": [
+      {
+        "type": "label",
+        "text": "Birth Date",
+        "htmlFor": "birthdate"
+      },
+      {
+        "type": "date-picker",
+        "id": "birthdate",
+        "placeholder": "Select your birth date"
+      }
+    ]
+  }
 }

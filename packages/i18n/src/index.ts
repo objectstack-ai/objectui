@@ -165,3 +165,8 @@ export {
   shouldGroupDisplayNumber,
   type DisplayNumberFormatOptions,
 } from './utils/index.js';
+
+// objectui#11675 — the first day of the week for a locale tag. The calendar's
+// grids and the timeline's week buckets read it from the tag they format with,
+// so the week starts where the locale says and never on a hard-coded day.
+export { firstDayOfWeek, type WeekdayIndex } from './utils/index.js';

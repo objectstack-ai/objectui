@@ -24,7 +24,12 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import type { DashboardComponentSchema, DashboardWidgetSchema, DashboardWidgetTypeName } from '@object-ui/types';
+import type {
+  DashboardComponentSchema,
+  DashboardWidgetSchema,
+  DashboardWidgetSlotComponentSchema,
+  DashboardWidgetTypeName,
+} from '@object-ui/types';
 import {
   Trash2,
   GripVertical,
@@ -45,6 +50,15 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@object-ui/components';
+import { DASHBOARD_COMPONENT_WIDGET_TYPES, completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
+import { DashboardWidgetSchema as DashboardWidgetDoor } from '@object-ui/types/zod';
 import { pickLocalized, setLocalized } from '@object-ui/i18n';
 import { useUndoRedo } from './hooks/useUndoRedo';
 import { useDesignerTranslation } from './hooks/useDesignerTranslation';
@@ -74,6 +88,34 @@ export interface DashboardEditorProps {
   selectedWidgetId?: string | null;
   /** Callback when widget selection changes (for external sync) */
   onWidgetSelect?: (widgetId: string | null) => void;
+}
+
+/**
+ * One entry of `widgets[]`: the slot's element type, a widget or a component
+ * node placed directly in the slot. Every read of an entry goes through it
+ * (objectui#11514): the widget arm, `DashboardWidgetSchema`, names no component
+ * type, so the component arm is not assignable to it.
+ */
+type DashboardWidgetEntry = DashboardComponentSchema['widgets'][number];
+
+/**
+ * Whether an entry is the slot's component arm (a `metric-card`): its `type`
+ * is a member of the closed `DASHBOARD_COMPONENT_WIDGET_TYPES`, which no
+ * widget `type` names (objectui#11483).
+ *
+ * A widget key (`values`, `dimensions`, `colorVariant`, …) is read on the
+ * widget arm alone, so every such read below narrows with this first
+ * (objectui#11598, N2 A): the component arm declares none of them, and reading
+ * one off the entry whichever arm it was compiled only through `BaseSchema`'s
+ * index signature, which objectui#8347 removed.
+ *
+ * The twin of plugin-dashboard's `isSlotComponentEntry` (`widgetDispatch.ts`),
+ * which this package cannot import: it does not depend on plugin-dashboard
+ * (the same reason `measureRefusal` below is a twin). Both read the one
+ * closed list from `@object-ui/types`, so they cannot disagree on membership.
+ */
+function isSlotComponentEntry(entry: DashboardWidgetEntry): entry is DashboardWidgetSlotComponentSchema {
+  return (DASHBOARD_COMPONENT_WIDGET_TYPES as readonly unknown[]).includes(entry.type);
 }
 
 // ============================================================================
@@ -207,11 +249,58 @@ function writeWidgetTitle(
 }
 
 // ============================================================================
+// Widget measures — what the widget door accepts (objectui#8894)
+// ============================================================================
+
+/**
+ * The widget door's refusal of `widget`'s measures under `type`, or
+ * `undefined` when it accepts them.
+ *
+ * A metric-family tile answers ONE number, and `@objectstack/spec` 17.5.0
+ * refuses a second measure on it (ruling D on objectui#8894). This editor
+ * authors no measures itself, but its type picker can turn a stored widget
+ * that carries several (a `bar` over three measures) into a tile, which the
+ * door then refuses at publish. So the picker asks the door before it offers a
+ * type, and shows the door's message when the stored widget is already refused.
+ *
+ * The door is ASKED, never restated: objectui's `DashboardWidgetSchema` mirror
+ * (`@object-ui/types/zod`) re-attaches the spec's own object-level checks, so no
+ * widget-type list lives here and a further refusal the spec adds is followed
+ * once the mirror attaches it. Only the keys a measure rule reads are probed,
+ * each kept to a shape the door accepts: zod skips object-level checks once a
+ * field-level issue aborts the parse, so an unrelated fault elsewhere in the
+ * widget (a malformed `title`, say) must not hide the measure verdict.
+ *
+ * The same probe as plugin-dashboard's `measureRefusal` (`WidgetConfigPanel`'s
+ * measure picker), which this package cannot import: it does not depend on
+ * plugin-dashboard.
+ */
+function measureRefusal(widget: DashboardWidgetEntry, type: string | undefined): string | undefined {
+  const strings = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+  // The measures are widget keys, read on the widget arm alone: a component
+  // node in the slot carries none, so it is probed with none (objectui#11598).
+  const measures = isSlotComponentEntry(widget) ? undefined : widget;
+  const dimensions = measures?.dimensions;
+  const probe = {
+    ...(typeof widget.id === 'string' ? { id: widget.id } : {}),
+    ...(type ? { type } : {}),
+    values: strings(measures?.values),
+    ...(Array.isArray(dimensions) ? { dimensions: strings(dimensions) } : {}),
+  };
+  const result = DashboardWidgetDoor.safeParse(probe);
+  if (result.success) return undefined;
+  return result.error.issues.find(
+    (issue) => issue.code === 'custom' && issue.path.length === 1 && issue.path[0] === 'values',
+  )?.message;
+}
+
+// ============================================================================
 // Widget Card
 // ============================================================================
 
 interface WidgetCardProps {
-  widget: DashboardWidgetSchema;
+  widget: DashboardWidgetEntry;
   index: number;
   total: number;
   selected: boolean;
@@ -303,8 +392,106 @@ function WidgetCard({
 // Widget Property Panel
 // ============================================================================
 
+/**
+ * The colour variants the panel offers, in the order the native control
+ * listed them. TYPED to the widget's own `colorVariant`, so a pick reaches
+ * `onChange` as that type with no cast of a DOM string.
+ */
+const COLOR_VARIANTS: ReadonlyArray<{
+  value: NonNullable<DashboardWidgetSchema['colorVariant']>;
+  label: string;
+}> = [
+  { value: 'default', label: 'Default' },
+  { value: 'blue', label: 'Blue' },
+  { value: 'teal', label: 'Teal' },
+  { value: 'orange', label: 'Orange' },
+  { value: 'purple', label: 'Purple' },
+  { value: 'success', label: 'Success' },
+  { value: 'warning', label: 'Warning' },
+  { value: 'danger', label: 'Danger' },
+];
+
+/** The item a stored value none of a picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/** The classes a picker takes, at the size of the inputs beside it. */
+const PICKER = 'h-auto border-gray-300 px-2.5 py-1.5 text-sm';
+
+/**
+ * objectui#11865 — one of the property panel's pickers (the widget's type and
+ * its colour variant), drawn with the shared `Select`, the control the rest of
+ * the console picks with. They used to be browser-native `<select>`s. What a
+ * pick writes is unchanged: `onPick` receives the picked option's own `value`,
+ * the string the native control's `change` carried, and each caller turns it
+ * into the same `onChange` update as before. Re-picking the current option
+ * writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value, so the picked option is
+ *   resolved against the very list that rendered the items, and no option
+ *   value can collide with the outside item below.
+ * - An option may be `disabled`, as a native `<option>` was: the type picker
+ *   disables the types the widget door refuses this widget's measures under.
+ * - A stored value none of the options carries gets an item of its own,
+ *   labelled with the value, so the trigger shows what the widget holds (a
+ *   stored `area`, a `metric-card` entry). The native control showed its first
+ *   option there ("KPI Metric", "Default"), which is not what the widget says.
+ *   Picking that item writes nothing. An empty value gets no such item: the
+ *   trigger shows nothing.
+ * - Read-only follows the primitive (objectui#11781): `disabled` disables the
+ *   trigger, which wears `SelectTrigger`'s own disabled look.
+ * - `id` lands on the trigger, so the caller's `<label htmlFor>` names it as it
+ *   named the native control.
+ */
+function WidgetPropPicker<V extends string>({
+  id,
+  testId,
+  value,
+  options,
+  onPick,
+  disabled,
+}: {
+  id: string;
+  testId: string;
+  value: string;
+  options: ReadonlyArray<{ value: V; label: string; disabled?: boolean }>;
+  onPick: (value: V) => void;
+  disabled: boolean;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  const outside = at === -1 && value !== '';
+  return (
+    <Select
+      value={at !== -1 ? String(at) : outside ? OUTSIDE_OPTIONS : ''}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the stored value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger id={id} data-testid={testId} className={PICKER}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {outside && (
+          <SelectItem value={OUTSIDE_OPTIONS} data-option-value={value}>
+            {value}
+          </SelectItem>
+        )}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)} disabled={o.disabled} data-option-value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 interface WidgetPropertyPanelProps {
-  widget: DashboardWidgetSchema;
+  widget: DashboardWidgetEntry;
+  /** The widget's position in `widgets[]`, which the grid auto-places it by. */
+  index: number;
   readOnly: boolean;
   onChange: (updates: Partial<DashboardWidgetSchema>) => void;
   onClose: () => void;
@@ -312,14 +499,37 @@ interface WidgetPropertyPanelProps {
 
 function WidgetPropertyPanel({
   widget,
+  index,
   readOnly,
   onChange,
   onClose,
 }: WidgetPropertyPanelProps) {
   const { t, language } = useDesignerTranslation();
+  // Width and height each edit ONE dimension of the spec's four-number
+  // `layout`, so both go through `completeWidgetLayout` (objectui#11388): on a
+  // widget with no `layout` the untouched coordinates come from the grid's
+  // auto-placement for this widget's index, and the stored box is whole.
+  // Spreading the one number onto an absent box stored `{ w }`, which the spec
+  // refuses. Both inputs SHOW the same completed box. This editor's own grid
+  // places widgets by array order and computes no `x` / `y`, so it seeds from
+  // `defaultWidgetPlacement`.
+  const placement = defaultWidgetPlacement(index);
+  const layout = completeWidgetLayout(widget.layout, {}, placement);
   // What the title input SHOWS: the active locale's entry. What a keystroke
   // WRITES is `writeWidgetTitle` — never this resolved string as a whole value.
   const titleDisplay = resolveWidgetTitle(widget.title, language);
+  // The type picker offers only the types the widget door accepts this
+  // widget's measures under, and shows the door's refusal when the widget as
+  // stored is already refused — see `measureRefusal` (objectui#8894). The
+  // widget's own current type stays selectable either way, so a refused stored
+  // widget still shows what it is.
+  const currentType = widget.type ?? 'metric';
+  const refusedUnder = (type: string) => measureRefusal(widget, type) !== undefined;
+  const currentRefusal = measureRefusal(widget, widget.type);
+  // The widget arm, or `undefined` for a component node in the slot (a
+  // `metric-card`), which declares no widget key: the widget-only fields below
+  // are offered on the widget arm alone (objectui#11598, N2 A).
+  const widgetArm = isSlotComponentEntry(widget) ? undefined : widget;
   return (
     <div
       data-testid="widget-property-panel"
@@ -371,25 +581,32 @@ function WidgetPropertyPanel({
       {/* Type */}
       <div className="space-y-1">
         <label htmlFor="widget-type" className="text-xs font-medium text-gray-600">Type</label>
-        <select
+        <WidgetPropPicker
           id="widget-type"
-          data-testid="widget-prop-type"
-          value={widget.type ?? 'metric'}
-          onChange={(e) => {
-            // Resolve the DOM string against the very list that rendered the
-            // options, rather than casting it onto the closed type. No cast, no
-            // tolerance: a value not in the palette writes nothing at all,
+          testId="widget-prop-type"
+          value={currentType}
+          options={WIDGET_TYPES.map((t) => ({
+            value: t.type,
+            label: t.label,
+            disabled: t.type !== currentType && refusedUnder(t.type),
+          }))}
+          onPick={(type) => {
+            // The picker resolves its item against the very list that rendered
+            // the options, so the type arrives typed off the palette, never as a
+            // cast DOM string: a value not in the palette writes nothing at all,
             // instead of storing a `type` the platform refuses at publish.
-            const picked = WIDGET_TYPES.find((t) => t.type === e.target.value);
-            if (picked) onChange({ type: picked.type });
+            // A type the door refuses this widget's measures under writes
+            // nothing either (objectui#8894): its item is disabled, and this
+            // keeps any other route to it from storing what publish refuses.
+            if (type === currentType || !refusedUnder(type)) onChange({ type });
           }}
           disabled={readOnly}
-          className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
-        >
-          {WIDGET_TYPES.map((t) => (
-            <option key={t.type} value={t.type}>{t.label}</option>
-          ))}
-        </select>
+        />
+        {currentRefusal && (
+          <p role="alert" data-testid="widget-prop-measure-refusal" className="break-words text-xs text-red-600">
+            {currentRefusal}
+          </p>
+        )}
       </div>
 
       {/* Analytics binding (data source / dimensions / measures) is authored via
@@ -397,27 +614,24 @@ function WidgetPropertyPanel({
           dashboard's WidgetConfigPanel. The pre-ADR-0021 inline object /
           valueField / aggregate fields were retired in framework#3320. */}
 
-      {/* Color variant */}
-      <div className="space-y-1">
-        <label htmlFor="widget-color" className="text-xs font-medium text-gray-600">Color Variant</label>
-        <select
-          id="widget-color"
-          data-testid="widget-prop-color"
-          value={widget.colorVariant ?? 'default'}
-          onChange={(e) => onChange({ colorVariant: e.target.value as DashboardWidgetSchema['colorVariant'] })}
-          disabled={readOnly}
-          className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
-        >
-          <option value="default">Default</option>
-          <option value="blue">Blue</option>
-          <option value="teal">Teal</option>
-          <option value="orange">Orange</option>
-          <option value="purple">Purple</option>
-          <option value="success">Success</option>
-          <option value="warning">Warning</option>
-          <option value="danger">Danger</option>
-        </select>
-      </div>
+      {/* Color variant — a widget key, so offered on the widget arm alone
+          (objectui#11598, N2 A). A `metric-card` declares no `colorVariant`:
+          the strict face refuses one on the card and `MetricCard` draws
+          nothing from it, so offering the select there could only store a key
+          publish refuses (AGENTS.md #0.1). */}
+      {widgetArm && (
+        <div className="space-y-1">
+          <label htmlFor="widget-color" className="text-xs font-medium text-gray-600">Color Variant</label>
+          <WidgetPropPicker
+            id="widget-color"
+            testId="widget-prop-color"
+            value={widgetArm.colorVariant ?? 'default'}
+            options={COLOR_VARIANTS}
+            onPick={(colorVariant) => onChange({ colorVariant })}
+            disabled={readOnly}
+          />
+        </div>
+      )}
 
       {/* Widget size */}
       <div className="space-y-1">
@@ -430,8 +644,8 @@ function WidgetPropertyPanel({
               data-testid="widget-prop-width"
               type="number"
               min={1}
-              value={widget.layout?.w ?? 1}
-              onChange={(e) => onChange({ layout: { ...widget.layout, w: Number(e.target.value) || 1 } as DashboardWidgetSchema['layout'] })}
+              value={layout.w}
+              onChange={(e) => onChange({ layout: completeWidgetLayout(widget.layout, { w: Number(e.target.value) || 1 }, placement) })}
               disabled={readOnly}
               className="block w-full rounded-md border border-gray-300 px-2 py-1 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
             />
@@ -443,8 +657,8 @@ function WidgetPropertyPanel({
               data-testid="widget-prop-height"
               type="number"
               min={1}
-              value={widget.layout?.h ?? 1}
-              onChange={(e) => onChange({ layout: { ...widget.layout, h: Number(e.target.value) || 1 } as DashboardWidgetSchema['layout'] })}
+              value={layout.h}
+              onChange={(e) => onChange({ layout: completeWidgetLayout(widget.layout, { h: Number(e.target.value) || 1 }, placement) })}
               disabled={readOnly}
               className="block w-full rounded-md border border-gray-300 px-2 py-1 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
             />
@@ -461,7 +675,11 @@ function WidgetPropertyPanel({
 
 function DashboardPreview({ schema }: { schema: DashboardComponentSchema }) {
   const { t, language } = useDesignerTranslation();
-  const widgets = schema.widgets || [];
+  // Typed by the slot's element type, `DashboardWidgetEntry` (objectui#11514),
+  // the same type `WidgetCard` takes: the card below reads `title`, which both
+  // arms of the `widgets[]` union declare (the widget arm's spec row, and the
+  // component arm's card heading).
+  const widgets: DashboardWidgetEntry[] = schema.widgets || [];
   return (
     <div data-testid="dashboard-preview" className="rounded-lg border border-gray-200 bg-gray-50 p-4">
       {/*
@@ -557,7 +775,8 @@ export function DashboardEditor({
   );
 
   const widgets = currentSchema.widgets || [];
-  const selectedWidget = widgets.find((w) => w.id === selectedWidgetId);
+  const selectedIndex = widgets.findIndex((w) => w.id === selectedWidgetId);
+  const selectedWidget = selectedIndex < 0 ? undefined : widgets[selectedIndex];
 
   const addWidget = useCallback(
     (type: DashboardWidgetTypeName) => {
@@ -700,6 +919,7 @@ export function DashboardEditor({
       {selectedWidget && !previewMode && (
         <WidgetPropertyPanel
           widget={selectedWidget}
+          index={selectedIndex}
           readOnly={readOnly}
           onChange={updateWidget}
           onClose={() => setSelectedWidgetId(null)}

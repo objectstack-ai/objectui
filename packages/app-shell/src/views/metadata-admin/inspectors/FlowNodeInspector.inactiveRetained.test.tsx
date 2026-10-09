@@ -175,8 +175,14 @@ describe('clearing is deliberate, author-initiated, and goes through the ordinar
     const clear = within(notices()[0]).getByRole('button', { name: /clear value/i });
     fireEvent.click(clear);
     const patched = onPatch.mock.calls.at(-1)![0] as any;
-    // The retained key is gone; the controller the author actually set stays.
-    expect(patched.nodes[0].config.escalation).toEqual({ enabled: false });
+    // The retained key is gone. This row used to go on "the controller the
+    // author actually set stays" and pin `{ enabled: false }` — the stub
+    // `ApprovalNodeConfigSchema` refuses for its missing `timeoutHours`.
+    // objectui#11660 (triage 6003792818, rule 4): with its last retained value
+    // cleared, the block would hold nothing but its switch, and the author's
+    // OFF survives as no block — which the spec reads as off too. A block that
+    // still held another value would be kept, `enabled: false` and all.
+    expect(patched.nodes[0].config?.escalation).toBeUndefined();
   });
 
   it('does not clear anything until the author clicks — rendering is a read', () => {

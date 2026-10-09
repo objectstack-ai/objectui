@@ -15,7 +15,14 @@
  * @packageDocumentation
  */
 
-import type { ChartAxis as SpecChartAxis, ChartType as SpecChartType, I18nLabel } from '@objectstack/spec/ui';
+import type {
+  ChartAxis as SpecChartAxis,
+  ChartType as SpecChartType,
+  I18nLabel,
+  // The spec's report AUTHOR shape (`z.input` of `ReportSchema`; `spec-report.ts`
+  // re-exports the same type as `SpecReportInput`), for `DrillDownConfig.report`.
+  Report as SpecReportInput,
+} from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { BreadcrumbSchema } from './navigation.js';
 
@@ -286,9 +293,37 @@ export interface AvatarSchema extends BaseSchema {
 export interface ListSchema extends BaseSchema {
   type: 'list';
   /**
-   * List items
+   * Heading drawn above the list.
+   *
+   * READ SITE: `packages/components/src/renderers/data-display/list.tsx`, which
+   * draws `schema.title` in an `h3` above the list when it is set; the `list`
+   * registration publishes it as an input. Undeclared until objectui#11347,
+   * surviving only on `BaseSchema`'s index signature. The installed
+   * `@objectstack/spec` has no row for `list`, and the published
+   * `skills/objectui` expressions guide authors `title` on a `list` node, so
+   * the key is declared where the renderer and the registry already honour it
+   * rather than retired.
    */
-  items: ListItem[];
+  title?: string;
+  /**
+   * List items — the entries drawn when {@link BaseSchema.bind} resolves no
+   * array.
+   *
+   * READ SITE: `packages/components/src/renderers/data-display/list.tsx`, which
+   * reads `useDataScope(schema.bind)` FIRST and falls back to this member only
+   * when the bound value is not an array (`Array.isArray(schema.items)`, so the
+   * read is guarded).
+   *
+   * Optional since objectui#11405. It was REQUIRED, so a bind-only `list` —
+   * which draws one entry per element of the bound array — was refused by both
+   * published faces and could not be annotated with its own type. The
+   * requirement the renderer really has, at least one of `bind` / `items`
+   * present (⛔ not exactly one: `items` is the fallback beside `bind`), lives
+   * on the mirror as a refinement (`listHasAnEntrySource` in
+   * `zod/data-display.zod.ts`, keyed `LIST_ENTRIES_REQUIRED`), so the published
+   * declaration and the published validator say the same thing.
+   */
+  items?: ListItem[];
   /**
    * Whether list is ordered
    * @default false
@@ -307,7 +342,7 @@ export interface ListSchema extends BaseSchema {
   /**
    * Classes on the wrapper `div` around the title and the list.
    *
-   * READ SITE: `packages/components/src/renderers/data-display/list.tsx:27` —
+   * READ SITE: `packages/components/src/renderers/data-display/list.tsx` —
    * `cn("space-y-2", schema.wrapperClass)`. Undeclared until
    * objectui#7722, surviving only on `BaseSchema`'s index signature: the same
    * key, on the same class of read, that `CheckboxSchema` (`b74a8598d`),
@@ -1109,8 +1144,9 @@ export interface DataTableSchema extends BaseSchema {
    *
    * `?: never` is this package's tombstone convention (see `crud.ts`
    * `confirm`, {@link StaticTableColumn}, `TimelineSchema`'s `timeScale`), NOT
-   * a deletion: `BaseSchema`'s `[key: string]: any` would admit a deleted key
-   * as `any` again — the same silence one layer over. The Zod twin refuses it
+   * a deletion: `BaseSchema`'s `[key: string]: any` admitted a deleted key as
+   * `any` until objectui#8347, and a widened value still carries one
+   * unchecked — the same silence one layer over. The Zod twin refuses it
    * loudly via `retirementTombstone()` (`zod/data-display.zod.ts`).
    *
    * RETIRED (objectui#6881, ADR-0049) — never mounted by the data-table
@@ -1267,12 +1303,31 @@ export interface DataTableSchema extends BaseSchema {
    */
   selectable?: boolean | 'single' | 'multiple';
   /**
-   * Selection checkbox display style
-   * - 'always': Checkboxes are always visible
-   * - 'hover': Checkboxes only appear on row hover
-   * @default 'always'
+   * RETIRED (objectui#6152 round 5, ADR-0049) — a selectable table always shows
+   * its row checkboxes; there is no hover-only style. Delete the key: `selectable`
+   * alone turns selection on.
+   *
+   * It was `'always' | 'hover'`, and `data-table` honoured `'hover'` (the checkbox
+   * cell faded in on row hover) — but nothing wrote it. Measured on the retiring
+   * change's base, a reading at that revision and ⛔ not a live count: no document
+   * in this repository or in `objectstack` authors it (every tracked
+   * JSON file, Markdown JSON fence and `type: 'data-table'` object literal), and a
+   * type-checker census over every package found its one destructuring read and
+   * no producer. A published capability with no author and no producer is
+   * retired, ⛔ not kept for its sunk cost, and the hover branch went with it.
+   *
+   * A `?: never` tombstone and ⛔ not a deletion, by the retire-vs-remove
+   * discriminator stated on `ChatbotSchema` in `complex.ts` (cited, not restated
+   * here): this member's published comment taught `'hover'` as a working style,
+   * and on a {@link BaseSchema} carrier a deleted member read as `any` through
+   * the index signature until objectui#8347 (a widened value still skips the
+   * excess-property check), so a stale `'hover'` would type-check in silence. The
+   * zod twin refuses the key by name.
+   *
+   * @deprecated Not part of this contract — selection checkboxes are always
+   * visible.
    */
-  selectionStyle?: 'always' | 'hover';
+  selectionStyle?: never;
   /**
    * Whether to render the built-in "N selected" count in the table toolbar.
    * Set false when an outer container (e.g. ObjectGrid's BulkActionBar) already
@@ -1388,15 +1443,48 @@ export interface DataTableSchema extends BaseSchema {
   /**
    * Enable inline cell editing
    * When true, cells become editable on double-click or Enter key
+   *
+   * HOST-PAIRED, not an authored flag (objectui#6152 round 5): the table only
+   * STAGES an edit; persisting it is the job of the `onRowSave` / `onCellChange`
+   * / `onBatchSave` slots, which a host supplies in code — `ObjectGrid` sets this
+   * key on the `data-table` node it builds, together with that save path. A JSON
+   * document can supply no function, so an authored `editable: true` stages edits
+   * that nothing saves. To edit records inline from a document, author an
+   * `object-grid`, which carries the save path itself.
    * @default false
    */
   editable?: boolean;
   /**
    * Enable single-click editing mode
    * When true with editable, clicking a cell enters edit mode (instead of double-click)
+   *
+   * HOST-PAIRED with {@link DataTableSchema.editable} (objectui#6152 round 5):
+   * `ObjectGrid` sets it in code; no document authors it.
    * @default false
    */
   singleClickEdit?: boolean;
+  /**
+   * Arrow-key cell navigation on the WAI-ARIA grid pattern (objectui#11068).
+   *
+   * When `true` the table is exposed as a `grid` and its data cells take ONE
+   * place in the Tab sequence between them — a roving tab stop that starts on
+   * the first cell and stays on the cell that last held focus — instead of one
+   * stop per cell. Arrow keys move focus one cell; Home / End go to the first /
+   * last cell of the row, and Ctrl+Home / Ctrl+End to the first / last cell of
+   * the page. A cell being edited keeps every key for its editor, and an edit
+   * ended from the keyboard (Enter / Escape) hands focus back to its cell, so
+   * the arrows carry on from there. A widget a cell renders (a link, a button)
+   * keeps its own Tab stop.
+   *
+   * SET IN CODE, not authored on this node (the class of
+   * {@link DataTableSchema.editable}): `ObjectGrid` resolves the `object-grid`
+   * node's own `keyboardNavigation` — the key the spec's `object-grid` row
+   * declares, defaulting to on when the grid is inline-editable — and hands the
+   * answer to the table it builds. Absent here means off: every data cell stays
+   * its own Tab stop, as it always was.
+   * @default false
+   */
+  keyboardNavigation?: boolean;
   /**
    * Host-supplied cell editor for inline editing (`bf97b98c8`).
    *
@@ -1718,8 +1806,9 @@ export interface MarkdownSchema extends BaseSchema {
    *
    * `?: never` is this package's tombstone convention (see `crud.ts`
    * `confirm`, {@link StaticTableColumn}, `DataTableSchema.toolbar` above),
-   * NOT a deletion: `BaseSchema`'s `[key: string]: any` would admit a deleted
-   * key as `any` again — the same silence one layer over. The Zod twin refuses
+   * NOT a deletion: `BaseSchema`'s `[key: string]: any` admitted a deleted key
+   * as `any` until objectui#8347, and a widened value still carries one
+   * unchecked — the same silence one layer over. The Zod twin refuses
    * it loudly via `retirementTombstone()` (`zod/data-display.zod.ts`). Both
    * published faces carry the refusal: `@object-ui/plugin-markdown` re-exports
    * this one authority (objectui#6172), so its consumers meet the same
@@ -2474,30 +2563,36 @@ export interface DrillDownConfig {
   /** Drawer/dialog title. Supports `${event.*}` interpolation. */
   title?: string;
   /**
-   * Drill into an analytical Report instead of the raw record list. When
-   * provided, the drill-down drawer renders the supplied `SpecReport` (with
-   * `widget.filter ∧ report.filter` merged so the metric's scope is honoured).
+   * Drill into an analytical report instead of the raw record list.
    *
    * This is the M3 "Dashboard → Report → List → Record" path: the KPI on the
    * dashboard expands into a multi-dimensional breakdown report; the report
    * itself can drill into a list of records (via its own row-click drill),
    * which can drill into a single record.
    *
-   * Either an inline `SpecReport` JSON or a named report reference is
-   * supported. Implementations may render the named form by resolving it
-   * against an app-level report registry.
+   * The report is written inline and is dataset-bound (ADR-0021),
+   * `@objectstack/spec`'s `ReportSchema` author shape by reference: the document
+   * the drawer wraps in the `report` node, whose `report` member is that same
+   * schema (objectui#11440), so its members, required keys and refusals apply
+   * unchanged. The drawer joins the block's resolved drill filter to the
+   * report's own `runtimeFilter` with `$and` and writes the result as the
+   * report's `runtimeFilter`, the one filter key the dataset renderer applies
+   * (objectui#5137, objectui#11506). The spec refuses `filter` here.
    *
-   * The shape is structural to avoid a circular import with `spec-report.ts`.
+   * ⛔ The pre-9.0 object-bound form (`objectName` plus column objects) is
+   * retired (objectui#11506), with no alias window: nothing produced it, the
+   * spec refuses it (`objectName` is an alias of `dataset`), and through the
+   * real drawer it drew an empty presentation and issued no query, so a drill
+   * filter reached nothing under either key.
+   *
+   * ⛔ The named reference, `{ name }`, is retired too (objectui#11517), with no
+   * alias window: no renderer resolved a report name against any registry, so
+   * `DrillDownDrawer` listed the records for it, as for a drill with no
+   * `report`, and nothing produced it. A bare `{ name }` is not a report: this
+   * type refuses it for the members the spec requires, and both zod faces refuse
+   * it by name.
    */
-  report?:
-    | {
-        name: string;
-        objectName: string;
-        type?: 'tabular' | 'summary' | 'matrix' | 'joined';
-        columns: Array<unknown>;
-        [k: string]: unknown;
-      }
-    | { name: string };
+  report?: SpecReportInput;
   /**
    * Optional column whitelist for the inline drill list. When omitted the
    * data table renders all default columns.
@@ -2572,10 +2667,11 @@ export interface ObjectMetricDrillDownConfig extends DrillDownConfig {
  * an AI) sees.
  *
  * ⚠️ This is a TypeScript declaration, so it refuses the key where an author
- * types against it (`ObjectPivotTable`'s `schema.drillDown`). `object-pivot`
- * has no zod mirror, so a stored JSON config is checked by no validator and
- * reaches the block unchanged. (`PivotTableSchema`, the plain `pivot` node,
- * gained one in objectui#10859 batch 2, and there `drillDown` is refused whole:
+ * types against it (`ObjectPivotTable`'s `schema.drillDown`). A stored JSON
+ * config is judged by the `object-pivot` arm of `@object-ui/types/zod` since
+ * objectui#11440, which refuses `mode` by name in the bag's `drillDown`.
+ * (`PivotTableSchema`, the plain `pivot` node, gained its own zod mirror in
+ * objectui#10859 batch 2, and there `drillDown` is refused whole:
  * the key is a retirement tombstone on both faces since objectui#10932, because
  * nothing drills a `pivot` node. This type is where a pivot drill is authored.)
  */
@@ -2726,8 +2822,8 @@ export interface PivotTableSchema extends BaseSchema {
    *
    * `?: never` is this package's tombstone convention (see
    * `DataTableSchema.toolbar`, {@link StaticTableColumn}), NOT a deletion:
-   * `BaseSchema`'s `[key: string]: any` would admit a deleted key as `any`
-   * again. The Zod twin refuses it loudly via `retirementTombstone()`
+   * `BaseSchema`'s `[key: string]: any` admitted a deleted key as `any` until
+   * objectui#8347, and a widened value still carries one unchecked. The Zod twin refuses it loudly via `retirementTombstone()`
    * (`zod/data-display.zod.ts`), naming the same remedy.
    *
    * RETIRED (objectui#10932, ADR-0049) — a `pivot` node draws a cross-tab of
@@ -2925,7 +3021,15 @@ export type TimelineGanttItemBar = {
    * milliseconds), or a `Date`.
    */
   startDate?: string | number | Date;
-  /** Bar end — same accept set as {@link TimelineGanttItemBar.startDate}. */
+  /**
+   * Bar end — same accept set as {@link TimelineGanttItemBar.startDate}.
+   *
+   * Inclusive for a date-only value (objectui#11112): a `YYYY-MM-DD` end is
+   * drawn through the end of the day it names, so `2024-01-01` to
+   * `2024-01-31` fills January and a bar that starts and ends on the same day
+   * is one day wide. A value with a time part, a number or a `Date` is an
+   * instant, and the bar ends at it.
+   */
   endDate?: string | number | Date;
   /** Bar colour. */
   variant?: TimelineItemVariant;
@@ -2954,10 +3058,10 @@ export interface TimelineGanttItem {
  * adopted on objectui#6172: **the exported type aligns to the measured
  * authored + read set.** Before that ruling this interface declared `events` /
  * `orientation` / `position` and nothing else, and the divergence was
- * invisible to `tsc` because {@link BaseSchema} carries `[key: string]: any` —
+ * invisible to `tsc` because {@link BaseSchema} carried `[key: string]: any` —
  * every key the renderer reads resolved as `any`, so `schema: TimelineSchema`
- * constrained nothing. (The index signature itself is objectui#5155 /
- * objectui#6269, deliberately not touched here.)
+ * constrained nothing. (The index signature itself was objectui#5155 /
+ * objectui#6269's, deliberately not touched here; objectui#8347 removed it.)
  *
  * Measured on `origin/main` @ `79ebf30d1`: `TimelineRenderer`
  * (`plugin-timeline/src/renderer.tsx:250`) reads NINE keys off this node —
@@ -3058,9 +3162,10 @@ export interface TimelineSchema extends BaseSchema {
    *
    * `?: never` is this package's tombstone convention (see {@link
    * StaticTableColumn} objectui#5474, `crud.ts` `confirm` objectui#4314), and
-   * it is load-bearing rather than decorative. {@link BaseSchema} carries
-   * `[key: string]: any`, so DELETING this member would let the retired
-   * spelling type-check green and do nothing — the renderer no longer reads it,
+   * it is load-bearing rather than decorative. {@link BaseSchema} carried
+   * `[key: string]: any` until objectui#8347, and a deletion is still refused
+   * only on a fresh literal, so DELETING this member would let the retired
+   * spelling type-check green through a widened value and do nothing — the renderer no longer reads it,
    * and the axis would silently fall back to the `month` default with no
    * diagnostic. That is the silent axis breakage objectui#2942 closed, running
    * in the other direction. Keeping the key declared as `never` is what makes
@@ -3104,8 +3209,10 @@ export interface TimelineSchema extends BaseSchema {
    * `?: never` is this package's tombstone convention (see
    * {@link TimelineSchema.timeScale} a few members above, {@link StaticTableColumn}
    * objectui#5474), and it is load-bearing rather than decorative.
-   * {@link BaseSchema} carries `[key: string]: any`, so DELETING this member
-   * would let the retired key type-check green and keep drawing an empty rail
+   * {@link BaseSchema} carried `[key: string]: any` until objectui#8347, and a
+   * deletion is still refused only on a fresh literal, so DELETING this member
+   * would let the retired key type-check green through a widened value and
+   * keep drawing an empty rail
    * — the silent no-op this retirement exists to make audible. Keeping it
    * declared as `never` is what turns it into a compile error.
    *

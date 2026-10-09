@@ -165,16 +165,13 @@ overriding the token values: [`rules/styling.md`](../rules/styling.md).
 | `objectui dev` | Dev server with HMR + schema watching (alias: `objectui serve`) |
 | `objectui build` | Production build (Vite) |
 | `objectui start` | Serve a previously-built production bundle |
-| `objectui studio` | Visual UI editor |
 | `objectui validate` | Validate a schema file (CI-friendly, exits non-zero on failure) |
 | `objectui check` | Sweep the project's JSON files — not a validation verdict: a file whose root carries a structural key (`children`, `className`, `body`, …) is recognised by that key and never parsed against the schema; only a file with none of those keys is parsed, and it is listed as an advisory when its root `type` names a registered component but the document fails; exits non-zero on unreadable JSON only. Use `objectui validate` for the verdict |
-| `objectui lint` | Lint generated app code (ESLint) |
-| `objectui test` | Run app tests (Vitest) |
 | `objectui generate` | Code/schema generation (`object`, `page`, `plugin`) |
-| `objectui add` | Add a component renderer scaffold |
-| `objectui create plugin` | Scaffold a new plugin |
 | `objectui doctor` | Diagnostics (Node version, deps, etc.) |
-| `objectui analyze` | Analyze bundle size / render performance |
+| `objectui analyze` | Bundle-size report over the built `dist/` output |
+
+A plugin package is scaffolded by its own initializer, `npm create @object-ui/plugin NAME`, not by the CLI.
 
 ### Dev server modes
 
@@ -274,18 +271,24 @@ internal to `@object-ui/components` and is reached through the registry, not by
 import. Importing any of the three from `app-shell` does not resolve.
 
 ```tsx
-import { AppShell, ObjectView, AdapterProvider, MetadataProvider } from '@object-ui/app-shell';
+import { AppShell, AdapterProvider, MetadataProvider } from '@object-ui/app-shell';
 
 <AdapterProvider adapter={myAdapter}>
   <MetadataProvider adapter={myAdapter}>
     <AppShell sidebar={<MySidebar />}>
-      <ObjectView objectName="contact" />
+      {/* your React Router routes — ObjectView mounts on an object route, see below */}
     </AppShell>
   </MetadataProvider>
 </AdapterProvider>
 ```
 
-App-shell is router-agnostic — wire it into React Router / Next.js / TanStack Router yourself.
+App-shell runs under React Router: `react-router-dom` is its peer dependency, and
+`ObjectView` resolves the object and view from the route (the console mounts it on
+`/apps/:appName/:objectName` and `/apps/:appName/:objectName/view/:viewId`), so it
+takes no `objectName` prop. Its props are the exported `ConsoleObjectViewProps` —
+`dataSource`, `objects`, `onEdit`, and the optional `externalRefreshKey`. Copy the
+mount from the "ObjectView" section of `packages/app-shell/README.md`: that block is
+the one `pnpm check:doc-snippets` compiles, and this guide does not restate it.
 
 ### `@object-ui/runner` — universal runtime
 

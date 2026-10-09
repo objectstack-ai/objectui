@@ -97,9 +97,9 @@ const OBJECT = 'opportunity';
 const OBJECT_FIELDS: Record<string, any> = {
   name: { type: 'text', label: 'Name' },
   stage: { type: 'select', label: 'Stage' },
-  account: { type: 'lookup', reference_to: 'accounts', label: 'Account' },
-  secret_account: { type: 'lookup', reference_to: 'accounts', label: 'Secret Account' },
-  owner_dept: { type: 'master_detail', reference_to: 'departments', label: 'Dept' },
+  account: { type: 'lookup', reference: 'accounts', label: 'Account' },
+  secret_account: { type: 'lookup', reference: 'accounts', label: 'Secret Account' },
+  owner_dept: { type: 'master_detail', reference: 'departments', label: 'Dept' },
 };
 
 const RECORD = { id: 'o1', name: 'Big deal' };

@@ -26,6 +26,8 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { SchemaRenderer } from '@object-ui/react';
+import type { PivotTableSchema } from '@object-ui/types';
+import { undeclaredNode } from '@object-ui/test-support';
 // Registers `pivot` → `PivotTable`, the registration every `pivot` path uses.
 import '../index';
 import { PivotTable } from '../PivotTable';
@@ -43,8 +45,13 @@ const PIVOT = {
   ],
 };
 
-/** What an author's document carries: the retired key, reaching the renderer anyway. */
-const NODE = { ...PIVOT, drillDown: { enabled: true } };
+/**
+ * What an author's document carries: the retired key, reaching the renderer
+ * anyway. `PivotTableSchema` refuses `drillDown` by name, which is the point, so
+ * the node crosses through the one test helper for undeclared input
+ * (objectui#11466).
+ */
+const NODE = undeclaredNode<PivotTableSchema>({ ...PIVOT, drillDown: { enabled: true } });
 
 describe('a `pivot` node authored with `drillDown` draws no drill affordance (objectui#10932)', () => {
   it('renders the cross-tab through SchemaRenderer, with no interactive cell or header', () => {

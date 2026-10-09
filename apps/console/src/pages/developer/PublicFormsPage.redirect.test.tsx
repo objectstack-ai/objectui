@@ -48,8 +48,11 @@
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+// The page asks the router where the anonymous route is served (objectui#11769),
+// so it renders inside one, as it does in the app.
+import { MemoryRouter } from 'react-router-dom';
 import { FormViewSchema } from '@objectstack/spec/ui';
 
 /**
@@ -116,14 +119,19 @@ function setUrl(field: HTMLElement, value: string) {
   fireEvent.change(field, { target: { value } });
 }
 
-/** Open the row's editor and switch the post-submit behavior to `redirect`. */
+/**
+ * Open the row's editor and switch the post-submit behavior to `redirect`,
+ * through the shared `Select` the picker is (objectui#11865): open it from the
+ * keyboard, choose the option.
+ */
 async function openRedirectEditor(user: ReturnType<typeof userEvent.setup>) {
-  render(<PublicFormsPage />);
+  render(<PublicFormsPage />, { wrapper: MemoryRouter });
   await user.click(
     await screen.findByRole('button', { name: /Edit sharing & post-submit behavior/i }),
   );
-  await user.selectOptions(await screen.findByLabelText(/After submit/i), 'redirect');
-  return screen.getByLabelText(/Redirect URL/i);
+  fireEvent.keyDown(await screen.findByRole('combobox', { name: /After submit/i }), { key: 'ArrowDown' });
+  fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'Redirect to a URL' }));
+  return screen.findByLabelText(/Redirect URL/i);
 }
 
 beforeEach(() => saveItem.mockClear());
@@ -231,7 +239,7 @@ describe('in-contract values still save (#4990)', () => {
    */
   it('leaves thank-you title/message unvalidated — the spec declares them free text', async () => {
     const user = userEvent.setup();
-    render(<PublicFormsPage />);
+    render(<PublicFormsPage />, { wrapper: MemoryRouter });
     await user.click(
       await screen.findByRole('button', { name: /Edit sharing & post-submit behavior/i }),
     );

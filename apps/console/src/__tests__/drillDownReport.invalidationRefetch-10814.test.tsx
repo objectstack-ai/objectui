@@ -8,18 +8,19 @@
 
 /**
  * objectui#10814 — the `drillDown.report` arm of `DrillDownDrawer` (the drill
- * of the `object-pivot` and `object-metric` blocks) renders a `spec-report`
- * through `SchemaRenderer`, so the dataset report it draws re-reads on the
+ * of the `object-pivot` and `object-metric` blocks) renders a `report` node
+ * wrapping the report (`spec-report` until objectui#11440) through
+ * `SchemaRenderer`, so the dataset report it draws re-reads on the
  * data-invalidation bus with the reader the report renderer carries itself. The
  * drawer needs no reader of its own.
  *
  * Here, not beside the drawer: the drawer lives in `@object-ui/plugin-dashboard`
- * and the `spec-report` it dispatches to is registered by
+ * and the `report` it dispatches to is registered by
  * `@object-ui/plugin-report`, which that package does not depend on. The
  * console depends on both, which is the pairing a real drill runs in.
  *
  * The drawer is mounted open with a dataset-bound matrix report (the shape the
- * drawer's report arm takes: a report carrying a `columns` array), under a
+ * drawer's report arm takes: a report bound to a `dataset`, objectui#11506), under a
  * provider whose adapter counts `queryDataset` calls. The bare
  * `useDataInvalidation` reader beside it is the positive control.
  *
@@ -34,7 +35,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act, cleanup } from '@testing-library/react';
 import { SchemaRendererProvider, notifyDataChanged, useDataInvalidation } from '@object-ui/react';
 import { DrillDownDrawer } from '@object-ui/plugin-dashboard';
-// Registers `spec-report`, the type the drawer's report arm renders.
+// Registers `report`, the type the drawer's report arm renders (objectui#11440).
 import '@object-ui/plugin-report';
 
 beforeEach(() => {

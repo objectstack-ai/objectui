@@ -66,10 +66,12 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
   //     the h1, the subtitle, the breadcrumb/action slots and the bottom rule;
   //     `recordChrome: false` selects the bare non-record layout, since this is
   //     a welcome page with no bound record.
-  //   • in-body headings are `element:text` with a variant — `subheading`
-  //     renders an h3, which is what the old `level: 3` asked for. (`heading`
-  //     is a VARIANT of element:text, never a type; that near-miss is how the
-  //     original went wrong.)
+  //   • in-body headings are `element:text` with a heading variant — `h3`
+  //     renders an h3, which is what the old `level: 3` asked for. The variant
+  //     names the level, the same nine values `ui:text` takes (objectui#7450);
+  //     `heading` / `subheading` are the pre-convergence spellings, refused
+  //     since `@objectstack/spec` 17.7.0 and not authored here. (A heading is a VARIANT of element:text, never a type;
+  //     `{ type: 'heading' }` is the near-miss the original made.)
   //   • the rule is `element:divider`. The old bare `separator` did resolve —
   //     `ui:separator` claims the bare name — but it is not a page block type,
   //     and the `element:*` family is what the designer palette offers.
@@ -101,7 +103,7 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
           { type: 'page:header', properties: { title: 'Welcome to the CRM', recordChrome: false } },
           { type: 'element:text', properties: { content: 'Track accounts, contacts, and deals in one place.' } },
           { type: 'element:divider' },
-          { type: 'element:text', properties: { content: 'Quick links', variant: 'subheading' } },
+          { type: 'element:text', properties: { content: 'Quick links', variant: 'h3' } },
           { type: 'element:text', properties: { content: 'Open the pipeline, review tasks, or create a new lead.' } },
         ],
       },
@@ -238,7 +240,7 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
           },
         },
       },
-      { id: 'fan_out', type: 'parallel', label: 'Notify in parallel', config: { branches: [ { name: 'Email the owner', nodes: [ { id: 'email_owner', type: 'script', label: 'Email Owner', config: { actionType: 'email', template: 'renewal_reminder', recipients: ['owner.email'] } } ], edges: [] }, { name: 'Post to Slack', nodes: [ { id: 'slack_post', type: 'script', label: 'Slack Notify', config: { actionType: 'slack' } } ], edges: [] } ] } },
+      { id: 'fan_out', type: 'parallel', label: 'Notify in parallel', config: { branches: [ { name: 'Email the owner', nodes: [ { id: 'email_owner', type: 'script', label: 'Email Owner', config: { function: 'compose_owner_email', inputs: { template: 'renewal_reminder', to: 'owner.email' }, outputVariable: 'ownerEmail' } } ], edges: [] }, { name: 'Post to Slack', nodes: [ { id: 'slack_post', type: 'script', label: 'Slack Notify', config: { function: 'compose_slack_message', outputVariable: 'slackMessage' } } ], edges: [] } ] } },
       { id: 'guard', type: 'try_catch', label: 'Push with retry', config: { errorVariable: '$error', try: { nodes: [ { id: 'push', type: 'http_request', label: 'Push to CRM', config: { method: 'POST', url: 'https://api.example.com/v1/tasks' } } ], edges: [] }, catch: { nodes: [ { id: 'record_failure', type: 'update_record', label: 'Flag Sync Failure', config: { objectName: 'contract', fields: { reminded: false } } } ], edges: [] } } },
       { id: 'check', type: 'decision', label: 'Within reminder window?', config: { conditions: [ { label: 'Within window', expression: 'daysToExpiry <= daysBefore' }, { label: 'Else', expression: 'true' } ] } },
       { id: 'email', type: 'connector_action', label: 'Send renewal email', connectorConfig: { connectorId: 'email', actionId: 'send', input: { to: 'owner.email', template: 'renewal_reminder' } } },
@@ -249,8 +251,15 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
       { id: 'task', type: 'create_record', label: 'Create CSM follow-up', config: { objectName: 'task', fields: { subject: 'Renewal follow-up', priority: 'high' } } },
       { id: 'skip', type: 'update_record', label: 'Mark as not due', config: { objectName: 'contract', filter: { id: '{contractId}' }, fields: { reminded: false } } },
       { id: 'review', type: 'screen', label: 'CSM review', config: { fields: [ { name: 'discount', label: 'Discount %', type: 'number', required: false }, { name: 'note', label: 'Note', type: 'text', required: true, visibleWhen: 'discount > 0' } ] } },
-      { id: 'notify', type: 'script', label: 'Email the owner', config: { actionType: 'email', template: 'renewal_reminder', recipients: ['owner.email', 'csm@example.com'], variables: { contractId: '{contractId}' } } },
-      { id: 'enrich', type: 'script', label: 'Score (code)', config: { script: "variables.score = 42;\nreturn variables;", outputVariables: ['score'] } },
+      // The four `script` nodes use the script contract `@objectstack/spec` 17.5.0
+      // enforces (objectui#11073): a REQUIRED `function` naming a registered
+      // function, optional `inputs` and `outputVariable`. The keys they carried
+      // before — `actionType`, `template`, `recipients`, `variables`, `script`,
+      // `outputVariables` — are spec 17 tombstones the executor refuses by name,
+      // and a script is contractually pure, so these compose a value a later
+      // declarative node sends rather than sending it themselves.
+      { id: 'notify', type: 'script', label: 'Email the owner', config: { function: 'compose_renewal_reminder', inputs: { template: 'renewal_reminder', contractId: '{contractId}' }, outputVariable: 'reminder' } },
+      { id: 'enrich', type: 'script', label: 'Score (code)', config: { function: 'score_contract', inputs: { contractId: '{contractId}' }, outputVariable: 'score' } },
       // `completed`, not `success`: @objectstack/spec 17.4.0 narrowed the end
       // node's outcome enum to `completed | refused` (objectui#8785). `refused`
       // is not interchangeable — the spec additionally REQUIRES a `message`
@@ -475,12 +484,21 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
     description: 'Simplified Chinese bundle for the CRM app.',
     data: {
       objects: {
-        sales_order: { label: '销售订单', fields: { amount: '金额' } },
+        sales_order: {
+          label: '销售订单',
+          // A field's entry is a node (`{ label }`), never a bare string.
+          fields: { amount: { label: '金额' } },
+          // `close_order` is bound to `sales_order` (the `action` sample's
+          // `objectName`), so its copy lives under the object's `_actions`.
+          // `globalActions` is only for actions bound to no object: a bound
+          // action's copy filed there is never read for it, by the server or
+          // the console, and `os validate` refuses it (objectui#11439).
+          _actions: { close_order: { label: '关闭订单' } },
+        },
         account: { label: '客户' },
       },
       apps: { crm: { label: 'CRM' } },
       messages: { welcome: '欢迎', saved: '已保存' },
-      globalActions: { close_order: '关闭订单' },
     },
   },
 };

@@ -113,7 +113,7 @@ const FIELDS = {
   id: { type: 'text', label: 'Id' },
   name: { type: 'text', label: 'Name' },
   status: { type: 'text', label: 'Status' },
-  owner: { type: 'lookup', label: 'Owner', reference_to: 'sys_user' },
+  owner: { type: 'lookup', label: 'Owner', reference: 'sys_user' },
 };
 
 function objectDef(userActions?: unknown) {

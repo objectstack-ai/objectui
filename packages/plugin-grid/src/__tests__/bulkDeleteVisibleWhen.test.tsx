@@ -337,3 +337,43 @@ describe('selection-bar Delete vs `userActions.delete.visibleWhen` (objectui#442
     expect(screen.queryByTestId('bulk-skipped-notice')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * objectui#11322 — a BLANK `visibleWhen` on the built-in Delete keeps the
+ * fold's answer: every selected record is excluded, as before.
+ *
+ * The same card made a blank bulk ACTION `visible` "no gate" on this bar,
+ * because the action family decides "is a gate declared?" before it calls the
+ * fold. This key is not an action's `visible`; it is a field-rule key, and
+ * `ObjectGrid` hands it to the fold directly. If it went through the action
+ * door instead, a whitespace `visibleWhen` would admit every record and hand
+ * them to the host's `onBulkDelete` while the row item still hides its Delete.
+ * That is the destructive widening triage ruled out. The no-gate case above is
+ * the control: with nothing declared, the whole selection goes through.
+ */
+describe('selection-bar Delete vs a blank `visibleWhen` (objectui#11322)', () => {
+  it.each([
+    ['a whitespace-only string', '   '],
+    ['an envelope whose `source` is whitespace', { dialect: 'cel', source: '   ' }],
+  ])('%s still excludes every record: the dialog refuses, nothing is deleted', async (_label, visibleWhen) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { onBulkDelete, dataSource } = await renderAndSelect({
+        rows: [DRAFT, PAID],
+        userActionsDelete: { visibleWhen },
+        // The draft alone: a row the real predicate above would admit, so the
+        // exclusion is the blank's doing, not the record's.
+        selectRowNames: ['INV-1010'],
+      });
+
+      fireEvent.click(await screen.findByTestId('bulk-action-delete'));
+
+      expect(await screen.findByTestId('bulk-skipped-notice')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Run' })).toBeDisabled();
+      expect(dataSource.delete).not.toHaveBeenCalled();
+      expect(onBulkDelete).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});

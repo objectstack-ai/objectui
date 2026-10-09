@@ -11,9 +11,9 @@
  */
 
 import * as React from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle2, CircleDot, GitBranch } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, CircleDot, CircleSlash, GitBranch } from 'lucide-react';
 import { cn } from '@object-ui/components';
-import type { FlowProblem } from './flow-problems.js';
+import { describeFlowRunStatus, type FlowProblem, type FlowRunStatus } from './flow-problems.js';
 import { t as tr } from '../i18n.js';
 
 export interface ProblemsPanelProps {
@@ -23,6 +23,14 @@ export interface ProblemsPanelProps {
   onSelectProblem: (problem: FlowProblem) => void;
   /** UI locale for the panel chrome. */
   locale?: string;
+  /**
+   * The flow's run status (objectui#11779), the one the header's Status pill
+   * shows. A flow the deployment does not run on its trigger (`not-running`)
+   * gets a note above the list: a deployment fact, not an authoring problem,
+   * so it is never counted, never styled as an error, and the structural
+   * verdict below it stands as it is.
+   */
+  runStatus?: FlowRunStatus;
 }
 
 function targetLabel(p: FlowProblem): string {
@@ -31,9 +39,10 @@ function targetLabel(p: FlowProblem): string {
   return 'flow';
 }
 
-export function ProblemsPanel({ problems, selectedKey, onSelectProblem, locale }: ProblemsPanelProps) {
+export function ProblemsPanel({ problems, selectedKey, onSelectProblem, locale, runStatus }: ProblemsPanelProps) {
   const errorCount = problems.filter((p) => p.level === 'error').length;
   const warningCount = problems.length - errorCount;
+  const runNote = runStatus?.kind === 'not-running' ? describeFlowRunStatus(runStatus, locale) : null;
 
   return (
     <div className="flex h-full flex-col text-xs">
@@ -50,6 +59,19 @@ export function ProblemsPanel({ problems, selectedKey, onSelectProblem, locale }
           </span>
         )}
       </div>
+      {runNote && (
+        <div
+          role="note"
+          data-testid="flow-run-status-note"
+          className="mx-1.5 mt-1.5 flex items-start gap-2 rounded-md border border-dashed px-2 py-1.5 text-muted-foreground"
+        >
+          <CircleSlash className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block leading-snug text-foreground">{runNote.label}</span>
+            {runNote.title && <span className="mt-0.5 block text-[10px] leading-snug">{runNote.title}</span>}
+          </span>
+        </div>
+      )}
       {problems.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1.5 p-4 text-center text-muted-foreground">
           <CheckCircle2 className="h-5 w-5 text-emerald-500" />

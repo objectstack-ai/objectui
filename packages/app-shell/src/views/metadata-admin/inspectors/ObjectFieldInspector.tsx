@@ -34,10 +34,23 @@
  */
 
 import * as React from 'react';
-import { FieldSchema, VALUE_DOMAIN_FIELD_TYPES } from '@objectstack/spec/data';
+import {
+  FieldSchema,
+  MULTI_OPTION_TYPES,
+  NUMERIC_VALUE_TYPES,
+  SINGLE_OPTION_TYPES,
+  VALUE_DOMAIN_FIELD_TYPES,
+} from '@objectstack/spec/data';
 import { ValueDomainSchema } from '@objectstack/spec/shared';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
-import { MetadataClient } from '@object-ui/data-objectstack';
+import {
+  assertObjectMetadataWritable,
+  CHOICE_TYPES_REQUIRING_OPTIONS,
+  MetadataClient,
+  OBJECT_METADATA_TYPE,
+  RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+} from '@object-ui/data-objectstack';
+import { useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
 import { useMetadataClient } from '../useMetadata.js';
 import {
   InspectorShell,
@@ -53,6 +66,7 @@ import {
 import { Button, Input, Label, Badge } from '@object-ui/components';
 import { Plus, X, ArrowUp, ArrowDown, Copy, AlertTriangle } from 'lucide-react';
 import { InspectorComboField, type InspectorComboOption } from './InspectorComboField.js';
+import { ObjectPicker } from './ObjectPicker.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
 import {
   readFields,
@@ -64,12 +78,13 @@ import {
 } from '../previews/object-fields-io.js';
 import {
   FIELD_TYPE_META,
-  TYPES_BY_CATEGORY,
   type FieldTypeId,
 } from '../previews/field-types.js';
+import { FieldTypePicker } from './FieldTypePicker.js';
 import { CelPredicateField } from '../CelPredicateField.js';
 import type { CelLintIssue } from '../celAuthoring.js';
-import { t, tFormat } from '../i18n.js';
+import { t, tFormat, type SupportedLocale } from '../i18n.js';
+import { usePickerLoad, type LoadState } from '../loadState.js';
 
 
 /**
@@ -266,8 +281,47 @@ function isPicklist(type: string): boolean {
   return type === 'select' || type === 'multiselect' || type === 'radio' || type === 'checkboxes';
 }
 
+/**
+ * Whether a field of this type may name a shared `picklist` — the spec's own
+ * option types (`SINGLE_OPTION_TYPES` ∪ `MULTI_OPTION_TYPES`), read from the
+ * installed contract rather than re-listed. `FieldSchema` refuses `picklist` on
+ * any other type, so a retype away from these drops the binding.
+ */
+function takesPicklist(type: string): boolean {
+  return SINGLE_OPTION_TYPES.has(type) || MULTI_OPTION_TYPES.has(type);
+}
+
 function isLookup(type: string): boolean {
   return type === 'lookup' || type === 'master_detail' || type === 'tree';
+}
+
+/**
+ * objectui#11786 — what the object write guard holds this field for: its
+ * options (a choice type with no option source) or its target (a relationship
+ * with no usable `reference`), else nothing. Asked of the guard itself, on the
+ * field alone, so the hint under the input names exactly what keeps the save
+ * from going: Studio's autosave holds the edit on the same verdict, and the
+ * other hosts' doors refuse on it.
+ */
+function guardHeldNeed(name: string, def: Record<string, unknown>): 'options' | 'target' | null {
+  try {
+    assertObjectMetadataWritable(OBJECT_METADATA_TYPE, { fields: { [name]: def } }, 'ObjectFieldInspector');
+    return null;
+  } catch {
+    const type = String(def.type);
+    if (CHOICE_TYPES_REQUIRING_OPTIONS.includes(type)) return 'options';
+    if (RELATIONSHIP_TYPES_REQUIRING_REFERENCE.includes(type)) return 'target';
+    return null;
+  }
+}
+
+/** objectui#11786 — the inline hint under the input that holds the save. */
+function HeldHint({ children }: { children: React.ReactNode }) {
+  return (
+    <p data-testid="field-held-hint" className="text-[11px] leading-snug text-muted-foreground">
+      {children}
+    </p>
+  );
 }
 
 function isComputed(type: string): boolean {
@@ -372,16 +426,34 @@ type DefaultKind = 'bool' | 'number' | 'picklist' | 'text';
  * Which default-value editor (if any) fits a field type. Computed,
  * relational, media and structural types have no meaningful literal
  * default in this UI, so they return null (no editor rendered).
+ *
+ * The structural row holds types whose stored value is an object or an
+ * array (objectui#11947): `FieldSchema` judges a literal default against the
+ * field's own stored value contract, so the string the text editor writes is
+ * refused for them, and no editor here can author the structured value. A
+ * default such a field already carries (authored in code) stays on the field
+ * untouched. `ObjectFieldInspector.recordNoDefault-11947.test.tsx` pins
+ * `record`, `location` and `address` through this inspector.
+ *
+ * The number editor serves every type in the spec's numeric value class,
+ * `NUMERIC_VALUE_TYPES`, read from the installed contract rather than
+ * re-listed (objectui#11966): `FieldSchema` judges a literal default of such a
+ * field as a number, and a hand list here once left `rating`, `slider` and
+ * `progress` on the text editor, whose string the spec refuses. A computed
+ * member of the class (`summary`) still gets no editor. A default already
+ * stored as a string is not converted: it stays on the field until the author
+ * types a number over it. `ObjectFieldInspector.numericDefault-11966.test.tsx`
+ * pins the three types through this inspector.
  */
 function defaultValueKind(type: string): DefaultKind | null {
   if (type === 'boolean' || type === 'toggle') return 'bool';
-  if (type === 'number' || type === 'currency' || type === 'percent') return 'number';
+  if (NUMERIC_VALUE_TYPES.has(type) && !isComputed(type)) return 'number';
   if (type === 'select' || type === 'radio') return 'picklist';
   const noDefault = [
     'formula', 'summary', 'autonumber',
     'lookup', 'master_detail', 'tree',
     'file', 'image', 'avatar', 'video', 'audio', 'signature', 'qrcode',
-    'composite', 'repeater', 'vector',
+    'composite', 'repeater', 'record', 'location', 'address', 'vector',
     'multiselect', 'checkboxes', 'tags',
   ];
   if (noDefault.includes(type)) return null;
@@ -429,18 +501,6 @@ function writePredicate(orig: unknown, next: string): unknown {
   return next;
 }
 
-function buildTypeOptions(locale?: string): Array<{ value: string; label: string }> {
-  // Type and category names come from the Studio catalog rather than the
-  // `labelZh` column that used to sit on FIELD_TYPE_META, so this no longer
-  // needs a zh/en branch (objectui#2871).
-  return TYPES_BY_CATEGORY.flatMap((g) =>
-    g.types.map((id) => ({
-      value: id,
-      label: `${t(`engine.fieldCategory.${g.category}`, locale)} · ${t(`engine.fieldType.${id}`, locale)}`,
-    })),
-  );
-}
-
 /* ─────────────── Inspector ─────────────── */
 
 /**
@@ -463,7 +523,6 @@ export function ObjectFieldInspector({
   locale,
 }: MetadataInspectorProps) {
   const tr = React.useCallback((key: string) => t(key, locale), [locale]);
-  const typeOptions = React.useMemo(() => buildTypeOptions(locale), [locale]);
   const view: FieldsView = React.useMemo(() => readFields((draft as any).fields), [draft]);
   const name = String(selection.id);
   const idx = indexOfField(view, name);
@@ -473,7 +532,9 @@ export function ObjectFieldInspector({
     ? ((draft as any).fieldGroups as Array<{ key?: string; label?: string }>)
     : [];
 
-  const objectOptions = useObjectOptions(locale);
+  // objectui#10202 — the picklists the runtime serves, for the "use picklist"
+  // picker. A `LoadState`, so a failed read is never shown as "no picklists".
+  const picklistRoster = usePicklistRoster();
 
   // Spec `Field.returnType` is stamped from the formula's inferred CEL type,
   // but ONLY once the author actually edits the formula in this session —
@@ -628,6 +689,38 @@ export function ObjectFieldInspector({
     writeView({ shape: view.shape, entries: nextEntries });
   };
 
+  /**
+   * objectui#10202 — "use picklist". Naming a list sets `picklist` and removes
+   * `options` outright (the key is ABSENT, as `unsetDefKey` leaves it): the
+   * field's options come from exactly one source, and the spec refuses both.
+   * Choosing the field's own options removes `picklist` AND any `options` the
+   * field was carrying — those were the list's resolved copy, served onto the
+   * field, never options the author wrote — so the author starts the inline
+   * list from the editor below.
+   */
+  const bindPicklist = (picklist: string | undefined) => {
+    const nextDef = { ...def };
+    delete nextDef.options;
+    if (picklist) nextDef.picklist = picklist;
+    else delete nextDef.picklist;
+    const nextEntries = [...view.entries];
+    nextEntries[idx] = { ...entry, def: nextDef };
+    writeView({ shape: view.shape, entries: nextEntries });
+  };
+
+  /** A retype keeps a picklist binding only on a type the spec lets name one. */
+  const changeType = (nextType: string) => {
+    if (def.picklist === undefined || takesPicklist(nextType)) {
+      patchDef({ type: nextType });
+      return;
+    }
+    const nextDef: Record<string, unknown> = { ...def, type: nextType };
+    delete nextDef.picklist;
+    const nextEntries = [...view.entries];
+    nextEntries[idx] = { ...entry, def: nextDef };
+    writeView({ shape: view.shape, entries: nextEntries });
+  };
+
   const setKey = (rawNext: string) => {
     const nextName = toFieldNameLoose(rawNext);
     const rejected =
@@ -727,6 +820,20 @@ export function ObjectFieldInspector({
 
   const optionRows = readOptions(def);
   const options = representableOptions(optionRows);
+  // objectui#10202 — a picklist-bound field offers the LIST's values: the
+  // served field's resolved copy when it carries one, else the named list's
+  // own options from the roster (a binding made in this session, or a stored
+  // draft, carries no `options`).
+  const boundListed =
+    typeof def.picklist === 'string' && picklistRoster.status === 'loaded'
+      ? picklistRoster.data.find((p) => p.name === def.picklist)
+      : undefined;
+  const offeredOptions =
+    def.picklist === undefined || options.length > 0
+      ? options
+      : boundListed
+        ? representableOptions(readOptions({ options: boundListed.options }))
+        : [];
   const patchOptions = (next: OptionRow[]) => {
     const clean = next.map((row) => {
       // An entry this editor refuses to represent is written back EXACTLY as it
@@ -814,6 +921,8 @@ export function ObjectFieldInspector({
   );
 
   const typeMetaLabel = typeMeta ? t(`engine.fieldType.${typeMeta.id}`, locale) : undefined;
+  // objectui#11786 — read off the field as it stands, for the hints below.
+  const heldNeed = readOnly ? null : guardHeldNeed(entry.name, def);
 
   return (
     <InspectorShell
@@ -861,12 +970,20 @@ export function ObjectFieldInspector({
           disabled={readOnly}
           testId="field-label-input"
         />
-        <InspectorSelectField
+        <LabelTranslationHint
+          objectName={objectName}
+          fieldName={entry.name}
+          sourceLabel={typeof def.label === 'string' ? (def.label as string) : ''}
+          locale={locale}
+        />
+        {/* objectui#11793 — searchable, grouped by category, an icon and a
+            one-line description per type; a choice still goes to `changeType`. */}
+        <FieldTypePicker
           label={tr('designer.field.type')}
           value={type}
-          options={typeOptions}
-          onCommit={(v) => patchDef({ type: v })}
+          onCommit={changeType}
           disabled={readOnly}
+          locale={locale}
         />
         <div className="flex items-center gap-4 pt-1">
           <InspectorCheckboxField
@@ -893,7 +1010,7 @@ export function ObjectFieldInspector({
           <DefaultValueField
             kind={defaultValueKind(type)!}
             value={def.defaultValue}
-            options={options}
+            options={offeredOptions}
             onCommit={(v) => patchDef({ defaultValue: v })}
             disabled={readOnly}
             locale={locale}
@@ -913,6 +1030,23 @@ export function ObjectFieldInspector({
       {(isPicklist(type) || isLookup(type) || isComputed(type) || isNumeric(type) || isTexty(type) || offersValueDomain(type)) && (
         <Section title={tFormat('designer.field.section.options', locale, { type: typeMetaLabel ?? type })}>
           {isPicklist(type) && (
+            <PicklistSourceField
+              boundPicklist={typeof def.picklist === 'string' ? def.picklist : undefined}
+              roster={picklistRoster}
+              onCommit={bindPicklist}
+              disabled={readOnly}
+              locale={locale}
+            />
+          )}
+          {isPicklist(type) && def.picklist !== undefined && (
+            <BoundPicklistOptions
+              picklistLabel={boundListed?.label ?? String(def.picklist)}
+              options={offeredOptions}
+              ownValuesOnly={options.length === 0}
+              locale={locale}
+            />
+          )}
+          {isPicklist(type) && def.picklist === undefined && (
             <OptionsEditor
               key={entry.name}
               rows={optionRows}
@@ -921,16 +1055,18 @@ export function ObjectFieldInspector({
               locale={locale}
             />
           )}
+          {heldNeed === 'options' && <HeldHint>{tr('designer.field.hint.addOption')}</HeldHint>}
           {isLookup(type) && (
             <>
               <ObjectPicker
                 label={tr('designer.field.relatedObject')}
                 value={typeof def.reference === 'string' ? (def.reference as string) : ''}
-                options={objectOptions}
                 onCommit={(v) => patchDef({ reference: v || undefined })}
                 disabled={readOnly}
                 placeholder={tr('designer.field.objectNamePlaceholder')}
+                locale={locale}
               />
+              {heldNeed === 'target' && <HeldHint>{tr('designer.field.hint.pickTarget')}</HeldHint>}
               <InspectorTextField
                 label={tr('designer.field.relationshipName')}
                 value={typeof def.relationshipName === 'string' ? (def.relationshipName as string) : ''}
@@ -986,7 +1122,6 @@ export function ObjectFieldInspector({
             <SummaryConfigFields
               def={def}
               patchDef={patchDef}
-              objectOptions={objectOptions}
               readOnly={readOnly}
               locale={locale}
             />
@@ -1194,6 +1329,55 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/**
+ * The label this field is SHOWN with, when a translation overrides the source
+ * label the Label input edits (objectui#11782).
+ *
+ * The input edits `def.label`, the field's source label. Every surface that
+ * shows the field reads its label through `@object-ui/i18n`'s
+ * `useSafeFieldLabel().fieldLabel(object, field, fallback)`, and a translation
+ * for the active language wins over the source there: the Data pillar's grid
+ * headers (`ObjectGrid`) and its form canvas (`ObjectFormDesigner`) both call
+ * it. So the showcase's `showcase_account.tax_id` read "Tax ID" on the canvas
+ * beside an input reading "Tax ID (EIN)", and nothing on screen said why.
+ *
+ * Three readings keep this line from disagreeing with the canvas:
+ *
+ *   • The label comes from that SAME resolver, never from a second lookup.
+ *   • The fallback handed to it is `''`. The resolver returns the fallback
+ *     exactly when no translation exists, so an empty answer means "nothing
+ *     overrides the source label", whatever the input currently holds.
+ *   • The language named is the i18next language the resolver reads its bundle
+ *     for, not the designer's `locale` prop: that one picks between this
+ *     designer's two string tables and is `'en-US'` for every language that is
+ *     not zh (`useMetadataLocale`), so a `ja` session would be told "en".
+ *
+ * Shown only when the translation differs from the input's CURRENT value. A
+ * field with no translation, or one whose translation equals the label being
+ * edited, renders nothing. How translations resolve is not changed here.
+ */
+function LabelTranslationHint({
+  objectName,
+  fieldName,
+  sourceLabel,
+  locale,
+}: {
+  objectName: string;
+  fieldName: string;
+  sourceLabel: string;
+  locale?: string;
+}) {
+  const { fieldLabel } = useSafeFieldLabel();
+  const { i18n } = useObjectTranslation();
+  const translated = objectName ? fieldLabel(objectName, fieldName, '') : '';
+  if (!translated || translated === sourceLabel) return null;
+  return (
+    <p className="-mt-1 text-[11px] leading-4 text-muted-foreground" data-testid="field-label-translation-hint">
+      {tFormat('designer.field.labelTranslated', locale, { label: translated, language: i18n.language })}
+    </p>
+  );
+}
+
 /** Type-aware default-value editor. Stores the literal on `Field.defaultValue`. */
 function DefaultValueField({
   kind,
@@ -1299,43 +1483,6 @@ function TextareaField({
           (mono ? 'font-mono text-xs ' : '')
         }
       />
-    </div>
-  );
-}
-
-function ObjectPicker({
-  label,
-  value,
-  options,
-  onCommit,
-  disabled,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onCommit: (v: string) => void;
-  disabled?: boolean;
-  placeholder?: string;
-}) {
-  // List may be empty (still loading or no objects). Allow free-text fallback.
-  const listId = React.useId();
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <Input
-        list={listId}
-        value={value}
-        onChange={(e) => onCommit(e.target.value)}
-        disabled={disabled}
-        className="h-8 text-sm font-mono"
-        placeholder={placeholder ?? 'object_name'}
-      />
-      <datalist id={listId}>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </datalist>
     </div>
   );
 }
@@ -1900,15 +2047,13 @@ const summaryValueToText = (v: unknown): string => (Array.isArray(v) ? v.join(',
 function SummaryConfigFields({
   def,
   patchDef,
-  objectOptions,
   readOnly,
   locale,
 }: {
   def: Record<string, unknown>;
   patchDef: (patch: Record<string, unknown>) => void;
-  objectOptions: Array<{ value: string; label: string }>;
   readOnly?: boolean;
-  locale?: string;
+  locale?: SupportedLocale;
 }) {
   const tr = (key: string) => t(key, locale);
   const ops = readSummaryOps(def);
@@ -1959,10 +2104,10 @@ function SummaryConfigFields({
       <ObjectPicker
         label={tr('designer.field.summary.object')}
         value={childObject}
-        options={objectOptions}
         onCommit={(v) => patchOps({ object: v || undefined })}
         disabled={readOnly}
         placeholder={tr('designer.field.objectNamePlaceholder')}
+        locale={locale}
       />
       <InspectorSelectField
         label={tr('designer.field.summary.function')}
@@ -2081,51 +2226,134 @@ function SummaryConfigFields({
   );
 }
 
-/* ─────────────── Hook: load object list for lookup picker ─────────────── */
+/* ─────────────── "Use picklist" (objectui#10202) ─────────────── */
 
-function useObjectOptions(locale?: string): Array<{ value: string; label: string }> {
+/** One picklist the runtime serves, as the picker and the bound view read it. */
+interface PicklistRosterEntry {
+  name: string;
+  label: string;
+  options: unknown[];
+}
+
+/**
+ * The picklists the runtime serves (`GET /meta/picklist`), by name.
+ *
+ * The kind is package-owned: the registry declares no runtime create for it,
+ * so this list is everything a field can name. Loaded through
+ * {@link usePickerLoad}, so a failed read is its own arm and is never drawn as
+ * "there are no picklists".
+ */
+function usePicklistRoster(): LoadState<PicklistRosterEntry[]> {
   const client: MetadataClient = useMetadataClient();
-  const [opts, setOpts] = React.useState<Array<{ value: string; label: string }>>([]);
+  // The loader is made ONCE per mount and held in state, whose identity React
+  // guarantees, never in a `useMemo` keyed on `client` (AGENTS.md #10).
+  // `usePickerLoad` re-runs its request whenever the loader's identity changes
+  // and re-enters `loading` as it does, so a loader minted per render is a
+  // render loop wherever the host's client is not referentially stable —
+  // measured: an inspector suite whose mock returns a fresh client per call
+  // spun one worker at 100% CPU until killed. The list is read for the client
+  // this inspector mounted with.
+  const [load] = React.useState(() => () => fetchPicklistRoster(client));
+  return usePickerLoad(load);
+}
 
-  React.useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      client.list<{ name?: string; label?: string }>('object'),
-      // Draft objects are not yet published, so `list('object')` can't see
-      // them. Include them so a lookup can target a SIBLING object being
-      // designed in the same authoring pass (before the package's first
-      // publish) instead of forcing the author to type an API name blind.
-      client.listDrafts({ type: 'object' }).catch(() => [] as Array<{ name?: string }>),
-    ])
-      .then(([published, drafts]) => {
-        if (cancelled) return;
-        const byName = new Map<string, { value: string; label: string }>();
-        for (const i of published ?? []) {
-          if (typeof i?.name === 'string' && i.name && !byName.has(i.name)) {
-            byName.set(i.name, {
-              value: i.name,
-              label: i.label ? `${i.label} (${i.name})` : i.name,
-            });
-          }
-        }
-        for (const d of drafts ?? []) {
-          const name = (d as { name?: string }).name;
-          if (typeof name === 'string' && name && !byName.has(name)) {
-            byName.set(name, {
-              value: name,
-              label: `${name} ${t('engine.inspector.draftSuffix', locale)}`,
-            });
-          }
-        }
-        setOpts([...byName.values()].sort((a, b) => a.value.localeCompare(b.value)));
-      })
-      .catch(() => {
-        // Empty list — picker falls back to free-text. No banner needed.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [client, locale]);
+/** `GET /meta/picklist`, reduced to what the picker and the bound view read. */
+async function fetchPicklistRoster(client: MetadataClient): Promise<PicklistRosterEntry[]> {
+  const items = await client.list<Record<string, unknown>>('picklist');
+  return (items ?? [])
+    .map((raw) =>
+      raw && typeof raw === 'object' && 'item' in raw
+        ? ((raw as { item?: Record<string, unknown> }).item ?? {})
+        : (raw as Record<string, unknown>),
+    )
+    .filter((i): i is Record<string, unknown> & { name: string } => typeof i?.name === 'string' && i.name !== '')
+    .map((i) => ({
+      name: i.name,
+      label: typeof i.label === 'string' && i.label ? i.label : i.name,
+      options: Array.isArray(i.options) ? (i.options as unknown[]) : [],
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
 
-  return opts;
+/**
+ * Where a choice field's options come from: its own inline list, or a served
+ * picklist named here. A closed list — the field can only name a picklist the
+ * runtime serves, so a misspelled name cannot be written; a stored name the
+ * served list no longer carries is drawn flagged by {@link InspectorSelectField}.
+ */
+function PicklistSourceField({
+  boundPicklist,
+  roster,
+  onCommit,
+  disabled,
+  locale,
+}: {
+  boundPicklist: string | undefined;
+  roster: LoadState<PicklistRosterEntry[]>;
+  onCommit: (picklist: string | undefined) => void;
+  disabled?: boolean;
+  locale?: string;
+}) {
+  const served = roster.status === 'loaded' ? roster.data : [];
+  const options = [
+    { value: '', label: t('designer.field.optionSourceInline', locale) },
+    ...served.map((p) => ({ value: p.name, label: p.label === p.name ? p.name : `${p.label} (${p.name})` })),
+  ];
+  return (
+    <InspectorSelectField
+      label={t('designer.field.optionSource', locale)}
+      value={boundPicklist ?? ''}
+      options={options}
+      roster={roster}
+      onCommit={(v) => onCommit(v === '' ? undefined : v)}
+      disabled={disabled}
+    />
+  );
+}
+
+/**
+ * A picklist-bound field's options, read-only, in place of the inline options
+ * editor: inline options are refused on a bound field, as the spec refuses
+ * `picklist` with `options`. The options shown are the ones the field offers
+ * (see `offeredOptions` in the inspector); nothing here writes.
+ *
+ * `ownValuesOnly` — the list shown is the picklist's OWN options from the
+ * roster, not the served field's resolved copy: `GET /meta/picklist` does not
+ * carry the options other packages add (`picklistExtensions`), so the note says
+ * those are offered too rather than letting the list read as complete.
+ */
+function BoundPicklistOptions({
+  picklistLabel,
+  options,
+  ownValuesOnly,
+  locale,
+}: {
+  picklistLabel: string;
+  options: Option[];
+  ownValuesOnly: boolean;
+  locale?: string;
+}) {
+  return (
+    <div className="space-y-1" data-testid="picklist-bound-options">
+      <Label className="text-xs text-muted-foreground">{t('designer.field.picklistValues', locale)}</Label>
+      <p className="text-[11px] leading-snug text-muted-foreground">
+        {tFormat('designer.field.picklistBound', locale, { picklist: picklistLabel })}
+      </p>
+      {options.length > 0 && (
+        <ul className="space-y-0.5 rounded border bg-muted/30 px-2 py-1.5">
+          {options.map((o) => (
+            <li key={o.value} className="flex items-baseline justify-between gap-2 text-xs">
+              <span className="truncate">{o.label || o.value}</span>
+              <span className="font-mono text-[10px] text-muted-foreground">{o.value}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {ownValuesOnly && options.length > 0 && (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          {t('designer.field.picklistOwnValues', locale)}
+        </p>
+      )}
+    </div>
+  );
 }

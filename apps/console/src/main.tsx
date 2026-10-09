@@ -152,6 +152,10 @@ Promise.all([
   manifestLink.href = manifestUrl;
   document.head.appendChild(manifestLink);
 
+  // The two loaders wait for this page load's session answer. Signed in, they
+  // read `/i18n` with the session's credentials; signed out, they request
+  // nothing and the sign-in page renders from the built-in packs
+  // (objectui#12034, `./i18nSession.ts`).
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <MobileProvider pwa={{ enabled: true, name: getProductName(), shortName: getProductShortName() }}>

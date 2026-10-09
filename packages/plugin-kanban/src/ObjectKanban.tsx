@@ -7,7 +7,7 @@
  */
 
 import React, { useEffect, useState, useMemo } from 'react';
-import type { DataSource, ObjectKanbanSchema } from '@object-ui/types';
+import type { DataSource, ObjectKanbanSchema, SortConfig } from '@object-ui/types';
 import {
   useDataScope,
   useNavigationOverlay,
@@ -44,13 +44,15 @@ import {
 } from '@object-ui/core';
 import { getBadgeColorClasses, getBadgeHexAppearance, getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
 import { usePermissions } from '@object-ui/permissions';
-import { KanbanRenderer, KANBAN_UNCOLUMNED_ID } from './index';
+import { KANBAN_UNCOLUMNED_ID } from './index';
+import { KanbanBoardCore } from './KanbanBoardCore';
 import {
   collectRequiredWhenPromptFields,
   type RequiredWhenPromptField,
 } from './requiredWhenPrompt';
 import { RequiredFieldsDialog } from './RequiredFieldsDialog';
 import { KanbanRecordsSettledContext } from './KanbanRecordsSettled';
+import { KanbanColumnSummaryContext, type KanbanColumnSummary } from './KanbanColumnSummary';
 
 /**
  * English fallbacks for the record-detail drawer heading this board opens on
@@ -74,7 +76,15 @@ const KANBAN_DEFAULT_TRANSLATIONS: Record<string, string> = {
 };
 
 /**
- * Rows fetched when the author declared no `limit`.
+ * The board's FETCH BATCH: the `$top` of its one query when the author declared
+ * no `limit`.
+ *
+ * A fetch batch, ⛔ not a page size (objectui#9853, ruling 5824040487,
+ * structure B): the board has no pager, so this is how many records it asks
+ * for at once, and rows past it are not reachable. Its value is kept, and it
+ * does not follow the display page size the protocol declares for
+ * `pagination.pageSize`, so no board silently loses reachable records when that
+ * default moves. Before that ruling it was named `DEFAULT_KANBAN_LIMIT`.
  *
  * The number is the one this board has always intended: until objectui#4025 the
  * fetch passed `{ options: { $top: 100 } }`, and `options` is not a `QueryParams`
@@ -85,10 +95,10 @@ const KANBAN_DEFAULT_TRANSLATIONS: Record<string, string> = {
  * window is now real, and authorable — same shape `object-timeline` took in
  * objectui#4009 for the identical defect.
  */
-export const DEFAULT_KANBAN_LIMIT = 100;
+export const DEFAULT_KANBAN_FETCH_BATCH_SIZE = 100;
 
 /**
- * What the contract admits as a row cap for this board.
+ * What the contract admits as this board's `limit`, the fetch batch it asks for.
  *
  * `@objectstack/spec` has already answered what `limit: 0` means. The
  * `object-kanban` props declare the member a POSITIVE INTEGER
@@ -104,11 +114,12 @@ function isUsableRowLimit(value: unknown): value is number {
 }
 
 /**
- * The ONE resolver for this board's row cap, for the reason objectui#9853 gave
+ * The ONE resolver for this board's fetch batch, for the reason objectui#9853 gave
  * when it landed the same shape on `ObjectGrid` and objectui#9897 repeated on
  * `ListView`: one resolver at every entry is what keeps the answer single.
  *
- * Before objectui#9925 this read was a bare `schema.limit ?? DEFAULT_KANBAN_LIMIT`,
+ * Before objectui#9925 this read was a bare `schema.limit ?? DEFAULT_KANBAN_LIMIT`
+ * (the constant is `DEFAULT_KANBAN_FETCH_BATCH_SIZE` since objectui#9853),
  * and `??` rejects only `null` and `undefined` — so an authored `limit: 0` was
  * not nullish and survived as a real window. It reached the wire as `$top: 0`,
  * the board asked the server for nothing, and the empty board named no cause.
@@ -149,10 +160,10 @@ function describeRefusedRowLimit(authored: unknown, objectName: unknown): string
       ? `object-kanban on ${objectName}`
       : 'object-kanban';
   return (
-    `[ObjectUI] ObjectKanban row cap: ${where} declared limit: ${String(authored)}, `
-    + 'which is not a positive integer. A row cap must be a positive integer '
+    `[ObjectUI] ObjectKanban fetch batch: ${where} declared limit: ${String(authored)}, `
+    + 'which is not a positive integer. A fetch batch must be a positive integer '
     + '(the spec refuses zero and negative values), so it was ignored and this '
-    + `board fell back to its default row cap (${DEFAULT_KANBAN_LIMIT}).`
+    + `board fell back to its default fetch batch (${DEFAULT_KANBAN_FETCH_BATCH_SIZE}).`
   );
 }
 
@@ -323,9 +334,12 @@ export interface ObjectKanbanComponentProps {
    * Nothing, for an `object-kanban` document. Such a node was never judged by
    * the `kanban` arm, so every key this component reads off `schema` that
    * `ObjectKanbanSchema` does not declare reached the renderer through
-   * {@link BaseSchema}'s `[key: string]: any` BEFORE the retirement and still
-   * does. ⇒ No `object-kanban` node changes meaning; what changed is that
-   * `kanban` nodes no longer exist.
+   * {@link BaseSchema}'s `[key: string]: any` BEFORE the retirement, and did
+   * after it. ⇒ No `object-kanban` node changed meaning; what changed is that
+   * `kanban` nodes no longer exist. Since objectui#8347 `BaseSchema` carries no
+   * index signature, so a read of an undeclared key here no longer compiles;
+   * the one key the gate writes that the node does not declare is typed at
+   * {@link GateBoundKanbanSchema}.
    *
    * ⛔ WHICH keys those are is deliberately not listed here, and neither is
    * how many there are. This paragraph listed both (objectui#8802,
@@ -379,8 +393,41 @@ export interface ObjectKanbanComponentProps {
   onCardClick?: (record: any, event?: any) => void;
 }
 
+/**
+ * The board node as this component READS it: {@link ObjectKanbanSchema} plus
+ * the two keys a relay writes onto it that the node does not declare — the
+ * one `ElementDataSourceGate` writes (objectui#8347), and the one `ListView`'s
+ * kanban branch writes (objectui#11629).
+ *
+ * `sort` is the gate's carrier for the per-element binding's `dataSource.sort`
+ * (`OBJECT_KANBAN_DATA_SOURCE` in `./index.tsx` maps it, objectui#10068), and
+ * the fetch lowers it onto `$orderby`. It is ⛔ not an authoring key: the
+ * spec's `object-kanban` props declare no top-level `sort` and refuse one, so
+ * neither `ObjectKanbanSchema` face declares it (objectui#8174, pinned by
+ * `_KanbanSortStaysUndeclared` in `@object-ui/types`). While `BaseSchema`
+ * carried `[key: string]: any` the read compiled as `any`; this type names it
+ * where its only reader lives instead, the way `plugin-timeline`'s
+ * `renderHandoff.ts` types the keys its composer writes (objectui#6356).
+ *
+ * `summarizeField` is the view's own key: `@objectstack/spec` declares it on
+ * the view-level `KanbanConfig` ("Field to sum at top of column"), and
+ * `ListView`'s kanban branch spreads the rest of that config onto the node it
+ * generates, which is how it arrives here. The `object-kanban` props declare
+ * no such key, so it is typed here for the same reason as `sort`.
+ *
+ * ⛔ Deliberately NOT exported, and ⛔ never to be added to
+ * `ObjectKanbanComponentProps` or `@object-ui/types`: a public type naming
+ * `sort` would invite the spelling the authoring faces refuse.
+ */
+type GateBoundKanbanSchema = ObjectKanbanSchema & {
+  /** The binding's (or its view's) ordering, written by the gate. */
+  sort?: SortConfig[];
+  /** The view's `KanbanConfig.summarizeField`, relayed by `ListView` (objectui#11629). */
+  summarizeField?: string;
+};
+
 export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
-  schema,
+  schema: boardSchema,
   dataSource,
   className,
   data: externalData,
@@ -390,6 +437,9 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   ..._props
 }) => {
   void _props;
+  // Widened, not cast: the gate-written `sort` is optional, so the declared
+  // node is assignable to the read type as it stands (see `GateBoundKanbanSchema`).
+  const schema: GateBoundKanbanSchema = boardSchema;
   const { translateOptions, fieldLabel } = useSafeFieldLabel();
   const tt = useSafeTranslate();
   // Separate from `tt` because the record-detail heading interpolates a label —
@@ -709,7 +759,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
                 // bucket records in fetch order, so this is also the in-lane
                 // order. Absent → `undefined`, the query is unchanged.
                 $orderby: convertSortToQueryParams(schema.sort),
-                $top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT),
+                $top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_FETCH_BATCH_SIZE),
                 ...(expand.length > 0 ? { $expand: expand } : {}),
             };
             const results = await dataSource.find(schema.objectName, query);
@@ -1206,6 +1256,54 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     return [];
   }, [schema.columns, schema.groupBy, schema.objectName, effectiveData, objectDef, translateOptions]);
 
+  /**
+   * objectui#11629 — the lane total each column header paints, from the
+   * view's `summarizeField`. `KanbanImpl` sums the field over the lane's cards
+   * (`sumLaneField`); this decides only WHETHER there is a total and HOW it is
+   * written, because this component holds the object definition.
+   *
+   * - Written through the field's own cell renderer — the call the card
+   *   fields above make — so the total reads the way the cards read that
+   *   field. A field the definition does not describe renders as a number.
+   * - No total for a field the viewer may not read: the projection never
+   *   asked for it, so every card lacks it and the lane would read `0`. Same
+   *   `checkField` gate and same deferral as `$expand` above.
+   * - No total for a field the loaded definition does not declare, for the
+   *   same reason: `ListView`'s projection drops a binding the object lacks.
+   *
+   * What it covers is what the board drew: the lane's loaded cards. A windowed
+   * fetch marks the total as it marks the count (`countsAreWindowed`).
+   */
+  const summarizeField =
+    typeof schema.summarizeField === 'string' && schema.summarizeField !== ''
+      ? schema.summarizeField
+      : undefined;
+  const columnSummary = useMemo<KanbanColumnSummary | null>(() => {
+    // Until the definition settles the board does not yet know how the cards
+    // format the field, or whether the object has it; it paints no total
+    // rather than one it would repaint (a currency total first read as a bare
+    // number). A source with no schema read settles with nothing at once.
+    if (!summarizeField || !objectDefReady) return null;
+    const def = objectDef?.fields?.[summarizeField];
+    if (objectDef?.fields && !def) return null;
+    if (
+      def &&
+      perms?.isLoaded &&
+      schema.objectName &&
+      !perms.checkField(schema.objectName, summarizeField, 'read')
+    ) {
+      return null;
+    }
+    const fieldType = resolveCellRendererType(def ?? { type: 'number' });
+    const CellRenderer = getCellRenderer(fieldType);
+    const fieldForCell = def ?? { name: summarizeField, type: fieldType };
+    return {
+      field: summarizeField,
+      label: fieldLabel(objectDef?.name || schema.objectName || '', summarizeField, def?.label || summarizeField),
+      renderTotal: (total: number) => <CellRenderer value={total} field={fieldForCell} />,
+    };
+  }, [summarizeField, objectDefReady, objectDef, schema.objectName, perms, fieldLabel]);
+
   // Clone schema to inject data and className
   // Use grouping.fields[0].field as swimlaneField fallback when no explicit swimlaneField
   const effectiveSwimlaneField = schema.swimlaneField
@@ -1217,6 +1315,17 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
       columns: effectiveColumns,
       className: className || schema.className,
       ...(effectiveSwimlaneField ? { swimlaneField: effectiveSwimlaneField } : {}),
+      // ⛔ No Quick Add pair rides this schema to the board. objectui#8285
+      // (ruling B, decision batch #91) retired `quickAdd` here and used to
+      // write `quickAdd: undefined` on this line. objectui#11234 retired
+      // `onQuickAdd` as well and moved the cut to the board itself: the
+      // `KanbanBoardCore` this component renders takes the pair ONLY as
+      // explicit props and reads neither key off `schema`, and nothing below
+      // passes either prop. So an untyped value that rides the spread above
+      // reaches no read. Every `object-kanban` entry point lands here — the
+      // registered tag, the `kanbanComponents` map and a host mounting this
+      // component. The pair still works on `KanbanRenderer`, which a React
+      // host mounts directly.
   };
 
   // Default to a right-side drawer so clicking a card opens an editable detail
@@ -1244,20 +1353,18 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   // CLOSED, not open — do not re-open it as a cleanup. If bucket-vocabulary
   // unification ever becomes a product direction that is a fresh ruling,
   // with visual-regression evidence across all four surfaces in one stroke.
-  // ⚠️ `navigation` was DECLARED on `KanbanSchema` by objectui#7742 (gantt
-  // precedent objectui#5903). That arm RETIRED with the bare `kanban` node key
-  // (objectui#8802), and the surviving `ObjectKanbanSchema` face never declared
-  // the key — so on an `object-kanban` document this read has ALWAYS ridden
-  // `BaseSchema`'s `[key: string]: any`. ⛔ This line used to name a companion
-  // key here — 「exactly as `filter` does」 — and that comparison was false
-  // when it was written: `filter` had been a declared member of
-  // `ObjectKanbanSchema` for 26 hours by then (objectui#8174). Ask
-  // `ObjectKanbanSchema` about any other key, ⛔ never a neighbouring comment
-  // (objectui#9726). ⛔ Nothing about an `object-kanban` board changed here;
-  // what went is the only face that ever declared the key, and it only ever
-  // judged `kanban` documents.
-  // The designer face still declares it — `OBJECT_KANBAN_INPUTS` (`index.tsx`).
-  // Reported on the retirement PR as a follow-up for the `object-kanban` face.
+  // `navigation` is DECLARED on `ObjectKanbanSchema` since objectui#8652 — the
+  // maintainer ruled B there (declare it on the platform element schema first,
+  // then mirror), and `@objectstack/spec` 17.5.0's `object-kanban` element
+  // entry is that first half. Until then this read rode `BaseSchema`'s
+  // `[key: string]: any` on every `object-kanban` document: the only face that
+  // had ever declared the key was the retired `kanban` arm's `KanbanSchema`
+  // (objectui#7742, gone with objectui#8802), and it only ever judged `kanban`
+  // documents. The registration `inputs` publish it too (`OBJECT_KANBAN_INPUTS`,
+  // `index.tsx`). The `{ mode: 'drawer' }` fallback is this renderer's own
+  // default for an ABSENT key, documented on the declaration rather than
+  // declared. The members this read honours are pinned in
+  // `__tests__/kanbanNavigationMembers-8652.test.tsx`.
   const navConfig = schema.navigation ?? { mode: 'drawer' };
   // When this kanban is embedded in an ObjectView, the parent provides
   // `onRowClick`/`onCardClick` and owns the unified record-detail overlay.
@@ -1393,7 +1500,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         // here: its `handleDragEnd` moves the card there before calling us, and
         // an effect re-syncs `boardColumns` from the `columns` prop whenever
         // that prop's identity changes — which every re-render of this
-        // component causes (`KanbanRenderer` re-buckets into a fresh array).
+        // component causes (`KanbanBoardCore` re-buckets into a fresh array).
         //   - internal data: `fetchedData` is the source of truth, so the map
         //     below both corrects the record and re-renders.
         //   - external data: `fetchedData` is unread and normally empty, but
@@ -1585,11 +1692,21 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
       {/* objectui#8827 — the settle signal reaches `KanbanImpl` through a
           package-private context rather than a `KanbanRendererProps` member,
           because `KanbanRendererProps` is published and no caller outside this
-          package may set this. Context crosses `KanbanRenderer`'s
+          package may set this. Context crosses the board's
           `Suspense`/`React.lazy` boundary normally, which is what makes the
           private channel possible at all. Full argument on the context. */}
       <KanbanRecordsSettledContext.Provider value={recordsSettled}>
-      <KanbanRenderer
+      {/* objectui#11629 — the lane total rides the same kind of private
+          channel, for the same reason. `null` (no `summarizeField`) leaves
+          every header exactly as it was. See `KanbanColumnSummary`. */}
+      <KanbanColumnSummaryContext.Provider value={columnSummary}>
+      {/* objectui#11234 — the internal board, not the exported
+          `KanbanRenderer`. It takes the Quick Add pair only as explicit props,
+          and this call passes neither, so the object-bound board draws no
+          Quick Add control and no read of `onQuickAdd` sits on this path.
+          `KanbanRenderer` renders the same board and passes the pair off its
+          own `schema`, for a React host. */}
+      <KanbanBoardCore
         // Card conditional formatting evaluates against the card record, and
         // this fetch expands relations (`buildExpandFields` above) exactly as
         // the grid's does. Handing the renderer the object's field types is
@@ -1639,6 +1756,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
           },
         }}
       />
+      </KanbanColumnSummaryContext.Provider>
       </KanbanRecordsSettledContext.Provider>
       {pendingMove && (
         <RequiredFieldsDialog

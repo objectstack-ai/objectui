@@ -33,7 +33,7 @@ import { RelatedRecordActionsProvider } from '@object-ui/react';
 
 /** The reporter's shape: `$expand`-ed lookup value (display name + record id). */
 const WORK_ORDER = { id: 'wo-1', name: 'TYG1WX20260812001001' };
-const FIELD = { type: 'lookup', reference_to: 'mtc_work_order' } as any;
+const FIELD = { type: 'lookup', reference: 'mtc_work_order' } as any;
 
 /** A host that can route to records, mirroring the console bridge's shape. */
 function makeHost(overrides: Record<string, unknown> = {}) {

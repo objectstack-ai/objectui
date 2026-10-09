@@ -339,4 +339,17 @@ export function registerDefaultMetadataSchemas(): void {
       fieldOrder: ['name', 'label', 'description'],
     });
   }
+
+  // `doc` (ADR-0046) carries NO fallback schema: the server serves
+  // `DocSchema`'s own on `/meta/types`, and a copy here could only drift from
+  // it. What it does carry is the create form's hints, because its body is
+  // written on the canvas (`previews/DocPreview`, objectui#10188): the form
+  // asks for the header keys only, suggests `name` from the title, and seeds
+  // the one other key the spec requires — an empty `content` is a valid doc.
+  registerMetadataResource({
+    type: 'doc',
+    createFields: ['label', 'name', 'description'],
+    createDerive: [{ from: 'label', to: 'name', transform: 'slugify' }],
+    createDefaults: { content: '' },
+  });
 }

@@ -599,6 +599,55 @@ function ElementDataSourceMalformedFilterPanel({
 }
 
 /**
+ * The "no object named" hint, drawn IN PLACE OF the block when a placement
+ * that opted in with `requiresObject` names its object in neither place: not
+ * on the block's own object key, and not through `dataSource.object`
+ * (objectui#11605).
+ *
+ * Why it exists: the object-bound registrations no longer declare their object
+ * key `required`, because the binding can supply it and the manifest has no
+ * "this key or that binding" form. So the page compile accepts a node that
+ * names no object at all, and this hint is the one signal left for it. Before
+ * it, those blocks drew an empty board, a field-less form, a dash or a "no
+ * data yet" state, which reads as an empty query rather than a missing object.
+ *
+ * The wording is `element:number`'s own no-object notice (objectui#10951) with
+ * the property as a hole, so the two blocks that answer this question say it
+ * the same way. The property name is interpolated, never translated.
+ *
+ * A separate component for the reason {@link ElementDataSourceMalformedFilterPanel}
+ * gives: `useObjectTranslation` runs only on this path, and the provider-less
+ * default is a literal copy of the `en` pack's value, held byte-identical to it
+ * by `pnpm check:i18n-keys`.
+ */
+function ElementDataSourceNoObjectPanel({
+  testId,
+  property,
+}: {
+  testId: string;
+  property: string;
+}): React.ReactElement {
+  const { t } = useObjectTranslation();
+  return (
+    <div className="p-4 text-sm text-muted-foreground my-2" data-testid={`${testId}-no-object`}>
+      {t('view.noObject', {
+        property,
+        defaultValue: 'No object named: set {{property}} or dataSource.object.',
+      })}
+    </div>
+  );
+}
+
+/**
+ * Does the bound schema name an object on `key`? A blank string names nothing,
+ * the same reading `noDataSourceMessage` gives an object name.
+ */
+const namesObject = (schema: unknown, key: string): boolean => {
+  const value = (schema as Record<string, unknown> | null | undefined)?.[key];
+  return typeof value === 'string' && value.trim().length > 0;
+};
+
+/**
  * The "saved views are still being fetched" placeholder. Distinct from the error
  * panel because a component that treated "not resolved yet" as "does not exist"
  * would flash a configuration error on every mount.
@@ -785,6 +834,24 @@ export interface ElementDataSourceGateProps<S> {
   /** Explanation for the no-adapter panel; see {@link noDataSourceMessage}. */
   noDataSourceMessage?: string;
   /**
+   * Whether THIS placement has nothing to show unless it names an object — when
+   * true and the bound schema names none on the mapping's object key (neither
+   * the node's own key nor `dataSource.object` landing on it), the gate renders
+   * the "no object named" hint instead of the block (objectui#11605).
+   *
+   * Read AFTER the binding is applied, so a node bound by `dataSource.object`
+   * is never told it names no object; and AFTER the view states, so a binding
+   * that is still resolving or failed to resolve keeps its own panel.
+   *
+   * The call site states it, for the reason {@link requiresDataSource} gives:
+   * the other record sources a block can draw from (inline `data`, inline
+   * `customFields`, a `dataset`, a `bind` path) are each block's own, and a
+   * predicate guessed here would paint a configuration hint over a block that
+   * is working. A mapping whose `object` is `false` lands no object key, so
+   * this prop does nothing there.
+   */
+  requiresObject?: boolean;
+  /**
    * Renders the block with the bound schema. Called during the gate's own
    * render, so it must RETURN AN ELEMENT and never call hooks itself — the
    * block's hooks belong to the block.
@@ -809,6 +876,7 @@ export function ElementDataSourceGate<S>({
   errorTitle,
   requiresDataSource,
   noDataSourceMessage: noDataSourceText,
+  requiresObject,
   children,
 }: ElementDataSourceGateProps<S>): React.ReactElement | null {
   const bound = useElementDataSourceSchema(schema, mapping, dataSource);
@@ -834,6 +902,13 @@ export function ElementDataSourceGate<S>({
   }
   if (bound.status === 'loading') {
     return <ElementDataSourceLoadingPanel testId={testId} />;
+  }
+  // Named in neither place: not on the block's own key, and not by a binding
+  // (whose `object` the hook above has already landed on that key). See
+  // `requiresObject` for why the call site, not this gate, decides it applies.
+  const objectKey = mapping?.object ?? 'objectName';
+  if (requiresObject && objectKey !== false && !namesObject(bound.schema, objectKey)) {
+    return <ElementDataSourceNoObjectPanel testId={testId} property={objectKey} />;
   }
   return children(bound.schema);
 }

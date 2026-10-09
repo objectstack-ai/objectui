@@ -63,13 +63,31 @@ const GRID_COLS_2XL: Record<number, string> = {
   9: '2xl:grid-cols-9', 10: '2xl:grid-cols-10', 11: '2xl:grid-cols-11', 12: '2xl:grid-cols-12'
 };
 
+// The counts the six maps above spell, as the registration's closed list
+// (objectui#11491), in `container.padding`'s `{ label, value }` form: the
+// `columns` input's own list, and the members of its breakpoint object.
+const COLUMN_COUNT_OPTIONS = [
+  { label: '1', value: 1 },
+  { label: '2', value: 2 },
+  { label: '3', value: 3 },
+  { label: '4', value: 4 },
+  { label: '5', value: 5 },
+  { label: '6', value: 6 },
+  { label: '7', value: 7 },
+  { label: '8', value: 8 },
+  { label: '9', value: 9 },
+  { label: '10', value: 10 },
+  { label: '11', value: 11 },
+  { label: '12', value: 12 },
+];
+
 const GAPS: Record<number, string> = {
   0: 'gap-0', 1: 'gap-1', 2: 'gap-2', 3: 'gap-3', 4: 'gap-4', 
   5: 'gap-5', 6: 'gap-6', 8: 'gap-8', 10: 'gap-10', 12: 'gap-12'
 };
 
 ComponentRegistry.register('grid', 
-  ({ schema, className, ...props }: { schema: GridSchema & { smColumns?: number, mdColumns?: number, lgColumns?: number, xlColumns?: number }; className?: string; [key: string]: any }) => {
+  ({ schema, className, ...props }: { schema: GridSchema; className?: string; [key: string]: any }) => {
     // Determine columns configuration
     // Supports detailed object configuration from schema
     let baseCols = 2;
@@ -90,26 +108,17 @@ ComponentRegistry.register('grid',
       xxlCols = schema.columns['2xl'];
     }
 
-    // Fallback to legacy flat props if provided (from designer)
-    if (schema.smColumns) smCols = schema.smColumns;
-    if (schema.mdColumns) mdCols = schema.mdColumns;
-    if (schema.lgColumns) lgCols = schema.lgColumns;
-    if (schema.xlColumns) xlCols = schema.xlColumns;
-
-    // Mobile-first ramp: a bare numeric `columns` (no explicit responsive
-    // overrides) collapses on small screens so an N-across row doesn't render
-    // as unreadable slivers on a phone. Authors who pass a responsive object
-    // or sm/md/lg/xlColumns keep full control.
+    // No flat per-breakpoint key is read (objectui#11505). `smColumns`,
+    // `mdColumns`, `lgColumns` and `xlColumns` were a second spelling of the
+    // breakpoint object above, read over it, and declared by no face of
+    // `GridSchema`; both faces now refuse them by name, and a value that
+    // reaches here unvalidated draws nothing and is never forwarded.
     //
-    // `xxlCols` is deliberately NOT in this condition. It is only ever set from
-    // the responsive-object branch above, which this arm cannot have taken
-    // (`typeof schema.columns === 'number'`), and there is no `xxlColumns`
-    // legacy flat prop — the designer's flat channel stays at the five it
-    // declares in `inputs` below. Add it here if that ever changes.
-    if (
-      typeof schema.columns === 'number' && baseCols > 1 &&
-      smCols === undefined && mdCols === undefined && lgCols === undefined && xlCols === undefined
-    ) {
+    // Mobile-first ramp: a bare numeric `columns` collapses on small screens so
+    // an N-across row doesn't render as unreadable slivers on a phone. Authors
+    // who pass the breakpoint object keep full control. The bare-number branch
+    // sets no breakpoint count, so the ramp's only condition is that branch.
+    if (typeof schema.columns === 'number' && baseCols > 1) {
       mdCols = baseCols;
       smCols = Math.min(2, baseCols);
       baseCols = 1;
@@ -120,8 +129,16 @@ ComponentRegistry.register('grid',
     // Generate Tailwind grid classes
     const gridClass = cn(
       'grid',
-      // Base columns
-      GRID_COLS[baseCols] || 'grid-cols-2',
+      // Base columns. No fallback class (objectui#11491): this read once ended
+      // `|| 'grid-cols-2'`, which drew two columns for a base count the map
+      // lacks (`0`, `-1`, `{ xs: 13 }`). `GridSchema.columns` now refuses every
+      // count outside 1–12, and each path a validated document takes lands
+      // `baseCols` in this map: an absent `columns` keeps the `2` above, an
+      // object without `xs` takes `?? 1`, and a bare count above 1 is ramped
+      // to `1`. An unmapped count that reaches here unvalidated draws no base
+      // column class, the same as an unmapped count at any other breakpoint;
+      // nothing is substituted.
+      GRID_COLS[baseCols],
       // Responsive columns
       smCols && GRID_COLS_SM[smCols],
       mdCols && GRID_COLS_MD[mdCols],
@@ -155,8 +172,8 @@ ComponentRegistry.register('grid',
     // `style` is forwarded BY NAME rather than reopened in the shared whitelist (the
     // objectui#4435 route): it is this container's designer sizing channel, but the
     // shared set is deliberately element-agnostic and nothing element-specific belongs
-    // in it. Grid's own keys (`columns`, `gap`, `smColumns`…) are CONSUMED off `schema`
-    // above and must never be forwarded.
+    // in it. Grid's own keys (`columns`, `gap`) are CONSUMED off `schema` above and must
+    // never be forwarded.
     const { style, ...hostProps } = props;
 
     return (
@@ -179,44 +196,62 @@ ComponentRegistry.register('grid',
   {
     namespace: 'ui',
     label: 'Grid Layout',
+    // The column input is a closed list of the counts the `GRID_COLS*` maps
+    // above spell, not `type: 'number'` (objectui#11491): any other count drew
+    // no column class where it was authored. `GridSchema.columns` refuses the
+    // rest on both faces. `columns` also takes the breakpoint object
+    // `GridSchema` declares, so it publishes an `object` arm whose members are
+    // the same list (`of`): `columns: 13` is an error-level `type-mismatch`
+    // naming the list, and `columns: { md: 13 }` a `member-type-mismatch`.
+    // `layout-spacing-sets-11474.test.tsx` holds this list, the declaration
+    // and the rendered classes the compiled stylesheet defines to one set.
+    // ⛔ No flat `smColumns` … `xlColumns` input (objectui#11505): the
+    // breakpoint object is the one spelling of a per-breakpoint count, and
+    // `validateTree` answers a flat key with `unknown-prop`.
     inputs: [
-      { 
-        name: 'columns', 
-        type: 'number', 
-        description: 'Number of columns on mobile devices'
-      },
-      { 
-        name: 'smColumns', 
-        type: 'number', 
-        description: 'Columns at sm breakpoint (>640px)'
-      },
-      { 
-        name: 'mdColumns', 
-        type: 'number', 
-        description: 'Columns at md breakpoint (>768px)'
-      },
-      { 
-        name: 'lgColumns', 
-        type: 'number', 
-        description: 'Columns at lg breakpoint (>1024px)'
-      },
-      { 
-        name: 'xlColumns', 
-        type: 'number', 
-        description: 'Columns at xl breakpoint (>1280px)'
+      {
+        name: 'columns',
+        type: ['enum', 'object'],
+        enum: COLUMN_COUNT_OPTIONS,
+        of: 'enum',
+        description:
+          'Column count, 1 to 12, or an object of such counts keyed by breakpoint (xs, sm, md, lg, xl, 2xl). Default 2.'
       },
       {
         name: 'gap',
-        type: 'number',
-        description: 'Gap between items (0-12)'
+        // A closed list, in `container.padding`'s object form, not
+        // `type: 'number'` (objectui#11474): these are the `GAPS` entries above.
+        // For any other number the renderer builds a class at runtime, and
+        // Tailwind never compiles a class it did not find in scanned source, so
+        // that grid drew no gap at all. `GridSchema` refuses the rest on both
+        // faces; this list carries the same set into the SDUI manifest, so
+        // `validateTree` answers `gap: 9` with `invalid-enum`.
+        // `layout-spacing-sets-11474.test.tsx` holds this list, the declaration
+        // and the rendered classes the compiled stylesheet defines to one set.
+        type: 'enum',
+        enum: [
+          { label: '0 (none)', value: 0 },
+          { label: '1', value: 1 },
+          { label: '2', value: 2 },
+          { label: '3', value: 3 },
+          { label: '4', value: 4 },
+          { label: '5', value: 5 },
+          { label: '6', value: 6 },
+          { label: '8', value: 8 },
+          { label: '10', value: 10 },
+          { label: '12', value: 12 },
+        ],
+        description: 'Gap step between items; 0 is none. Default 4.'
       },
       { name: 'className', type: 'string' },
       { name: 'children', type: 'slot' }
     ],
     defaultProps: {
-      columns: 1,
-      mdColumns: 2,
-      lgColumns: 4,
+      // One column on a phone, two from `md`, four from `lg`: the breakpoint
+      // object, the one spelling (objectui#11505). The seed was `columns: 1`
+      // with the retired flat `mdColumns: 2` / `lgColumns: 4`, and draws the
+      // same classes in this form.
+      columns: { xs: 1, md: 2, lg: 4 },
       gap: 4,
       children: [
         { type: 'card', title: 'Card 1', description: 'First card' },

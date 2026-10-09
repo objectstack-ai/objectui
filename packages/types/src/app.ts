@@ -55,6 +55,7 @@ import type {
   UrlNavItem as SpecUrlNavItem,
   ActionNavItem as SpecActionNavItem,
   ComponentNavItem as SpecComponentNavItem,
+  DocNavItem as SpecDocNavItem,
   App as SpecApp,
 } from '@objectstack/spec/ui';
 import type { BaseSchema } from './base.js';
@@ -98,8 +99,26 @@ export interface NavigationEntryItem {
   /** Navigation item type — any spec nav type except `'separator'`. */
   type: Exclude<NavigationItemType, 'separator'>;
 
-  /** Display label (plain string per @objectstack/spec v4 protocol) */
-  label: string;
+  /**
+   * Display label — the spec's `I18nLabel` (objectui#11299): a plain string, or
+   * an inline locale map such as `{ en: 'Accounts', 'zh-CN': '客户' }`. A map
+   * renders the viewer's locale entry, falling back through the spec's own
+   * `resolveI18nLabel` order (`NavigationRenderer`'s `locale` prop).
+   *
+   * OPTIONAL since `@objectstack/spec` 17.5.0 (the cloud#2021 / objectui#9868
+   * letter-A ruling), with the spec's declared semantic: **absent** ⇒ the entry
+   * inherits, at RENDER time, the current label of what it opens — the view's
+   * label when it names a labelled view, else the object's / dashboard's label,
+   * else the target's machine name (`resolveNavItemLabel` in
+   * `@object-ui/layout`); **present** ⇒ rendered as authored (a string verbatim,
+   * a map as its entry for the viewer's locale). Nothing is stored for
+   * the absent case, so a renamed target shows its new name on the next render.
+   *
+   * ⛔ Do not write `''` for "no label": an empty string is PRESENT, so it would
+   * render empty text instead of inheriting — omit the key. `objectui validate`
+   * refuses an empty label for that reason.
+   */
+  label?: I18nLabel;
 
   /** Icon name (Lucide) */
   icon?: string;
@@ -228,6 +247,27 @@ export interface NavigationEntryItem {
    */
   params?: SpecComponentNavItem['params'];
 
+  /**
+   * Book to open (for type: 'doc', ADR-0046) — a declared `book` name, or the
+   * package id for the package's implicit book. Alone, the entry opens the book
+   * at its first readable page; with {@link doc}, that page in this book's
+   * context. At least one of `book` / `doc` is required on a `doc` entry — the
+   * rule `NavigationItemSchema` takes from the spec's own `doc` arm
+   * (objectui#11197). `NavigationRenderer.resolveHref` sends it to the console
+   * docs portal.
+   *
+   * Derived from the spec's doc-nav variant (#3177).
+   */
+  book?: SpecDocNavItem['book'];
+
+  /**
+   * Doc to open (for type: 'doc', ADR-0046) — the doc NAME, i.e. its source
+   * filename stem in lowercase snake_case (`crm_lead_guide`, never
+   * `crm_lead_guide.md` or a path). Alone, its book context is the doc's own
+   * book. Derived from the spec's doc-nav variant (#3177).
+   */
+  doc?: SpecDocNavItem['doc'];
+
   // -- Grouping --
 
   /** Child navigation items (for type: 'group') */
@@ -349,8 +389,11 @@ export type NavigationSeparatorItem = Pick<NavigationEntryItem, 'id' | 'order'> 
  *
  * A union of two arms, discriminated by `type`: a {@link NavigationEntryItem}
  * (every spec nav type but `'separator'`) and a {@link NavigationSeparatorItem}
- * (objectui#10867). Narrow on `item.type === 'separator'` before relying on an
- * entry's `label`.
+ * (objectui#10867). A separator has no `label`, and since objectui#9868 an
+ * entry's `label` may be absent too (inherited from its target at render time —
+ * see {@link NavigationEntryItem.label}), so display text comes from
+ * `resolveNavItemLabel` in `@object-ui/layout`, never from a raw `item.label`
+ * read.
  */
 export type NavigationItem = NavigationEntryItem | NavigationSeparatorItem;
 
@@ -515,8 +558,9 @@ export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof AP
    * Both now read `branding.logo` as an image URL, and take an icon NAME from
    * {@link AppComponentSchema.icon}, the key the rest of the shell already reads.
    *
-   * A tombstone rather than a deletion: `BaseSchema`'s index signature and the
-   * mirror's `.passthrough()` would otherwise KEEP an authored value in silence.
+   * A tombstone rather than a deletion: the mirror's `.passthrough()` would
+   * otherwise KEEP an authored value in silence, and so did `BaseSchema`'s
+   * index signature until objectui#8347 (a widened value still would).
    * `?: never` is the twin of `zod/app.zod.ts`'s `aliasKeyRefusal` arm; the pin
    * is `__tests__/app-logo-one-spelling-10827.test.ts`.
    *
@@ -541,6 +585,27 @@ export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof AP
    * @deprecated Not a key of this contract. Author `branding.favicon`.
    */
   favicon?: never;
+
+  /**
+   * ⛔ REFUSED BY NAME (objectui#11363). The mobile navigation mode is not a
+   * key of the app document. Set the `mobileNavMode` prop of
+   * `AppSchemaRenderer` (`@object-ui/layout`), or the `mobileNavMode` key of an
+   * `app-schema-renderer` node: `'drawer'` (the default) or `'bottom_nav'`.
+   *
+   * `@objectstack/spec`'s `AppSchema` never declared it and refuses it
+   * (`unrecognized_keys`), and `AppSchemaRenderer` reads only its prop, so a
+   * document carrying the key drew no bottom bar and said nothing. Before this
+   * member the key reached this type only as `any`, through `BaseSchema`'s
+   * index signature.
+   *
+   * A tombstone rather than an absent key, for the reason `logo` above gives.
+   * `?: never` is the twin of `zod/app.zod.ts`'s `retirementTombstone` arm; the
+   * pin is `__tests__/app-mobile-nav-mode-refusal-11363.test.ts`.
+   *
+   * @deprecated Not a key of this contract. Set the `AppSchemaRenderer` prop or
+   * the `app-schema-renderer` node key.
+   */
+  mobileNavMode?: never;
 
   /**
    * Branding configuration
@@ -653,8 +718,9 @@ export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof AP
    * actionDef: { actionName: 'quick_create' } }]`. The signed-in user's menu is
    * the host's, not app metadata.
    *
-   * A tombstone rather than a deletion: `BaseSchema`'s index signature and the
-   * mirror's `.passthrough()` would otherwise KEEP an authored array in silence.
+   * A tombstone rather than a deletion: the mirror's `.passthrough()` would
+   * otherwise KEEP an authored array in silence, and so did `BaseSchema`'s
+   * index signature until objectui#8347 (a widened value still would).
    * `?: never` is the twin of `zod/app.zod.ts`'s `retirementTombstone` arm; the
    * pin is `__tests__/app-actions-retired-7469.test.ts`.
    *
@@ -668,6 +734,59 @@ export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof AP
    * Permissions required to access this application
    */
   requiredPermissions?: string[];
+}
+
+/**
+ * `app-schema-renderer` — the whole-shell node `@object-ui/layout` registers:
+ * the TypeScript twin of `zod/app.zod.ts`'s `AppSchemaRendererNodeSchema`
+ * (objectui#11515).
+ *
+ * The zod arm landed first (objectui#11440, `schema` by objectui#11494) with
+ * no declaration here, so no TypeScript type named the node. This interface
+ * declares the registration's three `inputs`, member for member with the arm:
+ *
+ *  - `schema` — the app document the shell draws, nested, as
+ *    {@link AppComponentSchema} itself: the arm's member IS
+ *    `AppComponentSchema`, the same schema object, so this one is its twin
+ *    declaration. Its `type` is `'app'`, and its own refusals hold inside it
+ *    (`mobileNavMode` there is refused, objectui#11363).
+ *  - `basePath` — the prefix of every href the shell generates.
+ *  - `mobileNavMode` — `'drawer'` (the default) or `'bottom_nav'`, the two
+ *    modes the renderer implements. On this node it is the mode; on the app
+ *    document it is refused.
+ *
+ * Neither content channel is read, so both are refused by name, the twin of
+ * the arm's two `retirementTombstone` members (objectui#9256).
+ *
+ * The parity pair is `app.zod.ts#AppSchemaRendererNodeSchema` in
+ * `__tests__/zod-mirror-parity.test.ts`. `@object-ui/layout`'s
+ * `AppSchemaRendererProps` stays the component's prop type.
+ */
+export interface AppSchemaRendererNodeSchema extends BaseSchema {
+  type: 'app-schema-renderer';
+  /** The app document the shell draws (branding, `navigation`, `areas`), nested. */
+  schema?: AppComponentSchema;
+  /** URL prefix for the hrefs the shell generates (for example `/apps/crm`). */
+  basePath?: string;
+  /**
+   * Mobile navigation mode: `'drawer'` (the default) puts the sidebar in the
+   * mobile sheet overlay; `'bottom_nav'` also renders a fixed bottom bar.
+   */
+  mobileNavMode?: 'drawer' | 'bottom_nav';
+  /**
+   * REFUSED BY NAME (objectui#9256) — `app-schema-renderer` reads neither
+   * content channel: `SchemaRenderer` strips both out of the props it hands
+   * `AppSchemaRenderer`, and the component reads neither off the node.
+   *
+   * @deprecated Not a channel `app-schema-renderer` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256), for the reason `body` gives.
+   *
+   * @deprecated Not a channel `app-schema-renderer` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 // ============================================================================
@@ -758,6 +877,9 @@ export interface AppMenuItem {
  * - `hidden` → `visible` (inverted)
  * - `path` → `pageName` (last segment) or kept as-is for url
  * - `href` → `url` with `target: '_blank'`
+ * - a missing (or empty) `label` stays ABSENT rather than becoming `''`
+ *   (objectui#9868): absent is the spec's "inherit at render time", while `''`
+ *   is a present label that renders empty text and fails `objectui validate`
  */
 export function menuItemToNavigationItem(
   item: AppMenuItem,
@@ -775,7 +897,7 @@ export function menuItemToNavigationItem(
     return {
       id,
       type: 'group',
-      label: item.label || '',
+      ...(item.label ? { label: item.label } : {}),
       icon: item.icon,
       children: (item.children || []).map((child, i) =>
         menuItemToNavigationItem(child, index * 100 + i),
@@ -791,7 +913,7 @@ export function menuItemToNavigationItem(
     return {
       id,
       type: 'url',
-      label: item.label || '',
+      ...(item.label ? { label: item.label } : {}),
       icon: item.icon,
       url: item.href,
       target: '_blank',
@@ -804,7 +926,7 @@ export function menuItemToNavigationItem(
   return {
     id,
     type: 'page',
-    label: item.label || '',
+    ...(item.label ? { label: item.label } : {}),
     icon: item.icon,
     pageName: item.path || '',
     visible: item.hidden !== undefined ? !item.hidden : undefined,

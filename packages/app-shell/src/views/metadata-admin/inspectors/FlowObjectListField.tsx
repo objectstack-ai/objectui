@@ -10,6 +10,10 @@
  * never remounts mid-keystroke. Empty per-cell values are pruned; a row with no
  * populated cells is dropped on flush; an empty list commits `undefined`.
  *
+ * A `number` column (objectui#11664) holds a JSON number: a stored number stays
+ * one through the round trip, an empty cell commits no key, and a string stored
+ * there is kept verbatim rather than coerced.
+ *
  * A column may itself be a *list* (`stringList` / `numberList` / `objectList`) —
  * a repeater-in-repeater. Those cells hold an array and render the matching
  * sibling editor inline (recursively, for `objectList`), so an engine-published
@@ -31,7 +35,7 @@ import {
   Button, Input, Label, Checkbox,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@object-ui/components';
-import { flagUnknownValue, uniqueId } from './_shared.js';
+import { flagUnknownValue, RequiredMarker, uniqueId } from './_shared.js';
 import type { FlowConfigColumn } from './flow-node-config.js';
 import { t, useMetadataLocale } from '../i18n.js';
 import { ReferenceCombobox, resolveRefKind, type FlowReferenceContext } from './FlowReferenceField.js';
@@ -42,11 +46,21 @@ import { FlowExprIssue } from './FlowExprIssue.js';
 import { isScreenVisibleWhenColumn } from '../previews/flow-expr-problems.js';
 import { screenPredicateRoots, type ScreenPreviewNode } from '../previews/screen-spec.js';
 
-/** A cell is a scalar (string/boolean) or, for a nested-list column, an array. */
-type Cell = string | boolean | unknown[];
+/**
+ * A cell is a scalar (string/boolean/number) or, for a nested-list column, an
+ * array. A `number` column's cell is a number, `''` (empty), or the string a
+ * row stored there — see {@link toRows}.
+ */
+type Cell = string | boolean | number | unknown[];
 interface Row {
   id: string;
   values: Record<string, Cell>;
+  /**
+   * The stored item this row was read from (`{}` for a row the author added).
+   * A column the list gains after the row was built reads its cell from here —
+   * see the column-set effect in {@link FlowObjectListField}.
+   */
+  source: Record<string, unknown>;
 }
 
 /** Columns whose cell holds an array (a nested repeater) rather than a scalar. */
@@ -83,20 +97,41 @@ function screenScopeGroups(node: ScreenPreviewNode, locale: string): ScopeGroup[
   return [{ id: 'screen_fields', label: t('engine.flowScope.group.screenFields', locale), refs }];
 }
 
+/**
+ * A `number` cell's input value → its cell (objectui#11664): a finite number, or
+ * `''` for an empty box. A browser's number input reports `''` for an entry it
+ * cannot read as a number (`1e`, `-`), so that entry commits nothing, exactly
+ * like the top-level number field; anything else non-numeric is never kept as a
+ * string either.
+ */
+function numberCell(raw: string): number | '' {
+  const s = raw.trim();
+  if (s === '') return '';
+  const n = Number(s);
+  return Number.isFinite(n) ? n : '';
+}
+
+/** One column's cell, read from a stored item's value for that column. */
+function cellOf(col: FlowConfigColumn, v: unknown): Cell {
+  if (col.kind === 'boolean') return v === true;
+  if (isListColumn(col.kind)) return Array.isArray(v) ? v : [];
+  // objectui#11664 — a number column keeps a stored number a number (`0`
+  // included). A string stored there (what the text cell used to save) takes
+  // the line below and stays that same string, never coerced: it commits back
+  // verbatim until the author types over it.
+  if (col.kind === 'number' && typeof v === 'number') return v;
+  if (v != null) return String(v);
+  return '';
+}
+
 function toRows(list: Array<Record<string, unknown>>, columns: FlowConfigColumn[]): Row[] {
   const ids: string[] = [];
   return list.map((item) => {
     const id = uniqueId('ol', ids);
     ids.push(id);
     const values: Record<string, Cell> = {};
-    for (const col of columns) {
-      const v = item[col.key];
-      if (col.kind === 'boolean') values[col.key] = v === true;
-      else if (isListColumn(col.kind)) values[col.key] = Array.isArray(v) ? v : [];
-      else if (v != null) values[col.key] = String(v);
-      else values[col.key] = '';
-    }
-    return { id, values };
+    for (const col of columns) values[col.key] = cellOf(col, item[col.key]);
+    return { id, values, source: item };
   });
 }
 
@@ -116,6 +151,14 @@ function rowsToList(rows: Row[], columns: FlowConfigColumn[]): Array<Record<stri
         // A nested list commits its own already-normalized array (string[] /
         // number[] / object[]); an empty nested list drops the key entirely.
         if (Array.isArray(v) && v.length > 0) {
+          obj[col.key] = v;
+          hasValue = true;
+        }
+      } else if (col.kind === 'number') {
+        // objectui#11664 — a number commits as that number (`0` included); an
+        // empty cell commits nothing, so the key is absent rather than `''`.
+        // A stored string the author has not typed over goes back verbatim.
+        if ((typeof v === 'number' && Number.isFinite(v)) || (typeof v === 'string' && v !== '')) {
           obj[col.key] = v;
           hasValue = true;
         }
@@ -158,6 +201,16 @@ export interface FlowObjectListFieldProps {
    * `visibleWhen` column reads the screen's declared fields, not `scopeGroups`.
    */
   fieldId?: string;
+  /** The spec requires this list (objectui#10948): its label carries {@link RequiredMarker}. */
+  required?: boolean;
+  /**
+   * objectui#10948: the column keys the spec requires on every row (a decision
+   * branch's `label`, a screen field's `name`) — computed by the host from the
+   * installed spec (`specRequiredColumns`), never listed here. Each row marks
+   * that column's label with {@link RequiredMarker}, and a scalar cell the row
+   * renders itself carries `aria-required`. Not forwarded to a nested list.
+   */
+  requiredColumns?: ReadonlySet<string>;
 }
 
 export function FlowObjectListField({
@@ -174,6 +227,8 @@ export function FlowObjectListField({
   scopeGroups,
   approvalScopeGroups,
   fieldId,
+  required,
+  requiredColumns,
 }: FlowObjectListFieldProps) {
   // The add/remove/empty/item labels arrive translated from the caller; the
   // flag on a stored select value is composed in this file, so it reads the
@@ -197,6 +252,36 @@ export function FlowObjectListField({
       lastCommitted.current = next;
     }
   }, [external, columns]);
+
+  // objectui#11664 — the column set can change under live rows. The inspector
+  // renders the hand-written fallback columns until the engine's published
+  // `configSchema` answers, then the engine's; rows built against the first
+  // set hold no cell for a column only the second declares (a screen field's
+  // `min` / `max`, `options`, `placeholder`, …), so the next flush dropped
+  // that stored value. A column the rows do not hold yet, or one whose kind
+  // changed, now reads its cell from each row's stored item; every other cell,
+  // unflushed typing included, is kept. Nothing is committed here: the schema
+  // arriving writes nothing, the author's next edit does.
+  //
+  // Keyed on a string of the columns' keys and kinds, not on the `columns`
+  // array's identity (AGENTS.md #10).
+  const columnShape = columns.map((c) => `${c.key}:${c.kind}`).join('|');
+  const heldKinds = React.useRef(new Map(columns.map((c) => [c.key, c.kind])));
+  React.useEffect(() => {
+    const held = heldKinds.current;
+    heldKinds.current = new Map(columns.map((c) => [c.key, c.kind]));
+    const changed = columns.filter((c) => held.get(c.key) !== c.kind);
+    if (changed.length === 0) return;
+    setRows((rs) =>
+      rs.map((r) => {
+        const values = { ...r.values };
+        for (const col of changed) values[col.key] = cellOf(col, r.source[col.key]);
+        return { ...r, values };
+      }),
+    );
+    // `columns` is read for the shape `columnShape` already names.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnShape]);
 
   const flush = (nextRows: Row[]) => {
     const list = rowsToList(nextRows, columns);
@@ -246,7 +331,7 @@ export function FlowObjectListField({
   const addRow = () => {
     const values: Record<string, Cell> = {};
     for (const col of columns) values[col.key] = col.kind === 'boolean' ? false : isListColumn(col.kind) ? [] : '';
-    setRows((rs) => [...rs, { id: uniqueId('ol', rs.map((r) => r.id)), values }]);
+    setRows((rs) => [...rs, { id: uniqueId('ol', rs.map((r) => r.id)), values, source: {} }]);
   };
 
   // Same shape as `commitCell`: bump the token, let the effect publish
@@ -258,7 +343,10 @@ export function FlowObjectListField({
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">
+        {label}
+        {required && <RequiredMarker />}
+      </Label>
       <div className="space-y-2">
         {rows.length === 0 && (
           <p className="text-[11px] italic text-muted-foreground">{emptyLabel}</p>
@@ -332,10 +420,12 @@ export function FlowObjectListField({
                     </div>
                   );
                 }
+                const cellRequired = requiredColumns?.has(col.key) === true;
                 return (
                   <div key={col.key} className="flex items-center gap-2">
                   <Label className="w-24 shrink-0 text-[11px] text-muted-foreground">
                     {col.label}
+                    {cellRequired && <RequiredMarker />}
                   </Label>
                   {col.kind === 'boolean' ? (
                     <Checkbox
@@ -376,6 +466,7 @@ export function FlowObjectListField({
                               groups={approvalScopeGroups ?? []}
                               placeholder={col.placeholder ?? 'current.<field> · trigger.<field> · vars.<node>.<key>'}
                               disabled={disabled}
+                              ariaRequired={cellRequired}
                             />
                             <FlowExprIssue value={raw} role="value" scopeGroups={approvalScopeGroups} />
                           </div>
@@ -427,7 +518,7 @@ export function FlowObjectListField({
                             onValueChange={(v) => commitCell(row.id, col.key, v)}
                             disabled={disabled}
                           >
-                            <SelectTrigger className="h-8 w-full text-xs">
+                            <SelectTrigger className="h-8 w-full text-xs" aria-required={cellRequired ? true : undefined}>
                               <SelectValue placeholder={col.placeholder ?? '—'} />
                             </SelectTrigger>
                             <SelectContent>
@@ -463,6 +554,7 @@ export function FlowObjectListField({
                             groups={screenNode ? screenScopeGroups(screenNode, locale) : (scopeGroups ?? [])}
                             placeholder={col.placeholder}
                             disabled={disabled}
+                            ariaRequired={cellRequired}
                           />
                           <FlowExprIssue
                             value={raw}
@@ -473,6 +565,29 @@ export function FlowObjectListField({
                         </div>
                       );
                     })()
+                  ) : col.kind === 'number' ? (
+                    // objectui#11664 — the same `Input type="number"` the
+                    // top-level number field renders, flushed on blur like the
+                    // text cell beside it. A stored string is handed to the
+                    // input as-is: the browser shows it when it reads as a
+                    // number and leaves the box blank when it does not, and the
+                    // row keeps the string either way until the author types.
+                    <Input
+                      type="number"
+                      value={(() => {
+                        const v = row.values[col.key];
+                        return typeof v === 'number' || typeof v === 'string' ? v : '';
+                      })()}
+                      onChange={(e) => setCell(row.id, col.key, numberCell(e.target.value))}
+                      onBlur={() => flush(rows)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      }}
+                      placeholder={col.placeholder}
+                      disabled={disabled}
+                      aria-required={cellRequired ? true : undefined}
+                      className="h-8 flex-1 text-xs"
+                    />
                   ) : (
                     <Input
                       value={typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : ''}
@@ -483,6 +598,7 @@ export function FlowObjectListField({
                       }}
                       placeholder={col.placeholder}
                       disabled={disabled}
+                      aria-required={cellRequired ? true : undefined}
                       className="h-8 flex-1 text-xs"
                     />
                   )}

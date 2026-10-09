@@ -99,6 +99,10 @@ function toEvaluable(source: string): string {
     // `declare const widgets: DashboardWidgetSchema[];` — a declared-elsewhere
     // array the block spreads into `widgets`.
     .replace(/^\s*declare\s+const\s+(\w+)\s*:[^=;]*;/gm, 'const $1 = [];')
+    // `type MetricCardEntry = { … } & ComponentProps<…>;` — a one-line type
+    // alias the block annotates with; types carry no value (objectui#10859
+    // batch 8 put the Metric Card example inside a dashboard, so it is judged).
+    .replace(/^\s*type\s+\w+\s*=[^;]*;/gm, '')
     // `const schema: DashboardComponentSchema = {` — drop the annotation.
     .replace(/^(\s*const\s+\w+)\s*:\s*[\w<>[\]| ]+\s*=/gm, '$1 =');
 }

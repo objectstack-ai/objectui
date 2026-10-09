@@ -30,7 +30,8 @@ import {
   SelectValue,
 } from '@object-ui/components';
 import type { DashboardWidgetSchema, DashboardWidgetTypeName } from '@object-ui/types';
-import { resolveDashboardFilterDefs, type DashboardFilterDef, type ComponentMeta } from '@object-ui/core';
+import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
+import { resolveDashboardFilterDefs, type DashboardFilterDef, type RegistryComponentMeta } from '@object-ui/core';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
 import { t, tFormat } from '../i18n.js';
 // The spec's `I18nLabel` resolver (new in @objectstack/spec 17.0.0-rc.6),
@@ -40,9 +41,15 @@ import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui
 import { setLocalized } from '@object-ui/i18n';
 import { InspectorCheckboxField, InspectorReorderButtons, moveArray } from './_shared.js';
 import { InspectorComboField, type InspectorComboOption } from './InspectorComboField.js';
-import { DatasetNamesEditor } from './ReportDefaultInspector.js';
+import {
+  DatasetNamesEditor,
+  datasetDimensionOptions,
+  datasetMeasureOptions,
+  datasetPickerOptions,
+} from './ReportDefaultInspector.js';
 import { useDatasetCatalog, useDatasetSemantics } from '../previews/useDatasetCatalog.js';
 import type { ObjectFieldInfo } from '../previews/useObjectFields.js';
+import { widgetMissingInputs } from '../../studio-design/metadataError.js';
 
 // ADR-0021: dashboard widgets author the semantic-layer dataset shape only
 // (dataset + dimensions + values). The pre-ADR-0021 inline single-object query
@@ -130,29 +137,31 @@ export function DashboardWidgetInspector({
   const catalog = useDatasetCatalog();
   const semantics = useDatasetSemantics(datasetName || undefined, catalog);
 
+  // objectui#11161 — the options read the author's text in the one form the
+  // Report inspector's pickers share (see `datasetPickerOptions` and its
+  // siblings): a dataset's declared `description` rides as the combo's muted
+  // `hint`, a member's `label` beside its name. The stored value is the name.
   const datasetComboOptions: InspectorComboOption[] = React.useMemo(() => {
-    const opts = catalog.datasets.map((d) => ({
-      value: d.name,
-      label: d.label && d.label !== d.name ? `${d.label} (${d.name})` : d.name,
-    }));
+    const opts: InspectorComboOption[] = datasetPickerOptions(catalog.datasets);
     if (datasetName && !opts.some((o) => o.value === datasetName)) {
       opts.push({ value: datasetName, label: datasetName });
     }
     return opts;
   }, [catalog.datasets, datasetName]);
   const measureOptions: ObjectFieldInfo[] = React.useMemo(
-    () => semantics.measures.map((m) => ({ name: m.name, label: m.aggregate ? `${m.name} · ${m.aggregate}` : m.name, type: 'number', hidden: false })),
+    () => datasetMeasureOptions(semantics.measures),
     [semantics.measures],
   );
   const dimensionOptions: ObjectFieldInfo[] = React.useMemo(
-    () => semantics.dimensions.map((d) => ({ name: d.name, label: d.name, type: d.type ?? 'text', hidden: false })),
+    () => datasetDimensionOptions(semantics.dimensions),
     [semantics.dimensions],
   );
   // Filter-binding field picker options come from the bound dataset's
   // dimensions (the fields a widget filter can target), replacing the removed
-  // object-field source.
+  // object-field source. The combo prints the value (the dimension name)
+  // itself, so the label is the author's text alone.
   const fieldComboOptions: InspectorComboOption[] = React.useMemo(
-    () => semantics.dimensions.map((d) => ({ value: d.name, label: d.name, hint: d.type })),
+    () => semantics.dimensions.map((d) => ({ value: d.name, label: d.label ?? d.name, hint: d.type })),
     [semantics.dimensions],
   );
 
@@ -189,6 +198,21 @@ export function DashboardWidgetInspector({
   }
 
   const { widget, index } = hit;
+  // The box the grid auto-places this widget in, and the widget's layout
+  // completed against it — what the width / height inputs show and write.
+  const placement = defaultWidgetPlacement(index);
+  const layout = completeWidgetLayout(widget.layout, {}, placement);
+  // objectui#11910 — the binding inputs this widget leaves out that the spec
+  // refuses it without, while that is all it lacks: what holds Studio's
+  // autosave of the dashboard (and what the server refuses), so each says so
+  // under its input.
+  const heldInputs = new Set(widgetMissingInputs(widget));
+  const heldHint = (key: string) =>
+    heldInputs.has(key) ? (
+      <p data-testid={`widget-field-held-hint-${key}`} className="text-[11px] leading-snug text-muted-foreground">
+        {t('engine.studio.held.inputHint', locale)}
+      </p>
+    ) : null;
 
   function patchWidget(updates: Partial<DashboardWidgetSchema>) {
     const widgets = [...widgetsAll];
@@ -345,6 +369,7 @@ export function DashboardWidgetInspector({
             disabled={readOnly}
             mono
           />
+          {heldHint('dataset')}
           <p className="text-[10px] leading-snug text-muted-foreground">
             {t('engine.inspector.widget.datasetHint', locale)}
           </p>
@@ -364,6 +389,7 @@ export function DashboardWidgetInspector({
               readOnly={readOnly}
               onCommit={(next) => patchWidget({ dimensions: next } as Partial<DashboardWidgetSchema>)}
             />
+            {heldHint('dimensions')}
             <DatasetNamesEditor
               label={t('engine.inspector.widget.values', locale)}
               emptyText={t('engine.inspector.widget.valuesHint', locale)}
@@ -374,6 +400,7 @@ export function DashboardWidgetInspector({
               readOnly={readOnly}
               onCommit={(next) => patchWidget({ values: next } as Partial<DashboardWidgetSchema>)}
             />
+            {heldHint('values')}
           </>
         )}
       </div>
@@ -481,19 +508,27 @@ export function DashboardWidgetInspector({
         />
       </Field>
 
+      {/*
+        Width and height each edit ONE dimension of the spec's four-number
+        `layout`, so both go through `completeWidgetLayout` (objectui#11388):
+        on a widget with no `layout` the untouched coordinates come from the
+        grid's auto-placement for this widget's index, and the stored box is
+        whole. Spreading the one number onto an absent box stored `{ w }`, which
+        the spec refuses. Both inputs SHOW the same completed box, so the
+        dimension an edit leaves alone is the one on screen. The preview grid
+        computes no `x` / `y` this inspector can read, so it seeds from
+        `defaultWidgetPlacement`.
+      */}
       <div className="grid grid-cols-2 gap-3">
         <Field id="widget-w" label={t('engine.inspector.widget.width', locale)}>
           <Input
             id="widget-w"
             type="number"
             min={1}
-            value={widget.layout?.w ?? 1}
+            value={layout.w}
             onChange={(e) =>
               patchWidget({
-                layout: {
-                  ...(widget.layout ?? {}),
-                  w: Number(e.target.value) || 1,
-                } as DashboardWidgetSchema['layout'],
+                layout: completeWidgetLayout(widget.layout, { w: Number(e.target.value) || 1 }, placement),
               })
             }
             disabled={readOnly}
@@ -504,13 +539,10 @@ export function DashboardWidgetInspector({
             id="widget-h"
             type="number"
             min={1}
-            value={widget.layout?.h ?? 1}
+            value={layout.h}
             onChange={(e) =>
               patchWidget({
-                layout: {
-                  ...(widget.layout ?? {}),
-                  h: Number(e.target.value) || 1,
-                } as DashboardWidgetSchema['layout'],
+                layout: completeWidgetLayout(widget.layout, { h: Number(e.target.value) || 1 }, placement),
               })
             }
             disabled={readOnly}
@@ -558,7 +590,7 @@ function Field({
   id: string;
   label: string;
   /**
-   * How `label` is associated with the control (`ComponentMeta.labelling`'s
+   * How `label` is associated with the control (`RegistryComponentMeta.labelling`'s
    * vocabulary, objectui#3961/#4010):
    *
    *  - `'control'` (default) — the child is a LABELABLE element carrying this
@@ -574,7 +606,7 @@ function Field({
    *    reads as closed. That was objectui#4010's defect on `widget-color`.
    *
    * DERIVED from the repo-wide vocabulary, not a restatement of it: the 2026-08-17
-   * ruling (objectui#4857 + objectui#4871) made `ComponentMeta['labelling']` the
+   * ruling (objectui#4857 + objectui#4871) made `RegistryComponentMeta['labelling']` the
    * single answer to "how does a host learn what a widget will render" and
    * forbade host-local variants. `'display'` is excluded because this panel has
    * no such field — every one of its children is an editable control or a
@@ -582,7 +614,7 @@ function Field({
    * introducing one is a compile error here rather than a silent degradation.
    * Re-spell a member in `packages/core` and this type stops compiling.
    */
-  labelling?: Exclude<NonNullable<ComponentMeta['labelling']>, 'display'>;
+  labelling?: Exclude<NonNullable<RegistryComponentMeta['labelling']>, 'display'>;
   children: React.ReactNode;
 }) {
   const group = labelling === 'group';

@@ -9,7 +9,7 @@
       "type": "password",
       "placeholder": "At least 8 characters",
       "required": true,
-      "min_length": 8
+      "minLength": 8
     }
   ]
 }

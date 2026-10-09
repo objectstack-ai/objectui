@@ -50,7 +50,8 @@ import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object
 import type { DetailViewSchema, DataSource, ActionSchema, SchemaNode } from '@object-ui/types';
 import { useDetailTranslation } from './useDetailTranslation';
 import { useRecordEditable } from './useRecordEditable';
-import { getCellRenderer, resolveCellRendererType, coerceToSafeValue, formatPercent } from '@object-ui/fields';
+import { getCellRenderer, resolveCellRendererType, coerceToSafeValue, formatPercent, percentCellScale } from '@object-ui/fields';
+import { resolveFieldScale } from '@objectstack/spec/data';
 import { hasCellValue } from './emptiness';
 import { enrichDetailField } from './fieldEnrichment';
 import { chipTakesCellRenderer } from './summaryChipRenderers';
@@ -1244,7 +1245,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         // ⭐ The TEXT now takes the other half from the same
                         // place: `formatPercent` is the list cell's own body
                         // (`PercentCellRenderer` calls it with exactly these
-                        // three arguments), and it applies `percentDisplayValue`
+                        // arguments), and it applies `percentDisplayValue`
                         // itself — so this is not a second entry into the
                         // scaling, it is the doorway that carries BOTH halves,
                         // which is what `percentDisplayValue`'s doc comment
@@ -1259,10 +1260,17 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         // to the field's precision would make this chip
                         // disagree with the cell it just started agreeing with.
                         const percentField = { ...(objField as any), ...(sectionField as any) };
-                        // The field's declared width, resolved with the same
-                        // view-over-object precedence the currency branch above
-                        // spells, and floored at the cell's own default:
-                        // `PercentCellRenderer` reads `field.scale ?? 0`.
+                        // The field's width, read with the same view-over-object
+                        // precedence the currency branch above spells and
+                        // resolved by the PROTOCOL (objectui#9843):
+                        // `resolveFieldScale` answers the declared `scale` when
+                        // it is well-formed, and otherwise `@objectstack/spec`'s
+                        // own absent width for a percent field. The list cell,
+                        // the grid footer and the edit widget ask the same
+                        // function, so one undeclared stored value reads one
+                        // width on every face — ⛔ no `?? N` here or there. The
+                        // type asked about is `ftype`, the one this branch
+                        // renders, rather than the merged bag's.
                         //
                         // ⭐ The MEMBER moved and the AUTHORITY did not
                         // (objectui#9295). This read was `precision ?? 0` until
@@ -1277,9 +1285,16 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         // on `precision` is what would have BROKEN that ruling,
                         // not what would have kept it. Whatever the cell reads,
                         // this reads; that is the whole of the coupling.
-                        const scale = percentField.scale ?? 0;
-                        display = formatPercent(num, scale, displayLocale);
-                        const points = summaryChipPercentPoints(num);
+                        const scale = resolveFieldScale({ type: ftype, scale: percentField.scale });
+                        // The STORAGE is the field's too (objectui#11475):
+                        // `percentCellScale` is the spec's `percentScaleOf`
+                        // over the same merged bag (its `max`), the answer the
+                        // list cell reads, so a fraction-stored `1` reads
+                        // `100%` on both faces and a whole-stored `50` reads
+                        // `50%`. Text and bar take the one answer.
+                        const percentScale = percentCellScale({ type: ftype, max: percentField.max });
+                        display = formatPercent(num, percentScale, scale, displayLocale);
+                        const points = summaryChipPercentPoints(num, percentScale);
                         percentValue = Math.max(0, Math.min(100, points));
                       }
                     } else if (ftype === 'select' || ftype === 'status' || ftype === 'multiselect') {

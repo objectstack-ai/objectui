@@ -52,6 +52,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { AnyComponentSchema, CardSchema, IconSchema, SchemaNodeSchema, safeValidateSchema } from '../zod/index.zod.js';
+import type { RetiredKanbanNodeSchema } from '../zod/complex.zod.js';
 import type { SchemaNode } from '../base.js';
 import type { z } from 'zod';
 
@@ -219,13 +220,59 @@ describe('the late-binding wiring, read by IDENTITY on the exported wrapper', ()
  * which reads as drift where there is none. The guard answers the empty case first and
  * leaves the projection to do exactly what it did before: NAME the arm when there is one.
  */
-type ArmsNotAssignableToSchemaNode =
-  [Exclude< z.output< typeof AnyComponentSchema >, SchemaNode >] extends [never]
-    ? never
-    : Exclude< z.output< typeof AnyComponentSchema >, SchemaNode > extends { type: infer K } ? K : never;
+type ArmsNotAssignableToSchemaNode = Exclude< z.output< typeof AnyComponentSchema >, SchemaNode >;
+
+/**
+ * ⚠️ Dated note, 2026-10-02 (objectui#11466). The bound above was `never` while `SchemaNode`'s
+ * object arm was `BaseSchema`, whose `type: string` and index signature admitted every arm's
+ * output, drifted or not. objectui#11466 made that arm `DeclaredNode`, the union of the
+ * declared node types, so this reads the real exclusion set for the first time. Measured at
+ * that change, nine `type` literals and one arm typed `string`, each a DECLARATION matter
+ * between the two faces that the `BaseSchema` arm hid, ⛔ not a contract:
+ *
+ *   - `app`: the zod arm is the app-level document (`AppComponentSchema`'s mirror), while a
+ *     node slot's `app` is the page KIND `ComponentRegistry` renders (`DeclaredNode` leaves
+ *     the app document out, objectui#11466). Two vocabularies on one token; `./registry.ts`
+ *     names them at its `'page'` entry.
+ *   - `record`, `home`, `utility`: the zod page-kind arm (objectui#11440) leaves `name` and
+ *     `label` optional; the TypeScript `PageDocumentNode` is the spec's `PageSchema` input,
+ *     which requires them.
+ *   - `page`: `PageNodeSchema`'s `slots` differ between the faces.
+ *   - `dashboard`: the widget slot's component arm differs between the faces.
+ *   - `detail-section`, `app-schema-renderer`, `cloud:plan-status`: zod arms with no
+ *     TypeScript declaration at all, so no node slot admits them.
+ *   - the arm typed `string`: the retired `kanban` tombstone (`RetiredKanbanNodeSchema`),
+ *     which parses nothing; its output type is not a node.
+ *
+ * Of these, only `detail-section`, `app-schema-renderer` and `cloud:plan-status` got a card of
+ * their own, objectui#11515 (the dated note below). `app`, `record`, `home`, `utility`, `page`
+ * and `dashboard` have none: they are recorded for objectui#8347's family, which reads them
+ * before the signature removal. The list is written out so this stays a
+ * ratchet in BOTH directions: a new arm drifting turns it red, and so does a listed one being
+ * reconciled, which then deletes its name here. ⛔ Do not add a name to make a red go away.
+ * The `[…] extends [never]` guard the paragraph above describes belonged to the
+ * non-distributive projection this replaced: `LiteralArmType` and `WideArm` distribute over
+ * the arms, so an empty exclusion set answers `never` by construction.
+ *
+ * ⚠️ Dated note, 2026-10-03 (objectui#11466, on merging objectui#11515). Reconciled, so their
+ * names left the list below: `detail-section`, `app-schema-renderer` and `cloud:plan-status`.
+ * objectui#11515 gave each its TypeScript twin and joined it to `AnySchema`, so a node slot
+ * admits them and their zod output is assignable. The bullet above that names them is kept as
+ * the reading at objectui#11466's first measurement.
+ */
+type LiteralArmType< Arm > = Arm extends { type: infer K } ? (string extends K ? never : K) : never;
+type WideArm< Arm > = Arm extends { type: infer K } ? (string extends K ? Arm : never) : never;
+type MeasuredArmDrift11466 =
+  | 'app'
+  | 'record'
+  | 'home'
+  | 'utility'
+  | 'page'
+  | 'dashboard';
 
 export type NodeRecursionPointDeclarationDrift = [
-  Expect< Equal< ArmsNotAssignableToSchemaNode, never > >,
+  Expect< Equal< LiteralArmType< ArmsNotAssignableToSchemaNode >, MeasuredArmDrift11466 > >,
+  Expect< Equal< WideArm< ArmsNotAssignableToSchemaNode >, z.output< typeof RetiredKanbanNodeSchema > > >,
 ];
 
 

@@ -10,9 +10,11 @@
  *     only meaningful if it reads the REAL registration list rather than a
  *     hand-copied one (objectui#2953 was a public block silently missing from
  *     the contract; a duplicated list would have hidden it just as well).
- *   - `dev/manifest-dump.tsx` — imports this alongside its own eager plugin
- *     imports, so a plugin the console lazy-registers but the dump forgets to
- *     load eagerly shows up as a `lazy: true` stub and fails the build.
+ *   - `dev/manifest-registry.ts` — imports this alongside its own eager plugin
+ *     imports, so a plugin the console lazy-registers but that module forgets
+ *     to load eagerly shows up as a `lazy: true` stub and fails the build. It
+ *     is the registry both `dev/manifest-dump.tsx` and the console build's
+ *     `dist/sdui.manifest.json` step read.
  *
  * Import order note: this module's own imports are hoisted, so the eager
  * plugins below register during import and the `registerLazy` calls run in this
@@ -54,17 +56,31 @@ ComponentRegistry.registerLazy('object-tree', () => import('@object-ui/plugin-tr
   namespace: 'plugin-tree',
   category: 'view',
 });
-ComponentRegistry.registerLazy('tree', () => import('@object-ui/plugin-tree'), {
-  namespace: 'view',
-  category: 'view',
-});
+// ⛔ The bare `tree` node type key is RETIRED (objectui#10859 batch 8, the
+// objectui#10393 route) — `object-tree` above is the surviving spelling. The
+// STORED / host view type `tree` is a different layer and is untouched:
+// `ObjectView` and `ListView` already emit `object-tree` for it.
 
-// Dashboard plugin — only used on dashboard / home pages. Lazy-load all 8
+// Dashboard plugin — only used on dashboard / home pages. Lazy-load all 7
 // component types so the ~150 KB widget/pivot/metric tree stays out of the
 // initial bundle for users who never visit a dashboard.
-for (const variant of ['dashboard', 'metric', 'metric-card', 'object-metric', 'pivot', 'object-pivot', 'dashboard-grid', 'object-data-table']) {
+//
+// ⛔ objectui#10859 batch 8 (phase 2b): `dashboard-grid` is RETIRED (the
+// plugin no longer registers it, so a stub here would paint `Loading …`
+// forever), and `metric` / `metric-card` register with `skipFallback: true`, so
+// their stubs decline the bare key too — a stub that claimed it would keep the
+// retired spelling resolvable until the chunk loaded, and blessed by the key
+// derivation for good.
+for (const variant of ['dashboard', 'object-metric', 'pivot', 'object-pivot', 'object-data-table']) {
   ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-dashboard'), {
     namespace: 'plugin-dashboard',
+    category: 'view',
+  });
+}
+for (const variant of ['metric', 'metric-card']) {
+  ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-dashboard'), {
+    namespace: 'plugin-dashboard',
+    skipFallback: true,
     category: 'view',
   });
 }
@@ -96,7 +112,11 @@ ComponentRegistry.registerLazy('chart', () => import('@object-ui/plugin-charts')
 // in `packages/plugin-charts/src`: `unfulfilled-chart-stubs-8760.test.ts`
 // drives this very list through the real loader and fails on the first key
 // that resolves to nothing.
-for (const variant of ['object-chart', 'bar-chart', 'pie-chart', 'donut-chart', 'radar-chart', 'scatter-chart', 'chart:bar']) {
+// ⛔ `scatter-chart` (objectui#10859 batch 8, phase 2b) and `pie-chart`,
+// `donut-chart`, `radar-chart` (phase 2c) are RETIRED from this list with their
+// registrations — those families are `{ "type": "chart", "chartType": "scatter"
+// | "pie" | "donut" | "radar" }`.
+for (const variant of ['object-chart', 'bar-chart', 'chart:bar']) {
   ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-charts'), {
     namespace: 'plugin-charts',
     category: 'chart',
@@ -154,9 +174,11 @@ ComponentRegistry.registerLazy('report', () => import('@object-ui/plugin-report'
   namespace: 'plugin-report',
   category: 'view',
 });
-for (const variant of ['report-viewer', 'spec-report']) {
-  ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-report'), {
-    namespace: 'plugin-report',
-    category: 'view',
-  });
-}
+ComponentRegistry.registerLazy('report-viewer', () => import('@object-ui/plugin-report'), {
+  namespace: 'plugin-report',
+  category: 'view',
+});
+// ⛔ No lazy stub for `spec-report`: the key is RETIRED (objectui#11440), so
+// `@object-ui/plugin-report` no longer registers it and a stub here would never
+// be satisfied. A report embedded in JSON is the `report` node, its report in
+// the node's `report` member.

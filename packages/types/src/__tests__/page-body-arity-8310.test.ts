@@ -64,12 +64,14 @@
  *
  * ## ⚠️ The ceiling, measured — do not read this pin as more than it is
  *
- * `BaseSchema` carries `[key: string]: any`. Annotating an authored page
- * therefore catches a value of the WRONG TYPE and never a MISSPELLED KEY: an
- * undeclared key is absorbed by the index signature and draws zero
- * diagnostics, while a type-wrong value draws TS2322. This card repairs the
- * arity of one declared key; it does not turn `PageNodeSchema` into a closed
- * surface, and nothing here should be quoted as if it did.
+ * `BaseSchema` carried `[key: string]: any` when this was written. Annotating an
+ * authored page therefore caught a value of the WRONG TYPE and never a
+ * MISSPELLED KEY: an undeclared key was absorbed by the index signature and drew
+ * zero diagnostics, while a type-wrong value drew TS2322. This card repairs the
+ * arity of one declared key; it did not turn `PageNodeSchema` into a closed
+ * surface (objectui#8347 later removed the signature, which refuses a
+ * misspelled key on a fresh literal), and nothing here should be quoted as if
+ * this card did.
  *
  * ⚠️ A second, unrelated defect in the same fence was measured while writing
  * this file and filed as objectui#8912: the flagship grid SPELLED its child
@@ -241,8 +243,8 @@ describe('PageNodeSchema flat content still refuses a non-node — the widening 
  * block pins what happened to the key it moved off.
  *
  * ⛔ The assertion is NOT "the old pin is gone". A deleted member would be
- * ACCEPTED, silently: `BaseSchemaCore` ends `.passthrough()` and the TS face
- * carries `[key: string]: any`, so dropping the declaration would leave a page
+ * ACCEPTED, silently: `BaseSchemaCore` ends `.passthrough()` (and the TS face
+ * carried `[key: string]: any` until objectui#8347), so dropping the declaration would leave a page
  * written in the retired spelling parsing green and rendering nothing — the
  * exact silence the retirement exists to end. What is pinned is the REFUSAL,
  * at the key's own path, carrying the remedy.
@@ -282,14 +284,16 @@ describe('`body` is refused by name on the page node (objectui#6771)', () => {
 /* -------------------------------------------------------------------------- */
 
 /**
- * The `const schema = {` object literal inside the README's "Basic Usage"
- * fence, returned as source text. Scanned with brace-depth tracking rather
- * than a regex so a nested `children[]` cannot end the span early.
+ * The `const schema: DeclaredNode = {` object literal inside the README's
+ * "Basic Usage" fence, returned as source text. Scanned with brace-depth
+ * tracking rather than a regex so a nested `children[]` cannot end the span
+ * early. The annotation is part of the anchor since objectui#11466, which
+ * typed the example as the node the `schema` prop takes.
  */
 function basicUsageSchemaLiteral(): string {
   const heading = README.indexOf('#### Basic Usage');
   expect(heading).toBeGreaterThan(-1);
-  const start = README.indexOf('const schema = {', heading);
+  const start = README.indexOf('const schema: DeclaredNode = {', heading);
   expect(start).toBeGreaterThan(-1);
 
   let depth = 0;

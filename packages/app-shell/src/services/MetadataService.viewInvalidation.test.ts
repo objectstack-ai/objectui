@@ -71,7 +71,8 @@ describe('MetadataService routes view writes through the adapter seam (#4373)', 
   it('reads the object binding the same way listViewOverrides narrows those rows', async () => {
     // Not "any spelling of object" — the SAME spelling. `viewItemObjectName`
     // (exported from the adapter for exactly this) reads
-    // `data.object ?? object ?? objectName` off the row, and it is the accessor
+    // `data.object ?? object` off the row (no `objectName` leg since
+    // objectui#11013), and it is the accessor
     // `listViewOverrides` itself narrows those rows by. Using it here is what
     // makes the key this names provably the map that write invalidates; a
     // fourth private copy of "which object is this?" is the drift it prevents.

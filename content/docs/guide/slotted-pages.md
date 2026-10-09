@@ -89,6 +89,11 @@ object, and the server rejects comment writes against it with
 
 ## Example: customize only the header
 
+The `header` slot takes one `page:header` node, and its `properties` are the
+keys `PageHeaderProps` declares. The
+[Page Header reference](/docs/layout/page-header) lists every one; the shape is
+closed, so a key it does not declare is refused by name.
+
 ```ts
 import type { Page } from '@objectstack/spec/ui';
 
@@ -106,9 +111,6 @@ export const AccountDetailPage: Page = {
       properties: {
         title: '{name}',
         subtitle: '{industry} · {type}',
-        eyebrow: 'ACCOUNT',
-        icon: 'building-2',
-        breadcrumb: true,
       },
     },
   },
@@ -149,6 +151,50 @@ column the user cannot read is dropped once their permissions have loaded;
 a request sent before that can still carry it. A list without `columns`
 picks its columns only after the rows arrive, so it still fetches whole
 rows; there the column layer alone hides a field the user cannot read.
+
+### Naming a related list's actions: `record:related_list.actions` holds IDS
+
+By default a related list draws its child object's own actions: the ones
+declared with `locations: ['list_toolbar']` as header buttons, and the ones
+declared with `locations: ['list_item']` or `locations: ['record_related']`
+in each row's menu. A list that declares no `actions` keeps that default.
+
+`list_item` and `record_related` differ in scope. A `list_item` action shows
+on the child's rows everywhere the child is listed, including the child's
+own list view. A `record_related` action shows on them only in a related
+list inside a parent record: use it for an action that makes sense in the
+parent's context.
+
+Declare `actions` to choose the set for one list. It is a list of **action
+ids**, each the `name` of an action on the child object's own metadata. The
+authored list replaces the default rather than adding to it, and it renders
+in the order you wrote it:
+
+```json
+{
+  "type": "record:related_list",
+  "properties": {
+    "objectName": "contact",
+    "relationshipField": "account_id",
+    "columns": ["name", "email"],
+    "actions": ["export_contacts", "send_welcome"]
+  }
+}
+```
+
+The block's props go in its `properties` bag, the spec's
+`ComponentPropsMap['record:related_list']` row: `objectui validate` and the
+spec's page component both refuse them written flat on the node.
+
+- Each action is still placed by its own `locations`: naming it here does
+  not move it. An action that declares none of `list_toolbar`, `list_item`
+  and `record_related` has nowhere to render on a related list.
+- `"actions": []` shows no actions. **New**, **Edit**, **Delete** and
+  opening a row are not actions: they follow the child object's
+  `userActions` and the user's permissions, whatever this key says.
+- An id that names no action of the child object, or one with no list
+  location, is not dropped silently. The list shows a notice that names it
+  and says why.
 
 ## Header actions: inline vs. overflow
 

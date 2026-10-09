@@ -41,6 +41,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
+  ElementDataSourceSchema as SpecElementDataSourceSchema,
   ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
   ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
   type ObjectMasterDetailFormProps as SpecObjectMasterDetailFormProps,
@@ -70,7 +71,7 @@ type Expect<T extends true> = T;
 type ShapeOf<M> = M extends { shape: infer S } ? S : never;
 /** What a shape entry ACCEPTS (input side, so `.optional()` shows). */
 type InputOf<T> = T extends z.ZodType ? z.input<T> : never;
-/** The declaration's DECLARED keys — the `BaseSchema` index signature dropped. */
+/** The declaration's DECLARED keys — any index signature dropped (`BaseSchema` carried one until objectui#8347). */
 type DeclaredKeys<D> = Extract<
   keyof { [K in keyof D as string extends K ? never : number extends K ? never : K]: D[K] },
   string
@@ -92,7 +93,8 @@ export type assertionPivotMirrorsItsDeclaration = [
 /**
  * The two spec-row arms: the bag accepts exactly the spec's published props
  * type (absent allowed), and the node adds nothing to `BaseSchema` but `type`,
- * the bag and — on the master-detail form — its three runtime slots.
+ * the bag, the `dataSource` binding (objectui#10859 batch 3, pinned at runtime
+ * below) and — on the master-detail form — its three runtime slots.
  */
 export type assertionSpecRowArmsAreTheRow = [
   Expect<Equal<InputOf<ShapeOf<typeof ObjectMetricBlockSchema>['properties']>, SpecObjectMetricProps | undefined>>,
@@ -185,6 +187,38 @@ describe('the registered types armed in batch 2 validate (objectui#10859)', () =
     expect(row.safeParse(doc.properties).success).toBe(true);
     expect(safeValidateSchema(doc).success).toBe(true);
     expect(StrictAnyComponentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it.each([
+    [
+      'object-metric',
+      {
+        type: 'object-metric',
+        dataSource: { object: 'showcase_project', filter: [{ field: 'status', operator: 'equals', value: 'active' }] },
+        properties: { label: 'Projects', aggregate: { field: 'id', function: 'count' } },
+      },
+    ],
+    [
+      'object-master-detail-form',
+      {
+        type: 'object-master-detail-form',
+        dataSource: { object: 'showcase_project' },
+        properties: { mode: 'create', details: [{ title: 'Tasks', childObject: 'showcase_task' }] },
+      },
+    ],
+  ] as const)('%s bound through the node\'s `dataSource` is accepted by the strict face (objectui#10859 batch 3)', (type, doc) => {
+    // The registration is `elementDataSourceBlock`-wrapped, so the node's
+    // `dataSource` is read through `ElementDataSourceGate`; the key is the
+    // spec's `PageComponentSchema.dataSource`. Lit control: the binding is
+    // spec-valid by the spec's own schema.
+    expect(SpecElementDataSourceSchema.safeParse(doc.dataSource).success).toBe(true);
+    const strict = StrictAnyComponentSchema.safeParse(doc);
+    expect(strict.success, JSON.stringify(strict.success ? null : strict.error.issues)).toBe(true);
+    expect(safeValidateSchema(doc).success).toBe(true);
+    // Judged as the binding, not merely admitted: an adapter name is refused on both faces.
+    const adapterShaped = { type, dataSource: 'objectstack' };
+    expect(StrictAnyComponentSchema.safeParse(adapterShaped).success).toBe(false);
+    expect(safeValidateSchema(adapterShaped).success).toBe(false);
   });
 
   it('accepts a fully populated `pivot` document on both faces', () => {
@@ -303,11 +337,19 @@ describe('the spec-row arms read the row by reference (objectui#10859)', () => {
     // transcribed list that could drift from it.
     expect(keysOf(bag)).toEqual(keysOf(row));
     expect(keysOf(bag).length).toBeGreaterThan(5);
-    // Neither row carries a spec default, so the import boundary hands the
-    // spec's own export back untouched; the bag is what that export resolves
-    // to (the spec exports each row behind a lazy facade), and it answers
-    // every probe exactly as the spec does.
-    expect(stripImportedDefaults(row)).toBe(row);
+    // Since `@objectstack/spec` 17.7.0 each row reaches a spec default (the
+    // `object-metric` row through `drillDown.report`, the spec's report
+    // definition; the `object-master-detail-form` row through the page-block
+    // section shape its `sections[].fields[]` take), so the import boundary
+    // hands back its stripped derivation, not the spec's own export
+    // (objectui#8317; re-measured at the bump, objectui#11717). Through 17.6.0
+    // neither row carried one, and this line asserted the spec's export came
+    // back untouched. The bag IS that derivation, memoised to one crossing, and
+    // it answers every probe exactly as the spec does.
+    const crossed = stripImportedDefaults(row);
+    expect(crossed).not.toBe(row);
+    expect(stripImportedDefaults(row)).toBe(crossed);
+    expect(bag).toBe(crossed);
     for (const probe of [{}, { objectName: 'order' }, { inventedKey10859: 1 }, { objectName: 7 }]) {
       expect(bag.safeParse(probe).success, JSON.stringify(probe)).toBe(row.safeParse(probe).success);
     }
@@ -316,7 +358,25 @@ describe('the spec-row arms read the row by reference (objectui#10859)', () => {
   it('each arm is reachable from AnyComponentSchema through its category union', () => {
     const literals = (union: { options: readonly { shape: { type: z.ZodLiteral<string> } }[] }) =>
       union.options.map((arm) => arm.shape.type.value);
-    expect(literals(ObjectQLPublicBlockComponentSchema)).toEqual(['object-metric', 'object-master-detail-form']);
+    // `object-timeline` joined the union in batch 3 (`object-timeline-arm-10859-b3.test.ts`),
+    // `object-form` in batch 4 (`object-form-properties-bag-10859-b4.test.ts`),
+    // `object-map` in batch 5 (`object-map-properties-bag-10859-b5.test.ts`),
+    // `object-chart` in objectui#11276 (`object-chart-properties-bag-11276.test.ts`),
+    // `object-gantt` in batch 6 (`object-gantt-properties-bag-10859-b6.test.ts`),
+    // `object-grid` in objectui#11276 (`object-grid-properties-bag-11276.test.ts`),
+    // `object-pivot` and `embeddable-form` in objectui#11440 (`passing-keys-arms-11440.test.ts`).
+    expect(literals(ObjectQLPublicBlockComponentSchema)).toEqual([
+      'object-metric',
+      'object-master-detail-form',
+      'object-timeline',
+      'object-form',
+      'object-map',
+      'object-chart',
+      'object-gantt',
+      'object-grid',
+      'object-pivot',
+      'embeddable-form',
+    ]);
     expect(literals(DataDisplaySchema)).toContain('pivot');
   });
 });

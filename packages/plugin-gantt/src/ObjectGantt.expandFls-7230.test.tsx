@@ -96,9 +96,9 @@ const TASK_FIELDS: Record<string, any> = {
   name: { type: 'text' },
   start: { type: 'date' },
   end: { type: 'date' },
-  project: { type: 'lookup', reference_to: 'projects' },
-  secret_project: { type: 'lookup', reference_to: 'projects' },
-  owner_dept: { type: 'master_detail', reference_to: 'departments' },
+  project: { type: 'lookup', reference: 'projects' },
+  secret_project: { type: 'lookup', reference: 'projects' },
+  owner_dept: { type: 'master_detail', reference: 'departments' },
 };
 
 const GANTT_SCHEMA = {

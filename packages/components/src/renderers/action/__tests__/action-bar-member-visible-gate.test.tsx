@@ -48,7 +48,7 @@
  * prove with a throwaway probe does not have to be argued again.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
@@ -229,5 +229,51 @@ describe('action:bar member end-to-end — declared boolean `visible` (objectui#
     unmount();
     renderBar([member], { features: { canRun: true } });
     expect(screen.getByText('Expr')).toBeInTheDocument();
+  });
+});
+
+/**
+ * objectui#11358 — the toolbar, end to end, for a `visible` that is DECLARED
+ * but has no evaluable `source` (the `ast`-only envelope the card was filed
+ * on). A member gated that way is not rendered by the bar, beside an ungated
+ * companion that is.
+ *
+ * The bar's OWN `visible` is the one reader here that does not ask the
+ * declared-gate definition at all: it evaluates `toPredicateInput(visible)`
+ * directly (`throwOnError`). It moves with the normalizer — an `ast`-only own
+ * `visible` hides the whole bar now, where it used to fold into "absent" and
+ * show it — which is the bar's existing fault direction for its own gate.
+ */
+describe('action:bar — a declared but not evaluable `visible` (objectui#11358)', () => {
+  const AST_ONLY = { dialect: 'cel', ast: { kind: 'call', fn: '==' } };
+
+  it('a member gated by an `ast`-only envelope is not rendered; the bar and its companion are', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      renderBar([{ name: 'ast_member_11358', label: 'Ghost', type: 'script', component: 'action:button', visible: AST_ONLY }]);
+      expect(screen.getByText('View')).toBeInTheDocument();
+      expect(screen.queryByText('Ghost')).toBeNull();
+      const lines = warn.mock.calls.map((c) => c.map(String).join(' '));
+      expect(lines.filter((l) => l.includes('ast_member_11358'))).toHaveLength(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('the bar\'s own `ast`-only `visible` hides the bar (its fault direction), reported', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const Bar = getRenderer('action:bar');
+      render(
+        <PredicateScopeProvider scope={{}}>
+          <Bar schema={{ type: 'action:bar', location: 'bar_11358', maxVisible: 10, visible: AST_ONLY, actions: [COMPANION] }} />
+        </PredicateScopeProvider>,
+      );
+      expect(screen.queryByText('View')).toBeNull();
+      const lines = warn.mock.calls.map((c) => c.map(String).join(' '));
+      expect(lines.filter((l) => l.includes('[unevaluable]'))).toHaveLength(1);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

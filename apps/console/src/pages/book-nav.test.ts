@@ -47,7 +47,7 @@ describe('resolveBookTree (ADR-0046 §6)', () => {
     expect(r.groups[1].entries.map((e) => e.doc)).toEqual(['crm_guide_deal', 'crm_guide_lead']);
   });
 
-  it('drops nothing — unmatched docs fall into Uncategorized last', () => {
+  it('a book that declares no package drops nothing — unmatched docs fall into Uncategorized last', () => {
     const book: Book = { name: 'b', groups: [{ key: 'g', label: 'G', include: 'crm_guide_*' }] };
     const r = resolveBookTree(book, docs);
     const uncategorized = r.groups.find((g) => g.key === 'uncategorized');
@@ -109,8 +109,9 @@ describe('resolveBookTree (ADR-0046 §6)', () => {
     const book: Book = { name: 'bk', groups: [{ key: 'g', label: 'G', include: '*', package: 'a' }] };
     const r = resolveBookTree(book, mixed);
     expect(r.groups[0].entries.map((e) => e.doc)).toEqual(['a_x']);
-    // b_x is orphaned, not in group g
-    expect(r.groups.find((g) => g.key === 'uncategorized')?.entries.map((e) => e.doc)).toEqual(['b_x']);
+    // b_x is in no group, and package b is none of this book's packages, so it is
+    // not this book's orphan either: no Uncategorized group (objectui#11340)
+    expect(r.groups.map((g) => g.key)).toEqual(['g']);
   });
 });
 

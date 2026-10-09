@@ -1,4 +1,4 @@
-import { request } from '@playwright/test';
+import { chromium, request, type FullConfig, type LaunchOptions } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -31,7 +31,7 @@ const REPO_ROOT = decodeURIComponent(new URL(import.meta.url).pathname)
   .join('/');
 const STATE_PATH = join(REPO_ROOT, 'e2e/live/.auth/state.json');
 
-export default async function globalSetup() {
+export default async function globalSetup(config: FullConfig) {
   const ctx = await request.newContext();
   let res;
   try {
@@ -62,4 +62,76 @@ export default async function globalSetup() {
   writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
   // eslint-disable-next-line no-console
   console.log(`[live-e2e] authenticated as ${EMAIL}; storageState written to ${STATE_PATH}`);
+
+  // The specs' own launch options, so the prompt is answered in the browser
+  // the specs run in.
+  await answerTimezonePrompt(token, config.projects[0]?.use?.launchOptions);
+}
+
+/**
+ * Answer the console's one-time workspace-timezone prompt before any spec runs
+ * (objectui#11758).
+ *
+ * On a `--fresh` backend `localization.timezone` is still the manifest default
+ * and the seeded admin may write settings, so the console opens a modal prompt
+ * on the first app it renders, and every spec would meet it in front of the
+ * control it means to click. The run answers it ONCE, in a real browser,
+ * through the prompt's own buttons, and keeps the outcome in the storageState
+ * the specs reuse:
+ *
+ *   LIVE_TIMEZONE_PROMPT=decline  (the default) "Keep the default": nothing is
+ *                                 written; the prompt records that it was
+ *                                 shown in the app origin's localStorage, and
+ *                                 the storageState carries that record.
+ *   LIVE_TIMEZONE_PROMPT=confirm  "Set timezone": the browser's zone is written
+ *                                 to the workspace through the Settings write
+ *                                 path, so no later page is asked either.
+ *
+ * Skipped when the backend says the prompt would not ask (a zone already
+ * chosen, or a locked one). A prompt that was expected but never shown is
+ * reported, not failed: the specs then show whether anything stands in their
+ * way.
+ */
+async function answerTimezonePrompt(token: string, launchOptions: LaunchOptions | undefined) {
+  const mode = process.env.LIVE_TIMEZONE_PROMPT === 'confirm' ? 'confirm' : 'decline';
+  const api = await request.newContext({ extraHTTPHeaders: { Authorization: `Bearer ${token}` } });
+  let wouldAsk = false;
+  try {
+    const res = await api.get(`${API}/api/settings/localization`);
+    if (res.ok()) {
+      const body = await res.json();
+      const timezone = (body?.data ?? body)?.values?.timezone;
+      wouldAsk = timezone?.source === 'default' && !timezone?.locked;
+    }
+  } finally {
+    await api.dispose();
+  }
+  if (!wouldAsk) {
+    // eslint-disable-next-line no-console
+    console.log('[live-e2e] workspace timezone already chosen; no prompt to answer');
+    return;
+  }
+
+  const browser = await chromium.launch(launchOptions);
+  try {
+    const context = await browser.newContext({ storageState: STATE_PATH, baseURL: APP });
+    const page = await context.newPage();
+    // The built-in Setup app: present on every backend, and an app is where
+    // the console mounts the prompt.
+    await page.goto('/apps/setup');
+    const prompt = page.getByTestId('workspace-timezone-prompt');
+    try {
+      await prompt.waitFor({ state: 'visible', timeout: 60_000 });
+    } catch {
+      console.warn('[live-e2e] the workspace timezone is the default, but the console showed no prompt');
+      return;
+    }
+    await page.getByTestId(`workspace-timezone-prompt-${mode}`).click();
+    await prompt.waitFor({ state: 'hidden' });
+    await context.storageState({ path: STATE_PATH });
+    // eslint-disable-next-line no-console
+    console.log(`[live-e2e] workspace timezone prompt answered: ${mode}`);
+  } finally {
+    await browser.close();
+  }
 }

@@ -287,7 +287,7 @@ describe('zh session — every date branch renders Chinese (objectui#4468)', () 
       <FormulaField
         value={FIXED_INSTANT}
         onChange={() => {}}
-        field={{ type: 'formula', name: 'computed_on', return_type: 'date' } as any}
+        field={{ type: 'formula', name: 'computed_on', returnType: 'date' }}
       />,
     );
     expect(container.textContent).toContain(defaultDateFace(FIXED_INSTANT, 'zh'));

@@ -53,6 +53,16 @@ export interface CreateItemDialogProps {
   locale: SupportedLocale;
   /** Extra fields rendered between the identifier field and the footer. */
   extra?: React.ReactNode;
+  /**
+   * The name the item is actually saved under, given the identifier the dialog
+   * derived (objectui#11792). When set, it is previewed under the identifier
+   * field, so a caller that rewrites the name on save — the Data pillar
+   * prefixes an object with its package namespace — shows that name before
+   * the author commits to it. Pass the SAME function the caller's save path
+   * applies, so the preview cannot describe a different rule. Omitted → no
+   * preview.
+   */
+  storedName?: (identifier: string) => string;
   /** Persist. Receives the trimmed display label and the derived identifier. */
   onSubmit: (values: { label: string; name: string }) => void;
 }
@@ -72,6 +82,7 @@ export function CreateItemDialog({
   error,
   locale,
   extra,
+  storedName,
   onSubmit,
 }: CreateItemDialogProps): React.ReactElement {
   const [label, setLabel] = React.useState('');
@@ -136,6 +147,12 @@ export function CreateItemDialog({
               placeholder={idPlaceholder}
             />
           </div>
+          {storedName && valid && (
+            <p className="text-xs text-muted-foreground" data-testid="create-item-stored-name">
+              {t('engine.studio.createItem.savedAs', locale)}{' '}
+              <span className="font-mono text-foreground">{storedName(finalName)}</span>
+            </p>
+          )}
           {extra}
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>

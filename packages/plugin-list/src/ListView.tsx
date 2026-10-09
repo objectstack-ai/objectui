@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react';
-import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder, NavigationOverlay, GroupingEditor, RefreshIndicator, DataEmptyState, DataErrorState, resolveIcon } from '@object-ui/components';
+import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder, NavigationOverlay, GroupingEditor, RefreshIndicator, DataEmptyState, DataErrorState, resolveIcon, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import type { SortItem } from '@object-ui/components';
 import { Search, SlidersHorizontal, ArrowUpDown, X, EyeOff, Pencil, Group, Paintbrush, Inbox, Download, Rows4, Rows3, Rows2, Share2, Printer, Plus, Trash2, CheckSquare, AlertTriangle, ShieldAlert, RotateCw, Loader2, type LucideIcon } from 'lucide-react';
 import type { FilterGroup } from '@object-ui/components';
@@ -17,9 +17,9 @@ import { ViewSettingsPopover } from './components/ViewSettingsPopover';
 import { UserFilters } from './UserFilters';
 import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import type { LoadErrorKind } from '@object-ui/react';
-import { useDensityMode } from '@object-ui/react';
+import { useDensityMode, resolveInlineAriaProps } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
-import { detectStatusField } from '@object-ui/types';
+import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
@@ -31,7 +31,8 @@ import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLoc
 // objectui's keyed `{ key, defaultValue, params }` ref — that vocabulary lives
 // on the FLAT `schema.ariaLabel` and is resolved by `SchemaRenderer` instead
 // (objectui#5134).
-import { resolveI18nLabel as resolveInlineI18nLabel, normalizeFilterOperator } from '@objectstack/spec/ui';
+import { resolveI18nLabel as resolveInlineI18nLabel, normalizeFilterOperator, PaginationConfigSchema } from '@objectstack/spec/ui';
+import type { GroupingConfig } from '@objectstack/spec/ui';
 import { usePermissions } from '@object-ui/permissions';
 
 /**
@@ -289,10 +290,28 @@ export interface ListViewProps {
    * decides whether platform-unsortable entries are still present (#6455).
    */
   onSortChange?: (sort: SortItem[]) => void;
+  /**
+   * Fires with the grouping after a user edit in either grouping editor: the
+   * toolbar's Group panel (a level added, changed or removed, or Clear) and the
+   * compact toolbar's settings popover. `undefined` when the grouping is
+   * cleared.
+   *
+   * The value is the spec's `GroupingConfig`, the shape `schema.grouping`
+   * takes, so a host hands it back through `schema.grouping` unchanged
+   * (objectui#11860). Not fired when the list re-reads a changed
+   * `schema.grouping` or `groupBy`: that value came from the host.
+   */
+  onGroupingChange?: (grouping: GroupingConfig | undefined) => void;
   onSearchChange?: (search: string) => void;
   /** Called when the user toggles fields via the Hide Fields popover. */
   onHiddenFieldsChange?: (hidden: string[]) => void;
-  /** Called when the user toggles inline record editing in View settings. */
+  /**
+   * Called when the user toggles inline record editing. Wiring it is also what
+   * offers the wide toolbar's toggle. The toggle switches the grid's edit MODE,
+   * which `ListView` keeps in its own state. A host should not persist it into
+   * the view's `inlineEdit`: that key is the author's permission, and it folds
+   * into `userActions.editInline` (objectui#5144).
+   */
   onInlineEditChange?: (next: boolean) => void;
   /** Called when the user resizes/reorders columns in the underlying grid. */
   onColumnStateChange?: (state: { order?: string[]; widths?: Record<string, number> }) => void;
@@ -454,6 +473,15 @@ export function mapOperator(op: string) {
     case 'between': return 'between';
     case 'isnull': return 'isnull';
     case 'isnotnull': return 'isnotnull';
+    // objectui#10813 — the empty pair, which the spec lowers to its ONE
+    // 「is empty」 operator, `$empty` (objectstack#20446), expanded by the
+    // column's declared type on the server. It used to be answered by two arms
+    // in `convertFilterGroupToAST` as an equality to `null` — a null-only test
+    // that never counted `''` or `[]`, while the SAME rule saved into the view
+    // (`foldFilterGroupToSpecRules` persists `is_empty`) ran as `$empty`: one
+    // panel, two record sets, depending on whether the view had been saved.
+    case 'isempty': return 'isempty';
+    case 'isnotempty': return 'isnotempty';
     default: return op;
   }
 }
@@ -729,14 +757,16 @@ export function convertFilterGroupToAST(group: FilterGroup): any[] {
       return isFilterValueComplete(c.operator, c.value);
     })
     .map(c => {
-      // Folded, not compared raw (objectui#9359). These two arms resolve to a
-      // null comparison BEFORE `mapOperator` is consulted, so leaving them on
-      // literal camelCase ids would have made the repair below reach `is_null`
-      // and not `is_empty` — trading one spelling-dependent answer for another,
-      // which is the defect this card is about rather than a fix for it.
-      const canonicalOperator = String(normalizeFilterOperator(c.operator));
-      if (canonicalOperator === 'is_empty') return [c.field, '=', null];
-      if (canonicalOperator === 'is_not_empty') return [c.field, '!=', null];
+      // objectui#10813 — `is_empty` / `is_not_empty` no longer have arms of
+      // their own here. They were answered as `[field, '=' | '!=', null]`, a
+      // null test; they now take the value-less path below like `is_null`, and
+      // `mapOperator` emits the spec's `isempty` / `isnotempty`, which the
+      // spec lowers to `$empty` — the same operator a saved view's `is_empty`
+      // rule already ran as. The fold objectui#9359 added for those two arms
+      // lives on in `isValuelessFilterOperator` and in `mapOperator`'s
+      // case- and underscore-insensitive match, so every spelling of the pair
+      // still lands on one node.
+      //
       // A value-less row's third slot is emitted as `null` rather than as
       // whatever `c.value` still holds: the operator dropdown PRESERVES the
       // previous operator's value, so an `Is null` row can carry a leftover
@@ -744,7 +774,9 @@ export function convertFilterGroupToAST(group: FilterGroup): any[] {
       // (`convertComparison`, `@objectstack/spec/data`) ignores the third slot
       // for `isnull`/`isnotnull` — it emits `{ [field]: { $null: true|false } }`
       // — so `null` is inert on the wire and keeps the emission a function of
-      // the operator alone. Same shape the `isEmpty` arms above already use.
+      // the operator alone. The spec discards the slot for `isempty` /
+      // `isnotempty` too (`parseFilterAST(['x', 'isempty', null])` is
+      // `{ x: { $empty: true } }`).
       // The same fold as the short-circuit above (objectui#9359): a row kept
       // BECAUSE it is value-less must also be EMITTED as value-less, or the
       // canonical spelling would carry its stale `value` into the third slot
@@ -807,7 +839,8 @@ export function evaluateConditionalFormatting(
 // reads this map from downstream instead of parsing this file's text.
 export const LIST_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'list.recordCount': '{{count}} records',
-  'list.recordCountOne': '{{count}} record',
+  'list.recordCount_one': '{{count}} record',
+  'list.recordCount_other': '{{count}} records',
   'list.noItems': 'No items found',
   'list.noItemsMessage': 'There are no records to display. Try adjusting your filters or adding new data.',
   // First-run (truly empty, no filter/search) vs filtered-to-empty. Showing
@@ -816,6 +849,10 @@ export const LIST_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'list.firstRunMessage': 'Create your first record to get started.',
   'list.noMatches': 'No matching records',
   'list.noMatchesMessage': 'No records match your current filters or search. Try adjusting or clearing them.',
+  // Emptied by the VIEW's own declared filter, with no user filter or search
+  // applied (objectui#11687): the "your filters" wording above would name
+  // filters the user never set.
+  'list.viewFilterNoMatchesMessage': 'No records match this view’s filter.',
   'list.loading': 'Loading records…',
   // Load FAILED (network / server error) — distinct from empty. Offer retry.
   'list.loadErrorTitle': 'Couldn\u2019t load records',
@@ -962,18 +999,50 @@ function useListFieldLabel() {
 }
 
 /**
- * The page size this view falls back to when no usable one is declared.
+ * The page size a PAGED list falls back to when no usable one is declared: the
+ * flat grid view, which this component pages on the server (`paginate`), so
+ * the window it fetches is the page on screen and the size it hands the child
+ * grid's pager (objectui#9853, ruling 5824040487, structure B: "page size"
+ * means one page only where there is a pager).
  *
- * ⚠️ Named rather than spelled inline because it is a FIFTH different default
- * in this family: `ObjectGrid` carries three (a page of rows, a page of
- * groups, a fetch window) and this view carries its own — the single `$top`
- * window it asks the server for, which then doubles as the child grid's page
- * size. ⛔ Whether 100 belongs next to the grid's numbers is NOT settled here:
- * changing it changes what every list with no authored `pagination` fetches,
- * which is a product decision rather than an execution seat's. It is handed
- * back as a question on objectui#9897.
+ * READ from `@objectstack/spec`, not restated, the same read `ObjectGrid`
+ * makes: the protocol's pagination config declares `pageSize` with a default,
+ * and parsing an empty config is the spec's own way of saying what an
+ * undeclared member means. ⚠️ There is no local number behind the read: if a
+ * future spec stops declaring a positive default, this throws at module load
+ * rather than substituting a number nobody declared.
  */
-const DEFAULT_LIST_PAGE_SIZE = 100;
+function readSpecDisplayPageSize(): number {
+  const declared: unknown = PaginationConfigSchema.parse({}).pageSize;
+  if (typeof declared !== 'number' || !Number.isInteger(declared) || declared <= 0) {
+    throw new Error(
+      '[ObjectUI] ListView: @objectstack/spec no longer declares a positive default '
+      + `for pagination.pageSize (read ${String(declared)}); a paged list has no display `
+      + 'page size to fall back to.',
+    );
+  }
+  return declared;
+}
+const DEFAULT_LIST_DISPLAY_PAGE_SIZE = readSpecDisplayPageSize();
+
+/**
+ * The `$top` of the ONE unpaged fetch a list view makes when no usable page
+ * size is declared: every view this component does not page on the server
+ * (`paginate` is false), which is every kind but the flat grid, plus a grouped
+ * grid's window. Those views have no pager, so rows past this number are not
+ * reachable at all (`dataLimitReached` says so).
+ *
+ * A fetch batch, ⛔ not a page size (objectui#9853, ruling 5824040487,
+ * structure B): its value is kept, and it does not follow the display default,
+ * so no view silently loses reachable records when the protocol's page size
+ * moves. A DECLARED `pagination.pageSize` still sizes this fetch, as it always
+ * has; only the undeclared fallback is split by kind.
+ *
+ * Exported for pins that assert "the fetch batch" rather than its value
+ * (objectui#9853, ruling record 5909000462); the package index does not
+ * re-export it.
+ */
+export const DEFAULT_LIST_FETCH_BATCH_SIZE = 100;
 
 /**
  * What the contract admits as a page size. The spec's view pagination config
@@ -1038,17 +1107,110 @@ function describeRefusedPageSize(
   chosen: unknown,
   authored: unknown,
   objectName: unknown,
+  paged: boolean,
 ): string | null {
   const candidate = chosen ?? authored;
   if (candidate === undefined || candidate === null) return null;
   if (isUsablePageSize(candidate)) return null;
   const where =
     typeof objectName === 'string' && objectName ? `list-view on ${objectName}` : 'list-view';
+  const fellBackTo = paged
+    ? `its default page size (${DEFAULT_LIST_DISPLAY_PAGE_SIZE})`
+    : `its default fetch batch (${DEFAULT_LIST_FETCH_BATCH_SIZE}), since this view does not page`;
   return (
     `[ObjectUI] ListView pagination: ${where} declared pageSize: ${String(candidate)}, `
     + 'which is not a positive integer. A page size must be a positive integer '
     + '(the spec refuses zero and negative values), so it was ignored and this '
-    + `list fell back to its default page size (${DEFAULT_LIST_PAGE_SIZE}).`
+    + `list fell back to ${fellBackTo}.`
+  );
+}
+
+/**
+ * Field-level READ for the field lists the toolbar offers: the Filter panel's
+ * (`filterFields`, objectui#11925), the Sort picker's (`sortFields`,
+ * objectui#11943), and since objectui#11984 the list the hide-fields popover,
+ * the Group editor and the Row color select share (`allFields`, which the
+ * compact toolbar's View settings popover reads too) and the user-filter
+ * chips (`filterElements`). The first two lists used to disagree:
+ * objectui#11925 wrote this predicate inside the filter memo, so the sort
+ * picker never asked it. It now lives once, here, and every list calls it.
+ * Which lists exist is re-derived by the enumeration pin in
+ * `ListView.fieldListRead-11984.test.tsx`, not by this comment.
+ *
+ * It is the same call the column gate (`effectiveFields`) makes,
+ * `perms.checkField(objectName, field, 'read')`, behind the same gate: until
+ * the permission answer has loaded, or with no object to ask about, it answers
+ * true. An unanswered policy filters nothing, exactly as the columns defer.
+ *
+ * A plain function of the permission value and the object name rather than a
+ * hook. Every memo that calls it already depends on those two, so none depends
+ * on a function's identity (AGENTS.md #10).
+ */
+function canReadField(
+  perms: ReturnType<typeof usePermissions>,
+  objectName: string | undefined,
+  field: string,
+): boolean {
+  return !perms?.isLoaded || !objectName || perms.checkField(objectName, field, 'read');
+}
+
+/** The item a value none of a picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — the toolbar's "Color by field" and the record-count bar's
+ * rows-per-page selector, drawn with the shared `Select`, the control the rest
+ * of the console picks with. Both used to be browser-native `<select>`
+ * elements. What a pick writes is unchanged: `onPick` receives the picked
+ * option's own value, the string the native control's `change` carried, and
+ * each caller turns it into what it wrote before. Re-picking the current
+ * option writes nothing, as it did there.
+ *
+ * "Color by field" is the twin of `ViewSettingsPopover`'s `ColorFieldPicker`
+ * (the compact toolbar's copy of this popover, whose header asks the two to
+ * stay in step), and it draws an outside value and "None" the same way:
+ *
+ * - Items carry their option's INDEX, not its value: "None" is the option whose
+ *   value is `''`, which `SelectItem` refuses.
+ * - A value none of the options carries gets an item of its own, labelled with
+ *   the value, so the trigger shows what the view holds. The native control
+ *   showed its first option there. Picking that item writes nothing.
+ */
+function ListOptionPicker({
+  value,
+  options,
+  onPick,
+  className,
+  testId,
+}: {
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  className: string;
+  testId: string;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the view's own value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger className={className} data-testid={testId}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -1075,6 +1237,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   onViewChange,
   onFilterChange,
   onSortChange,
+  onGroupingChange,
   onSearchChange,
   onHiddenFieldsChange,
   onInlineEditChange,
@@ -1394,27 +1557,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
   // Dynamic page size state (wired from pageSizeOptions selector)
   const [dynamicPageSize, setDynamicPageSize] = React.useState<number | undefined>(undefined);
-  // [objectui#9897] Through the resolver rather than a bare `??` chain. This
-  // value is resolved ONCE and then feeds six consumers — the `$top` window,
-  // the `$skip` step that turns the page, the has-more gate behind the
-  // "showing first N" cap, the page size handed down to the child grid, the
-  // record cap printed in that banner, and the rows-per-page control's own
-  // displayed value. `??` rejects only null/undefined, so one refused
-  // declaration used to reach all six.
   const authoredPageSize = schema.pagination?.pageSize;
-  const effectivePageSize = resolvePageSize(
-    dynamicPageSize,
-    authoredPageSize,
-    DEFAULT_LIST_PAGE_SIZE,
-  );
-
-  // [objectui#9897] The loud half, on the channel this component already uses
-  // for "you declared it, the renderer dropped it". Keyed on the declaration,
-  // so it is one warning per declaration rather than one per render.
-  React.useEffect(() => {
-    const message = describeRefusedPageSize(dynamicPageSize, authoredPageSize, schema.objectName);
-    if (message) console.warn(message);
-  }, [dynamicPageSize, authoredPageSize, schema.objectName]);
 
   // --- Server-side pagination (objectstack-ai/objectstack#2212) ---
   // ListView owns the fetch, so it owns paging too: it requests one window at a
@@ -1464,6 +1607,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   }, [schema.grouping, schema.groupBy, schema.groupBy2]);
   const [groupingConfig, setGroupingConfig] = React.useState(initialGroupingConfig);
   const [showGroupPopover, setShowGroupPopover] = React.useState(false);
+  // The one door a USER's grouping edit goes through, from both editors, so
+  // the host hears of it (objectui#11860). The re-sync below sets the state
+  // directly: a schema delta is the host's own value, not news to report.
+  const changeGrouping = React.useCallback((next: GroupingConfig | undefined) => {
+    setGroupingConfig(next);
+    onGroupingChange?.(next);
+  }, [onGroupingChange]);
 
   // Re-sync grouping when the underlying schema-driven config changes (e.g. the
   // user edits `groupBy` in the view designer). User-driven changes via the
@@ -1502,6 +1652,35 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * values every consumer sees are the ones they saw before.
    */
   const paginate = currentView === 'grid' && !(groupingConfig?.fields?.length);
+  // [objectui#9897] Through the resolver rather than a bare `??` chain. This
+  // value is resolved ONCE and then feeds six consumers — the `$top` window,
+  // the `$skip` step that turns the page, the has-more gate behind the
+  // "showing first N" cap, the page size handed down to the child grid, the
+  // record cap printed in that banner, and the rows-per-page control's own
+  // displayed value. `??` rejects only null/undefined, so one refused
+  // declaration used to reach all six.
+  //
+  // [objectui#9853] Undeclared, what it falls back to depends on whether this
+  // surface pages (structure B): a paged surface falls back to the display
+  // default the spec declares, and an unpaged one to the fetch batch. So with
+  // no declared size, switching between the paged grid and an unpaged kind
+  // moves the window and re-issues the fetch, where a declared size keeps one
+  // window across the switch (objectui#7394).
+  const effectivePageSize = resolvePageSize(
+    dynamicPageSize,
+    authoredPageSize,
+    paginate ? DEFAULT_LIST_DISPLAY_PAGE_SIZE : DEFAULT_LIST_FETCH_BATCH_SIZE,
+  );
+
+  // [objectui#9897] The loud half, on the channel this component already uses
+  // for "you declared it, the renderer dropped it". Keyed on the declaration
+  // (and on which fallback it names), so it is one warning per declaration
+  // rather than one per render.
+  React.useEffect(() => {
+    const message = describeRefusedPageSize(dynamicPageSize, authoredPageSize, schema.objectName, paginate);
+    if (message) console.warn(message);
+  }, [dynamicPageSize, authoredPageSize, schema.objectName, paginate]);
+
   const fetchSkip = paginate ? (serverPage - 1) * effectivePageSize : 0;
   const serverTotal = paginate ? fetchedTotal : null;
 
@@ -1570,9 +1749,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
     return { ...configured, fields: derivedFields };
   }, [schema.userFilters, objectDef, tFieldLabel]);
-
-  // ADR-0053: userFilters (dropdown | tabs) is the sole page filter control.
-  const filterElements = resolvedUserFilters;
+  // The chips the toolbar renders are `filterElements`, which asks the field
+  // read; it is declared below `perms` (objectui#11984).
 
   // Hidden Fields State (initialized from schema)
   const [hiddenFields, setHiddenFields] = React.useState<Set<string>>(
@@ -1599,16 +1777,17 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   );
   const [showHideFields, setShowHideFields] = React.useState(false);
 
-  // Inline-edit State (initialized from schema). Kept local — like hiddenFields
-  // — so the toolbar toggle flips the grid immediately. The parent persists via
-  // onInlineEditChange (debounced) and doesn't update the `inlineEdit` prop
-  // synchronously, so reading `schema.inlineEdit` directly would make the button
-  // appear dead until a full reload.
+  // Inline-edit MODE: session state, seeded from the view's `inlineEdit` on each
+  // load (objectui#5144, ruling E). The toolbar toggle flips it here and reports
+  // it through `onInlineEditChange`. The console writes nothing back, because
+  // `inlineEdit` is the author's permission key, so the mode is not remembered
+  // across loads. Whether the toggle is offered at all is `inlineEditOffered`
+  // below.
   const [inlineEdit, setInlineEdit] = React.useState<boolean>(() => !!schema.inlineEdit);
   React.useEffect(() => {
     setInlineEdit(!!schema.inlineEdit);
   }, [schema.inlineEdit]);
-  // Setter that also notifies parent for persistence (debounced upstream).
+  // Setter that also notifies the host.
   const updateInlineEdit = React.useCallback(
     (next: boolean) => {
       setInlineEdit(next);
@@ -1745,29 +1924,40 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * and the Studio designer keep today's behavior — the same fail-open the
    * bulk gate above relies on.
    *
-   * ## Gap 2 — consuming the declared `userActions.editInline`
+   * ## Gap 2 — the declared `userActions.editInline`, with the spec's default
    *
-   * `ListViewSchema.userActions.editInline` is spec-declared and, on this
-   * toolbar, was read by nothing: an author could not switch inline editing off
-   * even unconditionally. It is read here as an explicit opt-OUT (`!== false`).
+   * `ListViewSchema.userActions.editInline` is spec-declared with
+   * `.default(false)`: "the list is read-only unless the author opts in". It is
+   * read here with that default (`=== true`), so a view that declares nothing
+   * is not offered inline editing. That is the same reading the ADR-0047
+   * interface page takes.
    *
-   * That default is deliberate and it does NOT enforce the spec's
-   * `.default(false)`. Enforcing it would take the toggle away from every
-   * existing console list view in one release, since nothing folds a legacy key
-   * into `editInline` and no stored view declares it — the console's own
-   * channel for this capability is the view's `inlineEdit` property, which the
-   * host relays as `onInlineEditChange`. This is `toolbarFlags`' stated rule
-   * for exactly this block (defaults "matching what these flags have always
-   * done"; `hideFields`/`rowColor` keep their historical OFF because flipping
-   * them "would grow two buttons on every existing view") applied in the
-   * direction that would REMOVE one. So: an explicit `false` is honoured, an
-   * explicit `true` is honoured, and absence defers to the host channel that
-   * already governs this surface. `InterfaceListPage` — the other consumer of
-   * this key — reads the absent case as OFF (`=== true`), because the
-   * ADR-0047 interface page has no such host channel to defer to.
+   * A view's `inlineEdit` reaches this read through the fold, not around it
+   * (objectui#5144). `normalizeListViewSchema` folds a boolean `inlineEdit`
+   * into `userActions.editInline` when the view declares no `editInline` of its
+   * own. So:
+   *  - a view with `inlineEdit: true` offers the toggle;
+   *  - a view with `inlineEdit: false` reads off;
+   *  - an explicit `editInline` wins over `inlineEdit`, either way;
+   *  - a view with neither key reads off.
+   *
+   * Both keys are the author's permission. This gate decides whether the toggle
+   * is offered. Whether the grid is in edit mode is the `inlineEdit` state above:
+   * session state, seeded from the view's `inlineEdit` on each load, and flipped
+   * by the toggle. The console no longer persists the toggle into the view
+   * (objectui#5144, ruling E). That write made the toggle one-way, because
+   * switching it off stored `inlineEdit: false`, which this gate then read as
+   * "not offered". A view with `editInline: true` and no `inlineEdit` offers the
+   * toggle and opens out of edit mode.
+   *
+   * ⚠️ The remedy for a view that relied on the old default: declare
+   * `userActions.editInline: true`. Two costs are recorded with the ruling. The
+   * edit mode is not remembered across loads. A view or overlay that already
+   * stores `inlineEdit: false`, written by the old toggle, still reads off;
+   * that is existing data, and it is not migrated.
    */
   const inlineEditOffered = React.useMemo(() => {
-    if ((schema.userActions as Record<string, boolean | undefined> | undefined)?.editInline === false) {
+    if ((schema.userActions as Record<string, boolean | undefined> | undefined)?.editInline !== true) {
       return false;
     }
     return (
@@ -2105,11 +2295,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * for its groups and pages each group's rows itself, with the SAME effective
    * filter this component would have sent (see `selfQueryFilter` below).
    *
-   * ⛔ Not while a toolbar search is active. `$search` has no counterpart on
-   * the header query the platform answers — its aggregate branch composes
-   * `where` / `groupBy` / `aggregations` / `having` and nothing else — so
-   * searched group counts would not be the searched rows' counts. The
-   * searched view keeps grouping this component's window, as before.
+   * A toolbar search included (objectui#11021). The header query takes
+   * ADR-0061 `search` / `searchFields` beside `where`, and the grid sends the
+   * term on it and on every group's row query as one pair, so the groups and
+   * their counts are the searched rows'. The grid is handed this component's
+   * term as `search`, and the view's `searchableFields` on its node — the pair
+   * this component's own fetch sends as `$search` / `$searchFields`.
    */
   const gridOwnsGroupedFetch =
     currentView === 'grid' &&
@@ -2117,8 +2308,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     !Array.isArray(schema.data) &&
     (schema.data as any)?.provider !== 'value' &&
     !!schema.objectName &&
-    typeof dataSource?.queryGroupHeaders === 'function' &&
-    !searchTerm;
+    typeof dataSource?.queryGroupHeaders === 'function';
 
   /**
    * Is a GROUPED grid refused here? (objectui#10881, maintainer ruling F)
@@ -2208,6 +2398,37 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   const listFetchesForItself =
     !Array.isArray(schema.data) && (schema.data as any)?.provider !== 'value' && !ganttOwnsData;
   const invalidationNonce = useDataInvalidation(listFetchesForItself ? schema.objectName || undefined : undefined);
+
+  // objectui#10689 — the fetch effect's dep on the three view-level PREDICATE
+  // carriers its projection harvests (objectui#3501), as a CONTENT key over the
+  // operand NAMES alone: the shape `plugin-grid`'s `predicateProjectionKey`
+  // takes for the grid's own load effect.
+  //
+  // The effect below reads `conditionalFormatting`, `rowActionDefs` and
+  // `bulkActionDefs` through `listViewPredicates` and adds each operand to
+  // `$select`, but none of the three was a dependency. So a rule added to a
+  // mounted list never had its operand fetched: the rows kept arriving without
+  // the field, and the rule, which reads it, never matched.
+  //
+  // Names ONLY: a rule's style, or an action's label, is a render-time concern
+  // the projection cannot see, so changing it costs no round trip. The same
+  // harvest over the same three inputs as the effect's; the object-level
+  // `actions` / `userActions` it adds come from `objectDef`, not from the view,
+  // and are outside this key. The `rowActionDefs` cast is
+  // the NON-AUTHOR SURFACE exemption stated at the effect's own read of that
+  // key. `__tests__/ListView.harvestInputsFetchKey-10689.test.tsx` pins each
+  // input.
+  const conditionalFormattingRaw = schema.conditionalFormatting as readonly unknown[] | undefined;
+  const rowActionDefsRaw = (schema as { rowActionDefs?: readonly unknown[] }).rowActionDefs;
+  const bulkActionDefsRaw = (schema as { bulkActionDefs?: readonly unknown[] }).bulkActionDefs;
+  const predicateProjectionKey = React.useMemo(
+    () => JSON.stringify(collectPredicateFieldRefs(listViewPredicates({
+      conditionalFormatting: conditionalFormattingRaw,
+      rowActionDefs: rowActionDefsRaw,
+      bulkActionDefs: bulkActionDefsRaw,
+    }))),
+    [conditionalFormattingRaw, rowActionDefsRaw, bulkActionDefsRaw],
+  );
 
   // Fetch data effect — supports schema.data (ViewDataSchema) provider modes
   React.useEffect(() => {
@@ -2798,13 +3019,16 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // down. It reads `currentView`, so leaving a refused grouped grid for a
     // board re-runs this effect once, and that run is the board's fetch.
     //
+    // objectui#10689 — `predicateProjectionKey` is the harvested predicate
+    // operands, a string compared by value; see its declaration above.
+    //
     // ⚠️ The directive below governs the NEXT LINE. Anything written between it
     // and the dependency array detaches it from the array and turns it into an
     // unused directive — which `eslint .` reports as an ERROR, and which also
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData, invalidationNonce, groupingNeedsHeaderQuery]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
+  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, predicateProjectionKey, ganttOwnsData, invalidationNonce, groupingNeedsHeaderQuery]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to
@@ -2855,7 +3079,19 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     }
 
     // Check for Gallery capabilities (spec config takes precedence)
-    if (schema.gallery?.coverField || schema.gallery?.imageField || schema.options?.gallery?.imageField) {
+    //
+    // The bag's CANONICAL rung (objectui#6152 round 12), the objectui#8193 kanban
+    // repair a fourth time: the gate asked `options.gallery` for the legacy
+    // `imageField` only, so a bag binding its cover under the spec's `coverField`
+    // rendered a gallery the switcher never offered. app-shell's relay writes
+    // `coverField` alone since that round. ⛔ The alias rung stays: the readers'
+    // retirement is a later round.
+    if (
+      schema.gallery?.coverField ||
+      schema.gallery?.imageField ||
+      schema.options?.gallery?.coverField ||
+      schema.options?.gallery?.imageField
+    ) {
       resolvable.push('gallery');
     }
 
@@ -3053,12 +3289,25 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         })
       : t('detail.recordDetail');
 
-  // Field-level permission gate. Filter unreadable columns from the
-  // field list BEFORE any downstream column construction so they also
-  // disappear from the hide-fields popover, filter/sort builders, and
-  // grid `$select`. (`perms` was hoisted to before the data-fetch
-  // effect so $select can be gated server-side too.)
-  // Apply hiddenFields and fieldOrder to produce effective fields
+  // The columns this view draws: the declared columns, minus the ones the user
+  // may not read (`perms.checkField(objectName, field, 'read')`, skipped until
+  // the permission answer loads or when there is no object name), minus the
+  // hidden ones, in `fieldOrder`. Every child view receives it as `fields`, and
+  // the grid also as `columns` when the author declared any. The kanban card
+  // fields and the tree fields fall back to it, and the export's columns are
+  // built from it. The Filter panel reads it only to order its list.
+  //
+  // The other field lists are not built from it, and each asks the same read
+  // itself. The `$select` projection in the data-fetch effect filters the
+  // declared columns with the same call; `perms` is read before that effect so
+  // it can. The Filter panel's list, the Sort picker's list, the list the
+  // hide-fields popover, the Group editor and the Row color select share
+  // (`allFields`), and the user-filter chips (`filterElements`) ask through
+  // `canReadField` (objectui#11925, objectui#11943, objectui#11984). Two
+  // exceptions keep a field the current state already names: the Sort picker
+  // lists it disabled, so its row can be removed but no other row and no "Add
+  // sort" can choose it; a user-filter chip whose field a held selection names
+  // stays, so that selection can be cleared.
   const effectiveFields = React.useMemo(() => {
     // Defensive: `columns` is `string[] | ListColumn[]`, but metadata is
     // user-authored — anything non-array degrades to "no declared columns".
@@ -3270,8 +3519,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...(schema.conditionalFormatting ? { conditionalFormatting: schema.conditionalFormatting } : {}),
           // [#4647] The MODE, not just its toggle. Gating only the toggle would
           // leave the issue's own consequence reachable by a different door: a
-          // stored view carrying `inlineEdit: true` (the console persists it
-          // per view) drops a read-only principal straight into editable cells
+          // stored view carrying `inlineEdit: true` (authored, or left by the
+          // console's old toggle) drops a read-only principal straight into editable cells
           // with no toggle to press, and "Save all" still earns the 403. The
           // toggle can only ever be the cheapest entrance to this state; the
           // state is what needs the grant.
@@ -3283,7 +3532,16 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...(groupingConfig ? { grouping: groupingConfig } : {}),
           // objectui#7189 — a grid grouping on the server runs its own query,
           // so it carries the effective filter. See `gridOwnsGroupedFetch`.
-          ...(gridOwnsGroupedFetch ? { filter: selfQueryFilter } : {}),
+          // objectui#11021 — and the fields the toolbar term may match, when
+          // the view declares them; the term itself is a host prop (below).
+          ...(gridOwnsGroupedFetch
+            ? {
+                filter: selfQueryFilter,
+                ...(schema.searchableFields && schema.searchableFields.length > 0
+                  ? { searchableFields: schema.searchableFields }
+                  : {}),
+              }
+            : {}),
           ...(rowColorConfig ? { rowColor: rowColorConfig } : {}),
           ...(schema.rowActions ? { rowActions: schema.rowActions } : {}),
           /**
@@ -3304,7 +3562,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...((schema as any).rowActionDefs ? { rowActionDefs: (schema as any).rowActionDefs } : {}),
           ...(schema.bulkActions ? { batchActions: schema.bulkActions } : {}),
           ...((schema as any).bulkActionDefs ? { bulkActionDefs: (schema as any).bulkActionDefs } : {}),
-          ...(schema.options?.grid || {}),
+          // objectui#6152 round 12: `grid` is no longer a member of the typed
+          // `options` bag. The spec's list-overlay bag refuses it (a grid has no
+          // per-kind block), and so does `ListViewSchema.options`. The READ stays,
+          // typed here as the stored input it is, for a row stored before the view
+          // write door judged the bag; it retires with the other legacy readers.
+          ...((schema.options as { grid?: Record<string, unknown> } | undefined)?.grid || {}),
         };
       case 'kanban': {
         // The spec's lane field is `groupByField`; `groupField` is the legacy
@@ -3858,16 +4121,73 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   }, [objectDef, schema.columns, schema.objectName, tFieldLabel, translateOptions]);
 
   /**
-   * The FILTER builder's candidates: the view's `filterableFields` whitelist,
-   * applied to the full set. Behaviour is unchanged by objectui#4243 — the
-   * whitelist simply moved out of the shared memo into the one builder it was
-   * authored for, so widening the SORT picker cannot widen this.
+   * The FILTER builder's candidates, in the order its field list draws them.
+   *
+   * Membership: the view's `filterableFields` whitelist, applied to the full
+   * set (objectui#4243 moved it out of the shared memo into the one builder it
+   * was authored for, so widening the SORT picker cannot widen this).
+   *
+   * objectui#11810 — the object definition is served with the injected system
+   * columns FIRST, and this list used to be that map verbatim: the builder's
+   * field list led with Organization, Created By, Owner …, and "Add filter"
+   * (which seeds a row on the list's first entry) started every condition on
+   * the HIDDEN `organization_id`. Now:
+   *
+   *   - a field the definition marks `hidden: true` (`organization_id`,
+   *     `owning_business_unit_id`, the `__search` companion) is not offered —
+   *     unless the author named it in `filterableFields`, or a condition the
+   *     panel already holds filters on it, which would otherwise draw a BLANK
+   *     field trigger (a filter restored from the per-user cache, saved back
+   *     when "Add filter" still defaulted to Organization);
+   *   - the order is this view's columns, in the order the grid shows them
+   *     (`effectiveFields`), then every other business field, then the system
+   *     fields (the shared `isSystemManagedField`, which reads the spec's
+   *     `system` flag), then a hidden field kept by the rule above; within a
+   *     tier the definition's own order holds.
+   *
+   * So "Add filter" starts on the view's first visible column — no default is
+   * chosen here or in the builder beyond "the first entry of this list".
+   *
+   * objectui#11925 — field-level read security, asked with the SAME call the
+   * columns use (`perms.checkField(objectName, field, 'read')`, behind the same
+   * `isLoaded` gate as `effectiveFields`): a field the user may not read is
+   * never offered, whatever else would keep it — not the `filterableFields`
+   * whitelist, not a held condition. Before this the list was built from the
+   * object definition and the declared columns with no read check, so a field
+   * the grid had dropped could still be picked here, and the two field lists
+   * drifted. Both candidate sources pass through this one gate, the
+   * definition's fields and the declared-columns fallback alike. An
+   * unanswered policy filters nothing, exactly as the column gate defers.
+   * The predicate is `canReadField`, which the Sort picker shares
+   * (objectui#11943).
    */
   const filterFields = React.useMemo(() => {
-    if (!schema.filterableFields || schema.filterableFields.length === 0) return candidateFields;
-    const allowed = new Set(schema.filterableFields);
-    return candidateFields.filter(f => allowed.has(f.value));
-  }, [candidateFields, schema.filterableFields]);
+    const whitelist =
+      schema.filterableFields && schema.filterableFields.length > 0
+        ? new Set<string>(schema.filterableFields)
+        : undefined;
+    const defs: Record<string, { hidden?: unknown; system?: boolean } | undefined> | undefined = objectDef?.fields;
+    const isHidden = (name: string) => defs?.[name]?.hidden === true;
+    const held = new Set((currentFilters.conditions ?? []).map((c) => c.field));
+    const columnRank = new Map<string, number>();
+    for (const column of effectiveFields) {
+      const name = columnIdentity(column);
+      if (name && !columnRank.has(name)) columnRank.set(name, columnRank.size);
+    }
+    // 0: a column of this view · 1: another business field · 2: a system
+    // field · 3: a hidden field kept only because it was named.
+    const tierOf = (name: string) =>
+      isHidden(name) ? 3 : columnRank.has(name) ? 0 : isSystemManagedField(name, defs?.[name]) ? 2 : 1;
+    return candidateFields
+      .filter((f) => canReadField(perms, schema.objectName, f.value))
+      .filter((f) => (!whitelist || whitelist.has(f.value)) && (!isHidden(f.value) || !!whitelist || held.has(f.value)))
+      .map((field, index) => ({ field, index, tier: tierOf(field.value) }))
+      .sort((a, b) =>
+        a.tier - b.tier ||
+        (a.tier === 0 ? columnRank.get(a.field.value)! - columnRank.get(b.field.value)! : a.index - b.index),
+      )
+      .map(({ field }) => field);
+  }, [candidateFields, currentFilters.conditions, effectiveFields, objectDef, schema.filterableFields, schema.objectName, perms]);
 
   // Sort candidates: ALL fields the view can name, minus the ones the sort
   // cannot honestly reach (objectui#4243 — previously ⊂ filter candidates).
@@ -3921,6 +4241,24 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // For a platform-refused field that exception is the only way to REMOVE the
   // offending row, since the sort it names is one the server refuses outright.
   //
+  // Field-level read (objectui#11943) is asked before either rule, through
+  // `canReadField`, the predicate the Filter panel's list uses. A field the
+  // user may not read is not offered: the server answers a sort on it with a
+  // 403, and the list blanks to its no-access state. A dropped field does not
+  // raise the relational hint either; the hint explains a missing relation the
+  // user could otherwise read. The in-use exception covers this rule too: a
+  // field the current sort already names (a stored or URL sort) stays listed,
+  // so its row is not blank and can be removed.
+  //
+  // An entry the exception alone keeps is listed REMOVABLE ONLY
+  // (objectui#11943): it carries `disabled`, which `SortBuilder` renders as an
+  // unavailable option. Its own row still shows its label and can be changed
+  // to another field or removed, but no row's dropdown offers it as a choice
+  // and "Add sort" never seeds it. That holds for each reason the exception
+  // keeps a field: unreadable, relational, or refused by the platform (or by
+  // the type read when no projection is served). A field the two rules list
+  // anyway carries no flag, whether or not the sort names it.
+  //
   // ONE read of the served projection, for BOTH legs below — the list this
   // picker renders, and the sort it emits for a host to persist. Read twice,
   // the two copies could answer differently about the same field on the same
@@ -3934,27 +4272,32 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   const { sortFields, sortHasRelationalField } = React.useMemo(() => {
     const inUse = new Set(currentSort.map((item) => item.field).filter(Boolean));
     let excluded = false;
-    const fields: Array<{ value: string; label: string }> = [];
+    const fields: Array<{ value: string; label: string; disabled?: boolean }> = [];
     for (const field of candidateFields) {
+      const readable = canReadField(perms, schema.objectName, field.value);
+      if (!readable && !inUse.has(field.value)) continue;
       const relational = EXPANDABLE_FIELD_TYPES.has(field.type);
       const platformSortable = platformSortability
         ? isPlatformSortableField(platformSortability, field.value)
         : !UNMATERIALIZED_FIELD_TYPES.has(field.type);
-      if (!relational && platformSortable) {
+      if (readable && !relational && platformSortable) {
         fields.push({ value: field.value, label: field.label });
         continue;
       }
       if (inUse.has(field.value)) {
+        // Listed only because the current sort names it: `disabled`, so its
+        // own row shows it and can drop it, and nothing can choose it anew.
         fields.push({
           value: field.value,
           label: relational ? `${field.label} ${t('list.sortByIdSuffix')}` : field.label,
+          disabled: true,
         });
         continue;
       }
       if (relational) excluded = true;
     }
     return { sortFields: fields, sortHasRelationalField: excluded };
-  }, [candidateFields, currentSort, t, platformSortability]);
+  }, [candidateFields, currentSort, t, platformSortability, perms, schema.objectName]);
 
   /**
    * [#6455] THE persist boundary: what this picker LISTS is not what it
@@ -4229,9 +4572,20 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   }, [data, effectiveFields, resolvedExportOptions, schema.objectName, authoredFilter, schema.searchableFields, exportPermitted, dataSource, appliedFilters, appliedUserFilterConditions, currentSort, searchTerm, objectDef, resolveObjectLabel]);
 
   // All available fields for hide/show (with i18n)
+  //
+  // objectui#11984 — this one list is what the hide-fields popover, the Group
+  // editor and the Row color select offer, in the toolbar and in the compact
+  // toolbar's View settings popover alike, so the field read is asked here,
+  // once, through `canReadField`: a column the caller may not read is offered
+  // by none of them. Until the permission answer loads, nothing is withheld,
+  // as the column gate defers. A grouping level that already names a withheld
+  // field still shows: `GroupingEditor` mounts a value its options do not
+  // carry as its own entry, labelled with the field name, so the level can be
+  // removed, and no other level or "Add group field" offers it.
   const allFields = React.useMemo(() => {
     return (Array.isArray(schema.columns) ? (schema.columns as any[]) : []).flatMap((f: any) => {
       if (typeof f === 'string') {
+        if (!canReadField(perms, schema.objectName, f)) return [];
         return [{ name: f, label: tFieldLabel(f, f) }];
       }
       // `name` here is this popover's OWN key (it drives `hiddenFields`), which
@@ -4240,37 +4594,89 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       const name = columnIdentity(f);
       // No resolvable identity → nothing to hide or show; it used to render a
       // checkbox keyed `undefined` that could never match a column.
-      if (!name) return [];
+      if (!name || !canReadField(perms, schema.objectName, name)) return [];
       return [{ name, label: tFieldLabel(name, f.label || name) }];
     });
-  }, [schema.columns, tFieldLabel]);
+  }, [schema.columns, tFieldLabel, perms, schema.objectName]);
+
+  // objectui#11984 — what the two hide-fields lists (the toolbar popover and
+  // the View settings section) are handed of `hiddenFields`. An entry naming a
+  // field the caller may not read is WITHHELD from them: not listed, not
+  // counted in their badges, not cleared by their "Show all", and put back by
+  // every write they make, so the stored list keeps it. Hiding such a column
+  // changes nothing for this caller, since the column gate already drops it,
+  // and a "Show all" that cleared it would rewrite the view for its other
+  // viewers through an entry this caller was never shown. With nothing
+  // withheld (full read, or no answer loaded yet) both are exactly
+  // `hiddenFields` and `updateHiddenFields`. Plain per-render values, not
+  // memos (AGENTS.md #10).
+  const withheldHiddenFields = [...hiddenFields].filter((name) => !canReadField(perms, schema.objectName, name));
+  const offeredHiddenFields = withheldHiddenFields.length === 0
+    ? hiddenFields
+    : new Set([...hiddenFields].filter((name) => !withheldHiddenFields.includes(name)));
+  const updateOfferedHiddenFields = (next: Set<string>) =>
+    updateHiddenFields(withheldHiddenFields.length === 0 ? next : new Set([...next, ...withheldHiddenFields]));
+
+  // objectui#11984 — a row-color rule on a field the caller may not read is
+  // withheld from both Row color selects the same way: they show "None" with
+  // no Clear, and the trigger is not marked active. The rule itself stays in
+  // `rowColorConfig`, which only a pick in those selects ever replaces. It
+  // colors nothing for this caller: their fetch does not ask for a field they
+  // may not read and the server masks it out of their rows, so the rows carry
+  // no value to color by.
+  const offeredRowColorConfig =
+    rowColorConfig && canReadField(perms, schema.objectName, rowColorConfig.field) ? rowColorConfig : undefined;
 
   /**
-   * The accessible name for the list region, resolved — not cast.
+   * The user-filter chips the toolbar renders (ADR-0053: `userFilters`, dropdown
+   * or tabs, is the sole page filter control).
+   *
+   * objectui#11984 — the dropdown and toggle chips are a field list too, whether
+   * the author named the fields or `resolvedUserFilters` derived them from the
+   * object definition, so each asks `canReadField`. A chip on a field the caller
+   * may not read is dropped: a value chosen on it is a filter the server refuses
+   * with 403, and the list blanks. The exception is a chip whose field a held
+   * selection already names, the applied user filter or a selection the host
+   * restored (`userFilterSelections`): it stays, so the filter it holds can be
+   * cleared, as the Sort picker keeps a field its current sort names. The
+   * preset tabs carry filters, not a field list, and pass through unchanged.
+   */
+  const filterElements = React.useMemo(() => {
+    if (!resolvedUserFilters?.fields?.length) return resolvedUserFilters;
+    const held = new Set(Object.keys(userFilterSelections ?? {}).filter((field) => userFilterSelections?.[field]?.length));
+    for (const condition of userFilterConditions) if (Array.isArray(condition)) held.add(condition[0]);
+    return {
+      ...resolvedUserFilters,
+      fields: resolvedUserFilters.fields.filter((f) => held.has(f.field) || canReadField(perms, schema.objectName, f.field)),
+    };
+  }, [resolvedUserFilters, userFilterConditions, userFilterSelections, perms, schema.objectName]);
+
+  /**
+   * The list region's ARIA attributes, read through the ONE reader of the
+   * nested bag (objectui#11083).
    *
    * The NESTED bag is the spec's `AriaPropsSchema`, whose `ariaLabel` is
    * `I18nLabel`: a plain string **or** an inline locale map
-   * (`{ en: 'Accounts', 'zh-CN': '客户' }`). This read site used to spread it
-   * with `as string` — a cast, not a conversion — so a map-valued label
-   * reached the DOM as `aria-label="[object Object]"` and a screen reader
-   * announced that as the view's accessible name, in every locale
-   * (objectui#5134). `as string` is invisible to the compiler by
-   * construction, which is why the sweep that fixed the compile-visible sites
-   * (objectui#4163 part 1) could not see this one.
+   * (`{ en: 'Accounts', 'zh-CN': '客户' }`). `resolveInlineAriaProps` from
+   * `@object-ui/react` maps its three keys (`ariaLabel`, `ariaDescribedBy`,
+   * `role`) and resolves the label against the display locale, so this
+   * component keeps no mapping of its own. A key that resolves to nothing is
+   * left out: no accessible name beats a garbage one. This read site once spread
+   * the label with `as string`, so a map reached the DOM as
+   * `aria-label="[object Object]"` (objectui#5134).
    *
-   * A miss resolves to `undefined` and the attribute is omitted, which is what
-   * an attribute wants — no accessible name beats a garbage one. That is also
-   * why this uses the spec's resolver rather than objectui's `pickLocalized`
-   * (`''` on a miss, the spelling a TEXT NODE wants — see `TabBar.tsx`); the
-   * two agree limb for limb, pinned by `i18nLabel-resolver-parity.test.ts` in
-   * this package.
+   * What stays here is only what is this view's own:
+   *   - the default role, `region`, when the author declares none;
+   *   - `aria.live`, the one key objectui's `ListViewSchema` adds to the spec's
+   *     bag (`.extend({ live })`, kept by objectui#2890). The shared reader does
+   *     not read it, because the spec's shape does not declare it.
    *
    * ⚠️ The FLAT `schema.ariaLabel` is a different vocabulary — objectui's
    * keyed `{ key, defaultValue?, params? }` ref, resolved by `SchemaRenderer`'s
    * `resolveKeyedI18nLabel` — and is deliberately NOT touched here. Neither
    * resolver accepts the other's shape.
    */
-  const ariaLabel = resolveInlineI18nLabel(schema.aria?.ariaLabel, displayLocale);
+  const regionAria = resolveInlineAriaProps(schema.aria, displayLocale);
 
   /**
    * The view's description, resolved — not type-tested (objectui#7199).
@@ -4301,10 +4707,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     <div
       ref={pullRef}
       className={cn('flex flex-col h-full bg-background relative min-w-0 overflow-hidden', className)}
-      {...(ariaLabel ? { 'aria-label': ariaLabel } : {})}
-      {...(schema.aria?.ariaDescribedBy ? { 'aria-describedby': schema.aria.ariaDescribedBy } : {})}
+      {...regionAria}
+      role={regionAria.role ?? 'region'}
       {...(schema.aria?.live ? { 'aria-live': schema.aria.live } : {})}
-      role={schema.aria?.role ?? 'region'}
       aria-busy={loading || undefined}
       data-state={loading ? 'loading' : 'idle'}
     >
@@ -4373,8 +4778,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               <div className="h-4 w-px bg-border/60 mx-0.5" />
             </>
           )}
-          {/* Inline edit — toggle record editing for this (grid) view. Persists
-              `inlineEdit` on the view via onInlineEditChange.
+          {/* Inline edit — toggle record editing for this (grid) view, for the
+              session (objectui#5144, ruling E). Reported via onInlineEditChange.
               [#4647] `inlineEditOffered` carries BOTH the `can(obj,'update')`
               permission gate this affordance was missing and the declared
               `userActions.editInline` switch — see its definition above. */}
@@ -4383,6 +4788,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               variant="ghost"
               size="sm"
               onClick={() => updateInlineEdit(!inlineEdit)}
+              // A toggle button announces its state (objectui#11816): the
+              // `text-primary` tint below was the mode's only signal.
+              aria-pressed={inlineEdit}
               className={cn(
                 "hidden sm:inline-flex h-7 px-2 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
                 inlineEdit && "text-primary"
@@ -4403,14 +4811,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 size="sm"
                 className={cn(
                   "hidden sm:inline-flex h-7 px-2 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
-                  hiddenFields.size > 0 && "text-primary"
+                  offeredHiddenFields.size > 0 && "text-primary"
                 )}
               >
                 <EyeOff className="h-3.5 w-3.5 mr-1.5" />
                 <span className="hidden sm:inline">{t('list.hideFields')}</span>
-                {hiddenFields.size > 0 && (
+                {offeredHiddenFields.size > 0 && (
                   <span className="ml-1 flex h-4 min-w-[16px] items-center justify-center text-[10px] font-medium text-muted-foreground tabular-nums">
-                    {hiddenFields.size}
+                    {offeredHiddenFields.size}
                   </span>
                 )}
               </Button>
@@ -4419,8 +4827,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               <div className="space-y-2">
                 <div className="flex items-center justify-between border-b pb-2">
                   <h4 className="font-medium text-sm">{t('list.hideFieldsTitle')}</h4>
-                  {hiddenFields.size > 0 && (
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => updateHiddenFields(new Set())}>
+                  {offeredHiddenFields.size > 0 && (
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => updateOfferedHiddenFields(new Set())}>
                       {t('list.showAll')}
                     </Button>
                   )}
@@ -4430,15 +4838,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                     <label key={field.name} className="flex items-center gap-2 text-sm py-1 px-1 rounded hover:bg-muted cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={!hiddenFields.has(field.name)}
+                        checked={!offeredHiddenFields.has(field.name)}
                         onChange={() => {
-                          const next = new Set(hiddenFields);
+                          const next = new Set(offeredHiddenFields);
                           if (next.has(field.name)) {
                             next.delete(field.name);
                           } else {
                             next.add(field.name);
                           }
-                          updateHiddenFields(next);
+                          updateOfferedHiddenFields(next);
                         }}
                         className="rounded border-input"
                       />
@@ -4527,7 +4935,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 <div className="flex items-center justify-between border-b pb-2">
                   <h4 className="font-medium text-sm">{t('list.groupBy')}</h4>
                   {groupingConfig && (
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setGroupingConfig(undefined)} data-testid="clear-grouping">
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => changeGrouping(undefined)} data-testid="clear-grouping">
                       {t('list.clear')}
                     </Button>
                   )}
@@ -4542,7 +4950,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                       collapseTitle: t('list.collapsedByDefault', { defaultValue: 'Collapsed by default' }),
                       removeTitle: t('list.removeGroup', { defaultValue: 'Remove' }),
                     }}
-                    onChange={(next) => setGroupingConfig(next as any)}
+                    onChange={changeGrouping}
                   />
                 </div>
               </div>
@@ -4634,7 +5042,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 size="sm"
                 className={cn(
                   "hidden sm:inline-flex h-7 px-2 text-muted-foreground hover:text-primary text-xs transition-colors duration-150",
-                  rowColorConfig && "text-foreground font-medium"
+                  offeredRowColorConfig && "text-foreground font-medium"
                 )}
               >
                 <Paintbrush className="h-3.5 w-3.5 mr-1.5" />
@@ -4645,7 +5053,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               <div className="space-y-2">
                 <div className="flex items-center justify-between border-b pb-2">
                   <h4 className="font-medium text-sm">{t('list.rowColor')}</h4>
-                  {rowColorConfig && (
+                  {offeredRowColorConfig && (
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setRowColorConfig(undefined)} data-testid="clear-row-color">
                       {t('list.clear')}
                     </Button>
@@ -4653,24 +5061,26 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 </div>
                 <div className="space-y-2" data-testid="color-field-list">
                   <label className="text-xs text-muted-foreground">{t('list.colorByField')}</label>
-                  <select
-                    className="w-full h-8 rounded border border-input bg-background px-2 text-xs"
-                    value={rowColorConfig?.field || ''}
-                    onChange={(e) => {
-                      const field = e.target.value;
+                  {/* The value is the OFFERED rule's field: a rule on a field
+                      the caller may not read reaches this picker as `''`
+                      ("None"), so its outside-value item can never name that
+                      field (objectui#11984). */}
+                  <ListOptionPicker
+                    className="h-8 rounded px-2 text-xs"
+                    testId="color-field-select"
+                    value={offeredRowColorConfig?.field || ''}
+                    options={[
+                      { value: '', label: t('list.none') },
+                      ...allFields.map((field: any) => ({ value: field.name, label: field.label })),
+                    ]}
+                    onPick={(field) => {
                       if (!field) {
                         setRowColorConfig(undefined);
                       } else {
-                        setRowColorConfig({ field, colors: rowColorConfig?.colors || {} });
+                        setRowColorConfig({ field, colors: offeredRowColorConfig?.colors || {} });
                       }
                     }}
-                    data-testid="color-field-select"
-                  >
-                    <option value="">{t('list.none')}</option>
-                    {allFields.map((field: any) => (
-                      <option key={field.name} value={field.name}>{field.label}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
             </PopoverContent>
@@ -4759,15 +5169,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               allFields={allFields as any}
               showGroup={toolbarFlags.showGroup}
               groupingConfig={groupingConfig}
-              setGroupingConfig={setGroupingConfig}
+              setGroupingConfig={changeGrouping}
               showColor={toolbarFlags.showColor}
-              rowColorConfig={rowColorConfig}
+              rowColorConfig={offeredRowColorConfig}
               setRowColorConfig={setRowColorConfig}
               showDensity={toolbarFlags.showDensity}
               density={density as any}
               showHideFields={toolbarFlags.showHideFields}
-              hiddenFields={hiddenFields}
-              updateHiddenFields={updateHiddenFields}
+              hiddenFields={offeredHiddenFields}
+              updateHiddenFields={updateOfferedHiddenFields}
               /* [#4647] The compact toolbar's inline-edit entry — the SECOND
                  render site for this affordance, and the one with no gate at
                  all: it never even required `onInlineEditChange`. Same
@@ -5099,21 +5509,40 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             // full of records. That reads as data loss or a permission problem
             // and sends triage away from the view layer, which is exactly what
             // this issue reported.
+            //
+            // …but it is not the USER's query (objectui#11687). "Your current
+            // filters or search" is said only when the user applied one — the
+            // search box, the user-filter chips, the filter panel. A view
+            // emptied by its own declared filter alone gets its own message,
+            // which names the view's filter instead of telling the user to
+            // clear filters they never set.
             const hasBaseFilter =
               Array.isArray(authoredFilter)
                 ? authoredFilter.length > 0
                 : !!authoredFilter && typeof authoredFilter === 'object'
                   ? Object.keys(authoredFilter).length > 0
                   : false;
-            const hasActiveQuery =
+            const hasUserQuery =
               !!(searchTerm && searchTerm.trim()) ||
-              hasBaseFilter ||
               (Array.isArray(appliedUserFilterConditions) && appliedUserFilterConditions.length > 0) ||
               (Array.isArray(appliedFilters?.conditions) && appliedFilters.conditions.length > 0);
-            const title = (typeof schema.emptyState?.title === 'string' ? schema.emptyState.title : undefined)
+            const hasActiveQuery = hasUserQuery || hasBaseFilter;
+            // objectui#11227 — `title` and `message` are the spec's `I18nLabel`
+            // (`EmptyStateSchema`): a plain string or an inline locale map. They
+            // are RESOLVED against the display locale, as the view's `label`
+            // is. A `typeof === 'string'` test stood here, which is not a
+            // resolution: it answered "absent" for every map an author may write,
+            // so a localised empty state silently drew the default copy in every
+            // locale. A string still passes through unchanged, and a map with no
+            // usable entry still falls to the default.
+            const title = resolveInlineI18nLabel(schema.emptyState?.title, displayLocale)
               ?? (hasActiveQuery ? t('list.noMatches') : t('list.firstRunTitle'));
-            const description = (typeof schema.emptyState?.message === 'string' ? schema.emptyState.message : undefined)
-              ?? (hasActiveQuery ? t('list.noMatchesMessage') : t('list.firstRunMessage'));
+            const description = resolveInlineI18nLabel(schema.emptyState?.message, displayLocale)
+              ?? (hasUserQuery
+                ? t('list.noMatchesMessage')
+                : hasBaseFilter
+                  ? t('list.viewFilterNoMatchesMessage')
+                  : t('list.firstRunMessage'));
             return (
               <DataEmptyState
                 data-testid="empty-state"
@@ -5148,6 +5577,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               // rows would turn back into page-scoped grouping (objectui#7189).
               ? {}
               : { data })}
+            {...(gridOwnsGroupedFetch
+              // objectui#11021 — the grid that groups on the server queries for
+              // itself, so it is handed the toolbar term to query with (an
+              // empty one too: the term is this component's, never the grid's).
+              ? { search: searchTerm }
+              : {})}
             {...(viewComponentSchema.type === 'object-grid' && objectDef?.fields
               // objectui#10657 — the grid is handed the rows this component
               // fetched, so they paint before the grid's own read of the
@@ -5304,12 +5739,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 honest record count is the server's grand total (#586). When the
                 whole result set is in memory, serverTotal is null and data.length
                 already IS the total. */}
-            {(() => {
-              const totalCount = serverTotal ?? data.length;
-              return totalCount === 1
-                ? t('list.recordCountOne', { count: totalCount })
-                : t('list.recordCount', { count: totalCount });
-            })()}
+            {/* One count family (objectui#11445): i18next picks the CLDR slot. */}
+            {t('list.recordCount', { count: serverTotal ?? data.length })}
           </span>
           {/* The cap warning is about rows the user CANNOT REACH. A paged grid
               with a known total can reach them all through its pager, so the
@@ -5322,28 +5753,25 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           )}
           {/* Grid view delegates the rows-per-page selector to the DataTable's
               own server-driven pager (ObjectGrid passes pagination.pageSizeOptions
-              straight through). Rendering a second native <select> here produced a
+              straight through). Rendering a second selector here produced a
               duplicate control, so for grid we suppress it and only keep this
-              fallback selector for pager-less views (gallery/kanban/calendar). */}
+              fallback selector for pager-less views (gallery/kanban/calendar).
+              It is the shared `Select` (objectui#11865): a size in force that
+              is not one of the options shows as itself, not as the first one. */}
           {currentView !== 'grid' && schema.pagination?.pageSizeOptions && schema.pagination.pageSizeOptions.length > 0 && (
             <div className="ml-auto flex items-center gap-2">
               <span>{t('table.rowsPerPage', { defaultValue: 'Rows per page' })}</span>
-              <select
-                data-testid="page-size-selector"
-                className="h-7 w-[72px] px-2 py-1 text-xs rounded-md border border-input bg-background"
+              <ListOptionPicker
+                className="h-7 w-[72px] px-2 text-xs"
+                testId="page-size-selector"
                 value={String(effectivePageSize)}
-                onChange={(e) => {
-                  const newSize = Number(e.target.value);
+                options={schema.pagination.pageSizeOptions.map((size: any) => ({ value: String(size), label: String(size) }))}
+                onPick={(size) => {
+                  const newSize = Number(size);
                   setDynamicPageSize(newSize);
                   if (props.onPageSizeChange) props.onPageSizeChange(newSize);
                 }}
-              >
-                {schema.pagination.pageSizeOptions.map((size: any) => (
-                  <option key={size} value={String(size)}>
-                    {size}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           )}
         </div>

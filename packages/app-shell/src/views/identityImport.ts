@@ -245,6 +245,11 @@ export function createIdentityImportDataSource(opts: IdentityImportDataSourceOpt
     listImportJobs: undefined,
     cancelImportJob: undefined,
     undoImportJob: undefined,
+    // The server's import template describes the GENERIC import door of the
+    // object (objectui#9600), not the identity pipeline this wrapper writes
+    // through, whose target set is curated (`identityImportFields`). The
+    // wizard offers the template only when this method is a function.
+    downloadImportTemplate: undefined,
     // Saved mappings ARE offered for identity import — director-seat ruling,
     // decision batch #68 (objectui#7740, comment 5565349507; ledger on
     // objectstack#12708). Importing users benefits from saved field mappings

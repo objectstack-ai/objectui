@@ -284,7 +284,12 @@ const DIVIDER_COL_SPAN = 4;
  *    (#6010), so copying it here is what makes the authored predicate reach an
  *    evaluator at all.
  *  - `fields` — the objectui#6236 membership claim: RESOLVED member names, so
- *    the predicate gates the whole group and not just the heading.
+ *    the predicate gates the whole group and not just the heading. The form
+ *    renderer also ends the group's field grid where the claim ends
+ *    (`splitAtUntitledRuns`, `@object-ui/components`, objectui#11777), which is
+ *    how an untitled section after it — the trailing ungrouped bucket, which
+ *    gets no row here — is drawn as its own block instead of under this
+ *    heading. A row that dropped the claim would put those fields back under it.
  *  - `colSpan` — see `DIVIDER_COL_SPAN`.
  *  - `collapsible` / `collapsed` / `onToggle` — on the visible row only (the
  *    control lives on the row), and only when the arm hands over a resolved

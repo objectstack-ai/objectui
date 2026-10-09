@@ -336,6 +336,7 @@ import fields_formula_numeric_formula from './schemas/fields-formula/numeric-for
 import fields_formula_text_concatenation from './schemas/fields-formula/text-concatenation.json' with { type: 'json' };
 import fields_grid_basic_grid from './schemas/fields-grid/basic-grid.json' with { type: 'json' };
 import fields_grid_grid_with_data from './schemas/fields-grid/grid-with-data.json' with { type: 'json' };
+import fields_grid_line_items_grid from './schemas/fields-grid/line-items-grid.json' with { type: 'json' };
 import fields_grid_read_only_grid from './schemas/fields-grid/read-only-grid.json' with { type: 'json' };
 import fields_image_basic_image_upload from './schemas/fields-image/basic-image-upload.json' with { type: 'json' };
 import fields_image_multiple_image_upload from './schemas/fields-image/multiple-image-upload.json' with { type: 'json' };
@@ -345,8 +346,8 @@ import fields_location_san_francisco_coordinates from './schemas/fields-location
 import fields_lookup_basic_lookup from './schemas/fields-lookup/basic-lookup.json' with { type: 'json' };
 import fields_lookup_multi_select_lookup from './schemas/fields-lookup/multi-select-lookup.json' with { type: 'json' };
 import fields_number_basic_number_field from './schemas/fields-number/basic-number-field.json' with { type: 'json' };
-import fields_number_decimal_numbers from './schemas/fields-number/decimal-numbers.json' with { type: 'json' };
 import fields_number_range_validation from './schemas/fields-number/range-validation.json' with { type: 'json' };
+import fields_number_with_decimal_places from './schemas/fields-number/with-decimal-places.json' with { type: 'json' };
 import fields_object_basic_object_editor from './schemas/fields-object/basic-object-editor.json' with { type: 'json' };
 import fields_object_nested_object_data from './schemas/fields-object/nested-object-data.json' with { type: 'json' };
 import fields_object_read_only_json_display from './schemas/fields-object/read-only-json-display.json' with { type: 'json' };
@@ -357,7 +358,7 @@ import fields_password_with_minimum_length from './schemas/fields-password/with-
 import fields_percent_basic_percent_field from './schemas/fields-percent/basic-percent-field.json' with { type: 'json' };
 import fields_percent_read_only_percent from './schemas/fields-percent/read-only-percent.json' with { type: 'json' };
 import fields_percent_required_percent from './schemas/fields-percent/required-percent.json' with { type: 'json' };
-import fields_percent_with_decimal_precision from './schemas/fields-percent/with-decimal-precision.json' with { type: 'json' };
+import fields_percent_with_decimal_places from './schemas/fields-percent/with-decimal-places.json' with { type: 'json' };
 import fields_phone_basic_phone_field from './schemas/fields-phone/basic-phone-field.json' with { type: 'json' };
 import fields_phone_required_phone from './schemas/fields-phone/required-phone.json' with { type: 'json' };
 import fields_rich_text_html_editor from './schemas/fields-rich-text/html-editor.json' with { type: 'json' };
@@ -393,7 +394,7 @@ import forms_create_user_form from './schemas/forms/create-user-form.json' with 
 import forms_newsletter_signup from './schemas/forms/newsletter-signup.json' with { type: 'json' };
 import forms_payment_form from './schemas/forms/payment-form.json' with { type: 'json' };
 import forms_settings_form from './schemas/forms/settings-form.json' with { type: 'json' };
-import layout_page_header_pageheader_with_actions from './schemas/layout-page-header/pageheader-with-actions.json' with { type: 'json' };
+import layout_page_header_basic_page_header from './schemas/layout-page-header/basic-page-header.json' with { type: 'json' };
 import marketing_call_to_action from './schemas/marketing/call-to-action.json' with { type: 'json' };
 import marketing_features_grid from './schemas/marketing/features-grid.json' with { type: 'json' };
 import marketing_pricing_table from './schemas/marketing/pricing-table.json' with { type: 'json' };
@@ -823,9 +824,10 @@ const REGISTRY: Record<string, Example> = {
   'components-basic-sidebar/collapsible-sidebar': {
     id: 'components-basic-sidebar/collapsible-sidebar',
     meta: {
-      title: "Collapsible Sidebar",
-      description: "",
+      title: "Non-Collapsible Sidebar",
+      description: "`collapsible: false` draws the sidebar in the page flow at a fixed width, whatever the host's sidebar state.",
       category: 'components-basic-sidebar',
+      tags: ["sidebar", "navigation", "collapsible"],
     },
     schema: components_basic_sidebar_collapsible_sidebar,
   },
@@ -3392,6 +3394,15 @@ const REGISTRY: Record<string, Example> = {
     },
     schema: fields_grid_grid_with_data,
   },
+  'fields-grid/line-items-grid': {
+    id: 'fields-grid/line-items-grid',
+    meta: {
+      title: "Line Items Grid",
+      description: "",
+      category: 'fields-grid',
+    },
+    schema: fields_grid_line_items_grid,
+  },
   'fields-grid/read-only-grid': {
     id: 'fields-grid/read-only-grid',
     meta: {
@@ -3473,15 +3484,6 @@ const REGISTRY: Record<string, Example> = {
     },
     schema: fields_number_basic_number_field,
   },
-  'fields-number/decimal-numbers': {
-    id: 'fields-number/decimal-numbers',
-    meta: {
-      title: "Decimal Numbers",
-      description: "",
-      category: 'fields-number',
-    },
-    schema: fields_number_decimal_numbers,
-  },
   'fields-number/range-validation': {
     id: 'fields-number/range-validation',
     meta: {
@@ -3490,6 +3492,15 @@ const REGISTRY: Record<string, Example> = {
       category: 'fields-number',
     },
     schema: fields_number_range_validation,
+  },
+  'fields-number/with-decimal-places': {
+    id: 'fields-number/with-decimal-places',
+    meta: {
+      title: "With Decimal Places",
+      description: "",
+      category: 'fields-number',
+    },
+    schema: fields_number_with_decimal_places,
   },
   'fields-object/basic-object-editor': {
     id: 'fields-object/basic-object-editor',
@@ -3581,14 +3592,14 @@ const REGISTRY: Record<string, Example> = {
     },
     schema: fields_percent_required_percent,
   },
-  'fields-percent/with-decimal-precision': {
-    id: 'fields-percent/with-decimal-precision',
+  'fields-percent/with-decimal-places': {
+    id: 'fields-percent/with-decimal-places',
     meta: {
-      title: "With Decimal Precision",
+      title: "With Decimal Places",
       description: "",
       category: 'fields-percent',
     },
-    schema: fields_percent_with_decimal_precision,
+    schema: fields_percent_with_decimal_places,
   },
   'fields-phone/basic-phone-field': {
     id: 'fields-phone/basic-phone-field',
@@ -3906,14 +3917,14 @@ const REGISTRY: Record<string, Example> = {
     },
     schema: forms_settings_form,
   },
-  'layout-page-header/pageheader-with-actions': {
-    id: 'layout-page-header/pageheader-with-actions',
+  'layout-page-header/basic-page-header': {
+    id: 'layout-page-header/basic-page-header',
     meta: {
-      title: "Pageheader With Actions",
+      title: "Basic Page Header",
       description: "",
       category: 'layout-page-header',
     },
-    schema: layout_page_header_pageheader_with_actions,
+    schema: layout_page_header_basic_page_header,
   },
   'marketing/call-to-action': {
     id: 'marketing/call-to-action',
@@ -4053,8 +4064,8 @@ const REGISTRY: Record<string, Example> = {
   'plugin-dashboard/filtered-dashboard-dataset-widgets': {
     id: 'plugin-dashboard/filtered-dashboard-dataset-widgets',
     meta: {
-      title: "Filtered Dashboard — Dataset + Inline Widgets",
-      description: "Dashboard filters scoping dataset-bound widgets (via the dataset query's runtimeFilter) alongside an inline widget",
+      title: "Filtered Dashboard — Widgets Over Two Datasets",
+      description: "Dashboard filters scoping widgets bound to two different datasets, each through its own dataset query's runtimeFilter",
       category: 'plugin-dashboard',
     },
     schema: plugin_dashboard_filtered_dashboard_dataset_widgets,

@@ -29,7 +29,7 @@
  * the real door answers the compiled queries this way (five groups 86/61/31/7/1
  * in both orders, the 86-row group paged 50 + 36) is the platform half's pin
  * (objectstack#15330, `list-view-grouping-query-door.test.ts`) and was
- * re-measured for this card against the installed `@objectstack/spec` 17.4.0;
+ * re-measured for this card against `@objectstack/spec` 17.4.0, the version installed then;
  * what THIS file pins is the grid consuming those answers — and not the page.
  *
  * Every positive pin has a control that must come out differently: the SAME

@@ -123,8 +123,16 @@ function makeClient(server: Server) {
         ...DECORATIONS,
       },
     }),
+    // objectui#11799 — the published set list names this set, as the server's
+    // does for a published set, so the load reads its layers exactly as before
+    // (call #1 above). A set the list does not hold is not asked while its
+    // draft is in hand.
     list: async (type: string) =>
-      type === 'object' ? [{ item: { name: 'a_account' } }, { item: { name: 'a_contact' } }] : [],
+      type === 'object'
+        ? [{ item: { name: 'a_account' } }, { item: { name: 'a_contact' } }]
+        : type === 'permission'
+          ? [{ name: 'sales_perms' }]
+          : [],
     get: async () => null,
     save: async (_type: string, _name: string, payload: Record<string, unknown>) => {
       server.saved.push(payload);
@@ -166,8 +174,9 @@ describe('PermissionMatrixEditPage — read decorations never reach the save (ob
     const row = screen.getByText('a_account').closest('tr')!;
     fireEvent.click(within(row).getByRole('button', { name: 'None' }));
 
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
-    await waitFor(() => expect(server.saved).toHaveLength(1));
+    // objectui#11787 — the package door autosaves the edit to its draft after
+    // the shared autosave's pause; it has no Save button.
+    await waitFor(() => expect(server.saved).toHaveLength(1), { timeout: 4000 });
     const body = server.saved[0] as Record<string, any>;
 
     // ── CONTROLS. Every absence below is meaningless without these. ──

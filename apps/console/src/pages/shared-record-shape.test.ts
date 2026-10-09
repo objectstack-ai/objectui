@@ -19,7 +19,11 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  canSendSharePassword,
   normalizeResolvedShare,
+  resolveGateOf,
+  SHARE_PASSWORD_HEADER,
+  shareRequestHeaders,
   type ResolveResponseBody,
   type ShareLink,
 } from './shared-record-shape';
@@ -76,5 +80,54 @@ describe('normalizeResolvedShare — both producers fold to one shape', () => {
 
   it('never hands the render a null record — it JSON.stringifies it unguarded', () => {
     expect(normalizeResolvedShare(enveloped({ link: LINK })).record).toEqual({});
+  });
+});
+
+/**
+ * objectui#11649 — the request half of the same route. A link's password goes in
+ * the `X-Share-Password` header (never the URL), and a `401` is read by its
+ * `error.code`: both producers answer `NEEDS_PASSWORD`, `WRONG_PASSWORD` and
+ * `SIGN_IN_REQUIRED` with the same status, and only the code tells a password
+ * prompt from the sign-in path.
+ */
+describe('share-link request headers and 401 gates (objectui#11649)', () => {
+  it('names the header the producers read', () => {
+    expect(SHARE_PASSWORD_HEADER.toLowerCase()).toBe('x-share-password');
+  });
+
+  it('sends the password in the header only when there is one', () => {
+    expect(shareRequestHeaders('s3cret')).toEqual({
+      Accept: 'application/json',
+      [SHARE_PASSWORD_HEADER]: 's3cret',
+    });
+    expect(shareRequestHeaders()).toEqual({ Accept: 'application/json' });
+    expect(shareRequestHeaders('')).toEqual({ Accept: 'application/json' });
+  });
+
+  it('reads each 401 code as its gate', () => {
+    const refusal = (code: string) => ({ success: false, error: { code, message: 'm' } });
+    expect(resolveGateOf(refusal('NEEDS_PASSWORD'))).toBe('needs-password');
+    expect(resolveGateOf(refusal('WRONG_PASSWORD'))).toBe('wrong-password');
+    expect(resolveGateOf(refusal('SIGN_IN_REQUIRED'))).toBe('sign-in-required');
+  });
+
+  it('names no gate for any other code, or for no body — the page then shows the message', () => {
+    expect(resolveGateOf({ error: { code: 'UNAUTHENTICATED', message: 'm' } })).toBeNull();
+    // An inherited member is not a code.
+    expect(resolveGateOf({ error: { code: 'toString' } })).toBeNull();
+    expect(resolveGateOf({ error: {} })).toBeNull();
+    expect(resolveGateOf(null)).toBeNull();
+  });
+
+  it('refuses a password with a character above U+00FF, which a header cannot carry', () => {
+    // The boundary is the Fetch standard's byte-string rule. This environment's
+    // `Headers` (happy-dom) does not enforce it, so the guard is pinned on its
+    // own: the last Latin-1 code point passes, the first one past it does not.
+    for (const ok of ['s3cret', 'café', 'pässwörd ÿ', 'ÿ']) {
+      expect(canSendSharePassword(ok)).toBe(true);
+    }
+    for (const bad of ['密码', 'pw😀', 'Ā']) {
+      expect(canSendSharePassword(bad)).toBe(false);
+    }
   });
 });

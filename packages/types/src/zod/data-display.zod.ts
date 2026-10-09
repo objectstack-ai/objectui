@@ -21,6 +21,7 @@ import {
   ChartAxisSchema as SpecChartAxisSchema,
   ChartTypeSchema as SpecChartTypeSchema,
   I18nLabelSchema,
+  ReportSchema as SpecReportSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
@@ -181,11 +182,52 @@ export const ListItemSchema = z.object({
 });
 
 /**
+ * A `list` draws its entries from `bind` or from `items`, so it needs at least
+ * one of the two (objectui#11405).
+ *
+ * `list.tsx` reads `useDataScope(schema.bind)` FIRST and falls back to
+ * `schema.items` when the bound value is not an array, so both keys are live
+ * inputs and `items` is the real fallback beside `bind`. That is why the rule is
+ * AT LEAST one and ⛔ not exactly one: a node carrying both is the fallback
+ * shape, and refusing it would refuse a document the renderer draws. Until
+ * objectui#11405 `items` was REQUIRED here, so a bind-only `list` — the shape the
+ * renderer and this arm's own tombstone text name, and the one the published
+ * `skills/objectui` guides author — was refused with `invalid_type` at `items`.
+ *
+ * Presence is `!== undefined`, the wording `requireRecordSource` in
+ * `./objectql.zod.ts` uses for its own at-least-one rule, so `bind: ''` and
+ * `items: []` each count. The issue sits at the ROOT, because no single key is
+ * at fault when both are missing, and it carries `params.code` so a consumer
+ * can tell this refusal from the others without parsing the message.
+ *
+ * Installed with `when: () => true`, for the reason `requireRecordSource`
+ * gives: zod skips a refinement once an earlier issue aborts the parse, and the
+ * required member this replaces was reported BESIDE every other issue on the
+ * node. So the body reads the raw input defensively.
+ */
+function listHasAnEntrySource(node: unknown, ctx: z.core.$RefinementCtx): void {
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+  // Read as a plain record: `bind` stays declared once, on `BaseSchema` (objectui#6357).
+  const keys = node as Record<string, unknown>;
+  if (keys.bind !== undefined || keys.items !== undefined) return;
+  ctx.addIssue({
+    code: 'custom',
+    path: [],
+    params: { code: 'LIST_ENTRIES_REQUIRED' },
+    message: '`list` has no entries to draw: declare `items`, or `bind` a path to an array in the host scope',
+  });
+}
+
+/**
  * List Schema - List component
  */
 export const ListSchema = BaseSchema.extend({
   type: z.literal('list'),
-  items: z.array(ListItemSchema).describe('List items'),
+  title: z.string().optional()
+    .describe('Heading drawn above the list (objectui#11347)'),
+  // Optional since objectui#11405: a bind-only `list` draws its entries from the
+  // host scope. The at-least-one rule is `listHasAnEntrySource` above.
+  items: z.array(ListItemSchema).optional().describe('List items'),
   ordered: z.boolean().optional().describe('Whether list is ordered'),
   dividers: z.boolean().optional().describe('Show dividers between items'),
   dense: z.boolean().optional().describe('Dense spacing'),
@@ -215,7 +257,7 @@ export const ListSchema = BaseSchema.extend({
     + '`ui:list` is the measured SOLE owner of the bare `list` key (`view:list` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),
-});
+}).superRefine(listHasAnEntrySource, { when: () => true });
 
 /**
  * Table Column Schema
@@ -412,6 +454,15 @@ export const DataTableSchema = BaseSchema.extend({
   pageSizeOptions: z.array(z.number()).optional().describe('Options for the rows-per-page selector (defaults to 5/10/20/50/100).'),
   searchable: z.boolean().optional().describe('Enable search'),
   selectable: z.union([z.boolean(), z.enum(['single', 'multiple'])]).optional().describe('Enable row selection — `true`/`multiple` = multi-select, `single` = replace-on-select with no select-all'),
+  // objectui#6152 round 5, ADR-0049 — declared on the interface and never
+  // mirrored, so `.passthrough()` KEPT an authored value unexamined; it is
+  // retired on both faces now (the census and the route are on the
+  // `DataTableSchema.selectionStyle` member in `../data-display.ts`).
+  selectionStyle: retirementTombstone(
+    'RETIRED (objectui#6152, ADR-0049) — a selectable table always shows its row checkboxes, and there is '
+    + 'no hover-only style: nothing authored or produced this key, so the hover branch was dropped. Delete the '
+    + 'key; `selectable` alone turns selection on.',
+  ),
   sortable: z.boolean().optional().describe('Enable sorting'),
   exportable: z.boolean().optional().describe('Enable data export'),
   rowActions: z.boolean().optional().describe('Show the row actions column (edit/delete) — mirrors the boolean the renderer truthiness-tests'),
@@ -879,6 +930,107 @@ const CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
   + 'column name is not a member of the protocol.';
 
 /**
+ * The refusal of a drill `report` written as a named reference, `{ name }`
+ * (objectui#11517). One string, so the message and the docs that quote it
+ * cannot drift apart.
+ */
+const DRILL_REPORT_REFERENCE_RETIRED =
+  '`drillDown.report` as a named reference, `{ name }`, is RETIRED (objectui#11517): no renderer resolves a '
+  + 'report name, so such a drill listed the records and drew no report. Write the report inline, '
+  + 'dataset-bound: `@objectstack/spec`\'s `ReportSchema`, `{ name, label, dataset, values, … }` (`values` are '
+  + 'measure names; `rows`, and `columns` on a matrix, are dimension names), or a `joined` report whose '
+  + '`blocks` bind a dataset.';
+
+/**
+ * Names the retired `{ name }` reference (objectui#11517) where the spec's
+ * `ReportSchema` alone refuses it only in its own words: for the members it
+ * lacks, `label` first, which says nothing about why a name is not enough or
+ * what to write instead.
+ *
+ * The predicate is a value that carries no report member but `name`: the shape
+ * of the arm objectui#11517 retired. It reads the PARSED value, whose keys are
+ * the report members the input carried, because zod hands a check the object it
+ * built, not the input. A key that is no report member is refused beside this
+ * issue by the spec's own `unrecognized_keys`. A value with any other report
+ * member is an inline report attempt, and the spec's own refusals name what it
+ * lacks.
+ *
+ * Installed with `when: () => true`, for the reason `requireRecordSource`
+ * (`./objectql.zod.ts`) gives: zod skips a refinement once an earlier issue
+ * aborts the parse, and a bare `{ name }` always fails the spec's shape first.
+ * So the body reads its value defensively. A refusal, never an accept: it adds
+ * an issue and changes no value, and the spec already refuses every value it
+ * fires on. `params.code` lets a consumer tell it from the spec's issues
+ * without parsing the message.
+ */
+function refuseRetiredDrillReportReference(report: unknown, ctx: z.core.$RefinementCtx): void {
+  if (!report || typeof report !== 'object' || Array.isArray(report)) return;
+  const keys = Object.keys(report);
+  if (keys.length !== 1 || keys[0] !== 'name') return;
+  ctx.addIssue({
+    code: 'custom',
+    path: [],
+    params: { code: 'DRILL_REPORT_REFERENCE_RETIRED' },
+    message: DRILL_REPORT_REFERENCE_RETIRED,
+  });
+}
+
+/**
+ * `DrillDownConfig.report`'s mirror: a dataset-bound report, `@objectstack/spec`'s
+ * `ReportSchema` by reference (objectui#11506), the member `ReportNodeSchema`
+ * (`reports.zod.ts`) declares on the `report` node the drawer wraps this report
+ * in. A drill report that validates here therefore becomes a `report` node that
+ * validates there, with the drill filter in the `runtimeFilter` the spec
+ * declares. The spec's own refusals apply: `filter` (an alias of
+ * `runtimeFilter`) among them.
+ *
+ * Two retired forms are refused BY NAME, on this tolerant face and on the strict
+ * one derived from it. Each was already outside the spec's accept set, so the
+ * accept set is the spec's own; what the two add is the retirement and the
+ * remedy, in the issue an author reads.
+ *
+ * - **`objectName`**, the pre-9.0 object-bound form (`objectName` plus column
+ *   objects), retired by objectui#11506 with no alias window: it had no
+ *   producer, and through the real drawer it drew an empty presentation and
+ *   issued no query. The spec refuses `objectName` as its alias of `dataset`;
+ *   this member says so in the spec's lead sentence and adds the retirement.
+ *   It is declared rather than left to the spec's refusal because until
+ *   objectui#11517 this tolerant face reported such a value VALID: the
+ *   reference arm read it, stripped to `{ name }`, so the retirement had a named
+ *   refusal on the strict face only.
+ * - **A bare `{ name }`**, the reference arm, retired by objectui#11517 with no
+ *   alias window: no renderer resolved a report name against any registry, so
+ *   the drawer listed the records for it, and nothing produced it.
+ *   {@link refuseRetiredDrillReportReference} names it.
+ *
+ * Typed BY REFERENCE ({@link DrillDownReportZodType}) so declaration emit names
+ * the spec's schema instead of re-serializing the whole report shape into every
+ * declaration that carries `drillDown`, the TS7056 failure `ReportNodeZodType`
+ * exists to avoid. Not exported: the type is, for that emit.
+ */
+const DrillDownReportSchema: DrillDownReportZodType = stripImportedDefaults(SpecReportSchema)
+  .extend({
+    objectName: aliasKeyRefusal(
+      'objectName',
+      'dataset',
+      'this drill report',
+      'The pre-9.0 object-bound drill report, `objectName` plus column objects, is RETIRED (objectui#11506): '
+      + 'it had no producer, and the drawer drew no report for it. Write the dataset-bound form: `dataset`, '
+      + '`values` (measure names), and `rows`, and `columns` on a matrix, as dimension names.',
+    ),
+  })
+  .superRefine(refuseRetiredDrillReportReference, { when: () => true });
+
+/**
+ * The TYPE of {@link DrillDownReportSchema}, written out by reference (see
+ * there): the spec's `ReportSchema` shape by name, plus the `objectName` refusal.
+ */
+export type DrillDownReportZodType = z.ZodObject<
+  (typeof SpecReportSchema)['shape'] & { objectName: z.ZodOptional<z.ZodNever> },
+  z.core.$strict
+>;
+
+/**
  * Drill-down configuration — the zod mirror of `DrillDownConfig`
  * (`../data-display.ts`), key for key (objectui#7352).
  *
@@ -886,7 +1038,8 @@ const CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
  * `ObjectDataTableSchema` (`objectql.zod.ts`) reference it. `PivotTableSchema`
  * below referenced it from objectui#10859 (batch 2) until objectui#10932
  * retired the key on the `pivot` node, which nothing drills; `object-pivot`,
- * the block that does drill, has no zod mirror. Until this mirror existed
+ * the block that does drill, extends it with `mode` refused (`objectql.zod.ts`,
+ * objectui#11440). Until this mirror existed
  * neither declaring mirror had heard of the key, so under
  * `BaseSchema`'s `.passthrough()` a `drillDown: { enabled: 'yes' }` parsed green
  * and reached a widget that reads `enabled` as truthy — `declared !== enforced`,
@@ -908,13 +1061,9 @@ const CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
  * spec's chart subset is a separate ruling — the declaration says
  * `DrillDownConfig`, and this mirror says the same.
  *
- * `report` keeps the declaration's structural union: an inline report shape
- * (`name` + `objectName` + `columns`, `type` optional, every other report key
- * riding through on the index signature — `.catchall(z.unknown())` is what
- * `[k: string]: unknown` spells) OR a named reference `{ name }`. Arm order
- * matters to `z.union`: the inline arm is tried first, so a value satisfying it
- * keeps its extra keys; only a value that fails it falls through to the
- * reference arm.
+ * `report` is {@link DrillDownReportSchema}: a dataset-bound report, the spec's
+ * `ReportSchema` by reference. The `{ name }` reference arm the declaration used
+ * to carry beside it is retired and refused by name (objectui#11517).
  */
 export const DrillDownConfigSchema = z.object({
   enabled: z.boolean().optional().describe('Master switch — true, or any other key present, turns the drill on'),
@@ -926,20 +1075,13 @@ export const DrillDownConfigSchema = z.object({
   ),
   filter: z.record(z.string(), z.unknown()).optional().describe('Filter applied to the drilled list; values support ${event.*} interpolation'),
   title: z.string().optional().describe('Drawer / dialog title; supports ${event.*} interpolation'),
-  report: z
-    .union([
-      z
-        .object({
-          name: z.string(),
-          objectName: z.string(),
-          type: z.enum(['tabular', 'summary', 'matrix', 'joined']).optional(),
-          columns: z.array(z.unknown()),
-        })
-        .catchall(z.unknown()),
-      z.object({ name: z.string() }),
-    ])
+  report: DrillDownReportSchema
     .optional()
-    .describe('Drill into an analytical report instead of the record list: an inline SpecReport shape, or a named report reference'),
+    .describe(
+      'Drill into an analytical report instead of the record list: an inline dataset-bound report '
+      + '(`@objectstack/spec` `ReportSchema`, by reference; the drawer writes the drill filter into its `runtimeFilter`). '
+      + 'The pre-9.0 `objectName` form (objectui#11506) and the `{ name }` reference (objectui#11517) are retired',
+    ),
   columns: z.array(z.string()).optional().describe('Column whitelist for the inline drill list'),
   maxRows: z.number().optional().describe('Hard cap on rows fetched'),
 });
@@ -1004,9 +1146,12 @@ export const ChartSchema = BaseSchema.extend({
   // object of nine keys, is the type of `ChartConfigSchema.xAxis` (one object)
   // and of each entry of `ChartConfigSchema.yAxis` (an ARRAY). This node renders
   // that shape — `normalizeAxis` in `plugin-charts/src/normalizeChartSchema.ts`
-  // reads exactly those nine keys — and a dashboard's dataset-bound chart hands
-  // it this node's `xAxis` / `yAxis` straight from the widget's `chartConfig`
-  // (`DatasetWidget` → `mergeAuthoredPresentation`). Until this declaration both
+  // reads exactly those nine keys — and the react `ObjectChart` tier, where the
+  // spec keeps both keys authorable, hands `ChartRenderer` the author's own
+  // `xAxis` / `yAxis` on the chart schema it builds. A dashboard widget no
+  // longer does: spec 17.5.0 refuses `chartConfig.xAxis` / `yAxis` on that
+  // carrier, so `DatasetWidget` emits the derived binding alone
+  // (objectui#11315). Until this declaration both
   // keys rode `BaseSchema`'s `.passthrough()`: kept, read, and UNCHECKED, so
   // `xAxis: { field: 'month', min: 'zero' }` parsed green and drew an unpinned
   // axis. The per-key liveness read with lit controls is on the card and the PR.
@@ -1184,7 +1329,9 @@ export const TimelineGanttItemBarSchema = z
   .object({
     title: z.string().optional().describe('Bar label'),
     startDate: TimelineGanttDateSchema.optional().describe('Bar start — a string, a finite number (epoch ms) or a Date'),
-    endDate: TimelineGanttDateSchema.optional().describe('Bar end — a string, a finite number (epoch ms) or a Date'),
+    endDate: TimelineGanttDateSchema.optional().describe(
+      'Bar end — a string, a finite number (epoch ms) or a Date; inclusive for a date-only value: a YYYY-MM-DD end is drawn through the end of that day',
+    ),
     variant: TimelineItemVariantSchema.optional().describe('Bar colour'),
   })
   .passthrough();
@@ -1526,7 +1673,7 @@ export const BarChartSchema = BaseSchema.extend({
   children: retirementTombstone(BAR_CHART_NEITHER_CHANNEL),
 });
 
-export const DataDisplaySchema = z.discriminatedUnion('type', [
+const DataDisplaySchemaInferred = z.discriminatedUnion('type', [
   AlertSchema,
   StatisticSchema,
   BadgeSchema,
@@ -1543,3 +1690,16 @@ export const DataDisplaySchema = z.discriminatedUnion('type', [
   HtmlSchema,
   BarChartSchema,
 ]);
+
+/**
+ * The TYPE of {@link DataDisplaySchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface DataDisplayZodType extends DataDisplaySchemaInferredType {
+  options: DataDisplaySchemaInferredType['options'];
+}
+type DataDisplaySchemaInferredType = typeof DataDisplaySchemaInferred;
+
+/** The union above, typed by its named {@link DataDisplayZodType}. */
+export const DataDisplaySchema: DataDisplayZodType = DataDisplaySchemaInferred;

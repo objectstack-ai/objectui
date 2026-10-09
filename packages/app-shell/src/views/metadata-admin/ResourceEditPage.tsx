@@ -22,13 +22,7 @@
 
 import * as React from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-  DESIGNER_SEL_PARAM,
-  parseNavSelParam,
-  formatNavSelParam,
-  findNavPositionById,
-  navIdAtPosition,
-} from './nav-selection.js';
+import { useNavSelDeepLink } from './useNavSelDeepLink.js';
 import {
   Save,
   RotateCcw,
@@ -115,6 +109,8 @@ import {
   useMetadataTypes,
   type RichMetadataTypeEntry,
 } from './useMetadata.js';
+// objectui#11773 — the draft save's optimistic-concurrency guard and its dialog.
+import { useDraftSaveGuard } from './DraftConflictDialog.js';
 import {
   getMetadataResource,
   resolveResourceConfig,
@@ -125,11 +121,15 @@ import { RelatedPanel, type RelatedTarget } from './RelatedPanel.js';
 import { MetadataDetailDrawer } from './MetadataDetailDrawer.js';
 import { HistoryPanel } from './ResourceHistoryPage.js';
 import { AuditPanel } from './AuditPanel.js';
-import { getMetadataPreview, type MetadataSelection } from './preview-registry.js';
+import {
+  getMetadataPreview,
+  useRegisteredMetadataPreview,
+  type MetadataSelection,
+} from './preview-registry.js';
 import { readFields } from './previews/object-fields-io.js';
 import { useRegisterAssistantEditor, type AssistantEditorContext } from '../../assistant/assistantBus.js';
-import { getMetadataInspector } from './inspector-registry.js';
-import { getMetadataDefaultInspector } from './default-inspector-registry.js';
+import { useRegisteredMetadataInspector } from './inspector-registry.js';
+import { useRegisteredMetadataDefaultInspector } from './default-inspector-registry.js';
 import { useMetadataLocale, t, tFormat, translateValidationMessage } from './i18n.js';
 import { JsonSourceEditor } from './JsonSourceEditor.js';
 import { validateMetadataDraft, hasClientValidator, type DraftMode } from './clientValidation.js';
@@ -200,7 +200,7 @@ function lockBannerTitle(
  * editable via the no-selection default inspector. Other types keep
  * the conventional "name it first, design after save" create flow.
  */
-const CREATE_MODE_CANVAS_TYPES = new Set<string>(['object', 'report', 'dataset']);
+const CREATE_MODE_CANVAS_TYPES = new Set<string>(['object', 'report', 'dataset', 'doc']);
 
 /**
  * Top-level metadata keys that a type's canvas PreviewComponent owns and
@@ -211,6 +211,9 @@ const CREATE_MODE_CANVAS_TYPES = new Set<string>(['object', 'report', 'dataset']
  */
 const CANVAS_OWNED_KEYS: Record<string, string[]> = {
   object: ['fields', 'fieldGroups'],
+  // The doc editor (`previews/DocPreview`, objectui#10188): the Markdown body,
+  // its per-locale variants and the book-section placement are written there.
+  doc: ['content', 'translations', 'group'],
 };
 
 
@@ -258,6 +261,21 @@ function readActivePackageBinding(): string | undefined {
 }
 
 /**
+ * Whether a layered answer this page already read holds no layer at all: no
+ * packaged baseline, no customisation row, no effective value. That is what
+ * `MetadataClient.layered()` resolves for the server's 404, an item that has
+ * never been saved (objectui#11799). `null` (nothing read yet) is not that
+ * answer.
+ *
+ * A draft-mode save or a draft discard makes no layer, so after either one
+ * such an item still has none, and asking `/layers` again only logs the same
+ * 404.
+ */
+function holdsNoLayer(layered: MetadataLayered<unknown> | null): boolean {
+  return !!layered && layered.code == null && layered.overlay == null && layered.effective == null;
+}
+
+/**
  * Decide whether the validation-diagnostics banner should render at all.
  *
  * The gate has two reasons to stay hidden:
@@ -278,6 +296,27 @@ export function shouldRenderDiagnostics(opts: {
 }): boolean {
   if (opts.loadFailed) return false;
   return opts.hasDiag || opts.hasClientValidator;
+}
+
+/**
+ * The `view-ref` picker's catalog: the views bound to `objectName`, as
+ * `{ name, label }`, first occurrence of each name kept.
+ *
+ * A row's binding is read under `object` alone (objectui#11013, ruling 甲 on
+ * objectstack#20051). The spec declares `object` on every `view` member, and
+ * declares neither `objectName` nor `object_name`, which this filter used to
+ * read first and last. Extracted so the reading is assertable without opening
+ * the picker (Radix portals its options on open).
+ */
+export function viewRefCatalog(
+  rows: ReadonlyArray<Record<string, unknown>> | null | undefined,
+  objectName: string,
+): Array<{ name: string; label?: string }> {
+  const seen = new Set<string>();
+  return (rows || [])
+    .filter((v) => v?.object === objectName)
+    .map((v) => ({ name: v?.name as string, label: (v?.label as string) || undefined }))
+    .filter((v) => !!v.name && !seen.has(v.name) && seen.add(v.name));
 }
 
 export interface MetadataResourceEditPageProps {
@@ -414,7 +453,7 @@ function MetadataResourceEditPageImpl({
   // across all installed packages.
   const ownerPackageId = searchParams.get('package') ?? undefined;
   const client = useMetadataClient();
-  const { entries } = useMetadataTypes(client);
+  const { entries, loading: typesLoading } = useMetadataTypes(client);
   const entry: RichMetadataTypeEntry | undefined = entries.find((t) => t.type === type);
   const config = resolveResourceConfig(type, entry);
   // Hoist `schema` to the top: it's a pure derivation of entry/config
@@ -428,6 +467,16 @@ function MetadataResourceEditPageImpl({
       : (entry?.schema as Record<string, unknown> | undefined)) ??
     (config.defaultSchema as Record<string, unknown> | undefined);
   const locale = useMetadataLocale();
+  // objectui#11939 — the designer registries, read so that this page re-renders
+  // when a preview or inspector for `type` is registered after its first render
+  // (a designer that arrives in a lazily loaded chunk). Hooks, so they are read
+  // here, above the auto-design effect that depends on the preview and above
+  // the `loading` early return; the read sites below use these values. The two
+  // reads inside `doSave` / `doReset` stay plain `getMetadataPreview` calls:
+  // they run in an event handler and read the registry as it is at that moment.
+  const registeredPreview = useRegisteredMetadataPreview(type);
+  const registeredInspector = useRegisteredMetadataInspector(type);
+  const registeredDefaultInspector = useRegisteredMetadataDefaultInspector(type);
   // Which DOOR this page is (objectstack#5316): a create draft is authored here
   // and judged by the strict authoring schema; an edit draft is a body that came
   // back out of storage. Hoisted to one name because it now also decides whether
@@ -588,9 +637,26 @@ function MetadataResourceEditPageImpl({
       // schema the server runs. Judging a stored body by the authoring schema
       // made this editor reject bodies the server accepts — e.g. a view that
       // had been pinned or reordered carries `isPinned` / `sortOrder`.
+      //
+      // objectui#10202 — in edit mode the pass judges the body the save SENDS,
+      // `fromDraft(draft)`, the same serialiser `doSave` applies before
+      // `client.save`. A key that serialiser drops is not the author's to fix:
+      // an object's served picklist options (the door refuses them beside
+      // `picklist`) used to surface here as "`picklist` and `options` cannot
+      // both be declared" on a draft whose save sends neither pair. Read from
+      // the registry by `type`, so no memoised identity keys this effect.
+      const fromDraft = createMode ? undefined : getMetadataResource(type)?.fromDraft;
+      let judged: Record<string, unknown> = draft;
+      if (fromDraft) {
+        try {
+          judged = fromDraft(draft);
+        } catch {
+          judged = draft;
+        }
+      }
       void validateMetadataDraft(
         type,
-        draft,
+        judged,
         entry?.schema as { required?: unknown } | undefined,
         { mode: draftMode },
       ).then((res) => {
@@ -602,7 +668,7 @@ function MetadataResourceEditPageImpl({
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [type, draft, entry?.schema, draftMode]);
+  }, [type, draft, entry?.schema, draftMode, createMode]);
   // Issues to DISPLAY (banner + inline). Suppressed on a pristine create form
   // so a blank new item doesn't open covered in required-field errors.
   const displayIssues = React.useMemo(
@@ -640,6 +706,15 @@ function MetadataResourceEditPageImpl({
   // Bumped by destructive operations (rollback / discard-draft) to
   // force the load effect to refetch layered + draft state.
   const [reloadKey, setReloadKey] = React.useState(0);
+  // objectui#11773 — the version the editor's draft was saved at, sent as
+  // `If-Match` by every draft save of an existing item. A conflict's "reload"
+  // re-runs the load effect, the same way a discard does.
+  const reloadFromServer = React.useCallback(() => setReloadKey((k) => k + 1), []);
+  const {
+    save: saveDraftVersioned,
+    forget: forgetDraftVersion,
+    dialog: draftConflictDialog,
+  } = useDraftSaveGuard(client, reloadFromServer);
 
   // Form edit mode. The form is read-only by default — admins land in a
   // "view" state and must click Edit to mutate, mirroring the Salesforce /
@@ -802,41 +877,6 @@ function MetadataResourceEditPageImpl({
     if (!editing) setSelection(null);
   }, [editing]);
 
-  // #2272 — designer deep-link: `?sel=nav:<id>` selects the nav item with
-  // that spec `id` (stable across reorders, unlike the positional selection
-  // ids the canvas/inspector exchange internally). Applied once per
-  // param/item; entering edit mode is implied — a selection is meaningless
-  // in the read-only state (the effect above would clear it).
-  const navSelParam = parseNavSelParam(searchParams.get(DESIGNER_SEL_PARAM));
-  const appliedNavSelRef = React.useRef<string | null>(null);
-  React.useEffect(() => {
-    if (type !== 'app' || !navSelParam) return;
-    if (appliedNavSelRef.current === `${name}:${navSelParam}`) return;
-    if (!draft || Object.keys(draft).length === 0) return;
-    const hit = findNavPositionById(draft, navSelParam);
-    if (!hit) return;
-    appliedNavSelRef.current = `${name}:${navSelParam}`;
-    setEditing(true);
-    setSelection({ kind: 'nav', id: hit.selectionId, label: hit.label });
-  }, [type, name, navSelParam, draft]);
-
-  // Mirror nav selections back to the URL (replace — no history spam, same
-  // convention as ADR-0047 `uf_*`) so the designer's selected menu is
-  // shareable and survives reload. Non-nav selections clear the param.
-  React.useEffect(() => {
-    if (type !== 'app') return;
-    const navId = selection?.kind === 'nav' ? navIdAtPosition(draft, selection.id) : null;
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (navId) next.set(DESIGNER_SEL_PARAM, formatNavSelParam(navId));
-        else next.delete(DESIGNER_SEL_PARAM);
-        return next;
-      },
-      { replace: true },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, selection]);
   // Snapshot of the last saved draft. Used by Cancel to revert in-flight
   // edits, and as the source-of-truth when entering edit mode.
   const draftSnapshotRef = React.useRef<Record<string, unknown> | null>(null);
@@ -921,23 +961,17 @@ function MetadataResourceEditPageImpl({
   // View catalog of the source object — fuels the `view-ref` picker for
   // `interfaceConfig.sourceView` so the author chooses an existing view
   // instead of typing (and mistyping) a name. Views are standalone metadata
-  // keyed to their object via `objectName`/`object`; the LIST endpoint returns
-  // name + label, which is all the picker needs.
+  // keyed to their object via `object` ({@link viewRefCatalog}); the LIST
+  // endpoint returns name + label, which is all the picker needs.
   const objectViewsState = usePickerLoad<Array<{ name: string; label?: string }>>(
     React.useMemo(
       () =>
         sourceObjectName
-          ? async () => {
-              const all = (await client.list('view')) as Array<Record<string, any>>;
-              const forObject = (all || []).filter((v) => {
-                const obj = v?.objectName ?? v?.object ?? v?.object_name;
-                return obj === sourceObjectName;
-              });
-              const seen = new Set<string>();
-              return forObject
-                .map((v) => ({ name: v?.name as string, label: (v?.label as string) || undefined }))
-                .filter((v) => !!v.name && !seen.has(v.name) && seen.add(v.name));
-            }
+          ? async () =>
+              viewRefCatalog(
+                (await client.list('view')) as Array<Record<string, any>>,
+                sourceObjectName,
+              )
           : null,
       [client, sourceObjectName],
     ),
@@ -1060,6 +1094,8 @@ function MetadataResourceEditPageImpl({
         const initial = config.toDraft ? config.toDraft(rawInitial) : rawInitial;
         setDraft(initial);
         draftSnapshotRef.current = initial;
+        // objectui#11773 — a read serves no version: the next save is unpinned.
+        forgetDraftVersion();
         setHasDraft(!!draftReal);
         setLoading(false);
       } catch (err: any) {
@@ -1083,7 +1119,7 @@ function MetadataResourceEditPageImpl({
     return () => {
       cancelled = true;
     };
-  }, [client, type, name, ownerPackageId, createMode, reloadKey, locale]);
+  }, [client, type, name, ownerPackageId, createMode, reloadKey, locale, forgetDraftVersion]);
 
   // Lazy-load references the first time the References sheet opens.
   //
@@ -1355,8 +1391,7 @@ function MetadataResourceEditPageImpl({
     if (createMode || embedded || loading) return;
     const key = `${type}/${name ?? ''}`;
     if (designerAutoOnRef.current === key) return;
-    const PC = getMetadataPreview(type);
-    if (!PC) return;
+    if (!registeredPreview) return;
     // Same tier question as the Save gate below, from the same derivation —
     // this used to be an in-place copy of the artifact heuristic, so the two
     // could (and did) answer differently for one item (objectui#4308).
@@ -1366,7 +1401,7 @@ function MetadataResourceEditPageImpl({
     if (!cw) return;
     designerAutoOnRef.current = key;
     setEditing(true);
-  }, [type, name, createMode, embedded, loading, entry, isArtifactItem]);
+  }, [type, name, createMode, embedded, loading, entry, isArtifactItem, registeredPreview]);
 
   // Keyboard shortcut: Cmd/Ctrl+\ toggles the inspector. This is the
   // designer convention shared by Figma, VS Code (Cmd+B), Sketch — `\`
@@ -1497,20 +1532,35 @@ function MetadataResourceEditPageImpl({
       // stamps it on create and preserves an existing binding on update, so
       // env-local overlays (no `?package=`) are unaffected.
       const activePackage = readActivePackageBinding();
-      await client.save<any>(type, savedName, itemToSave, {
+      const saveOptions = {
         force,
-        mode: 'draft',
+        mode: 'draft' as const,
         ...(activePackage ? { packageId: activePackage } : {}),
-      });
+      };
+      // objectui#11773 — a create sends no `If-Match` (the door cannot pin "no
+      // row yet"); a save of the item this editor loaded sends the version its
+      // last save received.
+      if (createMode) {
+        await client.save<any>(type, savedName, itemToSave, saveOptions);
+      } else if ((await saveDraftVersioned(type, savedName, itemToSave, saveOptions)) === 'reloaded') {
+        // The author chose the saved version; the load effect replaces the draft.
+        return;
+      }
       // Refresh layered + draft state after save — scope to the same package
       // as the initial load (ADR-0048) so a same-name collision re-reads this
       // package's own row, not another's.
       const refreshScope = ownerPackageId ? { packageId: ownerPackageId } : {};
+      // objectui#11799 — this save went into a draft, which makes no layer. An
+      // item this page loaded with no layer still has none, and an item it
+      // just created has never been published (the page then navigates to the
+      // item, whose load reads it afresh). `/layers` answers 404 for both, so
+      // it is not asked: the answer already held stands.
+      const layerless = createMode || (savedName === name && holdsNoLayer(layered));
       const [lay, draftResp] = await Promise.all([
-        client.layered<any>(type, savedName, refreshScope),
+        layerless ? layered : client.layered<any>(type, savedName, refreshScope),
         client.getDraft<any>(type, savedName, refreshScope).catch(() => null),
       ]);
-      setLayered(lay);
+      if (!layerless) setLayered(lay);
       const draftReal = extractDraftBody(draftResp);
       setHasDraft(!!draftReal);
       // The served draft is the whole document the save just stored (see the
@@ -1519,7 +1569,7 @@ function MetadataResourceEditPageImpl({
       // key this save deleted straight back into the editor, invisibly, for
       // the next save to send. The baseline is only for a save that left no
       // draft row to read back.
-      const freshBaseline = (lay.effective ?? itemToSave) as Record<string, unknown>;
+      const freshBaseline = (lay?.effective ?? itemToSave) as Record<string, unknown>;
       const rawFresh: Record<string, unknown> = draftReal ?? freshBaseline;
       // Re-normalise the refreshed wire shape so the editor keeps showing
       // the canonical draft shape after a save (e.g. the backend re-expands
@@ -1553,10 +1603,18 @@ function MetadataResourceEditPageImpl({
         });
       }
     } catch (err: any) {
+      // `err` is the client's parsed `MetadataError`: `MetadataClient`'s
+      // `parseError` has already read every live wire shape onto `message`,
+      // `issues` and `code` — the REST door's top-level `issues` and the HTTP
+      // dispatcher's `error.details.issues` alike. Both branches below read
+      // those fields. ⛔ Never `err.body`: re-reading the raw envelope is a
+      // second parse, and the one this page had knew only the REST shape, so a
+      // refusal the dispatcher served showed `[object Object]` with an empty
+      // field path (objectui#11379).
+      const parsedIssues: unknown[] = Array.isArray(err?.issues) ? err.issues : [];
       // Map destructive change → confirmation dialog.
       if (err?.status === 409 && errorCodeIs(err, 'DESTRUCTIVE_CHANGE')) {
-        const i = err?.body?.issues ?? [];
-        setDestructiveIssues(Array.isArray(i) ? i : []);
+        setDestructiveIssues(parsedIssues as Array<{ kind?: string; path?: string; message?: string }>);
         setPendingItem(draft);
       }
       // ADR-0070 D1/D3 — the kernel rejects authoring into a read-only
@@ -1569,8 +1627,7 @@ function MetadataResourceEditPageImpl({
       }
       // Map schema validation → inline field errors.
       else if (err?.status === 422 || errorCodeIsAnyOf(err, ['INVALID_METADATA', 'INVALID_PAYLOAD'])) {
-        const i = err?.body?.issues ?? [];
-        let mapped: SchemaFormIssue[] = (Array.isArray(i) ? i : []).map((x: any) => ({
+        let mapped: SchemaFormIssue[] = parsedIssues.map((x: any) => ({
           path: Array.isArray(x.path) ? x.path.join('.') : String(x.path ?? ''),
           message: translateValidationMessage(String(x.message ?? 'Invalid'), locale),
         }));
@@ -1578,7 +1635,7 @@ function MetadataResourceEditPageImpl({
         // "<type>/<name> failed spec validation: <path>: <message>".
         // Parse it into a single inline issue + summary so users see the
         // real problem instead of "0 issues".
-        const raw: string = String(err?.body?.error ?? err?.message ?? '');
+        const raw: string = String(err?.message ?? '');
         if (mapped.length === 0 && raw) {
           const m = raw.match(/failed spec validation:\s*(.+?):\s*(.+)$/);
           if (m) {
@@ -1645,6 +1702,8 @@ function MetadataResourceEditPageImpl({
     setError(null);
     try {
       await client.reset(type, name);
+      // objectui#11773 — the buffer below is re-read, so no version describes it.
+      forgetDraftVersion();
       if (isResetSemantic) {
         const lay = await client.layered<any>(type, name);
         setLayered(lay);
@@ -1703,6 +1762,8 @@ function MetadataResourceEditPageImpl({
       const fresh = config.toDraft ? config.toDraft(rawFresh) : rawFresh;
       setDraft(fresh);
       draftSnapshotRef.current = fresh;
+      // objectui#11773 — the publish dropped the draft the version named.
+      forgetDraftVersion();
     } catch (err: any) {
       setError(err?.message ?? String(err));
     } finally {
@@ -1720,7 +1781,11 @@ function MetadataResourceEditPageImpl({
     setError(null);
     try {
       await client.reset(type, name, { state: 'draft' });
-      const lay = await client.layered<any>(type, name);
+      // objectui#11773 — the discard dropped the draft the version named.
+      forgetDraftVersion();
+      // objectui#11799 — a discard makes no layer: an item this page loaded
+      // with no layer still has none, and `/layers` would answer 404.
+      const lay = layered && holdsNoLayer(layered) ? layered : await client.layered<any>(type, name);
       setLayered(lay);
       const fresh = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
       setDraft(fresh);
@@ -1777,6 +1842,31 @@ function MetadataResourceEditPageImpl({
       : !!(entry?.allowOrgOverride || entry?.allowRuntimeCreate);
   const canWrite = canWriteByType && (createMode || lockEditable);
   const readOnly = !canWrite && !createMode;
+
+  // #2272 — designer deep-link: `?sel=nav:<id>` selects the nav item with
+  // that spec `id` (stable across reorders, unlike the positional selection
+  // ids the canvas/inspector exchange internally), applied once per
+  // param/item. The nav selection mirrors back to the URL (replace — no
+  // history spam, same convention as ADR-0047 `uf_*`) so the designer's
+  // selected menu is shareable and survives reload; a non-nav selection
+  // clears the param. objectui#11153 — one hook with the Studio Interfaces
+  // pillar's copy: the param is kept until the item has loaded, and the
+  // write state it reads waits for the type registry (`entry` decides
+  // `canWrite`). On an item this page cannot write, the link selects the nav
+  // item WITHOUT entering editing: the preview marks it and the inspector
+  // opens on it read-only.
+  useNavSelDeepLink({
+    enabled: type === 'app',
+    scope: name,
+    draft,
+    loaded: !loading,
+    readOnly: typesLoading ? undefined : readOnly,
+    selection,
+    onApply: (hit, { enterEditing }) => {
+      if (enterEditing) setEditing(true);
+      setSelection({ kind: 'nav', id: hit.selectionId, label: hit.label });
+    },
+  });
 
   // Auto-save: debounce edits and persist silently once the user pauses
   // for AUTOSAVE_DEBOUNCE_MS. Skipped for create mode (need an explicit
@@ -1937,7 +2027,7 @@ function MetadataResourceEditPageImpl({
   const showPreviewInCreate = CREATE_MODE_CANVAS_TYPES.has(type);
   const PreviewComponent =
     !embedded && (!createMode || showPreviewInCreate)
-      ? getMetadataPreview(type)
+      ? registeredPreview
       : undefined;
 
   // The id scope for THIS editor's form (objectui#5092). Embedded means we are
@@ -1952,11 +2042,11 @@ function MetadataResourceEditPageImpl({
   // dashboard widget). Registered separately via
   // `registerMetadataInspector()` so a type can opt in independently
   // of having a Preview, and so plugins can swap implementations.
-  const InspectorComponent = getMetadataInspector(type);
+  const InspectorComponent = registeredInspector;
   // Optional "home" inspector shown when there is NO selection, replacing
   // the generic whole-draft SchemaForm with a curated panel (e.g. the View
   // type + fields manager). Falls back to SchemaForm when unregistered.
-  const DefaultInspectorComponent = getMetadataDefaultInspector(type);
+  const DefaultInspectorComponent = registeredDefaultInspector;
 
   // Cancel edits: revert the draft to the last saved snapshot and exit
   // edit mode. Safe to call even with no snapshot (no-op).
@@ -2658,7 +2748,7 @@ function MetadataResourceEditPageImpl({
                         </div>
                       </div>
                       <div className="flex-1 min-h-0 overflow-auto p-4 bg-[radial-gradient(circle_at_1px_1px,theme(colors.border)_1px,transparent_0)] [background-size:16px_16px] bg-muted/30">
-                        {/* eslint-disable-next-line react-hooks/static-components -- getMetadataPreview returns a registered component (stable), not one created during render */}
+                        {/* eslint-disable-next-line react-hooks/static-components -- useRegisteredMetadataPreview returns a registered component (stable), not one created during render */}
                         <PreviewComponent
                           type={type}
                           name={name}
@@ -2782,7 +2872,7 @@ function MetadataResourceEditPageImpl({
                             }))}
                           />
                         ) : selection && InspectorComponent ? (
-                          // eslint-disable-next-line react-hooks/static-components -- getMetadataInspector returns a registered component (stable), not one created during render
+                          // eslint-disable-next-line react-hooks/static-components -- useRegisteredMetadataInspector returns a registered component (stable), not one created during render
                           <InspectorComponent
                             type={type}
                             name={name}
@@ -2803,7 +2893,7 @@ function MetadataResourceEditPageImpl({
                             locale={locale}
                           />
                         ) : !selection && DefaultInspectorComponent ? (
-                          // eslint-disable-next-line react-hooks/static-components -- getMetadataDefaultInspector returns a registered component (stable), not one created during render
+                          // eslint-disable-next-line react-hooks/static-components -- useRegisteredMetadataDefaultInspector returns a registered component (stable), not one created during render
                           <DefaultInspectorComponent
                             type={type}
                             name={name}
@@ -3077,6 +3167,9 @@ function MetadataResourceEditPageImpl({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* objectui#11773 — the draft-version conflict, apart from the
+          destructive-change confirmation above: two different 409s. */}
+      {draftConflictDialog}
     </PageShell>
   );
 }

@@ -7,9 +7,17 @@
  */
 
 /**
- * `record:quick_actions.requiredPermissions` — the BLOCK-LEVEL gate the
- * published contract describes as "Hide the whole bar unless the current user
- * holds every named permission on this object" (objectui#8071 slice 4).
+ * `record:quick_actions.requiredPermissions` — the BLOCK-LEVEL gate
+ * (objectui#8071 slice 4). Since objectstack#18159 the contract describes it
+ * with the one record-block describe this key shares with `record:details`,
+ * `record:highlights` and `record:related_list`: ALL the named capabilities
+ * must be held, and when one is missing "an insufficient-permissions notice
+ * takes its place". The registration publishes that describe verbatim, and the
+ * last block below re-reads it off the installed spec (objectui#10224). Before
+ * objectstack#18159 the contract said "Hide the whole bar unless the current
+ * user holds every named permission on this object", and the registration said
+ * "Hide the whole bar unless the user holds these permissions"; neither named
+ * the notice the renderer draws.
  *
  * ## What this file pins, and why it was rewritten (objectui#10058)
  *
@@ -17,7 +25,8 @@
  * carries on `action`, `app`, `field` and `bulkAction` (ruling batch #192 item
  * 5 letter B). The renderer reads it through the permission context's
  * capability path and gates fail-closed: an unheld or unrecognised capability
- * hides the whole bar.
+ * puts a `role="status"` insufficient-permissions notice in place of the whole
+ * bar, so no action is drawn.
  *
  * It used to read `perms.can(objectName, name)`, whose second argument is the
  * closed object-action enum. Under the stock `/me/permissions` provider a name
@@ -27,9 +36,11 @@
  * the previous ones mocked `usePermissions` down to a `can` stub and therefore
  * pinned the defect: they passed on a gate that does not gate.
  *
- * ⭐ Every pin below mounts a REAL stock provider and reads its real verdicts.
- * A mocked `usePermissions` cannot discriminate the two reading paths — it IS
- * whichever path the mock chooses to implement.
+ * ⭐ Every gate pin below mounts a REAL stock provider and reads its real
+ * verdicts. A mocked `usePermissions` cannot discriminate the two reading
+ * paths — it IS whichever path the mock chooses to implement. The one gate pin
+ * that mounts no provider does so on purpose: no provider at all is the case
+ * it pins.
  *
  * Not to be confused with an `ActionDef`'s OWN `requiredPermissions` — a
  * per-action field the `gated` fixture in
@@ -41,10 +52,15 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { ComponentRegistry } from '@object-ui/core';
 import { MetadataCtx, RecordContextProvider } from '@object-ui/react';
 import type { MetadataContextValue } from '@object-ui/react';
 import { MePermissionsProvider, PermissionProvider, usePermissions, type MePermissionsResponse } from '@object-ui/permissions';
+import { RecordQuickActionsProps } from '@objectstack/spec/ui';
 import { RecordQuickActionsRenderer } from '../record-quick-actions';
+// Registers `record:quick_actions` and its three sibling record blocks, whose
+// published `inputs` the last describe block reads.
+import '../../index';
 
 /**
  * Records what the OBJECT-PERMISSION path was asked, without replacing it.
@@ -157,7 +173,7 @@ beforeEach(() => {
 });
 
 describe('record:quick_actions.requiredPermissions — capability gate on MePermissionsProvider (objectui#10058)', () => {
-  it('hides the WHOLE bar when the declared capability is not held (REPORTED-empty capability set)', async () => {
+  it('puts the notice in place of the WHOLE bar when the declared capability is not held (REPORTED-empty capability set)', async () => {
     render(<MePermissionsProvider initialPermissions={me([])}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage'] })}</MePermissionsProvider>);
     expect(await refused()).toBeInTheDocument();
     noButton();
@@ -169,7 +185,7 @@ describe('record:quick_actions.requiredPermissions — capability gate on MePerm
     noRefusal();
   });
 
-  it('an UNKNOWN capability name hides the bar — unrecognised is refused, not waved through', async () => {
+  it('an UNKNOWN capability name gets the notice, not the bar — unrecognised is refused, not waved through', async () => {
     render(<MePermissionsProvider initialPermissions={me(['crm.manage'])}>{bar({ ...BY_NAME, requiredPermissions: ['not.a.real.capability'] })}</MePermissionsProvider>);
     expect(await refused()).toBeInTheDocument();
     noButton();
@@ -237,6 +253,23 @@ describe('the reading path is the capability set, NOT `perms.can()` (objectui#10
     noButton();
   });
 
+  // DISCRIMINATOR ④ (objectui#10224): the published describe says in as many
+  // words that `read` and `update` here are ordinary capability names, not the
+  // object's read or edit permission. They are the stock provider's MAPPED
+  // verbs, a different leg from ③'s unmapped `manage`: the object-action read
+  // answered each off its own bit, TRUE in its row, and would have drawn the bar.
+  it('DISCRIMINATOR ④a: `read` is a capability name — `allowRead` on the object does not open the gate', async () => {
+    render(<MePermissionsProvider initialPermissions={me([], { allowRead: true })}>{bar({ ...BY_NAME, requiredPermissions: ['read'] })}</MePermissionsProvider>);
+    expect(await refused()).toBeInTheDocument();
+    noButton();
+  });
+
+  it('DISCRIMINATOR ④b: `update` is a capability name — `allowEdit` on the object does not open the gate', async () => {
+    render(<MePermissionsProvider initialPermissions={me([], { allowEdit: true })}>{bar({ ...BY_NAME, requiredPermissions: ['update'] })}</MePermissionsProvider>);
+    expect(await refused()).toBeInTheDocument();
+    noButton();
+  });
+
   it('DETECTOR: the renderer never asks the OBJECT-permission path about a capability name', async () => {
     render(<MePermissionsProvider initialPermissions={me([], { allowRead: true })}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage', 'manage'] })}</MePermissionsProvider>);
     expect(await refused()).toBeInTheDocument();
@@ -275,6 +308,63 @@ describe('role-based PermissionProvider — capabilities are UNREPORTED here (ob
     render(<PermissionProvider roles={[]} permissions={[]} userRoles={['viewer']}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage'] })}</PermissionProvider>);
     expect(await shown()).toBeInTheDocument();
     noRefusal();
+  });
+});
+
+describe('a client that cannot resolve capabilities fails OPEN — the describe\'s last clause (objectui#10224)', () => {
+  /**
+   * The published describe names two such clients: "no permission provider,
+   * or one that does not report `systemPermissions`". The role-based provider
+   * above is one of the second kind; these two rows are the other two shapes
+   * a real page meets. The lit control is the first block's opening row: the
+   * SAME stock provider reporting an EMPTY set gates the same declaration, so
+   * the open verdict here is driven by "unreported", not by a gate that never
+   * closes.
+   */
+  it('renders with NO permission provider mounted at all', async () => {
+    render(bar({ ...BY_NAME, requiredPermissions: ['crm.manage'] }));
+    expect(await shown()).toBeInTheDocument();
+    noRefusal();
+  });
+
+  it('renders under the stock provider when the backend does not report `systemPermissions`', async () => {
+    render(<MePermissionsProvider initialPermissions={me(undefined)}>{bar({ ...BY_NAME, requiredPermissions: ['crm.manage'] })}</MePermissionsProvider>);
+    expect(await shown()).toBeInTheDocument();
+    noRefusal();
+  });
+});
+
+describe('the published description is the contract\'s shared record-block describe, verbatim (objectui#10224)', () => {
+  /**
+   * The registration's `inputs` are the published authoring surface:
+   * `gen-manifest.ts` serializes them into `sdui.manifest.json`, descriptions
+   * included. The generated JSX authoring types take only each input's name
+   * and value type (`generateDts` reads no `description`), so the manifest and
+   * the runtime registry are where this text is published. The describe is
+   * the text of record, read off the
+   * INSTALLED spec every run rather than restated, so a spec that rewords it
+   * turns this row red instead of leaving the manifest to drift. Every clause
+   * of that text is a row above: ALL capabilities required (the partial-grant
+   * pair), capability names rather than object actions (④), the notice in
+   * place of the bar, and fail-open when capabilities are unreported.
+   */
+  const shapeOf = () =>
+    (RecordQuickActionsProps.shape as Record<string, { description?: string; def?: { innerType?: { description?: string } } }>)
+      .requiredPermissions;
+  const contractText = () => shapeOf()?.description ?? shapeOf()?.def?.innerType?.description;
+  const publishedText = (type: string) =>
+    ComponentRegistry.getConfig(type)?.inputs?.find((i) => i.name === 'requiredPermissions')?.description;
+
+  it('`record:quick_actions` publishes the installed describe text, verbatim', () => {
+    // Non-vacuity: an undefined describe would compare equal to a missing one.
+    expect(contractText() ?? '', 'the contract carries no describe to publish').not.toBe('');
+    expect(publishedText('record:quick_actions')).toBe(contractText());
+  });
+
+  it('the text is the one the three sibling record blocks publish — one describe, four blocks', () => {
+    for (const type of ['record:details', 'record:highlights', 'record:related_list']) {
+      expect(publishedText(type), type).toBe(publishedText('record:quick_actions'));
+    }
   });
 });
 

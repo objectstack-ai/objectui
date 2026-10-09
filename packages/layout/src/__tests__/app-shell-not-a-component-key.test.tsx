@@ -42,8 +42,9 @@
  * refused BY NAME.
  *
  * The refusal is measured, not asserted from the error-code table: the test
- * renders the node and reads the panel. `responsive-grid` is rendered the same
- * way as the control, because "no unknown-component panel appeared" is exactly
+ * renders the node and reads the panel. `layout:page:card` is rendered the same
+ * way as the control (it was `responsive-grid` until objectui#11441 retired that
+ * key), because "no unknown-component panel appeared" is exactly
  * the shape that passes for an empty reason — a probe that cannot tell a
  * registered key from an unregistered one would be green on both.
  *
@@ -65,6 +66,11 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '@object-ui/react';
+// Both node types below are ones no `@object-ui/types` declaration names: the
+// probe is unregistered on purpose, and the control is `@object-ui/layout`'s own
+// namespaced registration. The registry's runtime answer is the point, so each
+// crosses through the one test helper for undeclared input (objectui#11466).
+import { undeclaredNode } from '@object-ui/test-support';
 
 // The shared registration reader (objectui#4894). Plain JS, and this package's
 // test program sets `allowJs: false`, so the import is untyped here — the local
@@ -140,7 +146,7 @@ describe('`app-shell` is not registered (objectui#4841)', () => {
 
 describe('a JSON `app-shell` node is refused by name (objectui#4841)', () => {
   it('renders the OBJUI-001 unknown-component panel, not an empty shell', () => {
-    const { container } = render(<SchemaRenderer schema={{ type: 'app-shell' }} />);
+    const { container } = render(<SchemaRenderer schema={undeclaredNode({ type: 'app-shell' })} />);
 
     const panel = container.querySelector('[role="alert"]');
     expect(
@@ -163,12 +169,12 @@ describe('a JSON `app-shell` node is refused by name (objectui#4841)', () => {
     expect(panel?.textContent).toContain('OBJUI-001');
   });
 
-  it('and the probe can tell a registered key apart — `responsive-grid` renders', () => {
+  it('and the probe can tell a registered key apart — `layout:page:card` renders', () => {
     // The control. Without it, "an unknown-component panel appeared" would pass
     // just as happily on a renderer that panels EVERY node, and this file would
     // be green for a reason that has nothing to do with `app-shell`.
     const { container } = render(
-      <SchemaRenderer schema={{ type: 'responsive-grid', children: [] }} />,
+      <SchemaRenderer schema={undeclaredNode({ type: 'layout:page:card', children: [] })} />,
     );
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(container.textContent).not.toContain('Unknown component type');

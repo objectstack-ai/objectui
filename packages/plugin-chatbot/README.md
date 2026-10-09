@@ -202,6 +202,14 @@ safe side gutters, stays above the mobile bottom navigation area, and hides the
 FAB while open so the close button in the panel header is the only active
 dismiss control.
 
+A host that wants to signal a waiting approval outside the chat can pass
+`ChatbotEnhanced` the optional `onPlanApprovalPendingChange` callback. It is
+called with `true` while the thread's newest proposed plan still offers
+"Build it", and with `false` otherwise: no plan, the user approved it, or its
+build ran. It fires once on mount and again on every change. The console uses
+it to put a marker on its chat launchers while the chat is closed
+(objectui#11666).
+
 During a conversation, the chat surface renders an inline assistant responding
 indicator while the backend is streaming, keeps message actions quiet until
 hover/focus, and summarizes backend failures into a compact retryable notice

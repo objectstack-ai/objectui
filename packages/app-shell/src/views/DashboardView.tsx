@@ -12,7 +12,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { DashboardRenderer } from '@object-ui/plugin-dashboard';
-import { DrillNavigationProvider } from '@object-ui/react';
+import { DrillNavigationProvider, notifyDataChanged } from '@object-ui/react';
 import { useOpenRecordList } from './useOpenRecordList.js';
 import { toast } from 'sonner';
 import type { ActionDef, ActionContext, ActionResult } from '@object-ui/core';
@@ -29,7 +29,50 @@ import { useMetadata } from '../providers/MetadataProvider.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { resolveKeyedI18nLabel, preferLocal } from '../utils/index.js';
 import { useAdapter } from '../providers/AdapterProvider.js';
-import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
+import { useObjectTranslation } from '@object-ui/i18n';
+
+/**
+ * One refresh of this dashboard's data: the `onRefresh` handed to
+ * `DashboardRenderer` (objectui#11062).
+ *
+ * Without a handler, the renderer's `useDashboardAutoRefresh` arms no timer, so
+ * a period an author set in Studio (`refreshIntervalSeconds`) did nothing in
+ * the console. This handler owns no timer: the hook runs it once per authored
+ * period, and the renderer's "Refresh All" button, which it shows whenever a
+ * handler is wired, runs it on demand.
+ *
+ * It declares a change on the data-invalidation bus and rebuilds nothing
+ * (AGENTS.md #8's corollary: refresh data, don't rebuild UI). The widgets that
+ * read data (`DatasetWidget`, `ObjectChart`, `ObjectMetricWidget`,
+ * `ObjectDataTable`, `ObjectPivotTable`) and the filter bar's options re-read
+ * in place when the bus reports a change they match, so they stay mounted.
+ * Nothing here re-keys, remounts or re-derives the schema.
+ * `DashboardView.autoRefresh-11062.test.tsx` counts the re-reads and checks the
+ * widget's node survives them.
+ *
+ * A `DatasetWidget` subscribes on the base object its query's answer names.
+ * Every dataset answer names it (`AnalyticsResult.object`,
+ * objectstack-ai/objectstack#20644), with or without dimensions and rows, so a
+ * dataset-bound KPI tile (no dimensions) re-reads on this handler and on a
+ * declared write to that object. `DatasetWidget.kpiInvalidation-11095.test.tsx`
+ * in `plugin-dashboard` pins the widget's half (objectui#11095); the
+ * producer's half is pinned upstream by `service-analytics`'s
+ * `dataset-answer-object.test.ts`.
+ *
+ * The scope is the bus's unknown-scope value, `'*'`, the same one `PageView`
+ * uses after a page action. A timed re-read does not know what changed, and
+ * this view cannot name the objects its widgets read without re-deriving the
+ * renderer's widget dispatch: a dataset widget learns its base object only from
+ * its query's answer. The cost is that any other mounted bus reader re-reads
+ * once per period too.
+ *
+ * Module-level, so its identity is stable. The hook reads the handler through
+ * a ref, so a new identity would not re-arm the interval anyway
+ * (objectui#11004).
+ */
+function refreshDashboardData(): void {
+  notifyDataChanged({ objectName: '*' });
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -42,7 +85,6 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
   const { showDebug } = useMetadataInspector();
   const adapter = useAdapter();
   const { t } = useObjectTranslation();
-  const { dashboardLabel, dashboardDescription } = useObjectLabel();
   const [isLoading, setIsLoading] = useState(true);
 
   /**
@@ -198,8 +240,13 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
             // this view's own widget-pruned copy of `dashboard` (above) — so
             // the retired arm read the same stored document either way, which
             // is why it is gone rather than re-pointed.
-            const resolvedLabel = resolveKeyedI18nLabel(dashboard.label, t);
-            const display = dashboardLabel({ name: dashboard.name, label: resolvedLabel }) || dashboard.name;
+            //
+            // Drawn as served, with no client bundle pass (objectui#11295):
+            // `dashboard` is the `/meta` read's document, already translated
+            // for this language by the server, which keeps a published edit
+            // over the packaged catalog. A `dashboards.<name>.label` lookup
+            // here answered the catalog a second time and won it back.
+            const display = resolveKeyedI18nLabel(dashboard.label, t) || dashboard.name;
             return (
               <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight truncate">{display}</h1>
             );
@@ -207,10 +254,8 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
           {(() => {
             const headerSrc = (previewSchema as any) || dashboard;
             const rawDesc = headerSrc.description ?? dashboard.description;
-            const desc = dashboardDescription({
-              name: dashboard.name,
-              description: resolveKeyedI18nLabel(rawDesc, t),
-            });
+            // Served, like the label above: drawn as given (objectui#11295).
+            const desc = resolveKeyedI18nLabel(rawDesc, t);
             return desc ? (
               <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{desc}</p>
             ) : null;
@@ -222,11 +267,16 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
       <div className="flex-1 overflow-hidden flex flex-col sm:flex-row relative">
          <div className="flex-1 min-w-0 overflow-auto p-2 sm:p-4 md:p-6">
             <DrillNavigationProvider value={{ openRecordList }}>
+              {/* `localized`: this document is the `/meta` read's, already
+                  translated for this language, so the renderer draws its
+                  title, description and sub-caption as served (objectui#11295). */}
               <DashboardRenderer
                 schema={previewSchema}
+                localized
                 dataSource={dataSource}
                 modalHandler={modalHandler}
                 scriptHandlers={scriptHandlers}
+                onRefresh={refreshDashboardData}
                 hideHeaderText
               />
             </DrillNavigationProvider>

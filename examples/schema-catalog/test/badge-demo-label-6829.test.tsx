@@ -93,8 +93,8 @@
  *
  * Arm A restored four demos and did not close the class: `children` was
  * declared on `BaseSchema`, accepted by every other container renderer,
- * refused by neither zod nor tsc (`BaseSchema` is `.passthrough()` with an
- * index signature), and consumed by the pipeline before it could leak to the
+ * refused by neither zod nor tsc (`BaseSchema` was `.passthrough()` with an
+ * index signature then), and consumed by the pipeline before it could leak to the
  * DOM — so the next author who wrote `children` on a badge drew an empty pill
  * again. Arm B (teaching `badge.tsx` to read `children`) widened a published
  * renderer's read set, which AGENTS.md #0.1 governs, and was left to
@@ -136,26 +136,32 @@ const MEMBER_ENTRIES: Record<string, string> = {
     'Parent ComponentNestedComponentsSibling ComponentAll rendered from a single schema tree',
 };
 
-/** The seven node locations arm A re-authored — the former exact ledger. */
+/**
+ * The seven node locations arm A re-authored — the former exact ledger. A
+ * `flex` takes its child list in its `properties` bag since objectui#11276, so
+ * a badge under one sits at `….properties.children[i]`.
+ */
 const REAUTHORED_NODES = [
   'components-basic-span/default-badge',
   'components-basic-span/secondary-badge',
-  'components-basic-span/status-badges.children[0]',
-  'components-basic-span/status-badges.children[1]',
-  'components-basic-span/status-badges.children[2]',
-  'core-schema-renderer/nested-schema-example.children[0].children[0].children[0]',
-  'core-schema-renderer/nested-schema-example.children[0].children[0].children[1]',
+  'components-basic-span/status-badges.properties.children[0]',
+  'components-basic-span/status-badges.properties.children[1]',
+  'components-basic-span/status-badges.properties.children[2]',
+  'core-schema-renderer/nested-schema-example.children[0].children[0].properties.children[0]',
+  'core-schema-renderer/nested-schema-example.children[0].children[0].properties.children[1]',
 ];
 
 /**
  * The container nodes inside the touched entries that legitimately author
- * `children` and must go on doing so — the nodes a blind sweep would break.
+ * `children` and must go on doing so — the nodes a blind sweep would break. A
+ * `flex` authors its child list in its `properties` bag (objectui#11276), so
+ * for the two `flex` containers the location is that bag, `….properties`.
  */
 const TOUCHED_CONTAINERS = [
-  'components-basic-span/status-badges',
+  'components-basic-span/status-badges.properties',
   'core-schema-renderer/nested-schema-example',
   'core-schema-renderer/nested-schema-example.children[0]',
-  'core-schema-renderer/nested-schema-example.children[0].children[0]',
+  'core-schema-renderer/nested-schema-example.children[0].children[0].properties',
   'core-schema-renderer/nested-schema-example.children[1]',
 ];
 

@@ -11,7 +11,7 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { AuthProvider } from '../AuthProvider';
-import { LoginForm } from '../LoginForm';
+import { LoginForm, type LoginFormProps } from '../LoginForm';
 import type { AuthClient, AuthPublicConfig } from '../types';
 
 const SSO_BUTTON = { name: 'Sign in with SSO' } as const;
@@ -36,10 +36,10 @@ function createMockClient(
   } as unknown as AuthClient;
 }
 
-function renderLogin(client: AuthClient) {
+function renderLogin(client: AuthClient, props: LoginFormProps = {}) {
   return render(
     <AuthProvider authUrl="/api/auth" client={client}>
-      <LoginForm />
+      <LoginForm {...props} />
     </AuthProvider>,
   );
 }
@@ -79,11 +79,44 @@ describe('LoginForm — server-gated SSO button', () => {
   });
 });
 
+// objectui#11634 — `registerUrl` has no default. Both console login pages pass
+// `undefined` when the server reports `emailPassword.disableSignUp`; a
+// `'/register'` default brought the link back on exactly that value, so a
+// sign-up-disabled deployment still offered "Sign up".
+describe('LoginForm — the sign-up link renders only for a passed registerUrl (objectui#11634)', () => {
+  const SIGN_UP_LINK = { name: 'Sign up' } as const;
+
+  it.each([
+    ['left out', {}],
+    ['passed as undefined', { registerUrl: undefined }],
+  ] as const)('renders no sign-up link when registerUrl is %s', async (_shape, props) => {
+    renderLogin(createMockClient({}), props);
+
+    // The config gate has resolved and the form is painted…
+    await screen.findByLabelText('Email');
+    // …and there is no "Don't have an account? Sign up" row.
+    expect(screen.queryByRole('link', SIGN_UP_LINK)).toBeNull();
+    expect(screen.queryByText("Don't have an account?")).toBeNull();
+  });
+
+  it('links to the passed registerUrl', async () => {
+    renderLogin(createMockClient({}), { registerUrl: '/x' });
+
+    await screen.findByLabelText('Email');
+    expect(screen.getByText("Don't have an account?")).toBeTruthy();
+    expect(screen.getByRole('link', SIGN_UP_LINK).getAttribute('href')).toBe('/x');
+  });
+});
+
 describe('LoginForm — SSO-only (enforced) mode', () => {
   const BREAK_GLASS = { name: 'Use a password instead' } as const;
 
   it('hides the password form + sign-up and shows a break-glass link when features.ssoEnforced', async () => {
-    renderLogin(createMockClient({ features: { sso: true, ssoEnforced: true } }));
+    // `registerUrl` is passed so the sign-up assertion below measures the
+    // enforced-mode guard: without it no link renders at all (objectui#11634).
+    renderLogin(createMockClient({ features: { sso: true, ssoEnforced: true } }), {
+      registerUrl: '/register',
+    });
 
     // The break-glass link appears (federated buttons are the path)…
     await screen.findByRole('button', BREAK_GLASS);

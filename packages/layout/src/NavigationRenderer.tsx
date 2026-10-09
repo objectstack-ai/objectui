@@ -10,9 +10,9 @@
  * @object-ui/layout - Navigation Renderer
  *
  * Renders a `NavigationItem[]` tree from AppSchema JSON into a Shadcn sidebar.
- * Supports all 7 navigation item types: object, dashboard, page, report,
- * url, action, group — plus separators, badges, visibility expressions,
- * and RBAC permission guards.
+ * Supports every `NavigationItemType` — object, dashboard, page, report, url,
+ * component, action, doc and group — plus separators, badges, visibility
+ * expressions, and RBAC permission guards.
  *
  * Enhanced with:
  * - Search filtering across navigation tree
@@ -41,6 +41,8 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DraggableAttributes,
+  type DraggableSyntheticListeners,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -66,6 +68,14 @@ import {
   useIsMobile,
 } from '@object-ui/components';
 import type { NavigationItem, KeyedI18nLabel } from '@object-ui/types';
+// Aliased on import, following PR #4169's convention (as `AppSchemaRenderer`
+// does): this file has its OWN `resolveLabel` over the KEYED vocabulary, and
+// the spec's resolver reads the INLINE locale map — neither accepts the other's
+// shape.
+import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+// Internal module, not re-exported by `index.ts` (objectui#11395). ⛔ Do not
+// re-export `byNavOrder` from this file: `index.ts` re-exports it whole.
+import { byNavOrder } from './navOrder';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -103,6 +113,56 @@ export type PermissionChecker = (permissions: string[]) => boolean;
  */
 export type CapabilityChecker = (kind: 'object' | 'service', name: string) => boolean;
 
+/** What a `type: 'doc'` navigation entry opens: a book, a page, or that page in that book. */
+export interface DocNavTarget {
+  book?: string;
+  doc?: string;
+}
+
+/**
+ * Answers whether the signed-in member may read what a `type: 'doc'` entry
+ * opens (objectui#10188). `false` hides the entry.
+ *
+ * The server is the enforcer (ADR-0046 §6.7): its app read already drops a
+ * `doc` entry the caller may not read (objectstack#19790), and this checker is
+ * the renderer's defence in depth behind it (that ruling's point 2). This layer
+ * holds no audience rules, so the host answers from the member's own doc / book
+ * reads and never re-derives an audience. Kept apart from
+ * {@link CapabilityChecker} on purpose: that one asks whether the RUNTIME has a
+ * target, this one whether the MEMBER may read it.
+ *
+ * When not provided, `doc` entries pass — the server's answer stands.
+ */
+export type DocTargetChecker = (target: DocNavTarget) => boolean;
+
+/**
+ * What an UNLABELLED navigation entry inherits its text from (objectui#9868).
+ *
+ * `@objectstack/spec` 17.5.0 made a nav entry's `label` optional with a
+ * declared semantic: absent ⇒ the entry shows, at RENDER time, the CURRENT label
+ * of what it opens — the view's label when it names a view and that view is
+ * labelled, else the object's / dashboard's label. These are the three targets
+ * that sentence names; `resolveNavItemLabel` walks them in that order and asks a
+ * {@link NavTargetLabelResolver} about each one.
+ */
+export type NavLabelTarget =
+  | { kind: 'view'; objectName: string; viewName: string }
+  | { kind: 'object'; objectName: string }
+  | { kind: 'dashboard'; dashboardName: string };
+
+/**
+ * Answers the CURRENT display label of a nav target from the host's metadata —
+ * the object schema's `label`, the named view's `label`, the dashboard's
+ * `label` — or `undefined` when the target carries none (or is not loaded).
+ *
+ * This layer holds no metadata, so the host supplies it: the console shell
+ * reads the metadata cache it already loads (`useNavTargetLabel` in
+ * `@object-ui/app-shell`). Because it is asked on every render and nothing is
+ * stored, a renamed target shows its new name on the next render. Without it,
+ * an unlabelled entry falls through to its target's machine name.
+ */
+export type NavTargetLabelResolver = (target: NavLabelTarget) => string | undefined;
+
 export interface NavigationRendererProps {
   /** Navigation items to render */
   items: NavigationItem[];
@@ -121,6 +181,9 @@ export interface NavigationRendererProps {
 
   /** Optional runtime-capability checker for `requiresObject` / `requiresService` */
   checkCapability?: CapabilityChecker;
+
+  /** Optional member-readability checker for `doc` entries — see {@link DocTargetChecker} */
+  checkDocTarget?: DocTargetChecker;
 
   /**
    * Called when an `action`-type item is clicked.
@@ -159,54 +222,76 @@ export interface NavigationRendererProps {
     basePath?: string,
   ) => void;
 
-  /** Enable drag-to-reorder for navigation items */
+  /**
+   * Enable drag-to-reorder for navigation items.
+   *
+   * An entry moves within its own level only: among the top-level entries of a
+   * menu with no groups, among one group's children, or, in a grouped menu,
+   * among a run of top-level entries between two groups. It never moves into or
+   * out of a group (objectui#11626): which group an entry sits in is the app's
+   * structure, not a personal order. While `searchQuery` narrows a grouped
+   * menu, the menu offers no grip, because a narrowed group shows only some of
+   * its children.
+   */
   enableReorder?: boolean;
 
-  /** Called when navigation items are reordered via drag */
+  /**
+   * Called when navigation items are reordered via drag, always with the
+   * top-level list. After a move among top-level entries, that list is
+   * reordered. After a move within a group, the top-level list is as drawn and
+   * that group's `children` are reordered (objectui#11626). The moved level's
+   * entries carry their new positions as `order` (0, 1, 2, …).
+   */
   onReorder?: (reorderedItems: NavigationItem[]) => void;
 
-  /**
-   * Optional label resolver for object-type navigation items.
-   * When provided, called with `(objectName, fallbackLabel)` for items
-   * where `item.type === 'object'` and `item.label` is a plain string.
-   * Enables convention-based i18n auto-resolution without coupling
-   * the layout package to i18n.
-   */
-  resolveObjectLabel?: (objectName: string, fallbackLabel: string) => string;
+  // RETIRED (objectui#11299): `resolveObjectLabel` / `resolveDashboardLabel` /
+  // `resolveViewLabel`, the three convention resolvers of the retired
+  // translate-if-equal-to-name rule. objectui#11201 (ruling B) stopped
+  // consulting them; they were kept as inert no-ops and are gone now. A present
+  // label renders as authored and an absent one inherits through
+  // `resolveTargetLabel`, which is where a target's localized name comes from.
+  // Do not re-add them.
 
   /**
-   * Optional label resolver for dashboard-type navigation items.
-   * Called with `(dashboardName, fallbackLabel)` for items where
-   * `item.type === 'dashboard'` and `item.label` is a plain string.
-   * Mirrors `resolveObjectLabel` for the convention-based i18n hook
-   * `useObjectLabel().dashboardLabel`.
-   */
-  resolveDashboardLabel?: (dashboardName: string, fallbackLabel: string) => string;
-
-  /**
-   * Optional label resolver for object-type navigation items that target a
-   * specific view (i.e. `viewName` is set). Called with
-   * `(objectName, viewName, fallbackLabel)`. Mirrors
-   * `useObjectLabel().viewLabel` and resolves
-   * `{ns}.objects.{objectName}._views.{viewName}.label`.
+   * The viewer's locale (a BCP-47 tag such as `zh-CN`), for a PRESENT label
+   * written as an inline locale map (`{ en: 'Accounts', 'zh-CN': '客户' }`,
+   * the spec's `I18nLabel`): the map renders this locale's entry, through the
+   * spec's own `resolveI18nLabel`. When the map has no entry for this locale,
+   * the fallback order is that resolver's and is not restated here
+   * (objectui#11299).
    *
-   * Without this resolver, an object item with a `viewName` falls back to
-   * its schema-provided explicit label (which keeps it distinct from a bare
-   * object-list entry under the same group — avoids visual duplicates such
-   * as two `商机` rows where one is the list and the other is a Kanban view).
+   * Injected, like `t`: this layer carries no i18n dependency, so the host that
+   * knows the language passes it (the console passes its active UI language,
+   * the same value its sidebar resolves area labels in). Omitted ⇒ the
+   * resolver's documented no-locale default, `en`. A plain-string label and an
+   * absent one are unaffected.
    */
-  resolveViewLabel?: (objectName: string, viewName: string, fallbackLabel: string) => string;
+  locale?: string;
+
+  /**
+   * Resolver for the text an entry with NO `label` inherits (objectui#9868):
+   * the current label of its view / object / dashboard, read from the host's
+   * metadata at render time. Consulted ONLY for an absent `label` — an authored
+   * label is never replaced by the target's metadata label, not even one
+   * spelled like the target's machine name (the ruling refused that sentinel).
+   * See {@link NavTargetLabelResolver} and {@link resolveNavItemLabel}.
+   */
+  resolveTargetLabel?: NavTargetLabelResolver;
 
   // RETIRED (`9c60144b5`): `resolveGroupLabel` / `resolveItemLabel`, the two
-  // id-keyed label resolvers. They were unreachable by construction — see the
-  // note on `resolveNavItemLabel` below — and app-navigation localization is
-  // owned solely by the server-side `/meta` boundary. Do not re-add them; a
-  // sidebar label that needs translating is translated there.
+  // id-keyed label resolvers. They were unreachable by construction: they sat
+  // behind a text comparison of the label against the node's own `id`
+  // (`Workspace` vs `grp_workspace`), which never matched. App-navigation
+  // localization is owned solely by the server-side `/meta` boundary (rung 1
+  // of `resolveNavItemLabel`'s order). Do not re-add them; a sidebar label that
+  // needs translating is translated there.
 
   /**
-   * Optional i18n translation function for resolving I18nLabel objects
-   * (`{ key, defaultValue }`). When provided, labels are translated
-   * through i18next; otherwise falls back to `defaultValue`.
+   * Optional i18n translation function for resolving KEYED label objects
+   * (`{ key, defaultValue }`, see {@link resolveLabel}). When provided, labels
+   * are translated through i18next; otherwise falls back to `defaultValue`.
+   * An inline locale map (`{ en, 'zh-CN' }`) is not keyed and never reaches
+   * it — {@link resolveNavItemLabel} reads a map itself, in {@link locale}.
    */
   t?: (key: string, options?: any) => string;
 
@@ -266,30 +351,32 @@ export function resolveLabel(
 }
 
 /**
- * Resolve a navigation item label, applying:
- * 1. i18n translation for I18nLabel objects (when `t` is provided)
- * 2. Convention-based i18n for object-type items whose plain string label was
- *    never customized (still equal to the bare object/dashboard/item name),
- *    so standard nav entries still localize automatically
- *    (when `resolveObjectLabel`/`resolveDashboardLabel`/etc. is provided)
- * 3. Otherwise, the schema-authored explicit label always wins — an app
- *    author who wrote a custom label (e.g. a plural 'Projects') must never
- *    have it silently overridden by an `objects.<name>.label` translation.
+ * Resolve a navigation item's display text, in the spec's one order
+ * (`@objectstack/spec` `BaseNavItemSchema.label`, objectstack#20849):
  *
- * Deliberately NOT here: id-keyed resolution for `group` items and for
- * url/page/report/custom leaves. Those two hooks existed until `9c60144b5`
- * and could never fire: the `isCustomized` guard below compares the authored
- * label against the branch's comparison target, and on an id-keyed branch
- * that target is the node's own `id` (`grp_workspace`) while the label is its
- * text (`Workspace`). Those never compare equal, so the guard was true for
- * every real entry and the resolver under it was dead code with a live
- * docstring promising localization.
+ * 1. The id-keyed bundle entry `apps.APP.navigation.ID.label`. That rung runs
+ *    UPSTREAM of this function, at the server-side `/meta` boundary:
+ *    `translateApp` in `@objectstack/spec` (`src/system/i18n-resolver.ts`)
+ *    rewrites a node's `label` by its `id` before the metadata reaches this
+ *    renderer. App-navigation localization has that one owner — localize nav
+ *    labels there, never here.
+ * 2. A PRESENT label, as authored ({@link presentNavItemLabel}): an inline
+ *    locale map reads the entry for `locale` (the viewer's), and a string
+ *    renders verbatim.
+ * 3. An ABSENT label inherits its target's CURRENT label (objectui#9868 —
+ *    `@objectstack/spec` 17.5.0 made it optional, cloud#2021 letter-A ruling),
+ *    resolved here at render time and never written back — see
+ *    {@link inheritedNavItemLabel} for the ladder. That arm is keyed on
+ *    ABSENCE alone, so an authored label is never swapped for the target's
+ *    metadata label, however it is spelled.
  *
- * App-navigation localization is owned solely by the server-side `/meta`
- * boundary: `translateApp` in `@objectstack/spec`
- * (`src/system/i18n-resolver.ts`) rewrites every navigation node's `label` by
- * id before the metadata reaches this renderer, so `base` is already
- * localized when it arrives. One owner, not two — localize nav labels there.
+ * ⛔ Nothing here matches a label's text against a name (objectui#11201,
+ * ruling B). A present label equal to its target's machine name (`account`)
+ * renders `account` in every locale: text cannot tell a deliberate `account`
+ * from a machine-written one, so translation is keyed on identity (rung 1) or
+ * comes through inheritance (rung 3). The three convention resolvers that
+ * the retired rule consulted, and the three arguments that carried them, are
+ * gone (objectui#11299).
  *
  * EXPORTED since `969ba84f4`, for the same reason {@link resolveHref} is: a
  * second surface now renders the same `NavigationItem[]`. `nav:menu` is the
@@ -303,45 +390,120 @@ export function resolveLabel(
  */
 export function resolveNavItemLabel(
   item: NavigationItem,
-  resolver?: (objectName: string, fallbackLabel: string) => string,
   t?: (key: string, options?: any) => string,
-  dashboardResolver?: (dashboardName: string, fallbackLabel: string) => string,
-  viewResolver?: (objectName: string, viewName: string, fallbackLabel: string) => string,
+  targetLabel?: NavTargetLabelResolver,
+  locale?: string,
 ): string {
   // A separator carries no `label` (objectui#10867): there is nothing to name.
   if (item.type === 'separator') return '';
-  const base = resolveLabel(item.label, t);
-  // Only apply convention-based resolution for items with plain string labels.
-  // I18nLabel objects (with explicit key/defaultValue) already have their own translation keys.
-  if (typeof item.label !== 'string') return base;
-  // An explicit label that differs from the bare target name was authored on
-  // purpose (e.g. a custom plural 'Projects') — never let convention-based
-  // i18n resolution override it.
-  const isCustomized = (target: string | undefined) =>
-    !!target && base.trim().toLowerCase() !== target.trim().toLowerCase();
-  if (item.type === 'object' && item.objectName) {
-    // View-scoped item — prefer view-specific label so a Kanban / Calendar /
-    // custom view in the sidebar doesn't collapse to the parent object's
-    // label (which would visually duplicate the object's list entry).
-    // Convention: `{ns}.objects.{objectName}._views.{viewName}.label`.
-    if (item.viewName) {
-      if (isCustomized(item.viewName)) return base;
-      if (viewResolver) return viewResolver(item.objectName, item.viewName, base);
-      // No view resolver: respect the schema-provided explicit label rather
-      // than overriding with the parent object's i18n label.
-      return base;
-    }
-    if (isCustomized(item.objectName)) return base;
-    if (resolver) return resolver(item.objectName, base);
+  // Absent ⇒ inherit (objectui#9868).
+  if (item.label === undefined) return inheritedNavItemLabel(item, targetLabel);
+  return presentNavItemLabel(item.label, t, locale);
+}
+
+/**
+ * The text of a PRESENT navigation label, as authored (rung 2 of
+ * {@link resolveNavItemLabel}'s order).
+ *
+ *  - A string renders verbatim.
+ *  - An inline locale map — the spec's `I18nLabel`, `{ en, 'zh-CN' }` — reads
+ *    through the spec's own `resolveI18nLabel` in `locale`, the viewer's locale
+ *    the host injects (objectui#11299; this layer carries no i18n dependency,
+ *    so it is handed the locale rather than reading one). The fallback order
+ *    when the map has no entry for that locale is the resolver's own, never
+ *    restated here; with no `locale` at all it is the resolver's documented
+ *    no-locale default (`en`). A map with no text at all reads `''`: it is
+ *    present, so it inherits nothing.
+ *  - objectui's KEYED reference `{ key, defaultValue?, params? }` resolves
+ *    through `t` ({@link resolveLabel}), as before. The two object shapes do
+ *    not overlap: the spec's inline-locale key pattern excludes both `key` and
+ *    `defaultValue`.
+ */
+function presentNavItemLabel(
+  label: unknown,
+  t: ((key: string, options?: any) => string) | undefined,
+  locale: string | undefined,
+): string {
+  if (typeof label === 'string') return label;
+  if (isKeyedLabel(label)) return resolveLabel(label, t);
+  return resolveInlineI18nLabel(label as Parameters<typeof resolveInlineI18nLabel>[0], locale) ?? '';
+}
+
+/** objectui's keyed label reference, told apart from an inline locale map by the two member names a map can never carry. */
+function isKeyedLabel(label: unknown): label is KeyedI18nLabel {
+  return typeof label === 'object' && label !== null && ('key' in label || 'defaultValue' in label);
+}
+
+/**
+ * The text of a navigation ENTRY whose `label` is absent (objectui#9868).
+ *
+ * The spec's declared default, walked in the spec's order and resolved on every
+ * render (nothing is stored, so a rename shows on the next render):
+ *
+ *  - `object` naming a view → the VIEW's label, else the OBJECT's label, else
+ *    the `viewName` it names;
+ *  - `object` → the object's label, else `objectName`;
+ *  - `dashboard` → the dashboard's label, else `dashboardName`.
+ *
+ * The labels come from `targetLabel` — the host's metadata; this layer holds
+ * none. The final rung is the MACHINE-NAME backstop: an entry always shows text
+ * (the spec's own rule: identity is the target, text is inherited), including
+ * before the host's metadata has loaded and in a host that supplies no
+ * resolver.
+ *
+ * The ruling names inheritance for those three targets only. Every other entry
+ * type shows its target's machine name — `pageName`, `reportName`, `url`,
+ * `componentRef`, `actionDef.actionName`, a `doc` entry's `doc` else its
+ * `book` — and an entry with no target of its
+ * own (a `group`), or with its target missing, shows its `id`, which the
+ * validator requires of every entry.
+ */
+function inheritedNavItemLabel(
+  item: Exclude<NavigationItem, { type: 'separator' }>,
+  targetLabel: NavTargetLabelResolver | undefined,
+): string {
+  const ask = (target: NavLabelTarget): string | undefined => {
+    const text = targetLabel?.(target);
+    return typeof text === 'string' && text.trim() !== '' ? text : undefined;
+  };
+  switch (item.type) {
+    case 'object':
+      if (!item.objectName) break;
+      if (item.viewName) {
+        return (
+          ask({ kind: 'view', objectName: item.objectName, viewName: item.viewName })
+          ?? ask({ kind: 'object', objectName: item.objectName })
+          ?? item.viewName
+        );
+      }
+      return ask({ kind: 'object', objectName: item.objectName }) ?? item.objectName;
+    case 'dashboard':
+      if (!item.dashboardName) break;
+      return ask({ kind: 'dashboard', dashboardName: item.dashboardName }) ?? item.dashboardName;
+    case 'page':
+      if (item.pageName) return item.pageName;
+      break;
+    case 'report':
+      if (item.reportName) return item.reportName;
+      break;
+    case 'url':
+      if (item.url) return item.url;
+      break;
+    case 'component':
+      if (item.componentRef) return item.componentRef;
+      break;
+    case 'action':
+      if (item.actionDef?.actionName) return item.actionDef.actionName;
+      break;
+    case 'doc':
+      // The page it opens, else the book (objectui#11197).
+      if (item.doc) return item.doc;
+      if (item.book) return item.book;
+      break;
+    default:
+      break;
   }
-  if (item.type === 'dashboard' && (item as any).dashboardName) {
-    if (isCustomized((item as any).dashboardName)) return base;
-    if (dashboardResolver) return dashboardResolver((item as any).dashboardName, base);
-  }
-  // `group` items and non-object/non-dashboard leaves (url, page, report,
-  // custom) return the authored label untouched — their localization already
-  // happened at the server `/meta` boundary (see the note above).
-  return base;
+  return item.id;
 }
 
 // ---------------------------------------------------------------------------
@@ -369,6 +531,8 @@ export interface NavigationVisibilityOptions {
   checkPermission?: PermissionChecker;
   /** Checker for `requiresObject` / `requiresService`. Defaults to pass. */
   checkCapability?: CapabilityChecker;
+  /** Checker for what a `doc` entry opens ({@link DocTargetChecker}). Defaults to pass. */
+  checkDocTarget?: DocTargetChecker;
   /**
    * Whether the host wires an `onAction` dispatcher. Without one, `action`
    * items are not rendered at all (framework#4509 — a nav entry that looks
@@ -383,7 +547,8 @@ export interface NavigationVisibilityOptions {
  * The per-item guard sequence, in ONE place.
  *
  * `visible`, then `requiredPermissions`, then the `requiresObject` /
- * `requiresService` runtime-capability gates. It answers only "does this NODE
+ * `requiresService` runtime-capability gates, then — for a `doc` entry — the
+ * host's member-readability answer (objectui#10188). It answers only "does this NODE
  * itself survive" — whether a surviving `group` has anything inside it is
  * `hasVisibleNavigationItems`'s question, and whether an `action` item has a
  * dispatcher is the caller's.
@@ -404,6 +569,7 @@ function passesNavItemGuards(
     evaluateVisibility = defaultVisibility,
     checkPermission = defaultPermission,
     checkCapability = defaultCapability,
+    checkDocTarget,
   } = options;
 
   if (!evaluateVisibility(item.visible)) return false;
@@ -412,6 +578,9 @@ function passesNavItemGuards(
   const requiresService = (item as { requiresService?: string }).requiresService;
   if (requiresObject && !checkCapability('object', requiresObject)) return false;
   if (requiresService && !checkCapability('service', requiresService)) return false;
+  // objectui#10188 — defence in depth behind the server's app read, which
+  // already drops a `doc` entry the caller may not read (objectstack#19790).
+  if (item.type === 'doc' && checkDocTarget && !checkDocTarget({ book: item.book, doc: item.doc })) return false;
   return true;
 }
 
@@ -549,6 +718,43 @@ function withRunAction(href: string, item: NavigationItem): string {
   if (typeof name !== 'string' || name === '') return href;
   const sep = href.includes('?') ? '&' : '?';
   return `${href}${sep}${NAV_RUN_ACTION_PARAM}=${encodeURIComponent(name)}`;
+}
+
+/**
+ * The docs-portal href of a `doc` entry (ADR-0046 §6, objectui#11197), under the
+ * `basePath` the entry renders in — `/apps/<package id>` in an app, which is the
+ * package-container docs tree `AppHeader`'s "This app's docs" entry opens, and
+ * `''` on home navigation, which is the top-level `/docs` portal. It uses the
+ * portal's own two route shapes, `/docs/:slug` and `/docs/:slug/:name`:
+ *
+ *  - `{ doc }` → `…/docs/<doc>`: the portal's flat-doc permalink, which
+ *    redirects to the doc's canonical in-book URL — so it resolves for any
+ *    installed doc, book or no book;
+ *  - `{ book }` → `…/docs/<book>`: the book landing, which opens the book at
+ *    its first readable page;
+ *  - `{ book, doc }` → `…/docs/<book>/<doc>`: that page, in that book's
+ *    context.
+ *
+ * `book` is the book's NAME (what the entry names and the CLI's docs lint
+ * checks), and the link carries it as written. The portal addresses a book by
+ * its `slug` (default: the name), and resolves a segment that is a book's NAME
+ * rather than its slug to that book, redirecting to the canonical slug URL —
+ * after the lookups that answer today, so a slug or an installed doc's name
+ * keeps its meaning (`bookNamedBy` in the console's `book-nav.ts`,
+ * objectui#11197). So both `book` shapes reach a book that authors a `slug`,
+ * and a package's implicit book, keyed by its package id, as before. The
+ * audience gate is the server's (`/meta/doc`, ADR-0046 §6.7): the entry carries
+ * no gate of its own beyond the base keys every sibling has.
+ *
+ * `#` when the entry names no target — the validator refuses that entry, so this
+ * is a host that never parsed, not a route.
+ */
+function resolveDocHref(book: string | undefined, doc: string | undefined, basePath: string): string {
+  const segment = (name: string) => encodeURIComponent(name);
+  if (book && doc) return `${basePath}/docs/${segment(book)}/${segment(doc)}`;
+  if (doc) return `${basePath}/docs/${segment(doc)}`;
+  if (book) return `${basePath}/docs/${segment(book)}`;
+  return '#';
 }
 
 /**
@@ -708,6 +914,8 @@ export function resolveHref(
       }
       return { href: url, external: false };
     }
+    case 'doc':
+      return { href: resolveDocHref(item.book, item.doc, basePath), external: false };
     default:
       return { href: '#', external: false };
   }
@@ -879,10 +1087,17 @@ const ActiveNavIdContext = React.createContext<string | null>(null);
 /**
  * Recursively filter navigation items by search query (case-insensitive label match).
  * Groups are kept if any child matches, with non-matching children pruned.
+ *
+ * Matches the text the row SHOWS: `labelOf` defaults to
+ * {@link resolveNavItemLabel} with no resolvers, and `NavigationRenderer` passes
+ * its own resolvers and locale so an unlabelled entry is found by the label it
+ * inherits (objectui#9868), not by a `label` it does not have, and a map-valued
+ * one by its entry in the viewer's locale (objectui#11299).
  */
 export function filterNavigationItems(
   items: NavigationItem[],
   query: string,
+  labelOf: (item: NavigationItem) => string = (item) => resolveNavItemLabel(item),
 ): NavigationItem[] {
   if (!query.trim()) return items;
   const lowerQuery = query.toLowerCase().trim();
@@ -893,15 +1108,15 @@ export function filterNavigationItems(
 
     // Groups: recursively filter children
     if (item.type === 'group' && item.children?.length) {
-      const filteredChildren = filterNavigationItems(item.children, query);
+      const filteredChildren = filterNavigationItems(item.children, query, labelOf);
       if (filteredChildren.length > 0) {
         acc.push({ ...item, children: filteredChildren });
       }
       return acc;
     }
 
-    // Leaf items: match label
-    if (resolveLabel(item.label).toLowerCase().includes(lowerQuery)) {
+    // Leaf items: match the label the row shows
+    if (labelOf(item).toLowerCase().includes(lowerQuery)) {
       acc.push(item);
     }
     return acc;
@@ -910,6 +1125,149 @@ export function filterNavigationItems(
 
 /** Minimum drag distance in pixels to activate reorder */
 const DRAG_ACTIVATION_DISTANCE = 5;
+
+// ---------------------------------------------------------------------------
+// Within-level reorder for a grouped menu (objectui#11626)
+// ---------------------------------------------------------------------------
+
+/**
+ * One level moved: the entry `activeId` taken out and put where `overId` was,
+ * every entry of the level carrying its new position as `order`, which is how
+ * the group-free arm reports a move too. `null` when either id is not in
+ * `level`.
+ *
+ * `level` is the WHOLE level as the renderer orders it, gated-away entries
+ * included, so the entries a user cannot see keep their places relative to the
+ * ones the user moved, and the reported level loses none of them.
+ */
+function moveWithinLevel(
+  level: NavigationItem[],
+  activeId: string,
+  overId: string,
+): NavigationItem[] | null {
+  const oldIndex = level.findIndex((i) => i.id === activeId);
+  const newIndex = level.findIndex((i) => i.id === overId);
+  if (oldIndex === -1 || newIndex === -1) return null;
+  return arrayMove(level, oldIndex, newIndex).map((item, idx) => ({ ...item, order: idx }));
+}
+
+/** `items` with the children of the group `groupId` replaced, at any depth. */
+function withGroupChildren(
+  items: NavigationItem[],
+  groupId: string,
+  children: NavigationItem[],
+): NavigationItem[] {
+  return items.map((item) => {
+    if (item.type !== 'group') return item;
+    if (item.id === groupId) return { ...item, children };
+    if (!item.children?.length) return item;
+    return { ...item, children: withGroupChildren(item.children, groupId, children) };
+  });
+}
+
+/**
+ * Reports a move within the group `groupId`: its children, already moved by
+ * {@link moveWithinLevel}. Provided by the grouped arm of
+ * {@link NavigationRenderer}. `null` means the menu offers no grip on a group's
+ * children: reorder is off, the menu has no groups, or a search narrows it.
+ */
+type GroupChildrenReorder = (groupId: string, reorderedChildren: NavigationItem[]) => void;
+const GroupReorderContext = React.createContext<GroupChildrenReorder | null>(null);
+
+/**
+ * Whether `item` draws anything: the decisions `NavigationItemRenderer` takes
+ * before it returns `null`, asked through the same shared guard statement and
+ * predicate. A sortable wrapper is put only around an entry that draws, so a
+ * gated-away entry does not leave an empty wrapper behind as a drop target.
+ */
+function drawsNavItem(item: NavigationItem, options: NavigationVisibilityOptions): boolean {
+  if (item.type === 'separator') return passesNavItemGuards(item, options);
+  return hasVisibleNavigationItems([item], options);
+}
+
+/** The props every row renderer takes besides its `item`. */
+interface NavRowProps {
+  basePath: string;
+  evalVis: VisibilityEvaluator;
+  checkPerm: PermissionChecker;
+  checkCap: CapabilityChecker;
+  checkDocTarget?: DocTargetChecker;
+  onAction?: (item: NavigationItem) => void;
+  enablePinning?: boolean;
+  onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
+  resolveTargetLabel?: NavTargetLabelResolver;
+  locale?: string;
+  t?: NavigationRendererProps['t'];
+  templateContext?: NavTemplateContext;
+}
+
+/**
+ * One level of a grouped menu as a sortable list: its own `DndContext`, so a
+ * drag starts, moves and drops within this list only and no other list is a
+ * drop target. The rows are the group-free arm's `SortableNavigationItem`.
+ */
+function SortableNavigationList({
+  contextId,
+  items,
+  onMove,
+  rowProps,
+}: {
+  contextId: string;
+  items: NavigationItem[];
+  onMove: (activeId: string, overId: string) => void;
+  rowProps: NavRowProps;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } }),
+    useSensor(KeyboardSensor),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    onMove(String(active.id), String(over.id));
+  };
+
+  return (
+    <DndContext id={contextId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+        <SidebarMenu>
+          {items.map((item) => (
+            <SortableNavigationItem key={item.id} item={item} enableReorder {...rowProps} />
+          ))}
+        </SidebarMenu>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+/** A sortable row's grip: dnd-kit's activator node setter, its ARIA attributes and its listeners. */
+interface NavDragHandle {
+  activator: (element: HTMLElement | null) => void;
+  attributes: DraggableAttributes;
+  listeners: DraggableSyntheticListeners;
+}
+
+/** The drag grip drawn at the start of a sortable row; the row's one drag activator. */
+function NavDragGrip({
+  handle: { activator, attributes, listeners },
+  t,
+}: {
+  handle: NavDragHandle;
+  t?: NavigationRendererProps['t'];
+}) {
+  return (
+    <span
+      ref={activator}
+      className="absolute left-0.5 top-1/2 -translate-y-1/2 cursor-grab text-muted-foreground"
+      {...attributes}
+      {...listeners}
+      aria-label={t ? t('console.nav.dragToReorder', { defaultValue: 'Drag to reorder' }) : 'Drag to reorder'}
+    >
+      <GripVertical className="h-3.5 w-3.5" />
+    </span>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // SortableNavigationItem (drag-reorder wrapper)
@@ -921,13 +1279,13 @@ function SortableNavigationItem({
   evalVis,
   checkPerm,
   checkCap,
+  checkDocTarget,
   onAction,
   enablePinning,
   onPinToggle,
   enableReorder,
-  resolveObjectLabel,
-  resolveDashboardLabel,
-  resolveViewLabel,
+  resolveTargetLabel,
+  locale,
   t: tProp,
   templateContext,
 }: {
@@ -936,13 +1294,13 @@ function SortableNavigationItem({
   evalVis: VisibilityEvaluator;
   checkPerm: PermissionChecker;
   checkCap: CapabilityChecker;
+  checkDocTarget?: DocTargetChecker;
   onAction?: (item: NavigationItem) => void;
   enablePinning?: boolean;
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
   enableReorder?: boolean;
-  resolveObjectLabel?: (objectName: string, fallbackLabel: string) => string;
-  resolveDashboardLabel?: (dashboardName: string, fallbackLabel: string) => string;
-  resolveViewLabel?: (objectName: string, viewName: string, fallbackLabel: string) => string;
+  resolveTargetLabel?: NavTargetLabelResolver;
+  locale?: string;
   t?: (key: string, options?: any) => string;
   templateContext?: NavTemplateContext;
 }) {
@@ -950,6 +1308,7 @@ function SortableNavigationItem({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -962,26 +1321,41 @@ function SortableNavigationItem({
     zIndex: isDragging ? 10 : undefined,
   };
 
+  // The grip is the drag activator: dnd-kit's `attributes` (`role="button"`,
+  // `tabIndex={0}`, the sortable ARIA description) go on it together with the
+  // `listeners`, so the one element a keyboard can focus is the one the
+  // KeyboardSensor listens on. On the row wrapper they made every row a
+  // focusable "button" that no key could start a drag from (objectui#11626).
+  //
+  // The sortable NODE is the row's own `<li>` (`row`), not a wrapper around
+  // it: a `<div>` between the menu's `<ul>` and its `<li>`s broke the list
+  // for assistive tech — a list whose children are not items, and items with
+  // no list (axe `list` / `listitem`, objectui#11690).
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
-      <NavigationItemRenderer
-        item={item}
-        basePath={basePath}
-        evalVis={evalVis}
-        checkPerm={checkPerm}
-        checkCap={checkCap}
-        onAction={onAction}
-        enablePinning={enablePinning}
-        onPinToggle={onPinToggle}
-        dragListeners={enableReorder ? listeners : undefined}
-        resolveObjectLabel={resolveObjectLabel}
-        resolveDashboardLabel={resolveDashboardLabel}
-        resolveViewLabel={resolveViewLabel}
-        t={tProp}
-        templateContext={templateContext}
-      />
-    </div>
+    <NavigationItemRenderer
+      item={item}
+      basePath={basePath}
+      evalVis={evalVis}
+      checkPerm={checkPerm}
+      checkCap={checkCap}
+      checkDocTarget={checkDocTarget}
+      onAction={onAction}
+      enablePinning={enablePinning}
+      onPinToggle={onPinToggle}
+      dragHandle={enableReorder ? { activator: setActivatorNodeRef, attributes, listeners } : undefined}
+      row={{ ref: setNodeRef, style }}
+      resolveTargetLabel={resolveTargetLabel}
+      locale={locale}
+      t={tProp}
+      templateContext={templateContext}
+    />
   );
+}
+
+/** What a sortable list hands the row it wraps: dnd-kit's node ref and transform, for the row's own `<li>`. */
+interface NavRowNode {
+  ref: (element: HTMLElement | null) => void;
+  style: React.CSSProperties;
 }
 
 // ---------------------------------------------------------------------------
@@ -994,13 +1368,15 @@ function NavigationItemRenderer({
   evalVis,
   checkPerm,
   checkCap,
+  checkDocTarget,
   onAction,
   enablePinning,
   onPinToggle,
-  dragListeners,
-  resolveObjectLabel,
-  resolveDashboardLabel,
-  resolveViewLabel,
+  dragHandle,
+  row,
+  inList = true,
+  resolveTargetLabel,
+  locale,
   t: tProp,
   templateContext,
 }: {
@@ -1009,13 +1385,22 @@ function NavigationItemRenderer({
   evalVis: VisibilityEvaluator;
   checkPerm: PermissionChecker;
   checkCap: CapabilityChecker;
+  checkDocTarget?: DocTargetChecker;
   onAction?: (item: NavigationItem) => void;
   enablePinning?: boolean;
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
-  dragListeners?: Record<string, any>;
-  resolveObjectLabel?: (objectName: string, fallbackLabel: string) => string;
-  resolveDashboardLabel?: (dashboardName: string, fallbackLabel: string) => string;
-  resolveViewLabel?: (objectName: string, viewName: string, fallbackLabel: string) => string;
+  dragHandle?: NavDragHandle;
+  /** The sortable node this row is, when a sortable list draws it. */
+  row?: NavRowNode;
+  /**
+   * Whether this entry is drawn as a child of a menu `<ul>` — every entry
+   * is, except a top-level group, which is a section of its own. A list's
+   * children must be `<li>`s (objectui#11690), so in a list every arm roots
+   * at one: a separator and a nested group included, not just a row.
+   */
+  inList?: boolean;
+  resolveTargetLabel?: NavTargetLabelResolver;
+  locale?: string;
   t?: (key: string, options?: any) => string;
   templateContext?: NavTemplateContext;
 }) {
@@ -1059,6 +1444,7 @@ function NavigationItemRenderer({
       ? true
       : (explicitOpen ?? (childCount >= AUTO_COLLAPSE_THRESHOLD ? false : true));
   const [isOpen, setIsOpen] = useState(initialOpen);
+  const reorderGroup = React.useContext(GroupReorderContext);
 
   // --- Per-item guards: `visible`, `requiredPermissions`, and the
   // runtime-capability gates (an entry whose required object/service is not
@@ -1069,20 +1455,25 @@ function NavigationItemRenderer({
     evaluateVisibility: evalVis,
     checkPermission: checkPerm,
     checkCapability: checkCap,
+    checkDocTarget,
     hasActionHandler: !!onAction,
   };
   if (!passesNavItemGuards(item, guardOptions)) return null;
 
-  // --- Separator ---
+  // --- Separator --- a rule, not an entry: its item is hidden from assistive
+  // tech, so a screen reader neither counts it in the list nor reads an empty
+  // item (objectui#11690).
   if (item.type === 'separator') {
-    return <Separator className="my-2" />;
+    return (
+      <li ref={row?.ref} style={row?.style} aria-hidden="true">
+        <Separator className="my-2" />
+      </li>
+    );
   }
 
   // --- Group (collapsible) ---
   if (item.type === 'group') {
-    const children = (item.children ?? [])
-      .slice()
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const children = (item.children ?? []).slice().sort(byNavOrder);
 
     // A group survives only through its children (`73a3c89af`). Without
     // this the group's own label rendered as a disclosure that opens onto
@@ -1095,9 +1486,27 @@ function NavigationItemRenderer({
     // does for area election.
     if (!hasVisibleNavigationItems(children, guardOptions)) return null;
 
-    const groupLabel = resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel);
+    const groupLabel = resolveNavItemLabel(item, tProp, resolveTargetLabel, locale);
 
-    return (
+    // objectui#11626: with reorder on, this group's children are one sortable
+    // list of their own. The move is taken over ALL of `children` (gated-away
+    // entries keep their places) and reported up as this group's new children.
+    const rowProps: NavRowProps = {
+      basePath,
+      evalVis,
+      checkPerm,
+      checkCap,
+      checkDocTarget,
+      onAction,
+      enablePinning,
+      onPinToggle,
+      resolveTargetLabel,
+      locale,
+      t: tProp,
+      templateContext,
+    };
+
+    const group = (
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <SidebarGroup>
           <SidebarGroupLabel asChild>
@@ -1110,30 +1519,41 @@ function NavigationItemRenderer({
           </SidebarGroupLabel>
           <CollapsibleContent>
             <SidebarGroupContent>
-              <SidebarMenu>
-                {children.map((child) => (
-                  <NavigationItemRenderer
-                    key={child.id}
-                    item={child}
-                    basePath={basePath}
-                    evalVis={evalVis}
-                    checkPerm={checkPerm}
-                    checkCap={checkCap}
-                    onAction={onAction}
-                    enablePinning={enablePinning}
-                    onPinToggle={onPinToggle}
-                    resolveObjectLabel={resolveObjectLabel}
-                    resolveDashboardLabel={resolveDashboardLabel}
-                    resolveViewLabel={resolveViewLabel}
-                    t={tProp}
-                    templateContext={templateContext}
-                  />
-                ))}
-              </SidebarMenu>
+              {reorderGroup ? (
+                <SortableNavigationList
+                  contextId={`nav-reorder-group-${item.id}`}
+                  items={children.filter((child) => drawsNavItem(child, guardOptions))}
+                  onMove={(activeId, overId) => {
+                    const moved = moveWithinLevel(children, activeId, overId);
+                    if (moved) reorderGroup(item.id, moved);
+                  }}
+                  rowProps={rowProps}
+                />
+              ) : (
+                <SidebarMenu>
+                  {children.map((child) => (
+                    <NavigationItemRenderer
+                      key={child.id}
+                      item={child}
+                      {...rowProps}
+                    />
+                  ))}
+                </SidebarMenu>
+              )}
             </SidebarGroupContent>
           </CollapsibleContent>
         </SidebarGroup>
       </Collapsible>
+    );
+    // A plain `<li>`, not a `SidebarMenuItem`: that one is a `group/menu-item`,
+    // and every row inside the nested group would show its hover-only pin
+    // action whenever the pointer is anywhere over the group.
+    return inList ? (
+      <li ref={row?.ref} style={row?.style}>
+        {group}
+      </li>
+    ) : (
+      group
     );
   }
 
@@ -1147,18 +1567,14 @@ function NavigationItemRenderer({
     // three releases led nowhere.
     if (!onAction) return null;
     const Icon = resolveIcon(item.icon);
-    const actionLabel = resolveLabel(item.label, tProp);
+    // Through `resolveNavItemLabel`, not `resolveLabel`: an action entry's
+    // `label` may be absent too (objectui#9868), and that is where the absent
+    // arm lives — as is the inline-locale-map read (objectui#11201), which
+    // `resolveLabel` does not do.
+    const actionLabel = resolveNavItemLabel(item, tProp, resolveTargetLabel, locale);
     return (
-      <SidebarMenuItem>
-        {dragListeners && (
-          <span
-            className="absolute left-0.5 top-1/2 -translate-y-1/2 cursor-grab text-muted-foreground"
-            aria-label={tProp ? tProp('console.nav.dragToReorder', { defaultValue: 'Drag to reorder' }) : 'Drag to reorder'}
-            {...dragListeners}
-          >
-            <GripVertical className="h-3.5 w-3.5" />
-          </span>
-        )}
+      <SidebarMenuItem ref={row?.ref} style={row?.style}>
+        {dragHandle && <NavDragGrip handle={dragHandle} t={tProp} />}
         <SidebarMenuButton
           tooltip={actionLabel}
           onClick={() => onAction?.(item)}
@@ -1197,11 +1613,11 @@ function NavigationItemRenderer({
     );
   }
 
-  // --- Leaf items (object / dashboard / page / report / url) ---
+  // --- Leaf items (every entry that navigates: object / dashboard / page / report / url / component / doc) ---
   const Icon = resolveIcon(item.icon);
   const { href, external } = resolveHref(item, basePath, templateContext);
   const isActive = activeNavId !== null && item.id === activeNavId;
-  const itemLabel = resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel);
+  const itemLabel = resolveNavItemLabel(item, tProp, resolveTargetLabel, locale);
 
   const content = (
     <>
@@ -1217,16 +1633,8 @@ function NavigationItemRenderer({
   );
 
   return (
-    <SidebarMenuItem>
-      {dragListeners && (
-        <span
-          className="absolute left-0.5 top-1/2 -translate-y-1/2 cursor-grab text-muted-foreground"
-          aria-label={tProp ? tProp('console.nav.dragToReorder', { defaultValue: 'Drag to reorder' }) : 'Drag to reorder'}
-          {...dragListeners}
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </span>
-      )}
+    <SidebarMenuItem ref={row?.ref} style={row?.style}>
+      {dragHandle && <NavDragGrip handle={dragHandle} t={tProp} />}
       <SidebarMenuButton asChild isActive={isActive} tooltip={itemLabel} className={mobileBtnClass}>
         {external ? (
           <a href={href} target="_blank" rel="noopener noreferrer">
@@ -1270,7 +1678,7 @@ function NavigationItemRenderer({
  * Renders a `NavigationItem[]` tree into Shadcn Sidebar components.
  *
  * Features:
- * - 7 navigation item types + separators
+ * - Every navigation item type + separators
  * - Nested collapsible groups
  * - Badge indicators
  * - Visibility expression evaluation
@@ -1301,15 +1709,15 @@ export function NavigationRenderer({
   evaluateVisibility: evalVis = defaultVisibility,
   checkPermission: checkPerm = defaultPermission,
   checkCapability: checkCap = defaultCapability,
+  checkDocTarget,
   onAction,
   searchQuery,
   enablePinning,
   onPinToggle,
   enableReorder,
   onReorder,
-  resolveObjectLabel,
-  resolveDashboardLabel,
-  resolveViewLabel,
+  resolveTargetLabel,
+  locale,
   t: tProp,
   templateContext,
 }: NavigationRendererProps) {
@@ -1324,10 +1732,16 @@ export function NavigationRenderer({
     [items, location.pathname, location.search, basePath, templateContext],
   );
 
-  // --- Search filtering ---
+  // --- Search filtering --- against the label each row SHOWS, so an
+  // unlabelled entry is found by the text it inherits (objectui#9868).
   const filteredItems = useMemo(
-    () => (searchQuery ? filterNavigationItems(items, searchQuery) : items),
-    [items, searchQuery],
+    () =>
+      searchQuery
+        ? filterNavigationItems(items, searchQuery, (item) =>
+            resolveNavItemLabel(item, tProp, resolveTargetLabel, locale),
+          )
+        : items,
+    [items, searchQuery, tProp, resolveTargetLabel, locale],
   );
 
   // --- Pinned items (favorites section) ---
@@ -1336,12 +1750,13 @@ export function NavigationRenderer({
       evaluateVisibility: evalVis,
       checkPermission: checkPerm,
       checkCapability: checkCap,
+      checkDocTarget,
     }),
-    [filteredItems, evalVis, checkPerm, checkCap],
+    [filteredItems, evalVis, checkPerm, checkCap, checkDocTarget],
   );
 
-  // --- Sort top-level items by order ---
-  const sorted = filteredItems.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  // --- Sort top-level items by order --- (the one comparator the tab bar uses too, objectui#11395)
+  const sorted = filteredItems.slice().sort(byNavOrder);
 
   // --- Drag-reorder sensors ---
   const sensors = useSensors(
@@ -1370,12 +1785,12 @@ export function NavigationRenderer({
     evalVis,
     checkPerm,
     checkCap,
+    checkDocTarget,
     onAction,
     enablePinning,
     onPinToggle,
-    resolveObjectLabel,
-    resolveDashboardLabel,
-    resolveViewLabel,
+    resolveTargetLabel,
+    locale,
     t: tProp,
     templateContext,
   };
@@ -1450,6 +1865,31 @@ export function NavigationRenderer({
   const fragments: React.ReactNode[] = [];
   let leafBuffer: NavigationItem[] = [];
 
+  // --- Grouped drag-reorder (objectui#11626) --- each group's children, and
+  // each run of top-level entries between two groups, is a sortable list of
+  // its own; nothing moves into or out of a group. Off while a search narrows
+  // the tree: a narrowed group shows only some of its children, and an order
+  // taken among some of them is not the group's order.
+  const groupedReorder = !!enableReorder && !searchQuery?.trim();
+  const reorderGroup: GroupChildrenReorder | null = groupedReorder
+    ? (groupId, reorderedChildren) => {
+        if (!onReorder) return;
+        onReorder(withGroupChildren(sorted, groupId, reorderedChildren));
+      }
+    : null;
+  const moveTopLevel = (activeId: string, overId: string) => {
+    if (!onReorder) return;
+    const moved = moveWithinLevel(sorted, activeId, overId);
+    if (moved) onReorder(moved);
+  };
+  const itemGuards: NavigationVisibilityOptions = {
+    evaluateVisibility: evalVis,
+    checkPermission: checkPerm,
+    checkCapability: checkCap,
+    checkDocTarget,
+    hasActionHandler: !!onAction,
+  };
+
   const flushLeaves = (key: string) => {
     if (leafBuffer.length === 0) return;
     const leaves = leafBuffer;
@@ -1457,15 +1897,24 @@ export function NavigationRenderer({
     fragments.push(
       <SidebarGroup key={key}>
         <SidebarGroupContent>
-          <SidebarMenu>
-            {leaves.map((item) => (
-              <NavigationItemRenderer
-                key={item.id}
-                item={item}
-                {...itemProps}
-              />
-            ))}
-          </SidebarMenu>
+          {groupedReorder ? (
+            <SortableNavigationList
+              contextId={`nav-reorder-top-${leaves[0].id}`}
+              items={leaves.filter((item) => drawsNavItem(item, itemGuards))}
+              onMove={moveTopLevel}
+              rowProps={itemProps}
+            />
+          ) : (
+            <SidebarMenu>
+              {leaves.map((item) => (
+                <NavigationItemRenderer
+                  key={item.id}
+                  item={item}
+                  {...itemProps}
+                />
+              ))}
+            </SidebarMenu>
+          )}
         </SidebarGroupContent>
       </SidebarGroup>,
     );
@@ -1478,6 +1927,7 @@ export function NavigationRenderer({
         <NavigationItemRenderer
           key={item.id}
           item={item}
+          inList={false}
           {...itemProps}
         />,
       );
@@ -1491,7 +1941,9 @@ export function NavigationRenderer({
   return (
     <ActiveNavIdContext.Provider value={activeNavId}>
       {favoritesSection}
-      {fragments}
+      <GroupReorderContext.Provider value={reorderGroup}>
+        {fragments}
+      </GroupReorderContext.Provider>
     </ActiveNavIdContext.Provider>
   );
 }

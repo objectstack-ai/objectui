@@ -13,15 +13,17 @@
  *
  * `packages/components/src/renderers/__tests__/container-declaration-ratchet.test.tsx`
  * holds the same contract over the components registry and cannot see this
- * package (components does not import layout). Five registrations live here:
- * `page-header` renders `schema.children` into its right-hand slot;
- * `responsive-grid`, `page:card` (the `layout:`-only thin card) and
- * `app-schema-renderer` render a React `children` PROP, which `SchemaRenderer`
- * never fills from a node (it strips `children` before spreading), and
- * `navigation-renderer` reads `items`. So exactly one declares the slot, and
- * the other four keep drawing `not-a-container` on an authored list — the flag
- * three of them carry (`isContainer: true`, layout containment) silences
- * nothing, which is the ruling's hard line and is pinned here as the control.
+ * package (components does not import layout). Two registrations live here:
+ * `page:card` (the `layout:`-only thin card) and `app-schema-renderer` render a
+ * React `children` PROP, which `SchemaRenderer` never fills from a node (it
+ * strips `children` before spreading). So neither declares the slot, and both
+ * keep drawing `not-a-container` on an authored list — the flag both carry
+ * (`isContainer: true`, layout containment) silences nothing, which is the
+ * ruling's hard line and is pinned here as the control. (The `page-header`
+ * alias rendered `schema.children` into its right-hand slot and declared it;
+ * objectui#10859 batch 8 retired that key, so the declaring row left with it.
+ * `responsive-grid`, flagged and childless like the two that remain, and
+ * `navigation-renderer`, which read `items`, retired under objectui#11441.)
  *
  * The predicate is executed, not read off the source: render through the real
  * `SchemaRenderer` with one authored child and ask whether it reached the DOM
@@ -82,17 +84,14 @@ const declaresChildren = (type: string): boolean =>
 describe('the layout registrations declare the `children` slot exactly where they render it (objectui#9910)', () => {
   it('has the population it claims', () => {
     // Anti-vacuity: the census below iterates this set, so an empty or
-    // mis-filtered set would pass on nothing. The five registrations, in the
-    // namespaced spelling every one of them has.
+    // mis-filtered set would pass on nothing. The two registrations, in the
+    // namespaced spelling both of them have.
     const keys = layoutKeys();
     expect(keys).toEqual(expect.arrayContaining([
-      'layout:page-header',
       'layout:page:card',
-      'layout:responsive-grid',
-      'layout:navigation-renderer',
       'layout:app-schema-renderer',
     ]));
-    expect(keys.length).toBeGreaterThanOrEqual(5);
+    expect(keys.length).toBeGreaterThanOrEqual(2);
   });
 
   it('declared ⇔ rendered, and the diagnostic follows the declaration', async () => {
@@ -109,25 +108,22 @@ describe('the layout registrations declare the `children` slot exactly where the
     expect(mismatched, 'a layout registration renders children without the slot, or declares a slot it never renders').toEqual([]);
   }, 60_000);
 
-  it('`page-header` is the one that renders the list, and it declares the slot on both keys', async () => {
-    expect(await rendersChildren('page-header')).toBe(true);
-    for (const key of ['page-header', 'layout:page-header']) {
-      const slot = (ComponentRegistry.getMeta(key)?.inputs ?? []).find((i) => i.name === CHILD_LIST_KEY);
-      expect(slot?.type, `\`${key}\` declares no \`children\` slot`).toBe('slot');
-      expect(diagnose(withChildren(key)).filter((d) => d.code === CONTAINMENT)).toEqual([]);
-    }
+  it('no layout registration declares the slot since `page-header` retired (objectui#10859 batch 8)', () => {
+    // The retired alias was the one slot declarer; the census above would pass
+    // over an empty slot population, so the zero is stated here on purpose.
+    expect(layoutKeys().filter(declaresChildren)).toEqual([]);
   });
 
   it('⛔ the layout flag silences nothing: flagged registrations without the slot keep the TRUE warning', async () => {
-    // `responsive-grid`, `page:card` and `app-schema-renderer` carry
-    // `isContainer: true` — they are layout containers — and render no authored
-    // child list, so `not-a-container` on them is true and must survive. Before
-    // objectui#9910 the flag silenced it; this is the control that the
-    // fallback has not come back.
+    // `page:card` and `app-schema-renderer` carry `isContainer: true` — they
+    // are layout containers — and render no authored child list, so
+    // `not-a-container` on them is true and must survive. Before objectui#9910
+    // the flag silenced it; this is the control that the fallback has not come
+    // back.
     const flagged = layoutKeys().filter(
       (t) => ComponentRegistry.getMeta(t)?.isContainer === true && !declaresChildren(t),
     );
-    expect(flagged).toEqual(expect.arrayContaining(['layout:responsive-grid', 'layout:page:card', 'layout:app-schema-renderer']));
+    expect(flagged).toEqual(expect.arrayContaining(['layout:page:card', 'layout:app-schema-renderer']));
     for (const type of flagged) {
       expect(await rendersChildren(type), `\`${type}\` now renders children — declare the slot`).toBe(false);
       expect(diagnose(withChildren(type)).map((d) => d.code), `\`${type}\`: the flag silenced the diagnostic`).toContain(CONTAINMENT);

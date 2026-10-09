@@ -30,8 +30,9 @@ import { resolveConditionalFormatting } from "@object-ui/core"
 import type { KanbanConditionalFormattingRule } from "@object-ui/types"
 import type { KanbanCard, KanbanColumn } from './types'
 import { createSafeTranslation } from "@object-ui/i18n"
-import { Plus } from "lucide-react"
+import { Plus, Sigma } from "lucide-react"
 import { useKanbanRecordsSettled } from './KanbanRecordsSettled'
+import { useKanbanColumnSummary, sumLaneField } from './KanbanColumnSummary'
 
 // Utility function to merge class names (inline to avoid external dependency)
 const cn = (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' ')
@@ -127,8 +128,8 @@ const SWIMLANE_AXIS_X_PADDING = 'px-2 pl-36 sm:pl-44'
 // was for any importer. A re-export is not a second declaration.
 export type { KanbanCard, KanbanColumn } from './types'
 
-// Card formatting accepts the native `{ field, operator, value }` shape and the
-// spec `{ condition, style }` CEL shape (issue #1584) — see @object-ui/types.
+// Card formatting is the spec `{ condition, style }` CEL rule — the one dialect
+// `object-kanban` declares since objectui#11522 — see @object-ui/types.
 export type ConditionalFormattingRule = KanbanConditionalFormattingRule
 
 export interface KanbanBoardProps {
@@ -157,10 +158,13 @@ export interface KanbanBoardProps {
  * Evaluate conditional formatting rules for a card.
  * Returns CSS style overrides for backgroundColor and borderColor.
  */
-// Card conditional formatting now delegates to the shared CEL evaluator
+// Card conditional formatting delegates to the shared CEL evaluator
 // (issue #1584 / ADR-0058) so kanban cards, list rows, and grid rows reach the
-// identical verdict. Beyond the native `{ field, operator, value }` rules the
-// kanban schema declares, this also accepts spec `{ condition, style }` rules.
+// identical verdict. The kanban schema declares the spec `{ condition, style }`
+// rule only (objectui#11522), as the grid and the list view do since
+// objectui#11533; the shared evaluator still reads the native and colour-key
+// arms as a compatibility read for rules STORED in that dialect — a rule a relay
+// hands this board is painted as it was.
 // The host predicate scope is bound alongside the card so `features.*` /
 // `current_user.*` conditions resolve here exactly as they do on grid rows.
 function getCardStyles(
@@ -482,6 +486,48 @@ function laneCountLabel(count: number, countsAreWindowed?: boolean): string {
   return countsAreWindowed ? `${count}+` : String(count)
 }
 
+/**
+ * A column's total of the view's `summarizeField`, painted beside its count
+ * (objectui#11629). Renders nothing when the board declares no
+ * `summarizeField` (no provider), so every other header is unchanged.
+ *
+ * The total covers the cards the lane holds — the rows the board loaded — and
+ * says so the way the count does: over a windowed fetch it carries the same
+ * `+` the count carries (`laneCountLabel`), so a total over a window never
+ * reads as the total of the group. A lane holding a value that is not a number
+ * shows no total (`sumLaneField` answers `null`), never `NaN`.
+ *
+ * The field's label is the tooltip and the screen-reader name, and a `Sigma`
+ * glyph (hidden from assistive technology) tells the total from the count
+ * badge beside it, so no new user-facing string enters the product.
+ */
+function LaneTotal({
+  cards,
+  countsAreWindowed,
+  className,
+}: {
+  cards: KanbanCard[]
+  countsAreWindowed?: boolean
+  className?: string
+}) {
+  const summary = useKanbanColumnSummary()
+  if (!summary) return null
+  const total = sumLaneField(cards, summary.field)
+  if (total === null) return null
+  return (
+    <span
+      className={cn("inline-flex items-center gap-0.5 text-[11px] font-medium text-muted-foreground tabular-nums whitespace-nowrap", className)}
+      title={summary.label}
+      data-kanban-lane-total=""
+    >
+      <Sigma aria-hidden="true" className="h-3 w-3 shrink-0" />
+      <span className="sr-only">{`${summary.label} `}</span>
+      {summary.renderTotal(total)}
+      {countsAreWindowed ? '+' : null}
+    </span>
+  )
+}
+
 function KanbanColumnView({
   column,
   cards,
@@ -595,6 +641,7 @@ function KanbanColumnView({
                 Full
               </Badge>
             )}
+            {!isCollapsed && <LaneTotal cards={safeCards} countsAreWindowed={countsAreWindowed} />}
           </div>
         </div>
       </div>
@@ -1227,6 +1274,9 @@ function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, qu
                   />
                   {!collapsed && (
                     <span className="ml-2 text-xs text-muted-foreground">({laneCountLabel(col.cards.length, countsAreWindowed)})</span>
+                  )}
+                  {!collapsed && (
+                    <LaneTotal cards={col.cards} countsAreWindowed={countsAreWindowed} className="ml-2" />
                   )}
                 </div>
               )

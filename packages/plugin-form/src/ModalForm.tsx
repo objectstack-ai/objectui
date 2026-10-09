@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useId, useRef } from 'react';
-import type { FormField, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import {
   Dialog,
   MobileDialogContent,
@@ -51,6 +51,7 @@ import {
   CONTAINER_GRID_COLS,
 } from './autoLayout';
 import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
+import { resolveSectionGroupReferences } from './sectionGroups';
 import {
   sanitizeFormData,
   dirtyEditPayload,
@@ -75,8 +76,11 @@ import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useRecordInvalidation } from './recordInvalidation';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 
-// Localized strings for the unsaved-changes guard. Falls back to English when
-// no i18n provider is mounted (createSafeTranslation handles that).
+// Localized strings for the unsaved-changes guard and, since objectui#11039,
+// the form's own chrome (the default submit and cancel labels and the
+// load-failure heading — the same keys and values as `formChrome.ts`). Falls
+// back to English when no i18n provider is mounted (createSafeTranslation
+// handles that).
 const useDiscardTranslation = createSafeTranslation(
   {
     'form.discardTitle': 'Discard changes?',
@@ -87,8 +91,15 @@ const useDiscardTranslation = createSafeTranslation(
     // English sentence instead of a raw key — the #4514 trap, and the reason
     // this factory exists.
     'form.dialogDescriptionFallback': 'Complete the form fields, then submit or cancel.',
+    // The sr-only description of a master-detail dialog with no `description`
+    // of its own (objectui#11071).
+    'form.masterDetail.editorDescription': 'Enter the record and its line items, then save.',
     'form.keepEditing': 'Keep editing',
     'form.discard': 'Discard',
+    'form.create': 'Create',
+    'form.update': 'Update',
+    'common.cancel': 'Cancel',
+    'form.errorLoading': 'Error loading form',
   },
   'form.discardTitle',
 );
@@ -98,7 +109,12 @@ export interface ModalFormSectionConfig {
   label?: string;
   description?: string;
   columns?: 1 | 2 | 3 | 4;
-  fields: (string | FormField)[];
+  /**
+   * The same three entry shapes as `ObjectFormSection.fields`, by reference:
+   * a field name, the form view's `{ field, … }` entry, or an inline
+   * `FormField` (objectui#11615).
+   */
+  fields: NonNullable<ObjectFormSection['fields']>;
   /**
    * Whether the section can be collapsed — spec `FormSection.collapsible`.
    * `collapsed: true` implies it (objectui#9780). The control lives on the
@@ -160,7 +176,12 @@ export interface ModalFormSchema {
   modalSize?: 'sm' | 'default' | 'lg' | 'xl' | 'full';
 
   /**
-   * Whether to show a close button in the header.
+   * Whether the dialog draws its close (X) button. Only an explicit `false`
+   * hides it (objectui#11061); both dialog arms (the flat form and the
+   * `subforms` master-detail form) pass it to `MobileDialogContent`'s
+   * `showCloseButton`. Hidden, the form is still dismissable: Escape (and a
+   * backdrop click) still reach `onOpenChange(false)`, as does the Cancel
+   * action when it is shown.
    * @default true
    */
   modalCloseButton?: boolean;
@@ -303,9 +324,35 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   const confirmOnDiscard = schema.confirmOnDiscard !== false;
 
   const isOpen = schema.open !== false;
+  // `modalCloseButton` (objectui#11061): only an explicit `false` hides the
+  // dialog's X; unset and `true` keep it.
+  const showCloseButton = schema.modalCloseButton !== false;
 
   // Stable form id for linking the external submit button to the form element
   const formId = useId();
+
+  // `form.sections[].group` (objectui#11542): a section that points `group` at
+  // one of the object's `fieldGroups` becomes the section that group declares,
+  // through the ONE resolver `ObjectForm`'s `withGroups` uses, so no assembly
+  // rule lives here. `ObjectForm` resolves above its routing fork, but the
+  // console's record dialog and an action-opened modal mount THIS component
+  // directly with the form view's sections as authored, so the dialog resolves
+  // its own. Resolved once, above both content layouts (tabbed and stacked),
+  // against the object schema this form already loads; while it loads the
+  // form shows its skeleton. Returns `schema.sections` itself when no section
+  // uses `group` — which includes every section list `ObjectForm` hands over,
+  // already resolved — so no other modal takes a new path. Every resolved
+  // member still goes through `gateFields` below, like an enumerated one.
+  const resolvedSections = useMemo(
+    () =>
+      resolveSectionGroupReferences(schema.sections as ObjectFormSection[] | undefined, {
+        objectName: schema.objectName,
+        formType: schema.formType,
+        objectDef: objectSchema,
+        resolvable: typeof dataSource?.getObjectSchema === 'function',
+      }) as ModalFormSectionConfig[] | undefined,
+    [schema.sections, schema.objectName, schema.formType, objectSchema, dataSource],
+  );
 
   // Field-group fallback (object-designer metadata): when the caller passes no
   // explicit sections, honor the object's declared `fieldGroups` the same way
@@ -330,7 +377,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     return sections.map((s) => ({ ...s, columns })) as ModalFormSectionConfig[];
   }, [schema.sections, schema.columns, schema.mode, formFields, objectSchema]);
 
-  const effectiveSections = schema.sections?.length ? schema.sections : (derivedSections ?? undefined);
+  const effectiveSections = resolvedSections?.length ? resolvedSections : (derivedSections ?? undefined);
 
   // Compute auto-layout for flat fields (no sections) to determine inferred columns
   // (`customFields` does not switch it off: the members are merged into
@@ -697,19 +744,25 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     finalizeClose();
   }, [finalizeClose]);
 
-  const formLayout = (schema.layout === 'vertical' || schema.layout === 'horizontal')
-    ? schema.layout
-    : 'vertical';
+  // `vertical | horizontal` on the declared face; the fold that mapped any
+  // other value to `vertical` was retired with `inline` / `grid`
+  // (objectui#11168 slice 3, objectui#7759 group C).
+  const formLayout = schema.layout ?? 'vertical';
 
   // Build base form schema
   // Actions are hidden inside the form renderer — we render them in a sticky footer instead
   const showSubmit = schema.showSubmit !== false && schema.mode !== 'view';
   const showCancel = schema.showCancel !== false;
-  const submitLabel = schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update');
-  const cancelLabel = schema.cancelText || 'Cancel';
+  const submitLabel = schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update'));
+  const cancelLabel = schema.cancelText || t('common.cancel');
 
-  const baseFormSchema = {
-    type: 'form' as const,
+  // Typed as the child `form` node it is (objectui#11354), and so is every node
+  // `renderContent` builds from it: each is a `FormSchema` const before it
+  // reaches `SchemaRenderer`. `SchemaRenderer`'s `schema` slot is `BaseSchema`,
+  // so a literal written inline there was checked against `BaseSchema`, not
+  // against the `FormSchema` the `form` renderer reads.
+  const baseFormSchema: FormSchema = {
+    type: 'form',
     objectName: schema.objectName,
     layout: formLayout,
     defaultValues: formData,
@@ -733,7 +786,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     if (error) {
       return (
         <div className="p-4 border border-red-300 bg-red-50 rounded-md">
-          <h3 className="text-red-800 font-semibold">Error loading form</h3>
+          <h3 className="text-red-800 font-semibold">{t('form.errorLoading')}</h3>
           <p className="text-red-600 text-sm mt-1">{error.message}</p>
         </div>
       );
@@ -761,8 +814,8 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     // 2+ silently dropped everything the user typed; and in the tabbed variant
     // Radix unmounted the inactive panel, destroying that tab's form state
     // outright. Same single-form pattern as ObjectForm / DrawerForm.
-    if (schema.sections?.length) {
-      const sections = schema.sections;
+    if (resolvedSections?.length) {
+      const sections = resolvedSections;
       const sectionKey = (sec: ModalFormSectionConfig, i: number) => sec.name || sec.label || String(i);
       // Section headers go through the same i18n hook ObjectForm uses, so a
       // translated group label wins over the raw metadata label.
@@ -817,7 +870,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         })
         .filter((g) => g.fields.length > 0);
 
-      const sharedFormSchema = {
+      const sharedFormSchema: FormSchema = {
         ...baseFormSchema,
         columns: formColumns,
         ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
@@ -828,26 +881,23 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       // create/edit form composes with `tabbed`. The renderer owns the tab strip
       // and panels (`fieldTabs`) so all tabs stay mounted inside the one form.
       if (schema.contentLayout === 'tabbed' && groups.length > 1) {
-        return (
-          <SchemaRenderer
-            schema={{
-              ...sharedFormSchema,
-              fields: groups.flatMap((g) => g.fields),
-              fieldTabs: groups.map((g, index) => ({
-                key: g.key,
-                label: g.title || `Section ${index + 1}`,
-                description: g.description,
-                fields: g.fields.map((f) => f.name),
-                containerClass: g.gridClassName,
-                // The tab's predicate slot (#6237) — the same authored
-                // `FormSection.visibleWhen` the stacked arm copies onto its
-                // divider; the renderer evaluates it and hides trigger, panel
-                // and fields together under the ruled hidden-group semantics.
-                visibleWhen: g.visibleWhen,
-              })),
-            }}
-          />
-        );
+        const tabbedFormSchema: FormSchema = {
+          ...sharedFormSchema,
+          fields: groups.flatMap((g) => g.fields),
+          fieldTabs: groups.map((g, index) => ({
+            key: g.key,
+            label: g.title || `Section ${index + 1}`,
+            description: g.description,
+            fields: g.fields.map((f) => f.name),
+            containerClass: g.gridClassName,
+            // The tab's predicate slot (#6237) — the same authored
+            // `FormSection.visibleWhen` the stacked arm copies onto its
+            // divider; the renderer evaluates it and hides trigger, panel
+            // and fields together under the ruled hidden-group semantics.
+            visibleWhen: g.visibleWhen,
+          })),
+        };
+        return <SchemaRenderer schema={tabbedFormSchema} />;
       }
 
       // Stacked sections: a virtual `section-divider` field carries each group's
@@ -879,7 +929,8 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         allFields.push(...(collapse.collapsed ? g.fields.map((f) => ({ ...f, hidden: true })) : g.fields));
       });
 
-      return <SchemaRenderer schema={{ ...sharedFormSchema, fields: allFields }} />;
+      const stackedFormSchema: FormSchema = { ...sharedFormSchema, fields: allFields };
+      return <SchemaRenderer schema={stackedFormSchema} />;
     }
 
     // Derived field-group sections (object `fieldGroups` metadata) — rendered
@@ -926,16 +977,13 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         allFields.push(...(collapse.collapsed ? laidOut.map((f) => ({ ...f, hidden: true })) : laidOut));
       });
       const groupedContainerClass = CONTAINER_GRID_COLS[columns];
-      return (
-        <SchemaRenderer
-          schema={{
-            ...baseFormSchema,
-            fields: allFields,
-            columns,
-            ...(groupedContainerClass ? { fieldContainerClass: groupedContainerClass } : {}),
-          }}
-        />
-      );
+      const groupedFormSchema: FormSchema = {
+        ...baseFormSchema,
+        fields: allFields,
+        columns,
+        ...(groupedContainerClass ? { fieldContainerClass: groupedContainerClass } : {}),
+      };
+      return <SchemaRenderer schema={groupedFormSchema} />;
     }
 
     // Reuse pre-computed auto-layout result for flat fields
@@ -945,16 +993,13 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     // responds to the modal width, not the viewport width.
     const containerFieldClass = CONTAINER_GRID_COLS[layoutResult.columns || 1];
 
-    return (
-      <SchemaRenderer
-        schema={{
-          ...baseFormSchema,
-          fields: gateFields(layoutResult.fields),
-          columns: layoutResult.columns,
-          ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
-        }}
-      />
-    );
+    const flatFormSchema: FormSchema = {
+      ...baseFormSchema,
+      fields: gateFields(layoutResult.fields),
+      columns: layoutResult.columns,
+      ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
+    };
+    return <SchemaRenderer schema={flatFormSchema} />;
   };
 
   // Master-detail in a modal: when the schema declares inline child collections,
@@ -1000,14 +1045,14 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   if (subforms?.length && schema.mode !== 'view') {
     return (
       <Dialog open={isOpen} onOpenChange={schema.onOpenChange}>
-        <MobileDialogContent className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
+        <MobileDialogContent showCloseButton={showCloseButton} className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
           {(schema.title || schema.description) && (
             <DialogHeader className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6 pb-2 border-b">
               {schema.title && <DialogTitle>{schema.title}</DialogTitle>}
               {schema.description ? (
                 <DialogDescription>{schema.description}</DialogDescription>
               ) : (
-                <DialogDescription className="sr-only">Enter the record and its line items, then save.</DialogDescription>
+                <DialogDescription className="sr-only">{t('form.masterDetail.editorDescription')}</DialogDescription>
               )}
             </DialogHeader>
           )}
@@ -1052,7 +1097,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         attemptClose(false);
       }}
     >
-      <MobileDialogContent className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
+      <MobileDialogContent showCloseButton={showCloseButton} className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
         {(schema.title || schema.description) && (
           <DialogHeader className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6 pb-2 border-b">
             {schema.title && <DialogTitle>{schema.title}</DialogTitle>}

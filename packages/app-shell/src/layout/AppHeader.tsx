@@ -12,6 +12,8 @@
  *              logo. Used by `/home`.
  *   - `orgs` : no breadcrumb; logo + "Organizations" title. Used by the
  *              `/organizations` landing page.
+ *   - `studio`: no breadcrumb; logo + a fixed "Studio" crumb, as `orgs` draws
+ *              its own. Used by the `/studio` front door (objectui#11863).
  *
  * The user avatar dropdown includes the organization (workspace) switcher at
  * the top so the same chrome lets users change orgs from any page.
@@ -73,7 +75,7 @@ import { resolveKeyedI18nLabel, preferLocal, matchAppBySegment, appRouteSegment,
 import { getIcon } from '../utils/getIcon.js';
 import { useMobileViewSwitcher } from './MobileViewSwitcherContext.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
-import { useCommandPalette } from '../context/CommandPaletteProvider.js';
+import { useCommandPalette, useCommandPaletteProviderMounted } from '../context/CommandPaletteProvider.js';
 import { useUrlOverlay } from '../hooks/useUrlOverlay.js';
 import { KEYBOARD_SHORTCUTS_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRecordTrailHref } from '../urlParams.js';
 import { useAiSurfaceEnabled } from '../hooks/useAiSurface.js';
@@ -81,6 +83,8 @@ import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
 import { useSharedActivityFeed } from '../hooks/sharedUserFeeds.js';
 import { useInboxBell } from '../hooks/useInboxBell.js';
 import { useHomePath } from '../hooks/useHomePath.js';
+import { useServedViewItems, isServedView } from '../hooks/useServedViewItems.js';
+import { resolveViewId } from '../utils/resolveViewId.js';
 import { getProductName, getLogoUrl } from '../runtime-config.js';
 import { LocalizedSidebarTrigger } from './LocalizedSidebarTrigger.js';
 import { PreviewBadge } from './PreviewBadge.js';
@@ -124,7 +128,7 @@ function PathSep() {
 // header doesn't ship phantom collaborators in production.
 const EMPTY_PRESENCE_USERS: PresenceUser[] = [];
 
-export type AppHeaderVariant = 'app' | 'home' | 'orgs';
+export type AppHeaderVariant = 'app' | 'home' | 'orgs' | 'studio';
 
 export interface AppHeaderProps {
   variant?: AppHeaderVariant;
@@ -160,6 +164,13 @@ export function AppHeader({
   // Idempotent, direct open of the ⌘K command palette (ADR-0054 C1). Replaces a
   // synthetic `⌘K` KeyboardEvent re-dispatch that did nothing under automation.
   const { openCommandPalette } = useCommandPalette();
+  // objectui#11912 — the search trigger is drawn only where a palette is
+  // mounted. Outside a `CommandPaletteProvider` (the `home` / `orgs` frames:
+  // `/home`, `/ai`, the organizations pages) `openCommandPalette` is the inert
+  // fallback and no ⌘K handler is installed, so a "Search ⌘K" there opens
+  // nothing. The `/studio` landing mounts one with the palette's `studio` scope
+  // (objectui#11863), so its `studio` variant draws the trigger.
+  const hasCommandPalette = useCommandPaletteProviderMounted();
   // Click-reachable entry for the keyboard-shortcuts dialog (was `?`-key only).
   // Shares the `?shortcuts=1` URL param with KeyboardShortcutsDialog (C2/C3).
   const { openOverlay: openShortcuts } = useUrlOverlay(KEYBOARD_SHORTCUTS_PARAM);
@@ -184,8 +195,11 @@ export function AppHeader({
   const { isAdmin: isWorkspaceAdmin } = useWorkspaceAdminStatus();
   const canAuthorMetadata = useCanAuthorMetadata();
   const { t } = useObjectTranslation();
-  const { objectLabel, dashboardLabel, pageLabel, reportLabel, viewLabel, appLabel } = useObjectLabel();
+  const { objectPluralLabel, dashboardLabel, pageLabel, reportLabel, viewLabel, appLabel } = useObjectLabel();
   const { apps: metadataApps, dashboards: metadataDashboards, pages: metadataPages, reports: metadataReports } = useMetadata();
+  // The views a server read served, already translated — `/meta/view`, and the
+  // object document's own `listViews` (objectui#11295, objectui#11336).
+  const servedViews = useServedViewItems();
   const { currentAppName, recordTitle } = useNavigationContext();
   const mobileSwitcher = useMobileViewSwitcher();
 
@@ -357,8 +371,13 @@ export function AppHeader({
     ? appStudioRoutePath(currentApp, canDesignInStudio, { type: routeType, name: pathParts[3] })
     : null;
 
+  // An object crumb — this segment, its "Switch Object" siblings and the
+  // ancestor trail's object crumbs — links to that object's LIST, so it names
+  // the list: the plural, as the page it opens is titled and as the nav entry
+  // reads (objectui#11696). It is one crumb on every route under the object,
+  // so it does not turn singular when the trail continues into a record.
   const objectSiblings = appObjects.map((o: any) => ({
-    label: objectLabel(o),
+    label: objectPluralLabel(o),
     href: `${baseHref}/${o.name}`,
   }));
 
@@ -371,8 +390,14 @@ export function AppHeader({
         const dashboardName = pathParts[3];
         // ADR-0048 Phase 2 — prefer the current app's package (container-scoped).
         const dashboardDef = preferLocal(metadataDashboards as any[], dashboardName, (currentApp as any)?._packageId);
-        const fallback = dashboardDef?.label || humanizeSlug(dashboardName);
-        extraSegments.push({ label: dashboardLabel({ name: dashboardName, label: fallback }) });
+        // A dashboard the `/meta` read served carries its label already
+        // translated (a published edit kept over the packaged catalog), so it
+        // is drawn as given — the page header draws it the same way. Only the
+        // humanized slug, which no server translated, goes through the bundle
+        // (objectui#11295).
+        extraSegments.push({
+          label: dashboardDef?.label || dashboardLabel({ name: dashboardName, label: humanizeSlug(dashboardName) }),
+        });
       }
     } else if (routeType === 'page') {
       extraSegments.push({ label: t('console.breadcrumb.pages'), href: baseHref });
@@ -400,7 +425,7 @@ export function AppHeader({
       if (currentObject) {
         // Ancestor trail (record → related-record drill-in, `?from=`). Prepend
         // an object-list + record segment per ancestor so the path reads
-        // `Account → #parent → Invoice → #child`, each crumb a link back. The
+        // `Accounts → #parent → Invoices → #child`, each crumb a link back. The
         // ancestor record crumb carries its OWN ancestors so mid-path clicks
         // preserve everything above them.
         if (pathParts[3] === 'record' && pathParts[4]) {
@@ -408,7 +433,7 @@ export function AppHeader({
           trail.forEach((entry, k) => {
             const ancObj = safeObjects.find((o: any) => o.name === entry.o);
             extraSegments.push({
-              label: ancObj ? objectLabel(ancObj) : humanizeSlug(entry.o),
+              label: ancObj ? objectPluralLabel(ancObj) : humanizeSlug(entry.o),
               href: `${baseHref}/${entry.o}`,
             });
             const ancShortId = entry.i.length > 12 ? `${entry.i.slice(0, 8)}…` : entry.i;
@@ -419,7 +444,7 @@ export function AppHeader({
           });
         }
         extraSegments.push({
-          label: objectLabel(currentObject),
+          label: objectPluralLabel(currentObject),
           href: `${baseHref}/${routeType}`,
           siblings: objectSiblings,
         });
@@ -439,9 +464,18 @@ export function AppHeader({
           // `list_views` leg is a compatibility READ for stored pre-settlement documents
           // (that stock has never been censused: objectstack#7917). Never WRITE the snake key.
           const definedViews = (currentObject as any).listViews || (currentObject as any).list_views || {};
-          const viewDef = (definedViews as Record<string, any>)[viewName];
+          // The URL may name the view bare (`/view/in_progress`, as a nav entry
+          // writes it) while its tab id is qualified (`<object>.in_progress`):
+          // matched by `resolveViewId`, the one matcher the object page uses to
+          // open it, so the crumb names the view the page shows (objectui#11295).
+          const viewId = resolveViewId(viewName, Object.keys(definedViews), currentObject.name);
+          const viewDef = viewId ? (definedViews as Record<string, any>)[viewId] : undefined;
           const fallbackLabel = (viewDef && (viewDef.label || viewDef.title)) || humanizeSlug(viewName);
-          const localizedViewLabel = viewLabel(currentObject.name, viewName, fallbackLabel);
+          // A served view's label is already translated — drawn as given, as its
+          // tab draws it; any other view's goes through the bundle (objectui#11295).
+          const localizedViewLabel = viewDef && isServedView(servedViews, currentObject.name, viewId)
+            ? fallbackLabel
+            : viewLabel(currentObject.name, viewName, fallbackLabel);
           extraSegments.push({ label: localizedViewLabel });
         }
       }
@@ -484,7 +518,7 @@ export function AppHeader({
         )}
 
         {/* Platform-stage chip — sits in the brand zone so it rides along on
-            every console surface (home / app / orgs) while the whole platform
+            every console surface (home / app / orgs / studio) while the whole platform
             is in preview. Desktop-only to spare the crowded mobile top bar;
             renders nothing once runtime-config reports GA. */}
         <PreviewBadge className="ml-2 hidden sm:inline-flex" />
@@ -503,6 +537,15 @@ export function AppHeader({
             <PathSep />
             <span className="text-sm font-medium text-foreground/80 px-1.5">
               {t('organizations.title', { defaultValue: 'Workspaces' })}
+            </span>
+          </>
+        )}
+
+        {resolvedVariant === 'studio' && (
+          <>
+            <PathSep />
+            <span className="text-sm font-medium text-foreground/80 px-1.5">
+              {t('console.studio.title')}
             </span>
           </>
         )}
@@ -649,37 +692,40 @@ export function AppHeader({
         )}
 
         {/* Group 1: Search */}
-        <div data-topbar-group className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-          {/* Search — desktop */}
-          <button
-            type="button"
-            data-testid="action:command-palette:open"
-            aria-label={t('console.search', { defaultValue: 'Search…' })}
-            aria-keyshortcuts="Meta+K Control+K"
-            onClick={openCommandPalette}
-            className="hidden lg:flex relative items-center gap-2 w-48 xl:w-64 h-8 px-3 text-sm rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors"
-          >
-            <Search className="h-3.5 w-3.5 shrink-0" />
-            <span className="flex-1 text-left text-xs">
-              {t('console.search', { defaultValue: 'Search…' })}
-            </span>
-            <kbd className="pointer-events-none inline-flex h-5 items-center gap-0.5 rounded border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
-              <span className="text-xs">⌘</span>K
-            </kbd>
-          </button>
+        {/* Only where a palette is mounted (objectui#11912) — see `hasCommandPalette`. */}
+        {hasCommandPalette && (
+          <div data-topbar-group className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+            {/* Search — desktop */}
+            <button
+              type="button"
+              data-testid="action:command-palette:open"
+              aria-label={t('console.search', { defaultValue: 'Search…' })}
+              aria-keyshortcuts="Meta+K Control+K"
+              onClick={openCommandPalette}
+              className="hidden lg:flex relative items-center gap-2 w-48 xl:w-64 h-8 px-3 text-sm rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <Search className="h-3.5 w-3.5 shrink-0" />
+              <span className="flex-1 text-left text-xs">
+                {t('console.search', { defaultValue: 'Search…' })}
+              </span>
+              <kbd className="pointer-events-none inline-flex h-5 items-center gap-0.5 rounded border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
+                <span className="text-xs">⌘</span>K
+              </kbd>
+            </button>
 
-          {/* Search — mobile/tablet */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden h-8 w-8 shrink-0"
-            data-testid="action:command-palette:open-mobile"
-            onClick={openCommandPalette}
-            aria-label={t('console.search', { defaultValue: 'Search…' })}
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-        </div>
+            {/* Search — mobile/tablet */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden h-8 w-8 shrink-0"
+              data-testid="action:command-palette:open-mobile"
+              onClick={openCommandPalette}
+              aria-label={t('console.search', { defaultValue: 'Search…' })}
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
 
         {/* Group 2: Inbox (notifications + approvals + activity) & Help */}
         <div data-topbar-group className="flex items-center gap-0.5 shrink-0">

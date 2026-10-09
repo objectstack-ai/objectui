@@ -80,9 +80,10 @@ const EXCLUDED_HTML_NAMED: Record<string, string> = {
     'published contract by the objectstack#20112 ruling A: the gate that reads the manifest refuses `<div>` on ' +
     'an html page. The renderer still registers it, and its declared deprecation names both surfaces, `json` and ' +
     '`html` (objectui#10757): the console\'s html compile refuses it too, naming `box`.',
-  summary: 'the bare fallback key of the `field:summary` widget — a field, not an element renderer.',
-  object: 'the bare fallback key of the `field:object` widget — a field, not an element renderer.',
-  view: 'the bare `view` registration of `@object-ui/plugin-view`, which happens to share its name with the SVG element.',
+  // `summary`, `object` (bare fallbacks of the `field:summary` / `field:object`
+  // widgets) and `view` (a bare `@object-ui/plugin-view` alias sharing the SVG
+  // element's name) left this ledger with objectui#10859 batch 8, which retired
+  // all three registrations: none squats on an element name any more.
   kbd:
     'a `ui` component rendering `keys` / `label` under an HTML tag name; not named by the objectstack#20112 ruling. ' +
     'Admitting it is additive on a named need, while retracting a declared tag is a narrowing — so it waits.',
@@ -304,7 +305,8 @@ describe('the generated intrinsics type the html tier (objectui#10735)', () => {
     for (const tag of HTML_TIER_INTRINSICS) {
       expect(dts, `\`${tag}\` missing from the intrinsics`).toContain(`"${tag}": `);
     }
-    expect(dts).toContain('export interface AProps extends SduiBaseProps {');
+    // `a` declares `className`, a base attribute, so it `Omit`s it (objectui#11075).
+    expect(dts).toContain('export interface AProps extends Omit<SduiBaseProps, "className"> {');
     expect(dts).toContain('  href?: string;');
     expect(dts).toContain('"object-grid": ObjectGridProps;');
   });

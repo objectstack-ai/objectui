@@ -7,6 +7,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { hasDeclaredVisibilityGate } from '@object-ui/components';
 import { partitionBulkRows, hasVisibilityGate } from '../bulkEligibility';
 
 const ROWS = [
@@ -131,6 +132,82 @@ describe('partitionBulkRows', () => {
       expect(hasVisibilityGate({ name: 'plain' })).toBe(false);
       expect(hasVisibilityGate({ name: 'blank', visible: '' })).toBe(false);
       expect(hasVisibilityGate(undefined)).toBe(false);
+    });
+  });
+
+  // [objectui#11322] Blank text is no gate, in either spelling. The selection
+  // bar used to ask "declared?" with `!= null && !== ''`, so the spellings below
+  // counted as gates, every record failed them, and the bar hid an action the
+  // row menu and toolbars show. `hasVisibilityGate` now asks the action family's
+  // definition, and `partitionBulkRows` asks it BEFORE the core fold, whose own
+  // opening test (`''` only) belongs to its field-rule callers. So the blank
+  // reaches the fold as `undefined` and every record comes back by reference.
+  // The `''` row above is the control; the boolean rows keep "not declared"
+  // from passing as "always".
+  describe('blank visible (objectui#11322)', () => {
+    const BLANKS = [
+      ['a whitespace-only string', '   '],
+      ['an envelope whose `source` is whitespace', { dialect: 'cel', source: '   ' }],
+      ['an envelope whose `source` is empty', { dialect: 'cel', source: '' }],
+    ] as const;
+
+    it.each(BLANKS)('%s is not a declared gate', (_label, visible) => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      expect(hasVisibilityGate({ name: 'blank', visible: visible as never })).toBe(false);
+    });
+
+    it.each(BLANKS)('%s passes every record through, by reference', (_label, visible) => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const { eligible, skipped } = partitionBulkRows({ name: 'blank', visible: visible as never }, ROWS);
+      expect(eligible).toBe(ROWS);
+      expect(skipped).toBe(0);
+    });
+
+    it('answers exactly what the action family answers, for every shape above', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const shapes: unknown[] = [undefined, '', false, true, 'record.done', ...BLANKS.map(([, v]) => v)];
+      for (const visible of shapes) {
+        expect(hasVisibilityGate({ name: 'x', visible: visible as never })).toBe(hasDeclaredVisibilityGate(visible));
+      }
+    });
+  });
+
+  // [objectui#11358] A `visible` that is PRESENT but has no evaluable `source`
+  // — an `ast`-only envelope, `0`, `{}`, an array — is a declared gate that
+  // faults, not "no gate". Before the ruling the action family's definition
+  // read it as no gate, so the bar offered the action and it ran over EVERY
+  // selected record, in silence. Now the definition answers "declared", the
+  // fold evaluates it, the fault path fails closed (no record qualifies, so the
+  // bar hides the def), and the fault is reported once, naming the def.
+  describe('declared but not evaluable visible (objectui#11358)', () => {
+    const UNEVALUABLE = [
+      ["an `ast`-only envelope", { dialect: 'cel', ast: { kind: 'call', fn: '==' } }],
+      ['0', 0],
+      ['{}', {}],
+      ['an array', ['record.done']],
+    ] as const;
+
+    it.each(UNEVALUABLE)('%s is a declared gate, as the action family answers', (_label, visible) => {
+      expect(hasVisibilityGate({ name: 'x', visible: visible as never })).toBe(true);
+      expect(hasDeclaredVisibilityGate(visible)).toBe(true);
+    });
+
+    it.each(UNEVALUABLE)('%s admits no record, and is reported once naming the def', (label, visible) => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const name = `bulk_11358_${UNEVALUABLE.findIndex(([l]) => l === label)}`;
+      const { eligible, skipped } = partitionBulkRows({ name, visible: visible as never }, ROWS);
+      expect(eligible).toEqual([]);
+      expect(skipped).toBe(ROWS.length);
+      const lines = warn.mock.calls.map(c => c.map(String).join(' '));
+      expect(lines.filter(l => l.includes(name))).toHaveLength(1);
+      expect(lines.filter(l => l.includes('[unevaluable]'))).toHaveLength(1);
+    });
+
+    it('controls: an absent gate passes every record, a real CEL `source` evaluates as before', () => {
+      expect(partitionBulkRows({ name: 'absent' }, ROWS).eligible).toBe(ROWS);
+      const real = partitionBulkRows({ name: 'real', visible: { dialect: 'cel', source: '!record.done' } as never }, ROWS);
+      expect(real.eligible.map(r => r.id)).toEqual(['r1', 'r3']);
+      expect(real.skipped).toBe(1);
     });
   });
 });

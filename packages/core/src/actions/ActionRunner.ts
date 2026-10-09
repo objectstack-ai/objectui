@@ -21,48 +21,43 @@
  * redirect handling, action chaining, custom handler registration.
  */
 
-import type { RunnableActionType, UIActionSchema } from '@object-ui/types';
+import type { ActionContext, ActionResult, RunnableActionType, UIActionSchema } from '@object-ui/types';
 import type { Action as SpecActionInput } from '@objectstack/spec/ui';
 import { ExpressionEvaluator } from '../evaluator/ExpressionEvaluator.js';
 import { hasDeclaredPredicate } from '../evaluator/declaredPredicate.js';
-import { globalUndoManager, type UndoableOperation } from './UndoManager.js';
+import { globalUndoManager } from './UndoManager.js';
 import { warnOnDeprecatedObjectParams, warnOnUnknownActionKeys } from './actionKeys.js';
 import { readActionPayload } from './actionResponse.js';
+import { toPredicateRecord, type FieldContainerLike } from '../utils/predicate-record.js';
 
-export interface ActionResult {
-  success: boolean;
-  data?: any;
-  error?: string;
-  reload?: boolean;
-  close?: boolean;
-  redirect?: string;
-  /** Modal schema to render (for type: 'modal') */
-  modal?: any;
-  /**
-   * Suppress the automatic success toast for this result. A handler sets this
-   * when the action only HANDED OFF to a follow-up UI rather than completing —
-   * e.g. a `flow` action that paused at a screen and opened the flow-runner. The
-   * action hasn't "completed yet", so a "success" toast on open would be
-   * misleading; the follow-up surface owns its own completion messaging.
-   */
-  silent?: boolean;
-  /**
-   * An undoable operation captured by the handler (e.g. an `undoable` update
-   * action's prior field values). When present, the runner pushes it onto the
-   * global UndoManager and the success toast offers an "Undo" affordance.
-   */
-  undo?: UndoableOperation;
-}
+/**
+ * What an action handler returns and the runner reads — ONE authority, in
+ * `@object-ui/types` (objectui#6349, batch 4), re-exported here exactly as
+ * {@link ActionContext} is below. The members this module used to declare
+ * (`reload`, `redirect`, `modal`, `silent`, `undo`) moved down with it, and
+ * `UndoableOperation`, which types `undo`, moved down beside it
+ * (`./UndoManager.js` re-exports that one). The gate that counts authorities is
+ * `scripts/__tests__/one-authority-per-exported-name-6273.test.ts`; a re-export
+ * is not one.
+ */
+export type { ActionResult } from '@object-ui/types';
 
-export interface ActionContext {
-  data?: Record<string, any>;
-  record?: any;
-  selectedRecords?: Record<string, any>[];
-  /** Live page-variable snapshot (ADR-0049), published by PageVariableActionBridge. */
-  pageVariables?: Record<string, any>;
-  user?: any;
-  [key: string]: any;
-}
+/**
+ * The context a runner executes actions in — ONE authority, in
+ * `@object-ui/types` (objectui#6349, batch 4). This module RE-EXPORTS that
+ * declaration instead of declaring a second one, so an import of
+ * `ActionContext` from `@object-ui/core` and one from `@object-ui/types` are
+ * the same type. `@object-ui/types` is the dependency-legal side: it depends on
+ * no `@object-ui/*` package, and this package depends on it.
+ *
+ * A re-export is not a second authority —
+ * `scripts/__tests__/one-authority-per-exported-name-6273.test.ts` counts
+ * declarations and ALIASING re-exports, never `export type { X } from …` —
+ * which is why this convergence takes `ActionContext` off that gate's
+ * `KNOWN_COLLISIONS` baseline. The member drift it removed is recorded on the
+ * declaration itself.
+ */
+export type { ActionContext } from '@object-ui/types';
 
 /**
  * API configuration for complex requests.
@@ -262,7 +257,8 @@ export interface ActionDef {
   redirect?: string;
   /** Toast configuration */
   toast?: { showOnSuccess?: boolean; showOnError?: boolean; duration?: number };
-  /** Success message (from UIActionSchema) */
+  /** Success message (from UIActionSchema). The success toast's second rung,
+   *  after {@link outcomeMessages}; may interpolate `${result.*}`. */
   successMessage?: string;
   /** Error message (from UIActionSchema) */
   errorMessage?: string;
@@ -406,8 +402,6 @@ export interface ActionDef {
   objectName?: SpecActionInput['objectName'];
   /** AI affordance metadata (tool exposure, prompts). */
   ai?: SpecActionInput['ai'];
-  /** Accessibility overrides for the rendered control. */
-  aria?: SpecActionInput['aria'];
   /** Extra properties merged into the request body alongside the collected params. */
   bodyExtra?: SpecActionInput['bodyExtra'];
   /** How collected params are shaped into the request body (`flat` or nested). */
@@ -462,6 +456,21 @@ export interface ActionDef {
    */
   onSuccess?: SpecActionInput['onSuccess'];
   /**
+   * Success copy per handler outcome (`ActionSchema.outcomeMessages`, ruling A
+   * on objectstack-ai/cloud#2315): the server answers with a closed `outcome`
+   * fact and this map holds the sentence for each, keyed by the snake_case
+   * outcome name. Read by `handlePostExecution` → `composeSuccessMessage`, the
+   * success toast's FIRST rung: the entry named by the payload's top-level
+   * `outcome` (the payload `${result.*}` reads), then {@link successMessage},
+   * then the runner's own default text.
+   *
+   * Derived, so an entry is an `I18nLabel` — a string or an inline per-locale
+   * map. The runner composes from strings only: the host's localizer
+   * (`useActionTextLocalizer` in `@object-ui/react`) resolves each entry to the
+   * active language before dispatch, because the runner has no language.
+   */
+  outcomeMessages?: SpecActionInput['outcomeMessages'];
+  /**
    * @deprecated Retired in `@objectstack/spec` 17 as a `retiredKey()` tombstone —
    * authoring it is a hard parse rejection, so this resolves to `undefined` and
    * assigning a value is a compile error. A HOST may still pass a shortcut
@@ -513,6 +522,11 @@ export type ActionRunnerHandler = (
  * `.cancel`), and `app-shell`'s `ActionConfirmDialog.tsx` renders them in
  * place of its generic `actionConfirm.*` fallbacks. Line numbers are left out
  * on purpose: #5205's pointer had already drifted by the time it was executed.
+ * The record delete is a second producer (objectui#11695): `app-shell`'s
+ * `useObjectActions` (the list's row and bulk Delete) and `RecordDetailView`
+ * (the record page's Delete) hand it `recordDelete.confirmCopy`'s title and
+ * confirm label with `destructive: true`, which paints the confirm button in
+ * the destructive button style.
  *
  * So re-measure across the repo, not this package: grep for two-argument
  * calls of `ConfirmationHandler`-typed values (`confirmHandler(`, `onConfirm(`)
@@ -526,6 +540,8 @@ export type ConfirmationHandler = (message: string, options?: {
   title?: string;
   confirmText?: string;
   cancelText?: string;
+  /** The confirmed action destroys data: paint the confirm button destructive. */
+  destructive?: boolean;
 }) => Promise<boolean>;
 
 /**
@@ -546,9 +562,9 @@ export type ToastHandler = (message: string, options?: {
  * `defaultValue` is the English source, which is also what shows when no
  * translator is installed.
  *
- * - `completedSuccessfully` — the success toast when neither the server (a
- *   `data.message` on the result) nor the author (`successMessage`) supplied
- *   one (objectui#10900).
+ * - `completedSuccessfully` — the success toast when the author supplied no
+ *   copy for it: no `outcomeMessages` entry for the answer's `outcome` and no
+ *   `successMessage` (objectui#10900, objectui#11344).
  * - `failed` — the error toast when the error that reached the toast carries
  *   no readable message, and a parallel chain's result when its last action
  *   rejected (objectui#10969).
@@ -557,8 +573,9 @@ export type ToastHandler = (message: string, options?: {
  * - `undo` — the label the runner hands the toast handler for an undoable
  *   success toast's Undo affordance (objectui#10969).
  *
- * An author's `successMessage` / `errorMessage`, a server message and an
- * action's own error are never in this table: they reach the toast verbatim.
+ * An author's `outcomeMessages` / `successMessage` / `errorMessage` and an
+ * action's own error are never in this table: the host localizes authored copy
+ * before dispatch, and the runner only fills in its `${result.*}` tokens.
  */
 const RUNNER_TEXT = {
   completedSuccessfully: {
@@ -763,7 +780,7 @@ export interface ActionParamDef {
   // to a `lookup` or `reference` field. Forwarded to `<LookupField>` inside
   // `ActionParamDialog` so the user gets a real record picker (popover +
   // RecordPickerDialog) instead of a plain text input.
-  /** Object name the lookup picker queries (`reference_to` on the field). */
+  /** Object name the lookup picker queries (`reference` on the field). */
   referenceTo?: string;
   /** Field on the referenced record used as the human label (default `name`). */
   displayField?: string;
@@ -878,6 +895,24 @@ function readContextObjectName(context: ActionContext): string | undefined {
 }
 
 /**
+ * The field definitions the host published for `objectName`, or `undefined`
+ * (objectui#11122).
+ *
+ * A host publishes `objectFields` BESIDE `objectName` (`useConsoleActionRuntime`
+ * and `RecordDetailView` both do), so the pair names one object and its fields.
+ * They are answered only for THAT object: an action that retargets another
+ * object (a related-list row on the record page carries the child's
+ * `objectName`) gets no field map rather than the host object's, because
+ * reading one object's field types against another object's row would decide
+ * which of its fields are relations by the wrong schema.
+ */
+function readContextObjectFields(context: ActionContext, objectName: string): FieldContainerLike {
+  if (readContextObjectName(context) !== objectName) return undefined;
+  const fields: unknown = context.objectFields;
+  return fields && typeof fields === 'object' ? (fields as FieldContainerLike) : undefined;
+}
+
+/**
  * Whether opening FormView `viewName` from a record of `contextObject` would
  * cross an object boundary (objectui#4292).
  *
@@ -944,13 +979,44 @@ function isUpdateOperationAction(action: ActionDef): boolean {
  * then offers no Undo at all. Capturing only the carried fields is not an
  * option, for the reason above: a partial restore reported as a full one is
  * worse than no Undo.
+ *
+ * ⛔ A relation's prior value is its STORED id, never the record `$expand`
+ * put in its place (objectui#11122). Surfaces read rows with `$expand` on the
+ * relations they show (a grid, its visible and grouping columns; the record
+ * page, every relation the reader may read), and the server replaces the id
+ * in place with the related record. Copied verbatim, that record became the
+ * Undo value and Undo wrote it into the reference slot, which stores an id:
+ * refused under a strict value-shape posture, stored as corruption under the
+ * lenient one. So each carried value goes through `toPredicateRecord`, the one
+ * rule that binds a fetched record the way the server stores it: a field the
+ * object DECLARES relational (`EXPANDABLE_FIELD_TYPES`, the set that decides
+ * what is expanded in the first place) collapses to its id, element-wise for a
+ * `multiple` relation, and every other field is left exactly as the row
+ * carries it. It is read from `fields`, never from the value's shape: a `json`
+ * field may hold an object with an `id`, and that object is its stored value.
+ *
+ * `fields` is the written object's field definitions (`objectSchema.fields`,
+ * either served shape), and it is REQUIRED so that a caller without them has
+ * to say so: `undefined` collapses nothing, because a caller that cannot name
+ * the relations must not guess them.
+ *
+ * Exported (objectui#11082) because it is THE rule, not this runner's: every
+ * surface that builds an `update` Undo snapshot itself calls it rather than
+ * restating it. Today that is the console runtime's `api` handler
+ * (`useConsoleActionRuntime`) and the record page's own `api` handler
+ * (`RecordDetailView`), which reads prior values off the page's loaded record;
+ * that record lacks a written field when field-level security hides it from
+ * the reader. To name the fields that blocked a capture, ask per field:
+ * `captureUpdateUndoData([field], rowRecord, fields) === undefined`.
  */
-function captureUpdateUndoData(
+export function captureUpdateUndoData(
   writtenFields: readonly string[],
   rowRecord: Record<string, unknown>,
+  fields: FieldContainerLike,
 ): Record<string, unknown> | undefined {
   if (!writtenFields.every((field) => rowCarries(rowRecord, field))) return undefined;
-  return Object.fromEntries(writtenFields.map((field) => [field, rowRecord[field]]));
+  const stored = toPredicateRecord(rowRecord, fields);
+  return Object.fromEntries(writtenFields.map((field) => [field, stored[field]]));
 }
 
 /** Whether the row CARRIES `field`: an own key whose value is not `undefined`. */
@@ -985,8 +1051,10 @@ function rowCarries(rowRecord: Record<string, unknown>, field: string): boolean 
  * Both read {@link hasDeclaredPredicate} — the repo's one definition of that
  * question, in `evaluator/declaredPredicate.ts` beside the normalizer it is
  * derived from, with the scope objectui#3850 ruled on (`''` / whitespace-only /
- * empty-`source` envelope / non-predicate junk are NOT declared; a declared
- * `false` IS). This gate arrived here first as a module-private helper with a
+ * empty-`source` envelope are NOT declared; a declared `false` IS) and the
+ * third state objectui#11358 added (a present value with no evaluable `source`
+ * — `0`, `{}`, an array, an `ast`-only envelope — IS declared, and faults).
+ * This gate arrived here first as a module-private helper with a
  * scope note saying it stayed private until that ruling landed; it has, so the
  * definition moved down a layer and the renderer side reads the same one
  * (`components/renderers/action/visibility-gate.ts` re-exports it as
@@ -1020,9 +1088,15 @@ function rowCarries(rowRecord: Record<string, unknown>, field: string): boolean 
  * historical `Boolean(raw)` coercion, so `0` there meant "hidden" — fail-CLOSED
  * on junk, the opposite of what this module committed to for `disabled`
  * (`catch { isDisabled = false }`). That filter now reads
- * {@link hasDeclaredPredicate} too (objectui#3957), so a value that is not a
- * predicate at all decides nothing on either key, at either entry: `0` / `{}` are
- * "no gate" here, in the engine filter, and in the shared definition.
+ * {@link hasDeclaredPredicate} too (objectui#3957), so the two entries answer
+ * a value that is not a predicate at all the same way. Since objectui#11358
+ * that answer is "declared, and faulting" rather than "no gate": `0` / `{}` /
+ * an `ast`-only envelope reach `evaluateCondition`, which reports them and
+ * answers its fail-soft `true` — so `disabled` refuses the action (its closed
+ * direction, as for any faulting `disabled`) and `condition` lets it run (the
+ * direction a faulting `condition` has always taken), and the engine filter
+ * hides it (`throwOnError`). Pinned in `ActionRunner.disabledGate.test.ts` /
+ * `ActionRunner.conditionGate.test.ts`.
  */
 
 export class ActionRunner {
@@ -1082,12 +1156,12 @@ export class ActionRunner {
    * Set the translator for the text the runner supplies itself — the host's
    * `t`, injected so this package takes no i18n dependency. That text is the
    * `RUNNER_TEXT` table in this file: the generic success toast shown when an
-   * action declares no `successMessage` and the server returned no message,
-   * the error fallbacks when no readable error message reached the runner, and
-   * the Undo label of an undoable success toast. An author's `successMessage`
-   * / `errorMessage`, a server message and an action's own error reach the
-   * toast verbatim, translator or not. With no translator the text stays
-   * English.
+   * action declares neither an `outcomeMessages` entry for the answer nor a
+   * `successMessage`, the error fallbacks when no readable error message
+   * reached the runner, and the Undo label of an undoable success toast. An
+   * author's `outcomeMessages` / `successMessage` / `errorMessage` and an
+   * action's own error never go through this translator: the host localizes
+   * authored copy before dispatch. With no translator the text stays English.
    */
   setTranslator(translate: (key: string, options: { defaultValue: string }) => string): void {
     this.translate = translate;
@@ -1215,9 +1289,16 @@ export class ActionRunner {
         // code only evaluated the STRING form and treated any object as truthy,
         // so an envelope-disabled action was ALWAYS "disabled" — silently
         // blocking every execution (param dialog never opened, handler never
-        // ran). `evaluateCondition` already handles boolean/string/envelope;
-        // and the renderers are authoritative for the visual disabled state, so
-        // any eval failure here defaults to NOT-disabled (don't false-block).
+        // ran). `evaluateCondition` already handles boolean/string/envelope.
+        //
+        // A predicate that FAULTS — an unbound root, a misspelled field,
+        // `current_user.can(…)` before the permissions payload has loaded — does
+        // NOT reach the `catch` below: `evaluateCondition` handles its own
+        // faults and answers its fail-soft `true`, which on this key means
+        // DISABLED, so the action is refused ("Action is disabled"). That is the
+        // closed direction every `disabled` leg takes (objectui#11212,
+        // objectui#11242). The `catch` only covers a throw from outside that
+        // fault handling, and leaves such an action not disabled.
         let isDisabled = false;
         try {
           isDisabled = this.evaluator.evaluateCondition(action.disabled as never);
@@ -1386,6 +1467,54 @@ export class ActionRunner {
   }
 
   /**
+   * The success toast's text, by the contract's three rungs
+   * (`ActionSchema.outcomeMessages`, objectui#11344):
+   *
+   * 1. `outcomeMessages[outcome]`, where `outcome` is the top-level `outcome`
+   *    of the handler's return value — the payload `${result.*}` reads, so it
+   *    is the same fact an author writes as `${result.outcome}`;
+   * 2. `successMessage`;
+   * 3. the runner's own default text, in its translator's language.
+   *
+   * Rungs 1 and 2 are the author's copy. Both arrive already localized — the
+   * host's localizer resolves the bundle entry or the inline `I18nLabel` map
+   * before dispatch — and both have their `${result.*}` tokens filled in here,
+   * through the one token grammar and scope `onSuccess.navigate` reads
+   * (`substituteScopeTokens` over `readActionPayload(result.data)`). Only the
+   * sink differs: a toast is text, so a value is inserted as-is, where a URL
+   * position percent-encodes it.
+   *
+   * ⛔ `result.data.message` is not a rung. It used to outrank both rungs of
+   * author copy, which put whatever language the server happened to write in
+   * front of the user's locale; the contract names no server-message rung, and
+   * an author who wants the server's sentence can still write
+   * `${result.message}` as the copy.
+   *
+   * A rung counts only when it is a non-empty string. An `I18nLabel` map that
+   * reached the runner without passing through a localizer has no language to
+   * resolve against here, so it is skipped rather than handed to the toast as
+   * an object — the React #31 crash the error branch below guards against.
+   */
+  private composeSuccessMessage(action: ActionDef, result: ActionResult): string {
+    const payload = readActionPayload(result.data);
+    const outcome = payload && typeof payload === 'object'
+      ? (payload as { outcome?: unknown }).outcome
+      : undefined;
+    const outcomeMessages = action.outcomeMessages;
+    const outcomeCopy = typeof outcome === 'string'
+      && outcomeMessages && typeof outcomeMessages === 'object'
+      && Object.prototype.hasOwnProperty.call(outcomeMessages, outcome)
+      ? (outcomeMessages as Record<string, unknown>)[outcome]
+      : undefined;
+    for (const copy of [outcomeCopy, action.successMessage]) {
+      if (typeof copy === 'string' && copy.trim() !== '') {
+        return substituteScopeTokens(copy, { result: payload }, (value) => value);
+      }
+    }
+    return this.runnerText(RUNNER_TEXT.completedSuccessfully);
+  }
+
+  /**
    * Post-execution: emit toast notifications, handle chaining, callbacks.
    */
   private async handlePostExecution(action: ActionDef, result: ActionResult): Promise<void> {
@@ -1402,19 +1531,9 @@ export class ActionRunner {
       const duration = action.toast?.duration;
 
       if (result.success && !hasResultDialog && !result.silent && showToast.showOnSuccess !== false) {
-        // Prefer a DYNAMIC message the server returned (result.data.message)
-        // over the static action.successMessage. Server-driven actions like
-        // check_app_updates / publish / install compute a real outcome
-        // ("2 app updates available: CRM 1.0.0→1.0.1", "Published v1.2.0")
-        // that the static label can't express; without this the user only ever
-        // sees a generic "Done". Falls back to the static label, then a default
-        // — text the runner writes itself, so its translator is asked for it
-        // (see `setTranslator`).
-        const dyn = (result.data && typeof result.data === 'object'
-          && typeof (result.data as { message?: unknown }).message === 'string')
-          ? String((result.data as { message?: unknown }).message).trim()
-          : '';
-        const message = dyn || action.successMessage || this.runnerText(RUNNER_TEXT.completedSuccessfully);
+        // The server returns FACTS and the console writes the sentence
+        // (ruling A on objectstack-ai/cloud#2315) — see `composeSuccessMessage`.
+        const message = this.composeSuccessMessage(action, result);
         // Undoable action: register the captured operation on the global
         // UndoManager and surface an "Undo" affordance on the toast (the
         // consumer's toast handler wires the button to UndoManager). The
@@ -1657,12 +1776,18 @@ export class ActionRunner {
     // record to read them from — without one there is nothing to restore, so
     // the affordance is correctly not offered rather than offered empty. The
     // same holds when the row lacks a written field (objectui#10404): no Undo,
-    // never one that writes `null` over the stored value.
+    // never one that writes `null` over the stored value. A relation the row
+    // carries expanded is captured as its stored id, read against the field
+    // map the host published for this object (objectui#11122).
     if (action.undoable && rowRecord && writtenFields.length > 0) {
       const objectName = action.objectName || readContextObjectName(this.context);
       const recordId = collected.recordId ?? rowRecord.id;
       if (objectName && recordId != null) {
-        const undoData = captureUpdateUndoData(writtenFields, rowRecord);
+        const undoData = captureUpdateUndoData(
+          writtenFields,
+          rowRecord,
+          readContextObjectFields(this.context, objectName),
+        );
         if (undoData) {
           result.undo = {
             id: `undo-${objectName}-${String(recordId)}-${Date.now()}`,
@@ -1670,7 +1795,10 @@ export class ActionRunner {
             objectName,
             recordId: String(recordId),
             timestamp: Date.now(),
-            description: action.label || `Undo ${objectName}`,
+            // objectui#11080 — no English verb here. The toast that reports the
+            // Undo / Redo already says which one it is, from a pack key, so an
+            // action that declared no label is named by the object it acted on.
+            description: action.label || objectName,
             undoData,
             redoData: Object.fromEntries(writtenFields.map((k) => [k, params[k]])),
           };
@@ -2287,14 +2415,14 @@ export class ActionRunner {
     // BEFORE the request, so there is no result to read; admitting `${result.*}`
     // there would widen the authorable surface with nothing behind it and
     // silently blank the token instead of leaving the author's mistake visible.
+    //
+    // The success toast's copy is the one other caller of the grammar, through
+    // `substituteScopeTokens` directly (`composeSuccessMessage`): `result` only,
+    // because that is the one scope the contract declares for the copy, and no
+    // encoding, because a toast is text.
     const scopes: Record<string, unknown> = { param: params, ctx: this.buildInterpolationContext() };
     if (resultScope !== undefined) scopes.result = resultScope;
-    const pattern = new RegExp(`\\$\\{(${Object.keys(scopes).join('|')})\\.([\\w.]+)\\}`, 'g');
-    return target.replace(pattern, (_match, scope: string, path: string) => {
-      const value = readPath(scopes[scope], path);
-      if (value == null) return '';
-      return encodeURIComponent(String(value));
-    });
+    return substituteScopeTokens(target, scopes, encodeURIComponent);
   }
 
   /**
@@ -2390,6 +2518,31 @@ export function readOnSuccessNavigation(value: unknown): OnSuccessNavigation | n
   const navigate = (value as { navigate?: unknown }).navigate;
   if (typeof navigate !== 'string' || navigate === '') return null;
   return value as OnSuccessNavigation;
+}
+
+/**
+ * The runner's ONE `${scope.path}` token grammar — the substitution behind
+ * `interpolateTarget` (url / api targets and the `onSuccess.navigate` hop) and
+ * behind the success toast's `${result.*}` copy (`composeSuccessMessage`).
+ *
+ * The scope MAP defines the vocabulary: the pattern is built from its keys, so
+ * a token naming a scope the caller did not pass is left in the text exactly as
+ * written. A path that resolves to nothing becomes `''`. `encode` is the only
+ * thing a caller varies, and it belongs to the SINK, not to the dialect: a URL
+ * position percent-encodes each value, a toast inserts it as text.
+ */
+function substituteScopeTokens(
+  template: string,
+  scopes: Record<string, unknown>,
+  encode: (value: string) => string,
+): string {
+  if (typeof template !== 'string' || template.indexOf('${') === -1) return template;
+  const pattern = new RegExp(`\\$\\{(${Object.keys(scopes).join('|')})\\.([\\w.]+)\\}`, 'g');
+  return template.replace(pattern, (_match, scope: string, path: string) => {
+    const value = readPath(scopes[scope], path);
+    if (value == null) return '';
+    return encode(String(value));
+  });
 }
 
 /**

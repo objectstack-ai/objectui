@@ -121,11 +121,12 @@ describe('Studio inline creators: skeletons pass spec validation', () => {
     { type: 'app', skeleton: buildAppSkeleton('conf_app', 'Conformance App') },
     {
       // Nav-seeded variant (objectui#2262): create-app scaffolds one menu item
-      // per package object — the seeded navigation must be spec-valid too.
+      // per package object — the seeded navigation must be spec-valid too. The
+      // seeds are names only: a seeded entry carries no label (objectui#11201).
       type: 'app',
       skeleton: buildAppSkeleton('conf_app_nav', 'Conformance App (nav)', [
-        { name: 'conf_obj', label: 'Conformance Object' },
-        { name: 'conf_other', label: 'Other Object' },
+        { name: 'conf_obj' },
+        { name: 'conf_other' },
       ]),
     },
     { type: 'permission', skeleton: buildPermissionSkeleton('conf_perm', 'Conformance Permission') },

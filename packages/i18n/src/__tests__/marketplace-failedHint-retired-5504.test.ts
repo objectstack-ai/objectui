@@ -22,9 +22,11 @@
  *
  * Its replacements each state something the SERVER actually said:
  * `failedHintConfigured` names the control plane from `runtime-config`'s
- * `cloudUrl`, and `failedHintSameOrigin` covers the runtime that hosts the
- * catalog itself. Neither can claim a default the operator overrode, because
- * neither mentions a default.
+ * `cloudUrl`, and `failedHintSameOrigin` covers `cloudUrl: ''`, which says
+ * only that requests stay on this origin: the runtime may serve the catalog
+ * or proxy a control plane it does not name, so that hint claims neither
+ * (objectui#11726). Neither can claim a default the operator overrode,
+ * because neither mentions a default.
  *
  * ## Why this pin is NEGATIVE, and why it is needed at all
  *

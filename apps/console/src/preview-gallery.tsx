@@ -16,6 +16,9 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import { I18nProvider } from '@object-ui/i18n';
 import { ComponentRegistry } from '@object-ui/core';
+import { Button } from '@object-ui/components';
+import { RecordPickerDialog, getCellRenderer } from '@object-ui/fields';
+import type { DataSource, LookupColumnDef, QueryParams } from '@object-ui/types';
 
 // Register the renderers the schema-driven previews rely on.
 import '@object-ui/plugin-grid';
@@ -25,16 +28,24 @@ import '@object-ui/plugin-list';
 import '@object-ui/plugin-detail';
 
 // Lazy renderers used by the dashboard / report designers.
+// objectui#10859 batch 8 (phase 2b): `dashboard-grid` is retired, and the
+// `metric` / `metric-card` stubs decline the bare key like their registrations
+// (`skipFallback: true`) — this is a second `registerLazy` site for the same
+// plugin, and the doc gate's key universe is the UNION of every such loop.
 for (const variant of [
   'dashboard',
-  'metric',
-  'metric-card',
   'object-metric',
   'pivot',
-  'dashboard-grid',
 ]) {
   ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-dashboard'), {
     namespace: 'plugin-dashboard',
+    category: 'view',
+  });
+}
+for (const variant of ['metric', 'metric-card']) {
+  ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-dashboard'), {
+    namespace: 'plugin-dashboard',
+    skipFallback: true,
     category: 'view',
   });
 }
@@ -44,8 +55,10 @@ for (const variant of [
 // `register-plugins.ts` alone would have left both keys blessed by
 // `check:doc-types` from THIS file, so the retirement would have changed
 // nothing an author can observe. Chart families are reached as
-// `{ "type": "chart", "chartType": "line" | "area" }`.
-for (const variant of ['chart', 'bar-chart', 'pie-chart']) {
+// `{ "type": "chart", "chartType": "line" | "area" }`. `pie-chart` left this list
+// with its registration (objectui#10859 batch 8, phase 2c), for the same reason:
+// author `{ "type": "chart", "chartType": "pie" }`.
+for (const variant of ['chart', 'bar-chart']) {
   ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-charts'), {
     namespace: 'plugin-charts',
     category: 'chart',
@@ -53,15 +66,19 @@ for (const variant of ['chart', 'bar-chart', 'pie-chart']) {
 }
 
 import {
-  getMetadataPreview,
-  listMetadataPreviewTypes,
-  getMetadataInspector,
+  useRegisteredMetadataPreview,
+  useRegisteredMetadataPreviewTypes,
+  useRegisteredMetadataInspector,
 } from '@object-ui/app-shell';
 import type { MetadataSelection } from '@object-ui/app-shell';
 import { SAMPLES } from './preview-samples';
 
-// Importing the @object-ui/app-shell root registers built-in previews and
-// inspectors as a module side-effect, so no explicit registration is needed.
+// Importing the @object-ui/app-shell root registers the built-in previews and
+// inspectors, from a chunk the package entry loads with a dynamic `import()`
+// (objectui#11939 step 2) — so they land AFTER this module has rendered once.
+// The gallery is the designers' browser-verification path (the `verify` skill),
+// so it waits for that chunk (`GalleryOnceDesignersArrive` below) and never
+// lists zero designers while it is in flight.
 
 const ORDER = [
   'object',
@@ -103,7 +120,11 @@ function galleryLocale(): 'en-US' | 'zh-CN' {
 }
 
 function DesignerCard({ type }: { type: string }) {
-  const Preview = getMetadataPreview(type);
+  // Observed reads (objectui#11939): a designer registered after the gallery
+  // rendered appears without a reload. Both are hooks, so both are read above
+  // the early return below.
+  const Preview = useRegisteredMetadataPreview(type);
+  const registeredInspector = useRegisteredMetadataInspector(type);
   const [draft, setDraft] = React.useState<Record<string, unknown>>(
     () => SAMPLES[type] ?? { name: type, label: type },
   );
@@ -114,7 +135,7 @@ function DesignerCard({ type }: { type: string }) {
   const onPatch = (patch: Record<string, unknown>) =>
     setDraft((d) => ({ ...d, ...patch }));
 
-  const Inspector = selection ? getMetadataInspector(type) : undefined;
+  const Inspector = selection ? registeredInspector : undefined;
   const locale = galleryLocale();
 
   return (
@@ -174,8 +195,130 @@ function DesignerCard({ type }: { type: string }) {
   );
 }
 
+/**
+ * objectui#11903 — the record picker, on a page a human can look at.
+ *
+ * `RecordPickerDialog` in `multiple` mode over three columns, the shape of a
+ * related list's *Add* (name, email, email verified), served by an in-memory
+ * data source so the dialog's layout can be judged by eye without a backend.
+ * Twelve users, so the footer bar carries its page controls too.
+ *
+ * Isolate it with `?only=record_picker`, which also opens the dialog.
+ */
+const RECORD_PICKER_KEY = 'record_picker';
+
+const PICKER_USER_SEED: ReadonlyArray<readonly [name: string, verified: boolean]> = [
+  ['Ada Lovelace', true],
+  ['Alan Turing', true],
+  ['Barbara Liskov', false],
+  ['Claude Shannon', true],
+  ['Donald Knuth', true],
+  ['Edsger Dijkstra', false],
+  ['Frances Allen', true],
+  ['Grace Hopper', true],
+  ['John Backus', false],
+  ['Ken Thompson', true],
+  ['Margaret Hamilton', true],
+  ['Radia Perlman', false],
+];
+
+const PICKER_USERS = PICKER_USER_SEED.map(([name, verified], i) => ({
+  id: `usr_${String(i + 1).padStart(2, '0')}`,
+  name,
+  email: `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@example.com`,
+  email_verified: verified,
+}));
+
+const PICKER_FIELDS: Record<string, { type: string; label: string }> = {
+  name: { type: 'text', label: 'Name' },
+  email: { type: 'email', label: 'Email' },
+  email_verified: { type: 'boolean', label: 'Email verified' },
+};
+
+const PICKER_COLUMNS: LookupColumnDef[] = [
+  { field: 'name', label: 'Name' },
+  { field: 'email', label: 'Email' },
+  { field: 'email_verified', label: 'Email verified' },
+];
+
+/** Read-only, in-memory `sys_user`: search, page and sort over `PICKER_USERS`. */
+const pickerDataSource: DataSource = {
+  async find(_resource: string, params?: QueryParams) {
+    const term = typeof params?.$search === 'string' ? params.$search.toLowerCase() : '';
+    let rows = PICKER_USERS.filter(
+      (u) => !term || u.name.toLowerCase().includes(term) || u.email.includes(term),
+    );
+    const orderby = params?.$orderby;
+    const sort =
+      orderby && typeof orderby === 'object' && !Array.isArray(orderby)
+        ? Object.entries(orderby)[0]
+        : undefined;
+    if (sort) {
+      const [field, direction] = sort;
+      rows = [...rows].sort((a, b) => {
+        const key = field as keyof (typeof PICKER_USERS)[number];
+        const cmp = String(a[key]).localeCompare(String(b[key]));
+        return direction === 'desc' ? -cmp : cmp;
+      });
+    }
+    const skip = params?.$skip ?? 0;
+    const top = params?.$top ?? rows.length;
+    return { data: rows.slice(skip, skip + top), total: rows.length };
+  },
+  async findOne(_resource: string, id: string) {
+    return PICKER_USERS.find((u) => u.id === id) ?? null;
+  },
+  async create() {
+    throw new Error('The record picker specimen is read-only.');
+  },
+  async update() {
+    throw new Error('The record picker specimen is read-only.');
+  },
+  async delete() {
+    throw new Error('The record picker specimen is read-only.');
+  },
+  async getObjectSchema(objectName: string) {
+    return { name: objectName, fields: PICKER_FIELDS };
+  },
+};
+
+function RecordPickerSpecimen({ autoOpen }: { autoOpen: boolean }) {
+  const [open, setOpen] = React.useState(autoOpen);
+  const [picked, setPicked] = React.useState<string[]>([]);
+
+  return (
+    <section className="scroll-mt-4" id="record-picker">
+      <div className="mb-2 flex items-center gap-2">
+        <h2 className="text-sm font-semibold tracking-tight text-foreground">record picker</h2>
+        <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+          RecordPickerDialog · multiple · 3 columns
+        </code>
+      </div>
+      <div className="flex items-center gap-3 rounded-md border bg-background p-4">
+        <Button type="button" onClick={() => setOpen(true)}>
+          Assign user
+        </Button>
+        <span className="text-xs text-muted-foreground">{picked.length} picked</span>
+      </div>
+      <RecordPickerDialog
+        open={open}
+        onOpenChange={setOpen}
+        multiple
+        title="Assign user"
+        dataSource={pickerDataSource}
+        objectName="sys_user"
+        columns={PICKER_COLUMNS}
+        fieldsMeta={PICKER_FIELDS}
+        cellRenderer={getCellRenderer}
+        value={picked}
+        onSelect={(ids: unknown) => setPicked(Array.isArray(ids) ? ids.map(String) : [])}
+      />
+    </section>
+  );
+}
+
 function Gallery() {
-  const registered = new Set(listMetadataPreviewTypes());
+  const registered = new Set(useRegisteredMetadataPreviewTypes());
   const all = ORDER.filter((t) => registered.has(t));
   // Dev-harness isolation: `?only=flow` (or `#only=flow`) renders a single
   // designer full-width so browser automation can interact without the other
@@ -185,7 +328,8 @@ function Gallery() {
     const h = window.location.hash.match(/only=([a-z_]+)/)?.[1];
     return q ?? h ?? null;
   }, []);
-  const types = only && all.includes(only) ? [only] : all;
+  const pickerOnly = only === RECORD_PICKER_KEY;
+  const types = pickerOnly ? [] : only && all.includes(only) ? [only] : all;
   const [active, setActive] = React.useState(types[0]);
 
   return (
@@ -216,6 +360,12 @@ function Gallery() {
                 {t}
               </a>
             ))}
+            <a
+              href="#record-picker"
+              className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/70"
+            >
+              record picker
+            </a>
           </nav>
         )}
       </header>
@@ -223,15 +373,30 @@ function Gallery() {
         {types.map((t) => (
           <DesignerCard key={t} type={t} />
         ))}
+        {(!only || pickerOnly) && <RecordPickerSpecimen autoOpen={pickerOnly} />}
       </main>
     </div>
   );
 }
 
+/**
+ * The await of the package entry's own designer chunk. Its registrations
+ * notify the observable registry (objectui#11939), so this re-renders when they
+ * land and only then mounts the gallery. Until then it says what is happening;
+ * if the chunk fails, the package entry reports why on the console.
+ */
+function GalleryOnceDesignersArrive() {
+  const types = useRegisteredMetadataPreviewTypes();
+  if (types.length === 0) {
+    return <p className="p-6 text-sm text-muted-foreground">Loading the built-in designers…</p>;
+  }
+  return <Gallery />;
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <I18nProvider config={{ defaultLanguage: 'en' }}>
-      <Gallery />
+      <GalleryOnceDesignersArrive />
     </I18nProvider>
   </React.StrictMode>,
 );

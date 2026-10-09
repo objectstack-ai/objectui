@@ -83,16 +83,21 @@ styles can be overridden from JSON.
 ### 4. The action system (interactivity)
 
 Actions are data, not functions — and a control that RUNS something is its own
-node type, `action:button`. `actionType` names the executor the action runner
-dispatches to; the node's own keys carry that executor's arguments:
+node type, `action:button`. Its props go in the node's `properties` bag, the spec's
+row for the block: `actionType` names the executor the action runner dispatches
+to, and the row's other keys carry that executor's arguments. ⛔ Never flat on the
+node — the spec's strict page component refuses a node-level `actionType` /
+`target` as mis-layered (ADR-0089 D3a), and so does objectui's strict authoring face:
 
 <!-- os:check -->
 ```json
 {
   "type": "action:button",
-  "label": "Open details",
-  "actionType": "url",
-  "target": "/users/ada"
+  "properties": {
+    "label": "Open details",
+    "actionType": "url",
+    "target": "/users/ada"
+  }
 }
 ```
 

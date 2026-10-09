@@ -64,6 +64,11 @@ import {
   RecordDetailPanel,
 } from '@object-ui/plugin-detail';
 import { createSafeTranslation } from '@object-ui/i18n';
+import {
+  getCellRenderer,
+  resolveCellRendererType,
+  type CellRendererProps,
+} from '@object-ui/fields';
 import { usePermissions } from '@object-ui/permissions';
 import {
   buildExpandFields,
@@ -132,10 +137,12 @@ export interface ObjectTreeProps {
    *
    * ## ⚠️ The CEILING, so nobody reads this as more than it is
    *
-   * `BaseSchema` ends in `[key: string]: any`, so an UNDECLARED key read off this
-   * type still compiles and still types `any`. What the annotation buys is that the
-   * question becomes ANSWERABLE by the checker, ⛔ not that an undeclared read is
-   * refused — the same ceiling objectui#5155 / objectui#7927 record for the mirror.
+   * `BaseSchema` ended in `[key: string]: any` when this was written, so an
+   * UNDECLARED key read off this type still compiled and typed `any`. What the
+   * annotation bought was that the question became ANSWERABLE by the checker, ⛔ not
+   * that an undeclared read was refused — the same ceiling objectui#5155 /
+   * objectui#7927 recorded for the mirror. objectui#8347 removed the signature, so
+   * an undeclared read off this type no longer compiles.
    */
   schema: ObjectTreeSchema;
   dataSource?: DataSource;
@@ -261,7 +268,8 @@ function fieldKey(f: any): string | undefined {
  * `checker.getPropertyOfType` cannot say declared-or-not through `any` — it
  * answers `undefined` for a key this node certainly declares exactly as it does
  * for a nonsense token. The annotation is what makes those six ANSWERABLE; it
- * refuses nothing, because `BaseSchema` ends in `[key: string]: any`.
+ * refused nothing while `BaseSchema` ended in `[key: string]: any` (since
+ * objectui#8347 it refuses an undeclared read too).
  *
  * objectui#8253's ruling said to declare the key only if the console writes it —
  * measured, it does not (`CreateViewDialog.tsx`'s `tree` slot collects
@@ -516,12 +524,23 @@ type TranslateOptions = (
   options: FieldOption[],
 ) => FieldOption[];
 
-/** What {@link formatCellValue} needs to format one cell of one column. */
+/**
+ * What {@link renderTreeCell} (and its untyped fallback {@link formatCellValue})
+ * needs to draw one cell of one column.
+ */
 interface CellFormatContext {
   /** The object schema's definition for this column, when one was fetched. */
   fieldDef: any;
   /** The column's field key — the i18n option keys are scoped by it. */
   fieldName: string;
+  /**
+   * The column's label exactly as this tree's header prints it (the
+   * `{ns}.fields.{object}.{field}` key, then the authored label, then the
+   * humanized key). A face that names its own column — `BooleanCellRenderer`'s
+   * "LABEL — Off" badge — reads it from `field.label`, so the cell and the
+   * header it sits under say the same word in the session's language.
+   */
+  columnLabel: string;
   /** The object the tree is rendering; absent for a schema-less inline mount. */
   objectName?: string;
   /** `useSafeFieldLabel().translateOptions` — identity without a provider. */
@@ -529,6 +548,67 @@ interface CellFormatContext {
 }
 
 /**
+ * Draw one tree cell through the SAME per-field-type face every list surface
+ * draws — objectui#11686.
+ *
+ * The face is resolved by `@object-ui/fields`'s published two-step,
+ * `getCellRenderer(resolveCellRendererType(field))` — the resolution the grid
+ * (through its `resolveGridCellRendering`), the kanban card, the gallery card
+ * and the report viewer all spell. So a `boolean` column draws the checkbox
+ * face, a `date` column the locale-aware date face, a `select` column the
+ * option badge, a `lookup` column the referenced record's name, a `currency`
+ * column the formatted amount — and a type the tree has never heard of draws
+ * whatever the registry draws for it, with no list copied here to fall behind.
+ * Before this, every type outside "has options" and "is a reference" reached
+ * `String(value)`: the Org Chart's `active` column printed `true`.
+ *
+ * The `field` handed to the face is the column's definition with the four
+ * things this tree knows better than the raw definition:
+ *
+ *  - `name` — the column key. Faces read it (`BooleanCellRenderer`'s
+ *    completion / status names, the date faces' due-like name test), and a
+ *    served `fields` map is keyed by name rather than carrying it.
+ *  - `type` — the RENDERER key, the declared type promoted by its `format`
+ *    hint, as the grid's `fieldMeta.type` carries it.
+ *  - `options` — translated through `translateOptions`, the exact call the
+ *    grid makes when it builds a column's `fieldMeta`, so both views read one
+ *    `fieldOptions.*` i18n key (objectui#6014's half, kept).
+ *  - `label` — {@link CellFormatContext.columnLabel}.
+ *
+ * ⚠️ Only a column with a DECLARED type has a face to resolve. A column the
+ * object schema does not define, or a mount that never fetched one, keeps
+ * {@link formatCellValue}'s conservative string — the face for "no type at
+ * all" is not a guess this renderer gets to make.
+ *
+ * `empty` is the text a STRING answer falls back to when it comes out empty;
+ * a face draws its own empty affordance (`EmptyValue`) and never reads it.
+ */
+function renderTreeCell(value: unknown, ctx: CellFormatContext, empty = ''): React.ReactNode {
+  const def = ctx.fieldDef;
+  const declaredType: string = typeof def?.type === 'string' ? def.type : '';
+  if (!declaredType) return formatCellValue(value, ctx) || empty;
+
+  const rendererType = resolveCellRendererType({ type: declaredType, format: def.format });
+  const Face = getCellRenderer(rendererType);
+  const options: FieldOption[] | undefined = Array.isArray(def.options)
+    ? ctx.objectName
+      ? ctx.translateOptions(ctx.objectName, ctx.fieldName, def.options as FieldOption[])
+      : (def.options as FieldOption[])
+    : undefined;
+  const field: CellRendererProps['field'] = {
+    ...def,
+    name: ctx.fieldName,
+    type: rendererType,
+    label: ctx.columnLabel,
+    ...(options ? { options } : {}),
+  };
+  return <Face value={value} field={field} />;
+}
+
+/**
+ * The UNTYPED fallback of {@link renderTreeCell}, and the plain reading the
+ * record overlay prints when it has nothing declared to render against.
+ *
  * Format one cell the way the flat table formats the same field — objectui#6014.
  *
  * Both branches DELEGATE the decision rather than re-deciding it, so the tree
@@ -618,18 +698,20 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
    */
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  // `'undeclared'` — and that is a finding, not a shrug (objectui#8348).
-  // MEASURED: NO published face declares a `data` row for `object-tree`.
-  // `@objectstack/spec` 17.4.0 has no `ComponentPropsMap['object-tree']` entry;
-  // `ObjectTreeSchema` (`@object-ui/types`) declares `objectName` REQUIRED and
-  // no `data` / `staticData`; and this package's registration declares no
-  // `data` input. Decision batch #83 rules by reference to the block's own
-  // published row — "the row decides" — so with no row on any face, neither arm
-  // of that ruling reaches this block and rung 1 keeps its pre-8348 verbatim
-  // behaviour here. ⛔ Do NOT copy this arm to a block that HAS a row: it is
-  // the honest answer for an unruled block, reported on the card rather than
-  // guessed at.
-  const dataConfig = useMemo(() => resolveRecordSourceConfig(schema, 'undeclared'), [schema]);
+  // `'view-data'` — the arm `object-tree`'s published `data` row declares
+  // (objectui#8348). Decision batch #83 rules by the block's own row — 「8348
+  // 以协议为准」 — and ruling batch #136 item 3 (Q1-C) had the protocol gain
+  // that row: `ComponentPropsMap['object-tree']` declares `data` as the
+  // `ViewData` union and `staticData` as an array. ⛔ The verdict is not
+  // restated here as a fact about a version; it is derived from the INSTALLED
+  // row at test time by `ObjectTree.dataArmSpecRow-8348.test.tsx`, so a spec
+  // release that moves the row turns that pin red.
+  //
+  // So `{ provider, … }` under `data` is rung 1, and a bare array under `data`
+  // is not a record source: the ladder falls through to `staticData`, then
+  // `objectName`. This used to pass `'undeclared'`, which honoured ANY truthy
+  // `data` — right only while no published face declared a row for this block.
+  const dataConfig = useMemo(() => resolveRecordSourceConfig(schema, 'view-data'), [schema]);
 
   /**
    * The object THIS render is bound to, as a plain string — so the resolution
@@ -745,8 +827,8 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   // The object is `dataObjectName` — the `object` provider's own object,
   // whether the node spelled it `objectName` or `data: { provider: 'object' }`
   // — and it is subscribed exactly when the `object` arm below queries: inline
-  // rows (a `data` array, the `value` provider) name no object and query no
-  // adapter, so they do not subscribe.
+  // rows (`staticData`, or the `value` provider under `data`) name no object
+  // and query no adapter, so they do not subscribe.
   //
   // ⚠️ Rows a HOST hands down as the `data` prop (ListView's tree) do NOT
   // exempt the tree: the `object` arm runs its own full query ahead of them,
@@ -847,19 +929,20 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
           return;
         }
 
-        // Otherwise fall back to inline/static data (tests, value provider).
+        // Otherwise: rows a HOST handed down as the `data` React prop
+        // (`ListView`'s tree seat), then the inline `value` provider below.
         //
-        // ⭐ `schema.data` is read WITHOUT a cast since objectui#8655, and the
-        // missing cast is the finding rather than a tidy-up. This was one of
-        // that card's two class-(d) reads — reported "unanswerable", not
-        // "undeclared", because the prop was `any` and
-        // `checker.getPropertyOfType` cannot tell those apart through one.
-        // Typed at the node, the checker answers: `data` IS declared, on
-        // `BaseSchema` ("Arbitrary data attached to the component"), so the
-        // `as any` was hiding a declaration rather than reaching past its
-        // absence. ⛔ The sibling cast on `rest` stays — `rest` is the
-        // untyped remainder of the props bag, a different question.
-        const passed = (rest as any).data ?? schema.data;
+        // ⛔ The AUTHORED `schema.data` is NOT read here any more
+        // (objectui#8348). This line used to be `rest.data ?? schema.data`
+        // with an `Array.isArray` test — a second reader of the authored key
+        // that bypassed the shared ladder, so a bare array under `data` drew
+        // its rows whatever arm the ladder was told. The authored key has ONE
+        // reader now, `dataConfig` above, which judges it against this block's
+        // published row. Through `SchemaRenderer` the authored key does not
+        // arrive as the prop either: the arm table stops that spread for
+        // object-arm blocks (objectui#9571), so `rest.data` is the host's
+        // carrier only — which option B of that ruling refused to gate.
+        const passed = (rest as any).data;
         if (Array.isArray(passed)) {
           if (!cancelled) {
             setHeld({ provider: dataProvider, object: dataObjectName, rows: passed });
@@ -1036,28 +1119,20 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   const cellContext = (field: string): CellFormatContext => ({
     fieldDef: objectSchema?.fields?.[field],
     fieldName: field,
+    columnLabel: fieldLabel(field),
     objectName: headerObjectName,
     translateOptions: i18n.translateOptions,
   });
 
   const navigation = useNavigationOverlay({
-    // ⛔ The cast STAYS, and it stays on purpose (objectui#8655). This is the
-    // card's other class-(d) read, and typing the node made it answerable:
-    // measured with `checker.getPropertyOfType` against the node type, this key
-    // is UNDECLARED — it survives only on `BaseSchema`'s `[key: string]: any`.
-    // Dropping the cast would compile through that index signature and type
-    // `any` with nothing marking it, which is the defect rather than the
-    // absence of one (objectui#8651 records that shape).
-    //
-    // ⛔ And this card does NOT rule it. `navigation` is objectui#8652's
-    // family: maintainer-ruled option B — declare on the PLATFORM element
-    // schemas first, then mirror — blocked on objectstack `e233db9db`, whose unlock
-    // criterion is a released `@objectstack/spec` carrying the declaration
-    // being installable here. Measured on the installed spec: `navigation` is
-    // declared on exactly one `ComponentPropsMap` entry, `object-grid`, and
-    // this element has no entry at all. ⇒ not declared here, not retired here,
-    // read untouched.
-    navigation: (schema as any).navigation,
+    // A DECLARED read since objectui#11168 slice 3. objectui#8655 kept a cast
+    // here on purpose: the key was undeclared on the node and survived only on
+    // `BaseSchema`'s `[key: string]: any`, and objectui#8652's family ruling
+    // (option B — the platform element schemas first, then the mirror) was
+    // waiting on a released spec. `@objectstack/spec` 17.5.0 declares
+    // `navigation` on the `object-tree` row, and `ObjectTreeSchema` now mirrors
+    // it as the spec's `NavigationConfig`, so the read is typed.
+    navigation: schema.navigation,
     // The record-page URL names the object the ROWS came from, not the block's
     // bare top-level key (`2ce2612df`). `77cb489b4` published `objectName`
     // as the THIRD RUNG of ONE record-source ladder (`data`, then `staticData`,
@@ -1278,7 +1353,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
                       <span className="inline-block h-5 w-5" />
                     )}
                     <span className="truncate">
-                      {formatCellValue(node.record[config.labelField], cellContext(config.labelField)) || '—'}
+                      {renderTreeCell(node.record[config.labelField], cellContext(config.labelField), '—')}
                     </span>
                   </div>
                 </td>
@@ -1286,7 +1361,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
                   .filter((f) => f !== config.labelField)
                   .map((f) => (
                     <td key={f} className="px-3 py-2 text-muted-foreground">
-                      {formatCellValue(node.record[f], cellContext(f))}
+                      {renderTreeCell(node.record[f], cellContext(f))}
                     </td>
                   ))}
               </tr>

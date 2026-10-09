@@ -145,6 +145,13 @@ function expectSpecValidNode(node: unknown, who: string): void {
   expect(typeof (node as { label?: unknown }).label, `${who} emitted a node with no \`label\``).toBe('string');
 }
 
+/** The open add-node palette's row for `label` (objectui#11778: every "+" opens it). */
+function pickInPalette(label: string): void {
+  const option = screen.getAllByRole('option').find((o) => o.textContent?.startsWith(label));
+  expect(option, `palette row ${label}`).toBeDefined();
+  fireEvent.click(option!);
+}
+
 /** The nodes a canvas patch carries, in the shape the producers emit. */
 function patchedNodes(patch: Record<string, unknown>): Array<Record<string, unknown>> {
   return patch.nodes as Array<Record<string, unknown>>;
@@ -166,6 +173,8 @@ describe('flow-node producers ↔ spec FlowNodeSchema (#6331): observed output',
     );
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Add connected node' })[0]);
+    // objectui#11778 — the + opens the add-node palette; the node lands on a pick.
+    pickInPalette('Create record');
 
     expect(patches, 'the + handle must emit one patch').toHaveLength(1);
     const added = patchedNodes(patches[0]!).find((n) => n.id !== 'a');
@@ -191,6 +200,7 @@ describe('flow-node producers ↔ spec FlowNodeSchema (#6331): observed output',
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Insert node here' }));
+    pickInPalette('Create record');
 
     expect(patches, 'insert-on-edge must emit one patch').toHaveLength(1);
     const inserted = patchedNodes(patches[0]!).find((n) => n.id !== 'a' && n.id !== 'b');

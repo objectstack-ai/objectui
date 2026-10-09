@@ -27,6 +27,7 @@ import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { useAutoTriggerOnce } from './auto-trigger';
 import { readStaticParamValues } from './static-params';
+import { DisabledReasonTrigger, describedByWithReason, useDisabledReason } from './disabled-reason';
 
 /**
  * The declared props. `schema` is `UIActionSchema` (objectui#4418) for the same
@@ -39,12 +40,16 @@ import { readStaticParamValues } from './static-params';
  * on `action:button`; `type` stays on the intersection as the SDUI envelope's
  * component discriminator and is not read as an action type here.
  */
-export interface ActionIconProps {
+// `…RendererProps`, not `ActionIconProps` (objectui#11073): `@objectstack/spec/ui` 17.5.0 exports
+// `ActionIconProps` as the block's AUTHORED property bag (`actionType`, `label`, `variant`, …).
+// This is the React envelope that carries a node (`schema`, `context`, `disabled`, an open
+// tail) — a different layer, named as objectui#7265 named `RecordAlertRendererProps`.
+export interface ActionIconRendererProps {
   schema: UIActionSchema & { type: string; className?: string; actionType?: string };
   className?: string;
   context?: Record<string, any>;
   /**
-   * The host-EVALUATED enablement verdict — see `ActionButtonProps` for the
+   * The host-EVALUATED enablement verdict — see `ActionButtonRendererProps` for the
    * mechanism (objectui#9131). Declared rather than left to the index
    * signature, consumed by name below, never re-spread onto the DOM.
    */
@@ -58,12 +63,12 @@ export interface ActionIconProps {
 const ActionIconRenderer = forwardRef<
   HTMLButtonElement,
   {
-    schema: ActionIconProps['schema'];
-    className?: ActionIconProps['className'];
-    context?: ActionIconProps['context'];
+    schema: ActionIconRendererProps['schema'];
+    className?: ActionIconRendererProps['className'];
+    context?: ActionIconRendererProps['context'];
   }
 >(
-  ({ schema, className, context: localContext, ...props }: ActionIconProps, ref) => {
+  ({ schema, className, context: localContext, ...props }: ActionIconRendererProps, ref) => {
     const {
       'data-obj-id': dataObjId,
       'data-obj-type': dataObjType,
@@ -94,13 +99,28 @@ const ActionIconRenderer = forwardRef<
     // The row bound the three canonical ways — see `usePredicateRecordContext`.
     const recordData = usePredicateRecordContext(data);
 
-    const isVisible = useCondition(toPredicateInput(schema.visible), recordData);
+    // `visible` fails CLOSED on a predicate that FAULTS, as on `action:button`
+    // (objectui#11212, Rider 1 of objectui#4421): a precondition that cannot be
+    // evaluated hides the icon and is reported once, rather than showing an
+    // action whose guard is broken. The key's policy, not a `can()` special
+    // case — `current_user.can(…)` before the permissions payload loads and an
+    // unbound root both hide. This leg used to fail SOFT to `true`.
+    const isVisible = useCondition(toPredicateInput(schema.visible), recordData, {
+      throwOnError: true,
+      label: `action "${schema.name ?? schema.label ?? 'action:icon'}" (visible)`,
+    });
     // Spec `disabled` (boolean | CEL — disabled when TRUE) primary, legacy
     // non-spec `enabled` fallback (objectstack-ai/objectstack#1885 follow-through — only action-button
     // was wired; this renderer ignored a spec-authored `disabled`). Uncast
     // since objectui#8648 — see `action-button.tsx` for the reading.
     const isDisabledPred = useCondition(toPredicateInput(schema.disabled), recordData);
     const isEnabled = useCondition(toPredicateInput(schema.enabled), recordData);
+    // The reason a greyed-out icon gives (objectui#11839) — the same rule as
+    // `action:button`: only the DECLARED `disabled` predicate, evaluated true,
+    // earns it. See `./disabled-reason`.
+    const disabledReason = useDisabledReason(
+      hasDeclaredVisibilityGate(schema.disabled) && isDisabledPred,
+    );
 
     const Icon = resolveIcon(schema.icon);
     const variant = schema.variant === 'primary' ? 'default' : (schema.variant || 'ghost');
@@ -171,6 +191,9 @@ const ActionIconRenderer = forwardRef<
           patch: schema.patch,
           confirmText: schema.confirmText,
           successMessage: schema.successMessage,
+          // See action-button.tsx — success copy per handler outcome, the
+          // toast's first rung (objectui#11344).
+          outcomeMessages: schema.outcomeMessages,
           errorMessage: schema.errorMessage,
           refreshAfter: schema.refreshAfter,
           // Placement declaration — see action-button.tsx (#2210).
@@ -216,10 +239,10 @@ const ActionIconRenderer = forwardRef<
     // click reach the runner identically (confirm, param dialogs, toasts).
     // `isVisible` is the verdict the early return below consults, so an icon
     // its author hid is refused and reported rather than run (objectui#4191).
-    // That verdict keeps this renderer's existing error policy on a faulting
-    // predicate (fail-soft, unlike `action:button`'s fail-closed one): the
-    // trigger follows whatever this icon itself renders, and the policy is not
-    // decided here.
+    // That verdict carries this renderer's error policy on a faulting predicate
+    // (fail-CLOSED since objectui#11212, as on `action:button`): the trigger
+    // follows whatever this icon itself renders, and the policy is not decided
+    // here.
     useAutoTriggerOnce(schema, isVisible, handleClick);
 
     // Same gate, same reachability as action-button.tsx (objectui#3823): an
@@ -264,6 +287,10 @@ const ActionIconRenderer = forwardRef<
         onClick={handleClick}
         aria-label={schema.label || schema.name}
         {...toFormControlDomProps(rest)}
+        // After the pass-through, so an authored `ariaDescribedBy` and the
+        // reason are both kept (objectui#11839). The reason is the icon's
+        // DESCRIPTION; its name stays the `aria-label` above.
+        aria-describedby={describedByWithReason(rest['aria-describedby'], disabledReason)}
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
       >
         {loading ? (
@@ -275,6 +302,17 @@ const ActionIconRenderer = forwardRef<
         )}
       </Button>
     );
+
+    // A predicate-disabled icon (objectui#11839): its label tooltip below can
+    // never open, since the trigger is the disabled button itself, so the
+    // wrapper's tooltip carries the label above the reason.
+    if (disabledReason) {
+      return (
+        <DisabledReasonTrigger reason={disabledReason} heading={schema.label || schema.description}>
+          {button}
+        </DisabledReasonTrigger>
+      );
+    }
 
     // Wrap with tooltip if label is provided
     if (schema.label || schema.description) {
@@ -300,6 +338,15 @@ ComponentRegistry.register('icon', ActionIconRenderer, {
   namespace: 'action',
   skipFallback: true,
   label: 'Action Icon',
+  // objectui#11168 slice 1 — the keys after `className` are the spec keys this
+  // block's `ComponentPropsMap` row declares, each published because it was
+  // measured HONOURED through the block path, exactly as on `action:button`
+  // (see its registration). The pins live in
+  // `__tests__/action-button-icon-inputs-11168.test.tsx`. `endpoint` stays
+  // unpublished for the reason recorded there: the console's own `api`
+  // handler reads `target` and never `endpoint`. `outcomeMessages` is
+  // forwarded but unpublished, for the reason `action:button` records
+  // (objectui#11344).
   inputs: [
     { name: 'name', type: 'string' },
     { name: 'label', type: 'string' },
@@ -316,6 +363,117 @@ ComponentRegistry.register('icon', ActionIconRenderer, {
       enum: ['default', 'secondary', 'destructive', 'outline', 'ghost'],
     },
     { name: 'className', type: 'string' },
+    {
+      name: 'visible',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Visibility predicate: `true`/`false`, a bare CEL expression, or the `{ dialect: \'cel\', source }` envelope, evaluated against the row the host binds; the icon is not rendered when it is false. Omit for always-visible',
+    },
+    {
+      name: 'disabled',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Disabled predicate, in the same three shapes as `visible`: the icon is shown but cannot be pressed while it holds. Omit for never-disabled',
+    },
+    {
+      name: 'params',
+      type: 'array',
+      description:
+        'The parameters to collect from the user before the action runs (`ActionParam` objects: `name`, `type`, `label`, …); each collected value reaches the executor under its parameter `name`. Static execution values ride `properties.params` instead',
+    },
+    {
+      name: 'description',
+      type: 'string',
+      description:
+        'Action description — the tooltip text when there is no `label`, and what the parameter dialog shows under its title',
+    },
+    {
+      name: 'openIn',
+      type: 'enum',
+      enum: ['self', 'new-tab'],
+      description: 'For a `url` action: `self` navigates in place, `new-tab` opens a new browser tab',
+    },
+    {
+      name: 'method',
+      type: 'string',
+      description: 'HTTP method of an `api` action (`POST` when omitted)',
+    },
+    {
+      name: 'bodyExtra',
+      type: 'object',
+      description:
+        'Static request-body fields of an `api` action, merged last, so a constant here overrides a collected value of the same name',
+    },
+    {
+      name: 'bodyShape',
+      type: ['enum', 'object'],
+      enum: ['flat'],
+      description:
+        'How an `api` action shapes its request body: `flat` (the default) or `{ wrap: KEY }` to nest the collected values under that key, with `bodyExtra` beside it',
+    },
+    {
+      name: 'operation',
+      type: 'enum',
+      enum: ['update'],
+      description:
+        '`update` declares a single-record field write: the runner dispatches it to the platform action route with `patch` merged under the collected values',
+    },
+    {
+      name: 'patch',
+      type: 'object',
+      description:
+        'For `operation: update`: the field values written, merged UNDER the values the user supplies, so a collected value of the same name wins',
+    },
+    {
+      name: 'confirmText',
+      type: 'string',
+      description: 'Confirmation question asked before the action runs; the action runs only if it is confirmed',
+    },
+    {
+      name: 'successMessage',
+      type: 'string',
+      description: 'Toast text when the action succeeds; a `${result.*}` token reads the handler\'s answer (e.g. `${result.id}`)',
+    },
+    {
+      name: 'errorMessage',
+      type: 'string',
+      description: 'Toast text when the action fails, in place of the raw error',
+    },
+    {
+      name: 'refreshAfter',
+      type: 'boolean',
+      description: 'Refresh the surrounding data after the action succeeds',
+    },
+    {
+      name: 'locations',
+      type: 'array',
+      of: 'string',
+      description:
+        'The placements the action declares (`list_toolbar`, `list_item`, `record_header`, …). A `script` or `flow` action declared record-scoped (`list_item`, `record_header`, `record_more` or `record_section`) refuses to run when no record or single selection is in scope, instead of running without one',
+    },
+    {
+      name: 'toast',
+      type: 'object',
+      description:
+        'Toast behaviour: `{ showOnSuccess?, showOnError?, duration? }` — `false` suppresses that toast, `duration` is handed to the toast',
+    },
+    {
+      name: 'resultDialog',
+      type: 'object',
+      description:
+        'One-shot result dialog for a value the response shows exactly once (a 2FA code, a fresh secret); it replaces the success toast',
+    },
+    {
+      name: 'onSuccess',
+      type: 'object',
+      description:
+        'Post-success navigation `{ navigate, openIn? }`: `navigate` is a route template that can read `${result.*}`, `openIn` is `self` (the default) or `newTab`',
+    },
+    {
+      name: 'objectName',
+      type: 'string',
+      description: "Object the action acts on — dispatch goes to this object instead of the page's. Omit to act on the page's object",
+    },
   ],
   defaultProps: {
     icon: 'play',

@@ -553,9 +553,11 @@ describe('PermissionMatrixEditPage — a save the server refuses as a packaged s
       throw Object.assign(new Error(SERVER_TEXT), { status: 403, code: 'NOT_OVERRIDABLE' });
     };
     await renderPlain({ packageId: 'com.example.showcase' });
-    fireEvent.click(saveButton()!);
+    // objectui#11787 — the package door has no Save button: an edit autosaves
+    // to the package draft after the shared autosave's pause.
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
 
-    await screen.findByText(SERVER_TEXT);
+    await screen.findByText(SERVER_TEXT, undefined, { timeout: 4000 });
     expect(screen.queryByRole('alert')).toBeNull();
     expect(cloneButtons()).toHaveLength(0);
   });

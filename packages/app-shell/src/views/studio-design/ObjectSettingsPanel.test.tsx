@@ -8,6 +8,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import React from 'react';
+import { t } from '../metadata-admin/i18n';
 import { ObjectSettingsPanel } from './ObjectSettingsPanel';
 
 const baseDraft = {
@@ -24,14 +25,23 @@ function renderPanel(draft: Record<string, unknown>, onPatch = vi.fn()) {
   return onPatch;
 }
 
+/**
+ * The OWD dials are the shared `Select` (objectui#11865): its options exist
+ * only while it is open, so open it from the keyboard and return its list.
+ */
+async function openDial(testId: string) {
+  fireEvent.keyDown(screen.getByTestId(testId), { key: 'ArrowDown' });
+  return within(await screen.findByRole('listbox'));
+}
+
 describe('ObjectSettingsPanel — record sharing (OWD)', () => {
-  it('exposes the sharing model control with the four canonical OWD options', () => {
+  it('exposes the sharing model control with the four canonical OWD options', async () => {
     renderPanel(baseDraft);
     // The section header is present.
     expect(screen.getByText('Record sharing (OWD)')).toBeTruthy();
     // Canonical OWD options are all offered (scoped to the internal dial —
     // the external D11 dial offers the same set).
-    const internal = within(screen.getByTestId('owd-internal-select'));
+    const internal = await openDial('owd-internal-select');
     expect(internal.getByRole('option', { name: 'Private — owner only' })).toBeTruthy();
     expect(
       internal.getByRole('option', { name: 'Public read — everyone reads, only the owner writes' }),
@@ -72,35 +82,40 @@ describe('ObjectSettingsPanel — record sharing (OWD)', () => {
     expect(desc.textContent).not.toMatch(/refused/i);
   });
 
-  it('patches sharingModel when a model is picked', () => {
+  it('patches sharingModel when a model is picked', async () => {
     const onPatch = renderPanel(baseDraft);
-    const select = screen.getByTestId('owd-internal-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'private' } });
+    fireEvent.click((await openDial('owd-internal-select')).getByRole('option', { name: 'Private — owner only' }));
     expect(onPatch).toHaveBeenCalledWith({ sharingModel: 'private' });
   });
 
-  it('clears sharingModel back to unset', () => {
+  it('clears sharingModel back to unset', async () => {
     const onPatch = renderPanel({ ...baseDraft, sharingModel: 'private' });
-    const select = screen.getByDisplayValue('Private — owner only') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: '' } });
+    expect(screen.getByTestId('owd-internal-select').textContent).toBe('Private — owner only');
+    fireEvent.click(
+      (await openDial('owd-internal-select')).getByRole('option', { name: t('engine.studio.settings.sharingUnset', 'en-US') }),
+    );
     expect(onPatch).toHaveBeenCalledWith({ sharingModel: undefined });
   });
 });
 
 describe('ObjectSettingsPanel — external OWD dial (ADR-0090 D11)', () => {
-  it('renders the external dial defaulting to unset and patches externalSharingModel', () => {
+  it('renders the external dial defaulting to unset and patches externalSharingModel', async () => {
     const onPatch = renderPanel(baseDraft);
-    const select = screen.getByTestId('owd-external-select') as HTMLSelectElement;
-    expect(select.value).toBe('');
-    fireEvent.change(select, { target: { value: 'public_read' } });
+    expect(screen.getByTestId('owd-external-select').textContent).toBe(t('engine.studio.settings.sharingExternalUnset', 'en-US'));
+    fireEvent.click(
+      (await openDial('owd-external-select')).getByRole('option', {
+        name: 'Public read — everyone reads, only the owner writes',
+      }),
+    );
     expect(onPatch).toHaveBeenCalledWith({ externalSharingModel: 'public_read' });
   });
 
-  it('clears externalSharingModel back to unset', () => {
+  it('clears externalSharingModel back to unset', async () => {
     const onPatch = renderPanel({ ...baseDraft, externalSharingModel: 'private' });
-    const select = screen.getByTestId('owd-external-select') as HTMLSelectElement;
-    expect(select.value).toBe('private');
-    fireEvent.change(select, { target: { value: '' } });
+    expect(screen.getByTestId('owd-external-select').textContent).toBe('Private — owner only');
+    fireEvent.click(
+      (await openDial('owd-external-select')).getByRole('option', { name: t('engine.studio.settings.sharingExternalUnset', 'en-US') }),
+    );
     expect(onPatch).toHaveBeenCalledWith({ externalSharingModel: undefined });
   });
 

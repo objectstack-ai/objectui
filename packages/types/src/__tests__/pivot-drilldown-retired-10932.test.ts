@@ -52,8 +52,8 @@ type Equal<A, B> =
 type Expect<T extends true> = T;
 
 /**
- * `?: never` reads as `undefined`. A deletion would read as `any` (the
- * `BaseSchema` index signature), and the old member as `DrillDownConfig | undefined`.
+ * `?: never` reads as `undefined`. A deletion read as `any` (the `BaseSchema`
+ * index signature) until objectui#8347 and fails to compile now, and the old member as `DrillDownConfig | undefined`.
  */
 export type assertionPivotDrillDownIsATombstone = Expect<Equal<Ts_PivotTableSchema['drillDown'], undefined>>;
 /** Non-vacuity twin: a member the node does read keeps its real type. */

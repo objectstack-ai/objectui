@@ -118,6 +118,11 @@ Exported as `TimelineGanttItem` (a row) and `TimelineGanttItemBar` (one bar).
 A bar whose dates cannot be drawn is not a validation failure: the chart shows
 its "unusable date range" message for it instead.
 
+A date-only `endDate` is inclusive: the bar runs through the end of that day.
+So `2024-01-01` to `2024-01-31` fills January, and a bar that starts and ends
+on the same day is one day wide. An `endDate` with a time part, or given as a
+number or a `Date`, is an instant, and the bar ends exactly there.
+
 <Callout type="warn">
 `variant` decides which of the two shapes `items` holds — `vertical` (the
 default) and `horizontal` draw timeline items, `gantt` draws gantt rows.
@@ -170,6 +175,69 @@ writing one is a type error and a validation failure. Write `items` instead of
 `events` (each entry `{ time, title, … }`; the date goes in `time`, not
 `date`) and `variant` instead of `orientation`. `position` has no replacement:
 the vertical rail is always drawn on the left.
+</Callout>
+
+## Object-bound timeline (`object-timeline`)
+
+`object-timeline` fetches records from `objectName` and draws one entry per
+record, from the fields its `timeline` config names. An authored node takes its
+props in the `properties` bag, where `@objectstack/spec`'s
+`ComponentPropsMap['object-timeline']` row declares them:
+
+```json
+{
+  "type": "object-timeline",
+  "properties": {
+    "objectName": "project_task",
+    "timeline": { "startDateField": "start_date", "titleField": "name" },
+    "navigation": { "mode": "drawer" }
+  }
+}
+```
+
+### Where the entries come from
+
+The first record source present wins: `items` (authored entries, drawn as
+written), then `data` (pre-fetched records), then a `bind` path, then the query
+on `objectName`. Only the query is a fetch, so `objectName` is optional: a
+timeline drawn from `items`, `data` or a `bind` path needs none to draw (entry-click
+navigation still reads it, below), and a node-level `dataSource` binding can
+supply the object instead. Records, from
+`data`, a `bind` path or the query, are composed into entries through the field
+bindings below; authored `items` are not.
+
+| Prop | What the renderer does with it |
+|------|--------------------------------|
+| `timeline` | Names the record fields an entry is drawn from: `startDateField` (its date), `endDateField` (the end printed after it), `titleField`, `groupByField` (the field whose value heads each group; without it, entries group into date buckets) and `colorField` (the marker colour: the field's option colour for the value, or the value itself when it is a colour literal). Each outranks the flat key of the same binding. `scale` sets the gantt axis unit. |
+| `mapping` | `{ title, date, description, variant }` field names. `title` and `date` are read where the `timeline` block leaves the binding unset, ahead of the flat keys. `variant` names the field whose value picks the marker colour (the record's own `variant` field without it); on the vertical rail a colour from `colorField` outranks it. |
+| `descriptionField` | The field an entry's description is read from (default `description`); `mapping.description` outranks it. |
+| `limit` | The row cap, lowered to `$top` (default 100). A value that is not a positive integer is ignored with a console warning. |
+| `filter` / `sort` | Lowered to `$filter` / `$orderby` on the query, so they do nothing when `items` or `data` supply the entries. The rail draws entries composed from records by start date, earliest first, whatever `sort` says. |
+| `dateFormat` | `short` (the default) or `long`, both locale-formatted, or `iso`. |
+| `rowLabel`, `minDate`, `maxDate` | The gantt's row-column header and its pinned axis start and end, read only by the gantt branch, which on this block draws authored `items`. An empty `minDate` / `maxDate` is not honoured; a value that is not a date, or a start after the end, refuses the chart with a diagnostic. |
+
+### Entry-click navigation
+
+`navigation` is what an entry click opens — the spec's `NavigationConfig` by
+reference, `ViewNavigationConfig` in `@object-ui/types`, the type
+`ObjectGridSchema.navigation` uses: `mode` (`page`, `drawer`, `modal`, `split`,
+`popover`, `new_window` or `none`) with `size`, `openNewTab` and
+`preventNavigation`.
+
+| Member | On an entry click |
+|--------|-------------------|
+| `mode: 'drawer'` / `'modal'` / `'popover'` | Opens the entry's record in that overlay |
+| `mode: 'new_window'`, or `openNewTab: true` | Opens the record page in a new tab; `openNewTab` outranks every mode except `none`. On a timeline that names no `objectName` there is no record page: the tab opens at a slash and the entry's `id` alone (its `_id` when it has no `id`, `undefined` when it has neither) |
+| `mode: 'page'`, or a block without `mode` (the spec's `page` default) | Opens the record page of the timeline's `objectName` through the record navigator the host publishes (the console publishes one on its custom pages, record pages and list views); under a host that publishes none, such as an embedded renderer, or on a timeline that names no `objectName`, it opens nothing |
+| `preventNavigation: true`, or `mode: 'none'` | Opens nothing, whatever else the block says |
+| `size` | Sets the overlay width (`sm` … `full`, or `auto` for the default) |
+
+A click handler from a parent view outranks the whole key.
+
+<Callout type="warn">
+With the key absent a click opens nothing: unlike the board and the calendar,
+this renderer supplies no drawer default. `split` opens nothing on this block
+either, because the timeline gives the split shell no main panel.
 </Callout>
 
 ## Variants
@@ -252,7 +320,7 @@ const schedule: TimelineSchema = {
         {
           title: 'Mockups',
           startDate: '2024-01-15',
-          endDate: '2024-02-01',
+          endDate: '2024-01-31',
           variant: 'success'
         }
       ]
@@ -328,6 +396,8 @@ const iso: TimelineSchema['dateFormat'] = 'iso'      // "2024-01-15"
 
 A date-only value (`2024-01-15`) names a calendar day, so every face prints that day in every viewer's time zone, and the object timeline buckets and sorts it as that day. A value with a time part is an instant: `short` and `long` print its day in the viewer's zone, and `iso` prints its UTC day.
 
+Without a `groupByField`, the object timeline groups entries into date buckets (Earlier, Today, Tomorrow, This week, Next week, Later, No date). "This week" starts on the first day of the week of the user's display locale, the day the calendar's weeks start on: Sunday under `en-US`, Monday under `en-GB` or `zh-CN`.
+
 ## Time Scales (Gantt)
 
 For Gantt-style timelines, choose the appropriate time scale:
@@ -341,6 +411,8 @@ const longProject: TimelineSchema['scale'] = 'month'   // long projects
 ```
 
 A date-only bar date, `minDate` or `maxDate` (`2024-01-15`) names a calendar day, so the axis headers, the bar positions and the bar tooltips all place it on that day in every viewer's time zone. A value with a time part is an instant and sits at its hour in the viewer's day. A plan with no bar dates and no pinned range shows a one-day axis on the viewer's today.
+
+The headers and the bars share one axis. It runs from the start of the unit that holds the first date to the end of the unit that holds the last. Each header is as wide as its unit is long: hour, day and week columns are equal, and a month is as wide as its days. So a bar lines up under the header of the unit it starts in.
 
 ## Customization
 
@@ -374,7 +446,7 @@ const schema: TimelineSchema = {
 
 ## TypeScript Support
 
-```plaintext
+```ts
 import type { TimelineSchema } from '@object-ui/types'
 
 const timelineSchema: TimelineSchema = {

@@ -42,7 +42,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 const junctionSchema = {
   name: 'sys_user_position',
   fields: {
-    position: { type: 'lookup', label: 'Position', reference_to: 'sys_position' },
+    position: { type: 'lookup', label: 'Position', reference: 'sys_position' },
   },
 };
 

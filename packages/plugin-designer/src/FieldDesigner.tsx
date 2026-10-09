@@ -21,6 +21,16 @@ import { ObjectGrid } from '@object-ui/plugin-grid';
 import { DrawerForm } from '@object-ui/plugin-form';
 import type { DrawerFormSchema } from '@object-ui/plugin-form';
 import { ValueDataSource } from '@object-ui/core';
+import { CHOICE_TYPES_REQUIRING_OPTIONS } from '@object-ui/data-objectstack';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@object-ui/components';
 import {
   Columns3,
   Hash,
@@ -121,6 +131,93 @@ export const FIELD_TYPE_CATEGORIES: Record<FieldTypeCategory, DesignerFieldType[
 };
 
 export const CATEGORY_ORDER: FieldTypeCategory[] = ['text', 'number', 'date', 'choice', 'relation', 'advanced'];
+
+/**
+ * Whether the drawer's type `<select>` offers `type` for the field being
+ * created or edited (objectui#11253).
+ *
+ * A choice type (`select`, and any other member of the write guard's
+ * `CHOICE_TYPES_REQUIRING_OPTIONS`) needs at least one option, and this drawer
+ * has no options editor. Offered, it could only produce a field the object write
+ * guard holds client-side, on a page that saves every change at once; so it is
+ * not offered until the drawer can author options. The one exception is the
+ * field's OWN stored type: an existing picklist keeps its type in the drawer, so
+ * editing its label or flags shows what it is and writes it back unchanged (its
+ * options ride along untouched). The top-of-page type FILTER is a list filter,
+ * not a creation path, and keeps every type.
+ */
+function drawerOffersType(type: DesignerFieldType, editingType?: DesignerFieldType): boolean {
+  return !CHOICE_TYPES_REQUIRING_OPTIONS.includes(type) || type === editingType;
+}
+
+/** One category of the type filter: its heading and the types under it. */
+interface TypeFilterGroup {
+  category: FieldTypeCategory;
+  label: string;
+  options: ReadonlyArray<{ value: DesignerFieldType; label: string }>;
+}
+
+/**
+ * objectui#11865 — the list's type filter, drawn with the shared `Select`, the
+ * control the rest of the designer picks with. It used to be a browser-native
+ * `<select>`, one `<optgroup>` per category. What a pick does is unchanged:
+ * `onPick` receives the picked option's own value (`''` for "All types", else
+ * the type), the string the native control's `change` carried.
+ *
+ * - Items carry their option's INDEX, not its value: "All types" is index 0,
+ *   and its value is `''`, which `SelectItem` refuses.
+ * - Each category is a `SelectGroup` headed by a `SelectLabel`, where the
+ *   native control had an `<optgroup>`.
+ * - The filter is component state that only a pick sets, so it always holds
+ *   one of the options; there is no outside value to show.
+ * - It stays enabled in read-only mode, as the native control did: it filters
+ *   the list and writes nothing.
+ */
+function TypeFilterPicker({
+  value,
+  allLabel,
+  groups,
+  onPick,
+}: {
+  value: DesignerFieldType | '';
+  allLabel: string;
+  groups: ReadonlyArray<TypeFilterGroup>;
+  onPick: (value: DesignerFieldType | '') => void;
+}) {
+  const options: ReadonlyArray<{ value: DesignerFieldType | ''; label: string }> = [
+    { value: '', label: allLabel },
+    ...groups.flatMap((g) => g.options),
+  ];
+  return (
+    <Select
+      value={String(options.findIndex((o) => o.value === value))}
+      onValueChange={(token) => {
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger
+        data-testid="field-designer-type-filter"
+        className="h-auto w-auto gap-1 px-2 py-1 text-xs"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="0">{allLabel}</SelectItem>
+        {groups.map((g) => (
+          <SelectGroup key={g.category}>
+            <SelectLabel>{g.label}</SelectLabel>
+            {g.options.map((o) => (
+              <SelectItem key={o.value} value={String(options.indexOf(o))}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 
 // ============================================================================
@@ -284,7 +381,7 @@ export function FieldDesigner({
   }, []);
 
   // Grouped type options for the <select> used inside the Drawer.
-  // The top-of-page type filter also uses these groupings (see <optgroup> below).
+  // The top-of-page type filter also uses these groupings (see `TypeFilterPicker`).
   const typeOptionsByCategory = useMemo(
     () => CATEGORY_ORDER.map((cat) => ({
       category: cat,
@@ -300,9 +397,13 @@ export function FieldDesigner({
   // Flatten for the <select> widget inside the drawer (which only takes `options`).
   // Visually grouped via inserting separator-like labels is not supported by shadcn Select.
   // For now we flatten and rely on the top filter for category-based filtering.
+  // objectui#11253 — minus the choice types this drawer cannot give options to.
   const flatTypeOptions = useMemo(
-    () => typeOptionsByCategory.flatMap((g) => g.options),
-    [typeOptionsByCategory],
+    () =>
+      typeOptionsByCategory
+        .flatMap((g) => g.options)
+        .filter((o) => drawerOffersType(o.value, editingField?.type)),
+    [typeOptionsByCategory, editingField],
   );
 
   // DrawerForm schema — right-side panel with Basic / Type-specific / Advanced sections
@@ -422,21 +523,12 @@ export function FieldDesigner({
           </span>
         </div>
         {/* Type filter — grouped by 6 categories (Airtable-style) */}
-        <select
+        <TypeFilterPicker
           value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as DesignerFieldType | '')}
-          data-testid="field-designer-type-filter"
-          className="rounded-md border border-input bg-background px-2 py-1 text-xs outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
-        >
-          <option value="">{t('appDesigner.fieldDesigner.allTypes')}</option>
-          {typeOptionsByCategory.map((group) => (
-            <optgroup key={group.category} label={group.label}>
-              {group.options.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+          allLabel={t('appDesigner.fieldDesigner.allTypes')}
+          groups={typeOptionsByCategory}
+          onPick={setTypeFilter}
+        />
       </div>
 
       {/* ObjectGrid for the field list */}

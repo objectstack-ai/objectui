@@ -79,7 +79,7 @@ afterEach(cleanup);
 const OBJECT_SCHEMA = {
   name: 'kpi_entry_line',
   fields: {
-    sheet: { type: 'master_detail', label: 'Sheet', reference_to: 'kpi_entry_sheet', readonly: true },
+    sheet: { type: 'master_detail', label: 'Sheet', reference: 'kpi_entry_sheet', readonly: true },
     indicator_name: { type: 'text', label: 'Indicator' },
     target_value: { type: 'number', label: 'Target' },
     weight: { type: 'number', label: 'Weight' },
@@ -127,15 +127,7 @@ const DENIED = ['score', 'adjusted_score'] as const;
  */
 const UNCHANGED_ALLOWED = { indicator_name: 'Revenue', target_value: 100, weight: 20 };
 
-const FIELDS = [
-  { name: 'sheet', label: 'Sheet' },
-  { name: 'indicator_name', label: 'Indicator' },
-  { name: 'target_value', label: 'Target' },
-  { name: 'weight', label: 'Weight' },
-  { name: 'actual_value', label: 'Actual' },
-  { name: 'score', label: 'Score' },
-  { name: 'adjusted_score', label: 'Adjusted' },
-];
+const FIELDS = ['sheet', 'indicator_name', 'target_value', 'weight', 'actual_value', 'score', 'adjusted_score'];
 
 const makeDataSource = () => {
   const update = vi.fn(async (_o: string, _id: string, d: any) => ({ id: 'LINE1', ...d }));

@@ -90,6 +90,7 @@ const TYPE_LABELS_EN: Record<string, string> = {
   service: 'Service',
   email_template: 'Email Template',
   book: 'Documentation Book',
+  doc: 'Documentation',
   // Security — ADR-0090: profile removed (D2), role renamed to position (D3).
   permission: 'Permission Set',
   position: 'Position',
@@ -111,6 +112,7 @@ const TYPE_LABELS_EN: Record<string, string> = {
   theme: 'Theme',
   sharing_rule: 'Sharing Rule',
   analytics_cube: 'Analytics Cube',
+  picklist: 'Picklist',
 };
 
 const TYPE_LABELS_ZH: Record<string, string> = {
@@ -135,6 +137,7 @@ const TYPE_LABELS_ZH: Record<string, string> = {
   service: '服务',
   email_template: '邮件模板',
   book: '文档手册',
+  doc: '文档',
   permission: '权限集',
   position: '岗位',
   agent: 'AI 智能体',
@@ -152,6 +155,7 @@ const TYPE_LABELS_ZH: Record<string, string> = {
   theme: '主题',
   sharing_rule: '共享规则',
   analytics_cube: '分析立方体',
+  picklist: '选项列表',
 };
 
 const DOMAIN_LABELS_EN: Record<string, string> = {
@@ -435,6 +439,20 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.flowNode.kind': 'Node',
   'engine.inspector.flowNode.close': 'Close node',
   'engine.inspector.flowNode.id': 'ID',
+  // objectui#11827 — the ID field's inline refusal of a rename that cannot land;
+  // the field shows the stored id again, so each says nothing was renamed.
+  'engine.inspector.flowNode.idRequired': 'Not renamed: a node needs an id.',
+  'engine.inspector.flowNode.idTaken': 'Not renamed: another node in this flow already has the id "{id}".',
+  'engine.inspector.flowNode.idEdgeNamed': 'Not renamed: an edge still names "{id}", a node that is no longer in the flow. Remove or reconnect that edge first.',
+  // objectui#11838 — the rename carries every expression reference to the node
+  // through the parsers; these name the ones it cannot carry. `{refs}` lists
+  // each as `<node or edge> › <path>: <expression>`.
+  'engine.inspector.flowNode.idRefsUnparsed': 'Not renamed: these expressions read "{id}" but do not parse, so the rename cannot carry them: {refs}. Fix them first.',
+  'engine.inspector.flowNode.idRefsAmbiguous': 'Not renamed: "{name}" is also the name of a variable in this flow, so these expressions could read either and cannot be carried: {refs}. Rename the variable first, or edit them by hand.',
+  // objectui#11838 — a removal cannot carry a boundary event's host or an
+  // expression root, so it is refused while one names the node (the Remove
+  // node button and the canvas Delete key both show this).
+  'engine.inspector.flowNode.removeRefused': 'Not removed: these still name "{id}" and would name a node that no longer exists: {refs}. Change or remove them first.',
   'engine.inspector.flowNode.label': 'Label',
   'engine.inspector.flowNode.type': 'Node Type',
   'engine.inspector.flowNode.configuration': 'Configuration',
@@ -540,6 +558,22 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.appNav.urlTargetSelf': 'Same tab',
   'engine.inspector.appNav.urlTargetBlank': 'New tab',
   'engine.inspector.appNav.preview': 'Resolved link',
+  // objectui#11790 — the Studio nav editor's Type choice offers every member
+  // of the spec's nav-item union; these are the members, and the pickers'
+  // texts, the rows above did not carry.
+  'engine.inspector.appNav.type.action': 'Action',
+  'engine.inspector.appNav.type.component': 'Component',
+  'engine.inspector.appNav.type.doc': 'Documentation',
+  'engine.inspector.appNav.type.separator': 'Separator',
+  'engine.inspector.appNav.choose': '— Choose —',
+  'engine.inspector.appNav.noTargets': 'There is nothing of this type to link to yet.',
+  'engine.inspector.appNav.unboundHint': 'Until a target is chosen, this item stays here but is left out of the saved navigation.',
+  'engine.inspector.appNav.actionHint': 'Only actions not bound to an object can run from the menu.',
+  'engine.inspector.appNav.docPage': 'Doc page',
+  'engine.inspector.appNav.book': 'Book',
+  'engine.inspector.appNav.docHint': 'Choose a doc page, a book, or both.',
+  'engine.inspector.appNav.groupHint': 'A group is a titled section of the menu. Items are not nested under it from this editor.',
+  'engine.inspector.appNav.separatorHint': 'A separator is a divider: it has no label and opens nothing.',
   // View column inspector
   'engine.inspector.viewColumn.kind': 'Column',
   'engine.inspector.viewColumn.close': 'Close column',
@@ -559,7 +593,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.view.labelPlaceholder': 'e.g. All Leads',
   'engine.inspector.view.type': 'View type',
   'engine.inspector.view.object': 'Object',
-  'engine.inspector.view.objectPlaceholder': 'e.g. crm_lead',
   'engine.inspector.view.noSchema': 'Spec schema unavailable — basic properties only.',
   // objectui#6900 — an object-required field inside a predicate-gated form
   // section (ruling 5749269225): name both facts, then the three remedies.
@@ -601,6 +634,12 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.condition.op.lessThan': 'less than',
   'engine.inspector.condition.op.truthy': 'is set / true',
   'engine.inspector.condition.op.falsy': 'is empty / false',
+  // objectui#11894 — the value-less pair, worded by the subject's declared
+  // type; the two rows above stay for a subject the catalog does not type.
+  'engine.inspector.condition.op.isTrue': 'is true',
+  'engine.inspector.condition.op.isFalse': 'is false',
+  'engine.inspector.condition.op.isNotEmpty': 'is not empty',
+  'engine.inspector.condition.op.isEmpty': 'is empty',
   // objectui#10748 — the lookup filter's operator words the four above do not
   // cover (`ObjectFieldInspector` `LOOKUP_OPERATORS`, which reads the four as
   // well; the symbol a label leads with stays outside the word).
@@ -670,9 +709,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.pageBlock.field.object-form.layout': 'Layout',
   'engine.inspector.pageBlock.option.layout.vertical': 'Vertical',
   'engine.inspector.pageBlock.option.layout.horizontal': 'Horizontal',
-  'engine.inspector.pageBlock.option.layout.inline': 'Inline',
-  'engine.inspector.pageBlock.option.layout.grid': 'Grid',
-  'engine.inspector.pageBlock.field.object-form.columns': 'Columns (grid layout)',
+  'engine.inspector.pageBlock.field.object-form.columns': 'Field columns (1–4)',
   'engine.inspector.pageBlock.field.object-form.fields': 'Fields',
   'engine.inspector.pageBlock.field.object-form.title': 'Title',
   'engine.inspector.pageBlock.field.object-form.description': 'Description',
@@ -711,10 +748,15 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.pageBlock.field.element:text.content': 'Content',
   'engine.inspector.pageBlock.placeholder.element:text.content': 'Text…',
   'engine.inspector.pageBlock.field.element:text.variant': 'Variant',
-  'engine.inspector.pageBlock.option.variant.heading': 'Heading',
-  'engine.inspector.pageBlock.option.variant.subheading': 'Subheading',
+  'engine.inspector.pageBlock.option.variant.h1': 'Heading 1',
+  'engine.inspector.pageBlock.option.variant.h2': 'Heading 2',
+  'engine.inspector.pageBlock.option.variant.h3': 'Heading 3',
+  'engine.inspector.pageBlock.option.variant.h4': 'Heading 4',
+  'engine.inspector.pageBlock.option.variant.h5': 'Heading 5',
+  'engine.inspector.pageBlock.option.variant.h6': 'Heading 6',
   'engine.inspector.pageBlock.option.variant.body': 'Body',
   'engine.inspector.pageBlock.option.variant.caption': 'Caption',
+  'engine.inspector.pageBlock.option.variant.overline': 'Overline',
   'engine.inspector.pageBlock.field.element:text.align': 'Align',
   'engine.inspector.pageBlock.option.align.left': 'Left',
   'engine.inspector.pageBlock.option.align.center': 'Center',
@@ -769,7 +811,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // 17.0.0-rc.6). Their only reader was the canonical `page:header` icon field
   // removed from `previews/block-config.ts`; a key kept past its field is dead
   // vocabulary that the next author reads as a live surface. objectui#3829.
-  'engine.inspector.pageBlock.field.page:header.breadcrumb': 'Show breadcrumb',
+  // `…field.page:header.breadcrumb` left the same way with the designer's
+  // breadcrumb toggle (objectui#11173; the spec key retires through
+  // objectstack#20758).
   'engine.inspector.pageBlock.field.page:card.title': 'Title',
   'engine.inspector.pageBlock.field.page:card.bordered': 'Bordered',
   'engine.inspector.pageBlock.field.page:tabs.items': 'Tabs',
@@ -870,6 +914,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.hook.allObjects': 'All objects (*)',
   'engine.inspector.hook.noObjects': 'No objects found — publish an object, then pick it here.',
   'engine.inspector.hook.pickObject': 'Pick at least one object (or All objects).',
+  'engine.inspector.hook.outsideReach': 'These belong to other packages or to the platform (sys_…). A hook on one runs on that object’s events wherever they happen, not only in this package.',
+  'engine.inspector.hook.allObjectsReach': 'Runs on the events of every object — other packages’ objects and the platform’s own (sys_…) tables included.',
   'engine.inspector.hook.events': 'Events',
   'engine.inspector.hook.eventsHint': 'Which lifecycle events invoke this hook.',
   'engine.inspector.hook.eventsWrite': 'Write',
@@ -1128,6 +1174,31 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.reference.actionsOf': 'Actions of {connector}.',
   'engine.inspector.reference.chooseConnector': 'Choose a Connector above to list its actions.',
   'engine.inspector.reference.declarative': 'declarative',
+  // objectui#11788 — the notify node's recipient picker (`FlowRecipientsField`).
+  'engine.inspector.recipients.kindLabel': 'Recipient type',
+  'engine.inspector.recipients.kind.field': 'Record field',
+  'engine.inspector.recipients.kind.user': 'User',
+  'engine.inspector.recipients.kind.team': 'Team',
+  'engine.inspector.recipients.kind.email': 'Email address',
+  'engine.inspector.recipients.kind.custom': 'Other',
+  'engine.inspector.recipients.placeholder.field': 'Field of the trigger record',
+  'engine.inspector.recipients.placeholder.user': 'Pick a user',
+  'engine.inspector.recipients.placeholder.team': 'Pick a team',
+  'engine.inspector.recipients.placeholder.email': 'name@example.com',
+  'engine.inspector.recipients.placeholder.custom': 'Saved as typed, e.g. {ownerId}',
+  'engine.inspector.recipients.add': 'Add recipient',
+  'engine.inspector.recipients.remove': 'Remove recipient',
+  'engine.inspector.recipients.empty': 'No recipients yet.',
+  'engine.inspector.recipients.notEmail': 'Not an email address — the messaging service would read it as a user id.',
+  // objectui#11788 — the create/update record nodes' field-value keys, picked from the target object.
+  'engine.inspector.fieldMap.chooseObject': 'Choose the Object above to list its fields.',
+  // objectui#11783 — the shared object picker (inspectors/ObjectPicker.tsx).
+  'engine.inspector.objectPicker.groupPackage': 'This package',
+  'engine.inspector.objectPicker.groupOther': 'Other objects',
+  'engine.inspector.objectPicker.groupSystem': 'System objects',
+  'engine.inspector.objectPicker.showSystem': 'Show system objects ({count})',
+  'engine.inspector.objectPicker.hideSystem': 'Hide system objects',
+  'engine.inspector.objectPicker.noMatch': 'No object matches. Press Enter to keep what you typed.',
   // Add affordances (used by OutlineStrip + custom previews)
   'engine.inspector.add.widget': 'Add widget',
   'engine.inspector.add.block': 'Add block',
@@ -1163,6 +1234,19 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowCanvas.awaitingRevision': 'Awaiting Revision',
   'engine.flowCanvas.collapseRegions': 'Collapse nested regions',
   'engine.flowCanvas.expandRegions': 'Expand nested regions',
+  // objectui#10862, slice 4 — an edge's hover title and the node card's
+  // one-line config summary (FlowCanvas).
+  'engine.flowCanvas.edge.undeclaredCycle':
+    '{source} → {target} — part of an un-declared cycle; mark the edge that closes the loop as a back-edge',
+  'engine.flowCanvas.edge.backEdge': '{source} ↩ {target} (back-edge)',
+  'engine.flowCanvas.summary.branches': '{count} branches',
+  'engine.flowCanvas.summary.approversOne': '{count} approver',
+  'engine.flowCanvas.summary.approversOther': '{count} approvers',
+  'engine.flowCanvas.summary.unanimous': 'all',
+  'engine.flowCanvas.summary.code': 'code',
+  // objectui#11905 — the connect handle on a node card (FlowCanvas): drag it
+  // onto another node to draw a connection between two existing nodes.
+  'engine.flowCanvas.connect': 'Drag onto another node to connect',
   // Nested structured-region tray headers (FlowRegionView / extractRegions).
   'engine.flowRegion.branchN': 'Branch {n}',
   'engine.flowRegion.try': 'Try',
@@ -1186,6 +1270,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowPreview.problemsTitle': 'Validation problems',
   'engine.flowPreview.problems': 'Problems',
   'engine.flowPreview.debug': 'Debug',
+  // objectui#10862, slice 4 — the variables panel's input / output tags.
+  'engine.flowPreview.varIn': 'in',
+  'engine.flowPreview.varOut': 'out',
   // Flow run-history panel (FlowRunsPanel).
   'engine.flowRuns.title': 'Runs',
   'engine.flowRuns.refresh': 'Refresh run history',
@@ -1205,6 +1292,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowRuns.status.paused': 'Paused',
   'engine.flowRuns.status.running': 'Running',
   'engine.flowRuns.status.cancelled': 'Cancelled',
+  // objectui#10862, slice 4 — an expanded run's id line (the trigger part is
+  // appended after a ` · ` separator when the run carries one).
+  'engine.flowRuns.runId': 'run {id}',
+  'engine.flowRuns.trigger': 'trigger {type}',
   // Flow debug simulator (FlowSimulatorPanel).
   'engine.flowSim.run': 'Run',
   'engine.flowSim.step': 'Step',
@@ -1300,6 +1391,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.screenPreview.noDataSource': 'Connect to a backend to preview this object form.',
   'engine.screenPreview.hiddenOne': '{count} field hidden by its “visible when” condition.',
   'engine.screenPreview.hiddenOther': '{count} fields hidden by their “visible when” conditions.',
+  'engine.screenPreview.defaultTemplate': 'Default template for “{field}”, shown as written — the run fills it in:',
   // objectui#10862 (slice 1: the flow / automation previews) — the designer's
   // own words in `ActionPreview`, `AgentPreview`, `SkillPreview`,
   // `ToolPreview` and `JobPreview`, read in the `locale` each preview is
@@ -1465,6 +1557,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.appPreview.noTypeTitle':
     'Every navigation item needs a `type` discriminator — this entry will be rejected on save.',
   'engine.appPreview.noType': 'no type',
+  // objectui#11027 — the heading over the app's navigation areas (`AppSchema.areas`).
+  'engine.appPreview.areas': 'Areas',
   'engine.bookPreview.nameTitle': 'Name your book',
   'engine.bookPreview.nameDescription': 'Enter a name in the Form tab to start authoring the documentation spine.',
   'engine.bookPreview.treeTitle': 'Open the live-resolved navigation tree (actual docs per group)',
@@ -1489,6 +1583,33 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.bookPreview.separator': 'separator',
   'engine.bookPreview.rest': '…rest (remaining matched docs, by order)',
   'engine.bookPreview.emptyPage': '(empty)',
+  // The doc editor (previews/DocPreview, objectui#10188).
+  'engine.docPreview.bookSection': 'Book section',
+  'engine.docPreview.noSection': 'Not placed in a section',
+  'engine.docPreview.unknownSection': '{key} (not a section of any book)',
+  'engine.docPreview.booksLoading': 'Loading books…',
+  'engine.docPreview.booksFailed': 'Books could not be loaded: {message}',
+  'engine.docPreview.appearsIn': 'Appears in:',
+  'engine.docPreview.publicBook': 'public',
+  'engine.docPreview.noBooks': 'No documentation book exists yet — create one to place this doc in a section.',
+  'engine.docPreview.unplaced': 'Not in any book section yet — book trees list it under Uncategorized.',
+  'engine.docPreview.locales': 'Locale variants',
+  'engine.docPreview.baseLocale': 'Default',
+  'engine.docPreview.removeLocale': 'Remove the {locale} variant',
+  'engine.docPreview.localePlaceholder': 'zh-CN',
+  'engine.docPreview.addLocaleInput': 'New locale tag',
+  'engine.docPreview.addLocale': 'Locale',
+  'engine.docPreview.localeDuplicate': '{locale} already has a variant',
+  'engine.docPreview.localeInvalid': 'Use a locale tag such as zh-CN',
+  'engine.docPreview.variantTitle': 'Title',
+  'engine.docPreview.variantSummary': 'Summary',
+  'engine.docPreview.preview': 'Live preview',
+  'engine.docPreview.renderFailed': 'The Markdown renderer failed on this content.',
+  'engine.docPreview.emptyEditing': 'Nothing to preview yet — write Markdown in the source pane.',
+  'engine.docPreview.empty': 'This doc has no content.',
+  'engine.docPreview.source': 'Markdown source',
+  'engine.docPreview.sourceLocale': 'Markdown source ({locale})',
+  'engine.docPreview.sourcePlaceholder': '# Title\n\nWrite Markdown here…',
   'engine.datasourcePreview.empty': 'Set a name and at least a driver to see the datasource preview.',
   'engine.datasourcePreview.unknownDriver': 'unknown',
   'engine.datasourcePreview.active': 'Active',
@@ -1552,21 +1673,42 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.positionPreview.bind':
     'Bind {name} to one or more {permissionSets} to control CRUD-VAMA, field access, and tab visibility. Record visibility comes from the business-unit tree and sharing rules, not from the position.',
   'engine.positionPreview.permissionSets': 'Permission Sets',
+  // objectui#10202 — the read-only picklist page (the kind is package-owned).
+  'engine.picklistPreview.empty': 'This picklist has no name.',
+  'engine.picklistPreview.readOnly':
+    'Read-only: a picklist is owned by the package that declares it, and is not created, edited or deleted here.',
+  'engine.picklistPreview.ownedBy': 'Owning package',
+  'engine.picklistPreview.options': 'Options',
+  'engine.picklistPreview.colLabel': 'Label',
+  'engine.picklistPreview.colValue': 'Value',
+  'engine.picklistPreview.noOptions': 'This picklist declares no options.',
+  'engine.picklistPreview.extensions': 'Extensions',
+  'engine.picklistPreview.extensionsHint': 'Options other packages add to this picklist.',
+  'engine.picklistPreview.addedBy': 'Added by {package}',
+  'engine.picklistPreview.noExtensions': 'No package extends this picklist.',
+  'engine.picklistPreview.extensionsLoading': 'Loading extensions…',
+  'engine.picklistPreview.extensionsFailed':
+    'The installed packages could not be read, so the extensions of this picklist are unknown.',
   'engine.translationPreview.empty':
     'This bundle is empty — add at least one translated string to see the coverage report.',
+  // One heading per group of the per-app `TranslationDataSchema`, in its order (objectui#11765).
   'engine.translationPreview.category.objects': 'Objects',
+  'engine.translationPreview.category.picklists': 'Picklists',
   'engine.translationPreview.category.apps': 'Apps',
   'engine.translationPreview.category.messages': 'Messages',
-  'engine.translationPreview.category.validationMessages': 'Validation Messages',
   'engine.translationPreview.category.globalActions': 'Global Actions',
   'engine.translationPreview.category.dashboards': 'Dashboards',
-  'engine.translationPreview.category.settings': 'Settings',
+  'engine.translationPreview.category.datasets': 'Datasets',
+  'engine.translationPreview.category.pages': 'Pages',
+  'engine.translationPreview.category.flows': 'Flows',
   'engine.translationPreview.category.metadataForms': 'Metadata Forms',
+  'engine.translationPreview.category.settingsCommon': 'Settings UI',
   'engine.translationPreview.coverage': 'Category coverage:',
   'engine.translationPreview.totalKeys': '{count} total keys',
   'engine.translationPreview.categoryEmpty': 'empty',
   'engine.translationPreview.more': '+{count} more…',
-  'engine.translationPreview.keyCount': '{{count} keys}',
+  'engine.translationPreview.keyCountOne': '{{count} key}',
+  'engine.translationPreview.keyCountOther': '{{count} keys}',
   // objectui#10862 (slice 2) — the two advisories `celAuthoring.lintCelPredicate`
   // words itself, shown beneath the CEL editors: the wrong-layer root (the
   // local instrument's sentence; a slot `@objectstack/lint` covers ships that
@@ -1746,12 +1888,68 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.externalDatasource.refresh': 'Refresh catalog',
   'engine.externalDatasource.tables': 'Tables',
   'engine.externalDatasource.validation': 'Validation',
+  // objectui#10862, slice 4 — the panel's two tabs and the import dialog:
+  // the tables tab (`SchemaBrowser`), the validation tab (`ValidationPanel`,
+  // one row per diff kind, total over the spec's kind union) and
+  // `ImportObjectDialog`. A `{hole}` a code span fills is rendered by
+  // `withNodes`.
+  'engine.externalDatasource.browser.filter': 'Filter tables…',
+  'engine.externalDatasource.browser.refresh': 'Refresh',
+  'engine.externalDatasource.browser.introspecting': 'Introspecting remote schema…',
+  'engine.externalDatasource.browser.noRemoteTables':
+    'No remote tables found (check the datasource’s allowedSchemas).',
+  'engine.externalDatasource.browser.noMatch': 'No tables match the filter.',
+  'engine.externalDatasource.browser.colTable': 'Table',
+  'engine.externalDatasource.browser.colColumns': 'Columns',
+  'engine.externalDatasource.browser.colRows': 'Rows (est.)',
+  'engine.externalDatasource.browser.import': 'Import',
+  'engine.externalDatasource.browser.unavailable':
+    'Federation is not enabled on this server. The {service} service must be registered for table browsing, drafting, and validation to work.',
+  'engine.externalDatasource.check.unavailable':
+    'Federation is not enabled on this server, so validation is unavailable.',
+  'engine.externalDatasource.check.intro':
+    'Check that every federated object on {datasource} still matches its live remote table.',
+  'engine.externalDatasource.check.run': 'Run validation',
+  'engine.externalDatasource.check.allMatchOne': 'All {count} object match the remote schema.',
+  'engine.externalDatasource.check.allMatchOther': 'All {count} objects match the remote schema.',
+  'engine.externalDatasource.check.divergeOne': '{diverged} of {count} object diverge from the remote schema.',
+  'engine.externalDatasource.check.divergeOther': '{diverged} of {count} objects diverge from the remote schema.',
+  'engine.externalDatasource.check.noObjects':
+    'No federated objects are bound to this datasource yet. Import a table from the Tables tab to get started.',
+  'engine.externalDatasource.check.diffsOne': '{count} diff',
+  'engine.externalDatasource.check.diffsOther': '{count} diffs',
+  'engine.externalDatasource.check.expectedActual': 'expected {expected}, actual {actual}',
+  'engine.externalDatasource.diff.missingTable': 'Missing table',
+  'engine.externalDatasource.diff.missingColumn': 'Missing column',
+  'engine.externalDatasource.diff.typeMismatch': 'Type mismatch',
+  'engine.externalDatasource.diff.nullabilityMismatch': 'Nullability mismatch',
+  'engine.externalDatasource.diff.unmappedColumn': 'Unmapped column',
+  'engine.externalDatasource.diff.pkMismatch': 'Primary-key mismatch',
+  'engine.externalDatasource.diff.indexMismatch': 'Index mismatch',
+  'engine.externalDatasource.diff.unmappedIndex': 'Unmapped index',
+  'engine.externalDatasource.diff.defaultMismatch': 'Column default mismatch',
+  'engine.externalDatasource.diff.unreachable': 'Not checked — remote unreachable',
+  'engine.externalDatasource.import.title': 'Import as Object',
+  'engine.externalDatasource.import.intro':
+    'Map remote table {table} into an ObjectStack object bound to {datasource}. The remote schema is never modified.',
+  'engine.externalDatasource.import.generating': 'Generating draft…',
+  'engine.externalDatasource.import.done': 'Imported object {name}.',
+  'engine.externalDatasource.import.doneNext':
+    'Review its binding and run validation to confirm it matches the remote table.',
+  'engine.externalDatasource.import.objectName': 'Object name',
+  'engine.externalDatasource.import.reviewOne': '{count} column need review',
+  'engine.externalDatasource.import.reviewOther': '{count} columns need review',
+  'engine.externalDatasource.import.source': 'Generated source',
+  'engine.externalDatasource.import.importing': 'Importing…',
   // Structural flow validation (flow-sim-validate) — canvas banner, Problems
   // panel, and the debug simulator.
   'engine.flowValidate.nodeMissingId': 'A node is missing an id.',
   'engine.flowValidate.duplicateNodeId': 'Duplicate node id "{id}".',
   'engine.flowValidate.edgeSourceMissing': 'Edge source "{source}" does not exist.',
   'engine.flowValidate.edgeTargetMissing': 'Edge target "{target}" does not exist.',
+  // objectui#11838 — the other positions that name a node by id.
+  'engine.flowValidate.exprRefNodeMissing': 'Expression "{ref}" reads node "{id}", which does not exist.',
+  'engine.flowValidate.boundaryHostMissing': 'Boundary event "{id}" is attached to node "{host}", which does not exist.',
   'engine.flowValidate.startHasIncoming': 'Start node has an incoming edge.',
   'engine.flowValidate.multipleStart': 'Flow has {count} start nodes; expected one.',
   'engine.flowValidate.noStartUsingRoot': 'No "start" node; using the only root node as the entry.',
@@ -1812,6 +2010,16 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowProblems.empty': 'No problems — this flow is structurally valid.',
   'engine.flowProblems.sourceSchema': 'schema',
   'engine.flowProblems.sourceExpression': 'expression',
+  // objectui#11772 — one extra copy of a connection (`edgeRouteKey`): the
+  // engine follows every copy, so the target runs once per copy.
+  'engine.flowProblems.repeatedEdge': 'Connection {source} → {target} is repeated; the flow runs "{target}" once for each copy. Remove this copy.',
+  // objectui#11905 — why a connection between two existing nodes is refused,
+  // shown by both doors that draw one: the canvas's connect handle and the
+  // connection inspector's From / To (`edgeConnectionRefusal`).
+  'engine.flowProblems.connectRefused.missingSource': 'Cannot connect: this flow has no node "{source}".',
+  'engine.flowProblems.connectRefused.missingTarget': 'Cannot connect: this flow has no node "{target}".',
+  'engine.flowProblems.connectRefused.self': 'Cannot connect "{source}" to itself.',
+  'engine.flowProblems.connectRefused.repeat': '"{source}" already connects to "{target}". Select that connection to change it.',
   // References side panel (ResourceEditPage) empty state.
   'engine.edit.refsScanning': 'Scanning references…',
   'engine.edit.refsEmptyTitle': 'No references found',
@@ -1942,6 +2150,12 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.form.searchFields': 'Search fields…',
   'engine.form.allFieldsAdded': 'All fields added',
   'engine.form.noObjectFields': 'No object fields ({error}).',
+  // objectui#10862, slice 4 — the not-found `error` the field and dataset
+  // catalogue hooks (`useObjectFields`, `useDatasetSemantics`) publish, read
+  // in the designer locale where the hook returns it. Every other `error`
+  // they carry is the transport's own message and passes through.
+  'engine.form.objectNotFound': 'Object not found',
+  'engine.form.datasetNotFound': 'Dataset not found',
   'engine.form.noMatchingFields': 'No matching fields.',
   'engine.form.noFieldsOnObject': 'No fields on this object.',
   'engine.form.added': 'Added',
@@ -2048,6 +2262,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.packages.create.id': 'Package ID',
   'engine.packages.create.namespace': 'Object namespace',
   'engine.packages.create.name': 'Display name',
+  // objectui#11792 — the create dialog's Package ID field (PackageIdInput),
+  // which judges by the spec's id rule rather than the landing form's own.
+  'engine.packages.idRule.formatHint': 'Use a reverse-domain id like {example}: two or more parts separated by dots, each made of lowercase letters, digits and inner hyphens. Underscores are not allowed.',
+  'engine.packages.idRule.strippedNotice': 'Unsupported characters were removed — allowed: lowercase letters, digits, dots and hyphens',
+  'engine.packages.idRule.derived': 'Filled in from the display name until you edit it.',
   'engine.packages.create.version': 'Version',
   'engine.packages.create.versionInvalid': 'Use semantic version, e.g. 0.1.0',
   'engine.packages.create.creating': 'Creating…',
@@ -2102,20 +2321,27 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.packages.detail.reverted': 'Reverted to last published state.',
   'engine.packages.detail.discardDraftsPartial': 'Discarded {discarded}; {failed} failed.',
   'engine.packages.detail.discardDraftsOk': 'All pending changes discarded — back to the published version.',
-  'engine.packages.detail.deleteConfirm': 'Delete "{name}" and all its data?\n\nThis removes every object, view, dashboard and app in the package AND drops the database tables those objects created. This cannot be undone.',
+  'engine.packages.detail.discardTitle': 'Discard all pending changes ({count})?',
+  'engine.packages.detail.discardDescription': 'Every draft in this app is discarded and the app goes back to its last published version. Published metadata and data are not touched. Discarded drafts cannot be recovered.',
+  'engine.packages.detail.deleteTitle': 'Delete "{name}"?',
+  'engine.packages.detail.deleteDescription': 'This removes every object, view, dashboard and app in the package. Choose what happens to the records those objects hold. This cannot be undone.',
+  'engine.packages.detail.deleteModeStructure': 'Delete the structure, keep the records',
+  'engine.packages.detail.deleteModeStructureHint': "The package's metadata is removed. The database tables its objects created, and every record in them, are kept.",
+  'engine.packages.detail.deleteModeAll': 'Delete the structure and the data',
+  'engine.packages.detail.deleteModeAllHint': 'Also drops the database tables its objects created, with every record in them.',
+  'engine.packages.detail.deleteTypeName': 'Type "{name}" to confirm',
+  'engine.packages.detail.duplicateGo': 'Create copy',
   'engine.packages.detail.deleteFailed': 'Delete failed',
   'engine.packages.detail.disabled': 'Package disabled.',
   'engine.packages.detail.enabled': 'Package enabled.',
   'engine.packages.detail.exported': 'Package exported.',
   'engine.packages.detail.duplicate': 'Duplicate',
   'engine.packages.detail.duplicating': 'Duplicating…',
-  'engine.packages.detail.duplicatePrompt': 'New package id for the duplicate (a fresh writable base):',
   'engine.packages.detail.duplicated': 'Package duplicated into a new base.',
   'engine.packages.detail.adoptOrphans': 'Adopt loose items',
   'engine.packages.detail.adopting': 'Adopting…',
   'engine.packages.detail.adoptConfirm': 'Move all package-less (loose) metadata in this environment INTO "{name}"? This rebinds orphaned items to this base.',
   'engine.packages.detail.adopted': 'Loose items adopted into this base.',
-  'engine.packages.detail.deleteKeepData': 'Delete the DATA too?\n\nOK = also drop all records (destructive). Cancel = keep records, delete only the structure.',
   'engine.quickfind.placeholder': "Find metadata types or items… (try 'view', 'account')",
   'engine.quickfind.empty': 'Type to search across all metadata types.',
   'engine.quickfind.title': 'Quick Find',
@@ -2350,6 +2576,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.stub.searchRef': 'Search {ref}…',
   'designer.stub.chooseRelated': 'Choose related object…',
   'designer.stub.latLng': 'Lat, lng',
+  // objectui#10862, slice 4 — the address stub's three-line placeholder.
+  'designer.stub.address': 'Street\nCity, State ZIP\nCountry',
   // Field inspector
   'designer.field.kind': 'Field',
   'designer.field.close': 'Close',
@@ -2360,6 +2588,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.field.section.options': '{type} options',
   'designer.field.apiName': 'API name',
   'designer.field.label': 'Label',
+  // objectui#11782 — under the Label input: the label a translation shows instead.
+  'designer.field.labelTranslated': 'Shown as “{label}” in {language}: the app’s translation bundle overrides this label.',
   'designer.field.type': 'Type',
   'designer.field.required': 'Required',
   'designer.field.unique': 'Unique',
@@ -2373,6 +2603,13 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.field.noGroup': '— No group —',
   'designer.field.picklistValues': 'Picklist values',
   'designer.field.noValues': 'No values yet.',
+  // objectui#10202 — "use picklist": the field names a shared picklist instead of its own options.
+  'designer.field.optionSource': 'Options from',
+  'designer.field.optionSourceInline': "This field's own options",
+  'designer.field.picklistBound':
+    'Options come from the picklist “{picklist}”. A field bound to a picklist has no options of its own: to offer another value, add it to the picklist in its package.',
+  'designer.field.picklistOwnValues':
+    'These are the picklist’s own values. Values other packages add to it are offered too.',
   'designer.field.optMalformed': 'This option cannot be edited here',
   'designer.field.optMalformed.notAnObject': 'It is not an option object.',
   'designer.field.optMalformed.valueNotText': 'Its `value` is missing or is not text.',
@@ -2387,6 +2624,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.field.moveUp': 'Move up',
   'designer.field.moveDown': 'Move down',
   'designer.field.removeValue': 'Remove',
+  // objectui#11786 — the inline hint under the input that holds the save: the
+  // object write guard refuses this field until it is filled in.
+  'designer.field.hint.addOption': 'Add at least one option. Changes are saved once the field has one.',
+  'designer.field.hint.pickTarget': 'Pick the object to link to. Changes are saved once the field has one.',
   'designer.field.relatedObject': 'Related object',
   'designer.field.relationshipName': 'Relationship name',
   'designer.field.relationshipNameHint': 'Inverse collection key on the parent',
@@ -2516,8 +2757,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // ── StudioDesignSurface (ADR-0080 WYSIWYG design surface) ──────────────
   // Shared chrome
   'engine.studio.cancel': 'Cancel',
-  'engine.studio.create': 'Create',
   'engine.studio.creating': 'Creating…',
+  // objectui#11792 — CreateItemDialog's preview of the name the item is saved
+  // under, shown when the caller supplies that rule (an object's namespace prefix).
+  'engine.studio.createItem.savedAs': 'Saved as',
   // `383502b23` — this is the CONFIRM control of the shared create dialog.
   // Never give it a name that shares a leading run with the affordance that
   // OPENS that dialog (`engine.studio.app.create`, `Create app` — and the
@@ -2533,6 +2776,21 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.saveDraft': 'Save draft',
   'engine.studio.more': 'More',
   'engine.studio.autoSaving': 'Saving…',
+  // objectui#11773 — the draft-save version conflict (`DraftConflictDialog.tsx`):
+  // a draft save the server refused because the draft was saved elsewhere after
+  // this editor opened it.
+  'engine.draftConflict.title': 'This draft changed since you opened it',
+  'engine.draftConflict.description':
+    'The draft of {type} “{name}” was saved elsewhere — by someone else or in another tab — after you opened it. Reload the saved version (your unsaved edits here are dropped), or overwrite it with yours.',
+  'engine.draftConflict.reload': 'Reload saved version',
+  'engine.draftConflict.overwrite': 'Overwrite…',
+  'engine.draftConflict.keepEditing': 'Keep editing',
+  'engine.draftConflict.overwriteTitle': 'Overwrite the saved draft?',
+  'engine.draftConflict.overwriteDescription':
+    'Your version of {type} “{name}” will replace the saved draft, and the changes saved after you opened it will be lost.',
+  'engine.draftConflict.overwriteConfirm': 'Overwrite',
+  'engine.draftConflict.back': 'Back',
+  'engine.draftConflict.notSaved': 'Not saved: {type} “{name}” was saved elsewhere after you opened it.',
   'engine.studio.data.tab.advanced': 'Advanced',
   // Standard create-dialog field labels (shared by object / app / flow / permission).
   'engine.studio.app.nameLabel': 'App name',
@@ -2560,6 +2818,38 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.publish': 'Publish',
   'engine.studio.loading': 'Loading…',
   'engine.studio.loadFailed': 'Failed to load',
+  // objectui#11785 — a refused save, in the author's words. The strip shows one
+  // of these sentences; the raw refusal (field paths, codes) stays under
+  // `engine.studio.refusal.details`, and `show` opens the input it names.
+  'engine.studio.refusal.choiceWithoutOptions':
+    'Changes not saved: the field “{field}” needs at least one option. Add an option, or change the field to a type that is not a choice.',
+  'engine.studio.refusal.relationshipWithoutTarget':
+    'Changes not saved: the field “{field}” does not say which object it links to. Pick the object, or change the field to a type that is not a relationship.',
+  'engine.studio.refusal.issue': 'Changes not saved. Check {where} — {problem}',
+  'engine.studio.refusal.more': '({count} more under Details)',
+  'engine.studio.refusal.unlocated': 'Changes not saved: the server refused this draft. Details say what to change.',
+  'engine.studio.refusal.field': 'the field “{field}”',
+  'engine.studio.refusal.step': 'the step “{step}”',
+  'engine.studio.refusal.stepInput': '{input} on the step “{step}”',
+  'engine.studio.refusal.navItem': 'the navigation item “{item}”',
+  'engine.studio.refusal.navItemInput': '{input} on the navigation item “{item}”',
+  'engine.studio.refusal.details': 'Details',
+  'engine.studio.refusal.show': 'Show me',
+  // objectui#11786 — an edit held, not refused: an incomplete-but-normal body
+  // (a choice field before its options, a relationship before its target, a
+  // step before its required inputs) stays on screen unsent. Each `needs*` row
+  // is a clause the held line and the Publish refusal both build on.
+  'engine.studio.held.needsOptions': 'the field “{field}” needs at least one option',
+  'engine.studio.held.needsTarget': 'the field “{field}” needs the object it links to',
+  'engine.studio.held.needsInput': '{input} on the step “{step}” needs a value',
+  'engine.studio.held.needsCondition': 'the rule “{rule}” needs a condition',
+  'engine.studio.held.needsThenCondition': 'the “Then” rule of “{rule}” needs a condition',
+  // objectui#11910 — a dashboard widget held until it is bound; `input` is the
+  // widget inspector's own label for it (Dataset, Values (measures)).
+  'engine.studio.held.widgetNeedsInput': '{input} on the widget “{widget}” needs a value',
+  'engine.studio.held.line': 'Not saved yet: {clause}. Your changes are kept here and saved once it is filled in.',
+  'engine.studio.held.publish': 'Not published: {clause}, so that change is not saved yet. Finish it, then publish.',
+  'engine.studio.held.inputHint': 'Required. Changes are saved once this has a value.',
   'engine.studio.unpublishedDraft': 'Unpublished draft',
   'engine.studio.unpublished': 'Unpublished',
   'engine.studio.new': 'New',
@@ -2569,6 +2859,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.deselect': 'Clear selection',
   'engine.studio.toggleRail': 'Toggle sidebar',
   'engine.studio.home': 'Back to home',
+  // objectui#11795 — the one line a phone shows under the Studio header.
+  'engine.studio.desktopHint': 'Studio is built for a desktop screen.',
   // Pillar tab labels
   'engine.fieldType.text': 'Text',
   'engine.fieldType.textarea': 'Text Area',
@@ -2576,6 +2868,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.fieldType.url': 'URL',
   'engine.fieldType.phone': 'Phone',
   'engine.fieldType.password': 'Password',
+  'engine.fieldType.secret': 'Secret',
   'engine.fieldType.markdown': 'Markdown',
   'engine.fieldType.html': 'HTML',
   'engine.fieldType.richtext': 'Rich Text',
@@ -2594,6 +2887,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.fieldType.lookup': 'Lookup',
   'engine.fieldType.master_detail': 'Master-Detail',
   'engine.fieldType.tree': 'Tree',
+  'engine.fieldType.user': 'User',
   'engine.fieldType.image': 'Image',
   'engine.fieldType.file': 'File',
   'engine.fieldType.avatar': 'Avatar',
@@ -2604,6 +2898,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.fieldType.autonumber': 'Auto Number',
   'engine.fieldType.composite': 'Composite',
   'engine.fieldType.repeater': 'Repeater',
+  'engine.fieldType.record': 'Record Map',
   'engine.fieldType.location': 'Location',
   'engine.fieldType.address': 'Address',
   'engine.fieldType.code': 'Code',
@@ -2616,6 +2911,58 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.fieldType.progress': 'Progress',
   'engine.fieldType.tags': 'Tags',
   'engine.fieldType.vector': 'Vector',
+  // objectui#11793 — the one-line description under each type in the field
+  // inspector's Type picker. `@objectstack/spec` carries no per-type
+  // description (its `FieldType` enum has no `.describe()`), so they live here.
+  'engine.fieldTypeDesc.text': 'A single line of text.',
+  'engine.fieldTypeDesc.textarea': 'Several lines of plain text.',
+  'engine.fieldTypeDesc.email': 'An email address.',
+  'engine.fieldTypeDesc.url': 'A web address.',
+  'engine.fieldTypeDesc.phone': 'A phone number.',
+  'engine.fieldTypeDesc.password': 'Text that is masked when it is read back.',
+  'engine.fieldTypeDesc.secret': 'A credential such as an API key, encrypted at rest and masked when read back.',
+  'engine.fieldTypeDesc.markdown': 'Formatted text written in Markdown.',
+  'engine.fieldTypeDesc.html': 'HTML markup.',
+  'engine.fieldTypeDesc.richtext': 'Formatted text, edited visually.',
+  'engine.fieldTypeDesc.number': 'A number, whole or decimal.',
+  'engine.fieldTypeDesc.currency': 'An amount of money.',
+  'engine.fieldTypeDesc.percent': 'A percentage.',
+  'engine.fieldTypeDesc.date': 'A calendar date.',
+  'engine.fieldTypeDesc.datetime': 'A date with a time of day.',
+  'engine.fieldTypeDesc.time': 'A time of day.',
+  'engine.fieldTypeDesc.boolean': 'Yes or no, shown as a checkbox.',
+  'engine.fieldTypeDesc.toggle': 'Yes or no, shown as a switch.',
+  'engine.fieldTypeDesc.select': 'One value from a list of options.',
+  'engine.fieldTypeDesc.multiselect': 'Several values from a list of options.',
+  'engine.fieldTypeDesc.radio': 'One value, shown as radio buttons.',
+  'engine.fieldTypeDesc.checkboxes': 'Several values, shown as checkboxes.',
+  'engine.fieldTypeDesc.lookup': 'A link to a record of another object.',
+  'engine.fieldTypeDesc.master_detail': 'A link to the parent record that owns this one.',
+  'engine.fieldTypeDesc.tree': 'A link to a parent record of the same object.',
+  'engine.fieldTypeDesc.user': 'A link to a user, such as an owner or an assignee.',
+  'engine.fieldTypeDesc.image': 'An uploaded image.',
+  'engine.fieldTypeDesc.file': 'An uploaded file.',
+  'engine.fieldTypeDesc.avatar': 'A profile picture.',
+  'engine.fieldTypeDesc.video': 'An uploaded video.',
+  'engine.fieldTypeDesc.audio': 'An uploaded audio clip.',
+  'engine.fieldTypeDesc.formula': 'A value calculated by a formula.',
+  'engine.fieldTypeDesc.summary': 'A value rolled up from related records.',
+  'engine.fieldTypeDesc.autonumber': 'A number assigned to each new record.',
+  'engine.fieldTypeDesc.composite': 'A group of sub-fields stored together.',
+  'engine.fieldTypeDesc.repeater': 'A repeating list of sub-field groups.',
+  'engine.fieldTypeDesc.record': 'Groups of sub-fields, each stored under its own name.',
+  'engine.fieldTypeDesc.location': 'GPS coordinates.',
+  'engine.fieldTypeDesc.address': 'A structured postal address.',
+  'engine.fieldTypeDesc.code': 'Source code such as JSON, SQL or JavaScript.',
+  'engine.fieldTypeDesc.json': 'Structured JSON data.',
+  'engine.fieldTypeDesc.color': 'A color.',
+  'engine.fieldTypeDesc.rating': 'A star rating.',
+  'engine.fieldTypeDesc.slider': 'A number picked on a slider.',
+  'engine.fieldTypeDesc.signature': 'A digital signature.',
+  'engine.fieldTypeDesc.qrcode': 'A QR code or barcode.',
+  'engine.fieldTypeDesc.progress': 'A value shown as a progress bar.',
+  'engine.fieldTypeDesc.tags': 'A simple list of tags.',
+  'engine.fieldTypeDesc.vector': 'Vector embeddings for AI semantic search.',
   'engine.fieldCategory.text': 'Text',
   'engine.fieldCategory.number': 'Number',
   'engine.fieldCategory.date': 'Date / time',
@@ -2635,6 +2982,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.publishTitle': 'Confirm and publish all pending drafts at once (whole package · one atomic release)',
   'engine.studio.publishNoneTitle': 'No drafts pending publish',
   'engine.studio.publishedAll': 'Published all drafts in this package (one atomic release)',
+  // objectui#11807 — the publish toast names how many items went live.
+  'engine.studio.publishedAllCount': 'Published {count} items in this package (one atomic release)',
+  'engine.studio.publishedAllCountOne': 'Published {count} item in this package (one atomic release)',
   'engine.studio.app.open': 'Open app',
   'engine.studio.app.openTitle': 'Open app “{label}” (the published front-end)',
   'engine.studio.app.create': 'Create app',
@@ -2650,7 +3000,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.pkg.readonlyHint': 'Read-only package — switch to or create a writable package to edit.',
   'engine.studio.app.scaffoldNav': "Add this package's objects as menu items",
   'engine.studio.landing.title': 'App Builder',
-  'engine.studio.landing.description': 'Design objects, forms, automations and interfaces inside a writable package; edits save as drafts and the whole package publishes in one release. Code-loaded packages are read-only (browse only).',
+  'engine.studio.landing.description': 'Design objects, forms, automations and interfaces inside a writable package; edits save as drafts and the whole package publishes in one release. Code and installed packages are read-only: browse them here, and customize them with an org overlay.',
   'engine.studio.landing.mineHeading': 'My packages (writable)',
   'engine.studio.landing.noneWritable': 'No writable packages yet — create one to start.',
   'engine.studio.landing.dup': 'Duplicate',
@@ -2661,10 +3011,30 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.landing.dupGo': 'Duplicate and open the builder',
   'engine.studio.landing.dupCreated': 'Duplicated into writable package “{name}”',
   'engine.studio.landing.installedHeading': 'Installed (read-only · browsable)',
+  // objectui#11808 — the routes a read-only package does have (ADR-0070 D2,
+  // ADR-0005): an org overlay, and the marketplace where the runtime has one.
+  'engine.studio.landing.readonlyHint': 'Code and installed packages are read-only, so they are not edited or duplicated here. Customize one with an org overlay, for the metadata types that accept one.',
+  'engine.studio.landing.overlay': 'Customize with an overlay',
+  'engine.studio.landing.overlayTitle': 'Open this package’s metadata: each type shows whether it accepts an org overlay',
+  'engine.studio.landing.marketplace': 'Or install a template app from the marketplace',
+  // objectui#11553 — the package-less scope: the organization's own flows.
+  'engine.studio.landing.orgHeading': 'Not in a package',
+  'engine.studio.org.name': 'Organization flows',
+  'engine.studio.org.hint': 'Flows that belong to no package',
+  'engine.studio.org.description': 'The organization’s own flows that belong to no package, such as a clone of a packaged flow. They open editable.',
+  'engine.studio.org.none': 'No flows outside a package yet. Clone a packaged flow in Setup › Packaged automation to edit the copy here.',
+  'engine.studio.publishedAllFlows': 'Published {count} package-less flow drafts',
+  'engine.studio.publishedAllFlowsOne': 'Published {count} package-less flow draft',
+  'engine.studio.auto.deepLinkMissing': 'The link names flow “{name}”, which is not here.',
   'engine.studio.designer.search': 'Search…',
   'engine.studio.designer.select': 'Select…',
   'engine.studio.designer.pickDate': 'Pick a date…',
   'engine.studio.designer.fieldAria': '{label} — click to edit properties, drag to reorder',
+  // objectui#11781 — a read-only package's card only opens the greyed inspector.
+  'engine.studio.designer.fieldAriaReadOnly': '{label} — click to view properties',
+  // objectui#11872 — a field card's `aria-roledescription`: the role read after
+  // its label, in place of dnd-kit's English default `sortable`.
+  'engine.studio.designer.fieldRole': 'draggable field',
   'engine.studio.designer.groupUp': 'Move group up',
   'engine.studio.designer.groupDown': 'Move group down',
   'engine.studio.designer.groupDelete': 'Delete group',
@@ -2673,11 +3043,23 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.designer.ungrouped': 'Ungrouped',
   'engine.studio.designer.newGroup': 'New group',
   'engine.studio.designer.hint': 'Drag to reorder / move across groups · click a field to edit its properties',
+  'engine.studio.designer.hintReadOnly': 'Read-only package · click a field to view its properties',
   'engine.studio.designer.addGroup': 'Add group',
+  // What the form designer's drag live region says (objectui#11802): labels,
+  // never the canvas's internal ids, and the place as "N of M" in the group.
+  'engine.studio.formDnd.instructions':
+    'To pick up a field, press Space or Enter. While dragging, use the arrow keys to move it. Press Space or Enter again to drop it in its new place, or press Escape to cancel.',
+  'engine.studio.formDnd.start': 'Picked up {field}. It is in {group}, position {position} of {total}.',
+  'engine.studio.formDnd.over': '{field} is over {group}, position {position} of {total}.',
+  'engine.studio.formDnd.overNone': '{field} is not over a group.',
+  'engine.studio.formDnd.end': '{field} moved to {group}, position {position} of {total}.',
+  'engine.studio.formDnd.endNone': '{field} was dropped outside the groups and is back in {group}, position {position} of {total}.',
+  'engine.studio.formDnd.cancel': 'Dragging cancelled. {field} is back in {group}, position {position} of {total}.',
   'engine.studio.rules.title': 'Validation rules',
   'engine.studio.rules.none': 'No validation rules yet.',
   'engine.studio.rules.explain': 'Rules run when a record is saved: when the condition is true, the save is rejected with the message.',
   'engine.studio.rules.noMessage': '(no message)',
+  'engine.studio.rules.notSaved': 'Not saved — needs a condition',
   'engine.studio.rules.pick': 'Select a rule on the left, or click “New” to create one.',
   'engine.studio.rules.structured': '“{type}” rules carry structured configuration (state-machine transitions / format constraints etc.) and cannot be edited here yet — maintain them in the code package. Message: {message}',
   'engine.studio.rules.none2': '(none)',
@@ -2687,8 +3069,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.rules.messagePlaceholder': 'e.g. Completion date is required when status is Done',
   'engine.studio.rules.celPre': 'Fail condition (CEL) — when the condition is ',
   'engine.studio.rules.celTrue': 'true',
-  'engine.studio.rules.celMid': ', the save is rejected with the message above; new rules default to ',
-  'engine.studio.rules.celPost': ' (never fires) — replace it with a real condition.',
+  'engine.studio.rules.celMid': ', the save is rejected with the message above.',
   'engine.studio.rules.severity': 'Severity',
   'engine.studio.rules.severityError': 'error (rejects the save)',
   'engine.studio.rules.enabled': 'Enabled',
@@ -2721,8 +3102,20 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.rules.events': 'Runs on',
   'engine.studio.rules.event.insert': 'Create',
   'engine.studio.rules.event.update': 'Update',
-  'engine.studio.rules.event.delete': 'Delete',
   'engine.studio.rules.priority': 'Priority',
+  // objectui#11861 — the New menu's starting points, and the type list under Advanced.
+  'engine.studio.rules.presets': 'Common rules',
+  'engine.studio.rules.advanced': 'Advanced',
+  'engine.studio.rules.preset.endAfterStart': 'End date on or after start date',
+  'engine.studio.rules.preset.endAfterStartNeeds': 'Needs two date fields on this object.',
+  'engine.studio.rules.preset.endAfterStartMessage': '{end} must be on or after {start}.',
+  'engine.studio.rules.preset.notNegative': 'Number can’t be negative',
+  'engine.studio.rules.preset.notNegativeNeeds': 'Needs a number field on this object.',
+  'engine.studio.rules.preset.notNegativeMessage': '{field} can’t be negative.',
+  'engine.studio.rules.preset.rejectWhen': 'Reject the save when…',
+  'engine.studio.rules.preset.rejectWhenHint': 'Build your own condition, no code needed.',
+  'engine.studio.rules.preset.usesOne': 'Uses “{field}”.',
+  'engine.studio.rules.preset.usesTwo': 'Uses “{start}” and “{end}”.',
   'engine.studio.settings.basics': 'Basics',
   'engine.studio.settings.noInspector': 'No default object inspector registered.',
   'engine.studio.settings.semanticRoles': 'Semantic roles',
@@ -2784,15 +3177,12 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.pkg.writable': 'Writable',
   'engine.studio.pkg.heading': 'Packages (apps)',
   'engine.studio.pkg.none': 'No app packages yet',
-  'engine.studio.pkg.idStrippedNotice': 'Unsupported characters were removed — allowed: lowercase letters, digits, dots, hyphens, underscores',
-  'engine.studio.pkg.idFormatHint': 'Use a reverse-domain identifier with at least one dot, e.g. com.example.myapp',
   'engine.studio.pkg.createWritable': 'Create writable package',
   'engine.studio.pkg.new': 'New package (writable base)',
   'engine.studio.pkg.created': 'Package {name} created (writable)',
   // Nav item inspector (Interfaces pillar)
   'engine.studio.nav.selectItem': 'Select a menu item on the left.',
   'engine.studio.nav.label': 'Label',
-  'engine.studio.nav.labelPlaceholder': 'e.g. Positions',
   'engine.studio.nav.linkObject': 'Link to object',
   'engine.studio.nav.chooseObject': '— Choose object —',
   'engine.studio.nav.boundHint': 'This menu item opens that object’s record list.',
@@ -2819,14 +3209,21 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.if.noAppTitle': 'This package has no app yet',
   'engine.studio.if.noAppHint': 'Create an app to design its navigation and interfaces.',
   /* objectui#6795 part C — the three designer registries (`preview-registry`,
-   * `inspector-registry`, `default-inspector-registry`) are plain `Map`s filled
-   * by a module-scope side effect, with no change notification. A consumer that
-   * reads one before that registration has landed gets `undefined` and NEVER
-   * recovers — measured on this card: `fallback before registration: true |
-   * still fallback after registration: true | late inspector rendered: false`.
-   * So every string in this family states what is TRUE and must NOT promise
-   * recovery: no "loading…", no "try again", no spinner. That would replace one
-   * false statement with another; making recovery real is part A of #6795.
+   * `inspector-registry`, `default-inspector-registry`) were plain `Map`s with
+   * no change notification, so a consumer that read one before registration
+   * landed NEVER recovered (measured on #6795: `late inspector rendered:
+   * false`). Part A has since landed in two steps (objectui#11939): the
+   * registries are observable and their readers re-render on registration
+   * (step 1), and the package entry registers the built-in designers from a
+   * chunk it loads with a dynamic `import()` (step 2). So a reader that renders
+   * before that chunk arrives shows these strings and then the designer; a
+   * session whose chunk never loads (or that registers no designers at all)
+   * keeps them.
+   *
+   * Every string in this family still states only what is TRUE at the moment
+   * it renders and promises nothing: no "loading…", no "try again", no
+   * spinner. Recovery is now real, but whether it comes depends on a chunk
+   * the string cannot see, so promising it would be a new false statement.
    *
    * The retired `engine.studio.if.readonlyPreview` ("{type} shows a read-only
    * preview for now; design support is in progress.") was false twice over: this
@@ -2853,6 +3250,61 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // to wait for — `StudioCanvasPreviewProps` carries no selection by contract.
   'engine.studio.inspector.studioCanvasNoBlocks':
     'This canvas renders the running app, not a block tree — it has no blocks to select, and nothing here is edited from this panel.',
+  // objectui#11823 — an `object` leaf's panel: the list view its canvas shows.
+  'engine.studio.inspector.listView.kind': 'List view',
+  'engine.studio.inspector.listView.intro':
+    'The list on the canvas. Its columns, filter and sort save to this package\'s draft and show on the canvas at once.',
+  'engine.studio.inspector.listView.notCreated':
+    'There is no list view {view} yet. Your first change here creates it in this package\'s draft.',
+  'engine.studio.inspector.listView.readOnly': 'This package is read-only: the list view is shown here, not edited.',
+  'engine.studio.inspector.listView.notList': '{view} is not a list view, so it is not edited here.',
+  'engine.studio.inspector.listView.filter': 'Filter',
+  'engine.studio.inspector.listView.sort': 'Sort',
+  'engine.studio.inspector.listView.addSort': '+ Add sort…',
+  'engine.studio.inspector.listView.sortAsc': '{field} ascending',
+  'engine.studio.inspector.listView.sortDesc': '{field} descending',
+  // objectui#11823 (steps 2 and 3) — the Interfaces pillar's New dashboard / New report / New page.
+  'engine.studio.interfaces.create.menuTitle': 'Create a dashboard, a report or a page in this package',
+  'engine.studio.interfaces.create.dashboard': 'New dashboard',
+  'engine.studio.interfaces.create.report': 'New report',
+  'engine.studio.interfaces.create.description':
+    'Saved as a draft in this package, linked from the navigation of {app}, and opened on the canvas.',
+  'engine.studio.interfaces.create.dashboardNameLabel': 'Dashboard name',
+  'engine.studio.interfaces.create.reportNameLabel': 'Report name',
+  'engine.studio.interfaces.create.dashboardNamePlaceholder': 'Dashboard name (e.g. Sales overview)',
+  'engine.studio.interfaces.create.reportNamePlaceholder': 'Report name (e.g. Revenue by region)',
+  'engine.studio.interfaces.create.idLabel': 'Identifier',
+  'engine.studio.interfaces.create.dashboardIdPlaceholder': 'Identifier (e.g. sales_overview)',
+  'engine.studio.interfaces.create.reportIdPlaceholder': 'Identifier (e.g. revenue_by_region)',
+  'engine.studio.interfaces.create.dashboardTaken':
+    'A dashboard with the identifier “{name}” already exists. Choose another identifier.',
+  'engine.studio.interfaces.create.reportTaken':
+    'A report with the identifier “{name}” already exists. Choose another identifier.',
+  'engine.studio.interfaces.create.dataset': 'Dataset',
+  'engine.studio.interfaces.create.datasetPlaceholder': 'Choose a dataset…',
+  'engine.studio.interfaces.create.measure': 'Measure',
+  'engine.studio.interfaces.create.measurePlaceholder': 'Choose a measure…',
+  'engine.studio.interfaces.create.reportHint':
+    'A report shows measures of one dataset. Add more measures and groupings in the Properties panel once it is created.',
+  'engine.studio.interfaces.create.noDatasets':
+    'There is no dataset to report on yet. A report shows the measures of a dataset, so create a dataset first.',
+  'engine.studio.interfaces.create.datasetsFailed': 'The datasets could not be loaded: {error}',
+  'engine.studio.interfaces.create.noMeasures': 'This dataset declares no measures, so a report cannot show it.',
+  'engine.studio.interfaces.create.needsBinding': 'Choose the dataset this report reads, and one of its measures.',
+  'engine.studio.interfaces.create.page': 'New page',
+  'engine.studio.interfaces.create.pageNameLabel': 'Page name',
+  'engine.studio.interfaces.create.pageNamePlaceholder': 'Page name (e.g. Team handbook)',
+  'engine.studio.interfaces.create.pageIdPlaceholder': 'Identifier (e.g. team_handbook)',
+  'engine.studio.interfaces.create.pageTaken':
+    'A page with the identifier “{name}” already exists. Choose another identifier.',
+  'engine.studio.interfaces.create.pageKind': 'Written in',
+  'engine.studio.interfaces.create.pageKindHtml': 'HTML',
+  'engine.studio.interfaces.create.pageKindReact': 'React',
+  'engine.studio.interfaces.create.pageKindHtmlHint':
+    'Built from the platform’s components and HTML tags, parsed and never run. The page opens on its source beside a live preview.',
+  'engine.studio.interfaces.create.pageKindReactHint':
+    'Real React code, run when the page renders, for state, effects and event handlers. The page opens on its source beside a live preview.',
+  'engine.studio.interfaces.create.pageStarter': 'A new page. Write its content in the source editor.',
   'engine.studio.inspector.designersMissing':
     'No metadata designers are registered in this session, so there is nothing to edit here.',
   'engine.studio.inspector.noPageSchema': 'Page settings are unavailable — the page schema could not be loaded.',
@@ -2893,6 +3345,17 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
     'No action editor is registered in this session, so this action’s properties cannot be edited here.',
   'engine.studio.actions.newLabel': 'New action',
   'engine.studio.actions.delete': 'Delete',
+  // objectui#11861 — the New menu's starting points (`actionPresets.ts`).
+  'engine.studio.actions.presets': 'Common actions',
+  'engine.studio.actions.notSaved': 'Not saved — needs “{input}”',
+  'engine.studio.actions.heldNeeds': 'the action “{action}” needs “{input}”',
+  'engine.studio.actions.preset.change': 'Change a picklist field',
+  'engine.studio.actions.preset.changeHint': 'Asks for a new “{field}”, then saves it.',
+  'engine.studio.actions.preset.changeNeeds': 'Needs a picklist field on this object.',
+  'engine.studio.actions.preset.changeLabel': 'Change {field}',
+  'engine.studio.actions.preset.runFlow': 'Run a flow',
+  'engine.studio.actions.preset.openUrl': 'Open a web page',
+  'engine.studio.actions.preset.openPage': 'Open a page in a dialog',
   // API view
   'engine.studio.api.subtitle':
     'Auto-generated REST endpoints for this object, derived from its current schema. Copy a request as cURL and call it with your API token.',
@@ -2904,13 +3367,13 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.api.copyCurl': 'Copy as cURL',
   'engine.studio.api.copied': 'Copied',
   'engine.studio.api.body': 'Example body',
+  'engine.studio.api.bodyOmitted': 'Required fields come first. Optional fields not shown: {fields}',
   // Hooks view
+  'engine.studio.hooks.renameHeld': 'Not saved yet: a hook keeps the name it was created with. Change the name back to {name} to save your changes.',
   'engine.studio.hooks.none': 'No hooks target this object.',
   'engine.studio.hooks.async': 'async',
   'engine.studio.hooks.pick': 'Select a hook to edit it.',
   'engine.studio.hooks.newLabel': 'New hook',
-  'engine.studio.hooks.saved': 'Saved “{label}” as draft',
-  'engine.studio.hooks.save': 'Save hook',
   'engine.studio.data.addFieldTitle': 'Add a field (then set its type and properties on the right)',
   'engine.studio.data.addField': 'Add field',
   'engine.studio.data.editFieldProps': 'Edit field properties',
@@ -2926,6 +3389,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // (objectui#4036).
   'engine.studio.data.form.layoutBadge': 'Draft layout — your unsaved changes',
   'engine.studio.data.form.layoutBadgeClean': 'Draft layout',
+  // objectui#11781 — a read-only package has no draft layout: it says what it is.
+  'engine.studio.data.form.layoutBadgeReadOnly': 'Read-only layout — this package cannot be edited',
   'engine.studio.data.form.previewBadge': 'Preview of the published version',
   'engine.studio.data.form.previewWarn':
     'You have unpublished changes — this preview shows the pre-publish (published) state; confirm the draft in “Layout”, and to see the post-publish result, click “Publish” in the top bar first.',
@@ -2950,12 +3415,18 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.auto.nodeEnd': 'End',
   'engine.studio.auto.savedDraft': 'Automation “{label}” saved as draft',
   'engine.studio.auto.defaultOff': 'Off by default · review before enabling',
-  'engine.studio.auto.heading': 'Automations · flow',
+  'engine.studio.auto.heading': 'Automations',
   'engine.studio.auto.on': 'On',
   'engine.studio.auto.off': 'Off',
   'engine.studio.auto.offTitle': 'Disabled — will not run',
   'engine.studio.auto.onBound': 'Enabled · bound to its trigger',
   'engine.studio.auto.onUnbound': 'Enabled · no trigger (run manually)',
+  // objectui#11779 — an enabled flow whose declared trigger is not armed on this
+  // deployment; the title is for a backend that sends no `reason` (with one,
+  // the platform's sentence is shown instead).
+  'engine.studio.auto.notRunning': 'Not running here',
+  'engine.studio.auto.notRunningTitle': 'Enabled, but its trigger is not armed on this deployment',
+  'engine.studio.auto.unpublishedTitle': 'Not deployed yet — publish to deploy it',
   'engine.studio.auto.enabled': 'Enabled',
   'engine.studio.auto.disabled': 'Disabled',
   'engine.studio.auto.enableTitle': 'Enable this automation (publish to apply)',
@@ -2966,6 +3437,15 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.auto.none': 'No automations yet — click “New” to start',
   'engine.studio.auto.namePlaceholder': 'Name (e.g. Offer Notice)',
   'engine.studio.auto.idPlaceholder': 'Identifier (e.g. offer_notice)',
+  // objectui#11788 — the New automation dialog's trigger choice, left unset.
+  'engine.studio.newAutoTrigger.later': 'Choose later on the Start node',
+  // objectui#11861 — the New automation dialog's starting points (`flowPresets.ts`).
+  'engine.studio.auto.presets': 'When it runs',
+  'engine.studio.auto.preset.created': 'When a record is created',
+  'engine.studio.auto.preset.updated': 'When a record is updated',
+  'engine.studio.auto.preset.deleted': 'When a record is deleted',
+  'engine.studio.auto.preset.manual': 'When a button or another automation starts it',
+  'engine.studio.auto.preset.needsObject': 'Choose the object it watches.',
   'engine.studio.auto.canvasHint': 'Visual orchestration · click a node to configure',
   'engine.studio.auto.pick': 'Select an automation',
   'engine.studio.auto.config': 'Configuration',
@@ -2980,6 +3460,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.access.bannerTitle':
     'This matrix lists only the objects this package declares, and “Save” merges just that slice — grants contributed by other packages are preserved. Edits are saved as package drafts and go live when you Publish the package (top bar), exactly like Data and Interfaces.',
   'engine.studio.access.banner': 'This package’s objects · saved as draft',
+  // objectui#11781 — a read-only package saves no draft: the banner says what it is.
+  'engine.studio.access.bannerTitleReadOnly':
+    'This matrix lists only the objects this package declares. The package is read-only: its permission sets can be viewed here, but not changed.',
+  'engine.studio.access.bannerReadOnly': 'This package’s objects · read-only',
   // ADR-0090 D5/D9 — pending suggested audience bindings (isDefault sets
   // awaiting the admin's confirm; the server never auto-binds).
   'engine.studio.access.suggestPromptEveryone': 'This package suggests granting "{set}" to all signed-in users (Everyone).',
@@ -3111,7 +3595,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.appNav.removeItem': 'Remove nav item',
   'engine.appNav.empty': 'Empty — click “Add nav item” to start',
   'engine.appNav.emptyReadonly': 'No top-level nav items yet',
-  'engine.appNav.newItem': 'New item',
+  'engine.appNav.item': 'Item {n}',
   'engine.appNav.itemOne': 'item',
   'engine.appNav.itemOther': 'items',
 };
@@ -3349,6 +3833,12 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.flowNode.kind': '节点',
   'engine.inspector.flowNode.close': '关闭节点',
   'engine.inspector.flowNode.id': 'ID',
+  'engine.inspector.flowNode.idRequired': '未重命名：节点必须有 ID。',
+  'engine.inspector.flowNode.idTaken': '未重命名：此流程中已有另一个节点的 ID 是“{id}”。',
+  'engine.inspector.flowNode.idEdgeNamed': '未重命名：仍有连线指向“{id}”，而该节点已不在流程中。请先删除或重新连接那条连线。',
+  'engine.inspector.flowNode.idRefsUnparsed': '未重命名：以下表达式引用了“{id}”，但无法解析，重命名无法同步更新它们：{refs}。请先修正。',
+  'engine.inspector.flowNode.idRefsAmbiguous': '未重命名：“{name}”同时也是此流程中某个变量的名称，以下表达式可能引用其中任何一个，无法同步更新：{refs}。请先重命名该变量，或手动修改这些表达式。',
+  'engine.inspector.flowNode.removeRefused': '未删除：以下位置仍引用“{id}”，删除后将指向不存在的节点：{refs}。请先修改或删除它们。',
   'engine.inspector.flowNode.label': '标签',
   'engine.inspector.flowNode.type': '节点类型',
   'engine.inspector.flowNode.configuration': '配置',
@@ -3445,6 +3935,20 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.appNav.urlTargetSelf': '当前标签页',
   'engine.inspector.appNav.urlTargetBlank': '新标签页',
   'engine.inspector.appNav.preview': '运行期落点',
+  // objectui#11790 — the Studio nav editor's Type choice and pickers.
+  'engine.inspector.appNav.type.action': '动作',
+  'engine.inspector.appNav.type.component': '组件',
+  'engine.inspector.appNav.type.doc': '文档',
+  'engine.inspector.appNav.type.separator': '分隔线',
+  'engine.inspector.appNav.choose': '— 请选择 —',
+  'engine.inspector.appNav.noTargets': '还没有可链接的此类型条目。',
+  'engine.inspector.appNav.unboundHint': '选定目标之前,该导航项保留在此处,但不会写入保存的导航。',
+  'engine.inspector.appNav.actionHint': '只有未绑定到对象的动作才能从菜单运行。',
+  'engine.inspector.appNav.docPage': '文档页',
+  'engine.inspector.appNav.book': '文档集',
+  'engine.inspector.appNav.docHint': '选择文档页、文档集,或两者都选。',
+  'engine.inspector.appNav.groupHint': '分组是菜单中带标题的分区。此编辑器不支持把导航项嵌套到分组下。',
+  'engine.inspector.appNav.separatorHint': '分隔线只是一条分隔:没有名称,也不打开任何内容。',
   // View column inspector
   'engine.inspector.viewColumn.kind': '列',
   'engine.inspector.viewColumn.close': '关闭列',
@@ -3463,7 +3967,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.view.labelPlaceholder': '例如：全部线索',
   'engine.inspector.view.type': '视图类型',
   'engine.inspector.view.object': '对象',
-  'engine.inspector.view.objectPlaceholder': '例如：crm_lead',
   'engine.inspector.view.noSchema': 'spec 模式不可用 —— 仅显示基础属性。',
   // objectui#6900 — 见英文表同名条目。
   'engine.inspector.view.gatedRequired.title': '保存已被拦截：必填字段位于条件区块中。',
@@ -3505,6 +4008,10 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.condition.op.lessThan': '小于',
   'engine.inspector.condition.op.truthy': '已设置 / 为真',
   'engine.inspector.condition.op.falsy': '为空 / 为假',
+  'engine.inspector.condition.op.isTrue': '为真',
+  'engine.inspector.condition.op.isFalse': '为假',
+  'engine.inspector.condition.op.isNotEmpty': '不为空',
+  'engine.inspector.condition.op.isEmpty': '为空',
   'engine.inspector.condition.op.atLeast': '至少',
   'engine.inspector.condition.op.atMost': '至多',
   'engine.inspector.condition.op.contains': '包含',
@@ -3556,9 +4063,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.pageBlock.field.object-form.layout': '布局',
   'engine.inspector.pageBlock.option.layout.vertical': '纵向',
   'engine.inspector.pageBlock.option.layout.horizontal': '横向',
-  'engine.inspector.pageBlock.option.layout.inline': '行内',
-  'engine.inspector.pageBlock.option.layout.grid': '网格',
-  'engine.inspector.pageBlock.field.object-form.columns': '列数（网格布局）',
+  'engine.inspector.pageBlock.field.object-form.columns': '字段列数（1–4）',
   'engine.inspector.pageBlock.field.object-form.fields': '字段',
   'engine.inspector.pageBlock.field.object-form.title': '标题',
   'engine.inspector.pageBlock.field.object-form.description': '描述',
@@ -3592,10 +4097,15 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.pageBlock.field.element:text.content': '内容',
   'engine.inspector.pageBlock.placeholder.element:text.content': '文本…',
   'engine.inspector.pageBlock.field.element:text.variant': '样式',
-  'engine.inspector.pageBlock.option.variant.heading': '标题',
-  'engine.inspector.pageBlock.option.variant.subheading': '副标题',
+  'engine.inspector.pageBlock.option.variant.h1': '标题 1',
+  'engine.inspector.pageBlock.option.variant.h2': '标题 2',
+  'engine.inspector.pageBlock.option.variant.h3': '标题 3',
+  'engine.inspector.pageBlock.option.variant.h4': '标题 4',
+  'engine.inspector.pageBlock.option.variant.h5': '标题 5',
+  'engine.inspector.pageBlock.option.variant.h6': '标题 6',
   'engine.inspector.pageBlock.option.variant.body': '正文',
   'engine.inspector.pageBlock.option.variant.caption': '说明文字',
+  'engine.inspector.pageBlock.option.variant.overline': '眉题',
   'engine.inspector.pageBlock.field.element:text.align': '对齐',
   'engine.inspector.pageBlock.option.align.left': '左对齐',
   'engine.inspector.pageBlock.option.align.center': '居中',
@@ -3647,8 +4157,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.pageBlock.field.page:header.subtitle': '副标题',
   // `…field.page:header.icon` and its placeholder retired with the spec key —
   // see the matching note in the `en` table above. Removed from BOTH tables in
-  // the same edit so the two key sets stay identical.
-  'engine.inspector.pageBlock.field.page:header.breadcrumb': '显示面包屑',
+  // the same edit so the two key sets stay identical. `…field.page:header.breadcrumb`
+  // likewise left both tables with its toggle (objectui#11173).
   'engine.inspector.pageBlock.field.page:card.title': '标题',
   'engine.inspector.pageBlock.field.page:card.bordered': '显示边框',
   'engine.inspector.pageBlock.field.page:tabs.items': '标签页',
@@ -3746,6 +4256,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.hook.allObjects': '所有对象（*）',
   'engine.inspector.hook.noObjects': '未找到对象 —— 请先发布一个对象，再在此处选择。',
   'engine.inspector.hook.pickObject': '请至少选择一个对象（或「所有对象」）。',
+  'engine.inspector.hook.outsideReach': '这些对象属于其他软件包或平台（sys_…）。钩子挂在其中某个对象上时，该对象的事件无论在哪里发生都会触发它，而不只是在本软件包内。',
+  'engine.inspector.hook.allObjectsReach': '会在每个对象的事件上运行 —— 包括其他软件包的对象和平台自身的（sys_…）表。',
   'engine.inspector.hook.events': '事件',
   'engine.inspector.hook.eventsHint': '哪些生命周期事件会调用此钩子。',
   'engine.inspector.hook.eventsWrite': '写入',
@@ -4002,6 +4514,31 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.reference.actionsOf': '{connector} 的动作。',
   'engine.inspector.reference.chooseConnector': '请先在上方选择连接器，才能列出其动作。',
   'engine.inspector.reference.declarative': '声明式',
+  // objectui#11788 — 通知节点的收件人选择器(`FlowRecipientsField`)。
+  'engine.inspector.recipients.kindLabel': '收件人类型',
+  'engine.inspector.recipients.kind.field': '记录字段',
+  'engine.inspector.recipients.kind.user': '用户',
+  'engine.inspector.recipients.kind.team': '团队',
+  'engine.inspector.recipients.kind.email': '邮箱地址',
+  'engine.inspector.recipients.kind.custom': '其他',
+  'engine.inspector.recipients.placeholder.field': '触发记录的字段',
+  'engine.inspector.recipients.placeholder.user': '选择用户',
+  'engine.inspector.recipients.placeholder.team': '选择团队',
+  'engine.inspector.recipients.placeholder.email': 'name@example.com',
+  'engine.inspector.recipients.placeholder.custom': '按原样保存，例如 {ownerId}',
+  'engine.inspector.recipients.add': '添加收件人',
+  'engine.inspector.recipients.remove': '移除收件人',
+  'engine.inspector.recipients.empty': '还没有收件人。',
+  'engine.inspector.recipients.notEmail': '这不是邮箱地址 —— 消息服务会把它当作用户 id。',
+  // objectui#11788 — 新建/更新记录节点的字段值键,从目标对象中选取。
+  'engine.inspector.fieldMap.chooseObject': '请先在上方选择对象，才能列出它的字段。',
+  // objectui#11783 — the shared object picker (inspectors/ObjectPicker.tsx).
+  'engine.inspector.objectPicker.groupPackage': '本软件包',
+  'engine.inspector.objectPicker.groupOther': '其他对象',
+  'engine.inspector.objectPicker.groupSystem': '系统对象',
+  'engine.inspector.objectPicker.showSystem': '显示系统对象（{count}）',
+  'engine.inspector.objectPicker.hideSystem': '隐藏系统对象',
+  'engine.inspector.objectPicker.noMatch': '没有匹配的对象。按 Enter 保留输入的内容。',
   // Add affordances
   'engine.inspector.add.widget': '添加组件',
   'engine.inspector.add.block': '添加区块',
@@ -4093,6 +4630,16 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowCanvas.awaitingRevision': '等待修订',
   'engine.flowCanvas.collapseRegions': '折叠嵌套区域',
   'engine.flowCanvas.expandRegions': '展开嵌套区域',
+  // objectui#10862, slice 4.
+  'engine.flowCanvas.edge.undeclaredCycle': '{source} → {target} —— 属于未声明的环；请将闭合该环的连线标记为回边',
+  'engine.flowCanvas.edge.backEdge': '{source} ↩ {target}（回边）',
+  'engine.flowCanvas.summary.branches': '{count} 个分支',
+  'engine.flowCanvas.summary.approversOne': '{count} 位审批人',
+  'engine.flowCanvas.summary.approversOther': '{count} 位审批人',
+  'engine.flowCanvas.summary.unanimous': '全员',
+  'engine.flowCanvas.summary.code': '代码',
+  // objectui#11905 — the connect handle (see the en row).
+  'engine.flowCanvas.connect': '拖到另一个节点上以连线',
   // Nested structured-region tray headers.
   'engine.flowRegion.branchN': '分支 {n}',
   'engine.flowRegion.try': '尝试',
@@ -4114,6 +4661,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowPreview.problemsTitle': '校验问题',
   'engine.flowPreview.problems': '问题',
   'engine.flowPreview.debug': '调试',
+  // objectui#10862, slice 4.
+  'engine.flowPreview.varIn': '输入',
+  'engine.flowPreview.varOut': '输出',
   // Flow run-history panel.
   'engine.flowRuns.title': '运行',
   'engine.flowRuns.refresh': '刷新运行历史',
@@ -4132,6 +4682,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowRuns.status.paused': '已暂停',
   'engine.flowRuns.status.running': '运行中',
   'engine.flowRuns.status.cancelled': '已取消',
+  // objectui#10862, slice 4.
+  'engine.flowRuns.runId': '运行 {id}',
+  'engine.flowRuns.trigger': '触发 {type}',
   // Flow debug simulator.
   'engine.flowSim.run': '运行',
   'engine.flowSim.step': '单步',
@@ -4212,6 +4765,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.screenPreview.noDataSource': '连接后端后即可预览此对象表单。',
   'engine.screenPreview.hiddenOne': '有 {count} 个字段因其“显示条件”而隐藏。',
   'engine.screenPreview.hiddenOther': '有 {count} 个字段因其“显示条件”而隐藏。',
+  'engine.screenPreview.defaultTemplate': '“{field}”的默认值模板,按原文显示 —— 运行时填入实际值:',
   // objectui#10862 — the flow / automation previews and the CEL try-it dialog (see the en rows).
   'engine.actionPreview.empty': '设置名称和标签，即可查看操作预览。',
   'engine.actionPreview.pill.type': '类型：{type}',
@@ -4352,6 +4906,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.appPreview.unnamed': '（未命名）',
   'engine.appPreview.noTypeTitle': '每个导航项都需要 `type` 判别字段 —— 此条目将在保存时被拒绝。',
   'engine.appPreview.noType': '无类型',
+  'engine.appPreview.areas': '区域',
   'engine.bookPreview.nameTitle': '为文档书命名',
   'engine.bookPreview.nameDescription': '在“表单”标签页中输入名称，即可开始编写文档目录骨架。',
   'engine.bookPreview.treeTitle': '打开实时解析的导航树（每个分组的实际文档）',
@@ -4375,6 +4930,33 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.bookPreview.separator': '分隔线',
   'engine.bookPreview.rest': '…其余（剩余的匹配文档，按顺序）',
   'engine.bookPreview.emptyPage': '（空）',
+  // The doc editor (previews/DocPreview, objectui#10188).
+  'engine.docPreview.bookSection': '所属手册分组',
+  'engine.docPreview.noSection': '未放入任何分组',
+  'engine.docPreview.unknownSection': '{key}（不是任何文档手册的分组）',
+  'engine.docPreview.booksLoading': '正在加载文档手册…',
+  'engine.docPreview.booksFailed': '无法加载文档手册：{message}',
+  'engine.docPreview.appearsIn': '出现在：',
+  'engine.docPreview.publicBook': '公开',
+  'engine.docPreview.noBooks': '尚无文档手册 —— 先创建一本，才能把这篇文档放进某个分组。',
+  'engine.docPreview.unplaced': '尚未放入任何手册分组 —— 手册目录会把它列在“未分类”下。',
+  'engine.docPreview.locales': '语言版本',
+  'engine.docPreview.baseLocale': '默认',
+  'engine.docPreview.removeLocale': '删除 {locale} 版本',
+  'engine.docPreview.localePlaceholder': 'zh-CN',
+  'engine.docPreview.addLocaleInput': '新的语言标记',
+  'engine.docPreview.addLocale': '语言',
+  'engine.docPreview.localeDuplicate': '{locale} 已有版本',
+  'engine.docPreview.localeInvalid': '请使用 zh-CN 这样的语言标记',
+  'engine.docPreview.variantTitle': '标题',
+  'engine.docPreview.variantSummary': '摘要',
+  'engine.docPreview.preview': '实时预览',
+  'engine.docPreview.renderFailed': 'Markdown 渲染器无法渲染此内容。',
+  'engine.docPreview.emptyEditing': '暂无可预览的内容 —— 请在源码区编写 Markdown。',
+  'engine.docPreview.empty': '这篇文档没有内容。',
+  'engine.docPreview.source': 'Markdown 源码',
+  'engine.docPreview.sourceLocale': 'Markdown 源码（{locale}）',
+  'engine.docPreview.sourcePlaceholder': '# 标题\n\n在此编写 Markdown…',
   'engine.datasourcePreview.empty': '设置名称并至少指定一个驱动，即可查看数据源预览。',
   'engine.datasourcePreview.unknownDriver': '未知',
   'engine.datasourcePreview.active': '已启用',
@@ -4436,20 +5018,38 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.positionPreview.bind':
     '将 {name} 绑定到一个或多个 {permissionSets}，以控制 CRUD-VAMA、字段访问和标签页可见性。记录的可见性来自业务单元树和共享规则，而不是岗位。',
   'engine.positionPreview.permissionSets': '权限集',
+  // objectui#10202 — the read-only picklist page (zh).
+  'engine.picklistPreview.empty': '该选项列表没有名称。',
+  'engine.picklistPreview.readOnly': '只读：选项列表归声明它的软件包所有，不能在这里新建、编辑或删除。',
+  'engine.picklistPreview.ownedBy': '所属软件包',
+  'engine.picklistPreview.options': '选项',
+  'engine.picklistPreview.colLabel': '标签',
+  'engine.picklistPreview.colValue': '取值',
+  'engine.picklistPreview.noOptions': '该选项列表没有声明任何选项。',
+  'engine.picklistPreview.extensions': '扩展',
+  'engine.picklistPreview.extensionsHint': '其他软件包为该选项列表追加的选项。',
+  'engine.picklistPreview.addedBy': '由 {package} 追加',
+  'engine.picklistPreview.noExtensions': '没有软件包扩展该选项列表。',
+  'engine.picklistPreview.extensionsLoading': '正在加载扩展…',
+  'engine.picklistPreview.extensionsFailed': '无法读取已安装的软件包,因此不知道该选项列表有哪些扩展。',
   'engine.translationPreview.empty': '此语言包为空 —— 至少添加一条译文，即可查看覆盖率报告。',
   'engine.translationPreview.category.objects': '对象',
+  'engine.translationPreview.category.picklists': '选项列表',
   'engine.translationPreview.category.apps': '应用',
   'engine.translationPreview.category.messages': '消息',
-  'engine.translationPreview.category.validationMessages': '校验消息',
   'engine.translationPreview.category.globalActions': '全局操作',
   'engine.translationPreview.category.dashboards': '仪表盘',
-  'engine.translationPreview.category.settings': '设置',
+  'engine.translationPreview.category.datasets': '数据集',
+  'engine.translationPreview.category.pages': '页面',
+  'engine.translationPreview.category.flows': '流程',
   'engine.translationPreview.category.metadataForms': '元数据表单',
+  'engine.translationPreview.category.settingsCommon': '设置界面',
   'engine.translationPreview.coverage': '分类覆盖率：',
   'engine.translationPreview.totalKeys': '共 {count} 个键',
   'engine.translationPreview.categoryEmpty': '空',
   'engine.translationPreview.more': '另有 {count} 项…',
-  'engine.translationPreview.keyCount': '{{count} 个键}',
+  'engine.translationPreview.keyCountOne': '{{count} 个键}',
+  'engine.translationPreview.keyCountOther': '{{count} 个键}',
   'engine.celLint.notTheRow':
     '`{identifier}` 在此处不是记录行：行条件只把记录绑定为 `{canonical}`，别无其他。CEL 作用域词汇仍接受 `{identifier}`，所以这里不会阻止保存，但运行时表达式会以 `Unknown variable: {identifier}` 报错，规则永远不会触发。请改为以 `{canonical}` 为根引用。',
   'engine.celLint.notPushdownable':
@@ -4598,6 +5198,50 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.externalDatasource.refresh': '刷新目录',
   'engine.externalDatasource.tables': '表',
   'engine.externalDatasource.validation': '校验',
+  // objectui#10862, slice 4 — SchemaBrowser, ValidationPanel, ImportObjectDialog.
+  'engine.externalDatasource.browser.filter': '筛选表…',
+  'engine.externalDatasource.browser.refresh': '刷新',
+  'engine.externalDatasource.browser.introspecting': '正在读取远程表结构…',
+  'engine.externalDatasource.browser.noRemoteTables': '未找到远程表（请检查数据源的 allowedSchemas）。',
+  'engine.externalDatasource.browser.noMatch': '没有与筛选条件匹配的表。',
+  'engine.externalDatasource.browser.colTable': '表名',
+  'engine.externalDatasource.browser.colColumns': '列',
+  'engine.externalDatasource.browser.colRows': '行数（估算）',
+  'engine.externalDatasource.browser.import': '导入',
+  'engine.externalDatasource.browser.unavailable':
+    '此服务器未启用数据联邦。必须注册 {service} 服务，才能浏览表、生成草稿并进行校验。',
+  'engine.externalDatasource.check.unavailable': '此服务器未启用数据联邦，因此无法进行校验。',
+  'engine.externalDatasource.check.intro': '检查 {datasource} 上的每个联邦对象是否仍与其实时远程表一致。',
+  'engine.externalDatasource.check.run': '运行校验',
+  'engine.externalDatasource.check.allMatchOne': '全部 {count} 个对象均与远程表结构一致。',
+  'engine.externalDatasource.check.allMatchOther': '全部 {count} 个对象均与远程表结构一致。',
+  'engine.externalDatasource.check.divergeOne': '{count} 个对象中有 {diverged} 个与远程表结构不一致。',
+  'engine.externalDatasource.check.divergeOther': '{count} 个对象中有 {diverged} 个与远程表结构不一致。',
+  'engine.externalDatasource.check.noObjects': '尚无联邦对象绑定到此数据源。请在“表”标签页中导入一张表以开始。',
+  'engine.externalDatasource.check.diffsOne': '{count} 处差异',
+  'engine.externalDatasource.check.diffsOther': '{count} 处差异',
+  'engine.externalDatasource.check.expectedActual': '预期 {expected}，实际 {actual}',
+  'engine.externalDatasource.diff.missingTable': '缺少表',
+  'engine.externalDatasource.diff.missingColumn': '缺少列',
+  'engine.externalDatasource.diff.typeMismatch': '类型不匹配',
+  'engine.externalDatasource.diff.nullabilityMismatch': '可空性不匹配',
+  'engine.externalDatasource.diff.unmappedColumn': '未映射的列',
+  'engine.externalDatasource.diff.pkMismatch': '主键不匹配',
+  'engine.externalDatasource.diff.indexMismatch': '索引不匹配',
+  'engine.externalDatasource.diff.unmappedIndex': '未映射的索引',
+  'engine.externalDatasource.diff.defaultMismatch': '列默认值不匹配',
+  'engine.externalDatasource.diff.unreachable': '未检查 —— 远程不可达',
+  'engine.externalDatasource.import.title': '导入为对象',
+  'engine.externalDatasource.import.intro':
+    '将远程表 {table} 映射为绑定到 {datasource} 的 ObjectStack 对象。远程表结构不会被修改。',
+  'engine.externalDatasource.import.generating': '正在生成草稿…',
+  'engine.externalDatasource.import.done': '已导入对象 {name}。',
+  'engine.externalDatasource.import.doneNext': '请复查其绑定并运行校验，确认它与远程表一致。',
+  'engine.externalDatasource.import.objectName': '对象名称',
+  'engine.externalDatasource.import.reviewOne': '{count} 个列需要复查',
+  'engine.externalDatasource.import.reviewOther': '{count} 个列需要复查',
+  'engine.externalDatasource.import.source': '生成的源码',
+  'engine.externalDatasource.import.importing': '正在导入…',
   // 连线(edge)Type 枚举值 —— 属性表单里的 SchemaForm 下拉(与画布连线检查器一致)。
   'engine.enum.type.default': '普通',
   'engine.enum.type.conditional': '条件',
@@ -4608,6 +5252,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowValidate.duplicateNodeId': '重复的节点 id “{id}”。',
   'engine.flowValidate.edgeSourceMissing': '连线的源节点 “{source}” 不存在。',
   'engine.flowValidate.edgeTargetMissing': '连线的目标节点 “{target}” 不存在。',
+  'engine.flowValidate.exprRefNodeMissing': '表达式 “{ref}” 读取的节点 “{id}” 不存在。',
+  'engine.flowValidate.boundaryHostMissing': '边界事件 “{id}” 附着的节点 “{host}” 不存在。',
   'engine.flowValidate.startHasIncoming': '开始节点存在入边。',
   'engine.flowValidate.multipleStart': '流程有 {count} 个开始节点;应只有一个。',
   'engine.flowValidate.noStartUsingRoot': '没有“开始”节点;以唯一的根节点作为入口。',
@@ -4653,6 +5299,13 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowProblems.empty': '没有问题 —— 该流程结构有效。',
   'engine.flowProblems.sourceSchema': '架构',
   'engine.flowProblems.sourceExpression': '表达式',
+  // objectui#11772 — one extra copy of a connection (see the en row).
+  'engine.flowProblems.repeatedEdge': '连线 {source} → {target} 重复;流程会为每一条副本各运行一次 “{target}”。请删除这条副本。',
+  // objectui#11905 — a refused connection (see the en rows).
+  'engine.flowProblems.connectRefused.missingSource': '无法连线：此流程中没有节点 “{source}”。',
+  'engine.flowProblems.connectRefused.missingTarget': '无法连线：此流程中没有节点 “{target}”。',
+  'engine.flowProblems.connectRefused.self': '无法将 “{source}” 连到它自身。',
+  'engine.flowProblems.connectRefused.repeat': '“{source}” 已经连到 “{target}”。请选中那条连线再修改。',
   // 引用关系侧栏(ResourceEditPage)空态。
   'engine.edit.refsScanning': '正在扫描引用…',
   'engine.edit.refsEmptyTitle': '未找到引用',
@@ -4760,6 +5413,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.form.searchFields': '搜索字段…',
   'engine.form.allFieldsAdded': '已添加全部字段',
   'engine.form.noObjectFields': '没有对象字段（{error}）。',
+  // objectui#10862, slice 4.
+  'engine.form.objectNotFound': '未找到对象',
+  'engine.form.datasetNotFound': '未找到数据集',
   'engine.form.noMatchingFields': '没有匹配字段。',
   'engine.form.noFieldsOnObject': '此对象暂无字段。',
   'engine.form.added': '已添加',
@@ -4861,6 +5517,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.packages.create.id': '软件包 ID',
   'engine.packages.create.namespace': '对象命名空间',
   'engine.packages.create.name': '显示名称',
+  'engine.packages.idRule.formatHint': '请使用反向域名格式的 ID，例如 {example}：由点分隔的两段或更多段，每段只含小写字母、数字和段内连字符，不能使用下划线。',
+  'engine.packages.idRule.strippedNotice': '已移除不支持的字符——仅允许小写字母、数字、点和连字符',
+  'engine.packages.idRule.derived': '编辑前会根据显示名称自动填写。',
   'engine.packages.create.version': '版本',
   'engine.packages.create.versionInvalid': '请使用语义化版本号，例如 0.1.0',
   'engine.packages.create.creating': '创建中…',
@@ -4938,20 +5597,27 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.packages.detail.reverted': '已还原到上次发布状态。',
   'engine.packages.detail.discardDraftsPartial': '已丢弃 {discarded} 项；{failed} 项失败。',
   'engine.packages.detail.discardDraftsOk': '所有待发布更改已丢弃，已回到发布版本。',
-  'engine.packages.detail.deleteConfirm': '删除 "{name}" 及其所有数据？\n\n这会移除此软件包中的所有对象、视图、仪表板和应用，并删除这些对象创建的数据库表。此操作不可撤销。',
+  'engine.packages.detail.discardTitle': '丢弃全部待发布更改（{count}）？',
+  'engine.packages.detail.discardDescription': '此应用的所有草稿都将被丢弃，应用回到上次发布的版本。已发布的元数据和数据不受影响。被丢弃的草稿无法恢复。',
+  'engine.packages.detail.deleteTitle': '删除 "{name}"？',
+  'engine.packages.detail.deleteDescription': '这会移除此软件包中的所有对象、视图、仪表板和应用。请选择如何处理这些对象中的记录。此操作不可撤销。',
+  'engine.packages.detail.deleteModeStructure': '仅删除结构，保留记录',
+  'engine.packages.detail.deleteModeStructureHint': '移除软件包的元数据。其对象创建的数据库表及其中的所有记录均保留。',
+  'engine.packages.detail.deleteModeAll': '删除结构和数据',
+  'engine.packages.detail.deleteModeAllHint': '同时删除其对象创建的数据库表及其中的所有记录。',
+  'engine.packages.detail.deleteTypeName': '输入 "{name}" 以确认',
+  'engine.packages.detail.duplicateGo': '创建副本',
   'engine.packages.detail.deleteFailed': '删除失败',
   'engine.packages.detail.disabled': '软件包已禁用。',
   'engine.packages.detail.enabled': '软件包已启用。',
   'engine.packages.detail.exported': '软件包已导出。',
   'engine.packages.detail.duplicate': '复制',
   'engine.packages.detail.duplicating': '复制中…',
-  'engine.packages.detail.duplicatePrompt': '副本的新软件包 id（一个全新的可写基座）：',
   'engine.packages.detail.duplicated': '软件包已复制为新基座。',
   'engine.packages.detail.adoptOrphans': '收编散落项',
   'engine.packages.detail.adopting': '收编中…',
   'engine.packages.detail.adoptConfirm': '把本环境中所有无软件包（散落）的元数据移动到 "{name}" 吗？这会把孤儿项重新绑定到此基座。',
   'engine.packages.detail.adopted': '散落项已收编进此基座。',
-  'engine.packages.detail.deleteKeepData': '同时删除数据吗？\n\n确定 = 同时删除所有记录（破坏性）。取消 = 保留记录，仅删除结构。',
   'engine.quickfind.placeholder': '搜索元数据类型或条目…（如：view、account）',
   'engine.quickfind.empty': '输入关键字以搜索所有元数据类型。',
   'engine.quickfind.title': '快速查找',
@@ -5149,6 +5815,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.stub.searchRef': '搜索 {ref}…',
   'designer.stub.chooseRelated': '选择关联对象…',
   'designer.stub.latLng': '经纬度',
+  // objectui#10862, slice 4.
+  'designer.stub.address': '街道地址\n城市，省 / 州 邮政编码\n国家 / 地区',
   // Field inspector
   'designer.field.kind': '字段',
   'designer.field.close': '关闭',
@@ -5159,6 +5827,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.field.section.options': '{type} 选项',
   'designer.field.apiName': 'API 名称',
   'designer.field.label': '显示名',
+  // objectui#11782.
+  'designer.field.labelTranslated': '在 {language} 中显示为“{label}”：应用的翻译包覆盖了此显示名。',
   'designer.field.type': '类型',
   'designer.field.required': '必填',
   'designer.field.unique': '唯一',
@@ -5172,6 +5842,12 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.field.noGroup': '— 无分组 —',
   'designer.field.picklistValues': '选项值',
   'designer.field.noValues': '暂无选项值。',
+  // objectui#10202 — "use picklist" (zh): the field names a shared picklist instead of its own options.
+  'designer.field.optionSource': '选项来源',
+  'designer.field.optionSourceInline': '本字段自己的选项',
+  'designer.field.picklistBound':
+    '选项来自选项列表「{picklist}」。绑定了选项列表的字段没有自己的选项：要增加取值，请在选项列表所属的软件包里添加。',
+  'designer.field.picklistOwnValues': '以上是选项列表自身的取值；其他软件包为它追加的取值同样可选。',
   'designer.field.optMalformed': '此选项无法在这里编辑',
   'designer.field.optMalformed.notAnObject': '它不是一个选项对象。',
   'designer.field.optMalformed.valueNotText': '它的 `value` 缺失或不是文本。',
@@ -5186,6 +5862,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.field.moveUp': '上移',
   'designer.field.moveDown': '下移',
   'designer.field.removeValue': '删除',
+  'designer.field.hint.addOption': '请至少添加一个选项。字段有选项后才会保存更改。',
+  'designer.field.hint.pickTarget': '请选择要关联的对象。选定后才会保存更改。',
   'designer.field.relatedObject': '关联对象',
   'designer.field.relationshipName': '关系名称',
   'designer.field.relationshipNameHint': '父对象上的反向集合键',
@@ -5312,14 +5990,26 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // ── StudioDesignSurface (ADR-0080 WYSIWYG design surface) ──────────────
   // Shared chrome
   'engine.studio.cancel': '取消',
-  'engine.studio.create': '创建',
   'engine.studio.creating': '创建中…',
+  'engine.studio.createItem.savedAs': '保存为',
   // `383502b23` — see the English entry. This value must share no leading
   // run with `engine.studio.app.create`, which opens the same dialog.
   'engine.studio.createDraft': '存为草稿',
   'engine.studio.saveDraft': '保存草稿',
   'engine.studio.more': '更多',
   'engine.studio.autoSaving': '保存中…',
+  'engine.draftConflict.title': '此草稿在你打开后已被修改',
+  'engine.draftConflict.description':
+    '{type}「{name}」的草稿在你打开后已在别处保存（其他人或另一个标签页）。可以重新加载已保存的版本（此处未保存的修改将丢弃），或用你的版本覆盖它。',
+  'engine.draftConflict.reload': '重新加载已保存版本',
+  'engine.draftConflict.overwrite': '覆盖…',
+  'engine.draftConflict.keepEditing': '继续编辑',
+  'engine.draftConflict.overwriteTitle': '覆盖已保存的草稿？',
+  'engine.draftConflict.overwriteDescription':
+    '你的{type}「{name}」将替换已保存的草稿，你打开之后保存的那些修改会丢失。',
+  'engine.draftConflict.overwriteConfirm': '覆盖',
+  'engine.draftConflict.back': '返回',
+  'engine.draftConflict.notSaved': '未保存：{type}「{name}」在你打开后已在别处保存。',
   'engine.studio.data.tab.advanced': '高级',
   // Standard create-dialog field labels (shared by object / app / flow / permission).
   'engine.studio.app.nameLabel': '应用名称',
@@ -5339,6 +6029,29 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.publish': '发布',
   'engine.studio.loading': '加载中…',
   'engine.studio.loadFailed': '加载失败',
+  'engine.studio.refusal.choiceWithoutOptions':
+    '更改未保存：字段「{field}」至少需要一个选项。请添加选项，或将该字段改为非选项类型。',
+  'engine.studio.refusal.relationshipWithoutTarget':
+    '更改未保存：字段「{field}」未指定要关联的对象。请选择对象，或将该字段改为非关联类型。',
+  'engine.studio.refusal.issue': '更改未保存。请检查{where} —— {problem}',
+  'engine.studio.refusal.more': '（另有 {count} 处，见详情）',
+  'engine.studio.refusal.unlocated': '更改未保存：服务端拒绝了此草稿。详情中说明了需要修改的内容。',
+  'engine.studio.refusal.field': '字段「{field}」',
+  'engine.studio.refusal.step': '步骤「{step}」',
+  'engine.studio.refusal.stepInput': '步骤「{step}」的「{input}」',
+  'engine.studio.refusal.navItem': '导航项「{item}」',
+  'engine.studio.refusal.navItemInput': '导航项「{item}」的「{input}」',
+  'engine.studio.refusal.details': '详情',
+  'engine.studio.refusal.show': '定位',
+  'engine.studio.held.needsOptions': '字段「{field}」至少需要一个选项',
+  'engine.studio.held.needsTarget': '字段「{field}」需要指定要关联的对象',
+  'engine.studio.held.needsInput': '步骤「{step}」的「{input}」需要填写',
+  'engine.studio.held.needsCondition': '规则「{rule}」需要一个条件',
+  'engine.studio.held.needsThenCondition': '规则「{rule}」的「Then」规则需要一个条件',
+  'engine.studio.held.widgetNeedsInput': '组件「{widget}」的「{input}」需要填写',
+  'engine.studio.held.line': '尚未保存：{clause}。更改已保留在此处，补全后会自动保存。',
+  'engine.studio.held.publish': '未发布：{clause}，该更改尚未保存。请先补全，再发布。',
+  'engine.studio.held.inputHint': '必填。填写后才会保存更改。',
   'engine.studio.unpublishedDraft': '未发布草稿',
   'engine.studio.unpublished': '未发布',
   'engine.studio.new': '新建',
@@ -5348,6 +6061,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.deselect': '取消选择',
   'engine.studio.toggleRail': '切换侧栏',
   'engine.studio.home': '返回主页',
+  'engine.studio.desktopHint': 'Studio 专为桌面屏幕设计。',
   // Pillar tab labels
   'engine.fieldType.text': '单行文本',
   'engine.fieldType.textarea': '多行文本',
@@ -5355,6 +6069,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.fieldType.url': '网址',
   'engine.fieldType.phone': '电话',
   'engine.fieldType.password': '密码',
+  'engine.fieldType.secret': '密钥',
   'engine.fieldType.markdown': 'Markdown',
   'engine.fieldType.html': 'HTML',
   'engine.fieldType.richtext': '富文本',
@@ -5373,6 +6088,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.fieldType.lookup': '查找关系',
   'engine.fieldType.master_detail': '主从关系',
   'engine.fieldType.tree': '树形关系',
+  'engine.fieldType.user': '用户',
   'engine.fieldType.image': '图片',
   'engine.fieldType.file': '文件',
   'engine.fieldType.avatar': '头像',
@@ -5383,6 +6099,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.fieldType.autonumber': '自动编号',
   'engine.fieldType.composite': '复合字段',
   'engine.fieldType.repeater': '重复字段',
+  'engine.fieldType.record': '命名分组',
   'engine.fieldType.location': '地理坐标',
   'engine.fieldType.address': '地址',
   'engine.fieldType.code': '代码',
@@ -5395,6 +6112,56 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.fieldType.progress': '进度条',
   'engine.fieldType.tags': '标签',
   'engine.fieldType.vector': '向量',
+  // objectui#11793.
+  'engine.fieldTypeDesc.text': '单行文本。',
+  'engine.fieldTypeDesc.textarea': '多行纯文本。',
+  'engine.fieldTypeDesc.email': '电子邮箱地址。',
+  'engine.fieldTypeDesc.url': '网页地址。',
+  'engine.fieldTypeDesc.phone': '电话号码。',
+  'engine.fieldTypeDesc.password': '读取时会被遮蔽的文本。',
+  'engine.fieldTypeDesc.secret': '加密存储的凭据（如 API 密钥），读取时会被遮蔽。',
+  'engine.fieldTypeDesc.markdown': '用 Markdown 书写的格式化文本。',
+  'engine.fieldTypeDesc.html': 'HTML 标记。',
+  'engine.fieldTypeDesc.richtext': '可视化编辑的格式化文本。',
+  'engine.fieldTypeDesc.number': '数字，整数或小数。',
+  'engine.fieldTypeDesc.currency': '金额。',
+  'engine.fieldTypeDesc.percent': '百分比。',
+  'engine.fieldTypeDesc.date': '日历日期。',
+  'engine.fieldTypeDesc.datetime': '带时间的日期。',
+  'engine.fieldTypeDesc.time': '一天中的时间。',
+  'engine.fieldTypeDesc.boolean': '是或否，显示为复选框。',
+  'engine.fieldTypeDesc.toggle': '是或否，显示为开关。',
+  'engine.fieldTypeDesc.select': '从选项列表中选一个值。',
+  'engine.fieldTypeDesc.multiselect': '从选项列表中选多个值。',
+  'engine.fieldTypeDesc.radio': '选一个值，显示为单选按钮。',
+  'engine.fieldTypeDesc.checkboxes': '选多个值，显示为复选框。',
+  'engine.fieldTypeDesc.lookup': '关联到另一个对象的一条记录。',
+  'engine.fieldTypeDesc.master_detail': '关联到拥有本记录的父记录。',
+  'engine.fieldTypeDesc.tree': '关联到同一对象中的父记录。',
+  'engine.fieldTypeDesc.user': '关联到一位用户，如负责人或处理人。',
+  'engine.fieldTypeDesc.image': '上传的图片。',
+  'engine.fieldTypeDesc.file': '上传的文件。',
+  'engine.fieldTypeDesc.avatar': '头像图片。',
+  'engine.fieldTypeDesc.video': '上传的视频。',
+  'engine.fieldTypeDesc.audio': '上传的音频。',
+  'engine.fieldTypeDesc.formula': '由公式计算得出的值。',
+  'engine.fieldTypeDesc.summary': '汇总相关记录得出的值。',
+  'engine.fieldTypeDesc.autonumber': '为每条新记录分配的编号。',
+  'engine.fieldTypeDesc.composite': '一组存放在一起的子字段。',
+  'engine.fieldTypeDesc.repeater': '可重复的一组子字段列表。',
+  'engine.fieldTypeDesc.record': '多组子字段，每组以自己的名称存放。',
+  'engine.fieldTypeDesc.location': 'GPS 坐标。',
+  'engine.fieldTypeDesc.address': '结构化的邮寄地址。',
+  'engine.fieldTypeDesc.code': 'JSON、SQL 或 JavaScript 等源代码。',
+  'engine.fieldTypeDesc.json': '结构化的 JSON 数据。',
+  'engine.fieldTypeDesc.color': '颜色。',
+  'engine.fieldTypeDesc.rating': '星级评分。',
+  'engine.fieldTypeDesc.slider': '用滑块选取的数字。',
+  'engine.fieldTypeDesc.signature': '电子签名。',
+  'engine.fieldTypeDesc.qrcode': '二维码或条形码。',
+  'engine.fieldTypeDesc.progress': '以进度条显示的值。',
+  'engine.fieldTypeDesc.tags': '简单的标签列表。',
+  'engine.fieldTypeDesc.vector': '用于 AI 语义搜索的向量嵌入。',
   'engine.fieldCategory.text': '文本',
   'engine.fieldCategory.number': '数值',
   'engine.fieldCategory.date': '日期/时间',
@@ -5414,6 +6181,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.publishTitle': '一次性确认并发布全部待发布草稿(整包 · 一次原子发布)',
   'engine.studio.publishNoneTitle': '没有待发布的草稿',
   'engine.studio.publishedAll': '已发布本软件包的全部草稿(一次原子发布)',
+  // objectui#11807 — the publish toast names how many items went live.
+  'engine.studio.publishedAllCount': '已发布本软件包的 {count} 项(一次原子发布)',
+  'engine.studio.publishedAllCountOne': '已发布本软件包的 {count} 项(一次原子发布)',
   'engine.studio.app.open': '打开应用',
   'engine.studio.app.openTitle': '打开应用「{label}」(发布后的前端界面)',
   'engine.studio.app.create': '创建应用',
@@ -5429,7 +6199,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.pkg.readonlyHint': '只读软件包 — 请切换或新建可写软件包后再编辑。',
   'engine.studio.app.scaffoldNav': '将本包的对象添加为菜单项',
   'engine.studio.landing.title': '应用构建',
-  'engine.studio.landing.description': '在一个可写软件包里设计对象、表单、自动化与界面;编辑存为草稿,整包一次发布。源码加载的软件包为只读(仅可浏览)。',
+  'engine.studio.landing.description': '在一个可写软件包里设计对象、表单、自动化与界面;编辑存为草稿,整包一次发布。源码与已安装的软件包为只读：可在此浏览，并用组织覆盖进行定制。',
   'engine.studio.landing.mineHeading': '我的软件包(可写)',
   'engine.studio.landing.noneWritable': '还没有可写软件包 — 新建一个开始。',
   'engine.studio.landing.dup': '复制',
@@ -5440,10 +6210,26 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.landing.dupGo': '复制并进入构建器',
   'engine.studio.landing.dupCreated': '已复制为可写软件包「{name}」',
   'engine.studio.landing.installedHeading': '已安装(只读 · 可浏览)',
+  // objectui#11808 — the routes a read-only package does have.
+  'engine.studio.landing.readonlyHint': '源码与已安装的软件包为只读，不能在此编辑或复制。对于接受组织覆盖的元数据类型，可用组织覆盖（overlay）进行定制。',
+  'engine.studio.landing.overlay': '用覆盖定制',
+  'engine.studio.landing.overlayTitle': '打开该软件包的元数据：每种类型都会标明是否接受组织覆盖',
+  'engine.studio.landing.marketplace': '或从应用市场安装一个模板应用',
+  // objectui#11553 — the package-less scope: the organization's own flows.
+  'engine.studio.landing.orgHeading': '不属于软件包',
+  'engine.studio.org.name': '组织流程',
+  'engine.studio.org.hint': '不属于任何软件包的流程',
+  'engine.studio.org.description': '本组织自有、不属于任何软件包的流程,例如软件包流程的克隆副本。可直接编辑。',
+  'engine.studio.org.none': '还没有不属于软件包的流程。在 设置 › 打包自动化 中克隆一个软件包流程,即可在这里编辑副本。',
+  'engine.studio.publishedAllFlows': '已发布 {count} 个不属于软件包的流程草稿',
+  'engine.studio.publishedAllFlowsOne': '已发布 {count} 个不属于软件包的流程草稿',
+  'engine.studio.auto.deepLinkMissing': '链接指向的流程「{name}」不在这里。',
   'engine.studio.designer.search': '搜索…',
   'engine.studio.designer.select': '请选择…',
   'engine.studio.designer.pickDate': '选择日期…',
   'engine.studio.designer.fieldAria': '{label} — 点选改属性,拖动排序',
+  'engine.studio.designer.fieldAriaReadOnly': '{label} — 点选查看属性',
+  'engine.studio.designer.fieldRole': '可拖动字段',
   'engine.studio.designer.groupUp': '上移分组',
   'engine.studio.designer.groupDown': '下移分组',
   'engine.studio.designer.groupDelete': '删除分组',
@@ -5452,11 +6238,21 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.designer.ungrouped': '未分组',
   'engine.studio.designer.newGroup': '新分组',
   'engine.studio.designer.hint': '拖动字段排序 / 拖到其它分组 · 点选字段改属性',
+  'engine.studio.designer.hintReadOnly': '只读软件包 · 点选字段查看属性',
   'engine.studio.designer.addGroup': '添加分组',
+  'engine.studio.formDnd.instructions':
+    '按空格键或回车键拿起字段。拖动时用方向键移动，再按空格键或回车键放到新位置，按 Esc 键取消。',
+  'engine.studio.formDnd.start': '已拿起 {field}，当前在 {group}，第 {position} 个，共 {total} 个。',
+  'engine.studio.formDnd.over': '{field} 正移到 {group}，第 {position} 个，共 {total} 个。',
+  'engine.studio.formDnd.overNone': '{field} 不在任何分组上。',
+  'engine.studio.formDnd.end': '{field} 已移到 {group}，第 {position} 个，共 {total} 个。',
+  'engine.studio.formDnd.endNone': '{field} 没有放到分组里，已回到 {group}，第 {position} 个，共 {total} 个。',
+  'engine.studio.formDnd.cancel': '已取消拖动。{field} 已回到 {group}，第 {position} 个，共 {total} 个。',
   'engine.studio.rules.title': '验证规则',
   'engine.studio.rules.none': '还没有验证规则。',
   'engine.studio.rules.explain': '规则在保存记录时执行:条件为真 ⇒ 拒绝保存并提示消息。',
   'engine.studio.rules.noMessage': '(无消息)',
+  'engine.studio.rules.notSaved': '未保存 —— 需要条件',
   'engine.studio.rules.pick': '选择左侧的规则进行编辑,或点「新增」创建一条。',
   'engine.studio.rules.structured': '「{type}」类型的规则带有结构化配置(状态机转移表 / 格式约束等),暂不支持在此编辑 —— 请在代码包中维护。消息:{message}',
   'engine.studio.rules.none2': '(无)',
@@ -5466,8 +6262,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.rules.messagePlaceholder': '例如:完成日期在状态为已完成时必填',
   'engine.studio.rules.celPre': '失败条件(CEL)—— 条件为 ',
   'engine.studio.rules.celTrue': '真',
-  'engine.studio.rules.celMid': ' 时,拒绝保存并显示上面的消息;新规则默认 ',
-  'engine.studio.rules.celPost': ' (永不触发),请改为真实条件。',
+  'engine.studio.rules.celMid': ' 时,拒绝保存并显示上面的消息。',
   'engine.studio.rules.severity': '严重度',
   'engine.studio.rules.severityError': 'error(拒绝保存)',
   'engine.studio.rules.enabled': '启用',
@@ -5500,8 +6295,19 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.rules.events': '触发时机',
   'engine.studio.rules.event.insert': '新建',
   'engine.studio.rules.event.update': '更新',
-  'engine.studio.rules.event.delete': '删除',
   'engine.studio.rules.priority': '优先级',
+  'engine.studio.rules.presets': '常用规则',
+  'engine.studio.rules.advanced': '高级',
+  'engine.studio.rules.preset.endAfterStart': '结束日期不早于开始日期',
+  'engine.studio.rules.preset.endAfterStartNeeds': '需要该对象有两个日期字段。',
+  'engine.studio.rules.preset.endAfterStartMessage': '{end}不能早于{start}。',
+  'engine.studio.rules.preset.notNegative': '数值不能为负',
+  'engine.studio.rules.preset.notNegativeNeeds': '需要该对象有一个数值字段。',
+  'engine.studio.rules.preset.notNegativeMessage': '{field}不能为负数。',
+  'engine.studio.rules.preset.rejectWhen': '满足条件时拒绝保存…',
+  'engine.studio.rules.preset.rejectWhenHint': '自行搭建条件,无需写代码。',
+  'engine.studio.rules.preset.usesOne': '使用「{field}」。',
+  'engine.studio.rules.preset.usesTwo': '使用「{start}」和「{end}」。',
   'engine.studio.settings.basics': '基础信息',
   'engine.studio.settings.noInspector': '未注册对象默认检查器。',
   'engine.studio.settings.semanticRoles': '语义角色',
@@ -5563,20 +6369,17 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.pkg.writable': '可写',
   'engine.studio.pkg.heading': '软件包(应用)',
   'engine.studio.pkg.none': '暂无应用软件包',
-  'engine.studio.pkg.idStrippedNotice': '已移除不支持的字符——仅允许小写字母、数字、点、连字符和下划线',
-  'engine.studio.pkg.idFormatHint': '请使用带至少一个点的反向域名标识,如 com.example.myapp',
   'engine.studio.pkg.createWritable': '创建可写软件包',
   'engine.studio.pkg.new': '新建软件包(可写 base)',
   'engine.studio.pkg.created': '软件包 {name} 已创建(可写)',
   // Nav item inspector (Interfaces pillar)
   'engine.studio.nav.selectItem': '在左侧选择一个菜单项。',
   'engine.studio.nav.label': '标签',
-  'engine.studio.nav.labelPlaceholder': '如:职位',
   'engine.studio.nav.linkObject': '链接到对象',
   'engine.studio.nav.chooseObject': '— 选择对象 —',
   'engine.studio.nav.boundHint': '这个菜单项会打开该对象的记录列表。',
   'engine.studio.nav.unboundHint': '选择一个对象,菜单项将打开它的记录列表。',
-  'engine.studio.nav.noObjects': '这个软件包还没有对象 — 先到 Data 支柱创建。',
+  'engine.studio.nav.noObjects': '这个软件包还没有对象 — 请先在「数据」中创建一个。',
   // Interfaces pillar
   'engine.studio.if.pickLeft': '从左侧选择一个菜单项',
   'engine.studio.if.internalId': '内部标识',
@@ -5593,8 +6396,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.if.noAppHint': '创建一个应用来设计它的导航与界面。',
   'engine.studio.if.designersMissing': '本次会话没有注册任何元数据设计器,因此无法在这里预览或设计 {type}。',
   'engine.studio.if.noDesigner': '没有为 {type} 注册设计器,因此无法在这里预览或设计。',
-  'engine.studio.if.objectHintPre': '运行态列表预览 · 改字段 / 结构请到 ',
-  'engine.studio.if.objectHintPost': ' 支柱',
+  'engine.studio.if.objectHintPre': '运行态列表预览 · 改字段 / 结构请到「',
+  'engine.studio.if.objectHintPost': '」',
   'engine.studio.inspector.props': '属性',
   'engine.studio.inspector.collapse': '收起属性',
   'engine.studio.inspector.expand': '展开属性',
@@ -5604,6 +6407,50 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.inspector.emptyLine2': '它的属性会在这里直接编辑。',
   'engine.studio.inspector.studioCanvasNoBlocks':
     '此画布渲染的是运行态应用，而不是积木树 —— 这里没有可选中的积木，也没有可在本面板编辑的内容。',
+  'engine.studio.inspector.listView.kind': '列表视图',
+  'engine.studio.inspector.listView.intro': '画布上的就是这个列表。它的列、筛选与排序保存到本包的草稿,并立即显示在画布上。',
+  'engine.studio.inspector.listView.notCreated': '还没有列表视图 {view}。在这里做的第一次修改会在本包的草稿中创建它。',
+  'engine.studio.inspector.listView.readOnly': '本包只读:这里展示列表视图,不能编辑。',
+  'engine.studio.inspector.listView.notList': '{view} 不是列表视图,因此不在这里编辑。',
+  'engine.studio.inspector.listView.filter': '筛选',
+  'engine.studio.inspector.listView.sort': '排序',
+  'engine.studio.inspector.listView.addSort': '+ 添加排序…',
+  'engine.studio.inspector.listView.sortAsc': '{field} 升序',
+  'engine.studio.inspector.listView.sortDesc': '{field} 降序',
+  // objectui#11823 (step 2) — the Interfaces pillar's New dashboard / New report.
+  'engine.studio.interfaces.create.menuTitle': '在本包中新建仪表盘、报表或页面',
+  'engine.studio.interfaces.create.dashboard': '新建仪表盘',
+  'engine.studio.interfaces.create.report': '新建报表',
+  'engine.studio.interfaces.create.description': '存为本包的草稿,加入 {app} 的导航,并在画布上打开。',
+  'engine.studio.interfaces.create.dashboardNameLabel': '仪表盘名称',
+  'engine.studio.interfaces.create.reportNameLabel': '报表名称',
+  'engine.studio.interfaces.create.dashboardNamePlaceholder': '仪表盘名称(如:销售概览)',
+  'engine.studio.interfaces.create.reportNamePlaceholder': '报表名称(如:各区域收入)',
+  'engine.studio.interfaces.create.idLabel': '标识',
+  'engine.studio.interfaces.create.dashboardIdPlaceholder': '标识符(如:sales_overview)',
+  'engine.studio.interfaces.create.reportIdPlaceholder': '标识符(如:revenue_by_region)',
+  'engine.studio.interfaces.create.dashboardTaken': '已有标识为「{name}」的仪表盘,请换一个标识。',
+  'engine.studio.interfaces.create.reportTaken': '已有标识为「{name}」的报表,请换一个标识。',
+  'engine.studio.interfaces.create.dataset': '数据集',
+  'engine.studio.interfaces.create.datasetPlaceholder': '选择数据集…',
+  'engine.studio.interfaces.create.measure': '度量',
+  'engine.studio.interfaces.create.measurePlaceholder': '选择度量…',
+  'engine.studio.interfaces.create.reportHint': '报表展示一个数据集的度量。创建后可在属性面板中添加更多度量与分组。',
+  'engine.studio.interfaces.create.noDatasets': '还没有可用于报表的数据集。报表展示的是数据集的度量,请先创建数据集。',
+  'engine.studio.interfaces.create.datasetsFailed': '无法加载数据集:{error}',
+  'engine.studio.interfaces.create.noMeasures': '这个数据集没有声明度量,报表无法展示它。',
+  'engine.studio.interfaces.create.needsBinding': '请选择这个报表读取的数据集,以及其中的一个度量。',
+  'engine.studio.interfaces.create.page': '新建页面',
+  'engine.studio.interfaces.create.pageNameLabel': '页面名称',
+  'engine.studio.interfaces.create.pageNamePlaceholder': '页面名称(如:团队手册)',
+  'engine.studio.interfaces.create.pageIdPlaceholder': '标识符(如:team_handbook)',
+  'engine.studio.interfaces.create.pageTaken': '已有标识为「{name}」的页面,请换一个标识。',
+  'engine.studio.interfaces.create.pageKind': '编写方式',
+  'engine.studio.interfaces.create.pageKindHtml': 'HTML',
+  'engine.studio.interfaces.create.pageKindReact': 'React',
+  'engine.studio.interfaces.create.pageKindHtmlHint': '由平台组件与 HTML 标签组成,只解析、不执行。页面打开时,源码与实时预览并排显示。',
+  'engine.studio.interfaces.create.pageKindReactHint': '真正的 React 代码,在页面渲染时运行,可使用状态、副作用与事件处理。页面打开时,源码与实时预览并排显示。',
+  'engine.studio.interfaces.create.pageStarter': '新页面。请在源码编辑器中编写它的内容。',
   'engine.studio.inspector.designersMissing': '本次会话没有注册任何元数据设计器,这里没有可编辑的内容。',
   'engine.studio.inspector.noPageSchema': '页面设置不可用——无法加载页面 schema。',
   'engine.studio.inspector.sourcePageLine1': '这个页面是 {kind} 源码,不是积木树 ——',
@@ -5641,6 +6488,16 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.actions.editorMissing': '本次会话没有注册操作编辑器,因此无法在这里编辑该操作的属性。',
   'engine.studio.actions.newLabel': '新操作',
   'engine.studio.actions.delete': '删除',
+  'engine.studio.actions.presets': '常用操作',
+  'engine.studio.actions.notSaved': '未保存 —— 需要「{input}」',
+  'engine.studio.actions.heldNeeds': '操作「{action}」需要「{input}」',
+  'engine.studio.actions.preset.change': '修改下拉选择字段',
+  'engine.studio.actions.preset.changeHint': '询问新的「{field}」,然后保存。',
+  'engine.studio.actions.preset.changeNeeds': '需要该对象有一个下拉选择字段。',
+  'engine.studio.actions.preset.changeLabel': '修改{field}',
+  'engine.studio.actions.preset.runFlow': '运行流程',
+  'engine.studio.actions.preset.openUrl': '打开网页',
+  'engine.studio.actions.preset.openPage': '在对话框中打开页面',
   // API view
   'engine.studio.api.subtitle':
     '该对象自动生成的 REST 端点,依据当前 schema 派生。可复制为 cURL,带上你的 API 令牌调用。',
@@ -5652,13 +6509,13 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.api.copyCurl': '复制为 cURL',
   'engine.studio.api.copied': '已复制',
   'engine.studio.api.body': '示例请求体',
+  'engine.studio.api.bodyOmitted': '必填字段排在最前。未列出的可选字段：{fields}',
   // Hooks view
+  'engine.studio.hooks.renameHeld': '尚未保存：钩子会保留创建时的名称。把名称改回 {name} 即可保存更改。',
   'engine.studio.hooks.none': '没有钩子作用于该对象。',
   'engine.studio.hooks.async': '异步',
   'engine.studio.hooks.pick': '选择一个钩子进行编辑。',
   'engine.studio.hooks.newLabel': '新钩子',
-  'engine.studio.hooks.saved': '已将「{label}」存为草稿',
-  'engine.studio.hooks.save': '保存钩子',
   'engine.studio.data.addFieldTitle': '添加一个字段(随后在右侧设置类型与属性)',
   'engine.studio.data.addField': '添加字段',
   'engine.studio.data.editFieldProps': '编辑字段属性',
@@ -5670,6 +6527,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.data.form.preview': '预览',
   'engine.studio.data.form.layoutBadge': '草稿布局 · 含未保存改动',
   'engine.studio.data.form.layoutBadgeClean': '草稿布局',
+  'engine.studio.data.form.layoutBadgeReadOnly': '只读布局 · 本软件包不可编辑',
   'engine.studio.data.form.previewBadge': '预览已发布版本(不含草稿改动)',
   'engine.studio.data.form.previewWarn':
     '有未发布改动 — 此预览为发布前(已发布)的效果;草稿确认用「布局」,看发布后效果请先点顶栏「发布」',
@@ -5692,13 +6550,16 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.auto.nodeStart': '开始',
   'engine.studio.auto.nodeEnd': '结束',
   'engine.studio.auto.savedDraft': '自动化「{label}」已存为草稿',
-  'engine.studio.auto.defaultOff': '默认 OFF · 审阅后再启用',
-  'engine.studio.auto.heading': '自动化 · flow',
+  'engine.studio.auto.defaultOff': '默认停用 · 审阅后再启用',
+  'engine.studio.auto.heading': '自动化',
   'engine.studio.auto.on': '已启用',
   'engine.studio.auto.off': '已停用',
   'engine.studio.auto.offTitle': '已停用 — 不会运行',
   'engine.studio.auto.onBound': '已启用 · 已绑定触发器',
   'engine.studio.auto.onUnbound': '已启用 · 无触发器(手动运行)',
+  'engine.studio.auto.notRunning': '未在此运行',
+  'engine.studio.auto.notRunningTitle': '已启用,但它的触发器在此部署中未生效',
+  'engine.studio.auto.unpublishedTitle': '尚未部署 — 发布后才会部署',
   'engine.studio.auto.enabled': '已启用',
   'engine.studio.auto.disabled': '已停用',
   'engine.studio.auto.enableTitle': '启用此自动化(发布后生效)',
@@ -5709,7 +6570,15 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.auto.none': '还没有自动化 — 点「新建」开始',
   'engine.studio.auto.namePlaceholder': '名称(如:录用通知)',
   'engine.studio.auto.idPlaceholder': '标识符(如:offer_notice)',
-  'engine.studio.auto.canvasHint': '可视化编排 · 点选节点配置',
+  // objectui#11788 — 新建自动化对话框里不选触发方式时的选项。
+  'engine.studio.newAutoTrigger.later': '稍后在开始节点上选择',
+  'engine.studio.auto.presets': '何时运行',
+  'engine.studio.auto.preset.created': '新建记录时',
+  'engine.studio.auto.preset.updated': '更新记录时',
+  'engine.studio.auto.preset.deleted': '删除记录时',
+  'engine.studio.auto.preset.manual': '由按钮或其他自动化启动时',
+  'engine.studio.auto.preset.needsObject': '请选择它监视的对象。',
+  'engine.studio.auto.canvasHint': '点选画布上的节点即可配置',
   'engine.studio.auto.pick': '选择一个自动化',
   'engine.studio.auto.config': '配置',
   'engine.studio.auto.emptyLine1': '在画布里点选一个节点,',
@@ -5722,6 +6591,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.access.bannerTitle':
     '此矩阵仅列出本包声明的对象,「Save」只合并本包切片 —— 其他包贡献的授权原样保留。编辑保存为软件包草稿,点击顶栏「发布」后随整个包一起生效(与数据、界面一致)。',
   'engine.studio.access.banner': '仅本包对象 · 保存为草稿',
+  'engine.studio.access.bannerTitleReadOnly':
+    '此矩阵仅列出本包声明的对象。本软件包为只读:其权限集可在此查看,但不能修改。',
+  'engine.studio.access.bannerReadOnly': '仅本包对象 · 只读',
   // ADR-0090 D5/D9 — 待确认的受众绑定建议(isDefault 权限集,管理员确认后生效,服务端绝不自动绑定)
   'engine.studio.access.suggestPromptEveryone': '此包建议将「{set}」授予所有已登录用户(Everyone 岗位)。',
   'engine.studio.access.suggestPromptGuest': '此包建议将「{set}」授予未登录访客(Guest 岗位)。',
@@ -5852,7 +6724,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.appNav.removeItem': '删除导航项',
   'engine.appNav.empty': '还没有导航项 — 点「添加导航项」开始',
   'engine.appNav.emptyReadonly': '还没有顶层导航项',
-  'engine.appNav.newItem': '新菜单项',
+  'engine.appNav.item': '导航项 {n}',
   'engine.appNav.itemOne': '项',
   'engine.appNav.itemOther': '项',
 };
@@ -5866,6 +6738,8 @@ export function isZhLocale(locale?: SupportedLocale | string): boolean {
 interface FlowFieldZh {
   label?: string;
   help?: string;
+  /** The field's `unsetNotice` (objectui#11054). */
+  unsetNotice?: string;
   /** select option value → zh label. */
   opts?: Record<string, string>;
   /** objectList column key → zh label (+ nested option labels). */
@@ -5895,9 +6769,14 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
         schedule: '定时(cron)',
         time_relative: '相对时间(日期扫描)',
         manual: '手动 / 自动启动',
-        webhook: 'Webhook / API',
-        event: '平台事件',
+        api: 'Webhook / API',
       },
+    },
+    // objectui#11054 — the inbound hook's per-flow secret (write-only).
+    secret: {
+      label: '密钥',
+      help: '入站 hook 用来校验每一次请求的流程级密钥。只写不读:已保存的密钥不会在此显示,留空即保持不变。',
+      unsetNotice: '未输入密钥。API 触发的流程若开始节点没有密钥,会被拒绝。此流程已保存的密钥在留空时保持不变。',
     },
     objectName: { label: '对象', help: '记录 / 定时扫描触发的目标对象。' },
     condition: {
@@ -5987,7 +6866,8 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     url: { label: 'URL' },
     headers: { label: '请求头', help: '请求头(如 Authorization、Content-Type)。' },
     body: { label: '请求体', help: '请求负载(JSON 或表达式)。' },
-    outputVariable: { label: '输出变量' },
+    // objectui#11968 — no `outputVariable` overlay: the `http` contract declares
+    // no such key, so neither form offers a field for it.
     durable: { label: '持久化(异步)', help: '通过持久化队列即发即忘(异步投递)。' },
     signingSecret: { label: '签名密钥', help: 'HMAC-SHA256 密钥 → 写入 X-Objectstack 签名请求头。' },
     timeoutMs: { label: '超时(毫秒)' },
@@ -6115,10 +6995,10 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     errorVariable: { label: '错误变量', help: '在 catch 区域内绑定所捕获错误的变量。' },
     retry: { label: '重试' },
   },
-  // notify has no client field table (offline → Advanced JSON); these localize
-  // the engine-published configSchema fields shown when online.
+  // notify's offline table and the engine-published configSchema share these
+  // field ids, so one overlay localizes both forms.
   notify: {
-    recipients: { label: '收件人', help: '接收通知的用户 id / 受众。' },
+    recipients: { label: '收件人', help: '接收通知的人：触发记录的某个字段、用户、团队或邮箱地址。至少需要一个。' },
     title: { label: '标题', help: '通知标题(别名:subject)。' },
     message: { label: '内容', help: '通知正文(别名:body)。' },
     channels: { label: '渠道', help: '扇出投递的渠道(默认站内)。' },
@@ -6127,7 +7007,9 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
     sourceObject: { label: '来源对象', help: '通知所关联记录的对象名。' },
     sourceId: { label: '来源记录', help: '通知链接到的记录 id。' },
     actorId: { label: '触发用户', help: '引发该事件的用户 id。' },
-    url: { label: '链接 URL', help: '显式的点击跳转 URL;覆盖默认值。' },
+    // objectui#11968 — keyed `actionUrl`, the key the contract declares and both
+    // forms now write; the `url` spelling is the converted alias.
+    actionUrl: { label: '链接 URL', help: '显式的点击跳转 URL;覆盖默认值。' },
     payload: { label: '附加数据', help: '合并进模板输入的额外数据。' },
   },
   boundary_event: {

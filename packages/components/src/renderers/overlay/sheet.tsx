@@ -19,9 +19,13 @@ import {
 } from '../../ui';
 import { renderChildren, renderNodeSlot, renderTriggerSlot } from '../../lib/utils';
 
+// ⛔ No `modal` read (objectui#11347). `SheetSchema` declares no `modal`, the
+// installed `@objectstack/spec` has no row for `sheet`, and no catalog entry,
+// example, doc page or README authors one, so `modal={schema.modal}` rode
+// `BaseSchema`'s index signature alone and was retired.
 ComponentRegistry.register('sheet', 
   ({ schema, className, ...props }: { schema: SheetSchema; className?: string; [key: string]: any }) => (
-    <Sheet modal={schema.modal} defaultOpen={schema.defaultOpen} {...props}>
+    <Sheet defaultOpen={schema.defaultOpen} {...props}>
       {renderTriggerSlot(SheetTrigger, schema.trigger)}
       <SheetContent side={schema.side || 'right'} className={className}>
         <SheetHeader>
@@ -49,7 +53,6 @@ ComponentRegistry.register('sheet',
       { name: 'title', type: 'string' },
       { name: 'description', type: 'string' },
       { name: 'side', type: 'enum', enum: ['top', 'right', 'bottom', 'left'] },
-      { name: 'modal', type: 'boolean' },
        { name: 'defaultOpen', type: 'boolean' },
       { 
         name: 'trigger', 
@@ -68,7 +71,6 @@ ComponentRegistry.register('sheet',
       title: 'Sheet Title',
       description: 'Sheet description',
       side: 'right',
-      modal: true,
       trigger: [{ type: 'button', label: 'Open Sheet' }],
       content: [{ type: 'text', content: 'Sheet content goes here' }]
     }

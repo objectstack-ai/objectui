@@ -17,9 +17,9 @@
  * through `evalRowPredicate` is what makes them one.
  *
  * This file is the only place that can see all three: `plugin-grid` owns the row
- * kebab (`isCustomRowActionVisible` — the single definition its items and its
- * "⋮" guard share) and the selection bar (`partitionBulkRows`), and depends on
- * `@object-ui/components`, which owns `page:header`.
+ * kebab (whose items and "⋮" guard share `isCustomRowActionVisible`, from
+ * `@object-ui/components`) and the selection bar (`partitionBulkRows`), and
+ * depends on `@object-ui/components`, which owns `page:header`.
  *
  * Scope of the claim: most fixtures are non-empty predicate STRINGS / envelopes,
  * i.e. the dialect question #3521 asked. The boolean and empty-string shapes were
@@ -39,7 +39,10 @@ import { ActionProvider, RecordContextProvider, PredicateScopeProvider } from '@
 // `page:header` renderer must be registered before the first render, and a
 // dynamic import inside a hook would race the RTL assertion budget.
 import '@object-ui/components';
-import { isCustomRowActionVisible } from '../components/RowActionMenu';
+// The row kebab's gate. `RowActionMenu` imports it from this barrel: one
+// function serves this package's row menu and the related list's data table
+// (objectui#11294).
+import { isCustomRowActionVisible } from '@object-ui/components';
 import { partitionBulkRows } from '../bulkEligibility';
 
 const OBJECT_FIELDS = {

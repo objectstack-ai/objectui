@@ -34,15 +34,19 @@ The SchemaRenderer automatically handles nested schemas:
 ## Schema Structure
 
 ```ts
-interface SchemaNode {
+// abridged: `BaseSchema` in @object-ui/types carries the full member list
+interface BaseSchema {
   type: string;                  // Component type (e.g., 'card', 'button', 'text')
   id?: string;                   // Unique identifier
   className?: string;            // Tailwind CSS classes
-  children?: SchemaNode | SchemaNode[]; // Child components
-  props?: Record<string, any>;   // Component-specific props
-  [key: string]: any;            // Any other component props
+  children?: BaseSchema | BaseSchema[]; // Child components
 }
 ```
+
+Every node type extends `BaseSchema` with its own keys, and none of them
+carries an index signature (objectui#8347): in a typed literal, a key the
+node's type does not declare, a misspelling included, is a compile error.
+A child in a slot is checked against its own `type`'s declaration.
 
 ## Error Handling
 
@@ -57,6 +61,7 @@ The SchemaRenderer uses the Component Registry to resolve component types:
 ```tsx
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '@object-ui/react';
+import type { BaseSchema } from '@object-ui/types';
 
 function MyWidgetComponent() {
   return <div>My widget</div>;
@@ -64,6 +69,20 @@ function MyWidgetComponent() {
 
 // Register a custom component
 ComponentRegistry.register('my-widget', MyWidgetComponent);
+
+// Declare its node type. A node slot and the `schema` prop take the node types
+// `@object-ui/types` declares, plus each type an application adds to
+// `CustomNodeRegistry`, so the node below is checked against `MyWidgetSchema`.
+interface MyWidgetSchema extends BaseSchema {
+  type: 'my-widget';
+  customProp?: string;
+}
+
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'my-widget': MyWidgetSchema;
+  }
+}
 
 // Now you can use it in schemas
 <SchemaRenderer schema={{
@@ -83,6 +102,7 @@ import type { PageNodeSchema } from '@object-ui/types';
 function App() {
   const schema: PageNodeSchema = {
     type: 'page',
+    pageType: 'app',
     title: 'Dashboard',
     children: [
       { type: 'text', content: 'Welcome to your dashboard' }

@@ -28,13 +28,22 @@
 
 import * as React from 'react';
 import { ShieldCheck, Save, Loader2, Lock, ArrowUpRight, AlertTriangle } from 'lucide-react';
-import type { MetadataClient } from '@object-ui/data-objectstack';
+import type { MetadataClient, MetadataLayered } from '@object-ui/data-objectstack';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
 // framework's read decorations in one place. This file used to carry its own
 // copy that did the unwrap and skipped the strip.
-import { extractDraftBody } from '@object-ui/data-objectstack';
+// …and `formatMetadataError`, the one metadata-save error reader (objectui#11302).
+// …and `dropServedPicklistOptions`, the served -> authored conversion of a
+// picklist-bound field (objectui#10202, objectui#11692).
+import { dropServedPicklistOptions, extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@object-ui/components';
 import { t, tFormat, type SupportedLocale } from '../metadata-admin/i18n.js';
-import { formatMetadataError } from './metadataError.js';
 import { isExternalWider, deriveMasterObject } from './owd-sharing.js';
 import { toast } from 'sonner';
 
@@ -54,6 +63,32 @@ interface OwdRow {
   master?: string;
   /** True when this object already has an unpublished draft. */
   hasDraft: boolean;
+  /** True when the package's published list held this object at load (objectui#11799). */
+  saved: boolean;
+}
+
+/**
+ * One object's two reads for this table: its layered baseline and its pending
+ * draft. The baseline is used only when there is no draft (objectui#10765).
+ *
+ * objectui#11799 — an object the package's published list does not hold has
+ * never been saved, so it has no layer, and `GET …/layers` answers 404 for it.
+ * Such an object is not asked while its draft is in hand. Should no draft come
+ * back (a failed read, or the object was published or discarded since the
+ * list was read), its baseline is read as before. A saved object is read
+ * exactly as before: both reads together.
+ */
+async function readObjectBodies(
+  client: MetadataClient,
+  name: string,
+  saved: boolean,
+): Promise<[MetadataLayered<Record<string, unknown>> | null, unknown]> {
+  const readLayered = () => client.layered<Record<string, unknown>>('object', name).catch(() => null);
+  const readDraft = () => client.getDraft<Record<string, unknown>>('object', name).catch(() => null);
+  if (saved) return Promise.all([readLayered(), readDraft()]);
+  const draftResp = await readDraft();
+  if (extractDraftBody(draftResp)) return [null, draftResp];
+  return [await readLayered(), draftResp];
 }
 
 /** The user's working value for one row ('' = unset). */
@@ -75,6 +110,67 @@ function owdLabel(value: string, locale: SupportedLocale): string {
   const hit = OWD_OPTION_KEYS.find((o) => o.value === value);
   return hit ? t(hit.key, locale) : value;
 }
+
+/** The item a stored value none of a dial's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — one row's internal or external dial, drawn with the shared
+ * `Select`, the control the object settings panel's dials (`SettingsPicker`)
+ * pick with. They used to be browser-native `<select>`s. What a pick writes is
+ * unchanged: `onPick` receives the picked option's own `value`, the string the
+ * native control's `change` carried, and the row's working value takes it as
+ * before. Re-picking the current option changes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value: each dial opens on an
+ *   option whose value is `''` ("not set"), which `SelectItem` refuses.
+ * - A stored value none of the options carries gets an item of its own,
+ *   labelled with the value, so the trigger shows what the object holds. The
+ *   native control showed "not set" there, which is not what the object says.
+ *   Picking that item changes nothing.
+ * - Read-only draws no dial at all, as before: the row shows the value's label.
+ * - The native controls had no label, so the triggers have no name either.
+ */
+function OwdPicker({
+  value,
+  options,
+  onPick,
+  className,
+  testId,
+}: {
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  className: string;
+  testId: string;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the stored value, so there is nothing to change.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger data-testid={testId} className={className}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** The classes a dial takes, at the size the native control had. */
+const DIAL = 'h-7 min-w-[13rem] px-2 py-1 text-[12px]';
 
 export interface PackageOwdOverviewPanelProps {
   client: MetadataClient;
@@ -151,10 +247,9 @@ export function PackageOwdOverviewPanel({
       // from that one source.
       const built = await Promise.all(
         names.map(async (name): Promise<OwdRow> => {
-          const [layRaw, draftResp] = await Promise.all([
-            client.layered<Record<string, unknown>>('object', name).catch(() => null),
-            client.getDraft<Record<string, unknown>>('object', name).catch(() => null),
-          ]);
+          // objectui#11799 — saved = held by the published list read above.
+          const saved = publishedLabel.has(name);
+          const [layRaw, draftResp] = await readObjectBodies(client, name, saved);
           const lay = (layRaw ?? {}) as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
           const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
           const draftBody = extractDraftBody(draftResp);
@@ -171,6 +266,7 @@ export function PackageOwdOverviewPanel({
             external: typeof body.externalSharingModel === 'string' ? body.externalSharingModel : '',
             master: internal === 'controlled_by_parent' ? deriveMasterObject(body.fields) : undefined,
             hasDraft: !!draftBody,
+            saved,
           };
         }),
       );
@@ -245,10 +341,9 @@ export function PackageOwdOverviewPanel({
       // save. Identical to the per-object Settings write, N times — publish
       // then goes through the same package security-domain gate unchanged.
       for (const s of changed) {
-        const [layRaw, draftResp] = await Promise.all([
-          client.layered<Record<string, unknown>>('object', s.row.name).catch(() => null),
-          client.getDraft<Record<string, unknown>>('object', s.row.name).catch(() => null),
-        ]);
+        // objectui#11799 — the row's saved state from the load decides whether
+        // the baseline is asked before the draft is in hand.
+        const [layRaw, draftResp] = await readObjectBodies(client, s.row.name, s.row.saved);
         const lay = (layRaw ?? {}) as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
         const draftBody = extractDraftBody(draftResp);
@@ -261,7 +356,12 @@ export function PackageOwdOverviewPanel({
         else delete next.sharingModel;
         if (s.edit.external) next.externalSharingModel = s.edit.external;
         else delete next.externalSharingModel;
-        await client.save('object', s.row.name, next, { mode: 'draft', packageId });
+        // objectui#11692 — `next` is seeded from a SERVED object read, where a
+        // picklist-bound field carries `picklist` beside the options the
+        // runtime resolved from the list; the authoring door refuses the two
+        // together, for the whole object. So the resolved `options` stay out of
+        // the body, on every bound field and on nothing else.
+        await client.save('object', s.row.name, dropServedPicklistOptions(next), { mode: 'draft', packageId });
       }
       toast.success(tFormat('engine.studio.owd.saved', locale, { count: changed.length }));
       onDraftSaved?.();
@@ -274,6 +374,19 @@ export function PackageOwdOverviewPanel({
   }, [rowState, client, packageId, onDraftSaved, load, locale]);
 
   const canSave = !readOnly && !saving && dirtyCount > 0 && !hasInvalid;
+
+  // The two dials' options, in the order the native controls listed them.
+  const internalOptions = [
+    { value: '', label: t('engine.studio.settings.sharingUnset', locale) },
+    ...OWD_OPTION_KEYS.map((o) => ({ value: o.value, label: t(o.key, locale) })),
+  ];
+  const externalOptions = [
+    { value: '', label: t('engine.studio.settings.sharingExternalUnset', locale) },
+    ...OWD_OPTION_KEYS.filter((o) => o.value !== 'controlled_by_parent').map((o) => ({
+      value: o.value,
+      label: t(o.key, locale),
+    })),
+  ];
 
   return (
     <div className="flex h-full flex-col" data-testid="owd-overview">
@@ -385,19 +498,13 @@ export function PackageOwdOverviewPanel({
                       {readOnly ? (
                         <span className="text-muted-foreground">{owdLabel(edit.internal, locale)}</span>
                       ) : (
-                        <select
+                        <OwdPicker
                           value={edit.internal}
-                          data-testid={`owd-internal-${row.name}`}
-                          onChange={(e) => setEdit(row.name, { internal: e.target.value })}
-                          className="w-full min-w-[13rem] rounded border bg-background px-2 py-1 text-[12px]"
-                        >
-                          <option value="">{t('engine.studio.settings.sharingUnset', locale)}</option>
-                          {OWD_OPTION_KEYS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {t(o.key, locale)}
-                            </option>
-                          ))}
-                        </select>
+                          testId={`owd-internal-${row.name}`}
+                          onPick={(v) => setEdit(row.name, { internal: v })}
+                          className={DIAL}
+                          options={internalOptions}
+                        />
                       )}
                     </td>
 
@@ -419,22 +526,13 @@ export function PackageOwdOverviewPanel({
                         <span className="text-muted-foreground">{owdLabel(edit.external, locale)}</span>
                       ) : (
                         <>
-                          <select
+                          <OwdPicker
                             value={edit.external}
-                            data-testid={`owd-external-${row.name}`}
-                            onChange={(e) => setEdit(row.name, { external: e.target.value })}
-                            className={
-                              'w-full min-w-[13rem] rounded border bg-background px-2 py-1 text-[12px] ' +
-                              (invalid ? 'border-amber-500' : '')
-                            }
-                          >
-                            <option value="">{t('engine.studio.settings.sharingExternalUnset', locale)}</option>
-                            {OWD_OPTION_KEYS.filter((o) => o.value !== 'controlled_by_parent').map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {t(o.key, locale)}
-                              </option>
-                            ))}
-                          </select>
+                            testId={`owd-external-${row.name}`}
+                            onPick={(v) => setEdit(row.name, { external: v })}
+                            className={DIAL + (invalid ? ' border-amber-500' : '')}
+                            options={externalOptions}
+                          />
                           {invalid && (
                             <span
                               data-testid={`owd-error-${row.name}`}

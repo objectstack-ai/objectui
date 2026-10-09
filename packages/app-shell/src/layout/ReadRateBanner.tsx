@@ -51,13 +51,17 @@
  * The audience is the environment's own admin — the only person who can act on
  * their own app's read pattern. Gated on `useWorkspaceAdminStatus`, which also
  * keeps the request itself off every ordinary session rather than spending a
- * 403 per page load.
+ * 403 per page load. The request is gated as well on
+ * {@link isStorageUsageServed} — the runtime's own `features.storageUsage`,
+ * the one boolean `StorageUsageBanner` reads too — so a runtime that does not
+ * serve the endpoint is not spent a 404 per page load either (objectui#11002).
  */
 import { TriangleAlert } from 'lucide-react';
 import { cn } from '@object-ui/components';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useObjectTranslation, useDisplayLocale, formatDisplayNumber } from '@object-ui/i18n';
 import { useReadRateReading, classifyReadRate } from '../hooks/useReadRateReading.js';
+import { isStorageUsageServed } from '../runtime-config.js';
 
 export interface ReadRateBannerProps {
   /** Override the resolved tenant runtime base (e.g. `/api/v1`). */
@@ -69,7 +73,10 @@ export function ReadRateBanner({ apiBase, className }: ReadRateBannerProps) {
   const { t } = useObjectTranslation();
   const locale = useDisplayLocale();
   const { isAdmin } = useWorkspaceAdminStatus();
-  const snapshot = useReadRateReading({ apiBase, enabled: isAdmin });
+  // Asked only when the runtime serves the endpoint (objectui#11002): the one
+  // boolean `StorageUsageBanner` gates on too, so neither banner probes a
+  // runtime that would answer 404.
+  const snapshot = useReadRateReading({ apiBase, enabled: isAdmin && isStorageUsageServed() });
 
   const bannerCase = classifyReadRate(snapshot);
   const reading = snapshot.status === 'measured' ? snapshot.reading : null;

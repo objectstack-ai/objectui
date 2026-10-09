@@ -17,25 +17,34 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ComponentRegistry } from '@object-ui/core';
-// Side-effect import: the package barrel runs the eight
+// Side-effect import: the package barrel runs the seven live
 // `ComponentRegistry.register(...)` calls, and is also where
 // `dashboardComponents` is defined.
 import { dashboardComponents } from '../index';
 
-/** The 8 schema types read off the `ComponentRegistry.register` call sites. */
+/**
+ * The 7 schema types read off the `ComponentRegistry.register` call sites.
+ *
+ * objectui#10859 batch 8 (phase 2b): `metric` / `metric-card` register with
+ * `skipFallback: true`, so the type each SERVES is its namespaced key, and
+ * `dashboard-grid` is retired (unregistered; `DashboardGridLayout` stays a
+ * named export).
+ */
 const REGISTERED_TYPES = [
   'dashboard',
-  'metric',
-  'metric-card',
+  'plugin-dashboard:metric',
+  'plugin-dashboard:metric-card',
   'object-metric',
   'pivot',
   'object-pivot',
-  'dashboard-grid',
   'object-data-table',
 ];
 
+/** The keys phase 2b took out of the map, and out of the registry with them. */
+const RETIRED_BARE_TYPES = ['metric', 'metric-card', 'dashboard-grid'];
+
 describe('dashboardComponents map parity (objectui#5064)', () => {
-  it('keys are exactly the 8 schema types the barrel registers', () => {
+  it('keys are exactly the 7 schema types the barrel registers', () => {
     expect(Object.keys(dashboardComponents).sort()).toEqual(
       [...REGISTERED_TYPES].sort(),
     );
@@ -47,6 +56,21 @@ describe('dashboardComponents map parity (objectui#5064)', () => {
       // the same component reference the barrel registered.
       expect(ComponentRegistry.get(type), `type "${type}"`).toBe(component);
     }
+  });
+
+  it('the retired bare keys stay out of the map AND the registry (objectui#10859 batch 8)', () => {
+    // Lit control: a bare key this barrel still publishes resolves.
+    expect(ComponentRegistry.get('pivot')).toBe(dashboardComponents.pivot);
+    for (const type of RETIRED_BARE_TYPES) {
+      expect(Object.keys(dashboardComponents), `map key "${type}"`).not.toContain(type);
+    }
+    // Spelled as literals, one per key: `scripts/__tests__/unit-registry-absence-collision.test.ts`
+    // resolves a registry-absence key statically and pins the sites it cannot.
+    expect(ComponentRegistry.get('metric')).toBeUndefined();
+    expect(ComponentRegistry.get('metric-card')).toBeUndefined();
+    expect(ComponentRegistry.get('dashboard-grid')).toBeUndefined();
+    // `dashboard-grid` went under both spellings; the metric pair kept theirs.
+    expect(ComponentRegistry.get('plugin-dashboard:dashboard-grid')).toBeUndefined();
   });
 
   it('the pre-#5064 vocabulary stays gone: no PascalCase class-name keys', () => {

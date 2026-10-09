@@ -13,6 +13,7 @@
 
 import * as React from 'react';
 import {
+  edgeSourceOutputRefs,
   resolveFlowScope,
   triggerFieldRefs,
   type ScopeGroupId,
@@ -75,25 +76,35 @@ const GROUP_LABEL_KEYS: Record<(typeof GROUP_ORDER)[number], string> = {
 
 /**
  * Resolve + (async) expand the in-scope references at a flow node. `draft` is
- * the whole flow draft; `nodeId` the node being edited (for an edge, pass its
- * source node id — references available on an edge are those in scope at its
- * source).
+ * the whole flow draft; `nodeId` the node being edited. An EDGE is not a node:
+ * its guard also sees its source node's own outputs, so an edge goes through
+ * {@link useEdgeScope}, never through this hook with its source id
+ * (objectui#11085).
  *
  * `extraRefs` are merged in before de-dup / grouping — used for a NESTED node,
  * whose scope anchor is its container (ADR-0031 outer scope): the container's
  * own outputs are excluded from the graph walk at its id, so a loop's
  * `iteratorVariable` must be injected explicitly for a body node to see it. Pass
  * a memoized array (a fresh one every render would thrash the memo).
+ *
+ * `connectors` is the runtime connector registry the calling inspector already
+ * reads (`useConnectorRegistry`, gated on `hasCommittedConnectorAction`), so an
+ * upstream `connector_action` node offers its action's declared output keys
+ * (objectui#11028). Omitted, such a node offers none.
  */
 export function useFlowScope(
   draft: Record<string, unknown> | undefined,
   nodeId: string | undefined,
   extraRefs?: ReadonlyArray<ScopeRef>,
+  connectors?: unknown,
 ): UseFlowScopeResult {
   // The picker's headings and details, in the designer locale — read here, as
   // `VariableTextInput` (which renders them) reads it (objectui#10748).
   const locale = useMetadataLocale();
-  const scope = React.useMemo(() => resolveFlowScope(draft ?? {}, nodeId, locale), [draft, nodeId, locale]);
+  const scope = React.useMemo(
+    () => resolveFlowScope(draft ?? {}, nodeId, locale, connectors),
+    [draft, nodeId, locale, connectors],
+  );
   const { fields, loading } = useObjectFields(scope.trigger?.objectName);
 
   return React.useMemo(() => {
@@ -148,4 +159,28 @@ export function useFlowScope(
       isEmpty: refs.length === 0,
     };
   }, [scope, fields, loading, extraRefs, locale]);
+}
+
+/**
+ * The edge twin of {@link useFlowScope}: the references in scope on an edge's
+ * guard — the scope at its SOURCE node plus that source's own outputs, the
+ * engine having written them before it evaluates the out-edge
+ * (objectui#11085). Which own outputs count is {@link edgeSourceOutputRefs},
+ * the rule the Problems panel's edge scan (`resolveEdgeScope`) reads too.
+ *
+ * `edge` may be missing (a stale selection): the result is then the flow
+ * variables alone, as for an unset node id.
+ */
+export function useEdgeScope(
+  draft: Record<string, unknown> | undefined,
+  edge: { source?: unknown; type?: unknown } | null | undefined,
+  connectors?: unknown,
+): UseFlowScopeResult {
+  const source = typeof edge?.source === 'string' && edge.source ? edge.source : undefined;
+  const edgeType = edge?.type;
+  const ownRefs = React.useMemo(
+    () => edgeSourceOutputRefs(draft ?? {}, { source, type: edgeType }, connectors),
+    [draft, source, edgeType, connectors],
+  );
+  return useFlowScope(draft, source, ownRefs, connectors);
 }

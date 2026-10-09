@@ -15,9 +15,38 @@ describe('datasetFilterCondition', () => {
     ] })).toEqual({ $and: [{ stage: { $eq: 'won' } }, { amount: { $gt: 1000 } }] });
   });
 
-  it('maps isEmpty/isNotEmpty to $exists', () => {
+  it('maps is_empty / is_not_empty to the spec\'s one 「is empty」 operator, `$empty` (objectui#10813)', () => {
+    // They wrote `$exists` until objectui#10813 — the has-a-value test, which
+    // never counted `''` or `[]`. The per-type meaning is the spec's expansion,
+    // so the SAME token is written whatever the column's type.
     expect(groupToCondition({ logic: 'and', conditions: [{ field: 'closed_at', operator: 'is_not_empty' }] }))
-      .toEqual({ closed_at: { $exists: true } });
+      .toEqual({ closed_at: { $empty: false } });
+    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'closed_at', operator: 'is_empty' }] }))
+      .toEqual({ closed_at: { $empty: true } });
+  });
+
+  it('a stored `$exists` is no longer read back as the empty pair — it opens in the Source tab, bytes untouched (objectui#10813)', () => {
+    // Read back as `is_empty`, a sibling edit would rewrite it to `$empty` and
+    // move `''` / `[]` across the line. This inspector offers no `exists` row,
+    // so the filter goes to the Source tab rather than opening as a row the
+    // next commit would change.
+    for (const stored of [{ closed_at: { $exists: false } }, { closed_at: { $exists: true } }]) {
+      expect(conditionToGroup(stored).representable, JSON.stringify(stored)).toBe(false);
+      expect(conditionToGroup({ $and: [{ stage: { $eq: 'won' } }, stored] }).representable).toBe(false);
+    }
+    // CONTROL: the `$empty` pair this bridge writes opens as the rows.
+    expect(conditionToGroup({ closed_at: { $empty: true } }).group.conditions.map((c) => c.operator))
+      .toEqual(['is_empty']);
+    expect(conditionToGroup({ closed_at: { $empty: false } }).group.conditions.map((c) => c.operator))
+      .toEqual(['is_not_empty']);
+  });
+
+  it('a non-boolean `$empty` flag is not opened as a row (objectui#10813)', () => {
+    // `$empty` is declared `z.boolean()` and every evaluator refuses another
+    // flag; opened as a row, the next commit would make it runnable.
+    for (const flag of ['yes', 1, null]) {
+      expect(conditionToGroup({ closed_at: { $empty: flag } } as never).representable, JSON.stringify(flag)).toBe(false);
+    }
   });
 
   it('drops unmapped operators rather than emitting a bad filter', () => {
@@ -49,7 +78,7 @@ describe('datasetFilterCondition', () => {
     ] })).toEqual({ stage: { $eq: 'won' } });
     // value-less operators are still kept
     expect(groupToCondition({ logic: 'and', conditions: [{ field: 'closed_at', operator: 'is_not_empty', value: '' }] }))
-      .toEqual({ closed_at: { $exists: true } });
+      .toEqual({ closed_at: { $empty: false } });
   });
 
   it('round-trips representable conditions (condition → group → condition)', () => {
@@ -57,7 +86,8 @@ describe('datasetFilterCondition', () => {
       { status: { $eq: 'won' } },
       { $and: [{ stage: { $eq: 'won' } }, { amount: { $gt: 1000 } }] },
       { region: { $in: ['NA', 'EU'] } },
-      { closed_at: { $exists: false } },
+      { closed_at: { $empty: true } },
+      { closed_at: { $empty: false } },
     ]) {
       const { group, representable } = conditionToGroup(c);
       expect(representable).toBe(true);

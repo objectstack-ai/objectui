@@ -23,6 +23,10 @@ vi.mock('@object-ui/core', async () => {
         ComponentRegistry: {
             get: vi.fn(),
             register: vi.fn(),
+            // `@object-ui/components`' placeholder registrar asks this before it
+            // registers, at module load (objectui#11680). No stub is pending
+            // in this suite, so every key answers false.
+            hasLazy: vi.fn(() => false),
         }
     };
 });

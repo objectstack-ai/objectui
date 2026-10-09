@@ -90,6 +90,9 @@ export function useEnvironmentEntitlements(
           // upgrade prompt then renders no CTA (objectui#10437).
           upgradeUrl: data.upgradeUrl,
           contactSalesUrl: data.contactSalesUrl,
+          // Verbatim, like `upgradeUrl`: absent stays absent, and the
+          // workspace-timezone notice then renders nothing (objectui#11930).
+          workspaceTimezoneSeed: data.workspaceTimezoneSeed,
           source: 'summary',
         };
       } catch {

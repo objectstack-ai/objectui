@@ -14,7 +14,7 @@ export const DevLookup: React.FC = () => {
       { name: 'note', label: 'Note', type: 'text' },
       { name: 'amount', label: 'Amount', type: 'currency' },
     ],
-    total_field: 'amount',
+    totalField: 'amount',
   } as any;
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-6">

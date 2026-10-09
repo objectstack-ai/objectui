@@ -105,10 +105,11 @@ export { toPredicateInput } from '@object-ui/core';
  * faults exactly as it always did on the server (`buildScope({ record })`
  * mounts exactly `['record']`: `Unknown variable: status` / `Unknown variable:
  * data`), and each `useCondition` leg applies its EXISTING fault policy — the
- * throwing legs (`throwOnError`: `action:button` / `action:menu` `visible`,
- * `DeclaredActionsBar`'s `visible`) hide and report `was hidden/disabled: its
- * predicate threw`, naming the variable; the non-throwing legs fail soft to
- * `true`. The same holds for a legacy `${data.x}` / `${x}` string: one bag
+ * throwing legs (`throwOnError`: every action `visible` — `action:button`,
+ * `action:menu`, `action:bar`, `DeclaredActionsBar`, and since objectui#11212
+ * `action:group`, `action:icon` and the related-list toolbar) hide and report
+ * `was hidden/disabled: its predicate threw`, naming the variable; the
+ * non-throwing legs fail soft to `true`. The same holds for a legacy `${data.x}` / `${x}` string: one bag
  * shape, both dialects. Nothing detects a retired spelling here; it is simply
  * unbound. `@object-ui/core`'s `evaluator/rowPredicateCanon.ts` carries the
  * canon statement, the server measurement, the layer scoping (`data` stays

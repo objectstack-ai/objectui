@@ -56,16 +56,20 @@ describe('tenant locale seed', () => {
     // Asserted without waitFor on purpose: the seed must land in the BOOTSTRAP
     // language, not as an async correction after an English first paint.
     // `<html lang>` seeds Accept-Language on every API call (#1319).
-    expect(result.current.language).toBe('zh');
+    expect(result.current.language).toBe(TENANT_LOCALE);
     expect(result.current.t('common.save')).toBe('保存');
   });
 
   it('resolves the region-qualified tag onto the pack it actually ships', () => {
     // The packs are keyed by base language; the platform answers `zh-CN`.
     // Rejecting the region subtag would reject the single most common tenant
-    // configuration there is.
+    // configuration there is. Since objectui#11326 the `zh` pack serves
+    // `zh-CN` directly, so the seed boots in the tag the server stated — the
+    // same tag a stored `zh-CN` keeps — and renders from the `zh` pack.
     window.localStorage.setItem(LOCALE_SEED_STORAGE_KEY, TENANT_LOCALE);
-    expect(mount({ config: { defaultLanguage: 'en' } }).result.current.language).toBe('zh');
+    const { result } = mount({ config: { defaultLanguage: 'en' } });
+    expect(result.current.language).toBe(TENANT_LOCALE);
+    expect(result.current.t('common.save')).toBe('保存');
   });
 
   it('prefers an exact regional pack over the base language when one exists', () => {
@@ -88,7 +92,7 @@ describe('tenant locale seed', () => {
 
     window.localStorage.setItem(LOCALE_SEED_STORAGE_KEY, TENANT_LOCALE);
 
-    expect(mount({ config: { defaultLanguage: 'en' } }).result.current.language).toBe('zh');
+    expect(mount({ config: { defaultLanguage: 'en' } }).result.current.language).toBe(TENANT_LOCALE);
   });
 
   it('loses to an explicit choice, however stale the choice looks', () => {
@@ -109,7 +113,7 @@ describe('tenant locale seed', () => {
     window.localStorage.setItem(LOCALE_SEED_STORAGE_KEY, TENANT_LOCALE);
 
     const { result } = mount({ config: { defaultLanguage: 'en' } });
-    expect(result.current.language).toBe('zh');
+    expect(result.current.language).toBe(TENANT_LOCALE);
 
     expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBeNull();
     // ...and the seed stays exactly as the server stated it, un-promoted.
@@ -119,7 +123,7 @@ describe('tenant locale seed', () => {
   it('is superseded, not merely overridden, once the user switches by hand', async () => {
     window.localStorage.setItem(LOCALE_SEED_STORAGE_KEY, TENANT_LOCALE);
     const first = mount({ config: { defaultLanguage: 'en' } });
-    expect(first.result.current.language).toBe('zh');
+    expect(first.result.current.language).toBe(TENANT_LOCALE);
 
     await act(async () => {
       await first.result.current.changeLanguage('ja');
@@ -173,7 +177,7 @@ describe('tenant locale seed', () => {
   it('follows a tenant reconfiguration on the next boot (stale-while-revalidate)', () => {
     window.localStorage.setItem(LOCALE_SEED_STORAGE_KEY, TENANT_LOCALE);
     const first = mount({ config: { defaultLanguage: 'en' } });
-    expect(first.result.current.language).toBe('zh');
+    expect(first.result.current.language).toBe(TENANT_LOCALE);
     first.unmount();
 
     // The tenant switches to Japanese; the in-app fetch refreshes the cache.
@@ -181,7 +185,7 @@ describe('tenant locale seed', () => {
     expect(readCachedLanguageSeed()).toBe('ja-JP');
 
     // The device follows on its next boot — an old seed never pins it.
-    expect(mount({ config: { defaultLanguage: 'en' } }).result.current.language).toBe('ja');
+    expect(mount({ config: { defaultLanguage: 'en' } }).result.current.language).toBe('ja-JP');
   });
 
   it('drops the cached seed when the tenant unsets its locale', () => {

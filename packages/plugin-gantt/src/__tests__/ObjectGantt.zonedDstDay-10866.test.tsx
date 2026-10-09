@@ -31,6 +31,18 @@
  * A `datetime` value still goes through the shim unchanged: the control rows
  * hold its instant to the millisecond.
  *
+ * ── An END runs through its day (objectui#11141) ────────────────────────────
+ * A date-only end is INCLUSIVE: a stored end day is handed over as the NEXT
+ * day's display midnight, through the same exact inverse, and a bar handed
+ * back ending on a day's midnight is written as the day before it. So a
+ * one-day row here (start and end on one day) is drawn from that day's
+ * midnight to the next one's, a drop writes its end as the day it runs
+ * through, and the dates the view drew, handed straight back, write the
+ * stored days. A chart zone whose clock skips a midnight (`America/Santiago`
+ * steps from 00:00 to 01:00 on September 6th, 2026) has no instant drawn on
+ * the display midnight a September 5th end runs to, so that end is handed
+ * over as the last instant drawn on the 5th; the last block pins it.
+ *
  * ── ⚠️ The zone cases run ONLY when driven, in a FORKS child ────────────────
  * `process.env.TZ` written inside a test of the normal run does not move the
  * zone (the root config runs `pool: 'threads'`), so the zone cases are
@@ -48,7 +60,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import type { DataSource } from '@object-ui/types';
 import type { GanttTask, GanttViewProps } from '../GanttView';
-import { makeTzShift } from '../tzShift';
+import { invertTo, makeTzShift } from '../tzShift';
 
 const probe = vi.hoisted(() => ({ view: null as GanttViewProps | null }));
 
@@ -164,6 +176,16 @@ const midnight = (day: string) => {
 };
 /** What `GanttView` hands back for a drop onto a day: its display midnight, re-based out. */
 const dropOn = (day: string) => makeTzShift(CHART).from(midnight(day));
+/** The display midnight a date-only END on `day` runs to: the next day's (objectui#11141). */
+const endOf = (day: string) => {
+  const next = midnight(day);
+  next.setDate(next.getDate() + 1);
+  return next;
+};
+/** What `GanttView` hands back for a bar dropped to run through `day`. */
+const dropThrough = (day: string) => makeTzShift(CHART).from(endOf(day));
+/** What `GanttView` hands back for a date it drew and nobody moved. */
+const untouched = (d: Date) => makeTzShift(CHART).from(makeTzShift(CHART).to(d));
 
 /**
  * The day cases for one viewer zone: March 8th, New York's change, and
@@ -177,21 +199,32 @@ function dayCases(zone: string, extra: string) {
   });
 
   const days = ['2026-03-08', '2026-11-01', extra];
-  it.each(days)('`%s` is drawn from that day\'s midnight, baselines too', async (day) => {
+  it.each(days)('`%s` is drawn from that day\'s midnight through its end, baselines too', async (day) => {
     enter(zone);
     const m = await mount({ start_date: day, end_date: day, plan_start: day, plan_end: day });
     const want = parts(midnight(day));
+    const through = parts(endOf(day));
     expect(want[3]).toBe(0);
+    expect(through[3]).toBe(0);
     expect(drawn(m.task.start)).toEqual(want);
-    expect(drawn(m.task.end)).toEqual(want);
+    expect(drawn(m.task.end)).toEqual(through);
     expect(drawn(m.task.baselineStart!)).toEqual(want);
-    expect(drawn(m.task.baselineEnd!)).toEqual(want);
+    expect(drawn(m.task.baselineEnd!)).toEqual(through);
   });
 
-  it.each(days)('a drop onto `%s` writes that day', async (day) => {
+  it.each(days)('a drop onto `%s` writes that day, and an end dropped through it writes it', async (day) => {
     enter(zone);
     const m = await mount({ start_date: '2026-06-01', end_date: '2026-06-02' });
-    expect(await written(m, { start: dropOn(day), end: dropOn(day) })).toEqual({ start_date: day, end_date: day });
+    expect(await written(m, { start: dropOn(day), end: dropThrough(day) })).toEqual({ start_date: day, end_date: day });
+  });
+
+  it.each(days)('`%s`, drawn and handed straight back, writes the stored days (objectui#11141)', async (day) => {
+    enter(zone);
+    const m = await mount({ start_date: day, end_date: day });
+    expect(await written(m, { start: untouched(m.task.start), end: untouched(m.task.end) })).toEqual({
+      start_date: day,
+      end_date: day,
+    });
   });
 
   it('control: a `datetime` row keeps its instant both ways, across the change', async () => {
@@ -231,4 +264,81 @@ describe.runIf(DRIVEN)(`ObjectGantt zoned ${CHART}, viewed from ${EUROPE} (objec
 
 describe.runIf(DRIVEN)(`ObjectGantt zoned ${CHART}, viewed from ${EAST}, the control (objectui#10866)`, () => {
   dayCases(EAST, '2026-03-09');
+});
+
+/**
+ * A chart zone whose clock skips a midnight (objectui#11141). `America/Santiago`
+ * steps from 00:00 to 01:00 on September 6th, 2026, so no instant is drawn on
+ * the display midnight a September 5th end runs to. The end is handed over as
+ * the last instant drawn on the 5th: it is drawn on the 5th's edge, and written
+ * back, untouched or moved, as the day it runs through. Handing it the instant
+ * drawn at 01:00 on the 6th instead named the 6th: a read and a write moved the
+ * stored end a day.
+ */
+const SKIPS = 'America/Santiago';
+
+describe.runIf(DRIVEN)(`ObjectGantt zoned ${SKIPS}, whose clock skips a midnight, viewed from ${EAST} (objectui#11141)`, () => {
+  const shift = () => makeTzShift(SKIPS);
+
+  async function mountSkipping(row: Record<string, unknown>): Promise<Mounted> {
+    const ds = {
+      find: vi.fn().mockResolvedValue({ data: [{ id: 't1', name: 'Build', ...row }] }),
+      findOne: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn().mockResolvedValue({}),
+      delete: vi.fn(),
+      getObjectSchema: vi.fn().mockResolvedValue(OBJECT_SCHEMA),
+    };
+    const schema = {
+      type: 'gantt',
+      gantt: { titleField: 'name', startDateField: 'start_date', endDateField: 'end_date', timeZone: SKIPS },
+      data: { provider: 'object', object: 'task' },
+    } as unknown as React.ComponentProps<typeof ObjectGantt>['schema'];
+    render(<ObjectGantt schema={schema} dataSource={ds as unknown as DataSource} />);
+    await waitFor(() => expect(probe.view?.tasks?.length).toBe(1));
+    let calls = ds.find.mock.calls.length;
+    await waitFor(() => {
+      const now = ds.find.mock.calls.length;
+      if (now !== calls) {
+        calls = now;
+        throw new Error('still loading');
+      }
+    });
+    return { update: ds.update, task: probe.view!.tasks[0] };
+  }
+
+  it('rig: the zone really moved', () => {
+    enter(EAST);
+    expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(EAST);
+  });
+
+  it('fixture validity: no instant is drawn on the display midnight of September 6th', () => {
+    enter(EAST);
+    const midnight6th = new Date(2026, 8, 6);
+    expect(parts(shift().to(invertTo(shift(), midnight6th)))).toEqual([2026, 9, 6, 1]);
+  });
+
+  it('a `2026-09-05` end is drawn on the 5th\'s edge, the last instant drawn on the 5th', async () => {
+    enter(EAST);
+    const m = await mountSkipping({ start_date: '2026-09-01', end_date: '2026-09-05' });
+    expect(shift().to(m.task.end).getTime()).toBe(new Date(2026, 8, 6).getTime() - 1);
+  });
+
+  it('drawn and handed straight back, it writes the stored days', async () => {
+    enter(EAST);
+    const m = await mountSkipping({ start_date: '2026-09-01', end_date: '2026-09-05' });
+    const back = (d: Date) => shift().from(shift().to(d));
+    expect(await written(m, { start: back(m.task.start), end: back(m.task.end) })).toEqual({
+      start_date: '2026-09-01',
+      end_date: '2026-09-05',
+    });
+  });
+
+  it('moved three days on as the view moves it, by calendar days at its own wall time, it writes the 8th', async () => {
+    enter(EAST);
+    const m = await mountSkipping({ start_date: '2026-09-01', end_date: '2026-09-05' });
+    const moved = shift().to(m.task.end);
+    moved.setDate(moved.getDate() + 3);
+    expect(await written(m, { end: shift().from(moved) })).toEqual({ end_date: '2026-09-08' });
+  });
 });

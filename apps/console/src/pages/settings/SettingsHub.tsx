@@ -17,10 +17,10 @@ import {
   CardDescription,
   Badge,
   Skeleton,
+  getLazyIcon,
 } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { Settings as SettingsIcon } from 'lucide-react';
-import { getIcon } from '../../utils/getIcon';
 import { listSettingsManifests } from './api';
 import { resolveLabel, type SettingsManifest } from './types';
 import { useSettingsLabel } from './useSettingsLabel';
@@ -33,7 +33,7 @@ import { useSettingsLabel } from './useSettingsLabel';
 function SettingCard({ m, onOpen }: { m: SettingsManifest; onOpen: () => void }) {
   const { t } = useObjectTranslation();
   const labels = useSettingsLabel(m.namespace);
-  const Icon = m.icon ? getIcon(m.icon) : SettingsIcon;
+  const Icon = m.icon ? getLazyIcon(m.icon) : SettingsIcon;
   const literalLabel = resolveLabel(m.label);
   const title = labels.title(literalLabel);
   const description = labels.description(m.description ?? undefined);
@@ -45,7 +45,7 @@ function SettingCard({ m, onOpen }: { m: SettingsManifest; onOpen: () => void })
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          {/* eslint-disable-next-line react-hooks/static-components -- getIcon returns a module-cached stable component per name, not one created during render */}
+          {/* eslint-disable-next-line react-hooks/static-components -- getLazyIcon returns a module-cached stable component per name, not one created during render */}
           <Icon className="h-6 w-6 text-muted-foreground" />
           {m.beta ? (
             <Badge variant="secondary" className="text-[10px]">

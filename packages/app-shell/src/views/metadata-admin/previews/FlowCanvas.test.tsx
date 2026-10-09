@@ -7,6 +7,7 @@ import { FlowCanvas } from './FlowCanvas';
 import { extractRegions, NODE_H } from './flow-canvas-layout';
 import { predictExpandedNodeHeight } from './flow-region-metrics';
 import type { FlowProblem } from './flow-problems';
+import { browserClick, browserDrag } from './__tests__/browserClick';
 
 afterEach(cleanup);
 
@@ -467,14 +468,23 @@ describe('FlowCanvas — geometry writes are spec-canonical `position` (#3172)',
     expectNoLegacyKey(nodes);
   });
 
-  it('insert-on-edge → the new node is pinned via `position`', () => {
+  /** The open add-node palette's row for `label` (objectui#11778: every "+" opens it). */
+  const pickInPalette = (label: string) => {
+    const option = screen.getAllByRole('option').find((o) => o.textContent?.startsWith(label));
+    expect(option, `palette row ${label}`).toBeDefined();
+    fireEvent.click(option!);
+  };
+
+  it('insert-on-edge → the new node is auto-laid (objectui#11778), legacy node still healed', () => {
     const onPatch = vi.fn();
     renderCanvas(onPatch);
     fireEvent.click(screen.getByRole('button', { name: 'Insert node here' }));
+    pickInPalette('Create record');
     const nodes = patchedNodes(onPatch);
     expect(nodes).toHaveLength(3);
-    const inserted = nodes[2].position as { x: number; y: number };
-    expect(Number.isFinite(inserted.x) && Number.isFinite(inserted.y)).toBe(true);
+    // Unpinned, like an append: the layered layout gives it its own layer.
+    expect(nodes[2].position).toBeUndefined();
+    expect(nodes.find((n) => n.id === 'b')!.position).toEqual({ x: 400, y: 120 });
     expectNoLegacyKey(nodes);
   });
 
@@ -482,6 +492,7 @@ describe('FlowCanvas — geometry writes are spec-canonical `position` (#3172)',
     const onPatch = vi.fn();
     renderCanvas(onPatch);
     fireEvent.click(screen.getAllByRole('button', { name: 'Add connected node' })[0]);
+    pickInPalette('Create record');
     const nodes = patchedNodes(onPatch);
     expect(nodes).toHaveLength(3);
     // An appended node is deliberately unpinned (the layered layout slots it).
@@ -497,5 +508,91 @@ describe('FlowCanvas — geometry writes are spec-canonical `position` (#3172)',
     const nodes = patchedNodes(onPatch);
     expect(nodes.map((n) => n.id)).toEqual(['b']);
     expectNoLegacyKey(nodes);
+  });
+});
+
+/**
+ * objectui#11546 — on a read-only design canvas a node click selects the node;
+ * only the drag is withheld. Measured in Chromium before the fix: the node's
+ * pointer-down returned before stopping propagation, the background cleared
+ * the selection and captured the pointer, and the click landed on the
+ * viewport. The presses below are routed the way a browser routes them
+ * (`browserClick` / `browserDrag`), since happy-dom routes nothing by capture.
+ */
+describe('FlowCanvas — a node press on a read-only design canvas selects, and only the drag is withheld (objectui#11546)', () => {
+  const NODES = [
+    { id: 'a', type: 'start', label: 'Start' },
+    { id: 'b', type: 'script', label: 'Do the thing' },
+  ];
+  const EDGES = [{ source: 'a', target: 'b' }];
+
+  const renderCanvas = ({
+    editable,
+    designMode,
+    onSelect = vi.fn(),
+    onPatch = vi.fn(),
+  }: {
+    editable: boolean;
+    designMode: boolean;
+    onSelect?: Mock<React.ComponentProps<typeof FlowCanvas>['onSelect']>;
+    onPatch?: Mock<NonNullable<React.ComponentProps<typeof FlowCanvas>['onPatch']>>;
+  }) => {
+    const utils = render(
+      <FlowCanvas
+        nodes={NODES}
+        edges={EDGES}
+        editable={editable}
+        designMode={designMode}
+        selectedId={null}
+        onSelect={onSelect}
+        onPatch={onPatch}
+      />,
+    );
+    const card = (id: string) => {
+      const el = utils.container.querySelector(`[data-node-id="${id}"] [role="button"]`) as HTMLElement | null;
+      expect(el, `the canvas must render node ${id}`).not.toBeNull();
+      return el!;
+    };
+    const at = (id: string) => {
+      const el = utils.container.querySelector(`[data-node-id="${id}"]`) as HTMLElement;
+      return `${el.style.left},${el.style.top}`;
+    };
+    const viewport = screen.getByRole('application', { name: 'Flow canvas' });
+    const panTransform = () => (viewport.firstElementChild as HTMLElement).style.transform;
+    return { onSelect, onPatch, card, at, viewport, panTransform };
+  };
+
+  it('read-only: a click on a node selects that node and never clears the selection', () => {
+    const { onSelect, card } = renderCanvas({ editable: false, designMode: true });
+    browserClick(card('b'));
+    expect(onSelect.mock.calls.map(([n]) => n?.id ?? null)).toEqual(['b']);
+  });
+
+  it('read-only: a drag on a node moves nothing, writes nothing and pans nothing', () => {
+    const { onPatch, card, at, panTransform } = renderCanvas({ editable: false, designMode: true });
+    const before = { node: at('b'), pan: panTransform() };
+    const captor = browserDrag(card('b'), 60, 60);
+    expect(captor).toBeNull();
+    expect(onPatch).not.toHaveBeenCalled();
+    expect({ node: at('b'), pan: panTransform() }).toEqual(before);
+  });
+
+  it('editable designer (the control): a click selects, and a drag still moves the node', () => {
+    const { onSelect, onPatch, card } = renderCanvas({ editable: true, designMode: true });
+    browserClick(card('b'));
+    expect(onSelect.mock.calls.map(([n]) => n?.id ?? null)).toEqual(['b']);
+
+    expect(browserDrag(card('b'), 60, 60)).toBe(card('b'));
+    expect(onPatch).toHaveBeenCalledTimes(1);
+    const moved = (onPatch.mock.calls[0][0] as { nodes: Array<{ id: string; position?: unknown }> }).nodes.find((n) => n.id === 'b');
+    expect(moved?.position).toBeDefined();
+  });
+
+  it('outside design mode a press on a node, which selects nothing, still pans the canvas', () => {
+    const { onPatch, card, viewport, panTransform } = renderCanvas({ editable: false, designMode: false });
+    const before = panTransform();
+    expect(browserDrag(card('b'), 60, 60)).toBe(viewport);
+    expect(panTransform()).not.toBe(before);
+    expect(onPatch).not.toHaveBeenCalled();
   });
 });

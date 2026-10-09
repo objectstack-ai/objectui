@@ -186,6 +186,110 @@ Both banners read that endpoint through one shared reader, so a page load
 issues one request for the two of them. The storage banner has the same
 audience and the same gate as the read-rate report.
 
+Neither banner asks a runtime that does not serve that endpoint. Both read one
+flag from the server-pushed runtime config, `features.storageUsage`, and ask
+only when it is `true` (objectui#11002). The cloud distribution sends it
+exactly when it mounts the endpoint; every other runtime sends no key, which
+reads as off, so a self-hosted admin's page load issues no request and logs no
+404. Only the literal `true` turns it on.
+
+## Default auth pages and the sign-up offer
+
+`DefaultLoginPage` and `DefaultRegisterPage` are the sign-in and sign-up pages
+a host mounts at `/login` and `/register` (`examples/console-starter` does).
+They offer a generic sign-up only where the server would accept one. The
+server states that rule in two keys of `GET /api/v1/auth/config`:
+`emailPassword.disableSignUp` (the hard off switch) and
+`features.audiencePosture` (who may self-register). Under the default
+`invite_only` posture the server keeps `disableSignUp` off so that a pending
+invitee can still register, and refuses anyone else with
+`SELF_REGISTRATION_CLOSED`. The pages read both keys (objectui#11705), and
+offer nothing until that read has answered (objectui#11806):
+
+| the visitor | `/login` | `/register` |
+| --- | --- | --- |
+| signed in | as in the rows below | sent on to `/`, where a successful sign-up lands; no row below applies |
+| the config read is still pending | the form, behind its own spinner, with no "Sign up" link | nothing yet |
+| the config read failed (the auth client retries it first) | "Cannot connect to server" with Retry, in place of the form; no "Sign up" link | the same |
+| `disableSignUp: true` | no "Sign up" link | bounces to `/login` |
+| posture `open` or `email_domain`, or no posture sent | "Sign up" link | the form |
+| `invite_only`, `?redirect=` is an invitation (`/accept-invitation/ID`) | "Sign up" link, carrying the redirect | the form |
+| `invite_only`, the deployment has no owner yet | "Sign up" link | the form |
+| `invite_only`, anyone else | no "Sign up" link | "registration is by invitation", before any form |
+
+Retry reads the config again. While that read is in flight the panel stays up
+and its button reads "Retrying…"; once the server answers, the row for that
+answer applies.
+
+The decision is one exported function, which the console's own login and
+register pages call too, so a host that builds its own pages can follow the
+same rule:
+
+```tsx
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useAuth, type AuthPublicConfig } from '@object-ui/auth';
+import {
+  decideSignUpOffer,
+  isInvitationRedirect,
+  needsBootstrapProbe,
+  useBootstrapStatus,
+  type SignUpOffer,
+} from '@object-ui/app-shell';
+
+type ConfigRead =
+  | { status: 'loading' }
+  | { status: 'failed' }
+  | { status: 'known'; config: AuthPublicConfig | null };
+
+/** 'signed-in' | 'unreachable' | 'form' | 'by-invitation' | 'closed' | 'pending' */
+export function useSignUpOffer(): SignUpOffer | 'signed-in' | 'unreachable' {
+  const [searchParams] = useSearchParams();
+  const { user, isLoading, getAuthConfig } = useAuth();
+  // Whether the first session check has answered. Every sign-up in flight
+  // raises `isLoading` again, so latch the first time it clears.
+  const [sessionChecked, setSessionChecked] = useState(!isLoading);
+  if (!isLoading && !sessionChecked) setSessionChecked(true);
+  // Where the `/auth/config` read stands. The auth client retries a failed
+  // read before it rejects, so `failed` means the server did not answer.
+  const [read, setRead] = useState<ConfigRead>({ status: 'loading' });
+  useEffect(() => {
+    getAuthConfig().then(
+      (config) => setRead({ status: 'known', config: config ?? null }),
+      () => setRead({ status: 'failed' }),
+    );
+  }, [getAuthConfig]);
+  const authConfig = read.status === 'known' ? read.config : null;
+
+  const invitationRedirect = isInvitationRedirect(searchParams.get('redirect'));
+  // Probes GET /api/v1/auth/bootstrap-status only for a visitor known to be
+  // signed out, when the posture is closed and nothing else admits them.
+  const signedOut = sessionChecked && !user;
+  const bootstrap = useBootstrapStatus(signedOut && needsBootstrapProbe(authConfig, invitationRedirect));
+  if (user) return 'signed-in';
+  if (!signedOut) return 'pending';
+  // Ask the decision only once the read has answered.
+  if (read.status === 'failed') return 'unreachable';
+  if (read.status === 'loading') return 'pending';
+  return decideSignUpOffer(authConfig, { invitationRedirect, bootstrap });
+}
+```
+
+A signed-in visitor is not who the offer is about, so the hook answers
+`signed-in` before anything else, without the probe: move that visitor on.
+`DefaultRegisterPage` sends them to `/`, where it sends a visitor after a
+successful sign-up (objectui#11714). The hook asks `decideSignUpOffer` only
+once the config read has answered (objectui#11806): while the read is pending
+it answers `pending`, and when the read failed it answers `unreachable`, which
+the default pages render as "Cannot connect to server" with a Retry. To offer
+Retry, keep an attempt counter in the effect's dependencies and bump it, as the
+default pages do. `decideSignUpOffer` itself is unchanged: it still answers a
+`null` config with `form`, leaving the server's own gate as the source of
+truth, which is why a read that has not answered must not reach it. An
+invitation redirect is an
+affordance, not an authorization: the server still refuses a non-invitee's
+sign-up.
+
 ## Components
 
 ### AppShell
@@ -265,6 +369,16 @@ import { PageView } from '@object-ui/app-shell';
 
 <PageView />;
 ```
+
+`DashboardView` hands `DashboardRenderer` an `onRefresh` handler, so the
+renderer shows its "Refresh All" button and honours an authored
+`refreshIntervalSeconds`: every that many seconds the widgets re-read their
+data. A refresh declares an unscoped change on the data-invalidation bus
+(`notifyDataChanged({ objectName: '*' })` from `@object-ui/react`), and each
+widget that holds a bus subscription re-reads in place; nothing is remounted.
+`0`, a negative value or no value means no timer. A dataset-bound KPI tile does
+not re-read yet: its widget subscribes on the base object the query's answer
+names, and the answer to a query with no dimensions names none (objectui#11062).
 
 The schema-driven renderers live elsewhere: `DashboardRenderer` in
 `@object-ui/plugin-dashboard`, and everything else through `SchemaRenderer` in
@@ -363,6 +477,22 @@ package-management page remains the global place to create, import, publish,
 enable, or disable packages; direct `/metadata/package` links redirect there.
 The Studio sidebar also flattens the root Overview group so Home and package
 navigation sit directly under the package selector.
+
+### Package-less flows (`/studio/~org/automations`)
+
+A flow that belongs to no package — a clone of a packaged flow is one, by
+ADR-0126 §7.1 — matches no package scope, so Studio gives it one scope of its
+own: `/studio/~org/automations` (`studioOrgScopePath()`, segment
+`STUDIO_ORG_SCOPE_SEGMENT`). It is the same `StudioDesignSurface` with no
+package under it, reached from the Studio home and from the package switcher.
+Its Automations rail lists every flow whose served `_packageId` names no
+package, opens each one editable, and saves package-less drafts; its Publish
+promotes those drafts one by one through the single-item publish door, because
+the package batch publish cannot reach a draft bound to no package. It offers
+no other pillar and no "New" flow. `~` is outside every package-id alphabet,
+so the segment can never name a package. A `?surface=flow:` deep link that
+names a flow the open rail does not hold opens no other flow in its place;
+from a package's pillar, a package-less flow is opened in this scope instead.
 
 ### Access matrix (package-scoped)
 
@@ -526,6 +656,11 @@ save-time error rather than a detail left to the reader.
 - **Append** — the bottom `+` handle on a node adds a connected child.
 - **Insert on edge** — the `+` on a connector splices a node between two nodes,
   preserving the original branch condition on the first segment.
+- **Connect** — drag from a node's connect handle (the dot beside its bottom
+  `+`; an End has none) onto another node to connect the two; a selected
+  connection's **From** / **To** in `FlowEdgeInspector` re-point it. Both refuse,
+  with the reason, a node to itself, a (source, target) pair another edge
+  already joins, and a node the flow does not have (`edgeConnectionRefusal`).
 - **Reposition** — drag a node (committed on pointer-up).
 - **Delete** — `Delete` / `Backspace` removes the selected node and its edges.
 - **Navigate** — fit-to-view, zoom in/out, and background pan.
@@ -556,6 +691,16 @@ variables* shape and an *email/SMS* notification shape (*Template* / *Recipients
 `code`), and a `wait` node shows *Duration* / *Signal name* based on the selected
 *Wait for* mode. A conditional field is never hidden while it still holds a
 value, so existing config is always reachable.
+
+A config key the installed `@objectstack/spec` refuses the node without — an
+`http` node's *URL*, a record node's *Object*, a decision branch's *Label* and
+*Expression*, a screen field's *Name* — carries the same required marker (`*`)
+`SchemaForm` draws, and a control the inspector renders itself also carries
+`aria-required`. No list of required keys is kept here: `flow-required-keys.ts`
+removes the key from a copy of the node and asks the spec's own judges
+(`flowNodeConfigRefusals`, the predicate-slot walk, `FlowNodeSchema`). So a
+rule-dependent key such as a `notify` node's *Title*, which is required only
+while the node has no `template`, is marked only while the rule applies.
 
 Config keys come in three editable shapes so authors never hand-write JSON:
 
@@ -590,8 +735,10 @@ stored on `config.conditions`. Picking a target creates or retargets the
 branch's out-edge carrying its condition/label/default; clearing it detaches
 (removes) that edge — never the node. Because edges stay the single source of
 truth, it round-trips with the reciprocal per-edge **Branch** picker in
-`FlowEdgeInspector` (#1930) and with canvas rewiring; custom hand-written edge
-guards and fault/back edges are never touched (`flow-decision-edges.ts`).
+`FlowEdgeInspector` (#1930), with that panel's **From** / **To**, and with
+connections drawn from a node's connect handle on the canvas; custom
+hand-written edge guards and fault/back edges are never touched
+(`flow-decision-edges.ts`).
 
 Anything still not covered by a field (nested objects, arrays, plugin-specific
 keys) lives in an **optional** Advanced (JSON) escape hatch: it is shown only
@@ -671,6 +818,29 @@ be faithfully modelled is surfaced loudly instead of faked.
 The engine is covered by unit tests in
 `previews/simulator/__tests__/flow-simulator.test.ts`.
 
+### Documentation pages (`doc`)
+
+A `doc` (ADR-0046) is written in the metadata admin like any other type — the
+generic edit page loads it and saves it through `PUT /meta/doc/:name` — with
+`previews/DocPreview` as its canvas, during create as well as edit:
+
+- **Markdown source and live preview** side by side. The preview renders through
+  `SchemaRenderer` as `{ type: 'markdown' }`, the registry entry
+  `@object-ui/plugin-markdown` provides and the docs portal renders with, so this
+  package takes no dependency on the plugin; a host that registers no `markdown`
+  renderer shows the unknown-component notice in the preview pane.
+- **Locale variants** are entries of the doc's `translations` map, which is how
+  `DocSchema` models them (it declares no `locale` key). A new variant starts as a
+  copy of the default body.
+- **Book placement** writes the doc's own `group` key: a book stores no members,
+  so a doc joins a book group by that key or by the group's name/tag rule. The
+  readout of where the doc appears is computed with the spec's `resolveBookTree`,
+  the resolver `GET /meta/book/:name/tree` answers with.
+
+The canvas owns `content`, `translations` and `group`, so the properties form
+beside it shows only the header keys. The pure draft arithmetic lives in
+`previews/doc-draft.ts`.
+
 ## Architecture
 
 This package sits between the low-level `@object-ui/react` (SchemaRenderer) and the high-level `apps/console` (full application):
@@ -736,9 +906,12 @@ button, and render the same `<ObjectForm>` pipeline as the modal — so
 `tabbed`, `wizard`, and section configurations work in both modes.
 
 JSON `action:button` schemas can also trigger the page routes directly
-via the action runner, regardless of the object's `editMode`. The handler
-name goes in `actionType` — that is the key the button renderer forwards
-to the action runner as the action's type, and the runner dispatches to
+via the action runner, regardless of the object's `editMode`. The block's
+props go in its `properties` bag, the spec's `ComponentPropsMap['action:button']`
+row; `objectui validate` and the spec's page component refuse them written
+flat on the node. The handler name goes in `properties.actionType` — the key
+the button renderer forwards to the action runner as the action's type, once
+`SchemaRenderer` hoists the bag onto the node — and the runner dispatches to
 the handler registered under it. Arguments are static values under
 `properties.params` (an action's `params` is only the `ActionParam[]`
 list of inputs to collect; a node-level `params` object is ignored):
@@ -746,9 +919,9 @@ list of inputs to collect; a node-level `params` object is ignored):
 ```json
 {
   "type": "action:button",
-  "label": "New Account",
-  "actionType": "navigate_create",
   "properties": {
+    "label": "New Account",
+    "actionType": "navigate_create",
     "params": { "objectName": "account" }
   }
 }
@@ -762,9 +935,9 @@ values, so a button on a record page names its record with
 ```json
 {
   "type": "action:button",
-  "label": "Edit",
-  "actionType": "navigate_edit",
   "properties": {
+    "label": "Edit",
+    "actionType": "navigate_edit",
     "params": {
       "objectName": "account",
       "recordId": "${record.id}"
@@ -827,6 +1000,27 @@ const { recentItems, addRecentItem } = useRecentItems();
 const { pinnedIds, togglePin, isPinned, applyPins } = useNavPins();
 ```
 
+A recent object, dashboard, page or report entry stores its identity only
+(`type` and `name`), never display text: label it where you render it with
+`useRecentItemLabel()`, which reads the item's current metadata label in the
+current language (a record entry keeps the title it was visited under). A
+Studio package entry (`type: 'package'`) is stored the same way; label it with
+`useRecentItemLabel({ packages })`, passing the package list you loaded, or
+leave it out where you have no list. The provider writes nothing when a visit
+leaves the list unchanged, such as revisiting the item already at its head.
+
+```tsx
+import { useRecentItems, useRecentItemLabel } from '@object-ui/app-shell';
+
+function RecentList() {
+  const { recentItems } = useRecentItems();
+  const recentLabel = useRecentItemLabel();
+  // No package list is loaded here, so Studio package entries are left out.
+  const shown = recentItems.filter((item) => item.type !== 'package');
+  return <ul>{shown.map((item) => <li key={item.id}>{recentLabel(item)}</li>)}</ul>;
+}
+```
+
 Nav pins and Favorites share a single `favorites` collection. `FavoriteItem`
 carries optional `type: 'nav'`, `pinned`, and `navId` fields so a single
 adapter syncs both flows. The legacy `objectui-nav-pins` localStorage key is
@@ -842,6 +1036,16 @@ for the adapter contract, backend schema, and how to plug in your own backend.
 record search. Its open state and the command that opens it are provided by
 `CommandPaletteProvider` (wired in by `ConsoleLayout`) and exposed via
 `useCommandPalette()`.
+
+`CommandPalette` has two scopes. Inside an app it takes `apps`, `activeApp`,
+`objects`, `onAppChange` and an optional `dataSource`, and searches that app.
+`<CommandPalette scope="studio" />` takes no other prop: it is the palette of the
+`/studio` landing, a frame outside every app, which the console mounts under its
+own `CommandPaletteProvider`. It leaves out every app-scoped group and the
+full-search command (their links start with `/apps/APP`), and lists the Studio's
+packages, their objects and their flows, each opening its Studio page. The
+header's search trigger is drawn wherever a provider is mounted, so `AppHeader`
+with `variant="studio"` shows it there.
 
 ```tsx
 import { useCommandPalette } from '@object-ui/app-shell';
@@ -904,6 +1108,19 @@ The shared overlay primitives in `@object-ui/components`
 a `data-testid` onto their content element and emit Radix `data-state="open|closed"`,
 so overlays are locatable and their open/closed state is machine-readable by
 construction (C4).
+
+## Keyboard-shortcuts dialog
+
+`KeyboardShortcutsDialog` (`?`, or `?shortcuts=1`) has no list of its own. Each
+shortcut is advertised by the code that handles it, beside the handler and for as
+long as the handler is mounted, and the dialog lists what is advertised at that
+moment (objectui#11674). Inside an app that is the command palette (`⌘K`), the
+dialog itself (`?`), closing a dialog or panel (`Esc`) and the sidebar (`⌘B`, the
+`SidebarProvider` listener). The AI chat page advertises `⌘⇧O` and `⌘⇧S` itself,
+so they are listed only where that page is mounted. A shortcut without a mounted
+handler is never listed. Each listed row carries `data-shortcut-id`, and
+`KeyboardShortcutsDialog.wiredOnly-11674.test.tsx` fires every row the console
+lists against its real handler.
 
 ## Settle signal (is the app idle?)
 
@@ -969,8 +1186,8 @@ go down"):
 
 While the whole platform is pre-GA, the top bar (`AppHeader`) shows a small
 **Preview** chip next to the product wordmark on every console surface (home /
-app / orgs). It's rendered by `PreviewBadge`, driven by the platform stage in
-runtime-config:
+app / orgs / studio). It's rendered by `PreviewBadge`, driven by the platform
+stage in runtime-config:
 
 ```ts
 // packages/app-shell/src/runtime-config.ts — `RuntimeBranding.stage`

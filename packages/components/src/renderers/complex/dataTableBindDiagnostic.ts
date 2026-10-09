@@ -33,8 +33,8 @@
  * EMPTY_ROWS` off the node, and the file calls no such hook.
  *
  * A `bind` on a `data-table` is nevertheless accepted by every gate: the TS
- * side by `BaseSchema`'s `[key: string]: any`, the zod side by `BaseSchema`
- * being `.passthrough()` (which `DataTableSchema.extend(…)` inherits). So the
+ * side because `BaseSchema` declares `bind` for every node (objectui#6357), the
+ * zod side by `BaseSchema` being `.passthrough()` (which `DataTableSchema.extend(…)` inherits). So the
  * author gets a table drawing a correct-looking header over the "No results
  * found" empty state, with no error, no warning and no diagnostic — the
  * hardest failure shape for a human OR an AI author to self-check, because a

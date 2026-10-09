@@ -13,11 +13,12 @@
  *     same source the platform's save gate parses with;
  *  2. the CONSUMED set, extracted from `DatasetWidget.tsx` source text — the
  *     one component every spec-legal (dataset-bound) widget renders through.
- *     Since objectui#7293 that set is the declared five PLUS `description`:
- *     the metric branch renders the sub-caption, so the accepted set and the
- *     measured read set finally coincide;
- *  3. the sub-caption convention read site in `DashboardRenderer.tsx`, the
- *     evidence for the single accepted key the spec does not declare;
+ *     It is the declared five and nothing else: `description`, the metric
+ *     sub-caption objectui#7293 read here, is retired at both ends
+ *     (objectui#11389, ruling C), so the accepted set, the declared set and
+ *     the measured read set are one set;
+ *  3. the ABSENCE of the retired sub-caption's readers across
+ *     `plugin-dashboard`, with a lit control on the same scan;
  *  4. a repo tripwire for NEW files that start reading `widget.options`.
  *
  * ## What the instrument can and cannot see — read before trusting a verdict
@@ -52,15 +53,19 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { DashboardWidgetOptionsSchema, DashboardWidgetSchema } from '@objectstack/spec/ui';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { stripComments } from '../../../../scripts/js-comment-mask.mjs';
 import {
   CONSUMED_WIDGET_OPTION_KEYS,
   UNCONSUMED_WIDGET_OPTION,
 } from '../dashboard-widget-options.js';
 
 /**
- * The one accepted key `DashboardWidgetOptionsSchema` does not declare — the
- * sub-caption convention (objectui#4032 item 4, objectstack#8056 `subCaption`).
- * Named once here so leg 1 and leg 2 cannot drift apart about which key it is.
+ * The RETIRED metric sub-caption key (objectui#4032 item 4, objectui#7293;
+ * retired at both ends by objectui#11389, ruling C, after objectstack's half in
+ * `@objectstack/spec` 17.7.0). It was the one accepted key the spec never
+ * declared. Named once here so legs 1 to 3 cannot drift apart about which key
+ * they keep out.
  */
 const SUBCAPTION_KEY = 'description';
 
@@ -79,12 +84,11 @@ const DATASET_WIDGET = join(repoRoot, 'packages/plugin-dashboard/src/DatasetWidg
 const DASHBOARD_RENDERER = join(repoRoot, 'packages/plugin-dashboard/src/DashboardRenderer.tsx');
 const DASHBOARD_GRID_LAYOUT = join(repoRoot, 'packages/plugin-dashboard/src/DashboardGridLayout.tsx');
 /**
- * Where the sub-caption's authored read LIVES since objectui#8889. It used to
- * sit inline in `DashboardRenderer.tsx`; it is now the single decision point
- * both dashboard surfaces call, which is why leg 3 reads this file and then
- * checks both surfaces still route to it.
+ * Where the sub-caption's two limbs lived from objectui#8889 until
+ * objectui#11389 deleted the module. Leg 3 pins that it stays gone.
  */
 const WIDGET_SUB_CAPTION = join(repoRoot, 'packages/plugin-dashboard/src/widgetSubCaption.ts');
+const PLUGIN_DASHBOARD_SRC = join(repoRoot, 'packages/plugin-dashboard/src');
 
 const declaredKeys = Object.keys(DashboardWidgetOptionsSchema.shape).sort();
 
@@ -103,12 +107,14 @@ describe('leg 1 — the spec side of the pin', () => {
     expect(declaredKeys).toEqual(['dateGranularity', 'limit', 'sortBy', 'sortOrder', 'stageOrder']);
   });
 
-  it('every declared key is accepted, and the only undeclared accepted key is `description`', () => {
+  it('every declared key is accepted, and no undeclared key is — not even the retired `description`', () => {
     for (const key of declaredKeys) expect(CONSUMED_WIDGET_OPTION_KEYS).toContain(key);
     const extras = CONSUMED_WIDGET_OPTION_KEYS.filter((k) => !declaredKeys.includes(k));
-    // `description` is the sub-caption convention key (leg 3). Any OTHER
-    // undeclared entry needs its own documented read-site evidence first.
-    expect(extras).toEqual([SUBCAPTION_KEY]);
+    // `description` was the one undeclared accepted key, the metric sub-caption
+    // (objectui#11389 retired it). Any undeclared entry needs its own
+    // documented read-site evidence before it joins.
+    expect(extras).toEqual([]);
+    expect(CONSUMED_WIDGET_OPTION_KEYS).not.toContain(SUBCAPTION_KEY);
   });
 
   it('`dataset` is required — the fact the census scopes itself by', () => {
@@ -149,24 +155,25 @@ describe('leg 2 — the renderer side: DatasetWidget source census', () => {
     expect(src, 'computed access into the options bag').not.toMatch(/\boptions\[/);
   });
 
-  it('the extracted read set is the declared set plus the sub-caption key', () => {
+  it('the extracted read set is the declared set, without the retired sub-caption key', () => {
     const extracted = new Set<string>();
     for (const m of src.matchAll(/\boptions\.([A-Za-z_$][\w$]*)/g)) extracted.add(m[1]!);
     // Instrument control: a zero here is a broken instrument, not a reading —
     // `limit` is known-present at a `options.limit` read site.
     expect(extracted.size).toBeGreaterThan(0);
     expect([...extracted]).toContain('limit');
-    // Until objectui#7293 this equalled `declaredKeys` alone, and `description`
-    // was accepted on the strength of a read site in a DIFFERENT file (leg 3).
-    // The metric branch now reads it here too, so the sub-caption key is a
-    // first-class member of this census rather than an exception to it.
-    expect([...extracted].sort()).toEqual([...declaredKeys, SUBCAPTION_KEY].sort());
+    // objectui#7293 added `description` to this set (the metric tile's
+    // sub-caption); objectui#11389 took it out again (ruling C). Its return here
+    // is a renderer reading a retired key, so it is refused by name, not only
+    // by the equality.
+    expect([...extracted]).not.toContain(SUBCAPTION_KEY);
+    expect([...extracted].sort()).toEqual([...declaredKeys].sort());
   });
 
-  it('every accepted key now has a read site in the file the census measures', () => {
-    // The fact objectui#7293 delivers, stated as its own assertion: the
-    // accepted set is no longer larger than what this file reads. Losing the
-    // sub-caption read makes THIS red rather than silently re-opening the gap.
+  it('every accepted key has a read site in the file the census measures', () => {
+    // The accepted set is no larger than what this file reads: a key accepted
+    // without a read site would silence the warning on metadata that renders
+    // nothing.
     const extracted = new Set<string>();
     for (const m of src.matchAll(/\boptions\.([A-Za-z_$][\w$]*)/g)) extracted.add(m[1]!);
     expect([...extracted].sort()).toEqual([...CONSUMED_WIDGET_OPTION_KEYS].sort());
@@ -184,29 +191,56 @@ describe('leg 2 — the renderer side: DatasetWidget source census', () => {
   });
 });
 
-describe('leg 3 — the sub-caption convention read site', () => {
-  it('the subCaption channel still reads options.description, and both surfaces route to it', () => {
-    // The evidence for the one accepted key the spec does not declare
-    // (objectui#4032 item 4; objectstack#8056 `subCaption`; the server's
-    // `translateDashboard` writes this key). If this read disappears,
-    // `description` needs re-triage, not silent retention.
-    //
-    // objectui#8889 MOVED the read, verbatim, out of `DashboardRenderer.tsx`
-    // and into `widgetSubCaption.ts`: the bundle limb had to reach the
-    // dataset-bound tile too, and an invariant of the form "these two channels
-    // can never disagree" needs ONE decision point, so both dashboard surfaces
-    // now call the same hook instead of each composing the value. The read did
-    // not disappear and this leg's subject did not change — only its address.
-    const src = readFileSync(WIDGET_SUB_CAPTION, 'utf8');
-    expect(src).toMatch(/\(widget\.options as [^)]*\)\?\.description/);
+describe('leg 3 — the retired sub-caption has no reader left (objectui#11389)', () => {
+  /**
+   * Every non-test TS/TSX source file of `plugin-dashboard`, comments stripped
+   * through the repo's one comment scanner (`scripts/js-comment-mask.mjs`).
+   * `stripComments`, not `maskComments`: this leg reports file names only,
+   * never a line or an offset.
+   */
+  const sources = (): Array<[string, string]> => {
+    const out: Array<[string, string]> = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+        const p = join(dir, entry.name);
+        if (entry.isDirectory()) walk(p);
+        else if (/\.(ts|tsx)$/.test(entry.name) && !/\.test\.|\.d\.ts$/.test(entry.name)) {
+          // Comments may NAME the retired key (they explain its retirement); a
+          // read is code, so comments are dropped before matching.
+          const code = stripComments(readFileSync(p, 'utf8')) as string;
+          out.push([relative(repoRoot, p).replace(/\\/g, '/'), code]);
+        }
+      }
+    };
+    walk(PLUGIN_DASHBOARD_SRC);
+    return out;
+  };
 
-    // ⚠️ Re-pointing the path ALONE would be weaker than what this leg held
-    // before the move: it would stay green with the read stranded in a module
-    // nothing calls. So the reachability half is stated explicitly, and it is
-    // stated for BOTH surfaces — objectui#4614 is the card that exists because
-    // a one-surface wiring looks complete and is not.
+  it('no source reads `options.description` or resolves a `subCaption`, and the scan is lit', () => {
+    const files = sources();
+    // Lit control: the same comment-stripped scan still finds a live read of
+    // the bag, so an empty answer below is a reading, not a dead instrument.
+    const control = files.filter(([, code]) => /\boptions\??\.limit\b/.test(code)).map(([f]) => f);
+    expect(control).toContain('packages/plugin-dashboard/src/DatasetWidget.tsx');
+
+    const readers = files
+      .filter(([, code]) =>
+        /\boptions\??\.description\b/.test(code) ||
+        /\)\??\.description\b/.test(code) && /widget\??\.options\s+as\b/.test(code) ||
+        /\bsubCaption\b/.test(code) ||
+        /\bwidgetSubCaption\b/.test(code))
+      .map(([f]) => f);
+    expect(readers).toEqual([]);
+  });
+
+  it('the resolver module is gone and no surface calls its hook', () => {
+    expect(existsSync(WIDGET_SUB_CAPTION)).toBe(false);
     for (const surface of [DASHBOARD_RENDERER, DASHBOARD_GRID_LAYOUT]) {
-      expect(readFileSync(surface, 'utf8')).toMatch(/useWidgetSubCaption\(/);
+      const src = readFileSync(surface, 'utf8');
+      expect(src).not.toMatch(/useWidgetSubCaption\(/);
+      // Control on the same read: the surface is the file it claims to be.
+      expect(src).toMatch(/<DatasetWidget\b/);
     }
   });
 });
@@ -237,26 +271,16 @@ describe('leg 4 — repo tripwire: files reading widget.options', () => {
     // itself (whose header describes the bag in prose — it never renders one).
     // A new entry means a new consumer of the bag: re-run the census (module
     // header) before extending either this list or the accepted-key set.
-    // `useObjectLabel.ts` matches in prose only — it documents the subCaption
-    // convention leg 3 pins.
     //
-    // `widgetSubCaption.ts` joined on objectui#8889, and it is NOT a prose-only
-    // match: it carries the authored read itself,
-    // `(widget.options as …)?.description`, moved verbatim out of
-    // `DashboardRenderer.tsx` so that both dashboard surfaces resolve the
-    // sub-caption through one decision point. It is a first-class consumer of
-    // the bag under exactly the receiver spelling this tripwire watches, so it
-    // belongs here — the tripwire fired correctly, and the census was re-run
-    // rather than the number made to match. The accepted key set is UNCHANGED
-    // by that move: the file reads `description` and nothing else, the key was
-    // already accepted (leg 1), and leg 2's DatasetWidget read set still
-    // measures the same six.
+    // Two entries left with objectui#11389 (the sub-caption retired at both
+    // ends): `widgetSubCaption.ts`, deleted with the resolver that read
+    // `description` off the bag, and `useObjectLabel.ts`, whose only match was
+    // the prose of the retired `widgetSubCaption` member. The list shrank
+    // because the consumers left, not because the number was made to match.
     expect(hits.sort()).toEqual([
-      'packages/i18n/src/useObjectLabel.ts',
       'packages/plugin-dashboard/src/DashboardGridLayout.tsx',
       'packages/plugin-dashboard/src/DashboardRenderer.tsx',
       'packages/plugin-dashboard/src/DatasetWidget.tsx',
-      'packages/plugin-dashboard/src/widgetSubCaption.ts',
       'packages/sdui-parser/src/dashboard-widget-options.ts',
     ]);
   });

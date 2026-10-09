@@ -69,6 +69,7 @@ import {
   normalizeFilterMode,
   normalizeLimit,
   describeRefusedFeedLimit,
+  isRefusedFeedRead,
   type SysActivityRow,
 } from './recordActivityFeed';
 import { useRecordAriaProps } from './recordComponentAria';
@@ -194,6 +195,11 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
   // has to stay offered or the feed silently truncates.
   const [fetchedHasMore, setFetchedHasMore] = React.useState(false);
   const [selfLoading, setSelfLoading] = React.useState(false);
+  // objectui#11195: the self-fetch was REFUSED (401 / 403, or a permission
+  // envelope), as opposed to answered with zero rows. Kept beside `fetched`
+  // rather than folded into it, because both answers leave `fetched` empty and
+  // only this tells them apart.
+  const [selfDenied, setSelfDenied] = React.useState(false);
 
   const systemActorLabel = tt('detail.systemActor', 'System');
 
@@ -226,14 +232,21 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
         }
         setFetchedHasMore(rows.length > Math.max(1, pageSize));
         setFetched(mergeFeedItems(mapped));
+        setSelfDenied(false);
       })
-      .catch(() => {
-        // `sys_activity` is system-owned and optional: a 404 on a deployment
-        // without the audit plugin is "no activity", not an error to surface.
-        if (!cancelled) {
-          setFetched([]);
-          setFetchedHasMore(false);
-        }
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setFetched([]);
+        setFetchedHasMore(false);
+        // A REFUSED read is not "no activity" (objectui#11195): the member
+        // may not see this record's activity, and the panel says so. Every
+        // other failure keeps the empty state. `sys_activity` is system-owned
+        // and optional, so a 404 on a deployment without the audit plugin is
+        // "no activity", not a refusal; a 5xx is a failure, and this panel has
+        // no error state to show it in. The verdict is recorded, not retried:
+        // nothing here re-issues the read, and no dependency of this effect
+        // moves with it.
+        setSelfDenied(isRefusedFeedRead(err));
       })
       .finally(() => {
         if (!cancelled) setSelfLoading(false);
@@ -251,6 +264,14 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
 
   const loading =
     hostLoading ?? discussion?.loading ?? (canSelfFetch && fetched === null ? true : selfLoading);
+
+  // Which reads were refused (objectui#11195), from whichever source owns the
+  // feed, in the same precedence as the rows: host `items` carry no refusal,
+  // a mounted DiscussionContext answers for both of its reads, and the
+  // self-fetch answers for its one `sys_activity` read.
+  const activityDenied =
+    hostItems !== undefined ? false : discussion ? !!discussion.activityDenied : canSelfFetch && selfDenied;
+  const commentsDenied = hostItems === undefined && !!discussion?.commentsDenied;
 
   // The timeline takes `filterMode` as a CONTROLLED prop, so the authored
   // `filterMode` becomes the initial state here and the dropdown stays usable —
@@ -282,6 +303,8 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
         onToggleReaction={discussion?.onToggleReaction as any}
         mentionSuggestions={mentionsEnabled ? (discussion?.mentionSuggestions as any) : undefined}
         onUploadAttachments={discussion?.onUploadAttachments as any}
+        activityDenied={activityDenied}
+        commentsDenied={commentsDenied}
       />
     </div>
   );

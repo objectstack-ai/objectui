@@ -63,12 +63,13 @@ export const SERVICE_ENDPOINT_CATALOG: Record<string, { group: string; defaultRo
   // always 404'd — they were declared in the framework's `DEFAULT_AI_ROUTES` and
   // never implemented anywhere, so this page offered three endpoints that had no
   // server. The audited table is cloud's `packages/service-ai/src/
-  // ai-route-ledger.ts`; when a route is added or renamed there, mirror it here.
+  // ai-route-ledger.ts`; when a route is added, renamed or retired there, mirror
+  // it here.
   //
   // That first fix listed one server-side builder, `buildAIRoutes()`. The family
-  // is SEVEN builders plus one route mounted by `objectos-runtime`, so this page
-  // still showed under half of it. All 26 are here now, grouped as the ledger
-  // groups them.
+  // is several builders plus one route mounted by `objectos-runtime`, so this
+  // page still showed under half of it. The rows below mirror the ledger,
+  // grouped as the ledger groups them.
   //
   // TWO KINDS OF ENTRY LIVE HERE, and both belong:
   //  - routes the SDK also expresses (`/chat`, `/conversations/*`) — this page is
@@ -77,9 +78,9 @@ export const SERVICE_ENDPOINT_CATALOG: Record<string, { group: string; defaultRo
   //    `/evals/runs`, `/usage`) — operator and console surfaces, which is exactly
   //    why they belong on a page that explores raw HTTP rather than `client.*`.
   //
-  // MOUNTING IS CONDITIONAL for four of the builders (see AI_ROUTE_MOUNT_GATES in
-  // the ledger): `/agents/*` and `/assistant/*` need a metadata service,
-  // `/evals/runs` also needs a data engine, `/conversations/:id/debug` needs one.
+  // MOUNTING IS CONDITIONAL for three of the builders (see AI_ROUTE_MOUNT_GATES
+  // in the ledger): `/agents/*` needs a metadata service, `/evals/runs` also
+  // needs a data engine, `/conversations/:id/debug` needs one.
   // A full Cloud deployment wires all of them; a stripped host may not, and there
   // these 404 because they are not mounted — NOT because they do not exist. That
   // is a different failure from the one above, and the only honest place to say so
@@ -109,12 +110,6 @@ export const SERVICE_ENDPOINT_CATALOG: Record<string, { group: string; defaultRo
       // `/chat` above — `stream: false` for the JSON reply this page can render.
       { method: 'GET', path: '/agents', desc: 'List active agents' },
       { method: 'POST', path: '/agents/:agentName/chat', desc: 'Chat with a named agent (JSON)', bodyTemplate: { messages: [{ role: 'user', content: '' }], stream: false } },
-
-      // Ambient assistant — resolves the agent and skills from context instead of
-      // being told. Same `stream: false` treatment on its chat route.
-      { method: 'GET', path: '/assistant', desc: 'Resolve the default assistant and its active skills' },
-      { method: 'GET', path: '/assistant/skills', desc: 'List active skills for a context' },
-      { method: 'POST', path: '/assistant/chat', desc: 'Ambient chat — auto-resolves agent and skills (JSON)', bodyTemplate: { messages: [{ role: 'user', content: '' }], stream: false } },
 
       // Tools. `execute` is the mounted verb — the metadata-admin tool preview
       // used to deep-link here with `/invoke`, which has never existed.

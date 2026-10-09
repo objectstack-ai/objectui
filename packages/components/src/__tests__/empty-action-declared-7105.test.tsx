@@ -22,7 +22,7 @@
  *     `className`, so the designer could not offer the key either;
  *   * only the docs row said the capability existed.
  *
- * The read compiled because `BaseSchema` ends in `[key: string]: any`, and the
+ * The read compiled because `BaseSchema` ended in `[key: string]: any`, and the
  * renderer spelled it `(schema as any).action` — which is also why
  * objectui#6150's census, scanning for `schema.KEY`, could not see this reader.
  *
@@ -72,7 +72,7 @@ import { render } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '@object-ui/react';
 import { EmptySchema as EmptyMirror } from '@object-ui/types/zod';
-import type { EmptySchema, SchemaNode } from '@object-ui/types';
+import type { ButtonSchema, EmptySchema, SchemaNode } from '@object-ui/types';
 import '../renderers';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -101,16 +101,20 @@ type _ActionIsSchemaNode = Expect< Equal< EmptySchema['action'], SchemaNode > >;
  * The shipped demo, as a literal the compiler checks against the declared type.
  * The first test asserts it is byte-identical to the file the docs page renders.
  */
+const DEMO_ACTION: ButtonSchema = {
+  type: 'button',
+  label: 'Create Project',
+  variant: 'default',
+};
+// `DEMO_ACTION` is typed as the `button` node it is (objectui#11347): the slot is
+// `SchemaNode`, and since objectui#8347 removed `BaseSchema`'s index signature
+// a literal checked against it may author only `BaseSchema`'s own keys.
 const DEMO = {
   type: 'empty',
   icon: 'folder-plus',
   title: 'No projects yet',
   description: 'Get started by creating your first project',
-  action: {
-    type: 'button',
-    label: 'Create Project',
-    variant: 'default',
-  },
+  action: DEMO_ACTION,
 } satisfies EmptySchema;
 
 const readDemo = (): unknown => JSON.parse(readFileSync(DEMO_PATH, 'utf8'));

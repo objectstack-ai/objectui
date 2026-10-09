@@ -9,20 +9,22 @@
       "children": [
         {
           "type": "flex",
-          "align": "center",
-          "justify": "between",
-          "children": [
-            {
-              "type": "text",
-              "content": "Total Revenue",
-              "className": "text-sm font-medium text-muted-foreground"
-            },
-            {
-              "type": "icon",
-              "icon": "dollar-sign",
-              "className": "h-4 w-4 text-muted-foreground"
-            }
-          ]
+          "properties": {
+            "align": "center",
+            "justify": "between",
+            "children": [
+              {
+                "type": "text",
+                "content": "Total Revenue",
+                "className": "text-sm font-medium text-muted-foreground"
+              },
+              {
+                "type": "icon",
+                "icon": "dollar-sign",
+                "className": "h-4 w-4 text-muted-foreground"
+              }
+            ]
+          }
         },
         {
           "type": "text",

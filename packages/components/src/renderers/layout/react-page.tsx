@@ -70,12 +70,23 @@ function toPascal(tag: string): string {
 // to SchemaRenderer, which triggers the loader and renders the placeholder, so
 // the scope itself never has to change once built — which is exactly what lets
 // it stay identity-stable and keeps the page from remounting (objectui#2954).
-function buildComponentScope(dataSource: unknown): Record<string, React.ComponentType<any>> {
+//
+// The host ADAPTER reaches the blocks through ONE channel: the
+// `SchemaRendererProvider` the page is wrapped in below. It is NOT written onto
+// the node. `dataSource` on a node is the spec's per-element BINDING
+// (`PageComponentSchema.dataSource`, `{ object, view, filter, sort, limit }`),
+// which the gate-wrapped blocks read off `schema` (`ElementDataSourceGate`), so
+// an adapter (or `null`) stamped there was a pun on an authored key
+// (objectui#11070). It carried nothing the provider does not: `SchemaRenderer`
+// strips `dataSource` from the props it spreads, the gate ignores a value that
+// is not a binding, and the one widget family that looks for an adapter on its
+// node (`LookupField`, and `UserField` through it, reached by `<Block>`) falls
+// through to that same context. An author who writes
+// `dataSource={{ object: 'x' }}` on a block gets exactly that binding on the
+// node.
+function buildComponentScope(): Record<string, React.ComponentType<any>> {
   const scope: Record<string, React.ComponentType<any>> = {};
   const seen = new Set<string>();
-  // Some data blocks read their dataSource from props (e.g. `list-view`), others
-  // from the SchemaRenderer context (e.g. `object-form`). We inject it as a prop
-  // here AND wrap the page in a SchemaRendererProvider below, so both kinds work.
   for (const cfg of ComponentRegistry.getPublicConfigs() as Array<{ type: string; isContainer?: boolean; tier?: string }>) {
     const tag = cfg.type;
     // The html tier's intrinsic elements ride `getPublicConfigs()` stamped
@@ -100,7 +111,7 @@ function buildComponentScope(dataSource: unknown): Record<string, React.Componen
     const Wrapper: React.FC<any> = ({ children: _children, ...props }) => {
       const specType = typeof props.type === 'string' && props.type !== tag ? props.type : undefined;
       return React.createElement(SchemaRenderer as any, {
-        schema: { dataSource, ...props, ...(specType ? { specType } : {}), type: tag },
+        schema: { ...props, ...(specType ? { specType } : {}), type: tag },
       });
     };
     Wrapper.displayName = name;
@@ -108,7 +119,7 @@ function buildComponentScope(dataSource: unknown): Record<string, React.Componen
   }
   // Escape hatch: render any registered component by type.
   const Block: React.FC<{ type: string; [k: string]: unknown }> = ({ type, children: _c, ...props }) =>
-    React.createElement(SchemaRenderer as any, { schema: { type, dataSource, ...props } });
+    React.createElement(SchemaRenderer as any, { schema: { type, ...props } });
   Block.displayName = 'Block';
   scope.Block = Block;
   return scope;
@@ -183,9 +194,18 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
   // plugin finishing its registration notifies the registry, and rebuilding the
   // scope there would reset every interactive page on the screen. It doesn't
   // need to — `buildComponentScope` already sees lazy blocks (objectui#2953).
+  //
+  // `adapter` stays in the dependency list although the scope no longer
+  // carries it (objectui#11070). The blocks follow a swapped adapter through the
+  // provider below without a recompile. The page's OWN code may not: an effect
+  // that reads through `useAdapter()` and omits `adapter` from its dependencies
+  // ran once, against the absent adapter, and the recompile on a swap (the
+  // host connecting one) is what re-runs it. Dropping the dependency would keep
+  // the page's state across a swap, but it would also leave such a page empty.
+  // That is a separate behaviour change, not made here.
   const scope = React.useMemo(
     () => ({
-      ...buildComponentScope(adapter),
+      ...buildComponentScope(),
       // Live data access — `const adapter = useAdapter()` inside the page, then
       // adapter.find('object', {...}) / .create / .update. Hooks injected as
       // closure vars; the page calls them from its own component body.
@@ -202,6 +222,7 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
       variables: schema?.variables ?? {},
       page: schema ?? {},
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `adapter` is a recompile trigger kept on purpose, not a read; the reason is above this memo.
     [schema, adapter],
   );
 

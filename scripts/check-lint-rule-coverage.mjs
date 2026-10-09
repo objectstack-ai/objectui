@@ -565,13 +565,6 @@ export const VACUOUS_GROUPS = [
     card: 'objectui#7908',
   },
   {
-    glob: 'e2e/**/*.mjs',
-    reason:
-      'Playwright live-CI pin helpers under e2e/. Inside lint:root\'s population, and the only ' +
-      'JS-family files there that are neither repo tooling nor a build-tool config.',
-    card: 'objectui#7908',
-  },
-  {
     glob: 'packages/*/scripts/**/*.mjs',
     reason:
       'Per-package tooling, dominated by plugin-gantt verification scripts plus the build-css ' +
@@ -878,8 +871,8 @@ export async function ruleCountFor(eslint, file) {
 export async function analyze({ root, groups = VACUOUS_GROUPS, unreachedGroups = UNREACHED_GROUPS }) {
   if (typeof matchesGlob !== 'function') {
     throw new Error(
-      "node:path does not export matchesGlob on this runtime. It arrived in Node 22.5 and package.json " +
-        'declares `engines.node: ">=22.11"`, so reaching this line means the floor moved or the runtime is ' +
+      "node:path does not export matchesGlob on this runtime. It arrived in Node 22.5 and the root package.json " +
+        '`engines.node` floor sits above that, so reaching this line means the floor moved or the runtime is ' +
         'not the declared one. Failing loudly rather than matching nothing.',
     );
   }

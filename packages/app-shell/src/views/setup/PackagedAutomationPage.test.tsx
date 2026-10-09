@@ -25,6 +25,10 @@
  *      not display it. Pinning the rule at the RENDERER and not only at the
  *      wire is the point — a response field is the cheapest place for ancestry
  *      to reappear.
+ *   6. **the unbound reason** (objectui#9217) — a runtime row's `reason` is the
+ *      platform's sentence for why the flow is not armed. It is shown VERBATIM
+ *      and muted, never as an alert, whether it names the deployment policy or
+ *      a real binding failure; a row without one renders exactly as before.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -77,6 +81,28 @@ const CLONE_NOTICE =
   'and objects are unchanged). It is created with status `draft`, which is a lifecycle label and NOT an ' +
   'off-switch — a cloned record-change or schedule flow is bound to its trigger and will run alongside ' +
   'the flow it was copied from.';
+
+/**
+ * `SCHEDULED_WORK_DISABLED_REASON` (`@objectstack/types` 17.5.0), the sentence
+ * the automation engine puts in `FlowRuntimeState.reason` for a time-triggered
+ * flow the deployment's scheduled-work switch left unarmed. Transcribed here as
+ * FIXTURE text only: `@object-ui/app-shell` does not depend on that package,
+ * and the page keeps no copy of it — what is pinned is that whatever sentence
+ * arrives is rendered unedited.
+ */
+const POLICY_REASON =
+  'disabled by deployment policy — package-authored scheduled work is off on this deployment ' +
+  '(OS_AUTOMATION_SCHEDULED_WORK_ENABLED is unset or not truthy), so no time trigger arms and no ' +
+  'packaged `defineJob` is scheduled. This is not a binding failure and nothing about the flow ' +
+  'needs fixing: set OS_AUTOMATION_SCHEDULED_WORK_ENABLED=true to run package-authored scheduled ' +
+  "work on this deployment. It is OFF by default in every posture — a clock-driven workload's " +
+  'cost is a fact about the deployment, not about the flow.';
+
+/**
+ * The automation engine's `describeUnboundReason` sentence for a trigger that
+ * is registered but failed to bind. Fixture text, like the one above.
+ */
+const BINDING_FAILED_REASON = "trigger 'record_change' is registered but binding failed — see earlier warnings";
 
 /* -------------------------------------------------------------------------- */
 /* Fake server                                                                 */
@@ -428,5 +454,94 @@ describe('no ancestry or drift surface', () => {
     expect(result.textContent).not.toContain('pkg_notify');
     expect(result.textContent).not.toContain('v3');
     expect(screen.queryByText(/v3/)).toBeNull();
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* 6) The unbound reason, verbatim (objectui#9217)                             */
+/* -------------------------------------------------------------------------- */
+
+describe('the platform reason for an unbound flow', () => {
+  /** The flow cell of ONE named row — where the name, and any reason, render. */
+  function flowCell(flowName: string): HTMLElement {
+    const cell = screen.getByTestId(`packaged-flow-${flowName}`).querySelector('td');
+    if (!cell) throw new Error(`no flow cell for ${flowName}`);
+    return cell;
+  }
+
+  /**
+   * The one assertion every reason row owes: the platform's sentence is in its
+   * row, whole and unedited, in muted text — and nothing in the row is an alert
+   * or destructive-styled.
+   */
+  function expectMutedVerbatim(flowName: string, sentence: string) {
+    const row = screen.getByTestId(`packaged-flow-${flowName}`);
+    const shown = within(row).getByText(sentence);
+    expect(shown.textContent).toBe(sentence);
+    expect(shown).toHaveClass('text-muted-foreground');
+    expect(shown).not.toHaveClass('text-destructive');
+    expect(within(row).queryAllByRole('alert')).toHaveLength(0);
+    expect(row.querySelectorAll('.text-destructive')).toHaveLength(0);
+  }
+
+  it('shows a deployment-policy row with the platform sentence, muted, and not as a binding failure', async () => {
+    fixture.runtime = [
+      ...fixture.runtime,
+      { name: 'pkg_digest', enabled: true, bound: false, triggerType: 'schedule', reason: POLICY_REASON },
+    ];
+    fixture.meta = [...fixture.meta, packagedItem('pkg_digest', 'Daily digest')];
+    await renderPage();
+
+    expectMutedVerbatim('pkg_digest', POLICY_REASON);
+    // The page adds no failure wording of its own around the policy sentence.
+    expect(screen.getByTestId('packaged-flow-pkg_digest').textContent).not.toMatch(/binding failed/i);
+    // The flow's activation is still shown as the engine reports it.
+    expect(screen.getByRole('switch', { name: 'Activation for Daily digest' })).toBeChecked();
+  });
+
+  it('shows a real binding failure in the platform words too, muted (acceptance ②)', async () => {
+    fixture.runtime = [
+      ...fixture.runtime,
+      {
+        name: 'pkg_sync',
+        enabled: true,
+        bound: false,
+        triggerType: 'record_change',
+        reason: BINDING_FAILED_REASON,
+      },
+    ];
+    fixture.meta = [...fixture.meta, packagedItem('pkg_sync', 'Sync accounts')];
+    await renderPage();
+
+    expectMutedVerbatim('pkg_sync', BINDING_FAILED_REASON);
+  });
+
+  it('renders a row without a reason exactly as before, older backends included', async () => {
+    // `pkg_notify` (bound) and `pkg_escalate` (disabled) come from the default
+    // fixture and carry no reason; `pkg_legacy` is an older backend's bare row.
+    fixture.runtime = [...fixture.runtime, { name: 'pkg_legacy' }];
+    fixture.meta = [...fixture.meta, packagedItem('pkg_legacy', 'Legacy flow')];
+    await renderPage();
+
+    expect(flowCell('pkg_notify').textContent).toBe('Notify ownerpkg_notify');
+    expect(flowCell('pkg_escalate').textContent).toBe('Escalate casepkg_escalate');
+    expect(flowCell('pkg_legacy').textContent).toBe('Legacy flowpkg_legacy');
+  });
+
+  it('ignores a reason that is not a string', async () => {
+    fixture.runtime = [
+      ...fixture.runtime,
+      { name: 'pkg_numeric', enabled: true, bound: false, reason: 42 },
+      { name: 'pkg_object', enabled: true, bound: false, reason: { code: 'policy' } },
+    ];
+    fixture.meta = [
+      ...fixture.meta,
+      packagedItem('pkg_numeric', 'Numeric reason'),
+      packagedItem('pkg_object', 'Object reason'),
+    ];
+    await renderPage();
+
+    expect(flowCell('pkg_numeric').textContent).toBe('Numeric reasonpkg_numeric');
+    expect(flowCell('pkg_object').textContent).toBe('Object reasonpkg_object');
   });
 });

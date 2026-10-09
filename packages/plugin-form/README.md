@@ -38,7 +38,7 @@ const schema = {
 ### What the side-effect import registers
 
 There is no component map to iterate: registration is a side effect of importing
-the package entry, which makes six `ComponentRegistry.register(...)` calls. These
+the package entry, which makes five `ComponentRegistry.register(...)` calls. These
 are the schema types those calls claim, read off the calls themselves in
 `src/index.tsx`:
 
@@ -47,7 +47,6 @@ are the schema types those calls claim, read off the calls themselves in
 | `plugin-form:object-form` | `object-form` | `ObjectForm` — metadata-driven form over one record |
 | `view:form` | none | the same renderer under the view protocol |
 | `plugin-form:embeddable-form` | `embeddable-form` | `EmbeddableForm` — standalone public form |
-| `plugin-form:form-analytics` | `form-analytics` | `FormAnalytics` — submission dashboard |
 | `plugin-form:object-master-detail-form` | `object-master-detail-form` | `MasterDetailForm` — parent + child line items in one submit |
 | `record:line_items` | none | `LineItemsPanel` — child grid bound to the record on the page |
 
@@ -57,13 +56,19 @@ for backwards compatibility, unless the call passes `skipFallback: true`
 stays the basic `@object-ui/components` form, and bare `line_items` is left to
 whoever else claims it.
 
+The `form-analytics` node key is RETIRED (objectui#10859 batch 8): no schema
+produced it, and `objectui validate` refused it at `type`. `FormAnalytics` is still
+exported (see below); mount the component directly.
+
 ### Public exports
 
 The package entry exports these — components, their prop/schema types, the
 layout helpers, the two create-payload rules a second form renderer needs
 (see [`required` + a runtime default](#required-or-requiredwhen--a-runtime-default))
 and the section-group resolver a third one needs
-(see [Resolving `sections[].group` outside this package](#resolving-sectionsgroup-outside-this-package)).
+(see [Resolving `sections[].group` outside this package](#resolving-sectionsgroup-outside-this-package)),
+with `sectionEntryName` to read the entries it returns
+(see [What a section's `fields` entries draw](#what-a-sections-fields-entries-draw)).
 There is no aggregate map among them:
 
 ```typescript
@@ -97,6 +102,7 @@ import {
   omitServerResolvedDefaults,
   isRequiredInForm,
   resolveSectionGroupReferences,
+  sectionEntryName,
 } from '@object-ui/plugin-form';
 
 import type {
@@ -194,11 +200,12 @@ unknown-component placeholder.
 | `onSubmit` / `onChange` / `onDirtyChange` / `onCancel` | callbacks | **TypeScript-authored schemas only** — a JSON metadata document cannot carry a function. Metadata pages go through the object-form route instead |
 | `className`, `id`, `hidden`, … | — | inherited from `BaseSchema` |
 
-⚠️ `FormSchema` extends `BaseSchema`, which declares `[key: string]: any`
-(`packages/types/src/base.ts`), so an invented or misspelled key on a form schema
-is **not** a compile error — it is simply never read. That is why every example
-below is annotated with its real type *and* checked against these key tables:
-an un-annotated `const schema = { … }` type-checks whatever is written in it.
+`FormSchema` extends `BaseSchema`, which declares no index signature
+(objectui#8347), so an invented or misspelled key in a form schema literal
+annotated with its type is a compile error. That is why every example below is
+annotated with its real type: an un-annotated `const schema = { … }` type-checks
+whatever is written in it. (`fields` entries are `FormField`s, which still carry
+their own index signature — see below.)
 
 ### Form Field
 
@@ -227,10 +234,10 @@ only **required** one:
 | `dependsOn` | `DependsOnInput` | cascading parent(s): a bare name, a list of names, or `{ field, param }` entries |
 | `span` | `'auto' \| 'full'` | relative width, independent of the column count (preferred) |
 | `colSpan` | `number` | legacy column span (1–4), clamped to the current column count |
-| `field` | `Record<string, any>` | the resolved object-field **metadata object**, stashed by the object-bound paths so widgets can read `precision`, `currency`, `reference_to`, … In the *spec* form-view vocabulary `field` is a string (the referenced field name); that shape ends at `normalizeSectionField` and never reaches a runtime `FormField` |
+| `field` | `Record<string, any>` | the resolved object-field **metadata object**, stashed by the object-bound paths so widgets can read `precision`, `currency`, `reference`, … In the *spec* form-view vocabulary `field` is a string (the referenced field name); that shape ends at `normalizeSectionField` and never reaches a runtime `FormField` |
 
-`FormField` also declares `[key: string]: any`, so an invented key type-checks
-here too. Two that a reader might expect, and that are **not** declared:
+`FormField` declares its own `[key: string]: any`, so an invented key on a field
+still type-checks. Two that a reader might expect, and that are **not** declared:
 
 | Not a `FormField` key | Write this instead |
 |---|---|
@@ -266,7 +273,8 @@ the form looks validated while validating nothing.
 ### What a create form opens with
 
 A create form has no persisted record, so its opening values come from the
-object schema's declared field `defaultValue`s. Every object-form container
+object schema's declared defaults: a field's `defaultValue`, or the option its
+option list marks `default: true`. Every object-form container
 (`ObjectForm`, `ModalForm`, `DrawerForm`, `TabbedForm`, `SplitForm`,
 `WizardForm`) resolves them the same way, through `schemaDefaults`:
 
@@ -275,20 +283,22 @@ object schema's declared field `defaultValue`s. Every object-form container
 | `defaultValue: 'draft'` (any static literal) | `draft`, preselected and submittable | the value is known; making the user pick it is busywork, and on a status-like field every wrong option is one click away |
 | `defaultValue: 'NOW()'` / `'current_user'` (a runtime token) | empty | the token is an *instruction*, not a value. The server resolves it at insert — but only for fields that arrive empty, so seeding the literal text would suppress it |
 | `defaultValue: cel\`today()\`` (an Expression envelope) | empty | same reason: the server evaluates it per insert |
-| an option's `default: true` | empty | see below |
+| an option's `default: true`, and no `defaultValue` | that option, preselected and submittable | the server stores the marked option when the field is omitted; see below |
 | nothing | empty | no default is invented |
 
 `initialData` / `initialValues` passed by the caller always outrank a schema
 default — a lookup prefill or a "duplicate this record" seed is the more
 specific instruction.
 
-Only the **field-level** `defaultValue` is read, never a select option's
-`default: true`, even though `@objectstack/spec`'s `SelectOptionSchema` declares
-that key. The server's insert path resolves `defaultValue` and nothing else, so
-a form that also seeded from option-level `default` would preselect values the
-server would never have applied on its own — a renderer-side second default
-contract (AGENTS.md #0.1). If option-level `default` is meant to mean "the
-initial value", that belongs at the producer.
+An option's `default: true` is read the way the server's insert path reads it
+(`ObjectQL.applyFieldDefaults`, which falls back to the marked option), so the
+form preselects exactly what omitting the field would store:
+
+- only when the field declares no `defaultValue` — a field-level default,
+  static or runtime, always wins, and the flag is then not seeded at all;
+- a single-valued field takes the **first** marked option;
+- a multi-valued field (`@objectstack/spec`'s `isMultiValueField`: `multiselect`,
+  or `select` with `multiple: true`) takes **every** marked option, as an array.
 
 **Edit forms are never seeded.** An edit form shows the row as the server holds
 it; folding a default in over a column the record leaves unset would arm a
@@ -382,7 +392,11 @@ it points `group` at one of the object's declared `fieldGroups` and inherits tha
 group's members **and** its presentation (objectstack#13855, ADR-0085 §5 — the
 spec range that carries it is the `@objectstack/spec` entry in this package's own
 `package.json`). `ObjectForm` resolves the reference once, above its routing
-fork, so all six layouts inherit it.
+fork, so all six layouts inherit it. `ModalForm` resolves its own `sections`
+through the same call as well, because hosts mount it directly rather than
+through `ObjectForm` — the console's record create / edit dialog and
+action-opened modals do (objectui#11542). `DrawerForm` mounted directly does
+not resolve them; reach it through `ObjectForm` with `formType: 'drawer'`.
 
 A host with its **own** section builder resolves it with the same function
 instead of deriving sections itself (objectui#8641):
@@ -424,6 +438,32 @@ are the same section by construction. A host reaching for `deriveFieldGroupLayou
 directly would have to re-spell the `collapse` enum onto its own boolean pair and
 pass `visibleWhen` through by hand, which is the duplication this export exists to
 prevent.
+
+### What a section's `fields` entries draw
+
+A section's `fields` takes three entry shapes, and every `formType` draws them
+the same way: a field **name** and the form view's `{ field, … }` entry (which
+overrides that object field) are resolved against the object schema, while an
+inline runtime `FormField` keyed by `name` carries its own definition and is
+drawn as it stands.
+
+On the default (`simple`) form the two named shapes resolve against the form's
+parent field pool — top-level `fields` when given, else the object's fields,
+plus `customFields` — so a named member the pool does not hold is dropped
+(reported once when the object declares it: `fields` and `sections`
+intersect). An inline entry names nothing to resolve, so it is drawn whatever
+the pool holds, exactly as the other five layouts draw it (objectui#11615). A
+`simple` form whose sections list only inline entries is therefore a
+self-contained collector, like the inline wizard below — see
+[What a form submits to](#what-a-form-submits-to).
+
+Code that reads a section's entries — a host holding the sections
+`resolveSectionGroupReferences` returns, say — names each one with
+`sectionEntryName(entry)`: the string itself, the `{ field }` entry's `field`,
+the inline entry's `name` (`undefined` when the entry names nothing). Narrowing
+by hand and reading `.name` off every object entry reads `undefined` off a
+`{ field }` entry, and `ObjectFormSection.fields` now types that read as an
+error.
 
 ### Column width of a sectioned form
 
@@ -719,27 +759,31 @@ steps are its `sections` — one step per section. There is no
 unknown-component placeholder and the fields inside `steps` are never read.
 
 ```typescript
-import type { ObjectFormSchema } from '@object-ui/types';
+import type { ObjectFormBlockNode } from '@object-ui/types';
 
-const schema: ObjectFormSchema = {
+// The props go in the node's `properties` bag — the members of
+// `@objectstack/spec`'s `ComponentPropsMap['object-form']` row.
+const schema: ObjectFormBlockNode = {
   type: 'object-form',
-  objectName: 'contacts',        // required
-  mode: 'create',                // required
-  formType: 'wizard',            // routes to WizardForm — needs at least one section
-  sections: [
-    {
-      name: 'personal',
-      label: 'Personal Info',
-      fields: ['first_name', 'last_name']    // field NAMES, resolved from the object schema
-    },
-    {
-      name: 'contact',
-      label: 'Contact Info',
-      fields: ['email', 'phone']
-    }
-  ],
-  allowSkip: false,              // see "Wizard steps and allowSkip" above
-  showStepIndicator: true
+  properties: {
+    objectName: 'contacts',        // the object whose fields the steps list
+    mode: 'create',
+    formType: 'wizard',            // routes to WizardForm — needs at least one section
+    sections: [
+      {
+        name: 'personal',
+        label: 'Personal Info',
+        fields: ['first_name', 'last_name']    // field NAMES, resolved from the object schema
+      },
+      {
+        name: 'contact',
+        label: 'Contact Info',
+        fields: ['email', 'phone']
+      }
+    ],
+    allowSkip: false,              // see "Wizard steps and allowSkip" above
+    showStepIndicator: true
+  }
 };
 ```
 
@@ -789,8 +833,8 @@ const wizard: WizardFormSchema = {
 ```
 
 `WizardFormSchema` declares no index signature, so an invented key on *this*
-type is a real compile error — unlike `ObjectFormSchema`, which inherits
-`BaseSchema`'s `[key: string]: any`.
+type is a real compile error — and since objectui#8347 removed `BaseSchema`'s
+`[key: string]: any`, the same holds for `ObjectFormSchema`.
 
 One more route exists and is worth knowing about rather than reinventing: a flat
 `object-form` can be turned into a stepper on small viewports with
@@ -951,9 +995,13 @@ registrations.
 
 ### The metadata route — `object-form`
 
-This is the route that actually reads and writes a record. `ObjectFormSchema`
-names its object with **`objectName`** and its intent with **`mode`**, and both
-are **required** (`packages/types/src/objectql.ts`); the adapter arrives on the
+This is the route that actually reads and writes a record. An `object-form`
+node names its object with **`objectName`** and its intent with **`mode`**, both
+in its `properties` bag, whose members are `@objectstack/spec`'s
+`ComponentPropsMap['object-form']` row; `objectui validate` refuses a prop
+written flat on the node by name. `SchemaRenderer` hoists the bag onto the node,
+and `ObjectFormSchema` (`packages/types/src/objectql.ts`) is the node as
+`ObjectForm` then reads it, with both keys required. The adapter arrives on the
 context, which `ObjectFormRenderer` reads at `src/index.tsx` before handing
 `ObjectForm` its `dataSource` prop.
 
@@ -961,19 +1009,21 @@ context, which `ObjectFormRenderer` reads at `src/index.tsx` before handing
 import { SchemaRendererProvider, SchemaRenderer } from '@object-ui/react';
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
 import '@object-ui/plugin-form';
-import type { ObjectFormSchema } from '@object-ui/types';
+import type { ObjectFormBlockNode } from '@object-ui/types';
 
 const dataSource = createObjectStackAdapter({
   baseUrl: 'https://api.example.com',
   token: 'your-auth-token',
 });
 
-const schema: ObjectFormSchema = {
+const schema: ObjectFormBlockNode = {
   type: 'object-form',
-  objectName: 'users',
-  mode: 'create',
-  fields: ['name', 'email'],
-  submitText: 'Create user',
+  properties: {
+    objectName: 'users',
+    mode: 'create',
+    fields: ['name', 'email'],
+    submitText: 'Create user',
+  },
 };
 
 export const App = () => (
@@ -1040,9 +1090,10 @@ nothing:
 | `dataSource` | **Discarded.** The basic form strips it in both directions — `dataSource: _dataSource` at `form.tsx:304` (`stripRendererOnlyProps`) and `:2168` — so it never reaches a widget and never reaches the DOM. The adapter the fields receive is the context one |
 | `resource` | **Never read.** It is not declared on `FormSchema` or `ObjectFormSchema` at all. It used to exist elsewhere in the protocol — on `CRUDSchema`, where `CRUDBuilder` set it — but objectui#5373 retired both under ADR-0049, so today the key names nothing anywhere in this package's surface, and no form renderer reads it under any spelling |
 
-Both survive compilation for the reason [Schema API](#schema-api) gives: `FormSchema`
-and `ObjectFormSchema` extend `BaseSchema`, which declares `[key: string]: any`, so an
-invented key is not a type error — it is simply never read. That is also why the
+Both survived compilation while `FormSchema` and `ObjectFormSchema` extended a
+`BaseSchema` that declared `[key: string]: any`: an invented key was not a type
+error, it was simply never read. objectui#8347 removed that signature, so both are
+compile errors in an annotated literal now. That is also why the
 older version of this section looked like it worked: its `onSubmit` genuinely ran
 and genuinely saved, but through the adapter its closure captured. The `dataSource`
 and `resource` keys sitting beside it in the same object were inert. Delete them and

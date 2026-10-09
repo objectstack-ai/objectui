@@ -46,15 +46,24 @@
  * stay bare `div`s until an author declares something, `record:path` passes
  * `'list'`, `record:quick_actions` passes `'toolbar'`. The author's own
  * `aria.role` wins over both, which is the precedence `@object-ui/plugin-list`
- * already ships (`ListView`'s `role={schema.aria?.role ?? 'region'}`), and
- * `'region'` is the fallback for the same reason it is ListView's.
+ * already ships (`ListView`'s list region: the authored role, else `region`),
+ * and `'region'` is the fallback for the same reason it is ListView's.
+ *
+ * ## The bag is mapped by the shared reader (objectui#11083)
+ *
+ * The three declared keys go through `resolveInlineAriaProps` from
+ * `@object-ui/react`, the one reader of the spec's nested bag, resolved
+ * against `useDisplayLocale()`. ⛔ This module keeps no mapping of its own. What
+ * stays here is what is the block family's own: the caller's `defaultRole` and
+ * `defaultLabel`, the `'region'` fallback, and the report of a served
+ * `aria.label`.
  *
  * ## An empty name is no name
  *
  * `||` for the built-in default, as objectui#4663 chose: a declared
- * `ariaLabel: ''` resolves to no name at all, so the block's built-in default
- * wins, which matches `ListView`'s own read point (it emits no `aria-label` for
- * an empty `ariaLabel`).
+ * `ariaLabel: ''` resolves to no name at all (the shared reader leaves it
+ * out), so the block's built-in default wins, which matches `ListView`'s own
+ * read point (it emits no `aria-label` for an empty `ariaLabel`).
  *
  * ## ⛔ The refused `aria.label` spelling is REPORTED, never read (objectui#9945)
  *
@@ -92,7 +101,7 @@
 
 import { useEffect } from 'react';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+import { resolveInlineAriaProps } from '@object-ui/react';
 import type { RecordComponentAriaProps } from '@object-ui/types';
 
 /**
@@ -142,29 +151,20 @@ function describeRefusedAriaLabel(
 }
 
 /**
- * Resolve a block's authored accessible name from `aria.ariaLabel`, the one
- * spelling the contract accepts.
+ * Report a served `aria.label` once per mounted block, for a caller that names
+ * its `block`. The spelling is never read as a name.
  *
- * Returns `undefined` when nothing is authored, and the EMPTY STRING when the
- * author declared an empty name. The caller's `||` turns either into its
- * built-in default.
- *
- * @param block - the block's registered type (`record:path`), named in the
- *   report of a served `aria.label`. Omit it and that spelling is still not
- *   read, just not reported. See this module's header for which blocks pass it.
+ * From an effect keyed on the message, never from render: the channel the
+ * row-cap refusal uses (objectui#9925), so a re-render says nothing twice.
  */
-export function useRecordAriaName(
+function useRefusedAriaLabelReport(
+  block: string | undefined,
   aria: AuthoredRecordAria | undefined,
-  { block }: { block?: string } = {},
-): string | undefined {
-  const locale = useDisplayLocale();
+): void {
   const refusal = describeRefusedAriaLabel(block, aria);
-  // From an effect keyed on the message, never from render: the channel the
-  // row-cap refusal uses (objectui#9925), so a re-render says nothing twice.
   useEffect(() => {
     if (refusal) console.warn(refusal);
   }, [refusal]);
-  return resolveInlineI18nLabel(aria?.ariaLabel, locale);
 }
 
 /**
@@ -177,8 +177,9 @@ export function useRecordAriaName(
  *   because an attribute on a `generic` element carries nothing.
  * @param defaultLabel - the block's built-in accessible name, used when the
  *   author declared none (or declared an empty one).
- * @param block - forwarded to {@link useRecordAriaName}, which names it when
- *   it reports a served `aria.label`.
+ * @param block - the block's registered type (`record:path`), named in the
+ *   report of a served `aria.label`. Omit it and that spelling is still not
+ *   read, just not reported. See this module's header for which blocks pass it.
  */
 export function useRecordAriaProps(
   aria: AuthoredRecordAria | undefined,
@@ -188,11 +189,13 @@ export function useRecordAriaProps(
     block,
   }: { defaultRole?: string; defaultLabel?: string; block?: string } = {},
 ): RecordAriaDomProps {
-  const name = useRecordAriaName(aria, { block });
+  const locale = useDisplayLocale();
+  useRefusedAriaLabelReport(block, aria);
+  const authored = resolveInlineAriaProps(aria, locale);
   // `||`, not `??`: an authored empty name means "no name", not "this name".
-  const label = name || defaultLabel;
-  const describedBy = aria?.ariaDescribedBy || undefined;
-  const role = aria?.role || defaultRole || (label || describedBy ? 'region' : undefined);
+  const label = authored['aria-label'] || defaultLabel;
+  const describedBy = authored['aria-describedby'];
+  const role = authored.role || defaultRole || (label || describedBy ? 'region' : undefined);
   return {
     ...(label ? { 'aria-label': label } : {}),
     ...(describedBy ? { 'aria-describedby': describedBy } : {}),

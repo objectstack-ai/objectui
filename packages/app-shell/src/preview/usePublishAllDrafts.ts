@@ -31,6 +31,7 @@ import { publishHealthFromResponse, type PublishHealth } from '@object-ui/plugin
 import { useMetadataClient } from '../views/metadata-admin/useMetadata.js';
 import { emitMetadataRefresh } from '../assistant/assistantBus.js';
 import { lintDraftCapabilityReferences } from './capabilityLint.js';
+import { refusedItemsText } from './publishRefusal.js';
 // The one authority for the narrowed `t` (objectui#8261) — imported, not
 // re-declared. The local copy this replaces differed only in its parameter's
 // NAME (`opts`), which TypeScript does not compare, so no caller's contract moves.
@@ -93,7 +94,12 @@ export function usePublishAllDrafts(t: TranslateFn) {
         // findings a few lines below were already shouting.
         const payload = await client.publishPackageDrafts(packageId);
         // A non-2xx now throws inside the client, with the server's own
-        // message. What is left to check here is the batch verdict, unchanged.
+        // message. What is left to check here is the batch verdict.
+        //
+        // objectui#11922 — `failed[]` BEFORE the batch's own `success`: a
+        // refusal answers both, and only `failed[]` says which item and why.
+        const failed = Array.isArray(payload.failed) ? payload.failed : [];
+        if (failed.length > 0) throw new Error(refusedItemsText(failed));
         if ((payload as { success?: boolean }).success === false) {
           const error = (payload as { error?: { message?: string } }).error;
           throw new Error(error?.message || 'publish-drafts did not publish this package');

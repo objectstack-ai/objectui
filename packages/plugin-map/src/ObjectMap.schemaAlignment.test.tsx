@@ -40,6 +40,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ObjectMapSchema, ObjectMapConfig } from '@object-ui/types';
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 let capturedProps: any = null;
 
@@ -95,7 +96,9 @@ describe('ObjectMapSchema declares what the renderer reads (type pins)', () => {
       objectName: 'stores',
       staticData: [{ id: '1' }],
       data: { provider: 'value', items: [{ id: '1' }] },
-      filter: [['status', '=', 'open']],
+      // objectui#6152 round 10: `filter` is the `object-map` row's `ViewFilterRule` array
+      // (it was `any[]`; this cell carried the AST tuple array the row refuses).
+      filter: [{ field: 'status', operator: 'equals', value: 'open' }],
       sort: [{ field: 'name', order: 'desc' }],
       map: {
         latitudeField: 'lat',
@@ -131,12 +134,12 @@ describe('ObjectMapSchema declares what the renderer reads (type pins)', () => {
    * The bound on (a), measured rather than assumed — the first draft of this
    * file pinned the opposite and `tsc` said otherwise (TS2578 on both).
    *
-   * `BaseSchema` carries `[key: string]: any` ("additional properties specific
+   * `BaseSchema` carried `[key: string]: any` ("additional properties specific
    * to the component type"), and `ObjectMapSchema extends BaseSchema`. So a
-   * misspelled key at the TOP level type-checks — for every component schema in
-   * the repo, not just this one. That index signature is a platform-wide
-   * decision well outside objectui#5018, and removing it here would only move
-   * the hole.
+   * misspelled key at the TOP level type-checked — for every component schema
+   * in the repo, not just this one. That index signature was a platform-wide
+   * decision well outside objectui#5018; objectui#8347 removed it, and the row
+   * below flipped with it: the top level is closed now too.
    *
    * What #5018 buys is the half that matters for the card's symptom: `ObjectMapConfig`
    * is a plain interface with no index signature, so the `map` BLOCK is closed
@@ -144,12 +147,14 @@ describe('ObjectMapSchema declares what the renderer reads (type pins)', () => {
    * empty map. Pinning the real boundary keeps the next reader from believing
    * the whole surface is closed.
    */
-  it('does NOT reject a misspelled TOP-LEVEL key — BaseSchema is open', () => {
+  it('rejects a misspelled TOP-LEVEL key since objectui#8347 closed `BaseSchema`', () => {
     const schema: ObjectMapSchema = {
       type: 'object-map',
       objectName: 'stores',
-      // No `@ts-expect-error`: `BaseSchema`'s index signature admits this, and
-      // saying otherwise is what the first draft got wrong.
+      // This row carried no directive while `BaseSchema`'s index signature
+      // admitted the key (the first draft of this file pinned the opposite too
+      // early); objectui#8347 removed the signature.
+      // @ts-expect-error — `enableClusterng` is no member; the key is `enableClustering`
       enableClusterng: true,
     };
 

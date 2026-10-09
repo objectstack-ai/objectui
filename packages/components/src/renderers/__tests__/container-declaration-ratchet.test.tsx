@@ -52,10 +52,13 @@
  * executed: render the tag through the real `SchemaRenderer` with one
  * authored child and ask whether that child reached the DOM.
  *
- * The bare probe has two blind spots, and both are handled by NAME rather
- * than skipped: a renderer that only mounts inside a provider (`sidebar`,
- * `sidebar-menu-button` need `sidebar-provider`), and a portal that renders
- * only when open (`tooltip`). `CONTEXT_PROBES` renders each in its context,
+ * The bare probe had two blind spots, and both were handled by NAME rather
+ * than skipped: a renderer that only mounted inside a provider (`sidebar`,
+ * `sidebar-menu-button` needed `sidebar-provider`), and a portal that renders
+ * only when open (`tooltip`). The first is gone: objectui#10859 batch 8 phase
+ * 2d retired the `sidebar-*` part keys and made `sidebar` supply its own
+ * provider, so it renders under the bare probe and its fixture was deleted as
+ * dead weight. `CONTEXT_PROBES` renders each remaining one in its context,
  * and pins that the context is still NEEDED — a fixture whose subject starts
  * rendering bare is dead weight and goes red, the same way a baseline row
  * that stopped violating does.
@@ -201,9 +204,11 @@ const publicTags = (): Set<string> =>
  * The renderers the BARE probe cannot see, each rendered in the context it
  * really renders in (objectui#9910 measured all three on `origin/main`).
  *
- *  - `sidebar` and `sidebar-menu-button` mount nothing outside a
- *    `sidebar-provider` (shadcn's sidebar reads its context); inside one, the
- *    authored child reaches the DOM.
+ *  - `sidebar` and `sidebar-menu-button` mounted nothing outside a
+ *    `sidebar-provider` (shadcn's sidebar reads its context). Both entries are
+ *    gone (objectui#10859 batch 8 phase 2d): `sidebar-menu-button` and
+ *    `sidebar-provider` are retired keys, and `sidebar` now mounts its own
+ *    provider when none is above it, so the bare probe sees its child.
  *  - `tooltip` renders its content in a portal, and only while open; the
  *    registration spreads the node's other keys onto Radix `Tooltip`, so
  *    `open: true` is the authored way to hold it open.
@@ -222,29 +227,6 @@ interface ContextProbe {
 }
 
 const CONTEXT_PROBES: ContextProbe[] = [
-  {
-    types: ['sidebar', 'ui:sidebar'],
-    schema: (type) => ({ type: 'sidebar-provider', children: [withChildren(type)] }),
-  },
-  {
-    types: ['sidebar-menu-button', 'ui:sidebar-menu-button'],
-    schema: (type) => ({
-      type: 'sidebar-provider',
-      children: [
-        {
-          type: 'sidebar',
-          children: [
-            {
-              type: 'sidebar-content',
-              children: [
-                { type: 'sidebar-menu', children: [{ type: 'sidebar-menu-item', children: [withChildren(type)] }] },
-              ],
-            },
-          ],
-        },
-      ],
-    }),
-  },
   {
     types: ['tooltip', 'ui:tooltip'],
     schema: (type) => withChildren(type, { open: true, trigger: [{ type: 'text', content: 'trigger' }] }),
@@ -393,12 +375,17 @@ describe('direction 2 — every declared slot is rendered, bare or in its declar
           ).toBe(false);
         }
       }
-      // Direction control for the probes themselves: a chrome part that reads
-      // NO children stays a non-container even inside the provider, so the
-      // context fixture is not a wrapper that renders everything.
-      expect(await rendersMark({ type: 'sidebar-provider', children: [withChildren('sidebar-trigger')] })).toBe(false);
-      expect(byType.get('sidebar-trigger')?.declaresChildren).toBe(false);
-      expect(byType.get('sidebar-trigger')?.containment).toBe(true);
+      // Direction control: the subject whose fixture this rule deleted. The
+      // `sidebar` entry left CONTEXT_PROBES because the bare probe now SEES its
+      // child (it mounts its own provider when none is above it, objectui#10859
+      // batch 8 phase 2d). Asserted, so the deletion is a measured fact rather
+      // than a dropped case. (The old control here, `sidebar-trigger` inside a
+      // `sidebar-provider`, named two keys that phase retired.)
+      for (const type of ['sidebar', 'ui:sidebar']) {
+        expect(byType.get(type)?.declaresChildren, `\`${type}\` no longer declares the slot`).toBe(true);
+        expect(byType.get(type)?.rendersChildren, `\`${type}\` renders no child under the bare probe`).toBe(true);
+        expect(contextProbeFor(type), `\`${type}\` is back in CONTEXT_PROBES`).toBeUndefined();
+      }
     },
     CENSUS_TIMEOUT,
   );
@@ -471,7 +458,7 @@ describe('direction 3 — the tier reads the declared input and nothing else (ob
 });
 
 describe('the ruled 14 of objectui#6804 keep the flag OFF and now declare the slot (objectui#9910)', () => {
-  it('`button`, `badge`, `alert` and the eleven bare `sidebar-*` keys', async () => {
+  it('`button`, `badge`, `alert` and the bare `sidebar` key (its ten `sidebar-*` parts retired)', async () => {
     const rows = await census();
     const byType = new Map(rows.map((r) => [r.type, r]));
     const isPublic = publicTags();
@@ -481,8 +468,10 @@ describe('the ruled 14 of objectui#6804 keep the flag OFF and now declare the sl
     expect(isPublic.size).toBeGreaterThan(0);
     expect(isPublic.has('button'), 'the public reader resolved nothing — every absence below is vacuous').toBe(true);
 
+    // Eleven until objectui#10859 batch 8 phase 2d retired the ten `sidebar-*`
+    // part keys; `sidebar` is the one left of the family the ruling named.
     const sidebars = bareTags().filter((t) => t.startsWith('sidebar'));
-    expect(sidebars.length, 'the `sidebar-*` family changed size — re-measure this block').toBe(11);
+    expect(sidebars, 'the `sidebar*` family changed — re-measure this block').toEqual(['sidebar']);
     const ruled = ['button', 'badge', 'alert', ...sidebars];
 
     for (const type of ruled) {
@@ -500,21 +489,21 @@ describe('the ruled 14 of objectui#6804 keep the flag OFF and now declare the sl
       ).toBe(true);
     }
 
-    // (c) THE FLIP. Every one of the fourteen that renders `children` — bare
-    // or in context — declares the slot and draws NO `not-a-container` for it.
+    // (c) THE FLIP. Every one of them that renders `children` — bare or in
+    // context — declares the slot and draws NO `not-a-container` for it.
     // This is the refusal pin objectui#6771 left here, inverted into the truth
     // the objectui#9910 ruling ordered: the false warning on the one key these
     // registrations read is gone, and it is gone WITHOUT the flag.
     const renderers = ruled.filter((t) => byType.get(t)?.rendersChildren || contextProbeFor(t));
-    expect(renderers.length).toBe(13); // all but `sidebar-trigger`, which reads no children
+    // All four. Thirteen of fourteen until objectui#10859 batch 8 phase 2d: the
+    // one that read no children, `sidebar-trigger`, retired with the parts.
+    expect(renderers).toEqual(ruled);
     for (const type of renderers) {
       expect(byType.get(type)?.declaresChildren, `\`${type}\` renders children and declares no slot`).toBe(true);
       expect(byType.get(type)?.containment, `\`${type}\` still draws the false \`not-a-container\``).toBe(false);
     }
-    expect(byType.get('sidebar-trigger')?.declaresChildren).toBe(false);
-    expect(byType.get('sidebar-trigger')?.containment).toBe(true);
 
-    // (d) The public tier of the fourteen is THREE, and the public sidebar is
+    // (d) The public tier of these is THREE, and the public sidebar is
     // the namespaced registration, which keeps its layout flag: it is not in
     // this story, and a reader who finds `page:sidebar` in `PUBLIC_BLOCKS` must
     // not conclude the bare family is public too.

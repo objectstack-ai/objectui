@@ -20,6 +20,8 @@ import { ExpressionContext } from './ExpressionContext.js';
 import { ExpressionCache } from './ExpressionCache.js';
 import { FormulaFunctions } from './FormulaFunctions.js';
 import { evalFieldPredicate } from './fieldRules.js';
+import { isBlankPredicateText } from './declaredPredicate.js';
+import { isUnevaluablePredicate, UNEVALUABLE_PREDICATE_REASON } from './unevaluablePredicate.js';
 
 /**
  * Options for expression evaluation
@@ -341,6 +343,19 @@ export class ExpressionEvaluator {
       return condition;
     }
 
+    // objectui#11358 — a gate that is DECLARED but has nothing to evaluate: an
+    // envelope with no string `source` (`{ dialect: 'cel', ast }`, or the
+    // `{ dialect: 'cel' }` the normalizer now returns for every such value), a
+    // number, `{}`, an array. It is a FAULT, answered on the same terms as a
+    // predicate that faults with text in it: thrown to a `throwOnError` caller,
+    // whose catch is its fail-closed answer and its report, and otherwise
+    // reported once and answered with the fail-soft `true`. Before, these fell
+    // through to `if (!condition)` / `Boolean(condition)` below and came back
+    // `true` in silence — the "silent `true`" ADR-0137 D4 forbids.
+    if (isUnevaluablePredicate(condition)) {
+      return this.answerUnevaluableGate(condition, options);
+    }
+
     // #2661 — a CEL-dialect envelope routes to the canonical `@objectstack/formula`
     // engine (the one `fieldRules` / list conditionals already use), NOT the legacy
     // JS evaluator below. This makes a component / action `visible` / `disabled`
@@ -361,19 +376,33 @@ export class ExpressionEvaluator {
       condition = (condition as any).source as string;
     }
 
-    // No condition → default to visible/enabled (undefined, null, '').
+    // A BLANK gate — `''`, whitespace-only text, or an envelope whose `source`
+    // is either (unwrapped just above) — is "no gate": visible/enabled, as it
+    // always was here. It is answered by the SAME diagnosed guard the
+    // `{ dialect: 'cel' }` route above uses (objectui#11262, ADR-0137 D4: a
+    // blank gate predicate is "diagnosed, never a silent `true`"), so a bare
+    // blank, a dialect-less blank envelope and a blank CEL envelope are one
+    // report on one dedupe key. This used to be two silent returns — an
+    // `if (!condition)` and a whitespace-only `trim()` — on the path
+    // `SchemaRenderer`'s visibility legs reach with the raw authored value.
+    if (isBlankPredicateText(condition)) {
+      return this.answerBlankGate(condition as string, options);
+    }
+
+    // No condition at all → default to visible/enabled (`undefined`, `null`).
+    // Not blank TEXT, so nothing was declared here to report. Every other
+    // non-string value was answered above, as unevaluable (objectui#11358).
     if (!condition) {
       return true;
     }
 
     if (typeof condition !== 'string') {
+      // Unreachable since objectui#11358 — kept so a future shape that slips
+      // past `isUnevaluablePredicate` cannot reach the string code below.
       return Boolean(condition);
     }
 
     const trimmed = condition.trim();
-    if (!trimmed) {
-      return true; // Whitespace-only → treat as "no condition".
-    }
 
     // A condition is semantically a single boolean expression. When it's a
     // `${...}` template, evaluate via the template path. Otherwise treat the
@@ -419,7 +448,7 @@ export class ExpressionEvaluator {
    * syntax) throws; a genuine `false` never throws.
    */
   private evaluateCelCondition(source: string, options: EvaluationOptions): boolean {
-    if (!source.trim()) return true; // no predicate → visible/enabled
+    if (isBlankPredicateText(source)) return this.answerBlankGate(source, options);
     const bag = this.context.toObject();
     const rec = bag.record;
     const record = (rec && typeof rec === 'object' && !Array.isArray(rec))
@@ -455,6 +484,79 @@ export class ExpressionEvaluator {
       throw new Error(`CEL predicate failed to evaluate: ${source}`);
     }
     return asTrue;
+  }
+
+  /**
+   * Answer a BLANK gate predicate — the ONE diagnosed guard of
+   * {@link evaluateCondition}, on both of its routes (objectui#8069 put it on
+   * the `{ dialect: 'cel' }` route; objectui#11262 routes the legacy path's
+   * blank here too, so the two are one report rather than two).
+   *
+   * The verdict is `true` — no predicate → visible/enabled, exactly as before
+   * (objectui#3850 / #3960's verdict) — in EVERY mode, `throwOnError` included,
+   * since the author wrote nothing that could fault. What it is not is SILENT
+   * (ADR-0137 D4: a blank gate predicate is "diagnosed, never a silent
+   * `true`"). The report is `evalFieldPredicate`'s own `[blank]` one — the
+   * channel every other predicate fault already uses — so a caller that passed
+   * `onFault` receives it there (and prints its own, node-named line), and
+   * every other caller gets the deduped built-in warning. No engine call is
+   * made: a blank predicate never reaches the engine.
+   *
+   * The locator names a CEL gate on both routes: a blank has no syntax to put
+   * it in either dialect, and a bare-string predicate is CEL by the spec's
+   * contract. One locator is also what keeps `''` and `{ dialect: 'cel',
+   * source: '' }` on one dedupe key.
+   */
+  private answerBlankGate(text: string, options: EvaluationOptions): true {
+    evalFieldPredicate(
+      text,
+      {},
+      true,
+      undefined,
+      undefined,
+      options.onFault
+        ? { warn: false, onFault: options.onFault }
+        : { context: 'a CEL gate predicate, read as no gate' },
+    );
+    return true;
+  }
+
+  /**
+   * Answer a gate that is DECLARED but cannot be evaluated (objectui#11358) —
+   * see `isUnevaluablePredicate` (`./unevaluablePredicate.ts`) for the shapes.
+   *
+   * It is a fault, not a blank: {@link answerBlankGate} answers `true` in every
+   * mode because a blank says nothing, while this value says "there is a gate"
+   * and the client cannot read it. So the modes split exactly as they do for a
+   * predicate that faults with text in it:
+   *
+   *   - `throwOnError` → THROW. The caller opted into fail-closed semantics,
+   *     and its catch both hides / disables and reports, naming the control —
+   *     the same contract `evaluateCelCondition` keeps (no warning AND a throw
+   *     for one fault, objectstack-ai/objectstack#5149).
+   *   - otherwise → reported once through `evalFieldPredicate`'s own report
+   *     (the `[unevaluable]` reason, beside `[blank]`), or handed to the
+   *     caller's `onFault`, and answered with the fail-soft `true`. On a
+   *     `disabled` / `hidden` leg that `true` is the CLOSED side (greyed out /
+   *     hidden), on `visible` / `enabled` / `condition` the open one — each
+   *     key's existing fault direction, unchanged.
+   *
+   * No engine call is made: there is no `source` to hand it.
+   */
+  private answerUnevaluableGate(condition: unknown, options: EvaluationOptions): boolean {
+    if (options.throwOnError) {
+      throw new Error(`Gate predicate cannot be evaluated: ${UNEVALUABLE_PREDICATE_REASON}`);
+    }
+    return evalFieldPredicate(
+      condition as never,
+      {},
+      true,
+      undefined,
+      undefined,
+      options.onFault
+        ? { warn: false, onFault: options.onFault }
+        : { context: 'a declared gate with nothing to evaluate' },
+    );
   }
 
   /**

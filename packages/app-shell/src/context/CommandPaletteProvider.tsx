@@ -26,6 +26,19 @@ import {
 } from 'react';
 import { useUrlOverlay } from '../hooks/useUrlOverlay.js';
 import { COMMAND_PALETTE_PARAM } from '../urlParams.js';
+import {
+  useAdvertiseShortcut,
+  type AdvertisedShortcut,
+  type ShortcutLabelTranslate,
+} from '../chrome/advertisedShortcuts.js';
+
+/** `⌘K` / `Ctrl+K` — the keydown handler in {@link CommandPaletteProvider}. */
+const OPEN_COMMAND_PALETTE_SHORTCUT: AdvertisedShortcut = {
+  id: 'command-palette',
+  group: 'general',
+  chord: { key: 'k', mod: true },
+  label: (t: ShortcutLabelTranslate) => t('console.shortcuts.openCommandPalette'),
+};
 
 export interface CommandPaletteContextValue {
   /** Whether the palette is currently open (derived from the URL). */
@@ -61,6 +74,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [toggleOverlay]);
+  useAdvertiseShortcut(OPEN_COMMAND_PALETTE_SHORTCUT);
 
   const value = useMemo<CommandPaletteContextValue>(
     () => ({
@@ -82,10 +96,11 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
  * Access the shared command-palette controls.
  *
  * Falls back to a no-op implementation when used outside a
- * `<CommandPaletteProvider>` (e.g. an `AppHeader` rendered in the `home`/`orgs`
- * variants, where no palette is mounted, or isolated unit tests). The trigger is
- * then inert rather than throwing — matching the prior behavior where the
- * synthetic `⌘K` had nothing to open.
+ * `<CommandPaletteProvider>` (e.g. the `home`/`orgs` frames, where no palette is
+ * mounted, or isolated unit tests): a caller there gets inert controls rather
+ * than a throw. A control that only exists to open the palette should not be
+ * shown there at all — `AppHeader` asks {@link useCommandPaletteProviderMounted}
+ * and renders its search trigger only when it answers `true` (objectui#11912).
  */
 export function useCommandPalette(): CommandPaletteContextValue {
   const ctx = useContext(CommandPaletteContext);
@@ -99,4 +114,20 @@ export function useCommandPalette(): CommandPaletteContextValue {
     };
   }
   return ctx;
+}
+
+/**
+ * Whether a `<CommandPaletteProvider>` is mounted above the caller — that is,
+ * whether {@link useCommandPalette}'s controls reach a palette, or are the inert
+ * fallback that opens nothing (on click, or on `⌘K`, whose keydown handler only
+ * the provider installs).
+ *
+ * Package-internal (objectui#11912): `AppHeader` reads it so the "Search ⌘K"
+ * trigger is not drawn on `/home`, `/ai` or the organizations frames, where it
+ * would do nothing. It is deliberately not re-exported from `./index.ts` or the
+ * package entry, and it leaves `useCommandPalette()`'s published return shape
+ * and its no-op fallback as they were.
+ */
+export function useCommandPaletteProviderMounted(): boolean {
+  return useContext(CommandPaletteContext) !== null;
 }

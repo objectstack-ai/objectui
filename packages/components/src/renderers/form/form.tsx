@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { ComponentRegistry, resolveFieldRuleState, evalFieldPredicate, resolveCascadingOptions, CASCADE_OPTION_WIDGET_TYPES, EXPANDABLE_FIELD_TYPES, isValueStillOffered, isMissingForRequired, isServerOwnedValue } from '@object-ui/core';
+import { ComponentRegistry, resolveFieldRuleState, evalFieldPredicate, resolveCascadingOptions, resolveDependsOnFields, CASCADE_OPTION_WIDGET_TYPES, EXPANDABLE_FIELD_TYPES, isValueStillOffered, isMissingForRequired, isServerOwnedValue } from '@object-ui/core';
 import type { FormSchema, FormField as FormFieldConfig, FormFieldTab, FormFieldPane, FieldCondition, SelectOption } from '@object-ui/types';
 import { useForm } from 'react-hook-form';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '../../ui/form';
@@ -44,6 +44,17 @@ import React from 'react';
 import { SchemaRendererContext, usePredicateScope, isPermissionError, extractWriteErrorMessage, extractFieldErrors, declaredUserMessage } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 
+/**
+ * Whether a `section-divider` row draws anything: a heading, a blurb, or both.
+ * A row with neither (a headingless section's gate row) renders nothing and
+ * exists only to carry its section's predicate and membership claim. Read by
+ * `SectionDivider` and by `splitAtUntitledRuns`, so the row that is drawn and
+ * the heading a block is split under are one answer.
+ */
+function dividerDrawsRow(label: unknown, description: unknown): boolean {
+  return Boolean(label) || Boolean(description);
+}
+
 /** Inline section header rendered as a virtual field inside a flat SchemaRenderer field list.
  *  Collapsibility is controlled externally (collapsed state lives in DrawerForm). */
 function SectionDivider({ label, description, collapsible, collapsed, onToggle, className }: {
@@ -54,7 +65,7 @@ function SectionDivider({ label, description, collapsible, collapsed, onToggle, 
   onToggle?: () => void;
   className?: string;
 }) {
-  if (!label && !description) return null;
+  if (!dividerDrawsRow(label, description)) return null;
   return (
     <div
       className={cn(
@@ -105,6 +116,65 @@ function unclaimedFields(
   const claimed = new Set<string>();
   for (const group of groups) for (const f of group.fields) claimed.add(f.name);
   return fields.filter((f) => f?.name && !claimed.has(f.name));
+}
+
+/**
+ * The classes that set an untitled block off from the section above it
+ * (objectui#11777) — a boundary on the block's own container, ⛔ never a row.
+ * Applied only when something above the block was drawn, so a form whose
+ * titled sections are all hidden does not open on a stray rule.
+ */
+const UNTITLED_BLOCK_CLASS = 'mt-4 border-t border-border pt-4';
+
+/**
+ * Split a sectioned field list into the blocks its field grid is drawn in —
+ * objectui#11777.
+ *
+ * A sectioned form is ONE form whose section headings are inline
+ * `section-divider` rows. Every row used to share one field grid, so the fields
+ * of an UNTITLED section — `@objectstack/spec`'s trailing ungrouped bucket
+ * (`deriveFieldGroupLayout`, ADR-0085 §5), which by the one row rule
+ * (objectui#9849, director ruling letter E: a row exists iff
+ * `title || description`) draws no row of its own — flowed on under the
+ * previous section's heading, into the same grid row, and read as its members.
+ *
+ * The heading already says where its section ends: its membership claim
+ * (`fields`, objectui#6236) names the section's members. A field the claim of
+ * the heading above it does not name is, by that declaration, not under that
+ * heading, so the grid is split there and the untitled run opens a block of its
+ * own. A row that draws nothing (a headingless section's gate row) is not under
+ * the heading above it either, and opens a block the same way. ⛔ Nothing is
+ * added for the untitled run: no row, no heading, no placeholder title — the
+ * block boundary is the whole separation.
+ *
+ * One block, the DOM this form drew before #11777, whenever no field sits
+ * under a heading that does not claim it: a flat form, titled sections only,
+ * and untitled fields that come BEFORE the first heading. A heading WITHOUT a
+ * claim keeps the pre-#6236 contract and is read as heading everything up to
+ * the next heading, so it never splits.
+ */
+function splitAtUntitledRuns(fields: FormFieldConfig[]): FormFieldConfig[][] {
+  const blocks: FormFieldConfig[][] = [[]];
+  // The claim of the heading the current block's tail sits under: `null` when
+  // there is none (no heading yet, or an untitled block is open), `'all'` for a
+  // heading that carries no claim.
+  let heading: ReadonlySet<string> | 'all' | null = null;
+  for (const f of fields) {
+    const isDivider = f?.type === 'section-divider';
+    if (isDivider && dividerDrawsRow(f.label, f.description)) {
+      const claim = f.fields;
+      heading = Array.isArray(claim) && claim.length > 0 ? new Set(claim) : 'all';
+      blocks[blocks.length - 1].push(f);
+      continue;
+    }
+    const underHeading = heading === 'all' || (heading !== null && !isDivider && heading.has(f?.name));
+    if (heading !== null && !underHeading) {
+      blocks.push([]);
+      heading = null;
+    }
+    blocks[blocks.length - 1].push(f);
+  }
+  return blocks;
 }
 
 /**
@@ -289,6 +359,10 @@ const useSafeFormTranslation = createSafeTranslation(
     'form.noPermissionToSave': "You don't have permission to save this record.",
     'form.submitFailed': 'Could not save. Please try again.',
     'form.clearedOnHide': 'Cleared — no longer applicable given the current values: {{fields}}',
+    // objectui#8069 — the submit refusal for a field `visibleWhen` that could
+    // not be evaluated (see `handleSubmit`). Byte-identical to the `en` pack.
+    'form.visibleWhenFaulted':
+      "Can't submit: the visibleWhen rule of {{fields}} could not be evaluated. The rule must be fixed before this form can be submitted.",
   },
   'common.selectOption',
 );
@@ -355,6 +429,59 @@ const BOOLEAN_WIDGET_TYPES = new Set([
 const resolveWidgetType = (f: any): string => f?.widget || f?.field?.widget || f?.type;
 
 const BUILTIN_FIELD_TYPES = new Set(['input', 'textarea', 'checkbox', 'switch', 'select']);
+
+/**
+ * Built-in types whose `multiple: true` form is a DIFFERENT registered widget
+ * (objectui#11116).
+ *
+ * `select` is a {@link BUILTIN_FIELD_TYPES} member, so a hand-authored
+ * `{ type: 'select', multiple: true }` used to render the built-in branch of
+ * `renderFieldComponent` — `BuiltinSelectControl`, a single-value Radix select
+ * that reads `multiple` nowhere. The field declared zero-or-more values and
+ * collected one; measured through the real `SchemaRenderer` with
+ * `@object-ui/fields` registered, the catalog's `fields-select/multi-select`
+ * example drew the SAME single-value combobox with and without the key.
+ *
+ * The object-bound path never had the defect: `@object-ui/fields`'
+ * `mapFieldTypeToFormType` maps `select` + `multiple` to `field:multiselect`
+ * (its `MULTI_VALUE_FORM_TYPES` table) before the type reaches this renderer.
+ * The hand-authored spelling is routed to that SAME registry id here, so one
+ * widget renders a multi-value select on both paths and the submitted value is
+ * that widget's array. ⛔ Not a second multi-select inside
+ * `BuiltinSelectControl`: the arity lives in the widget id, exactly as the
+ * `fields` table documents, so the label association that widget declares
+ * (`labelling: 'group'`) and the component that renders cannot disagree.
+ *
+ * A one-entry copy of that table, on purpose: `@object-ui/components` cannot
+ * import `@object-ui/fields` (the dependency runs the other way), and the id is
+ * reached through `ComponentRegistry` at render time like every other `field:*`
+ * widget. `select` is the only member on both sides; keep them in step.
+ *
+ * With nothing registered under `field:multiselect` (no `@object-ui/fields`),
+ * the routed id takes `renderFieldComponent`'s `default` branch — the answer an
+ * object-bound `field:multiselect` gets in that host — rather than falling back
+ * to the single-value control that drops the declared arity.
+ */
+const BUILTIN_MULTI_VALUE_WIDGETS: Readonly<Record<string, string>> = {
+  select: 'field:multiselect',
+};
+
+/**
+ * The widget key a field row renders under, once its declared arity is
+ * applied — see {@link BUILTIN_MULTI_VALUE_WIDGETS}. Applied where `resolvedType`
+ * is computed, BEFORE any of its readers run: `renderFieldComponent` and its
+ * three mirrors (`resolveFieldLabelling`, `resolvesToRegisteredFieldWidget`,
+ * `rendersBuiltinSelectEmptyState`) must all see the routed id, or the label
+ * would be associated for a single control while a chip group renders.
+ *
+ * `multiple` is read the way `mapFieldTypeToFormType` reads it (truthy), so the
+ * two paths answer the same field the same way.
+ */
+function applyDeclaredArity(type: string, multiple: unknown): string {
+  return multiple && hasOwn(BUILTIN_MULTI_VALUE_WIDGETS, type)
+    ? BUILTIN_MULTI_VALUE_WIDGETS[type]
+    : type;
+}
 
 /**
  * Fields whose unrecognized validation-rule names were already reported, keyed
@@ -468,6 +595,46 @@ function needsDataSourceWiring(widgetType: string): boolean {
 // `CASCADE_OPTION_WIDGET_TYPES`, imported from `@object-ui/core` above: this
 // form, the action dialog and the bulk dialog feed one evaluator and must read
 // one allow-table (objectui#4770 — until then each held a private copy).
+
+/**
+ * The sibling fields that SCOPE a dependent lookup's candidate query — the
+ * parents whose change must clear its selection (objectui#11631). Empty for
+ * every field that is not a dependent member of the reference family.
+ *
+ * Read from exactly the slot the picker scopes by, so this form's clear and the
+ * picker's query cannot disagree about which parent moves the scope:
+ * `LookupField` (and `UserField`, which delegates to it) takes `dependsOn` from
+ * its `field` prop — this renderer hands it `field.field || field` — after
+ * unwrapping one nested `field` that carries `reference` or `type`, and it
+ * honours only the ARRAY shape the spec declares at field level
+ * (`FieldDependsOn`). A bare parent name there scopes nothing, so it moves
+ * nothing here either.
+ *
+ * The family is `EXPANDABLE_FIELD_TYPES` — the set `needsDataSourceWiring`
+ * above already feeds `dependentValues` to. ⛔ Not `CASCADE_OPTION_WIDGET_TYPES`:
+ * that shared allow-list names the OPTION widgets fed the live record, and its
+ * other readers rely on the lookup family not being in it.
+ *
+ * A field never counts as its own parent: a self-reference would clear the
+ * user's pick the moment it was made.
+ */
+function dependentLookupParents(f: FormFieldConfig | undefined): string[] {
+  const name = f?.name;
+  if (!f || !name) return [];
+  const widget = resolveWidgetType(f);
+  if (typeof widget !== 'string' || !EXPANDABLE_FIELD_TYPES.has(normalizeFieldType(widget))) {
+    return [];
+  }
+  const carrier: Record<string, unknown> = f.field || (f as Record<string, unknown>);
+  const inner = carrier.field;
+  const meta =
+    inner !== null && typeof inner === 'object' && ('reference' in inner || 'type' in inner)
+      ? (inner as Record<string, unknown>)
+      : carrier;
+  const declared = meta.dependsOn;
+  if (!Array.isArray(declared)) return [];
+  return resolveDependsOnFields(declared).filter((parent) => parent !== name);
+}
 
 function stripRendererOnlyProps<T extends Record<string, any>>(props: T): T {
   const {
@@ -887,8 +1054,9 @@ function FullscreenTextarea({
    * ride `rest`, because it now has THREE readers, not one: the native
    * `maxLength` attribute on each of the two textareas, and the counter that
    * renders beside them. It rode `rest` for as long as the branch's only use
-   * of it was the attribute — which is also why the legacy `max_length`
-   * spelling silently did nothing here (see the call site).
+   * of it was the attribute — which is also why the snake_case `max_length`
+   * spelling silently did nothing here before objectui#3439 (that spelling is
+   * retired since objectui#11070; see the call site).
    */
   maxLength?: number;
   /**
@@ -1495,8 +1663,26 @@ ComponentRegistry.register('form',
     // a payload. Re-evaluating the predicates the render path also evaluates
     // cannot double-warn: `warnPredicateFailure` dedupes by predicate source,
     // which `readonlyFieldNames` above already leans on.
-    const conditionallyHiddenFieldNames = React.useMemo(() => {
+    //
+    // ── …and the fields whose `visibleWhen` could NOT be evaluated
+    // (objectui#8069, ADR-0137 D2 as ruled) ─────────────────────────────────
+    // The same `resolveFieldRuleState` call reports them (`faults`), so the
+    // submit refusal below reads the verdict this memo already drew and never
+    // evaluates a predicate a second time. Every declared field is judged, not
+    // only the drawn ones: a faulted `visibleWhen` fails OPEN, so the field is
+    // never cleared on hide (`6a449fc49`) and its value reaches the payload
+    // whether or not a section or tab happens to hide it — the rule changes
+    // the write either way, so the write is refused either way.
+    //
+    // One exclusion, about WHAT the slot holds rather than about the fault: a
+    // `section-divider` row carries its SECTION's predicate in this same
+    // `visibleWhen` slot, which is a layout gate and not a field rule. A
+    // stored BLANK field rule is a fault like any other (ADR-0137 D2; see
+    // `FieldRuleFaults`) and is refused; a new one is refused earlier, at
+    // authoring, by the form schema's triad wire.
+    const { conditionallyHiddenFieldNames, faultedVisibleWhenFieldNames } = React.useMemo(() => {
       const hidden = new Set<string>();
+      const faulted: string[] = [];
       for (const f of fields as FormFieldConfig[]) {
         const name = f?.name;
         if (!name) continue;
@@ -1518,6 +1704,7 @@ ComponentRegistry.register('form',
             // predicate is reported once, against the field.
             `field '${name}'`,
           );
+          if (st.faults.visibleWhen !== undefined && f.type !== 'section-divider') faulted.push(name);
           if (!st.visible) {
             hidden.add(name);
             continue;
@@ -1532,7 +1719,7 @@ ComponentRegistry.register('form',
           hidden.add(name);
         }
       }
-      return hidden;
+      return { conditionallyHiddenFieldNames: hidden, faultedVisibleWhenFieldNames: faulted };
     }, [fields, ruleRecord, previousRecord, isCreateForm, predicateScope]);
 
     // ── The section grouping contract (objectui#6236, maintainer ruling
@@ -1908,6 +2095,10 @@ ComponentRegistry.register('form',
     // stale "china + california" pair. Mirrors the dependent-lookup gate but for
     // static/predicate-driven option sets. Fail-open filtering keeps unrelated
     // fields untouched (no visibleWhen / dependsOn → nothing recomputed).
+    // A dependent LOOKUP never reaches this effect — it has no static option
+    // set to test a value against — and is cleared by its own rule further
+    // down, beside the `defaultValues` reset (`dependentLookupsKey`,
+    // objectui#11631).
     React.useEffect(() => {
       for (const f of fields as FormFieldConfig[]) {
         const name = f?.name;
@@ -2269,6 +2460,108 @@ ComponentRegistry.register('form',
       }
     }, [form, onChangeProp]);
 
+    // Dependent-lookup clear (objectui#11631) — the reference-family half of
+    // the cascade clear (#2284), which only ever covered option fields.
+    //
+    // ## The defect this closes
+    //
+    // A lookup whose `dependsOn` names a sibling (an invoice's `contact`
+    // scoped by its `account`) re-scopes its candidate QUERY when the parent
+    // moves, but nothing dropped the selection already made: switch Account
+    // from Northwind to Contoso and the Northwind contact stayed selected and
+    // was saved beside the Contoso account. The server checks only that a
+    // reference exists, so this form is the one place the contradictory pair
+    // can be stopped. The cascade clear above cannot take it: it tests a
+    // value against a STATIC option set, and a lookup has none to test — its
+    // offered set is a query result.
+    //
+    // ## The rule: a change of the parent is the clear
+    //
+    // When any parent that scopes a lookup (`dependentLookupParents`) takes a
+    // different value — another record, or empty — the lookup's selection is
+    // cleared: `null` for a single value, `[]` for a multi-value lookup, the
+    // sentinels the two clears above write (`null`, never `undefined`,
+    // objectui#10291). Whether the old selection happens to fall inside the
+    // new scope is not asked: answering it is a query against the server, and
+    // a pick the user made under a parent they have since replaced is not
+    // theirs to keep silently. A lookup that holds nothing is never written to,
+    // so a create form cannot turn an absent key into an explicit `null`.
+    //
+    // ## Only an EDIT moves a parent — the host's data landing does not
+    //
+    // The comparison is between successive values of the form, so the
+    // question is which value changes count. A `defaultValues` reset — an
+    // edit-mode record landing after first paint, a `recordId` swap in a
+    // still-mounted drawer, the carried input re-applied inside it — fills
+    // the parent AND the lookup in one operation; read as an edit, it would
+    // empty every saved pair the moment the record opened. So the comparison
+    // is re-based, never acted on, in two cases: inside the explicit reset
+    // window (`resetInFlightRef`, the same signal the two value channels above
+    // read), and on a notification that names no field — react-hook-form's
+    // whole-record replacement (`reset()`, including the bare ones the cancel
+    // and `resetOnSubmit` paths call). Everything else is a value moving in
+    // this form — a user's pick, or one of the clears above emptying a field —
+    // and is acted on. That is also what makes a multi-level chain converge:
+    // clearing `contact` is itself a named change, so a lookup scoped by
+    // `contact` is cleared in the same pass.
+    //
+    // The field whose change started a pass is never cleared by it, so two
+    // lookups that name each other cannot wipe the pick the user just made.
+    //
+    // A subscription, like the value channels above, and not a `ruleRecord`
+    // effect: the reset window is a synchronous span inside the reset itself,
+    // so only a subscriber notified INSIDE it can read it; an effect running
+    // after the commit sees two value sets and no record of which operation
+    // moved them. Established only when the form has a dependent lookup, and
+    // keyed on the primitive `dependentLookupsKey`, not on the memoised
+    // `fields` (AGENTS.md #10).
+    const dependentLookupsKey = React.useMemo(() => {
+      const pairs: Array<[string, string[]]> = [];
+      for (const f of fields as FormFieldConfig[]) {
+        const parents = dependentLookupParents(f);
+        if (parents.length > 0) pairs.push([f.name as string, parents]);
+      }
+      return pairs.length > 0 ? JSON.stringify(pairs) : '';
+    }, [fields]);
+    React.useLayoutEffect(() => {
+      if (!dependentLookupsKey) return;
+      const lookups = JSON.parse(dependentLookupsKey) as Array<[string, string[]]>;
+      const parentNames = Array.from(new Set(lookups.flatMap(([, parents]) => parents)));
+      const readParents = (): Record<string, unknown> => {
+        const values = form.getValues() as Record<string, unknown>;
+        const out: Record<string, unknown> = {};
+        for (const parent of parentNames) out[parent] = values?.[parent];
+        return out;
+      };
+      let seen = readParents();
+      // The field whose change started the current pass; clears nest inside
+      // it synchronously (`setValue` notifies this subscription re-entrantly).
+      let origin: string | undefined;
+      const subscription = form.watch((_values, info) => {
+        const before = seen;
+        const now = readParents();
+        seen = now;
+        if (resetInFlightRef.current || !info?.name) return;
+        const outermost = origin === undefined;
+        if (outermost) origin = info.name;
+        try {
+          for (const [name, parents] of lookups) {
+            if (name === origin) continue;
+            if (parents.every((parent) => valuesEqualForDirty(before[parent], now[parent]))) continue;
+            const current = form.getValues(name);
+            if (isEmptyish(current)) continue;
+            form.setValue(name, Array.isArray(current) ? [] : null, {
+              shouldValidate: false,
+              shouldDirty: true,
+            });
+          }
+        } finally {
+          if (outermost) origin = undefined;
+        }
+      });
+      return () => subscription.unsubscribe();
+    }, [form, dependentLookupsKey]);
+
     /**
      * Scroll a field into view and focus a control inside it. The field wrapper
      * carries `data-field` (FormItem), so this reaches custom widgets that RHF's
@@ -2341,8 +2634,10 @@ ComponentRegistry.register('form',
       revealField(firstName);
     };
 
-    // Handle form submission
-    const handleSubmit = form.handleSubmit(async (data) => {
+    // Handle form submission — react-hook-form's validation, then the write.
+    // Reached only through `handleSubmit` below, which refuses first on a
+    // faulted `visibleWhen`.
+    const submitThroughValidation = form.handleSubmit(async (data) => {
       setIsSubmitting(true);
       setSubmitError(null);
       // …and the toast twin of that banner (objectui#7252). Both belong to the
@@ -2488,6 +2783,58 @@ ComponentRegistry.register('form',
       // regardless of scroll position (mirrors the server-error toast above).
       announceFieldErrors(Object.keys(validationErrors || {}));
     });
+
+    /**
+     * The submit entry: a faulted `visibleWhen` refuses the write, naming the
+     * field and the rule (objectui#8069 — ADR-0137 D2, ruled as Q1 = B: one
+     * judge per rule).
+     *
+     * ## Why `visibleWhen` alone
+     *
+     * It is the one field rule no server evaluates, so its fail-open render
+     * direction (D3: a faulting `visibleWhen` SHOWS the field) would otherwise
+     * be a silent grant — a field the working rule would have hidden, drawn,
+     * edited and written, with nothing anywhere saying the rule did not run.
+     * `requiredWhen` / `readonlyWhen` keep their render direction and warning
+     * here unchanged: the server evaluates both and refuses a fault itself
+     * (D2), field-attributed, and that refusal lands beside the input through
+     * the `extractFieldErrors` → `form.setError` path above. A second judge on
+     * the client, with less of the record in hand than the server has, would
+     * refuse writes the server accepts.
+     *
+     * ## Why BEFORE react-hook-form's validation
+     *
+     * Nothing the person filling the form can type clears a broken rule, so
+     * asking them to satisfy the other rules first only to refuse them anyway
+     * would be wasted work. The refusal therefore runs first and ends the
+     * attempt: no validation, no `onAction` / `onSubmit`, no write.
+     *
+     * ## The accepted residual, named rather than worked around
+     *
+     * A `visibleWhen` reading `previous` cannot be evaluated on a CREATE form
+     * (there is no stored row), so such a form is refused on every submit. The
+     * ruling accepted that; it is pinned, not patched.
+     *
+     * The verdict is read from `faultedVisibleWhenFieldNames` — the same
+     * evaluation that decided which fields are hidden — never re-derived here.
+     */
+    const handleSubmit = (event?: React.BaseSyntheticEvent) => {
+      if (faultedVisibleWhenFieldNames.length > 0) {
+        event?.preventDefault?.();
+        toast.dismiss(outcomeToastId);
+        const message = t('form.visibleWhenFaulted', {
+          fields: faultedVisibleWhenFieldNames
+            .map((n) => fieldLabelByName[n] || n)
+            .join(t('validation.formInvalidJoiner')),
+        });
+        setSubmitError(message);
+        toast.error(message, { id: outcomeToastId });
+        // Marks the tabs that hold the fields, as a rejected submit does.
+        setRejectedFieldNames(faultedVisibleWhenFieldNames);
+        return Promise.resolve();
+      }
+      return submitThroughValidation(event);
+    };
 
     // Handle cancel
     const handleCancel = () => {
@@ -2777,7 +3124,14 @@ ComponentRegistry.register('form',
       // otherwise degrade a picker field to its raw `type` input.
       // (`.field` is the resolved metadata OBJECT — declared on FormField
       // since #3090, never the spec string; see types/form.ts)
-      const resolvedType = widget || fieldProps.field?.widget || type;
+      //
+      // A built-in type declared `multiple` is routed to its multi-value
+      // widget HERE, before any reader of `resolvedType` runs
+      // (objectui#11116) — see `applyDeclaredArity`.
+      const resolvedType = applyDeclaredArity(
+        widget || fieldProps.field?.widget || type,
+        fieldProps.multiple,
+      );
 
       // Cascading / role-gated option lists (#2284). For option fields,
       // narrow the set by each option's `visibleWhen` (evaluated against
@@ -3148,6 +3502,32 @@ ComponentRegistry.register('form',
       );
     };
 
+    // The untabbed, unpaned field list, drawn one grid per block
+    // (`splitAtUntitledRuns`, objectui#11777). Every block lays its fields out
+    // on the same `fieldGridClass`, so a `colSpan` means the same thing in each,
+    // and every field is still rendered exactly once, into this one form. A
+    // single block is the pre-#11777 DOM, unchanged. Keyed by position in the
+    // split, which only the field list's structure moves — a predicate flipping
+    // never re-keys a block, so it never remounts the fields in it.
+    const renderFieldBlocks = (list: FormFieldConfig[]): React.ReactNode => {
+      let drawnAbove = false;
+      return splitAtUntitledRuns(list).map((block, index) => {
+        const nodes = block.map(renderFormField);
+        const draws = block.some(
+          (f, j) =>
+            nodes[j] != null &&
+            !(f?.type === 'section-divider' && !dividerDrawsRow(f.label, f.description)),
+        );
+        const separated = index > 0 && drawnAbove && draws;
+        drawnAbove = drawnAbove || draws;
+        return (
+          <div key={index} className={separated ? cn(fieldGridClass, UNTITLED_BLOCK_CLASS) : fieldGridClass}>
+            {nodes}
+          </div>
+        );
+      });
+    };
+
     // Extract designer-related props and conflicting handlers
     const { 
         'data-obj-id': dataObjId, 
@@ -3373,10 +3753,9 @@ ComponentRegistry.register('form',
               </ResizablePanelGroup>
             </>
           ) : (
-            // Otherwise render fields from schema
-            <div className={fieldGridClass}>
-              {fields.map(renderFormField)}
-            </div>
+            // Otherwise render fields from schema — one grid per block, split
+            // where an untitled run leaves a heading (objectui#11777).
+            renderFieldBlocks(fields as FormFieldConfig[])
           )}
 
           {/* Form Actions */}
@@ -3531,8 +3910,8 @@ const NATIVE_PICKER_INPUT_TYPES = new Set(['date', 'datetime-local', 'time', 'mo
  *
  * So this table is not a new tolerance (AGENTS.md #0.1): it is what keeps the
  * VISIBLE rendering of these two types byte-identical to what the fallback
- * produced, while the leak, the duplicate `<label>` and the dead `max_length`
- * go away. An explicitly authored `inputType` still wins over it.
+ * produced, while the leak and the duplicate `<label>` go away. An explicitly
+ * authored `inputType` still wins over it.
  *
  * Deliberately narrow. Every other declared field type with a native HTML
  * equivalent (`url`, `phone`, `number`, `color`, `date` …) ALREADY takes this
@@ -3919,50 +4298,31 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
 
   switch (type) {
     case 'input': {
-      // The declared ceiling is resolved HERE, in BOTH authored spellings,
-      // rather than left to ride the pass-through onto the DOM
-      // (objectui#5201). This is the same mechanism the `textarea` branch
-      // below resolves for the same reason (objectui#3439) — this branch was
-      // deliberately left out of that card because the COUNTER half is a
-      // design question for a single-line input; the ceiling half is not.
+      // The declared ceiling is resolved HERE rather than left to ride the
+      // pass-through onto the DOM (objectui#5201). This is the same mechanism
+      // the `textarea` branch below resolves for the same reason
+      // (objectui#3439) — this branch was deliberately left out of that card
+      // because the COUNTER half is a design question for a single-line input;
+      // the ceiling half is not.
       //
-      // Measured on `origin/main`, the pass-through answered the two spellings
-      // differently: a camelCase `maxLength` happened to work because it names
-      // a real DOM attribute, so the element got `maxlength="50"`; the legacy
-      // `max_length` reached the same element as a STRAY, inert
-      // `max_length="50"` attribute and the field had no cap at all — no
-      // truncation, and invalid HTML that reads like a working cap to whoever
-      // greps this file next.
-      //
-      // `maxLength ?? max_length` is not a tolerance invented at a consumer
-      // (AGENTS.md #0.1): the registered `field:*` widgets have dual-read it
-      // since framework#1878 §3, all three producers of a form field do
-      // (`ObjectForm`, `sectionFields`, `EmbeddableForm.applyDefaultMaxLengths`)
-      // and `packages/types`' field types declare `max_length`. Every reader in
-      // the repo honoured it except this branch — which is precisely the one
-      // serving a hand-authored `FormSchema` handed straight to the renderer,
-      // where there is no normalizing producer in between and the author IS
-      // the producer.
-      //
-      // The legacy key is destructured off LOCALLY — not added to
-      // `stripRendererOnlyProps` — because that helper feeds EVERY branch
-      // (`checkbox`, `switch`, `select` and the `default` fallback all share
-      // `domFieldProps`), so extending it would change what reaches the DOM
-      // for widgets this card neither fixes nor tests. The `textarea` branch
-      // strips it the same local way.
+      // The spec's `maxLength` — which `FormField` declares by reference to
+      // `FieldSchema.maxLength` — is the one spelling read. The snake_case
+      // `max_length` this branch also read until objectui#11070 is retired,
+      // with no alias: `FieldSchema` and the strict authoring face refuse it
+      // by name, no objectui type declares it, and no in-repo producer writes
+      // it. The local strip that kept it off the element went with the read,
+      // so nothing in this branch names it any more.
       //
       // Scope: the CEILING only. Whether a single-line input should also carry
       // a visible `{n}/{max}` counter and an announced limit the way the
       // `textarea` branch does is an independent design trade-off that does
       // NOT follow from #3439's conclusion, and is deliberately not decided
       // here (the objectui#5201 triage ruling).
-      const { max_length: _maxLengthLegacy, ...inputProps } = domFieldProps as any;
-      const maxLength = (fieldProps as any).maxLength ?? (fieldProps as any).max_length;
+      const maxLength = (fieldProps as any).maxLength;
       if (inputType === 'file') {
         // File inputs cannot be controlled with value prop. No cap applies to a
-        // file picker, but the stray legacy key must not reach it either — it
-        // is off `inputProps` already.
-        const { value, ...fileProps } = inputProps;
+        // file picker.
+        const { value, ...fileProps } = domFieldProps;
         return <Input type="file" placeholder={placeholder} className="min-h-[44px] sm:min-h-0" {...fileProps} />;
       }
       return (
@@ -3970,17 +4330,17 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           type={inputType || 'text'}
           placeholder={placeholder}
           className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass)}
-          {...inputProps}
-          // After the spread, so the resolved cap wins over the raw camelCase
-          // key `inputProps` still carries (the #3222 discipline). `undefined`
-          // when neither spelling was declared, which renders no attribute.
+          {...domFieldProps}
+          // After the spread, so the resolved cap is the one written (the
+          // #3222 discipline). `undefined` when the field declares no
+          // `maxLength`, which renders no attribute.
           maxLength={maxLength}
           onClick={(e) => {
             openNativePickerOnClick(inputType)?.(e);
-            inputProps.onClick?.(e);
+            domFieldProps.onClick?.(e);
           }}
           readOnly={readonly}
-          value={inputProps.value ?? ''}
+          value={domFieldProps.value ?? ''}
         />
       );
     }
@@ -4013,30 +4373,19 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
       // inline control announced `aria-invalid="true"` for the same field. The
       // primitive, not this branch, decides what to do with it.
       //
-      // `maxLength` is resolved HERE, in both authored spellings, rather than
-      // left to ride `rest` onto the DOM (objectui#3439). Measured on
-      // `origin/main`, the pass-through answered the two spellings differently:
-      // a camelCase `maxLength` happened to work because it names a real DOM
-      // attribute, so the element got `maxlength="100"`; the legacy
-      // `max_length` reached the same element as a STRAY, inert
-      // `max_length="100"` attribute and the field had no cap at all — no
-      // truncation, and (before this change) no counter either. The registered
-      // `field:textarea` widget has dual-read `maxLength ?? max_length` since
-      // framework#1878 §3, as do all three producers of a form field
-      // (`ObjectForm`, `sectionFields`, `EmbeddableForm.applyDefaultMaxLengths`),
-      // so this is not a new tolerance invented at a consumer (AGENTS.md #0.1)
-      // — it is this path finally resolving the declaration the way every other
-      // reader in the repo already resolves it. A hand-authored `FormSchema`
-      // handed straight to this renderer, which is the standalone/embedded host
-      // this branch exists for, has no producer in between to normalize it.
-      //
-      // `max_length` is then kept OFF the element: it is not a DOM attribute in
-      // any spelling, so leaving it in `rest` renders invalid HTML that looks
-      // like a working cap to the next reader.
+      // `maxLength` is resolved HERE rather than left to ride `rest` onto the
+      // DOM (objectui#3439): it has three readers in this branch — the native
+      // attribute on each of the two textareas, and the counter beside them.
+      // The spec's `maxLength` — which `FormField` declares by reference to
+      // `FieldSchema.maxLength` — is the one spelling read, as in the
+      // registered `field:textarea` widget. The snake_case `max_length` this
+      // branch also read until objectui#11070 is retired, with no alias: the
+      // spec and the strict authoring face refuse it by name, no objectui type
+      // declares it, and no in-repo producer writes it. The local strip that
+      // kept it off the element went with the read.
       const { mobile_fullscreen, label, error } = fieldProps as any;
-      const { max_length: _maxLengthLegacy, ...textareaProps } = fieldProps as any;
-      const maxLength = (fieldProps as any).maxLength ?? (fieldProps as any).max_length;
-      const rest = stripRendererOnlyProps(textareaProps);
+      const maxLength = (fieldProps as any).maxLength;
+      const rest = domFieldProps;
       if (mobile_fullscreen) {
         return (
           <FullscreenTextarea
@@ -4052,8 +4401,8 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
             // was on. (`disabled` rides `rest`, which no strip touches.)
             className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass)}
             {...rest}
-            // After the spread, so the resolved cap wins over the raw
-            // camelCase key `rest` still carries (the #3222 discipline).
+            // After the spread, so the resolved cap is the one written (the
+            // #3222 discipline).
             maxLength={maxLength}
             readOnly={readonly}
             value={rest.value ?? ''}
@@ -4201,43 +4550,19 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
         );
       }
 
-      // The declared ceiling is resolved HERE, in BOTH authored spellings,
-      // rather than left to ride the pass-through onto the DOM
-      // (objectui#5253). Identical mechanism, identical reasons and identical
-      // shape to the `input` branch above (objectui#5201) and the `textarea`
-      // branch (objectui#3439) — this fallback was simply out of #5201's
-      // scoped surface, so it kept the defect after that card landed.
+      // The declared ceiling is resolved HERE rather than left to ride the
+      // pass-through onto the DOM (objectui#5253). Identical mechanism and
+      // identical reasons to the `input` branch above (objectui#5201) and the
+      // `textarea` branch (objectui#3439) — this fallback was simply out of
+      // #5201's scoped surface, so it kept the defect after that card landed.
       //
-      // Measured on `origin/main` at 87d9202b1, with a `type` that is neither
-      // a `BUILTIN_FIELD_TYPES` member nor a registered component (so this
-      // branch renders it), the pass-through answered the two spellings
-      // differently:
-      //
-      //   max_length: 50 → attrs=[…,"max_length",…]  maxlength=null
-      //   maxLength: 50 → attrs=[…,"maxlength",…]    maxlength="50"
-      //
-      // i.e. camelCase capped by COINCIDENCE (it names a real DOM attribute),
-      // while the legacy `max_length` capped NOTHING and landed as a stray,
-      // inert `max_length="50"` attribute — invalid HTML that reads like a
-      // working cap to the next reader. Two independent defects.
-      //
-      // `maxLength ?? max_length` is not a tolerance invented at a consumer
-      // (AGENTS.md #0.1): the registered `field:*` widgets have dual-read it
-      // since framework#1878 §3, all three producers of a form field do
-      // (`ObjectForm`, `sectionFields`, `EmbeddableForm.applyDefaultMaxLengths`)
-      // and `packages/types`' field types declare `max_length`. This branch —
-      // like the `input` one — serves a hand-authored `FormSchema` handed
-      // straight to the renderer, where there is no normalizing producer in
-      // between and the author IS the producer.
-      //
-      // The legacy key is destructured off LOCALLY — NOT added to
-      // `stripRendererOnlyProps` — because that helper feeds EVERY branch
-      // (`checkbox`, `switch`, `select` and this fallback all share
-      // `domFieldProps`), so extending it would change what reaches the DOM
-      // for widgets this card neither fixes nor tests. Both landed siblings
-      // strip it the same local way.
-      const { max_length: _maxLengthLegacy, ...fallbackProps } = domFieldProps as any;
-      const maxLength = (fieldProps as any).maxLength ?? (fieldProps as any).max_length;
+      // The spec's `maxLength` — which `FormField` declares by reference to
+      // `FieldSchema.maxLength` — is the one spelling read. The snake_case
+      // `max_length` this branch also read until objectui#11070 is retired,
+      // with no alias: the spec and the strict authoring face refuse it by
+      // name, no objectui type declares it, and no in-repo producer writes it.
+      // The local strip that kept it off the element went with the read.
+      const maxLength = (fieldProps as any).maxLength;
       return (
         <Input
           // ── Half 2: RESPECT the declared input type ───────────────────
@@ -4261,15 +4586,15 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           type={inputType || NATIVE_INPUT_FIELD_TYPES[declaredType] || 'text'}
           placeholder={placeholder}
           className={cn(readonlyInputClass)}
-          {...fallbackProps}
-          // After the spread, so the resolved cap wins over the raw camelCase
-          // key `fallbackProps` still carries (the #3222 discipline).
-          // `undefined` when neither spelling was declared, which renders no
-          // attribute — an uncapped field is left exactly as it was.
+          {...domFieldProps}
+          // After the spread, so the resolved cap is the one written (the
+          // #3222 discipline). `undefined` when the field declares no
+          // `maxLength`, which renders no attribute — an uncapped field is
+          // left exactly as it was.
           maxLength={maxLength}
           onClick={(e) => {
             openNativePickerOnClick(inputType)?.(e);
-            fallbackProps.onClick?.(e);
+            domFieldProps.onClick?.(e);
           }}
           readOnly={readonly}
         />

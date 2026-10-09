@@ -1,0 +1,9 @@
+---
+'@object-ui/types': minor
+'@object-ui/components': patch
+---
+
+`element:repeater` reads the node-level `dataSource` binding first (objectui#11880, the repeater half of the objectui step of objectstack#11509, ruled A-narrow).
+
+- **Renderer (`@object-ui/components`).** A repeater bound only through `dataSource` now lists the records it names; it showed "No records" before. Its flat `properties.object` / `filter` / `sort` / `limit` stay read, as the fallback, until `@objectstack/spec` retires them in v18, so a repeater that carries only the flat keys reads exactly as before. Where a node carries both, the precedence is the one `ElementDataSourceGate` applies to every object-bound block: the binding's `object`; the flat `filter` AND-combined with the binding's (and its saved view's), so neither is dropped; the binding's own `sort` and `limit`, else the flat key, else the saved view's. An unresolvable `view`, or a filter the merge refuses, shows the configuration-error panel and reads nothing. The registration now publishes the injected `dataSource` input; `object` stays required.
+- **Schema (`@object-ui/types`).** `ElementRepeaterBlockSchema` declares `dataSource` as `@objectstack/spec`'s `ElementDataSourceSchema`, by reference, and its bag's `object` stays required. Clause-②: the strict authoring face (`StrictAnyComponentSchema`) now ACCEPTS a repeater carrying `properties.object` plus a well-formed `dataSource`, which it refused as an unrecognized key; and the tolerant face (`safeValidateSchema`) now JUDGES the binding, so a repeater whose `dataSource` the spec's own node schema refuses (a string, a non-string `object`, an undeclared member, a record-form `filter`) is refused at `dataSource` where it was passed through unjudged. The TypeScript node type derived from the arm types the binding. A repeater whose bag omits `object` is refused at `properties.object` on both faces, as before.

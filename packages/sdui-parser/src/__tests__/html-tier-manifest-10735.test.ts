@@ -110,7 +110,8 @@ describe('generateDts publishes the html tier into JSX.IntrinsicElements (object
     const dts = generateDts(published);
     expect(dts).toContain('"p": PProps;');
     expect(dts).toContain('"a": AProps;');
-    expect(dts).toContain('export interface AProps extends SduiBaseProps {\n  className?: string;\n  href?: string;\n}');
+    // `a` declares `className`, a base attribute, so it `Omit`s it (objectui#11075).
+    expect(dts).toContain('export interface AProps extends Omit<SduiBaseProps, "className"> {\n  className?: string;\n  href?: string;\n}');
     expect(dts).toContain('"flex": FlexProps;');
   });
 });

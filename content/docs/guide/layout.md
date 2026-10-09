@@ -13,7 +13,7 @@ The layout system provides:
 
 - **AppShell** - Full application container with a top navbar, sidebar, and content areas
 - **Page** - Individual page wrapper with header and body
-- **PageHeader** - Consistent page headers with title, breadcrumbs, and actions
+- **PageHeader** - Consistent page headers with title and actions
 - **SidebarNav** - Navigation sidebar with menu items
 
 ## Installation
@@ -110,10 +110,42 @@ Two doors remain, one per capability:
 
 - **Compose in React** — `<AppShell>` as shown above, with your JSON pages rendered
   *inside* it through `SchemaRenderer`.
-- **The whole shell from metadata** — `AppSchemaRenderer`, registered as
-  `app-schema-renderer` and declaring its `inputs`, which builds branding and sidebar
-  navigation from an `AppSchema` JSON document and takes the page content as its
-  `children`.
+- **The whole shell from metadata** — the `app-schema-renderer` node, which renders
+  `AppSchemaRenderer`. It builds the branding and the sidebar navigation from the app
+  document it carries under `schema`, below. It draws no page content: the node's
+  `children` are not rendered, and `objectui validate` refuses them on this node. Page
+  content reaches the shell only as React `children`, when a host renders
+  `AppSchemaRenderer` in JSX.
+
+The node takes three inputs:
+
+- `schema`: the app document, nested, with its own `"type": "app"`. It is validated as
+  the app document, so the document's own refusals apply inside it: `mobileNavMode`
+  there is refused, because the mode belongs on the node.
+- `basePath`: the prefix of every href the shell generates.
+- `mobileNavMode`: `"drawer"` (the default) or `"bottom_nav"`, which adds a fixed
+  bottom bar.
+
+```json
+{
+  "type": "app-schema-renderer",
+  "basePath": "/apps/crm",
+  "mobileNavMode": "bottom_nav",
+  "schema": {
+    "type": "app",
+    "name": "crm",
+    "title": "CRM",
+    "navigation": [
+      { "id": "home", "type": "page", "pageName": "home", "label": "Home" }
+    ]
+  }
+}
+```
+
+The document has one spelling. Its keys written flat on the node (`"navigation"`,
+`"title"` beside `"type": "app-schema-renderer"`) are not drawn, and the strict authoring
+face (`StrictAnyComponentSchema` in `@object-ui/types/zod`) refuses them as unrecognized
+keys. A node without `schema` draws the shell with no branding and no navigation.
 
 ### Features
 
@@ -132,6 +164,7 @@ The `Page` component provides a consistent wrapper for individual pages with opt
 ```json
 {
   "type": "page",
+  "pageType": "app",
   "title": "User Management",
   "description": "Manage users and permissions",
   "children": {
@@ -143,37 +176,48 @@ The `Page` component provides a consistent wrapper for individual pages with opt
 }
 ```
 
+`pageType` decides whether the page draws its own `title` and `description`. `app`, `list`,
+`utility` and `home` draw both, unless a titled `page:header` block in the page takes over
+the heading. A page with no `pageType` is a `record` page, which draws neither: its heading
+is a `page:header` block, as [Detail Page with Actions](#detail-page-with-actions) shows.
+So without `"pageType": "app"`, the page above renders only its children.
+[Content Width](#content-width) covers what else each type changes.
+
 ### With Action Buttons
 
-A `page` node has no action row of its own. Buttons are NODES, and they go in `children`:
+A `page` node has no action row of its own. Buttons are NODES, and they go in `children`.
+This is a list of products, so the page is a `list` page, which draws its `title` itself:
 
 ```json
 {
   "type": "page",
+  "pageType": "list",
   "title": "Products",
   "children": [
     {
       "type": "flex",
-      "justify": "end",
-      "gap": 2,
-      "children": [
-        {
-          "type": "button",
-          "label": "Add Product",
-          "variant": "default",
-          "icon": "plus"
-        },
-        {
-          "type": "button",
-          "label": "Export",
-          "variant": "outline",
-          "icon": "download"
-        }
-      ]
+      "properties": {
+        "justify": "end",
+        "gap": 2,
+        "children": [
+          {
+            "type": "button",
+            "label": "Add Product",
+            "variant": "default",
+            "icon": "plus"
+          },
+          {
+            "type": "button",
+            "label": "Export",
+            "variant": "outline",
+            "icon": "download"
+          }
+        ]
+      }
     },
     {
       "type": "object-grid",
-      "object": "products"
+      "properties": { "objectName": "products" }
     }
   ]
 }
@@ -200,8 +244,8 @@ renders a button with no text.
 > the array rather than refusing it — the same silent-accept shape as `actions`, retired
 > under the same ADR-0049 enforce-or-remove gate. The trail is a **node**, not a key: put
 > a `breadcrumb` node in `children`, as [Breadcrumbs for Deep Navigation](#2-breadcrumbs-for-deep-navigation)
-> shows. ⛔ Not the `page:header` block's `breadcrumb` either — that one is singular and a
-> **boolean** display toggle, not a list of links.
+> shows. ⛔ Not the `page:header` block's `breadcrumb` either — that one is a singular
+> **boolean** the renderer ignores, not a list of links.
 
 ### Schema API
 
@@ -211,35 +255,37 @@ renders a button with no text.
   type: 'page',
   
   // Header
-  title?: string,               // Page title
-  description?: string,         // Page description/subtitle
+  title?: string,               // Page heading; not drawn on a 'record' page, whose heading is a `page:header` block
+  description?: string,         // Line under the heading; a 'record' page does not draw it
   icon?: string,               // Optional icon
   // NO `actions` — refused by name (objectui#7926); put the buttons in `children`
   // NO `breadcrumbs` — refused by name (objectui#8871); put a `breadcrumb` node in `children`
 
   // Content
   children: SchemaNode,            // Main page content
-  
-  // Layout options
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full',
-  padding?: boolean,           // Add padding (default: true)
-  
+
+  // Layout
+  pageType?: 'record' | 'home' | 'app' | 'utility' | 'list',  // default 'record'; sets the max width and who draws the heading
+  // NO `maxWidth` — refused by name (objectui#11318); use `pageType`, or a `container` in `children`
+  // NO `padding` — refused by name (objectui#11318); put a `container` with `padding` in `children`
+
   // Styling
   className?: string,
-  headerClassName?: string,
-  bodyClassName?: string
 }
 ```
 
-### Max Width Options
+### Content Width
 
-Control page content width:
+A `page` node has no `maxWidth` key. **`pageType`** sets how wide the page's content may
+grow: `utility` is the narrowest and suits settings and forms, `record` (the default),
+`list` and `app` share a wider cap, and `home` is the widest. `getPageMaxWidth` in
+`packages/components/src/renderers/layout/page.tsx` holds the mapping.
 
 ```json
 {
   "type": "page",
+  "pageType": "utility",
   "title": "Settings",
-  "maxWidth": "lg",
   "children": {
     "type": "form",
     "fields": []
@@ -247,110 +293,120 @@ Control page content width:
 }
 ```
 
-Available values:
-- `sm` - 640px
-- `md` - 768px
-- `lg` - 1024px
-- `xl` - 1280px
-- `2xl` - 1536px
-- `full` - No maximum width (default)
+`pageType` is more than a width. A `record` page leaves its heading to a `page:header`
+block, so a `title` on a page with no `pageType` draws no heading. That is one more reason
+the settings page above says `utility`.
 
-## PageHeader Component
+For a column narrower than the page's cap, wrap the content in a `container` and set
+**its** `maxWidth`. That key is a `container` member, and the
+[Container reference](/docs/components/layout/container) lists its values:
 
-The `PageHeader` provides consistent page headers with a title, an optional subtitle,
-an icon chip, and an action row.
+```json
+{
+  "type": "page",
+  "pageType": "utility",
+  "title": "Profile",
+  "children": {
+    "type": "container",
+    "maxWidth": "2xl",
+    "children": {
+      "type": "form",
+      "fields": []
+    }
+  }
+}
+```
 
-> **The canonical author key is `page:header`; `page-header` is a legacy alias.** The
-> snippets in this section are the `@object-ui/layout` component, which `registerLayout()`
-> registers as `page-header` (plus its namespaced form `layout:page-header`) — that node
-> still renders, so metadata already written this way is not stranded. The contract knows
-> only `page:header`, though: that is the `PageComponentType` value and the
-> `ComponentPropsMap` row binding `PageHeaderProps`, and it resolves to a different,
-> record-aware renderer in `@object-ui/components`. Props written under the alias have no
-> `ComponentPropsMap` row to dispatch, so nothing validates them — a misspelling there is
-> neither rejected nor reported. Author metadata pages against `page:header`
-> ([Slotted pages](/docs/guide/slotted-pages)); its props are not the ones below — see the
-> [PageHeader reference](/docs/layout/page-header).
+> **⛔ `maxWidth` on a `page` node is refused by name** (objectui#11318). This page used to
+> teach `"maxWidth": "lg"` beside `title`, with a list of sizes, and it changed **nothing**:
+> `PageRenderer` has no read for the key and takes its width from `pageType`, while
+> `BaseSchema`'s `.passthrough()` kept the value rather than refusing it. `PageNodeSchema`
+> now declares the key as a refusal whose message names `pageType` and the `container`.
+
+## Page Header (`page:header`)
+
+`page:header` is a page's title bar: a title, an optional subtitle and, on a record page, the
+record chip and the record's header actions. Its props contract is `PageHeaderProps`, the
+`ComponentPropsMap['page:header']` row, and it is rendered by the record-aware
+`PageHeaderRenderer` in `@object-ui/components`. The
+[Page Header reference](/docs/layout/page-header) documents every key, both layouts and the
+styling.
 
 ### Usage
 
 ```json
 {
-  "type": "page-header",
-  "title": "Customer Details",
-  "subtitle": "View and edit customer information",
-  "icon": "users",
-  "actions": ["edit", "delete"]
+  "type": "page:header",
+  "properties": {
+    "title": "{first_name} {last_name}",
+    "subtitle": "View and edit customer information",
+    "actions": ["edit_customer", "send_email"]
+  }
 }
 ```
 
+The props go in `properties`, which is where `PageHeaderProps` judges them: a misspelled or
+removed key there is refused by name. `className` is the one key that belongs on the node
+itself, beside `type`.
+
 `title` and `subtitle` both interpolate `{field.path}` tokens against the surrounding
-record context, so `"title": "{first_name} {last_name}"` resolves on a record page.
-Unresolvable tokens collapse to an empty string rather than leaking the raw template.
+record context, so the title above resolves on a record page. Unresolvable tokens collapse to
+an empty string rather than leaking the raw template.
+
+`actions` holds action **ids**, resolved from the object's own `actions` metadata, which
+keeps the definitions in one place. They are **not** `SchemaNode` nodes: the contract refuses
+an entry that is not a string. Nor does the header draw `children`, so a button written there
+does not render.
 
 ### Schema API
 
-<!-- doc-snippet: fragment — a SHAPE excerpt, not an expression — the keys carry `?` optional markers and trailing prose comments, so the object literal cannot parse as TypeScript (measured: TS1109 / TS1005 / TS1011) -->
+<!-- doc-snippet: fragment — a SHAPE excerpt, not an expression — its keys carry `?` optional markers and trailing prose comments, so the object literal cannot parse as TypeScript -->
 ```typescript
 {
-  type: 'page-header',
-
-  title: string,                     // required; {field.path} tokens interpolated
-  subtitle?: string,                 // secondary line; {field.path} tokens interpolated
-  icon?: string,                     // Lucide icon name, rendered in a chip left of the title
-  actions?: Array<string | ActionDef>, // action ids, or inline ActionDef objects
-  showBack?: boolean,                // back arrow; inferred from record context when omitted
-  children?: SchemaNode[],           // rendered into the right-aligned slot; `actions` takes precedence
-  className?: string,
+  type: 'page:header',
+  className?: string,                 // on the node, beside `type`
+  properties?: {
+    title?: string | Record<string, string>,    // {field.path} tokens interpolated; derived from the record when omitted on a record page
+    subtitle?: string | Record<string, string>, // secondary line; same interpolation
+    actions?: string[],               // action ids, resolved against the object's own actions
+    recordChrome?: boolean,           // default true — the record chip on a record page
+    showStar?: boolean,               // default true
+    showCopyId?: boolean,             // default true
+    maxVisible?: number,              // positive integer; inline action buttons (renderer default 3)
+    mobileMaxVisible?: number,        // positive integer; the same on mobile (renderer default 1)
+    aria?: { ariaLabel?, ariaDescribedBy?, role? },
+  },
 }
 ```
 
-`showBack` defaults to `true` when a record context carrying a `recordId` is in scope and
-the header is not rendered inside embedded chrome (drawer / modal, which already provide
-their own Close control), and `false` otherwise. Pass it explicitly to override.
+> **Write `subtitle`; there is no `description` and no `icon`.** The contract refuses
+> `description` on this node and names `subtitle` in its place. It refuses `icon` by name as
+> an ADR-0087 D2 tombstone — "`page:header` property `icon` was removed in
+> @objectstack/spec 17.0.0 (ADR-0087 D2) — no renderer ever read it … Delete the key." The
+> header's identity comes from the record chip (`recordChrome`), and each action carries its
+> own `icon`.
 
-`actions` is handed to the `record:quick_actions` widget with
-`location: 'record_header'`. Its entries are **action ids** — resolved from the object's
-own `actions` metadata, which keeps the definitions in one place — or inline `ActionDef`
-objects. They are **not** `SchemaNode` nodes: a `{ "type": "button", … }` entry
-renders nothing here.
+> **There is no `breadcrumbs` array, and `breadcrumb` draws nothing.** The contract still
+> accepts a singular **boolean** `breadcrumb` until objectstack#20758 retires it; the renderer
+> ignores it. A trail of links is a `breadcrumb` node — see
+> [Breadcrumbs for Deep Navigation](#2-breadcrumbs-for-deep-navigation).
 
-> **Write `subtitle`. `description` is retired.** `@objectstack/spec/ui`'s
-> `PageHeaderProps` — the contract for the canonical `page:header` node — declares
-> `title / subtitle / breadcrumb / actions / recordChrome / showStar / showCopyId /
-> maxVisible / mobileMaxVisible / aria` and has **no** `description`, and
-> `page-header`'s registration declares four authorable inputs — `title`, `subtitle`,
-> `icon` and `actions`. `icon` sits on exactly one of those two lists on purpose: it is
-> an ADR-0087 D2 tombstone on the spec shape, which rejects it by name — "`page:header`
-> property `icon` was removed in @objectstack/spec 17.0.0 (#6946, ADR-0087 D2) — no
-> renderer ever read it … Delete the key." — while remaining a live input of *this*
-> component, whose `<PageHeader>` does draw an icon beside the title (objectui#3829). On
-> a canonical `page:header` node the key is gone; as a prop of this component it is
-> live. The renderer used to read `description` as well, as a legacy alias; objectui#3789
-> removed that read, so `subtitle` is now the only spelling this component draws. Stored
-> metadata written the old way is not stranded: protocol 17's ADR-0087 D2 conversion
-> `page-header-subtitle-alias` rewrites `description` to `subtitle` on header nodes as the
-> stack loads — at every position a header can occupy, regions and slots and containers
-> nested to any depth (objectstack#6775 / #6776) — and `os migrate meta` rewrites it at
-> rest. See the [PageHeader reference](/docs/layout/page-header) for the per-key
-> reference face.
-
-> **There is no `breadcrumbs` array.** The component reads no breadcrumb property of any
-> kind, in either spelling. The spec's `breadcrumb` is singular and a **boolean** — a
-> display toggle on the canonical `page:header` node (see
-> [Slotted pages](/docs/guide/slotted-pages)), not a list of links.
+> **`page-header` is retired; author `page:header`.** `page-header` (and its namespaced form
+> `layout:page-header`) is no longer registered (objectui#10859): a node written that way
+> renders the "Unknown component type" panel, and `objectui validate` refuses it at `type`.
+> Write `{ "type": "page:header", "properties": { "title": "…", "subtitle": "…" } }`; the
+> secondary line is `subtitle`.
 
 ## SidebarNav Component
 
 The `SidebarNav` provides a collapsible navigation sidebar with menu items.
 
 **`SidebarNav` is a React component, and `sidebar-nav` is not a component key at all.**
-`registerLayout()` (`packages/layout/src/index.ts`) registers five keys — `page-header`,
-`page:card`, `responsive-grid`, `navigation-renderer` and `app-schema-renderer` — and
-nothing in this repo registers `sidebar-nav`. What a
+`registerLayout()` (`packages/layout/src/index.ts`) registers two keys — `page:card` and
+`app-schema-renderer` — and nothing in this repo registers `sidebar-nav`. What a
 `{ "type": "sidebar-nav" }` node actually does is measured under
 [There is no `sidebar-nav` node](#there-is-no-sidebar-nav-node) below. Compose the nav in
-React, or use `navigation-renderer` when the tree has to come from metadata.
+React, or declare it as the app's `navigation` metadata when the tree has to come from JSON.
 
 ### Basic Usage
 
@@ -437,12 +493,14 @@ Unknown component type: sidebar-nav
 This is louder than the `app-shell` case above — nothing is silently dropped, because
 nothing is parsed as props at all. The whole sidebar is replaced by the error panel.
 
-When the navigation tree genuinely has to come from JSON, that path exists and is a
-different component: `navigation-renderer` (`NavigationRenderer`) renders a
-`NavigationItem[]` tree from AppSchema JSON, and it declares its `inputs`, so an unknown
-key there is diagnosed rather than ignored. Its items are JSON-shaped — `icon` really is
-a string name there, resolved by `resolveIcon`. `app-schema-renderer` wraps that up with
-branding for a whole-shell-from-metadata setup.
+When the navigation tree genuinely has to come from JSON, it is application metadata:
+the app document's `navigation` items (`{ "type": "app", "navigation": [...] }`, which
+`objectui validate` accepts), drawn by the shell — the console's sidebar, or
+`AppSchemaRenderer` (the whole shell from metadata, above). Both hand the items to the
+`NavigationRenderer` component, and its items are JSON-shaped: `icon` really is a string
+name there, resolved by `resolveIcon`. There is no page node for navigation:
+`navigation-renderer` was retired (objectui#11441), so a node written with that type
+renders the same "Unknown component type" panel.
 
 ### Features
 
@@ -505,14 +563,17 @@ Omit `sidebar` and the content fills the width under the top bar.
 
 ### Settings Page with Tabs
 
+A settings page is a `utility` page, which gives it the narrowest content width (see
+[Content Width](#content-width)):
+
 ```json
 {
   "type": "page",
+  "pageType": "utility",
   "title": "Settings",
-  "maxWidth": "2xl",
   "children": {
     "type": "tabs",
-    "tabs": [
+    "items": [
       {
         "label": "General",
         "value": "general",
@@ -538,10 +599,15 @@ Omit `sidebar` and the content fills the width under the top bar.
 Same rule as above, and it governs the trail too: the breadcrumb and the buttons are both
 **nodes in `children`** — never a `breadcrumbs` or an `actions` key on the page.
 
+A detail page is a `record` page. That is the default, and it is named below so the snippet
+says so. A record page draws no `title` and no `description` of its own: its heading is
+the [`page:header`](#page-header-pageheader) block, so the record's name goes in that
+block's `properties.title`, not on the page.
+
 ```json
 {
   "type": "page",
-  "title": "Acme Corporation",
+  "pageType": "record",
   "children": [
     {
       "type": "breadcrumb",
@@ -552,27 +618,37 @@ Same rule as above, and it governs the trail too: the breadcrumb and the buttons
       ]
     },
     {
+      "type": "page:header",
+      "properties": { "title": "Acme Corporation" }
+    },
+    {
       "type": "flex",
-      "justify": "end",
-      "gap": 2,
-      "children": [
-        {
-          "type": "action:button",
-          "name": "edit_record",
-          "label": "Edit",
-          "variant": "default",
-          "icon": "pencil",
-          "actionType": "editRecord"
-        },
-        {
-          "type": "action:button",
-          "name": "delete_record",
-          "label": "Delete",
-          "variant": "destructive",
-          "icon": "trash",
-          "actionType": "deleteRecord"
-        }
-      ]
+      "properties": {
+        "justify": "end",
+        "gap": 2,
+        "children": [
+          {
+            "type": "action:button",
+            "properties": {
+              "name": "edit_record",
+              "label": "Edit",
+              "variant": "default",
+              "icon": "pencil",
+              "actionType": "editRecord"
+            }
+          },
+          {
+            "type": "action:button",
+            "properties": {
+              "name": "delete_record",
+              "label": "Delete",
+              "variant": "destructive",
+              "icon": "trash",
+              "actionType": "deleteRecord"
+            }
+          }
+        ]
+      }
     },
     {
       "type": "card",
@@ -585,7 +661,10 @@ Same rule as above, and it governs the trail too: the breadcrumb and the buttons
 ```
 
 A button that RUNS something is an `action:button` node, not a `button` carrying an
-`onClick`. `ButtonSchema.onClick` is declared as a runtime slot for a host-supplied
+`onClick`. Its props — `actionType` and the rest of the block's row — go in the node's
+`properties` bag, as `@objectstack/spec` declares them; the spec's strict page component
+refuses them written flat on the node, and `SchemaRenderer` hoists the bag onto the node
+before the renderer reads it. `ButtonSchema.onClick` is declared as a runtime slot for a host-supplied
 function and the zod mirror refuses it BY NAME — JSON has no function value, and no
 handler key consumes a declarative action object. The refusal is not the whole cost:
 `onClick` is on `SDUI_DOM_PASS_THROUGH_KEYS`, so an authored string or object is
@@ -596,6 +675,21 @@ a value of `object` type."
 The handler name goes in `actionType`, which `action:button` forwards to the action
 runner as the action's type; the runner dispatches to the handler registered under it.
 Same spelling as [Record Edit Modes](./record-edit-modes.md).
+
+The rest of the action is authored on the same node. `action:button` and `action:icon`
+evaluate `visible` and `disabled` themselves (a boolean, a CEL string, or a
+`{ dialect, source }` envelope), and forward the action-definition keys to the runner:
+`params`, `confirmText`, `successMessage`, `errorMessage`, `toast`, `bodyExtra`,
+`bodyShape`, `operation` / `patch`, `onSuccess`, `objectName` and the others each
+registration's `inputs` lists, with a `description` per key. For an `api` action, write
+the request URL in `target`: `endpoint` is not published, because the console's `api`
+handler never reads it.
+
+`undoable: true` on an `operation: update` makes the success toast offer Undo, which
+writes back the prior values of the fields the update wrote. `action:button` reads those
+values off the record in scope: the record page's record, or the row the host binds
+through `data`. A button with no record in scope offers no Undo, because there is no row
+to restore; neither does one whose `recordId` names a record other than the one in scope.
 
 ## Responsive Behavior
 
@@ -656,19 +750,31 @@ the sidebar are nodes you build, so style them where you build them, as above.
 
 ### Page Padding
 
-Control page content padding:
+A `page` node has no padding switch. Its wrapper always insets the content: `p-3`, then
+`md:p-4`, then `lg:p-6`. The padding you control is a `container`'s. Its `padding` is a
+step on the container's spacing scale: one of 0 to 8, 10, 12 or 16, and `0` means none.
+Any other number is refused:
 
 ```json
 {
   "type": "page",
-  "padding": false,
   "children": {
     "type": "container",
-    "className": "p-8",
+    "maxWidth": false,
+    "padding": 8,
     "children": []
   }
 }
 ```
+
+`"maxWidth": false` keeps the container as wide as the page. Leave it out and the container
+also caps its own width at its default, `xl`. The
+[Container reference](/docs/components/layout/container) lists both scales.
+
+> **⛔ `padding` on a `page` node is refused by name** (objectui#11318). This page used to
+> teach `"padding": false` here, and it removed **nothing**: the page wrapper kept its inset,
+> because `PageRenderer` has no read for the key and `BaseSchema`'s `.passthrough()` kept the
+> value rather than refusing it. The refusal's message names the `container` and its `padding`.
 
 ## Best Practices
 
@@ -709,24 +815,28 @@ ellipsis while keeping the first crumb and the current page. See the
 
 ⛔ Not `"breadcrumbs"` on the `page` node — that key has no reader and is refused by name
 (objectui#8871), the same way `actions` is. ⛔ Nor the `page:header` block's `breadcrumb`,
-which is a **boolean** display toggle rather than a list of links.
+a **boolean** the renderer ignores rather than a list of links.
 
 ### 3. Action Buttons at the Top of the Body
 
-Place primary actions in the first `children` node, so they sit above the content:
+Place primary actions in the first `children` node, so they sit above the content. A list
+of orders is a `list` page, which draws its `title` as the heading above them:
 
 ```json
 {
   "type": "page",
+  "pageType": "list",
   "title": "Orders",
   "children": [
     {
       "type": "flex",
-      "justify": "end",
-      "gap": 2,
-      "children": [
-        { "type": "button", "label": "New Order", "variant": "default" }
-      ]
+      "properties": {
+        "justify": "end",
+        "gap": 2,
+        "children": [
+          { "type": "button", "label": "New Order", "variant": "default" }
+        ]
+      }
     }
   ]
 }
@@ -737,17 +847,23 @@ Place primary actions in the first `children` node, so they sit above the conten
 are **action ids** resolved from the object's own actions metadata, not nodes
 (see the [PageHeader reference](/docs/layout/page-header)).
 
-### 4. Max Width for Forms
+### 4. Constrained Width for Forms
 
-Use constrained width for forms and reading content:
+Give forms and reading content a narrow column: a `container` with its own `maxWidth`,
+inside the page. ⛔ Not `maxWidth` on the `page` node, which is refused by name
+(objectui#11318); the page's own cap comes from `pageType` (see [Content Width](#content-width)).
 
 ```json
 {
   "type": "page",
-  "maxWidth": "lg",
+  "pageType": "utility",
   "children": {
-    "type": "form",
-    "fields": []
+    "type": "container",
+    "maxWidth": "2xl",
+    "children": {
+      "type": "form",
+      "fields": []
+    }
   }
 }
 ```

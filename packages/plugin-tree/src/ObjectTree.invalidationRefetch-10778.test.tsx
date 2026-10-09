@@ -21,8 +21,11 @@
  *  - `objectName` on the node, folded to the `object` provider;
  *  - `data: { provider: 'object', object }` with no `objectName` (the provider
  *    config's own `object` is the one `find` names);
- *  - inline rows (a `data` array, or `{ provider: 'value', items }`) name no
- *    object and are not a query of the adapter: nothing to subscribe to;
+ *  - inline rows (`staticData`, or `{ provider: 'value', items }` under
+ *    `data`) name no object and are not a query of the adapter: nothing to
+ *    subscribe to (a bare array under `data` is not an inline spelling any
+ *    more — objectui#8348 judges `data` against the block's published row,
+ *    the `ViewData` union — so this case uses the row's `staticData` rung);
  *  - rows a HOST hands down as the `data` prop (the `list-view` seat) do not
  *    exempt it: the `object` arm runs its own full query ahead of them, so
  *    its freshness must not rest on the host's rows moving (a host that hands
@@ -181,7 +184,7 @@ describe('object-tree re-reads on the data-invalidation bus (objectui#10778)', (
       { id: '1', name: 'Inline root', parent_id: null },
       { id: '2', name: 'Inline child', parent_id: '1' },
     ];
-    renderBlock({ ...BLOCK, data: rows }, ds);
+    renderBlock({ ...BLOCK, staticData: rows }, ds);
     renderBlock({ type: 'object-tree', parentField: 'parent_id', labelField: 'name', data: { provider: 'value', items: rows } }, ds);
     await waitFor(() => expect(screen.getAllByText('Inline root')).toHaveLength(2));
     await settle();

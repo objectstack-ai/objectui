@@ -82,7 +82,9 @@ const OFFERED: readonly string[] = PARAM_TYPE_OPTS.map((o) => o.value);
 /**
  * A control the preview's dialog mock can draw, as a stable spelling.
  * `input:*` is the DOM `type` of the rendered `<input>`; `record-picker` is the
- * disabled combobox the preview mocks a `LookupField` with.
+ * disabled combobox the preview mocks a `LookupField` with, the one that pops
+ * a dialog; `select` is the shared `Select`'s trigger, the combobox that pops
+ * none, which `SelectField` draws too (objectui#11865).
  */
 type MockControl =
   | 'input:text'
@@ -201,14 +203,14 @@ function renderPreviewWith(param: ActionParam): HTMLElement {
  */
 function drawnControl(container: HTMLElement): MockControl {
   const controls = Array.from(
-    container.querySelectorAll('input, textarea, select, button[aria-haspopup="dialog"]'),
+    container.querySelectorAll('input, textarea, select, button[role="combobox"]'),
   );
   expect(controls.map((el) => el.outerHTML), 'exactly one control per param mock').toHaveLength(1);
   const el = controls[0]!;
   const tag = el.tagName.toLowerCase();
   if (tag === 'select') return 'select';
   if (tag === 'textarea') return 'textarea';
-  if (tag === 'button') return 'record-picker';
+  if (tag === 'button') return el.getAttribute('aria-haspopup') === 'dialog' ? 'record-picker' : 'select';
   return `input:${(el as HTMLInputElement).type}` as MockControl;
 }
 

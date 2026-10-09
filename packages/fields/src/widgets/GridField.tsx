@@ -25,7 +25,8 @@ import { toDateInputValue, toDateTimeInputValue, fromDateTimeInputValue, isImpos
 import { useFieldTranslation } from './useFieldTranslation.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
-import { renderableFractionScale } from './percent-scale.js';
+import type { InlineGridColumn } from '@objectstack/spec/data';
+import { GRID_FIELD_RETIRED_KEYS, type GridFieldMetadata, type GridFieldRetiredKey } from '@object-ui/types';
 
 /**
  * GridField / LineItemsField — editable child-grid ("line items") widget.
@@ -73,116 +74,67 @@ import { renderableFractionScale } from './percent-scale.js';
  * column. This is the renderer for the `field:grid` widget and the cell
  * engine behind the master-detail subform (see ADR-0001).
  *
- * Column config (a subset of `GridColumnDefinition`):
- *   { name, label?, type?, options?, width?, required?, prefix?, step? }
- *   type ∈ 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
- *        | 'select' | 'lookup' | 'file'
+ * Column config: `@objectstack/spec`'s inline grid column, by reference —
+ * see {@link GridColumn}.
  *
- * Field-level config (from `GridFieldMetadata`):
- *   columns, min_rows, max_rows, allow_add, allow_delete, total_field
+ * Field-level config: the keys `GridFieldMetadata` (`@object-ui/types`)
+ * declares, each read under that one spelling (objectui#11070 round 8), and
+ * no other key: `sortField`, the last key read before any face declared it,
+ * is declared there too (objectui#11070 round 9). objectui#11610 renamed all
+ * eight from snake_case to camelCase; a field still carrying a snake_case
+ * spelling is refused by name instead of drawn (`RetiredGridFieldKeys`).
  */
 
-export interface GridColumn {
-  /**
-   * The column's field name — the key it reads and writes on each row object.
-   *
-   * Spelled `name`, exactly as the declared `GridColumnDefinition`
-   * (`@object-ui/types`) and the grid docs page say (objectui#3951). This
-   * widget used to read a divergent `field` key, so metadata authored against
-   * the published type rendered every cell empty plus a React key warning.
-   * There is deliberately no tolerant alias bridging the retired spelling to
-   * this one: a single spelling, enforced at the producer — AGENTS.md #0.1.
-   *
-   * (Wording note: do not restate that rule as an alternation expression over
-   * the two key names. `column-identity.ratchet.test.ts` (objectui#3104) scans
-   * these files line by line and cannot tell prose from code, so spelling the
-   * shape out here registers as a new dual read and fails the gate.)
-   */
-  name: string;
-  label?: string;
-  /**
-   * Cell control + read/write adapter for the column.
-   *
-   * `date` / `datetime` / `time` are three DISTINCT controls, not one
-   * (objectui#3569). Collapsing `datetime` onto the `date` control did not
-   * merely under-render it — `<input type="date">` hands back a bare
-   * `YYYY-MM-DD` on change, so touching the day of a `datetime` cell silently
-   * DELETED its time component from the record.
-   */
-  type?: 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time' | 'select' | 'lookup' | 'file';
-  options?: Array<{ label: string; value: string }>;
-  width?: number;
-  required?: boolean;
-  /**
-   * Symbol shown in a `currency` cell IN PLACE OF the resolved currency's own
-   * symbol. When absent, the cell shows the symbol of the currency it
-   * resolves (objectui#10355) — there is no default symbol: this used to fall
-   * back to a literal `¥` whatever the column's currency was.
-   */
-  prefix?: string;
-  step?: number;
-  /** For `type: 'lookup'` — the referenced object and label/id fields. */
-  reference?: string;
-  displayField?: string;
-  idField?: string;
-  /** Multi-value column: multi-record lookup, or multi-file upload cell. */
-  multiple?: boolean;
-  /** For `type: 'file'` — accepted MIME types / extensions for the picker
-   *  (e.g. `['image/*', '.pdf']`). Omit to accept anything. */
-  accept?: string[];
-  /**
-   * Hidden from the grid by default but revealable via the column chooser.
-   * Set by `deriveColumns` for fields beyond the default-visible budget — the
-   * data is NOT dropped (it's just collapsed, like Odoo's `optional` columns /
-   * Salesforce column personalization), so business-critical fields stay
-   * reachable. Required columns are never default-hidden.
-   */
-  defaultHidden?: boolean;
-  /**
-   * A computed (read-only) column whose value is derived live from sibling
-   * cells via {@link expr} — e.g. an invoice line's `amount = quantity *
-   * unit_price`. The grid renders it read-only, recomputes it as the row's
-   * inputs change, and writes the result back into the row so it persists
-   * (and any running total reflects it). The classic spreadsheet pattern used
-   * by QuickBooks / Stripe / NetSuite line grids — nobody types the amount.
-   */
-  computed?: boolean;
-  /** Arithmetic expression for a {@link computed} column. Supports `+ - * / %`,
-   *  parentheses, numeric literals and field refs (`record.qty` or bare `qty`). */
-  expr?: string;
-  /**
-   * Decimal places to round a computed numeric/currency result to — the
-   * spec's own words for `InlineGridColumnSchema.scale`, which declares this
-   * key on an inline grid column of either type.
-   *
-   * On a `currency` column an authored `scale` still decides the width. When
-   * it is absent, the width is the resolved currency's ISO 4217 minor unit,
-   * never the literal `2` this used to default to (objectui#10355); see
-   * `currencyWidth`. Ruling B on objectstack-ai/objectstack#19629 retires
-   * `FieldSchema.scale` from the currency FIELD type — a different schema —
-   * so a column derived from a currency field stops carrying one once the
-   * spec refuses it there.
-   */
-  scale?: number;
-  /** For `type: 'lookup'` — when a record is picked, copy its fields into any
-   *  sibling columns of the same name (e.g. a product's unit_price/description).
-   *  On by default for lookup columns; set `false` to disable the auto-fill. */
-  autofill?: boolean;
-  /**
-   * CEL predicate: when TRUE for this row, the cell is **read-only** (B2 field
-   * rules, generalized to grid cells). Evaluated per row against the row as
-   * `record` plus the header as `parent` (so a line locks when
-   * `parent.status == 'paid'` *or* on an intra-row condition like
-   * `record.kind == 'auto'`). Client-side UX; fails open (stays editable).
-   */
-  readonlyWhen?: string | { dialect?: string; source: string };
-  /**
-   * CEL predicate: when TRUE for this row, the cell is **required** (flagged
-   * inline-invalid while empty). Same `record` + `parent` scope as
-   * {@link readonlyWhen}.
-   */
-  requiredWhen?: string | { dialect?: string; source: string };
-}
+/**
+ * One grid column — `@objectstack/spec`'s inline grid column
+ * (`InlineGridColumn`, the element of `FieldSchema.inlineColumns`), BY
+ * REFERENCE (objectui#11070). The spec declares that shape as the strict
+ * mirror of this widget's column, so the widget's type IS the spec's: one
+ * declaration, the same one `GridFieldMetadata.columns` and
+ * `FormField.columns` (`@object-ui/types`) carry. This widget reads each
+ * column by exactly the spec's keys — every key below is one the spec
+ * declares, and there is no second spelling of any of them.
+ *
+ * How the widget reads the keys (the spec's own descriptions say what each
+ * MEANS; these are the renderer's notes):
+ *
+ *  - `name` — the key a column reads and writes on each row object. There is
+ *    deliberately no tolerant alias bridging the spelling objectui#3951
+ *    retired to this one: a single spelling, enforced at the producer —
+ *    AGENTS.md #0.1 (the spec refuses the retired spelling by name).
+ *    (Wording note: do not restate that rule as an alternation expression over
+ *    the two key names. `column-identity.ratchet.test.ts` (objectui#3104) scans
+ *    these files line by line and cannot tell prose from code, so spelling the
+ *    shape out here registers as a new dual read and fails the gate.)
+ *  - `type` — the cell control and its read/write adapter. `date` /
+ *    `datetime` / `time` are three DISTINCT controls, not one
+ *    (objectui#3569): `<input type="date">` hands back a bare `YYYY-MM-DD` on
+ *    change, so collapsing `datetime` onto it silently DELETED the time
+ *    component from the record.
+ *  - `prefix` — a symbol shown in a `currency` cell IN PLACE OF the resolved
+ *    currency's own symbol. When absent, the cell shows the symbol of the
+ *    currency it resolves (objectui#10355); there is no default symbol.
+ *  - `defaultHidden` — collapsed into the column chooser, not dropped
+ *    (`deriveColumns` sets it beyond the default-visible budget). Required
+ *    columns are never default-hidden.
+ *  - `computed` + `expr` — a read-only column recomputed live from sibling
+ *    cells by this file's own safe arithmetic evaluator (`+ - * / %`,
+ *    parentheses, numeric literals, `record.qty` or bare `qty`), and written
+ *    back into the row so it persists and any running total reflects it.
+ *  - `scale` — decimal places for a computed `number` result. ⛔ Not read on
+ *    a `currency` column (objectui#10783): the resolved currency's ISO 4217
+ *    minor unit decides both the stored and the shown width
+ *    (`currencyWidth`), and the spec refuses `scale` on a column declaring
+ *    `type: 'currency'`. A column that takes `currency` from its child field
+ *    at render time is reported by `hydrateColumns` in
+ *    `@object-ui/plugin-form` instead of being read in silence.
+ *  - `autofill` — for a `lookup` column: picking a record copies its fields
+ *    into sibling columns of the same name. On unless set `false`.
+ *  - `readonlyWhen` / `requiredWhen` — CEL predicates evaluated per row
+ *    against the row as `record` plus the header as `parent`. Client-side UX;
+ *    a predicate that faults fails open.
+ */
+export type GridColumn = InlineGridColumn;
 
 type Row = Record<string, any>;
 
@@ -340,9 +292,9 @@ export function lookupAutofillPatch(columns: GridColumn[], col: GridColumn, reco
  * `defaultCurrency` → the tenant default) — ⛔ never a second copy of it.
  *
  * The field-level legs are handed nothing, deliberately: a grid column
- * declares none of those keys — not `GridColumn`, not `GridColumnDefinition`
- * in `@object-ui/types`, and not the spec's strict `InlineGridColumnSchema`,
- * which refuses them — and the column derivation in `@object-ui/plugin-form`
+ * declares none of those keys — not `GridColumn`, which is the spec's strict
+ * `InlineGridColumnSchema` element by reference, and that schema refuses
+ * them — and the column derivation in `@object-ui/plugin-form`
  * copies none of them from the child field. Reading them off the column would
  * add a renderer read that no authored metadata can reach. So the precedence
  * lands on the tenant default, and `undefined` when none is configured: the
@@ -356,39 +308,42 @@ function columnCurrency(tenantCurrency: string | undefined): string | undefined 
  * The fraction width of a `currency` column (objectui#10355) — the ONE
  * decision behind both its stored computed value and its display.
  *
- * 1. The column's authored `scale`, when present. `InlineGridColumnSchema`
- *    declares it for a computed "numeric/currency result", and the installed
- *    spec accepts it on a currency column, so it is honoured here: a declared
- *    key is implemented or retired in the spec, never narrowed away by its
- *    consumer.
- * 2. Otherwise the resolved currency's ISO 4217 minor unit (0 for JPY, 2 for
- *    USD, 3 for KWD), from `currencyFractionDigits`, the helper every currency
- *    face already uses. This replaces the old default of a literal `2`, under
- *    which a yen amount was stored with cents it does not have and a dinar
- *    amount lost its third digit (KWD 3 × 1.2345 stored `3.7`) — a currency's
- *    decimal places are the currency's (ruling 乙 on
- *    objectstack-ai/objectstack#19910).
- * 3. Otherwise `undefined`: with no minor unit to round to, nothing is
+ * 1. The resolved currency's ISO 4217 minor unit (0 for JPY, 2 for USD, 3 for
+ *    KWD), from `currencyFractionDigits`, the helper every currency face
+ *    already uses. It replaced the old default of a literal `2`, under which a
+ *    yen amount was stored with cents it does not have and a dinar amount lost
+ *    its third digit (KWD 3 × 1.2345 stored `3.7`): a currency's decimal places
+ *    are the currency's (ruling 乙 on objectstack-ai/objectstack#19910).
+ * 2. Otherwise `undefined`: with no minor unit to round to, nothing is
  *    invented.
+ *
+ * ⛔ The column's own `scale` is not an input (objectui#10783). This read it
+ * first, so an authored `scale` beat the minor unit. `@objectstack/spec` 17.5.0
+ * refuses that key on a column declaring `type: 'currency'`, with the remedy
+ * that the minor unit decides, so a spec-valid typed column never carries one.
+ * A column that declares no `type` and hydrates to `currency` still can; its
+ * `scale` is reported where the child field is known (`hydrateColumns` in
+ * `@object-ui/plugin-form`), not read here.
  */
-function currencyWidth(c: GridColumn, currency: string | undefined): number | undefined {
-  return c.scale ?? (currency ? currencyFractionDigits(currency) : undefined);
+function currencyWidth(currency: string | undefined): number | undefined {
+  return currency ? currencyFractionDigits(currency) : undefined;
 }
 
 /**
  * The fraction width a computed cell's STORED value is rounded to.
  *
- * - `currency` — {@link currencyWidth}; with neither an authored `scale` nor a
- *   resolved currency the value is stored as computed.
+ * - `currency` — {@link currencyWidth}; with no resolved currency the value is
+ *   stored as computed. The column's `scale` is not read (objectui#10783).
  * - every other type — the column's declared `scale`, unrounded when absent
  *   (unchanged).
  *
- * Either way the caller clamps the width to the engine's `toFixed` ceiling
- * (`renderableFractionScale`, objectui#10071).
+ * No clamp to the engine's `toFixed` ceiling: the objectui#10071 one retired at
+ * the objectui#9808 SUNSET (objectui#11073), since `@objectstack/spec` 17.5.0
+ * refuses a `scale` above 100 at the declaration.
  */
 function storedFractionScale(c: GridColumn, tenantCurrency: string | undefined): number | undefined {
   if (c.type !== 'currency') return c.scale;
-  return currencyWidth(c, columnCurrency(tenantCurrency));
+  return currencyWidth(columnCurrency(tenantCurrency));
 }
 
 /**
@@ -404,11 +359,7 @@ export function computeRow(columns: GridColumn[], row: Row, tenantCurrency?: str
     const v = evalArith(c.expr!, next);
     if (v === null) { next[c.name] = null; continue; }
     const scale = storedFractionScale(c, tenantCurrency);
-    // A width above the engine's `toFixed` ceiling is clamped and reported,
-    // never thrown out of the edit (objectui#10071, the objectui#9808 ruling).
-    next[c.name] = scale != null
-      ? Number(v.toFixed(renderableFractionScale(scale, 'grid computed column', 'objectui#10071')))
-      : v;
+    next[c.name] = scale != null ? Number(v.toFixed(scale)) : v;
   }
   return next;
 }
@@ -491,7 +442,7 @@ function temporalText(type: string | undefined, value: any, locale: string): str
   // ⛔ The style is a LITERAL, not an authored read, and that departs from the
   // call shape the ruling wrote (`field.format ?? 'compact'`). It has to:
   // `temporalText` is handed a column `type`, and the `GridColumn` its caller
-  // holds — like the published `GridColumnDefinition` it mirrors — declares no
+  // holds — the spec's inline grid column, by reference — declares no
   // `format` key at all, so there is nothing here to reuse the way
   // `DateTimeCellRenderer` reuses `DateTimeFieldMetadata.format`. Spelling the
   // read anyway would mean DECLARING that key, which the same ruling forbids
@@ -522,20 +473,17 @@ function currencyAdornment(c: GridColumn, currency: string | undefined, locale: 
  * Display text for a finite amount in a `currency` cell (objectui#10355).
  *
  * The width is {@link currencyWidth} — the same decision that rounds the
- * stored value — so an authored `scale` shows that many places, and without
- * one a yen amount shows no decimals and a dinar amount three. With neither
- * there is no width to take, and the amount keeps the plain locale format
- * this branch always had. An authored width above the engine's ceiling is
- * clamped and reported like the stored one (objectui#10071), since `Intl`
- * refuses it the same way `toFixed` does.
+ * stored value — so a yen amount shows no decimals and a dinar amount three,
+ * whatever `scale` the column carries (objectui#10783). With no resolved
+ * currency there is no width to take, and the amount keeps the plain locale
+ * format this branch always had.
  *
  * With no authored `prefix`, the amount is `Intl`'s own currency format, so
  * the symbol sits where the locale puts it (`¥3,704`, `3.704 ¥` in de-DE). An
  * authored `prefix` replaces the symbol, not the width.
  */
 function currencyText(c: GridColumn, n: number, currency: string | undefined, locale: string): string {
-  const declared = currencyWidth(c, currency);
-  const digits = declared === undefined ? undefined : renderableFractionScale(declared, 'grid currency cell', 'objectui#10071');
+  const digits = currencyWidth(currency);
   const width = digits === undefined ? {} : { minimumFractionDigits: digits, maximumFractionDigits: digits };
   if (c.prefix || !currency) {
     return `${currencyAdornment(c, currency, locale)}${formatDisplayNumber(n, { locale, ...width })}`;
@@ -605,19 +553,7 @@ export function sumColumn(rows: Row[], field: string): number {
   }, 0);
 }
 
-export function GridField({
-  value,
-  onChange,
-  field,
-  readonly,
-  disabled,
-  className,
-  error,
-  onRowExpand,
-  displayMode,
-  onAdd,
-  ...props
-}: FieldWidgetComponentProps<Row[]> & {
+type GridFieldProps = FieldWidgetComponentProps<Row[]> & {
   /** When provided, each row shows an "expand" button that opens the row in a
    *  full form (the host — e.g. MasterDetailForm — renders the drawer/modal and
    *  writes the edited values back). Lets a "fat" child be edited in a real form
@@ -634,8 +570,103 @@ export function GridField({
    *  `readonlyWhen` / `requiredWhen` CEL predicate — so a line cell can react to
    *  the header (`parent.status == 'paid'`). Supplied by MasterDetailForm. */
   contextRecord?: Record<string, unknown>;
-}) {
-  const cfg = (field || {}) as any;
+};
+
+/**
+ * The retired snake_case field-level keys a grid field's metadata carries, in
+ * {@link GRID_FIELD_RETIRED_KEYS} order (objectui#11610). A key holding
+ * `undefined` is not counted: no JSON document can carry one, and the TS and
+ * zod faces accept it too, so all three faces draw the line in one place.
+ */
+function retiredGridFieldKeysOf(field: unknown): GridFieldRetiredKey[] {
+  if (field == null || typeof field !== 'object') return [];
+  const carrier = field as Record<string, unknown>;
+  return (Object.keys(GRID_FIELD_RETIRED_KEYS) as GridFieldRetiredKey[]).filter(
+    (key) => carrier[key] !== undefined,
+  );
+}
+
+/**
+ * The prescription a grid field carrying retired keys answers with: names the
+ * field when it has a name, then each retired key beside the camelCase key to
+ * write. One sentence, read by the alert and by the console line.
+ */
+function retiredGridFieldKeysMessage(fieldName: unknown, keys: readonly GridFieldRetiredKey[]): string {
+  const which = typeof fieldName === 'string' && fieldName ? `Grid field \`${fieldName}\`` : 'This grid field';
+  const renames = keys.map((key) => `\`${key}\` → \`${GRID_FIELD_RETIRED_KEYS[key]}\``).join(', ');
+  return (
+    `[object-ui] ${which} carries retired snake_case key(s): ${renames}. ` +
+    "The grid's field-level keys are camelCase since objectui#11610 and it reads no snake_case spelling, " +
+    'so the grid is not drawn until each key is renamed; the values stay the same.'
+  );
+}
+
+/**
+ * Messages already logged this session, so a refused grid inside a rendered
+ * list logs once, not once per mount (the `reportRetiredFieldType` discipline).
+ */
+const reportedRetiredGridFieldKeys = new Set<string>();
+
+/**
+ * The widget-path face of the objectui#11610 retirement: what a grid field
+ * carrying a retired snake_case key renders INSTEAD of the grid. The shape is
+ * `RetiredFieldTombstone`'s (`../index`), this package's settled answer to an
+ * entry the renderer cannot honour: an inline alert naming the keys and the
+ * replacements, plus a `console.error` with the same text. Nothing is thrown,
+ * so the rest of the form still draws, and nothing is silently dropped: a grid
+ * drawn without the author's `allow_add: false` would look like it worked.
+ * The rows are untouched, since the alert never calls `onChange`.
+ */
+function RetiredGridFieldKeys({ message, keys }: { message: string; keys: readonly GridFieldRetiredKey[] }) {
+  React.useEffect(() => {
+    if (reportedRetiredGridFieldKeys.has(message)) return;
+    reportedRetiredGridFieldKeys.add(message);
+    console.error(message);
+  }, [message]);
+  return (
+    <div
+      role="alert"
+      data-testid="grid-field-retired-keys"
+      data-retired-keys={keys.join(' ')}
+      className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+    >
+      {message}
+    </div>
+  );
+}
+
+/**
+ * The `grid` field widget. A field whose metadata carries one of the retired
+ * snake_case keys is refused by name ({@link RetiredGridFieldKeys}); any other
+ * field draws the grid.
+ */
+export function GridField(props: GridFieldProps) {
+  const retired = retiredGridFieldKeysOf(props.field);
+  if (retired.length > 0) {
+    const message = retiredGridFieldKeysMessage((props.field as { name?: unknown } | undefined)?.name, retired);
+    return <RetiredGridFieldKeys message={message} keys={retired} />;
+  }
+  return <GridFieldBody {...props} />;
+}
+
+function GridFieldBody({
+  value,
+  onChange,
+  field,
+  readonly,
+  disabled,
+  className,
+  error,
+  onRowExpand,
+  displayMode,
+  onAdd,
+  ...props
+}: GridFieldProps) {
+  // The field-level keys, read as `GridFieldMetadata` declares them and as
+  // nothing else, so a read of a key the type does not declare is a compile
+  // error here rather than a second, unpublished contract (objectui#11070
+  // rounds 8 and 9).
+  const cfg = (field || {}) as Partial<GridFieldMetadata>;
   const allColumns: GridColumn[] = cfg.columns || [];
   const rows: Row[] = Array.isArray(value) ? value : [];
   const contextRecord = props.contextRecord;
@@ -645,8 +676,28 @@ export function GridField({
   const displayLocale = useDisplayLocale();
   // The editable `date` / `datetime` cell's notice for a stored nonexistent
   // day (objectui#10474, objectui#10567) — the sentences `DateField` and
-  // `DateTimeField` show for it too.
+  // `DateTimeField` show for it too. Since objectui#11131 also the grid's own
+  // default chrome: the Add button and the two empty states, English literals
+  // until then. Each `defaultValue` is the `en` pack's value (held to it by
+  // `pnpm check:i18n-keys`), which is what a provider-less host renders.
+  // Since objectui#11145 the rest of the chrome too: the column chooser, the
+  // footer total, the computed cell's tooltip and the row actions.
   const { t } = useFieldTranslation();
+  // One key per row action, read by both its `aria-label` and its `title`
+  // (objectui#11145). The two used to disagree for two of them (`Open row` /
+  // `Open full form`, `Duplicate row` / `Duplicate line`); the accessible
+  // name is the text kept.
+  const dragLabel = t('view.dragToReorder', { defaultValue: 'Drag to reorder' });
+  const openRowLabel = t('fields.grid.openRow', { defaultValue: 'Open row' });
+  const duplicateRowLabel = t('fields.grid.duplicateRow', { defaultValue: 'Duplicate row' });
+  const removeRowLabel = t('fields.grid.removeRow', { defaultValue: 'Remove row' });
+  const totalLabel = t('form.masterDetail.total', { defaultValue: 'Total' });
+  // A required, empty cell's text (objectui#11160): the plain cell's `title`,
+  // and the `error` the lookup and file cells take. One expression for all
+  // three, reading the pack's `validation.required` with the column's label
+  // in `{{field}}`: the sentence the form renderer shows for a required field.
+  const requiredCellText = (c: GridColumn) =>
+    t('validation.required', { field: c.label || c.name, defaultValue: '{{field}} is required' });
   const cellIdBase = React.useId();
   // The tenant default currency (ADR-0053) — the resolver's last step, and in
   // practice the currency of every `currency` column (objectui#10355, see
@@ -695,23 +746,41 @@ export function GridField({
     });
   }, []);
 
-  const allowAdd = cfg.allow_add !== false && !readonly && !disabled;
-  const allowDelete = cfg.allow_delete !== false && !readonly && !disabled;
-  const allowDuplicate = cfg.allow_duplicate !== false && allowAdd;
+  const allowAdd = cfg.allowAdd !== false && !readonly && !disabled;
+  const allowDelete = cfg.allowDelete !== false && !readonly && !disabled;
+  // A duplicate IS an add, so it is offered exactly when adding is. There is
+  // no key of its own: `allow_duplicate` was read here while no face declared
+  // it and round 8's census of both repositories found no producer of it, so
+  // it was retired under ADR-0049 (objectui#11070 round 8), keeping the
+  // behaviour its default gave.
+  const allowDuplicate = allowAdd;
   // Per-row "expand to full form" (mainstream hybrid: quick grid + rich form).
   const showExpand = typeof onRowExpand === 'function' && !readonly;
-  // Enterprise line grids (NetSuite/SAP/Salesforce) show a line-number column.
-  const showLineNumbers = cfg.show_line_numbers !== false;
-  const minRows: number = cfg.min_rows ?? 0;
-  const maxRows: number | undefined = cfg.max_rows;
-  const totalField: string | undefined =
-    cfg.total_field || cfg.amount_field || cfg.amountField;
+  // Enterprise line grids (NetSuite/SAP/Salesforce) show a line-number column,
+  // always: the `show_line_numbers` switch was retired with `allow_duplicate`,
+  // for the same reason (objectui#11070 round 8).
+  const minRows: number = cfg.minRows ?? 0;
+  const maxRows: number | undefined = cfg.maxRows;
+  // The CHILD column summed into the footer: the spec's `amountField` (an
+  // `inlineAmountField` / `subforms[].amountField`), which both adapters in
+  // `@object-ui/plugin-form` write here. ⚠️ Same name as the spec's
+  // `totalField` on those surfaces, which is the PARENT field that receives
+  // the rollup on save; the grid's key names the child column. One spelling:
+  // the `amount_field` / `amountField` reads beside it are retired, round 8's
+  // census having found no producer of either (objectui#11070 round 8).
+  const totalField: string | undefined = cfg.totalField;
   // When set, the row's order is persisted by stamping `row[sortField] = index`
   // on every change — so drag-reorder survives a reload (the app adds a numeric
   // position field and lists sort by it). Without it, reorder is order-of-entry.
-  const sortField: string | undefined = cfg.sort_field;
-  // Drag-to-reorder is on for editable grids (off in read-only / list mode).
-  const allowReorder = cfg.reorderable !== false && !readonly && !disabled;
+  // Declared on `GridFieldMetadata`; its producer is `deriveDetail`
+  // (`@object-ui/plugin-form`, through `MasterDetailForm`), which picks the
+  // child object's `position` / `sort_order` / … field (objectui#11070 round 9).
+  const sortField: string | undefined = cfg.sortField;
+  // Drag-to-reorder is on for editable grids (off in read-only / list mode),
+  // and `allowReorder: false` turns it off: the key `GridFieldMetadata`
+  // declares. The undeclared `reorderable` this used to read is retired
+  // (objectui#11070 round 8).
+  const allowReorder = cfg.allowReorder !== false && !readonly && !disabled;
 
   const emit = useCallback(
     (next: Row[]) => {
@@ -866,7 +935,7 @@ export function GridField({
           data-testid="line-items-columns"
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
-          Columns
+          {t('table.columns', { defaultValue: 'Columns' })}
           {extraShown.size > 0 && (
             <span className="rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">
               +{extraShown.size}
@@ -875,7 +944,9 @@ export function GridField({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-56 p-2">
-        <div className="px-1 pb-1.5 text-xs font-medium text-muted-foreground">Optional columns</div>
+        <div className="px-1 pb-1.5 text-xs font-medium text-muted-foreground">
+          {t('fields.grid.optionalColumns', { defaultValue: 'Optional columns' })}
+        </div>
         <div className="max-h-64 space-y-0.5 overflow-y-auto">
           {optionalColumns.map((c) => {
             const id = `col-toggle-${c.name}`;
@@ -915,9 +986,7 @@ export function GridField({
         <table className="w-full text-sm">
           <thead className="bg-muted border-b border-border">
             <tr>
-              {showLineNumbers && (
-                <th className="w-10 px-2 py-2 text-right text-xs font-medium text-muted-foreground">#</th>
-              )}
+              <th className="w-10 px-2 py-2 text-right text-xs font-medium text-muted-foreground">#</th>
               {columns.map((c) => (
                 <th
                   key={c.name}
@@ -936,18 +1005,16 @@ export function GridField({
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={Math.max(columns.length + (showLineNumbers ? 1 : 0), 1)}
+                  colSpan={columns.length + 1}
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
-                  No items
+                  {t('fields.grid.noItems', { defaultValue: 'No items' })}
                 </td>
               </tr>
             ) : (
               rows.map((row, rowIdx) => (
                 <tr key={rowIdx}>
-                  {showLineNumbers && (
-                    <td className="px-2 py-2 text-right text-muted-foreground tabular-nums">{rowIdx + 1}</td>
-                  )}
+                  <td className="px-2 py-2 text-right text-muted-foreground tabular-nums">{rowIdx + 1}</td>
                   {columns.map((c) => (
                     <td
                       key={c.name}
@@ -982,10 +1049,10 @@ export function GridField({
             <tfoot className="border-t border-border bg-muted/40">
               <tr>
                 <td
-                  colSpan={Math.max((showLineNumbers ? 1 : 0) + totalColIndex, 1)}
+                  colSpan={1 + totalColIndex}
                   className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
                 >
-                  Total
+                  {totalLabel}
                 </td>
                 <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums">
                   {total.toLocaleString(displayLocale)}
@@ -1068,7 +1135,7 @@ export function GridField({
       return (
         <span
           className={cn('block px-2 text-sm tabular-nums', isNumeric(c.type) ? 'text-right' : 'text-left', (val == null || val === '') ? 'text-muted-foreground' : 'text-foreground')}
-          title="Computed"
+          title={t('fields.grid.computed', { defaultValue: 'Computed' })}
           data-computed={c.name}
         >
           {displayText(c, val, displayLocale, currency)}
@@ -1086,7 +1153,7 @@ export function GridField({
           disabled={locked}
           // The published `error` slot, not a hand-rolled attribute: LookupField
           // already puts `aria-invalid` on its own focusable trigger from it.
-          error={invalid ? `${c.label || c.name} is required` : undefined}
+          error={invalid ? requiredCellText(c) : undefined}
         />
       );
     }
@@ -1106,7 +1173,7 @@ export function GridField({
           // wiring as the lookup branch above: FileCell puts `aria-invalid` on
           // its own focusable picker button from it (objectui#5431, closing
           // the one cell type #3318 left out).
-          error={invalid ? `${c.label || c.name} is required` : undefined}
+          error={invalid ? requiredCellText(c) : undefined}
         />
       );
     }
@@ -1227,9 +1294,7 @@ export function GridField({
         <table ref={gridRef} className="w-full text-sm">
           <thead className="bg-muted/60 border-b border-border">
             <tr>
-              {showLineNumbers && (
-                <th className={cn('px-2 py-2 text-right text-xs font-medium text-muted-foreground', allowReorder ? 'w-14' : 'w-10')}>#</th>
-              )}
+              <th className={cn('px-2 py-2 text-right text-xs font-medium text-muted-foreground', allowReorder ? 'w-14' : 'w-10')}>#</th>
               {columns.map((c) => (
                 <th
                   key={c.name}
@@ -1250,10 +1315,13 @@ export function GridField({
             {isList && rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length + (hasRowActions ? 1 : 0) + (showLineNumbers ? 1 : 0)}
+                  colSpan={columns.length + (hasRowActions ? 1 : 0) + 1}
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
-                  No items yet — click “{cfg.add_label || 'Add'}” to begin.
+                  {t('fields.grid.noItemsAddHint', {
+                    label: cfg.addLabel || t('detail.add', { defaultValue: 'Add' }),
+                    defaultValue: 'No items yet — click “{{label}}” to begin.',
+                  })}
                 </td>
               </tr>
             ) : (
@@ -1274,26 +1342,24 @@ export function GridField({
                         }
                       : {})}
                   >
-                    {showLineNumbers && (
-                      <td className="px-1 py-1 text-right align-middle text-xs text-muted-foreground tabular-nums">
-                        <span className="inline-flex items-center justify-end gap-0.5">
-                          {reorderable && (
-                            <span
-                              draggable
-                              onDragStart={() => { dragIndex.current = rowIdx; }}
-                              onDragEnd={() => { dragIndex.current = null; }}
-                              className="cursor-grab text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100"
-                              title="Drag to reorder"
-                              aria-label="Drag to reorder"
-                              data-testid={`line-items-drag-${rowIdx}`}
-                            >
-                              <GripVertical className="h-3.5 w-3.5" />
-                            </span>
-                          )}
-                          <span className={cn(isGhost && 'opacity-30')}>{rowIdx + 1}</span>
-                        </span>
-                      </td>
-                    )}
+                    <td className="px-1 py-1 text-right align-middle text-xs text-muted-foreground tabular-nums">
+                      <span className="inline-flex items-center justify-end gap-0.5">
+                        {reorderable && (
+                          <span
+                            draggable
+                            onDragStart={() => { dragIndex.current = rowIdx; }}
+                            onDragEnd={() => { dragIndex.current = null; }}
+                            className="cursor-grab text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100"
+                            title={dragLabel}
+                            aria-label={dragLabel}
+                            data-testid={`line-items-drag-${rowIdx}`}
+                          >
+                            <GripVertical className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                        <span className={cn(isGhost && 'opacity-30')}>{rowIdx + 1}</span>
+                      </span>
+                    </td>
                     {columns.map((c, colIdx) => {
                       // Inline validation: a required, non-computed cell that's
                       // empty flags red in place. The "required" verdict honors
@@ -1320,7 +1386,7 @@ export function GridField({
                           // exists to forbid (objectui#3318 / #5223). The td
                           // keeps the VISUAL ring and the test hook; the state
                           // travels with `invalid` into `renderCellInput`.
-                          title={invalid ? `${c.label || c.name} is required` : undefined}
+                          title={invalid ? requiredCellText(c) : undefined}
                           data-testid={invalid ? `line-items-invalid-${rowIdx}-${c.name}` : undefined}
                           className={cn(
                             'border-r border-border/40 px-1 py-0.5 align-middle last:border-r-0',
@@ -1341,8 +1407,8 @@ export function GridField({
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                              aria-label="Open row"
-                              title="Open full form"
+                              aria-label={openRowLabel}
+                              title={openRowLabel}
                               data-testid={`line-items-expand-${rowIdx}`}
                               onClick={() => onRowExpand!(rowIdx)}
                             >
@@ -1359,8 +1425,8 @@ export function GridField({
                               // which have no hover. The action column width is reserved
                               // regardless, so this adds no layout shift.
                               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                              aria-label="Duplicate row"
-                              title="Duplicate line"
+                              aria-label={duplicateRowLabel}
+                              title={duplicateRowLabel}
                               data-testid={`line-items-duplicate-${rowIdx}`}
                               onClick={() => duplicateRow(rowIdx)}
                               disabled={disabled || (maxRows != null && rows.length >= maxRows)}
@@ -1375,7 +1441,7 @@ export function GridField({
                               size="icon"
                               // Always visible — see the duplicate button above.
                               className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              aria-label="Remove row"
+                              aria-label={removeRowLabel}
                               data-testid={`line-items-remove-${rowIdx}`}
                               onClick={() => removeRow(rowIdx)}
                               disabled={disabled || rows.length <= minRows}
@@ -1395,10 +1461,10 @@ export function GridField({
             <tfoot className="border-t border-border bg-muted/40">
               <tr>
                 <td
-                  colSpan={Math.max((showLineNumbers ? 1 : 0) + totalColIndex, 1)}
+                  colSpan={1 + totalColIndex}
                   className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
                 >
-                  Total
+                  {totalLabel}
                 </td>
                 <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums" data-testid="line-items-total">
                   {total.toLocaleString(displayLocale)}
@@ -1422,7 +1488,7 @@ export function GridField({
           data-testid="line-items-add"
         >
           <Plus className="mr-1.5 h-4 w-4" />
-          {cfg.add_label || 'Add line'}
+          {cfg.addLabel || t('fields.grid.addLine', { defaultValue: 'Add line' })}
         </Button>
       )}
     </div>

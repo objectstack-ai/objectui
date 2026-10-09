@@ -82,13 +82,15 @@ import '@object-ui/components';
 import '@object-ui/fields';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
-import type { BaseSchema } from '@object-ui/types';
+import type { DeclaredNode } from '@object-ui/types';
 
 const dataSource = createObjectStackAdapter({
   baseUrl: 'https://api.example.com'
 });
 
-const mySchema: BaseSchema = { type: 'table', objectName: 'users' };
+// `object-grid` is a data-bound node: it reads `objectName` from its
+// `properties` bag and queries the injected data source for the rows.
+const mySchema: DeclaredNode = { type: 'object-grid', properties: { objectName: 'users' } };
 
 function App() {
   return (
@@ -254,6 +256,7 @@ ignores would be accepted and dropped, which is the defect this binding removes.
 | `object-grid` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `element:record_picker` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `element:number` | ✅ | filter | ✅ | — single value | — single value |
+| `element:repeater` | ✅ | filter / sort / limit | ✅ (AND `properties.filter`) | ✅ | ✅ |
 | `record:related_list` | ✅ | columns / filter / sort / limit | ✅ | ✅ | ✅ |
 | `object-calendar` | ✅ | filter / sort | ✅ | ✅ | — platform ceiling |
 | `object-kanban` | ✅ | filter / limit | ✅ | — no ordering | ✅ (`limit`) |
@@ -278,22 +281,102 @@ Reading the `object` column: it lands on the block's own object key, which is
 lists, fetches and writes is `childObject`. Its `relationshipField` is *not* part
 of the binding and stays the author's — it has to name a field on the bound child
 object, so rebinding `object` without updating it is an authoring error the panel
-cannot paper over.
+cannot paper over. A `record:line_items` node bound this way needs no `childObject`
+of its own, and the page compile accepts it; a node that names its child object in
+neither place shows a configuration hint naming `childObject` and loads nothing.
 
-The two `element:*` rows keep their configuration in the node's `properties` bag,
-so the binding does not land on a schema key there: each reads it directly, and
-`dataSource.object` wins over `properties.object`. They differ on `filter`.
-`element:record_picker` takes the binding's (or its view's) filter in place of
-`properties.filter`, which applies only when neither supplies one.
-`element:number` AND-combines `properties.filter` with the binding's filter and
-its view's — the rule the gate-wrapped blocks above follow — so neither is
-dropped, and a filter refused while combining them shows the configuration-error
-panel instead of a count. On `element:number`,
+Because the binding lands on `objectName`, a node bound this way needs no
+`objectName` of its own. The schema validator (`safeValidateSchema`, which
+`objectui validate` runs) counts the binding as a record source of `list-view`,
+`object-grid`, `object-kanban`, `object-calendar`, `object-gantt` and `object-map`,
+and still refuses one of those nodes that declares no other record source and names
+its object in neither place. A binding with an empty `object` names nothing.
+
+The page compile accepts such a node too, on every row above whose object lands on
+`objectName`: those registrations do not declare `objectName` required, because the
+binding can supply it. The exception is `record:related_list`, whose spec row
+requires `objectName`, so the page compile still refuses one of those nodes without
+it. A node that names its object in neither place renders a short hint, "No object
+named: set objectName or dataSource.object.", in place of an empty list, board,
+form, chart, metric or pivot. `object-grid` shows its own "Object name required for
+data fetching" error instead. A block with another record source (inline `data`
+rows, a form's inline fields — `customFields`, or `sections` whose every field is
+inline — a chart's `dataset`, a `bind` path, or a metric's `fallbackValue`) draws
+from that source and shows no hint.
+
+`element:record_picker` and `element:number` keep their display configuration
+in the node's `properties` bag and take their query from the binding **only**:
+every query key either one reads comes from `dataSource` and from nowhere else.
+The flat `properties.object`, `properties.filter`, `properties.sort` and
+`properties.limit` that the spec still declares on these two elements are not
+read, and `@objectstack/spec` retires them in v18 (objectstack#11509). The
+binding's filter is AND-combined with its view's filter, as on every block
+above. On `element:number`,
 `{ "dataSource": { "object": "contact" }, "properties": { "aggregate": "count" } }`
 is a complete metric; its `sort` and `limit` are not read, because an aggregate
-has no ordering and a capped count would be a wrong number. An `element:number`
-that sets `aggregate` but names no object in either place (no `properties.object`,
-no `dataSource.object`) shows a short "no object named" notice instead of a count.
+has no ordering and a capped count would be a wrong number, and a filter the
+converter refuses shows the configuration-error panel instead of a count.
+Either of the two whose node names no `dataSource.object` issues no query: an
+`element:number` that sets `aggregate` shows a short "No object named: set
+dataSource.object." notice instead of a count, and an `element:record_picker`
+offers no records. The Studio page designer writes the metric's object into
+`dataSource`.
+
+`element:repeater` reads the binding **first**, and its flat
+`properties.object`, `properties.filter`, `properties.sort` and
+`properties.limit` only as the fallback, until `@objectstack/spec` retires those
+four keys in v18 (objectstack#11509) and its pin bump moves them into
+`dataSource`. A repeater bound only through `dataSource` lists the records it
+names, and one carrying only the flat keys reads them exactly as before. Where a
+node carries both, the repeater follows the precedence `ElementDataSourceGate`
+applies to the object-bound blocks above: the binding's `object` wins; `properties.filter` is AND-combined
+with the binding's filter (and its view's), so neither is dropped; and for `sort`
+and `limit` the binding's own key wins, the flat key wins over one the named
+saved view supplies, and the view's is the baseline. The spec still **requires**
+`properties.object` on this element, and so does the schema validator
+(`safeValidateSchema`) on a `properties` bag that omits it, so a repeater names
+its object in its bag even when it binds through `dataSource`. The Studio page
+designer writes the repeater's object into `properties.object` for that reason.
+
+```json
+{
+  "type": "element:repeater",
+  "dataSource": {
+    "object": "task",
+    "filter": [{ "field": "status", "operator": "equals", "value": "open" }],
+    "sort": [{ "field": "due_date", "order": "asc" }],
+    "limit": 5
+  },
+  "properties": { "object": "task", "titleField": "subject", "fields": ["due_date"] }
+}
+```
+
+#### Scoping a filter to the record in view: `{record_id}`
+
+On a `type: 'record'` page, a filter value can name the record the page shows
+with `{record_id}`, in a component's own filter and in its `dataSource.filter`
+alike. On a person's record page this counts that person's open tasks, and the
+next person's page counts theirs:
+
+```json
+{
+  "type": "element:number",
+  "dataSource": {
+    "object": "task",
+    "filter": [{ "field": "assignee", "operator": "equals", "value": "{record_id}" }]
+  },
+  "properties": { "aggregate": "count" }
+}
+```
+
+The id is the page's mounted record context, never a URL parameter or a page
+variable. Anywhere with no record in context (a list view, a dashboard, a report,
+a page that is not a record page) the token is refused by name: the renderer
+warns, the value is left as written rather than dropped or blanked, and the
+ObjectStack server refuses the query (`FILTER_TOKEN_UNRESOLVED`), so the number
+never silently becomes a count over every record. `{record_id}` scopes what a
+component *shows*; it is not access control, which stays with the server's
+row-level security (objectui#7297).
 
 On `record:related_list` and `record:line_items` the composed filter is
 AND-combined with the parent relationship condition, never substituted for it: a

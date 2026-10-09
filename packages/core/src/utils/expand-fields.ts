@@ -90,7 +90,7 @@ import { columnIdentity } from './column-identity.js';
  *  - the grid's bulk-action dialog — `widgetNeedsDataSource` in
  *    `packages/plugin-grid/src/components/bulkParamToField.ts`, which decides
  *    which param widget is handed the grid's `DataSource` and which param field
- *    shape carries `reference_to` / `display_field`;
+ *    shape carries `reference` / `displayField`;
  *  - the action-param dialog — `paramToField` in
  *    `packages/app-shell/src/utils/paramToField.ts`, which decides which param
  *    carries a reference target (objectui#5312);

@@ -107,7 +107,7 @@ export interface RecordDetailsComponentProps {
    * It was `number` here until objectui#8604, which is the wrong PRIMITIVE
    * TYPE, not merely a wider range: `{ columns: 2 }` compiled locally and the
    * contract refused it at publish with `invalid_value` at `columns` (measured
-   * on the installed pin, 17.4.0, against a control — `columns: '2'` — that
+   * on the installed pin, 17.7.0, against a control — `columns: '2'` — that
    * parses green on the same instrument). Contract-first (Commandment #0.1):
    * the code moves to the contract's spelling, and today's `columns: 2`
    * authors are the defect surfacing rather than collateral damage.
@@ -126,7 +126,23 @@ export interface RecordDetailsComponentProps {
   sections?: Array<{
     /** Stable identifier for i18n key resolution (e.g. 'info', 'forecast'). */
     name?: string;
-    label?: string;
+    /**
+     * Section heading — the spec's `I18nLabel`
+     * (`RecordDetailsProps.sections[].label`): a plain string or an inline
+     * per-locale map such as `{ en: 'Overview', 'zh-CN': '概览' }`.
+     * `RecordDetailsRenderer` resolves a map with `pickLocalized` against the
+     * UI language; a named section's bundle key
+     * (`objects.OBJECT._sections.NAME.label`) still outranks the authored text.
+     *
+     * Typed `string` until objectui#10993 (batch 4), a NARROWING: the contract
+     * and the renderer both took the map while `tsc` refused it here. This
+     * file's four `I18nLabel` members widened together (this one,
+     * `RecordRelatedListComponentProps.title` and `.add.label`,
+     * `RecordPathComponentProps.stages[].label`), and
+     * `__tests__/record-components-i18n-label-members-10993.test.ts` holds all
+     * four to the spec's type.
+     */
+    label?: I18nLabel;
     /**
      * Field names shown in this section, in order.
      *
@@ -253,6 +269,42 @@ export interface RecordDetailsComponentProps {
    * Declared here since objectui#9040 (see `inlineEdit` above).
    */
   showHeader?: boolean;
+  /**
+   * Fold the body's field list through the viewer's FIELD-read permissions
+   * before rendering (`@objectstack/spec` `RecordDetailsProps.enforceFieldSecurity`,
+   * `z.boolean()`, optional). Renderer default off: `RecordDetailsRenderer`
+   * reads it as `=== true`. Presentation only — it re-applies the field-read
+   * answer the server already enforced and never widens access.
+   *
+   * This key and the two below are the field-security triple, declared here by
+   * objectui#8649 once `@objectstack/spec` 17.5.0 declared all three on
+   * `record:details`, `record:highlights` and `record:related_list`
+   * (objectstack#18159). The renderer honoured them before either declaration,
+   * through a cast; this ALIGNS THE MIRROR to the contract and moves no runtime
+   * behaviour. `renderers/__tests__/detailRendererUndeclaredKeys-8649.test.ts`
+   * in `@object-ui/plugin-detail` re-derives the contract side every run.
+   */
+  enforceFieldSecurity?: boolean;
+  /**
+   * Field names this block never renders from its authored `fields` and
+   * `sections[].fields`, whatever the permission answer
+   * (`@objectstack/spec` `RecordDetailsProps.redactFields`,
+   * `z.array(z.string())`, optional). Bare field NAMES only. Presentation only:
+   * the values are still fetched into the page, so this is not a data-access
+   * control. See `enforceFieldSecurity` above for the declaration's standing.
+   */
+  redactFields?: string[];
+  /**
+   * ADR-0066 capability names the viewer must ALL hold, or the block renders an
+   * insufficient-permissions notice in place of its content
+   * (`@objectstack/spec` `RecordDetailsProps.requiredPermissions`,
+   * `z.array(z.string())`, optional — the shape and describe it shares with
+   * `record:quick_actions`). Capabilities are what permission sets grant through
+   * `systemPermissions`, not object actions. Presentation only, and it fails
+   * open where the client cannot resolve the viewer's capabilities. See
+   * `enforceFieldSecurity` above for the declaration's standing.
+   */
+  requiredPermissions?: string[];
   /** ARIA accessibility attributes */
   aria?: RecordComponentAriaProps;
 }
@@ -282,7 +334,7 @@ export interface RecordHighlightsComponentProps {
    * `RecordHighlightsProps.fields[]`'s object arm declares exactly
    * `name`/`label`/`type`/`readonly` and carries a `never` catchall, i.e. it is
    * `$strict`: an unlisted key is REFUSED, not stripped, and the refusal takes
-   * the WHOLE document with it. Measured on the installed pin, 17.4.0,
+   * the WHOLE document with it. Measured on the installed pin, 17.7.0,
    * `RecordHighlightsProps.safeParse({ fields: [{ name: 'x', icon: 'star' }] })`
    * is RED with `invalid_union` at `fields.0`. So `{ name: 'amount', icon:
    * 'dollar-sign' }` type-checked here and was refused at the door — a green
@@ -314,7 +366,7 @@ export interface RecordHighlightsComponentProps {
    * `z.enum(['horizontal','vertical'])` behind a `.default('horizontal')`).
    *
    * It offered a third value, `grid`, until objectui#9187, and the contract
-   * never accepted it: measured on the installed pin, 17.4.0,
+   * never accepted it: measured on the installed pin, 17.7.0,
    * `RecordHighlightsProps.safeParse({ fields: ['name'], layout: 'grid' })` is
    * RED with `invalid_value` at `layout`. So `{ layout: 'grid' }` type-checked
    * here and was refused at the door — a green local build and a rejection at
@@ -336,6 +388,31 @@ export interface RecordHighlightsComponentProps {
    * the installed spec in both directions.
    */
   layout?: 'horizontal' | 'vertical';
+  /**
+   * Fold the highlight chips through the viewer's FIELD-read permissions before
+   * rendering (`@objectstack/spec` `RecordHighlightsProps.enforceFieldSecurity`,
+   * `z.boolean()`, optional). Renderer default off. Presentation only — the
+   * server has already applied the same field-read answer. One of the
+   * field-security triple objectui#8649 aligned; see
+   * `RecordDetailsComponentProps.enforceFieldSecurity` for the declaration's
+   * standing.
+   */
+  enforceFieldSecurity?: boolean;
+  /**
+   * Field names this strip never renders as a chip, whatever the permission
+   * answer (`@objectstack/spec` `RecordHighlightsProps.redactFields`,
+   * `z.array(z.string())`, optional). Bare field NAMES only. Presentation only:
+   * the values are still fetched into the page.
+   */
+  redactFields?: string[];
+  /**
+   * ADR-0066 capability names the viewer must ALL hold, or the strip renders an
+   * insufficient-permissions notice in place of its chips
+   * (`@objectstack/spec` `RecordHighlightsProps.requiredPermissions`,
+   * `z.array(z.string())`, optional). Presentation only, and it fails open
+   * where the client cannot resolve the viewer's capabilities.
+   */
+  requiredPermissions?: string[];
   /** ARIA accessibility attributes */
   aria?: RecordComponentAriaProps;
 }
@@ -404,8 +481,15 @@ export interface RecordRelatedListComponentProps {
    * authoring half does.
    */
   filter?: ViewFilterRule[];
-  /** Section title */
-  title?: string;
+  /**
+   * Section title — the spec's `I18nLabel` (`RecordRelatedListProps.title`), a
+   * plain string or an inline per-locale map. `RecordRelatedListRenderer`
+   * resolves a map with `pickLocalized` against the UI language, ahead of the
+   * related object's label. Typed `string` until objectui#10993 (batch 4); see
+   * `RecordDetailsComponentProps.sections[].label` for the four members that
+   * widened together.
+   */
+  title?: I18nLabel;
   /** Show "View All" link */
   showViewAll?: boolean;
   /** Available actions for the related list */
@@ -443,8 +527,44 @@ export interface RecordRelatedListComponentProps {
      */
     picker: { object: string; valueField?: string; labelField?: string; filter?: ViewFilterRule[] };
     linkField?: string;
-    label?: string;
+    /**
+     * The Add button's text — the spec's `I18nLabel`
+     * (`RecordRelatedListProps.add.label`, default "Add"). The renderer resolves
+     * a map with `pickLocalized` against the UI language before it hands `add`
+     * to `RelatedList`. Typed `string` until objectui#10993 (batch 4); see
+     * `RecordDetailsComponentProps.sections[].label`.
+     */
+    label?: I18nLabel;
   };
+  /**
+   * Fold this list's authored `columns` through the viewer's FIELD-read
+   * permissions on the RELATED object before rendering
+   * (`@objectstack/spec` `RecordRelatedListProps.enforceFieldSecurity`,
+   * `z.boolean()`, optional). Renderer default off. Presentation only — the
+   * rows are fetched either way and the server still decides every value. One
+   * of the field-security triple objectui#8649 aligned; see
+   * `RecordDetailsComponentProps.enforceFieldSecurity` for the declaration's
+   * standing.
+   */
+  enforceFieldSecurity?: boolean;
+  /**
+   * Field names this list never renders, whatever the permission answer — the
+   * authored `columns` and the columns the list derives for itself when none
+   * are authored (`@objectstack/spec` `RecordRelatedListProps.redactFields`,
+   * `z.array(z.string())`, optional). Bare field NAMES only. Presentation only:
+   * the values are still fetched into the page.
+   */
+  redactFields?: string[];
+  /**
+   * ADR-0066 capability names the viewer must ALL hold, or the list renders an
+   * insufficient-permissions notice in place of its rows
+   * (`@objectstack/spec` `RecordRelatedListProps.requiredPermissions`,
+   * `z.array(z.string())`, optional). Presentation only, and it fails open
+   * where the client cannot resolve the viewer's capabilities. Separate from
+   * the automatic read gate on the related object, which this key neither
+   * replaces nor widens.
+   */
+  requiredPermissions?: string[];
   /** ARIA accessibility attributes */
   aria?: RecordComponentAriaProps;
 }
@@ -525,8 +645,15 @@ export interface RecordPathComponentProps {
   stages: Array<{
     /** Stage value (matches statusField values) */
     value: string;
-    /** Display label for the stage */
-    label: string;
+    /**
+     * Display label for the stage — the spec's `I18nLabel`
+     * (`RecordPathProps.stages[].label`), a plain string or an inline
+     * per-locale map. `RecordPathRenderer` resolves a map against the UI
+     * language before the picklist translation, the won/lost classification
+     * and both rails read it. Typed `string` until objectui#10993 (batch 4);
+     * see `RecordDetailsComponentProps.sections[].label`.
+     */
+    label: I18nLabel;
     /**
      * Terminal classification. Stages marked `'won'` render as the
      * success terminus of the forward path; stages marked `'lost'`

@@ -75,11 +75,11 @@
  *
  * ⛔ Do not re-add a spelling arm to this chain. A producer emitting a refused
  * spelling is fixed AT THE PRODUCER, or canonicalised ONCE at the ingestion
- * choke point — `normalizeSchemaReferenceKeys`, which stamps both snake_case
- * keys from whichever spelling arrived. Never a renderer-side alias: that is
+ * choke point — `normalizeSchemaReferenceKeys`, which folds a legacy spelling
+ * onto `reference`. Never a renderer-side alias: that is
  * how twenty per-consumer dual-key fallbacks got written under a normalizer
- * whose own docstring says it exists "so per-consumer dual-key fallbacks can't
- * drift".
+ * whose own docstring said it existed "so per-consumer dual-key fallbacks
+ * can't drift".
  *
  * ⭐ THAT OPEN SCOPE IS NOW CLOSED FOR THIS READER — objectui#6837 half 2.
  * Maintainer ruling 2026-08-31 (第 6 场总监席决裁批 #14), 原文照录:
@@ -90,17 +90,18 @@
  * so this reader keeps ONE arm, `reference`, and the `reference_to` case below
  * moved from the live group to the refusal group.
  *
- * ⛔ The tier-boundary caveat this paragraph used to carry is NOT retracted, it
- * is SCOPED: it was always about ObjectUI's OWN contracts, and those keep
- * `reference_to` as their canonical key. `LookupFieldMetadata`,
- * `DetailViewFieldSchema` and the `FieldMetadata` bag declare `reference_to`
- * and never declare `reference`, so the three widget-seam readers that read
- * THAT bag (`fields/src/index.tsx#LookupCellRenderer`,
- * `widgets/LookupField.tsx`, `widgets/UserField.tsx`) were deliberately NOT
- * narrowed by half 2 — narrowing them would break their in-repo producers and
- * turn `plugin-grid`'s `relationalMetaCopySet.derivation.test.ts` red, since
- * that gate re-derives its read set from exactly those three sources and
- * records `reference_to` there with verdict `adapter-stamped`.
+ * ⭐ The tier-boundary caveat this paragraph used to carry is now CLOSED too
+ * (objectui#11070 round 4, the seat's answer A under the same ruling). It was
+ * about ObjectUI's OWN contracts — `LookupFieldMetadata`,
+ * `DetailViewFieldSchema` and the `FieldMetadata` bag — which declared
+ * `reference_to`, so the three widget-seam readers of that bag
+ * (`fields/src/index.tsx#LookupCellRenderer`, `widgets/LookupField.tsx`,
+ * `widgets/UserField.tsx`) were not narrowed by half 2. Round 4 moved those
+ * contracts, their in-repo producers (this drawer's emit among them) and those
+ * readers to `reference` in one step, and `plugin-grid`'s
+ * `relationalMetaCopySet.derivation.test.ts` gate dropped its `reference_to`
+ * row with them. So the drawer now EMITS `reference`, and the helper below
+ * reads that key.
  *
  * ## 5. Ablation direction, predicted before running
  *
@@ -135,8 +136,8 @@ vi.mock('../DetailView', () => ({
 /** Every probe is a `lookup`, so only the target SPELLING varies between them. */
 const FIELD_DEFS: Record<string, Record<string, unknown>> = {
   // Live arm — the ONE spelling the protocol declares. objectui#6837 half 2
-  // deleted the `reference_to` READ too; the drawer still EMITS `reference_to`,
-  // because that is the key its target contract (`DetailViewField`) declares.
+  // deleted the `reference_to` READ; objectui#11070 round 4 moved the EMIT to
+  // `reference`, the key its target contract (`DetailViewField`) now declares.
   spec_spelling: { type: 'lookup', label: 'Spec', reference: 'crm_account' },
   // Deleted arms — refused by name, zero producers in the cell.
   legacy_snake: { type: 'lookup', label: 'Legacy snake', reference_to: 'crm_account' },
@@ -173,9 +174,12 @@ function resolveFields(fields: Record<string, unknown>) {
   return capturedFields.current;
 }
 
-/** The `reference_to` the drawer resolved for one field name. */
+/** The `reference` the drawer resolved for one field name. */
 function resolvedTarget(name: string, fields: Record<string, unknown> = FIELD_DEFS) {
-  return resolveFields(fields).find((f: any) => f.name === name)?.reference_to;
+  const field = resolveFields(fields).find((f: any) => f.name === name);
+  // Nothing emits the retired spelling any more (objectui#11070 round 4).
+  expect(field?.reference_to).toBeUndefined();
+  return field?.reference;
 }
 
 describe('RecordDetailDrawer resolves only contract-declared target spellings (objectui#6837)', () => {
@@ -215,11 +219,11 @@ describe('RecordDetailDrawer resolves only contract-declared target spellings (o
 
   describe('the ingestion choke point is what makes the `referenceTo` deletion lossless', () => {
     it('a `referenceTo`-only def that came through `normalizeSchemaReferenceKeys` STILL resolves', () => {
-      // This is the mechanism, not a formality: the normalizer reads
-      // `reference_to ?? reference ?? referenceTo` and stamps both snake_case
-      // keys, so every def that entered through MetadataProvider or
-      // ObjectStackAdapter.getObjectSchema already carries `reference_to` by
-      // the time the drawer sees it. The deleted arm was dead weight for those.
+      // This is the mechanism, not a formality: the normalizer folds a
+      // legacy `reference_to` / `referenceTo` onto `reference`, so every def
+      // that entered through MetadataProvider or
+      // ObjectStackAdapter.getObjectSchema already carries `reference` by the
+      // time the drawer sees it. The deleted arm was dead weight for those.
       const schema = { name: 'probe', fields: { legacy_camel: { ...FIELD_DEFS.legacy_camel } } };
       normalizeSchemaReferenceKeys(schema);
       expect(resolvedTarget('legacy_camel', schema.fields)).toBe('crm_account');

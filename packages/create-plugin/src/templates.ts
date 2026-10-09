@@ -79,7 +79,7 @@ export const VITEST_SETUP_FILE = 'vitest.setup.ts';
  * | `@testing-library/jest-dom` | `^7.0.1`  | repo root package.json (also apps/console) |
  * | `@testing-library/react`    | `^16.3.2` | repo root package.json (also apps/console) |
  * | `@vitejs/plugin-react`      | `^6.0.5`  | every `packages/plugin-*` (not in root)    |
- * | `jsdom`                     | `^30.0.1` | repo root package.json                     |
+ * | `jsdom`                     | `^29.1.1` | repo root package.json                     |
  * | `typescript`                | `^6.0.3`  | repo root package.json                     |
  * | `vite`                      | `^8.2.1`  | repo root package.json                     |
  * | `vite-plugin-dts`           | `^5.0.3`  | every `packages/plugin-*` (not in root)    |
@@ -104,7 +104,7 @@ const DEV_DEPENDENCIES: Record<string, string> = {
   '@testing-library/jest-dom': '^7.0.1',
   '@testing-library/react': '^16.3.2',
   '@vitejs/plugin-react': '^6.0.5',
-  jsdom: '^30.0.1',
+  jsdom: '^29.1.1',
   typescript: '^6.0.3',
   vite: '^8.2.1',
   'vite-plugin-dts': '^5.0.3',

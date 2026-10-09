@@ -25,7 +25,8 @@
  *   - no file under `src/` names the retired module as a module specifier — a
  *     static or dynamic import, a re-export, a `require`, or a `vi.mock` /
  *     `vi.doMock` target — while the same pattern over the same walk finds the
- *     live board's lazy import in `index.tsx`.
+ *     live board's lazy import in `KanbanBoardCore.tsx` (in `index.tsx` until
+ *     objectui#11234 moved the board body into that internal module).
  *
  * ⚠️ Mock targets count on purpose. A mock registered against a path that no
  * longer exists fails nothing, so it would outlive the module silently; one of
@@ -74,7 +75,7 @@ describe('@object-ui/plugin-kanban — KanbanEnhanced.tsx is deleted (objectui#8
   it('no file under src/ names the deleted module as a specifier, while the same pattern finds the live board', () => {
     // Firing control first: the walk and the pattern are live, so the empty
     // list below is a reading and not a probe that matches nothing.
-    expect(filesReferencing(LIVE)).toContain('index.tsx');
+    expect(filesReferencing(LIVE)).toContain('KanbanBoardCore.tsx');
     expect(filesReferencing(RETIRED)).toEqual([]);
   });
 });

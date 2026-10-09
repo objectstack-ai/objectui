@@ -69,7 +69,7 @@ vi.mock('../previews/useObjectFields', () => ({
 }));
 
 import { FlowNodeInspector } from './FlowNodeInspector';
-import { fieldsForNodeType, FLOW_NODE_TYPE_OPTIONS } from './flow-node-config';
+import { fieldsForNodeType, FLOW_NODE_CONFIG_TYPES } from './flow-node-config';
 import type { MetadataSelection } from '../preview-registry';
 // ⛔ The `/automation` subpath is load bearing — these read `undefined` off the
 // package root, and any `.parse` on them then throws.
@@ -221,7 +221,7 @@ describe('the end group no longer offers the key (objectui#9335)', () => {
     // this table, and on the CRUD / script / subflow / http / map / legacy
     // groups the key IS declared by the spec and legitimate. Derived by sweep,
     // never restated as a count.
-    const types = [...FLOW_NODE_TYPE_OPTIONS, 'action'];
+    const types = [...FLOW_NODE_CONFIG_TYPES, 'action'];
     const stillOffering = types.filter((t) => fieldsForNodeType(t).some((f) => f.id === 'outputVariable'));
 
     expect(

@@ -23,7 +23,7 @@ import type { BaseSchema } from './base.js';
 // and read here by `ObjectKanbanSchema.columns` (objectui#8913) so the two
 // kanban faces judge a card the same way. Type-only: no runtime edge.
 import type { KanbanCard } from './complex.js';
-import type { ObjectDataTableDrillDownConfig } from './data-display.js';
+import type { DataTableSchema, ObjectDataTableDrillDownConfig } from './data-display.js';
 // `QueryParams` is the destination `ObjectGallerySchema.filter`'s own docblock
 // names — the value is forwarded into that slot, context tokens resolved — so the declaration
 // is an INDEXED ACCESS on it rather than a copy of its arms (objectui#9309).
@@ -31,6 +31,19 @@ import type { ObjectDataTableDrillDownConfig } from './data-display.js';
 // this adds no cycle in either direction.
 import type { QueryParams } from './data.js';
 import type { BulkActionOperation } from '@objectstack/spec/ui';
+// objectui#11070 — the per-element binding `dataSource` declares, by reference.
+import type { ElementDataSource } from '@objectstack/spec/ui';
+// objectui#10872 batch 9 — the per-breakpoint style maps `responsiveStyles` declares
+// on `ObjectGridSchema` and `ObjectChartSchema`, by reference.
+import type { ResponsiveStyles as SpecResponsiveStyles } from '@objectstack/spec/ui';
+// objectui#11266 — one `ObjectFormSchema.subforms[].columns` entry, by reference:
+// the spec's `InlineGridColumn` (its `z.input`, the authoring face), which the zod
+// twin judges with the spec's own `InlineGridColumnSchema`. Type-only.
+import type { InlineGridColumn as SpecInlineGridColumn } from '@objectstack/spec/data';
+// objectui#11615 — the form view's `{ field }` section entry, by reference: the
+// spec's `FormFieldInput` (the authoring face of `FormFieldSchema`, the arm the
+// spec's `FormSectionSchema.fields` takes beside a bare name). Type-only.
+import type { FormFieldInput as SpecFormFieldInput } from '@objectstack/spec/ui';
 // objectui#7928 — `ObjectViewSchema.listViews` is the protocol's record of this
 // schema, BY REFERENCE. The spec publishes a TS type for `ListView` and none for
 // the object-scoped `ObjectListView`, so the member reads it as `z.input` (the
@@ -130,7 +143,6 @@ import type {
   GroupingConfig,
   RowColorConfig,
   GalleryConfig,
-  TimelineConfig,
   NavigationConfig,
   ChartAggregate,
   GanttConfig as SpecGanttConfig,
@@ -140,12 +152,38 @@ import type {
   // type from this package's mirror like the other sixteen.
   ListView as SpecListView,
   CalendarConfig as SpecCalendarConfig,
+  // objectui#11168 slice 3 — the `object-tree` element's `tree` block, so
+  // `ObjectTreeSchema.tree` below takes the protocol's own type. Aliased for
+  // the reason `SpecGanttConfig` above is.
+  TreeConfig as SpecTreeConfig,
   // objectui#9239 — `ComponentPropsMap['object-calendar']`'s author state, so
   // `ObjectCalendarSchema.data` below DERIVES the protocol's `data` row rather
   // than re-spelling it. Aliased because the bare name is the protocol's, and a
   // local symbol under a `@objectstack/spec` export's name reads to the next
   // agent as the spec's own definition (`pnpm check:spec-symbols`).
   ObjectCalendarProps as SpecObjectCalendarProps,
+  // objectui#11168 slice 3 — `ComponentPropsMap['object-form']`'s author state,
+  // so `ObjectFormSchema.layout` takes the row's own enum by reference.
+  ObjectFormProps as SpecObjectFormProps,
+  // objectui#6152 round 8 — `ComponentPropsMap['object-grid']`'s author state,
+  // so `ObjectGridSchema.operations` and `.filter` take the row's own members
+  // by reference. Aliased for the reason `SpecObjectCalendarProps` above is.
+  ObjectGridProps as SpecObjectGridProps,
+  // objectui#6152 round 10 — `ComponentPropsMap['object-gantt']` /
+  // `['object-map']`'s author states, so the flat `ObjectGanttSchema.filter` /
+  // `ObjectMapSchema.filter` take their rows' own member by reference. Aliased
+  // for the reason `SpecObjectCalendarProps` above is (`ObjectGanttProps` is
+  // also `plugin-gantt`'s own component props name).
+  ObjectGanttProps as SpecObjectGanttProps,
+  ObjectMapProps as SpecObjectMapProps,
+  // objectui#11355 — `ComponentPropsMap['object-kanban']`'s author state, so
+  // `ObjectKanbanSchema.swimlaneField` takes the row's own type by reference.
+  ObjectKanbanProps as SpecObjectKanbanProps,
+  // objectui#11227 — the list view's empty-state shape, which the spec's
+  // `object-grid` row holds by reference since 17.6.0 (`EmptyStateSchema`):
+  // `ObjectGridSchema.emptyState` below takes the protocol's own authored type.
+  // Aliased for the reason `SpecObjectCalendarProps` above is.
+  EmptyState as SpecEmptyState,
   ChartDrillDown,
   I18nLabel,
   DashboardWidget as SpecDashboardWidget,
@@ -161,24 +199,23 @@ import type {
 } from '@objectstack/spec/ui';
 
 /**
- * Gallery configuration extended with legacy fields for backward compatibility.
- * Spec fields from GalleryConfigSchema take priority; legacy fields serve as fallbacks.
+ * A list view's `timeline` block, as the list view hands it to `ObjectTimeline`
+ * (`@object-ui/plugin-timeline`, the nested `schema.timeline` prop).
+ *
+ * ONE declaration since objectui#6152 round 12 (seat answer Q2 → B): this is
+ * {@link ListViewSchema}'s own `timeline` member, which round 11 made the
+ * `@objectstack/spec` list-view slot by reference: strict, `.partial()` (the
+ * list-view route can hand over a block without `titleField` or
+ * `startDateField`), with the pre-#2231 `dateField` refused by name (write
+ * `startDateField`). It was a hand-written intersection of the spec's
+ * `TimelineConfig` with `dateField?: string` and a string index signature of
+ * `any`, through which nothing read a key.
+ *
+ * ⛔ `ListViewGalleryConfig`, its sibling, is RETIRED (seat answer Q3 → A): it
+ * had no consumer and no element row in the spec. Write the spec's
+ * `GalleryConfig`, which this package re-exports.
  */
-export type ListViewGalleryConfig = GalleryConfig & {
-  /** Legacy: image field (deprecated, use coverField) */
-  imageField?: string;
-  [key: string]: any;
-};
-
-/**
- * Timeline configuration extended with legacy fields for backward compatibility.
- * Spec fields from TimelineConfigSchema take priority; legacy fields serve as fallbacks.
- */
-export type ListViewTimelineConfig = TimelineConfig & {
-  /** Legacy: date field (deprecated, use startDateField) */
-  dateField?: string;
-  [key: string]: any;
-};
+export type ListViewTimelineConfig = NonNullable<ListViewSchema['timeline']>;
 
 /**
  * Kanban Configuration
@@ -189,9 +226,10 @@ export type ListViewTimelineConfig = TimelineConfig & {
  * exactly, and `KanbanConfigSchema` is `$strict`, so there was never a
  * divergence to preserve — only a second declaration under the spec's own name
  * for the next agent to read as canonical (objectstack#4115). The zod side has
- * derived from the spec all along (`zod/objectql.zod.ts`, which additionally
- * carries the `groupField` / `cardFields` legacy aliases); this alias is now
- * bound to the same source.
+ * derived from the spec all along (`zod/objectql.zod.ts`, which since
+ * objectui#6152 round 11 takes the list view's own `kanban` slot by reference and
+ * refuses the `groupField` / `cardFields` legacy aliases by name); this alias is
+ * now bound to the same source.
  */
 export type { KanbanConfig } from '@objectstack/spec/ui';
 
@@ -395,29 +433,8 @@ export interface SortConfig {
 
 
 // ============================================================================
-// ConditionalFormatting Types — Dual-format support
+// ConditionalFormatting Types — ONE dialect, the spec list view's { condition, style }
 // ============================================================================
-
-/**
- * ObjectUI-native ConditionalFormatting rule.
- * Uses field/operator/value for declarative comparisons.
- */
-export interface ObjectUIConditionalFormattingRule {
-  /** Field name to evaluate */
-  field: string;
-  /** Comparison operator */
-  operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'in';
-  /** Value to compare against */
-  value: unknown;
-  /** CSS-compatible background color */
-  backgroundColor?: string;
-  /** CSS-compatible text color */
-  textColor?: string;
-  /** CSS-compatible border color */
-  borderColor?: string;
-  /** Template expression override (e.g., '${data.amount > 1000}') */
-  expression?: string;
-}
 
 /**
  * One entry of a named view's `conditionalFormatting`, as the protocol declares
@@ -466,10 +483,56 @@ export interface SpecConditionalFormattingRule {
 }
 
 /**
- * Union type for ConditionalFormatting rules — accepts both ObjectUI and Spec formats.
- * Rules are evaluated in order; first matching rule wins.
+ * One `conditionalFormatting` rule on `object-grid` ({@link ObjectGridSchema}) and
+ * `list-view` — ONE dialect, the spec list view's `{ condition, style }`: a CEL
+ * `condition` over the row's `record.*` and a CSS `style` map, first matching rule
+ * wins (objectui#11533).
+ *
+ * It IS {@link SpecConditionalFormattingRule}, the protocol's rule by reference (its
+ * `condition` indexes `ObjectListViewSchema`'s own slot, objectui#10946), plus the
+ * retired keys declared `?: never`, so each is refused BY NAME:
+ *
+ *   - the native comparison `{ field, operator, value }` and its template predicate
+ *     `expression` (the `ObjectUIConditionalFormattingRule` interface that declared
+ *     them is gone), and
+ *   - a colour written at the TOP LEVEL of a rule — `backgroundColor`, `borderColor`,
+ *     `textColor`. A colour belongs inside `style` (`textColor` is `style.color`).
+ *
+ * Retired, not widened, with no alias window (triage ruling 5965301211 on
+ * objectui#11533, as objectui#11522 ruled for {@link KanbanConditionalFormattingRule}).
+ * `@objectstack/spec` declares the list view's member as this rule and types the
+ * `object-grid` row's member by reference to it.
+ *
+ * Respelling: `{ field: 'priority', operator: 'equals', value: 'high',
+ * backgroundColor: '#fee2e2' }` is `{ condition: "record.priority == 'high'",
+ * style: { backgroundColor: '#fee2e2' } }`.
+ *
+ * ⚠️ What did NOT narrow: the shared evaluator. `@object-ui/core`'s
+ * `resolveConditionalFormatting` types its own input (`ConditionalFormattingRuleLike`)
+ * and still reads every arm, as a compatibility read for rules already STORED in the
+ * native dialect; nothing on the render path parses a stored view against this type's
+ * zod twin, so such a view still paints. A `{ condition, style }` rule paints exactly
+ * as it did before.
+ *
+ * The zod twin is the module-private `ConditionalFormattingRuleSchema` in
+ * `./zod/objectql.zod.ts`, each retired key a `retirementTombstone()` there.
  */
-export type ConditionalFormattingRule = ObjectUIConditionalFormattingRule | SpecConditionalFormattingRule;
+export interface ConditionalFormattingRule extends SpecConditionalFormattingRule {
+  /** @deprecated RETIRED (objectui#11533) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  field?: never;
+  /** @deprecated RETIRED (objectui#11533) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  operator?: never;
+  /** @deprecated RETIRED (objectui#11533) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  value?: never;
+  /** @deprecated RETIRED (objectui#11533) — the native template predicate. Write it as `condition`, CEL over `record.*`. */
+  expression?: never;
+  /** @deprecated RETIRED (objectui#11533) — a top-level colour. Write `style: { backgroundColor }`. */
+  backgroundColor?: never;
+  /** @deprecated RETIRED (objectui#11533) — a top-level colour. Write `style: { borderColor }`. */
+  borderColor?: never;
+  /** @deprecated RETIRED (objectui#11533) — a top-level colour. Write `style: { color }`. */
+  textColor?: never;
+}
 
 /**
  * Parameter declaration for a bulk action. Rendered as a single field in the
@@ -629,8 +692,11 @@ export interface BulkActionDef {
    * and may carry `ast` and `meta`, so a named view's defs could not be relayed
    * into a grid without an assertion. Spec `main` narrows the slot to require a
    * non-blank `source`, and this arm follows the installed line. An `ast`-only
-   * envelope is evaluated as a fault, so no selected record qualifies (fail
-   * closed, warned).
+   * envelope carries no `source` to evaluate, so it is not a declared gate: the
+   * selection bar asks the action family's one "declared?" definition, as the
+   * row menu and the toolbars do, and every selected record qualifies. A blank
+   * `source` or a whitespace-only string is no gate either, reported once
+   * (objectui#11322).
    */
   visible?: ExpressionWire | SpecNamedViewBulkActionDef['visible'];
   /**
@@ -768,15 +834,99 @@ export interface ListViewExportOptions {
  * - Column resizing, sorting
  * - Row selection
  * - Inline editing support
+ *
+ * ## What this type describes (objectui#11276)
+ *
+ * The `object-grid` node as `ObjectGrid` READS it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it —
+ * `ObjectView` and `ListView` building a grid view, the designers' previews, a
+ * host mounting `<ObjectGrid schema={…}>`. That is why `objectName` is
+ * required here and why its members sit flat on the node. The `object-view`
+ * `table` slot (`ObjectGridSlotKey`) is built from it too.
+ *
+ * It is NOT the shape of an AUTHORED `object-grid` document. An authored node
+ * takes its props in the spec's `properties` bag, whose members are
+ * `@objectstack/spec`'s `ComponentPropsMap['object-grid']` row
+ * (`ObjectGridProps`): `{ type: 'object-grid', properties: { objectName,
+ * columns, … } }`, because the spec's page component refuses a prop written on
+ * the node itself (ADR-0089 D3a). `ObjectGridBlockSchema`
+ * (`./zod/objectql.zod.ts`) judges it, and refuses a prop written flat on the
+ * node by name. `SchemaRenderer` reads both spellings, so a node built in code
+ * keeps its flat keys.
  */
 export interface ObjectGridSchema extends BaseSchema {
   type: 'object-grid';
-  
+
   /**
-   * Internal name for the view
+   * Per-breakpoint scoped style maps (ADR-0065): `@objectstack/spec`'s
+   * `ResponsiveStyles`, the type `PageComponentSchema.responsiveStyles`
+   * declares, by reference (objectui#10872 batch 9). `SchemaRenderer` compiles
+   * it to CSS scoped to this node and adds the scope class to the node's
+   * `className`, which `ObjectGrid` forwards. A producer writes it on
+   * `object-grid` nodes (the objectstack showcase; the reading is recorded on
+   * objectui#10872). Same declaration on {@link ObjectChartSchema}; the zod
+   * mirror spreads the public blocks' fragment (`NODE_ENVELOPE`).
    */
-  name?: string;
-  
+  responsiveStyles?: SpecResponsiveStyles;
+
+  /**
+   * Per-element data binding — `@objectstack/spec`'s `ElementDataSource`
+   * (`PageComponentSchema.dataSource`), by reference: `{ object, view?,
+   * filter?, sort?, limit? }` describing WHAT this block queries
+   * (objectui#11070).
+   *
+   * ⚠️ Metadata, ⛔ NOT the data-source ADAPTER. The two share a name and are
+   * different things: the adapter is injected by the host
+   * (`SchemaRendererProvider`) and reaches the component as a React prop,
+   * while this is authored JSON. `SchemaRenderer` strips `dataSource` from the
+   * props it spreads (objectstack#5576) so the binding can never shadow the
+   * adapter, and the registered renderer reads it off the NODE through
+   * `ElementDataSourceGate` (`@object-ui/react`), which lands `object` on
+   * `objectName` and composes a named saved `view` with the binding's own
+   * keys. Every gate-wrapped registration already PUBLISHES this key as an
+   * authored input (objectui#6678, `ELEMENT_DATA_SOURCE_INPUT` in
+   * `@object-ui/core`); this member is that declaration on the schema faces,
+   * which the strict authoring face refused until it was written. Same
+   * declaration on {@link ObjectFormSchema}, {@link ObjectKanbanSchema},
+   * {@link ObjectGanttSchema}, {@link ObjectMapSchema},
+   * {@link ObjectCalendarSchema}, {@link ObjectChartSchema} and
+   * `ListViewSchema` (derived from its zod mirror; its absence from
+   * `@object-ui/app-shell`'s relay census is declared there, objectui#7559).
+   */
+  dataSource?: ElementDataSource;
+
+  /**
+   * RETIRED on this node (objectui#11068, ADR-0049) — a grid has no `name`.
+   *
+   * `BaseSchema.name` is a form-field name; a grid is not a form field, and
+   * `ObjectGrid` never read the key, so an authored value drew nothing. The two
+   * things an author reaching for it can mean each have their own member:
+   * the node's identity is `id` (it also scopes the saved column layout), and
+   * the words shown for the grid are `label`.
+   *
+   * `?: never`, not a deletion — the same convention as `children` below:
+   * {@link BaseSchema} declares the key for every node, so deleting the
+   * restatement would hand the key back to the base member and it would
+   * type-check again. Lockstep with the Zod twin (`zod/objectql.zod.ts`,
+   * `retirementTombstone()`).
+   *
+   * @deprecated RETIRED (objectui#11068) — write `id` for identity, `label`
+   * for the grid's caption.
+   */
+  name?: never;
+
+  /**
+   * RETIRED on this node (objectui#11068, ADR-0049) — a grid is not an input.
+   *
+   * `BaseSchema.placeholder` is the hint text of an input control. `ObjectGrid`
+   * never read the key, so an authored value drew nothing. The text a grid
+   * shows when it has no rows is {@link ObjectGridSchema.emptyState}.
+   *
+   * @deprecated RETIRED (objectui#11068) — write `emptyState: { message }` for
+   * the text shown when the grid has no rows.
+   */
+  placeholder?: never;
+
   /**
    * Display label override.
    *
@@ -797,9 +947,21 @@ export interface ObjectGridSchema extends BaseSchema {
   /**
    * ObjectQL object name (e.g., 'users', 'accounts', 'contacts')
    * Used when data provider is 'object' or not specified
+   *
+   * ⚠️ REQUIRED on this face, OPTIONAL on the zod mirror (objectui#11117). The
+   * registration is gate-wrapped, so `ElementDataSourceGate` lands a binding's
+   * `object` here before `ObjectGrid` reads the node, and the mirror accepts
+   * `{ type: 'object-grid', dataSource: { object: 'product' } }` — the binding
+   * the docs teach and the spec accepts — refusing only a node with neither
+   * (`requireRecordSource`, keyed `RECORD_SOURCE_REQUIRED`). This member stays
+   * `string` because `ObjectGrid` reads it as one after the gate has run
+   * (`translateOptions(schema.objectName, …)` in `@object-ui/plugin-grid`),
+   * so making it optional is a renderer-typing change outside that card. The
+   * difference is recorded in `zod-mirror-parity.test.ts`'s
+   * `WiderThanDeclared` ledger, which reddens when the two faces agree again.
    */
   objectName: string;
-  
+
   /**
    * Data Source Configuration
    * Aligned with @objectstack/spec ViewDataSchema
@@ -814,13 +976,26 @@ export interface ObjectGridSchema extends BaseSchema {
    * - Array of ListColumn objects (enhanced): [{ field: 'name', label: 'Full Name', width: 200 }]
    */
   columns?: string[] | ListColumn[];
-  
+
   /**
-   * Filter criteria (JSON Rules format)
-   * Array-based filter configuration
+   * Base query filter — the protocol's `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`, taken BY REFERENCE from the
+   * `object-grid` row (`ComponentPropsMap['object-grid'].filter`), which
+   * refuses the MongoDB-style record and the AST tuple array by name.
+   * `ObjectGrid` lowers it through `@object-ui/core`'s `toFilterNode` onto
+   * `$filter`.
+   *
+   * objectui#6152 round 8: this was `any[]`, so a tuple array such as
+   * `[['status', '=', 'open']]` type-checked here while the protocol refused
+   * it. ⚠️ What did NOT narrow is the read: `toFilterNode` still lowers an AST
+   * array, because hosts compose one onto the node at runtime (a grouped
+   * `ListView` grid, `ElementDataSourceGate`'s merged binding) through their
+   * own untyped copies. That value is not a shape an author writes, so this
+   * face does not publish it (the objectui#10199 split, as
+   * `RecordRelatedListComponentProps.filter` makes it).
    */
-  filter?: any[];
-  
+  filter?: SpecObjectGridProps['filter'];
+
   /**
    * Sort Configuration
    *
@@ -918,11 +1093,28 @@ export interface ObjectGridSchema extends BaseSchema {
   showSearch?: boolean;
   
   /**
-   * @deprecated Use filter property instead
-   * Legacy filters toggle
+   * RETIRED on this node (objectui#11068, ADR-0049) — the grid has no filter UI.
+   *
+   * `ObjectGrid` never read the key, so an authored value drew nothing. The one
+   * filter surface objectui draws is the `list-view` toolbar's filter builder,
+   * switched by the list view's `userActions.filter`; honouring the key
+   * here would have built a second one, and the upstream protocol's
+   * `object-grid` row does not declare it. The rows this grid fetches are
+   * narrowed by {@link ObjectGridSchema.filter}.
+   *
+   * `?: never`, not a deletion — the convention of `rowSpecActions` below:
+   * without a member, the key would fall to {@link BaseSchema}'s index
+   * signature and type-check again. Lockstep with the Zod twin
+   * (`zod/objectql.zod.ts`, `retirementTombstone()`). An `object-view`'s own
+   * {@link ObjectViewSchema.showFilters} is a different member, read by
+   * `ObjectView`, and is unaffected.
+   *
+   * @deprecated RETIRED (objectui#11068) — author a `list-view` and switch its
+   * filter builder with `userActions.filter`; write `filter` to narrow this
+   * grid's rows.
    */
-  showFilters?: boolean;
-  
+  showFilters?: never;
+
   /**
    * @deprecated Use pagination config instead
    * Legacy pagination toggle
@@ -939,8 +1131,9 @@ export interface ObjectGridSchema extends BaseSchema {
    *
    * `?: never`, not a deletion — this package's tombstone convention (see
    * `ObjectViewSchema.viewTabBar`): {@link BaseSchema}'s `[key: string]: any`
-   * would absorb a deleted member, so the retired spelling would type-check
-   * green and do nothing. Lockstep with the Zod twin (`zod/objectql.zod.ts`,
+   * absorbed a deleted member until objectui#8347, and a deletion is still
+   * refused only on a fresh literal, so the retired spelling would type-check
+   * green through a widened value and do nothing. Lockstep with the Zod twin (`zod/objectql.zod.ts`,
    * `retirementTombstone()`).
    *
    * @deprecated RETIRED (objectui#5861) — write `sort: [{ field, order }]`
@@ -949,22 +1142,67 @@ export interface ObjectGridSchema extends BaseSchema {
   defaultSort?: never;
 
   /**
-   * @deprecated Use filter instead
-   * Legacy default filters
+   * The legacy base-filter fallback, read only when {@link ObjectGridSchema.filter}
+   * is absent — the SAME `ViewFilterRule` array, `[{ field, operator, value }, ...]`,
+   * taken BY REFERENCE from the `object-grid` row
+   * (`ComponentPropsMap['object-grid'].defaultFilters`), which has declared it so
+   * since `@objectstack/spec` 17.6.0 and refuses the MongoDB-style record, a bare
+   * string and the AST tuple array. `ObjectGrid` lowers it through the same
+   * `toFilterNode` sink as `filter`, so a rule array here sends the same `$filter`
+   * as the same rule array written as `filter`.
+   *
+   * objectui#6152 round 10: this was `Record<string, any>`, so the record form
+   * (`{ status: 'open' }`) type-checked here, and through the `object-view`
+   * `table` slot, while the protocol refused it. Write
+   * `[{ field: 'status', operator: 'equals', value: 'open' }]` instead — or, better,
+   * move it to `filter`. ⚠️ The read did not narrow: the sink still lowers a record
+   * or an AST array that reaches the slot at runtime, which is not a shape an
+   * author writes here, so this face does not publish it (the objectui#10199
+   * split, as {@link ObjectGridSchema.filter} makes it). Since objectui#11880
+   * item 5 `ObjectView` no longer writes this slot on the grid it draws: an
+   * active named view's `filter` and an authored `table.defaultFilters` both
+   * reach that grid in `filter`, so its export and page reset follow them.
+   *
+   * @deprecated Use filter instead — the same rule array; this key is read only
+   * when `filter` is absent.
    */
-  defaultFilters?: Record<string, any>;
+  defaultFilters?: SpecObjectGridProps['defaultFilters'];
   
   /**
-   * @deprecated Moved to top-level resizable
-   * Legacy resizable columns flag
+   * RETIRED (objectui#6152 round 7, ADR-0049) — the legacy second spelling of
+   * {@link ObjectGridSchema.resizable}, read only when `resizable` was absent.
+   * `@objectstack/spec` 17.7.0 (objectstack#21445) converted
+   * `ComponentPropsMap['object-grid'].resizableColumns` to a retired-key
+   * tombstone, so the protocol refuses an authored value by name, written flat
+   * on the node or in its `properties` bag; and `ObjectGrid` no longer reads it
+   * (its `resizable ?? resizableColumns` fallback went in the same change).
+   *
+   * `?: never`, not a deletion — this package's tombstone convention (see
+   * `defaultSort` above): a deletion is refused only on a fresh literal, so the
+   * retired spelling would type-check green through a widened value and do
+   * nothing. Lockstep with the Zod twin (`zod/objectql.zod.ts`,
+   * `retirementTombstone()`).
+   *
+   * @deprecated RETIRED (objectui#6152) — write `resizable` instead (on an
+   * authored node, `properties.resizable`).
    */
-  resizableColumns?: boolean;
+  resizableColumns?: never;
   
   /**
    * @deprecated Use label instead
    * Legacy title field — the caption/export-file-title fallback. `ObjectGrid.tsx`
-   * reads it at exactly two sites, `viewLabel: schema.label || schema.title` and
-   * `caption: schema.label || schema.title`, only when `label` is absent.
+   * draws it at exactly two sites, the export file name's `viewLabel` and the
+   * table `caption`, each spelled
+   * `resolveInlineI18nLabel(schema.label, displayLocale) || resolveInlineI18nLabel(schema.title, displayLocale)`,
+   * so only when `label` resolves to nothing.
+   *
+   * `I18nLabel` — the spec's own type for this key
+   * (`ComponentPropsMap['object-grid'].title`, "Fallback for `label`"): a plain
+   * string or an inline per-locale map, resolved against the display locale the
+   * way `label` is (objectui#10993 batch 3 taught both sites). Typed `string`
+   * until objectui#10993 (batch 4), a NARROWING on both faces of this schema:
+   * the contract and the renderer took the map while `tsc` and the zod mirror
+   * refused it.
    *
    * Kept DECLARED — not retired — by objectui#6639's census-directed maintainer
    * ruling (2026-08-29, declare branch): authored `object-grid.title` nodes exist
@@ -974,75 +1212,64 @@ export interface ObjectGridSchema extends BaseSchema {
    * `UnmirroredDeclared` ledger in `__tests__/zod-mirror-parity.test.ts` by the
    * same card — the #6424 family form.
    */
-  title?: string;
+  title?: I18nLabel;
 
   /**
-   * Legacy description field.
+   * One line of help text drawn above the grid, in muted type — the same
+   * treatment `list-view` gives a view's description.
    *
-   * `string | I18nLabel` — the spec's INLINE locale map, resolved against a
-   * BCP-47 display locale by `resolveI18nLabel(label, locale)`. Plain `string`
-   * until objectui#9092: a NARROWING override of `BaseSchema.description`,
-   * which objectui#4580's revised Q1 ruling (option A) widened. The mirror
-   * (`zod/objectql.zod.ts`'s `ObjectGridSchema`) never restates the key, so it
-   * inherits the zod `BaseSchema`'s `I18nLabelSchema`.
+   * `string | I18nLabel` — the spec's INLINE locale map, resolved against the
+   * display locale by `resolveI18nLabel(label, locale)`, as `label` is. Plain
+   * `string` until objectui#9092: a NARROWING override of
+   * `BaseSchema.description`, which objectui#4580's revised Q1 ruling
+   * (option A) widened. The mirror (`zod/objectql.zod.ts`'s `ObjectGridSchema`)
+   * never restates the key, so it inherits the zod `BaseSchema`'s
+   * `I18nLabelSchema`.
    *
-   * ⚠️ The `@deprecated` tag below is NOT a reason to leave the declaration
-   * narrow: deprecated-but-declared is still an authoring face, and an author
-   * on it was refused by `tsc` for writing the form the contract publishes.
-   * Whether the key should exist at all is the ADR-0049 liveness question, not
-   * this one.
-   *
-   * @deprecated No direct replacement (consider using label with additional context)
+   * Read by `ObjectGrid` since objectui#11068. Before it, nothing drew the key
+   * and it carried `@deprecated`; that ADR-0049 liveness question was answered
+   * by honouring it. A map with no entry for any locale draws no line.
    */
   description?: string | I18nLabel;
   
   /**
-   * Enable/disable built-in operations
-   * NOTE: This is ObjectUI-specific and not part of @objectstack/spec
+   * Built-in affordance toggles — the protocol's strict
+   * `{ create?, update?, delete?, export? }` block, taken BY REFERENCE from
+   * the `object-grid` row (`ComponentPropsMap['object-grid'].operations`,
+   * declared by `@objectstack/spec` 17.7.0). The four members are the four
+   * `ObjectGrid` reads:
    *
-   * `update` / `delete` are the CEILING over {@link rowActions}: `update: false`
-   * (or `delete: false`) withholds the row menu's generic Edit (or Delete)
-   * entry whatever `rowActions` says. A declared block REPLACES the default
-   * rather than merging under it, so a member the block does not name is
-   * withheld too; omit the whole block to keep the default (Edit / Delete
-   * offered wherever the host wires `onEdit` / `onDelete`).
+   *   - `create` offers the add-record row (the create permission gates it too);
+   *   - `update` / `delete` are the CEILING over {@link rowActions}: `false`
+   *     withholds the row menu's generic Edit (or Delete) entry whatever
+   *     `rowActions` says;
+   *   - `export: false` withholds the export button that {@link exportOptions}
+   *     enables; absent, export stays offered.
+   *
+   * A declared block REPLACES the default rather than merging under it, so an
+   * `update` / `delete` the block does not name is withheld too; omit the whole
+   * block to keep the default (Edit / Delete offered wherever the host wires
+   * `onEdit` / `onDelete`).
+   *
+   * objectui#6152 round 8 retired `read` and `import` (the protocol refuses
+   * both by name): no `object-grid` code reads either. `?: never` is this
+   * package's tombstone convention (see {@link defaultSort}), in lockstep with
+   * the zod twin's `retirementTombstone()` arms.
    */
-  operations?: {
+  operations?: NonNullable<SpecObjectGridProps['operations']> & {
     /**
-     * Enable create operation
-     * @default true
+     * @deprecated RETIRED (objectui#6152 round 8) — `object-grid` has no reader
+     * of `operations.read`: the grid always lists the records it is bound to.
+     * Delete the key. On an `object-view`, whether a row click opens the record
+     * is the view's own: write `navigation: { mode: 'none' }` (or
+     * `operations: { read: false }`) on the `object-view` node, not in `table`.
      */
-    create?: boolean;
-
+    read?: never;
     /**
-     * Enable read/view operation
-     * @default true
+     * @deprecated RETIRED (objectui#6152 round 8) — `object-grid` draws no
+     * import affordance, so `operations.import` toggled nothing. Delete the key.
      */
-    read?: boolean;
-
-    /**
-     * Enable update operation. Not named in a declared block ⇒ withheld;
-     * block omitted ⇒ allowed wherever the host wires `onEdit`.
-     */
-    update?: boolean;
-
-    /**
-     * Enable delete operation. Not named in a declared block ⇒ withheld;
-     * block omitted ⇒ allowed wherever the host wires `onDelete`.
-     */
-    delete?: boolean;
-
-    /**
-     * Enable export operation
-     * @default false
-     */
-    export?: boolean;
-
-    /**
-     * Enable import operation
-     * @default false
-     */
-    import?: boolean;
+    import?: never;
   };
 
   /**
@@ -1086,7 +1313,12 @@ export interface ObjectGridSchema extends BaseSchema {
   /**
    * Enable single-click editing mode
    * When true with editable, clicking a cell enters edit mode (instead of double-click)
-   * @default false
+   *
+   * `ObjectGrid` reads it as `schema.singleClickEdit ?? true`, so an absent key
+   * means single-click editing, as the spec's `object-grid` row says ("default true
+   * when editable"). This comment read `@default false` until objectui#6152 round 6,
+   * which mirrored the key and measured the default through the real registry.
+   * @default true
    */
   singleClickEdit?: boolean;
   
@@ -1116,10 +1348,24 @@ export interface ObjectGridSchema extends BaseSchema {
   rowColor?: RowColorConfig;
 
   /**
-   * Enable keyboard navigation (Grid mode)
-   * Arrow keys, Tab, Enter for cell navigation
-   * NOTE: This is ObjectUI-specific and not part of @objectstack/spec
-   * @default true when editable is true
+   * Arrow-key cell navigation on the WAI-ARIA grid pattern (objectui#11068).
+   * A member of the spec's `object-grid` row (`ComponentPropsMap['object-grid']`)
+   * since `@objectstack/spec` 17.6.0 (objectstack#20694).
+   *
+   * On, the grid's data cells are ONE Tab stop between them, a roving focus:
+   * arrow keys move it one cell, Home / End to the ends of the row, Ctrl+Home /
+   * Ctrl+End to the ends of the page, Enter still opens an editable cell, and an
+   * edit ended with Enter or Escape hands focus back to its cell. Off, every data
+   * cell is its own Tab stop, as it always was. A widget a cell renders (the
+   * record link, a row's action menu, a selection checkbox) keeps its own stop
+   * either way.
+   *
+   * `ObjectGrid` reads it as `schema.keyboardNavigation ?? inlineEditable`, where
+   * `inlineEditable` is the authored `editable` AND the viewer's write verdict on
+   * the object — the one value the grid's inline editing itself obeys. So a grid
+   * that renders editable has it on, a grid that renders read-only keeps its Tab
+   * behaviour unless this is `true`, and `false` turns it off on an editable grid.
+   * @default true when the grid renders editable
    */
   keyboardNavigation?: boolean;
   
@@ -1154,8 +1400,10 @@ export interface ObjectGridSchema extends BaseSchema {
   navigation?: ViewNavigationConfig;
 
   /**
-   * Callback for page-level navigation (used by 'page' mode).
-   * Called with recordId and action ('view' | 'edit').
+   * Called for page-level navigation with the record id and a
+   * {@link RecordNavigateAction} — a navigation-MODE token from a closed
+   * vocabulary: `'view'` opens the record page, `'new_window'` opens it in a
+   * new browser tab.
    *
    * PROGRAMMATIC ONLY — not authoring surface. Deliberately absent from
    * `GRID_QUERY_INPUTS` (`@object-ui/plugin-grid`'s `index.tsx`), so the
@@ -1169,10 +1417,11 @@ export interface ObjectGridSchema extends BaseSchema {
    * key. Writing it into a stored document does nothing at all.
    *
    * Programmatic callers should prefer `ObjectGridComponentProps`
-   * (`@object-ui/plugin-grid`), where the nine sibling callbacks —
-   * `onRowClick`, `onRowSelect`, `onCellChange`, `onRowSave`, `onBatchSave`,
-   * `onEdit`, `onDelete`, `onBulkDelete`, `onAddRecord` — live and only live,
-   * for exactly this reason.
+   * (`@object-ui/plugin-grid`), which declares ten callbacks: this one, as a
+   * prop since objectui#9547 — and the prop wins when both are supplied — and
+   * the nine siblings `onRowClick`, `onRowSelect`, `onCellChange`,
+   * `onRowSave`, `onBatchSave`, `onEdit`, `onDelete`, `onBulkDelete`,
+   * `onAddRecord`, which live and only live there, for exactly this reason.
    *
    * The declaration is kept rather than removed: with the key explicitly
    * published, removing it is a breaking public type change plus a deprecation
@@ -1194,47 +1443,75 @@ export interface ObjectGridSchema extends BaseSchema {
    * from a schema and asserts the call. What is absent is a supplier, not the
    * channel, so `'retired'` ("no renderer reads this key") would be false.
    */
-  onNavigate?: (recordId: string | number, action?: string) => void;
+  onNavigate?: (recordId: string | number, action: RecordNavigateAction) => void;
 
   /**
-   * Conditional formatting rules for row/cell styling.
-   * Aligned with @objectstack/spec ListViewSchema.conditionalFormatting.
-   * Supports both ObjectUI field/operator/value rules and Spec expression-based { condition, style } rules.
+   * Conditional formatting rules for row styling — `[{ condition, style }]`, the rule
+   * @objectstack/spec's `ListViewSchema.conditionalFormatting` declares: the first rule
+   * whose CEL `condition` holds applies its CSS `style` map to the row. The native
+   * `{ field, operator, value }` rule, its `expression` and a top-level colour are
+   * retired and refused by name (objectui#11533); see {@link ConditionalFormattingRule}.
    */
   conditionalFormatting?: ConditionalFormattingRule[];
 
   /**
-   * Row action identifiers (action names from ActionSchema).
-   * Aligned with @objectstack/spec ListViewSchema.rowActions.
+   * RETIRED (objectui#11068, ADR-0049) — a second spelling of
+   * {@link ObjectGridSchema.rowActions}.
+   *
+   * It was declared beside `rowActions` with the same meaning (action names
+   * for the row menu) and nothing ever read it, so an authored list drew no
+   * menu entry. `rowActions` is the spelling `ObjectGrid` reads and the one
+   * the upstream protocol's `object-grid` row declares; honouring this key as
+   * well would have made one fact writable two ways (AGENTS.md #0.1).
+   *
+   * @deprecated RETIRED (objectui#11068) — rename the key to `rowActions`.
    */
-  rowSpecActions?: string[];
+  rowSpecActions?: never;
 
   /**
-   * Bulk action identifiers (action names from ActionSchema).
-   * Aligned with @objectstack/spec ListViewSchema.bulkActions.
+   * RETIRED (objectui#11068, ADR-0049) — a second spelling of
+   * {@link ObjectGridSchema.bulkActions}, for the same reason as
+   * `rowSpecActions` above.
+   *
+   * @deprecated RETIRED (objectui#11068) — rename the key to `bulkActions`.
    */
-  bulkSpecActions?: string[];
+  bulkSpecActions?: never;
 
   /**
    * Rich bulk action definitions. When provided, takes precedence over
-   * `bulkActions` / `bulkSpecActions` (string-id lists) by opening a
-   * BulkActionDialog that collects params, confirms, and executes via
-   * dataSource.bulk(...) with progress + result reporting.
+   * `bulkActions` (the string-id list) by opening a BulkActionDialog that
+   * collects params, confirms, and executes via dataSource.bulk(...) with
+   * progress + result reporting.
    */
   bulkActionDefs?: BulkActionDef[];
 
   /**
-   * Empty state configuration shown when no data is available.
-   * Aligned with @objectstack/spec ListViewSchema.emptyState.
+   * What the grid draws instead of an empty table (objectui#11068).
+   *
+   * Read by `ObjectGrid` when it has no rows to draw — nothing is loading, it
+   * holds no record (no group, when grouped), and no search term typed into
+   * its own server-side search box is what emptied it. The grid then draws
+   * this empty state in place of the table: the Lucide icon named by `icon`,
+   * the `title`, and the `message` below it. A member left out keeps the
+   * grid's own default: the shared empty-state glyph, the table's
+   * "No results found" heading, and no message line. It is text only, as the
+   * table's own empty row is: an empty table draws no add-record row either.
+   *
+   * A search that finds nothing is NOT this state: the table stays, with its
+   * own "no results" row, so the search box that emptied it stays reachable.
+   * Leave the key out and nothing changes — the table draws its own empty row.
+   *
+   * The protocol's own empty-state type, ⛔ not a second shape (objectui#11227):
+   * `@objectstack/spec` 17.6.0 declares `emptyState` on its `object-grid` row
+   * by reference to the list view's `EmptyStateSchema`, so the grid and
+   * `ListViewSchema` share one shape. `title` and `message` are `I18nLabel` —
+   * a plain string or an inline locale map — and `ObjectGrid` resolves each
+   * against the display locale, as it resolves `label` and `description`; a
+   * map with no usable entry keeps that member's default. `icon` stays a
+   * string. The Zod twin takes the same schema by reference, so it refuses an
+   * unknown member as the spec does.
    */
-  emptyState?: {
-    /** Title text for the empty state */
-    title?: string;
-    /** Message/description for the empty state */
-    message?: string;
-    /** Icon name (Lucide icon identifier) */
-    icon?: string;
-  };
+  emptyState?: SpecEmptyState;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-grid` reads NEITHER
    * content channel; see `children` below for the measurement.
@@ -1331,7 +1608,24 @@ export interface ObjectFormSection {
   pane?: 'primary' | 'secondary';
 
   /**
-   * Field names or inline field configurations for this section.
+   * The section's fields, in order. Each entry is one of three shapes, the
+   * three `buildSectionFields` (`@object-ui/plugin-form`) draws on every
+   * `formType`:
+   *
+   * - a field NAME, resolved against the object schema;
+   * - the form view's `{ field, … }` entry — `@objectstack/spec`'s
+   *   `FormFieldInput`, by reference (objectui#11615): `field` names an object
+   *   field and every other key overrides that field's generated definition;
+   * - an inline runtime {@link FormField} keyed by `name`, drawn as it stands
+   *   with no object schema needed.
+   *
+   * On the default (`simple`) form the first two shapes resolve against the
+   * form's parent field pool — top-level `fields` when it is given, else the
+   * object's fields, plus `customFields` — and a name the pool does not hold is
+   * dropped (with a warning when the object declares it: `fields` and
+   * `sections` intersect, objectui#9884). An inline `FormField` names nothing
+   * to resolve, so it is drawn whatever the pool holds, as on every other
+   * `formType` (objectui#11615).
    *
    * OPTIONAL since objectui#7051, and optional ONLY in the sense that
    * {@link group} is the other way to declare the same fact —
@@ -1341,7 +1635,7 @@ export interface ObjectFormSection {
    * read `group`, so this type refused the exact shape the spec declares and a
    * TypeScript author could not write the group-reference form at all.
    */
-  fields?: (string | FormField)[];
+  fields?: (string | SpecFormFieldInput | FormField)[];
 
   /**
    * Reference a declared field GROUP instead of enumerating members
@@ -1459,9 +1753,33 @@ export type SubmitBehavior =
  *   #2545; until then they are sanctioned, documented extensions.
  * - **[runtime-only]** — non-serializable runtime concerns that never belong
  *   in view metadata (`mode`, `recordId`, `open`, callbacks, …).
+ *
+ * ## What this type describes (objectui#10859, batch 4)
+ *
+ * The `object-form` node as `ObjectForm` READS it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it
+ * (`ObjectView`, `RecordFormPage`, `ScreenView`, the plugin-form variants, a
+ * host mounting `<ObjectForm schema={…}>`). That is why its identity keys are
+ * required here and why it carries host callbacks.
+ *
+ * It is NOT the shape of an AUTHORED `object-form` document. An authored node
+ * takes its props in the spec's `properties` bag, whose members are
+ * `@objectstack/spec`'s `ComponentPropsMap['object-form']` row
+ * (`ObjectFormProps`): `{ type: 'object-form', properties: { objectName, mode,
+ * … } }`. `ObjectFormBlockSchema` (`./zod/objectql.zod.ts`) judges it, and
+ * refuses a prop written flat on the node by name. `SchemaRenderer` reads both
+ * spellings, so a node built in code keeps its flat keys.
  */
 export interface ObjectFormSchema extends BaseSchema {
   type: 'object-form';
+
+  /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). A form honours its `object` (it edits one record, so
+   * there is no collection query to filter or page). Metadata, ⛔ not the
+   * adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
   
   /**
    * Form variant type.
@@ -1573,21 +1891,23 @@ export interface ObjectFormSchema extends BaseSchema {
   }>;
   
   /**
-   * Form layout.
-   *
-   * Supported layouts:
+   * Label placement — `@objectstack/spec`'s `object-form` row's own enum, by
+   * reference:
    * - `vertical`   – label above field (default)
    * - `horizontal` – label and field in a row
-   * - `inline`     – compact inline layout, typically used in toolbars
-   * - `grid`       – **experimental** grid layout
+   *
+   * ⛔ `inline` and `grid` are RETIRED (objectui#11168 slice 3, objectui#7759
+   * group C). The spec refuses both since 17.5.0 (objectstack#20221), and
+   * measured through the real `SchemaRenderer` both rendered byte-identical to
+   * `vertical` — every layout folded them away.
    *
    * @default 'vertical'
    */
-  layout?: 'vertical' | 'horizontal' | 'inline' | 'grid';
+  layout?: SpecObjectFormProps['layout'];
   
   /**
-   * Grid columns (for grid layout).
-   * @default 2
+   * Number of columns the fields are laid out in (1-4). Independent of
+   * `layout`: the form body is one grid at this width.
    */
   columns?: number;
   
@@ -1796,11 +2116,16 @@ export interface ObjectFormSchema extends BaseSchema {
    * derived from the child object's metadata (override with
    * `relationshipField` / `columns`). This lets a regular form view declare
    * master-detail without a bespoke page.
+   *
+   * A `columns` entry is the spec's `InlineGridColumn` (objectui#11266): an
+   * object keyed by `name`, never a bare field-name string. The minimal entry is
+   * `{ name: 'quantity' }`; a column that declares no `type` takes its label,
+   * type and the rest from the child object's field.
    */
   subforms?: Array<{
     childObject: string;
     relationshipField?: string;
-    columns?: any[];
+    columns?: SpecInlineGridColumn[];
     amountField?: string;
     totalField?: string;
     title?: string;
@@ -1991,103 +2316,125 @@ export interface ObjectFormSchema extends BaseSchema {
 }
 
 /**
- * The `ObjectGridSchema` keys a view's `table` slot may carry: every member
- * `ObjectGridSchema` declares, minus the identity keys the view itself fixes
- * (`type`, `objectName`). 59 keys.
+ * The `ObjectGridSchema` keys a view's `table` slot carries: the members
+ * `ObjectView` hands the grid it draws, and nothing else (objectui#10976). The
+ * count is not written here — `src/__tests__/object-view-slot-key-lists.test.ts`
+ * re-derives it through the checker (AGENTS.md #9).
  *
- * ⚠️ This is an explicit list, and NOT `Omit<ObjectGridSchema, 'type' | 'objectName'>`,
- * because `Omit` collapses here (objectui#6269). `Omit<T, K>` is
+ * The list is three groups:
+ *
+ *   - the keys `ObjectView` reads off `table` BY NAME when it builds the grid
+ *     node: `columns` / `fields`, `filter` / `defaultFilters`, `sort`,
+ *     `pagination` / `pageSize`, `selection` / `selectable`, `operations`,
+ *     `title` and `className`;
+ *   - the keys it RELAYS verbatim, `OBJECT_VIEW_TABLE_RELAY_KEYS` in
+ *     `@object-ui/plugin-view`'s `ObjectView.tsx` — each one a key
+ *     `ObjectGrid` reads, so a value written here reaches a read. Where the
+ *     active named view declares the same member, the named view wins;
+ *   - three of the retirement tombstones `ObjectGridSchema` declares (`body`,
+ *     `children`, `defaultSort`, each `?: never`). They type nothing: they keep
+ *     the named refusal, and its guidance, on this face too. The five the grid
+ *     retired later (`name`, `placeholder`, `rowSpecActions`,
+ *     `bulkSpecActions`, `showFilters`, objectui#11068) are withheld instead,
+ *     below — the slot refuses each of them by name either way.
+ *
+ * ⛔ Every other `ObjectGridSchema` member is WITHHELD, because on the view's
+ * grid it reached nothing: `ObjectGrid` has no read of it (the five
+ * tombstones just named); `ObjectGrid` reads it on its own node but the view
+ * does not hand it on (`emptyState`, `description` — honoured by the grid
+ * since objectui#11068, and kept off this slot by that card's ruling, which
+ * enforced them without widening it — and `keyboardNavigation`, read since
+ * that card's build; a view's grid takes the key's default, on exactly when
+ * it renders editable);
+ * the view owns it (the record source
+ * `data` / `staticData` / `bind`, and since objectui#11070 the binding
+ * `dataSource`; the row click `navigation` / `onNavigate`;
+ * the grid's `id`); the view draws the grid as a component rather than a
+ * schema node, so the node-level `BaseSchema` keys have no renderer to apply
+ * them (`style`, `testId`, `ariaLabel`, `hidden` / `hiddenOn`,
+ * `visible` / `visibleOn` / `visibleWhen`, `disabled` / `disabledOn`); or it
+ * is the legacy alias of a relayed key (`batchActions` for `bulkActions`,
+ * `resizableColumns` for `resizable`). Before objectui#10976 the slot typed
+ * all of them, so `table: { emptyState: … }` type-checked and did nothing.
+ * The zod twin (`zod/objectql.zod.ts`, `ObjectViewSchema.table`) refuses each
+ * withheld key by name, and the pin below holds the two faces to one list.
+ *
+ * ⚠️ This is an explicit list, and NOT an `Omit` of `ObjectGridSchema`,
+ * because `Omit` collapsed here (objectui#6269). `Omit<T, K>` is
  * `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on a type carrying a string
  * index signature is `string | number` — the literal member names are ABSORBED.
- * `ObjectGridSchema` inherits `BaseSchema`'s `[key: string]: any`
- * (objectui#5155), so the `Omit` rebuilt a type holding the index signature and
- * NONE of the 61 named members: measured through the checker,
+ * `ObjectGridSchema` inherited `BaseSchema`'s `[key: string]: any`
+ * (objectui#5155) until objectui#8347, so the `Omit` rebuilt a type holding the index signature and
+ * none of the named members: measured through the checker at objectui#6269,
  * `Omit<ObjectGridSchema, 'type' | 'objectName'>` declared 0 properties. The
  * slot accepted anything (`table: { colunms: 3 }` type-checked), offered no
  * editor completion, and the doc comment promised an inheritance it did not
  * deliver. `Pick` with LITERAL keys never computes `keyof T`, so it cannot
  * collapse the same way.
  *
- * 🔒 The duplicate-list hazard — a member added to `ObjectGridSchema` and not to
- * this list — is pinned by
+ * 🔒 The duplicate-list hazard — a member added to `ObjectGridSchema` and
+ * placed in neither this list nor the withheld set — is pinned by
  * `src/__tests__/object-view-slot-key-lists.test.ts`, which recomputes the
  * source schema's declared members through the TypeScript checker and requires
- * set equality with this list.
+ * this list to equal them minus the identity keys and minus its withheld set.
+ * A new grid member therefore turns it red until it is relayed (here and in
+ * `OBJECT_VIEW_TABLE_RELAY_KEYS`) or withheld (there and on the zod twin).
  *
- * 🗑️ When a #5155 phase removes `BaseSchema`'s root index signature, `Omit`
- * stops collapsing: this list, `ObjectFormSlotKey` below, and their pin all
- * become removable in favour of the original `Omit` form.
+ * 🗑️ objectui#8347 removed `BaseSchema`'s root index signature (the #5155 phase
+ * this waited for), so `Omit` no longer collapses here, and this list may be
+ * spelled as an `Omit` of the identity keys and the withheld set. The pin stays: what it guards now is that every
+ * grid member is classified, which an `Omit` does not do by itself.
  */
 type ObjectGridSlotKey =
   | 'aggregations'
-  | 'ariaLabel'
-  | 'batchActions'
-  | 'bind'
   | 'body'
   | 'bulkActionDefs'
   | 'bulkActions'
-  | 'bulkSpecActions'
   | 'children'
   | 'className'
   | 'columns'
   | 'conditionalFormatting'
-  | 'data'
   | 'defaultFilters'
   | 'defaultSort'
-  | 'description'
-  | 'disabled'
-  | 'disabledOn'
   | 'editable'
-  | 'emptyState'
   | 'exportOptions'
   | 'fields'
   | 'filter'
   | 'frozenColumns'
   | 'grouping'
-  | 'hidden'
-  | 'hiddenOn'
-  | 'id'
-  | 'keyboardNavigation'
   | 'label'
-  | 'name'
-  | 'navigation'
-  | 'onNavigate'
   | 'operations'
   | 'pageSize'
   | 'pagination'
-  | 'placeholder'
   | 'reorderableColumns'
   | 'resizable'
-  | 'resizableColumns'
   | 'rowActions'
   | 'rowColor'
   | 'rowHeight'
-  | 'rowSpecActions'
   | 'searchableFields'
   | 'selectable'
   | 'selection'
   | 'showColumnTypeIcons'
-  | 'showFilters'
   | 'showPagination'
   | 'showSearch'
   | 'singleClickEdit'
   | 'sort'
-  | 'staticData'
-  | 'style'
-  | 'testId'
-  | 'title'
-  | 'visible'
-  | 'visibleOn'
-  | 'visibleWhen';
+  | 'title';
 
 /**
  * The `ObjectFormSchema` keys a view's `form` slot may carry: every member
  * `ObjectFormSchema` declares, minus the identity keys the view itself fixes
- * (`type`, `objectName`, `mode`). 64 keys.
+ * (`type`, `objectName`, `mode`). The count is not written here —
+ * `src/__tests__/object-view-slot-key-lists.test.ts` re-derives it (AGENTS.md
+ * #9).
  *
- * Same mechanism, same pin, same removal condition as `ObjectGridSlotKey` above
- * — see its comment. Measured before the fix:
- * `Omit<ObjectFormSchema, 'type' | 'objectName' | 'mode'>` declared 0 of
+ * Same `Omit` collapse and same pin as `ObjectGridSlotKey` above — see its
+ * comment. Unlike that list, this one withholds nothing but the identity keys,
+ * so its removal condition is the original one, and objectui#8347 met it by
+ * removing `BaseSchema`'s root index signature (the #5155 phase it waited for):
+ * this list and its half of the pin are removable in favour of
+ * `Omit<ObjectFormSchema, 'type' | 'objectName' | 'mode'>`.
+ * Measured before the objectui#6269 fix: that `Omit` declared 0 of
  * `ObjectFormSchema`'s 67 members.
  */
 type ObjectFormSlotKey =
@@ -2102,6 +2449,10 @@ type ObjectFormSlotKey =
   | 'columns'
   | 'customFields'
   | 'data'
+  // objectui#11070 — joins with `ObjectFormSchema.dataSource`. This slot
+  // withholds nothing but the identity keys (above), so it carries the binding
+  // as it carries `bind` and `data`; `ObjectView` relays neither to its form.
+  | 'dataSource'
   | 'defaultTab'
   | 'defaults'
   | 'description'
@@ -2224,9 +2575,12 @@ export interface ObjectViewSchema extends BaseSchema {
   /**
    * Table/Grid configuration.
    *
-   * Every `ObjectGridSchema` member except the identity keys this view already
-   * fixes (`type`, `objectName`) — see `ObjectGridSlotKey` for why the key list
-   * is spelled out instead of `Omit`-ed (objectui#6269).
+   * The `ObjectGridSchema` members this view hands the grid it draws — the
+   * keys it reads off `table` by name and the ones it relays verbatim — and no
+   * other (objectui#10976). A grid member the view does not honour is withheld,
+   * so writing it here is a type error rather than a silent no-op. See
+   * `ObjectGridSlotKey` for the three groups, the withheld set, and why the
+   * key list is spelled out instead of `Omit`-ed (objectui#6269).
    */
   table?: Partial<Pick<ObjectGridSchema, ObjectGridSlotKey>>;
   
@@ -2337,9 +2691,10 @@ export interface ObjectViewSchema extends BaseSchema {
    *
    * `?: never` is this package's tombstone convention (see
    * `ObjectKanbanSchema.groupField`, objectui#7322), and it is load-bearing
-   * rather than decorative: {@link BaseSchema} carries `[key: string]: any`,
-   * so DELETING this member would let the retired spelling type-check green
-   * and go on doing nothing. Keeping the key declared as `never` is what makes
+   * rather than decorative: {@link BaseSchema} carried `[key: string]: any`
+   * until objectui#8347, and a deletion is still refused only on a fresh
+   * literal, so DELETING this member would let the retired spelling type-check
+   * green through a widened value and go on doing nothing. Keeping the key declared as `never` is what makes
    * the retirement audible at the authoring boundary. Lockstep with the Zod
    * twin (`zod/objectql.zod.ts`, `retirementTombstone()`): both halves or
    * neither. Absent stays valid on both, so a node that never wrote the key is
@@ -2509,17 +2864,21 @@ export interface NamedListView {
   compactToolbar?: boolean;
 
   /**
-   * Allow data export @default undefined
+   * @deprecated RETIRED (objectui#11013) — the protocol declares no
+   * `allowExport` on a view, and no relay reads it off one any more. Whether a
+   * list offers export is the host's call, made on the `list-view` node
+   * (`ListView` gates its export control on that node's
+   * `schema.allowExport !== false`); which formats a view offers is its
+   * `exportOptions.formats`.
    *
-   * ⚠️ objectui-only (the protocol declares no `allowExport` on a view), but
-   * ⛔ NOT retired with its bucket-③ neighbours: it is READ. BOTH relays carry
-   * it off the active view into the `list-view` node — `plugin-view`'s
-   * `ObjectView` in its `renderListView` composition, and `app-shell`'s object
-   * page in its own relay over that composition — and `ListView` gates its
-   * export control on `schema.allowExport !== false`. Kept declared by ruling A
-   * on objectui#7924.
+   * Kept declared by ruling A on objectui#7924 while both relays of a view read
+   * it into the `list-view` node. objectui#11013 (ruling 甲 on
+   * objectstack#20051, and the seat's disposition on objectstack#20456: no
+   * producer, no declared spelling) removed both reads, since no console
+   * surface writes the key onto a view and the spec's view schema refuses it by
+   * name. Tombstoned rather than deleted so the refusal is by name.
    */
-  allowExport?: boolean;
+  allowExport?: never;
 
   /**
    * @deprecated RETIRED (objectui#7924) — the protocol declares no `color` on a
@@ -2628,8 +2987,8 @@ export interface NamedListView {
     formView?: string;
   };
 
-  /** Conditional formatting rules.
-   * Supports both ObjectUI field/operator/value rules and Spec expression-based { condition, style } rules. */
+  /** Conditional formatting rules — `{ condition, style }` only since objectui#11533
+   * (see {@link ConditionalFormattingRule}); the native rule dialect is refused by name. */
   conditionalFormatting?: ConditionalFormattingRule[];
 
   /**
@@ -2648,12 +3007,16 @@ export interface NamedListView {
   /** Allow printing the view @default false */
   allowPrinting?: boolean;
 
-  /** Empty state configuration */
-  emptyState?: {
-    title?: string;
-    message?: string;
-    icon?: string;
-  };
+  /**
+   * Empty state configuration — the type of {@link ListViewSchema}'s own
+   * `emptyState`, indexed rather than restated, as the objectui#8980 members
+   * below are (objectui#11227). That member is the protocol's `EmptyStateSchema`
+   * by reference, so `title` and `message` are `I18nLabel` — a plain string or
+   * an inline locale map — and `ListView`, which this view is forwarded into,
+   * resolves each against the display locale. This member said plain `string`
+   * until then, narrower than the protocol on both.
+   */
+  emptyState?: ListViewSchema['emptyState'];
 
   /** ARIA attributes for accessibility */
   aria?: {
@@ -2704,8 +3067,10 @@ export interface NamedListView {
    * The 19 legacy spellings this interface declared BEYOND the protocol were
    * objectui#7924's remedy (ruling item 4) — ⛔ not touched by that card. It
    * retired seventeen of them as tombstones, `densityMode` last (ruling A′,
-   * once both of its relays read through the fold); `options` and
-   * `allowExport` stay declared because each is read.
+   * once both of its relays read through the fold). `allowExport` stayed
+   * declared because it was read, until objectui#11013 removed both reads and
+   * retired it as the eighteenth; `options` stays declared (objectui#7928,
+   * Q2 (i)).
    */
 
   /**
@@ -2766,35 +3131,31 @@ export interface NamedListView {
   appearance?: ListViewSchema['appearance'];
 
   /**
-   * Tab definitions for a multi-tab view interface (`ViewTabSchema[]`).
+   * @deprecated RETIRED (objectui#11073) — the protocol removed the list view's
+   * own `tabs` in `@objectstack/spec` 17.5.0 (ADR-0049 enforce-or-remove): no
+   * renderer ever mounted a tab bar for it. Move each tab to a named view under
+   * the object's `listViews` (the tab's `name` becomes the entry's key, its
+   * `label` the entry's `label`, its `filter` joins that entry's `filter`);
+   * every `listViews` entry renders as a tab in the saved-view switcher.
    *
-   * ⭐ RULING ITEM 3 — MEASURED BEFORE DECLARED, because the protocol spends the
-   * word `tabs` on two different keys. This is the TOP-LEVEL one on the list
-   * shape, and it survives `ObjectListViewSchema` untouched. The other is
-   * `userFilters.tabs`, which that schema OMITS as page-only
-   * (`ObjectUserFiltersSchema`: "an object view's tab bar is its saved-view
-   * switcher (ViewTabBar), and a second one would collide"). So the key declared
-   * here is the array of `ViewTabSchema`, ⛔ not the user-filter preset bar —
-   * objectui's own `userFilters` dialect keeps carrying that one separately.
-   *
-   * ⚠️ NO RENDERER BEHAVIOUR ON THIS SURFACE, measured and REPORTED on
-   * objectui#8980 rather than silently declared inert: objectui's tab bar for an
-   * object is the saved-view switcher the HOST owns (ADR-0053), and the only
-   * `tabs` read in `packages/plugin-list` is `UserFilters`' `config.tabs` — the
-   * page-only key, not this one.
+   * Declared until then as a protocol member objectui read nowhere (objectui#8980,
+   * "declared inert"); the seat's Q4 ruling on objectui#11073 retired it here
+   * once its premise, "the protocol declares it", was falsified.
    */
-  tabs?: ListViewSchema['tabs'];
+  tabs?: never;
 
   /**
-   * Name of the published `page` a `type: 'page'` view mounts.
+   * @deprecated RETIRED (objectui#11073) — the protocol removed `pageName` with
+   * `type: 'page'` in `@objectstack/spec` 17.5.0 (ADR-0049 enforce-or-remove):
+   * the page mount was never built. To put a published page in front of users,
+   * give the app a navigation item with `type: 'page'` and its `pageName` — a
+   * different key on a different surface.
    *
-   * ⚠️ NO RENDERER BEHAVIOUR ON THIS SURFACE, measured and REPORTED on
-   * objectui#8980: `page` is not a member of this interface's own `type` union
-   * (seven values; the protocol's is ten), so no authored named view can select
-   * the branch this key configures. Declared because the protocol declares it
-   * and the ruling forbids dropping a member to avoid the report.
+   * Declared until then as a protocol member objectui read nowhere (objectui#8980,
+   * "declared inert"); the seat's Q4 ruling on objectui#11073 retired it here
+   * once its premise, "the protocol declares it", was falsified.
    */
-  pageName?: ListViewSchema['pageName'];
+  pageName?: never;
 
   /* ── The eight view-KIND configuration blocks ──────────────────────────────
    * The protocol carries each at the TOP LEVEL of a list view. objectui read
@@ -2805,11 +3166,13 @@ export interface NamedListView {
    * spellings work and the declared one wins key-by-key; each block reaches the
    * renderer `ObjectView` already dispatches to for that `type`.
    *
-   * The four with a local dialect (`kanban` `calendar` `gallery` `timeline`)
-   * index this package's mirror deliberately: those shapes are the spec config
-   * `.partial()`-ed plus the legacy field aliases the renderers still read
-   * (`groupField`, `imageField`, `dateField`). `gantt` `map` `chart` `tree`
-   * arrive in that mirror straight from `SpecListViewSchema.shape`.
+   * The four with local refusals (`kanban` `calendar` `gallery` `timeline`)
+   * index this package's mirror deliberately: since objectui#6152 round 11 each is
+   * the spec's own list-view slot by reference, strict, `.partial()` on `kanban`
+   * and `timeline` only, with the pre-#2231 aliases (`groupField`, `cardFields`,
+   * `imageField`, `dateField`) and the list-view `calendar.defaultView` refused by
+   * name. `gantt` `map` `chart` `tree` arrive in that mirror straight from
+   * `SpecListViewSchema.shape`.
    */
 
   /** Kanban board configuration. Consumed by `ObjectKanban` (`@object-ui/plugin-kanban`). */
@@ -2878,6 +3241,36 @@ export interface NamedListView {
 export type ViewNavigationConfig = NavigationConfig;
 
 /**
+ * The second argument of the record-navigation `onNavigate` callback on the
+ * list channel: a navigation-MODE token from a CLOSED vocabulary. `'view'`
+ * opens the record page, `'new_window'` opens it in a new browser tab.
+ *
+ * One type, four faces (objectui#9547, maintainer ruling C of 2026-09-18):
+ * `ObjectGridSchema.onNavigate` and `ListViewRuntimeProps.onNavigate` here,
+ * `UseNavigationOverlayOptions.onNavigate` in `@object-ui/react` — the hook
+ * whose click handler is the one producer of this value — and
+ * `ObjectGridComponentProps.onNavigate` in `@object-ui/plugin-grid`. The
+ * hook's own calls are typed against this union, so emitting any other token
+ * is a compile error there rather than a branch a host silently misses.
+ *
+ * Written out here, not imported: `@objectstack/spec` (17.5.0 on) publishes
+ * this vocabulary only as TEXT — the `type` string of the `onNavigate` row in
+ * the react-tier `ListView` entry of `REACT_BLOCKS`,
+ * `(recordId, action: 'view' | 'new_window') => void` — and exports no
+ * TypeScript type to derive from. `plugin-grid`'s
+ * `__tests__/onNavigateProp-9547.test.tsx` reads that row and fails when the
+ * two vocabularies part.
+ *
+ * ⛔ Not `'edit'`: no branch of the hook emits it
+ * (objectstack#19057 dropped it from the catalogue). ⛔ Not `string`: the slot
+ * is closed, and an open type defers every misspelt mode to runtime.
+ * ⚠️ `ObjectViewSchema.onNavigate` is a different channel with its own
+ * vocabulary (`mode: 'view' | 'edit'`, invoked by `plugin-view`'s
+ * `ObjectView`) and does not use this type.
+ */
+export type RecordNavigateAction = 'view' | 'new_window';
+
+/**
  * ListView component node — DERIVED from the zod `ListViewSchema` (issue #2231), which
  * itself derives from `@objectstack/spec/ui` `ListViewSchema`. Spec-owned fields are
  * imported by the schema rather than re-typed here, so this type can no longer drift from
@@ -2887,9 +3280,12 @@ export type ViewNavigationConfig = NavigationConfig;
  * zod/JSON-schema.
  *
  * Legacy objectui vocabulary (`viewType`/`fields`/`filters`/`show*`/`densityMode`/…) and
- * the broader-than-spec configs (`userFilters`/`sharing`/`aria`/`conditionalFormatting`/
+ * the broader-than-spec configs (`userFilters`/`sharing`/`aria`/
  * `exportOptions`/`kanban`/`calendar`/`gantt`/`gallery`/`timeline`) remain as sanctioned
  * local `.extend()`s on the schema; migration to the spec-canonical keys is deferred (#2231).
+ * `conditionalFormatting` is a local `.extend()` too but no longer broader than spec: it is
+ * the spec list view's own `{ condition, style }` rule, the native dialect refused by name
+ * (objectui#11533, {@link ConditionalFormattingRule}).
  */
 export type ListViewSchema = ListViewAuthored & ListViewRuntimeProps;
 
@@ -2947,10 +3343,12 @@ type ListViewAuthored = {
  */
 export interface ListViewRuntimeProps {
   /**
-   * Callback for page-level navigation (used by 'page' navigation mode).
-   * Called with recordId and action ('view' | 'edit').
+   * Called for page-level navigation with the record id and a
+   * {@link RecordNavigateAction} — a navigation-MODE token from a closed
+   * vocabulary: `'view'` opens the record page, `'new_window'` opens it in a
+   * new browser tab.
    */
-  onNavigate?: (recordId: string | number, action?: string) => void;
+  onNavigate?: (recordId: string | number, action: RecordNavigateAction) => void;
 
   /**
    * Callback fired when the user toggles row density/height via the toolbar. Lets the host
@@ -3053,9 +3451,34 @@ export interface ObjectMapConfig {
  * declared that the renderer does not consume (objectui#5018 — the card exists
  * because the reverse was true, and a declared-but-unread key re-creates the
  * same defect pointing the other way).
+ *
+ * ## What this type describes (objectui#10859, batch 5)
+ *
+ * The `object-map` node as `ObjectMap` READS it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it
+ * (`ObjectView` and `ListView` flattening a stored map view, a host mounting
+ * `<ObjectMap schema={…}>`). That is why it still carries the flat
+ * `locationField` / `titleField` the flatten produces.
+ *
+ * It is NOT the shape of an AUTHORED `object-map` document. An authored node
+ * takes its props in the spec's `properties` bag, whose members are
+ * `@objectstack/spec`'s `ComponentPropsMap['object-map']` row
+ * (`ObjectMapProps`): `{ type: 'object-map', properties: { objectName, map:
+ * { latitudeField, longitudeField }, … } }`. `ObjectMapBlockSchema`
+ * (`./zod/objectql.zod.ts`) judges it, and refuses a prop written flat on the
+ * node by name. `SchemaRenderer` reads both spellings, so a node built in code
+ * keeps its flat keys.
  */
 export interface ObjectMapSchema extends BaseSchema {
   type: 'object-map';
+  /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). This block's registration is gate-wrapped
+   * (`elementDataSourceBlock`), so `ElementDataSourceGate` reads the binding
+   * off the node and lands its `object` on `objectName`. Metadata, ⛔ not the
+   * adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
   /**
    * ObjectQL object name — the THIRD record source `getDataConfig` resolves,
    * after {@link ObjectMapSchema.data} and {@link ObjectMapSchema.staticData}
@@ -3064,9 +3487,11 @@ export interface ObjectMapSchema extends BaseSchema {
    * Optional since `77cb489b4`: a map authored on inline rows never reads
    * this key, and requiring it refused three catalog entries that draw
    * correctly. The requirement the renderer really has — at least one of
-   * `data`, `staticData`, `objectName` present — lives on the mirror as a
-   * refinement (`requireRecordSource` in `zod/objectql.zod.ts`), so the
-   * published declaration and the published validator say the same thing.
+   * `data`, `staticData`, `objectName` present, or the node's `dataSource.object`
+   * naming the object, which `ElementDataSourceGate` lands on this key
+   * (objectui#11117) — lives on the mirror as a refinement
+   * (`requireRecordSource` in `zod/objectql.zod.ts`), so the published
+   * declaration and the published validator say the same thing.
    */
   objectName?: string;
   /**
@@ -3077,10 +3502,22 @@ export interface ObjectMapSchema extends BaseSchema {
   /** Inline records, wrapped into a `{ provider: 'value' }` data config; read SECOND */
   staticData?: any[];
   /**
-   * Query filter, forwarded as `$filter` with its
-   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
+   * Query filter — the protocol's `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`, taken BY REFERENCE from the `object-map`
+   * row (`ComponentPropsMap['object-map'].filter`), which refuses the
+   * MongoDB-style record and the AST tuple array by name. Forwarded as `$filter`
+   * with its context tokens (`{current_user_id}`, `{current_org_id}`, the date
+   * macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders`
+   * (objectui#10666).
+   *
+   * objectui#6152 round 10: this was `any[]`, so a tuple array type-checked here
+   * while the row refused it. ⚠️ What did NOT narrow is the read: `ObjectMap`
+   * still forwards an AST a host composes at runtime (`ElementDataSourceGate`'s
+   * merged binding), which is not a shape an author writes, so this face does
+   * not publish it (the objectui#10199 split, as {@link ObjectGridSchema.filter}
+   * makes it).
    */
-  filter?: any[];
+  filter?: SpecObjectMapProps['filter'];
   /** Sort configuration, forwarded as `$orderby`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
   /**
@@ -3168,8 +3605,45 @@ export interface ObjectMapSchema extends BaseSchema {
  */
 export interface ObjectTreeSchema extends BaseSchema {
   type: 'object-tree';
-  /** ObjectQL object name */
-  objectName: string;
+  /**
+   * ObjectQL object name — the THIRD record source `resolveRecordSourceConfig`
+   * reads, after {@link ObjectTreeSchema.data} and
+   * {@link ObjectTreeSchema.staticData}.
+   *
+   * OPTIONAL since objectui#11168 slice 3, as on {@link ObjectMapSchema} and
+   * {@link ObjectGanttSchema}: a tree on inline rows never reads it, and the
+   * zod twin's `requireRecordSource` refinement is where "one of the three" is
+   * enforced. ⚠️ The node's `dataSource` binding is NOT a fourth rung here —
+   * this block's registration is not gate-wrapped, so nothing lands a binding's
+   * object on this key.
+   */
+  objectName?: string;
+  /**
+   * Data source configuration — read FIRST by `resolveRecordSourceConfig`, so a
+   * tree carrying one never reaches `staticData` or `objectName`. The `value`
+   * provider draws its `items` and the `object` provider queries its `object`;
+   * the `api` and `schema` providers draw no rows on the tree (objectui#11168
+   * slice 3, measured). A bare array here is not a record source
+   * (objectui#8348).
+   */
+  data?: ViewData;
+  /** Inline records, wrapped into a `{ provider: 'value' }` data config; read SECOND */
+  staticData?: any[];
+  /**
+   * The tree's field configuration — the spec's `TreeConfig`, by reference
+   * (objectui#11168 slice 3; the `tree` DECLARE verdict `ObjectTree.schemaTyped-8655`
+   * recorded as owed). Its four members are the four below; where both are
+   * written, the flat key on the node outranks the member of the same name
+   * (`getTreeConfig`).
+   */
+  tree?: SpecTreeConfig;
+  /**
+   * Row-click navigation — the spec's `NavigationConfig`, the same block
+   * `ListViewSchema.navigation` declares (objectui#11168 slice 3, the tree arm
+   * of objectui#8652's ruling 「B」). An absent key opens nothing on a tree no
+   * parent view navigates for; see the registration description for each mode.
+   */
+  navigation?: ViewNavigationConfig;
   /**
    * Query filter, forwarded as `$filter` on the tree's own fetch, with its
    * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
@@ -3245,9 +3719,36 @@ export interface ObjectTreeSchema extends BaseSchema {
 
 /**
  * Object Gantt Component Schema
+ *
+ * ## What this type describes (objectui#10859, batch 6)
+ *
+ * The `object-gantt` node as `ObjectGantt` READS it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it
+ * (`ObjectView` and `ListView` flattening a stored gantt view, a host mounting
+ * `<ObjectGantt schema={…}>`). That is why it still carries the flat
+ * `GanttConfig` keys (`startDateField`, `viewMode`, …) and the `search` pair
+ * the composers write.
+ *
+ * It is NOT the shape of an AUTHORED `object-gantt` document. An authored node
+ * takes its props in the spec's `properties` bag, whose members are
+ * `@objectstack/spec`'s `ComponentPropsMap['object-gantt']` row
+ * (`ObjectGanttProps`), with its field mapping in the bag's `gantt` block:
+ * `{ type: 'object-gantt', properties: { objectName, gantt: { startDateField,
+ * endDateField, titleField }, … } }`. `ObjectGanttBlockSchema`
+ * (`./zod/objectql.zod.ts`) judges it, and refuses a prop written flat on the
+ * node by name. `SchemaRenderer` reads both spellings, so a node built in code
+ * keeps its flat keys.
  */
 export interface ObjectGanttSchema extends BaseSchema {
   type: 'object-gantt';
+  /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). This block's registration is gate-wrapped
+   * (`elementDataSourceBlock`), so `ElementDataSourceGate` reads the binding
+   * off the node and lands its `object` on `objectName`. Metadata, ⛔ not the
+   * adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
   /**
    * ObjectQL object name — the THIRD record source `resolveRecordSourceConfig`
    * (`@object-ui/core`) resolves, after {@link ObjectGanttSchema.data} and
@@ -3256,9 +3757,11 @@ export interface ObjectGanttSchema extends BaseSchema {
    * Optional since `77cb489b4`: a gantt authored on inline rows never reads
    * this key, and requiring it refused three catalog entries that draw
    * correctly. The requirement the renderer really has — at least one of
-   * `data`, `staticData`, `objectName` present — lives on the mirror as a
-   * refinement (`requireRecordSource` in `zod/objectql.zod.ts`), so the
-   * published declaration and the published validator say the same thing.
+   * `data`, `staticData`, `objectName` present, or the node's `dataSource.object`
+   * naming the object, which `ElementDataSourceGate` lands on this key
+   * (objectui#11117) — lives on the mirror as a refinement
+   * (`requireRecordSource` in `zod/objectql.zod.ts`), so the published
+   * declaration and the published validator say the same thing.
    */
   objectName?: string;
   /**
@@ -3534,10 +4037,13 @@ export interface ObjectGanttSchema extends BaseSchema {
   // entirely unvalidated. Declaring it as {@link GanttConfig} means it is now
   // PARSED, and `GanttConfig` derives from the spec's `GanttConfigSchema`, which
   // REQUIRES `startDateField`, `endDateField` and `titleField`. Because
-  // `ObjectGanttSchema` is a member of `AnyComponentSchema`, that reaches
-  // `safeValidateSchema` and therefore the CLI's `validate` command: a
-  // block missing one of the three moves from "accepted, then warned about at
-  // runtime" to "refused at authoring time".
+  // `ObjectGanttSchema`'s zod mirror was a member of `AnyComponentSchema`, that
+  // reached `safeValidateSchema` and therefore the CLI's `validate` command: a
+  // block missing one of the three moved from "accepted, then warned about at
+  // runtime" to "refused at authoring time". Since objectui#10859 batch 6 the
+  // authored node's block is judged inside its `properties` bag, as the spec
+  // row's own `gantt` member (`ObjectGanttBlockSchema`), with the same three
+  // required.
   //
   // This is a `declared = enforced` restoration, not new requiredness: the
   // renderer already fed the block to `GanttConfigSchema.safeParse` and logged
@@ -3559,10 +4065,22 @@ export interface ObjectGanttSchema extends BaseSchema {
   /** Inline records, wrapped into a `{ provider: 'value' }` config by `resolveRecordSourceConfig`. */
   staticData?: any[];
   /**
-   * Query filter (JSON Rules format), forwarded as `$filter` with its
-   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
+   * Query filter — the protocol's `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`, taken BY REFERENCE from the
+   * `object-gantt` row (`ComponentPropsMap['object-gantt'].filter`), which refuses
+   * the MongoDB-style record and the AST tuple array by name. Forwarded as
+   * `$filter` with its context tokens (`{current_user_id}`, `{current_org_id}`,
+   * the date macros) resolved first through `@object-ui/core`'s
+   * `resolveFilterPlaceholders` (objectui#10666).
+   *
+   * objectui#6152 round 10: this was `any[]`, so a tuple array type-checked here
+   * while the row refused it. ⚠️ What did NOT narrow is the read: `ObjectGantt`
+   * still forwards an AST a host composes at runtime (`ElementDataSourceGate`'s
+   * merged binding, `ListView`'s effective filter), which is not a shape an
+   * author writes, so this face does not publish it (the objectui#10199 split, as
+   * {@link ObjectGridSchema.filter} makes it).
    */
-  filter?: any[];
+  filter?: SpecObjectGanttProps['filter'];
   /** Sort configuration, forwarded as `$orderby` via `convertSortToQueryParams`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
   /**
@@ -3620,6 +4138,14 @@ export interface ObjectGanttSchema extends BaseSchema {
 export interface ObjectCalendarSchema extends BaseSchema {
   type: 'object-calendar';
   /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). This block's registration is gate-wrapped
+   * (`elementDataSourceBlock`), so `ElementDataSourceGate` reads the binding
+   * off the node and lands its `object` on `objectName`. Metadata, ⛔ not the
+   * adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
+  /**
    * ObjectQL object name — the THIRD record source `resolveRecordSourceConfig`
    * (`@object-ui/core`) resolves, after {@link ObjectCalendarSchema.data} and
    * {@link ObjectCalendarSchema.staticData} (called by `plugin-calendar/src/ObjectCalendar.tsx`).
@@ -3628,9 +4154,11 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * on inline rows never reads this key, and requiring it refused the two
    * documented static-data examples that draw correctly. The requirement the
    * renderer really has — at least one of
-   * `data`, `staticData`, `objectName` present — lives on the mirror as a
-   * refinement (`requireRecordSource` in `zod/objectql.zod.ts`), so the
-   * published declaration and the published validator say the same thing.
+   * `data`, `staticData`, `objectName` present, or the node's `dataSource.object`
+   * naming the object, which `ElementDataSourceGate` lands on this key
+   * (objectui#11117) — lives on the mirror as a refinement
+   * (`requireRecordSource` in `zod/objectql.zod.ts`), so the published
+   * declaration and the published validator say the same thing.
    */
   objectName?: string;
   /**
@@ -3662,7 +4190,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * (the spec's own `ObjectCalendarPropsSchema`) declares
    * `z.array(z.unknown()).optional()`, described *"Pre-fetched records — skips
    * the internal fetch"*.
-   * MEASURED on the installed artifact at `@objectstack/spec` 17.4.0 — the
+   * MEASURED on the installed artifact at `@objectstack/spec` 17.7.0 — the
    * version this repository's `pnpm-lock.yaml` resolves — through the published
    * `@objectstack/spec/ui` entry point: the provider block returns
    * `success=false` with `expected: 'array'` at `path: ['data']`, the array
@@ -3683,36 +4211,61 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * returns this block whole when it is present, and only falls through to the
    * flat members below when it is not.
    *
-   * `@objectstack/spec` declares the KEY —
-   * `ComponentPropsMap['object-calendar'].calendar` — and this package's
-   * registration `inputs` publishes it, so authors are offered it. ⚠️ The spec
-   * does NOT declare its SHAPE: measured on 17.4.0 that slot is
-   * `z.unknown().optional()`, not `CalendarConfigSchema`, so the protocol
-   * accepts any value there at all. The member list below is objectui's own —
-   * see the mirror for the grounds. Both published faces of THIS package stayed
-   * silent about the key until objectui#8651,
-   * which is the objectui#6914 class: the value rode {@link BaseSchema}'s
-   * `[key: string]: any` here and `.passthrough()` on the mirror, admitted and
-   * never examined. `calendar: 42` type-checked, parsed green, and drew an
-   * empty calendar.
+   * ⭐ This is where the five field-name keys are AUTHORED (objectui#8831):
+   * `calendar: { startDateField, endDateField, titleField, colorField, allDayField }`.
+   * `ComponentPropsMap['object-calendar']` refuses the same five written flat on
+   * the node, and its diagnostic prescribes exactly this block (one key per
+   * concept, the spec's Prime Directive #12). The flat members below are the
+   * runtime handoff, declared because the renderer reads them, not a second
+   * spelling to write.
+   *
+   * `@objectstack/spec` declares the KEY and, since 17.7.0, its SHAPE:
+   * `ComponentPropsMap['object-calendar'].calendar` is a strict copy of the list
+   * view's calendar block (objectstack#21464 stage 2), five members with
+   * `startDateField` required. This package's registration `inputs` publishes
+   * the key, so authors are offered it. Through 17.6.0 the slot was
+   * `z.unknown().optional()`, and both published faces of THIS package stayed
+   * silent about the key until objectui#8651, which is the objectui#6914 class:
+   * the value rode {@link BaseSchema}'s `[key: string]: any` here and
+   * `.passthrough()` on the mirror, admitted and never examined. `calendar: 42`
+   * type-checked, parsed green, and drew an empty calendar.
    *
    * DERIVED from the mirror rather than re-spelled, so the two faces cannot
    * fork — the same construction {@link ListViewSchema} uses through
-   * `ListViewInferred`. What the mirror declares is the five members
-   * `ObjectCalendar`'s events pass destructures out of the resolved config: the
-   * spec's four plus objectui's own `allDayField`, on the lane objectui#8466
-   * took for the flat spelling of the same vocabulary.
+   * `ListViewInferred`. Since objectui#6152 round 9 the mirror is the row's own
+   * slot BY REFERENCE, plus the two by-name alias refusals (objectui#8355), so
+   * this type is closed: `startDateField` is required, the four others are
+   * optional, and a fresh literal carrying any other key is a compile error, as
+   * the spec refuses it at parse. Until that round the mirror was `.partial()`
+   * and `.passthrough()`, so this type carried an index signature and an
+   * optional `startDateField`, and admitted both shapes the slot refuses.
    *
-   * ⛔ `defaultView` is deliberately NOT a member of this container even though
-   * a list VIEW's calendar block carries one: this renderer seeds its view state
-   * from {@link ObjectCalendarSchema.defaultView}, the FLAT member below, and
-   * never looks inside here. The container stays `.passthrough()`, so a block
-   * carrying it still parses — it is simply not advertised.
+   * ⛔ `defaultView` is NOT a member of this container (nor, since objectui#6152
+   * round 11, of a list VIEW's calendar block): this renderer seeds its view state from
+   * {@link ObjectCalendarSchema.defaultView}, the FLAT member below, and never
+   * looks inside here, and the slot does not declare it either. Written inside
+   * the block, it is refused; write it flat.
    */
   calendar?: ObjectCalendarBlockConfig;
-  /** Field for event start */
+  /**
+   * Field for event start — the FLAT spelling, READ BUT NOT AUTHORED
+   * (objectui#8831). Write `calendar.startDateField` instead.
+   *
+   * This is the runtime handoff: `ObjectView` and `ListView` emit the five
+   * field-name keys flat on the `object-calendar` node they build, and
+   * `getCalendarConfig` reads them only when the node carries no
+   * {@link ObjectCalendarSchema.calendar} block. `@objectstack/spec` refuses
+   * the same five at this element with `unrecognized_keys`, and its diagnostic
+   * names the {@link ObjectCalendarSchema.calendar} block as the place to write
+   * them (one key per concept, its Prime Directive #12). The five stay declared
+   * here because the renderer reads them; a declaration records that read, it
+   * is not a second authoring spelling.
+   */
   startDateField?: string;
-  /** Field for event end */
+  /**
+   * Field for event end — the FLAT spelling, read but not authored. Write
+   * `calendar.endDateField`; see {@link ObjectCalendarSchema.startDateField}.
+   */
   endDateField?: string;
   /**
    * ⛔ RETIRED (objectui#8355, director ruling of 2026-09-16) — `dateField` was
@@ -3722,9 +4275,9 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * `startDateField`.
    *
    * ⚠️ It is a TOMBSTONE, not a deletion, and the difference is the whole
-   * ruling. `BaseSchema` carries `[key: string]: any` on this face and
-   * `.passthrough()` on the mirror, so a DELETED key is not refused — it is
-   * KEPT, unexamined, and then ignored now that `ObjectCalendar`'s alias ladder
+   * ruling. `BaseSchema` is `.passthrough()` on the mirror (and carried
+   * `[key: string]: any` on this face until objectui#8347), so a DELETED key is
+   * not refused there — it is KEPT, unexamined, and then ignored now that `ObjectCalendar`'s alias ladder
    * is gone. Silent is the failure mode an earlier attempt shipped
    * (objectui#8651 records it); declared-and-unwritable is what makes the same
    * document fail loudly instead.
@@ -3741,11 +4294,19 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * calendar drew, and only the end binding went missing.
    */
   endField?: never;
-  /** Field for event title */
+  /**
+   * Field for event title — the FLAT spelling, read but not authored. Write
+   * `calendar.titleField`; see {@link ObjectCalendarSchema.startDateField}.
+   */
   titleField?: string;
   /**
-   * Record field carrying the event's colour — any CSS colour or a semantic
-   * palette name, typically a server-computed status colour. Resolved PER
+   * Record field carrying the event's colour — the FLAT spelling, read but not
+   * authored: write `calendar.colorField`, and see
+   * {@link ObjectCalendarSchema.startDateField} for why the flat member stays
+   * declared.
+   *
+   * The value is any CSS colour or a semantic palette name, typically a
+   * server-computed status colour. Resolved PER
    * RECORD by `plugin-calendar/src/ObjectCalendar.tsx`, which falls back to the
    * record's own `color` value and then to the platform default, so an authored
    * value that never arrives is invisible rather than loud.
@@ -3763,23 +4324,25 @@ export interface ObjectCalendarSchema extends BaseSchema {
    */
   colorField?: SpecCalendarConfig['colorField'];
   /**
-   * Record field carrying the all-day flag. LOAD-BEARING since objectui#8026:
+   * Record field carrying the all-day flag — the FLAT spelling, read but not
+   * authored: write `calendar.allDayField`, and see
+   * {@link ObjectCalendarSchema.startDateField} for why the flat member stays
+   * declared.
+   *
+   * LOAD-BEARING since objectui#8026:
    * the events pass in `plugin-calendar/src/ObjectCalendar.tsx` reads it and a
-   * change to the authored key genuinely changes what is drawn. It is also in
+   * change to the key genuinely changes what is drawn. It is also in
    * that component's `getCalendarConfig` memo dependency list, which is what
    * makes the change reach the screen.
    *
-   * objectui-LOCAL, and the one member here with no {@link CalendarConfig} twin
-   * to derive from: `@objectstack/spec`'s `CalendarConfigSchema` is a
-   * `strictObject` of exactly `startDateField`, `endDateField`, `titleField`
-   * and `colorField`, so it refuses this key as UNDECLARED — ⚠️ not "by name".
-   * Measured on 17.4.0: it answers `allDayField` and a nonsense key with the
-   * identical `unrecognized_keys` diagnostic, so the refusal is blanket
-   * strictness and says nothing about this key in particular (objectui#8651). That is the class this package's mirror
-   * already names out loud, where `.passthrough()` is kept explicitly for this
-   * key — "the renderers grow config knobs ahead of the protocol (calendar's
-   * `allDayField`, for one), and stripping them here would silently disable a
-   * shipped capability" (`zod/objectql.zod.ts`).
+   * Through `@objectstack/spec` 17.4.0 this key was objectui-LOCAL in both
+   * positions: `CalendarConfigSchema` was a `strictObject` of exactly
+   * `startDateField`, `endDateField`, `titleField` and `colorField`, and
+   * answered `allDayField` and a nonsense key with the identical
+   * `unrecognized_keys` diagnostic (objectui#8651). Since 17.5.0 that schema
+   * declares `allDayField` too, so `calendar.allDayField` is a spec key like its
+   * four neighbours (objectui#11073). This flat member is still typed `string`
+   * rather than derived from {@link CalendarConfig}; the two types are equal.
    *
    * ⛔ Declaring it widens NO accept set, which is why Commandment #0.1 is not
    * engaged. Measured on spec 17.3.0: `ComponentPropsMap['object-calendar']`
@@ -3787,9 +4350,9 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * {@link ObjectCalendarSchema.titleField},
    * {@link ObjectCalendarSchema.startDateField} and
    * {@link ObjectCalendarSchema.endDateField} above, which have shipped
-   * DECLARED for releases. The flat face is objectui's own lane, taken whole;
-   * this key is its fifth member, not a new dialect. And under `BaseSchema`'s
-   * index signature the value was already `any`, so declaring only NARROWS.
+   * DECLARED for releases. This key is the fifth member of that flat handoff,
+   * not a new dialect. And under `BaseSchema`'s
+   * index signature the value was already `any`, so declaring only NARROWED.
    *
    * ⭐ Nor is it a new precedent: {@link CalendarViewSchema} — a sibling
    * calendar interface in the same plugin, whose OWN renderer
@@ -3807,12 +4370,13 @@ export interface ObjectCalendarSchema extends BaseSchema {
    */
   defaultView?: 'month' | 'week' | 'day';
   /**
-   * Query filter (JSON Rules format), forwarded as `$filter` on the
+   * Query filter — the protocol's `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`, forwarded as `$filter` on the
    * calendar's own fetch — `plugin-calendar/src/ObjectCalendar.tsx` holds it
    * through `useResolvedFilter` (`@object-ui/react`), with its
    * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666),
    * and reads the held value at the `dataSource.find` call and again in that
-   * effect's dependency list.
+   * effect's dependency list. The data adapter lowers the rule array.
    *
    * Undeclared here until objectui#8174, so an authored value reached the
    * renderer only through {@link BaseSchema}'s `[key: string]: any` — admitted,
@@ -3823,10 +4387,17 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * `inputs` declares it, the renderer reads it — this declaration face was the
    * only one that stayed silent.
    *
-   * Spelled exactly as {@link ObjectGanttSchema.filter}, so the two views'
-   * query keys cannot fork.
+   * objectui#6152 round 8: the type is the row's own member BY REFERENCE
+   * (`ComponentPropsMap['object-calendar'].filter`, which refuses the
+   * MongoDB-style record and the AST tuple array by name). It was `any[]`,
+   * spelled as {@link ObjectGanttSchema.filter} is, so a tuple array
+   * type-checked here while the protocol refused it. The renderer adds nothing
+   * to the value and subtracts nothing, so an AST array a host composes at
+   * runtime (`ElementDataSourceGate`'s merged binding) still reaches the wire:
+   * that value is not a shape an author writes, and this face does not
+   * publish it (the objectui#10199 split).
    */
-  filter?: any[];
+  filter?: SpecObjectCalendarProps['filter'];
   /**
    * Sort configuration, forwarded as `$orderby` via `convertSortToQueryParams`
    * (`plugin-calendar/src/ObjectCalendar.tsx`, the same `dataSource.find` call
@@ -3845,6 +4416,33 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * vocabularies cannot fork.
    */
   sort?: SortConfig[];
+  /**
+   * Event-click navigation — what a click on an event opens (an overlay mode,
+   * the record page, a new tab, or nothing), with the overlay `size` and the
+   * `openNewTab` / `preventNavigation` flags. Read by `ObjectCalendar` (its
+   * `navConfig`), which hands it to `useNavigationOverlay`.
+   *
+   * DECLARED by objectui#8652, the objectui half of the maintainer ruling on
+   * that card, verbatim 「B」: declare `navigation` on the platform element
+   * schema first, then mirror it here. `@objectstack/spec` 17.5.0 is the
+   * release whose `ComponentPropsMap['object-calendar']` declares it, so this
+   * member follows the installed spec rather than leading it. Before it, the
+   * renderer read the key through an `as any` cast — the one objectui#8651
+   * left standing for this card — and the zod mirror kept any value through
+   * `.passthrough()`, admitted and never examined.
+   *
+   * Same spec type as {@link ObjectGridSchema.navigation} and
+   * {@link ObjectGanttSchema.navigation} — aligned with `@objectstack/spec`
+   * `NavigationConfig` rather than restated, so the vocabulary cannot fork.
+   *
+   * ⚠️ The default when the key is ABSENT is the renderer's `{ mode: 'drawer' }`,
+   * not the spec's `mode` default: it is documented, not declared, so a parsed
+   * calendar carries the key only when the author wrote it. When the resolved
+   * mode is an overlay, the calendar's own overlay wins over a parent's
+   * `onRowClick` / `onEventClick`. The members are pinned where the calendar
+   * reads them, in `plugin-calendar`'s `calendarNavigationMembers-8652` test.
+   */
+  navigation?: ViewNavigationConfig;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-calendar` reads
    * NEITHER content channel; see `children` below for the measurement.
@@ -3886,6 +4484,14 @@ export interface ObjectCalendarSchema extends BaseSchema {
 export interface ObjectKanbanSchema extends BaseSchema {
   type: 'object-kanban';
   /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). The board honours its `object` and `filter`, and its
+   * `sort` is where the board's ordering is authored — the spec refuses a
+   * top-level `sort` on this node (see {@link ObjectKanbanSchema.filter}).
+   * Metadata, ⛔ not the adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
+  /**
    * ObjectQL object name — the LAST rung of this board's record-source ladder,
    * and the only one that names an object.
    *
@@ -3903,12 +4509,15 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * `data`-only board — which renders correctly today — was refused by both
    * published faces and could not be annotated with its own type. The
    * requirement the renderer really has, at least one of `bind`, `data`,
-   * `objectName` present, lives on the mirror as a refinement
-   * (`requireKanbanRecordSource` in `zod/objectql.zod.ts`), so the published
+   * `objectName` present, or the node's `dataSource.object` naming the object,
+   * which `ElementDataSourceGate` lands on this key (objectui#11117), lives on
+   * the mirror as a refinement (`requireRecordSource` in
+   * `zod/objectql.zod.ts`, with this board's own rung list), so the published
    * declaration and the published validator say the same thing.
    *
-   * ⚠️ This is NOT the `object-map` / `object-gantt` / `object-calendar` ladder
-   * and shares no code with it. Those three resolve through
+   * ⚠️ This is NOT the `object-map` / `object-gantt` / `object-calendar` ladder,
+   * and the renderer shares no code with it; only the mirror's refinement is
+   * shared, taking each arm's rungs as an argument. Those three resolve through
    * `resolveRecordSourceConfig` over `data` (a {@link ViewData} PROVIDER BLOCK)
    * → `staticData` → `objectName`, and their mirror members end in
    * `requireRecordSource`. This board has NO `staticData` rung, its `data` is a
@@ -3957,12 +4566,11 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *   1. `content/docs/utilities/data-objectstack.mdx` documents an
    *      `object-kanban` node that is exactly `{ type, dataSource }` — no
    *      `groupBy`. ⚠️ WEAKER THAN IT LOOKS, and the limit is worth stating: that
-   *      fragment is STILL refused after this card, at `RECORD_SOURCE_REQUIRED`
-   *      — `dataSource` is not a rung of this ladder — so it is evidence that a
+   *      fragment was STILL refused after this card, at `RECORD_SOURCE_REQUIRED`
+   *      — `dataSource` was not a rung of this ladder — so it was evidence that a
    *      lane-less board is a DOCUMENTED AUTHORING, not a document this card
-   *      admits. ⛔ Do not cite it as "objectui refuses its own documented
-   *      example" without that qualifier; the record-source half of the refusal
-   *      is deliberate and survives.
+   *      admitted. It parses since objectui#11117, which counted the node's
+   *      binding as a record source, as `ElementDataSourceGate` already did.
    *   2. `packages/plugin-list/src/ListView.tsx` GENERATES the node with
    *      `groupBy: laneField`, where
    *      `laneField = groupByField || groupField || detectStatusField(objectDef) || undefined`.
@@ -4033,18 +4641,19 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *
    * `?: never` is this package's tombstone convention (see
    * `TimelineSchema.timeScale`, objectui#6355), and it is load-bearing rather
-   * than decorative: {@link BaseSchema} carries `[key: string]: any`, so
-   * DELETING this member would let the retired spelling type-check green and
-   * go on doing nothing. Keeping the key declared as `never` is what makes the
+   * than decorative: {@link BaseSchema} carried `[key: string]: any` until
+   * objectui#8347, and a deletion is still refused only on a fresh literal, so
+   * DELETING this member would let the retired spelling type-check green
+   * through a widened value and go on doing nothing. Keeping the key declared as `never` is what makes the
    * retirement audible at the authoring boundary. Lockstep with the Zod twin
    * (`zod/objectql.zod.ts`, `retirementTombstone()`): both halves or neither.
    * Absent stays valid on both, so a node that never wrote the key is untouched.
    *
-   * ⚠️ NODE-LOCAL. The VIEW-LEVEL kanban config's `groupField` is a live legacy
-   * alias of the spec's `groupByField` and is NOT retired:
-   * `packages/core/src/utils/normalize-list-view.ts` maps it, and
-   * `plugin-list`'s `ListView` and `plugin-view`'s `ObjectView` still read it.
-   * `groupField` is dead only on the `object-kanban` node.
+   * ⚠️ NODE-LOCAL, and a different refusal. The VIEW-LEVEL kanban config refuses
+   * `groupField` by name too since objectui#6152 round 11, naming `groupByField`,
+   * but its READERS stay: `packages/core/src/utils/normalize-list-view.ts` still
+   * folds a stored one forward, and `plugin-list`'s `ListView` and `plugin-view`'s
+   * `ObjectView` still read it. On the `object-kanban` node nothing reads it.
    *
    * @deprecated RETIRED (objectui#7322) — author `groupBy` instead.
    */
@@ -4057,8 +4666,8 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * {@link BaseSchema}'s `[key: string]: any` on this face: the renderer read
    * it at three sites while neither published face of this package named it,
    * so `columns: "todo"`, `columns: [42]` and a lane card with no `title` all
-   * parsed green. Declaring on a face that already carries an index signature
-   * can only NARROW — it adds validation where there was none — and that is
+   * parsed green. Declaring on a face that carries an index signature (as this
+   * one did until objectui#8347) can only NARROW — it adds validation where there was none — and that is
    * the whole of what this member does.
    *
    * ⚠️ Narrowing is not licence to bless whatever the protocol's literal
@@ -4217,18 +4826,19 @@ export interface ObjectKanbanSchema extends BaseSchema {
   /**
    * Row cap — the most records the board fetches, sent as a real `$top` on
    * the query (`packages/plugin-kanban/src/ObjectKanban.tsx`,
-   * `$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)`; objectui#4025,
+   * `$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_FETCH_BATCH_SIZE)`; objectui#4025,
    * re-spelled by objectui#9925, which refuses a non-positive cap rather than
    * forwarding it). The board renders every fetched record into a lane and
    * offers no pagination, so this is the author's window on the object rather
    * than a page size. A bound `dataSource` (its own `limit`, or the named
    * view's `pagination.pageSize`) sets it too. Undeclared until objectui#7322.
    *
-   * @default 100 — `DEFAULT_KANBAN_LIMIT`
+   * @default 100 — `DEFAULT_KANBAN_FETCH_BATCH_SIZE`
    */
   limit?: number;
   /**
-   * Query filter (JSON Rules format), forwarded as `$filter` on the board's
+   * Query filter — the protocol's `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`, forwarded as `$filter` on the board's
    * own fetch — `plugin-kanban/src/ObjectKanban.tsx` holds it through
    * `useResolvedFilter` (`@object-ui/react`), with its
    * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666),
@@ -4244,8 +4854,16 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * declares it, the renderer reads it — this declaration face was the only one
    * that stayed silent.
    *
-   * Spelled exactly as {@link ObjectGanttSchema.filter}, so the two views'
-   * query keys cannot fork.
+   * objectui#6152 round 8: the type is the row's own member BY REFERENCE
+   * (`ComponentPropsMap['object-kanban'].filter`, which refuses the
+   * MongoDB-style record and the AST tuple array by name), as
+   * {@link ObjectCalendarSchema.filter}'s is. It was `any[]`, spelled as
+   * {@link ObjectGanttSchema.filter} is, so a tuple array type-checked here
+   * while the protocol refused it. The board adds nothing to the value and
+   * subtracts nothing, so an AST array a host composes at runtime
+   * (`ElementDataSourceGate`'s merged binding) still reaches the wire, where
+   * the data adapter lowers either form: that value is not a shape an author
+   * writes, and this face does not publish it (the objectui#10199 split).
    *
    * ⚠️ There is deliberately NO `sort` twin on this interface: the spec's
    * `object-kanban` entry declares no top-level `sort` (and refuses one). The
@@ -4255,7 +4873,7 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * read is the gate's carrier, not an authoring key. Only
    * {@link ObjectCalendarSchema} declares both keys.
    */
-  filter?: any[];
+  filter?: SpecObjectKanbanProps['filter'];
   /**
    * The record field rendered as each card's title — the CANONICAL spelling of
    * the one card-title choice this board reads two ways
@@ -4286,23 +4904,80 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * reverse left open (objectui#9711).
    *
    * What this member buys, measured: {@link BaseSchema}'s `[key: string]: any`
-   * would admit `cardTitle: 42` in a typed corpus, and with the member declared
-   * `tsc` refuses it. The `@ts-expect-error` row in
-   * `__tests__/object-kanban-card-title-9606.test.ts` is what turns that into a
-   * guard — delete this member and the directive goes unused, TS2578.
+   * admitted `cardTitle: 42` in a typed corpus until objectui#8347, and with the
+   * member declared `tsc` refuses it. The `@ts-expect-error` row in
+   * `__tests__/object-kanban-card-title-9606.test.ts` guards the member's TYPE;
+   * it no longer catches a deletion, because since objectui#8347 a deleted
+   * member's `42` is refused as an undeclared key and the directive stays used.
    */
   cardTitle?: string;
   /** Field for card title */
   titleField?: string;
   /** Fields to display on card */
   cardFields?: string[];
+  /**
+   * The record field that splits the board into horizontal swimlanes, across
+   * the `groupBy` columns.
+   *
+   * `@objectstack/spec` declares it on this block
+   * (`ComponentPropsMap['object-kanban'].swimlaneField`, an optional string),
+   * so the type is that row's, by reference. `ObjectKanban` reads it, and the
+   * registration publishes it as an input.
+   *
+   * Undeclared on both faces of this package until objectui#11355, so the read
+   * reached it only through {@link BaseSchema}'s index signature. The same read
+   * falls back to `grouping.fields[0].field` when this key is absent; see
+   * {@link ObjectKanbanSchema.grouping}.
+   */
+  swimlaneField?: SpecObjectKanbanProps['swimlaneField'];
+  /**
+   * The FALLBACK source of {@link ObjectKanbanSchema.swimlaneField}:
+   * `ObjectKanban` reads `grouping.fields[0].field` when no `swimlaneField` is
+   * authored, and reads nothing else inside the block.
+   *
+   * `@objectstack/spec` types this key on the `object-kanban` row as the list
+   * view's own `GroupingConfigSchema`, by reference, so the type is the spec's
+   * `GroupingConfig` — the one `ObjectGridSchema.grouping` takes — and the zod
+   * mirror takes the same schema by reference (objectui#11216). Undeclared on
+   * both faces until then, so the read reached it only through
+   * {@link BaseSchema}'s index signature, and the strict authoring face refused
+   * a well-formed config by name.
+   */
+  grouping?: GroupingConfig;
 
   /**
-   * Enable Quick Add button at the bottom of each column.
-   * When true, a "+" button appears allowing inline card creation.
-   * @default false
+   * RETIRED (objectui#8285, ruling B of the director seat's decision batch #91,
+   * 2026-09-08) — this element offers no inline record creation, so the key has
+   * nothing to switch on. Refused by name on both faces of this package, as
+   * `@objectstack/spec` 17.5.0 refuses it (`ComponentPropsMap['object-kanban']`
+   * tombstones the same key).
+   *
+   * ## Why it never did anything on this element
+   *
+   * The Quick Add control is gated on BOTH `quickAdd` and an `onQuickAdd`
+   * handler, and that handler is a host-supplied function no JSON document can
+   * carry; `ObjectKanban` supplies none of its own. So an authored
+   * `quickAdd: true` parsed green and drew nothing. The ruling chose to retire
+   * the key rather than grow a record-creation write path on the board, and
+   * `ObjectKanban` now stops forwarding the key as well, so the refusal is not
+   * only a validator's opinion.
+   *
+   * ## Where the control still works
+   *
+   * On `KanbanRenderer`, exported from `@object-ui/plugin-kanban`: a React host
+   * that mounts that component directly passes `quickAdd` and `onQuickAdd` on
+   * its `schema`, and the pair reaches the board unchanged. No node type key
+   * resolves to that component since the `kanban-ui` tag retired
+   * (objectui#8257), so this is a host capability, not a document one.
+   *
+   * A tombstone rather than a deleted member because `BaseSchema` carried an
+   * index signature when this was written: a deleted member would type as
+   * `any` and be KEPT, not refused. Since objectui#8347 a deletion is refused
+   * on a fresh literal, but a widened value still carries the key silently. Pinned in `__tests__/object-kanban-quick-add-retired-8285.test.ts`.
+   *
+   * @deprecated Not part of this contract — delete the key.
    */
-  quickAdd?: boolean;
+  quickAdd?: never;
 
   /**
    * Field name to use as cover image on cards.
@@ -4331,7 +5006,8 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * `@object-ui/plugin-kanban` names the token in ZERO files, and that zero is
    * a reading rather than a dead grep because live sibling keys fire as
    * controls on the same instrument and the same run — `groupBy`,
-   * `conditionalFormatting`, `quickAdd` and `coverImageField`.
+   * `conditionalFormatting` and `coverImageField`. (`quickAdd` stood in this
+   * list until it was retired on this element too, objectui#8285.)
    *
    * ⛔ Their per-key counts are deliberately NOT written here (AGENTS.md #9).
    * A figure in prose is derived once and re-derived never: the four that used
@@ -4355,9 +5031,10 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *     destructure is `void _props;`. The rest is discarded and never spread
    *     onward.
    *   - the SCHEMA channel — the key does ride `ObjectKanban`'s `{ ...schema }`
-   *     spread into `effectiveSchema`, which reaches `KanbanRenderer`; that
-   *     component destructures `schema` / `objectFields` / `onCardMove` and
-   *     NAMES every key it hands to the lazy board. An unnamed key stops there.
+   *     spread into `effectiveSchema`, which reaches the internal
+   *     `KanbanBoardCore` (the board `KanbanRenderer` also renders, since
+   *     objectui#11234); that component NAMES every key it hands to the lazy
+   *     board. An unnamed key stops there.
    *
    * ## Where collapse actually lives, so the remedy is not a second fiction
    *
@@ -4383,9 +5060,9 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *
    * ## Why a tombstone rather than a plain deletion
    *
-   * {@link BaseSchema} carries `[key: string]: any` and its mirror ends
-   * `.passthrough()`, so a deleted member is KEPT, not refused — one silent
-   * no-op traded for another. The member therefore stays declared and
+   * {@link BaseSchema}'s mirror ends `.passthrough()` (and the interface carried
+   * `[key: string]: any` until objectui#8347), so a deleted member is KEPT, not
+   * refused, on the zod face — one silent no-op traded for another. The member therefore stays declared and
    * unwritable on both faces, paired with a `retirementTombstone()` on the zod
    * twin so the value is refused BY NAME instead of stripped, which is also
    * what keeps the two faces' key sets equal for the parity ratchet.
@@ -4401,10 +5078,42 @@ export interface ObjectKanbanSchema extends BaseSchema {
   allowCollapse?: never;
 
   /**
-   * Conditional formatting rules for card coloring.
-   * Cards are colored based on field values matching conditions.
+   * Conditional formatting rules for card colouring, each `{ condition, style }`
+   * evaluated against the card's own record; the first matching rule styles
+   * the card. The native `{ field, operator, value }` rule and a top-level
+   * colour key are refused by name (objectui#11522) — see
+   * {@link KanbanConditionalFormattingRule}.
    */
   conditionalFormatting?: KanbanConditionalFormattingRule[];
+
+  /**
+   * Card-click navigation — what a click on a card opens (an overlay mode, the
+   * record page, a new tab, or nothing), with the overlay `size` and the
+   * `openNewTab` / `preventNavigation` flags. Read by `ObjectKanban` (its
+   * `navConfig`), which hands it to `useNavigationOverlay`.
+   *
+   * DECLARED by objectui#8652, the objectui half of the maintainer ruling on
+   * that card, verbatim 「B」: declare `navigation` on the platform element
+   * schema first, then mirror it here. `@objectstack/spec` 17.5.0 is the
+   * release whose `ComponentPropsMap['object-kanban']` declares it, so this
+   * member follows the installed spec rather than leading it. Before it, the
+   * renderer's read compiled only through {@link BaseSchema}'s
+   * `[key: string]: any`, and the zod mirror kept any value through
+   * `.passthrough()` — admitted, never examined — so `navigation: { mode:
+   * 'not-a-mode' }` passed both published faces of this package.
+   *
+   * Same spec type as {@link ObjectGridSchema.navigation} and
+   * {@link ObjectGanttSchema.navigation} — aligned with `@objectstack/spec`
+   * `NavigationConfig` rather than restated, so the vocabulary cannot fork.
+   *
+   * ⚠️ The default when the key is ABSENT is the renderer's `{ mode: 'drawer' }`,
+   * not the spec's `mode` default: it is documented, not declared, so a parsed
+   * board carries the key only when the author wrote it. A click handler from a
+   * parent view (`onRowClick`, or {@link ObjectKanbanSchema.onCardClick})
+   * outranks this key outright. The members are pinned where the board reads
+   * them, in `plugin-kanban`'s `kanbanNavigationMembers-8652` test.
+   */
+  navigation?: ViewNavigationConfig;
 
   /**
    * Card click handler.
@@ -4484,22 +5193,46 @@ export interface ObjectKanbanSchema extends BaseSchema {
   onCardMove?: never;
 
   /**
-   * Quick Add handler.
+   * RETIRED (objectui#11234, completing ruling B of the director seat's
+   * decision batch #91 on objectui#8285) — this element offers no inline record
+   * creation, so the Quick Add handler has nothing to switch on. Refused by name
+   * on both faces: `?: never` here, `handlerKeyRefusal(…, 'retired', …)` on the
+   * zod twin.
    *
-   * RUNTIME SLOT (objectui#6124 shape; declared by `5a41ce733`) — a
-   * host-supplied function, NOT authorable metadata: JSON has no function
-   * value, so the zod twin refuses this key by name. Kept callable here because
-   * it rides `ObjectKanban`'s schema spread untouched and arrives at the board
-   * implementation BY IDENTITY, where it is half of the pair the Quick Add
-   * control is gated on.
+   * ## Why it was a runtime slot, and why it no longer is
    *
-   * ⚠️ The other half, `quickAdd`, is deliberately undeclared on this face
-   * pending objectui#8285, and an object-bound board supplies no handler of its
-   * own — so a JSON author gets no control. That is a statement about the
-   * document, not about this slot: the slot is live, which is why it keeps its
-   * function type rather than a tombstone.
+   * It was a RUNTIME SLOT (objectui#6124 shape; declared by `5a41ce733`): a
+   * host-supplied function rode `ObjectKanban`'s schema spread and reached the
+   * board implementation BY IDENTITY. On this element that switched nothing on.
+   * The Quick Add control is gated on BOTH halves of a pair, and the other half,
+   * `quickAdd`, is RETIRED here (objectui#8285). So a function supplied here
+   * reached the board and was never called. A TypeScript host or an AI writing
+   * the key compiled and got nothing, which is the "declared = enforced" gap.
+   *
+   * `check:handler-key-reads` refuses a tombstone while a renderer still reads
+   * the key off the document. So objectui#11234 moved the read first:
+   * `ObjectKanban` renders an internal board that takes the Quick Add pair only
+   * as explicit props, and it supplies neither half. No renderer on the
+   * `object-kanban` path reads this key any more.
+   *
+   * ## Where the pair still works
+   *
+   * On `KanbanRenderer`, exported from `@object-ui/plugin-kanban`: a React host
+   * that mounts that component directly passes `quickAdd` and `onQuickAdd` on
+   * its `schema`, and the control calls the host's function. That component
+   * keeps both keys on its own props, unchanged. No node type key resolves to it
+   * since the `kanban-ui` tag retired (objectui#8257), so this is a host
+   * capability, not a document one.
+   *
+   * ⚠️ RETIRED, not a RUNTIME SLOT, and the two are not interchangeable here:
+   * a slot keeps this member callable, which publishes a key the object-bound
+   * board never calls. That is the `onCardMove` reading beside it, for the same
+   * reason. Pinned in `__tests__/object-kanban-on-quick-add-retired-11234.test.ts`.
+   *
+   * @deprecated Not part of this contract — delete the key. To offer Quick
+   * Add, mount `KanbanRenderer` and pass the pair on its `schema`.
    */
-  onQuickAdd?: (columnId: string, title: string) => void;
+  onQuickAdd?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-kanban` reads NEITHER
    * content channel; see `children` below for the measurement.
@@ -4536,32 +5269,56 @@ export interface ObjectKanbanSchema extends BaseSchema {
 }
 
 /**
- * Native (field/operator/value) conditional formatting rule for Kanban cards.
- */
-export interface KanbanNativeConditionalFormattingRule {
-  /** Field name to check */
-  field: string;
-  /** Operator for comparison */
-  operator: 'equals' | 'not_equals' | 'contains' | 'in';
-  /** Value to compare against */
-  value: string | string[];
-  /** Background color to apply (Tailwind class or CSS color) */
-  backgroundColor?: string;
-  /** Border color to apply (Tailwind class or CSS color) */
-  borderColor?: string;
-}
-
-/**
- * Conditional formatting rule for Kanban cards.
+ * Conditional formatting rule for Kanban cards — ONE dialect, the spec list
+ * view's `{ condition, style }`: a CEL `condition` over the card's `record.*`
+ * and a CSS `style` map, first matching rule wins (objectui#11522).
  *
- * Since #1584, kanban card styling runs on the shared CEL evaluator, so a rule
- * accepts BOTH the native `{ field, operator, value }` shape and the spec
- * `{ condition, style }` shape (a CEL predicate + style map) — the same
- * `record.*` predicates authors use on list/grid rows.
+ * It IS {@link SpecConditionalFormattingRule}, the protocol's rule by reference
+ * (its `condition` indexes `ObjectListViewSchema`'s own slot, objectui#10946),
+ * plus the retired keys declared `?: never`, so each is refused BY NAME:
+ *
+ *   - the native comparison `{ field, operator, value, backgroundColor,
+ *     borderColor }` (#1584 accepted it beside the spec shape; the
+ *     `KanbanNativeConditionalFormattingRule` interface that declared it is
+ *     gone), and
+ *   - a colour written at the TOP LEVEL of a rule — `backgroundColor`,
+ *     `borderColor`, `textColor` — including the "flat CEL" rule
+ *     `{ condition, backgroundColor }`. A colour belongs inside `style`
+ *     (`textColor` is `style.color`).
+ *
+ * Retired, not widened, with no alias window (triage ruling 5963861071 on
+ * objectui#11522; the producer census it rests on is recorded on that card and
+ * its pull request, not here). `@objectstack/spec` types `object-kanban`'s
+ * member by reference to the list view's, which refuses both.
+ *
+ * Respelling: `{ field: 'priority', operator: 'equals', value: 'high',
+ * backgroundColor: '#fee2e2' }` is `{ condition: "record.priority == 'high'",
+ * style: { backgroundColor: '#fee2e2' } }`.
+ *
+ * ⚠️ What did NOT narrow: the shared evaluator. `@object-ui/core`'s
+ * `resolveConditionalFormatting` still reads every arm, as a compatibility read
+ * for rules already STORED in the native dialect — since objectui#11533 the
+ * grid's and the list view's {@link ConditionalFormattingRule} retires them on
+ * the authoring face too; the board paints whatever a relay hands it. A
+ * `{ condition, style }` rule paints a card exactly as it did before.
+ *
+ * The zod twin is `KanbanConditionalFormattingRuleSchema` in
+ * `./zod/objectql.zod.ts`, each retired key a `retirementTombstone()` there.
  */
-export type KanbanConditionalFormattingRule =
-  | KanbanNativeConditionalFormattingRule
-  | SpecConditionalFormattingRule;
+export interface KanbanConditionalFormattingRule extends SpecConditionalFormattingRule {
+  /** @deprecated RETIRED (objectui#11522) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  field?: never;
+  /** @deprecated RETIRED (objectui#11522) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  operator?: never;
+  /** @deprecated RETIRED (objectui#11522) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  value?: never;
+  /** @deprecated RETIRED (objectui#11522) — a top-level colour. Write `style: { backgroundColor }`. */
+  backgroundColor?: never;
+  /** @deprecated RETIRED (objectui#11522) — a top-level colour. Write `style: { borderColor }`. */
+  borderColor?: never;
+  /** @deprecated RETIRED (objectui#11522) — a top-level colour. Write `style: { color }`. */
+  textColor?: never;
+}
 
 /**
  * Object Chart Component Schema — the node `plugin-charts`' `ObjectChart`
@@ -4645,11 +5402,13 @@ export type KanbanConditionalFormattingRule =
  *
  * ## The ceiling, stated rather than assumed (objectui#5155)
  *
- * `BaseSchema` still carries `[key: string]: any`, so declaring a key buys it
+ * While `BaseSchema` carried `[key: string]: any`, declaring a key bought it
  * its declared TYPE — `xAxisKey: 42` and `title: 42` are both refused now — but
- * does NOT buy rejection of a MISSPELLING: `xAxisKy: 'x'` and `drillDwn: {}`
- * still compile, exactly as they do on `ObjectGallerySchema` (objectui#6576).
- * ONE ceiling, two cards, and each pins it honestly with its own counter-probe:
+ * did NOT buy rejection of a MISSPELLING: `xAxisKy: 'x'` and `drillDwn: {}`
+ * still compiled, exactly as they did on `ObjectGallerySchema` (objectui#6576).
+ * objectui#8347 removed the signature, so a misspelling in a fresh literal is
+ * refused now. ONE ceiling, two cards, and each pinned it with its own
+ * counter-probe, flipped by objectui#8347:
  * `__tests__/widget-schema-anchors-7946.test.ts` and
  * `__tests__/object-chart-undeclared-keys-8885.test.ts`.
  *
@@ -4714,19 +5473,72 @@ export type KanbanConditionalFormattingRule =
  * objectui#10770's PR, and nothing re-derives it: no render, publish or
  * `objectui validate` path ran this schema on the wrapper's node. The defect
  * was on the contract face, not on a door.
+ *
+ * ## What this type describes (objectui#11276)
+ *
+ * The `object-chart` node as `ObjectChart` READS it: after `SchemaRenderer`
+ * has hoisted the node's `properties` bag onto it, or as code composes it —
+ * `ObjectView` and `ListView` building a chart view, the dashboard renderers
+ * building a widget, the react-page wrapper building the `<ObjectChart>`
+ * block, a host mounting `<ObjectChart schema={…}>`. That is why its members
+ * sit flat on the node.
+ *
+ * It is NOT the shape of an AUTHORED `object-chart` document. An authored node
+ * takes its props in the `properties` bag: `{ type: 'object-chart',
+ * properties: { chartType, dataset, dimensions, values, … } }`, because
+ * `@objectstack/spec`'s page component refuses a prop written on the node
+ * itself (ADR-0089 D3a). `ObjectChartBlockSchema` (`./zod/objectql.zod.ts`)
+ * judges it and refuses a prop written flat on the node by name. The spec has
+ * no `ComponentPropsMap['object-chart']` row, so that bag's members are this
+ * type's own members, read off its zod mirror by reference. `SchemaRenderer`
+ * reads both spellings, so a node built in code keeps its flat keys.
  */
 export interface ObjectChartSchema extends BaseSchema {
   type: 'object-chart';
+  /**
+   * Per-breakpoint scoped style maps (ADR-0065): `@objectstack/spec`'s
+   * `ResponsiveStyles`, by reference (objectui#10872 batch 9). The same
+   * declaration as {@link ObjectGridSchema.responsiveStyles}; a producer writes
+   * it on `object-chart` nodes (the objectstack showcase).
+   */
+  responsiveStyles?: SpecResponsiveStyles;
+  /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). This block's registration is gate-wrapped
+   * (`elementDataSourceBlock`), so `ElementDataSourceGate` reads the binding
+   * off the node and lands its `object` on {@link objectName}. Metadata, ⛔ not
+   * the adapter: see {@link ObjectGridSchema.dataSource}. It stays on the node
+   * on the authored spelling too, beside the `properties` bag, as the spec's
+   * `PageComponentSchema.dataSource` does. The react-page wrapper no longer
+   * writes the host adapter under this key (objectui#11070, round 2), which is
+   * what kept the binding undeclared here.
+   */
+  dataSource?: ElementDataSource;
   /** ObjectQL object name (legacy inline path; optional under ADR-0021 dataset binding) */
   objectName?: string;
-  /** Chart type. Includes donut / horizontal-bar / column — all rendered by
-   *  AdvancedChartImpl (previously only reachable by passing an untyped string).
+  /** Chart type: the `@objectstack/spec` chart families plugin-charts draws
+   *  (objectui#11513), `Extract`ed from the spec's `ChartType` by reference.
+   *  The spec's single-value families (`gauge`, `solid-gauge`, `metric`,
+   *  `kpi`, `bullet`) and tabular ones (`table`, `pivot`) are not declared:
+   *  this block renders one row's number or a notice for them, not a chart.
+   *  The zod mirror picks the same set out of the spec's enum
+   *  (`OBJECT_CHART_FAMILIES`), and the objectui#11513 pins hold the two faces
+   *  to each other and to what renders.
    *
    *  The metadata tier's spelling of the chart family. OPTIONAL since
    *  objectui#10770, because a react-tier node carries the family as
    *  {@link specType} instead. The zod mirror requires one of the two, and
    *  `normalizeChartSchema` reads this one first when a node writes both. */
-  chartType?: 'bar' | 'column' | 'horizontal-bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter';
+  chartType?: Extract<
+    SpecChartType,
+    | 'bar' | 'horizontal-bar' | 'column'
+    | 'line' | 'area'
+    | 'pie' | 'donut' | 'funnel'
+    | 'scatter'
+    | 'treemap' | 'sankey'
+    | 'combo'
+    | 'radar'
+  >;
   /**
    * The react tier's chart family: the author's `type` on `<ObjectChart>`,
    * parked here by the react-page wrapper because `type` is this node's
@@ -4746,8 +5558,9 @@ export interface ObjectChartSchema extends BaseSchema {
    * `xAxis: { field: 'status' }`; on the inline `objectName` path the category
    * is `aggregate.groupBy`.
    *
-   * A tombstone rather than a deletion: `BaseSchema`'s index signature and the
-   * mirror's `.passthrough()` would otherwise KEEP an authored value in silence.
+   * A tombstone rather than a deletion: the mirror's `.passthrough()` would
+   * otherwise KEEP an authored value in silence, and so did `BaseSchema`'s
+   * index signature until objectui#8347 (a widened value still would).
    *
    * @deprecated Not a key this node reads. Write `xAxis: { field }`.
    */
@@ -5084,6 +5897,27 @@ export interface ObjectChartSchema extends BaseSchema {
    */
   yAxis?: SpecChartAxis[];
   /**
+   * HOST-COMPOSED, runtime-only (objectui#11355, the seat's ruling A: an
+   * undeclared key follows the implementation, and the docs follow it). Pass
+   * `false` for a deterministic render with no entrance animation; omitted,
+   * the chart animates.
+   *
+   * Code writes it, not documents. On this node the producers are the
+   * dashboard renderers (`DashboardRenderer`, `DashboardGridLayout`), which set
+   * it `false` on the `object-chart` nodes they build for a widget; `ObjectChart`
+   * spreads the node into the schema it hands `ChartRenderer`, which honours it.
+   * `DatasetWidget` and `DatasetReportRenderer` write the same flag onto bare
+   * `chart` nodes, which `ChartRenderer` renders directly (plugin-charts'
+   * `index.tsx` gives it the bare `chart` key and registers `ObjectChartBlock`
+   * as `view:chart` only). `ChartRenderer`'s own `schema` prop declares the
+   * flag there, so those writes do not go through this type.
+   *
+   * ⛔ Declared on this TypeScript face only. The zod mirror has no member for
+   * it, so it is not offered as an authored key, and `zod-mirror-parity` files
+   * it as runtime-only with this reason.
+   */
+  isAnimationActive?: boolean;
+  /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-chart` reads NEITHER
    * content channel; see `children` below for the measurement.
    *
@@ -5307,9 +6141,10 @@ export interface ObjectDataTableSchema extends BaseSchema {
    * and no reader was added.
    *
    * A `?: never` tombstone, not a plain deletion: this carrier survives the
-   * retirement and extends {@link BaseSchema} (`[key: string]: any` here,
-   * `.passthrough()` on the zod mirror), so a deleted member would be absorbed
-   * silently at any value — the silent no-op the retirement exists to end.
+   * retirement and extends {@link BaseSchema} (`.passthrough()` on the zod
+   * mirror, and `[key: string]: any` here until objectui#8347; a widened value
+   * still skips the excess-property check), so a deleted member would be
+   * absorbed silently at any value — the silent no-op the retirement exists to end.
    * Licensed by prong 1 of the discriminator (objectui#5941, #7526, in its
    * amended form, `5f8190c8c`): it steers authors to the named live replacement,
    * `objectName`. The zod mirror refuses the key by name with that guidance.
@@ -5327,6 +6162,19 @@ export interface ObjectDataTableSchema extends BaseSchema {
   searchable?: boolean;
   /** Forwarded to the rendered `data-table` */
   pagination?: boolean;
+  /**
+   * Forwarded to the rendered `data-table` (objectui#11348): rows per page,
+   * typed by reference to {@link DataTableSchema}'s own member.
+   *
+   * The widget spreads this node into the `data-table` it renders, and that
+   * node reads `pageSize`, so the key was honoured all along and declared on
+   * neither face. `plugin-dashboard`'s drill-down drawer writes it on the node it
+   * builds, from its `maxRows`; the drilled list's row count depends on it.
+   * No spec row reaches `object-data-table`, so the declaration follows the
+   * implementation (the objectui#11347 `list.title` ruling's governing text).
+   * The zod mirror declares the same member, so no parity row opens.
+   */
+  pageSize?: DataTableSchema['pageSize'];
   /**
    * Drill-to-record: clicking a row opens that record in a detail drawer.
    * `DashboardRenderer` defaults object-backed table widgets to `{ enabled: true }`.
@@ -5432,8 +6280,21 @@ export interface ObjectDataTableSchema extends BaseSchema {
  * `ObjectGallerySchema` and `ObjectDataTableSchema` joined in objectui#7363.
  * PR #7355 (objectui#6576) minted both beside the other members and left this
  * union alone, so `Extract< ObjectQLComponentSchema, { type: 'object-gallery' } >`
- * was `never` and — through the zod twin in `zod/objectql.zod.ts`, which carries
- * the same twelve members — `AnyComponentSchema` had no arm for either node.
+ * was `never` and — through the zod twin in `zod/objectql.zod.ts`, which then
+ * carried the same twelve members — `AnyComponentSchema` had no arm for either
+ * node. The zod twin carries eleven since objectui#10859 batch 4: the authored
+ * `object-form` node is armed from its spec row by `ObjectFormBlockSchema`,
+ * and `ObjectFormSchema` here is the node as `ObjectForm` reads it. It carries
+ * ten since batch 5, for the same reason: the authored `object-map` node is
+ * armed by `ObjectMapBlockSchema`, and `ObjectMapSchema` here is the node as
+ * `ObjectMap` reads it. It carries nine since objectui#11276: the authored
+ * `object-chart` node is armed by `ObjectChartBlockSchema`, and
+ * `ObjectChartSchema` here is the node as `ObjectChart` reads it. It carries
+ * eight since objectui#10859 batch 6: the authored `object-gantt` node is armed
+ * by `ObjectGanttBlockSchema`, and `ObjectGanttSchema` here is the node as
+ * `ObjectGantt` reads it. It carries seven since objectui#11276's `object-grid`
+ * batch: the authored `object-grid` node is armed by `ObjectGridBlockSchema`,
+ * and `ObjectGridSchema` here is the node as `ObjectGrid` reads it.
  */
 export type ObjectQLComponentSchema =
   | ObjectGridSchema

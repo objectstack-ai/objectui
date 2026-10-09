@@ -36,7 +36,8 @@ import {
   type SectionFieldsContext,
 } from './sectionFields';
 import { TabbedForm } from './TabbedForm';
-import { WizardForm, NAVIGATE_ON_SUCCESS_REFUSED_NOTE } from './WizardForm';
+import { WizardForm } from './WizardForm';
+import { useFormChromeTranslation } from './formChrome';
 import { SplitForm } from './SplitForm';
 import { DrawerForm } from './DrawerForm';
 import { ModalForm } from './ModalForm';
@@ -61,7 +62,7 @@ import { formWritePayload } from './writePayload';
 import { applyFieldPermissions, closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWriteGate';
 import { ClosedAffordanceNotice } from './closedAffordanceNotice';
 import { resolveInitialRecord } from './initialRecord';
-import { noSubmitTargetError } from './submitTarget';
+import { hasInlineFieldSource, isInlineFieldDef, noSubmitTargetError } from './submitTarget';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 import {
   schemaDefaultValues,
@@ -158,8 +159,9 @@ type ObjectFormLabelKey = (typeof OBJECT_FORM_LABEL_KEYS)[number];
 /**
  * `ObjectFormSchema` as every presentation below reads it: the seven
  * `I18nLabel` members already resolved to a string. A homomorphic mapped type
- * rather than `Omit`, because `BaseSchema`'s index signature makes `Omit`
- * collapse to that signature and drop every declared member.
+ * rather than `Omit`, because `BaseSchema`'s index signature made `Omit`
+ * collapse to that signature and drop every declared member (until
+ * objectui#8347 removed it).
  */
 type LocalizedObjectFormSchema = {
   [K in keyof ObjectFormSchema]: K extends ObjectFormLabelKey ? string : ObjectFormSchema[K];
@@ -544,13 +546,13 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
   }
 
   if (schema.formType === 'drawer') {
-    const { layout: _layout, ...drawerRest } = schema;
-    const drawerLayout = (schema.layout === 'vertical' || schema.layout === 'horizontal') ? schema.layout : undefined;
+    // `layout` passes through unfolded: it is `vertical | horizontal` on both
+    // faces since objectui#11168 slice 3 (objectui#7759 group C), and the fold
+    // that mapped `inline` / `grid` away here is retired with them.
     return (
       <DrawerForm
         schema={{
-          ...drawerRest,
-          layout: drawerLayout,
+          ...schema,
           formType: 'drawer',
           sections: schema.sections?.map(s => ({
             name: s.name,
@@ -580,13 +582,11 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
   }
 
   if (schema.formType === 'modal') {
-    const { layout: _layout2, ...modalRest } = schema;
-    const modalLayout = (schema.layout === 'vertical' || schema.layout === 'horizontal') ? schema.layout : undefined;
+    // `layout` passes through unfolded — see the drawer branch above.
     return (
       <ModalForm
         schema={{
-          ...modalRest,
-          layout: modalLayout,
+          ...schema,
           formType: 'modal',
           sections: schema.sections?.map(s => ({
             name: s.name,
@@ -630,6 +630,10 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
   dataSource,
 }) => {
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
+  // The form's own feedback chrome — the default success toast and
+  // confirmation, the loading line, the load-failure heading and the default
+  // submit label — in the session locale (objectui#11039). See `formChrome.ts`.
+  const { t } = useFormChromeTranslation();
   const isMobile = useIsMobile();
   // Upload-in-flight gate (objectui#10166). Owns the aggregated "is any
   // file/image widget below me still uploading" answer, the Save label while it
@@ -642,6 +646,10 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
   const perms = usePermissions();
 
   const [objectSchema, setObjectSchema] = useState<any>(null);
+  // The hint under a field the caller may read but not write, in the session
+  // locale (objectui#11071). A string rather than `t` in the dependency list
+  // below: it changes when the language does and at no other time.
+  const deniedDescription = t('form.deniedDescription');
   // The ONE field-gate step every layout draws through (objectui#10612):
   // field-level security plus the ADR-0092 D4 managed-object lock, which this
   // arm's field generator used to stamp on its own — see `gateFormFields`.
@@ -652,9 +660,9 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
         objectName: schema.objectName,
         mode: schema.mode,
         objectSchema,
-        deniedDescription: 'You do not have edit access to this field.',
+        deniedDescription,
       }) as FormField[],
-    [perms, schema.objectName, schema.mode, objectSchema],
+    [perms, schema.objectName, schema.mode, objectSchema, deniedDescription],
   );
   // objectui#11000 — why `gateFields` locked every field, when the lock is the
   // form-wide one: the affordance for the mode is closed. Rendered above the
@@ -746,6 +754,13 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
 
   // Check if using inline fields (fields defined as objects, not just names)
   const hasInlineFields = schema.customFields && schema.customFields.length > 0;
+  // objectui#11615 — the members-only field source as the five other layouts
+  // answer it (`hasInlineFieldSource`): `customFields` (limb a, which is
+  // `hasInlineFields` above), or sections whose EVERY entry is self-describing
+  // (limb b), which this arm now draws whatever its field pool holds. With no
+  // adapter such a form has nothing to read: it opens on the caller's record,
+  // and its `onSuccess` is the write (the carve-out in `handleSubmit`).
+  const hasInlineSource = hasInlineFieldSource(schema);
 
   // Initialize with inline data if provided
   useEffect(() => {
@@ -817,9 +832,13 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     // what the registration's second sentence describes ("with inline
     // definitions and no data source, this becomes the only field source"), so
     // it is now the FALLBACK rather than the inline path's fixed answer.
+    //
+    // objectui#11615: sections of self-describing entries are the other
+    // members-only source (`hasInlineSource`), so they take the same fallback —
+    // which is what lets the record effect below seed such a form.
     if (schema.objectName && dataSource) {
       fetchObjectSchema();
-    } else if (hasInlineFields) {
+    } else if (hasInlineSource) {
       setObjectSchema(inlineOnlySchema);
       run.commit();
     } else {
@@ -827,7 +846,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       setLoading(false);
     }
     return () => { cancelled = true; };
-  }, [schema.objectName, dataSource, hasInlineFields]);
+  }, [schema.objectName, dataSource, hasInlineFields, hasInlineSource]);
 
   // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
   // `@object-ui/react`), read for the record this form READS (edit/view mode,
@@ -874,6 +893,17 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       }
 
       if (!dataSource) {
+        if (hasInlineSource) {
+          // objectui#11615 — sections of self-describing entries with no
+          // adapter: a self-contained collector with nothing to read, so it
+          // opens on the caller's record, as the five other layouts open the
+          // same form. Not a read, so no baseline.
+          loadedRecordRef.current = null;
+          setInitialData(resolveInitialRecord(schema));
+          run.commit();
+          setLoading(false);
+          return;
+        }
         run.fail(new Error('DataSource is required for fetching record data (inline data not provided)'));
         setLoading(false);
         return;
@@ -910,7 +940,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       fetchInitialData();
     }
     return () => { cancelled = true; };
-  }, [schema.objectName, schema.recordId, schema.mode, schema.initialValues, schema.initialData, dataSource, objectSchema, hasInlineFields, recordRefetch]);
+  }, [schema.objectName, schema.recordId, schema.mode, schema.initialValues, schema.initialData, dataSource, objectSchema, hasInlineFields, hasInlineSource, recordRefetch]);
 
   // FormField `visibleOn` (spec FormFieldSchema CEL expression) is consumed
   // directly by the form renderer via the canonical engine — it accepts both
@@ -1083,13 +1113,15 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
         // `formField` is the FORM FIELD; the metadata carrier a registered
         // `field:*` widget reads is `formField.field` — a DIFFERENT object,
         // assigned from the raw object-schema `field` further down. So
-        // `TextAreaField` resolves its cap from `field.max_length` directly and
+        // `TextAreaField` resolves its cap from that carrier directly and
         // never consults the key written here. Ablation, both configurations,
         // with the two statements below replaced by a comment: the rendered
         // `maxlength` attribute and the character counter were byte-identical
-        // to the unablated run (a `textarea` with `max_length: 111` kept
+        // to the unablated run (a `textarea` with a 111 cap kept
         // `maxlength="111"` and its `0/111` counter; `markdown`, `html` and
-        // `richtext` rendered no `maxlength` either way).
+        // `richtext` rendered no `maxlength` either way). That was measured on
+        // objectui#8438's base, when the cap was spelled `max_length`; the
+        // carrier split it measured is unchanged.
         //
         // ⇒ objectui#8438 was filed as "`richtext` is missing from this list".
         // It is — and adding it would have changed nothing observable, which is
@@ -1104,12 +1136,12 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
         // form field IS the carrier — and removing a dead assignment is a
         // different question from this card's, on a shared file.
         if (field.type === 'text' || field.type === 'textarea' || field.type === 'markdown' || field.type === 'html') {
-          // Spec FieldSchema declares camelCase; `max_length`/`min_length` is
-          // the legacy objectui spelling. Dual-read like buildValidationRules
-          // already does (framework#1878 §3 recheck) — without this a
-          // spec-authored `maxLength` never reached the HTML maxlength cap.
-          formField.maxLength = (field as any).maxLength ?? field.max_length;
-          formField.minLength = (field as any).minLength ?? field.min_length;
+          // The spec's `maxLength` / `minLength` (`FieldSchema`), the one
+          // spelling read — as in `buildValidationRules`. The snake_case pair
+          // this also read until objectui#11070 is retired: the spec refuses
+          // it by name, and no objectui type declares it.
+          formField.maxLength = field.maxLength;
+          formField.minLength = field.minLength;
         }
 
         if (field.type === 'file' || field.type === 'image') {
@@ -1218,17 +1250,21 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     // was never asked to perform (objectui#6388). Same rule and same precedence
     // as the five variant renderers — see `submitTarget.ts` for the whole rule.
     //
-    // The predicate stays this component's own `hasInlineFields` (non-empty
-    // `customFields`) rather than the shared `hasInlineFieldSource`. That
-    // helper's second limb — sections whose every field is an inline runtime
-    // `FormField` — is how the SECTIONED variants express an inline field
-    // source, and this renderer does not read it: here `sections[].fields` only
-    // SELECT (and override) fields already resolved from `customFields` or the
-    // object schema, so a sections-only form with no adapter resolves zero
-    // fields. Treating that as inline would widen the carve-out into a success
-    // signal for a form that collected nothing — this card's own defect class.
-    // Limb (a) is identical, and the refusal below is the shared one, verbatim.
-    if (!dataSource && !schema.submitHandler && hasInlineFields) {
+    // The predicate is the shared `hasInlineFieldSource`, as on the five other
+    // renderers (objectui#11615). Its limb (a) is this component's own
+    // `hasInlineFields` (non-empty `customFields`); its limb (b) — sections
+    // whose EVERY field is a self-describing inline `FormField` — is now one
+    // this renderer draws, because a section here draws such an entry whatever
+    // the parent field pool holds (`buildSectionFields`). So a sections-only
+    // form with no adapter collects exactly the fields its sections declare,
+    // and `onSuccess` is that collector's write, as it is everywhere else.
+    // Until objectui#11615 this renderer kept `hasInlineFields` alone, and
+    // rightly: a section only SELECTED pooled fields then, so the same form
+    // resolved zero fields, and counting it inline would have confirmed an
+    // empty submit. Limb (b) is all-or-nothing, so one name-only entry in any
+    // section still refuses below: a form that needed metadata it could not
+    // get never reaches the carve-out. The refusal is the shared one, verbatim.
+    if (!dataSource && !schema.submitHandler && hasInlineFieldSource(schema)) {
       if (schema.onSuccess) {
         await schema.onSuccess(formData);
       }
@@ -1331,7 +1367,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
               toast.error(verdict.refusal);
               setSubmitted({
                 message: schema.successMessage
-                  || (schema.mode === 'create' ? 'Created' : 'Saved'),
+                  || (schema.mode === 'create' ? t('form.created') : t('form.saved')),
                 refusal: verdict.refusal,
               });
               break;
@@ -1352,7 +1388,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
           default: {
             const message = behavior.kind === 'thank-you' && behavior.message
               ? behavior.message
-              : schema.successMessage || (schema.mode === 'create' ? 'Created' : 'Saved');
+              : schema.successMessage || (schema.mode === 'create' ? t('form.created') : t('form.saved'));
             toast.success(message);
             // Replace the (still fully filled) form with a confirmation panel
             // so there's nothing left to resubmit.
@@ -1415,11 +1451,11 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
             schema.navigateOnSuccess,
           );
           toast.success(
-            schema.successMessage || (schema.mode === 'create' ? 'Created' : 'Saved'),
-            { description: NAVIGATE_ON_SUCCESS_REFUSED_NOTE },
+            schema.successMessage || (schema.mode === 'create' ? t('form.created') : t('form.saved')),
+            { description: t('form.navigateRefused') },
           );
         } else {
-          toast.success(schema.successMessage || (schema.mode === 'create' ? 'Created' : 'Saved'));
+          toast.success(schema.successMessage || (schema.mode === 'create' ? t('form.created') : t('form.saved')));
         }
       }
 
@@ -1434,7 +1470,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       
       throw err;
     }
-  }, [schema, dataSource, hasInlineFields, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason, recordSaved]);
+  }, [schema, dataSource, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason, recordSaved, t]);
 
   // Handle form cancellation
   const handleCancel = useCallback(() => {
@@ -1517,7 +1553,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
   if (error) {
     return (
       <div className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md">
-        <h3 className="text-red-800 font-semibold">Error loading form</h3>
+        <h3 className="text-red-800 font-semibold">{t('form.errorLoading')}</h3>
         <p className="text-red-600 text-sm mt-1">{error.message}</p>
       </div>
     );
@@ -1528,7 +1564,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     return (
       <div className="p-4 sm:p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        <p className="mt-2 text-sm text-gray-600">Loading form...</p>
+        <p className="mt-2 text-sm text-gray-600">{t('publicForm.loading')}</p>
       </div>
     );
   }
@@ -1536,7 +1572,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
   if (submitted) {
     const confirmation = (
       <div className="rounded-md border bg-card p-6 sm:p-8 text-center">
-        <h3 className="text-lg font-semibold">{submitted.title ?? 'Thanks!'}</h3>
+        <h3 className="text-lg font-semibold">{submitted.title ?? t('publicForm.thankYouTitle')}</h3>
         {submitted.message && (
           <p className="mt-2 text-sm text-muted-foreground">{submitted.message}</p>
         )}
@@ -1560,12 +1596,10 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     );
   }
 
-  // Convert to FormSchema
-  // Note: FormSchema currently only supports 'vertical' and 'horizontal' layouts
-  // Map 'grid' and 'inline' to 'vertical' as fallback
-  const formLayout = (schema.layout === 'vertical' || schema.layout === 'horizontal') 
-    ? schema.layout 
-    : 'vertical';
+  // Convert to FormSchema. `layout` is `vertical | horizontal` on both faces
+  // since objectui#11168 slice 3 (objectui#7759 group C); the fold that mapped
+  // the retired `inline` / `grid` to `vertical` here is retired with them.
+  const formLayout = schema.layout ?? 'vertical';
 
   // If sections are provided (explicitly, or derived from the object's
   // `fieldGroups`) for the simple form, render them as full-width, optionally
@@ -1628,7 +1662,13 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       // exactly how a spec-legal section blanked the entire form — the
       // well-formed siblings with it — before objectui#7051. `buildSectionFields`
       // spells the same read `section.fields ?? []` for the members below.
-      const sectionFieldNames = (section.fields ?? []).map(sectionEntryName);
+      // NAME-ONLY entries only: a self-describing inline entry is drawn
+      // whatever the pool holds (objectui#11615, `isInlineFieldDef`), so it is
+      // never one the intersection below drops, and naming it there would
+      // report a loss that did not happen.
+      const sectionFieldNames = (section.fields ?? [])
+        .filter(entry => !isInlineFieldDef(entry))
+        .map(sectionEntryName);
 
       // objectui#9884 — make the INTERSECTION audible.
       //
@@ -1641,9 +1681,11 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       // section whole, heading included.
       //
       // ⛔ The intersection itself is NOT the defect and is deliberately left
-      // standing: `fields` is the parent field pool for values, create
-      // defaults and the submitted set as well as for layout, so resolving
-      // these members here would change what a landed schema writes. What WAS
+      // standing: `fields` is the parent field pool that bounds what this form
+      // DRAWS and edits, so resolving these members here would change what a
+      // landed schema draws and lets a user edit. It does not bound the write
+      // itself: a value seeded through `initialValues` is written whether or
+      // not it is drawn (objectui#11114). What WAS
       // the defect is that the loss was silent, plus this block's registration
       // claiming `fields` is "Ignored when `sections` is given" — a claim its
       // three sibling `fields` registrations never made and the one shared
@@ -1680,7 +1722,9 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       if (sectionFields.length === 0) return;
 
       const sectionKey = section.name || section.label || String(index);
-      // Untitled trailing bucket (ungrouped fields) renders flat — no divider.
+      // Untitled trailing bucket (ungrouped fields): no divider row. The
+      // renderer still draws it as its own block, split off where the previous
+      // heading's membership claim ends (objectui#11777).
       const label = section.name
         ? sectionLabel(schema.objectName, section.name, section.label || section.name)
         : section.label;
@@ -1761,7 +1805,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
               // below carries the reason in a sentence (objectui#10166).
               submitLabel: uploadGate.uploading
                 ? uploadGate.busyLabel
-                : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+                : schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update')),
               cancelLabel: schema.cancelText,
               onSubmit: handleSubmit,
               onCancel: handleCancel,
@@ -1910,7 +1954,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     // explanation while an upload is in flight (objectui#10166).
     submitLabel: uploadGate.uploading
       ? uploadGate.busyLabel
-      : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+      : schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update')),
     cancelLabel: schema.cancelText,
     showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
     showCancel: schema.showCancel !== false,

@@ -41,22 +41,28 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
+// The page asks the router where the anonymous route is served (objectui#11769),
+// so it renders inside one, as it does in the app.
+import { MemoryRouter } from 'react-router-dom';
 
 /**
  * One mutable answer, read by BOTH pages' `meta.getItems`. A stable singleton
- * adapter: a fresh object per render loops the pages' load effects.
+ * adapter: a fresh object per render loops the pages' load effects. Its client
+ * is a singleton too, as the real adapter's `getClient()` is: Flow Runs keys its
+ * flow and run loads on the client, so a fresh one per call re-ran them on
+ * every render, and the flow picker's shared `Select` (objectui#11865) never
+ * settled long enough to show its value.
  */
 const { ADAPTER, state } = vi.hoisted(() => {
   const state: { answer: unknown } = { answer: [] };
-  const ADAPTER = {
-    getClient: () => ({
-      meta: {
-        getItems: async () => state.answer,
-        saveItem: vi.fn(async () => ({ ok: true })),
-      },
-      automation: { execute: vi.fn(), listRuns: async () => ({ runs: [] }) },
-    }),
+  const client = {
+    meta: {
+      getItems: async () => state.answer,
+      saveItem: vi.fn(async () => ({ ok: true })),
+    },
+    automation: { execute: vi.fn(), listRuns: async () => ({ runs: [] }) },
   };
+  const ADAPTER = { getClient: () => client };
   return { ADAPTER, state };
 });
 
@@ -140,7 +146,7 @@ describe('FlowRunsPage — meta.getItems envelope (objectui#6917)', () => {
 describe('PublicFormsPage — meta.getItems envelope (objectui#6917)', () => {
   it("still reads the envelope's `items` member", async () => {
     state.answer = { items: [FORM] };
-    render(<PublicFormsPage />);
+    render(<PublicFormsPage />, { wrapper: MemoryRouter });
     await waitFor(() => {
       expect(screen.getByText('Log Time')).toBeInTheDocument();
     });
@@ -148,7 +154,7 @@ describe('PublicFormsPage — meta.getItems envelope (objectui#6917)', () => {
 
   it('still reads a bare array', async () => {
     state.answer = [FORM];
-    render(<PublicFormsPage />);
+    render(<PublicFormsPage />, { wrapper: MemoryRouter });
     await waitFor(() => {
       expect(screen.getByText('Log Time')).toBeInTheDocument();
     });
@@ -156,7 +162,7 @@ describe('PublicFormsPage — meta.getItems envelope (objectui#6917)', () => {
 
   it('does NOT read `value` — not a member of this envelope', async () => {
     state.answer = { value: [FORM] };
-    render(<PublicFormsPage />);
+    render(<PublicFormsPage />, { wrapper: MemoryRouter });
     await waitFor(() => {
       expect(screen.getByText('No public forms yet')).toBeInTheDocument();
     });

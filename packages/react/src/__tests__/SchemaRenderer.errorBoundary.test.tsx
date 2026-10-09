@@ -10,7 +10,20 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
+import type { BaseSchema } from '@object-ui/types';
 import { SchemaRenderer, SchemaErrorBoundary } from '../SchemaRenderer';
+
+/**
+ * This file's registered widgets, declared to `@object-ui/types` the way an
+ * application declares a type it registers (objectui#11466): a node slot and
+ * the `schema` prop take the declared node types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'crashing-widget': BaseSchema;
+    'stable-widget': StableWidgetNode;
+  }
+}
 
 // Suppress console.error from React error boundary during tests
 const originalConsoleError = console.error;
@@ -28,6 +41,16 @@ const CrashingWidget: React.FC = () => {
 const StableWidget: React.FC<any> = (props) => (
   <div data-testid="stable-widget">{props.content || 'Stable'}</div>
 );
+
+/**
+ * The node a `stable-widget` case authors (objectui#11349): `BaseSchema` plus
+ * the `content` that `StableWidget` renders. Each literal is checked against
+ * this node rather than against the `BaseSchema` the `schema` prop accepts, so
+ * `content` stays checked now that objectui#8347 has removed `BaseSchema`'s
+ * index signature.
+ */
+type StableWidgetNode = BaseSchema & { type: 'stable-widget'; content?: string };
+const stableWidget = (schema: StableWidgetNode): StableWidgetNode => schema;
 
 describe('SchemaErrorBoundary', () => {
   it('should render children normally when no error', () => {
@@ -127,7 +150,7 @@ describe('SchemaRenderer error boundary integration', () => {
 
   it('should not affect stable components', () => {
     render(
-      <SchemaRenderer schema={{ type: 'stable-widget', content: 'Hello' }} />
+      <SchemaRenderer schema={stableWidget({ type: 'stable-widget', content: 'Hello' })} />
     );
     expect(screen.getByTestId('stable-widget')).toBeInTheDocument();
     expect(screen.getByText('Hello')).toBeInTheDocument();
@@ -137,7 +160,7 @@ describe('SchemaRenderer error boundary integration', () => {
     render(
       <div>
         <SchemaRenderer schema={{ type: 'crashing-widget' }} />
-        <SchemaRenderer schema={{ type: 'stable-widget', content: 'Still works' }} />
+        <SchemaRenderer schema={stableWidget({ type: 'stable-widget', content: 'Still works' })} />
       </div>
     );
     // Crashing one should not affect the other

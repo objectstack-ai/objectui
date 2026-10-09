@@ -123,10 +123,84 @@ const METHOD_OPTS = [
   { value: 'DELETE', label: 'DELETE' },
 ];
 
+/**
+ * objectui#11921 — the language a body this inspector SEEDS is written in.
+ *
+ * `@objectstack/spec` declares no default for it: `language` is the
+ * discriminator of `HookBodySchema`, a bare literal on each side, so a body
+ * that names none is refused at `body.language` whatever else it holds. This
+ * is therefore the inspector's own offer — the first entry of the picker
+ * below, and the value that picker already SHOWED for a body naming no
+ * language. Picker and writer read this one constant, so the language the
+ * author sees selected is the language that is stored.
+ */
+const SEEDED_BODY_LANGUAGE = 'expression';
+
 const BODY_LANG_OPTS: KeyedOption[] = [
-  { value: 'expression', labelKey: 'engine.inspector.action.bodyLang.expression' },
+  { value: SEEDED_BODY_LANGUAGE, labelKey: 'engine.inspector.action.bodyLang.expression' },
   { value: 'js', labelKey: 'engine.inspector.action.bodyLang.js' },
 ];
+
+/**
+ * The keys each body language admits: the two shapes of the spec's
+ * `HookBodySchema` union, keyed by their `language` literal.
+ *
+ * Listed here rather than read off the spec at runtime. That read imported the
+ * schema into the console's first load, which only the parity pin in
+ * `ActionDefaultInspector.scriptBodyLanguage-11921.test.tsx` needs. That pin
+ * compares this list with `HookBodySchema.options` both ways, so a key the spec
+ * adds to or retires from either shape fails it, and so does a language.
+ *
+ * Exported for that pin alone, the way `PARAM_TYPE_OPTS` is for objectui#6538's:
+ * no barrel re-exports this module, so it is not package surface. The cost is
+ * this panel's fast refresh, which the directive below accepts by name.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- see above
+export const BODY_KEYS_BY_LANGUAGE: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['expression', new Set(['language', 'source'])],
+  ['js', new Set(['language', 'source', 'capabilities', 'timeoutMs', 'memoryMb'])],
+]);
+
+/** A body's authored language, or `undefined` when it names none. */
+function bodyLanguageOf(body: Record<string, unknown>): string | undefined {
+  return typeof body.language === 'string' && body.language !== '' ? body.language : undefined;
+}
+
+/**
+ * objectui#11921 — the ONE writer of a script action's `body` in this
+ * inspector. Every path that writes a body goes through it: the "What it does"
+ * switch to *Run a script*, each keystroke in the body editor, and a language
+ * change.
+ *
+ * - It guarantees `language`. The body editor used to write `{ source }` alone,
+ *   which the spec refuses at `body.language` (`Invalid discriminator value`),
+ *   so the first keystroke into a fresh body drew a refusal no amount of typing
+ *   could clear. A language the body already names is kept as written; only an
+ *   absent one is seeded, with {@link SEEDED_BODY_LANGUAGE}.
+ * - A language change writes the NEW language's shape: a key only the old
+ *   language admits (an L2 grant or limit — `capabilities`, `timeoutMs`,
+ *   `memoryMb` — on a switch to an expression) is refused by name beside the
+ *   new one, so it goes with the switch. A key neither language admits is the
+ *   author's to fix, and the spec's refusal names it; this writer never drops
+ *   it.
+ *
+ * `source` is never seeded. The spec requires a non-empty one, and it is the
+ * one input only the author can supply — so a body seeded by the switch is
+ * refused at `body.source` alone until the author types, which is the input
+ * the editor puts in front of them.
+ */
+function writeScriptBody(body: Record<string, unknown>, change: Record<string, unknown>): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...body, ...change };
+  const from = bodyLanguageOf(body);
+  const to = bodyLanguageOf(next) ?? SEEDED_BODY_LANGUAGE;
+  next.language = to;
+  const left = from === undefined ? undefined : BODY_KEYS_BY_LANGUAGE.get(from);
+  const kept = BODY_KEYS_BY_LANGUAGE.get(to);
+  if (left && kept && from !== to) {
+    for (const key of left) if (!kept.has(key)) delete next[key];
+  }
+  return next;
+}
 
 /*
  * `satisfies`, not a bare literal: every spelling this dropdown offers must be
@@ -523,10 +597,8 @@ export function ActionDefaultInspector({
    */
   const operation = str('operation');
   const isUpdateOperation = operation === 'update';
-  const patch: Record<string, unknown> =
-    (draft.patch && typeof draft.patch === 'object' && !Array.isArray(draft.patch))
-      ? (draft.patch as Record<string, unknown>)
-      : {};
+  const hasPatch = !!draft.patch && typeof draft.patch === 'object' && !Array.isArray(draft.patch);
+  const patch: Record<string, unknown> = hasPatch ? (draft.patch as Record<string, unknown>) : {};
   const patchRows = Object.entries(patch);
 
   /**
@@ -534,6 +606,16 @@ export function ActionDefaultInspector({
    * and the placement it refuses, so the draft the author is holding stays
    * saveable. Switching OUT drops `patch`, which the spec refuses without its
    * `operation` (it would be silently dropped on the way to the runtime).
+   *
+   * objectui#11921 — each direction also writes what the spec requires of the
+   * shape it lands on. Into an update action: a `patch`, since the spec refuses
+   * an update action with none ("nothing to write"); the empty one is the
+   * skeleton Studio's create flow starts every new action from (objectui#11820),
+   * and a `patch` the draft already holds is kept. Out, to *Run a script*: a
+   * `body` naming its language, through {@link writeScriptBody}, so the first
+   * keystroke lands in a body the spec can parse — unless the action already
+   * runs a registered function through `target`, which the spec accepts in
+   * place of a body.
    */
   const commitOperation = (next: string) => {
     if (next === 'update') {
@@ -542,10 +624,13 @@ export function ActionDefaultInspector({
       if (locations.includes(UPDATE_OPERATION_REFUSED_LOCATION)) {
         cleared.locations = locations.filter((l) => l !== UPDATE_OPERATION_REFUSED_LOCATION);
       }
+      if (!hasPatch) cleared.patch = {};
       onPatch(cleared);
       return;
     }
-    onPatch({ operation: undefined, patch: undefined });
+    const out: Record<string, unknown> = { operation: undefined, patch: undefined };
+    if (!str('target')) out.body = writeScriptBody(body, {});
+    onPatch(out);
   };
 
   const commitPatch = (rows: Array<[string, unknown]>) => {
@@ -623,7 +708,8 @@ export function ActionDefaultInspector({
     onBlockingIssuesChangeRef.current?.(blockingIssues);
   }, [blockingIssues]);
 
-  const patchBody = (p: Record<string, unknown>) => onPatch({ body: { ...body, ...p } });
+  // objectui#11921 — every body write goes through the one writer.
+  const patchBody = (p: Record<string, unknown>) => onPatch({ body: writeScriptBody(body, p) });
   const patchParam = (i: number, p: Partial<ActionParam>) =>
     onPatch({ params: params.map((it, j) => (j === i ? { ...it, ...p } : it)) });
 
@@ -752,7 +838,7 @@ export function ActionDefaultInspector({
               <>
             <InspectorSelectField
               label={tr('engine.inspector.action.scriptLanguage')}
-              value={(typeof body.language === 'string' ? body.language : undefined) || 'expression'}
+              value={bodyLanguageOf(body) ?? SEEDED_BODY_LANGUAGE}
               options={localizeOptions(BODY_LANG_OPTS, locale)}
               onCommit={(v) => patchBody({ language: v })}
               disabled={readOnly}

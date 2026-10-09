@@ -9,8 +9,9 @@
 /**
  * objectui#3951, master-detail half — the derivation is a PRODUCER of the very
  * columns `GridField` consumes, so it must emit the declared spelling
- * (`GridColumnDefinition.name`) and read author-supplied columns by the same
- * key. Before the fix `deriveColumns` emitted `{ field: name, … }` and
+ * (`name`, the spec's inline grid column key — objectui#11070) and read
+ * author-supplied columns by the same key. Before the fix `deriveColumns`
+ * emitted `{ field: name, … }` and
  * `hydrateColumns` looked the child field up as `fields[col.field]`: that pair
  * agreed with the widget's old `c.field` reader, which is precisely why the
  * master-detail path worked while spec-compliant hand-authored metadata did

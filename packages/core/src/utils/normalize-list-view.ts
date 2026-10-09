@@ -107,6 +107,11 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
  * firing control. ⛔ Do not read the three as legacy-only spellings awaiting
  * retirement — the protocol declares them, so removing them here would leave
  * objectui narrower than the protocol.
+ *
+ * ⛔ `inlineEdit` → `editInline` is NOT a row here, although it lands in the same
+ * block (objectui#5144). Every row of this table is deleted after it folds;
+ * `inlineEdit` must survive its fold, because it is also the MODE `ListView`
+ * opens the grid in. See {@link foldsInlineEditIntoEditInline}.
  */
 const SHOW_FLAG_TO_USER_ACTION: Record<string, string> = {
   showSearch: 'search',
@@ -117,6 +122,42 @@ const SHOW_FLAG_TO_USER_ACTION: Record<string, string> = {
   showHideFields: 'hideFields',
   showColor: 'rowColor',
 };
+
+/**
+ * Whether a view's `inlineEdit` folds into `userActions.editInline`
+ * (objectui#5144, the maintainer's B-fold).
+ *
+ * The spec declares `userActions.editInline` with `.default(false)`: "the list
+ * is read-only unless the author opts in". It declares the view's `inlineEdit`
+ * as the same kind of permission ("allow inline editing"). Stored views carry
+ * `inlineEdit`, not `editInline`: authored views declare it, and the console's
+ * list toolbar used to write it. Folding it here puts both keys on one
+ * vocabulary, so `ListView` can read `editInline` with the spec default and a
+ * view that has inline editing keeps it.
+ *
+ * The console's toolbar no longer writes `inlineEdit` (objectui#5144, ruling
+ * E). It persisted a user's edit mode into this permission key, so switching
+ * the toggle off stored `inlineEdit: false` and the fold then read the view as
+ * not offering inline editing. The toggle is session state now.
+ *
+ * Two rules, each the same as a fold above:
+ *  - The value carries over: `inlineEdit: true` folds to `editInline: true`,
+ *    and `inlineEdit: false` to `editInline: false`.
+ *  - An explicit `userActions.editInline` wins. It is the spec key, so a
+ *    stored `inlineEdit` only fills the gap.
+ *
+ * One departure, the `data` → `objectName` one: `inlineEdit` is KEPT. The other
+ * folds delete because the legacy key has one meaning and one home.
+ * `inlineEdit` has a second use. It is the spec's own `ListView.inlineEdit`,
+ * and `ListView` seeds the grid's edit MODE from it on each load. The toolbar
+ * toggle then flips that mode for the session. `editInline` decides whether
+ * the toggle is offered at all. Deleting `inlineEdit` would open every such
+ * view out of edit mode.
+ */
+function foldsInlineEditIntoEditInline(s: Record<string, unknown>): boolean {
+  if (typeof s.inlineEdit !== 'boolean') return false;
+  return !(isRecord(s.userActions) && typeof s.userActions.editInline === 'boolean');
+}
 
 /**
  * Legacy `sharing.visibility` → the spec's `ViewSharing.type`. The spec models
@@ -216,7 +257,8 @@ const LIST_VIEW_KINDS: Record<ListViewVisualization, true> = {
  * the literal EXACT in BOTH directions: a kind the spec adds is a missing key
  * (wanted) and a kind the spec RETIRES is an EXCESS PROPERTY — a TS2353 that
  * demands a deletion this repository cannot make while it resolves a published
- * spec which still carries the kind. `satisfies` keeps the value constraint
+ * spec which still carries the kind (as it did with `page` through 17.4.0).
+ * `satisfies` keeps the value constraint
  * (every reason is a `string` or `null`) and drops the exactness, which is what
  * lets one spelling compile against both the pinned published spec and one
  * built from objectstack `main`.
@@ -226,19 +268,18 @@ const LIST_VIEW_KINDS: Record<ListViewVisualization, true> = {
  *  - `list` is the view CATEGORY, not a kind — it already folds to `grid`.
  *  - `detail` is a different renderer (`plugin-detail`), never a ListView case.
  *
- * ⚠️ `page` is a RETIRED spec kind and is kept on purpose. objectstack#17063
- * removed `type: 'page'` from the list-view enum, and until this repository's
- * `@objectstack/spec` resolution moves onto a release carrying that removal an
- * author can still write one, so this table still has to answer for it. Once
- * the resolution moves, `Extract` stops extracting the row and it becomes inert
- * of its own accord — deletable, on the day the residual pins that hold it
- * (`normalize-list-view.pageResidual-8429.test.ts`) are converted, and not
- * before.
+ * `page` had a row here until objectui#11073. objectstack#17063 removed
+ * `type: 'page'` from the list-view enum, and the row answered for it while this
+ * repository still resolved a spec that published the kind. `@objectstack/spec`
+ * 17.5.0 carries the removal: both published `@object-ui/types` faces refuse
+ * `page`, `Extract` no longer extracted the row, and the residual pins that held
+ * it (`normalize-list-view.pageResidual-8429.test.ts`) were converted, so it was
+ * deleted as it said it would be. A stored `page` view now degrades like any
+ * kind outside the vocabulary.
  */
 const UNDRAWABLE_VIEW_KINDS = {
   list: null,
   detail: null,
-  page: 'it mounts a published page (bound through `pageName`) in place of rows, which this renderer has no branch for',
 } satisfies Record<string, string | null>;
 
 /**
@@ -248,9 +289,10 @@ const UNDRAWABLE_VIEW_KINDS = {
  * `Extract` over the table's keys, not the table's raw `keyof`, is the load-
  * bearing operator (objectui#9880): the table may carry a row for a kind the
  * spec has since RETIRED, and `Extract` drops that row from the TYPE without
- * the table having to lose it at runtime. That is what makes one spelling
- * correct against both the pinned published spec (which still publishes `page`)
- * and a spec built from objectstack `main` (which retired it).
+ * the table having to lose it at runtime. That is what made one spelling
+ * correct against both the published spec (which published `page` through
+ * 17.4.0) and a spec built from objectstack `main` (which retired it), and what
+ * made the row's deletion at 17.5.0 a plain deletion (objectui#11073).
  */
 type UndrawableViewKind = Extract<ViewType, keyof typeof UNDRAWABLE_VIEW_KINDS>;
 
@@ -383,6 +425,11 @@ const PER_VIEW_CONFIG_ALIASES: Record<string, Readonly<Record<string, string>>> 
  *    stays absent, because the defaults are per-toggle (search/sort/filter/
  *    rowHeight/group default ON, hideFields/rowColor default OFF) and belong to
  *    the renderer, not to the vocabulary bridge.
+ *  - the view's `inlineEdit` → `userActions.editInline` (objectui#5144), with
+ *    the value carried over and an explicit `editInline` winning. `inlineEdit`
+ *    stays on the result, because `ListView` seeds the grid's edit mode from
+ *    it. See {@link foldsInlineEditIntoEditInline}. An absent pair stays
+ *    absent here as well; `ListView` reads that as off, the spec's default.
  *  - `aria: { label, describedBy }` → the spec's `AriaProps`
  *    (`{ ariaLabel, ariaDescribedBy }`), and `sharing: { visibility, enabled }`
  *    → the spec's `ViewSharing` (`{ type }`) — #2890 scope A step 5. `aria.live`
@@ -457,6 +504,7 @@ export function normalizeListViewSchema<T>(schema: T): T {
   const legacyFilters = s.filters;
   const foldFilter = Array.isArray(legacyFilters);
   const legacyFlags = Object.keys(SHOW_FLAG_TO_USER_ACTION).filter((k) => typeof s[k] === 'boolean');
+  const foldInlineEdit = foldsInlineEditIntoEditInline(s);
   const foldDescription = typeof s.showDescription === 'boolean';
   const aria = isRecord(s.aria) ? s.aria : undefined;
   const foldAria = !!aria && Object.keys(ARIA_KEY_ALIASES).some((k) => aria[k] !== undefined);
@@ -501,7 +549,7 @@ export function normalizeListViewSchema<T>(schema: T): T {
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined);
   if (
-    !foldColumns && !foldRowHeight && !foldFilter && !legacyFlags.length &&
+    !foldColumns && !foldRowHeight && !foldFilter && !legacyFlags.length && !foldInlineEdit &&
     !foldDescription && !foldAria && !foldSharing && !defaultViewKind &&
     !foldColumnIdentity && !perViewFolds.length && !foldObjectName
   ) {
@@ -526,13 +574,16 @@ export function normalizeListViewSchema<T>(schema: T): T {
     if (!Array.isArray(next.filter)) next.filter = legacyFilters;
     delete next.filters;
   }
-  if (legacyFlags.length) {
+  if (legacyFlags.length || foldInlineEdit) {
     const ua: Record<string, unknown> = { ...(isRecord(next.userActions) ? next.userActions : {}) };
     for (const flag of legacyFlags) {
       const key = SHOW_FLAG_TO_USER_ACTION[flag];
       if (typeof ua[key] !== 'boolean') ua[key] = s[flag];
       delete next[flag];
     }
+    // objectui#5144. Gap-fill only, and `inlineEdit` is not deleted: see
+    // `foldsInlineEditIntoEditInline`.
+    if (foldInlineEdit) ua.editInline = s.inlineEdit;
     next.userActions = ua;
   }
   if (foldDescription) {

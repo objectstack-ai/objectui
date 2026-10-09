@@ -9,11 +9,13 @@
  * finished answer rather than a missing editor. The repair keeps the label (it
  * says WHICH action is selected) and adds the reason there is no form under it.
  *
- * ⛔ The message must not promise recovery. That read is a plain `Map` lookup
- * during render with no subscription, and the card measured that a registration
- * landing later never reaches the component (`late inspector rendered: false`).
- * "Loading…" / "try again" would swap one false statement for another; making
- * recovery real is part A of #6795.
+ * ⛔ The message must not promise recovery. When this pin was written that read
+ * was a plain `Map` lookup during render with no subscription, and the card
+ * measured that a registration landing later never reached the component
+ * (`late inspector rendered: false`). objectui#11939 made the read observable,
+ * so a late registration now does replace the pane (pinned in
+ * `ObjectPanels.lateRegistration-11939.test.tsx`); "Loading…" / "try again"
+ * would still promise something nothing here knows is coming.
  *
  * ⚠️ Sibling panels in this pillar are deliberately NOT pinned here, because the
  * measurement found them already correct and the ruling put them out of scope:

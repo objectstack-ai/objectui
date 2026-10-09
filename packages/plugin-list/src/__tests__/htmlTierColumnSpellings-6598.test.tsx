@@ -27,7 +27,9 @@
  *     projection at zero and neither default-columns derivation could run
  *     (fixed by objectui#6598's first half, PR #6679);
  *   - two spellings that were never the contract at all (`viewName` / `view`),
- *     plus two that are page-fatal compile errors.
+ *     plus two that fail loudly: one a page-fatal compile error, and one the
+ *     block answers with its "no object named" hint (a compile error too until
+ *     objectui#11605 stopped `list-view` requiring `objectName`).
  *
  * Sibling files pin the mechanisms one at a time:
  * `literal-subset-6614.test.ts` and `inert-expression-6598.test.ts` in
@@ -51,7 +53,8 @@
  * disjunction — each form either
  *
  *   (a) renders a table with at least one DATA column, or
- *   (b) fails LOUDLY, with the compile-error block on screen.
+ *   (b) fails LOUDLY, with the compile-error block on screen, or with the
+ *       block's own "no object named" hint naming the key it is missing.
  *
  * What no form may do is what all eight did when the card was filed: render a
  * populated table whose only header is the index column. A spelling moving
@@ -103,6 +106,8 @@ interface Rendered {
   headers: string[];
   dataHeaders: string[];
   compileFailed: boolean;
+  /** The block's "no object named" hint (objectui#11605). */
+  noObjectHint: boolean;
   text: string;
 }
 
@@ -122,6 +127,7 @@ async function renderSpelling(source: string): Promise<Rendered> {
   await waitFor(() => {
     const settled =
       container.querySelector('table') !== null ||
+      container.querySelector('[data-testid="list-view-no-object"]') !== null ||
       /failed to compile/i.test(container.textContent || '');
     expect(settled).toBe(true);
   });
@@ -131,6 +137,7 @@ async function renderSpelling(source: string): Promise<Rendered> {
     headers,
     dataHeaders: headers.filter((h) => h !== INDEX_COLUMN),
     compileFailed: /failed to compile/i.test(text),
+    noObjectHint: container.querySelector('[data-testid="list-view-no-object"]') !== null,
     text,
   };
 }
@@ -138,7 +145,7 @@ async function renderSpelling(source: string): Promise<Rendered> {
 /** The reported state, named once so every case can assert against it. */
 function expectNotTheReportedSymptom(r: Rendered): void {
   const renderedDataColumns = !r.compileFailed && r.dataHeaders.length > 0;
-  const failedLoudly = r.compileFailed;
+  const failedLoudly = r.compileFailed || r.noObjectHint;
   // Before the fixes: `headers` was exactly ['#'] with `compileFailed` false —
   // rows on screen, no data columns, and nothing said so.
   expect(renderedDataColumns || failedLoudly).toBe(true);
@@ -222,7 +229,7 @@ describe("#6598 — all eight reported `columns` spellings on a kind:'html' page
     });
   });
 
-  describe('the spellings that are page-fatal — they fail LOUDLY, which is the opposite of the report', () => {
+  describe('the spellings that fail LOUDLY, which is the opposite of the report', () => {
     it('form 6 — child <column> elements', async () => {
       const r = await renderSpelling(
         `<list-view objectName="${OBJECT}"><column field="name" /><column field="amount" /></list-view>`,
@@ -236,13 +243,18 @@ describe("#6598 — all eight reported `columns` spellings on a kind:'html' page
     });
 
     it('form 8a — the kebab-case `object-name` variant', async () => {
-      // `object-name` is not `objectName`, so the required prop is simply
-      // absent and the page says so by name.
+      // `object-name` is not `objectName`, so the list names no object, and
+      // the page says so by name. Since objectui#11605 the compile no longer
+      // refuses it (`objectName` is not required: a `dataSource` binding can
+      // supply it), so the saying moved from the compile-error block to the
+      // block's own hint, which names `objectName` and fetches nothing.
       const r = await renderSpelling(`<list-view object-name="${OBJECT}" columns={['name','amount']} />`);
 
       expectNotTheReportedSymptom(r);
-      expect(r.compileFailed).toBe(true);
+      expect(r.compileFailed).toBe(false);
+      expect(r.noObjectHint).toBe(true);
       expect(r.text).toContain('objectName');
+      expect(r.headers).toEqual([]);
     });
   });
 });

@@ -30,7 +30,7 @@ const accountId: LookupFieldMetadata = {
   label: 'Account',
   placeholder: 'Search accounts…',
   required: true,
-  reference_to: 'accounts',
+  reference: 'accounts',
   reference_field: 'name',
   descriptionField: 'industry',
   idField: '_id',
@@ -44,6 +44,14 @@ const accountId: LookupFieldMetadata = {
 };
 ```
 
+The target object is `reference` — the spelling `@objectstack/spec`'s `FieldSchema`
+declares, and the only one the lookup and user widgets and their read cells read.
+[objectui#11070](https://github.com/objectstack-ai/objectui/issues/11070) retired
+objectui's snake_case twin `reference_to`: the spec refuses it by name, and nothing
+reads it. A stored object definition that still spells it is folded onto `reference`
+when it is served through the ObjectStack adapter; a definition handed to the widget
+any other way names no target — rename the key to `reference`.
+
 When no data source is available the field falls back to a static option list:
 
 ```ts
@@ -53,7 +61,7 @@ const priority: LookupFieldMetadata = {
   type: 'lookup',
   name: 'priority',
   label: 'Priority',
-  reference_to: 'priorities',
+  reference: 'priorities',
   options: [
     { label: 'High', value: 'high' },
     { label: 'Normal', value: 'normal' },
@@ -93,7 +101,7 @@ const contact: LookupFieldMetadata = {
   type: 'lookup',
   name: 'contact',
   label: 'Contact',
-  reference_to: 'contacts',
+  reference: 'contacts',
   // Filter `contacts` by `account_id` equal to the form's current `account`.
   dependsOn: [{ field: 'account', param: 'account_id' }],
 };
@@ -120,14 +128,14 @@ When a `DataSource` is available (via `SchemaRendererContext`, explicit prop, or
   type: 'lookup',
   name: 'customer',
   label: 'Customer',
-  reference_to: 'customers',
+  reference: 'customers',
   reference_field: 'name',        // Display field (default: 'name')
   descriptionField: 'industry',  // Optional secondary field
 }
 ```
 
 The popup will:
-1. Fetch records via `dataSource.find(reference_to, { $top: 50 })` on open
+1. Fetch records via `dataSource.find(reference, { $top: 50 })` on open
 2. Send `$search` queries with 300ms debounce as the user types
 3. Show loading spinner, error state with retry, and empty state
 4. Display "Showing X of Y" when more records exist than the page size
@@ -153,7 +161,7 @@ The full **RecordPickerDialog** can be opened in two ways:
   type: 'lookup',
   name: 'order',
   label: 'Order',
-  reference_to: 'orders',
+  reference: 'orders',
   reference_field: 'order_number',
   descriptionField: 'customer_name',
   lookup_columns: [

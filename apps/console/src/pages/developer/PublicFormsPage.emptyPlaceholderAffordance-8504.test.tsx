@@ -53,6 +53,9 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
+// The page asks the router where the anonymous route is served (objectui#11769),
+// so it renders inside one, as it does in the app.
+import { MemoryRouter } from 'react-router-dom';
 
 /**
  * Two published public forms — one declaring an `object`, one not. Both need
@@ -101,7 +104,7 @@ const emptyIn = (el: HTMLElement): HTMLElement | null =>
   el.querySelector('[data-slot="empty-value"]');
 
 async function mount() {
-  const { container } = render(<PublicFormsPage />);
+  const { container } = render(<PublicFormsPage />, { wrapper: MemoryRouter });
   // `queryByText` THROWS on multiple matches, and the Name cell prints the
   // label and the name — so a single-match query never resolves here.
   await waitFor(() =>

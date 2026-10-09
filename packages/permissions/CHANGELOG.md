@@ -1,5 +1,681 @@
 # @object-ui/permissions
 
+## 17.7.0
+
+### Minor Changes
+
+- 9cebfca: feat: an action's `visible` / `disabled` predicate can ask `current_user.can(object, verb)` — the caller's object permissions, from the payload the built-in Edit / Delete buttons are already gated by
+  
+  A custom action that replaces a built-in CRUD button — a logical delete that archives
+  instead of deleting, say — can now carry the same gate the built-in button had:
+  
+  ```yaml
+  visible: current_user.can('account', 'delete')
+  ```
+  
+  It answers from the signed-in user's `/auth/me/permissions` payload once that payload
+  has loaded, on the record header and the row menu alike. Until then it gives no answer:
+  the predicate faults, and a surface that evaluates `visible` fail-closed does not render
+  the action. The `user` / `ctx.user` / `os.user` aliases are the same call.
+  
+  This is client-side UI gating only. It decides whether the button is shown; the server
+  still enforces object permissions on the request the action sends and answers 403 when
+  they are not held.
+  
+  - `@object-ui/permissions`: the permission context carries `effectiveObjects`, the
+    response's `objects` map verbatim (`undefined` when the provider holds no such
+    response — the role-based `PermissionProvider`, or no provider at all).
+  - `@object-ui/core`: `evalFieldPredicate` hands the acting subject's permissions to the
+    CEL engine as `EvalContext.permissions`; `bindSubjectPermissions` /
+    `subjectPermissionsOf` are the carrier. `@objectstack/formula` is now required at
+    `^17.5.0`, the first release that answers `can`.
+  - `@object-ui/app-shell`: `ExpressionProvider` binds the map into the predicate scope it
+    publishes only while `usePermissions().isLoaded` is true, and the record-form field
+    evaluators take the same input, so one predicate answers the same everywhere.
+- 8cd8eb5: **BREAKING — removes a published export from two packages.** Retire the
+  `PermissionGuardConfig` type (objectui#8024, ADR-0049 enforce-or-remove). The
+  name is deleted from `@object-ui/types`, which declared it, and from
+  `@object-ui/permissions`, which re-exported it — after this release
+  `import type { PermissionGuardConfig }` from either package is a compile error,
+  not a deprecation warning.
+  
+  The shape the shipped guard reads is **`PermissionGuardProps`**, exported from
+  `@object-ui/permissions` beside the `PermissionGuard` component. It was never
+  `PermissionGuardConfig`: the component did not accept the retired type, and the
+  two disagreed on the key names — `action` there, `permission` here;
+  `fallbackContent` (a React node) there, `fallbackComponent` (a type-name string)
+  here; `object` required there, optional here.
+  
+  **`fallback: 'redirect'` and `redirectPath` never existed as a capability.** They
+  were declared on the retired type and honoured nowhere: `'redirect'` was never a
+  member of the `fallback` union `PermissionGuard` switches on, and no code ever
+  read `redirectPath`. No guard in these packages redirects a denied user, so
+  removing the two keys takes away no behaviour.
+  
+  Measured before anything was deleted: the type was a declaration plus the two
+  barrel re-exports and nothing else — nothing in this repository, the example
+  apps or the `objectstack` sibling checkout constructed, accepted, annotated or
+  read one, and `@objectstack/spec` declares no guard-config shape for it to
+  mirror. Removed outright rather than kept as a `?: never` tombstone, on the
+  retire-vs-remove discriminator `@object-ui/types` states on `ChatbotSchema` —
+  cited here, not restated: a whole exported type name has no surviving member to
+  carry a tombstone. The module has no Zod twin, so the compiler was the only
+  channel this name ever had, and the refusal now lives there.
+  
+  ## Upgrading
+  
+  **No runtime behaviour changes.** A value typed against `PermissionGuardConfig`
+  was never passed to anything that read it.
+  
+  - **You imported the type only** (the only thing that was possible): delete the
+    import, and drop the annotation from any local object that carried it.
+  - **You guard UI by permission:** use `PermissionGuard` with
+    `PermissionGuardProps` — `object`, `action`, and optionally
+    `fallback: 'hide' | 'disable' | 'custom'` with `fallbackContent`.
+  - **You declared `fallback: 'redirect'` or a `redirectPath`:** nothing ever acted
+    on either. If a denied user must be sent elsewhere, do it in your own routing
+    code; no guard in these packages performs a redirect.
+- 3c9fca3: Create forms pre-fill the `current_user` defaultValue token with the acting user (#5683). `PermissionContextValue` gains `userId` (from `/me/permissions`; `null` = unknown), and the create-form seeding resolves `defaultValue: 'current_user'` on `user` / `lookup→sys_user` fields to that id — the same value the engine stamps at insert, so the pre-fill is a preview of the server's own resolution, not a second default contract. Unknown user (no provider / anonymous / role-based provider) seeds nothing and keeps the omit-and-let-the-engine-resolve behavior. `NOW()` and CEL defaults stay server-owned.
+- 2609812: `evaluateCondition` now **denies** a record when a row-level condition names something that is not the record's own data. It used to **admit** it — silently, on a permission boundary.
+  
+  The guard it replaces refused three field names by list (`__proto__`, `constructor`, `prototype`) and read every other name with `hasOwnProperty`. `hasOwnProperty` collapses *inherited* into *absent*, and on a negative operator absent ADMITS, so every prototype member outside those three spellings passed every record through the rule that existed to hide it. Measured against the record `{ id: 1, tenant: 'acme' }`: `{ field: 'toString', operator: 'neq' }` returned `true`, as did `valueOf`, `hasOwnProperty` and `isPrototypeOf`, on both `neq` and `not_in`. A longer list does not close this — a list enumerates spellings, and `Object.prototype` has more of them than any list will hold.
+  
+  **The second reach path needs no crafted condition.** The same read widened for records whose value is *inherited*: on `Object.create({ tenant: 'acme' })`, `{ field: 'tenant', operator: 'neq', value: 'acme' }` returned `true` — the record's tenant *is* `acme`, and the rule that hides `acme` rows admitted it. A class instance with a prototype accessor is enough to reach it.
+  
+  **The field a condition names is now read in three cases instead of two.** A name in the refused list denies. An own member is read as before, including a record whose own key happens to be spelled `toString`. A name that is not an own member but still resolves on the record's prototype chain denies, because the value exists but is not this record's data. A name that resolves nowhere is a genuinely absent field and still reads as `undefined`, so the ordinary "this record has no `status`" rules keep every verdict they have always had.
+  
+  That last case is load-bearing rather than a detail: refusing *every* non-own read would deny records this evaluator should admit, which on a permission boundary is a worse defect than the fail-open being closed.
+  
+  This is the shape `readField` in `@object-ui/core`'s `DataScopeManager` adopted at objectui#7751, ported back to the evaluator that was #7751's reference — and which, it turned out, carried the defect it was being used as the standard for. The two evaluators now give the same answer for a prototype-named field and for an inherited value; operator SPELLING (`neq` / `not_in` here, `ne` / `nin` there) is untouched and remains objectui#7750's question.
+  
+  **The narrowing, named plainly for anyone upgrading with conditions already stored.** A condition loses records in exactly two shapes: one that names a prototype member (`toString`, `valueOf`, `hasOwnProperty`, `isPrototypeOf`, …), and one that reads a field records inherit from a shared prototype rather than own — for the second, the fix is to give the record the field as its own data. Measured over a 3696-case differential matrix of field names, record shapes, operators and values, replaying every case through both the previous release's read and this one: **234 verdicts narrowed, zero widened**, and zero change across the 924 genuinely-absent-field cases.
+  
+  Graded `minor` because a release reader can observe the narrowing on stored conditions; no declared type changed and the set of inputs the evaluator accepts has not widened.
+
+### Patch Changes
+
+- 45ac2cb: `usePermissions()` now returns an identity React cannot discard (objectui#6724).
+  
+  The hook cached its return in a `useMemo` keyed on `[ctx]`, and both branches build a
+  fresh object — an object literal when no provider is mounted, a spread of `ctx` when one
+  is. `useMemo` carries no semantic guarantee: React may throw the cache away and recompute
+  even when `[ctx]` compares equal, and that hands the caller a new identity while every
+  permission it carries is unchanged.
+  
+  That matters because consumers name this value in dependency arrays — 13 arrays across 6
+  files: `ListView`'s data-fetch effect (`perms`), `DetailView`'s `gatedSchema`,
+  `ObjectForm`, `ModalForm`, `ObjectGrid`, `RelatedList`. A discard alone re-ran the fetch
+  effect and re-issued `dataSource.find` with nothing an author or a caller controls having
+  changed. Same family as objectui#6018 / #5976 / #6591 / #6592 / #6697.
+  
+  The by-identity dependency at the consumers is the correct shape and stays: what they read
+  off this object is the verdict FUNCTIONS (`checkField(object, field, 'read')`,
+  `can(object, 'update')`) over an open set of field names, which flatten to no fixed list of
+  primitives the way objectui#6592's `dataConfig` members did. So the fix is at the hook,
+  where the identity can be made trustworthy:
+  
+  - the decoration becomes a plain function of `ctx` — the same context value always yields
+    the same object, because the mapping lives in a module-level `WeakMap` React has no say
+    over, keyed weakly so it dies with the provider's value. That is strictly stronger than
+    the memo it replaces: the identity is now stable across every component reading the same
+    provider, not just across one component's re-renders. It also costs no hook, so there is
+    no render-phase ref write and no state adjustment to reason about.
+  - the no-provider answer becomes one shared frozen module constant. Every member is a pure
+    constant function, so there was never anything per-instance to keep, and a single frozen
+    object cannot churn in any component for any reason.
+  
+  A new context value still produces a new identity, on purpose: that is a real permission
+  change and every consumer must see it.
+  
+  No permission value moves: the returned object still spreads `ctx` by identity and derives
+  `can`/`cannot` from `ctx.check`, and the documented no-provider fallbacks (`isLoaded:
+  false`, `userId: null`, `systemPermissions: undefined` with `hasCapabilities` fail-open —
+  objectui#5683 / #4656) answer exactly as before.
+  
+  Measured while fixing, and worth recording: on React 19.2.8 this repo has no reproduction —
+  51 re-renders with no provider, 51 with one and 42 under `StrictMode` each returned ONE
+  identity, and there is no `Activity`/Offscreen subtree here. This closes a latent hazard,
+  not an observed re-fetch. The providers' own context-value memos are the remaining link in
+  the same chain (objectui#6813).
+- 4dc80d0: `MePermissionsProvider` no longer keys its permissions-fetch effect on a memoised
+  driver's identity. The driver was a `useCallback` over
+  `[endpoint, fetcher, maxRetries, retryBaseDelayMs]` and the effect named that
+  callback as its dependency; React is permitted to discard a `useCallback` cache
+  and rebuild even when the dependency list compares equal, and the rebuilt
+  function is a new identity, so a discard tore the effect down and re-ran it —
+  costing a redundant `/api/v1/auth/me/permissions` round trip with none of the
+  four inputs changed. The driver is now a module-level function and the effect
+  keys on the four values directly. The trigger set is unchanged, so every
+  legitimate refetch (a new endpoint, a swapped fetcher, either retry knob) still
+  happens exactly once.
+- 30266cf: Both permission providers now build their context value where React cannot discard it
+  
+  `PermissionProvider` built its context value in a `useMemo` over four
+  `useCallback`s, and `MePermissionsProvider` in a `useMemo` over six. Neither
+  carries a semantic guarantee: React is permitted to discard the cache and
+  recompute even when the dependency list compares equal, and every one of those
+  factories builds a fresh object. A discard would therefore hand
+  `PermCtx.Provider` a NEW context value with every permission it carries
+  unchanged — which moves the key `usePermissions()` caches on, and re-runs the
+  consumer chain that names it: `ListView`'s data-fetch effect (an extra
+  `dataSource.find`), `DetailView`'s gatedSchema, `ObjectForm`, `ModalForm`,
+  `ObjectGrid` and `RelatedList`.
+  
+  ⚠️ This is **hardening, not a repair**. Nothing misbehaves today: on this
+  repo's pinned React 19.2.8 the cache is not discarded spontaneously — 51
+  re-renders with no provider, 51 with one and 42 under `StrictMode` each
+  returned one identity — and there is no `Activity`/Offscreen subtree here,
+  which is the documented case where React does throw memo caches away. What is
+  removed is the dependency on React continuing not to exercise a licence it
+  holds.
+  
+  Each cached member and each context value is now keyed on the identities of the
+  inputs it is derived from, in a module-level `WeakMap` React has no say over —
+  the same technique that made `usePermissions()`'s own return discard-proof one
+  link down the chain. The dependency sets are unchanged, so nothing churns more
+  often than it did, and a genuine permission change still publishes a new
+  context value to every consumer. Two providers given the same inputs now share
+  one context value, which is stricter than the per-instance memo it replaces.
+  
+  No published export changes, and the context carries exactly what it carried
+  before.
+- Updated dependencies [b46c58f]
+- Updated dependencies [6f96fca]
+- Updated dependencies [5f00ff4]
+- Updated dependencies [c9e073a]
+- Updated dependencies [7b395d8]
+- Updated dependencies [0879812]
+- Updated dependencies [2dd4d3f]
+- Updated dependencies [e3ea4f9]
+- Updated dependencies [8b1f066]
+- Updated dependencies [af243c1]
+- Updated dependencies [f3f4e4c]
+- Updated dependencies [a05c350]
+- Updated dependencies [8c10f4f]
+- Updated dependencies [90dac98]
+- Updated dependencies [6096f20]
+- Updated dependencies [ea02938]
+- Updated dependencies [a14fb23]
+- Updated dependencies [ae98f1d]
+- Updated dependencies [f98eddf]
+- Updated dependencies [ce6bd99]
+- Updated dependencies [a5b08c9]
+- Updated dependencies [9b28151]
+- Updated dependencies [1a5003f]
+- Updated dependencies [d22b37b]
+- Updated dependencies [1daf477]
+- Updated dependencies [fb13e85]
+- Updated dependencies [c2d8659]
+- Updated dependencies [e0f8202]
+- Updated dependencies [c3a26cc]
+- Updated dependencies [a66e58e]
+- Updated dependencies [d89492c]
+- Updated dependencies [9327397]
+- Updated dependencies [17cc3a3]
+- Updated dependencies [9c78ebe]
+- Updated dependencies [12809a5]
+- Updated dependencies [f9c06ef]
+- Updated dependencies [5ad3b88]
+- Updated dependencies [f9d772b]
+- Updated dependencies [97b6c21]
+- Updated dependencies [29b45f6]
+- Updated dependencies [b956e69]
+- Updated dependencies [fec3b1a]
+- Updated dependencies [b8e0941]
+- Updated dependencies [0c50f18]
+- Updated dependencies [1dae95a]
+- Updated dependencies [e32dae1]
+- Updated dependencies [4aebea0]
+- Updated dependencies [f976774]
+- Updated dependencies [25cb364]
+- Updated dependencies [c6678b1]
+- Updated dependencies [0638322]
+- Updated dependencies [e3782d2]
+- Updated dependencies [db0beb2]
+- Updated dependencies [997ce38]
+- Updated dependencies [ae0b9d3]
+- Updated dependencies [3b469c8]
+- Updated dependencies [6650259]
+- Updated dependencies [4f8b7f8]
+- Updated dependencies [f6ae5e2]
+- Updated dependencies [7343376]
+- Updated dependencies [b2683a2]
+- Updated dependencies [dded788]
+- Updated dependencies [b45d463]
+- Updated dependencies [54a7830]
+- Updated dependencies [f3135a4]
+- Updated dependencies [b5696d3]
+- Updated dependencies [3f9d926]
+- Updated dependencies [e978ed5]
+- Updated dependencies [6a7f24e]
+- Updated dependencies [b3c96d6]
+- Updated dependencies [8d0ca91]
+- Updated dependencies [c30c8dd]
+- Updated dependencies [24d3e65]
+- Updated dependencies [95a7c8d]
+- Updated dependencies [cc4e476]
+- Updated dependencies [92970c4]
+- Updated dependencies [d570eaa]
+- Updated dependencies [42687ba]
+- Updated dependencies [24a0f14]
+- Updated dependencies [797a30f]
+- Updated dependencies [b4075c0]
+- Updated dependencies [9b85600]
+- Updated dependencies [99878d8]
+- Updated dependencies [3c13675]
+- Updated dependencies [0eb9f36]
+- Updated dependencies [ae582b7]
+- Updated dependencies [db11afd]
+- Updated dependencies [154075a]
+- Updated dependencies [582edef]
+- Updated dependencies [19f484f]
+- Updated dependencies [0a78a20]
+- Updated dependencies [615346d]
+- Updated dependencies [75dcc81]
+- Updated dependencies [55a12a8]
+- Updated dependencies [edfcf5a]
+- Updated dependencies [0a3e540]
+- Updated dependencies [f61dab1]
+- Updated dependencies [b0a05dd]
+- Updated dependencies [dd5ff19]
+- Updated dependencies [81f8498]
+- Updated dependencies [c27b575]
+- Updated dependencies [0e6e76b]
+- Updated dependencies [cd5b19a]
+- Updated dependencies [17dc167]
+- Updated dependencies [20d23be]
+- Updated dependencies [20d23be]
+- Updated dependencies [e6bc087]
+- Updated dependencies [a7557a7]
+- Updated dependencies [7d074ba]
+- Updated dependencies [6158e4c]
+- Updated dependencies [6158e4c]
+- Updated dependencies [52aad5c]
+- Updated dependencies [58da8ae]
+- Updated dependencies [138ad45]
+- Updated dependencies [5262f7d]
+- Updated dependencies [6aa029b]
+- Updated dependencies [770cc5b]
+- Updated dependencies [1a88ce2]
+- Updated dependencies [a1a44d6]
+- Updated dependencies [e0a9c67]
+- Updated dependencies [5638529]
+- Updated dependencies [c476be0]
+- Updated dependencies [c82ff39]
+- Updated dependencies [6c3da53]
+- Updated dependencies [31987bd]
+- Updated dependencies [3c3ce15]
+- Updated dependencies [e100589]
+- Updated dependencies [304f611]
+- Updated dependencies [e46ee77]
+- Updated dependencies [6e9c8d2]
+- Updated dependencies [9547063]
+- Updated dependencies [3f6efd6]
+- Updated dependencies [c4ab6d0]
+- Updated dependencies [0e9058b]
+- Updated dependencies [5988b6b]
+- Updated dependencies [00ccdf7]
+- Updated dependencies [9d9ed54]
+- Updated dependencies [ca3de72]
+- Updated dependencies [83e3f83]
+- Updated dependencies [401611b]
+- Updated dependencies [2c0ddf2]
+- Updated dependencies [4abc0aa]
+- Updated dependencies [2b188fa]
+- Updated dependencies [f68e0a0]
+- Updated dependencies [aea682a]
+- Updated dependencies [fcdc8ec]
+- Updated dependencies [2d576e4]
+- Updated dependencies [8366acc]
+- Updated dependencies [95e58a3]
+- Updated dependencies [9d7419b]
+- Updated dependencies [fc7db05]
+- Updated dependencies [9ed8d0f]
+- Updated dependencies [c73cdb5]
+- Updated dependencies [6f5719e]
+- Updated dependencies [06a8af5]
+- Updated dependencies [6a91586]
+- Updated dependencies [a04d7c6]
+- Updated dependencies [f3c2bb0]
+- Updated dependencies [460575f]
+- Updated dependencies [d88e20f]
+- Updated dependencies [2d7304d]
+- Updated dependencies [636b236]
+- Updated dependencies [d6d8fb9]
+- Updated dependencies [64d624d]
+- Updated dependencies [95bad12]
+- Updated dependencies [d2fb6ef]
+- Updated dependencies [fda49e5]
+- Updated dependencies [fc62bb4]
+- Updated dependencies [41df893]
+- Updated dependencies [0cba1b7]
+- Updated dependencies [00f3eb5]
+- Updated dependencies [1ec291c]
+- Updated dependencies [453dbaa]
+- Updated dependencies [69a2163]
+- Updated dependencies [24e027e]
+- Updated dependencies [2c3cd1b]
+- Updated dependencies [90665e0]
+- Updated dependencies [7e19d03]
+- Updated dependencies [1e946c9]
+- Updated dependencies [864154e]
+- Updated dependencies [b023625]
+- Updated dependencies [75bd83d]
+- Updated dependencies [40c479a]
+- Updated dependencies [971d387]
+- Updated dependencies [ee851c3]
+- Updated dependencies [6414dfd]
+- Updated dependencies [a8d5c71]
+- Updated dependencies [905b21f]
+- Updated dependencies [88e9109]
+- Updated dependencies [2c45966]
+- Updated dependencies [db3a600]
+- Updated dependencies [3a3db76]
+- Updated dependencies [0d723a3]
+- Updated dependencies [0c95d3d]
+- Updated dependencies [3e4fa2c]
+- Updated dependencies [b5b928a]
+- Updated dependencies [52a43de]
+- Updated dependencies [195052f]
+- Updated dependencies [e4559d1]
+- Updated dependencies [2c71482]
+- Updated dependencies [5ef9c4f]
+- Updated dependencies [46f0bb4]
+- Updated dependencies [6f81384]
+- Updated dependencies [8f1d995]
+- Updated dependencies [dddb942]
+- Updated dependencies [29754cf]
+- Updated dependencies [b84dc18]
+- Updated dependencies [ac8abb0]
+- Updated dependencies [9d86e1d]
+- Updated dependencies [3a5817f]
+- Updated dependencies [99a3c2d]
+- Updated dependencies [c8ea8af]
+- Updated dependencies [3190414]
+- Updated dependencies [4e480f5]
+- Updated dependencies [38a123c]
+- Updated dependencies [d7acad6]
+- Updated dependencies [45a9aeb]
+- Updated dependencies [713db46]
+- Updated dependencies [bf3a03c]
+- Updated dependencies [cb55718]
+- Updated dependencies [29cb85b]
+- Updated dependencies [3e028c8]
+- Updated dependencies [ce503e5]
+- Updated dependencies [f20dcf0]
+- Updated dependencies [4ca30d0]
+- Updated dependencies [7a5da14]
+- Updated dependencies [2c1c967]
+- Updated dependencies [d6ceb8d]
+- Updated dependencies [2acd8e1]
+- Updated dependencies [adb2a86]
+- Updated dependencies [3561bd2]
+- Updated dependencies [bf97b98]
+- Updated dependencies [b0d308d]
+- Updated dependencies [40f34b4]
+- Updated dependencies [8063bcb]
+- Updated dependencies [b74a859]
+- Updated dependencies [d4493fd]
+- Updated dependencies [240b80f]
+- Updated dependencies [77cb489]
+- Updated dependencies [bfaa158]
+- Updated dependencies [777e5c6]
+- Updated dependencies [0c386dd]
+- Updated dependencies [9e37d9b]
+- Updated dependencies [5ad86dd]
+- Updated dependencies [16a725f]
+- Updated dependencies [4dfdcc3]
+- Updated dependencies [446d93d]
+- Updated dependencies [ecd9cb2]
+- Updated dependencies [98d4108]
+- Updated dependencies [0e3b3be]
+- Updated dependencies [a29ae2d]
+- Updated dependencies [4388f71]
+- Updated dependencies [0b1ac58]
+- Updated dependencies [c93b4d5]
+- Updated dependencies [c1fe272]
+- Updated dependencies [8ad218d]
+- Updated dependencies [3e41187]
+- Updated dependencies [5f78953]
+- Updated dependencies [639114c]
+- Updated dependencies [1f31d3a]
+- Updated dependencies [351eb31]
+- Updated dependencies [20c04b2]
+- Updated dependencies [b652514]
+- Updated dependencies [adbda1b]
+- Updated dependencies [e2b3826]
+- Updated dependencies [2e32ed4]
+- Updated dependencies [1bee5d0]
+- Updated dependencies [858cd72]
+- Updated dependencies [554f2b6]
+- Updated dependencies [669d71b]
+- Updated dependencies [ed27d7c]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [2ceb43a]
+- Updated dependencies [7cdd2b9]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [caa0cd3]
+- Updated dependencies [25c7d58]
+- Updated dependencies [c6198c2]
+- Updated dependencies [51eb515]
+- Updated dependencies [c354ce5]
+- Updated dependencies [8fe8e5c]
+- Updated dependencies [feac439]
+- Updated dependencies [efbd566]
+- Updated dependencies [9587fc9]
+- Updated dependencies [e62c44e]
+- Updated dependencies [5d0876c]
+- Updated dependencies [544ecba]
+- Updated dependencies [bc640ec]
+- Updated dependencies [3e377c9]
+- Updated dependencies [a3eb5d0]
+- Updated dependencies [4ce14f1]
+- Updated dependencies [2af1fa7]
+- Updated dependencies [a137d0c]
+- Updated dependencies [caf477f]
+- Updated dependencies [f6375da]
+- Updated dependencies [967e5d8]
+- Updated dependencies [a4611b3]
+- Updated dependencies [20316ba]
+- Updated dependencies [d3499b3]
+- Updated dependencies [309c75e]
+- Updated dependencies [c9f9bae]
+- Updated dependencies [18897a4]
+- Updated dependencies [8b7ea39]
+- Updated dependencies [dcbf0b2]
+- Updated dependencies [1422a92]
+- Updated dependencies [d05fe17]
+- Updated dependencies [a480f79]
+- Updated dependencies [f08d1a8]
+- Updated dependencies [64a252d]
+- Updated dependencies [786bc91]
+- Updated dependencies [75fca96]
+- Updated dependencies [7ca6ddd]
+- Updated dependencies [f1cd290]
+- Updated dependencies [5a41ce7]
+- Updated dependencies [8d50bc2]
+- Updated dependencies [604476d]
+- Updated dependencies [335abea]
+- Updated dependencies [0f5cadf]
+- Updated dependencies [4f9f1ee]
+- Updated dependencies [66e8b2a]
+- Updated dependencies [aa083cd]
+- Updated dependencies [12b5992]
+- Updated dependencies [b93e245]
+- Updated dependencies [c842594]
+- Updated dependencies [290de37]
+- Updated dependencies [8c8da45]
+- Updated dependencies [8cd8eb5]
+- Updated dependencies [cf1d29e]
+- Updated dependencies [af9e957]
+- Updated dependencies [c974edf]
+- Updated dependencies [ad852b6]
+- Updated dependencies [ee4d19f]
+- Updated dependencies [496d31d]
+- Updated dependencies [9a853f2]
+- Updated dependencies [cb847fd]
+- Updated dependencies [ee70287]
+- Updated dependencies [3e98e13]
+- Updated dependencies [4eaa835]
+- Updated dependencies [b1777ae]
+- Updated dependencies [24845c4]
+- Updated dependencies [6f864cf]
+- Updated dependencies [24d1edd]
+- Updated dependencies [645087c]
+- Updated dependencies [33f4a19]
+- Updated dependencies [5323168]
+- Updated dependencies [841dd2b]
+- Updated dependencies [3014fc0]
+- Updated dependencies [dacb402]
+- Updated dependencies [474797d]
+- Updated dependencies [704e695]
+- Updated dependencies [a407bd6]
+- Updated dependencies [3a43a15]
+- Updated dependencies [421544b]
+- Updated dependencies [fb01022]
+- Updated dependencies [e9d9212]
+- Updated dependencies [ecfb693]
+- Updated dependencies [81a51db]
+- Updated dependencies [67749c7]
+- Updated dependencies [507b61b]
+- Updated dependencies [512c84b]
+- Updated dependencies [d4733f2]
+- Updated dependencies [8b532cb]
+- Updated dependencies [c42554e]
+- Updated dependencies [555b4ec]
+- Updated dependencies [1ccfc23]
+- Updated dependencies [542718f]
+- Updated dependencies [7f27bc5]
+- Updated dependencies [f95b140]
+- Updated dependencies [541ce4e]
+- Updated dependencies [6479086]
+- Updated dependencies [d79f525]
+- Updated dependencies [f1190b0]
+- Updated dependencies [6a4680b]
+- Updated dependencies [c3a4273]
+- Updated dependencies [093af32]
+- Updated dependencies [1bd1be7]
+- Updated dependencies [d234fa9]
+- Updated dependencies [adf5812]
+- Updated dependencies [5058336]
+- Updated dependencies [2f6b2bf]
+- Updated dependencies [2028b31]
+- Updated dependencies [63601ab]
+- Updated dependencies [8693b85]
+- Updated dependencies [58b7b3d]
+- Updated dependencies [681d3f1]
+- Updated dependencies [f3bc481]
+- Updated dependencies [93fc0e7]
+- Updated dependencies [a4b723f]
+- Updated dependencies [2b10ca0]
+- Updated dependencies [7db4a81]
+- Updated dependencies [526fc11]
+- Updated dependencies [6732df4]
+- Updated dependencies [fe9e0d0]
+- Updated dependencies [63fb72c]
+- Updated dependencies [279e48e]
+- Updated dependencies [8700d6d]
+- Updated dependencies [8db2a0f]
+- Updated dependencies [30443fb]
+- Updated dependencies [96919a4]
+- Updated dependencies [2e471dc]
+- Updated dependencies [be50942]
+- Updated dependencies [775e079]
+- Updated dependencies [7e8b3c0]
+- Updated dependencies [53374dc]
+- Updated dependencies [f6fb83f]
+- Updated dependencies [2049b03]
+- Updated dependencies [7cbc724]
+- Updated dependencies [fb91ac9]
+- Updated dependencies [8524372]
+- Updated dependencies [7cbefa5]
+- Updated dependencies [72d6587]
+- Updated dependencies [a272a4f]
+- Updated dependencies [55f39ee]
+- Updated dependencies [0970a0e]
+- Updated dependencies [e427e9c]
+- Updated dependencies [bbc9dc3]
+- Updated dependencies [02f1813]
+- Updated dependencies [ac716ff]
+- Updated dependencies [f0f3cd5]
+- Updated dependencies [20f3e65]
+- Updated dependencies [bbba098]
+- Updated dependencies [87af769]
+- Updated dependencies [3be720e]
+- Updated dependencies [c3df43a]
+- Updated dependencies [d16d0e9]
+- Updated dependencies [bbe57fd]
+- Updated dependencies [272a530]
+- Updated dependencies [1779e8d]
+- Updated dependencies [4128188]
+- Updated dependencies [b253c4e]
+- Updated dependencies [78a9c67]
+- Updated dependencies [4a7ef0d]
+- Updated dependencies [dea17b4]
+- Updated dependencies [89bb77a]
+- Updated dependencies [06611e4]
+- Updated dependencies [dc3893d]
+- Updated dependencies [1bbaa16]
+- Updated dependencies [6ee259a]
+- Updated dependencies [e708426]
+- Updated dependencies [3b6d53b]
+- Updated dependencies [a8198de]
+- Updated dependencies [a78cd37]
+- Updated dependencies [5ea623e]
+- Updated dependencies [ca5d671]
+- Updated dependencies [32bf2d6]
+- Updated dependencies [af4fb29]
+- Updated dependencies [9a97800]
+- Updated dependencies [6bca0e4]
+- Updated dependencies [2fcefb9]
+- Updated dependencies [b55a346]
+- Updated dependencies [065bba7]
+- Updated dependencies [100547e]
+- Updated dependencies [6d1c155]
+- Updated dependencies [d7573b3]
+- Updated dependencies [0e05aac]
+- Updated dependencies [18a8e7d]
+- Updated dependencies [e7957ab]
+- Updated dependencies [f7e34ca]
+- Updated dependencies [f9e4f91]
+- Updated dependencies [6ef48b1]
+- Updated dependencies [fa429cf]
+- Updated dependencies [ed8df3e]
+- Updated dependencies [8b446f5]
+- Updated dependencies [7357447]
+- Updated dependencies [199d31b]
+- Updated dependencies [3e01cb5]
+- Updated dependencies [4e8622b]
+- Updated dependencies [dffd752]
+- Updated dependencies [105f3c5]
+- Updated dependencies [3ccd9e8]
+- Updated dependencies [689b979]
+- Updated dependencies [e546222]
+- Updated dependencies [fd13f52]
+- Updated dependencies [fb336df]
+- Updated dependencies [0fce2ef]
+- Updated dependencies [0e2ddd4]
+- Updated dependencies [b7479ab]
+- Updated dependencies [b2ea297]
+- Updated dependencies [5b5a5c3]
+- Updated dependencies [14582b8]
+- Updated dependencies [51e144e]
+- Updated dependencies [a691c0b]
+- Updated dependencies [515f171]
+- Updated dependencies [258d264]
+- Updated dependencies [93127bd]
+- Updated dependencies [51f3d8d]
+- Updated dependencies [78cbdb5]
+- Updated dependencies [b7543a9]
+- Updated dependencies [ca39427]
+- Updated dependencies [c9327c9]
+- Updated dependencies [920165d]
+- Updated dependencies [968dc1e]
+- Updated dependencies [3c73d99]
+- Updated dependencies [1170ed1]
+- Updated dependencies [4d73b07]
+  - @object-ui/types@17.7.0
+
 ## 17.6.0
 
 ### Patch Changes

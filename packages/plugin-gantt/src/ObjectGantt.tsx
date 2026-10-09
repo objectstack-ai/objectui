@@ -31,6 +31,7 @@ import { GanttConfigSchema } from '@objectstack/spec/ui';
 // ref, `resolveKeyedI18nLabel` in `@object-ui/react`), and neither accepts the
 // other's shape. This one resolves the spec's INLINE locale MAP.
 import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+import { resolveFieldScale } from '@objectstack/spec/data';
 import {
   useNavigationOverlay,
   useSettledSchema,
@@ -40,7 +41,7 @@ import {
   useFilterScope,
   useResolvedFilter,
 } from '@object-ui/react';
-import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
+import { useLocalization, useDisplayLocale, resolveFieldCurrency, formatDisplayNumber } from '@object-ui/i18n';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
   RecordDetailPanel,
@@ -78,6 +79,8 @@ import {
   isRealCalendarDate,
   toDateInputValue,
   toDisplayDate,
+  toDisplayEndDate,
+  toInclusiveEndDay,
 } from '@object-ui/core';
 import {
   getSemanticColorName,
@@ -85,8 +88,8 @@ import {
   humanizeLabel,
   formatDate,
   formatDateTime,
-  formatNumber,
   formatPercent,
+  percentCellScale,
   formatCurrency,
 } from '@object-ui/fields';
 import { GanttView, type GanttTask, type GanttDependency, type GanttLinkType, type GanttTaskType } from './GanttView';
@@ -308,9 +311,10 @@ export interface ObjectGanttProps {
    * objectui#6051 declared what the FLAT branch reads: the 24 flattened
    * `GanttConfig` keys `getGanttConfig`'s first branch consumes, plus the
    * `staticData` / `filter` / `sort` the fetch path reads. The grid-style
-   * `{ gantt: { … } }` block keeps working exactly as before and is still read
-   * through the index signature — declaring it is the one change that would not
-   * have been additive, and it is severed to objectui#6475. The registered
+   * `{ gantt: { … } }` block kept working exactly as before and was still read
+   * through the index signature — declaring it was the one change that would not
+   * have been additive, so it was severed to objectui#6475, which has since
+   * declared it (`gantt?: GanttConfig`). The registered
    * renderer (`index.tsx`) still passes `schema: any`, so no runtime shape is
    * turned away either way.
    */
@@ -400,27 +404,72 @@ function readTaskDate(raw: unknown, chartZone: ChartZone): Date {
 }
 
 /**
+ * A stored END value (`end`, `baselineEnd`) → the `Date` handed to
+ * `GanttView`: the end read both gantt surfaces share, `toDisplayEndDate`
+ * (`@object-ui/core`, objectui#11141), in place of {@link readTaskDate}'s
+ * start-of-day read, and then the chart-zone step a start takes.
+ *
+ * A date-only end is INCLUSIVE (objectui#11112's ruling): a stored
+ * `2024-01-15` is drawn through January 15th, to the 16th's local midnight,
+ * so a successor starting `2024-01-16` begins where it ends and the view's
+ * half-open instants (`styleFor`, `scheduling.ts`) see no gap. That midnight is
+ * handed over through `invertTo` exactly as a start's is, so the bar ends on
+ * the named day's end in the chart's calendar for every viewer. A value with
+ * a time is an instant and keeps it. ⛔ No day is stepped here: the step is
+ * the core helper's, so this surface and the timeline's gantt cannot drift.
+ */
+function readTaskEnd(raw: unknown, chartZone: ChartZone): Date {
+  const end = toDisplayEndDate(raw as string);
+  if (typeof raw !== 'string' || !isRealCalendarDate(raw)) return end;
+  const handed = invertTo(chartZone, end);
+  if (chartZone.to(handed).getTime() === end.getTime()) return handed;
+  // The chart zone's clock skips the midnight this day ends at (it steps
+  // forward at 00:00, as `America/Santiago`'s does), so `invertTo` found no
+  // instant drawn there and handed the one drawn at 01:00 of the NEXT day,
+  // which `toInclusiveEndDay` names as that next day: a drag would write the
+  // end back a day late. The bar is ended at the last instant drawn on its own
+  // day instead, the one just before that midnight, which the view draws on
+  // the day's edge and names, and writes back, as the stored day.
+  return invertTo(chartZone, new Date(end.getTime() - 1));
+}
+
+/**
  * The value a drag writes into one of the task's date fields.
  *
  * A field declared `date` holds a calendar day, the spec's `YYYY-MM-DD`
  * storage form, so it is written as the day the bar was dropped on in the
- * chart's calendar: the display-space `Date` the view emitted, recovered
- * EXACTLY from the instant it hands over (`invertFrom`; the shim's own
- * `to(instant)` fell on 23:00 of the day before on a DST day), read with LOCAL
- * getters. ⛔ Never `toISOString()` for it — the UTC spelling of a local
+ * chart's calendar (for an `edge` of `'end'`, the day the bar runs through,
+ * `toInclusiveEndDay`, objectui#11141): the display-space `Date` the view
+ * emitted, recovered EXACTLY from the instant it hands over (`invertFrom`;
+ * the shim's own `to(instant)` fell on 23:00 of the day before on a DST day),
+ * read with LOCAL getters. ⛔ Never `toISOString()` for it — the UTC spelling of a local
  * midnight names the PREVIOUS day everywhere east of UTC.
  * Any other declared type (`datetime`) keeps its instant, exactly as before.
  *
  * With no declared type to ask (an `api` provider has no object schema), the
- * stored value's own shape answers: the same split {@link readTaskDate} made
- * when it read the value, so a write never disagrees with the read.
+ * stored value's own shape answers: the same split {@link readTaskDate} and
+ * {@link readTaskEnd} made when they read the value, so a write never
+ * disagrees with the read.
  */
-function toStoredDateValue(date: Date, declaredType: unknown, stored: unknown, chartZone: ChartZone): string {
+function toStoredDateValue(
+  date: Date,
+  declaredType: unknown,
+  stored: unknown,
+  chartZone: ChartZone,
+  edge: 'start' | 'end' = 'start',
+): string {
   const dateOnly =
     typeof declaredType === 'string'
       ? declaredType === 'date'
       : typeof stored === 'string' && isRealCalendarDate(stored);
-  return dateOnly ? toDateInputValue(invertFrom(chartZone, date)) : date.toISOString();
+  if (!dateOnly) return date.toISOString();
+  const day = invertFrom(chartZone, date);
+  // An END is the exact inverse of `readTaskEnd` (objectui#11141): the view
+  // hands back the exclusive end instant, so a bar ending on a day's local
+  // midnight names the day BEFORE it, the day it runs through. A stored
+  // `2024-01-15` is read as the 16th's midnight and written back as the 15th,
+  // so a read, a drag and a write never move a stored day.
+  return toDateInputValue(edge === 'end' ? toInclusiveEndDay(day) : day);
 }
 
 /**
@@ -513,9 +562,10 @@ const warnedShadowedFlatGanttKeys = new Set<string>();
 function warnOnShadowedFlatGanttKeys(schema: ObjectGanttSchema): void {
   if (!isDev()) return;
 
-  const shadowed = FLAT_GANTT_CONFIG_KEYS.filter(
-    (key) => (schema as Record<string, unknown>)[key] !== undefined,
-  );
+  // `key` is a `GanttConfigSchema` key or the legacy `dependencyField`, and
+  // `ObjectGanttSchema` declares every one of those, so the read is typed as it
+  // stands; no conversion is needed (objectui#11355).
+  const shadowed = FLAT_GANTT_CONFIG_KEYS.filter((key) => schema[key] !== undefined);
   if (shadowed.length === 0) return;
 
   const memo = `${schema.type ?? 'gantt'}::${schema.objectName ?? ''}::${shadowed.join(',')}`;
@@ -661,15 +711,17 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   }, [t]);
 
   // `'view-data'` — the arm `object-gantt`'s published `data` row declares
-  // (objectui#8348). MEASURED: `@objectstack/spec` 17.4.0 has NO
-  // `ComponentPropsMap['object-gantt']` row at all, so the published row that
-  // governs this block is this repo's own `ObjectGanttSchema.data`
-  // (`@object-ui/types`), `ViewDataSchema.optional()` — the discriminated union
-  // over four strict OBJECT arms. A bare array under `data` is not on it, so it
-  // is no longer a record source and the ladder falls through to `staticData` /
-  // `objectName`; it was inert before (it carried no `provider`, so no fetch
-  // branch below ever matched it), which is why nothing a published document
-  // can express moves here.
+  // (objectui#8348): `ComponentPropsMap['object-gantt'].data` in the INSTALLED
+  // `@objectstack/spec`, the discriminated union over four strict OBJECT arms,
+  // which ruling batch #136 item 3 (Q1-C) had the protocol gain. Until it was
+  // installable this block was judged through this repo's own
+  // `ObjectGanttSchema.data`, spelled the same. ⛔ Not restated as a fact about
+  // a version: `dataArmSpecRow-8348.test.ts` derives the arm from the
+  // installed row and turns red if a release moves it. A bare array under
+  // `data` is not on it, so it is no longer a record source and the ladder
+  // falls through to `staticData` / `objectName`; it was inert before (it
+  // carried no `provider`, so no fetch branch below ever matched it), which is
+  // why nothing a published document can express moves here.
   const rawDataConfig = resolveRecordSourceConfig(schema, 'view-data');
   // The authored data config's deep VALUE, as one primitive — the memo's only
   // dependency, hoisted out of the dependency array so it has a name. ⛔ It is
@@ -1311,13 +1363,36 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         // and `1,234.50` on the amount row beside it, where German groups with
         // `.` and marks the decimal with `,`. Inverted separators do not read
         // as an unstyled number; they read as a DIFFERENT number.
+        //
+        // objectui#11254 — and the WIDTH is the field's, read through
+        // `resolveFieldScale` (ruling A′ on objectstack-ai/objectstack#19628).
+        // This row handed `formatNumber` an `undefined` width, so that
+        // function's own parameter default (two places) decided: a `scale: 3`
+        // field read `1.50`, a `scale: 0` field read `1.50`, and an undeclared
+        // `number` read `1.50` beside a list cell reading `1.5`. `formatNumber`
+        // cannot say "no fixed width" (it fixes both bounds to one number), so
+        // the row renders through `formatDisplayNumber` with the two arms
+        // `NumberCellRenderer` spells: a resolved width fixes both bounds, and
+        // `undefined` (the protocol has no absent-`scale` row for any of these
+        // types, `integer` included) is the value's natural precision.
+        // ⛔ No `?? N` beside the resolver: `undefined` is its answer.
+        //
+        // ⚠️ Width only. No `scale` reaches the grouping policy here, so the
+        // row keeps grouping as it did; the list cell's ordinal rule for a
+        // declared `scale: 0` and its authored `useGrouping` are not this
+        // card's subject.
         case 'number':
         case 'integer':
         case 'float':
-        case 'decimal':
-          // `decimals` keeps its default: the display width is not this card's
-          // subject, only the locale that renders it.
-          return formatNumber(Number(value), undefined, displayLocale);
+        case 'decimal': {
+          const width = resolveFieldScale({ type: def?.type, scale: def?.scale });
+          return formatDisplayNumber(
+            Number(value),
+            width === undefined
+              ? { locale: displayLocale, minimumFractionDigits: 0, maximumFractionDigits: 20 }
+              : { locale: displayLocale, minimumFractionDigits: width, maximumFractionDigits: width },
+          );
+        }
         case 'currency':
           // The CODE was already resolved correctly (objectui#4542 made the memo
           // watch it); the locale that renders that code is what was missing.
@@ -1333,8 +1408,28 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         // fixed at the producer rather than reimplemented here, which would
         // have forked percent formatting away from the list cell renderer and
         // the dashboard that share `percentDisplayValue`.
+        //
+        // objectui#11254 — and the WIDTH is the field's, read through
+        // `resolveFieldScale` (ruling A′ on objectstack-ai/objectstack#19628):
+        // the declared `scale` when well-formed, otherwise the protocol's row
+        // for a percent. This row handed `formatPercent` an `undefined` width,
+        // so the function's own parameter default decided, and a percent
+        // declaring `scale: 2` read whole percents here beside a list cell
+        // reading two decimals. The cell asks the same function, so the two
+        // agree by reference.
+        //
+        // objectui#11475 — and the STORAGE is the field's: `percentCellScale`
+        // is the spec's `percentScaleOf` over this def (a fraction unless it
+        // declares a `max` above 1), the answer the list cell reads. The shared
+        // scaling used to guess from the value's magnitude, so a
+        // fraction-stored `1` (100%) read `1%` in this tooltip.
         case 'percent':
-          return formatPercent(Number(value), undefined, displayLocale);
+          return formatPercent(
+            Number(value),
+            percentCellScale(def),
+            resolveFieldScale({ type: def?.type, scale: def?.scale }),
+            displayLocale,
+          );
         case 'boolean':
         case 'checkbox':
           return value ? 'Yes' : 'No';
@@ -1391,7 +1486,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       const baselineStartRaw = baselineStartField ? record[baselineStartField] : undefined;
       const baselineEndRaw = baselineEndField ? record[baselineEndField] : undefined;
       const baselineStart = baselineStartRaw ? readTaskDate(baselineStartRaw, chartZone) : undefined;
-      const baselineEnd = baselineEndRaw ? readTaskDate(baselineEndRaw, chartZone) : undefined;
+      const baselineEnd = baselineEndRaw ? readTaskEnd(baselineEndRaw, chartZone) : undefined;
       const title = resolveTitle(record);
       const progress = progressField ? record[progressField] : 0;
       const dependencies = dependenciesField ? record[dependenciesField] : [];
@@ -1448,9 +1543,11 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       return {
         id: record.id || record._id || `task-${index}`,
         title,
-        // A date-only day stands on that day (objectui#10866, `readTaskDate`).
+        // A date-only day stands on that day (objectui#10866, `readTaskDate`),
+        // and a date-only end runs through its day (objectui#11141,
+        // `readTaskEnd`).
         start: startDate ? readTaskDate(startDate, chartZone) : new Date(),
-        end: endDate ? readTaskDate(endDate, chartZone) : new Date(),
+        end: endDate ? readTaskEnd(endDate, chartZone) : new Date(),
         // Whether the record carried real dates (vs the placeholder "today"
         // above) — summaryExtent:'self' falls back to rollup when it didn't.
         hasOwnDates: !!(startDate && endDate),
@@ -1619,7 +1716,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   const quickFilterDefs = ganttConfig?.quickFilters;
 
   // Lookup/master_detail dimensions pull their full option domain from the
-  // referenced object (reference_to) via the data source — so the dropdown
+  // referenced object (reference) via the data source — so the dropdown
   // shows every possible value, not only those present in the loaded rows.
   const [lookupOptions, setLookupOptions] = useState<Record<string, QuickFilterOption[]>>({});
   useEffect(() => {
@@ -1824,13 +1921,21 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // receives, so passing the (smaller) filtered set rescales the axis. To pin
   // the range instead (autoZoomToFilter === false), compute a fixed window from
   // the FULL task set and hand it to GanttView so filtering only hides bars.
+  //
+  // `end` is the last instant a bar covers, not a bar's end: a task's `end` is
+  // the EXCLUSIVE end of its span (a date-only end is handed over as the next
+  // day's midnight, `readTaskEnd`, objectui#11141), and `GanttView` runs an
+  // `endDate` through the end of the day it falls on. Handing it an end itself
+  // would add an empty day column after the last day any task runs through.
   const lockedRange = useMemo<{ start: Date; end: Date } | null>(() => {
     if (ganttConfig?.autoZoomToFilter !== false || !tasks.length) return null;
-    let min = tasks[0].start.getTime();
-    let max = tasks[0].end.getTime();
+    let min = Infinity;
+    let max = -Infinity;
     for (const t of tasks) {
-      min = Math.min(min, t.start.getTime());
-      max = Math.max(max, t.end.getTime());
+      const start = t.start.getTime();
+      const end = t.end.getTime();
+      min = Math.min(min, start);
+      max = Math.max(max, end > start ? end - 1 : start);
     }
     return { start: new Date(min), end: new Date(max) };
   }, [tasks, ganttConfig?.autoZoomToFilter]);
@@ -2001,7 +2106,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         patch[startDateField] = toStoredDateValue(changes.start, fieldDefs?.[startDateField]?.type, stored[startDateField], chartZone);
       }
       if (changes.end instanceof Date) {
-        patch[endDateField] = toStoredDateValue(changes.end, fieldDefs?.[endDateField]?.type, stored[endDateField], chartZone);
+        patch[endDateField] = toStoredDateValue(changes.end, fieldDefs?.[endDateField]?.type, stored[endDateField], chartZone, 'end');
       }
       if (typeof changes.title === 'string' && titleField) patch[titleField] = changes.title;
       if (typeof changes.progress === 'number' && progressField) patch[progressField] = changes.progress;

@@ -104,20 +104,23 @@ describe('page:tabs count badge — English fallback with no provider (objectsta
         schema={{
           type: 'page:tabs',
           id: 'tabs',
-          items: [
-            {
-              label: 'Details',
-              value: 'details',
-              count: 5,
-              children: [{ type: 'element:text', properties: { content: 'A' } }],
-            },
-            {
-              label: 'Related',
-              value: 'related',
-              count: 1,
-              children: [{ type: 'element:text', properties: { content: 'B' } }],
-            },
-          ],
+          // The bag, where `PageTabsProps` declares `items` (objectui#11364).
+          properties: {
+            items: [
+              {
+                label: 'Details',
+                value: 'details',
+                count: 5,
+                children: [{ type: 'element:text', properties: { content: 'A' } }],
+              },
+              {
+                label: 'Related',
+                value: 'related',
+                count: 1,
+                children: [{ type: 'element:text', properties: { content: 'B' } }],
+              },
+            ],
+          },
         }}
       />,
     );

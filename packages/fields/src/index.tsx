@@ -8,11 +8,13 @@
 
 import React from 'react';
 import type { DateFieldMetadata, DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
-import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, withoutDeniedFields, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
+import { ComponentRegistry, percentDisplayValue, type PercentScale, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, withoutDeniedFields, type RegistryComponentMeta, type DateDisplayOptions } from '@object-ui/core';
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
 // runtime import in the barrel and not a hand-written coordinate range.
-import { valueSchemaFor } from '@objectstack/spec/data';
+// `resolveFieldScale` is the same kind of ask: the width an ABSENT `scale`
+// means is the protocol's answer, not this package's (objectui#9843).
+import { valueSchemaFor, resolveFieldScale } from '@objectstack/spec/data';
 import { useLocalization, useDisplayLocale, formatDisplayNumber } from '@object-ui/i18n';
 import { Badge, Avatar, AvatarImage, AvatarFallback, Button, Checkbox, EmptyValue, cn } from '@object-ui/components';
 import { Check, Copy, Phone as PhoneIcon, MapPin, CircleQuestionMark } from 'lucide-react';
@@ -24,14 +26,12 @@ import { withFieldCarrier } from './withFieldCarrier.js';
 // Pure formatting rule shared with `AddressField`'s readonly branch — no React,
 // so this does not pull the widget out of its lazy chunk (objectui#4037).
 import { formatAddress, type AddressValue } from './widgets/address-format.js';
-// The ONE out-of-range `scale` ruling both percent faces take (objectui#9808).
-// Shared with `PercentField` rather than restated here — a second spelling of
-// the same domain is exactly the drift `address-format` above exists to
-// prevent — and, like `address-format` and `file-affordance` below,
-// deliberately NOT re-exported from the `export *` block at the end of this
-// file, so this package's published surface is unchanged. Pure, no React, so
-// it pulls no widget out of its lazy chunk (objectui#4037).
-import { renderablePercentScale, renderableFractionScale } from './widgets/percent-scale.js';
+// The same arrangement for numbers: one formatting call shared with
+// `NumberField`'s read-only branch (objectui#11431), and likewise for currency
+// (`CurrencyField`) and percent (`PercentField`) (objectui#11444).
+import { formatNumberFieldValue, formatCurrency, formatPercentPoints, percentCellScale } from './widgets/number-format.js';
+import { useFieldTranslation } from './widgets/useFieldTranslation.js';
+import { useBooleanValueLabel } from './widgets/booleanValueLabel.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
 // only trigger one network call. Keyed by `${objectName}:${id}`. It holds the
@@ -394,7 +394,10 @@ export { coerceToSafeValue };
  * and all three are legitimate:
  *
  *  - **the floor exactly** — `SelectCellRenderer`, `LookupCellRenderer`,
- *    `TextCellRenderer`, `FormulaCellRenderer`, `ColorSwatchCellRenderer`, and
+ *    `TextCellRenderer`, `FormulaCellRenderer` (a numeric result past its
+ *    guard is then drawn by `NumberCellRenderer`, objectui#11683, so a
+ *    `returnType: 'number'` formula holding whitespace answers this helper's
+ *    extension below), `ColorSwatchCellRenderer`, and
  *    since objectui#8678 `MaskedCellRenderer` (on the coerced text, as `text`
  *    reads it), `VectorCellRenderer` and `GridCellRenderer`;
  *  - **the floor EXTENDED** — this helper (+ whitespace, on the coerced text);
@@ -404,8 +407,9 @@ export { coerceToSafeValue };
  *    empty, and + every unparsable one, objectui#8581);
  *  - **the floor with a member DECLINED, out loud** — `JsonCellRenderer` draws
  *    the two-character literal for `[]` on purpose (objectui#8474 measured and
- *    kept it), `LocationCellRenderer` and `AddressCellRenderer` inherit that
- *    through their JSON fallback, and `FileCellRenderer` states "0 files".
+ *    kept it), `LocationCellRenderer`, `AddressCellRenderer` and the
+ *    `composite` / `record` face (`StructuredValueCell`) inherit that through
+ *    their JSON fallback, and `FileCellRenderer` states "0 files".
  *
  * ⛔ Those disagreements are MEASURED, not drift: do not "finish the job" by
  * making every renderer answer the floor. The pins that go red if one is
@@ -484,64 +488,19 @@ function isPlainObjectValue(value: unknown): value is Record<string, unknown> {
   );
 }
 
-/**
- * Format currency value. When `currency` is undefined, falls back to a
- * plain number with thousands separators (no symbol). Silently assuming
- * USD for unconfigured currency fields was the #1 source of "why is my
- * RMB amount showing as dollars?" bug reports.
- *
- * Trailing minor units are dropped when the value is a whole number —
- * Salesforce convention: `$1,234.50` keeps cents; `$1,234` does not. Wholeness
- * picks ONE fraction-digit width, never a range: a whole amount shows 0 digits,
- * and a fractional amount shows the width the CURRENCY has — so a real cents
- * value of `.50` renders `.50`, not `.5`, and a yen amount renders `¥1,235`
- * rather than cents the yen does not have.
- */
-import { resolveFieldCurrency, currencyFractionDigits } from './currency.js';
+import { resolveFieldCurrency } from './currency.js';
 export { resolveFieldCurrency };
 
-export function formatCurrency(value: number, currency?: string, locale?: string): string {
-  const isWhole = Number.isFinite(value) && value === Math.trunc(value);
-  // ONE width for both bounds, not a range (objectui#4332). The symbol branch
-  // used to pass `minimumFractionDigits: 0` against a wholeness-switched
-  // maximum, which handed Intl the range [0, 2] — and Intl then emits the
-  // SHORTEST representation in range, so a genuine cents value of `.50` was
-  // printed as `.5`: `$1,234.5` instead of the `$1,234.50` promised above.
-  // It was the only branch that did: the no-currency branch reaches
-  // `formatNumber`, which sets both bounds to the width it is given, and the
-  // bad-currency fallback below has always used `toFixed`. Both already
-  // rendered `1,234.50` for the same amount.
-  //
-  // The non-whole width is the CURRENCY's own ISO 4217 minor-unit count, not a
-  // literal 2 (objectui#4361). Passing 2 for every currency on earth OVERRODE
-  // what `Intl` already knows: JPY has no minor unit and KWD has three, so a
-  // yen amount was printed with cents it does not have (`¥1,234.50`) and a
-  // dinar amount one digit short (`KWD 1.50`).
-  //
-  // The wholeness switch itself is NOT retired — dropping both bounds and
-  // letting `Intl` decide would fix the digit count by turning `$1,234` back
-  // into `$1,234.00`, which is exactly the convention this function documents
-  // and objectui#4033 pinned. It is extended instead: whole amounts drop the
-  // fraction for EVERY currency (`KWD 1`, not `KWD 1.000`), fractional amounts
-  // take that currency's own count.
-  //
-  // With no currency in hand there is nothing to derive from, so that branch
-  // keeps the historical 2.
-  const fracDigits = isWhole ? 0 : currency ? currencyFractionDigits(currency) : 2;
-  if (!currency) {
-    return formatNumber(value, fracDigits, locale);
-  }
-  try {
-    return formatDisplayNumber(value, {
-      locale,
-      currency,
-      minimumFractionDigits: fracDigits,
-      maximumFractionDigits: fracDigits,
-    });
-  } catch {
-    return `${currency} ${value.toFixed(fracDigits)}`;
-  }
-}
+/**
+ * `formatCurrency` lives beside `formatNumberFieldValue` in
+ * `./widgets/number-format.ts`, re-exported here under its long-standing
+ * `@object-ui/fields` name: `CurrencyField`'s read-only branch calls the same
+ * function `CurrencyCellRenderer` below calls, and the lazily loaded widget
+ * cannot import this barrel (objectui#11444). The width (the currency's ISO
+ * 4217 minor-unit count, every amount, no whole-amount trimming) and its
+ * history are documented there.
+ */
+export { formatCurrency };
 
 /**
  * Format currency value in compact form for mobile display.
@@ -577,17 +536,17 @@ export function formatCompactCurrency(value: number, currency?: string, locale?:
 }
 
 /**
- * Format a plain number with thousands separators, no currency symbol.
- * Used as a safe fallback when a currency-typed field has no `currency`
- * configured — we'd rather render `1,234.50` than silently assume USD.
+ * Format a plain number with thousands separators at a fixed display width, no
+ * currency symbol. `formatCurrency` renders an amount with no currency resolved
+ * through the same call shape (`./widgets/number-format.ts`): we'd rather
+ * render `1,234.50` than silently assume USD.
  */
 export function formatNumber(value: number, decimals: number = 2, locale?: string): string {
   try {
     // Deliberately passes NO `scale`: `decimals` here is a display width the
     // caller chose, not a field's declared scale, so the ordinal no-grouping
-    // policy must not fire. `formatCurrency`'s no-currency fallback lands here
-    // with `decimals: 0` for a whole amount — that is still money and must keep
-    // its separators.
+    // policy must not fire: a caller's `decimals: 0` still keeps its
+    // separators.
     return formatDisplayNumber(value, {
       locale,
       minimumFractionDigits: decimals,
@@ -599,71 +558,30 @@ export function formatNumber(value: number, decimals: number = 2, locale?: strin
 }
 
 /**
- * The percent rendering itself, on a value ALREADY in display magnitude (`80`
- * means 80%).
- *
- * Split out from {@link formatPercent} so that the SCALING and the RENDERING
- * are separable statements: this half renders, `formatPercent` decides the
- * magnitude by calling `percentDisplayValue` and then calls this. Two copies
- * of the rendering expression is precisely the drift `percentDisplayValue`'s
- * doc comment exists to prevent, so there is one copy.
- *
- * ⚠️ It once had a second caller: `PercentCellRenderer` reached it directly to
- * skip the scaling for a column whose NAME matched `/progress|completion/`.
- * objectui#9452 removed that name test — the magnitude is the value's business
- * and never the column name's — so the scaling decision is no longer made per
- * caller. ⛔ Do not reintroduce a caller that formats a percent while stepping
- * around `percentDisplayValue`; that is the drift, in the one shape that has
- * already happened here.
+ * `percentCellScale` lives beside `formatPercentPoints` in
+ * `./widgets/number-format.ts` and is re-exported here: the storage scale the
+ * percent cell reads a field at, so every face rendering the cell's number for
+ * the same field reads the same answer by reference (objectui#11475).
  */
-function formatPercentBody(displayValue: number, precision: number, locale?: string): string {
-  try {
-    // `style: 'percentPoints'` renders a value that is ALREADY in percentage
-    // points, so there is no `/ 100` here. Going through `Intl` rather than
-    // appending a literal '%' is what buys the locale's percent CONVENTION and
-    // not merely its separators: German writes `1.235 %` with a no-break space
-    // before the sign, English `1,235%` with none, Turkish puts the sign in
-    // FRONT. Both bounds are set to `precision` so the width is exactly the one
-    // the caller asked for — the same contract `toFixed` gave.
-    //
-    // ⚠️ NOT `style: 'percent'` (objectui#4590). That style wants a FRACTION, so
-    // this used to divide by 100 for `Intl` to multiply straight back — and the
-    // round trip is not value-preserving. `Intl` formats from the SHORTEST
-    // decimal representation of the double it is handed, and the quotient's is
-    // not the authored one: `1.005` is `1.005`, but `1.005 / 100` is
-    // `0.010049999999999999`, which percent-scales to `1.0049999999999999` and
-    // rounds DOWN — so a stored 1.005 rendered `1.00%` where half-up is `1.01%`.
-    // The DIVISION lost the digit, not the rounding, which is why it reproduced
-    // in every locale and why 27,577 of 1,200,003 ordinary en-US forms moved
-    // (0.005-step grid to 2,000, precisions 0/1/2), every one a last-digit
-    // off-by-one. The same artefact reached the top of the double range:
-    // `MAX_SAFE_INTEGER` points rendered `…740,990%` for `…740,991%`.
-    //
-    // The affix is unchanged by the switch: `'percentPoints'` is `Intl`'s
-    // `style: 'unit'` / `unit: 'percent'` / `unitDisplay: 'narrow'`, measured
-    // byte-identical to `style: 'percent'` across all 171 locale tags in #4576
-    // and re-measured on THIS call shape in #4590 — 720 combinations (10 locales
-    // x 18 values x 4 precisions), 0 convention diffs, 130 numeral diffs.
-    // `formatMeasure` renders through the same option, so a percentage point
-    // reads identically in a list cell and in a dashboard measure.
-    return formatDisplayNumber(displayValue, {
-      locale,
-      style: 'percentPoints',
-      minimumFractionDigits: precision,
-      maximumFractionDigits: precision,
-    });
-  } catch {
-    return `${displayValue.toFixed(precision)}%`;
-  }
-}
+export { percentCellScale };
 
 /**
- * Format percent value.
- * Handles both decimal (0.8 = 80%) and whole number (80 = 80%) inputs.
+ * Format a stored percentage at the storage the caller STATES.
  *
- * `locale` is the third positional parameter, matching {@link formatNumber} and
- * {@link formatCurrency} — the shape the sibling formatters already use.
- * Callers should pass the tag from `useDisplayLocale()`.
+ * `percentScale` is REQUIRED (objectui#11475): `'fraction'` (0.8 means 80%) or
+ * `'whole'` (80 means 80%), the spec's `PercentScale`. A face holding a field
+ * reads it with {@link percentCellScale} (the spec's `percentScaleOf`, a
+ * fraction unless the field declares a `max` above 1); a face without one
+ * states what it knows. A value outside the union throws. This used to guess
+ * from the value's magnitude (`percentDisplayValue`'s old body), so a
+ * fraction-stored `1` read `1%` here and `100%` in the read-only form.
+ *
+ * FROM `formatPercent(value, precision, locale)` TO
+ * `formatPercent(value, percentScale, precision, locale)`.
+ *
+ * `locale` is the last positional parameter, matching {@link formatNumber} and
+ * {@link formatCurrency}. Callers should pass the tag from
+ * `useDisplayLocale()`.
  *
  * Before objectui#4553 this function took no locale and never touched `Intl`:
  * its whole body was `${percentDisplayValue(value).toFixed(precision)}%`, so it
@@ -673,21 +591,24 @@ function formatPercentBody(displayValue: number, precision: number, locale?: str
  * so the grouping and the locale are fixed together: en output MOVES from
  * `1235%` to `1,235%` at four digits and up, and that move is the fix.
  */
-export function formatPercent(value: number, precision: number = 0, locale?: string): string {
-  // Scale a fraction-stored percent (0.8 → 80%) via the shared core helper, so
-  // the list cell and the dashboard measure formatter (`formatMeasure`) agree.
-  const displayValue = percentDisplayValue(value);
-  // objectui#9808 — the out-of-range ruling lands HERE rather than at
-  // `PercentCellRenderer`'s call site, because this is the door the cell face
-  // actually goes through and the one a future caller cannot step around.
-  //
-  // ⚠️ Without it the throw arrives from `toFixed`, not from `Intl`, which is
-  // worth knowing when reading a stack: `formatPercentBody` CATCHES the
-  // `Intl` `RangeError` for a width above the engine's ceiling, and its
-  // fallback `displayValue.toFixed(precision)` refuses the same width from
-  // inside the `catch`. So the recovery arm was the one that crashed the
-  // render, and neither arm could have rescued the other.
-  return formatPercentBody(displayValue, renderablePercentScale(precision), locale);
+export function formatPercent(
+  value: number,
+  percentScale: PercentScale,
+  precision: number = 0,
+  locale?: string,
+): string {
+  // The magnitude at the STATED storage, through the shared core helper, so
+  // the list cell and the dashboard measure formatter (`formatMeasure`) scale
+  // by one rule.
+  const displayValue = percentDisplayValue(value, percentScale);
+  // The objectui#9808 clamp that stood here was retired at its own SUNSET
+  // (objectui#11073): `@objectstack/spec` 17.5.0 refuses a `scale` above 100 at
+  // the declaration, so the width the engine cannot render no longer arrives.
+  // The rendering (the locale's percent convention, the grouping, the width)
+  // is `formatPercentPoints`, the call `PercentField`'s read-only branch makes
+  // too (objectui#11444); its comment carries why it is `'percentPoints'` and
+  // never `style: 'percent'` (objectui#4590).
+  return formatPercentPoints(displayValue, precision, locale);
 }
 
 /**
@@ -778,39 +699,14 @@ export function NumberCellRenderer({ value, field }: CellRendererProps): React.R
   // never held, indistinguishable from a real stored zero.
   if (isBlankCellText(safe)) return <EmptyValue />;
 
-  const numField = field as any;
-  // Decimal places come from `scale` (the `s` in a `decimal(p, s)` column),
-  // NOT `precision` — `precision` is the TOTAL digit count (`p`), and reading
-  // it here padded every value out to that width (e.g. `1` from a
-  // decimal(10, 0) column rendered as "1.0000000000"). When `scale` is
-  // declared we pad to it so a fixed display is honoured (e.g. an amount with
-  // scale 2 → "16.00", a field with scale 3 → "3.140"); when it is absent we
-  // keep the minimum at 0 so trailing zeros are trimmed and only cap the
-  // maximum (20 = Intl max) to preserve the value's natural precision.
-  //
-  // `scale` is also the grouping POLICY input (objectui#4033): a declared
-  // `scale: 0` with no currency is a discrete integer — a year, a fiscal
-  // period, an ordinal — and those are rendered ungrouped, so a `Field.number`
-  // year finally shows `2026` instead of `2,026`. An ABSENT scale keeps
-  // grouping: absent means "decimals unknown", not "integer". The policy and
-  // its interim status live in `formatDisplayNumber`, not here.
-  //
-  // A declared width above the engine's fraction ceiling is clamped and
-  // reported, never carried into `Intl` (objectui#10071 — the objectui#9808
-  // ruling; see `./widgets/percent-scale.js`).
-  const scale = typeof numField.scale === 'number'
-    ? renderableFractionScale(numField.scale, 'number field', 'objectui#10071')
-    : undefined;
   const num = Number(safe);
-  const formatted = !isNaN(num)
-    ? formatDisplayNumber(num, {
-        locale,
-        scale,
-        minimumFractionDigits: scale ?? 0,
-        maximumFractionDigits: scale ?? 20,
-      })
-    : String(safe);
-  
+  // The width (`scale` through `resolveFieldScale`), the grouping policy
+  // (`scale` / `useGrouping`) and the two fraction-digit arms are assembled in
+  // `formatNumberFieldValue`, the one call `NumberField`'s read-only branch
+  // makes too, so a table cell and a read-only form show one field's value
+  // identically (objectui#11431). The reasoning behind each input lives there.
+  const formatted = !isNaN(num) ? formatNumberFieldValue(num, field, locale) : String(safe);
+
   return <span className="tabular-nums">{formatted}</span>;
 }
 
@@ -833,6 +729,9 @@ export function CurrencyCellRenderer({ value, field }: CellRendererProps): React
   // USD mis-displays non-USD orgs, e.g. RMB amounts shown as $).
   const currency = resolveFieldCurrency(field as any, tenantCurrency);
   const num = Number(safe);
+  // `CurrencyField`'s read-only branch makes this same call, so a table cell
+  // and a read-only form show one amount identically: the currency's ISO 4217
+  // minor-unit width, a whole amount included (objectui#11444).
   const formatted = !isNaN(num)
     ? formatCurrency(num, currency, locale)
     : String(safe);
@@ -848,6 +747,11 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   // and set must not change the hook count between renders (same rule as
   // NumberCellRenderer / CurrencyCellRenderer above).
   const locale = useDisplayLocale();
+  // The bar's accessible name is the value text beside it (objectui#11690):
+  // a `progressbar` must be named, and the formatted number is the one string
+  // this cell has that is already in the viewer's locale — a translated
+  // literal would name every percent column the same thing.
+  const valueId = React.useId();
   const safe = coerceToSafeValue(value);
   // Same fabrication as `NumberCellRenderer` (objectui#8490): `[]` drew a 0%
   // progress bar with a `progressbar` role and `aria-valuenow` of 0.
@@ -868,26 +772,55 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   // the opposite convention and its own `scale` alias — the spec warns against
   // conflating them at the field-face declaration itself.
   //
-  // An ABSENT `scale` keeps today's `0`, deliberately, and ⛔ NOT the
-  // `undefined` (min 0 / max 20) that `NumberCellRenderer` above uses for the
-  // same absence. The two are not interchangeable HERE because this path
-  // multiplies by 100 first (`percentDisplayValue`), and `Intl` renders from
-  // the shortest decimal representation of the resulting double: measured, a
-  // stored `0.07` becomes `7.000000000000001` and `0.29` becomes
+  // An ABSENT `scale` is the PROTOCOL's to answer, not this cell's
+  // (objectui#9843, executing ruling A′ recorded on that card):
+  // `resolveFieldScale` in `@objectstack/spec/data` returns the declared width
+  // when the field has a well-formed one, and otherwise the platform's own
+  // value for the field's type. The detail chip, the grid footer and the edit
+  // widget ask the same function, so an undeclared `percent` reads one width
+  // on every face, and ⛔ none of them spells a `?? N` of its own — a private
+  // default is how this cell and the edit widget once rendered one stored
+  // `0.25` as `25%` and `25.00%`.
+  //
+  // For `percent` the answer is a NUMBER — the type has a row — and ⛔ never
+  // the `undefined` (min 0 / max 20) `NumberCellRenderer` above renders for a
+  // `number` that declares nothing. The row is load-bearing HERE because a
+  // fraction-stored value is multiplied by 100 first (`percentDisplayValue`),
+  // and `Intl` renders
+  // from the shortest decimal representation of the resulting double:
+  // measured, a stored `0.07` becomes `7.000000000000001` and `0.29` becomes
   // `28.999999999999996`, so an unbounded maximum prints binary residue
-  // straight to the user. `NumberCellRenderer` can afford max 20 because it
-  // does no arithmetic on the value. The grid footer's percent arm spells the
-  // same absence the same way (`?? 0`), so the cell and the footer agree.
-  const scale = percentField.scale ?? 0;
+  // straight to the user.
+  //
+  // ⚠️ This renderer also draws `progress`, and a textual field promoted by a
+  // `format: 'percent'` hint (`resolveCellRendererType`). Neither type has a
+  // row, so the resolver answers `undefined` for them — "no fixed width" —
+  // and `formatPercent`'s own parameter default decides, as it did before.
+  // That default is named in objectui#9843's report rather than widened here:
+  // the protocol has not said what those types show when nothing is declared.
+  //
+  // The two members are handed over BY NAME — the spelling the detail chip and
+  // the edit widget use — so the read of `scale` off this field stays visible
+  // at the call site, where objectui#9784's source pin looks for it.
+  const scale = resolveFieldScale({ type: percentField.type, scale: percentField.scale });
   const numValue = Number(safe);
   if (isNaN(numValue)) {
     return <span className="tabular-nums whitespace-nowrap">{String(safe)}</span>;
   }
-  // ONE scaling rule, and it is the declared one (objectui#9452). Both halves
-  // of this cell — the number and the bar's fill — take their display
-  // magnitude from `percentDisplayValue` in `@object-ui/core`, which its own
-  // doc comment names as the single source of truth for percent display and
-  // which `formatPercent` just below applies for the number.
+  // ONE scaling rule, and it is the DECLARED storage (objectui#9452, then
+  // objectui#11475). Both halves of this cell — the number and the bar's fill —
+  // take their display magnitude from `percentDisplayValue` in
+  // `@object-ui/core`, at the storage `percentCellScale` reads off this field:
+  // the spec's `percentScaleOf` (a fraction unless the field declares a `max`
+  // above 1), and `whole` for a `progress` field, whose reason is on that
+  // helper. `formatPercent` just below applies the same pair for the number.
+  //
+  // ⛔ NOT from the value's MAGNITUDE, which is what stood here until
+  // objectui#11475: `value > -1 && value < 1 ? value * 100 : value` read
+  // neither the field nor its `max`, so a fraction-stored `1` (100%) read `1%`
+  // in this cell and `100%` in the read-only form, and a whole-stored `0.5`
+  // read `50%` here and `0.5%` there. The read-only form reads the
+  // declaration, so the two faces now agree by reading the same thing.
   //
   // ⛔ NOT from the column's NAME, which is what stood here. A
   // `/progress|completion/` test against `field.name` decided the magnitude
@@ -913,11 +846,12 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   // construction. So the name test had no producer that needed it and two that
   // it misread.
   //
-  // ⚠️ The price, stated rather than papered over: a value strictly between 0
-  // and 1 stored on a `type: 'progress'` column now reads as a fraction, as it
-  // does everywhere else. Nothing first-party stores one.
-  const barValue = percentDisplayValue(numValue);
-  const formatted = formatPercent(numValue, scale, locale);
+  // The name test's own price (a value strictly between 0 and 1 on a
+  // `type: 'progress'` column read as a fraction) went with the magnitude
+  // guess: a `progress` value is percentage points at every magnitude now.
+  const percentScale = percentCellScale(percentField);
+  const barValue = percentDisplayValue(numValue, percentScale);
+  const formatted = formatPercent(numValue, percentScale, scale, locale);
   const clampedBar = Math.max(0, Math.min(100, barValue));
   
   // Layout contract (objectstack#5066): THE NUMBER IS THE CONTENT, THE BAR IS
@@ -938,6 +872,7 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
       <div
         className="h-1.5 w-16 min-w-0 shrink rounded-full bg-muted ring-1 ring-inset ring-border/60 overflow-hidden"
         role="progressbar"
+        aria-labelledby={valueId}
         aria-valuenow={clampedBar}
         aria-valuemin={0}
         aria-valuemax={100}
@@ -947,7 +882,7 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
           style={{ width: `${clampedBar}%` }}
         />
       </div>
-      <span className="shrink-0 tabular-nums whitespace-nowrap">{formatted}</span>
+      <span id={valueId} className="shrink-0 tabular-nums whitespace-nowrap">{formatted}</span>
     </div>
   );
 }
@@ -963,6 +898,12 @@ const STATUS_FIELD_NAMES = new Set([
  * and warning badge for active/enabled fields when false.
  */
 export function BooleanCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
+  // The face's own words — the status badge's "Off" and the completion
+  // indicator's two accessible names — come from the locale (objectui#11689),
+  // through the same hook and defaults table as the read-only Yes / No words
+  // (`useBooleanValueLabel`). Called before the early return below so the hook
+  // count does not change with the value.
+  const { t } = useFieldTranslation();
   // Only a real boolean is a value of a boolean column (objectui#8582).
   //
   // `@objectstack/spec`'s runtime value contract for `boolean` / `toggle` is a
@@ -1007,11 +948,11 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
     return (
       <div className="flex items-center justify-center">
         {value ? (
-          <div className="size-5 rounded-full bg-green-500 flex items-center justify-center" role="img" aria-label="Completed" data-testid="completion-indicator">
+          <div className="size-5 rounded-full bg-green-500 flex items-center justify-center" role="img" aria-label={t('fields.boolean.completed')} data-testid="completion-indicator">
             <Check className="size-3 text-white" />
           </div>
         ) : (
-          <div className="size-5 rounded-full border-2 border-muted-foreground/30" role="img" aria-label="Not completed" data-testid="completion-indicator" />
+          <div className="size-5 rounded-full border-2 border-muted-foreground/30" role="img" aria-label={t('fields.boolean.notCompleted')} data-testid="completion-indicator" />
         )}
       </div>
     );
@@ -1021,7 +962,7 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
   if (STATUS_FIELD_NAMES.has(fieldName) && value === false) {
     return (
       <Badge variant="destructive" className="text-xs" data-testid="boolean-warning-badge">
-        {field?.label || humanizeLabel(fieldName)} — Off
+        {t('fields.boolean.offBadge', { label: field?.label || humanizeLabel(fieldName) })}
       </Badge>
     );
   }
@@ -1321,13 +1262,22 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
   // identically.
   // `null` is unreachable: the invalid/empty values it answers for already
   // returned `<EmptyValue />` above.
+  //
+  // The gap between the halves is TEXT, one space (objectui#11683). It used to
+  // be an `ml-2` margin alone, so the cell's text was the two halves run
+  // together: `2026/10/6上午1:42` in zh-CN, `10/6/20261:42 am` in en-US. That is
+  // what a copy, a screen reader and `textContent` got. The space is the joiner
+  // `formatDateTime`'s compact face puts between the same two halves, so the
+  // cell's text is now that string exactly. The time half keeps its muted
+  // colour and a narrower `ml-1` margin, which with the space keeps the halves
+  // visibly apart.
   if (style === 'compact') {
     const parts = formatDateTimeCompactParts(date, { locale });
     if (parts) {
       return (
         <span className={cellClass}>
-          <span>{parts.date}</span>
-          <span className="ml-2 text-muted-foreground">{parts.time}</span>
+          <span>{parts.date}</span>{' '}
+          <span className="ml-1 text-muted-foreground">{parts.time}</span>
         </span>
       );
     }
@@ -2459,7 +2409,7 @@ const MAX_LOOKUP_CELL_CHIPS = 3;
  * Display order:
  * 1. Embedded record object (`{ id, name, ... }` from `$expand`) → use its name
  * 2. Static `field.options[]` (e.g. when the lookup is a closed enum) → look up label
- * 3. Fetch-on-demand: when the value is a primitive ID and `field.reference_to`
+ * 3. Fetch-on-demand: when the value is a primitive ID and `field.reference`
  *    is known, resolve via dataSource and show the related record's display name.
  * 4. Nothing named it → the unresolved-reference affordance (objectui#8695):
  *    the raw value, kept visible, beside a stated epistemic marker. This arm
@@ -2474,14 +2424,12 @@ const MAX_LOOKUP_CELL_CHIPS = 3;
  * (objectui#10501).
  */
 export function LookupCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
-  // ObjectStack object metadata uses `reference` for the lookup target while the
-  // objectui types call it `reference_to`. Every other reader (LookupField,
-  // UserField, DetailSection, RelatedList, …) accepts both; this read cell must
-  // too, or a picked/opaque id never resolves to a name and the cell shows the
-  // muted "—" placeholder forever (e.g. after inline-editing a lookup).
-  const referenceTo =
-    (field as { reference_to?: string }).reference_to ||
-    (field as { reference?: string }).reference;
+  // `reference` — the spelling `@objectstack/spec`'s `FieldSchema` declares —
+  // is the only target spelling read, as every other reader (LookupField,
+  // UserField, DetailSection, RelatedList, …) reads it (objectui#11070 round
+  // 4). A served def that still spells a legacy key was folded onto it at
+  // ingestion (`normalizeSchemaReferenceKeys`).
+  const referenceTo = (field as { reference?: string }).reference;
 
   // Explicit author-chosen display field on the lookup — beats every resolver.
   // ObjectGrid forwards `displayField` on the column meta (RELATIONAL_META_KEYS)
@@ -2710,13 +2658,76 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
 }
 
 /**
- * Formula field cell renderer (read-only)
+ * Formula field cell renderer (read-only). `summary` is registered to it too.
+ *
+ * The TABLE face of a formula; `FormulaField`'s read-only branch is its FORM
+ * face, and the two read one rule (objectui#11748): the declared `returnType`,
+ * or, with none, a JS number as a number and anything else as text. Each type
+ * is then drawn through the calls the matching field type's faces make, so
+ * one stored value reads the same in the form and in the table. The rule is
+ * spelled in both modules because this barrel and the lazily loaded widget may
+ * not import each other; `__tests__/formulaFaces.returnType-11748.test.tsx`
+ * compares the two faces' text for every declared type.
  */
-export function FormulaCellRenderer({ value }: CellRendererProps): React.ReactElement {
+export function FormulaCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
+  // Hooks before the empty-value early return: the hook count must not change
+  // when a value flips between null and set. The date face reads the display
+  // locale; the boolean face reads the locale's word.
+  const locale = useDisplayLocale();
+  const booleanLabel = useBooleanValueLabel();
   const safe = coerceToSafeValue(value);
   // THE FLOOR by name and nothing more (objectui#8496), on the coerced text —
-  // same relation as `TextCellRenderer`, which this renderer's output mirrors.
+  // same relation as `TextCellRenderer`, which this renderer's text face mirrors.
   if (isEmptyValue(safe)) return <EmptyValue />;
+
+  // A NUMERIC result is drawn by the number cell (objectui#11683). This
+  // renderer printed every result as raw monospace text, so the showcase's
+  // Budget Remaining (a formula declaring no `returnType`) read `200000` beside
+  // a formatted currency column. A number now goes through `NumberCellRenderer`,
+  // whose `formatNumberFieldValue` is the one call every number face makes: the
+  // locale's grouping, and the width `resolveFieldScale` answers for this field.
+  // The spec applies `scale` to a `formula` field, so a declared one is honoured.
+  //
+  // Which results are of which type:
+  //   - a declared `returnType`: the spec's declared value type, read as
+  //     declared, and never overridden by the value.
+  //   - no `returnType`: the value's own JSON type. Only a JS number counts; a
+  //     string of digits from an undeclared formula stays text, because nothing
+  //     says it is a quantity (a postcode built by concatenation is not one).
+  //
+  // ⛔ No type is inferred from the expression or from its inputs. The spec's
+  // own field form says of `returnType` that consumers read it "instead of
+  // re-parsing the expression", and its four values (`number` / `text` /
+  // `boolean` / `date`) carry no currency, so a formula over two currency
+  // fields renders as a number here, not as money.
+  const returnType = field && 'returnType' in field ? field.returnType : undefined;
+  const valueType = returnType ?? (typeof value === 'number' ? 'number' : 'text');
+  if (valueType === 'number') {
+    return <NumberCellRenderer value={value} field={field} />;
+  }
+
+  // A declared BOOLEAN reads the locale's Yes / No word (objectui#11748), the
+  // word `BooleanField`'s read-only branch and the form face draw, and not
+  // `BooleanCellRenderer`'s checkbox: a box has no text to agree with the
+  // form's word. Only a JS boolean is a boolean, under the rule both boolean
+  // faces apply (objectui#8582 / objectui#8593); this printed `true` raw.
+  if (valueType === 'boolean') {
+    if (typeof value !== 'boolean') return <EmptyValue />;
+    return <span>{booleanLabel(value)}</span>;
+  }
+
+  // A declared DATE reads `formatDate`'s DEFAULT face (objectui#11748), the
+  // face `DateField`'s read-only branch and the form face draw; this printed
+  // the stored ISO text raw. ⛔ Not `DateCellRenderer`'s relative default
+  // (`Today`, `2 days ago`): that face exists in the table only, so a formula
+  // drawn with it would read one way in the form and another here. A falsy or
+  // unparsable value is empty, guarded exactly as the form face guards it,
+  // with `formatDate`'s own parse step.
+  if (valueType === 'date') {
+    if (!safe || isNaN(toDisplayDate(safe as string | number).getTime())) return <EmptyValue />;
+    return <span className="tabular-nums">{formatDate(safe as string | number, undefined, { locale })}</span>;
+  }
+
   return (
     <span className="text-gray-700 font-mono text-sm">
       {String(safe)}
@@ -2813,7 +2824,7 @@ function UnresolvedUserReference({
  * `pending` / `err` / `ok` discriminator its own cache stores is dropped
  * before any caller sees it:
  *
- *   1. never fetched — no `dataSource`, or no `reference_to` on the field;
+ *   1. never fetched — no `dataSource`, or no `reference` on the field;
  *   2. IN FLIGHT — the first paint of every successful resolve passes through
  *      here (measured: the settled paint replaces it);
  *   3. the resolver threw (`state: 'err'`);
@@ -2920,15 +2931,14 @@ function UnresolvedReferenceMark({
  * denies on the person's object are removed first ({@link withoutDeniedFields},
  * `id` kept), and everything below reads that row — exactly as it reads the
  * row a stripping backend serves. The person's object is the field's
- * `reference_to` (or `reference`), and `sys_user` when it names none: the
- * object `UserField` points the picker at.
+ * `reference`, and `sys_user` when it names none: the object `UserField`
+ * points the picker at.
  */
 export function UserCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
   // Called before any early return (rules of hooks). A policy that loads or
   // changes re-renders this cell through the context, and the drawing follows.
   const perms = usePermissions();
   const personObject =
-    (field as { reference_to?: string } | undefined)?.reference_to ||
     (field as { reference?: string } | undefined)?.reference ||
     'sys_user';
 
@@ -3092,9 +3102,28 @@ export function resolveCellRendererType(fieldOrType: string | { type?: string; f
 }
 
 /**
- * Renders structured/embedded values (json, object, composite, record,
- * address, geolocation) as compact, readable JSON. Objects and arrays are
- * stringified; primitives fall through to their string form.
+ * The compact JSON text of a value: objects and arrays are stringified,
+ * primitives fall through to their string form. A structure `JSON.stringify`
+ * cannot represent (a cycle) keeps its `String` form rather than throwing out
+ * of a render.
+ *
+ * ONE spelling, two readers: {@link JsonCellRenderer} draws a whole value with
+ * it, and the `composite` / `record` face below draws the nested values it
+ * still shows as JSON with it, so one stored value cannot read two ways.
+ */
+function compactJsonText(value: unknown): string {
+  if (typeof value !== 'object') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+/**
+ * Renders a free-form JSON value (`json`, `object`) as compact, readable JSON,
+ * and is the fallback face for a shape a structured renderer cannot recognize
+ * (`location` / `geolocation`, `address`, `composite` / `record`).
  */
 export function JsonCellRenderer({ value }: CellRendererProps): React.ReactElement {
   // THE FLOOR WITH ONE MEMBER DECLINED, and the declension is the point
@@ -3104,20 +3133,189 @@ export function JsonCellRenderer({ value }: CellRendererProps): React.ReactEleme
   // objectui#8474 measured that and pinned it. ⛔ Do not simplify this to
   // `isEmptyValue(value)`: that flattens a decision already on the record.
   if (isEmptyValue(value) && !Array.isArray(value)) return <EmptyValue />;
-  let text: string;
-  if (typeof value === 'object') {
-    try {
-      text = JSON.stringify(value);
-    } catch {
-      text = String(value);
-    }
-  } else {
-    text = String(value);
-  }
+  const text = compactJsonText(value);
   // The original site of the block-level+max-w-full+title pattern
   // (objectui#2578) — now shared with every single-line value renderer via
   // TruncatedText (objectui#3466).
   return <TruncatedText text={text} className="font-mono text-xs text-gray-600" />;
+}
+
+/**
+ * The `number` field a sub-value is formatted as: no `scale` is declared, so a
+ * sub-value keeps its natural precision and the default grouping, exactly what
+ * `NumberCellRenderer` draws for a `number` field that declares none.
+ */
+const UNDECLARED_NUMBER_SUB_FIELD: FieldMetadata = { name: '', type: 'number' };
+
+/** One drawn sub-value: the node the line shows, and its text for the `title`. */
+interface SubValueFace {
+  node: React.ReactNode;
+  text: string;
+}
+
+/** One labelled sub-value: a key and its face. */
+interface StructuredPair {
+  key: string;
+  label: string;
+  face: SubValueFace;
+}
+
+/** One entry of the face: a pair, or (a `record` entry) a labelled group of pairs. */
+type StructuredEntry = StructuredPair | { key: string; label: string; group: StructuredPair[] };
+
+const STRUCTURED_SEPARATOR = ' · ';
+
+/** The plain text of a list of entries — the line as the `title` spells it. */
+function structuredEntriesText(entries: readonly StructuredEntry[]): string {
+  return entries
+    .map((entry) =>
+      'group' in entry
+        ? `${entry.label} (${structuredEntriesText(entry.group)})`
+        : `${entry.label} ${entry.face.text}`,
+    )
+    .join(STRUCTURED_SEPARATOR);
+}
+
+/**
+ * The `dt` / `dd` pairs of a list of entries. The separator and the brackets
+ * are `aria-hidden` (the `<dl>` already says where a pair starts) and sit
+ * INSIDE a `dt` / `dd`, because a `<dl>` may hold nothing else.
+ */
+function structuredEntriesNodes(entries: readonly StructuredEntry[]): React.ReactNode {
+  return entries.map((entry, index) => (
+    <div key={entry.key} className="inline">
+      <dt className={cn('inline', 'group' in entry ? 'font-medium' : 'text-muted-foreground')}>
+        {index > 0 && (
+          <span aria-hidden="true" className="font-normal text-muted-foreground">
+            {STRUCTURED_SEPARATOR}
+          </span>
+        )}
+        {entry.label}
+      </dt>{' '}
+      <dd className="inline">
+        {'group' in entry ? (
+          <>
+            <span aria-hidden="true" className="text-muted-foreground">(</span>
+            <dl className="inline">{structuredEntriesNodes(entry.group)}</dl>
+            <span aria-hidden="true" className="text-muted-foreground">)</span>
+          </>
+        ) : (
+          entry.face.node
+        )}
+      </dd>
+    </div>
+  ));
+}
+
+/**
+ * `composite` / `record` cell renderers: an embedded value read as labelled
+ * sub-values, not as its stored JSON (objectui#11697).
+ *
+ * `@objectstack/spec` declares `composite` as one embedded sub-object and
+ * `record` as a name-keyed map of embedded sub-objects whose insertion order is
+ * the display order. Both were registered to {@link JsonCellRenderer}, so the
+ * record page, which reaches every value through this table (the one the grid
+ * reads too), drew `{"width":10,"height":20}` in a monospace face. `address`
+ * made the same move in objectui#4037.
+ *
+ * ## The face
+ *
+ *  - `composite`: one labelled pair per key, `Width 10 · Height 20`.
+ *  - `record`: one labelled group per entry name holding that entry's pairs,
+ *    `Primary (Name A · Score 9) · Backup (Name B · Score 7)`. An entry that
+ *    is not a populated sub-object is drawn as a pair, as a composite key is.
+ *  - A scalar sub-value is drawn with this package's face for its JS type: a
+ *    number through `formatNumberFieldValue` (the call `NumberCellRenderer`
+ *    makes, here with no declared `scale`), a boolean as the locale's word
+ *    (`useBooleanValueLabel`, the boolean-as-text face of the read-only
+ *    surfaces), a string as itself, and a floor member as {@link EmptyValue}.
+ *    ⛔ Not the cell components themselves: the text cell and the boolean
+ *    checkbox are block-level, and this face is one line.
+ *  - A nested object or array stays compact JSON ({@link compactJsonText}).
+ *
+ * It is ONE truncated line in every host, as {@link TruncatedText} is, because
+ * the grid cell, the record page row and the summary chip all draw it; the
+ * full text is the `title` on the value element. The structure is a `<dl>`, so
+ * assistive technology reads term / definition pairs.
+ *
+ * ## Labels
+ *
+ * The humanized key (`humanizeLabel`, the key fallback this package's boolean
+ * cell already uses for its "Off" badge). There is no declared sub-field label
+ * to prefer: the spec's `FieldSchema` has no sub-field member for either type
+ * and refuses `fields` / `subFields` as unrecognized keys, so no metadata a
+ * producer can publish carries one, and a label read from the field here would
+ * be a key the contract refuses (AGENTS.md #0.1).
+ *
+ * ## Unchanged
+ *
+ * The floor, and every shape this face does not recognize, answer exactly as
+ * {@link JsonCellRenderer} answers: `null` / `undefined` / `''` draw
+ * {@link EmptyValue}; `[]` and `{}` keep their literal (objectui#8474, and
+ * objectui#8481's json-literal fence); a value that is not an object, a JSON
+ * string included, is drawn as it is and never parsed (AGENTS.md #0.1).
+ *
+ * ⛔ Not exported, for the reason {@link RepeaterCellRenderer} gives: the table
+ * entries are reachable the way every call site reaches them,
+ * `getCellRenderer('composite')` / `getCellRenderer('record')`.
+ */
+function StructuredValueCell({
+  value,
+  field,
+  groupEntries,
+}: CellRendererProps & { groupEntries: boolean }): React.ReactElement {
+  // Hooks before the early returns, so the hook count does not change with the
+  // value (the rule `NumberCellRenderer` states).
+  const locale = useDisplayLocale();
+  const booleanLabel = useBooleanValueLabel();
+  if (isEmptyValue(value) && !Array.isArray(value)) return <EmptyValue />;
+  if (!isPlainObjectValue(value) || Object.keys(value).length === 0) {
+    return <JsonCellRenderer value={value} field={field} />;
+  }
+
+  const faceOf = (sub: unknown): SubValueFace => {
+    if (isEmptyValue(sub) && !Array.isArray(sub)) {
+      return { node: <EmptyValue />, text: '—' };
+    }
+    if (typeof sub === 'boolean') {
+      const word = booleanLabel(sub);
+      return { node: word, text: word };
+    }
+    if (typeof sub === 'number' && Number.isFinite(sub)) {
+      const formatted = formatNumberFieldValue(sub, UNDECLARED_NUMBER_SUB_FIELD, locale);
+      return { node: <span className="tabular-nums">{formatted}</span>, text: formatted };
+    }
+    if (Array.isArray(sub) || isPlainObjectValue(sub)) {
+      const json = compactJsonText(sub);
+      return { node: <span className="font-mono">{json}</span>, text: json };
+    }
+    const text = String(coerceToSafeValue(sub));
+    return { node: text, text };
+  };
+  const pairsOf = (object: Record<string, unknown>): StructuredPair[] =>
+    Object.entries(object).map(([key, sub]) => ({ key, label: humanizeLabel(key), face: faceOf(sub) }));
+
+  const entries: StructuredEntry[] = Object.entries(value).map(([key, sub]) =>
+    groupEntries && isPlainObjectValue(sub) && Object.keys(sub).length > 0
+      ? { key, label: humanizeLabel(key), group: pairsOf(sub) }
+      : { key, label: humanizeLabel(key), face: faceOf(sub) },
+  );
+
+  return (
+    <dl className="block max-w-full truncate" title={structuredEntriesText(entries)}>
+      {structuredEntriesNodes(entries)}
+    </dl>
+  );
+}
+
+/** `composite`: one embedded sub-object, drawn as labelled pairs. See {@link StructuredValueCell}. */
+function CompositeCellRenderer(props: CellRendererProps): React.ReactElement {
+  return <StructuredValueCell {...props} groupEntries={false} />;
+}
+
+/** `record`: a name-keyed map of sub-objects, one labelled group per entry. See {@link StructuredValueCell}. */
+function RecordMapCellRenderer(props: CellRendererProps): React.ReactElement {
+  return <StructuredValueCell {...props} groupEntries />;
 }
 
 /**
@@ -3527,8 +3725,9 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     color: ColorSwatchCellRenderer,
     json: JsonCellRenderer,
     object: JsonCellRenderer,
-    composite: JsonCellRenderer,
-    record: JsonCellRenderer,
+    // Labelled sub-values, not the stored JSON (objectui#11697).
+    composite: CompositeCellRenderer,
+    record: RecordMapCellRenderer,
     repeater: RepeaterCellRenderer,
     vector: VectorCellRenderer,
     grid: GridCellRenderer,
@@ -3772,11 +3971,13 @@ export function buildValidationRules(field: any): any {
   // vars); a field-authored `*_message` is a string and passes through as-is,
   // still winning over the localized default. See form.tsx `localizeRule`.
 
-  // Length validation for text fields. The spec-canonical keys are camelCase
-  // (`minLength`/`maxLength`, @objectstack/spec FieldSchema — what the server
-  // record-validator enforces); the snake_case pair is the legacy objectui
-  // spelling, kept as fallback (framework#1878/#1891 naming-drift closeout).
-  const minLength = (field as any).minLength ?? field.min_length;
+  // Length validation for text fields. The keys are the spec's `minLength` /
+  // `maxLength` (@objectstack/spec FieldSchema — what the server
+  // record-validator enforces), and they are the only spelling read: the
+  // snake_case pair this function also read until objectui#11070 is retired,
+  // with no alias. The spec refuses it by name, and no objectui type declares
+  // it any more.
+  const minLength = field.minLength;
   if (minLength) {
     rules.minLength = {
       value: minLength,
@@ -3785,7 +3986,7 @@ export function buildValidationRules(field: any): any {
     };
   }
 
-  const maxLength = (field as any).maxLength ?? field.max_length;
+  const maxLength = field.maxLength;
   if (maxLength) {
     rules.maxLength = {
       value: maxLength,
@@ -4099,16 +4300,32 @@ export function getLazyFieldWidget(fieldType: string): React.ComponentType<any> 
  * // Register only the text field
  * registerField('text');
  */
-// Field types whose short name collides with a display/ui/view/plugin component
-// registered elsewhere (e.g. the display widgets and form-input primitives in
-// @object-ui/components, or the markdown display plugin). These remain
-// accessible via the namespaced `field:<type>` key — which is how forms resolve
-// them (see form.tsx renderFieldComponent + mapFieldTypeToFormType) — but must
-// not overwrite the bare `<type>` fallback, which the display/ui primitive owns
-// and which page schemas expect (e.g. `{ type: 'markdown', content }` → the
-// markdown renderer, not the RichText editor). Without skipFallback each of
-// these logged a "bare-name fallback is being overwritten" warning at boot.
+// The field widgets that register ONLY their namespaced `field:<type>` key and
+// no bare `<type>` fallback. Since objectui#10859 batch 8 this is EVERY key of
+// `fieldWidgetMap`: a field widget is reached as a form field, which resolves
+// `field:<type>` and nothing else (form.tsx `renderFieldComponent`, ruling B of
+// objectui#5254), never as a node `type`. The groups below say why each key
+// first came off the bare table.
+//
+// ⛔ Do not take a key back out of this set. A bare fallback makes the key a
+// registered node type that `objectui validate` refuses at `type` (no arm in
+// `AnyComponentSchema` claims it): the known-types derivation pin forces
+// `packages/cli/src/utils/known-schema-types.ts` to be regenerated, and the
+// regenerated list turns the `REFUSED_AT_TYPE` ratchet
+// (`packages/cli/src/__tests__/registered-types-validate-ratchet-10859.test.ts`)
+// red, naming the key. A NEW widget added to `fieldWidgetMap` is added here in
+// the same change, for the same reason.
+//
+// `scripts/check-doc-component-types.mjs` reads this set by name (the
+// `fieldWidgetMap` entry's `skipFallbackSet`), so it stays a literal list.
 const FIELD_TYPES_SKIP_FALLBACK = new Set([
+  // ── Bare-name collisions ──────────────────────────────────────────────────
+  // The short name is owned by a display/ui/view/plugin component registered
+  // elsewhere (e.g. the display widgets and form-input primitives in
+  // @object-ui/components, or the markdown display plugin), which page schemas
+  // expect (e.g. `{ type: 'markdown', content }` → the markdown renderer, not
+  // the RichText editor). Without skipFallback each of these logged a
+  // "bare-name fallback is being overwritten" warning at boot.
   // Display widgets (text/html/image/avatar/grid live in @object-ui/components
   // or @object-ui/layout as the bare-name owners).
   'text',
@@ -4140,11 +4357,46 @@ const FIELD_TYPES_SKIP_FALLBACK = new Set([
   'object-ref',
   'filter-condition',
   'recipient-picker',
+  // ── Retired bare node keys (objectui#10859 batch 8) ───────────────────────
+  // Each was registered bare only as this loop's fallback: no other package
+  // owns the name, no form path reads it, and no document authors it as a
+  // node — every occurrence in the catalog and the docs sits at a field
+  // position (`fields[]`, `columns[]`, `filters[]`) — and `objectui validate`
+  // refused the bare key at `type`. Retired by the seat's batch-8 ruling on
+  // the card, through this set — the route its mechanism answer names.
+  'auto_number',
+  'boolean',
+  'checkboxes',
+  'color',
+  'currency',
+  'date',
+  'datetime',
+  'file',
+  'formula',
+  'geolocation',
+  'location',
+  'lookup',
+  'master_detail',
+  'multiselect',
+  'number',
+  'object',
+  'percent',
+  'phone',
+  'qrcode',
+  'radio',
+  'rating',
+  'richtext',
+  'signature',
+  'summary',
+  'tags',
+  'url',
+  'user',
+  'vector',
 ]);
 
 /**
  * The labelling declaration of EVERY registered field widget
- * (`ComponentMeta.labelling` — the closed `'control' | 'group' | 'display'`
+ * (`RegistryComponentMeta.labelling` — the closed `'control' | 'group' | 'display'`
  * vocabulary, objectui#3961 extended by objectui#4857). This `Record` is keyed
  * by the widget map's own literal key union, so it is exhaustive BY
  * CONSTRUCTION: registering a widget without deciding how a host's label
@@ -4196,7 +4448,7 @@ const FIELD_TYPES_SKIP_FALLBACK = new Set([
  */
 export const FIELD_WIDGET_LABELLING: Record<
   RegisteredFieldWidgetType,
-  NonNullable<ComponentMeta['labelling']>
+  NonNullable<RegistryComponentMeta['labelling']>
 > = {
   text: 'control',
   textarea: 'control',
@@ -4450,6 +4702,11 @@ export * from './FieldEditWidget.js';
 export * from './widgets/TextField.js';
 export * from './widgets/NumberField.js';
 export * from './widgets/BooleanField.js';
+// objectui#11689 — the locale's word for a read-only boolean value, read by
+// every surface that draws one as text (including `@object-ui/plugin-detail`'s
+// highlights chip). `BooleanValueText` stays internal: its only caller is the
+// lookup column renderer in this package.
+export { useBooleanValueLabel, type BooleanValueLabel } from './widgets/booleanValueLabel.js';
 export * from './widgets/SelectField.js';
 export * from './widgets/DateField.js';
 export * from './widgets/DateTimeField.js';

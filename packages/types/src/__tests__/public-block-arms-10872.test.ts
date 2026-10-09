@@ -65,12 +65,23 @@ const VALID_BAG: Readonly<Record<string, Record<string, unknown>>> = {
   'record:quick_actions': { actionNames: ['edit'] },
   'record:reference_rail': { entries: [{ objectName: 'contact', relationshipField: 'account' }] },
   'record:alert': { severity: 'warning', title: 'Overdue' },
+  // objectui#10872 — the row `@objectstack/spec` 17.6.0 carries; its own
+  // readings are pinned in `./record-line-items-arm-10872.test.ts`.
+  'record:line_items': { childObject: 'order_line', relationshipField: 'order', columns: [{ name: 'qty' }] },
   'element:text': { content: 'Hello' },
   // objectui#10872 batch 2 — the bag that names its own `object`; the
   // `dataSource` waiver is pinned in `./element-number-arm-10872.test.ts`.
   'element:number': { object: 'order', aggregate: 'count' },
   'element:button': { label: 'Go' },
   'element:divider': {},
+  // objectui#10872 batch 4 — the six rows `@objectstack/spec` 17.5.0 carries;
+  // their own readings are pinned in `./held-public-block-arms-10872.test.ts`.
+  'element:definition-list': { items: [{ term: 'Owner', description: 'Ada' }], columns: 2 },
+  'element:repeater': { object: 'task', fields: ['subject', { field: 'status' }], limit: 5 },
+  'action:button': { label: 'Open details', actionType: 'url', target: '/users/ada' },
+  'action:icon': { icon: 'pencil', label: 'Edit', actionType: 'url', target: '/users/ada/edit' },
+  'action:group': { actions: [{ name: 'edit', label: 'Edit' }], display: 'dropdown' },
+  'action:menu': { actions: [{ name: 'archive', label: 'Archive' }] },
 };
 
 /** The armed literals, in the order `VALID_BAG` lists them. */
@@ -173,7 +184,13 @@ describe('the bag is the spec row, read by reference (objectui#10872)', () => {
     (type) => {
       const row = rowOf(type);
       if (stripImportedDefaults(row) === row) {
-        expect(bagOf(type)).toBe(row);
+        // The same schema, compared by DEFINITION (objectui#10872 batch 4):
+        // `@objectstack/spec` 17.5.0 publishes some rows as lazy proxies whose
+        // methods run on the real schema, so the bag's `.optional()` wraps the
+        // object behind the proxy, never the proxy itself. A non-proxy row
+        // answers the same way: one object, one definition.
+        expect((bagOf(type) as unknown as { _zod: { def: unknown } })._zod.def)
+          .toBe((row as unknown as { _zod: { def: unknown } })._zod.def);
       } else {
         // The row carries a spec default the boundary removes (objectui#8317):
         // the bag is the stripped clone, which answers the fixture as the row does.

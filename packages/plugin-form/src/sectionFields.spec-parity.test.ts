@@ -86,7 +86,8 @@ const TABLE: Record<string, (f: (def: Record<string, unknown>) => any) => void> 
   reference: (f) => {
     const out = f({ reference: 'accounts' });
     expect(out.reference).toBe('accounts');
-    expect(out.reference_to).toBe('accounts'); // both spellings stamped (#2407)
+    // One spelling, no second stamped (objectui#11070 round 4).
+    expect(out.reference_to).toBeUndefined();
   },
   maxLength: (f) => expect(f({ maxLength: 10 }).maxLength).toBe(10),
   minLength: (f) => expect(f({ minLength: 2 }).minLength).toBe(2),

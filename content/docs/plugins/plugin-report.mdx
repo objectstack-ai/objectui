@@ -33,8 +33,8 @@ pnpm add @object-ui/plugin-report
 All four are dispatched by a single `<ReportRenderer schema={...} />`. The
 **declared `type` picks the presentation** — never the shape of the data that
 comes back. The same report can be embedded in any JSON schema tree as
-`{ "type": "spec-report", "report": { ... } }`; the dispatcher unwraps either
-shape.
+`{ "type": "report", "report": { ... } }`; the dispatcher unwraps the wrapper
+and renders the report inside it.
 
 ## The authoring shape
 
@@ -313,13 +313,14 @@ bucket. Native filter-time CEL evaluation is tracked for a future major version.
 
 ## Schema-driven embedding
 
-Importing the package registers three component types with `ComponentRegistry`:
-`report` and `spec-report` (both the dispatcher) and `report-viewer` (the
-presentation-layer viewer). To embed a report in any JSON schema tree:
+Importing the package registers two component types with `ComponentRegistry`:
+`report` (the dispatcher) and `report-viewer` (the presentation-layer viewer).
+To embed a report in any JSON schema tree, put it in a `report` node's `report`
+member:
 
 ```json
 {
-  "type": "spec-report",
+  "type": "report",
   "report": {
     "name": "opp_by_stage",
     "label": "Opportunities by Stage",
@@ -332,7 +333,10 @@ presentation-layer viewer). To embed a report in any JSON schema tree:
 ```
 
 There is no `report-builder` component type: report authoring lives in the
-console designer, not in this package.
+console designer, not in this package. `spec-report` is retired (objectui#11440):
+it was an alias of `report` carrying the same wrapper, and a node declaring it
+now resolves to nothing. Write `"type": "report"`; the `report` member is
+unchanged.
 
 ## Further reading
 

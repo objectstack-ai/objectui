@@ -124,13 +124,13 @@ release path runs the sync itself: `changeset:version` bumps every manifest and 
 this block in the same commit, so a release can no longer leave the block a version
 behind (objectui#5394 — that had happened once per release, three times).
 
-- **Version:** 17.6.0 (the version every `@object-ui/*` manifest carries — they are one
+- **Version:** 17.7.0 (the version every `@object-ui/*` manifest carries — they are one
   `fixed` group in `.changeset/config.json`, so a release moves all of them together)
 - **Spec:** `@objectstack/spec` ^17.0.0 (declared by the root `package.json` and by
   `apps/console/package.json`)
 - **Client:** `@objectstack/client` ^17.3.0 (declared by `apps/console/package.json`
   and `packages/data-objectstack/package.json`)
-- **Node.js:** ≥ 22.11 (see root `engines.node`)
+- **Node.js:** ≥ 22.13 (see root `engines.node`)
 - **pnpm:** ≥ 10 (the workspace pins `pnpm@10.31.0` via `packageManager`)
 - **React:** 18.x or 19.x (the `peerDependencies.react` range the packages declare)
 - **TypeScript:** ≥ 5.0 (strict mode) — the stack floor stated in AGENTS.md §2, not a

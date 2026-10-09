@@ -47,6 +47,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import React from 'react';
+import type { PublicBlockNodeOf } from '@object-ui/types';
 import {
   SchemaRenderer,
   UNRESOLVABLE_VISIBILITY_PREFIX,
@@ -54,7 +55,7 @@ import {
 } from '@object-ui/react';
 import '../renderers';
 
-const tabsSchema = (items: any[]) => ({ type: 'page:tabs', id: 'tabs', items });
+const tabsSchema = (items: any[]): PublicBlockNodeOf<'page:tabs'> => ({ type: 'page:tabs', id: 'tabs', properties: { items } });
 
 /** Faults on every dialect this surface accepts (measured on the built evaluator). */
 const FAULT_BARE = 'nosuchroot.x > 1';

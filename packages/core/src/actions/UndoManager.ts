@@ -14,19 +14,15 @@
  * Maintains bounded history stacks with subscriber notifications.
  */
 
-/** Represents a single undoable CRUD operation. */
-export interface UndoableOperation {
-  id: string;
-  type: 'create' | 'update' | 'delete';
-  objectName: string;
-  recordId: string;
-  timestamp: number;
-  description: string;
-  /** Data needed to undo: for create=recordId, for update=previousData, for delete=fullRecord */
-  undoData: Record<string, unknown>;
-  /** Data needed to redo: for create=newData, for update=newData, for delete=recordId */
-  redoData: Record<string, unknown>;
-}
+import type { UndoableOperation } from '@object-ui/types';
+
+/**
+ * A single undoable CRUD operation — declared once, in `@object-ui/types`
+ * (objectui#6349, batch 4), beside the `ActionResult` whose `undo` member it
+ * types, and re-exported here so an import from `@object-ui/core` keeps
+ * resolving to the same type.
+ */
+export type { UndoableOperation } from '@object-ui/types';
 
 export interface UndoManagerOptions {
   /** Maximum number of operations to retain in history. @default 50 */

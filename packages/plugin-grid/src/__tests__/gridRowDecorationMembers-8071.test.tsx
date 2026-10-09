@@ -30,6 +30,20 @@
  * one of which is RENAMED on the way to the DOM. That is the objectui#8068
  * criterion: constrain the shape the RENDERER READS, not the registration.
  *
+ * ## Most of a rule's members are STORED-rule reads now (objectui#11533)
+ *
+ * Since objectui#11533 the grid's authoring faces take ONE rule dialect, the
+ * spec list view's `{ condition, style }`: `expression`, the native
+ * `field`/`operator`/`value` triple and the three top-level colour members
+ * (`backgroundColor`, `borderColor`, `textColor`) are refused by name on
+ * `ObjectGridSchema` and on the list view. The RENDERER still reads every one
+ * of them: `resolveConditionalFormatting` keeps each arm as a compatibility
+ * read for a grid or list view STORED in the retired dialect, and nothing on
+ * the render path parses a stored node. So the rows below that write those
+ * members are not authoring examples — they pin what a stored rule still
+ * paints, and the last `describe` pins the two facts side by side: refused
+ * at authoring, painted at render.
+ *
  * ## Read through the real renderer, asserted on the `<tr>`
  *
  * Every case below renders the real `ObjectGrid` over inline data and reads the
@@ -43,6 +57,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
+
+import { ObjectGridSchema } from '@object-ui/types/zod';
 
 import { ObjectGrid } from '../ObjectGrid';
 import { registerAllFields } from '@object-ui/fields';
@@ -176,7 +192,7 @@ describe('object-grid `rowColor` — the two members the row-className resolver 
   });
 });
 
-describe('object-grid `conditionalFormatting` — the members read inside ONE rule', () => {
+describe('object-grid `conditionalFormatting` — the members read inside ONE rule (retired ones as STORED-rule reads, objectui#11533)', () => {
   it('reads `condition` in preference to `expression` and to the native field/operator/value triple', () => {
     renderGrid(
       [
@@ -352,5 +368,37 @@ describe('object-grid — the two decoration keys reach the SAME row and neither
     });
     expect(rowColourClasses(rowOf('StyleOnly'))).toEqual([]);
     expect(rowOf('StyleOnly').style.backgroundColor).toBe('rgb(14, 14, 14)');
+  });
+});
+
+describe('object-grid — a rule STORED in a retired dialect is refused at authoring and still paints (objectui#11533)', () => {
+  /** The native rule, exactly as a grid stored before objectui#11533 carries it. */
+  const STORED = { field: 'name', operator: 'equals', value: 'Gamma', backgroundColor: 'rgb(7, 8, 9)' };
+  /** Its `{ condition, style }` respelling, the one dialect the authoring faces take. */
+  const RESPELLED = { condition: "record.name == 'Gamma'", style: { backgroundColor: 'rgb(7, 8, 9)' } };
+  const ROWS = [
+    { id: '1', name: 'Beta' },
+    { id: '2', name: 'Gamma' },
+  ];
+  const doc = (rule: unknown) => ({ type: 'object-grid', objectName: 'test_object', conditionalFormatting: [rule] });
+
+  it('the authoring face refuses the stored native rule BY NAME, and the real grid still paints its row', () => {
+    const parsed = ObjectGridSchema.safeParse(doc(STORED));
+    expect(parsed.success).toBe(false);
+    const atField = parsed.error!.issues.find((i) => i.path.join('.') === 'conditionalFormatting.0.field');
+    expect(atField?.message).toContain('RETIRED (objectui#11533)');
+
+    // Render is not a validation door: the stored rule reaches the resolver,
+    // which keeps the native arm as a compatibility read.
+    renderGrid(ROWS, { conditionalFormatting: [STORED] });
+    expect(rowOf('Gamma').style.backgroundColor).toBe('rgb(7, 8, 9)');
+    expect(rowOf('Beta').style.backgroundColor).toBe('');
+  });
+
+  it('CONTROL — the respelling is accepted at authoring and paints the SAME row with the same colour', () => {
+    expect(ObjectGridSchema.safeParse(doc(RESPELLED)).success).toBe(true);
+    renderGrid(ROWS, { conditionalFormatting: [RESPELLED] });
+    expect(rowOf('Gamma').style.backgroundColor).toBe('rgb(7, 8, 9)');
+    expect(rowOf('Beta').style.backgroundColor).toBe('');
   });
 });

@@ -191,17 +191,36 @@ export interface MarketplaceDetailResponse {
   versions: MarketplacePackageVersion[];
 }
 
+/**
+ * A browse request. A failure the server ANSWERED rejects with an `Error` that
+ * carries the response's `status` and `code`; a request no server answered (a
+ * network failure, a CORS refusal, an abort) rejects with whatever `fetch`
+ * threw, which has no `status`. `MarketplacePage` tells the two apart by that
+ * member, because only the second is a question of being online
+ * (objectui#11688).
+ */
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'omit',
     headers: { 'Accept': 'application/json', ...(init?.headers || {}) },
     ...init,
   });
+  // Read once, as text. A hop in front of the control plane that is not an
+  // ObjectStack route (an egress proxy, a gateway) refuses in `text/plain`,
+  // the runtime's proxy forwards that body verbatim, and the text IS the
+  // cause: "Host not in allowlist: cloud.objectos.ai". Parsing straight to
+  // JSON threw it away and left the bare status text ("Forbidden") to show
+  // (objectui#11688).
+  const body = await res.text().catch(() => '');
   let payload: any = null;
-  try { payload = await res.json(); } catch { /* empty body */ }
+  try { payload = body ? JSON.parse(body) : null; } catch { /* not JSON */ }
   if (!res.ok) {
     const { code, message } = readApiError(payload, res);
-    const err = new Error(typeof message === 'string' ? message : `${code}`);
+    const plainText =
+      payload === null && (res.headers.get('content-type') ?? '').toLowerCase().startsWith('text/plain')
+        ? body.trim()
+        : '';
+    const err = new Error(plainText || message);
     (err as any).code = code;
     (err as any).status = res.status;
     throw err;
@@ -632,16 +651,45 @@ export async function purgeSampleData(installationId: string): Promise<SampleDat
 //
 // Backend: framework/packages/runtime/src/cloud/marketplace-install-local-plugin.ts
 
+/**
+ * The marker the install-local listing puts on an entry this runtime's startup
+ * rehydrate refused to load (objectstack#21822, served since `@objectstack/*`
+ * 17.7.0). CLOSED on the server: exactly these two members.
+ *
+ * `code` is the refusal's error code. The one the server sends today is
+ * `OS_PROTOCOL_INCOMPATIBLE`, and `requiredRange` is then the protocol range the
+ * package declares (the same `requiredRange` the install door's 422 carries in
+ * `error.details`). It is typed `string` rather than that literal because the
+ * console names a code it has no sentence for instead of hiding the row.
+ */
+export interface LocalInstallNotLoaded {
+  code: string;
+  requiredRange: string;
+}
+
+/**
+ * One item of `GET /api/v1/marketplace/install-local` (`listLocalInstalls`), and
+ * the shape `listInstalledPackages` maps the control plane's rows into.
+ *
+ * Two members are absent by the server's rule, never `false` or `null`:
+ *   - `installedBy` for a caller without `manage_metadata` (a narrowed caller);
+ *   - `withSampleData` on an entry carrying `notLoaded`, which stands IN PLACE
+ *     of it: the listing reads no rows of a package the runtime did not load.
+ */
 export interface LocalInstallEntry {
   packageId: string;
   versionId: string;
   manifestId: string;
   version: string;
   installedAt: string;
-  installedBy: string | null;
+  installedBy?: string | null;
   /** Whether the bundled seed datasets are currently loaded in the local
    *  kernel DB. True after install (with seed) or reseed; false after purge. */
   withSampleData?: boolean;
+  /** Present only when this runtime refused to load the package at startup
+   *  (objectui#11645). The entry is still installed: Uninstall and a
+   *  compatible re-install act on it. */
+  notLoaded?: LocalInstallNotLoaded;
 }
 
 export interface LocalInstallResult {

@@ -66,9 +66,11 @@ All blocks are defined as JSON schemas. Here's how simple it is:
 
 ```tsx
 import { SchemaRenderer } from '@object-ui/react';
+import type { DeclaredNode } from '@object-ui/types';
 
-// Copy this JSON from any block
-const loginBlockSchema = {
+// Copy this JSON from any block. `DeclaredNode` is a node of a declared type,
+// so each key is checked against the type its `type` names.
+const loginBlockSchema: DeclaredNode = {
   type: "card",
   className: "max-w-md mx-auto",
   children: [

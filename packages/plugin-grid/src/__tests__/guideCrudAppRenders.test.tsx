@@ -19,8 +19,8 @@
  *     which never becomes context; this block reads the adapter from
  *     `SchemaRendererProvider`. Measured `find` **0**.
  *  3. **keys** (#5377) — it named the object with `object`, and this block
- *     declares `objectName` (`GRID_QUERY_INPUTS`, `required: true`). Measured
- *     `find` **0** even under the right wiring.
+ *     declares `objectName` (`GRID_QUERY_INPUTS`; `required: true` then, not
+ *     since objectui#11605). Measured `find` **0** even under the right wiring.
  *  4. **capability** (#5446) — Step 7 named a top-level `view` and a
  *     `data.queryParams.$search`, neither of which `ObjectGrid` reads at all
  *     (`schema.view` — zero hits; `data` is the `ViewData` union, `queryParams`
@@ -166,9 +166,11 @@ describe('guide/building-crud-app.md — every `object-grid` snippet actually re
   it('names the object with the key this block declares — `object` fetches nothing', async () => {
     // The #5377 axis, pinned as a contrast rather than described. Same snippet,
     // same wiring, one key re-spelled the way the page used to spell it.
+    // The guide writes the grid's props in its `properties` bag, the spelling
+    // the spec declares (objectui#11276); `SchemaRenderer` hoists it.
     const [first] = GRID_SNIPPETS;
-    const asItWas = { ...first, object: first.objectName };
-    delete asItWas.objectName;
+    const { objectName, ...rest } = first.properties;
+    const asItWas = { ...first, properties: { ...rest, object: objectName } };
 
     const adapter = makeAdapter();
     const { container } = render(

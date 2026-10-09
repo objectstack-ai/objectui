@@ -134,7 +134,15 @@ afterEach(() => {
   cleanup();
 });
 
-const renderChip = (stored: unknown) =>
+/**
+ * objectui#11475 — the chip reads the field's DECLARED storage (the spec's
+ * `percentScaleOf`: a fraction unless the field declares a `max` above 1), not
+ * a storage guessed from the value's size. A row whose stored value is
+ * percentage POINTS is rendered on a field declaring whole-point storage
+ * (`whole`), the way a whole-stored field does; every row's text and bar, and
+ * the text-against-bar pin, are as before.
+ */
+const renderChip = (stored: unknown, whole = false) =>
   render(
     <DetailView
       schema={
@@ -142,7 +150,7 @@ const renderChip = (stored: unknown) =>
           type: 'record:details',
           objectName: 'account',
           summaryFields: ['ratio'],
-          fields: [{ name: 'ratio', label: 'Ratio', type: 'percent' }],
+          fields: [{ name: 'ratio', label: 'Ratio', type: 'percent', ...(whole ? { max: 1000 } : {}) }],
           data: { id: 'A9', name: 'Acme', ratio: stored },
         } as unknown as DetailViewSchema
       }
@@ -211,6 +219,8 @@ interface Row {
   text: string;
   /** What the chip DRAWS, clamped to its track — unrounded, and unmoved by #9167. */
   bar: number;
+  /** The value is percentage points, stored on a whole-point field (objectui#11475). */
+  whole?: boolean;
 }
 
 const ROWS: Row[] = [
@@ -221,18 +231,18 @@ const ROWS: Row[] = [
   // CONTROL for the SCALING — already percentage points, so the magnitude may
   // not move, and it does not: the bar is 12.3 before and after objectui#9167.
   // Its TEXT moved with the convention half; see the header.
-  { what: 'CONTROL — a value already in points keeps its magnitude', stored: 12.3, text: '12%', bar: 12.3 },
+  { what: 'CONTROL — a value already in points keeps its magnitude', stored: 12.3, text: '12%', bar: 12.3, whole: true },
   { what: 'zero', stored: 0, text: '0%', bar: 0 },
   // THE FORK, after objectui#9071 moved it. See the header: one percentage
   // point, the answer every other band already gave.
-  { what: 'EXACTLY 1 — one percentage point, as everywhere else', stored: 1, text: '1%', bar: 1 },
+  { what: 'EXACTLY 1 — one percentage point, as everywhere else', stored: 1, text: '1%', bar: 1, whole: true },
   // The row where rounding moves the text by the FULL slack: half-expand takes
   // 1.5 to 2 while the bar keeps 1.5.
-  { what: 'just above 1 — the other side of the same boundary', stored: 1.5, text: '2%', bar: 1.5 },
+  { what: 'just above 1 — the other side of the same boundary', stored: 1.5, text: '2%', bar: 1.5, whole: true },
   // Agreement has to survive the clamp: the text keeps the real number, the
   // bar saturates. A row that only ever tested unclamped values would let a
   // repair that clamped the TEXT too pass.
-  { what: 'a large value — the bar saturates, the text does not', stored: 250, text: '250%', bar: 100 },
+  { what: 'a large value — the bar saturates, the text does not', stored: 250, text: '250%', bar: 100, whole: true },
   // The residue row. `0.07 * 100` is `7.000000000000001` in binary floating
   // point — invisible as a CSS width, unreadable as a label.
   { what: 'a ratio whose scaling carries float residue', stored: 0.07, text: '7%', bar: 7 },
@@ -242,7 +252,7 @@ const ROWS: Row[] = [
   // source, which passes a value at or below -1 straight through. The bar is
   // unchanged across both cards — any negative clamps to an empty track — so
   // this row only ever moved on the half that reads the number.
-  { what: 'a negative at or below -1 — passed through by the shared rule', stored: -5, text: '-5%', bar: 0 },
+  { what: 'a negative at or below -1 — passed through by the shared rule', stored: -5, text: '-5%', bar: 0, whole: true },
 ];
 
 /**
@@ -255,8 +265,8 @@ const halvesDisagreeBy = (chip: HTMLElement): number =>
   Math.abs(drawnPercent(chip) - onTrack(spokenPercent(chip)));
 
 describe('summary chip percent — one stored number, one percentage (objectui#8728)', () => {
-  it.each(ROWS)('$what: a stored $stored states $text beside a bar at $bar', ({ stored, text, bar }) => {
-    const chip = requireChip(renderChip(stored));
+  it.each(ROWS)('$what: a stored $stored states $text beside a bar at $bar', ({ stored, text, bar, whole }) => {
+    const chip = requireChip(renderChip(stored, whole));
 
     expect(textOf(chip), 'the chip states this percentage').toBe(text);
     expect(drawnPercent(chip), 'and draws this magnitude, unrounded and clamped').toBe(bar);
@@ -272,8 +282,8 @@ describe('summary chip percent — one stored number, one percentage (objectui#8
    * someone edited that row's expected string to match.
    */
   it('never states one percentage and draws another, for any row above', () => {
-    const disagreements = ROWS.filter(({ stored }) => {
-      const chip = requireChip(renderChip(stored));
+    const disagreements = ROWS.filter(({ stored, whole }) => {
+      const chip = requireChip(renderChip(stored, whole));
       const disagrees = halvesDisagreeBy(chip) > ROUNDING_SLACK;
       cleanup();
       return disagrees;

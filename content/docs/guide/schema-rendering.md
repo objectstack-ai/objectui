@@ -31,6 +31,7 @@ initializeComponents()
 function App() {
   const schema: PageNodeSchema = {
     type: "page",
+    pageType: "app",
     title: "My Dashboard",
     children: [{ type: "text", content: "Hello" }]
   }
@@ -85,10 +86,10 @@ publishes each name you give it as an expression root:
 
 ```tsx
 import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
-import type { BaseSchema } from '@object-ui/types'
+import type { DeclaredNode } from '@object-ui/types'
 
 // The page schema from the first example on this page.
-declare const schema: BaseSchema
+declare const schema: DeclaredNode
 
 // Every name here becomes a root the schema's expressions can read.
 const scope = {
@@ -166,6 +167,7 @@ Schemas can be nested to create complex UIs:
 ```json
 {
   "type": "page",
+  "pageType": "app",
   "title": "Dashboard",
   "children": {
     "type": "grid",
@@ -307,16 +309,20 @@ Components can emit events that you handle in React:
 />
 ```
 
-Reference actions in schemas:
+Reference actions in schemas — the block's props go in its `properties` bag, as
+`@objectstack/spec` declares them; the spec's strict page component refuses them
+written flat on the node:
 
 ```json
 {
   "type": "action:button",
-  "name": "call_api",
-  "label": "Click Me",
-  "actionType": "api",
-  "endpoint": "/api/action",
-  "method": "POST"
+  "properties": {
+    "name": "call_api",
+    "label": "Click Me",
+    "actionType": "api",
+    "target": "/api/action",
+    "method": "POST"
+  }
 }
 ```
 
@@ -328,8 +334,9 @@ throws on the first click: "Expected `onClick` listener to be a function, instea
 value of `object` type." The execution type is `actionType`, and the built-in vocabulary
 is `script` | `url` | `modal` | `flow` | `api` | `form` (plus objectui's `navigation`
 alias) — anything else must be a handler your host registered on `ActionProvider`. `ajax`
-is neither. And the endpoint key is `endpoint`, with `method`; `api` is not a key any
-action renderer forwards.
+is neither. And an `api` action's endpoint is its `target`, with the verb in `method`: the
+spec's `action:button` row refuses `endpoint` and names `target` in its place, and `api` is
+not a key any action renderer forwards.
 
 ## Performance Optimization
 
@@ -474,8 +481,28 @@ const form: FormSchema = {
 
 const schema: PageNodeSchema = {
   type: "page",
+  pageType: "app",
   title: "Typed Page",
   children: [form]
+}
+```
+
+The spec's page blocks take their props in a `properties` bag. `SchemaRenderer`
+accepts them through `AuthoringNode` from `@object-ui/types`, so the bag is
+typed by the spec's `ComponentPropsMap` row and a misspelled key in it does not
+compile:
+
+```tsx
+import { SchemaRenderer } from '@object-ui/react'
+import type { PublicBlockNodeOf } from '@object-ui/types'
+
+const heading: PublicBlockNodeOf<'element:text'> = {
+  type: "element:text",
+  properties: { content: "Quarterly revenue", variant: "h2" }
+}
+
+function Heading() {
+  return <SchemaRenderer schema={heading} />
 }
 ```
 
@@ -507,10 +534,10 @@ the renderer, which does not read it:
 
 ```tsx
 import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
-import type { BaseSchema } from '@object-ui/types'
+import type { DeclaredNode } from '@object-ui/types'
 
 // The reader's own values.
-declare const schema: BaseSchema
+declare const schema: DeclaredNode
 declare const userData: { name: string }
 declare const userSettings: { theme: string }
 declare const dashboardStats: { totalUsers: number }

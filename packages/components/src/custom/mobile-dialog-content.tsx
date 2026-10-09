@@ -106,10 +106,22 @@ export function usePopperAwareInteractOutside(
   );
 }
 
+export type MobileDialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+  /**
+   * Whether the dialog draws its own close (X) button. Defaults to `true`;
+   * `false` leaves it out of the DOM entirely (objectui#11061), the same
+   * switch upstream Shadcn's `DialogContent` names `showCloseButton`. The
+   * dialog stays dismissable without it: Escape and a backdrop click still
+   * reach the `Dialog`'s `onOpenChange(false)` through Radix, so a caller that
+   * hides the X only has to keep whatever explicit way out its body offers.
+   */
+  showCloseButton?: boolean;
+};
+
 export const MobileDialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, onInteractOutside, ...props }, ref) => {
+  MobileDialogContentProps
+>(({ className, children, onInteractOutside, showCloseButton = true, ...props }, ref) => {
   const handleInteractOutside = usePopperAwareInteractOutside(onInteractOutside);
   return (
   <DialogPortal>
@@ -135,26 +147,28 @@ export const MobileDialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close
-        className={cn(
-          'absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity',
-          'hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-          'disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground',
-          // Mobile touch target ≥ 44×44px (WCAG 2.5.5)
-          'min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center',
-        )}
-      >
-        <X className="h-5 w-5 sm:h-4 sm:w-4" />
-        {/* objectui#4024 — the remainder objectstack#5505 could not reach.
-            That change routed the close label through `CloseSrLabel` for the
-            two SHADCN-SYNCED primitives under `src/ui/**`, via the declared
-            patch in `scripts/shadcn-local-patches.mjs`. This file is a
-            hand-written `custom/` wrapper with its own close button, outside
-            that regeneration zone, so it kept the English literal — and it is
-            what `plugin-form`'s `ModalForm` renders, i.e. exactly the
-            create/edit dialog the card measured. */}
-        <CloseSrLabel />
-      </DialogPrimitive.Close>
+      {showCloseButton && (
+        <DialogPrimitive.Close
+          className={cn(
+            'absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity',
+            'hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            'disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground',
+            // Mobile touch target ≥ 44×44px (WCAG 2.5.5)
+            'min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center',
+          )}
+        >
+          <X className="h-5 w-5 sm:h-4 sm:w-4" />
+          {/* objectui#4024 — the remainder objectstack#5505 could not reach.
+              That change routed the close label through `CloseSrLabel` for the
+              two SHADCN-SYNCED primitives under `src/ui/**`, via the declared
+              patch in `scripts/shadcn-local-patches.mjs`. This file is a
+              hand-written `custom/` wrapper with its own close button, outside
+              that regeneration zone, so it kept the English literal — and it is
+              what `plugin-form`'s `ModalForm` renders, i.e. exactly the
+              create/edit dialog the card measured. */}
+          <CloseSrLabel />
+        </DialogPrimitive.Close>
+      )}
     </DialogPrimitive.Content>
   </DialogPortal>
   );

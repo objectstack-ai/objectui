@@ -90,7 +90,8 @@ import type { DataTableSchema, FlexSchema, CardSchema } from '@object-ui/types';
 const dashboard: CardSchema = {
   type: 'card',
   title: 'User Management',
-  content: {
+  // A card's child channel is `children` (objectui#6771); `content` is no card key.
+  children: {
     type: 'data-table',
     columns: [
       { header: 'Name', accessorKey: 'name' },
@@ -120,6 +121,55 @@ function renderComponent(schema: AnySchema) {
 // Or use the utility type
 type ButtonSchema = SchemaByType<'button'>;
 ```
+
+### Authoring the spec's blocks in TypeScript
+
+The spec's page blocks take their props in a `properties` bag, which is the
+block's `ComponentPropsMap` row in `@objectstack/spec`. These types give each
+such node a TypeScript face, derived from the zod arm or the spec row, never
+restated by hand:
+
+- `PublicBlockNode`: every public block the zod face arms (`element:text`,
+  `page:tabs`, `action:button`, ...), each the arm's own input.
+  `PublicBlockNodeOf<'element:text'>` picks one.
+- `ObjectQLPublicBlockNode`: every ObjectQL block the zod face arms in
+  `ObjectQLPublicBlockComponentSchema`, each the arm's own input. Each is also
+  exported by name: `ObjectGridBlockNode`, `ObjectFormBlockNode`,
+  `ObjectMapBlockNode`, `ObjectGanttBlockNode`, `ObjectChartBlockNode`,
+  `ObjectMetricBlockNode`, `ObjectTimelineBlockNode` and
+  `ObjectMasterDetailFormBlockNode`.
+- `FlexBlockNode`: an authored `flex` node, its layout props and its child
+  list in the bag. `flex` and `object-chart` have no `ComponentPropsMap` row,
+  so each bag is the flat type's own members (`FlexSchema`,
+  `ObjectChartSchema`), closed like a row.
+- `ElementTextInputNode` and `ElementRecordPickerNode`: the spec rows of
+  `element:text_input` and `element:record_picker`.
+- `PageDocumentNode`: a stored page document under its page kind
+  (`type: 'home'`, `kind: 'html'`, ...).
+- `AuthoringNode`: all of the above. `SchemaRenderer`'s `schema` prop
+  (`@object-ui/react`) accepts it beside `BaseSchema`.
+
+```typescript
+import type { ElementTextInputNode, PublicBlockNodeOf } from '@object-ui/types';
+
+const tabs: PublicBlockNodeOf<'page:tabs'> = {
+  type: 'page:tabs',
+  properties: {
+    items: [{ label: 'Details', value: 'details', children: [] }],
+  },
+};
+
+const workspace: ElementTextInputNode = {
+  type: 'element:text_input',
+  id: 'workspace',
+  properties: { label: 'Workspace', placeholder: 'acme' },
+};
+```
+
+A key misspelled inside a bag (`properties: { contnet: 'Hello' }` on an
+`element:text`) does not type-check against these types. An action's executor
+keys (`actionType`, `target`, `params`) belong in the `action:button` bag, not
+flat on the node.
 
 ### The strict authoring face
 
@@ -159,12 +209,20 @@ Opaque `custom` / `function` / `transform` validators have no shape to close;
 `deriveStrictAuthoringSchema` reports each one it meets through the optional
 `onOpaqueShape` callback.
 
-One node spells its props through the passthrough by design: a `metric-card`
-sitting directly in a dashboard's `widgets` slot, whose props are its
-registration's `inputs`. The strict face admits exactly the input names that
-registration declares on that node, each judged as the tolerant face judges it,
-and still refuses any other key by name (objectui#11022; the names are held to
-the live registration by a test in `@object-ui/plugin-dashboard`):
+A `metric-card` sitting directly in a dashboard's `widgets` slot is a
+component node whose props are its registration's `inputs`. Its node declares
+them — `title`, `value` (required), `icon`, `trend` and `trendValue`, with
+`description` from `BaseSchema` — so both faces judge each value by its member,
+and the strict face still refuses any other key by name (objectui#11022,
+objectui#11467; the members are held to the live registration and to
+`MetricCard`'s props by a test in `@object-ui/plugin-dashboard`). A widget's
+`component` slot takes the same node first; the strict face judges a card there
+by it, while the tolerant face also keeps `BaseSchema` for any other component
+node. The node also declares one widget key, `layout`, the spec's widget
+position, which the editable grid's Save Layout writes onto every entry; it is
+judged by the spec's shape (objectui#11070). `metric-card` is not a widget
+`type`, so the slot reads such a card through this node alone, and a card with
+no `value` is refused on both faces (objectui#11483):
 
 ```typescript
 import { StrictAnyComponentSchema } from '@object-ui/types/zod';
@@ -172,8 +230,38 @@ import { StrictAnyComponentSchema } from '@object-ui/types/zod';
 const card = (widget: object) => ({ type: 'dashboard', widgets: [widget] });
 
 StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42 })).success; // true
-StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', bogus: 1 })).success;  // false — `bogus` is named
+StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42, bogus: 1 })).success; // false — `bogus` is named
+StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', title: 'Revenue' })).success; // false — no `value`
+StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42, layout: { x: 0, y: 0, w: 3, h: 2 } })).success; // true
+StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42, trend: 'sideways' })).success; // false — not a trend
 ```
+
+### Writing a widget's `layout`
+
+A widget's `layout` is optional, but once present it is four numbers: the spec
+refuses a box that carries only `w` or only `h`. A widget with no `layout` is
+auto-placed by the grid. An editor that changes one dimension writes the whole
+box through `completeWidgetLayout`, seeding the coordinates it does not edit
+from the box the grid shows the widget in, which for a widget with no `layout`
+is `defaultWidgetPlacement(index)` (objectui#11388):
+
+```typescript
+import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
+import type { DashboardWidgetSchema } from '@object-ui/types';
+
+declare const widget: DashboardWidgetSchema;
+declare const index: number; // the widget's position in `widgets[]`
+
+const layout = completeWidgetLayout(widget.layout, { w: 6 }, defaultWidgetPlacement(index));
+// No `layout` at index 0 → { x: 0, y: 0, w: 6, h: 4 }; an existing box keeps its x, y and h.
+const next: DashboardWidgetSchema = { ...widget, layout };
+```
+
+The width and height editors in `@object-ui/app-shell` (Studio),
+`@object-ui/plugin-dashboard` (`DashboardWithConfig`) and
+`@object-ui/plugin-designer` (`DashboardEditor`) all write through it, and
+`DashboardGridLayout` places a widget with no `layout` through the same
+default.
 
 ## Type Categories
 
@@ -182,7 +270,11 @@ StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', bogus: 1 })).succ
 Foundation types that all components build upon:
 
 - `BaseSchema` - The base interface for all components
-- `SchemaNode` - Union type for schema nodes (objects, strings, numbers, etc.)
+- `SchemaNode` - What a node slot holds: a `DeclaredNode`, or a primitive rendered as text
+- `DeclaredNode` - The discriminated union, keyed by `type`, of every declared node type; every node slot and `SchemaRenderer`'s `schema` prop take it, so an inline child is checked against its own type and an undeclared `type` is refused
+- `CustomNodeRegistry` - The interface an application augments (`declare module '@object-ui/types'`) to declare a node type it registers, which then joins `DeclaredNode`
+- `AuthoringNode` - The spec-declared nodes with a typed `properties` bag (see "Authoring the spec's blocks in TypeScript")
+- `NODE_SLOT_DECLARATIONS` / `nodeSlotsFor(type)` - The per-type node slots beside `children`: where a renderer hands authored nodes back to `SchemaRenderer` through a key of its own (a dialog's `trigger`, a tab item's `content`, a page's `regions[].components`), spelled as key paths (`items[].content`). One declaration, read by `objectui check`, the core schema validator and the SDUI parser; `nodeSlotValues(node, path)` walks a node by it
 - `ComponentMeta` - Metadata for component registration
 - `ComponentInput` - Input field definitions for designers/editors
 
@@ -191,7 +283,7 @@ Foundation types that all components build upon:
 Structure and organization:
 
 - `ContainerSchema` - Max-width container
-- `FlexSchema` - Flexbox layout
+- `FlexSchema` - Flexbox layout, as the renderer reads it; an authored `flex` node writes its `FlexLayoutProps` in its `properties` bag
 - `GridSchema` - CSS Grid layout
 - `CardSchema` - Card container
 - `TabsSchema` - Tabbed interface
@@ -256,6 +348,13 @@ Advanced composite components:
 - `FilterBuilderSchema` - Advanced filter builder
 - `CarouselSchema` - Image/content carousel
 - `ChatbotSchema` - Chat interface
+
+### Action Components
+
+Server-driven actions and the nodes that render them:
+
+- `UIActionSchema` - One action: what it runs, where it renders (`locations`) and how it looks
+- `ActionBarSchema` - The location-aware action toolbar (`action:bar`), rendered by `@object-ui/components`; it declares no index signature, so a typed literal may write only the keys the renderer reads
 
 ### Data Management
 
@@ -325,33 +424,56 @@ function render(schema: AnySchema) {
 Components can nest indefinitely:
 
 ```typescript
-import type { ContainerSchema, FlexSchema, SidebarSchema } from '@object-ui/types';
+import type { ContainerSchema, FlexBlockNode, HeaderBarSchema, SidebarSchema } from '@object-ui/types';
 
-// The two leaves are annotated so the nesting below is checked against the
-// shipped types rather than absorbed by `BaseSchema`'s index signature.
+// The two leaves are annotated with their node types, so each is checked
+// against its own declaration (`BaseSchema` carries no index signature to
+// absorb a stray key, objectui#8347).
+// The sidebar draws what it composes through `children` (an app's navigation
+// lives in the app's metadata, not on this node), and `collapsible: false`
+// draws it in the page flow, beside `main`.
 const sidebar: SidebarSchema = {
   type: 'sidebar',
-  nav: [{ label: 'Home', href: '/' }]
+  collapsible: false,
+  children: [
+    { type: 'text', content: 'Menu' },
+    { type: 'button', label: 'Home', variant: 'ghost' }
+  ]
 };
 
 const main: ContainerSchema = {
   type: 'container',
-  children: [{ type: 'data-table', data: [] }]
+  children: [{ type: 'data-table', data: [], columns: [] }]
 };
 
-const page: FlexSchema = {
+// An authored `flex` node takes its props, the child list included, in its
+// `properties` bag. `FlexBlockNode` is that node, its bag closed, and each
+// entry of the bag's child list is checked as a node of its own `type`. The
+// nested `flex` names its type with `satisfies` too. That was needed while the
+// post-hoist `FlexSchema` inherited `BaseSchema`'s index signature, which
+// admitted any `properties`; objectui#8347 removed it, so the entry is judged
+// as `FlexBlockNode` either way, and the annotation stays as documentation.
+const page: FlexBlockNode = {
   type: 'flex',
-  direction: 'col',
-  children: [
-    { type: 'header-bar', crumbs: [{ label: 'My App' }] },
-    {
-      type: 'flex',
-      direction: 'row',
-      children: [sidebar, main]
-    }
-  ]
+  properties: {
+    direction: 'col',
+    children: [
+      { type: 'header-bar', crumbs: [{ label: 'My App' }] } satisfies HeaderBarSchema,
+      {
+        type: 'flex',
+        properties: {
+          direction: 'row',
+          children: [sidebar, main]
+        }
+      } satisfies FlexBlockNode
+    ]
+  }
 };
 ```
+
+`FlexSchema` is the same node as the `flex` renderer reads it, after `SchemaRenderer`
+hoists the bag onto the node; `objectui validate` refuses those props written flat on an
+authored node.
 
 ## Comparison
 

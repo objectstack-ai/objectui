@@ -61,7 +61,7 @@ const rows = [
   { description: 'Widget', qty: 1234.5, amount: 98765.25 },
   { description: 'Gadget', qty: 1, amount: 1000 },
 ];
-const field = { columns, total_field: 'amount' } as never;
+const field = { columns, totalField: 'amount' } as never;
 
 interface Surface {
   name: string;

@@ -54,8 +54,7 @@ code imports — nothing in `src/` of a released package may import this.
   `Object.keys(schema.shape)` cannot answer, because a retired key stays in the
   shape (objectui#3809). Consumed by
   `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` (both parity
-  directions), `packages/layout/src/__tests__/page-header-authorable-keys.test.tsx`,
-  `packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts`
+  directions), `packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts`
   and `packages/app-shell/src/views/metadata-admin/previews/__tests__/block-config.test.ts`
   (the last two converged off local structural-only copies by objectui#4947).
   No copy of the judgement is left in-tree: gates import this module, they do

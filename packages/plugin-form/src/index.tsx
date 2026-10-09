@@ -7,7 +7,7 @@
  */
 
 import React, { useContext } from 'react';
-import { ComponentRegistry, elementDataSourceBlock } from '@object-ui/core';
+import { ComponentRegistry, elementDataSourceBlock, type ComponentInput } from '@object-ui/core';
 import {
   ElementDataSourceGate,
   SchemaRendererContext,
@@ -17,6 +17,7 @@ import {
 } from '@object-ui/react';
 import type { DataSource } from '@object-ui/types';
 import { ObjectForm } from './ObjectForm';
+import { hasInlineFieldSource } from './submitTarget';
 
 export { ObjectForm };
 export type { ObjectFormComponentProps } from './ObjectForm';
@@ -144,6 +145,21 @@ export { resolveSectionGroupReferences } from './sectionGroups';
 export type { ResolveSectionGroupsOptions } from './sectionGroups';
 
 /**
+ * The field name a section entry resolves to — the identity rule of the three
+ * entry shapes `ObjectFormSection.fields` declares, spelled once
+ * (objectui#11615): a bare string is the name, the form view's `{ field }`
+ * entry names its field by `field`, an inline `FormField` by `name`;
+ * `undefined` when the entry names nothing.
+ *
+ * Published beside the resolver because the resolver RETURNS that union, and
+ * objectui#7324's rule applies to reading what a published function hands
+ * back as much as to naming what it takes: a consumer narrowing an entry by
+ * hand reads `.name` off a `{ field }` entry — the second dialect this one
+ * spelling exists to prevent. A pure function over plain data.
+ */
+export { sectionEntryName } from './sectionFields';
+
+/**
  * The parameter types those published signatures require, so a consumer can
  * NAME what it must pass (objectui#7324).
  *
@@ -207,29 +223,58 @@ const ObjectFormRenderer: React.FC<{ schema: any; dataSource?: unknown }> = elem
       // `ObjectForm` builds its fields from the object's metadata, which only an
       // adapter can serve — its own effect calls the branch it comments as
       // "cannot proceed" and then renders a field-less card in silence
-      // (objectui#5378 item 2). The one escape hatch is inline `customFields`,
-      // which is exactly what `hasInlineFields` gates on inside the component,
-      // so the two stay in step. A form with no `objectName` is a different
-      // defect and is left to report itself.
+      // (objectui#5378 item 2). The one escape hatch HERE is inline
+      // `customFields`. ⚠️ This gate is narrower than the components: every
+      // layout, `simple` included since objectui#11615, treats the shared
+      // `hasInlineFieldSource` as its members-only field source — non-empty
+      // `customFields`, OR sections whose every entry is an inline `FormField`
+      // — so a form with an `objectName`, no adapter and all-inline sections is
+      // refused here although any layout would draw it as a collector. Not
+      // aligned in that card on purpose (it would move this door's behaviour);
+      // the two are known to be out of step for that shape. A form with no
+      // `objectName` is a different defect, answered by `requiresObject` below.
       requiresDataSource={
         !(schema?.customFields?.length > 0)
         && typeof schema?.objectName === 'string'
         && schema.objectName.length > 0
       }
       noDataSourceMessage={noDataSourceMessage('object-form', schema?.objectName)}
+      // A form that names its object in neither place (objectui#11605) drew a
+      // field-less card with Cancel and Update buttons. A form whose fields are
+      // declared inline is a target-less collector and needs no object: the
+      // shared `hasInlineFieldSource` answers that for every variant, both
+      // non-empty `customFields` and the sectioned variants' fully-inline
+      // `sections` (objectui#10254).
+      requiresObject={!hasInlineFieldSource(schema)}
     >
       {(bound) => <ObjectForm schema={bound} dataSource={dataSource} />}
     </ElementDataSourceGate>
   );
 });
 
+/**
+ * The `objectName` input `object-form` and `view:form` publish (one renderer,
+ * one declaration). NOT required, as on the spec row (objectui#11605):
+ * `ComponentPropsMap['object-form']` leaves `objectName` optional "because the
+ * component-level `dataSource` binding can supply the object instead", and
+ * `ObjectFormRenderer` lands `dataSource.object` here. The page compile reads
+ * this list, so `required: true` refused a bound node the row and the renderer
+ * accept. A node with neither is answered by the gate's "no object named" hint.
+ */
+const OBJECT_FORM_OBJECT_NAME_INPUT: ComponentInput = {
+  name: 'objectName',
+  type: 'string',
+  description:
+    'Object this form creates or edits. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline fields (non-empty `customFields`, or `sections` whose every field is inline), the form shows a hint naming this key instead of a form with no fields.',
+};
+
 ComponentRegistry.register('object-form', ObjectFormRenderer, {
   namespace: 'plugin-form',
   label: 'Object Form',
   category: 'plugin',
   inputs: [
-    { name: 'objectName', type: 'string', required: true },
-    { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema; `{ name }` is tolerated). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (SimpleObjectForm in ObjectForm.tsx; buildFlatFields in flatFields.ts for the drawer/modal presentations).' },
+    { ...OBJECT_FORM_OBJECT_NAME_INPUT },
+    { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (SimpleObjectForm in ObjectForm.tsx; buildFlatFields in flatFields.ts for the drawer/modal presentations).' },
     { name: 'mode', type: 'enum', enum: ['create', 'edit', 'view'] },
     { name: 'formType', type: 'enum', enum: ['simple', 'tabbed', 'wizard', 'split', 'drawer', 'modal'] },
     { name: 'sections', type: 'array' },
@@ -254,7 +299,12 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
       description:
         'Subtitle under the drawer and modal heading. Accepts either a plain string or an inline per-locale map (`{ en: "Enter the order details", "zh-CN": "填写订单信息" }`), resolved against the active UI language with the same fallback chain as `title`.',
     },
-    { name: 'layout', type: 'enum', enum: ['vertical', 'horizontal', 'inline', 'grid'] },
+    // `inline` / `grid` RETIRED (objectui#11168 slice 3, objectui#7759 group C):
+    // `@objectstack/spec` 17.5.0's row refuses both (objectstack#20221), and
+    // measured through the real `SchemaRenderer` both rendered byte-identical
+    // to `vertical` — every layout folded them away. The authored bag already
+    // refused them by reference to the row; this publishes what it accepts.
+    { name: 'layout', type: 'enum', enum: ['vertical', 'horizontal'], description: 'Label placement: `vertical` puts each label above its field (the default), `horizontal` beside it.' },
     { name: 'columns', type: 'number' },
     // Tabbed
     { name: 'defaultTab', type: 'string' },
@@ -271,7 +321,7 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
     { name: 'drawerWidth', type: 'string' },
     // Modal
     { name: 'modalSize', type: 'enum', enum: ['sm', 'default', 'lg', 'xl', 'full'] },
-    { name: 'modalCloseButton', type: 'boolean', description: 'Meant to show or hide the modal presentation’s close button. `ObjectForm`’s modal route forwards it (`modalCloseButton: schema.modalCloseButton`), but `ModalForm` only declares the key and never reads it: the close button renders either way, so `false` does not hide it.' },
+    { name: 'modalCloseButton', type: 'boolean', description: 'Show the modal presentation’s close (X) button. Default `true`; `false` hides it. Forwarded by `ObjectForm`’s modal route and honoured by `ModalForm` on both of its dialog arms. With the button hidden the modal still closes on Escape, and on the Cancel action when that is shown.' },
     { name: 'contentLayout', type: 'enum', enum: ['simple', 'tabbed'], description: 'How the modal presentation lays out sections. `tabbed` differs from `simple` only when more than one section has a field to show (`ModalForm` tests `schema.contentLayout === "tabbed" && groups.length > 1`).' },
     { name: 'confirmOnDiscard', type: 'boolean', description: 'Ask before discarding unsaved edits when a drawer/modal form is dismissed. Set `false` to close immediately.' },
     // Record binding
@@ -332,8 +382,8 @@ ComponentRegistry.register('form', ObjectFormRenderer, {
   label: 'Data Form View',
   category: 'view',
   inputs: [
-    { name: 'objectName', type: 'string', required: true },
-    { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema; `{ name }` is tolerated). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (this renders through the same `ObjectFormRenderer` / `SimpleObjectForm` as `object-form` above — see its `fields` description).' },
+    { ...OBJECT_FORM_OBJECT_NAME_INPUT },
+    { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (this renders through the same `ObjectFormRenderer` / `SimpleObjectForm` as `object-form` above — see its `fields` description).' },
     { name: 'mode', type: 'enum', enum: ['create', 'edit', 'view'] },
   ]
 });
@@ -380,6 +430,10 @@ const EmbeddableFormRenderer: React.FC<{ schema: any }> = elementDataSourceBlock
       dataSource={dataSource}
       testId="embeddable-form"
       errorTitle="This form’s data source could not be resolved"
+      // A public form that names its object in neither place has no fields to
+      // fetch and no object to `create()` the submission in, and drew an empty
+      // form with a Submit button (objectui#11605).
+      requiresObject
     >
       {(bound) => <EmbeddableForm config={bound} dataSource={dataSource} />}
     </ElementDataSourceGate>
@@ -392,31 +446,49 @@ ComponentRegistry.register('embeddable-form', EmbeddableFormRenderer, {
   category: 'plugin',
   inputs: [
     { name: 'formId', type: 'string', required: true },
-    { name: 'objectName', type: 'string', required: true },
+    // NOT required (objectui#11605). This block has no `ComponentPropsMap` row;
+    // the contract is the binding doc (`content/docs/guide/data-source.md`, "a
+    // node bound this way needs no `objectName` of its own"), and
+    // `EmbeddableFormRenderer` lands `dataSource.object` here. The page compile
+    // reads this list, so `required: true` refused a bound node the renderer
+    // accepts. A node with neither is answered by the gate's hint.
+    {
+      name: 'objectName',
+      type: 'string',
+      description:
+        'Object the form creates a record in. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, the form shows a hint naming this key instead of a form that cannot submit.',
+    },
     { name: 'title', type: 'string' },
     { name: 'description', type: 'string' },
-    { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema; `{ name }` is tolerated). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (`EmbeddableForm` passes this array straight through to `<ObjectForm>` with no `sections`, so it renders through the same `SimpleObjectForm` as `object-form` above — see its `fields` description).' },
+    { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (`EmbeddableForm` passes this array straight through to `<ObjectForm>` with no `sections`, so it renders through the same `SimpleObjectForm` as `object-form` above — see its `fields` description).' },
     { name: 'allowMultiple', type: 'boolean' },
   ]
 });
 
-// Register form-analytics component for submission dashboards
-import { FormAnalytics } from './FormAnalytics';
-
-const FormAnalyticsRenderer: React.FC<{ schema: any }> = ({ schema }) => {
-  return <FormAnalytics formId={schema.formId} formTitle={schema.formTitle} metrics={schema.metrics || { totalSubmissions: 0 }} />;
-};
-
-ComponentRegistry.register('form-analytics', FormAnalyticsRenderer, {
-  namespace: 'plugin-form',
-  label: 'Form Analytics',
-  category: 'plugin',
-  inputs: [
-    { name: 'formId', type: 'string', required: true },
-    { name: 'formTitle', type: 'string' },
-    { name: 'metrics', type: 'object' },
-  ]
-});
+/**
+ * ⛔ The `form-analytics` node type key is RETIRED (objectui#10859 batch 8, phase 2b,
+ * the seat's ruling on that card, by the objectui#10393 / objectui#8760 route).
+ * `FormAnalytics` itself stays a named export of this package; a host that
+ * wants the submission dashboard mounts the React component directly.
+ *
+ * ## What was here, and why it went
+ *
+ * `ComponentRegistry.register('form-analytics', FormAnalyticsRenderer, {
+ * namespace: 'plugin-form', ... })` — a thin renderer mapping `formId` /
+ * `formTitle` / `metrics` onto `FormAnalytics`.
+ * It stored both `plugin-form:form-analytics` and the bare `form-analytics` fallback.
+ * No `@object-ui/types` arm claims it, so `objectui validate` refused a node
+ * authored `type: 'form-analytics'` at `type` while the registry mounted it.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the node: 0 producers in source, docs, examples, the catalog
+ * or objectstack, and 0 runtime emission, re-measured for phase 2b. The ruling's
+ * criterion ("does the mainstream have it?") answered no for a NODE: the
+ * mainstream keeps submission analytics inside the forms product, not as an
+ * authorable block. The README and `plugin-form.mdx` key-table rows went in
+ * the same change.
+ */
 
 // Register master-detail composite form (parent + child line items, entered
 // together — see ADR-0001).
@@ -445,6 +517,10 @@ const MasterDetailFormRenderer: React.FC<{ schema: any }> = elementDataSourceBlo
       dataSource={dataSource}
       testId="object-master-detail-form"
       errorTitle="This form’s data source could not be resolved"
+      // With no parent object in either place there is no parent form to draw
+      // and no relationship to derive: it drew an empty parent and a detail
+      // hint about a missing link to a blank parent (objectui#11605).
+      requiresObject
     >
       {(bound) => <MasterDetailForm schema={bound} dataSource={dataSource} />}
     </ElementDataSourceGate>
@@ -456,10 +532,36 @@ ComponentRegistry.register('object-master-detail-form', MasterDetailFormRenderer
   label: 'Master-Detail Form',
   category: 'plugin',
   inputs: [
-    { name: 'objectName', type: 'string', required: true },
+    // NOT required, as on the spec row (objectui#11605):
+    // `ComponentPropsMap['object-master-detail-form']` leaves the PARENT
+    // `objectName` optional "because the component-level `dataSource` binding
+    // can supply the object instead", and `MasterDetailFormRenderer` lands
+    // `dataSource.object` here. The page compile reads this list, so
+    // `required: true` refused a bound node the row and the renderer accept. A
+    // node with neither is answered by the gate's hint.
+    {
+      name: 'objectName',
+      type: 'string',
+      description:
+        'The PARENT object this form creates or edits. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, the form shows a hint naming this key instead of an empty parent form.',
+    },
     { name: 'mode', type: 'enum', enum: ['create', 'edit'] },
     { name: 'sections', type: 'array' },
-    { name: 'details', type: 'array', required: true },
+    // `of: 'object'` is DERIVED from the contract, as `ComponentInput.of`
+    // prescribes (objectui#11396): since `@objectstack/spec` 17.6.0 the row's
+    // `details` member is a closed object entry (objectstack-ai/objectstack#21215),
+    // the one coarse kind the spec accepts there, and the console parity gate's
+    // member direction witnesses the declaration against the spec row. The
+    // entry's TypeScript face is `MasterDetailDetailConfig`, derived from the
+    // same spec entry by reference (MasterDetailForm.tsx).
+    {
+      name: 'details',
+      type: 'array',
+      of: 'object',
+      required: true,
+      description:
+        'The child collections, one OBJECT per entry, judged by the spec\'s closed `details` entry: `childObject` (required) names the child object; `relationshipField` is the FK on the child back to the parent, derived from the child\'s metadata when omitted; `columns` are the line grid\'s columns as the spec\'s inline grid column objects (`{ name, … }`, never a bare field name), derived from the child\'s fields when omitted; `formFields` names the per-row form\'s fields; `inlineMode` is `grid` (editable cells) or `form` (list + per-row form); `amountField` is the CHILD column summed and `totalField` the PARENT field that sum is saved to; `title`, `minRows`, `maxRows` and `addLabel` dress the section and its grid. An undeclared member key is refused by name. `sortField` is not a member: the line-position field is derived from the child object (objectui#11070), and since `@objectstack/spec` 17.7.0 the entry refuses an authored `sortField` with the spec\'s retired-key message (objectstack-ai/objectstack#21589).',
+    },
     { name: 'recordId', type: 'string', description: 'The parent record to load in `edit` mode. Leave unset for `create`.' },
     // TWO values, not the six `object-form` declares (objectui#5939). A bare
     // `string` here let an out-of-vocabulary value match NO renderer branch and
@@ -479,7 +581,7 @@ ComponentRegistry.register('object-master-detail-form', MasterDetailFormRenderer
     // Declaring them would mint choices an authoring UI offers and this block
     // cannot honour.
     { name: 'formType', type: 'enum', enum: ['simple', 'tabbed'], description: 'How the PARENT half of the form is presented. The detail grids below it are unaffected.' },
-    { name: 'fields', type: 'array', description: 'Which parent fields to show, in order — and it is NOT ignored when `sections` is given: the two INTERSECT. The parent field pool is built from this key first and every section then resolves its own members against that pool, so a section member this key does not list is dropped from the rendered form, and a section that loses EVERY member that way disappears with its heading. Each such drop is reported once via `console.warn` (objectui#9884); it is not repaired, because this key is also the parent pool for values, create defaults and the submitted set. Author one or the other, or list every section member here too. Members are bare field names (`{ name }` tolerated); NOT the spec `FormFieldSchema` object `sections[].fields` accepts (identity key `field`) — that shape resolves to no name here and is silently skipped (the parent form renders through the same `ObjectForm` / `SimpleObjectForm` as `object-form` — see its `fields` description).' },
+    { name: 'fields', type: 'array', description: 'Which parent fields to show, in order — and it is NOT ignored when `sections` is given: the two INTERSECT. The parent field pool is built from this key first and every section then resolves its NAMED members (a bare name, or the `{ field }` entry) against that pool, so such a member this key does not list is dropped from the rendered form, and a section that loses EVERY member that way disappears with its heading. An inline field entry (`{ name, type, … }`) names nothing to resolve and is drawn whatever this key lists, as on every form type (objectui#11615). Each such drop is reported once via `console.warn` (objectui#9884); it is not repaired, because this key bounds what the form DRAWS and edits, not what Save writes: on a create, the submitted set is the drawn fields plus any parent value seeded through `initialValues` (or its alternate spelling `initialData`), drawn or not. A seed for an undeclared, server-owned, computed or read-only field is still stripped, as on any save. Author one or the other, or list every section member here too. Members are bare field names; NOT the spec `FormFieldSchema` object `sections[].fields` accepts (identity key `field`) — that shape resolves to no name here and is silently skipped (the parent form renders through the same `ObjectForm` / `SimpleObjectForm` as `object-form` — see its `fields` description).' },
     // The three labels are the spec's `I18nLabel` (`ComponentPropsMap
     // ['object-master-detail-form']`), and `MasterDetailForm` resolves a map
     // with `pickLocalized` against the active UI language (objectui#10935). So
@@ -498,13 +600,13 @@ ComponentRegistry.register('object-master-detail-form', MasterDetailFormRenderer
       name: 'submitText',
       type: ['string', 'object'],
       description:
-        'Label of the button that saves the parent and every detail row in one batch. Defaults to "Save" when editing a record (`mode: "edit"` with a `recordId`) and to "Create" otherwise; an empty string, or a map no locale limb resolves, shows the default too. Accepts either a plain string or an inline per-locale map (`{ en: "Save order", "zh-CN": "保存订单" }`), resolved against the active UI language with the same fallback chain as `title`.',
+        'Label of the button that saves the parent and every detail row in one batch. Defaults to "Save" when editing a record (`mode: "edit"` with a `recordId`) and to "Create" otherwise, in the active UI language; an empty string, or a map no locale limb resolves, shows the default too. Accepts either a plain string or an inline per-locale map (`{ en: "Save order", "zh-CN": "保存订单" }`), resolved against the active UI language with the same fallback chain as `title`.',
     },
     {
       name: 'cancelText',
       type: ['string', 'object'],
       description:
-        'Label of the Cancel button, which renders only when the host supplies an `onCancel` callback (a runtime slot, not authorable in a JSON document). Defaults to "Cancel"; an empty string, or a map no locale limb resolves, shows the default too. Accepts either a plain string or an inline per-locale map (`{ en: "Back", "zh-CN": "返回" }`), resolved against the active UI language with the same fallback chain as `title`.',
+        'Label of the Cancel button, which renders only when the host supplies an `onCancel` callback (a runtime slot, not authorable in a JSON document). Defaults to "Cancel", in the active UI language; an empty string, or a map no locale limb resolves, shows the default too. Accepts either a plain string or an inline per-locale map (`{ en: "Back", "zh-CN": "返回" }`), resolved against the active UI language with the same fallback chain as `title`.',
     },
     { name: 'showSubmit', type: 'boolean' },
     { name: 'initialValues', type: 'object', description: 'Values to prefill on the PARENT record in `create` mode.' },
@@ -576,11 +678,96 @@ ComponentRegistry.register('line_items', LineItemsPanelRenderer, {
   skipFallback: true,
   label: 'Line Items',
   category: 'record',
+  // Mirrors `@objectstack/spec` `RecordLineItemsProps` (17.6.0), key for key.
+  //
+  // The ten keys after `amountField` were DECLARED by objectui#11536, each by
+  // measurement rather than by copying the row: every one is authored in the
+  // spec's `{ type, properties }` form through the real `SchemaRenderer` and
+  // this registration, beside a control without it, and every one moves the
+  // panel (`__tests__/lineItemsDeclaredInputs-11536.test.tsx`). `filter` /
+  // `sort` / `limit` are read as TOP-LEVEL keys, not only as `dataSource`
+  // members: with no binding the gate hands the schema through untouched and
+  // `LineItemsPanel` reads them itself; with one, the gate composes them with
+  // the binding before the panel reads them. A key the panel does not read is
+  // not declared here, and none of the row's fifteen is such a key.
+  //
+  // `childObject` is NOT required, as on the row (objectui#11569): the node's
+  // `dataSource` binding can supply it, and the page compile reads this list,
+  // so `required: true` here refused a bound node the row and the renderer
+  // accept. The manifest has no "one of these is required" form, so a node
+  // with neither is left to the panel's configuration hint.
   inputs: [
-    { name: 'childObject', type: 'string', required: true },
+    {
+      name: 'childObject',
+      type: 'string',
+      description:
+        'The child object whose records the panel lists, edits and saves. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, the panel shows a configuration hint naming this key and loads nothing.',
+    },
     { name: 'relationshipField', type: 'string', required: true },
     { name: 'columns', type: 'array', required: true },
     { name: 'totalField', type: 'string' },
     { name: 'amountField', type: 'string' },
+    {
+      name: 'parentObject',
+      type: 'string',
+      description:
+        'The PARENT object the line total is written to on Save, together with `totalField`. Defaults to the object of the record the page shows, and outranks it when set. With neither, Save writes the lines alone and no parent field.',
+    },
+    {
+      name: 'parentId',
+      type: 'string',
+      description:
+        'The parent record whose lines the panel lists and saves: it loads `childObject` rows whose `relationshipField` equals this id, and a line added in the grid is saved with this id in `relationshipField`. Outranks `recordId` and the record the page shows; leave it unset on a record page, where the record shown is the parent. With no parent id at all the panel asks the user to save the record first and loads nothing.',
+    },
+    {
+      name: 'recordId',
+      type: 'string',
+      description:
+        'The parent record id, read only when `parentId` is unset. It outranks the record the page shows.',
+    },
+    {
+      name: 'title',
+      type: 'string',
+      description:
+        'Heading of the panel. Defaults to "Line Items" in the active UI language. A plain string, drawn as authored.',
+    },
+    {
+      name: 'readonly',
+      type: 'boolean',
+      description:
+        'Shows the lines without editing: no Save button, no Add line / Duplicate row / Remove row actions, and the grid draws a read-only table.',
+    },
+    {
+      name: 'minRows',
+      type: 'number',
+      description:
+        'Fewest lines the user can leave: every line\'s Remove row action is disabled while the grid holds this many lines or fewer. It adds no blank lines to reach the number.',
+    },
+    {
+      name: 'maxRows',
+      type: 'number',
+      description:
+        'Most lines the user can hold: at this many lines Add line and Duplicate row are disabled and the trailing blank entry row is not drawn.',
+    },
+    {
+      name: 'filter',
+      type: 'array',
+      of: 'object',
+      description:
+        'Additional criteria for the lines, as spec `ViewFilterRule` entries (`[{ field, operator, value }]`). AND-combined with the parent relationship condition, never a replacement for it: it can only narrow this record\'s lines. Also the key a per-element `dataSource` binding\'s composed filter lands on.',
+    },
+    {
+      name: 'sort',
+      type: 'array',
+      of: 'object',
+      description:
+        'Load order for the lines, as `[{ field, order }]` entries applied in list order; `order` is `asc` or `desc`. Without it the lines arrive in storage order.',
+    },
+    {
+      name: 'limit',
+      type: 'number',
+      description:
+        'Most lines loaded (default 500). The grid has no pagination: every loaded line is editable and saved as one batch, and lines past the cap are not loaded. Must be a positive integer: any other value is ignored, with a console warning.',
+    },
   ],
 });

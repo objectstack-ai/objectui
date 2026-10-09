@@ -35,6 +35,11 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@object-ui/components';
 import {
   Globe, Play, Copy, Check, ChevronDown, ChevronRight, Clock,
@@ -95,6 +100,57 @@ function readRequestPreset(search: URLSearchParams): { path: string; method: Htt
   if (!path || !path.startsWith('/api/')) return null;
   const method = search.get('method')?.toUpperCase();
   return { path, method: REQUEST_METHODS.find((m) => m === method) ?? '' };
+}
+
+/** The item a held method none of the selector's verbs carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — the method selector, drawn with the shared `Select` the rest
+ * of the console picks with. It used to be a browser-native `<select>`. What a
+ * pick writes is unchanged: `onPick` receives the picked verb, the string the
+ * native control's `change` carried, and the page sends with it as before.
+ *
+ * - Items carry their option's INDEX, not its value, as every picker on
+ *   objectui#11865 does, and a held method none of {@link REQUEST_METHODS}
+ *   carries gets an item of its own, labelled with the method, so the trigger
+ *   shows what Send would use. Every source of the method is typed
+ *   `HttpMethod`, so that item is the pattern's guard, not a path this page
+ *   takes today.
+ * - The trigger keeps the native control's verb colours ({@link METHOD_COLORS}).
+ */
+function MethodPicker({
+  value,
+  onPick,
+}: {
+  value: HttpMethod;
+  onPick: (method: HttpMethod) => void;
+}) {
+  const at = REQUEST_METHODS.indexOf(value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the held method, so there is nothing to write.
+        const picked = REQUEST_METHODS[Number(token)];
+        if (picked) onPick(picked);
+      }}
+    >
+      <SelectTrigger
+        className={`h-auto w-auto gap-1.5 px-2 py-1.5 font-mono text-xs font-semibold focus:ring-1 focus:ring-offset-0 ${METHOD_COLORS[value] || ''}`}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {REQUEST_METHODS.map((m, i) => (
+          <SelectItem key={m} value={String(i)} className="font-mono text-xs">
+            {m}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 export function ApiConsolePage() {
@@ -407,15 +463,7 @@ export function ApiConsolePage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="p-3 border-b space-y-1">
           <div className="flex items-center gap-2">
-            <select
-              value={effectiveMethod}
-              onChange={e => setMethodOverride(e.target.value as HttpMethod)}
-              className={`rounded-md border bg-background px-2 py-1.5 font-mono text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-ring ${METHOD_COLORS[effectiveMethod] || ''}`}
-            >
-              {REQUEST_METHODS.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+            <MethodPicker value={effectiveMethod} onPick={setMethodOverride} />
             <input
               type="text"
               value={basePath}

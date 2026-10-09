@@ -190,6 +190,13 @@ const element = (base: { type: string; id: string; properties: Record<string, un
   ...base,
   properties: { ...base.properties, filter },
 });
+// `element:number` and `element:record_picker` read their query from the
+// node-level `dataSource` binding only (objectui#11880), so the filter and the
+// object ride there.
+const bound = (base: { type: string; id: string; properties: Record<string, unknown> }) => (filter: Filter) => ({
+  ...base,
+  dataSource: { object: OBJECT, filter },
+});
 
 const INLINE = { provider: 'value', items: [{ ...ROW }] };
 
@@ -229,11 +236,11 @@ const ROWS: NodeRow[] = [
   { node: 'element:repeater', shape: 'tuple', path: 'dataSource', filterParam: '$filter',
     withFilter: element({ type: 'element:repeater', id: 'rep', properties: { object: OBJECT, fields: ['name'] } }) },
   { node: 'element:number (aggregate)', shape: 'tuple', path: 'dataSource', filterParam: 'filter', aggregate: true,
-    withFilter: element({ type: 'element:number', id: 'num', properties: { object: OBJECT, aggregate: 'count' } }) },
+    withFilter: bound({ type: 'element:number', id: 'num', properties: { aggregate: 'count' } }) },
   { node: 'element:number (find fallback)', shape: 'tuple', path: 'dataSource', filterParam: '$filter', aggregate: false,
-    withFilter: element({ type: 'element:number', id: 'num', properties: { object: OBJECT, aggregate: 'count' } }) },
+    withFilter: bound({ type: 'element:number', id: 'num', properties: { aggregate: 'count' } }) },
   { node: 'element:record_picker', shape: 'rule', path: 'dataSource', filterParam: '$filter',
-    withFilter: element({ type: 'element:record_picker', id: 'rp', properties: { object: OBJECT } }) },
+    withFilter: bound({ type: 'element:record_picker', id: 'rp', properties: {} }) },
   // Regression rows (objectui#10607, objectui#10666 part 1).
   { node: 'object-gallery (regression)', shape: 'tuple', path: 'dataSource', filterParam: '$filter',
     withFilter: top({ type: 'object-gallery', objectName: OBJECT, gallery: { titleField: 'name' } }) },

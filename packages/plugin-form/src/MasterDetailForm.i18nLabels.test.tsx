@@ -27,8 +27,11 @@
  * and fail the row: the rows can pass only by following the active language.
  *
  * The plain-string rows and the nothing-authored rows are the controls. A
- * string stays exactly what was authored, and the English defaults stay
- * byte-identical.
+ * string stays exactly what was authored, and with nothing authored the zh
+ * pack's own defaults show: the Save / Create / Cancel labels and the built-in
+ * save toast read the i18n catalogue since objectui#11039, so under this `zh`
+ * UI they are 保存 / 创建 / 取消 and 已保存, and a `title` is named in the zh
+ * pack's `form.savedNamed` ("{{title}}已保存").
  */
 
 import React from 'react';
@@ -63,7 +66,8 @@ vi.mock('@object-ui/components/ui/sonner', async (importOriginal) => {
 
 import { I18nProvider } from '@object-ui/i18n';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { BaseSchema, DataSource, I18nLabel } from '@object-ui/types';
+import type { DataSource, I18nLabel } from '@object-ui/types';
+import { undeclaredNode } from '@object-ui/test-support';
 import { safeValidateSchema } from '@object-ui/types/zod';
 import { registerAllFields } from '@object-ui/fields';
 // Registers `object-master-detail-form` — the block under test.
@@ -140,7 +144,10 @@ function mount(properties: Record<string, unknown>, host: Record<string, unknown
   const view = render(
     <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false, resources: {} }}>
       <SchemaRendererProvider dataSource={ds as unknown as DataSource}>
-        <SchemaRenderer schema={{ ...doc(properties), ...host } as BaseSchema} />
+        {/* `host` merges runtime slots (`onCancel`, a function) into the node, which
+            no node type declares; it crosses through the one test helper for
+            undeclared input (objectui#11466). */}
+        <SchemaRenderer schema={undeclaredNode({ ...doc(properties), ...host })} />
       </SchemaRendererProvider>
     </I18nProvider>,
   );
@@ -208,7 +215,7 @@ describe('object-master-detail-form — `title` / `submitText` / `cancelText` ar
   it('a locale-map `title` reads in the active locale in the edit-save toast', async () => {
     const { container, ds } = mount({ mode: 'edit', recordId: 'po1', title: TITLE_MAP });
 
-    expect(await saveEdit(container, ds)).toEqual(['采购单 saved']);
+    expect(await saveEdit(container, ds)).toEqual(['采购单已保存']);
     expect(container.innerHTML).not.toContain('[object Object]');
   });
 
@@ -220,17 +227,19 @@ describe('object-master-detail-form — `title` / `submitText` / `cancelText` ar
 
     expect((await submitButton()).textContent).toBe('Save PO');
     expect((await cancelButton()).textContent).toBe('Discard');
-    expect(await saveEdit(container, ds)).toEqual(['PO saved']);
+    expect(await saveEdit(container, ds)).toEqual(['PO已保存']);
   });
 
-  it('CONTROL: with nothing authored, the English defaults are unchanged', async () => {
+  it('CONTROL: with nothing authored, the zh pack\'s defaults show (objectui#11039)', async () => {
     const create = mount({}, { onCancel: vi.fn() });
-    expect((await submitButton()).textContent).toBe('Create');
-    expect((await cancelButton()).textContent).toBe('Cancel');
+    // `waitFor`, not a bare read: the zh catalogue loads after the first
+    // render, and until it lands the fallback language answers.
+    await waitFor(async () => expect((await submitButton()).textContent).toBe('创建'));
+    expect((await cancelButton()).textContent).toBe('取消');
     create.unmount();
 
     const { container, ds } = mount({ mode: 'edit', recordId: 'po1' });
-    expect((await submitButton()).textContent).toBe('Save');
-    expect(await saveEdit(container, ds)).toEqual(['Saved']);
+    await waitFor(async () => expect((await submitButton()).textContent).toBe('保存'));
+    expect(await saveEdit(container, ds)).toEqual(['已保存']);
   });
 });

@@ -251,7 +251,7 @@ describe('ObjectGrid link column — must-not-change (#4490)', () => {
     const { container } = renderGrid({
       columns: [
         { field: 'name', label: 'Name', link: true },
-        { field: 'account_id', label: 'Account', type: 'lookup', reference_to: 'crm_account' },
+        { field: 'account_id', label: 'Account', type: 'lookup', reference: 'crm_account' },
       ],
     });
     await firstLinkCell();

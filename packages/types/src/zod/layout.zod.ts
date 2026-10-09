@@ -22,10 +22,17 @@ import {
   PageSchema as SpecPageSchema,
   PageTypeSchema as SpecPageTypeSchema,
   PageVariableSchema as SpecPageVariableSchema,
+  checkPageRequiresKind,
   checkPageSourceCompleteness,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema, specFieldsExcept } from './base.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
+// objectui#10872 batch 9 — the node-level `responsiveStyles` fragment the public
+// blocks declare, spread into `FlexSchema` below. objectui#11276 — the bag and
+// flat-prop helpers the authored `flex` arm (`FlexBlockSchema`) is built with.
+// `./public-blocks.zod.ts` imports nothing from this module, so this adds no
+// cycle.
+import { NODE_ENVELOPE, flatPropRefusals, propsBag } from './public-blocks.zod.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -293,6 +300,96 @@ export const SeparatorSchema = BaseSchema.extend({
 });
 
 /**
+ * A numeric layout key closed to the set its renderer maps, with a refusal that
+ * names it (objectui#11424; generalised by objectui#11474 to every spacing key,
+ * and by objectui#11491 to `grid.columns`, a count, under the name this helper
+ * now has — it was `rendererSpacingSteps`).
+ *
+ * `container.padding`, `stack.gap`, `flex.gap`, `grid.gap` and `grid.columns`
+ * are not keys `@objectstack/spec` declares, so each read site is the truth
+ * (the objectui#7759 ruling, the one objectui#10286 applied to
+ * `container.maxWidth`). Each renderer maps a closed set of numbers to utility
+ * classes. A spacing step outside its set reaches no rule in the compiled
+ * stylesheet, so the node renders without that spacing at all — not even the
+ * default, which `??` supplies only for an absent key. A column count outside
+ * `grid`'s set drew no column class where it was authored. `z.number()`
+ * accepted such numbers. ⛔ The renderers neither round, clamp nor substitute
+ * an unmapped number, and must not start: the declaration closes to the set
+ * instead.
+ *
+ * The literal union is the refusal's carrier: zod's `invalid_value` issue
+ * lists the accepted values, and the message spells the same list out. A key
+ * that also takes an object of the same set keyed by breakpoint
+ * (`grid.columns`) passes `shape`, which builds that union from the ONE closed
+ * literal and gives the union the same refusal, so the set is named whichever
+ * arm the authored value missed.
+ *
+ * `components/src/__tests__/layout-spacing-sets-11474.test.tsx` enumerates
+ * every registered layout renderer's numeric input, re-derives each set by
+ * rendering the real node and reading which values draw a class the package's
+ * compiled stylesheet defines, and holds this declaration and the
+ * registration's closed `enum` to it, so the three cannot part silently.
+ */
+interface RendererMappedSetSpec<Steps extends readonly [number, ...number[]]> {
+  /** The node type, as authored. */
+  node: string;
+  /** The numeric key on that node. */
+  key: keyof typeof MAPPED_SET_WORDING;
+  /** The values the renderer maps, in ascending order. */
+  steps: Steps;
+  /** The value the renderer applies when the key is absent. */
+  fallback: Steps[number];
+  /** The card that closed this key. */
+  card: string;
+  /** What an unmapped number did, measured, ending with the refusal's reason. */
+  unmapped: string;
+}
+
+/** How each closed key's set is spoken of, in its refusal and its describe. */
+const MAPPED_SET_WORDING = {
+  gap: { noun: 'Gap step', unit: 'step', maps: 'a gap class', zero: true, forms: '' },
+  padding: { noun: 'Padding step', unit: 'step', maps: 'a padding class', zero: true, forms: '' },
+  columns: {
+    noun: 'Column count',
+    unit: 'count',
+    maps: 'a column class, as the bare number and at every breakpoint of the object form',
+    zero: false,
+    forms: ', bare or per breakpoint',
+  },
+} as const;
+
+function rendererMappedSet<const Steps extends readonly [number, ...number[]]>(
+  spec: RendererMappedSetSpec<Steps>,
+): z.ZodOptional<z.ZodLiteral<Steps[number]>>;
+function rendererMappedSet<const Steps extends readonly [number, ...number[]], Shape extends z.ZodType>(
+  spec: RendererMappedSetSpec<Steps>,
+  shape: (closed: z.ZodLiteral<Steps[number]>, refusal: string) => Shape,
+): z.ZodOptional<Shape>;
+function rendererMappedSet(
+  spec: RendererMappedSetSpec<readonly [number, ...number[]]>,
+  shape?: (closed: z.ZodLiteral<number>, refusal: string) => z.ZodType,
+): z.ZodOptional<z.ZodType> {
+  const set = spec.steps.join(', ');
+  const words = MAPPED_SET_WORDING[spec.key];
+  const refusal =
+    `\`${spec.key}\` on a \`${spec.node}\` is one of ${set} (${spec.card}): those are the ${words.unit}s the ` +
+    `renderer maps to ${words.maps}${words.zero ? ', and `0` means none' : ''}. ${spec.unmapped} ` +
+    `Pick the ${words.unit} you meant from that set.`;
+  const closed = z.literal(spec.steps, { error: refusal });
+  return (shape ? shape(closed, refusal) : closed)
+    .optional()
+    .describe(`${words.noun}, one of ${set}${words.zero ? '; 0 is none' : ''}${words.forms} (default ${spec.fallback})`);
+}
+
+/**
+ * The `padding` steps the `container` renderer maps to a padding class
+ * (objectui#11424): `container.tsx` tests `schema.padding ?? 4` against one
+ * `padding === N` branch per step, and a number that equals none of them
+ * matches no branch and draws NO padding class.
+ */
+const CONTAINER_PADDING_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16] as const;
+
+/**
  * Container Schema - Generic container component
  */
 export const ContainerSchema = BaseSchema.extend({
@@ -308,7 +405,18 @@ export const ContainerSchema = BaseSchema.extend({
     z.literal(false),
   ]).optional().describe('Max width constraint'),
   centered: z.boolean().optional().describe('Center the container'),
-  padding: z.number().optional().describe('Padding value'),
+  // A literal union of the renderer's mapped steps, not `z.number()`
+  // (objectui#11424) — see {@link rendererMappedSet}.
+  padding: rendererMappedSet({
+    node: 'container',
+    key: 'padding',
+    steps: CONTAINER_PADDING_STEPS,
+    fallback: 4,
+    card: 'objectui#11424',
+    unmapped:
+      'Any other number drew NO padding class at all, not even the default `4`, so it is '
+      + 'refused here rather than rendered flush.',
+  }),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
   body: aliasKeyRefusal(
     'body',
@@ -321,10 +429,33 @@ export const ContainerSchema = BaseSchema.extend({
 });
 
 /**
+ * The `gap` steps the `flex` renderer maps to a gap class (objectui#11474):
+ * `flex.tsx` tests `schema.gap ?? 2` against one `gap === N` branch per step,
+ * 0 to 8, and a number that equals none of them draws NO gap class. The
+ * describe used to advertise "Tailwind scale 0-8", which was this set, but the
+ * declaration under it was `z.number()`.
+ */
+const FLEX_GAP_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8] as const;
+
+/**
  * Flex Schema - Flexbox layout component
+ *
+ * The node as the `flex` renderer reads it, after `SchemaRenderer` hoists the
+ * `properties` bag onto the node, and as code composes it. Paired with the
+ * TypeScript `FlexSchema` (`../layout.ts`). ⚠️ Not the authored arm: since
+ * objectui#11276 an authored `flex` node takes these props in its `properties`
+ * bag, and `AnyComponentSchema` judges it through {@link FlexBlockSchema}
+ * below, whose bag is this mirror's own members by reference.
  */
 export const FlexSchema = BaseSchema.extend({
   type: z.literal('flex'),
+  // objectui#10872 batch 9 — the node-level `responsiveStyles` the spec's
+  // `PageComponentSchema` declares, from the ONE fragment the public blocks
+  // spread (`NODE_ENVELOPE`). The objectstack showcase writes it on `flex`
+  // nodes, and `SchemaRenderer` compiles it on every node. ⛔ Not on `stack`,
+  // `grid` or `container`: no producer was measured writing it there. The TS
+  // twin declares it too.
+  ...NODE_ENVELOPE,
   direction: z.enum(['row', 'col', 'row-reverse', 'col-reverse'])
     .optional()
     .describe('Flex direction'),
@@ -334,7 +465,19 @@ export const FlexSchema = BaseSchema.extend({
   align: z.enum(['start', 'end', 'center', 'baseline', 'stretch'])
     .optional()
     .describe('Align items'),
-  gap: z.number().optional().describe('Gap between items (Tailwind scale 0-8)'),
+  // A literal union of the renderer's mapped steps, not `z.number()`
+  // (objectui#11474). The authored bag holds this member BY REFERENCE
+  // (`FlexPropsBag` below), so `properties.gap` refuses the same numbers.
+  gap: rendererMappedSet({
+    node: 'flex',
+    key: 'gap',
+    steps: FLEX_GAP_STEPS,
+    fallback: 2,
+    card: 'objectui#11474',
+    unmapped:
+      'Any other number drew NO gap class at all, not even the default `2`, so it is refused '
+      + 'here rather than rendered with no gap.',
+  }),
   wrap: z.boolean().optional().describe('Allow items to wrap'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
   body: aliasKeyRefusal(
@@ -347,6 +490,157 @@ export const FlexSchema = BaseSchema.extend({
   ),
 });
 
+/* ── The authored `flex` node: its props in the `properties` bag ───────────── */
+
+/**
+ * The node-level keys of `FlexSchema` above: everything the node base declares
+ * (`BaseSchema`, `type` and `body` among them) except `children`, plus the node
+ * envelope (`NODE_ENVELOPE`). Read off the declarations, not transcribed, so a
+ * key `BaseSchema` or the envelope gains stays at node level the day it lands.
+ *
+ * `children` is the one base key that is NOT node-level here: `flex` renders
+ * its child list, and its mirror declares the list as a member of its own, so
+ * the list is one of the props the bag holds. That is where the spec's page
+ * walk (`walkAddressedPageComponents`) and `SchemaRenderer`'s hoist read it
+ * (`properties.children`), as on the `page:` containers, whose rows declare it.
+ */
+const FLEX_NODE_LEVEL_KEYS = Object.fromEntries(
+  [...Object.keys(BaseSchema.shape).filter((key) => key !== 'children'), ...Object.keys(NODE_ENVELOPE)]
+    .map((key) => [key, true]),
+) as { [K in Exclude<keyof typeof BaseSchema.shape, 'children'> | keyof typeof NODE_ENVELOPE]: true };
+
+/**
+ * The child list in the `flex` bag (objectui#11276): the mirror's accept set —
+ * one node, or a list of them — judged ONCE.
+ *
+ * A list at `properties.children` is a position `@objectstack/spec`'s page
+ * walk descends, and `AnyComponentSchema` already judges every component the
+ * walk finds there, at its real path, on both faces (objectui#11223,
+ * `./nested-component-walk.ts`). So the list's entries are left to that
+ * judgment, as the `page:` containers' rows leave theirs (`z.array(z.unknown())`).
+ * Measured before this was written: with the mirror's own `children` member in
+ * the bag, a refused child was reported twice — an `invalid_union` at
+ * `properties.children` from the member, and the child's own issue from the
+ * walk — and every nesting level was judged twice over. A single node, which
+ * the walk does not descend, is judged by `SchemaNodeSchema`, the slot the
+ * mirror's member is built from.
+ */
+const FLEX_BAG_CHILDREN = z.union([z.array(z.unknown()), SchemaNodeSchema])
+  .optional()
+  .describe(
+    'Child components: a list, each entry judged as a component by the page walk (`properties.children`), '
+      + 'or one node.',
+  );
+
+/**
+ * The `flex` props bag (objectui#11276): the flat mirror's own members, BY
+ * REFERENCE — `direction`, `justify`, `align`, `gap` and `wrap`, each the SAME
+ * schema object `FlexSchema` holds — and the child list, `children`, in the
+ * spelling {@link FLEX_BAG_CHILDREN} gives it above.
+ *
+ * ⛔ `@objectstack/spec` has no `ComponentPropsMap['flex']` row, and none is
+ * invented here. The spec's `PageComponentSchema` types every `properties` bag
+ * as an open record and judges a bag only through a row, so for this type the
+ * spec accepts any bag at all. The bag's members are therefore objectui's own,
+ * the ones the TypeScript `FlexLayoutProps` (`../layout.ts`) declares. Nothing
+ * else is restated, so the bag and the post-hoist mirror cannot drift apart.
+ *
+ * The bag keeps the mirror's posture, `.passthrough()` (`BaseSchema`'s), so a
+ * key `flex` does not declare is judged in the bag exactly as it was judged on
+ * the flat node: unjudged by the tolerant face, refused by name by the strict
+ * authoring face, which closes every object it walks.
+ */
+const FlexPropsBag = FlexSchema.omit(FLEX_NODE_LEVEL_KEYS).extend({ children: FLEX_BAG_CHILDREN });
+
+/**
+ * The ONE refusal detail every `flex` prop written flat on the node gets
+ * (objectui#11276). `aliasKeyRefusal` puts the key and its bag member in front
+ * of it: "Did you mean `gap` → `properties.gap`?".
+ */
+const FLEX_FLAT_PROP =
+  'A `flex` node takes its props in its `properties` bag: write `{ "type": "flex", "properties": '
+  + '{ "direction": "col", "gap": 4, "children": [ … ] } }` (objectui#11276). `@objectstack/spec`\'s own page '
+  + 'component refuses a prop written on the node as mis-layered (ADR-0089 D3a), so this face and `os validate` '
+  + 'agree. The spec has no `ComponentPropsMap[\'flex\']` row, so the bag\'s members are `FlexSchema`\'s own. '
+  + 'Moving it changes nothing at render time: `SchemaRenderer` hoists every `properties` key onto the node '
+  + 'before `flex` reads it.';
+
+/**
+ * `flex` — the AUTHORED node: its props in the `properties` bag (objectui#11276,
+ * the `flex` batch, under the maintainer's ruling A on objectui#11300).
+ *
+ * ## Why the arm moved to the bag
+ *
+ * `@objectstack/spec`'s strict `PageComponentSchema` refuses a prop written on
+ * a page component itself as mis-layered (ADR-0089 D3a), for every component
+ * type: `properties` is the only home of a component's own props. This union
+ * used to arm the node with the flat `FlexSchema` above, so `objectui validate`
+ * refused the spec-shaped document — the objectstack showcase's layout boxes,
+ * `{ type: 'flex', responsiveStyles, properties: { children } }` — and accepted
+ * the flat one `os validate` refuses. The maintainer ruled A on objectui#11300:
+ * the bag is the contract on `flex` too, and objectui's own documents moved to
+ * it in the same change. objectui#6751's fence ("`flex` declares its own keys")
+ * is revoked for `flex` only; every other node-level arm is unchanged.
+ *
+ * It is the construct `ObjectChartBlockSchema` uses (`./objectql.zod.ts`) —
+ * `BaseSchema` + the `type` literal + `NODE_ENVELOPE` + `properties` through
+ * `propsBag` + one by-name refusal per bag member — because `flex`, like
+ * `object-chart`, has no spec row: the bag is `FlexPropsBag` above, the flat
+ * mirror's own members, and its description says so instead of naming a row.
+ * The refusals come from the shared `flatPropRefusals`, read off the bag, with
+ * a detail (`FLEX_FLAT_PROP`) that names no row.
+ *
+ * ## The flat spelling is refused by name
+ *
+ * Every member of the bag written FLAT on the node is refused on both faces,
+ * with a message naming its bag member — the child list included, which is
+ * `properties.children`. `body`, the child-list spelling objectui#6771
+ * retired, is refused with a message naming `properties.children` too,
+ * replacing the mirror's refusal, whose remedy (a node-level `children`) this
+ * arm refuses. `BaseSchema`'s other keys stay on the node (`id`, `className`,
+ * `style`, `visible`, …), as on every arm, and so does the node envelope's
+ * `responsiveStyles`. A key `flex` does not declare is left as every arm leaves
+ * an undeclared key: unjudged by the tolerant face, refused by the strict one.
+ *
+ * ## What did not move
+ *
+ * The TypeScript `FlexSchema` and its zod mirror above stay published: they are
+ * the node as the `flex` renderer reads it after `SchemaRenderer` hoists the
+ * bag, and as code composes it. A stored flat `flex` node keeps rendering,
+ * because `SchemaRenderer` reads both spellings and the narrowing is on the
+ * authoring faces only; a node compiled from the `kind: 'html'` JSX tier
+ * (`@object-ui/sdui-parser`) never passes through this face.
+ */
+export const FlexBlockSchema = BaseSchema.extend({
+  type: z.literal('flex'),
+  ...NODE_ENVELOPE,
+  ...flatPropRefusals('flex', FlexPropsBag, FLEX_FLAT_PROP),
+  properties: propsBag(
+    'flex',
+    FlexPropsBag,
+    'The `flex` props bag — the members `FlexSchema` declares beyond the node-level keys (`direction`, '
+      + '`justify`, `align`, `gap`, `wrap` and the child list, `children`), by reference. `@objectstack/spec` has '
+      + 'no `ComponentPropsMap[\'flex\']` row, so these are objectui\'s own members (objectui#11276).',
+  ),
+  body: aliasKeyRefusal(
+    'body',
+    'properties.children',
+    'this `flex` node',
+    '`body` is the child-list spelling objectui#6771 retired, and a `flex` node takes its child list in its '
+      + '`properties` bag: write `{ "type": "flex", "properties": { "children": [ … ] } }` (objectui#11276). '
+      + 'objectui#8284.',
+  ),
+});
+
+/**
+ * The `gap` steps the `stack` renderer maps to a gap class (objectui#11474):
+ * `stack.tsx` tests `schema.gap ?? 2` against one `gap === N` branch per step.
+ * It has no branch for `7`, which `flex` maps, and one for `10`, which `flex`
+ * does not, so the two sets differ; a number that equals none of them draws
+ * NO gap class.
+ */
+const STACK_GAP_STEPS = [0, 1, 2, 3, 4, 5, 6, 8, 10] as const;
+
 /**
  * Stack Schema - Vertical flex layout (shortcut)
  */
@@ -355,7 +649,18 @@ export const StackSchema = BaseSchema.extend({
   direction: z.enum(['row', 'col', 'row-reverse', 'col-reverse']).optional(),
   justify: z.enum(['start', 'end', 'center', 'between', 'around', 'evenly']).optional(),
   align: z.enum(['start', 'end', 'center', 'baseline', 'stretch']).optional(),
-  gap: z.number().optional(),
+  // A literal union of the renderer's mapped steps, not `z.number()`
+  // (objectui#11474) — see {@link STACK_GAP_STEPS}.
+  gap: rendererMappedSet({
+    node: 'stack',
+    key: 'gap',
+    steps: STACK_GAP_STEPS,
+    fallback: 2,
+    card: 'objectui#11474',
+    unmapped:
+      'Any other number drew NO gap class at all, not even the default `2`, so it is refused '
+      + 'here rather than rendered with no gap.',
+  }),
   wrap: z.boolean().optional(),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
   body: aliasKeyRefusal(
@@ -369,12 +674,71 @@ export const StackSchema = BaseSchema.extend({
 });
 
 /**
+ * The `gap` steps the `grid` renderer maps to a gap class (objectui#11474):
+ * `grid.tsx` looks `schema.gap ?? 4` up in its `GAPS` map. For any other
+ * number it builds an arbitrary-value class at runtime, `gap-[N*0.25rem]`
+ * (`gap-[2.25rem]` for `9`). Tailwind compiles only the class names it finds
+ * in scanned source text, and a class assembled from a template at runtime is
+ * not one of them, so an unmapped number reached no gap rule. The pin named in
+ * {@link rendererMappedSet} re-derives this against the package's own
+ * compiled stylesheet on every run; the console's stylesheet was read the same
+ * way once, on objectui#11474, and nothing re-derives that reading. The
+ * describe's "Tailwind scale 0-8" was not this set either.
+ */
+const GRID_GAP_STEPS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 12] as const;
+
+/**
+ * The column counts the `grid` renderer maps to a column class
+ * (objectui#11491): `grid.tsx` spells `grid-cols-1` to `grid-cols-12` once per
+ * breakpoint, in `GRID_COLS` and its five breakpoint twins, and nothing else.
+ * Every one of those 72 classes is a rule in the package's compiled stylesheet;
+ * the pin named in {@link rendererMappedSet} re-derives that on every run.
+ *
+ * A count outside the set drew no column class where it was authored, and was
+ * still `z.number()` here. Measured through the real `SchemaRenderer`: a bare
+ * `13` drew `grid-cols-1 sm:grid-cols-2` and lost its `md` count; `{ md: 13 }`
+ * drew nothing at `md`; `{ xs: 13 }`, `0` and `-1` drew `grid-cols-2`, a count
+ * nobody authored, through a fallback the renderer no longer has.
+ */
+const GRID_COLUMN_COUNTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+
+/**
+ * The objectui#11505 retirement guidance for the four flat per-breakpoint
+ * column keys of the `grid` node. One concept, responsive columns, has one
+ * spelling: the breakpoint object of `columns`. The refusal names the key, the
+ * breakpoint it spelled a second time, and the object member to write instead.
+ * The TypeScript face carries the same four keys as `?: never` tombstones.
+ *
+ * The migration it prescribes is the one that draws the same classes, measured
+ * through the real `SchemaRenderer` on objectui#11505: a flat key switched off
+ * the bare count's mobile-first ramp, so a bare `columns: C` beside it is the
+ * object's `xs: C`; with no `columns` at all the grid drew its default two
+ * columns below that breakpoint, and an object without `xs` draws one, so the
+ * object needs `xs: 2` to keep them.
+ */
+const retiredGridColumnsKey = (key: string, breakpoint: 'sm' | 'md' | 'lg' | 'xl') =>
+  retirementTombstone(
+    `RETIRED (objectui#11505, ADR-0049) — \`${key}\` on \`grid\` was a second spelling of the `
+    + `\`${breakpoint}\` member of \`columns\`: the registration offered it and the renderer read it over `
+    + 'the breakpoint object, but no face of `GridSchema` declared it, so the strict face refused it at '
+    + 'every value and the tolerant face passed any value through unexamined. The renderer no longer reads it. '
+    + `Instead: write the count, 1 to 12, as the \`${breakpoint}\` member of the breakpoint object, `
+    + `\`columns: { ${breakpoint}: N }\`, and delete the key. A bare \`columns: C\` beside it becomes the `
+    + "object's `xs: C`; with no `columns` at all, add `xs: 2` to keep the two columns the grid drew below "
+    + `\`${breakpoint}\`.`,
+  );
+
+/**
  * Grid Schema - CSS Grid layout component
  */
 export const GridSchema = BaseSchema.extend({
   type: z.literal('grid'),
   /**
-   * Keyed by the BREAKPOINT VOCABULARY, not by `string` (objectui#8516).
+   * One of the counts the renderer maps (objectui#11491, see
+   * {@link GRID_COLUMN_COUNTS}): the bare number, or an object of such counts
+   * keyed by the BREAKPOINT VOCABULARY, not by `string` (objectui#8516). The
+   * one closed literal is both arms' value, so a count is judged the same way
+   * as the bare number and at every breakpoint.
    *
    * `z.partialRecord`, ⛔ never `z.record(z.enum([…]), …)`: measured on zod
    * 4.4.3, the plain `z.record` over an enum key REQUIRES every member, so
@@ -387,12 +751,50 @@ export const GridSchema = BaseSchema.extend({
    * derive from; the equality is held by a type-level pin in
    * `__tests__/mirror-partial-record-narrowing-8516.test.ts`, so adding or
    * dropping a breakpoint on either face fails to compile.
+   *
+   * The union carries the refusal as well as each arm: a count that misses
+   * both arms is reported as one `invalid_union` at `columns` whose message
+   * names the set, and the arms' own issues, under `errors`, carry it as
+   * `values`. A key outside the six is still reported on its own, as
+   * `unrecognized_keys` at `columns` (objectui#8516).
    */
-  columns: z.union([
-    z.number(),
-    z.partialRecord(z.enum(['xs', 'sm', 'md', 'lg', 'xl', '2xl']), z.number()),
-  ]).optional().describe('Number of columns (responsive)'),
-  gap: z.number().optional().describe('Gap between items (Tailwind scale 0-8)'),
+  columns: rendererMappedSet(
+    {
+      node: 'grid',
+      key: 'columns',
+      steps: GRID_COLUMN_COUNTS,
+      fallback: 2,
+      card: 'objectui#11491',
+      unmapped:
+        'Any other count drew no column class where it was authored: a bare `13` lost its `md` '
+        + 'count, `{ md: 13 }` drew nothing at `md`, and `{ xs: 13 }`, `0` and `-1` drew two '
+        + 'columns nobody authored; so it is refused here instead.',
+    },
+    (count, refusal) =>
+      z.union([count, z.partialRecord(z.enum(['xs', 'sm', 'md', 'lg', 'xl', '2xl']), count)], {
+        error: (issue) => (issue.code === 'invalid_union' ? refusal : undefined),
+      }),
+  ),
+  // ADR-0049 RETIREMENT TOMBSTONES (objectui#11505) — see
+  // {@link retiredGridColumnsKey}. A plain deletion would let each key ride
+  // `BaseSchema.passthrough()` on the tolerant face, unexamined, so each is
+  // refused by name on both faces instead.
+  smColumns: retiredGridColumnsKey('smColumns', 'sm'),
+  mdColumns: retiredGridColumnsKey('mdColumns', 'md'),
+  lgColumns: retiredGridColumnsKey('lgColumns', 'lg'),
+  xlColumns: retiredGridColumnsKey('xlColumns', 'xl'),
+  // A literal union of the renderer's mapped steps, not `z.number()`
+  // (objectui#11474) — see {@link GRID_GAP_STEPS}.
+  gap: rendererMappedSet({
+    node: 'grid',
+    key: 'gap',
+    steps: GRID_GAP_STEPS,
+    fallback: 4,
+    card: 'objectui#11474',
+    unmapped:
+      'Any other number built a class at runtime that no compiled stylesheet defines, so the '
+      + 'grid rendered with no gap at all, not even the default `4`; it is refused here instead.',
+  }),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
   body: aliasKeyRefusal(
     'body',
@@ -630,7 +1032,8 @@ export const PageTypeSchema = stripImportedDefaults(SpecPageTypeSchema);
  *    is the renderer half of the spec's `PageTypeSchema`, ⛔ not a component
  *    family and ⛔ not names registered without a schema. Two cards read it the
  *    second way (objectui#9263, re-ruled letter E "⛔ not a defect", and
- *    objectui#9576).
+ *    objectui#9576). Since objectui#11440 the validator answers that node too:
+ *    {@link PageKindNodeSchema} below claims `record` / `home` / `utility`.
  *
  *    ⭐ `app` is one token carrying two vocabularies: `AppComponentSchema`'s
  *    `'app'` is the APP-LEVEL DOCUMENT, read structurally by the runner /
@@ -817,6 +1220,63 @@ const PAGE_BREADCRUMBS_REFUSAL =
   'and a BOOLEAN display toggle, not a list of links.';
 
 /**
+ * The `maxWidth` and `padding` REFUSALS on the `page` node (objectui#11318,
+ * ADR-0049 enforce-or-remove) — the third and fourth keys of the kind
+ * {@link PAGE_ACTIONS_REFUSAL} and {@link PAGE_BREADCRUMBS_REFUSAL} retired:
+ * taught by `content/docs/guide/layout.md`, declared by nothing on this node,
+ * read by nothing on the render path.
+ *
+ * ## What was measured (objectui#11318, on this branch's BASE `0858267e4`)
+ *
+ * Both keys are members of {@link ContainerSchema}, never of this node. On the
+ * tolerant face (`safeValidateSchema`) the guide's four page fences carrying them
+ * parsed GREEN with the key kept; on the strict authoring face they were
+ * refused as a bare `unrecognized_keys` (`Unrecognized key: "maxWidth"`), which
+ * names the key and not the door. Rendered through the real `SchemaRenderer`, a
+ * page carrying `maxWidth: 'lg'` drew the same `max-w-7xl` inner class as the
+ * same page without it, and a page carrying `padding: false` kept the wrapper's
+ * `p-3 md:p-4 lg:p-6` unchanged; neither key reached the DOM as an attribute
+ * (`toDomProps` drops both). `PageRenderer` takes its max-width class from
+ * `pageType` through `getPageMaxWidth`, and its wrapper padding is fixed.
+ *
+ * The four author sites were all teaching passages in that guide. A census of
+ * every git-tracked JSON file and `json` fence, plus every TS/TSX object literal
+ * through the TypeScript AST, found no other `type: 'page'` object carrying
+ * either key, so this refusal strands no authored document in the tree.
+ * `../__tests__/page-width-padding-refusal-11318.test.ts` re-derives the guide
+ * half; the census itself is a reading on that base, not a live count.
+ *
+ * ## Why a REFUSAL and not a reader
+ *
+ * Both capabilities already ship, one door each: the page's own cap is
+ * `pageType`, and a narrower column or custom spacing is a `container` node in
+ * `children`, whose `maxWidth` and `padding` are declared and rendered. A page
+ * reader would mint a rival spelling of the container's two members on a
+ * second node. The triage direction (objectui#11318) rules the same way: no new
+ * keys on the `page` node.
+ *
+ * ⛔ NOT `.strict()` on the node, for the reason {@link PAGE_ACTIONS_REFUSAL}
+ * records: `page-app-dashboard-spec-parity.test.ts` pins the node staying open
+ * to unknown renderer props. One key, by name, twice.
+ */
+const PAGE_MAX_WIDTH_REFUSAL =
+  '`maxWidth` is not a key of the `page` node and never was (objectui#11318, ADR-0049 ' +
+  'enforce-or-remove): no renderer reads it, so an authored value drew nothing and rode ' +
+  '`.passthrough()` through the validator as a silent accept. The page takes its max width ' +
+  'from `pageType` (`utility` is the narrowest, `home` the widest). For a narrower column, ' +
+  'wrap the content in a `container` node in ' +
+  '`children` and set THAT node\'s `maxWidth` — { "type": "container", "maxWidth": "2xl", ' +
+  '"children": [ … ] } — where it is a declared, rendered member.';
+
+const PAGE_PADDING_REFUSAL =
+  '`padding` is not a key of the `page` node and never was (objectui#11318, ADR-0049 ' +
+  'enforce-or-remove): no renderer reads it — the page always insets its content — so an ' +
+  'authored value, `false` included, drew nothing and rode `.passthrough()` through the ' +
+  'validator as a silent accept. Put the spacing on a `container` node in `children` instead, ' +
+  'whose `padding` is a declared, rendered NUMBER on the container\'s spacing scale (`0` for ' +
+  'none) — { "type": "container", "padding": 8, "children": [ … ] }.';
+
+/**
  * Page Schema — top-level page layout, derived from `@objectstack/spec/ui`
  * `PageSchema` (see {@link SpecPageFields}). The drift guard is
  * `__tests__/page-app-dashboard-spec-parity.test.ts`.
@@ -825,6 +1285,8 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   type: z.literal('page'),
   actions: retirementTombstone(PAGE_ACTIONS_REFUSAL),
   breadcrumbs: retirementTombstone(PAGE_BREADCRUMBS_REFUSAL),
+  maxWidth: retirementTombstone(PAGE_MAX_WIDTH_REFUSAL),
+  padding: retirementTombstone(PAGE_PADDING_REFUSAL),
   title: z.string().optional().describe('Page title'),
   icon: z.string().optional().describe('Page icon (Lucide icon name)'),
   description: z.string().optional().describe('Page description'),
@@ -852,18 +1314,107 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
     .optional()
     .describe('Main content — one node or a list of nodes'),
   isDefault: z.boolean().optional().describe('Whether this is the default page'),
-  assignedProfiles: z.array(z.string()).optional().describe('Profiles that can access this page'),
+  // objectui#9409: `assignedProfiles` is RETIRED, and deliberately not declared
+  // here. @objectstack/spec 17.5.0 turned its `PageSchema.assignedProfiles` into
+  // a `retiredKey()` tombstone (ADR-0090 D2 deleted the Profile concept the key
+  // was named after; ADR-0049 enforce-or-remove), and it reaches this node BY
+  // REFERENCE through {@link SpecPageFields}, the way App `version` and
+  // Dashboard `refreshInterval` do. So an authored value is refused at
+  // `assignedProfiles` with the spec's own message, which names the
+  // permission-set route. The `string[]` override this line used to carry
+  // shadowed that tombstone and accepted the key under a description that
+  // called it access control, which nothing ever enforced.
 })
-  // ⭐ THE SPEC'S OBJECT-LEVEL CHECK, re-attached (objectui#7715, ruling B1).
+  // ⭐ THE SPEC'S OBJECT-LEVEL CHECKS, re-attached (objectui#7715, ruling B1).
   // {@link SpecPageFields} rebuilds a fresh object from the spec's `.shape`, so
-  // it drops the one check the spec's `PageSchema` carries on the OBJECT: an
-  // `html` / `react` / `jsx` page with no non-empty `source` renders nothing and
-  // is refused at `source`. The spec exports that check (objectstack#16489) and
-  // it is attached here as-is: it reads `kind` and `source`, and this node
-  // carries both by reference — neither is in {@link PAGE_SPEC_EXCLUDED} nor
-  // overridden above. `__tests__/spec-object-refinements-7715.test.ts` re-derives
-  // the count, so a check the spec adds to `PageSchema` later reddens there.
-  .superRefine(checkPageSourceCompleteness);
+  // it drops the two checks the spec's `PageSchema` carries on the OBJECT:
+  //  - an `html` / `react` / `jsx` page with no non-empty `source` renders
+  //    nothing and is refused at `source` (`checkPageSourceCompleteness`,
+  //    objectstack#16489);
+  //  - `requires` is refused at `requires` on a page whose `kind` the platform
+  //    does not compile at save — anything but `html` / `jsx`, an absent `kind`
+  //    included (`checkPageRequiresKind`, objectstack#21459, the spec's 17.7.0).
+  // The spec exports both and both are attached here as-is: they read `kind`,
+  // `source` and `requires`, and this node carries all three by reference —
+  // none is in {@link PAGE_SPEC_EXCLUDED} nor overridden above.
+  // `__tests__/spec-object-refinements-7715.test.ts` re-derives the count, so a
+  // check the spec adds to `PageSchema` later reddens there.
+  .superRefine(checkPageSourceCompleteness)
+  .superRefine(checkPageRequiresKind);
+
+/**
+ * The spec page KINDS a node may carry in `type` (objectui#11440): `record`,
+ * `home` and `utility`, picked out of `@objectstack/spec`'s own
+ * `PageTypeSchema` by reference (`.extract`), so a kind the spec drops fails to
+ * compile here.
+ *
+ * Exactly the kinds `@object-ui/components` registers on `PageRenderer` and no
+ * other arm claims. The spec declares two more, and neither is armed here:
+ *  - `app` — the token `AppComponentSchema` already claims for the APP-LEVEL
+ *    document (the `app` note on {@link SpecPageFields} above). A spec page of
+ *    kind `app` is judged by that arm.
+ *  - `list` — not registered under that key (an interface-mode kind, which
+ *    `PageView` renders before the registry), and the `list` data-display
+ *    component owns the literal.
+ */
+const PAGE_KIND_NODE_TYPE = PageTypeSchema.extract(['record', 'home', 'utility']);
+
+/**
+ * The `page` node's own members, minus its `type` literal, read off
+ * {@link PageNodeSchema} by reference — the shape the page kinds below share.
+ */
+const { type: _pageNodeTypeLiteral, ...PAGE_NODE_MEMBERS } = PageNodeSchema.shape;
+
+/**
+ * Page Kind Node Schema — a stored spec page document whose `type` is its page
+ * KIND (`record` / `home` / `utility`), the spelling `@objectstack/spec`'s
+ * `PageSchema` declares (objectui#11440, under the seat ruling `5945530142` on
+ * objectui#10859: "the spec's own page kinds").
+ *
+ * ## The defect this closes
+ *
+ * `PageView` (`@object-ui/app-shell`) hands a stored page to `SchemaRenderer`
+ * with the kind written verbatim into `type`, and `@object-ui/components`
+ * registers the three kinds on `PageRenderer` for exactly that reason
+ * (objectui#9642). No arm claimed the literals, so `safeValidateSchema`, and
+ * `objectui validate` with it, refused the spec's own page document —
+ * `{ type: 'home', name, label, regions }` — with one `invalid_union` at
+ * `type`, while `{ type: 'page', pageType: 'home' }` passed.
+ *
+ * ## Why this shape
+ *
+ * The five page registrations share ONE renderer and ONE `pageMeta` (its
+ * `inputs`), so a kind node is the `page` node under a different literal: every
+ * member is {@link PageNodeSchema}'s own, by reference, and that node already
+ * takes the spec's `PageSchema` fields by reference through
+ * {@link SpecPageFields}. Its four refusals (`actions`, `breadcrumbs`,
+ * `maxWidth`, `padding`), the `body` refusal and the spec's two object-level
+ * checks (`source`, and `requires` by `kind`) come with it. `regions` stays the node's own
+ * {@link PageNodeRegionSchema}, so each region component is judged by this
+ * union at every depth, as on `page`.
+ *
+ * ⛔ Which spelling of a page is canonical — `type: 'page'` + `pageType`, or
+ * the spec's `type: KIND` — is not decided here. Both validate, as both render.
+ */
+export const PageKindNodeSchema: PageKindNodeSchemaType = BaseSchema.extend({
+  ...PAGE_NODE_MEMBERS,
+  type: PAGE_KIND_NODE_TYPE.describe('The spec page kind — `record`, `home` or `utility` (`@objectstack/spec` `PageTypeSchema`)'),
+}).superRefine(checkPageSourceCompleteness).superRefine(checkPageRequiresKind);
+
+/**
+ * The TYPE of {@link PageKindNodeSchema}, written out BY REFERENCE to the
+ * `page` node's shape. Without it, declaration emit re-serializes the whole
+ * page shape a second time inside `AnyComponentSchema`, and `tsc` refuses that
+ * union with TS7056 ("The inferred type of this node exceeds the maximum length
+ * the compiler will serialize"), measured on objectui#11440. A named type is
+ * emitted by name.
+ */
+export type PageKindNodeSchemaType = z.ZodObject<
+  Omit<(typeof PageNodeSchema)['shape'], 'type'> & {
+    type: z.ZodEnum<{ record: 'record'; home: 'home'; utility: 'utility' }>;
+  },
+  z.core.$loose
+>;
 
 /**
  * Semantic Element Schema — the seven HTML sectioning tags
@@ -974,7 +1525,7 @@ export const HtmlElementSchema = BaseSchema.extend({
 /**
  * Layout Schema Union - All layout component schemas
  */
-export const LayoutSchema = z.discriminatedUnion('type', [
+const LayoutSchemaInferred = z.discriminatedUnion('type', [
   DivSchema,
   BoxSchema,
   TextSpanSchema,
@@ -983,7 +1534,10 @@ export const LayoutSchema = z.discriminatedUnion('type', [
   IconSchema,
   SeparatorSchema,
   ContainerSchema,
-  FlexSchema,
+  // objectui#11276 — the AUTHORED `flex` node, its props in the `properties`
+  // bag. `FlexSchema` (the flat mirror) stays exported as the node the renderer
+  // reads after the hoist, and leaves this union.
+  FlexBlockSchema,
   StackSchema,
   GridSchema,
   CardSchema,
@@ -995,3 +1549,16 @@ export const LayoutSchema = z.discriminatedUnion('type', [
   SemanticElementSchema,
   HtmlElementSchema,
 ]);
+
+/**
+ * The TYPE of {@link LayoutSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface LayoutZodType extends LayoutSchemaInferredType {
+  options: LayoutSchemaInferredType['options'];
+}
+type LayoutSchemaInferredType = typeof LayoutSchemaInferred;
+
+/** The union above, typed by its named {@link LayoutZodType}. */
+export const LayoutSchema: LayoutZodType = LayoutSchemaInferred;

@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
   cn,
   EmptyValue,
+  hasDeclaredVisibilityGate,
   resolveIcon,
   useIsMobile,
 } from '@object-ui/components';
@@ -143,8 +144,9 @@ export interface RelatedListProps {
    */
   onRowClick?: (row: any, event?: any) => void;
   /**
-   * Child-object row actions (`locations: ['list_item']`), already localized
-   * by the host. Rendered in each row's overflow menu alongside Edit/Delete.
+   * Child-object row actions (`locations` `list_item`, or `record_related`
+   * inside a parent record — objectui#11270), already localized by the host.
+   * Rendered in each row's overflow menu alongside Edit/Delete.
    */
   rowActions?: RelatedRowActionDef[];
   /** Execute one of {@link rowActions} against the clicked row. */
@@ -428,14 +430,31 @@ function dropRedactedColumns<T>(cols: T[], redacted: ReadonlySet<string>): T[] {
  * `invite_user` (`visible: "features.organization != false"`) hides when its
  * predicate is false. `features`/`user` resolve from the ambient
  * ExpressionProvider scope.
+ *
+ * The verdict fails CLOSED on a predicate that FAULTS (`throwOnError`), as
+ * every action `visible` leg does (objectui#11212, Rider 1 of objectui#4421):
+ * a precondition that cannot be evaluated — `current_user.can(…)` before the
+ * permissions payload has loaded, an unbound root — hides the button and is
+ * reported once, instead of showing an action whose guard is broken. This leg
+ * used to fail SOFT to `true`.
+ *
+ * Whether a gate is DECLARED at all is asked with `hasDeclaredVisibilityGate`,
+ * as every other member of the action family asks it (objectui#3812,
+ * objectui#11244), never by truthiness: `visible: false` is a declared gate and
+ * hides the button, while a blank predicate (`''`, whitespace) is no gate.
  */
 export const RelatedToolbarButton: React.FC<{
   action: RelatedRowActionDef;
   onToolbarAction: (action: RelatedRowActionDef) => void | Promise<void>;
 }> = ({ action, onToolbarAction }) => {
   const visiblePred = action.visible;
-  const isVisible = useCondition(toPredicateInput(visiblePred));
-  if (visiblePred && !isVisible) return null;
+  // A toolbar action is list-level: there is no row to bind, so the context is
+  // the ambient predicate scope alone.
+  const isVisible = useCondition(toPredicateInput(visiblePred), undefined, {
+    throwOnError: true,
+    label: `related-list toolbar action "${action.name}" (visible)`,
+  });
+  if (hasDeclaredVisibilityGate(visiblePred) && !isVisible) return null;
   const ActionIcon = action.icon ? resolveIconComponent(action.icon) : null;
   return (
     <Button
@@ -1557,14 +1576,22 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         ...(def.currency && { currency: def.currency }),
         ...(def.precision !== undefined && { precision: def.precision }),
         ...((def as any).scale !== undefined && { scale: (def as any).scale }),
+        // Beside `scale`, whose scale-0 grouping heuristic it overrides in the
+        // number cell (objectui#11026).
+        ...(def.useGrouping !== undefined && { useGrouping: def.useGrouping }),
+        // A percent field's declared `max` is its STORAGE statement: the cell
+        // reads it through the spec's `percentScaleOf` (a fraction unless `max`
+        // is above 1). Dropped here, a whole-stored `50` (`max: 100`) would
+        // read `5000%` in this list (objectui#11475).
+        ...((def as any).max !== undefined && { max: (def as any).max }),
         ...(def.format && { format: def.format }),
-        // ⚠️ objectui#6837 half 2: the READ narrows to `reference` (the only
+        // objectui#6837 half 2 narrowed the READ to `reference` (the only
         // spelling the protocol declares — `FieldSchema` refuses `reference_to`
-        // by name). The EMITTED key is unchanged: it is what this emit's TARGET
-        // contract declares, and renaming it would be a separate change.
-        // Target contract here: `FieldMetadata` (`LookupFieldMetadata.reference_to`
-        // in `@object-ui/types`), handed straight to `CellRenderer` as `field`.
-        ...(def.reference && { reference_to: def.reference }),
+        // by name), and objectui#11070 round 4 moved the EMITTED key with it:
+        // the target contract here, `FieldMetadata`
+        // (`LookupFieldMetadata.reference` in `@object-ui/types`), handed
+        // straight to `CellRenderer` as `field`, declares `reference`.
+        ...(def.reference && { reference: def.reference }),
         ...(def.reference_field && { reference_field: def.reference_field }),
       };
       return (value: any) => {
@@ -2169,8 +2196,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
           rowEditPredicates,
           rowDeletePredicates,
           onRowClick,
-          // Child-object row actions (locations:['list_item']) rendered in the
-          // same overflow menu, dispatched with the clicked row as target.
+          // Child-object row actions (`list_item`, or `record_related` inside a
+          // parent record) rendered in the same overflow menu, dispatched with
+          // the clicked row as target.
           rowActionDefs: hasCustomRowActions ? rowActions : undefined,
           onRowActionDef: hasCustomRowActions ? onRowAction : undefined,
         };

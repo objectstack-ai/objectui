@@ -66,6 +66,7 @@ import {
   CalendarConfigSchema as SpecCalendarConfigSchema,
   GalleryConfigSchema as SpecGalleryConfigSchema,
   TimelineConfigSchema as SpecTimelineConfigSchema,
+  TreeConfigSchema as SpecTreeConfigSchema,
   HttpMethodSubsetSchema as SpecHttpMethodSubsetSchema,
   HttpRequestSchema as SpecHttpRequestSchema,
   ViewDataSchema as SpecViewDataSchema,
@@ -84,6 +85,23 @@ import {
   // blocks `objectql.zod.ts` arms.
   ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
   ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
+  ObjectTimelinePropsSchema as SpecObjectTimelinePropsSchema,
+  ObjectFormPropsSchema as SpecObjectFormPropsSchema,
+  ObjectMapPropsSchema as SpecObjectMapPropsSchema,
+  ObjectGanttPropsSchema as SpecObjectGanttPropsSchema,
+  ObjectGridPropsSchema as SpecObjectGridPropsSchema,
+  // objectui#6152 round 8 — the rows whose `filter` the flat kanban / calendar arms read.
+  ObjectKanbanPropsSchema as SpecObjectKanbanPropsSchema,
+  ObjectCalendarPropsSchema as SpecObjectCalendarPropsSchema,
+  // objectui#11440 — the report definition the authored `report` node wraps.
+  ReportSchema as SpecReportSchema,
+  // objectui#6152 round 6 — the spec schemas `ObjectGridSchema`'s mirror reads.
+  RowColorConfigSchema as SpecRowColorConfigSchema,
+  RowHeightSchema as SpecRowHeightSchema,
+  BulkActionDefSchema as SpecBulkActionDefSchema,
+  BulkActionOperationSchema as SpecBulkActionOperationSchema,
+  // objectui#11227 — the list view's empty-state shape `ObjectGridSchema.emptyState` reads.
+  EmptyStateSchema as SpecEmptyStateSchema,
   // objectui#10872 — the `ComponentPropsMap` rows the public-block arms read.
   PageHeaderProps as SpecPageHeaderProps,
   PageTabsProps as SpecPageTabsProps,
@@ -100,16 +118,41 @@ import {
   RecordQuickActionsProps as SpecRecordQuickActionsProps,
   RecordReferenceRailProps as SpecRecordReferenceRailProps,
   RecordAlertProps as SpecRecordAlertProps,
+  // objectui#10872 — the row `@objectstack/spec` 17.6.0 carries.
+  RecordLineItemsProps as SpecRecordLineItemsProps,
   ElementTextPropsSchema as SpecElementTextPropsSchema,
   ElementButtonPropsSchema as SpecElementButtonPropsSchema,
+  // objectui#10872 batch 4 — the six rows `@objectstack/spec` 17.5.0 carries.
+  ElementDefinitionListPropsSchema as SpecElementDefinitionListPropsSchema,
+  ElementRepeaterPropsSchema as SpecElementRepeaterPropsSchema,
+  ActionButtonPropsSchema as SpecActionButtonPropsSchema,
+  ActionIconPropsSchema as SpecActionIconPropsSchema,
+  ActionGroupPropsSchema as SpecActionGroupPropsSchema,
+  ActionMenuPropsSchema as SpecActionMenuPropsSchema,
   // objectui#10872 batch 2 — `element:number`'s row, and the node's `dataSource`.
   ElementNumberPropsSchema as SpecElementNumberPropsSchema,
   ElementDataSourceSchema as SpecElementDataSourceSchema,
+  // objectui#10872 batch 8 — the node-level `responsiveStyles` every public-block arm declares.
+  ResponsiveStylesSchema as SpecResponsiveStylesSchema,
   objectNavTargetExclusivity,
   checkListViewCalendarVisualization,
   checkPageSourceCompleteness,
+  checkDashboardWidgetStageOrder,
+  checkDashboardWidgetMetricMeasureArity,
+  checkDashboardWidgetChartMeasureArity,
+  checkPageRequiresKind,
+  VIEW_METADATA_MEMBERS as SpecViewMetadataMembers,
 } from '@objectstack/spec/ui';
-import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
+import {
+  FieldSchema as SpecFieldSchema,
+  SelectOptionSchema as SpecSelectOptionSchema,
+  // objectui#11266 — one `ObjectFormSchema.subforms[].columns` entry.
+  InlineGridColumnSchema as SpecInlineGridColumnSchema,
+} from '@objectstack/spec/data';
+import {
+  EvaluatedExpressionInputSchema as SpecEvaluatedExpressionInputSchema,
+  EvaluatedExpressionSchema as SpecEvaluatedExpressionSchema,
+} from '@objectstack/spec/shared';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -198,6 +241,9 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   ['CalendarConfigSchema', SpecCalendarConfigSchema],
   ['GalleryConfigSchema', SpecGalleryConfigSchema],
   ['TimelineConfigSchema', SpecTimelineConfigSchema],
+  // objectui#11168 slice 3: `ObjectTreeSchema.tree` is the spec's tree block,
+  // crossed through this boundary like the other view-config blocks above.
+  ['TreeConfigSchema', SpecTreeConfigSchema],
   ['HttpMethodSubsetSchema', SpecHttpMethodSubsetSchema],
   ['HttpRequestSchema', SpecHttpRequestSchema],
   ['ViewDataSchema', SpecViewDataSchema],
@@ -212,6 +258,13 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // objectui#8885: `ObjectChartSchema.drillDown` crosses this boundary.
   ['ChartDrillDownSchema', SpecChartDrillDownSchema],
   ['SelectOptionSchema', SpecSelectOptionSchema],
+  // objectui#8069: the form field-rule triad's blank check hands a predicate's
+  // TEXT to this schema and takes its verdict and sentence (ADR-0137 D1), so
+  // the crossing is measured here like every other one.
+  ['EvaluatedExpressionInputSchema', SpecEvaluatedExpressionInputSchema],
+  // objectui#8347: `BaseSchema.visibleWhen`'s envelope arm is this schema, by
+  // reference, and its verdict is `EvaluatedExpressionInputSchema`'s above.
+  ['EvaluatedExpressionSchema', SpecEvaluatedExpressionSchema],
   // objectui#7265, the @object-ui/types slice: `UserFiltersSchema.fields[]`
   // stopped being a hand copy of the spec's field shape and now derives from
   // it, so that crossing is measured here like every other one.
@@ -240,6 +293,46 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // boundary, so both rows are measured here like every other crossing.
   ['ObjectMetricPropsSchema', SpecObjectMetricPropsSchema],
   ['ObjectMasterDetailFormPropsSchema', SpecObjectMasterDetailFormPropsSchema],
+  // objectui#10859 batch 3: the `object-timeline` arm's `properties` is its
+  // row, crossed the same way — and unlike the two above it carries spec
+  // defaults (`timeline.scale`, the `navigation` members) for the strip to remove.
+  ['ObjectTimelinePropsSchema', SpecObjectTimelinePropsSchema],
+  // objectui#11440: the authored `report` node's `report` wrapper is the
+  // spec's report definition, crossed the same way (`reports.zod.ts`).
+  ['ReportSchema', SpecReportSchema],
+  // objectui#10859 batch 4: the `object-form` arm's `properties` is its row,
+  // crossed the same way; `objectql.zod.ts` also reads the row's key set off the
+  // crossed copy to refuse each member written flat.
+  ['ObjectFormPropsSchema', SpecObjectFormPropsSchema],
+  // objectui#10859 batch 5: the `object-map` arm's `properties` is its row,
+  // crossed the same way, and its key set is read off the crossed copy too.
+  ['ObjectMapPropsSchema', SpecObjectMapPropsSchema],
+  // objectui#10859 batch 6: the `object-gantt` arm's `properties` is its row,
+  // crossed the same way; the row's key set, and its `gantt` block's, are read
+  // off the crossed copy too. This row carries defaults (`data`'s `api`
+  // provider), so the boundary returns a rebuilt copy.
+  ['ObjectGanttPropsSchema', SpecObjectGanttPropsSchema],
+  // objectui#11276 (the `object-grid` batch): the `object-grid` arm's
+  // `properties` is its row, crossed the same way, and `flatPropRefusals` reads
+  // the row's key set off the crossed copy. This row carries defaults too
+  // (`data`'s `api` provider), so the boundary returns a rebuilt copy.
+  ['ObjectGridPropsSchema', SpecObjectGridPropsSchema],
+  // objectui#6152 round 8: the flat `ObjectKanbanSchema` / `ObjectCalendarSchema`
+  // arms read their row's `filter` member (the `ViewFilterRule` array) by
+  // reference, each row crossed through this boundary.
+  ['ObjectKanbanPropsSchema', SpecObjectKanbanPropsSchema],
+  ['ObjectCalendarPropsSchema', SpecObjectCalendarPropsSchema],
+  // objectui#6152 round 6: the flat `ObjectGridSchema` mirror reads `rowColor` /
+  // `rowHeight` as the spec schemas its twin names, and one `bulkActionDefs`
+  // entry's `operation` and `visible` slot, each crossed through this boundary.
+  ['RowColorConfigSchema', SpecRowColorConfigSchema],
+  ['RowHeightSchema', SpecRowHeightSchema],
+  ['BulkActionDefSchema', SpecBulkActionDefSchema],
+  ['BulkActionOperationSchema', SpecBulkActionOperationSchema],
+  // objectui#11227: the flat mirror's `emptyState` is the spec's `EmptyStateSchema`
+  // by reference (the same schema the `object-grid` row holds since 17.6.0),
+  // crossed through this boundary.
+  ['EmptyStateSchema', SpecEmptyStateSchema],
   // objectui#10872: each ADR-0080 public-block arm's `properties` is the
   // block's `ComponentPropsMap` row, crossed through this boundary, so every
   // row is measured here like every other crossing (`page:section`,
@@ -260,14 +353,52 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   ['RecordQuickActionsProps', SpecRecordQuickActionsProps],
   ['RecordReferenceRailProps', SpecRecordReferenceRailProps],
   ['RecordAlertProps', SpecRecordAlertProps],
+  // objectui#10872: the `record:line_items` arm reads its row as its
+  // `properties` bag, crossed through this boundary like every other row.
+  ['RecordLineItemsProps', SpecRecordLineItemsProps],
   ['ElementTextPropsSchema', SpecElementTextPropsSchema],
   ['ElementButtonPropsSchema', SpecElementButtonPropsSchema],
+  // objectui#10872 batch 4: the six held blocks' arms read their rows as their
+  // `properties` bags, each crossed through this boundary like every other
+  // row. None carries a default or reaches a `z.lazy`, so each strip is the
+  // identity function.
+  ['ElementDefinitionListPropsSchema', SpecElementDefinitionListPropsSchema],
+  ['ElementRepeaterPropsSchema', SpecElementRepeaterPropsSchema],
+  ['ActionButtonPropsSchema', SpecActionButtonPropsSchema],
+  ['ActionIconPropsSchema', SpecActionIconPropsSchema],
+  ['ActionGroupPropsSchema', SpecActionGroupPropsSchema],
+  ['ActionMenuPropsSchema', SpecActionMenuPropsSchema],
   // objectui#10872 batch 2: the `element:number` arm's bag is its row (with
   // `object` made optional after the strip), and its node declares
   // `dataSource` as the spec's element binding — two crossings, measured here
   // like every other one.
   ['ElementNumberPropsSchema', SpecElementNumberPropsSchema],
   ['ElementDataSourceSchema', SpecElementDataSourceSchema],
+  // objectui#10872 batch 8: every public-block arm declares the node-level
+  // `responsiveStyles` as the spec's `ResponsiveStylesSchema` (one shared
+  // `NODE_ENVELOPE`, which batch 9 also spread into `flex`, `object-grid` and
+  // `object-chart`), crossed through this boundary like every other
+  // read. It carries no default and reaches no `z.lazy`, so the strip is the
+  // identity function — the row is here because the census below requires
+  // every imported symbol to be measured, not because the strip does work.
+  ['ResponsiveStylesSchema', SpecResponsiveStylesSchema],
+  // objectui#11070: `FormFieldSchema` reads spec `FieldSchema` members by
+  // reference (the field metadata a hand-authored form writes on the entry
+  // itself; `FormFieldSchema.shape` lists them), and `multiple` carries the
+  // spec's `.default(false)` —
+  // exactly what this boundary exists to keep out of a parse output.
+  ['FieldSchema', SpecFieldSchema],
+  // objectui#11266: one `ObjectFormSchema.subforms[].columns` entry is the spec's
+  // inline grid column, crossed through this boundary. It carries no default and
+  // reaches no `z.lazy`, so the strip is the identity function: the row is here
+  // because the census below requires every imported symbol to be measured.
+  ['InlineGridColumnSchema', SpecInlineGridColumnSchema],
+  // objectui#6152 round 12: `ListViewSchema.options` is the flattened list
+  // overlay's own legacy `options` bag. The binding is `VIEW_METADATA_MEMBERS`, a
+  // RECORD of member schemas (see `SCHEMA_RECORDS` below), so what crosses is the
+  // bag read off it, and that is what this row measures. It carries a default
+  // (the chart block's `chartType`), so the boundary returns a rebuilt copy.
+  ['ViewMetadataMembers', SpecViewMetadataMembers.listOverlay.shape.options.unwrap() as unknown as z.ZodType],
 ] as const;
 
 /** The subset that actually carries an imported default — where the strip does work. */
@@ -281,10 +412,14 @@ const CARRIES_DEFAULT = IMPORTED.filter(([, s]) => defaultsIn(s) > 0);
  * inferred, so the set cannot grow in silence — the lazy test below holds it
  * equal to what the graph re-derives.
  *
- * `ElementDataSourceSchema` (objectui#10872 batch 2, the `element:number`
- * arm's `dataSource`) reaches the recursive filter clause through `filter`.
+ * EMPTY since `@objectstack/spec` 17.5.0 (objectui#11073). It named
+ * `ElementDataSourceSchema` (objectui#10872 batch 2, the `element:number` arm's
+ * `dataSource`), whose `filter` reached the recursive filter clause's `z.lazy`.
+ * 17.5.0 converged that `filter` on the `ViewFilterRule` array, which reaches
+ * no `z.lazy`, so the schema is clean and now comes back reference-equal like
+ * every other member of `CARRIES_NONE`.
  */
-const REBUILT_CLEAN: ReadonlySet<string> = new Set(['ElementDataSourceSchema']);
+const REBUILT_CLEAN: ReadonlySet<string> = new Set<string>();
 /** …and the complement of both, where the strip must be the identity function. */
 const CARRIES_NONE = IMPORTED.filter(([n, s]) => defaultsIn(s) === 0 && !REBUILT_CLEAN.has(n));
 
@@ -339,14 +474,17 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
     it('the walker docblock\'s `lazy` count is re-derived, not quoted', () => {
       // The `lazy` arm is the one place the identity property cannot hold: it
       // must rebuild without forcing the getter, so a clean subtree behind a
-      // `z.lazy` is rebuilt anyway. The module's docblock names FOUR such
-      // nodes (the fourth, `ViewSchema`'s form-field group, since objectui#7928)
+      // `z.lazy` is rebuilt anyway. The module's docblock names SIX such
+      // nodes (the fourth, `ViewSchema`'s form-field group, since objectui#7928;
+      // the fifth, under `FieldSchema.relatedListFilter`, since objectui#11070;
+      // the sixth, the form-field group under the `object-form` row's
+      // `sections[].fields[]`, since the 17.7.0 bump, objectui#11717)
       // and says the exception costs nothing extra for every owner but the
       // ones `REBUILT_CLEAN` names (objectui#10872 batch 2), because each
       // other owner sits inside a schema that is being rebuilt regardless.
       // Both halves are measured here, so a spec bump or an import that moves
       // either one is red rather than quietly making the docblock false.
-      expect(walk(IMPORTED.map(([, s]) => s)).lazies).toBe(4);
+      expect(walk(IMPORTED.map(([, s]) => s)).lazies).toBe(6);
       const lazyOwners = IMPORTED.filter(([, s]) => walk([s]).lazies > 0);
       expect(lazyOwners.length, 'no schema owns a lazy — the count above found them elsewhere').toBeGreaterThan(0);
       // The clean owners are exactly the named set: rebuilt (so NOT the spec's
@@ -402,6 +540,14 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
      * probe list. `.default(v)` makes a member omissible; `.removeDefault()`
      * alone gives that omissibility back to a bare `ZodDefault(T)` — so every
      * member that was omissible before must still be omissible after.
+     *
+     * ⚠️ Omissibility is a RUNG, and zod 4.6 has two omissible rungs
+     * (objectui#11073): a `.default()` member answers `optin: 'defaulted'`
+     * ("absent, and something is substituted"), where zod 4.4 answered
+     * `'optional'` for it. Removing the substitution is this boundary's whole
+     * job, so the stripped member answers `'optional'`: a rung CHANGE that is
+     * not a narrowing. What must never happen is an omissible rung becoming
+     * none at all, and a `'defaulted'` rung surviving the strip.
      */
     it.each(CARRIES_DEFAULT.map(([n]) => [n] as const))('%s: no member became REQUIRED', (name) => {
       const [, raw] = CARRIES_DEFAULT.find(([n]) => n === name)!;
@@ -410,10 +556,16 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       const strippedShape = defOf(stripImportedDefaults(raw))!.shape!;
       const optin = (n: unknown) => (n as { _zod?: { optin?: string } })._zod?.optin;
       for (const key of Object.keys(rawShape)) {
+        const before = optin(rawShape[key]);
+        const after = optin(strippedShape[key]);
         expect(
-          optin(strippedShape[key]),
+          after !== undefined,
           `${name}.${key} changed omissibility — removing a default must not narrow the accept set`,
-        ).toBe(optin(rawShape[key]));
+        ).toBe(before !== undefined);
+        expect(
+          after,
+          `${name}.${key}: the strip left a substituting rung behind, or moved a rung it had no default to remove`,
+        ).toBe(before === 'defaulted' ? 'optional' : before);
       }
     });
   });
@@ -534,12 +686,37 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       // rebuilt them without the spec object's own checks.
       ['checkListViewCalendarVisualization', checkListViewCalendarVisualization],
       ['checkPageSourceCompleteness', checkPageSourceCompleteness],
+      // objectui#11073: the two `@objectstack/spec` 17.5.0 added to `DashboardWidgetSchema`,
+      // re-attached by objectui's `DashboardWidgetSchema` under the same ruling.
+      ['checkDashboardWidgetStageOrder', checkDashboardWidgetStageOrder],
+      ['checkDashboardWidgetMetricMeasureArity', checkDashboardWidgetMetricMeasureArity],
+      // objectui#11717: the two `@objectstack/spec` 17.7.0 checks the mirrors re-attach
+      // under the same ruling — the chart measure-arity check on `DashboardWidgetSchema`
+      // (objectui#11334 / objectui#11417) and the page `requires` ⇄ `kind` check on
+      // `PageNodeSchema` and `PageKindNodeSchema`.
+      ['checkDashboardWidgetChartMeasureArity', checkDashboardWidgetChartMeasureArity],
+      ['checkPageRequiresKind', checkPageRequiresKind],
+    ]);
+
+    /**
+     * Spec RECORDS OF SCHEMAS a mirror reads one member of, keyed by binding name
+     * (objectui#6152 round 12). Such a binding has no Zod internals, so it cannot
+     * itself be the argument of `stripImportedDefaults`; the read is accepted only
+     * when the WHOLE member chain rooted at the binding is that argument
+     * (`stripImportedDefaults(SpecViewMetadataMembers.listOverlay.shape.options.unwrap())`),
+     * which still puts everything that crosses through the boundary. ⛔ Not a
+     * route for a schema binding: the assertion below requires each entry to be a
+     * non-Zod object whose every value is a schema, and a schema binding keeps the
+     * one-hop `stripImportedDefaults(<binding>)` spelling.
+     */
+    const SCHEMA_RECORDS = new Map<string, unknown>([
+      ['SpecViewMetadataMembers', SpecViewMetadataMembers],
     ]);
 
     const isSpecModule = (m: string): boolean =>
       m === '@objectstack/spec' || m.startsWith('@objectstack/spec/');
 
-    interface Read { file: string; line: number; name: string; owner: string | null; wrapped: boolean; kind: 'value' | 'type' }
+    interface Read { file: string; line: number; name: string; owner: string | null; wrapped: boolean; wrappedViaMember: boolean; kind: 'value' | 'type' }
 
     const mirrorFiles = readdirSync(MIRROR_DIR).filter((f) => f.endsWith('.zod.ts')).sort();
     const reads: Read[] = [];
@@ -574,16 +751,28 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
           const inImport = importRanges.some(([a, b]) => pos >= a && pos < b);
           if (!inImport) {
             const parent = n.parent;
-            const wrapped =
-              !!parent && ts.isCallExpression(parent) &&
-              ts.isIdentifier(parent.expression) && parent.expression.text === 'stripImportedDefaults' &&
-              parent.arguments.length === 1 && parent.arguments[0] === n;
+            const isStripCallOn = (call: ts.Node | undefined, arg: ts.Node): boolean =>
+              !!call && ts.isCallExpression(call) &&
+              ts.isIdentifier(call.expression) && call.expression.text === 'stripImportedDefaults' &&
+              call.arguments.length === 1 && call.arguments[0] === arg;
+            const wrapped = isStripCallOn(parent, n);
+            // The member chain rooted at the binding (`.a.b`, `.unwrap()` calls),
+            // climbed to its top; see `SCHEMA_RECORDS`.
+            let chainTop: ts.Node = n;
+            for (;;) {
+              const up = chainTop.parent;
+              if (up && ts.isPropertyAccessExpression(up) && up.expression === chainTop) { chainTop = up; continue; }
+              if (up && ts.isCallExpression(up) && up.expression === chainTop) { chainTop = up; continue; }
+              break;
+            }
+            const wrappedViaMember = chainTop !== n && isStripCallOn(chainTop.parent, chainTop);
             reads.push({
               file,
               line: sf.getLineAndCharacterOfPosition(pos).line + 1,
               name: n.text,
               owner: owningConst(n),
               wrapped,
+              wrappedViaMember,
               kind: inTypePosition(n) ? 'type' : 'value',
             });
           }
@@ -603,7 +792,8 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       const offenders = reads
         .filter((r) => r.kind === 'value' && !r.wrapped)
         .filter((r) => !VOCABULARY_EXCEPTIONS.has(`${r.file}:${r.owner}`))
-        .filter((r) => !REFINEMENT_EXCEPTIONS.has(r.name));
+        .filter((r) => !REFINEMENT_EXCEPTIONS.has(r.name))
+        .filter((r) => !(SCHEMA_RECORDS.has(r.name) && r.wrappedViaMember));
       expect(
         offenders.map((r) => `${r.file}:${r.line} ${r.name} (in \`${r.owner ?? '<top level>'}\`)`),
         'an `@objectstack/spec` schema crosses into a mirror without the objectui#8317 import ' +
@@ -637,6 +827,21 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
         ).toBe(false);
         const matching = reads.filter((r) => r.name === name && r.kind === 'value');
         expect(matching.length, `declared exception ${name} matches no read — delete it`).toBeGreaterThan(0);
+      }
+    });
+
+    it('every declared schema record is a RECORD of schemas, read only through a wrapped member chain', () => {
+      expect(SCHEMA_RECORDS.size, 'the list is empty — delete it rather than leave a hole').toBeGreaterThan(0);
+      for (const [name, binding] of SCHEMA_RECORDS) {
+        expect('_zod' in Object(binding), `${name} is a schema — it crosses as \`stripImportedDefaults(${name})\``).toBe(false);
+        const values = Object.values(binding as Record<string, unknown>);
+        expect(values.length, `${name} holds nothing`).toBeGreaterThan(0);
+        for (const v of values) expect('_zod' in Object(v), `${name} holds a value that is not a schema`).toBe(true);
+        const matching = reads.filter((r) => r.name === name && r.kind === 'value');
+        expect(matching.length, `declared record ${name} matches no read — delete it`).toBeGreaterThan(0);
+        for (const r of matching) {
+          expect(r.wrappedViaMember, `${r.file}:${r.line} reads ${name} outside \`stripImportedDefaults(${name}.…)\``).toBe(true);
+        }
       }
     });
 

@@ -12,10 +12,15 @@
  * The hook is defensive: a missing object name, a 404, or a transport
  * error all resolve to an empty list with `error` set, so the configurator
  * can gracefully fall back to manual column entry.
+ *
+ * It reads the draft-overlaid object (`?preview=draft`, objectui#11895), so a
+ * pending draft's fields are offered before the object's first publish and a
+ * published object with no draft reads as it always did.
  */
 
 import * as React from 'react';
 import { useMetadataClient } from '../useMetadata.js';
+import { t, useMetadataLocale } from '../i18n.js';
 import { readFields } from './object-fields-io.js';
 
 export interface ObjectFieldInfo {
@@ -57,30 +62,61 @@ export function useObjectFields(
   override?: ObjectFieldInfo[],
 ): UseObjectFieldsResult {
   const client = useMetadataClient();
-  const [state, setState] = React.useState<UseObjectFieldsResult>({
-    fields: [],
-    loading: !override && !!objectName,
-    error: null,
+  // The designer locale the hook's own not-found sentence reads in
+  // (objectui#10862). The fetch records THAT the object was not found, and the
+  // row is read here, where the hook returns, so a language switch re-reads it
+  // without a refetch. A transport error is the transport's message and
+  // passes through as it came.
+  const locale = useMetadataLocale();
+  const [state, setState] = React.useState<{ result: UseObjectFieldsResult; notFound: boolean }>({
+    result: {
+      fields: [],
+      loading: !override && !!objectName,
+      error: null,
+    },
+    notFound: false,
   });
 
   React.useEffect(() => {
     // Override short-circuits the fetch: trust the caller-supplied catalog.
     if (override) {
-      setState({ fields: override, loading: false, error: null });
+      setState({ result: { fields: override, loading: false, error: null }, notFound: false });
       return;
     }
     if (!objectName) {
-      setState({ fields: [], loading: false, error: null });
+      setState({ result: { fields: [], loading: false, error: null }, notFound: false });
       return;
     }
     let cancelled = false;
-    setState((s) => ({ ...s, loading: true, error: null }));
+    setState((s) => ({ result: { ...s.result, loading: true, error: null }, notFound: false }));
+    // objectui#11895 — read the DRAFT-OVERLAID object (`?preview=draft`), the
+    // read objectui#11783's object picker already makes for the list. Every
+    // caller that reaches this fetch is an authoring surface (Studio and the
+    // metadata-admin designers; the runtime `ViewConfigPanel` passes
+    // `override` and stops above), and an author builds automations, views
+    // and pages before the object's first publish. The published read answers
+    // 404 for a draft-only object, so every field picker reading this hook
+    // offered no fields for it — the flow entry-condition builder only
+    // `previous`.
+    //
+    // One request answers both cases, so there is no second, published read:
+    // the framework's `getMetaItem({ previewDrafts: true })` serves the
+    // pending draft when there is one and falls back to the active object
+    // otherwise (never `no_draft`), and a caller the server does not admit to
+    // drafts is answered the published object as if it had not asked. A 404
+    // here therefore means neither a draft nor a published object exists.
+    //
+    // Derived here rather than memoised: the effect keys on `client`
+    // (AGENTS.md #10), and the derived client shares `client`'s transport, so
+    // a read already in flight for the same URL is still shared
+    // (objectui#11797).
     client
+      .withPreviewDrafts(true)
       .get<Record<string, unknown>>('object', objectName)
       .then((obj) => {
         if (cancelled) return;
         if (!obj) {
-          setState({ fields: [], loading: false, error: 'Object not found' });
+          setState({ result: { fields: [], loading: false, error: null }, notFound: true });
           return;
         }
         const view = readFields((obj as any).fields);
@@ -94,14 +130,17 @@ export function useObjectFields(
           hidden: e.def.hidden === true,
           ...(e.def.required === true ? { required: true } : {}),
         }));
-        setState({ fields, loading: false, error: null });
+        setState({ result: { fields, loading: false, error: null }, notFound: false });
       })
       .catch((err) => {
         if (cancelled) return;
         setState({
-          fields: [],
-          loading: false,
-          error: err?.message ?? String(err),
+          result: {
+            fields: [],
+            loading: false,
+            error: err?.message ?? String(err),
+          },
+          notFound: false,
         });
       });
     return () => {
@@ -109,5 +148,5 @@ export function useObjectFields(
     };
   }, [client, objectName, override]);
 
-  return state;
+  return state.notFound ? { ...state.result, error: t('engine.form.objectNotFound', locale) } : state.result;
 }

@@ -13,7 +13,8 @@
  * retirement: a widget still holding the pre-ADR-0021 inline-analytics shape
  * (top-level `object`, no `dataset`, no inline `options.data`) renders a VISIBLE
  * error placeholder prompting a rebind. `DashboardGridLayout` — separately
- * exported, and registered as the `dashboard-grid` SDUI component — had none, so
+ * exported, and then registered as the `dashboard-grid` SDUI component (retired
+ * by objectui#10859 batch 8) — had none, so
  * the very same stored metadata fell through to its static-data branch with
  * `data: []`: a silent blank chart, no diagnostic, no path to fix. That is the
  * exact outcome `DashboardRenderer.legacyRetired.test.tsx`'s header says must not
@@ -28,6 +29,14 @@
  * still-live authoring surface (the #4600 measurement's do-not-conflate note);
  * dataset widgets and static-data widgets are live too. None of them may acquire
  * the placeholder — on either surface.
+ *
+ * ⚠️ Dated note, 2026-10-03 — objectui#11525. When this header was written the
+ * nested `provider: 'object'` config was live for every family. The
+ * single-value family's is now retired: a dataset-less provider metric draws
+ * this placeholder through each surface's metric arm, not through the shared
+ * detector (`inlineObjectMetricRetired-11525.test.tsx`). The provider control
+ * below is a `bar`, whose family stays live, so it holds as written. The rest
+ * of this header is kept as the reading of objectui#4612.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
@@ -69,8 +78,11 @@ describe('DashboardGridLayout retired legacy widgets (#4612)', () => {
     // stood at `8640cec19`, the commit that added this file. It was byte-for-byte
     // then — same keys, same order, same values — and it is NOT byte-for-byte
     // now: `e028dfcd8` (objectui#4600, PR #4615) migrated the `filtered-*`
-    // entries off the retired shape 66 minutes later, so `widgets[0]` on disk is
-    // `{ id, title, type, options: { xField, yField, data } }` today.
+    // entries off the retired shape 66 minutes later, onto inline
+    // `options: { xField, yField, data }`, and objectui#11070 round 6
+    // (objectui#11228 ruling C) then moved them to the dataset form, so
+    // `widgets[0]` on disk is `{ id, title, type, dataset, dimensions, values }`
+    // today.
     //
     // ⚠️ This row therefore does NOT carry the independent-corpus property the
     // original annotation claimed for it. It is a HISTORICAL specimen of stored
@@ -86,9 +98,9 @@ describe('DashboardGridLayout retired legacy widgets (#4612)', () => {
     // than the row above ever made: its retired binding verbatim (`type`,
     // `object`, `aggregate`), with `id` genericised to `w1` and `title` /
     // `filterBindings` dropped. So this row was never byte-for-byte and never
-    // said it was. `e028dfcd8` retired that widget's shape too — `widgets[2]` is
-    // `{ id, title, type, options: { value }, filterBindings }` today — so the
-    // same ⚠️ above applies to it.
+    // said it was. `e028dfcd8` retired that widget's shape too, and round 6
+    // moved it on again — `widgets[2]` is `{ id, title, type, dataset, values,
+    // filterBindings }` today — so the same ⚠️ above applies to it.
     ['metric', { id: 'w1', type: 'metric', object: 'invoices', aggregate: 'count' }],
   ])('renders the visible placeholder for a legacy %s widget', (_kind, widget) => {
     render(<DashboardGridLayout schema={dash(widget)} />);
@@ -169,9 +181,11 @@ describe('DashboardGridLayout retired legacy widgets (#4612)', () => {
    *
    * What this block deliberately does NOT do is restore the independent-corpus
    * property the annotations above lost, because that property is no longer
-   * obtainable. Measured across every JSON document in the repo: 28 dashboard
-   * widgets, ZERO carrying the retired top-level binding, against live controls
-   * of 15 `options`-shaped and 2 `dataset`-shaped widgets. That zero is by
+   * obtainable. Measured across every JSON document in the repo when this block
+   * was written (objectui#7151): 28 dashboard widgets, ZERO carrying the retired
+   * top-level binding, against live controls of 15 `options`-shaped and 2
+   * `dataset`-shaped widgets — a historical reading; objectui#11070 round 6
+   * later moved those 15 to the dataset form. That zero is by
    * DESIGN, not by accident — the retirement's whole content is that no
    * authoring surface emits the shape (`WidgetConfigPanel` scrubs it on save via
    * `LEGACY_ANALYTICS_KEYS`), and the catalog is an authoring corpus. A specimen

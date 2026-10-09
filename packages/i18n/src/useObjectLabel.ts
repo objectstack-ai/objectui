@@ -11,6 +11,7 @@
  * | What               | Auto-generated key                              | Fallback              |
  * |--------------------|-------------------------------------------------|-----------------------|
  * | Object label       | {ns}.objects.{objectName}.label                  | objectDef.label       |
+ * | Object plural      | {ns}.objects.{objectName}.pluralLabel            | objectDef.pluralLabel, then the object label |
  * | Object description | {ns}.objects.{objectName}.description             | objectDef.description |
  * | Field label        | {ns}.fields.{objectName}.{fieldName}              | field.label           |
  *
@@ -122,9 +123,10 @@ export function useObjectLabel() {
    * include crm.objects.* or crm.apps.*.
    *
    * `globalActions` is included so an app bundle whose only translated scope
-   * is global actions (no object/field entries) is still discovered — its
-   * `globalActions.<action>.*` overlays would otherwise be unreachable
-   * (objectui#3372).
+   * is global actions (no object/field entries) is still discovered — the
+   * `globalActions.<action>.*` copy of its object-less actions would otherwise
+   * be unreachable (objectui#3372; object-less only since objectui#11439, see
+   * `actionSuffixes`).
    */
   const getAppNamespaces = (): string[] => {
     if (!hasUsableI18nInstance(i18n)) return [];
@@ -184,32 +186,40 @@ export function useObjectLabel() {
 
   /**
    * Build suffix candidates for an action-scoped key, mirroring the canonical
-   * `@objectstack/spec` resolver (`lookupActionField` in `system/i18n-resolver`).
+   * `@objectstack/spec` resolver (`actionTranslationNode` behind
+   * `lookupActionField`, in `system/i18n-resolver`): ONE node per action, chosen
+   * by its key object.
    *
-   * When the action is object-scoped, the object key
-   * (`objects.<obj>._actions.<action>.<tail>`) wins, but the global key
-   * (`globalActions.<action>.<tail>`) is appended as a fallback so a
-   * **globalAction surfaced on an object's action bar** still picks up its
-   * `globalActions.<action>.*` overlay when no object-scoped translation
-   * exists (objectui#3372). Without this fallback, a globalAction rendered on
-   * a record-detail action bar — where the caller passes `objectDef.name` for
-   * every action — misses `objects.<obj>._actions.<action>.label` and leaks the
-   * English metadata literal.
+   * `objectName` is the action's KEY object — the object the action belongs
+   * to: its declared `objectName`, else the host object that embeds it, which
+   * is what the spec's `translateObject` stamps on an embedded action. Callers
+   * pass that object (`useActionTextLocalizer` derives it from the action).
    *
-   * Object-less actions (`objectName` omitted) resolve straight to the global
-   * namespace, as before. Object precedence is preserved: the global key is
-   * only consulted after every object-scoped candidate misses.
+   * - A key object reads `objects.<obj>._actions.<action>.<tail>` and nothing
+   *   else.
+   * - No key object reads `globalActions.<action>.<tail>` and nothing else.
+   *
+   * There is deliberately NO object-then-global chain. objectui#3372 added one
+   * so `globalActions` copy reached actions drawn on an object's bar; the
+   * spec's `TranslationDataSchema.globalActions` is for actions "not bound to a
+   * specific object via `objectName`", `@objectstack/spec` 17.7.0 never reads it
+   * for a bound action, and objectui#11439 (triage's amended ruling) retired the
+   * chain so this client and the server resolve one bundle entry the same way.
+   * A bound action's copy filed under `globalActions` now misses on every
+   * surface alike and the authored text shows — the misfiling is what
+   * `os validate` already refuses, and it is fixed in the bundle, not here.
+   *
+   * The two object-name candidates (`objects.<ns__obj>` then `objects.<obj>`)
+   * are a separate axis and stay — see `stripNamespace`.
    */
   const actionSuffixes = (
     objectName: string | undefined,
     actionName: string,
     tail: string,
-  ): string[] => {
-    const globalSuffix = `globalActions.${actionName}.${tail}`;
-    return objectName
-      ? [...objectSuffixes(objectName, `_actions.${actionName}.${tail}`), globalSuffix]
-      : [globalSuffix];
-  };
+  ): string[] =>
+    objectName
+      ? objectSuffixes(objectName, `_actions.${actionName}.${tail}`)
+      : [`globalActions.${actionName}.${tail}`];
 
   const fieldSuffixes = (objectName: string, fieldName: string): string[] => {
     const base = stripNamespace(objectName);
@@ -295,12 +305,41 @@ export function useObjectLabel() {
     return objectSuffixes(objectName, `_views.${bareViewName}.${tail}`);
   };
 
+  /** The singular object label; `objectPluralLabel` falls back to it. */
+  const objectLabel = (objectDef: { name: string; label: string }) =>
+    resolve(objectSuffixes(objectDef.name, 'label'), objectDef.label);
+
   return {
     /**
      * Resolve translated object label, falling back to objectDef.label.
      */
-    objectLabel: (objectDef: { name: string; label: string }) =>
-      resolve(objectSuffixes(objectDef.name, 'label'), objectDef.label),
+    objectLabel,
+
+    /**
+     * Resolve the object's PLURAL label — what a list of its records is called:
+     * an object list page's title and the breadcrumb segment that links to that
+     * list (objectui#11696). Record-scoped surfaces (the record page, a record
+     * drawer, "New …") keep {@link objectLabel}.
+     *
+     * Order: the translated plural (`{ns}.objects.{objectName}.pluralLabel`),
+     * else the declared `objectDef.pluralLabel`, else the singular as
+     * `objectLabel` resolves it — `pluralLabel` is optional in the spec, and an
+     * object that declares none is called by its label everywhere.
+     *
+     * The first two rungs are the client half of `translateObject` in
+     * `@objectstack/spec` (`system/i18n-resolver`), which serves `pluralLabel`
+     * as the catalog entry, else the authored value. There is deliberately NO
+     * rung that prefers a translated SINGULAR over a declared plural the bundle
+     * leaves untranslated: the server has none either, so every consumer of
+     * `/meta` shows the authored plural in that case, and this client showing
+     * something else would be a second dialect (see `viewSuffixes`). The gap is
+     * the bundle's — `os i18n extract` writes `pluralLabel` wherever the object
+     * declares one — and is fixed there.
+     */
+    objectPluralLabel: (objectDef: { name: string; label: string; pluralLabel?: string }) =>
+      resolve(objectSuffixes(objectDef.name, 'pluralLabel'), '')
+        || objectDef.pluralLabel
+        || objectLabel(objectDef),
 
     /**
      * Resolve translated object description, falling back to objectDef.description.
@@ -376,9 +415,11 @@ export function useObjectLabel() {
      * props could never fire — the renderer's `isCustomized` guard compared a
      * node's authored label against its own `id` (`Workspace` vs
      * `grp_workspace`), which never match, so the guard was true for every
-     * real entry. The props are gone; the promise was false, not merely
-     * unused. This helper is kept as a plain key reader for a consumer that
-     * renders navigation itself — it has no first-party caller.
+     * real entry. The props are gone, and so is the guard itself
+     * (objectui#11201: the renderer no longer matches a label's text against
+     * any name); the promise was false, not merely unused. This helper is kept
+     * as a plain key reader for a consumer that renders navigation itself — it
+     * has no first-party caller.
      */
     navGroupLabel: (appName: string, groupId: string, fallback: string) =>
       resolve(`apps.${appName}.navigation.${groupId}.label`, fallback),
@@ -422,38 +463,15 @@ export function useObjectLabel() {
      * Resolve translated widget description within a dashboard.
      * Convention: `{ns}.dashboards.{dashboardName}.widgets.{widgetId}.description`.
      * Returns undefined when neither metadata nor translation provides one.
+     *
+     * This is a widget's ONE translated description. The sibling sub-caption
+     * key, `widgets.{widgetId}.subCaption`, is retired with its resolver
+     * (objectui#11389, ruling C): `@objectstack/spec` 17.7.0 refuses it by
+     * name in a translation bundle, and nothing here reads it.
      */
     widgetDescription: (dashboardName: string, widgetId: string, fallback?: string) => {
       const fb = fallback ?? '';
       const resolved = resolve(dashboardSuffixes(dashboardName, `widgets.${widgetId}.description`), fb);
-      return resolved || undefined;
-    },
-
-    /**
-     * Resolve a translated metric-widget SUB-CAPTION within a dashboard.
-     * Convention: `{ns}.dashboards.{dashboardName}.widgets.{widgetId}.subCaption`.
-     * Returns undefined when neither metadata nor translation provides one.
-     *
-     * Deliberately its OWN key, not a second reader of `widgets.{id}.description`.
-     * The KPI card renders two authored strings from two different fields — the
-     * shared card header's `widget.description`, and the sub-caption under the
-     * value, which is authored as `widget.options.description` — and the
-     * objectstack#5428 item-4 ruling (2026-08-06) settled that they get two
-     * keys, not one: 「两个作者字段两个 key」. Collapsing them would make one
-     * translation entry silently retarget the other field on any widget type
-     * that renders both at once (`kpi`, `gauge`, `bullet` — every metric-family
-     * type except the self-contained `metric`).
-     *
-     * `subCaption` is the member objectstack#8056 added to the widget
-     * translation node for exactly this, shipped in `@objectstack/spec@17.0.0`.
-     * The server-side resolver reads the SAME key and overlays it onto
-     * `options.description` (`translateDashboard`), so a document served
-     * through `/meta` and a document translated here land on the same string —
-     * this is the client half of one convention, not a second dialect.
-     */
-    widgetSubCaption: (dashboardName: string, widgetId: string, fallback?: string) => {
-      const fb = fallback ?? '';
-      const resolved = resolve(dashboardSuffixes(dashboardName, `widgets.${widgetId}.subCaption`), fb);
       return resolved || undefined;
     },
 
@@ -533,19 +551,20 @@ export function useObjectLabel() {
 
     /**
      * Resolve translated action label.
-     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.label`,
-     * falling back to `{ns}.globalActions.{actionName}.label` — both when
-     * objectName is omitted AND when the object-scoped key misses (so a
-     * globalAction surfaced on a record-detail action bar still resolves;
-     * objectui#3372).
+     * `objectName` is the action's KEY object (its declared `objectName`, else
+     * the host that embeds it). Convention:
+     * `{ns}.objects.{objectName}._actions.{actionName}.label`; with no key
+     * object, `{ns}.globalActions.{actionName}.label`. Never both: a bound
+     * action does not read `globalActions` (objectui#11439, see
+     * `actionSuffixes`). Every action resolver below follows the same rule.
      */
     actionLabel: (objectName: string | undefined, actionName: string, fallback: string) =>
       resolve(actionSuffixes(objectName, actionName, 'label'), fallback),
 
     /**
      * Resolve translated action confirmation prompt.
-     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.confirmText`,
-     * falling back to `{ns}.globalActions.{actionName}.confirmText`.
+     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.confirmText`;
+     * with no key object, `{ns}.globalActions.{actionName}.confirmText`.
      * Returns undefined when no translation and no fallback exist.
      */
     actionConfirm: (objectName: string | undefined, actionName: string, fallback?: string) => {
@@ -556,8 +575,8 @@ export function useObjectLabel() {
 
     /**
      * Resolve translated action success message.
-     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.successMessage`,
-     * falling back to `{ns}.globalActions.{actionName}.successMessage`.
+     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.successMessage`;
+     * with no key object, `{ns}.globalActions.{actionName}.successMessage`.
      */
     actionSuccess: (objectName: string | undefined, actionName: string, fallback?: string) => {
       const fb = fallback ?? '';
@@ -566,11 +585,35 @@ export function useObjectLabel() {
     },
 
     /**
+     * Resolve the translated success copy for ONE handler outcome — an entry of
+     * the action's `outcomeMessages` (`@objectstack/spec` 17.6.0, objectui#11344).
+     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.outcomeMessages.{outcome}`;
+     * with no key object, `{ns}.globalActions.{actionName}.outcomeMessages.{outcome}`
+     * — the addresses the spec's translation bundle declares for the key.
+     * Returns undefined when no translation and no fallback exist.
+     *
+     * Like `actionSuccess`, the answer is a TEMPLATE: a `${result.*}` token in a
+     * bundle entry passes through untouched (i18next interpolates its own
+     * `{{…}}` form, never `${…}`), and the action runner fills it in from the
+     * handler's answer once the action has run.
+     */
+    actionOutcome: (
+      objectName: string | undefined,
+      actionName: string,
+      outcome: string,
+      fallback?: string,
+    ) => {
+      const fb = fallback ?? '';
+      const resolved = resolve(actionSuffixes(objectName, actionName, `outcomeMessages.${outcome}`), fb);
+      return resolved || undefined;
+    },
+
+    /**
      * Resolve translated action description (the explanatory line shown in the
      * action's param dialog / sheet / drawer header).
-     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.description`.
-     * Falls back to `{ns}.globalActions.{actionName}.description`, then the
-     * metadata's literal string; undefined when nothing resolves.
+     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.description`;
+     * with no key object, `{ns}.globalActions.{actionName}.description`. Falls
+     * back to the metadata's literal string; undefined when nothing resolves.
      */
     actionDescription: (objectName: string | undefined, actionName: string | undefined, fallback?: string) => {
       const fb = fallback ?? '';
@@ -582,10 +625,9 @@ export function useObjectLabel() {
     /**
      * Resolve a translated copy of an action's post-success RESULT DIALOG
      * (`title` / `description` / `acknowledge` + per-field labels).
-     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.resultDialog.*`,
-     * falling back to `{ns}.globalActions.{actionName}.resultDialog.*` (when
-     * objectName is omitted OR the object-scoped key misses), then to the
-     * metadata's literal strings.
+     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.resultDialog.*`;
+     * with no key object, `{ns}.globalActions.{actionName}.resultDialog.*`.
+     * Falls back to the metadata's literal strings.
      *
      * The `fields` translation node is keyed by the LITERAL result-field path
      * from the action metadata (may contain dots, e.g. `"user.email"`), so it
@@ -646,7 +688,8 @@ export function useObjectLabel() {
 
     /**
      * Resolve translated action-PARAMETER text (label / placeholder / helpText).
-     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.params.{paramName}.{attr}`.
+     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.params.{paramName}.{attr}`;
+     * with no key object, `{ns}.globalActions.{actionName}.params.{paramName}.{attr}`.
      * Falls back to the provided value (the metadata's literal string) when no
      * translation exists, so untranslated params keep rendering as authored.
      */
@@ -667,7 +710,8 @@ export function useObjectLabel() {
     },
     /**
      * Resolve a translated action-parameter SELECT OPTION label.
-     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.params.{paramName}.options.{optionValue}`.
+     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.params.{paramName}.options.{optionValue}`;
+     * with no key object, the same path under `{ns}.globalActions.{actionName}`.
      * Falls back to the provided (English metadata) label when untranslated.
      */
     actionParamOptionLabel: (

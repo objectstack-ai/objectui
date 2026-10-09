@@ -10,8 +10,19 @@
  *
  *   - drag to reposition nodes (committed to the spec's `node.position = {x,y}`
  *     on drop — objectui#3172),
- *   - add nodes from a palette (toolbar or a node's bottom "+" handle),
- *   - insert a node on an edge ("+" at the edge midpoint splits A→B),
+ *   - add a node from the ONE add-node palette, whichever "+" opened it
+ *     (objectui#11778): the toolbar's Add node and a node's bottom "+" put it
+ *     after that node in its path (`placeAfter`), the "+" at an edge's
+ *     midpoint splits that edge A→B into A→N→B; the new node is left unpinned
+ *     so the layered auto-layout places it,
+ *   - connect two nodes the flow already has (objectui#11905): press the
+ *     connect handle (the dot on a card's bottom edge, beside its "+"), drag
+ *     and drop on another node. The new edge is the one a "+" would draw out
+ *     of that node (`outEdge`); `edgeConnectionRefusal` (`flow-problems`),
+ *     the rule the edge inspector's From / To also call, refuses a node to
+ *     itself, a pair already connected and a node the flow does not have, and
+ *     the reason shows in the alert stack. Dropped on no node, the drag is let
+ *     go and nothing is written,
  *   - delete the selected node (Delete/Backspace) with full edge cleanup,
  *   - pan (background drag) and zoom / fit-to-view.
  *
@@ -51,7 +62,18 @@ import {
 import { predictExpandedNodeHeight } from './flow-region-metrics.js';
 import { NodeCard, NodePalette, defaultNodeLabel, defaultNodeExtras } from './flow-canvas-parts.js';
 import { useFlowNodePalette } from './useFlowNodePalette.js';
-import { indexProblemBadges, edgeProblemKey, type FlowProblem } from './flow-problems.js';
+import {
+  indexProblemBadges,
+  edgeProblemKey,
+  describeEdgeConnectionRefusal,
+  describeNodeRemovalRefusal,
+  edgeConnectionRefusal,
+  edgesAfterNodeRemoval,
+  freshNodeId,
+  nodeRemovalRefusal,
+  type EdgeConnectionRefusal,
+  type FlowProblem,
+} from './flow-problems.js';
 import type { NestedNodePath } from '../inspectors/flow-nested-selection.js';
 
 const MIN_ZOOM = 0.4;
@@ -73,6 +95,29 @@ interface PanState {
   originX: number;
   originY: number;
 }
+
+/**
+ * objectui#11905 — a drag from a node's connect handle, while it lasts. Kept in
+ * a ref (the window listeners read it), mirrored into state for the preview.
+ */
+interface ConnectState {
+  /** The node whose handle was pressed: the new edge's source. */
+  source: string;
+  /** Client coordinates of the press. */
+  startX: number;
+  startY: number;
+  /** Past `DRAG_THRESHOLD`: a press that never moves is let go, not refused. */
+  moved: boolean;
+  /** The pointer, in canvas coordinates: the preview line's loose end. */
+  pointer: Point;
+  /** The node under the pointer, if any. */
+  overId: string | null;
+}
+
+/** Horizontal offset of the connect handle from the card's centre: clear of the 24px "+" there. */
+const CONNECT_HANDLE_DX = 36;
+/** The connect handle's diameter. */
+const CONNECT_HANDLE_SIZE = 14;
 
 export interface FlowCanvasProps {
   nodes: FlowDesignerNode[];
@@ -126,6 +171,13 @@ export interface FlowCanvasProps {
    */
   onSelectNested?: (path: NestedNodePath | null, node?: FlowDesignerNode) => void;
   onPatch?: (partial: Record<string, unknown>) => void;
+  /**
+   * objectui#11772 — the host's id minter for a new node, when the host keeps
+   * an editing session (`FlowPreview` remembers every node id it has seen, so
+   * a removed node's id is never minted again). Absent, the canvas mints with
+   * `freshNodeId` (`flow-problems`) over the draft alone.
+   */
+  mintNodeId?: () => string;
 }
 
 export function FlowCanvas({
@@ -149,6 +201,7 @@ export function FlowCanvas({
   selectedNestedPath,
   onSelectNested,
   onPatch,
+  mintNodeId,
 }: FlowCanvasProps) {
   // objectui#3172 — the ONE geometry boundary: nodes enter the canvas with the
   // retired `ui: {x,y}` spelling already lifted onto the spec's `position`, so
@@ -159,9 +212,15 @@ export function FlowCanvas({
   const nodes = React.useMemo(() => withCanonicalGeometry(storedNodes), [storedNodes]);
 
   const viewportRef = React.useRef<HTMLDivElement>(null);
+  // objectui#11795 — the viewport width the diagram was last framed at (the
+  // mount centering, or a re-fit after the canvas's width changed).
+  const framedWidthRef = React.useRef<number | null>(null);
   const [zoom, setZoom] = React.useState(1);
   const [pan, setPan] = React.useState<Point>({ x: 0, y: 0 });
-  const [paletteOpen, setPaletteOpen] = React.useState(false);
+  // objectui#11778 — which "+" has the add-node palette open: `toolbar`,
+  // `edge:<edgeKey>` or `node:<id>`; null when none. One key, so at most one
+  // palette is ever open and a pick closes it wherever it was opened.
+  const [paletteAt, setPaletteAt] = React.useState<string | null>(null);
   // Node types offered by the add-node palette, driven by the engine's
   // published descriptors (`GET /api/v1/automation/actions`) merged with the
   // hardcoded base — so the palette reflects what the backend actually supports
@@ -237,6 +296,38 @@ export function FlowCanvas({
   // the same `problems` list as the panel/badges so the three stay in lock-step.
   const bannerErrors = React.useMemo(() => (problems ?? []).filter((p) => p.level === 'error'), [problems]);
 
+  // objectui#11838 — the node whose Delete-key removal was refused. Its message
+  // sits at the top of that same inline alert stack, derived from the draft
+  // while the node stays selected: it names what still blocks the removal, and
+  // goes away once nothing does or another element is selected. Reset while
+  // rendering when the selection moves (the pattern `FlowNodeIdField` uses), so
+  // re-selecting the node does not bring back a refusal nobody asked for again.
+  const [deleteRefusedId, setDeleteRefusedId] = React.useState<string | null>(null);
+  // objectui#11905 — a drag from a connect handle while it lasts (`ConnectState`),
+  // and the connection the last drop was refused. Its reason sits in the same
+  // alert stack until the next press on the canvas or a change of selection.
+  const connectRef = React.useRef<ConnectState | null>(null);
+  const [connectView, setConnectView] = React.useState<ConnectState | null>(null);
+  const [connectRefused, setConnectRefused] = React.useState<{
+    source: string;
+    target: string;
+    refusal: EdgeConnectionRefusal;
+  } | null>(null);
+  const [refusalSelection, setRefusalSelection] = React.useState(selectedId);
+  if (refusalSelection !== selectedId) {
+    setRefusalSelection(selectedId);
+    setDeleteRefusedId(null);
+    setConnectRefused(null);
+  }
+  const deleteRefusal = React.useMemo(() => {
+    if (!deleteRefusedId || deleteRefusedId !== selectedId) return null;
+    const sites = nodeRemovalRefusal({ nodes, edges }, deleteRefusedId);
+    return sites ? describeNodeRemovalRefusal(deleteRefusedId, sites, locale) : null;
+  }, [deleteRefusedId, selectedId, nodes, edges, locale]);
+  const connectRefusal = connectRefused
+    ? describeEdgeConnectionRefusal(connectRefused.refusal, connectRefused.source, connectRefused.target, locale)
+    : null;
+
   const positionOf = React.useCallback(
     (id: string): Point => {
       if (dragPos && dragPos.id === id) return { x: dragPos.x, y: dragPos.y };
@@ -259,11 +350,17 @@ export function FlowCanvas({
     [nodes, onPatch],
   );
 
+  // objectui#11772 — the one place this canvas names a node it adds: the
+  // host's session minter when it keeps one, else `freshNodeId` over the draft.
+  const newNodeId = React.useCallback(
+    () => (mintNodeId ? mintNodeId() : freshNodeId(nodes, edges)),
+    [mintNodeId, nodes, edges],
+  );
+
   const addNode = React.useCallback(
     (type: string, opts?: { from?: string; at?: Point }) => {
       if (!onPatch) return;
-      const existing = nodes.map((n) => n.id).filter(Boolean) as string[];
-      const id = uniqueId('node', existing);
+      const id = newNodeId();
       const label = defaultNodeLabel(type, locale);
       // Only an explicit `at` pins a manual position. A `from`-append is left
       // unpinned so the layered auto-layout slots it below its parent and
@@ -279,57 +376,32 @@ export function FlowCanvas({
       };
       const nextNodes = appendArray(nodes, newNode);
       const patch: Record<string, unknown> = { nodes: nextNodes };
-      if (opts?.from) {
-        const newEdge: FlowDesignerEdge = {
-          id: uniqueId('edge', edges.map((e) => e.id).filter(Boolean) as string[]),
-          source: opts.from,
-          target: id,
-        };
-        // When the source is a decision, carry its matching branch (by order:
-        // the k-th out-edge takes the k-th branch) onto the new edge so it
-        // actually routes. The decision's config.conditions are otherwise
-        // disconnected from the edges, leaving every branch unconditional.
-        const fromNode = nodes.find((n) => n.id === opts.from);
-        if (fromNode?.type === 'decision') {
-          const branches = Array.isArray(fromNode.config?.conditions)
-            ? (fromNode.config!.conditions as Array<Record<string, unknown>>)
-            : [];
-          const outCount = edges.filter((e) => e.source === opts.from).length;
-          const branch = branches[outCount];
-          if (branch && typeof branch === 'object') {
-            const expr = typeof branch.expression === 'string' ? branch.expression.trim() : '';
-            const label = typeof branch.label === 'string' ? branch.label.trim() : '';
-            if (label) newEdge.label = label;
-            if (expr === 'true') newEdge.isDefault = true;
-            else if (expr) newEdge.condition = expr;
-          }
-        }
-        patch.edges = appendArray(edges, newEdge);
-      }
+      if (opts?.from) patch.edges = appendArray(edges, outEdge(opts.from, id, nodes, edges));
       onPatch(patch);
       onSelect(newNode);
-      setPaletteOpen(false);
+      setPaletteAt(null);
     },
-    [edges, nodes, onPatch, onSelect, positionOf, locale],
+    [edges, nodes, onPatch, onSelect, positionOf, locale, newNodeId],
   );
 
-  /** Split edge A→B by inserting a new node N: A→N (keeps guard) + N→B. */
+  /**
+   * Split edge A→B by inserting a new node N of the picked `type`: A→N (keeps
+   * guard) + N→B. objectui#11778 — N is left unpinned, like a `from`-append, so
+   * the layered auto-layout gives it its own layer between A and B. Pinning it
+   * at the endpoints' midpoint (the old behavior) dropped it half a layer below
+   * A, on top of the cards it sat between.
+   */
   const insertOnEdge = React.useCallback(
-    (edge: FlowDesignerEdge, type = 'create_record') => {
+    (edge: FlowDesignerEdge, type: string) => {
       if (!onPatch) return;
       const edgeIdx = edges.findIndex((e) => e === edge);
       if (edgeIdx < 0) return;
-      const existing = nodes.map((n) => n.id).filter(Boolean) as string[];
-      const id = uniqueId('node', existing);
-      const from = positionOf(edge.source);
-      const to = positionOf(edge.target);
-      const at = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+      const id = newNodeId();
       const newNode: FlowDesignerNode = {
         id,
         type,
         label: defaultNodeLabel(type, locale),
         ...defaultNodeExtras(type),
-        position: { x: at.x, y: at.y },
       };
       // A→N inherits the original edge's branch semantics; N→B is plain.
       const firstSegment: FlowDesignerEdge = { ...edge, target: id };
@@ -341,9 +413,33 @@ export function FlowCanvas({
       const nextEdges = spliceArray(edges, edgeIdx, firstSegment);
       onPatch({ nodes: appendArray(nodes, newNode), edges: appendArray(nextEdges, secondSegment) });
       onSelect(newNode);
+      setPaletteAt(null);
     },
-    [edges, nodes, onPatch, onSelect, positionOf, locale],
+    [edges, nodes, onPatch, onSelect, locale, newNodeId],
   );
+
+  /**
+   * objectui#11778 — add a node of the picked `type` AFTER `anchorId`, in its
+   * path: the one rule the toolbar's Add node (anchor: the selected node, else
+   * Start) and a node's bottom "+" (anchor: that node) share. `placeAfter`
+   * decides where; this only dispatches to the insert or the append.
+   */
+  const addAfter = React.useCallback(
+    (anchorId: string | null, type: string) => {
+      const place = placeAfter(anchorId, nodes, edges);
+      if (place.kind === 'split') insertOnEdge(place.edge, type);
+      else addNode(type, place.kind === 'from' ? { from: place.from } : undefined);
+    },
+    [nodes, edges, insertOnEdge, addNode],
+  );
+
+  /** Open/close wiring for the add-node palette behind one "+" (see `paletteAt`). */
+  const paletteFor = (key: string) => ({
+    locale,
+    items: paletteItems,
+    open: paletteAt === key,
+    onOpenChange: (open: boolean) => setPaletteAt(open ? key : null),
+  });
 
   /**
    * ADR-0044 one-click "add revision loop": drop a signal `wait` node plus the
@@ -358,7 +454,7 @@ export function FlowCanvas({
     (approvalId: string) => {
       if (!onPatch) return;
       if (!nodes.some((n) => n.id === approvalId)) return;
-      const waitId = uniqueId('node', nodes.map((n) => n.id).filter(Boolean) as string[]);
+      const waitId = newNodeId();
       const waitNode: FlowDesignerNode = {
         id: waitId,
         type: 'wait',
@@ -379,7 +475,7 @@ export function FlowCanvas({
       });
       onSelect(waitNode);
     },
-    [edges, nodes, onPatch, onSelect, locale],
+    [edges, nodes, onPatch, onSelect, locale, newNodeId],
   );
 
   // Approval nodes that already declare a `revise` out-edge — used to hide the
@@ -395,8 +491,16 @@ export function FlowCanvas({
   const deleteNode = React.useCallback(
     (id: string) => {
       if (!onPatch) return;
+      // objectui#11838 — the inspector's "Remove node" rule: refused, writing
+      // nothing, while a boundary event's host or an expression root still
+      // names the node. The refusal is shown in the alert stack above.
+      if (nodeRemovalRefusal({ nodes, edges }, id)) {
+        setDeleteRefusedId(id);
+        return;
+      }
       const nextNodes = nodes.filter((n) => n.id !== id);
-      const nextEdges = edges.filter((e) => e.source !== id && e.target !== id);
+      // objectui#11772 — the same removal the inspector's "Remove node" makes.
+      const nextEdges = edgesAfterNodeRemoval(edges, id, new Set(nextNodes.map((n) => n.id)));
       onPatch({ nodes: nextNodes, edges: nextEdges });
       onSelect(null);
     },
@@ -407,8 +511,18 @@ export function FlowCanvas({
 
   const onNodePointerDown = React.useCallback(
     (id: string) => (e: React.PointerEvent) => {
-      if (!editable || e.button !== 0) return;
+      if (e.button !== 0) return;
+      // objectui#11546 — a press on a node that answers it (a drag when
+      // editable, a select in design mode) is the node's, never the
+      // background's. Reaching `onBgPointerDown` clears the selection and takes
+      // pointer capture on the viewport, so the browser fires the click at the
+      // viewport and the node's own select never runs. A read-only design
+      // canvas withholds only the drag; a press on a node that answers neither
+      // still pans.
+      if (!editable && !designMode) return;
       e.stopPropagation();
+      setConnectRefused(null);
+      if (!editable) return;
       const origin = positionOf(id);
       dragRef.current = {
         nodeId: id,
@@ -420,7 +534,7 @@ export function FlowCanvas({
       };
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     },
-    [editable, positionOf],
+    [designMode, editable, positionOf],
   );
 
   const onNodePointerMove = React.useCallback(
@@ -452,11 +566,125 @@ export function FlowCanvas({
     [dragPos, persistPosition],
   );
 
+  // ── Connect (objectui#11905): drag from a connect handle, drop on a node ───
+
+  /** Client coordinates to canvas coordinates: the inverse of the pan/zoom transform. */
+  const toCanvasPoint = React.useCallback(
+    (clientX: number, clientY: number): Point => {
+      const rect = viewportRef.current?.getBoundingClientRect();
+      return { x: (clientX - (rect?.left ?? 0) - pan.x) / zoom, y: (clientY - (rect?.top ?? 0) - pan.y) / zoom };
+    },
+    [pan.x, pan.y, zoom],
+  );
+
+  /**
+   * The node of THIS canvas a pointer event is over: the card (its
+   * `data-node-id` element) holding the element the browser hit-tests at the
+   * event's point, else the one holding the event's own target. The hit-test
+   * comes first because a touch pointer is captured by the handle it pressed,
+   * so its release targets the handle rather than the card under the finger.
+   */
+  const nodeUnder = React.useCallback(
+    (e: PointerEvent): string | null => {
+      const idOf = (el: unknown): string | null => {
+        const vp = viewportRef.current;
+        if (!vp || !el || typeof (el as Element).closest !== 'function' || !vp.contains(el as Node)) return null;
+        const id = (el as Element).closest('[data-node-id]')?.getAttribute('data-node-id');
+        return id && nodes.some((n) => n.id === id) ? id : null;
+      };
+      const hit = typeof document.elementFromPoint === 'function' ? document.elementFromPoint(e.clientX, e.clientY) : null;
+      return idOf(hit) ?? idOf(e.target);
+    },
+    [nodes],
+  );
+
+  const onConnectPointerDown = React.useCallback(
+    (source: string) => (e: React.PointerEvent) => {
+      if (e.button !== 0 || !editable) return;
+      // The press is the handle's: not a pan or a selection clear (the
+      // viewport's), not a card drag, and no text selection while it lasts.
+      e.stopPropagation();
+      e.preventDefault();
+      setConnectRefused(null);
+      const state: ConnectState = {
+        source,
+        startX: e.clientX,
+        startY: e.clientY,
+        moved: false,
+        pointer: toCanvasPoint(e.clientX, e.clientY),
+        overId: null,
+      };
+      connectRef.current = state;
+      setConnectView(state);
+    },
+    [editable, toCanvasPoint],
+  );
+
+  /** The drop: connect the source to the node under the pointer, or say why not. */
+  const finishConnect = React.useCallback(
+    (e: PointerEvent) => {
+      const c = connectRef.current;
+      connectRef.current = null;
+      setConnectView(null);
+      if (!c || !c.moved || !onPatch) return;
+      const target = nodeUnder(e);
+      if (!target) return;
+      const refusal = edgeConnectionRefusal({ nodes, edges }, c.source, target);
+      if (refusal) {
+        setConnectRefused({ source: c.source, target, refusal });
+        return;
+      }
+      const edge = outEdge(c.source, target, nodes, edges);
+      // The patch holds the edges alone: no node is rewritten, so a node that
+      // is reconnected keeps its configuration exactly as stored.
+      onPatch({ edges: appendArray(edges, edge) });
+      onSelectEdge?.(edge, edgeKey(edge, edges.length));
+    },
+    [edges, nodes, nodeUnder, onPatch, onSelectEdge],
+  );
+
+  // While a connect drag lasts the window carries it, so a release outside the
+  // viewport still ends it; Escape or a cancelled pointer lets it go.
+  const connecting = connectView !== null;
+  React.useEffect(() => {
+    if (!connecting) return;
+    const move = (e: PointerEvent) => {
+      const c = connectRef.current;
+      if (!c) return;
+      const next: ConnectState = {
+        ...c,
+        moved: c.moved || Math.hypot(e.clientX - c.startX, e.clientY - c.startY) >= DRAG_THRESHOLD,
+        pointer: toCanvasPoint(e.clientX, e.clientY),
+        overId: nodeUnder(e),
+      };
+      connectRef.current = next;
+      setConnectView(next);
+    };
+    const cancel = () => {
+      connectRef.current = null;
+      setConnectView(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') cancel();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', finishConnect);
+    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', finishConnect);
+      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [connecting, finishConnect, nodeUnder, toCanvasPoint]);
+
   // ── Pan (background drag) ──────────────────────────────────────────────────
 
   const onBgPointerDown = React.useCallback(
     (e: React.PointerEvent) => {
       if (e.button !== 0) return;
+      setConnectRefused(null);
       onSelect(null);
       panRef.current = { startX: e.clientX, startY: e.clientY, originX: pan.x, originY: pan.y };
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -512,8 +740,42 @@ export function FlowCanvas({
       x: (vp.clientWidth - size.width) / 2,
       y: Math.max(16, (vp.clientHeight - size.height) / 2),
     });
+    framedWidthRef.current = vp.clientWidth;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // objectui#11795 — re-fit when the canvas's own WIDTH changes: a window
+  // resize, the Studio chat dock opening or closing, a side panel toggled
+  // beside the canvas. Without it the mount framing outlived its width: opened
+  // narrow and then widened, the diagram stayed where the narrow box put it,
+  // its cards clipped at the left edge. The fit is the toolbar's, capped at
+  // 100% so a small flow is not zoomed up past the scale it opens at.
+  //
+  // Width only, never height, which keeps the promise above: the size changes
+  // an edit causes are vertical — a held-edit or refused-save notice landing
+  // above the canvas, a Problems list growing under it — and must not yank the
+  // viewport from under the author. A node add, drag or edit changes the
+  // diagram, not the canvas, and re-arms this observer at the width it already
+  // framed, so it moves nothing. A 0 width is a hidden canvas: nothing to fit.
+  React.useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      const width = vp.clientWidth;
+      if (width === 0 || width === framedWidthRef.current) return;
+      framedWidthRef.current = width;
+      const pad = 32;
+      // 1 is under MAX_ZOOM, so only the MIN_ZOOM floor of `clampZoom` can bind.
+      const z = Math.max(MIN_ZOOM, Math.min(1, (width - pad) / size.width, (vp.clientHeight - pad) / size.height));
+      setZoom(z);
+      setPan({
+        x: (width - size.width * z) / 2,
+        y: Math.max(16, (vp.clientHeight - size.height * z) / 2),
+      });
+    });
+    observer.observe(vp);
+    return () => observer.disconnect();
+  }, [size.height, size.width]);
 
   // Pan to center an element when the Problems panel asks to reveal it. Driven
   // by a changing `nonce` so re-clicking the same problem re-centers it.
@@ -556,14 +818,37 @@ export function FlowCanvas({
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  // objectui#11905 — the node a connect drag is over, and whether a drop there
+  // would be refused (the ring drawn on it says which).
+  const connectTarget =
+    connectView?.moved && connectView.overId
+      ? {
+          id: connectView.overId,
+          at: positionOf(connectView.overId),
+          refused: edgeConnectionRefusal({ nodes, edges }, connectView.source, connectView.overId) !== null,
+        }
+      : null;
+
   return (
     <div className="relative h-full min-h-[320px] w-full overflow-hidden">
       {/* Inline structural-validation banner (ADR-0044 cycle surfacing): shows
           errors directly on the canvas so the author needn't open Debug. Each row
           with a concrete target is clickable — it selects + pans to the offending
           node/edge (the same reveal the Problems panel does). */}
-      {bannerErrors.length > 0 && (
+      {(deleteRefusal || connectRefusal || bannerErrors.length > 0) && (
         <div className="absolute left-2 top-2 z-30 max-w-[min(60%,420px)] space-y-1">
+          {[deleteRefusal, connectRefusal].map((refusal, i) =>
+            refusal ? (
+              <p
+                key={i}
+                role="alert"
+                className="flex w-full items-start gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-left text-[11px] leading-snug text-destructive shadow-sm backdrop-blur-sm"
+              >
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{refusal}</span>
+              </p>
+            ) : null,
+          )}
           {bannerErrors.slice(0, 3).map((p) => {
             const clickable = !!onRevealProblem && p.target.kind !== 'flow';
             return (
@@ -593,13 +878,7 @@ export function FlowCanvas({
       {/* Toolbar */}
       <div className="absolute right-2 top-2 z-30 flex items-center gap-1.5">
         {editable && (
-          <NodePalette
-            locale={locale}
-            items={paletteItems}
-            open={paletteOpen}
-            onOpenChange={setPaletteOpen}
-            onPick={(type) => addNode(type, { from: selectedId ?? undefined })}
-          >
+          <NodePalette {...paletteFor('toolbar')} onPick={(type) => addAfter(selectedId, type)}>
             <button
               type="button"
               className="inline-flex items-center gap-1.5 rounded-lg border bg-background/90 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur-sm transition-colors hover:border-primary/50 hover:bg-accent hover:text-foreground"
@@ -790,7 +1069,13 @@ export function FlowCanvas({
                         onSelectEdge!(edge, eid);
                       }}
                     >
-                      <title>{invalid ? `${edge.source} → ${edge.target} — part of an un-declared cycle; mark the edge that closes the loop as a back-edge` : back ? `${edge.source} ↩ ${edge.target} (back-edge)` : `${edge.source} → ${edge.target}`}</title>
+                      <title>
+                        {invalid
+                          ? tFormat('engine.flowCanvas.edge.undeclaredCycle', locale, { source: edge.source, target: edge.target })
+                          : back
+                            ? tFormat('engine.flowCanvas.edge.backEdge', locale, { source: edge.source, target: edge.target })
+                            : `${edge.source} → ${edge.target}`}
+                      </title>
                     </path>
                   )}
                   {branchLabel && (
@@ -859,78 +1144,235 @@ export function FlowCanvas({
                       height={22}
                       className="pointer-events-auto"
                     >
-                      <button
-                        type="button"
-                        title={tr('engine.flowCanvas.insertNode', locale)}
-                        aria-label={tr('engine.flowCanvas.insertNode', locale)}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          insertOnEdge(edge);
-                        }}
-                        className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border bg-background/90 text-muted-foreground opacity-50 shadow-sm backdrop-blur-sm transition-all hover:scale-110 hover:border-primary hover:bg-background hover:text-primary hover:opacity-100 focus-visible:opacity-100"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
+                      {/* objectui#11778 — the same palette as the toolbar's;
+                          the pick splits THIS edge. */}
+                      <NodePalette {...paletteFor(`edge:${eid}`)} onPick={(type) => insertOnEdge(edge, type)}>
+                        <button
+                          type="button"
+                          title={tr('engine.flowCanvas.insertNode', locale)}
+                          aria-label={tr('engine.flowCanvas.insertNode', locale)}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border bg-background/90 text-muted-foreground opacity-50 shadow-sm backdrop-blur-sm transition-all hover:scale-110 hover:border-primary hover:bg-background hover:text-primary hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </NodePalette>
                     </foreignObject>
                   )}
                 </g>
               );
             })}
+            {/* objectui#11905 — the connection a connect drag would draw, from
+                the source's bottom anchor (where the edge will leave) to the
+                pointer. */}
+            {connectView?.moved && (
+              <path
+                data-connect-preview=""
+                d={edgePath(
+                  bottomAnchor(positionOf(connectView.source), heights.get(connectView.source) ?? NODE_H),
+                  connectView.pointer,
+                )}
+                strokeDasharray="6 4"
+                strokeWidth={2}
+                className="fill-none stroke-primary"
+                markerEnd="url(#flow-arrow)"
+              />
+            )}
           </svg>
 
           {/* Node layer */}
           {nodes.map((node) => {
             const runState = activeNodeId === node.id ? 'active' : visitedSet.has(node.id) ? 'visited' : undefined;
+            const pos = positionOf(node.id);
             return (
-              <NodeCard
-                key={node.id}
-                id={node.id}
-                locale={locale}
-                type={node.type}
-                label={node.label || node.id}
-                summary={nodeSummary(node)}
-                position={positionOf(node.id)}
-                selected={selectedId === node.id}
-                editable={editable}
-                runState={runState}
-                dimmed={simRunning && !runState}
-                onPointerDown={onNodePointerDown(node.id)}
-                onSelect={() => designMode && onSelect(node)}
-                onAppend={() => addNode('create_record', { from: node.id })}
-                onAddReviseLoop={
-                  editable && node.type === 'approval' && !reviseLoopSources.has(node.id)
-                    ? () => addReviseLoop(node.id)
-                    : undefined
-                }
-                invalid={invalidNodeSet.has(node.id)}
-                badge={nodeBadges.get(node.id)}
-                regions={regionsByNode.get(node.id)}
-                expanded={expandedIds.has(node.id)}
-                onToggleExpand={regionsByNode.has(node.id) ? () => toggleExpanded(node.id) : undefined}
-                height={heights.get(node.id)}
-                selectedNestedNode={
-                  selectedNestedPath?.containerId === node.id
-                    ? { regionKey: selectedNestedPath.regionKey, nodeId: selectedNestedPath.nodeId }
-                    : null
-                }
-                onSelectNestedNode={
-                  designMode && onSelectNested
-                    ? (regionKey, nested) =>
-                        onSelectNested({ containerId: node.id, regionKey, nodeId: nested.id }, nested)
-                    : undefined
-                }
-              />
+              <React.Fragment key={node.id}>
+                <NodeCard
+                  id={node.id}
+                  locale={locale}
+                  type={node.type}
+                  label={node.label || node.id}
+                  summary={nodeSummary(node, locale)}
+                  position={pos}
+                  selected={selectedId === node.id}
+                  editable={editable}
+                  runState={runState}
+                  dimmed={simRunning && !runState}
+                  onPointerDown={onNodePointerDown(node.id)}
+                  onSelect={() => designMode && onSelect(node)}
+                  onAppend={(type) => addAfter(node.id, type)}
+                  paletteItems={paletteItems}
+                  appendPaletteOpen={paletteAt === `node:${node.id}`}
+                  onAppendPaletteOpenChange={(open) => setPaletteAt(open ? `node:${node.id}` : null)}
+                  onAddReviseLoop={
+                    editable && node.type === 'approval' && !reviseLoopSources.has(node.id)
+                      ? () => addReviseLoop(node.id)
+                      : undefined
+                  }
+                  invalid={invalidNodeSet.has(node.id)}
+                  badge={nodeBadges.get(node.id)}
+                  regions={regionsByNode.get(node.id)}
+                  expanded={expandedIds.has(node.id)}
+                  onToggleExpand={regionsByNode.has(node.id) ? () => toggleExpanded(node.id) : undefined}
+                  height={heights.get(node.id)}
+                  selectedNestedNode={
+                    selectedNestedPath?.containerId === node.id
+                      ? { regionKey: selectedNestedPath.regionKey, nodeId: selectedNestedPath.nodeId }
+                      : null
+                  }
+                  onSelectNestedNode={
+                    designMode && onSelectNested
+                      ? (regionKey, nested) =>
+                          onSelectNested({ containerId: node.id, regionKey, nodeId: nested.id }, nested)
+                      : undefined
+                  }
+                />
+                {/* objectui#11905 — the connect handle: press, drag, drop on
+                    another node. On the card's bottom edge beside its "+", and,
+                    like the "+", absent on an End, which has no way on. A
+                    pointer gesture only: the keyboard re-points an existing
+                    connection in the edge inspector's From / To. */}
+                {editable && node.type !== 'end' && (
+                  <span
+                    aria-hidden
+                    title={tr('engine.flowCanvas.connect', locale)}
+                    data-connect-handle={node.id}
+                    onPointerDown={onConnectPointerDown(node.id)}
+                    className={cn(
+                      'absolute z-10 cursor-crosshair touch-none rounded-full border-2 bg-background shadow-sm transition-[transform,border-color] duration-150 hover:scale-125 hover:border-primary',
+                      connectView?.source === node.id ? 'scale-125 border-primary' : 'border-muted-foreground/50',
+                    )}
+                    style={{
+                      left: pos.x + NODE_W / 2 + CONNECT_HANDLE_DX - CONNECT_HANDLE_SIZE / 2,
+                      top: pos.y + (heights.get(node.id) ?? NODE_H) - CONNECT_HANDLE_SIZE / 2,
+                      width: CONNECT_HANDLE_SIZE,
+                      height: CONNECT_HANDLE_SIZE,
+                    }}
+                  />
+                )}
+              </React.Fragment>
             );
           })}
+          {/* objectui#11905 — the node a connect drag is over: ringed in the
+              primary colour when the drop would connect, in the destructive one
+              when `edgeConnectionRefusal` would refuse it. */}
+          {connectTarget && (
+            <div
+              aria-hidden
+              data-connect-target={connectTarget.refused ? 'refused' : 'connects'}
+              className={cn(
+                'pointer-events-none absolute z-20 rounded-xl ring-2 ring-offset-2 ring-offset-background',
+                connectTarget.refused ? 'ring-destructive' : 'ring-primary',
+              )}
+              style={{
+                left: connectTarget.at.x,
+                top: connectTarget.at.y,
+                width: NODE_W,
+                height: heights.get(connectTarget.id) ?? NODE_H,
+              }}
+            />
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-/** One-line config summary shown on the node card (best-effort, type-aware). */
-function nodeSummary(node: FlowDesignerNode): string | undefined {
+/**
+ * The edge drawn out of `fromId` to `targetId`: by a node's "+" and the
+ * toolbar's Add node when they append (`addNode`), and by a drag from the
+ * node's connect handle (objectui#11905), so a connection reads the same
+ * whichever of them drew it. A fresh `edge` id; when the source is a decision,
+ * its matching branch (by order: the k-th out-edge takes the k-th branch) is
+ * carried onto the edge so it actually routes. The decision's
+ * `config.conditions` are otherwise disconnected from the edges, leaving every
+ * branch unconditional.
+ */
+function outEdge(
+  fromId: string,
+  targetId: string,
+  nodes: FlowDesignerNode[],
+  edges: FlowDesignerEdge[],
+): FlowDesignerEdge {
+  const edge: FlowDesignerEdge = {
+    id: uniqueId('edge', edges.map((e) => e.id).filter(Boolean) as string[]),
+    source: fromId,
+    target: targetId,
+  };
+  const fromNode = nodes.find((n) => n.id === fromId);
+  if (fromNode?.type === 'decision') {
+    const branches = Array.isArray(fromNode.config?.conditions)
+      ? (fromNode.config!.conditions as Array<Record<string, unknown>>)
+      : [];
+    const outCount = edges.filter((e) => e.source === fromId).length;
+    const branch = branches[outCount];
+    if (branch && typeof branch === 'object') {
+      const expr = typeof branch.expression === 'string' ? branch.expression.trim() : '';
+      const label = typeof branch.label === 'string' ? branch.label.trim() : '';
+      if (label) edge.label = label;
+      if (expr === 'true') edge.isDefault = true;
+      else if (expr) edge.condition = expr;
+    }
+  }
+  return edge;
+}
+
+/**
+ * Node types whose out-edges ARE their outcomes: a decision's branches, an
+ * approval's `approve` / `reject`, a BPMN fan-out. A node added after one of
+ * these is a new outcome, never a step spliced into an outcome already wired.
+ */
+const BRANCHING_NODE_TYPES: ReadonlySet<string> = new Set(['decision', 'approval', 'parallel_gateway']);
+
+/** Where `placeAfter` puts a new node. */
+type Placement =
+  /** Split this edge, exactly as its own "+" would. */
+  | { kind: 'split'; edge: FlowDesignerEdge }
+  /** A new out-edge from this node (a decision carries its next branch). */
+  | { kind: 'from'; from: string }
+  /** No edge at all: there is no path to put it in. */
+  | { kind: 'loose' };
+
+/**
+ * objectui#11778 — the one rule for "add a node after this one", so the
+ * toolbar's Add node and a node's bottom "+" can never disagree. The anchor is
+ * `anchorId` when it names a node, else the flow's Start.
+ *
+ *   - a branching anchor (`BRANCHING_NODE_TYPES`), or one that already fans
+ *     out to two or more nodes → a new branch from it: there is no single path
+ *     after it to put the node in;
+ *   - an anchor with exactly one way on → split that edge (anchor → N → next),
+ *     the new node takes the old one's place in the path;
+ *   - an anchor with no way on → append (anchor → N);
+ *   - an End anchor has no "after": the node goes BEFORE it, splitting its one
+ *     way in; an End reached by several paths, or none, has no single path in
+ *     — loose, as is a flow with no Start and nothing selected.
+ *
+ * "A way on" is a forward edge (never an ADR-0044 back-edge) between two
+ * distinct nodes that both exist; an edge naming a missing node is not a path
+ * (objectui#11772 leaves those for the Problems panel to name, unrepaired).
+ */
+function placeAfter(anchorId: string | null, nodes: FlowDesignerNode[], edges: FlowDesignerEdge[]): Placement {
+  const live = new Set(nodes.map((n) => n.id));
+  const anchor = nodes.find((n) => n.id === anchorId) ?? nodes.find((n) => n.type === 'start');
+  if (!anchor) return { kind: 'loose' };
+  const isWayOn = (e: FlowDesignerEdge) =>
+    !isBackEdge(e) && e.source !== e.target && live.has(e.source) && live.has(e.target);
+  if (anchor.type === 'end') {
+    const waysIn = edges.filter((e) => e.target === anchor.id && isWayOn(e));
+    return waysIn.length === 1 ? { kind: 'split', edge: waysIn[0] } : { kind: 'loose' };
+  }
+  const waysOn = edges.filter((e) => e.source === anchor.id && isWayOn(e));
+  if (waysOn.length === 1 && !BRANCHING_NODE_TYPES.has(anchor.type)) return { kind: 'split', edge: waysOn[0] };
+  return { kind: 'from', from: anchor.id };
+}
+
+/**
+ * One-line config summary shown on the node card (best-effort, type-aware).
+ * The words it adds of its own (a branch count, an approver count, `code`)
+ * read in the designer `locale` (objectui#10862); config values pass through.
+ */
+function nodeSummary(node: FlowDesignerNode, locale?: string): string | undefined {
   const c = node.config as Record<string, unknown> | undefined;
   const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
   const block = (key: string, inner: string) => {
@@ -963,7 +1405,9 @@ function nodeSummary(node: FlowDesignerNode): string | undefined {
       const labels = conds
         .map((x) => (x && typeof x === 'object' ? str((x as Record<string, unknown>).label) : undefined))
         .filter(Boolean);
-      return labels.length ? labels.join(' / ') : `${conds.length} branches`;
+      return labels.length
+        ? labels.join(' / ')
+        : tFormat('engine.flowCanvas.summary.branches', locale, { count: conds.length });
     }
     return pick('condition');
   }
@@ -971,13 +1415,25 @@ function nodeSummary(node: FlowDesignerNode): string | undefined {
     // The function IS the step (framework#4343). The rest are retired keys a
     // stored node may still carry — kept as fallbacks so its subtitle is never
     // blank before someone migrates it.
-    return pick('function') || pick('actionType') || pick('template') || (c && c.script ? 'code' : undefined);
+    return (
+      pick('function') ||
+      pick('actionType') ||
+      pick('template') ||
+      (c && c.script ? tr('engine.flowCanvas.summary.code', locale) : undefined)
+    );
   }
   if (node.type === 'approval') {
     const approvers = c?.approvers;
     const n = Array.isArray(approvers) ? approvers.length : 0;
     const behavior = pick('behavior');
-    if (n > 0) return `${n} approver${n === 1 ? '' : 's'}${behavior === 'unanimous' ? ' · all' : ''}`;
+    if (n > 0) {
+      const count = tFormat(
+        n === 1 ? 'engine.flowCanvas.summary.approversOne' : 'engine.flowCanvas.summary.approversOther',
+        locale,
+        { count: n },
+      );
+      return behavior === 'unanimous' ? `${count} · ${tr('engine.flowCanvas.summary.unanimous', locale)}` : count;
+    }
     return behavior || undefined;
   }
   return (

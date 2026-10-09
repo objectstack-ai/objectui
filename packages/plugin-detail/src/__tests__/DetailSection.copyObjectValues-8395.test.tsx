@@ -91,7 +91,7 @@ const objectSchema = {
     office_location: { type: 'location', label: 'Office Location' },
     payload: { type: 'json', label: 'Payload' },
     contract: { type: 'file', label: 'Contract' },
-    owner_ref: { type: 'lookup', label: 'Owner', reference_to: 'account' },
+    owner_ref: { type: 'lookup', label: 'Owner', reference: 'account' },
     attachments: { type: 'file', label: 'Attachments', multiple: true },
     line_items: { type: 'repeater', label: 'Line Items' },
     logo: { type: 'image', label: 'Logo' },

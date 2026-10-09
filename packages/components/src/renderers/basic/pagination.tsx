@@ -21,7 +21,9 @@ ComponentRegistry.register('pagination',
         ...paginationProps
     } = props;
     
-    const currentPage = schema.currentPage || schema.page || 1;
+    // `currentPage` is the one spelling (objectui#6152): the `page` fallback this
+    // read used to carry is retired on both faces of `@object-ui/types`.
+    const currentPage = schema.currentPage || 1;
     const totalPages = schema.totalPages || 1;
     
     const handlePageChange = (page: number, e: React.MouseEvent) => {

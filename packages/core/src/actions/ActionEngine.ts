@@ -200,8 +200,10 @@ export class ActionEngine {
    *      DECLARED, which is asked through core's one definition
    *      `hasDeclaredPredicate` (objectui#3850's ruling, adopted here by
    *      objectui#3957). No gate — absent, `''`, blank predicate text in either
-   *      spelling, an envelope with no evaluable `source`, or a value that is
-   *      not a predicate at all — means visible. Evaluator errors hide the
+   *      spelling, or an envelope whose `source` is `''` — means visible. A
+   *      value that is present but has no evaluable `source` (`0`, `{}`, an
+   *      array, an `ast`-only envelope) is a declared gate that faults
+   *      (objectui#11358), so it hides like any other. Evaluator errors hide the
    *      action (fail-closed) rather than throwing — this matches the contract
    *      used by every individual action renderer (`action-button`,
    *      `action-menu`, `action-bar`, …) so the same action behaves identically
@@ -253,10 +255,12 @@ export class ActionEngine {
         // hid it here because the normalizer wraps a blank string into `'${   }'`
         // whose verdict is falsy. That is the shape objectui#3314's invariant
         // forbids, and it is fixed by deleting a range, not by adding one
-        // (objectui#3957). A value that is not a predicate, or a predicate that
-        // says nothing, must not be the reason an action is hidden from
-        // everyone — the same fail-open posture `ActionRunner` already committed
-        // to for `disabled` (`catch { isDisabled = false }`).
+        // (objectui#3957). A predicate that says nothing (blank) must not be
+        // the reason an action is hidden from everyone. A value that is not a
+        // predicate at all is no longer "nothing" (objectui#11358): it is a
+        // declared gate the client cannot evaluate, the normalizer keeps it
+        // as such, and the `throwOnError` evaluation below hides it and
+        // reports it, as every action renderer's `visible` leg does.
         //
         // Booleans need no branch of their own: they are DECLARED (`visible:
         // false` is a verdict, objectui#3812) and `evaluateCondition`
@@ -267,7 +271,8 @@ export class ActionEngine {
         // predicate to the legacy JS engine; `toPredicateInput` keeps the
         // envelope so `evaluateCondition` can route it to `@objectstack/formula`
         // (the engine the server enforces with), exactly as the renderers do.
-        // Declared ⇒ the normalizer left something to evaluate, so there is no
+        // Declared ⇒ the normalizer left something (possibly the declared-but-
+        // unevaluable `cel` envelope, which throws below), so there is no
         // `undefined` case left to handle here.
         const expr = toPredicateInput(raw);
         try {

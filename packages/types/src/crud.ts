@@ -160,8 +160,8 @@ export interface ActionSchema extends BaseSchema {
    * Where the live meaning lives: the spec's `onSuccess` block `{ navigate, openIn }`,
    * declared on `UIActionSchema` (`ui-action.ts`) and forwarded to the runner. A
    * success notice is {@link ActionSchema.successMessage}. `?: never` rather than a
-   * deletion because {@link BaseSchema} carries an index signature that would ADMIT
-   * a deleted key unchecked; the zod twin (`zod/crud.zod.ts`) refuses it by name.
+   * deletion because {@link BaseSchema} carried an index signature that would ADMIT
+   * a deleted key unchecked (since objectui#8347 a widened value still would); the zod twin (`zod/crud.zod.ts`) refuses it by name.
    * @deprecated Not part of this contract — write the spec's `onSuccess` block on `UIActionSchema`, or `successMessage`.
    */
   onSuccess?: never;
@@ -481,15 +481,12 @@ export interface CRUDDialogSchema extends BaseSchema {
    * Show close button.
    *
    * NO `@default`, deliberately (objectui#8318): the tag published `true` with
-   * no reader to apply it. This key is the one on this interface whose census
-   * is NOT empty, and that is exactly why it needs saying: `showClose` has one
-   * occurrence outside this declaration and its zod twin --
-   * `packages/components/src/renderers/overlay/drawer.tsx:38`,
-   * `{schema.showClose && ...}` -- and that read belongs to
-   * `DrawerSchema.showClose`, a different member on a different, registered
-   * node type. Counting it here would be crediting this declaration with
-   * another one's reader. The missing registration is in the interface docblock
-   * above.
+   * no reader to apply it. When that was written this key's census was NOT
+   * empty: `packages/components/src/renderers/overlay/drawer.tsx` read a
+   * `showClose` of its own, which was never this declaration's reader (and was
+   * never declared on `DrawerSchema` either). objectui#11347 retired that
+   * read, so no renderer reads `showClose` under any node type now. The
+   * missing registration is in the interface docblock above.
    */
   showClose?: boolean;
 }

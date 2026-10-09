@@ -10,16 +10,16 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
-import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
-import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
+import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, isRefusedFeedRead, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
+import { Empty, EmptyTitle, EmptyDescription, Button } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
+import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate, classifyLoadError } from '@object-ui/react';
+import { buildExpandFields, captureUpdateUndoData, recordDelete, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars } from '@object-ui/collaboration';
-import { Database, ChevronLeft } from 'lucide-react';
+import { Database, ChevronLeft, Lock, AlertTriangle, RotateCw } from 'lucide-react';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { SkeletonDetail } from '../skeletons/index.js';
 import { ManagedByBadge } from '../components/ManagedByBadge.js';
@@ -186,6 +186,18 @@ export function isSecondaryField(fieldName: string, fieldDef: any): boolean {
  * pipeline on every render of a record with no comments.
  */
 const EMPTY_FEED: FeedItem[] = [];
+
+/**
+ * Which of a record's two feed reads the server REFUSED (objectui#11195):
+ * 401 / 403, or a permission envelope, judged by plugin-detail's
+ * `isRefusedFeedRead`. A read that answered, even with zero rows, and a read
+ * that failed for any other reason are both `false` here. Only a refusal is a
+ * different answer from "nothing to show".
+ */
+interface FeedRefusal {
+  activity: boolean;
+  comments: boolean;
+}
 
 /**
  * Union two feed slices by row id, oldest first.
@@ -389,7 +401,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // The DISPLAY locale the audit-history dates format with (objectui#10442).
   // `language` above stays for what it is: the key into per-locale LABEL maps.
   const displayLocale = useDisplayLocale();
-  const { objectLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
+  const { objectLabel, objectPluralLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
   // label + confirmText + successMessage through ONE call (objectui#4265) —
   // the three keys of an `_actions.<name>` bundle entry can no longer be
   // localized apart from one another on this surface.
@@ -400,6 +412,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // The discussion feed, stored PER RECORD (objectui#3268). See the
   // `feedRecordKey` block below for why this is a map and not a `FeedItem[]`.
   const [feedItemsByRecord, setFeedItemsByRecord] = useState<Record<string, FeedItem[]>>({});
+  // Which feed reads were refused, stored under the same per-record key as the
+  // rows (objectui#11195), so a refusal on record A never reaches record B's
+  // panel.
+  const [feedRefusalByRecord, setFeedRefusalByRecord] = useState<Record<string, FeedRefusal>>({});
   const [mentionSuggestions, setMentionSuggestions] = useState<
     Array<{ id: string; label: string; avatarUrl?: string }>
   >([]);
@@ -496,71 +512,116 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   }, [assignedPage, assignedSlots, objectDef]);
   const effectivePage = assignedPage || synthesizedPage;
   const [pageRecord, setPageRecord] = useState<any>(null);
-  // 'idle' | 'loading' | 'loaded' | 'missing' — distinguishes "haven't
-  // tried yet" from "tried and the record really doesn't exist". The
-  // not-found short-circuit below uses `missing` to render a clean empty
-  // state instead of a half-broken page chrome (rail + discussion).
+  // 'idle' | 'loading' | 'loaded' | 'missing' | 'forbidden' | 'failed' —
+  // distinguishes "haven't tried yet" from each way the read can end. The
+  // short-circuits below render a clean empty state for the last three
+  // instead of a half-broken page chrome (rail + discussion), one per answer
+  // (objectui#11902):
+  //
+  //   - `missing`   — the read resolved with no record. The adapter answers a
+  //     404 that way (`ObjectStackAdapter.findOne` resolves `null`), so this is
+  //     the not-found state, and the only one that says "not found".
+  //   - `forbidden` — the read was REFUSED: `classifyLoadError`'s `forbidden`
+  //     kind (a 403 / `PERMISSION_DENIED`), the shared classifier the list
+  //     view's error panel, the activity feed and the attachments panel read.
+  //   - `failed`    — every other rejection (a 5xx, a transport error, …). It
+  //     says the load failed and offers Retry, which re-runs the same read.
+  //
+  // Every rejection used to land on `missing`, so a refused read told the
+  // viewer the record "may have been deleted" — and they reported a lost record
+  // instead of asking for access — and a transient failure looked final.
   const [pageRecordStatus, setPageRecordStatus] = useState<
-    'idle' | 'loading' | 'loaded' | 'missing'
+    'idle' | 'loading' | 'loaded' | 'missing' | 'forbidden' | 'failed'
   >('idle');
+  // The record-load effect's own `loadRecord`, for the `failed` state's Retry
+  // (objectui#11902). Held so Retry re-runs THE read the page already makes —
+  // same request, same cancellation guard — rather than a second read path.
+  // Cleared with the effect, so a Retry can never run a superseded load.
+  const reloadPageRecordRef = useRef<(() => void) | null>(null);
 
   // Permissions context.
   //
   // ⚠️ [objectui#7230] THE POSITION IS LOAD-BEARING, not cosmetic. This used to
   // be a `usePermissions()` call ~670 lines below, next to the header's
-  // Edit/Delete gates. The record-load effect immediately after this line now
-  // FLS-gates its `$expand`, and an effect's DEPENDENCY ARRAY is evaluated
-  // DURING render — so listing `perms` there while the binding was still
-  // declared below would hit the temporal dead zone and throw
+  // Edit/Delete gates. The record-load effect just below FLS-gates its
+  // `$expand`, and that gated list is computed DURING render (objectui#11699)
+  // — so reading `perms` there while the binding was still declared below
+  // would hit the temporal dead zone and throw
   // `Cannot access 'perms' before initialization`: a crash, not a stale value.
   // The hook moved up; the site below destructures THIS value instead of
   // calling the hook a second time, so the hook order is unchanged in shape.
   // Same structural note PR #7229 recorded for `ListView`'s memo.
   const perms = usePermissions();
 
+  // What the page-record read below SENDS, held as primitives (objectui#11699).
+  //
+  // The record-load effect used to depend on three object identities —
+  // `effectivePage`, `objectDef` and `perms` — while all it reads from them
+  // is a yes/no ("is there a page?") and one list (the relations to expand).
+  // Measured on full reloads of a showcase record page, the record's `$expand`
+  // read went out twice in sequence, and the second run had changed nothing
+  // but `objectDef`'s identity: a JSON-equal definition, with the very same
+  // `fields` object, handed down again as a new object by a host re-render.
+  // `effectivePage` was the same trap one step removed: the synthesized page
+  // is a `useMemo` over `objectDef`, and an assigned page landing replaces it
+  // without changing anything the read sends.
+  //
+  // So the effect keys on the DATA it reads (AGENTS.md #10), never on the
+  // objects it reads it from: a new object carrying the same relations, an
+  // assigned page taking over from a synthesized one, a discarded memo, or a
+  // permission answer that leaves the list as it was does not read the record
+  // again; a list that CHANGES does.
+  const hasPage = !!effectivePage;
+  // Expand lookup/master_detail fields so the page receives display
+  // names (e.g. account.name) rather than raw foreign-key IDs. The
+  // page subtitle interpolation and record:* renderers depend on this.
+  //
+  // [objectui#7230] FIELD-LEVEL SECURITY ON `$expand`, the gate
+  // objectui#7215 / PR #7229 put on the two projection sites in its scope.
+  // `$select` on a denied lookup asks the server for a bare foreign key;
+  // `$expand` asks it to RESOLVE the relation and hand back the related
+  // record — the larger of the two requests.
+  //
+  // ⚠️ NO COLUMN LIST IS PASSED HERE, which makes this the sharpest of the
+  // family: `buildExpandFields` reads an absent column list as "no column
+  // restriction" and falls back to EVERY declared relation on the object,
+  // denied ones included. Every record page in the console therefore asked
+  // for the object's full relation set by default, not by configuration.
+  //
+  // Graded as objectui#7215 graded it, by measurement rather than assumption:
+  // against ObjectStack this is defence-in-depth, because `plugin-security`'s
+  // `FieldMasker.maskRecord` does `delete result[field]` on every unreadable
+  // key and objectql's expand path writes the resolved record back under THAT
+  // SAME KEY, so one statement removes the expanded object and the bare id
+  // alike; the expansion sub-read itself takes the referenced object's full
+  // CRUD + RLS + FLS treatment (objectstack#7626). It is load-bearing for a
+  // backend that does not strip.
+  //
+  // ⭐ THE GATE IS ON THE HELPER'S OUTPUT. There is no input to gate on this
+  // site, and the output holds only DECLARED reference-bearing fields, so the
+  // "`checkField` answers false for an undeclared key" trap is structurally
+  // unreachable and a derived / host-joined key is never judged. An
+  // unanswered policy filters nothing. The gated list is the effect's
+  // dependency (as a string), so an answer that NARROWS it re-reads the record
+  // without the denied relation the moment it arrives, and an answer that
+  // leaves it as it was reads nothing again (objectui#11699). Pinned in
+  // `RecordDetailView.expandFls-7230.test.tsx` and
+  // `RecordDetailView.recordOpenRequests-11699.test.tsx`.
+  const expandable = buildExpandFields(objectDef?.fields);
+  const pageRecordExpand = JSON.stringify(
+    !objectName || !perms?.isLoaded
+      ? expandable
+      : expandable.filter((f) => perms.checkField(objectName, f, 'read')),
+  );
+
   useEffect(() => {
     let cancelled = false;
-    if (!effectivePage || !pureRecordId || !objectName || !dataSource?.findOne) {
+    if (!hasPage || !pureRecordId || !objectName || !dataSource?.findOne) {
       setPageRecord(null);
       setPageRecordStatus('idle');
       return;
     }
-    // Expand lookup/master_detail fields so the page receives display
-    // names (e.g. account.name) rather than raw foreign-key IDs. The
-    // page subtitle interpolation and record:* renderers depend on this.
-    //
-    // [objectui#7230] FIELD-LEVEL SECURITY ON `$expand`, the gate
-    // objectui#7215 / PR #7229 put on the two projection sites in its scope.
-    // `$select` on a denied lookup asks the server for a bare foreign key;
-    // `$expand` asks it to RESOLVE the relation and hand back the related
-    // record — the larger of the two requests.
-    //
-    // ⚠️ NO COLUMN LIST IS PASSED HERE, which makes this the sharpest of the
-    // family: `buildExpandFields` reads an absent column list as "no column
-    // restriction" and falls back to EVERY declared relation on the object,
-    // denied ones included. Every record page in the console therefore asked
-    // for the object's full relation set by default, not by configuration.
-    //
-    // Graded as objectui#7215 graded it, by measurement rather than assumption:
-    // against ObjectStack this is defence-in-depth, because `plugin-security`'s
-    // `FieldMasker.maskRecord` does `delete result[field]` on every unreadable
-    // key and objectql's expand path writes the resolved record back under THAT
-    // SAME KEY, so one statement removes the expanded object and the bare id
-    // alike; the expansion sub-read itself takes the referenced object's full
-    // CRUD + RLS + FLS treatment (objectstack#7626). It is load-bearing for a
-    // backend that does not strip.
-    //
-    // ⭐ THE GATE IS ON THE HELPER'S OUTPUT. There is no input to gate on this
-    // site, and the output holds only DECLARED reference-bearing fields, so the
-    // "`checkField` answers false for an undeclared key" trap is structurally
-    // unreachable and a derived / host-joined key is never judged. An
-    // unanswered policy filters nothing; `perms` is in this effect's dependency
-    // list, so the record is re-read the moment the answer arrives. Pinned in
-    // `RecordDetailView.expandFls-7230.test.tsx`.
-    const expandable = buildExpandFields(objectDef?.fields);
-    const expandFields = !perms?.isLoaded
-      ? expandable
-      : expandable.filter((f) => perms.checkField(objectName, f, 'read'));
+    const expandFields: string[] = JSON.parse(pageRecordExpand);
     const params = expandFields.length > 0 ? { $expand: expandFields } : undefined;
     const loadRecord = () => {
       setPageRecordStatus('loading');
@@ -578,12 +639,16 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             setPageRecordStatus('missing');
           }
         })
-        .catch(() => {
+        .catch((err: unknown) => {
           if (cancelled) return;
           setPageRecord(null);
-          setPageRecordStatus('missing');
+          // objectui#11902 — a rejection is never "not found": the adapter
+          // answers a 404 by resolving `null` (the branch above). A refusal is
+          // told apart by the shared classifier; anything else is a failed load.
+          setPageRecordStatus(classifyLoadError(err) === 'forbidden' ? 'forbidden' : 'failed');
         });
     };
+    reloadPageRecordRef.current = loadRecord;
     loadRecord();
 
     // Re-sync when any descendant signals the record changed (e.g.
@@ -598,11 +663,17 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     window.addEventListener('objectui:record-changed', onChanged as EventListener);
     return () => {
       cancelled = true;
+      if (reloadPageRecordRef.current === loadRecord) reloadPageRecordRef.current = null;
       window.removeEventListener('objectui:record-changed', onChanged as EventListener);
     };
     // #2269: recordInvalidationNonce re-runs this fetch in place whenever the
     // record (or its object) is invalidated on the bus.
-  }, [effectivePage, objectName, pureRecordId, dataSource, objectDef, recordInvalidationNonce, perms]);
+    //
+    // objectui#11699: every dependency here is either a primitive or the
+    // adapter the read goes through. ⛔ Do not list `objectDef`,
+    // `effectivePage` or `perms` here — derive what the read sends from them
+    // above instead (AGENTS.md #10).
+  }, [hasPage, objectName, pureRecordId, dataSource, pageRecordExpand, recordInvalidationNonce]);
 
   // The loaded record AS THE VIEWER MAY READ IT (objectui#10434,
   // objectui#10499): `withoutDeniedFields` removes the fields the loaded
@@ -685,9 +756,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // with the real type — the same drift family as objectui#5610 / objectui#3320.
   //
   // `options` is inert ON THIS PATH and that is not a reason to narrow it. The
-  // handler is only ever handed to the runner as `onConfirm`, and the runner
-  // calls it with ONE argument (the structured `confirm` arm that forwarded a
-  // bag was retired, objectui#4314). The parameter is LIVE elsewhere:
+  // handler has two callers here and both pass ONE argument: the runner, which
+  // gets it as `onConfirm` (the structured `confirm` arm that forwarded a bag
+  // was retired, objectui#4314), and the header's `sys_delete` action below,
+  // which passes no bag either, exactly like the list view's delete
+  // (objectui#11001). The parameter is LIVE elsewhere:
   // `handleDeleteView` in `ObjectView.tsx` calls a `ConfirmationHandler`
   // directly with all three fields localized. One published type, two call
   // paths, one of which never fills the bag — settled KEEP, 2026-08-22 ruling
@@ -769,12 +842,14 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
 
   // Global undo/redo (Ctrl+Z), backed by the dataSource — the success toast's
   // "Undo" button (for `undoable` actions) restores the record's prior values.
+  // The confirmation it raises reads the session's language, as the button's
+  // own label does (objectui#11056).
   const undoCtl = useGlobalUndo({
     dataSource,
     onUndo: (op: any) => {
       if (op?.objectName) notifyDataChanged({ objectName: op.objectName, recordId: op.recordId });
       else notifyRecordChanged();
-      toast.success('Change undone');
+      toast.success(t('actions.undone'));
     },
   });
 
@@ -967,21 +1042,56 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             // values from the loaded record so the success toast can offer Undo.
             // Only this page's record has its prior values loaded, so child-row
             // updates skip undo capture.
+            //
+            // ⛔ A field the record does not CARRY is never captured as `null`
+            // (objectui#11082, the objectui#10404 rule). The snapshot is
+            // `@object-ui/core`'s `captureUpdateUndoData`, the one capture rule
+            // the runner and the console runtime also call. The page record is
+            // read with no column list, but the server deletes every field the
+            // reader may not read, so an action that writes such a field finds
+            // it absent here; `?? null` then made Undo write `null` over its
+            // stored value. A `null` the record carries is a real empty value
+            // and is captured as one. When any written field is not carried
+            // there is no Undo at all: the success toast then has no Undo button.
+            //
+            // ⛔ A relation is captured as its stored id (objectui#11122). The
+            // page record is read with `$expand` on every relation the reader
+            // may read, so it carries the related record where the server
+            // stores the id; copied verbatim, Undo wrote that record into the
+            // reference. The rule reads which fields are relations from this
+            // object's field definitions, the same ones that built `$expand`.
+            let undoMissing: string[] | undefined;
             if (action.undoable && isThisRecord && pageRecord) {
-              const undoData: Record<string, unknown> = {};
-              for (const k of Object.keys(params)) undoData[k] = (pageRecord as any)[k] ?? null;
-              undo = {
-                id: `undo-${targetObject}-${targetId}-${Date.now()}`,
-                type: 'update',
-                objectName: targetObject,
-                recordId: String(targetId),
-                timestamp: Date.now(),
-                description: action.label || `Undo ${targetObject}`,
-                undoData,
-                redoData: { ...params },
-              };
+              const record = pageRecord as Record<string, unknown>;
+              const written = Object.keys(params);
+              const objectFields = objectDef?.fields;
+              const undoData = captureUpdateUndoData(written, record, objectFields);
+              if (undoData) {
+                undo = {
+                  id: `undo-${targetObject}-${targetId}-${Date.now()}`,
+                  type: 'update',
+                  objectName: targetObject,
+                  recordId: String(targetId),
+                  timestamp: Date.now(),
+                  // objectui#11080 — the object, never an English verb: the Undo /
+                  // Redo toast supplies the verb from a pack key (see the runner's twin).
+                  description: action.label || targetObject,
+                  undoData,
+                  redoData: { ...params },
+                };
+              } else {
+                undoMissing = written.filter((k) => captureUpdateUndoData([k], record, objectFields) === undefined);
+              }
             }
             await dataSource.update(targetObject, String(targetId), params);
+            if (undoMissing) {
+              console.warn(
+                '[RecordDetailView] `undoable` action succeeded but offers no Undo: the record it ran on '
+                + 'does not carry every field it wrote, so their prior values are unknown and an Undo would '
+                + 'overwrite stored data. The record page carries a written field when the principal may read it.',
+                { action: action.name, missing: undoMissing },
+              );
+            }
           }
           break;
         }
@@ -999,7 +1109,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
-  }, [dataSource, objectName, pureRecordId, pageRecord, authFetch, activeOrganization]);
+  }, [dataSource, objectName, objectDef, pureRecordId, pageRecord, authFetch, activeOrganization]);
 
   // Client-side modal transport: `type:'modal'` actions open here (Dialog /
   // Sheet / Drawer by `placement`) and render arbitrary SchemaNode content.
@@ -1058,7 +1168,12 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       // Paused at a `screen` node: FlowRunner renders the form + resumes, and
       // refreshes on completion.
       if (judged.followUp?.kind === 'screen') {
-        setScreenFlow({ flowName, runId: judged.followUp.runId, screen: judged.followUp.screen });
+        setScreenFlow({
+          flowName,
+          flowLabel: judged.followUp.flowLabel,
+          runId: judged.followUp.runId,
+          screen: judged.followUp.screen,
+        });
       }
       // Ended `refused`: the Close-only notice carries the engine's sentence,
       // titled with the action the user clicked.
@@ -1277,8 +1392,12 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   const childRelations = useMemo(
     () => deriveRelatedLists(objectDef, objects, {
       canRead: permissionsLoaded ? (name) => canOnObject(name, 'read') : undefined,
+      // A related list is a list of the child's records, so the multi-FK
+      // title it composes names it with the plural, as the single-FK title
+      // below does (objectui#11733).
+      listLabel: (child) => objectPluralLabel({ name: child.name, label: child.label || child.name, pluralLabel: child.pluralLabel }),
     }),
-    [objectDef, objects, canOnObject, permissionsLoaded],
+    [objectDef, objects, canOnObject, permissionsLoaded, objectPluralLabel],
   );
 
   // [objectstack#3821] RECORD-level write gate. Everything above is object
@@ -1692,6 +1811,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   //     a spinner while the re-read confirms them (#3205).
   const feedRecordKey = objectName && pureRecordId ? `${objectName}:${pureRecordId}` : null;
   const feedItems = (feedRecordKey ? feedItemsByRecord[feedRecordKey] : undefined) ?? EMPTY_FEED;
+  const feedRefusal = feedRecordKey ? feedRefusalByRecord[feedRecordKey] : undefined;
   const feedFetchKey =
     dataSource && feedRecordKey && (feedsEnabled || activitiesEnabled) ? feedRecordKey : null;
   const [settledFeedKey, setSettledFeedKey] = useState<string | null>(null);
@@ -1714,6 +1834,26 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // loading flag can close over BOTH of them — see the `allSettled` at the
     // end of this effect.
     const inFlight: Promise<unknown>[] = [];
+
+    // objectui#11195: each read's verdict on REFUSAL, recorded under THIS
+    // record's key when it settles. An answered read clears it, so a grant
+    // the member receives shows on the next read. Returning `prev` for an
+    // unchanged verdict keeps the map's identity when nothing moved. Nothing
+    // here re-issues a read: a refusal is recorded, never retried.
+    const recordRefusal = (source: keyof FeedRefusal, refused: boolean) => {
+      setFeedRefusalByRecord(prev => {
+        const current = prev[threadId];
+        if ((current?.[source] ?? false) === refused) return prev;
+        return {
+          ...prev,
+          [threadId]: {
+            activity: current?.activity ?? false,
+            comments: current?.comments ?? false,
+            [source]: refused,
+          },
+        };
+      });
+    };
 
     // M10.10: Fetch persisted comments from sys_comment. Field names
     // are snake_case to match the platform-objects schema
@@ -1743,6 +1883,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
 
     if (feedsEnabled) inFlight.push(dataSource.find('sys_comment', { $filter: { thread_id: threadId }, $orderby: { created_at: 'asc' } })
       .then((res: any) => {
+        recordRefusal('comments', false);
         if (!res?.data?.length) return;
         const mapped: FeedItem[] = res.data.map((c: any) => ({
           id: c.id,
@@ -1763,7 +1904,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           [threadId]: mergeFeedRows(prev[threadId] ?? EMPTY_FEED, mapped),
         }));
       })
-      .catch(() => {}));
+      // A refused comment read is the same panel's other half (objectui#11195):
+      // the panel says the member may not see the comments, instead of "No
+      // comments yet". Any other failure still lands on the empty state.
+      .catch((err: unknown) => { recordRefusal('comments', isRefusedFeedRead(err)); }));
 
     // M10.11: Fetch sys_activity rows for this record and merge into the
     // timeline. plugin-audit's writers populate sys_activity on every
@@ -1794,13 +1938,18 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // re-declare the table or rebuild the item by hand.
     //
     // sys_activity is system-owned so a 404 ("table not provisioned",
-    // older schemas without activities) is silently tolerated.
+    // older schemas without activities) is silently tolerated. A REFUSED read
+    // is not (objectui#11195): a member the server will not show this record's
+    // activity to sees the panel say so, not "no activity". The verdict is
+    // `isRefusedFeedRead`, the one the `record:activity` block's self-fetch
+    // uses, so the two surfaces cannot disagree about what a refusal is.
     if (activitiesEnabled) inFlight.push(dataSource.find('sys_activity', {
       $filter: { object_name: objectName, record_id: pureRecordId },
       $orderby: { timestamp: 'asc' },
       $top: 200,
     })
       .then((res: any) => {
+        recordRefusal('activity', false);
         if (!res?.data?.length) return;
         const systemActorLabel = t('detail.systemActor', { defaultValue: 'System' });
         const mapped: FeedItem[] = [];
@@ -1823,14 +1972,15 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           [threadId]: mergeFeedRows(prev[threadId] ?? EMPTY_FEED, mapped),
         }));
       })
-      .catch(() => {}));
+      .catch((err: unknown) => { recordRefusal('activity', isRefusedFeedRead(err)); }));
 
     // The panel leaves the loading state exactly once, when BOTH reads have
     // answered. `allSettled` over promises that already carry their own
-    // `.catch(() => {})` is what makes a FAILED read count as an answer: a
-    // 404 from `sys_activity` (deployment without the audit plugin) or a
-    // rejected `sys_comment` must land the panel on the empty state, never
-    // pin it in a permanent spinner. Keyed off `feedFetchKey` so a settle
+    // `.catch` is what makes a FAILED read count as an answer: a 404 from
+    // `sys_activity` (deployment without the audit plugin) or a rejected
+    // `sys_comment` must land the panel on the empty state, and a REFUSED one
+    // on the no-permission state (objectui#11195), never pin it in a permanent
+    // spinner. Keyed off `feedFetchKey` so a settle
     // that arrives after the user has navigated to another record cannot
     // clear the new record's loading state.
     Promise.allSettled(inFlight).then(() => {
@@ -2128,7 +2278,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
               label: fieldDef.label || key,
               type: fieldDef.type || 'text',
               ...(fieldDef.options && { options: fieldDef.options }),
-              ...(refTarget && { reference_to: refTarget }),
+              ...(refTarget && { reference: refTarget }),
               ...(fieldDef.reference_field && { reference_field: fieldDef.reference_field }),
               ...(fieldDef.currency && { currency: fieldDef.currency }),
             };
@@ -2183,21 +2333,24 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           //    fields stay tucked away.
           const grouped = deriveFieldGroupDetailSections(objectDef as any);
           if (grouped) {
-            return grouped.flatMap((sec: any) => {
+            return grouped.flatMap<Record<string, unknown>>((sec: any) => {
               if (!sec.name) {
                 return splitPrimarySecondary(
                   (sec.fields as any[]).map((f: any) => f.name),
                 );
               }
-              return [{
-                ...sec,
-                // Re-resolve the derived heading through the per-object i18n
-                // convention. Reads and writes the same one slot the
-                // synthesizer emits and `record:details` consumes —
-                // `label` (objectui#6190).
-                label: sectionLabel(objectDef.name, sec.name, sec.label),
-                showBorder: true as const,
-              }];
+              // A declared group is written as the spec's own REFERENCE form,
+              // `{ group: KEY }` (`RecordDetailsProps.sections[].group`,
+              // ADR-0085 §5), never as an enumerated copy of the group
+              // (objectui#11630). `record:details` resolves it against the
+              // object's `fieldGroups` — members, heading (through the same
+              // per-object i18n convention, `sectionLabel`), icon,
+              // description, collapse — and evaluates the group's
+              // `visibleWhen` against this record, which an enumerated copy
+              // cannot carry: the spec refuses `visibleWhen` on one. The
+              // Card chrome stays this page's layout choice, a key the spec
+              // permits beside `group`.
+              return [{ group: sec.name as string, showBorder: true as const }];
             });
           }
 
@@ -2271,10 +2424,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     const related = childRelations.map(({ childObject, childLabel, referenceField, title: titleOverride, columns: columnsOverride, isPrimary, sort: inheritedSort, filter: declaredFilter }) => {
       const childObjectDef = objects.find((o: any) => o.name === childObject);
       // A `relatedListTitle` on the relationship wins; else fall back to the
-      // localized child-object label.
+      // localized child-object PLURAL label — the section lists the child's
+      // records, so it is named as that object's list page is (objectui#11733).
       const localizedTitle = titleOverride
         || (childObjectDef
-          ? objectLabel({ name: childObjectDef.name, label: childObjectDef.label || childLabel })
+          ? objectPluralLabel({ name: childObjectDef.name, label: childObjectDef.label || childLabel, pluralLabel: childObjectDef.pluralLabel })
           : childLabel);
       return {
         title: localizedTitle,
@@ -2353,7 +2507,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // the panel's headline is the pending one. (The decision actions no longer
   // ride this list at all — objectui#3055 moved them to the declared-action
   // bar, which reads the pending row directly.)
-  }, [objectDef?.name, childRelations, t, objectLabel, objects, historyEnabled, historyEntries, historyLoading, approvals.available, approvals.pendingRequest, approvals.requests, user?.id]);
+  }, [objectDef?.name, childRelations, t, objectPluralLabel, objects, historyEnabled, historyEntries, historyLoading, approvals.available, approvals.pendingRequest, approvals.requests, user?.id]);
 
   if (isLoading) {
     return <SkeletonDetail />;
@@ -2393,6 +2547,68 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                 'The record you are looking for does not exist or may have been deleted.',
             })}
           </EmptyDescription>
+        </Empty>
+      </div>
+    );
+  }
+
+  // objectui#11902 — a REFUSED read. The refusal is about the object, not this
+  // record, so the copy names the object and never implies the record exists:
+  // it shows no more than the server's own 403 already says (objectstack#8013).
+  // No Retry: retrying a permission decision cannot change it — the same
+  // reasoning as the app-level `appAccessDenied` screen in `AppContent`.
+  if (pageRecordStatus === 'forbidden') {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <Empty data-testid="record-access-denied">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <Lock className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <EmptyTitle>
+            {t('empty.recordAccessDenied', {
+              object: objectLabel({ name: objectName!, label: objectDef?.label || objectName! }),
+              defaultValue: 'You don’t have access to {{object}} records',
+            })}
+          </EmptyTitle>
+          <EmptyDescription>
+            {t('empty.recordAccessDeniedDescription', {
+              defaultValue:
+                'You don’t have permission to view records of this type. Contact your administrator if you think you should have access.',
+            })}
+          </EmptyDescription>
+        </Empty>
+      </div>
+    );
+  }
+
+  // objectui#11902 — the read FAILED (a 5xx, a transport error, …): say so,
+  // and offer Retry, which re-runs the page's own record load.
+  if (pageRecordStatus === 'failed') {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <Empty data-testid="record-load-failed">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <AlertTriangle className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <EmptyTitle>
+            {t('empty.recordLoadFailed', { defaultValue: 'Couldn’t load this record' })}
+          </EmptyTitle>
+          <EmptyDescription>
+            {t('empty.recordLoadFailedDescription', {
+              defaultValue: 'Something went wrong while loading it. Check your connection and try again.',
+            })}
+          </EmptyDescription>
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="record-load-failed-retry"
+              onClick={() => reloadPageRecordRef.current?.()}
+            >
+              <RotateCw className="mr-1.5 h-4 w-4" />
+              {t('common.retry', { defaultValue: 'Retry' })}
+            </Button>
+          </div>
         </Empty>
       </div>
     );
@@ -2520,10 +2736,35 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         // ActionDef is byte-identical to the pre-#4213 one.
         ...(deleteDisabledByPredicate ? { disabled: true } : null),
         onClick: async () => {
-          const msg = t('detail.deleteConfirmation', {
-            defaultValue: 'Are you sure you want to delete this record?',
-          });
-          if (!window.confirm(msg)) return;
+          // objectui#11695 — the list's delete copy, from the one shared core
+          // (`recordDelete.confirmCopy`): the title names this record by the
+          // ADR-0079 resolver over the READABLE row the header title reads
+          // (a denied name field reads as absent here too) plus the object
+          // label, the body is the list's question — ADR-0094's reset question
+          // for a package-owned permission set — and the confirm button is
+          // "Delete", painted destructive.
+          const copy = recordDelete.confirmCopy(
+            {
+              objectName: objectName!,
+              t,
+              label: objectLabel({ name: objectName!, label: objectDef?.label || objectName! }),
+              objectDef,
+            },
+            { record: (readablePageRecord as Record<string, unknown> | null | undefined) ?? { id: pureRecordId } },
+          );
+          // objectui#11001 — asked through this page's own confirm runtime,
+          // the in-app `ActionConfirmDialog` the list view's delete asks
+          // through too, never the browser's native `window.confirm` (which
+          // cannot be themed, and which headless automation dismisses, so the
+          // button reads as dead). A cancel settles `false` and leaves the
+          // record and the page alone.
+          if (
+            !(await confirmHandler(copy.message, {
+              title: copy.title,
+              confirmText: copy.confirmText,
+              destructive: true,
+            }))
+          ) return;
           try {
             await dataSource.delete(objectName!, pureRecordId!);
             toast.success(t('detail.deleted', { defaultValue: 'Record deleted' }));
@@ -2663,6 +2904,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         <DiscussionContextProvider
           items={feedItems as any}
           loading={feedLoading}
+          activityDenied={feedRefusal?.activity ?? false}
+          commentsDenied={feedRefusal?.comments ?? false}
           onAddComment={handleAddComment as any}
           onAddReply={handleAddReply as any}
           onToggleReaction={handleToggleReaction as any}
@@ -2677,7 +2920,16 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             it carries the same `actionContextOrg` projection, or
             `${ctx.org.id}` interpolates empty here (objectui#10918). */}
         <ActionProvider
-          context={{ record: pageRecord || {}, objectName, user: currentUser, org: actionContextOrg(activeOrganization) }}
+          context={{
+            record: pageRecord || {},
+            objectName,
+            // This object's field definitions, published beside `objectName`
+            // (objectui#11122): the runner's `operation: 'update'` Undo capture
+            // reads them to capture a relation `$expand` filled as its stored id.
+            ...(objectDef?.fields ? { objectFields: objectDef.fields } : {}),
+            user: currentUser,
+            org: actionContextOrg(activeOrganization),
+          }}
           onConfirm={confirmHandler}
           onToast={toastHandler}
           onNavigate={navigateHandler}

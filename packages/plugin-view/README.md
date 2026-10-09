@@ -51,17 +51,24 @@ schema types:
 | Schema `type` | Namespaced key | Renderer |
 | --- | --- | --- |
 | `object-view` | `plugin-view:object-view` | `ObjectViewRenderer` |
-| `view` | `plugin-view:view` | `ObjectViewRenderer` (alias of `object-view`) |
 | `view-switcher` | `view:view-switcher` | `ViewSwitcher` |
 | `filter-ui` | `view:filter-ui` | `FilterUI` |
 | `sort-ui` | `view:sort-ui` | `SortUI` |
-| `shared-view-link` | `view:shared-view-link` | `SharedViewLink` |
 | `view:simple` | `plugin-view:view:simple` | `SimpleViewRenderer` (container) |
 
 Both spellings resolve — `register` stores the namespaced key *and* a bare-`type`
-fallback (`packages/core/src/registry/Registry.ts:195,240`). Note the namespaces
-are not uniform: `object-view` / `view` / `view:simple` register under
-`plugin-view`, the four control components under `view`.
+fallback (`ComponentRegistry.register` in `packages/core/src/registry/Registry.ts`,
+its `!meta?.skipFallback` branch). Note the namespaces are not uniform:
+`object-view` / `view:simple` register under `plugin-view`, the three control
+components under `view`.
+
+The bare `view` alias of `object-view` is RETIRED (objectui#10859 batch 8): it
+named the same renderer as `object-view`, and `objectui validate` refused it at
+`type`. Author `object-view`.
+
+The `shared-view-link` node key is RETIRED too (objectui#10859 batch 8, phase 2b):
+no schema produced it, and `objectui validate` refused it at `type`.
+`SharedViewLink` is still exported (see below); mount the component directly.
 
 `ObjectViewRenderer` is a thin internal wrapper — it pulls `dataSource` off the
 renderer context and hands the schema to `ObjectView`. It is not exported,
@@ -78,7 +85,7 @@ import {
   ViewSwitcher, // registered renderer for `view-switcher`
   FilterUI, // registered renderer for `filter-ui`
   SortUI, // registered renderer for `sort-ui`
-  SharedViewLink, // registered renderer for `shared-view-link`
+  SharedViewLink, // share-link control, mounted directly (its node key is retired)
   ViewTabBar, // horizontal strip of saved-view tabs
   ManageViewsDialog, // sortable dialog over every saved view
   deriveRecordSurface, // record schema -> drawer / modal / page surface
@@ -198,12 +205,27 @@ older version of this README claimed:
 
 `table` carries grid configuration and `form` carries form configuration, but
 `ObjectView` forwards a **fixed set of keys** from each rather than passing the
-object through. Anything else you put in them is ignored:
+object through:
 
 | Sub-config | Keys `ObjectView` forwards |
 | --- | --- |
-| `table` | `columns`, `fields`, `title`, `description`, `filter`, `defaultFilters`, `sort`, `pagination`, `pageSize`, `selection`, `selectable`, `operations`, `className` |
+| `table` | read by name: `columns`, `fields`, `title`, `filter`, `defaultFilters`, `sort`, `pagination`, `pageSize`, `selection`, `selectable`, `operations`, `className`; handed to the grid as written: `editable`, `singleClickEdit`, `frozenColumns`, `rowHeight`, `resizable`, `reorderableColumns`, `searchableFields`, `showSearch`, `showPagination`, `showColumnTypeIcons`, `conditionalFormatting`, `rowActions`, `bulkActions`, `bulkActionDefs`, `exportOptions`, `grouping`, `aggregations`, `rowColor`, `label` |
 | `form` | `fields`, `customFields`, `sections`, `groups`, `layout`, `columns`, `title`, `description`, `subforms`, `buttons`, `defaults`, `initialValues`, `readOnly`, `showSubmit`, `submitText`, `showCancel`, `cancelText`, `showReset`, `className` |
+
+`table` declares exactly these keys (objectui#10976). Any other grid key —
+`emptyState`, `showFilters`, `description`, `keyboardNavigation`, the record
+source (`data`, `staticData`), the row click (`navigation`, `onNavigate`: write
+those on the `object-view` node), node-level keys such as `id`, `hidden` or
+`style`, and the legacy aliases `batchActions` / `resizableColumns` (write
+`bulkActions` / `resizable`) — has nothing to act on in the grid the view
+draws, so TypeScript rejects it and the validator refuses it by name. Anything
+else you put in `form` is ignored.
+
+The keys handed to the grid as written reach the grid the registered renderer
+draws. Where the active named view declares the same member (see below), the
+named view wins and `table` is the fallback. A host that supplies
+`renderListView` composes its own list and takes `columns`, `fields`, `filter`
+and `sort` from `table`, as before.
 
 > **`table.defaultSort` is retired (objectui#5861).** It was the legacy
 > single-entry spelling of `table.sort`. The installed `@objectstack/spec`
@@ -224,15 +246,20 @@ just no longer the one to reach for:
 | --- | --- |
 | `pagination: { pageSize, pageSizeOptions? }` | `pageSize: number` |
 | `selection: { type: 'single' \| 'multiple' \| 'none' }` | `selectable: boolean \| 'single' \| 'multiple'` |
-| `filter: [{ field, operator, value }, …]` (same shape as a named view's `filter`) | `defaultFilters: Record<field, value>` (equality-only) |
+| `filter: [{ field, operator, value }, …]` (same shape as a named view's `filter`) | `defaultFilters: [{ field, operator, value }, …]` — the same rule array; TypeScript and the validator refuse the record form `{ field: value }` (objectui#6152 round 10) |
 
 **Precedence when a key is written both ways** — `table: { pagination: {
 pageSize: 10 }, pageSize: 50 }`, say — the canonical spelling wins. That is
-`ObjectGrid`'s own existing resolution (`schema.pagination?.pageSize ||
-schema.pageSize`; `if (schema.selection?.type) … else if (schema.selectable
-!== undefined)`; `schemaFilter !== undefined ? … : schema.defaultFilters`), and `ObjectView`
-defers to it by forwarding both slots rather than re-resolving the pair
-itself:
+`ObjectGrid`'s own existing resolution for the paging pairs
+(`schema.pagination?.pageSize || schema.pageSize`; `if
+(schema.selection?.type) … else if (schema.selectable !== undefined)`), and
+`ObjectView` defers to it by forwarding both slots rather than re-resolving
+the pair itself. The filter pair is the exception: `ObjectView` resolves it
+and hands the grid the winner in `filter` alone (objectui#11880). `table.filter`
+wins unless it lowers to nothing (absent, `[]` or `{}`), and then
+`table.defaultFilters` applies. Because the grid then has one filter slot,
+its export carries the filter in force and a change to it returns the grid to
+page 1, as `table.filter` always did:
 
 ```typescript
 import type { ObjectViewSchema } from '@object-ui/types';
@@ -517,8 +544,9 @@ view preview, draws a grid named view through `ObjectGrid`. Ten grid members the
 protocol declares under the same name on a named view and on `object-grid` —
 `pagination`, `selection`, `rowHeight`, `resizable`, `searchableFields`,
 `conditionalFormatting`, `rowActions`, `bulkActions`, `bulkActionDefs` and
-`exportOptions` — come from the active named view first; `pagination` and
-`selection` still fall back to `table` (objectui#10885). A named view's
+`exportOptions` — come from the active named view first, and fall back to
+the same key on `table` (`pagination` and `selection` since objectui#10885, the
+rest since objectui#10976). A named view's
 `hiddenFields` removes those fields from the columns the grid draws, when a
 column list is declared, and its `fieldOrder` then orders the columns that
 remain, the way `ListView` orders them on a host's `renderListView`. Its
@@ -674,7 +702,7 @@ const schema: ObjectViewSchema = {
       {
         childObject: 'order_items',
         title: 'Line items',
-        columns: ['product', 'quantity', 'price'],
+        columns: [{ name: 'product' }, { name: 'quantity' }, { name: 'price' }],
       },
     ],
   },
@@ -683,12 +711,15 @@ const schema: ObjectViewSchema = {
 
 Only `childObject` is required — the relationship field and the grid columns are
 derived from the child object's metadata unless you override them
-(`relationshipField`, `columns`).
+(`relationshipField`, `columns`). A column is `@objectstack/spec`'s
+`InlineGridColumn`: an object keyed by `name`, never a bare field name. One that
+declares no `type` takes its label, type and the rest from the child field;
+an undeclared column key is refused by the validator.
 
 ### View tabs
 
 There is no `tabs` key, and `form.layout` has no tabbed value
-(`vertical | horizontal | inline | grid`). The tab strip this package ships is
+(`vertical | horizontal`). The tab strip this package ships is
 the **saved-view** tab bar: declare the views and render `<ViewTabBar>` (or let
 a host such as `@object-ui/app-shell` do it):
 

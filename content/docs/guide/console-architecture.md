@@ -143,7 +143,7 @@ await execute({
 ```
 
 The `ActionRunner` supports:
-- **Confirmation** — async `ConfirmationHandler` (default: `window.confirm`, override with Shadcn AlertDialog)
+- **Confirmation** — async `ConfirmationHandler` (default: `window.confirm`, override with Shadcn AlertDialog). A caller that asks the handler directly may pass `options`: `title`, `confirmText` and `cancelText` replace the dialog's generic copy, and `destructive: true` paints the confirm button in the destructive style. The console's record delete asks this way: `recordDelete.confirmCopy` (`@object-ui/core`) builds a title naming the record (or counting a selection) and a "Delete" confirm label, and both the list and the record page show that copy.
 - **Toast notifications** — `ToastHandler` for success/error messages
 - **Custom handlers** — register domain-specific action types (e.g., `'create'`, `'delete'`, `'refresh'`)
 

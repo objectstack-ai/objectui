@@ -15,7 +15,11 @@ import { createSafeTranslation } from '@object-ui/i18n';
  * embed) without an I18nProvider on the React tree.
  */
 export const TIMELINE_DEFAULT_TRANSLATIONS: Record<string, string> = {
-  'timeline.bucket.overdue': 'Overdue',
+  // objectui#11676 — the `overdue` bucket row is retired with its pack key: a
+  // past day is `earlier` (see `dateBucket` in `ObjectTimeline.tsx`), and no
+  // timeline heads a group "Overdue". `ObjectTimeline.pastBucket-11676.test.tsx`
+  // pins the row and the key absent from all ten packs.
+  'timeline.bucket.earlier': 'Earlier',
   'timeline.bucket.today': 'Today',
   'timeline.bucket.tomorrow': 'Tomorrow',
   'timeline.bucket.thisWeek': 'This week',

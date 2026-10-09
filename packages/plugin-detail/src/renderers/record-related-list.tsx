@@ -14,10 +14,13 @@
 import React from 'react';
 import {
   ElementDataSourceGate,
+  useActionTextLocalizer,
+  useMetadataItem,
   useRecordContext,
   useSafeFieldLabel,
   useRelatedRecordActions,
   type ElementDataSourceMapping,
+  type RelatedRowActionDef,
 } from '@object-ui/react';
 import { useFieldPermissions, usePermissions } from '@object-ui/permissions';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
@@ -30,6 +33,12 @@ import {
 import type { RecordRelatedListComponentProps } from '@object-ui/types';
 import { RelatedList } from '../RelatedList';
 import { useRecordAriaProps } from './recordComponentAria';
+import {
+  describeRelatedListActionRefusals,
+  placeAuthoredRelatedListActions,
+  relatedListActionsNeedLookup,
+  type PlacedRelatedListActions,
+} from './relatedListActions';
 
 /**
  * Normalize a column entry (string | {field} | {name} | {key}) to its name.
@@ -38,6 +47,34 @@ import { useRecordAriaProps } from './recordComponentAria';
  */
 const colName = (entry: any): string | null =>
   columnIdentity(entry) || (entry && typeof entry === 'object' ? entry.key : null) || null;
+
+/**
+ * `columns[].label` on the spec's column-object arm is an `I18nLabel`
+ * (`ComponentPropsMap['record:related_list'].columns` declares the saved-view
+ * union, `string[]` or `ListColumn[]`, since `@objectstack/spec` 17.5.0): a
+ * plain string or an inline per-locale map (objectui#10993). `RelatedList`
+ * turns an object column's `label` into the table's `header` through
+ * `columnHeader`, which takes a string only, so a map handed on raw drew a
+ * BLANK header while the same column with a string label drew it.
+ *
+ * Resolved here, against the UI language, beside this block's `title` and
+ * `add.label`. Only the map arm is touched: a string label, a bare-string
+ * column or any other value is handed on as authored, and the input array is
+ * returned BY REFERENCE when no column carries a map, so the common path keeps
+ * `RelatedList`'s column memo on the array it always received.
+ */
+function localizeColumnLabels<T>(columns: T[], language: string): T[] {
+  let out: T[] | null = null;
+  for (let idx = 0; idx < columns.length; idx++) {
+    const column = columns[idx];
+    const label: unknown =
+      column && typeof column === 'object' ? (column as { label?: unknown }).label : undefined;
+    if (label === null || typeof label !== 'object') continue;
+    out ??= [...columns];
+    out[idx] = { ...(column as object), label: pickLocalized(label, language) } as T;
+  }
+  return out ?? columns;
+}
 
 /** Extract a record's primary key, tolerating the `id` / `_id` split. */
 const rowId = (row: any): string | number | null => row?.id ?? row?._id ?? null;
@@ -50,6 +87,38 @@ const rowId = (row: any): string | number | null => row?.id ?? row?._id ?? null;
  * (issue #2711 — without it related lists rendered ALL child rows unpaged).
  */
 const SPEC_DEFAULT_LIMIT = 5;
+
+/**
+ * The ADR-0066 capability that answers "may this viewer change the page" —
+ * the console's metadata-edit capability, read here for the action-refusal
+ * notice's audience (objectui#11768).
+ *
+ * It is the name `@object-ui/app-shell` exports as `AUTHORING_CAPABILITY` and
+ * reads through `useCanAuthorMetadata()`, the answer Studio's affordances (the
+ * App → Studio bridge, the page editor entry, the builder CTAs) consult. It is
+ * spelled out rather than imported because this package cannot import
+ * app-shell (app-shell depends on this package, not the reverse) and no package
+ * this one depends on exports the name. Module-local on purpose: it is not
+ * part of this package's surface.
+ */
+const METADATA_AUTHORING_CAPABILITY = 'manage_metadata';
+
+/**
+ * Dev mode, in this repository's established spelling for it — the build's
+ * `NODE_ENV` — the same guard `plugin-gantt`, `plugin-map` and
+ * `@object-ui/core` put on their authoring diagnostics. Read per call, not
+ * captured at module load, so the answer is the running build's.
+ *
+ * What it answers where this renderer runs: the console's production bundle
+ * folds the expression to `false` at build time (Vite's `NODE_ENV` define),
+ * so the console's `window.process` shim in `index.html`, which claims
+ * `development`, never reaches it there; the console's dev server leaves the
+ * expression as written and that shim answers `true`; a published consumer
+ * gets whatever its own bundler defines.
+ */
+const isDevBuild = (): boolean =>
+  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+    ?.NODE_ENV !== 'production';
 
 const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
@@ -86,10 +155,12 @@ export interface RecordRelatedListRendererProps {
    * declared key type-checked at every read below, cast or not — the refusal
    * the mirror declares stopped one layer short of the reads it exists for.
    *
-   * ⛔ Do not reopen it to admit a key the renderer reads through a cast
-   * (`requiredPermissions`, `enforceFieldSecurity`, `redactFields`): no block
-   * the contract maps onto this tag declares them, and objectui#8649 routed
-   * them to the producer rather than to a declaration here.
+   * The field-security triple (`requiredPermissions`, `enforceFieldSecurity`,
+   * `redactFields`) arrives through the mirror like every other member:
+   * `@objectstack/spec` 17.5.0 declares it on `record:related_list`, and
+   * objectui#8649 declared it on `RecordRelatedListComponentProps` and removed
+   * the casts its reads used to go through. ⛔ Still do not reopen this type to
+   * admit a key the contract does not declare on this block.
    */
   schema?: Omit<RecordRelatedListComponentProps, 'objectName'> &
     Partial<Pick<RecordRelatedListComponentProps, 'objectName'>> & {
@@ -143,11 +214,14 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
   // Resolve a human-friendly title:
   //   1. authored `schema.title` wins — via pickLocalized so inline-i18n
   //      shapes (`{ en, 'zh-CN' }`) resolve instead of rendering "[object Object]"
-  //   2. translated object label via i18n (key `objects.{name}.label`)
+  //   2. translated object PLURAL label via i18n (key `objects.{name}.pluralLabel`),
+  //      else the translated label (key `objects.{name}.label`) — the block
+  //      lists the related object's records, so it is named as that object's
+  //      list page is (objectui#11733)
   //   3. humanized objectName (e.g. `opportunity_quote` → "Opportunity Quote")
   //   4. literal `'Related'` as final fallback
-  const resolvedObjectLabel = objectName && (i18n as any).objectLabel
-    ? (i18n as any).objectLabel({ name: objectName, label: humanizeLabel(objectName) })
+  const resolvedObjectLabel = objectName && 'objectPluralLabel' in i18n
+    ? i18n.objectPluralLabel({ name: objectName, label: humanizeLabel(objectName) })
     : objectName
       ? humanizeLabel(objectName)
       : '';
@@ -213,6 +287,75 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
     [relatedActions, objectName, schema.relationshipField, parentLinkValue],
   );
 
+  /**
+   * `actions` — the authored action ids, READ (objectui#11163; the maintainer's
+   * ENFORCE ruling on objectstack-ai/objectstack#20665). The key was declared
+   * and published with no read site, so an authored list changed nothing.
+   *
+   * THE COMPOSITION RULE, with the host bridge the handlers above come from:
+   *
+   *   - ABSENT → the host's actions, untouched (`handlers.toolbarActions` /
+   *     `handlers.rowActions`, the child object's `list_toolbar` actions and
+   *     its `list_item` / `record_related` ones), and no metadata lookup is
+   *     made for this key.
+   *   - AUTHORED → the authored list is what renders, in authored order:
+   *     each id resolves against the RELATED object's registered `actions`
+   *     and is placed by its own `locations` (see `relatedListActions.ts`).
+   *     `[]` is the author's choice of no actions.
+   *
+   * The bridge offers no per-list channel of its own — `resolve` is keyed on
+   * the child OBJECT (`objectName`, `relationshipField`, `parentId`), so two
+   * lists of one object get one set — which is why this key is the per-list
+   * one rather than a duplicate of it. Built-in New / Edit / Delete / View are
+   * NOT action ids (the runtime ships no built-in action names) and stay the
+   * host's either way. Running an authored action stays the host's too: it is
+   * handed to the bridge's `onToolbarAction` / `onRowAction`, the executor
+   * that already runs the child object's actions against the clicked row, so
+   * with no host the list stays read-only exactly as it always has.
+   *
+   * The lookup is `useMetadataItem('object', …)`, the entry
+   * `record:quick_actions.actionNames` and `page:header.actions` resolve
+   * through, requested only when there is an id to resolve (`null` is its
+   * documented no-op). Called here, with the other hooks, because the early
+   * returns below would otherwise change the hook count.
+   */
+  const authoredActions: unknown = schema.actions;
+  const actionsAuthored = authoredActions !== undefined;
+  const needsActionLookup = !!objectName && relatedListActionsNeedLookup(authoredActions);
+  const { item: relatedObjectMeta, loading: relatedObjectMetaLoading } = useMetadataItem(
+    'object',
+    needsActionLookup ? objectName : null,
+  );
+  const localizeActionTexts = useActionTextLocalizer();
+  const placedActions = React.useMemo((): PlacedRelatedListActions<RelatedRowActionDef> | null => {
+    if (!actionsAuthored) return null;
+    // In flight: nothing is drawn and nothing is refused yet — refusing here
+    // would name an id on every first paint that the lookup is about to find.
+    if (needsActionLookup && relatedObjectMetaLoading) return { toolbar: [], row: [], refused: [] };
+    const registered: RelatedRowActionDef[] = Array.isArray(relatedObjectMeta?.actions)
+      ? (relatedObjectMeta.actions as RelatedRowActionDef[])
+      : [];
+    const placed = placeAuthoredRelatedListActions<RelatedRowActionDef>(authoredActions, registered);
+    // Localized once, before the defs reach the list, so the button and the
+    // dialog the host runs from the SAME def read one bundle entry
+    // (objectui#4265) — the resolver the bridge applies to its own defaults.
+    const localize = (a: RelatedRowActionDef) =>
+      localizeActionTexts(objectName || undefined, a) as RelatedRowActionDef;
+    return {
+      toolbar: placed.toolbar.map(localize),
+      row: placed.row.map(localize),
+      refused: placed.refused,
+    };
+  }, [
+    actionsAuthored,
+    authoredActions,
+    needsActionLookup,
+    relatedObjectMeta,
+    relatedObjectMetaLoading,
+    objectName,
+    localizeActionTexts,
+  ]);
+
   // Missing objectName renders a designer placeholder — checked AFTER the hooks
   // above so hook order stays stable across renders.
   if (!objectName) {
@@ -237,8 +380,11 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
     return null;
   }
 
-  const required: string[] = Array.isArray((schema as any).requiredPermissions)
-    ? (schema as any).requiredPermissions
+  // Read UN-CAST (objectui#8649), like `enforceFieldSecurity` and
+  // `redactFields` below. The mechanism is written once, at the same read in
+  // `record-details.tsx`.
+  const required: string[] = Array.isArray(schema.requiredPermissions)
+    ? schema.requiredPermissions
     : [];
   /**
    * Block-level ADR-0066 CAPABILITY gate, read fail-closed (objectui#10155 —
@@ -248,7 +394,13 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
    * the one meaning the word carries on `action`, `app`, `field` and
    * `bulkAction` — so it is read through the permission context's capability
    * path (`hasCapabilities` over the reported `systemPermissions`). An unheld
-   * or unrecognised capability hides the whole section.
+   * or unrecognised capability withholds the section's content, and an
+   * insufficient-permissions notice (`role="status"`) renders in its place:
+   * the block is not hidden. That is what the contract's describe on
+   * `RecordRelatedListProps.requiredPermissions` says ("an
+   * insufficient-permissions notice takes its place"). The automatic
+   * child-object read gate above is a different gate and does hide the
+   * section: it returns `null`.
    *
    * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
    * closed object-action enum, and the stock `/me/permissions` provider maps
@@ -283,9 +435,9 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
     );
   }
 
-  const enforceFLS = (schema as any).enforceFieldSecurity === true;
-  const redact: string[] = Array.isArray((schema as any).redactFields)
-    ? (schema as any).redactFields
+  const enforceFLS = schema.enforceFieldSecurity === true;
+  const redact: string[] = Array.isArray(schema.redactFields)
+    ? schema.redactFields
     : [];
   const rawColumns: any[] = Array.isArray(schema.columns) ? (schema.columns as any[]) : [];
   let filteredColumns: any[] = rawColumns;
@@ -320,8 +472,60 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
     });
   }
 
+  // The actions the list draws — see `placedActions` above for the rule. An
+  // authored surface is handed down only beside the host's executor for it:
+  // an action offered with nothing to run it would be a dead button.
+  const toolbarActions = placedActions
+    ? handlers?.onToolbarAction && placedActions.toolbar.length > 0
+      ? placedActions.toolbar
+      : undefined
+    : handlers?.toolbarActions;
+  const rowActions = placedActions
+    ? handlers?.onRowAction && placedActions.row.length > 0
+      ? placedActions.row
+      : undefined
+    : handlers?.rowActions;
+  const refusedActions = placedActions?.refused ?? [];
+  /**
+   * WHO sees the refusal notice (objectui#11768). An authored id this list
+   * cannot draw is an authoring fault, and `os validate` already refuses it at
+   * build time (objectstack-ai/objectstack#20936); the notice is its runtime
+   * echo for the person who can fix the page. So it is drawn for a viewer
+   * holding the metadata-edit capability, or in dev mode — never for an end
+   * user, who can act on neither the id nor the object it names.
+   *
+   * What does NOT depend on the viewer: the refused entry stays undrawn for
+   * everyone, and the entries that did resolve render for everyone. Only the
+   * notice's audience is scoped.
+   *
+   * The capability is read as `useCanAuthorMetadata()` reads it — through
+   * `hasCapabilities`, which fails OPEN when the provider never reported
+   * `systemPermissions` (a backend predating ADR-0066, the role-based
+   * provider, no provider at all: the Studio designer and standalone embeds)
+   * and gates strictly on a reported set, a reported empty one included
+   * (objectui#4656). The hosted workspace owner whose reported set carries no
+   * `manage_metadata` (objectstack#8270) therefore does not see it.
+   */
+  const showActionRefusals =
+    refusedActions.length > 0 &&
+    (isDevBuild() || perms.hasCapabilities([METADATA_AUTHORING_CAPABILITY]));
+
   return (
     <div className={className} {...designer} {...ariaProps}>
+      {showActionRefusals && (
+        // The author-visible refusal the ruling asks for: an authored entry
+        // this list cannot draw is named here, where the lookup answered,
+        // never dropped without a word. Beside the list, not in place of it —
+        // the entries that did resolve still render.
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="record-related-list-actions-refused"
+          className="mb-2 text-xs text-muted-foreground italic px-3 py-2 border border-dashed rounded"
+        >
+          {describeRelatedListActionRefusals(refusedActions, objectName, !!relatedObjectMeta)}
+        </div>
+      )}
       <RelatedList
         title={title}
         type="table"
@@ -329,7 +533,10 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
         objectName={objectName}
         referenceField={schema.relationshipField}
         parentId={parentLinkValue as any}
-        columns={filteredColumns as any}
+        // A column object's `label` locale map resolves to the UI language
+        // first (`localizeColumnLabels`, objectui#10993); the same array, by
+        // reference, when no column carries one.
+        columns={localizeColumnLabels(filteredColumns, language) as any}
         // [objectui#9053] The same list, pushed down to the component that
         // DECIDES columns. Filtering the authored array here only ever reached
         // one of the three paths that decide them: redacting every authored
@@ -369,9 +576,9 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
               }
             : undefined
         }
-        rowActions={handlers?.rowActions}
+        rowActions={rowActions}
         onRowAction={handlers?.onRowAction}
-        toolbarActions={handlers?.toolbarActions}
+        toolbarActions={toolbarActions}
         onToolbarAction={handlers?.onToolbarAction}
         // Create a new child, pre-linked to this parent (增). Host omits when
         // create is denied by lifecycle/permissions, hiding the "New" button.

@@ -10,7 +10,9 @@ import * as React from 'react';
 import { useState, useCallback, useEffect } from 'react';
 import { Settings } from 'lucide-react';
 import { cn, Button } from '@object-ui/components';
-import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import type { DashboardComponentSchema } from '@object-ui/types';
+import { isSlotComponentEntry, type DashboardWidgetSlotEntry } from './widgetDispatch';
+import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 
 import { DashboardRenderer } from './DashboardRenderer';
 import { DashboardConfigPanel } from './DashboardConfigPanel';
@@ -94,31 +96,51 @@ export function DashboardWithConfig({
   // field change. This prevents useConfigDraft from resetting the draft.
   const selectedWidgetConfig = React.useMemo(() => {
     if (!selectedWidgetId || !liveSchema.widgets) return null;
-    const widget = liveSchema.widgets.find(
+    // Read through the slot's element type (objectui#11514), as every
+    // dashboard surface reads a `widgets[]` entry. `title` and `layout` below
+    // are declared on both arms: the widget arm's spec `DashboardWidget` row,
+    // and the component arm's card heading and the spec's `layout` by reference
+    // (objectui#11070 round 11). The component arm
+    // (`DashboardWidgetSlotComponentSchema`) is no longer assignable to the
+    // widget arm, whose `type` names no component type since objectui#11514.
+    const widgets: DashboardWidgetSlotEntry[] = liveSchema.widgets;
+    const index = widgets.findIndex(
       (w) => (w.id || w.title) === selectedWidgetId,
     );
-    if (!widget) return null;
+    if (index < 0) return null;
+    const widget = widgets[index];
+    // The panel's width / height sliders start from the same completed box the
+    // live writer below stores (objectui#11388), so the dimension an edit
+    // leaves alone is the one the slider showed.
+    const layout = completeWidgetLayout(widget.layout, {}, defaultWidgetPlacement(index));
     // ADR-0021 dataset shape — the only authoring shape the panel edits.
-    // `dataset`/`dimensions`/`values` are read through casts: the bundled
-    // `@object-ui/types` gains them once objectui bumps `@objectstack/spec`.
-    const w = widget as any;
+    // `dataset` / `dimensions` / `values` / `colorVariant` are widget keys,
+    // read on the widget arm alone (objectui#11598, N2 A): a component node in
+    // the slot (a `metric-card`) declares none of them, so the panel starts it
+    // from their empty values. They used to be read off the entry whichever
+    // arm it was, the first three through an `as any` cast and `colorVariant`
+    // through `BaseSchema`'s index signature.
+    const widgetArm = isSlotComponentEntry(widget) ? undefined : widget;
+    const dataset = widgetArm?.dataset;
+    const dimensions = widgetArm?.dimensions;
+    const values = widgetArm?.values;
     return {
       id: widget.id ?? '',
       title: widget.title ?? '',
       description: widget.description ?? '',
       type: widget.type ?? '',
-      dataset: typeof w.dataset === 'string' ? w.dataset : '',
-      dimensions: Array.isArray(w.dimensions) ? w.dimensions : [],
-      values: Array.isArray(w.values) ? w.values : [],
-      colorVariant: widget.colorVariant ?? 'default',
+      dataset: typeof dataset === 'string' ? dataset : '',
+      dimensions: Array.isArray(dimensions) ? dimensions : [],
+      values: Array.isArray(values) ? values : [],
+      colorVariant: widgetArm?.colorVariant ?? 'default',
       // No `actionUrl` / `actionType` / `actionIcon`: retired at the widget
       // level in @objectstack/spec 17.0.0-rc.3 (objectstack#5010, ADR-0049 D2)
       // and now `retiredKey` tombstones the spec refuses. Seeding
       // `actionUrl: widget.actionUrl ?? ''` here meant EVERY save from the
       // widget panel emitted `actionUrl: ''` — a parse error — even when the
       // author never opened the Behavior group (objectstack#7129).
-      layoutW: widget.layout?.w ?? 1,
-      layoutH: widget.layout?.h ?? 1,
+      layoutW: layout.w,
+      layoutH: layout.h,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWidgetId, configVersion]);
@@ -152,13 +174,21 @@ export function DashboardWithConfig({
         if (!prev.widgets) return prev;
         return {
           ...prev,
-          widgets: prev.widgets.map((w) => {
+          // The slot's element type, for the reason `selectedWidgetConfig`
+          // states (objectui#11514).
+          //
+          // A slider edits ONE dimension of the spec's four-number `layout`,
+          // so it goes through `completeWidgetLayout` (objectui#11388): on a
+          // widget with no `layout` the untouched coordinates come from the
+          // grid's auto-placement for its index, and the box is whole.
+          // Spreading the one number onto an absent box stored `{ w }`, which
+          // the spec refuses. `DashboardRenderer` computes no `x` / `y` this
+          // component can read, so it seeds from `defaultWidgetPlacement`.
+          widgets: prev.widgets.map((w: DashboardWidgetSlotEntry, index: number) => {
             if ((w.id || w.title) !== selectedWidgetId) return w;
-            if (field === 'layoutW') {
-              return { ...w, layout: { ...(w.layout || {}), w: value } as DashboardWidgetSchema['layout'] };
-            }
-            if (field === 'layoutH') {
-              return { ...w, layout: { ...(w.layout || {}), h: value } as DashboardWidgetSchema['layout'] };
+            if (field === 'layoutW' || field === 'layoutH') {
+              const patch = field === 'layoutW' ? { w: value } : { h: value };
+              return { ...w, layout: completeWidgetLayout(w.layout, patch, defaultWidgetPlacement(index)) };
             }
             return { ...w, [field]: value };
           }),

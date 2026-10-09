@@ -57,6 +57,23 @@
  * `sharedUserFeeds` twin — the ablation is what makes the ghost key legible.
  * The genuinely independent controls are the two scalar-`role` cases and the
  * negative controls, and those did stay green.
+ *
+ * ## objectui#11455 — a position is spelled `position:<p>`
+ *
+ * The position-derived identities above were `role:<p>`. The server stores a
+ * slot routed to a position as `position:<p>`; `role:` is the framework
+ * ADR-0090 D3 deprecated spelling, kept only for 15.x-era slots, and an approve
+ * that names it on a `position:<p>` slot is refused. This builder also picks
+ * the `actor_id` a decision names, so the position arm now emits
+ * `position:<p>` and no `role:<p>`. The scalar `user.role` arm keeps `role:<r>`:
+ * the server's session payload says the better-auth scalar is not a source of
+ * `positions[]`, so it is not a position and is not renamed. The scalar cases
+ * are therefore the control — they must not move.
+ *
+ * Reverse verification (predicted before running; the measured run is quoted
+ * in the PR, not here): restore the `role:` prefix on the position arm and the
+ * first case goes RED — the position-addressed subset reads `[]` — while the
+ * scalar-`role` controls stay GREEN.
  */
 import { describe, it, expect } from 'vitest';
 
@@ -74,18 +91,31 @@ const PROTOCOL_17_USER = {
   positions: ['manager', 'finance_approver'],
 };
 
-/** Just the role-addressed subset — what `pending_approvers` is matched on. */
+/** Just the position-addressed subset — the spelling the server stores. */
+const positionIdentities = (user: Parameters<typeof buildApproverIdentities>[0]) =>
+  buildApproverIdentities(user).filter((i) => i.startsWith('position:'));
+
+/** Just the `role:` subset — after objectui#11455, the better-auth scalar only. */
 const roleIdentities = (user: Parameters<typeof buildApproverIdentities>[0]) =>
   buildApproverIdentities(user).filter((i) => i.startsWith('role:'));
 
 describe('objectui#5424 — `buildApproverIdentities` reads `positions`, the published spelling', () => {
-  it('derives an identity from every position, not just the scalar role', () => {
-    // The pin. On `origin/main` this is exactly `['role:user']` — the scalar
-    // survived and both business positions were gone.
-    // Order follows `roleList`: positions first, then the scalar's split.
-    expect(roleIdentities(PROTOCOL_17_USER)).toEqual([
-      'role:manager',
-      'role:finance_approver',
+  it('derives a `position:` identity from every position, not just the scalar role', () => {
+    // The pin. Before objectui#5424 the position-derived list was empty — the
+    // scalar survived and both business positions were gone.
+    expect(positionIdentities(PROTOCOL_17_USER)).toEqual([
+      'position:manager',
+      'position:finance_approver',
+    ]);
+    // objectui#11455: no position is ALSO named under the deprecated `role:`
+    // spelling. The one `role:` entry left is the scalar's own.
+    expect(roleIdentities(PROTOCOL_17_USER)).toEqual(['role:user']);
+    // The whole list, in order: person, positions, then the scalar's split.
+    expect(buildApproverIdentities(PROTOCOL_17_USER)).toEqual([
+      'u_1',
+      'admin@example.com',
+      'position:manager',
+      'position:finance_approver',
       'role:user',
     ]);
   });
@@ -93,8 +123,10 @@ describe('objectui#5424 — `buildApproverIdentities` reads `positions`, the pub
   it('keeps the scalar `role` as a second source — protocol 17 still emits it', () => {
     // Control: green before and after. `role` is a separate key that the
     // measured payload carries alongside `positions`; objectui#5424 is about
-    // the retired one, so this must not move.
+    // the retired one, and objectui#11455 renames positions only — the scalar
+    // is not a position (plugin-auth's `customSession`), so this must not move.
     expect(roleIdentities({ id: 'u_1', role: 'auditor' })).toEqual(['role:auditor']);
+    expect(positionIdentities({ id: 'u_1', role: 'auditor' })).toEqual([]);
   });
 
   it('still splits a comma-separated scalar role', () => {
@@ -120,23 +152,33 @@ describe('objectui#5424 — `buildApproverIdentities` reads `positions`, the pub
 
   it('still sends the person-addressed identities', () => {
     // Control for the first case: id and email never came from the retired key.
-    // Deliberately blind to the role-addressed subset: this case must be green
-    // on the broken read too, or it is not a control.
-    expect(buildApproverIdentities(PROTOCOL_17_USER).filter((i) => !i.startsWith('role:'))).toEqual(
-      ['u_1', 'admin@example.com'],
-    );
+    // Deliberately blind to the `position:` and `role:` subsets: this case must
+    // be green on the broken read and on the old spelling too, or it is not a
+    // control.
+    expect(
+      buildApproverIdentities(PROTOCOL_17_USER).filter(
+        (i) => !i.startsWith('position:') && !i.startsWith('role:'),
+      ),
+    ).toEqual(['u_1', 'admin@example.com']);
   });
 
-  it('de-duplicates a position that repeats the scalar role', () => {
-    // The measured payload's `positions` contains the scalar's value (`user`),
-    // so this overlap is the common case, not an edge one.
-    expect(roleIdentities({ id: 'u_1', role: 'user', positions: ['user', 'manager'] })).toEqual([
-      'role:user',
-      'role:manager',
+  it('de-duplicates a repeated position', () => {
+    expect(positionIdentities({ id: 'u_1', positions: ['manager', 'manager'] })).toEqual([
+      'position:manager',
     ]);
   });
 
-  it('negative control: a user with neither `positions` nor `role` yields no role identity', () => {
+  it('names a position that repeats the scalar role under each source\'s own spelling', () => {
+    // The measured objectui#5424 payload's `positions` contained the scalar's
+    // value (`user`). The two sources mean different things — a held position
+    // and the better-auth role scalar — so each keeps its own spelling; the
+    // position is never folded into a `role:` entry.
+    expect(
+      buildApproverIdentities({ id: 'u_1', role: 'user', positions: ['user', 'manager'] }),
+    ).toEqual(['u_1', 'position:user', 'position:manager', 'role:user']);
+  });
+
+  it('negative control: a user with neither `positions` nor `role` yields no position or role identity', () => {
     // Must not throw, and must not manufacture `role:undefined` — an identity
     // that matches nothing but would be sent on every request.
     const identities = buildApproverIdentities({ id: 'u_1', email: 'a@b.c' });

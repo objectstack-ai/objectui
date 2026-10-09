@@ -35,6 +35,10 @@
  *     invokes the prototype setter. The field vanished from the serialised
  *     body while the spec stood ready to accept it. That is what makes
  *     `Object.fromEntries` load-bearing here rather than stylistic.
+ *     ⚠️ `@objectstack/spec` 17.5.0 refuses this name BY NAME (objectui#11073
+ *     re-pinned `the instrument`), which keeps the load-bearing part: the
+ *     refusal can name the field only if the serialised body still carries
+ *     it, and a document stored before 17.5.0 still arrives with it.
  *
  * The third refusal, duplicates, is the conversion's OWN hazard: a designer
  * list can carry two fields called `amount` and a map cannot, so the later one
@@ -88,15 +92,21 @@ const BASE_BODY = {
 /**
  * A document that ALREADY stores a field named `__proto__`, written with a
  * computed key so it is an own property (see the header note). `JSON.stringify`
- * in the fetch double emits it as `{"__proto__": …}`, which is what a
- * spec-parsed server would send for this spec-legal field name.
+ * in the fetch double emits it as `{"__proto__": …}`, which is what a server
+ * sends for a document stored while the spec still accepted the name (through
+ * `@objectstack/spec` 17.4.0). Since 17.5.0 the spec refuses it as a `fields`
+ * key (`describe('the instrument')` below), so the server refuses a save that
+ * carries it, at `fields.__proto__`; a document stored before then is still
+ * served with it, and that is the case this fixture models. This file's fetch
+ * double accepts every PUT: the cases here measure the client's writer, not
+ * the server's gate.
  */
 const PROTO_BODY = {
   name: 'probe_widget',
   label: 'Widget',
   fields: {
     name: { type: 'text', label: 'Name' },
-    ['__proto__']: { type: 'text', label: 'Proto', inlineHelpText: 'Stored under a legal name.' },
+    ['__proto__']: { type: 'text', label: 'Proto', inlineHelpText: 'Stored before the spec refused this name.' },
   },
 };
 
@@ -223,8 +233,16 @@ describe('the instrument', () => {
     expect(parseWithFields({ undefined: { type: 'text', label: 'N' } }).success).toBe(true);
   });
 
-  it('treats `__proto__` as a LEGAL field name — the spec would have accepted what assignment threw away', () => {
-    expect(parseWithFields({ ['__proto__']: { type: 'text', label: 'P' } }).success).toBe(true);
+  it('refuses `__proto__` BY NAME since 17.5.0 — a refusal that reaches the author only if the key survives', () => {
+    // Through `@objectstack/spec` 17.4.0 this row read `success === true`: the
+    // spec would have accepted what assignment threw away. 17.5.0 refuses the
+    // name at the key, by name (`z.record()` drops it from its output while
+    // reporting success), so keeping it in the body is now what lets that
+    // refusal name the field instead of the save silently losing it
+    // (objectui#11073 re-pin).
+    expect(issuesOf(parseWithFields({ ['__proto__']: { type: 'text', label: 'P' } }))).toEqual([
+      'custom @ fields.__proto__',
+    ]);
     // Control, so the line above is a verdict about this key rather than a
     // schema that accepts anything: a camelCase name is refused AT THE KEY.
     expect(issuesOf(parseWithFields({ firstName: { type: 'text', label: 'F' } }))).toEqual([
@@ -323,7 +341,7 @@ describe('objectui#6489 · the map the page PUTs is built as own properties', ()
     expect(own(savedFields(), '__proto__')).toMatchObject({
       type: 'text',
       label: 'Renamed',
-      inlineHelpText: 'Stored under a legal name.',
+      inlineHelpText: 'Stored before the spec refused this name.',
     });
   });
 });

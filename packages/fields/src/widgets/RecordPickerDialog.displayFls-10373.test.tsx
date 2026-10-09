@@ -53,7 +53,7 @@ const ACCOUNT_FIELDS: Record<string, any> = {
   name: { type: 'text', label: 'Name' },
   code: { type: 'text', label: 'Code' },
   secret: { type: 'text', label: 'Secret' },
-  region: { type: 'lookup', label: 'Region', reference_to: 'region' },
+  region: { type: 'lookup', label: 'Region', reference: 'region' },
 };
 
 /**

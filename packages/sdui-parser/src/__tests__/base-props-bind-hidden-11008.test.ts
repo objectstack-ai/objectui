@@ -26,9 +26,11 @@
  *     `unknown-prop` naming it — the lit control. Without it, "draws nothing"
  *     would also pass against a tier that stopped warning on undeclared keys;
  *   - a registration that DECLARES `placeholder` keeps its `type-mismatch`.
- *     `placeholder` is a `BaseSchema` member too, and it stayed OUT of the set
- *     because membership skips the declared-input lookup: this row goes red if
- *     it is added the way `bind` and `hidden` were.
+ *     `placeholder` is a `BaseSchema` member too, and it was left out of the
+ *     `every-node` members because they skip the declared-input lookup. It
+ *     joined later as a `where-undeclared` member (objectui#11044), which a
+ *     declared input outranks: this row goes red if it is ever made an
+ *     `every-node` member the way `bind` and `hidden` were.
  */
 import { describe, expect, it } from 'vitest';
 import { manifestFromConfigs, validateTree } from '../index.js';
@@ -77,7 +79,7 @@ describe('objectui#11008 — `bind` and `hidden` are base props of the parser ti
     expect(found[0]!.message).toContain(`"${key}"`);
   });
 
-  it('a registration that declares `placeholder` keeps its type check — why `placeholder` stayed out', () => {
+  it('a registration that declares `placeholder` keeps its type check — why `placeholder` is not `every-node`', () => {
     expect(diagnose({ type: 'field', placeholder: 'Search…' })).toEqual([]);
     const found = diagnose({ type: 'field', placeholder: 42 });
     expect(found.map((d) => d.code)).toEqual(['type-mismatch']);

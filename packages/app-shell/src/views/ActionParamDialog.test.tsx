@@ -153,11 +153,35 @@ describe('filterVisibleParams — faults are fail-open and LOUD (objectui#4640)'
     expect(warnings).toHaveLength(1);
   });
 
-  it('a blank or absent predicate is NOT a fault — kept, and silent', () => {
+  it('a declared `visible` with no evaluable source IS a fault — kept (this surface fails open), and named (objectui#11358)', () => {
+    // An `ast`-only envelope, `0`, `{}`, an array: until objectui#11358 these
+    // read as "no gate" and were kept in silence. They are declared gates that
+    // cannot be evaluated now, so they take this surface's fault path — the
+    // param is still shown (the direction a faulting param `visible` has
+    // always had here), and the fault is reported once, naming the param.
+    const shapes: Array<[string, unknown]> = [
+      ['ast_11358', { dialect: 'cel', ast: { kind: 'call', fn: '==' } }],
+      ['zero_11358', 0],
+      ['object_11358', {}],
+      ['array_11358', ['record.id']],
+    ];
+    for (const [name, visible] of shapes) {
+      const param = { name, label: name, type: 'text', visible } as unknown as ActionParamDef;
+      const { result, warnings } = withWarnings(() => filterVisibleParams([param], {}, 'Create user'));
+      expect(result.map((x) => x.name)).toEqual([name]);
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain(`param "${name}" of action "Create user"`);
+      expect(warnings[0]).toContain('[unevaluable]');
+    }
+  });
+
+  it('a blank predicate is NOT a fault — kept, never evaluated, and diagnosed as blank (objectui#8069)', () => {
     // `''`, whitespace, and the empty `{ dialect, source: '' }` envelope a
     // spec-normalized empty predicate compiles to all mean "no gate declared"
     // (objectui#3850 / #3960) — they must never reach the evaluator to be
-    // reported as broken.
+    // reported as broken. Since ADR-0137 D4 the "no gate" fold is no longer
+    // SILENT: `hasDeclaredPredicate` reports each blank spelling once through
+    // core's `[blank]` channel, and nothing else speaks.
     const params: ActionParamDef[] = [
       p('a', ''),
       p('b', '   '),
@@ -166,6 +190,17 @@ describe('filterVisibleParams — faults are fail-open and LOUD (objectui#4640)'
     ];
     const { result, warnings } = withWarnings(() => filterVisibleParams(params, {}, 'Create user'));
     expect(result.map((x) => x.name)).toEqual(['a', 'b', 'c', 'd']);
+    // `p('a', '')` authors no key at all (the helper drops a falsy predicate);
+    // `'   '`, `{ source: '' }` and `{ source: '  ' }` are three blank
+    // spellings, one line each.
+    expect(warnings).toHaveLength(3);
+    expect(warnings.every((w) => w.includes('[blank]'))).toBe(true);
+  });
+
+  it('control — an ABSENT predicate is kept and silent: there is nothing declared to report', () => {
+    const params: ActionParamDef[] = [p('a'), { name: 'n', label: 'N', type: 'text', visible: null as never }];
+    const { result, warnings } = withWarnings(() => filterVisibleParams(params, {}, 'Create user'));
+    expect(result.map((x) => x.name)).toEqual(['a', 'n']);
     expect(warnings).toEqual([]);
   });
 

@@ -13,6 +13,8 @@ ObjectUI apps are standard Vite + React applications, so they can be deployed an
 - The build output lives in `apps/console/dist/` (or your app's `dist/` folder)
 - Environment variables configured for your target environment
 
+`pnpm build` also writes `apps/console/dist/sdui.manifest.json`, the SDUI component manifest of the console it built. An ObjectStack host serving this `dist` registers that file under `@objectstack/metadata-protocol`'s `SDUI_MANIFEST_SERVICE`, and its metadata save door validates page sources against it. The console package's `build` script writes it after `vite build`, so a caller that runs `vite build` directly gets the bundle without the manifest.
+
 ## Docker
 
 Create a multi-stage `Dockerfile` at the project root:

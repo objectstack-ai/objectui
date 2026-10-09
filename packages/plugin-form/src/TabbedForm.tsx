@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import type { FormField, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import { cn, toast } from '@object-ui/components';
 import { SchemaRenderer, useSafeFieldLabel } from '@object-ui/react';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
@@ -37,6 +37,7 @@ import {
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useRecordInvalidation } from './recordInvalidation';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
+import { useFormChromeTranslation } from './formChrome';
 
 export interface FormSectionConfig {
   /**
@@ -61,9 +62,11 @@ export interface FormSectionConfig {
   columns?: 1 | 2 | 3 | 4;
   
   /**
-   * Field names or configurations in this section
+   * The same three entry shapes as `ObjectFormSection.fields`, by reference:
+   * a field name, the form view's `{ field, … }` entry, or an inline
+   * `FormField` (objectui#11615).
    */
-  fields: (string | FormField)[];
+  fields: NonNullable<ObjectFormSection['fields']>;
 
   /**
    * ADR-0089 `FormSection.visibleWhen` — the TABBED arm of the one grouping
@@ -269,6 +272,9 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
   className,
 }) => {
   const { fieldLabel } = useSafeFieldLabel();
+  // The loading line, the load-failure heading and the default submit label,
+  // in the session locale (objectui#11039). See `formChrome.ts`.
+  const { t } = useFormChromeTranslation();
   const perms = usePermissions();
   const { userId: currentUserId } = perms;
   const [objectSchema, setObjectSchema] = useState<any>(null);
@@ -544,7 +550,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
   if (error) {
     return (
       <div className="p-4 border border-red-300 bg-red-50 rounded-md">
-        <h3 className="text-red-800 font-semibold">Error loading form</h3>
+        <h3 className="text-red-800 font-semibold">{t('form.errorLoading')}</h3>
         <p className="text-red-600 text-sm mt-1">{error.message}</p>
       </div>
     );
@@ -554,7 +560,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
     return (
       <div className="p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        <p className="mt-2 text-sm text-gray-600">Loading form...</p>
+        <p className="mt-2 text-sm text-gray-600">{t('publicForm.loading')}</p>
       </div>
     );
   }
@@ -648,6 +654,52 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
     ...tabGroups.flatMap((g) => g.fields),
   ];
 
+  // The child `form` node, typed as the node it is (objectui#11354).
+  // `SchemaRenderer`'s `schema` slot is `BaseSchema`, so a literal written
+  // inline there was checked against `BaseSchema`, not against the
+  // `FormSchema` the `form` renderer reads.
+  const tabbedFormSchema: FormSchema = {
+    type: 'form',
+    objectName: schema.objectName,
+    fields: allFields,
+    columns: formColumns,
+    ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
+    layout: 'vertical',
+    defaultValues: formData,
+    // Persisted record → `previous` binding + read-only submit strip (#3484).
+    previousValues: schema.mode === 'edit' && schema.recordId ? formData : undefined,
+    // While an upload is in flight the button says so, the same answer
+    // ActionParamDialog gives its Confirm (objectui#10166).
+    submitLabel: uploadGate.uploading
+      ? uploadGate.busyLabel
+      : schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update')),
+    cancelLabel: schema.cancelText,
+    showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
+    showCancel: schema.showCancel !== false,
+    onSubmit: handleSubmit,
+    onCancel: handleCancel,
+    // The renderer's dirtiness feeds the bus gate above (objectui#10715).
+    onDirtyChange: handleDirtyChange,
+    fieldTabs: tabGroups.map((g) => ({
+      key: g.key,
+      label: g.label,
+      description: g.description,
+      fields: g.fields.map((f) => f.name),
+      containerClass: g.containerClass,
+      // The tab's predicate slot (objectui#6237) — the same authored
+      // `FormSection.visibleWhen` the modal arm copies onto its tab and
+      // the flat arm copies onto its divider. The renderer evaluates it
+      // and hides trigger, panel and fields together under the ruled
+      // hidden-group semantics; re-selection when the ACTIVE tab hides is
+      // the renderer's too (`activeFieldTab` derives over the VISIBLE
+      // tabs), so this layout inherits all three ruled semantics instead
+      // of re-implementing any of them.
+      visibleWhen: g.visibleWhen,
+    })),
+    defaultFieldTab: initialTab,
+    fieldTabsPosition: schema.tabPosition || 'top',
+  };
+
   return (
     <UploadGateProvider gate={uploadGate}>
     <div className={cn('w-full @container', className, schema.className)}>
@@ -663,49 +715,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
         objectName={schema.objectName}
         objectSchema={objectSchema}
       />
-      <SchemaRenderer
-        schema={{
-          type: 'form' as const,
-          objectName: schema.objectName,
-          fields: allFields,
-          columns: formColumns,
-          ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
-          layout: 'vertical' as const,
-          defaultValues: formData,
-          // Persisted record → `previous` binding + read-only submit strip (#3484).
-          previousValues: schema.mode === 'edit' && schema.recordId ? formData : undefined,
-          // While an upload is in flight the button says so, the same answer
-          // ActionParamDialog gives its Confirm (objectui#10166).
-          submitLabel: uploadGate.uploading
-            ? uploadGate.busyLabel
-            : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
-          cancelLabel: schema.cancelText,
-          showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
-          showCancel: schema.showCancel !== false,
-          onSubmit: handleSubmit,
-          onCancel: handleCancel,
-          // The renderer's dirtiness feeds the bus gate above (objectui#10715).
-          onDirtyChange: handleDirtyChange,
-          fieldTabs: tabGroups.map((g) => ({
-            key: g.key,
-            label: g.label,
-            description: g.description,
-            fields: g.fields.map((f) => f.name),
-            containerClass: g.containerClass,
-            // The tab's predicate slot (objectui#6237) — the same authored
-            // `FormSection.visibleWhen` the modal arm copies onto its tab and
-            // the flat arm copies onto its divider. The renderer evaluates it
-            // and hides trigger, panel and fields together under the ruled
-            // hidden-group semantics; re-selection when the ACTIVE tab hides is
-            // the renderer's too (`activeFieldTab` derives over the VISIBLE
-            // tabs), so this layout inherits all three ruled semantics instead
-            // of re-implementing any of them.
-            visibleWhen: g.visibleWhen,
-          })),
-          defaultFieldTab: initialTab,
-          fieldTabsPosition: schema.tabPosition || 'top',
-        }}
-      />
+      <SchemaRenderer schema={tabbedFormSchema} />
       <UploadInFlightNotice gate={uploadGate} />
       {conflictDialog}
     </div>

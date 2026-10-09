@@ -30,7 +30,6 @@
  * rather than leaving a pin that compares two acceptances.
  */
 import { describe, it, expect } from 'vitest';
-import { z } from 'zod';
 // ⛔ Schemas only. No spec `check*` function is imported by name in this file;
 // they are read at RUN time by `specUiChecks()` below, and why is written there.
 import {
@@ -43,7 +42,7 @@ import {
   PageSchema as SpecPageSchema,
 } from '@objectstack/spec/ui';
 import { ListViewSchema, PageNodeSchema, safeValidateSchema } from '../zod/index.zod';
-import { GlobalFilterSchema } from '../zod/complex.zod';
+import { DashboardWidgetSchema, GlobalFilterSchema } from '../zod/complex.zod';
 
 /** The spec-shaped view: the spec requires `columns`, objectui does not. */
 const specView = (extra: Record<string, unknown>) => ({ columns: ['name'], ...extra });
@@ -115,6 +114,33 @@ describe('objectui#7715 — the Page source-completeness refusal reaches objectu
   });
 });
 
+describe('objectui#11717 — the Page `requires` ⇄ `kind` refusal reaches objectui', () => {
+  it.each([
+    ['an absent `kind` (the spec default, `full`)', { requires: ['ui'] }],
+    ['a `react` page', { kind: 'react', source: 'export default () => null', requires: ['ui'] }],
+    ['a `slotted` page, with an EMPTY list', { kind: 'slotted', requires: [] }],
+  ])('%s: the spec refuses at `requires`, and objectui refuses with the spec\'s own issue', (_label, extra) => {
+    const spec = SpecPageSchema.safeParse(specPage(extra));
+    expect(spec.success).toBe(false);
+    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === 'requires');
+    expect(specIssue?.code).toBe('custom');
+
+    for (const r of [PageNodeSchema.safeParse(pageNode(extra)), safeValidateSchema(pageNode(extra))]) {
+      expect(r.success).toBe(false);
+      const issues = r.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message }));
+      expect(issues).toContainEqual({ code: 'custom', path: 'requires', message: specIssue!.message });
+    }
+  });
+
+  it('controls: `requires` on a compiled `html` page, and a page that writes no `requires`, pass on both doors', () => {
+    for (const extra of [{ kind: 'html', source: '<section>x</section>', requires: ['ui'] }, { kind: 'react', source: 'x' }]) {
+      expect(SpecPageSchema.safeParse(specPage(extra)).success).toBe(true);
+      expect(PageNodeSchema.safeParse(pageNode(extra)).success).toBe(true);
+      expect(safeValidateSchema(pageNode(extra)).success).toBe(true);
+    }
+  });
+});
+
 // ── The census: every object-level check the spec runs is accounted for ─────
 
 /**
@@ -128,16 +154,45 @@ describe('objectui#7715 — the Page source-completeness refusal reaches objectu
 const SITES = [
   { site: 'NavigationAreaSchema (app.zod.ts)', spec: SpecNavigationAreaSchema, attached: [], notAttachable: [] },
   { site: 'SpecAppFields → AppComponentSchema (app.zod.ts)', spec: SpecAppSchema, attached: [], notAttachable: [] },
-  { site: 'DashboardWidgetSchema (complex.zod.ts)', spec: SpecDashboardWidgetSchema, attached: [], notAttachable: [] },
+  {
+    site: 'DashboardWidgetSchema (complex.zod.ts)',
+    spec: SpecDashboardWidgetSchema,
+    // The first two were added to the spec object at 17.5.0 and attached by objectui#11073;
+    // the third is `checkDashboardWidgetChartMeasureArity` (the 17.6.0 dimensionless check,
+    // renamed and given its single-series arm by objectstack `32d57690` in 17.7.0), attached
+    // by objectui#11717 for objectui#11334 / objectui#11417. Each reads only `type`,
+    // `options.stageOrder` / `dimensions` / `values` and `id`, the spec's own fields on this
+    // node.
+    attached: [
+      'checkDashboardWidgetStageOrder',
+      'checkDashboardWidgetMetricMeasureArity',
+      'checkDashboardWidgetChartMeasureArity',
+    ],
+    // EMPTY since objectui#11717. It held `checkDashboardWidgetDimensionlessMeasureArity`,
+    // OWED TO objectui#11334 (booked by objectui#11438 ruling A″, record 5968177777), until
+    // objectui resolved an `@objectstack/spec` carrying `32d57690`: 17.7.0 exports the check
+    // under its new name only, and the mirror attaches it above.
+    notAttachable: [],
+  },
   { site: 'SpecDashboardFields → DashboardComponentSchema (complex.zod.ts)', spec: SpecDashboardSchema, attached: [], notAttachable: [] },
-  { site: 'SpecPageFields → PageNodeSchema (layout.zod.ts)', spec: SpecPageSchema, attached: ['checkPageSourceCompleteness'], notAttachable: [] },
+  {
+    site: 'SpecPageFields → PageNodeSchema (layout.zod.ts)',
+    spec: SpecPageSchema,
+    // `checkPageRequiresKind` joined the spec object at 17.7.0 (objectstack#21459) and was
+    // attached by objectui#11717: it reads `kind` and `requires`, both carried by reference.
+    attached: ['checkPageSourceCompleteness', 'checkPageRequiresKind'],
+    notAttachable: [],
+  },
   {
     site: 'ListViewSchema (objectql.zod.ts)',
     spec: SpecListViewSchema,
     attached: ['checkListViewCalendarVisualization'],
-    // Reads `type`, which on this node is the component discriminator — see the
-    // measurement below.
-    notAttachable: ['checkListViewPageMount'],
+    // `checkListViewPageMount` stood here (it read `type`, which on this node is
+    // the component discriminator, so it was measured not attachable). The spec
+    // stopped exporting it at 17.5.0, when it retired `pageName` and the `page`
+    // list-view type; the row and its measurement left together, as the
+    // measurement's own message instructed (objectui#11073).
+    notAttachable: [],
   },
 ] as const;
 
@@ -184,10 +239,6 @@ async function specUiChecks(): Promise<Map<string, unknown>> {
 const objectLevelChecks = (schema: unknown): number =>
   ((schema as { _zod: { def: { checks?: unknown[] } } })._zod.def.checks ?? []).length;
 
-/** Run one exported check directly, outside any schema. */
-const runCheck = (check: unknown, value: unknown) =>
-  z.any().superRefine(check as (v: unknown, ctx: z.RefinementCtx) => void).safeParse(value);
-
 describe('objectui#7715 — census: the spec\'s object-level checks at the six derivation sites', () => {
   it.each(SITES.map((s) => [s.site, s] as const))('%s accounts for every object-level check the spec object carries', (_site, s) => {
     expect({
@@ -206,22 +257,6 @@ describe('objectui#7715 — census: the spec\'s object-level checks at the six d
     for (const [name, binding] of checks) expect(typeof binding, name).toBe('function');
   });
 
-  it('`checkListViewPageMount` is not attachable: it reads `type`, which the list-view node spends on its discriminator', async () => {
-    const checkListViewPageMount = (await specUiChecks()).get('checkListViewPageMount');
-    expect(
-      typeof checkListViewPageMount,
-      'the spec no longer exports `checkListViewPageMount` — remove it from the ListView row\'s ' +
-        '`notAttachable` list, and this measurement with it',
-    ).toBe('function');
-    // The same page mount, spelled once per face. The spec accepts its own.
-    expect(SpecListViewSchema.safeParse({ type: 'page', pageName: 'home_page', columns: [] }).success).toBe(true);
-    // Attached as-is, the check would refuse objectui's spelling of it, at
-    // `pageName` — the verdict a mirror must never add.
-    const asIs = runCheck(checkListViewPageMount, { type: 'list-view', viewType: 'page', pageName: 'home_page', columns: [] });
-    expect(asIs.success).toBe(false);
-    expect(asIs.error!.issues.map((i) => i.path.join('.'))).toEqual(['pageName']);
-  });
-
   it('`checkGlobalFilterDateDefaultValue` already runs on objectui\'s GlobalFilterSchema, with the spec\'s own issue', () => {
     const bad = { field: 'created_at', type: 'date', defaultValue: 'last_7_dayz' };
     const spec = SpecGlobalFilterSchema.safeParse(bad);
@@ -237,3 +272,28 @@ describe('objectui#7715 — census: the spec\'s object-level checks at the six d
     expect(GlobalFilterSchema.safeParse(good).success).toBe(true);
   });
 });
+
+describe('objectui#11073 — the DashboardWidget checks reach objectui\'s door with the spec\'s own issue (objectui#9111\'s criterion)', () => {
+  // The spec requires `id` and `values`; without them its own parse aborts before the
+  // object-level check runs, and the comparison would have no spec issue to read.
+  const widget = (extra: Record<string, unknown>) => ({ id: 'stages', dataset: 'pipeline', values: ['amount'], ...extra });
+
+  it('a non-funnel widget carrying `options.stageOrder` is refused at `options.stageOrder`, as the spec refuses it', () => {
+    const doc = widget({ type: 'horizontal-bar', options: { stageOrder: ['a', 'b'] } });
+    const spec = SpecDashboardWidgetSchema.safeParse(doc);
+    expect(spec.success).toBe(false);
+    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === 'options.stageOrder')!;
+    expect(specIssue.code).toBe('custom');
+    const mirror = DashboardWidgetSchema.safeParse(doc);
+    expect(mirror.success).toBe(false);
+    expect(mirror.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message })))
+      .toContainEqual({ code: 'custom', path: 'options.stageOrder', message: specIssue.message });
+  });
+
+  it('LIT CONTROL: the same widget as a `funnel` parses on both', () => {
+    const doc = widget({ type: 'funnel', options: { stageOrder: ['a', 'b'] } });
+    expect(SpecDashboardWidgetSchema.safeParse(doc).success).toBe(true);
+    expect(DashboardWidgetSchema.safeParse(doc).success).toBe(true);
+  });
+});
+

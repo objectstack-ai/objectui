@@ -72,17 +72,19 @@
         },
         {
           "type": "flex",
-          "align": "start",
-          "gap": 2,
-          "children": [
-            { "type": "checkbox", "id": "terms", "name": "terms", "required": true },
-            {
-              "type": "label",
-              "htmlFor": "terms",
-              "className": "text-sm font-normal leading-none",
-              "label": "I agree to the Terms of Service and Privacy Policy"
-            }
-          ]
+          "properties": {
+            "align": "start",
+            "gap": 2,
+            "children": [
+              { "type": "checkbox", "id": "terms", "name": "terms", "required": true },
+              {
+                "type": "label",
+                "htmlFor": "terms",
+                "className": "text-sm font-normal leading-none",
+                "label": "I agree to the Terms of Service and Privacy Policy"
+              }
+            ]
+          }
         },
         { "type": "button", "label": "Create Account", "variant": "default", "className": "w-full" }
       ]

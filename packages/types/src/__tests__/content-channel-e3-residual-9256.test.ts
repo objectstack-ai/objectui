@@ -113,19 +113,46 @@ type Mirror = {
  * CONTROL block proves every `required` set parses on its own.
  */
 const ROWS: ReadonlyArray<readonly [type: string, mirror: Mirror, required: Record<string, unknown>]> = [
+  // The flat mirror is the node as `ObjectGrid` reads it after the `properties`
+  // hoist; the AUTHORED node takes the same members in the bag
+  // (`AUTHORED_REQUIRED` below, objectui#11276's `object-grid` batch).
   ['object-grid', ObjectGridMirror as unknown as Mirror, { objectName: 'account' }],
+  // The flat mirror is the node as `ObjectForm` reads it after the `properties`
+  // hoist; the AUTHORED node takes the same members in the bag
+  // (`AUTHORED_REQUIRED` below, objectui#10859 batch 4).
   ['object-form', ObjectFormMirror as unknown as Mirror, { objectName: 'account', mode: 'create' }],
   ['object-kanban', ObjectKanbanMirror as unknown as Mirror, { objectName: 'account' }],
+  // As `object-form` above: the authored node's spelling is `AUTHORED_REQUIRED`
+  // below (objectui#10859 batch 5).
   ['object-map', ObjectMapMirror as unknown as Mirror, { objectName: 'account' }],
   ['object-tree', ObjectTreeMirror as unknown as Mirror, { objectName: 'account' }],
   ['object-view', ObjectViewMirror as unknown as Mirror, { objectName: 'account' }],
+  // As `object-form` above: the authored node's spelling is `AUTHORED_REQUIRED`
+  // below (objectui#10859 batch 6).
   ['object-gantt', ObjectGanttMirror as unknown as Mirror, { objectName: 'account' }],
   ['object-calendar', ObjectCalendarMirror as unknown as Mirror, { objectName: 'account' }],
+  // As `object-form` above: the authored node's spelling is `AUTHORED_REQUIRED`
+  // below (objectui#11276).
   ['object-chart', ObjectChartMirror as unknown as Mirror, { objectName: 'account', chartType: 'bar' }],
   ['detail-view', DetailViewMirror as unknown as Mirror, { objectName: 'account' }],
   ['email', InputShorthandMirror as unknown as Mirror, {}],
   ['password', InputShorthandMirror as unknown as Mirror, {}],
 ];
+
+/**
+ * The authored spelling of a row's required members, where it differs from the
+ * mirror's: an authored `object-grid`, `object-form`, `object-map`,
+ * `object-chart` or `object-gantt` takes its props in the `properties` bag, and
+ * `AnyComponentSchema` refuses them flat (objectui#10859 batches 4 to 6;
+ * objectui#11276). The mirror rows above keep the post-hoist spelling.
+ */
+const AUTHORED_REQUIRED: Readonly<Record<string, Record<string, unknown>>> = {
+  'object-grid': { properties: { objectName: 'account' } },
+  'object-form': { properties: { objectName: 'account', mode: 'create' } },
+  'object-map': { properties: { objectName: 'account' } },
+  'object-chart': { properties: { objectName: 'account', chartType: 'bar' } },
+  'object-gantt': { properties: { objectName: 'account' } },
+};
 
 const CHANNELS = ['body', 'children'] as const;
 const CONTENT = [{ type: 'text', content: 'measured' }];
@@ -172,7 +199,8 @@ describe('objectui#9256 E3 residual — both content channels are refused where 
     }
   });
 
-  it.each(CASES)('%s — the refusal reaches the node through `AnyComponentSchema`, not only its own arm', (_label, type, _mirror, key, required) => {
+  it.each(CASES)('%s — the refusal reaches the node through `AnyComponentSchema`, not only its own arm', (_label, type, _mirror, key, mirrorRequired) => {
+    const required = AUTHORED_REQUIRED[type] ?? mirrorRequired;
     expect(AnyComponentSchema.safeParse({ ...required, type }).success).toBe(true);
     expect(AnyComponentSchema.safeParse({ ...required, type, [key]: CONTENT }).success).toBe(false);
   });
@@ -192,10 +220,10 @@ describe('objectui#9256 E3 residual — CONTROLS', () => {
 
   it('a nested narrowed node is refused inside a container that reads `children`', () => {
     const tree = (child: Record<string, unknown>) => ({ type: 'div', children: [child] });
-    expect(AnyComponentSchema.safeParse(tree({ type: 'object-grid', objectName: 'account' })).success).toBe(true);
-    expect(AnyComponentSchema.safeParse(
-      tree({ type: 'object-grid', objectName: 'account', children: CONTENT }),
-    ).success).toBe(false);
+    // The authored spelling: its props in the bag (objectui#11276's `object-grid` batch).
+    const grid = { type: 'object-grid', ...AUTHORED_REQUIRED['object-grid'] };
+    expect(AnyComponentSchema.safeParse(tree(grid)).success).toBe(true);
+    expect(AnyComponentSchema.safeParse(tree({ ...grid, children: CONTENT })).success).toBe(false);
   });
 
   it('family C still reads a content channel — `div` takes `children`', () => {
@@ -322,9 +350,11 @@ describe('objectui#9256 E3 residual — the TypeScript face refuses both channel
 
   it('CONTROL — the same nodes WITHOUT a content channel compile (no `@ts-expect-error` here, and `tsc` is the reader)', () => {
     const ok = [grid, form, kanban, map, tree, view, gantt, calendar, chart, detail, email, password, uiCalendar];
-    // The repair keeps the index signature, so it narrows nothing an author
-    // could write before beyond the members' own declared types — an
-    // undeclared key still compiles, exactly as it did.
+    // The repair kept the index signature, so it narrowed nothing an author
+    // could write before beyond the members' own declared types. objectui#8347
+    // then removed `BaseSchema`'s signature, so an undeclared key no longer
+    // compiles on these nodes either.
+    // @ts-expect-error — `InputShorthandSchema` declares no `notAMember` (objectui#8347)
     const undeclared = { type: 'email', label: 'Email', notAMember: 1 } satisfies InputShorthandSchema;
     const calendarRange = { type: 'ui:calendar', mode: 'range' } satisfies UiCalendarSchema;
     expect(ok).toHaveLength(13);

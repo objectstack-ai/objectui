@@ -87,7 +87,7 @@ export const DetailViewFieldSchema = z.object({
    */
   options: z.array(stripImportedDefaults(SpecSelectOptionSchema)).optional()
     .describe('Options for select/lookup fields'),
-  reference_to: z.string().optional().describe('Referenced object name for lookup/master_detail fields'),
+  reference: z.string().optional().describe('Referenced object name for lookup/master_detail fields'),
   reference_field: z.string().optional().describe('Display field on the referenced object'),
   currency: z.string().optional().describe('Currency code for currency fields (e.g. USD, EUR)'),
   dueLike: z.boolean().optional().describe(
@@ -171,6 +171,40 @@ const DETAIL_VIEW_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /**
  * Detail View Schema
  */
+/**
+ * objectui#6152 round 3 — one entry of `DetailViewSchema.sectionGroups`, restated
+ * member for member from the interface's `SectionGroup`. Module-private: a nested
+ * shape of the `detail-view` arm, not a registered pair.
+ *
+ * ⚠️ One stated exception: `sections` is `z.array(z.any())` where the twin says
+ * `DetailViewSection[]`. Binding `DetailViewSectionSchema` here would import that
+ * pair's own `KnownDrift` rows into this arm as a NEW drifted key, and growing
+ * `KnownDrift` is never the remedy; the same exception objectui#6152 round 1 took for
+ * `ObjectFormSchema.sections[].fields`. So a section inside a group is not judged on
+ * this key.
+ */
+const DetailViewSectionGroupSchema = z.object({
+  title: z.string().describe('Group title'),
+  description: z.string().optional().describe('Group description'),
+  icon: z.string().optional().describe('Group icon'),
+  collapsible: z.boolean().optional().describe('Whether the group is collapsible (default true)'),
+  defaultCollapsed: z.boolean().optional().describe('Whether the group starts collapsed'),
+  sections: z.array(z.any()).describe('Sections in this group (not judged on this key; see the docblock)'),
+});
+
+/**
+ * objectui#6152 round 3 — one entry of `DetailViewSchema.highlightFields`, restated
+ * member for member from the interface's `HighlightField`; `type` is the field
+ * mirror's own member, as the twin's `DetailViewField['type']` is. Module-private.
+ */
+const DetailViewHighlightFieldSchema = z.object({
+  name: z.string().describe('Field name from the record data'),
+  label: z.string().describe('Display label'),
+  type: DetailViewFieldSchema.shape.type,
+  icon: z.string().optional().describe('Optional icon'),
+  readonly: z.boolean().optional().describe('Read-only chip: never offers inline edit'),
+});
+
 export const DetailViewSchema = BaseSchema.extend({
   type: z.literal('detail-view'),
   title: z.string().optional().describe('Detail title'),
@@ -187,6 +221,11 @@ export const DetailViewSchema = BaseSchema.extend({
   fields: z.array(DetailViewFieldSchema).optional().describe('Direct fields (without sections)'),
   actions: z.array(z.any()).optional().describe('Actions available in detail view'),
   tabs: z.array(DetailViewTabSchema).optional().describe('Tabs for additional content'),
+  // objectui#11355 — declared on both faces. Its producer is `record:details`,
+  // which carries its own spec-declared `showHeader` onto the node it builds,
+  // so the TS twin takes that row's type by reference. Until then
+  // `.passthrough()` kept an authored value unjudged.
+  showHeader: z.boolean().optional().describe('Draw the view\'s own heading (title, follow-star, copy-id chip); drawn unless false. record:details sets it from its own showHeader'),
   showBack: z.boolean().optional().describe('Show back button'),
   backUrl: z.string().optional().describe('Back button URL'),
   // RUNTIME SLOT (objectui#7344, the objectui#6182 ruling in the objectui#6124
@@ -232,7 +271,10 @@ export const DetailViewSchema = BaseSchema.extend({
    * ⚠️ NOT the nested `recordNavigation.onNavigate`, which is a DIFFERENT key
    * at a different path with a different signature — `(recordId) => void`, the
    * prev/next result-set walker. This refusal is about the MEMBER; the nested
-   * one is untouched on both faces and stays authorable where it lives.
+   * one is untouched on both faces. It was never authorable where it lives: its
+   * value is a REQUIRED function, which no JSON document can supply, so
+   * objectui#6152 round 4 filed `recordNavigation` as a runtime slot by name
+   * (`RuntimeOnlyNamedAllowList` in `../__tests__/zod-mirror-parity.test.ts`).
    */
   onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'SPA navigation callback'),
   /**
@@ -248,7 +290,9 @@ export const DetailViewSchema = BaseSchema.extend({
    *
    * ⚠️ `comments` is deliberately NOT declared here, for the reason its twin
    * records: it is not a handler key, declaring it is an accept-set decision of
-   * its own, and this card's rows are the handler keys.
+   * its own, and this card's rows are the handler keys. objectui#6152 round 4
+   * made that decision: `comments` (with `activities` and `history`) is runtime
+   * data a host fetches, filed by name as runtime-only, so it stays unmirrored.
    */
   onAddComment: handlerKeyRefusal('onAddComment', 'runtime-slot', 'New comment callback'),
   showEdit: z.boolean().optional().describe('Show edit button'),
@@ -258,6 +302,32 @@ export const DetailViewSchema = BaseSchema.extend({
   loading: z.boolean().optional().describe('Whether to show loading state'),
   header: SchemaNodeSchema.optional().describe('Custom header content'),
   footer: SchemaNodeSchema.optional().describe('Custom footer content'),
+  // objectui#6152 round 3 — six configuration members the interface declared and
+  // this mirror had never heard of, each READ by `DetailView` (a type-checker census
+  // over every package's sources, not a grep; `defaultTab` through the renderer's own
+  // `(schema as any)` cast at its one read site). Restated as the twin declares them.
+  primaryField: z.string().optional()
+    .describe('Field whose value is the record title in the header; falls back to title'),
+  summaryFields: z.array(z.string()).optional()
+    .describe('Field names rendered as summary badges next to the header title'),
+  autoTabs: z.boolean().optional()
+    .describe('Generate Details / Related / Activity tabs when no explicit tabs are configured'),
+  defaultTab: z.string().optional()
+    .describe('Initially active autoTabs tab (details, related, activity, discussion, history); ignored when that tab does not render'),
+  sectionGroups: z.array(DetailViewSectionGroupSchema).optional()
+    .describe('Groups of sections, each rendered under a collapsible header'),
+  highlightFields: z.array(DetailViewHighlightFieldSchema).optional()
+    .describe('Key fields shown prominently in a highlight banner below the header'),
+  // objectui#6152 round 4 — declared on the interface and read by NOTHING (a
+  // type-checker census over every package's sources, no untyped read, no authored
+  // document, no in-code producer). Retired on both faces under ADR-0049
+  // enforce-or-remove; a tombstone rather than a deletion because `BaseSchema` is
+  // `.passthrough()`, so a deleted arm would KEEP an authored value in silence.
+  autoDiscoverRelated: retirementTombstone(
+    'RETIRED (objectui#6152, ADR-0049) — nothing ever read `autoDiscoverRelated`: `detail-view` does not '
+    + 'discover related lists from reference fields. Delete the key, and author a `record:related_list` '
+    + 'block for each related list the record page should show.',
+  ),
   /**
    * The DETAIL-VIEW RELATED-LIST REFUSAL (objectui#7997) — `related` retires
    * from `DetailViewSchema` on BOTH faces under ADR-0049 enforce-or-remove
@@ -266,9 +336,9 @@ export const DetailViewSchema = BaseSchema.extend({
    *
    * ## Why a REFUSAL and not a deletion
    *
-   * `BaseSchemaCore` ends `.passthrough()` and the TypeScript `BaseSchema`
-   * closes with an any-valued index signature, so a dropped MEMBER key is
-   * KEPT, not refused — deleting this declaration would have left the silent
+   * `BaseSchemaCore` ends `.passthrough()` (and the TypeScript `BaseSchema`
+   * closed with an any-valued index signature until objectui#8347), so a
+   * dropped MEMBER key is KEPT, not refused, on this face — deleting this declaration would have left the silent
    * accept exactly as it was and thrown the diagnostic away with it.
    * `retirementTombstone` keeps the key DECLARED and unwritable, which is what
    * makes the refusal loud. Same mechanism and same reasoning as the
@@ -435,15 +505,91 @@ export const SortUISchema = BaseSchema.extend({
   ),
 });
 
+/** objectui#11440 / objectui#9256: ONE refusal string for both content channels of `DetailSectionNodeSchema`. */
+const DETAIL_SECTION_NEITHER_CHANNEL =
+  'REFUSED (objectui#9256, ADR-0049) — `detail-section` reads NEITHER content channel: its registration hands the '
+  + 'node to `DetailSectionNode`, which folds the declared inputs into the one `section` object `DetailSection` '
+  + 'draws, and neither reads `children` or `body`; `SchemaRenderer` strips both out of the props bag it spreads. '
+  + 'An authored value would render NOTHING — no render-time error or warning and no element; only the parser '
+  + 'tier\'s `not-a-container` warning (objectui#9910) noticed it (the registration declares no `children` input). '
+  + 'What it renders instead: a titled section of `fields`, laid out in '
+  + '`columns`.';
+
+/**
+ * `detail-section` — one field section as a node (objectui#11440, under the
+ * seat ruling `5945530142` on objectui#10859: "taught by the plugin-detail
+ * README, refused at `tabs.0.content` today").
+ *
+ * ## The defect this closes
+ *
+ * `@object-ui/plugin-detail` registers `detail-section` (`DetailSectionNode`),
+ * and its README teaches the node inside a `detail-view` tab's `content`. No
+ * arm claimed the literal, so `safeValidateSchema` refused that document at
+ * `tabs.0.content` with `invalid_union` at the nested `type`.
+ *
+ * ## Why a node of its own, and not `record:details` sections
+ *
+ * The card allowed folding it into `record:details`'s `properties.sections`
+ * "if measurement shows that is the same shape". It does not: the spec's
+ * `record:details` section (`ComponentPropsMap['record:details']`) names its
+ * heading `label`, takes `fields` as bare field NAMES and carries `name` /
+ * `group`, while this node names its heading `title` and takes `fields` as
+ * `DetailViewField` objects (`{ name, label, … }`). Measured: the spec's row
+ * refuses the README's section with `unrecognized_keys` on `title` and
+ * `invalid_type` on each field object.
+ *
+ * ## The members
+ *
+ * Exactly the registration's `inputs` — the ten names `DetailSectionNode`
+ * folds (`DETAIL_SECTION_NODE_INPUTS`): {@link DetailViewSectionSchema}'s own
+ * members, by reference, flat on the node as the registration publishes them.
+ * `fields` is required there, so it is required here. `name` and `visible` are
+ * not section members on this node (`DetailSection` reads neither), so they
+ * keep `BaseSchema`'s node-level meaning. Neither content channel is read, so
+ * both are refused by name (objectui#9256).
+ */
+export const DetailSectionNodeSchema = BaseSchema.extend({
+  type: z.literal('detail-section'),
+  ...DetailViewSectionSchema.pick({
+    title: true,
+    description: true,
+    icon: true,
+    fields: true,
+    collapsible: true,
+    defaultCollapsed: true,
+    columns: true,
+    showBorder: true,
+    headerColor: true,
+    hideEmpty: true,
+  }).shape,
+  body: retirementTombstone(DETAIL_SECTION_NEITHER_CHANNEL),
+  children: retirementTombstone(DETAIL_SECTION_NEITHER_CHANNEL),
+});
+
 /**
  * Union of all view schemas
  */
-export const ViewComponentSchema = z.discriminatedUnion('type', [
+const ViewComponentSchemaInferred = z.discriminatedUnion('type', [
   DetailViewSchema,
   ViewSwitcherSchema,
   FilterUISchema,
   SortUISchema,
+  // objectui#11440 — one field section as a node.
+  DetailSectionNodeSchema,
 ]);
+
+/**
+ * The TYPE of {@link ViewComponentSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface ViewComponentZodType extends ViewComponentSchemaInferredType {
+  options: ViewComponentSchemaInferredType['options'];
+}
+type ViewComponentSchemaInferredType = typeof ViewComponentSchemaInferred;
+
+/** The union above, typed by its named {@link ViewComponentZodType}. */
+export const ViewComponentSchema: ViewComponentZodType = ViewComponentSchemaInferred;
 
 /**
  * Export type inference helpers

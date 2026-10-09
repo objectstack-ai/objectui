@@ -1,5 +1,6 @@
 {
   "type": "page",
+  "pageType": "app",
   "title": "Dashboard",
   "description": "Welcome to your dashboard",
   "children": [

@@ -41,6 +41,7 @@ import {
 } from '@object-ui/app-shell';
 
 import { AppContent } from './AppContent';
+import { publishAuthState } from './i18nSession';
 import { FaviconSync } from './components/FaviconSync';
 import { RootLandingRedirect } from './components/RootLandingRedirect';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -172,8 +173,11 @@ export function App() {
     () => createObjectStackUploadAdapter({ baseUrl: SERVER_URL, fetchImpl: uploadFetch }),
     [uploadFetch],
   );
+  // `onAuthStateChange`: the session answer the two `/i18n` loaders `main.tsx`
+  // hands to `I18nProvider` wait for, so a signed-out page load never reads
+  // `/i18n` and a signed-in one reads it with the session (objectui#12034).
   return (
-    <AuthProvider authUrl={AUTH_URL}>
+    <AuthProvider authUrl={AUTH_URL} onAuthStateChange={publishAuthState}>
       {/* objectui#7482 — no `position` override: the console takes
           `ConsoleToaster`'s own documented top-right anchor.
 

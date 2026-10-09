@@ -395,18 +395,16 @@ type Absence =
   | { kind: 'host-runtime'; reason: string };
 
 const ABSENCES: Record<string, Absence> = {
-  // ── Relayed one level down, inside `options` ──────────────────────────────
-  // These are the per-view-type configuration blocks. `ListView` reads them off
-  // `schema.options.*`, which is why the rung is nested rather than top-level;
-  // the view's own value does reach the renderer.
-  kanban: { kind: 'relayed-nested', path: 'options.kanban', reason: 'Per-view-type block; relayed through `kanbanViewOptions(viewDef, objectDef)` into `options.kanban`, where ListView reads it.' },
-  calendar: { kind: 'relayed-nested', path: 'options.calendar', reason: 'Per-view-type block; relayed into `options.calendar` — and only when the view declared one (objectui#7029), which is why the property is written through a conditional spread.' },
-  gallery: { kind: 'relayed-nested', path: 'options.gallery', reason: 'Per-view-type block; relayed through `galleryViewOptions(viewDef)` into `options.gallery` (objectui#7547).' },
-  gantt: { kind: 'relayed-nested', path: 'options.gantt', reason: 'Per-view-type block; relayed through `ganttViewOptions(viewDef)` into `options.gantt` (objectui#7070).' },
-  timeline: { kind: 'relayed-nested', path: 'options.timeline', reason: 'Per-view-type block; relayed through `timelineViewOptions(viewDef)` into `options.timeline` (objectui#3129, objectui#6557).' },
-  tree: { kind: 'relayed-nested', path: 'options.tree', reason: "Per-view-type block; the view's whole `tree` block is spread into `options.tree`, with `labelField` floored at the legacy `titleField` rung and then `name` (objectui#8253, objectui#6557)." },
-  map: { kind: 'relayed-nested', path: 'options.map', reason: "Per-view-type block; the view's `map` keys are projected into `options.map`. ⚠️ A projection, not a forward — its key set is hand-listed and is the shape objectui#7823 retired for `chart`." },
-  chart: { kind: 'relayed-nested', path: 'options.chart', reason: 'Per-view-type block; forwarded WHOLE into `options.chart` (objectui#7823) rather than projected, so the block cannot lose keys as the chart vocabulary grows.' },
+  // ── The per-view-type blocks: no entry, they have top-level rungs ─────────
+  // `kanban`, `calendar`, `gallery`, `gantt`, `timeline`, `tree`, `map` and
+  // `chart` used to sit here as `relayed-nested`: the relay writes each one into
+  // `options.KIND`, where `ListView` reads it. objectui#10380 gave each of them a
+  // conditional TOP-LEVEL rung as well. When the stored row's legacy `options`
+  // bag carries a kind, the view's own block for that kind is written at the top
+  // level, so `ListView` lays it over the bag per key. The census therefore
+  // counts all eight as relayed, and an entry here would contradict it. Their
+  // nested paths are still written for every row and still asserted, by name,
+  // in the derivation checks below (`options.kanban`, `options.chart`).
 
   // ── Supplied by the caller, from the active view, via `...listSchema` ─────
   // `plugin-view`'s ObjectView composes the list schema this relay spreads. For
@@ -414,7 +412,7 @@ const ABSENCES: Record<string, Absence> = {
   // second, competing source of the same value.
   columns: { kind: 'relayed-upstream', upstreamReads: ['activeView', 'currentNamedViewConfig'], reason: "The view's column set is composed upstream (`currentNamedViewConfig?.columns || activeView?.columns || …`, objectui#5269) and arrives through `...listSchema`." },
   viewType: { kind: 'relayed-upstream', upstreamReads: ['currentViewType'], reason: "The view KIND is resolved upstream into `currentViewType` (it drives which branch runs there) and handed down; the relay must not re-decide it." },
-  grouping: { kind: 'relayed-upstream', upstreamReads: ['activeView'], reason: 'Composed upstream as `grouping: activeView?.grouping` and read by ListView from the spread.' },
+  grouping: { kind: 'relayed-upstream', upstreamReads: ['activeView'], reason: 'Composed upstream as `grouping: activeView?.grouping` and read by ListView from the spread. The relay writes the key only to lay a grouping the URL carries over that value (objectui#11860); it reads no `viewDef`.' },
   compactToolbar: { kind: 'relayed-upstream', upstreamReads: ['activeView'], reason: 'Composed upstream from the active view; no second rung needed.' },
   showDescription: { kind: 'relayed-upstream', upstreamReads: ['activeView'], reason: "Legacy bare flag, composed upstream AND folded on top of the view's `appearance` by this relay's `appearance` rung (ADR-0047)." },
 
@@ -475,9 +473,27 @@ const ABSENCES: Record<string, Absence> = {
   performance: { kind: 'unread', reason: 'Imported from the spec by reference; no objectui renderer reads it.' },
   pageName: { kind: 'unread', reason: 'Page-context key with no reader on the list path.' },
   tabs: { kind: 'unread', reason: "Spec view-tab list. ListView has no reader — the object page's tab bar is `ViewTabBar`, driven by `buildViewTabs`, and the `tabs` readers in the tree belong to `plugin-detail`'s DetailView." },
+  dataSource: { kind: 'unread', reason: "The spec's per-element binding (declared on the list-view arm by objectui#11070). `ListView` has no read of `schema.dataSource`: the binding is resolved one layer up, by the registered `list-view` renderer `ListViewBlock` through `ElementDataSourceGate`, and `renderListView` bypasses that layer. It renders `ListView` directly with `schema={fullSchema}` and takes the ADAPTER as its separate `dataSource` argument (`ds`), not off the node." },
+
+  // ── Read off the view until objectui#11013; no producer writes them ───────
+  // Ruling 甲 on objectstack#20051, stage ii: a stored view row is read by the
+  // spec's declared spellings, and a read that nothing writes is dropped. These
+  // eight had rungs; no console surface writes one onto a view, no view in this
+  // repository authors one, and the spec's view schema refuses each by name.
+  // The two `ListView` still reads get the HOST's value: `plugin-view` composes
+  // each off the object-view node (`(schema as any).KEY`, objectui#5097), and
+  // it arrives through `...listSchema`. The other six feed no reader at all.
+  allowExport: { kind: 'node-authored', reason: "objectui#11013 dropped the view rung (no producer; the spec refuses it on a view, and the seat's disposition on objectstack#20456 is no declared spelling). `ListView` gates export on `schema.allowExport !== false`, and that value is the object-view node's, composed upstream as `(schema as any).allowExport`." },
+  wrapHeaders: { kind: 'node-authored', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, and the spec refuses it there. `ListView` still hands `schema.wrapHeaders` to the grid; the value is the object-view node\'s, composed upstream as `(schema as any).wrapHeaders`.' },
+  clickIntoRecordDetails: { kind: 'unread', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, the spec refuses it there, and ListView has no reader to relay it into. Row-click behaviour is `navigation`, which is relayed.' },
+  addRecordViaForm: { kind: 'unread', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, the spec refuses it there, and ListView has no reader. Record creation is `addRecord` / `userActions.addRecordForm`.' },
+  addDeleteRecordsInline: { kind: 'unread', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, the spec refuses it there, and ListView has no reader to relay it into.' },
+  collapseAllByDefault: { kind: 'unread', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, the spec refuses it there, and ListView has no reader to relay it into.' },
+  fieldTextColor: { kind: 'unread', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, the spec refuses it there, and ListView has no reader to relay it into.' },
+  prefixField: { kind: 'unread', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, the spec refuses it there, and ListView has no reader to relay it into.' },
 
   // ── Authored on the NODE, resolved by the host ────────────────────────────
-  operations: { kind: 'node-authored', reason: "Legacy CRUD affordance authored on the object-view node (`examples/.../object-view-record-surface.json`), not on a view record; the host resolves it upstream (`schema.operations || schema.table?.operations || …`). ListView does read `schema.operations?.export`, but what would feed it here is the NODE's value, and forwarding it is the caller's composition to make — objectui#5097's surface, not a per-view rung." },
+  operations: { kind: 'node-authored', reason:"Legacy CRUD affordance authored on the object-view node (`examples/.../object-view-record-surface.json`), not on a view record; the host resolves it upstream (`schema.operations || schema.table?.operations || …`). ListView does read `schema.operations?.export`, but what would feed it here is the NODE's value, and forwarding it is the caller's composition to make — objectui#5097's surface, not a per-view rung." },
 
   // ── The runtime-only half of the intersection ─────────────────────────────
   onNavigate: { kind: 'host-runtime', reason: 'Host callback. This host wires record navigation through the `onRowClick` prop on the `<ListView>` element instead; a view record cannot carry a function.' },

@@ -33,6 +33,6 @@
     // it declares globals, it suppresses no check.
     "types": ["vitest/globals", "@testing-library/jest-dom", "node"]
   },
-  "include": ["src", "dev"],
+  "include": ["src", "dev", "scripts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -175,3 +175,91 @@ describe("a screen field's visibleWhen is judged over the screen's declared fiel
     expect(ps[0].message).toMatch(/did you mean `needsApproval`/);
   });
 });
+
+// objectui#11085 — the Problems panel judges a reference the engine writes as
+// in scope, the way the inspectors judge it. Each probe asserts the verdict's
+// level, its target and the root it names, never the note's wording.
+describe('flowExpressionProblems — references the engine writes (objectui#11085)', () => {
+  const edgeWarnings = (ps: ReturnType<typeof flowExpressionProblems>, source: string, target: string) =>
+    ps.filter((p) => p.level === 'warning' && p.target.kind === 'edge' && p.target.source === source && p.target.target === target);
+  const nodeWarnings = (ps: ReturnType<typeof flowExpressionProblems>, nodeId: string) =>
+    ps.filter((p) => p.level === 'warning' && p.target.kind === 'node' && p.target.nodeId === nodeId);
+
+  describe('site 2: an edge guard sees its source node’s own outputs', () => {
+    // `get_record` writes `lead` before the engine evaluates its out-edges.
+    const draft = (condition: string, type?: string) => ({
+      variables: [],
+      nodes: [
+        startUpdate,
+        { id: 'fetch', type: 'get_record', config: { objectName: 'crm_lead', outputVariable: 'lead' } },
+        { id: 'route', type: 'decision' },
+      ],
+      edges: [
+        { source: 'start', target: 'fetch' },
+        { source: 'fetch', target: 'route', condition, ...(type ? { type } : {}) },
+      ],
+    });
+
+    it('`lead.status` on the out-edge of the get_record that writes `lead` draws no warning', () => {
+      expect(edgeWarnings(flowExpressionProblems(draft("lead.status == 'open'")), 'fetch', 'route')).toEqual([]);
+    });
+
+    it('control: a root no node writes still warns on the same edge', () => {
+      const ws = edgeWarnings(flowExpressionProblems(draft("ghost.status == 'open'")), 'fetch', 'route');
+      expect(ws).toHaveLength(1);
+      expect(ws[0].message).toContain('ghost');
+    });
+
+    it('a fault edge keeps the scope at the source — the engine walks it only when the node failed and wrote nothing', () => {
+      const ws = edgeWarnings(flowExpressionProblems(draft("lead.status == 'open'", 'fault')), 'fetch', 'route');
+      expect(ws).toHaveLength(1);
+      expect(ws[0].message).toContain('lead');
+    });
+  });
+
+  describe('site 1: a committed connector action’s declared outputs, given the registry', () => {
+    const REGISTRY = [
+      {
+        name: 'slack',
+        actions: [{ key: 'chat.postMessage', outputSchema: { type: 'object', properties: { ok: { type: 'boolean' } } } }],
+      },
+    ];
+    const draft = (condition: string) => ({
+      // A declared variable keeps the scope non-empty, so the reference check
+      // runs whether or not the connector node contributes anything.
+      variables: [{ name: 'threshold' }],
+      nodes: [
+        { id: 'start', type: 'start' },
+        { id: 'post', type: 'connector_action', connectorConfig: { connectorId: 'slack', actionId: 'chat.postMessage' } },
+        { id: 'check', type: 'decision', config: { condition } },
+        { id: 'done', type: 'end' },
+      ],
+      edges: [
+        { source: 'start', target: 'post' },
+        { source: 'post', target: 'check', condition },
+        { source: 'check', target: 'done', condition },
+      ],
+    });
+
+    it('`post.ok` downstream of the connector action draws no warning on a node, its own out-edge or a later edge', () => {
+      const ps = flowExpressionProblems(draft('post.ok == true'), undefined, REGISTRY);
+      expect(nodeWarnings(ps, 'check')).toEqual([]);
+      expect(edgeWarnings(ps, 'post', 'check')).toEqual([]);
+      expect(edgeWarnings(ps, 'check', 'done')).toEqual([]);
+    });
+
+    it('lit control: without the registry the same reference is still reported', () => {
+      const ps = flowExpressionProblems(draft('post.ok == true'));
+      expect(nodeWarnings(ps, 'check')).toHaveLength(1);
+      expect(edgeWarnings(ps, 'check', 'done')).toHaveLength(1);
+      expect(nodeWarnings(ps, 'check')[0].message).toContain('post');
+    });
+
+    it('control: a root no node writes still warns with the registry', () => {
+      const ps = flowExpressionProblems(draft('ghost.ok == true'), undefined, REGISTRY);
+      expect(nodeWarnings(ps, 'check')).toHaveLength(1);
+      expect(nodeWarnings(ps, 'check')[0].message).toContain('ghost');
+      expect(edgeWarnings(ps, 'check', 'done')).toHaveLength(1);
+    });
+  });
+});

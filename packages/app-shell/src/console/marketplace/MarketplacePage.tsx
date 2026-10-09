@@ -75,6 +75,38 @@ function useRelativeFormatter() {
   };
 }
 
+/**
+ * A failed catalog load as the page tells it (objectui#11688): the server's
+ * own words, and whether "check that it is online" is the real cause.
+ *
+ * Both hints end in that question, so they are shown only when it is the
+ * cause: no server answered at all (`call()` stamps `status` on every failure
+ * a server answered, so a failure without one never reached a server), or the
+ * server that answered said it could not reach the one behind it or is not
+ * serving. Any other answer is a refusal whose cause is the server's text, and
+ * an "is it online" line under a 403 sends the reader after the wrong fault.
+ */
+interface LoadFailure {
+  message: string;
+  showOnlineHint: boolean;
+}
+
+/**
+ * The answered statuses whose cause IS reachability: 502 and 504 are a gateway
+ * that got no (timely) answer upstream, the runtime proxy's own
+ * `MARKETPLACE_PROXY_FAILED` among them, and 503 is a service that is not up.
+ */
+const UNREACHABLE_STATUSES: ReadonlySet<number> = new Set([502, 503, 504]);
+
+function toLoadFailure(e: unknown): LoadFailure {
+  const err = e as { message?: unknown; status?: unknown } | null | undefined;
+  const status = typeof err?.status === 'number' ? err.status : undefined;
+  return {
+    message: typeof err?.message === 'string' ? err.message : String(e),
+    showOnlineHint: status === undefined || UNREACHABLE_STATUSES.has(status),
+  };
+}
+
 export function MarketplacePage() {
   const navigate = useNavigate();
   const { appName } = useParams();
@@ -86,15 +118,17 @@ export function MarketplacePage() {
   // runtime mounts no marketplace browse surface at all — there is nothing
   // to fetch, so nothing here fetches (objectui#5504).
   const marketplaceEnabled = isMarketplaceEnabled();
-  // Empty string means "this runtime IS the catalog host" (same origin),
-  // not "unknown" — see `AppShellRuntimeConfig.cloudUrl`.
+  // Empty string means "requests stay on this origin", not "unknown", and not
+  // "this runtime IS the catalog host" either: a runtime that proxies a
+  // control plane answers `''` too (objectui#11726) — see
+  // `AppShellRuntimeConfig.cloudUrl`.
   const cloudBase = getCloudBase();
   const [items, setItems] = useState<MarketplacePackageSummary[]>([]);
   // Seeded from the flag rather than settled by the effect: a runtime with
   // no catalog is not "loading", it is done. Writing that from inside the
   // effect would be a second `react-hooks/set-state-in-effect` site.
   const [loading, setLoading] = useState(marketplaceEnabled);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LoadFailure | null>(null);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string>('');
   const [installed, setInstalled] = useState<LocalInstallEntry[]>([]);
@@ -115,21 +149,33 @@ export function MarketplacePage() {
     setLoading(true);
     setError(null);
     try {
-      const [resp, installs, org, cloudInstalled] = await Promise.all([
-        listMarketplacePackages({ limit: 100 }),
+      const [catalog, installs, org, cloudInstalled] = await Promise.all([
+        // Settled here rather than left to reject the batch. The three side
+        // loads each answer "nothing" on their own failure, so the catalog is
+        // the only one that can fail, and its failure must not discard what
+        // they loaded: the org section and the installed count (objectui#11688).
+        listMarketplacePackages({ limit: 100 }).then(
+          (resp) => ({ resp, failure: null }),
+          (e: unknown) => ({ resp: null, failure: toLoadFailure(e) }),
+        ),
         listLocalInstalls(),
         listOrgPackages(),
         listInstalledPackages(),
       ]);
-      setItems(resp.items ?? []);
       setInstalled(installs);
       setOrgItems(org.items ?? []);
       const ids = new Set<string>();
       for (const e of installs) ids.add(e.manifestId);
       for (const e of cloudInstalled.items) ids.add(e.manifestId);
       setInstalledIds(ids);
-    } catch (e: any) {
-      setError(e?.message ?? String(e));
+      if (catalog.failure !== null) {
+        setError(catalog.failure);
+        setItems([]);
+      } else {
+        setItems(catalog.resp.items ?? []);
+      }
+    } catch (e: unknown) {
+      setError(toLoadFailure(e));
       setItems([]);
     } finally {
       setLoading(false);
@@ -303,17 +349,27 @@ export function MarketplacePage() {
           <AlertCircle className="h-4 w-4 mt-0.5 text-destructive" aria-hidden="true" />
           <div>
             <div className="font-medium text-destructive">{t('marketplace.load.failed')}</div>
-            <div className="text-muted-foreground mt-1">{error}</div>
+            {/* The server's own text, as a text child: it is server-supplied
+                data, so it never reaches `dangerouslySetInnerHTML`. */}
+            <div className="text-muted-foreground mt-1" data-testid="marketplace-load-cause">{error.message}</div>
             {/* The hint names the control plane the SERVER said it uses, so it
                 can never claim a default the operator overrode (objectui#5504).
+                Under `''` it names none and says only that the catalog is
+                reached through this runtime, which is true whether the runtime
+                serves the catalog or proxies a plane: no failure the proxy
+                returns carries the upstream host in a field or a header, and
+                the server's prose is never parsed for one (objectui#11726).
                 Plain text, not `dangerouslySetInnerHTML`: `cloudBase` is
                 server-supplied data and interpolating it into innerHTML would
-                be an injection sink for no gain. */}
-            <div className="text-xs text-muted-foreground mt-2" data-testid="marketplace-load-hint">
-              {cloudBase
-                ? t('marketplace.load.failedHintConfigured', { url: cloudBase })
-                : t('marketplace.load.failedHintSameOrigin')}
-            </div>
+                be an injection sink for no gain. Shown only when being online
+                is the cause (`toLoadFailure`, objectui#11688). */}
+            {error.showOnlineHint && (
+              <div className="text-xs text-muted-foreground mt-2" data-testid="marketplace-load-hint">
+                {cloudBase
+                  ? t('marketplace.load.failedHintConfigured', { url: cloudBase })
+                  : t('marketplace.load.failedHintSameOrigin')}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -335,6 +391,10 @@ export function MarketplacePage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {orgItems.map((pkg) => {
               const isInstalled = installedIds.has(pkg.manifest_id);
+              // objectui#11760 — the same page's other "Installed": an org
+              // package installed into this runtime that it refused to load at
+              // startup reads "Not loaded", from the local listing's marker.
+              const notLoaded = !!installedByManifestId.get(pkg.manifest_id)?.notLoaded;
               return (
                 <Card key={pkg.id} className="flex flex-col" data-testid={`org-card-${pkg.manifest_id}`}>
                   <CardHeader className="flex flex-row items-start gap-3 pb-2">
@@ -361,7 +421,11 @@ export function MarketplacePage() {
                         </Badge>
                       )}
                       <div className="ml-auto">
-                        {isInstalled ? (
+                        {notLoaded ? (
+                          <Badge variant="destructive" className="text-xs">
+                            {t('marketplace.notLoaded.badge')}
+                          </Badge>
+                        ) : isInstalled ? (
                           <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-600">
                             <CheckCircle2 className="h-3 w-3 mr-1" aria-hidden="true" />
                             {t('marketplace.org.installedBadge', { defaultValue: 'Installed' })}
@@ -399,7 +463,9 @@ export function MarketplacePage() {
             </Card>
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : error ? null : filtered.length === 0 ? (
+        // Not drawn under a load error: "no apps have been approved yet" is a
+        // claim about a catalog this page failed to read (objectui#11688).
         <div className="text-center py-12 text-sm text-muted-foreground">
           {items.length === 0 ? t('marketplace.noApprovedYet') : t('marketplace.noMatchFilters')}
         </div>
@@ -446,7 +512,21 @@ export function MarketplacePage() {
                     {loc.description || t('marketplace.noDescription')}
                   </p>
                   <div className="flex items-center gap-2 mt-auto pt-2 flex-wrap">
-                    {localEntry && (
+                    {/* objectui#11760 — a local install this runtime refused to
+                        load at startup (the listing's `notLoaded` marker) is not
+                        drawn as "Installed": its version and the destructive
+                        "Not loaded" badge, as Installed Apps draws the same
+                        entry (objectui#11645). Details carries the reason. */}
+                    {localEntry && (localEntry.notLoaded ? (
+                      <>
+                        <Badge variant="outline" className="text-xs">
+                          {t('marketplace.versionBadge', { version: localEntry.version })}
+                        </Badge>
+                        <Badge variant="destructive" className="text-xs">
+                          {t('marketplace.notLoaded.badge')}
+                        </Badge>
+                      </>
+                    ) : (
                       <Badge
                         variant="default"
                         className="text-xs bg-green-600 hover:bg-green-600"
@@ -454,7 +534,7 @@ export function MarketplacePage() {
                         <CheckCircle2 className="h-3 w-3 mr-1" aria-hidden="true" />
                         {t('marketplace.installedBadge', { version: localEntry.version })}
                       </Badge>
-                    )}
+                    ))}
                     {pkg.latest_version?.version && (
                       <Badge variant="outline" className="text-xs">
                         <Package className="h-3 w-3 mr-1" aria-hidden="true" />

@@ -21,7 +21,7 @@
  * still carry.
  */
 import { describe, it, expect } from 'vitest';
-import { FieldOperatorsSchema } from '@objectstack/spec/data';
+import { FieldOperatorsSchema, FILTER_OPERATORS } from '@objectstack/spec/data';
 import { FILTER_BUILDER_OPERATORS, operatorsForFieldType } from '@object-ui/components';
 import {
   condToMongo,
@@ -89,12 +89,28 @@ const noTypes = () => undefined;
  * this comment block warns about one level up, and a reader is what catches it,
  * not a run.
  */
+/*
+ * `$empty` was here from `@objectstack/spec` 17.5.0 (objectui#11073) until
+ * objectui#10813, and its two reasons expired in turn:
+ *
+ *   1. STAGED — declared, absent from `FILTER_OPERATORS`, refused by every
+ *      query executor, so a row emitting it would have authored a filter
+ *      nothing could run. Expired on `@objectstack/spec` 17.6.0
+ *      (objectstack#20446), which admitted it and lowers `is_empty` /
+ *      `is_not_empty` to it; the first expiry row below holds that.
+ *   2. No builder row authored it — this widget's `is_empty` wrote "no value OR
+ *      `''`" on every field type (objectui#10790), one of the three meanings of
+ *      「is empty」. Expired with objectui#10813, which moved the pair onto
+ *      `$empty`; the second expiry row below holds that, and the sweep above it
+ *      now holds the token to the spec like every other.
+ */
 const KNOWN_UNREACHABLE = new Set(['$eq', '$between', '$like', '$ilike']);
 
 /**
  * Pull the operator keys out of a `{ field: { $op: v } }` fragment — descending
- * into a `$or` / `$and` entry, which is how "is empty" is stored since
- * objectui#10790, so its inner operators are judged like every other row's.
+ * into a `$or` / `$and` entry, so a row stored as a combinator (as "is empty"
+ * was from objectui#10790 until objectui#10813) has its inner operators judged
+ * like every other row's.
  */
 function operatorsOf(frag: Record<string, any> | null): string[] {
   if (!frag) return [];
@@ -168,6 +184,37 @@ describe('every spec field operator is reachable from the builder (#2942)', () =
       unreachable,
       'FieldOperatorsSchema accepts these but no builder operator can author them',
     ).toEqual([]);
+  });
+
+  it('the staged `$empty` exclusion expired: FILTER_OPERATORS admits it', () => {
+    // The objectui#11073 expiry row, flipped. It read "not in" and reddened on
+    // `@objectstack/spec` 17.6.0 (objectstack#20446). Lit control: a flag
+    // operator that was always in the list.
+    expect(FILTER_OPERATORS as readonly string[]).toContain('$empty');
+    expect(FILTER_OPERATORS as readonly string[]).toContain('$null');
+  });
+
+  it('the `$empty` exclusion expired: a builder operator emits it (objectui#10813)', () => {
+    // The objectui#11094 expiry row, flipped. It read "no drawable builder id
+    // writes `$empty`" and reddened when objectui#10813 moved the empty pair
+    // onto it, which is why `$empty` left KNOWN_UNREACHABLE. Derived from the
+    // same drawable vocabulary the sweep feeds `condToMongo`, and the pair is
+    // named so the row says WHICH operators author it.
+    const emitted = new Set<string>();
+    for (const operator of FILTER_BUILDER_OPERATORS) {
+      const value = operator === 'in' || operator === 'not_in' ? ['a'] : operator === 'between' ? [1, 5] : 'a';
+      const frag = condToMongo({ id: 'c1', field: 'f', operator, value }, noTypes);
+      for (const op of operatorsOf(frag)) emitted.add(op);
+    }
+    // Lit control: the sweep really reads emitted operators.
+    expect(emitted.has('$null')).toBe(true);
+    expect(emitted.has('$empty')).toBe(true);
+    expect(FILTER_BUILDER_OPERATORS).toContain('is_empty');
+    expect(FILTER_BUILDER_OPERATORS).toContain('is_not_empty');
+    expect(operatorsOf(condToMongo({ id: 'c1', field: 'f', operator: 'is_empty', value: '' }, noTypes)))
+      .toEqual(['$empty']);
+    expect(operatorsOf(condToMongo({ id: 'c1', field: 'f', operator: 'is_not_empty', value: '' }, noTypes)))
+      .toEqual(['$empty']);
   });
 
   it('every KNOWN_UNREACHABLE token is still a spec operator (the exclusion ratchet)', () => {
@@ -258,6 +305,10 @@ describe('kvToCondition round-trips what condToMongo writes', () => {
     ['is_not_null', ''],
     ['exists', ''],
     ['notExists', ''],
+    // objectui#10813: the pair is a field key again (`$empty`), so it rides the
+    // same per-field round trip as every other row.
+    ['is_empty', ''],
+    ['is_not_empty', ''],
   ];
 
   it.each(cases)('%s survives the round trip', (operator, value) => {
@@ -278,6 +329,16 @@ describe('kvToCondition round-trips what condToMongo writes', () => {
 
   it('rejects an operator it cannot represent rather than guessing', () => {
     expect(kvToCondition('name', { $nope: 'x' }, 0)).toBeNull();
+  });
+
+  it('reads `$empty` only with a boolean flag — any other flag is a criteria it cannot represent', () => {
+    // `$empty` is declared `z.boolean()` and every evaluator refuses another
+    // flag; opened as a row, the next save would make it runnable.
+    expect(kvToCondition('name', { $empty: true }, 0)).toMatchObject({ operator: 'is_empty' });
+    expect(kvToCondition('name', { $empty: false }, 0)).toMatchObject({ operator: 'is_not_empty' });
+    for (const flag of ['yes', 1, null, 'true']) {
+      expect(kvToCondition('name', { $empty: flag }, 0), JSON.stringify(flag)).toBeNull();
+    }
   });
 });
 
@@ -335,12 +396,12 @@ describe('objectui#8748 — an unfinished text row is dropped, not emitted', () 
       .toEqual({ name: { $exists: true } });
     expect(condToMongo({ id: 'c3', field: 'name', operator: 'notExists', value: '' } as any, noTypes))
       .toEqual({ name: { $exists: false } });
-    // objectui#10790: no `null` list member — the shapes the objectstack
-    // faces accept (`FilterConditionField.emptyOperators-10790.test.tsx`).
+    // objectui#10813: the spec's `$empty` (pinned per column type in
+    // `FilterConditionField.emptyOperators-10790.test.tsx`).
     expect(condToMongo({ id: 'c4', field: 'name', operator: 'is_empty', value: '' } as any, noTypes))
-      .toEqual({ $or: [{ name: { $in: [''] } }, { name: { $null: true } }] });
+      .toEqual({ name: { $empty: true } });
     expect(condToMongo({ id: 'c5', field: 'name', operator: 'is_not_empty', value: '' } as any, noTypes))
-      .toEqual({ name: { $nin: [''], $null: false } });
+      .toEqual({ name: { $empty: false } });
   });
 
   it('equals with an empty comparand still emits — it is a real predicate', () => {

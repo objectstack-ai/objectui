@@ -52,12 +52,22 @@
  * field source — and it too opened `handleSubmit`, ahead of the persistence
  * chain. Re-derived on the merged tree (faa863dce) with `customFields`, a
  * `submitHandler` and NO `dataSource`: `onSuccess 1 / submitHandler 0`. Its
- * cases live in blocks 1 and 3 beside the family's, on a `customFields`
- * fixture: under `simple`, `sections[].fields` only SELECT fields already
- * resolved from `customFields` or the object schema, so the sectioned fixture
- * above renders no fields at all there — which is also why `simple` keeps its
- * own predicate rather than `hasInlineFieldSource` (block 3's `simple`
- * BOUNDARY case pins that).
+ * cases in blocks 1 and 3 sit beside the family's on a `customFields`
+ * fixture, because `baseSchema`'s section lists a bare NAME, which under
+ * `simple` resolves against a field pool that only `customFields` or an
+ * object schema can fill — so that fixture renders no fields there.
+ *
+ * ## The inline-sections shape on all six (objectui#11615)
+ *
+ * A section of self-describing inline `FormField`s is a different matter.
+ * Until objectui#11615 `simple` resolved even those against its pool, so the
+ * README's inline-sections shape rendered ZERO fields under `simple` and its
+ * submit refused, and `simple` kept its own `customFields`-only predicate for
+ * that reason (a case here pinned the refusal as its BOUNDARY). `simple` now
+ * draws such an entry whatever its pool holds, as the five variants do, and
+ * reads the shared `hasInlineFieldSource` — so block 3's two sections cases
+ * run all six renderers, its boundary included: one bare name among inline
+ * entries still refuses on every one of them.
  *
  * ## The blocks below
  *
@@ -116,6 +126,12 @@ registerAllFields();
 const VARIANTS = ['tabbed', 'wizard', 'split', 'drawer', 'modal'] as const;
 /** The two of them that implement an inline-`customFields` field source. */
 const INLINE_RENDERERS = ['drawer', 'modal'] as const;
+/**
+ * All six renderers, for the inline-SECTIONS shape: `simple` draws a section of
+ * self-describing entries whatever its field pool holds (objectui#11615), so
+ * that shape means the same thing under every `formType`.
+ */
+const SECTION_RENDERERS = [...VARIANTS, 'simple'] as const;
 
 const parentObject = {
   name: 'po',
@@ -328,7 +344,7 @@ describe('3. CARVE-OUT: a legitimate inline-fields form still works', () => {
     },
   );
 
-  it.each(VARIANTS)(
+  it.each(SECTION_RENDERERS)(
     'formType `%s`: sections of inline runtime fields — the README\u2019s own shape — still work',
     async (formType) => {
       const onSuccess = vi.fn();
@@ -357,7 +373,7 @@ describe('3. CARVE-OUT: a legitimate inline-fields form still works', () => {
     },
   );
 
-  it.each(VARIANTS)(
+  it.each(SECTION_RENDERERS)(
     'formType `%s`: BOUNDARY — one bare field name among inline ones still refuses',
     async (formType) => {
       const onSuccess = vi.fn();
@@ -405,39 +421,42 @@ describe('3. CARVE-OUT: a legitimate inline-fields form still works', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it('formType `simple`: BOUNDARY — sections of inline fields are NOT its field source', async () => {
-    const onSuccess = vi.fn();
-    const onError = vi.fn();
+  it.each(SECTION_RENDERERS)(
+    'formType `%s`: the inline-sections collector opens on `initialValues` and submits what it holds',
+    async (formType) => {
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
 
-    // `hasInlineFieldSource`'s second limb (all-inline `sections`) is how the
-    // SECTIONED variants declare an inline field source — block 3's case above
-    // pins it for them. `SimpleObjectForm` does not read it: a section field
-    // here only SELECTS a field already resolved from `customFields` or the
-    // object schema, so this form resolves ZERO fields and collected nothing.
-    // Adopting the shared predicate for `simple` while "aligning" it would
-    // therefore turn this into a success signal for an empty submit — the very
-    // defect class of objectui#6300. It refuses instead.
-    render(
-      <ObjectForm
-        schema={{
-          type: 'object-form',
-          objectName: 'po',
-          mode: 'create',
-          formType: 'simple',
-          submitText: 'Save Now',
-          sections: [{ name: 's1', label: 'Sec One', fields: INLINE_FIELDS }],
-          onSuccess,
-          onError,
-        } as any}
-      />,
-    );
-    const submit = await waitFor(() => screen.getByRole('button', { name: /save now/i }));
-    fireEvent.click(submit);
+      // The collector half the refusal cases above never reach: with no adapter
+      // there is nothing to read, so the form opens on the caller's record. This
+      // case replaces `simple`'s old BOUNDARY row, which pinned the REFUSAL of
+      // this very form while `simple` drew none of its fields (objectui#11615).
+      // Now that it draws them, it must also open on `initialValues` as the five
+      // variants do — the `simple` row is the one that goes red without the
+      // members-only seeding in `SimpleObjectForm`'s schema and record effects.
+      render(
+        <ObjectForm
+          schema={baseSchema(formType, {
+            initialValues: { ref: 'SEEDED' },
+            sections: [{ name: 's1', label: 'Sec One', fields: INLINE_FIELDS }],
+            onSuccess,
+            onError,
+          }) as any}
+        />,
+      );
+      const ref = await waitFor(() => {
+        const el = document.querySelector('input[name="ref"]') as HTMLInputElement | null;
+        if (!el) throw new Error('form never rendered — the assertions below would pass vacuously');
+        return el;
+      });
+      expect(ref.value, 'the collector opens on the caller\'s record').toBe('SEEDED');
+      fireEvent.click(screen.getByRole('button', { name: /save now/i }));
 
-    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
-    expect((onError.mock.calls[0][0] as Error).message).toBe(NO_SUBMIT_TARGET_MESSAGE);
-    expect(onSuccess).not.toHaveBeenCalled();
-  });
+      await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+      expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ ref: 'SEEDED' }));
+      expect(onError).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('4. DEGENERATE CONTROL: with a dataSource the write really happens', () => {

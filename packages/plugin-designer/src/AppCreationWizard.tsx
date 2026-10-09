@@ -42,9 +42,10 @@ import {
   Globe,
   X,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { resolveKeyedI18nLabel } from '@object-ui/react';
+import { resolveNavItemLabel, type NavTargetLabelResolver } from '@object-ui/layout';
 import { useDesignerTranslation } from './hooks/useDesignerTranslation';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
 
@@ -98,18 +99,41 @@ const DEFAULT_DRAFT: AppWizardDraft = {
 // Helpers
 // ============================================================================
 
+/**
+ * The label a generated object entry is written with, or `undefined` for none
+ * (objectui#11201, ruling B).
+ *
+ * A generated entry is a standard entry, so by default it carries NO label: an
+ * absent label inherits the object's CURRENT label at render time, in the
+ * viewer's language. The one text inheritance cannot produce is the object's
+ * declared plural label (nav entries open a list view: 'Projects' rather than
+ * 'Project'), so that is written, unless it spells the object's singular label
+ * or its machine name (trimmed, case-insensitive), which inheritance already
+ * shows. The entry used to store `pluralLabel || label`, and a host's
+ * `label` is the object's machine name when the object has none
+ * (`CreateAppPage` / `EditAppPage`), so an unlabelled object's entry stored its
+ * machine name.
+ */
+function generatedEntryLabel(o: ObjectSelection): string | undefined {
+  const plural = o.pluralLabel?.trim().toLowerCase();
+  if (!plural) return undefined;
+  const spells = (text: string | undefined) => typeof text === 'string' && text.trim().toLowerCase() === plural;
+  return spells(o.label) || spells(o.name) ? undefined : o.pluralLabel;
+}
+
 function generateNavFromObjects(objects: ObjectSelection[]): NavigationItem[] {
   return objects
     .filter((o) => o.selected)
-    .map((o) => ({
-      id: o.name,
-      type: 'object' as const,
-      // Nav entries open a list view — prefer the object's plural label
-      // ('Projects') over its singular label ('Project') when available.
-      label: o.pluralLabel || o.label,
-      icon: o.icon,
-      objectName: o.name,
-    }));
+    .map((o) => {
+      const label = generatedEntryLabel(o);
+      return {
+        id: o.name,
+        type: 'object' as const,
+        ...(label ? { label } : {}),
+        icon: o.icon,
+        objectName: o.name,
+      };
+    });
 }
 
 /**
@@ -257,6 +281,69 @@ function StepIndicator({ steps, currentIndex, onStepClick }: StepIndicatorProps)
 // Step 1: Basic Info
 // ============================================================================
 
+/** The item a template none of the options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — the basic step's template picker, drawn with the shared
+ * `Select`, the control the rest of the designer picks with. It used to be a
+ * browser-native `<select>`. What a pick writes is unchanged: `onPick`
+ * receives the picked option's own value, the string the native control's
+ * `change` carried (`''` for "None", else the template's id). Re-picking the
+ * current option writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value: "None" is the option
+ *   whose value is `''`, which `SelectItem` refuses.
+ * - A template none of the options carries gets an item of its own, labelled
+ *   with its id, so the trigger shows what the draft holds. The native control
+ *   showed "None" there. Picking that item writes nothing.
+ * - `disabled` reaches the trigger through the primitive, as it reached the
+ *   native control.
+ * - `id` goes on the trigger, so the `<label htmlFor>` names it as it named the
+ *   native control.
+ */
+function TemplatePicker({
+  id,
+  value,
+  options,
+  onPick,
+  disabled,
+}: {
+  id: string;
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  disabled: boolean;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the draft's own template, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        id={id}
+        className="h-auto rounded-md border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:ring-offset-0 disabled:bg-gray-50"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 interface BasicInfoStepProps {
   draft: AppWizardDraft;
   templates: Array<{ id: string; label: string; description?: string }>;
@@ -362,20 +449,16 @@ function BasicInfoStep({ draft, templates, readOnly, onChange, t }: BasicInfoSte
           <label htmlFor="app-template" className="block text-sm font-medium text-gray-700">
             {t('appDesigner.template')}
           </label>
-          <select
+          <TemplatePicker
             id="app-template"
             value={draft.template ?? ''}
-            onChange={(e) => onChange({ template: e.target.value })}
+            options={[
+              { value: '', label: 'None' },
+              ...templates.map((template) => ({ value: template.id, label: template.label })),
+            ]}
+            onPick={(template) => onChange({ template })}
             disabled={readOnly}
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
-          >
-            <option value="">None</option>
-            {templates.map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       )}
     </div>
@@ -491,6 +574,8 @@ function ObjectSelectionStep({
 
 interface NavigationBuilderStepProps {
   items: NavigationItem[];
+  /** The wizard's object list: what a label-less object entry inherits its text from. */
+  objects: ObjectSelection[];
   readOnly: boolean;
   onAdd: (type: 'group' | 'url' | 'separator') => void;
   onRemove: (id: string) => void;
@@ -511,12 +596,21 @@ const TYPE_BADGE_COLORS: Record<string, string> = {
 
 function NavigationBuilderStep({
   items,
+  objects,
   readOnly,
   onAdd,
   onRemove,
   onReorder,
   t,
 }: NavigationBuilderStepProps) {
+  // The host's answer to "what is this target called?" (objectui#11196): the
+  // runtime's `resolveNavItemLabel` walks its own ladder and asks this about an
+  // entry with no `label`. The wizard holds each object's label, so an object
+  // entry inherits it, as the console's sidebar shows it; any other target
+  // falls to the rule's machine-name rung.
+  const labelOf = new Map(objects.map((o) => [o.name, o.label]));
+  const targetLabel: NavTargetLabelResolver = (target) =>
+    target.kind === 'object' ? labelOf.get(target.objectName) : undefined;
   return (
     <div data-testid="wizard-step-navigation-content" className="mx-auto max-w-lg space-y-4">
       {/* Add buttons */}
@@ -570,7 +664,10 @@ function NavigationBuilderStep({
                 <span className="text-xs text-gray-400">{item.icon}</span>
               )}
               <span className="flex-1 truncate text-sm text-gray-800">
-                {item.type === 'separator' ? t('appDesigner.separatorLabel') : resolveKeyedI18nLabel(item.label)}
+                {/* The runtime's rule (objectui#11196): an entry with no `label` shows the text it inherits. */}
+                {item.type === 'separator'
+                  ? t('appDesigner.separatorLabel')
+                  : resolveNavItemLabel(item, undefined, targetLabel)}
               </span>
               <span
                 className={cn(
@@ -990,6 +1087,7 @@ export function AppCreationWizard({
         {currentStep === 2 && (
           <NavigationBuilderStep
             items={draft.navigation}
+            objects={draft.objects}
             readOnly={readOnly}
             onAdd={addNavItem}
             onRemove={removeNavItem}

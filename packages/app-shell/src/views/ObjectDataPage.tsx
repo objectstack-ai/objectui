@@ -38,6 +38,8 @@ import {
   NavigationOverlay,
 } from '@object-ui/components';
 import { Database, Lock, Plus, Save, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { formatMetadataError } from '@object-ui/data-objectstack';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { usePermissions, useFieldPermissions } from '@object-ui/permissions';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
@@ -63,6 +65,7 @@ import { PageHeader } from '../layout/PageHeader.js';
 import { getIcon } from '../utils/getIcon.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
 import { createRuntimeMetadata, viewEnvelope } from './runtime-metadata-persistence.js';
+import { buildNewViewSpec } from './newViewSpec.js';
 import { CreateViewDialog } from './CreateViewDialog.js';
 import {
   usePreviewDrafts,
@@ -166,28 +169,30 @@ function foldUrlFilterTriplesToSpecRules(triples: FilterTriple[]): ViewFilterRul
  * subConfig }`); `fallbackColumns` is this page's auto-derived, field-security
  * trimmed column list, used only when the dialog carried none.
  *
- * Exported for `ObjectDataPage.saveAsViewFilterFold.test.ts`. @internal
+ * This door resolves only its own inputs (those columns, and the URL
+ * conditions folded to spec rules); the spec itself, with every type-specific
+ * rule, is built by `buildNewViewSpec`, the one builder this door shares with
+ * the add-view door (objectui#11581). An all-dropped fold writes no `filter`
+ * key at all, byte-identical to a save with no drill conditions active.
+ *
+ * Exported for `ObjectDataPage.saveAsViewFilterFold.test.ts` and
+ * `CreateViewDialog.viewTypeParse-11581.test.tsx`. @internal
  */
 export function buildSaveAsViewSpec(
   config: Record<string, any>,
   fallbackColumns: string[],
   urlFilters: FilterTriple[],
 ): Record<string, any> {
-  const filterRules = foldUrlFilterTriplesToSpecRules(urlFilters);
-  return {
-    ...config,
-    columns:
-      Array.isArray(config.columns) && config.columns.length > 0 ? config.columns : fallbackColumns,
-    // An all-dropped fold writes no `filter` key at all, byte-identical to a
-    // save with no drill conditions active.
-    ...(filterRules.length ? { filter: filterRules } : {}),
-  };
+  return buildNewViewSpec(config, {
+    fallbackColumns,
+    filter: foldUrlFilterTriplesToSpecRules(urlFilters),
+  });
 }
 
 export function ObjectDataPage({ dataSource, objects }: any) {
   const { appName, objectName } = useParams();
   const { t } = useObjectTranslation();
-  const { objectLabel, fieldLabel } = useObjectLabel();
+  const { objectLabel, objectPluralLabel, fieldLabel } = useObjectLabel();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { can, getObjectApiOperations } = usePermissions();
@@ -361,9 +366,10 @@ export function ObjectDataPage({ dataSource, objects }: any) {
   }, [objectDef, columns, urlFilters, kanban, calendar, gallery, userFilters, allowedVisualizations]);
 
   // "Save as view" — the one exit into the workspace: materialize the current
-  // URL conditions as a new saved view, then navigate to it.
+  // URL conditions as a new saved view, then navigate to it. Resolves whether
+  // the view was saved: `CreateViewDialog` closes only on `true` (objectui#11578).
   const handleSaveAsView = React.useCallback(
-    async (config: Record<string, any> & { type: string; label: string }) => {
+    async (config: Record<string, any> & { type: string; label: string }): Promise<boolean> => {
       try {
         // The URL conditions are folded into spec `ViewFilterRule`s on the way
         // out (#3419). What renders this page is a runtime filter AST (triples);
@@ -389,11 +395,20 @@ export function ObjectDataPage({ dataSource, objects }: any) {
             : `?${PREVIEW_QUERY_FLAG}=${PREVIEW_QUERY_VALUE}`;
           navigate(`../view/${createdId}${previewSuffix}`, { relative: 'path' });
         }
+        return true;
       } catch (err) {
         console.error('[ObjectDataPage] Failed to save view:', err);
+        // objectui#11578: a refused save is SAID, with the door's own message
+        // (the field-anchored issues of a 422, or the refusal's text), and
+        // reported to the dialog as unsaved so it stays open.
+        toast.error(t('form.saveError'), {
+          description: formatMetadataError(err),
+          classNames: { description: 'whitespace-pre-line' },
+        });
+        return false;
       }
     },
-    [columns, urlFilters, metadataClient, dataSource, navigate, objectName, previewDrafts],
+    [columns, urlFilters, metadataClient, dataSource, navigate, objectName, previewDrafts, t],
   );
 
   // ─── The CRUD affordance matrix for this surface (#5164) ──────────────
@@ -511,7 +526,10 @@ export function ObjectDataPage({ dataSource, objects }: any) {
         <PageHeader
           title={
             <span className="inline-flex items-center gap-2">
-              <span className="truncate">{objectLabel(objectDef)}</span>
+              {/* The page lists the object's records, so it is titled with the
+                  plural, as the object crumb above it is (objectui#11696). The
+                  record drawer below keeps the singular. */}
+              <span className="truncate">{objectPluralLabel(objectDef)}</span>
               <span className="rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 {t('console.objectData.badge', { defaultValue: 'Data' })}
               </span>

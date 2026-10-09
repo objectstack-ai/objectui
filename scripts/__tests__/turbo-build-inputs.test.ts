@@ -53,9 +53,9 @@ import { CONFIG_FILES as VITEST_CONFIG_FILES } from './helpers/vitest-config-pro
  * The derivation lives in `./helpers/build-program.ts`. Unlike its three
  * siblings it is a UNION rather than one walk, because `build` scripts are not
  * uniform — they are `&&` chains over tsc, `vite build`, `tsup`, `next build`,
- * `node <script>` and `pnpm <script>`, and each tool reads its own config. That
- * module's docblock carries the mechanism and its stated narrowings; this file
- * carries only the policy over the result.
+ * `node <script>`, `tsx <script>` and `pnpm <script>`, and each tool reads its
+ * own config. That module's docblock carries the mechanism and its stated
+ * narrowings; this file carries only the policy over the result.
  *
  * The policy is the family's: every out-of-package file must be matched by a
  * `$TURBO_ROOT$` input, two assertions police the reverse direction, one pins

@@ -178,6 +178,33 @@ describe('emitWriteWarning (#3484)', () => {
     expect(calls[0].description).not.toMatch(/Read-only/);
   });
 
+  it('uses the formula wording for reason `computed`, which is NOT read-only (objectui#11206)', async () => {
+    const keys: string[] = [];
+    const recordingT = (key: string, opts?: Record<string, unknown>) => {
+      keys.push(key);
+      return t(key, opts);
+    };
+    const { sink, calls } = makeSink();
+
+    await emitWriteWarning(
+      {
+        ...EVENT,
+        droppedFields: [
+          { object: 'andon', fields: ['type'], reason: 'computed' },
+        ],
+      },
+      recordingT,
+      adapter as never,
+      identityLabel,
+      sink,
+    );
+
+    expect(keys).toContain('detail.writeStrippedComputed');
+    expect(calls[0].description).toMatch(/^Calculated by the server from a formula/);
+    expect(calls[0].description).not.toMatch(/Read-only/);
+    expect(calls[0].description).not.toMatch(/^Not applied by the server/);
+  });
+
   it('keeps one line per reason when a save was stripped for several', async () => {
     const { sink, calls } = makeSink();
 
@@ -205,9 +232,10 @@ describe('emitWriteWarning (#3484)', () => {
 
   /**
    * The exhaustiveness pin (objectui#3935), read off the SPEC rather than a hand
-   * list that would drift: `STRIPPED_LINE` is declared
-   * `Record<DroppedFieldsEvent['reason'], …>`, so an extra key is a type error
-   * and a missing one is too — but `type-check` and `vitest` are different gates,
+   * list that would drift: `STRIPPED_LINE` is keyed by
+   * `DroppedFieldsEvent['reason']` (widened by `'computed'` from objectui#11206
+   * until the 17.6.0 bump, objectui#11438), so a missing key is a type error — but
+   * `type-check` and `vitest` are different gates,
    * and the reason the ternary this replaced survived so long is that nothing in
    * the test suite could see the gap at all.
    *

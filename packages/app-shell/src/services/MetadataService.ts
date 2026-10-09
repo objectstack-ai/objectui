@@ -19,6 +19,7 @@
 import { stripReadDecorations } from '@objectstack/spec/kernel';
 import {
   assertObjectMetadataWritable,
+  dropServedPicklistOptions,
   RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
   viewItemObjectName,
   type ObjectStackAdapter,
@@ -95,10 +96,11 @@ export interface ObjectMetadataPayload {
   fields?: Record<string, FieldMetadataPayload>;
   // No `relationships` (objectui#6223): the spec models relationships on the
   // FIELD — `reference` / `master_detail` plus object-level `indexes` — and
-  // `ObjectSchema` refuses an object-level `relationships` array by name. What
-  // the designer should author for a relationship is a data-model question
-  // that this card does not settle; what it settles is that this shape must
-  // stop putting the key on the wire.
+  // `ObjectSchema` refuses an object-level `relationships` array as an
+  // unrecognized key. This shape stopped putting the key on the wire there;
+  // objectui#11434 then retired `ObjectDefinition.relationships` from the UI
+  // model too (a `?: never` tombstone), so a relationship is authored as a
+  // reference field.
 }
 
 /** Shape written to the metadata API for a field definition. */
@@ -159,12 +161,15 @@ export interface FieldMetadataPayload {
 /**
  * Convert an `ObjectDefinition` (UI) to the API payload shape.
  *
- * `ObjectDefinition` carries three keys that deliberately do NOT cross into the
+ * `ObjectDefinition` carries two keys that deliberately do NOT cross into the
  * payload (objectui#6223): `group` and `sortOrder` are the Object Manager's own
- * display category and display order, and `relationships` has no object-level
- * home in the spec. `ObjectSchema` refuses all three BY NAME, so copying them
- * across is what turned a designer save into a 422. The UI model keeps them;
- * the wire shape does not.
+ * display category and display order. `ObjectSchema` refuses both as
+ * unrecognized keys, so copying them across is what turned a designer save
+ * into a 422. The UI model keeps them; the wire shape does not. A third, `relationships`, has no
+ * object-level home in the spec either: objectui#6223 kept it off the wire, and
+ * objectui#11434 retired it from the UI model as well. The explicit field list
+ * below is what keeps a value handed in from outside the type system off the
+ * wire.
  */
 function toObjectPayload(obj: ObjectDefinition, fields?: FieldMetadataPayload[]): ObjectMetadataPayload {
   return {
@@ -426,10 +431,27 @@ function assertRelationshipTargetPresent(
  * ## Why `Object.fromEntries` and not assignment into a literal
  *
  * `map['__proto__'] = field` does not create a key — it invokes the prototype
- * setter — and `__proto__` is a SPEC-LEGAL field name (the record's key schema
- * is `/^[a-z_][a-z0-9_]*$/`). The assignment form would therefore drop such a
- * field silently, which is this function's whole subject wearing a different
- * spelling. `Object.fromEntries` defines an own property instead.
+ * setter — so a field named `__proto__`, built by assignment, vanishes from the
+ * serialised body: this function's whole subject wearing a different spelling.
+ * The name matches the record's snake_case key rule (`/^[a-z_][a-z0-9_]*$/`),
+ * and through `@objectstack/spec` 17.4.0 the spec accepted the body with that
+ * field and without it alike, so the drop was silent. Since 17.5.0 the spec
+ * REFUSES a `fields` map that carries an own `__proto__` key, by name, at
+ * `fields.__proto__`, because `z.record()` would drop the key from its output
+ * while reporting success. (`constructor` and `prototype` are refused on the
+ * same map too, by a reserved-name rule.)
+ *
+ * That refusal is why the construction is still load-bearing: it can name the
+ * field only if the body still CARRIES the key. Assignment would hand the
+ * server a body that has already lost the field, and the spec accepts what is
+ * left. `Object.fromEntries` defines an own property instead. The version
+ * numbers say WHEN the contract changed, not what is installed today. The
+ * writer's half is re-measured by the "keys a field literally named
+ * `__proto__` instead of silently dropping it" test, and the spec's
+ * `__proto__` verdict by the "keys the record with a snake_case rule" test,
+ * both in `MetadataService.objectPayloadFieldsMap.test.ts`. Nothing in this
+ * package re-measures the `constructor` / `prototype` half; it is a reading of
+ * 17.5.0, recorded on objectui#9787.
  */
 function toFieldsMap(fields: FieldMetadataPayload[]): Record<string, FieldMetadataPayload> {
   const entries: Array<[string, FieldMetadataPayload]> = [];
@@ -536,9 +558,14 @@ function previousFieldsOf(existingObject: Record<string, unknown>): Record<strin
  * The previous entry for `name`, or `undefined` when there is none to carry.
  *
  * `hasOwnProperty` rather than a plain lookup, for the reason {@link toFieldsMap}
- * documents at the other end of the same map: `__proto__` is a SPEC-LEGAL field
- * name, and `previous['__proto__']` reads `Object.prototype` — an inherited
- * object that is not a previous field entry at all.
+ * documents at the other end of the same map: `previous['__proto__']` reads
+ * `Object.prototype` — an inherited object that is not a previous field entry
+ * at all. `__proto__` has not been a legal field name since `@objectstack/spec`
+ * 17.5.0, which refuses it as a `fields` key; but that refusal judges the PUT,
+ * and this lookup runs before it — for whatever name a caller hands
+ * `saveFields`, and over a stored document written before 17.5.0. Re-measured
+ * by the "does not read `Object.prototype` as a previous entry for a field
+ * named `__proto__`" test in `MetadataService.fieldKeyCarryOver.test.ts`.
  */
 function previousFieldEntry(previous: Record<string, unknown>, name: string): Record<string, unknown> | undefined {
   if (!Object.prototype.hasOwnProperty.call(previous, name)) return undefined;
@@ -678,6 +705,14 @@ export class MetadataService {
    * The object binding comes from the body being written, via the same
    * accessor `listViewOverrides` narrows those rows by — not from a fourth
    * private copy of "which object is this?".
+   *
+   * ⛔ No `dropServedPicklistOptions` here (objectui#11692). This method reads
+   * nothing: `data` is the caller's, so it cannot tell a served copy of a
+   * picklist-bound field from an author who wrote `picklist` and `options`
+   * together, and the second must stay the server's loud 422 with its
+   * prescription. A caller that seeded `data` from a served object read applies
+   * the conversion itself. Pinned (no read, the pair still refused) in
+   * `MetadataService.picklistServedOptions-11692.test.ts`.
    */
   async saveMetadataItem(category: string, name: string, data: Record<string, unknown>): Promise<void> {
     await this.putMetadataItem(category, name, data);
@@ -778,6 +813,14 @@ export class MetadataService {
    *     same way — but that builds capability for a path with zero measured
    *     pull and makes this parameter redundant, which then wants retiring on
    *     its own terms (ADR-0049 shape).
+   *
+   * ⛔ And, for the same reason it does not fetch, no `dropServedPicklistOptions`
+   * (objectui#11692): this method reads nothing, so every key it sends is one
+   * the caller handed it, and it cannot tell a served copy from an authored
+   * `picklist` + `options` pair — which must stay the server's loud 422.
+   * `FieldMetadataPayload` declares no `picklist`, so a fresh typed field
+   * literal cannot carry the binding here at all. Pinned (no read, the pair
+   * still refused) in `MetadataService.picklistServedOptions-11692.test.ts`.
    */
   async saveObject(obj: ObjectDefinition, existingFields: FieldMetadataPayload[]): Promise<void> {
     const payload = toObjectPayload(obj, existingFields);
@@ -868,6 +911,22 @@ export class MetadataService {
    *     previous entries ride in on the very document this method already
    *     fetched, so `toFieldPayload` merges onto them; see there for the mirror
    *     property that keeps a CLEARED designer property cleared.
+   *
+   * …and a fifth, pinned in `MetadataService.picklistServedOptions-11692.test.ts`:
+   *
+   *   - **A picklist-bound field leaves without its served `options`**
+   *     (objectui#11692). The fetched document is the SERVED one, so a field
+   *     naming a shared picklist carries `picklist` beside the options the
+   *     runtime resolved from the list, and the carry-over above brings the
+   *     binding back out. The authoring door refuses `options` beside
+   *     `picklist` for the WHOLE object, so the body passes through
+   *     `dropServedPicklistOptions` before the PUT. The binding can only have
+   *     come from that read: `DesignerFieldDefinition` declares no `picklist`,
+   *     so this method has no way to author one and none to remove one. A
+   *     bound field's `options` are therefore never half of an authored pair
+   *     here; they are the served copy, or a designer-model value the door
+   *     refuses beside the binding whatever it holds. Fields without a
+   *     `picklist` keep their `options` exactly as before.
    */
   async saveFields(objectName: string, fields: DesignerFieldDefinition[]): Promise<void> {
     const client = this.adapter.getClient();
@@ -918,7 +977,7 @@ export class MetadataService {
       fields: toFieldsMap(fields.map((field) => toFieldPayload(field, previousFieldEntry(previousFields, field.name)))),
     }) as Record<string, unknown>;
 
-    await this.putMetadataItem('object', objectName, updatedObject);
+    await this.putMetadataItem('object', objectName, dropServedPicklistOptions(updatedObject));
     this.adapter.invalidateCache(`object:${objectName}`);
   }
 

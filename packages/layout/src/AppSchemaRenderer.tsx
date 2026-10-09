@@ -34,6 +34,7 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
   SidebarInput,
+  Badge,
 } from '@object-ui/components';
 import type { AppComponentSchema, NavigationItem, NavigationEntryItem, NavigationArea } from '@object-ui/types';
 import { menuItemToNavigationItem } from '@object-ui/types';
@@ -45,12 +46,18 @@ import { AppShell, type AppShellBranding } from './AppShell';
 import {
   NavigationRenderer,
   hasVisibleNavigationItems,
+  resolveActiveNavItem,
+  resolveHref,
   resolveIcon,
-  resolveLabel,
+  resolveNavItemLabel,
+  type NavigationVisibilityOptions,
   type VisibilityEvaluator,
   type PermissionChecker,
   type CapabilityChecker,
+  type DocTargetChecker,
 } from './NavigationRenderer';
+// Internal module, not re-exported by `index.ts` (objectui#11395).
+import { byNavOrder } from './navOrder';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -95,6 +102,9 @@ export interface AppSchemaRendererProps {
 
   /** Optional capability checker passed to NavigationRenderer (gates `requiresObject` / `requiresService`) */
   checkCapability?: CapabilityChecker;
+
+  /** Optional member-readability checker for `doc` entries, passed to NavigationRenderer (objectui#10188) */
+  checkDocTarget?: DocTargetChecker;
 
   /** Called when an action-type navigation item is clicked */
   onAction?: (item: NavigationItem) => void;
@@ -170,12 +180,13 @@ export interface AppSchemaRendererProps {
  * There are two label vocabularies in play and they are NOT interchangeable
  * (objectui#4167 renamed objectui's own resolver to keep them apart):
  *
- *  - `NavigationItem.label` is objectui's KEYED ref — a translation key plus a
- *    default (`{ key, defaultValue, params }`) — resolved by {@link resolveLabel}
- *    against an injected `t`;
- *  - `NavigationArea.label` is `@objectstack/spec`'s `I18nLabel`, which
- *    17.0.0-rc.6 widened from `string` to `string | Record<string, string>` —
- *    the INLINE per-locale map the author writes directly in the metadata.
+ *  - objectui's KEYED ref — a translation key plus a default
+ *    (`{ key, defaultValue, params }`) — resolved by `resolveLabel` against an
+ *    injected `t`;
+ *  - `@objectstack/spec`'s `I18nLabel`, which 17.0.0-rc.6 widened from
+ *    `string` to `string | Record<string, string>` — the INLINE per-locale map
+ *    the author writes directly in the metadata. `NavigationArea.label` is
+ *    this, and since objectui#11299 so is a navigation entry's `label`.
  *
  * Feeding a map to the keyed resolver returns `undefined` (no `key`, no
  * `defaultValue`); feeding it to `String()` renders `[object Object]`. So this
@@ -186,10 +197,11 @@ export interface AppSchemaRendererProps {
  * ## Why no locale is threaded — a deliberate choice, not an omission
  *
  * `@object-ui/layout` carries **no i18n dependency by design**: this package's
- * whole i18n story is injection (`NavigationRenderer` takes `t` and the label
- * resolvers as arguments — "enables convention-based i18n auto-resolution
- * without coupling the layout package to i18n"), and `AppSchemaRendererProps`
- * exposes no locale, no `t`, and no context that carries one. Reaching for
+ * whole i18n story is injection (`NavigationRenderer` takes `t`, the target
+ * label resolver and — since objectui#11299 — the viewer's `locale` as props,
+ * so the layout package is never coupled to i18n), and
+ * `AppSchemaRendererProps` exposes no locale, no `t`, and no context that
+ * carries one. Reaching for
  * `@object-ui/i18n` here to read the live UI language would add exactly the
  * coupling that design forbids, so the resolver is called with `undefined`,
  * which it documents as "no locale known" and resolves as `en` — the platform's
@@ -200,9 +212,13 @@ export interface AppSchemaRendererProps {
  * of the viewer's language. That is strictly better than `[object Object]`, and
  * it is a floor, not a ceiling — the day a consumer needs per-viewer area
  * labels, the fix is to thread a locale down as a prop from the host that
- * already knows it, and this call is the one place it lands. Deliberately not
- * done pre-emptively: no consumer of `AppSchemaRenderer` in this repo has a
- * locale to give it today.
+ * already knows it, and this call is the one place it lands (that prop would
+ * also be the one to hand `NavigationRenderer`'s `locale`, which this
+ * component does not pass today, so its entries' map labels read the same
+ * `en` floor). Deliberately not done pre-emptively: no consumer of
+ * `AppSchemaRenderer` in this repo has a locale to give it today — objectui#11299
+ * measured it again and left it, since taking one would add a public prop to
+ * `AppSchemaRendererProps`.
  */
 function resolveAreaLabel(label: NavigationArea['label']): string {
   return resolveInlineI18nLabel(label, undefined) ?? '';
@@ -259,19 +275,41 @@ function AreaSwitcher({
 function MobileBottomNav({
   items,
   basePath,
+  guards,
+  onAction,
 }: {
   items: NavigationItem[];
   basePath: string;
+  /** The guard inputs the sidebar and the area derivation get (objectui#11362). */
+  guards: NavigationVisibilityOptions;
+  onAction?: (item: NavigationItem) => void;
 }) {
   const location = useLocation();
-  // Show up to 5 non-group leaf items. Flatten group children so apps that
+  // Show up to 5 entries the sidebar draws. Flatten group children so apps that
   // organise navigation into groups (e.g. Setup → Overview / Administration /
   // …) still surface real links in the mobile bottom nav.
   // Separators are skipped, so what comes back is entries only — each carries
   // the `label` the bottom nav draws (objectui#10867).
+  //
+  // objectui#11362: a tab is drawn only when its sidebar row is. Each node asks
+  // `hasVisibleNavigationItems` about itself alone, which is the sidebar's own
+  // per-node answer: `passesNavItemGuards` (`visible`, `requiredPermissions`,
+  // the capability gates, a `doc` entry's target), then a group survives only
+  // through a visible child and an `action` entry only when `onAction` is
+  // wired. A gated group therefore takes its children with it, as it does in
+  // the sidebar, and the guard runs before the five-tab cap, so a hidden entry
+  // never takes a slot. ⛔ No copy of the guard here.
+  //
+  // objectui#11395: each level is sorted by `byNavOrder` before it is walked —
+  // the top level, then each group's children as the walk reaches them — which
+  // is the sidebar's one comparator at the sidebar's two sort sites. The tabs
+  // therefore come out in the sidebar's reading order, and the guard and the cap
+  // run after the sort, so the five tabs are the sidebar's first five drawn
+  // entries. ⛔ No copy of the sort here.
   const collectLeaves = (list: NavigationItem[]): NavigationEntryItem[] => {
     const out: NavigationEntryItem[] = [];
-    for (const item of list) {
+    for (const item of list.slice().sort(byNavOrder)) {
+      if (!hasVisibleNavigationItems([item], guards)) continue;
       if (item.type === 'separator') continue;
       if (item.type === 'group') {
         out.push(...collectLeaves(item.children || []));
@@ -285,6 +323,17 @@ function MobileBottomNav({
 
   if (leaves.length === 0) return null;
 
+  // objectui#11211: a tab opens the page its sidebar row opens, so it asks the
+  // sidebar's own rule pair with the sidebar's own arguments — `resolveHref`
+  // for where it goes and `resolveActiveNavItem` (its inverse) for whether it
+  // lights — never a per-type spelling of either. The arguments are the ones
+  // `InternalSidebar` hands `NavigationRenderer`: `basePath` and no template
+  // context, which `AppSchemaRendererProps` does not carry. The election runs
+  // over the whole tree, as the sidebar's does, so at most one tab lights and
+  // it is the row the sidebar highlights.
+  const activeId =
+    resolveActiveNavItem(items, location.pathname, location.search, basePath)?.id ?? null;
+
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t bg-background/95 backdrop-blur-sm px-2 py-1 sm:hidden safe-area-bottom"
@@ -293,45 +342,52 @@ function MobileBottomNav({
     >
       {leaves.map((item) => {
         const NavIcon = resolveIcon(item.icon);
-        let href = '#';
-        if (item.type === 'object') {
-          href = `${basePath}/${item.objectName}`;
-          if (item.viewName) href += `/view/${item.viewName}`;
-        }
-        else if (item.type === 'dashboard') href = item.dashboardName ? `${basePath}/dashboard/${item.dashboardName}` : '#';
-        else if (item.type === 'page') href = item.pageName ? `${basePath}/page/${item.pageName}` : '#';
-        else if (item.type === 'report') href = item.reportName ? `${basePath}/report/${item.reportName}` : '#';
-        else if (item.type === 'url') href = item.url ?? '#';
-        else if (item.type === 'component') {
-          const ref = item.componentRef;
-          if (ref) {
-            const segs = ref.split(':').filter(Boolean);
-            href = `${basePath}/component/${segs.join('/')}`;
-            const navParams = item.params;
-            if (navParams) {
-              const usp = new URLSearchParams();
-              for (const [k, v] of Object.entries(navParams)) {
-                if (v === undefined || v === null) continue;
-                usp.set(k, typeof v === 'string' ? v : JSON.stringify(v));
-              }
-              const qs = usp.toString();
-              if (qs) href += `?${qs}`;
-            }
-          }
-        }
-
-        const isActive = href !== '#' && location.pathname.startsWith(href);
-
-        return (
-          <Link
-            key={item.id}
-            to={href}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 transition-colors min-w-[44px] min-h-[44px] justify-center ${
-              isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
+        const { href, external } = resolveHref(item, basePath);
+        const className = `relative flex flex-col items-center gap-0.5 px-2 py-1.5 transition-colors min-w-[44px] min-h-[44px] justify-center ${
+          item.id === activeId ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+        }`;
+        const content = (
+          <>
             <NavIcon className="h-5 w-5" />
-            <span className="text-[10px] truncate max-w-[60px]">{resolveLabel(item.label)}</span>
+            {/* `resolveNavItemLabel`, not a raw `item.label` read: an entry's label may be
+                absent since objectui#9868, and this host has no metadata, so it shows the
+                same machine-name backstop its `NavigationRenderer` does. */}
+            <span className="text-[10px] truncate max-w-[60px]">{resolveNavItemLabel(item)}</span>
+            {/* objectui#11395: the spec-declared `badge` and `badgeVariant`, drawn when the
+                sidebar row draws them, with the same `Badge` and the same variant (an absent
+                `badgeVariant` is `Badge`'s own default, which is the sidebar's). Placed over
+                the icon's corner; last in the DOM so the tab reads in the sidebar row's order. */}
+            {item.badge != null && (
+              <Badge
+                variant={item.badgeVariant}
+                className="absolute top-0.5 left-1/2 ml-1.5 px-1 py-0 text-[9px] leading-tight"
+              >
+                {item.badge}
+              </Badge>
+            )}
+          </>
+        );
+
+        // An `action` entry runs, it does not navigate: the sidebar draws it as
+        // a button that hands the whole item to `onAction`, and so does the bar
+        // (objectui#11362). `collectLeaves` keeps one only when `onAction` is
+        // wired; its `resolveHref` answer is `#`, a dead tab.
+        if (item.type === 'action') {
+          return (
+            <button key={item.id} type="button" onClick={() => onAction?.(item)} className={className}>
+              {content}
+            </button>
+          );
+        }
+
+        // An `external` answer opens in a new tab, the way the sidebar draws it.
+        return external ? (
+          <a key={item.id} href={href} target="_blank" rel="noopener noreferrer" className={className}>
+            {content}
+          </a>
+        ) : (
+          <Link key={item.id} to={href} className={className}>
+            {content}
           </Link>
         );
       })}
@@ -349,6 +405,7 @@ function InternalSidebar({
   evalVis,
   checkPerm,
   checkCap,
+  checkDocTarget,
   onAction,
   sidebarHeader,
   sidebarFooter,
@@ -368,6 +425,7 @@ function InternalSidebar({
   evalVis: VisibilityEvaluator;
   checkPerm: PermissionChecker;
   checkCap: CapabilityChecker;
+  checkDocTarget?: DocTargetChecker;
   onAction?: (item: NavigationItem) => void;
   sidebarHeader?: React.ReactNode;
   sidebarFooter?: React.ReactNode;
@@ -454,6 +512,7 @@ function InternalSidebar({
           evaluateVisibility={evalVis}
           checkPermission={checkPerm}
           checkCapability={checkCap}
+          checkDocTarget={checkDocTarget}
           onAction={onAction}
           searchQuery={searchQuery}
           enablePinning={enablePinning}
@@ -509,6 +568,7 @@ export function AppSchemaRenderer({
   evaluateVisibility: evalVisProp,
   checkPermission: checkPermProp,
   checkCapability: checkCapProp,
+  checkDocTarget,
   onAction,
   navbar,
   sidebarHeader,
@@ -548,14 +608,20 @@ export function AppSchemaRenderer({
   // restores the "fully gated area disappears" UX without any authorable key.
   // The active area is elected among the VISIBLE areas only, so the user is
   // never landed in — or stranded on — an area that renders nothing.
+  //
+  // The mobile tab bar reads this same object (objectui#11362), built from the
+  // arguments `InternalSidebar` hands `NavigationRenderer`, so the area list,
+  // the sidebar and the bar judge an entry by the same inputs.
+  const navGuards: NavigationVisibilityOptions = {
+    evaluateVisibility: evalVis,
+    checkPermission: checkPerm,
+    checkCapability: checkCap,
+    checkDocTarget,
+    hasActionHandler: !!onAction,
+  };
   const areas = schema.areas ?? [];
   const visibleAreas = areas.filter((area) =>
-    hasVisibleNavigationItems(area.navigation, {
-      evaluateVisibility: evalVis,
-      checkPermission: checkPerm,
-      checkCapability: checkCap,
-      hasActionHandler: !!onAction,
-    }),
+    hasVisibleNavigationItems(area.navigation, navGuards),
   );
   const [activeAreaId, setActiveAreaId] = useState<string | null>(
     () => visibleAreas.length > 0 ? visibleAreas[0].id : null,
@@ -597,6 +663,7 @@ export function AppSchemaRenderer({
       evalVis={evalVis}
       checkPerm={checkPerm}
       checkCap={checkCap}
+      checkDocTarget={checkDocTarget}
       onAction={onAction}
       sidebarHeader={sidebarHeader}
       sidebarFooter={sidebarFooter}
@@ -628,7 +695,12 @@ export function AppSchemaRenderer({
         {children}
       </AppShell>
       {showBottomNav && (
-        <MobileBottomNav items={resolvedNavigation} basePath={basePath} />
+        <MobileBottomNav
+          items={resolvedNavigation}
+          basePath={basePath}
+          guards={navGuards}
+          onAction={onAction}
+        />
       )}
     </>
   );

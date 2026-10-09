@@ -59,10 +59,12 @@ export function buildFlowSkeleton(name: string, label: string, startLabel: strin
   };
 }
 
-/** An object to seed a new app's navigation with (one menu item per object). */
+/**
+ * An object to seed a new app's navigation with (one menu item per object).
+ * Its name only: the entry it becomes carries no label (see below).
+ */
 export interface AppNavSeed {
   name: string;
-  label: string;
 }
 
 export function buildAppSkeleton(name: string, label: string, navObjects: AppNavSeed[] = []): Record<string, unknown> {
@@ -73,7 +75,13 @@ export function buildAppSkeleton(name: string, label: string, navObjects: AppNav
     // Seeding nav from the package's objects closes the create-app dead-end:
     // a fresh app otherwise ships zero menu items and every object must be
     // wired by hand in the Interfaces pillar (objectui#2262).
-    navigation: navObjects.map((o) => ({ id: `nav_${o.name}`, type: 'object', label: o.label, objectName: o.name })),
+    //
+    // Each seeded entry is a standard entry, so it is written with NO `label`
+    // (objectui#11201, ruling B). An absent label inherits the object's CURRENT
+    // label at render time, in the viewer's language. The entry used to store a
+    // copy of the object's label, or its machine name for a draft or unlabelled
+    // object: a present label, which the spec renders verbatim.
+    navigation: navObjects.map((o) => ({ id: `nav_${o.name}`, type: 'object', objectName: o.name })),
   };
 }
 

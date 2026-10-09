@@ -6,17 +6,16 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import React, { Suspense } from 'react';
+import React from 'react';
 import { ComponentRegistry, elementDataSourceBlock } from '@object-ui/core';
 import {
   ElementDataSourceGate,
   useSchemaContext,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
-import { Skeleton } from '@object-ui/components';
-import { createSafeTranslation } from '@object-ui/i18n';
 import type { ComponentInput, KanbanConditionalFormattingRule } from '@object-ui/types';
 import { ObjectKanban } from './ObjectKanban';
+import { KanbanBoardCore } from './KanbanBoardCore';
 
 /**
  * Sentinel column id for records whose `groupBy` value matches no declared
@@ -29,11 +28,6 @@ import { ObjectKanban } from './ObjectKanban';
  * can refuse to persist this non-option value as a real status.
  */
 export const KANBAN_UNCOLUMNED_ID = '__uncolumned__';
-
-const useUncolumnedT = createSafeTranslation(
-  { 'kanban.uncategorized': 'Uncategorized' },
-  'kanban.uncategorized',
-);
 
 /**
  * Names, on the console, every stored group value that matched no lane id
@@ -218,9 +212,6 @@ export type { Swimlane, CrossSwimlaneMoveEvent, UseCrossSwimlaneOptions, UseCros
 export { useQuickAddReorder } from './useQuickAddReorder';
 export type { UseQuickAddReorderOptions, UseQuickAddReorderReturn } from './useQuickAddReorder';
 
-// 🚀 Lazy load the implementation files
-const LazyKanban = React.lazy(() => import('./KanbanImpl'));
-
 export interface KanbanRendererProps {
   schema: {
     type: string;
@@ -330,41 +321,31 @@ export interface KanbanRendererProps {
 
 /**
  * KanbanRenderer - The public API for the kanban board component
- * This wrapper handles lazy loading internally using React.Suspense
+ * The board it renders handles lazy loading internally using React.Suspense
+ *
+ * ## The Quick Add pair lives HERE, and nowhere on the `object-kanban` path
+ *
+ * This component reads `schema.quickAdd` and `schema.onQuickAdd` and hands both
+ * to the internal `KanbanBoardCore` as explicit props. That is the host pair
+ * ruling B keeps (objectui#8285, director seat, decision batch #91): "`kanban-ui`
+ * keeps the pair meanwhile". With the `kanban-ui` tag retired (objectui#8257),
+ * this exported component is where the pair lives, so a React host that mounts
+ * it gets the control.
+ *
+ * `ObjectKanban` renders `KanbanBoardCore` directly and supplies neither half
+ * (objectui#11234). So an `object-kanban` board has no read of either key, and
+ * `ObjectKanbanSchema.onQuickAdd` is a tombstone on both faces. The full
+ * argument is on `KanbanBoardCore`.
  */
-export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFields, onCardMove }) => {
-  const { t } = useUncolumnedT();
-  // ⚡️ Adapter: Map flat 'data' + 'groupBy' to nested 'cards' structure.
-  const processedColumns = React.useMemo(
-    () =>
-      bucketCardsIntoColumns(
-        schema.columns ?? [],
-        schema.data,
-        schema.groupBy,
-        schema.coverImageField,
-        t('kanban.uncategorized'),
-      ),
-    [schema, t],
-  );
-
-  return (
-    <Suspense fallback={<Skeleton className="w-full h-[600px]" />}>
-      <LazyKanban
-        columns={processedColumns}
-        onCardMove={onCardMove}
-        onCardClick={schema.onCardClick}
-        className={schema.className}
-        quickAdd={schema.quickAdd}
-        onQuickAdd={schema.onQuickAdd}
-        coverImageField={schema.coverImageField}
-        conditionalFormatting={schema.conditionalFormatting}
-        objectFields={objectFields}
-        swimlaneField={schema.swimlaneField}
-        countsAreWindowed={schema.countsAreWindowed}
-      />
-    </Suspense>
-  );
-};
+export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFields, onCardMove }) => (
+  <KanbanBoardCore
+    schema={schema}
+    objectFields={objectFields}
+    onCardMove={onCardMove}
+    quickAdd={schema.quickAdd}
+    onQuickAdd={schema.onQuickAdd}
+  />
+);
 
 /**
  * ⛔ The `kanban-ui` node type key is RETIRED (objectui#8257, maintainer ruling
@@ -384,8 +365,9 @@ export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFi
  *
  * ## Why unregistering is the whole retirement
  *
- * ⚠️ `BaseSchema` closes with `[key: string]: any` and `BaseSchemaCore` ends
- * `.passthrough()`, so a dropped MEMBER KEY is KEPT, not refused (objectui#7664).
+ * ⚠️ `BaseSchemaCore` ends `.passthrough()` (and `BaseSchema` closed with
+ * `[key: string]: any` until objectui#8347), so a dropped MEMBER KEY is KEPT,
+ * not refused, on the zod face (objectui#7664).
  * That hazard needs a schema face to arise on, and this key never had one:
  * measured whole-repo, `@object-ui/types` declares `kanban-ui` as a component
  * node type ZERO times (firing control: `object-kanban`, 2 — `objectql.ts` and
@@ -473,7 +455,7 @@ export const kanbanComponents = {
  * What `ObjectKanban` reads for its own query: `objectName`, `filter`, `sort`
  * and `limit` (`ObjectKanban.tsx`, the `dataSource.find` call — `$filter:
  * schema.filter`, `$orderby: convertSortToQueryParams(schema.sort)`, `$top:
- * resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)`).
+ * resolveRowLimit(schema.limit, DEFAULT_KANBAN_FETCH_BATCH_SIZE)`).
  *
  * `limit` was unmapped until objectui#4025, on the rationale that the board
  * "fetches with a fixed `$top: 100`, so there is no key to write it to". That
@@ -509,6 +491,10 @@ const OBJECT_KANBAN_DATA_SOURCE: ElementDataSourceMapping = {
   limit: 'limit',
 };
 
+/** Does an authored `columns` list carry lanes with their own `cards`? */
+const lanesCarryCards = (columns: unknown): boolean =>
+  Array.isArray(columns) && columns.some((column) => Array.isArray((column as { cards?: unknown } | null)?.cards));
+
 // Register object-kanban for ListView integration
 export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }> = elementDataSourceBlock(({ schema, ...props }) => {
   // `useSchemaContext()` may hand back a NULL adapter: a host with nothing
@@ -529,6 +515,20 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
       dataSource={dataSource}
       testId="object-kanban"
       errorTitle="This board’s data source could not be resolved"
+      // A board that names its object in neither place has nothing to fetch,
+      // and drew an empty board with "No cards" — the answer an empty query
+      // gives (objectui#11605). Every other rung of the board's record-source
+      // ladder supplies rows without an object: records a parent view hands
+      // down (`data` prop), a `bind` path, and inline `data` (an empty array is
+      // a static board, so presence is the test, not length). So do lanes that
+      // carry their own `cards`, which the board keeps ("Preserve static cards"
+      // in the column merge above).
+      requiresObject={
+        schema?.data == null
+        && schema?.bind == null
+        && !Array.isArray((props as { data?: unknown }).data)
+        && !lanesCarryCards(schema?.columns)
+      }
     >
       {(bound) => <ObjectKanban schema={bound} dataSource={dataSource} {...props} />}
     </ElementDataSourceGate>
@@ -548,11 +548,15 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  *
  * ## Why these keys were added
  *
- * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` declares FOURTEEN
- * top-level keys on the installed 17.4.0 pin; this list published three until
- * objectui#8186 added `filter`. ⚠️ It declared THIRTEEN when objectui#8201 was
- * filed — 17.4.0 added `limit` (see below), and the count moved with it. Both
- * numbers are correct about their own pin, which is why this one names its pin.
+ * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` carries FIFTEEN
+ * top-level keys on the installed 17.7.0 pin, fourteen of them live, the
+ * same set as 17.5.0 and 17.6.0: 17.5.0
+ * added `navigation` and turned `quickAdd` into a tombstone (typed `never`,
+ * refused by name — objectui#8285's ruled retirement, landed). This list
+ * published three until objectui#8186 added `filter`. ⚠️ The shape carried
+ * THIRTEEN when objectui#8201 was filed and FOURTEEN through 17.4.0, which
+ * added `limit` (see below). Each number is correct about its own spec
+ * version, which is why this one names its version.
  * The gap was STRUCTURAL rather than considered — the console registers this
  * block with `ComponentRegistry.registerLazy` and `getConfig` is loaded-only by
  * design, so the block sat outside the console's reverse-parity population
@@ -631,35 +635,41 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  * faces, TS and zod; `content/docs/plugins/plugin-kanban.mdx`; the spec).
  * ⛔ The declaration carries NO default: a materialised `limit` would defeat the
  * gate's `readLimit(base) === undefined` branch, and a bound view's
- * `pagination.pageSize` would then never fill it. `DEFAULT_KANBAN_LIMIT = 100`
+ * `pagination.pageSize` would then never fill it. `DEFAULT_KANBAN_FETCH_BATCH_SIZE = 100`
  * stays documented rather than declared. An unrecognised probe key draws
  * `unrecognized_keys` on these calls while none of the declared keys does.
  *
- * ## What is deliberately NOT here yet
+ * ## `navigation` — objectui#8652 (maintainer ruling 「B」)
  *
- * ONE of the fourteen keys stays undeclared, keeping its live entry in
- * `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`:
+ * The spec declares it on this element from 17.5.0 — the platform half of
+ * the ruling, which the 17.5.0 bump booked as OWED to objectui#8652 rather than
+ * declaring (objectui#11111 decision 3 = B). This entry is the objectui half,
+ * together with the `ObjectKanbanSchema` member in `@object-ui/types`. The
+ * board honours the block through `useNavigationOverlay`, member by member —
+ * an overlay `mode`, `new_window`, `none`, `preventNavigation`, `openNewTab`,
+ * `size`, and since objectui#11293 `page`, which is also what a block without
+ * `mode` resolves to: the hook hands a `page` click with no `onNavigate` to
+ * the record navigator the host publishes, so the description no longer warns
+ * that `page` opens nothing. It states where `page` has no record page to
+ * open instead — a host that publishes no navigator. Members pinned in
+ * `__tests__/kanbanNavigationMembers-8652.test.tsx`.
  *
- *   - `quickAdd` is RULED, and the ruling is PREMATURE. This renderer does not
- *     honour it at all: `KanbanImpl` gates the control on `quickAdd &&
- *     onQuickAdd`, and `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod
- *     twin refuses by name; nothing on the `ObjectKanban` path supplies one.
- *     objectui#8201 escalated the DISPOSITION rather than guessing it, and the
- *     PM answered (Q1 = A, 2026-09-07): PREMATURE — the renderer does not
- *     honour it, and objectui#8285 owns the fix.
- *     ⭐ PREMATURE commits nobody to building quick-add. It is also NOT the
- *     stronger reading that the object-bound board is not going to grow it:
- *     nothing measured supports that, and `KanbanRenderer` below contradicts
- *     it by forwarding the same `quickAdd` + `onQuickAdd` pair by identity to
- *     a React host that can supply the function.
- *     ⛔ The exit is NOT a declaration — publishing the key would advertise
- *     configuration this renderer drops. objectui#8285 was ruled (director
- *     seat 2026-09-08, decision batch #91) to retire `object-kanban.quickAdd`
- *     from the spec's `ComponentPropsMap`; the day that lands, the key leaves
- *     the accepted set and the console entry is harvested by its own dangling
- *     and stale checks. Pinned from this side by
- *     `__tests__/quickAddIsDiagnosedNotDropped-8285.test.ts` row 5, whose
- *     reddening IS that day.
+ * ## What is deliberately NOT here
+ *
+ * `quickAdd`, the fifteenth key, is RETIRED rather than undeclared-pending
+ * (objectui#8285, director seat 2026-09-08, decision batch #91, ruling B: the
+ * board does not grow an inline record-creation write path). It never drew
+ * anything on this block — `KanbanImpl` gates the control on `quickAdd &&
+ * onQuickAdd`, and `onQuickAdd` is a host-supplied function nothing on the
+ * `ObjectKanban` path supplies — so publishing it here would advertise
+ * configuration this renderer drops. The spec tombstones it in 17.5.0, and both
+ * `ObjectKanbanSchema` faces refuse it by name. `ObjectKanban` no longer
+ * forwards it: it renders the internal `KanbanBoardCore`, which takes the pair
+ * only as explicit props, and it supplies neither half. Since objectui#11234
+ * that holds for `onQuickAdd` too, which is now a tombstone on both faces.
+ * `KanbanRenderer` above keeps the pair for a React host that mounts it
+ * directly. Pinned in `__tests__/quickAddRetiredNotForwarded-8285.test.tsx`,
+ * whose registration row also asserts this list still leaves it out.
  *
  * The declarations are pinned per tag and per key, so removing one from this
  * list reddens a NAMED row rather than a file:
@@ -670,9 +680,21 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  * `__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx`.
  */
 const OBJECT_KANBAN_INPUTS: ComponentInput[] = [
-  { name: 'objectName', type: 'string', required: true },
+  // NOT required, as on the spec row (objectui#11605): `ComponentPropsMap
+  // ['object-kanban']` leaves `objectName` optional "because the
+  // component-level `dataSource` binding can supply the object instead", and
+  // the gate in `ObjectKanbanRenderer` lands `dataSource.object` here. The page
+  // compile reads this list, so `required: true` refused a bound node the row
+  // and the renderer accept. A node with neither is answered by the gate's
+  // "no object named" hint (`requiresObject` above).
+  {
+    name: 'objectName',
+    type: 'string',
+    description:
+      'Object this board lists. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no rows from `data`, `bind` or a parent view, the board shows a hint naming this key instead of an empty board.',
+  },
   { name: 'columns', type: 'array' },
-  { name: 'filter', type: 'array', description: 'Filter criteria in JSON-rules form, narrowing the records the board fetches. Lowered to `$filter` on the query.' },
+  { name: 'filter', type: 'array', description: 'Base query filter — the `ViewFilterRule` array `[{ field, operator, value }, ...]`, narrowing the records the board fetches. Lowered to `$filter` on the query.' },
   { name: 'limit', type: 'number', description: 'Row cap — the most records the board fetches, lowered to the query’s top-level `$top` (renderer default 100). The board renders every fetched record into a lane and offers no pagination, so this is the author’s window on the object rather than a page size. PRECEDENCE: a node-level `dataSource` binding’s own `limit` wins outright; the `pagination.pageSize` of a view that binding names fills this key only when the node leaves it unset.' },
   { name: 'groupBy', type: 'string', description: 'Record field whose value buckets cards into lanes. Its picklist options become the lanes when `columns` is absent, and a drag between lanes writes the target lane’s value back to the record. A value matching no lane lands in the trailing “Uncategorized” lane rather than disappearing.' },
   { name: 'cardTitle', type: 'string', description: 'Record field rendered as the card title. Read AHEAD of `titleField`, which is the legacy spelling of the same choice; when neither yields a value the shared record-display resolver names the card.' },
@@ -682,7 +704,7 @@ const OBJECT_KANBAN_INPUTS: ComponentInput[] = [
   { name: 'data', type: 'array', description: 'Inline records to render instead of fetching. Authoring it SUPPRESSES the board’s own query entirely. Members are records: the board reads `id` (or `_id`) as the card identity, the `groupBy` field’s value as the lane, the card-title field, `coverImageField`, and every `cardFields` entry. Records handed down by a parent view and a `bind` expression both take priority over it.' },
   { name: 'cardFields', type: 'array', description: 'Record field NAMES rendered as cells on each card, in the order written. Members are bare names, not entry objects. An explicit list wins over the object’s `highlightFields` role; unlike that fallback it is NOT filtered against the object definition, so a name the object no longer declares simply renders no cell. An empty array reads as omitted.' },
   { name: 'grouping', type: 'object', description: 'Only `grouping.fields[0].field` is read, and only as the FALLBACK for `swimlaneField`: it names the record field that splits the board into horizontal swimlanes when no `swimlaneField` is authored. An explicit `swimlaneField` wins. Every other position inside `grouping`, later `fields` entries included, is inert on this board.' },
-  { name: 'conditionalFormatting', type: 'array', description: 'Per-card style rules, each evaluated against that card’s own record. Two member dialects are accepted: the native `{ field, operator, value, backgroundColor?, borderColor? }` and the spec CEL `{ condition, backgroundColor?, borderColor? }`. A matching rule colours that card alone. A rule comparing a relation field sees the stored foreign key rather than the expanded record.' },
+  { name: 'conditionalFormatting', type: 'array', description: 'Per-card style rules, each `{ condition, style }` — a CEL `condition` over the card’s own `record.*` and a CSS `style` map, the rule a list view declares. The first matching rule styles that card alone. A rule comparing a relation field sees the stored foreign key rather than the expanded record. The native `{ field, operator, value }` rule and a colour written beside `condition` instead of inside `style` are retired and refused by name (objectui#11522).' },  { name: 'navigation', type: 'object', description: 'What a card click opens — the `{ mode, size, openNewTab, preventNavigation }` block a list view declares. With the key ABSENT a click opens the record in a drawer. `mode` is an overlay (`drawer`, `modal`, `split`, `popover`), `new_window`, `page` or `none`, and a block written without `mode` takes the spec’s `page` default. `page` opens the record page through the record navigator the host publishes (the console publishes one on its custom pages, record pages and list views); under a host that publishes none, such as an embedded renderer, there is no record page to open and the click opens nothing. `openNewTab: true` opens the record page in a new tab and outranks every mode except `none`, `preventNavigation: true` opens nothing, and `size` sets the overlay width. A click handler from a parent view outranks the whole key.' },
 ];
 
 ComponentRegistry.register(

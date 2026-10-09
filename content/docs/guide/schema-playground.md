@@ -143,10 +143,7 @@ A complete form with validation, driven entirely by schema:
       "label": "Email",
       "required": true,
       "placeholder": "jane@example.com",
-      "validation": {
-        "pattern": "^[^@]+@[^@]+\\.[^@]+$",
-        "message": "Enter a valid email address"
-      }
+      "pattern": "^[^@]+@[^@]+\\.[^@]+$"
     },
     {
       "name": "role",
@@ -206,6 +203,7 @@ Schemas can be nested to build complex layouts. Here is a dashboard that combine
 ```json
 {
   "type": "page",
+  "pageType": "app",
   "title": "Project Dashboard",
   "children": {
     "type": "grid",

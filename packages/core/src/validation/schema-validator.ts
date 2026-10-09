@@ -17,7 +17,9 @@
  */
 
 import type { BaseSchema } from '@object-ui/types';
+import { nodeSlotValues, nodeSlotsFor } from '@object-ui/types';
 import { hasDeclaredPredicate } from '../evaluator/declaredPredicate.js';
+import { isUnevaluablePredicate } from '../evaluator/unevaluablePredicate.js';
 
 /**
  * One issue found while walking an ObjectUI schema TREE — `path` locates the
@@ -84,7 +86,8 @@ export interface SchemaNodeValidationResult {
  * same value — which is the defect class this rule was already an instance of.
  * The delegation is behavioural, so it is pinned behaviourally: the drift pin in
  * `__tests__/predicate-valued-gate-rules.test.ts` asserts this rule's verdict
- * equals `boolean || hasDeclaredPredicate(value)` across every probe.
+ * equals `boolean || (declared && !unevaluable)` across every probe — the second
+ * half since objectui#11358, see below.
  *
  * ## Why the boolean arm survives even though it is subsumed
  *
@@ -97,19 +100,32 @@ export interface SchemaNodeValidationResult {
  *
  * ## What it still REFUSES (the half that is not negotiable)
  *
- * Everything `hasDeclaredPredicate` calls junk: a number, `null`, `{}`, an
- * array, `''`, whitespace-only predicate text, and the empty / blank-`source`
- * envelope (objectui#3960). Every one of those was refused before this change
- * too — the accept set widens and nothing refused becomes accepted. Dropping
- * the two keys from this table was the option this fix was explicitly forbidden
- * to take: an absent rule reports nothing at all, which is gate weakening
- * wearing the same green.
+ * `null`, `''`, whitespace-only predicate text and the empty / blank-`source`
+ * envelope (objectui#3960) — what `hasDeclaredPredicate` calls "not declared" —
+ * and a value that IS declared but cannot be evaluated: a number, `{}`, an
+ * array, an envelope with no string `source` (`isUnevaluablePredicate`).
+ * Every one of those was refused before this change too — the accept set
+ * widens and nothing refused becomes accepted. Dropping the two keys from this
+ * table was the option this fix was explicitly forbidden to take: an absent
+ * rule reports nothing at all, which is gate weakening wearing the same green.
+ *
+ * ## Why "declared" alone stopped being this rule's answer (objectui#11358)
+ *
+ * Until objectui#11358 every declared gate was also an evaluable one, so
+ * "declared" answered both questions. That ruling made a present value with no
+ * evaluable `source` DECLARED (and faulting) so that the runtime fails it in
+ * its key's fault direction instead of reading it as no gate — and this rule
+ * asks a different question, "is this a predicate the runtime can evaluate?".
+ * Reading `hasDeclaredPredicate` alone would have widened the accept set to
+ * exactly the shapes that ruling exists to stop. So the rule refuses the
+ * unevaluable state by the same internal definition the runtime uses for it,
+ * not by a list written here.
  */
 function predicateGateRule(key: 'visible' | 'disabled') {
   return {
     required: false,
     validate: (value: unknown): boolean =>
-      typeof value === 'boolean' || hasDeclaredPredicate(value),
+      typeof value === 'boolean' || (!isUnevaluablePredicate(value) && hasDeclaredPredicate(value)),
     message:
       `${key} must be a boolean or a declared predicate: an expression string ` +
       `(bare, e.g. "record.stage == 'closed'", or the "\${...}" template ` +
@@ -455,8 +471,17 @@ function validateFormSchema(
   return errors;
 }
 
+/** `schema.items[0].content[1]`: the child's path, spelled the way `children[0]` already is. */
+function spellSlotPath(path: string, segments: readonly (string | number)[]): string {
+  return segments.reduce<string>(
+    (spelled, segment) => (typeof segment === 'number' ? `${spelled}[${segment}]` : `${spelled}.${segment}`),
+    path,
+  );
+}
+
 /**
- * Validate child schemas recursively
+ * Validate child schemas recursively: what `children` holds on every node,
+ * and what the node slots declared for this node's type hold.
  */
 function validateChildren(
   schema: SchemaNodeUnderValidation,
@@ -464,10 +489,11 @@ function validateChildren(
 ): SchemaNodeValidationError[] {
   const errors: SchemaNodeValidationError[] = [];
 
-  // One spelling. This walker resolved `children || body` for ANY node type,
-  // so it outlived every per-registration read of the dialect — objectui#6771
-  // retired it, and a recursive validator that still descended `body` would
-  // keep validating a child list no renderer puts on the page.
+  // One child-list spelling. This walker resolved `children || body` for ANY
+  // node type, so it outlived every per-registration read of the dialect —
+  // objectui#6771 retired it, and a recursive validator that still descended
+  // `body` on every node would keep validating a child list no renderer puts
+  // on the page.
   const children = schema.children;
   if (children) {
     if (Array.isArray(children)) {
@@ -480,6 +506,23 @@ function validateChildren(
     } else if (isSchemaNodeShape(children)) {
       const childResult = validateSchema(children, `${path}.children`);
       errors.push(...childResult.errors, ...childResult.warnings);
+    }
+  }
+
+  // The node slots THIS type's renderer reads — a dialog's `trigger`, a tab
+  // item's `content`, a page's `regions[].components` — from the one
+  // declaration in `@object-ui/types` (`nodeSlotsFor`, objectui#11170), which
+  // the `objectui check` gate and the SDUI parser read too. Per type, never a
+  // second generic spelling: `page:card`'s retired `body` is walked because
+  // that renderer is measured still painting it; `body` on any other type is
+  // not, which is the objectui#6771 line above, kept.
+  if (typeof schema.type === 'string') {
+    for (const slot of nodeSlotsFor(schema.type)) {
+      for (const { segments, value } of nodeSlotValues(schema, slot.path)) {
+        if (!isSchemaNodeShape(value)) continue;
+        const childResult = validateSchema(value, spellSlotPath(path, segments));
+        errors.push(...childResult.errors, ...childResult.warnings);
+      }
     }
   }
 

@@ -268,8 +268,60 @@ describe('shadcn local patches — application to fresh upstream (objectstack#55
 
   /** The other declared family: the sidebar collapse-persistence patch. */
   it('sidebar declares the cookie-read patch', () => {
-    const ids = LOCAL_PATCHES.sidebar.map((p: { id: string }) => p.id);
+    const ids = LOCAL_PATCHES.sidebar
+      .filter((p: { issue: string }) => p.issue === 'objectui#4234')
+      .map((p: { id: string }) => p.id);
     expect(ids).toEqual(['sidebar-cookie-read-import', 'sidebar-cookie-read-initial-state']);
+  });
+
+  /**
+   * The sixth family: the sidebar's non-throwing context read (objectui#10859,
+   * batch 8 phase 2d). Both halves are listed because the reader alone compiles
+   * and is unreachable — the SDUI `sidebar` registration imports the EXPORTED
+   * name, so without the export it fails to build, and without the reader the
+   * export names nothing.
+   */
+  it('sidebar declares the optional-context patches', () => {
+    const ids = LOCAL_PATCHES.sidebar
+      .filter((p: { issue: string }) => p.issue === 'objectui#10859')
+      .map((p: { id: string }) => p.id);
+    expect(ids).toEqual(['sidebar-optional-context-reader', 'sidebar-optional-context-export']);
+  });
+
+  /**
+   * The seventh family: the sidebar's offcanvas rules qualified by the collapsed
+   * state (objectui#11464). One patch per upstream line, and every one is
+   * listed: each line drops a different part of the expanded sidebar off its
+   * place on its own (the gap, the left panel, the right panel, the rail), and
+   * dropping any one of them still compiles. Chromium reads the geometry in
+   * `e2e/sidebar-offcanvas-geometry.spec.ts`.
+   */
+  it('sidebar declares the offcanvas state-qualifier patches', () => {
+    const family = LOCAL_PATCHES.sidebar.filter((p: { issue: string }) => p.issue === 'objectui#11464');
+    expect(family.map((p: { id: string }) => p.id)).toEqual([
+      'sidebar-offcanvas-gap-collapsed-only',
+      'sidebar-offcanvas-left-offset-collapsed-only',
+      'sidebar-offcanvas-right-offset-collapsed-only',
+      'sidebar-offcanvas-rail-collapsed-only',
+      'sidebar-offcanvas-rail-left-edge-collapsed-only',
+      'sidebar-offcanvas-rail-right-edge-collapsed-only',
+    ]);
+    for (const p of family as Array<{ id: string; find: string; replace: string; marker: string }>) {
+      // The marker is the whole patched string, so the shipped file has to
+      // carry the payload byte for byte, not merely a fragment of it.
+      expect(p.marker, p.id).toBe(p.replace);
+      // Each patch only ADDS the collapsed-state qualifier: with it removed,
+      // the replacement is the upstream anchor again.
+      expect(
+        p.replace.replaceAll('group-data-[state=collapsed]:', '').replace('[data-state=collapsed]', ''),
+        p.id,
+      ).toBe(p.find);
+    }
+  });
+
+  it('sidebar declares no patch outside those three families', () => {
+    const issues = [...new Set(LOCAL_PATCHES.sidebar.map((p: { issue: string }) => p.issue))].sort();
+    expect(issues).toEqual(['objectui#10859', 'objectui#11464', 'objectui#4234']);
   });
 
   /**

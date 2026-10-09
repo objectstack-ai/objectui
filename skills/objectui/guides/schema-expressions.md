@@ -111,9 +111,9 @@ Every key of the `scope` you hand it becomes a root the evaluator can read:
 <!-- os:check -->
 ```tsx
 import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
-import type { BaseSchema } from '@object-ui/types'
+import type { SchemaRendererProps } from '@object-ui/react'
 
-declare const schema: BaseSchema
+declare const schema: SchemaRendererProps['schema']
 
 // Every name here becomes a root this page's expressions can read — `data`
 // included, which is now a name YOU publish rather than one the renderer binds.
@@ -306,9 +306,12 @@ Author them in the canonical tagged-template form that skill teaches
 Renderer-side, and only here: the form renderer **re-evaluates these reactively
 as the user edits**, via `resolveFieldRuleState` in `@object-ui/core`. A static
 `required: true` / `readonly: true` is a floor a FALSE predicate cannot weaken.
-Evaluation is **fail-open** -- a broken predicate never hides content, never
-blocks submit and never locks a field -- so `visibleWhen` is never a security
-boundary on the client.
+Faults follow ADR-0137. At render a broken predicate is **fail-open**: it never
+hides content and never locks a field. At submit a faulted or stored-blank field
+rule **refuses the submit**, naming the field and the rule (the client judges
+`visibleWhen`, the server the other two). A blank triad key is refused at
+authoring; a blank gate stays "no gate", with a diagnostic. `visibleWhen` is
+still never a security boundary on the client; the server is the authority.
 
 ## CEL predicates over a row record
 
@@ -326,13 +329,14 @@ Three renderer-side facts that live nowhere else:
   closed** (a broken predicate hides the action and warns), matching the
   record-header `ActionEngine`; `disabled` fails soft (not disabled, warns);
   a field-level `visibleWhen` fails open. Do not generalise from one to another.
-- **Legacy shapes are translated, with a one-time warning.** The native
-  `{ field, operator, value }` form (`operator` in `equals` / `not_equals` /
-  `greater_than` / `less_than` / `contains` / `in`) and the
-  `{ expression: "${…}" }` template form still work and are rewritten to CEL
-  transparently. A string carrying legacy-only syntax (`${…}`, `===`, `?.`,
-  `.includes()`) is routed to the old engine with a **one-time deprecation
-  warning** -- rewrite it as CEL (`==`, `record.x`, `.contains()`).
+- **Authoring takes `{ condition, style }` only.** On every list carrier (grid,
+  list view, kanban) a rule is `{ condition, style }`; the native `{ field,
+  operator, value }` form and the `{ expression: "${…}" }` template form are
+  retired, refused at the schema door by name with the respelling. A STORED
+  legacy rule still renders through the shared evaluator (a compatibility read,
+  not an authoring form); a `condition` in legacy-only syntax (`${…}`, `===`,
+  `.includes()`) still routes to the old engine with a one-time deprecation
+  warning -- write CEL.
 - **`data.*` is the trap in a row predicate.** A row predicate binds ONE root,
   `record.*`; a bare `status` or `data.status` is retired there and faults on
   the runtime engine (`Unknown variable`), under each surface's existing error
@@ -375,14 +379,15 @@ and each reader falls back to its own empty state.
 `useDataScope` is called by `list` and `tree-view` in `@object-ui/components`,
 and by the `object-*` widgets the plugin packages register (`object-grid`,
 `object-kanban`, `object-chart`, `object-data-table`, `object-gallery`,
-`object-timeline`, `object-pivot`). Every other component ignores `bind`
-completely — no error, no warning, nothing in the console.
+`object-timeline`, `object-pivot`). Every other component ignores `bind` — no
+error, no warning, nothing in the console — except `data-table` (one warning, below).
 
 `data-table` is the one that catches authors out. It takes its rows from an
 inline `data` array on the node and never calls `useDataScope`, so a `bind` on
 it resolves nothing: the table renders its header over the "No results found"
-empty state. Nothing is thrown and nothing is logged — a table that looks built
-and is blank is the whole failure.
+empty state. Nothing is thrown and nothing on the page says why — the one
+signal is a `[ObjectUI] DataTable bind:` console warning (objectui#6575); on
+the page, a table that looks built and is blank is the whole failure.
 
 <!-- os:check -->
 ```json

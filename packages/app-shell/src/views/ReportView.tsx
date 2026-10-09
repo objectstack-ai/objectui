@@ -16,6 +16,8 @@ import { preferLocal } from '../utils/preferLocal.js';
 import { useAdapter } from '../providers/AdapterProvider.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
 import { persistRuntimeMetadata } from './runtime-metadata-persistence.js';
+import { formatMetadataError } from '@object-ui/data-objectstack';
+import { toast } from 'sonner';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
 import type { DataSource } from '@object-ui/types';
 import type { DatasetDrillArgs } from '@object-ui/plugin-report';
@@ -173,22 +175,32 @@ export function ReportView({ dataSource }: { dataSource?: DataSource }) {
   }, [editSchema, reportData, getFieldsForObject]);
 
   // ---- Save helper --------------------------------------------------------
+  // Resolves whether the draft was staged, so the editor closes only on a
+  // save that landed (objectui#11583).
   const saveSchema = useCallback(
-    async (schema: any) => {
+    async (schema: any): Promise<boolean> => {
+      if (!metadataClient) return false;
       try {
-        if (metadataClient) {
-          // ADR-0034: save stages a per-item draft; an explicit Publish
-          // promotes it (RuntimeDraftBar). `sys_report` is retired.
-          await persistRuntimeMetadata('report', reportName!, schema, {
-            metadataClient,
-          });
-          refresh().catch(() => {});
-        }
+        // ADR-0034: save stages a per-item draft; an explicit Publish
+        // promotes it (RuntimeDraftBar). `sys_report` is retired.
+        await persistRuntimeMetadata('report', reportName!, schema, {
+          metadataClient,
+        });
+        refresh().catch(() => {});
+        return true;
       } catch (err) {
         console.warn('[ReportView] Auto-save failed:', err);
+        // objectui#11583: a refused save is said, with the door's message.
+        // It fires once per press of the editor's Save (an edit only drives
+        // the live preview), so one refusal is one toast.
+        toast.error(t('form.saveError'), {
+          description: formatMetadataError(err),
+          classNames: { description: 'whitespace-pre-line' },
+        });
+        return false;
       }
     },
-    [metadataClient, reportName, refresh],
+    [metadataClient, reportName, refresh, t],
   );
 
   // ---- Open / close config panel ------------------------------------------
@@ -214,10 +226,14 @@ export function ReportView({ dataSource }: { dataSource?: DataSource }) {
   );
 
   const handleReportConfigSave = useCallback(
-    (config: Record<string, any>) => {
+    async (config: Record<string, any>): Promise<boolean> => {
       setEditSchema(config);
-      saveSchema(config);
-      setConfigVersion((v) => v + 1);
+      const saved = await saveSchema(config);
+      // Re-seat the panel's config only on a save that landed: a refused one
+      // keeps the open panel's draft, edit included, for a retry
+      // (objectui#11583).
+      if (saved) setConfigVersion((v) => v + 1);
+      return saved;
     },
     [saveSchema],
   );
@@ -408,7 +424,13 @@ export function ReportView({ dataSource }: { dataSource?: DataSource }) {
 
       <div className="flex-1 overflow-hidden flex flex-col sm:flex-row relative">
          <div className="flex-1 min-w-0 overflow-auto p-4 sm:p-6 lg:p-8 bg-muted/5">
-             <div className="w-full shadow-sm border rounded-lg sm:rounded-xl bg-background overflow-hidden min-h-150">
+             {/* The card is as tall as the report (objectui#11694). It carried
+                 `min-h-150` (37.5rem), leaving a five-row table in a mostly
+                 empty frame; nothing inside needs it: the loading and
+                 not-found states return before this card is drawn, the
+                 Suspense fallback and the renderer's own fetch states size to
+                 their text, and the embedded chart has a fixed plot height. */}
+             <div className="w-full shadow-sm border rounded-lg sm:rounded-xl bg-background overflow-hidden">
                  <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">{t('common.loading', { defaultValue: 'Loading…' })}</div>}>
                    <div className="p-4 sm:p-6">
                      <ReportRenderer schema={previewReport} dataSource={dataSource as any} rows={reportRuntimeData} onDrill={handleDatasetDrill} />

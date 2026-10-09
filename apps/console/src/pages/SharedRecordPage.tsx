@@ -14,11 +14,17 @@
  * chat uses (in `readOnly` mode — no composer), so assistant tool calls show
  * as proper proposed-plan / draft cards instead of a raw tool-result JSON
  * dump. Other object kinds fall back to a generic JSON preview.
+ *
+ * A link's password travels in the `X-Share-Password` request header, never in
+ * the request URL (objectui#11649) — see `SHARE_PASSWORD_HEADER`. A `401` is
+ * read by its `error.code`, not by its status alone: a link shared with
+ * signed-in users only answers `401` too, and asking that visitor for a password
+ * sent them to a prompt nothing could satisfy. It gets the sign-in path instead.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { AlertTriangle, Link2, Loader2, MessageSquare } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { AlertTriangle, Link2, Loader2, LogIn, MessageSquare } from 'lucide-react';
 
 import {
   Button,
@@ -34,7 +40,14 @@ import {
 } from '@object-ui/app-shell';
 import { ChatbotEnhanced } from '@object-ui/plugin-chatbot';
 
-import { normalizeResolvedShare, type ResolvedShare } from './shared-record-shape';
+import {
+  canSendSharePassword,
+  normalizeResolvedShare,
+  resolveGateOf,
+  shareRequestHeaders,
+  type ResolvedShare,
+  type ResolveErrorBody,
+} from './shared-record-shape';
 
 function resolveServerUrl(): string {
   const env = (import.meta as any).env ?? {};
@@ -46,30 +59,51 @@ function resolveServerUrl(): string {
 
 export default function SharedRecordPage() {
   const { token } = useParams<{ token: string }>();
+  const location = useLocation();
   const serverUrl = useMemo(() => resolveServerUrl(), []);
   const apiBase = `${serverUrl}/api/v1`;
 
   const [data, setData] = useState<ResolvedShare | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [needsPassword, setNeedsPassword] = useState(false);
+  const [gate, setGate] = useState<'password' | 'sign-in' | null>(null);
   const [password, setPassword] = useState('');
   const [messages, setMessages] = useState<RawAiMessageRow[] | null>(null);
+  // The password that unlocked the link, for the conversation's `/messages`
+  // request: that route re-checks the password, so without it a protected
+  // conversation reads as having no messages.
+  const unlockedWith = useRef<string | undefined>(undefined);
 
   const fetchResolve = useCallback(
     async (pw?: string) => {
       if (!token) return;
+      if (pw && !canSendSharePassword(pw)) {
+        // Stays on the prompt: the request is never built, so there is no
+        // answer to show — only why nothing was sent.
+        setError(
+          "This password has characters that can't be sent, such as Chinese characters or emoji. Ask the link's owner to set a password without them.",
+        );
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
         const url = new URL(`${apiBase}/share-links/${encodeURIComponent(token)}/resolve`);
-        if (pw) url.searchParams.set('password', pw);
         const res = await fetch(url.toString(), {
-          headers: { Accept: 'application/json' },
+          headers: shareRequestHeaders(pw),
         });
         if (res.status === 401) {
-          setNeedsPassword(true);
-          setError(pw ? 'Wrong password.' : null);
+          const body = (await res.json().catch(() => null)) as ResolveErrorBody | null;
+          const answer = resolveGateOf(body);
+          if (answer === 'sign-in-required') {
+            setGate('sign-in');
+          } else if (answer) {
+            setGate('password');
+            setError(answer === 'wrong-password' ? 'Wrong password.' : null);
+          } else {
+            setGate(null);
+            setError(body?.error?.message ?? `Failed to load (HTTP ${res.status}).`);
+          }
           setLoading(false);
           return;
         }
@@ -90,8 +124,10 @@ export default function SharedRecordPage() {
           return;
         }
         // Both envelopes fold to the same shape here — see `normalizeResolvedShare`.
-        setData(normalizeResolvedShare(await res.json()));
-        setNeedsPassword(false);
+        const resolved = normalizeResolvedShare(await res.json());
+        unlockedWith.current = pw;
+        setData(resolved);
+        setGate(null);
       } catch (e: any) {
         setError(e?.message ?? 'Failed to load shared content.');
       } finally {
@@ -111,7 +147,7 @@ export default function SharedRecordPage() {
     const url = `${apiBase}/share-links/${encodeURIComponent(
       data.link.token,
     )}/messages`;
-    fetch(url, { headers: { Accept: 'application/json' } })
+    fetch(url, { headers: shareRequestHeaders(unlockedWith.current) })
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => setMessages(body?.data ?? []))
       .catch(() => setMessages([]));
@@ -140,7 +176,31 @@ export default function SharedRecordPage() {
     );
   }
 
-  if (needsPassword) {
+  if (gate === 'sign-in') {
+    // The console's sign-in route, carrying `?redirect=` back to this link — the
+    // convention `LoginRedirect` uses: the target is the ROUTER's location, so a
+    // console mounted under a basename does not carry its mount into the value.
+    // A link rather than an automatic redirect: this page's requests send no
+    // bearer token, so they carry a session only as a same-origin cookie. Where
+    // that cookie does not reach the server, the visitor comes back signed in and
+    // still gets this answer — and an automatic redirect would then bounce
+    // between this page and the sign-in page without end.
+    const signInPath = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
+    return (
+      <div className="mx-auto flex h-svh max-w-md flex-col items-center justify-center gap-4 px-4 text-center">
+        <LogIn className="h-8 w-8 text-muted-foreground" />
+        <h1 className="text-lg font-semibold">Sign in required</h1>
+        <p className="text-sm text-muted-foreground">
+          The owner shared this link with signed-in users only.
+        </p>
+        <Button asChild size="sm">
+          <Link to={signInPath}>Sign in</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (gate === 'password') {
     return (
       <div className="mx-auto flex h-svh max-w-md flex-col items-center justify-center gap-4 px-4 text-center">
         <Link2 className="h-8 w-8 text-muted-foreground" />

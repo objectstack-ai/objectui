@@ -17,7 +17,7 @@
 
 import * as React from 'react';
 import { Loader2, Pencil, X, Check } from 'lucide-react';
-import type { DashboardWidgetSchema } from '@object-ui/types';
+import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
 import { useAdapter } from '../../../providers/AdapterProvider.js';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { PreviewShell, PreviewErrorBoundary, PreviewMessage } from './PreviewShell.js';
@@ -76,8 +76,10 @@ export function DashboardPreview({
     [onSelectionChange, widgets, locale],
   );
 
+  // Typed as `DashboardRenderer`'s `onWidgetsReorder` hands it: the slot's own
+  // array, each entry a widget or a component node (objectui#11514).
   const handleReorder = React.useCallback(
-    (next: DashboardWidgetSchema[]) => {
+    (next: DashboardComponentSchema['widgets']) => {
       if (!onPatch) return;
       onPatch({ widgets: next });
     },

@@ -101,8 +101,10 @@ describe('objectui#10946 — the TS faces admit the named view\'s expression slo
   });
 
   it('the zod mirror\'s `condition` input is the TS member, by construction', () => {
-    type MirrorRule = Extract<NonNullable<z.input<typeof ListViewSchema>['conditionalFormatting']>[number], { style: unknown }>;
-    type KanbanMirrorRule = Extract<z.input<typeof KanbanConditionalFormattingRuleSchema>, { style: unknown }>;
+    // One dialect on both rules — the list view's since objectui#11533, the kanban
+    // board's since objectui#11522 — so there is no union arm to extract.
+    type MirrorRule = NonNullable<z.input<typeof ListViewSchema>['conditionalFormatting']>[number];
+    type KanbanMirrorRule = z.input<typeof KanbanConditionalFormattingRuleSchema>;
     expectTypeOf<MirrorRule['condition']>().toEqualTypeOf<SpecConditionalFormattingRule['condition']>();
     expectTypeOf<KanbanMirrorRule['condition']>().toEqualTypeOf<SpecConditionalFormattingRule['condition']>();
   });
@@ -169,19 +171,24 @@ describe('objectui#10946 — the envelope arm IS the spec\'s slot schema (refere
   type UnionOf = { options: readonly unknown[] };
   type RuleArm = { shape: { condition: UnionOf } };
 
-  it('on the list view\'s rule union', () => {
-    const rule = ListViewSchema.shape.conditionalFormatting.unwrap().element as unknown as UnionOf;
-    const condition = (rule.options[1] as RuleArm).shape.condition;
+  // objectui#11533 retired the list view's (and the grid's) native arm too, so
+  // that rule is ONE object now as well, and `condition` is read straight off
+  // its shape.
+  it('on the list view\'s rule', () => {
+    const condition = (ListViewSchema.shape.conditionalFormatting.unwrap().element as unknown as RuleArm).shape.condition;
     expect(condition.options[1]).toBe(specConditionSlot);
   });
 
-  it('on the kanban rule union', () => {
-    const condition = ((KanbanConditionalFormattingRuleSchema as unknown as UnionOf).options[1] as RuleArm).shape.condition;
+  // objectui#11522 retired the kanban rule's native arm, so the rule is ONE
+  // object now (the spec list view's own, extended) and there is no union to
+  // index: `condition` is read straight off its shape.
+  it('on the kanban rule', () => {
+    const condition = (KanbanConditionalFormattingRuleSchema as unknown as RuleArm).shape.condition;
     expect(condition.options[1]).toBe(specConditionSlot);
   });
 
   it('CONTROL — the reference check can fail: the string arm is NOT the spec slot', () => {
-    const condition = ((KanbanConditionalFormattingRuleSchema as unknown as UnionOf).options[1] as RuleArm).shape.condition;
+    const condition = (KanbanConditionalFormattingRuleSchema as unknown as RuleArm).shape.condition;
     expect(condition.options[0]).not.toBe(specConditionSlot);
   });
 });

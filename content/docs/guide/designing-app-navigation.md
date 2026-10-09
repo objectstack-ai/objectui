@@ -97,10 +97,32 @@ field — there is no generic `path` and no `kind`:
 
 Requirements:
 
-- `id` (snake_case), `type`, and `label` are mandatory on every item.
+- `id` (snake_case) and `type` are mandatory on every item. `label` is
+  optional: an entry without one shows its target's **current** label, resolved
+  when the navigation renders — the view's label for an entry that names a
+  labelled view, else the object's or dashboard's label, else the target's
+  machine name. A renamed object, view or dashboard therefore shows its new
+  name on the next load without touching the navigation. Entries of other types
+  fall back to their target's name (`pageName`, `reportName`, the `url`) and a
+  group to its `id`, so give those a `label`. A `label` you do write renders
+  verbatim. Never write an empty `label` — omit the key instead.
 - The target field must match the type: `objectName`, `pageName`,
   `dashboardName`, `reportName`, or `url`. Keys like `path` or `kind` are
   ignored at runtime and rejected at save.
+- A `doc` entry opens the package documentation portal instead of a data
+  surface. It names a `book` (opens the book at its first readable page), a
+  `doc` (opens that page — the doc's name, i.e. its source filename stem such
+  as `crm_lead_guide`, never `crm_lead_guide.md` or a path), or both (that page
+  in that book). At least one of the two is required. Name the book by its
+  `name`, even when it declares a `slug`: the docs portal resolves the name and
+  redirects to the book's canonical `slug` URL. Who may read a book is the
+  book's `audience`, enforced by the server —
+  the entry itself carries only the usual `visible` / `requiredPermissions`
+  gates. You do not repeat the audience on the entry: a member who may not
+  read what it opens — a doc outside their audience, a book whose audience
+  excludes them or with no page they can read — does not see the entry. The
+  server leaves it out of the app it serves that member, and the console's
+  menu hides it too, from the member's own list of readable docs and books.
 - Put items under the `navigation` key. `menu` is deprecated legacy and only
   kept for backward compatibility.
 

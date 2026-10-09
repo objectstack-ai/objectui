@@ -10,9 +10,11 @@
       "name": "total_revenue",
       "label": "Total Revenue",
       "type": "summary",
-      "summary_object": "orders",
-      "summary_field": "amount",
-      "summary_type": "sum",
+      "summaryOperations": {
+        "object": "orders",
+        "field": "amount",
+        "function": "sum"
+      },
       "readonly": true
     }
   ]

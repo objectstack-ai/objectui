@@ -8,7 +8,19 @@
 
 /**
  * objectui#10321 — a named view's stray `kanban.groupBy` is refused at the
- * object-view read door, with the string the `list-view` route already gives.
+ * object-view read door.
+ *
+ * ## ⭐ RE-PINNED at objectui#11073: the protocol's refusal, and no pointer
+ *
+ * Until `@objectstack/spec` 17.5.0 this door added objectui's pointer
+ * (`custom` at `listViews.KEY.kanban.groupBy`, the `list-view` route's string)
+ * beside the protocol's `unrecognized_keys`. 17.5.0 makes that refusal TERMINAL,
+ * zod then skips even a `when`-guarded check, and the pointer
+ * (`checkNamedViewKanbanStrayGroupBy`) was retired (seat ruling Q2 → A on
+ * objectui#11073). The rows below pin what stands: the protocol refuses the
+ * key by name at `listViews.KEY.kanban`, and objectui adds no issue of its own.
+ * The `list-view` route keeps the pointer; `listViewRouteMessage` still reads it
+ * there, as the control that the pointer lives on and was not deleted.
  *
  * The objectui#8365 ruling (B, maintainer 「8365 同意」) refuses a stored view's
  * `kanban.groupBy` loudly 「at the read door of the view, visible to the author
@@ -21,18 +33,17 @@
  *
  * ## What is asserted
  *
- * - REFUSED, both nestings, through the published door (`safeValidateSchema`,
- *   which `objectui validate` runs): the issue's `code` and `path`, and a
- *   message EQUAL to the one the `list-view` route gives. Equality, not a copy
- *   of the text: the ruling fixes the sentence shape, and the lead sentence is
- *   asserted only because the ruling names it.
+ * - REFUSED through the published door (`safeValidateSchema`, which
+ *   `objectui validate` runs): the protocol's `unrecognized_keys` at the block,
+ *   naming the key (since objectui#11073; until then also objectui's pointer,
+ *   a message EQUAL to the one the `list-view` route gives).
  * - DARK CONTROL: the canonical named view parses green through the same door.
  * - SCOPE CONTROLS: the door is not a mirror of `listViews`. An undeclared
  *   sibling in the kanban block is kept, a kanban block without the spec's
  *   required `columns` is accepted, and so is the legacy `options.kanban` bag
  *   without the stray key.
- * - SIBLING CONTROL: the calendar check on the same door still fires, so an
- *   ablation of the kanban check reddens the kanban pins alone.
+ * - SIBLING CONTROL: the calendar block on the same door is refused the same
+ *   way, by the protocol, naming its retired spelling.
  *
  * ## ⭐ Inverted at objectui#7928, ⛔ no assertion deleted
  *
@@ -47,11 +58,8 @@
  * of its own to any of them. Fixtures meant as canonical carry the protocol's
  * required `columns`.
  *
- * REVERSE VERIFICATION, direction predicted before running: unwire
- * `checkNamedViewKanbanStrayGroupBy` from `ObjectViewSchema` ⇒ every REFUSED arm
- * goes red (the document parses green), while the dark, scope and sibling
- * controls stay green. The run is recorded on the pull request, not kept as a
- * test.
+ * The reverse verification objectui#10321 recorded (unwiring the pointer turned
+ * the REFUSED arms red) described the retired check; it is not re-runnable.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -93,22 +101,20 @@ const CANONICAL_KANBAN = { type: 'kanban', columns: ['name'], kanban: { groupByF
 const customIssues = (result: ReturnType<typeof safeValidateSchema>) => issuesOf(result).filter((i) => i.code === 'custom');
 
 describe('objectui#10321 · a named view authoring the stray `kanban.groupBy` is REFUSED', () => {
-  it('declared `kanban` block: refused by name at its own path, with the list-view route\'s string', () => {
+  it('declared `kanban` block: refused by the protocol, naming the key at the block (objectui#11073)', () => {
     const view = { ...CANONICAL_KANBAN, kanban: { ...CANONICAL_KANBAN.kanban, groupBy: 'stage' } };
-    const path = 'listViews.v1.kanban.groupBy';
     const result = safeValidateSchema(objectView({ v1: view }));
-    expect(result.success, `${path} still parses green`).toBe(false);
-    const issue = issueAt(result, path);
-    expect(issue?.code).toBe('custom');
-    expect(issue?.message).toBe(listViewRouteMessage());
-    expect(issue?.message).toContain('Did you mean `groupBy` → `groupByField`?');
-    // Was "one key written, one issue". Since objectui#7928 the protocol's own
-    // refusal of the key sits beside this door's pointer: one key written, two
-    // issues, the refusal at the block and the pointer at the key.
-    expect(issuesOf(result), 'one key written: the protocol\'s refusal and this door\'s pointer').toHaveLength(2);
+    expect(result.success, 'listViews.v1.kanban.groupBy still parses green').toBe(false);
+    // One key written, one issue: the protocol's refusal at the block. The pointer
+    // that stood beside it at `listViews.v1.kanban.groupBy` was retired.
+    expect(issuesOf(result), 'one key written: the protocol\'s refusal alone').toHaveLength(1);
     const refusal = issueAt(result, 'listViews.v1.kanban') as (Issue & { keys?: string[] }) | undefined;
     expect(refusal?.code).toBe('unrecognized_keys');
     expect(refusal?.keys).toEqual(['groupBy']);
+    expect(refusal?.message).toContain('`groupBy`');
+    expect(issueAt(result, 'listViews.v1.kanban.groupBy')).toBeUndefined();
+    // Control: the `list-view` route still answers the same key with objectui's pointer.
+    expect(listViewRouteMessage()).toContain('Did you mean `groupBy` → `groupByField`?');
   });
 
   it('INVERTED — legacy `options.kanban` bag: refused WHOLE, `options` by name, and no longer judged inside (objectui#7928)', () => {
@@ -132,7 +138,8 @@ describe('objectui#10321 · a named view authoring the stray `kanban.groupBy` is
       clean: CANONICAL_KANBAN,
       stray: { ...CANONICAL_KANBAN, kanban: { ...CANONICAL_KANBAN.kanban, groupBy: 'owner' } },
     }));
-    expect(customIssues(result).map((i) => i.path.join('.'))).toEqual(['listViews.stray.kanban.groupBy']);
+    expect(issuesOf(result).filter((i) => i.code === 'unrecognized_keys').map((i) => i.path.join('.'))).toEqual(['listViews.stray.kanban']);
+    expect(customIssues(result)).toEqual([]);
     // …and nothing at all is reported under the clean view.
     expect(issuesOf(result).filter((i) => i.path.join('.').startsWith('listViews.clean'))).toEqual([]);
   });
@@ -175,10 +182,12 @@ describe('objectui#10321 · the controls, each able to fire on its own', () => {
     expect(customIssues(legacyBag)).toEqual([]);
   });
 
-  it('SIBLING CONTROL: the calendar arm on the same door still refuses its retired spelling', () => {
+  it('SIBLING CONTROL: the calendar block on the same door is refused by the protocol too, naming its retired spelling', () => {
     const result = safeValidateSchema(objectView({ v1: { type: 'calendar', calendar: { dateField: 'kickoff' } } }));
-    const issue = issueAt(result, 'listViews.v1.calendar.dateField');
-    expect(issue?.code).toBe('custom');
-    expect(issue?.message).toContain('Did you mean `dateField` → `startDateField`?');
+    const refusal = issueAt(result, 'listViews.v1.calendar') as (Issue & { keys?: string[] }) | undefined;
+    expect(refusal?.code).toBe('unrecognized_keys');
+    expect(refusal?.keys).toEqual(['dateField']);
+    expect(issueAt(result, 'listViews.v1.calendar.dateField')).toBeUndefined();
+    expect(customIssues(result)).toEqual([]);
   });
 });

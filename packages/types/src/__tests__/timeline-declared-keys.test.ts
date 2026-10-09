@@ -22,7 +22,7 @@
  * registration's own `inputs`), nor what the renderer reads; those three agreed
  * with each other all along.
  *
- * The divergence was invisible to `tsc` because `BaseSchema` carries
+ * The divergence was invisible to `tsc` because `BaseSchema` carried
  * `[key: string]: any`, so every undeclared key resolved as `any` and the
  * annotation constrained nothing. Its most visible casualty was the docs page's
  * own TypeScript example, which did not compile — `events` was required and
@@ -36,21 +36,25 @@
  * ## What the pin has teeth against, and what it does not
  *
  * Same ceiling as objectui#5903's gantt pin, and stated here rather than left
- * to be assumed. `BaseSchema` is `.passthrough()` on the zod side and carries
- * an index signature on the TS side (objectui#5155 / objectui#6269 own that
- * ceiling; this card does not touch it), so:
+ * to be assumed. `BaseSchema` is `.passthrough()` on the zod side and carried
+ * an index signature on the TS side until objectui#8347 (objectui#5155 /
+ * objectui#6269 owned that ceiling; this card did not touch it), so:
  *
- *   - an UNDECLARED key is still accepted by both halves. Declaring these eight
- *     did NOT buy rejection of a misspelling;
+ *   - an UNDECLARED key is still accepted by the zod half (and was by the TS
+ *     half while the signature stood). Declaring these eight did NOT buy
+ *     rejection of a misspelling there;
  *   - a DECLARED key IS validated. `variant: 'diagonal'` type-checked and
  *     parsed green before this card and is refused now — that is the accept-set
  *     narrowing landed here;
- *   - on the TS side a read site can never be the detector, because the index
- *     signature types `schema.variant` as `any` either way. So the compile-time
- *     pin is the `@ts-expect-error` block at the bottom: remove a declaration
- *     and its member resolves to `any`, the wrong-typed assignment starts
- *     succeeding, and the now-unused directive fails the build (TS2578) NAMING
- *     the key. `tsconfig.test.json` compiles this file, so that is real
+ *   - on the TS side a read site could never be the detector while the index
+ *     signature typed `schema.variant` as `any` either way. So the compile-time
+ *     pin is the `@ts-expect-error` block at the bottom: when written, removing a
+ *     declaration made its member resolve to `any`, the wrong-typed assignment
+ *     started succeeding, and the now-unused directive failed the build
+ *     (TS2578) NAMING the key. Since objectui#8347 a removal makes the indexed
+ *     access itself an error, which the directive swallows, so a deletion is
+ *     caught by the well-typed counter-probe instead (its literal names every
+ *     key). `tsconfig.test.json` compiles this file, so that is real
  *     enforcement and not decoration (objectui#3009).
  *
  * ## The three keys that were declared and never read — now RETIRED
@@ -247,10 +251,13 @@ describe('TimelineSchema (TS) — compile-time pin on the same keys', () => {
   });
 
   it('refuses a wrong-typed value on every declared key', () => {
-    // Each directive below fails the build (TS2578, "unused '@ts-expect-error'")
-    // the moment its key stops being declared, because the member then resolves
-    // to `any` through `BaseSchema`'s index signature and the assignment starts
-    // succeeding. That failure is the signal this card exists to create.
+    // Each directive below failed the build (TS2578, "unused '@ts-expect-error'")
+    // the moment its key stopped being declared, while the member resolved to
+    // `any` through `BaseSchema`'s index signature. Since objectui#8347 a removal
+    // makes the indexed access itself an error, which its directive swallows, so
+    // the deletion signal comes from the well-typed counter-probe below; each
+    // directive still fails the build if its member is widened to accept the
+    // value.
 
     // @ts-expect-error — `variant` is declared `'vertical' | 'horizontal' | 'gantt' | undefined`.
     const variant: TimelineSchemaTS['variant'] = 'diagonal';

@@ -1,6 +1,6 @@
 {
   "name": "@object-ui/plugin-designer",
-  "version": "17.6.0",
+  "version": "17.7.0",
   "type": "module",
   "license": "MIT",
   "description": "Visual designer plugin for Object UI with page, data model, process, and report designers plus collaborative editing.",
@@ -37,6 +37,7 @@
     "@object-ui/core": "workspace:*",
     "@object-ui/data-objectstack": "workspace:*",
     "@object-ui/i18n": "workspace:*",
+    "@object-ui/layout": "workspace:*",
     "@object-ui/plugin-form": "workspace:*",
     "@object-ui/plugin-grid": "workspace:*",
     "@object-ui/react": "workspace:*",

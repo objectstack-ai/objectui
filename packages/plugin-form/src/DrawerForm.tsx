@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useRef, useId } from 'react';
-import type { FormField, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import {
   Sheet,
   SheetContent,
@@ -74,8 +74,11 @@ import {
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useRecordInvalidation } from './recordInvalidation';
 
-// Localized strings for the unsaved-changes guard. Falls back to English when
-// no i18n provider is mounted (createSafeTranslation handles that).
+// Localized strings for the unsaved-changes guard and, since objectui#11039,
+// the form's own chrome (the default submit and cancel labels, the loading
+// line and the load-failure heading — the same keys and values as
+// `formChrome.ts`). Falls back to English when no i18n provider is mounted
+// (createSafeTranslation handles that).
 const useDiscardTranslation = createSafeTranslation(
   {
     'form.discardTitle': 'Discard changes?',
@@ -88,6 +91,11 @@ const useDiscardTranslation = createSafeTranslation(
     'form.dialogDescriptionFallback': 'Complete the form fields, then submit or cancel.',
     'form.keepEditing': 'Keep editing',
     'form.discard': 'Discard',
+    'form.create': 'Create',
+    'form.update': 'Update',
+    'common.cancel': 'Cancel',
+    'form.errorLoading': 'Error loading form',
+    'publicForm.loading': 'Loading form…',
   },
   'form.discardTitle',
 );
@@ -97,7 +105,12 @@ export interface DrawerFormSectionConfig {
   label?: string;
   description?: string;
   columns?: 1 | 2 | 3 | 4;
-  fields: (string | FormField)[];
+  /**
+   * The same three entry shapes as `ObjectFormSection.fields`, by reference:
+   * a field name, the form view's `{ field, … }` entry, or an inline
+   * `FormField` (objectui#11615).
+   */
+  fields: NonNullable<ObjectFormSection['fields']>;
   collapsible?: boolean;
   collapsed?: boolean;
   /**
@@ -654,9 +667,10 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       : { height: schema.drawerWidth, maxHeight: schema.drawerWidth };
   }, [schema.drawerWidth, side]);
 
-  const formLayout = (schema.layout === 'vertical' || schema.layout === 'horizontal')
-    ? schema.layout
-    : 'vertical';
+  // `vertical | horizontal` on the declared face; the fold that mapped any
+  // other value to `vertical` was retired with `inline` / `grid`
+  // (objectui#11168 slice 3, objectui#7759 group C).
+  const formLayout = schema.layout ?? 'vertical';
 
   // Action buttons live in the drawer's own footer (not inside the form
   // renderer). Routing Cancel through the footer lets it call the
@@ -666,12 +680,18 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   // would keep an already-emptied form. Mirrors ModalForm.
   const showSubmit = schema.showSubmit !== false && schema.mode !== 'view';
   const showCancel = schema.showCancel !== false;
-  const submitLabel = schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update');
-  const cancelLabel = schema.cancelText || 'Cancel';
+  const submitLabel = schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update'));
+  const cancelLabel = schema.cancelText || t('common.cancel');
 
-  // Build base form schema
-  const baseFormSchema = {
-    type: 'form' as const,
+  // Build base form schema.
+  //
+  // Typed as the child `form` node it is (objectui#11354), and so is every node
+  // `renderContent` builds from it: each is a `FormSchema` const before it
+  // reaches `SchemaRenderer`. `SchemaRenderer`'s `schema` slot is `BaseSchema`,
+  // so a literal written inline there was checked against `BaseSchema`, not
+  // against the `FormSchema` the `form` renderer reads.
+  const baseFormSchema: FormSchema = {
+    type: 'form',
     objectName: schema.objectName,
     layout: formLayout,
     defaultValues: formData,
@@ -692,7 +712,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     if (error) {
       return (
         <div className="p-4 border border-red-300 bg-red-50 rounded-md">
-          <h3 className="text-red-800 font-semibold">Error loading form</h3>
+          <h3 className="text-red-800 font-semibold">{t('form.errorLoading')}</h3>
           <p className="text-red-600 text-sm mt-1">{error.message}</p>
         </div>
       );
@@ -702,7 +722,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       return (
         <div className="p-8 text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          <p className="mt-2 text-sm text-gray-600">Loading form...</p>
+          <p className="mt-2 text-sm text-gray-600">{t('publicForm.loading')}</p>
         </div>
       );
     }
@@ -757,14 +777,11 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         }
       });
 
-      return (
-        <SchemaRenderer
-          schema={{
-            ...baseFormSchema,
-            fields: allFields,
-          }}
-        />
-      );
+      const sectionsFormSchema: FormSchema = {
+        ...baseFormSchema,
+        fields: allFields,
+      };
+      return <SchemaRenderer schema={sectionsFormSchema} />;
     }
 
     // Derived field-group sections (object `fieldGroups` metadata, #4774) —
@@ -808,16 +825,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         allFields.push(...(collapse.collapsed ? laidOut.map(f => ({ ...f, hidden: true })) : laidOut));
       });
       const groupedFieldClass = CONTAINER_GRID_COLS[columns];
-      return (
-        <SchemaRenderer
-          schema={{
-            ...baseFormSchema,
-            fields: allFields,
-            columns,
-            ...(groupedFieldClass ? { fieldContainerClass: groupedFieldClass } : {}),
-          }}
-        />
-      );
+      const groupedFormSchema: FormSchema = {
+        ...baseFormSchema,
+        fields: allFields,
+        columns,
+        ...(groupedFieldClass ? { fieldContainerClass: groupedFieldClass } : {}),
+      };
+      return <SchemaRenderer schema={groupedFormSchema} />;
     }
 
     // Apply auto-layout for flat fields (infer columns + colSpan)
@@ -829,16 +843,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     // responds to the drawer width, not the viewport width.
     const containerFieldClass = CONTAINER_GRID_COLS[autoLayoutResult.columns || 1];
 
-    return (
-      <SchemaRenderer
-        schema={{
-          ...baseFormSchema,
-          fields: autoLayoutResult.fields,
-          columns: autoLayoutResult.columns,
-          ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
-        }}
-      />
-    );
+    const flatFormSchema: FormSchema = {
+      ...baseFormSchema,
+      fields: autoLayoutResult.fields,
+      columns: autoLayoutResult.columns,
+      ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
+    };
+    return <SchemaRenderer schema={flatFormSchema} />;
   };
 
   // objectui#11000 — why `gateFields` locked every field, when the lock is the

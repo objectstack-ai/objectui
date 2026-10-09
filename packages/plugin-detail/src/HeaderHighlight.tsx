@@ -18,7 +18,7 @@ import {
 } from '@object-ui/components';
 import type { HighlightField } from '@object-ui/types';
 import { EXPANDABLE_FIELD_TYPES } from '@object-ui/core';
-import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
+import { getCellRenderer, resolveCellRendererType, useBooleanValueLabel } from '@object-ui/fields';
 import { useSafeFieldLabel, useInlineEdit } from '@object-ui/react';
 import { Check, X, Pencil } from 'lucide-react';
 import { InlineFieldInput } from './InlineFieldInput';
@@ -53,6 +53,10 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
 }) => {
   const { fieldLabel } = useSafeFieldLabel();
   const { t } = useDetailTranslation();
+  // The boolean chip's word (objectui#11689) — the one every read-only boolean
+  // word in `@object-ui/fields` reads, so this strip cannot say a different
+  // word from the field the same record shows in its form.
+  const booleanLabel = useBooleanValueLabel();
   // Shared record-level inline-edit session (objectui#2407 P2). Null when the
   // host doesn't wrap the page in an <InlineEditProvider> → strip stays
   // read-only, exactly as before.
@@ -111,8 +115,8 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
             // Shared with DetailSection (`enrichDetailField`) so the highlights
             // strip and the details body resolve an identical field shape —
             // including the relational keys a lookup picker needs (`multiple`,
-            // display/id fields, picker config), and the `reference` /
-            // `reference_to` spelling pair backend schemas use.
+            // display/id fields, picker config), and the `reference` target
+            // backend schemas use.
             const enrichedField = enrichDetailField(
               { name: field.name, label: field.label, type: resolvedType || 'text' },
               objectDefField,
@@ -170,7 +174,13 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
             // Two independent reasons a chip needs the wide basis, kept
             // separate because only one of them is a shared table:
             //  1. long-text DISPLAY types, whose value simply does not fit a
-            //     9rem column — this surface's own list, unchanged here;
+            //     9rem column — this surface's own list. `phone` joined it in
+            //     objectui#11659: its cell draws a dial icon and a copy button
+            //     around the number inside an `inline-flex` box, and the
+            //     `truncate` span below cannot put an ellipsis on an
+            //     inline-flex child — it clips it. A 9rem chip cut
+            //     `0574-8765-4321` to `0574-876` with no ellipsis; the wide
+            //     basis shows a whole number;
             //  2. REFERENCE-BEARING types, whose inline editor is a record
             //     picker (see the `dataSource` prop doc above, which already
             //     names `lookup` / `user` together as the reference editors).
@@ -191,6 +201,7 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
             const isWide =
               resolvedType === 'email' ||
               resolvedType === 'url' ||
+              resolvedType === 'phone' ||
               resolvedType === 'textarea' ||
               (!!resolvedType && EXPANDABLE_FIELD_TYPES.has(resolvedType));
             const isBoolean = resolvedType === 'boolean';
@@ -210,12 +221,32 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
             // expand-on-edit) instead of cramming it into a 9rem column.
             const useWide = isWide || editorActive;
 
+            // How the row's width is shared (objectui#11684). The basis is the
+            // column's FLOOR, and line breaking still reads it, so which chips
+            // share a line is what it always was. `grow` then hands the line's
+            // free width to the columns, and `max-w-max` caps each one at its
+            // own content: a column that already fits stops growing and the
+            // rest of the free width goes on to the columns that still need
+            // it. A value truncates only once its line has no free width left.
+            //
+            // The old fixed caps (16rem / 24rem, no grow) cut "QA Widget 1" to
+            // "QA Wid…" in a 9rem chip with most of the drawer row empty. The
+            // content cap keeps what those caps were for: no column is ever
+            // wider than what it shows, so a sparse strip still packs left
+            // and the hover pencil stays beside its value.
+            //
+            // The floor is a min-width as well as the basis, so a short value
+            // keeps its 9rem column. The `min(…, 100%)` lets a column narrow to
+            // the row when the row itself is narrower than the floor.
             return (
               <div
                 key={field.name}
                 className={cn(
-                  'group flex flex-col gap-1 min-w-[7rem] px-5 border-l border-border/60 first:border-l-0 first:pl-0',
-                  useWide ? 'basis-[16rem] max-w-[24rem]' : 'basis-[9rem] max-w-[16rem]',
+                  'group flex flex-col gap-1 px-5 border-l border-border/60 first:border-l-0 first:pl-0',
+                  'grow max-w-max',
+                  useWide
+                    ? 'basis-[16rem] min-w-[min(16rem,100%)]'
+                    : 'basis-[9rem] min-w-[min(9rem,100%)]',
                 )}
               >
                 <span className="text-xs font-medium text-muted-foreground">
@@ -266,12 +297,12 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
                         value ? (
                           <span className="inline-flex items-center gap-1 self-start rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 ring-1 ring-inset ring-emerald-500/30 dark:text-emerald-400">
                             <Check className="h-3 w-3" aria-hidden />
-                            Yes
+                            {booleanLabel(true)}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 self-start rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-500/30 dark:text-amber-400">
                             <X className="h-3 w-3" aria-hidden />
-                            No
+                            {booleanLabel(false)}
                           </span>
                         )
                       ) : isEmpty ? (

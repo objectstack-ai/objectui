@@ -69,8 +69,9 @@ const mockClient = {
   layered: vi.fn(async () => ({ effective: objectDef, code: objectDef })),
   getDraft: vi.fn(async () => null),
   // The curated hook editor resolves the bound object's field catalog through
-  // `useObjectFields` -> `client.get`.
+  // `useObjectFields` -> `client.withPreviewDrafts(true).get`.
   get: vi.fn(async () => null),
+  withPreviewDrafts() { return this; },
 };
 
 vi.mock('../metadata-admin/useMetadata', async (importOriginal) => {
@@ -95,6 +96,11 @@ vi.mock('@object-ui/components', async (importOriginal) => {
     DropdownMenuTrigger: (p: Passthrough) => <div>{p.children}</div>,
     DropdownMenuContent: (p: Passthrough) => <div>{p.children}</div>,
     DropdownMenuItem: (p: Passthrough & { onSelect?: () => void }) => (
+      <button type="button" onClick={() => p.onSelect?.()}>{p.children}</button>
+    ),
+    // objectui#11794 — the Advanced items are radio items (the menu checks the open panel).
+    DropdownMenuRadioGroup: (p: Passthrough) => <div>{p.children}</div>,
+    DropdownMenuRadioItem: (p: Passthrough & { onSelect?: () => void }) => (
       <button type="button" onClick={() => p.onSelect?.()}>{p.children}</button>
     ),
   };

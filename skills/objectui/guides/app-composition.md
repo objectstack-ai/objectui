@@ -36,8 +36,9 @@ source of truth for that mapping.
   `filters` is mutually exclusive with `recordId`/`viewName`; `runAction` is refused with
   `recordId` (it composes with `viewName` or `filters`); `recordId` + `viewName` is tolerated.
   `filters` is a `Record<string, string>` (equality; serialized as `filter[<field>]=<value>` on `/data`).
-- Every nav item needs a snake_case `id` and a `label` (both required by
-  `NavigationItemSchema`).
+- Every nav item needs a snake_case `id`; `label` is optional — when absent, the entry shows its
+  target's current label at render time (objectui#9868), so write one only for a deliberate
+  nav-only name or for a target with no label of its own (e.g. a page, report, URL or group).
 - The `navigation` key is the spec'd root for app nav. `menu` is deprecated
   legacy (`MenuItem[]`, auto-migrated at runtime via
   `menuItemToNavigationItem`); never generate it.

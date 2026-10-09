@@ -30,6 +30,8 @@ import { DatasourcePreview } from './DatasourcePreview.js';
 import { ValidationPreview } from './ValidationPreview.js';
 import { DatasetPreview } from './DatasetPreview.js';
 import { BookPreview } from './BookPreview.js';
+import { DocPreview } from './DocPreview.js';
+import { PicklistPreview } from './PicklistPreview.js';
 
 export function registerBuiltinPreviews(): void {
   // UI surfaces
@@ -42,6 +44,10 @@ export function registerBuiltinPreviews(): void {
   // Data
   registerMetadataPreview('object', ObjectPreview);
   registerMetadataPreview('datasource', DatasourcePreview);
+  // objectui#10202 — the shared picklist's read-only page: its options, and the
+  // options other packages add to it, each under its declaring package. The
+  // kind is package-owned, so the page offers no create, edit or delete.
+  registerMetadataPreview('picklist', PicklistPreview);
   // ADR-0088 retired STANDALONE `validation` items, and objectui#4132 removed
   // the console door that authored them. This registration is not residue: a
   // rule lives embedded in `object.validations`, and `EmbeddedItemEditor` looks
@@ -56,6 +62,9 @@ export function registerBuiltinPreviews(): void {
   // Documentation navigation spine (ADR-0046 §6): ordered groups with
   // derived membership over docs.
   registerMetadataPreview('book', BookPreview);
+  // The doc itself (ADR-0046): a Markdown source pane beside a live preview,
+  // its locale variants and its book-section placement (objectui#10188).
+  registerMetadataPreview('doc', DocPreview);
   // Automation
   // Approval is a flow node (`type: 'approval'`) since ADR-0019 — it renders on
   // the Flow canvas with its `approve` / `reject` branches; no standalone

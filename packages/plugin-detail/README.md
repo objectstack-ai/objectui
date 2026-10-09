@@ -134,9 +134,7 @@ const accountDetail = <DetailView
 
 ```tsx
 import { DetailView } from '@object-ui/plugin-detail';
-import type { FeedItem } from '@object-ui/types';
 
-declare const activityData: FeedItem[];
 declare const navigate: (url: string) => void;
 declare const deleteAccount: (id: string) => void;
 
@@ -169,9 +167,10 @@ const accountDetail = <DetailView
         badge: '12',
         // `record:activity` — the registered Activity Timeline block. Reachable
         // under that exact key and no other; see the note below the block.
+        // Its inputs go in `properties`, as the spec declares them.
         content: {
           type: 'record:activity',
-          items: activityData,
+          properties: { limit: 20, showCompleted: false },
         },
       },
     ],
@@ -200,12 +199,15 @@ nothing registers):
   stops the bare name from also being claimed globally — so `record:activity`
   resolves and `activity` resolves to nothing. `activity` is additionally a tab
   **key** in the example above; the two are unrelated.
-- **The feed arrives as `items`, not `data`.** `record:activity` takes its feed
-  from three sources, in precedence order: `items` on the node, a mounted
-  discussion context, or a self-fetch from `sys_activity` scoped off
-  `useRecordContext`. The last two need a record host; a bare `<DetailView>`
-  like the one above mounts neither, so a caller that already owns the feed
-  passes it in as `items` (the convention `record:history` uses for `entries`).
+- **The node declares the feed's filters, not the feed.** Its inputs (`limit`,
+  `showCompleted`, `types`, `filterMode`, …) go in its `properties` bag, and
+  the block finds its own feed: a mounted discussion context, or a self-fetch
+  from `sys_activity` scoped to the record `useRecordContext` binds. Both need
+  a record host; a bare `<DetailView>` like the one above mounts neither, so
+  there the tab draws the block's empty state ("No activity recorded"). Under
+  a record host, such as the console's record page, the same node draws that
+  record's activity. `items` (with its `loading` flag) is the host's feed
+  slot, not a key of this node: `@object-ui/types` refuses it by name, and
   `data` is not a key this block reads.
 
 See **The `record:activity` block** in the plugin-detail guide for its declared
@@ -238,6 +240,9 @@ const schema: DetailViewSchema = {
   fields: [],
   tabs: [],
   actions: [],
+  // The view's own heading (title, follow-star, copy-id chip); drawn unless
+  // `false`. `record:details` sets it from its own `showHeader`.
+  showHeader: true,
   showBack: true,
   backUrl: '/accounts',
   showEdit: true,
@@ -258,11 +263,16 @@ render as text it renders as text.
 
 A **`percent`** chip is formatted by `@object-ui/fields`' `formatPercent` — the
 same call the list cell makes — so one stored value reads the same beside the H1
-as it does in a list: scaled by `percentDisplayValue`, rounded to the field's
-declared `precision` (`0` when it declares none), and rendered through the
-display locale's own percent affix rather than an appended sign. A stored
-`1234.5` therefore reads `1,235%` in an `en` session and carries the locale's
-own affix and marks elsewhere. Which stored values that convention moves, and
+as it does in a list: scaled at the storage the field declares (the spec's
+`percentScaleOf`: a fraction unless the field declares a `max` above 1, read
+through `percentCellScale` in `@object-ui/fields`, never guessed from the
+value), rounded to the width `resolveFieldScale` (`@objectstack/spec/data`)
+resolves for the field — its declared `scale`, or the protocol's own width for
+a percent that declares none, which every percent face reads (objectui#9843) —
+and rendered through the display locale's own percent affix rather than an
+appended sign. A stored `1234.5` on a field declaring `max: 100` therefore
+reads `1,235%` in an `en` session, and a stored `1` on a field declaring no
+`max` reads `100%`; both carry the locale's own affix and marks elsewhere. Which stored values that convention moves, and
 what each reads in both places, is re-derived by
 `src/__tests__/summaryChip.percentConvention-9167.test.tsx` rather than listed
 here. The chip's bar keeps the unrounded magnitude, as the list cell's bar does.
@@ -403,10 +413,12 @@ Displays related records in list, grid, or table format.
 >   <SchemaRenderer
 >     schema={{
 >       type: 'record:related_list',
->       objectName: 'contact',
->       relationshipField: 'account_id',
->       title: 'Contacts',
->       columns: ['name', 'email', 'phone'],
+>       properties: {
+>         objectName: 'contact',
+>         relationshipField: 'account_id',
+>         title: 'Contacts',
+>         columns: ['name', 'email', 'phone'],
+>       },
 >     }}
 >   />
 > );
@@ -695,8 +707,9 @@ const asideRegion = {
 };
 ```
 
-The renderer reads `entries` from both `schema.entries` and
-`schema.properties.entries` so either spec-style or flat authoring works.
+The `entries` go in the node's `properties` bag, as the example shows: that
+bag is the contract, and `objectui validate` refuses a flat `entries` written
+on the node itself, naming `properties.entries`.
 
 ## License
 

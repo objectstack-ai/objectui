@@ -93,6 +93,11 @@ export {
   UNMAPPED_ACTIVITY_FEED_TYPE,
   activityRowToFeedItem,
   resetUnknownActivityTypeWarnings,
+  // objectui#11195: the refused-read verdict joins the reading for the same
+  // reason. `RecordDetailView` reads the same two tables, and a refusal it
+  // judged differently would show "no permission" on one surface and "no
+  // activity" on the other.
+  isRefusedFeedRead,
 } from './renderers/recordActivityFeed';
 export type { SysActivityRow } from './renderers/recordActivityFeed';
 
@@ -403,23 +408,29 @@ ComponentRegistry.register('detail-section', DetailSectionNode, {
   ],
 });
 
-// Register RelatedList component
-ComponentRegistry.register('related-list', RelatedList, {
-  namespace: 'plugin-detail',
-  label: 'Related List',
-  category: 'Detail Components',
-  inputs: [
-    { name: 'title', type: 'string', required: true },
-    { name: 'type', type: 'enum', enum: [
-      { label: 'List', value: 'list' },
-      { label: 'Grid', value: 'grid' },
-      { label: 'Table', value: 'table' }
-    ] },
-    { name: 'api', type: 'string' },
-    { name: 'data', type: 'array' },
-    { name: 'columns', type: 'array' },
-  ],
-});
+/**
+ * ⛔ The `related-list` node type key is RETIRED (objectui#10859 batch 8,
+ * phase 2b, the seat's ruling on that card, by the objectui#10393 /
+ * objectui#8760 route). The related-list block authors write is the armed
+ * `record:related_list` (registered below as `related_list`, namespace
+ * `record`). `RelatedList` itself stays a named export of this package, and
+ * `RecordRelatedListRenderer` renders through it directly.
+ *
+ * ## What was here, and why it went
+ *
+ * `ComponentRegistry.register('related-list', RelatedList, { namespace:
+ * 'plugin-detail', ... })` — the raw component published as a node key, storing
+ * `plugin-detail:related-list` and the bare `related-list` fallback. No
+ * `@object-ui/types` arm claims it, so `objectui validate` refused a node
+ * authored `type: 'related-list'` at `type` while the registry mounted it. Its
+ * declared `type` input (`list` / `grid` / `table`) also collided with the
+ * node discriminator: a node could not carry both.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the node: 0 producers in source, docs, examples, the catalog
+ * or objectstack, and 0 runtime emission, re-measured for phase 2b.
+ */
 
 // Alias for generic view
 ComponentRegistry.register('detail', DetailView, {
@@ -519,11 +530,12 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
   // `record:reference_rail`'s own component-level `hideEmpty` input below.
   inputs: [
     { name: 'columns', type: 'enum', enum: ['1', '2', '3', '4'], description: 'Number of columns for field layout (1-4)' },
-    { name: 'sections', type: 'array', of: 'object', description: 'Field groups rendered as the detail body, in order. Every entry is an OBJECT — `{ name?, label?, columns?, fields }` — a bare section-id string is NOT accepted (the spec retired that spelling in objectstack#5611, and the renderer reads name/label/fields off each entry, so a string entry renders no fields at all). `fields` are the field names shown in this section, in order — required unless `group` supplies the members instead (the spec refuses a section carrying neither, and refuses one carrying both). `label` is the section heading; omit it for an untitled, borderless section. `name` is a stable snake_case identifier and the i18n anchor — the heading resolves through objects.<object>._sections.<name>.label, so a section without a name shows its authored label in every locale. `columns` (1-4) is THIS section\'s field-grid width; omit it and the renderer derives the width. Authoring `sections` at all makes it the only source of the detail body; omit it and the body falls back to the object\'s highlightFields. @objectstack/spec 17.3.0 declares eight more member keys on an entry, and this renderer honours all eight: `icon` (a Lucide name on the section header), `description` (sub-heading copy under the heading), `collapsible` and `defaultCollapsed` (a foldable section and its initial state), `showBorder` (force the Card wrapper on or off, overriding the heading-derived default) and `headerColor` (a header tint from the shared palette) through DetailSection, plus `group` — the ADR-0085 §5 REFERENCE form, the alternative to enumerating `fields`. `{ group: \'contact_info\' }` inherits the object\'s `fieldGroups` entry with that key: its members (every visible field pointing at it, in declaration order) and its presentation (label, icon, description, collapse) all come from the group, so the section restates none of it and the spec refuses those keys beside `group`; `columns`, `showBorder` and `headerColor` stay yours because they are how THIS page lays the section out. A `group` naming no declared group renders nothing and is reported to the console (`@objectstack/lint` flags it as `page-section-group-unknown`). `hideEmpty` is the eighth, and it decides whether an ALL-empty section exists: it defaults to on, so a section whose fields are every one of them empty renders nothing at all — no heading, no skeleton — and `hideEmpty: false` is the spelling that keeps that heading and its label skeleton on a brand-new record. It decides ONLY the all-empty case; the empty rows of a section that still has a filled one belong to DetailSection\'s auto-hide heuristic plus the reader\'s show-empty toggle, which no authored value overrides in either polarity (objectui#7129 Q2-C), and inline-edit mode renders the section either way so its fields stay reachable. Restored under objectui#8603 (maintainer 2026-09-15) after objectui#7129 retired it on the premise, since falsified upstream, that the spec refused the key. None of the eight has a designer control yet; they are authorable in source mode only, tracked as a deferred feature.' },
+    { name: 'sections', type: 'array', of: 'object', description: 'Field groups rendered as the detail body, in order. Every entry is an OBJECT — `{ name?, label?, columns?, fields }` — a bare section-id string is NOT accepted (the spec retired that spelling in objectstack#5611, and the renderer reads name/label/fields off each entry, so a string entry renders no fields at all). `fields` are the field names shown in this section, in order — required unless `group` supplies the members instead (the spec refuses a section carrying neither, and refuses one carrying both). `label` is the section heading; omit it for an untitled, borderless section. `name` is a stable snake_case identifier and the i18n anchor — the heading resolves through objects.<object>._sections.<name>.label, so a section without a name shows its authored label in every locale. `columns` (1-4) is THIS section\'s field-grid width; omit it and the renderer derives the width. Authoring `sections` at all makes it the only source of the detail body; omit it and the body falls back to the object\'s highlightFields. @objectstack/spec 17.3.0 declares eight more member keys on an entry, and this renderer honours all eight: `icon` (a Lucide name on the section header), `description` (sub-heading copy under the heading), `collapsible` and `defaultCollapsed` (a foldable section and its initial state), `showBorder` (force the Card wrapper on or off, overriding the heading-derived default) and `headerColor` (a header tint from the shared palette) through DetailSection, plus `group` — the ADR-0085 §5 REFERENCE form, the alternative to enumerating `fields`. `{ group: \'contact_info\' }` inherits the object\'s `fieldGroups` entry with that key: its members (every visible field pointing at it, in declaration order), its presentation (label, icon, description, collapse) and its `visibleWhen` all come from the group, so the section restates none of it — the predicate is evaluated against the bound record exactly as the entry form evaluates it, and a group it hides renders nothing (a `visibleWhen` written on a section itself is refused by the spec and not read: gate the group and reference it) and the spec refuses those keys beside `group`; `columns`, `showBorder` and `headerColor` stay yours because they are how THIS page lays the section out. A `group` naming no declared group renders nothing and is reported to the console (`@objectstack/lint` flags it as `page-section-group-unknown`). `hideEmpty` is the eighth, and it decides whether an ALL-empty section exists: it defaults to on, so a section whose fields are every one of them empty renders nothing at all — no heading, no skeleton — and `hideEmpty: false` is the spelling that keeps that heading and its label skeleton on a brand-new record. It decides ONLY the all-empty case; the empty rows of a section that still has a filled one belong to DetailSection\'s auto-hide heuristic plus the reader\'s show-empty toggle, which no authored value overrides in either polarity (objectui#7129 Q2-C), and inline-edit mode renders the section either way so its fields stay reachable. Restored under objectui#8603 (maintainer 2026-09-15) after objectui#7129 retired it on the premise, since falsified upstream, that the spec refused the key. None of the eight has a designer control yet; they are authorable in source mode only, tracked as a deferred feature.' },
     { name: 'fields', type: 'array', of: 'string', description: 'Explicit field list (overrides highlightFields)' },
     // `hideFields` is DECLARED, not merely honoured (objectui#3808). The spec
     // declares it (objectstack#5611) and `RecordDetailsRenderer` has read it
-    // since the highlight-dedup phase (`renderers/record-details.tsx:147`), but
+    // since the highlight-dedup phase (its `hideFields` read in
+    // `renderers/record-details.tsx`), but
     // it was missing here — so an author reading the manifest could not
     // discover it, and every layer that reads the manifest said the opposite:
     // `sdui.manifest.json` / `sdui-intrinsics.d.ts` omitted it and
@@ -537,7 +549,7 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
     // refuses, the same fence `fields` above is held to.
     //
     // The "hiding every field drops the section" sentence is read off
-    // `DetailSection.tsx:439` (`visibleFields.length === 0 &&
+    // `DetailSection.tsx` (`visibleFields.length === 0 &&
     // emptyCount === section.fields.length` returns null), not assumed.
     { name: 'hideFields', type: 'array', of: 'string', description: 'Field names to omit from the body — applied to the top-level `fields` list AND to every section\'s `fields`. Bare field names only. Authors rarely need it: the synth pipeline fills it with the fields already shown in `record:highlights`, and hand-authored pages get the same dedup live from HighlightFieldsContext, so its purpose is suppressing a field you do not want repeated (the page H1 title field is dropped for you too). Hiding every field of a section leaves that section out entirely.' },
     // `inlineEdit` and `showHeader` are DECLARED, not merely honoured
@@ -565,6 +577,27 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
     // have.
     { name: 'inlineEdit', type: 'boolean', description: 'Offer the per-field double-click / pencil inline-edit affordances in the detail body. On by default, and an OPT-OUT only: the value is combined with the object\'s own editability (system, engine-owned, append-only and better-auth objects are not user-editable unless they opened userActions.edit) and with the server\'s effective API operation set for the object, so `false` always wins while `true` cannot open editing the platform refuses. The edit session and the atomic Save bar are hosted by the page, so one draft spans the highlights strip and this body.' },
     { name: 'showHeader', type: 'boolean', description: 'Render the detail body\'s own title / follow-star / copy-id chip above the fields. Off by default because this block is normally composed under a `page:header` that already draws that chrome, and turning it on there shows the record title twice. Set it true only when this block is the whole page.' },
+    // The field-security triple — `enforceFieldSecurity`, `redactFields`,
+    // `requiredPermissions` — is DECLARED here by objectui#8649, the reverse
+    // direction `hideFields` above records (objectui#3808), on the three keys
+    // `@objectstack/spec` 17.5.0 declared on `record:details`,
+    // `record:highlights` and `record:related_list` (objectstack#18159).
+    // `RecordDetailsRenderer` honoured all three before either declaration,
+    // through a cast: through 17.4.0 an author who wrote one was refused at
+    // parse and honoured by the renderer, and after the 17.5.0 bump the parse
+    // accepted it while this manifest still said nothing. Publishing them moves
+    // what the manifest advertises, and no rendering, gating or masking
+    // behaviour.
+    //
+    // Types and descriptions are the CONTRACT's, verbatim: `boolean` for
+    // `z.boolean()`, `array` of `string` for `z.array(z.string())`, and each
+    // description is this block's own `.describe()` text. The describe is the
+    // text of record, and `__tests__/recordDetailsInputs.spec-parity.test.ts`
+    // re-reads it off the installed spec every run, so a spec that rewords one
+    // turns that file red here rather than leaving the manifest to drift.
+    { name: 'enforceFieldSecurity', type: 'boolean', description: 'Fold this block\'s field list through the caller\'s FIELD-read permissions before rendering, so a field the permission set denies leaves no empty row behind (renderer default: off). Presentation only: it re-applies the same field-read answer the server already enforced (ADR-0066 D3) and never widens access — with it off a denied field still arrives masked or stripped, and with it on the server still decides every value.' },
+    { name: 'redactFields', type: 'array', of: 'string', description: 'Field names this block never renders, whatever the permission answer (renderer default: render everything authored). Presentation only, evaluated in the browser after the record is fetched — the values are still in the page, so this is NOT a data-access control and NOT the object\'s `publicSharing.redactFields`, which removes them server-side. To keep a value from the caller, gate the field itself (`requiredPermissions` / `maskingRule`, ADR-0066 D3) or the permission set. Neighbours `hideFields`, which is the dedupe channel the renderer also writes to.' },
+    { name: 'requiredPermissions', type: 'array', of: 'string', description: '[ADR-0066] Capabilities the user must ALL hold — names that permission sets grant through `systemPermissions`, not object actions: `read` or `update` here is an ordinary capability name, not the object\'s read or edit permission. When the client has resolved the user\'s capabilities and any of these is missing, this block does not render its content; wherever it would otherwise render, an insufficient-permissions notice takes its place. Presentation only: it authorises nothing, and the data API still serves the same data to the same user. A client that cannot resolve the user\'s capabilities (no permission provider, or one that does not report `systemPermissions`) renders this block as if they were held — it fails open.' },
   ],
 });
 
@@ -577,8 +610,9 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
   // Mirrors @objectstack/spec RecordRelatedListProps.
   //
   // `relationshipValueField` and `add` are DECLARED, not merely honoured
-  // (objectui#3808). Both are spec keys this renderer has read all along —
-  // `renderers/record-related-list.tsx:95` and `:186` — while `inputs` omitted
+  // (objectui#3808). Both are spec keys this renderer has read all along — in
+  // `renderers/record-related-list.tsx`, the `schema.relationshipValueField ||
+  // 'id'` read and the `schema.add` forward to `RelatedList` — while `inputs` omitted
   // them, so the published surface and the runtime disagreed in the direction
   // nothing reports: `sdui.manifest.json` / `sdui-intrinsics.d.ts` never
   // mentioned them, `sdui-parser`'s prop walk raised `unknown-prop` on an
@@ -589,7 +623,18 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
     { name: 'objectName', type: 'string', required: true, description: 'Related object name (e.g. "task")' },
     { name: 'relationshipField', type: 'string', required: true, description: 'Field on the related object pointing back to this record' },
     { name: 'relationshipValueField', type: 'string', description: 'Which field OF THIS PARENT record `relationshipField` stores. Defaults to "id"; set it to the field a name-keyed junction points at (e.g. "name" when sys_user_position.position holds sys_position.name). The resolved value drives three things at once — the list filter, the Add-picker link value, and the pre-filled create form — so they cannot drift apart. While the parent record is still loading, a non-"id" field resolves to null and the list holds its fetch rather than querying on an empty value.' },
-    { name: 'columns', type: 'array', of: 'string', required: true, description: 'Fields to display in the related list' },
+    // `columns` is NOT required (objectui#11613). The spec row leaves it
+    // optional, and the registration may not be stricter than the row it
+    // publishes: the page compile reads `required` here, and with it set a node
+    // the row and the renderer accept was refused at the save gate. Both
+    // columns-less nodes draw a list: a `dataSource` binding that names a view
+    // lands the view's columns (`RECORD_RELATED_LIST_DATA_SOURCE` maps
+    // `columns: true`), and with neither `RelatedList` reads the unauthored list
+    // as "nothing authored" and derives the columns from the related object.
+    // Pinned by `RecordRelatedListRenderer.columnsOptional-11613.test.tsx`
+    // (what draws) and the console's `related-list-columns-optional-11613.test.ts`
+    // (what compiles).
+    { name: 'columns', type: 'array', of: 'string', description: 'Fields to display in the related list. Optional: without it, a `dataSource` binding that names a view supplies that view\'s columns, and with neither the list derives its columns from the related object (its `highlightFields`, otherwise its listable fields). Authored columns win over both.' },
     { name: 'sort', type: 'array' },
     { name: 'limit', type: 'number', description: 'Records to display initially' },
     // `type: 'array'` matches the spec (`RecordRelatedListProps.filter` is
@@ -601,7 +646,21 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
     // an author who reads "filter" as "the list's whole filter" would expect it
     // to be able to widen past the parent record, and it cannot (objectstack#7118).
     { name: 'filter', type: 'array', of: 'object', description: 'Additional filter criteria, as spec `ViewFilterRule` entries (`[{ field, operator, value }]`). AND-combined with the parent relationship condition, never a replacement for it: it can only narrow this record\'s children. Also the key a per-element `dataSource` binding\'s composed filter lands on.' },
-    { name: 'title', type: 'string' },
+    // `title` is an `I18nLabel` in the spec row (`ComponentPropsMap
+    // ['record:related_list']`), and `RecordRelatedListRenderer` resolves it with
+    // `pickLocalized` against the active UI language before it falls back to the
+    // related object's label. So both arms are declared, as `ComponentInput.type`
+    // prescribes for a key whose render site resolves the map: a `'string'`-only
+    // declaration made the manifest gate report `type-mismatch` on a legal map
+    // (objectui#10993). The render is pinned by
+    // `record-related-list.titleI18nLabel-10993.test.tsx`, the manifest by the
+    // console's `i18nLabelInputsManifest-10993.test.ts`.
+    {
+      name: 'title',
+      type: ['string', 'object'],
+      description:
+        'Heading of the list. Defaults to the related object\'s label (its translation when one is loaded, otherwise the humanized object name). Accepts either a plain string or an inline per-locale map (`{ en: "Open tasks", "zh-CN": "未完成任务" }`) — the `I18nLabel` union the contract admits on this key — and the list resolves the map against the active UI language, falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
+    },
     { name: 'showViewAll', type: 'boolean' },
     { name: 'actions', type: 'array', of: 'string', description: 'Action IDs available for related records' },
     // `add` publishes its MEMBER shape in prose for the reason the sibling
@@ -615,9 +674,10 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
     // Documented members are exactly the spec's — `picker.object`,
     // `picker.valueField`, `picker.labelField`, `linkField`, `label` — with each
     // default taken from the RENDERER, which is where an author's expectation
-    // gets settled: `RelatedList.tsx:724` defaults `picker.valueField` to `id`
-    // (matching the spec's own default) but `:390` defaults `picker.labelField`
-    // to `name`, NOT to the object's title field as the spec's `.describe()`
+    // gets settled: `RelatedList.tsx` defaults `picker.valueField` to `id`
+    // (`add.picker.valueField || 'id'`, matching the spec's own default) but
+    // defaults `picker.labelField` to `name` (`add?.picker?.labelField ||
+    // 'name'`), NOT to the object's title field as the spec's `.describe()`
     // says. Publishing the spec's wording there would have been a description
     // the platform does not honour.
     //
@@ -629,6 +689,13 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
     // `record:activity.showSubscriptionToggle` precedent; the sentence went away
     // with the gap, not before it.
     { name: 'add', type: 'object', description: 'Adds an "Add" button that assigns EXISTING records instead of creating one — the m2m/junction case. Shape: `{ picker: { object, valueField?, labelField?, filter? }, linkField?, label? }`. `picker.object` (required) is the object whose records the dialog offers. `picker.valueField` is the field of the picked record used as the link value (default "id"); `picker.labelField` is the column shown in the picker rows (default "name", and the other columns are derived from that object\'s schema). With `linkField` set, selecting records CREATES rows in this list\'s own object as `{ [relationshipField]: parentValue, [linkField]: pickedId }` — the junction case; omit `linkField` and the picked child is RE-PARENTED instead, by setting its own `relationshipField` to this parent. `label` is the button text (default "Add", localizable inline). Setting `add` also enables generic link removal on rows when no host delete handler is wired. `picker.filter` restricts which records the dialog offers — a list of `{ field, operator, value }` rules in the same vocabulary as this list\'s own `filter`, applied as a hard constraint the user cannot widen (it never appears as an editable filter row).' },
+    // The field-security triple, DECLARED by objectui#8649 on the contract's
+    // 17.5.0 declaration — types and descriptions verbatim from this block's
+    // spec row. The reasoning is written once, on `record:details` above;
+    // `__tests__/recordRelatedListInputs.spec-parity.test.ts` re-reads each description off the installed spec.
+    { name: 'enforceFieldSecurity', type: 'boolean', description: 'Fold this list\'s `columns` through the caller\'s FIELD-read permissions on the RELATED object before rendering (renderer default: off). Presentation only: it re-applies the same field-read answer the server already enforced (ADR-0066 D3) and never widens access — the rows are fetched either way and the server still decides every value.' },
+    { name: 'redactFields', type: 'array', of: 'string', description: 'Field names this list never renders, whatever the permission answer (renderer default: render every column authored or derived). Applies to the authored `columns` AND to the columns the list derives for itself when none are authored. Presentation only, evaluated in the browser after the rows are fetched — the values are still in the page, so this is NOT a data-access control and NOT the object\'s `publicSharing.redactFields`, which removes them server-side. To keep a value from the caller, gate the field itself (`requiredPermissions` / `maskingRule`, ADR-0066 D3) or the permission set.' },
+    { name: 'requiredPermissions', type: 'array', of: 'string', description: '[ADR-0066] Capabilities the user must ALL hold — names that permission sets grant through `systemPermissions`, not object actions: `read` or `update` here is an ordinary capability name, not the object\'s read or edit permission. When the client has resolved the user\'s capabilities and any of these is missing, this block does not render its content; wherever it would otherwise render, an insufficient-permissions notice takes its place. Presentation only: it authorises nothing, and the data API still serves the same data to the same user. A client that cannot resolve the user\'s capabilities (no permission provider, or one that does not report `systemPermissions`) renders this block as if they were held — it fails open.' },
   ],
 });
 
@@ -643,8 +710,10 @@ ComponentRegistry.register('highlights', RecordHighlightsRenderer, {
   // `readonly` is documented INSIDE the `fields` description, not declared as
   // an input of its own, because that is where the contract puts it: the spec's
   // `RecordHighlightsField` carries `readonly` on each ENTRY, while
-  // `RecordHighlightsProps` has exactly three top-level keys (fields, layout,
-  // aria). A top-level `{ name: 'readonly', type: 'boolean' }` here would look
+  // `RecordHighlightsProps` declares no top-level `readonly` (its top-level
+  // keys are read off the installed spec by
+  // `__tests__/recordHighlightsInputs.spec-parity.test.ts`, not listed here).
+  // A top-level `{ name: 'readonly', type: 'boolean' }` here would look
   // like the fix for "the manifest never mentions readonly" and would instead
   // publish a key the platform does not accept: the generated
   // `sdui.manifest.json` and `sdui-intrinsics.d.ts` would advertise
@@ -670,6 +739,13 @@ ComponentRegistry.register('highlights', RecordHighlightsRenderer, {
   inputs: [
     { name: 'fields', type: 'array', required: true, description: 'Key fields to highlight (1-7), bare names or {name,label?,type?,readonly?}. Set readonly: true on an entry to render that chip read-only — it suppresses the inline-edit affordance and the HeaderHighlight editability gate enforces it. Use it for hook/automation-maintained columns that must not be hand-edited from the record header; marking the OBJECT field readonly instead would also strip the hook\'s own write-back.' },
     { name: 'layout', type: 'enum', enum: ['horizontal', 'vertical'], description: 'Layout orientation for highlight fields' },
+    // The field-security triple, DECLARED by objectui#8649 on the contract's
+    // 17.5.0 declaration — types and descriptions verbatim from this block's
+    // spec row. The reasoning is written once, on `record:details` above;
+    // `__tests__/recordHighlightsInputs.spec-parity.test.ts` re-reads each description off the installed spec.
+    { name: 'enforceFieldSecurity', type: 'boolean', description: 'Fold this block\'s highlight chips through the caller\'s FIELD-read permissions before rendering, so a field the permission set denies leaves no empty chip behind (renderer default: off). Presentation only: it re-applies the same field-read answer the server already enforced (ADR-0066 D3) and never widens access — the record is fetched either way and the server still decides every value.' },
+    { name: 'redactFields', type: 'array', of: 'string', description: 'Field names this block never renders as a chip, whatever the permission answer (renderer default: render every field authored). Presentation only, evaluated in the browser after the record is fetched — the values are still in the page, so this is NOT a data-access control and NOT the object\'s `publicSharing.redactFields`, which removes them server-side. To keep a value from the caller, gate the field itself (`requiredPermissions` / `maskingRule`, ADR-0066 D3) or the permission set.' },
+    { name: 'requiredPermissions', type: 'array', of: 'string', description: '[ADR-0066] Capabilities the user must ALL hold — names that permission sets grant through `systemPermissions`, not object actions: `read` or `update` here is an ordinary capability name, not the object\'s read or edit permission. When the client has resolved the user\'s capabilities and any of these is missing, this block does not render its content; wherever it would otherwise render, an insufficient-permissions notice takes its place. Presentation only: it authorises nothing, and the data API still serves the same data to the same user. A client that cannot resolve the user\'s capabilities (no permission provider, or one that does not report `systemPermissions`) renders this block as if they were held — it fails open.' },
   ],
 });
 
@@ -746,7 +822,8 @@ const CHATTER_INPUTS: ComponentInput[] = [
   // `feed` delegates its whole member list to `record:activity`, and that is
   // the SPEC's statement rather than this file's: `@objectstack/spec` declares
   // `RecordChatterProps.feed: RecordActivityProps.optional()`
-  // (`component.zod.ts:1366`), bound to both names (`:2948` / `:2962`). So the
+  // (`component.zod.ts`), bound to both names (the `record:chatter` and
+  // `record:discussion` entries of `ComponentPropsMap`). So the
   // description names the declaration it delegates to instead of re-listing
   // its members, which would then be free to drift from it. (Re-listing would
   // also have to decide what to do with `aria`, which the spec shape carries
@@ -758,7 +835,8 @@ const CHATTER_INPUTS: ComponentInput[] = [
   // because `record-chatter.tsx` handed `discussion.items` to the panel raw.
   // That was an IMPLEMENTATION GAP against a wider protocol, not a narrower
   // contract, so it was closed in the renderer — see `renderers/record-chatter.tsx`,
-  // which now runs `applyFeedConfig` with `record-activity.tsx:219`'s call shape.
+  // which now runs `applyFeedConfig` with the call shape `record-activity.tsx`
+  // uses (`applyFeedConfig(sourceItems, { types, showCompleted, unifiedTimeline }, …)`).
   // ⛔ Do not narrow this declaration to match an implementation: the protocol
   // is the contract, and a protocol that is wrong is changed in
   // `@objectstack/spec` first.
@@ -815,7 +893,19 @@ ComponentRegistry.register('quick_actions', RecordQuickActionsRenderer, {
     // Implementing the fallback would be a behaviour expansion and needs its own
     // card; pinned by `recordQuickActionsInputs.actionNamesFallback.test.tsx`.
     { name: 'actionNames', type: 'array', of: 'string', description: 'Action names to expose, in order — resolved from the actions declared on the object. With no names (and no host-supplied actions) nothing is looked up and the bar renders its empty placeholder' },
-    { name: 'requiredPermissions', type: 'array', of: 'string', description: 'Hide the whole bar unless the user holds these permissions' },
+    // The contract's shared record-block describe, verbatim (objectstack#18159):
+    // `record:quick_actions` carries the one text `record:details`,
+    // `record:highlights` and `record:related_list` share, and objectui#8649
+    // already publishes it on those three. This input used to read
+    // "Hide the whole bar unless the user holds these permissions", which is not
+    // what the renderer does: the gate reads the CAPABILITY set
+    // (`perms.hasCapabilities`, objectui#10058), puts a `role="status"`
+    // insufficient-permissions notice where the bar would be, and fails open when
+    // capabilities are unreported (objectui#10224). Each clause is pinned on this
+    // block by `record-quick-actions.requiredPermissions-gate.test.tsx`, which
+    // also re-reads the installed describe every run, so a spec that rewords it
+    // turns that file red rather than leaving this text to drift.
+    { name: 'requiredPermissions', type: 'array', of: 'string', description: '[ADR-0066] Capabilities the user must ALL hold — names that permission sets grant through `systemPermissions`, not object actions: `read` or `update` here is an ordinary capability name, not the object\'s read or edit permission. When the client has resolved the user\'s capabilities and any of these is missing, this block does not render its content; wherever it would otherwise render, an insufficient-permissions notice takes its place. Presentation only: it authorises nothing, and the data API still serves the same data to the same user. A client that cannot resolve the user\'s capabilities (no permission provider, or one that does not report `systemPermissions`) renders this block as if they were held — it fails open.' },
     // Derived from the spec's own vocabulary rather than restated — #3019.
     { name: 'location', type: 'enum', enum: [...ACTION_LOCATIONS], description: 'Which declared action location this bar renders' },
     { name: 'align', type: 'enum', enum: ['start', 'center', 'end'] },
@@ -863,7 +953,7 @@ ComponentRegistry.register('alert', RecordAlertRenderer, {
     // through `pickLocalized`, which is exactly what these descriptions teach.
     // Declaring the map arm therefore adds no shape the block does not already
     // honour; it stops the manifest gate warning `type-mismatch` on the
-    // recommended write. (The row DOES exist as of the installed 17.4.0 — read
+    // recommended write. (The row DOES exist as of the installed 17.7.0 — read
     // for `visible` below, objectui#9100 — so the "no entry" reading is stale;
     // these two arms are unaffected either way.)
     { name: 'title', type: ['string', 'object'], description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
@@ -871,7 +961,7 @@ ComponentRegistry.register('alert', RecordAlertRenderer, {
     // objectui#9100 — the spec accepts three arms here and the renderer now
     // resolves all three, so a single `'string'` was the declaration-narrower-
     // than-the-contract family of objectui#4581, one layer up. Measured on the
-    // INSTALLED `@objectstack/spec` 17.4.0 (`dist/ui/index.d.ts`, the
+    // INSTALLED `@objectstack/spec` 17.7.0 (`dist/ui/index.d.ts`, the
     // `ComponentPropsMap['record:alert']` row): `visible` is
     // `boolean | string | { dialect: 'cel'|'cron'|'template', source?, … }`,
     // and `renderers/record-alert.tsx` hands whichever arrives to

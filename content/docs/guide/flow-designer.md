@@ -26,7 +26,11 @@ its config. Edges are the arrows between them.
 | Click a card | Select it (opens the node inspector) |
 | Drag a card | Reposition it |
 | Hover a card → click the bottom **+** | Append a connected child node |
+| Drag a card's connect handle (the dot beside its bottom **+**) onto another node | Connect the two nodes. Refused, with the reason shown, for the node itself, a (source, target) pair another connection already joins, or a node the flow does not have |
 | Zoom controls / **Fit** | Scale and re-center the graph |
+
+A selected connection's **From** and **To**, in its inspector, re-point it to
+other nodes of the flow, under the same refusals.
 
 Structural problems (an undeclared cycle, an unreachable node) surface three
 ways at once: a red ring on the offending card, a badge in its corner, and an
@@ -97,11 +101,16 @@ built-in defaults, so authoring still works offline.
 
 ## The node inspector
 
-Selecting a node opens its inspector: **ID**, **Label**, **Node Type**, an
-optional **Description**, and a **Configuration** section. New nodes start with
-spec-valid defaults (a *Wait* node already carries a timer config, an *HTTP*
-node defaults to `GET`) so a freshly dropped block is never in a broken
-intermediate state.
+Selecting a node opens its inspector: **ID**, **Label**, **Node Type**, and a
+**Configuration** section. New nodes start with defaults where the spec allows
+one: a *Wait* node already carries a timer config, and an *HTTP* node defaults to
+`GET`. What the author must still supply is marked with a red `*`, the same
+required marker the other metadata forms use. That covers an *HTTP* node's URL, a
+record node's object, a decision branch's label and expression, and a screen
+field's name. The marker follows the installed spec, so a key required only in
+some configurations (a *Notify* node's title while it has no template) is marked
+only while it applies. Until the value is supplied, the spec's error is shown on
+that node and listed in the **Problems** panel.
 
 For node types whose engine executor publishes a `configSchema` (ADR-0018), the
 inspector renders a **server-driven property form** from that schema — so a

@@ -18,7 +18,7 @@
 
 import { z } from 'zod';
 import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
-import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
+import { FieldSchema as SpecFieldSchema, SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 // The predicate wire shape (`string | { dialect?, source }`, #2212) was a
 // module-private const here until objectui#7530 hoisted it into
@@ -26,7 +26,10 @@ import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 // and the form predicate keys below read ONE definition. Its docblock and
 // rationale moved with it.
 import { ExpressionWireSchema } from './expression.zod.js';
+import { EvaluatedExpressionInputSchema as SpecEvaluatedExpressionInputSchema } from '@objectstack/spec/shared';
 import { stripImportedDefaults } from './imported-defaults.js';
+import { closeStrictUnionArms } from './node-derivation.js';
+import { GRID_FIELD_RETIRED_KEYS, type GridFieldRetiredKey } from '../field-types.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -60,6 +63,71 @@ import { stripImportedDefaults } from './imported-defaults.js';
 
 
 /**
+ * The wire of the field-rule TRIAD — `visibleWhen` / `readonlyWhen` /
+ * `requiredWhen` on a form field: `ExpressionWireSchema` itself, with ONE check
+ * added. A predicate whose text is blank after trimming — `''`, whitespace, or
+ * an envelope whose `source` is either — is refused at parse (objectui#8069).
+ *
+ * This is ADR-0137 D1 ("a predicate slot accepts only what the engine can
+ * run"; an authored blank predicate is "refused at authoring") on objectui's
+ * own form wire, mirroring what `@objectstack/spec` already does to the same
+ * three keys on `FieldSchema` with `EvaluatedExpressionInputSchema`. The
+ * blankness is not restated here: the predicate's TEXT (the string itself, or
+ * an envelope's `source`) is handed to that spec schema, and its verdict and
+ * its sentence (`EVALUATED_EXPRESSION_SOURCE_REQUIRED`) are the refusal — so
+ * the two refusals of one mistake read alike and cannot drift apart (the
+ * objectui#8563 reason for chaining a spec rule rather than copying it). It is
+ * the authoring half of a pair: D2 refuses a blank that is
+ * already STORED at submit (the form renderer, the console's form page and the
+ * wizard's final gate refuse a blank `visibleWhen`; the server refuses a blank
+ * `requiredWhen` / `readonlyWhen`), so a blank is refused at the first place
+ * that can see it, never silently read as "no rule" (ADR-0137 refuses that
+ * reading for the triad in its Alternatives).
+ *
+ * ## Also the two GATE mirrors whose spec key refuses a blank (objectui#11262)
+ *
+ * Named for the triad it was written for, and since objectui#11262 carried by
+ * two gate keys as well: {@link SelectOptionSchema}'s `visibleWhen` and
+ * {@link FormFieldSchema}'s view-level `visibleOn`. Each mirrors a key
+ * `@objectstack/spec` declares as `EvaluatedExpressionInputSchema` — the
+ * option's `visibleWhen` on the data `SelectOptionSchema`, the form view
+ * field's `visibleWhen` / deprecated `visibleOn` — so the spec refuses a blank
+ * there at authoring (D1) and objectui's mirror, which overrides the key to keep
+ * its own wire, followed it nowhere: a mirror wider than the spec on the same
+ * key is a second authority. They follow D1 with this same check, not a copy of
+ * it. Their RUNTIME verdict is unchanged: a stored blank gate is still "no gate"
+ * plus a one-time `[blank]` diagnostic (ADR-0137 D4), never refused at submit.
+ *
+ * ⚠️ Deliberately a REFINEMENT and not a second schema. The accepted SHAPE is
+ * exactly the one wire type objectui#7530 ruled for the whole platform — the
+ * very two option schemas `ExpressionWireSchema` holds, by reference, with the
+ * same output — and only the blank VALUE is taken out of it. The spec's
+ * `EvaluatedExpressionInputSchema` is not reused because it is a different
+ * shape: it rewrites a string into an envelope and narrows `dialect` to the
+ * spec enum. The pin is `base-schema-predicate-envelope-7530.test.ts`.
+ *
+ * ⛔ Not for objectui-only gates. `BaseSchema`'s `visible` / `hidden` /
+ * `disabled` have no spec twin — `BaseSchema` is objectui's own declaration —
+ * so there is no spec refusal for them to follow: they keep the plain wire,
+ * and a blank there stays "no gate" plus a one-time diagnostic (ADR-0137 D4,
+ * objectui#3850 / #3960), which objectui#11262's triage records as diagnosed,
+ * not refused.
+ *
+ * Declared ahead of {@link SelectOptionSchema}, its first reader.
+ */
+const FieldRulePredicateWireSchema = ExpressionWireSchema.superRefine((predicate, ctx) => {
+  // Only the TEXT is judged by the spec schema — never the envelope itself,
+  // whose `dialect` enum is narrower than this wire's and would refuse shapes
+  // objectui#7530 admits. A non-blank text always passes its string arm.
+  const verdict = stripImportedDefaults(SpecEvaluatedExpressionInputSchema).safeParse(
+    typeof predicate === 'string' ? predicate : predicate.source,
+  );
+  if (!verdict.success) {
+    for (const issue of verdict.error.issues) ctx.addIssue({ code: 'custom', message: issue.message });
+  }
+});
+
+/**
  * Select Option Schema — derived from `@objectstack/spec/data`
  * `SelectOptionSchema` (objectstack#4115), with two pinned divergences and two
  * UI-only extensions. Drift guard: `__tests__/select-option-spec-parity.test.ts`.
@@ -76,9 +144,11 @@ export const SelectOptionSchema = z.object({
   // standalone UI forms legitimately bind numeric/boolean values. The parity
   // test pins both directions so a future spec widening gets noticed.
   value: z.union([z.string(), z.number(), z.boolean()]).describe('Option value'),
-  // Deliberate divergence: keep objectui's wire contract (#2212) instead of
-  // the spec's envelope-canonicalizing ExpressionInput pipe.
-  visibleWhen: ExpressionWireSchema.optional()
+  // Deliberate divergence in SHAPE: keep objectui's wire contract (#2212)
+  // instead of the spec's envelope-canonicalizing ExpressionInput pipe. Not in
+  // VALUE: a blank predicate is refused here as the spec refuses it
+  // (objectui#11262, ADR-0137 D1) — see `FieldRulePredicateWireSchema`.
+  visibleWhen: FieldRulePredicateWireSchema.optional()
     .describe('Per-option visibility predicate (CEL) — option offered only when TRUE'),
   // objectui-only UI extensions (not in the spec; the parity test asserts the
   // spec has not claimed these names).
@@ -577,11 +647,13 @@ const CalendarDayRangeSchema = z.strictObject({
 // objectui#10304: every selection shape the date picker reads. WHICH one a node
 // may carry is decided by its `mode`, and `calendarSelectionFitsMode` below
 // holds that pairing; this union alone is the key-level set.
-const CalendarSelectionSchema = z.union([
+// objectui#11073: the strict range arm is closed where it meets this union (see
+// `closeStrictUnionArms` in `./node-derivation.ts`).
+const CalendarSelectionSchema = z.union(closeStrictUnionArms([
   CalendarDaySchema,
   z.array(CalendarDaySchema),
   CalendarDayRangeSchema,
-]);
+] as const));
 
 /**
  * objectui#10304 — a selection must have the shape its `mode` reads.
@@ -677,6 +749,10 @@ export const InputOTPSchema = BaseSchema.extend({
   name: z.string().optional().describe('Field name for form submission'),
   label: z.string().optional().describe('OTP input label'),
   length: z.number().optional().describe('Number of OTP digits'),
+  separator: z
+    .boolean()
+    .optional()
+    .describe('Draw a visual separator between two halves of the slots (objectui#11365)'),
   defaultValue: z.string().optional().describe('Default value'),
   value: z.string().optional().describe('Controlled value'),
   description: z.string().optional().describe('Help text'),
@@ -688,14 +764,14 @@ export const InputOTPSchema = BaseSchema.extend({
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `maxLength`, `value`.',
+    + 'What it renders instead: `length`, `separator`, `value`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `input-otp` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `maxLength`, `value`.',
+    + 'What it renders instead: `length`, `separator`, `value`.',
   ),
 });
 
@@ -750,20 +826,28 @@ export const LabelSchema = BaseSchema.extend({
   type: z.literal('label'),
   text: z.string().optional().describe('Label text'),
   label: z.string().optional().describe('Label text (alternative)'),
+  // objectui#6152 round 4 — a THIRD spelling of the label's text, retired on both faces
+  // (the TypeScript twin is `content?: never`) and dropped from the renderer's read.
+  // A tombstone, not a deletion: `BaseSchema` is `.passthrough()`, so a deleted arm
+  // would KEEP an authored value in silence.
+  content: retirementTombstone(
+    'RETIRED (objectui#6152, ADR-0049) — `content` was a third spelling of the label text, and the '
+    + '`label` renderer no longer reads it. Write the text as `text` (or `label`) instead.',
+  ),
   htmlFor: z.string().optional().describe('Associated input ID'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `label` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `content`, `label`, `text`.',
+    + 'What it renders instead: `label`, `text`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `label` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `content`, `label`, `text`.',
+    + 'What it renders instead: `label`, `text`.',
   ),
 });
 
@@ -921,6 +1005,52 @@ function unresolvableFieldWidgetNamespaceMessage(id: string): string {
   );
 }
 
+/**
+ * The alias refusal for one of the `grid` widget's retired snake_case
+ * field-level keys (objectui#11610), on `FormFieldSchema`: the
+ * {@link aliasKeyRefusal} lead sentence names the camelCase key the entry
+ * should carry, read from `GRID_FIELD_RETIRED_KEYS`, so the arm, the TS twin's
+ * `?: never` tombstone and the `grid` widget's refusal name the same
+ * replacement. The value an author wrote is valid under the new key as it
+ * stands; only the key changes.
+ */
+function retiredGridFieldKey(alias: GridFieldRetiredKey) {
+  const canonical = GRID_FIELD_RETIRED_KEYS[alias];
+  return aliasKeyRefusal(
+    alias,
+    canonical,
+    'this form field',
+    `The \`grid\` widget's field-level keys are camelCase since objectui#11610, and no reader reads the `
+    + `snake_case spelling, so it is refused here by name rather than stripped. Rename the key to \`${canonical}\`; `
+    + 'its value stays the same.',
+  );
+}
+
+/**
+ * The refusal of `scale` on a `currency` form field (objectui#11070 round 13).
+ *
+ * `FormFieldSchema.scale` is the spec's `FieldSchema.scale` by reference, but a
+ * member taken off `.shape` does not bring the spec's cross-key rules with it,
+ * and the spec refuses this key on exactly one field type: `currency`
+ * (objectstack-ai/objectstack#19629, ruling B — a currency amount's decimal
+ * places are its currency's). The `currency` widget does not read `scale`, so
+ * the key would be accepted here and do nothing. So this one rule is carried,
+ * keyed on `type` as the spec keys it, with the spec's own wording: the spec
+ * exports neither the rule nor its text, so the text is held identical here and
+ * `strict-face-read-keys-11070.test.ts` pins it equal to the spec's issue for the
+ * same entry. The spec's other cross-key rules (`rows`, `minLength` /
+ * `maxLength`, `multiple`) are not carried: they key on the spec's field-type
+ * sets, and this face's `type` is a widget id (`input`, `select`, …) the spec
+ * does not know.
+ */
+const CURRENCY_FIELD_SCALE_REFUSAL =
+  '`scale` is not valid on a `currency` field — delete the key. A currency amount\'s decimal '
+  + 'places are its currency\'s, not a field setting: the currency\'s ISO 4217 minor unit (2 for '
+  + 'USD, 0 for JPY, 3 for KWD) decides how the amount displays, and the field\'s write allowance '
+  + 'stays unconstrained — a currency write is accepted with the decimals it carries, as it always '
+  + 'was on a currency field that declared no `scale`. The key\'s one enforced effect was refusing '
+  + 'writes with more decimals, which this field type no longer does.';
+
 export const FormFieldSchema = z.object({
   id: z.string().optional().describe('Field ID'),
   name: z.string().describe('Field name (form data path)'),
@@ -944,19 +1074,97 @@ export const FormFieldSchema = z.object({
   ]).nullish().describe('Parent field(s) for cascading/dependent fields'),
   hidden: z.boolean().optional().describe('Whether the field is hidden'),
   readonly: z.boolean().optional().describe('Whether the field is read-only'),
-  visibleOn: ExpressionWireSchema.optional()
+  // The form view's gate, refused blank at authoring as the spec's form view
+  // field refuses it (objectui#11262, ADR-0137 D1) — see
+  // `FieldRulePredicateWireSchema`.
+  visibleOn: FieldRulePredicateWireSchema.optional()
     .describe('View-level visibility predicate (CEL) — ANDed with visibleWhen'),
-  visibleWhen: ExpressionWireSchema.optional()
+  visibleWhen: FieldRulePredicateWireSchema.optional()
     .describe('Field-level visibility rule (CEL) — field shown only when TRUE'),
-  readonlyWhen: ExpressionWireSchema.optional()
+  readonlyWhen: FieldRulePredicateWireSchema.optional()
     .describe('Field-level read-only rule (CEL)'),
-  requiredWhen: ExpressionWireSchema.optional()
+  requiredWhen: FieldRulePredicateWireSchema.optional()
     .describe('Field-level required rule (CEL)'),
   colSpan: z.number().optional().describe('Column span in grid layout (legacy — prefer span)'),
   span: z.enum(['auto', 'full']).optional().describe('Relative field width'),
   fields: z.array(z.string()).optional()
     .describe('Section grouping claim (objectui#6236) — section-divider rows only: names of the fields the section claims (the FormFieldTab.fields membership shape); the divider predicate then gates the whole group'),
+  // objectui#11070 — field metadata a hand-authored form writes on the entry
+  // itself, which the renderer hands to each field widget as its metadata
+  // carrier. Every member but `pattern` is the spec's `FieldSchema` member BY
+  // REFERENCE (values, checks and `.describe()` text included), so it cannot
+  // drift from the key the widgets were written against. The reads, and the
+  // read keys deliberately NOT declared, are reasoned on the TS twin.
+  multiple: stripImportedDefaults(SpecFieldSchema).shape.multiple,
+  rows: stripImportedDefaults(SpecFieldSchema).shape.rows,
+  accept: stripImportedDefaults(SpecFieldSchema).shape.accept,
+  dimensions: stripImportedDefaults(SpecFieldSchema).shape.dimensions,
+  // The spec spelling of a lookup / user field's target object, and the only
+  // one the widgets read; the retired `reference_to` is read by nothing and
+  // stays undeclared (objectui#11070).
+  reference: stripImportedDefaults(SpecFieldSchema).shape.reference,
+  min: stripImportedDefaults(SpecFieldSchema).shape.min,
+  max: stripImportedDefaults(SpecFieldSchema).shape.max,
+  // objectui#11070 round 13 — the decimal places the `number`, `percent`,
+  // `formula` and `summary` widgets read, and the fixed-currency declaration
+  // the `currency` widget reads through `resolveFieldCurrency`. The spec's
+  // `FieldSchema` refuses `scale` on a `currency` field; the superRefine
+  // below carries that one rule (`CURRENCY_FIELD_SCALE_REFUSAL`).
+  scale: stripImportedDefaults(SpecFieldSchema).shape.scale,
+  currencyConfig: stripImportedDefaults(SpecFieldSchema).shape.currencyConfig,
+  minLength: stripImportedDefaults(SpecFieldSchema).shape.minLength,
+  maxLength: stripImportedDefaults(SpecFieldSchema).shape.maxLength,
+  pattern: z.string().optional()
+    .describe('Regular expression the value must match, as a string (JSON has no RegExp) — the built-in input branch puts it on the native control as `pattern`; the field-level spelling the `validation.pattern` refusal directs JSON authors to'),
+  // The spec spellings the `formula` and `summary` widgets read; their
+  // snake_case forms (`return_type`, `summary_type`, `summary_object`,
+  // `summary_field`) are retired and stay undeclared (objectui#11070).
+  returnType: stripImportedDefaults(SpecFieldSchema).shape.returnType,
+  summaryOperations: stripImportedDefaults(SpecFieldSchema).shape.summaryOperations,
+  // The `grid` widget's columns: the spec's `inlineColumns` list (its strict,
+  // `name`-keyed inline grid column), by reference. objectui's `grid` field
+  // type spells the list `columns` (objectui#11070).
+  columns: stripImportedDefaults(SpecFieldSchema).shape.inlineColumns,
+  // objectui#11070 round 10 — the `grid` widget's field-level keys, which it
+  // reads off a `fields[]` entry of `type: 'grid'` (its metadata carrier). They
+  // are `GridFieldMetadata`'s members, which the TS twin carries by reference;
+  // `@objectstack/spec` declares none of them (a `grid` field is objectui's own
+  // type), so each value schema here is the TS member's own type, stated once.
+  // objectui#11610 renamed all eight from snake_case to camelCase.
+  minRows: z.number().optional()
+    .describe('Minimum row count of a `grid` field; read only by the `grid` widget'),
+  maxRows: z.number().optional()
+    .describe('Maximum row count of a `grid` field; read only by the `grid` widget'),
+  allowAdd: z.boolean().optional()
+    .describe('Whether a `grid` field offers Add (on unless false); read only by the `grid` widget'),
+  allowDelete: z.boolean().optional()
+    .describe('Whether a `grid` field offers Delete (on unless false); read only by the `grid` widget'),
+  allowReorder: z.boolean().optional()
+    .describe('Whether a `grid` field\'s rows can be drag-reordered (on unless false); read only by the `grid` widget'),
+  totalField: z.string().optional()
+    .describe('Name of the CHILD column a `grid` field sums into its footer total; read only by the `grid` widget'),
+  addLabel: z.string().optional()
+    .describe('Label of a `grid` field\'s Add button; read only by the `grid` widget'),
+  sortField: z.string().optional()
+    .describe('Name of the row field a `grid` field stamps with each row\'s index, so a drag-reorder persists; read only by the `grid` widget'),
+  // objectui#11610 — the eight retired snake_case spellings, each REFUSED BY
+  // NAME with the camelCase key to write instead (the TS twin's `?: never`
+  // tombstones). One list feeds both the arms and the `grid` widget's own
+  // refusal: `GRID_FIELD_RETIRED_KEYS`.
+  min_rows: retiredGridFieldKey('min_rows'),
+  max_rows: retiredGridFieldKey('max_rows'),
+  allow_add: retiredGridFieldKey('allow_add'),
+  allow_delete: retiredGridFieldKey('allow_delete'),
+  allow_reorder: retiredGridFieldKey('allow_reorder'),
+  total_field: retiredGridFieldKey('total_field'),
+  add_label: retiredGridFieldKey('add_label'),
+  sort_field: retiredGridFieldKey('sort_field'),
 }).superRefine((field, ctx) => {
+  // objectui#11070 round 13 — the spec's one cross-key rule on `scale`; see
+  // CURRENCY_FIELD_SCALE_REFUSAL.
+  if (field.type === 'currency' && field.scale !== undefined) {
+    ctx.addIssue({ code: 'custom', path: ['scale'], message: CURRENCY_FIELD_SCALE_REFUSAL });
+  }
   // objectui#5449 — the namespace rule `@object-ui/core` has enforced since
   // objectui#5375, stated here so `objectui validate` (which reaches this
   // schema via `safeValidateSchema`) stops green-lighting a document the
@@ -979,6 +1187,34 @@ export const FormFieldSchema = z.object({
 /**
  * Form Schema - Complete form component
  */
+/**
+ * objectui#6152 round 3 — one tab of a tabbed field layout (`FormSchema.fieldTabs`),
+ * restated member for member from the interface's `FormFieldTab`. Module-private: it
+ * is a nested shape of the `form` arm, not a registered pair of its own.
+ */
+const FormFieldTabEntrySchema = z.object({
+  key: z.string().describe('Stable tab key (the Radix Tabs value)'),
+  label: z.string().optional().describe('Tab trigger text; falls back to key'),
+  description: z.string().optional().describe('Blurb rendered above the tab fields'),
+  fields: z.array(z.string()).describe('Names of the fields (from FormSchema.fields) this tab renders, in order'),
+  containerClass: z.string().optional().describe('Field-grid classes for this tab panel'),
+  visibleWhen: ExpressionWireSchema.optional()
+    .describe('Predicate gating the tab: a bare string or the { dialect?, source } envelope; a hidden tab still submits'),
+});
+
+/**
+ * objectui#6152 round 3 — one pane of a split field layout (`FormSchema.fieldPanes`),
+ * restated member for member from the interface's `FormFieldPane`. Module-private,
+ * like `FormFieldTabEntrySchema` above.
+ */
+const FormFieldPaneEntrySchema = z.object({
+  key: z.string().describe('Stable pane key'),
+  fields: z.array(z.string()).describe('Names of the fields (from FormSchema.fields) this pane renders, in order'),
+  defaultSize: z.number().optional().describe('Initial pane size as a percentage of the group (1-99)'),
+  minSize: z.number().optional().describe('Minimum pane size as a percentage of the group'),
+  containerClass: z.string().optional().describe('Field-grid classes for this pane'),
+});
+
 export const FormSchema = BaseSchema.extend({
   type: z.literal('form'),
   objectName: z.string().optional().describe('Owning object name (drives field locators)'),
@@ -991,22 +1227,50 @@ export const FormSchema = BaseSchema.extend({
   submitLabel: z.string().optional().describe('Submit button label'),
   cancelLabel: z.string().optional().describe('Cancel button label'),
   showCancel: z.boolean().optional().describe('Show cancel button'),
-  layout: z.enum(['vertical', 'horizontal', 'grid']).optional().describe('Form layout'),
-  columns: z.number().optional().describe('Number of columns (for grid layout)'),
+  // objectui#11070 — read by the `form` renderer (destructured off the node,
+  // default `true`; the submit button renders only while it holds) and
+  // refused by the strict authoring face until declared here.
+  showSubmit: z.boolean().optional().describe('Show the submit button (default true); `false` renders the fields with no submit button'),
+  // objectui#11168 slice 3 (objectui#7759 group C): `grid` retired. The
+  // declaration states `vertical | horizontal`, the `form` registration
+  // publishes those two, and the renderer reads only `layout === 'horizontal'`,
+  // so `grid` drew exactly what `vertical` draws.
+  layout: z.enum(['vertical', 'horizontal']).optional().describe('Label placement: vertical (the default) or horizontal'),
+  columns: z.number().optional().describe('Number of columns the fields are laid out in (multi-column layout)'),
   validationMode: z.enum(['onSubmit', 'onChange', 'onBlur', 'onTouched', 'all']).optional().describe('Validation mode'),
   resetOnSubmit: z.boolean().optional().describe('Reset form on successful submit'),
   mode: retirementTombstone(
     'REFUSED (objectui#10286, ADR-0049; objectui#7759 ruling D1-(ii)) — the `form` node reads no `mode`: '
     + 'the key is not in `@objectstack/spec`, the `form` renderer never reads it, and every spelling '
     + 'rendered the same form — no render-time error or warning; only the parser tier\'s `unknown-prop` warning noticed it. The create / edit / view mode belongs to the '
-    + '`object-form` node (`ObjectFormSchema.mode`): author `{ "type": "object-form", "objectName": …, '
-    + '"mode": "edit", "recordId": … }` for it. To make this form non-editable, set `disabled`.',
+    + '`object-form` node, in its `properties` bag (`ComponentPropsMap[\'object-form\'].mode`): author '
+    + '`{ "type": "object-form", "properties": { "objectName": …, "mode": "edit", "recordId": … } }` for it. '
+    + 'To make this form non-editable, set `disabled`.',
   ),
   actions: z.array(z.any()).optional().describe('Custom actions'),
   onSubmit: handlerKeyRefusal('onSubmit', 'runtime-slot', 'Submit handler'),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
   onCancel: handlerKeyRefusal('onCancel', 'runtime-slot', 'Cancel handler'),
   showActions: z.boolean().optional().describe('Show action buttons'),
+  // objectui#6152 round 3 — eight layout members the interface declared and this
+  // mirror had never heard of, each READ by the `form` renderer
+  // (`renderers/form/form.tsx`, off `schema.*`), and each a plain omission from this
+  // object literal: the mirror already carried their neighbours. `fieldContainerClass`
+  // and `mobileStickyActions` are also written by `ObjectForm` when it builds a `form`
+  // node in code.
+  mobileStickyActions: z.boolean().optional()
+    .describe('Pin the Submit/Cancel row to the bottom of small viewports; no-op on desktop'),
+  fieldContainerClass: z.string().optional().describe('Field container CSS classes'),
+  fieldTabs: z.array(FormFieldTabEntrySchema).optional()
+    .describe('Tabbed field layout: each tab claims a subset of fields by name, inside one form'),
+  defaultFieldTab: z.string().optional().describe('Initially active fieldTabs key; defaults to the first tab'),
+  fieldTabsPosition: z.enum(['top', 'bottom', 'left', 'right']).optional()
+    .describe('Where the fieldTabs strip sits relative to the panels (default top)'),
+  fieldPanes: z.array(FormFieldPaneEntrySchema).optional()
+    .describe('Split field layout: each pane claims a subset of fields by name, inside one form'),
+  fieldPanesOrientation: z.enum(['horizontal', 'vertical']).optional()
+    .describe('Direction the fieldPanes are laid out in (default horizontal)'),
+  fieldPanesResizable: z.boolean().optional().describe('Whether the fieldPanes divider offers a drag handle (default true)'),
   body: aliasKeyRefusal(
     'body',
     'children',
@@ -1197,7 +1461,7 @@ export const CodeEditorSchema = BaseSchema.extend({
   children: retirementTombstone(CODE_EDITOR_NEITHER_CHANNEL),
 });
 
-export const FormComponentSchema = z.discriminatedUnion('type', [
+const FormComponentSchemaInferred = z.discriminatedUnion('type', [
   ButtonSchema,
   InputSchema,
   TextareaSchema,
@@ -1219,3 +1483,16 @@ export const FormComponentSchema = z.discriminatedUnion('type', [
   InputShorthandSchema,
   UiCalendarSchema,
 ]);
+
+/**
+ * The TYPE of {@link FormComponentSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface FormComponentZodType extends FormComponentSchemaInferredType {
+  options: FormComponentSchemaInferredType['options'];
+}
+type FormComponentSchemaInferredType = typeof FormComponentSchemaInferred;
+
+/** The union above, typed by its named {@link FormComponentZodType}. */
+export const FormComponentSchema: FormComponentZodType = FormComponentSchemaInferred;

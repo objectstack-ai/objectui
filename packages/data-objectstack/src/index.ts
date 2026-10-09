@@ -9,6 +9,10 @@
 import { ObjectStackClient, type QueryOptions as ObjectStackQueryOptions } from '@objectstack/client';
 import type { DroppedFieldsEvent, EngineAggregateOptions } from '@objectstack/spec/data';
 import type { ListViewGroupHeaderRow } from '@objectstack/spec/ui';
+// objectui#11013 — a VALUE import: the keys `listViews` carries off a stored
+// ViewItem record are the spec's own record of the console's round-trip keys,
+// read off the pin rather than hand-listed (see `VIEW_ITEM_ROUND_TRIP_KEYS`).
+import { VIEW_CONSOLE_ROUND_TRIP_KEYS } from '@objectstack/spec/ui';
 // #4934 — a VALUE import, not a type one: the write-warning boundary parses the
 // wire's `reason` against the enum the spec itself declares, so the accept set
 // is read off the pin instead of hand-copied here (a hand copy is the drift
@@ -22,6 +26,13 @@ import { DroppedFieldsEventSchema } from '@objectstack/spec/data';
 // predicate and same sink the server ingress runs, so the producer-side refusal
 // and the wire-side one cannot drift.
 import { isFilterAST, parseFilterAST } from '@objectstack/spec/data';
+// objectui#9048 — the case-insensitive-contains comparand door, read from the
+// contract's owner rather than restated: the predicate that decides which
+// comparands `FILTER_TEXT_CASES` declares REFUSED, and the reason text its
+// `mustMention` makes load-bearing. `@object-ui/core`'s `convertFiltersToAST`
+// and `ValueDataSource` read these same two functions, so the rule-entry form
+// below cannot judge a different set than the `$` dialect beside it.
+import { isRefusedTextComparand, textComparandRefusalReason } from '@objectstack/spec/data';
 import type { ApiError } from '@objectstack/spec/api';
 import { stripReadDecorations } from '@objectstack/spec/kernel';
 // #4237 — the metadata save door's advisory reader, shared with `MetadataClient`
@@ -191,6 +202,27 @@ function toAstFilterOperator(op: unknown): string | null {
 }
 
 /**
+ * A filter entry as it appears inside a refusal message, without letting the
+ * explanation throw.
+ *
+ * `JSON.stringify` throws on a BigInt and on a cyclic object. A `TypeError`
+ * raised while a refusal builds its message escapes in the refusal's place, and
+ * a caller then reads a transport-looking failure about a filter this adapter
+ * had already judged (objectui#9048: the text-comparand refusal constructs a
+ * {@link MalformedFilterError} for exactly such an entry). The replacer renders
+ * a BigInt as its literal and leaves every other value alone, so an entry that
+ * serialised before serialises to the same bytes now. Module-private.
+ */
+function describeFilterEntry(entry: unknown): string {
+  try {
+    return JSON.stringify(entry, (_key, value) => (typeof value === 'bigint' ? `${value}n` : value))
+      ?? String(entry);
+  } catch {
+    return String(entry);
+  }
+}
+
+/**
  * A filter entry this adapter cannot translate into an AST tuple.
  *
  * Thrown rather than skipped. Dropping one entry out of an `and` WIDENS the
@@ -209,7 +241,9 @@ export class MalformedFilterError extends Error {
   readonly entry: unknown;
   readonly index: number;
   constructor(entry: unknown, index: number) {
-    const shown = JSON.stringify(entry) ?? String(entry);
+    // BigInt-safe (see `describeFilterEntry`); byte-identical to a bare
+    // `JSON.stringify(entry) ?? String(entry)` for every entry that did not throw.
+    const shown = describeFilterEntry(entry);
     super(
       `Filter entry ${index} is not a usable filter rule (${shown}). `
       + 'Expected { field, operator, value } with a non-empty field.',
@@ -515,7 +549,66 @@ export class UnlowerableAnalyticsFilterError extends Error {
   }
 }
 
-function objectFilterEntryToAST(entry: any): [string, string, any] | null {
+/**
+ * Refuse a rule entry whose case-insensitive-contains comparand is one of the
+ * two shapes `@objectstack/spec`'s `FILTER_TEXT_CASES` declares REFUSED — an
+ * empty string, or not a string at all (objectui#9048).
+ *
+ * The rule-entry form was the one dialect this adapter lowered that shape in.
+ * The `$` dialect has refused it since objectui#9001 (the object branch of
+ * {@link translateFilterToAST} delegates to `convertFiltersToAST`), and
+ * `ValueDataSource` refuses it in every form it reads. So the SAME wire node
+ * was refused when written `{ name: { $icontains: '' } }` and sent when written
+ * `[{ field: 'name', operator: 'icontains', value: '' }]`: a result that turned
+ * on the filter's shape rather than its meaning. One predicate and one reason,
+ * both the spec's; this function is only the envelope.
+ *
+ * The reason is seated verbatim, since `mustMention` makes its bytes the
+ * contract. It names the spelling that ARRIVED, never a canonical one put in
+ * its place; the table's rows spell the operator in the `$` dialect, so the
+ * tail names that twin rather than substituting it — the seating
+ * `viewFilterRuleToNode` uses for the same vocabulary.
+ *
+ * No carve-out for an absent `value`. The stored-view lowering has one because
+ * it emits a 2-tuple for a valueless operator; this translator always emits a
+ * 3-tuple, and an absent value went out as JSON `null` — a non-string
+ * comparand, which is the table's second row. `ValueDataSource` refuses the
+ * same rule for the same reason.
+ *
+ * The envelope is an ordinary {@link MalformedFilterError} whose message is
+ * replaced by the refusal sentence, so `instanceof`, `name`, `code` and
+ * `httpStatus` are the class's own. The sentence is seated here, module-private,
+ * rather than through a constructor parameter, because the class is published
+ * and no consumer needs a way to pass one: the refusal is this module's, and
+ * its public constructor stays exactly what it was. The shape advice the
+ * constructor writes first is discarded; building it is BigInt-safe (see
+ * `describeFilterEntry`), so a BigInt comparand still reaches this sentence.
+ */
+function refuseTextComparandEntry(
+  entry: { readonly value?: unknown },
+  index: number,
+  field: string,
+  arrived: string,
+): never {
+  const tail =
+    `This is a { field, operator, value } rule entry, so it is refused as the filter is `
+    + `translated rather than sent: the spelling @objectstack/spec's FILTER_TEXT_CASES `
+    + `uses for this operator is the $-dialect '$icontains', which this form spells `
+    + `'${arrived}'. Remove the entry, or give it a non-empty string value `
+    + `(objectui#9048; the same refusal convertFiltersToAST and ValueDataSource already share).`;
+  const error = new MalformedFilterError(entry, index);
+  error.message =
+    `Filter entry ${index} is refused. `
+    + `The ${textComparandRefusalReason(field, arrived, entry.value)}. ${tail}`;
+  throw error;
+}
+
+/**
+ * One rule entry → one AST comparison tuple, or `null` when the entry is not a
+ * usable rule. `index` is the entry's position in the array it was found in,
+ * named by a refusal so the author can find the entry in the view config.
+ */
+function objectFilterEntryToAST(entry: any, index: number): [string, string, any] | null {
   if (!entry || typeof entry !== 'object') return null;
   // `field` only. A `?? entry.name` fallback lived here from the day the
   // function was written (4b93db4e6) and was unreachable for exactly as long:
@@ -527,6 +620,12 @@ function objectFilterEntryToAST(entry: any): [string, string, any] | null {
   const rawOp = entry.operator ?? entry.op ?? '=';
   const op = toAstFilterOperator(rawOp);
   if (!field || !op) return null;
+  // Asked AFTER the fold, so every spelling `toAstFilterOperator` resolves to
+  // `icontains` meets the door. `rawOp` is a string here: the fold answers
+  // `null` for anything else, which returned above.
+  if (op === 'icontains' && isRefusedTextComparand(entry.value)) {
+    refuseTextComparandEntry(entry, index, String(field), rawOp);
+  }
   return [String(field), op, entry.value];
 }
 
@@ -559,8 +658,8 @@ function objectFilterEntriesToAST(entries: readonly unknown[]): unknown[] {
     // An entry that is itself an array is already a node — a mixed array keeps
     // both conditions instead of losing one to a drop or the whole query to an
     // error.
-    if (Array.isArray(entry)) return translateFilterChild(entry);
-    const tuple = objectFilterEntryToAST(entry);
+    if (Array.isArray(entry)) return translateFilterChild(entry, i);
+    const tuple = objectFilterEntryToAST(entry, i);
     if (!tuple) throw new MalformedFilterError(entry, i);
     return tuple;
   });
@@ -597,10 +696,12 @@ function translateFilterArray(filter: unknown[]): unknown[] {
   if (isObjectFilterEntryForm(filter)) return objectFilterEntriesToAST(filter);
   const head = filter[0];
   if (typeof head === 'string' && LOGICAL_AST_HEADS.has(head.toLowerCase())) {
-    return [head, ...filter.slice(1).map(translateFilterChild)];
+    return [head, ...filter.slice(1).map((child, i) => translateFilterChild(child, i + 1))];
   }
   // Legacy flat array of child nodes: [[...], [...]] — implicit AND.
-  if (filter.every((child) => Array.isArray(child))) return filter.map(translateFilterChild);
+  if (filter.every((child) => Array.isArray(child))) {
+    return filter.map((child, i) => translateFilterChild(child, i));
+  }
   // A comparison tuple, or a shape we do not recognize. Leave it alone; the
   // server decides, and since objectstack#4121 it says so with a 400.
   return filter;
@@ -621,11 +722,18 @@ function translateFilterArray(filter: unknown[]): unknown[] {
  * Only rule-SHAPED objects are translated: a child with no `field` is a genuine
  * MongoDB condition (`{ status: 'active' }`) and must pass through untouched.
  * Same discriminator `isObjectFilterEntryForm` uses at the top level.
+ *
+ * A bare rule that does not translate is left for the server to refuse, but one
+ * the contract REFUSES is not: {@link objectFilterEntryToAST} throws for it
+ * here exactly as it does at the top level (objectui#9048). Translating it
+ * would send the refused node, and leaving it raw would earn a refusal of its
+ * SHAPE rather than of what it says. `index` is the child's position in its
+ * parent array.
  */
-function translateFilterChild(child: unknown): unknown {
+function translateFilterChild(child: unknown, index: number): unknown {
   if (Array.isArray(child)) return child.length > 0 ? translateFilterArray(child) : child;
   if (child && typeof child === 'object' && (child as any).field !== undefined) {
-    const tuple = objectFilterEntryToAST(child);
+    const tuple = objectFilterEntryToAST(child, index);
     if (tuple) return tuple;
   }
   return child;
@@ -2707,6 +2815,26 @@ function withoutNoOpDrops(
 }
 
 /**
+ * The console's round-trip keys the spec declares on the ViewItem RECORD — the
+ * keys of `VIEW_CONSOLE_ROUND_TRIP_KEYS` whose members include `viewItem`
+ * (objectui#11013). Derived, never hand-listed: the spec's record says which
+ * keys the console writes onto a stored row and reads back, and on which
+ * members each is declared; `_isOverride` is declared on the list overlay only,
+ * so it is not one of these.
+ *
+ * {@link ObjectStackAdapter.listViews} carries exactly these off a record when
+ * it flattens the record's `config` to the row the switcher reads. They live
+ * at the record's TOP level: the pin toggle and the drag-reorder write them
+ * through {@link ObjectStackAdapter.updateView}, which merges
+ * `{ ...current, ...partial }`, and app-shell's view-config save carries them
+ * forward beside the envelope's `config`. A flatten that kept only `config`
+ * dropped them on the reload.
+ */
+const VIEW_ITEM_ROUND_TRIP_KEYS: readonly string[] = (
+  Object.keys(VIEW_CONSOLE_ROUND_TRIP_KEYS) as Array<keyof typeof VIEW_CONSOLE_ROUND_TRIP_KEYS>
+).filter((key) => (VIEW_CONSOLE_ROUND_TRIP_KEYS[key] as readonly string[]).includes('viewItem'));
+
+/**
  * Resolve which object a `type='view'` metadata item belongs to.
  *
  * The metadata index is name-only, not field-typed: `GET /api/v1/meta/view`
@@ -2724,8 +2852,17 @@ function withoutNoOpDrops(
  *
  * `object` is the identity field the write path stamps (and that the
  * framework's overlay heals onto identity-less personalization rows —
- * objectstack#2555); `data.object` is the config's data-provider target and
- * `objectName` the legacy artifact spelling.
+ * objectstack#2555); `data.object` is the config's data-provider target.
+ *
+ * ⛔ No `objectName` leg (objectui#11013, ruling 甲 on objectstack#20051:
+ * objectui reads a stored view row by the spec's declared spellings). The
+ * spec declares `object` on every `view` member — required on the ViewItem
+ * record and on both flattened overlays — and declares `objectName` on none,
+ * so the metadata write door refuses a row that carries only `objectName`
+ * (`viewItemObjectName.declaredSpelling-11013.test.ts` pins that door beside
+ * this reader). Every write path in this package stamps `object` as well, so a
+ * row the console wrote carries it; a row that carries ONLY the undeclared
+ * spelling no longer matches any object here.
  *
  * **Exported** since objectui#4373, for the same one-spelling reason: a writer
  * outside this module that holds a view BODY but not its object name (app-shell's
@@ -2737,7 +2874,7 @@ function withoutNoOpDrops(
 export function viewItemObjectName(item: any): string | undefined {
   // Handle both bare view spec and `{list: {...}}` artifact wrapper
   const spec = item?.list ?? item;
-  return spec?.data?.object ?? spec?.object ?? spec?.objectName;
+  return spec?.data?.object ?? spec?.object;
 }
 
 /**
@@ -2749,7 +2886,9 @@ export function viewItemObjectName(item: any): string | undefined {
  *
  * `updateViewConfig` has exactly ONE production caller — `ObjectView`'s
  * `persistViewPatch`, invoked only for the toolbar-driven density / sort /
- * hiddenFields / columnState / inlineEdit toggle. That single call site is
+ * hiddenFields / columnState toggles. (The inline-edit toggle wrote
+ * `inlineEdit` through it until objectui#5144; the console now keeps that
+ * toggle session-only and writes nothing for it.) That single call site is
  * NOT itself the explicit "create/save a view" path (that goes through
  * {@link ObjectStackAdapter.createView} or the ADR-0034 metadata seam,
  * `viewEnvelope` in app-shell) — but it fires for a toggle on EITHER kind of
@@ -2826,11 +2965,14 @@ function isPersonalizationOverlayRow(item: any, spec: any): boolean {
  * One per `persistViewPatch` call site in app-shell's `ObjectView` — the ONLY
  * production writer of these rows — read off the tree rather than recalled:
  * `rowHeight` (the density toggle, spec-canonical since #2890), `sort`,
- * `hiddenFields`, `columnState` and `inlineEdit`. Nothing else in such a row
- * is an opinion the user expressed; anything else it carries is a COPY of the
- * source view as it stood at write time, because `persistViewPatch` USED TO
- * send `{ ...baseViewDef, ...patch }` and this adapter persists what it is
- * given.
+ * `hiddenFields` and `columnState`. Plus `inlineEdit`, which no console call
+ * site writes since objectui#5144 (triage's ruling E: the inline-edit toggle
+ * is session-only). It stays owned so an overlay the old toggle wrote is still
+ * read; the ruling keeps that data rather than migrating it. Nothing else in
+ * such a row is an opinion the user expressed; anything else it carries is a
+ * COPY of the source view as it stood at write time, because
+ * `persistViewPatch` USED TO send `{ ...baseViewDef, ...patch }` and this
+ * adapter persists what it is given.
  *
  * That copy was the defect the maintainer ruled on (objectstack#7494, comment
  * 5261754173): an overlay written by a mere column drag froze the view's
@@ -2863,9 +3005,10 @@ function isPersonalizationOverlayRow(item: any, spec: any): boolean {
  * ⛔ Do not grow this list to make some other key "stick" through an overlay.
  * A key that belongs to the view belongs in the view; the overlay is a patch,
  * and a patch that carries the whole document is what this list exists to
- * stop. Adding a sixth entry is only correct alongside a sixth
- * `persistViewPatch` call site — {@link narrowPersonalizationOverlay} is what
- * a reader checks that against.
+ * stop. Adding an entry is only correct alongside a `persistViewPatch` call
+ * site that writes it — {@link narrowPersonalizationOverlay} is what a reader
+ * checks that against. `inlineEdit` is the one entry with no such call site,
+ * kept for reading rows written before objectui#5144.
  */
 export const VIEW_OVERLAY_OWNED_KEYS = Object.freeze([
   'rowHeight',
@@ -3097,6 +3240,13 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   // multiple sibling components requesting the same dataset on first paint)
   // into a single network round trip.
   private inflightFinds = new Map<string, Promise<QueryResult<T>>>();
+  // In-flight findOne() reads keyed by resource + record id + serialized
+  // params, shared the same way (objectui#11699). Opening one record page
+  // asked for the same record twice at once: `record:details`' DetailView
+  // re-runs its load effect while its first read is still on the wire. A
+  // write to a resource drops that resource's entries (see `emitMutation`),
+  // so a read asked after a save is never answered by one sent before it.
+  private inflightFindOnes = new Map<string, Promise<T | null>>();
   // Resources that have responded 404 at least once (collection not installed
   // on this backend). Subsequent find() calls short-circuit to an empty result
   // so optional collections like sys_presence don't hammer the server with
@@ -3366,10 +3516,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       return { data: [], total: 0 } as QueryResult<T>;
     }
     const key = `${resource}::${stableStringify(params)}`;
-    const existing = this.inflightFinds.get(key);
-    if (existing) return existing;
-
-    const promise = (async () => {
+    return this.shareInFlight(this.inflightFinds, key, async () => {
       await this.connect();
 
       // When $expand is requested, use a raw GET request to the REST API with
@@ -3406,9 +3553,28 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         }
         throw err;
       }
-    })();
+    });
+  }
 
-    this.inflightFinds.set(key, promise);
+  /**
+   * Share one in-flight read among concurrent callers asking the same
+   * question: the first call for `key` issues `read()`, every call that
+   * arrives while it is still pending gets that same promise, and the entry is
+   * dropped the moment it settles — so nothing is cached past the round trip,
+   * a rejection reaches every caller that shared it and is not remembered, and
+   * the next call after settle issues a fresh read. Used by `find` and
+   * `findOne` (objectui#11699).
+   */
+  private shareInFlight<R>(
+    inflight: Map<string, Promise<R>>,
+    key: string,
+    read: () => Promise<R>,
+  ): Promise<R> {
+    const existing = inflight.get(key);
+    if (existing) return existing;
+
+    const promise = read();
+    inflight.set(key, promise);
     // Use `.then(cleanup, cleanup)` instead of `.finally(cleanup)`. `.finally`
     // returns a new chained promise that re-raises the rejection, and because
     // we don't return that chain, Node/browsers see it as an unhandled
@@ -3416,9 +3582,10 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     // via `.catch()` (e.g. AppHeader probing optional sys_presence/sys_activity).
     const cleanup = () => {
       // Only clear if the entry still points at this promise; a later call
-      // that started after settle may have already replaced it.
-      if (this.inflightFinds.get(key) === promise) {
-        this.inflightFinds.delete(key);
+      // that started after settle, or after a write dropped the entry, may
+      // have already replaced it.
+      if (inflight.get(key) === promise) {
+        inflight.delete(key);
       }
     };
     promise.then(cleanup, cleanup);
@@ -3527,8 +3694,17 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
   /**
    * Find a single record by ID.
+   *
+   * Concurrent calls for the same resource, id and params share one request,
+   * exactly as `find` does (objectui#11699); see {@link shareInFlight}.
    */
   async findOne(resource: string, id: string | number, params?: QueryParams): Promise<T | null> {
+    const key = `${resource}::${JSON.stringify(String(id))}::${stableStringify(params)}`;
+    return this.shareInFlight(this.inflightFindOnes, key, () => this.readOne(resource, id, params));
+  }
+
+  /** The one round trip behind {@link findOne}, unshared. */
+  private async readOne(resource: string, id: string | number, params?: QueryParams): Promise<T | null> {
     await this.connect();
 
     // When $expand is requested, use a raw GET request with a filter by id
@@ -3579,6 +3755,15 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * mutation or starve the other subscribers, so each is isolated.
    */
   private emitMutation(event: DataSourceMutationEvent<T>): void {
+    // A record read still on the wire when a write to its resource lands was
+    // asked before that write, so a caller asking after it — typically the
+    // refetch a listener below triggers — must not join it (objectui#11699).
+    // Dropped before the listeners run. The pending read still answers the
+    // callers that already hold it.
+    const prefix = `${event.resource}::`;
+    for (const key of Array.from(this.inflightFindOnes.keys())) {
+      if (key.startsWith(prefix)) this.inflightFindOnes.delete(key);
+    }
     for (const listener of this.mutationListeners) {
       try {
         listener(event);
@@ -4776,13 +4961,52 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       }
     }
 
+    return this.fetchExportBlob(resource, queryParams);
+  }
+
+  /**
+   * Download the server's import template:
+   * `GET /api/v1/data/:object/export?template=true` (objectui#9600).
+   *
+   * Same route as {@link exportDownload}, with the server's template switch. It
+   * sends only `template=true`: the server refuses the export's row parameters
+   * on a template request, and its answer is always an xlsx workbook.
+   *
+   * The server writes the template's labels in the request's locale, and the
+   * import accepts a translated label only in its own request's locale. The
+   * import request goes through `@objectstack/client`, which stamps
+   * `Accept-Language` with the client's locale when one is set (and the host's
+   * `fetch` stamps its own otherwise). This request bypasses the client, so it
+   * stamps the client's locale the same way. Both requests then carry the same
+   * locale.
+   */
+  async downloadImportTemplate(resource: string): Promise<Blob> {
+    const locale = this.client.getLocale();
+    return this.fetchExportBlob(
+      resource,
+      new URLSearchParams({ template: 'true' }),
+      locale ? { 'Accept-Language': locale } : undefined,
+    );
+  }
+
+  /**
+   * GET `/api/v1/data/:object/export` with the given query and answer the body
+   * as a Blob. A failure throws an `Error` that carries the server's `status`
+   * and its ADR-0112 `code`. The one request path {@link exportDownload} and
+   * {@link downloadImportTemplate} share.
+   */
+  private async fetchExportBlob(
+    resource: string,
+    queryParams: URLSearchParams,
+    extraHeaders?: Record<string, string>,
+  ): Promise<Blob> {
     const baseUrl = this.baseUrl.replace(/\/$/, '');
     // Avoid doubling /api/v1 if baseUrl already includes the version suffix.
     const hasApiVersionSuffix = /\/api\/v\d+$/i.test(baseUrl);
     const dataPath = hasApiVersionSuffix ? '/data' : '/api/v1/data';
     const url = `${baseUrl}${dataPath}/${encodeURIComponent(resource)}/export?${queryParams.toString()}`;
 
-    const headers: Record<string, string> = { ...this.getAuthHeaders() };
+    const headers: Record<string, string> = { ...this.getAuthHeaders(), ...extraHeaders };
     // `credentials: 'include'` carries the session cookie for the browser
     // console (which authenticates by cookie, not a bearer token).
     const res = await this.fetchImpl(url, { method: 'GET', headers, credentials: 'include' });
@@ -4902,11 +5126,12 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         this.fetchObjectSchemaFresh(objectName),
       );
 
-      // Canonicalize the relational-target key: the server names it
-      // `reference` (ObjectStack convention) while most consumers read
-      // `reference_to` (#2407 / PR #2587). Stamping both here — the choke
-      // point every schema read goes through — means no per-consumer
-      // dual-key fallback can drift. Idempotent on the cached object.
+      // Canonicalize the relational-target key onto `reference`, the only
+      // spelling the spec declares and ObjectUI's readers read (objectui#11070
+      // round 4): a stored def that still spells a legacy `reference_to` /
+      // `referenceTo` is folded here — the choke point every schema read goes
+      // through — so no consumer needs a dual-key fallback. `reference_to` is
+      // never stamped. Idempotent on the cached object.
       normalizeSchemaReferenceKeys(schema);
 
       // ADR-0056 P2 (epic #2398): stamp structured-widget hints onto specific
@@ -5504,14 +5729,33 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         // no top-level `type`, so ObjectView's saved-view normalization defaults
         // it to 'grid' and overrides the metadata entry — a kanban/gallery/
         // calendar view then silently renders as a plain table.
+        //
+        // objectui#11013 — the flattened row also carries the record's declared
+        // members the console reads back off it: its bound `object`, and the
+        // round-trip keys the spec declares on the record
+        // (`VIEW_ITEM_ROUND_TRIP_KEYS`: `isPinned`, `sortOrder`, `visibility`,
+        // `columnState`, and `isDefault`, coerced to a boolean as before). The
+        // switcher sorts saved views by the `sortOrder` it reads off THIS row,
+        // and nothing else restored it, so a reordered record lost its place
+        // on the reload. Each is copied only when the record carries it, and
+        // after `config`, so a record-level key wins over a config key of the
+        // same name. (MetadataProvider's `applyViewItem` still flattens to
+        // `config` + identity: the tab it feeds is merged with the stored
+        // record through `loadViewOverrides`, which is where that path gets
+        // these keys back. The sort reads this row, not the tab.)
         if (spec && spec.config && typeof spec.config === 'object') {
-          return {
+          const row: Record<string, unknown> = {
             ...spec.config,
             name: spec.name ?? spec.config.name,
             label: spec.label ?? spec.config.label,
-            isDefault: !!spec.isDefault,
-            ...(isDraft ? { _draft: true } : {}),
           };
+          if (spec.object !== undefined) row.object = spec.object;
+          for (const key of VIEW_ITEM_ROUND_TRIP_KEYS) {
+            if (spec[key] !== undefined) row[key] = spec[key];
+          }
+          row.isDefault = !!spec.isDefault;
+          if (isDraft) row._draft = true;
+          return row;
         }
         return isDraft ? { ...spec, _draft: true } : spec;
       });
@@ -6940,6 +7184,17 @@ export { MetadataClient, readSaveAdvisories } from './metadata-client';
 // `getDraft` that produces the envelope, because the unwrap-and-strip is part
 // of that method's contract rather than a detail of any one view.
 export { extractDraftBody } from './draft-envelope';
+// objectui#10202 / objectui#11692 - the served -> authored conversion of a
+// picklist-bound field, exported for the WRITERS that seed an object PUT from a
+// served read (the read answers `picklist` beside the resolved `options`, and the
+// authoring door refuses the pair). ⛔ Never applied inside `MetadataClient.save`:
+// a door cannot tell a served copy from an authored pair, and the second must
+// stay the server's loud refusal. See the module's docblock.
+export { dropServedPicklistOptions } from './picklist-binding';
+// objectui#11302 - the one reader of a failed metadata save, exported beside the
+// `MetadataError.issues` it reads so every surface that saves through this
+// client renders the per-field prescription the same way.
+export { formatMetadataError, formatMetadataIssue } from './metadata-error';
 // objectui#8676 - the object-metadata write invariant, exported so the two DOORS
 // that do not run through `MetadataClient.save` can apply the same one. It is
 // exported for DOORS, not for writers: a writer that calls it by hand is a
@@ -6949,6 +7204,7 @@ export { extractDraftBody } from './draft-envelope';
 export {
   assertObjectMetadataWritable,
   RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+  CHOICE_TYPES_REQUIRING_OPTIONS,
   OBJECT_METADATA_TYPE,
 } from './object-metadata-write-guard';
 export type {

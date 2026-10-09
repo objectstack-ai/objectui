@@ -139,6 +139,8 @@ export const CONDITION_SCOPE_BY_METADATA_TYPE = {
   connector: 'none',
   dashboard: 'none',
   datasource: 'none',
+  /** objectui#10188 registers `doc`; `DocSchema` declares no condition key. */
+  doc: 'none',
   email_template: 'none',
   field: 'none',
   index: 'none',

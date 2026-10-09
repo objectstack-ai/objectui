@@ -21,8 +21,10 @@
 
 import * as React from 'react';
 import { Plus } from 'lucide-react';
+import { resolveFlowTriggerKind } from '@objectstack/spec/automation';
+import { Input, Label } from '@object-ui/components';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
-import { t } from '../i18n.js';
+import { t, tFormat } from '../i18n.js';
 import {
   InspectorShell,
   InspectorTextField,
@@ -36,12 +38,13 @@ import {
   isFieldVisible,
   inactiveRetainedKind,
   getFieldValue,
+  readFieldValue,
+  switchedBlockOf,
+  isBareSwitchedOffBlock,
   configKeyOf,
-  FLOW_NODE_TYPE_OPTIONS,
   type FlowConfigField,
 } from './flow-node-config.js';
-import { translateNodeLabel } from '../i18n.js';
-import { jsonSchemaToFlowFields } from './json-schema-to-fields.js';
+import { declaredConfigKeys, jsonSchemaToFlowFields } from './json-schema-to-fields.js';
 import {
   applyConnectorInputForm,
   connectorActionInputSchema,
@@ -51,14 +54,25 @@ import {
   useConnectorRegistry,
 } from './connector-input-fields.js';
 import { applyDecisionBranches, syncDecisionEdgesByOrder, withBranchTargets } from './flow-decision-edges.js';
-import { useActionConfigSchemas } from '../previews/useFlowNodePalette.js';
+import { useActionConfigSchemas, useFlowNodePalette } from '../previews/useFlowNodePalette.js';
+import { defaultNodeLabel, paletteTypeOptions } from '../previews/flow-canvas-parts.js';
 import { FlowNodeConfigField } from './FlowNodeConfigField.js';
+import { specRequiredColumns, specRequiresField } from './flow-required-keys.js';
 import { useFlowScope } from './useFlowScope.js';
-import { nodeOutputRefs, type ScopeRef } from './flow-scope.js';
+import { hasCommittedConnectorAction, nodeOutputRefs, type ScopeRef } from './flow-scope.js';
 import { NESTED_NODE_KIND, parseNestedNodeId, locateFlowNode, type InspectorFlowNode } from './flow-nested-selection.js';
 import { displayRegionLabel } from '../previews/flow-region-label.js';
 import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 import { ScreenPreview } from '../previews/ScreenPreview.js';
+import {
+  boundaryRefsAfterNodeRename,
+  describeNodeRemovalRefusal,
+  edgesAfterNodeRemoval,
+  edgesAfterNodeRename,
+  nodeRemovalRefusal,
+  nodeRenameRefusal,
+} from '../previews/flow-problems.js';
+import { describeExprSite, expressionRefsAfterNodeRename, type ExprRenameRefusal } from '../previews/flow-node-refs.js';
 
 /**
  * The node and edge shapes this panel edits — ALIASED, never restated
@@ -154,7 +168,99 @@ function setAtPath(obj: Record<string, unknown>, path: string[], value: unknown)
   return next;
 }
 
-export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection, locale, readOnly }: MetadataInspectorProps) {
+/**
+ * The node's ID field (objectui#11827). Unlike the panel's other text fields it
+ * holds what the author types as a DRAFT and commits only a finished id — on
+ * blur or Enter — because an id is not a value like a label: it is the handle
+ * every edge names. Committed per keystroke, each intermediate spelling was a
+ * rename of its own, and the first one already left the inspector's selection
+ * naming an id that no longer existed.
+ *
+ * `refusalOf` judges the finished id; a refused id is never handed to
+ * `onRename`, the field shows the stored id again, and the reason stays under
+ * it until the author edits again. Escape puts the stored id back. An Enter that
+ * ends an IME composition is the composition's, not a commit.
+ *
+ * Local to this panel on purpose: the shared `InspectorTextField` commits on
+ * every change, which is right for every field but this one.
+ */
+function FlowNodeIdField({
+  label,
+  id,
+  disabled,
+  refusalOf,
+  onRename,
+}: {
+  label: string;
+  /** The node's stored id. */
+  id: string;
+  disabled?: boolean;
+  /** Why `next` may not be the node's id, as the text to show — or null when it may. */
+  refusalOf: (next: string) => string | null;
+  onRename: (next: string) => void;
+}) {
+  const inputId = React.useId();
+  const refusalId = `${inputId}-refusal`;
+  const [text, setText] = React.useState(id);
+  const [refusal, setRefusal] = React.useState<string | null>(null);
+  // The stored id moved under the field — the rename landed, or another node
+  // was selected — so the field shows it and drops any earlier refusal. Adjusted
+  // while rendering (React's documented pattern for state that follows a prop):
+  // no effect, and no remount, so the input keeps focus after an Enter.
+  const [shownId, setShownId] = React.useState(id);
+  if (shownId !== id) {
+    setShownId(id);
+    setText(id);
+    setRefusal(null);
+  }
+
+  const commit = () => {
+    if (text === id) return;
+    const refused = refusalOf(text);
+    if (refused) {
+      setRefusal(refused);
+      setText(id);
+      return;
+    }
+    onRename(text);
+  };
+
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={inputId} className="text-xs text-muted-foreground">{label}</Label>
+      <Input
+        id={inputId}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setRefusal(null);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return;
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          } else if (e.key === 'Escape') {
+            setText(id);
+            setRefusal(null);
+          }
+        }}
+        disabled={disabled}
+        aria-invalid={refusal ? true : undefined}
+        aria-describedby={refusal ? refusalId : undefined}
+        className="h-8 font-mono text-sm"
+      />
+      {refusal && (
+        <p id={refusalId} className="text-[11px] leading-snug text-destructive" role="alert">
+          {refusal}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection, onSelectionChange, locale, readOnly }: MetadataInspectorProps) {
   // Resolve the selection to a node + how to write it back — a top-level draft
   // node, or a node nested inside a container region (#2670). Every edit goes
   // through loc.write, so the inspector never branches on where the node lives.
@@ -172,6 +278,9 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
   // with the backend. Falls back to the hardcoded field group when no schema is
   // published (offline / plugin absent / older backend).
   const configSchemas = useActionConfigSchemas();
+  // objectui#11778 — the Node Type select offers the add-node palette's types
+  // with its display names: the list the canvas adds from, engine-merged.
+  const paletteItems = useFlowNodePalette();
   // A nested node anchors its scope on the container (ADR-0031 outer scope). The
   // container's own outputs — a loop's iteratorVariable — are excluded from the
   // graph walk at its id, so inject the loop group explicitly for a body node.
@@ -179,8 +288,6 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     () => (loc?.nested && loc.container ? nodeOutputRefs(loc.container).filter((r) => r.group === 'loop') : []),
     [loc],
   );
-  // In-scope variable references for this node, for the data-picker (#1934).
-  const { groups: scopeGroups, approvalExpressionGroups, trigger: triggerScope } = useFlowScope(draft as Record<string, unknown>, loc?.scopeAnchorId, nestedLoopRefs);
   // #4305 — a COMMITTED connector action (connector + action both chosen) types
   // its Input section from that action's descriptor `inputSchema`. Read the
   // committed pair and the stored input map off the node's spec-structured
@@ -200,7 +307,20 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
       storedInput: block.input,
     };
   }, [node]);
-  const connectors = useConnectorRegistry(!!connectorId && !!actionId);
+  // The same registry read also serves the scope (objectui#11028): an upstream
+  // committed `connector_action` node offers its action's declared output keys
+  // as references, so the read fires for this node's own committed pair OR for
+  // any committed connector action in the flow — one read, two consumers.
+  const connectors = useConnectorRegistry(
+    (!!connectorId && !!actionId) || hasCommittedConnectorAction(draft as Record<string, unknown>),
+  );
+  // In-scope variable references for this node, for the data-picker (#1934).
+  const { groups: scopeGroups, approvalExpressionGroups, trigger: triggerScope } = useFlowScope(
+    draft as Record<string, unknown>,
+    loc?.scopeAnchorId,
+    nestedLoopRefs,
+    connectors,
+  );
   const connectorInput = React.useMemo(
     () => connectorInputFields(connectorActionInputSchema(connectors, connectorId, actionId)),
     [connectors, connectorId, actionId],
@@ -217,7 +337,9 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     // the config-rooted fields — the spec-structured sibling blocks
     // (connectorConfig / waitEventConfig / boundaryConfig) and top-level
     // `timeoutMs` are always kept from the hand-written group (framework#4045).
-    const resolved = mergeServerFlowFields(serverFields, nodeType);
+    // A key it declares but the mapper cannot type keeps its hand-written
+    // editor (objectui#11788 — `notify.recipients`).
+    const resolved = mergeServerFlowFields(serverFields, nodeType, schema !== undefined ? declaredConfigKeys(schema) : null);
     // Localize both the hardcoded table and the engine-published configSchema
     // fields (they share field ids for built-in nodes); no-op for English.
     const localized = localizeFlowFields(nodeType, resolved, locale);
@@ -228,7 +350,28 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     return applyConnectorInputForm(localized, connectorInput, storedInput);
   }, [configSchemas, nodeType, locale, connectorInput, storedInput]);
   const config = asConfig(node);
-  const visibleFields = fields.filter((f) => isFieldVisible(f, node, fields));
+  // objectui#11054 — the flow's trigger kind, asked of the whole draft with the
+  // spec's own resolver (the engine's precedence), for fields gated by
+  // `flowKind`: an `api` flow is `type: 'api'` OR a start-node
+  // `triggerType: 'api'`, and only the draft can answer the first.
+  const flowKind = resolveFlowTriggerKind(draft);
+  const visibleFields = fields.filter((f) => isFieldVisible(f, node, fields, flowKind));
+  // objectui#10948 — the fields holding a key the installed spec refuses this
+  // node without, so the author sees the requirement before the save-time error
+  // names it. Asked of the spec itself for the node as it stands
+  // (`flow-required-keys.ts`), never read from a list kept here; recomputed on
+  // every edit, so a rule-dependent requirement (`notify`'s `title` while it has
+  // no `template`) follows the configuration.
+  const requiredness = React.useMemo(() => {
+    const out = new Map<string, { required: boolean; columns?: ReadonlySet<string> }>();
+    for (const f of fields) {
+      out.set(f.id, {
+        required: specRequiresField(node, f),
+        columns: f.kind === 'objectList' ? specRequiredColumns(node, f) : undefined,
+      });
+    }
+    return out;
+  }, [node, fields]);
 
   // `{var}` interpolation source for the screen preview — the flow's declared
   // variables and their defaults (the designer has no live run state).
@@ -264,6 +407,17 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
   const [advOpen, setAdvOpen] = React.useState(extraJson.trim() !== '');
   // Reveals the optional custom-keys editor on nodes that currently have none.
   const [advReveal, setAdvReveal] = React.useState(false);
+  // objectui#11838 — the node whose "Remove node" was refused. The message is
+  // derived from the draft while that node stays selected, so it names what
+  // still blocks the removal and goes away once nothing does. Reset while
+  // rendering when another node is shown, as `FlowNodeIdField` resets its own.
+  const [removeRefusedId, setRemoveRefusedId] = React.useState<string | null>(null);
+  const shownNodeId = node?.id ?? null;
+  const [refusalShownFor, setRefusalShownFor] = React.useState(shownNodeId);
+  if (refusalShownFor !== shownNodeId) {
+    setRefusalShownFor(shownNodeId);
+    setRemoveRefusedId(null);
+  }
   React.useEffect(() => {
     setAdvText(extraJson);
     setAdvError(null);
@@ -331,7 +485,22 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
         nextEdges = syncDecisionEdgesByOrder(node.id, value, draftEdges);
       }
     }
+    // objectui#11660 — a block whose EXISTENCE is its switch (`switchedBlockOf`:
+    // the approval node's SLA escalation). The write itself is the ordinary
+    // one, so switching off a block that holds entered values stores
+    // `enabled: false` beside them, every value kept (objectui#6499 Option C,
+    // triage 6003792818) — including a block that has no `timeoutHours` yet:
+    // nothing is filled in, nothing deleted. What is never stored is the bare
+    // `{ enabled: false }` stub `ApprovalNodeConfigSchema` refuses: a write
+    // that would leave it — switching off with nothing entered, or clearing the
+    // last value retained under a switched-off block — removes the block
+    // instead, which says the same OFF. `setAtPath` deletes only the block —
+    // sibling config keys are not rebuilt — and prunes a `config` left empty.
+    const switched = switchedBlockOf(node, field);
     let nextNode = setAtPath(node, path, stored);
+    if (switched && isBareSwitchedOffBlock(nextNode, switched)) {
+      nextNode = setAtPath(nextNode, [...switched.block], undefined);
+    }
     // Migrate-on-edit: writing the canonical path drops any looser fallback
     // location, so the node never carries a stale duplicate (engine + designer agree).
     if (field.fallbackPath) nextNode = setAtPath(nextNode, field.fallbackPath, undefined);
@@ -369,15 +538,107 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     }
   };
 
+  // objectui#11772 — removing a node removes the edges that name it in the
+  // SAME patch, splicing a single-path node out (predecessor → successor): the
+  // canvas's Delete key makes the identical removal (`edgesAfterNodeRemoval`).
+  // Writing `null` to the node alone left every edge naming it behind, and the
+  // next node minted with that id inherited them all. Top-level only: a nested
+  // node has no Remove (its routing lives in its region, not on `draft.edges`).
+  //
+  // objectui#11838 — and it is refused, writing nothing, while a boundary
+  // event's host or an expression root still names the node: a removal has no
+  // new id for those to follow. `nodeRemovalRefusal` is the one rule the
+  // canvas's Delete key applies too; the refusal names each site under the
+  // button, and the node stays selected.
+  const removalSites = removeRefusedId === node.id ? nodeRemovalRefusal(draft as Record<string, unknown>, node.id) : null;
   const remove = () => {
+    if (nodeRemovalRefusal(draft as Record<string, unknown>, node.id)) {
+      setRemoveRefusedId(node.id);
+      return;
+    }
     const patch = loc?.write(null);
+    if (patch && !loc?.nested) {
+      const draftEdges = Array.isArray((draft as { edges?: unknown }).edges)
+        ? ((draft as { edges: FlowEdge[] }).edges)
+        : [];
+      const remaining = new Set(
+        (patch.nodes as Array<{ id?: unknown } | null>).flatMap((n) => (typeof n?.id === 'string' ? [n.id] : [])),
+      );
+      patch.edges = edgesAfterNodeRemoval(draftEdges, node.id, remaining);
+    }
     if (patch) onPatch(patch);
     onClearSelection();
   };
 
-  const typeOptions = FLOW_NODE_TYPE_OPTIONS.includes(node.type as (typeof FLOW_NODE_TYPE_OPTIONS)[number])
-    ? [...FLOW_NODE_TYPE_OPTIONS]
-    : [...FLOW_NODE_TYPE_OPTIONS, node.type ?? ''].filter(Boolean);
+  // objectui#11827 — renaming a node carries every reference to it in the
+  // SAME patch: each edge endpoint that named the old id (`edgesAfterNodeRename`)
+  // and a boundary event's host (`boundaryRefsAfterNodeRename`). Writing the
+  // node's id alone left every edge naming a node that no longer existed, so the
+  // renamed node ran disconnected. The selection then follows the node, or the
+  // inspector would be left on an id the draft no longer holds. Top-level only:
+  // a nested node's id is read-only here (its region routing is not managed).
+  //
+  // objectui#11838 — the same patch carries every expression reference whose
+  // root is the old id (`expressionRefsAfterNodeRename`): a later branch's
+  // `x.decision == 'approve'`, a record field's `{x.field}` / `{{x.field}}`,
+  // read through the expression parsers. A reference no parser can place is
+  // not guessed at: the rename is refused, naming it. `renamePatch` is the one
+  // build both the refusal and the commit read, so the field refuses exactly
+  // what the commit could not carry.
+  const renamePatch = (nextId: string): { patch: Record<string, unknown> } | { refusal: ExprRenameRefusal } | null => {
+    if (!loc || loc.nested) return null;
+    const oldId = node.id;
+    const patch = loc.write(withoutSpecRefusedKeys({ ...node, id: nextId }));
+    if (!patch) return null;
+    const nodesAfter = Array.isArray(patch.nodes) ? (patch.nodes as Array<{ id?: unknown; boundaryConfig?: unknown } | null>) : [];
+    const draftEdges = Array.isArray((draft as { edges?: unknown }).edges)
+      ? ((draft as { edges: FlowEdge[] }).edges)
+      : [];
+    const idsAfter = new Set(nodesAfter.flatMap((n) => (typeof n?.id === 'string' ? [n.id] : [])));
+    const edges = edgesAfterNodeRename(draftEdges, oldId, nextId, idsAfter);
+    const carried = expressionRefsAfterNodeRename(
+      { nodes: boundaryRefsAfterNodeRename(nodesAfter, oldId, nextId), edges, variables: (draft as { variables?: unknown }).variables },
+      oldId,
+      nextId,
+    );
+    if (!carried.ok) return { refusal: carried.refusal };
+    patch.nodes = carried.nodes;
+    if (carried.edges !== draftEdges) patch.edges = carried.edges;
+    return { patch };
+  };
+  const idRefusal = (next: string): string | null => {
+    switch (nodeRenameRefusal(draft as Record<string, unknown>, node.id, next)) {
+      case 'empty':
+        return t('engine.inspector.flowNode.idRequired', locale);
+      case 'node':
+        return tFormat('engine.inspector.flowNode.idTaken', locale, { id: next });
+      case 'edge':
+        return tFormat('engine.inspector.flowNode.idEdgeNamed', locale, { id: next });
+    }
+    const built = renamePatch(next);
+    if (!built || !('refusal' in built)) return null;
+    const { refusal } = built;
+    const refs = refusal.sites.map(describeExprSite).join('; ');
+    return refusal.kind === 'unparsed'
+      ? tFormat('engine.inspector.flowNode.idRefsUnparsed', locale, { id: node.id, refs })
+      : tFormat('engine.inspector.flowNode.idRefsAmbiguous', locale, { name: refusal.name, refs });
+  };
+  const rename = (nextId: string) => {
+    const built = renamePatch(nextId);
+    if (!built || !('patch' in built)) return;
+    onPatch(built.patch);
+    onSelectionChange?.({ kind: 'node', id: nextId, label: node.label || nextId });
+  };
+
+  // objectui#11778 — the palette's list (it once was a hand list here that
+  // missed `notify` and showed raw type names). A stored type the palette does
+  // not offer (`start`, an alias like `http_request`, a plugin type whose engine
+  // is not answering) is added for THIS node only, under its display name, so
+  // the select still shows what the node is; no other node is offered it.
+  const typeOptions = paletteTypeOptions(paletteItems, locale);
+  if (node.type && !typeOptions.some((o) => o.value === node.type)) {
+    typeOptions.push({ value: node.type, label: defaultNodeLabel(node.type, locale) });
+  }
 
   // A nested node has no structural editing this phase (no delete, id is
   // read-only — those live on the container's Advanced JSON).
@@ -389,7 +650,18 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
       title={node.label || node.id}
       onClose={onClearSelection}
       closeLabel={t('engine.inspector.flowNode.close', locale)}
-      footer={nested ? undefined : <InspectorRemoveButton label={t('engine.inspector.flowNode.remove', locale)} onClick={remove} disabled={readOnly} />}
+      footer={
+        nested ? undefined : (
+          <div className="space-y-1.5">
+            {removalSites && (
+              <p className="text-[11px] leading-snug text-destructive" role="alert">
+                {describeNodeRemovalRefusal(node.id, removalSites, locale)}
+              </p>
+            )}
+            <InspectorRemoveButton label={t('engine.inspector.flowNode.remove', locale)} onClick={remove} disabled={readOnly} />
+          </div>
+        )
+      }
     >
       {nested && (
         <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground" aria-label={t('engine.inspector.flowNode.nestedLocation', locale)}>
@@ -406,7 +678,13 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
           <span className="max-w-[45%] truncate font-medium text-foreground">{node.label || node.id}</span>
         </div>
       )}
-      <InspectorTextField label={t('engine.inspector.flowNode.id', locale)} value={node.id} onCommit={(v) => patchNode({ id: v })} disabled={readOnly || nested} mono />
+      <FlowNodeIdField
+        label={t('engine.inspector.flowNode.id', locale)}
+        id={node.id}
+        refusalOf={idRefusal}
+        onRename={rename}
+        disabled={readOnly || nested}
+      />
       {nested && (
         <p className="-mt-1 text-[11px] leading-snug text-muted-foreground">{t('engine.inspector.flowNode.nestedIdHint', locale)}</p>
       )}
@@ -414,7 +692,7 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
       <InspectorSelectField
         label={t('engine.inspector.flowNode.type', locale)}
         value={node.type}
-        options={typeOptions.map((v) => ({ value: v, label: translateNodeLabel(v, locale, v) }))}
+        options={typeOptions}
         onCommit={(v) => patchNode({ type: v })}
         disabled={readOnly}
       />
@@ -455,27 +733,42 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
               // #4305 — show this repeater only the keys the typed sibling
               // fields do not own; `setField` merges its commit back.
               ? connectorInputExtras(getFieldValue(node, effField), effField.omitKeys)
-              : getFieldValue(node, effField);
+              // objectui#11660 — `readFieldValue`: a block switch over an
+              // absent block draws OFF, not its declared default.
+              : readFieldValue(node, effField);
+        const required = requiredness.get(field.id)?.required;
         return (
-          <FlowNodeConfigField
-            key={field.id}
-            field={effField}
-            value={value}
-            onCommit={(v) => setField(field, v)}
-            disabled={readOnly}
-            locale={locale}
-            context={{ draft, node }}
-            scopeGroups={scopeGroups}
-            approvalScopeGroups={approvalExpressionGroups}
-            triggerScope={triggerScope}
-            // objectui#6499 — a gated field that survived the filter above ONLY
-            // because it holds a stored value is inert config wearing a live
-            // control's clothes. Name it, and offer the deliberate clear.
-            // Computed from `field` (not `effField`): the read is by `path`,
-            // which the nested-branch rewrite above does not touch.
-            inactiveRetained={inactiveRetainedKind(field, node, fields)}
-            onClearInactive={readOnly ? undefined : () => setField(field, undefined)}
-          />
+          <React.Fragment key={field.id}>
+            <FlowNodeConfigField
+              field={effField}
+              value={value}
+              onCommit={(v) => setField(field, v)}
+              disabled={readOnly}
+              locale={locale}
+              context={{ draft, node }}
+              scopeGroups={scopeGroups}
+              approvalScopeGroups={approvalExpressionGroups}
+              triggerScope={triggerScope}
+              // objectui#6499 — a gated field that survived the filter above ONLY
+              // because it holds a stored value is inert config wearing a live
+              // control's clothes. Name it, and offer the deliberate clear.
+              // Computed from `field` (not `effField`): the read is by `path`,
+              // which the nested-branch rewrite above does not touch.
+              inactiveRetained={inactiveRetainedKind(field, node, fields, flowKind)}
+              onClearInactive={readOnly ? undefined : () => setField(field, undefined)}
+              required={required}
+              requiredColumns={requiredness.get(field.id)?.columns}
+            />
+            {/* objectui#11786 — a required input the node leaves out is what holds
+                Studio's autosave of this step (and what the server refuses), so
+                it says so under the marker. Absent, not blank: the spec's judges
+                refuse the key's absence. */}
+            {required && getFieldValue(node, field) === undefined && (
+              <p data-testid="flow-field-held-hint" className="-mt-1 text-[11px] leading-snug text-muted-foreground">
+                {t('engine.studio.held.inputHint', locale)}
+              </p>
+            )}
+          </React.Fragment>
         );
       })}
 

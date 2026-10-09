@@ -17,8 +17,12 @@
  */
 
 import { z } from 'zod';
+// objectui#11440 — the spec's report definition, by reference: what the
+// authored `report` node wraps in its `report` member (`ReportNodeSchema` below).
+import { ReportSchema as SpecReportSchema } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import { ChartSchema } from './data-display.zod.js';
+import { stripImportedDefaults } from './imported-defaults.js';
 import { handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 
 /**
@@ -186,6 +190,32 @@ export const ReportComponentSchema = BaseSchema.extend({
   refreshInterval: z.number().optional().describe('Auto-refresh interval (in seconds)'),
   loading: z.boolean().optional().describe('Loading state'),
   data: z.array(z.any()).optional().describe('Report data'),
+  // objectui#6152 round 3 — declared on the interface and never mirrored here. READ:
+  // `ReportViewer` evaluates each rule per cell (`report?.conditionalFormatting`) for
+  // the report a `report-viewer` node carries, and that node's `report` member IS
+  // this mirror. Restated rule for rule from the interface's inline element type.
+  conditionalFormatting: z.array(z.object({
+    field: z.string().describe('Field the rule tests'),
+    operator: z.enum(['equals', 'not_equals', 'contains', 'greater_than', 'less_than']).describe('Comparison operator'),
+    value: z.any().describe('Value the field is compared with'),
+    backgroundColor: z.string().optional().describe('Cell background colour when the rule matches'),
+    textColor: z.string().optional().describe('Cell text colour when the rule matches'),
+  })).optional().describe('Conditional formatting rules, evaluated per cell; the first matching rule styles it'),
+  // objectui#6152 round 4 — two keys the interface declared and NOTHING read (a
+  // type-checker census over every package's sources, no untyped read, no authored
+  // document). Retired on both faces under ADR-0049 enforce-or-remove; tombstones
+  // rather than deletions because `BaseSchema` is `.passthrough()`, so a deleted arm
+  // would KEEP an authored value in silence. `reportType`'s one in-code producer, the
+  // spec-report converter in `../spec-report.ts`, stops writing it in the same change.
+  reportType: retirementTombstone(
+    'RETIRED (objectui#6152, ADR-0049) — nothing ever read `reportType` off a report: the presentation '
+    + 'renderer draws the same sections whatever it says. Delete the key; a dataset-bound report\'s layout '
+    + 'is the spec report\'s own `type`.',
+  ),
+  chartConfig: retirementTombstone(
+    'RETIRED (objectui#6152, ADR-0049) — nothing ever read `chartConfig` off a report, so an authored '
+    + 'value configured nothing. Delete the key.',
+  ),
   // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
   // refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(REPORT_NEITHER_CHANNEL),
@@ -245,13 +275,95 @@ export const ReportViewerSchema = BaseSchema.extend({
 });
 
 /**
+ * Report Node Schema — the AUTHORED `report` node (objectui#11440): every
+ * member of {@link ReportComponentSchema}, plus `report`, the wrapper shape the
+ * retired `spec-report` alias carried.
+ *
+ * ## Why the wrapper is declared here
+ *
+ * The seat ruling `5945530142` on objectui#10859 retires `spec-report` as an
+ * alias of `report`, in a fixed order: `report` first declares the shape
+ * `spec-report` carried, `{ "type": "report", "report": { … } }`, then the
+ * emitter moves, then the alias goes. Both keys were registered on the one
+ * dispatcher, `ReportRenderer` (`@object-ui/plugin-report`), whose first step
+ * unwraps a node whose `report` member is an object and renders THAT: the
+ * spec's report definition, dataset-bound (ADR-0021) or a stored pre-9.0 one it
+ * bridges. Before this arm the strict face refused `report` on a `report` node
+ * as an unrecognized key, and the tolerant face passed it unjudged.
+ *
+ * ## The member, by reference
+ *
+ * `report` is `@objectstack/spec/ui`'s `ReportSchema` through the import
+ * boundary, the shape `defineReport` validates and `json-schema/ui/Report.json`
+ * publishes, so the spec's members, required keys and refusals apply unchanged.
+ * ⚠️ That includes the spec's own refusal of the pre-9.0 query form
+ * (`objectName` / `columns` objects, "did you mean `dataset`?"): the renderer
+ * still bridges such a stored report at runtime, but it is not authorable here.
+ *
+ * ## Why a node of its own, and not a member of `ReportComponentSchema`
+ *
+ * `ReportComponentSchema` is also the report RECORD that a `report-viewer` and a
+ * `report-builder` hold in their own `report` member, and `ReportViewer` reads
+ * no wrapper there. A wrapper declared on the record would accept, unread, a
+ * report nested inside a viewer's report. So the union arms the node with this
+ * schema, and `ReportComponentSchema` stays the record and its TypeScript
+ * twin's mirror. When `report` is present, `ReportRenderer` renders the wrapped
+ * report alone and reads none of the node's presentation members.
+ */
+export const ReportNodeSchema: ReportNodeZodType = ReportComponentSchema.extend({
+  report: stripImportedDefaults(SpecReportSchema)
+    .optional()
+    .describe(
+      'The report to render: `@objectstack/spec` `ReportSchema`, by reference (a dataset-bound report, ADR-0021). '
+      + 'When present, `ReportRenderer` renders it and reads none of the node\'s presentation members '
+      + '(objectui#11440; the wrapper the retired `spec-report` alias carried).',
+    ),
+});
+
+/**
+ * The TYPE of {@link ReportNodeSchema}, written out BY REFERENCE: the record's
+ * shape plus the spec's `ReportSchema` by name. Without it, declaration emit
+ * re-serializes the whole spec report shape inside `AnyComponentSchema`, and
+ * against `@objectstack/spec` built from objectstack `main` `tsc` refuses that
+ * union with TS7056 ("The inferred type of this node exceeds the maximum length
+ * the compiler will serialize"), measured by the `Spec Main Shape Gate` on
+ * objectui#11440's second pull request. A named type is emitted by name, as
+ * `PageKindNodeSchemaType` is (`layout.zod.ts`). It is a type only: the schema
+ * accepts exactly what it accepted before.
+ *
+ * Named `…ZodType` because this file's `…SchemaType` names are `z.infer`
+ * aliases (`ReportNodeSchemaType` among them, below).
+ */
+export type ReportNodeZodType = z.ZodObject<
+  (typeof ReportComponentSchema)['shape'] & {
+    report: z.ZodOptional<typeof SpecReportSchema>;
+  },
+  z.core.$loose
+>;
+
+/**
  * Union of all report schemas
  */
-export const ReportUnionSchema = z.discriminatedUnion('type', [
-  ReportComponentSchema,
+const ReportUnionSchemaInferred = z.discriminatedUnion('type', [
+  // objectui#11440 — the authored `report` node is `ReportNodeSchema` (the
+  // record plus the `report` wrapper); `ReportComponentSchema` stays the record.
+  ReportNodeSchema,
   ReportBuilderSchema,
   ReportViewerSchema,
 ]);
+
+/**
+ * The TYPE of {@link ReportUnionSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface ReportUnionZodType extends ReportUnionSchemaInferredType {
+  options: ReportUnionSchemaInferredType['options'];
+}
+type ReportUnionSchemaInferredType = typeof ReportUnionSchemaInferred;
+
+/** The union above, typed by its named {@link ReportUnionZodType}. */
+export const ReportUnionSchema: ReportUnionZodType = ReportUnionSchemaInferred;
 
 /**
  * Export type inference helpers
@@ -266,5 +378,6 @@ export type ReportSectionSchemaType = z.infer<typeof ReportSectionSchema>;
 export type ReportScheduleSchemaType = z.infer<typeof ReportScheduleSchema>;
 export type ReportExportConfigSchemaType = z.infer<typeof ReportExportConfigSchema>;
 export type ReportComponentSchemaType = z.infer<typeof ReportComponentSchema>;
+export type ReportNodeSchemaType = z.infer<typeof ReportNodeSchema>;
 export type ReportBuilderSchemaType = z.infer<typeof ReportBuilderSchema>;
 export type ReportViewerSchemaType = z.infer<typeof ReportViewerSchema>;

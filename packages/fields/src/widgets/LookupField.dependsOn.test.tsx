@@ -68,7 +68,7 @@ describe('LookupField — dependsOn gating and cascade filter (#2215)', () => {
   const dependentField = {
     name: 'contact',
     label: 'Contact',
-    reference_to: 'contacts',
+    reference: 'contacts',
     reference_field: 'name',
     dependsOn: ['account'],
   } as any;

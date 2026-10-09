@@ -290,20 +290,37 @@ describe('class C — a scalar field keeps its TYPE through inline edit (#4220)'
 // ---------------------------------------------------------------------------
 
 describe('types the fields package edits inline but the switch had no branch for', () => {
-  it('`json` delegates to the code editor (alias `json` → `field:code`)', () => {
+  // objectui#11448: `json` used to delegate to the CODE editor (alias `json` →
+  // `field:code`), which showed a stored object as `[object Object]` and wrote
+  // the edited text back as a string. It now reaches the JSON editor the record
+  // form uses for the same field — the same face on both surfaces.
+  it('`json` delegates to the JSON editor: shows the stored value as JSON, writes the parsed value', () => {
     const onChange = vi.fn();
     const { container } = render(
       <InlineFieldInput
         field={{ name: 'payload', type: 'json' }}
-        value={'{"a":1}'}
+        value={{ a: 1 }}
         onChange={onChange}
       />,
     );
     expect(plainInput()).toBeNull();
-    const textarea = container.querySelector('textarea');
+    const textarea = container.querySelector('textarea') as HTMLTextAreaElement;
     expect(textarea).not.toBeNull();
-    fireEvent.change(textarea as HTMLTextAreaElement, { target: { value: '{"a":2}' } });
-    expect(onChange).toHaveBeenCalledWith('{"a":2}');
+    expect(textarea.value).toBe(JSON.stringify({ a: 1 }, null, 2));
+    fireEvent.change(textarea, { target: { value: '{"a":2}' } });
+    expect(onChange).toHaveBeenLastCalledWith({ a: 2 });
+  });
+
+  it('`json` refuses unparsable text inline: nothing is written, and the box says why', () => {
+    const onChange = vi.fn();
+    const { container } = render(
+      <InlineFieldInput field={{ name: 'payload', type: 'json' }} value={{ a: 1 }} onChange={onChange} />,
+    );
+    const textarea = container.querySelector('textarea') as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: '{"a":' } });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(textarea.value).toBe('{"a":');
+    expect(container.textContent).toContain('Invalid JSON');
   });
 
   it('`code` delegates to the code editor', () => {
@@ -344,7 +361,10 @@ describe('types the fields package edits inline but the switch had no branch for
 // ---------------------------------------------------------------------------
 
 describe('class D — benign string types keep the terminal text input (#4220)', () => {
-  for (const type of ['text', 'textarea', 'email', 'url', 'phone']) {
+  // `textarea` stood in this list until objectui#11562 routed it to the
+  // multi-line `TextAreaField`; its pins are
+  // `InlineFieldInput.textareaEditor-11562.test.tsx`.
+  for (const type of ['text', 'email', 'url', 'phone']) {
     it(`\`${type}\` still edits in the plain input, and emits the typed string`, () => {
       const onChange = vi.fn();
       render(
@@ -437,7 +457,7 @@ describe('controls — the routed families are untouched by the delegation', () 
   it('`lookup` keeps the routed record picker', () => {
     const { container } = render(
       <InlineFieldInput
-        field={{ name: 'account', type: 'lookup', reference_to: 'crm_account' }}
+        field={{ name: 'account', type: 'lookup', reference: 'crm_account' }}
         value={{ id: 'a1', name: 'Northwind' }}
         onChange={vi.fn()}
         dataSource={{ find: vi.fn(async () => ({ data: [], total: 0 })) }}

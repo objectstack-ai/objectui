@@ -162,24 +162,28 @@ describe('the UPSTREAM half — the remedy is the protocol’s, re-derived from 
  * ⛔ `operators` is NOT declared on `ObjectGridSchema` — letter C says so in as
  * many words, and letter A (declaring it) was the option refused.
  *
- * The absence of a `@ts-expect-error` on the literal below is the measurement,
- * not an omission: `ObjectGridSchema` extends `BaseSchema`, whose index
- * signature absorbs the key as `any`, so the compiler stays silent. Adding a
- * directive here would redden this package's `tsc -p tsconfig.test.json` leg as
- * unused — which is exactly how this claim fails if anyone ever declares the
- * key on the twin, or if the twin loses that index signature.
+ * While `ObjectGridSchema` extended a `BaseSchema` carrying an index
+ * signature, the literal below compiled — the signature absorbed the key as
+ * `any` — and the absence of a directive on it was the measurement. This
+ * docblock named the signature's removal as one way that claim would fail.
+ * objectui#8347 removed it, so the compiler refuses the key too now, as an
+ * UNDECLARED key with no remedy named; `_OperatorsIsNoMember` keeps the
+ * "not declared" half measurable, since a refusal alone cannot tell an
+ * undeclared key from a `?: never` tombstone.
  *
- * ⚠️ This is the asymmetry the tombstone deliberately creates and does not
- * hide: the VALIDATOR now refuses the document the COMPILER still absorbs. The
- * ruling accepted it — narrowing the mirror is the protocol-aligned direction,
- * and widening the interface to match would have written the misspelling into
- * the published TypeScript face.
+ * ⚠️ The asymmetry the tombstone created — the VALIDATOR refused the document
+ * the COMPILER absorbed — is closed by the removal, not by widening the
+ * interface: declaring the key would have written the misspelling into the
+ * published TypeScript face, which the ruling refused.
  */
-export const authoredOperatorsStillCompiles: ObjectGridSchemaType = {
+export const authoredOperatorsIsRefused: ObjectGridSchemaType = {
   type: 'object-grid',
   objectName: 'probe',
+  // @ts-expect-error — `operators` is not declared on the twin (letter C); since objectui#8347 it is refused as undeclared
   operators: AUTHORED_MISSPELLING,
 };
+export type _OperatorsIsNoMember = 'operators' extends keyof ObjectGridSchemaType ? never : true;
+const operatorsIsNoMember: _OperatorsIsNoMember = true;
 
 /** LIT CONTROL: the spelling the tombstone names is a DECLARED member of the twin. */
 export const authoredOperationsIsDeclared: ObjectGridSchemaType = {
@@ -190,6 +194,6 @@ export const authoredOperationsIsDeclared: ObjectGridSchemaType = {
 
 describe('the TypeScript twin', () => {
   it('is compiled by this package’s type-check leg, which is where the two bindings above are read', () => {
-    expect([authoredOperatorsStillCompiles, authoredOperationsIsDeclared]).toHaveLength(2);
+    expect([authoredOperatorsIsRefused, authoredOperationsIsDeclared, operatorsIsNoMember]).toHaveLength(3);
   });
 });

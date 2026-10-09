@@ -25,8 +25,9 @@ npm install @object-ui/react @object-ui/core
 
 ```tsx
 import { SchemaRenderer } from '@object-ui/react'
+import type { DeclaredNode } from '@object-ui/types'
 
-const schema = {
+const schema: DeclaredNode = {
   type: 'text',
   content: 'Hello, Object UI!'
 }
@@ -35,6 +36,13 @@ function App() {
   return <SchemaRenderer schema={schema} />
 }
 ```
+
+`schema` takes a `DeclaredNode` from `@object-ui/types`, a bare string, or nothing. A
+`DeclaredNode` is a node of a declared type, keyed by its `type`: a component schema that
+package declares, a spec page block such as `element:text` with its typed `properties` bag, a
+stored page document under its page kind, or a type your application registers and declares
+in `CustomNodeRegistry`. Each node, nested ones included, is checked against its own type; a
+`type` nothing declares is refused.
 
 ### With Data
 
@@ -50,8 +58,9 @@ for every conformant host.
 
 ```tsx
 import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
+import type { DeclaredNode } from '@object-ui/types'
 
-const schema = {
+const schema: DeclaredNode = {
   type: 'form',
   children: [
     {
@@ -86,9 +95,9 @@ function App() {
 
 ```tsx
 import { SchemaRenderer } from '@object-ui/react'
-import type { BaseSchema } from '@object-ui/types'
+import type { DeclaredNode } from '@object-ui/types'
 
-declare const formSchema: BaseSchema
+declare const formSchema: DeclaredNode
 
 function App() {
   const handleSubmit = (data: Record<string, unknown>) => {
@@ -114,11 +123,11 @@ below it:
 ```tsx
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react'
 import type { ApiFetch } from '@object-ui/react'
-import type { BaseSchema, DataSource } from '@object-ui/types'
+import type { DataSource, DeclaredNode } from '@object-ui/types'
 
 declare const adapter: DataSource
 declare const authenticatedFetch: ApiFetch
-declare const schema: BaseSchema
+declare const schema: DeclaredNode
 
 <SchemaRendererProvider
   dataSource={adapter}
@@ -207,6 +216,15 @@ const ObjectGridRenderer = elementDataSourceBlock<FC<{ schema: BaseSchema }>>(({
 ))
 ```
 
+**Say when the placement cannot draw anything.** Two boolean props let the call
+site, which knows its block's other record sources, ask the gate to answer instead
+of mounting an empty block. `requiresDataSource` draws a "no data source" panel
+when no adapter resolves. `requiresObject` draws a short "No object named: set
+objectName or dataSource.object." hint when the node names its object in neither
+place, read after the binding lands on the mapping's object key, so a node bound
+by `dataSource.object` never sees it (objectui#11605). Leave either one false for
+a placement that draws from inline rows or another source the block reads.
+
 **Wrap the registered renderer in `elementDataSourceBlock`.** It is what makes
 `ComponentRegistry.register` emit the `dataSource` input on that block's
 authoring surface, so the key the gate READS is also the key the manifest, the
@@ -281,11 +299,23 @@ adding a separate enable flag.
 ### useFilterScope / useResolvedFilter
 
 A data node that sends its own authored `filter` into a query resolves the
-spec's context tokens in it first: `{current_user_id}`, `{current_org_id}` and
-the date macros such as `{today}` (objectui#10666). `useFilterScope()` reads
-the session scope a host mounts with `FilterScopeProvider`;
+spec's context tokens in it first: `{current_user_id}`, `{current_org_id}`,
+`{record_id}` and the date macros such as `{today}` (objectui#10666).
+`useFilterScope()` reads the session scope a host mounts with
+`FilterScopeProvider`, plus the id of the record in view when a
+`RecordContextProvider` is mounted above the node (objectui#7297);
 `useResolvedFilter(filter, scope)` resolves the filter through
 `@object-ui/core`'s `resolveFilterPlaceholders` and HOLDS the result.
+
+`{record_id}` is the id of the record a `type: 'record'` page shows, taken from
+that page's mounted record context and never from a URL parameter or a page
+variable: on a person's record page, `{ assignee: '{record_id}' }` counts that
+person's tasks. With no record in context (a list view, a dashboard, a page
+that is not a record page) it is refused by name, with the same warning an
+unresolved `{current_user_id}` gets, and left as written, so the filter never
+widens. It scopes what a component shows; it is not access control, which
+stays with the server's row-level security. `FilterScopeProvider` carries the
+session values only.
 
 ```tsx
 import { useEffect } from 'react'
@@ -311,9 +341,9 @@ function ObjectSomething({
 
 The held value keeps its reference while the authored filter is structurally
 equal (a filter rebuilt inline on every render included) and the scope's user,
-organization and `onUnresolved` are unchanged, so the effect above runs once.
-A structurally different filter, or a new signed-in user or organization,
-resolves again. A filter with no token to resolve is handed back as the value
+organization, record and `onUnresolved` are unchanged, so the effect above runs
+once. A structurally different filter, a new signed-in user or organization, or
+another record in view resolves again. A filter with no token to resolve is handed back as the value
 passed in. A token the scope cannot resolve is left in place, and the resolver
 logs one warning naming it.
 
@@ -364,6 +394,41 @@ when nothing was truncated, so it can be mounted whenever a result is in hand.
 the failure it exists to prevent — a cut-off schedule still looks like a
 schedule — so a view that caps rows without rendering the note is a defect, not
 an optimisation.
+
+### resolveInlineAriaProps
+
+Maps the spec's nested `aria` bag (`AriaPropsSchema`, the `aria` prop a block
+such as `element:text` declares) to the DOM attributes it names
+(objectui#11051):
+
+- `ariaLabel` → `aria-label`. A plain string is used as written; an inline
+  locale map (`{ en: 'Order total', 'zh-CN': '订单合计' }`) gives the entry for
+  `locale`, through the spec's own `resolveI18nLabel`.
+- `ariaDescribedBy` → `aria-describedby`.
+- `role` → `role`.
+
+Only attributes that have a value are returned, so the result can be spread
+onto an element directly. It is a pure function: pass the locale yourself, in
+React from `useDisplayLocale()`.
+
+```tsx
+import { resolveInlineAriaProps } from '@object-ui/react'
+import { useDisplayLocale } from '@object-ui/i18n'
+import type { AriaProps } from '@object-ui/types'
+
+function CloseButton({ aria, onClose }: { aria?: AriaProps; onClose: () => void }) {
+  const locale = useDisplayLocale()
+  return (
+    <button type="button" onClick={onClose} {...resolveInlineAriaProps(aria, locale)}>
+      ×
+    </button>
+  )
+}
+```
+
+This is not the reader `SchemaRenderer` applies to a node's FLAT `ariaLabel`,
+which is objectui's keyed `{ key, defaultValue }` form. Each resolver returns
+nothing useful for the other's shape, so the two stay separate (objectui#4580).
 
 ### ComponentRegistry
 

@@ -7,7 +7,7 @@
  */
 
 import { ComponentRegistry } from '@object-ui/core';
-import type { ListViewVisualization } from '@object-ui/core';
+import type { ComponentInput, ListViewVisualization } from '@object-ui/core';
 import { ListView } from './ListView';
 import { ListViewBlock } from './ListViewBlock';
 import { ViewSwitcher } from './ViewSwitcher';
@@ -66,6 +66,18 @@ const VIEW_TYPE_OPTIONS = Object.entries(VIEW_TYPE_LABELS).map(([value, label]) 
 
 const ListViewRenderer = ListViewBlock;
 
+/**
+ * The `objectName` input both registrations below publish, spelled once so the
+ * two cannot drift. Not required (objectui#11605): see the `list-view`
+ * registration.
+ */
+const LIST_VIEW_OBJECT_NAME_INPUT: ComponentInput = {
+  name: 'objectName',
+  type: 'string',
+  description:
+    'Object this list view lists. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline `data`, the list shows a hint naming this key instead of an empty list.',
+} as const;
+
 // Register ListView component
 ComponentRegistry.register('list-view', ListViewRenderer, {
   namespace: 'plugin-list',
@@ -73,7 +85,15 @@ ComponentRegistry.register('list-view', ListViewRenderer, {
   category: 'Views',
   icon: 'LayoutList',
   inputs: [
-    { name: 'objectName', type: 'string', required: true },
+    // NOT required (objectui#11605). This block has no `ComponentPropsMap`
+    // row; the contract is the binding doc (`content/docs/guide/data-source.md`,
+    // "a node bound this way needs no `objectName` of its own") and the
+    // `list-view` record-source rule `objectui validate` runs, which counts the
+    // binding as a record source. `ListViewBlock` lands `dataSource.object`
+    // here. The page compile reads this list, so `required: true` refused a
+    // bound node the validator and the renderer accept. A node with neither is
+    // answered by the gate's "no object named" hint.
+    { ...LIST_VIEW_OBJECT_NAME_INPUT },
     { name: 'viewType', type: 'enum', enum: VIEW_TYPE_OPTIONS },
     { name: 'columns', type: 'array' },
     { name: 'filter', type: 'array' },
@@ -106,7 +126,8 @@ ComponentRegistry.register('list', ListViewRenderer, {
   label: 'List',
   icon: 'LayoutList',
   inputs: [
-    { name: 'objectName', type: 'string', required: true },
+    // Same renderer, same reason as `list-view` above.
+    { ...LIST_VIEW_OBJECT_NAME_INPUT },
     { name: 'viewType', type: 'enum', enum: VIEW_TYPE_OPTIONS },
     { name: 'columns', type: 'array' },
     { name: 'filter', type: 'array' },

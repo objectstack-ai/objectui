@@ -2,6 +2,7 @@ import React, { useId } from 'react';
 import { Switch, Checkbox, Label, EmptyValue } from '@object-ui/components';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
+import { useBooleanValueLabel } from './booleanValueLabel.js';
 
 /**
  * BooleanField - Toggle input supporting switch and checkbox variants
@@ -13,6 +14,9 @@ export function BooleanField({ value, onChange, field, readonly, error, ...props
   const widget = config?.widget;
   // Generate unique ID using React's useId hook - must be before early returns (rules of hooks)
   const generatedId = useId();
+  // Before the readonly early return for the same reason: the hook count must
+  // not change when `readonly` flips.
+  const booleanLabel = useBooleanValueLabel();
   /**
    * The HOST owns the control's id (objectui#3952).
    *
@@ -79,7 +83,9 @@ export function BooleanField({ value, onChange, field, readonly, error, ...props
     // record holds no boolean here. A real `false` is a value and still says
     // "No".
     if (typeof value !== 'boolean') return <EmptyValue />;
-    return <span className="text-sm">{value ? 'Yes' : 'No'}</span>;
+    // The word comes from the locale (objectui#11689), through the one helper
+    // every read-only boolean word reads.
+    return <span className="text-sm">{booleanLabel(value)}</span>;
   }
 
   const domProps = toDomProps(props);

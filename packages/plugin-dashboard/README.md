@@ -66,26 +66,36 @@ const schema = {
 ### What the side-effect import registers
 
 That single import is the whole of registration — there is no components map to
-iterate over. Importing the entry runs the eight live `ComponentRegistry.register(...)`
+iterate over. Importing the entry runs the seven live `ComponentRegistry.register(...)`
 calls in `src/index.tsx`, which claim exactly these schema types. The keys below
 are read off those calls:
 
 | Namespaced key | Bare-name fallback | Renderer behind it |
 | --- | --- | --- |
 | `plugin-dashboard:dashboard` | `dashboard` | `DashboardRenderer` — the widget container |
-| `plugin-dashboard:metric` | `metric` | `MetricWidget` — one KPI value |
-| `plugin-dashboard:metric-card` | `metric-card` | `MetricCard` — KPI with trend and icon |
+| `plugin-dashboard:metric` | none — `skipFallback: true` | `MetricWidget` — one KPI value |
+| `plugin-dashboard:metric-card` | none — `skipFallback: true` | `MetricCard` — KPI with trend and icon |
 | `plugin-dashboard:object-metric` | `object-metric` | internal wrapper around `ObjectMetricWidget` — aggregates over an object |
 | `plugin-dashboard:pivot` | `pivot` | `PivotTable` — pivot over rows you pass in |
-| `plugin-dashboard:object-pivot` | `object-pivot` | internal wrapper around `ObjectPivotTable` — pivot queried from an object |
-| `plugin-dashboard:dashboard-grid` | `dashboard-grid` | `DashboardGridLayout` — the drag/resize editable grid |
+| `plugin-dashboard:object-pivot` | `object-pivot` | `ObjectPivotTable` — a pivot queried from an object; its props go in `properties` |
 | `plugin-dashboard:object-data-table` | `object-data-table` | `ObjectDataTable` — table queried from an object |
 
 `ComponentRegistry.register` publishes `namespace:type`, and — unless the call
 passes `skipFallback: true` — the bare `type` as a back-compat fallback
 (`packages/core/src/registry/Registry.ts:194`, fallback branch at `:226`). Every
-call behind the table above leaves `skipFallback` unset, so each type there
-resolves under both spellings. The two `object-*` types are served by internal wrappers that
+call behind the table above leaves `skipFallback` unset except `metric` and
+`metric-card`, so each other type there resolves under both spellings.
+
+`metric` and `metric-card` are two vocabularies that share a spelling: the
+dashboard WIDGET types (`widgets[].type: 'metric'`, and the `metric-card` slot
+entry) and the internal NODE keys the dashboard renders them through. The widget
+types are unchanged. The node keys register with `skipFallback: true`
+(objectui#10859 batch 8), and both dashboard surfaces emit the namespaced keys, so
+only `plugin-dashboard:metric` / `plugin-dashboard:metric-card` resolve as nodes.
+
+`dashboard-grid` is no longer registered (objectui#10859 batch 8: builder chrome,
+with no producer and no runtime emitter). `DashboardGridLayout` is still exported;
+mount it directly (see "DashboardGridLayout — persisting drag / resize edits"). The two `object-*` types are served by internal wrappers that
 first resolve the spec's per-element `dataSource` binding (through
 `ElementDataSourceGate` from `@object-ui/react`) and then render the exported
 component, which is why those rows name a wrapper rather than an export.
@@ -121,11 +131,14 @@ ComponentRegistry.register('my-metric', MetricCard, {
 ```
 
 There is also a `dashboardComponents` export: the manual-integration map, keyed
-by the **same eight schema types** as the table above (objectui#5064 re-keyed it
-from component class names). Each key maps to the exact component the import
+by the **same seven schema types** as the table above (objectui#5064 re-keyed it
+from component class names; since objectui#10859 batch 8 the `metric` and
+`metric-card` entries are keyed `plugin-dashboard:metric` /
+`plugin-dashboard:metric-card`, the type each serves, so iterating the map cannot
+re-create their retired bare keys). Each key maps to the exact component the import
 registers for that type — for the two `object-*` types that is the internal
 data-source-gate wrapper, not the exported widget. Iterating it with
-`ComponentRegistry.register(type, component)` therefore re-registers the eight
+`ComponentRegistry.register(type, component)` therefore re-registers the seven
 types the import has already claimed, which is still not the manual registration
 above: each such call passes no `meta`, so it trips the no-namespace deprecation
 warning in `register` (`packages/core/src/registry/Registry.ts:198`) and
@@ -157,19 +170,21 @@ const schema: DashboardComponentSchema = {
 
 ### Metric Card
 
-Display a single metric or KPI:
+Display a single metric or KPI as a dashboard widget-slot entry:
 
 ```typescript
 import type { ComponentProps } from 'react';
 import { MetricCard } from '@object-ui/plugin-dashboard';
 
-// A `metric-card` node's keys besides `type` are `MetricCard`'s own props. That
-// props interface is not on this package's export surface (see "TypeScript
-// Support" below), so they are read off the shipped component rather than
-// restated here — a renamed or retyped prop stops this block compiling.
-type MetricCardNode = { type: 'metric-card' } & ComponentProps<typeof MetricCard>;
+// A `metric-card` entry sits directly in a dashboard's `widgets[]` — the closed
+// component slot of the 2026-08-14 ruling. Its keys besides `type` are
+// `MetricCard`'s own props. That props interface is not on this package's export
+// surface (see "TypeScript Support" below), so they are read off the shipped
+// component rather than restated here — a renamed or retyped prop stops this
+// block compiling.
+type MetricCardEntry = { type: 'metric-card' } & ComponentProps<typeof MetricCard>;
 
-const card: MetricCardNode = {
+const card: MetricCardEntry = {
   type: 'metric-card',
   title: 'Total Sales',
   value: '$123,456',
@@ -179,10 +194,26 @@ const card: MetricCardNode = {
   description: 'vs last month',
   className: 'col-span-2',
 };
+
+const schema = { type: 'dashboard', widgets: [card] };
 ```
+
+The dashboard renders the entry as the `plugin-dashboard:metric-card` node. The
+bare `metric-card` NODE key is retired (objectui#10859), so a `metric-card`
+outside a dashboard's `widgets[]` renders the "Unknown component type" panel.
 
 `value` is the only required key. `title` and `description` take a plain string
 or the spec's inline per-locale map (`I18nLabel`).
+
+A card with no `value` is refused by `@object-ui/types/zod`, on the tolerant
+face and the strict one. `metric-card` is not a widget type, so a card is never
+read through widget keys, and no widget key stands in for `value`: the
+dashboard reads a widget key (`dataset`, `options`, `component`,
+`colorVariant`, …) on a widget alone, so a card draws its own keys whatever
+else it carries, and the strict face refuses a widget key on it
+(objectui#11483, objectui#11598). For a figure queried from a
+dataset, write a `metric` widget with `dataset` and `values` (see "TypeScript
+Support" below).
 
 #### Percent `format` patterns (`'0%'`, `'0.00%'`)
 
@@ -192,13 +223,17 @@ package's own record-field renderer already make. Two consequences, both of
 them shared with every other percent surface in the console rather than decided
 by the tile:
 
-- **Magnitude** follows `percentDisplayValue` in `@object-ui/core` — a stored
-  value strictly between `-1` and `1` is a fraction and is scaled (`0.25` reads
-  `25%`); anything at or outside that band is already in percentage points and
-  passes through (`1` reads `1%`, `-5` reads `-5%`, `12.3` reads `12%`).
+- **Magnitude** is read at a STATED storage, never guessed from the value. A
+  `metric` tile holds no field, only a value and a pattern, and numeral's `%`
+  multiplies by 100, so the pattern states a fraction: `0.25` reads `25%`, `1`
+  reads `100%`, `-0.05` reads `-5%`. An `object-metric` tile over a `percent`
+  field renders at that field's own storage instead, the one the list cell
+  reads (`percentScaleOf` in `@objectstack/spec/data`: a fraction unless the
+  field declares a `max` above 1), so a field declaring `max: 100` that
+  averages `50` reads `50%`.
 - **The percent sign is the locale's**, not a literal `%`: a `de-DE` session
   gets the no-break space German writes before the sign, and grouping follows
-  the locale (`1234.5` reads `1,235%` in `en`).
+  the locale (a fraction of `12.5` reads `1,250%` in `en`).
 
 The pattern's decimal count still belongs to the tile — `'0.00%'` renders two
 decimals — because that is an author declaration on the widget rather than a
@@ -257,33 +292,34 @@ const schema = {
       value: '$123,456'
     },
     {
+      id: 'sales_trend',
       type: 'line',
       title: 'Sales Trend',
-      options: {
-        data: [/* [{ name: 'Jan', value: 1200 }, …] */],
-        xField: 'name',
-        yField: 'value'
-      }
+      dataset: 'sales',
+      dimensions: ['month'],
+      values: ['revenue']
     },
     {
+      id: 'revenue_by_category',
       type: 'pie',
       title: 'Category Distribution',
-      options: {
-        data: [/* [{ name: 'Hardware', value: 40 }, …] */],
-        xField: 'name',
-        yField: 'value'
-      }
+      dataset: 'sales',
+      dimensions: ['category'],
+      values: ['revenue']
     }
   ]
 };
 ```
 
 A chart widget names its family in `type` — one of the spec's chart families,
-the closed vocabulary `DashboardWidgetTypeName` declares — and carries its
-inline rows under `options.data`, with `options.xField` / `options.yField`
-naming the category and value keys. There is no `card` widget family and no
-nested `body` slot: a widget whose `type` is outside that vocabulary is refused
-at validation, by `@object-ui/types/zod`'s `DashboardComponentSchema`.
+the closed vocabulary `DashboardWidgetTypeName` declares — and binds a
+`dataset` (ADR-0021), selecting the dimension it plots in `dimensions` and its
+measures in `values`. It never carries rows: `options.data`,
+`options.xField` and `options.yField` are not widget keys, and
+`@object-ui/types/zod`'s `StrictAnyComponentSchema` refuses them by name
+(objectui#11228). There is no `card` widget family and no nested `body` slot: a
+widget whose `type` is outside that vocabulary is refused at validation, by
+`@object-ui/types/zod`'s `DashboardComponentSchema`.
 
 ### Responsive Dashboard
 
@@ -406,9 +442,13 @@ into each bound widget's inline query (`AND`-combined with the widget's own
     // dimensions/measures by name. The pre-ADR-0021 top-level `object` +
     // `categoryField`/`valueField`/`aggregate` shape was REMOVED — a widget
     // still carrying it renders "This widget uses a retired data format.
-    // Edit it to bind a dataset." instead of a chart. A renderer-internal
-    // query lives under `options.data` as `{ provider: 'object', object,
-    // aggregate }`; an `options.data` array is fixed demo data.
+    // Edit it to bind a dataset." instead of a chart. Inline widget data
+    // (`options.data`, `options.xField` / `options.yField`) is not an
+    // authoring surface either: the strict authoring face refuses those keys
+    // by name (objectui#11228). A stored single-value widget (`metric`,
+    // `gauge`, `solid-gauge`, `kpi`, `bullet`, or one with no `type`) whose
+    // `options.data` is a `{ "provider": "object", … }` query draws that same
+    // retired-format prompt instead of its number (objectui#11525).
     //
     // Default binding: the filter's own `field` (dateRange → created_at).
     { "id": "w1", "type": "bar", "dataset": "invoices", "dimensions": ["status"], "values": ["count"] },
@@ -441,8 +481,6 @@ Notes:
   query time, so widgets resolve them exactly like hand-authored filters.
 - Dataset-bound widgets receive the merged filter through the dataset
   query's `runtimeFilter`.
-- Static-data widgets (inline `data` arrays) have no query to scope and are
-  not filtered.
 - Filter values are also readable in widget expressions as `page.<name>`
   (e.g. `page.region`), since they are hosted as dashboard variables.
 - `optionsFrom` resolves distinct option values server-side (a dataset
@@ -478,7 +516,7 @@ Where the accent lands depends on the layout, not on the token:
 
 | Layout | Accent |
 | --- | --- |
-| Card chrome (`MetricWidget`, inline `object-metric`) | the icon chip's background + foreground |
+| Card chrome (`MetricWidget`, an `object-metric` block) | the icon chip's background + foreground |
 | Chrome-less (`MetricWidget variant: 'bare'`, and every dataset-bound `metric`) | the big number's text colour |
 
 Both read one shared table (`src/colorVariants.ts`), so the same declaration
@@ -487,6 +525,74 @@ accent"; the widget renders in the ambient foreground colour. A token outside
 the enum gets no accent and is not aliased to a nearby colour: it is invalid
 metadata, rejected where it is authored and published rather than reinterpreted
 here.
+
+## A widget with no `type`, or a `type` that names no family
+
+A widget that declares no `type` is a `metric` widget. `@objectstack/spec`'s
+`DashboardWidget.type` defaults to `metric`, and both dashboard surfaces
+(`DashboardRenderer` and `DashboardGridLayout`) read that default from the spec,
+so the widget draws exactly as the same widget with `type: 'metric'` does,
+inline or bound to a dataset (objectui#11514). objectui's validator accepts the
+widget without a `type` and does not write the default in, so the surfaces are
+where it resolves.
+
+objectui's legacy `component` envelope (`{ id, component, layout }`) is not the
+spec's widget, and the default is not applied to it: an envelope with no `type`
+draws its `component` under its card heading, as it always did. One node is
+retired there: an `object-metric` (under `object-metric` or
+`plugin-dashboard:object-metric`) draws the same retired-format prompt as a
+dataset-less metric widget and sends no query (objectui#11466). Bind a metric
+widget to a dataset instead. Every other envelope node draws as written, and the
+filter bar still scopes an envelope's `object-chart` and `object-data-table`.
+
+A `type` that names no widget family and no component type (a typo, or a family
+the spec no longer has) is refused by both validator faces at `type`. A stored
+one draws the labelled placeholder "「type」chart type is not supported yet", as
+a known family with no renderer (`heatmap`) does, instead of the renderer's red
+"Unknown component type" panel.
+
+## How many measures a widget renders
+
+A dataset-bound widget queries every measure in `values`. What it renders
+depends on its shape:
+
+- **A metric-family widget** (`metric`, `kpi`, `gauge`, `solid-gauge`,
+  `bullet`) is a one-number tile. It takes exactly one measure, and
+  `@objectstack/spec` refuses a second one at its door; several numbers is a
+  different visual.
+- **A widget with no `dimensions` and several measures** renders every one of
+  them when its type is `table` / `pivot` (one row of measures) or a chart of
+  the bar family (`bar`, `column`, `horizontal-bar`) or `line` / `area` /
+  `combo` (one mark per measure, the measures' labels on the category axis,
+  which runs down the side on a `horizontal-bar`).
+- **Any other dimensionless widget with several measures** still renders the
+  first one as a tile.
+- **A `pie`, `donut`, `funnel`, `treemap` or `sankey` with a dimension** draws
+  one series, the first measure, however many it declares: the shared chart
+  renderer reads the first series only on those families.
+
+When a widget keeps a declared measure off the screen, `DatasetWidget` logs
+one console warning naming the widget, the measures it renders, and the ones it
+queried and never displayed. Three shapes do that. Two take the tile: a metric
+tile stored before the spec narrowed, and a widget the third bullet above
+covers (no `dimensions`, several measures, and a type the second bullet does not
+list, so a dimensionless `pie` is one). The third is a `pie`, `donut`,
+`funnel`, `treemap` or `sankey` with a dimension and several measures
+(objectui#11417). For a tile the warning
+then names the spec's ADR-0087 entry
+`dashboard-widget-metric-family-multi-measure-refused`, whose `replacement`
+says what to author instead of a one-number tile with several measures. For
+one of those five charts it says that the chart family draws a single series,
+the first declared measure, and points to no entry: that one answers for a
+tile. Nothing about what is drawn changes. Every door accepts the chart shape
+today; the spec is to refuse it (objectstack#21293).
+The widget panel (`WidgetConfigPanel`) asks the same door the spec runs: it
+offers no further measure the door would refuse, and shows the door's own
+message under measures it already refuses.
+
+The behaviour is pinned by `src/__tests__/DatasetWidget.unrenderedMeasures-8894.test.tsx`,
+`src/__tests__/DatasetWidget.dimensionlessMeasures-11261.test.tsx` and
+`src/__tests__/WidgetConfigPanel.measureDoor-8894.test.tsx`.
 
 ## TypeScript Support
 
@@ -499,7 +605,7 @@ The authored shape is typed by `@object-ui/types`:
 | --- | --- |
 | `DashboardComponentSchema` | the whole `type: 'dashboard'` node — `columns`, `gap`, `widgets`, `header`, `globalFilters`, `dateRange`, `refreshIntervalSeconds`, … |
 | `DashboardWidgetSchema` | one entry of `widgets[]` — the spec's `DashboardWidget` keys, plus objectui's own (`component`, `layout`, `options`, …) |
-| `DashboardWidgetSlotComponentSchema` | the other kind of `widgets[]` entry — a component node placed directly in the slot, `type` one of the closed component set (`metric-card`); every other key is that component's own prop |
+| `DashboardWidgetSlotComponentSchema` | the other kind of `widgets[]` entry — a component node placed directly in the slot, `type` one of the closed component set (`metric-card`); its other keys are that component's own props, which it declares (`title`, `value`, `icon`, `trend`, `trendValue`, and `description` from `BaseSchema`), except the spec's widget `layout`, which places the node |
 | `DashboardWidgetLayout` | a widget's `{ x, y, w, h }` grid box |
 
 ```typescript
@@ -528,7 +634,8 @@ const users: DashboardWidgetSchema = {
 };
 
 // Component format: a registered component node in the widget's `component`
-// slot. Its keys are that COMPONENT's props, not widget keys.
+// slot. Its keys are that COMPONENT's props, not widget keys; a `metric-card`
+// here is typed by the same arm as `kpi` below.
 const custom: DashboardWidgetSchema = {
   id: 'kpi_custom',
   component: {
@@ -543,7 +650,8 @@ const custom: DashboardWidgetSchema = {
 
 // Component node directly in the slot — the shape every `metric-card` example
 // above uses. `type` is one of the closed component set; the other keys are
-// the component's own props, carried by `BaseSchema`'s index signature.
+// the component's own props, which `DashboardWidgetSlotComponentSchema`
+// declares.
 const kpi: DashboardWidgetSlotComponentSchema = {
   type: 'metric-card',
   title: 'Revenue',
@@ -569,9 +677,62 @@ package's export surface either. A `metric-card` node is typed as a COMPONENT
 node in both places it can appear: in a widget's `component` slot (`custom`
 above) and directly in `widgets[]` (`kpi` above, `DashboardWidgetSlotComponentSchema`
 — the component arm of `DashboardComponentSchema['widgets']`, first in the
-declaration as in the zod schema's two-arm slot). Its keys are checked as
-`BaseSchema` keys either way,
-never as widget keys.
+declaration as in the zod schema's two-arm slot). Either way its keys are
+checked against that arm, which declares the card's registered inputs, never
+as widget keys:
+
+| Key | Type |
+| --- | --- |
+| `value` | `string \| number` — required |
+| `title` | `string` or an inline per-locale map (`I18nLabel`) |
+| `icon` | `string` — a Lucide icon name |
+| `trend` | `'up' \| 'down' \| 'neutral'` — drawn with `trendValue` |
+| `trendValue` | `string` — drawn with `trend` |
+| `description` | `string` or `I18nLabel`, from `BaseSchema` |
+
+`@object-ui/types/zod` judges the same members, so `objectui validate` refuses
+a card directly in `widgets[]` whose `trend` is outside the three, or whose
+`value` is neither a string nor a number.
+
+### Reading a widget key off `widgets[]`
+
+The widget keys (`colorVariant`, `filter`, `dataset`, …) are declared on the
+widget arm, `DashboardWidgetSchema`, which takes them from the spec's
+`DashboardWidget` row. The component arm declares none of them, so read
+straight off a `widgets[]` entry such a key is a compile error: the union offers
+only the keys both arms declare (before objectui#8347 removed `BaseSchema`'s index
+signature, the component arm answered it as `any`). This package's own readers take an entry by the slot's
+element type, `DashboardComponentSchema['widgets'][number]`. The component arm
+is not assignable to `DashboardWidgetSchema`, whose `type` names no component
+type, so narrow an entry on `type` first: `metric-card` is the one component
+type the slot holds, and any other entry is the widget arm. The compiler checks
+the narrowing, not an annotation, and the key gets its declared type:
+
+```typescript
+import type { DashboardComponentSchema } from '@object-ui/types';
+
+declare const dashboard: DashboardComponentSchema;
+
+const accents = dashboard.widgets.map((w) =>
+  w.type === 'metric-card' ? 'default' : (w.colorVariant ?? 'default'),
+);
+```
+
+`title` and `layout` are the two widget keys both arms declare. `title` is the
+card's heading on the component arm, typed as `MetricCard` reads it, so it reads
+as a string or an `I18nLabel` straight off a `widgets[]` entry. The component
+arm takes the spec's widget `layout` by reference, because Save Layout writes it
+onto every entry of `widgets[]`, a `metric-card` node included (see
+[DashboardGridLayout](#dashboardgridlayout--persisting-drag--resize-edits)). So
+`layout` reads with the spec's type straight off a `widgets[]` entry, and the
+strict authoring face accepts it on a component node. A malformed one (not
+four numbers, or a key besides `x`, `y`, `w` and `h`) is refused on either arm.
+
+A widget with no `layout` is auto-placed by the grid. `DashboardWithConfig`'s
+width and height sliders write the whole box: the dimension a slider does not
+edit, and `x` and `y`, come from where the grid auto-places that widget
+(`completeWidgetLayout` and `defaultWidgetPlacement` from `@object-ui/types`,
+objectui#11388), so a one-dimension edit never stores a box the spec refuses.
 
 ## Customization
 
@@ -579,10 +740,15 @@ All components support Tailwind CSS classes:
 
 ```typescript
 const schema = {
-  type: 'metric-card',
-  title: 'Custom Metric',
-  value: '100',
-  className: 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
+  type: 'dashboard',
+  widgets: [
+    {
+      type: 'metric-card',
+      title: 'Custom Metric',
+      value: '100',
+      className: 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
+    }
+  ]
 };
 ```
 
@@ -660,9 +826,32 @@ calls `onWidgetsReorder(nextWidgets)` with the reordered array; the host (e.g.
 A 5px pointer-activation distance keeps click-to-select working on the same
 widget surface.
 
+## DashboardRenderer — a document the server already translated (`localized`)
+
+A dashboard read from ObjectStack's `/meta` route arrives translated for the
+request's locale. The server resolves the packaged translation catalog, and it
+keeps a published edit over that catalog: an explicit override beats the
+packaged default. Pass `localized={true}` when your document came from such a
+read. The renderer then draws these texts as given:
+
+- the widget `title` and `description`;
+- its own header `label` and `description`.
+
+An inline per-locale map is still collapsed to the active language. The client
+bundle is not consulted again. A second lookup would let the packaged catalog
+win back over a published edit (objectui#11295). The console's dashboard page
+(`DashboardView`) sets the prop.
+
+Leave it unset for a document the server never translated: an inline block, a
+preview or a design surface. The bundle keys under
+`dashboards.<name>.widgets.<id>.*` are then that document's one translation
+pass, as before. Header-action labels always go through the bundle, because the
+server does not translate them.
+
 ## DashboardGridLayout — persisting drag / resize edits
 
-`DashboardGridLayout` (registered as schema `type: 'dashboard-grid'`) has an
+`DashboardGridLayout` (a React component you mount directly; its old schema
+`type: 'dashboard-grid'` was retired by objectui#10859) has an
 inline **"Edit Layout"** mode that lets users drag and resize widgets via
 `react-grid-layout`. When the user clicks **Save Layout**, the new grid
 coordinates are merged back into `schema.widgets[].layout` and handed off

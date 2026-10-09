@@ -23,6 +23,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
+import type { BaseSchema } from '@object-ui/types';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
 import { PredicateScopeProvider } from '../hooks/useExpression';
@@ -32,6 +33,18 @@ import {
   formatUnevaluatedExpressionMessage,
   UNEVALUATED_EXPRESSION_PREFIX,
 } from '../utils/unevaluatedExpression';
+
+/**
+ * This file's registered `TextKeyProbe` (namespace `test`), declared to
+ * `@object-ui/types` the way an application declares a type it registers
+ * (objectui#11466): a node slot and the `schema` prop take the declared node
+ * types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'test:probe-4795': TextKeyProbeNode;
+  }
+}
 
 const DATA = { n: 99, total: 99, label: 'Widgets' };
 
@@ -46,6 +59,16 @@ const DATA = { n: 99, total: 99, label: 'Widgets' };
 const TextKeyProbe = ({ schema }: any) => (
   <div data-testid="probe">{String(schema.value ?? schema.title ?? '')}</div>
 );
+
+/**
+ * The node a `TextKeyProbe` case authors directly as a `schema` prop
+ * (objectui#11349): `BaseSchema` plus the two text keys the probe reads. The
+ * literal is checked against this node rather than against the `BaseSchema`
+ * the prop accepts, so its keys stay checked now that objectui#8347 has removed
+ * `BaseSchema`'s index signature.
+ */
+type TextKeyProbeNode = BaseSchema & { type: 'test:probe-4795'; value?: string; title?: string };
+const textKeyProbeNode = (schema: TextKeyProbeNode): TextKeyProbeNode => schema;
 
 /** Reads only what it is spread, like a plain component. */
 const SpreadProbe = (props: any) => (
@@ -115,7 +138,7 @@ describe('SchemaRenderer — unevaluated `${…}` diagnostic (objectui#4795)', (
     });
 
     it('reports once per schema object, however many times it re-renders', () => {
-      const schema = { type: 'test:probe-4795', value: '${data.n}' };
+      const schema: TextKeyProbeNode = { type: 'test:probe-4795', value: '${data.n}' };
       const { rerender } = renderWithData(schema);
       rerender(
         <PredicateScopeProvider scope={{ data: DATA }}>
@@ -247,7 +270,7 @@ describe('SchemaRenderer — unevaluated `${…}` diagnostic (objectui#4795)', (
 
         const { getByTestId } = render(
           <ProdContext.Provider value={{ dataSource: DATA } as any}>
-            <ProdRenderer schema={{ type: 'test:probe-4795', value: '${data.n}' }} />
+            <ProdRenderer schema={textKeyProbeNode({ type: 'test:probe-4795', value: '${data.n}' })} />
           </ProdContext.Provider>
         );
 

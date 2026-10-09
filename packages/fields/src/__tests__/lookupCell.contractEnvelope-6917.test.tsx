@@ -88,7 +88,7 @@ async function renderChip(objectName: string, id: string, answer: unknown) {
     <SchemaRendererProvider dataSource={ds}>
       <LookupCellRenderer
         value={id}
-        field={{ type: 'lookup', reference_to: objectName } as any}
+        field={{ type: 'lookup', reference: objectName } as any}
       />
     </SchemaRendererProvider>,
   );

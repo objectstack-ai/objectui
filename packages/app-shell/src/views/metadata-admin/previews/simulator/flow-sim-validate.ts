@@ -29,6 +29,7 @@ import {
 import { EVALUATED_EXPRESSION_SOURCE_REQUIRED, EvaluatedExpressionSchema } from '@objectstack/spec/shared';
 import type { Diagnostic, FlowValidation, SimEdge, SimNode } from './flow-sim-types.js';
 import { conditionText } from '../flow-canvas-layout.js';
+import { missingNodePositions } from '../flow-node-refs.js';
 import { valueEnvelopeRefusal } from '../../inspectors/flow-value-envelope.js';
 import { t as tr, tFormat } from '../../i18n.js';
 
@@ -139,16 +140,17 @@ export type GuardEvaluation =
  *    other value is read as "no condition".
  * 2. Shape: the spec's `structuralConditionRefusal`, the first thing
  *    `registerFlow`'s edge pass and `evaluateCondition` do. A boolean, number,
- *    array or source-less object is refused.
+ *    array or source-less object is refused — an `ast`-only envelope included,
+ *    which `@objectstack/spec` 17.5.0 moved to this step (objectui#11073).
  * 3. Evaluated slot: the rule `FlowEdgeSchema.condition` applies on main
  *    (`EvaluatedExpressionInputSchema`), from its two installed parts. A string
  *    must be non-blank (main's `NON_BLANK_STRING`), so `''` and `'   '` are
  *    refused with the spec's `EVALUATED_EXPRESSION_SOURCE_REQUIRED`. Anything
  *    else must satisfy `EvaluatedExpressionSchema`: an envelope with a
  *    `dialect` (`ExpressionSchema` requires one, so `{ source: 'n == 2' }` is
- *    refused) and a non-blank `source` (so `{ dialect: 'cel', source: '' }`
- *    and an `ast`-only envelope are refused). `null` is not an envelope and is
- *    refused here too.
+ *    refused) and a non-blank `source` (so `{ dialect: 'cel', source: '' }` is
+ *    refused; an `ast`-only envelope was refused here through 17.4.0 and is
+ *    caught by step 2 since). `null` is not an envelope and is refused here too.
  * 4. CEL: `validateExpression('predicate', …)`, the parse `registerFlow`
  *    refuses a flow with. A dialect other than `cel` is refused, and so is a
  *    `{var}` or `${…}` template, which is not CEL.
@@ -234,9 +236,11 @@ function evalCelPredicate(
  * {@link evalCelPredicate} (objectui#10692).
  *
  * - A blank `expression` is read as `false`, as `evaluateCondition` reads an
- *   empty source; objectstack main refuses it at `registerFlow`
- *   (`predicateSlotRefusal`, objectstack#17493) and the installed 17.4.0 admits it — a
- *   declared divergence.
+ *   empty source. The platform refuses it at `registerFlow`
+ *   (`predicateSlotRefusal`, objectstack#17493), and so does the installed
+ *   17.5.0's `FlowSchema` at parse, at `config.conditions[i].expression` (it
+ *   admitted it through 17.4.0; objectui#11073) — so only a draft that has
+ *   not passed that door reaches this read.
  * - A non-string `expression` is refused with the spec's
  *   `predicateSlotRefusal`, the refusal `registerFlow` applies to this slot.
  */
@@ -414,4 +418,51 @@ export function validateFlowDraft(nodes: SimNode[], edges: SimEdge[], locale?: s
   }
 
   return { errors, warnings, startNodeId };
+}
+
+/**
+ * The rows beside `edgeSourceMissing` / `edgeTargetMissing` for the other
+ * positions that name a node by its id (objectui#11838, the list
+ * `nodeIdPositions` in `../flow-node-refs.ts` keeps): an error for each
+ * expression reference whose root names a node the flow does not have
+ * (`x.decision` once `x` is gone — the engine reads a node's outputs by its id,
+ * and a CEL reference to a missing root faults, ADR-0032 §1c), and for each
+ * boundary event attached to a host the flow does not have (it monitors
+ * nothing, and nothing else says so).
+ *
+ * An expression's row points at the top-level node or edge that holds it, so
+ * the badge sits where the author edits it; one row per reference text there.
+ * The edge endpoints themselves stay `validateFlowDraft`'s rows above.
+ *
+ * Kept out of `validateFlowDraft`, which is also the debugger's Run preflight:
+ * that refuses what `registerFlow` refuses, and the platform registers a flow
+ * with either of these — a missing root faults only when its node runs, which
+ * the debugger reports as that node's fault. `variables` are the flow's
+ * declared variables: a root one of them answers to is not a node reference.
+ */
+export function missingNodeRefDiagnostics(
+  flow: { nodes?: unknown; edges?: unknown; variables?: unknown },
+  locale?: string,
+): Diagnostic[] {
+  const out: Diagnostic[] = [];
+  const seen = new Set<string>();
+  for (const p of missingNodePositions(flow)) {
+    let diag: Diagnostic;
+    if (p.kind === 'boundary-host') {
+      diag = { level: 'error', nodeId: p.nodeId, message: tFormat('engine.flowValidate.boundaryHostMissing', locale, { id: p.nodeId, host: p.id }) };
+    } else if (p.kind === 'expression-root') {
+      const message = tFormat('engine.flowValidate.exprRefNodeMissing', locale, { ref: p.ref.text, id: p.id });
+      const owner = p.site.owner;
+      diag = owner.kind === 'edge'
+        ? { level: 'error', edge: { source: owner.source, target: owner.target }, message }
+        : { level: 'error', nodeId: owner.id, message };
+    } else {
+      continue;
+    }
+    const key = JSON.stringify([diag.nodeId ?? null, diag.edge ?? null, diag.message]);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(diag);
+  }
+  return out;
 }

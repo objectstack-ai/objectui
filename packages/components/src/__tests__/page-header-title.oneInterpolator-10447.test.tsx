@@ -81,7 +81,7 @@ afterEach(() => {
 
 /** Lookup-typed and number-typed fields: the derivation takes neither. */
 const dealFields = {
-  account: { type: 'lookup', reference_to: 'account', label: 'Account' },
+  account: { type: 'lookup', reference: 'account', label: 'Account' },
   deal_no: { type: 'autonumber', label: 'Deal No' },
 };
 

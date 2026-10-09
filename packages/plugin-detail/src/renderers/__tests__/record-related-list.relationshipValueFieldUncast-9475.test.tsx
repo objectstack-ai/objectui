@@ -162,6 +162,13 @@ const declaredKeys = (): string[] => Object.keys(RecordRelatedListProps.shape).s
  * array shape, the direction AGENTS.md #0.1 requires. ⛔ An entry added here
  * is a declaration that disagrees with itself somewhere: write the measurement
  * that makes it load-bearing, or move the declaration instead.
+ *
+ * EMPTY AGAIN since objectui#8649. The 17.5.0 bump left three entries here —
+ * the field-security triple, contract-declared on `record:related_list` while
+ * the mirror lacked it and the renderer read it through a cast — booked to
+ * objectui#8649 by objectui#11111 decision 3 = B (record 5902351047).
+ * objectui#8649 moved the declaration, as the sentence above demands, and
+ * removed the three casts, so the ledger is carve-out-free again.
  */
 const LOAD_BEARING_CASTS: Record<string, string> = {};
 
@@ -173,8 +180,10 @@ describe('objectui#9475 — the guard population is derived and the matcher disc
     expect(keys).toContain('relationshipValueField');
     expect(keys).toContain('add');
     // …and it is not an everything-set, which would make them unfalsifiable.
-    expect(keys).not.toContain('enforceFieldSecurity');
-    expect(keys).not.toContain('requiredPermissions');
+    // (`enforceFieldSecurity` / `requiredPermissions` were the absent controls
+    // through `@objectstack/spec` 17.4.0; 17.5.0 declares both on this block —
+    // objectui#11073 — so the control is a key nothing declares.)
+    expect(keys).not.toContain('zzqxNoSuchRecordBlockKey');
     // The premise of reading the named export: it IS this block's map entry.
     expect(ComponentPropsMap['record:related_list']).toBe(RecordRelatedListProps);
   });
@@ -223,11 +232,17 @@ describe('objectui#9475 — the declaration reaches the read', () => {
     expect(source).not.toMatch(castBefore('add'));
   });
 
-  // Zero entries today, so the loop below would assert nothing in silence.
-  // Stated as its own reading instead: an empty ledger is what makes the
-  // derived guard above carve-out-free.
-  it('the ledger is empty, so no contract-declared key is exempt from the guard', () => {
+  // THE CAP (objectui#11111 decision 3 = B, record 5902351047). The ledger was
+  // empty from objectui#9964 to the 17.5.0 bump, held exactly the three keys
+  // booked to objectui#8649 until that card landed, and is back to `[]` — the
+  // carve-out-free state. Pinned empty so a new entry is a reviewed diff here.
+  it('the ledger is empty again — objectui#8649 struck the objectui#11111 triple', () => {
     expect(Object.keys(LOAD_BEARING_CASTS)).toEqual([]);
+    // …and the three keys it struck are in the guarded population, so the
+    // derived guard above now covers them with no carve-out.
+    for (const key of ['enforceFieldSecurity', 'redactFields', 'requiredPermissions']) {
+      expect(declaredKeys(), `${key} left the contract's population`).toContain(key);
+    }
   });
 
   for (const [key, why] of Object.entries(LOAD_BEARING_CASTS)) {

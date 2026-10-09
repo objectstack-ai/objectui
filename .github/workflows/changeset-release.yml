@@ -47,6 +47,12 @@ name: Changeset Release
 #     case  hasChangesets && !hasNonEmptyChangesets: -> nothing
 #     case  hasChangesets:                       -> runVersion   (force-push PR)
 #
+# ⚠️ "(npm + tags)" is v1's design, not what it does here any more: it pushes a
+# tag (and creates a Release) only for the packages whose `New tag:` line it
+# parses from the publish script's stdout, and `@changesets/cli` v3 prints
+# none. So under v3 `runPublish` is npm only, and the tags and Releases come
+# from two steps of this file's own after the npm check (objectui#11596).
+#
 # Two consequences drive everything below, and they are NOT symmetric:
 #
 #   - Omitting `publish:` makes publishing UNREACHABLE BY CONSTRUCTION. There is
@@ -68,7 +74,9 @@ name: Changeset Release
 #
 # THE LANES
 # ---------
-#   push to main, version NOT on npm    -> PUBLISH what this commit declares.
+#   push to main, version NOT on npm    -> PUBLISH what this commit declares,
+#                                          then push its tags and create its
+#                                          GitHub Releases (objectui#11596).
 #                                          Normally that is the version-PR merge
 #                                          itself. It is also the retry: any
 #                                          later push re-attempts a release whose
@@ -633,10 +641,13 @@ jobs:
       #
       #   Every `git` in this file, enumerated rather than grepped-for-absence:
       #   `git status --porcelain` (x2), `git checkout -- .` and `git clean -fdq`
-      #   in "Restore the pre-version tree". No `merge`, `rebase`, `pull`,
-      #   `cherry-pick`, `am`, `apply` or `revert` anywhere in the file — each of
-      #   those zero-hits was taken with a control term that DID hit the same
-      #   file, because a zero-hit with no control is not a reading.
+      #   in "Restore the pre-version tree", and — since objectui#11596 —
+      #   `git rev-parse -q --verify` and `git push origin <tag refs>` in "Push
+      #   the release tags", which reads and pushes refs and resolves nothing.
+      #   No `merge`, `rebase`, `pull`, `cherry-pick`, `am`, `apply` or `revert`
+      #   anywhere in the file — each of those zero-hits was taken with a
+      #   control term that DID hit the same file, because a zero-hit with no
+      #   control is not a reading.
       #
       #   `git checkout -- .` (below, in the restore step) takes tracked paths
       #   from the INDEX to undo what `pnpm changeset:version` wrote. That is a
@@ -740,7 +751,9 @@ jobs:
       # racing the tick — can make a scheduled run publish. An `if:` cannot say
       # that; an absent input can.
       #
-      # The `id:`s are for the log, nothing reads them.
+      # The refresh step's `id:` is for the log; nothing reads it. The publish
+      # step's IS read: the two tag/Release steps after the npm check gate on
+      # its outcome (objectui#11596).
       #
       # ══════════════════════════════════════════════════════════════════════
       # ⛔ THE `@v1` PIN IS LOAD-BEARING. READ THIS BEFORE BUMPING IT.
@@ -778,6 +791,11 @@ jobs:
       #      DELETES EVERY PENDING CHANGESET IN THE REPOSITORY — ~161 files at
       #      the time of writing. Re-verify it by reading the source, not by
       #      reading release notes.
+      #      ⚠️ Under CLI v3 even that `git.pushTag()` is never reached — it sits
+      #      behind the `New tag:` parse, which finds nothing — so the tags are
+      #      pushed by this file's own "Push the release tags" step. That step
+      #      pushes tag refs alone, so the property's conclusion still holds:
+      #      nothing on the publish lane commits (objectui#11596).
       #
       # WHAT v2 ACTUALLY CHANGES (read from its CHANGELOG, not from compiled
       # source; every item below was checked against the v2.0.0 entry)
@@ -816,6 +834,12 @@ jobs:
       #    have to forward it or git tags and GitHub releases stop being created
       #    (#697 downgrades that to a warning rather than an error — i.e. it
       #    fails QUIETLY, which is this card's whole subject matter).
+      #    ⚠️ v1 met that same quiet failure WITHOUT a bump: its detection is
+      #    the stdout parse for `New tag:` lines, CLI v3 prints none, and
+      #    17.6.0 and 17.7.0 shipped with no tag and no Release
+      #    (objectui#11596). Tags and Releases no longer depend on the action's
+      #    detection in either major — the two steps after the npm check make
+      #    them — so this item now concerns only the action's OWN Releases.
       #
       # ⛔ DO NOT WRITE "we are held back by the Changesets CLI generation."
       # That is the plausible wrong answer. v2's #699 validates that projects use
@@ -859,13 +883,16 @@ jobs:
       # action instead of through the job guard, and no `if:` can talk the action
       # out of it. A tree with nothing pending can.
       #
-      # ⛔ Nothing is committed and nothing is pushed. That is verified against
-      # the action's source rather than assumed: `runPublish` (`src/run.ts`) runs
-      # the publish script, then for each package it published pushes a TAG and
-      # creates a GitHub release. It never commits, and never pushes a branch. So
-      # this deletion cannot leave the runner, and `.changeset/` on `main` is
-      # untouched — those changesets are still owed to the next version PR, which
-      # the 6-hourly refresh lane will render as usual.
+      # ⛔ Nothing is committed, and no branch is pushed. That is verified
+      # against the action's source rather than assumed: `runPublish`
+      # (`src/run.ts`) runs the publish script, then for each package whose
+      # `New tag:` line it parses — none, under CLI v3 (objectui#11596) — pushes
+      # a TAG and creates a GitHub release. It never commits, and never pushes a
+      # branch. The one push this lane does make is the tag-ref push after the
+      # npm check, of tags at HEAD, which is `github.sha` because nothing
+      # commits. So this deletion cannot leave the runner, and `.changeset/` on
+      # `main` is untouched — those changesets are still owed to the next
+      # version PR, which the 6-hourly refresh lane will render as usual.
       #
       # This is deliberately a SUPERSET of what the action counts, and it is NOT
       # a second copy of the `lane` job's mirror. The mirror's job is to PREDICT
@@ -989,6 +1016,9 @@ jobs:
       # unreadable registry is a failure too — a release nobody can confirm is not
       # a confirmed release.
       - name: Verify the release reached npm
+        # The `id:` is read: the two tag/Release steps below gate on this
+        # step's outcome (objectui#11596).
+        id: verify-npm
         if: github.event_name == 'push'
         env:
           ANCHOR_PKG: '@object-ui/core'
@@ -1028,6 +1058,122 @@ jobs:
 
           echo "::error::${ANCHOR_PKG}@${EXPECTED} is STILL not on npm after a publish run that reported success. The repository declares a version the registry has never seen — this is objectui#5442's silent failure, made loud. Check the 'Publish to npm' step's log for which branch changesets/action took."
           exit 1
+
+      # ══════════════════════════════════════════════════════════════════════
+      # TAGS AND GITHUB RELEASES (objectui#11596)
+      # ══════════════════════════════════════════════════════════════════════
+      # `changesets/action@v1` used to do both of these itself, and since
+      # objectui#5296 it does neither. v1's `runPublish` learns WHAT was
+      # published by parsing the publish script's stdout for
+      # `New tag: <pkg>@<version>` lines, and pushes a tag and creates a
+      # Release only for the packages it finds there. `@changesets/cli` v3
+      # prints no such line — it reports through `@clack/prompts` and an output
+      # report — so v1 found nothing, and 17.6.0 and 17.7.0 reached npm with no
+      # git tag and no GitHub Release while every step above stayed green. The
+      # npm check above reads npm only; nothing read the tags or the Releases.
+      #
+      # `changeset publish` still CREATES the tags, on this runner, at HEAD: an
+      # annotated `<pkg>@<version>` tag per package it published, under the git
+      # identity v1's default `setupGitUser` configures before it runs the
+      # publish script. They just never left the runner. So the two steps below
+      # take over the half of `runPublish` v1 can no longer reach, and neither
+      # depends on its stdout parse:
+      #
+      #   1. push the tags `changeset publish` created — exactly the
+      #      `<pkg>@<version>` set this version owes, in ONE push
+      #      (objectstack#2191: per-tag pushes fired concurrently raced
+      #      GitHub's ref backend), and loudly when one is missing;
+      #   2. create one GitHub Release per public package with
+      #      `scripts/release-github-releases.mjs`, ported from objectstack:
+      #      idempotent, and every body truncated to the Releases API's
+      #      125,000-character limit, which the 17.7.0 entries far exceed.
+      #
+      # ⛔ PUBLISH LANE ONLY. Both carry `github.event_name == 'push'`, like
+      # every publish-lane step in this job, and both read the outcomes of the
+      # publish step and of the npm check — two steps a refresh run never
+      # executes, so on `schedule` / `workflow_dispatch` both outcomes are
+      # `skipped` and neither condition can be true. A version already on npm
+      # never reaches this job at all (the job guard above).
+      #
+      # `!cancelled()` rather than the implicit success(), as objectstack's
+      # `release.yml` gates its own Release step (objectstack#4900): once the
+      # npm check has passed the version is public, so a failure between here
+      # and the Release step — the tag push, say — must not also cost the
+      # release its record. The two outcomes are the gate, not the job status.
+      #
+      # ⚠️ This is the only push the publish lane makes, and it pushes tag refs
+      # alone. Each points at HEAD, which is still `github.sha`: no step on this
+      # lane commits, so the clear step's runner-local deletions are in no
+      # commit and cannot leave the runner through a tag. Property (2) of the
+      # `@v1` pin above is about the ACTION's pushes; this adds tag refs to
+      # them and nothing else.
+      #
+      # No `git config user.*` here, deliberately. objectstack's publish step
+      # configures one because it runs `changeset publish` itself; here the
+      # action runs it, after its own `setupGitUser`, and by the time this step
+      # runs the tags exist. Pushing a ref creates no object, so there is
+      # nothing for an identity to sign.
+      #
+      # `contents: write` is what both need — a tag push and a Release create
+      # are both contents writes — and this job inherits it from the
+      # workflow-level `permissions:` block, declaring none of its own.
+      - name: Push the release tags
+        if: >-
+          ${{ !cancelled() && github.event_name == 'push'
+          && steps.changesets-publish.outcome == 'success'
+          && steps.verify-npm.outcome == 'success' }}
+        env:
+          RELEASE_VERSION: ${{ needs.lane.outputs.manifest_version }}
+        run: |
+          set -euo pipefail
+
+          # The set this version owes, from the same enumeration the Release
+          # step below uses rather than a second copy of it in bash.
+          owed=$(node scripts/release-github-releases.mjs --print-tags)
+
+          refs=()
+          missing=()
+          while IFS= read -r tag; do
+            if [ -z "${tag}" ]; then continue; fi
+            if git rev-parse -q --verify "refs/tags/${tag}" > /dev/null; then
+              refs+=("refs/tags/${tag}")
+            else
+              missing+=("${tag}")
+            fi
+          done <<< "${owed}"
+
+          # ONE push for the whole set. A tag the remote already holds at the
+          # same object is a no-op, so this never fails on a tag it has
+          # already pushed.
+          if [ "${#refs[@]}" -gt 0 ]; then
+            git push origin "${refs[@]}"
+          fi
+          echo "- release tags pushed: \`${#refs[@]}\`" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::changeset publish left no local tag for ${#missing[@]} package(s) this release owes: ${missing[*]}. The next step still creates their Releases, and the API then creates each missing tag itself as a LIGHTWEIGHT tag at ${GITHUB_SHA} (objectui#11596)."
+            exit 1
+          fi
+
+      # Ordering is load-bearing: a Release POSTed for a tag the remote does not
+      # have makes the API create that tag itself — lightweight, at
+      # `target_commitish`, which the script sets to this run's `github.sha`.
+      # The annotated tags therefore go first, and this step finds them there.
+      #
+      # ⛔ No `--dry-run` here: it plans and prints, calls no API, and exits 0 —
+      # a Release step that would report success having released nothing.
+      - name: Create GitHub Releases (bodies truncated to the API limit)
+        if: >-
+          ${{ !cancelled() && github.event_name == 'push'
+          && steps.changesets-publish.outcome == 'success'
+          && steps.verify-npm.outcome == 'success' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The fixed group releases every public package at one version, so
+          # the version alone drives the whole publishable workspace — the
+          # value the npm check above has just confirmed.
+          RELEASE_VERSION: ${{ needs.lane.outputs.manifest_version }}
+        run: node scripts/release-github-releases.mjs
 
       # ══════════════════════════════════════════════════════════════════════
       # POST-VERSION VALIDATION — THE ONLY GATE THE RELEASE COMMIT EVER PASSES

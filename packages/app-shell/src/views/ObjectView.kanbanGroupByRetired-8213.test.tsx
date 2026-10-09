@@ -28,20 +28,30 @@
  *
  * ⚠️ THE CLAIM IS NARROWER THAN "THE EMITTED BAG VALIDATES", and saying so is
  * the point of the ratchet arm. The producer also emits `titleField` and
- * `cardFields`, and `KanbanConfigSchema` — which declares exactly
- * `groupByField` / `summarizeField` / `columns` — refuses BOTH of those by name
- * as well. They are a different question and stay:
+ * `cardFields`, and `KanbanConfigSchema` — which declared exactly
+ * `groupByField` / `summarizeField` / `columns` through `@objectstack/spec`
+ * 17.4.0 — refused BOTH of those by name as well. 17.5.0 declares `titleField`
+ * (objectui#11073), so the ratchet went DOWN to `cardFields` alone. They were a
+ * different question and stayed:
  *   - `cardFields` is a DECLARED deprecated alias of the spec's `columns` in
  *     this repo's own `KanbanConfig` mirror (`@object-ui/types`), i.e. drift
  *     this repo has taken a documented position on;
- *   - `titleField` is live and undeclared anywhere — `ListView` destructures it
- *     out of the merged config and forwards it onto the generated
- *     `object-kanban` node.
+ *   - `titleField` is live — `ListView` destructures it out of the merged
+ *     config and forwards it onto the generated `object-kanban` node — and was
+ *     undeclared anywhere until 17.5.0 declared it on `KanbanConfigSchema`.
  * Neither is a second spelling of a key this expression already writes
  * correctly, which is all objectui#8213 was. So the honest assertion is not
- * "nothing is refused" but "the refused set is EXACTLY the two known ones" —
- * which reddens for a fourth undeclared key, and would have reddened for
- * `groupBy`.
+ * "nothing is refused" but "the refused set is EXACTLY the known ones" (two
+ * through 17.4.0, one since) — which reddens for a new undeclared key, and
+ * would have reddened for `groupBy`.
+ *
+ * ⭐ THE RATCHET REACHED ZERO (objectui#6152 round 12, seat answer Q1 → A). The
+ * producer writes the card fields as the spec's `columns` now, because
+ * `@object-ui/types` judges this bag as the spec's list overlay does and refuses
+ * `options.kanban.cardFields` by name, and `ListView` reads `columns` for the
+ * cards (the node and the `$select` measured identical under either spelling).
+ * So the refused set is EMPTY, and the arms below say so; any undeclared key
+ * the producer emits from here on reddens them.
  *
  * ⚠️ NO ARM HERE ASSERTS THE `...restKanban` OVERRIDE, deliberately. `ListView`
  * spread the rest of the merged kanban config AFTER its own `groupBy:
@@ -98,8 +108,14 @@ const refusedKeys = (bag: Record<string, unknown>): string[] => {
 const laneKeysOf = (bag: Record<string, unknown>) =>
   LANE_SPELLINGS.filter((k) => k in bag).sort();
 
-/** The two keys the producer emits that the spec refuses and this card keeps. */
-const KNOWN_REFUSED_RESIDUAL = ['cardFields', 'titleField'];
+/**
+ * The keys the producer emits that the spec refuses. Two through
+ * `@objectstack/spec` 17.4.0 (`cardFields`, `titleField`); `titleField` left the
+ * set when 17.5.0 declared it (objectui#11073), and `cardFields` when the
+ * producer moved to the spec's `columns` (objectui#6152 round 12). Empty: the
+ * ratchet may only stay here.
+ */
+const KNOWN_REFUSED_RESIDUAL: string[] = [];
 
 describe('the instrument can answer both ways on this exact call (objectui#8213)', () => {
   it('CONTROL: the strict schema refuses an unknown key BY NAME on the producer output', () => {
@@ -174,7 +190,7 @@ describe('the RATCHET on what the spec still refuses here (objectui#8213)', () =
   // ⭐ THE DURABLE ARM. Not "the emitted bag validates" — it does not, and this
   // file's header says why. This is the exact refused SET, so `groupBy` cannot
   // come back and a FOURTH undeclared key cannot join quietly.
-  it('refuses exactly the two known residual keys, and nothing else', () => {
+  it('refuses nothing the producer emits: the residual set is empty', () => {
     const emitted = kanbanViewOptions({ kanban: { groupByField: 'stage' } }, OBJECT_WITH_STAGE);
     expect(refusedKeys(emitted)).toEqual(KNOWN_REFUSED_RESIDUAL);
   });
@@ -186,10 +202,15 @@ describe('the RATCHET on what the spec still refuses here (objectui#8213)', () =
     ).toEqual(KNOWN_REFUSED_RESIDUAL);
   });
 
-  it('CONTROL: the residual set is what it says it is, and `groupBy` is not in it', () => {
+  it('CONTROL: the residual set is what it says it is: empty, so neither `groupBy` nor `cardFields` is in it', () => {
     // Guards the ratchet against being satisfied by a residual list that
-    // quietly grew to include the very key this card retired.
-    expect(KNOWN_REFUSED_RESIDUAL).not.toContain('groupBy');
-    expect(KNOWN_REFUSED_RESIDUAL.length).toBe(2);
+    // quietly grew to include a key this card or objectui#6152 retired.
+    expect(KNOWN_REFUSED_RESIDUAL).toEqual([]);
+  });
+
+  it('writes the card fields under the spec\'s `columns`, never the retired `cardFields` (objectui#6152 round 12)', () => {
+    const emitted = kanbanViewOptions({ kanban: { groupByField: 'stage', columns: ['name', 'amount'] } }, OBJECT_WITH_STAGE);
+    expect(emitted.columns).toEqual(['name', 'amount']);
+    expect('cardFields' in emitted).toBe(false);
   });
 });

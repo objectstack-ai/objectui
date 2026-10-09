@@ -1,5 +1,6 @@
 {
   "type": "page",
+  "pageType": "app",
   "title": "Analytics Overview",
   "description": "Track your key metrics and performance indicators",
   "children": [

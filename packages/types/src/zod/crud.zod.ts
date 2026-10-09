@@ -282,7 +282,7 @@ export const CRUDDialogSchema = BaseSchema.extend({
  * does. ⛔ Not an accept-set change: all three arms already declared `type` as a
  * distinct `z.literal` (`action` · `detail` · `crud-dialog`).
  */
-export const CRUDComponentSchema = z.discriminatedUnion('type', [
+const CRUDComponentSchemaInferred = z.discriminatedUnion('type', [
   // `ActionSchema`'s `z.ZodType<ActionDeclaration, ActionDeclaration>` annotation
   // is a maintainer ruling (objectui#7760, decision batch #69) and ⛔ does not
   // move here. That type declares `_zod.propValues` as `PropValues | undefined`,
@@ -296,6 +296,19 @@ export const CRUDComponentSchema = z.discriminatedUnion('type', [
   DetailSchema,
   CRUDDialogSchema,
 ]);
+
+/**
+ * The TYPE of {@link CRUDComponentSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface CRUDComponentZodType extends CRUDComponentSchemaInferredType {
+  options: CRUDComponentSchemaInferredType['options'];
+}
+type CRUDComponentSchemaInferredType = typeof CRUDComponentSchemaInferred;
+
+/** The union above, typed by its named {@link CRUDComponentZodType}. */
+export const CRUDComponentSchema: CRUDComponentZodType = CRUDComponentSchemaInferred;
 
 /**
  * Export type inference helpers

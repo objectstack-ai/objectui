@@ -104,7 +104,7 @@ export const _selectWithOptionDescription: SelectFieldMetadata = {
 export const _lookupWithOptionDescription: LookupFieldMetadata = {
   type: 'lookup',
   name: 'priority',
-  reference_to: 'priorities',
+  reference: 'priorities',
   options: [{ label: 'High', value: 'high', description: 'Blocks the release' }],
 };
 

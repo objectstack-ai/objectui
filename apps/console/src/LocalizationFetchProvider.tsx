@@ -1,8 +1,9 @@
 /**
  * LocalizationFetchProvider — loads the caller's resolved regional defaults
- * (currency / locale) from `GET /api/v1/auth/me/localization` (ADR-0053) and
- * feeds the pure `LocalizationProvider` so every field / measure renderer can
- * resolve a currency code down to the org default.
+ * (currency / locale / timezone) from `GET /api/v1/auth/me/localization`
+ * (ADR-0053) and feeds the pure `LocalizationProvider` so every field /
+ * measure renderer can resolve a currency code down to the org default, and
+ * every date face renders an instant in the served zone (objectui#11693).
  *
  * Cosmetic, NOT fail-closed: while loading or on error it renders children with
  * an empty value (no tenant default → renderers show a plain number), so a slow
@@ -105,7 +106,14 @@ export function LocalizationFetchProvider({
             cacheLanguageSeed(json.locale);
           }
           if (cancelled) return;
-          setValue({ currency: json.currency ?? undefined, locale: json.locale ?? undefined });
+          // All three keys of the answer. `timezone` used to be dropped here
+          // (objectui#11693), so no face could render in the zone the server
+          // resolved; `LocalizationProvider` hands it to the date faces.
+          setValue({
+            currency: json.currency ?? undefined,
+            locale: json.locale ?? undefined,
+            timezone: json.timezone ?? undefined,
+          });
           return;
         } catch (err) {
           // A real answer about this caller (401/403/404/500) will not change on

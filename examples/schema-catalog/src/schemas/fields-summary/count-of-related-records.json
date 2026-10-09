@@ -10,9 +10,11 @@
       "name": "order_count",
       "label": "Total Orders",
       "type": "summary",
-      "summary_object": "orders",
-      "summary_field": "id",
-      "summary_type": "count",
+      "summaryOperations": {
+        "object": "orders",
+        "field": "id",
+        "function": "count"
+      },
       "readonly": true
     }
   ]

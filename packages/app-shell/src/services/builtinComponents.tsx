@@ -25,6 +25,10 @@ import {
   isAggregatedViewContainer,
   viewDisplayType,
 } from '../views/metadata-admin/view-item-normalize.js';
+// objectui#11692 - the helper moved beside the metadata client, so the
+// plugin-designer writers share it; `@object-ui/data-objectstack` is already on
+// the console's eager path (its data source), so this adds no eager chunk.
+import { dropServedPicklistOptions } from '@object-ui/data-objectstack';
 
 /* -------------------------------------------------------------------------- */
 /* 1) Top-level admin pages — bound to `metadata:directory` + `metadata:resource` */
@@ -158,6 +162,13 @@ registerMetadataResource({
     { key: 'label', label: 'Label', width: '25%' },
     { key: 'description', label: 'Description' },
   ],
+  // objectui#10202 — the editor is seeded from the SERVED object, where a
+  // picklist-bound field carries `picklist` plus the options resolved from the
+  // list; the authoring door refuses the two together. The saved body drops
+  // those resolved `options` from every picklist-bound field and touches
+  // nothing else. The draft is not changed, so the canvas keeps showing the
+  // list's options. See `dropServedPicklistOptions`.
+  fromDraft: dropServedPicklistOptions,
 });
 
 registerMetadataResource({
@@ -244,6 +255,28 @@ registerMetadataResource({
   ],
 });
 
+/**
+ * The body the page editor saves: the draft without `requires` (objectui#11357).
+ *
+ * An html page's `requires` is the server's stamp, not something the author
+ * writes: the save door compiles the `source` and stamps the namespaces it uses
+ * (ADR-0080 §5). The editor's draft is seeded from the served document, so it
+ * holds the last stamp; sent back, that stamp reads as a hand-written list, and
+ * once the source gains a plugin component the publish refuses it
+ * (`page-requires-disagrees-with-source`). Leaving the key out lets the server
+ * stamp it fresh on every save.
+ *
+ * ⛔ Never recompute `requires` here: the server owns the stamp, and it still
+ * refuses a hand-written list that disagrees with the source. The draft itself
+ * is not touched, so the editor keeps showing the stamp it last read.
+ */
+function pageSaveBody(draft: Record<string, unknown>): Record<string, unknown> {
+  if (!Object.prototype.hasOwnProperty.call(draft, 'requires')) return draft;
+  const body = { ...draft };
+  delete body.requires;
+  return body;
+}
+
 registerMetadataResource({
   type: 'page',
   label: 'Pages',
@@ -254,6 +287,7 @@ registerMetadataResource({
     { key: 'label', label: 'Label', width: '30%' },
     { key: 'route', label: 'Route' },
   ],
+  fromDraft: pageSaveBody,
 });
 
 /* -------------------------------------------------------------------------- */

@@ -87,7 +87,9 @@ describe('formatPercent rounds a tie half-up on the authored decimal (#4590)', (
     [1.45, 1, '1.5%', '1.4%'],
     [1.055, 2, '1.06%', '1.05%'],
   ])('formatPercent(%s, %s) is %s (was %s)', (value, precision, expected) => {
-    expect(formatPercent(value, precision, 'en-US')).toBe(expected);
+    // Every row is already in percentage points (objectui#11475 made the
+    // storage an argument; these rows were always the whole-points arm).
+    expect(formatPercent(value, 'whole', precision, 'en-US')).toBe(expected);
   });
 
   /**
@@ -96,7 +98,7 @@ describe('formatPercent rounds a tie half-up on the authored decimal (#4590)', (
    */
   it('carries across the grouping boundary: 99999.995 to 2 decimals', () => {
     // was `99,999.99%`
-    expect(formatPercent(99999.995, 2, 'en-US')).toBe('100,000.00%');
+    expect(formatPercent(99999.995, 'whole', 2, 'en-US')).toBe('100,000.00%');
   });
 
   /**
@@ -105,11 +107,11 @@ describe('formatPercent rounds a tie half-up on the authored decimal (#4590)', (
    * uses neither ASCII digits nor an ASCII sign.
    */
   it('the same ties move in every locale — this is a numeral defect', () => {
-    expect(formatPercent(1.005, 2, 'de-DE')).toBe(`1,01${NBSP}%`); // was `1,00 %`
-    expect(formatPercent(1.45, 1, 'de-DE')).toBe(`1,5${NBSP}%`); // was `1,4 %`
-    expect(formatPercent(1.005, 2, 'tr-TR')).toBe('%1,01'); // was `%1,00`
+    expect(formatPercent(1.005, 'whole', 2, 'de-DE')).toBe(`1,01${NBSP}%`); // was `1,00 %`
+    expect(formatPercent(1.45, 'whole', 1, 'de-DE')).toBe(`1,5${NBSP}%`); // was `1,4 %`
+    expect(formatPercent(1.005, 'whole', 2, 'tr-TR')).toBe('%1,01'); // was `%1,00`
     // U+0661 U+066B U+0660 U+0661 — Arabic-Indic `1`, decimal separator, `0`, `1`
-    expect(formatPercent(1.005, 2, 'ar-EG')).toBe(
+    expect(formatPercent(1.005, 'whole', 2, 'ar-EG')).toBe(
       `\u0661\u066b\u0660\u0661${ARABIC_PERCENT}${ALM}`,
     ); // was `\u0661\u066b\u0660\u0660` + the same affix
   });
@@ -125,12 +127,12 @@ describe('formatPercent keeps every digit at the top of the double range (#4590)
    */
   it('MAX_SAFE_INTEGER keeps its last digit', () => {
     // was `9,007,199,254,740,990%` — a 1 turned into a 0
-    expect(formatPercent(Number.MAX_SAFE_INTEGER, 0, 'en-US')).toBe('9,007,199,254,740,991%');
+    expect(formatPercent(Number.MAX_SAFE_INTEGER, 'whole', 0, 'en-US')).toBe('9,007,199,254,740,991%');
   });
 
   it('1e23 renders as 1e23', () => {
     // was `99,999,999,999,999,990,000,000%`
-    expect(formatPercent(1e23, 0, 'en-US')).toBe('100,000,000,000,000,000,000,000%');
+    expect(formatPercent(1e23, 'whole', 0, 'en-US')).toBe('100,000,000,000,000,000,000,000%');
   });
 });
 
@@ -153,7 +155,7 @@ describe('MUST NOT CHANGE: the locale percent CONVENTION (#4590 is numeral-only)
     ['sv-SE', `1${NBSP}234,5${NBSP}%`],
     ['bn-IN', `\u09e7,\u09e8\u09e9\u09ea.\u09eb%`],
   ])('%s renders its own percent convention, unchanged', (locale, expected) => {
-    expect(formatPercent(1234.5, 1, locale)).toBe(expected);
+    expect(formatPercent(1234.5, 'whole', 1, locale)).toBe(expected);
   });
 
   /**
@@ -168,7 +170,7 @@ describe('MUST NOT CHANGE: the locale percent CONVENTION (#4590 is numeral-only)
     ['ar-EG', `${ALM}-\u0664\u0665\u066b\u0665${ARABIC_PERCENT}${ALM}`],
     ['sv-SE', `\u221245,5${NBSP}%`],
   ])('%s keeps its negative-sign convention', (locale, expected) => {
-    expect(formatPercent(-45.5, 1, locale)).toBe(expected);
+    expect(formatPercent(-45.5, 'whole', 1, locale)).toBe(expected);
   });
 
   /**
@@ -182,7 +184,7 @@ describe('MUST NOT CHANGE: the locale percent CONVENTION (#4590 is numeral-only)
     const affix = (rendered: string) => rendered.replace(/[\p{Nd}]/gu, '');
     for (const locale of ['en-US', 'de-DE', 'fr-FR', 'tr-TR', 'ar-EG', 'ja-JP',
                           'zh-CN', 'ru-RU', 'sv-SE', 'bn-IN']) {
-      const cell = formatPercent(1234.5, 1, locale);
+      const cell = formatPercent(1234.5, 'whole', 1, locale);
       const intl = new Intl.NumberFormat(locale, {
         style: 'percent',
         minimumFractionDigits: 1,
@@ -195,30 +197,36 @@ describe('MUST NOT CHANGE: the locale percent CONVENTION (#4590 is numeral-only)
 
 describe('MUST NOT CHANGE: percent SCALING is upstream of the render (#4590)', () => {
   /**
-   * `percentDisplayValue` (a stored fraction below 1 scales by 100, a value at
-   * or above 1 passes through) decides WHICH number gets rendered; this card
-   * changes only HOW that number is rendered. Pinned unmoved so a future reader
-   * cannot mistake the two halves for one.
+   * The SCALING decides WHICH number gets rendered; this card changes only HOW
+   * that number is rendered. Pinned so a future reader cannot mistake the two
+   * halves for one.
+   *
+   * objectui#11475 moved the scaling's INPUT: it was a guess from the value's
+   * magnitude (a stored fraction below 1 scaled by 100, a value at or above 1
+   * passed through), and it is now the storage the caller states. The render
+   * half below is untouched by that.
    */
   it('a stored fraction still scales, a stored whole number still does not', () => {
-    expect(formatPercent(0.8, 0, 'en-US')).toBe('80%');
-    expect(formatPercent(0.5, 0, 'en-US')).toBe('50%');
-    expect(formatPercent(0.075, 1, 'en-US')).toBe('7.5%');
-    expect(formatPercent(80, 0, 'en-US')).toBe('80%');
-    expect(formatPercent(100, 0, 'en-US')).toBe('100%');
-    // The boundary itself: 1 is NOT a fraction, so it stays 1%.
-    expect(formatPercent(1, 0, 'en-US')).toBe('1%');
-    // …which is why the tie cases above are authored just above 1.
-    expect(formatPercent(0.9999, 0, 'en-US')).toBe('100%');
+    expect(formatPercent(0.8, 'fraction', 0, 'en-US')).toBe('80%');
+    expect(formatPercent(0.5, 'fraction', 0, 'en-US')).toBe('50%');
+    expect(formatPercent(0.075, 'fraction', 1, 'en-US')).toBe('7.5%');
+    expect(formatPercent(80, 'whole', 0, 'en-US')).toBe('80%');
+    expect(formatPercent(100, 'whole', 0, 'en-US')).toBe('100%');
+    // There is no boundary any more (objectui#11475): a `1` is 1% when the
+    // storage is whole points and 100% when it is a fraction.
+    expect(formatPercent(1, 'whole', 0, 'en-US')).toBe('1%');
+    expect(formatPercent(1, 'fraction', 0, 'en-US')).toBe('100%');
+    // The tie cases above are whole points, authored just above 1.
+    expect(formatPercent(0.9999, 'fraction', 0, 'en-US')).toBe('100%');
   });
 
   it('a malformed locale tag still falls back instead of throwing', () => {
-    expect(() => formatPercent(80, 0, 'not a locale')).not.toThrow();
-    expect(formatPercent(80, 0, 'not a locale')).toContain('80');
+    expect(() => formatPercent(80, 'whole', 0, 'not a locale')).not.toThrow();
+    expect(formatPercent(80, 'whole', 0, 'not a locale')).toContain('80');
   });
 
   it('is still callable with no locale and no precision', () => {
-    expect(formatPercent(80)).toBe('80%');
-    expect(formatPercent(80, 0)).toBe('80%');
+    expect(formatPercent(80, 'whole')).toBe('80%');
+    expect(formatPercent(80, 'whole', 0)).toBe('80%');
   });
 });

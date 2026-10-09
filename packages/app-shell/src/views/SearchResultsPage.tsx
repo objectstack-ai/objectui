@@ -31,7 +31,8 @@ import { useAdapter } from '../providers/AdapterProvider.js';
 import { matchAppBySegment } from '../utils/appRoute.js';
 import { resolveKeyedI18nLabel, getRecordDisplayName } from '../utils/index.js';
 import { getIcon } from '../utils/getIcon.js';
-import { resolveHref } from '@object-ui/layout';
+import { resolveHref, resolveNavItemLabel } from '@object-ui/layout';
+import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useAuth } from '@object-ui/auth';
 
 interface SearchResult {
@@ -70,7 +71,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export function SearchResultsPage() {
-  const { t } = useObjectTranslation();
+  const { t, language } = useObjectTranslation();
   const { appName } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryParam = searchParams.get('q') || '';
@@ -85,6 +86,10 @@ export function SearchResultsPage() {
   const baseUrl = `/apps/${appName}`;
   const { user, activeOrganization } = useAuth();
   const dataSource = useAdapter();
+  // The same resolver the sidebar, `nav:menu` and the ⌘K palette use: an entry
+  // with NO `label` is listed — and matched — by its target's current label,
+  // else its target's machine name (objectui#9868).
+  const targetLabel = useNavTargetLabel();
 
   // Build searchable items from navigation
   const allItems = useMemo((): SearchResult[] => {
@@ -96,13 +101,18 @@ export function SearchResultsPage() {
 
       return {
         id: item.id,
-        label: item.label || item.objectName || item.dashboardName || item.pageName || item.reportName || '',
+        // `resolveNavItemLabel`, not `item.label || item.objectName || …`: that
+        // chain listed an unlabelled entry by its machine name even when its
+        // target is labelled, and handed a keyed label object to `toLowerCase`.
+        // An inline locale map is listed — and matched — in the viewer's
+        // `language`, as the sidebar shows it (objectui#11299).
+        label: resolveNavItemLabel(item, t, targetLabel, language),
         href,
         type: item.type,
         description: item.description,
       };
     }).filter((item: SearchResult) => item.href !== '#');
-  }, [activeApp, baseUrl, user?.id]);
+  }, [activeApp, baseUrl, user?.id, t, targetLabel, language]);
 
   // Filter results
   const results = useMemo(() => {
@@ -225,29 +235,18 @@ export function SearchResultsPage() {
 
       {/* Results count */}
       {/*
-        Both branches select their key on `=== 1`, and they have to: the browse
-        branch used to ask for `search.itemsAvailable` at every count, so English
-        shipped `1 items available` at a single searchable item (objectui#9664).
-
-        The repo's two-key plural convention (`common.itemCount`/`itemCountOne`,
-        `detail.reactionCount`/`reactionCountOne`), NOT an i18next `_one`/`_other`
-        family. Key parity caps a family at base + `_one` + `_other`, so every
-        other CLDR category falls through to the base key — and on THIS key the
-        base would be the plural, which is what `ar` meets at 2, 3-10 and 11-99
-        and `ru` at 2-4. Picking the key here keeps `Intl.PluralRules` and
-        `fallbackLng` out of the path entirely.
-
-        Two keys still give a pack only two slots. Where the language has more
-        integer categories than that (`ru`: one/few/many, `ar`: six), the pack
-        writes the count-not-one half as a count label that reads right at any
-        number (`ru`/`ar` `search.resultsCountPlural`, objectui#10024) instead of a
-        `{{count}} <noun>` form that agrees with only some of the counts it serves.
+        Both branches are i18next count families (objectui#11445): each passes
+        `count` and i18next picks the slot `Intl.PluralRules` selects, so `ru`
+        and `ar` read their own noun form at every count rather than the two
+        slots a `=== 1` key switch gave them. The browse branch once asked one
+        plural string at every count and shipped `1 items available`
+        (objectui#9664); its `_one` slot is the repair now.
       */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>
           {query.trim()
-            ? t(totalCount === 1 ? 'search.resultsCount' : 'search.resultsCountPlural', { count: totalCount, query })
-            : t(allItems.length === 1 ? 'search.itemsAvailableOne' : 'search.itemsAvailable', { count: allItems.length })}
+            ? t('search.resultsCount', { count: totalCount, query })
+            : t('search.itemsAvailable', { count: allItems.length })}
         </span>
         {recordsSearching && (
           <span

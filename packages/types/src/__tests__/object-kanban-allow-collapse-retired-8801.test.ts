@@ -31,9 +31,9 @@
  *
  * ## Why a TOMBSTONE rather than a deleted member
  *
- * `BaseSchema` carries `[key: string]: any` and its mirror ends
- * `.passthrough()`, so a deleted member is KEPT, not refused — one silent
- * no-op traded for another. The member stays declared and unwritable: `?: never`
+ * `BaseSchema`'s mirror ends `.passthrough()` (and the interface carried
+ * `[key: string]: any` until objectui#8347), so a deleted member is KEPT, not
+ * refused, on the zod face — one silent no-op traded for another. The member stays declared and unwritable: `?: never`
  * on the interface, `retirementTombstone()` on the mirror. Suite "the near
  * miss" below is what separates the two outcomes on one instrument.
  *
@@ -73,24 +73,31 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ?
 type IsAny<T> = 0 extends 1 & T ? true : false;
 
 // The tombstone admits exactly one value — absence. ⭐ DELETING the member
-// instead would make this indexed access fall through `BaseSchema`'s index
-// signature to `any`, and `Equal<any, undefined>` is false — so this pin is
-// what keeps the retirement from decaying into a silent strip.
+// instead made this indexed access fall through `BaseSchema`'s index signature
+// to `any` until objectui#8347 (it stops compiling now), and either way this
+// pin goes red — so this pin is what keeps the retirement from decaying into a silent strip.
 type _RetiredIsTombstone = Assert<Equal<TsObjectKanbanSchema['allowCollapse'], undefined>>;
 type _RetiredIsNotAny = Assert<Equal<IsAny<TsObjectKanbanSchema['allowCollapse']>, false>>;
 // Non-vacuity on the same instrument: a live member still resolves to its own
 // declared type, so the `undefined` above is a reading and not the shape the
 // whole interface collapsed to.
 type _LiveMemberStillDeclared = Assert<Equal<TsObjectKanbanSchema['coverImageField'], string | undefined>>;
-// …and the never-declared near miss DOES fall through to `any`, which is what
-// the retired key would look like had it been deleted rather than tombstoned.
-type _NearMissFallsThroughToIndexSignature = Assert<IsAny<TsObjectKanbanSchema['allowCollapsing']>>;
+// …and the never-declared near miss is no member at all, which is what the
+// retired key would look like had it been deleted rather than tombstoned (it
+// fell through to `any` until objectui#8347 removed `BaseSchema`'s signature).
+type _NearMissIsNoMember = Assert<Equal<'allowCollapsing' extends keyof TsObjectKanbanSchema ? true : false, false>>;
+// Lit control for the detector: `IsAny` does answer `true`, so `_RetiredIsNotAny` is a reading.
+type _IsAnyCanAnswerTrue = Assert<IsAny<any>>;
 
 // The TS face still accepts a live board…
-const liveLiteral: TsObjectKanbanSchema = { ...NODE, coverImageField: 'cover', quickAdd: true };
+// (`quickAdd` stood in this literal until it was retired on this arm too —
+// objectui#8285, pinned in `object-kanban-quick-add-retired-8285.test.ts`.)
+const liveLiteral: TsObjectKanbanSchema = { ...NODE, coverImageField: 'cover' };
 // …and REFUSES the retired spelling on a literal (a boolean is not `never`).
 // This directive goes unused — and the type-check goes red with TS2578 — the
-// moment the tombstone is deleted or widened back to `boolean`.
+// moment the tombstone is widened back to `boolean`. A deletion keeps it used
+// since objectui#8347 (the key is refused as undeclared) and is caught by the
+// tombstone `Equal` row above instead.
 // @ts-expect-error — `allowCollapse` is RETIRED on this node (objectui#8801); delete the key
 const retiredLiteral: TsObjectKanbanSchema = { ...NODE, allowCollapse: true };
 void liveLiteral;
@@ -186,12 +193,16 @@ describe('the positive direction — the declared members still parse', () => {
     ['groupBy', 'status'],
     ['limit', 50],
     ['columns', [{ id: 'todo', title: 'To Do' }]],
-    ['filter', [['status', '=', 'open']]],
+    // The `ViewFilterRule` array: respelled (objectui#6152 round 8) from the AST
+    // tuple array `[['status', '=', 'open']]`, which the row now refuses.
+    ['filter', [{ field: 'status', operator: 'equals', value: 'open' }]],
     ['titleField', 'name'],
     ['cardFields', ['owner']],
-    ['quickAdd', true],
+    // `quickAdd` left this list when objectui#8285 retired it on this arm.
     ['coverImageField', 'cover'],
-    ['conditionalFormatting', [{ field: 'status', operator: 'equals', value: 'open' }]],
+    // `{ condition, style }`: respelled (objectui#11522) from the retired native
+    // `{ field: 'status', operator: 'equals', value: 'open' }`, now refused by name.
+    ['conditionalFormatting', [{ condition: "record.status == 'open'", style: { backgroundColor: '#fee2e2' } }]],
   ])('still accepts the live member `%s`', (key, value) => {
     expect(refusals({ ...NODE, [key]: value })).toEqual([]);
   });
@@ -259,14 +270,15 @@ describe('no registered board reads the key — the reading, re-derived here rat
     // A source grep alone cannot answer "no renderer reads this key": a
     // renderer can consume a key it never names. These are the two ends.
     const objectKanban = readFileSync(join(ROOT, 'packages/plugin-kanban/src/ObjectKanban.tsx'), 'utf8');
-    const registration = readFileSync(join(ROOT, 'packages/plugin-kanban/src/index.tsx'), 'utf8');
+    const boardCore = readFileSync(join(ROOT, 'packages/plugin-kanban/src/KanbanBoardCore.tsx'), 'utf8');
     // PROP channel — the rest props are discarded, never spread onward.
     expect(objectKanban).toContain('void _props;');
     // SCHEMA channel — the key does ride this spread, and stops at a component
-    // that NAMES every key it forwards.
+    // that NAMES every key it forwards. ⭐ Since objectui#11234 that component
+    // is the internal `KanbanBoardCore`, which `ObjectKanban` renders; the
+    // exported `KanbanRenderer` it rendered before now renders the same board.
     expect(objectKanban).toContain('...schema,');
-    expect(registration).toContain(
-      "export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFields, onCardMove }) => {",
-    );
+    expect(objectKanban).toContain('<KanbanBoardCore');
+    expect(boardCore).toContain('export const KanbanBoardCore: React.FC<KanbanBoardCoreProps> = ({');
   });
 });

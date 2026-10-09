@@ -89,7 +89,7 @@ It extends `BaseSchema`, so the shared component properties are available on a
 
 ## Chart Types
 
-The plugin provides two different chart components:
+The plugin provides three chart components: `bar-chart` and `chart` draw the rows they are given, and `object-chart` fetches its own:
 
 ### Simple Bar Chart (bar-chart)
 
@@ -228,7 +228,7 @@ const schema: ChartSchema = {
 
 ##### Axis options
 
-`xAxis` and `yAxis` take `@objectstack/spec`'s axis object — the `ChartAxis` a dashboard widget's `chartConfig` uses, with the same keys and the same checks. `xAxis` is one object; `yAxis` is a **list**, one entry per value axis, and a second entry declares the right-hand axis. A bar (`column`), line, area, combo or `horizontal-bar` chart draws at most two value axes: an entry after the second is accepted but drawn on no axis, and the chart shows a note under the plot naming it (`yAxis[2]`, …) and, when the chart declares neither `series` nor `categories`, the axis its `field` is plotted against — the right-hand one, the top one on `horizontal-bar` (objectui#10691). A `scatter` chart draws one value axis, the first entry's: an entry after the first is accepted but drawn on no axis, and the chart shows a note under the plot naming it (`yAxis[1]`, …) and the axis it draws, `yAxis[0]` (objectui#10721). The object is strict: an undeclared key is refused at parse, with the spec's own hint (`Did you mean grid → showGridLines?`).
+`xAxis` and `yAxis` take `@objectstack/spec`'s axis object, `ChartAxis` — the same object the react `ObjectChart` tier (an `object-chart` node) takes for its own `xAxis` / `yAxis`, with the same keys and the same checks. `xAxis` is one object; `yAxis` is a **list**, one entry per value axis, and a second entry declares the right-hand axis. A bar (`column`), line, area, combo or `horizontal-bar` chart draws at most two value axes: an entry after the second is accepted but drawn on no axis, and the chart shows a note under the plot naming it (`yAxis[2]`, …) and, when the chart declares neither `series` nor `categories`, the axis its `field` is plotted against — the right-hand one, the top one on `horizontal-bar` (objectui#10691). A `scatter` chart draws one value axis, the first entry's: an entry after the first is accepted but drawn on no axis, and the chart shows a note under the plot naming it (`yAxis[1]`, …) and the axis it draws, `yAxis[0]` (objectui#10721). The object is strict: an undeclared key is refused at parse, with the spec's own hint (`Did you mean grid → showGridLines?`).
 
 | Key | Type | Effect |
 |---|---|---|
@@ -263,6 +263,37 @@ const schema: ChartSchema = {
     { name: 'revenue' },
     { name: 'margin', yAxis: 'right' }
   ]
+}
+```
+
+### Object Charts (object-chart)
+
+An `object-chart` node charts an object's records (`objectName` with an `aggregate`) or a dataset (`dataset` with `dimensions` and `values`), and fetches the rows itself. An authored node takes its props in the `properties` bag. Its family is `chartType`, one of the `@objectstack/spec` chart families this package draws as a chart: `bar`, `horizontal-bar`, `column`, `line`, `area`, `pie`, `donut`, `funnel`, `scatter`, `treemap`, `sankey`, `combo` and `radar` (objectui#11513).
+
+```json
+{
+  "type": "object-chart",
+  "properties": {
+    "chartType": "funnel",
+    "objectName": "opportunity",
+    "aggregate": { "field": "amount", "function": "sum", "groupBy": "stage" },
+    "xAxis": { "field": "stage" },
+    "series": [{ "name": "amount" }]
+  }
+}
+```
+
+The spec's single-value families (`gauge`, `solid-gauge`, `metric`, `kpi`, `bullet`) and tabular ones (`table`, `pivot`) are refused on `chartType`, and the refusal names the set above: this node draws no chart of them. Write a single number as an `object-metric`, rows as an `object-data-table`, and a cross-tab as an `object-pivot`. The TypeScript `ObjectChartSchema` in `@object-ui/types` declares the same set, taken from the spec's `ChartType`:
+
+```ts
+import type { ObjectChartSchema } from '@object-ui/types'
+
+const pipeline: ObjectChartSchema = {
+  type: 'object-chart',
+  chartType: 'funnel',
+  objectName: 'opportunity',
+  aggregate: { field: 'amount', function: 'sum', groupBy: 'stage' },
+  series: [{ name: 'amount' }]
 }
 ```
 
@@ -351,6 +382,15 @@ const schema = {
   className: 'h-64 sm:h-96 lg:h-[500px]'
 }
 ```
+
+## Rendering Without the Entrance Animation (host-composed)
+
+A host that builds an `object-chart` or `chart` node in code can set `isAnimationActive: false` on it for a deterministic render: the chart draws at its final geometry on the first frame, with no entrance animation. Omitted, the chart animates. `ChartRenderer` honours the flag, and the flag reaches it by one of two routes:
+
+- **An `object-chart` node.** `ObjectChart` spreads the node into the schema it hands `ChartRenderer`. `DashboardRenderer` and `DashboardGridLayout` set the flag this way on the `object-chart` nodes they build for an object-bound widget. For this node it is declared on the TypeScript `ObjectChartSchema` in `@object-ui/types`, as a host-composed member.
+- **A bare `chart` node.** `ChartRenderer` renders it directly: it owns the bare `chart` key, and `ObjectChart`'s block is registered as `view:chart` only. `ChartRenderer`'s own `schema` prop declares the flag. `DatasetWidget` and `DatasetReportRenderer` set it this way, and so do the two dashboard renderers for a widget on inline data. These nodes do not go through `ObjectChartSchema`.
+
+It is not an authoring key: the zod mirror of `ObjectChartSchema` declares no member for it, so it is not part of the `object-chart` node's `properties` vocabulary.
 
 ## Axis Tick Labels and the Host Page Font
 

@@ -22,20 +22,20 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, TableSortItem, DataTableSchema, ListViewExportFormat } from '@object-ui/types';
+import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, TableSortItem, DataTableSchema, ListViewExportFormat, RecordNavigateAction } from '@object-ui/types';
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
-import { parseFilterAST, type FilterCondition } from '@objectstack/spec/data';
-import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, useDataInvalidation, useFilterScope } from '@object-ui/react';
+import { parseFilterAST, resolveFieldScale, type FilterCondition } from '@objectstack/spec/data';
+import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, RelatedRecordActionsProvider, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 // objectui#8920 — the grid reaches a cell renderer through THIS module and
 // nowhere else. `getCellRenderer` / `resolveCellRendererType` are deliberately
 // NOT imported here: six sites spelling the resolve three different ways is
 // what dropped a `format`-hinted column's renderer, and one shared owner is
 // what stops a seventh site picking a convention of its own.
-import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
+import { resolveGridCellRendering, gridCellRendererForFixedKey, linkCellRenderer, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { isMaskedGridColumn, isWithheldGridColumn } from './maskedColumn';
-import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer } from '@object-ui/fields';
+import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -47,16 +47,18 @@ import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object
 // `string | I18nLabel` form `BaseSchema` has carried since objectui#4580: the
 // two reads below put the label in STRING positions, so a map-valued label used
 // to reach them as an object and the compiler could not say so.
-import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+import { resolveI18nLabel as resolveInlineI18nLabel, PaginationConfigSchema } from '@objectstack/spec/ui';
 import { stateMachineNextValues, isFieldInlineEditable } from './inline-edit-options';
 import {
   Badge, Button, NavigationOverlay, EmptyValue,
   legacyRecordDrawerWidthKey, recordOverlayWidthStorageKey, useOverlayAnchor,
   Popover, PopoverContent, PopoverTrigger,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   RefreshIndicator,
+  DataEmptyState, resolveIcon,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, type FilterTokenScope } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -64,8 +66,8 @@ import {
 } from '@object-ui/plugin-detail';
 import { ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Download, Rows2, Rows3, Rows4, AlignJustify, Type, Hash, Calendar, CheckSquare, User, Tag, Clock, Loader2 } from 'lucide-react';
 import { useRowColor } from './useRowColor';
-import { useGroupedData, usableGroupingFields, type ServerGroupSource } from './useGroupedData';
-import { useServerGroupHeaders, useServerGroupRows, type ServerGroupLeaf } from './useServerGrouping';
+import { useGroupedDataInOptionOrder, usableGroupingFields, type GroupOptionRanks, type ServerGroupSource } from './useGroupedData';
+import { groupSearchOf, useServerGroupHeaders, useServerGroupRows, type ServerGroupLeaf } from './useServerGrouping';
 import { GroupRow } from './GroupRow';
 import { useColumnSummary } from './useColumnSummary';
 import { resolveRowCrudAffordances, resolveRowRecordCrudAffordance } from './rowCrudAffordances';
@@ -96,6 +98,7 @@ interface HeldGridFilters {
   authored: AuthoredGridFilters;
   currentUserId: FilterTokenScope['currentUserId'];
   currentOrgId: FilterTokenScope['currentOrgId'];
+  recordId: FilterTokenScope['recordId'];
   onUnresolved: FilterTokenScope['onUnresolved'];
   resolved: AuthoredGridFilters;
 }
@@ -105,6 +108,7 @@ function resolveGridFilters(authored: AuthoredGridFilters, scope: FilterTokenSco
     authored,
     currentUserId: scope.currentUserId,
     currentOrgId: scope.currentOrgId,
+    recordId: scope.recordId,
     onUnresolved: scope.onUnresolved,
     resolved: resolveFilterPlaceholders(authored, scope),
   };
@@ -169,8 +173,9 @@ function isSameAuthoredFilter(a: unknown, b: unknown, depth = 0): boolean {
  * every render; and a date macro such as `{now}` resolves to a new value at
  * every call, so comparing OUTPUTS cannot stop that. The key is the authored
  * filters, compared by structure (a host that rebuilds an equal filter inline
- * must not re-query), plus the scope's three members read one by one, never
- * the scope object's identity (AGENTS.md #10). The held pair lives in state,
+ * must not re-query), plus each scope member read one by one (`recordId`
+ * among them, objectui#7297), never the scope object's identity (AGENTS.md
+ * #10). The held pair lives in state,
  * so the value handed out is always the one React committed.
  */
 function useResolvedGridFilters(authored: AuthoredGridFilters, scope: FilterTokenScope): AuthoredGridFilters {
@@ -178,6 +183,7 @@ function useResolvedGridFilters(authored: AuthoredGridFilters, scope: FilterToke
   if (
     held.currentUserId !== scope.currentUserId
     || held.currentOrgId !== scope.currentOrgId
+    || held.recordId !== scope.recordId
     || held.onUnresolved !== scope.onUnresolved
     || !isSameAuthoredFilter(held.authored, authored)
   ) {
@@ -360,7 +366,16 @@ const LinkCell: React.FC<{
       ? host.recordHref(objectName, recordId)
       : null;
 
-  if (href) {
+  if (href && host) {
+    // objectui#11817 — no anchor inside this anchor. A reference value in the
+    // cell (`LookupCellRenderer`'s `ReferencedRecordLink`) draws its own `a`
+    // whenever the host answers `recordHref` for the referenced object, so the
+    // children are rendered under the same host with no record destination:
+    // "the host cannot route to that object", which the context documents as
+    // render the plain value. The self-linking faces (`mailto:`, URL, `tel:`)
+    // never ask the host; the cell is handed their text face instead
+    // (`linkCellRenderer` in `./cellRendererResolution`).
+    const unlinkedHost = { ...host, recordHref: undefined, openRecord: undefined };
     return (
       <a
         href={href}
@@ -390,7 +405,7 @@ const LinkCell: React.FC<{
           }
         }}
       >
-        {children}
+        <RelatedRecordActionsProvider value={unlinkedHost}>{children}</RelatedRecordActionsProvider>
       </a>
     );
   }
@@ -453,6 +468,10 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // Reused by the grouped-view pager (falls back here when no I18nProvider).
   'table.rowsPerPage': 'Rows per page',
   'table.pageInfo': 'Page {{current}} of {{total}}',
+  // The heading of an authored `emptyState` that declares no `title`
+  // (objectui#11068): the words the table's own empty row shows, so leaving the
+  // member out changes nothing a user reads.
+  'table.noResults': 'No results found',
   // Heading of the record-detail overlay this grid opens on row click
   // (objectui#3426). Borrowed from the `detail.*` namespace rather than minted
   // as `grid.recordDetail`: `NavigationOverlay` already resolves
@@ -514,6 +533,11 @@ export interface ObjectGridColumnState {
  * `Partial<...>` wrapper is deliberate and is the only shape change: the whole
  * mode is opt-in, and `DataTableSchema['data']` is required because a table
  * always has rows, while a grid that was given no `data` fetches its own.
+ *
+ * `search` is read outside this mode too (objectui#11021): a host that passes
+ * it owns the search term even where the grid fetches for itself, and the
+ * grid's own queries carry it. `ListView` hands its toolbar term to a grid
+ * that groups on the server that way, with no rows.
  */
 export interface ObjectGridExternalPaginationProps
   extends Partial<
@@ -689,6 +713,22 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
    * already use this spelling for exactly this situation.
    */
   onRowClick?: (record: any, event?: any) => void;
+  /**
+   * Called for page-level navigation with the record id and a
+   * {@link RecordNavigateAction} — a navigation-MODE token from a closed
+   * vocabulary: `'view'` opens the record page, `'new_window'` opens it in a
+   * new browser tab.
+   *
+   * [objectui#9547] The tenth callback on this interface, and the channel a
+   * programmatic caller should use: its nine siblings below are props here
+   * too, and `ObjectGridSchema.onNavigate`'s own docblock sends callers to
+   * this interface for it. That schema key still works — it is the
+   * same slot reached off the node — and when BOTH are supplied, THIS PROP
+   * WINS (maintainer ruling C on objectui#9547: the programmatic caller is the
+   * nearer party). `onRowClick` above still takes full priority over either:
+   * a host that owns the row click owns navigation too.
+   */
+  onNavigate?: (recordId: string | number, action: RecordNavigateAction) => void;
   onEdit?: (record: any) => void;
   onDelete?: (record: any) => void;
   onBulkDelete?: (records: any[]) => void;
@@ -1062,15 +1102,17 @@ export type ObjectGridColumn =
  *      PLUS an undeclared `bogusKeyForProbe6459: true` WRITTEN OUT LONGHAND in
  *      the (fresh) literal  →  `tsc --noEmit` exit 0, ZERO diagnostics.
  *
- * The reason is `BaseSchema`'s `[key: string]: any` index signature, which
- * `DataTableSchema` inherits: under an index signature EVERY key is a member,
+ * The reason was `BaseSchema`'s `[key: string]: any` index signature, which
+ * `DataTableSchema` inherited until objectui#8347: under an index signature
+ * EVERY key is a member,
  * so excess-property checking never has a non-member to refuse — at a fresh
  * literal, through a spread, anywhere. It is the terminal case of the rule the
  * `options` tombstone above records ("a pin enforced by a key's non-membership
  * silently stops enforcing the moment the key becomes a member"): with an
  * index signature there is no non-membership to enforce with, ever.
  *
- * `RemoveIndexSignature` strips it — DERIVED from `DataTableSchema`, never a
+ * `RemoveIndexSignature` stripped it (since objectui#8347 it strips nothing on
+ * `DataTableSchema`) — DERIVED from `DataTableSchema`, never a
  * hand-copied member list, so a member added there tomorrow flows in on its
  * own and two enumerations of one vocabulary never exist. With the signature
  * gone, the same probe goes red (TS2353 naming the key), measured at both
@@ -1159,7 +1201,7 @@ type RemoveIndexSignature<T> = {
   [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K];
 };
 
-/** `DataTableSchema`'s DECLARED members only — the index signature stripped. */
+/** `DataTableSchema`'s DECLARED members only — any index signature stripped (it has none since objectui#8347). */
 export type DeclaredDataTableSchema = RemoveIndexSignature<DataTableSchema>;
 
 /**
@@ -1204,8 +1246,9 @@ export type DeclaredDataTableSchema = RemoveIndexSignature<DataTableSchema>;
  * pinned, so a member added or removed here reddens too. ⚠️ The transplant is
  * NOT literal in one respect, deliberately: the probe reads
  * `DeclaredDataTableSchema`, not `DataTableSchema`, because the index signature
- * stripped above makes the raw type answer "declared" to EVERY key — measured,
- * and pinned in that suite as its own control.
+ * stripped above made the raw type answer "declared" to EVERY key — measured,
+ * and pinned in that suite as its own control, which is flipped since
+ * objectui#8347 removed the signature.
  *
  * ⇒ Anything in this census that a reader would otherwise have to re-measure by
  * hand is still prose; what is mechanical is the ENTRY CONDITION of the two
@@ -1285,24 +1328,53 @@ function resolveRowHeightMode(rowHeight: unknown): RowHeightMode {
 }
 
 /**
- * The three page-size defaults this component falls back to, named so the
- * divergence between them is DECLARED rather than a by-product of three
- * hand-spelled fallback chains that happened to end in different literals.
+ * The page size every display surface of this component falls back to when the
+ * author declared none (objectui#9853, rulings 5749197629 and 5824040487): the
+ * flat table, the server-paged table, the grouped view's page of groups, and a
+ * server-grouped leaf's page of rows. Wherever there is a pager, this is its
+ * page.
  *
- * They are three different quantities and that is why they are three
- * constants: one sizes a page of ROWS in the client-paged table, one sizes a
- * page of GROUPS in the grouped view, and one sizes the `$top` WINDOW the
- * server-paged fetch asks for. ⚠️ What is NOT settled here is whether the
- * first and the third should be the same number — the same grid with no
- * authored `pagination` shows the server-window default per page while it
- * fetches its own rows and the flat default when it does not, which is a
- * visible inconsistency an author never declared. Changing either literal
- * changes what every undeclared grid renders, so it is handed back as a
- * question (objectui#9853) rather than decided here.
+ * READ from `@objectstack/spec`, not restated. The protocol's pagination config
+ * declares `pageSize` with a default, and that declaration is the one answer an
+ * author can look up; a literal here would be a second answer free to drift
+ * from it. Parsing an empty object is the spec's own way of saying what an
+ * undeclared member means, so this is the value the schema would fill in.
+ *
+ * ⚠️ There is deliberately no local fallback number behind this read. If a
+ * future `@objectstack/spec` stops declaring the default (the same principle
+ * `packages/types` applies at its own import boundary is that a validator does
+ * not write values), this throws at module load instead of quietly
+ * substituting a number nobody declared. The spec version is locked, so that
+ * can only surface on a spec upgrade, where the pin
+ * `ObjectGrid.displayPageSizeDefault-9853.test.tsx` reddens first.
  */
-const DEFAULT_FLAT_PAGE_SIZE = 10;
-const DEFAULT_GROUPS_PER_PAGE = 10;
-const DEFAULT_SERVER_WINDOW_SIZE = 50;
+function readSpecDisplayPageSize(): number {
+  const declared: unknown = PaginationConfigSchema.parse({}).pageSize;
+  if (typeof declared !== 'number' || !Number.isInteger(declared) || declared <= 0) {
+    throw new Error(
+      '[ObjectUI] ObjectGrid: @objectstack/spec no longer declares a positive default '
+      + `for pagination.pageSize (read ${String(declared)}); the grid has no display `
+      + 'page size to fall back to.',
+    );
+  }
+  return declared;
+}
+const DEFAULT_DISPLAY_PAGE_SIZE = readSpecDisplayPageSize();
+
+/**
+ * How many rows this grid FETCHES when it buckets a window into groups in the
+ * browser and the author declared no page size (`bucketsFetchedWindow`). A
+ * fetch batch, ⛔ not a page size: no display path reads it, and it does not
+ * follow the display default (objectui#9853, ruling 5824040487, structure B).
+ * Before ruling 5749197629 this number was named as a "server window" and also
+ * sized the server-paged table's visible page, so one constant meant two
+ * quantities.
+ *
+ * It stays a constant of this component rather than the protocol's value
+ * because the protocol declares no fetch batch: it is how much of the result
+ * set a client-grouped view holds, which is an implementation choice.
+ */
+const DEFAULT_FETCH_BATCH_SIZE = 50;
 
 /**
  * The mode a `selection` object with no `type` member asks for (objectui#9837,
@@ -1425,6 +1497,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   onBulkDelete,
   onRowSelect,
   onRowClick,
+  onNavigate,
   onCellChange,
   onRowSave,
   onBatchSave,
@@ -1480,10 +1553,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const [activeBulkSkipped, setActiveBulkSkipped] = useState(0);
   const lastFindParamsRef = React.useRef<Record<string, unknown> | null>(null);
   // Grouped view paginates whole groups (groups stay intact, never split across
-  // pages). Defaults to the schema page size, falling back to 10 groups/page.
+  // pages). Defaults to the schema page size, falling back to the display
+  // default the spec declares (objectui#9853) — here counted in groups.
   const [groupedPage, setGroupedPage] = useState(1);
   const [groupedPageSize, setGroupedPageSize] = useState<number>(
-    resolvePageSize(schema, DEFAULT_GROUPS_PER_PAGE),
+    resolvePageSize(schema, DEFAULT_DISPLAY_PAGE_SIZE),
   );
 
   // Sync internal rowHeightMode when schema.rowHeight prop changes (e.g., parent ListView density toggle).
@@ -1900,6 +1974,34 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     () => JSON.stringify(collectGroupingFieldRefs(schema.grouping)),
     [schema.grouping],
   );
+  // [objectui#10689] The fetch effect's dep on the three view-level PREDICATE
+  // carriers its projection harvests (objectui#3501), as a CONTENT key over the
+  // operand NAMES alone, the shape `groupingProjectionKey` takes above.
+  //
+  // The load effect reads `conditionalFormatting`, `rowActionDefs` and
+  // `bulkActionDefs` through `listViewPredicates` and puts each operand into
+  // `$select`, but none of the three was a dependency. So a rule added to a
+  // mounted grid never had its operand fetched: the rows kept arriving without
+  // the field, and the rule, which reads it, never matched.
+  //
+  // Names ONLY: a rule's style, or an action's label, is a render-time concern
+  // the projection cannot see, so changing it costs no round trip. The same
+  // harvest over the same three inputs as the effect's; the object-level
+  // `actions` / `userActions` it adds come from the definition the effect reads
+  // for itself. The `rowActionDefs` cast is the objectui#5091 NON-AUTHOR
+  // SURFACE exemption stated at the effect's own read of that key.
+  // `__tests__/ObjectGrid.harvestInputsFetchKey-10689.test.tsx` pins each input.
+  const conditionalFormattingRaw = schema.conditionalFormatting as readonly unknown[] | undefined;
+  const rowActionDefsRaw = (schema as { rowActionDefs?: readonly unknown[] }).rowActionDefs;
+  const bulkActionDefsRaw = (schema as { bulkActionDefs?: readonly unknown[] }).bulkActionDefs;
+  const predicateProjectionKey = useMemo(
+    () => JSON.stringify(collectPredicateFieldRefs(listViewPredicates({
+      conditionalFormatting: conditionalFormattingRaw,
+      rowActionDefs: rowActionDefsRaw,
+      bulkActionDefs: bulkActionDefsRaw,
+    }))),
+    [conditionalFormattingRaw, rowActionDefsRaw, bulkActionDefsRaw],
+  );
   // The view's declared filter, lowered ONCE through the repo's single filter
   // sink for both consumers below (the fetch and the server-side export).
   //
@@ -1952,10 +2054,15 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // ($top/$skip) and the DataTable's display page size are the SAME number here
   // — the records we hold ARE one page, so paging means refetching the next
   // slice from the server instead of slicing an in-memory batch. This is what
-  // makes records beyond the first batch reachable at all (framework #2212).
+  // makes records beyond the first batch reachable at all
+  // (objectstack-ai/objectstack#2212).
+  //
+  // That makes this a DISPLAY page size, so undeclared it is the spec's display
+  // default, ⛔ not the fetch batch (objectui#9853). A server-grouped leaf pages
+  // its rows by this same size (`useServerGroupRows` below).
   const [serverPage, setServerPage] = useState(1);
   const [serverPageSize, setServerPageSize] = useState<number>(
-    resolvePageSize(schema, DEFAULT_SERVER_WINDOW_SIZE),
+    resolvePageSize(schema, DEFAULT_DISPLAY_PAGE_SIZE),
   );
 
   // Column-header sort, when this grid fetches its own rows (objectui#3106).
@@ -1976,6 +2083,23 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // A term is asked of one collection. Pointing the grid at another object
   // makes it a question about rows it was never typed for.
   useEffect(() => { setSearchTerm(''); }, [objectName]);
+  // [objectui#11021] Whose term is it? A host that passes `search` owns it —
+  // under host-driven paging, and also when this grid fetches for itself:
+  // `ListView` fetches for a flat grid, but hands a grid that groups on the
+  // server no rows, only its toolbar term, which this grid's own queries then
+  // carry (both group queries, or its own window). Absent that prop, the term
+  // is the one typed into this grid's box.
+  const hostOwnsSearch = externalManualPagination || hostSearch !== undefined;
+  const querySearchTerm = hostOwnsSearch ? (hostSearch ?? '') : searchTerm;
+  // [objectui#10689] The `$searchFields` the load effect sends, as a CONTENT
+  // key for its dependency list: the view's `searchableFields`, and only while
+  // a term goes out, since without one the query does not send them. A view
+  // that narrows its search to other fields re-reads once; an equal array in a
+  // new object does not.
+  const searchFieldsKey =
+    querySearchTerm.trim() && schema.searchableFields && schema.searchableFields.length > 0
+      ? JSON.stringify(schema.searchableFields)
+      : '';
 
   // --- Inline data effect (synchronous, no fetch needed) ---
   useEffect(() => {
@@ -2151,10 +2275,44 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     && Array.isArray(handedRows)
     && (hostRowCount as number) > handedRows.length
     && usableGroupingFields(groupingFieldsRaw).some((gf) => !groupingRefusedKnownMasked.includes(gf.field));
+  // What the load effect's ONE flat fetch asks for (objectui#9853, ruling
+  // 5824040487, structure B). Where the rows it holds ARE the page on screen,
+  // that is the display page size. Where this grid buckets the rows it holds
+  // into groups in the browser, nothing pages them, so it asks for the fetch
+  // BATCH instead, which no display path reads. Since objectui#7189 a grouped
+  // grid that fetches its own rows buckets a window only when the server
+  // cannot group for it and the grid has not refused: not server-grouped
+  // (`serverGroupedFetch` strips `$top` and pages each group), not refused
+  // (`groupingNeedsHeaderQuery` asks for no rows), and at least one grouping
+  // entry left once a KNOWN masked key is refused. The case that reaches it
+  // today is a grouping key this principal may not read, over a data source
+  // that answers the header query (see `groupingKeyReadable`).
+  //
+  // Counted the way the two predicates above count, less the keys refused on a
+  // KNOWN masked type and NOT less the ones merely withheld while the object's
+  // types load: otherwise the first fetch would go out at the page size and be
+  // re-issued at the batch the moment the types land.
+  const bucketsFetchedWindow =
+    !serverGroupedFetch
+    && !groupingNeedsHeaderQuery
+    && usableGroupingFields(groupingFieldsRaw).some((gf) => !groupingRefusedKnownMasked.includes(gf.field));
+  const fetchWindow = bucketsFetchedWindow
+    ? resolvePageSize(schema, DEFAULT_FETCH_BATCH_SIZE)
+    : serverPageSize;
   // The grid's own row query — projection, expansion, order and the view's
   // filter — resolved by the load effect below exactly as the flat fetch
   // resolves it, and handed to each group's row page. `null` until resolved.
   const [groupRowQuery, setGroupRowQuery] = useState<Record<string, unknown> | null>(null);
+  // [objectui#11021] Leaving server grouping drops the held query. Only the
+  // load effect below writes it, and only while grouping on the server, so a
+  // grid that went flat and came back asked its first header query with the
+  // query it held when it last grouped — a cleared search term, or an old
+  // filter, sort or projection — and painted that answer before the fresh
+  // one. `null` holds both group queries until the query as it stands now is
+  // resolved.
+  useEffect(() => {
+    if (!serverGroupedFetch) setGroupRowQuery(null);
+  }, [serverGroupedFetch]);
 
   // objectui#10035 — the refresh input this grid had none of, so a host could
   // show it a write only by remounting it (AGENTS.md #8's corollary: refresh
@@ -2420,23 +2578,38 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               );
               return extra.length > 0 ? [...list, ...extra] : list;
             };
+            // [objectui#11105] ONE projection for BOTH branches: gate, then read
+            // each entry's field NAME through `columnIdentity`, then drop the
+            // entries that have none. Only names go on the wire.
+            //
+            // The `schemaFields` branch used to return its entries UNMAPPED,
+            // and `ListView` hands its effective column entries to the grid as
+            // `fields` AND `columns` alike. So a view whose columns are objects
+            // (`{ field, width }`) put the objects themselves into `$select`,
+            // which the adapter's `join(',')` serialized as `[object Object]`.
+            // Harmless while grouped grids got inline rows; since the grid
+            // groups on the server (objectui#7189) every group's row page
+            // carries this `$select`, and a server that refuses unknown select
+            // keys answered INVALID_FIELD in every group. For a `fields` entry
+            // that is already a name, `columnIdentity` hands it back unchanged.
+            const projectFieldNames = (entries: unknown[]): string[] =>
+              entries
+                .filter(passesProjectionGate)
+                .map((entry) => columnIdentity(entry))
+                .filter((v): v is string => !!v);
             if (schemaFields) {
-              return withHarvestedFields(ensureId((schemaFields as any[]).filter(passesProjectionGate)));
+              return withHarvestedFields(ensureId(projectFieldNames(schemaFields as unknown[])));
             }
             if (schemaColumns && Array.isArray(schemaColumns)) {
-              const fields = schemaColumns
-                .filter(passesProjectionGate)
-                .map((c: any) => columnIdentity(c))
-                .filter((v): v is string => !!v);
-              return withHarvestedFields(ensureId(fields));
+              return withHarvestedFields(ensureId(projectFieldNames(schemaColumns)));
             }
             return undefined;
           };
 
           const params: any = {
             $select: getSelectFields(),
-            $top: serverPageSize,
-            $skip: (serverPage - 1) * serverPageSize,
+            $top: fetchWindow,
+            $skip: (serverPage - 1) * fetchWindow,
           };
 
           // The block's declared `filter` input, already lowered to an AST at
@@ -2457,13 +2630,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // already go through `toFilterNode`/`mergeFilterNodes`.
             //
             // Byte-copying is refused on the wire for BOTH shapes this slot
-            // carries. `defaultFilters` is declared `Record<string, any>`
-            // (the MongoDB-style shape) and `isFilterAST` is false for a plain
-            // object; `plugin-view` also forwards an active named view's
-            // `ViewFilterRule[]` into this slot (`ObjectView.tsx`, the
-            // `gridSchema` memo), and `isFilterAST` is false for an array of
-            // rule objects too. Either one answers `400 INVALID_FILTER`
-            // (measured against a real backend in objectui#3431).
+            // carries. `defaultFilters` was declared `Record<string, any>`
+            // (the MongoDB-style shape) until objectui#6152 round 10 — it is the
+            // row's `ViewFilterRule` array since, the shape `filter` takes — and
+            // `isFilterAST` is false for a plain object; a rule array is the
+            // other shape (`plugin-view`'s `ObjectView` forwarded an active
+            // named view's `ViewFilterRule[]` into this slot until objectui#11880
+            // item 5, and hands its whole filter chain to `filter` since), and
+            // `isFilterAST` is false for an array of rule objects too. Either one
+            // answers `400 INVALID_FILTER` (measured against a real backend in
+            // objectui#3431).
             //
             // `toFilterNode` handles both without new logic: objects route
             // through `convertFiltersToAST`, rule arrays lower element-wise,
@@ -2552,7 +2728,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // when the view declared `searchableFields` — it can narrow that
           // server-resolved set, never widen it — which is exactly what the
           // ListView toolbar sends.
-          const trimmedSearch = searchTerm.trim();
+          const trimmedSearch = querySearchTerm.trim();
           if (trimmedSearch) {
             params.$search = trimmedSearch;
             if (schema.searchableFields && schema.searchableFields.length > 0) {
@@ -2696,7 +2872,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `groupingNeedsHeaderQuery` (objectui#10881): it flips when the object's
   // types land and show the only grouping key masked, and the flat fetch it
   // withheld must then go out.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery]);
+  // `predicateProjectionKey` and `searchFieldsKey` (objectui#10689): the
+  // harvested predicate operands and the `$searchFields` this query sends, each
+  // a string compared by value — see their declarations above.
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, querySearchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, predicateProjectionKey, searchFieldsKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it
@@ -2724,7 +2903,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // become 2, and "page 5" of that is nothing at all.
   React.useEffect(() => {
     setServerPage(1);
-  }, [objectName, schemaFilter, schemaSort, headerSort, searchTerm]);
+  }, [objectName, schemaFilter, schemaSort, headerSort, querySearchTerm]);
 
   // --- NavigationConfig support ---
   // Must be called before any early returns to satisfy React hooks rules
@@ -2751,8 +2930,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // three. Programmatic callers already have the channel its nine siblings
     // use: `onRowClick`, `onRowSelect`, `onCellChange`, `onRowSave`,
     // `onBatchSave`, `onEdit`, `onDelete`, `onBulkDelete` and `onAddRecord`
-    // are props on `ObjectGridComponentProps`, and that is where a caller
-    // should prefer to pass this one too.
+    // are props on `ObjectGridComponentProps`, and since objectui#9547 this one
+    // is the tenth prop there, which is where a caller should prefer to pass
+    // it. When both are supplied the PROP WINS (maintainer ruling C on
+    // objectui#9547), so `schema.onNavigate` below is the fallback read — kept,
+    // because a host that builds the node in TypeScript still reaches the slot
+    // that way. `__tests__/onNavigateProp-9547.test.tsx` pins both halves.
     //
     // The contract says the same thing independently: `ComponentPropsMap
     // ['object-grid']` (`@objectstack/spec@17`) is a `strictObject` and
@@ -2761,7 +2944,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // rejected there — are pinned by `__tests__/gridNonAuthorKeys.test.tsx`,
     // together with the read itself, so this exemption cannot decay into a
     // silent drop.
-    onNavigate: schema.onNavigate,
+    onNavigate: onNavigate ?? schema.onNavigate,
     onRowClick,
   });
 
@@ -2808,9 +2991,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // Build a per-field value formatter so group headers display the human
   // readable label for select/boolean fields rather than the raw value
   // (e.g. "In Progress" instead of "in_progress", "Yes" instead of "true").
+  // A select value's label is the OBJECT FIELD's option label (objectui#11544).
   const groupValueFormatter = React.useMemo(() => {
     // [objectui#7217] ONE normalized entry list, shared with the
-    // `useGroupedData` call below. Reading `grouping.fields` raw here threw
+    // `useGroupedDataInOptionOrder` call below. Reading `grouping.fields` raw here threw
     // `TypeError: Cannot read properties of null (reading 'field')` on a null
     // hole — the whole grid gone, during render, before any projection was
     // built. `usableGroupingFields` admits exactly the entries
@@ -2826,12 +3010,20 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     for (const gf of groupingFields) {
       const fieldName = gf.field;
       const objectDefField = objectFields?.[fieldName];
-      // Try to find a column override matching this field for type/options
-      const cols = normalizeColumns(schema.columns) as any[] | undefined;
-      const colOverride = cols?.find?.((c) => typeof c === 'object' && c?.field === fieldName);
+      // The authored column for this field may respell its TYPE — `type` is a
+      // declared `ListColumn` member, and it is how a `"true"` / `"false"` text
+      // value reads Yes / No. It never supplies the value LABELS
+      // (objectui#11544): `options` is not a `ListColumn` member, and the
+      // strict `ListColumnSchema` refuses it at publish, so the labels come
+      // from the object field's `options` only. The lookup is typed as
+      // `ListColumn` so a read of an undeclared column member does not compile.
+      const cols: ReadonlyArray<string | ListColumn> = normalizeColumns(schema.columns) ?? [];
+      const colOverride = cols.find(
+        (c): c is ListColumn => typeof c === 'object' && c !== null && c.field === fieldName,
+      );
 
       const type = colOverride?.type || objectDefField?.type;
-      const rawOptions = colOverride?.options || objectDefField?.options;
+      const rawOptions = objectDefField?.options;
 
       const optionsMap = new Map<string, string>();
       if (Array.isArray(rawOptions) && rawOptions.length > 0) {
@@ -2922,6 +3114,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     objectName,
     fields: serverGroupingFields,
     where: groupWhere.where,
+    // [objectui#11021] The search term, off the same resolved query every
+    // group's row page is asked with: one pair on both queries.
+    ...groupSearchOf(groupRowQuery),
     aggregations: schema.aggregations,
     objectFields,
     reloadKey: groupReloadKey,
@@ -2935,7 +3130,30 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     [serverGroupedFetch, groupHeaderRows, groupKeyLabels],
   );
 
-  const { groups, isGrouped, toggleGroup } = useGroupedData(
+  // [objectui#11809] Each grouping field's DECLARED option order: the object
+  // field's `options` read through core's `buildCategoryOrder` /
+  // `buildCategoryRank`, the same reading the dashboard's category axis and
+  // the funnel use. A select field's groups then follow the order the author
+  // declared (Backlog → To Do → In Progress …), as the Kanban lanes do, rather
+  // than the order of their labels; empty and undeclared values sit last. A
+  // field with no options keeps label order. Keyed on the order itself (a
+  // string), not on `schema.grouping`, which a host rebuilds every render.
+  const groupOptionOrderKey = JSON.stringify(
+    usableGroupingFields(schema.grouping?.fields).flatMap((gf) => {
+      const order = buildCategoryOrder(objectFields?.[gf.field]?.options);
+      return order ? [[gf.field, order]] : [];
+    }),
+  );
+  const groupOptionRanks = React.useMemo((): GroupOptionRanks | undefined => {
+    const ranks = new Map<string, ReadonlyMap<string, number>>();
+    for (const [field, order] of JSON.parse(groupOptionOrderKey) as Array<[string, string[]]>) {
+      const rank = buildCategoryRank(order);
+      if (rank) ranks.set(field, rank);
+    }
+    return ranks.size > 0 ? ranks : undefined;
+  }, [groupOptionOrderKey]);
+
+  const { groups, isGrouped, toggleGroup } = useGroupedDataInOptionOrder(
     serverGroupedFetch
       ? (schema.grouping ? { ...schema.grouping, fields: serverGroupingFields } : undefined)
       : groupingForRender,
@@ -2943,6 +3161,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     schema.aggregations,
     groupValueFormatter,
     serverGroupSource,
+    groupOptionRanks,
   );
 
   // Reset grouped pagination to page 1 whenever the grouping config, page size
@@ -3319,7 +3538,14 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             const fieldMeta: Record<string, any> = { name: col.field, type: inferredType || 'text' };
             // Merge objectDef field properties (options with colors, currency, precision, etc.)
             if (objectDefField) {
-              if (objectDefField.label) fieldMeta.label = objectDefField.label;
+              // The label the header above prints — `header`, resolved once
+              // (objectui#11689). A face that names its own column (the
+              // boolean face's "LABEL — Off" badge) reads `field.label`, so
+              // handing it the authored label made a translated header sit
+              // over a cell naming the column in the authored language. Handed
+              // where the authored label used to be, so an unlabelled field
+              // keeps the face's own fallback.
+              if (objectDefField.label) fieldMeta.label = header;
               if (objectDefField.currency) fieldMeta.currency = objectDefField.currency;
               // objectui#10354 — `currencyConfig` is the spec's one fixed-currency
               // spelling (a field key `currency` is refused by name), so a
@@ -3331,10 +3557,20 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               if (objectDefField.currencyConfig) fieldMeta.currencyConfig = objectDefField.currencyConfig;
               if (objectDefField.precision !== undefined) fieldMeta.precision = objectDefField.precision;
               if ((objectDefField as any).scale !== undefined) (fieldMeta as any).scale = (objectDefField as any).scale;
+              // objectui#11026 — the author's digit-grouping hint rides beside
+              // `scale`, its heuristic fallback: dropped here, the cell never
+              // sees it and a `useGrouping: false` year still reads `2,026`.
+              if (objectDefField.useGrouping !== undefined) fieldMeta.useGrouping = objectDefField.useGrouping;
+              // objectui#11475 — a percent field's declared `max` is its STORAGE
+              // statement (`percentScaleOf`: a fraction unless `max` is above
+              // 1), which the percent cell now reads instead of guessing from
+              // the value. Dropped here, a whole-stored `50` (`max: 100`) would
+              // read `5000%` in this cell.
+              if (objectDefField.max !== undefined) fieldMeta.max = objectDefField.max;
               if (objectDefField.format) fieldMeta.format = objectDefField.format;
               if (objectDefField.options) fieldMeta.options = translateOptions(schema.objectName, col.field, objectDefField.options);
             }
-            // Preserve relational metadata (reference_to, display_field, …) so
+            // Preserve relational metadata (reference, displayField, …) so
             // lookup CELLS resolve ids to names. ⛔ Not the inline picker — that
             // reads the schema def directly, see `renderCellEditor` (objectui#7154).
             applyRelationalMeta(fieldMeta, objectDefField as any);
@@ -3355,12 +3591,15 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // Auto-link primary field (first column) to record detail (Airtable-style)
             const isPrimaryField = colIndex === 0 && !col.link && !col.action;
             const isLinked = col.link || isPrimaryField;
+            // The face the value takes INSIDE the link: never an anchor of its
+            // own (objectui#11817, `linkCellRenderer`).
+            const LinkContentRenderer = linkCellRenderer(inferredType, CellRenderer);
 
             if ((col.link && col.action) || (isPrimaryField && col.action)) {
               // Both link and action: link takes priority for navigation, action executes on secondary interaction
               cellRenderer = (value: any, row: any) => {
-                const displayContent = CellRenderer
-                  ? <CellRenderer value={value} field={fieldMeta as any} />
+                const displayContent = LinkContentRenderer
+                  ? <LinkContentRenderer value={value} field={fieldMeta as any} />
                   : (value != null && value !== '' ? String(value) : <EmptyValue />);
                 return (
                   <LinkCell
@@ -3377,8 +3616,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             } else if (isLinked) {
               // Link column: clicking navigates to the record detail
               cellRenderer = (value: any, row: any) => {
-                const displayContent = CellRenderer
-                  ? <CellRenderer value={value} field={fieldMeta as any} />
+                const displayContent = LinkContentRenderer
+                  ? <LinkContentRenderer value={value} field={fieldMeta as any} />
                   : (value != null && value !== '' ? String(value) : <EmptyValue />);
                 return (
                   <LinkCell
@@ -3552,16 +3791,21 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // Build field metadata with objectDef enrichment
           const fieldMeta: Record<string, any> = { name: fieldName, type: rendererType || 'text' };
           if (fieldDef) {
-            if (fieldDef.label) fieldMeta.label = fieldDef.label;
+            // The header's label, as path A hands it (objectui#11689).
+            if (fieldDef.label) fieldMeta.label = header;
             if (fieldDef.currency) fieldMeta.currency = fieldDef.currency;
             // Verbatim, as the ListColumn path copies it (objectui#10354).
             if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
             if (fieldDef.precision !== undefined) fieldMeta.precision = fieldDef.precision;
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
+            // Beside `scale`, as path A copies it (objectui#11026).
+            if (fieldDef.useGrouping !== undefined) fieldMeta.useGrouping = fieldDef.useGrouping;
+            // The percent storage statement, as path A copies it (objectui#11475).
+            if (fieldDef.max !== undefined) fieldMeta.max = fieldDef.max;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
-          // Preserve relational metadata (reference_to, display_field, …) so
+          // Preserve relational metadata (reference, displayField, …) so
           // lookup CELLS resolve ids to names. ⛔ Not the inline picker — that
           // reads the schema def directly, see `renderCellEditor` (objectui#7154).
           applyRelationalMeta(fieldMeta, fieldDef as any);
@@ -3581,9 +3825,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           const isPrimaryField = colIndex === 0;
           let cellRenderer: ((value: any, row?: any) => React.ReactNode) | undefined;
 
-          if (isPrimaryField && CellRenderer) {
+          // The face the value takes inside the link (objectui#11817).
+          const LinkContentRenderer = linkCellRenderer(rendererType, CellRenderer);
+
+          if (isPrimaryField && LinkContentRenderer) {
             cellRenderer = (value: any, row: any) => {
-              const displayContent = <CellRenderer value={value} field={fieldMeta as any} />;
+              const displayContent = <LinkContentRenderer value={value} field={fieldMeta as any} />;
               return (
                 <LinkCell
                   testId="primary-field-link"
@@ -3725,16 +3972,21 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // Build field metadata with objectDef enrichment
           const fieldMeta: Record<string, any> = { name: fieldName, type: rendererType || 'text' };
           if (fieldDef) {
-            if (fieldDef.label) fieldMeta.label = fieldDef.label;
+            // The header's label, as path A hands it (objectui#11689).
+            if (fieldDef.label) fieldMeta.label = header;
             if (fieldDef.currency) fieldMeta.currency = fieldDef.currency;
             // Verbatim, as the ListColumn path copies it (objectui#10354).
             if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
             if (fieldDef.precision !== undefined) fieldMeta.precision = fieldDef.precision;
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
+            // Beside `scale`, as path A copies it (objectui#11026).
+            if (fieldDef.useGrouping !== undefined) fieldMeta.useGrouping = fieldDef.useGrouping;
+            // The percent storage statement, as path A copies it (objectui#11475).
+            if (fieldDef.max !== undefined) fieldMeta.max = fieldDef.max;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
-          // Preserve relational metadata (reference_to, display_field, …) so
+          // Preserve relational metadata (reference, displayField, …) so
           // lookup CELLS resolve ids to names. ⛔ Not the inline picker — that
           // reads the schema def directly, see `renderCellEditor` (objectui#7154).
           applyRelationalMeta(fieldMeta, fieldDef as any);
@@ -3853,9 +4105,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       const translatedField = field.options
         ? { ...field, options: translateOptions(schema.objectName, fieldName, field.options) }
         : field;
-      const fieldForCell: any = translatedField;
+      const header = schema.objectName ? resolveFieldLabel(schema.objectName, fieldName, field.label || fieldName) : field.label || fieldName;
+      // The face is handed the header's label, as paths A-C hand it
+      // (objectui#11689).
+      const fieldForCell: any = field.label ? { ...translatedField, label: header } : translatedField;
       generatedColumns.push({
-        header: schema.objectName ? resolveFieldLabel(schema.objectName, fieldName, field.label || fieldName) : field.label || fieldName,
+        header,
         accessorKey: fieldName,
         // Forward the field type for the type-aware inline editor.
         ...(fieldType && { type: fieldType }),
@@ -3920,7 +4175,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       prefix: exportConfig?.fileNamePrefix,
       label: objectSchema?.label,
       objectName: objectName || schema.objectName,
-      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
+      // `title` is the deprecated spelling of `label` and takes the same door:
+      // the spec types it `I18nLabel`, so an inline locale map reaches this
+      // string sink and must resolve here, not stringify (objectui#10993).
+      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale)
+        || resolveInlineI18nLabel(schema.title, displayLocale),
     });
 
     // Server-streamed path: csv / xlsx / json via dataSource.exportDownload.
@@ -4465,8 +4724,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // question, filter axis: when `data` is one window, a `.filter()` over it
   // narrows the fifty rows on screen while the rest of the collection never
   // participates — and unlike a mis-scoped sort, the count it produces reads as
-  // a statement about the whole list. Grouped/inline grids hold every row they
-  // display, so their box keeps filtering client-side, where it is honest.
+  // a statement about the whole list. A flat grid over inline rows holds every
+  // row it displays, so its box keeps filtering client-side, where it is
+  // honest. A grouped grid draws no box (each group's table is
+  // `searchable: false`); one that groups on the server sends its term — typed
+  // while flat, or a host's `search` — on its group header query and on every
+  // group's row query (objectui#11021), so its groups are the searched ones.
   const manualSearchOn = manualPaginationOn;
 
   /**
@@ -4740,20 +5003,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         // [objectui#4420] `userActions.delete.visibleWhen` gates the built-in
         // Delete PER RECORD — the same key, the same fail-closed fold and the
         // same evaluator the row kebab and the rich-def bar already run
-        // (`partitionBulkRows` → `partitionRowsByPredicate`). Applied to the
-        // EXPANDED set for the reason #3067 states one line down in
-        // `dispatchBulkActionDef`: "select all N matching" pulls in records no
-        // on-screen check ever evaluated.
+        // (`partitionRowsByPredicate`). Applied to the EXPANDED set for the
+        // reason #3067 states one line down in `dispatchBulkActionDef`: "select
+        // all N matching" pulls in records no on-screen check ever evaluated.
+        //
+        // The fold directly, NOT `partitionBulkRows` (objectui#11322). That door
+        // belongs to bulk ACTIONS and asks the action family's "is a gate
+        // declared?" first, which reads a blank `visible` as no gate. This key
+        // is a field-rule key: a blank one keeps the fold's own answer and
+        // excludes every record, as plugin-list's `ListView` does with the
+        // same key.
         //
         // The predicates come from `objectDeletePredicates`, not
         // `deletePredicates`: the latter rides `canDelete`, which folds in the
         // ROW wiring (`onDelete`), and bulk delete rides `onBulkDelete`. A
         // consumer wiring only the bulk handler would otherwise have the
         // author's predicate silently dropped.
-        const { eligible, skipped } = partitionBulkRows(
-          { name: 'delete', visible: objectDeletePredicates?.visibleWhen as never },
+        const { eligible, skipped } = partitionRowsByPredicate(
+          objectDeletePredicates?.visibleWhen as never,
           expanded,
-          { scope: predicateScope, fields: objectSchema?.fields },
+          { scope: predicateScope, fields: objectSchema?.fields, label: 'delete' },
         );
         if (skipped === 0) {
           // Nothing was excluded, so there is nothing to report and no reason
@@ -4992,7 +5261,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // Through the same resolver as the two seeds above (objectui#9853). This
   // site used `||` and the seeds used `??`, so one authored `pageSize: 0`
   // reached three read points and got two different answers.
-  const pageSize = resolvePageSize(schema, DEFAULT_FLAT_PAGE_SIZE);
+  const pageSize = resolvePageSize(schema, DEFAULT_DISPLAY_PAGE_SIZE);
 
   // Determine search settings
   const searchEnabled = schema.searchableFields !== undefined
@@ -5098,20 +5367,23 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
   // The search term, in whichever server mode applies. When a parent owns the
   // rows it owns the term too (ListView already does, from its own toolbar —
-  // which is why it passes `showSearch: false` and no box is rendered here);
-  // when we own the fetch, the box writes `searchTerm` and the effect above
-  // turns it into `$search`. A parent that drives the rows but offers no
-  // `onSearchChange` gets NO box rather than one scoped to its window.
-  const manualSearch = externalManualPagination
-    ? (hostSearch ?? '')
-    : searchTerm;
-  const manualOnSearchChange = externalManualPagination
+  // which is why it passes `showSearch: false` and no box is rendered here),
+  // and so does a parent that hands down `search` (`hostOwnsSearch`); else the
+  // box writes `searchTerm`. Either way the effect above turns the term into
+  // `$search` when this grid fetches. A parent that owns the term but offers
+  // no `onSearchChange` gets NO box rather than one that cannot change it.
+  const manualSearch = querySearchTerm;
+  const manualOnSearchChange = hostOwnsSearch
     ? hostOnSearchChange
     : setSearchTerm;
 
   const dataTableSchema: ObjectGridDataTableSchema = {
     type: 'data-table',
-    caption: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
+    // The deprecated `title` fallback resolves like `label` (objectui#10993):
+    // handed on raw, a locale map reached the data-table caption as an object
+    // and the whole block failed to render.
+    caption: resolveInlineI18nLabel(schema.label, displayLocale)
+      || resolveInlineI18nLabel(schema.title, displayLocale),
     columns: orderedColumns,
     data,
     pagination: paginationEnabled,
@@ -5163,7 +5435,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // `editable` produces no such column today. Following the same verdict is
     // what makes the gated grid identical to the non-editable one.
     rowActions: !!(inlineEditable && hasActions),
-    resizableColumns: schema.resizable ?? schema.resizableColumns ?? true,
+    // `resizable` alone (objectui#6152 round 7): the legacy `resizableColumns`
+    // spelling is retired on both faces and by `@objectstack/spec` 17.7.0, so
+    // it is no longer read here. (`resizableColumns` on the left is DataTable's
+    // own prop, a different block's key.)
+    resizableColumns: schema.resizable ?? true,
     reorderableColumns: schema.reorderableColumns ?? false,
     // [#5143] The authored key ∧ this principal's write verdict on the object.
     editable: inlineEditable,
@@ -5232,6 +5508,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         }
       : undefined,
     singleClickEdit: schema.singleClickEdit ?? true,
+    // objectui#11068 — arrow-key cell navigation on the WAI-ARIA grid pattern:
+    // the data cells become ONE roving Tab stop that the arrows move (the
+    // behaviour is `data-table`'s, documented on `DataTableSchema`). The
+    // declared default is "on when `editable`", and the `editable` that counts
+    // is the one this grid renders — `inlineEditable`, the authored key AND the
+    // viewer's write verdict (#5143), the same value handed down above. So a
+    // grid that renders read-only keeps every cell its own Tab stop unless the
+    // author writes `true`, and an explicit `false` turns it off on an editable
+    // grid. Not an alias fallback: the right side is the key's own default.
+    keyboardNavigation: schema.keyboardNavigation ?? inlineEditable,
     className: schema.className,
     cellClassName: rowHeightMode === 'compact'
       ? 'px-3 py-1 text-[13px] leading-tight'
@@ -5632,6 +5918,19 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     );
   };
 
+  // objectui#11068 — `description`: one line of help text above the grid, in
+  // the treatment `ListView` gives a view's description (`view-description`),
+  // so the two surfaces draw the same key the same way. Resolved like `label`:
+  // a locale map against the display locale. Guarded on the RESOLVED text, so a
+  // map with no usable entry draws no empty strip. Drawn by every branch that
+  // draws rows — the card view, the split pane and the table.
+  const resolvedDescription = resolveInlineI18nLabel(schema.description, displayLocale);
+  const gridDescription = resolvedDescription ? (
+    <p className="px-3 sm:px-4 pt-1.5 text-xs text-muted-foreground" data-testid="object-grid-description">
+      {resolvedDescription}
+    </p>
+  ) : null;
+
   // Mobile card-view: below the 768px app breakpoint (matches useIsMobile /
   // Tailwind md: / the responsive page+grid layout), render stacked cards
   // instead of a side-scrolling wide table.
@@ -5732,6 +6031,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
     return (
       <>
+        {gridDescription}
         <div className="space-y-2 p-2" {...anchorCaptureProps}>
           {data.map((row, idx) => {
             // Collect secondary fields (skip the title column)
@@ -5825,14 +6125,59 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                           : '—'}
                       </span>
                     )}
-                    {percentCols[0] && row[percentCols[0].accessorKey] != null && (
-                      <span className="tabular-nums">
-                        {/* objectui#4553: the mobile card's percent cell takes
-                            the same `displayLocale` its date sibling above
-                            already does (objectui#4272). */}
-                        {formatPercent(Number(row[percentCols[0].accessorKey]), undefined, displayLocale)}
-                      </span>
-                    )}
+                    {percentCols[0] && row[percentCols[0].accessorKey] != null && (() => {
+                      // objectui#11254 — the width is the FIELD's, read through
+                      // `resolveFieldScale` (ruling A′ on
+                      // objectstack-ai/objectstack#19628) off the field def the
+                      // amount cell above reads its currency from, so a percent
+                      // declaring `scale: 2` reads two decimals here as it does
+                      // in the desktop cell. This cell handed `formatPercent` an
+                      // `undefined` width, so the function's own default decided.
+                      //
+                      // Only a `percent` field's width is a percent width. The
+                      // column reached this slot by its NAME (`classify`), and a
+                      // `number` named like a rate counts its `scale` in the
+                      // stored value's decimals, not in the percentage points
+                      // printed here, so its scale is not read.
+                      //
+                      // objectui#11475 — nor is a non-percent field printed as a
+                      // percent at all. A percent face reads the field's declared
+                      // STORAGE (`percentCellScale`, the spec's `percentScaleOf`),
+                      // and a field that is not a `percent` declares none: the
+                      // spec's words are "a plain `number` carries no percent
+                      // semantics". Choosing a percent face by the column's NAME
+                      // was a consumer-side guess (`lead_score` and `tax_rate`,
+                      // both `Field.number` in the showcase, printed with a
+                      // percent sign), so
+                      // such a field prints through its own cell, as the desktop
+                      // row prints it, with no percent affix.
+                      const percentDef = objectSchema?.fields?.[percentCols[0].accessorKey];
+                      if (percentDef?.type !== 'percent') {
+                        const { Renderer: SlotRenderer } = resolveGridCellRendering(percentDef);
+                        return (
+                          <span className="tabular-nums">
+                            <SlotRenderer
+                              value={row[percentCols[0].accessorKey]}
+                              field={percentDef ?? { name: percentCols[0].accessorKey }}
+                            />
+                          </span>
+                        );
+                      }
+                      const width = resolveFieldScale({ type: percentDef.type, scale: percentDef.scale });
+                      return (
+                        <span className="tabular-nums">
+                          {/* objectui#4553: the mobile card's percent cell takes
+                              the same `displayLocale` its date sibling above
+                              already does (objectui#4272). */}
+                          {formatPercent(
+                            Number(row[percentCols[0].accessorKey]),
+                            percentCellScale(percentDef),
+                            width,
+                            displayLocale,
+                          )}
+                        </span>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -6099,15 +6444,25 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2 border-t">
       <div className="flex items-center gap-2">
         <span className="text-xs sm:text-sm text-muted-foreground">{t('table.rowsPerPage')}:</span>
-        <select
-          className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-          value={groupedPageSize}
-          onChange={(e) => { setGroupedPageSize(Number(e.target.value)); setGroupedPage(1); }}
+        {/* The shared `Select`, drawn as the DataTable pager draws its own
+            size picker (objectui#11865); it was a browser-native `<select>`.
+            A pick writes the same number and returns to page 1, as before. */}
+        <Select
+          value={String(groupedPageSize)}
+          onValueChange={(size) => { setGroupedPageSize(Number(size)); setGroupedPage(1); }}
         >
-          {[5, 10, 20, 50, 100].map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 w-20 px-2">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {/* The active size is merged in, as the DataTable pager does, so the
+                selector shows the size in force even when it is not one of the
+                steps: the spec's display default is not (objectui#9853). */}
+            {Array.from(new Set([5, 10, 20, 50, 100, groupedPageSize])).sort((a, b) => a - b).map((n) => (
+              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex items-center gap-2">
         <span className="text-xs sm:text-sm text-muted-foreground">
@@ -6155,6 +6510,51 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       {summaryFooter}
     </div>
   );
+
+  // objectui#11068 — `emptyState`: what the grid draws INSTEAD of an empty
+  // table, through the same shared component (`DataEmptyState`) and the same
+  // icon resolver (`resolveIcon`) `ListView` draws a list's empty state with,
+  // so one key means one picture on both surfaces.
+  //
+  // Drawn only when the author declared it, the grid holds no row to draw (no
+  // group, when grouped) and nothing is loading — and NOT when a term typed
+  // into this grid's own server-side search box is what emptied it: replacing
+  // the table there would take the search box with it, and the user could not
+  // clear the term. That case keeps the table's own "no results" row. Rows the
+  // browser filters itself never reach here: `data` still holds them.
+  //
+  // A member left out keeps the grid's default: `DataEmptyState`'s own glyph
+  // (an icon name that resolves to nothing is the same as none), the table's
+  // "No results found" heading, and no message line. Text only, as the table's
+  // empty row is — an empty table draws no add-record row either.
+  //
+  // objectui#11227 — `title` and `message` are the spec's `I18nLabel`: a plain
+  // string or an inline locale map. Each is resolved against the display locale
+  // the way `description` above is, so a map draws its locale's entry instead of
+  // reaching `DataEmptyState` as an object (React refuses an object child). A map
+  // with no usable entry resolves to nothing and keeps that member's default.
+  const authoredEmptyState = schema.emptyState;
+  const authoredEmptyTitle = resolveInlineI18nLabel(authoredEmptyState?.title, displayLocale);
+  const authoredEmptyMessage = resolveInlineI18nLabel(authoredEmptyState?.message, displayLocale);
+  const searchEmptiedRows = manualSearchOn && manualSearch.trim() !== '';
+  const drawsAuthoredEmptyState = authoredEmptyState != null
+    && !loading
+    && !searchEmptiedRows
+    && (isGrouped ? groups.length === 0 : data.length === 0);
+  const AuthoredEmptyIcon = drawsAuthoredEmptyState ? resolveIcon(authoredEmptyState?.icon) : null;
+  const renderedGridContent = drawsAuthoredEmptyState ? (
+    <DataEmptyState
+      data-testid="object-grid-empty-state"
+      className="flex-1 min-h-[200px]"
+      // The annotation the other `resolveIcon` seam call sites carry: it returns
+      // a STABLE, cached component per icon name; it does not create one during
+      // render. The rule cannot see that through a call.
+      // eslint-disable-next-line react-hooks/static-components
+      icon={AuthoredEmptyIcon ? <AuthoredEmptyIcon className="size-5 text-muted-foreground" /> : undefined}
+      title={authoredEmptyTitle || t('table.noResults')}
+      description={authoredEmptyMessage || undefined}
+    />
+  ) : gridContent;
 
   // Rendered BulkActionDialog (shared across both render branches).
   //
@@ -6213,8 +6613,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           {...recordOverlayShellProps}
           mainContent={
             <div className="flex flex-col h-full">
+              {gridDescription}
               {gridToolbar}
-              {gridContent}
+              {renderedGridContent}
               <BulkActionBar
                 selectedRows={selectedRows}
                 actions={effectiveBulkActions ?? []}
@@ -6251,8 +6652,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           {isRefreshing ? t('grid.refreshing') : t('grid.pullToRefresh')}
         </div>
       )}
+      {gridDescription}
       {gridToolbar}
-      {gridContent}
+      {renderedGridContent}
       <BulkActionBar
         selectedRows={selectedRows}
         actions={effectiveBulkActions ?? []}

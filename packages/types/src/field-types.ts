@@ -25,7 +25,7 @@ import type { Field as SpecField } from '@objectstack/spec/data';
  * sibling field names, or `{ field, param }` entries mapping a sibling onto the
  * remote query parameter a dependent lookup filters by.
  *
- * Measured on the installed `@objectstack/spec` (17.4.0), `FieldSchema` declares
+ * Measured on the installed `@objectstack/spec` (17.7.0), `FieldSchema` declares
  * `dependsOn` as an OPTIONAL ARRAY of `string | { field, param? }` — never a
  * bare string. That is deliberately narrower than `DependsOnInput` (`form.ts`),
  * the shape the widget prop `FieldWidgetComponentProps.dependsOn` and
@@ -226,8 +226,22 @@ export type FieldConstraints = {
  */
 export interface TextFieldMetadata extends BaseFieldMetadata {
   type: 'text';
-  min_length?: number;
-  max_length?: number;
+  /**
+   * Minimum character length — `@objectstack/spec`'s `FieldSchema.minLength`,
+   * typed BY REFERENCE (objectui#11070). The form's validation rules
+   * (`buildValidationRules` in `@object-ui/fields`) read it for every field
+   * type and enforce it at submit. It replaces the retired snake_case
+   * `min_length`, which the spec refuses by name and nothing reads.
+   */
+  minLength?: SpecField['minLength'];
+  /**
+   * Maximum character length — `@objectstack/spec`'s `FieldSchema.maxLength`,
+   * typed BY REFERENCE (objectui#11070). `buildValidationRules` enforces it at
+   * submit, and the `text` widget puts it on its input as the native
+   * `maxlength` stop. It replaces the retired snake_case `max_length`, which
+   * the spec refuses by name and nothing reads.
+   */
+  maxLength?: SpecField['maxLength'];
   pattern?: string | RegExp;
   pattern_message?: string;
 }
@@ -237,8 +251,18 @@ export interface TextFieldMetadata extends BaseFieldMetadata {
  */
 export interface TextareaFieldMetadata extends BaseFieldMetadata {
   type: 'textarea';
-  min_length?: number;
-  max_length?: number;
+  /**
+   * Minimum character length — `FieldSchema.minLength` by reference, read the
+   * same way as {@link TextFieldMetadata.minLength} (objectui#11070).
+   */
+  minLength?: SpecField['minLength'];
+  /**
+   * Maximum character length — `FieldSchema.maxLength` by reference
+   * (objectui#11070). The `textarea` widget reads it for the native stop and
+   * its `{n}/{max}` counter, and `buildValidationRules` enforces it at submit.
+   * It replaces the retired snake_case `max_length`.
+   */
+  maxLength?: SpecField['maxLength'];
   rows?: number;
 }
 
@@ -247,7 +271,12 @@ export interface TextareaFieldMetadata extends BaseFieldMetadata {
  */
 export interface MarkdownFieldMetadata extends BaseFieldMetadata {
   type: 'markdown';
-  max_length?: number;
+  /**
+   * Maximum character length — `FieldSchema.maxLength` by reference
+   * (objectui#11070). Read the same way on all three rich-content types; see
+   * {@link RichtextFieldMetadata.maxLength}.
+   */
+  maxLength?: SpecField['maxLength'];
   /**
    * Height of the INLINE editor, in text rows (the HTML textarea `rows`
    * attribute; the fullscreen dialog sizes itself and ignores it).
@@ -259,7 +288,7 @@ export interface MarkdownFieldMetadata extends BaseFieldMetadata {
    * annotated literal rejected. Follows the `TextareaFieldMetadata` precedent.
    *
    * A DECLARED spec key as of `@objectstack/spec` 17.3.0, which implements that
-   * same ruling. Measured on the installed `@objectstack/spec` 17.4.0:
+   * same ruling. Measured on the installed `@objectstack/spec` 17.7.0:
    * `FieldSchema` ACCEPTS `rows` on all four of textarea/markdown/html/
    * richtext, as an integer of at least 1 — a non-integer answers
    * `invalid_type` and 0 answers `too_small`, so "declared" does not mean "any
@@ -287,7 +316,11 @@ export interface MarkdownFieldMetadata extends BaseFieldMetadata {
  */
 export interface HtmlFieldMetadata extends BaseFieldMetadata {
   type: 'html';
-  max_length?: number;
+  /**
+   * Maximum character length — `FieldSchema.maxLength` by reference
+   * (objectui#11070). See {@link RichtextFieldMetadata.maxLength}.
+   */
+  maxLength?: SpecField['maxLength'];
   /**
    * Height of the INLINE editor, in text rows. Same declaration as
    * `MarkdownFieldMetadata.rows` (objectui#6140 Option A ruling — see the
@@ -334,48 +367,33 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
  * entry for the type; both renderers there destructure `value` only, so the
  * display half contributes no metadata key.
  *
- * ## `max_length` — read at SUBMIT, not by the widget
+ * ## `maxLength` — the spec's bound, read by the widget AND at submit
  *
- * `RichTextField` never reads this key. It is declared because a live reader
- * outside the widget does, on every field regardless of type:
- * `buildValidationRules` (`packages/fields/src/index.tsx`) compiles
- * `(field as any).maxLength ?? field.max_length` into a react-hook-form
- * `maxLength` rule. That function is GENERIC — it has no field-type gate
- * anywhere in it — and both form producers call it on every field they build
- * (`ObjectForm`'s `validation: buildValidationRules(field)` and the same line
- * in `sectionFields.ts`); the form renderer spreads the result into the RHF
- * `rules` object and localizes the `maxLength` entry. ⇒ `max_length` written
- * on a `richtext` field IS enforced when the form is submitted. That is the
- * checkable reason this key is declared.
+ * Declared as `@objectstack/spec`'s `FieldSchema.maxLength`, typed BY
+ * REFERENCE (objectui#11070), on all three of this widget's metadata faces.
+ * Two readers honour it:
  *
- * ⛔ Spec symmetry is NOT that reason, and must not be restated as one. At
- * `@objectstack/spec` 17.3.0 `FieldSchema` answers identically for EVERY field
- * type — `text` included — on `maxLength` (admitted) and on the legacy
- * snake_case `max_length` (refused BY NAME), so that reading is
- * non-discriminating here: it says nothing about `richtext` versus its two
- * siblings. It is still pinned, for the three types this widget serves, in
- * `packages/fields/src/widgets/__tests__/richtext-field-metadata-7083.test.tsx`
- * — the `maxLength` admitted and `max_length` refused halves. `rows` admitted
- * is pinned separately, in
+ *  - `RichTextField` itself (objectui#8438): the native `maxlength` stop, the
+ *    character counter and the `aria-describedby` wiring, on the inline
+ *    surface and in the fullscreen dialog.
+ *  - `buildValidationRules` (`packages/fields/src/index.tsx`), which is
+ *    GENERIC — it has no field-type gate — and which both form producers call
+ *    on every field they build (`ObjectForm` and `sectionFields.ts`), so the
+ *    same cap is also enforced when the form is submitted.
+ *
+ * It replaces the snake_case `max_length` these three types declared until
+ * objectui#11070's text-family round. `FieldSchema` refuses that spelling BY
+ * NAME on every field type, and nothing reads it any more: the widget's and
+ * the validation rules' `maxLength ?? max_length` dual reads retired with the
+ * member, at once and with no alias. The spec reading for the three types
+ * this widget serves — `maxLength` admitted, `max_length` refused — is pinned
+ * in `packages/fields/src/widgets/__tests__/richtext-field-metadata-7083.test.tsx`;
+ * `rows` admitted is pinned separately, in
  * `packages/types/src/__tests__/select-option-spec-extension-7014.test.ts`.
  *
- * ⚠️ The two form-side sites this docblock used to name as not reaching
- * `richtext` were RE-MEASURED by objectui#8438, and the reading did not hold:
- * `ObjectForm`'s `text | textarea | markdown | html` list writes
- * `formField.maxLength`, which no registered widget reads (the carrier is
- * `formField.field`), so it forwarded the cap for NONE of its four types; and
- * `EmbeddableForm`'s `DEFAULT_MAX_LENGTH` did deliver 5000 for `markdown` and
- * `html`, where `RichTextField` then dropped it unread. ⇒ the cap was invisible
- * for all three of this widget's registry keys, not for `richtext` alone.
- * objectui#8438 fixed it where it was actually lost — `RichTextField` now
- * dual-reads `maxLength ?? max_length` — so a `max_length` authored here is
- * honoured by the native stop, the character counter and `aria-describedby`,
- * as well as at submit.
- *
- * Omitting the key would have left `richtext` the one type of the three whose
- * ceiling cannot be authored under an annotation, while the submit-time rule
- * that enforces it stayed live — a fresh instance of the asymmetry this member
- * exists to end.
+ * Omitting the key would leave `richtext` the one type of the three whose
+ * ceiling cannot be authored under an annotation while both of its readers
+ * stay live — a fresh instance of the asymmetry this member exists to end.
  *
  * The `rows` docblocks on the two siblings described the `@objectstack/spec`
  * 17.2.0 boundary, where `rows` was refused by name, and outlived it;
@@ -385,7 +403,12 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
  */
 export interface RichtextFieldMetadata extends BaseFieldMetadata {
   type: 'richtext';
-  max_length?: number;
+  /**
+   * Maximum character length — `FieldSchema.maxLength` by reference
+   * (objectui#11070). The widget and the form's validation rules both read
+   * it; see the docblock above.
+   */
+  maxLength?: SpecField['maxLength'];
   /**
    * Height of the INLINE editor, in text rows. Same read as
    * `MarkdownFieldMetadata.rows` and `HtmlFieldMetadata.rows` — literally the
@@ -425,6 +448,17 @@ export interface NumberFieldMetadata extends BaseFieldMetadata {
    * asymmetry that does not exist.
    */
   step?: number;
+  /**
+   * The author's digit-grouping hint — `FieldSchema.useGrouping` in
+   * `@objectstack/spec`, derived from it by reference so the two cannot drift
+   * (objectui#11026). `false` renders the number with no thousands separators
+   * (a year reads `2026`), `true` always groups it (a scale-0 count reads
+   * `2,026`), and leaving it out lets the renderer decide: a declared
+   * `scale: 0` is then read as an ordinal and left ungrouped, anything else is
+   * grouped the locale's way. `NumberCellRenderer` (`@object-ui/fields`) is the
+   * reader; the policy itself is `formatDisplayNumber` in `@object-ui/core`.
+   */
+  useGrouping?: SpecField['useGrouping'];
 }
 
 /**
@@ -538,7 +572,7 @@ export interface SelectOptionMetadata extends SelectOptionBase {
    *
    * A DECLARED `SelectOptionSchema` key as of `@objectstack/spec` 17.3.0,
    * which implements the objectui#6153 half of that ruling. Measured on the
-   * installed `@objectstack/spec` 17.4.0: an option carrying `description`
+   * installed `@objectstack/spec` 17.7.0: an option carrying `description`
    * is ACCEPTED, as a string (a non-string answers `invalid_type`; the empty
    * string is valid), and a field whose `options` carry it parses whole. ⇒ it
    * may now be written into authored object metadata, which is the point of
@@ -572,7 +606,13 @@ export interface SelectFieldMetadata extends BaseFieldMetadata {
  */
 export interface EmailFieldMetadata extends BaseFieldMetadata {
   type: 'email';
-  max_length?: number;
+  /**
+   * Maximum character length — `@objectstack/spec`'s `FieldSchema.maxLength`,
+   * typed BY REFERENCE (objectui#11070). `buildValidationRules` enforces it at
+   * submit. It replaces the retired snake_case `max_length`, which the spec
+   * refuses by name and nothing reads.
+   */
+  maxLength?: SpecField['maxLength'];
 }
 
 /**
@@ -588,7 +628,11 @@ export interface PhoneFieldMetadata extends BaseFieldMetadata {
  */
 export interface UrlFieldMetadata extends BaseFieldMetadata {
   type: 'url';
-  max_length?: number;
+  /**
+   * Maximum character length — `FieldSchema.maxLength` by reference, read the
+   * same way as {@link EmailFieldMetadata.maxLength} (objectui#11070).
+   */
+  maxLength?: SpecField['maxLength'];
 }
 
 /**
@@ -596,8 +640,20 @@ export interface UrlFieldMetadata extends BaseFieldMetadata {
  */
 export interface PasswordFieldMetadata extends BaseFieldMetadata {
   type: 'password';
-  min_length?: number;
-  max_length?: number;
+  /**
+   * Minimum character length — `@objectstack/spec`'s `FieldSchema.minLength`,
+   * typed BY REFERENCE (objectui#11070). The form's validation rules
+   * (`buildValidationRules` in `@object-ui/fields`) read it for every field
+   * type and enforce it at submit. It replaces the retired snake_case
+   * `min_length`, which the spec refuses by name.
+   */
+  minLength?: SpecField['minLength'];
+  /**
+   * Maximum character length — `@objectstack/spec`'s `FieldSchema.maxLength`,
+   * typed BY REFERENCE and read the same way as {@link minLength}. It replaces
+   * the retired snake_case `max_length`.
+   */
+  maxLength?: SpecField['maxLength'];
 }
 
 /**
@@ -707,7 +763,19 @@ export interface LookupFilterDef {
  */
 export interface LookupFieldMetadata extends BaseFieldMetadata {
   type: 'lookup' | 'master_detail';
-  reference_to?: string;
+  /**
+   * The object the picker queries and the read cell resolves a name from —
+   * `@objectstack/spec`'s `FieldSchema.reference`, typed BY REFERENCE so the
+   * two cannot drift (objectui#11070). `LookupField`, `UserField` and the
+   * lookup / user read cells read this spelling and no other.
+   *
+   * It replaces the retired snake_case `reference_to`, which the spec refuses
+   * by name ("did you mean `reference_to` → `reference`?"). A served def that
+   * still spells a legacy key is folded onto `reference` once, at the
+   * ingestion choke point (`normalizeSchemaReferenceKeys` in
+   * `@object-ui/core`); a def handed to a widget directly is not.
+   */
+  reference?: SpecField['reference'];
   reference_field?: string;
   multiple?: boolean;
   searchable?: boolean;
@@ -774,20 +842,45 @@ export interface LookupFieldMetadata extends BaseFieldMetadata {
 export interface FormulaFieldMetadata extends BaseFieldMetadata {
   type: 'formula';
   /**
-   * Formula expression
-   * Supports JavaScript-like expressions with field references
-   * @example "${amount} * ${tax_rate}"
-   * @example "${firstName} + ' ' + ${lastName}"
+   * The formula — `@objectstack/spec`'s `FieldSchema.expression`, typed BY
+   * REFERENCE so the two cannot drift (objectui#11070): a CEL source string
+   * (`record.quantity * record.unit_price`) or the spec's expression envelope
+   * (`{ dialect, source, … }`). The backend evaluates it; `FormulaField` only
+   * formats the computed value by `returnType`.
+   *
+   * It replaces the retired `formula` member, which `FieldSchema` refuses by
+   * name (its rename hint points here) and which no typed reader read. A
+   * stored Studio draft that still carries `formula` is objectui#6526's ruled
+   * migration path on the metadata-admin seam, not this published type.
+   * @example "record.quantity * record.unit_price"
    */
-  formula?: string;
+  expression?: SpecField['expression'];
   /**
-   * Return type of the formula
+   * The value type the formula computes — `@objectstack/spec`'s
+   * `FieldSchema.returnType`, typed BY REFERENCE so the two cannot drift
+   * (objectui#11070). Both faces of a formula draw the computed value by it,
+   * `FormulaField` in a form and `FormulaCellRenderer` in a table cell, so
+   * one stored value reads the same in each (objectui#11748): a number
+   * formatted as a `number` field formats it (the viewer's display locale,
+   * at the width a `scale` on the field sets); a boolean as the UI
+   * language's Yes / No word, where any value that is not a JS boolean
+   * reads as empty; a date in `formatDate`'s default face, the date field's
+   * read-only face, not the date cell's relative one; and text as text, in
+   * monospace. With no `returnType`, a JS number is drawn as a number and
+   * anything else as text. Nothing is inferred from the expression.
+   *
+   * It replaces the retired snake_case `return_type`, which the spec refuses
+   * by name and which no reader reads any more: the spec spelling is the one
+   * object metadata carries (authoring stamps it from the inferred CEL type),
+   * so an object-bound formula field is formatted by what its definition
+   * declares.
    */
-  return_type?: 'text' | 'number' | 'boolean' | 'date' | 'datetime';
-  /**
-   * Whether to recompute on dependency changes
-   */
-  auto_compute?: boolean;
+  returnType?: SpecField['returnType'];
+  // ⛔ No `auto_compute` — RETIRED by objectui#11070 under ADR-0049
+  // (enforce-or-remove): declared, and read by nothing in the repository —
+  // the value is computed by the backend, and no widget or producer ever
+  // consulted a recompute switch. `@objectstack/spec`'s `FieldSchema` refuses
+  // it by name.
 }
 
 /**
@@ -797,25 +890,30 @@ export interface FormulaFieldMetadata extends BaseFieldMetadata {
 export interface SummaryFieldMetadata extends BaseFieldMetadata {
   type: 'summary';
   /**
-   * Related object to summarize from
+   * The roll-up definition — `@objectstack/spec`'s
+   * `FieldSchema.summaryOperations`, typed BY REFERENCE so the two cannot
+   * drift (objectui#11070): the child `object`, the child `field` to
+   * aggregate, the aggregation `function` (`count` / `sum` / `min` / `max` /
+   * `avg`), and optionally the child's `relationshipField` and a `filter`
+   * restricting which child rows are aggregated. The backend computes the
+   * value from it; neither face of a summary reads it to format. Whatever the
+   * `function`, `SummaryField` in a form and the summary table cell draw the
+   * value by one rule, so one stored value reads the same in each
+   * (objectui#11752): a number formatted as a `number` field formats it (the
+   * viewer's display locale, at the width a `scale` on the field sets, at its
+   * natural precision with none, so a `count` reads whole), and anything else
+   * as text.
+   *
+   * It replaces four retired snake_case members, one per part:
+   * `summary_object` (now `object`), `summary_field` (now `field`),
+   * `summary_type` (now `function`) and `summary_filter` (now `filter`). The
+   * spec refuses them, and no reader reads them any more.
    */
-  summary_object?: string;
-  /**
-   * Field to aggregate in the related object
-   */
-  summary_field?: string;
-  /**
-   * Aggregation type
-   */
-  summary_type?: 'count' | 'sum' | 'avg' | 'min' | 'max' | 'first' | 'last';
-  /**
-   * Filter condition for summarized records
-   */
-  summary_filter?: Record<string, any>;
-  /**
-   * Whether to auto-update on related record changes
-   */
-  auto_update?: boolean;
+  summaryOperations?: SpecField['summaryOperations'];
+  // ⛔ No `auto_update` — RETIRED by objectui#11070 under ADR-0049
+  // (enforce-or-remove): declared, and read by nothing in the repository —
+  // the roll-up is computed by the backend. `@objectstack/spec`'s
+  // `FieldSchema` refuses it by name.
 }
 
 /**
@@ -921,64 +1019,168 @@ export interface VectorFieldMetadata extends BaseFieldMetadata {
 export interface GridFieldMetadata extends BaseFieldMetadata {
   type: 'grid';
   /**
-   * Column definitions for the grid
+   * The grid's columns — `@objectstack/spec`'s `FieldSchema.inlineColumns`,
+   * typed BY REFERENCE (objectui#11070): an array of the spec's strict,
+   * `name`-keyed inline grid column (`InlineGridColumn`), the shape the spec
+   * declares as the mirror of this widget's column. `GridField` reads each
+   * column by exactly the spec's keys and no other spelling, so a column the
+   * spec accepts is a column the grid renders, and a key the spec refuses
+   * (the retired `field`, a `title`, a per-column `defaultValue`) is refused
+   * here at compile time instead of being dropped at render time.
+   *
+   * The key is `columns` because a `grid` field is objectui's own field type
+   * (`@objectstack/spec` has no `grid` field type); the spec spells the same
+   * list `inlineColumns` on a `master_detail` field, whose inline editor this
+   * widget is. The former local `GridColumnDefinition` is retired: it was not
+   * the shape the widget read (it required a free-form `type` and declared
+   * `defaultValue` / `validate`, which nothing read).
    */
-  columns?: GridColumnDefinition[];
+  columns?: SpecField['inlineColumns'];
   /**
-   * Minimum number of rows
+   * Minimum number of rows. The grid's Remove action is disabled at this many
+   * rows.
    */
-  min_rows?: number;
+  minRows?: number;
   /**
-   * Maximum number of rows
+   * Maximum number of rows. The grid's Add and Duplicate actions are disabled,
+   * and no blank entry row is drawn, at this many rows.
    */
-  max_rows?: number;
+  maxRows?: number;
   /**
-   * Whether to allow adding rows
+   * Whether to allow adding rows. On unless set `false`; each row's Duplicate
+   * action follows it.
    */
-  allow_add?: boolean;
+  allowAdd?: boolean;
   /**
-   * Whether to allow deleting rows
+   * Whether to allow deleting rows. On unless set `false`.
    */
-  allow_delete?: boolean;
+  allowDelete?: boolean;
   /**
-   * Whether to allow reordering rows
+   * Whether rows can be reordered by dragging. On unless set `false`; a
+   * read-only or disabled grid never offers it. The one reorder key the grid
+   * reads (objectui#11070 round 8 retired the undeclared `reorderable` it used
+   * to read instead, which left this member taught and ignored).
    */
-  allow_reorder?: boolean;
+  allowReorder?: boolean;
+  /**
+   * The CHILD column whose values are summed into the grid's footer total —
+   * the `name` of one of {@link columns}. No total shows when it is unset.
+   *
+   * It carries the spec's `amountField` (`FieldSchema.inlineAmountField` on a
+   * `master_detail` field, `subforms[].amountField` on a form view): the
+   * master-detail and line-items adapters in `@object-ui/plugin-form` write
+   * that value here. ⚠️ Same name, different meaning: on those spec surfaces
+   * `totalField` is the PARENT field that receives the rolled-up sum on save,
+   * and the grid never writes the parent. Here it names the child column
+   * summed. The one spelling the grid reads (objectui#11070 round 8 retired
+   * its `amount_field` / `amountField` reads, which nothing produced).
+   */
+  totalField?: string;
+  /**
+   * Label of the grid's Add button, and the label its empty state names. The
+   * locale's own wording shows when it is unset. It is the spec's
+   * `subforms[].addLabel`, which the master-detail adapter in
+   * `@object-ui/plugin-form` writes here.
+   */
+  addLabel?: string;
+  /**
+   * The CHILD field the grid stamps with each row's index (0, 1, 2, …) on
+   * every change, so the order a drag-reorder leaves survives a save and a
+   * reload. It names a field on the row object, not one of {@link columns}:
+   * a column that is also the sort field has its typed value overwritten on
+   * every change. Rows keep the order they were entered in when it is unset.
+   *
+   * Its producer is `deriveDetail` in `@object-ui/plugin-form`, through
+   * `MasterDetailForm`: the first of the child object's fields named
+   * `position`, `sort_order`, `sequence`, `line_no`, `line_number` or `sort`.
+   * There is no authored master-detail key for it (objectui#11070 round 9
+   * retired the detail's `sortField` override, which nothing wrote), and the
+   * spec declares no inline sort-field key.
+   */
+  sortField?: string;
+
+  // ── The retired snake_case spellings (objectui#11610) ───────────────────
+  //
+  // These eight keys were the grid's field-level keys until objectui#11610
+  // renamed each to the camelCase member above, so that `@objectstack/spec`'s
+  // runtime form field can declare them under its camelCase rule for config
+  // keys. They retired at once, with no alias window: no reader reads them,
+  // and each is REFUSED BY NAME on every face: here, as a `?: never`
+  // tombstone; on the form-field zod mirror, as an alias refusal naming the
+  // camelCase key; and in the `grid` widget, which draws a named refusal
+  // instead of the grid. {@link GRID_FIELD_RETIRED_KEYS} maps each to its
+  // replacement.
+
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link minRows}.
+   * @deprecated Write `minRows`. Nothing reads this spelling.
+   */
+  min_rows?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link maxRows}.
+   * @deprecated Write `maxRows`. Nothing reads this spelling.
+   */
+  max_rows?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link allowAdd}.
+   * @deprecated Write `allowAdd`. Nothing reads this spelling.
+   */
+  allow_add?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link allowDelete}.
+   * @deprecated Write `allowDelete`. Nothing reads this spelling.
+   */
+  allow_delete?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link allowReorder}.
+   * @deprecated Write `allowReorder`. Nothing reads this spelling.
+   */
+  allow_reorder?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link totalField}.
+   * @deprecated Write `totalField`. Nothing reads this spelling.
+   */
+  total_field?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link addLabel}.
+   * @deprecated Write `addLabel`. Nothing reads this spelling.
+   */
+  add_label?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link sortField}.
+   * @deprecated Write `sortField`. Nothing reads this spelling.
+   */
+  sort_field?: never;
 }
 
+/** A member `GridFieldMetadata` declares beyond `BaseFieldMetadata`. */
+type GridFieldOwnKey = Exclude<keyof GridFieldMetadata, keyof BaseFieldMetadata>;
+
 /**
- * Grid column definition
+ * The `grid` field's retired snake_case field-level keys, each mapped to the
+ * camelCase {@link GridFieldMetadata} member that replaced it (objectui#11610).
+ *
+ * The one list every face of the retirement reads: the form-field zod mirror
+ * declares an alias refusal per entry, naming the value as the key to write,
+ * and the `grid` widget refuses a field carrying any entry, naming the same
+ * replacement. A key or a value that is not one of `GridFieldMetadata`'s own
+ * members fails to compile here; that the keys are exactly its `?: never`
+ * tombstones, and the values exactly its camelCase keys, is pinned in
+ * `__tests__/grid-field-keys-camelcase-11610.test.ts`.
  */
-export interface GridColumnDefinition {
-  /**
-   * Column field name
-   */
-  name: string;
-  /**
-   * Column label
-   */
-  label?: string;
-  /**
-   * Field type
-   */
-  type: string;
-  /**
-   * Whether column is required
-   */
-  required?: boolean;
-  /**
-   * Default value for new rows
-   */
-  defaultValue?: any;
-  /**
-   * Column width
-   */
-  width?: number;
-  /**
-   * Validation rules
-   */
-  validate?: FieldConstraints;
-}
+export const GRID_FIELD_RETIRED_KEYS = {
+  min_rows: 'minRows',
+  max_rows: 'maxRows',
+  allow_add: 'allowAdd',
+  allow_delete: 'allowDelete',
+  allow_reorder: 'allowReorder',
+  total_field: 'totalField',
+  add_label: 'addLabel',
+  sort_field: 'sortField',
+} as const satisfies { readonly [K in GridFieldOwnKey]?: GridFieldOwnKey };
+
+/** A retired snake_case spelling of a `grid` field-level key: a key of {@link GRID_FIELD_RETIRED_KEYS}. */
+export type GridFieldRetiredKey = keyof typeof GRID_FIELD_RETIRED_KEYS;
 
 export interface ColorFieldMetadata extends BaseFieldMetadata {
   type: 'color';
@@ -1030,7 +1232,12 @@ export interface RatingFieldMetadata extends BaseFieldMetadata {
 
 export interface MasterDetailFieldMetadata extends BaseFieldMetadata {
   type: 'master_detail';
-  reference_to?: string;
+  /**
+   * The parent object — `@objectstack/spec`'s `FieldSchema.reference`, typed
+   * BY REFERENCE, the same member {@link LookupFieldMetadata} carries. It
+   * replaces the retired snake_case `reference_to` (objectui#11070).
+   */
+  reference?: SpecField['reference'];
 }
 
 /**

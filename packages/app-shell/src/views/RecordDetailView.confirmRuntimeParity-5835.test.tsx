@@ -45,8 +45,9 @@
  *
  * The action runner calls a confirm handler with ONE argument (`ActionRunner.ts`
  * — the structured `confirm` arm that forwarded a bag was retired,
- * objectui#4314), which is the only way `RecordDetailView`'s handler is ever
- * reached: it goes to `<ActionProvider onConfirm={...}>` and nowhere else. The
+ * objectui#4314), and that is how `RecordDetailView`'s handler is reached: it
+ * goes to `<ActionProvider onConfirm={...}>`, and its one other caller, the
+ * header's `sys_delete` action (objectui#11001), passes ONE argument too. The
  * second parameter is live through a different door — `handleDeleteView` in
  * `ObjectView.tsx` calls a `ConfirmationHandler` directly with all three fields
  * localized (settled KEEP, 2026-08-22 ruling on objectui#5205). Pinning both

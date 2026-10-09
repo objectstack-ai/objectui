@@ -85,6 +85,10 @@ const SPEC_TRANSLATION_GROUPS = [
   'settings',
   'metadataForms',
   'settingsCommon',
+  // `@objectstack/spec` 17.6.0 serves `picklists` (objectstack `addbbf02`, the
+  // `picklist` metadata kind); added at that bump (objectui#11438). The
+  // transform below copies it through onto `app` like any other group.
+  'picklists',
 ] as const;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

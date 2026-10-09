@@ -44,7 +44,10 @@
  *
  * ⇒ reading only `$null` would have closed the composed route and left the
  * uncomposed one degrading exactly as before, for an author who picked "is not
- * empty" in the dataset filter inspector (which writes the `$exists` pair).
+ * empty" in the dataset filter inspector, which wrote the `$exists` pair until
+ * objectui#10813; a filter stored before then still carries it, and the row
+ * now writes `{ $empty: false }` instead, which this dialect carries on its
+ * `[empty]` arm (objectui#11547).
  *
  * ## What this card did NOT change
  *

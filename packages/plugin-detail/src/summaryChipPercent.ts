@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { percentDisplayValue } from '@object-ui/core';
+import { percentDisplayValue, type PercentScale } from '@object-ui/core';
 
 /**
  * The ONE rule the `summaryFields` chip scales a stored `percent` by — and it
@@ -73,18 +73,26 @@ import { percentDisplayValue } from '@object-ui/core';
  * objectui#9167 took it, value by value rather than by inspection: both
  * surfaces were driven in the same run, on the same field, for every stored
  * value below, and every row that MOVED moved onto the reading the list cell
- * was already giving. The chip's text is now `formatPercent(stored, precision,
- * locale)` — the cell's own call, byte for byte — and this function is left
+ * was already giving. The chip's text is now the cell's own `formatPercent`
+ * call, byte for byte, and this function is left
  * holding the BAR alone. The table and its `de-DE` leg are pinned in
  * `__tests__/summaryChip.percentConvention-9167.test.tsx`.
+ *
+ * ## The storage is the field's, stated by the caller (objectui#11475)
+ *
+ * `percentScale` is the storage the chip's field declares, which `DetailView`
+ * reads with `percentCellScale` (`@object-ui/fields`): the spec's
+ * `percentScaleOf`, the answer the list cell reads too. Until objectui#11475
+ * the shared source guessed the storage from the value's magnitude, so the
+ * table above, whose every row is that guess, no longer describes this
+ * function: a fraction-stored `1` now fills the bar to 100%, and a
+ * whole-stored `0.5` to half a percent.
  */
-export function summaryChipPercentPoints(raw: number): number {
-  const points = percentDisplayValue(raw);
+export function summaryChipPercentPoints(raw: number, percentScale: PercentScale): number {
+  const points = percentDisplayValue(raw, percentScale);
 
-  // Not a second rule, and not a boundary: this asks the SOURCE whether it
-  // scaled, by comparing its answer to its input, so it cannot drift away from
-  // whatever `percentDisplayValue` decides.
-  if (points === raw) return points;
+  // A whole-stored value is already points; the source passed it through.
+  if (percentScale === 'whole') return points;
 
   // A ratio the source scaled to points. `raw * 100` is binary floating-point
   // multiplication: 246 of the 999 three-decimal ratios (0.001 through 0.999)
@@ -92,9 +100,9 @@ export function summaryChipPercentPoints(raw: number): number {
   // `28.999999999999996`. 12 significant digits is far wider than any percent a
   // human authored and far narrower than the residue, and it rounds a MAGNITUDE
   // the source already chose, so it is a rendering step and not a percent
-  // convention: the guard above keeps it off every value the source passed
-  // through, where trimming to 12 digits would move numbers that render
-  // correctly today.
+  // convention: the guard above keeps it off every whole-stored value, which
+  // the source passed through, where trimming to 12 digits would move numbers
+  // that render correctly today.
   //
   // ⚠️ Its ORIGINAL argument was that "it is the TEXT that reads the result" —
   // a CSS bar width absorbs the residue invisibly, a label cannot. objectui#9167

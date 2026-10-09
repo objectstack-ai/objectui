@@ -79,7 +79,9 @@ An explicit choice outranks browser detection — otherwise a user who picked �
 on a `ja` browser would be handed `ja` back on every reload. A stored value the
 app no longer offers (not a built-in pack, not in `config.resources`) is ignored
 *and purged*, so a stale entry can never lock the UI to a locale with no
-translations.
+translations. A region-tagged choice such as `zh-CN` is served by its base
+language's built-in pack (`zh`), so it is kept, and kept as written: the
+provider's `language`, `<html lang>` and the stored value all stay `zh-CN`.
 
 ```tsx
 import type { ReactNode } from 'react';
@@ -116,6 +118,33 @@ function LanguageBar() {
   );
 }
 ```
+
+#### Count labels are i18next count families
+
+A label a word must agree with — `3 replies`, `Approve 3 requests?` — is one
+i18next count family: pass the number as `count` and let i18next pick the slot
+`Intl.PluralRules` selects for the language. Every pack spells out each
+category its language has (`en` `_one`/`_other`; `ru` adds `_few`/`_many`; `ar`
+has all six), plus a count-invariant base key for a call made without a count.
+
+```tsx
+import { useObjectTranslation } from '@object-ui/i18n';
+
+function ReplyCount({ replies }: { replies: readonly string[] }) {
+  const { t } = useObjectTranslation();
+
+  // "1 reply", "3 replies"; Russian «3 ответа», «5 ответов»
+  return <span>{t('detail.replyCount', { count: replies.length })}</span>;
+}
+```
+
+Pass `count` as a **number** — i18next selects a slot for nothing else — and
+never choose the key yourself (`count === 1 ? 'xOne' : 'x'`): two keys give a
+language two forms, and Russian needs three, Arabic five. A
+`createSafeTranslation` defaults table answers the same way on a provider-less
+host: it reads a family's `_one` / `_other` row for a numeric `count`, then the
+base row. `count-families-11445.test.ts` holds every `{{count}}` value in the
+ten packs to this rule.
 
 ### createI18n
 
@@ -167,7 +196,70 @@ A date-only string such as `'2026-09-01'` names a calendar day: every date
 helper reads it as that day in every viewer's time zone (`formatDateTime` shows
 its midnight, and `formatRelativeTime` counts to the start of it). A string
 with a time part is an instant, read in the viewer's zone. `formatDateSpec`
-applies its `timeZone` to an instant only.
+applies its `timeZone` to an instant only. These helpers do not read the
+display zone below; the field cells and measures format through
+`@object-ui/core`'s date faces, which do.
+
+### Regional defaults (`LocalizationProvider`)
+
+`LocalizationProvider` carries the workspace's resolved regional defaults to
+every renderer below it, and `useLocalization()` reads them (`{}` outside a
+provider). The console fills it from `GET /api/v1/auth/me/localization`.
+
+```tsx
+import type { ReactNode } from 'react';
+import { LocalizationProvider, useLocalization } from '@object-ui/i18n';
+
+export function Regional({ children }: { children: ReactNode }) {
+  return (
+    <LocalizationProvider value={{ currency: 'EUR', locale: 'de-DE', timezone: 'Europe/Berlin' }}>
+      {children}
+    </LocalizationProvider>
+  );
+}
+
+export function ZoneLabel() {
+  const { timezone } = useLocalization();
+  return <span>{timezone ?? 'viewer zone'}</span>;
+}
+```
+
+- `currency` (ISO 4217) is the default a currency field without its own code
+  renders in.
+- `locale` (BCP-47) outranks the UI language for number and date formatting;
+  read the effective tag with `useDisplayLocale()`.
+- `timezone` (IANA) is the zone instants render in. The provider hands it to
+  `setDisplayTimeZone` in `@object-ui/core`, so every date and datetime face
+  takes it without any renderer passing a zone, and `useLocalization().timezone`
+  reads back the zone those faces use (`undefined` for a name the runtime does
+  not know). Without one, instants render in the viewer's zone. There is one
+  display zone per page, and unmounting the provider clears it.
+
+#### The first day of the week
+
+`firstDayOfWeek(locale)` answers the first day of the week for a BCP-47 tag,
+numbered as `Date.prototype.getDay` numbers weekdays (0 is Sunday), which is
+also what react-day-picker's `weekStartsOn` takes. It reads the engine's
+`Intl.Locale` week info, and CLDR's region table where the engine has none, so
+a week grid or a "this week" bound starts where the user's locale says rather
+than on a fixed day. There is no separate week-start setting: the tag is the
+one the caller already formats its dates with, such as `useDisplayLocale()`.
+
+```tsx
+import { firstDayOfWeek, useDisplayLocale } from '@object-ui/i18n';
+
+firstDayOfWeek('en-US'); // 0, Sunday
+firstDayOfWeek('en-GB'); // 1, Monday
+firstDayOfWeek('zh-CN'); // 1, Monday
+
+function WeekHeader() {
+  const weekStart = firstDayOfWeek(useDisplayLocale());
+  // ...lay the week out from `weekStart`
+}
+```
+
+A tag `Intl` refuses (`en_US`) throws the same `RangeError` that formatting a
+date with it would.
 
 ### Built-in locales — one is resident, nine are fetched on demand
 
@@ -190,8 +282,17 @@ import {
 
 BUILT_IN_LANGUAGE_CODES;            // ['en','zh','ja','ko','de','fr','es','pt','ru','ar']
 await loadBuiltInLocale('zh');      // the zh catalogue, fetched once and memoised
+await loadBuiltInLocale('zh-CN');   // the same zh catalogue — a region tag is served by its base
 await loadBuiltInLocale('tlh');     // null — not a code this package ships
+isBuiltInLanguage('zh-CN');         // true
+isBuiltInLanguage('xx-YY');         // false — no catalogue for the tag or its base
 ```
+
+A code is looked up **exact tag first, then its base language**: `zh-CN` is
+served by the `zh` catalogue, while a catalogue keyed by a full tag would win
+over its base. `isBuiltInLanguage` and `isBuiltInLocaleLoaded` answer by the same
+rule as `loadBuiltInLocale`, and a catalogue is memoised under its own code, so
+`zh` and `zh-CN` share one fetch.
 
 `I18nProvider` does this for you: it fetches the catalogue for whatever language
 it boots into, and `changeLanguage()` awaits the new catalogue before switching,

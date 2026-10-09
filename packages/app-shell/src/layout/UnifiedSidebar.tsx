@@ -45,9 +45,12 @@ import { useExpressionContext, evaluateVisibility } from '../providers/Expressio
 import { usePermissions } from '@object-ui/permissions';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useRecentItems } from '../hooks/useRecentItems.js';
+import { useRecentItemLabel } from '../hooks/useRecentItemLabel.js';
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useNavPins } from '../hooks/useNavPins.js';
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
+import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
+import { useNavDocTargetCheck } from '../hooks/useNavDocTargetCheck.js';
 import { matchAppBySegment, appRouteSegment, resolveKeyedI18nLabel } from '../utils/index.js';
 import { useHomePath } from '../hooks/useHomePath.js';
 // Aliased for symmetry with objectui's own `resolveKeyedI18nLabel` above (the
@@ -70,6 +73,72 @@ import { LocalizedSidebarTrigger } from './LocalizedSidebarTrigger.js';
 // ---------------------------------------------------------------------------
 // useNavOrder – localStorage-persisted drag-and-drop reorder for nav items
 // ---------------------------------------------------------------------------
+
+/**
+ * The stored key of the top level's order. A group's order is stored beside it
+ * under the group's `id` (objectui#11626): the one key a group has that holds
+ * across reloads and locales (its label is translated). A spec-valid `id` is
+ * snake_case starting with a letter, so no group can be keyed `__root__`.
+ */
+const ROOT_ORDER_KEY = '__root__';
+
+/**
+ * One level in its saved order: the saved ids first, in the saved order, then
+ * the entries the saved order does not name, in the order the app lists them.
+ * An id saved for an entry that is gone is skipped.
+ *
+ * Each entry of a level with a saved order carries its position there as
+ * `order` (0, 1, 2, …). The renderer sorts every level by `order` (the spec's
+ * "Sort order within the same level"), so for an app that authors `order` a
+ * saved order left in array position only was sorted straight back into the
+ * app's own, and a drag snapped back (objectui#11626). A level with no saved
+ * order is returned untouched and keeps following the app.
+ */
+function applyLevelOrder(items: NavigationItem[], saved: string[] | undefined): NavigationItem[] {
+  if (!saved) return items;
+  const byId = new Map(items.map(i => [i.id, i]));
+  const ordered: NavigationItem[] = [];
+  for (const id of saved) {
+    const item = byId.get(id);
+    if (item) { ordered.push(item); byId.delete(id); }
+  }
+  byId.forEach(item => ordered.push(item));
+  return ordered.map((item, idx) => (item.order === idx ? item : { ...item, order: idx }));
+}
+
+/** Every group's saved order applied to its children, at every depth. */
+function applyGroupOrders(
+  items: NavigationItem[],
+  orderMap: Record<string, string[]>,
+): NavigationItem[] {
+  let changed = false;
+  const next = items.map(item => {
+    if (item.type !== 'group' || !item.children?.length) return item;
+    const children = applyGroupOrders(applyLevelOrder(item.children, orderMap[item.id]), orderMap);
+    if (children === item.children) return item;
+    changed = true;
+    return { ...item, children };
+  });
+  return changed ? next : items;
+}
+
+/** Each group's children, by group `id`, at every depth. */
+function groupChildren(
+  items: NavigationItem[],
+  into: Map<string, NavigationItem[]> = new Map(),
+): Map<string, NavigationItem[]> {
+  for (const item of items) {
+    if (item.type !== 'group') continue;
+    const children = item.children ?? [];
+    into.set(item.id, children);
+    groupChildren(children, into);
+  }
+  return into;
+}
+
+/** The same entries, in the same places, each with the same `order`. */
+const sameLevel = (a: NavigationItem[], b: NavigationItem[]) =>
+  a.length === b.length && a.every((item, i) => item.id === b[i].id && item.order === b[i].order);
 
 function useNavOrder(appName: string) {
   const storageKey = `objectui-nav-order-${appName}`;
@@ -101,25 +170,39 @@ function useNavOrder(appName: string) {
   );
 
   const applyOrder = React.useCallback(
-    (items: NavigationItem[]): NavigationItem[] => {
-      const saved = orderMap['__root__'];
-      if (!saved) return items;
-      const byId = new Map(items.map(i => [i.id, i]));
-      const ordered: NavigationItem[] = [];
-      for (const id of saved) {
-        const item = byId.get(id);
-        if (item) { ordered.push(item); byId.delete(id); }
-      }
-      byId.forEach(item => ordered.push(item));
-      return ordered;
-    },
+    (items: NavigationItem[]): NavigationItem[] =>
+      applyGroupOrders(applyLevelOrder(items, orderMap[ROOT_ORDER_KEY]), orderMap),
     [orderMap],
   );
 
+  /**
+   * `drawn` is the tree this sidebar handed the renderer. A move within a group
+   * comes back as the top-level list with that group's children reordered
+   * (objectui#11626), so the group whose children now differ from the drawn
+   * ones is the group that moved, and only its order is stored: the top level
+   * and every other group keep following the app until the user moves them.
+   * A report in which no group's children moved is a move among top-level
+   * entries, stored under `__root__` exactly as it was before groups had one.
+   *
+   * Children are compared by id AND `order`. The moved level comes back with
+   * its positions as `order` (0, 1, 2, …); the renderer had sorted it by
+   * `order` first, so where an app authors `order` the move can land on the
+   * drawn ARRAY's own id sequence, and only the positions tell it apart.
+   */
   const handleReorder = React.useCallback(
-    (reorderedItems: NavigationItem[]) => {
+    (reorderedItems: NavigationItem[], drawn: NavigationItem[]) => {
+      const before = groupChildren(drawn);
+      const movedGroups: Record<string, string[]> = {};
+      groupChildren(reorderedItems).forEach((children, groupId) => {
+        const was = before.get(groupId);
+        if (was && !sameLevel(was, children)) movedGroups[groupId] = children.map(c => c.id);
+      });
+      if (Object.keys(movedGroups).length > 0) {
+        persist({ ...orderMap, ...movedGroups });
+        return;
+      }
       const ids = reorderedItems.map(i => i.id);
-      persist({ ...orderMap, __root__: ids });
+      persist({ ...orderMap, [ROOT_ORDER_KEY]: ids });
     },
     [orderMap, persist],
   );
@@ -159,7 +242,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const { isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const { t, language } = useObjectTranslation();
-  const { objectLabel: resolveNavObjectLabel, dashboardLabel: resolveNavDashboardLabel, viewLabel: resolveNavViewLabel, appLabel } = useObjectLabel();
+  const { appLabel } = useObjectLabel();
   const { context, currentAppName } = useNavigationContext();
   const { user, activeOrganization } = useAuth();
   const { isAdmin: isWorkspaceAdmin } = useWorkspaceAdminStatus();
@@ -168,6 +251,10 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // resolves to the fully-wired console runner — confirm/param/result dialogs
   // included — with no provider of its own.
   const dispatchNavAction = useNavActionDispatch();
+  // An entry with no `label` shows its target's CURRENT label, read from the
+  // metadata cache at render time (objectui#9868). `nav:menu` wires the same
+  // hook, so the two surfaces cannot name one entry two ways.
+  const resolveNavTargetLabel = useNavTargetLabel();
 
   // Swipe-from-left-edge gesture to open sidebar on mobile
   React.useEffect(() => {
@@ -192,7 +279,14 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
     };
   }, [isMobile, setOpenMobile]);
 
-  const { recentItems } = useRecentItems();
+  const { recentItems: allRecentItems } = useRecentItems();
+  // A Studio package entry is labelled from the package list (objectui#11863),
+  // which this sidebar does not load, so it is left out here rather than drawn
+  // as its id. The Studio landing lists the recent packages.
+  const recentItems = allRecentItems.filter(item => item.type !== 'package');
+  // A recent entry's text is the item's own, resolved on this render
+  // (objectui#11678); the entry stores identity only.
+  const recentLabel = useRecentItemLabel();
   const { favorites, removeFavorite } = useFavorites();
 
   const { apps: metadataApps, objects: metadataObjects } = useMetadata();
@@ -275,11 +369,19 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // an area that renders nothing. Same derivation as `AppSchemaRenderer`
   // (@object-ui/layout); the predicate is shared, not re-implemented.
   const areas: NavigationArea[] = activeApp?.areas || [];
+  // A `doc` entry the member may not read is not drawn (objectui#10188) —
+  // defence in depth behind the server's app read, which already drops it
+  // (objectstack#19790). Asked only in an app: on Home `activeApp` is merely
+  // the first app, whose menu this sidebar does not draw.
+  const checkDocTarget = useNavDocTargetCheck(
+    context === 'app' ? [activeApp?.navigation, ...areas.map((area) => area.navigation)] : [],
+  );
   const visibleAreas = areas.filter((area) =>
     hasVisibleNavigationItems(area.navigation, {
       evaluateVisibility: evalVis,
       checkPermission: checkPerm,
       checkCapability: checkCap,
+      checkDocTarget,
       // This sidebar always wires `onAction={dispatchNavAction}` on its
       // NavigationRenderer (framework#4509), so `action` items render and
       // count as area content.
@@ -442,6 +544,12 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
     const ordered = applyOrder(studioNavigationItems);
     return applyPins(ordered);
   }, [studioNavigationItems, applyOrder, applyPins]);
+  // The drawn tree goes along with a report, so the store can tell which
+  // level moved (objectui#11626).
+  const handleNavReorder = React.useCallback(
+    (reorderedItems: NavigationItem[]) => handleReorder(reorderedItems, processedNavigation),
+    [handleReorder, processedNavigation],
+  );
 
   // Recent section collapsed by default
   const [recentExpanded, setRecentExpanded] = React.useState(false);
@@ -554,20 +662,22 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
              </SidebarGroup>
            )}
 
-           {/* App Navigation tree */}
+           {/* App Navigation tree. `locale` is the same `language` the area
+               labels above resolve in, so an entry label written as an inline
+               locale map reads the viewer's entry too (objectui#11299). */}
            <NavigationRenderer
              items={processedNavigation}
              basePath={basePath}
              evaluateVisibility={evalVis}
              checkPermission={checkPerm}
              checkCapability={checkCap}
+             checkDocTarget={checkDocTarget}
              enablePinning={!isMobile}
              onPinToggle={togglePin}
              enableReorder={!isMobile}
-             onReorder={handleReorder}
-             resolveObjectLabel={(objectName, fallback) => resolveNavObjectLabel({ name: objectName, label: fallback })}
-             resolveDashboardLabel={(dashboardName, fallback) => resolveNavDashboardLabel({ name: dashboardName, label: fallback })}
-             resolveViewLabel={(objectName, viewName, fallback) => resolveNavViewLabel(objectName, viewName, fallback)}
+             onReorder={handleNavReorder}
+             resolveTargetLabel={resolveNavTargetLabel}
+             locale={language}
              onAction={dispatchNavAction}
              t={t}
              templateContext={{ currentUserId: user?.id ?? null, currentOrgId: activeOrganization?.id ?? null, contextValues }}
@@ -589,12 +699,12 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
                  <SidebarMenu>
                    {recentItems.slice(0, 5).map(item => (
                      <SidebarMenuItem key={item.id}>
-                       <SidebarMenuButton asChild tooltip={item.label}>
+                       <SidebarMenuButton asChild tooltip={recentLabel(item)}>
                          <Link to={item.href}>
                            <span className="text-muted-foreground">
                              {item.type === 'dashboard' ? '📊' : item.type === 'report' ? '📈' : '📄'}
                            </span>
-                           <span className="truncate">{item.label}</span>
+                           <span className="truncate">{recentLabel(item)}</span>
                          </Link>
                        </SidebarMenuButton>
                      </SidebarMenuItem>
@@ -691,9 +801,8 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
              evaluateVisibility={evalVis}
              checkPermission={checkPerm}
              checkCapability={checkCap}
-             resolveObjectLabel={(objectName, fallback) => resolveNavObjectLabel({ name: objectName, label: fallback })}
-             resolveDashboardLabel={(dashboardName, fallback) => resolveNavDashboardLabel({ name: dashboardName, label: fallback })}
-             resolveViewLabel={(objectName, viewName, fallback) => resolveNavViewLabel(objectName, viewName, fallback)}
+             resolveTargetLabel={resolveNavTargetLabel}
+             locale={language}
              onAction={dispatchNavAction}
              t={t}
              templateContext={{ currentUserId: user?.id ?? null, currentOrgId: activeOrganization?.id ?? null, contextValues }}

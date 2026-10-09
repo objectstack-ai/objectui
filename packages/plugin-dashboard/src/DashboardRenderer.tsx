@@ -6,9 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema, DataSource } from '@object-ui/types';
-import { SchemaRenderer, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource } from '@object-ui/react';
-import { useObjectTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
+import type { BaseSchema, DashboardComponentSchema, DataSource, ObjectChartSchema, ObjectDataTableSchema } from '@object-ui/types';
+import { SchemaRenderer, toRenderableSchema, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource, type SchemaRendererProps } from '@object-ui/react';
+import { useObjectTranslation, useSafeTranslate, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { ActionDef, ActionResult, ActionContext, ModalHandler, SduiDomPassThroughKey } from '@object-ui/core';
 import {
   resolveDashboardFilterDefs,
@@ -41,10 +41,10 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
-import { classifyWidgetType, METRIC_LIKE_TYPES } from './widgetDispatch';
-import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
+import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboardNodeType, resolveWidgetType, isSlotComponentEntry, unsupportedWidgetSchema, entryComponent, withoutRetiredSubCaption, type DashboardWidgetSlotEntry } from './widgetDispatch';
+import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget, isRetiredEnvelopeNode } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
-import { useWidgetSubCaption } from './widgetSubCaption';
+import type { DashboardChartRenderSchema } from './chartRenderHandoff';
 import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
 import { DashboardFilterBar } from './DashboardFilterBar';
 
@@ -147,11 +147,44 @@ function defaultChartDrill(chartType: string): { enabled: true } | undefined {
  * (`chart`, `data-table` with inline `data`) have no query to scope and are
  * intentionally not filtered.
  */
-const FILTERABLE_COMPONENT_TYPES = new Set([
+type FilterableComponentType = 'object-chart' | 'object-data-table';
+const FILTERABLE_COMPONENT_TYPES: ReadonlySet<string> = new Set<FilterableComponentType>([
   'object-chart',
-  'object-metric',
   'object-data-table',
 ]);
+
+/**
+ * A child node of one of the {@link FILTERABLE_COMPONENT_TYPES}, as
+ * `getComponentSchema` hands it to `SchemaRenderer` — typed by the node schema
+ * that DECLARES its `filter` (objectui#11348), so the filter broadcast reads
+ * that key where it is declared instead of off `BaseSchema`, which declares no
+ * `filter` and only reached it through its index signature.
+ *
+ * Both are the `@object-ui/types` node schemas, by reference, each declaring
+ * `filter`. The broadcast covers the `object-chart` and `object-data-table`
+ * nodes this renderer builds for a `provider: 'object'` series or table
+ * widget, and the same two types when an author places one in a widget's
+ * legacy `component` envelope.
+ *
+ * `object-metric` LEFT the set under objectui#11466 (the maintainer's ruling A,
+ * extending ruling C on objectui#11525). objectui#11525 had kept it for one
+ * input, an `object-metric` node in that envelope, after this renderer stopped
+ * building one; it wrote a flat `filter` that the declared `object-metric`
+ * node (the spec's `properties` bag) refuses by name. That envelope node now
+ * draws the retired-format placeholder (`isRetiredEnvelopeNode`), so no
+ * `object-metric` node reaches the merge.
+ *
+ * The value is not host state: the renderer wrote it from the widget's own
+ * spec-declared `filter` (or the provider's), or the author wrote it on the
+ * envelope's node, and the dashboard's filter-bar values arrive separately, as
+ * the `scopedFilter` merged into it.
+ */
+type FilterableComponentSchema = ObjectChartSchema | ObjectDataTableSchema;
+
+/** Narrows a child node to {@link FilterableComponentSchema} by its `type`. */
+function isFilterableComponentSchema(cs: BaseSchema): cs is FilterableComponentSchema {
+  return FILTERABLE_COMPONENT_TYPES.has(cs.type);
+}
 
 /*
  * The retired-widget placeholder and its detector used to be declared right
@@ -231,8 +264,13 @@ export interface DashboardRendererProps
    * Receives the next widgets array (with positions swapped). The parent
    * is expected to persist via its data adapter. When omitted, drag-and-
    * drop affordances are disabled even in design mode.
+   *
+   * Typed by the slot itself, `DashboardComponentSchema['widgets']`: the array
+   * is `schema.widgets` reordered, so each entry is a widget or a component node
+   * placed directly in the slot (objectui#11514; it read `DashboardWidgetSchema[]`
+   * while the component arm was assignable to the widget arm).
    */
-  onWidgetsReorder?: (widgets: DashboardWidgetSchema[]) => void;
+  onWidgetsReorder?: (widgets: DashboardComponentSchema['widgets']) => void;
   /** Optional handler for actionType="modal" header actions. Receives a schema and ActionContext. */
   modalHandler?: ModalHandler;
   /** Optional named handlers for actionType="script" header actions, keyed by action name (actionUrl). */
@@ -244,10 +282,31 @@ export interface DashboardRendererProps
    * title/subtitle so we don't display them twice.
    */
   hideHeaderText?: boolean;
+  /**
+   * The document arrives already translated for the active language: the host
+   * read it from the server's `/meta` route, which resolves the packaged
+   * catalog per request locale and keeps a published edit over it (an explicit
+   * override beats the packaged default — `translateDashboard` in
+   * `@objectstack/spec`). The console's dashboard page (`DashboardView`) sets
+   * it.
+   *
+   * When true, the texts the server translated — the dashboard `label` and
+   * `description`, and each widget's `title` and `description` — are drawn as
+   * given: an inline per-locale map is
+   * still collapsed to the active language, but no client bundle lookup runs
+   * over them. A second pass over a served value is what let the packaged
+   * catalog win again, client-side, over a published edit (objectui#11295).
+   *
+   * Leave it unset for a document the server never translated — an inline
+   * block, a preview, a design surface: the client bundle is then its one
+   * translation pass, exactly as before. Header-action labels keep their bundle
+   * lookup either way: the server does not translate them.
+   */
+  localized?: boolean;
 }
 
 const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps>(
-  ({ schema, className, dataSource: dataSourceProp, onRefresh, recordCount, userActions, designMode, selectedWidgetId, onWidgetClick, onWidgetsReorder, modalHandler, scriptHandlers, hideHeaderText, ...props }: DashboardRendererProps & { [key: string]: any }, ref) => {
+  ({ schema, className, dataSource: dataSourceProp, onRefresh, recordCount, userActions, designMode, selectedWidgetId, onWidgetClick, onWidgetsReorder, modalHandler, scriptHandlers, hideHeaderText, localized, ...props }: DashboardRendererProps & { [key: string]: any }, ref) => {
     // objectui#10815 — the adapter every child of this dashboard reads, resolved
     // ONCE here the way the page-embeddable blocks of the family resolve theirs
     // (`useResolvedDataSource`, the `object-grid` / `object-form` /
@@ -271,7 +330,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // collapse into a vertical stack. Expand to fit the largest widget span.
     const inferredColumns = (() => {
       if (schema.columns != null) return schema.columns;
-      const widgets = schema.widgets ?? [];
+      // Typed by the slot's element type, the type `renderWidget` below takes
+      // (objectui#11514). Both arms of the `widgets[]` union declare `layout` as
+      // the spec's `DashboardWidget` member — the component arm
+      // (`DashboardWidgetSlotComponentSchema`) by reference since objectui#11070
+      // round 11 — so `layout` reads with the spec's type off either arm.
+      const widgets: DashboardWidgetSlotEntry[] = schema.widgets ?? [];
       let maxSpan = 0;
       for (const w of widgets) {
         const span = (w.layout?.x ?? 0) + (w.layout?.w ?? 0);
@@ -306,6 +370,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // it's missing we silently degrade to the raw English fallbacks.
     const { dashboardLabel, dashboardDescription, dashboardActionLabel, widgetTitle, widgetDescription, fieldLabel } = useObjectLabel();
     const { t, language } = useObjectTranslation();
+    // The refresh button's copy is three pack keys (`dashboard.refreshAll`,
+    // `dashboard.refreshDashboard`, `dashboard.refreshing`), the same three
+    // `DashboardGridLayout` reads, each through `tt` like the package's other one-off labels.
+    const tt = useSafeTranslate();
     // The record-count badge is a number face; it groups in the display locale,
     // not the MACHINE's (objectui#9909).
     const displayLocale = useDisplayLocale();
@@ -363,6 +431,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * used as the fallback or the button text (objectui#7759). This read used
      * to return the authored value as-is, typed `string` by a hand-written
      * restatement of `header`, and a map reached React as a button child.
+     *
+     * It runs for a `localized` document too (objectui#11295): the server's
+     * `translateDashboard` does not translate header actions, so this lookup is
+     * their only translation pass, not a second one.
      */
     const tActionLabel = useCallback(
       (action: DashboardNodeHeaderAction): string => {
@@ -404,70 +476,30 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * string that falls out is what the bundle receives as its fallback. So a
      * per-locale literal and a bundle entry can never disagree about what "the
      * authored title" is, and a bundle entry always wins over an inline map.
+     *
+     * That composition is for a document the server did NOT translate. A
+     * `localized` document (objectui#11295) already carries the server's
+     * answer, so only the inline-map collapse runs and the bundle is not
+     * consulted: offered a served value as its fallback, the bundle would win
+     * it, and a published edit would draw as the packaged string again.
      */
     const tWidgetTitle = useCallback(
-      (widget: DashboardWidgetSchema): string | undefined => {
+      (widget: DashboardWidgetSlotEntry): string | undefined => {
         const fallback = resolveLabel(widget.title);
-        if (!dashName || !widget.id || fallback === undefined) return fallback;
+        if (localized || !dashName || !widget.id || fallback === undefined) return fallback;
         return widgetTitle(dashName, widget.id, fallback);
       },
-      [dashName, widgetTitle, resolveLabel],
+      [localized, dashName, widgetTitle, resolveLabel],
     );
 
     const tWidgetDescription = useCallback(
-      (widget: DashboardWidgetSchema): string | undefined => {
+      (widget: DashboardWidgetSlotEntry): string | undefined => {
         const fallback = resolveLabel(widget.description);
-        if (!dashName || !widget.id) return fallback;
+        if (localized || !dashName || !widget.id) return fallback;
         return widgetDescription(dashName, widget.id, fallback);
       },
-      [dashName, widgetDescription, resolveLabel],
+      [localized, dashName, widgetDescription, resolveLabel],
     );
-
-    /**
-     * Translate a metric card's SUB-CAPTION — the line under the big number —
-     * using the `{ns}.dashboards.{dashName}.widgets.{widgetId}.subCaption`
-     * convention (objectui#4032 item 4).
-     *
-     * The authored field is `widget.options.description`, NOT
-     * `widget.description`. They are two different authored fields with two
-     * different keys (objectstack#5428 item-4 ruling: 「两个作者字段两个
-     * key」), which is why PR #4358 stopped here instead of routing the
-     * sub-caption through `tWidgetDescription`: `widget.description` feeds the
-     * shared Card header, and on a `kpi` / `gauge` / `bullet` widget BOTH are
-     * on screen at once, so one shared key would make a single translation
-     * entry overwrite the other field's text.
-     *
-     * `subCaption` is the widget-translation-node member objectstack#8056
-     * added, shipped in `@objectstack/spec@17.0.0` (the version this repo
-     * pins). The server already reads the same key on the `/meta` path —
-     * `translateDashboard` overlays it onto `options.description` — so a served
-     * document needs no client work; this is the same key path resolved for the
-     * app bundles objectui loads into `I18nProvider` itself.
-     *
-     * Composition order is the one `tWidgetTitle` fixed: the authored value is
-     * collapsed to the active language FIRST (an inline per-locale map — the
-     * #4208 `pickLocalized` seam), and the plain string that falls out is
-     * offered to the bundle as its fallback, so a bundle entry always wins over
-     * an inline map and the two channels can never disagree about what "the
-     * authored sub-caption" is.
-     *
-     * A translation with no authored counterpart is legitimate and matches the
-     * server: `translateDashboard` writes `options.description` whenever the
-     * bundle carries a non-empty `subCaption`, whether or not the author wrote
-     * one. Absent both, this answers `undefined` rather than `''` —
-     * `MetricWidget` gates its whole caption row on the value's truthiness.
-     *
-     * ⚠️ The composition itself no longer lives here (objectui#8889). It moved
-     * to `useWidgetSubCaption` so that BOTH dashboard surfaces —
-     * `DashboardRenderer` and `DashboardGridLayout`, which route a
-     * dataset-bound widget to the same `DatasetWidget` (objectui#4614) — resolve
-     * it through ONE decision point. An invariant that says two channels can
-     * never disagree cannot be enforced by two independent resolvers; see that
-     * module's header. The limbs, their order and the `undefined`-never-`''`
-     * contract are unchanged, which is why the pins in
-     * `__tests__/DashboardRenderer.metricSubCaption.test.tsx` did not move.
-     */
-    const tWidgetSubCaption = useWidgetSubCaption(dashName);
 
     // Install host-supplied modal/script handlers on the underlying ActionRunner.
     useEffect(() => {
@@ -575,15 +607,15 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         const { active, over } = event;
         if (!over || active.id === over.id) return;
         const widgets = schema.widgets ?? [];
-        const oldIndex = widgets.findIndex((w: DashboardWidgetSchema) => w.id === active.id);
-        const newIndex = widgets.findIndex((w: DashboardWidgetSchema) => w.id === over.id);
+        const oldIndex = widgets.findIndex((w: DashboardWidgetSlotEntry) => w.id === active.id);
+        const newIndex = widgets.findIndex((w: DashboardWidgetSlotEntry) => w.id === over.id);
         if (oldIndex < 0 || newIndex < 0) return;
         onWidgetsReorder?.(arrayMove(widgets, oldIndex, newIndex));
       },
       [dragEnabled, schema.widgets, onWidgetsReorder]
     );
 
-    const renderWidget = (widget: DashboardWidgetSchema, index: number, forceMobileFullWidth?: boolean) => {
+    const renderWidget = (widget: DashboardWidgetSlotEntry, index: number, forceMobileFullWidth?: boolean) => {
         // Clamp widget span to grid columns to prevent overflow. A widget
         // with NO layout (e.g. authored in the Studio designer, which omits
         // it) would otherwise get a single column in the positioned grid and
@@ -593,7 +625,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         // matching the editable DashboardGridLayout's auto-placement. Only the
         // positioned grid needs this; the responsive flow layout sizes each
         // widget as one cell.
-        const isMetricSpan = widget.type === 'metric' || METRIC_LIKE_TYPES.has(widget.type || '');
+        // The type this entry draws as: the authored `type`, or the spec's
+        // default (`metric`) when it names none (objectui#11514, Q2 A).
+        const entryType = resolveWidgetType(widget);
+        const isMetricSpan = entryType === 'metric' || METRIC_LIKE_TYPES.has(entryType || '');
         const fallbackSpan = hasExplicitColumns
           ? { w: Math.min(isMetricSpan ? 3 : 6, columns), h: isMetricSpan ? 2 : 4 }
           : undefined;
@@ -602,19 +637,55 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
           ? { ...effectiveLayout, w: Math.min(effectiveLayout.w, columns) }
           : undefined;
 
+        // The widget arm, or `undefined` for a component node in the slot (a
+        // `metric-card`). Every widget key this function reads off the entry
+        // is read off this, or off `widget` after the same narrowing
+        // (objectui#11598, N2 A): the component arm declares none of them.
+        const widgetArm = isSlotComponentEntry(widget) ? undefined : widget;
+
         // ADR-0021 — a widget bound to a semantic-layer dataset renders through
         // the governed queryDataset path (DatasetWidget) instead of the inline
-        // object-aggregate schema. No cast needed: `dataset` flows onto
-        // `DashboardWidgetSchema` from `@objectstack/spec`'s `DashboardWidget`
-        // (`packages/types/src/complex.ts`), so `widget.dataset` type-checks
-        // directly.
-        const datasetBound = !!widget.dataset;
+        // object-aggregate schema. `dataset` flows onto the widget arm,
+        // `DashboardWidgetSchema`, from `@objectstack/spec`'s `DashboardWidget`,
+        // and is read there alone: a component node in the slot draws itself,
+        // whatever else it carries. The fork used to ignore the entry's `type`
+        // and draw `DatasetWidget` for a `dataset` on either arm, which
+        // type-checked only through `BaseSchema`'s index signature and reached
+        // only a `metric-card` the strict face refuses (objectui#11598).
+        const datasetBound = !!widgetArm?.dataset;
 
-        const getComponentSchema = () => {
-            if (widget.component) return widget.component;
+        // Every branch returns a node `SchemaRenderer` takes, so the return type
+        // is that prop's (objectui#11466): each node is checked against its
+        // declared type where it is built, and the render sites take it with no
+        // cast.
+        const getComponentSchema = (): SchemaRendererProps['schema'] => {
+            // The slot-component passthrough (the 2026-08-14 `metric-card` slot
+            // ruling) serves the slot's component arm alone (objectui#11514,
+            // Q2 A): the entry keeps its `type`, the node it becomes takes the
+            // namespaced key (`toDashboardNodeType`, objectui#10859 batch 8).
+            // It is decided FIRST and reads no widget key (objectui#11598,
+            // N2 A), so below it `widget` is the widget arm and every widget
+            // key is read off the arm that declares it. A card used to take
+            // `options` spread over its own keys here, a second spelling of
+            // its props the strict face refuses (objectui#11483).
+            if (isSlotComponentEntry(widget)) return toDashboardNodeType({ ...widget });
+
+            // The author-supplied node keeps its spelling; only a `metric` /
+            // `metric-card` node key moves onto its namespaced registration
+            // (`toDashboardNodeType`, objectui#10859 batch 8).
+            const authoredComponent = entryComponent(widget);
+            // An `object-metric` node in the envelope is the last inline metric
+            // form, retired with the rest (objectui#11466, ruling A extending
+            // ruling C on objectui#11525): it draws the rebind prompt, the object
+            // the metric and pivot arms below return, and sends no query.
+            if (isRetiredEnvelopeNode(authoredComponent)) return LEGACY_RETIRED_WIDGET_SCHEMA;
+            // `toRenderableSchema` (objectui#4622) bridges the envelope's `SchemaNode`
+            // to what `SchemaRenderer` takes: a number or boolean draws the same text
+            // (or nothing, when falsy) it drew when handed to the renderer bare.
+            if (authoredComponent) return toRenderableSchema(toDashboardNodeType(authoredComponent));
 
             // Handle Shorthand Registry Mappings
-            const widgetType = widget.type;
+            const widgetType = entryType;
             const options = (widget.options || {}) as Record<string, any>;
             // Renderer-internal data sources only (ADR-0021): the inline
             // `options.data` / `widget.data` array, or the `provider: 'object'`
@@ -641,7 +712,6 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // families explicitly, so no widget type reaches the passthrough
             // return below and renders a red "Unknown component type" (#2943).
             const dispatch = classifyWidgetType(widgetType);
-            const resolvedWidgetType = dispatch.chartType ?? widgetType;
 
             if (dispatch.family === 'series' && dispatch.chartType) {
                 const xAxisKey = options.xField || 'name';
@@ -649,8 +719,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
 
                 // The widget's declared `chartConfig`, lowered onto the chart
                 // schema — objectui#4044. `DashboardWidget.chartConfig` is
-                // declared as the spec's full `ChartConfigSchema` on EVERY
-                // dashboard widget, but until this card only the ADR-0021
+                // declared on EVERY dashboard widget (since `@objectstack/spec`
+                // 17.5.0 as `DashboardWidgetChartConfigSchema`: the chart's
+                // appearance keys, with `type` / `xAxis` / `yAxis` / `series`
+                // refused at parse), but until this card only the ADR-0021
                 // dataset path (`DatasetWidget`) read it: this inline path
                 // mentioned `chartConfig` zero times, so an author who wrote
                 // `chartConfig.title` / `.colors` / `.height` on a widget bound
@@ -663,10 +735,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 // (see its docblock for the two criteria and for why `aria` is
                 // refused). Spread AFTER the derived keys so an authored
                 // `colors` / `height` overrides the defaults below, and BEFORE
-                // nothing that would shadow the dataset-derived bindings: the
-                // whitelist emits no `xAxisKey` and no `series`, which is what
-                // keeps objectstack#17385's open precedence question (authored
-                // axes vs derived) out of this change.
+                // nothing that would shadow the derived bindings: the whitelist
+                // emits no `xAxisKey` and no `series`. Nor is there an authored
+                // axis to weigh against them: spec 17.5.0 refuses
+                // `chartConfig.xAxis` / `yAxis` / `series` on a dashboard
+                // widget, which answered the precedence question (authored axes
+                // vs derived) that objectstack#17385 carried.
                 const chartPresentation = chartConfigPresentation(widget.chartConfig);
 
                 // provider: 'object' — delegate to ObjectChart for async data loading.
@@ -692,9 +766,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                     // `name`: a wrong-CAUSE diagnostic, since nothing on screen
                     // named the `groupBy` that was actually ignored.
                     const effectiveXAxisKey = chartCategoryKey(effectiveAggregate, xAxisKey);
+                    // The declared node type, `ObjectChartSchema` (objectui#11514):
+                    // `chartType` is the dispatch's `SeriesChartFamily`, one of the
+                    // families that type declares (objectui#11513), with no cast.
                     return {
                         type: 'object-chart',
-                        chartType: resolvedWidgetType,
+                        chartType: dispatch.chartType,
                         objectName: widgetData.object,
                         aggregate: effectiveAggregate,
                         filter: widgetData.filter || widget.filter,
@@ -715,15 +792,22 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                         compareTo: widget.compareTo,
                         className: "h-[200px] sm:h-[250px] md:h-[300px]",
                         ...chartPresentation,
-                    };
+                    } satisfies ObjectChartSchema;
                 }
 
                 // Static inline data array.
                 const dataItems = Array.isArray(widgetData) ? widgetData : widgetData?.items || [];
 
-                return {
+                // `chartType` is the dispatch's resolved family, as on the
+                // `object-chart` node above: a `SeriesChartFamily`, which
+                // `ChartSchema.chartType` (the spec's `ChartType`) declares.
+                // The literal is checked against the dashboard's chart
+                // hand-off, `ChartSchema` plus the two render keys this
+                // producer composes (`./chartRenderHandoff`, objectui#11598),
+                // and handed on with no cast.
+                const chartNode: DashboardChartRenderSchema = {
                     type: 'chart',
-                    chartType: resolvedWidgetType,
+                    chartType: dispatch.chartType,
                     data: dataItems,
                     xAxisKey: xAxisKey,
                     series: [{
@@ -736,6 +820,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                     className: "h-[200px] sm:h-[250px] md:h-[300px]",
                     ...chartPresentation,
                 };
+                return chartNode;
             }
 
             // Single-value families (gauge / solid-gauge / kpi / bullet, and the
@@ -743,7 +828,29 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // was already here as METRIC_LIKE_TYPES — it just picked a grid span
             // and never routed the widget, so four spec chart types fell through
             // to a red error box (#2943).
-            if (dispatch.family === 'metric') {
+            //
+            // `classifyWidgetType` answers `metric` only for a named type, so
+            // the `widgetType` test narrows for the compiler and changes no
+            // verdict: the card's label falls back to that type, and the node's
+            // declared type requires a label (objectui#11466).
+            if (dispatch.family === 'metric' && widgetType !== undefined) {
+                // provider: 'object' — RETIRED for the single-value family
+                // (objectui#11525, maintainer ruling C), with the same
+                // placeholder object the pivot arm below returns
+                // (objectui#10528), imported rather than restated. A metric
+                // binds a semantic-layer `dataset` (ADR-0021), which both
+                // validator faces require on every widget; a stored
+                // dataset-less widget whose `options.data` (or widget-level
+                // `data`) is `{ provider: 'object', … }` is stale metadata. This
+                // branch used to build a flat `object-metric` node carrying an
+                // ObjectQL-dialect `filter` that no node type declares, so the
+                // tile drew a number through a second filter dialect beside the
+                // dataset path. It now draws the visible rebind prompt instead.
+                // A typeless widget resolves to `metric` (objectui#11514), so it
+                // answers here too. The chart and table arms keep their
+                // `provider: 'object'` branches. `DashboardGridLayout`'s metric
+                // arm answers the same way.
+                if (isObjectProvider(widgetData)) return LEGACY_RETIRED_WIDGET_SCHEMA;
                 // objectui#4032 — the KPI card's heading comes from the SAME
                 // convention channel every other widget's header uses
                 // (`{ns}.dashboards.{dash}.widgets.{id}.title`), not from the
@@ -760,42 +867,22 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 // spec-valid inline map that `resolveLabel` could not read, so
                 // an authored title silently became the string `"metric"`.
                 const label = tWidgetTitle(widget) || widgetType;
-                // objectui#4032 item 4 — and the card's SUB-CAPTION comes from
-                // its own key, `…widgets.{id}.subCaption`, because it is a
-                // different authored field (`options.description`) from the
-                // shared header's `widget.description`. Assigned AFTER the
-                // `...options` spread in both branches below: the spread is
-                // what carries the raw authored `options.description` through,
-                // and this is the resolved value that replaces it. When nothing
-                // translates it, `tWidgetSubCaption` hands back exactly what the
-                // spread would have — so an untranslated dashboard is byte-identical.
-                const subCaption = tWidgetSubCaption(widget);
-                // provider: 'object' — ObjectMetricWidget aggregates server-side.
-                if (isObjectProvider(widgetData)) {
-                    const providerAgg = widgetData.aggregate;
-                    return {
-                        type: 'object-metric',
-                        ...options,
-                        objectName: widgetData.object,
-                        label,
-                        description: subCaption,
-                        aggregate: providerAgg ? {
-                            field: providerAgg.field,
-                            function: providerAgg.function,
-                            groupBy: providerAgg.groupBy,
-                        } : undefined,
-                        filter: widgetData.filter || widget.filter,
-                    };
-                }
                 // Static value: an inline `options.value`, else the first row's
                 // measure from an inline data array.
                 const rows = Array.isArray(widgetData) ? widgetData : widgetData?.items || [];
                 const valueField = options.yField || 'value';
                 return {
-                    type: 'metric',
-                    ...options,
+                    // The namespaced node key: the registration passes
+                    // `skipFallback: true` (objectui#10859 batch 8, M3 option A).
+                    // Its declared type is `DashboardMetricNodeSchema`, the
+                    // `CustomNodeRegistry` entry `./widgetDispatch` adds
+                    // (objectui#11466).
+                    type: DASHBOARD_NODE_TYPES.metric,
+                    // The card draws no sub-caption from `options` (objectui#11389,
+                    // ruling C): the spread drops the retired `description` key,
+                    // the same way `DashboardGridLayout`'s metric arm does.
+                    ...withoutRetiredSubCaption(options),
                     label,
-                    description: subCaption,
                     value: options.value ?? rows[0]?.[valueField] ?? '—',
                 };
             }
@@ -879,19 +966,16 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // placeholder instead of falling through to a raw "Unknown component
             // type" error box that dumps the widget JSON.
             if (dispatch.family === 'unsupported') {
-                return {
-                    type: 'text',
-                    content: `「${widgetType}」chart type is not supported yet`,
-                    variant: 'caption',
-                    align: 'center',
-                    className: 'flex h-full w-full items-center justify-center rounded border border-dashed bg-muted/20 p-4 text-muted-foreground',
-                };
+                return unsupportedWidgetSchema(widgetType);
             }
 
-            return {
-                ...widget,
-                ...options
-            };
+            // A widget whose `type` names no family and no component type is
+            // stale metadata both validator faces refuse at `type`. It draws the
+            // labelled placeholder an unsupported family draws, not the
+            // registry's red OBJUI-001 panel dumping the widget (objectui#11514,
+            // Q2 A). A typeless widget never gets here: it resolved to `metric`.
+            // Nor does a component node: the passthrough above took it.
+            return unsupportedWidgetSchema(widgetType);
         };
         
         // Broadcast the dashboard filter values into this widget's inline
@@ -899,34 +983,40 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         // AND-merge it with the widget's own filter. Object-backed child
         // schemas re-fetch on filter change, so no widget renderer changes
         // are needed downstream.
-        const scopedFilter = filterDefs.length > 0
-            ? buildWidgetScopedFilter(widget, filterDefs, filterValues)
+        // Widget arm only: `filterBindings` and `filter` are widget keys, and
+        // the node a component entry becomes takes no filter (objectui#11598).
+        const scopedFilter = widgetArm && filterDefs.length > 0
+            ? buildWidgetScopedFilter(widgetArm, filterDefs, filterValues)
             : undefined;
-        const componentSchema = (() => {
-            // `as BaseSchema`, not `as Record< string, any >` (objectui#4548):
-            // the old cast dropped the `type` every branch of
-            // `getComponentSchema` actually sets, so what reached
-            // `SchemaRenderer` was a bag with no component descriptor as far as
-            // the type system knew. Both spellings keep arbitrary key access
-            // (BaseSchema carries an index signature); only this one keeps
-            // `type`.
-            const cs = getComponentSchema() as BaseSchema;
-            if (scopedFilter && cs && FILTERABLE_COMPONENT_TYPES.has(cs.type)) {
+        const componentSchema = ((): SchemaRendererProps['schema'] => {
+            // No cast (objectui#11466): `getComponentSchema` returns
+            // `SchemaRenderer`'s own prop type, and every branch builds a
+            // declared node. It was `as BaseSchema` (objectui#4548, which
+            // replaced an `as Record< string, any >` that dropped the `type`).
+            // The `filter` read below does not lean on an index signature for
+            // arbitrary key access: it narrows to the node schema that declares
+            // `filter` first (`isFilterableComponentSchema`, objectui#11348).
+            const cs = getComponentSchema();
+            if (scopedFilter && cs && typeof cs === 'object' && isFilterableComponentSchema(cs)) {
                 return { ...cs, filter: mergeFilters(cs.filter, scopedFilter) };
             }
             return cs;
         })();
         // Dataset-bound widgets render through DatasetWidget, which forwards
-        // `widget.filter` to the dataset query as `runtimeFilter`.
-        const effectiveWidget = scopedFilter && datasetBound
-            ? { ...widget, filter: mergeFilters(widget.filter, scopedFilter) }
-            : widget;
+        // `widget.filter` to the dataset query as `runtimeFilter`. Built off
+        // the widget arm, so it is defined exactly when `datasetBound` holds.
+        const datasetWidget = widgetArm && datasetBound
+            ? (scopedFilter ? { ...widgetArm, filter: mergeFilters(widgetArm.filter, scopedFilter) } : widgetArm)
+            : undefined;
         // A `metric` widget renders its own card chrome ONLY in the inline
-        // (object-metric) path. A dataset-bound metric uses DatasetWidget, which
+        // path: the `plugin-dashboard:metric` card, or, for a retired
+        // `provider: 'object'` metric (objectui#11525), the placeholder, which
+        // draws its own border, as the legacy metric shape's placeholder always
+        // has here. A dataset-bound metric uses DatasetWidget, which
         // renders just the value — so it must take the shared Card wrapper to get
         // a title + border like the kpi/gauge widgets (otherwise it shows as bare
         // text with no title, inconsistent with its neighbours).
-        const isSelfContained = widget.type === 'metric' && !datasetBound;
+        const isSelfContained = entryType === 'metric' && !datasetBound;
         const resolvedTitle = tWidgetTitle(widget);
         const resolvedDescription = tWidgetDescription(widget);
         const widgetKey = widget.id || resolvedTitle || `widget-${index}`;
@@ -995,19 +1085,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 )}
                 <CardContent className="p-0">
                     <div className={cn("h-full w-full", "p-3 sm:p-4 md:p-6", designMode && "pointer-events-none")}>
-                        {datasetBound
+                        {datasetWidget
                           ? <DatasetWidget
-                              widget={effectiveWidget}
+                              widget={datasetWidget}
                               dataSource={dataSource}
-                              /* objectui#8889 — dispatch site 1 of 2. Both must pass this;
-                                 passing it from one surface only is objectui#4614's lesson
-                                 repeated. `?? null` is the "resolved to nothing" signal:
-                                 `undefined` would mean "nobody resolved it" and send
-                                 `DatasetWidget` back to its own authored-only limb, which
-                                 is how a bundle entry that resolves to empty would lose to
-                                 the authored value on THIS surface while the inline arms of
-                                 `getComponentSchema()` above render nothing. */
-                              subCaption={tWidgetSubCaption(widget) ?? null}
                             />
                           : <SchemaRenderer schema={componentSchema} dataSource={dataSource} />}
                     </div>
@@ -1049,6 +1130,43 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // spec's `I18nLabel`, a different DECLARED key that stays. The two are told
     // apart by RECEIVER — this one's receiver is the dashboard ROOT.
     const headerTitle = schema.label;
+
+    const recordCountBadge = recordCount !== undefined && (
+      <span className="text-xs text-muted-foreground">
+        {recordCount.toLocaleString(displayLocale)} records
+      </span>
+    );
+
+    /**
+     * The refresh control (with its record-count badge) never takes a row of
+     * its own when there is a row to share (objectui#11694).
+     *
+     * It used to be a `col-span-full` grid item of its own, between the filter
+     * bar and the widgets. In the positioned grid every implicit row has the
+     * `minmax(5rem, auto)` floor, so a button-high control claimed a 5rem row
+     * plus the grid gap; the reading on objectui#11694 (1440x900, a filtered
+     * dashboard) had that band push the first row of charts below the fold. So
+     * it shares, in this order: the filter bar's row (right-aligned, the row
+     * nearest the data it refreshes); else the header's row, when this
+     * renderer draws one; else it stands alone, in a row sized to its content
+     * (see `leadingRows` below).
+     */
+    const refreshControl = onRefresh && (
+      <div className="ml-auto flex shrink-0 items-center gap-3">
+        {recordCountBadge}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          aria-label={tt('dashboard.refreshDashboard', 'Refresh dashboard')}
+        >
+          <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
+          {refreshing ? tt('dashboard.refreshing', 'Refreshing…') : tt('dashboard.refreshAll', 'Refresh All')}
+        </Button>
+      </div>
+    );
+    const refreshInHeader = !!refreshControl && filterDefs.length === 0;
     /**
      * Decide what the header would actually SHOW before deciding whether to
      * render its wrapper at all.
@@ -1075,62 +1193,67 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     const showHeaderDescription = !hideHeaderText && header?.showDescription !== false && !!schema.description;
     const headerActions = header?.actions ?? [];
     const headerSection = header && (showHeaderTitle || showHeaderDescription || headerActions.length > 0) && (
-      <div className="col-span-full mb-4">
-        {showHeaderTitle && (
-          <h2 className="text-lg font-semibold tracking-tight">
-            {dashName
-              ? dashboardLabel({ name: dashName, label: resolveLabel(headerTitle) })
-              : resolveLabel(headerTitle)}
-          </h2>
-        )}
-        {showHeaderDescription && (
-          <p className="text-sm text-muted-foreground mt-1">
-            {dashName
-              ? dashboardDescription({ name: dashName, description: resolveLabel(schema.description) })
-              : resolveLabel(schema.description)}
-          </p>
-        )}
-        {headerActions.length > 0 && (
-          <div className="flex gap-2 mt-3">
-            {headerActions.map((action, i) => {
-              const Icon = resolveLucideIcon(action.icon);
-              const handleClick = async () => {
-                const { actionType, actionUrl } = action;
-                if (!actionType || !actionUrl) {
-                  console.warn('[DashboardRenderer] Header action missing actionType/actionUrl:', action);
-                  return;
-                }
-                if (actionType === 'url') {
-                  if (/^https?:\/\//.test(actionUrl) || actionUrl.startsWith('//')) {
-                    window.location.assign(actionUrl);
-                  } else {
-                    // SPA-friendly navigation: use history API + popstate so React Router picks it up.
-                    window.history.pushState({}, '', actionUrl);
-                    window.dispatchEvent(new PopStateEvent('popstate'));
+      <div className={cn("col-span-full mb-4", refreshInHeader && "flex items-start justify-between gap-3")}>
+        <div className="min-w-0">
+          {/* A `localized` document's label and description are the server's
+              answer and are drawn as given, as its widget texts are (objectui#11295). */}
+          {showHeaderTitle && (
+            <h2 className="text-lg font-semibold tracking-tight">
+              {dashName && !localized
+                ? dashboardLabel({ name: dashName, label: resolveLabel(headerTitle) })
+                : resolveLabel(headerTitle)}
+            </h2>
+          )}
+          {showHeaderDescription && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {dashName && !localized
+                ? dashboardDescription({ name: dashName, description: resolveLabel(schema.description) })
+                : resolveLabel(schema.description)}
+            </p>
+          )}
+          {headerActions.length > 0 && (
+            <div className="flex gap-2 mt-3">
+              {headerActions.map((action, i) => {
+                const Icon = resolveLucideIcon(action.icon);
+                const handleClick = async () => {
+                  const { actionType, actionUrl } = action;
+                  if (!actionType || !actionUrl) {
+                    console.warn('[DashboardRenderer] Header action missing actionType/actionUrl:', action);
+                    return;
                   }
-                  return;
-                }
-                // Everything that is not a raw navigation goes through the
-                // ActionRunner, which owns the type registry. This used to
-                // allow-list `modal` / `script` only, so a `flow` header action
-                // (and `api` / `form` / `navigation`) fell through to a warn and
-                // never dispatched — a screen flow could not even be launched
-                // from a dashboard (framework#3528). The runner reports an
-                // unknown type itself, so there is nothing to second-guess here.
-                // `actionUrl` is non-empty here (the guard above returns
-                // otherwise), and it is the name the def registered under.
-                const result = await executeAction(actionUrl);
-                if (!result?.success) console.warn('[DashboardRenderer] action failed', result?.error);
-              };
-              return (
-                <Button key={i} variant="outline" size="sm" onClick={handleClick}>
-                  {Icon && <Icon className="w-4 h-4 mr-1.5" />}
-                  {tActionLabel(action)}
-                </Button>
-              );
-            })}
-          </div>
-        )}
+                  if (actionType === 'url') {
+                    if (/^https?:\/\//.test(actionUrl) || actionUrl.startsWith('//')) {
+                      window.location.assign(actionUrl);
+                    } else {
+                      // SPA-friendly navigation: use history API + popstate so React Router picks it up.
+                      window.history.pushState({}, '', actionUrl);
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }
+                    return;
+                  }
+                  // Everything that is not a raw navigation goes through the
+                  // ActionRunner, which owns the type registry. This used to
+                  // allow-list `modal` / `script` only, so a `flow` header action
+                  // (and `api` / `form` / `navigation`) fell through to a warn and
+                  // never dispatched — a screen flow could not even be launched
+                  // from a dashboard (framework#3528). The runner reports an
+                  // unknown type itself, so there is nothing to second-guess here.
+                  // `actionUrl` is non-empty here (the guard above returns
+                  // otherwise), and it is the name the def registered under.
+                  const result = await executeAction(actionUrl);
+                  if (!result?.success) console.warn('[DashboardRenderer] action failed', result?.error);
+                };
+                return (
+                  <Button key={i} variant="outline" size="sm" onClick={handleClick}>
+                    {Icon && <Icon className="w-4 h-4 mr-1.5" />}
+                    {tActionLabel(action)}
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {refreshInHeader && refreshControl}
       </div>
     );
 
@@ -1141,15 +1264,31 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         onChange={setFilterValue}
         onReset={resetFilterValues}
         dataSource={dataSource}
-        className="mb-2"
+        className={refreshControl ? 'min-w-0 grow' : undefined}
       />
     );
 
-    const recordCountBadge = recordCount !== undefined && (
-      <span className="text-xs text-muted-foreground">
-        {recordCount.toLocaleString(displayLocale)} records
-      </span>
-    );
+    // The row under the header (objectui#11694): the filter bar with the
+    // refresh control at its right end; or the control alone, when there is no
+    // filter bar and no header row of this renderer's to share.
+    const toolbarRow = filterBar
+      ? (refreshControl ? (
+          <div className="col-span-full flex flex-wrap items-center gap-2">
+            {filterBar}
+            {refreshControl}
+          </div>
+        ) : filterBar)
+      : (refreshControl && !headerSection && (
+          <div className="col-span-full flex">{refreshControl}</div>
+        ));
+    /**
+     * The full-width rows above the widgets: the header and the toolbar row.
+     * In the positioned grid they are explicit `auto` tracks, sized to their
+     * content, so the `minmax(5rem, auto)` floor stays on the widget rows that
+     * need it (objectui#11694). Widgets are auto-placed by span only, so these
+     * leading items always take the first rows.
+     */
+    const leadingRows = (headerSection ? 1 : 0) + (toolbarRow ? 1 : 0);
 
     const userActionsAttr = userActions ? JSON.stringify(userActions) : undefined;
 
@@ -1184,53 +1323,37 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      */
     const hostDomProps = toDomProps(props);
 
-    const refreshButton = onRefresh && (
-      <div className={cn("flex items-center justify-end gap-3 mb-2", !isMobile && "col-span-full")}>
-        {recordCountBadge}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          aria-label="Refresh dashboard"
-        >
-          <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-          {refreshing ? 'Refreshing…' : 'Refresh All'}
-        </Button>
-      </div>
-    );
-
     const widgetIds = useMemo(
-      () => (schema.widgets ?? []).map((w: DashboardWidgetSchema) => w.id).filter((id: string | undefined): id is string => !!id),
+      () => (schema.widgets ?? []).map((w: DashboardWidgetSlotEntry) => w.id).filter((id: string | undefined): id is string => !!id),
       [schema.widgets]
     );
 
     const metricIds = useMemo(
-      () => (schema.widgets ?? []).filter((w: DashboardWidgetSchema) => w.type === 'metric').map((w: DashboardWidgetSchema) => w.id).filter((id: string | undefined): id is string => !!id),
+      () => (schema.widgets ?? []).filter((w: DashboardWidgetSlotEntry) => resolveWidgetType(w) === 'metric').map((w: DashboardWidgetSlotEntry) => w.id).filter((id: string | undefined): id is string => !!id),
       [schema.widgets]
     );
 
     const otherIds = useMemo(
-      () => (schema.widgets ?? []).filter((w: DashboardWidgetSchema) => w.type !== 'metric').map((w: DashboardWidgetSchema) => w.id).filter((id: string | undefined): id is string => !!id),
+      () => (schema.widgets ?? []).filter((w: DashboardWidgetSlotEntry) => resolveWidgetType(w) !== 'metric').map((w: DashboardWidgetSlotEntry) => w.id).filter((id: string | undefined): id is string => !!id),
       [schema.widgets]
     );
 
     if (isMobile) {
       // Separate metric widgets from other widgets for better mobile layout
-      const metricWidgets = schema.widgets?.filter((w: DashboardWidgetSchema) => w.type === 'metric') || [];
-      const otherWidgets = schema.widgets?.filter((w: DashboardWidgetSchema) => w.type !== 'metric') || [];
+      // A typeless widget is a `metric` (the spec's default, objectui#11514).
+      const metricWidgets = schema.widgets?.filter((w: DashboardWidgetSlotEntry) => resolveWidgetType(w) === 'metric') || [];
+      const otherWidgets = schema.widgets?.filter((w: DashboardWidgetSlotEntry) => resolveWidgetType(w) !== 'metric') || [];
 
       const mobileBody = (
         <div ref={ref} {...hostDomProps} className={cn("flex flex-col gap-4 px-4", className)} data-user-actions={userActionsAttr} onClick={handleHostClick}>
           {headerSection}
-          {filterBar}
-          {refreshButton}
+          {toolbarRow}
 
           {/* Metric cards: 2-column grid */}
           {metricWidgets.length > 0 && (
             <div className="grid grid-cols-2 gap-3" onClick={handleBackgroundClick}>
               <SortableContext items={metricIds} strategy={rectSortingStrategy} disabled={!dragEnabled}>
-                {metricWidgets.map((widget: DashboardWidgetSchema, index: number) => renderWidget(widget, index))}
+                {metricWidgets.map((widget: DashboardWidgetSlotEntry, index: number) => renderWidget(widget, index))}
               </SortableContext>
             </div>
           )}
@@ -1239,7 +1362,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
           {otherWidgets.length > 0 && (
             <div className="flex flex-col gap-4" onClick={handleBackgroundClick}>
               <SortableContext items={otherIds} strategy={verticalListSortingStrategy} disabled={!dragEnabled}>
-                {otherWidgets.map((widget: DashboardWidgetSchema, index: number) => renderWidget(widget, index, true))}
+                {otherWidgets.map((widget: DashboardWidgetSlotEntry, index: number) => renderWidget(widget, index, true))}
               </SortableContext>
             </div>
           )}
@@ -1268,6 +1391,11 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
           // spanned row a floor (so `gridRow: span 4` => a real ~20rem box)
           // while still letting taller widgets (tables) grow.
           !hasExplicitColumns && "auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+          // That floor is for widget rows only: the full-width rows above the
+          // widgets (see `leadingRows`) are explicit `auto` tracks, sized to
+          // their content (objectui#11694).
+          hasExplicitColumns && leadingRows === 1 && "grid-rows-[auto]",
+          hasExplicitColumns && leadingRows === 2 && "grid-rows-[auto_auto]",
           className
         )}
         style={{
@@ -1281,10 +1409,9 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         onClick={handleHostClick}
       >
         {headerSection}
-        {filterBar}
-        {refreshButton}
+        {toolbarRow}
         <SortableContext items={widgetIds} strategy={rectSortingStrategy} disabled={!dragEnabled}>
-          {schema.widgets?.map((widget: DashboardWidgetSchema, index: number) => renderWidget(widget, index))}
+          {schema.widgets?.map((widget: DashboardWidgetSlotEntry, index: number) => renderWidget(widget, index))}
         </SortableContext>
       </div>
     );

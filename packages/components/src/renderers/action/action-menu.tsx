@@ -18,7 +18,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import type { ActionDef } from '@object-ui/core';
 import type { UIActionSchema } from '@object-ui/types';
 import { useAction } from '@object-ui/react';
-import { useCondition, toPredicateInput, usePredicateRecordContext, useConfigBagEvaluator } from '@object-ui/react';
+import { useCondition, toPredicateInput, usePredicateRecordContext } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { Button } from '../../ui';
 import {
@@ -33,7 +33,8 @@ import { Loader2, MoreHorizontal } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { useAutoTriggerOnce } from './auto-trigger';
-import { readActionEntryParamValues, readMemberStaticParamValues } from './static-params';
+import { readActionEntryParamValues } from './static-params';
+import { DisabledReasonMenuLabel, menuItemReasonAria, useDisabledReason } from './disabled-reason';
 
 function useMoreActionsLabel(): string {
   // useObjectTranslation is provider-safe (never throws); no try/catch, which
@@ -56,8 +57,8 @@ export interface ActionMenuSchema {
   variant?: string;
   /** Trigger size */
   size?: string;
-  /** Visibility condition */
-  visible?: string;
+  /** Visibility predicate: a boolean, a CEL string, or a `{ dialect, source }` envelope */
+  visible?: boolean | string | { dialect: string; source?: string };
   /** Custom CSS class */
   className?: string;
   [key: string]: any;
@@ -107,6 +108,13 @@ export const ActionMenuItem: React.FC<{
   // was wired; this renderer ignored a spec-authored `disabled`).
   const isDisabledPred = useCondition(toPredicateInput((action as any).disabled), recordData);
   const isEnabled = useCondition(toPredicateInput(action.enabled), recordData);
+  // The reason a greyed-out item gives (objectui#11839): only its DECLARED
+  // `disabled` predicate, evaluated true — the rule `action:button` follows —
+  // drawn the menu-item way: a visible second line that is the item's
+  // description. See `./disabled-reason`.
+  const disabledReason = useDisabledReason(
+    hasDeclaredVisibilityGate(action.disabled) && isDisabledPred,
+  );
 
   const iconElement = useMemo(() => {
     const Icon = resolveIcon(action.icon);
@@ -134,6 +142,7 @@ export const ActionMenuItem: React.FC<{
         : hasDeclaredVisibilityGate(action.enabled)
           ? !isEnabled
           : false}
+      {...menuItemReasonAria(disabledReason)}
       onSelect={(e) => {
         e.preventDefault();
         onExecute(action);
@@ -144,7 +153,7 @@ export const ActionMenuItem: React.FC<{
       )}
     >
       {iconElement}
-      <span>{action.label || action.name}</span>
+      <DisabledReasonMenuLabel reason={disabledReason}>{action.label || action.name}</DisabledReasonMenuLabel>
     </DropdownMenuItem>
   );
 };
@@ -194,9 +203,11 @@ ActionAutoTrigger.displayName = 'ActionAutoTrigger';
 
 // Index signature on the parameter annotation, not on the `forwardRef` type
 // argument — see the mechanism note on `action:bar` (objectui#4422), pinned by
-// `__tests__/forwardref-props-annotation.guard.test.ts`.
+// `__tests__/forwardref-props-annotation.guard.test.ts`. `disabled` is the
+// host-EVALUATED enablement verdict, declared rather than left to the index
+// signature, as `ActionButtonRendererProps` declares it (objectui#9131).
 const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSchema; className?: string }>(
-  ({ schema, className, ...props }: { schema: ActionMenuSchema; className?: string; [key: string]: any }, ref) => {
+  ({ schema, className, ...props }: { schema: ActionMenuSchema; className?: string; disabled?: boolean; [key: string]: any }, ref) => {
     const {
       'data-obj-id': dataObjId,
       'data-obj-type': dataObjType,
@@ -206,13 +217,19 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
       // Also keeps `data` out of `...rest`, which is spread onto the DOM
       // trigger button.
       data,
+      // The host's EVALUATED verdict, taken by name — the objectui#9131 rule
+      // `action:button` and `action:icon` follow (objectui#11182).
+      // `SchemaRenderer` forwards `disabled: __disabled || undefined` with the
+      // key unconditional, and `...rest` is spread after the trigger's own
+      // `disabled`, so a PRESENT `undefined` re-declared it: through
+      // `SchemaRenderer` an in-flight menu's trigger read `disabled=false`
+      // while its spinner showed, and a second execution could start. Taking
+      // it off `rest` removes that second writer; the trigger consumes it.
+      disabled: hostDisabled,
       ...rest
     } = props;
 
     const { execute } = useAction();
-    // The `SchemaRenderer` memo's `properties` evaluation, for the member this
-    // renderer runs itself (objectui#10290) — see `handleExecute`.
-    const evaluateBag = useConfigBagEvaluator();
     const [loading, setLoading] = useState(false);
     const moreActionsLabel = useMoreActionsLabel();
 
@@ -244,19 +261,15 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
           // object is forwarded as values only for `type: 'api'`, the objectstack#5777
           // payload window; any other type drops it (objectui#10462).
           //
-          // The member's static values ride `properties.params`, as on
-          // `action:button`, and are evaluated here with the `SchemaRenderer` memo's
-          // evaluator and scope: the member never passes through that memo
-          // (objectui#10290). Independent of the input list, so both are forwarded.
-          // They win over the `api` window's object `params`, as `properties.params`
-          // wins over a node-level object on `action:button`.
-          const staticValues = readMemberStaticParamValues(action, evaluateBag);
-          const entryValues = Array.isArray(action.params)
-            ? undefined
-            : readActionEntryParamValues(action, action.type, 'action:menu');
+          // A member has no other source of static values. It carries no
+          // `properties` bag, and its static parameter values are not part of the
+          // inline action vocabulary: an action that needs them is its own
+          // `action:button` node, whose `params` object carries them (the spec's
+          // member prescription, objectui#11638). That holds for an `action:bar`
+          // member spilled into this menu too.
           const paramsPayload: ActionDef = Array.isArray(action.params)
-            ? { actionParams: action.params as any, params: staticValues }
-            : { params: staticValues !== undefined ? staticValues : entryValues };
+            ? { actionParams: action.params as any }
+            : { params: readActionEntryParamValues(action, action.type, 'action:menu') };
           await execute({
             type: action.type,
             name: action.name,
@@ -291,6 +304,9 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
             patch: action.patch,
             confirmText: action.confirmText,
             successMessage: action.successMessage,
+            // See action-button.tsx — success copy per handler outcome, the
+            // toast's first rung (objectui#11344).
+            outcomeMessages: action.outcomeMessages,
             errorMessage: action.errorMessage,
             refreshAfter: action.refreshAfter,
             // Placement declaration — see action-button.tsx (#2210).
@@ -316,7 +332,7 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
           setLoading(false);
         }
       },
-      [execute, evaluateBag],
+      [execute],
     );
 
     if (schema.visible && !isVisible) return null;
@@ -366,7 +382,12 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
                 schema.className,
                 className,
               )}
-              disabled={loading}
+              // `hostDisabled` leads the OR (objectui#9131): the host verdict is
+              // a reason to disable, never a reason to enable — `SchemaRenderer`
+              // emits `true` or `undefined`, never `false`. The menu declares no
+              // enablement gate of its own, so the only other source is an
+              // execution in flight. See `action:button`.
+              disabled={hostDisabled || loading}
               aria-label={schema.label || moreActionsLabel}
               {...rest}
               {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
@@ -407,14 +428,38 @@ ComponentRegistry.register('menu', ActionMenuRenderer, {
   namespace: 'action',
   skipFallback: true,
   label: 'Action Menu',
+  // objectui#11168 slice 1 — each key below was decided by measuring what this
+  // renderer reads through the real `SchemaRenderer`, against the installed
+  // `ComponentPropsMap['action:menu']` row; the pins live in
+  // `__tests__/action-group-menu-inputs-11168.test.tsx`. `actions` is a LIST of
+  // action objects (the renderer reads `schema.actions || []`, then `.map`),
+  // and the spec refuses the `object` kind this entry used to declare.
   inputs: [
     { name: 'label', type: 'string' },
     { name: 'icon', type: 'string' },
-    { name: 'actions', type: 'object' },
+    {
+      name: 'actions',
+      type: 'array',
+      of: 'object',
+      description:
+        'The menu\'s actions, in order. Each member is an action object the menu draws and runs itself (`name`, `label`, `icon`, `type`, `target`, `visible`, `disabled`, `tags`, …); a member\'s executor is its own `type`',
+    },
     {
       name: 'variant',
       type: 'enum',
       enum: ['default', 'secondary', 'outline', 'ghost'],
+    },
+    {
+      name: 'size',
+      type: 'enum',
+      enum: ['default', 'sm', 'lg', 'icon'],
+      description: 'Trigger button size (renderer default: `icon`)',
+    },
+    {
+      name: 'visible',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Visibility predicate for the whole menu: `true`/`false`, a bare CEL expression, or the `{ dialect: \'cel\', source }` envelope, evaluated against the row the host binds; a predicate that fails to evaluate hides it. Omit for always-visible',
     },
     { name: 'className', type: 'string' },
   ],

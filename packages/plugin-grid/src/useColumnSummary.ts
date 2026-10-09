@@ -10,8 +10,9 @@ import { useMemo } from 'react';
 import type { ListColumn } from '@object-ui/types';
 import type { ColumnSummary } from '@objectstack/spec/ui';
 import type { CurrencyConfig } from '@objectstack/spec/data';
+import { resolveFieldScale } from '@objectstack/spec/data';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency, createSafeTranslation } from '@object-ui/i18n';
-import { formatCurrency, formatPercent } from '@object-ui/fields';
+import { formatCurrency, formatPercent, percentCellScale } from '@object-ui/fields';
 
 /**
  * Aggregation functions for the column footer — the spec's `ColumnSummary`
@@ -199,6 +200,32 @@ function numericValues(rows: SummaryRow[], field: string): number[] {
 }
 
 /**
+ * The most decimal places any one of `values` carries — the width a computed
+ * result over a column with NO fixed width is rounded to (objectstack#19628,
+ * ruling A′, carried to this footer by objectui#9843).
+ *
+ * Read off each number's own shortest decimal spelling, exponent included, so
+ * `1e-7` counts seven places and `1.5e-7` eight. A result rounded to this
+ * width drops only digits no input had: a sum of `0.1` and `0.2` reads `0.3`,
+ * never the `0.30000000000000004` binary arithmetic produced.
+ *
+ * Capped at 20, the maximum `NumberCellRenderer` renders a no-fixed-width
+ * value to, so the footer never shows a digit the cells above it cannot — and
+ * the bound engines before ES2023 accept for `maximumFractionDigits`.
+ */
+function widestFractionDigits(values: readonly number[]): number {
+  let widest = 0;
+  for (const v of values) {
+    if (!Number.isFinite(v)) continue;
+    const [mantissa, exponent] = String(v).split('e');
+    const point = mantissa.indexOf('.');
+    const fraction = point === -1 ? 0 : mantissa.length - point - 1;
+    widest = Math.max(widest, fraction - (exponent ? Number(exponent) : 0));
+  }
+  return Math.min(widest, 20);
+}
+
+/**
  * Compute a single aggregation over the rows.
  *
  * The count and percent families are cardinalities over *raw* cell values, so
@@ -320,7 +347,7 @@ function formatSummaryLabel(
   type: string,
   value: number | null,
   t: SummaryTranslate,
-  column: { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: { defaultCurrency?: string }; precision?: number | null; scale?: number | null } | undefined,
+  column: { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: { defaultCurrency?: string }; precision?: number | null; scale?: number | null; max?: number } | undefined,
   tenantDefault: string | undefined,
   // The BCP-47 tag from `useDisplayLocale()` — tenant locale, then UI
   // language, then a concrete `'en'`, never `undefined`.
@@ -338,6 +365,11 @@ function formatSummaryLabel(
   // papering over an absent channel (Commandment #0.1). The concrete fallback
   // belongs to `useDisplayLocale`, which already owns it.
   displayLocale: string,
+  // The widest decimal count among the numeric values the aggregation read
+  // (`widestFractionDigits`; 0 when it read none). Only the `number` arm reads
+  // it, and only for a column with no fixed width. Required for the reason
+  // `displayLocale` is: a dropped argument must not type-check into a width.
+  inputFractionDigits: number,
 ): string {
   if (value === null) return '';
   const labelKey = TYPE_LABEL_KEYS[type as ColumnSummaryType];
@@ -372,9 +404,10 @@ function formatSummaryLabel(
     // (`CurrencyCellRenderer`), the same way the percent arm below takes
     // `formatPercent` — so footer and cell agree by reference, not by a copy
     // of the rule. It reads neither `scale` nor `precision`: the width is the
-    // currency's ISO 4217 minor-unit count, a whole amount drops its fraction
-    // (`$1,234`, not `$1,234.00`), and with no code resolved it is a plain
-    // number at two decimals, as the cell renders it.
+    // currency's ISO 4217 minor-unit count, a whole amount included
+    // (`$1,234.00`; objectui#11444 retired the whole-amount trimming), and with
+    // no code resolved it is a plain number at two decimals, as the cell
+    // renders it.
     const currency = resolveFieldCurrency(column, tenantDefault);
     formatted =
       currency && !WELL_FORMED_CURRENCY_CODE.test(currency)
@@ -419,12 +452,43 @@ function formatSummaryLabel(
     // arm above, one type over. Both percent surfaces move together, or this
     // footer and the cell above it disagree.
     //
-    // An ABSENT `scale` stays `0`, matching the list cell's spelling, so the
-    // two agree by construction. (The currency arm above no longer reads
-    // `scale` at all — objectui#10221 — which is a currency-only retirement;
-    // `scale` stays the percent width.)
-    const decimals = column?.scale ?? 0;
-    formatted = formatPercent(value, decimals, displayLocale);
+    // objectui#9843 — an ABSENT `scale` is the PROTOCOL's to answer.
+    // `resolveFieldScale` in `@objectstack/spec/data` returns the declared
+    // width when it is well-formed and otherwise the platform's own value for
+    // a percent column, and the list cell, the detail chip and the edit widget
+    // ask the same function — so the footer and the cell above it agree by
+    // reference, ⛔ not by each spelling a matching `?? 0`. (The currency arm
+    // above no longer reads `scale` at all — objectui#10221 — which is a
+    // currency-only retirement; `scale` stays the percent width.)
+    //
+    // objectui#11475 — and the STORAGE is the field's. A `sum` / `avg` /
+    // `min` / `max` of a percent column is stored the way its field stores,
+    // so the footer reads `percentCellScale` (the spec's `percentScaleOf`
+    // over the field's `max`), the answer the cell above reads. The shared
+    // scaling used to guess from the magnitude, so a fraction-stored column
+    // summing to `1` (100%) read `Sum: 1%` under cells reading the same rows.
+    const decimals = resolveFieldScale(column);
+    formatted = formatPercent(value, percentCellScale(column), decimals, displayLocale);
+  } else if (colType === 'number') {
+    // objectstack#19628, ruled A′ and carried to this footer by objectui#9843:
+    // a `number` column's width is `resolveFieldScale`'s answer too, and for a
+    // `number` that declares no `scale` the answer is `undefined` — NO fixed
+    // width, the value's natural precision, which is how the list cell above
+    // renders it. The protocol deliberately gives `number` no absent-width row.
+    //
+    // A declared width is fixed (`Sum: 3.00` under cells reading `1.50`). With
+    // none, a COMPUTED result is rounded to the widest decimal count among the
+    // values that entered it — derived from the data, ⛔ never a constant. This
+    // arm used to reach `avg` / the plain default below, whose widths (2 and
+    // `Intl`'s 3) were this file's own: an `avg` of `1`, `2`, `2` read
+    // `1.67`, and a `min` over `1.2345` read `1.235`, a value no row held.
+    const width = resolveFieldScale(column);
+    formatted = value.toLocaleString(
+      displayLocale,
+      width === undefined
+        ? { maximumFractionDigits: inputFractionDigits }
+        : { minimumFractionDigits: width, maximumFractionDigits: width },
+    );
   } else if (type === 'avg') {
     formatted = value.toLocaleString(displayLocale, { maximumFractionDigits: 2 });
   } else {
@@ -436,12 +500,17 @@ function formatSummaryLabel(
 /**
  * Hook to compute column summary/aggregation values.
  *
- * @param columns - Column definitions (may include `summary` config)
+ * @param columns - Column definitions (may include `summary` config). Of a
+ *   column's members the hook reads `field`, `summary` and the declared
+ *   `type`; every other formatting hint comes from `fieldMetadata`
+ *   (objectui#11588).
  * @param data - Row data array
  * @param fieldMetadata - Optional `objectSchema.fields` map; when present
  *   the hook reads `type`/`currency`/`currencyConfig`/`defaultCurrency` and,
- *   for a percent column, `scale` to format the summary in the column's native
- *   unit (currency → `$1,234.56`, percent → `12%`).
+ *   for a percent or number column, `scale` (through `resolveFieldScale`) and,
+ *   for a percent column, the storage its `max` declares, to
+ *   format the summary in the column's native unit (currency → `$1,234.56`,
+ *   percent → `12%`).
  * @returns Map of field name to summary result, and a flag if any summaries exist
  */
 export function useColumnSummary(
@@ -449,7 +518,7 @@ export function useColumnSummary(
   data: any[],
   // `currencyConfig` is the spec's own type, not a restated subset, so a field
   // def written in the spec's shape (`currencyMode` included) is accepted as is.
-  fieldMetadata?: Record<string, { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: CurrencyConfig; precision?: number | null; scale?: number | null }>
+  fieldMetadata?: Record<string, { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: CurrencyConfig; precision?: number | null; scale?: number | null; max?: number }>
 ): { summaries: Map<string, ColumnSummaryResult>; hasSummary: boolean } {
   // Tenant default currency (ADR-0053) backstops a currency column that
   // declares no explicit code, so the footer agrees with the cells above it.
@@ -484,28 +553,49 @@ export function useColumnSummary(
       const targetField = config.field || col.field;
       const result = computeAggregation(config.type, data, targetField);
 
-      // Merge column-level hints (`col.currency`, `col.precision`, etc.) with
-      // any matching fieldMetadata entry so authors get correct currency/
-      // percent formatting without restating type info on every column.
+      // The column contributes its declared `type` (a `ListColumn` member,
+      // which outranks the field's); every other hint is read off the FIELD
+      // (`fieldMetadata`) only, as the list cell above reads it.
+      // objectui#10354, objectui#11475, objectui#11588 — `ListColumnSchema`
+      // declares none of `currency`, `defaultCurrency`, `currencyConfig`,
+      // `precision`, `scale` or `max`, and a column-level read would be a
+      // second, undeclared spelling. `col` stays typed as `ListColumn`, so
+      // such a read does not compile here.
       const meta = fieldMetadata?.[targetField];
       const columnHints = {
-        type: (col as any).type ?? meta?.type,
-        currency: (col as any).currency ?? meta?.currency,
-        defaultCurrency: (col as any).defaultCurrency ?? meta?.defaultCurrency,
+        type: col.type ?? meta?.type,
+        currency: meta?.currency,
+        defaultCurrency: meta?.defaultCurrency,
         // objectui#10354 — the spec's one fixed-currency spelling, handed to
         // `resolveFieldCurrency` verbatim, as the cell's bag carries it, so the
-        // footer and the cell above it resolve the same code. Read off the
-        // FIELD only: `ListColumnSchema` declares no `currencyConfig`, and a
-        // column-level read would be a second, undeclared spelling.
+        // footer and the cell above it resolve the same code.
         currencyConfig: meta?.currencyConfig,
-        precision: (col as any).precision ?? meta?.precision,
-        scale: (col as any).scale ?? meta?.scale,
+        precision: meta?.precision,
+        scale: meta?.scale,
+        // objectui#11475 — a percent field's declared `max`, its STORAGE
+        // statement (`percentScaleOf`: a fraction unless `max` is above 1).
+        max: meta?.max,
       };
+
+      // The widest decimal count among the numeric values this aggregation
+      // read — what a no-fixed-width `number` column rounds its result to.
+      // The count and percent families read raw cells, not numbers.
+      const inputFractionDigits = NON_NUMERIC_TYPES.has(config.type)
+        ? 0
+        : widestFractionDigits(numericValues(data, targetField));
 
       summaries.set(col.field, {
         field: col.field,
         value: result,
-        label: formatSummaryLabel(config.type, result, t, columnHints, tenantCurrency, displayLocale),
+        label: formatSummaryLabel(
+          config.type,
+          result,
+          t,
+          columnHints,
+          tenantCurrency,
+          displayLocale,
+          inputFractionDigits,
+        ),
       });
     }
 

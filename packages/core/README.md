@@ -36,6 +36,7 @@ import type {
 
 const mySchema: PageNodeSchema = {
   type: 'page',
+  pageType: 'app',
   title: 'My Page',
   children: []
 }
@@ -177,6 +178,77 @@ withoutDeniedFields({ account_code: 'A-1', salary: 100 }, policy, 'account', ['a
   that is not an object, the record comes back as it is.
 - When nothing is withheld the SAME object comes back, so callers can tell the
   two cases apart by identity.
+
+### Undo snapshot for an update (`captureUpdateUndoData`)
+
+An `undoable` update restores exactly the fields it wrote, from their values
+before the write. `captureUpdateUndoData` is the one rule for reading those
+values off a record. `ActionRunner` uses it, and so should any surface that
+builds its own `update` Undo operation.
+
+```typescript
+import { captureUpdateUndoData, type FieldContainerLike } from '@object-ui/core'
+
+// The written object's field definitions, as its schema serves them
+// (`objectSchema.fields`). Below, `status` is a text field, `account` a
+// lookup and `config` a json field.
+declare const fields: FieldContainerLike
+
+captureUpdateUndoData(['status'], { id: 't1', status: 'open' }, fields) // { status: 'open' }
+captureUpdateUndoData(['status'], { id: 't1', status: null }, fields)   // { status: null }
+captureUpdateUndoData(['status'], { id: 't1' }, fields)                 // undefined
+
+// A relation read with `$expand` is captured as its stored id.
+captureUpdateUndoData(['account'], { id: 't1', account: { id: 'a1', name: 'Acme' } }, fields)
+// { account: 'a1' }
+
+// Any other field is captured as the record carries it, whatever its shape.
+captureUpdateUndoData(['config'], { id: 't1', config: { id: 'c1', mode: 'strict' } }, fields)
+// { config: { id: 'c1', mode: 'strict' } }
+```
+
+- A field counts as carried when it is an own key whose value is not
+  `undefined`. A carried `null` is a real empty value and is captured.
+- When any written field is not carried, the answer is `undefined` and the
+  caller offers no Undo at all. A record projected by `$select`, or one the
+  server stripped of fields the reader may not read, can lack a written field
+  while the server holds a real value for it; a partial or `null` snapshot
+  would overwrite that value on Undo.
+- A field the object declares as a relation (`lookup`, `master_detail`,
+  `user`, `tree`) is captured as the id it stores, and a `multiple` one as the
+  array of ids. `$expand` puts the related record where the id was, and
+  writing that record back into the reference is what Undo must never do.
+  Which fields are relations is read from `fields`, never from the value's
+  shape: a `json` field may hold an object with an `id`.
+- `fields` is required. Pass `undefined` only when the caller has no field
+  definitions for the object; nothing is then treated as a relation.
+
+### Display time zone (`setDisplayTimeZone`)
+
+The date and datetime faces this package exports (`formatDate`,
+`formatDateTime`, `formatDateTimeCompactParts`, `formatRelativeDate`) render
+an instant in one display zone. A host declares it once; no caller passes a
+zone, so every face on the page agrees.
+
+```typescript
+import { formatDateTime, setDisplayTimeZone } from '@object-ui/core'
+
+formatDateTime('2026-09-02T03:00:00Z', { locale: 'en-US' }) // the viewer's zone
+setDisplayTimeZone('America/Los_Angeles')
+formatDateTime('2026-09-02T03:00:00Z', { locale: 'en-US' }) // "Sep 1, 2026, 08:00 PM"
+formatDateTime('2026-09-01', { locale: 'en-US' })           // "Sep 1, 2026, 12:00 AM", in every zone
+setDisplayTimeZone(undefined)                               // back to the viewer's zone
+```
+
+- A date-only value names a calendar day and keeps it in every zone, including
+  the `Date` that `toDisplayDate` builds for one and a caller hands on.
+- "Today" for the relative face is the display zone's today.
+- An IANA name the runtime's `Intl` does not know clears the zone, with a
+  console warning.
+- `getDisplayTimeZone()` reads it back, and `subscribeDisplayTimeZone(listener)`
+  reports changes in React's `useSyncExternalStore` shape. In a React tree,
+  `LocalizationProvider` from `@object-ui/i18n` sets it from its `timezone`
+  value; a renderer never calls the setter.
 
 ## Philosophy
 

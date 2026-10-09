@@ -29,6 +29,15 @@
  * It was found exactly this way: objectui#5903's pin test used this README's
  * example verbatim as its "well-typed" fixture, and the fixture failed.
  *
+ * ⚠️ The mechanism sentence above is objectui#6050's, and objectui#7334
+ * overtook it: `ObjectGantt` now hands the hook its own `onNavigate`, so a
+ * `page` click navigates to the record-page address the gantt derives from
+ * the page it is on (measured by objectui#11168 slice 4, and pinned in
+ * `__tests__/objectGanttInputs-11168.test.tsx`). The conclusion stands: no
+ * `navigation` member authors that address, `basePath` included. Since that
+ * slice the example is the AUTHORED node, so `navigation` is read from its
+ * `properties` bag.
+ *
  * ## No gate in this repo can catch it, which is the point
  *
  * `check-doc-snippet-types` compiles `ts`/`tsx` fences and
@@ -68,14 +77,18 @@
  * the block never carried the key. An instruction can live entirely in prose,
  * which is why the prose is measured here too.
  *
- * WARNING: no schema this package installs can derive that key's retirement.
- * The pinned `@objectstack/spec@17.4.0` still DECLARES `view`, so
- * `declaredMembers()` reports it legal and every schema-derived statement about
- * it is vacuous in this tree; the retirement lands it as a tombstone (typed
- * `never`, raising a prescription at parse) only when the pin moves. It is
- * therefore named by hand, exactly as `basePath` already is -- and the absence
- * carries its own control: the same detector is run over the sentence that used
- * to carry the instruction, in the same file, and must find it there.
+ * WARNING: `declaredMembers()` cannot derive that key's retirement. When this
+ * was written the spec in the lockfile (17.4.0) still DECLARED `view` as a live
+ * member. The installed `@objectstack/spec` 17.7.0 lands it as a tombstone,
+ * as 17.5.0 and 17.6.0 did (objectui#11073 measured it, objectui#11438 and
+ * objectui#11717 again: a `never`
+ * schema, and `{ view: 'detail' }` is
+ * refused at `view` with "`view.list.navigation.view` was removed in
+ * @objectstack/spec 17.5.0") -- but a tombstone is still a KEY of the shape,
+ * so the key-set reading below lists it exactly as it listed the live member.
+ * It is therefore named by hand, exactly as `basePath` already is -- and the
+ * absence carries its own control: the same detector is run over the sentence
+ * that used to carry the instruction, in the same file, and must find it there.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -99,7 +112,7 @@ const README = join(repoRoot(), 'packages/plugin-gantt/README.md');
 
 /** The bullet that documents the override, and the sentence that introduces it. */
 const SECTION_HEADING = '\n### Create / Edit / Delete / View\n';
-const ANCHOR = 'Override by setting `navigation` on the schema';
+const ANCHOR = 'Override it with `navigation` in the `properties` bag';
 
 /**
  * The declared member names, read out of the schema's OWN shape. Restating them
@@ -160,10 +173,13 @@ function readmeExample(): Record<string, unknown> {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new Error('the README\'s navigation example is not a JSON object');
   }
-  const doc = parsed as Record<string, unknown>;
-  const nav = doc.navigation;
+  const bag = (parsed as Record<string, unknown>).properties;
+  if (typeof bag !== 'object' || bag === null || Array.isArray(bag)) {
+    throw new Error('the README\'s navigation example is no longer an authored node with a `properties` bag');
+  }
+  const nav = (bag as Record<string, unknown>).navigation;
   if (typeof nav !== 'object' || nav === null || Array.isArray(nav)) {
-    throw new Error('the README\'s navigation example no longer carries a `navigation` object');
+    throw new Error('the README\'s navigation example no longer carries a `navigation` object in its bag');
   }
   return nav as Record<string, unknown>;
 }
@@ -254,7 +270,7 @@ describe('plugin-gantt README: the record-navigation example', () => {
   it('still teaches the thing its sentence promises — page mode', () => {
     expect(
       EXAMPLE.mode,
-      'The sentence promises "route to the standalone detail page instead". `mode` is what ' +
+      'The example shows `page` opening the record page in the same tab. `mode` is what ' +
         'delivers that; an example that lost it would be valid and useless.',
     ).toBe('page');
   });
@@ -263,7 +279,7 @@ describe('plugin-gantt README: the record-navigation example', () => {
     expect(
       navigationSection().includes(REJECTED_KEY),
       `\`${REJECTED_KEY}\` is not authorable here in any spelling — prose or fence. ` +
-        '`useNavigationOverlay` builds no URL out of this config; the host owns the route.',
+        'No member of this config authors the address: the gantt derives it from the page it is on.',
     ).toBe(false);
   });
 

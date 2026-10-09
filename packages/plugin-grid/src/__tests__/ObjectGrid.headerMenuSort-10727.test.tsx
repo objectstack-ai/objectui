@@ -87,7 +87,7 @@ function makeDataSource() {
         name: { type: 'text' },
         amount: { type: 'currency' },
         expected_revenue: { type: 'formula', expression: 'amount * probability / 100' },
-        owner: { type: 'lookup', reference_to: 'user' },
+        owner: { type: 'lookup', reference: 'user' },
       },
     }),
   } as any;

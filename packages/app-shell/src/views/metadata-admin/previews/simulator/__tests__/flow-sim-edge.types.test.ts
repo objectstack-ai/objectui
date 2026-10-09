@@ -1,8 +1,9 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * `SimEdge.condition` is the spec's expression envelope — pinned at compile
- * time (objectui#3216).
+ * `SimEdge.condition` is the spec's EVALUATED expression input — the type of
+ * the server's own edge slot — pinned at compile time (objectui#3216,
+ * objectui#8946).
  *
  * This was the LAST copy of the restatement objectui#3202 removed from
  * `FlowDesignerEdge`: `string | { source?: string }`, a spelling wrong in both
@@ -21,6 +22,13 @@
  * `undefined`) and skipped envelope guards the engine evaluates. The assertions
  * below make the local type incapable of describing either error again.
  *
+ * objectui#8946 moved it once more, and not by hand: it still imports, but it
+ * imports the type of the slot. `FlowEdgeSchema.condition` composes
+ * `EvaluatedExpressionInputSchema` since objectstack#15807, and the spec's
+ * `ExpressionInput`, which this member used to be, is the persistence contract
+ * (`source` OR `ast`). That type admits an `ast`-only guard the edge slot
+ * refuses at parse, so it had become wider than the slot it mirrored.
+ *
  * The assertions ARE the file, and `packages/app-shell/tsconfig.test.json` is
  * what makes them a check: it compiles every `src/**\/*.test.ts` in the package,
  * this file included, chained off the package's `type-check` script. Uncompiled
@@ -34,7 +42,7 @@
 import { describe, it, expect } from 'vitest';
 import { FlowEdgeSchema } from '@objectstack/spec/automation';
 import type { z } from 'zod';
-import type { ExpressionInput } from '@objectstack/spec/shared';
+import type { EvaluatedExpressionInput, ExpressionInput } from '@objectstack/spec/shared';
 import type { SimEdge } from '../flow-sim-types';
 import type { FlowDesignerEdge } from '../../flow-canvas-layout';
 
@@ -49,15 +57,15 @@ type Condition = NonNullable< SimEdge['condition'] >;
 /** An edge as the server PERSISTS it — `FlowEdgeSchema`'s parsed output. */
 type PersistedEdge = z.infer< typeof FlowEdgeSchema >;
 
-describe('SimEdge.condition mirrors the spec ExpressionInput', () => {
+describe('SimEdge.condition mirrors the spec EvaluatedExpressionInput', () => {
   it('is pinned at compile time', () => {
     // Guard against the probe lying: were either side `any`, every
     // assignability assertion below would pass while proving nothing.
-    type _SpecNotAny = Assert< Equal< IsAny< ExpressionInput >, false > >;
+    type _SpecNotAny = Assert< Equal< IsAny< EvaluatedExpressionInput >, false > >;
     type _LocalNotAny = Assert< Equal< IsAny< Condition >, false > >;
 
     // Not "compatible with" — the SAME type. Restating it is how they drift.
-    type _IsExactlyTheSpecType = Assert< Equal< Condition, ExpressionInput > >;
+    type _IsExactlyTheSpecType = Assert< Equal< Condition, EvaluatedExpressionInput > >;
 
     // …and therefore the same type the designer canvas carries, so an edge can
     // cross from the canvas into the simulator with nothing to reconcile.
@@ -78,6 +86,12 @@ describe('SimEdge.condition mirrors the spec ExpressionInput', () => {
     type _DialectlessRejected = Assert< Equal< Extends< { source: string }, Condition >, false > >;
     // And `dialect` is closed over the spec's three dialects.
     type _DialectIsClosed = Assert< Equal< Extends< { dialect: 'sql'; source: string }, Condition >, false > >;
+    // objectui#8946: an `ast`-only guard is not expressible, because the edge
+    // slot refuses it at parse. The persistence contract still admits it, and
+    // that is the control that keeps this assertion from passing vacuously.
+    type _AstOnlyRejected = Assert< Equal< Extends< { dialect: 'cel'; ast: unknown }, Condition >, false > >;
+    type _PersistenceNotAny = Assert< Equal< IsAny< ExpressionInput >, false > >;
+    type _AstOnlyIsPersistable = Assert< Extends< { dialect: 'cel'; ast: unknown }, ExpressionInput > >;
 
     // The whole point, stated end to end: an edge the SERVER hands back is a
     // thing the simulator accepts, with no reconciliation and no cast. That is

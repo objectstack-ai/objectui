@@ -74,8 +74,8 @@ branching in component code.
 
 These are the structural types to reach for. By volume in the schema
 catalogue, `flex`, `stack` and `box` are the three most-used layout nodes, so
-reach for them before anything heavier. All take `children` and read every key
-off the node.
+reach for them before anything heavier. All but `flex` take `children` and read
+every key off the node; `flex` takes its props and `children` in `properties`.
 
 | `type` | Renders | Key props (renderer defaults) | Reach for it when |
 |---|---|---|---|
@@ -86,7 +86,7 @@ off the node.
 | `box` | a bare `div` | none — `className` passes through **verbatim**, and the renderer injects nothing | you want a wrapper that adds no layout of its own: a Tailwind-only block, a positioning anchor |
 
 Use whichever of `flex` / `stack` names your intent; do not set
-`direction: "col"` on a `flex`.
+`direction: "col"` on a `flex`; `objectui validate` refuses flat `flex` props.
 
 `box` exists because every other option injects layout — the props column
 above, plus `card`'s border, shadow and `CardContent` wrapper. When you want
@@ -122,15 +122,19 @@ Keep custom component registrations namespaced to avoid collisions.
 ### 5. Use action data, not inline callback spaghetti
 
 Represent interactions as data: a control that runs something is an `action:button`
-node, and `actionType` names the executor the action runner dispatches to.
+node. Its props go in the `properties` bag — `actionType` names the executor the
+action runner dispatches to — never flat on the node, which the spec's strict page
+component refuses (ADR-0089 D3a).
 
 <!-- os:check -->
 ```json
 {
   "type": "action:button",
-  "label": "Save customer",
-  "actionType": "url",
-  "target": "/customers"
+  "properties": {
+    "label": "Save customer",
+    "actionType": "url",
+    "target": "/customers"
+  }
 }
 ```
 
@@ -225,43 +229,44 @@ no second copy.
 
 ## Plugin integration in page schemas
 
-When pages need heavy widgets (grids, forms, kanbans, charts), import the plugin package and ensure its components are registered before rendering. Plugin
-widgets read their configuration off the node exactly like the built-in
-renderers do (`schema.objectName`, `schema.columns`, `schema.fields`,
-`schema.gantt`) — the `props` envelope is not read here either.
+When pages need heavy widgets (grids, forms, kanbans, charts), import the plugin package and ensure its components are registered before rendering. An
+`object-grid`, `object-form` or `object-gantt` takes its props in the spec's
+`properties` bag, and `objectui validate` refuses the flat spelling by name;
+`object-kanban` declares its keys on the node. The `props` envelope is not read here either.
 
-**Grid plugin example:**
+**Grid plugin example** — `bind` is a node key, so it stays beside the bag:
 <!-- os:check -->
 ```json
 {
   "type": "object-grid",
-  "objectName": "products",
-  "columns": [
-    { "field": "name", "label": "Name", "type": "text" },
-    { "field": "price", "label": "Price", "type": "currency" },
-    { "field": "status", "label": "Status", "type": "select" }
-  ],
+  "properties": {
+    "objectName": "products",
+    "columns": [
+      { "field": "name", "label": "Name", "type": "text" },
+      { "field": "price", "label": "Price", "type": "currency" },
+      { "field": "status", "label": "Status", "type": "select" }
+    ]
+  },
   "bind": "products"
 }
 ```
 
-> **Grid columns key off `field`; form fields key off `name`.** The two layers sit
-> next to each other here and use the same pair of words for opposite things:
-> `ListColumn.field` names the object field a column shows, while `FormField.name`
-> names the field a form input writes. A grid column written as `{ "name": ... }`
-> names no field, so `ObjectGrid` drops it.
+> **Grid columns are `{ "field" }` objects; `object-form` `fields` are names.**
+> `ListColumn.field` names the object field a column shows, so a grid column
+> written as `{ "name": ... }` names no field and `ObjectGrid` drops it. Form
+> labels, types and `required` come from the object fields; a per-form override
+> goes on a `sections[].fields` entry, `{ "field": "email", "required": true }`.
 
 **Form plugin example:**
 <!-- os:check -->
 ```json
 {
   "type": "object-form",
-  "objectName": "customer",
-  "mode": "edit",
-  "fields": [
-    { "name": "name", "label": "Name", "type": "text", "required": true },
-    { "name": "email", "label": "Email", "type": "text" }
-  ]
+  "properties": {
+    "objectName": "customer",
+    "mode": "edit",
+    "fields": ["name", "email"]
+  }
 }
 ```
 
@@ -281,11 +286,13 @@ renderers do (`schema.objectName`, `schema.columns`, `schema.fields`,
 ```json
 {
   "type": "object-gantt",
-  "objectName": "project_task",
-  "gantt": {
-    "titleField": "name",
-    "startDateField": "start_date",
-    "endDateField": "end_date"
+  "properties": {
+    "objectName": "project_task",
+    "gantt": {
+      "titleField": "name",
+      "startDateField": "start_date",
+      "endDateField": "end_date"
+    }
   }
 }
 ```
@@ -294,12 +301,8 @@ Those three `gantt` keys are the required ones; every other option — the tree,
 dependency, baseline, resource-view, quick-filter, working-calendar and
 read-only surfaces — is optional and documented in
 [`@object-ui/plugin-gantt`'s README](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-gantt/README.md).
-The same configuration can also be written as flat `startDateField` /
-`endDateField` / ... keys **on the node** — never under `props`, which no
-`ui:*` renderer reads. That flat spelling is the internal ObjectView / ListView
-flatten product: it is taken only when there is no `gantt` block, and a node
-carrying both renders the block and warns about the ignored top-level keys.
-Author the `gantt` block.
+A flat `startDateField` / `endDateField` / `titleField` on the node is refused
+by name; the refusal points at `properties.gantt.KEY`, the block's one home.
 
 Import plugins in your app entry point to trigger registration:
 <!-- os:check -->

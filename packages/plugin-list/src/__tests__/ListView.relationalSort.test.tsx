@@ -33,9 +33,9 @@ const objectDef = {
   fields: {
     name: { type: 'text', label: 'Name' },
     amount: { type: 'number', label: 'Amount' },
-    owner: { type: 'lookup', label: 'Owner', reference_to: 'sys_user' },
-    account: { type: 'master_detail', label: 'Account', reference_to: 'accounts' },
-    assignee: { type: 'user', label: 'Assignee', reference_to: 'sys_user' },
+    owner: { type: 'lookup', label: 'Owner', reference: 'sys_user' },
+    account: { type: 'master_detail', label: 'Account', reference: 'accounts' },
+    assignee: { type: 'user', label: 'Assignee', reference: 'sys_user' },
     // No target key. It carried the retired snake_case spelling, which
     // `FieldSchema` refuses BY NAME, and the sort picker's object-def branch
     // reads only the declared `reference` (objectui#6837 half 2) — so the

@@ -67,19 +67,86 @@ import { validate } from '../commands/validate.js';
 /**
  * The head's refused count (objectui#10859 batch 1: 79 on `main` before it,
  * minus the three `@object-ui/plugin-ai` arms; batch 2: minus `pivot`,
- * `object-metric` and `object-master-detail-form`). LOWER it when a batch arms
- * more keys; never raise it.
+ * `object-metric` and `object-master-detail-form`; batch 3: minus
+ * `object-timeline`, armed from its `@objectstack/spec` 17.5.0 row; batch 7:
+ * minus the six `@object-ui/plugin-designer` keys; batch 8: minus the thirty
+ * (iii) keys RETIRED rather than armed — the 28 bare field-widget fallbacks
+ * and the `tree` / `view` aliases, see `RETIRED_BARE_KEYS_10859_BATCH_8`;
+ * batch 8 phase 2b: minus twelve more RETIRED keys, see
+ * `RETIRED_BARE_KEYS_10859_BATCH_8_PHASE_2B`; batch 8 phase 2c: minus four
+ * more, see `UNREGISTERED_10859_BATCH_8_PHASE_2C`; objectui#11441, run as one
+ * more batch of this card: minus `navigation-renderer` and `responsive-grid`,
+ * see `UNREGISTERED_11441`; batch 8 phase 2d: minus the ten `sidebar-*`
+ * primitives, see `UNREGISTERED_10859_BATCH_8_PHASE_2D`; objectui#11440: minus
+ * the seven keys its first pull request armed, see `ARMED_11440`, and then
+ * `spec-report`, which its second pull request RETIRED, see
+ * `UNREGISTERED_11440`). LOWER it when a batch arms or retires more keys;
+ * never raise it.
+ *
+ * None remains: `STILL_REFUSED_10859` is empty, and the row below pins the
+ * refused set to exactly that list, with a lit control that the filter still
+ * fires on an unregistered key, so an empty reading is a measurement and not
+ * an instrument that stopped running. Of the eight keys the seat ruling left
+ * registered, seven are armed — `object-pivot`, `embeddable-form`,
+ * `detail-section`, `home`, `record`, `utility` and `app-schema-renderer` —
+ * and `spec-report`, an alias of `report`, is retired in the ruling's step
+ * order: `report` declares the wrapper shape `spec-report` carried, the
+ * dashboard's drill drawer writes `report`, then the alias goes.
+ *
+ * `navigation-renderer` and `responsive-grid`, the two the seat sent to the
+ * maintainer, were ruled B / B on objectui#11441 (record `5950208338`) and are
+ * retired.
+ *
+ * The ten `sidebar-*` primitives were phase 2b's third fork. The seat's fork
+ * ruling (`5948252391`) chose A, conditionally, and phase 2d executed it: the
+ * armed `sidebar` supplies its own `SidebarProvider` only when no provider is
+ * above it, the four `components-basic-sidebar` documents and `sidebar.mdx`
+ * teach that node, and the ten are unregistered.
+ *
+ * Phase 2b's other forks are closed by the same ruling and retired in phase 2c:
+ * `pie-chart`, `donut-chart` and `radar-chart` once
+ * `@object-ui/plugin-charts`' `examples/chart-examples.ts`, their one producer,
+ * moved to `{ type: 'chart', chartType }`; and `page-header`, whose phase-2b
+ * reason was a misreading. objectstack's `page-header-subtitle-alias`
+ * conversion renames the KEY `description` → `subtitle` on both header
+ * spellings. Its docblock says it does not rewrite the type, and that the type
+ * registration is objectui's to retire on its own schedule; its fixtures are
+ * test data, not producers.
+ *
+ * The seat's projection was 10 after phase 2d and 2 after objectui#11440, the
+ * last 2 waiting on objectui#11441. That card ran first, so the count is 8
+ * after phase 2d, and objectui#11440 then takes it to 0.
  */
-const REFUSED_AT_TYPE = 73;
+const REFUSED_AT_TYPE = 0;
 
 /**
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
  * 418 on `main` before it, minus the twenty ADR-0080 public blocks armed from
  * their `@objectstack/spec` `ComponentPropsMap` rows; batch 2: minus
- * `element:number`, armed with the spec's `dataSource` waiver). LOWER it when
- * a batch arms more keys; never raise it.
+ * `element:number`, armed with the spec's `dataSource` waiver; batch 4: minus
+ * the six blocks `@objectstack/spec` 17.5.0 gave a row; objectui#10859 batch 8:
+ * minus `view:tree` and `plugin-view:view`, the namespaced twins of the `tree` /
+ * `view` aliases it unregistered; objectui#10859 batch 8 phase 2b: minus the
+ * ten namespaced twins of the keys it unregistered — `plugin-charts:scatter-chart`,
+ * `plugin-dashboard:dashboard-grid`, `plugin-form:form-analytics`,
+ * `plugin-grid:import-wizard`, `view:shared-view-link`, the four
+ * `plugin-designer:` keys and `plugin-detail:related-list`; objectui#10859
+ * batch 8 phase 2c: minus the five namespaced twins of the four keys it
+ * unregistered — `plugin-charts:pie-chart`, `plugin-charts:donut-chart`,
+ * `plugin-charts:radar-chart`, `layout:page-header` and
+ * `protocol-placeholder:page-header`; objectui#11441: minus
+ * `layout:navigation-renderer` and `layout:responsive-grid`, the namespaced
+ * twins of the two keys it unregistered; objectui#10859 batch 8 phase 2d: minus
+ * the ten `ui:sidebar-*` twins of the ten `sidebar-*` primitives it
+ * unregistered). LOWER it when a batch arms or retires more keys; never raise
+ * it. objectui#11440 armed seven bare keys and none of their namespaced twins
+ * (`ARMED_11440` maps each to its twins), so its first pull request did not
+ * move this pin; its second took it down by one, `plugin-report:spec-report`,
+ * the namespaced twin of the `spec-report` key it unregistered. objectui#10872:
+ * minus `record:line_items`, armed from the row `@objectstack/spec` 17.6.0
+ * gave it, the last public block held.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 397;
+const NAMESPACED_REFUSED_AT_TYPE = 360;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -100,6 +167,135 @@ const ARMED_PUBLIC_BLOCKS_10872 = [
 
 /** The public block objectui#10872 batch 2 armed. */
 const ARMED_PUBLIC_BLOCKS_10872_BATCH_2 = ['element:number'] as const;
+
+/** The six public blocks objectui#10872 batch 4 armed, held until `@objectstack/spec` 17.5.0 carried their rows. */
+const ARMED_PUBLIC_BLOCKS_10872_BATCH_4 = [
+  'action:button', 'action:icon', 'action:group', 'action:menu', 'element:definition-list', 'element:repeater',
+] as const;
+
+/** The last public block objectui#10872 held, armed once `@objectstack/spec` 17.6.0 carried its row. */
+const ARMED_PUBLIC_BLOCKS_10872_LINE_ITEMS = ['record:line_items'] as const;
+
+/**
+ * The thirty bare keys objectui#10859 batch 8 RETIRED (the seat's ruling on the
+ * card), named so the row below says which keys left the population and how:
+ * the 28 field-widget fallbacks through `FIELD_TYPES_SKIP_FALLBACK` in
+ * `@object-ui/fields` (their `field:TYPE` keys stay), and the `tree` / `view`
+ * aliases by unregistration.
+ */
+const RETIRED_FIELD_FALLBACKS_10859_BATCH_8 = [
+  'auto_number', 'boolean', 'checkboxes', 'color', 'currency', 'date', 'datetime',
+  'file', 'formula', 'geolocation', 'location', 'lookup', 'master_detail', 'multiselect',
+  'number', 'object', 'percent', 'phone', 'qrcode', 'radio', 'rating', 'richtext',
+  'signature', 'summary', 'tags', 'url', 'user', 'vector',
+] as const;
+const RETIRED_BARE_KEYS_10859_BATCH_8 = [...RETIRED_FIELD_FALLBACKS_10859_BATCH_8, 'tree', 'view'] as const;
+
+/**
+ * The twelve bare keys objectui#10859 batch 8 phase 2b RETIRED (the seat's
+ * ruling `5945530142`, as amended by `5945583855`): ten by unregistration, each
+ * with a tombstone docblock where it was registered, and the `metric` /
+ * `metric-card` node keys through `skipFallback: true` (M3 option A — the
+ * dashboard surfaces emit the namespaced keys; the widget vocabulary is
+ * untouched).
+ */
+const UNREGISTERED_10859_BATCH_8_PHASE_2B = {
+  'scatter-chart': 'plugin-charts:scatter-chart',
+  'dashboard-grid': 'plugin-dashboard:dashboard-grid',
+  'form-analytics': 'plugin-form:form-analytics',
+  'import-wizard': 'plugin-grid:import-wizard',
+  'shared-view-link': 'view:shared-view-link',
+  'app-creation-wizard': 'plugin-designer:app-creation-wizard',
+  'branding-editor': 'plugin-designer:branding-editor',
+  'dashboard-editor': 'plugin-designer:dashboard-editor',
+  'navigation-designer': 'plugin-designer:navigation-designer',
+  'related-list': 'plugin-detail:related-list',
+} as const;
+const SKIP_FALLBACK_10859_BATCH_8_PHASE_2B = {
+  metric: 'plugin-dashboard:metric',
+  'metric-card': 'plugin-dashboard:metric-card',
+} as const;
+const RETIRED_BARE_KEYS_10859_BATCH_8_PHASE_2B = [
+  ...Object.keys(UNREGISTERED_10859_BATCH_8_PHASE_2B),
+  ...Object.keys(SKIP_FALLBACK_10859_BATCH_8_PHASE_2B),
+];
+
+/**
+ * The four bare keys objectui#10859 batch 8 phase 2c RETIRED by unregistration
+ * (the seat's fork ruling `5948252391`), each mapped to the namespaced twins
+ * that went with it. `page-header` had two: `@object-ui/layout`'s registration
+ * and the opt-in `PROTOCOL_COMPONENTS` placeholder in `@object-ui/components`.
+ */
+const UNREGISTERED_10859_BATCH_8_PHASE_2C = {
+  'pie-chart': ['plugin-charts:pie-chart'],
+  'donut-chart': ['plugin-charts:donut-chart'],
+  'radar-chart': ['plugin-charts:radar-chart'],
+  'page-header': ['layout:page-header', 'protocol-placeholder:page-header'],
+} as const;
+
+/**
+ * The two bare keys objectui#11441 RETIRED by unregistration (the maintainer's
+ * ruling `5950208338`, letters B / B, run as one more batch of this card), each
+ * mapped to the namespaced twin that went with it. Both were
+ * `@object-ui/layout` registrations; `NavigationRenderer` and `ResponsiveGrid`
+ * stay exports.
+ */
+const UNREGISTERED_11441 = {
+  'navigation-renderer': ['layout:navigation-renderer'],
+  'responsive-grid': ['layout:responsive-grid'],
+} as const;
+
+/**
+ * The ten bare keys objectui#10859 batch 8 phase 2d RETIRED by unregistration
+ * (the seat's fork ruling `5948252391`, "Fork 3"), each mapped to the `ui:`
+ * twin that went with it. One tombstone docblock in
+ * `@object-ui/components`' `renderers/navigation/sidebar.tsx` covers all ten.
+ */
+const UNREGISTERED_10859_BATCH_8_PHASE_2D = {
+  'sidebar-provider': ['ui:sidebar-provider'],
+  'sidebar-header': ['ui:sidebar-header'],
+  'sidebar-content': ['ui:sidebar-content'],
+  'sidebar-group': ['ui:sidebar-group'],
+  'sidebar-menu': ['ui:sidebar-menu'],
+  'sidebar-menu-item': ['ui:sidebar-menu-item'],
+  'sidebar-menu-button': ['ui:sidebar-menu-button'],
+  'sidebar-footer': ['ui:sidebar-footer'],
+  'sidebar-inset': ['ui:sidebar-inset'],
+  'sidebar-trigger': ['ui:sidebar-trigger'],
+} as const;
+
+/**
+ * The seven bare keys objectui#11440's first pull request ARMED (the seat
+ * ruling `5945530142`, as amended by `5945583855`), each mapped to its
+ * namespaced twins. A twin is a separate registry key with its own literal, so
+ * arming the bare key does not arm it: each twin is still refused at `type`,
+ * and `NAMESPACED_REFUSED_AT_TYPE` does not move. The three page kinds are
+ * registered in the `ui` namespace by `@object-ui/components`.
+ */
+const ARMED_11440 = {
+  home: ['ui:home'],
+  record: ['ui:record'],
+  utility: ['ui:utility'],
+  'app-schema-renderer': ['layout:app-schema-renderer'],
+  'object-pivot': ['plugin-dashboard:object-pivot'],
+  'embeddable-form': ['plugin-form:embeddable-form'],
+  'detail-section': ['plugin-detail:detail-section'],
+} as const;
+
+/**
+ * The bare key objectui#11440's second pull request RETIRED by unregistration
+ * (the seat ruling `5945530142`: the capability passes, the spelling is an
+ * alias of `report`), mapped to the namespaced twin that went with it.
+ */
+const UNREGISTERED_11440 = {
+  'spec-report': ['plugin-report:spec-report'],
+} as const;
+
+/**
+ * Every bare key still refused at `type` after objectui#11440 — none. The
+ * `REFUSED_AT_TYPE` docblock says how each of the last eight left.
+ */
+const STILL_REFUSED_10859: readonly string[] = [];
 
 /** Is `type` unclaimed by every arm of the validator's root union? */
 function refusedAtType(type: string): boolean {
@@ -128,8 +324,9 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
 
   it('reads the whole generated population, not a fragment of it (non-vacuity)', () => {
     // The card's measurement was over this same population; a filter that
-    // matched nothing would make the count above trivially small.
-    expect(BARE_KEYS.length).toBeGreaterThan(200);
+    // matched nothing would make the count above trivially small. (The floor
+    // was 200 until objectui#10859 batch 8 unregistered thirty bare keys.)
+    expect(BARE_KEYS.length).toBeGreaterThan(150);
     expect(BARE_KEYS).toContain('timeline');
     expect(BARE_KEYS).toContain('ai-form-assist');
   });
@@ -157,6 +354,156 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
       expect(refusedAtType(key), key).toBe(false);
     }
   });
+
+  it('counts the key batch 3 armed (objectui#10859 batch 3)', () => {
+    expect(BARE_KEYS).toContain('object-timeline');
+    expect(refusedAtType('object-timeline')).toBe(false);
+  });
+
+  it('counts the six designer keys batch 7 armed (objectui#10859 batch 7)', () => {
+    for (const key of [
+      'page-designer', 'data-model-designer', 'process-designer',
+      'report-designer', 'object-manager', 'field-designer',
+    ]) {
+      expect(BARE_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(false);
+    }
+  });
+
+  it('counts the thirty keys batch 8 retired as gone from the registry (objectui#10859 batch 8)', () => {
+    // Retired, not armed: each key left the generated population, so it can
+    // neither be refused nor pass. Still refused at `type` — no arm was added.
+    for (const key of RETIRED_BARE_KEYS_10859_BATCH_8) {
+      expect(BARE_KEYS, key).not.toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+    }
+    // The field widgets themselves stay registered, under `field:TYPE` only.
+    for (const key of RETIRED_FIELD_FALLBACKS_10859_BATCH_8) {
+      expect(NAMESPACED_KEYS, `field:${key}`).toContain(`field:${key}`);
+    }
+    // The aliases' namespaced twins went with them; the canonical blocks stay.
+    expect(NAMESPACED_KEYS).not.toContain('view:tree');
+    expect(NAMESPACED_KEYS).not.toContain('plugin-view:view');
+    expect(BARE_KEYS).toContain('object-tree');
+    expect(BARE_KEYS).toContain('object-view');
+  });
+
+  it('counts the twelve keys batch 8 phase 2b retired as gone from the registry (objectui#10859 batch 8)', () => {
+    expect(RETIRED_BARE_KEYS_10859_BATCH_8_PHASE_2B).toHaveLength(12);
+    // Retired, not armed: each bare key left the population and is still
+    // refused at `type`, because no arm was added.
+    for (const key of RETIRED_BARE_KEYS_10859_BATCH_8_PHASE_2B) {
+      expect(BARE_KEYS, key).not.toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+    }
+    // Unregistered: the namespaced twin went too.
+    for (const twin of Object.values(UNREGISTERED_10859_BATCH_8_PHASE_2B)) {
+      expect(NAMESPACED_KEYS, twin).not.toContain(twin);
+    }
+    // `skipFallback`: the namespaced key the dashboard surfaces emit stays.
+    for (const kept of Object.values(SKIP_FALLBACK_10859_BATCH_8_PHASE_2B)) {
+      expect(NAMESPACED_KEYS, kept).toContain(kept);
+    }
+    // Lit controls: the canonical spellings the retirements point authors to.
+    expect(BARE_KEYS).toContain('chart');
+    expect(BARE_KEYS).toContain('dashboard');
+    expect(NAMESPACED_KEYS).toContain('record:related_list');
+  });
+
+  it('counts the four keys batch 8 phase 2c retired as gone from the registry (objectui#10859 batch 8)', () => {
+    expect(Object.keys(UNREGISTERED_10859_BATCH_8_PHASE_2C)).toHaveLength(4);
+    for (const [key, twins] of Object.entries(UNREGISTERED_10859_BATCH_8_PHASE_2C)) {
+      // Retired, not armed: out of the population, still refused at `type`.
+      expect(BARE_KEYS, key).not.toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+      for (const twin of twins) expect(NAMESPACED_KEYS, twin).not.toContain(twin);
+    }
+    // Lit controls: the spellings the retirements point authors to.
+    expect(BARE_KEYS).toContain('chart');
+    expect(refusedAtType('chart')).toBe(false);
+    expect(NAMESPACED_KEYS).toContain('page:header');
+    expect(refusedAtType('page:header')).toBe(false);
+  });
+
+  it('counts the two keys objectui#11441 retired as gone from the registry (objectui#10859)', () => {
+    expect(Object.keys(UNREGISTERED_11441)).toHaveLength(2);
+    for (const [key, twins] of Object.entries(UNREGISTERED_11441)) {
+      // Retired, not armed: out of the population, still refused at `type`.
+      expect(BARE_KEYS, key).not.toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+      for (const twin of twins) expect(NAMESPACED_KEYS, twin).not.toContain(twin);
+    }
+    // Lit controls: `grid`, the spelling the `responsive-grid` retirement
+    // points authors to, is registered and claimed; `app-schema-renderer`, the
+    // whole-shell door navigation goes through, stays registered (armed since
+    // objectui#11440).
+    expect(BARE_KEYS).toContain('grid');
+    expect(refusedAtType('grid')).toBe(false);
+    expect(BARE_KEYS).toContain('app-schema-renderer');
+    expect(NAMESPACED_KEYS).toContain('layout:app-schema-renderer');
+  });
+
+  it('counts the ten keys batch 8 phase 2d retired as gone from the registry (objectui#10859 batch 8)', () => {
+    expect(Object.keys(UNREGISTERED_10859_BATCH_8_PHASE_2D)).toHaveLength(10);
+    for (const [key, twins] of Object.entries(UNREGISTERED_10859_BATCH_8_PHASE_2D)) {
+      // Retired, not armed: out of the population, still refused at `type`.
+      expect(BARE_KEYS, key).not.toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+      for (const twin of twins) expect(NAMESPACED_KEYS, twin).not.toContain(twin);
+    }
+    // Lit controls: the node the retirement points authors to is registered
+    // and claimed by an arm. Its `ui:sidebar` twin stays registered too; it is
+    // one of the namespaced keys objectui#10872 still counts as refused, so
+    // only its presence is asserted here.
+    expect(BARE_KEYS).toContain('sidebar');
+    expect(refusedAtType('sidebar')).toBe(false);
+    expect(NAMESPACED_KEYS).toContain('ui:sidebar');
+  });
+
+  it('counts the seven keys objectui#11440 armed, and none of their namespaced twins (objectui#10859)', () => {
+    expect(Object.keys(ARMED_11440)).toHaveLength(7);
+    for (const [key, twins] of Object.entries(ARMED_11440)) {
+      // Armed: still registered, and claimed by an arm.
+      expect(BARE_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(false);
+      // The twin is its own literal, so the bare arm does not claim it.
+      for (const twin of twins) {
+        expect(NAMESPACED_KEYS, twin).toContain(twin);
+        expect(refusedAtType(twin), twin).toBe(true);
+      }
+    }
+  });
+
+  it('counts the key objectui#11440 retired as gone from the registry (objectui#10859)', () => {
+    expect(Object.keys(UNREGISTERED_11440)).toHaveLength(1);
+    for (const [key, twins] of Object.entries(UNREGISTERED_11440)) {
+      // Retired, not armed: out of the population, still refused at `type`.
+      expect(BARE_KEYS, key).not.toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+      for (const twin of twins) expect(NAMESPACED_KEYS, twin).not.toContain(twin);
+    }
+    // Lit controls: `report`, the spelling the retirement points authors to, is
+    // registered and claimed, and its wrapper shape, the one `spec-report`
+    // carried, validates on the face `objectui validate` runs.
+    expect(BARE_KEYS).toContain('report');
+    expect(refusedAtType('report')).toBe(false);
+    const wrapper = {
+      type: 'report',
+      report: { name: 'opp_by_stage', label: 'Opportunities by Stage', type: 'summary', dataset: 'pipeline', rows: ['stage'], values: ['amount_sum'] },
+    };
+    expect(safeValidateSchema(wrapper).success).toBe(true);
+  });
+
+  it('the refused set is exactly the named remainder — the pin comment cannot drift (objectui#10859 batch 8)', () => {
+    const refused = BARE_KEYS.filter(refusedAtType).sort();
+    expect(refused).toEqual([...STILL_REFUSED_10859]);
+    expect(STILL_REFUSED_10859).toHaveLength(REFUSED_AT_TYPE);
+    // Lit control (objectui#11440): the remainder is empty, so prove the same
+    // filter over the same population still fires — one unregistered key added
+    // to it is the one key it returns.
+    const probe = 'no-such-component-11440';
+    expect([...BARE_KEYS, probe].filter(refusedAtType)).toEqual([probe]);
+  });
 });
 
 describe('registered NAMESPACED component types refused at `type` — a ratchet (objectui#10872)', () => {
@@ -176,7 +523,10 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
   });
 
   it('reads the whole generated namespaced population (non-vacuity)', () => {
-    expect(NAMESPACED_KEYS.length).toBeGreaterThan(400);
+    // The floor was 400 until objectui#10859 batch 8 phase 2d unregistered the
+    // ten `ui:sidebar-*` twins (391 namespaced keys once objectui#11441 had
+    // unregistered its two `layout:` twins as well).
+    expect(NAMESPACED_KEYS.length).toBeGreaterThan(350);
     // Lit control: the one namespaced key armed before objectui#10872.
     expect(NAMESPACED_KEYS).toContain('ui:calendar');
     expect(refusedAtType('ui:calendar')).toBe(false);
@@ -198,12 +548,37 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
     }
   });
 
+  it('counts the six public blocks objectui#10872 batch 4 armed', () => {
+    for (const key of ARMED_PUBLIC_BLOCKS_10872_BATCH_4) {
+      expect(NAMESPACED_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(false);
+    }
+  });
+
+  it('counts `record:line_items` armed — the last public block held (objectui#10872)', () => {
+    for (const key of ARMED_PUBLIC_BLOCKS_10872_LINE_ITEMS) {
+      expect(NAMESPACED_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(false);
+    }
+    // Registered with `skipFallback: true`, so the namespaced key is its only
+    // spelling: it left the namespaced count and no bare twin moved.
+    expect(BARE_KEYS).not.toContain('line_items');
+  });
+
   it('counts `cloud:plan-status` armed — it registered WITH its arm (objectui#10919)', () => {
     // One registry key (`skipFallback: true`, so no bare `plan-status`), armed in
     // `@object-ui/types/zod` in the same change, so the pin above did not move.
     expect(NAMESPACED_KEYS).toContain('cloud:plan-status');
     expect(BARE_KEYS).not.toContain('plan-status');
     expect(refusedAtType('cloud:plan-status')).toBe(false);
+  });
+
+  it('counts `cloud:workspace-timezone-notice` armed — it registered WITH its arm (objectui#11930)', () => {
+    // One registry key (`skipFallback: true`, so no bare `workspace-timezone-notice`),
+    // armed in `@object-ui/types/zod` in the same change, so the pin above did not move.
+    expect(NAMESPACED_KEYS).toContain('cloud:workspace-timezone-notice');
+    expect(BARE_KEYS).not.toContain('workspace-timezone-notice');
+    expect(refusedAtType('cloud:workspace-timezone-notice')).toBe(false);
   });
 });
 
@@ -212,6 +587,7 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
 /** Rooted on this file, never on `process.cwd()`. */
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_AI_README = join(HERE, '..', '..', '..', 'plugin-ai', 'README.md');
+const QUICK_START = join(HERE, '..', '..', '..', '..', 'content', 'docs', 'guide', 'quick-start.md');
 
 /** See `validate-root-path-line.test.ts` — the escape byte is never spelled. */
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
@@ -346,6 +722,76 @@ describe('objectui validate — a page built from ADR-0080 public blocks (object
     const text = out.join('\n').replace(ANSI, '');
     expect(text).toContain('Schema validation failed');
     expect(text).toContain('dataSource.object');
+    expect(exitCodes).toEqual([1]);
+  });
+
+  it('validates a page with the taught `action:button` node (objectui#10872 batch 4)', async () => {
+    // The node the quick-start's "Add Actions" section teaches — the one
+    // AGENTS.md #4 and the handler-key refusals' own remedy point at — read
+    // from the page that teaches it, beside a `page:header`. Since
+    // objectui#11183 the page writes it in the spec's spelling, the block's
+    // props in `properties`, so this row passes on the strict face as well.
+    const quickStart = readFileSync(QUICK_START, 'utf8');
+    const fence = /```json\n([\s\S]*?)\n```/.exec(quickStart.slice(quickStart.indexOf('### Add Actions')));
+    expect(fence, 'no ```json fence under "### Add Actions" in the quick-start').not.toBeNull();
+    const taught = JSON.parse((fence as RegExpExecArray)[1]);
+    // Lit control on the extraction: it is the taught node, in the bag spelling.
+    expect(taught.type).toBe('action:button');
+    expect(taught.properties?.actionType).toBe('url');
+    expect(taught).not.toHaveProperty('actionType');
+    const page = {
+      type: 'page',
+      title: 'Users',
+      children: [{ type: 'page:header', properties: { title: 'Users' } }, taught],
+    };
+    const file = join(dir, 'action-button-page.json');
+    writeFileSync(file, JSON.stringify(page, null, 2), 'utf-8');
+
+    await validate(file);
+
+    const text = out.join('\n').replace(ANSI, '');
+    expect(text).not.toContain('Schema validation failed');
+    expect(text).toContain('Schema is valid');
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('validates a page of the six batch-4 blocks in the spec\'s `properties` spelling', async () => {
+    const page = {
+      type: 'page',
+      children: [
+        { type: 'action:button', properties: { label: 'Open details', actionType: 'url', target: '/users/ada' } },
+        { type: 'action:icon', properties: { icon: 'pencil', label: 'Edit', actionType: 'url', target: '/users/ada/edit' } },
+        { type: 'action:group', properties: { display: 'dropdown', actions: [{ name: 'archive', label: 'Archive' }] } },
+        { type: 'action:menu', properties: { actions: [{ name: 'delete', label: 'Delete' }] } },
+        { type: 'element:definition-list', properties: { columns: 2, items: [{ term: 'Owner', description: 'Ada' }] } },
+        { type: 'element:repeater', properties: { object: 'task', fields: ['subject'], limit: 5 } },
+      ],
+    };
+    const file = join(dir, 'held-blocks-page.json');
+    writeFileSync(file, JSON.stringify(page, null, 2), 'utf-8');
+
+    await validate(file);
+
+    const text = out.join('\n').replace(ANSI, '');
+    expect(text).not.toContain('Schema validation failed');
+    expect(text).toContain('Schema is valid');
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('still judges an `action:button` bag — an undeclared prop is refused and named (batch 4)', async () => {
+    // The control that keeps the two rows above from passing for the wrong reason.
+    const page = {
+      type: 'page',
+      children: [{ type: 'action:button', properties: { label: 'Go', inventedProp10872b4: true } }],
+    };
+    const file = join(dir, 'action-button-page-refused.json');
+    writeFileSync(file, JSON.stringify(page, null, 2), 'utf-8');
+
+    await validate(file);
+
+    const text = out.join('\n').replace(ANSI, '');
+    expect(text).toContain('Schema validation failed');
+    expect(text).toContain('inventedProp10872b4');
     expect(exitCodes).toEqual([1]);
   });
 });

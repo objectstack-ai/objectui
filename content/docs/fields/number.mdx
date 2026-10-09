@@ -3,15 +3,15 @@ title: "Number Field"
 description: "Numeric input field for integer and decimal numbers"
 ---
 
-The Number Field component provides a numeric input for collecting integer or decimal numbers with optional precision control.
+The Number Field component provides a numeric input for collecting integer or decimal numbers, with an optional number of decimal places (`scale`).
 
 ## Basic Usage
 
 <SchemaExample id="fields-number/basic-number-field" />
 
-## With Precision
+## With Decimal Places
 
-<SchemaExample id="fields-number/decimal-numbers" />
+<SchemaExample id="fields-number/with-decimal-places" />
 
 ## With Min/Max
 
@@ -21,7 +21,8 @@ The Number Field component provides a numeric input for collecting integer or de
 
 A number field is authored as `NumberFieldMetadata` (`@object-ui/types`), which is the
 source of truth for the key set: it extends `BaseFieldMetadata` with the numeric
-bounds, the stored precision and scale, and the stepper increment.
+bounds, the stored precision and scale, the stepper increment, and the display
+hint `useGrouping` (see [Cell Renderer](#cell-renderer)).
 
 ```ts
 import type { NumberFieldMetadata } from '@object-ui/types';
@@ -37,6 +38,7 @@ const quantity: NumberFieldMetadata = {
   precision: 10,
   scale: 0,
   step: 1,
+  useGrouping: true,
 };
 ```
 
@@ -75,6 +77,21 @@ In tables/grids, numbers are displayed with tabular formatting:
 ```ts
 import { NumberCellRenderer } from '@object-ui/fields';
 
-// Renders with precision and tabular-nums font
-// Example: 1,234.56
+// Renders in a tabular-nums font, to the field's `scale`:
+// a stored 1234.5 on a field declaring `scale: 2` renders: 1,234.50
+// the same value on a field with no `scale` renders: 1,234.5
 ```
+
+Whether the value gets thousands separators is the field's `useGrouping`:
+
+| `useGrouping` | `scale` | Thousands separators |
+|---|---|---|
+| `false` | any | no: `12345.5` |
+| `true` | any | yes: a scale-0 count reads `2,026` |
+| not set | `0` | no: read as a year or another ordinal, `2026` |
+| not set | anything else, or not set | yes: `12,345.5` |
+
+`useGrouping` is the `@objectstack/spec` field key of the same name. An authored
+`true` always groups, even in a locale that leaves four-digit numbers alone by
+default (es-ES renders `1.234`). With the key unset, the grouped rows follow the
+locale's own convention.

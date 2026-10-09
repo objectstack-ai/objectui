@@ -349,3 +349,45 @@ describe('judgeFlowLaunch — one launch decision for both hosts', () => {
         expect(out.refresh).toBe(false);
     });
 });
+
+// objectui#11092 — the flow's served label (`AutomationResult.flowLabel`) is
+// lifted here once, so both launch hosts and the runner's resume read it the
+// same way. The arms are asserted by kind, and the launch follow-up with
+// `toEqual`, as above: the label rides along with the screen, nothing else does.
+describe('the served flowLabel is lifted once (objectui#11092)', () => {
+    const screen = { nodeId: 'collect', title: 'New Assignee', fields: [] };
+
+    it('a paused answer carries it', () => {
+        const out = interpretFlowResponse(ok, {
+            success: true,
+            data: { success: true, status: 'paused', runId: 'run-7', screen, flowLabel: 'Reassign' },
+        }, 'Flow "reassign"');
+        expect(out).toMatchObject({ kind: 'paused', flowLabel: 'Reassign' });
+    });
+
+    it('a terminal-success answer carries it', () => {
+        const out = interpretFlowResponse(ok, {
+            success: true, data: { success: true, flowLabel: 'Reassign' },
+        }, 'Flow "reassign"');
+        expect(out).toMatchObject({ kind: 'done', flowLabel: 'Reassign' });
+    });
+
+    it('is undefined when the answer serves no label, and when what it serves is not a string', () => {
+        const none = interpretFlowResponse(ok, { success: true, data: { success: true } }, 'Flow "x"');
+        expect((none as { flowLabel?: unknown }).flowLabel).toBeUndefined();
+        const notString = interpretFlowResponse(ok, {
+            success: true, data: { success: true, status: 'paused', runId: 'r', screen, flowLabel: { en: 'x' } },
+        }, 'Flow "x"');
+        expect(notString.kind).toBe('paused');
+        expect((notString as { flowLabel?: unknown }).flowLabel).toBeUndefined();
+    });
+
+    it('a paused LAUNCH hands it to the runner with the screen', () => {
+        const out = judgeFlowLaunch(interpretFlowResponse(ok, {
+            success: true,
+            data: { success: true, status: 'paused', runId: 'run-7', screen, flowLabel: 'Reassign' },
+        }, 'Flow "reassign"'), undefined);
+        expect(out.followUp).toEqual({ kind: 'screen', runId: 'run-7', screen, flowLabel: 'Reassign' });
+        expect(out.result).toEqual({ success: true, silent: true });
+    });
+});

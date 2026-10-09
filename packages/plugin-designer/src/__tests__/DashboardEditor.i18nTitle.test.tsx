@@ -41,7 +41,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import type { DashboardComponentSchema } from '@object-ui/types';
 import { DashboardEditor } from '../DashboardEditor';
 
@@ -107,6 +107,17 @@ function lastSchema(onChange: ReturnType<typeof vi.fn>): DashboardComponentSchem
   return calls[calls.length - 1][0] as DashboardComponentSchema;
 }
 
+/**
+ * One widget by id, read through the slot's element type (objectui#11514): a
+ * `widgets[]` entry is either arm of a union, and `title` is declared on both
+ * (the widget arm's spec row, and the component arm's card heading), so
+ * `.title` reads with a declared type off either arm.
+ */
+function widgetById(schema: DashboardComponentSchema, id: string): DashboardComponentSchema['widgets'][number] | undefined {
+  const widgets: DashboardComponentSchema['widgets'] = schema.widgets ?? [];
+  return widgets.find((w) => w.id === id);
+}
+
 describe('DashboardEditor — the title INPUT is a write path, not a display (#4163)', () => {
   /** Select the widget so the property panel mounts. */
   function openPanelFor(schema: DashboardComponentSchema, widgetTestId: string) {
@@ -137,7 +148,7 @@ describe('DashboardEditor — the title INPUT is a write path, not a display (#4
     });
 
     expect(onChange).toHaveBeenCalled();
-    const title = lastSchema(onChange).widgets!.find((w) => w.id === 'w1')!.title;
+    const title = widgetById(lastSchema(onChange), 'w1')!.title;
     // Still a map — not flattened to the edited string.
     expect(typeof title).toBe('object');
     const map = title as Record<string, string>;
@@ -173,16 +184,18 @@ describe('DashboardEditor — the title INPUT is a write path, not a display (#4
     expect(reopened.value).toBe('Pipelinex');
   });
 
-  it('an inline map survives an UNRELATED edit-and-save round trip untouched', () => {
+  it('an inline map survives an UNRELATED edit-and-save round trip untouched', async () => {
     // The ruling's acceptance criterion, end to end: the author changes
     // something else entirely on the same widget, and the stored map comes back
-    // byte-identical rather than flattened to one locale.
+    // byte-identical rather than flattened to one locale. The colour is picked
+    // through the shared Select's trigger (objectui#11865).
     const onChange = openPanelFor(schemaWith(MAP_TITLE), 'dashboard-widget-w1');
-    fireEvent.change(screen.getByTestId('widget-prop-color'), { target: { value: 'blue' } });
+    fireEvent.keyDown(screen.getByTestId('widget-prop-color'), { key: 'ArrowDown' });
+    fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'Blue' }));
 
     expect(onChange).toHaveBeenCalled();
     const saved = lastSchema(onChange);
-    const widget = saved.widgets!.find((w) => w.id === 'w1')!;
+    const widget = widgetById(saved, 'w1')!;
     expect(widget.title).toEqual(MAP_TITLE);
     // `toEqual` alone would pass for a rebuilt-but-equal object; this says the
     // OTHER locale is still there, which is the thing that gets lost.
@@ -201,6 +214,6 @@ describe('DashboardEditor — the title INPUT is a write path, not a display (#4
     fireEvent.change(input, { target: { value: 'Revenue (net)' } });
     expect(onChange).toHaveBeenCalled();
     const saved = lastSchema(onChange);
-    expect(saved.widgets!.find((w) => w.id === 'w2')!.title).toBe('Revenue (net)');
+    expect(widgetById(saved, 'w2')!.title).toBe('Revenue (net)');
   });
 });

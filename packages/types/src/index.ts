@@ -52,6 +52,8 @@
 // ============================================================================
 export type {
   AppComponentSchema,
+  // The `app-schema-renderer` node's TS twin (objectui#11515).
+  AppSchemaRendererNodeSchema,
   NavigationItem,
   NavigationEntryItem,
   NavigationSeparatorItem,
@@ -79,6 +81,12 @@ export {
   liftLegacyDashboardFilterDefaults,
 } from './dashboard-filter-alias.js';
 
+// Dashboard widget layout completion (objectui#11388) — the one helper the
+// widget width / height editors write a whole four-number `layout` through, and
+// the grid's auto-placement it seeds from. Zod-free, so it belongs on the main
+// entry.
+export { completeWidgetLayout, defaultWidgetPlacement } from './dashboard-widget-layout.js';
+
 // `ui:icon` glyph-key conversion (objectui#5631) — stored `{ type:'icon',
 // name:'check' }` -> `{ type:'icon', icon:'check' }`. A one-shot converter a
 // deployer runs over stored metadata; ⛔ NOT a read-path fallback, which the
@@ -101,6 +109,11 @@ export type {
   // half of what stops them being mixed up (#4581).
   KeyedI18nLabel,
   SchemaNode,
+  // The object arm of `SchemaNode`: the discriminated union of the declared
+  // node types, plus the custom types an application declares in
+  // `CustomNodeRegistry` by declaration merging (objectui#11466).
+  DeclaredNode,
+  CustomNodeRegistry,
   ComponentRendererProps,
   ComponentInput,
   // The input the FRAMEWORK injects (`binding: 'object'`, `9e37d9b39`) —
@@ -116,11 +129,44 @@ export type {
   EventHandlers,
   StyleProps,
 } from './base.js';
+// Per-type NODE SLOTS beside `BaseSchema.children` (objectui#11170): where a
+// renderer hands authored nodes back to `SchemaRenderer` through a key other
+// than `children`, read by the `objectui check` gate, core's `validateChildren`
+// and the SDUI parser's manifest projection so that none keeps a list of its own.
+export { NODE_SLOT_DECLARATIONS, nodeSlotsFor, nodeSlotPathSegments, nodeSlotValues } from './node-slots.js';
+export type { NodeSlotDeclaration, NodeSlotRow, NodeSlotSegment, NodeSlotValue } from './node-slots.js';
 // The predicate WIRE shape `BaseSchema.visible` / `.hidden` / `.disabled` and
 // the form predicate keys share (objectui#7530): a bare string or the CEL
 // envelope `{ dialect?, source }`. Its zod twin is `ExpressionWireSchema` on
 // the `./zod` entry.
 export type { ExpressionWire } from './expression.js';
+// TypeScript authoring types for the spec-declared nodes `BaseSchema` gives no
+// face now that objectui#8347 removed its index signature (objectui#11364): the public blocks, the
+// `element:text_input` / `element:record_picker` rows, and a stored page
+// document under its page kind. Each is derived by reference from its zod arm
+// or spec row; `@object-ui/react`'s `SchemaRendererProps.schema` accepts them.
+// objectui#11468 adds the other authored `properties`-bag carriers: the eight
+// ObjectQL public blocks and `flex`, each its zod arm's input.
+export type {
+  AuthoringNode,
+  PublicBlockNode,
+  PublicBlockNodeOf,
+  ObjectQLPublicBlockNode,
+  ObjectMetricBlockNode,
+  ObjectMasterDetailFormBlockNode,
+  ObjectTimelineBlockNode,
+  ObjectFormBlockNode,
+  ObjectMapBlockNode,
+  ObjectChartBlockNode,
+  ObjectGanttBlockNode,
+  ObjectGridBlockNode,
+  ObjectPivotBlockNode,
+  EmbeddableFormBlockNode,
+  FlexBlockNode,
+  ElementTextInputNode,
+  ElementRecordPickerNode,
+  PageDocumentNode,
+} from './authoring-nodes.js';
 
 // ============================================================================
 // Layout Components - Structure & Organization
@@ -444,11 +490,10 @@ export type {
   KanbanConfig,
   CalendarConfig,
   GanttConfig,
-  ListViewGalleryConfig,
   ListViewTimelineConfig,
   SortConfig,
-  // ConditionalFormatting dual-format types
-  ObjectUIConditionalFormattingRule,
+  // ConditionalFormatting: the spec rule, and the grid / list-view rule built on it
+  // (one dialect since objectui#11533; the native rule's interface is gone)
   SpecConditionalFormattingRule,
   ConditionalFormattingRule,
   // Component schemas
@@ -459,7 +504,6 @@ export type {
   ObjectCalendarSchema,
   ObjectKanbanSchema,
   KanbanConditionalFormattingRule,
-  KanbanNativeConditionalFormattingRule,
   ObjectChartSchema,
   ObjectGallerySchema,
   ObjectDataTableSchema,
@@ -473,6 +517,7 @@ export type {
   ObjectViewSchema,
   NamedListView,
   ViewNavigationConfig,
+  RecordNavigateAction,
   ViewTabBarConfig,
   ObjectQLComponentSchema,
   ObjectCalendarBlockConfig,
@@ -534,7 +579,6 @@ export type {
   ObjectFieldMetadata,
   VectorFieldMetadata,
   GridFieldMetadata,
-  GridColumnDefinition,
   ColorFieldMetadata,
   CodeFieldMetadata,
   AvatarFieldMetadata,
@@ -549,7 +593,12 @@ export type {
   ObjectSchemaMetadata,
   ObjectSchemaClientExtensions,
   ObjectIndex,
+  GridFieldRetiredKey,
 } from './field-types.js';
+// objectui#11610 — the `grid` field's retired snake_case field-level keys, each
+// mapped to its camelCase replacement: the one list the form-field zod mirror's
+// alias refusals and the `grid` widget's named refusal both read.
+export { GRID_FIELD_RETIRED_KEYS } from './field-types.js';
 
 // System / audit / ownership field classification — runtime helper + name set,
 // used by default list-column derivation to keep framework-injected fields
@@ -733,11 +782,9 @@ export type {
   DashboardWidgetConfig,
   DashboardConfig,
   ObjectDefinition,
-  ObjectDefinitionRelationship,
   ObjectManagerSchema,
   DesignerFieldType,
   DesignerFieldOption,
-  DesignerValidationRule,
   DesignerFieldDefinition,
   FieldDesignerSchema,
 } from './designer.js';
@@ -791,10 +838,27 @@ import type { FeedbackSchema } from './feedback.js';
 import type { DisclosureSchema } from './disclosure.js';
 import type { OverlaySchema } from './overlay.js';
 import type { NavigationSchema } from './navigation.js';
-import type { ComplexSchema, DashboardComponentSchema } from './complex.js';
+import type {
+  ComplexSchema,
+  DashboardComponentSchema,
+  DashboardWidgetSlotComponentSchema,
+} from './complex.js';
 import type { CRUDComponentSchema } from './crud.js';
 import type { ObjectQLComponentSchema, ListViewSchema } from './objectql.js';
-import type { AppComponentSchema } from './app.js';
+import type { AppComponentSchema, AppSchemaRendererNodeSchema } from './app.js';
+import type { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.js';
+import type {
+  PageDesignerSchema,
+  DataModelDesignerSchema,
+  ProcessDesignerSchema,
+  ReportDesignerSchema,
+  ObjectManagerSchema,
+  FieldDesignerSchema,
+} from './designer.js';
+import type { ReportComponentSchema, ReportBuilderSchema, ReportViewerSchema } from './reports.js';
+import type { AIFormAssistSchema, AIRecommendationsSchema, NLQuerySchema } from './ai.js';
+import type { ViewComponentSchema } from './views.js';
+import type { ActionBarSchema } from './ui-action.js';
 
 // ============================================================================
 // Phase 2 Schemas - New Additions
@@ -905,6 +969,13 @@ export type {
   // is `./__tests__/ai-insights-retired-8800.test.ts`.
 } from './ai.js';
 
+export type {
+  // Cloud widgets — the `cloud:plan-status` node's TS twin (objectui#11515)
+  // and the `cloud:workspace-timezone-notice` node's (objectui#11930).
+  CloudPlanStatusSchema,
+  CloudWorkspaceTimezoneNoticeSchema,
+} from './cloud.js';
+
 // The Block System re-export block is GONE, not emptied: `BlockSchema`,
 // `BlockMetadata`, `BlockVariable`, `BlockSlot`, `BlockLibraryItem`,
 // `BlockLibrarySchema`, `BlockEditorSchema`, `BlockInstanceSchema` and
@@ -929,6 +1000,8 @@ export type {
   ViewSwitcherSchema,
   FilterUISchema,
   SortUISchema,
+  // The `detail-section` node's TS twin (objectui#11515).
+  DetailSectionNodeSchema,
   ViewComponentSchema,
   CommentEntry,
   MentionNotification,
@@ -951,9 +1024,22 @@ export type {
 /**
  * Union of all component schemas.
  * Use this for generic component rendering where the type is determined at runtime.
+ *
+ * "All" is re-derived by a test, not stated here (objectui#11478):
+ * `./__tests__/anyschema-declared-node-types-11478.test.ts` enumerates every
+ * object type this package publishes whose `extends` chain reaches
+ * `BaseSchema` and whose `type` is a string literal, and fails naming each one
+ * that is not a member. The same file checks that `SchemaByType` resolves
+ * every single-literal member to itself. `ActionBarSchema` is a node type that
+ * does not extend `BaseSchema`, so the enumeration cannot see it; that file
+ * holds it by name, and nothing finds the next node type of its kind.
+ *
+ * The `BaseSchema` arm admits any `type` string, so membership here decides
+ * what `SchemaByType` and narrowing on `type` return. The spec-row authoring
+ * faces are a separate list, `AuthoringNode`, and are not members.
  */
 export type AnySchema =
-  | AppComponentSchema 
+  | AppComponentSchema
   | BaseSchema
   | LayoutSchema
   | PageNodeSchema
@@ -965,9 +1051,30 @@ export type AnySchema =
   | NavigationSchema
   | ComplexSchema
   | DashboardComponentSchema
+  | DashboardWidgetSlotComponentSchema
   | CRUDComponentSchema
   | ObjectQLComponentSchema
-  | ListViewSchema;
+  | ListViewSchema
+  | PageDesignerSchema
+  | DataModelDesignerSchema
+  | ProcessDesignerSchema
+  | ReportDesignerSchema
+  | ObjectManagerSchema
+  | FieldDesignerSchema
+  | ReportComponentSchema
+  | ReportBuilderSchema
+  | ReportViewerSchema
+  | AIFormAssistSchema
+  | AIRecommendationsSchema
+  | NLQuerySchema
+  | ViewComponentSchema
+  | ActionBarSchema
+  // objectui#11515 — the TS twins of two zod-only arms; the third,
+  // `DetailSectionNodeSchema`, is a member through `ViewComponentSchema`.
+  | AppSchemaRendererNodeSchema
+  | CloudPlanStatusSchema
+  // objectui#11930 — landed with its zod arm.
+  | CloudWorkspaceTimezoneNoticeSchema;
 
 /**
  * Utility type to extract the schema type from a type string.
@@ -981,64 +1088,6 @@ export type AnySchema =
  * ```
  */
 export type SchemaByType<T extends string> = Extract<AnySchema, { type: T }>;
-
-/**
- * Utility type INTENDED to make all properties optional except the type.
- * Useful for partial schema definitions in editors.
- *
- * ⚠️ MEASURED READING — it does not currently deliver that (objectui#6397).
- * Every instantiation declares exactly ONE property, `type`, and carries a live
- * `[key: string]: any`, so it accepts any key at `any`. Measured through the
- * TypeScript checker against the emitted `index.d.ts`:
- *
- *   PartialSchema<ObjectGridSchema>  -> 1 declared property: type   (source: 61)
- *   PartialSchema<ObjectFormSchema>  -> 1 declared property: type   (source: 67)
- *   PartialSchema<ObjectViewSchema>  -> 1 declared property: type   (source: 42)
- *   PartialSchema<ButtonSchema>      -> 1 declared property: type   (source: 27)
- *
- * `Omit<T, K>` is `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on a type
- * carrying a string index signature is `string | number` — the literal member
- * names are ABSORBED. Every `T extends BaseSchema` inherits `BaseSchema`'s
- * `[key: string]: any` (objectui#5155), so `Partial<Omit<T, 'type'>>` rebuilds a
- * type holding the index signature and none of the named members; the explicit
- * `{ type: T['type'] }` half is the only reason the count is 1 and not 0. Same
- * mechanism as objectui#6151 (heritage clause) and objectui#6269 (property
- * position) — this is its generic mapped-type-alias position.
- *
- * ⭐ SEQUENCING (objectui#6397 triage, 2026-08-25) — this declaration is
- * deliberately left AS WRITTEN. The triage also held that it was not
- * repairable in place: `T` is generic, so there is no literal key list to
- * `Pick` the way objectui#6269 could for its two concrete schemas, and it read
- * every generic re-spelling as collapsing for the same `keyof T` reason.
- *
- * ⚠️ That last reading is FALSE, and objectui#9256 is the counter-example. A
- * key-remapping mapped type (`{ [P in keyof T as P extends K ? never : P]: … }`)
- * iterates the named members and the index signature separately, so it drops
- * exactly `K` and keeps every other named member — generic in `T` and all.
- * `OmitDeclared` in `./form.ts` is that spelling; the E3 slice of objectui#9256
- * re-spelled `InputShorthandSchema` and `UiCalendarSchema` with it, and
- * `__tests__/content-channel-e3-residual-9256.test.ts` pins inherited members
- * on both faces. So the obstacle to a repair here is not the type system.
- * Re-spelling this alias would NARROW what every instantiation accepts (a
- * declared member would stop accepting a value of the wrong type), which is a
- * contract change and is not made in a comment correction; objectui#6397, the
- * card that triaged it, is closed.
- *
- * It is also not removable here — dropping a published export
- * of `@object-ui/types` is a breaking removal of published capability and sits
- * on the human floor. Once objectui#5155 removes the root index signature,
- * `keyof T` resolves to the literal member union again and this alias starts
- * working exactly as its first line promises, with no edit here at all.
- *
- * Until then, do not adopt it as protection it does not provide: name the
- * concrete schema type, or write `Partial<Pick<T, 'a' | 'b'>>` over literal keys
- * (objectui#6269's repair shape), when you need a real partial. The reading
- * above is pinned by `src/__tests__/partial-schema-collapse-pin.test.ts`, which
- * goes red — by design — the day objectui#5155 lands.
- */
-export type PartialSchema<T extends BaseSchema> = {
-  type: T['type'];
-} & Partial<Omit<T, 'type'>>;
 
 /**
  * Schema with required children (for container components).
@@ -1110,11 +1159,14 @@ export type {
   ResolvableParamFieldType,
   ActionParam,
   UIActionSchema,
+  ActionBarSchema,
   DeclaredActionsRefusal,
   DeclaredActionsResolution,
-  ActionGroup,
   ActionContext,
   ActionResult,
+  // The `undo` payload of `ActionResult`, moved down from `@object-ui/core`'s
+  // `UndoManager` with it (objectui#6349, batch 4); core re-exports it.
+  UndoableOperation,
   ActionExecutor,
   BatchOperationConfig,
   BatchOperationSummary,
@@ -1431,9 +1483,12 @@ export type {
 // The layout vocabulary itself is NOT dropped: `BreakpointName` is declared
 // locally in `./mobile.ts` and re-exported unprefixed from the Mobile block
 // above, and `BreakpointColumnMap` in `@object-ui/layout`'s
-// `ResponsiveGrid.tsx` — both because `responsive-grid` is a registered SDUI
-// component whose authorable `columns` reaches a resolver on the render path,
-// which is the tombstone's own stated return condition.
+// `ResponsiveGrid.tsx` — both because a renderer implements them, which is the
+// tombstone's own stated return condition: `BreakpointName` is the key set of
+// the `grid` node's authorable breakpoint `columns`, and `BreakpointColumnMap`
+// types `ResponsiveGrid`'s `columns` prop. (The ground used to be the
+// `responsive-grid` node; objectui#11441 retired that registration under the
+// maintainer's ruling `5950208338` and kept both declarations.)
 
 // ============================================================================
 // Widget System - Runtime Widget Registration (Section 1.6)

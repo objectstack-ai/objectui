@@ -10,9 +10,16 @@
  * Derive a master-detail child collection's grid columns + relationship FK from
  * object metadata, so a master-detail form can be configured with just the
  * child object name instead of a hand-authored columns block. Pure (no React /
- * no I/O) so it is unit-testable; the async schema fetch lives in the component.
+ * no fetch) so it is unit-testable; the async schema fetch lives in the
+ * component. The one side effect is an author diagnostic on the console —
+ * `reportCurrencyColumnScale` (objectui#10783).
  */
 
+import {
+  DEFAULT_MAX_INLINE_GRID_COLUMNS,
+  deriveInlineGridColumns,
+  deriveInlineRowFormFields,
+} from '@objectstack/spec/data';
 import type { GridColumn } from '@object-ui/fields';
 
 /**
@@ -40,26 +47,11 @@ export interface ChildObjectSchemaLike {
   fields?: Record<string, any>;
 }
 
-/** Fields never shown as editable line-item columns. */
-const SYSTEM_FIELDS = new Set([
-  'id', '_id', 'recordId',
-  'created_at', 'updated_at', 'created_by', 'updated_by',
-  'createdAt', 'updatedAt', 'createdBy', 'updatedBy',
-  'organization_id', 'tenant_id', 'space', 'owner',
-]);
-
-/** Field names that hold a line's sort position — excluded from the editable
- *  columns and the row form (the grid stamps them on drag-reorder instead). */
+/** Field names that hold a line's sort position — the names `deriveDetail`
+ *  picks the line's sort field from (the grid stamps it on drag-reorder). The
+ *  grid columns and the row form leave these names out by the spec's own rule
+ *  (`deriveInlineGridColumns`, `deriveInlineRowFormFields`). */
 const SORT_FIELD_NAMES = new Set(['position', 'sort_order', 'sequence', 'line_no', 'line_number', 'sort']);
-
-/** Field types that are not directly editable in a line-item grid.
- *  file/image/avatar are NOT here: they render a compact upload cell
- *  (`GridColumn.type: 'file'` → FileCell) since objectui#2360. */
-const NON_EDITABLE_TYPES = new Set([
-  'formula', 'summary', 'rollup', 'autonumber', 'auto_number',
-  'json', 'object', 'grid', 'table',
-  'location', 'vector', 'html', 'markdown', 'richtext',
-]);
 
 /** Map an ObjectQL field type to a LineItems grid column type. */
 export function fieldTypeToColumnType(type: string | undefined): GridColumn['type'] {
@@ -153,75 +145,24 @@ export function findRelationshipField(
 }
 
 /**
- * Default-visible column budget for an auto-derived inline grid. An inline
- * line-item grid lives in a constrained width (modal / detail card), so we show
- * a focused set by default and mark the rest `defaultHidden` — they are NOT
- * dropped: the grid's column chooser reveals them on demand (the mainstream
- * "personalize columns" pattern; cf. Odoo `optional` / Salesforce column
- * personalization). Required columns are always visible. Authors can override
- * with explicit `columns` / `inlineColumns` (no curation), or `maxColumns: 0`.
- */
-export const DEFAULT_MAX_INLINE_COLUMNS = 6;
-
-/** Field names that read as a record's primary/display column. */
-const NAME_LIKE_FIELDS = ['name', 'title', 'subject', 'label', 'full_name', 'display_name', 'code'];
-
-/** Lower number = kept first when filling the column budget. */
-const TYPE_FILL_PRIORITY: Record<string, number> = {
-  select: 0,
-  currency: 1,
-  number: 1,
-  lookup: 2,
-  date: 3,
-  // Same usefulness as `date` — they were literally the same column type until
-  // objectui#3569 split them, and omitting them here would have silently
-  // demoted every datetime/time column to the unknown-type bucket (5).
-  datetime: 3,
-  time: 3,
-  text: 4,
-};
-
-/**
- * Fill priority for a column. `GridColumn.type` is optional, and a column
- * without one sorts with the unknown types at the back of the budget — the
- * same place the bare `TYPE_FILL_PRIORITY[undefined] ?? 5` lookup put it.
- */
-function fillPriority(col: GridColumn): number {
-  return (col.type ? TYPE_FILL_PRIORITY[col.type] : undefined) ?? 5;
-}
-
-/**
- * Choose the default-visible subset of `max` columns — always keeping the
- * primary (name-like) column and every required column, then filling the
- * remaining budget by type usefulness. Columns NOT in the visible set are
- * marked `defaultHidden` (revealable via the grid's column chooser); none are
- * dropped, so business-critical fields stay reachable. Output preserves the
- * original schema order so the grid still reads naturally.
- */
-function curateColumns(cols: GridColumn[], max: number): GridColumn[] {
-  if (max <= 0 || cols.length <= max) return cols;
-  const visible = new Set<string>();
-  const primary = cols.find((c) => NAME_LIKE_FIELDS.includes(c.name)) ?? cols[0];
-  if (primary) visible.add(primary.name);
-  for (const c of cols) if (c.required) visible.add(c.name); // required is always visible
-  const remaining = cols
-    .map((c, i) => ({ c, i }))
-    .filter(({ c }) => !visible.has(c.name))
-    .sort((a, b) => fillPriority(a.c) - fillPriority(b.c) || a.i - b.i);
-  for (const { c } of remaining) {
-    if (visible.size >= max) break;
-    visible.add(c.name);
-  }
-  // Keep every column; collapse the overflow into the chooser.
-  return cols.map((c) => (visible.has(c.name) ? c : { ...c, defaultHidden: true }));
-}
-
-/**
- * Derive editable grid columns from a child object's fields, skipping system /
- * audit fields, non-editable types, and the back-reference FK to the parent.
- * Every editable column is returned; those beyond {@link DEFAULT_MAX_INLINE_COLUMNS}
- * are flagged `defaultHidden` (collapsed into the grid's column chooser, not
- * dropped). Pass `maxColumns: 0` to flag none.
+ * Derive editable grid columns from a child object's fields — the grid an
+ * inline master-detail collection draws when its author listed no columns.
+ *
+ * WHICH columns, in what order, and which are `defaultHidden`, is
+ * `@objectstack/spec`'s rule, `deriveInlineGridColumns` (objectui#11345): it
+ * skips system / audit fields, sort-position fields, fields flagged `system`,
+ * `readonly` or `hidden`, non-editable types, the back-reference FK to the
+ * parent and any `exclude`d name, and keeps every other field. Past the
+ * visible budget ({@link DEFAULT_MAX_INLINE_GRID_COLUMNS}, the spec's) the
+ * overflow is flagged `defaultHidden` — collapsed into the grid's column
+ * chooser, never dropped; required columns always stay visible. Pass
+ * `maxColumns: 0` to flag none. The rule lives in the spec so that an
+ * author-time tool (objectstack's `field-no-consumers` lint) credits exactly
+ * the columns this grid draws, and the two cannot disagree.
+ *
+ * What each column carries — label, cell type, options, lookup target,
+ * conditional rules, computed expression — is built here, from the child
+ * field, by {@link deriveColumn}.
  */
 export function deriveColumns(
   childSchema: ChildObjectSchemaLike | undefined,
@@ -229,51 +170,120 @@ export function deriveColumns(
 ): GridColumn[] {
   const fields = childSchema?.fields;
   if (!fields || typeof fields !== 'object') return [];
-  const exclude = new Set([...(opts.exclude ?? []), ...(opts.relationshipField ? [opts.relationshipField] : [])]);
-  const cols: GridColumn[] = [];
-  for (const [name, def] of Object.entries(fields)) {
-    const d = def as any;
-    if (SYSTEM_FIELDS.has(name) || exclude.has(name) || SORT_FIELD_NAMES.has(name)) continue;
-    if (d?.system || d?.readonly || d?.hidden) continue;
-    if (NON_EDITABLE_TYPES.has(d?.type)) continue;
-    const col: GridColumn = {
-      name,
-      label: d?.label || name,
-      type: fieldTypeToColumnType(d?.type),
-      required: !!d?.required,
-    };
-    const options = optionsFor(d);
-    if (col.type === 'select' && options) col.options = options;
-    if (col.type === 'lookup') {
-      col.reference = d?.reference;
-      // objectui#7642 CENSUS — verdict KEEP. In-repo the bag is the object-schema
-      // def (`MasterDetailForm` passes `dataSource.getObjectSchema(d.childObject)`),
-      // but `deriveColumns` is a PUBLIC export of `@object-ui/plugin-form`, so an
-      // external caller's `childSchema` cannot be traced from here. There is also no
-      // camel `d?.displayField` leg: retiring this read deletes the only read.
-      // The same read recurs in `hydrateColumns` below; this verdict covers both.
-      col.displayField = d?.display_field || d?.reference_field;
-    }
-    if (col.type === 'file') applyFileColumnProps(col, d);
-    // Field-level CEL conditional rules (B2 in grids). Carried through verbatim
-    // so the grid cell evaluates them per row (against the row + `parent`
-    // header).
-    if (d?.readonlyWhen) col.readonlyWhen = d.readonlyWhen;
-    if (d?.requiredWhen) col.requiredWhen = d.requiredWhen;
-    // A field carrying an arithmetic `expression` (e.g. amount = quantity *
-    // unit_price) becomes a live read-only computed column. The expression may
-    // be a bare string or the normalized CEL envelope `{ dialect, source }`.
-    const expr = typeof d?.expression === 'string' ? d.expression : d?.expression?.source;
-    if (expr && typeof expr === 'string') {
-      col.computed = true;
-      col.expr = expr;
-      col.required = false; // computed → never user-entered, so never required
-      if (typeof d?.scale === 'number') col.scale = d.scale;
-    }
-    cols.push(col);
+  const derived = deriveInlineGridColumns(childSchema, {
+    relationshipField: opts.relationshipField,
+    exclude: opts.exclude,
+    maxColumns: opts.maxColumns ?? DEFAULT_MAX_INLINE_GRID_COLUMNS,
+  });
+  return derived.map(({ name, defaultHidden }) => {
+    const col = deriveColumn(name, fields[name]);
+    return defaultHidden ? { ...col, defaultHidden } : col;
+  });
+}
+
+/**
+ * Build one derived grid column from its child field definition `d`. A falsy
+ * `d` (the field map holds `null` / `undefined` / `0` / `''` / `false` under
+ * that name) still builds a plain text column headed by the field name.
+ */
+function deriveColumn(name: string, d: any): GridColumn {
+  const col: GridColumn = {
+    name,
+    label: d?.label || name,
+    type: fieldTypeToColumnType(d?.type),
+    required: !!d?.required,
+  };
+  const options = optionsFor(d);
+  if (col.type === 'select' && options) col.options = options;
+  if (col.type === 'lookup') {
+    col.reference = d?.reference;
+    // The display pointer is read in `@objectstack/spec`'s spelling,
+    // `displayField` (objectui#11070 round 6). This read used to be
+    // `display_field || reference_field` with no camel leg, so a spec-valid
+    // def's `displayField` never reached the column. The `display_field` leg
+    // is retired, with no alias: a def served through `ObjectStackAdapter`
+    // reaches here with a stored `display_field` already stamped onto
+    // `displayField` by the ingestion fold (objectui#7650 ruling A). An
+    // external caller of this PUBLIC export that passes an unfolded
+    // `childSchema` loses the snake value; the round's changeset states that
+    // break. `reference_field` stays behind it: `FieldSchema` declares no
+    // twin the fold could stamp it onto. The same read recurs in
+    // `hydrateColumns` below.
+    col.displayField = d?.displayField || d?.reference_field;
   }
-  const maxColumns = opts.maxColumns ?? DEFAULT_MAX_INLINE_COLUMNS;
-  return curateColumns(cols, maxColumns);
+  if (col.type === 'file') applyFileColumnProps(col, d);
+  // Field-level CEL conditional rules (B2 in grids). Carried through verbatim
+  // so the grid cell evaluates them per row (against the row + `parent`
+  // header).
+  if (d?.readonlyWhen) col.readonlyWhen = d.readonlyWhen;
+  if (d?.requiredWhen) col.requiredWhen = d.requiredWhen;
+  // A field carrying an arithmetic `expression` (e.g. amount = quantity *
+  // unit_price) becomes a live read-only computed column. The expression may
+  // be a bare string or the normalized CEL envelope `{ dialect, source }`.
+  const expr = typeof d?.expression === 'string' ? d.expression : d?.expression?.source;
+  if (expr && typeof expr === 'string') {
+    col.computed = true;
+    col.expr = expr;
+    col.required = false; // computed → never user-entered, so never required
+    if (typeof d?.scale === 'number') col.scale = d.scale;
+  }
+  return col;
+}
+
+/**
+ * objectui#10783 — an authored `scale` on a column that renders as `currency`
+ * is reported, because the grid does not read it.
+ *
+ * A currency amount's decimal places are its currency's: `GridField`'s
+ * `currencyWidth` takes the resolved currency's ISO 4217 minor unit and never
+ * the column's `scale` (ruling B on objectstack-ai/objectstack#19629, ruling 乙
+ * on objectstack-ai/objectstack#19910). `@objectstack/spec` 17.5.0 refuses the
+ * key on an `inlineColumns` entry that DECLARES `type: 'currency'`, and its own
+ * docblock says the reach stops there: an identity-only entry
+ * (`{ name: 'amount', scale: 2 }`) takes its type from the child field at
+ * render time, here, so it still parses. `objectui validate` cannot see it
+ * either: the `object-form` mirror judges a subform's `columns` with the spec's
+ * own `InlineGridColumnSchema` (objectui#11266), and the child object's fields
+ * are not in the document it judges. Only `defineStack` refuses it, at publish, by resolving
+ * `name` against the child object's fields: on a relationship field's
+ * `inlineColumns` and on a form view's `subforms[].columns`, and only when the
+ * stack declares that child object (objectstack-ai/objectstack#20927). Nothing
+ * in objectui does that, and this is the first place in objectui the child
+ * field is known, so the report is made here — ⛔ never a silent drop.
+ *
+ * The declared arm is reported too. On a form view's `subforms[].columns` both
+ * validators refuse a typed currency column carrying `scale`: the spec's
+ * `FormViewSchema` holds each column to `InlineGridColumnSchema` from 17.6.0,
+ * and the `object-form` mirror takes that schema by reference (objectui#11266).
+ * Neither runs between a stored or code-built form view and this function, so
+ * such a column can still arrive here, and it is reported rather than read in
+ * silence.
+ *
+ * Once per column per page load (the `sectionFields.ts` convention): this runs
+ * on every child-schema resolve. The first sentence is the spec's refusal with
+ * the same subject; it is a warning, not a refusal, and the column still
+ * renders at its currency's minor unit.
+ */
+const reportedCurrencyColumnScales = new Set<string>();
+function reportCurrencyColumnScale(
+  col: GridColumn,
+  childObject: string | undefined,
+  hydrated: boolean,
+): void {
+  if (col.scale === undefined) return;
+  const of = childObject ? ` of '${childObject}'` : '';
+  const key = `${childObject ?? ''}:${col.name}:${hydrated ? 'hydrated' : 'declared'}:${String(col.scale)}`;
+  if (reportedCurrencyColumnScales.has(key)) return;
+  reportedCurrencyColumnScales.add(key);
+  const how = hydrated
+    ? `takes type 'currency' from child field '${col.name}'${of}`
+    : `declares type 'currency'${of}`;
+  console.warn(
+    `[object-ui] \`scale\` is not valid on a \`currency\` inline grid column — delete the key. ` +
+      `Inline grid column '${col.name}' ${how}, so its \`scale: ${String(col.scale)}\` is not read: ` +
+      `the currency's ISO 4217 minor unit (2 for USD, 0 for JPY, 3 for KWD) decides how the cell ` +
+      `displays the amount and the width a computed amount is rounded to.`,
+  );
 }
 
 /**
@@ -286,6 +296,11 @@ export function deriveColumns(
  * schema, exactly as {@link deriveColumns} would, while preserving the author's
  * column set, order and labels. A column that already declares a `type` is left
  * untouched — the author's explicit choice always wins.
+ *
+ * A column that renders as `currency` and carries an authored `scale`, whether
+ * its type is declared or hydrated, is reported by
+ * {@link reportCurrencyColumnScale} (objectui#10783): the grid does not read
+ * that key.
  */
 export function hydrateColumns(
   columns: GridColumn[] | undefined,
@@ -295,10 +310,14 @@ export function hydrateColumns(
   const fields = childSchema?.fields;
   if (!cols.length || !fields || typeof fields !== 'object') return cols;
   return cols.map((col) => {
-    if (col.type) return col; // explicit type — respect the author's choice
+    if (col.type) {
+      if (col.type === 'currency') reportCurrencyColumnScale(col, childSchema?.name, false);
+      return col; // explicit type — respect the author's choice
+    }
     const d = (fields as any)[col.name];
     if (!d) return col; // unknown field — leave as-is (grid falls back to text)
     const type = fieldTypeToColumnType(d?.type);
+    if (type === 'currency') reportCurrencyColumnScale(col, childSchema?.name, true);
     const next: GridColumn = { ...col, type };
     if (next.label == null) next.label = d?.label || col.name;
     if (next.required == null) next.required = !!d?.required;
@@ -306,9 +325,8 @@ export function hydrateColumns(
     if (type === 'select' && options && !next.options) next.options = options;
     if (type === 'lookup') {
       if (next.reference == null) next.reference = d?.reference;
-      // objectui#7642 CENSUS — verdict KEEP, same bag and same missing camel leg as
-      // `deriveColumns` above.
-      if (next.displayField == null) next.displayField = d?.display_field || d?.reference_field;
+      // The same read as `deriveColumns` above (objectui#11070 round 6).
+      if (next.displayField == null) next.displayField = d?.displayField || d?.reference_field;
     }
     if (type === 'file') applyFileColumnProps(next, d);
     if (next.readonlyWhen == null && d?.readonlyWhen) next.readonlyWhen = d.readonlyWhen;
@@ -326,33 +344,34 @@ export function hydrateColumns(
   });
 }
 
-/** Computed / non-input field types — excluded from the row form (read-only,
- *  server-derived). Unlike grid columns we DO keep rich inputs (textarea,
- *  richtext, file, image, json…) since the row form has room for them. */
-const NON_INPUT_TYPES = new Set(['formula', 'summary', 'rollup', 'autonumber', 'auto_number']);
-
 /**
- * Field names for a child's full "row form" (the per-row expand editor) — every
- * editable business field, skipping system/audit fields, the back-reference FK,
- * and computed types. Broader than {@link deriveColumns} (which only returns
- * grid-friendly types): the form has room for textarea/richtext/file/etc.
+ * Field names for a child's full "row form" (the per-row expand editor) — the
+ * form an inline master-detail collection opens when its author listed no
+ * `formFields`.
+ *
+ * WHICH fields, in what order, is `@objectstack/spec`'s rule,
+ * `deriveInlineRowFormFields` (objectui#11428), the row-form twin of the
+ * `deriveInlineGridColumns` rule {@link deriveColumns} reads: it skips system /
+ * audit fields, sort-position fields, fields flagged `system` or `hidden`, the
+ * computed types, the back-reference FK to the parent and any `exclude`d name,
+ * and keeps every other field in the child's field order. So it is broader than
+ * the grid: `readonly` fields and the rich types a grid cell omits (textarea,
+ * richtext, json, file, …) stay, since the form has room for them. The rule
+ * lives in the spec so that an author-time tool (objectstack's
+ * `field-no-consumers` lint) credits exactly the fields this form draws.
+ *
+ * WHETHER a row offers the form at all is the spec's `isInlineRowFormOffered`,
+ * which `MasterDetailForm` asks. How each named field renders is the form's own
+ * per-field builder, over these names.
  */
 export function deriveFormFields(
   childSchema: ChildObjectSchemaLike | undefined,
   opts: { relationshipField?: string; exclude?: string[] } = {},
 ): string[] {
-  const fields = childSchema?.fields;
-  if (!fields || typeof fields !== 'object') return [];
-  const exclude = new Set([...(opts.exclude ?? []), ...(opts.relationshipField ? [opts.relationshipField] : [])]);
-  const out: string[] = [];
-  for (const [name, def] of Object.entries(fields)) {
-    const d = def as any;
-    if (SYSTEM_FIELDS.has(name) || exclude.has(name) || SORT_FIELD_NAMES.has(name)) continue;
-    if (d?.system || d?.hidden) continue;
-    if (NON_INPUT_TYPES.has(d?.type)) continue;
-    out.push(name);
-  }
-  return out;
+  return deriveInlineRowFormFields(childSchema, {
+    relationshipField: opts.relationshipField,
+    exclude: opts.exclude,
+  });
 }
 
 /** Inline-edit form factor. */

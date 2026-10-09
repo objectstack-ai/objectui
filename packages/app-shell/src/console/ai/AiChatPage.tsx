@@ -22,6 +22,7 @@ import { Package as PackageIcon, Sparkles as SparklesIcon } from 'lucide-react';
 import { useAdapter } from '../../providers/AdapterProvider.js';
 import { useMetadata } from '../../providers/MetadataProvider.js';
 import { formatPublishFailures, type PublishFailure } from '../../views/studio-design/metadataError.js';
+import { STUDIO_RUN_LANDING } from '../../views/studio-design/studioLanding.js';
 import { useMetadataClient } from '../../views/metadata-admin/useMetadata.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { resolveKeyedI18nLabel } from '../../utils/index.js';
@@ -105,8 +106,13 @@ import {
 
 import { AppHeader } from '../../layout/AppHeader.js';
 import { armChatDockExpanded, readDockReturnLocation } from '../../layout/chatDockState.js';
+import {
+  useAdvertiseShortcut,
+  type AdvertisedShortcut,
+  type ShortcutLabelTranslate,
+} from '../../chrome/advertisedShortcuts.js';
 import { fetchPendingDraftCount } from '../../preview/draftStatus.js';
-import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
+import { emitMetadataRefresh, publishPlanApprovalPending } from '../../assistant/assistantBus.js';
 import { getRuntimeConfig, isAiStudioEnabled } from '../../runtime-config.js';
 import { makerConvergedOnBuild, makerVisibleAgents } from '../../hooks/surfaceAgent.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
@@ -695,6 +701,25 @@ export function matchAiChatShortcut(e: {
 }
 
 /**
+ * The two {@link matchAiChatShortcut} chords, advertised to the
+ * keyboard-shortcuts dialog by `AiChatPage` beside the listener that calls it,
+ * so they are listed only where that page is mounted (objectui#11674).
+ */
+export const NEW_CHAT_SHORTCUT: AdvertisedShortcut = {
+  id: 'ai-new-chat',
+  group: 'aiChat',
+  chord: { key: 'o', mod: true, shift: true },
+  label: (t: ShortcutLabelTranslate) => t('console.shortcuts.newChat'),
+};
+
+export const TOGGLE_CHATS_LIST_SHORTCUT: AdvertisedShortcut = {
+  id: 'ai-toggle-chats-list',
+  group: 'aiChat',
+  chord: { key: 's', mod: true, shift: true },
+  label: (t: ShortcutLabelTranslate) => t('console.shortcuts.toggleChatsList'),
+};
+
+/**
  * ADR-0057 P3c — where the "collapse to dock" affordance navigates, in
  * preference order:
  *
@@ -1091,6 +1116,8 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [toggleChatsCollapsed, navigate, activeAgentRoute]);
+  useAdvertiseShortcut(NEW_CHAT_SHORTCUT);
+  useAdvertiseShortcut(TOGGLE_CHATS_LIST_SHORTCUT);
   const restApiBase = useMemo(
     () => apiBase.replace(/\/v1\/ai$/, '').replace(/\/ai$/, '') || '/api',
     [apiBase],
@@ -2006,6 +2033,17 @@ export function ChatPane({
     return app ? appLabel({ name: app.name, label: resolveKeyedI18nLabel(app.label, t) }) : undefined;
   }, [editPackageId, metadataApps, appLabel, t]);
 
+  // objectui#11658 — the plan card's extend-mode scope chip names the existing
+  // app it would add to by that app's label; the plan carries its machine name.
+  // An app not (yet) in metadata answers undefined and the chip shows the name.
+  const resolveAppLabel = useCallback(
+    (appName: string) => {
+      const app = (metadataApps ?? []).find((a) => a.name === appName);
+      return app ? appLabel({ name: app.name, label: resolveKeyedI18nLabel(app.label, t) }) : undefined;
+    },
+    [metadataApps, appLabel, t],
+  );
+
   // Per-surface empty-state branding (Build = authoring, Ask = data Q&A). On the
   // build surface, `?package=` flips it to edit mode: "what do you want to
   // change in <app>" + change-oriented starters, instead of the from-scratch
@@ -2096,7 +2134,11 @@ export function ChatPane({
     // app:<pkg>:build cache key — the exact key the Studio dock resolves — so
     // the workbench's right rail resumes THIS thread (A1.b machinery).
     onPackageBound?.(builtPackageId);
-    paneNavigate(`/studio/${encodeURIComponent(builtPackageId)}/interfaces`);
+    // objectui#11658 — land on the RUNNING app (ADR-0080 preview-first): the
+    // Interfaces pillar opens on 「运行」 with its properties collapsed. The
+    // explicit "Design in Studio" door below passes no state and still lands
+    // on 「设计」.
+    paneNavigate(`/studio/${encodeURIComponent(builtPackageId)}/interfaces`, { state: STUDIO_RUN_LANDING });
   }, [isBuildSurface, isLoading, canBind, builtPackageId, conversationId, onPackageBound, paneNavigate]);
 
   // objectui#5801 — when a turn that STAGED or PUBLISHED something finishes,
@@ -2118,6 +2160,26 @@ export function ChatPane({
     lastAuthoringEmitRef.current = lastAssistant.id;
     emitMetadataRefresh();
   }, [isLoading, messages]);
+
+  // objectui#11666 — the launchers (console FAB, ChatDock edge launcher) show
+  // a marker while a proposed plan awaits the user's approval, and they are on
+  // screen only while this pane is NOT mounted. So the chat's own reading —
+  // `ChatbotEnhanced` reports it from the producer its plan card renders — is
+  // published on the assistant bus, per conversation and per user, and outlives
+  // this pane's unmount. `undefined` until the chat has reported once, so a
+  // mount never announces a reading it has not taken. Nothing here clears it on
+  // open: an open re-reads the same thread and reports the same state.
+  const { user: planApprovalUser } = useAuth();
+  const planApprovalUserId = planApprovalUser?.id;
+  const [planApprovalPending, setPlanApprovalPending] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    if (!conversationId || planApprovalPending === undefined) return;
+    publishPlanApprovalPending({
+      userId: planApprovalUserId,
+      conversationId,
+      pending: planApprovalPending,
+    });
+  }, [planApprovalUserId, conversationId, planApprovalPending]);
 
   // A1.b switcher menu: every published app with a package identity, deduped
   // by package (apps sharing a package share the build thread — the scope is
@@ -2357,6 +2419,11 @@ export function ChatPane({
             : undefined
         }
         onOpenBuilder={openBuilder}
+        // objectui#11667 — the ADR-0057 P4 handoff card's three strings. Left
+        // unset, the component's English defaults rendered in every locale.
+        builderHandoffTitleLabel={t('console.ai.builderHandoffTitle')}
+        builderHandoffOpenLabel={t('console.ai.builderHandoffOpen')}
+        builderHandoffSupersededTitle={t('console.ai.builderHandoffSuperseded')}
         onOpenRecord={openRecord}
         surface="plain"
         maxHeight="100%"
@@ -2368,7 +2435,13 @@ export function ChatPane({
               // The generic "Ask {agent}…" doubles to "Ask Ask…" for the data-query
               // agent whose label IS "Ask". Use its purpose-built placeholder instead.
               ? t('console.ai.askAnything')
-              : t('console.ai.askAgent', { agent: activeAgentLabel })
+              // objectui#11658 — inside an app (the build agent scoped to a
+              // package: the console dock in a running app, the Studio dock,
+              // `/ai/build?package=`) the composer names what the user can do
+              // there, never the agent: "Ask Build…" read as「向 构建 提问…」.
+              : editing
+                ? t('console.ai.askOrChangeApp')
+                : t('console.ai.askAgent', { agent: activeAgentLabel })
             : agentsLoading
               ? t('console.ai.loadingAgents')
               : t('console.ai.askAnything')
@@ -2438,9 +2511,16 @@ export function ChatPane({
         enableMarkdown
         onToolApprove={hitl.decide}
         toolDecisions={hitl.decisions}
-        toolApproveLabel="Approve & run"
-        toolDenyLabel="Reject"
-        toolDenyReason="Operator rejected from chat"
+        // objectui#11667 — the inline HITL decision card. The two buttons borrow
+        // the AI Approvals inbox's keys: the same decision on the same pending
+        // action through the same endpoint, so the two surfaces say it alike.
+        toolApproveLabel={t('aiApprovals.approveAndExecute')}
+        toolDenyLabel={t('aiApprovals.reject')}
+        // The deny reason is stored as the pending action's `rejection_reason`
+        // and read as prose: by people in the AI Approvals inbox (which writes
+        // free text in any language into the same field) and by the model on
+        // its next turn. No code parses it, so it follows the UI locale.
+        toolDenyReason={t('console.ai.toolDenyReason')}
         // Build-tree "Open app": jump straight into the app the agent just built.
         onOpenBuiltApp={(appName, appSegment) =>
           navigate(`/apps/${encodeURIComponent(appSegment ?? appName)}`)}
@@ -2556,6 +2636,7 @@ export function ChatPane({
         publishedLabel={t('console.ai.published', { defaultValue: 'Published' })}
         nextStepsLabel={t('console.ai.nextSteps', { defaultValue: "What's next" })}
         planTitleLabel={t('console.ai.planTitle', { defaultValue: 'Proposed plan' })}
+        resolveAppLabel={resolveAppLabel}
         planQuestionsLabel={t('console.ai.planQuestions', { defaultValue: 'Confirm before building' })}
         planAssumptionsLabel={t('console.ai.planAssumptions', { defaultValue: 'Assumptions' })}
         planDeferredLabel={t('console.ai.planDeferred', { defaultValue: 'Not yet built' })}
@@ -2620,6 +2701,8 @@ export function ChatPane({
         // ADR-0045: build materialized → canvas leaves the draft overlay for
         // the real (unlisted) app; the reload shows live seed rows.
         onBuildMaterialized={handleBuildMaterialized}
+        // objectui#11666 — mirrored onto the assistant bus (effect above).
+        onPlanApprovalPendingChange={setPlanApprovalPending}
         previewDraftLabel={t('console.ai.previewDraft', { defaultValue: 'Preview' })}
         data-testid="ai-chat-panel"
       />

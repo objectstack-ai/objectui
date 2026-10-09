@@ -1,6 +1,6 @@
 {
   "name": "@object-ui/plugin-form",
-  "version": "17.6.0",
+  "version": "17.7.0",
   "type": "module",
   "license": "MIT",
   "description": "Form plugin for Object UI",
@@ -28,7 +28,7 @@
     "@object-ui/permissions": "workspace:*",
     "@object-ui/react": "workspace:*",
     "@object-ui/types": "workspace:*",
-    "@objectstack/spec": "^17.0.0",
+    "@objectstack/spec": "^17.7.0",
     "lucide-react": "^1.43.0"
   },
   "peerDependencies": {

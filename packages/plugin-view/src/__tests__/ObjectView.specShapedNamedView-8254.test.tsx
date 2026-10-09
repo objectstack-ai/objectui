@@ -275,8 +275,11 @@ describe('objectui#8254 — `filter` / `sort` / `label` / `data` already honour 
   it('the spec `filter` (rule OBJECTS, not the local tuple dialect) reaches the grid and the delegation unchanged', async () => {
     const spec = await gridSchemaFor(SPEC_VIEW);
     const local = await gridSchemaFor(LOCAL_VIEW);
-    expect(spec.defaultFilters).toEqual(local.defaultFilters);
-    expect(spec.defaultFilters).toEqual(FILTER);
+    // objectui#11880 item 5: a named view's filter rides `filter`, the one
+    // filter slot the grid node carries.
+    expect(spec.filter).toEqual(local.filter);
+    expect(spec.filter).toEqual(FILTER);
+    expect(spec.defaultFilters).toBeUndefined();
     expect(delegatedSchemaFor(SPEC_VIEW).filter).toEqual(delegatedSchemaFor(LOCAL_VIEW).filter);
   });
 

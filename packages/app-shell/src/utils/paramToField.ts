@@ -174,7 +174,9 @@ export function paramToField(param: ActionParamDef): Record<string, any> {
   // the identity pin fails on it by design.
   if (EXPANDABLE_FIELD_TYPES.has(type)) {
     Object.assign(field, {
-      reference_to: param.referenceTo,
+      // The widget field's target key is the spec's `reference`, the only
+      // spelling `LookupField` / `UserField` read (objectui#11070 round 4).
+      reference: param.referenceTo,
       displayField: param.displayField,
       idField: param.idField,
       descriptionField: param.descriptionField,

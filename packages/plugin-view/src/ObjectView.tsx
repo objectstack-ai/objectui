@@ -49,6 +49,11 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerDescription,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
   NavigationOverlay,
   Button,
   Tabs,
@@ -63,6 +68,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  buttonVariants,
   toast,
 } from '@object-ui/components';
 import { Plus } from 'lucide-react';
@@ -79,6 +85,7 @@ import {
   convertSortToQueryParams,
   recordDelete,
   resolveFilterPlaceholders,
+  toFilterNodeSafely,
   type FilterTokenScope,
 } from '@object-ui/core';
 import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema, notifyDataChanged, useDataInvalidation, useFilterScope } from '@object-ui/react';
@@ -322,6 +329,69 @@ function gridExportOptions(options: NamedViewConfig['exportOptions']): ObjectGri
 }
 
 /**
+ * objectui#10976 — the `table` members this component hands the grid it draws
+ * VERBATIM, beside the ones the grid-node build below reads off `table` by
+ * name (`columns` / `fields`, `filter` / `defaultFilters`, `sort`,
+ * `pagination` / `pageSize`, `selection` / `selectable`, `operations`, `title`,
+ * `className`).
+ *
+ * Each is a key `ObjectGrid` reads (`schema.KEY` in `ObjectGrid.tsx`), so a
+ * value an author writes on `table` reaches a read. Before this card the slot
+ * TYPED every one of them and the build copied none: `table: { editable: true }`
+ * type-checked and did nothing.
+ *
+ * Copied only when the author wrote the key — no default is injected, so a view
+ * that writes none of them hands the grid exactly what it did before. Where the
+ * active NAMED view declares the same member (the objectui#10885 rungs below),
+ * the named view wins and `table` is the fallback: the precedence `pagination`,
+ * `selection`, `filter` and `sort` already have.
+ *
+ * ⛔ The slot declares these keys and the by-name ones and no other grid member
+ * (`ObjectGridSlotKey` in `@object-ui/types`). A key added here is added there,
+ * or `object-view-slot-key-lists.test.ts` and this file's `satisfies` refuse it;
+ * `ObjectView.tableSlotRelay-10976.test.tsx` pins each one reaching `ObjectGrid`.
+ * ⛔ No alias: `batchActions` and `resizableColumns` are the legacy spellings of
+ * `bulkActions` and `resizable`, and the slot withholds them.
+ */
+export const OBJECT_VIEW_TABLE_RELAY_KEYS = [
+  'aggregations',
+  'bulkActionDefs',
+  'bulkActions',
+  'conditionalFormatting',
+  'editable',
+  'exportOptions',
+  'frozenColumns',
+  'grouping',
+  'label',
+  'reorderableColumns',
+  'resizable',
+  'rowActions',
+  'rowColor',
+  'rowHeight',
+  'searchableFields',
+  'showColumnTypeIcons',
+  'showPagination',
+  'showSearch',
+  'singleClickEdit',
+] as const satisfies readonly (keyof NonNullable<ObjectViewSchema['table']>)[];
+
+type TableRelayKey = (typeof OBJECT_VIEW_TABLE_RELAY_KEYS)[number];
+type TableRelay = Partial<Pick<ObjectGridSchema, TableRelayKey>>;
+
+/** One relayed member, copied only when the author wrote it. */
+function copyAuthored<K extends TableRelayKey>(to: TableRelay, from: TableRelay, key: K): void {
+  if (from[key] !== undefined) to[key] = from[key];
+}
+
+/** The relayed `table` members the author wrote, and only those. */
+function authoredTableRelay(table: ObjectViewSchema['table']): TableRelay {
+  const relay: TableRelay = {};
+  if (!table) return relay;
+  for (const key of OBJECT_VIEW_TABLE_RELAY_KEYS) copyAuthored(relay, table, key);
+  return relay;
+}
+
+/**
  * One entry of `ObjectViewSchema.listViews` — the protocol's
  * `ObjectListViewSchema`, by reference (objectui#7928). Derived from the member
  * rather than named on its own, so this component reads exactly the type the
@@ -339,6 +409,29 @@ interface AuthoredFilterSegments {
   view: NamedListView['filter'];
   table: ObjectGridSchema['filter'];
   tableDefaults: ObjectGridSchema['defaultFilters'];
+}
+
+/**
+ * objectui#11880 item 5 — the `table` rung of the filter this component hands
+ * the grid it draws: `table.filter`, unless it lowers to nothing, else the
+ * deprecated `table.defaultFilters`.
+ *
+ * This is the choice `ObjectGrid` made itself while the two arrived in two
+ * slots (it read `defaultFilters` only when `filter` lowered to nothing), now
+ * made here so both reach it in `filter` alone — `ObjectGrid`'s export and
+ * page reset read that slot only. "Lowers to nothing" is the sink's own
+ * answer (`toFilterNodeSafely`: absent, `[]`, `{}`, a record of nulls), not a
+ * truthiness test, so an empty `table.filter` beside a `table.defaultFilters`
+ * keeps the grid's answer: the legacy rung applies.
+ *
+ * A REFUSED `table.filter` is kept, not skipped: it reaches `ObjectGrid`, which
+ * draws its malformed-filter panel, as it did before. Skipping it would let
+ * the legacy rung answer a query the author's canonical filter forbids.
+ */
+function gridTableFilterRung(segments: AuthoredFilterSegments): ObjectGridSchema['filter'] {
+  const canonical = toFilterNodeSafely(segments.table);
+  if (!canonical.ok || canonical.node !== undefined) return segments.table;
+  return segments.tableDefaults;
 }
 
 /**
@@ -376,6 +469,7 @@ function useResolvedFilterSegments(
   if (
     held.currentUserId !== scope.currentUserId
     || held.currentOrgId !== scope.currentOrgId
+    || held.recordId !== scope.recordId
     || held.onUnresolved !== scope.onUnresolved
     || !isStructurallyEqual(held.segments, segments)
   ) {
@@ -394,6 +488,7 @@ interface HeldFilterSegments {
   segments: AuthoredFilterSegments;
   currentUserId: FilterTokenScope['currentUserId'];
   currentOrgId: FilterTokenScope['currentOrgId'];
+  recordId: FilterTokenScope['recordId'];
   onUnresolved: FilterTokenScope['onUnresolved'];
   resolved: AuthoredFilterSegments;
 }
@@ -403,6 +498,7 @@ function resolveFilterSegments(segments: AuthoredFilterSegments, scope: FilterTo
     segments,
     currentUserId: scope.currentUserId,
     currentOrgId: scope.currentOrgId,
+    recordId: scope.recordId,
     onUnresolved: scope.onUnresolved,
     resolved: resolveFilterPlaceholders(segments, scope),
   };
@@ -473,17 +569,28 @@ const VIEW_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // The `objectActions.*` rows are asked for by the shared `recordDelete` core
   // (`@object-ui/core`), which this view hands `tView`, so a provider-less host
   // reads them here; the ADR-0094 reset rows carry their own inline
-  // `defaultValue` there. `console.objectView.bulkDeleteConfirm` and the
-  // `actionConfirm.*` chrome are this host's dialog, in the console's
+  // `defaultValue` there. The dialog's copy is the core's too
+  // (`recordDelete.confirmCopy`, objectui#11695): the title, the
+  // `console.objectView.bulkDeleteConfirm` question and the Delete label;
+  // `actionConfirm.cancel` is this host's own chrome, in the console's
   // `ActionConfirmDialog` shape.
-  'actionConfirm.title': 'Confirm Action',
-  'actionConfirm.confirm': 'Continue',
   'actionConfirm.cancel': 'Cancel',
+  'objectActions.deleteConfirmTitle': 'Delete {{label}} "{{name}}"?',
+  'objectActions.bulkDeleteConfirmTitle': 'Delete {{count}} {{label}} records?',
+  'objectActions.bulkDeleteConfirmTitle_one': 'Delete {{count}} {{label}} record?',
+  'objectActions.bulkDeleteConfirmTitle_other': 'Delete {{count}} {{label}} records?',
+  'objectActions.deleteConfirmButton': 'Delete',
   'objectActions.deleteConfirm': 'Are you sure you want to delete this record?',
   'console.objectView.bulkDeleteConfirm': 'Delete {{count}} selected records? This cannot be undone.',
+  // Count families (objectui#11445): `fallbackT` reads a family's `_one` /
+  // `_other` row for a numeric `count`, as i18next reads the `en` pack.
+  'console.objectView.bulkDeleteConfirm_one': 'Delete {{count}} selected record? This cannot be undone.',
+  'console.objectView.bulkDeleteConfirm_other': 'Delete {{count}} selected records? This cannot be undone.',
   'objectActions.deleteSuccess': '{{label}} deleted successfully',
   'objectActions.deleteFailed': 'Failed to delete {{label}}',
   'objectActions.bulkDeleteSuccess': 'Deleted {{count}} {{label}} records',
+  'objectActions.bulkDeleteSuccess_one': 'Deleted {{count}} {{label}} record',
+  'objectActions.bulkDeleteSuccess_other': 'Deleted {{count}} {{label}} records',
   'objectActions.bulkDeletePartial': '{{succeeded}} deleted, {{failed}} failed',
 };
 
@@ -1309,9 +1416,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       if (!objectSchemaReady) return;
 
       try {
-        // `mergeFilterNodes` rescues an OBJECT source: `table.defaultFilters` is
-        // declared `Record<string, any>`, and the `baseFilter.length > 0` test
-        // this replaced read false for it — so a view's default filter was
+        // `mergeFilterNodes` rescues an OBJECT source: `table.defaultFilters` was
+        // declared `Record<string, any>` (until objectui#6152 round 10; the
+        // grid row's `ViewFilterRule` array since), and the `baseFilter.length
+        // > 0` test this replaced read false for it — so a view's default filter was
         // dropped and every record came back. The grid path (ObjectGrid) always
         // assigned it directly and was unaffected, so the same view filtered
         // correctly as a grid and returned everything as a calendar/kanban/
@@ -1516,7 +1624,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // `ObjectView.pageSurfaceFallback-11015.test.tsx`.
   const recordSurface = layout === 'page' && !schema.onNavigate ? 'drawer' : layout;
 
-  // Determine enabled operations
+  // Determine enabled operations. `read` is THIS view's member (the row-click
+  // gate in `handleRowClick`), read off the view's own `operations`; the
+  // `table.operations` fallback is the grid's block, which retired `read`
+  // (objectui#6152 round 8), and the grid node below is handed the toggles
+  // without it.
   const operations = schema.operations || schema.table?.operations || {
     create: true,
     read: true,
@@ -1836,6 +1948,15 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
   // --- Generate view component schema for non-grid views ---
   const generateViewSchema = useCallback((viewType: string): any => {
+    // objectui#11013 — the host `views` entry's toolbar policy, under its
+    // declared spelling `userActions`. `baseProps` below read the bare
+    // `showSearch` / `showSort` / `showFilters` flags off the entry, so a view
+    // declaring `userActions: { search: false }` was not heard. A stored entry
+    // that still carries a bare flag is folded onto `userActions` by
+    // `normalizeListViewSchema`, the fold the `list-view` relay already runs.
+    const activeViewUserActions = (normalizeListViewSchema(activeView ?? {}) as {
+      userActions?: { search?: boolean; sort?: boolean; filter?: boolean };
+    }).userActions;
     const baseProps: Record<string, any> = {
       objectName: schema.objectName,
       // objectui#5269 — the `table` segment reads the CANONICAL key first.
@@ -1880,9 +2001,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       fields: viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns
         || tableColumnFieldNames(schema.table?.columns) || schema.table?.fields,
       className: 'h-full w-full',
-      showSearch: activeView?.showSearch ?? schema.showSearch ?? false,
-      showSort: activeView?.showSort ?? schema.showSort ?? false,
-      showFilters: activeView?.showFilters ?? schema.showFilters ?? false,
+      showSearch: activeViewUserActions?.search ?? schema.showSearch ?? false,
+      showSort: activeViewUserActions?.sort ?? schema.showSort ?? false,
+      showFilters: activeViewUserActions?.filter ?? schema.showFilters ?? false,
       color: activeView?.color,
     };
 
@@ -2018,10 +2139,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // The contract half is NOT here and must not be duplicated here. It
         // lives in `@object-ui/types` (`zod/objectql.zod.ts`), one string
         // (`KanbanStrayGroupByRefusal`) on two routes: the `list-view` route
-        // takes it through the view-level `KanbanConfig` mirror, and a named
-        // view's `listViews.KEY.kanban.groupBy` (what this branch serves)
-        // through `ObjectViewSchema`'s named-view door,
-        // `checkNamedViewKanbanStrayGroupBy`, in both nestings (objectui#10321).
+        // takes it through the view-level `KanbanConfig` mirror. A named view's
+        // `listViews.KEY.kanban.groupBy` (what this branch serves) is refused by
+        // the protocol's own strict record, naming the key; objectui#10321's
+        // pointer on that door was retired by objectui#11073, because the
+        // protocol's refusal is terminal since `@objectstack/spec` 17.5.0.
         // What this line closes is the BEHAVIOUR half: a document that reaches
         // this branch carrying the key, whether or not it passed a validator.
         // ⚠️ NODE-LOCAL vs VIEW-LEVEL, as everywhere in this branch: the
@@ -2056,7 +2178,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // ⛔ Do not restore this fallback as a convenience. Authoring
         // kanban conditional formatting has two declared homes; a top-level key
         // that nothing declares, nothing publishes in the registry `inputs` and
-        // tsc cannot see (BaseSchema's index signature) is precisely the
+        // tsc could not see (BaseSchema's index signature, until objectui#8347) is
+        // precisely the
         // "renderer reads it, manifest denies it" condition objectui#4648 /
         // objectui#5091 exist to close. The host `renderListView` delegation
         // below still reads and forwards the key — that half is NOT narrowed.
@@ -2325,14 +2448,20 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // on the floor. An author who wrote the canonical shape the type recommends
   // got a compile-clean, semantically correct, RUNTIME-INERT view.
   //
-  // ObjectGrid reads both spellings of the first three and resolves them
+  // ObjectGrid reads both spellings of the first two and resolves them
   // canonical-first (`schema.pagination?.pageSize ?? schema.pageSize`;
-  // `if (schema.selection?.type) … else if (schema.selectable !== undefined)`;
-  // `schemaFilter !== undefined ? … : schema.defaultFilters`), so the fix is
-  // forwarding, not translation — and the precedence is not a free choice
-  // here: emitting both slots lets ObjectGrid's existing canonical-wins rule
-  // decide, which is the only answer that keeps the two layers saying the
-  // same thing.
+  // `if (schema.selection?.type) … else if (schema.selectable !== undefined)`),
+  // so for those the fix is forwarding, not translation: emitting both slots
+  // lets ObjectGrid's existing canonical-wins rule decide.
+  //
+  // objectui#11880 item 5: the filter pair is resolved HERE instead, and
+  // handed over in `filter` alone (see `gridTableFilterRung`). ObjectGrid does
+  // not read its two filter slots alike: its server export and its page reset
+  // read only `filter`, so a filter riding `defaultFilters` narrowed the rows
+  // on screen while the downloaded file held every record, and changing it in
+  // place kept the old page. `@objectstack/spec` also retires
+  // `object-grid.defaultFilters` (objectstack#11509, A-narrow), so this
+  // component no longer writes it at all.
   //
   // objectui#5861: the fourth pair is no longer a pair. `defaultSort` was
   // RETIRED under ADR-0049 — `@objectstack/spec` refuses it by name on
@@ -2360,19 +2489,21 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   const gridSchema: ObjectGridSchema = useMemo(() => {
     // The two segments ahead of the `table` one, resolved once.
     //
-    // `viewFilter` keeps riding the LEGACY slot it rides today:
-    // `filter`/`defaultFilters` are not interchangeable downstream —
-    // ObjectGrid lowers the canonical slot through `toFilterNode` and
-    // raw-assigns the legacy one — so moving a named-view filter across would
-    // change the wire shape of a path objectui#5270 does not own. Sort has no
-    // such asymmetry to preserve: its canonical slot is the only one left
-    // (the legacy `defaultSort` is retired, objectui#5861), and it is the one
-    // that can hold more than a single key.
+    // objectui#11880 item 5: `viewFilter` rides the CANONICAL slot, `filter`,
+    // as the `table` rung does when no view filter is present. Both slots
+    // reach the wire through the same `toFilterNode` sink in ObjectGrid
+    // (objectui#4082), so the query is unchanged; what moves is that the
+    // export and the page reset, which read `filter` only, now see it.
     //
     // objectui#10506: all three filter segments are read RESOLVED (see
     // `authoredFilters`), and held while their inputs are unchanged — ObjectGrid
     // keys its fetch on `schema.filter`'s identity.
     const viewFilter = authoredFilters.view;
+    // objectui#6152 round 8 — the grid's `operations` block is the row's
+    // `{ create, update, delete, export }`. `read` is this view's own toggle (its
+    // row-click gate, `handleRowClick`), which `ObjectGrid` never read and the
+    // row refuses by name, so it stays here and is not handed on.
+    const { read: _viewRowClickGate, ...gridOperations } = operations;
     // objectui#7928: see the non-grid fetch above. A retired string `sort` on a
     // named view reaches `ObjectGrid` unchanged, which refuses it out loud.
     const viewSort = (currentNamedViewConfig?.sort as ObjectGridSchema['sort']) || activeView?.sort;
@@ -2380,12 +2511,15 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // what survives is put in the named view's `fieldOrder`.
     const hiddenFields = currentNamedViewConfig?.hiddenFields;
     const fieldOrder = currentNamedViewConfig?.fieldOrder;
+    // objectui#10976 — the `table` members relayed verbatim, as authored.
+    const tableRelay = authoredTableRelay(schema.table);
 
     return {
       type: 'object-grid',
       objectName: schema.objectName,
       title: schema.table?.title,
-      description: schema.table?.description,
+      // objectui#10976: no `description` — `ObjectGrid` has no read of it, so
+      // the slot withholds it and this build no longer copies a dead value.
       // objectui#8254 — the same names-slot/union-slot split the non-grid
       // branch above makes, on the pair this memo emits together: `fields` is
       // `ObjectGridSchema.fields` (`string[]`) so the named-view segment is
@@ -2404,66 +2538,71 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         hiddenFields,
       ), fieldOrder),
       operations: {
-        ...operations,
+        ...gridOperations,
         create: false, // Create is handled by the view's create button
       },
-      defaultFilters: viewFilter || authoredFilters.tableDefaults,
-      // Canonical `table` keys, at last forwarded. `filter` carries the
-      // `table` segment ONLY: the view segment resolved above already occupies
-      // the legacy slot, and ObjectGrid prefers this slot over that one — so
-      // handing it `table.filter` while a named view is active would let the
-      // table default outrank the view, inverting the precedence the two
-      // untouched segments exist to express.
-      filter: viewFilter ? undefined : authoredFilters.table,
+      // objectui#11880 item 5 — the whole filter chain in ONE slot: the active
+      // view's filter (any truthy value, an empty array included, as before),
+      // else the `table` rung (`gridTableFilterRung`). No `defaultFilters`:
+      // ObjectGrid's export and page reset read `filter` only.
+      filter: viewFilter || gridTableFilterRung(authoredFilters),
       // `sort` carries the WHOLE chain instead — view segments first, then the
       // `table` one. Same precedence as `mergedSort` and the non-grid fetch
       // express; what changes is only WHICH slot a view's sort arrives in, and
       // this is the one whose declared arity can hold it.
       sort: viewSort || schema.table?.sort,
+      // ⭐ objectui#10976 — every relayed `table` member the author wrote
+      // (`OBJECT_VIEW_TABLE_RELAY_KEYS`). Spread FIRST, so a named-view rung
+      // below that declares the same member overrides it; each such rung falls
+      // back to `tableRelay` rather than to `undefined`.
+      ...tableRelay,
       // ⭐ objectui#10885 — the named view's own GRID MEMBERS, read here the
       // way the host delegation below reads them since objectui#10758: the
-      // named view first, then the node only where this branch already read
-      // the node (`table.pagination`, `table.selection`). Each is a member the
+      // named view first, then the node's `table` (`table.pagination` and
+      // `table.selection` by name, the rest through `tableRelay` since
+      // objectui#10976). Each is a member the
       // protocol declares on a named view AND on `object-grid`, under the same
       // name, and `ObjectGrid` reads each one. The Studio's view preview renders
       // a stored view through this branch, so before this a stored view's
       // `rowHeight`, `pagination` and the rest were accepted and not shown.
       //
-      // NAMED-VIEW SOURCED, like `grouping` / `rowColor` below: ⛔ no
+      // NAMED-VIEW FIRST, like `grouping` / `rowColor` below: ⛔ no
       // `activeView` rung (the host `views` path never fed these slots on this
-      // branch) and ⛔ no node read this branch did not already have. ⛔ No
-      // alias and no key `object-grid` does not declare: `hiddenFields` and
-      // `fieldOrder` are applied to the projection above rather than relayed.
+      // branch). The node's `table` is each rung's fallback since objectui#10976
+      // — objectui#10885 added no node read, and this card adds them as the
+      // relay above. ⛔ No alias and no key `object-grid` does not declare:
+      // `hiddenFields` and `fieldOrder` are applied to the projection above
+      // rather than relayed.
       // `navigation` is still not relayed to `ObjectGrid`: this component
       // passes the grid its own `onRowClick`, which the grid's navigation hook
       // obeys first, and that handler reads the named view's `navigation`
       // (`navigationConfig`, objectui#10885).
       pagination: currentNamedViewConfig?.pagination ?? schema.table?.pagination,
       selection: currentNamedViewConfig?.selection ?? schema.table?.selection,
-      rowHeight: currentNamedViewConfig?.rowHeight,
-      resizable: currentNamedViewConfig?.resizable,
-      searchableFields: currentNamedViewConfig?.searchableFields,
+      rowHeight: currentNamedViewConfig?.rowHeight ?? tableRelay.rowHeight,
+      resizable: currentNamedViewConfig?.resizable ?? tableRelay.resizable,
+      searchableFields: currentNamedViewConfig?.searchableFields ?? tableRelay.searchableFields,
       // The protocol's rule `condition` is a string or the `{ dialect, source }`
       // expression wire; `ObjectGrid` hands every rule to the shared evaluator
       // (`resolveConditionalFormatting`), which reads both. No assertion: the
       // grid's declared rule type reads the named view's `condition` slot by
       // reference (objectui#10946), so the relay type-checks as written.
-      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting,
-      rowActions: currentNamedViewConfig?.rowActions,
-      bulkActions: currentNamedViewConfig?.bulkActions,
+      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting ?? tableRelay.conditionalFormatting,
+      rowActions: currentNamedViewConfig?.rowActions ?? tableRelay.rowActions,
+      bulkActions: currentNamedViewConfig?.bulkActions ?? tableRelay.bulkActions,
       // Same as `conditionalFormatting`: the protocol's `visible` expression
       // wire may carry `ast` alongside (or, on the installed spec, instead of)
       // `source`, and `BulkActionDef.visible` reads that slot by reference
       // (objectui#10946). It is the value the host delegation already hands
       // `ObjectGrid` through `ListView`.
-      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs,
-      exportOptions: gridExportOptions(currentNamedViewConfig?.exportOptions),
+      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs ?? tableRelay.bulkActionDefs,
+      exportOptions: gridExportOptions(currentNamedViewConfig?.exportOptions) ?? tableRelay.exportOptions,
       // objectui#10885 — the named view's `inlineEdit` is the grid's
-      // `editable`. Route 2 handed the grid no `editable` before, so there is
-      // no node rung. It cannot widen editing past a grant: `ObjectGrid` ANDs
-      // it with the object's inline-edit verdict and the principal's `update`
-      // grant (`inlineEditable`), as `ListView` does on the delegation.
-      editable: currentNamedViewConfig?.inlineEdit,
+      // `editable`. The node rung is `table.editable` since objectui#10976
+      // (the relay above). Neither can widen editing past a grant: `ObjectGrid`
+      // ANDs it with the object's inline-edit verdict and the principal's
+      // `update` grant (`inlineEditable`), as `ListView` does on the delegation.
+      editable: currentNamedViewConfig?.inlineEdit ?? tableRelay.editable,
       // ⭐ objectui#8980 — the AUTHOR-REACHABLE read point for two of the
       // seventeen. `ObjectGrid` already reads both (`schema.grouping` in its
       // group-field memo and its reference collector, `useRowColor(schema.rowColor)`),
@@ -2471,13 +2610,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // with a `type: 'grid'` named view actually lands — the `renderListView`
       // delegation above runs only for a HOST (objectui#5097).
       //
-      // NAMED-VIEW SOURCED ONLY. ⛔ No `activeView` rung: the host `views` path
-      // has never fed these two slots on this branch, and widening it here would
-      // be a behaviour change on a surface this card does not own. Undefined is
-      // what `ObjectGrid` reads today for both keys, so the value only ever
-      // changes for a document that authors the protocol key.
-      grouping: currentNamedViewConfig?.grouping,
-      rowColor: currentNamedViewConfig?.rowColor,
+      // NAMED-VIEW FIRST, then the node's `table` (objectui#10976). ⛔ No
+      // `activeView` rung: the host `views` path has never fed these two slots
+      // on this branch, and widening it here would be a behaviour change on a
+      // surface neither card owns.
+      grouping: currentNamedViewConfig?.grouping ?? tableRelay.grouping,
+      rowColor: currentNamedViewConfig?.rowColor ?? tableRelay.rowColor,
       pageSize: schema.table?.pageSize,
       selectable: schema.table?.selectable,
       className: schema.table?.className,
@@ -2570,22 +2708,60 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     return `max-w-[${w}]`;
   }, [navigationConfig]);
 
-  // Render the form in a drawer
-  const renderDrawerForm = () => (
-    <Drawer open={isFormOpen} onOpenChange={setIsFormOpen} direction="right">
-      <DrawerContent className={cn('w-full sm:max-w-2xl', formWidthClass)}>
-        <DrawerHeader>
-          <DrawerTitle>{getFormTitle()}</DrawerTitle>
-          {formDescriptionText && (
-            <DrawerDescription>{formDescriptionText}</DrawerDescription>
-          )}
-        </DrawerHeader>
-        <div className="flex-1 overflow-y-auto px-4 pb-4">
-          <ObjectForm schema={buildFormSchema()} dataSource={dataSource} />
-        </div>
-      </DrawerContent>
-    </Drawer>
-  );
+  // Render the form in a drawer: a right-hand panel on a desktop, a bottom
+  // sheet on a phone (`isMobile`, the breakpoint the record surface is
+  // derived on).
+  //
+  // objectui#11775: this used to be one vaul `Drawer` with
+  // `direction="right"` on every viewport. vaul honours `direction` for the
+  // slide and the drag gesture only; the shipped `DrawerContent` is the
+  // upstream bottom sheet and styles itself as one whatever the direction, so
+  // on a desktop the form drew as a bottom sheet pinned to the bottom-left by
+  // `sm:max-w-2xl`. The desktop panel is now the right-hand `Sheet`, the
+  // primitive `NavigationOverlay`'s drawer mode and `DrawerForm` already open
+  // records in. The phone keeps vaul's bottom sheet, opened in vaul's own
+  // default direction so its slide and drag match how it is drawn, and spans
+  // the viewport like every other bottom sheet: the width classes, and an
+  // authored `navigation.width`, size the side panel only.
+  const renderDrawerForm = () => {
+    const form = (
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        <ObjectForm schema={buildFormSchema()} dataSource={dataSource} />
+      </div>
+    );
+    if (isMobile) {
+      return (
+        <Drawer open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>{getFormTitle()}</DrawerTitle>
+              {formDescriptionText && (
+                <DrawerDescription>{formDescriptionText}</DrawerDescription>
+              )}
+            </DrawerHeader>
+            {form}
+          </DrawerContent>
+        </Drawer>
+      );
+    }
+    return (
+      <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <SheetContent
+          side="right"
+          className={cn('flex w-full flex-col gap-0 p-0 sm:max-w-2xl', formWidthClass)}
+        >
+          {/* `pr-12` keeps the title clear of the Sheet's own close button. */}
+          <SheetHeader className="p-4 pr-12">
+            <SheetTitle>{getFormTitle()}</SheetTitle>
+            {formDescriptionText && (
+              <SheetDescription>{formDescriptionText}</SheetDescription>
+            )}
+          </SheetHeader>
+          {form}
+        </SheetContent>
+      </Sheet>
+    );
+  };
 
   // Render the form in a modal
   const renderModalForm = () => (
@@ -2754,10 +2930,27 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
             // folds in LAST. Spread rather than `??` on purpose: this slot is a
             // merge of toggle sets, not a winner-takes-all pick, and a named
             // view that toggles one action must not blank the rest.
-            ...currentNamedViewConfig?.userActions,
+            //
+            // objectui#5144 — through the same fold as the two layers above.
+            // A named view carries no `show*` flag (its strict record refuses
+            // them), but it can carry the spec's `inlineEdit`, which the fold
+            // turns into `userActions.editInline`. Spread raw, a host view's or
+            // the node's folded `inlineEdit` outranked the named view's own,
+            // the inverse of the named-first `inlineEdit` rung below. The fold
+            // is handed the two members it reads into `userActions` here, by
+            // name rather than the whole view, so the fence's read census
+            // (`objectViewHostSurface.test.tsx`) still sees each one.
+            ...(normalizeListViewSchema({
+              userActions: currentNamedViewConfig?.userActions,
+              inlineEdit: currentNamedViewConfig?.inlineEdit,
+            }) as { userActions?: object }).userActions,
           },
           compactToolbar: currentNamedViewConfig?.compactToolbar ?? activeView?.compactToolbar ?? (schema as any).compactToolbar,
-          allowExport: activeView?.allowExport ?? (schema as any).allowExport,
+          // objectui#11013 — the host `views` entry is no longer read for
+          // `allowExport`: nothing writes it onto a view (no console surface,
+          // no authored view here, and the spec's view schema refuses it by
+          // name). The node's value is the objectui#5097 host-composition read.
+          allowExport: (schema as any).allowExport,
           exportOptions: currentNamedViewConfig?.exportOptions ?? activeView?.exportOptions,
           // Propagate display properties
           color: activeView?.color ?? (schema as any).color,
@@ -2780,13 +2973,18 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           rowColor: currentNamedViewConfig?.rowColor ?? activeView?.rowColor,
           // Propagate view-config properties (Bug 4 / items 14-22)
           inlineEdit: currentNamedViewConfig?.inlineEdit ?? activeView?.inlineEdit ?? (schema as any).inlineEdit,
-          wrapHeaders: activeView?.wrapHeaders ?? (schema as any).wrapHeaders,
-          clickIntoRecordDetails: activeView?.clickIntoRecordDetails ?? (schema as any).clickIntoRecordDetails,
-          addRecordViaForm: activeView?.addRecordViaForm ?? (schema as any).addRecordViaForm,
-          addDeleteRecordsInline: activeView?.addDeleteRecordsInline ?? (schema as any).addDeleteRecordsInline,
-          collapseAllByDefault: activeView?.collapseAllByDefault ?? (schema as any).collapseAllByDefault,
-          fieldTextColor: activeView?.fieldTextColor ?? (schema as any).fieldTextColor,
-          prefixField: activeView?.prefixField ?? (schema as any).prefixField,
+          // objectui#11013 — the seven renderer flags below are read off the
+          // NODE only (the objectui#5097 host-composition keys). The host
+          // `views` entry is a stored view row, and no producer writes any of
+          // them onto one: no console surface, no view authored here, and the
+          // spec's view schema refuses each by name.
+          wrapHeaders: (schema as any).wrapHeaders,
+          clickIntoRecordDetails: (schema as any).clickIntoRecordDetails,
+          addRecordViaForm: (schema as any).addRecordViaForm,
+          addDeleteRecordsInline: (schema as any).addDeleteRecordsInline,
+          collapseAllByDefault: (schema as any).collapseAllByDefault,
+          fieldTextColor: (schema as any).fieldTextColor,
+          prefixField: (schema as any).prefixField,
           showDescription: activeView?.showDescription ?? (schema as any).showDescription,
           // ViewData source override (spec `data` key) — e.g. gantt views fed
           // by a composite api endpoint; without this pick the api provider
@@ -3012,12 +3210,24 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   const toolbar = renderToolbar();
 
   // The delete confirmation (objectui#10383) — this host's confirm UI, in the
-  // console's `ActionConfirmDialog` shape and keys (`actionConfirm.*` chrome,
-  // the question as the description). The one-row question and the delete
-  // itself come from the shared `recordDelete` core. Close flips `open` and KEEPS the request, so
-  // the description does not blank during the exit animation (the objectui#6034
-  // lesson); the `open` guard on Continue is what stops a click during that
-  // animation from deleting twice.
+  // console's `ActionConfirmDialog` shape (`actionConfirm.cancel` chrome, the
+  // question as the description). Its copy — the title naming the record or
+  // counting the batch, the question, and the "Delete" confirm label — and the
+  // delete itself come from the shared `recordDelete` core, so this dialog
+  // says what the console's says (objectui#11695); the confirm button is
+  // painted destructive the way `ActionConfirmDialog` paints it. Close flips
+  // `open` and KEEPS the request, so the copy does not blank during the exit
+  // animation (the objectui#6034 lesson); the `open` guard on Delete is what
+  // stops a click during that animation from deleting twice.
+  const deleteLabel = (objectSchema?.label as string) || schema.objectName;
+  const deleteCopy = deleteRequest
+    ? recordDelete.confirmCopy(
+        { objectName: schema.objectName, t: tView, label: deleteLabel, objectDef: objectSchema },
+        deleteRequest.bulk
+          ? { count: deleteRequest.records.length }
+          : { record: deleteRequest.records[0] },
+      )
+    : null;
   const deleteConfirmDialog = (
     <AlertDialog
       open={deleteRequest?.open ?? false}
@@ -3027,19 +3237,13 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{tView('actionConfirm.title')}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {deleteRequest?.bulk
-              ? tView('console.objectView.bulkDeleteConfirm', { count: deleteRequest.records.length })
-              : recordDelete.confirmText(
-                  { objectName: schema.objectName, t: tView },
-                  deleteRequest?.records[0],
-                )}
-          </AlertDialogDescription>
+          <AlertDialogTitle>{deleteCopy?.title}</AlertDialogTitle>
+          <AlertDialogDescription>{deleteCopy?.message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{tView('actionConfirm.cancel')}</AlertDialogCancel>
           <AlertDialogAction
+            className={buttonVariants({ variant: 'destructive' })}
             onClick={() => {
               if (!deleteRequest?.open) return;
               const { records, bulk } = deleteRequest;
@@ -3047,7 +3251,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
               void recordDelete.run(
                 {
                   objectName: schema.objectName,
-                  label: (objectSchema?.label as string) || schema.objectName,
+                  label: deleteLabel,
                   dataSource,
                   t: tView,
                   toast,
@@ -3059,7 +3263,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
               );
             }}
           >
-            {tView('actionConfirm.confirm')}
+            {deleteCopy?.confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

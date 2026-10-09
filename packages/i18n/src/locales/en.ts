@@ -36,31 +36,37 @@ const en = {
       setup_write: 'Write Settings',
       studio_access: 'Studio Access',
       manage_sharing: 'Manage Sharing',
+      view_all_audit_log: 'View All Audit Log',
     },
   },
   // objectui#3546 slice six — the read-only facet summary + Studio deep-link a
   // `sys_permission_set` record shows for its six authorization facets
   // (ADR-0056 P1, plugin-detail's PermissionFacetLink).
   //
-  // The four count labels are plural families. `_one` is the singular; the BASE
-  // key (no suffix) is the form every OTHER CLDR plural category resolves to,
-  // which is what keeps `ru` (few/many) and `ar` (two/few/many/zero) in their own
-  // language instead of falling through to English — i18next only looks up the
-  // one suffix a language's rules ask for, and falls back to the base key when
-  // that suffix is absent. `perm-home-namespace-3546.test.tsx` renders every
-  // language at counts 1/2/3/5/11/21/100 to hold this.
+  // The four count labels are plural families. i18next looks up the ONE suffix
+  // a language's rules ask for, so every pack spells out every CLDR category its
+  // language selects (`en`: `_one`/`_other`; `ru` adds `_few`/`_many`, `ar`
+  // `_zero`/`_two`/`_few`/`_many` — objectui#11432); the BASE key (no suffix)
+  // answers a call made without a count. `all-locales-key-parity.test.ts`
+  // derives the required slots from `Intl.PluralRules`, and
+  // `perm-home-namespace-3546.test.tsx` renders every language at counts
+  // 1/2/3/5/11/21/100.
   perm: {
     facet: {
       none: 'None',
       more: '+{{count}} more',
       objects: '{{count}} objects',
       objects_one: '{{count}} object',
+      objects_other: '{{count}} objects',
       fields: '{{count}} field rules',
       fields_one: '{{count}} field rule',
+      fields_other: '{{count}} field rules',
       rls: '{{count}} RLS policies',
       rls_one: '{{count}} RLS policy',
+      rls_other: '{{count}} RLS policies',
       tabs: '{{count}} tab rules',
       tabs_one: '{{count}} tab rule',
+      tabs_other: '{{count}} tab rules',
       adminScope: 'Delegated admin configured',
       designInStudio: 'Design in Studio →',
       designInStudioHint: 'Design in Studio',
@@ -82,7 +88,8 @@ const en = {
     selectFirst: 'Select {{fields}} first',
     selectRecord: 'Select record',
     recordCount: '{{count}} records',
-    recordCountOne: '1 record',
+    recordCount_one: '{{count}} record',
+    recordCount_other: '{{count}} records',
     pageOf: 'Page {{current}} of {{total}}',
     filters: 'Filters',
     clear: 'Clear',
@@ -139,10 +146,12 @@ const en = {
     closeChat: 'Close chat',
     closePanel: 'Close panel',
     resizeDrawer: 'Resize drawer',
-    // Count badge on a tab / section header. Two keys, NOT an i18next
-    // `_one`/`_other` pair — see the `reactionCount` note under `detail`.
+    // Count badge on a tab / section header. An i18next count family
+    // (objectui#11445): the badge passes `count` and i18next picks the slot
+    // each pack's CLDR rules select.
     itemCount: '{{count}} items',
-    itemCountOne: '{{count}} item',
+    itemCount_one: '{{count}} item',
+    itemCount_other: '{{count}} items',
     toggleSidebar: 'Toggle sidebar',
     package: 'Package',
     done: 'Done',
@@ -175,9 +184,16 @@ const en = {
     // `visible` gate outranks (objectui#4191) — the deep link or host asked
     // for it, but the author hid it on this surface.
     notAvailableHere: '"{{action}}" is not available on the current page.',
-    // The success toast the action runner shows when an action declares no
-    // `successMessage` and the server returned no message — the one toast
-    // text the runner writes itself (objectui#10900).
+    // The reason a record action greyed out by its declared `disabled`
+    // predicate gives on hover, on focus and as its accessible description
+    // (objectui#11811): the generic one, since the action spec carries no
+    // author-written reason. Not `notAvailableHere` — that one is about the
+    // page, this one about the record.
+    notAvailableForRecord: 'Not available for this record',
+    // The success toast the action runner shows when no `outcomeMessages`
+    // entry applies to the answer and the action declares no `successMessage`;
+    // the server's message plays no part (objectui#11344). It is the one
+    // success-toast text the runner writes itself (objectui#10900).
     completedSuccessfully: 'Action completed successfully',
     // The runner's other own text (objectui#10969): the error fallbacks when no
     // readable error message reached it, and the Undo label it hands the toast
@@ -185,6 +201,17 @@ const en = {
     failed: 'Action failed',
     parallelFailed: 'One or more parallel actions failed',
     undo: 'Undo',
+    // The confirmation toast after that Undo has run — written by the console's
+    // two undo handlers (`useConsoleActionRuntime` and `RecordDetailView`), not
+    // by the runner (objectui#11056).
+    undone: 'Change undone',
+    // The console's global Ctrl+Z / Ctrl+Shift+Z toasts, raised by
+    // `AppContent`'s `useGlobalUndo` handlers once the operation has been
+    // undone / redone (objectui#11080). `{{description}}` is the operation's
+    // own description, passed through unchanged; the pack owns the words and
+    // the word order around it.
+    undoneOperation: 'Undo: {{description}}',
+    redoneOperation: 'Redo: {{description}}',
   },
   validation: {
     required: '{{field}} is required',
@@ -220,6 +247,13 @@ const en = {
     // with `validation.formInvalidJoiner`. A list after a colon, so no word has
     // to agree with how many fields were cleared.
     clearedOnHide: 'Cleared — no longer applicable given the current values: {{fields}}',
+    // The refusal a record form raises at SUBMIT when a field's own
+    // `visibleWhen` could not be evaluated (objectui#8069, ADR-0137 D2 as ruled:
+    // the client refuses the one rule no server judges). It names the rule and
+    // the fields — `{{fields}}` is their labels joined with
+    // `validation.formInvalidJoiner` — because the fix is to the metadata, not
+    // to anything the person filling the form can type.
+    visibleWhenFaulted: "Can't submit: the visibleWhen rule of {{fields}} could not be evaluated. The rule must be fixed before this form can be submitted.",
     removeItem: 'Remove item',
     fieldRequired: 'This field is required',
     invalidFormat: 'Invalid format',
@@ -234,6 +268,57 @@ const en = {
     // only displace it by authoring a `description`, which makes a VISIBLE
     // subtitle appear on every form — so the fallback has to come from here.
     dialogDescriptionFallback: 'Complete the form fields, then submit or cancel.',
+    // The hint under a field the caller may read but not write, shown when the
+    // field declares no description of its own (objectui#11071).
+    deniedDescription: 'You do not have edit access to this field.',
+    // The master-detail form's own chrome (objectui#11071): the collection
+    // placeholder while its columns resolve, the document totals stack
+    // (`{{rate}}` is the header's tax rate), the row editor's title
+    // (`{{title}}` is the collection's authored title, or `lineItem` when it
+    // has none; `{{row}}` is the 1-based row number), its Apply button, and the
+    // sr-only description of the dialog that hosts the form. The verbs `Add`,
+    // `Close` and `Saving…` come from `detail.add`, `common.close` and
+    // `detail.saving`.
+    masterDetail: {
+      loadingColumns: 'Loading columns…',
+      subtotal: 'Subtotal',
+      tax: 'Tax ({{rate}}%)',
+      total: 'Total',
+      lineItem: 'Line item',
+      rowTitle: '{{title}} — row {{row}}',
+      applyRow: 'Apply',
+      editorDescription: 'Enter the record and its line items, then save.',
+      // A collection's configuration hints (objectui#11160): no `childObject`
+      // (the twin of `lineItems.noChildObject`, which names the panel), a
+      // child schema that failed to load, and no lookup or master_detail
+      // field on the child that references the parent. `{{property}}` is a
+      // property name and `{{object}}` / `{{parent}}` are object names; each
+      // is rendered as code and never translated. `lookup` and
+      // `master_detail` are field type names, so every pack keeps them as
+      // written.
+      noChildObject: 'This collection has no child object configured: set {{property}} to the object whose rows it lists.',
+      schemaUnavailable: 'Could not load the schema of {{object}}, so this collection has no columns to show. Check that the object exists and is readable, then reload.',
+      noRelationshipField: 'Could not work out how {{object}} links to {{parent}}: no lookup or master_detail field on it references the parent. Set {{property}} on this collection to the field that holds the parent record.',
+    },
+    // The record page's `record:line_items` panel (objectui#11131): its
+    // title when the author declared none. Its Save / Saving… button reads
+    // `common.save` / `detail.saving`. `MasterDetailForm` reads `title` too,
+    // for a collection that authors no heading (objectui#11145).
+    //
+    // The rest is the panel's own states (objectui#11145): no parent record
+    // bound yet, rows held for another parent, and the two fallbacks for a
+    // failed load or save, shown when the server sent no message of its own.
+    // Its loading line reads `common.loading`. `noChildObject` is the config
+    // hint for a panel with no `childObject`: `{{property}}` is filled with
+    // the property name, rendered as code and never translated.
+    lineItems: {
+      title: 'Line Items',
+      saveRecordFirst: 'Save the record first to add line items.',
+      notLoaded: 'This record’s line items have not been loaded.',
+      loadFailed: 'Failed to load line items',
+      saveFailed: 'Failed to save line items',
+      noChildObject: 'This panel has no child object configured: set {{property}} to the object whose rows it lists.',
+    },
     keepEditing: 'Keep editing',
     discard: 'Discard',
     conflictTitle: 'Save conflict',
@@ -251,6 +336,26 @@ const en = {
     createSuccess: '{{object}} created successfully',
     updateSuccess: '{{object}} updated successfully',
     deleteSuccess: '{{object}} deleted successfully',
+    // plugin-form's own feedback chrome (objectui#11039): the success toast
+    // a form raises when the author declared no `successMessage` (`created`
+    // after a create, `saved` after an edit), the master-detail form's edit
+    // toast when the form has a `title` (`{{title}}` is that title), and the
+    // console form page's toast after a submit. An authored message always
+    // wins; these are only the defaults. The form's loading line and its
+    // thank-you panel read `publicForm.loading` / `publicForm.thankYouTitle` /
+    // `publicForm.thankYouMessage`, which say the same thing.
+    created: 'Created',
+    saved: 'Saved',
+    savedNamed: '{{title}} saved',
+    submitted: 'Submitted',
+    // The heading of the panel a form shows when its object schema or its
+    // record could not be loaded; the error's own message follows it.
+    errorLoading: 'Error loading form',
+    // Rides the success toast when a DECLARED `navigateOnSuccess` produced no
+    // destination (objectui#5034): the write succeeded, the declared
+    // navigation did not happen. `navigateOnSuccess` is the metadata key's
+    // name, so every pack keeps it as written.
+    navigateRefused: 'The `navigateOnSuccess` destination declared for this form was refused, so the navigation did not happen.',
     fullscreen: {
       title: 'Edit text',
       description: 'Edit the full text value, then save or cancel your changes.',
@@ -262,6 +367,8 @@ const en = {
   fields: {
     relativeDate: {
       overdue: 'Overdue {{count}}d',
+      overdue_one: 'Overdue {{count}}d',
+      overdue_other: 'Overdue {{count}}d',
     },
     file: {
       dragDropHere: 'Drag & drop files here',
@@ -465,9 +572,38 @@ const en = {
     // to plural lookup before the base key, and these packs declare the base
     // key only; a sentence whose grammar does not bend on the number is
     // correct at 1 without ten plural entries per pack.
+    // objectui#11689 — `BooleanCellRenderer`'s own words (every list
+    // surface draws them): the badge a status-named column (`active`,
+    // `enabled`, …) shows for `false`, where `{{label}}` is the column label
+    // the face is handed, and the completion indicator's accessible names.
+    boolean: {
+      offBadge: '{{label}} — Off',
+      completed: 'Completed',
+      notCompleted: 'Not completed',
+    },
     textarea: {
       characterCount: 'Character count: {{count}} of {{max}}',
       charactersRemaining: 'Characters remaining: {{count}}',
+    },
+    // objectui#11131 — the line-items grid's default chrome (`GridField`):
+    // its Add button, the read-only grid's empty state, and the list-mode
+    // grid's empty state. An authored `addLabel` still wins over `addLine`,
+    // and it fills the `{{label}}` hole (`detail.add` when none is authored).
+    //
+    // objectui#11145 — the rest of that chrome: the column chooser's heading,
+    // the computed cell's tooltip, and the row actions. Each row action has
+    // one key, read by both its `aria-label` and its `title`. The chooser's
+    // button reads `table.columns`, the footer `form.masterDetail.total` and
+    // the drag handle `view.dragToReorder`.
+    grid: {
+      addLine: 'Add line',
+      noItems: 'No items',
+      noItemsAddHint: 'No items yet — click “{{label}}” to begin.',
+      optionalColumns: 'Optional columns',
+      computed: 'Computed',
+      openRow: 'Open row',
+      duplicateRow: 'Duplicate row',
+      removeRow: 'Remove row',
     },
   },
   table: {
@@ -497,8 +633,12 @@ const en = {
     open: 'Open',
     search: 'Search…',
     modified: '{{count}} row modified',
+    modified_one: '{{count}} row modified',
+    modified_other: '{{count}} rows modified',
     saveFailed: 'Save failed',
     selected: '{{count}} selected',
+    selected_one: '{{count}} selected',
+    selected_other: '{{count}} selected',
     edit: 'Edit',
     delete: 'Delete',
   },
@@ -515,9 +655,13 @@ const en = {
     openRecord: 'Open record',
     openMenu: 'Open menu',
     bulkSelected: '{{count}} selected',
+    bulkSelected_one: '{{count}} selected',
+    bulkSelected_other: '{{count}} selected',
     bulkSelectedAllMatches: '{{count}} selected (all matches)',
     bulkClear: 'Clear',
     bulkAllOnPage: 'All {{count}} on this page are selected.',
+    bulkAllOnPage_one: '{{count}} record on this page is selected.',
+    bulkAllOnPage_other: 'All {{count}} on this page are selected.',
     bulkSelectAllMatching: 'Select all {{count}} matching',
     bulkAllMatchingSelected: 'All {{count}} matching records are selected.',
     rowHeight: 'Row height: {{mode}}',
@@ -580,8 +724,10 @@ const en = {
       dragDrop: 'Drag & drop a CSV or Excel file here, or click to browse',
       browseFiles: 'Browse Files',
       downloadTemplate: 'Download template',
-      downloadTemplateHint: 'Get a CSV with the right columns (required fields marked *).',
+      downloadTemplateHint: 'Get an Excel file of the columns you can import (required fields marked *), with instructions for filling it in.',
       templateFileName: '{{object}}-import-template',
+      templateDownloadFailed: 'Could not download the template. Please try again.',
+      templateNotPermitted: 'You do not have permission to create records of this object, so its import template is not available.',
       parsing: 'Parsing…',
       pasteHint: 'or paste (Ctrl/⌘+V) rows copied from Excel or Google Sheets',
       legacyXls: 'Legacy .xls files aren\'t supported — please re-save as .xlsx.',
@@ -607,6 +753,8 @@ const en = {
       typeMismatch: 'Looks like {{type}}',
       autoMatched: 'Auto-matched',
       autoMatchedSummary: 'Auto-matched {{count}} column(s) — review and adjust below.',
+      autoMatchedSummary_one: 'Auto-matched {{count}} column — review and adjust below.',
+      autoMatchedSummary_other: 'Auto-matched {{count}} columns — review and adjust below.',
       confidence: {
         high: 'High confidence',
         medium: 'Medium confidence',
@@ -625,7 +773,11 @@ const en = {
       mapped: 'Mapped',
       skipped: 'Skipped',
       rowsWithErrors: '{{count}} row(s) with errors',
+      rowsWithErrors_one: '{{count}} row with errors',
+      rowsWithErrors_other: '{{count}} rows with errors',
       rowsCorrected: '{{count}} row(s) corrected',
+      rowsCorrected_one: '{{count}} row corrected',
+      rowsCorrected_other: '{{count}} rows corrected',
       clickToFix: '— click a highlighted cell to fix it inline.',
       showingRows: 'Showing {{shown}} of {{total}} rows',
       importing: 'Importing… {{progress}}%',
@@ -636,12 +788,20 @@ const en = {
       cancelImport: 'Cancel import',
       importCancelled: 'Import cancelled',
       resultsTruncated: 'Showing the first {{count}} row results (of {{total}}).',
+      resultsTruncated_one: 'Showing the first {{count}} row result (of {{total}}).',
+      resultsTruncated_other: 'Showing the first {{count}} row results (of {{total}}).',
       importComplete: 'Import Complete',
       imported: '{{count}} imported',
       createdCount: '{{count}} created',
+      createdCount_one: '{{count}} created',
+      createdCount_other: '{{count}} created',
       updatedCount: '{{count}} updated',
+      updatedCount_one: '{{count}} updated',
+      updatedCount_other: '{{count}} updated',
       skippedCount: '{{count}} skipped',
       moreErrors: '…and {{count}} more errors',
+      moreErrors_one: '…and {{count}} more error',
+      moreErrors_other: '…and {{count}} more errors',
       downloadFailed: 'Download failed rows',
       options: 'Import options',
       writeMode: 'When a row matches an existing record',
@@ -673,6 +833,7 @@ const en = {
       invalidBoolean: '"{{value}}" is not a valid true/false value',
       invalidNumber: '"{{value}}" is not a valid number',
       invalidDate: '"{{value}}" is not a valid date',
+      invalidTime: '"{{value}}" is not a valid time',
       invalidOption: '"{{value}}" is not one of the allowed options',
       requiredValue: 'This field is required',
       matchAmbiguous: 'Matches more than one existing record — use a unique value or the record id',
@@ -689,6 +850,8 @@ const en = {
       historyColResult: 'Result',
       historyColTime: 'When',
       errorCount: '{{count}} errors',
+      errorCount_one: '{{count}} error',
+      errorCount_other: '{{count}} errors',
       undoImport: 'Undo import',
       undoing: 'Undoing…',
       undoConfirm: 'Undo this import? Records it created will be deleted and records it updated will be restored to their previous values.',
@@ -705,6 +868,8 @@ const en = {
       next: 'Next',
       close: 'Close',
       importNRows: 'Import {{count}} Rows',
+      importNRows_one: 'Import {{count}} Row',
+      importNRows_other: 'Import {{count}} Rows',
       importingProgress: 'Importing…',
       required: 'Required',
       invalidType: 'Invalid {{type}}',
@@ -716,9 +881,13 @@ const en = {
     },
     bulk: {
       confirmDefault: 'This will apply to {{count}} record(s).',
+      confirmDefault_one: 'This will apply to {{count}} record.',
+      confirmDefault_other: 'This will apply to {{count}} records.',
       overLimit: 'Selection ({{count}}) exceeds the action limit ({{limit}}). Reduce the selection to proceed.',
       affectedRecords: 'Affected records ({{count}}):',
       skippedIneligible: '{{count}} selected record(s) are not eligible for this action and will be skipped.',
+      skippedIneligible_one: '{{count}} selected record is not eligible for this action and will be skipped.',
+      skippedIneligible_other: '{{count}} selected records are not eligible for this action and will be skipped.',
       rowFallback: 'Row {{index}}',
       andMore: '\u2026 and {{count}} more',
       processed: '{{count}} / {{total}} processed',
@@ -779,7 +948,8 @@ const en = {
   list: {
     loading: 'Loading records…',
     recordCount: '{{count}} records',
-    recordCountOne: '{{count}} record',
+    recordCount_one: '{{count}} record',
+    recordCount_other: '{{count}} records',
     addRecord: 'Add record',
     tabs: 'Tabs',
     allRecords: 'All Records',
@@ -808,6 +978,7 @@ const en = {
     firstRunMessage: 'Create your first record to get started.',
     noMatches: 'No matching records',
     noMatchesMessage: 'No records match your current filters or search. Try adjusting or clearing them.',
+    viewFilterNoMatchesMessage: 'No records match this view’s filter.',
     loadErrorTitle: 'Couldn\u2019t load records',
     loadErrorMessage: 'Something went wrong while loading this data. Check your connection and try again.',
     loadErrorForbiddenTitle: 'You don\u2019t have access',
@@ -905,7 +1076,7 @@ const en = {
   },
   timeline: {
     bucket: {
-      overdue: 'Overdue',
+      earlier: 'Earlier',
       today: 'Today',
       tomorrow: 'Tomorrow',
       thisWeek: 'This week',
@@ -1025,13 +1196,19 @@ const en = {
     conflict: {
       title: 'Schedule conflict',
       body: 'This move conflicts with dependency constraints. Auto-reschedule {{count}} affected task(s)?',
+      body_one: 'This move conflicts with dependency constraints. Auto-reschedule {{count}} affected task?',
+      body_other: 'This move conflicts with dependency constraints. Auto-reschedule {{count}} affected tasks?',
       confirm: 'Auto-reschedule',
       cancel: 'Keep as is',
     },
     autoScheduleDlg: {
       title: 'Auto-schedule',
       body: 'Shift {{count}} task(s) later to satisfy dependency links?',
+      body_one: 'Shift {{count}} task later to satisfy dependency links?',
+      body_other: 'Shift {{count}} tasks later to satisfy dependency links?',
       skipped: '{{count}} locked task(s) also violate links and were skipped.',
+      skipped_one: '{{count}} locked task also violates links and was skipped.',
+      skipped_other: '{{count}} locked tasks also violate links and were skipped.',
       confirm: 'Apply',
       cancel: 'Cancel',
       none: 'All dependencies satisfied — nothing to reschedule.',
@@ -1089,6 +1266,12 @@ const en = {
     readonlyAriaLabel: 'Read-only view',
     readonlyTooltip: 'System view — defined in code, read-only.',
     malformedFilter: 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
+    // objectui#11605 — an object-bound block whose node names its object in
+    // neither place (no own key, no `dataSource.object`). `{{property}}` is the
+    // block's object key (`objectName`), interpolated and never translated; the
+    // wording was `element.number.noObject`'s with the property as a hole,
+    // before objectui#11880 dropped that notice's flat `object`.
+    noObject: 'No object named: set {{property}} or dataSource.object.',
   },
   detail: {
     back: 'Back',
@@ -1105,6 +1288,7 @@ const en = {
     writeStrippedReadonly: 'Read-only, so it did not take effect: {{fields}}',
     writeStrippedByState: "Not editable in this record's current state, so it did not take effect: {{fields}}",
     writeStrippedPrimaryKey: "The record's identifier cannot be changed by a save, so it did not take effect: {{fields}}",
+    writeStrippedComputed: 'Calculated by the server from a formula, so the value sent did not take effect: {{fields}}',
     writeStrippedUnknownReason: 'Not applied by the server: {{fields}}',
     approvalPendingEditable: 'In approval · editable',
     approvalPendingTooltip: 'This record has a pending approval request; this step still allows editing',
@@ -1159,7 +1343,8 @@ const en = {
     pageHeaderActions: 'Page header actions',
     emojiPicker: 'Emoji picker',
     reactionCount: '{{emoji}} {{count}} reactions',
-    reactionCountOne: '{{emoji}} {{count}} reaction',
+    reactionCount_one: '{{emoji}} {{count}} reaction',
+    reactionCount_other: '{{emoji}} {{count}} reactions',
     // Record-overlay chrome (objectstack#5506). `recordDetail` is the VISIBLE
     // heading the overlay falls back to when the host passes no title;
     // `openAsFullPage` is the icon-only expand button's default accessible
@@ -1225,8 +1410,14 @@ const en = {
     unpin: 'Unpin',
     justNow: 'just now',
     minutesAgo: '{{count}}m ago',
+    minutesAgo_one: '{{count}}m ago',
+    minutesAgo_other: '{{count}}m ago',
     hoursAgo: '{{count}}h ago',
+    hoursAgo_one: '{{count}}h ago',
+    hoursAgo_other: '{{count}}h ago',
     daysAgo: '{{count}}d ago',
+    daysAgo_one: '{{count}}d ago',
+    daysAgo_other: '{{count}}d ago',
     // Activity feed actors
     systemActor: 'System',
     unknownUser: 'Unknown',
@@ -1240,7 +1431,8 @@ const en = {
     // Attachments
     dropFilesToUpload: 'Drop files here or click to upload',
     attachmentCount: '{{count}} attachment',
-    attachmentCountPlural: '{{count}} attachments',
+    attachmentCount_one: '{{count}} attachment',
+    attachmentCount_other: '{{count}} attachments',
     removeAttachment: 'Remove attachment',
     // Record Attachments panel (enable.files, objectstack#4358)
     attachments: 'Attachments',
@@ -1277,12 +1469,11 @@ const en = {
     unsubscribedTooltip: 'Subscribe to notifications',
     // The reference rail's empty related-record list
     noRecords: 'No records',
-    // objectui#3863 — the BASE key is the slot every plural category a pack did not
-    // enumerate resolves to, keeping that pack in its own language instead of falling
-    // through `fallbackLng` to English. `en` itself can never reach it (its categories
-    // are exactly `one`/`other`), so this value is parity ballast — and it must stay
-    // byte-identical to the call site's inline `defaultValue` in
-    // `record-reference-rail.tsx`, which `check:i18n-keys` now judges as class 3.
+    // objectui#3863 — the BASE key; since objectui#11432 every pack also spells out
+    // each CLDR category its language selects, so with a count no pack reaches the
+    // base. In `en` this value is parity ballast — and it must stay byte-identical to
+    // the call site's inline `defaultValue` in `record-reference-rail.tsx`, which
+    // `check:i18n-keys` now judges as class 3.
     showEmptyRelated: '+ {{count}} empty',
     showEmptyRelated_one: '+ {{count}} empty',
     showEmptyRelated_other: '+ {{count}} empty',
@@ -1293,6 +1484,8 @@ const en = {
     tasksOnly: 'Tasks Only',
     leaveCommentPlaceholder: 'Leave a comment… (Ctrl+Enter to submit)',
     noActivity: 'No activity recorded',
+    activityAccessDenied: "You don't have permission to view activity on this record.",
+    commentsAccessDenied: "You don't have permission to view comments on this record.",
     // objectui#7149 — the rest of `ActivityTimeline`. The four chip labels the
     // `detail.*` pack did not already name, and the `formatFieldChange`
     // sentences, which are assembled in code and so need interpolation holes.
@@ -1312,7 +1505,8 @@ const en = {
     viewSource: 'View source',
     // Replies
     replyCount: '{{count}} reply',
-    replyCountPlural: '{{count}} replies',
+    replyCount_one: '{{count}} reply',
+    replyCount_other: '{{count}} replies',
     replyPlaceholder: 'Reply…',
     // Aria labels
     filterActivity: 'Filter activity',
@@ -1325,6 +1519,8 @@ const en = {
     copyPhone: 'Copy phone number',
     copyRecordId: 'Copy record ID',
     showEmptyFields: 'Show {{count}} empty fields',
+    showEmptyFields_one: 'Show {{count}} empty field',
+    showEmptyFields_other: 'Show {{count}} empty fields',
     hideEmptyFields: 'Hide empty fields',
     noValue: 'No value',
     unresolvedReference: 'Unresolved reference: {{value}} was not resolved to a user',
@@ -1336,12 +1532,13 @@ const en = {
     // `count === 1 ? 'file' : 'files'`, which is not plural-safe anywhere else.
     // One channel, two call sites.
     //
-    // REAL i18next plural families (base + `_one` + `_other`), NOT the
-    // two-sibling-key `xxxCountOne` shape used by `common.itemCount` above: the
-    // BASE key is load-bearing (objectui#3863). i18next asks `Intl.PluralRules`
-    // for the ONE suffix a number needs and, finding no such slot, walks
-    // `fallbackLng` to `en` — so without it `ru` renders English at counts 2-20
-    // and `ar` at 2-99. `all-locales-key-parity.test.ts` owns that rule.
+    // REAL i18next plural families — the one count shape this repo uses since
+    // objectui#11445 retired the code-selected `xxxCountOne` / `xxxCountPlural`
+    // sibling keys. i18next asks `Intl.PluralRules` for the
+    // ONE suffix a number needs, so each pack carries every category its language
+    // selects (`ru` `_few`/`_many`, `ar` `_zero`/`_two`/`_few`/`_many` —
+    // objectui#11432) plus the base key (objectui#3863).
+    // `all-locales-key-parity.test.ts` owns both rules.
     repeaterItemCount: '{{count}} items',
     repeaterItemCount_one: '{{count}} item',
     repeaterItemCount_other: '{{count}} items',
@@ -1437,6 +1634,8 @@ const en = {
     },
     loading: 'Loading…',
     refreshing: 'Refreshing…',
+    refreshAll: 'Refresh All',
+    refreshDashboard: 'Refresh dashboard',
     pickMeasures: 'Pick measures (values) for this dataset widget.',
     datasetUnsupported: 'This data source does not support dataset queries.',
     widgetForbiddenTitle: 'You don’t have access',
@@ -1740,8 +1939,6 @@ const en = {
       referenceTo: 'Reference To',
       options: 'Options',
       addOption: 'Add Option',
-      validationRules: 'Validation Rules',
-      addRule: 'Add Rule',
       systemBadge: 'System',
       ungrouped: 'General',
       deleteConfirmTitle: 'Delete Field?',
@@ -1760,14 +1957,18 @@ const en = {
     },
   },
   console: {
-    // The Studio front door's wordmark (objectui#10043). Its sibling one
-    // route away -- `StudioDesignSurface`'s header Home button -- walks back
-    // to the same place, so both read as the same affordance.
+    // The fixed crumb `AppHeader`'s `studio` variant draws on the Studio front
+    // door (objectui#11863), as `organizations.title` is the `orgs` variant's.
+    // A product name, which every pack writes as is.
     studio: {
-      backToHome: 'Back to home',
+      title: 'Studio',
     },
     saveAdvisoryTitle: 'Saved — the authoring check raised {{count}} advisory finding(s)',
+    saveAdvisoryTitle_one: 'Saved — the authoring check raised {{count}} advisory finding',
+    saveAdvisoryTitle_other: 'Saved — the authoring check raised {{count}} advisory findings',
     publishAdvisoryTitle: 'Published — the authoring check raised {{count}} advisory finding(s)',
+    publishAdvisoryTitle_one: 'Published — the authoring check raised {{count}} advisory finding',
+    publishAdvisoryTitle_other: 'Published — the authoring check raised {{count}} advisory findings',
     importMappingsUnavailable: 'Saved import mappings for {{object}} could not be loaded',
     importMappingsRefused: 'The server refused this request, so this list is empty because it could not be read — not because nothing is registered. Sign in again, or ask an administrator for access.',
     importMappingsUnreadable: 'This list is empty because it could not be read, not because nothing is registered. Try again, and report this if it keeps happening.',
@@ -1847,15 +2048,12 @@ const en = {
       discard: 'Discard',
       saveChanges: 'Save changes',
       // Save-bar counter. A REAL i18next plural family, not an English-only
-      // `change(s)` and not the two-sibling-key `xxxCountOne` shape used
-      // elsewhere in this file.
+      // `change(s)`.
       //
-      // The BASE key is load-bearing (objectui#3863): i18next asks
-      // `Intl.PluralRules` for the one suffix a language needs and, finding no
-      // such slot, walks `fallbackLng` to `en`. `ru` has four categories and
-      // `ar` six; no pack here enumerates `_few`/`_many`/`_two`/`_zero`, so
-      // without this base key `ru` would render ENGLISH at counts 2-20.
-      // `all-locales-key-parity.test.ts` owns that rule.
+      // i18next asks `Intl.PluralRules` for the one suffix a language needs, so
+      // each pack spells out every category its language selects — `ru` has
+      // four, `ar` six (objectui#11432) — and keeps the base key
+      // (objectui#3863). `all-locales-key-parity.test.ts` owns both rules.
       unsavedCount: '{{count}} unsaved changes',
       unsavedCount_one: '{{count}} unsaved change',
       unsavedCount_other: '{{count}} unsaved changes',
@@ -1870,6 +2068,17 @@ const en = {
       cryptoRefusalNoSubject: 'The declared-encrypted value was refused, so nothing was written.',
       cryptoRefusalToast: 'Cannot encrypt secrets: {{subject}}',
       cryptoRefusalToastNoSubject: 'Cannot encrypt secrets',
+    },
+    // The one-time workspace-timezone prompt (objectui#11758): asked of an
+    // administrator while `localization.timezone` is still the manifest default.
+    // `{{current}}` is that default, `{{zone}}` the zone the admin confirmed.
+    workspaceTimezonePrompt: {
+      title: 'Set the workspace timezone',
+      description: 'This workspace still uses the platform default timezone, {{current}}. The workspace timezone decides what "today" means in formulas, how reports group dates and how dates and times are shown, for everyone in the workspace. Your browser timezone is filled in below.',
+      laterHint: 'You can change it at any time on the Settings page.',
+      decline: 'Keep the default',
+      confirm: 'Set timezone',
+      saved: 'Workspace timezone set to {{zone}}',
     },
     loadingSteps: {
       connecting: 'Connecting to data source',
@@ -1902,21 +2111,14 @@ const en = {
       groups: {
         general: 'General',
         navigation: 'Navigation',
-        dataViews: 'Data Views',
         aiChat: 'AI assistant',
-        preferences: 'Preferences',
       },
       openCommandPalette: 'Open command palette',
       showShortcuts: 'Show keyboard shortcuts',
       closeDialog: 'Close dialog / panel',
       toggleSidebar: 'Toggle sidebar',
-      focusSearch: 'Focus search',
-      createRecord: 'Create new record',
-      refreshData: 'Refresh data',
-      editRecord: 'Edit selected record',
       newChat: 'New chat',
       toggleChatsList: 'Toggle conversations list',
-      toggleDarkMode: 'Toggle dark mode',
     },
     commandPalette: {
       title: 'Command palette',
@@ -1926,6 +2128,8 @@ const en = {
       records: 'Records',
       recentRecords: 'Recently viewed',
       objects: 'Objects',
+      packages: 'Packages',
+      flows: 'Flows',
       dashboards: 'Dashboards',
       pages: 'Pages',
       reports: 'Reports',
@@ -1949,8 +2153,11 @@ const en = {
       },
       usage: {
         title: 'AI usage',
-        meterBuild: 'Build',
-        meterAsk: 'Ask',
+        // objectui#11658 — the popover's ONE figure: the share of the single
+        // AI pool already used (a formatted percentage, never a token count).
+        // It replaced the build / data-Q&A split, which could not attribute a
+        // single-composer turn honestly.
+        poolUsed: '{{percent}} used',
         statusOk: 'Plenty left',
         statusLow: 'Running low',
         statusFull: 'Limit reached',
@@ -1970,10 +2177,6 @@ const en = {
         ctaUpgrade: 'Upgrade to keep going',
         ctaTopUp: 'Add credits to continue',
         ariaLabel: 'AI usage: {{status}}',
-        // objectui#8524 — heading over the pool's read-only split (`breakdown`:
-        // app-building vs data Q&A) in the popover. The rows reuse `meterBuild` /
-        // `meterAsk`; each is a share of the ONE pool, never a second budget.
-        breakdownTitle: 'Used so far',
       },
       workspaceTitle: 'AI Workspace',
       workspaceSubtitle: 'Ask, inspect, and resume conversations',
@@ -2039,6 +2242,7 @@ const en = {
       liveCanvasUnlisted: 'Live app — {{app}} (unlisted until published)',
       loadingAgents: 'Loading agents…',
       askAnything: 'Ask anything…',
+      askOrChangeApp: 'Ask about your data, or ask me to change this app…',
       emptyTitle: 'Start a conversation',
       emptyDescription: 'Ask anything — the assistant has access to your current app context.',
       switchAssistant: 'Switch assistant',
@@ -2092,6 +2296,14 @@ const en = {
       toolAwaitingApproval: 'Awaiting approval',
       toolFailed: 'Failed',
       toolDetailsHidden: 'Tool inputs and raw results are hidden in this view.',
+      // objectui#11667 — the inline HITL deny reason (stored on the pending
+      // action as `rejection_reason`, read as prose) and the ADR-0057 P4
+      // "Open in Builder" handoff card. The card's Approve / Reject buttons
+      // borrow `aiApprovals.approveAndExecute` / `aiApprovals.reject`.
+      toolDenyReason: 'Operator rejected from chat',
+      builderHandoffTitle: 'Build this in the Builder',
+      builderHandoffOpen: 'Open in Builder →',
+      builderHandoffSuperseded: 'A newer request is available',
       copy: 'Copy',
       copied: 'Copied',
       regenerate: 'Regenerate',
@@ -2246,6 +2458,8 @@ const en = {
         collapse: 'Collapse chat',
         maximize: 'Open full page',
         open: 'Open assistant',
+        // objectui#11666 — the launchers' marker while a proposed plan awaits approval.
+        planAwaitingApproval: 'A proposed plan is waiting for your approval',
       },
       group: {
         today: 'Today',
@@ -2343,6 +2557,8 @@ const en = {
       import: 'Import',
       importTitle: 'Import from CSV',
       importedToast: 'Imported {{count}} row(s).',
+      importedToast_one: 'Imported {{count}} row.',
+      importedToast_other: 'Imported {{count}} rows.',
       importedWithSkipped: 'Imported {{ok}} row(s); skipped {{skipped}}.',
       configureView: 'Configure View',
       toolbarEnabledCount: '{{count}} of {{total}} enabled',
@@ -2350,7 +2566,8 @@ const en = {
       title: 'Title',
       viewType: 'View type',
       recordCount: '{{count}} records',
-      recordCountOne: '{{count}} record',
+      recordCount_one: '{{count}} record',
+      recordCount_other: '{{count}} records',
       save: 'Save',
       discard: 'Discard',
       createView: 'Create View',
@@ -2361,6 +2578,8 @@ const en = {
       deleteViewTitle: 'Delete view',
       deleteViewConfirm: 'Are you sure you want to delete the view "{{name}}"? This cannot be undone.',
       bulkDeleteConfirm: 'Delete {{count}} selected records? This cannot be undone.',
+      bulkDeleteConfirm_one: 'Delete {{count}} selected record? This cannot be undone.',
+      bulkDeleteConfirm_other: 'Delete {{count}} selected records? This cannot be undone.',
       duplicateViewName: 'A view with this name already exists.',
       viewTypeGrid: 'Grid',
       viewTypeGridDesc: 'A spreadsheet-style table of records.',
@@ -2413,14 +2632,24 @@ const en = {
       chartTypePie: 'Pie chart',
       chartTypeArea: 'Area chart',
       chartTypeScatter: 'Scatter chart',
-      xAxisField: 'X-axis field',
-      xAxisFieldHelp: 'The categorical or time dimension.',
-      yAxisField: 'Y-axis field',
-      yAxisFieldHelp: 'The numeric field to aggregate.',
+      dataset: 'Dataset',
+      datasetHelp: 'The chart reads its numbers from this dataset of the object.',
+      chartMeasure: 'Measure',
+      chartMeasureHelp: 'The dataset measure plotted on the value axis.',
+      chartDimension: 'Dimension',
+      chartDimensionHelp: 'The dataset dimension the values are grouped by (optional).',
+      viewTypeUnavailableDataset: 'This object exposes no dataset to chart.',
+      noDatasetMeasure: 'This dataset declares no measure to chart.',
       endDateField: 'End date field',
       ufTabs: 'Tabs',
       ufAddField: '+ Add filter field…',
       ufShowAllRecords: 'Show "All records" tab',
+    },
+    // The runtime draft bar's Publish / Discard refusals (RuntimeDraftBar,
+    // objectui#11583). The toast's description is the refusal itself.
+    runtimeDraft: {
+      publishFailed: 'Publish failed',
+      discardFailed: 'Discard failed',
     },
     localeSwitcher: {
       label: 'Language',
@@ -2845,6 +3074,12 @@ const en = {
     greetingAfternoon: 'Good afternoon',
     greetingEvening: 'Good evening',
     greetingNight: 'Working late',
+    // objectui#11689 — the greeting's two joiners: the separator between the
+    // greeting and the person's name (rendered only when there is a name), and
+    // the closing mark. Punctuation is a locale property: zh-CN and ja write
+    // full-width marks, ar its own comma.
+    greetingSeparator: ', ',
+    greetingEnd: '.',
     heroTagline: 'Pick up where you left off, or explore something new.',
     build: {
       title: 'Build an app',
@@ -2874,6 +3109,8 @@ const en = {
     },
     pendingDrafts: {
       message: 'You have {{count}} unpublished change(s) — publish to make them live.',
+      message_one: 'You have {{count}} unpublished change — publish to make it live.',
+      message_other: 'You have {{count}} unpublished changes — publish to make them live.',
       cta: 'Publish',
       publishing: 'Publishing…',
       published: 'Published! Your changes are live.',
@@ -2905,6 +3142,7 @@ const en = {
         dashboard: 'Dashboard',
         page: 'Page',
         report: 'Report',
+        package: 'Package',
         record: 'Record',
         metadata: 'Metadata',
       },
@@ -2979,9 +3217,11 @@ const en = {
     placeholder: 'Search objects, dashboards, pages, reports…',
     inputAriaLabel: 'Search objects, dashboards, pages, reports',
     resultsCount: '{{count}} result for "{{query}}"',
-    resultsCountPlural: '{{count}} results for "{{query}}"',
+    resultsCount_one: '{{count}} result for "{{query}}"',
+    resultsCount_other: '{{count}} results for "{{query}}"',
     itemsAvailable: '{{count}} items available',
-    itemsAvailableOne: '{{count}} item available',
+    itemsAvailable_one: '{{count}} item available',
+    itemsAvailable_other: '{{count}} items available',
     noResults: 'No results found',
     noResultsHint: 'Try adjusting your search terms',
     typeObjects: 'Objects',
@@ -2999,6 +3239,10 @@ const en = {
     interfacePageSourceMissing: 'This interface page references "{{name}}", which is not available.',
     recordNotFound: 'Record not found',
     recordNotFoundDescription: 'The record you are looking for does not exist or may have been deleted.',
+    recordAccessDenied: 'You don’t have access to {{object}} records',
+    recordAccessDeniedDescription: 'You don’t have permission to view records of this type. Contact your administrator if you think you should have access.',
+    recordLoadFailed: 'Couldn’t load this record',
+    recordLoadFailedDescription: 'Something went wrong while loading it. Check your connection and try again.',
     pageNotFound: 'Page Not Found',
     pageNotFoundDescription: 'The page "{{name}}" could not be found. It may have been removed or renamed.',
     dashboardNotFound: 'Dashboard Not Found',
@@ -3057,11 +3301,20 @@ const en = {
       detailNone: 'No differences detected — the draft matches the published version.',
       detailChangedKeys: 'Also changed:',
       confirmNote: 'Publishing releases all {{count}} pending drafts of this package atomically.',
+      confirmNote_one: 'Publishing releases the {{count}} pending draft of this package atomically.',
+      confirmNote_other: 'Publishing releases all {{count}} pending drafts of this package atomically.',
+      // objectui#11591 — the package-less sheet: no package to batch, so each
+      // draft publishes by itself and one that fails stays pending.
+      confirmNoteSeparate: 'Publishing releases the {{count}} pending drafts one at a time: a draft that fails stays pending while the others go live.',
+      confirmNoteSeparate_one: 'Publishing releases the {{count}} pending draft on its own: if it fails, it stays pending.',
+      confirmNoteSeparate_other: 'Publishing releases the {{count}} pending drafts one at a time: a draft that fails stays pending while the others go live.',
       publishConfirm: 'Publish all',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: 'Publishing will be refused — {{count}} item(s) need a decision first',
+      securityBlockTitle_one: 'Publishing will be refused — {{count}} item needs a decision first',
+      securityBlockTitle_other: 'Publishing will be refused — {{count}} items need a decision first',
       securityBlockWhere: 'Fix it on the object under Settings → Record sharing, then publish again.',
     },
     // ADR-0045 — the materialized-but-unlisted app banner
@@ -3099,10 +3352,9 @@ const en = {
       // grammar needs no plural for, and `de`/`fr`/`es`/`pt`/`ru`/`ar` use the
       // label-colon form (`Elemente: 3`, `Элементов: 3`), which is the shape
       // `fields.textarea.charactersRemaining` already uses for this exact
-      // reason. ⛔ Do not "upgrade" this to a `_one`/`_other` family: identical
-      // key sets across ten packs (all-locales-key-parity) leave `ru` without
-      // `_few` and `ar` without `_two`/`_many`, so those categories land on the
-      // base key and `ru` goes back to reading `2 элементов`.
+      // reason. It needs no family: every pack's form reads at any number,
+      // which is why `count-families-11445.test.ts` names it on its
+      // count-neutral list rather than holding it to the family rule.
       items: '{{count}} item(s)',
       revertAction: 'Revert',
       reverted: 'Reverted — the change has been undone.',
@@ -3148,11 +3400,18 @@ const en = {
     deleteFailed: 'Failed to delete {{label}}',
     noRecordId: 'No record ID provided',
     deleteConfirm: 'Are you sure you want to delete this record?',
+    deleteConfirmTitle: 'Delete {{label}} "{{name}}"?',
+    bulkDeleteConfirmTitle: 'Delete {{count}} {{label}} records?',
+    bulkDeleteConfirmTitle_one: 'Delete {{count}} {{label}} record?',
+    bulkDeleteConfirmTitle_other: 'Delete {{count}} {{label}} records?',
+    deleteConfirmButton: 'Delete',
     resetPackageSetConfirm:
       'This permission set ships with an installed package and cannot be removed. ' +
       'Deleting resets it to the shipped baseline and discards your environment customization. Continue?',
     resetPackageSetSuccess: 'Permission set reset to its shipped baseline',
     bulkDeleteSuccess: 'Deleted {{count}} {{label}} records',
+    bulkDeleteSuccess_one: 'Deleted {{count}} {{label}} record',
+    bulkDeleteSuccess_other: 'Deleted {{count}} {{label}} records',
     bulkDeletePartial: '{{succeeded}} deleted, {{failed}} failed',
   },
   objectViewActions: {
@@ -3278,6 +3537,7 @@ const en = {
       // The org's URL segment. `deleteConfirmSlugLabel` asks the user to
       // retype it, so the two must keep naming the same thing.
       slugLabel: 'Slug',
+      slugLockedNote: 'This organization has active environments, so its slug can’t be changed here: renaming it also moves their subdomains.',
       logoLabel: 'Logo',
       logoUpload: 'Upload',
       logoReplace: 'Replace',
@@ -3342,9 +3602,13 @@ const en = {
     viewAll: 'View all notifications',
     groupCount: '{{count}} notifications',
     groupUnread: '{{count}} unread',
+    groupUnread_one: '{{count}} unread',
+    groupUnread_other: '{{count}} unread',
     groupMarkRead: 'Mark read',
     groupMarkReadTitle: 'Mark all of this type read',
     approvalsPending: '{{count}} pending approvals',
+    approvalsPending_one: '{{count}} pending approval',
+    approvalsPending_other: '{{count}} pending approvals',
     viewApprovals: 'View approvals',
     noPendingApprovals: 'No pending approvals',
     openApprovalsInbox: 'Open Approvals Inbox',
@@ -3357,7 +3621,11 @@ const en = {
     // objectui#7011 — the arrival announcement (toast / desktop notification)
     // and the two switches that govern it.
     arrivalMany: '{{count}} new messages',
+    arrivalMany_one: '{{count}} new message',
+    arrivalMany_other: '{{count}} new messages',
     arrivalRepeats: '{{count}} new messages on this topic',
+    arrivalRepeats_one: '{{count}} new message on this topic',
+    arrivalRepeats_other: '{{count}} new messages on this topic',
     arrivalOpen: 'View',
     toastEnabled: 'In-app alerts',
     desktopEnabled: 'Desktop notifications',
@@ -3373,6 +3641,10 @@ const en = {
     thankYouTitle: 'Thank you!',
     thankYouMessage: 'Your submission has been received successfully.',
     redirecting: 'Redirecting in {{seconds}} seconds…',
+    // The console form page's line for a submit whose declared redirect is
+    // pending (objectui#11071). `redirecting` above is the embeddable form's
+    // countdown and carries a `{{seconds}}` hole this page has no value for.
+    redirectPending: 'Redirecting…',
     unavailableTitle: 'Form unavailable',
     unavailableDescription:
       'No public form is available at this URL. Make sure the underlying view has anonymous sharing enabled and matches this slug.',
@@ -3380,6 +3652,10 @@ const en = {
     retry: 'Retry',
     loading: 'Loading form…',
     requiredHint: '* Required field',
+    // The console form page's client-side refusal when required rows are empty
+    // (objectui#11071). `{{fields}}` is the empty rows' labels joined with a
+    // comma; the colon, its spacing and the order are the pack's.
+    requiredFields: 'Required: {{fields}}',
     consentLabelDefault: 'I agree to the privacy policy and consent to my data being processed for this request.',
     consentLink: 'Privacy policy',
     consentRequired: 'Please accept the privacy policy to continue.',
@@ -3430,6 +3706,8 @@ const en = {
     noImportableFields: 'That object has no importable fields.',
     schemaReadFailed: 'Could not read the object schema.',
     imported: 'Imported {{count}} row(s) into {{object}}.',
+    imported_one: 'Imported {{count}} row into {{object}}.',
+    imported_other: 'Imported {{count}} rows into {{object}}.',
     importFrom: 'Import the real rows from',
     into: 'into',
     opening: 'Opening…',
@@ -3438,19 +3716,25 @@ const en = {
   },
   cloudOnboarding: {
     hintCreate: 'Spin up your first environment — a private workspace with its own URL, database, and plan. Building happens inside it.',
-    hintReady: 'Your production environment is ready. Open it to build and run your apps — that all happens inside the environment.',
+    hintReady: 'Your workspace is ready. Open it to build and run your apps — that all happens inside the workspace.',
     createEnvironment: 'Create your environment',
-    openProduction: 'Open Production',
+    openWorkspace: 'Open workspace',
     manageEnvironments: 'Manage environments',
   },
   // `cloud:plan-status` — the Cloud pricing page's current-plan marker (objectui#10919).
   cloudPlanStatus: {
     current: 'Current plan',
   },
+  // `cloud:workspace-timezone-notice` — the Cloud welcome page's line naming the
+  // timezone a workspace was seeded with at creation (objectui#11930). `{{zone}}`
+  // is the seed, an IANA id printed verbatim.
+  cloudWorkspaceTimezoneNotice: {
+    seeded: 'The workspace timezone was set to {{zone}} from your browser when the workspace was created. You can change it in Settings → Localization.',
+  },
   // `@object-ui/plugin-ai` — the `nl-query`, `ai-form-assist` and
-  // `ai-recommendations` components (objectui#10232). The `*One` rows are this
-  // repo's two-key plural convention (see `search.itemsAvailableOne`): the
-  // component picks the key at exactly one, so no CLDR category falls to `en`.
+  // `ai-recommendations` components (objectui#10232). The two count labels are
+  // i18next count families (objectui#11445): the component passes `count` and
+  // each pack carries every CLDR category its language selects.
   ai: {
     nlQuery: {
       placeholder: 'Ask a question about your data…',
@@ -3464,11 +3748,13 @@ const en = {
     formAssist: {
       title: 'AI Suggestions',
       suggestionCount: '{{count}} suggestions',
-      suggestionCountOne: '{{count}} suggestion',
+      suggestionCount_one: '{{count}} suggestion',
+      suggestionCount_other: '{{count}} suggestions',
       applyAll: 'Apply All',
       confidence: '{{percent}} confidence',
       appliedCount: '{{count}} suggestions applied',
-      appliedCountOne: '{{count}} suggestion applied',
+      appliedCount_one: '{{count}} suggestion applied',
+      appliedCount_other: '{{count}} suggestions applied',
     },
     recommendations: {
       title: 'Recommendations',
@@ -3563,10 +3849,14 @@ const en = {
   //                   `building`/`built` interpolate `appFallback` when the
   //                   build has no app label, so each pack must keep BOTH
   //                   frames in the one case/gender that noun phrase is in.
+  //                   `verifying`/`verifyStep`/`verified` are the post-apply
+  //                   verification line and `unknownPhase` the warning for a
+  //                   phase outside the spec's vocabulary (objectui#11988).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`
@@ -3627,11 +3917,15 @@ const en = {
     plan: {
       countObjects: '{{count}} objects',
       countObjects_one: '{{count}} object',
+      countObjects_other: '{{count}} objects',
       countViews: '{{count}} views',
       countViews_one: '{{count}} view',
+      countViews_other: '{{count}} views',
       countDashboards: '{{count}} dashboards',
       countDashboards_one: '{{count}} dashboard',
+      countDashboards_other: '{{count}} dashboards',
       countSeedData: 'sample data',
+      extendTarget: 'Adding to existing app: {{app}}',
     },
     build: {
       building: 'Building {{app}}…',
@@ -3646,6 +3940,10 @@ const en = {
         seed: 'Sample data',
       },
       moreArtifacts: '+{{n}} more',
+      verifying: 'Checking the change…',
+      verifyStep: 'step {{n}}',
+      verified: 'Checked the change',
+      unknownPhase: 'Unknown build phase',
     },
   },
   chatbotError: {
@@ -3745,10 +4043,17 @@ const en = {
       cachedAs: 'Cached as <code>{{path}}</code>',
       versionBadge: 'v{{version}}',
       installedBadge: 'Installed v{{version}}',
+      // objectui#11645 — an install-local entry this runtime refused to load at
+      // startup (the listing's `notLoaded` marker), read on Installed Apps.
+      notLoaded: {
+        badge: 'Not loaded',
+        protocolIncompatible: 'This runtime did not load this package: it targets protocol {{requiredRange}}, which this runtime does not support.',
+        otherReason: 'This runtime did not load this package ({{code}}).',
+      },
       load: {
         failed: 'Failed to load marketplace',
         failedHintConfigured: 'This runtime reaches the marketplace through the control plane at {{url}}. Check that it is online and reachable from here.',
-        failedHintSameOrigin: 'This runtime serves the marketplace catalog itself. Check that the runtime is online.',
+        failedHintSameOrigin: 'The marketplace catalog is reached through this runtime. Check that the runtime is online and can reach the catalog.',
         packageFailed: 'Failed to load package',
         notFound: 'Not found.',
       },
@@ -3772,10 +4077,14 @@ const en = {
         purgeSampleData: 'Purge sample data',
         purgeConfirm: 'Delete all sample records seeded by this package? User-added records will NOT be touched.',
         purgeSuccess: 'Removed {{count}} sample record(s).',
+        purgeSuccess_one: 'Removed {{count}} sample record.',
+        purgeSuccess_other: 'Removed {{count}} sample records.',
         purgeNoData: 'No sample records found to purge.',
         reseedQueued: 'Sample data will be re-seeded on next environment access.',
         reseedLocalSuccess: 'Re-seeded sample data: {{inserted}} inserted, {{updated}} updated.',
         reseedPartialErrors: '({{count}} record(s) failed to write)',
+        reseedPartialErrors_one: '({{count}} record failed to write)',
+        reseedPartialErrors_other: '({{count}} records failed to write)',
         sampleDataKernelUnavailable: 'This control plane has no environment kernel, so sample data cannot be re-seeded or purged from here. Do it from the environment\'s own runtime.',
         updateAvailable: 'Update available',
       },
@@ -3859,6 +4168,8 @@ const en = {
         confirm: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe cached manifest will be removed. The app will remain loaded in the running kernel until the next restart.',
         successInList: 'Removed {{manifestId}}. Restart the runtime to fully unload it from the running kernel.',
         successInDetail: 'Removed cached manifest for {{manifestId}}. Restart the runtime to fully unload the app from the running kernel.',
+        confirmNotLoaded: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe cached manifest will be removed. This runtime did not load the package, so none of it is running.',
+        successNotLoaded: 'Removed {{manifestId}}. It was not loaded, so no restart is needed.',
       },
       accessDenied: {
         title: 'App Marketplace is admin-only',
@@ -3885,7 +4196,11 @@ const en = {
         today: 'today',
         daysAgo: '{{count}}d ago',
         monthsAgo: '{{count}}mo ago',
+        monthsAgo_one: '{{count}}mo ago',
+        monthsAgo_other: '{{count}}mo ago',
         yearsAgo: '{{count}}y ago',
+        yearsAgo_one: '{{count}}y ago',
+        yearsAgo_other: '{{count}}y ago',
       },
     },
   approvalsInbox: {
@@ -3908,6 +4223,8 @@ const en = {
     requestInfoSent: 'Sent back to the requester for more information',
     remindBtn: 'Send reminder',
     remindSuccess: 'Reminder sent to {{count}} approver(s)',
+    remindSuccess_one: 'Reminder sent to {{count}} approver',
+    remindSuccess_other: 'Reminder sent to {{count}} approvers',
     remindThrottled: 'A reminder was sent recently — try again later.',
     replyPlaceholder: 'Reply on this request…',
     slaRemaining: 'SLA {{dur}} left',
@@ -3924,6 +4241,8 @@ const en = {
     progressApprovals: 'Approvals — {{got}} of {{need}}',
     progressGroups: 'Sign-off progress — {{got}} of {{need}} groups',
     progressEligible: '{{count}} eligible approver(s)',
+    progressEligible_one: '{{count}} eligible approver',
+    progressEligible_other: '{{count}} eligible approvers',
     progressBar: 'Decision progress',
     declaredActions: 'Actions',
     attachmentChip: 'Attachment',
@@ -3955,6 +4274,8 @@ const en = {
     filterCount: '{{shown}} of {{total}}',
     selected: 'selected',
     actionableCount: '({{count}} actionable)',
+    actionableCount_one: '({{count}} actionable)',
+    actionableCount_other: '({{count}} actionable)',
     selectAll: 'Select all',
     selectRow: 'Select request',
     colRequest: 'Request',
@@ -4028,11 +4349,19 @@ const en = {
     approveN: 'Approve {{count}}',
     rejectN: 'Reject {{count}}',
     bulkApproveTitle: 'Approve {{count}} requests?',
+    bulkApproveTitle_one: 'Approve {{count}} request?',
+    bulkApproveTitle_other: 'Approve {{count}} requests?',
     bulkApproveBody: 'Each request is approved with your identity and its flow continues down the approve branch.',
     bulkRejectTitle: 'Reject {{count}} requests?',
+    bulkRejectTitle_one: 'Reject {{count}} request?',
+    bulkRejectTitle_other: 'Reject {{count}} requests?',
     bulkRejectBody: 'This rejects the selected requests and notifies their submitters.',
     bulkApproved: 'Approved {{count}} requests',
+    bulkApproved_one: 'Approved {{count}} request',
+    bulkApproved_other: 'Approved {{count}} requests',
     bulkRejected: 'Rejected {{count}} requests',
+    bulkRejected_one: 'Rejected {{count}} request',
+    bulkRejected_other: 'Rejected {{count}} requests',
     bulkPartial: '{{ok}} succeeded, {{fail}} failed: {{which}}',
     rejectOneTitle: 'Reject "{{title}}"?',
     rejectOneBody: 'This rejects the request and notifies the submitter.',
@@ -4057,8 +4386,14 @@ const en = {
     alreadyDecided: 'This request was already decided. Refresh the list.',
     justNow: 'just now',
     minutesAgo: '{{count}}m ago',
+    minutesAgo_one: '{{count}}m ago',
+    minutesAgo_other: '{{count}}m ago',
     hoursAgo: '{{count}}h ago',
+    hoursAgo_one: '{{count}}h ago',
+    hoursAgo_other: '{{count}}h ago',
     daysAgo: '{{count}}d ago',
+    daysAgo_one: '{{count}}d ago',
+    daysAgo_other: '{{count}}d ago',
   },
   filterBuilder: {
     where: 'Where',
@@ -4104,6 +4439,10 @@ const en = {
       exists: 'Is set',
       notExists: 'Is not set',
     },
+    emptyCheckHint: {
+      text: '"{{isEmpty}}" also matches blank text; "{{isNull}}" matches only a missing value.',
+      list: '"{{isEmpty}}" also matches an empty list; "{{isNull}}" matches only a missing value.',
+    },
   },
   sortBuilder: {
     sortBy: 'Sort by',
@@ -4123,13 +4462,11 @@ const en = {
   // The generic action words (Save / Cancel / Edit / Delete) are NOT repeated
   // here — the thread reads them from `common`.
   collaboration: {
-    // Thread header. `commentCount`/`commentCountOne` are two keys, NOT an
-    // i18next `_one`/`_other` pair — see the `reactionCount` note under
-    // `detail`: zh/ja/ko have no separate singular form, so those packs would
-    // legitimately omit the `_one` half and `all-locales-key-parity` reads a
-    // legitimately-absent half as a lost key.
+    // Thread header. An i18next count family (objectui#11445): the component
+    // passes `count` and i18next picks the slot each pack's CLDR rules select.
     commentCount: '{{count}} comments',
-    commentCountOne: '{{count}} comment',
+    commentCount_one: '{{count}} comment',
+    commentCount_other: '{{count}} comments',
     // Appended to the count, separator included, so a translator owns the
     // whole phrase rather than inheriting an English-shaped ` · ` glue.
     resolvedSuffix: ' · Resolved',
@@ -4142,14 +4479,21 @@ const en = {
     // existing minute/hour/day buckets and no date library was introduced.
     justNow: 'just now',
     minutesAgo: '{{count}}m ago',
+    minutesAgo_one: '{{count}}m ago',
+    minutesAgo_other: '{{count}}m ago',
     hoursAgo: '{{count}}h ago',
+    hoursAgo_one: '{{count}}h ago',
+    hoursAgo_other: '{{count}}h ago',
     daysAgo: '{{count}}d ago',
+    daysAgo_one: '{{count}}d ago',
+    daysAgo_other: '{{count}}d ago',
     edited: '(edited)',
     // Reaction-chip tooltip. A DEDICATED pair rather than `detail.reactionCount`:
     // that one interpolates `{{emoji}}`, and here the emoji is the chip's
     // visible label with nothing to hand the placeholder.
     reactionCount: '{{count}} reactions',
-    reactionCountOne: '{{count}} reaction',
+    reactionCount_one: '{{count}} reaction',
+    reactionCount_other: '{{count}} reactions',
     addThumbsUp: 'Add thumbs up',
     reply: 'Reply',
     // Accessible names for the three emoji-only controls (objectui#3441).
@@ -4175,12 +4519,14 @@ const en = {
     send: 'Send',
     // Presence avatar stack (objectui#3440). `presentUserCount*` is the avatar
     // group's `aria-label` — with only images and initials inside, that label
-    // IS the control for a screen reader. Two keys, same reason as
-    // `commentCount` above.
+    // IS the control for a screen reader. Count families, like `commentCount`
+    // above.
     presentUserCount: '{{count}} users present',
-    presentUserCountOne: '{{count}} user present',
+    presentUserCount_one: '{{count}} user present',
+    presentUserCount_other: '{{count}} users present',
     moreUserCount: '{{count}} more users',
-    moreUserCountOne: '{{count}} more user',
+    moreUserCount_one: '{{count}} more user',
+    moreUserCount_other: '{{count}} more users',
     // Avatar tooltip. The parentheses are part of the translation, spacing
     // included, so the CJK packs can drop the space English puts before `(`.
     userStatusTitle: '{{name}} ({{status}})',
@@ -4389,10 +4735,10 @@ const en = {
   },
   element: {
     // objectui#10951 — `element:number` authored with an aggregate and no
-    // object (neither `object` nor `dataSource.object`). Kept terse: this pack
-    // is eager, and the console closure budget weighs it.
+    // `dataSource.object` (objectui#11880: the flat `object` is not read). Kept
+    // terse: this pack is eager, and the console closure budget weighs it.
     number: {
-      noObject: 'No object named: set object or dataSource.object.',
+      noObject: 'No object named: set dataSource.object.',
     },
   },
 } as const;

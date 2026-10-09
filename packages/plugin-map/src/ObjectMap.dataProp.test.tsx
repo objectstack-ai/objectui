@@ -20,6 +20,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 // Mock react-map-gl/maplibre the same way the sibling ObjectMap tests do — no
 // WebGL canvas in the test env, and every assertion here is about the marker

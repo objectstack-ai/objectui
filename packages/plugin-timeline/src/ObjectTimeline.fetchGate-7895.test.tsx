@@ -82,7 +82,7 @@ const OBJECT_SCHEMA = {
     id: { name: 'id', type: 'text' },
     subject: { name: 'subject', type: 'text' },
     starts_at: { name: 'starts_at', type: 'datetime' },
-    owner: { name: 'owner', type: 'lookup', reference_to: 'user' },
+    owner: { name: 'owner', type: 'lookup', reference: 'user' },
   },
 };
 

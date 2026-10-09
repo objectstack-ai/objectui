@@ -90,8 +90,14 @@ export interface InlineFieldSource {
  * the `field` slot holds the metadata OBJECT. A missing `name` is not treated as
  * inline either: shape 3 without one is what used to crash the form renderer on
  * `name.split('.')`, so it is malformed rather than self-describing.
+ *
+ * Exported because it is also what `buildSectionFields` (`sectionFields.ts`)
+ * asks of a section entry before its parent field pool may drop it
+ * (objectui#11615): a self-describing entry is drawn whatever the pool holds,
+ * as the pool-less arms draw it. One predicate, so "inline enough to need no
+ * adapter" and "inline enough to need no pool" cannot drift apart.
  */
-function isInlineFieldDef(def: unknown): boolean {
+export function isInlineFieldDef(def: unknown): boolean {
   if (def === null || typeof def !== 'object' || Array.isArray(def)) return false;
   const fd = def as { field?: unknown; name?: unknown };
   return typeof fd.field !== 'string' && typeof fd.name === 'string';

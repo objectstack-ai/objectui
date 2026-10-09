@@ -19,6 +19,7 @@ import type {
   DashboardWidget as SpecDashboardWidget,
   GlobalFilter as SpecGlobalFilter,
   Dashboard as SpecDashboard,
+  I18nLabel,
   ViewFilterOperator as SpecViewFilterOperator,
 } from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
@@ -224,9 +225,10 @@ export interface KanbanColumn {
  *
  * ## ⚠️ Why the Zod mirror is a NAMED REFUSAL and not a deletion
  *
- * {@link BaseSchema} closes with `[key: string]: any` and its Zod twin ends
- * `.passthrough()`. A dropped MEMBER key is therefore KEPT, not refused — the
- * failure objectui#7664's own first cut shipped at `onCardClick`. A dropped
+ * {@link BaseSchema}'s Zod twin ends `.passthrough()` (and the interface closed
+ * with `[key: string]: any` until objectui#8347). A dropped MEMBER key is
+ * therefore KEPT, not refused, on the Zod face — the failure objectui#7664's own
+ * first cut shipped at `onCardClick`. A dropped
  * TYPE LITERAL behaves differently on a DISCRIMINATED union (`AnyComponentSchema`
  * selects one arm from the authored literal), so removal alone would already
  * refuse — but only with the union's generic `Invalid input`, naming no remedy.
@@ -1189,9 +1191,9 @@ type ChatMessageHandedBack = Omit<ChatMessage, 'toolInvocations'> & {
  * ## Why tombstones and not deletions — the mirror decides it here
  *
  * All six HAVE a Zod arm, so deleting the declaration would trade one silent
- * no-op for another: `BaseSchema` is `.passthrough()` on the Zod side and
- * carries a `[key: string]: any` index signature on the TS side, so an
- * UNDECLARED key is not refused, it is KEPT. That is the hazard the two-prong
+ * no-op for another: `BaseSchema` is `.passthrough()` on the Zod side (and
+ * carried a `[key: string]: any` index signature on the TS side until
+ * objectui#8347), so an UNDECLARED key is not refused there, it is KEPT. That is the hazard the two-prong
  * discriminator leaves to the carrier — where there is no mirror there is "no
  * silent-strip hazard for prong 2 to guard" (`mobile.ts`, objectui#5941 /
  * #7526 / `5f8190c8c`: a `?: never` tombstone is available only on a SURVIVING
@@ -1544,10 +1546,10 @@ export interface ChatbotSchema extends BaseSchema {
    * new key — which is why the guidance above names `type`.
    *
    * On a carrier extending {@link BaseSchema} — every component schema in this
-   * package — deleting an optional member is SILENT in every value shape,
-   * because the `[key: string]: any` index signature defeats both
-   * excess-property checking and the weak-type check. Measured on THIS member
-   * with `tsc -p tsconfig.test.json`, a no-index-signature control carrier
+   * package — deleting an optional member was SILENT in every value shape while
+   * `BaseSchema` carried `[key: string]: any` (until objectui#8347), because the
+   * index signature defeated both excess-property checking and the weak-type
+   * check. Measured on THIS member at the time with `tsc -p tsconfig.test.json`, a no-index-signature control carrier
    * (`FloatingChatbotConfig`) lit in the same run (TS2353 on a fresh undeclared
    * key, TS2559 on a lone-key widened value):
    *
@@ -1557,11 +1559,13 @@ export interface ChatbotSchema extends BaseSchema {
    *   | DELETED    | clean              | clean           | clean                |
    *   | TOMBSTONED | TS2322             | TS2322          | TS2322               |
    *
-   * Deleted, the member reads as `any` through the index signature and even a
-   * wrong-typed value goes quiet. Tombstoned, PRESENCE with any value is a
-   * compile error — a channel deletion cannot produce on this carrier at all:
-   * on a `BaseSchema` carrier the two routes are loud-vs-silent, not
-   * louder-vs-quieter. Pinned, the deleted row included as a live control, in
+   * Deleted, the member read as `any` through the index signature and even a
+   * wrong-typed value went quiet. Since objectui#8347 a deletion trips TS2353
+   * on a fresh literal, with no name for the remedy, and still rides a widened
+   * value clean. Tombstoned, PRESENCE with any value is a compile error in every
+   * shape, by name — a channel deletion cannot produce through a widened value:
+   * on a `BaseSchema` carrier the two routes were loud-vs-silent, and through a
+   * widened value they still are. Pinned, the deleted row included as a live control, in
    * `__tests__/chatbot-display-mode-retired.test.ts`.
    *
    * ## Runtime: unchanged, deliberately — zero validation before and after
@@ -1576,7 +1580,10 @@ export interface ChatbotSchema extends BaseSchema {
    * always was. Minting an arm to refuse it would be the declared-but-
    * unmirrored axis (objectui#6152); the retirement test pins both twins'
    * shapes as a tripwire so that whoever mints the mirror adds the
-   * `retirementTombstone()` half at that time.
+   * `retirementTombstone()` half at that time. objectui#6152 round 4 took the
+   * question under that ruling and kept the refusal TypeScript-only: stored
+   * designer documents carry `displayMode: 'floating'`, so no arm is minted
+   * and the key stays unmirrored on both twins by decision, not as debt.
    *
    * @deprecated Not part of this contract — the value was inert. The node
    * `type` selects the presentation.
@@ -1584,10 +1591,40 @@ export interface ChatbotSchema extends BaseSchema {
   displayMode?: never;
 
   /**
-   * Configuration for the floating action button and the panel it opens —
-   * read by `chatbot-floating` alone and forwarded to `<FloatingChatbot>`.
+   * ADR-0049 RETIREMENT TOMBSTONE — `floatingConfig` on a `chatbot` node
+   * (objectui#6152 round 5, the seat's answer A). Author a `chatbot-floating`
+   * node instead: {@link ChatbotFloatingSchema.floatingConfig} is the one
+   * declaration of the trigger and panel geometry, and that registration is the
+   * one that reads it.
+   *
+   * What was measured, on the retiring change's base (a reading at that
+   * revision, ⛔ not a live count): a type-checker census over every package
+   * found no read of this member and no producer outside one test; a runtime
+   * probe through the real `SchemaRenderer` and registry rendered a `chatbot`
+   * node byte-for-byte the same with and without a full `floatingConfig`
+   * (a `placeholder` control moved the DOM, and the same config on a
+   * `chatbot-floating` node drew its title); and no document authored it on a
+   * `chatbot` node. The `chatbot` registration forwards only DOM-safe props,
+   * so the value never reached `<Chatbot>`, which has no trigger or panel to
+   * apply it to.
+   *
+   * Retired from THIS face only. {@link ChatbotFloatingSchema} does not
+   * inherit it: that face extends `Pick<ChatbotSchema, ChatbotSharedKey |
+   * 'maxToolRoundtrips'>` and declares its own `floatingConfig`, and its zod
+   * twin spreads the shared pick and mirrors the member itself — so no
+   * re-declaration was needed, and the floating face is untouched.
+   *
+   * A `?: never` tombstone and ⛔ not a deletion, by the discriminator stated
+   * on {@link ChatbotSchema.displayMode} above (cited, not restated): a deleted
+   * member on this {@link BaseSchema} carrier read as `any` through the index
+   * signature until objectui#8347 (and still rides a widened value), and this
+   * member's published comment advertised the floating
+   * configuration on the `chatbot` face. The zod twin refuses it by name.
+   *
+   * @deprecated Not a key `chatbot` reads — author `type: 'chatbot-floating'`
+   * with `floatingConfig`.
    */
-  floatingConfig?: FloatingChatbotConfig;
+  floatingConfig?: never;
   /**
    * REFUSED BY NAME (objectui#8572, ADR-0049) — the chat API's body params are
    * authored as `requestBody`, and `body` on this node means what it means on
@@ -1838,8 +1875,10 @@ export interface ChatbotEnhancedSchema
  *   - `enableMarkdown`, `enableFileUpload` and the `onClear` runtime slot,
  *     forwarded into the panel's `<ChatbotEnhanced>`;
  *   - `floatingConfig`, the trigger and panel geometry
- *     ({@link FloatingChatbotConfig}) — ALSO declared on {@link ChatbotSchema},
- *     unchanged there — and `displayMode`, a `?: never` tombstone on both
+ *     ({@link FloatingChatbotConfig}) — declared on THIS face alone since
+ *     objectui#6152 round 5 retired the `chatbot` face's copy, which that
+ *     registration never read (this face never inherited it: the `Pick` above
+ *     leaves it out) — and `displayMode`, a `?: never` tombstone on both
  *     faces since objectui#7654; see each member's comment.
  *
  * NOT declared, on purpose: `maxHeight` (the panel pins its inner chat to
@@ -1905,6 +1944,8 @@ export interface ChatbotFloatingSchema
   /**
    * Configuration for the floating action button and the panel it opens —
    * read by `chatbot-floating` alone and forwarded to `<FloatingChatbot>`.
+   * The one declaration of this geometry: {@link ChatbotSchema.floatingConfig}
+   * is a retirement tombstone since objectui#6152 round 5.
    */
   floatingConfig?: FloatingChatbotConfig;
   /**
@@ -2011,6 +2052,23 @@ export interface FloatingChatbotConfig {
    * it, so `triggerIcon`'s refusal is TYPE-LEVEL ONLY. Runtime parse behaviour
    * is unchanged.
    *
+   * ⚠️ AMENDED by objectui#6152 round 4, which minted that mirror. The
+   * `chatbot-floating` twin now declares `floatingConfig` through a
+   * module-private restatement of this interface in `zod/complex.zod.ts`, and
+   * that restatement carries the `retirementTombstone()` half for this key, so
+   * on a `chatbot-floating` node `floatingConfig.triggerIcon` is refused at
+   * runtime too. `ChatbotSchema.floatingConfig` stays unmirrored — the `chatbot`
+   * registration never reads it — so on a `chatbot` node the refusal is still
+   * type-level only. The paragraph above is the reading this retirement landed
+   * on.
+   *
+   * ⚠️ AMENDED again by objectui#6152 round 5, which RETIRED
+   * `ChatbotSchema.floatingConfig` on both faces. A `chatbot` node now refuses
+   * the whole `floatingConfig` key — `triggerIcon` with it — at compile time and
+   * at parse time, so "type-level only" no longer holds anywhere: the one face
+   * that still declares this interface is `chatbot-floating`, where both halves
+   * of this refusal hold.
+   *
    * ## Why a tombstone and not a deletion, with only the `tsc` channel available
    *
    * The usual argument for `?: never` over deletion is about the mirror (an
@@ -2077,10 +2135,27 @@ export interface FloatingChatbotConfig {
  * `trendValue` for `metric-card`, declared as registry `inputs` at
  * `plugin-dashboard/src/index.tsx`). Those props are NOT widget keys and must
  * not be added to {@link DashboardWidgetSchema}; a member of this list is
- * validated as a component node against objectui's own passthrough
- * `BaseSchema`, which is what keeps them. On the TypeScript face that node is
- * {@link DashboardWidgetSlotComponentSchema}, the component arm — first, as
- * in the Zod twin — of `DashboardComponentSchema.widgets` (objectui#7952).
+ * validated as a component node against objectui's own component schema —
+ * `BaseSchema` plus the registered inputs it declares (objectui#11467). On the
+ * TypeScript face that node is {@link DashboardWidgetSlotComponentSchema}, the
+ * component arm — first, as in the Zod twin — of
+ * `DashboardComponentSchema.widgets` (objectui#7952).
+ *
+ * ⛔ Not a widget TYPE (objectui#11483). This list is the component arm's own
+ * `type` and nothing else: it is no member of {@link DashboardWidgetTypeName}
+ * or its Zod twin, so the slot reads a `metric-card` through the component arm
+ * alone, and that arm's required `value` is the one spelling of what the card
+ * draws from. While it was also a widget type, `{ type: 'metric-card', title }`
+ * parsed as a widget and `MetricCard` drew an empty figure. No widget key binds
+ * the card's figure. objectui#11483 measured, through the real
+ * `DashboardRenderer` and `DashboardGridLayout`, that a `dataset` then drew
+ * `DatasetWidget` in the card's place by a rule that ignored the `type`. Since
+ * objectui#11598 (2026-10-04) both surfaces read a widget key on the widget arm
+ * alone: a `metric-card` carrying one (`dataset`, `options`, `component`, …) is
+ * refused by the strict face and is not drawn as a widget — the card draws its
+ * own keys. Since objectui#11514 the TypeScript widget
+ * arm, {@link DashboardWidgetSchema}'s `type`, names no member either: a slot
+ * entry is read by the slot's element type, not by the widget arm.
  *
  * ⛔ CLOSED on purpose. The ruling's triage block named an open
  * "extension allowed" hatch as the thing to avoid: an open hatch re-creates
@@ -2089,10 +2164,11 @@ export interface FloatingChatbotConfig {
  * with a registration behind it — `examples/schema-catalog/test/
  * plugin-dashboard-component-schema.test.ts` is the standing gate, and
  * `__tests__/report-chart-query-spec-parity.test.ts` pins the closure. The
- * member also needs its row of registered input names in the zod slot arm's
- * `DASHBOARD_WIDGET_SLOT_REGISTERED_INPUTS` (`zod/complex.zod.ts`), or the
- * strict authoring face refuses its props (objectui#11022); `tsc` refuses the
- * build without the row.
+ * member also needs an arm that declares ITS registered inputs: the one
+ * component arm declares `metric-card`'s (objectui#11467), so a second member
+ * would inherit that card's props. The Zod arm's `type` is checked against
+ * this exact one-member list (`zod/complex.zod.ts`), so `tsc` refuses the
+ * build until the arm is split per member.
  */
 export const DASHBOARD_COMPONENT_WIDGET_TYPES = ['metric-card'] as const;
 
@@ -2122,7 +2198,13 @@ export type DashboardWidgetTypeExtension = (typeof DASHBOARD_WIDGET_TYPE_EXTENSI
  * spec's `ChartTypeSchema`) rather than being restated, so a family the spec
  * adds or retires lands here with no edit — the same discipline
  * {@link DashboardWidgetSchema} already uses for its key set. objectui's own
- * two extension sets are spelled out above, each with its own reason.
+ * extension set, {@link DASHBOARD_WIDGET_TYPE_EXTENSIONS}, is spelled out above
+ * with its reason. {@link DashboardComponentWidgetType} was a third member until
+ * objectui#11483: a component type is not a widget type, and the slot reads a
+ * `metric-card` through its component arm alone (see
+ * {@link DASHBOARD_COMPONENT_WIDGET_TYPES}). An authoring surface that offers
+ * widget types (a designer palette, an inspector's type picker) is typed by this
+ * name, so it cannot offer the card as a widget it would save without a `value`.
  *
  * This used to be bare `string`. That was the open hatch: `type: 'metrci-card'`
  * type-checked, validated, and rendered the registry's red OBJUI-001 panel —
@@ -2133,8 +2215,7 @@ export type DashboardWidgetTypeExtension = (typeof DASHBOARD_WIDGET_TYPE_EXTENSI
  */
 export type DashboardWidgetTypeName =
   | NonNullable<SpecDashboardWidget['type']>
-  | DashboardWidgetTypeExtension
-  | DashboardComponentWidgetType;
+  | DashboardWidgetTypeExtension;
 
 /**
  * Dashboard Widget Layout
@@ -2196,27 +2277,83 @@ export interface DashboardWidgetSchema
   // behind it measured `page.components[].responsive` inert), and objectui#7580
   // deleted `useResponsiveConfig` with it at zero callers. What survives the
   // retirement is the BREAKPOINT vocabulary, re-homed into `@object-ui/types`
-  // and `@object-ui/layout` because `responsive-grid` renders it — not this key.
+  // and `@object-ui/layout` because renderers implement it (the `grid` node's
+  // breakpoint `columns`, and `ResponsiveGrid` since objectui#11441 retired its
+  // `responsive-grid` node key) — not this key.
   // Pinned by `__tests__/report-chart-query-spec-parity.test.ts`.
-  /** Component schema (legacy format) — objectui-only, no spec counterpart. */
-  component?: SchemaNode;
+  /**
+   * Component schema (legacy format) — objectui-only, no spec counterpart.
+   *
+   * Either arm of this union is a node the dashboard renders through the
+   * registry (`toDashboardNodeType`, then `SchemaRenderer`). The first arm is
+   * the widget slot's component arm, {@link DashboardWidgetSlotComponentSchema}
+   * (objectui#11467): a `metric-card` written here is the same node the slot
+   * holds directly, so its registered inputs are typed by the same members.
+   * The second is any other registered component node, which a `custom`
+   * widget's `component` carries. The Zod twin (`zod/complex.zod.ts`
+   * `DashboardWidgetSchema.component`) is the same two arms.
+   */
+  component?: DashboardWidgetSlotComponentSchema | SchemaNode;
   layout?: DashboardWidgetLayout;
   /**
-   * Widget visualization type (spec shorthand format), or an objectui component
-   * type the widget slot holds directly.
+   * Widget visualization type (spec shorthand format).
    *
    * CLOSED — see {@link DashboardWidgetTypeName}. The spec's families flow in by
-   * reference; objectui's additions are the two named, closed extension sets.
+   * reference; objectui's additions are the two named, closed sets.
    * It was `string` until objectui#4600, which is why a retired family, a typo,
    * or a component type nothing registers all type-checked here and only
    * surfaced as the renderer's red OBJUI-001 panel at runtime.
+   *
+   * The same set as the Zod twin's `type`: no {@link DashboardComponentWidgetType}
+   * (objectui#11483 on the Zod faces, objectui#11514 here). A `metric-card` is
+   * read by the slot's component arm alone,
+   * {@link DashboardWidgetSlotComponentSchema}, whose required `value` governs,
+   * so a `metric-card` with no `value` is refused on this face as on both Zod
+   * faces. This interface is the widget arm only: a `widgets[]` entry's read
+   * type is the slot's element type, `DashboardComponentSchema['widgets'][number]`,
+   * which `plugin-dashboard`'s renderers annotate entries with. Pinned in
+   * `__tests__/metric-card-needs-value-11483.test.ts`.
    */
   type?: DashboardWidgetTypeName;
   /** Widget-specific configuration (spec shorthand format). Kept `unknown` — objectui
    *  renderers pass widget-family-specific bags the spec's `options` object does not model. */
   options?: unknown;
-  /** Chart configuration for chart-type widgets */
-  chartConfig?: any;
+  /**
+   * Chart APPEARANCE for chart-type widgets — the spec's
+   * `DashboardWidgetChartConfigSchema`, the dataset-bound carrier of the chart
+   * config.
+   *
+   * Every key is still `any` on this face except the five the spec retired on
+   * this carrier, and those five are typed BY REFERENCE from the spec's own
+   * members, so each is the spec's retired-key type: an authored value is a
+   * compile error, the verdict the Zod twin already gives at parse because
+   * `zod/complex.zod.ts` `DashboardWidgetSchema` takes the spec's `chartConfig`
+   * by reference. Only the key NAMES are written here; whether a key admits a
+   * value is the spec's answer, so a key the spec re-opened would compile again
+   * with no edit to this member.
+   *
+   *  - `aria` (objectui#4044): @objectstack/spec 17.5.0 retired
+   *    `ChartConfig.aria` (ADR-0049 D2; no chart renderer ever applied it). The
+   *    accessible name a chart DOES apply is the sibling `description`, which
+   *    the chart renderer lowers to `role="img"` plus `aria-label`.
+   *  - `type`, `xAxis`, `yAxis`, `series` (objectui#11315): the same 17.5.0
+   *    release retired them on THIS carrier only (ADR-0021 · ADR-0049 D2). A
+   *    dataset-bound widget's dataset owns the chart's structure: the family
+   *    is the widget's own `type`, the category axis is `dimensions`, and the
+   *    measures and series are `values`. The four stay authorable on the react
+   *    `ObjectChart` tier, whose chart is bound to inline `data`.
+   *
+   * Pinned by `__tests__/chartconfig-aria-retired-4044.test.ts` and
+   * `__tests__/chartconfig-structure-retired-11315.test.ts`.
+   */
+  chartConfig?: {
+    [key: string]: any;
+    aria?: NonNullable<SpecDashboardWidget['chartConfig']>['aria'];
+    type?: NonNullable<SpecDashboardWidget['chartConfig']>['type'];
+    xAxis?: NonNullable<SpecDashboardWidget['chartConfig']>['xAxis'];
+    yAxis?: NonNullable<SpecDashboardWidget['chartConfig']>['yAxis'];
+    series?: NonNullable<SpecDashboardWidget['chartConfig']>['series'];
+  };
   /**
    * Data binding: filter conditions. Kept `any` — objectui passes an ObjectQL
    * FilterNode array here, not the spec's `FilterCondition` envelope.
@@ -2240,14 +2377,37 @@ export interface DashboardWidgetSchema
  * the TypeScript face. Twin of `zod/complex.zod.ts`
  * `DashboardWidgetSlotComponentSchema`, spelled the same way that arm is:
  * `BaseSchema` plus a `type` narrowed to the CLOSED component set
- * ({@link DASHBOARD_COMPONENT_WIDGET_TYPES}).
+ * ({@link DASHBOARD_COMPONENT_WIDGET_TYPES}), the spec's widget `layout`, and
+ * the inputs the `metric-card` registration declares.
  *
- * `BaseSchema`'s `[key: string]: any` is the passthrough. `value` / `icon` /
- * `trend` / `trendValue` are `MetricCard`'s registry `inputs`, not widget keys:
- * they reach the compiler through the index signature here and MUST NOT be
- * declared on {@link DashboardWidgetSchema} — the compiler's own TS2561
- * suggestion ("Did you mean to write 'values'?") points at exactly that
- * forbidden repair.
+ * ## The registered inputs are declared members (objectui#11467)
+ *
+ * `title`, `value`, `icon`, `trend` and `trendValue` are `MetricCard`'s
+ * registry `inputs` (`plugin-dashboard:metric-card`), and `MetricCard` reads
+ * every one of them — measured twice: a type-checker census of the props
+ * `MetricCard` destructures and renders, and a runtime probe that removed one
+ * key at a time from a widget a real `DashboardRenderer` drew. The sixth
+ * input, `description`, is the `BaseSchema` member of the same type, so it is
+ * inherited, not restated. Until objectui#11467 the five reached the compiler
+ * only through `BaseSchema`'s `[key: string]: any`, so each was `any` here and
+ * the README's `metric-card` literals compiled on nothing but that signature,
+ * which objectui#8347 removed.
+ *
+ * Each member's type is the prop `MetricCard` declares for it, and `trend`'s
+ * vocabulary is the registration's enum. This package depends on neither, so
+ * both are held to these members by the registering package's own test,
+ * against `MetricCardProps` and the live registration:
+ * `metricCardRegisteredInputsStrictFace-11022.test.ts` in
+ * `@object-ui/plugin-dashboard`'s `__tests__`.
+ *
+ * They are component props, not widget keys, and MUST NOT be declared on
+ * {@link DashboardWidgetSchema} — the compiler's own TS2561 suggestion ("Did
+ * you mean to write 'values'?") points at exactly that forbidden repair.
+ * `title` is the one name both arms declare: the widget's heading there, the
+ * card's heading here.
+ *
+ * Every other key still reaches this arm through `BaseSchema`'s index
+ * signature while it stands; the Zod twin keeps the same `.passthrough()`.
  *
  * Until objectui#7952 this arm existed on the Zod face only:
  * `DashboardComponentSchema.widgets` was `DashboardWidgetSchema[]`, so the
@@ -2275,6 +2435,61 @@ export interface DashboardWidgetSchema
 export interface DashboardWidgetSlotComponentSchema extends BaseSchema {
   /** An objectui component type legal in a widget slot — the CLOSED set. */
   type: DashboardComponentWidgetType;
+  /**
+   * The slot's grid position — the spec's widget `layout`, BY REFERENCE
+   * (`SpecDashboardWidget['layout']`), so this arm and the spec agree on the
+   * four numbers with no restated shape (objectui#11070 round 11).
+   *
+   * The one widget key this arm declares. It is not a `MetricCard` prop: the
+   * dashboard reads it off every `widgets[]` entry, and `DashboardGridLayout`'s
+   * Save Layout (`mergeLayoutIntoSchema`) writes it onto every entry, a
+   * component node included. Through the index signature it was `any` here
+   * and refused as undeclared by the strict authoring face. The Zod twin
+   * (`zod/complex.zod.ts`) declares the same spec member.
+   */
+  layout?: SpecDashboardWidget['layout'];
+  /**
+   * The card's heading: a plain string or the spec's inline per-locale map
+   * (`I18nLabel`), which `MetricCard` resolves for the active language.
+   */
+  title?: string | I18nLabel;
+  /**
+   * The figure the card shows, drawn as given. The one REQUIRED input: the
+   * registration marks it `required`, and a card without it draws an empty
+   * figure. Since objectui#11483 the validator has no other reading of a
+   * `metric-card` in the slot, so a card without it is refused there.
+   */
+  value: string | number;
+  /** A Lucide icon name, drawn beside the heading. */
+  icon?: string;
+  /**
+   * The trend's direction, drawn as the arrow and colour in front of
+   * `trendValue` — the registration's enum. Drawn only together with
+   * `trendValue`.
+   */
+  trend?: 'up' | 'down' | 'neutral';
+  /** The trend's text, such as `+12%`. Drawn only together with `trend`. */
+  trendValue?: string;
+  /**
+   * REFUSED BY NAME (objectui#4425) — the card's heading is `title`.
+   *
+   * {@link BaseSchema} declares `label`, and this node inherited it, but
+   * nothing on the `metric-card` path reads it: the registration
+   * (`plugin-dashboard:metric-card`) declares `title`, and `MetricCard` draws
+   * `title` as the heading. `label` is how the sibling `metric` node
+   * (`plugin-dashboard:metric`) spells its heading, so an author who knows that
+   * node wrote it here and got a card with no heading: no render-time error or
+   * warning, and the parser tier's `validateTree` does not walk a dashboard's
+   * `widgets`. Under the objectui#8284 ruling (one spelling per rendered thing)
+   * the member is restated as a refusal, in the shape `body` / `children` below
+   * take.
+   *
+   * The zod twin is the private slot arm in `zod/complex.zod.ts`, which
+   * refuses `label` by name and names `title` in the message.
+   *
+   * @deprecated Not a key `metric-card` reads. Write the heading as `title`.
+   */
+  label?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `metric-card` reads NEITHER
    * content channel; see `children` below for the measurement.
@@ -2368,9 +2583,10 @@ export interface DashboardComponentSchema extends BaseSchema, Omit<SpecDashboard
   // a named removal message, so the Zod twin (`zod/complex.zod.ts`, `.passthrough()`
   // via `BaseSchema`) gains no refusal from this deletion and ⛔ must not be given a
   // hand-written one — that would assert a spec behaviour that does not exist.
-  // Note `BaseSchema`'s index signature still types an authored `title` as `any`:
-  // this deletion removes the type-level suggestion and the false rendering claim,
-  // not a key that ever rendered. Pinned by
+  // This deletion removed the type-level suggestion and the false rendering claim,
+  // not a key that ever rendered. `BaseSchema`'s index signature typed an authored
+  // `title` as `any` after it, until objectui#8347 removed the signature; an
+  // authored `title` is a compile error now. Pinned by
   // `__tests__/dashboard-title-retired-declaration.test.ts`.
   columns?: number;
   gap?: number;
@@ -2385,17 +2601,24 @@ export interface DashboardComponentSchema extends BaseSchema, Omit<SpecDashboard
    * the shape the 2026-08-14 ruling (objectstack#8593) admits and the runtime
    * renders — see the arm's own docblock for the measurement and the ruling.
    *
-   * ⚠️ Measured limits of a TypeScript union with a passthrough arm, recorded
-   * so nobody reads them as a hatch (pinned two-faced next to the arm):
+   * ⚠️ How the union judges a literal, recorded so nobody reads it as a hatch
+   * (pinned next to the arm):
    *  - a literal that NAMES a `type` outside the component set is discriminated
-   *    by it — `{ type: 'bar', bogus: 1 }` is still refused, because `'bar'`
+   *    by it — `{ type: 'bar', bogus: 1 }` is refused, because `'bar'`
    *    excludes the component arm and `DashboardWidgetSchema` has no `bogus`;
    *  - a literal with NO `type` (the legacy `component` envelope) cannot be
-   *    discriminated, and the component arm's index signature then satisfies
-   *    the union's excess-property check, so `{ component, bogus: 1 }`
-   *    compiles here. The Zod face refuses it (`.strict()` widget schema) —
-   *    the runtime is the strict face on that corner, as it already was for
-   *    every `BaseSchema` slot.
+   *    discriminated, so its excess-property check runs against both arms.
+   *    Until objectui#8347 the component arm's index signature satisfied it,
+   *    so `{ component, bogus: 1 }` compiled here; with `BaseSchema`'s
+   *    signature gone it is refused, as on the Zod face (`.strict()` widget
+   *    schema);
+   *  - a `metric-card` with NO `value` (`{ type: 'metric-card', title }`) is
+   *    refused here as on both Zod faces: no arm but the component arm names
+   *    `metric-card` (objectui#11483 on the Zod faces, objectui#11514 here).
+   *    Read an entry by this element type,
+   *    `DashboardComponentSchema['widgets'][number]`, and narrow it on `type`
+   *    to reach a widget key: the component arm is not assignable to
+   *    {@link DashboardWidgetSchema}.
    */
   widgets: Array<DashboardWidgetSlotComponentSchema | DashboardWidgetSchema>;
   /**

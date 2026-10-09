@@ -46,6 +46,61 @@ import type { InboxNotification, NotificationGroup } from './inboxGrouping.js';
 // through this module (the pure logic itself lives in inboxGrouping.ts).
 export type { InboxNotification, NotificationGroup } from './inboxGrouping.js';
 
+type InboxTab = 'notifications' | 'approvals' | 'activity';
+
+/** Tab order, which is also the order the opening pick walks. */
+const INBOX_TABS: readonly InboxTab[] = ['notifications', 'approvals', 'activity'];
+
+const isInboxTab = (value: unknown): value is InboxTab =>
+  typeof value === 'string' && (INBOX_TABS as readonly string[]).includes(value);
+
+/**
+ * sessionStorage key holding the tab the user last PICKED (objectui#11698).
+ *
+ * sessionStorage, not component state: the header bell is a different
+ * instance on Home, Organizations, the AI page and inside an app (each layout
+ * mounts its own `AppHeader`), so component state would forget the pick at the
+ * first move between them. Not localStorage either: a fresh browser tab starts
+ * from the opening pick again — the same per-tab scope the ChatDock's expanded
+ * flag uses (`chatDockState.ts`). Every touch is guarded so private mode and a
+ * DOM-less runner degrade to "nothing picked".
+ */
+const INBOX_TAB_STORAGE_KEY = 'inbox-popover-tab';
+
+function recallPickedTab(): InboxTab | null {
+  try {
+    const raw = window.sessionStorage.getItem(INBOX_TAB_STORAGE_KEY);
+    return isInboxTab(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberPickedTab(tab: InboxTab): void {
+  try {
+    window.sessionStorage.setItem(INBOX_TAB_STORAGE_KEY, tab);
+  } catch {
+    /* storage unavailable: the pick lasts until the popover closes */
+  }
+}
+
+/**
+ * The tab the popover opens on (objectui#11698). It was a fixed
+ * `'notifications'`, so a bell reading "3" for three pending approvals opened
+ * on "You're all caught up" with the three items one tab to the right.
+ *
+ * In order: the user's last pick if that tab has something in it; else the
+ * first tab that does (Notifications, Approvals, Activity); else the user's
+ * last pick; else Notifications. "Has something in it" is what each tab shows
+ * by default — an unread topic (the Unread filter is the default, and it is the
+ * badge's first addend), a pending approval (the second addend), an activity
+ * row — so a non-zero badge never opens on an empty tab, a pick included.
+ */
+function openingTab(hasItems: Record<InboxTab, boolean>, picked: InboxTab | null): InboxTab {
+  if (picked && hasItems[picked]) return picked;
+  return INBOX_TABS.find((t) => hasItems[t]) ?? picked ?? 'notifications';
+}
+
 export interface InboxPopoverProps {
   notifications: InboxNotification[];
   unreadCount: number;
@@ -79,7 +134,9 @@ export function InboxPopover({
   const { currentAppName } = useNavigationContext();
   const { apps } = useMetadata();
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<'notifications' | 'approvals' | 'activity'>('notifications');
+  // Chosen on every open by `handleOpenChange` below, never while open, so a
+  // count that changes under an open popover does not move the tab.
+  const [tab, setTab] = useState<InboxTab>('notifications');
   // Sub-filter inside Notifications: default to Unread so users see what
   // actually needs their attention first. The popover caps at 20 rows from
   // the server (`?view=mine` already scopes to current user), so we filter
@@ -120,25 +177,58 @@ export function InboxPopover({
     if (!pulse) prevTotalRef.current = totalBadge;
   }, [pulse, totalBadge]);
 
-  const goToApprovals = () => {
-    setOpen(false);
-    const app = currentAppName ?? params.appName;
-    navigate(app ? `/apps/${app}/system/approvals` : '/apps/setup/system/approvals');
+  // The counts are props the shared feeds already polled for the badge (the
+  // popover fetches nothing on open), so the pick reads the same numbers the
+  // bell showed when it was clicked.
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
+      setTab(
+        openingTab(
+          {
+            notifications: unreadTopics > 0,
+            approvals: pendingApprovalsCount > 0,
+            activity: activities.length > 0,
+          },
+          recallPickedTab(),
+        ),
+      );
+    }
+    setOpen(next);
+  };
+
+  // Only a tab the user selects is remembered; the opening pick is not.
+  const handleTabChange = (value: string) => {
+    if (!isInboxTab(value)) return;
+    setTab(value);
+    rememberPickedTab(value);
   };
 
   /**
-   * Which app hosts the two full-page drills below (objectui#4074).
+   * Which app hosts the three full-page drills below (objectui#4074,
+   * objectui#11818).
    *
-   * `sys_inbox_message` is the canonical full-page inbox (ADR-0030 L5) and
-   * `sys_activity` the full activity stream; both are framework-owned objects,
-   * so they are app-INDEPENDENT — which is precisely why they render under
-   * whatever app the user can open, exactly like `system/approvals` above.
-   * These two used to hardcode `/apps/setup/...`, and being app-independent
-   * argued for neither half of that: it sent every business user without setup
-   * access to a page they cannot read, and switched everyone else out of the
-   * app they were in without saying so.
+   * `system/approvals` is mounted for every app, `sys_inbox_message` is the
+   * canonical full-page inbox (ADR-0030 L5) and `sys_activity` the full
+   * activity stream; the two objects are framework-owned. All three are
+   * app-INDEPENDENT — which is precisely why they render under whatever app the
+   * user can open. The two objects used to hardcode `/apps/setup/...`, and
+   * being app-independent argued for neither half of that: it sent every
+   * business user without setup access to a page they cannot read, and
+   * switched everyone else out of the app they were in without saying so.
+   *
+   * The resolver returns the app's ROUTE SEGMENT (ADR-0048 option A: its
+   * package id), never the raw hint. `currentAppName` is the app's `name` —
+   * what `ConsoleLayout` publishes — so splicing it in directly addressed the
+   * same app by a second URL: the approvals link built that way took a user on
+   * `/apps/com.example.showcase/…` to `/apps/showcase_app/system/approvals`
+   * (objectui#11818).
    */
   const hostAppSegment = resolveHostAppSegment(apps, currentAppName ?? params.appName);
+
+  const goToApprovals = () => {
+    setOpen(false);
+    navigate(`/apps/${hostAppSegment}/system/approvals`);
+  };
 
   const goToAllNotifications = () => {
     setOpen(false);
@@ -241,7 +331,7 @@ export function InboxPopover({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
@@ -312,7 +402,7 @@ export function InboxPopover({
             </span>
           </div>
         )}
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="w-full">
+        <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="w-full justify-start rounded-none border-b bg-transparent px-1 h-9">
             <TabsTrigger value="notifications" className="text-xs gap-1.5 data-[state=active]:bg-transparent">
               <Bell className="h-3.5 w-3.5" />

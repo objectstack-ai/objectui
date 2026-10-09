@@ -22,17 +22,17 @@
  * All props are read off `schema.properties` per the spec's
  * `UIComponent.properties` convention; `schema.props` is also accepted
  * as a fallback so authors transitioning between conventions keep working.
- * `element:number` also reads the node-level `dataSource` binding: its
- * `object` wins over the flat one, and its filter is AND-combined with the
- * flat one (objectui#10909).
+ * `element:number` reads its query from the node-level `dataSource` binding
+ * ONLY: its `object` and its `filter` (objectui#10909, objectui#11880).
  */
 
 import * as React from 'react';
-import { ComponentRegistry, elementDataSourceBlock, mergeFilterNodes, toFilterNodeSafely } from '@object-ui/core';
+import { ComponentRegistry, elementDataSourceBlock, toFilterNodeSafely } from '@object-ui/core';
 import type { ActionDef, FilterOperatorError } from '@object-ui/core';
 import {
   ElementDataSourceErrorPanel,
   ElementDataSourceLoadingPanel,
+  resolveInlineAriaProps,
   useAdapter,
   useAction,
   useDataInvalidation,
@@ -48,6 +48,7 @@ import {
   formatDisplayNumber,
   type DisplayNumberFormatOptions,
 } from '@object-ui/i18n';
+import type { AriaProps, TextSchema } from '@object-ui/types';
 import { cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { Button, Separator } from '../../ui';
@@ -55,18 +56,16 @@ import { readProps } from './readProps';
 import { readActionEntryParamValues } from '../action/static-params';
 
 // ---------------------------------------------------------------------------
-// Shared helpers
+// The `aria` bag (objectui#11051)
 // ---------------------------------------------------------------------------
-
-function ariaAttrs(aria?: Record<string, any>): Record<string, string> {
-  if (!aria || typeof aria !== 'object') return {};
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(aria)) {
-    if (v == null) continue;
-    out[k.startsWith('aria-') || k === 'role' ? k : `aria-${k}`] = String(v);
-  }
-  return out;
-}
+//
+// `element:text`, `element:image`, `element:button` and `element:number` each
+// declare the spec's `AriaPropsSchema` as their `aria` prop. Every read site
+// below spreads `resolveInlineAriaProps(props.aria, locale)` from
+// `@object-ui/react` with the display locale, and this file keeps no mapping of
+// its own. A local helper used to put `aria-` in front of each key as written,
+// so `ariaLabel` reached the DOM as `aria-arialabel`, an attribute no assistive
+// technology reads, and a locale map was written as `[object Object]`.
 
 // ---------------------------------------------------------------------------
 // element:text
@@ -78,28 +77,100 @@ const ALIGN_CLASS = {
   right: 'text-right',
 } as const;
 
-const VARIANT_CLASS: Record<string, string> = {
-  heading: 'text-2xl font-semibold tracking-tight',
-  subheading: 'text-lg font-medium text-foreground',
+/**
+ * `element:text`'s `variant` — ONE vocabulary with `ui:text` (objectui#7450,
+ * ruling B of 2026-09-07, landed in two spec releases as routed on 2026-09-09).
+ *
+ * ## The published nine
+ *
+ * `element:text` takes the nine values `@object-ui/types` publishes for its
+ * text node, `TextSchema.variant`: `h1`-`h6`, `body`, `caption`, `overline`.
+ * `@objectstack/spec` 17.5.0 widened `ElementTextPropsSchema.variant` to the
+ * same nine (objectstack#17108, release 1). That pin is what lets this file
+ * offer them: before it, the contract refused seven of the nine, and declaring
+ * a value the installed contract refuses is the consumer-side widening
+ * AGENTS.md #0.1 bans (`registry-inputs-spec-parity.test.ts` catches it).
+ *
+ * Each value maps the way `ui:text` maps it (`./text.tsx`): the six heading
+ * values render the heading element they name, and every one of the nine
+ * carries `ui:text`'s class for that value. The one deliberate difference is
+ * the element of `body`, `caption` and `overline`. `ui:text` wraps inline
+ * content in a `<span>`. This is a page block, and it has always rendered a
+ * paragraph for its non-heading values (`body` and `caption` included), and
+ * `ALIGN_CLASS` above carries no `block`, so a `<span>` would leave `align`
+ * with nothing to align.
+ * `__tests__/element-text-published-variants-7450.test.tsx` renders both
+ * renderers for all nine and asserts they agree, so this map cannot drift from
+ * `ui:text`'s without going red.
+ *
+ * ## `heading` / `subheading` — retired with the spec, in 17.7.0
+ *
+ * Through 17.6.0 the contract still ACCEPTED the two pre-convergence
+ * spellings, and no objectui face refuses a value before the spec does, so they
+ * rendered as they always had (`heading` an `<h2>`, `subheading` an `<h3>`).
+ * `@objectstack/spec` 17.7.0 retires them through the value-level retirement
+ * mechanism (objectstack#17109; objectstack#21015 refuses both by name, and
+ * `os migrate meta` rewrites them to `h2` / `h3`), so they left this map and
+ * the registry `inputs` below at that bump (objectui#11717), as
+ * `__tests__/element-text-published-variants-7450.test.tsx` instructed. A
+ * stored value outside the contract renders as `body`, as the read site says.
+ * Migration: `heading` -> `h2`, `subheading` -> `h3`, or the level the document
+ * means.
+ *
+ * ## Absence is `body` here, and only here
+ *
+ * `props.variant ?? 'body'` stays. `ui:text` deliberately does NOT synthesise
+ * `body` for an absent `variant` (objectui#6942), so its unannotated corpus
+ * nodes keep the shape they had. This is a different component: a page block
+ * that has always rendered a body paragraph when no variant is authored, and
+ * `@objectstack/spec` declares `.default('body')` on this key, so the contract
+ * materialises the same value this renderer reads. Converging the vocabulary
+ * moves what absence means on neither side.
+ */
+type ElementTextVariant = NonNullable<TextSchema['variant']>;
+
+const VARIANT_CLASS: Record<ElementTextVariant, string> = {
+  h1: 'text-4xl font-semibold tracking-tight',
+  h2: 'text-3xl font-semibold tracking-tight',
+  h3: 'text-2xl font-semibold tracking-tight',
+  h4: 'text-xl font-semibold tracking-tight',
+  h5: 'text-lg font-semibold tracking-tight',
+  h6: 'text-base font-semibold tracking-tight',
   body: 'text-sm text-foreground',
   caption: 'text-xs text-muted-foreground',
+  overline: 'text-xs font-medium uppercase tracking-widest text-muted-foreground',
+};
+
+const VARIANT_TAG: Record<ElementTextVariant, 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p'> = {
+  h1: 'h1',
+  h2: 'h2',
+  h3: 'h3',
+  h4: 'h4',
+  h5: 'h5',
+  h6: 'h6',
+  body: 'p',
+  caption: 'p',
+  overline: 'p',
 };
 
 function ElementTextRenderer({ schema }: { schema: any }) {
   const props = readProps<{
     content?: unknown;
-    variant?: 'heading' | 'subheading' | 'body' | 'caption';
+    variant?: ElementTextVariant;
     align?: 'left' | 'center' | 'right';
-    aria?: Record<string, any>;
+    aria?: AriaProps;
   }>(schema);
   const { language } = useObjectTranslation();
+  const locale = useDisplayLocale();
   const variant = props.variant ?? 'body';
   const align = props.align ?? 'left';
-  const Tag = variant === 'heading' ? 'h2' : variant === 'subheading' ? 'h3' : 'p';
+  // A value outside the contract is refused by every gate before it gets here;
+  // if one arrives anyway it renders as `body` did before this change.
+  const Tag = VARIANT_TAG[variant] ?? 'p';
   return (
     <Tag
       className={cn(VARIANT_CLASS[variant] ?? VARIANT_CLASS.body, ALIGN_CLASS[align], schema?.className)}
-      {...ariaAttrs(props.aria)}
+      {...resolveInlineAriaProps(props.aria, locale)}
     >
       {pickLocalized(props.content, language)}
     </Tag>
@@ -121,7 +192,23 @@ ComponentRegistry.register('text', ElementTextRenderer, {
     // `type-mismatch` on the map form, which is the shape this input's own
     // description teaches the author to write.
     { name: 'content', type: ['string', 'object'], required: true, description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
-    { name: 'variant', type: 'enum', enum: ['heading', 'subheading', 'body', 'caption'] },
+    // The installed contract's accept set, member for member: the published nine
+    // (objectui#7450). This list is not only an offer. It is what the html tier
+    // compiles against (`page.tsx` builds its JSX manifest from these `inputs`,
+    // and an `invalid-enum` there fails the whole page), and what the published
+    // `sdui.manifest.json` hands the platform's JSX gate. The two pre-convergence
+    // spellings `heading` / `subheading` stood here, after the nine, until the
+    // spec refused them: `@objectstack/spec` 17.7.0 retires both (objectstack#21015),
+    // and they left at that bump (objectui#11717), when
+    // `registry-inputs-spec-parity.test.ts` went red as it promised to.
+    {
+      name: 'variant',
+      type: 'enum',
+      enum: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'body', 'caption', 'overline'],
+      description:
+        'One of the nine text styles ui:text uses: h1-h6 (rendered as that heading level), body, caption or overline. '
+        + 'The earlier spellings heading and subheading are refused; write h2 or h3 instead.',
+    },
     { name: 'align', type: 'enum', enum: ['left', 'center', 'right'] },
   ],
 });
@@ -157,8 +244,11 @@ function ElementImageRenderer({ schema }: { schema: any }) {
     alt?: string;
     fit?: 'cover' | 'contain' | 'fill';
     height?: number;
-    aria?: Record<string, any>;
+    aria?: AriaProps;
   }>(schema);
+  // Before the early return below, so the hook order is the same with and
+  // without a `src`.
+  const locale = useDisplayLocale();
   const fit = props.fit ?? 'cover';
   if (!props.src) {
     return (
@@ -179,7 +269,7 @@ function ElementImageRenderer({ schema }: { schema: any }) {
       alt={props.alt ?? ''}
       className={cn('w-full rounded-md', FIT_CLASS[fit] ?? FIT_CLASS.cover, schema?.className)}
       style={props.height ? { height: props.height } : undefined}
-      {...ariaAttrs(props.aria)}
+      {...resolveInlineAriaProps(props.aria, locale)}
     />
   );
 }
@@ -218,7 +308,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
     icon?: string;
     iconPosition?: 'left' | 'right';
     disabled?: boolean;
-    aria?: Record<string, any>;
+    aria?: AriaProps;
     /**
      * Optional action executed on click. Any ActionDef the ActionRunner
      * understands — `url`/`navigation` (link to another page), `api`/`script`
@@ -233,6 +323,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
   const variant = (SHADCN_BUTTON_VARIANT[props.variant ?? 'primary'] ?? 'default') as any;
   const size = (SHADCN_BUTTON_SIZE[props.size ?? 'medium'] ?? 'default') as any;
   const { language } = useObjectTranslation();
+  const locale = useDisplayLocale();
   const label = pickLocalized(props.label, language);
   const iconPosition = props.iconPosition ?? 'left';
   const icon = props.icon ? <LazyIcon name={props.icon} className="h-4 w-4" /> : null;
@@ -314,7 +405,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
       disabled={props.disabled || running}
       className={cn(schema?.className)}
       onClick={action ? handleClick : undefined}
-      {...ariaAttrs(props.aria)}
+      {...resolveInlineAriaProps(props.aria, locale)}
     >
       {iconPosition === 'left' && icon}
       {label}
@@ -382,22 +473,20 @@ function formatValue(
 
 function ElementNumberRenderer({ schema }: { schema: any }) {
   const props = readProps<{
-    object?: string;
     field?: string;
     aggregate?: 'count' | 'sum' | 'avg' | 'min' | 'max';
-    filter?: unknown;
     format?: 'number' | 'currency' | 'percent';
     prefix?: string;
     suffix?: string;
-    aria?: Record<string, any>;
+    aria?: AriaProps;
   }>(schema);
   const adapter = useAdapter() as any;
   // objectui#10909 — the spec's per-element binding (`PageComponentSchema
   // .dataSource`), resolved the way the element twin `element:record_picker`
-  // resolves it: through `useElementDataSource`. The spec lint gate waives a
-  // missing `properties.object` when `dataSource.object` names one, on the
-  // precedence `ds.object ?? props.object`; before this, a metric bound only
-  // through the binding issued no query and painted the empty dash.
+  // resolves it: through `useElementDataSource`. Since objectui#11880 it is
+  // the ONLY source of the metric's object and filter: the flat
+  // `properties.object` / `filter` are not read (objectstack#11509, ruled
+  // A-narrow).
   //
   // `object` resolves ONCE, here, and that one value is the fetch guard, the
   // `aggregate` / `find` target and the bus key below. A named `view` is
@@ -412,29 +501,23 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   const dataBinding = useElementDataSource(schema, adapter);
   const composed = dataBinding.composed;
   const { t } = useObjectTranslation();
-  // The filter this metric aggregates over. With no binding it is the node's
-  // own `filter` exactly as authored, so the `properties` form is unchanged.
-  // With one, the node's own filter is AND-combined with the binding's (which
-  // `useElementDataSource` has already AND-combined with its view's): neither
-  // is dropped, so a validated `properties.filter` can never be discarded and
-  // widen the count. That is the rule `ElementDataSourceGate` applies for every
-  // gate-wrapped block that reads a filter, lowered and merged the same way
-  // (`toFilterNodeSafely` + `mergeFilterNodes`). A source the converter
-  // refuses is kept as a VALUE and answered with the configuration-error panel
-  // below — never merged as "no filter", which would count every row.
-  // Memoised for cost only: the result is read by content (`useResolvedFilter`
-  // holds it by structure), never by identity (AGENTS.md #10).
+  // The filter this metric aggregates over: the binding's (which
+  // `useElementDataSource` has already AND-combined with its view's), lowered
+  // the way `ElementDataSourceGate` lowers a filter (`toFilterNodeSafely`). A
+  // filter the converter refuses is kept as a VALUE and answered with the
+  // configuration-error panel below — never read as "no filter", which would
+  // count every row. Memoised for cost only: the result is read by content
+  // (`useResolvedFilter` holds it by structure), never by identity
+  // (AGENTS.md #10).
   const scopedFilter = React.useMemo((): { filter: unknown; refusal?: FilterOperatorError } => {
-    if (!composed) return { filter: props.filter };
-    const own = toFilterNodeSafely(props.filter);
-    if (!own.ok) return { filter: undefined, refusal: own.refusal };
+    if (!composed) return { filter: undefined };
     const bound = toFilterNodeSafely(composed.filter);
     if (!bound.ok) return { filter: undefined, refusal: bound.refusal };
-    return { filter: mergeFilterNodes(own.node, bound.node) };
-  }, [composed, props.filter]);
+    return { filter: bound.node };
+  }, [composed]);
   const filterRefusal = scopedFilter.refusal;
   const unresolved = dataBinding.status === 'loading' || dataBinding.status === 'missing';
-  const object = unresolved || filterRefusal ? undefined : (composed?.object ?? props.object);
+  const object = unresolved || filterRefusal ? undefined : composed?.object;
   // Tenant default currency (ADR-0053) for a `currency`-format metric; the
   // display locale resolves through the shared precedence (tenant regional
   // default → active UI language), so the metric follows a language switch even
@@ -450,9 +533,8 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   // session scope the host provides, and HELD by structure (`useResolvedFilter`
   // in `@object-ui/react`). Both reads below (the `aggregate` filter and the
   // `find` fallback's `$filter`) sent the literal token before; they and the
-  // content key read THIS, never the raw `props.filter`. What it resolves is
-  // the scoped filter above: the node's own, AND-combined with the binding's
-  // when there is one (objectui#10909).
+  // content key read THIS. What it resolves is the binding's filter above
+  // (objectui#10909, objectui#11880).
   const filterScope = useFilterScope();
   const queryFilter = useResolvedFilter(scopedFilter.filter, filterScope);
   const filterKey = React.useMemo(() => (queryFilter ? JSON.stringify(queryFilter) : ''), [queryFilter]);
@@ -544,27 +626,26 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   if (dataBinding.status === 'loading') {
     return <ElementDataSourceLoadingPanel testId="element-number" />;
   }
-  // objectui#10951 — an aggregate that names no object at all, in either
-  // place. `object` stopped being `required` when the binding became a second
-  // way to supply it (objectui#10944), and the manifest cannot say "one of the
-  // two", so the html tier no longer reports this node: say it here rather
-  // than paint the dash. Only AUTHORED absence qualifies (`absent` = no
-  // binding naming an object); a binding whose view is still resolving or
-  // failed to resolve is answered by the two panels above.
-  if (props.aggregate && !props.object && dataBinding.status === 'absent') {
+  // objectui#10951 — an aggregate whose node names no `dataSource.object`
+  // (objectui#11880: a flat `properties.object` names nothing any more). The
+  // manifest cannot require a binding member, so the html tier does not report
+  // this node: say it here rather than paint the dash. Only AUTHORED absence
+  // qualifies (`absent` = no binding naming an object); a binding whose view is
+  // still resolving or failed to resolve is answered by the two panels above.
+  if (props.aggregate && dataBinding.status === 'absent') {
     return (
       <div
         className={cn('text-xs text-muted-foreground', schema?.className)}
         data-testid="element-number-no-object"
-        {...ariaAttrs(props.aria)}
+        {...resolveInlineAriaProps(props.aria, locale)}
       >
-        {t('element.number.noObject', { defaultValue: 'No object named: set object or dataSource.object.' })}
+        {t('element.number.noObject', { defaultValue: 'No object named: set dataSource.object.' })}
       </div>
     );
   }
 
   return (
-    <div className={cn('flex flex-col gap-1', schema?.className)} {...ariaAttrs(props.aria)}>
+    <div className={cn('flex flex-col gap-1', schema?.className)} {...resolveInlineAriaProps(props.aria, locale)}>
       <div className="text-3xl font-semibold tracking-tight tabular-nums">
         {loading ? '…' : formatValue(value, props.format, props.prefix, props.suffix, tenantCurrency, locale)}
       </div>
@@ -576,9 +657,13 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
 // The renderer READS the node-level `dataSource` binding (objectui#10909), so it
 // declares it from the seam every reader of the binding declares it from: the
 // marker below makes `Registry.register` emit `ELEMENT_DATA_SOURCE_INPUT` into
-// these `inputs`, and `object` is no longer `required` because the binding can
-// supply it. Same shape as `element:record_picker`'s registration, and the seam
-// comes from `@object-ui/core` for the same measured reason stated there.
+// these `inputs`. The flat `object` / `filter` stay PUBLISHED and are NOT
+// READ: the binding is the only place the metric reads them from
+// (objectui#11880). The spec still declares both, and their published
+// retirement ships with the spec half of objectstack#11509 and the pin bump
+// that carries it; until then each description says so. Same shape as
+// `element:record_picker`'s registration, and the seam comes from
+// `@object-ui/core` for the same measured reason stated there.
 ComponentRegistry.register('number', elementDataSourceBlock(ElementNumberRenderer), {
   namespace: 'element',
   skipFallback: true,
@@ -589,7 +674,7 @@ ComponentRegistry.register('number', elementDataSourceBlock(ElementNumberRendere
       name: 'object',
       type: 'string',
       description:
-        'Object the aggregate runs over. Required unless a node-level `dataSource` binding names one; when both are set, `dataSource.object` wins.',
+        'NOT READ (objectui#11880): the aggregate runs over the object the node-level `dataSource.object` names, and a node without one shows the "no object named" notice. `@objectstack/spec` retires this flat key in v18 (objectstack#11509).',
     },
     { name: 'aggregate', type: 'enum', enum: ['count', 'sum', 'avg', 'min', 'max'], required: true },
     { name: 'field', type: 'string', description: 'Measure field (required for every aggregate except count)' },
@@ -597,7 +682,7 @@ ComponentRegistry.register('number', elementDataSourceBlock(ElementNumberRendere
       name: 'filter',
       type: 'array',
       description:
-        'Criteria the aggregate is scoped by. When a node-level `dataSource` binding also supplies a filter (its own, or the saved view its `view` names), the two are AND-combined: neither is dropped.',
+        'NOT READ (objectui#11880): the aggregate is scoped by the node-level `dataSource.filter`, AND-combined with the filter of the saved view its `view` names. This flat key is not combined with it and never applies; `@objectstack/spec` retires it in v18 (objectstack#11509).',
     },
     { name: 'format', type: 'enum', enum: ['number', 'currency', 'percent'] },
     { name: 'prefix', type: 'string' },

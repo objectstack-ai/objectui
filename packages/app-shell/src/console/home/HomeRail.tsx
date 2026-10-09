@@ -20,6 +20,7 @@ import { useDisplayLocale } from '@object-ui/i18n';
 import type { ActivityItem } from '../../layout/ActivityFeed.js';
 import type { HomeInboxStatus, HomeNotification } from '../../hooks/useHomeInbox.js';
 import type { RecentItem } from '../../hooks/useRecentItems.js';
+import type { RecentItemLabelResolver } from '../../hooks/useRecentItemLabel.js';
 import { recentItemTypeLabel } from './recentItemTypeLabel.js';
 import { timeAgo } from '../../utils/relativeTime.js';
 
@@ -236,7 +237,24 @@ const RECENT_TONE: Record<string, string> = {
   page: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
 };
 
-export function HomeContinue({ items, onOpen, t }: { items: RecentItem[]; onOpen: (href: string) => void; t: TFn }) {
+/**
+ * `labelOf` is `useRecentItemLabel()`, handed in by the page like `t`: an entry
+ * stores identity, not text, so its label is resolved on the render, in the
+ * current language (objectui#11678). Taken as a prop so this module — which
+ * also holds the action center and the activity card — does not itself load
+ * the metadata cache the resolver reads.
+ */
+export function HomeContinue({
+  items,
+  onOpen,
+  t,
+  labelOf,
+}: {
+  items: RecentItem[];
+  onOpen: (href: string) => void;
+  t: TFn;
+  labelOf: RecentItemLabelResolver;
+}) {
   return (
     <Card icon={Clock} title={t('home.recentApps.title', { defaultValue: 'Recently Accessed' })}>
       {items.length === 0 ? (
@@ -250,7 +268,7 @@ export function HomeContinue({ items, onOpen, t }: { items: RecentItem[]; onOpen
               key={it.id}
               icon={RECENT_ICON[it.type] || FileText}
               iconClass={RECENT_TONE[it.type] || 'bg-muted text-muted-foreground'}
-              label={it.label}
+              label={labelOf(it)}
               meta={recentItemTypeLabel(t, it.type)}
               onClick={() => onOpen(it.href)}
             />

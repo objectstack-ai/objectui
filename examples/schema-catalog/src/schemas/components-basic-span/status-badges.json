@@ -1,21 +1,23 @@
 {
   "type": "flex",
-  "gap": 2,
-  "children": [
-    {
-      "type": "badge",
-      "variant": "default",
-      "label": "● Active"
-    },
-    {
-      "type": "badge",
-      "variant": "secondary",
-      "label": "● Pending"
-    },
-    {
-      "type": "badge",
-      "variant": "destructive",
-      "label": "● Inactive"
-    }
-  ]
+  "properties": {
+    "gap": 2,
+    "children": [
+      {
+        "type": "badge",
+        "variant": "default",
+        "label": "● Active"
+      },
+      {
+        "type": "badge",
+        "variant": "secondary",
+        "label": "● Pending"
+      },
+      {
+        "type": "badge",
+        "variant": "destructive",
+        "label": "● Inactive"
+      }
+    ]
+  }
 }

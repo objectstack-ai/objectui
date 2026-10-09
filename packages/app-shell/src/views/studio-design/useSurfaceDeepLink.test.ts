@@ -1,7 +1,7 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect } from 'vitest';
-import { resolveSurfaceDeepLink } from './useSurfaceDeepLink';
+import { resolveSurfaceDeepLink, parseSurfaceTarget, DESIGNER_SURFACE_NAV_PARAM } from './useSurfaceDeepLink';
 
 /**
  * Pure half of the shared `?surface=` deep-link plumbing — the rail-restore
@@ -43,5 +43,42 @@ describe('resolveSurfaceDeepLink', () => {
     expect(
       resolveSurfaceDeepLink(perms, { type: 'permission', name: 'sales_manager' }, 'permission'),
     ).toBe(perms[1]);
+  });
+});
+
+/**
+ * objectui#11774 — the capture half's parse: `?surface=` plus the Interfaces
+ * entry id in its own `?nav=` key. A separate key, so every `<type>:<name>`
+ * parser of `?surface=` (each pillar's restore, the app→Studio bridge, the
+ * copilot's surface context) reads the same value it always read.
+ */
+describe('parseSurfaceTarget (objectui#11774)', () => {
+  it('the entry id travels in a key of its own, `nav`', () => {
+    expect(DESIGNER_SURFACE_NAV_PARAM).toBe('nav');
+  });
+
+  it('reads the entry id beside the target', () => {
+    expect(parseSurfaceTarget('object:showcase_task', 'nav_slice_urgent')).toEqual({
+      type: 'object',
+      name: 'showcase_task',
+      navId: 'nav_slice_urgent',
+    });
+  });
+
+  it('BACK-COMPAT: a link with no `nav` parses exactly as `?surface=` alone always did', () => {
+    expect(parseSurfaceTarget('object:showcase_task', null)).toEqual({ type: 'object', name: 'showcase_task' });
+    expect(parseSurfaceTarget('object:showcase_task', '')).toEqual({ type: 'object', name: 'showcase_task' });
+  });
+
+  it('`nav` alone names nothing: it only ever qualifies a target', () => {
+    expect(parseSurfaceTarget(null, 'nav_slice_urgent')).toBeNull();
+    expect(parseSurfaceTarget('object', 'nav_slice_urgent')).toBeNull();
+  });
+
+  it("another pillar's restore ignores the id: it matches on its own type and name", () => {
+    const objects = [{ name: 'showcase_project' }, { name: 'showcase_task' }];
+    expect(
+      resolveSurfaceDeepLink(objects, parseSurfaceTarget('object:showcase_task', 'nav_slice_urgent'), 'object'),
+    ).toBe(objects[1]);
   });
 });

@@ -118,7 +118,7 @@ const dealSchema = {
   label: 'Deal',
   titleFormat: '{account} - {deal_no}',
   fields: {
-    account: { type: 'lookup', reference_to: 'account', label: 'Account' },
+    account: { type: 'lookup', reference: 'account', label: 'Account' },
     deal_no: { type: 'text', label: 'Deal No' },
     amount: { type: 'number', label: 'Amount' },
   },

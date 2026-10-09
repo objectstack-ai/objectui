@@ -303,6 +303,47 @@ describe('the override reads are typed, and the band can FAIL (#6425)', () => {
     // @ts-expect-error objectui#6425/#6597 — `referenceTo` refused by the explicit retired-key tombstone.
     const referenceToRefused: AuthoredColumnOverrides = carriesReferenceTo;
     expect(referenceToRefused.accessorKey).toBe('amount');
+
+    // `reference_to` was a `FieldMeta` member from objectui#6694, so the
+    // DERIVED band refused it by membership. objectui#11070 round 4 retired the
+    // member (the cell reads `reference` alone), so — the same mechanism again
+    // — the key left the band's POOL and
+    // `ObjectDataTableRetiredReferenceToSnakeTombstone` carries its refusal.
+    const carriesReferenceToSnake: { accessorKey: string; reference_to?: unknown } = { accessorKey: 'amount' };
+    // @ts-expect-error objectui#6694/#11070 — `reference_to` refused by the explicit retired-key tombstone.
+    const referenceToSnakeRefused: AuthoredColumnOverrides = carriesReferenceToSnake;
+    expect(referenceToSnakeRefused.accessorKey).toBe('amount');
+
+    // `display_field` was a `FieldMeta` member from objectui#6694 as well, so
+    // the DERIVED band refused it by membership. objectui#11070's text-family
+    // round retired the member (the cell reads `displayField`), so the key
+    // left the band's POOL and `ObjectDataTableRetiredDisplayFieldSnakeTombstone`
+    // carries its refusal.
+    const carriesDisplayFieldSnake: { accessorKey: string; display_field?: unknown } = { accessorKey: 'amount' };
+    // @ts-expect-error objectui#6694/#11070 — `display_field` refused by the explicit retired-key tombstone.
+    const displayFieldSnakeRefused: AuthoredColumnOverrides = carriesDisplayFieldSnake;
+    expect(displayFieldSnakeRefused.accessorKey).toBe('amount');
+  });
+
+  it('the TOMBSTONE is what refuses `display_field` — not the band (objectui#11070 text-family round)', () => {
+    // The counter-control, built like the one above: `Omit<…, 'display_field'>`
+    // is `AuthoredColumnOverrides` minus that tombstone and nothing else, and
+    // it ACCEPTS the source the directive refuses.
+    const carriesDisplayFieldSnake: { accessorKey: string; display_field?: unknown } = { accessorKey: 'amount' };
+    const untombstoned: Omit<AuthoredColumnOverrides, 'display_field'> = carriesDisplayFieldSnake;
+    expect(untombstoned.accessorKey).toBe('amount');
+  });
+
+  it('the TOMBSTONE is what refuses `reference_to` — not the band (objectui#11070 round 4)', () => {
+    // The counter-control, built like the two below it: `Omit<…, 'reference_to'>`
+    // is `AuthoredColumnOverrides` minus that tombstone and nothing else, and it
+    // ACCEPTS the source the directive above refuses — so the refusal is the
+    // tombstone's, not the derived band's (which no longer reaches the key),
+    // not the excess-property check's (the source is a variable) and not
+    // weak-type detection's (`accessorKey` is in common).
+    const carriesReferenceToSnake: { accessorKey: string; reference_to?: unknown } = { accessorKey: 'amount' };
+    const untombstoned: Omit<AuthoredColumnOverrides, 'reference_to'> = carriesReferenceToSnake;
+    expect(untombstoned.accessorKey).toBe('amount');
   });
 
   it('the TOMBSTONE is what refuses `decimals` — not the band, not freshness', () => {

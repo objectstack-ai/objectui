@@ -75,19 +75,31 @@ describe('registry collision (fields ↔ components)', () => {
     },
   );
 
-  it('non-colliding field types DO populate the bare fallback', () => {
-    // Sanity check: a field type with no display-widget collision (e.g.
-    // `email`, `password`, `number`) must still register both at the
-    // namespaced AND bare keys, otherwise we'd silently break forms.
-    for (const type of ['email', 'password', 'number', 'date', 'select']) {
-      expect(
-        ComponentRegistry.get(`field:${type}`),
-        `field:${type} must be registered`,
-      ).toBeTruthy();
-      expect(
-        ComponentRegistry.get(type),
-        `bare "${type}" must also be reachable (no collision)`,
-      ).toBeTruthy();
+  it('a non-colliding field type populates NO bare fallback (objectui#10859 batch 8)', () => {
+    // Until batch 8 this row asserted the opposite — that `number` / `date`
+    // reached the registry bare — on the ground that forms needed it. They
+    // never did: a form resolves `field:<type>` and nothing else
+    // (`renderFieldComponent`, ruling B of objectui#5254). The bare key was a
+    // node type `objectui validate` refused at `type`, so the seat's batch-8
+    // ruling retired it through `FIELD_TYPES_SKIP_FALLBACK`.
+    for (const type of ['number', 'date', 'boolean', 'lookup', 'summary']) {
+      expect(ComponentRegistry.get(`field:${type}`), `field:${type} must be registered`).toBeTruthy();
+    }
+    // Each absence spelled as a literal key, one per line, so
+    // `scripts/__tests__/unit-registry-absence-collision.test.ts` can resolve
+    // it statically and check it against every registration in the `unit`
+    // project. A key read off a loop variable is a site that gate cannot see.
+    expect(ComponentRegistry.get('number'), 'bare "number" must not be registered').toBeFalsy();
+    expect(ComponentRegistry.get('date'), 'bare "date" must not be registered').toBeFalsy();
+    expect(ComponentRegistry.get('boolean'), 'bare "boolean" must not be registered').toBeFalsy();
+    expect(ComponentRegistry.get('lookup'), 'bare "lookup" must not be registered').toBeFalsy();
+    expect(ComponentRegistry.get('summary'), 'bare "summary" must not be registered').toBeFalsy();
+    // Lit control: a bare key some OTHER package owns still resolves, and it is
+    // not the field widget — the retirement removed the fields loop's
+    // fallbacks, not the bare table.
+    for (const type of ['email', 'password', 'select']) {
+      expect(ComponentRegistry.get(type), `bare "${type}" is owned by @object-ui/components`).toBeTruthy();
+      expect(ComponentRegistry.get(type)).not.toBe(ComponentRegistry.get(`field:${type}`));
     }
   });
 });

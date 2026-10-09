@@ -55,6 +55,26 @@ describe('connectorActionsToOptions', () => {
     expect(connectorActionsToOptions(undefined)).toEqual([]);
     expect(connectorActionsToOptions('nope')).toEqual([]);
   });
+
+  // objectui#11028 — the served descriptor's `description` is a plain string
+  // (`ConnectorActionDescriptor.description`); it rides along as the option's
+  // hint, and an action that authors none carries no hint at all.
+  it('carries an authored description as the option hint, and nothing when none is authored', () => {
+    const [described, bare, blank, nonString] = connectorActionsToOptions([
+      { key: 'chat.postMessage', label: 'Post Message', description: 'Post a message to a channel' },
+      { key: 'chat.delete', label: 'Delete Message' },
+      { key: 'chat.update', label: 'Update Message', description: '   ' },
+      { key: 'chat.schedule', label: 'Schedule Message', description: { en: 'Schedule a message' } },
+    ]);
+    expect(described).toEqual({
+      value: 'chat.postMessage',
+      label: 'Post Message (chat.postMessage)',
+      hint: 'Post a message to a channel',
+    });
+    expect('hint' in bare).toBe(false);
+    expect('hint' in blank).toBe(false);
+    expect('hint' in nonString).toBe(false);
+  });
 });
 
 describe('connectorsToOptions (ADR-0096 connector picker)', () => {

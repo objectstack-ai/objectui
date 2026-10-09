@@ -106,7 +106,7 @@ export const DEFAULT_SPELLING_LABEL = 'a floating major tag (@vN)';
 
 /**
  * `workflow file + action path -> why this ref is spelled differently`.
- * **Deliberately empty — every `uses:` in the tree follows the convention.**
+ * Each entry is one deliberate deviation, argued where it was added.
  *
  * ⛔ Adding an entry here is the deliberate, reviewable act that objectui#8465
  * found missing. Every entry needs a real reason and the issue that owns it —
@@ -114,18 +114,34 @@ export const DEFAULT_SPELLING_LABEL = 'a floating major tag (@vN)';
  *
  * The test below rejects an entry that no longer matches an off-convention ref,
  * so this table cannot rot into a permanent skip-list. That is not theory: the
- * one entry this table ever held named `stale.yml :: actions/stale`, and when
+ * first entry this table held named `stale.yml :: actions/stale`, and when
  * objectui#8548 deleted that workflow the entry stopped matching anything.
  * Leaving it would have made every pull request red on a `main` nobody broke,
  * so it went in the deletion's own commit — which is exactly the rule working.
  *
- * ⚠️ An empty table does NOT mean this mechanism is dormant. It means the tree
- * currently has nothing to excuse, which is the state the convention is for.
- * The gate's red branches are pinned over synthetic tables in
- * `scripts/__tests__/check-action-ref-convention.test.ts`, so emptiness here
- * costs no coverage.
+ * ⚠️ An entry is matched by workflow and action, NOT by spelling: this gate
+ * cannot tell one off-convention spelling of a declared action from another, so
+ * whatever an entry's reason says about the spelling (a sha, never a branch) is
+ * held by a pin of its own or by nothing. The `half-state-patrol.yml` entry's is
+ * held in `scripts/__tests__/ci-cd-pipeline-doc.test.ts`. The gate's red
+ * branches are pinned over synthetic tables in
+ * `scripts/__tests__/check-action-ref-convention.test.ts`, so they do not depend
+ * on what this table holds.
  */
-export const DECLARED_EXCEPTIONS = [];
+export const DECLARED_EXCEPTIONS = [
+  {
+    workflow: 'half-state-patrol.yml',
+    action: 'objectstack-ai/objectstack/.github/actions/half-state-patrol',
+    issue: 'objectui#11174',
+    reason:
+      "objectstack's composite half-state patrol, pinned to a 40-character objectstack commit sha " +
+      'and never a branch or tag, by the ruling on objectstack-ai/objectstack#18471 that every ' +
+      'sibling board calls the action at a sha. The runner places the whole objectstack ' +
+      'repository at the referenced commit, so the pin freezes the sweeper with the action at one ' +
+      'reviewed moment; a floating ref would re-adopt every upstream change on the next scheduled ' +
+      'run, with nothing in this repository to roll back to.',
+  },
+];
 
 /**
  * Non-vacuity floors. A census that collapses reports an empty offender list,

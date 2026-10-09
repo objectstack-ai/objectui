@@ -102,6 +102,10 @@ interface Site {
  * `body` STAYS — that key is `PageCardProps.body`, a read-only back-compat path
  * for stored documents under a different retirement (objectstack#5775, ADR-0087
  * D2), and it is still a live node slot.
+ *
+ * ⚠️ `drawer footer` LEFT this table the same way: objectui#11347 retired the
+ * drawer's `footer` read, so the slot ceased to exist rather than stopped
+ * leaking.
  */
 const SITES: readonly Site[] = [
   { name: 'container children', type: 'container', namespace: 'ui', slot: 'children' },
@@ -115,7 +119,6 @@ const SITES: readonly Site[] = [
   { name: 'page:card footer', type: 'card', namespace: 'page', slot: 'footer' },
   { name: 'dialog footer', type: 'dialog', namespace: 'ui', slot: 'footer', base: { defaultOpen: true } },
   { name: 'sheet footer', type: 'sheet', namespace: 'ui', slot: 'footer', base: { defaultOpen: true } },
-  { name: 'drawer footer', type: 'drawer', namespace: 'ui', slot: 'footer', base: { defaultOpen: true } },
   {
     name: 'table footer',
     type: 'table',

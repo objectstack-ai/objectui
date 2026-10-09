@@ -46,8 +46,9 @@
  *
  * Nothing renames them on the way in either: `ObjectStackAdapter.getObjectSchema`
  * (`@object-ui/data-objectstack`) is the choke point every schema read goes
- * through, and its only key rewrite is `normalizeSchemaReferenceKeys` — the
- * `reference` ⇄ `reference_to` pair, nothing else. `applyFieldWidgetOverrides`
+ * through, and its only key rewrite is `normalizeSchemaReferenceKeys` — a
+ * legacy `reference_to` folded onto `reference`, nothing else (it stamped the
+ * pair both ways until objectui#11070 round 4). `applyFieldWidgetOverrides`
  * adds `widget` and touches no other key.
  *
  * ⇒ On a live path the ONLY display-field spelling that can reach this grid is

@@ -1,7 +1,7 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { ObjectDefaultInspector } from './ObjectDefaultInspector';
 
 afterEach(cleanup);
@@ -11,6 +11,20 @@ const baseProps = {
   onSelectionChange: vi.fn(),
   locale: 'en-US' as const,
 };
+
+/**
+ * Pick a posture through the shared `Select` (objectui#11865): open the
+ * trigger from the keyboard, then click the option whose text starts with
+ * `label`.
+ */
+function pickPosture(label: string): void {
+  fireEvent.keyDown(screen.getByTestId('object-access-posture'), { key: 'ArrowDown' });
+  const option = within(screen.getByRole('listbox'))
+    .getAllByRole('option')
+    .find((o) => o.textContent?.startsWith(label));
+  if (!option) throw new Error(`the posture picker lists no "${label}" option`);
+  fireEvent.click(option);
+}
 
 function labelledInput(label: string): HTMLInputElement {
   // The shared field renders <Label>{text}</Label> followed by the input
@@ -162,8 +176,7 @@ describe('ObjectDefaultInspector — access section (ADR-0066 D2/D3/④/⑤)', (
       />,
     );
     expect(screen.getByText('Access')).toBeInTheDocument();
-    const select = screen.getByTestId('object-access-posture') as HTMLSelectElement;
-    expect(select.value).toBe('public');
+    expect(screen.getByTestId('object-access-posture').textContent).toBe('Public — covered by wildcard grants (default)');
   });
 
   it('patches access.default=private and clears it back to the spec default', () => {
@@ -177,7 +190,7 @@ describe('ObjectDefaultInspector — access section (ADR-0066 D2/D3/④/⑤)', (
         readOnly={false}
       />,
     );
-    fireEvent.change(screen.getByTestId('object-access-posture'), { target: { value: 'private' } });
+    pickPosture('Private');
     expect(onPatch).toHaveBeenCalledWith({ access: { default: 'private' } });
 
     rerender(
@@ -189,11 +202,10 @@ describe('ObjectDefaultInspector — access section (ADR-0066 D2/D3/④/⑤)', (
         readOnly={false}
       />,
     );
-    const select = screen.getByTestId('object-access-posture') as HTMLSelectElement;
-    expect(select.value).toBe('private');
+    expect(screen.getByTestId('object-access-posture').textContent).toBe('Private — needs an explicit grant');
     // The private hint warns that a grant must exist before publishing.
     expect(screen.getByText(/Make sure some permission set grants/i)).toBeInTheDocument();
-    fireEvent.change(select, { target: { value: 'public' } });
+    pickPosture('Public');
     // public = spec default → the key is cleared, not written out.
     expect(onPatch).toHaveBeenCalledWith({ access: undefined });
   });

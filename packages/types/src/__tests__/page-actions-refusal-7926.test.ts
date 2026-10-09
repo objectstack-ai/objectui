@@ -110,18 +110,23 @@ describe('objectui#7926 — the `page` node refuses `actions` (contract half)', 
   });
 
   it('the remedy the message names actually parses — buttons as nodes in `children`', () => {
+    // The guide's remedy, as `content/docs/guide/layout.md` teaches it: the
+    // `flex` row takes its props, its child list included, in its `properties`
+    // bag (objectui#11276).
     const r = PageNodeSchema.safeParse({
       type: 'page',
       title: 'Products',
       children: [
         {
           type: 'flex',
-          justify: 'end',
-          gap: 2,
-          children: [
-            { type: 'button', label: 'Add Product', variant: 'default', icon: 'plus' },
-            { type: 'button', label: 'Export', variant: 'outline', icon: 'download' },
-          ],
+          properties: {
+            justify: 'end',
+            gap: 2,
+            children: [
+              { type: 'button', label: 'Add Product', variant: 'default', icon: 'plus' },
+              { type: 'button', label: 'Export', variant: 'outline', icon: 'download' },
+            ],
+          },
         },
       ],
     });
@@ -195,17 +200,19 @@ describe('objectui#7926 — the guide no longer authors `actions` on a `page` no
     // controls. The last one is the important one: `page:header`'s `actions` is
     // the READ action-id channel (objectui#7182) and it must STILL be here — a
     // refusal that took it with it would be the collateral damage the census
-    // exists to prevent.
+    // exists to prevent. It is read where the guide authors it since
+    // objectui#3906: on the canonical `page:header` node, inside `properties`
+    // (this control used to look for the `page-header` alias, which the guide
+    // no longer teaches).
     expect(fences.length).toBeGreaterThan(5);
     expect(fences.filter((f) => isPageNode(f.doc)).length).toBeGreaterThan(3);
     expect(
-      fences.some(
-        (f) =>
-          !!f.doc &&
-          typeof f.doc === 'object' &&
-          (f.doc as Record<string, unknown>).type === 'page-header' &&
-          Array.isArray((f.doc as Record<string, unknown>).actions),
-      ),
+      fences.some((f) => {
+        if (!f.doc || typeof f.doc !== 'object') return false;
+        const doc = f.doc as Record<string, unknown>;
+        const properties = doc.properties as Record<string, unknown> | undefined;
+        return doc.type === 'page:header' && Array.isArray(properties?.actions);
+      }),
     ).toBe(true);
   });
 

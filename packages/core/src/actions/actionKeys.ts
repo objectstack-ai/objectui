@@ -175,7 +175,11 @@ export const ACTION_DEF_KEYS = [
   'component',
   'objectName',
   'ai',
-  'aria',
+  // `aria` left this list, with its `ActionDef` field, when `@objectstack/spec`
+  // 17.5.0 retired `action.aria` as a `retiredKey()` tombstone (objectui#10929):
+  // the derived type had become `undefined`, so the field mirrored nothing. It
+  // stays in `SPEC_ACTION_KEYS` below, because `ActionSchema` still declares the
+  // tombstone.
   'bodyExtra',
   'bodyShape',
   // The declarative single-record field write (spec 17.3.0). Promoted from
@@ -192,6 +196,9 @@ export const ACTION_DEF_KEYS = [
   // chained-callback meaning is retired and the key's type now derives the
   // spec's `{ navigate, openIn }` block.
   'onSuccess',
+  // Spec 17.6.0's success copy per handler outcome (objectui#11344), declared
+  // when the runner learned to read it: the success toast's first rung.
+  'outcomeMessages',
   'shortcut',
   'bulkEnabled',
 ] as const;
@@ -242,6 +249,14 @@ export const SPEC_ACTION_KEYS = [
   'disabled',
   'errorMessage',
   'execute',
+  // Added to `ActionSchema` in @objectstack/spec 17.5.0 (objectui#11073): the
+  // bulk dispatch contract the action's body is written for, in
+  // `bulkActionDefs`' own `'perRecord' | 'aggregate'` vocabulary. Listed for the
+  // reason `description` is — this array restates the spec's declared keys, so
+  // an action carrying it is not reported as having an unknown key. `ActionDef`
+  // does NOT declare it and the runner does not read it: the spec's own
+  // enforcement is `@objectstack/lint`'s authoring-time check.
+  'execution',
   'icon',
   'label',
   'locations',
@@ -271,6 +286,12 @@ export const SPEC_ACTION_KEYS = [
   // is what `check:action-forward-parity` now requires rather than excuses.
   'operation',
   'order',
+  // Added to `ActionSchema` in @objectstack/spec 17.6.0 (objectstack#21095,
+  // objectui#11344): success copy per handler outcome, keyed by the snake_case
+  // `outcome` the handler returns. `ActionDef` declares it (derived) and the
+  // runner reads it as the success toast's first rung, ahead of
+  // `successMessage`.
+  'outcomeMessages',
   'params',
   'patch',
   'recordIdField',
@@ -278,6 +299,16 @@ export const SPEC_ACTION_KEYS = [
   'refreshAfter',
   'requiredPermissions',
   'requiresFeature',
+  // Added to `ActionSchema` in @objectstack/spec 17.7.0 (objectui#11717): the
+  // organization endpoint (a `MEMBERSHIP_REACH` row) whose membership-grade gate
+  // the action follows, which the spec's parse LOWERS into `visible` over
+  // `current_user.positions` (the same transform that lowers `requiresFeature`
+  // above). Listed for the reason `description` is — this array restates the
+  // spec's declared keys, so an action carrying it is not reported as having an
+  // unknown key. `ActionDef` does NOT declare it and the runner does not read
+  // it; whether it should, beside `requiresFeature`, is not this inventory's
+  // question.
+  'requiresMembershipReach',
   'resultDialog',
   'shortcut',
   'successMessage',

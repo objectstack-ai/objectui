@@ -1,9 +1,11 @@
 import React from 'react';
 import { Input, EmptyValue, cn } from '@object-ui/components';
 import { NumberFieldMetadata } from '@object-ui/types';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useBadInputRefusal, BadInputMessage, BAD_INPUT_BORDER } from './numberBadInput.js';
+import { formatNumberFieldValue } from './number-format.js';
 
 /**
  * NumberField - Numeric input with optional decimal precision
@@ -12,9 +14,23 @@ import { useBadInputRefusal, BadInputMessage, BAD_INPUT_BORDER } from './numberB
 export function NumberField({ value, onChange, field, readonly, error, ...props }: FieldWidgetComponentProps<number>) {
   // Before the readonly return: hooks are unconditional (objectui#6780).
   const { refusal, readBadInput } = useBadInputRefusal('1234');
+  const locale = useDisplayLocale();
 
   if (readonly) {
-    return value == null ? <EmptyValue /> : <span className="text-sm">{value}</span>;
+    if (value == null) return <EmptyValue />;
+    // The text `NumberCellRenderer` shows for the same field and value: both
+    // make the one `formatNumberFieldValue` call, with the width
+    // `resolveFieldScale` answers, the field's grouping policy and the display
+    // locale (objectui#11431). This printed the raw value, so a `scale: 2`
+    // field holding `1234.5` read `1234.5` here and `1,234.50` in its table
+    // cell. Only a number is formatted, as this widget's value type declares;
+    // anything else still renders as it arrives, never coerced into a digit
+    // the record does not hold.
+    return (
+      <span className="text-sm">
+        {typeof value === 'number' ? formatNumberFieldValue(value, field, locale) : value}
+      </span>
+    );
   }
 
   const numberField = field as NumberFieldMetadata;

@@ -49,7 +49,7 @@
 
 import React, { forwardRef, useMemo } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import type { UIActionSchema, ActionLocation, ActionComponent } from '@object-ui/types';
+import type { UIActionSchema, ActionBarSchema, ActionComponent } from '@object-ui/types';
 import { ACTION_LOCATIONS, actionRendersAt } from '@object-ui/types';
 import { useCondition, toPredicateInput, useCapabilityGate, useConfigBagEvaluator } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
@@ -67,41 +67,10 @@ function useActionsLabel(): string {
   return !v || v === 'common.actions' ? 'Actions' : v;
 }
 
-export interface ActionBarSchema {
-  type: 'action:bar';
-  /** Business actions to render — subject to inline/overflow split via {@link maxVisible} */
-  actions?: UIActionSchema[];
-  /**
-   * System/chrome actions (Duplicate, Export, View History, Delete, etc.) that
-   * are *always* placed in the overflow menu — never inline — regardless of
-   * {@link maxVisible}. They share a single overflow button with any business
-   * actions that spilled past {@link maxVisible} or were authored
-   * `component: 'action:menu'`, guaranteeing at most one "More" menu per bar.
-   *
-   * The first system action is automatically separated from business-overflow
-   * entries by a menu separator.
-   */
-  systemActions?: UIActionSchema[];
-  /** Filter actions by this location */
-  location?: ActionLocation;
-  /** Maximum visible inline actions before overflow into "More" menu (default: 3) */
-  maxVisible?: number;
-  /** Maximum visible inline actions on mobile devices (default: 1). Desktop uses maxVisible instead. */
-  mobileMaxVisible?: number;
-  /** Visibility condition expression */
-  visible?: string;
-  /** Layout direction */
-  direction?: 'horizontal' | 'vertical';
-  /** Gap between items (Tailwind gap class, default: 'gap-2') */
-  gap?: string;
-  /** Button variant for all actions (can be overridden per-action) */
-  variant?: string;
-  /** Button size for all actions (can be overridden per-action) */
-  size?: string;
-  /** Custom CSS class */
-  className?: string;
-  [key: string]: any;
-}
+// `ActionBarSchema` — the node this renderer reads — is declared in
+// `@object-ui/types` (objectui#11355, the seat's ruling B: node schemas live in
+// the protocol package). It carries no index signature; the one this renderer
+// needs for its DOM/Shadcn pass-through is on the parameter annotation below.
 
 // The index signature lives on the PARAMETER annotation and NOT on the
 // `forwardRef` type argument. That asymmetry is load-bearing (objectui#4422) —
@@ -337,8 +306,8 @@ const ActionBarRenderer = forwardRef<HTMLDivElement, { schema: ActionBarSchema; 
     // would reach the handler as raw `${…}` text. They are evaluated here, once,
     // with the memo's evaluator and scope (objectui#10290). An overflow member
     // is NOT evaluated here: it goes to the `action:menu` above as authored,
-    // and that renderer evaluates it when it runs it, so no value is evaluated
-    // twice.
+    // and that renderer reads no member's `properties`, so an overflow
+    // member's `properties.params` does not reach the runner (objectui#11638).
     const renderMember = (action: UIActionSchema, componentType: ActionComponent) => {
       const Renderer = ComponentRegistry.get(componentType);
       if (!Renderer) return null;

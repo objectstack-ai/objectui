@@ -16,6 +16,12 @@
  *     (a single entry renders no switcher);
  *   • `userActions` toggles map onto the toolbar — advanced filtering and
  *     view management are absent by default.
+ *
+ * Every member `ListView` reads is either relayed by the `schema` memo below
+ * or answered as deliberately not relayed, with its reason, in
+ * `InterfaceListPage.relayCensus-11572.test.ts`. That census re-derives the
+ * members from `ListView`'s source and fails by name on a newly read member
+ * that is neither.
  */
 
 import * as React from 'react';
@@ -27,7 +33,7 @@ import { Database } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { isSystemManagedField } from '@object-ui/types';
 import { leadWithNameField } from '@object-ui/core';
-import type { ListViewSchema } from '@object-ui/types';
+import type { ActionBarSchema, ListViewSchema } from '@object-ui/types';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
 import { parseUserFilterParams, applyUserFilterParams } from './userFilterUrlState.js';
@@ -409,16 +415,28 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
     // the author whitelisted a viz, derive a sensible default binding from the
     // object so the switcher actually offers (and renders) it. Only derive for
     // whitelisted types — an un-whitelisted viz is never reachable.
+    //
+    // objectui#10380 — nor for a kind the stored row's legacy `options` bag
+    // carries. That bag is declared metadata: the view write door judges it
+    // key by key and stores it, and `ListView` lays the top-level block over it
+    // per key. A derived default placed at the top level would therefore
+    // OUTRANK the row's own declaration, and the object page, which derives
+    // nothing, would render the row differently. So a derived default fills a
+    // kind only when the row declares that kind nowhere. That is the rule
+    // `mapCfg` below already follows (`view.options.map ?? derived`).
+    const legacyOptions: Record<string, unknown> =
+      view.options && typeof view.options === 'object' && !Array.isArray(view.options) ? view.options : {};
+    const derives = (kind: string): boolean => allowedSet.has(kind) && legacyOptions[kind] === undefined;
     const kanban =
-      view.kanban ?? (allowedSet.has('kanban') ? defaultKanbanFromObject(objectDef) : undefined);
+      view.kanban ?? (derives('kanban') ? defaultKanbanFromObject(objectDef) : undefined);
     const calendar =
-      view.calendar ?? (allowedSet.has('calendar') ? defaultCalendarFromObject(objectDef) : undefined);
+      view.calendar ?? (derives('calendar') ? defaultCalendarFromObject(objectDef) : undefined);
     const timeline =
-      view.timeline ?? (allowedSet.has('timeline') ? defaultCalendarFromObject(objectDef) : undefined);
+      view.timeline ?? (derives('timeline') ? defaultCalendarFromObject(objectDef) : undefined);
     const gallery =
-      view.gallery ?? (allowedSet.has('gallery') ? defaultGalleryFromObject(objectDef) : undefined);
+      view.gallery ?? (derives('gallery') ? defaultGalleryFromObject(objectDef) : undefined);
     const gantt =
-      view.gantt ?? (allowedSet.has('gantt') ? defaultGanttFromObject(objectDef) : undefined);
+      view.gantt ?? (derives('gantt') ? defaultGanttFromObject(objectDef) : undefined);
     // Map binding lives under options.map (locationField); auto-derive when
     // whitelisted so a map interface page renders without hand-wiring.
     //
@@ -491,6 +509,19 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
       // The spec's view-level `map` block (`ListMapConfigSchema`), forwarded
       // verbatim so `ListView` can merge it over the `options.map` bag below.
       ...((view as any).map ? { map: (view as any).map } : {}),
+      // objectui#11572 — the view's declared `tree` and `chart` blocks, carried
+      // as the per-kind blocks above are. `appearance.allowedVisualizations`
+      // may whitelist either kind, and without its block `ListView`'s tree
+      // branch had no `parentField` and its chart branch no binding, while the
+      // object page relayed both. No page-derived default exists for either
+      // kind (nothing here can guess a parent pointer or a measure), so
+      // `derives` has nothing to gate: the declared block alone is relayed, and
+      // a whitelisted kind with no block reaches `ListView` with none. Each is
+      // forwarded whole, a pointer rather than a projection of its keys, as the
+      // object page forwards the chart block (objectui#7823). `ListView` reads
+      // the top-level block first and the `options` bag below only without it.
+      ...(view.tree !== undefined ? { tree: view.tree } : {}),
+      ...(view.chart !== undefined ? { chart: view.chart } : {}),
       ...((mapCfg || (view.options as any)) ? { options: { ...((view.options as any) ?? {}), ...(mapCfg ? { map: mapCfg } : {}) } } : {}),
 
       // Presentation policy — the page layer (ADR-0047).
@@ -502,6 +533,13 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
       // page's twin — the whitelist is not the offer.
       showViewSwitcher: allowed.length > 1,
       showRecordCount: cfg.showRecordCount,
+      // The page config's own "Allow users to print the page"
+      // (`InterfacePageConfigSchema`, Advanced). `ListView` draws its print
+      // button off `schema.allowPrinting`, and nothing on this page wrote it,
+      // so the declared toggle did nothing (objectui#11572). The page's value
+      // only, like `showRecordCount` beside it: the page config declares the
+      // key, so the source view's copy does not stand in for it.
+      allowPrinting: cfg.allowPrinting,
       // Add-record entry point (ListView gates the button on addRecord.enabled,
       // independent of the active visualization). Without forwarding this, the
       // panel's "Add Record" config silently did nothing at runtime.
@@ -566,6 +604,10 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
         // filters by location).
         .map((a: any) => ({ ...a, locations: ['list_toolbar'] }))
     : [];
+  // Typed as the `action:bar` node it is (objectui#11355), not as the
+  // `BaseSchema` the `schema` prop accepts: a key `ActionBarSchema` does not
+  // declare is refused here.
+  const buttonBar: ActionBarSchema = { type: 'action:bar', location: 'list_toolbar', actions: buttonActions, size: 'sm', variant: 'outline' };
 
   return (
     <div className={className ?? 'h-full flex flex-col'} data-testid="interface-list-page">
@@ -580,7 +622,7 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
         </div>
         {buttonActions.length > 0 && (
           <div className="shrink-0" data-testid="interface-page-buttons">
-            <SchemaRenderer schema={{ type: 'action:bar', location: 'list_toolbar', actions: buttonActions, size: 'sm', variant: 'outline' }} />
+            <SchemaRenderer schema={buttonBar} />
           </div>
         )}
       </div>

@@ -25,7 +25,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 // unconditionally even when a `fields` prop is supplied, so stub the shared
 // client to keep the mount-time fetch off the network.
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,

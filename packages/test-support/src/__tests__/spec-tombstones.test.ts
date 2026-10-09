@@ -29,9 +29,10 @@
  *
  * The real half is deliberately DERIVED, with no key names pinned here. The
  * consuming gates pin their own key sets (`apps/console/src/__tests__/
- * registry-inputs-spec-parity.test.ts` and `packages/layout/src/__tests__/
+ * registry-inputs-spec-parity.test.ts`, and until objectui#10859 batch 8
+ * retired the alias it judged, `packages/layout/src/__tests__/
  * page-header-authorable-keys.test.tsx`), each against the surface it judges;
- * a third copy of those names in this file would only add a place to forget.
+ * another copy of those names in this file would only add a place to forget.
  */
 
 import { describe, it, expect } from 'vitest';

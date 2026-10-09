@@ -24,11 +24,17 @@
  *
  * Deleting that one line is silent in every layer that would normally catch it:
  * `Registry.ts` only `console.warn`s on such an overwrite, no type changes, and
- * the corpus authors the bare `text` spelling (not `ui:text`), so every
- * `variant: 'h1'`…`'h6'` / `'overline'` node in it would start rendering through
- * the FOUR-value `element:text` renderer — which has no entry for those values
- * and falls through to a `<p>`. A heading that stops being a heading, with no
- * diagnostic anywhere.
+ * the corpus authors the bare `text` spelling (not `ui:text`), so every text
+ * node in it would start rendering through `element:text`.
+ *
+ * Since the two renderers share one `variant` vocabulary (objectui#7450's
+ * convergence), a heading would survive that switch: both map `h1` to an
+ * `<h1>`. What would NOT survive is absence. `element:text` reads a missing
+ * `variant` as `body` and paints a paragraph; `ui:text` deliberately does not
+ * (objectui#6942), so an unannotated node renders its text with no wrapper
+ * element at all. Every unannotated corpus node would gain a styled `<p>`, a
+ * corpus-wide restyle with no diagnostic anywhere. That is the case the last
+ * test below drives, with `element:text` as its own control.
  *
  * Nothing pinned that resolution before this file.
  *
@@ -47,6 +53,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { describe, it, expect } from 'vitest';
+import { render } from '@testing-library/react';
 import { ComponentRegistry, Registry } from '@object-ui/core';
 import { renderComponent } from './test-utils';
 // Module scope, not a hook: the cold transform is billed to the import phase,
@@ -120,12 +127,32 @@ describe('objectui#7450 — the bare `text` key resolves to `ui:text`', () => {
     expect(unguarded.getConfig('text')?.type).toBe('element:text');
   });
 
-  it('what the flag protects: an authored `text` node keeps its heading element', () => {
+  it('what the flag protects: an unannotated `text` node keeps `ui:text`\'s absence semantics', () => {
     // The corpus spells the bare name, so this is the shape the flag decides for
-    // every authored text node. `ui:text` maps `h1` to an `<h1>`; `element:text`
-    // has no `h1` in its four-value vocabulary and falls through to a `<p>`.
-    const { container } = renderComponent({ type: 'text', variant: 'h1', content: 'Title' } as never);
+    // every authored text node. `ui:text` synthesises no `body` for an absent
+    // `variant` (objectui#6942) and renders the text with no wrapper element.
+    const node = { type: 'text', content: 'Title' };
+    const { container } = renderComponent(node as never);
 
-    expect(container.firstElementChild?.tagName.toLowerCase()).toBe('h1');
+    expect(container.textContent).toBe('Title');
+    expect(container.children).toHaveLength(0);
+  });
+
+  it('CONTROL — `element:text` would paint the same node as a body paragraph', () => {
+    // Without this, the assertion above also passes if both renderers had
+    // stopped wrapping. `element:text` reads an absent `variant` as `body`, so
+    // handing it the bare key is exactly what would restyle the corpus.
+    const ElementText = ComponentRegistry.get('element:text');
+    expect(ElementText, 'element:text is not registered').toBeDefined();
+    const Component = ElementText as NonNullable<typeof ElementText>;
+    const { container } = render(<Component schema={{ type: 'text', content: 'Title' }} />);
+
+    // (It would also drop the text: `element:text` reads `content` from its
+    // `properties` bag, and corpus `text` nodes carry it flat. The element is
+    // the half this control needs.)
+    expect(container.firstElementChild?.tagName.toLowerCase()).toBe('p');
+    expect(container.firstElementChild?.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(['text-sm', 'text-foreground']),
+    );
   });
 });

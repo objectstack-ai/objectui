@@ -73,11 +73,12 @@ npm install @object-ui/react @object-ui/components
 ```tsx
 import React from 'react'
 import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
+import type { DeclaredNode } from '@object-ui/types'
 // Importing the package registers every default renderer as a side effect —
 // there is no separate registration call.
 import '@object-ui/components'
 
-const schema = {
+const schema: DeclaredNode = {
   type: "page",
   title: "Dashboard",
   children: {
@@ -212,18 +213,19 @@ published is not an error: the expression is returned as its own source text.
 ```json
 {
   "type": "object-grid",
-  "objectName": "user",
-  "title": "Users",
-  "columns": [
-    { "field": "name", "label": "Name", "sortable": true },
-    { "field": "email", "label": "Email" },
-    { "field": "role", "label": "Role" },
-    { "field": "status", "label": "Status" },
-    { "field": "created_at", "label": "Joined" }
-  ],
-  "showSearch": true,
-  "showFilters": true,
-  "operations": { "create": true, "read": true, "update": true, "delete": true, "export": true }
+  "properties": {
+    "objectName": "user",
+    "title": "Users",
+    "columns": [
+      { "field": "name", "label": "Name", "sortable": true },
+      { "field": "email", "label": "Email" },
+      { "field": "role", "label": "Role" },
+      { "field": "status", "label": "Status" },
+      { "field": "created_at", "label": "Joined" }
+    ],
+    "showSearch": true,
+    "operations": { "create": true, "update": true, "delete": true, "export": true }
+  }
 }
 ```
 
@@ -277,10 +279,10 @@ npm install @object-ui/data-objectstack
 ```tsx
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { BaseSchema } from '@object-ui/types';
+import type { DeclaredNode } from '@object-ui/types';
 
 // Your page schema — "Render a schema" above writes one out in full.
-declare const schema: BaseSchema;
+declare const schema: DeclaredNode;
 
 const dataSource = createObjectStackAdapter({
   baseUrl: 'https://api.example.com',
@@ -326,19 +328,22 @@ declare class MyCustomDataSource<T = unknown> implements DataSource<T> {
 **Stop writing repetitive UI code.** A form is a schema, not a component:
 
 ```tsx
-import type { ObjectFormSchema } from '@object-ui/types';
+import type { ObjectFormBlockNode } from '@object-ui/types';
 
 // Traditional React: useState, validation, handlers, JSX — per form
 function UserForm() {
   // ...
 }
 
-// Object UI: declare it
-const schema: ObjectFormSchema = {
+// Object UI: declare it — the block's props go in its `properties` bag,
+// as `@objectstack/spec` declares them
+const schema: ObjectFormBlockNode = {
   type: "object-form",
-  objectName: "user",
-  mode: "create",
-  fields: ["name", "email", "role"]
+  properties: {
+    objectName: "user",
+    mode: "create",
+    fields: ["name", "email", "role"]
+  }
 }
 ```
 

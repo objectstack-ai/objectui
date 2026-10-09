@@ -33,6 +33,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
 import { SchemaRenderer } from '@object-ui/react';
+import type { PublicBlockNodeOf } from '@object-ui/types';
 // Registers the renderers at module scope, NOT inside a `beforeAll` — there the
 // cold transform is billed to `hookTimeout`. See
 // object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
@@ -42,7 +43,7 @@ import '../renderers';
  * Two tabs minimum: the strip is hidden entirely at length 1 (a lone "Details"
  * pill is clutter, not an affordance), and with no strip there is no badge.
  */
-const tabsSchema = (items: any[]) => ({ type: 'page:tabs', id: 'tabs', items });
+const tabsSchema = (items: any[]): PublicBlockNodeOf<'page:tabs'> => ({ type: 'page:tabs', id: 'tabs', properties: { items } });
 
 const textChild = (content: string) => [{ type: 'element:text', properties: { content } }];
 

@@ -207,11 +207,13 @@ describe('ObjectGanttSchema.dependencyField — still ACCEPTED (removal was excl
 
 describe('ObjectGanttSchema.dependencyField — the TS member is unchanged', () => {
   it('is still declared `string | undefined`', () => {
-    // Real enforcement: `tsconfig.test.json` compiles this file. If the member
-    // were deleted, it would resolve to `any` through `BaseSchema`'s
-    // `[key: string]: any` index signature, the assignment below would start
-    // succeeding, and the directive would fail the build as an unused
-    // `@ts-expect-error` (TS2578) — NAMING the removal. That is the pin against
+    // Real enforcement: `tsconfig.test.json` compiles this file. When written, a
+    // deleted member resolved to `any` through `BaseSchema`'s
+    // `[key: string]: any` index signature, the assignment below started
+    // succeeding, and the directive failed the build as an unused
+    // `@ts-expect-error` (TS2578) — NAMING the removal. Since objectui#8347 a
+    // deletion makes the indexed access itself an error: the directive swallows
+    // it, and the undirected counter-probe below fails instead. That is the pin against
     // the deprecation quietly becoming the excluded removal.
 
     // @ts-expect-error — `dependencyField` is declared `string | undefined`.

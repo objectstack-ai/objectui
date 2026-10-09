@@ -18,13 +18,14 @@
 
 import type {
   BaseSchema,
+  DeclaredNode,
   FormSchema,
   FormField,
   ButtonSchema,
   InputSchema,
   CardSchema,
   GridSchema,
-  FlexSchema
+  FlexLayoutProps
 } from '@object-ui/types';
 
 /**
@@ -298,9 +299,10 @@ export class CardBuilder extends SchemaBuilder<CardSchema> {
   }
 
   /**
-   * Set card content
+   * Set card content: a node of a declared type, or a list of them
+   * (objectui#11466). Each node is checked against its own type's keys.
    */
-  content(content: BaseSchema | BaseSchema[]): this {
+  content(content: DeclaredNode | DeclaredNode[]): this {
     this.schema.content = content;
     return this;
   }
@@ -332,34 +334,38 @@ export class GridBuilder extends SchemaBuilder<GridSchema> {
   }
 
   /**
-   * Set number of columns
+   * Set number of columns — one of the counts the `grid` renderer maps
+   * (objectui#11491); the parameter is the declaration's own bare-count arm,
+   * so `tsc` refuses any other number.
    */
-  columns(columns: number): this {
+  columns(columns: Extract<NonNullable<GridSchema['columns']>, number>): this {
     this.schema.columns = columns;
     return this;
   }
 
   /**
-   * Set gap
+   * Set gap — one of the steps the `grid` renderer maps (objectui#11474); the
+   * parameter is the declaration's own set, so `tsc` refuses any other number.
    */
-  gap(gap: number): this {
+  gap(gap: NonNullable<GridSchema['gap']>): this {
     this.schema.gap = gap;
     return this;
   }
 
   /**
-   * Add a child
+   * Add a child: a node of a declared type (`DeclaredNode`, objectui#11466),
+   * checked against its own type's keys like a child written inline.
    */
-  child(child: BaseSchema): this {
+  child(child: DeclaredNode): this {
     const children = Array.isArray(this.schema.children) ? this.schema.children : [];
     this.schema.children = [...children, child];
     return this;
   }
 
   /**
-   * Set all children
+   * Set all children: nodes of declared types (objectui#11466).
    */
-  children(children: BaseSchema[]): this {
+  children(children: DeclaredNode[]): this {
     this.schema.children = children;
     return this;
   }
@@ -367,18 +373,28 @@ export class GridBuilder extends SchemaBuilder<GridSchema> {
 
 /**
  * Flex builder
+ *
+ * Builds an AUTHORED `flex` node: its props in the `properties` bag
+ * (objectui#11276, the maintainer's ruling A on objectui#11300) —
+ * `{ type: 'flex', properties: { direction, justify, align, gap, children } }`,
+ * the spelling `@objectstack/spec`'s page component declares and
+ * `@object-ui/types`' authoring faces accept. A `flex` prop written flat on the
+ * node is refused there by name, so the builder never writes one. The base
+ * setters (`id`, `className`, `visible`, …) stay on the node. The bag's members
+ * are `FlexLayoutProps`; `SchemaRenderer` hoists them onto the node before the
+ * `flex` renderer reads them.
  */
-export class FlexBuilder extends SchemaBuilder<FlexSchema> {
+export class FlexBuilder extends SchemaBuilder<BaseSchema & { type: 'flex'; properties: FlexLayoutProps }> {
   constructor() {
     super('flex');
-    this.schema.children = [];
+    this.schema.properties = { children: [] };
   }
 
   /**
    * Set flex direction
    */
   direction(direction: 'row' | 'col' | 'row-reverse' | 'col-reverse'): this {
-    this.schema.direction = direction;
+    this.schema.properties.direction = direction;
     return this;
   }
 
@@ -386,7 +402,7 @@ export class FlexBuilder extends SchemaBuilder<FlexSchema> {
    * Set justify content
    */
   justify(justify: 'start' | 'end' | 'center' | 'between' | 'around' | 'evenly'): this {
-    this.schema.justify = justify;
+    this.schema.properties.justify = justify;
     return this;
   }
 
@@ -394,32 +410,34 @@ export class FlexBuilder extends SchemaBuilder<FlexSchema> {
    * Set align items
    */
   align(align: 'start' | 'end' | 'center' | 'baseline' | 'stretch'): this {
-    this.schema.align = align;
+    this.schema.properties.align = align;
     return this;
   }
 
   /**
-   * Set gap
+   * Set gap — one of the steps the `flex` renderer maps (objectui#11474); the
+   * parameter is the declaration's own set, so `tsc` refuses any other number.
    */
-  gap(gap: number): this {
-    this.schema.gap = gap;
+  gap(gap: NonNullable<FlexLayoutProps['gap']>): this {
+    this.schema.properties.gap = gap;
     return this;
   }
 
   /**
-   * Add a child
+   * Add a child: a node of a declared type (`DeclaredNode`, objectui#11466),
+   * checked against its own type's keys like a child written inline.
    */
-  child(child: BaseSchema): this {
-    const children = Array.isArray(this.schema.children) ? this.schema.children : [];
-    this.schema.children = [...children, child];
+  child(child: DeclaredNode): this {
+    const children = Array.isArray(this.schema.properties.children) ? this.schema.properties.children : [];
+    this.schema.properties.children = [...children, child];
     return this;
   }
 
   /**
-   * Set all children
+   * Set all children: nodes of declared types (objectui#11466).
    */
-  children(children: BaseSchema[]): this {
-    this.schema.children = children;
+  children(children: DeclaredNode[]): this {
+    this.schema.properties.children = children;
     return this;
   }
 }

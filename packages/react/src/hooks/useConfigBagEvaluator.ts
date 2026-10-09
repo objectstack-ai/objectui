@@ -15,10 +15,11 @@ import { usePageVariables } from './usePageVariables.js';
  * The `properties` evaluation of the `SchemaRenderer` memo, for a node that is
  * rendered WITHOUT `SchemaRenderer` (objectui#10290).
  *
- * The action containers (`action:bar`, `action:group`, `action:menu` in
- * `@object-ui/components`) draw their member actions themselves, so a member's
- * `properties` never passes through the memo. Its static execution values ride
- * `properties.params` (objectui#10289), and those values are templates
+ * `action:bar` (in `@object-ui/components`) mounts its member actions itself,
+ * so a member's `properties` never passes through the memo. Its static
+ * execution values ride `properties.params` (objectui#10289; an `action:group`
+ * / `action:menu` member carries no `properties` bag and its container reads
+ * none, objectui#11638), and those values are templates
  * evaluated where `properties` are (objectui#7867). This hook is that
  * evaluation: the memo's per-key rule, its `ExpressionEvaluator`, and its
  * scope (the host's ambient roots, `current_user`, the page's bound row as

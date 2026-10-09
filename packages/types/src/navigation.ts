@@ -232,54 +232,90 @@ export interface HeaderBarSchema extends BaseSchema {
 
 /**
  * Sidebar component
+ *
+ * The node draws its `children` inside one shadcn sidebar region. It reads
+ * `collapsible`, and hands `side` and `variant` to shadcn's `Sidebar` through
+ * the props it forwards. It composes what it draws through `children`; an
+ * app's navigation lives in the app's metadata, not on this node.
+ *
+ * Nine keys this declaration used to offer had no reader and are RETIRED
+ * (objectui#11465, ADR-0049): `title`, `nav`, `content`, `footer`,
+ * `position`, `defaultCollapsed`, `collapsed`, `width` and `collapsedWidth`.
+ * Each is a `?: never` tombstone below, so `tsc` refuses it by name, and the
+ * zod mirror refuses it with the reason and what to write instead. The
+ * renderer never named any of them: `SchemaRenderer` spreads unread keys onto
+ * shadcn's `Sidebar`, which put them on the panel element as HTML attributes
+ * (`title` as a hover tooltip, the arrays and nodes as `[object Object]`) or
+ * React dropped them with a warning.
  */
 export interface SidebarSchema extends BaseSchema {
   type: 'sidebar';
   /**
-   * Sidebar title
+   * RETIRED (objectui#11465, ADR-0049) — the node draws no title; the string
+   * reached the sidebar panel only as an HTML `title` attribute (a hover
+   * tooltip). Compose the heading as a `text` node at the start of `children`.
+   * @deprecated Nothing renders it as a title; the zod mirror refuses it by name.
    */
-  title?: string;
+  title?: never;
   /**
-   * Navigation links
+   * RETIRED (objectui#11465, ADR-0049) — the node draws no link list.
+   * Navigation lives in the app's metadata (its `navigation` tree, which the
+   * app shell's sidebar draws; objectui#11441); to draw items inside this
+   * node, compose them as `children`.
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  nav?: NavLink[];
+  nav?: never;
   /**
-   * Sidebar content (alternative to nav)
+   * RETIRED (objectui#11465, ADR-0049) — the node renders `children` and
+   * nothing else. Move the node or nodes into `children`.
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  content?: SchemaNode | SchemaNode[];
+  content?: never;
   /**
-   * Footer content
+   * RETIRED (objectui#11465, ADR-0049) — the node renders `children` and
+   * nothing else. Compose the footer as the last entries of `children`.
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  footer?: SchemaNode | SchemaNode[];
+  footer?: never;
   /**
-   * Sidebar position
-   * @default 'left'
+   * RETIRED (objectui#11465, ADR-0049) — every value drew the sidebar at the
+   * same edge. Delete the key. To draw the sidebar against the right edge,
+   * write `side: 'right'` (objectui#11070).
+   * @deprecated Nothing reads it; the zod mirror refuses it by name.
    */
-  position?: 'left' | 'right';
+  position?: never;
   /**
    * Whether sidebar is collapsible
    * @default true
    */
   collapsible?: boolean;
   /**
-   * Default collapsed state
-   * @default false
+   * RETIRED (objectui#11465, ADR-0049) — the open state belongs to the
+   * sidebar provider (the host's, such as the app shell's, or the one the node
+   * mounts when there is none), and the node hands it no state. Delete the key.
+   * @deprecated Nothing reads it; the zod mirror refuses it by name.
    */
-  defaultCollapsed?: boolean;
+  defaultCollapsed?: never;
   /**
-   * Controlled collapsed state
+   * RETIRED (objectui#11465, ADR-0049) — as `defaultCollapsed`: the open state
+   * is the sidebar provider's, never the node's. Delete the key.
+   * @deprecated Nothing reads it; the zod mirror refuses it by name.
    */
-  collapsed?: boolean;
+  collapsed?: never;
   /**
-   * Sidebar width when expanded
-   * @default '16rem'
+   * RETIRED (objectui#11465, ADR-0049) — every value drew the same width.
+   * Delete the key. The in-flow form (`collapsible: false`) takes a width
+   * utility in `className`, for example `w-72`.
+   * @deprecated Nothing reads it; the zod mirror refuses it by name.
    */
-  width?: string | number;
+  width?: never;
   /**
-   * Sidebar width when collapsed
-   * @default '4rem'
+   * RETIRED (objectui#11465, ADR-0049) — the node never collapses to a
+   * narrower width: its collapsible form slides out entirely, and the in-flow
+   * form (`collapsible: false`) does not collapse. Delete the key.
+   * @deprecated Nothing reads it; the zod mirror refuses it by name.
    */
-  collapsedWidth?: string | number;
+  collapsedWidth?: never;
   /**
    * RETIRED (objectui#6124, ADR-0049) — JSON has no function value, and the
    * `sidebar` renderer spreads it onto `<Sidebar>`, which has no such prop
@@ -289,10 +325,32 @@ export interface SidebarSchema extends BaseSchema {
    */
   onCollapsedChange?: never;
   /**
-   * Sidebar variant
-   * @default 'default'
+   * Sidebar variant — shadcn's three, the values the `sidebar` registration
+   * offers (objectui#11465). `sidebar` draws the edge-bordered column;
+   * `floating` a padded, rounded, bordered panel; `inset` a padded panel with
+   * no edge border. It shows on the collapsible form only: with
+   * `collapsible: false` every value draws the same in-flow column.
+   *
+   * `'default'` and `'bordered'` are RETIRED: both drew exactly what
+   * `'sidebar'` draws. Write `'sidebar'` or delete the key.
+   * @default 'sidebar'
    */
-  variant?: 'default' | 'bordered' | 'floating';
+  variant?: 'sidebar' | 'floating' | 'inset';
+  /**
+   * The viewport edge the sidebar is drawn against — shadcn's two, the values
+   * the `sidebar` registration offers (objectui#11070). `left` pins the panel
+   * to the left edge with its border on its right; `right` pins it to the
+   * right edge with its border on its left, and on a narrow viewport the
+   * sheet slides in from the right. It shows on the collapsible form only:
+   * with `collapsible: false` the node draws an in-flow column, placed by the
+   * page's layout, and every value draws the same.
+   *
+   * Declared here, flat: `@objectstack/spec` has no `sidebar` row to take it
+   * from (`pnpm check:component-surface-parity --type ui:sidebar` prints the
+   * spec entry it reads).
+   * @default 'left'
+   */
+  side?: 'left' | 'right';
 }
 
 /**
@@ -405,13 +463,29 @@ export interface BreadcrumbSchema extends BaseSchema {
 export interface PaginationSchema extends BaseSchema {
   type: 'pagination';
   /**
-   * Current page (1-indexed)
+   * Current page (1-indexed). The one spelling of the current page: the
+   * `pagination` renderer reads it, and it is the spelling every authored
+   * pagination node writes.
    */
   currentPage?: number;
   /**
-   * Legacy page property
+   * RETIRED (objectui#6152, ADR-0049) — a second spelling of
+   * {@link PaginationSchema.currentPage}.
+   *
+   * It was declared here as the "legacy page property", and the renderer read it
+   * only as a fallback behind `currentPage`. No document authored it: the
+   * authored census over every tracked JSON file, Markdown JSON fence and
+   * `type: 'pagination'` object literal found `currentPage` three times and `page`
+   * none. Honouring both would keep one fact writable two ways (AGENTS.md #0.1),
+   * so it is retired at once, with no alias window. `?: never` rather than
+   * deleted: this interface carried `BaseSchema`'s index signature, so a deleted
+   * member would type-check silently (since objectui#8347, through a widened
+   * value only), while a tombstone makes presence a `tsc`
+   * error, and the zod twin refuses the key by name.
+   *
+   * @deprecated RETIRED (objectui#6152) — rename the key to `currentPage`.
    */
-  page?: number;
+  page?: never;
   /**
    * Total number of pages
    */
@@ -452,8 +526,9 @@ export interface PaginationSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `className`, `currentPage`, `page`, `totalPages` (in
-   * `packages/components/src/renderers/basic/pagination.tsx`).
+   * `className`, `currentPage`, `totalPages` (in
+   * `packages/components/src/renderers/basic/pagination.tsx`; it also read the
+   * retired `page` until objectui#6152 dropped that read).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -479,8 +554,9 @@ export interface PaginationSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `className`, `currentPage`, `page`, `totalPages` (in
-   * `packages/components/src/renderers/basic/pagination.tsx`).
+   * `className`, `currentPage`, `totalPages` (in
+   * `packages/components/src/renderers/basic/pagination.tsx`; it also read the
+   * retired `page` until objectui#6152 dropped that read).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here

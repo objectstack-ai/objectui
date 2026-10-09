@@ -23,12 +23,13 @@
  * What is pinned here, and why each half matters:
  *
  *  1. **Fractional amounts keep both cents digits** — the defect.
- *  2. **Whole amounts still drop `.00`** — the OTHER half of the wholeness
- *     switch, which the doc comment promises just as explicitly ("Salesforce
- *     convention: `$1,234.50` keeps cents; `$1,234` does not") and which
- *     objectui#4033 independently pinned through the renderer. Widening the
- *     minimum to a constant 2 would have "fixed" this card by breaking that
- *     one, so it is a control, not a decoration.
+ *  2. **Whole amounts** — the OTHER half of the wholeness switch. This half
+ *     pinned the objectui#4033 whole-amount trimming ("Salesforce convention:
+ *     `$1,234.50` keeps cents; `$1,234` does not") until objectui#11444
+ *     retired it: triage ruled the declared width, the ISO 4217 minor unit,
+ *     the protocol's convention (comment 5946462862), so a whole amount now
+ *     shows its `.00`, as the read-only form always did. The rows moved on
+ *     purpose and stay as a control: a range `[0, 2]` would trim them again.
  *  3. **The branches that were already correct are unchanged** — no-currency,
  *     bad-currency fallback, and `formatCompactCurrency` (a different function
  *     with its own `maximumFractionDigits: 1` compact policy).
@@ -87,15 +88,17 @@ describe('formatCurrency — a fractional amount keeps both cents digits (object
   });
 });
 
-describe('formatCurrency — CONTROL: the whole-number half of the switch is untouched', () => {
+describe('formatCurrency — CONTROL: a whole amount is at the same one width (objectui#11444)', () => {
   it.each([
-    [1234, '$1,234'],
-    [5000000, '$5,000,000'],
-    [0, '$0'],
-  ])('a whole amount still drops `.00`: %s', (value, expected) => {
-    // The doc comment promises this as explicitly as it promises the cents,
-    // and objectui#4033 pinned it through `CurrencyCellRenderer`. A constant
-    // `minimumFractionDigits: 2` would turn all three of these into `.00`.
+    [1234, '$1,234.00'],
+    [5000000, '$5,000,000.00'],
+    [0, '$0.00'],
+  ])('a whole amount keeps its `.00`: %s', (value, expected) => {
+    // Moved on purpose by objectui#11444: these rows read `$1,234`, `$5,000,000`
+    // and `$0` while objectui#4033's whole-amount trimming stood. Triage ruled
+    // the declared width the protocol's convention and retired the trimming
+    // (comment 5946462862). Still a control for this card: the `[0, 2]` range
+    // this card removed would print all three without their `.00` again.
     expect(formatCurrency(value as number, 'USD', 'en-US')).toBe(expected as string);
   });
 
@@ -106,15 +109,16 @@ describe('formatCurrency — CONTROL: the whole-number half of the switch is unt
 
 describe('formatCurrency — CONTROL: the branches that were already correct', () => {
   it('the no-currency branch is unchanged — it never had the defect', () => {
-    // It routes through `formatNumber`, which sets BOTH bounds to the width it
-    // is given, so it already rendered `1,234.50` while the symbol branch
+    // It renders through the call shape `formatNumber` uses, BOTH bounds set to
+    // the width, so it already rendered `1,234.50` while the symbol branch
     // rendered `$1,234.5`. That disagreement is what the fix removes.
     expect(formatCurrency(1234.5, undefined, 'en-US')).toBe('1,234.50');
     expect(formatCurrency(1234.5, undefined, 'en-US')).toBe(formatNumber(1234.5, 2, 'en-US'));
     // A whole amount with no currency is still money and keeps its separators
-    // (objectui#4033: `formatNumber` passes no `scale`, so the ordinal
-    // no-grouping policy cannot fire here).
-    expect(formatCurrency(5000000, undefined, 'en-US')).toBe('5,000,000');
+    // (objectui#4033: no `scale` is passed, so the ordinal no-grouping policy
+    // cannot fire here). Its `.00` moved on purpose with objectui#11444, which
+    // retired the whole-amount trimming (triage comment 5946462862).
+    expect(formatCurrency(5000000, undefined, 'en-US')).toBe('5,000,000.00');
   });
 
   it('the bad-currency fallback is unchanged — it always used toFixed', () => {

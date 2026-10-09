@@ -45,7 +45,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { axisPresentation, chartConfigPresentation, seriesPresentation } from '../chart-presentation.js';
+import { chartConfigPresentation, seriesPresentation } from '../chart-presentation.js';
 
 /** `en` FIRST — see the key-order control above. */
 const MAP = { en: 'Pricing', 'zh-CN': '定价' };
@@ -115,19 +115,5 @@ describe('chartConfigPresentation — an inline-locale-map heading survives the 
     // replaces a series label from the locale bundle, so the pick is a value
     // that gets overridden rather than a value a viewer sees.
     expect(seriesPresentation({ name: 'total', label: MAP }).label).toBe('Pricing');
-  });
-
-  it('no longer holds the AXIS title to that pick — moved by objectui#10132, not quietly', () => {
-    // This assertion used to sit in the case above, reading `.toBe('Pricing')`.
-    // objectui#10132 measured what the ledger's justification assumed and found
-    // it absent on this arm: nothing overrides an axis title — it is spread
-    // onto the chart schema and drawn — so the pick was not a choice a caller
-    // could correct, it was the rendered answer. `axisPresentation` now
-    // forwards the union for `normalizeChartSchema` to resolve.
-    //
-    // Kept HERE rather than deleted so this file stays the ledger it was
-    // written to be: the asymmetry it records is now one picked slot and one
-    // forwarded one, and a reader sees which moved and under which card.
-    expect(axisPresentation({ field: 'total', title: MAP }).title).toBe(MAP);
   });
 });

@@ -20,6 +20,11 @@ import type { BaseSchema, SchemaNode } from './base.js';
 import type { ActionSchema } from './crud.js';
 import type { SelectOptionMetadata } from './field-types.js';
 import type { ListView as SpecListView } from '@objectstack/spec/ui';
+// objectui#11355 — `DetailViewSchema.showHeader` carries `record:details`'s own
+// `showHeader`, so it takes that row's type by reference. Aliased because the
+// bare name is the protocol's (`pnpm check:spec-symbols`). Type-only.
+import type { RecordDetailsProps as SpecRecordDetailsProps } from '@objectstack/spec/ui';
+import type { z } from 'zod';
 
 /**
  * View Type — the list-view types `@objectstack/spec` publishes, plus the two
@@ -88,7 +93,7 @@ export type ViewType = NonNullable<SpecListView['type']> | 'list' | 'detail';
  * restated key list is exactly what let `titleField` through. The `Pick`
  * interim objectui#8841 offered was conditional on the 17.4.0 bump not having
  * happened yet — it landed on `main` before this change (`chore(deps): take the
- * 17.4.0 @objectstack/* line`), so the pinned spec is already strict and the
+ * 17.4.0 @objectstack/* line`), so the resolved spec is already strict and the
  * plain alias is available.
  *
  * ## `titleField` is NOT declared here; the reads that survive are tolerance
@@ -196,9 +201,11 @@ export interface DetailViewField {
    */
   options?: SelectOptionMetadata[];
   /**
-   * Referenced object name for lookup/master_detail fields
+   * Referenced object name for lookup/master_detail fields — the spelling
+   * `@objectstack/spec`'s `FieldSchema` declares. It replaces the retired
+   * snake_case `reference_to` (objectui#11070), which nothing reads.
    */
-  reference_to?: string;
+  reference?: string;
   /**
    * Display field on the referenced object for lookup/master_detail fields
    */
@@ -798,6 +805,25 @@ export interface DetailViewSchema extends BaseSchema {
    */
   tabs?: DetailViewTab[];
   /**
+   * Draw the view's OWN heading: the title, follow-star and copy-id chip above
+   * the fields. `DetailView` draws it unless this is `false`. When it is
+   * `false` and inline editing is on, the approval band is drawn inline instead.
+   *
+   * The `detail-view` node has no `@objectstack/spec` row. The key's producer is
+   * `record:details`: it writes `showHeader: schema.showHeader ?? false` onto
+   * the `detail-view` node it builds, carrying its own spec-declared
+   * `RecordDetailsProps.showHeader` there. So the type is that row's, by
+   * reference, and the two keys cannot drift apart. The defaults differ:
+   * `record:details` is off by default, because it is normally composed under a
+   * `page:header`; a bare `detail-view` is on.
+   *
+   * Undeclared until objectui#11355, so both reads reached the key only through
+   * {@link BaseSchema}'s index signature.
+   *
+   * @default true
+   */
+  showHeader?: z.input<typeof SpecRecordDetailsProps>['showHeader'];
+  /**
    * Show back button
    * @default true
    */
@@ -895,9 +921,9 @@ export interface DetailViewSchema extends BaseSchema {
    *
    * `?: never` is the twin of `zod/views.zod.ts`'s `retirementTombstone` arm,
    * and the pair is deliberate: a BARE DELETE would not refuse this key, it
-   * would KEEP it. `BaseSchema` closes with an any-valued index signature and
-   * `BaseSchemaCore` ends `.passthrough()`, so an undeclared member is passed
-   * through silently — the mechanism objectui#7963 measured. Declared-and-
+   * would KEEP it. `BaseSchemaCore` ends `.passthrough()` (and `BaseSchema`
+   * closed with an any-valued index signature until objectui#8347), so an
+   * undeclared member is passed through silently on the zod face — the mechanism objectui#7963 measured. Declared-and-
    * unwritable is what makes the refusal loud.
    *
    * @deprecated Not part of this contract. Author a `record:related_list` block.
@@ -929,12 +955,24 @@ export interface DetailViewSchema extends BaseSchema {
     emptyText?: string;
   };
   /**
-   * When true, auto-discover related lists from objectSchema reference fields
-   * (lookup, master_detail) when no explicit `related` is provided.
-   * Requires a DataSource with getObjectSchema.
-   * @default false
+   * RETIRED (objectui#6152 round 4, ADR-0049 enforce-or-remove) — declared as
+   * "auto-discover related lists from reference fields", and read by nothing.
+   *
+   * A type-checker census over every package's sources found ZERO reads of this
+   * member (and no untyped read of the name), and the authored census found no
+   * document and no in-code producer writing it. `DetailView` never discovered
+   * related lists from it; the related-list capability is the protocol-governed
+   * `record:related_list` block. A key nothing honours is retired, not mirrored.
+   *
+   * `?: never` rather than deleted: this interface carried `BaseSchema`'s index
+   * signature, so a deleted member would type-check silently (since
+   * objectui#8347, through a widened value only), while a tombstone
+   * makes presence a `tsc` error, and the zod twin refuses the key by name.
+   *
+   * @deprecated RETIRED (objectui#6152) — nothing reads it. Author a
+   * `record:related_list` block for a related list.
    */
-  autoDiscoverRelated?: boolean;
+  autoDiscoverRelated?: never;
   /**
    * When true, automatically generate Details/Related/Activity tabs
    * when no explicit `tabs` are configured. Sections go into the Details tab,
@@ -1379,10 +1417,77 @@ export interface SortUISchema extends BaseSchema {
 }
 
 /**
+ * `detail-section` — one field section of `@object-ui/plugin-detail` as a
+ * node: the TypeScript twin of `zod/views.zod.ts`'s `DetailSectionNodeSchema`
+ * (objectui#11515).
+ *
+ * The zod arm landed first (objectui#11440) with no declaration here, so no
+ * TypeScript type named the node, while the plugin-detail README authors it as
+ * a `detail-view` tab's `content`. This interface declares the same members.
+ *
+ * ## The members
+ *
+ * The arm `.pick`s ten members of `DetailViewSectionSchema`, the ones the
+ * registration publishes as `inputs` (`DETAIL_SECTION_NODE_INPUTS` in
+ * `@object-ui/plugin-detail`), and writes them flat on the node. Each member
+ * below is the matching member of {@link DetailViewSection}, by reference, so
+ * the two faces pick the same ten keys from twin declarations. `fields` is
+ * required there, so it is required here. `name` and `visible` are not
+ * section members on this node: they keep their `BaseSchema` meaning.
+ *
+ * Neither content channel is read, so both are refused by name, the twin of
+ * the arm's two `retirementTombstone` members (objectui#9256).
+ *
+ * The parity pair is `views.zod.ts#DetailSectionNodeSchema` in
+ * `__tests__/zod-mirror-parity.test.ts`. `@object-ui/plugin-detail`'s
+ * `DetailSectionNodeProps` stays the component's prop type.
+ */
+export interface DetailSectionNodeSchema extends BaseSchema {
+  type: 'detail-section';
+  /** Section heading. {@link DetailViewSection.title}. */
+  title?: DetailViewSection['title'];
+  /** Text under the heading. {@link DetailViewSection.description}. */
+  description?: DetailViewSection['description'];
+  /** Heading icon. {@link DetailViewSection.icon}. */
+  icon?: DetailViewSection['icon'];
+  /** The fields the section draws. Required. {@link DetailViewSection.fields}. */
+  fields: DetailViewSection['fields'];
+  /** {@link DetailViewSection.collapsible}. */
+  collapsible?: DetailViewSection['collapsible'];
+  /** {@link DetailViewSection.defaultCollapsed}. */
+  defaultCollapsed?: DetailViewSection['defaultCollapsed'];
+  /** Grid columns for the field layout. {@link DetailViewSection.columns}. */
+  columns?: DetailViewSection['columns'];
+  /** {@link DetailViewSection.showBorder}. */
+  showBorder?: DetailViewSection['showBorder'];
+  /** One of six design-system tint tokens. {@link DetailViewSection.headerColor}. */
+  headerColor?: DetailViewSection['headerColor'];
+  /** {@link DetailViewSection.hideEmpty}. */
+  hideEmpty?: DetailViewSection['hideEmpty'];
+  /**
+   * REFUSED BY NAME (objectui#9256) — `detail-section` reads neither content
+   * channel: `DetailSectionNode` folds the declared members into the one
+   * section `DetailSection` draws, and `SchemaRenderer` strips both channels
+   * out of the props it spreads.
+   *
+   * @deprecated Not a channel `detail-section` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256), for the reason `body` gives.
+   *
+   * @deprecated Not a channel `detail-section` reads — nothing renders it.
+   */
+  children?: never;
+}
+
+/**
  * Union type of all view schemas
  */
 export type ViewComponentSchema =
   | DetailViewSchema
   | ViewSwitcherSchema
   | FilterUISchema
-  | SortUISchema;
+  | SortUISchema
+  // objectui#11515 — one field section as a node.
+  | DetailSectionNodeSchema;

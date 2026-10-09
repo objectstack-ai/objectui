@@ -87,6 +87,7 @@ import {
   DashboardComponentSchema,
   DashboardWidgetSchema,
   DashboardWidgetTypeSchema,
+  StrictAnyComponentSchema,
 } from '@object-ui/types/zod';
 import { DASHBOARD_COMPONENT_WIDGET_TYPES } from '@object-ui/types';
 import { examplesByCategory } from '../src/index.js';
@@ -134,8 +135,11 @@ function auditWidget(widget: Widget, where: string): string[] {
     // toward `z.string()`, which is precisely the regression objectui#4600
     // closed: the catalog would keep its own floor instead of going quietly
     // green with the contract.
-    const known = DashboardWidgetTypeSchema.safeParse(type);
-    if (!known.success) {
+    // A slot component type (`metric-card`) is no widget type since
+    // objectui#11483 — the slot reads it through its component arm alone — so
+    // the vocabulary is the widget types plus the slot's component set.
+    const known = COMPONENT_WIDGET_TYPES.has(type) || DashboardWidgetTypeSchema.safeParse(type).success;
+    if (!known) {
       problems.push(`${where}: \`type: '${type}'\` is outside the closed widget vocabulary`);
     }
   }
@@ -354,4 +358,25 @@ describe('counter-probe — the gate refuses deliberately malformed entries', ()
   it('an unmutated clone is still clean', () => {
     expect(auditEntry(mutantOf(() => {}), 'unmutated')).toEqual([]);
   });
+});
+
+/**
+ * objectui#11228 ruling C (objectui#11070 round 6): a dashboard widget binds a
+ * `dataset` and never carries rows. The strict authoring face keeps refusing
+ * the inline dialect by name (`widgets[].options.{data, xField, yField, value,
+ * description, trend}` and `widgets[].component.{chartType, xAxisKey,
+ * series}`, pinned key by key in `packages/types`'
+ * `strict-face-read-keys-11070.test.ts`), and this corpus is what AI authors
+ * copy, so it teaches none of it: every entry parses on the published strict
+ * face. The `filtered-dashboard*` entries carried the dialect until that round
+ * moved them to the dataset form.
+ */
+describe('schema-catalog plugin-dashboard — every entry parses on the strict authoring face (objectui#11228 ruling C)', () => {
+  it.each(entries.map((example) => [example.id, example.schema] as const))(
+    '%s parses on StrictAnyComponentSchema',
+    (_id, schema) => {
+      const result = StrictAnyComponentSchema.safeParse(schema);
+      expect(result.success ? [] : result.error.issues.map((i) => `[${i.path.join('.')}] ${i.code}`)).toEqual([]);
+    },
+  );
 });

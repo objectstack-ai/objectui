@@ -35,6 +35,12 @@
  * environment's administrator, gated on `useWorkspaceAdminStatus` — the same
  * gate the read-rate report uses — which also keeps the request itself off every
  * ordinary session. Both banners read one response (`readStorageUsage`).
+ *
+ * Neither asks a runtime that does not serve that response: the request is
+ * also gated on {@link isStorageUsageServed}, the runtime's own
+ * `features.storageUsage`, which only the cloud distribution that mounts the
+ * endpoint sends (objectui#11002). One boolean for both banners, off by
+ * default, so a self-hosted admin's page load issues no request at all.
  */
 import { HardDrive } from 'lucide-react';
 import { cn } from '@object-ui/components';
@@ -42,6 +48,7 @@ import { useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useObjectTranslation, useDisplayLocale, formatDisplayNumber } from '@object-ui/i18n';
 import { useStorageUsageReading, classifyStorageUsage } from '../hooks/useStorageUsageReading.js';
 import { cloudConsoleUrl } from '../console/marketplace/marketplaceApi.js';
+import { isStorageUsageServed } from '../runtime-config.js';
 
 export interface StorageUsageBannerProps {
   /** Override the resolved tenant runtime base (e.g. `/api/v1`). */
@@ -53,7 +60,10 @@ export function StorageUsageBanner({ apiBase, className }: StorageUsageBannerPro
   const { t } = useObjectTranslation();
   const locale = useDisplayLocale();
   const { isAdmin } = useWorkspaceAdminStatus();
-  const snapshot = useStorageUsageReading({ apiBase, enabled: isAdmin });
+  // Asked only when the runtime serves the endpoint (objectui#11002): the one
+  // boolean `ReadRateBanner` gates on too, so neither banner probes a runtime
+  // that would answer 404.
+  const snapshot = useStorageUsageReading({ apiBase, enabled: isAdmin && isStorageUsageServed() });
 
   const view = classifyStorageUsage(snapshot);
   // Below every hook, so hook order is stable as the reading arrives.

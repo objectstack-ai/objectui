@@ -105,8 +105,10 @@ export function JsonSourceEditor({
   // with no error and the Source tab looks blank. `useMonacoFallback` fast-fails
   // to a plain textarea the moment the CDN loader rejects, and also backstops
   // the "resolved but painted nothing" case via a `.view-line` DOM poll, so the
-  // source is always readable and editable.
-  const [monacoUnavailable, containerRef] = useMonacoFallback(fallbackDelayMs);
+  // source is always readable and editable. The editor mounts only once the
+  // loader has resolved: mounted earlier, its own `loader.init()` on a failing
+  // install logs an error and leaks an uncaught one (objectui#11800).
+  const [monacoStatus, containerRef] = useMonacoFallback(fallbackDelayMs);
 
   // Match against the dark class our app-shell toggles on <html>; pick
   // a Monaco theme that doesn't fight the rest of the chrome.
@@ -227,7 +229,7 @@ export function JsonSourceEditor({
         className="border rounded overflow-hidden bg-background"
         style={{ height: typeof height === 'number' ? `${height}px` : height }}
       >
-        {monacoUnavailable ? (
+        {monacoStatus === 'unavailable' ? (
           <textarea
             value={text}
             onChange={(e) => handleChange(e.target.value)}
@@ -236,6 +238,8 @@ export function JsonSourceEditor({
             aria-label="JSON source"
             className="w-full h-full resize-none bg-background p-3 font-mono text-xs leading-relaxed outline-none"
           />
+        ) : monacoStatus === 'loading' ? (
+          <Skeleton className="w-full h-full" />
         ) : (
           <React.Suspense fallback={<Skeleton className="w-full h-full" />}>
             <LazyMonaco

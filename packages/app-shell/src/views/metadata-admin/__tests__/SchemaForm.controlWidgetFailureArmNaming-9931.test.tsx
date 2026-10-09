@@ -38,7 +38,8 @@
  *
  * ## The two keys that are ⛔ NOT subjects — rejected on the record
  *
- * Six of the declared `'control'` widgets have a catalog-failure arm at all;
+ * When this card landed, six of the declared `'control'` widgets had a
+ * catalog-failure arm at all (the `banner` column below is the live reading);
  * two of them already kept a named control on it before this card, and this
  * file asserts they still do rather than treating them as defects:
  *
@@ -104,6 +105,7 @@ const FAILED_CTX: WidgetContext = {
   objectFields: failed('fields: HTTP 503'),
   objectViews: failed('views: HTTP 503'),
   objectActions: failed('actions: HTTP 503'),
+  datasets: failed('datasets: HTTP 503'),
 };
 
 const LOADED_CTX: WidgetContext = {
@@ -112,6 +114,7 @@ const LOADED_CTX: WidgetContext = {
   objectFields: loaded([{ name: 'status', label: 'Status' }]),
   objectViews: loaded([{ name: 'account.all', label: 'All' }]),
   objectActions: loaded([{ name: 'approve' }]),
+  datasets: loaded([{ name: 'sales_metrics', label: 'Sales metrics', dimensions: [], measures: [] }]),
 };
 
 interface ControlCase {
@@ -136,6 +139,7 @@ interface ControlCase {
 const CASES: ControlCase[] = [
   { key: 'ref:object', schema: { type: 'string' }, value: 'account', banner: 'ref-object-load-failed' },
   { key: 'ref:component', schema: { type: 'string' }, value: 'c1', banner: null },
+  { key: 'ref:dataset', schema: { type: 'string' }, value: 'sales_metrics', banner: 'ref-dataset-load-failed' },
   {
     key: 'object-selector',
     schema: { type: 'array' },

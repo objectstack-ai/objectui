@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { ComponentRegistry } from '@object-ui/core';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ListView, evaluateConditionalFormatting } from '../ListView';
 import type { DataSource, ListViewSchema } from '@object-ui/types';
 import { SchemaRendererProvider } from '@object-ui/react';
@@ -165,9 +165,11 @@ describe('ListView', () => {
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
+      // The spec's lane key: the bag refuses the legacy `groupField` alias by
+      // name since objectui#6152 round 12, and the gate reads either.
       options: {
         kanban: {
-          groupField: 'status',
+          groupByField: 'status',
         },
       },
     };
@@ -1779,7 +1781,7 @@ describe('ListView', () => {
         fields: ['name', 'email'],
         appearance: { allowedVisualizations: ['grid', 'kanban'] },
         options: {
-          kanban: { groupField: 'status' },
+          kanban: { groupByField: 'status' },
           calendar: { startDateField: 'date' },
         },
       };
@@ -1803,11 +1805,13 @@ describe('ListView', () => {
         objectName: 'contacts',
         viewType: 'grid',
         fields: ['name', 'email'],
-        kanban: { groupField: 'priority' },
+        // The spec key. This fixture wrote the pre-#2231 alias `groupField`, which
+        // the typed face refuses by name since objectui#6152 round 11.
+        kanban: { groupByField: 'priority' },
       };
 
       renderWithProvider(<ListView schema={schema} showViewSwitcher={true} />);
-      // Should enable kanban view since kanban.groupField is set
+      // Should enable kanban view since kanban.groupByField is set
       openViewSwitcher();
       expect(queryViewOption('Kanban')).toBeInTheDocument();
     });
@@ -1879,9 +1883,10 @@ describe('ListView', () => {
   // NOTE: For the GRID view the rows-per-page selector now lives in the
   // DataTable's own server-driven pager (ObjectGrid forwards
   // pagination.pageSizeOptions straight through), so ListView no longer renders
-  // its native <select data-testid="page-size-selector"> for grids — that fixed
-  // a duplicate-control bug. The native fallback selector below is therefore
-  // exercised through a NON-grid view (gallery), which has no DataTable pager.
+  // its own selector (data-testid="page-size-selector") for grids — that fixed
+  // a duplicate-control bug. The fallback selector below (the shared `Select`
+  // since objectui#11865) is therefore exercised through a NON-grid view
+  // (gallery), which has no DataTable pager.
   // The grid combobox option list is covered in
   // components/data-table-manual-pagination.test.tsx.
   describe('pageSizeOptions', () => {
@@ -2378,8 +2383,10 @@ describe('ListView', () => {
         expect(screen.getByTestId('page-size-selector')).toBeInTheDocument();
       });
 
+      // The shared `Select` (objectui#11865): its trigger shows the size in force.
       const selector = screen.getByTestId('page-size-selector');
-      expect(selector).toHaveValue('25');
+      expect(selector).toHaveAttribute('role', 'combobox');
+      expect(selector).toHaveTextContent(/^25$/);
     });
 
     it('should re-fetch data when page size changes', async () => {
@@ -2406,9 +2413,10 @@ describe('ListView', () => {
 
       const fetchCountBefore = mockDataSource.find.mock.calls.length;
 
-      // Change page size to 50
+      // Change page size to 50, through the shared `Select` (objectui#11865)
       const selector = screen.getByTestId('page-size-selector');
-      fireEvent.change(selector, { target: { value: '50' } });
+      fireEvent.keyDown(selector, { key: 'ArrowDown' });
+      fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: '50' }));
 
       expect(onPageSizeChange).toHaveBeenCalledWith(50);
 
@@ -2438,12 +2446,10 @@ describe('ListView', () => {
         expect(screen.getByTestId('page-size-selector')).toBeInTheDocument();
       });
 
-      const options = screen.getByTestId('page-size-selector').querySelectorAll('option');
-      expect(options).toHaveLength(4);
-      expect(options[0]).toHaveValue('10');
-      expect(options[1]).toHaveValue('25');
-      expect(options[2]).toHaveValue('50');
-      expect(options[3]).toHaveValue('100');
+      // The shared `Select` (objectui#11865): its listbox lists every size, in order.
+      fireEvent.keyDown(screen.getByTestId('page-size-selector'), { key: 'ArrowDown' });
+      const options = within(await screen.findByRole('listbox')).getAllByRole('option');
+      expect(options.map((o) => o.textContent)).toEqual(['10', '25', '50', '100']);
     });
 
     it('should not render page size selector when pageSizeOptions is not configured', async () => {
@@ -2648,6 +2654,10 @@ describe('ListView — inline-edit toggle drives grid editability', () => {
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
+      // objectui#5144: inline editing is offered only where the view opts in
+      // (the spec's `.default(false)`). This case is about the toggle, so the
+      // view opts in and starts out of edit mode.
+      userActions: { editInline: true },
     };
 
     renderWithProvider(
@@ -2669,6 +2679,30 @@ describe('ListView — inline-edit toggle drives grid editability', () => {
     fireEvent.click(screen.getByTestId('toolbar-inline-edit-toggle'));
     expect(screen.getByTestId('grid-editable')).toHaveTextContent('false');
     expect(editableCalls.at(-1)).toBe(false);
+  });
+
+  it('the toggle announces its state with aria-pressed (objectui#11816)', async () => {
+    mockDataSource.find.mockResolvedValue([{ id: '1', name: 'Alice', email: 'alice@test.com' }]);
+    const schema: ListViewSchema = {
+      type: 'list-view',
+      objectName: 'contacts',
+      viewType: 'grid',
+      fields: ['name', 'email'],
+      // objectui#5144: the view opts in, as in the case above.
+      userActions: { editInline: true },
+    };
+
+    renderWithProvider(
+      <ListView schema={schema} dataSource={mockDataSource} onInlineEditChange={vi.fn()} />,
+    );
+    await screen.findByTestId('grid-editable');
+
+    const toggle = screen.getByTestId('toolbar-inline-edit-toggle');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
   });
 });
 

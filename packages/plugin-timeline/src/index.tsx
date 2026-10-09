@@ -304,6 +304,7 @@ export { ObjectTimeline } from './ObjectTimeline';
 export type { ObjectTimelineProps } from './ObjectTimeline';
 
 import { ComponentRegistry, elementDataSourceBlock } from '@object-ui/core';
+import type { ComponentInput } from '@object-ui/types';
 import { ObjectTimeline } from './ObjectTimeline';
 import {
   ElementDataSourceGate,
@@ -353,22 +354,121 @@ export const ObjectTimelineRenderer: React.FC<any> = elementDataSourceBlock(({ s
   );
 });
 
+// `filter` and `sort` are declared on BOTH registrations of this renderer
+// (objectui#8220): `ObjectTimeline` lowers both onto its object query
+// (`$filter` / `$orderby`), and `@objectstack/spec`'s `object-timeline` row
+// declares both, so without an input the html tier's `validateTree` reported a
+// working key as `unknown-prop` on either tag. `view:timeline` is the same
+// renderer under a second tag, so it declares the same pair — the
+// `view:calendar` precedent (objectui#7712 / objectui#8171). `filter` is the
+// RULE-ARRAY arm only — the spec refuses the MongoDB-style record form at this
+// door, and `type: 'array'` makes the html tier refuse it too. Pinned in
+// `__tests__/queryKeysDeclared-8220.test.tsx`.
+//
+// objectui#11168 slice 5 rewrote the `sort` description: it opened with "Entry
+// order", and measured, the rail draws entries composed from records by their
+// start date whatever the key says (`effectiveItems` in `./ObjectTimeline`
+// sorts them), so the key orders the QUERY, not the rail.
+const TIMELINE_FILTER_DESCRIPTION = 'Base query filter in the rule-array form `[{ field, operator, value }, ...]`, narrowing the records the timeline fetches. Context tokens such as `{current_user_id}` are resolved first, then the filter is lowered to `$filter` on the query. Authored `items` or `data` suppress that query, so the key then narrows nothing. The MongoDB-style record form is not this key’s shape.';
+const TIMELINE_SORT_DESCRIPTION = 'Order of the records the timeline fetches, in `[{ field, order }]` form, lowered to `$orderby` on the same query. The rail draws entries composed from records by their start date, earliest first, whatever this order. Authored `items` or `data` suppress the query, so the key then orders nothing.';
+
+// ## `navigation` — objectui#8654 (the timeline arm of objectui#8652's ruling 「B」)
+//
+// `@objectstack/spec` 17.5.0 declares it on the `object-timeline` row, for this
+// block standalone — the platform half of the ruling. This row is the objectui
+// half, together with the `navigation` member of `ObjectTimelineProps`'s schema
+// in `./ObjectTimeline`. It is declared on both tags for the reason `filter` and
+// `sort` are above: `view:timeline` is the same renderer under a second tag,
+// the precedent the calendar's shared input list follows for this key.
+//
+// The description states what `ObjectTimeline` does with each member, measured
+// on the real component, and it differs from the board's and the calendar's in
+// two places: this renderer supplies no drawer default, so an ABSENT key opens
+// nothing, and it hands the split shell no main panel, so `split` opens nothing
+// either. `page`, and a block without `mode`, open the record page through the
+// host's record navigator as on the siblings, and nothing under a host that
+// publishes none (objectui#11293). Since objectui#11168 slice 5 a timeline may
+// name no `objectName`, and the hook builds the record page from it: there
+// `page` opens nothing and a new tab opens at the entry's id alone, so the
+// description says that too (round 2, from the at-tier record on PR #11422).
+// Members pinned in
+// `__tests__/timelineNavigationMembers-8654.test.tsx`; a renderer that changes
+// any of these reddens those rows, and the fix is to rewrite this description.
+const TIMELINE_NAVIGATION_DESCRIPTION = 'What an entry click opens — the `{ mode, size, openNewTab, preventNavigation }` block a list view declares. With the key ABSENT a click opens nothing: this renderer supplies no drawer default. `mode` is an overlay (`drawer`, `modal`, `split`, `popover`), `new_window`, `page` or `none`, and a block written without `mode` takes the spec’s `page` default. `drawer`, `modal` and `popover` open the entry’s record in that overlay, but `split` opens nothing, because the timeline hands the split shell no main panel; `new_window` opens the record page in a new tab; `none` opens nothing. `page` opens the record page of the timeline’s `objectName` through the record navigator the host publishes (the console publishes one on its custom pages, record pages and list views); under a host that publishes none, such as an embedded renderer, or on a timeline that names no `objectName`, there is no record page to open and the click opens nothing. `preventNavigation: true` opens nothing whatever the mode, `openNewTab: true` opens the record page in a new tab and outranks every mode except `none`, and `size` sets the overlay width. On a timeline that names no `objectName`, `new_window` and `openNewTab` open no record page either: the new tab’s address is a slash and the entry’s `id` alone (its `_id` when it has no `id`, `undefined` when it has neither). A click handler from a parent view outranks the whole key.';
+
+// ## The ten row keys objectui#11168 slice 5 measured, and `objectName`
+//
+// `@objectstack/spec` 17.5.0's `object-timeline` row declares fifteen keys, and
+// until slice 5 this registration published five. The repo-wide parity guard
+// (`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`) could not
+// see the other ten while it did not load this lazily registered plugin; it
+// loads it now. Under objectui#11111 decision 3 = B each key is decided by its
+// own measurement, and the renderer honours all ten — `timeline`, `limit`,
+// `data`, `items`, `dateFormat`, `rowLabel`, `minDate`, `maxDate`,
+// `descriptionField` and `mapping` — so all ten are declared. Each is measured
+// through the real `SchemaRenderer` and this registration in
+// `__tests__/objectTimelineInputs-11168.test.tsx`.
+//
+// Where the row's own describe is true of this renderer, the description starts
+// with it word for word (pinned against the installed row), and each sentence
+// after it is a measurement. `descriptionField` keeps only the describe's first
+// sentence: its second calls the key the only spelling of that binding, and
+// measured, `mapping.description` is a second spelling that outranks it.
+//
+// `objectName` is no longer REQUIRED. `items`, `data` and a `bind` path draw
+// entries with no object, and a `dataSource` binding supplies one; the page
+// validator raised `missing-required-prop` on timelines the row and the
+// renderer both accept.
+//
+// `view:timeline` (which also answers the bare `timeline` key) is the same
+// renderer under a second tag, so it publishes the same list, as it already
+// did for `filter`, `sort` and `navigation`. The guard judges `object-timeline`
+// only, because the spec carries no row for the second tag; the pin's
+// registration rows hold both tags.
+const TIMELINE_OBJECT_NAME_DESCRIPTION = 'Object this timeline binds to. Optional because the component-level `dataSource` binding can supply the object instead — this block registers through `ElementDataSourceGate`, which lowers the binding onto this key before the renderer sees the node. A timeline drawn from `items`, `data` or a `bind` path issues no query and needs none to draw, but `navigation` still reads it: without it `page` opens nothing and `new_window` / `openNewTab` open no record page.';
+const TIMELINE_CONFIG_DESCRIPTION = 'Timeline configuration, the author face — the same block `ListViewSchema.timeline` declares: { startDateField, endDateField, titleField, groupByField, colorField, scale }. The flat top-level spellings beside it are the runtime handoff, not a second authoring spelling. On entries composed from records, `startDateField` is the entry’s date, `endDateField` the end printed after it, `titleField` the title, `groupByField` the field whose value heads each group (without it, entries group into date buckets), and `colorField` the field whose option colour, or the value itself when it is a colour literal, paints the marker. Each outranks the flat key of the same binding, and `titleField` / `startDateField` outrank `mapping`’s `title` / `date`. `scale` sets the axis unit of the gantt branch, which on this block draws authored `items` only.';
+const TIMELINE_LIMIT_DESCRIPTION = 'Maximum number of records loaded onto the rail (row cap); lowered to the query\'s top-level `$top` (renderer default 100). A timeline renders one rail with no pagination control, so this is the author\'s window rather than a page size. A value that is not a positive integer is ignored with a console warning, and the default cap applies.';
+const TIMELINE_DATA_DESCRIPTION = 'Pre-fetched records — read FIRST as the rail\'s row source, ahead of the data-scope binding and the fetch, and composed into entries through the same `timeline` field bindings a fetched row takes; authoring it suppresses the object query entirely. Distinct from `items`, which is the already-composed entry shape and wins over this key when both are written.';
+const TIMELINE_ITEMS_DESCRIPTION = 'Static inline entries — read ahead of every record source, `data` above included, and bypasses the object query entirely (the renderer becomes a pass-through). Each entry is the kind this node\'s `variant` selects: a feed entry `{ time?, title, description?, variant?, icon?, content?, className? }` (`variant` absent / `vertical` / `horizontal`), or a gantt row `{ label, items? }` (`variant: \'gantt\'`) whose bars are `{ title?, startDate?, endDate?, variant? }`, each date a string or epoch milliseconds. These are `@object-ui/types`\'s `TimelineFeedItem` and `TimelineGanttItem`. They are drawn as written: the `timeline` block’s field bindings, `mapping` and `descriptionField` do not apply to them.';
+const TIMELINE_DATE_FORMAT_DESCRIPTION = 'How each entry\'s date is rendered (renderer default `short`): `short` / `long` are locale-formatted, `iso` is the locale-free machine form.';
+const TIMELINE_ROW_LABEL_DESCRIPTION = 'Header label for the gantt row column — read by the gantt branch only, which on this block needs authored `items`. Without it the header shows the default label.';
+const TIMELINE_MIN_DATE_DESCRIPTION = 'Pin the gantt axis start (ISO `yyyy-mm-dd`) instead of deriving it from the rows; only a non-empty value is honoured. A value that is not a date, or a `minDate` after `maxDate`, refuses the chart with a diagnostic naming it.';
+const TIMELINE_MAX_DATE_DESCRIPTION = 'Pin the gantt axis end (ISO `yyyy-mm-dd`) instead of deriving it from the rows; only a non-empty value is honoured. A value that is not a date, or a `maxDate` before `minDate`, refuses the chart with a diagnostic naming it.';
+const TIMELINE_DESCRIPTION_FIELD_DESCRIPTION = 'Field rendered as each entry\'s description (renderer default `description`). It is declared flat because the `timeline` block has no member for it, and `mapping.description` outranks it when both are written.';
+const TIMELINE_MAPPING_DESCRIPTION = 'Record-to-entry field mapping `{ title?, date?, description?, variant? }`, each a field name — the binding record read BETWEEN the `timeline` block and the flat fallbacks. Its `variant` member (the field whose value picks each marker colour, renderer default `variant`) is the only spelling that binding has. On the vertical rail a colour that `timeline.colorField` resolves for an entry outranks that marker colour.';
+
+/**
+ * The one input list both tags publish (`object-timeline` and `view:timeline`):
+ * the same renderer reads the same keys under either.
+ */
+const OBJECT_TIMELINE_INPUTS: ComponentInput[] = [
+  { name: 'objectName', type: 'string', description: TIMELINE_OBJECT_NAME_DESCRIPTION },
+  { name: 'variant', type: 'enum', enum: ['vertical', 'horizontal', 'gantt'] },
+  { name: 'filter', type: 'array', description: TIMELINE_FILTER_DESCRIPTION },
+  { name: 'sort', type: 'array', description: TIMELINE_SORT_DESCRIPTION },
+  { name: 'navigation', type: 'object', description: TIMELINE_NAVIGATION_DESCRIPTION },
+  { name: 'timeline', type: 'object', description: TIMELINE_CONFIG_DESCRIPTION },
+  { name: 'limit', type: 'number', description: TIMELINE_LIMIT_DESCRIPTION },
+  { name: 'data', type: 'array', description: TIMELINE_DATA_DESCRIPTION },
+  { name: 'items', type: 'array', description: TIMELINE_ITEMS_DESCRIPTION },
+  { name: 'dateFormat', type: 'enum', enum: ['short', 'long', 'iso'], description: TIMELINE_DATE_FORMAT_DESCRIPTION },
+  { name: 'rowLabel', type: 'string', description: TIMELINE_ROW_LABEL_DESCRIPTION },
+  { name: 'minDate', type: 'string', description: TIMELINE_MIN_DATE_DESCRIPTION },
+  { name: 'maxDate', type: 'string', description: TIMELINE_MAX_DATE_DESCRIPTION },
+  { name: 'descriptionField', type: 'string', description: TIMELINE_DESCRIPTION_FIELD_DESCRIPTION },
+  { name: 'mapping', type: 'object', description: TIMELINE_MAPPING_DESCRIPTION },
+];
+
 ComponentRegistry.register('object-timeline', ObjectTimelineRenderer, {
   namespace: 'plugin-timeline',
   label: 'Object Timeline',
   category: 'view',
-  inputs: [
-    { name: 'objectName', type: 'string', required: true },
-    { name: 'variant', type: 'enum', enum: ['vertical', 'horizontal', 'gantt'] },
-  ]
+  inputs: [...OBJECT_TIMELINE_INPUTS],
 });
 
 ComponentRegistry.register('timeline', ObjectTimelineRenderer, {
   namespace: 'view',
   label: 'Timeline View',
   category: 'view',
-  inputs: [
-    { name: 'objectName', type: 'string', required: true },
-    { name: 'variant', type: 'enum', enum: ['vertical', 'horizontal', 'gantt'] },
-  ]
+  inputs: [...OBJECT_TIMELINE_INPUTS],
 });

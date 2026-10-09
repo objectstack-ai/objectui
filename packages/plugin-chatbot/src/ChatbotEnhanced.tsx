@@ -18,7 +18,7 @@
  *  - streaming markdown via streamdown (used by Message internals)
  */
 import * as React from 'react';
-import { cn } from '@object-ui/components';
+import { cn, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { SchemaRenderer } from '@object-ui/react';
 import { useObjectTranslation, useSafeTranslate } from '@object-ui/i18n';
 import { AlertCircle, ArrowRight, Copy, Check, RefreshCw, CornerDownLeft, Bot, Eye, GitCompareArrows, Rocket, Clock3, CheckCircle2, XCircle, Loader2, ShieldCheck, TriangleAlert, ClipboardList, HelpCircle, Table2, WifiOff, Sparkles, Hourglass } from 'lucide-react';
@@ -157,10 +157,20 @@ export interface ChatChart {
   series: Array<{ dataKey: string; label?: string }>;
 }
 
+/**
+ * A build-progress frame's phase: `@objectstack/spec/ai`'s closed
+ * `BuildProgressPhase` vocabulary, plus `unknown` for a value outside it, which
+ * is surfaced as a warning — never as "Building" (objectui#11988). Spelled out
+ * rather than imported so the published typings need no newer spec floor;
+ * `buildVerify-11988.test.tsx` asserts at compile time that it equals the
+ * spec's union, both ways.
+ */
+type ChatBuildPhase = 'structure' | 'data' | 'verify' | 'done' | 'unknown';
+
 /** A reconciled snapshot of an in-flight app build (apply_blueprint). */
 export interface ChatBuildProgress {
   /** Coarse phase: drafting structure, generating sample data, or finished. */
-  phase: 'structure' | 'data' | 'done';
+  phase: ChatBuildPhase;
   /** Human label for the app being built (for the panel header). */
   appLabel?: string;
   /** Artifacts drafted so far, cumulative. */
@@ -176,6 +186,12 @@ export interface ChatBuildProgress {
    * heartbeat). Absent from older runtimes.
    */
   seq?: number;
+  /**
+   * The post-apply verification loop, read from its own `build-verify` part
+   * beside the tree (objectui#11988): `verify` while a hop runs, `done` once
+   * the loop exits. `hop` and `tool` are the spec frame's own fields.
+   */
+  verify?: { phase: ChatBuildPhase; hop?: number; tool?: string };
 }
 
 /**
@@ -643,6 +659,17 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
    */
   onBuildMaterialized?: (appName: string) => void;
   /**
+   * objectui#11666 — reports whether this thread's NEWEST proposed plan is
+   * still waiting for the user's approval: its card offers "Build it", i.e.
+   * {@link resolveProposalCardState} reads `pending` for it. Fires once on
+   * mount and again on every change of that boolean. An earlier plan does not
+   * count once a newer one exists (the newer card is the one awaiting); an
+   * approval (the optimistic "Building…" flip) or a build that ran ends it.
+   * Hosts mirror it outside the chat — the console's launchers show a marker
+   * while the chat is closed.
+   */
+  onPlanApprovalPendingChange?: (pending: boolean) => void;
+  /**
    * ADR-0057 P4 — invoked when the user clicks "Open in Builder →" on an `ask`
    * agent's `suggest_builder` decline. The host opens the build surface seeded
    * with the handoff prompt/package (never a silent re-route; ADR-0063). Absent
@@ -671,9 +698,16 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
   nextStepsLabel?: string;
   /** Heading for the pre-build proposed-plan card (default "Proposed plan"). */
   planTitleLabel?: string;
-  /** Extend mode: prefix shown when proposedPlan.targetApp is set, framing
-   *  the build as additive (e.g. "Adding to existing app"). */
+  /** Extend mode: host override for the scope chip's prefix, shown before the
+   *  target app as `PREFIX "APP"` when proposedPlan.targetApp is set. Omitted,
+   *  the chip reads the localized `chatbot.plan.extendTarget` sentence — the
+   *  component carries no English default of its own (objectui#11658). */
   planExtendLabel?: string;
+  /** objectui#11658 — the display label of an existing app, by its machine
+   *  name. The extend-mode scope chip names the target app with it; the
+   *  internal name stays on the chip's tooltip. `undefined` (or a resolver that
+   *  does not know the app) shows the name as given. */
+  resolveAppLabel?: (appName: string) => string | undefined;
   /** Heading above the structure-deciding questions in the plan card (default "Confirm before building"). */
   planQuestionsLabel?: string;
   /** Heading above the agent's assumptions in the plan card (default "Assumptions"). */
@@ -889,6 +923,63 @@ export interface ChatbotModelOption {
   id: string;
   label?: string;
   provider?: string;
+}
+
+/** The item a selected model none of the offered models carries is shown by. */
+const OUTSIDE_MODELS = 'outside';
+
+/**
+ * objectui#11865 — the composer's model picker, drawn with the shared `Select`,
+ * the control the rest of the console picks with. It used to be a
+ * browser-native `<select>`. What a pick writes is unchanged: `onPick` receives
+ * the picked model's `id`, the string the native control's `change` carried,
+ * and its accessible name is the same `aria-label`. Re-picking the current
+ * model writes nothing, as it did there.
+ *
+ * - Items carry the model's INDEX, not its id, as the card's other pickers do.
+ * - A selected id none of the offered models carries gets an item of its own,
+ *   labelled with the id, so the trigger shows the model the host holds. The
+ *   native control showed the first model there. Picking that item writes
+ *   nothing.
+ */
+function ModelPicker({
+  label,
+  models,
+  value,
+  onPick,
+}: {
+  label: string;
+  models: ReadonlyArray<ChatbotModelOption>;
+  value: string;
+  onPick: (modelId: string) => void;
+}) {
+  const at = models.findIndex((m) => m.id === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_MODELS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the host's own model, so there is nothing to write.
+        const picked = models[Number(token)];
+        if (picked) onPick(picked.id);
+      }}
+    >
+      <SelectTrigger
+        aria-label={label}
+        className="h-7 w-auto gap-1 px-2 text-xs text-muted-foreground hover:text-foreground focus:ring-1 focus:ring-offset-0"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_MODELS}>{value}</SelectItem>}
+        {models.map((m, i) => (
+          <SelectItem key={`${i}:${m.id}`} value={String(i)}>
+            {m.label ?? m.id}
+            {m.provider ? ` · ${m.provider}` : ''}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 function formatMessageProps(role: ChatMessage['role']): MessageProps['from'] {
@@ -1258,6 +1349,32 @@ function useMetadataCountBits(): (counts: {
   );
 }
 
+/**
+ * objectui#11658 — the extend-mode scope chip's text ("Adding to existing app:
+ * APP"), shared by the proposed-plan card and `BlueprintProgressPanel`.
+ *
+ * The chip names the target app by its display label, resolved by the host
+ * (`resolveAppLabel`), never by the machine name the plan carries — that name
+ * moves to the chip's tooltip. The sentence is the locale pack's
+ * `chatbot.plan.extendTarget`, so a zh user no longer reads the English literal
+ * the component used to default to. A host `planExtendLabel` still wins, in the
+ * `PREFIX "APP"` shape it always rendered.
+ */
+function useExtendChip(
+  override: string | undefined,
+  resolveAppLabel: ((appName: string) => string | undefined) | undefined,
+): (targetApp: string) => string {
+  const { t } = useObjectTranslation();
+  return React.useCallback(
+    (targetApp: string) => {
+      const app = resolveAppLabel?.(targetApp) || targetApp;
+      if (override) return `${override} "${app}"`;
+      return t('chatbot.plan.extendTarget', { app, defaultValue: 'Adding to existing app: {{app}}' });
+    },
+    [t, override, resolveAppLabel],
+  );
+}
+
 function summarizeTools(
   tools: ChatToolInvocation[],
   /**
@@ -1406,6 +1523,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       previewDraftLabel = 'Preview',
       onDraftArtifacts,
       onBuildMaterialized,
+      onPlanApprovalPendingChange,
       publishDraftsLabel = 'Publish',
       publishedLabel = 'Published',
       verifiedLabel = 'Verified',
@@ -1418,7 +1536,8 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       builderHandoffSupersededTitle = 'A newer request is available',
       onOpenBuilder,
       onOpenRecord,
-      planExtendLabel = 'Adding to existing app',
+      planExtendLabel,
+      resolveAppLabel,
       planQuestionsLabel = 'Confirm before building',
       planAssumptionsLabel = 'Assumptions',
       planDeferredLabel = 'Not yet built',
@@ -1466,6 +1585,9 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
     // `BlueprintProgressPanel` so the plan card and the live design panel can
     // not word the same counts differently (objectui#7254).
     const countBitsOf = useMetadataCountBits();
+    // objectui#11658 — the extend-mode scope chip, shared with
+    // `BlueprintProgressPanel` so both name the target app the same way.
+    const extendChip = useExtendChip(planExtendLabel, resolveAppLabel);
 
     // objectui#7254 — the pack lookup for every string this component owns.
     // `useSafeTranslate` is provider-safe: with no I18nProvider (tests,
@@ -2136,6 +2258,41 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
     // streaming below an older plan card.
     const planActionsLocked = isLoading;
 
+    // objectui#11666 — is this thread's newest proposed plan still waiting for
+    // the user? Read off the SAME producer the plan card's header and body read
+    // (`resolveProposalCardState`, objectui#7254), so the host's mirror can
+    // never disagree with the card: `pending` is exactly the state that renders
+    // "Build it". The newest plan card is the one awaiting — an older card a
+    // newer proposal followed is superseded by it. Computed on every render
+    // rather than memoised: it is one pass over the tool calls, and its inputs
+    // are memo results whose identity this must not key on (Commandment #10).
+    let newestPlanId: string | undefined;
+    for (const message of messages) {
+      for (const tool of message.toolInvocations ?? []) {
+        if ((tool.proposedPlan || isUnstructuredBuildProposal(tool)) && tool.toolCallId) {
+          newestPlanId = tool.toolCallId;
+        }
+      }
+    }
+    const planApprovalPending =
+      newestPlanId !== undefined &&
+      resolveProposalCardState({
+        replayOutcome: replayOutcomeByProposalId.get(newestPlanId),
+        built: builtPlanIds.has(newestPlanId),
+        confirmed: confirmedChangeIds.has(newestPlanId),
+        approved: approvedPlanIds.has(newestPlanId),
+      }) === 'pending';
+    // The host's callback is read through a ref so the effect keys on the
+    // boolean alone — a host that passes a fresh function each render must not
+    // re-announce an unchanged reading.
+    const onPlanApprovalPendingChangeRef = React.useRef(onPlanApprovalPendingChange);
+    React.useEffect(() => {
+      onPlanApprovalPendingChangeRef.current = onPlanApprovalPendingChange;
+    }, [onPlanApprovalPendingChange]);
+    React.useEffect(() => {
+      onPlanApprovalPendingChangeRef.current?.(planApprovalPending);
+    }, [planApprovalPending]);
+
     const renderToolDetail = (tool: ChatToolInvocation) => {
       const state =
         tool.state ??
@@ -2564,8 +2721,9 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                   <span
                     className="inline-flex w-fit items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300"
                     data-testid="proposed-plan-extend"
+                    title={tool.proposedPlan.targetApp}
                   >
-                    + {planExtendLabel} "{tool.proposedPlan.targetApp}"
+                    + {extendChip(tool.proposedPlan.targetApp)}
                   </span>
                 ) : null}
                 {tool.proposedPlan.summary ? (
@@ -3184,7 +3342,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                         <BlueprintProgressPanel
                           progress={blueprintProgress}
                           designingLabel={L.designingPlanLabel}
-                          extendLabel={planExtendLabel}
+                          extendChip={extendChip}
                           waitingLabel={L.connectionWaiting}
                           stalledLabel={L.connectionStalledLabel}
                           offlineLabel={L.connectionOfflineLabel}
@@ -3456,19 +3614,12 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                     envs (the backend returns one entry) get no dropdown — the
                     lone model is still sent via `selectedModelId`. */}
                 {models && models.length > 1 ? (
-                  <select
-                    aria-label={L.model}
+                  <ModelPicker
+                    label={L.model}
+                    models={models}
                     value={selectedModelId ?? models[0].id}
-                    onChange={(e) => onModelChange?.(e.target.value)}
-                    className="h-7 rounded-md border bg-background px-2 text-xs text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    {models.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label ?? m.id}
-                        {m.provider ? ` · ${m.provider}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    onPick={(modelId) => onModelChange?.(modelId)}
+                  />
                 ) : null}
                 {/* #2458 UX#7 — the composer sends on PLAIN Enter (Shift+Enter =
                     newline); the old `⌘` glyph implied Cmd+Enter and misled users.
@@ -4009,14 +4160,16 @@ function useBuildGroupLabel(): (type: string) => string {
 function BlueprintProgressPanel({
   progress,
   designingLabel = 'Designing your app…',
-  extendLabel = 'Adding to existing app',
+  extendChip,
   waitingLabel = 'Waiting for server…',
   stalledLabel = 'Still working…',
   offlineLabel = 'Connection lost — reconnecting…',
 }: {
   progress: ChatBlueprintProgress;
   designingLabel?: string;
-  extendLabel?: string;
+  /** objectui#11658 — the localized scope-chip text for a target app (see
+   *  `useExtendChip`); the panel owns no wording of its own for it. */
+  extendChip: (targetApp: string) => string;
   waitingLabel?: string;
   stalledLabel?: string;
   offlineLabel?: string;
@@ -4048,8 +4201,9 @@ function BlueprintProgressPanel({
           <span
             className="inline-flex shrink-0 items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300"
             data-testid="blueprint-progress-extend"
+            title={targetApp}
           >
-            + {extendLabel} "{targetApp}"
+            + {extendChip(targetApp)}
           </span>
         ) : null}
         {!isDone ? (
@@ -4134,13 +4288,17 @@ function BuildProgressPanel({
   stalledLabel?: string;
   offlineLabel?: string;
 }) {
-  const { phase, appLabel, items, done, total, seq } = progress;
+  const { phase, appLabel, items, done, total, seq, verify } = progress;
   // objectui#7388 — every string this panel OWNS goes through the pack. The
   // labels it receives as props (`openBuiltAppLabel`, the connection cues, …)
   // are already localized by the host; these were the island left behind.
   const { t } = useObjectTranslation();
   const groupLabelOf = useBuildGroupLabel();
   const isDone = phase === 'done';
+  // objectui#11988 — only the phases the tree draws read as "Building"; any
+  // other value is surfaced as a warning, never coerced into one of them.
+  const unknownPhase = t('chatbot.build.unknownPhase', { defaultValue: 'Unknown build phase' });
+  const isUnknown = !isDone && phase !== 'structure' && phase !== 'data';
   // The unnamed-build stand-in is itself a translated noun phrase, so it can be
   // interpolated into the two header frames the same way a real app label is —
   // one hole per frame, which is what `check-i18n-call-site-keys` checks.
@@ -4170,13 +4328,17 @@ function BuildProgressPanel({
       <div className="mb-2 flex items-center gap-2 font-medium">
         {isDone ? (
           <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+        ) : isUnknown ? (
+          <TriangleAlert className="size-4 shrink-0 text-amber-600" />
         ) : (
           <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
         )}
         <span>
           {isDone
             ? t('chatbot.build.built', { app: appName, defaultValue: 'Built {{app}}' })
-            : t('chatbot.build.building', { app: appName, defaultValue: 'Building {{app}}…' })}
+            : isUnknown
+              ? unknownPhase
+              : t('chatbot.build.building', { app: appName, defaultValue: 'Building {{app}}…' })}
         </span>
         {!isDone && phase === 'data' ? (
           <span className="text-xs font-normal text-muted-foreground">
@@ -4246,6 +4408,26 @@ function BuildProgressPanel({
           );
         })}
       </ul>
+      {verify ? (
+        // The verification line advances per hop and closes on `done`.
+        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground" data-testid="build-verify" title={verify.tool}>
+          {verify.phase === 'done' ? (
+            <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+          ) : verify.phase === 'verify' ? (
+            <Loader2 className="size-3.5 shrink-0 animate-spin" />
+          ) : (
+            <TriangleAlert className="size-3.5 shrink-0 text-amber-600" />
+          )}
+          {verify.phase === 'done'
+            ? t('chatbot.build.verified', { defaultValue: 'Checked the change' })
+            : verify.phase === 'verify'
+              ? t('chatbot.build.verifying', { defaultValue: 'Checking the change…' })
+              : unknownPhase}
+          {verify.phase === 'verify' && verify.hop !== undefined
+            ? ` ${t('chatbot.build.verifyStep', { n: verify.hop, defaultValue: 'step {{n}}' })}`
+            : null}
+        </div>
+      ) : null}
       {isDone && builtApp && (onDesignBuiltApp || onOpenBuiltApp || onPreviewDraftApp) ? (
         <div className="mt-3 flex items-center gap-2">
           {/* ADR-0080 D5 cold-start handoff: Studio is the built app's

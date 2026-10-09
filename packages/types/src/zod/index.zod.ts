@@ -66,6 +66,8 @@ export {
   NavigationItemTypeSchema,
   NavigationAreaSchema,
   MenuItemSchema as AppMenuItemSchema,
+  // objectui#11440 — the `app-schema-renderer` whole-shell node.
+  AppSchemaRendererNodeSchema,
 } from './app.zod.js';
 
 // ============================================================================
@@ -99,7 +101,11 @@ export {
   IconSchema,
   SeparatorSchema,
   ContainerSchema,
+  // objectui#11276's `FlexBlockSchema` is the authored `flex` arm, its bag the
+  // flat mirror's own members (the spec has no row for it); `FlexSchema` stays
+  // the node as the `flex` renderer reads it.
   FlexSchema,
+  FlexBlockSchema,
   StackSchema,
   GridSchema,
   CardSchema,
@@ -114,6 +120,8 @@ export {
   PageVariableSchema,
   PageTypeSchema,
   PageNodeSchema,
+  // objectui#11440 — the spec page kinds `record` / `home` / `utility`.
+  PageKindNodeSchema,
   LayoutSchema,
   // ⛔ `SemanticElementSchema` and `HtmlElementSchema` are deliberately NOT
   // exported (objectui#9067, decision batch #121 item 5, maintainer 2026-09-12).
@@ -326,10 +334,30 @@ export {
   ObjectDataTableSchema,
   ListViewSchema,
   ObjectQLComponentSchema,
-  // objectui#10859 batch 2 — two ADR-0080 public blocks armed from their
+  // objectui#10859 batches 2 to 6 — ADR-0080 public blocks armed from their
   // `ComponentPropsMap` rows, and the union they reach `AnyComponentSchema` by.
+  // Batch 4's `ObjectFormBlockSchema`, batch 5's `ObjectMapBlockSchema` and
+  // batch 6's `ObjectGanttBlockSchema` are the authored `object-form` /
+  // `object-map` / `object-gantt` arms; `ObjectFormSchema`, `ObjectMapSchema`
+  // and `ObjectGanttSchema` above stay the nodes as their renderers read them.
+  // objectui#11276's `ObjectChartBlockSchema` is the authored `object-chart`
+  // arm, its bag the flat mirror's own members (the spec has no row for it);
+  // `ObjectChartSchema` above stays the node as `ObjectChart` reads it. Its
+  // `object-grid` batch's `ObjectGridBlockSchema` is the authored `object-grid`
+  // arm, from its row; `ObjectGridSchema` above stays the node as `ObjectGrid`
+  // reads it, and builds the `object-view` `table` slot.
   ObjectMetricBlockSchema,
   ObjectMasterDetailFormBlockSchema,
+  ObjectTimelineBlockSchema,
+  ObjectFormBlockSchema,
+  ObjectMapBlockSchema,
+  ObjectChartBlockSchema,
+  ObjectGanttBlockSchema,
+  ObjectGridBlockSchema,
+  // objectui#11440 — two Tier A public blocks with no spec row, each bag built
+  // from the block's registration inputs.
+  ObjectPivotBlockSchema,
+  EmbeddableFormBlockSchema,
   ObjectQLPublicBlockComponentSchema,
 } from './objectql.zod.js';
 
@@ -371,6 +399,8 @@ export {
   ReportScheduleSchema,
   ReportExportConfigSchema,
   ReportComponentSchema,
+  // objectui#11440 — the authored `report` node: the record plus the `report` wrapper.
+  ReportNodeSchema,
   ReportBuilderSchema,
   ReportViewerSchema,
   ReportUnionSchema,
@@ -393,6 +423,8 @@ export {
   DetailViewSectionSchema,
   DetailViewTabSchema,
   DetailViewSchema,
+  // objectui#11440 — one field section as a node.
+  DetailSectionNodeSchema,
   ViewSwitcherSchema,
   FilterUISchema,
   SortUISchema,
@@ -414,8 +446,37 @@ export {
 } from './ai.zod.js';
 
 // ============================================================================
-// ADR-0080 Public Blocks - the spec-row `page:` / `record:` / `element:`
-// blocks (objectui#10872)
+// Designer Components - `@object-ui/plugin-designer` (objectui#10859)
+// ============================================================================
+export {
+  DesignerPositionSchema,
+  DesignerCanvasConfigSchema,
+  DesignerComponentSchema,
+  DesignerPaletteItemSchema,
+  DesignerPaletteCategorySchema,
+  PageDesignerSchema,
+  DataModelFieldSchema,
+  DataModelEntitySchema,
+  DataModelRelationshipSchema,
+  DataModelDesignerSchema,
+  BPMNNodeSchema,
+  BPMNEdgeSchema,
+  BPMNLaneSchema,
+  ProcessDesignerSchema,
+  ReportDesignerElementSchema,
+  ReportDesignerSectionSchema,
+  ReportDesignerSchema,
+  ObjectDefinitionSchema,
+  ObjectManagerSchema,
+  DesignerFieldOptionSchema,
+  DesignerFieldDefinitionSchema,
+  FieldDesignerSchema,
+  DesignerUnionSchema,
+} from './designer.zod.js';
+
+// ============================================================================
+// ADR-0080 Public Blocks - the spec-row `page:` / `record:` / `element:` /
+// `action:` blocks (objectui#10872)
 // ============================================================================
 export {
   PageHeaderBlockSchema,
@@ -435,17 +496,24 @@ export {
   RecordQuickActionsBlockSchema,
   RecordReferenceRailBlockSchema,
   RecordAlertBlockSchema,
+  RecordLineItemsBlockSchema,
   ElementTextBlockSchema,
   ElementNumberBlockSchema,
   ElementButtonBlockSchema,
   ElementDividerBlockSchema,
+  ElementDefinitionListBlockSchema,
+  ElementRepeaterBlockSchema,
+  ActionButtonBlockSchema,
+  ActionIconBlockSchema,
+  ActionGroupBlockSchema,
+  ActionMenuBlockSchema,
   PublicBlockComponentSchema,
 } from './public-blocks.zod.js';
 
 // ============================================================================
 // Cloud Widgets - `@object-ui/app-shell`'s `cloud:` SDUI widgets (objectui#10919)
 // ============================================================================
-export { CloudPlanStatusSchema } from './cloud.zod.js';
+export { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.zod.js';
 
 // ============================================================================
 // Union Types - All Component Schemas
@@ -453,8 +521,8 @@ export { CloudPlanStatusSchema } from './cloud.zod.js';
 
 import { z } from 'zod';
 import { defineNodeComponentUnion } from './base.zod.js';
-import { AppComponentSchema } from './app.zod.js';
-import { LayoutSchema } from './layout.zod.js';
+import { AppComponentSchema, AppSchemaRendererNodeSchema } from './app.zod.js';
+import { LayoutSchema, PageKindNodeSchema } from './layout.zod.js';
 import { FormComponentSchema } from './form.zod.js';
 import { DataDisplaySchema } from './data-display.zod.js';
 import { FeedbackSchema } from './feedback.zod.js';
@@ -467,8 +535,10 @@ import { CRUDComponentSchema } from './crud.zod.js';
 import { ReportUnionSchema } from './reports.zod.js';
 import { ViewComponentSchema } from './views.zod.js';
 import { AIComponentSchema } from './ai.zod.js';
+import { DesignerUnionSchema } from './designer.zod.js';
 import { PublicBlockComponentSchema } from './public-blocks.zod.js';
-import { CloudPlanStatusSchema } from './cloud.zod.js';
+import { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.zod.js';
+import { nestedComponentJudgment } from './nested-component-walk.js';
 
 /**
  * Union of all component schemas.
@@ -519,10 +589,43 @@ import { CloudPlanStatusSchema } from './cloud.zod.js';
  * fill is an installation and nothing more. The slot itself is
  * still a plain `z.union` in `base.zod.ts` — that is what keeps its option array by
  * reference, and it is untouched by the discrimination.
+ *
+ * ## Why every category union's TYPE is named (objectui#11573)
+ *
+ * `tsc` prints an inferred type in full wherever a declaration uses it, and it
+ * refuses to print one past its serialization ceiling with TS7056 ("The
+ * inferred type of this node exceeds the maximum length the compiler will
+ * serialize"); `@object-ui/types` then emits no declarations at all, and every
+ * consumer of `./zod` fails with TS7016. This declaration lists the members
+ * below, so printed inline it is the SUM of every category's print — the
+ * `Spec Main Shape Gate` caught it crossing the ceiling, and single arms were
+ * named one TS7056 at a time to stay under it (`AppSchemaRendererNodeSchemaType`,
+ * `PageKindNodeSchemaType`, `ReportNodeZodType`, `RecordLineItemsBlockSchemaType`)
+ * until objectui#11573 measured what was left: under one percent of the ceiling.
+ *
+ * So every category union listed here has a NAMED type: an exported interface
+ * in its own module that extends the union's inferred type and adds no member
+ * (`LayoutZodType`, `PublicBlockComponentZodType` and their siblings). An
+ * interface is printed by name, so each union's body is printed once, in its
+ * own module's declaration, and this declaration prints a reference to it. The
+ * TYPES are unchanged: the value is the union itself, and `z.input` / `z.output`
+ * read the union's own internals. Only the printed `.d.ts` text moved.
+ *
+ * ⚠️ A member added below is printed inline unless its type is named the same
+ * way. `__tests__/any-component-emit-headroom-11573.test.ts` reads this
+ * declaration's size with the compiler's own counter, fails when it crosses its
+ * stated margin below the ceiling, and lists every member as named or inline,
+ * so a new member turns it red until it is classified there.
  */
 export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion('type', [
   AppComponentSchema,
+  AppSchemaRendererNodeSchema,
   LayoutSchema,
+  // objectui#11440 — the spec page kinds `record` / `home` / `utility`. An arm
+  // of its own rather than a member of `LayoutSchema`, whose enum-keyed arms are
+  // the two html-tag families that `@object-ui/core`'s html-tier roster pin
+  // (`html-tier-intrinsics.test.ts`) finds by that shape.
+  PageKindNodeSchema,
   FormComponentSchema,
   DataDisplaySchema,
   FeedbackSchema,
@@ -536,8 +639,10 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   ReportUnionSchema,
   ViewComponentSchema,
   AIComponentSchema,
+  DesignerUnionSchema,
   PublicBlockComponentSchema,
   CloudPlanStatusSchema,
+  CloudWorkspaceTimezoneNoticeSchema,
 ], {
   // Zod's default message for a missed discriminator spells out EVERY accepted
   // literal — measured, 1,462 chars naming all 107. That is the "print every
@@ -550,7 +655,11 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   // schema, so it also rewrote this union's `invalid_type` and a non-object root
   // lost "expected object, received number". `undefined` declines to the locale.
   error: (issue) => (issue.code === 'invalid_union' ? 'Invalid input' : undefined),
-}));
+  // objectui#11223: a component nested in a props bag — at the positions
+  // `@objectstack/spec`'s own page walk descends — is judged by this same union,
+  // at its real path. `./nested-component-walk.ts` carries the why and the how;
+  // the strict face re-points this check at its own twin of the union.
+}).check(nestedComponentJudgment((): z.ZodType => AnyComponentSchema)));
 
 /**
  * Validate a schema against the AnyComponentSchema
@@ -580,7 +689,12 @@ export function validateSchema(schema: unknown) {
 
 /**
  * Safely validate a schema without throwing errors
- * 
+ *
+ * Every node is judged by its own component schema at every depth: in a
+ * node-level child slot (objectui#8344), and in a props-bag child list at the
+ * positions `@objectstack/spec`'s page walk descends (objectui#11223), each
+ * issue reported at the nested node's real path.
+ *
  * @param schema - The schema to validate
  * @returns Object with success boolean and either data or error
  * 

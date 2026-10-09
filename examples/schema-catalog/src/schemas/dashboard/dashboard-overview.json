@@ -4,21 +4,23 @@
   "children": [
     {
       "type": "flex",
-      "align": "center",
-      "justify": "between",
-      "children": [
-        {
-          "type": "text",
-          "content": "Dashboard",
-          "className": "text-3xl font-bold tracking-tight"
-        },
-        {
-          "type": "button",
-          "label": "Download Report",
-          "variant": "outline",
-          "size": "sm"
-        }
-      ]
+      "properties": {
+        "align": "center",
+        "justify": "between",
+        "children": [
+          {
+            "type": "text",
+            "content": "Dashboard",
+            "className": "text-3xl font-bold tracking-tight"
+          },
+          {
+            "type": "button",
+            "label": "Download Report",
+            "variant": "outline",
+            "size": "sm"
+          }
+        ]
+      }
     },
     {
       "type": "grid",
@@ -131,15 +133,17 @@
                 },
                 {
                   "type": "flex",
-                  "align": "center",
-                  "justify": "center",
-                  "className": "h-[300px] text-muted-foreground",
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "Chart area - connect with plugin-charts"
-                    }
-                  ]
+                  "properties": {
+                    "align": "center",
+                    "justify": "center",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Chart area - connect with plugin-charts"
+                      }
+                    ]
+                  },
+                  "className": "h-[300px] text-muted-foreground"
                 }
               ]
             }
@@ -164,35 +168,37 @@
                   "children": [
                     {
                       "type": "flex",
-                      "align": "center",
-                      "children": [
-                        {
-                          "type": "avatar",
-                          "fallback": "OM",
-                          "className": "h-9 w-9"
-                        },
-                        {
-                          "type": "stack",
-                          "gap": 1,
-                          "children": [
-                            {
-                              "type": "text",
-                              "content": "Olivia Martin",
-                              "className": "text-sm font-medium"
-                            },
-                            {
-                              "type": "text",
-                              "content": "olivia.martin@email.com",
-                              "className": "text-xs text-muted-foreground"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "text",
-                          "content": "+$1,999.00",
-                          "className": "ml-auto font-medium"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "avatar",
+                            "fallback": "OM",
+                            "className": "h-9 w-9"
+                          },
+                          {
+                            "type": "stack",
+                            "gap": 1,
+                            "children": [
+                              {
+                                "type": "text",
+                                "content": "Olivia Martin",
+                                "className": "text-sm font-medium"
+                              },
+                              {
+                                "type": "text",
+                                "content": "olivia.martin@email.com",
+                                "className": "text-xs text-muted-foreground"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "text",
+                            "content": "+$1,999.00",
+                            "className": "ml-auto font-medium"
+                          }
+                        ]
+                      }
                     }
                   ]
                 }

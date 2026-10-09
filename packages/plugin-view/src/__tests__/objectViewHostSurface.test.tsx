@@ -323,8 +323,9 @@ describe('the fence reads the named view first for every protocol member it rela
     const offProtocol = namedViewReadsIn(regionSlice()).filter((k) => !protocol.includes(k));
     expect(offProtocol).toEqual([]);
     // Control on the same instrument: the fence DOES relay non-protocol keys —
-    // off the host entry and the node only (`allowExport` is objectui's own,
-    // ruled on objectui#7924) — so "none off the named view" is a reading.
+    // off the node only (`allowExport` is objectui's own, ruled on
+    // objectui#7924; objectui#11013 dropped its host-entry read) — so "none
+    // off the named view" is a reading.
     const rungs = namedViewRungs();
     expect(rungs).toHaveProperty('allowExport', false);
     expect(protocol).not.toContain('allowExport');
@@ -349,10 +350,14 @@ describe('the fence reads the named view first for every protocol member it rela
 describe("the registered renderer cannot reach the delegation branch — the ruling's basis (objectui#5097)", () => {
   const registered = ComponentRegistry.get('object-view') as React.FC<{ schema: unknown }>;
 
-  it('is registered, and the `view` alias is the same renderer', () => {
+  it('is registered, under one tag only', () => {
     expect(registered).toBeTypeOf('function');
-    // One renderer under two tags is two chances to disagree with itself.
-    expect(ComponentRegistry.get('view')).toBe(registered);
+    // One renderer under two tags was two chances to disagree with itself, so
+    // this row used to pin the `view` alias to it. objectui#10859 batch 8
+    // retired the alias (`objectui validate` refused it at `type`, and nothing
+    // authored it): `object-view` is the one tag that reaches this renderer.
+    expect(ComponentRegistry.get('view')).toBeUndefined();
+    expect(ComponentRegistry.get('plugin-view:view')).toBeUndefined();
   });
 
   it('passes ObjectView no `renderListView`, so the branch never runs', () => {
@@ -433,7 +438,7 @@ const SENTINELS: Record<string, unknown> = {
   collapseAllByDefault: true,
   color: '#112233',
   compactToolbar: true,
-  conditionalFormatting: [{ field: 'stage', operator: 'eq', value: 'won', color: '#ff0000' }],
+  conditionalFormatting: [{ condition: "record.stage == 'won'", style: { color: '#ff0000' } }],
   emptyState: { title: 'Nothing here yet' },
   fieldTextColor: { name: '#0000ff' },
   hiddenFields: ['secret'],

@@ -10,9 +10,10 @@
 import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { cn } from '../../lib/utils';
 import { resolveIcon } from '../action/resolve-icon';
+import { hasDeclaredVisibilityGate } from '../action/visibility-gate';
 import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
-import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, formatDateTime, fromDateTimeInputValue, getSortValue, isImpossibleStoredDay, toDateInputValue, toDateTimeInputValue } from '@object-ui/core';
+import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, hasDeclaredPredicate, formatDateTime, fromDateTimeInputValue, getSortValue, isEmptyValue, isImpossibleStoredDay, toDateInputValue, toDateTimeInputValue } from '@object-ui/core';
 import type { DataTableSchema, TableColumn, TableSortItem, TableColumnType } from '@object-ui/types';
 import type { SortDirection } from '@objectstack/spec/shared';
 import { SchemaRenderer, toRenderableSchema, useCapabilityGate, useRowPredicate, usePredicateScope } from '@object-ui/react';
@@ -43,6 +44,7 @@ import {
   Search,
   Download,
   Edit,
+  Pencil,
   Trash2,
   ChevronLeft,
   ChevronRight,
@@ -84,6 +86,92 @@ import {
 // longer reach this set. Typed as `TableColumnType` so re-adding one is a tsc
 // error rather than a silent re-opening of the undeclared dialect.
 const NUMERIC_EDIT_TYPES = new Set<TableColumnType>(['number', 'currency', 'percent']);
+
+/** One staged cell edit per column key, per page-local row index. */
+type PendingChanges = Map<number, Record<string, any>>;
+
+/** A decimal numeral, as a number `<input>` hands it back — never hex, `Infinity` or blank. */
+const DECIMAL_NUMERAL = /^[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?$/;
+
+/** A number and the decimal string that spells it (`5` and `'5.0'`) are one value. */
+function isSameCellScalar(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a === 'number' && typeof b === 'string') {
+    const s = b.trim();
+    return DECIMAL_NUMERAL.test(s) && Number(s) === a;
+  }
+  if (typeof b === 'number' && typeof a === 'string') return isSameCellScalar(b, a);
+  if (a !== null && b !== null && typeof a === 'object' && typeof b === 'object') {
+    try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+  }
+  return false;
+}
+
+/**
+ * Whether a value an inline editor hands back is the value the row LOADED with
+ * (objectui#11816) — the one question that decides whether a cell is staged as
+ * an edit. Before this, every commit was staged, so clicking into a cell and
+ * out again showed "1 row modified · Save All (1)" for a row nobody changed.
+ *
+ * Each rule answers a round trip the editors measurably make:
+ *
+ * - **The emptiness floor** (`isEmptyValue`, `@object-ui/core`): `null`,
+ *   `undefined`, `''` and `[]` are one blank here. `startEdit` seeds the
+ *   editor with `''` for a cell that loaded `null`, so a text cell left as it
+ *   was hands back `''`, and an emptied multi-select hands back `[]`.
+ * - **A number against its decimal string**: the built-in number editor stores
+ *   the `<input>`'s string, so retyping `5` over a loaded `5` hands back `'5'`.
+ * - **A multi-value set in another order**: toggling an option off and on
+ *   again appends it, so `['a', 'b']` comes back as `['b', 'a']`.
+ * - **Two objects that serialize alike** are the same value.
+ *
+ * ⚠️ The failure direction is asymmetric, as `isSameStoredValue` in
+ * `@object-ui/plugin-form` says of its own rule: "unchanged" about a changed
+ * pair drops the user's edit, "changed" about an equal pair costs one redundant
+ * write. So nothing else is equal — in particular a select's stored code is
+ * never compared with an option LABEL: the table holds no options, and the
+ * option widgets hand back `option.value`, the code the row stores.
+ */
+function isUnchangedCellValue(staged: unknown, loaded: unknown): boolean {
+  if (isEmptyValue(staged) && isEmptyValue(loaded)) return true;
+  if (Array.isArray(staged) && Array.isArray(loaded)) {
+    if (staged.length !== loaded.length) return false;
+    const unmatched = [...loaded];
+    return staged.every((item) => {
+      const at = unmatched.findIndex((other) => isSameCellScalar(item, other));
+      if (at < 0) return false;
+      unmatched.splice(at, 1);
+      return true;
+    });
+  }
+  return isSameCellScalar(staged, loaded);
+}
+
+/**
+ * `prev` with one cell's edit staged — or, when `value` is the loaded value,
+ * with that cell's entry REMOVED, and the row's with it once nothing else is
+ * staged on it (objectui#11816). That is what makes staging a value back to
+ * the loaded one un-mark the row. Returns `prev` itself when nothing changes,
+ * so a no-op commit schedules no state update.
+ */
+function stageCellChange(
+  prev: PendingChanges,
+  rowIndex: number,
+  columnKey: string,
+  value: unknown,
+  loaded: unknown,
+): PendingChanges {
+  const current = prev.get(rowIndex);
+  const unchanged = isUnchangedCellValue(value, loaded);
+  if (unchanged && !(current && columnKey in current)) return prev;
+  const next = new Map(prev);
+  const rowChanges = { ...(current || {}) };
+  if (unchanged) delete rowChanges[columnKey];
+  else rowChanges[columnKey] = value;
+  if (Object.keys(rowChanges).length > 0) next.set(rowIndex, rowChanges);
+  else next.delete(rowIndex);
+  return next;
+}
 
 /**
  * Human label for an object/array cell value (e.g. an expanded reference like
@@ -127,8 +215,15 @@ const TABLE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'table.open': 'Open',
   'table.search': 'Search…',
   'table.modified': '{{count}} row modified',
+  // A count family (objectui#11445): `fallbackT` reads the `_one` / `_other`
+  // row for a numeric `count`, as i18next reads the `en` pack.
+  'table.modified_one': '{{count}} row modified',
+  'table.modified_other': '{{count}} rows modified',
   'table.saveFailed': 'Save failed',
   'table.selected': '{{count}} selected',
+  // objectui#11690 — the selection checkboxes' accessible names.
+  'table.selectAllRows': 'Select all rows',
+  'table.selectRow': 'Select row',
   'table.edit': 'Edit',
   'table.delete': 'Delete',
   'common.actions': 'Actions',
@@ -216,6 +311,7 @@ function evalRowActionVisibility(
   row: any,
   scope: Record<string, unknown>,
   label: string,
+  fields?: unknown,
 ): boolean {
   if (typeof pred === 'boolean') return pred;
   // Not dead, and not the place that decides "was a gate declared?" — the two
@@ -229,6 +325,10 @@ function evalRowActionVisibility(
     scope,
     warnOnError: true,
     label,
+    // Only plugin-grid's row menu passes the object's fields (see
+    // `isCustomRowActionVisible`). This file's own callers pass none, and
+    // `undefined` keeps the row payload verbatim, as before.
+    fields: fields as never,
   });
 }
 
@@ -261,30 +361,48 @@ export function isBuiltinRowActionVisible(
 
 /**
  * Does this schema-driven custom row action render for THIS row? Same
- * single-definition rule as the built-ins above.
+ * single-definition rule as the built-ins above, and the ONE definition for
+ * every row menu: this file's (the related list's data table) and
+ * plugin-grid's `RowActionMenu` (its "⋮" items, its inline primary buttons and
+ * its "⋮" guard), which imports it from the `@object-ui/components` barrel
+ * rather than keeping a twin (objectui#11294).
  *
- * A gate counts as DECLARED by `!= null && !== ''`, never by truthiness
- * (objectui#3758). Truthiness cannot answer the question: `visible: false` is a
- * declared gate that excludes every row, and testing `!action.visible`
- * classified it as *ungated* — so the most explicit way to say "never show this"
- * rendered the item for everyone, and counted toward the "⋮" guard. This is the
- * invariant objectui#3492 established for the selection bar (plugin-grid's
- * `hasVisibilityGate`), and the same `!= null` posture the built-in `visibleWhen`
- * gate above has always had. The boolean then decides in
- * {@link evalRowActionVisibility}, which short-circuits it instead of handing it
- * to the engine.
+ * Whether a gate is DECLARED at all is asked with `hasDeclaredVisibilityGate`,
+ * the action family's one definition (objectui#3812): the related list's
+ * toolbar, `action:*`, `DeclaredActionsBar` and the rest ask it too, so an
+ * action cannot show in a list's header and be missing from its rows.
  *
- * `''` is grouped with `null` deliberately: an empty predicate is nothing to
- * evaluate, so it must not hide the item from everyone either.
+ * - `visible: false` is a declared gate that excludes every row. Truthiness
+ *   cannot answer the question: testing `!action.visible` read it as ungated
+ *   and rendered the item for everyone (objectui#3758). The boolean then
+ *   decides in {@link evalRowActionVisibility}, which short-circuits it instead
+ *   of handing it to the engine.
+ * - A blank predicate is no gate, so the action shows: `''`, a whitespace-only
+ *   string, and an envelope whose `source` is blank. The blank is still
+ *   reported (ADR-0137 D4) through the family's one `[blank]` report, once per
+ *   blank spelling rather than once per row. This test used to be
+ *   `pred == null || pred === ''`, so a whitespace-only `visible` counted as
+ *   declared, was evaluated, and failed closed: the action showed in a related
+ *   list's toolbar and was missing from its rows (objectui#11294).
+ * - A value that is not a predicate at all (`0`, `{}`, an array, an
+ *   `ast`-only envelope) IS a declared gate, one that cannot be evaluated
+ *   (objectui#11358): the family's definition answers "declared", the row fold
+ *   faults on it and fails closed, so the action is hidden and the fault is
+ *   reported — as on every other member of the family.
+ *
+ * `fields` is the object's field definitions, for a caller that has them:
+ * plugin-grid passes them so a relation compares as its stored foreign key
+ * (see `evalRowPredicate`). This file's own callers pass none.
  */
 export function isCustomRowActionVisible(
   action: { name?: string; visible?: unknown } | undefined,
   row: any,
   scope: Record<string, unknown>,
+  fields?: unknown,
 ): boolean {
   const pred = action?.visible;
-  if (pred == null || pred === '') return true;
-  return evalRowActionVisibility(pred, row, scope, action?.name ?? 'row-action');
+  if (!hasDeclaredVisibilityGate(pred)) return true;
+  return evalRowActionVisibility(pred, row, scope, action?.name ?? 'row-action', fields);
 }
 
 /** What the row overflow menu will actually render for ONE row. */
@@ -369,9 +487,19 @@ export const DataTableRowActionItem: React.FC<{
   row: any;
   onActionDef?: (action: RowActionDef, row: any) => void | Promise<void>;
 }> = ({ action, row, onActionDef }) => {
-  // Evaluate on the canonical CEL engine (issue #1584): row bound bare + as
-  // `record.*`, ambient `features`/`user` scope merged. `visible` fails CLOSED
-  // (hidden + warn); `disabled` fails soft (not disabled).
+  // Evaluate on the canonical CEL engine (issue #1584): row bound as
+  // `record.*`, ambient `features`/`current_user` scope merged. Both keys fail
+  // CLOSED, each in its own direction: a `visible` that faults hides the item,
+  // a `disabled` that faults DISABLES it, and both warn.
+  //
+  // `disabled` used to fail soft (not disabled), so `disabled:
+  // !current_user.can(…)` left the item pressable until the permissions
+  // payload arrived (objectui#11242 — Rider 1 of objectui#4421). Same
+  // mechanism as `page:header` (objectui#11212) and plugin-grid's
+  // `RowActionMenuItem`: the key's fail direction is the evaluator's
+  // `fallback`, per key rather than a `can()` special case, and since that
+  // fallback also answers an ABSENT predicate the verdict only counts where a
+  // gate is DECLARED. The built-in `disabledWhen` below stays fail-soft.
   //
   // `visible` goes through the shared `isCustomRowActionVisible` — the SAME
   // function the row-level guard uses to decide whether this row gets a "⋮"
@@ -379,7 +507,8 @@ export const DataTableRowActionItem: React.FC<{
   // survived (objectui#3562).
   const scope = usePredicateScope();
   const isVisible = useMemo(() => isCustomRowActionVisible(action, row, scope), [action, row, scope]);
-  const isDisabled = useRowPredicate(action.disabled, row, { fallback: false, warnOnError: true, label: `${action.name}:disabled` });
+  const disabledVerdict = useRowPredicate(action.disabled, row, { fallback: true, warnOnError: true, label: `${action.name}:disabled` });
+  const isDisabled = hasDeclaredPredicate(action.disabled) && disabledVerdict;
   if (!isVisible) return null;
   const ActionIcon = resolveIcon(action.icon);
   return (
@@ -679,6 +808,147 @@ function isMaskedColumnKey(columns: readonly TableColumn[], accessorKey: string)
 }
 
 /**
+ * A right-pinned column: its sticky utilities arrive on `col.className` (the
+ * auto-pinned row-actions column, and an author's `pinned: 'right'`, both
+ * from `ObjectGrid`).
+ */
+function isPinnedRightColumn(col: { className?: unknown }): boolean {
+  return typeof col.className === 'string'
+    && /\bsticky\b/.test(col.className)
+    && /\bright-0\b/.test(col.className);
+}
+
+/**
+ * The attribute an auto-sized column's header label and display cells carry,
+ * naming the column (its `accessorKey`), so the auto-width estimate can read
+ * back what they drew (objectui#11682). The two JSX sites spell it literally;
+ * the read below selects by this constant.
+ */
+const AUTO_WIDTH_ATTR = 'data-auto-width-key';
+
+/**
+ * The column an auto-width target names: only one the estimate sizes (no
+ * explicit `width`, not `fitContent`), and never a masked one, whose values
+ * the estimate does not read (objectui#10657).
+ */
+function autoWidthKey(col: TableColumn): string | undefined {
+  return !col.width && !col.fitContent && !col.masked ? col.accessorKey : undefined;
+}
+
+/**
+ * What an auto-sized column's header and cells DREW, read back from the
+ * rendered table (objectui#11682). Keyed by `accessorKey`.
+ */
+type DrawnColumnSizes = {
+  /** Longest drawn cell text, in characters: the estimate's input where nothing is laid out. */
+  chars: Record<string, number>;
+  /**
+   * Width, in px, that renders the column's widest drawn cell and its header
+   * whole, padding and borders included; `null` where nothing is laid out
+   * (no layout engine, or a table inside a hidden panel).
+   */
+  px: Record<string, number> | null;
+};
+
+/**
+ * The elements the drawn-size read measures: this table's own header labels
+ * and display cells, never a nested table's (each match is a direct child of
+ * one of THIS table's header or body cells).
+ */
+function drawnSizeTargets(
+  headerRow: HTMLTableRowElement | null,
+  body: HTMLTableSectionElement | null,
+): { heads: HTMLElement[]; cells: HTMLElement[] } {
+  return {
+    heads: headerRow ? Array.from(headerRow.querySelectorAll<HTMLElement>(`:scope > th > div > [${AUTO_WIDTH_ATTR}]`)) : [],
+    cells: body ? Array.from(body.querySelectorAll<HTMLElement>(`:scope > tr > td > [${AUTO_WIDTH_ATTR}]`)) : [],
+  };
+}
+
+/**
+ * Everything a drawn-size read depends on: each target's column, its text,
+ * and the classes of the cell around it (they set its font and padding: the
+ * row density, a staged edit's weight). An equal signature means an equal
+ * read, so the measurement is skipped.
+ */
+function drawnSizeSignature(targets: readonly HTMLElement[]): string {
+  const firstBoxClass = new Map<string, string>();
+  const parts: string[] = [];
+  for (const el of targets) {
+    const key = el.getAttribute(AUTO_WIDTH_ATTR) ?? '';
+    const box = el.closest('th, td');
+    const boxClass = `${box?.tagName ?? ''} ${box?.className ?? ''}`;
+    const slot = `${box?.tagName ?? ''}:${key}`;
+    if (!firstBoxClass.has(slot)) firstBoxClass.set(slot, boxClass);
+    parts.push(key, el.textContent ?? '', firstBoxClass.get(slot) === boxClass ? '' : boxClass);
+  }
+  return JSON.stringify([...firstBoxClass.entries(), ...parts]);
+}
+
+/**
+ * The box a target is drawn in, and the element that spans that box's content
+ * width: a display cell is itself `w-full` in its `td`; a header label sits
+ * in the `th`'s full-width row (`th > div > label`).
+ */
+function drawnSizeBox(el: HTMLElement): { box: Element | null; span: Element | null } {
+  const box = el.closest('th, td');
+  return { box, span: box?.tagName === 'TH' ? el.parentElement : el };
+}
+
+/**
+ * Read what the targets drew. The text lengths are read always; the widths
+ * only where the page is laid out.
+ *
+ * A column's width is its widest target's NATURAL width (the content on one
+ * line, at `max-content`) plus the space its cell keeps around the content.
+ * That space is MEASURED (the cell's width less its content box's), never
+ * read off the computed padding: under the table's collapsed borders a cell
+ * beside a frozen column's 2px rule carries half of it, which no computed
+ * style of its own reports. One layout reads the boxes, one reads the probe,
+ * and each target's own inline width is restored at once, inside the same
+ * task, so no frame is ever painted with the probe in place. The targets
+ * carry no React-managed `style`, so the probe and its removal are invisible
+ * to React.
+ */
+function measureDrawnColumnSizes(heads: readonly HTMLElement[], cells: readonly HTMLElement[]): DrawnColumnSizes {
+  const chars: Record<string, number> = {};
+  for (const el of cells) {
+    const key = el.getAttribute(AUTO_WIDTH_ATTR) ?? '';
+    const len = (el.textContent ?? '').length;
+    if (!(key in chars) || len > chars[key]) chars[key] = len;
+  }
+  const targets = [...heads, ...cells];
+  const insets = targets.map((el) => {
+    const { box, span } = drawnSizeBox(el);
+    if (!box || !span) return 0;
+    const inset = box.getBoundingClientRect().width - span.getBoundingClientRect().width;
+    return Number.isFinite(inset) && inset > 0 ? inset : 0;
+  });
+  const saved = targets.map((el) => el.style.width);
+  for (const el of targets) el.style.width = 'max-content';
+  const natural = targets.map((el) => el.getBoundingClientRect().width);
+  targets.forEach((el, i) => { el.style.width = saved[i]; });
+  if (!natural.some((w) => Number.isFinite(w) && w > 0)) return { chars, px: null };
+  const px: Record<string, number> = {};
+  targets.forEach((el, i) => {
+    const key = el.getAttribute(AUTO_WIDTH_ATTR) ?? '';
+    const need = Math.ceil((Number.isFinite(natural[i]) ? natural[i] : 0) + insets[i]);
+    if (!(key in px) || need > px[key]) px[key] = need;
+  });
+  return { chars, px };
+}
+
+function sameNumberRecord(a: Record<string, number> | null, b: Record<string, number> | null): boolean {
+  if (a === null || b === null) return a === b;
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
+}
+
+function sameDrawnSizes(a: DrawnColumnSizes, b: DrawnColumnSizes): boolean {
+  return sameNumberRecord(a.chars, b.chars) && sameNumberRecord(a.px, b.px);
+}
+
+/**
  * Enterprise-level data table component with Airtable-like features.
  *
  * Provides comprehensive table functionality including:
@@ -745,7 +1015,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     reorderableColumns = true,
     editable = false,
     singleClickEdit = false,
-    selectionStyle = 'always',
+    keyboardNavigation = false,
     rowClassName,
     rowStyle,
     className,
@@ -931,6 +1201,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     }));
   }, [rawColumns]);
 
+  // What each auto-sized column's cells DREW (objectui#11682), keyed by
+  // `accessorKey` and read back from the rendered table by the layout effect
+  // that drives `readDrawnSizesRef` below. `null` until the table has drawn.
+  const [drawnSizes, setDrawnSizes] = useState<DrawnColumnSizes | null>(null);
+
   // Auto-size columns: estimate width from header and data content for columns without explicit widths
   const autoSizedWidths = useMemo(() => {
     const widths: Record<string, number> = {};
@@ -951,24 +1226,53 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       // estimating them from an absent string value pins them to the 80px
       // floor and clips inline buttons. Leave them out of the width map.
       if (col.fitContent) continue;
+      // Every column but a masked one is sized from WHAT ITS CELLS DREW
+      // (objectui#11682): a currency cell stores `200000` and draws
+      // `200,000.00`, a progress cell stores `45` and draws a bar and `45%`, a
+      // lookup stores an id and draws a name, a date stores an ISO string and
+      // draws `Feb 3, 2027`. Sized from the stored value, the first two were
+      // too narrow (the cell truncated) and the last two too wide (the sum
+      // pushed the scrolling columns under the right-pinned actions column).
+      // The drawn content is whatever the column's own `cell` renderer, or
+      // this table's `formatCellValue`, put in the cell — read back below, so
+      // no formatter is repeated here and no column key is needed to reach it.
+      //
+      // Where the page is laid out, the read is the width the widest drawn
+      // cell (and the header) needs to render whole, padding included.
+      const drawnPx = col.masked ? undefined : drawnSizes?.px?.[col.accessorKey];
+      if (drawnPx !== undefined) {
+        widths[col.accessorKey] = Math.min(400, Math.max(80, drawnPx));
+        continue;
+      }
       const headerLen = (col.header || '').length;
       let maxLen = headerLen;
       // A MASKED column never reads its values here (objectui#10657). Sized
       // from them, its width grew with the credential's length. Its cells draw
       // the producer's mask, which does not depend on the value, so the header
       // alone sizes it, with the same floor as every other column.
-      // Sample up to 50 rows for content width estimation
-      const sampleRows = col.masked ? [] : data.slice(0, 50);
-      for (const row of sampleRows) {
-        const val = row[col.accessorKey];
-        const len = val != null ? String(val).length : 0;
-        if (len > maxLen) maxLen = len;
+      //
+      // Where nothing is laid out (no layout engine, or a table drawn inside a
+      // hidden panel) the drawn TEXT is still there, and its length is the
+      // estimate's input. Before the table has drawn at all (the first render
+      // pass, which the layout effect re-sizes before paint, or a render with
+      // no effects) the stored value is the only text there is.
+      const drawnLen = col.masked ? undefined : drawnSizes?.chars[col.accessorKey];
+      if (drawnLen !== undefined) {
+        if (drawnLen > maxLen) maxLen = drawnLen;
+      } else {
+        // Sample up to 50 rows for content width estimation
+        const sampleRows = col.masked ? [] : data.slice(0, 50);
+        for (const row of sampleRows) {
+          const val = row[col.accessorKey];
+          const len = val != null ? String(val).length : 0;
+          if (len > maxLen) maxLen = len;
+        }
       }
       // Estimate pixel width: ~8px per character + 48px padding, min 80, max 400
       widths[col.accessorKey] = Math.min(400, Math.max(80, maxLen * 8 + 48));
     }
     return widths;
-  }, [rawColumns, data]);
+  }, [rawColumns, data, drawnSizes]);
 
   // State management
   const [searchQuery, setSearchQuery] = useState('');
@@ -1040,6 +1344,41 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       .forEach((cell) => observer.observe(cell));
     return () => observer.disconnect();
   }, [stickyLeadingCount, columns]);
+
+  // Sticky-right offsets for the trailing pinned cells (objectui#11682), the
+  // mirror of the lefts above. Every right-pinned column carries `right-0`, so
+  // with two of them (an author's `pinned: 'right'` beside the auto-pinned
+  // row-actions column) both stuck to the same edge and the outer one drew
+  // over the inner one's content. Pin each at the cumulative measured width of
+  // the pinned header cells AFTER it instead; the outermost stays at
+  // `right-0`, so a table with one right-pinned column renders as before.
+  const [measuredStickyRights, setMeasuredStickyRights] = useState<Record<string, number> | null>(null);
+  useLayoutEffect(() => {
+    const headerRow = headerRowRef.current;
+    const leading = (selectable ? 1 : 0) + (showRowNumbers ? 1 : 0);
+    const pinned = columns
+      .map((col, index) => ({ key: col.accessorKey, index, col }))
+      .filter(({ col }) => isPinnedRightColumn(col));
+    const cells = headerRow ? pinned.map(({ index }) => headerRow.children[leading + index] as HTMLElement | undefined) : [];
+    if (pinned.length < 2 || cells.some((cell) => !cell)) {
+      setMeasuredStickyRights(null);
+      return;
+    }
+    const measure = () => {
+      const rights: Record<string, number> = {};
+      let acc = 0;
+      for (let j = pinned.length - 1; j >= 0; j--) {
+        rights[pinned[j].key] = acc;
+        acc += (cells[j] as HTMLElement).getBoundingClientRect().width;
+      }
+      setMeasuredStickyRights((prev) => (sameNumberRecord(prev, rights) ? prev : rights));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    cells.forEach((cell) => observer.observe(cell as HTMLElement));
+    return () => observer.disconnect();
+  }, [selectable, showRowNumbers, columns]);
   const [draggedColumn, setDraggedColumn] = useState<number | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; columnKey: string } | null>(null);
@@ -1055,7 +1394,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const editingCellRef = useRef<{ rowIndex: number; columnKey: string } | null>(null);
   const [editValue, setEditValue] = useState<any>('');
   // Track pending changes for multi-cell editing: rowIndex -> { columnKey -> newValue }
-  const [pendingChanges, setPendingChanges] = useState<Map<number, Record<string, any>>>(new Map());
+  const [pendingChanges, setPendingChanges] = useState<PendingChanges>(new Map());
 
   // objectui#7188 — the row merged with its STAGED edits, handed to the host
   // editor as `pendingRow` next to the persisted `row`. Cached per row object
@@ -1670,12 +2009,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     // via `explicitValue` — their `setEditValue` hasn't flushed to state yet.
     const valueToStage = explicitValue !== undefined ? explicitValue : editValue;
 
-    // Update pending changes
-    const newPendingChanges = new Map(pendingChanges);
-    const rowChanges = newPendingChanges.get(rowIndex) || {};
-    rowChanges[columnKey] = valueToStage;
-    newPendingChanges.set(rowIndex, rowChanges);
-    setPendingChanges(newPendingChanges);
+    // Update pending changes — or drop this cell's entry when the committed
+    // value is the one the row loaded with (objectui#11816).
+    setPendingChanges(stageCellChange(pendingChanges, rowIndex, columnKey, valueToStage, row?.[columnKey]));
 
     // Call the legacy onCellChange callback if provided
     if (schema.onCellChange) {
@@ -1741,14 +2077,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const stageEdit = (value: any) => {
     if (!editingCell) return;
     const { rowIndex, columnKey } = editingCell;
+    // The row the edit is addressed to, the way `saveEdit` addresses it.
+    const row = sortedData[manualPagination ? rowIndex : (effectivePage - 1) * pageSize + rowIndex];
     setEditValue(value);
-    setPendingChanges((prev) => {
-      const next = new Map(prev);
-      const rowChanges = { ...(next.get(rowIndex) || {}) };
-      rowChanges[columnKey] = value;
-      next.set(rowIndex, rowChanges);
-      return next;
-    });
+    setPendingChanges((prev) => stageCellChange(prev, rowIndex, columnKey, value, row?.[columnKey]));
   };
 
   // Commit the in-flight edit when the input loses focus (e.g. the user clicks
@@ -1862,7 +2194,114 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     setSaveError(null);
   };
 
-  const handleCellKeyDown = (e: React.KeyboardEvent, rowIndex: number, columnKey: string) => {
+  // ── Keyboard navigation (objectui#11068) ──────────────────────────────────
+  //
+  // Arrow-key cell navigation on the WAI-ARIA grid pattern, behind
+  // `keyboardNavigation`. Off — the default, and every host but `ObjectGrid`
+  // leaves it off — nothing below changes the table: every data cell is its own
+  // Tab stop (`tabIndex={0}`), the markup carries no grid role, and the arrows
+  // do what the browser does with them.
+  //
+  // On, the table is a `grid` and its data cells are a ROVING tab stop: exactly
+  // one of them is in the Tab sequence (`tabIndex` 0, the rest -1), so Tab
+  // reaches the cells once instead of once per cell. That cell is the one that
+  // last held focus — a click, a Tab, an arrow — and the first cell of the first
+  // row until one has. Its position is clamped to the page on every render, so a
+  // shorter page, a filter or a removed column never leaves the grid with NO
+  // cell in the Tab sequence.
+  //
+  // Only the data cells rove. A widget a cell renders (a record link, a row's
+  // action menu, a selection checkbox) keeps its own Tab stop: it is the cell
+  // renderer's markup, not this table's, and taking it out of the sequence
+  // would leave it with no keyboard path at all.
+  const tableRef = useRef<HTMLTableElement | null>(null);
+  const [rovingCell, setRovingCell] = useState<{ rowIndex: number; colIndex: number }>({ rowIndex: 0, colIndex: 0 });
+  const rovingRowIndex = Math.max(0, Math.min(rovingCell.rowIndex, paginatedData.length - 1));
+  const rovingColIndex = Math.max(0, Math.min(rovingCell.colIndex, columns.length - 1));
+  // A cell whose edit was just ended from the keyboard, to be focused once the
+  // editor has unmounted (the effect below). A ref, not state: it is consumed
+  // by the commit that follows, and must not cause a render of its own.
+  const pendingCellFocusRef = useRef<{ rowIndex: number; colIndex: number } | null>(null);
+
+  const rove = (rowIndex: number, colIndex: number) => {
+    setRovingCell((prev) =>
+      prev.rowIndex === rowIndex && prev.colIndex === colIndex ? prev : { rowIndex, colIndex });
+  };
+
+  const focusGridCell = (rowIndex: number, colIndex: number) => {
+    const cell = tableRef.current?.querySelector<HTMLElement>(`[data-grid-cell="${rowIndex}:${colIndex}"]`);
+    if (!cell) return;
+    rove(rowIndex, colIndex);
+    cell.focus();
+  };
+
+  // The edit's editor is gone once this runs, so focus has nowhere to land but
+  // `<body>` — hand it back to the cell, where the arrows carry on. Only an edit
+  // ended by a key that bubbled through its cell arms this (see
+  // `handleCellKeyDown`): one committed by a pointer press elsewhere leaves
+  // focus where that press put it.
+  useEffect(() => {
+    const target = pendingCellFocusRef.current;
+    if (!target || editingCell) return;
+    pendingCellFocusRef.current = null;
+    if (!keyboardNavigation) return;
+    focusGridCell(target.rowIndex, target.colIndex);
+  });
+
+  /**
+   * The cell an arrow / Home / End press moves to, or `null` when the key is
+   * not a navigation key. At an edge the answer is the cell itself: the key is
+   * still the grid's (the page must not scroll under a focused cell), and focus
+   * stays put, as the pattern asks.
+   */
+  const navigationTarget = (
+    e: React.KeyboardEvent,
+    rowIndex: number,
+    colIndex: number,
+  ): { rowIndex: number; colIndex: number } | null => {
+    // Shift / Alt / Meta combinations belong to the browser and the OS (text
+    // selection, history, app shortcuts); Ctrl only qualifies Home / End.
+    if (e.shiftKey || e.altKey || e.metaKey) return null;
+    const lastRow = paginatedData.length - 1;
+    const lastCol = columns.length - 1;
+    if (e.ctrlKey) {
+      if (e.key === 'Home') return { rowIndex: 0, colIndex: 0 };
+      if (e.key === 'End') return { rowIndex: lastRow, colIndex: lastCol };
+      return null;
+    }
+    switch (e.key) {
+      case 'ArrowUp': return { rowIndex: Math.max(0, rowIndex - 1), colIndex };
+      case 'ArrowDown': return { rowIndex: Math.min(lastRow, rowIndex + 1), colIndex };
+      case 'ArrowLeft': return { rowIndex, colIndex: Math.max(0, colIndex - 1) };
+      case 'ArrowRight': return { rowIndex, colIndex: Math.min(lastCol, colIndex + 1) };
+      case 'Home': return { rowIndex, colIndex: 0 };
+      case 'End': return { rowIndex, colIndex: lastCol };
+      default: return null;
+    }
+  };
+
+  const handleCellKeyDown = (e: React.KeyboardEvent, rowIndex: number, colIndex: number, columnKey: string) => {
+    if (keyboardNavigation) {
+      // An edit in this cell that the key now bubbling through it just ended
+      // (Enter committed it, Escape cancelled it): `editingCellRef` is cleared
+      // synchronously by the editor's own handler, while `editingCell` is still
+      // this render's value. Focus goes back to the cell after the commit.
+      if (editingCell && editingCellRef.current === null && (e.key === 'Enter' || e.key === 'Escape')) {
+        pendingCellFocusRef.current = { rowIndex, colIndex };
+        return;
+      }
+      // The cell itself, not a widget inside it: a link, a picker or an editor
+      // keeps the keys it handles.
+      if (!editingCell && e.target === e.currentTarget) {
+        const next = navigationTarget(e, rowIndex, colIndex);
+        if (next) {
+          e.preventDefault();
+          focusGridCell(next.rowIndex, next.colIndex);
+          return;
+        }
+      }
+    }
+
     // Copy cell value with Ctrl+C / Cmd+C
     if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !editingCell) {
       e.preventDefault();
@@ -1958,6 +2397,70 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, [editingCell]);
 
+  // objectui#11682 — read back what the auto-sized columns DREW, for the
+  // width estimate (`autoSizedWidths`). Each such column's header label and
+  // display cells carry `AUTO_WIDTH_ATTR`; what they hold is the formatted
+  // content the column's own renderer produced (the display locale's grouping
+  // and currency, a percent's conversion and its bar, a lookup's resolved
+  // name, a select's badge), so the estimate never re-derives it.
+  //
+  // Read in a layout effect after every commit, so the first frame the user
+  // sees is already sized from the drawn content, and measured only when what
+  // was drawn changed (`drawnSizeSignature`): a commit that draws the same
+  // text in the same cells costs two queries and no layout. Read again when a
+  // cell's content changes AFTER this table rendered (a lookup cell resolves
+  // its name asynchronously, inside its own component), through a
+  // MutationObserver on the body; when the table changes size (a table shown
+  // from a hidden panel is laid out for the first time); and once the fonts
+  // have loaded (a width read in a fallback font is not the drawn one). Text
+  // and nodes only are observed: the probe and the style writes a re-size
+  // makes are attribute changes, and the state is replaced only when a size
+  // moved, so a read can never feed itself.
+  //
+  // Skipped while a cell is edited: its display element is unmounted for the
+  // editor, and a read then would size its column without it.
+  const tableBodyRef = useRef<HTMLTableSectionElement | null>(null);
+  const drawnSignatureRef = useRef<string | null>(null);
+  // The last read, mirrored so an equal read writes no state at all (and so
+  // costs this table no commit).
+  const drawnSizesRef = useRef<DrawnColumnSizes | null>(null);
+  const readDrawnSizesRef = useRef<(force?: boolean) => void>(() => {});
+  useLayoutEffect(() => {
+    readDrawnSizesRef.current = (force = false) => {
+      const body = tableBodyRef.current;
+      if (!body || editingCellRef.current) return;
+      const { heads, cells } = drawnSizeTargets(headerRowRef.current, body);
+      const signature = drawnSizeSignature([...heads, ...cells]);
+      if (!force && signature === drawnSignatureRef.current) return;
+      const next = measureDrawnColumnSizes(heads, cells);
+      // A read with nothing laid out is not remembered, so the next commit or
+      // resize reads again instead of keeping the text-only estimate.
+      drawnSignatureRef.current = next.px ? signature : null;
+      if (drawnSizesRef.current && sameDrawnSizes(drawnSizesRef.current, next)) return;
+      drawnSizesRef.current = next;
+      setDrawnSizes(next);
+    };
+    readDrawnSizesRef.current();
+  });
+  useEffect(() => {
+    const body = tableBodyRef.current;
+    if (!body) return;
+    const read = () => readDrawnSizesRef.current();
+    const mutations = typeof MutationObserver === 'undefined' ? null : new MutationObserver(read);
+    mutations?.observe(body, { subtree: true, childList: true, characterData: true });
+    const table = tableRef.current;
+    const resizes = typeof ResizeObserver === 'undefined' || !table ? null : new ResizeObserver(read);
+    if (table) resizes?.observe(table);
+    let live = true;
+    const fonts = typeof document === 'undefined' ? undefined : document.fonts;
+    fonts?.ready?.then(() => { if (live) readDrawnSizesRef.current(true); });
+    return () => {
+      live = false;
+      mutations?.disconnect();
+      resizes?.disconnect();
+    };
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -1980,6 +2483,21 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   }) && !allPageRowsSelected;
 
   const hasPendingChanges = pendingChanges.size > 0;
+  // objectui#11816 — the trailing `rowActions` column is an EDIT column, not an
+  // actions column, when nothing can put a row menu in it: the table is
+  // editable with a save path, and no menu handler is supplied. Its cells then
+  // only ever hold a modified row's cancel/save pair. That is the shape
+  // `ObjectGrid` builds — its row menu lives in a host column of its own,
+  // already headed "Actions" — so titling this one "Actions" as well drew two
+  // columns of that name side by side. It is headed by the pencil the
+  // toolbar's "Edit inline" toggle carries, named `table.edit` for assistive
+  // tech. The same three menu inputs `DataTableRowActionsMenu` reads.
+  const rowMenuDeclared = !!(
+    schema.onRowEdit ||
+    schema.onRowDelete ||
+    (Array.isArray(schema.rowActionDefs) && schema.rowActionDefs.length > 0 && schema.onRowActionDef)
+  );
+  const rowActionsColumnIsEditOnly = editable && !!(schema.onRowSave || schema.onBatchSave) && !rowMenuDeclared;
   const showToolbar = searchEnabled || exportable || (showSelectionCount && selectable && selectedRowIds.size > 0) || hasPendingChanges;
 
   return (
@@ -2080,7 +2598,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
             wrapper must NOT create a second, height-unbounded scroll context;
             otherwise the horizontal scrollbar drops to the bottom of all rows
             and is only reachable after scrolling to the last row. */}
-        <Table containerClassName="overflow-visible">
+        <Table
+          ref={tableRef}
+          containerClassName="overflow-visible"
+          // objectui#11068 — the WAI-ARIA grid pattern's container role, which
+          // tells assistive tech the arrow keys move between cells. Only when
+          // the table really does that; otherwise it stays a plain table.
+          role={keyboardNavigation ? 'grid' : undefined}
+        >
           {caption && <TableCaption>{caption}</TableCaption>}
           <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow ref={headerRowRef}>
@@ -2093,6 +2618,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                     <Checkbox
                       checked={allPageRowsSelected ? true : somePageRowsSelected ? 'indeterminate' : false}
                       onCheckedChange={handleSelectAll}
+                      aria-label={t('table.selectAllRows')}
                     />
                   )}
                 </TableHead>
@@ -2119,9 +2645,8 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 // because `cn` is tailwind-merge — would win over that `sticky`
                 // and let the header scroll away while its body cells stay pinned.
                 // Detect it here so we skip `relative` and re-assert the pin.
-                const isPinnedRight = typeof col.className === 'string'
-                  && /\bsticky\b/.test(col.className)
-                  && /\bright-0\b/.test(col.className);
+                const isPinnedRight = isPinnedRightColumn(col);
+                const pinnedRightOffset = isPinnedRight ? measuredStickyRights?.[col.accessorKey] : undefined;
                 const frozenOffset = isFrozen
                   ? measuredStickyLefts?.[(selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + index]
                     ?? columns.slice(0, index).reduce((sum, c, i) => {
@@ -2159,6 +2684,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       width: columnWidth,
                       minWidth: columnWidth,
                       ...(isFrozen && { left: frozenOffset }),
+                      ...(pinnedRightOffset ? { right: pinnedRightOffset } : {}),
                     }}
                     draggable={reorderEnabled}
                     onDragStart={(e) => handleColumnDragStart(e, index)}
@@ -2172,7 +2698,12 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       "flex items-center",
                       col.align === 'right' ? 'justify-end' : 'justify-between'
                     )}>
-                      <div className="flex items-center gap-1">
+                      <div
+                        className="flex items-center gap-1"
+                        // The header half of the drawn-size read the auto
+                        // width is estimated from (objectui#11682).
+                        data-auto-width-key={autoWidthKey(col)}
+                      >
                         {reorderEnabled && (
                           <GripVertical className="h-4 w-4 opacity-0 group-hover:opacity-50 cursor-grab active:cursor-grabbing shrink-0" />
                         )}
@@ -2208,9 +2739,23 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                   </TableHead>
                 );
               })}
-              {rowActions && (
-                <TableHead className="w-24 text-right bg-background">{t('common.actions')}</TableHead>
-              )}
+              {/* The label sits in the same `text-xs` muted span every data
+                  column's header label uses (objectui#11816): a bare string
+                  here took the cell's larger default type. */}
+              {rowActions && (rowActionsColumnIsEditOnly ? (
+                <TableHead
+                  className="w-24 text-right bg-background"
+                  title={t('table.edit')}
+                  data-testid="data-table-edit-column-header"
+                >
+                  <Pencil aria-hidden="true" className="inline-block h-3.5 w-3.5" />
+                  <span className="sr-only">{t('table.edit')}</span>
+                </TableHead>
+              ) : (
+                <TableHead className="w-24 text-right bg-background">
+                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{t('common.actions')}</span>
+                </TableHead>
+              ))}
               {addColumnEnabled && (
                 <TableHead className="w-10 bg-background px-1 text-center">
                   <button
@@ -2227,7 +2772,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
               )}
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody ref={tableBodyRef}>
             {paginatedData.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell
@@ -2394,20 +2939,17 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       }}
                     >
                       {selectable && (
-                        <TableCell className={cn(cellClassName, "px-3", frozenColumns > 0 && "sticky left-0 z-10 bg-background", selectionStyle === 'hover' && "relative")}>
-                          {selectionStyle === 'hover' ? (
-                            <div className={cn("transition-opacity", isSelected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100")}>
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={(checked) => handleSelectRow(rowId, checked as boolean)}
-                              />
-                            </div>
-                          ) : (
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={(checked) => handleSelectRow(rowId, checked as boolean)}
-                            />
-                          )}
+                        <TableCell className={cn(cellClassName, "px-3", frozenColumns > 0 && "sticky left-0 z-10 bg-background")}>
+                          {/* Always visible: the hover-only `selectionStyle` was retired
+                              (objectui#6152 round 5) — nothing authored or produced it. */}
+                          {/* A checkbox drawn alone in its cell has no label of its
+                              own; the name is the action, as the header's is
+                              (objectui#11690). */}
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => handleSelectRow(rowId, checked as boolean)}
+                            aria-label={t('table.selectRow')}
+                          />
                         </TableCell>
                       )}
                       {showRowNumbers && (
@@ -2480,6 +3022,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         // TEXT column authored with both keys would get, and
                         // that is the case this branch refuses.
                         const isWrap = col.wrap === true && !isFit;
+                        const pinnedRightOffset = isPinnedRightColumn(col) ? measuredStickyRights?.[col.accessorKey] : undefined;
                         const columnWidth = isFit
                           ? '1%'
                           : (columnWidths[col.accessorKey] || col.width || autoSizedWidths[col.accessorKey]);
@@ -2528,6 +3071,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                               minWidth: isFit ? undefined : columnWidth,
                               maxWidth: isFit ? undefined : columnWidth,
                               ...(isFrozen && { left: frozenOffset }),
+                              // Stacked right pins (objectui#11682): the
+                              // header cell's offset, so each body cell sticks
+                              // where its column does.
+                              ...(pinnedRightOffset ? { right: pinnedRightOffset } : {}),
                             }}
                             onDoubleClick={(e) => {
                               // Entering edit mode must NOT also fire the row's
@@ -2545,8 +3092,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                 startEdit(rowIndex, col.accessorKey);
                               }
                             }}
-                            onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.accessorKey)}
-                            tabIndex={0}
+                            onKeyDown={(e) => handleCellKeyDown(e, rowIndex, colIndex, col.accessorKey)}
+                            // objectui#11068 — one roving Tab stop across the
+                            // data cells when `keyboardNavigation` is on (see
+                            // `handleCellKeyDown`); every cell its own stop when
+                            // it is off, exactly as before. The address and the
+                            // focus tracking exist only in the first case.
+                            tabIndex={keyboardNavigation ? (rowIndex === rovingRowIndex && colIndex === rovingColIndex ? 0 : -1) : 0}
+                            data-grid-cell={keyboardNavigation ? `${rowIndex}:${colIndex}` : undefined}
+                            onFocus={keyboardNavigation ? () => rove(rowIndex, colIndex) : undefined}
                           >
                             {isEditing ? (
                               (() => {
@@ -2760,6 +3314,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                 // the title carried the raw value, so a hover
                                 // showed what the cell's mask hides.
                                 title={!isFit && !col.masked && cellValue != null && typeof cellValue !== 'object' ? String(cellValue) : undefined}
+                                // The cell half of the drawn-size read the
+                                // auto width is estimated from (objectui#11682).
+                                data-auto-width-key={autoWidthKey(col)}
                               >
                                 {typeof col.cell === 'function'
                                   ? col.cell(cellValue, row)

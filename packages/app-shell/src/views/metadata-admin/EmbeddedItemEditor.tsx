@@ -6,11 +6,12 @@
  *
  * Embedded items don't have their own HTTP endpoint (`PUT /meta/field/email`
  * does NOT exist for object-scoped fields) — so we:
- *   1. Re-fetch the parent's effective body.
- *   2. Render a SchemaForm using the registered sub-type's schema / form
+ *   1. Render a SchemaForm using the registered sub-type's schema / form
  *      (e.g. `field` for `object.fields`).
- *   3. On save: deep-clone the parent, splice the modified item back
- *      under `parent.<embeddedPath>.<itemName>`, and PUT the parent.
+ *   2. On save: re-read the parent (its pending draft when one exists, else
+ *      its published body), splice the modified item back under
+ *      `parent.<embeddedPath>.<itemName>`, and PUT the parent — into its
+ *      draft when the base was the draft (objectui#12027).
  *
  * If the sub-type isn't registered (e.g. `index` has no `editAs`), we
  * fall back to a raw-JSON editor so users can still hand-edit and save.
@@ -20,7 +21,7 @@
  * from `ResourceEditPage`'s Preview tab, i.e. only for STANDALONE metadata —
  * which meant `ValidationPreview` rendered only on the standalone `validation`
  * door ADR-0088 retired, and never on `object.validations`, the path the
- * framework actually evaluates. The lookup is generic (`getMetadataPreview`),
+ * framework actually evaluates. The lookup is generic (`useRegisteredMetadataPreview`),
  * so any embedded sub-type that has a preview gets it; one that has none is
  * unchanged, with no empty preview chrome.
  */
@@ -33,11 +34,14 @@ import {
   DRAWER_EMBEDDED_ITEM_ID_SCOPE,
   type SchemaFormIssue,
 } from './SchemaForm.js';
-import { getMetadataPreview } from './preview-registry.js';
+import { useRegisteredMetadataPreview } from './preview-registry.js';
 import { useMetadataClient, useMetadataTypes } from './useMetadata.js';
 import type { FormViewSpec } from './form-spec.js';
 import { useMetadataLocale, t, tFormat, translateValidationMessage } from './i18n.js';
 import { errorCodeIsAnyOf } from '@object-ui/types';
+// objectui#11692 - the served -> authored conversion of a picklist-bound field.
+// objectui#12027 - the parent's pending draft, unwrapped and stripped.
+import { dropServedPicklistOptions, extractDraftBody } from '@object-ui/data-objectstack';
 
 export interface EmbeddedItemEditorProps {
   parentType: string;
@@ -77,8 +81,10 @@ export function EmbeddedItemEditor({
   const form = subEntry?.form ?? fallback?.form;
   // Opt-in per sub-type, exactly like the Preview tab on the full page: a type
   // with no registered renderer gets no surface at all (never a "preview not
-  // available" placeholder).
-  const Preview = editAs ? getMetadataPreview(editAs) : undefined;
+  // available" placeholder). Read through the hook so a preview registered
+  // after this drawer opened still mounts (objectui#11939).
+  const registeredPreview = useRegisteredMetadataPreview(editAs ?? '');
+  const Preview = editAs ? registeredPreview : undefined;
 
   const [draft, setDraft] = React.useState<Record<string, unknown>>(initialRaw);
   const [saving, setSaving] = React.useState(false);
@@ -106,26 +112,74 @@ export function EmbeddedItemEditor({
     setError(null);
     setIssues([]);
     try {
-      // 1. Re-fetch parent to avoid clobbering concurrent edits.
-      const layered = await client.layered<Record<string, unknown>>(
-        parentType,
-        parentName,
+      // 1. Re-read the parent at save time, to avoid clobbering concurrent
+      // edits. objectui#12027 — its pending DRAFT is the base when one exists,
+      // and the save then goes back into that draft (`mode: 'draft'`): the
+      // author is mid-flight on the parent, and an item editor never writes
+      // live behind their back. A served draft is the whole document
+      // (objectui#10765), so every other field the draft holds rides along.
+      // A draft-read failure is the save's error, never "no draft": guessing
+      // there is none would send a publish-mode write over a pending one.
+      const parentDraft = extractDraftBody(
+        await client.getDraft(parentType, parentName),
       );
-      const parent =
-        (layered.effective ?? layered.code ?? {}) as Record<string, unknown>;
+      let parent: Record<string, unknown>;
+      if (parentDraft) {
+        parent = parentDraft;
+      } else {
+        // No draft: the published version, as before. `/layers` answers 404
+        // for a parent that was never published (objectstack-ai/objectstack#22397),
+        // which the client resolves as every layer `null`. ⛔ That absence is
+        // never a body: an empty base would PUT a stub of the one item over
+        // the parent. With nothing readable, the save is refused.
+        const layered = await client.layered<Record<string, unknown>>(
+          parentType,
+          parentName,
+        );
+        const published = layered.effective ?? layered.code;
+        if (!published) {
+          setError(
+            tFormat('engine.edit.loadFailed', locale, {
+              type: parentType,
+              name: parentName,
+              message: t('engine.form.notFound', locale),
+            }),
+          );
+          return;
+        }
+        parent = published;
+      }
 
       // 2. Splice modified item back into the parent collection.
       const updated = spliceEmbedded(parent, embeddedPath, itemName, draft);
 
-      // 3. PUT the parent.
-      await client.save(parentType, parentName, updated);
+      // 3. PUT the parent. objectui#11692 — an object parent was seeded from
+      // the SERVED read above, where a picklist-bound field carries `picklist`
+      // beside the options the runtime resolved from the list; the authoring
+      // door refuses the pair for the whole object, whichever item was edited.
+      // So the resolved `options` stay out of every bound field, and nothing
+      // else is touched. Other parent types are sent exactly as before. A
+      // draft-based save stays a draft; a published parent with no pending
+      // draft saves as it always has.
+      const body =
+        parentType === 'object' ? dropServedPicklistOptions(updated) : updated;
+      if (parentDraft) {
+        await client.save(parentType, parentName, body, { mode: 'draft' });
+      } else {
+        await client.save(parentType, parentName, body);
+      }
       setSavedAt(Date.now());
       onSaved?.(draft);
     } catch (err: any) {
       // Validation issues from the parent save apply to the embedded
       // path. Try to scope them back to this item.
       if (err?.status === 422 || errorCodeIsAnyOf(err, ['INVALID_METADATA', 'INVALID_PAYLOAD'])) {
-        const raw = err?.body?.issues ?? [];
+        // Read off the client's parsed `MetadataError`, whose `issues` already
+        // carries both live wire shapes (the REST door's top-level `issues`,
+        // the HTTP dispatcher's `error.details.issues`). ⛔ Never re-read
+        // `err.body.issues`: only the REST door fills it, so a dispatcher
+        // refusal counted zero issues and marked no field (objectui#11379).
+        const raw = err?.issues ?? [];
         const mapped: SchemaFormIssue[] = (Array.isArray(raw) ? raw : []).map((x: any) => {
           const fullPath = Array.isArray(x.path) ? x.path.join('.') : String(x.path ?? '');
           // Trim the `<embeddedPath>.<itemName>.` prefix so issues
@@ -213,7 +267,7 @@ export function EmbeddedItemEditor({
         // Read-only: the drawer edits through the form below, so no `onPatch`
         // is handed over and `editing` stays false. `draft` is the live value,
         // so the preview follows keystrokes the way the full-page tab does.
-        /* eslint-disable-next-line react-hooks/static-components -- getMetadataPreview returns a registered component (stable), not one created during render */
+        /* eslint-disable-next-line react-hooks/static-components -- useRegisteredMetadataPreview returns a registered component (stable), not one created during render */
         <Preview
           type={editAs as string}
           name={itemName}

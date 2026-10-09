@@ -42,7 +42,15 @@ import {
   Square,
   Workflow,
 } from 'lucide-react';
-import { EmptyDescription, resolveIcon } from '@object-ui/components';
+import {
+  EmptyDescription,
+  resolveIcon,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@object-ui/components';
 import type { ActionParam } from '@object-ui/types';
 import { paramDegradesWithoutTarget, resolveParamWidgetType } from '../../../utils/paramToField.js';
 import type { MetadataPreviewProps } from '../preview-registry.js';
@@ -559,15 +567,26 @@ function renderFieldMock(p: ActionParam, fieldLabel: string, locale?: string): R
   const inputMock = (type: string) => (
     <input type={type} className={cls} placeholder={placeholder} value={value} readOnly />
   );
+  // objectui#11865 — the shared `Select`, the primitive `SelectField` draws
+  // the dialog's picker with, where this mock used to be a browser-native
+  // select element. It stays a disabled control that shows the placeholder and
+  // writes nothing. Items carry their option's INDEX, because an authored
+  // option's value may be `''`, which `SelectItem` refuses.
   const selectMock = (
-    <select className={cls} disabled value="">
-      <option value="">{placeholder || tFormat('engine.actionPreview.param.selectPlaceholder', locale, { label: fieldLabel })}</option>
-      {options.map((o, i) => (
-        <option key={i} value={o.value}>
-          {localize(o.label)}
-        </option>
-      ))}
-    </select>
+    <Select disabled value="">
+      <SelectTrigger className={`${cls} h-auto`}>
+        <SelectValue
+          placeholder={placeholder || tFormat('engine.actionPreview.param.selectPlaceholder', locale, { label: fieldLabel })}
+        />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o, i) => (
+          <SelectItem key={i} value={String(i)}>
+            {localize(o.label)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
   const note = (text: React.ReactNode) => <div className="text-[10px] text-amber-700">{text}</div>;
 
@@ -787,6 +806,20 @@ function PlacementPreview({ locations, label, icon, variant, iconOnly, locale }:
   locations: string[]; label: string; icon?: string; variant?: string; iconOnly?: boolean; locale?: string;
 }) {
   const btn = <FauxButton label={label} icon={icon} variant={variant} iconOnly={iconOnly} />;
+  // The row frame: the action on each row of a list. Drawn for both locations
+  // that place an action on a list's rows — `list_item` (every list of the
+  // object) and `record_related` (the rows of a related list inside a parent
+  // record, objectui#11270) — each under its own caption.
+  const rows = (
+    <div className="divide-y rounded border bg-background">
+      {[0, 1].map((i) => (
+        <div key={i} className="flex items-center justify-between gap-2 px-3 py-1.5">
+          <span className="text-[11px]">{tFormat('engine.actionPreview.placement.row', locale, { n: i + 1 })}</span>
+          <div className="origin-right scale-90">{btn}</div>
+        </div>
+      ))}
+    </div>
+  );
   return (
     <div className="space-y-2.5">
       {locations.includes('record_header') && (
@@ -817,20 +850,9 @@ function PlacementPreview({ locations, label, icon, variant, iconOnly, locale }:
           </div>
         </Frame>
       )}
-      {locations.includes('list_item') && (
-        <Frame label="list_item">
-          <div className="divide-y rounded border bg-background">
-            {[0, 1].map((i) => (
-              <div key={i} className="flex items-center justify-between gap-2 px-3 py-1.5">
-                <span className="text-[11px]">{tFormat('engine.actionPreview.placement.row', locale, { n: i + 1 })}</span>
-                <div className="origin-right scale-90">{btn}</div>
-              </div>
-            ))}
-          </div>
-        </Frame>
-      )}
-      {(locations.includes('record_section') || locations.includes('record_related')) && (
-        <Frame label={locations.includes('record_related') ? 'record_related' : 'record_section'}>
+      {locations.includes('list_item') && <Frame label="list_item">{rows}</Frame>}
+      {locations.includes('record_section') && (
+        <Frame label="record_section">
           <div className="rounded border bg-background">
             <div className="flex items-center justify-between border-b px-3 py-2">
               <span className="text-xs font-medium">{tr('engine.actionPreview.placement.section', locale)}</span>
@@ -840,6 +862,14 @@ function PlacementPreview({ locations, label, icon, variant, iconOnly, locale }:
           </div>
         </Frame>
       )}
+      {/* `record_related` is ROW placement inside a parent record
+          (objectstack-ai/objectstack#20937, triage `5919625056`), which is
+          where the console's related lists put it (objectui#11270). It used
+          to share the `record_section` frame above and draw a button in a
+          section HEADER — the reading the ruling replaced — so the designer
+          showed the author a placement the product does not use. Pinned in
+          `__tests__/ActionPreview.recordRelatedRow-11270.test.tsx`. */}
+      {locations.includes('record_related') && <Frame label="record_related">{rows}</Frame>}
       {locations.includes('record_more') && (
         <Frame label="record_more">
           <div className="w-52 rounded border bg-background">

@@ -154,9 +154,20 @@ const OBJECT_SCHEMA = {
     name: { type: 'text' },
     start_date: { type: 'date' },
     end_date: { type: 'date' },
-    qty: { type: 'number', label: 'Qty' },
+    // `scale: 2` is DECLARED since objectui#11254. This file measures the
+    // locale, not the width: before, the row padded every number to two places
+    // whatever it declared, and these expectations rode on that constant. Under
+    // ruling A′ (objectstack-ai/objectstack#19628) an undeclared `number` has
+    // no fixed width, so the two places are now the field's own, and every
+    // expectation below keeps its bytes. The width itself is pinned in
+    // `ObjectGantt.numberResolvedWidth-11254.test.tsx`.
+    qty: { type: 'number', label: 'Qty', scale: 2 },
     amount: { type: 'currency', label: 'Amount', currency: 'EUR' },
-    ratio: { type: 'percent', label: 'Ratio' },
+    // objectui#11475 — the row's `1234.5` is percentage POINTS, so the field
+    // says so: a `max` above 1 declares whole-points storage (the spec's
+    // `percentScaleOf`). Undeclared, a percent stores a fraction, and the
+    // tooltip no longer guesses points from a value's size.
+    ratio: { type: 'percent', label: 'Ratio', max: 10000 },
     due_date: { type: 'date', label: 'Due' },
   },
 };

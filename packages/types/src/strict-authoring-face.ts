@@ -70,19 +70,24 @@
  * tolerant `BaseSchemaCore.shape.body`. That direction is conservative: such a
  * check can only ADD refusals, never accept something the strict shape refused.
  *
- * ## Registered inputs: where "declared" is the registration, not the shape
+ * ONE closure is re-pointed rather than left tolerant, because what it consults
+ * IS the node union: the nested-component judgment on `AnyComponentSchema`
+ * (objectui#11223, `./zod/nested-component-walk.ts`), which judges a component
+ * nested in a props bag. Copied as it is, it would judge those components
+ * against the tolerant union, and the strict face would pass an unknown key one
+ * bag down that it refuses one child slot down. The walker below swaps it for
+ * the same judgment bound to THIS face's twin of the union
+ * (`rebindNestedJudgments`), so a nested component is judged strictly here and
+ * tolerantly there, like every other node.
  *
- * One node on the face spells its props with its CATCHALL rather than its
- * shape, by ruling: the widget-slot component node (`metric-card`,
- * objectstack#8593) is `BaseSchema` plus a closed `type`, and its props are the
- * component's registered `inputs`, admitted by `.passthrough()`. Closing that
- * catchall alone refused the node's own inputs — every `metric-card` carrying
- * `value` (objectui#11022). Such a node records its registered input names
- * through `declareRegisteredInputs` (`./zod/node-derivation.ts`), and the
- * `object` arm below admits exactly those names, each judged by the node's own
- * catchall, before closing the object. So on this face a key is "declared" when
- * the shape declares it OR the node's registration does; any other key is
- * refused by name, as everywhere else. The tolerant node is not touched.
+ * ## "Declared" means the shape declares it — for every node
+ *
+ * objectui#11022 once made one exception: the widget-slot `metric-card` node
+ * spelled its props with its catchall, so this face admitted the input names
+ * its registration declared from a side table, each judged by the catchall.
+ * objectui#11467 declared those inputs as members of the node, so the side
+ * table and its arm below are gone: a key is declared when the shape declares
+ * it, and any other key is refused by name.
  *
  * ## The recursion point, and why this card waited for it
  *
@@ -109,12 +114,13 @@ import { SchemaNodeSchema } from './zod/base.zod.js';
 import { AnyComponentSchema } from './zod/index.zod.js';
 import {
   carryRegistryMeta,
+  closeStrictUnionArms,
   cloneWithDef,
   internals,
   isZodType,
-  registeredInputsOf,
   type WalkableDef,
 } from './zod/node-derivation.js';
+import { isNestedComponentJudgment, rebindNestedComponentJudgment } from './zod/nested-component-walk.js';
 
 /**
  * One shape the strict walker could not close, reported as it is met.
@@ -186,6 +192,26 @@ const carriesSchema = (def: WalkableDef): boolean =>
   SCHEMA_BEARING_MEMBERS.some((member) => def[member] != null);
 
 /**
+ * objectui#11223: the derived node, with every nested-component judgment among
+ * the source's checks re-pointed at `deriveJudge` of its judge — this face's
+ * own twin of the node union (see the module docblock). Every other check is
+ * kept as it is, in its place; a node carrying none is returned untouched.
+ *
+ * `checks` is not a `WalkableDef` member because no arm of the walk reads it;
+ * this is the one place that patches it, through the shared clone rule.
+ */
+const rebindNestedJudgments = (
+  def: WalkableDef,
+  out: z.ZodType,
+  deriveJudge: (judge: z.ZodType) => z.ZodType,
+): z.ZodType => {
+  const checks = (def as { checks?: readonly unknown[] }).checks;
+  if (!checks?.some(isNestedComponentJudgment)) return out;
+  const patch = { checks: checks.map((check) => rebindNestedComponentJudgment(check, deriveJudge) ?? check) };
+  return cloneWithDef(out, patch as unknown as Partial<WalkableDef>);
+};
+
+/**
  * A walker with ONE memo. Two schemas derived through the same walker share
  * their derived subgraph, so the second costs nothing and the two twins agree
  * by construction instead of by assertion.
@@ -227,19 +253,6 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
         for (const [key, value] of Object.entries(def.shape ?? {})) {
           shape[key] = walk(value, `${path}/shape/${key}`);
         }
-        // objectui#11022: a passthrough node whose props are its component's
-        // REGISTERED inputs (the widget-slot `metric-card`) admits exactly those
-        // keys, each judged by the node's own catchall — the judgment the
-        // tolerant face gave it — and is closed below like every other object,
-        // so a key no registration declares is still refused by name. A name
-        // the shape already declares keeps its declared member.
-        const registered = registeredInputsOf(schema);
-        if (registered && def.catchall) {
-          const judged = walk(def.catchall, `${path}/catchall`);
-          for (const name of registered) {
-            if (!Object.prototype.hasOwnProperty.call(shape, name)) shape[name] = z.optional(judged);
-          }
-        }
         // `catchall: z.never()` IS `.strict()` — spelled through the def so the
         // clone keeps this object's own checks. `.strict()` would too, but only
         // on a `ZodObject`; this arm also has to serve loose objects, which is
@@ -250,11 +263,17 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
       // A discriminated union carries `type: 'union'` too, plus a
       // `discriminator` the spread preserves — so both union kinds land here
       // and neither is flattened into the other.
-      case 'union':
+      case 'union': {
+        const options = (def.options ?? []).map((option, i) => walk(option, `${path}/options/${i}`));
+        // objectui#11073: every object this face closes is a strict object, so on a PLAIN
+        // union its unknown-key refusal is made terminal, as on the node face, and the union
+        // answers with every arm rather than with the one arm that failed only on unknown
+        // keys. A discriminated union routes to one arm and is left as it is.
         out = cloneWithDef(schema, {
-          options: (def.options ?? []).map((option, i) => walk(option, `${path}/options/${i}`)),
+          options: (def as { discriminator?: unknown }).discriminator === undefined ? closeStrictUnionArms(options) : options,
         });
         break;
+      }
       case 'array':
         out = cloneWithDef(schema, { element: walk(def.element!, `${path}/element`) });
         break;
@@ -343,6 +362,9 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
         if (carriesSchema(def)) options.onOpaqueShape?.({ kind: def.type, path });
         out = schema;
     }
+    // Read through the memo at parse time, so the judge resolves to the twin
+    // this walk has finished building — the union the check sits on included.
+    out = rebindNestedJudgments(def, out, (judge) => walk(judge, `${path}/nestedJudge`));
     memo.set(schema, out);
     return out;
   };
@@ -356,9 +378,7 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
  * Every reachable object gains `catchall: z.never()`, reached through unions,
  * discriminated unions, arrays, tuples, records, sets, maps, intersections,
  * optionals, nullables, defaults, prefaults, promises, pipes and `z.lazy`
- * (memoised, so the self-referential node face terminates). An object that
- * records its registration's inputs admits those keys before it is closed (see
- * "Registered inputs" above). A schema-bearing
+ * (memoised, so the self-referential node face terminates). A schema-bearing
  * wrapper with no arm here is reported through `onOpaqueShape`, never skipped. The returned schema has the same TypeScript type as
  * the input and shares no mutable state with it — the input is left exactly as
  * it was, which is what keeps the rendering face untouched.
@@ -385,9 +405,7 @@ const faceWalker = createStrictWalker();
  *
  * Same accept set as `AnyComponentSchema` minus every undeclared key, at every
  * depth. Undeclared keys are reported as `unrecognized_keys` issues naming the
- * offending keys. A registered input of a node that records its registration's
- * inputs (the widget-slot `metric-card`, objectui#11022) counts as declared —
- * see "Registered inputs" in the module docblock.
+ * offending keys.
  *
  * Typed by its input and output rather than by its runtime class: the walk is
  * deferred behind `z.lazy` (see the import comment above for why it must be),

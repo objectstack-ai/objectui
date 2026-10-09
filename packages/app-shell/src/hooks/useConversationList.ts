@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { publishPlanApprovalPending } from '../assistant/assistantBus.js';
 
 /**
  * One row of the conversation-history list.
@@ -167,9 +168,12 @@ export function useConversationList(
         });
       } finally {
         setConversations((rows) => rows.filter((r) => r.id !== id));
+        // objectui#11666 — a deleted thread has no plan left to approve, so
+        // its launcher-marker reading goes with the row.
+        publishPlanApprovalPending({ userId, conversationId: id, pending: false });
       }
     },
-    [apiBase],
+    [apiBase, userId],
   );
 
   const rename = useCallback(

@@ -6,21 +6,26 @@
  *
  * ## The mechanism these pins exist to hold
  *
- * `preview-registry` / `inspector-registry` / `default-inspector-registry` are
+ * `preview-registry` / `inspector-registry` / `default-inspector-registry` were
  * plain `Map`s filled by a module-scope side effect in
  * `views/metadata-admin/index.ts`, reached statically through the package
- * barrel. Every consumer reads them **during render, with no subscription** and
- * gets `undefined` when the registration has not run. Measured on the card:
+ * barrel. Every consumer read them **during render, with no subscription** and
+ * got `undefined` when the registration had not run. Measured on the card:
  *
  *     fallback before registration: true
  *     still fallback after registration: true
  *     late inspector rendered: false
  *
- * ⇒ a consumer that reads an empty registry **never recovers**. That is why
+ * ⇒ a consumer that read an empty registry **never recovered**. That is why
  * every message pinned here states a fact and ⛔ never promises recovery — no
  * "loading…", no "try again", no spinner. Promising recovery would replace one
- * false statement with another. Making recovery real is part A of #6795, which
- * the ruling deferred to the maintainer's sequencing surface.
+ * false statement with another.
+ *
+ * objectui#11939 (step 1 of #6795's order) made the registries observable and
+ * moved these reads onto hooks, so a late registration now DOES bring each
+ * pillar back — pinned in `StudioDesignSurface.lateRegistration-11939.test.tsx`.
+ * The wording rule stands: nothing on these surfaces knows a registration is on
+ * its way, so a promise of recovery would still be a statement they cannot back.
  *
  * ⛔ `Suspense` cannot repair any of this and must not be proposed: these are
  * synchronous reads returning `undefined`, and Suspense catches a *thrown
@@ -299,7 +304,9 @@ describe('Automations pillar — the fourth site, found by sweeping (#6795 C, si
         <AutomationsPillar packageId="com.acme.app" />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByText('Nightly'));
+    // The rail row, by role: the open flow's label now also heads the canvas
+    // (objectui#11665), so the bare text 'Nightly' names two elements.
+    fireEvent.click(await screen.findByRole('button', { name: /Nightly/ }));
 
     await waitFor(
       async () => {
@@ -313,5 +320,31 @@ describe('Automations pillar — the fourth site, found by sweeping (#6795 C, si
     );
     expect(document.body.textContent ?? '').not.toContain('click a node to configure');
     expect(document.body.textContent ?? '').not.toContain('Click a node on the canvas');
+  });
+
+  /**
+   * objectui#11591 — the notice keys on the REGISTRY, not on an open flow: with
+   * no flow open (a deep link naming one the rail does not hold) it still
+   * shows here, where the registry is empty, and it does not show where the
+   * registry is populated — that half is pinned in
+   * `StudioDesignSurface.packageLessFlows-11553.test.tsx`.
+   */
+  it('with no flow open, still names the reason — the registry, not the selection, decides', async () => {
+    assertRegistriesEmptyWithControl();
+    mockClient.layered.mockClear();
+
+    render(
+      <MemoryRouter initialEntries={['/studio/~org/automations?surface=flow%3Anobody_has_this']}>
+        <AutomationsPillar packageId={null} />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('The link names flow “nobody_has_this”, which is not here.', undefined, { timeout: 4000 });
+    const hits = screen.getAllByText(
+      'No metadata designers are registered in this session, so this flow cannot be designed here.',
+    );
+    // The canvas header chip AND the rail, as with a flow open.
+    expect(hits.length).toBe(2);
+    expect(mockClient.layered).not.toHaveBeenCalledWith('flow', expect.anything());
   });
 });

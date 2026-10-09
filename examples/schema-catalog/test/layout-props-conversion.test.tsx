@@ -109,6 +109,19 @@ function collect(node: unknown, pred: (n: Node) => boolean, out: Node[] = []): N
   return out;
 }
 
+/**
+ * Where a layout node's own props live. An authored `flex` takes them — its
+ * child list included — in its `properties` bag (objectui#11276, the
+ * maintainer's ruling A on objectui#11300); `stack`, `grid` and `container`
+ * keep them on the node. `SchemaRenderer` hoists the bag before the renderer
+ * runs, so both render alike; this only says where to READ them in a fixture.
+ */
+function propsOf(node: Node): Node {
+  return node.type === 'flex' && node.properties && typeof node.properties === 'object'
+    ? (node.properties as Node)
+    : node;
+}
+
 describe('schema-catalog — layout intent is authored as props, not className (#4003)', () => {
   it('no div carries layout-intent classes outside the documented exemptions', () => {
     const offenders = allExamples().flatMap((example) =>
@@ -258,7 +271,7 @@ describe('converted nodes render what their div rendered (#4003)', () => {
 
     // Rebuild the div this node replaced, around the SAME children.
     const asDiv: Node = { type: 'div', className: originalClassName };
-    if (node!.children !== undefined) asDiv.children = node!.children;
+    if (propsOf(node!).children !== undefined) asDiv.children = propsOf(node!).children;
 
     const after = renderNode(node!);
     const before = renderNode(asDiv);
@@ -477,7 +490,7 @@ describe('schema-catalog — a layout node configures itself with props (#4891)'
         example.schema,
         (n) => typeof n.type === 'string' && LAYOUT_TYPES.has(n.type as string),
       ).flatMap((n) =>
-        ownPropTokens(String(n.type), n.className, n.direction).map(
+        ownPropTokens(String(n.type), n.className, propsOf(n).direction).map(
           (token) => `${example.id} :: ${String(n.type)} :: ${token} (in "${String(n.className)}")`,
         ),
       ),
@@ -749,9 +762,10 @@ describe('the swept nodes render what they rendered before (#4891/#4890)', () =>
           'the pin is stale, or the sweep was undone',
       ).toBeTruthy();
 
-      // Rebuild the pre-sweep node around the SAME children.
+      // Rebuild the pre-sweep node around the SAME children. It shipped flat,
+      // and a stored flat node still renders (the hoist reads both spellings).
       const asAuthoredBefore: Node = { type: testCase.type, ...testCase.before };
-      if (node!.children !== undefined) asAuthoredBefore.children = node!.children;
+      if (propsOf(node!).children !== undefined) asAuthoredBefore.children = propsOf(node!).children;
 
       const after = renderClass(node!);
       const before = renderClass(asAuthoredBefore);
@@ -822,16 +836,19 @@ describe('the nine converted `space-x` nodes were single-line static rows (#5690
   /**
    * The nine sites, at the paths the card enumerated them by, so this table is
    * auditable against the card instead of against itself. Third element is the
-   * `gap` that replaced the node's `space-x-N` — the same N.
+   * `gap` that replaced the node's `space-x-N` — the same N. A step under a
+   * `flex` parent passes through that parent's bag (`properties.children.N`),
+   * where objectui#11276 moved the child list; the steps are otherwise the
+   * card's.
    */
   const SPACE_X_SITES: ReadonlyArray<readonly [string, string, number]> = [
-    ['auth/login-simple', 'children.0.children.2.children.0', 2],
+    ['auth/login-simple', 'children.0.children.2.properties.children.0', 2],
     ['auth/signup', 'children.0.children.3', 2],
-    ['dashboard/recent-activity-card', 'children.0.children.1.children.0.children.0', 4],
-    ['dashboard/recent-activity-card', 'children.0.children.1.children.1.children.0', 4],
-    ['dashboard/recent-activity-card', 'children.0.children.1.children.2.children.0', 4],
-    ['dashboard/recent-activity-card', 'children.0.children.1.children.3.children.0', 4],
-    ['dashboard/recent-activity-card', 'children.0.children.1.children.4.children.0', 4],
+    ['dashboard/recent-activity-card', 'children.0.children.1.children.0.properties.children.0', 4],
+    ['dashboard/recent-activity-card', 'children.0.children.1.children.1.properties.children.0', 4],
+    ['dashboard/recent-activity-card', 'children.0.children.1.children.2.properties.children.0', 4],
+    ['dashboard/recent-activity-card', 'children.0.children.1.children.3.properties.children.0', 4],
+    ['dashboard/recent-activity-card', 'children.0.children.1.children.4.properties.children.0', 4],
     ['forms/newsletter-signup', 'children.0.children.2', 2],
     ['forms/settings-form', 'children.1.children.0.children.3', 2],
   ];
@@ -844,9 +861,10 @@ describe('the nine converted `space-x` nodes were single-line static rows (#5690
       schema,
     ) as Node | undefined;
 
-  /** The node exactly as it shipped before the conversion. */
+  /** The node exactly as it shipped before the conversion: flat, `space-x-N` in place of `gap`. */
   const asShipped = (node: Node): Node => {
-    const before: Node = { ...node, className: `space-x-${String(node.gap)}` };
+    const before: Node = { ...node, ...propsOf(node), className: `space-x-${String(propsOf(node).gap)}` };
+    delete before.properties;
     delete before.gap;
     return before;
   };
@@ -870,7 +888,7 @@ describe('the nine converted `space-x` nodes were single-line static rows (#5690
       if (!node) return [];
       const problems: string[] = [];
       if (node.type !== 'flex') problems.push(`type is ${String(node.type)}, not flex`);
-      if (node.gap !== gap) problems.push(`gap is ${JSON.stringify(node.gap)}, not ${gap}`);
+      if (propsOf(node).gap !== gap) problems.push(`gap is ${JSON.stringify(propsOf(node).gap)}, not ${gap}`);
       if (node.className !== undefined) {
         problems.push(`className survived as ${JSON.stringify(node.className)}`);
       }
@@ -901,7 +919,7 @@ describe('the nine converted `space-x` nodes were single-line static rows (#5690
       }
 
       // ...and the selector axis: a fixed pair, neither half conditional.
-      const children = Array.isArray(node.children) ? (node.children as Node[]) : [];
+      const children = Array.isArray(propsOf(node).children) ? (propsOf(node).children as Node[]) : [];
       if (children.length !== 2) {
         reasons.push(`its child list is ${children.length} long, not the static pair measured`);
       }

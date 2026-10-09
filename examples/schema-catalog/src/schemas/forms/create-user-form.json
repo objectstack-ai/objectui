@@ -92,22 +92,24 @@
         },
         {
           "type": "flex",
-          "justify": "end",
-          "gap": 2,
-          "className": "pt-2",
-          "children": [
-            {
-              "type": "button",
-              "label": "Cancel",
-              "variant": "outline"
-            },
-            {
-              "type": "button",
-              "label": "Create User",
-              "variant": "default",
-              "icon": "plus"
-            }
-          ]
+          "properties": {
+            "justify": "end",
+            "gap": 2,
+            "children": [
+              {
+                "type": "button",
+                "label": "Cancel",
+                "variant": "outline"
+              },
+              {
+                "type": "button",
+                "label": "Create User",
+                "variant": "default",
+                "icon": "plus"
+              }
+            ]
+          },
+          "className": "pt-2"
         }
       ]
     }

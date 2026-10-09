@@ -42,10 +42,17 @@ type TextAlign = NonNullable<TextSchema['align']>;
  * `element:text` sibling, so it takes the conventional small-caps label
  * treatment.
  *
- * ⚠️ The two vocabularies are NOT reconciled here and must not be:
- * `element:text` publishes `heading` / `subheading` / `body` / `caption`,
- * `ui:text` publishes the nine below. Two text primitives with two
- * vocabularies is its own drift finding, filed separately after this lands.
+ * ⚠️ Since objectui#7450 the two primitives take ONE vocabulary: the nine
+ * published values below. The paragraph above records how this map was first
+ * built, not which way the dependency runs now — `element:text` takes this
+ * map's nine, `overline` included, with this map's class for each, and this
+ * map is the vocabulary that does not move. `element:text` also accepted
+ * `heading` / `subheading` while the installed `@objectstack/spec` did; the
+ * spec retired them in 17.7.0, through the value-level mechanism of
+ * objectstack-ai/objectstack#17109, and `element:text` dropped them with it
+ * (objectui#11717) — never this file. The defaulting
+ * asymmetry stays: an absent `variant` is not `body` here (objectui#6942, see
+ * ABSENCE IS NOT `body` below), while `element:text` renders it as `body`.
  *
  * ## Distinctness is the contract, not a nicety
  *

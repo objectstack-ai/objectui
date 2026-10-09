@@ -215,11 +215,24 @@ describe('designer node seeds ↔ spec FlowNodeSchema (#3316)', () => {
     expect(offenders, 'designer seeds writing non-authorable keys').toEqual([]);
   });
 
-  it('`wait` seeds only the timer flavor — no retired timeout keys', () => {
+  it('`wait` seeds the timer flavor WITH a duration — no retired timeout keys', () => {
     // Pinned by name because this is the shape #3316 found in the field: the
     // wait node has NO timeout (framework#4158), it resumes when its timer
-    // elapses or its signal arrives. `timerDuration` is the author's to fill.
-    expect(defaultNodeExtras('wait')).toEqual({ waitEventConfig: { eventType: 'timer' } });
+    // elapses or its signal arrives. Through `@objectstack/spec` 17.4.0
+    // `timerDuration` was the author's to fill; 17.5.0 refuses a timer wait
+    // without one (it would park the run forever), so the seed carries the
+    // spec's own example value, ruled by the maintainer on objectui#11088
+    // (decision 2 = A) and changeable there (objectui#11073).
+    expect(defaultNodeExtras('wait')).toEqual({ waitEventConfig: { eventType: 'timer', timerDuration: 'PT1H' } });
+    // …and the refusal it answers is real, on the same instrument: the old seed
+    // is refused at `waitEventConfig.timerDuration` by name.
+    const oldSeed = Automation.FlowNodeSchema.safeParse({
+      id: 'w', type: 'wait', label: 'Wait', waitEventConfig: { eventType: 'timer' },
+    });
+    expect(oldSeed.success).toBe(false);
+    expect(oldSeed.success ? [] : oldSeed.error.issues.map((i) => i.path.join('.'))).toContain(
+      'waitEventConfig.timerDuration',
+    );
   });
 
   it('the config-rooted seeds write only live keys of the spec node-config Zods', () => {

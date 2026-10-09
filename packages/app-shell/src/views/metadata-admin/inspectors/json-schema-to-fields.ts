@@ -17,8 +17,9 @@
  * so the existing, polished field widgets — select, boolean, the `objectList`
  * repeater (e.g. approvers), the optional Advanced-JSON escape hatch — are
  * reused unchanged. Anything the mapping can't express (deeply nested objects,
- * unions) is simply left off the form and remains editable in the Advanced
- * block, so authors are never locked out.
+ * unions, an untyped property) is left off the mapped list; it stays editable in
+ * the Advanced block, unless the offline table edits that key, whose editor
+ * then stands in for it (`mergeServerFlowFields`, objectui#11788).
  *
  * Scope mirrors what `z.toJSONSchema` emits for real node configs:
  *   • string                      → text  (enum → select; an `xExpression` marker
@@ -30,7 +31,9 @@
  *   • array of object             → objectList (columns from item props; an item
  *                                   prop that is itself an array of string /
  *                                   number / object becomes a nested list column
- *                                   — a repeater-in-repeater, not a text cell)
+ *                                   — a repeater-in-repeater, not a text cell;
+ *                                   a number / integer item prop becomes a
+ *                                   number column, as at the top level)
  *   • object with fixed `properties`
  *                                 → flattened sub-fields under config.<key>.*
  *                                   (a nested `enabled: boolean` makes the
@@ -357,6 +360,12 @@ function columnsFor(item: JsonSchemaNode, depth = 0): FlowConfigColumn[] {
       options = enumOptions(prop.enum, prop.xEnumDeprecated);
     } else if (t === 'boolean') {
       kind = 'boolean';
+    } else if (scalarField(prop)?.kind === 'number') {
+      // objectui#11664 — the top-level number mapping, reused rather than
+      // re-detected: a `number` / `integer` item property (a screen field's
+      // `min` / `max`) is a number column, which commits the JSON number the
+      // node contract declares. As a text cell it saved a string.
+      kind = 'number';
     } else {
       // A string column marked xExpression:'expression' becomes a CEL column
       // (mono, predicate-checked by flow-expr-problems). 'template' and plain
@@ -384,6 +393,43 @@ function meta(node: JsonSchemaNode, key: string): { label: string; help?: string
     ...(node.description ? { help: node.description } : {}),
     ...(defaultString(node) ? { defaultValue: defaultString(node) } : {}),
   };
+}
+
+/** One config key a published schema declares, with the schema's own words for it. */
+export interface DeclaredConfigKey {
+  key: string;
+  /** The property's `title`, when the schema gives one. */
+  title?: string;
+  /** The property's `description`, when the schema gives one. */
+  description?: string;
+}
+
+/**
+ * The config keys a published config JSON Schema DECLARES, in declaration
+ * order — including the ones {@link jsonSchemaToFlowFields} cannot type and so
+ * emits no field for (objectui#11788). `null` exactly when that function
+ * returns `null`.
+ *
+ * The two lists differ on purpose: a declared key with no mapped field is a key
+ * the engine accepts (it rejects UNdeclared keys at `registerFlow()`) that the
+ * mapper cannot draw. `mergeServerFlowFields` reads the difference to keep the
+ * hand-written editor for such a key instead of demoting it to Advanced (JSON),
+ * under the schema's own title and description.
+ */
+export function declaredConfigKeys(schema: unknown): DeclaredConfigKey[] | null {
+  if (!isObject(schema) || schemaType(schema) !== 'object' || !isObject(schema.properties)) {
+    return null;
+  }
+  const out: DeclaredConfigKey[] = [];
+  for (const [key, prop] of Object.entries(schema.properties)) {
+    if (!isObject(prop)) continue;
+    out.push({
+      key,
+      ...(typeof prop.title === 'string' && prop.title ? { title: prop.title } : {}),
+      ...(typeof prop.description === 'string' && prop.description ? { description: prop.description } : {}),
+    });
+  }
+  return out;
 }
 
 /**

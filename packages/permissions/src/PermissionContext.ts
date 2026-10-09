@@ -69,6 +69,26 @@ export interface PermissionContextValue {
    * enforceable answer and must not be read as "unknown".
    */
   hasCapabilities: (required: string[]) => boolean;
+  /**
+   * [objectui#4421] The `objects` map of the `/auth/me/permissions` response
+   * this provider holds — object name → the server-resolved effective object
+   * permission — handed on VERBATIM, or `undefined` when the provider holds no
+   * such response: `MePermissionsProvider` before its first answer, the
+   * role-based `PermissionProvider` (it resolves roles from config and has no
+   * server payload), or no provider at all.
+   *
+   * It is DATA for the predicate binding `current_user.can(object, verb)`,
+   * which `@objectstack/formula` answers from exactly this map, and nothing
+   * else. It is not a verdict: a consumer asking "may the caller do X" calls
+   * `check` / `can`. `undefined` and `{}` are different answers — "no payload"
+   * versus "a payload that grants nothing" — and must not be collapsed into
+   * each other (the same absent-vs-empty rule `systemPermissions` follows).
+   *
+   * Pair it with `isLoaded`: while `isLoaded` is false a refetching provider
+   * can still hold its previous map here, and the predicate binding does not
+   * answer from it (see app-shell's `useExpressionPermissions`).
+   */
+  effectiveObjects?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   /** Whether permissions are loaded */
   isLoaded: boolean;
 }

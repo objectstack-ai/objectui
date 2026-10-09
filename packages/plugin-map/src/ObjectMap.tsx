@@ -65,6 +65,40 @@ import {
  */
 const DEFAULT_MAP_STYLE = 'https://demotiles.maplibre.org/style.json';
 
+/**
+ * Can this browser start a MapLibre map at all (objectui#11819)?
+ *
+ * MapLibre draws through WebGL2 and nothing else. Without it the `Map`
+ * constructor does not throw: `_setupPainter` emits a `GPUInitializationError`
+ * and the constructor returns a map with no painter. That event fires INSIDE
+ * the constructor, before react-map-gl attaches its listeners, so `onError`
+ * never hears it (MapLibre prints it to the console instead). react-map-gl then
+ * hands the painter-less map to the `Marker` children, whose `map.project`
+ * throws, and the error boundary's unmount runs `map.remove()`, which throws
+ * again on the missing painter — `Cannot read properties of undefined (reading
+ * 'destroy')`, the crash card the page used to show.
+ *
+ * So the question is asked here, before `MapGL` mounts, with the call MapLibre
+ * itself makes. A map that is never constructed has nothing to clean up. The
+ * probe's own context is released at once rather than left to the collector:
+ * browsers cap the live WebGL contexts a page may hold.
+ *
+ * With no DOM (a server render) there is nothing to probe and nothing would be
+ * constructed either — react-map-gl builds the map in an effect — so the
+ * answer is yes, and the browser's own render asks again.
+ */
+function canStartMap(): boolean {
+  if (typeof document === 'undefined') return true;
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return false;
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface ObjectMapProps {
   schema: ObjectMapSchema;
   dataSource?: DataSource;
@@ -161,24 +195,23 @@ const FLAT_MAP_CONFIG_KEYS = (Object.keys(ObjectMapConfigSchema.shape) as (keyof
  * with the row: a renderer honours the `data` spelling its block's PUBLISHED row
  * declares and no other.
  *
- * MEASURED: `@objectstack/spec` 17.4.0 has NO `ComponentPropsMap['object-map']`
- * row, so the published row that governs this block is this repo's own
- * `ObjectMapSchema.data` (`@object-ui/types`), `ViewDataSchema.optional()` —
- * @objectstack/spec's `z.discriminatedUnion('provider', [...])` over OBJECT
- * variants, whose `value` member additionally declares
- * `aliases: { data: 'items', rows: 'items', records: 'items' }`. A bare array
- * is off that row twice over, and this block's registration declares `data` on
- * the same OBJECT arm (`type: 'object'`, objectui#10394), so it says the same.
+ * The row is `ComponentPropsMap['object-map'].data` in the INSTALLED
+ * `@objectstack/spec` — the `ViewData` union over OBJECT variants — which
+ * ruling batch #136 item 3 (Q1-C) had the protocol gain; until it was
+ * installable this block was judged through this repo's own
+ * `ObjectMapSchema.data`, spelled the same. ⛔ Not restated here as a fact
+ * about a version: `ObjectMap.dataArmSpecRow-8348.test.tsx` derives the arm
+ * from the installed row and turns red if a release moves it. A bare array is
+ * off that row, and this block's registration declares `data` on the same
+ * OBJECT arm (`type: 'object'`, objectui#10394), so it says the same.
  *
- * ⛔ WHAT THIS REACHES, measured per CARRIER — do NOT read it as "the array is
- * gone". `SchemaRenderer` spreads every non-metadata node key as a React prop
- * and `index.tsx` forwards `{...props}`, so an authored `data` array also
- * arrives on the props channel, which outranks the schema (objectui#5003
- * order). At the ladder the array is no longer a record source; through
- * `SchemaRenderer` an authored `data: [ …rows… ]` still draws, from that prop.
- * Both halves are pinned in `ObjectMap.schemaDataShorthand.test.tsx`.
- * Collapsing the two carriers would take the host path with it and is outside
- * objectui#8348's scope — reported on the card, not changed in passing.
+ * ⛔ WHAT THIS REACHES, per CARRIER. The authored key used to have a second
+ * carrier: `SchemaRenderer` spread every non-metadata node key as a React prop,
+ * so an authored `data` array also arrived as the `data` prop, which outranks
+ * the schema (objectui#5003 order). objectui#9571 stopped that spread for
+ * object-arm blocks, so through `SchemaRenderer` the array no longer draws
+ * either; a HOST's own `data` prop is untouched. Both halves are pinned in
+ * `ObjectMap.schemaDataShorthand.test.tsx`.
  *
  * The declared spellings for inline rows are
  * `data: { provider: 'value', items: [...] }` and `staticData: [...]`, both
@@ -357,9 +390,9 @@ const warnedShadowedFlatKeys = new Set<string>();
 function warnOnShadowedFlatMapKeys(schema: MapConfigSource): void {
   if (!isDev()) return;
 
-  const shadowed = FLAT_MAP_CONFIG_KEYS.filter(
-    (key) => (schema as Record<string, unknown>)[key] !== undefined,
-  );
+  // `key` is a `FlatMapConfigKeys` key and `MapConfigSource` carries those, so
+  // the read is typed as it stands; no conversion is needed (objectui#11355).
+  const shadowed = FLAT_MAP_CONFIG_KEYS.filter((key) => schema[key] !== undefined);
   if (shadowed.length === 0) return;
 
   const memo = `${schema.type ?? 'map'}::${schema.objectName ?? ''}::${shadowed.join(',')}`;
@@ -398,6 +431,13 @@ function getMapConfig(schema: MapConfigSource): ObjectMapConfig {
   // `BaseSchema.style` — inline CSS, a different key with a different meaning —
   // and is no longer consumed here at all (objectui#5017; see
   // `warnOnTopLevelStyleUrl`).
+  //
+  // PRECEDENCE: `mapStyle` first, then `map.style` — on EVERY return path,
+  // including the declared block's below (objectui#11168 slice 3, the seat's
+  // ruling A). The installed `@objectstack/spec` row says so in `mapStyle`'s own
+  // describe ("Read before `map.style`"), and this lane follows the spec. The
+  // block path used to hand `config.style` back first, so a map writing both
+  // drew `map.style`; no authored producer writes both.
   const style: string | undefined = schema.mapStyle || schema.map?.style;
 
   // 1. The declared configuration input: `{ name: 'map', type: 'object' }` at
@@ -411,7 +451,7 @@ function getMapConfig(schema: MapConfigSource): ObjectMapConfig {
       console.warn(`[ObjectMap] Invalid map configuration:`, result.error.format());
     }
     warnOnShadowedFlatMapKeys(schema);
-    return { ...config, style: config.style || style };
+    return { ...config, style };
   }
 
   // 2. The internal flat form — the ObjectView / ListView flatten product.
@@ -645,6 +685,10 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
   const handleMapError = useCallback((e: { error?: Error & { status?: number } }) => {
     setMapStyleError(e?.error?.message || 'Failed to load the map style/tiles.');
   }, []);
+  // Asked once per mount, before `MapGL` is ever mounted: a browser without
+  // WebGL2 gets the record list instead of a map (see `canStartMap`). Not a
+  // style/tile failure — that one keeps the map and its markers, above.
+  const [mapCanStart] = useState(canStartMap);
   const requestUserLocation = useCallback(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setGeoError('Geolocation is not available in this browser.');
@@ -1185,6 +1229,14 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
     onRowClick,
   });
 
+  // What choosing one record does: a marker click on the map, or a row of the
+  // list shown instead of the map when it cannot start. One path, so they agree.
+  const selectMarker = (marker: MarkerData) => {
+    setSelectedMarkerId(marker.id);
+    navigation.handleClick(marker.data);
+    onMarkerClick?.(marker.data);
+  };
+
   const filteredMarkers = useMemo(() => {
     if (!searchQuery.trim()) return markers;
     const q = searchQuery.toLowerCase();
@@ -1339,6 +1391,43 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
         </div>
       )}
       <div className="relative border rounded-lg overflow-hidden bg-muted h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] w-full">
+         {!mapCanStart ? (
+           // No WebGL2: `MapGL` is never mounted (see `canStartMap`), so the
+           // records the markers would draw are listed here instead — the same
+           // `filteredMarkers` the search box above narrows, each row taking
+           // the marker's own click path.
+           <div className="flex h-full flex-col" data-testid="map-webgl2-fallback">
+             <div
+               role="alert"
+               className="p-2 text-sm text-center text-amber-900 bg-amber-50 border-b border-amber-200"
+             >
+               Map failed to load (this browser does not provide WebGL2, which the map needs). The records are
+               listed below; turn on hardware acceleration or use a browser with WebGL2 to see the map.
+             </div>
+             <ul className="min-h-0 flex-1 overflow-y-auto divide-y bg-background" aria-label="Locations">
+               {filteredMarkers.length === 0 && (
+                 <li className="px-3 py-2 text-sm text-muted-foreground">No locations to list.</li>
+               )}
+               {filteredMarkers.map((marker) => (
+                 <li key={marker.id}>
+                   <button
+                     type="button"
+                     onClick={() => selectMarker(marker)}
+                     className={cn(
+                       'block w-full px-3 py-2 text-left hover:bg-accent focus:outline-none focus-visible:bg-accent',
+                       marker.id === selectedMarkerId && 'bg-accent',
+                     )}
+                   >
+                     <span className="block truncate text-sm font-medium">{marker.title}</span>
+                     {marker.description && (
+                       <span className="block truncate text-xs text-muted-foreground">{marker.description}</span>
+                     )}
+                   </button>
+                 </li>
+               ))}
+             </ul>
+           </div>
+         ) : (
          <MapGL
             ref={(r) => { mapRef.current = r as any; }}
             initialViewState={initialViewState}
@@ -1424,10 +1513,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
                     anchor="bottom"
                     onClick={(e) => {
                         e.originalEvent.stopPropagation();
-                        const marker = cluster.markers[0];
-                        setSelectedMarkerId(marker.id);
-                        navigation.handleClick(marker.data);
-                        onMarkerClick?.(marker.data);
+                        selectMarker(cluster.markers[0]);
                     }}
                 >
                     <div className="text-2xl cursor-pointer hover:scale-110 transition-transform">
@@ -1462,6 +1548,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
                 </Popup>
             )}
          </MapGL>
+         )}
          {/* Mobile UX (round 3) — bottom-sheet record card replaces the
              Popup on small viewports for a native-feeling mobile pattern. */}
          {selectedMarker && isMobile && (

@@ -184,20 +184,24 @@ declare const handleAddComment: (text: string) => void;
 
 `RecordActivityTimeline` is a presenter: you hand it `items`. The SDUI block
 `record:activity` is the schema-authored form of the same panel, and it finds
-its own feed. Drop it anywhere inside a record page:
+its own feed. Drop it anywhere inside a record page; its inputs go in the node's
+`properties` bag, as `@objectstack/spec` declares them (the strict page component
+refuses them written flat on the node):
 
 ```json
 {
   "type": "page:tabs",
-  "items": [
-    {
-      "label": "Activity",
-      "value": "activity",
-      "children": [
-        { "type": "record:activity", "limit": 20, "showCompleted": false }
-      ]
-    }
-  ]
+  "properties": {
+    "items": [
+      {
+        "label": "Activity",
+        "value": "activity",
+        "children": [
+          { "type": "record:activity", "properties": { "limit": 20, "showCompleted": false } }
+        ]
+      }
+    ]
+  }
 }
 ```
 
@@ -206,7 +210,11 @@ its own feed. Drop it anywhere inside a record page:
 Three sources, in precedence order:
 
 1. **`items` on the node** — a host that already owns the feed passes it in
-   (the same convention `record:history` uses for `entries`).
+   (the same convention `record:history` uses for `entries`). The host does
+   this in code, on a node it composes and renders. `items` and its paired
+   `loading` flag are not schema keys: a JSON document that writes either one,
+   on the node or in `properties`, is refused, and on the node the refusal
+   names it as the host's feed slot.
 2. **A mounted discussion context** — the console's record page wraps the
    record body in one, carrying the merged `sys_comment` + `sys_activity` feed
    *and* the comment / reply / reaction handlers. When it is present the block
@@ -215,6 +223,21 @@ Three sources, in precedence order:
    record it is bound to (`object_name` + `record_id`), newest first, `limit`
    rows per page. This is what makes it work on a hand-authored record page
    with no host feeding it.
+
+### When the read is refused
+
+A refused read is not an empty feed. When the server refuses the feed's read
+(401, 403, or a permission envelope), the panel shows a no-permission state, a
+lock and "You don't have permission to view activity on this record.", in place
+of "No activity recorded". If some rows did load (the comments were readable and
+the activity was not, or the other way round), the rows stay and the notice
+above them names the half that is withheld. The console's record page applies
+the same rule to both of its reads, `sys_activity` and `sys_comment`.
+
+Everything else keeps the empty state: a read that answers with zero rows, a 404
+(`sys_activity` on a deployment without the audit plugin), and any other
+failure, such as a 500. A refusal is not retried. `isRefusedFeedRead`, exported
+from this package, is the verdict both surfaces use.
 
 `sys_activity` rows map to feed items like this:
 `created` / `updated` / `deleted` / `assigned` / `shared` → `field_change`,
@@ -352,6 +375,13 @@ decision as a defect is how a warning channel gets ignored:
   composes one. Every panel a user sees is therefore an authored or synthesized
   block running this pipeline. The object's `enable.feeds: false` still
   outranks the page and suppresses the panel either way.
+
+  `feed.aria` is read too (objectui#11083), the way `record:activity` reads its
+  own `aria`: it lands on a `div` around the embedded timeline, and a declared
+  `ariaLabel` (a plain string or an inline locale map) names that `div` as a
+  `region`. The timeline keeps its heading as its own name, and the block's
+  top-level `aria` still names the block's own container, so the two bags name
+  two different regions.
 </Callout>
 
 ### RecordActivityTimeline Config

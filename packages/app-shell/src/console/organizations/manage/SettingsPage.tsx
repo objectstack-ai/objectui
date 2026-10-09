@@ -2,6 +2,22 @@
  * SettingsPage
  *
  * Organization settings: general info form + danger zone.
+ *
+ * ## The slug field is read-only while environments reference the slug (objectui#11720)
+ *
+ * The form saves through better-auth's organization update, and the framework
+ * refuses a NEW slug there while the organization has an environment that is
+ * neither archived nor failed: on a cloud control plane, a slug rename moves
+ * every environment's subdomain, and only cloud's orchestrated rename does
+ * that. So when `readOrgEnvironmentPresence` answers `present`, the field is
+ * rendered read-only with a note saying why, and no slug is sent. The note
+ * states only the measured cause; it names no rename path, because none was
+ * measured reachable from this console. Every other answer leaves the field
+ * as it always was.
+ *
+ * A save sends `slug` only when it CHANGED. A name-only save therefore never
+ * carries a slug, so the guard has nothing to judge and the save answers 200,
+ * and a stale form can never write back a slug that was renamed elsewhere.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -30,6 +46,13 @@ import { Loader2, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useOrgContext } from './orgContext.js';
+import { readOrgEnvironmentPresence } from './orgEnvironments.js';
+
+/**
+ * Whether the slug field is offered: `pending` until the environment read
+ * answers, `locked` when it answered `present`, `open` otherwise.
+ */
+type SlugAvailability = 'pending' | 'locked' | 'open';
 
 export function SettingsPage() {
   const { t } = useObjectTranslation();
@@ -55,6 +78,15 @@ export function SettingsPage() {
   // Owner check
   const [isOwner, setIsOwner] = useState<boolean | null>(null);
   const [membersLoading, setMembersLoading] = useState(true);
+
+  // Slug availability — only an owner sees the form, so only an owner's visit
+  // asks about the organization's environments. The answer is kept WITH the
+  // organization it was read for, so moving to another organization reads as
+  // `pending` again without a reset inside the effect.
+  const [slugAnswer, setSlugAnswer] = useState<{ orgId: string; locked: boolean } | null>(null);
+  const slugAvailability: SlugAvailability =
+    slugAnswer?.orgId === org.id ? (slugAnswer.locked ? 'locked' : 'open') : 'pending';
+  const slugLocked = slugAvailability === 'locked';
 
   // Danger zone dialogs
   const [isLeaveOpen, setIsLeaveOpen] = useState(false);
@@ -90,14 +122,31 @@ export function SettingsPage() {
     };
   }, [org.id, user?.id, getMembers]);
 
+  // Ask whether environments still reference the slug, once ownership is known.
+  useEffect(() => {
+    if (isOwner !== true) return;
+    let cancelled = false;
+    const orgId = org.id;
+    void readOrgEnvironmentPresence(orgId).then((presence) => {
+      if (!cancelled) setSlugAnswer({ orgId, locked: presence === 'present' });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwner, org.id]);
+
   const handleSave = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setIsSaving(true);
+      // Only a CHANGED, non-empty slug is sent, and never while the field is
+      // locked (see the module header).
+      const nextSlug = slug.trim();
+      const slugChanged = !slugLocked && nextSlug !== '' && nextSlug !== (org.slug ?? '');
       try {
         await updateOrganization(org.id, {
           name: name.trim(),
-          slug: slug.trim() || undefined,
+          ...(slugChanged ? { slug: nextSlug } : {}),
           logo: logo.trim() || undefined,
         });
         toast.success(t('organization.settings.saved', { defaultValue: 'Settings saved' }));
@@ -111,7 +160,7 @@ export function SettingsPage() {
         setIsSaving(false);
       }
     },
-    [org.id, name, slug, logo, updateOrganization, t],
+    [org.id, org.slug, name, slug, logo, slugLocked, updateOrganization, t],
   );
 
   const handleLeave = async () => {
@@ -148,7 +197,9 @@ export function SettingsPage() {
     }
   };
 
-  if (membersLoading) {
+  // An owner's form waits for the environment answer too, so the slug field
+  // never renders editable and then locks under the user's cursor.
+  if (membersLoading || (isOwner === true && slugAvailability === 'pending')) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -199,8 +250,22 @@ export function SettingsPage() {
                 id="org-slug"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
+                readOnly={slugLocked}
+                aria-describedby={slugLocked ? 'org-slug-locked-note' : undefined}
                 data-testid="settings-slug-input"
               />
+              {slugLocked && (
+                <p
+                  id="org-slug-locked-note"
+                  className="text-xs text-muted-foreground"
+                  data-testid="settings-slug-locked-note"
+                >
+                  {t('organization.settings.slugLockedNote', {
+                    defaultValue:
+                      'This organization has active environments, so its slug can’t be changed here: renaming it also moves their subdomains.',
+                  })}
+                </p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label>

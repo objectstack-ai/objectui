@@ -31,3 +31,5 @@ export {
   shouldGroupDisplayNumber,
   type DisplayNumberFormatOptions,
 } from './number-display.js';
+
+export { firstDayOfWeek, type WeekdayIndex } from './first-day-of-week.js';

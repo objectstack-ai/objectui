@@ -29,9 +29,17 @@
  *      posture (`formatMetadataError` on the shared sonner id, recorded so
  *      the trigger reads `failed`) — a fix must not buy pin 1 with silence;
  *   3. a REAL deletion — the list comes back successfully WITHOUT the package
- *      — still navigates exactly as before. ⛔ Not optional: pinning only 1
- *      and 2 lets the fix degrade into "never navigate", which strands the
- *      author on a package that no longer exists.
+ *      — still navigates. ⛔ Not optional: pinning only 1 and 2 lets the fix
+ *      degrade into "never navigate", which strands the author on a package
+ *      that no longer exists.
+ *
+ * Where a REAL deletion lands while other packages remain changed with
+ * objectui#11784 (triage comment 6041966855: "return to `/studio` after a
+ * delete"): the Studio landing. It used to open `list[0]`, whichever package
+ * the list started with, so a delete read as "Studio moved me into another
+ * app". The "sibling survives" case says the new destination; every other case
+ * here is unchanged and stays as a control, the two "nothing left" cases
+ * included (that arm is still objectui#7373's declared home).
  *
  * ⛔ The `.catch` is deliberately still a `.catch` (one 503 must not take the
  * Studio down — objectui#7368's ruling) and there is deliberately still no
@@ -214,6 +222,7 @@ function renderSurface(apps?: MetadataContextValue['apps']) {
         apps,
         <Routes>
           <Route path="/studio/:packageId/:tab" element={<StudioDesignSurface />} />
+          <Route path="/studio" element={<div data-testid="studio-landing" />} />
           <Route path="/home" element={<div data-testid="home-page" />} />
           <Route path="/apps/cloud_control" element={<div data-testid="declared-landing" />} />
         </Routes>,
@@ -323,13 +332,17 @@ describe('Studio package lifecycle — a failed refresh is not a deletion (#7821
     expect(toastError).not.toHaveBeenCalled();
   });
 
-  it('REAL deletion, a sibling survives: still navigates to that sibling (behaviour unchanged)', async () => {
+  it('REAL deletion, a sibling survives: returns to the Studio landing, not into the sibling (objectui#11784)', async () => {
+    // The card's measured complaint: after the delete, Studio landed on
+    // another package (showcase), the list's first entry, instead of the
+    // Studio landing. Triage 6041966855: "return to `/studio` after a delete".
     const lifecycle = await openLifecycleSheet([row(PACKAGE_ID), row(SIBLING_ID)]);
 
     fetchPackagesMock.mockResolvedValue([row(SIBLING_ID)]);
     fireEvent.click(lifecycle);
 
-    await waitFor(() => expect(where()).toBe(`/studio/${SIBLING_ID}/interfaces`));
+    expect(await screen.findByTestId('studio-landing')).toBeInTheDocument();
+    expect(where()).toBe('/studio');
     expect(screen.queryByTestId('home-page')).not.toBeInTheDocument();
   });
 

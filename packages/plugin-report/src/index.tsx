@@ -40,9 +40,10 @@ export { mergeFilters } from './mergeFilters';
 // NAMESPACE — `plugin-report`, the spelling this package's consumers declare
 // (objectui#6416).
 //
-// These three registrations used to name namespace `report`, while
+// These registrations (three until objectui#11440 retired `spec-report`, see
+// below) used to name namespace `report`, while
 // `apps/console/src/register-plugins.ts` declared the lazy stubs for the same
-// three short names under `plugin-report` and
+// short names under `plugin-report` and
 // `packages/cli/src/utils/known-schema-types.ts` shipped the `plugin-report:*`
 // spellings as renderable. Two things followed from the disagreement:
 //
@@ -83,24 +84,46 @@ ComponentRegistry.register(
         { name: 'title', type: 'string' },
         { name: 'description', type: 'string' },
         { name: 'chart', type: 'code' },
+        // objectui#11440: the wrapper the retired `spec-report` alias carried.
+        // `ReportRenderer` unwraps it first, and `@object-ui/types/zod`'s
+        // `ReportNodeSchema` declares it as `@objectstack/spec`'s `ReportSchema`.
+        {
+          name: 'report',
+          type: 'object',
+          description: 'The report to render, as `@objectstack/spec` declares it (`ReportSchema`: `name`, `label`, `type`, `dataset`, `rows`, `values`, …). When present, the block renders this report and reads none of its own presentation inputs.',
+        },
     ]
   }
 );
 
-// Spec-native alias — same dispatcher, explicit name for spec-driven hosts.
-ComponentRegistry.register(
-  'spec-report',
-  ReportRenderer,
-  {
-    namespace: 'plugin-report',
-    label: 'Spec Report',
-    category: 'Report',
-    inputs: [
-        { name: 'dataset', type: 'string' },
-        { name: 'type', type: 'string' },
-    ]
-  }
-);
+/**
+ * ⛔ The `spec-report` node type key is RETIRED (objectui#11440, the seat ruling
+ * `5945530142` on objectui#10859, by the objectui#10393 / objectui#8760 route).
+ * A report embedded in a JSON tree has one spelling: the `report` node above
+ * with the report in its `report` member — `{ "type": "report", "report": {
+ * "name": "…", "type": "summary", "dataset": "…", "rows": ["…"], "values":
+ * ["…"] } }` — which both validator faces accept and `ReportRenderer` unwraps.
+ *
+ * ## What was here, and why it went
+ *
+ * A second registration of the same `ReportRenderer` under the kebab key
+ * `spec-report` in the `plugin-report` namespace, so it stored
+ * `plugin-report:spec-report` and the bare `spec-report` fallback, labelled
+ * "Spec Report", with two declared inputs (`dataset` and `type`, both strings).
+ * (Described rather than quoted, so the registry derivation does not read this
+ * comment as a registration.) The ruling found the capability passes the
+ * mainstream criterion (an embedded saved report) and the spelling is an alias
+ * of `report`. No `@object-ui/types` arm claimed it, so `objectui validate`
+ * refused a `spec-report` node at `type` while the registry mounted it.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * In the ruled order: `report` declares the wrapper shape first (its `report`
+ * input above, `ReportNodeSchema` on the zod face); the one emitter, the
+ * dashboard's `DrillDownDrawer`, writes `report`; the console's lazy stub for
+ * the key goes in the same change. A node written with this type now renders
+ * the OBJUI-001 "Unknown component type" panel.
+ */
 
 // Register report viewer component
 ComponentRegistry.register(

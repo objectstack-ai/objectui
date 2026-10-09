@@ -174,7 +174,11 @@ const SHAPES: Shape[] = [
     condition: { dialect: 'cel', source: '   ' },
     blocked: false,
   },
-  // ── unchanged: non-predicate junk fails open ────────────────────────────
+  // ── unchanged verdict: non-predicate junk still runs ────────────────────
+  // Since objectui#11358 for a different reason: it is a DECLARED gate that
+  // cannot be evaluated, `evaluateCondition` reports it and answers its
+  // fail-soft `true`, and on this key that is "execute" — the direction a
+  // faulting `condition` has always taken. See the objectui#11358 block below.
   { label: 'condition: 0 (not a predicate)', condition: 0, blocked: false },
   { label: 'condition: {} (not a predicate)', condition: {}, blocked: false },
 ];
@@ -276,9 +280,16 @@ describe('why the `condition` gate cannot ask truthiness (objectui#3872)', () =>
     expect(Boolean(false)).toBe(false);
     expect(declared(false)).toBe(true);
 
-    // Everywhere else the two questions agree, which is why one row changed.
-    for (const v of ['', '   ', 0, {}, { dialect: 'cel', source: '' }, { dialect: 'cel', source: '   ' }]) {
+    // On the empty shapes the two questions agree, which is why one row
+    // changed here.
+    for (const v of ['', '   ', { dialect: 'cel', source: '' }, { dialect: 'cel', source: '   ' }]) {
       expect(declared(v), `${JSON.stringify(v)} declares no gate`).toBe(false);
+    }
+    // objectui#11358: a value with no evaluable `source` is DECLARED (and
+    // faults), whatever its truthiness — `0` is falsy, `{}` truthy, both are
+    // gates. Their verdict on this key is the fault direction (see below).
+    for (const v of [0, {}]) {
+      expect(declared(v), `${JSON.stringify(v)} declares a gate that cannot be evaluated`).toBe(true);
     }
     for (const v of [true, 'user.role == "admin"', { dialect: 'cel', source: 'false' }]) {
       expect(declared(v), `${JSON.stringify(v)} declares a gate`).toBe(true);
@@ -310,7 +321,7 @@ describe('why the `condition` gate cannot ask truthiness (objectui#3872)', () =>
     expect(ev.evaluateCondition(toPredicateInput(truePredicate) as never)).toBe(true);
   });
 
-  it('CONVERGED (objectui#3957): the engine `visible` filter no longer coerces junk either', () => {
+  it('CONVERGED (objectui#3957), then objectui#11358: the engine `visible` filter reads junk as the definition does', () => {
     // This case used to be a DOCUMENTED DIVERGENCE. `ActionEngine.
     // getActionsForLocation` is the in-repo template this gate took its shape
     // from, but its non-predicate branch kept a historical `Boolean(raw)`
@@ -321,16 +332,22 @@ describe('why the `condition` gate cannot ask truthiness (objectui#3872)', () =>
     // without unifying the engine: its ruling covered the "declared?" definition
     // and its placement, not that filter's own range.
     //
-    // objectui#3957 moved the engine onto the same definition, so `0` is "no
-    // gate" at every entry. Kept here, converged, because the divergence is what
-    // this file documented — the assertion flipped from `toHaveLength(0)` to
-    // `toHaveLength(1)` and is now the pin that the two faces agree.
-    const engine = new ActionEngine(CONTEXT);
-    engine.registerAction(
-      { name: 'junk_visible', type: 'script', target: '"ran"', visible: 0 } as unknown as ActionDef,
-      { locations: ['record_section'] },
-    );
-    expect(engine.getActionsForLocation('record_section').map(a => a.name)).toEqual(['junk_visible']);
+    // objectui#3957 moved the engine onto the same definition, so `0` got one
+    // answer at every entry. objectui#11358 then changed that ONE answer:
+    // `0` is a declared gate that cannot be evaluated, so the engine filter
+    // (fail-closed on any fault) hides it — still the same answer the renderer
+    // `visible` legs give, which is what this case pins.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const engine = new ActionEngine(CONTEXT);
+      engine.registerAction(
+        { name: 'junk_visible', type: 'script', target: '"ran"', visible: 0 } as unknown as ActionDef,
+        { locations: ['record_section'] },
+      );
+      expect(engine.getActionsForLocation('record_section')).toHaveLength(0);
+    } finally {
+      warn.mockRestore();
+    }
     // Anti-mutation: "the filter passes everything" satisfies the line above. A
     // declared-and-false gate still hides, at the engine as at this gate.
     const gated = new ActionEngine(CONTEXT);
@@ -339,5 +356,60 @@ describe('why the `condition` gate cannot ask truthiness (objectui#3872)', () =>
       { locations: ['record_section'] },
     );
     expect(gated.getActionsForLocation('record_section')).toHaveLength(0);
+  });
+});
+
+/**
+ * objectui#11358 — a `condition` that is DECLARED but has no evaluable `source`
+ * (an `ast`-only envelope, `0`, `{}`, an array).
+ *
+ * It is a declared gate (`hasDeclaredPredicate` → `true`), so it reaches
+ * `evaluateCondition`, which treats it as a fault: reported once, answered with
+ * the fail-soft `true`. On THIS key `true` means "execute" — exactly what a
+ * `condition` that faults with text in it does (`record.(` below). So the
+ * verdict is the one these shapes had before; what changed is that it is no
+ * longer silent. Whether `condition` should fail CLOSED on every fault is not
+ * this card's to change: it is the key's single fault policy, and moving it
+ * would move every typo'd `condition` too.
+ */
+describe('ActionRunner `condition`: declared but not evaluable is a reported fault (objectui#11358)', () => {
+  const UNEVALUABLE: Array<{ label: string; value: unknown }> = [
+    { label: "an `ast`-only envelope ({ dialect: 'cel', ast })", value: { dialect: 'cel', ast: { kind: 'call', fn: '==' } } },
+    { label: '0', value: 0 },
+    { label: '{} (no source)', value: {} },
+    { label: '[] (array)', value: ['record.id'] },
+  ];
+
+  it.each(UNEVALUABLE)('condition: $label → declared, runs (the fault direction), reported', async ({ value }) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(hasDeclaredPredicate(value)).toBe(true);
+      const { result, ran } = await runShape({ condition: value });
+      expect(ran).toBe(true);
+      expect(result.success).toBe(true);
+      // Reported through `evalFieldPredicate`'s one-time report, which every
+      // shape of this class shares under one locator — so the report is
+      // asserted, not counted per row.
+      const reasons = warn.mock.calls.map(c => String(c[0])).filter(r => r.includes('[unevaluable]'));
+      expect(reasons.length).toBeLessThanOrEqual(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('is reported at least once, and the verdict matches a condition that faults with text', async () => {
+    const ev = new ExpressionEvaluator(CONTEXT);
+    const onFault = vi.fn();
+    expect(ev.evaluateCondition({} as never, { onFault })).toBe(true);
+    expect(onFault).toHaveBeenCalledOnce();
+    expect(String(onFault.mock.calls[0][0])).toContain('[unevaluable]');
+    // The control: a faulting CEL source runs too, on the same fail-soft `true`.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const typo = await runShape({ condition: { dialect: 'cel', source: 'record.(' } });
+      expect(typo.ran).toBe(true);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

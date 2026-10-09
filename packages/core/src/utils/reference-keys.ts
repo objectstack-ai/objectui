@@ -14,24 +14,30 @@
  * here from a grep.
  */
 
-import { FieldSchema } from '@objectstack/spec/data';
+import { FIELD_KEY_GUIDANCE, FieldSchema } from '@objectstack/spec/data';
 
 /**
  * Backend object schemas follow the ObjectStack convention and name a
  * relational field's target object `reference`
- * (e.g. `{ type: 'lookup', reference: 'showcase_account' }`), while ObjectUI's
- * types — and most in-repo consumers — historically read `reference_to`
- * (some legacy configs also carry camelCase `referenceTo`). A consumer that
- * reads only one key silently loses the relation under the other convention:
- * the exact bug HeaderHighlight had (#2407 / PR #2587), where a served
- * `reference`-keyed lookup rendered a raw id.
+ * (e.g. `{ type: 'lookup', reference: 'showcase_account' }`) — the only
+ * spelling `@objectstack/spec`'s `FieldSchema` declares. Since objectui#11070
+ * round 4 it is also the only spelling ObjectUI writes or reads: its types
+ * (`LookupFieldMetadata`, `MasterDetailFieldMetadata`, `DetailViewField`), its
+ * in-repo emitters, and its readers (`LookupField`, `UserField`, the lookup
+ * and user read cells) all spell it `reference`.
  *
- * `normalizeFieldReferenceKeys` stamps BOTH snake_case keys onto the field
- * definition whenever any of the three spellings is present, so downstream
- * reads work regardless of which single key they check. It mutates the field
- * in place — the ObjectStack adapter caches the schema object and re-serves
- * it, so the one pass must stick — and is idempotent. Keys that are already
- * set are never overwritten.
+ * `normalizeFieldReferenceKeys` FOLDS a foreign `reference_to` (or camelCase
+ * `referenceTo`) onto `reference` when — and only when — `reference` is
+ * absent, so a stored legacy def still reaches every reader. It never writes
+ * `reference_to`. Until round 4 it stamped BOTH snake_case keys onto every
+ * relational def, and that stamp was the producer that kept a second spelling
+ * alive inside ObjectUI: the readers read `reference_to` because the stamp and
+ * the emitters wrote it, and the emitters wrote it because the readers read it.
+ * It mutates the field in place — the ObjectStack adapter caches the schema
+ * object and re-serves it, so the one pass must stick — and is idempotent. A
+ * `reference` that is already set is never overwritten, and the foreign key is
+ * left on the def exactly as served: nothing here drops a key (see "Leave arm"
+ * below).
  *
  * ## ⭐ Why this file also WARNS — objectui#6837 half 2
  *
@@ -66,8 +72,9 @@ import { FieldSchema } from '@objectstack/spec/data';
  *   packages/app-shell/src/providers/MetadataProvider.tsx  (`getItem`,    metadata type `object`)
  *   packages/data-objectstack/src/index.ts                 (ObjectStackAdapter.getObjectSchema)
  *
- * All three STAMP the def, so a def that triggers this warning is also a def
- * that still resolves. ⇒ The warning fires precisely where nothing is broken.
+ * All three FOLD the def onto `reference`, so a def that triggers this warning
+ * is also a def that still resolves. ⇒ The warning fires precisely where
+ * nothing is broken.
  *
  * ⚠️ The third of those is new in objectui#7650 and the count above used to
  * read TWO. The old count was true about where this file RAN and false about
@@ -82,15 +89,22 @@ import { FieldSchema } from '@objectstack/spec/data';
  * required member of the published `DataSource` interface and the readers call
  * it on the generic `dataSource`, so a hand-written schema served through ANY
  * other `DataSource` reaches a reader RAW — it neither passes through here nor
- * warns. On that path the failure is exactly as silent as it was before.
- * Reader-side or shared-resolver diagnostics, which would cover it, remain an
- * open question on objectui#6837 (options B and C of its table §5).
+ * warns. Since objectui#11070 round 4 no reader carries a `reference_to` leg,
+ * so on that path a def that spells ONLY a legacy key resolves no target: the
+ * picker has no object to query and the read cell names nothing. That round's
+ * changeset states the break for such a host. Reader-side or shared-resolver
+ * diagnostics, which would make it audible, remain an open question on
+ * objectui#6837 (options B and C of its table §5).
  *
  * ⛔ Do not describe this pin as making the BYO break audible. It does not.
  *
- * ⛔ The stamping itself is deliberately UNCHANGED. It is the only thing
- * standing between a BYO `DataSource` and the break, and retiring it is a
- * separate decision with its own weight — not this card's.
+ * ⭐ The `reference_to` STAMP is retired (objectui#11070 round 4, the seat's
+ * answer A to that card's Q1 under the objectui#6837 ruling). An earlier
+ * revision of this header kept it as "the only thing standing between a BYO
+ * `DataSource` and the break". It stood there only because the readers still
+ * read `reference_to`, and they read it because this stamp and ObjectUI's own
+ * emitters wrote it; with both ends moved to `reference` it protected nothing.
+ * The FOLD onto `reference` is what a served legacy def needs, and it stays.
  */
 
 /**
@@ -145,8 +159,10 @@ import { FieldSchema } from '@objectstack/spec/data';
  * canonical, and silent data loss on a serve path is the worst of the shapes.
  *
  * ⭐ The leave arm is no longer SILENT, which is the other half of that
- * sentence: the document keeps the value, and the consumers — narrowed to the
- * canonical spelling by objectui#7155 / #7166 / #7435 — read none of it. See
+ * sentence: the document keeps the value, and the consumers narrowed to the
+ * canonical spelling by objectui#7155 / #7166 / #7435 read none of it (not
+ * every consumer was narrowed — the kept retired-spelling readers are named in
+ * {@link warnUnfoldableRetiredKey}'s docblock). See
  * {@link warnUnfoldableRetiredKey} (objectui#8938) for the diagnostic maintainer
  * ruling item 3 asked for, and for the two cases it deliberately stays out of.
  *
@@ -161,16 +177,20 @@ import { FieldSchema } from '@objectstack/spec/data';
  * typed`, which drives every snake twin the live spec implies through this
  * choke point.
  *
- * ⛔ The `id_field` slice is BLOCKED, and not on a card. `@objectstack/spec`'s
- * `FIELD_KEY_GUIDANCE` grew an `id_field` row explaining why the key has no
- * successor, but that row is in NO PUBLISHED version — measured against 17.3.0
- * (installed) and 17.4.0 (newest on npm), both zero occurrences, with
- * `startingNumber` as the lit control in the same read. What is missing is a
- * RELEASE, not a decision. Quoting that sentence from a local copy here was
- * refused (a second copy of contract prose is the drift AGENTS.md #0.1 exists
- * to stop) and so was reading it optionally with a local fallback (an invisible
- * fallback that silently degrades on an older spec is this card's own defect
- * class). Until the cut lands, `id_field` is simply left alone.
+ * ## `id_field`: never folded, and the diagnostic carries the spec's own reason
+ *
+ * `@objectstack/spec`'s `FIELD_KEY_GUIDANCE` publishes an `id_field` row with a
+ * `why` and no `to`: a retirement, not a rename. So `id_field` is still never
+ * folded and nothing here reads an `idField`. What the row changes is the
+ * `no-declared-twin` diagnostic, which appends that `why`, read off the
+ * installed spec when the warning is emitted ({@link warnUnfoldableRetiredKey};
+ * objectui#7650). Two other ways of getting the sentence there were refused on
+ * the card, and neither refusal moves: quoting it from a local copy (a second
+ * copy of contract prose is the drift AGENTS.md #0.1 exists to stop), and
+ * reading it optionally with a local fallback (an invisible fallback that
+ * silently degrades on an older spec is this card's own defect class). The read
+ * is therefore unconditional: on a spec without the row it throws in dev rather
+ * than printing less.
  *
  * ## What this arm deliberately does NOT do
  *
@@ -255,14 +275,29 @@ type UnfoldableReason = 'no-declared-twin' | 'ambiguous-probe' | 'canonical-occu
  * point cannot fold". The fold arm shipped with a warning for the spelling it
  * CAN fold ({@link canonicalizeRetiredFieldKeys}) and nothing for the one it
  * cannot, which is the half the ruling named: a key that folds still reaches
- * every consumer, while a key that does not fold reaches none of them.
+ * every consumer, while a key that does not fold reaches none of the consumers
+ * of the declared spellings.
  *
  * ⛔ "Not a silent DROP" is about the reader, not about the document. Nothing
  * here removes a key or a value — the leave arm is lossless and stays lossless.
- * What is lost is the READ: the retirement cards in this family (objectui#7155,
- * #7166, #7435) narrowed the consumers to the canonical spelling, so a value
- * that never reaches a canonical key is a value nothing reads. That is the
- * silence this makes audible.
+ * What is lost is the READ by those consumers: the retirement cards in this
+ * family (objectui#7155, #7166, #7435) narrowed them to the canonical spelling,
+ * so a value that never reaches a canonical key is a value none of them reads.
+ * That is the silence this makes audible.
+ *
+ * ⚠️ Not NO reader, and the line never says so (objectui#7650). Some reads of a
+ * retired spelling were KEPT on purpose and still see a value this arm leaves
+ * alone. For the two `no-declared-twin` keys: `resolveActionParam` in
+ * `@object-ui/app-shell` reads `id_field` and `title_format` (objectui#7435
+ * kept them; its pin `resolveActionParams.declaredLookupLegs-7435.test.ts`
+ * calls them the snake spellings that must keep working), and
+ * `resolveGroupByLabels` in `@object-ui/plugin-charts` reads
+ * `fieldDef.id_field || 'id'`. Those two are named, not counted: other kept
+ * snake reads exist (`deriveColumns` in `@object-ui/plugin-form` reads
+ * `reference_field`, for one), and nothing re-derives a complete list. So the
+ * line claims only what holds for every refusal: a consumer that reads only
+ * declared spellings will not see the value. Retiring any of those reads is a
+ * separate decision, not taken here.
  *
  * ## The three refusals, and why each is a different sentence
  *
@@ -272,16 +307,23 @@ type UnfoldableReason = 'no-declared-twin' | 'ambiguous-probe' | 'canonical-occu
  *     ⛔ the diagnostic deliberately does NOT offer a near match, for the same
  *     reason the fold does not — the spec's `lintAuthoredRecordKeys` falls
  *     through to a Levenshtein matcher, and a serve path that suggests a
- *     correction is one revision away from applying it.
+ *     correction is one revision away from applying it. For `id_field` alone
+ *     the line also carries the reason the spec publishes for that exact
+ *     spelling, `FIELD_KEY_GUIDANCE.id_field.why`, read unconditionally where
+ *     the line is built: the contract's own sentence about the key, not a near
+ *     match this path computed. The spec keys that row snake_case on purpose —
+ *     a `why` row matches only the exact authored spelling.
  *   - `ambiguous-probe` — two or more declared keys share the probe, so the
  *     fold refuses to choose. Unreachable against a spec with no collision;
  *     the pin that exercises it substitutes a colliding `FieldSchema`.
  *   - `canonical-occupied` — the declared twin is already on the def carrying a
  *     DIFFERENT value, and the fold never overwrites a value the producer set.
- *     The producer's value is served, the retired one is inert, and NOTHING said
- *     so before this. ⛔ Same value under both spellings is NOT this case: that
- *     is the state this pass leaves behind on its own second run, and reporting
- *     it would make every re-normalization of a correctly folded def noisy.
+ *     The producer's value is served under the declared key, the retired one
+ *     reaches no consumer of the declared spelling (a kept snake read can still
+ *     see it — see above), and NOTHING said so before this. ⛔ Same value under
+ *     both spellings is NOT this case: that is the state this pass leaves
+ *     behind on its own second run, and reporting it would make every
+ *     re-normalization of a correctly folded def noisy.
  *
  * ## ⛔ What it does NOT fire on — the two exclusions that keep it honest
  *
@@ -290,7 +332,7 @@ type UnfoldableReason = 'no-declared-twin' | 'ambiguous-probe' | 'canonical-occu
  *     exactly as loudly as one that does not.
  *   - `reference_to` / `referenceTo`, which probe onto no declared key and
  *     would otherwise report as `no-declared-twin` while the reference arm was
- *     in the middle of stamping them. They have their own arm and their own
+ *     in the middle of folding them onto `reference`. They have their own arm and their own
  *     diagnostic ({@link warnOnLegacyOnlyReference}, objectui#6837).
  *
  * Dev-only and memoised, the discipline both existing warnings already use: the
@@ -310,13 +352,19 @@ function warnUnfoldableRetiredKey(
   const owner = objectName ?? '(unknown object)';
   const memo = `${owner}:${named}:${key}:${reason}`;
   if (warnedUnfoldableSpelling.has(memo)) return;
+  // ⛔ No `?.` and no `??` here: a spec without the row throws before the memo
+  // is taken, rather than warning with less (objectui#7650).
+  const published =
+    reason === 'no-declared-twin' && key === 'id_field'
+      ? ` \`@objectstack/spec\`'s \`FIELD_KEY_GUIDANCE\` gives the reason: ${FIELD_KEY_GUIDANCE.id_field.why}`
+      : '';
   warnedUnfoldableSpelling.add(memo);
   console.warn(
     `[ObjectUI] Object \`${owner}\`, field \`${named}\`: the ingestion choke point CANNOT ` +
-      `canonicalize the retired spelling \`${key}\`. ${detail} The key and its value are LEFT ` +
-      `on the def exactly as served — nothing is dropped here — but the consumers read only the ` +
-      `spelling \`@objectstack/spec\`'s \`FieldSchema\` declares, so this value reaches no ` +
-      `reader. Fix the PRODUCER, or migrate the stored document. (maintainer ruling item 3 on ` +
+      `canonicalize the retired spelling \`${key}\`. ${detail}${published} The key and its value are LEFT ` +
+      `on the def exactly as served — nothing is dropped here — but a consumer that reads only ` +
+      `the spellings \`@objectstack/spec\`'s \`FieldSchema\` declares will not see this value. ` +
+      `Fix the PRODUCER, or migrate the stored document. (maintainer ruling item 3 on ` +
       `objectui#7650; objectui#8938)`,
   );
 }
@@ -345,7 +393,7 @@ function canonicalizeRetiredFieldKeys(
     if (value === undefined) continue;
     // The reference arm's own keys are handled (and warned about) below; they
     // probe onto no declared key, so without this they would report here as an
-    // unfoldable spelling while that arm was about to stamp them.
+    // unfoldable spelling while that arm was about to fold them.
     if (REFERENCE_ARM_KEYS.has(key)) continue;
     const probe = aliasProbe(key);
     const canonical = folds.get(probe);
@@ -452,7 +500,7 @@ const isDev = (): boolean =>
   (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.NODE_ENV !==
   'production';
 
-/** The two spellings no contract declares, in the order the stamp prefers them. */
+/** The two spellings no contract declares, in the order the fold prefers them. */
 const LEGACY_REFERENCE_KEYS = ['reference_to', 'referenceTo'] as const;
 
 /**
@@ -466,9 +514,9 @@ const REFERENCE_ARM_KEYS: ReadonlySet<string> = new Set<string>(LEGACY_REFERENCE
  * Dev-mode only: say out loud that a def arrived spelling ONLY a legacy key.
  *
  * Non-breaking by construction: changes no types, rejects nothing, drops no
- * key, and is a no-op under `NODE_ENV=production`. The stamp still runs, so the
- * def renders exactly as it did before — this only makes the producer's bug
- * visible instead of absorbing it silently.
+ * key, and is a no-op under `NODE_ENV=production`. The fold still runs, so the
+ * def still resolves its target — this only makes the producer's bug visible
+ * instead of absorbing it silently.
  */
 function warnOnLegacyOnlyReference(
   f: Record<string, unknown>,
@@ -513,24 +561,28 @@ export function normalizeFieldReferenceKeys<T>(
   // the reference arm's early return below would skip almost every def that
   // needs it (objectui#7650).
   canonicalizeRetiredFieldKeys(f, fieldName, objectName);
-  const target = f.reference_to ?? f.reference ?? f.referenceTo;
-  if (target == null || target === '') return fieldDef;
+  // The reference arm is a FOLD, never a stamp (objectui#11070 round 4): a
+  // producer's `reference` stands, and only a def that lacks it gains one from
+  // a foreign spelling. `reference_to` is never written, and the foreign key is
+  // left where it was.
+  if (f.reference !== undefined) return fieldDef;
+  const legacy = f.reference_to ?? f.referenceTo;
+  if (legacy == null || legacy === '') return fieldDef;
   warnOnLegacyOnlyReference(f, fieldName, objectName);
-  if (f.reference_to === undefined) f.reference_to = target;
-  if (f.reference === undefined) f.reference = target;
+  f.reference = legacy;
   return fieldDef;
 }
 
 /**
  * Apply {@link normalizeFieldReferenceKeys} to every field of an object
- * schema — BOTH arms: the `reference` pair and the retired dialect. Accepts
+ * schema — BOTH arms: the `reference` fold and the retired dialect. Accepts
  * both field-container shapes the metadata API serves — a `name → def` map or
  * an array of defs — and tolerates anything else by returning the input
  * untouched. Mutates in place; idempotent.
  *
  * This is meant to run at the choke point where object schemas enter the
  * client (`ObjectStackAdapter.getObjectSchema`, the app-shell metadata
- * provider) so per-consumer dual-key fallbacks can't drift.
+ * provider), so no consumer needs a dual-key fallback of its own.
  *
  * Field NAMES and the OBJECT name are forwarded so the dev-mode warning above
  * can name the whole producer site rather than half of it: the map form keys

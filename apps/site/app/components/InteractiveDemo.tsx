@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { SchemaRenderer, SchemaRendererContext, toRenderableSchema } from '@object-ui/react';
 import { SidebarProvider } from '@object-ui/components';
-// Registers `page-header` & friends — see the module header (objectui#3787).
+// Registers `@object-ui/layout`'s blocks — see the module header (objectui#3787).
 import './registerLayoutBlocks';
 import { galleryDataSource } from './galleryDataSource';
 import type { SchemaNode } from '@object-ui/core';

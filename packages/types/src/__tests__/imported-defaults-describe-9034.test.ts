@@ -204,7 +204,11 @@ const hasRestlessTuple = (root: z.ZodType): boolean => {
  * walker branched on and `optin` is invariant under the walk.
  *
  *  - `'inner-optin'` asks the unwrapped SOURCE node the same question
- *    `isAlreadyOptional` asks. The live rule.
+ *    `isAlreadyOptional` asks. The live rule. ⚠️ Since zod 4.6
+ *    (objectui#11073) "omissible" is two rungs: a `ZodDefault` answers
+ *    `optin: 'defaulted'`, not `'optional'`. The walker only ever sees such a
+ *    node AFTER walking it, which turns the rung into `'optional'`; the source
+ *    side still carries `'defaulted'`, so this rule counts either rung.
  *  - `'output-type'` is ⛔ the superseded rule, kept ONLY as the control that
  *    fires and ⛔ never used for a published figure. It asked the OUTPUT's
  *    `def.type === 'optional'`; on the `.optional().default()` spelling the
@@ -227,7 +231,7 @@ interface Tally {
    * EVERY default arm whose unwrapped inner was already omissible, described or
    * not — objectui#9103's population. Overwhelmingly the `.optional().default()`
    * spelling; a default directly under a default lands here too, because a
-   * `ZodDefault` answers `optin: 'optional'` as well.
+   * `ZodDefault` is omissible as well (`optin: 'defaulted'` since zod 4.6).
    */
   alreadyOptionalArms: number;
   /** `.describe().default()` — the description sits on the node UNDER the default. */
@@ -296,7 +300,7 @@ const pairRoots = (roots: readonly [string, z.ZodType][], rule: DefaultArmRule):
       // pins the two equal, so a zod that changed one and not the other reddens
       // there instead of silently re-pointing this walk.
       const removed = (before as unknown as { removeDefault: () => z.ZodType }).removeDefault();
-      const innerWasOptional = optinOf(removed) === 'optional';
+      const innerWasOptional = optinOf(removed) !== undefined;
       if (innerWasOptional) {
         t.alreadyOptionalArms++;
         if (bDesc !== undefined) t.alreadyOptionalInner++;

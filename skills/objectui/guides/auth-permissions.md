@@ -296,9 +296,9 @@ it makes `${!flag}` permanently `false` and shows the button to everyone:
 ```tsx
 import { usePermissions } from '@object-ui/permissions'
 import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
-import type { BaseSchema } from '@object-ui/types'
+import type { SchemaRendererProps } from '@object-ui/react'
 
-declare const schema: BaseSchema
+declare const schema: SchemaRendererProps['schema']
 
 function ContactsPage() {
   const permissions = usePermissions()

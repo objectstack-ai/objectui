@@ -117,11 +117,29 @@ const at = (pack: unknown, path: string): unknown =>
  * `toolbar` was not — a split with no reason behind it, which is the shape a
  * substring false-positive leaves.
  *
- * ⚠️ The total below is 211 and that is deliberate: 211 is the count of keys
+ * ⚠️ The total below is 225 and that is deliberate: 225 is the count of keys
  * that ever EXISTED in this namespace, split into a retired half that only
  * grows and a surviving half that shrinks to match. A retirement moves the
  * split; only a genuinely new key moves the total (objectui#10636's
- * `recordCountOne` moved it from 210).
+ * `recordCountOne` moved it from 210; objectui#11445 retired that key and
+ * added six count-family slots, `_one` / `_other` on `recordCount`,
+ * `importedToast` and `bulkDeleteConfirm`, making 217; objectui#11576 added
+ * eight dataset-binding keys, making 225).
+ *
+ * ## The objectui#11445 change — 118 retired become 119
+ *
+ * `recordCountOne` was the singular half of a code-selected pair; the footer
+ * now asks the `recordCount` count family, so the sibling left all ten packs.
+ *
+ * ## The objectui#11576 change — 119 retired become 123, 217 total become 225
+ *
+ * The create-view dialog's chart picks were the pre-ADR-0021 inline axes, which
+ * the spec's list chart block refuses by name. The dialog now binds a dataset
+ * of the object, so the four axis labels it alone read (`xAxisField`,
+ * `xAxisFieldHelp`, `yAxisField`, `yAxisFieldHelp`) left all ten packs, and
+ * eight new keys label the dataset, measure and dimension picks (`dataset`,
+ * `datasetHelp`, `chartMeasure`, `chartMeasureHelp`, `chartDimension`,
+ * `chartDimensionHelp`, `viewTypeUnavailableDataset`, `noDatasetMeasure`).
  */
 const RETIRED_OBJECT_VIEW_KEYS = [
   'accessibility',
@@ -242,26 +260,39 @@ const RETIRED_OBJECT_VIEW_KEYS = [
   'userFilters',
   'viewTabs',
   'wrapHeaders',
+  // objectui#11445 — the record-count footer's code-selected singular, folded
+  // into the `recordCount` count family.
+  'recordCountOne',
+  // objectui#11576 — the create-view dialog's pre-ADR-0021 chart axes, replaced
+  // by the dataset binding; the dialog was their only reader.
+  'xAxisField',
+  'xAxisFieldHelp',
+  'yAxisField',
+  'yAxisFieldHelp',
 ] as const;
 
 /** How many keys the namespace keeps — the live + indirect-reference remainder. */
-const SURVIVING_KEY_COUNT = 93;
+const SURVIVING_KEY_COUNT = 102;
 
 describe('console.objectView config-panel keys are retired (objectui#4730)', () => {
   it('the retired list is the measured set', () => {
     // Guards the premise the rest of the file rests on. If this arithmetic ever
     // stops holding, the assertions below are checking a set nobody chose.
-    expect(RETIRED_OBJECT_VIEW_KEYS).toHaveLength(118);
-    expect(new Set(RETIRED_OBJECT_VIEW_KEYS).size).toBe(118);
+    expect(RETIRED_OBJECT_VIEW_KEYS).toHaveLength(123);
+    expect(new Set(RETIRED_OBJECT_VIEW_KEYS).size).toBe(123);
     // 209 at objectui#4730's landing; 210 since objectui#5232 added
     // `viewConfigPermissionDenied`; 211 since objectui#10636 added
-    // `recordCountOne`, the record-count footer's singular. The RETIRED half is a ratchet that never
+    // `recordCountOne`, the record-count footer's singular; 217 since
+    // objectui#11445 added six count-family slots (and retired `recordCountOne`,
+    // which moved the split, not the total); 225 since objectui#11576 added the
+    // create-view dialog's eight dataset-binding keys (and retired its four axis
+    // keys). The RETIRED half is a ratchet that never
     // runs BACKWARDS — it is pinned twice above, and objectui#8754 advanced it
     // 116 -> 118 — while the surviving half is a live namespace that grows on a
     // new key and shrinks by exactly what the retired half gains. Splitting
     // them is the point: folding a new key into the total would be
     // indistinguishable from a retired key coming back.
-    expect(RETIRED_OBJECT_VIEW_KEYS.length + SURVIVING_KEY_COUNT).toBe(211);
+    expect(RETIRED_OBJECT_VIEW_KEYS.length + SURVIVING_KEY_COUNT).toBe(225);
     expect(LANGS).toHaveLength(10);
   });
 
@@ -279,17 +310,37 @@ describe('console.objectView config-panel keys are retired (objectui#4730)', () 
     expect(revived).toEqual([]);
   });
 
-  it('the namespace root survives, with the same 94-key shape in every pack', () => {
+  it('the namespace root survives, with the same surviving key shape in every pack', () => {
     // Deliberately NOT "the root is gone": most of this namespace is live. The
     // shape to pin is the surviving key SET, identical across packs — a root
     // that regrows a retired key is the regression this file exists for, and a
     // root that vanishes takes the live create-view dialog with it.
     const enKeys = Object.keys(at(builtInLocales.en, 'console.objectView') as Record<string, unknown>);
     expect(enKeys).toHaveLength(SURVIVING_KEY_COUNT);
+    // The one key a pack may hold that `en` lacks: an `en` count family's slot
+    // for a CLDR category the pack's OWN language selects (`ru` `_few`, `ar`
+    // `_two` — `all-locales-key-parity.test.ts` owns that rule repo-wide).
+    const SUFFIXES = ['_zero', '_one', '_two', '_few', '_many', '_other'];
+    const enFamilies = new Set(
+      enKeys.flatMap((k) => {
+        const s = SUFFIXES.find((x) => k.endsWith(x));
+        return s ? [k.slice(0, -s.length)] : [];
+      }),
+    );
+    const isLocalSlot = (lang: string, k: string) => {
+      const s = SUFFIXES.find((x) => k.endsWith(x));
+      return (
+        s !== undefined &&
+        !enKeys.includes(k) &&
+        enFamilies.has(k.slice(0, -s.length)) &&
+        (new Intl.PluralRules(lang).resolvedOptions().pluralCategories as string[]).includes(s.slice(1))
+      );
+    };
     for (const lang of LANGS) {
       const ns = at(builtInLocales[lang], 'console.objectView');
       expect(ns, `${lang} lost the console.objectView root`).toBeDefined();
-      expect(Object.keys(ns as Record<string, unknown>).sort(), lang).toEqual([...enKeys].sort());
+      const keys = Object.keys(ns as Record<string, unknown>).filter((k) => !isLocalSlot(lang, k));
+      expect(keys.sort(), lang).toEqual([...enKeys].sort());
     }
   });
 

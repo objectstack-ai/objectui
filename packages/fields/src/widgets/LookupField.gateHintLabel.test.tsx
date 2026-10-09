@@ -38,7 +38,7 @@ import { LookupField } from './LookupField';
 const gatedField = {
   name: 'contact',
   label: 'Contact',
-  reference_to: 'crm_contact',
+  reference: 'crm_contact',
   reference_field: 'name',
   dependsOn: ['crm_account'],
 } as any;

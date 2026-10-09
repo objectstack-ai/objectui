@@ -388,7 +388,7 @@ import { isEntrypoint } from './invoked-as.mjs';
  * how this number was chosen; {@link BASELINE} names the measurement and the
  * commit it was taken on.
  *
- * Re-baselined DOWNWARD four times, each time toward a measurement the payload
+ * Re-baselined DOWNWARD five times, each time toward a measurement the payload
  * had already fallen to:
  *
  *   - objectui#5924, from 4,086,000 (derived from the 4,005,911 reading on
@@ -416,10 +416,30 @@ import { isEntrypoint } from './invoked-as.mjs';
  *     the shrink. See "Why `i18n-locales` became `i18n-locale-en`" in the
  *     header for both builds and the three control rows that show the bytes
  *     LEFT rather than moved.
+ *   - objectui#11939 (step 2), from 3,391,484 to 3,281,467 over 3,235,899 on
+ *     `f05f015`, under ruling 6070754914 (letter D). The built-in metadata
+ *     designers left the eager closure for a chunk the package entry imports
+ *     dynamically: −155,517 gzipped bytes, 1.71x the regression this gate must
+ *     catch. The header's objectui#11939 entry carries the builds, the ruling
+ *     and the end of objectui#11942's allowance.
  *
- * Headroom above {@link BASELINE} is 45,945 bytes — 0.50x
- * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, on the pair objectui#10996
- * re-pinned. ⚠️ That is arithmetic on two
+ * Headroom above {@link BASELINE} is 45,568 bytes — 0.50x
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, on the pair objectui#11939
+ * re-pinned by the reading plus half a regression (its entry, the last below,
+ * says what the margin is for); before it, the pair objectui#11942 left when
+ * it added a fixed allowance of 5,120 bytes to the ceiling carried 16,140
+ * bytes (0.18x), and the pair objectui#11854 re-pinned when the markdown
+ * highlighter and the docs-only markdown plugins left the first load, lowering
+ * the ceiling by exactly the bytes that left, carried 11,020 bytes (0.12x; the
+ * header's objectui#11854 entry says why that band sits under the 0.50x design
+ * point), the pair objectui#11798 re-pinned when the Studio
+ * builder and the chart engine left the first load carried 26,363 bytes
+ * (0.29x), the pair
+ * objectui#11717 re-pinned under the ruling recorded in the header's fourth
+ * raise carried 45,972 bytes (0.50x), and the pair objectui#11438 re-pinned
+ * when the `@objectstack/*` 17.6.0 bump paid back the rest of the spec-root
+ * part of objectui#11073's raise carried 24,091 bytes (0.26x). ⚠️ That
+ * is arithmetic on two
  * constants in this file, so it stays true while they do — it is NOT what the
  * closure has left today, which is smaller by every byte the payload has
  * drifted up since the baseline below was taken. `pnpm check:eager-closure`
@@ -602,8 +622,564 @@ import { isEntrypoint } from './invoked-as.mjs';
  * itself. Not {@link PER_CHUNK_GZIP_CEILINGS} or {@link PER_CHUNK_BASELINE}:
  * all four rows passed on the `5d689c3f6` build, and the first table shows them
  * unmoved. No exemption was added and no import was made lazy.
+ *
+ * ## ⚠️ RAISED A THIRD TIME, ON EXPLICIT MAINTAINER RULING (objectui#11088; objectui#11073)
+ *
+ * From 3,225,000 over a 3,179,055 baseline to 3,694,000 over 3,648,737, the
+ * latter measured on 2026-09-29 on `048e7f6` — the tip of objectui#11073's
+ * branch, the tree that carries `@objectstack/*` 17.5.0 into this repository.
+ * That branch landed on `main` as the squash `81f8498` (objectui#11086), the
+ * handle a `main` checkout resolves; objectui#11101 back-filled it here once
+ * {@link BASELINE} had moved on to its own reading, below.
+ * The ruling, recorded by the director seat as comment 5890854293 on
+ * objectui#11088 (batch #245 item 2), is the maintainer's 「11088 同意」 to the
+ * director's recommendation, decision 1 = A:
+ *
+ *     The ceiling and the headroom assertion in
+ *     `scripts/check-eager-closure-budget.mjs` are raised to the new baseline
+ *     in the same commit of PR objectui#11086, the PR body states what the
+ *     413.8 KB gzip buys (17.5.0's refusals and schemas, the twenty unblocked
+ *     cards), and two payback cards are filed in the same stroke.
+ *
+ * Precedent objectui#5531 (17.1.0, the maintainer's A). Option B — slim the
+ * console first — was ruled against on a reading of the spec source: the growth
+ * sits at `@objectstack/spec`'s ROOT entry, mostly the migration and conversion
+ * registries' retirement rationale and `os migrate meta` guidance strings, so a
+ * console-side lazy load could not recover the bulk.
+ *
+ * ⛔ WHAT THE BYTES ARE — one container, one instrument (`CI=true pnpm --filter
+ * @object-ui/console exec vite build`, reading
+ * `apps/console/dist/eager-closure.json`, under `scripts/pm/os-verify-lock.sh`).
+ * The control is `a5841be35`, the `main` commit this branch last merged, built
+ * the same way in a worktree of its own; both builds weigh 330 of 2446 chunks.
+ *
+ *   | chunk                         |   `a5841be35` |   `048e7f6` |    delta |
+ *   |-------------------------------|--------------:|------------:|---------:|
+ *   | `vendor-objectstack`          |     1,237,912 |   1,703,690 | +465,778 |
+ *   | `ui-components`               |       277,610 |     277,336 |     -274 |
+ *   | `framework`                   |        72,294 |      72,093 |     -201 |
+ *   | `src`                         |       168,981 |     169,160 |     +179 |
+ *   | everything else (50 names)    |     1,426,438 |   1,426,458 |      +20 |
+ *   | ⇒ aggregate                   |     3,183,235 |   3,648,737 | +465,502 |
+ *
+ * `vendor-objectstack` is the whole of it: the chunk the `@objectstack/*`
+ * packages land in, grown by the 17.5.0 release, while every other row nets
+ * -276 bytes across the bump's own edits. ⛔ Not attributed below the chunk:
+ * the split between the spec's root-entry registries and its schema growth is
+ * the director's source reading, recorded on objectui#11088 as a read of source
+ * bytes rather than a build, and it is objectstack#20646's to measure.
+ *
+ * WHAT THEY BUY: the console's client-side validation answering as the 17.5.0
+ * server does — its refusals (retired keys refused by name, the terminal
+ * unknown-key refusal, the new object-level checks) and its schemas — so the
+ * window in which an author, or an AI, writes in the console what the server
+ * rejects closes; and the twenty cards the ruling counts as waiting on this
+ * bump. ⛔ It is NOT a new console capability.
+ *
+ * ⭐ PAID BACK AT THE SOURCE, and the ruling filed both cards with it:
+ * objectstack#20646 (the spec root entry stops carrying the migration and
+ * conversion registries) and objectui#11101 (the metadata-admin-only spec
+ * validation leaves the console's first screen). When each lands, this ceiling
+ * and {@link BASELINE} come DOWN together by the recovered amount — a
+ * re-baseline in the tightening direction, as objectui#9251's was.
+ *
+ * Headroom 45,263 bytes = 0.50x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}:
+ * 3,648,737 + 45,568 = 3,694,305, rounded to the nearest thousand, the rounding
+ * every re-pin above used. ⛔ The ceiling did not move alone: over the retired
+ * 3,179,055 baseline, 3,694,000 would carry 514,945 bytes, 5.65x the
+ * regression, and both the unit test's constant-vs-constant guard and
+ * {@link evaluateHeadroomSensitivity} red on it — so {@link BASELINE} moved in
+ * the same commit.
+ *
+ * ⛔ What moved with it, and what did not. `vendor-objectstack`'s per-chunk
+ * ceiling fired on the same build (its row above) and moved in this commit,
+ * with {@link PER_CHUNK_BASELINE}, under the same ruling. The other three
+ * per-chunk rows passed and did not move. Not
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added and no
+ * import was made lazy.
+ *
+ * ## ⭐ LOWERED BY THE FIRST PAYBACK OF THAT LOAN (objectui#11101)
+ *
+ * From 3,694,000 to 3,660,380: down by 33,620 bytes, exactly what
+ * objectui#11101 took out of the closure. The raise above was a loan, so a
+ * payback lowers the line by the amount it recovers. ⛔ The ceiling is NOT
+ * re-derived as the new reading plus half a regression, the way the re-pins
+ * above were: that would also have absorbed `main`'s own drift since the
+ * `048e7f6` reading, which is a raise under another name. ⛔ Not rounded to a
+ * thousand either, for the same reason: rounding moves the line by an amount
+ * other than the one recovered.
+ *
+ * WHAT LEFT — two console builds of one tree, one container, one instrument
+ * (`CI=true pnpm exec vite build` in `apps/console`, reading
+ * `apps/console/dist/eager-closure.json`, under `scripts/pm/os-verify-lock.sh`).
+ * `5262f7d` is `main`; `4acbea07` is that tree plus the one line in
+ * `apps/console/vite.config.ts` that moved the bytes.
+ *
+ *   | chunk                       |  `5262f7d` | `4acbea07` |   delta |
+ *   |-----------------------------|-----------:|-----------:|--------:|
+ *   | `vendor-objectstack`        |  1,704,699 |  1,670,964 | -33,735 |
+ *   | the other 329 eager chunks  |  1,967,025 |  1,967,140 |    +115 |
+ *   | ⇒ aggregate                 |  3,671,724 |  3,638,104 | -33,620 |
+ *
+ * Both builds weigh 330 eager chunks; the bundle grows from 2447 chunks to
+ * 2450, and the three new ones are lazy. Four modules left
+ * `vendor-objectstack`, and nothing joined it: `@objectstack/spec`'s `/ai` and
+ * `/integration` entries, which the metadata designers' client validation
+ * (`views/metadata-admin/clientValidation.ts`) reaches only through
+ * `await import()`; `/contracts`, reached by lazy console pages and the
+ * linter; and `@objectstack/sdui-parser`, reached by the linter alone. The
+ * +115 is import bookkeeping, spread over 31 chunks, none by more than 20.
+ *
+ * The mechanism is one option on the `vendor-objectstack` group,
+ * `tags: ['$initial']`, and the comment there says why it was the line that
+ * mattered: the validator's `import()`s were already in the source, and the
+ * group overrode them, the objectui#5266 mechanism one package over.
+ *
+ * ⛔ What it did NOT recover, measured on the same `5262f7d` build. Every
+ * other spec entry `clientValidation.ts` loads is ALSO imported statically by
+ * something on the first screen — the runtime shell, the data adapter,
+ * `@objectstack/formula`, or the metadata-admin inspectors and previews that
+ * the package entry's registration leaf
+ * (`views/metadata-admin/register-builtins.ts`) makes eager — so no lazy
+ * import in the validator can move them. The root entry's registries are
+ * objectstack#20646's to pay back, at the source.
+ *
+ * Headroom 22,276 bytes = 0.24x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}
+ * over {@link BASELINE}. That is the headroom `main` already had on
+ * `5262f7d` before the payback (3,694,000 − 3,671,724), kept to the byte,
+ * and it is under the 0.50x design point because `5262f7d` weighed 22,987
+ * bytes more than the `048e7f6` reading the raise was sized on — a later tree,
+ * in another container, ⛔ not attributed here. A narrower band is the
+ * tightening direction: no build that passed before this edit and measures
+ * under 3,660,380 fails after it.
+ *
+ * ⛔ What moved with it, and what did not. `vendor-objectstack`'s per-chunk
+ * ceiling came down the same way, by the 33,735 bytes that chunk lost, with
+ * {@link PER_CHUNK_BASELINE}. The other three per-chunk rows did not move,
+ * and neither did {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}.
+ * objectstack#20646 is the second payback, and it lowers both lines again by
+ * what it recovers.
+ *
+ * ## ⭐ LOWERED BY THE SECOND PAYBACK (objectstack#20646, carried by objectui#11438)
+ *
+ * From 3,660,380 to 3,410,284: down by 250,096 bytes, exactly what the
+ * `@objectstack/*` 17.6.0 bump took out of the closure. 17.6.0 carries the
+ * spec's migrations-entry-split: the root entry no longer exports the
+ * migration chain (`MIGRATIONS_BY_MAJOR` moved to `@objectstack/spec/migrations`,
+ * which nothing on the first screen imports). Lowered by the amount recovered,
+ * as objectui#11101's payback was: ⛔ not re-derived as the new reading plus
+ * half a regression, and ⛔ not rounded.
+ *
+ * WHAT LEFT — two console builds, one container, one instrument, one hold of
+ * `scripts/pm/os-verify-lock.sh`: `pnpm turbo run build --filter='./packages/*'`,
+ * then `CI=true pnpm exec vite build` in `apps/console`, reading
+ * `apps/console/dist/eager-closure.json`. `2d576e46` is `main` with
+ * `@objectstack/*` 17.5.0 resolved; `2ba091c` is objectui#11438's branch, the
+ * same tree with 17.6.0 resolved and the bump's own edits.
+ *
+ *   | chunk                       |  `2d576e46` |  `2ba091c` |    delta |
+ *   |-----------------------------|------------:|-----------:|---------:|
+ *   | `vendor-objectstack`        |   1,671,066 |  1,420,958 | -250,108 |
+ *   | the other 329 eager chunks  |   1,965,223 |  1,965,235 |      +12 |
+ *   | ⇒ aggregate                 |   3,636,289 |  3,386,193 | -250,096 |
+ *
+ * Both builds weigh 330 of 2450 chunks. The +12 is spread over the other
+ * chunks, ⛔ not attributed here. Left at 3,660,380, the ceiling would have
+ * stood 274,187 bytes (3.01x the regression) above this payload, and
+ * {@link evaluateHeadroomSensitivity} calls that a blind gauge (exit 2).
+ *
+ * Headroom 24,091 bytes = 0.26x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}
+ * over {@link BASELINE}: exactly the headroom `main` had on `2d576e46` before
+ * the payback (3,660,380 − 3,636,289), because the ceiling came down by the
+ * aggregate's own delta. No build that passed before this edit and measures
+ * under 3,410,284 fails after it.
+ *
+ * ⛔ What moved with it, and what did not. `vendor-objectstack`'s per-chunk
+ * ceiling came down the same way, by the 250,108 bytes that chunk lost, with
+ * {@link PER_CHUNK_BASELINE}. The other three per-chunk rows did not move,
+ * and neither did {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}.
+ *
+ * ## ⚠️ RAISED A FOURTH TIME, ON EXPLICIT MAINTAINER RULING (objectui#11717)
+ *
+ * From 3,410,284 over a 3,386,193 baseline to 3,637,000 over 3,591,028, the
+ * latter measured on `c1e32e96`: objectui#11717's branch with `main` at
+ * `9b673e54` merged in, the tree that carries `@objectstack/*` 17.7.0 into this
+ * repository. The ruling is record 6027998226 on objectui#11717, the
+ * maintainer's answer to decision request 6024630321, selected verbatim:
+ *
+ *     「A 抬预算+回收卡 (Recommended)」
+ *
+ * In the ruling's own words: the eager-closure ceiling, {@link BASELINE} and
+ * the `vendor-objectstack` row of {@link PER_CHUNK_BASELINE} / its per-chunk
+ * ceiling are raised in one commit of PR objectui#11742, in the objectui#11088
+ * shape, with the headroom kept at half of
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, and a payback card is filed in
+ * the same stroke.
+ *
+ * ⛔ WHAT THE BYTES ARE — one container, one instrument, two holds of
+ * `scripts/pm/os-verify-lock.sh`: `pnpm exec turbo run build
+ * --filter=!@object-ui/site --concurrency=2` in each tree (which builds the
+ * console), then `pnpm check:eager-closure`, reading
+ * `apps/console/dist/eager-closure.json`. The control is `9b673e54`, the `main`
+ * commit this branch last merged, built the same way in a worktree of its own
+ * with `@objectstack/*` 17.6.0 resolved. Both builds weigh 331 of 2451 chunks.
+ *
+ *   | chunk                         |  `9b673e54` |  `c1e32e96` |    delta |
+ *   |-------------------------------|------------:|------------:|---------:|
+ *   | `vendor-objectstack`          |   1,421,565 |   1,604,474 | +182,909 |
+ *   | `ui-components`               |     283,061 |     283,079 |      +18 |
+ *   | `framework`                   |      74,774 |      74,785 |      +11 |
+ *   | `src`                         |     176,172 |     176,181 |       +9 |
+ *   | `i18n-locale-en`              |      44,592 |      44,620 |      +28 |
+ *   | everything else (326 names)   |   1,407,856 |   1,407,889 |      +33 |
+ *   | ⇒ aggregate                   |   3,408,020 |   3,591,028 | +183,008 |
+ *
+ * `vendor-objectstack` is the whole of it: the chunk the `@objectstack/*`
+ * packages land in, grown by the 17.7.0 release, while every other row nets
+ * +99 bytes across the bump's own edits. ⛔ Not attributed below the chunk by a
+ * build: the build records no module-level sizes for this chunk. The reading
+ * below the chunk, recorded on objectui#11717, is a byte diff of the two
+ * installed releases by entry file, not of what this chunk keeps after
+ * tree-shaking. Among the spec entries this repository's shipped code imports,
+ * `shared` grew most (+152,445 gzipped bytes as a standalone file, behind an
+ * unchanged list of exports), then the browser root, `browser/system`, `ui`
+ * and `browser/kernel` entries.
+ *
+ * WHAT THEY BUY: the console's client-side validation answering as the 17.7.0
+ * server does — its new refusals (the chart measure-arity check on a dashboard
+ * widget, `requires` by page `kind`, a master-detail `sortField`, the retired
+ * keys and values refused by name) and its schemas — so the window in which an
+ * author, or an AI, writes in the console what the server rejects closes; and
+ * the cards this bump unblocks (objectui#11717 lists them). ⛔ It is NOT a new
+ * console capability.
+ *
+ * ⭐ PAYBACK: objectstack#22044, filed in the same stroke as the ruling. When it
+ * lands, this ceiling and {@link BASELINE} come DOWN together by the amount it
+ * recovers, the way objectui#11101 and objectui#11438 lowered the third raise:
+ * ⛔ not re-derived as a new reading plus half a regression, and ⛔ not rounded.
+ *
+ * Headroom 45,972 bytes = 0.50x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}:
+ * 3,591,028 + 45,568 = 3,636,596, rounded to the nearest thousand, the rounding
+ * every raise above used (the two paybacks, by rule, did not round). ⛔ The
+ * ceiling did not move alone: over the retired 3,386,193 baseline, 3,637,000
+ * would carry 250,807 bytes, 2.75x the regression, and both the unit test's constant-vs-constant guard and
+ * {@link evaluateHeadroomSensitivity} red on it — so {@link BASELINE} moved in
+ * the same commit.
+ *
+ * ⛔ What moved with it, and what did not. `vendor-objectstack`'s per-chunk
+ * ceiling fired on the same build (its row above) and moved in this commit,
+ * with {@link PER_CHUNK_BASELINE}, under the same ruling. The other three
+ * per-chunk rows passed and did not move. Not
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added and no
+ * import was made lazy.
+ *
+ * ## ⭐ LOWERED WHEN THE STUDIO BUILDER AND THE CHART ENGINE LEFT THE FIRST LOAD (objectui#11798)
+ *
+ * From 3,637,000 to 3,444,622: down by 192,378 bytes, exactly what
+ * objectui#11798 took out of the closure. Lowered by the amount recovered, as
+ * the two paybacks above were: ⛔ not re-derived as the new reading plus half a
+ * regression, which would also have absorbed `main`'s drift since the
+ * `c1e32e96` reading (a raise under another name), and ⛔ not rounded.
+ *
+ * WHAT LEFT — two console builds of one tree, one container, one instrument,
+ * each under `scripts/pm/os-verify-lock.sh`: the console's own
+ * `apps/console/vite.config.ts` run through Vite's `build()` with one read-only
+ * module-graph dump appended, reading the `eager-closure.json` the build
+ * writes. `455c6466` is `main`; `c1d378ec` is objectui#11798's branch with
+ * `455c6466` merged in. The `main` tree was built in the branch's worktree with
+ * the branch's bundler inputs (`apps/console/vite.config.ts`, `StudioRoute.tsx`,
+ * `registerStudioComponents.tsx`) checked out from `455c6466`, its new
+ * `studioBuilder.ts` removed, and each file's blob hash compared against
+ * `455c6466` before the build. Gzipped bytes:
+ *
+ *   | chunk                                       | `455c6466` | `c1d378ec` |    delta |
+ *   |---------------------------------------------|-----------:|-----------:|---------:|
+ *   | `vendor-charts`                             |    158,827 |       lazy | -158,827 |
+ *   | `index`                                     |    161,208 |     88,295 |  -72,913 |
+ *   | `studioScope`, new                          |          — |     40,375 |  +40,375 |
+ *   | `vendor-icon-*`                             |     83,412 |     81,994 |   -1,418 |
+ *   | `useNavSelDeepLink`                         |      1,282 |       lazy |   -1,282 |
+ *   | `nav-selection` + `useRecentItemLabel`, new |          — |      1,088 |   +1,088 |
+ *   | `vendor-react`                              |     72,584 |     73,143 |     +559 |
+ *   | everything else                             |  3,133,324 |  3,133,364 |      +40 |
+ *   | ⇒ aggregate                                 |  3,610,637 |  3,418,259 | -192,378 |
+ *
+ * The builds weigh 336 of 2452 chunks and 333 of 2456. Two mechanisms, each
+ * weighed by reverting only its own source on the `c1d378ec` tree, built the
+ * same way:
+ *
+ *   - THE CHART ENGINE (-158,535 alone). Recharts and d3 were reached only
+ *     through `import()`, but `vendor-charts` captured
+ *     `use-sync-external-store/shim` through its default recursive capture,
+ *     and `react-i18next` imports that shim on every page, so the eager
+ *     `vendor-i18n` chunk imported the whole chart engine. `vendor-react` now
+ *     claims the shim (the comment on that group in `apps/console/vite.config.ts`
+ *     says why the flag that would also have stopped the capture was refused);
+ *     the shim's bytes are the `vendor-react` row.
+ *   - THE STUDIO BUILDER (-33,928 alone). `StudioDesignSurface` and
+ *     `BuilderLanding` load through the console-local `import()` in
+ *     `apps/console/src/components/studioBuilder.ts`. Most of what `index` lost
+ *     is the builder; the `studioScope` row is NOT new payload but 49 modules
+ *     `index` held on `455c6466` (the app header and the AI chat page among
+ *     them), which the bundler split out because the lazy builder imports
+ *     them too.
+ *
+ * ⛔ What it did NOT recover. The flow designer, its canvas among them, and
+ * every other metadata-admin designer stay eager: `@object-ui/app-shell`'s
+ * package entry imports `views/metadata-admin/register-builtins.ts` for its
+ * side effects, which a console-side `import()` cannot move.
+ *
+ * Headroom 26,363 bytes = 0.29x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}
+ * over {@link BASELINE}: exactly the headroom `main` had on `455c6466` before
+ * this change (3,637,000 − 3,610,637), because the ceiling came down by the
+ * aggregate's own delta. It sits under the 0.50x design point because
+ * `455c6466` weighed 19,609 bytes more than the `c1e32e96` reading the fourth
+ * raise was sized on — `main`'s drift since, ⛔ not attributed here. No build
+ * that passed before this edit and measures under 3,444,622 fails after it,
+ * and either mechanism above, reverted alone, lands over it.
+ *
+ * ⛔ What moved with it, and what did not. None of the four per-chunk rows:
+ * the budgeted chunks moved by at most 2 bytes across the two builds, so
+ * {@link PER_CHUNK_GZIP_CEILINGS} and {@link PER_CHUNK_BASELINE} stand. Not
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added.
+ *
+ * ## ⭐ LOWERED WHEN THE MARKDOWN HIGHLIGHTER LEFT THE FIRST LOAD (objectui#11854)
+ *
+ * From 3,444,622 to 3,386,364: down by 58,258 bytes, exactly what
+ * objectui#11854 took out of the closure. Lowered by the amount recovered, as
+ * the objectui#11798 entry above was: ⛔ not re-derived as the new reading plus
+ * half a regression, which would also have absorbed `main`'s drift since the
+ * `c1d378ec` reading (a raise under another name), and ⛔ not rounded.
+ *
+ * WHAT LEFT — two console builds, one container, one instrument, each under
+ * `scripts/pm/os-verify-lock.sh`: the console's own
+ * `apps/console/vite.config.ts` run through Vite's `build()` with one read-only
+ * module-graph dump appended, reading the `eager-closure.json` the build
+ * writes. `9cb4e29` is `main`; `406f760` is that tree plus the chunk-group
+ * change to `vendor-markdown` in `apps/console/vite.config.ts`, and nothing
+ * else. Gzipped bytes:
+ *
+ *   | chunk                         |  `9cb4e29` |  `406f760` |   delta |
+ *   |-------------------------------|-----------:|-----------:|--------:|
+ *   | `vendor-markdown`             |    163,717 |    104,286 | -59,431 |
+ *   | `vendor-react-markdown`, new  |          — |      1,144 |  +1,144 |
+ *   | `ui-components`               |    284,424 |    284,433 |      +9 |
+ *   | everything else               |  2,985,461 |  2,985,481 |     +20 |
+ *   | ⇒ aggregate                   |  3,433,602 |  3,375,344 | -58,258 |
+ *
+ * The builds weigh 333 of 2456 chunks (`9cb4e29`) and 334 of 2457
+ * (`406f760`); the one new chunk is `vendor-react-markdown`, and it is eager.
+ * The +20 is import bookkeeping spread over 19 chunks, none by more than 5,
+ * ⛔ not attributed further; every `vendor-icon-*` chunk is unmoved.
+ *
+ *   - THE CAPTURE. On `9cb4e29` `vendor-markdown` held 296 modules, and 53 of
+ *     them no static import from the entry reaches: `highlight.js` (39 of the
+ *     53, most of the bytes), `lowlight`, `rehype-highlight`, `rehype-slug`,
+ *     `github-slugger`, `rehype-autolink-headings`,
+ *     `remark-github-blockquote-alert`, the five hast and unist helpers they
+ *     import, and `react-markdown`. The chunk was eager for the other 243,
+ *     which the chat message renderer reaches, so the group's capture made all
+ *     296 eager. With `tags: ['$initial']` the group holds the 243 alone (the
+ *     comment on the group in `apps/console/vite.config.ts` says why), and 52
+ *     of the 53 follow their importer into `plugin-markdown`'s lazy chunk,
+ *     which went from 4,342 to 62,888 gzipped bytes across the two builds.
+ *   - `react-markdown`, the 53rd, stays eager in the new chunk: `MarkdownContent`
+ *     in `packages/fields` imports it statically, and that widget sits in the
+ *     eager `ui-components` chunk although only `React.lazy` reaches it (the
+ *     objectui#5325 co-tenancy, recorded in
+ *     `scripts/vite-ineffective-dynamic-imports.ts`). A chunk of its own keeps
+ *     its bytes off the budgeted `ui-components` line, which would otherwise
+ *     take it by its own capture.
+ *
+ * ⛔ What it did NOT recover. The 243 modules left in `vendor-markdown` are the
+ * pipeline the chat message renderer runs on every page: `streamdown` imports
+ * `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-raw`,
+ * `rehype-sanitize`, `rehype-harden`, `unified` and `hast-util-to-jsx-runtime`
+ * statically, and `plugin-chatbot`, which imports `streamdown` statically, is
+ * eager. Moving them would lazy-load a module the first load reaches, which is
+ * objectui#11798's question under the objectui#6795 ruling, ⛔ not a chunk
+ * group's.
+ *
+ * Headroom 11,020 bytes = 0.12x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}
+ * over {@link BASELINE}: exactly the headroom `main` had on `9cb4e29` before
+ * this change (3,444,622 − 3,433,602), because the ceiling came down by the
+ * aggregate's own delta. It sits under the 0.29x the objectui#11798 entry left
+ * because `9cb4e29` weighed 15,343 bytes more than the `c1d378ec` reading that
+ * entry was sized on — `main`'s drift since, ⛔ not attributed here. No build
+ * that passed before this edit and measures under 3,386,364 fails after it,
+ * and the `9cb4e29` build, which is this change reverted, lands over it.
+ *
+ * ⛔ What moved with it, and what did not. None of the four per-chunk rows:
+ * `ui-components` moved by 9 bytes across the two builds and the other three
+ * budgeted chunks by none, so {@link PER_CHUNK_GZIP_CEILINGS} and
+ * {@link PER_CHUNK_BASELINE} stand; `vendor-markdown` has no row and gets
+ * none. Not {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was
+ * added.
+ *
+ * ## ⚠️ RAISED A FIFTH TIME, BY A FIXED ALLOWANCE, ON EXPLICIT MAINTAINER RULING (objectui#11942)
+ *
+ * From 3,386,364 to 3,391,484: up by exactly 5,120 gzip bytes, an ALLOWANCE
+ * and ⛔ not a re-baseline. {@link BASELINE} did not move, because nothing was
+ * measured: the ruling sized the allowance, not a build. ⛔ Not re-derived as a
+ * reading plus half a regression, and ⛔ not rounded — either would move the
+ * line by an amount other than the one ruled. The ruling is record 6056819248
+ * on objectui#11942 (director-seat batch #292 item 3, letters B then C), the
+ * maintainer's 「同意」 to the seat's recommendation. Its step 2, verbatim:
+ *
+ *     B. Then one PR raises `MAX_EAGER_CLOSURE_GZIP_BYTES` by a fixed
+ *     allowance of at most 5 KB, carrying this card's number; the constant's
+ *     docblock states what the bytes buy (Studio fixes while the designers are
+ *     eager by design) and the reclaim condition.
+ *
+ * Its step 1 put objectui#11937 first: `main` comes back under the previous
+ * line by rollback or plugging, ⛔ never by this allowance.
+ *
+ * WHAT THE BYTES BUY: Studio fixes while the metadata-admin designers are
+ * eager by design. Ruling A on objectui#11798 (record 6054102412) keeps the
+ * designers on the first load until objectui#6795's order moves them, so a
+ * Studio fix that edits a designer adds first-load bytes however small it is.
+ * The fixes the ruling names — objectui#11921's pull request objectui#11941,
+ * objectui#11923, objectui#11909, and any later Studio fix that adds bytes —
+ * land against this line; a byte-neutral fix lands as it did before. ⛔ It is
+ * NOT headroom for any other growth, and NOT a new console capability.
+ *
+ * ⚠️ An allowance is not a reading, so this entry carries no rows: no build
+ * was taken. What it absorbs is whatever lands under it — a named Studio fix
+ * and `main`'s own drift alike — and nothing in this file tells the two apart
+ * (the header's "What a re-baseline ABSORBS" section). Each Studio fix's bytes
+ * are read where they arrive: the `Bundle Analysis` comment on its own pull
+ * request.
+ *
+ * ⭐ RECLAIM: objectui#11939, step 3 of the same ruling. The pull request that
+ * moves the designers out of the first load lowers this ceiling by the bytes
+ * that leave PLUS these 5,120, in the same change. ⛔ Not by the bytes that
+ * leave alone: that keeps the allowance after its reason is gone, which is a
+ * raise under another name.
+ *
+ * ⚠️ AMENDED before it ran: ruling 6070754914 replaced this reclaim with the
+ * conventional re-pin, because the formula above would have landed under the
+ * measured first load. The objectui#11939 entry below carries the ruling, the
+ * end of this allowance and the drift it absorbed.
+ *
+ * Headroom 16,140 bytes = 0.18x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}
+ * over {@link BASELINE} (3,391,484 − 3,375,344); the allowance alone is 0.06x.
+ * The 89 KiB regression this gate exists to catch is still caught: added to
+ * the baseline it lands at 3,466,480, 74,996 bytes over this line. ⚠️ That is
+ * arithmetic on two constants, as above — the live headroom is what
+ * `pnpm check:eager-closure` prints, and it is smaller by `main`'s drift since
+ * the `406f760` reading.
+ *
+ * ⛔ What moved with it, and what did not. Not {@link BASELINE}, not
+ * {@link PER_CHUNK_GZIP_CEILINGS} or {@link PER_CHUNK_BASELINE}, and not
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added and no
+ * import was made lazy.
+ *
+ * ## ⭐ RE-BASELINED WHEN THE BUILT-IN DESIGNERS LEFT THE FIRST LOAD, ON EXPLICIT MAINTAINER RULING (objectui#11939)
+ *
+ * From 3,391,484 to 3,281,467: the reading 3,235,899 on `f05f015` plus
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES} / 2 = 45,568 — the
+ * conventional re-pin, ⛔ not "the bytes that left plus the allowance" the
+ * objectui#11942 entry above had scheduled, and ⛔ not rounded. The ruling is
+ * record 6070754914 on objectui#11939 (director-seat batch #294 item 3, letter
+ * D), the maintainer's 「11939 上线适当多预留一些没问题,不要一直因为这个改代码」. Its
+ * operative paragraph, verbatim:
+ *
+ *     **D — the conventional rebaseline.** The PR that moves the designers out
+ *     of the first load (objectui#11982) pins `MAX_EAGER_CLOSURE_GZIP_BYTES`
+ *     to the landing head's measured first load plus half a regression
+ *     (45,568 B), the formula the gate already documents for a re-pin, and
+ *     re-pins `BASELINE` in the same change. The docblock states what the
+ *     margin is for: catching an 89 KB-class regression, with room for the
+ *     copy-level and fix-level churn `main` takes every day, ⛔ not an
+ *     allowance to be spent on a feature. The 5,120 B Studio allowance of
+ *     objectui#11942 ends with this re-pin (its reason is gone), and the drift
+ *     it absorbed is recorded in the docblock, not reclaimed by a lower
+ *     ceiling. This amends item 3 of 6056819248 (objectui#11942), whose
+ *     literal formula would land below the measured figure, against the gate's
+ *     own rule.
+ *
+ * And the standing rule the same record draws from the maintainer's words: the
+ * ceiling "moves only on a measured move-out (re-pinned by this formula) or on
+ * a regression the gate catches; it is not re-pinned per pull request, and a
+ * fix that adds first-load bytes within the margin lands without a ruling."
+ *
+ * WHAT THE MARGIN IS FOR, in the ruling's words: catching an 89 KB-class
+ * regression, with room for the copy-level and fix-level churn `main` takes
+ * every day, ⛔ not an allowance to be spent on a feature. Headroom 45,568
+ * bytes = 0.50x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES} over
+ * {@link BASELINE}, the design point the header argues for; the 89 KiB
+ * regression added to the baseline lands at 3,327,035, 45,568 bytes over this
+ * line.
+ *
+ * WHAT LEFT — two console builds, one container, one instrument, each under
+ * `scripts/pm/os-verify-lock.sh`: the console's own
+ * `apps/console/vite.config.ts` run through Vite's `build()` with one
+ * read-only chunk-module dump appended, reading the `eager-closure.json` the
+ * build writes; the console's ordinary `pnpm exec vite build` of `f05f015`
+ * wrote the same figure to the byte, which is this instrument's calibration.
+ * `28557855` is `main`; `f05f015` is that tree merged into the branch that
+ * loads the built-in previews and inspectors from a chunk the package entry
+ * imports dynamically (`register-builtin-designers.ts`), and nothing else.
+ * Gzipped bytes:
+ *
+ *   | chunk                                   | `28557855` | `f05f015` |    delta |
+ *   |-----------------------------------------|-----------:|----------:|---------:|
+ *   | `src` (the app-shell entry's chunk)     |    192,138 |    41,442 | -150,696 |
+ *   | `RecordDetailView`                      |     38,985 |    19,503 |  -19,482 |
+ *   | `default-inspector-registry`, left      |     13,284 |         — |  -13,284 |
+ *   | `ReportDefaultInspector`, left          |      8,156 |         — |   -8,156 |
+ *   | `InterfaceListPage`, left               |      4,454 |         — |   -4,454 |
+ *   | `pageKindNode`, left                    |         80 |         — |      -80 |
+ *   | 56 `vendor-icon-*` chunks, left         |     16,781 |         — |  -16,781 |
+ *   | `vendor-objectstack`                    |  1,605,751 | 1,599,283 |   -6,468 |
+ *   | `createDerive`                          |      2,489 |       933 |   -1,556 |
+ *   | `ActionResultDialog`                    |     14,026 |    12,782 |   -1,244 |
+ *   | 13 chunks new to the closure's names    |          — |    66,548 |  +66,548 |
+ *   | 27 others, none by more than 19         |            |           |     +136 |
+ *   | ⇒ aggregate                             |  3,391,416 | 3,235,899 | -155,517 |
+ *
+ * The builds weigh 336 of 2458 chunks (`28557855`) and 289 of 2474
+ * (`f05f015`). The 13 new names hold no new module: the module-level read of
+ * the same two builds counts 165 modules leaving the eager closure and none
+ * joining, so they are modules that sat in `src` re-chunked under the name of
+ * a lazy neighbour (`ViewVariantInspector`, `PackagesPage`, …). The 165, by
+ * rendered bytes: `metadata-admin/previews` 554,838 (56 modules),
+ * `metadata-admin/inspectors` 396,857 (38), other `metadata-admin` 41,664 (12:
+ * the three designer registries, the external-datasource panels, three schema
+ * helpers and `metadata-form-i18n`), `lucide-react` icons 37,230 (56),
+ * `@objectstack/spec`'s `identity` entry 27,098 (1), and `InterfaceListPage`
+ * with `pageKindNode` 14,572 (2).
+ *
+ * ⭐ THE STUDIO ALLOWANCE ENDS HERE. The 5,120 bytes objectui#11942 added are
+ * not carried into this line: the ceiling is derived from the new reading
+ * alone. The drift the allowance absorbed is RECORDED, ⛔ not reclaimed by a
+ * lower ceiling, as the ruling says. Measured: `main` read 3,385,979 on
+ * `1c51e973`, the commit that landed the allowance (385 bytes under the
+ * pre-allowance line, 3,386,364), and 3,391,416 on `28557855` — +5,437, of
+ * which 5,052 sat above the pre-allowance line, leaving 68 bytes of the
+ * allowance unspent. By chunk, `1c51e973` to `28557855`: `src` +2,595,
+ * `i18n` (it holds `metadata-admin/i18n.ts`) +1,490, `SchemaForm` +903,
+ * `ui-components` +715, `nav-selection` +466, `plugin-grid` +358,
+ * `default-inspector-registry` +215, `index` +203, `plugin-form` +154,
+ * `InterfaceListPage` +141, `ReportDefaultInspector` +102,
+ * `useRecentItemLabel` −507, `studioScope` −1,604, and +206 over 30 rows of
+ * under 100 each — ⛔ not attributed to commits. Those 5,052 bytes stay on the
+ * first load after the designers leave: the objectui#11942 formula,
+ * 3,391,484 − 155,517 − 5,120 = 3,230,847, lands 5,052 bytes UNDER the
+ * `f05f015` reading, which is the gate's own "never lower a ceiling below the
+ * measured figure" (report 6062475046 on objectui#11939 measured the same gap
+ * as 4,057 bytes on `d7e9e9ab`, before `main` moved).
+ *
+ * ⛔ What moved with it, and what did not. {@link BASELINE}, in the same
+ * commit, onto `f05f015`. None of the four per-chunk rows: across the two
+ * builds `vendor-objectstack` moved by −6,468 (the `identity` entry above;
+ * 1,599,283 against its 1,623,000 ceiling is 0.26x), `ui-components` by −19,
+ * `framework` by +10 and `i18n-locale-en` by 0, so every per-chunk ceiling
+ * stays in range and {@link PER_CHUNK_GZIP_CEILINGS},
+ * {@link PER_CHUNK_BASELINE} and {@link PER_CHUNK_MEMBERSHIP} stand. Not
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added.
  */
-export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_225_000;
+export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_281_467;
 
 /**
  * The measurement the ceiling above was derived from. Exported so the two
@@ -616,44 +1192,135 @@ export const BASELINE = Object.freeze({
   /**
    * `emitEagerClosureReport`'s `eagerGzipBytes` on this commit.
    *
-   * `5d689c3f6` is `origin/main` itself, read with NO diff applied, and it is
-   * the first commit in this position that is an ordinary `main` commit rather
-   * than a branch tip. That follows from the change, not from a new convention:
-   * objectui#10996's whole diff is this file and its unit test, and the
-   * `scripts/vite-*.ts`-versus-`scripts/check-*.mjs` argument the earlier
-   * entries made (`bbf6b02d9`, `755d34a5f`, `34a1578ef`, and `3d257c85a` /
-   * `bd2a7ec50` before them) holds: nothing in either file reaches the bundler,
-   * so the ceiling edit cannot have moved the figure it pins, and the tree read
-   * here is byte-for-byte the bundler input of the branch that carries it.
+   * `f05f015` is objectui#11939's branch commit for step 2: `main` at
+   * `28557855` merged into the branch that loads the built-in metadata
+   * designers from a chunk the package entry imports dynamically, re-pinned
+   * with the ceiling under ruling 6070754914 (the objectui#11939 entry on
+   * {@link MAX_EAGER_CLOSURE_GZIP_BYTES} carries its table and its `28557855`
+   * control, ⛔ not restated here). It is a branch commit for the reason the
+   * paragraphs below give for `c1d378ec`: the pull request's own diff is what
+   * moved the figure. Measured by the console's own
+   * `apps/console/vite.config.ts` run through Vite's `build()` with one
+   * read-only module-graph dump appended, reading the `eager-closure.json` the
+   * build writes, under `scripts/pm/os-verify-lock.sh`, in the same container
+   * and the same lock hold as the `28557855` control build. The console's
+   * ordinary build of `f05f015` (`CI=true pnpm exec vite build`, exit 0) wrote
+   * the same figure to the byte, which is this instrument's calibration. The
+   * commit after `f05f015` on the branch (this re-pin and its unit test)
+   * reaches no bundler input, so it cannot move the figure it pins.
    *
-   * ⚠️ `bbf6b02d9`, the previous baseline, read 3,133,419 across 329 of 2309
-   * chunks, and it is the one to compare against when reading the deltas. What
-   * lies between the two — two control builds, the rows that moved and the rows
-   * that did not — is recorded once, under objectui#10996's entry on
+   * ⚠️ The paragraph below describes the reading this one superseded, the
+   * previous baseline `406f760` (3,375,344 across 334 of 2457 chunks), kept as
+   * its provenance.
+   *
+   * `406f760` is objectui#11854's branch commit that narrows `vendor-markdown`
+   * to what the first load reaches: `main` at `9cb4e29` plus that one
+   * chunk-group change in `apps/console/vite.config.ts`, re-pinned with the
+   * ceiling it was lowered with (the objectui#11854 entry on
+   * {@link MAX_EAGER_CLOSURE_GZIP_BYTES} carries its table and its `9cb4e29`
+   * control, ⛔ not restated here). It is a branch commit for the reason the
+   * paragraphs below give for `c1d378ec`: the pull request's own diff is what
+   * moved the figure. Measured by the console's own
+   * `apps/console/vite.config.ts` run through Vite's `build()` with one
+   * read-only module-graph dump appended, reading the `eager-closure.json` the
+   * build writes, under `scripts/pm/os-verify-lock.sh`, in the same container
+   * as the `9cb4e29` control build. The console's ordinary build of `57a1066`
+   * (`CI=true pnpm exec turbo run build --filter=@object-ui/console...
+   * --concurrency=2`, exit 0) wrote the same figure to the byte, which is this
+   * instrument's calibration. The commits after `406f760` on the branch (this
+   * re-pin, its unit test and the changeset) reach no bundler input, so they
+   * cannot move the figure it pins.
+   *
+   * ⚠️ The paragraph below describes the reading this one superseded, the
+   * previous baseline `c1d378ec` (3,418,259 across 333 of 2456 chunks), kept as
+   * its provenance.
+   *
+   * `c1d378ec` is objectui#11798's branch tip: `main` at `455c6466` merged into
+   * the branch that takes the Studio builder and the chart engine out of the
+   * first load, re-pinned with the ceiling it was lowered with (the
+   * objectui#11798 entry on {@link MAX_EAGER_CLOSURE_GZIP_BYTES} carries its
+   * table and its `455c6466` control, ⛔ not restated here). It is a branch tip
+   * for the reason the paragraphs below give for `2ba091c` and `4acbea07`: the
+   * pull request's own diff is what moved the figure. Measured by the console's
+   * own `apps/console/vite.config.ts` run through Vite's `build()` with one
+   * read-only module-graph dump appended, reading the `eager-closure.json` the
+   * build writes, under `scripts/pm/os-verify-lock.sh`, in the same container
+   * as the `455c6466` control build. The console's ordinary build of the same
+   * tree (`pnpm exec turbo run build --filter=@object-ui/console...`, exit 0)
+   * wrote the same figure to the byte, which is this instrument's calibration.
+   * The commit that re-pins this file reaches no bundler input, so it cannot
+   * move the figure it pins.
+   *
+   * ⚠️ The paragraph below describes the reading this one superseded, the
+   * previous baseline `c1e32e96` (3,591,028 across 331 of 2451 chunks), kept as
+   * its provenance.
+   *
+   * `c1e32e96` is objectui#11717's branch tip: `main` at `9b673e54` merged into
+   * the branch that carries `@objectstack/*` 17.7.0 and the bump's own edits,
+   * re-pinned under the ruling recorded in the fourth raise on
+   * {@link MAX_EAGER_CLOSURE_GZIP_BYTES} (its table and its `9b673e54` control
+   * are there, ⛔ not restated here). It is a branch tip for the reason the
+   * paragraphs below give for `2ba091c` and `4acbea07`: the pull request's own
+   * diff is what moved the figure. Measured by `pnpm exec turbo run build
+   * --filter=!@object-ui/site --concurrency=2` (exit 0), reading
+   * `apps/console/dist/eager-closure.json` through `pnpm check:eager-closure`,
+   * under `scripts/pm/os-verify-lock.sh`, in the same container as the
+   * `9b673e54` control build. The commit that re-pins this file reaches no
+   * bundler input, so it cannot move the figure it pins.
+   *
+   * ⚠️ The paragraph below describes the reading this one superseded, `2ba091c`
+   * (3,386,193 across 330 of 2450 chunks), kept as its provenance.
+   *
+   * `2ba091c` is objectui#11438's branch tip: `main` at `2d576e46` with
+   * `@objectstack/*` 17.6.0 resolved and the bump's own edits, the second
+   * payback recorded on {@link MAX_EAGER_CLOSURE_GZIP_BYTES} (its table and its
+   * `2d576e46` control are there, ⛔ not restated here). It is a branch tip for
+   * the reason the paragraph below gives for `4acbea07`: the pull request's own
+   * diff is what moved the figure. Measured by `CI=true pnpm exec vite build`
+   * in `apps/console` (exit 0) after `pnpm turbo run build --filter='./packages/*'`,
+   * reading `apps/console/dist/eager-closure.json`, under
+   * `scripts/pm/os-verify-lock.sh`, in the same container and the same lock
+   * hold as the `2d576e46` control build. The commit that re-pins this file
+   * reaches no bundler input, so it cannot move the figure it pins.
+   *
+   * ⚠️ The paragraphs below describe the reading this one superseded, `4acbea07`
+   * (3,638,104 across 330 of 2450 chunks), kept as its provenance.
+   *
+   * `4acbea07` is the payback commit of objectui#11101's branch: `main` at
+   * `5262f7d` plus the one line in `apps/console/vite.config.ts` that keeps an
+   * `import()`ed `@objectstack/*` module out of `vendor-objectstack`, under the
+   * ruling recorded on {@link MAX_EAGER_CLOSURE_GZIP_BYTES}. It is a branch tip
+   * again rather than a `main` commit, as objectui#11073's was, because here
+   * the pull request's OWN diff is what moved the figure: its bytes are the
+   * subject. The `scripts/vite-*.ts`-versus-`scripts/check-*.mjs` argument holds
+   * for the re-pin itself: the commit that edits this file and its unit test
+   * reaches no bundler input, so it cannot move the figure it pins.
+   *
+   * ⚠️ `048e7f6`, the previous baseline, read 3,648,737 across 330 of 2446
+   * chunks, on objectui#11073's branch; it landed on `main` as `81f8498`. ⛔ It
+   * is NOT the control for this reading: the delta objectui#11101 earned is
+   * measured against a build of `5262f7d`, the same tree without the one line,
+   * and that table is recorded once, under objectui#11101's entry on
    * {@link MAX_EAGER_CLOSURE_GZIP_BYTES}, ⛔ not restated here.
    *
-   * ⚠️ The reading is of `5d689c3f6`, ⛔ not of whatever `main` is when this
-   * lands. CI weighs the pull-request MERGE ref, so the two differ by whatever
-   * lands on `main` between the reading and the merge — and the merge that
-   * carries this change is not named here, for the reason `squashMerge` below
-   * gives.
+   * ⚠️ The reading is of `4acbea07`, ⛔ not of whatever `main` plus this branch
+   * is when it lands. CI weighs the pull-request MERGE ref, so the two differ by
+   * whatever lands on `main` between the reading and the merge.
    *
-   * Measured by `pnpm --filter @object-ui/console exec vite build` (exit 0, with
-   * `CI=true` as the workflow's runner sets it) reading
-   * `apps/console/dist/eager-closure.json`, under `scripts/pm/os-verify-lock.sh`.
-   * The same instrument, on the same day, read `4b742f41d` back to the byte the
-   * seat recorded on objectui#10996 — the calibration. ⛔ Not taken from CI's
-   * report and not extrapolated.
+   * Measured by `CI=true pnpm exec vite build` in `apps/console` (exit 0)
+   * reading `apps/console/dist/eager-closure.json`, under
+   * `scripts/pm/os-verify-lock.sh`, in the same container and the same lock
+   * hold as the `5262f7d` control build. ⛔ Not taken from CI's report and not
+   * extrapolated.
    *
-   * PROVENANCE resolves from a `main` checkout with `git` alone:
-   * `git cat-file -t 5d689c3f6` answers `commit`, which the retired
-   * `bbf6b02d9` never could — that tip was squash-merged away, and objectui#9355
-   * added `squashMerge` below as the handle that resolved in its place.
+   * PROVENANCE: `4acbea07` resolves from a checkout that fetched the branch,
+   * and not from `main` once it is squash-merged — the dead end objectui#9355
+   * added `squashMerge` below to route around.
    */
-  gzipBytes: 3_179_055,
-  chunks: 330,
-  totalChunks: 2446,
-  commit: '5d689c3f6',
+  gzipBytes: 3_235_899,
+  chunks: 289,
+  totalChunks: 2474,
+  commit: 'f05f015',
 
   /**
    * The squash merge that carried the reading above onto `main`, recorded when
@@ -661,25 +1328,23 @@ export const BASELINE = Object.freeze({
    * (objectui#9355): a sha that DOES resolve, so a reader re-checking the
    * measurement gets a handle rather than a dead end.
    *
-   * `null` since objectui#10996, deliberately. This field can only ever be
-   * BACK-FILLED: a squash sha does not exist until the pull request merges, so
-   * the change that re-pins the field above ⛔ cannot write its own here. ⛔ Do
-   * not guess one, and ⛔ do not carry the retired `67485872ed` forward onto a
-   * reading it was not taken with: a wrong sha in this position is worse than
-   * an absent one, because it RESOLVES, and a reader who builds the wrong tree
-   * gets a plausible number instead of an error. A follow-up may name the merge
-   * once it exists.
-   *
-   * ⚠️ The dead end this field was added to route around is absent this time:
-   * the field above is itself a `main` commit. So a back-fill here would record
-   * which merge carried the constants, ⛔ not repair provenance — the reading
-   * is checkable without it.
+   * `null` since objectui#10996, and `null` again after objectui#11101,
+   * objectui#11438, objectui#11717, objectui#11798, objectui#11854 and
+   * objectui#11939, deliberately. This field can only ever be BACK-FILLED: a squash sha does
+   * not exist until the pull request merges, so the change that re-pins the
+   * field above ⛔ cannot write its own here. ⛔ Do not guess one: a wrong sha in
+   * this position is worse than an absent one, because it RESOLVES, and a
+   * reader who builds the wrong tree gets a plausible number instead of an
+   * error. A follow-up should name the merge once it exists, because the field
+   * above is a branch tip again and this is its only handle from `main`.
+   * objectui#11073's reading was owed exactly that, and objectui#11101 paid it
+   * in the prose that still cites that reading, on
+   * {@link MAX_EAGER_CLOSURE_GZIP_BYTES}, since its own re-pin moved the field
+   * above off it.
    *
    * The ledger case in `scripts/__tests__/check-eager-closure-budget.test.ts`
-   * that records what this constant carries as data reds on `null`, as it was
-   * written to. objectui#10996 re-pinned it in the same commit, to exactly the
-   * one commit this constant now carries, and ⛔ did not widen it to accept
-   * either shape.
+   * that records what this constant carries as data reds on a back-fill, as it
+   * was written to, and is re-pinned to two strings when that happens.
    */
   squashMerge: null,
 });
@@ -1168,11 +1833,34 @@ export const REGRESSION_THIS_GATE_MUST_CATCH_BYTES = 89 * 1024;
  * re-measure and lower both numbers together.
  */
 export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
-  // Raised once with the aggregate above, same authorisation, same cause —
-  // `@objectstack/spec` 17.3.0's browser-dist prose growth lands in THIS chunk.
-  // Headroom 18,971 bytes = 0.21x REGRESSION_THIS_GATE_MUST_CATCH_BYTES, the
-  // proportion the retiring pair carried (18,539 = 0.20x).
-  'vendor-objectstack': 1_254_000,
+  // Raised with the aggregate above, under the same ruling (objectui#11088
+  // decision 1 = A; objectui#11073): `@objectstack/*` 17.5.0 lands in THIS
+  // chunk, +465,778 gzipped bytes on the two builds tabled on
+  // MAX_EAGER_CLOSURE_GZIP_BYTES, and the retired 1,254,000 fired on it.
+  //
+  // ⭐ LOWERED by objectui#11101, the first payback of that raise, from
+  // 1,723,000 by exactly the 33,735 bytes this chunk lost when the group
+  // stopped claiming `import()`ed modules (the table under objectui#11101's
+  // entry on MAX_EAGER_CLOSURE_GZIP_BYTES). Headroom 18,301 bytes = 0.20x
+  // REGRESSION_THIS_GATE_MUST_CATCH_BYTES over the baseline below — what this
+  // key had on `main` at `5262f7d` before the payback, kept to the byte — and
+  // it comes down again with the aggregate when objectstack#20646 pays back the
+  // rest.
+  //
+  // ⭐ LOWERED again by that second payback, carried by objectui#11438's
+  // `@objectstack/*` 17.6.0 bump, from 1,689,265 by exactly the 250,108 bytes
+  // this chunk lost (the table under objectui#11438's entry on
+  // MAX_EAGER_CLOSURE_GZIP_BYTES). Headroom 18,199 bytes = 0.20x
+  // REGRESSION_THIS_GATE_MUST_CATCH_BYTES over the baseline below.
+  //
+  // ⚠️ RAISED by objectui#11717 under ruling 6027998226 (the fourth raise on
+  // MAX_EAGER_CLOSURE_GZIP_BYTES): `@objectstack/*` 17.7.0 lands in THIS
+  // chunk, +182,909 gzipped bytes on the two builds tabled there, and the
+  // retired 1,439,157 fired on it. Headroom 18,526 bytes = 0.20x
+  // REGRESSION_THIS_GATE_MUST_CATCH_BYTES over the baseline below — the band
+  // the two paybacks kept — rounded to the nearest thousand. It comes down with
+  // the aggregate when objectstack#22044 pays back what it recovers.
+  'vendor-objectstack': 1_623_000,
   // ⭐ LOWERED, and RE-KEYED, by objectui#7479 — this line used to read
   // `'i18n-locales': 465_000` and budget TEN catalogues. Nine of them are
   // `import()`ed on demand now, so the chunk that name pointed at no longer
@@ -1243,13 +1931,19 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * per file, and saying so is the point — a comment that names one commit for
  * three numbers taken on two is the drift objectui#6631 is open about:
  *
- *   - `vendor-objectstack` — `34a1578ef` (objectui#7122), re-measured when the
- *     `@objectstack/spec` 17.3.0 family bump moved this chunk and its ceiling
- *     was raised with the aggregate. ⚠️ It shared {@link BASELINE}'s build until
- *     objectui#7479 moved the aggregate onto a later commit; it superseded
- *     `2c8474c04` (objectui#5490). Its value is unmoved and both console builds
- *     objectui#7479 took re-measured it at 1,236,315 — a CONTROL for that
- *     card's delta, not a re-baseline.
+ *   - `vendor-objectstack` — `c1e32e96` (objectui#11717), the 17.7.0 bump's
+ *     build the aggregate also read until objectui#11798, re-measured when this chunk's ceiling
+ *     fired and went up with the aggregate's under ruling 6027998226. It
+ *     supersedes `2ba091c` (objectui#11438), the 17.6.0 bump's build,
+ *     re-measured when the spec's root entry shed its migration chain and this
+ *     chunk's ceiling came down with the aggregate's, which superseded
+ *     `4acbea07` (objectui#11101), the payback build
+ *     re-measured when this chunk's group stopped claiming `import()`ed
+ *     modules, which superseded `048e7f6` (objectui#11073, the `@objectstack/*`
+ *     17.5.0 raise), which superseded `34a1578ef` (objectui#7122, the 17.3.0
+ *     family bump) and `2c8474c04` (objectui#5490) before that. This bullet
+ *     still named `34a1578ef` after objectui#11073 had re-pinned the key, and
+ *     objectui#11101 repaired it while re-pinning the key again.
  *   - `ui-components` — `2c8474c04` (objectui#5490).
  *   - `framework` — `3f775eeb8`, the `main` tip this raise's branch was cut
  *     from, read out of the `apps/console/dist/eager-closure.json` written by
@@ -1302,15 +1996,30 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * in this comment.
  *
  * ⚠️ These readings are on DIFFERENT commits from {@link BASELINE} above —
- * `i18n-locale-en` shared BASELINE's commit from objectui#7479 until
- * objectui#9251, and `ui-components` from objectui#9251 until objectui#10996
- * re-pinned the aggregate onto a `main` commit; today neither does — and
+ * `vendor-objectstack` shared the aggregate's commit from objectui#11073 until
+ * objectui#11798, `i18n-locale-en` from objectui#7479 until objectui#9251, and
+ * `ui-components` from objectui#9251 until objectui#10996 re-pinned the
+ * aggregate onto a `main` commit; today none does — and
  * WHICH ONE IS LATER flips every time either side is re-baselined, so read the
- * commit names, never a direction asserted here. As of objectui#10996 the
- * AGGREGATE is the later reading for every key: BASELINE's `5d689c3f6` is
- * dated 2026-09-28, against `bbf6b02d9` (2026-09-13, objectui#9251) for
- * `ui-components` and `34a1578ef` (2026-09-06, objectui#7122) for
- * `vendor-objectstack`. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it
+ * commit names, never a direction asserted here. From objectui#11717 until
+ * objectui#11798, `vendor-objectstack` shared the aggregate's reading:
+ * objectui#11717's `c1e32e96`, the 17.7.0 bump's build, re-pinned both, as
+ * objectui#11438's `2ba091c`, objectui#11101's `4acbea07` and objectui#11073's
+ * `048e7f6` had before it. objectui#11798 re-pinned the aggregate onto
+ * `c1d378ec` and left this key at `c1e32e96`: that chunk moved by 0
+ * bytes across objectui#11798's two builds, and its ceiling did not move.
+ * objectui#11854 re-pinned the aggregate onto `406f760` and left
+ * every key where it was: `vendor-objectstack`, `framework` and
+ * `i18n-locale-en` moved by 0 bytes across objectui#11854's two builds and
+ * `ui-components` by 9, and no ceiling moved. objectui#11939 re-pinned the
+ * aggregate onto BASELINE's `f05f015` and left every key where it was too:
+ * across its two builds `vendor-objectstack` moved by −6,468 (one
+ * `@objectstack/spec` entry left the first load with the designers),
+ * `ui-components` by −19, `framework` by +10 and `i18n-locale-en` by 0, every
+ * ceiling stayed in range, and no ceiling moved. The
+ * aggregate is the later reading for every key: `c1e32e96` for
+ * `vendor-objectstack`, `bbf6b02d9` (2026-09-13, objectui#9251) for `ui-components`,
+ * and `3f775eeb8` for `framework`. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it
  * was taken and the aggregate has moved on since, which is exactly why the two
  * are named per key rather than described by a direction.
  * This paragraph asserted the reverse,
@@ -1369,8 +2078,14 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * measurement with no ceiling weighs nothing.
  */
 export const PER_CHUNK_BASELINE = Object.freeze({
-  // `34a1578ef`, the same build as BASELINE above (objectui#7122).
-  'vendor-objectstack': 1_235_029,
+  // `c1e32e96`, the build BASELINE above carried from objectui#11717 until
+  // objectui#11798 (which left this key alone), re-pinned with its ceiling by
+  // the fourth raise. It supersedes objectui#11438's
+  // `2ba091c` reading of 1,420,958 (re-pinned with its ceiling by the second
+  // payback), which superseded objectui#11101's `4acbea07` reading of 1,670,964, which superseded objectui#11073's
+  // `048e7f6` reading of 1,703,690 (landed on `main` as `81f8498`), which
+  // superseded objectui#7122's `34a1578ef` reading of 1,235,029.
+  'vendor-objectstack': 1_604_474,
   // `755d34a5f` (objectui#7479) — the SAME console build as
   // BASELINE above, so the two are directly comparable, and the same instrument
   // and container as the control build it is subtracted from. It supersedes

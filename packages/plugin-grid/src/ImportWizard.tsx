@@ -11,10 +11,17 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@object-ui/components';
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, ArrowRight, ArrowLeft, Save, Trash2, ClipboardPaste, Download, Undo2 } from 'lucide-react';
-import { useObjectTranslation } from '@object-ui/react';
+import { useObjectTranslation, notifyDataChanged } from '@object-ui/react';
 import { sanitizeFileNameBase } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { BOOLEAN_IMPORT_TOKENS, REFERENCE_IMPORT_TYPES } from './importCoercionContract';
+import { usePermissions } from '@object-ui/permissions';
+import {
+  BOOLEAN_VALUE_TYPES, MULTI_OPTION_TYPES, NUMERIC_VALUE_TYPES, SINGLE_OPTION_TYPES,
+} from '@objectstack/spec/data';
+import {
+  BOOLEAN_IMPORT_TOKENS, REFERENCE_IMPORT_TYPES, isIdentityEmail, isImportableDateCell, isImportableTimeCell,
+  isRecordEmail,
+} from './importCoercionContract';
 import type {
   DataSource,
   ImportRequestOptions,
@@ -56,8 +63,10 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.dragDrop': 'Drag & drop a CSV or Excel file here, or click to browse',
   'grid.import.browseFiles': 'Browse Files',
   'grid.import.downloadTemplate': 'Download template',
-  'grid.import.downloadTemplateHint': 'Get a CSV with the right columns (required fields marked *).',
+  'grid.import.downloadTemplateHint': 'Get an Excel file of the columns you can import (required fields marked *), with instructions for filling it in.',
   'grid.import.templateFileName': '{{object}}-import-template',
+  'grid.import.templateDownloadFailed': 'Could not download the template. Please try again.',
+  'grid.import.templateNotPermitted': 'You do not have permission to create records of this object, so its import template is not available.',
   'grid.import.parsing': 'Parsing…',
   'grid.import.pasteHint': 'or paste (Ctrl/⌘+V) rows copied from Excel or Google Sheets',
   'grid.import.legacyXls': "Legacy .xls files aren't supported — please re-save as .xlsx.",
@@ -83,6 +92,10 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.typeMismatch': 'Looks like {{type}}',
   'grid.import.autoMatched': 'Auto-matched',
   'grid.import.autoMatchedSummary': 'Auto-matched {{count}} column(s) — review and adjust below.',
+  // The `_one` / `_other` rows below are count families (objectui#11445):
+  // `useImportTranslation`'s fallback reads them for a numeric `count`.
+  'grid.import.autoMatchedSummary_one': 'Auto-matched {{count}} column — review and adjust below.',
+  'grid.import.autoMatchedSummary_other': 'Auto-matched {{count}} columns — review and adjust below.',
   'grid.import.confidence.high': 'High confidence',
   'grid.import.confidence.medium': 'Medium confidence',
   'grid.import.confidence.low': 'Low confidence',
@@ -97,7 +110,11 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.mapped': 'Mapped',
   'grid.import.skipped': 'Skipped',
   'grid.import.rowsWithErrors': '{{count}} row(s) with errors',
+  'grid.import.rowsWithErrors_one': '{{count}} row with errors',
+  'grid.import.rowsWithErrors_other': '{{count}} rows with errors',
   'grid.import.rowsCorrected': '{{count}} row(s) corrected',
+  'grid.import.rowsCorrected_one': '{{count}} row corrected',
+  'grid.import.rowsCorrected_other': '{{count}} rows corrected',
   'grid.import.clickToFix': '— click a highlighted cell to fix it inline.',
   'grid.import.showingRows': 'Showing {{shown}} of {{total}} rows',
   'grid.import.importing': 'Importing… {{progress}}%',
@@ -109,12 +126,20 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.cancelImport': 'Cancel import',
   'grid.import.importCancelled': 'Import cancelled',
   'grid.import.resultsTruncated': 'Showing the first {{count}} row results (of {{total}}).',
+  'grid.import.resultsTruncated_one': 'Showing the first {{count}} row result (of {{total}}).',
+  'grid.import.resultsTruncated_other': 'Showing the first {{count}} row results (of {{total}}).',
   'grid.import.importComplete': 'Import Complete',
   'grid.import.imported': '{{count}} imported',
   'grid.import.createdCount': '{{count}} created',
+  'grid.import.createdCount_one': '{{count}} created',
+  'grid.import.createdCount_other': '{{count}} created',
   'grid.import.updatedCount': '{{count}} updated',
+  'grid.import.updatedCount_one': '{{count}} updated',
+  'grid.import.updatedCount_other': '{{count}} updated',
   'grid.import.skippedCount': '{{count}} skipped',
   'grid.import.moreErrors': '…and {{count}} more errors',
+  'grid.import.moreErrors_one': '…and {{count}} more error',
+  'grid.import.moreErrors_other': '…and {{count}} more errors',
   'grid.import.downloadFailed': 'Download failed rows',
   // Write-mode / options (preview step)
   'grid.import.options': 'Import options',
@@ -149,6 +174,7 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.invalidBoolean': '"{{value}}" is not a valid true/false value',
   'grid.import.invalidNumber': '"{{value}}" is not a valid number',
   'grid.import.invalidDate': '"{{value}}" is not a valid date',
+  'grid.import.invalidTime': '"{{value}}" is not a valid time',
   'grid.import.invalidOption': '"{{value}}" is not one of the allowed options',
   'grid.import.requiredValue': 'This field is required',
   'grid.import.matchAmbiguous': 'Matches more than one existing record — use a unique value or the record id',
@@ -166,6 +192,8 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.historyColResult': 'Result',
   'grid.import.historyColTime': 'When',
   'grid.import.errorCount': '{{count}} errors',
+  'grid.import.errorCount_one': '{{count}} error',
+  'grid.import.errorCount_other': '{{count}} errors',
   // Undo / logical rollback
   'grid.import.undoImport': 'Undo import',
   'grid.import.undoing': 'Undoing…',
@@ -181,6 +209,8 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.next': 'Next',
   'grid.import.close': 'Close',
   'grid.import.importNRows': 'Import {{count}} Rows',
+  'grid.import.importNRows_one': 'Import {{count}} Row',
+  'grid.import.importNRows_other': 'Import {{count}} Rows',
   'grid.import.importingProgress': 'Importing…',
   'grid.import.required': 'Required',
   'grid.import.invalidType': 'Invalid {{type}}',
@@ -228,9 +258,27 @@ function interpolate(template: string, vars?: Record<string, unknown>): string {
 /** Translation hook with safe English fallback for standalone usage.
  *  When no I18nProvider is mounted (e.g. unit tests) the hook still resolves
  *  `grid.import.*` keys via the embedded defaults so the wizard stays usable. */
+/** The defaults are English, so English plural rules pick a family's row. */
+const EN_PLURAL_RULES = new Intl.PluralRules('en');
+
+/**
+ * A count family's `_one` / `_other` row for a NUMERIC count, else the base row
+ * — the order i18next reads the `en` pack in (i18next plural-selects nothing
+ * but a number). The hand-rolled copy of `createSafeTranslation`'s
+ * `defaultsRowFor` (objectui#11445), as `interpolate` above is of its interpolator.
+ */
+function defaultsRow(key: string, vars?: Record<string, unknown>): string | undefined {
+  const count = vars?.count;
+  if (typeof count === 'number' && Number.isFinite(count)) {
+    const slot = IMPORT_DEFAULT_TRANSLATIONS[`${key}_${EN_PLURAL_RULES.select(count)}`];
+    if (slot !== undefined) return slot;
+  }
+  return IMPORT_DEFAULT_TRANSLATIONS[key];
+}
+
 function useImportTranslation(): { t: (key: string, vars?: Record<string, unknown>) => string } {
   const fallback = (key: string, vars?: Record<string, unknown>) =>
-    interpolate(IMPORT_DEFAULT_TRANSLATIONS[key] ?? key, vars);
+    interpolate(defaultsRow(key, vars) ?? key, vars);
   // Deliberately NOT `createSafeTranslation`: that probes one testKey and then
   // serves defaults for everything, whereas the wizard falls back per key so a
   // host dictionary that covers the common keys but lags on newer ones still
@@ -263,13 +311,16 @@ export const __testables = {
   get isImportNotAllowed() { return isImportNotAllowed; },
   get jobResultToImportResult() { return jobResultToImportResult; },
   get buildFailedRowsCsv() { return buildFailedRowsCsv; },
-  get buildImportTemplateCsv() { return buildImportTemplateCsv; },
   get assembleImportRequest() { return assembleImportRequest; },
   get isImportJobActive() { return isImportJobActive; },
   get isImportJobUndoable() { return isImportJobUndoable; },
   get buildSourceRows() { return buildSourceRows; },
   get summarizeSavedMapping() { return summarizeSavedMapping; },
   get savedMappingToDisplayIndexMap() { return savedMappingToDisplayIndexMap; },
+  get checkImportCell() { return checkImportCell; },
+  get parseImportNumber() { return parseImportNumber; },
+  get mergeRowFindings() { return mergeRowFindings; },
+  get transformedSourceColumns() { return transformedSourceColumns; },
   /** The read-only server-mapping summary table. Exposed so its cells can be
    *  read directly: reaching it through the wizard means driving a file parse
    *  and a Radix `Select`, neither of which this component owns. */
@@ -302,8 +353,8 @@ export interface ImportWizardProps {
     label: string;
     type: string;
     required?: boolean;
-    /** Allowed values for select/enum fields — used to seed the downloadable
-     *  template's example row. Accepts option objects or bare strings. */
+    /** Allowed values for select/enum fields. Accepts option objects or bare
+     *  strings. */
     options?: Array<{ label?: string; value?: string | number } | string>;
     /** Storage-backed but non-writable target (autonumber / readonly): mappable
      *  so update/upsert can MATCH rows on it (e.g. "update the row whose record
@@ -312,6 +363,13 @@ export interface ImportWizardProps {
      *  engine strips readonly values from updates and respects explicitly
      *  seeded values on insert. */
     matchOnly?: boolean;
+    /** Which rule the preview checks an `email` column's cells by. Left out,
+     *  it is the record validator's rule, the one the generic import meets.
+     *  `'identity'` is the user import endpoint's own rule (printable ASCII,
+     *  at most 254 characters, no placeholder address), for a host
+     *  that writes the column through that endpoint, as the identity import
+     *  does. Only an `email` field reads it. */
+    emailRule?: 'identity';
   }>;
   dataSource: any;
   onComplete?: (result: ImportResult) => void;
@@ -444,6 +502,8 @@ function formatDryRunError(
       return { fieldLabel, message: t('grid.import.invalidNumber', { value: shown }) };
     case 'invalid_date':
       return { fieldLabel, message: t('grid.import.invalidDate', { value: shown }) };
+    case 'invalid_time':
+      return { fieldLabel, message: t('grid.import.invalidTime', { value: shown }) };
     case 'invalid_option':
       return { fieldLabel, message: t('grid.import.invalidOption', { value: shown }) };
     case 'required':
@@ -460,32 +520,184 @@ function formatDryRunError(
   return { fieldLabel, message };
 }
 
+// ── The preview's cell check (objectui#11814) ─────────────────────────────
+//
+// A cell is flagged here only where the server's import refuses it, because the
+// import button counts the rows nobody has flagged: a check stricter than the
+// server would shrink that count below what the import then writes. The server
+// side lives in the framework: `coerceFieldValue` and its helpers in
+// `packages/core/src/utils/import-coerce.ts`, then the engine's `validateRecord`.
+
+/** One mapped target field of the import. */
+type ImportTargetField = ImportWizardProps['fields'][number];
+type ImportTargetOption = NonNullable<ImportTargetField['options']>[number];
+
+/** The only comma a numeric cell may carry: a thousands grouping of its integer part. */
+const THOUSANDS_GROUPED_INTEGER = /^[+-]?\d{1,3}(?:,\d{3})+(?![\d,])[^,]*$/;
+
 /**
- * Plausible email? Mirrors the server's `isLikelyEmail` (structure + ASCII) so
- * an obviously-bad address — e.g. a non-ASCII domain like `x@柴仟.com` — is
- * flagged red in the preview here, instead of passing client + dry-run
- * validation only to be rejected by better-auth at real-import time
- * (framework#3566). Deliberately not a regex: a single-pass structural check
- * has no backtracking (cf. the server-side ReDoS note).
+ * A numeric cell read the way the server's `parseNumberCell` reads it, or
+ * `undefined` where the server answers `invalid_number`. It takes a thousands
+ * grouping, one leading currency symbol, a trailing percent sign and an
+ * accounting-style parenthesised negative, and nothing else.
+ *
+ * `Number()` did this job before and disagreed with the server both ways: it
+ * refused `1,234`, `$12` and `25%`, which the server takes, and took `0x10`,
+ * `Infinity` and `12.`, which the server refuses.
  */
-export function isPlausibleEmail(value: string): boolean {
-  if (value.length === 0 || value.length > 254 || /\s/.test(value)) return false;
-  if (/[^\x20-\x7e]/.test(value)) return false; // printable ASCII only, like the server
-  const at = value.indexOf('@');
-  if (at <= 0 || at !== value.lastIndexOf('@') || at === value.length - 1) return false;
-  const domain = value.slice(at + 1);
-  const dot = domain.lastIndexOf('.');
-  return dot > 0 && dot < domain.length - 1;
+function parseImportNumber(cell: string): number | undefined {
+  let s = cell.trim();
+  if (s === '') return undefined;
+  let negative = false;
+  if (/^\(.*\)$/.test(s)) { negative = true; s = s.slice(1, -1).trim(); }
+  s = s.replace(/^[$¥€£￥]\s*/, '');
+  s = s.replace(/%$/, '').trim();
+  if (s.includes(',')) {
+    if (!THOUSANDS_GROUPED_INTEGER.test(s)) return undefined;
+    s = s.replace(/,/g, '');
+  }
+  if (s === '' || !/^[+-]?\d*\.?\d+(e[+-]?\d+)?$/i.test(s)) return undefined;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return undefined;
+  return negative ? -n : n;
 }
 
-function validateValue(value: string, type: string): boolean {
-  if (!value) return true;
-  switch (type) {
-    case 'number': case 'currency': case 'percent': return !isNaN(Number(value));
-    case 'boolean': return BOOLEAN_IMPORT_TOKENS.has(value.trim().toLowerCase());
-    case 'date': case 'datetime': return !isNaN(Date.parse(value));
-    case 'email': return isPlausibleEmail(value.trim());
-    default: return true;
+/** An option's stored value and its label; a bare-string option is both. */
+function optionValueAndLabel(option: ImportTargetOption): { value?: string; label?: string } {
+  if (typeof option === 'string') return { value: option, label: option };
+  return {
+    value: option?.value === undefined ? undefined : String(option.value),
+    label: typeof option?.label === 'string' ? option.label : undefined,
+  };
+}
+
+/**
+ * Whether the server's `matchOption` takes this cell: the trimmed cell equals
+ * an option's value exactly, or equals its trimmed label ignoring case. A field
+ * with no options takes anything.
+ */
+function matchesImportOption(cell: string, options: readonly ImportTargetOption[]): boolean {
+  if (options.length === 0) return true;
+  const s = cell.trim();
+  const lower = s.toLowerCase();
+  return options.some((option) => {
+    const { value, label } = optionValueAndLabel(option);
+    return value === s || (label !== undefined && label.trim().toLowerCase() === lower);
+  });
+}
+
+/** A multi-value cell split the way the server's `splitMulti` splits it. */
+function splitImportMultiValue(cell: string): string[] {
+  return cell.split(/[,;、\n]/).map((v) => v.trim()).filter((v) => v !== '');
+}
+
+/**
+ * The value the server refuses in a select / multiselect cell, or `undefined`
+ * when it takes the cell. The option types come from the spec, as the server
+ * reads them: a multi-option type is split and each token matched.
+ *
+ * Two readings are not the server's exactly, and both err towards taking a cell:
+ *
+ * - A `select` / `radio` flagged `multiple: true` is split by the server as
+ *   well, and the wizard's field shape does not carry `multiple`. So a
+ *   single-option cell is refused only when both readings refuse it: as one
+ *   value, and as a split list.
+ * - With *Keep unknown option values* on, the server's coercion keeps an unknown
+ *   value, but the engine's write validation still refuses a value outside the
+ *   options. It skips that check for a readonly field only, and such a field
+ *   reaches the wizard as `matchOnly`. So the setting spares match-only fields
+ *   alone.
+ */
+function refusedOptionValue(
+  cell: string,
+  field: ImportTargetField,
+  keepUnknownOptions: boolean,
+): string | undefined {
+  const options = field.options ?? [];
+  if (options.length === 0) return undefined;
+  if (keepUnknownOptions && field.matchOnly) return undefined;
+  const fits = (token: string) => matchesImportOption(token, options);
+  if (MULTI_OPTION_TYPES.has(field.type)) return splitImportMultiValue(cell).find((token) => !fits(token));
+  if (!SINGLE_OPTION_TYPES.has(field.type)) return undefined;
+  if (fits(cell) || splitImportMultiValue(cell).every(fits)) return undefined;
+  return cell.trim();
+}
+
+/** Why the server will refuse a cell, as the preview reports it. */
+type CellRefusal =
+  | { code: 'required' }
+  | {
+      code: 'invalid_number' | 'invalid_boolean' | 'invalid_date' | 'invalid_time' | 'invalid_email' | 'invalid_option';
+      /** The refused value: the trimmed cell, or the refused token of a multi-value cell. */
+      value: string;
+    };
+
+/** What the check needs to know about this import beyond the cell and its field. */
+interface CellCheckOptions {
+  /** The *Keep unknown option values* setting the import request carries. */
+  keepUnknownOptions: boolean;
+  /**
+   * Whether a blank cell in a required field is refused. Only a create is: the
+   * engine never asks an update for a field the row leaves out, and the import
+   * leaves a blank cell out.
+   */
+  requireValues: boolean;
+}
+
+/**
+ * The reason the server refuses this cell, or `undefined` when it takes it. A
+ * blank or whitespace-only cell is empty, as the server's `isBlank` reads it.
+ *
+ * The arms run in the order the server's `coerceFieldValue` runs them, and the
+ * boolean and numeric types are the spec's sets, the ones the server reads, so
+ * `toggle`, `rating`, `slider` and `progress` are checked like `boolean` and
+ * `number` (objectui#11889). A `date` / `datetime` cell is read by the server's
+ * grammar and supported years, and an `email` cell by the record validator's
+ * rule, which takes a non-ASCII address (both in `importCoercionContract.ts`).
+ * A `time` cell is read the way the server reads a time of day, and an `email`
+ * column flagged `emailRule: 'identity'` by the user import endpoint's rule
+ * instead of the record validator's (objectui#11913).
+ */
+function checkImportCell(
+  cell: string,
+  field: ImportTargetField,
+  opts: CellCheckOptions,
+): CellRefusal | undefined {
+  const value = cell.trim();
+  if (value === '') return field.required && opts.requireValues ? { code: 'required' } : undefined;
+  const { type } = field;
+  if (BOOLEAN_VALUE_TYPES.has(type)) {
+    return BOOLEAN_IMPORT_TOKENS.has(value.toLowerCase()) ? undefined : { code: 'invalid_boolean', value };
+  }
+  if (NUMERIC_VALUE_TYPES.has(type)) {
+    return parseImportNumber(value) === undefined ? { code: 'invalid_number', value } : undefined;
+  }
+  if (type === 'date' || type === 'datetime') {
+    return isImportableDateCell(value, type) ? undefined : { code: 'invalid_date', value };
+  }
+  if (type === 'time') return isImportableTimeCell(value) ? undefined : { code: 'invalid_time', value };
+  if (type === 'email') {
+    const takes = field.emailRule === 'identity' ? isIdentityEmail(value) : isRecordEmail(value);
+    return takes ? undefined : { code: 'invalid_email', value };
+  }
+  const refused = refusedOptionValue(cell, field, opts.keepUnknownOptions);
+  return refused === undefined ? undefined : { code: 'invalid_option', value: refused };
+}
+
+/** The sentence a cell refusal reads as: the one the server's code reads as, where one exists. */
+function cellRefusalMessage(
+  refusal: CellRefusal,
+  field: ImportTargetField,
+  t: (key: string, vars?: Record<string, unknown>) => string,
+): string {
+  switch (refusal.code) {
+    case 'required': return t('grid.import.requiredValue');
+    case 'invalid_number': return t('grid.import.invalidNumber', { value: refusal.value });
+    case 'invalid_boolean': return t('grid.import.invalidBoolean', { value: refusal.value });
+    case 'invalid_date': return t('grid.import.invalidDate', { value: refusal.value });
+    case 'invalid_time': return t('grid.import.invalidTime', { value: refusal.value });
+    case 'invalid_option': return t('grid.import.invalidOption', { value: refusal.value });
+    case 'invalid_email': return t('grid.import.invalidType', { type: field.type });
   }
 }
 
@@ -556,24 +768,103 @@ function applyTemplate(
   return next;
 }
 
-type MappedCol = { csvIdx: number; field: ImportWizardProps['fields'][0] };
+type MappedCol = { csvIdx: number; field: ImportTargetField };
 
-function validateRow(row: string[], mappedCols: MappedCol[], rowIndex: number) {
+/**
+ * The legacy per-row `create` path's check. Every write there is a create, so a
+ * required field's blank cell is always refused.
+ */
+function validateRow(row: string[], mappedCols: MappedCol[], rowIndex: number, keepUnknownOptions: boolean) {
   const errors: ImportResult['errors'] = [];
   const record: Record<string, any> = {};
   for (const col of mappedCols) {
     const raw = row[col.csvIdx] ?? '';
-    if (col.field.required && !raw) {
+    const refusal = checkImportCell(raw, col.field, { keepUnknownOptions, requireValues: true });
+    if (refusal?.code === 'required') {
       errors.push({ row: rowIndex, field: col.field.name, message: 'Required field is empty' });
       continue;
     }
-    if (raw && !validateValue(raw, col.field.type)) {
-      errors.push({ row: rowIndex, field: col.field.name, message: `Invalid ${col.field.type} value: "${raw}"` });
+    if (refusal) {
+      errors.push({ row: rowIndex, field: col.field.name, message: `Invalid ${col.field.type} value: "${refusal.value}"` });
       continue;
     }
     record[col.field.name] = raw;
   }
   return { record, errors };
+}
+
+/** One reason a row will not import: the preview's own check, or the server's dry run. */
+type RowFinding =
+  | { source: 'client'; field: ImportTargetField; csvIdx: number; refusal: CellRefusal }
+  | { source: 'server'; result: ImportRowResult; csvIdx?: number };
+
+/** The preview's findings on the rows it checked, keyed by 0-based row index. */
+type ClientFindings = Map<number, Array<Extract<RowFinding, { source: 'client' }>>>;
+
+/** The client findings for one row, in column order. Empty when the row passes. */
+function checkImportRow(
+  row: readonly string[],
+  checkedCols: readonly MappedCol[],
+  opts: CellCheckOptions,
+): Array<Extract<RowFinding, { source: 'client' }>> {
+  const out: Array<Extract<RowFinding, { source: 'client' }>> = [];
+  for (const col of checkedCols) {
+    const refusal = checkImportCell(row[col.csvIdx] ?? '', col.field, opts);
+    if (refusal) out.push({ source: 'client', field: col.field, csvIdx: col.csvIdx, refusal });
+  }
+  return out;
+}
+
+/**
+ * One list of findings per row: the preview's own, then each server dry-run
+ * failure on a field the preview has not already flagged in that row. Rows are
+ * 0-based indexes into the loaded rows; the dry run numbers them from 1. A dry
+ * run result with no row of its own (row 0) is a refusal of the whole request,
+ * returned apart.
+ */
+function mergeRowFindings(
+  client: ClientFindings,
+  dryRun: ImportRecordsResult | null,
+  csvIdxByField: ReadonlyMap<string, number>,
+  rowCount: number,
+): { byRow: Map<number, RowFinding[]>; request: ImportRowResult[] } {
+  const byRow = new Map<number, RowFinding[]>();
+  for (const [rIdx, findings] of client) {
+    if (findings.length > 0) byRow.set(rIdx, [...findings]);
+  }
+  const request: ImportRowResult[] = [];
+  for (const result of dryRun?.results ?? []) {
+    if (result.ok) continue;
+    const rIdx = result.row - 1;
+    if (!(rIdx >= 0 && rIdx < rowCount)) { request.push(result); continue; }
+    const list = byRow.get(rIdx) ?? [];
+    const duplicate = result.field !== undefined
+      && list.some((f) => f.source === 'client' && f.field.name === result.field);
+    if (duplicate) continue;
+    list.push({ source: 'server', result, csvIdx: result.field ? csvIdxByField.get(result.field) : undefined });
+    byRow.set(rIdx, list);
+  }
+  return { byRow, request };
+}
+
+/**
+ * The columns of a named server mapping whose values the server transforms
+ * (`map`, `lookup`, …) before coercing them. The preview cannot predict a
+ * transformed value, so it does not check those columns.
+ */
+function transformedSourceColumns(m: SavedMapping | null, headers: string[]): Set<number> {
+  const out = new Set<number>();
+  if (!m) return out;
+  const headerIndex = new Map<string, number>();
+  headers.forEach((h, idx) => { if (h) headerIndex.set(h.trim().toLowerCase(), idx); });
+  for (const e of m.fieldMapping ?? []) {
+    if (!e.transform || e.transform === 'none') continue;
+    for (const source of Array.isArray(e.source) ? e.source : [e.source]) {
+      const idx = headerIndex.get(String(source).trim().toLowerCase());
+      if (idx !== undefined) out.add(idx);
+    }
+  }
+  return out;
 }
 
 /** Assemble the server `/import` request from mapping-applied raw rows plus the
@@ -688,6 +979,112 @@ function isImportJobUndoable(job: Pick<ImportJobSummaryInfo, 'status' | 'undoabl
   return canUndo && !!job.undoable && !job.revertedAt && !isImportJobActive(job.status);
 }
 
+/** The statuses an import job never leaves. */
+const IMPORT_JOB_TERMINAL_STATUSES: ReadonlySet<string> = new Set(['succeeded', 'failed', 'cancelled']);
+
+/** How many progress reads the wizard spends, after the user cancels, waiting
+ *  for the cancelled job's outcome (one read per {@link IMPORT_JOB_POLL_INTERVAL}). */
+const IMPORT_JOB_CANCEL_SETTLE_READS = 10;
+
+/** The wizard's result for a job that reads `cancelled`: the rows the server
+ *  committed before the cancel took effect. One builder for both ways a job
+ *  ends cancelled — the wizard's own Cancel and the poll loop seeing a job
+ *  cancelled elsewhere (e.g. from the History list in another tab). */
+function cancelledJobToImportResult(prog: ImportJobProgressInfo): ImportResult {
+  return {
+    totalRows: prog.total,
+    importedRows: prog.created + prog.updated,
+    skippedRows: prog.skipped + prog.errors,
+    createdRows: prog.created,
+    updatedRows: prog.updated,
+    errors: [],
+    cancelled: true,
+  };
+}
+
+/** Whether a progress read is the job's final outcome, given the read before it.
+ *
+ *  A terminal status is enough for `succeeded` and `failed`: the worker writes
+ *  them together with its final counts. It is not enough for `cancelled`. The
+ *  server's cancel route marks the job row `cancelled` itself, before the
+ *  worker notices; the worker keeps writing rows until its next progress
+ *  boundary (cancel is cooperative — see `DataSource.cancelImportJob`), and
+ *  only then writes the final counts and, for a job it can undo, the undo log.
+ *  So a `cancelled` read is final once it is undoable (only that last write
+ *  makes it so), or once it repeats the previous `cancelled` read's counts. */
+function isSettledJobRead(prog: ImportJobProgressInfo, previous: ImportJobProgressInfo | null): boolean {
+  if (!IMPORT_JOB_TERMINAL_STATUSES.has(prog.status)) return false;
+  if (prog.status !== 'cancelled') return true;
+  if (prog.undoable) return true;
+  return previous !== null
+    && previous.status === 'cancelled'
+    && previous.processed === prog.processed
+    && previous.created === prog.created
+    && previous.updated === prog.updated
+    && previous.skipped === prog.skipped
+    && previous.errors === prog.errors;
+}
+
+/** Read a job until a read is its final outcome ({@link isSettledJobRead}), at
+ *  most `reads` times: the first read at once, then one per `interval`. A read
+ *  that fails counts against the bound and is otherwise skipped. Resolves to
+ *  the settled read, or `null` when none settled or `isStale()` turned true. */
+async function readSettledImportJob(
+  read: (jobId: string) => Promise<ImportJobProgressInfo>,
+  jobId: string,
+  reads: number,
+  interval: number,
+  isStale: () => boolean,
+): Promise<ImportJobProgressInfo | null> {
+  let previous: ImportJobProgressInfo | null = null;
+  for (let i = 0; i < reads; i++) {
+    if (i > 0) await new Promise((resolve) => setTimeout(resolve, interval));
+    if (isStale()) return null;
+    let prog: ImportJobProgressInfo;
+    try {
+      prog = await read(jobId);
+    } catch {
+      continue;
+    }
+    if (isSettledJobRead(prog, previous)) return prog;
+    previous = prog;
+  }
+  return null;
+}
+
+/** The Undo action, shared by the History list and the cancelled-result
+ *  screen: confirm (destructive + irreversible), roll the job back, tell the
+ *  object's mounted readers their data changed (the undo deleted and restored
+ *  records, so an open list refetches in place), hand a failure to `onError`
+ *  (cleared to `null` when an undo starts), then call `onSettled` so the
+ *  caller re-reads the job and the Undo button gives way to "Undone". */
+function useImportJobUndo(
+  dataSource: unknown,
+  objectName: string,
+  t: (key: string, vars?: Record<string, unknown>) => string,
+  onError: (message: string | null) => void,
+  onSettled: () => void,
+): { undoingId: string | null; undo: (jobId: string) => Promise<void> } {
+  // Job id currently being undone (disables its Undo button + confirm).
+  const [undoingId, setUndoingId] = useState<string | null>(null);
+  const undo = useCallback(async (jobId: string) => {
+    const ds = dataSource as Partial<DataSource> | undefined;
+    if (typeof ds?.undoImportJob !== 'function') return;
+    if (typeof window !== 'undefined' && !window.confirm(t('grid.import.undoConfirm'))) return;
+    setUndoingId(jobId); onError(null);
+    try {
+      await ds.undoImportJob(jobId);
+      notifyDataChanged({ objectName });
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUndoingId(null);
+      onSettled();
+    }
+  }, [dataSource, objectName, t, onError, onSettled]);
+  return { undoingId, undo };
+}
+
 /** Build a CSV blob of failed rows for re-export: the original mapped columns
  *  plus an `_error` column, so a user can fix and re-import just the failures. */
 function buildFailedRowsCsv(
@@ -709,74 +1106,32 @@ function buildFailedRowsCsv(
   return lines.join('\n');
 }
 
-/** Pick a representative allowed value from a select field's options, for the
- *  template example row. Prefers the display label over the stored value: the
- *  server's import coercion accepts either (it matches value OR label,
- *  case-insensitively), and the label is what a localized user recognizes —
- *  an ASCII slug like `prepare` reads as English leakage in a zh template. */
-function firstOptionValue(
-  options: ImportWizardProps['fields'][number]['options'],
-): string | undefined {
-  const first = options?.[0];
-  if (first === undefined || first === null) return undefined;
-  if (typeof first === 'string') return first;
-  if (first.label) return first.label;
-  if (first.value !== undefined && first.value !== null) return String(first.value);
-  return undefined;
-}
-
-/** A type-appropriate example cell for the downloadable import template. Kept
- *  format-oriented (dates, emails) rather than prose so it reads the same in
- *  any locale; text-ish fields are left blank so the row is obviously a sample. */
-function exampleForField(field: ImportWizardProps['fields'][number]): string {
-  switch (field.type) {
-    case 'number':
-    case 'currency':
-    case 'percent':
-      return '0';
-    case 'date':
-      return '2024-01-31';
-    case 'datetime':
-      return '2024-01-31 09:00';
-    case 'time':
-      return '09:00';
-    case 'boolean':
-      return 'true';
-    case 'email':
-      return 'name@example.com';
-    case 'url':
-      return 'https://example.com';
-    case 'select':
-    case 'multiselect':
-    case 'lookup':
-    case 'reference':
-      return firstOptionValue(field.options) ?? '';
-    default:
-      return '';
-  }
-}
-
-/** Build a downloadable CSV import template for the given fields: a header row
- *  of field labels (required fields marked with `*`, which re-import tolerates)
- *  plus a single example row. Not persisted — a convenience starting point. */
-function buildImportTemplateCsv(fields: ImportWizardProps['fields']): string {
-  const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-  const header = fields.map((f) => `${f.label}${f.required ? ' *' : ''}`);
-  const example = fields.map((f) => exampleForField(f));
-  return [header.map(esc).join(','), example.map(esc).join(',')].join('\n');
-}
-
-/** Trigger a client-side text file download (prepends a UTF-8 BOM so Excel
- *  reads non-ASCII correctly). No-op in non-DOM environments. */
-function downloadTextFile(filename: string, text: string, mime = 'text/csv;charset=utf-8'): void {
+/** Hand a fetched file to the browser as a download. No-op in non-DOM
+ *  environments. */
+function downloadBlob(filename: string, blob: Blob): void {
   if (typeof document === 'undefined' || typeof URL?.createObjectURL !== 'function') return;
-  const blob = new Blob([`\uFEFF${text}`], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/** The message for a failed import-template download (objectui#9600). The
+ *  server judges the template like the import: 405 when the object is not open
+ *  for import (the same answer the import itself gets, so the same message),
+ *  403 when the caller may not create its records. There is no client-side
+ *  template to fall back to. */
+function templateDownloadErrorMessage(err: unknown, t: (k: string, v?: Record<string, unknown>) => string): string {
+  if (isImportNotAllowed(err)) return t('grid.import.notAllowed');
+  const e = err as { code?: unknown; status?: unknown; httpStatus?: unknown } | undefined;
+  if (e?.code === 'PERMISSION_DENIED' || e?.status === 403 || e?.httpStatus === 403) {
+    return t('grid.import.templateNotPermitted');
+  }
+  return t('grid.import.templateDownloadFailed');
 }
 
 /** Map a thrown import-parse error code to a translated, user-facing message. */
@@ -790,16 +1145,35 @@ function parseErrorMessage(err: unknown, t: (k: string, v?: Record<string, unkno
 // Step 1: File Upload (CSV / Excel / paste)
 const StepUpload: React.FC<{
   onFileLoaded: (headers: string[], rows: string[][]) => void;
-  fields: ImportWizardProps['fields'];
+  /** Fetches the server's import template (objectui#9600). Absent ⇒ the
+   *  template is not offered: there is no client-built fallback. */
+  downloadTemplate?: () => Promise<Blob>;
   objectName: string;
   /** Localized display label — used for the template filename so a zh user
-   *  downloads `合同-导入模板.csv` rather than `contracts-template.csv`. */
+   *  downloads `合同-导入模板.xlsx` rather than `contracts-template.xlsx`. */
   objectLabel?: string;
-}> = ({ onFileLoaded, fields, objectName, objectLabel }) => {
+}> = ({ onFileLoaded, downloadTemplate, objectName, objectLabel }) => {
   const { t } = useImportTranslation();
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [templateBusy, setTemplateBusy] = useState(false);
+
+  const handleDownloadTemplate = async () => {
+    if (!downloadTemplate) return;
+    setError(null); setTemplateBusy(true);
+    try {
+      const blob = await downloadTemplate();
+      const base = sanitizeFileNameBase(
+        t('grid.import.templateFileName', { object: objectLabel || objectName || 'import' }),
+      );
+      downloadBlob(`${base || 'import-template'}.xlsx`, blob);
+    } catch (err) {
+      setError(templateDownloadErrorMessage(err, t));
+    } finally {
+      setTemplateBusy(false);
+    }
+  };
 
   /** Validate a freshly-parsed grid and hand it to the wizard, or report why not. */
   const acceptParsed = useCallback((parsed: string[][]) => {
@@ -861,18 +1235,14 @@ const StepUpload: React.FC<{
           <ClipboardPaste className="h-3.5 w-3.5" /> {t('grid.import.pasteHint')}
         </p>
       </div>
-      {fields.length > 0 && (
+      {downloadTemplate && (
         <div className="flex flex-col items-center gap-1">
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => {
-              const base = sanitizeFileNameBase(
-                t('grid.import.templateFileName', { object: objectLabel || objectName || 'import' }),
-              );
-              downloadTextFile(`${base || 'import-template'}.csv`, buildImportTemplateCsv(fields));
-            }}
+            disabled={templateBusy}
+            onClick={() => { void handleDownloadTemplate(); }}
             data-testid="import-download-template"
           >
             <Download className="mr-1 h-4 w-4" /> {t('grid.import.downloadTemplate')}
@@ -1110,7 +1480,8 @@ const StepMapping: React.FC<{
       {autoMatchedCount > 0 && (
         <p className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="import-automatch-summary">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-          {t('grid.import.autoMatchedSummary', { count: String(autoMatchedCount) })}
+          {/* A NUMBER count: a count family (objectui#11445) plural-selects only on one. */}
+          {t('grid.import.autoMatchedSummary', { count: autoMatchedCount })}
         </p>
       )}
       <div className="max-h-[420px] overflow-auto">
@@ -1198,18 +1569,25 @@ const StepMapping: React.FC<{
   );
 };
 
-// Step 3: Preview & Import (shows first 10 rows with per-row validation errors)
+/** How many rows the findings list names before it summarises the rest. */
+const FINDINGS_ROW_LIMIT = 20;
+
+/** A finding's field label and sentence, for a cell's tooltip and the findings list. */
+type DescribeFinding = (finding: RowFinding) => { fieldLabel?: string; message: string };
+
+// Step 3: Preview & Import (shows first 10 rows; every row's findings mark its cells)
 const StepPreview: React.FC<{
-  headers: string[]; rows: string[][]; mapping: Record<number, string>; fields: ImportWizardProps['fields'];
+  rows: string[][];
+  /** The mapped columns, in column order. */
+  mappedCols: MappedCol[];
   /** Inline corrections keyed by row index → csv column index → fixed value. */
   corrections: Record<number, Record<number, string>>;
   onCorrect: (rowIdx: number, csvIdx: number, value: string) => void;
-}> = ({ headers, rows, mapping, fields, corrections, onCorrect }) => {
+  /** Every row's merged findings (client and server), keyed by 0-based row index. */
+  findingsByRow: ReadonlyMap<number, RowFinding[]>;
+  describe: DescribeFinding;
+}> = ({ rows, mappedCols, corrections, onCorrect, findingsByRow, describe }) => {
   const { t } = useImportTranslation();
-  const mappedCols = useMemo(() =>
-    Object.entries(mapping).map(([idx, fieldName]) => ({
-      csvIdx: Number(idx), header: headers[Number(idx)], field: fields.find((f) => f.name === fieldName)!,
-    })), [mapping, headers, fields]);
   const previewRows = rows.slice(0, PREVIEW_ROW_COUNT);
 
   /** Resolve the effective value for a cell, preferring an inline correction. */
@@ -1218,17 +1596,21 @@ const StepPreview: React.FC<{
     return fix !== undefined ? fix : (previewRows[rIdx]?.[csvIdx] ?? '');
   }, [corrections, previewRows]);
 
-  const rowValidations = useMemo(() => previewRows.map((_row, rIdx) => {
+  // A cell is marked with the first finding on its column; a finding with no
+  // column (a server finding on an unmapped field) marks the row only.
+  const rowValidations = previewRows.map((_row, rIdx) => {
     const errs: Record<number, string> = {};
-    for (const col of mappedCols) {
-      const raw = effectiveValue(rIdx, col.csvIdx);
-      if (col.field.required && !raw) errs[col.csvIdx] = t('grid.import.required');
-      else if (raw && !validateValue(raw, col.field.type)) errs[col.csvIdx] = t('grid.import.invalidType', { type: col.field.type });
+    for (const finding of findingsByRow.get(rIdx) ?? []) {
+      if (finding.csvIdx !== undefined && errs[finding.csvIdx] === undefined) {
+        errs[finding.csvIdx] = describe(finding).message;
+      }
     }
     return errs;
-  }), [previewRows, mappedCols, effectiveValue, t]);
+  });
 
-  const errorCount = rowValidations.filter(e => Object.keys(e).length > 0).length;
+  // Every row with a finding, not only the previewed ones: the same rows the
+  // import button leaves out of its count.
+  const errorCount = findingsByRow.size;
   const correctedCount = Object.keys(corrections).length;
 
   return (
@@ -1263,7 +1645,7 @@ const StepPreview: React.FC<{
         <TableBody>
           {previewRows.map((_row, rIdx) => {
             const errs = rowValidations[rIdx];
-            const hasError = Object.keys(errs).length > 0;
+            const hasError = findingsByRow.has(rIdx);
             const wasCorrected = corrections[rIdx] !== undefined;
             return (
               <TableRow
@@ -1303,6 +1685,50 @@ const StepPreview: React.FC<{
         </TableBody>
       </Table>
       <p className="mt-2 text-xs text-muted-foreground">{t('grid.import.showingRows', { shown: previewRows.length, total: rows.length })}</p>
+    </div>
+  );
+};
+
+/**
+ * One list of what will keep rows out of the import: each row once, with every
+ * finding on it, from the preview's own check and the server's dry run alike.
+ * A dry-run refusal of the whole request heads the list without a row number.
+ */
+const ImportFindingsList: React.FC<{
+  findingsByRow: ReadonlyMap<number, RowFinding[]>;
+  requestFindings: readonly ImportRowResult[];
+  describe: DescribeFinding;
+}> = ({ findingsByRow, requestFindings, describe }) => {
+  const { t } = useImportTranslation();
+  if (findingsByRow.size === 0 && requestFindings.length === 0) return null;
+  const rowsInOrder = [...findingsByRow.entries()].sort(([a], [b]) => a - b);
+  const shown = rowsInOrder.slice(0, FINDINGS_ROW_LIMIT);
+  const moreFindings = rowsInOrder
+    .slice(FINDINGS_ROW_LIMIT)
+    .reduce((n, [, findings]) => n + findings.length, 0);
+  return (
+    <div className="max-h-32 overflow-auto rounded-md border border-destructive/30 p-2 text-xs" data-testid="import-findings">
+      <ul className="text-destructive">
+        {requestFindings.map((result, i) => (
+          <li key={`request-${i}`}>{describe({ source: 'server', result }).message}</li>
+        ))}
+        {shown.map(([rIdx, findings]) => (
+          <li key={rIdx} data-testid={`import-findings-row-${rIdx}`}>
+            {t('grid.import.errorRowPrefix', { row: rIdx + 1 })}
+            {findings.map((finding, i) => {
+              const { fieldLabel, message } = describe(finding);
+              return (
+                <span key={i}>
+                  {i > 0 ? '; ' : ''}{fieldLabel ? `${fieldLabel}: ` : ''}{message}
+                </span>
+              );
+            })}
+          </li>
+        ))}
+      </ul>
+      {moreFindings > 0 && (
+        <p className="text-muted-foreground">{t('grid.import.moreErrors', { count: moreFindings })}</p>
+      )}
     </div>
   );
 };
@@ -1470,8 +1896,6 @@ const ImportHistoryPanel: React.FC<{
   const [jobs, setJobs] = useState<ImportJobSummaryInfo[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Job id currently being undone (disables its row's Undo button + confirm).
-  const [undoingId, setUndoingId] = useState<string | null>(null);
 
   const ds = dataSource as Partial<DataSource> | undefined;
   const supported = typeof ds?.listImportJobs === 'function';
@@ -1502,19 +1926,8 @@ const ImportHistoryPanel: React.FC<{
   // Logical rollback: delete created records + restore updated ones. Confirms
   // first (destructive + irreversible), then reloads so the row flips to
   // "reverted" and its Undo button disappears.
-  const handleUndo = useCallback(async (jobId: string) => {
-    if (typeof ds?.undoImportJob !== 'function') return;
-    if (typeof window !== 'undefined' && !window.confirm(t('grid.import.undoConfirm'))) return;
-    setUndoingId(jobId); setError(null);
-    try {
-      await ds.undoImportJob(jobId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setUndoingId(null);
-      void load();
-    }
-  }, [ds, load, t]);
+  const reload = useCallback(() => { void load(); }, [load]);
+  const { undoingId, undo: handleUndo } = useImportJobUndo(dataSource, objectName, t, setError, reload);
 
   if (!supported) {
     return (
@@ -1624,6 +2037,16 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const [jobId, setJobId] = useState<string | null>(null);
   const [asyncCounts, setAsyncCounts] = useState<{ processed: number; total: number } | null>(null);
   const cancelPollRef = React.useRef(false);
+  // One import run at a time. The async paths capture this token, and a job
+  // outcome is published only while it is unchanged: publishing moves it on, so
+  // the poll loop and a user Cancel can never both publish (or call onComplete
+  // twice), and an outcome landing after a newer run started is dropped.
+  // Closing the wizard does NOT move it: a background job that finishes after
+  // the dialog closed still reports through onComplete, so the host refreshes.
+  const jobRunRef = React.useRef(0);
+  // The final read of the job the result screen shows, for its Undo button.
+  const [finishedJob, setFinishedJob] = useState<ImportJobProgressInfo | null>(null);
+  const [undoError, setUndoError] = useState<string | null>(null);
   // Small-file server dry-run pre-check — validates the exact payload without
   // writing, so the summary/error list reflect real coercion outcomes.
   const [validating, setValidating] = useState(false);
@@ -1677,6 +2100,19 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
       && typeof ds?.getImportJobProgress === 'function'
       && typeof ds?.getImportJobResults === 'function';
   }, [dataSource]);
+
+  // The import template is the SERVER's (objectui#9600): it lists only the
+  // columns this caller can import, so the wizard builds none of its own. It is
+  // offered when the data source can fetch it and the user can create records
+  // of the object, the server's own gate on it (it answers 403 otherwise). Same
+  // permission source as the toolbar that opens this wizard; with no
+  // PermissionProvider mounted `can()` answers true and the server decides.
+  const { can } = usePermissions();
+  const templateSource = dataSource as Partial<DataSource> | undefined;
+  const fetchTemplate = templateSource?.downloadImportTemplate;
+  const downloadTemplate = typeof fetchTemplate === 'function' && can(objectName, 'create')
+    ? () => fetchTemplate.call(templateSource, objectName)
+    : undefined;
 
   const toggleMatchField = useCallback((name: string) => {
     setMatchFields((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
@@ -1841,6 +2277,66 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     [headers, fields, rows],
   );
 
+  // ── Findings: what keeps a row out of the import (objectui#11814) ──────────
+  // The mapped columns with their target field; a target no field declares is
+  // left out. The preview checks every row, not just the previewed ones, since
+  // the import button counts the rows nothing was found on.
+  const mappedCols = useMemo<MappedCol[]>(
+    () => Object.entries(mapping).flatMap(([idx, fieldName]) => {
+      const field = fields.find((f) => f.name === fieldName);
+      return field ? [{ csvIdx: Number(idx), field }] : [];
+    }),
+    [mapping, fields],
+  );
+  const checkedCols = useMemo(() => {
+    const transformed = transformedSourceColumns(activeMapping, headers);
+    return mappedCols.filter((col) => !transformed.has(col.csvIdx));
+  }, [mappedCols, activeMapping, headers]);
+  // A named mapping's request does not carry the setting (assembleImportRequest).
+  const keepUnknownOptions = !mappingName && createMissingOptions;
+  const requireValues = writeMode === 'insert';
+  const uncorrectedFindings = useMemo<ClientFindings>(() => {
+    const out: ClientFindings = new Map();
+    const opts = { keepUnknownOptions, requireValues };
+    rows.forEach((row, rIdx) => {
+      const found = checkImportRow(row, checkedCols, opts);
+      if (found.length > 0) out.set(rIdx, found);
+    });
+    return out;
+  }, [rows, checkedCols, keepUnknownOptions, requireValues]);
+  // Corrections touch previewed rows only, so only those are checked again.
+  const clientFindings = useMemo<ClientFindings>(() => {
+    const correctedRows = Object.entries(corrections);
+    if (correctedRows.length === 0) return uncorrectedFindings;
+    const out: ClientFindings = new Map(uncorrectedFindings);
+    const opts = { keepUnknownOptions, requireValues };
+    for (const [key, fixes] of correctedRows) {
+      const rIdx = Number(key);
+      const effective = [...(rows[rIdx] ?? [])];
+      for (const [csvIdx, value] of Object.entries(fixes)) effective[Number(csvIdx)] = value;
+      const found = checkImportRow(effective, checkedCols, opts);
+      if (found.length > 0) out.set(rIdx, found);
+      else out.delete(rIdx);
+    }
+    return out;
+  }, [uncorrectedFindings, corrections, rows, checkedCols, keepUnknownOptions, requireValues]);
+  const findings = useMemo(
+    () => mergeRowFindings(clientFindings, dryRunResult, csvIdxByField, rows.length),
+    [clientFindings, dryRunResult, csvIdxByField, rows.length],
+  );
+  const describeFinding: DescribeFinding = (finding) => {
+    if (finding.source === 'server') {
+      return formatDryRunError(finding.result, fieldLabelByName, dryRunCellValue(finding.result.row, finding.result.field), t);
+    }
+    // Named the way formatDryRunError names a server finding's field, so the
+    // two halves of one row read alike.
+    const fieldName = finding.field.name;
+    const fieldLabel = fieldLabelByName.get(fieldName) ?? fieldName;
+    return { fieldLabel, message: cellRefusalMessage(finding.refusal, finding.field, t) };
+  };
+  // The rows the import is expected to write: those with no finding at all.
+  const importableRowCount = rows.length - findings.byRow.size;
+
   // Build raw, mapping-applied rows keyed by target field name (inline
   // corrections applied). Values stay RAW strings — the server coerces them to
   // storage values from field metadata, so booleans / dates / lookups / selects
@@ -1895,7 +2391,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
         ? original.map((v, idx) => (fixes[idx] !== undefined ? fixes[idx] : v))
         : original;
 
-      const { record, errors: rowErrors } = validateRow(effectiveRow, mappedCols, i + 1);
+      // The per-row create runs no import coercion, so only the engine's own
+      // option check applies: the one *Keep unknown option values* leaves.
+      const { record, errors: rowErrors } = validateRow(effectiveRow, mappedCols, i + 1, true);
       if (rowErrors.length > 0) {
         skippedRows++;
         errors.push(...rowErrors);
@@ -1918,6 +2416,34 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     setResult(importResult); setImporting(false); onComplete?.(importResult);
   }, [rows, mapping, fields, dataSource, objectName, onComplete, onErrorMode, corrections, t]);
 
+  // Publish a finished job's outcome — the result screen, the job read behind
+  // its Undo button, and onComplete — at most once per run (see jobRunRef). A
+  // `cancelled` read is its own result; the other terminal states fetch the
+  // per-row report. Resolves to whether this call published.
+  const publishJobOutcome = useCallback(async (
+    run: number,
+    id: string,
+    prog: ImportJobProgressInfo,
+  ): Promise<boolean> => {
+    const ds = dataSource as Partial<DataSource> | undefined;
+    let importResult: ImportResult;
+    if (prog.status === 'cancelled') {
+      importResult = cancelledJobToImportResult(prog);
+    } else {
+      if (typeof ds?.getImportJobResults !== 'function') return false;
+      importResult = jobResultToImportResult(await ds.getImportJobResults(id));
+      if (prog.status === 'failed' && importResult.errors.length === 0) {
+        importResult.errors.push({ row: 0, field: '', message: prog.error ?? 'Import failed' });
+      }
+    }
+    if (jobRunRef.current !== run) return false;
+    jobRunRef.current += 1;
+    if (prog.status !== 'cancelled') setProgress(100);
+    setFinishedJob(prog);
+    setResult(importResult); setImporting(false); onComplete?.(importResult);
+    return true;
+  }, [dataSource, onComplete]);
+
   // Large-file path: hand the rows to a server-side background job and poll it
   // to completion. Returns `true` when the async path handled the import
   // (success / failure / cancel) and `false` when the data source can't run
@@ -1933,6 +2459,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     }
 
     cancelPollRef.current = false;
+    const run = jobRunRef.current;
     let created: CreateImportJobResult;
     try {
       created = await ds.createImportJob(objectName, request);
@@ -1947,10 +2474,10 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     setJobId(created.jobId);
     setAsyncCounts({ processed: 0, total: created.total });
 
-    const terminal = new Set(['succeeded', 'failed', 'cancelled']);
     let consecutivePollErrors = 0;
-    // Poll until the job reaches a terminal state (or the user cancels, in
-    // which case the cancel handler owns producing the result).
+    let previous: ImportJobProgressInfo | null = null;
+    // Poll until the job's outcome is final (or the user cancels, in which
+    // case the cancel handler owns producing the result).
     for (;;) {
       if (cancelPollRef.current) return true;
       await new Promise((resolve) => setTimeout(resolve, IMPORT_JOB_POLL_INTERVAL));
@@ -1961,41 +2488,26 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
         prog = await ds.getImportJobProgress(created.jobId);
         consecutivePollErrors = 0;
       } catch (err) {
+        if (cancelPollRef.current) return true;
         // Tolerate transient poll blips; give up only after several in a row so
         // a network hiccup doesn't abort an import that's still running server-side.
         if (++consecutivePollErrors >= 5) throw err;
         continue;
       }
+      // A Cancel clicked while this read was in flight owns the outcome now.
+      if (cancelPollRef.current) return true;
 
       setAsyncCounts({ processed: prog.processed, total: prog.total });
       setProgress(prog.percentComplete);
 
-      if (!terminal.has(prog.status)) continue;
+      const settled = isSettledJobRead(prog, previous);
+      previous = prog;
+      if (!settled) continue;
 
-      if (prog.status === 'cancelled') {
-        const importResult: ImportResult = {
-          totalRows: prog.total,
-          importedRows: prog.created + prog.updated,
-          skippedRows: prog.skipped + prog.errors,
-          createdRows: prog.created,
-          updatedRows: prog.updated,
-          errors: [],
-          cancelled: true,
-        };
-        setResult(importResult); setImporting(false); onComplete?.(importResult);
-        return true;
-      }
-
-      const results = await ds.getImportJobResults(created.jobId);
-      const importResult = jobResultToImportResult(results);
-      if (prog.status === 'failed' && importResult.errors.length === 0) {
-        importResult.errors.push({ row: 0, field: '', message: prog.error ?? 'Import failed' });
-      }
-      setProgress(100);
-      setResult(importResult); setImporting(false); onComplete?.(importResult);
+      await publishJobOutcome(run, created.jobId, prog);
       return true;
     }
-  }, [dataSource, objectName, onComplete]);
+  }, [dataSource, objectName, publishJobOutcome]);
 
   // Assemble the server import request from the current mapping + options.
   // `dryRun` reuses the exact same payload the real import will send, so the
@@ -2015,7 +2527,8 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const handleImport = useCallback(async () => {
     setImporting(true); setProgress(0);
     cancelPollRef.current = false;
-    setJobId(null); setAsyncCounts(null);
+    jobRunRef.current += 1;
+    setJobId(null); setAsyncCounts(null); setFinishedJob(null); setUndoError(null);
 
     const request = buildImportRequest();
 
@@ -2155,14 +2668,31 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   }, [mapping, corrections, writeMode, matchFields, createMissingOptions, runAutomations, skipBlankMatchKey]);
 
   // User-initiated cancel of an in-flight async job. Stops the poll loop, asks
-  // the server to cancel (best-effort), and shows a cancelled result.
+  // the server to cancel (best-effort), then reads the job back until its
+  // outcome is final (bounded — see readSettledImportJob) and shows what the
+  // server committed, with Undo when the job can be undone. When no read
+  // settles within the bound, or the data source cannot read jobs, the result
+  // says only that the import was cancelled: it shows no count it never read.
   const handleCancelImport = useCallback(async () => {
     cancelPollRef.current = true;
+    const run = jobRunRef.current;
+    const isStale = () => jobRunRef.current !== run;
     const id = jobId;
     const ds = dataSource as Partial<DataSource> | undefined;
     if (id && typeof ds?.cancelImportJob === 'function') {
-      try { await ds.cancelImportJob(id); } catch { /* best-effort — the poll loop already stopped */ }
+      try { await ds.cancelImportJob(id); } catch { /* best-effort — the read below reports what happened */ }
     }
+    const read = typeof ds?.getImportJobProgress === 'function' ? ds.getImportJobProgress.bind(ds) : undefined;
+    if (id && read) {
+      const settled = await readSettledImportJob(
+        read, id, IMPORT_JOB_CANCEL_SETTLE_READS, IMPORT_JOB_POLL_INTERVAL, isStale,
+      );
+      try {
+        if (settled && await publishJobOutcome(run, id, settled)) return;
+      } catch { /* the per-row report failed — fall through to the bare cancelled result */ }
+    }
+    if (isStale()) return;
+    jobRunRef.current += 1;
     const importResult: ImportResult = {
       totalRows: asyncCounts?.total ?? rows.length,
       importedRows: 0,
@@ -2171,10 +2701,25 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
       cancelled: true,
     };
     setResult(importResult); setImporting(false);
-  }, [jobId, dataSource, asyncCounts, rows.length]);
+  }, [jobId, dataSource, asyncCounts, rows.length, publishJobOutcome]);
+
+  // Re-read the finished job after an Undo so its button gives way to "Undone".
+  // A read that lands after the wizard moved to another job is dropped.
+  const rereadFinishedJob = useCallback(() => {
+    const ds = dataSource as Partial<DataSource> | undefined;
+    const id = finishedJob?.jobId;
+    if (!id || typeof ds?.getImportJobProgress !== 'function') return;
+    ds.getImportJobProgress(id).then(
+      (job) => setFinishedJob((current) => (current?.jobId === job.jobId ? job : current)),
+      () => { /* keep the last read */ },
+    );
+  }, [dataSource, finishedJob?.jobId]);
+  const { undoingId, undo: undoFinishedJob } = useImportJobUndo(dataSource, objectName, t, setUndoError, rereadFinishedJob);
+  const canUndoJob = typeof (dataSource as Partial<DataSource> | undefined)?.undoImportJob === 'function';
 
   const reset = useCallback(() => {
     cancelPollRef.current = false;
+    setFinishedJob(null); setUndoError(null);
     setStep('upload'); setHeaders([]); setRows([]); setMapping({}); setProgress(0); setResult(null);
     setCorrections({}); setSelectedTemplateId(null); setMappingName(null);
     setWriteMode('insert'); setMatchFields([]);
@@ -2267,7 +2812,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
           <ImportHistoryPanel objectName={objectName} dataSource={dataSource} t={t} />
         ) : !result ? (
           <>
-            {step === 'upload' && <StepUpload onFileLoaded={handleFileLoaded} fields={fields} objectName={objectName} objectLabel={label} />}
+            {step === 'upload' && <StepUpload onFileLoaded={handleFileLoaded} downloadTemplate={downloadTemplate} objectName={objectName} objectLabel={label} />}
             {step === 'mapping' && (
               <StepMapping
                 headers={headers}
@@ -2326,12 +2871,12 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                   </div>
                 )}
                 <StepPreview
-                  headers={headers}
                   rows={rows}
-                  mapping={mapping}
-                  fields={fields}
+                  mappedCols={mappedCols}
                   corrections={corrections}
                   onCorrect={handleCorrect}
+                  findingsByRow={findings.byRow}
+                  describe={describeFinding}
                 />
                 {rows.length > ASYNC_IMPORT_THRESHOLD && (
                   <div
@@ -2342,6 +2887,11 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                     <span>{t('grid.import.largeSampleNotice', { shown: PREVIEW_ROW_COUNT, total: rows.length })} {t('grid.import.asyncLargeHint')}</span>
                   </div>
                 )}
+                <ImportFindingsList
+                  findingsByRow={findings.byRow}
+                  requestFindings={findings.request}
+                  describe={describeFinding}
+                />
                 {rows.length <= ASYNC_IMPORT_THRESHOLD
                   && typeof (dataSource as Partial<DataSource> | undefined)?.importRecords === 'function' && (
                   <div className="flex flex-col gap-2 rounded-md border border-border p-3" data-testid="import-validate">
@@ -2364,19 +2914,8 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                             ? t('grid.import.validateFailed', { ok: dryRunResult.ok, errors: dryRunResult.errors })
                             : t('grid.import.validatePassed', { ok: dryRunResult.ok })}
                         </p>
-                        {dryRunResult.errors > 0 && (
-                          <ul className="max-h-32 overflow-auto text-xs text-destructive">
-                            {dryRunResult.results.filter((r) => !r.ok).slice(0, 20).map((r, i) => {
-                              const { fieldLabel, message } = formatDryRunError(r, fieldLabelByName, dryRunCellValue(r.row, r.field), t);
-                              return (
-                                <li key={i}>
-                                  {r.row > 0 ? t('grid.import.errorRowPrefix', { row: r.row }) : ''}
-                                  {fieldLabel ? `${fieldLabel}: ` : ''}{message}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
+                        {/* The failures themselves join the preview's findings in
+                            the one per-row list above. */}
                       </div>
                     )}
                   </div>
@@ -2416,7 +2955,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
             )}
             <div className="flex flex-wrap justify-center gap-2">
               {/* Prefer the finer created/updated breakdown when the server
-                  reports it; otherwise fall back to a single "imported" count. */}
+                  reports it; otherwise fall back to a single "imported" count.
+                  A cancelled result without the breakdown is one whose job the
+                  wizard could not read back, so it shows no count at all. */}
               {result.createdRows !== undefined || result.updatedRows !== undefined ? (
                 <>
                   {(result.createdRows ?? 0) > 0 && <Badge variant="default">{t('grid.import.createdCount', { count: result.createdRows })}</Badge>}
@@ -2425,11 +2966,33 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                     <Badge variant="default">{t('grid.import.imported', { count: result.importedRows })}</Badge>
                   )}
                 </>
-              ) : (
+              ) : !result.cancelled && (
                 <Badge variant="default">{t('grid.import.imported', { count: result.importedRows })}</Badge>
               )}
               {result.skippedRows > 0 && <Badge variant="destructive">{t('grid.import.skippedCount', { count: result.skippedRows })}</Badge>}
             </div>
+            {/* A cancelled job keeps the rows it committed; offer the same
+                Undo the History list does, once the job reads undoable. */}
+            {result.cancelled && finishedJob?.revertedAt && (
+              <span className="text-xs text-muted-foreground" data-testid="import-cancelled-reverted">
+                {t('grid.import.reverted')}
+              </span>
+            )}
+            {result.cancelled && finishedJob && isImportJobUndoable(finishedJob, canUndoJob) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void undoFinishedJob(finishedJob.jobId)}
+                disabled={undoingId === finishedJob.jobId}
+                data-testid="import-cancelled-undo"
+              >
+                <Undo2 className="mr-1 h-4 w-4" />
+                {undoingId === finishedJob.jobId ? t('grid.import.undoing') : t('grid.import.undoImport')}
+              </Button>
+            )}
+            {result.cancelled && undoError && (
+              <p className="text-xs text-destructive" data-testid="import-cancelled-undo-error">{undoError}</p>
+            )}
             {result.degraded && !result.cancelled && (
               <div
                 className="flex w-full items-start gap-2 rounded-md border border-amber-400/40 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
@@ -2511,7 +3074,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                   disabled={importing || (!mappingName && writeMode !== 'insert' && matchFields.length === 0)}
                   data-testid="import-run-btn"
                 >
-                  {importing ? t('grid.import.importingProgress') : t('grid.import.importNRows', { count: rows.length })}
+                  {importing ? t('grid.import.importingProgress') : t('grid.import.importNRows', { count: importableRowCount })}
                 </Button>
               )}
             </>

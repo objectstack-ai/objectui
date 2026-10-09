@@ -21,8 +21,8 @@
  *
  * ⚠️ Note what the union itself answers, because it is easy to get backwards
  * and this file's first cut did: on the UNION only SEVEN of the fifteen reads
- * were undeclared. `ObjectGridSchema` carries `BaseSchema`'s index signature,
- * so the five `CalendarSchema`-only keys resolved through it and compiled with
+ * were undeclared. `ObjectGridSchema` carried `BaseSchema`'s index signature
+ * (until objectui#8347), so the five `CalendarSchema`-only keys resolved through it and compiled with
  * no cast — silently typed `any`, which is the defect rather than the absence
  * of one. Per-ARM is the reading the card tabled; per-UNION is the reading the
  * compiler acts on; they are different numbers and both are measured here.
@@ -90,7 +90,10 @@
  * objectui#8652 carries the `navigation` family; the maintainer ruled B
  * (declare on the platform element schemas first, then mirror), the spec half
  * is objectstack#17987, and #8652 is `pm:blocked` on it. This card must not
- * rule, declare, retire or touch it.
+ * rule, declare, retire or touch it. (`@objectstack/spec` 17.5.0 ships that
+ * spec half — the `object-calendar` element entry declares `navigation` —
+ * which meets #8652's unlock criterion; the mirroring is still #8652's, and
+ * the rows below still hold: objectui#11073.)
  *
  * ⭐ It does not, and that is measurable rather than asserted: through the
  * UNION the key was already undeclared, and on `ObjectCalendarSchema` it is
@@ -104,6 +107,13 @@
  * verdict at the read site before and after; the read itself is untouched. It
  * is ledgered BY NAME below, with an assertion that it is STILL READ — a stale
  * exception is a hole (the objectui#8885 ledger discipline).
+ *
+ * ⏱ objectui#8652 has since landed its half: `navigation` is DECLARED on
+ * `ObjectCalendarSchema` (both faces), and the read above dropped its cast. So
+ * its ledger entry below is STRUCK — the key now answers the population row
+ * like every other read, as a declared member — and the row that pinned it
+ * UNDECLARED is inverted rather than deleted. The two paragraphs above are
+ * this card's reading at the time, kept as written.
  *
  * ## What the population assertion is, and why it is not a written-down list
  *
@@ -122,9 +132,11 @@
  *
  * ## The ceiling, stated rather than assumed (objectui#5155 / #7927)
  *
- * `BaseSchema` ends in `[key: string]: any` and its mirror is `.passthrough()`,
- * so declaring a key buys VALUE validation and never buys rejection of a
- * MISSPELLING. The counter-probe below pins that honestly, so nobody reads this
+ * The mirror is `.passthrough()`, so declaring a key buys VALUE validation and
+ * never buys rejection of a MISSPELLING on that face. (The TS face refused none
+ * either while `BaseSchema` ended in `[key: string]: any`; objectui#8347 removed
+ * it, so a typed literal refuses a misspelling now.) The counter-probe below
+ * pins the mirror half honestly, so nobody reads this
  * file as claiming more than it does.
  */
 
@@ -152,11 +164,14 @@ const REPO_ROOT = join(HERE, '..', '..', '..', '..');
 const CALENDAR_READER = 'packages/plugin-calendar/src/ObjectCalendar.tsx';
 
 /**
- * The ONE key this card deliberately does not rule on — objectui#8652's remit,
- * maintainer-ruled B and blocked on objectstack#17987. Every entry must still
- * be READ; see the header for why the ledger asserts that and nothing else.
+ * Keys this card deliberately does not rule on. Every entry must still be
+ * READ; see the header for why the ledger asserts that and nothing else.
+ *
+ * EMPTY since objectui#8652 declared `navigation`, its one entry, on
+ * `ObjectCalendarSchema`: a declared read needs no carve-out, and keeping the
+ * entry would exempt a key the population row can now judge.
  */
-const LEDGERED_OTHER_CARD_READS = ['navigation'] as const;
+const LEDGERED_OTHER_CARD_READS: readonly string[] = [];
 
 /**
  * The two PRE-#2231 alias spellings this card ROUTES TO THE PRODUCER rather
@@ -164,9 +179,10 @@ const LEDGERED_OTHER_CARD_READS = ['navigation'] as const;
  * `ObjectCalendarSchema` and must stay so.
  *
  * ⚠️ The ground is NOT that the spec singles these two out. MEASURED on
- * installed `@objectstack/spec` 17.4.0: `ComponentPropsMap['object-calendar']`
- * is STRICT and declares exactly nine flat members — `calendar` `data`
- * `defaultView` `filter` `loading` `locale` `objectName` `sort` `staticData` —
+ * installed `@objectstack/spec` 17.7.0: `ComponentPropsMap['object-calendar']`
+ * is STRICT and declares exactly ten flat members — `calendar` `data`
+ * `defaultView` `filter` `loading` `locale` `navigation` `objectName` `sort`
+ * `staticData` (nine through 17.4.0; 17.5.0 added `navigation`) —
  * so it refuses every undeclared flat key with the same `unrecognized_keys`
  * diagnostic: these two aliases, a nonsense key, AND the five canonical field
  * keys `ObjectCalendarSchema` already declares and this renderer reads (`startDateField`
@@ -250,8 +266,9 @@ type Expect<T extends true> = T;
 
 /**
  * `Equal`, not `extends`: a union arm carrying `BaseSchema`'s index signature
- * makes an UNDECLARED member read `any`, and a one-way check accepts `any` on
- * both sides — which is precisely the before-state this card removes.
+ * (every extender did until objectui#8347) made an UNDECLARED member read `any`,
+ * and a one-way check accepts `any` on both sides — which is precisely the
+ * before-state this card removed.
  */
 export type assertionSchemaPropIsThePublishedElementSchema =
   Expect<Equal<ObjectCalendarComponentProps['schema'], ObjectCalendarSchema>>;
@@ -289,7 +306,7 @@ describe('objectui#8651 — the props type is the published element schema', () 
 /* ── 2. The population: every read is declared, or ledgered by name ────────── */
 
 describe('objectui#8651 — every key read off the node is declared on that schema', () => {
-  it('no read is undeclared, with `navigation` ledgered by name', () => {
+  it('no read is undeclared — `navigation` included, since objectui#8652', () => {
     const reads = rendererReads();
     const declared = new Set(shapeKeys(ObjectCalendarMirror));
     const exempt = new Set<string>([...LEDGERED_OTHER_CARD_READS]);
@@ -309,8 +326,13 @@ describe('objectui#8651 — every key read off the node is declared on that sche
     }
   });
 
-  it('⛔ and `navigation` stays UNDECLARED here — objectui#8652 owns it, not this card', () => {
-    expect(shapeKeys(ObjectCalendarMirror)).not.toContain('navigation');
+  it('`navigation` is READ and DECLARED — objectui#8652 landed the mirror', () => {
+    // Inverted rather than deleted: this row pinned the key UNDECLARED while
+    // objectui#8652 held it. Both halves are read, so the declaration cannot
+    // satisfy it for a key the renderer stopped reading.
+    expect([...rendererReads()]).toContain('navigation');
+    expect(shapeKeys(ObjectCalendarMirror)).toContain('navigation');
+    expect(LEDGERED_OTHER_CARD_READS).not.toContain('navigation');
   });
 
   it('CONTROL: both halves of the row above can fail', () => {
@@ -329,20 +351,22 @@ describe('objectui#8651 — every key read off the node is declared on that sche
 
 /* ── 3. `calendar`, the container the spec names ───────────────────────────── */
 
-describe('objectui#8651 — `calendar` is declared; the spec sets the KEY, objectui sets the SHAPE', () => {
-  it('⚠️ the spec declares the KEY but NOT its shape — the slot refuses nothing', () => {
-    // The grounds, stated the way the instrument returns them. An earlier cut
-    // of this card said the spec declares the container and that "no conforming
-    // author could write" the alias spellings inside it. The first half is
-    // true; the second is false, and this row is why.
+describe('objectui#8651 — `calendar` is declared; the spec sets the KEY, and since 17.7.0 its SHAPE too', () => {
+  it('the spec declares the KEY and, since 17.7.0, its shape — the slot is the list view\'s strict calendar block', () => {
+    // The grounds, stated the way the instrument returns them. Through 17.6.0
+    // this row pinned the slot as `z.unknown()`: a nonsense key, the alias
+    // spelling and a number all parsed inside it. `@objectstack/spec` 17.7.0
+    // types it (objectstack#21464 stage 2, `7d674dfc`) as the list view's own
+    // `calendar` member, `CalendarConfigSchema`, so each of those is refused now
+    // and this row flipped at that bump (objectui#11717).
     const oc = (ComponentPropsMap as unknown as Record<string, any>)['object-calendar'];
     const inside = (value: unknown) => oc.safeParse({ objectName: 'duly_task', calendar: value }).success;
     expect(inside({ startDateField: 'kickoff' })).toBe(true);   // known-accepted control
-    expect(inside({ [CONTROL_KEY]: 'x' })).toBe(true);          // ⇒ the slot is not strict
-    expect(inside({ dateField: 'kickoff' })).toBe(true);        // so the alias IS writable
-    expect(inside(42)).toBe(true);                              // it is `z.unknown()`
+    expect(inside({ [CONTROL_KEY]: 'x' })).toBe(false);         // ⇒ the slot is strict
+    expect(inside({ dateField: 'kickoff' })).toBe(false);       // so the alias is NOT writable
+    expect(inside(42)).toBe(false);                             // it is an object, not `z.unknown()`
     // CONTROL, same instrument, one level out: the element's props schema IS
-    // strict, so the reading above is about this SLOT and not a dead parser.
+    // strict too, so the readings above are about this SLOT's own shape.
     expect(oc.safeParse({ objectName: 'duly_task', [CONTROL_KEY]: 'x' }).success).toBe(false);
   });
 

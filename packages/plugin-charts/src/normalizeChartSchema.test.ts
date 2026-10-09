@@ -117,10 +117,16 @@ describe('normalizeChartSchema — the `type` collision', () => {
     expect(normalizeChartSchema({ type: 'object-chart', specType: 'donut' }).chartType).toBe('donut');
   });
 
-  it('leaves a family this renderer cannot draw unset', () => {
-    // `metric`/`kpi` are single-value families rendered by other components;
-    // mapping them onto a bar chart would draw the wrong picture silently.
-    expect(normalizeChartSchema({ specType: 'metric' }).chartType).toBeUndefined();
+  it('hands a family this renderer draws no chart of to the dispatch as named (objectui#11520)', () => {
+    // This used to answer `undefined` for `metric`, and `AdvancedChartImpl`
+    // drew `undefined` as its `'bar'` default: a single-value chart drew a bar
+    // with no note. The family now reaches the dispatch, which draws the number
+    // card for it, the tabular notice for `table`, and names an off-spec value.
+    expect(normalizeChartSchema({ type: 'object-chart', specType: 'metric' }).chartType).toBe('metric');
+    expect(normalizeChartSchema({ type: 'object-chart', specType: 'pivot' }).chartType).toBe('pivot');
+    expect(normalizeChartSchema({ type: 'object-chart', specType: 'sunburst' }).chartType).toBe('sunburst');
+    // `chartType` still wins when a node writes both.
+    expect(normalizeChartSchema({ type: 'object-chart', chartType: 'line', specType: 'gauge' }).chartType).toBe('line');
   });
 });
 

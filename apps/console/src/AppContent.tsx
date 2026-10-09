@@ -14,6 +14,7 @@ import { DefaultAppContent, LoadingScreen } from '@object-ui/app-shell';
 import { MePermissionsProvider } from '@object-ui/permissions';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { LocalizationFetchProvider } from './LocalizationFetchProvider';
+import { WorkspaceTimezonePrompt } from './pages/settings/WorkspaceTimezonePrompt';
 
 const AppManagementPage = lazy(() => import('./pages/system/AppManagementPage').then(m => ({ default: m.AppManagementPage })));
 const ProfilePage = lazy(() => import('./pages/system/ProfilePage').then(m => ({ default: m.ProfilePage })));
@@ -309,6 +310,11 @@ export function AppContent() {
       <LocalizationFetchProvider endpoint={localizationEndpoint}>
         <DefaultAppContent extraRoutes={systemRoutes} extraRoutesNoApp={systemRoutes} />
       </LocalizationFetchProvider>
+      {/* objectui#11758 — asks an administrator once to set a still-default
+          workspace timezone. Here, inside `MePermissionsProvider`, because
+          that provider is what answers whether this session may write the
+          setting; mounted once for the whole app shell, beside the routes. */}
+      <WorkspaceTimezonePrompt />
     </MePermissionsProvider>
   );
 }

@@ -249,6 +249,24 @@ const DECLARED: Exemption[] = [
       'formatted and no face is rendered.',
   },
   {
+    file: 'apps/console/src/pages/settings/workspaceTimezonePrompt.ts',
+    expression: 'const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;',
+    count: 1,
+    verdict: 'not applicable',
+    reason:
+      'reads the HOST time zone for the workspace-timezone prompt (objectui#11758), the one member of ' +
+      '`resolvedOptions()` the locale does not decide; nothing is formatted and no face is rendered.',
+  },
+  {
+    file: 'packages/app-shell/src/console/organizations/CreateWorkspaceDialog.tsx',
+    expression: 'const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;',
+    count: 1,
+    verdict: 'not applicable',
+    reason:
+      'reads the HOST time zone a new workspace is seeded with at creation (objectui#11908), the one member of ' +
+      '`resolvedOptions()` the locale does not decide; nothing is formatted and no face is rendered.',
+  },
+  {
     file: 'packages/components/src/ui/calendar.tsx',
     expression: 'data-day={day.date.toLocaleDateString()}',
     count: 1,
@@ -294,13 +312,6 @@ const DECLARED: Exemption[] = [
       'context-menu edit both seed it).',
   },
   {
-    file: 'packages/plugin-gantt/src/GanttView.tsx',
-    expression: "task.end.toLocaleDateString('en-CA')",
-    count: 2,
-    verdict: 'deliberate fallback',
-    reason: 'the end-date twin of the ISO-8601 formatter above, feeding the second `<input type="date">`.',
-  },
-  {
     file: 'packages/plugin-gantt/src/tzShift.ts',
     expression: "new Intl.DateTimeFormat('en-US', {",
     count: 1,
@@ -308,6 +319,25 @@ const DECLARED: Exemption[] = [
     reason:
       "`tzOffsetMs`'s machine-read PARSER: `formatToParts` is read back through `Number()`, so the tag must " +
       'guarantee Latin digits and the 24-hour cycle the arithmetic assumes; nothing is shown to a reader.',
+  },
+  {
+    file: 'packages/plugin-gantt/src/useGanttTranslation.ts',
+    expression: "const EN_PLURAL_RULES = new Intl.PluralRules('en');",
+    count: 1,
+    verdict: 'not applicable',
+    reason:
+      'picks the `_one` / `_other` row of the provider-less ENGLISH defaults table for a count family ' +
+      '(objectui#11445): the rows are English, so English plural rules select among them; nothing is formatted, ' +
+      'and a provider-mounted host reads the pack through i18next instead.',
+  },
+  {
+    file: 'packages/plugin-grid/src/ImportWizard.tsx',
+    expression: "const EN_PLURAL_RULES = new Intl.PluralRules('en');",
+    count: 1,
+    verdict: 'not applicable',
+    reason:
+      "the same English-row selector in the import wizard's hand-rolled defaults table (objectui#11445): it picks " +
+      'which English string a count family answers with on a provider-less host; no number or date is formatted.',
   },
 ];
 

@@ -36,6 +36,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, fireEvent, waitFor, act } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, AdapterCtx, notifyDataChanged, useDataInvalidation } from '@object-ui/react';
+import type { PageDocumentNode } from '@object-ui/types';
 // `ReactKindPage` loads the page runtime with `import('@object-ui/react-runtime')`.
 // Importing the same specifier here bills its cold transform to this module's
 // import phase instead of to a `findBy` window (AGENTS.md, flaky-test
@@ -67,7 +68,7 @@ function Page() {
 }`;
 
 /** Module-scope so the schema identity is stable across host re-renders. */
-const SCHEMA = { type: 'home', kind: 'react', name: 'invalidation_page', source: SOURCE };
+const SCHEMA: PageDocumentNode = { type: 'home', kind: 'react', name: 'invalidation_page', label: 'Invalidation page', source: SOURCE };
 
 let find: ReturnType<typeof vi.fn>;
 let adapter: { find: typeof find };

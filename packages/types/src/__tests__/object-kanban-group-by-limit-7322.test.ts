@@ -41,7 +41,8 @@
  * (objectui#9925). That card made the board REFUSE a non-positive row cap
  * before it reaches the wire, and both halves of the reading moved with it:
  * the spelling is now `$top: resolveRowLimit(schema.limit,
- * DEFAULT_KANBAN_LIMIT)`, and the `schema.limit` CODE read sites are FOUR, not
+ * DEFAULT_KANBAN_FETCH_BATCH_SIZE)` (the constant renamed by objectui#9853), and
+ * the `schema.limit` CODE read sites are FOUR, not
  * two — that `$top`, its effect's deps, the refusal diagnostic and that
  * diagnostic's own effect deps. The older reading is left standing rather than
  * rewritten away because it is the measurement that motivated the declaration;
@@ -69,8 +70,10 @@
  * ## Node-local, and the second control that proves it
  *
  * `groupField` is NOT a dead key in general. The VIEW-LEVEL kanban config's
- * `groupField` is a live legacy alias of the spec's `groupByField`:
- * `normalize-list-view.ts` maps it and `ListView` / `ObjectView` read it. Those
+ * `groupField` is a legacy alias of the spec's `groupByField` that is still READ:
+ * `normalize-list-view.ts` maps it and `ListView` / `ObjectView` read it (the
+ * view-level door has refused it by name since objectui#6152 round 11, so a
+ * stored view that carries it still renders but an authored one is refused). Those
  * sites are pinned OFF DISK below as a control — if one stops reading the alias
  * this file turns red, because the retirement's stated boundary moved.
  */
@@ -115,10 +118,13 @@ const READ_TEXT: Record<Declared, readonly string[]> = {
     'if (schema.groupBy && objectDef?.fields?.[schema.groupBy]?.options) {',
     'const groupBy = schema.groupBy;',
   ],
-  limit: ['$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)'],
+  limit: ['$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_FETCH_BATCH_SIZE)'],
 };
-/** The default the `limit` docblock names. */
-const DEFAULT_LIMIT_TEXT = 'export const DEFAULT_KANBAN_LIMIT = 100;';
+/**
+ * The default the `limit` docblock names. objectui#9853 renamed the constant to
+ * a fetch batch (ruling 5824040487, structure B) and kept its value.
+ */
+const DEFAULT_LIMIT_TEXT = 'export const DEFAULT_KANBAN_FETCH_BATCH_SIZE = 100;';
 
 /**
  * A plausible lane-key spelling the renderer never reads (the read set below
@@ -150,8 +156,14 @@ const VIEW_LEVEL_ALIAS_SITES: ReadonlyArray<readonly [file: string, text: string
   ],
   ['packages/plugin-view/src/ObjectView.tsx', 'kanbanCfg.groupField ||'],
 ];
-/** …and the same alias, still DECLARED on the view-level config in this very mirror file. */
-const VIEW_LEVEL_ALIAS_MIRROR_TEXT = "groupField: z.string().optional().describe('Deprecated alias for groupByField')";
+/**
+ * …and the same alias, still DECLARED on the view-level config in this very mirror file —
+ * since objectui#6152 round 11 as a by-name REFUSAL naming `groupByField` (the spec's
+ * list-view kanban slot refuses it), while the readers above stay live. A different
+ * refusal from this node's tombstone: that one says nothing reads the key, this one
+ * names what to write and leaves the stored-view fold in place.
+ */
+const VIEW_LEVEL_ALIAS_MIRROR_TEXT = 'groupField: KanbanBlockAliasRefusals.groupField,';
 
 /** The documented row-cap node; every assertion below is a delta on it. */
 const NODE = { type: 'object-kanban', objectName: 'opportunity', groupBy: 'stage' } as const;
@@ -167,9 +179,9 @@ type IsAny<T> = 0 extends (1 & T) ? true : false;
 type IsOptional<T, K extends keyof T> = Record<string, never> extends Pick<T, K> ? true : false;
 
 // `groupBy`: declared `string`, OPTIONAL since objectui#8990, not `any`. Were
-// the member removed the indexed access would fall back to the index signature
-// and resolve to `any`, and `Equal<any, string | undefined>` is false — so the
-// DECLARED-ness this card pinned is still pinned; only its requiredness moved.
+// the member removed, the indexed access fell back to the index signature and
+// resolved to `any` until objectui#8347 (it stops compiling now); either way the
+// pin goes red — so the DECLARED-ness this card pinned is still pinned; only its requiredness moved.
 export type _GroupByIsString = Expect<Equal<TsObjectKanbanSchema['groupBy'], string | undefined>>;
 export type _GroupByIsNotAny = Expect<Equal<IsAny<TsObjectKanbanSchema['groupBy']>, false>>;
 // objectui#8990 — `@objectstack/spec` declares `groupBy: z.string().optional()`;
@@ -182,21 +194,27 @@ export type _LimitIsNumberOrUndefined = Expect<Equal<TsObjectKanbanSchema['limit
 export type _LimitIsNotAny = Expect<Equal<IsAny<TsObjectKanbanSchema['limit']>, false>>;
 export type _LimitIsOptional = Expect<IsOptional<TsObjectKanbanSchema, 'limit'>>;
 // `groupField`: a `?: never` tombstone — the only value it admits is absence.
-// Deleting the member instead would make this `any` (index signature) and the
-// pin red, which is the point: the tombstone is load-bearing.
+// Deleting the member instead would make this pin red (`any` through the index
+// signature until objectui#8347, a non-compiling indexed access since), which is
+// the point: the tombstone is load-bearing.
 export type _GroupFieldIsTombstone = Expect<Equal<TsObjectKanbanSchema['groupField'], undefined>>;
 export type _GroupFieldIsNotAny = Expect<Equal<IsAny<TsObjectKanbanSchema['groupField']>, false>>;
-// The control key is NOT declared: it resolves to `any` through the index
-// signature, exactly as `groupBy` and `limit` did before this card. Declaring
-// it turns this red — which is the point.
-export type _ControlKeyFallsThroughToIndexSignature = Expect<IsAny<TsObjectKanbanSchema['laneField']>>;
+// The control key is NOT declared: it resolved to `any` through the index
+// signature, exactly as `groupBy` and `limit` did before this card, until
+// objectui#8347 removed the signature; it is no member now. Declaring it turns
+// this red — which is the point.
+export type _ControlKeyIsNoMember = Expect<Equal<'laneField' extends keyof TsObjectKanbanSchema ? true : false, false>>;
+// Lit control for the detector: `IsAny` does answer `true`, so the `IsNotAny` lines are readings.
+export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
 
 // The TS face accepts the documented shape on a literal — the exact node the
 // doc page's row-cap block now annotates.
 const literal: TsObjectKanbanSchema = { ...NODE, limit: 250 };
 // …REFUSES the retired spelling on a literal (a string is not `never`). This
 // directive goes unused — and the type-check goes red with TS2578 — the moment
-// the tombstone is deleted or widened back to `string`.
+// the tombstone is widened back to `string`. A deletion keeps it used since
+// objectui#8347 (the key is refused as undeclared) and is caught by the
+// tombstone `Equal` row above instead.
 // @ts-expect-error — `groupField` is RETIRED on this node (objectui#7322); author `groupBy`
 const retiredLiteral: TsObjectKanbanSchema = { ...NODE, groupField: 'stage' };
 // …and ACCEPTS a lane-less node since objectui#8990. This was a
@@ -332,8 +350,8 @@ describe('objectui#7322 — the zod mirror declares `groupBy` and `limit`', () =
 
   // CONTROL for the pin above — the key is still DECLARED and still ENFORCED
   // when present. A widening that lost the declaration (letting `groupBy` fall
-  // back to `BaseSchema`'s index signature) would keep the lane-less pin green
-  // while silently un-judging every authored value; this is what separates the
+  // back to `BaseSchema`'s index signature, while it stood) would have kept the
+  // lane-less pin green while silently un-judging every authored value; this is what separates the
   // two. The wrong-typed case is covered by the table below.
   it('CONTROL — optional does not mean unjudged: an authored `groupBy` is still typed', () => {
     const good = ObjectKanbanSchema.safeParse({ type: 'object-kanban', objectName: 'opportunity', groupBy: 'stage' });
@@ -413,7 +431,8 @@ describe('objectui#7322 — the control key stays undeclared, so nothing outside
     // is not read: `.passthrough()` admits it, of any type, and it survives.
     // This is the proof the mirror's unknown-key policy is byte-for-byte what
     // it was — neither `.strict()` nor a strip was reached for on the way past
-    // (`BaseSchema`'s index signature is objectui#5155, not this card).
+    // (`BaseSchema`'s index signature was objectui#5155's, not this card's;
+    // objectui#8347 removed it).
     const r = ObjectKanbanSchema.safeParse({ ...NODE, [CONTROL_KEY]: 42 });
     expect(r.success).toBe(true);
     if (r.success) expect((r.data as Record<string, unknown>)[CONTROL_KEY]).toBe(42);
@@ -427,7 +446,7 @@ describe('objectui#7322 — the control key stays undeclared, so nothing outside
   });
 });
 
-describe('objectui#7322 — the tombstone is NODE-LOCAL: the view-level `groupField` alias is live', () => {
+describe('objectui#7322 — the tombstone is NODE-LOCAL: the view-level `groupField` alias is still READ', () => {
   it.each(VIEW_LEVEL_ALIAS_SITES)('%s still reads the view-level alias', (file, text) => {
     // If a site stops reading `groupField`, the retirement's stated boundary
     // has moved and the docblocks on both faces are wrong: re-derive, do not
@@ -435,7 +454,7 @@ describe('objectui#7322 — the tombstone is NODE-LOCAL: the view-level `groupFi
     expect(readRepo(file), `${file} no longer reads the view-level \`groupField\` alias as \`${text}\``).toContain(text);
   });
 
-  it('the view-level alias is still DECLARED on `KanbanConfig` in the same mirror file', () => {
+  it('the view-level alias is still DECLARED on `KanbanConfig` in the same mirror file, as a by-name refusal (objectui#6152 round 11)', () => {
     expect(readRepo(MIRROR)).toContain(VIEW_LEVEL_ALIAS_MIRROR_TEXT);
   });
 });

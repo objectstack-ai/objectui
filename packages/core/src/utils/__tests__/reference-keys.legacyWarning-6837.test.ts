@@ -16,8 +16,8 @@
  * > 外的键不解析,但不无声。
  *
  * Half 2 deleted the per-reader `reference_to` fallback arms. What makes that
- * deletion survivable for a BYO host is the ingestion choke point, which stamps
- * `reference` from whichever spelling arrived. But a choke point that absorbs a
+ * deletion survivable for a served legacy def is the ingestion choke point,
+ * which folds whichever legacy spelling arrived onto `reference`. But a choke point that absorbs a
  * producer's bug SILENTLY is the AGENTS.md #0.1 failure mode by another name —
  * so it now says so, once, in dev.
  *
@@ -31,14 +31,22 @@
  *   3. does NOT fire twice                 — the flood control
  *   4. names the field and the ruling      — the message is the deliverable,
  *                                            not the call count
- *   5. the STAMP is unchanged              — the guard that this file is
+ *   5. the FOLD still runs                 — the guard that this file is
  *                                            testing an addition, not a
  *                                            behaviour change
  *
  * ⚠️ Case 5 is the one that would go missing. The ruling asked for an audible
  * warning, NOT for the normalizer to start refusing anything: the def must
- * still come out carrying both snake_case keys exactly as before. A warning
- * that also dropped the key would pass 1-4 and be a regression.
+ * still come out carrying `reference`, with the legacy key it arrived with
+ * left in place. A warning that also dropped the key, or skipped the fold,
+ * would pass 1-4 and be a regression.
+ *
+ * ⚠️ Case 5 used to read "the STAMP is unchanged" and assert that BOTH
+ * snake_case keys came out of a legacy-only def. objectui#11070 round 4
+ * retired the `reference_to` stamp (ObjectUI writes and reads `reference`
+ * only), so the `referenceTo` pin below now asserts the fold to `reference`
+ * and NO `reference_to`; the `reference_to` pin keeps its input key because
+ * the pass never drops one.
  *
  * ## Warn-once GRANULARITY — the memo key, stated exactly, and pinned
  *
@@ -66,7 +74,7 @@
  *
  * It fires only where `normalizeSchemaReferenceKeys` runs, which in production
  * is exactly the three ingestion choke points (objectui#7650 added the third,
- * `MetadataProvider.getItem`) — all of which also STAMP the def, so it fires
+ * `MetadataProvider.getItem`) — all of which also FOLD the def, so it fires
  * where nothing is broken. A hand-written schema served through any
  * other `DataSource` reaches a reader raw and warns nothing. The reader-side
  * diagnostic that would cover that is still open on objectui#6837.
@@ -230,23 +238,23 @@ describe('the choke point warns, in dev, when a def spells ONLY a legacy target 
     });
   });
 
-  describe('⛔ the STAMP is unchanged — this slice adds a warning, it does not change behaviour', () => {
-    it('still stamps BOTH snake_case keys from a `reference_to`-only def', () => {
+  describe('⛔ the FOLD still runs — the warning is an addition, not a behaviour change', () => {
+    it('folds a `reference_to`-only def onto `reference`, and keeps the key it arrived with', () => {
       const def: Record<string, unknown> = { type: 'lookup', reference_to: 'crm_account' };
       normalizeFieldReferenceKeys(def, 'account');
       expect(def.reference).toBe('crm_account');
       expect(def.reference_to).toBe('crm_account');
     });
 
-    it('still stamps BOTH snake_case keys from a `referenceTo`-only def', () => {
+    it('folds a `referenceTo`-only def onto `reference`, and stamps no `reference_to` (objectui#11070 round 4)', () => {
       const def: Record<string, unknown> = { type: 'lookup', referenceTo: 'crm_account' };
       normalizeFieldReferenceKeys(def, 'account');
       expect(def.reference).toBe('crm_account');
-      expect(def.reference_to).toBe('crm_account');
+      expect('reference_to' in def).toBe(false);
     });
 
-    it('is silent AND still stamps under NODE_ENV=production', () => {
-      // The warning is a dev affordance; the stamp is the contract. A
+    it('is silent AND still folds under NODE_ENV=production', () => {
+      // The warning is a dev affordance; the fold is the contract. A
       // production build must keep the second and lose only the first.
       vi.stubEnv('NODE_ENV', 'production');
       try {

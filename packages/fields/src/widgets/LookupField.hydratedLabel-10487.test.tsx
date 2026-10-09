@@ -103,7 +103,7 @@ function Host({ ds, initial, multiple = false }: { ds: Backend; initial: unknown
         value={value}
         onChange={setValue}
         dataSource={ds as never}
-        field={{ reference_to: 'contract', multiple } as never}
+        field={{ reference: 'contract', multiple } as never}
       />
     </SchemaRendererContext.Provider>
   );

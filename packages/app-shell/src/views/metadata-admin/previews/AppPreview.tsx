@@ -32,10 +32,19 @@
  *
  * If the App schema doesn't follow the expected shape we degrade to
  * a "no preview" hint rather than throw.
+ *
+ * AREAS (objectui#11027). `AppSchema.areas` partitions a large app's
+ * navigation into business domains, and each area carries a `label` and an
+ * optional `description`, both the spec's `I18nLabel`. The preview lists the
+ * areas with each label and, when one is authored, its description beneath
+ * it, resolved in the designer `locale` through the spec's own
+ * `resolveI18nLabel`. An area with no `description` shows none: nothing is
+ * invented in its place.
  */
 
 import * as React from 'react';
 import {
+  BookOpen,
   Compass,
   ExternalLink,
   Folder,
@@ -48,28 +57,32 @@ import {
   MousePointerClick,
   Puzzle,
 } from 'lucide-react';
-import { resolveHref } from '@object-ui/layout';
+import { resolveHref, type NavTargetLabelResolver } from '@object-ui/layout';
+import type { NavigationItemType } from '@object-ui/types';
+import { resolveI18nLabel } from '@objectstack/spec/ui';
+import { useNavTargetLabel } from '../../../hooks/useNavTargetLabel.js';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { t as tr } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 import { AppNavCanvas } from './AppNavCanvas.js';
 import { withNodes } from './row-nodes.js';
+import { navEntryLabelText, navItemLabelText } from './navItemLabel.js';
 
-/** The nine members of the spec's navigation union. */
-type NavKind =
-  | 'object'
-  | 'dashboard'
-  | 'page'
-  | 'url'
-  | 'report'
-  | 'action'
-  | 'component'
-  | 'group'
-  | 'separator';
+/**
+ * The members of the spec's navigation union — the spec-derived
+ * `NavigationItemType`, not a hand list. A hand list of nine missed `doc` when
+ * the spec added it (objectui#11197), so a label-less `doc` entry was DROPPED
+ * from this preview and a labelled one drew with no kind and no link. Keyed as
+ * a `Record`, a member the spec adds or drops stops this file compiling until
+ * it is handled here.
+ */
+type NavKind = NavigationItemType;
 
-const NAV_KINDS: readonly string[] = [
-  'object', 'dashboard', 'page', 'url', 'report', 'action', 'component', 'group', 'separator',
-];
+const NAV_KIND_SET: Record<NavKind, true> = {
+  object: true, dashboard: true, page: true, url: true, report: true,
+  action: true, component: true, doc: true, group: true, separator: true,
+};
+const NAV_KINDS: readonly string[] = Object.keys(NAV_KIND_SET);
 
 interface NavItem {
   id?: string;
@@ -106,16 +119,38 @@ function navTarget(it: Record<string, unknown>, kind?: NavKind): string | undefi
       const def = it.actionDef as Record<string, unknown> | undefined;
       return def && typeof def.actionName === 'string' ? def.actionName : undefined;
     }
+    case 'doc':
+      // The page it opens, else the book.
+      if (typeof it.doc === 'string') return it.doc;
+      return typeof it.book === 'string' ? it.book : undefined;
     default:
       return undefined;
   }
 }
 
 /**
- * `unnamed` is the designer's word for an entry with children and no label
- * (`engine.appPreview.unnamed`, in the preview's locale — objectui#10862).
+ * Every nav label is `I18nLabel` (a plain string or an inline locale map), so
+ * it resolves through `resolveI18nLabel` in the designer `locale` and never
+ * through a `typeof === 'string'` test or `String()` (objectui#11100): a map
+ * label would read as no label, or as `[object Object]`. A label only decides
+ * an entry's text, never whether the entry exists: an entry that names a
+ * record or holds children is kept.
+ *
+ * An entry with NO label shows the text it inherits, through the runtime's own
+ * rule and the console's own `targetLabel` resolver (`navEntryLabelText`,
+ * objectui#11196): its target's current label, else the target's machine
+ * name, else its `id` — what the console's sidebar draws for it. `unnamed`
+ * (`engine.appPreview.unnamed`, in the preview's locale — objectui#10862) is
+ * left for what that rule cannot name: a label that is present but resolves
+ * to nothing, and an entry with no target and no `id`, which the spec refuses.
  */
-function normalizeNav(raw: unknown, appName: string, unnamed: string): NavItem[] {
+function normalizeNav(
+  raw: unknown,
+  appName: string,
+  unnamed: string,
+  locale: string | undefined,
+  targetLabel: NavTargetLabelResolver,
+): NavItem[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .map((it: any): NavItem | null => {
@@ -125,9 +160,11 @@ function normalizeNav(raw: unknown, appName: string, unnamed: string): NavItem[]
       if (kind === 'separator') {
         return { id: typeof it.id === 'string' ? it.id : undefined, label: '', kind };
       }
-      const label = typeof it.label === 'string' ? it.label.trim() : '';
-      if (!label && !it.children) return null;
       const target = navTarget(it, kind);
+      // Existence reads the AUTHORED label, as it always has: inheriting text
+      // never turns an entry with nothing to open into one worth listing.
+      if (!navItemLabelText(it.label, locale).trim() && !it.children && !target) return null;
+      const label = navEntryLabelText(it, locale, targetLabel).trim();
       // Delegate to the shell's own mapping so the preview cannot invent a
       // route the runtime would not produce. Needs a `type`, so an item
       // missing the discriminator gets no link — which is the truth.
@@ -144,10 +181,43 @@ function normalizeNav(raw: unknown, appName: string, unnamed: string): NavItem[]
           href = undefined;
         }
       }
-      const children = Array.isArray(it.children) ? normalizeNav(it.children, appName, unnamed) : undefined;
+      const children = Array.isArray(it.children)
+        ? normalizeNav(it.children, appName, unnamed, locale, targetLabel)
+        : undefined;
       return { id: typeof it.id === 'string' ? it.id : undefined, label: label || unnamed, kind, target, href, external, children };
     })
     .filter((x): x is NavItem => x !== null);
+}
+
+/** One entry of `AppSchema.areas`, its display text resolved for the designer locale. */
+interface AreaRow {
+  id?: string;
+  label?: string;
+  description?: string;
+}
+
+type I18nText = Parameters<typeof resolveI18nLabel>[0];
+
+/**
+ * The app's navigation areas, in authored order. `label` and `description`
+ * are `I18nLabel`: a plain string or an inline locale map, so each goes
+ * through `resolveI18nLabel` and never through `String()` (a map would read
+ * `[object Object]`). An unauthored or empty value stays `undefined`, which
+ * renders nothing.
+ */
+function readAreas(raw: unknown, locale: string | undefined): AreaRow[] {
+  if (!Array.isArray(raw)) return [];
+  const rows: AreaRow[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const area = entry as Record<string, unknown>;
+    rows.push({
+      id: typeof area.id === 'string' && area.id ? area.id : undefined,
+      label: resolveI18nLabel(area.label as I18nText, locale) || undefined,
+      description: resolveI18nLabel(area.description as I18nText, locale) || undefined,
+    });
+  }
+  return rows;
 }
 
 function kindIcon(kind?: NavKind) {
@@ -168,6 +238,8 @@ function kindIcon(kind?: NavKind) {
       return MousePointerClick;
     case 'component':
       return Puzzle;
+    case 'doc':
+      return BookOpen;
     case 'separator':
       return Minus;
     default:
@@ -189,6 +261,10 @@ function findFirstLanding(items: NavItem[]): NavItem | undefined {
       continue;
     }
     if (it.kind === 'url' || it.kind === 'separator' || it.kind === 'action') continue;
+    // A `doc` entry has an href (the docs portal) but is never a landing: the
+    // runtime's `findFirstRoute` lands on object / page / dashboard / report
+    // only (objectui#11197).
+    if (it.kind === 'doc') continue;
     if (it.href) return it;
   }
   return undefined;
@@ -196,8 +272,13 @@ function findFirstLanding(items: NavItem[]): NavItem | undefined {
 
 export function AppPreview({ name, draft, editing, selection, onSelectionChange, onPatch, locale }: MetadataPreviewProps) {
   const appName = String((draft as any).name ?? name ?? '');
-  const label = (draft as any).label ?? appName;
+  // `label` is `I18nLabel` too: resolved in the designer locale, the app's own
+  // name only when it authored none (objectui#11100).
+  const label = resolveI18nLabel(draft.label as I18nText, locale) ?? appName;
   const unnamed = tr('engine.appPreview.unnamed', locale);
+  // What a label-less entry inherits is asked of the console's own resolver, so
+  // the preview names it as the sidebar does (objectui#11196).
+  const targetLabel = useNavTargetLabel();
   // The landing page is DERIVED, never authored: it is the first navigation
   // item that actually addresses something. The app used to be able to pin it
   // with `homePageId`, but spec 17.0.0 retired that key (objectstack#4667 /
@@ -214,16 +295,20 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
       ['menu', (draft as any).menu],
     ];
     for (const [k, c] of candidates) {
-      if (Array.isArray(c) && c.length) return { rootKey: k, navItems: normalizeNav(c, appName, unnamed) };
+      if (Array.isArray(c) && c.length) {
+        return { rootKey: k, navItems: normalizeNav(c, appName, unnamed, locale, targetLabel) };
+      }
     }
     return { rootKey: null, navItems: [] };
-  }, [draft, appName, unnamed]);
+  }, [draft, appName, unnamed, locale, targetLabel]);
 
   // Resolve the landing entry the same way `resolveLandingRoute` does in the
   // console shell, so the author sees WHICH entry the app will open on:
   // depth-first, first item that yields a route (`group` recurses; `url`,
   // `separator` and `action` address nothing inside the app).
   const homeItem = React.useMemo(() => findFirstLanding(navItems), [navItems]);
+
+  const areas = readAreas(draft.areas, locale);
 
   // For Add we need a root key even when empty — default to `navigation`,
   // the only root key the spec (AppSchema) actually accepts; `nav` /
@@ -259,7 +344,7 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
       <PreviewErrorBoundary>
         <div className="p-3 space-y-3">
           <div className="rounded border bg-muted/30 p-3">
-            <div className="text-sm font-medium text-foreground">{String(label)}</div>
+            <div className="text-sm font-medium text-foreground">{label}</div>
             <div className="text-xs text-muted-foreground font-mono mt-0.5">{appName}</div>
             <div className="text-xs text-muted-foreground mt-1">
               {homeItem ? (
@@ -272,6 +357,25 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
               )}
             </div>
           </div>
+
+          {areas.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                {tr('engine.appPreview.areas', locale)}
+              </div>
+              <ul className="border rounded divide-y">
+                {areas.map((area, i) => (
+                  <li key={i} className="px-3 py-2 text-xs">
+                    <div className="flex flex-wrap items-baseline gap-x-2">
+                      {area.label && <span className="font-medium text-foreground">{area.label}</span>}
+                      {area.id && <span className="font-mono text-[10px] text-muted-foreground">{area.id}</span>}
+                    </div>
+                    {area.description && <p className="mt-0.5 text-muted-foreground">{area.description}</p>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {designMode ? (
             // Design mode: form-canvas-style nav editor. Replaces the

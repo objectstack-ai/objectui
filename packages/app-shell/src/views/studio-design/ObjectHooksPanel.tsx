@@ -16,21 +16,34 @@
  * draft doesn't cover them.
  *
  * Master-detail, editable: a left list of the hooks that fire on this object,
- * and on the right the platform's own generic metadata form (SchemaForm) — the
- * same surface the metadata admin uses to edit a hook — with a per-hook Save.
- * There's no curated `hook` inspector, so SchemaForm synthesises a structured
- * form from the hook's shape.
+ * and on the right the hook's inspector (the platform's generic metadata form,
+ * SchemaForm, until the curated one registers). An edit autosaves to the
+ * hook's draft the way the other Studio editors do (objectui#11787): the shared
+ * autosave, 1.5s after the last edit, held while a CEL syntax error stands or
+ * while the hook's name differs from the one it was created with, and the
+ * panel's status line in place of the old Save hook button.
+ *
+ * A new hook targets the object it is created from (`addHook`). Its target
+ * picker is told which objects belong to this package (objectui#11820), so it
+ * lists them first and puts every other object — other packages' and the
+ * platform's own — under a heading that warns about the reach.
  */
 
 import React from 'react';
-import { Webhook, Plus, Loader2, Save } from 'lucide-react';
-import { toast } from 'sonner';
+import { Webhook, Plus, Loader2 } from 'lucide-react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { SchemaForm } from '../metadata-admin/SchemaForm.js';
-import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
+import { useRegisteredMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
+import { HookTargetScopeContext, type HookTargetScope } from '../metadata-admin/inspectors/HookDefaultInspector.js';
+import { loadPackageSurfaces } from './packageSurfaces.js';
 import { useMetadataClient } from '../metadata-admin/useMetadata.js';
+// objectui#11773 — the hook's draft save sends the version it was built on.
+import { useDraftSaveGuard } from '../metadata-admin/DraftConflictDialog.js';
+// objectui#11787 — a hook autosaves through the pillars' own autosave.
+import { useDraftAutoSave, type DraftSend } from './useDraftAutoSave.js';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
-import { extractDraftBody } from '@object-ui/data-objectstack';
-import { formatMetadataError } from './metadataError.js';
+// `formatMetadataError` is the one metadata-save error reader (objectui#11302).
+import { extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
 
 interface HookItem {
   name?: string;
@@ -75,36 +88,100 @@ export function ObjectHooksPanel({
   packageId,
   disabled,
   hookSchema,
+  publishNonce = 0,
+  onDraftSaved,
 }: {
   objectName: string;
   packageId: string;
   disabled?: boolean;
+  /**
+   * objectui#11773 — bumped by a package publish, which drops every draft and
+   * with them the version this panel's last save received.
+   */
+  publishNonce?: number;
   /**
    * The live server JSONSchema for the `hook` type (`/meta/types`). Drives the
    * SchemaForm so the fields, enums and grouping come from the real hook
    * metadata contract rather than being synthesised from the value shape.
    */
   hookSchema?: Record<string, unknown>;
+  /**
+   * objectui#11787 — a hook draft landed (an edit, or "+ New"), so the
+   * surface's pending-changes count refreshes, as every other draft save does.
+   */
+  onDraftSaved?: () => void;
 }) {
   const locale = useMetadataLocale();
   const client = useMetadataClient();
   // Curated hook authoring surface (object picker + events + dedicated body
-  // editor); falls back to the generic SchemaForm if unregistered.
-  const HookInspector = getMetadataDefaultInspector('hook');
+  // editor); falls back to the generic SchemaForm if unregistered, and swaps
+  // the curated surface in if it is registered later (objectui#11939).
+  const HookInspector = useRegisteredMetadataDefaultInspector('hook');
   const [hooks, setHooks] = React.useState<HookItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [selected, setSelected] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState<HookItem | null>(null);
+  // objectui#11787 — the hook whose body the buffer holds (`selected` when its
+  // install has run), and when its last draft save landed.
+  const [draftFor, setDraftFor] = React.useState<string | null>(null);
+  const [savedAt, setSavedAt] = React.useState<{ hook: string; at: Date } | null>(null);
+  const displayLocale = useDisplayLocale();
   const [dirty, setDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [nonce, setNonce] = React.useState(0);
+  // objectui#11773 — the version the open hook's draft was saved at, sent as
+  // `If-Match` by its next save. A save writes the list in place (objectui#11787)
+  // and the re-read that follows "+ New" reads back what was written, so the
+  // version survives both; a conflict's "reload" re-reads the list, and a
+  // publish forgets the version.
+  const reloadHooks = React.useCallback(() => setNonce((n) => n + 1), []);
+  const {
+    save: saveHookDraft,
+    forget: forgetHookVersion,
+    dialog: hookConflictDialog,
+  } = useDraftSaveGuard(client, reloadHooks);
+  React.useEffect(() => {
+    forgetHookVersion();
+  }, [publishNonce, forgetHookVersion]);
 
-  /* ─── Blocking CEL verdicts → this panel's OWN Save (objectui#4527) ────────
+  /* ─── objectui#11820 — the objects of this package, for the target picker ──
+   *
+   * The package's own list — published and draft, the merge the pillars' rails
+   * use (`loadPackageSurfaces`) — plus the object this panel is open on, which
+   * the Data pillar only offers from this package. Held in state, stamped with
+   * the package it was read for, so the context value keeps its identity
+   * between reads and a scope read for another package is never applied.
+   * Until it answers, and if it fails, the picker shows its flat list. */
+  const [packageScope, setPackageScope] = React.useState<
+    (HookTargetScope & { packageId: string; objectName: string }) | null
+  >(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadPackageSurfaces(client, 'object', packageId)
+      .then((items) => {
+        if (cancelled) return;
+        const names = new Set(items.map((i) => i.name));
+        names.add(objectName);
+        setPackageScope({ packageId, objectName, packageObjects: names });
+      })
+      .catch(() => {
+        if (!cancelled) setPackageScope(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, packageId, objectName]);
+  const hookTargetScope =
+    packageScope && packageScope.packageId === packageId && packageScope.objectName === objectName
+      ? packageScope
+      : null;
+
+  /* ─── Blocking CEL verdicts → this panel's OWN save (objectui#4527) ────────
    *
    * Unlike the object's other panels, this one writes the hook itself
-   * (`client.save('hook', …, { mode: 'draft' })`), so it owns the button that
-   * has to refuse. The count is STAMPED with the hook it describes and
+   * (`client.save('hook', …, { mode: 'draft' })`), so it owns the save that
+   * has to refuse: the autosave below is held while one stands (objectui#11787). The count is STAMPED with the hook it describes and
    * mismatch is read as 0, so a verdict that lands after the author switched
    * hooks cannot gate the one now on screen — derivation, not a reset effect,
    * and the selected hook always has its editor available to fix in. */
@@ -164,28 +241,81 @@ export function ObjectHooksPanel({
     };
   }, [client, packageId, objectName, nonce]);
 
-  // Load the selected hook into an editable draft (once per selection change).
+  // Load the selected hook into an editable draft: on a selection change, and
+  // when the list changes. objectui#11787 — except over an unsent edit of that
+  // same hook: the list an autosave writes holds what that save sent, and an
+  // edit the author took meanwhile is newer than it.
+  const bufferRef = React.useRef({ hook: draftFor, dirty });
+  React.useLayoutEffect(() => {
+    bufferRef.current = { hook: draftFor, dirty };
+  });
   React.useEffect(() => {
+    if (selected !== null && bufferRef.current.hook === selected && bufferRef.current.dirty) return;
     const hook = hooks.find((h) => h.name === selected) ?? null;
     setDraft(hook ? { ...hook } : null);
+    setDraftFor(hook ? selected : null);
     setDirty(false);
   }, [selected, hooks]);
 
-  const save = React.useCallback(async () => {
+  const save = React.useCallback(async (sent: DraftSend) => {
     if (!draft?.name) return;
     setSaving(true);
     setError(null);
     try {
-      await client.save('hook', String(draft.name), draft, { mode: 'draft', packageId });
-      toast.success(tFormat('engine.studio.hooks.saved', locale, { label: String(draft.label || draft.name) }));
-      setDirty(false);
-      setNonce((n) => n + 1);
+      if ((await saveHookDraft('hook', String(draft.name), draft, { mode: 'draft', packageId })) === 'reloaded') {
+        // objectui#11773 — the author chose the saved version: the list re-read
+        // installs it over this buffer, which holds nothing of theirs to keep.
+        setDirty(false);
+        return;
+      }
+      // No success toast: with autosave it would fire after every editing
+      // pause; the status line is the affordance (objectui#11787).
+      // objectui#11204 — clean only if nothing was edited while it was in flight.
+      if (sent.unmoved()) setDirty(false);
+      setSavedAt({ hook: String(selected ?? ''), at: new Date() });
+      onDraftSaved?.();
+      // The list now holds what the draft holds. Written in place rather than
+      // read again: a re-read blanks the list to "Loading…" at every editing
+      // pause, and it would answer with this very body (a draft wins over the
+      // published row of its name, and a hook no longer aimed at this object
+      // leaves its list).
+      const sentBody = draft;
+      setHooks((list) => {
+        const kept = list.filter((h) => h.name !== sentBody.name);
+        if (!targetsObject(sentBody, objectName)) return kept;
+        const at = list.findIndex((h) => h.name === sentBody.name);
+        return at < 0 ? [...kept, sentBody] : list.map((h, i) => (i === at ? sentBody : h));
+      });
     } catch (e) {
       setError(formatMetadataError(e));
     } finally {
       setSaving(false);
     }
-  }, [client, draft, packageId, locale]);
+  }, [saveHookDraft, draft, packageId, selected, onDraftSaved, objectName]);
+
+  // objectui#11787 — a hook autosaves to its draft like the pillars' editors:
+  // the shared autosave, blocked where the Save hook button was disabled (a
+  // blocking CEL verdict holds the edit, objectui#4527) and while the package
+  // is read-only. The hook is the open item; the buffer is its own once the
+  // install above has run for it.
+  const hookTarget = `hook:${selected ?? ''}`;
+  // objectui#11787 — a hook keeps the name it was created with ("+ New" sets
+  // it). The draft is stored under its name, and the inspector commits the name
+  // on every keystroke, so a rename the autosave sent would stage one more hook
+  // per pause while typing (measured: two drafts, each under a partial name,
+  // beside the original). The same rule the package door's permission matrix
+  // keeps for its api name: a renamed buffer is held, and the line below says
+  // how to get the edit saved.
+  const renamedFrom =
+    draft !== null && draftFor !== null && String(draft.name ?? '') !== draftFor ? draftFor : null;
+  useDraftAutoSave({
+    target: hookTarget,
+    loadedFor: `hook:${draftFor ?? ''}`,
+    dirty,
+    blocked: !draft?.name || saving || !!disabled || blockingIssues > 0 || renamedFrom !== null,
+    snapshot: draft,
+    save,
+  });
 
   const addHook = React.useCallback(async () => {
     const name = nextHookName(objectName, hooks.map((h) => String(h.name ?? '')));
@@ -204,6 +334,8 @@ export function ObjectHooksPanel({
     setError(null);
     try {
       await client.save('hook', name, fresh, { mode: 'draft', packageId });
+      // objectui#11787 — a new hook is a new draft: the count says so.
+      onDraftSaved?.();
       setNonce((n) => n + 1);
       setSelected(name);
     } catch (e) {
@@ -211,10 +343,11 @@ export function ObjectHooksPanel({
     } finally {
       setSaving(false);
     }
-  }, [client, objectName, hooks, packageId, locale]);
+  }, [client, objectName, hooks, packageId, locale, onDraftSaved]);
 
   return (
     <div className="flex min-h-0 flex-1 gap-4">
+      {hookConflictDialog}
       {/* hook list */}
       <div className="flex w-72 shrink-0 flex-col rounded-lg border">
         <header className="flex items-center gap-2 border-b px-3 py-2">
@@ -276,35 +409,54 @@ export function ObjectHooksPanel({
           <>
             <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
               <span className="min-w-0 flex-1 truncate text-[12px] font-medium">{String(draft.label || draft.name)}</span>
-              {!disabled && (
-                <button
-                  type="button"
-                  onClick={save}
-                  disabled={!dirty || saving || blockingIssues > 0}
-                  title={blockingIssues > 0 ? t('perm.cel.saveBlocked', locale) : undefined}
-                  className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] hover:bg-muted disabled:opacity-50"
-                >
-                  {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                  {t('engine.studio.hooks.save', locale)}
-                </button>
-              )}
+              {/* objectui#11787 — the status line every Studio editor shows in
+                  place of a Save button: saving while in flight, the
+                  last-saved time once landed, and why an edit is held when a
+                  CEL syntax error holds it. */}
+              {disabled ? null : saving ? (
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground" data-testid="hooks-autosaving">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {t('engine.studio.autoSaving', locale)}
+                </span>
+              ) : renamedFrom !== null ? null : blockingIssues > 0 && dirty ? (
+                <span className="text-[11px] text-destructive" data-testid="hooks-autosave-held">
+                  {t('perm.cel.saveBlocked', locale)}
+                </span>
+              ) : savedAt && savedAt.hook === selected && !dirty ? (
+                <span className="text-[11px] text-muted-foreground" data-testid="hooks-saved-at">
+                  {tFormat('engine.studio.data.lastSaved', locale, {
+                    time: savedAt.at.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' }),
+                  })}
+                </span>
+              ) : null}
             </div>
+            {renamedFrom !== null && !disabled && (
+              <p
+                role="status"
+                data-testid="hooks-rename-held"
+                className="border-b bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground"
+              >
+                {tFormat('engine.studio.hooks.renameHeld', locale, { name: renamedFrom })}
+              </p>
+            )}
             <div className="min-h-0 flex-1 overflow-auto">
               {HookInspector ? (
-                // eslint-disable-next-line react-hooks/static-components -- getMetadataDefaultInspector returns a registered component (stable), not one created during render
-                <HookInspector
-                  type="hook"
-                  name={String(draft.name ?? '')}
-                  draft={draft as Record<string, unknown>}
-                  onPatch={(patch) => {
-                    setDraft((d) => ({ ...(d as HookItem), ...patch }));
-                    setDirty(true);
-                  }}
-                  readOnly={!!disabled}
-                  locale={locale}
-                  serverSchema={hookSchema}
-                  onBlockingIssuesChange={reportCel}
-                />
+                <HookTargetScopeContext.Provider value={hookTargetScope}>
+                  {/* eslint-disable-next-line react-hooks/static-components -- useRegisteredMetadataDefaultInspector returns a registered component (stable), not one created during render */}
+                  <HookInspector
+                    type="hook"
+                    name={String(draft.name ?? '')}
+                    draft={draft as Record<string, unknown>}
+                    onPatch={(patch) => {
+                      setDraft((d) => ({ ...(d as HookItem), ...patch }));
+                      setDirty(true);
+                    }}
+                    readOnly={!!disabled}
+                    locale={locale}
+                    serverSchema={hookSchema}
+                    onBlockingIssuesChange={reportCel}
+                  />
+                </HookTargetScopeContext.Provider>
               ) : (
                 <div className="p-3">
                   <SchemaForm

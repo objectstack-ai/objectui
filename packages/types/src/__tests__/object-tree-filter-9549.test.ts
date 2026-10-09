@@ -44,8 +44,9 @@ export type _TreeFilterMatchesTheGallery =
   Expect<Equal<TsObjectTreeSchema['filter'], TsObjectGallerySchema['filter']>>;
 export type _TreeFilterIsOptional = Expect<IsOptional<TsObjectTreeSchema, 'filter'>>;
 /**
- * FIRING CONTROL: deleting the member drops the indexed access through
- * `BaseSchema`'s `[key: string]: any`, which would otherwise read as a pass.
+ * FIRING CONTROL: deleting the member dropped the indexed access through
+ * `BaseSchema`'s `[key: string]: any` (until objectui#8347; it stops compiling
+ * now), which would otherwise have read as a pass.
  */
 export type _TreeFilterIsNotAny = Expect<Equal<IsAny<TsObjectTreeSchema['filter']>, false>>;
 
@@ -56,14 +57,24 @@ const treeRecordArm: TsObjectTreeSchema =
   { type: 'object-tree', objectName: 'account', filter: { age: { $gt: 18 } } };
 
 // …and REFUSES what the index signature used to admit. Each directive goes
-// UNUSED — TS2578, a hard type-check failure — the moment the member is removed.
+// UNUSED — TS2578, a hard type-check failure — the moment the member is widened;
+// since objectui#8347 a removal keeps it used (the value is refused as an
+// undeclared key) and is caught by the `Equal` rows above instead.
 // @ts-expect-error — `filter` is `QueryParams['$filter']`; a string clause is neither arm
 const treeStringFilter: TsObjectTreeSchema = { type: 'object-tree', objectName: 'account', filter: 'stage=won' };
 // @ts-expect-error — `filter` is `QueryParams['$filter']`; a number is neither arm
 const treeNumberFilter: TsObjectTreeSchema = { type: 'object-tree', objectName: 'account', filter: 42 };
 
-/** The objectui#7927 ceiling is unchanged: a misspelled key still resolves to `any`. */
-export type _MisspellingStillAdmitted = Expect<IsAny<TsObjectTreeSchema['filtr']>>;
+/**
+ * The objectui#7927 ceiling — a misspelled key resolved to `any` — was pinned
+ * here; objectui#8347 removed `BaseSchema`'s index signature, so the misspelling
+ * is no member and a fresh literal carrying it is refused.
+ */
+export type _MisspellingIsNoMember = Expect<Equal<'filtr' extends keyof TsObjectTreeSchema ? true : false, false>>;
+// @ts-expect-error — `filtr` is no member of `ObjectTreeSchema`; the key is `filter`
+const treeMisspelledFilter: TsObjectTreeSchema = { type: 'object-tree', objectName: 'account', filtr: 'stage=won' };
+// Lit control for the detector: `IsAny` does answer `true`, so the `IsNotAny` lines are readings.
+export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
 
 /* ── The mirror, at runtime ───────────────────────────────────────────────── */
 
@@ -107,7 +118,7 @@ describe('objectui#9549 — the tree mirror refuses what the declaration refuses
 /* Keep the type-face literals referenced so `noUnusedLocals` cannot drop them. */
 describe('objectui#9549 — the type-face literals above are real', () => {
   it('each literal builds a node', () => {
-    for (const n of [treeArrayArm, treeRecordArm, treeStringFilter, treeNumberFilter]) {
+    for (const n of [treeArrayArm, treeRecordArm, treeStringFilter, treeNumberFilter, treeMisspelledFilter]) {
       expect(n.type).toBe('object-tree');
     }
   });

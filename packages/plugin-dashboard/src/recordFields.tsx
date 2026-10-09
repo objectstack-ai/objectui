@@ -27,6 +27,7 @@ import {
   resolveCellRendererType,
   formatCurrency,
   formatPercent,
+  percentCellScale,
   formatDate,
   // THE GATE the maintainer ruled onto this package's surface (objectui#4914,
   // ruling B). Read from `@object-ui/fields` here — the spelling the ruling
@@ -99,16 +100,17 @@ const DATE_PATTERN_FIELD_TYPES = new Set(['date', 'datetime']);
  *
  * ## What was broken
  *
- * `LookupCellRenderer` (`@object-ui/fields`) resolves its target from
- * `field.reference_to || field.reference` and its display field from
- * `field.display_field`. `FieldMeta` carried NONE of those spellings, so for
- * every lookup cell in `ObjectDataTable` and `RecordDetailDrawer` the renderer
- * resolved `undefined` and two things failed silently: `useRefObjectSchema`
- * never loaded the referenced object's schema (so the ADR-0079 / issue #2357
- * resolution never ran and the cell fell back to `pickRecordDisplayName`'s
- * generic `.name`/`.title` heuristic), and `ReferencedRecordLink`'s `objectName`
- * was always `undefined` (so `navigable` was always `false` and the cell never
- * rendered a real anchor — no drill-through, no middle-click, no copy-link).
+ * When objectui#6694 was filed, `LookupCellRenderer` (`@object-ui/fields`)
+ * resolved its target from `field.reference_to || field.reference` and its
+ * display field from `field.display_field`. `FieldMeta` carried NONE of those
+ * spellings, so for every lookup cell in `ObjectDataTable` and
+ * `RecordDetailDrawer` the renderer resolved `undefined` and two things failed
+ * silently: `useRefObjectSchema` never loaded the referenced object's schema
+ * (so the ADR-0079 / issue #2357 resolution never ran and the cell fell back to
+ * `pickRecordDisplayName`'s generic `.name`/`.title` heuristic), and
+ * `ReferencedRecordLink`'s `objectName` was always `undefined` (so `navigable`
+ * was always `false` and the cell never rendered a real anchor — no
+ * drill-through, no middle-click, no copy-link).
  *
  * ## This is ADOPTED, not invented
  *
@@ -119,19 +121,13 @@ const DATE_PATTERN_FIELD_TYPES = new Set(['date', 'datetime']);
  * widgets funnel through, which is what this module exists for (see the file
  * header: the two surfaces must never drift).
  *
- * ## ⚠️ The copy set is DELIBERATELY 3 of the grid's 7 — measured, per key
+ * ## ⚠️ The copy set is DELIBERATELY narrower than the grid's — measured, per key
  *
- * `RELATIONAL_META_KEYS` is `reference_to`, `reference`, `display_field`,
- * `id_field`, `description_field`, `lookup_filters`, `lookupFilters`. It listed
- * NINE until the two keys this file had already measured as reader-less were
- * retired from it as well — `reference_to_field` (objectui#6711) and
- * `titleFormat` (objectui#6874).
- *
- * The grid needs the remaining seven because its cells are
- * EDITABLE — its own docblock says the extra keys "drive the inline picker's
- * query (LookupField reads reference_to/reference, display_field, id_field,
- * description_field, lookup_filters)", and the defect that earned them was an
- * inline-edited lookup showing a raw id.
+ * The grid's copy set is derived from the key table in
+ * `plugin-grid/src/relationalMetaKeys.ts`; read it there rather than from a
+ * list copied here. The grid needs its picker keys because its cells are
+ * EDITABLE — the defect that earned them was an inline-edited lookup showing a
+ * raw id — and those keys drive the inline picker's query.
  *
  * These two widgets are READ-ONLY. Their only render path is
  * {@link renderFieldValue} → `getCellRenderer` → a CELL renderer; no field
@@ -139,22 +135,32 @@ const DATE_PATTERN_FIELD_TYPES = new Set(['date', 'datetime']);
  * the module `getCellRenderer` dispatches into — the complete set of relational
  * keys read off a cell's `field` prop is:
  *
- *  - `reference_to`, `reference`, `display_field`, `displayField` — read by
- *    `LookupCellRenderer` itself. ✅ COPIED.
+ *  - `reference`, `displayField` — read by `LookupCellRenderer` itself.
+ *    ✅ COPIED.
  *
- *    ⭐ `displayField` ARRIVED with objectui#6875. The enumeration above used
- *    to name three keys, because it was written from the FIRST leg of each
- *    chain rather than from the whole chain: `LookupCellRenderer` resolves the
- *    display pointer as `display_field || displayField || reference_field`, and
- *    the two extra spellings in that one chain were missed here and in the
- *    grid's own list at the same time. `displayField` is the spelling
- *    `@objectstack/spec` 17.2.0's strict `FieldSchema` DECLARES — so on a live
- *    path served through `getObjectSchema` it is the only one that can arrive,
- *    and a lookup cell here rendered the referenced record's generic `.name`
+ *    ⭐ `reference_to` LEFT this list with objectui#11070 round 4. The cell
+ *    read `reference_to || reference` until then; it reads `reference` alone
+ *    now, the ingestion choke point no longer stamps `reference_to`, and no
+ *    in-repo producer writes it. Copying it would write a member no reader
+ *    consults — the shape objectui#6711 and objectui#6874 retired.
+ *
+ *    ⭐ `display_field` LEFT this list with objectui#11070's text-family round,
+ *    for the same reason. The cell has resolved the display pointer as
+ *    `displayField || reference_field` since objectui#7155 retired its
+ *    `display_field` leg, and the ingestion choke point folds a served
+ *    `display_field` onto `displayField` (objectui#7650), so the copy of it
+ *    wrote a member no reader consulted. `FieldMeta` no longer declares it,
+ *    and `ObjectDataTable` refuses it on an authored column by a hand-written
+ *    tombstone (`ObjectDataTableRetiredDisplayFieldSnakeTombstone`).
+ *
+ *    ⭐ `displayField` ARRIVED with objectui#6875: it is the spelling
+ *    `@objectstack/spec`'s strict `FieldSchema` DECLARES, so on a live path
+ *    served through `getObjectSchema` it is the one that arrives, and without
+ *    it a lookup cell here rendered the referenced record's generic `.name`
  *    instead of the author's pointer. The grid's twin of this defect is pinned
  *    behaviourally in `plugin-grid/src/__tests__/lookupDisplayFieldSpelling-6875.test.tsx`.
  *
- *  - `reference_field` — the chain's third leg, and still ⛔ NOT copied.
+ *  - `reference_field` — the chain's second leg, and still ⛔ NOT copied.
  *    `FieldSchema` does not declare it (it parses to `unrecognized_keys`) and
  *    the producer repo has zero occurrences of the identifier, against a
  *    `displayField` control that hits 68 files. Copying it would write a member
@@ -169,12 +175,12 @@ const DATE_PATTERN_FIELD_TYPES = new Set(['date', 'datetime']);
  *  - `titleFormat` — never read off a FIELD meta at all; every reader takes it
  *    off the OBJECT schema (`getRecordDisplayName` in `@object-ui/core`,
  *    `containers.tsx`). On this path that object schema arrives through
- *    `useRefObjectSchema(reference_to)` — so copying `reference_to` is what
- *    makes `titleFormat` work, and copying `titleFormat` here would reach
- *    nothing. ⛔ NOT copied. ⭐ The grid has since retired it too
+ *    `useRefObjectSchema(reference)` — so copying the target (`reference_to`
+ *    then, `reference` since objectui#11070 round 4) is what makes
+ *    `titleFormat` work, and copying `titleFormat` here would reach nothing. ⛔ NOT copied. ⭐ The grid has since retired it too
  *    (objectui#6874), on exactly this reading.
  *
- * ⛔ Do not "restore parity" by widening this to the grid's seven. A member
+ * ⛔ Do not "restore parity" by widening this to the grid's set. A member
  * written from the schema def on every call and read by nothing is exactly what
  * objectui#6625 (`decimals`) and objectui#6597 (`referenceTo`) retired from this
  * very file. Add a key when a reader on THIS path is measured, not before; if
@@ -182,7 +188,7 @@ const DATE_PATTERN_FIELD_TYPES = new Set(['date', 'datetime']);
  * picker keys. The boundary is pinned in
  * `__tests__/lookupRelationalMeta-6694.test.tsx`.
  */
-const CELL_RELATIONAL_META_KEYS = ['reference_to', 'reference', 'display_field', 'displayField'] as const;
+const CELL_RELATIONAL_META_KEYS = ['reference', 'displayField'] as const;
 
 /**
  * Copy {@link CELL_RELATIONAL_META_KEYS} off a schema field def, with
@@ -244,9 +250,11 @@ function pickCellRelationalMeta(def: any): Partial<FieldMeta> {
  * def directly — the spelling `LookupCellRenderer` and `computeLookupExpand`
  * actually use. ⛔ Do not resurrect `referenceTo`.
  *
- * ⭐ That reader ARRIVED (objectui#6694): `reference_to` / `reference` /
- * `display_field` below, copied from the SCHEMA field def by
- * {@link buildFieldMeta} and justified per key on `CELL_RELATIONAL_META_KEYS`.
+ * ⭐ That reader ARRIVED (objectui#6694): `reference` / `displayField` below
+ * (with `reference_to` beside them until objectui#11070 round 4 retired it,
+ * and `display_field` until objectui#11070's text-family round did), copied
+ * from the SCHEMA field def by {@link buildFieldMeta} and justified per key on
+ * `CELL_RELATIONAL_META_KEYS`.
  * They are the "future reader" both retirement notes predicted, in the spelling
  * they named, and they change neither verdict — the source is the schema field
  * def, never an authored column override, which is the exact distinction
@@ -254,7 +262,11 @@ function pickCellRelationalMeta(def: any): Partial<FieldMeta> {
  *
  * ⚠️ Being `FieldMeta` members they GROW both derived bands in
  * `ObjectDataTable.tsx` — `EnrichedColumn`'s emit tombstones and
- * `UnheldFieldMetaOverrideKey`'s read-side refusal. That is the intended
+ * `UnheldFieldMetaOverrideKey`'s read-side refusal. `reference_to` left the
+ * type in objectui#11070 round 4 and `display_field` in its text-family round,
+ * so — by the rule at the top of this docblock — each one's refusal is
+ * re-stated by hand there (`ObjectDataTableRetiredReferenceToSnakeTombstone`,
+ * `ObjectDataTableRetiredDisplayFieldSnakeTombstone`). That is the intended
  * verdict rather than a side effect: an AUTHORED column may not source a
  * lookup's reference target (objectui#6597 measured no authoring story for
  * one), while the schema-derived write is reached by neither band. They landed
@@ -268,17 +280,30 @@ export interface FieldMeta {
   options?: Array<{ value: any; label: string; color?: string }>;
   format?: string;
   currency?: string;
-  /** Lookup target object, snake_case — the spelling `LookupCellRenderer` reads first. */
-  reference_to?: string;
-  /** Lookup target object, ObjectStack object-metadata spelling; the renderer's `||` fallback. */
-  reference?: string;
-  /** Author-declared display field on the lookup — beats every resolver in the cell. */
-  display_field?: string;
   /**
-   * Same pointer, SPEC spelling (`FieldSchema.displayField`) — the second leg of
-   * `LookupCellRenderer`'s `display_field || displayField || reference_field`
-   * chain, and the only leg a spec-compliant producer can actually emit
-   * (objectui#6875).
+   * The field def's declared upper bound, which on a `percent` field is its
+   * STORAGE statement: the spec's `percentScaleOf` reads a fraction unless
+   * `max` is above 1 (objectui#11475). Copied from the SCHEMA field def by
+   * {@link buildFieldMeta} so the percent cell and the `%` branch of
+   * {@link renderFieldValue} read the field's storage rather than guess it
+   * from the value. Never an authored column override: as a `FieldMeta`
+   * member it lands in `ObjectDataTable`'s read-side refusal band, which is
+   * the intended verdict — a column may not restate how its field stores.
+   */
+  max?: number;
+  /**
+   * Lookup target object — the spelling `@objectstack/spec`'s `FieldSchema`
+   * declares and the only one `LookupCellRenderer` reads. Its snake_case twin
+   * `reference_to` was RETIRED from this type by objectui#11070 round 4.
+   */
+  reference?: string;
+  /**
+   * Author-declared display field on the lookup, in the SPEC spelling
+   * (`FieldSchema.displayField`) — it beats every resolver in the cell. The
+   * first leg of `LookupCellRenderer`'s `displayField || reference_field`
+   * chain, and the only leg a spec-compliant producer can emit
+   * (objectui#6875). Its snake_case twin `display_field` was RETIRED from this
+   * type by objectui#11070's text-family round: no reader read it.
    */
   displayField?: string;
 }
@@ -370,6 +395,9 @@ export function buildFieldMeta(params: BuildFieldMetaParams): FieldMeta {
     options,
     format: overrides.format ?? meta?.format,
     currency: overrides.currency ?? resolveFieldCurrency(meta),
+    // The storage statement of a `percent` field (objectui#11475), from the
+    // schema def only — see `FieldMeta.max`.
+    ...(typeof meta?.max === 'number' && { max: meta.max }),
     // ⛔ No `decimals` — RETIRED by objectui#6625. It resolved
     // `meta?.decimals ?? meta?.scale` on every call and reached no reader; the
     // `overrides.decimals ??` head of that chain had already lost its only
@@ -378,8 +406,9 @@ export function buildFieldMeta(params: BuildFieldMetaParams): FieldMeta {
     // ⛔ No `referenceTo` — RETIRED by objectui#6597 (enforce-or-remove,
     // withdraw). It resolved `overrides.referenceTo ?? meta?.referenceTo ??
     // meta?.reference(.to) ?? meta?.target` on every call and reached no
-    // reader: `LookupCellRenderer` resolves its target from
-    // `reference_to` / `reference`, never this spelling. ⭐ That future reader
+    // reader: `LookupCellRenderer` resolved its target from
+    // `reference_to` / `reference` (`reference` alone since objectui#11070
+    // round 4), never this spelling. ⭐ That future reader
     // ARRIVED in objectui#6694 — the spread below, in the schema field def's own
     // spelling, which is the one that retirement note pointed at. The
     // retirement stands: this is a SCHEMA-derived write with no `overrides.`
@@ -434,12 +463,21 @@ export function renderFieldValue(
   if (typeof fmt === 'string' && /%/.test(fmt) && typeof value === 'number') {
     const decimals = (fmt.match(/0\.(0+)%/) || [undefined, ''] as any)[1].length;
     // The RAW stored value goes to `formatPercent`, which applies
-    // `percentDisplayValue` — the single source of truth for percent display
-    // scaling (`@object-ui/core`), whose doc comment says so in those words.
+    // `percentDisplayValue` (`@object-ui/core`) at the storage stated here.
     // This is the same call the list-view percent cell makes for an ordinary
     // percent column (`PercentCellRenderer` in `@object-ui/fields`), so a
     // percent now reads identically as a record field, as a grid cell and as a
     // dashboard measure.
+    //
+    // The STORAGE is stated, never read off the value (objectui#11475). A
+    // `percent` (or `progress`) field states it in its declaration, read by
+    // `percentCellScale` — the answer the cell reads, the spec's
+    // `percentScaleOf` over `FieldMeta.max`. Any other field carries no
+    // percent storage at all (the spec: "a plain `number` carries no percent
+    // semantics"), so the only statement left is the `%` pattern itself, and
+    // numeral's `%` multiplies by 100: a fraction. The magnitude guess this
+    // replaced read a fraction-stored `1` as `1%` and a whole-stored `0.5` as
+    // `50%`.
     //
     // ⚠️ This call site used to make the fraction/points decision AGAIN, with a
     // local copy that had drifted from the one it duplicated (objectui#5607):
@@ -462,7 +500,11 @@ export function renderFieldValue(
     //    so a negative already in points was treated as a fraction: `-5`
     //    rendered `-500.00%`.
     // Deleting the branch fixes all three, because they were never three bugs.
-    return formatPercent(value, decimals, displayLocale);
+    const percentScale =
+      fieldMeta.type === 'percent' || fieldMeta.type === 'progress'
+        ? percentCellScale(fieldMeta)
+        : 'fraction';
+    return formatPercent(value, percentScale, decimals, displayLocale);
   }
   // A date pattern only on a date field (objectui#10220) — see
   // `DATE_PATTERN_FIELD_TYPES` for why the gate is the type. A date field's

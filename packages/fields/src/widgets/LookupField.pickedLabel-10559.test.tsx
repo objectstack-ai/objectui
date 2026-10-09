@@ -96,7 +96,7 @@ function Host({ ds }: { ds: Backend }) {
         value={value}
         onChange={setValue}
         dataSource={ds as never}
-        field={{ reference_to: 'contract' } as never}
+        field={{ reference: 'contract' } as never}
       />
     </SchemaRendererContext.Provider>
   );

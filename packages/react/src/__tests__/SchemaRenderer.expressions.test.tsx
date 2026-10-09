@@ -18,13 +18,38 @@ import { SchemaRenderer } from '../SchemaRenderer';
 // The header that stood here said the `disabled` casts were "what remains of
 // the gap — drop them when that lands". This is that landing: #4580's ruling
 // Q3-A widened `disabled` on the same evidence as `visible` (the renderer
-// evaluates it through the same `evaluateCondition` at
-// `SchemaRenderer.tsx:466`, and the `disabledOn?: string` sibling exists for
+// evaluates it through the same `evaluateCondition`, in the evaluation memo of
+// `SchemaRenderer.tsx`, and the `disabledOn?: string` sibling exists for
 // the same reason), and the two casts are gone. The `BaseSchema` import went
-// with them — nothing in this file needs the name any more.
+// with them. It is back only to type the deprecated-`visibility` probe node
+// below (objectui#11349), not for a cast.
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
-import type { DataSource } from '@object-ui/types';
+import type { BaseSchema, DataSource } from '@object-ui/types';
+import type { PageComponent } from '@objectstack/spec/ui';
+
+/**
+ * A node authoring the spec's DEPRECATED `visibility` alias (objectui#11349).
+ * `BaseSchema` does not declare the key. `@objectstack/spec` declares it on
+ * `PageComponentSchema`, and the alias case below is typed by reference to
+ * that row. It is checked against this node, not against `BaseSchema`, so the
+ * key stays checked now that objectui#8347 has removed `BaseSchema`'s index
+ * signature.
+ */
+type DeprecatedVisibilityNode = BaseSchema & Pick<PageComponent, 'visibility'> & { type: 'test-component' };
+const deprecatedVisibilityNode = (schema: DeprecatedVisibilityNode): DeprecatedVisibilityNode => schema;
 import { PredicateScopeProvider } from '../hooks/useExpression';
+
+/**
+ * This file's registered `TestComponent`, typed by its probe node, declared to
+ * `@object-ui/types` the way an application declares a type it registers
+ * (objectui#11466): a node slot and the `schema` prop take the declared node
+ * types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'test-component': DeprecatedVisibilityNode;
+  }
+}
 
 /**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
@@ -143,7 +168,7 @@ describe('SchemaRenderer Expression Integration', () => {
       const { container } = render(
         <PredicateScopeProvider scope={{ data: { role: 'viewer' } }}>
         <SchemaRendererContext.Provider value={{ dataSource: { role: 'viewer' } as unknown as DataSource }}>
-          <SchemaRenderer schema={{ type: 'test-component', visibility: '${data.role === "admin"}' }} />
+          <SchemaRenderer schema={deprecatedVisibilityNode({ type: 'test-component', visibility: '${data.role === "admin"}' })} />
         </SchemaRendererContext.Provider>
       </PredicateScopeProvider>
       );

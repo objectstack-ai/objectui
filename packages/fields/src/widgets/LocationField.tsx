@@ -335,15 +335,14 @@ function refusedRangeMessage(t: TranslateFn, candidate: LocationValue): string {
  * handed to it through a hole. So the verb is not a hole: it lives inside two
  * SIBLING KEYS picked here, at the call site.
  *
- * ⛔ Deliberately NOT i18next's `_one`/`_other` suffixes. This repo's own
- * plural convention is a `X` / `XOne` pair branched at the call site —
- * `lookup.recordCount`/`recordCountOne` in this very defaults map
- * (`RecordPickerDialog`), `list.recordCount`/`recordCountOne`,
- * `detail.reactionCount`/`reactionCountOne` — because zh/ja/ko have no separate
- * singular form and would legitimately omit a `_one` half, which
- * `all-locales-key-parity` reads as a missing key (objectstack#5430). The
- * suffix form also needs a base key to cover the categories no pack enumerates
- * (`ru` few/many, `ar` two/zero — objectui#3863); the sibling pair needs none.
+ * ⛔ Deliberately NOT i18next's `_one`/`_other` suffixes — and not because of
+ * any plural convention: this is not a COUNT. The two values interpolate
+ * different holes (one half, or both halves with `{{otherName}}` /
+ * `{{otherText}}`), so the arm selects on which halves the residue holds, a
+ * structural choice a count family cannot express. Every count label in this
+ * repo is an i18next family since objectui#11445 retired the code-selected
+ * `xxxCountOne` pairs; `count-families-11445.test.ts` pins that, and this pair
+ * carries no `{{count}}`, so it is outside that rule by construction.
  *
  * The arity here is exactly binary and always will be: `residue` is
  * `COORDINATE_LABELS` filtered, and a draft that is not two comma-separated

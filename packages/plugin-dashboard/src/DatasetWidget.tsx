@@ -9,15 +9,22 @@
  * dataset-bound reports use — so the numbers match everywhere.
  *
  * Rendering dispatch (by `widget.type`):
- *  - metric / kpi / gauge / solid-gauge / bullet (or no dimensions) → KPI value
- *    with the measure's display label + format.
+ *  - metric / kpi / gauge / solid-gauge / bullet → KPI value with the
+ *    measure's display label + format. So does a widget of any other type that
+ *    declares no dimensions, UNLESS it carries two or more measures and is a
+ *    table / pivot or a chart of the bar family (bar / column / horizontal-bar)
+ *    or line / area / combo (objectui#11261, objectui#8894): those render every
+ *    measure — one row of them, or one mark per measure with the measures'
+ *    labels on the category axis.
  *  - table / pivot → a grouped table of `dimensions` + `values`. Rows drill
  *    through to the underlying records (ADR-0021 D2) when the server returns the
  *    dataset's `object` + dimension→field mapping.
  *  - bar / column / horizontal-bar / line / area / pie / donut / funnel /
  *    scatter / radar / treemap / sankey → the shared advanced `chart` renderer
- *    with its TRUE chart type and one series per measure. A type the renderer
- *    can't draw maps to its closest family (never a silent blank bar).
+ *    with its TRUE chart type and one series per measure (a pie / donut /
+ *    funnel / treemap / sankey draws the first of them, and the dropped-measure
+ *    diagnostic says so, objectui#11417). A type the renderer can't draw maps
+ *    to its closest family (never a silent blank bar).
  *
  * Errors surface instead of silently showing wrong/empty numbers.
  *
@@ -38,6 +45,7 @@ import {
   buildChartSeries,
   buildOptionColorMap,
   buildCategoryOrder,
+  buildCategoryRank,
   relabelDimensions,
   localizeFieldOptions,
   deriveDimensionLabelMaps,
@@ -58,15 +66,13 @@ import {
   pivotBucketId,
   pivotDimensionValue,
   pivotCellKey,
-  compareToTrendLabelKey,
   // Which chart families ignore `compareTo` — ONE declaration, read by the
   // inline chart path too (objectui#7495). See `compareTo` below.
   chartTypeIgnoresCompareTo,
   // The authored half of the same split — moved to core beside `buildChartSeries`
   // so this widget and the report's embedded chart lower one vocabulary once
-  // (objectui#4877). Re-exported below under their original names.
+  // (objectui#4877). Re-exported below under its original name.
   chartConfigPresentation,
-  mergeAuthoredPresentation,
   // The console's ONE client-side sort primitive (objectui#3096). The flat
   // dataset table below sorts through it rather than inlining `a < b`, so a
   // dashboard table and a list view order the same values identically — and
@@ -80,7 +86,7 @@ import {
   type DatasetDrillRange,
 } from '@object-ui/core';
 import { cn, Skeleton, ChartSkeleton, GridSkeleton, RefreshIndicator } from '@object-ui/components';
-import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale } from '@object-ui/i18n';
 import { AlertTriangle, ShieldAlert, Download, ArrowUpIcon, ArrowDownIcon, MinusIcon, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 // objectui#7063 — the default empty state is stated ONCE for the dashboard
 // surface (see that component's header for why it is dashboard-local).
@@ -89,10 +95,15 @@ import { useFilterScope } from '@object-ui/react';
 import { resolveFilterPlaceholders, computeMetricDelta } from './utils';
 import { metricAccentTextClass } from './colorVariants';
 import { DrillDownDrawer } from './DrillDownDrawer';
+import { specDefaultWidgetType } from './widgetDispatch';
+import { DASHBOARD_WIDGET_MULTI_MEASURE_TYPES } from '@objectstack/spec/ui';
 
 type Row = Record<string, unknown>;
-interface DatasetTotals { dimensions: string[]; rows: Row[] }
-interface DatasetResult { rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Row[]; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetTotals[] }
+// One RESULT-side totals grouping (the response's `totals[]`), named apart from
+// `@objectstack/spec/api`'s `DatasetTotals`, which since 17.5.0 is the REQUEST side
+// (`{ groupings }`, what to compute) — objectui#11073.
+interface DatasetResultTotals { dimensions: string[]; rows: Row[] }
+interface DatasetResult { rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Row[]; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetResultTotals[] }
 interface DatasetCapableSource {
   queryDataset?: (dataset: string, selection: unknown) => Promise<DatasetResult>;
 }
@@ -217,6 +228,35 @@ const TREND_LABEL_DEFAULTS: Record<string, string> = {
   vsYesterday: 'vs yesterday',
   vsPreviousPeriod: 'vs previous period',
 };
+
+/**
+ * The `dashboard.trend.*` key a comparison is labelled with on THIS path, read
+ * off `compareTo.kind` alone (objectui#11632).
+ *
+ * The dataset executor decides the comparison window from the kind: for
+ * `previousPeriod` it is the equal-length window immediately before the
+ * resolved one, and for `previousYear` the same window one calendar year back
+ * (`DatasetCompareTo` in `@objectstack/spec`). So each kind's label holds for
+ * every window it is applied to. "vs previous period" is true of a 30-day
+ * window and of a quarter alike.
+ *
+ * ⛔ Not `compareToTrendLabelKey` from `@object-ui/core`. That helper guesses
+ * the window from the RAW filter's date-macro tokens (`{today}` reads
+ * "vs yesterday"). The guess is faithful on the inline path, where
+ * `shiftFilterByCompareTo` really does swap `{today}` for `{yesterday}`. Here
+ * no token is swapped, because the executor shifts the whole resolved window.
+ * A dashboard date range of `last_30_days` (`{30_days_ago}` to `{today}`)
+ * compared the previous 30 days and was labelled "vs yesterday".
+ *
+ * Both keys already exist (`TREND_LABEL_DEFAULTS` above), so a dataset-bound
+ * and an inline KPI comparing one year back still read the same. `satisfies`
+ * makes a third kind added to `CompareToConfig` a compile error here instead
+ * of a comparison with no label of its own.
+ */
+const COMPARE_KIND_TREND_KEY = {
+  previousPeriod: 'vsPreviousPeriod',
+  previousYear: 'vsLastYear',
+} as const satisfies Record<CompareToConfig['kind'], string>;
 
 /**
  * ISO calendar date, optionally carrying a time part — `2026-01-15`,
@@ -347,6 +387,90 @@ export function extractDateWindows(filter: unknown): {
 const METRIC_TYPES = new Set(['metric', 'kpi', 'gauge', 'solid-gauge', 'bullet']);
 
 /**
+ * The chart families that draw a DIMENSIONLESS widget's measures: one mark per
+ * measure, the measures' labels on the category axis (objectui#11261).
+ *
+ * The spec's own list, imported, never restated (objectui#11334 placement
+ * ruling 5925828806): `DASHBOARD_WIDGET_MULTI_MEASURE_TYPES` is the one list of
+ * the types that render several measures with no dimension — `table` / `pivot`
+ * and the chart families `bar` / `column` / `horizontal-bar` / `line` / `area` /
+ * `combo` — and the spec's chart measure-arity check refuses two or more
+ * measures on a dimensionless widget of any other type. It is read here off the
+ * family a widget renders AS (`CHART_TYPE_MAP`), so a `stacked-bar` draws as a
+ * `bar` does; `table` / `pivot` are no `CHART_TYPE_MAP` family, and take
+ * `isTable` instead.
+ *
+ * `column` and `horizontal-bar` are the `bar` family drawn in another
+ * orientation (objectui#8894, triage's answer on the card): `column` draws the
+ * measures' labels along the bottom as `bar` does, and `horizontal-bar` runs
+ * them down the left with one bar across per measure.
+ *
+ * A dimensionless widget of any other family (pie, donut, funnel, scatter,
+ * radar, treemap, sankey) keeps the tile it always rendered: its display
+ * semantics for several measures are not invented here, and since
+ * `@objectstack/spec` 17.7.0 the spec refuses that shape at its door, which
+ * objectui's door follows (objectui#11717). A stored widget from before that
+ * refusal still says which measures it drops (see `renderedMeasures` in the
+ * component).
+ */
+const MEASURE_AXIS_CHART_FAMILIES: ReadonlySet<string> = new Set(DASHBOARD_WIDGET_MULTI_MEASURE_TYPES);
+
+/**
+ * The chart families that draw ONE series, whatever the widget declares
+ * (objectui#11417). The shared chart renderer (`AdvancedChartImpl` in
+ * `@object-ui/plugin-charts`) binds `series[0]` on its `pie` / `donut`,
+ * `funnel`, `treemap` and `sankey` arms and reads no other series there, so a
+ * chart of one of these families WITH a dimension draws its first measure and
+ * drops every other one, although this widget hands each measure on as a
+ * series. (Without a dimension these families take the tile, `isMetric`.)
+ *
+ * Read off the family a widget renders AS (`CHART_TYPE_MAP`), so a `pyramid`
+ * widget, which renders as a `funnel`, is in it too.
+ *
+ * Kept here, once, because the renderer has no declaration of it to read:
+ * those arms are `chartType === …` branches, and the one set it does declare
+ * (`SERIES_ONLY_CHART_TYPES`, the families that draw `series.map(…)` and
+ * nothing else) is not this set's complement. Two families sit outside both:
+ *  - `radar` draws every series;
+ *  - `scatter` (and `bubble`, which renders as one) refuses a second series out
+ *    loud, with a notice on the chart that names the series, so nothing is
+ *    dropped in silence and this widget has nothing to add.
+ * `DatasetWidget.singleSeriesMeasures-11417.test.tsx` ties this set to what
+ * the renderer draws: for every chart type, a second measure's values either
+ * change the drawn chart or this set names its family.
+ *
+ * Triage's ruling on objectui#11417 is that the spec refuses two or more
+ * measures on these five types with a dimension too (objectstack#21293). Since
+ * `@objectstack/spec` 17.7.0 the spec's door and objectui's refuse the shape
+ * (objectui#11717); for a widget stored before that, the dropped-measure
+ * diagnostic below is what says so.
+ */
+const SINGLE_SERIES_CHART_FAMILIES = new Set(['pie', 'donut', 'funnel', 'treemap', 'sankey']);
+
+/**
+ * The columns of a dimensionless chart's transposed rows (objectui#11261): the
+ * measure a mark stands for, and that measure's value. A transposed row carries
+ * these and nothing else, so no dataset measure name can collide with them.
+ */
+const MEASURE_CATEGORY_KEY = '__measure';
+const MEASURE_VALUE_KEY = '__value';
+
+/**
+ * Where a select dimension's value sits in the order its field DECLARES its
+ * options (objectui#11809), read off a `buildCategoryRank` map, which keys the
+ * stored value and the display label alike: a declared option at its declared
+ * position, then any value the options do not declare, then the empty bucket.
+ * Callers sort STABLY on it, so undeclared values keep the dataset's order
+ * among themselves, as the funnel keeps them.
+ */
+function declaredOptionPosition(value: unknown, rank: ReadonlyMap<string, number>, emptyLabel?: string): number {
+  const declared = value == null ? undefined : rank.get(String(value));
+  if (declared !== undefined) return declared;
+  if (value == null || value === '' || (emptyLabel !== undefined && value === emptyLabel)) return Number.MAX_SAFE_INTEGER;
+  return Number.MAX_SAFE_INTEGER - 1;
+}
+
+/**
  * Map a dashboard widget `type` to the advanced chart renderer's `chartType`.
  * Families the renderer doesn't draw distinctly fall back to their closest
  * relative (e.g. `spline`/`step-line` → line, `stacked-area` → area,
@@ -358,9 +482,15 @@ const METRIC_TYPES = new Set(['metric', 'kpi', 'gauge', 'solid-gauge', 'bullet']
  * `ChartTypeSchema` member since spec 17.0.0-rc.1 — so it maps to ITSELF.
  * Until #4229 it had no entry at all and fell through the `?? 'bar'` default,
  * which is one of the two halves that made an authored combo render as grouped
- * bars; the other half is the presentation merge below. `widgetDispatch`
- * already resolves a `combo` widget to `chartType: 'combo'`
- * (`SERIES_CHART_TYPES`), so this entry makes the two surfaces agree.
+ * bars. `widgetDispatch` already resolves a `combo` widget to
+ * `chartType: 'combo'` (`SERIES_CHART_TYPES`), so this entry makes the two
+ * surfaces agree.
+ *
+ * The other half of #4229, the per-series mark and axis binding merged from
+ * `chartConfig.series` / `yAxis`, is gone with those keys (objectui#11315):
+ * spec 17.5.0 refuses them on a dashboard widget. A `combo` widget still draws
+ * as a combo; each series takes the renderer's own positional mark (the combo
+ * arm of `AdvancedChartImpl` decides it) rather than an authored one.
  */
 const CHART_TYPE_MAP: Record<string, string> = {
   bar: 'bar',
@@ -387,64 +517,97 @@ const CHART_TYPE_MAP: Record<string, string> = {
 };
 
 /**
- * The authored chart CHROME and the series/axis presentation merge, both of
- * which now live in `@object-ui/core`'s `chart-presentation` beside
- * `buildChartSeries` — the derivation they are merged onto (objectui#4877).
+ * The authored chart CHROME, which now lives in `@object-ui/core`'s
+ * `chart-presentation` beside `buildChartSeries` — the derivation it is lowered
+ * onto (objectui#4877).
  *
- * They were written here (#3135 → objectstack#7016 → #4229) and moved when the
- * report renderer's embedded chart turned out to need the SAME merge over the
- * same spec keys: `ReportChartSchema` and `ChartConfigSchema` declare one
- * vocabulary, and a second copy of the split beside this one is precisely the
- * duplication objectui#4389 filed as a defect. The doctrine — the two
- * admission criteria, the data/presentation ruling, why `aria` stays
- * unforwarded — travelled with the code; see that module's header.
+ * It was written here (#3135 → objectstack#7016 → #4229) and moved when the
+ * report renderer's embedded chart turned out to need the SAME lowering over
+ * the same spec keys, and a second copy of the split beside this one is
+ * precisely the duplication objectui#4389 filed as a defect. The doctrine — the
+ * two admission criteria, the data/presentation ruling, why `aria` stays
+ * unforwarded — travelled with the code; see that module's header and
+ * `chartConfigPresentation`'s docblock.
  *
- * Re-exported under their original names so this module's public surface is
- * unchanged.
+ * Re-exported under its original name. The series/axis presentation merge
+ * (`mergeAuthoredPresentation`) was re-exported here too until objectui#11315:
+ * a dashboard widget's `chartConfig` no longer carries the `series` / `xAxis` /
+ * `yAxis` it read (spec 17.5.0), so this widget stopped calling it, and
+ * objectui#11372 then removed it from `@object-ui/core`.
  */
-export {
-  chartConfigPresentation,
-  mergeAuthoredPresentation,
-  type AuthoredSeriesPresentation,
-  type MergedChartSeries,
-} from '@object-ui/core';
+export { chartConfigPresentation } from '@object-ui/core';
 
 /**
- * The sub-caption a dashboard surface already resolved for this tile
- * (objectui#8889). Three states, and the difference between two of them is
- * load-bearing:
+ * A dataset-bound widget: a metric tile, a table / pivot, or a chart, drawn
+ * from one dataset query.
  *
- *  - **omitted (`undefined`)** — nobody upstream resolved it. This component is
- *    rendering outside a dashboard surface (a standalone host, a preview, a
- *    test), so there is no dashboard `name` in existence and therefore no
- *    bundle key to look up. The AUTHORED limb is resolved locally, which is
- *    exactly what objectui#7293 landed and what keeps rendering.
- *  - **a string** — that is the answer; render it.
- *  - **`null`** — a surface DID resolve it, to nothing. Render nothing, and in
- *    particular do NOT fall back to the authored value: a bundle entry that
- *    resolves to empty is the bundle winning, and the inline arms of
- *    `getComponentSchema()` render nothing in that same case. Falling back here
- *    is how the two surfaces would start to disagree.
- *
- * ⛔ Never widened to "the dashboard name" or "the widget's translation node".
- * Handing this component the INPUTS would put a second copy of the
- * authored-vs-bundle composition inside it, and the field's own invariant — "a
- * bundle entry always wins over an inline map and the two channels can never
- * disagree" — needs a single decision point to be true. That point is
- * `useWidgetSubCaption`; what arrives here is its answer.
+ * ⛔ No sub-caption prop, and no read of a `description` key in the options
+ * bag: the metric sub-caption is retired at both ends (objectui#11389, ruling
+ * C, after objectstack's half in `@objectstack/spec` 17.7.0). A widget keeps
+ * one authored description, `widget.description`, which the dashboard surface
+ * draws as the card-header subtitle. If a caption under a metric's value
+ * returns, it returns as a declared widget-level key outside the options bag,
+ * never as a key inside it. The options census in `@object-ui/sdui-parser`
+ * reads this file's text, comments included, which is why this note does not
+ * spell the bag's member access.
  */
-export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any; dataSource: unknown; subCaption?: string | null }) {
+export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource: unknown }) {
   const datasetName = String(widget?.dataset ?? '');
   const dimensions: string[] = useMemo(() => (Array.isArray(widget?.dimensions) ? widget.dimensions.filter(Boolean) : []), [widget]);
   const values: string[] = useMemo(() => (Array.isArray(widget?.values) ? widget.values.filter(Boolean) : []), [widget]);
-  const widgetType = String(widget?.type ?? '');
-  const isMetric = METRIC_TYPES.has(widgetType) || dimensions.length === 0;
+  // An absent `type` is the spec's default, `metric` (objectui#11514, Q2 A),
+  // as the two dashboard surfaces resolve it before they reach this widget.
+  const widgetType = String(widget?.type ?? specDefaultWidgetType());
   const isTable = widgetType === 'table' || widgetType === 'pivot';
+  // ── Which widgets are a one-number tile (objectui#11261) ─────────────────
+  // By TYPE, only the metric family. By SHAPE, a widget that declares no
+  // dimension, with one exception: two or more measures on a type the spec
+  // states a dimensionless rendering for. A `table` / `pivot` renders one row
+  // carrying every measure, and a chart of the bar family (`bar` / `column` /
+  // `horizontal-bar`) or a `line` / `area` / `combo` one mark per measure
+  // (`MEASURE_AXIS_CHART_FAMILIES`). Those used to become a tile as
+  // well and render `values[0]` alone, although every door accepts them and
+  // the spec's own refusal text sends authors there for "several numbers in
+  // ONE widget".
+  //
+  // ONE measure and no dimension stays a tile on every type: nothing is
+  // dropped there, and the tile is what it has always rendered. So does every
+  // type the spec's text does not name, whatever its measure count — see
+  // `MEASURE_AXIS_CHART_FAMILIES` for why.
+  //
+  // Read off `CHART_TYPE_MAP` directly, never through `chartType`'s `?? 'bar'`
+  // default: that default belongs to a type the map does not name. A widget with
+  // no `type` is already `metric` here (above), so it is a tile by type.
+  const rendersEveryMeasureWithoutDimension =
+    values.length > 1 && (isTable || MEASURE_AXIS_CHART_FAMILIES.has(CHART_TYPE_MAP[widgetType] ?? ''));
+  const isMetric = METRIC_TYPES.has(widgetType) || (dimensions.length === 0 && !rendersEveryMeasureWithoutDimension);
   // The chart family a widget that reaches the chart branch below renders as —
   // `bubble` → `scatter`, `pyramid` → `funnel` (CHART_TYPE_MAP). Only meaningful
-  // when neither `isMetric` nor `isTable` holds; resolved up here because the
-  // query needs it (see `compareTo` just below), not only the chart branch.
+  // when neither `isMetric` nor `isTable` holds; resolved up here because what
+  // the widget renders (just below) and the query (see `compareTo`) need it,
+  // not only the chart branch.
   const chartType = CHART_TYPE_MAP[widgetType] ?? 'bar';
+  // A chart of a single-series family draws its first measure only, with a
+  // dimension too (`SINGLE_SERIES_CHART_FAMILIES`, objectui#11417). The chart
+  // branch still hands every measure on as a series: what is drawn does not
+  // change here, only what this widget says it renders.
+  const drawsFirstMeasureOnly = !isMetric && !isTable && SINGLE_SERIES_CHART_FAMILIES.has(chartType);
+  // ── What this widget RENDERS of what it declares (objectui#8894) ─────────
+  // Settled here, by the branch decision just above, and read by both the tile
+  // below and the dropped-measure diagnostic, so the two cannot disagree. A
+  // tile shows ONE number, the first declared measure's, and a chart of a
+  // single-series family draws the first declared measure's series. Every
+  // other branch renders every declared measure: a table one column per
+  // measure, a chart one series per measure, a dimensionless chart one mark
+  // per measure.
+  //
+  // "Renders" is what reaches the screen. For a chart that is decided in the
+  // shared chart renderer, which this widget hands every measure to as a
+  // series; the one family of arms there that draws a single series is
+  // stated here as `SINGLE_SERIES_CHART_FAMILIES`, with the pin that ties the
+  // two named in its docblock.
+  const renderedMeasures = isMetric || drawsFirstMeasureOnly ? values.slice(0, 1) : values;
+  const droppedMeasures = values.filter((m) => !renderedMeasures.includes(m));
   // `widget.compareTo` IS the executor's contract since objectstack#5011 —
   // `{ kind, dimension? }`, the same `DatasetCompareTo` the selection carries —
   // so it forwards unchanged. It used to be a three-branch union whose two
@@ -521,6 +684,10 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // against the rows in front of them — and "don't make the reader add it up"
   // is the whole point of the row. No request is issued in that case, so the
   // cost is not paid either.
+  //
+  // Nor for a DIMENSIONLESS table (objectui#11261). Its selection groups by
+  // nothing, so the one row it answers already IS the `[]` grouping, and a
+  // footer would print that row a second time.
   const wantsFlatTotals = isTable && !isMatrix && dimensions.length > 0 && limit == null;
   const totalsGroupings = isMatrix
     ? [rowDims, [colDim], []]
@@ -538,12 +705,6 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // dependency array to add it to; the sites below are all in the render body
   // and re-run whenever the provider changes.
   const displayLocale = useDisplayLocale();
-  // The UI LANGUAGE, deliberately distinct from `displayLocale` above: that one
-  // is the NUMBER locale (objectui#4566 / #4033 — the tenant regional default
-  // outranks the UI language), this one is what authored TEXT follows. Swapping
-  // either for the other silently changes the other surface's behaviour, which
-  // is why `MetricWidget` keeps the same two channels apart by name.
-  const { language } = useObjectTranslation();
 
   // ADR-0021 dual-form: the widget's presentation-scope `filter` must flow into
   // the dataset query as `runtimeFilter`, or a dataset-bound widget renders the
@@ -588,7 +749,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
 
   // `signature` is the query an `ok` answer was read for, and `refreshing` marks
   // a re-read of that same query in flight (objectui#10815, see the effect).
-  const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Array<Record<string, unknown>>; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetTotals[]; error?: string; forbidden?: boolean; signature?: string; refreshing?: boolean }>({ status: 'idle', rows: [] });
+  const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Array<Record<string, unknown>>; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetResultTotals[]; error?: string; forbidden?: boolean; signature?: string; refreshing?: boolean }>({ status: 'idle', rows: [] });
   // Drill-through (ADR-0021 D2): the clicked bucket's record-list filter + title.
   const [drill, setDrill] = useState<{ filter: Record<string, unknown>; title: string } | null>(null);
   // ── The flat table's client-side sort (objectui#5827) ────────────────────
@@ -677,21 +838,47 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, invalidationNonce]);
 
-  // ── Declared measures this tile will never show (objectui#8894) ──────────
-  // `values` is `z.array(z.string()).min(1)` on `DashboardWidgetSchema`, so an
-  // author may legally declare three measures, and the query above runs ALL of
-  // them (`measures: values`). The metric/KPI branch below then renders
-  // `values[0]` and stops — no warning, no console message, no visual tell. A
-  // tile answering a NARROWER question than its metadata asked still reads as a
-  // finished product, and that silence is the defect (ADR-0049
-  // declared-but-unenforced), not the count of numbers on screen.
+  // ── Declared measures this widget never shows (objectui#8894) ────────────
+  // The query above runs every declared measure (`measures: values`), and the
+  // branch decision keeps some of them off the screen (`droppedMeasures`). That
+  // drop used to happen in silence: a tile answering a NARROWER question than
+  // its metadata asked still reads as a finished product, which is the
+  // declared-but-unenforced shape ADR-0049 exists to end. This diagnostic keeps
+  // the drop audible. It does not render the dropped measures, so the tile's
+  // markup is byte-unchanged (objectui#8887 pins that, and the drop itself).
   //
-  // This makes the drop AUDIBLE. It deliberately does NOT render the dropped
-  // measures: giving `values[1..]` rendering semantics they do not have today
-  // widens the authoring surface (objectui#8894 option (a), a separate card on
-  // the manual-floor route), so the markup below is byte-unchanged and the
-  // measures after the first are still dropped — objectui#8887 pins both of
-  // those facts and both stay green.
+  // Three shapes reach a drop now that `@objectstack/spec` 17.5.0 judges the
+  // metric family (ruling D on objectui#8894):
+  //  - a metric-family tile with two or more measures. The spec refuses it at
+  //    its door (`checkDashboardWidgetMetricMeasureArity`, which objectui's
+  //    `DashboardWidgetSchema` re-attaches), so it arrives here as a document
+  //    stored before that narrowing: the read path serves stored rows as they
+  //    are, and the ADR-0087 entry is a semantic migration with no conversion;
+  //  - a dimensionless widget whose type the spec's text gives no rendering of
+  //    several measures (see `MEASURE_AXIS_CHART_FAMILIES`), which takes the
+  //    tile. Every door accepts it until the spec refuses that shape;
+  //  - a chart WITH a dimension whose family draws one series
+  //    (`SINGLE_SERIES_CHART_FAMILIES`, objectui#11417): the renderer draws
+  //    the first measure. Every door accepts it until the spec refuses that
+  //    shape too (objectstack#21293).
+  // The condition is the set difference between what is declared and what the
+  // branch renders, never a list of types, so it goes quiet by itself wherever
+  // a branch starts rendering a measure (objectui#11261 took the table and the
+  // bar / line / area / combo charts off it, objectui#8894 column and
+  // horizontal-bar).
+  //
+  // What it says: which widget, what it renders, and which measures it queried
+  // and never displayed. Then, for a tile, where the spec states what to author
+  // instead — the `replacement` of the metric-family refusal's ADR-0087 entry,
+  // which answers for a one-number tile that declares several measures. It
+  // names no widget types and gives no advice of its own: the entry is the
+  // spec's advice, and a second copy written here would drift from it.
+  //
+  // A single-series chart is not a one-number tile, so that entry does not
+  // answer for it, and the message does not point there. It states the cause
+  // instead (the chart family draws one series, the first declared measure)
+  // and names no type but that family. No spec entry answers for this shape
+  // at the spec objectui pins, and the message invents no advice in its place.
   //
   // ⚠️ "Queried … never displayed", NOT "ignored": the extra measures are not
   // inert, and a message saying they were would itself be false. They are
@@ -704,15 +891,17 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // The message itself is the effect's dependency, so it speaks once per mount
   // and again only when what it would say changes. A module-level one-shot Set
   // (`warnSuppressedListNav`'s shape) was deliberately not used: it would need
-  // an exported reset and leak across tests, and the census for this card found
-  // the multi-measure metric tile in NO authored dashboard in this tree or in
-  // `objectstack` — there is no population here to flood a console with.
+  // an exported reset and leak across tests.
+  const quoteMeasures = (measures: string[]) => measures.map((m) => `"${m}"`).join(', ');
   const unrenderedMeasureWarning =
-    isMetric && values.length > 1
+    droppedMeasures.length > 0
       ? `[DatasetWidget] Widget "${String(widget?.id ?? '')}" (type "${widgetType}", dataset "${datasetName}") `
-        + `declares ${values.length} measures, but a metric tile renders only the first ("${values[0]}"). `
-        + `Queried and then never displayed: ${values.slice(1).map((m) => `"${m}"`).join(', ')}. `
-        + `Declare one measure per metric tile, or use a widget that renders every measure (table, pivot or a chart).`
+        + `renders ${renderedMeasures.length} of its ${values.length} declared measures: ${quoteMeasures(renderedMeasures)}. `
+        + `Queried and then never displayed: ${quoteMeasures(droppedMeasures)}. `
+        + (drawsFirstMeasureOnly
+          ? `Its chart family "${chartType}" draws a single series: the first declared measure.`
+          : 'The spec states what to author instead of a one-number tile with several measures in the '
+            + 'replacement of its ADR-0087 entry "dashboard-widget-metric-family-multi-measure-refused".')
       : '';
   useEffect(() => {
     if (unrenderedMeasureWarning) console.warn(unrenderedMeasureWarning);
@@ -797,8 +986,8 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // that path exactly as they did when it returned early (objectui#4263).
   // #4330 widened only WHICH DIMENSIONS get a label map, never what a table
   // consumes — hence the `isTable` gate on `firstDimPath` and nothing else.
-  const { categoryColors, dimensionLabels, categoryOrder } = useMemo(() => {
-    if (!dimensionMeta) return { categoryColors: null, dimensionLabels: null, categoryOrder: null };
+  const { categoryColors, dimensionLabels, categoryOrder, seriesOrder } = useMemo(() => {
+    if (!dimensionMeta) return { categoryColors: null, dimensionLabels: null, categoryOrder: null, seriesOrder: null };
     const { metaByPath, relabel } = dimensionMeta;
     // Colours and declared order read `option.label`, so they are fed the
     // LOCALIZED options — the same "translate the options, then render them"
@@ -812,10 +1001,20 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     const firstDimOptions = firstDimPath
       ? localizeFieldOptions(firstDimMeta?.options, dimensionOptionTranslator(firstDimMeta, fieldOptionLabel))
       : undefined;
+    // objectui#11809 — the SECOND dimension's declared order too: a chart that
+    // pivots it into series lists those series in its legend, and a select
+    // there reads in its declared order like the axis does. Chart-only, gated
+    // as the first dimension's order is.
+    const secondDimPath = isTable ? undefined : relabel[1]?.path;
+    const secondDimMeta = secondDimPath ? metaByPath[secondDimPath] : undefined;
+    const secondDimOptions = secondDimPath
+      ? localizeFieldOptions(secondDimMeta?.options, dimensionOptionTranslator(secondDimMeta, fieldOptionLabel))
+      : undefined;
     return {
       categoryColors: buildOptionColorMap(firstDimOptions),
       dimensionLabels: deriveDimensionLabelMaps(metaByPath, relabel, fieldOptionLabel),
       categoryOrder: buildCategoryOrder(firstDimOptions),
+      seriesOrder: buildCategoryOrder(secondDimOptions),
     };
   }, [dimensionMeta, fieldOptionLabel, isTable]);
 
@@ -933,10 +1132,13 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     ? values.filter((m) => state.rows.some((r) => r[compareColumn(m)] != null))
     : [];
   // Window label from the SAME `dashboard.trend.*` vocabulary the inline metric
-  // widget uses. `compareToTrendLabelKey` reads `compareTo.kind` and — for
-  // `previousPeriod` — the RAW filter's macro tokens, so "vs last quarter"
-  // survives the resolution that turned those tokens into dates.
-  const compareTrendKey = compareTo ? compareToTrendLabelKey(compareTo, rawFilter) : '';
+  // widget uses, read off `compareTo.kind` and never off the filter's macro
+  // tokens (objectui#11632). The executor shifts the whole resolved window, so
+  // the kind is all there is to say about which window was compared. See
+  // `COMPARE_KIND_TREND_KEY`. This one label names the window on every surface
+  // below: the KPI delta, the table's comparison column header, the cross-tab
+  // caption and the chart's comparison series.
+  const compareTrendKey = compareTo ? COMPARE_KIND_TREND_KEY[compareTo.kind] : '';
   const compareLabel = compareTo
     ? tt(`dashboard.trend.${compareTrendKey}`, TREND_LABEL_DEFAULTS[compareTrendKey] ?? 'vs previous period')
     : '';
@@ -983,13 +1185,16 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
 
   // Metric / KPI — show the single measure value of the first row, using the
   // measure's display label (not the raw name) and its format (e.g. "$616,000").
+  // The measure is the one `renderedMeasures` settled for the tile, the same
+  // derivation the dropped-measure diagnostic reads (objectui#8894).
   if (isMetric) {
-    const f = measureField(values[0]);
-    const value = state.rows[0]?.[values[0]] ?? 0;
+    const tileMeasure = renderedMeasures[0];
+    const f = measureField(tileMeasure);
+    const value = state.rows[0]?.[tileMeasure] ?? 0;
     // Period-over-period delta, computed from the SAME `computeMetricDelta` the
     // inline KPI uses so both surfaces round and sign it identically.
-    const previous = state.rows[0]?.[compareColumn(values[0])];
-    const delta = comparedValues.includes(values[0])
+    const previous = state.rows[0]?.[compareColumn(tileMeasure)];
+    const delta = comparedValues.includes(tileMeasure)
       ? computeMetricDelta(
           typeof value === 'number' ? value : null,
           typeof previous === 'number' ? previous : null,
@@ -1013,54 +1218,14 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     // `undefined`, which `cn` drops: the markup of every widget that never
     // declared the key stays byte-identical.
     const accentClass = metricAccentTextClass(widget?.colorVariant);
-    // ── The declared sub-caption (objectui#7293) ───────────────────────────
-    // `options.description` is the metric tile's SUB-CAPTION slot. It is
-    // declared end to end and reached nothing: it has its own translation key
-    // (`{ns}.dashboards.{dash}.widgets.{id}.subCaption`, objectui#4032 item 4 /
-    // objectstack#8056), the server's `translateDashboard` OVERLAYS that
-    // translation onto this very key, and `DashboardRenderer.tWidgetSubCaption`
-    // resolves it — but only onto the two INLINE arms of `getComponentSchema`.
-    // `dataset` is REQUIRED on `DashboardWidgetSchema` (verified against the
-    // published @objectstack/spec@17.4.0: required keys are id/dataset/values),
-    // so every spec-legal widget renders HERE instead, and every author who
-    // wrote a sub-caption got silence — the ADR-0049 declared-but-unenforced
-    // shape, same as `colorVariant` above.
-    //
-    // ── The BUNDLE limb (objectui#8889) ────────────────────────────────────
-    // #7293 (above) landed the AUTHORED limb here, reading the key at the
-    // caption row rather than taking a prop, and its reason was sound at the
-    // time: BOTH dashboard surfaces route a dataset-bound widget to this
-    // component (`DashboardRenderer` and `DashboardGridLayout`, objectui#4614),
-    // so a prop from ONE dispatch site fixes one surface and leaves the other
-    // silently unchanged (objectui#4614 is that lesson's original card).
-    //
-    // What it could not deliver is the SECOND limb: a client i18n bundle entry
-    // at `{ns}.dashboards.{dash}.widgets.{id}.subCaption` overriding the
-    // authored value. That limb needs the dashboard NAME, and this component
-    // does not know which dashboard it is on — it is handed a widget, not a
-    // position. So an app-bundle dashboard whose sub-caption was written ONLY
-    // in the bundle (no `options.description` at all) rendered nothing here,
-    // even though `tWidgetSubCaption`'s own docblock calls that shape
-    // legitimate: "A translation with no authored counterpart is legitimate and
-    // matches the server."
-    //
-    // The answer now arrives resolved, from `useWidgetSubCaption` — ONE
-    // composition, called by BOTH dispatch sites (the #4614 requirement is met
-    // by changing both, not by moving the read down here). See the `subCaption`
-    // prop's docblock for the three states and why `null` must not fall back.
-    //
-    // The local limb below is what remains of #7293, and it still runs for a
-    // host that passes no prop. `pickLocalized` (the objectui#4208 seam), not a
-    // `typeof === 'string'` test: an authored inline per-locale map is the
-    // vocabulary this field admits, and re-implementing a narrower resolver
-    // here is exactly the fourth dialect objectstack#4115 exists to prevent
-    // (objectui#4032 is what a private resolver that could not read the map
-    // already cost). A miss answers `''`, which collapses to `undefined` and
-    // renders NO node at all — a tile that declares no sub-caption keeps
-    // byte-identical markup.
-    const resolvedSubCaption = subCaption === undefined
-      ? (pickLocalized(options.description, language) || undefined)
-      : (subCaption || undefined);
+    // ── No sub-caption (objectui#11389, ruling C) ──────────────────────────
+    // The tile draws the value, the delta and the measure label, and nothing
+    // from the options bag. Its `description` key was the sub-caption
+    // (objectui#7293), fed by the server's `subCaption` overlay and a client
+    // bundle limb; both ends are retired, and the spec never declared the key.
+    // An authored one now draws the parser's `unconsumed-widget-option` warning
+    // instead of a caption node. The card-header subtitle, `widget.description`,
+    // is the surface's to draw, not this tile's.
     return (
       // Positioned only while a re-read is in flight, for the refresh bar: the
       // idle tile's markup is pinned byte-for-byte (`DatasetWidget.colorVariant`,
@@ -1084,10 +1249,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
             <span className="min-w-0 truncate">{compareLabel}</span>
           </div>
         )}
-        <span className="text-xs text-muted-foreground">{headerLabel(values[0])}</span>
-        {resolvedSubCaption && (
-          <span className="text-xs text-muted-foreground" data-testid="dataset-metric-subcaption">{resolvedSubCaption}</span>
-        )}
+        <span className="text-xs text-muted-foreground">{headerLabel(tileMeasure)}</span>
       </div>
     );
   }
@@ -1581,9 +1743,10 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
           {totalsRow && (
             <tfoot className="bg-muted/30">
               <tr className="border-t font-medium" data-testid="dataset-table-total-row">
-                {/* One label cell spanning the dimension columns. This branch
-                    always has at least one (a zero-dimension widget renders as
-                    a KPI and returns above), so the span is never 0. */}
+                {/* One label cell spanning the dimension columns. The footer
+                    renders only under `wantsFlatTotals`, which requires a
+                    dimension (a dimensionless table's one row IS the total,
+                    objectui#11261), so the span is never 0. */}
                 <td colSpan={dimensions.length} className="px-2 py-1 whitespace-nowrap">{totalRowLabel}</td>
                 {measureColumns.map((c) => {
                   // The SAME per-column formatter the body cells use —
@@ -1637,15 +1800,84 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // from the locale bundle here — `计数` on a zh console, not the server's
   // English `Count` — while an author-declared measure carries no discriminator
   // and keeps its wire `label` verbatim (objectui#4106).
-  const { data: chartData, xAxisKey, series } = buildChartSeries(chartRows, dimensions, values, state.fields, {
-    nullCategoryLabel,
-    builtinAggregateLabels: builtinAggregateLabels(tt),
-  });
+  //
+  // ── A dimensionless chart plots its MEASURES as the categories (objectui#11261) ──
+  // Reached only by a chart of the bar family (bar / column / horizontal-bar)
+  // or a line / area / combo with two or more measures (`isMetric` keeps every
+  // other dimensionless widget a tile). The query
+  // grouped by nothing, so it answered ONE row carrying every measure, the
+  // `[]` grand-total grouping; that row is `state.rows[0]`, the same row the
+  // tile reads. `buildChartSeries` would plot it as one unlabelled category
+  // holding a series per measure. The spec states the other shape, one mark per
+  // measure, so the row is transposed: one chart row per declared measure, in
+  // declaration order, its category the measure's label (`headerLabel`, the
+  // widget's one measure-label channel: the tile caption, the table header and
+  // the comparison overlay all read it) and its value under a single series.
+  // That series is labelled `dashboard.total`, the grouping this row IS and the
+  // key the flat table's footer already prints for that same grouping, so no
+  // new string is minted.
+  const measuresOnAxis = dimensions.length === 0;
+  const measureAxisSeriesLabel = tt('dashboard.total', 'Total');
+  // ── A select dimension in its DECLARED order (objectui#11809) ──
+  // The dataset answers its buckets in GROUP BY order — the stored values'
+  // alphabetical order — so the axis read Backlog, Done, In Progress, In
+  // Review, To Do, and a donut's legend High, Low, Medium, Urgent. The field's
+  // own option order is the domain order (the Kanban lanes are drawn in it),
+  // so the rows are put in it before they are
+  // charted: declared options first, undeclared values next, the empty bucket
+  // last. Only the copy that is CHARTED is reordered; `chartRows` keeps its
+  // index alignment with `drillRawRows`, which the drill lookup below relies
+  // on. An explicit `options.sortBy` is the author's order and is kept as the
+  // dataset answered it.
+  const categoryRank = measuresOnAxis || sortable ? null : buildCategoryRank(categoryOrder);
+  const plotRows = categoryRank
+    ? [...chartRows].sort(
+        (a, b) =>
+          declaredOptionPosition(a[dimensions[0]], categoryRank) -
+          declaredOptionPosition(b[dimensions[0]], categoryRank),
+      )
+    : chartRows;
+  const { data: chartData, xAxisKey, series: derivedSeries } = measuresOnAxis
+    ? {
+        data: values.map((m) => ({
+          [MEASURE_CATEGORY_KEY]: headerLabel(m),
+          [MEASURE_VALUE_KEY]: state.rows[0]?.[m],
+          // The comparison window's value rides beside its measure, under the
+          // single series' own `__compare` column, for the overlay below.
+          ...(comparedValues.includes(m)
+            ? { [compareColumn(MEASURE_VALUE_KEY)]: state.rows[0]?.[compareColumn(m)] }
+            : {}),
+        })),
+        xAxisKey: MEASURE_CATEGORY_KEY,
+        series: [{ dataKey: MEASURE_VALUE_KEY, label: measureAxisSeriesLabel }],
+      }
+    : buildChartSeries(plotRows, dimensions, values, state.fields, {
+        nullCategoryLabel,
+        builtinAggregateLabels: builtinAggregateLabels(tt),
+      });
+  // The pivoted series — a second select dimension's values, which the legend
+  // lists — in that dimension's declared order too (objectui#11809).
+  // `buildChartSeries` pivots a second dimension into the series exactly when
+  // the chart carries one measure (`pivotedSeries` below is the same test).
+  const seriesRank = dimensions.length >= 2 && values.length === 1 && !sortable ? buildCategoryRank(seriesOrder) : null;
+  const series = seriesRank
+    ? [...derivedSeries].sort(
+        (a, b) =>
+          declaredOptionPosition(a.label, seriesRank, nullCategoryLabel) -
+          declaredOptionPosition(b.label, seriesRank, nullCategoryLabel),
+      )
+    : derivedSeries;
 
-  // The author's PRESENTATION, merged onto those derived bindings — per-series
-  // mark and axis binding, plus the axis definitions (#4229). Membership stays
-  // with the dataset; see `mergeAuthoredPresentation` for the ruled split.
-  const { series: presentedSeries, axes: authoredAxes } = mergeAuthoredPresentation(series, widget?.chartConfig);
+  // The chart's STRUCTURE is the dataset's: the series and the category axis
+  // above are emitted as derived, and nothing authored is merged onto them.
+  // `chartConfig.series` / `xAxis` / `yAxis` used to merge their presentation
+  // half here (#4229, through `mergeAuthoredPresentation`, which objectui#11372
+  // has since removed from `@object-ui/core`).
+  // `@objectstack/spec` 17.5.0 retired all three on a dashboard widget
+  // (`DashboardWidgetChartConfigSchema`, ADR-0021 · ADR-0049 D2), so they are
+  // refused at parse, and a stored widget that still carries them renders the
+  // derivation, not an authored mark or axis (objectui#11315). `chartConfig`
+  // keeps the chrome, lowered below.
 
   // Comparison overlay — one extra series per compared measure, carrying the
   // same `variant: 'comparison'` the inline chart's overlay uses (ObjectChart's
@@ -1660,28 +1892,29 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // definition at the top), so no comparison was queried and `comparedValues`
   // is empty (objectui#7495, objectui#7402).
   const pivotedSeries = dimensions.length >= 2 && values.length === 1;
+  // The series a comparison pairs with: one per compared measure, or — on a
+  // dimensionless chart (objectui#11261) — the single transposed series, whose
+  // rows carry each compared measure's earlier value.
+  const comparedSeries = measuresOnAxis
+    ? (comparedValues.length > 0 ? [{ dataKey: MEASURE_VALUE_KEY, label: measureAxisSeriesLabel }] : [])
+    : comparedValues.map((m) => ({ dataKey: m, label: headerLabel(m) }));
   const comparisonSeries = pivotedSeries
     ? []
-    : comparedValues.map((m) => {
-        // An overlay is the SAME measure one period back, so it takes its
-        // primary's mark and axis — read off the already-merged series, never
-        // re-read from `chartConfig` (one merge path). Without this a combo's
-        // overlay fell to the renderer's positional guess and drew a bar
-        // measure as a line on the opposite axis. `stack` is deliberately NOT
-        // inherited: stacking an overlay onto its own primary would add the
-        // two periods together.
-        const primary = presentedSeries.find((s) => s.dataKey === m);
+    : comparedSeries.map(({ dataKey, label }) => {
+        // An overlay is the SAME measure one period back. It carries no mark
+        // and no axis of its own, and neither does its primary: on this
+        // carrier no series is authored (objectui#11315), so the renderer
+        // decides both for every series alike. Until then an overlay copied
+        // its primary's MERGED mark and axis (#4229).
         return {
-          dataKey: compareColumn(m),
-          label: `${headerLabel(m)} · ${compareLabel}`,
+          dataKey: compareColumn(dataKey),
+          label: `${label} · ${compareLabel}`,
           variant: 'comparison' as const,
-          ...(primary?.chartType ? { chartType: primary.chartType } : {}),
-          ...(primary?.yAxis ? { yAxis: primary.yAxis } : {}),
         };
       });
   const chartSeries = comparisonSeries.length > 0
-    ? [...presentedSeries.map((s) => ({ ...s, variant: s.variant ?? 'current' })), ...comparisonSeries]
-    : presentedSeries;
+    ? [...series.map((s) => ({ ...s, variant: 'current' as const })), ...comparisonSeries]
+    : series;
 
   // Ordered-sequence charts (funnel/pyramid) need a DEFINED stage order.
   // `options.stageOrder` wins when the author states one explicitly; otherwise
@@ -1699,10 +1932,11 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // The widget's declared `chartConfig`, lowered onto the chart schema —
   // #3135 for `showLegend`, objectstack#7016 for the rest of the keys the chart
   // block measurably delivers. See `chartConfigPresentation` for the two
-  // criteria a key has to meet, for why `type`/`aria` are deliberately NOT
-  // here, and for where `xAxis`/`yAxis`/`series` go instead (#4229). It also
-  // owns the `colors` split, so the per-category map it returns already carries
-  // the dimension field's own option colours underneath any explicit author map.
+  // criteria a key has to meet, and for why `type`/`aria` are deliberately NOT
+  // here; `xAxis`/`yAxis`/`series` are not read at all (see the series above,
+  // objectui#11315). It also owns the `colors` split, so the per-category map
+  // it returns already carries the dimension field's own option colours
+  // underneath any explicit author map.
   const chartPresentation = chartConfigPresentation(widget?.chartConfig, categoryColors);
 
   // Map a clicked chart segment back to its dataset row, then drill through to
@@ -1750,7 +1984,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
         // measurement churn, can freeze there — bars never draw until an unrelated
         // re-render (#2756, follow-up to #2727's ineffective settle re-mount).
         // Turning the tween off makes the first paint deterministic.
-        schema={{ type: 'chart', chartType, data: chartData, xAxisKey, series: chartSeries, isAnimationActive: false, ...chartPresentation, ...authoredAxes, ...(effectiveCategoryOrder ? { categoryOrder: effectiveCategoryOrder } : {}) } as any}
+        schema={{ type: 'chart', chartType, data: chartData, xAxisKey, series: chartSeries, isAnimationActive: false, ...chartPresentation, ...(effectiveCategoryOrder ? { categoryOrder: effectiveCategoryOrder } : {}) } as any}
         onChartClick={chartDrill}
         onSegmentClick={chartDrill}
       />

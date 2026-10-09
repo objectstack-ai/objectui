@@ -79,7 +79,11 @@ function makeDataSource() {
         id: { type: 'text' },
         account_name: { type: 'text', label: 'Account Name' },
         close_date: { type: 'date', label: 'Close Date' },
-        win_rate: { type: 'percent', label: 'Win Rate' },
+        // objectui#11475 — `1234.5` is percentage points, so the field
+        // declares whole-point storage (a `max` above 1, the spec's
+        // `percentScaleOf`); the card used to guess it from the value's size.
+        // The locale this file measures is unmoved.
+        win_rate: { type: 'percent', label: 'Win Rate', max: 10000 },
       },
     }),
   } as any;

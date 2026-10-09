@@ -202,12 +202,14 @@ describe('ToastSchema (TS) — compile-time pin on the same keys', () => {
   });
 
   it('refuses a wrong-typed value on every declared key', () => {
-    // Each directive below fails the build (TS2578, "unused '@ts-expect-error'")
-    // the moment its key stops being declared, because the member then resolves
-    // to `any` through `BaseSchema`'s index signature and the assignment starts
-    // succeeding. That failure is the signal this card exists to create, and it
-    // is real enforcement rather than decoration because `tsconfig.test.json`
-    // compiles this file (objectui#3009).
+    // Each directive below failed the build (TS2578, "unused '@ts-expect-error'")
+    // the moment its key stopped being declared, while the member resolved to
+    // `any` through `BaseSchema`'s index signature. Since objectui#8347 a removal
+    // makes the indexed access itself an error, which its directive swallows, so
+    // the deletion signal comes from the well-typed counter-probe below; each
+    // directive still fails the build if its member is widened, and it is real
+    // enforcement rather than decoration because `tsconfig.test.json` compiles
+    // this file (objectui#3009).
 
     // @ts-expect-error — `buttonLabel` is declared `string | undefined`.
     const buttonLabel: ToastSchemaTS['buttonLabel'] = 42;
@@ -311,9 +313,11 @@ describe('ToastSchema — `action` is retired, not deleted (objectui#8338)', () 
 describe('ToastSchema (TS) — `action` is a `?: never` tombstone (objectui#8338)', () => {
   it('refuses the object the declaration used to carry', () => {
     // Compiled by `tsconfig.test.json` (objectui#3009), so this directive is
-    // real enforcement. It fails the build with TS2578 the moment the member is
-    // DELETED rather than tombstoned: the key then resolves to `any` through
-    // `BaseSchema`'s index signature and the assignment starts succeeding.
+    // real enforcement. It failed the build with TS2578 the moment the member was
+    // DELETED rather than tombstoned, while the key resolved to `any` through
+    // `BaseSchema`'s index signature. Since objectui#8347 a deletion makes the
+    // indexed access itself an error, which this directive swallows, so the
+    // `Equal` row below catches it instead.
     // @ts-expect-error — `action` is retired; the type is `never`.
     const action: ToastSchemaTS['action'] = { label: 'Undo', onClick: () => undefined };
     // @ts-expect-error — and the node shape the mirror used to admit is not it either.
@@ -324,8 +328,8 @@ describe('ToastSchema (TS) — `action` is a `?: never` tombstone (objectui#8338
   it('reads as exactly `undefined` off the interface', () => {
     // The type-level half runs at `tsc`; this body only keeps the assertion
     // reachable from a test name. `Equal`, ⛔ not `extends`: a DELETED member
-    // reads `any` through the index signature and a one-way check would accept
-    // it — the same trap `handler-keys-json-refusal-6124.test.ts` names.
+    // read `any` through the index signature until objectui#8347 and a one-way
+    // check would accept it — the same trap `handler-keys-json-refusal-6124.test.ts` names.
     const absent: ToastSchemaTS = { type: 'toast' };
     expect('action' in absent).toBe(false);
   });

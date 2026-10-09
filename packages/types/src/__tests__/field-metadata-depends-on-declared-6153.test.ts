@@ -110,7 +110,7 @@ export const _lookupWithDependsOnEntry: LookupFieldMetadata = {
   type: 'lookup',
   name: 'contact',
   label: 'Contact',
-  reference_to: 'contacts',
+  reference: 'contacts',
   dependsOn: [{ field: 'account', param: 'account_id' }],
 };
 
@@ -132,7 +132,7 @@ export const _lookupWithDependsOnShorthand: LookupFieldMetadata = {
 export const _retiredTwinIsRefusedByTheType: LookupFieldMetadata = {
   type: 'lookup',
   name: 'contact',
-  reference_to: 'contacts',
+  reference: 'contacts',
   // @ts-expect-error — objectui#7357: `depends_on` is no longer a member of `BaseFieldMetadata`; author `dependsOn`
   depends_on: ['account'],
 };

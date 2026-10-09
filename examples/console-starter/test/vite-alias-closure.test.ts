@@ -148,7 +148,35 @@ interface Closure {
   nonModuleSkipped: string[];
 }
 
-function computeClosure(entryDir: string = path.join(exampleDir, 'src')): Closure {
+/**
+ * Where Vite sends a workspace specifier: the FIRST alias entry, in table
+ * order, whose key equals the specifier or is a prefix of it ending at a `/`,
+ * with that key replaced by its target — the matching `@rollup/plugin-alias`
+ * applies to `resolve.alias`. With no matching entry it is the package-root
+ * guess (`packages/<pkg>/src` plus the subpath), so the walk still traverses a
+ * package that is not aliased today and the closure assertion names it.
+ *
+ * A bare package specifier lands where the guess always put it. The case this
+ * exists for is a SUBPATH whose module is not `src/<subpath>/index.*`:
+ * `@object-ui/types/zod` is `src/zod/index.zod.ts`, which the guess cannot
+ * reach and the dev server reaches only through the table's own subpath entry,
+ * listed BEFORE the bare package for exactly that reason. Resolving through the
+ * table models that and nothing looser: drop the subpath entry, or list it after
+ * the bare package, and Vite would land on `src/zod` — which this walk then
+ * reports as unresolvable, as before (pinned by the fixtures at the bottom).
+ */
+function viteAliasTarget(specifier: string, aliases: ReadonlyMap<string, string>): string {
+  for (const [key, target] of aliases) {
+    if (specifier === key || specifier.startsWith(`${key}/`)) return target + specifier.slice(key.length);
+  }
+  const pkg = packageOf(specifier);
+  return packageSrc(pkg) + specifier.slice(pkg.length);
+}
+
+function computeClosure(
+  entryDir: string = path.join(exampleDir, 'src'),
+  aliases: ReadonlyMap<string, string> = readAliasTable(),
+): Closure {
   const packages = new Map<string, Set<string>>();
   const direct = new Set<string>();
   const unresolvable: string[] = [];
@@ -204,7 +232,7 @@ function computeClosure(entryDir: string = path.join(exampleDir, 'src')): Closur
       packages.get(pkg)!.add(path.relative(repoRoot, file));
       if (file.startsWith(exampleSrc + path.sep)) direct.add(pkg);
 
-      const resolved = resolveModule(packageSrc(pkg) + specifier.slice(pkg.length));
+      const resolved = resolveModule(viteAliasTarget(specifier, aliases));
       if (resolved) walk(resolved);
       else unresolvable.push(`${specifier} (unresolvable under src, imported by ${path.relative(repoRoot, file)})`);
     }
@@ -356,6 +384,38 @@ describe('the closure walker records relative misses instead of dropping them', 
     expect(closure.nonModuleSkipped.join('\n')).toContain('./raw.css?inline');
     // The module alongside them still resolves and is walked.
     expect(closure.filesWalked).toBe(2);
+  });
+
+  // objectui#8894 — the first workspace SUBPATH import inside this closure
+  // (`@object-ui/types/zod`, from plugin-dashboard and plugin-designer). Its
+  // module is `src/zod/index.zod.ts`, so it resolves only through the alias
+  // table's subpath entry; these three pin that the walk follows the table the
+  // way Vite does and is not loosened by it.
+  const TYPES_SRC = path.join(repoRoot, 'packages/types/src');
+  const TYPES_ZOD = path.join(TYPES_SRC, 'zod/index.zod.ts');
+  const subpathEntry = { 'entry.ts': `import { DashboardWidgetSchema } from '@object-ui/types/zod';\nexport { DashboardWidgetSchema };\n` };
+
+  it('resolves a workspace subpath through the alias entry Vite applies', () => {
+    const closure = withFixture(subpathEntry, (dir) =>
+      computeClosure(dir, new Map([['@object-ui/types/zod', TYPES_ZOD], ['@object-ui/types', TYPES_SRC]])),
+    );
+    expect(closure.unresolvable).toEqual([]);
+    // The validators' module and what it imports were walked, not just named.
+    expect(closure.filesWalked).toBeGreaterThan(2);
+  });
+
+  it('reports the subpath when the table has no entry for it — the package-root guess cannot reach it', () => {
+    const closure = withFixture(subpathEntry, (dir) =>
+      computeClosure(dir, new Map([['@object-ui/types', TYPES_SRC]])),
+    );
+    expect(closure.unresolvable.join('\n')).toContain('@object-ui/types/zod (unresolvable under src');
+  });
+
+  it('reports the subpath when its entry comes AFTER the bare package — the first match wins, as in Vite', () => {
+    const closure = withFixture(subpathEntry, (dir) =>
+      computeClosure(dir, new Map([['@object-ui/types', TYPES_SRC], ['@object-ui/types/zod', TYPES_ZOD]])),
+    );
+    expect(closure.unresolvable.join('\n')).toContain('@object-ui/types/zod (unresolvable under src');
   });
 
   it('classifies the specifier spellings that decide the boundary', () => {

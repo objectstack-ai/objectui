@@ -17,7 +17,10 @@
  */
 
 import type { I18nLabel } from '@objectstack/spec/ui';
+import type { EvaluatedExpressionInput } from '@objectstack/spec/shared';
+import type { AuthoringNode } from './authoring-nodes.js';
 import type { ExpressionWire } from './expression.js';
+import type { AnySchema } from './index.js';
 
 /**
  * A KEYED i18n label — a reference INTO a translation bundle (objectui#4581).
@@ -58,7 +61,21 @@ export type KeyedI18nLabel = {
 /**
  * Base schema interface that all component schemas extend.
  * This is the fundamental building block of the Object UI protocol.
- * 
+ *
+ * ⭐ It declares NO index signature (objectui#8347, executing the
+ * objectui#7927 ruling: the TypeScript face is a contract). A node literal
+ * written against a node type is excess-property checked, so a key no
+ * declaration names, a misspelling included, stops type-checking at the
+ * authoring site. When a key you need is refused, declare it on the node
+ * type that reads it, by reference to the spec row, or fix the producer
+ * (AGENTS.md #0.1); ⛔ do not cast past it or put the signature back.
+ * The bound: TypeScript checks excess keys only on a FRESH object literal, so
+ * a value that reached its annotation through a wider variable is not
+ * re-checked. `__tests__/base-schema-closed-face-8347.test.ts` pins both
+ * directions. Renderer props keep their tolerance: {@link ComponentRendererProps}
+ * still carries its own signature, and the zod mirror is still
+ * `.passthrough()` on the rendering face.
+ *
  * @example
  * ```typescript
  * const schema: BaseSchema = {
@@ -290,10 +307,11 @@ export interface BaseSchema {
    *
    * ## What declaring it buys, and what it does not (objectui#5155 / #6269)
    *
-   * Same ceiling as the gantt and timeline pins. `BaseSchema` carries an index
-   * signature on the TS side and is `.passthrough()` on the zod side, so an
-   * UNDECLARED key is still accepted by both halves — this did NOT buy
-   * rejection of a misspelling such as `bindTo`. What it DOES buy is the VALUE:
+   * Same ceiling as the gantt and timeline pins. `BaseSchema` is
+   * `.passthrough()` on the zod side (and carried an index signature on the TS
+   * side until objectui#8347), so an UNDECLARED key is still accepted by the
+   * zod half — this did NOT buy rejection of a misspelling such as `bindTo`
+   * there. What it DOES buy is the VALUE:
    * `bind: 42` type-checked and parsed green before this declaration and is
    * refused by both halves now. That narrowing only refuses what already
    * crashed — `useDataScope` is `(path?: string)` and resolves via
@@ -310,10 +328,12 @@ export interface BaseSchema {
    *
    * ## Why it is refused by name rather than merely deleted
    *
-   * `BaseSchema` carries an index signature on the TS side and
    * `BaseSchemaCore` ends `.passthrough()` on the zod side, so DELETING a
-   * member does not refuse it — it makes it silently acceptable and
-   * silently inert, which is the state this retirement exists to leave. The
+   * member does not refuse it there — it makes it silently acceptable and
+   * silently inert, which is the state this retirement exists to leave. (The
+   * TS side carried an index signature with the same effect when this was
+   * written; objectui#8347 removed it, so a deleted member is refused at the
+   * authoring site now, but the parse still needs the tombstone.) The
    * `?: never` twin of the mirror's `aliasKeyRefusal` is what turns the
    * removal into an answer: `tsc` refuses the key at the authoring site and
    * the parse names `children` as the remedy.
@@ -345,6 +365,13 @@ export interface BaseSchema {
    * which — a sentence that was itself load-bearing evidence on three
    * separate cards, because it told an author both spellings were live and
    * left them to guess per component.
+   *
+   * The keys OTHER than this one through which a renderer hands nodes back
+   * to `SchemaRenderer` — a dialog's `trigger`, a tab item's `content`, a
+   * page's `regions[].components` — are per-type and declared once, in
+   * `NODE_SLOT_DECLARATIONS` / `nodeSlotsFor` (`./node-slots.ts`,
+   * objectui#11170); every walk that judges a document follows `children`
+   * unconditionally and those positions by the node's type.
    */
   children?: SchemaNode | SchemaNode[];
 
@@ -384,9 +411,22 @@ export interface BaseSchema {
    * Canonical conditional-visibility predicate (ADR-0089) — the element is shown
    * when this evaluates truthy. The spec folds the deprecated `visibleOn` /
    * `visibility` aliases into this key at parse.
+   *
+   * Typed BY REFERENCE as the spec's own input type for an evaluated slot,
+   * `EvaluatedExpressionInput` (objectui#8347, ruled Q6 = B): a predicate
+   * string, or the `{ dialect, source }` envelope the spec's parse of
+   * `PageComponentSchema.visibleWhen` produces and `SchemaRenderer` evaluates.
+   * It read `string` before, which refused the envelope the spec's own parse
+   * writes into this key. ⚠️ Narrower than
+   * `ExpressionWire` (`visible` / `hidden` / `disabled`, objectui#7530): the
+   * spec refuses a dialect-less envelope and an unknown dialect, and so does
+   * this key. Its zod twin is the same accept set without the spec's string
+   * transform (`../zod/base.zod.ts`).
+   *
    * @example "${data.role === 'admin'}"
+   * @example { dialect: 'cel', source: "record.status == 'open'" }
    */
-  visibleWhen?: string;
+  visibleWhen?: EvaluatedExpressionInput;
 
   /**
    * Expression for conditional visibility.
@@ -590,18 +630,103 @@ export interface BaseSchema {
    * @example { key: 'dialog.close', defaultValue: 'Close dialog' }
    */
   ariaLabel?: string | KeyedI18nLabel;
-
-  /**
-   * Additional properties specific to the component type.
-   * This index signature allows type-specific extensions.
-   */
-  [key: string]: any;
 }
 
 /**
- * A schema node can be a full schema object or a primitive value.
- * This union type supports both structured components and simple content.
- * 
+ * The registry an application augments to declare its OWN node types: the
+ * types it registers with `ComponentRegistry` that this package does not
+ * declare (objectui#11466).
+ *
+ * Each entry's key is the node's `type` string and its value is the node's
+ * schema type. An entry joins {@link DeclaredNode}, so a node of that type is
+ * authorable in every node slot and at `SchemaRenderer`'s `schema` prop:
+ *
+ * ```typescript
+ * interface MyWidgetSchema extends BaseSchema {
+ *   type: 'my-widget';
+ *   customProp?: string;
+ * }
+ *
+ * declare module '@object-ui/types' {
+ *   interface CustomNodeRegistry {
+ *     'my-widget': MyWidgetSchema;
+ *   }
+ * }
+ * ```
+ *
+ * ## Why a custom type must be declared here
+ *
+ * A node slot takes the union of the declared node types, discriminated by
+ * the literal `type`, so each inline child is checked against its own type's
+ * keys and a misspelled key is refused where it is written. An undeclared
+ * `type` string has no arm, so it is refused too, the same way the strict zod
+ * face refuses an unregistered type. The entry is what declares it.
+ *
+ * ⛔ An entry is joined under its KEY: the arm is the entry's type intersected
+ * with `{ type: KEY }`. So an entry cannot add a `type: string` arm, which
+ * would make every declared type's literal a candidate for that arm and let
+ * the arm's keys through on every node. An entry whose own `type` is a
+ * different literal than its key intersects to `never` and adds nothing.
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- empty by design: applications fill it by declaration merging.
+export interface CustomNodeRegistry {}
+
+/** One arm per {@link CustomNodeRegistry} entry, discriminated by the entry's key. */
+type RegisteredCustomNode = {
+  [K in keyof CustomNodeRegistry & string]: CustomNodeRegistry[K] & { type: K };
+}[keyof CustomNodeRegistry & string];
+
+/**
+ * The arms of a union whose `type` is a literal (or a union of literals). An
+ * arm whose `type` is `string` matches every discriminant, so it is dropped:
+ * from `AnySchema`, that is `BaseSchema` alone, which
+ * `__tests__/node-slot-union-11466.test.ts` pins.
+ */
+type LiteralTypedArm<T> = T extends { type: infer K } ? (string extends K ? never : T) : never;
+
+/**
+ * A node of a declared type: the object arm of {@link SchemaNode}, and what
+ * `SchemaRenderer`'s `schema` prop takes beside a string (objectui#11466).
+ *
+ * It is the discriminated union, keyed by the literal `type`, of
+ *
+ *   - every component schema this package declares (`AnySchema` without its
+ *     `BaseSchema` arm, whose `type` is `string`, and without the app-level
+ *     document, below);
+ *   - every spec-declared node `AuthoringNode` types by reference;
+ *   - every custom type an application declares in {@link CustomNodeRegistry}.
+ *
+ * Inside the union TypeScript discriminates on `type`, so an inline child
+ * literal is checked against its own type's keys and value types, wherever
+ * it is nested. ⛔ No arm is open: there is no index signature and no
+ * `type: string` arm here. A node built at runtime whose `type` is not known
+ * to the compiler is not a `DeclaredNode`; narrow it to one, or declare its
+ * type in {@link CustomNodeRegistry}.
+ *
+ * ⛔ The app-level document (`./app.ts`, the `app.json` shape: navigation,
+ * areas, the `AnySchema` member whose `type` is `'app'`) is not a node:
+ * `AppSchemaRenderer` (`@object-ui/layout`) reads it structurally and
+ * `ComponentRegistry` never dispatches it. It is left out by that `type`
+ * (`Exclude<AnySchema, { type: 'app' }>`), which removes it alone, because
+ * no other `AnySchema` member's `type` is `'app'` (the `'app'` pin in
+ * `__tests__/node-slot-union-11466.test.ts` holds that). The registry's
+ * `app` key serves the page KIND `app`, so as a
+ * node `type: 'app'` is a stored page document, `AuthoringNode`'s
+ * `PageDocumentNode`. Kept out, `app` is one arm here, not two that would let
+ * each other's keys through (`./registry.ts` names the two vocabularies at its
+ * `'page'` entry). The node that renders an app through the registry is
+ * `app-schema-renderer`.
+ */
+export type DeclaredNode =
+  | LiteralTypedArm<Exclude<AnySchema, { type: 'app' }>>
+  | AuthoringNode
+  | RegisteredCustomNode;
+
+/**
+ * A schema node: a node of a declared type, or a primitive rendered as
+ * content. Every node slot (`children`, `trigger`, `content`, a view's
+ * `schema`) takes it, so an inline child is checked against its own type.
+ *
  * @example
  * ```typescript
  * const nodes: SchemaNode[] = [
@@ -611,7 +736,7 @@ export interface BaseSchema {
  * ]
  * ```
  */
-export type SchemaNode = BaseSchema | string | number | boolean | null | undefined;
+export type SchemaNode = DeclaredNode | string | number | boolean | null | undefined;
 
 /**
  * Component renderer function type.

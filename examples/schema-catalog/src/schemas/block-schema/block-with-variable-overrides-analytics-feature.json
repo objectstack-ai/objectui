@@ -10,17 +10,19 @@
       "children": [
         {
           "type": "flex",
-          "justify": "center",
-          "align": "center",
-          "gap": 0,
-          "className": "w-12 h-12 rounded-lg bg-purple-500/10",
-          "children": [
-            {
-              "type": "icon",
-              "icon": "chart-column",
-              "className": "h-6 w-6 text-purple-600"
-            }
-          ]
+          "properties": {
+            "justify": "center",
+            "align": "center",
+            "gap": 0,
+            "children": [
+              {
+                "type": "icon",
+                "icon": "chart-column",
+                "className": "h-6 w-6 text-purple-600"
+              }
+            ]
+          },
+          "className": "w-12 h-12 rounded-lg bg-purple-500/10"
         },
         {
           "type": "text",

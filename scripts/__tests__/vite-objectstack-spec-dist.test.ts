@@ -8,11 +8,17 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 import {
+  SINGLE_ZOD_GUARD_NAME,
+  SINGLE_ZOD_PLUGIN_NAME,
   SPEC_PACKAGE_NAME,
+  assertSingleZodInstance,
   escapeRegExp,
   formatConditionReport,
   readSpecExportTargets,
+  resolveConsoleZod,
   resolveSpecDistInjection,
+  versionSatisfiesRange,
+  zodPackageDirOf,
 } from '../vite-objectstack-spec-dist';
 
 /**
@@ -24,7 +30,7 @@ import {
  *
  *   1. **Set → every subpath is mapped.** The client hook this mirrors is one
  *      prefix alias, which is safe only because `@objectstack/client` exports a
- *      single entry. The spec's map has 19 and redirects each into `dist/`, so a
+ *      single entry. The spec's map has 21 and redirects each into `dist/`, so a
  *      copied client line rewrites `@objectstack/spec/ui` to a path that does not
  *      exist — measured as 214 broken import sites for `/ui` alone. The
  *      reconciliation case below therefore checks the derivation against Node's
@@ -102,10 +108,18 @@ const BASE_SPEC_TEST = /@objectstack[\\/+]spec/;
 /** The installed spec package — a real, fully built override target. */
 const installedSpecDir = path.dirname(require_.resolve('@objectstack/spec/package.json'));
 
-const inject = (raw: string | undefined) =>
+/**
+ * The console's zod anchor, as the console config spells it (`CONSOLE_ZOD_ANCHOR`
+ * in `apps/console/vite.config.ts`): the workspace package whose zod copy an
+ * injected build is pinned to (objectui#11327).
+ */
+const CONSOLE_ZOD_ANCHOR = path.join(repoRoot, 'packages/app-shell');
+
+const inject = (raw: string | undefined, consoleZodFrom: string = CONSOLE_ZOD_ANCHOR) =>
   resolveSpecDistInjection(raw, {
     vendorChunkTest: BASE_VENDOR_TEST,
     specModuleTest: BASE_SPEC_TEST,
+    consoleZodFrom,
   });
 
 /**
@@ -246,14 +260,23 @@ describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
     ) as { exports: Record<string, unknown> };
     const declared = Object.keys(manifest.exports);
 
-    // Anti-vacuity: the map this is reconciled against is the measured 19-entry
+    // Anti-vacuity: the map this is reconciled against is the measured 21-entry
     // one, not an empty object a silently-changed reader would also "cover".
     // 18 -> 19 on the @objectstack/spec 17.2.0 refresh (objectui#5668): the
     // one added subpath, measured by diffing 17.1.0's exports map against
     // 17.2.0's, is `./meta-spelling` — nothing was removed. The pin did its
     // job on that bump: the un-updated 18 turned this red in CI rather than
     // letting the new entry ride through unreconciled.
-    expect(declared.length).toBe(19);
+    // 19 -> 20 on the @objectstack/spec 17.5.0 refresh (objectui#11073),
+    // measured by diffing 17.4.0's exports map against 17.5.0's: `./cloud` was
+    // REMOVED (the last step of the objectstack#16325 chain objectui#8225 names
+    // below), `./api-assembled` and `./marketplace` were ADDED. The pin did its
+    // job again: the un-updated 19 turned this red on the bump's CI.
+    // 20 -> 21 on the @objectstack/spec 17.6.0 refresh (objectui#11438),
+    // measured by diffing 17.5.0's exports map against 17.6.0's: `./migrations`
+    // was ADDED (the spec's migrations-entry-split; it declares no `browser`
+    // arm), nothing was removed. The un-updated 20 turned this red on the bump.
+    expect(declared.length).toBe(21);
     expect(Object.keys(injection!.aliases).length).toBe(declared.length);
 
     // objectui#9408 — the population splits, and WHICH oracle applies is the
@@ -271,13 +294,16 @@ describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
     const browserKeys = declared.filter(declaresBrowser);
     const nodeOracleKeys = declared.filter((k) => !declaresBrowser(k));
 
-    // Anti-vacuity, both halves. 5 on @objectstack/spec 17.4.0 (`.`, `./data`,
-    // `./system`, `./kernel`, `./cloud`) — pinned exactly, like the 19 above,
+    // Anti-vacuity, both halves. 5 on @objectstack/spec 17.5.0 (`.`, `./data`,
+    // `./system`, `./kernel`, `./api-assembled`). Still 5 after the 17.5.0
+    // refresh (objectui#11073) but NOT the same 5: 17.4.0's set carried
+    // `./cloud`, which left with its subpath, and the new `./api-assembled`
+    // arrived browser-first. Pinned exactly, like the 21 above,
     // because an unpinned browser set is precisely how this went unnoticed:
     // objectui#9408 was FILED naming `./api` as browser-first, and by the time
     // it was worked `./api` had lost its browser arm upstream with nothing
     // anywhere to notice the move. A bump re-pins this and says what changed.
-    expect(browserKeys.sort()).toEqual(['.', './cloud', './data', './kernel', './system']);
+    expect(browserKeys.sort()).toEqual(['.', './api-assembled', './data', './kernel', './system']);
     expect(nodeOracleKeys.length).toBe(declared.length - browserKeys.length);
     expect(nodeOracleKeys.length).toBeGreaterThan(0);
 
@@ -316,8 +342,8 @@ describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
 
   it('agrees with a REAL Vite build on every entry, `browser` arm included', async () => {
     // The oracle that actually counts. Vite is the resolver this hook MODELS,
-    // and unlike Node it satisfies `browser`, so it can answer for all 19
-    // entries where Node can only answer for 14. Run through a real build
+    // and unlike Node it satisfies `browser`, so it can answer for all 21
+    // entries where Node can only answer for 16. Run through a real build
     // rather than a transcription, for the same reason the alias-matcher cases
     // below bundle for real: a transcribed algorithm agrees with its own
     // transcription, not with Vite.
@@ -343,7 +369,7 @@ describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
     expect(disagreed, 'entries where the hook and Vite pick different files').toEqual([]);
 
     // Anti-vacuity: the sweep really did exercise the browser arm, i.e. the
-    // agreement above is not agreement about 19 Node-arm files.
+    // agreement above is not agreement about 21 Node-arm files.
     const browserArm = specifiers.filter((s) => resolved.get(s)?.includes(`${path.sep}browser${path.sep}`));
     expect(browserArm.length).toBe(5);
   });
@@ -416,6 +442,7 @@ describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
     const outOfTreeInjection = resolveSpecDistInjection(installedSpecDir, {
       vendorChunkTest: BASE_VENDOR_TEST,
       specModuleTest: BASE_SPEC_TEST,
+      consoleZodFrom: CONSOLE_ZOD_ANCHOR,
     })!;
 
     // The baseline test cannot see an injected package: that is the whole
@@ -838,7 +865,7 @@ describe('objectui#9408: the exports map declares precedence, not this module', 
     // would surface as a bundler error at a pin bump nobody connects to this
     // file. A report that omitted the decided entries would leave that intact.
     const injection = inject(installedSpecDir)!;
-    expect(injection.resolutions).toHaveLength(19);
+    expect(injection.resolutions).toHaveLength(21);
 
     const report = formatConditionReport(injection).join('\n');
     expect(report).toContain(injection.packageDir);
@@ -852,7 +879,7 @@ describe('objectui#9408: the exports map declares precedence, not this module', 
     const decided = injection.resolutions.filter((r) => r.passedOver.length > 0);
     expect(decided.map((r) => r.specifier).sort()).toEqual([
       SPEC_PACKAGE_NAME,
-      `${SPEC_PACKAGE_NAME}/cloud`,
+      `${SPEC_PACKAGE_NAME}/api-assembled`,
       `${SPEC_PACKAGE_NAME}/data`,
       `${SPEC_PACKAGE_NAME}/kernel`,
       `${SPEC_PACKAGE_NAME}/system`,
@@ -867,7 +894,7 @@ describe('objectui#9408: the exports map declares precedence, not this module', 
     // Anti-vacuity on the other half: entries with no choice to make are still
     // reported, with their arm, rather than silently dropped.
     const forced = injection.resolutions.filter((r) => r.passedOver.length === 0);
-    expect(forced.length).toBe(19 - decided.length);
+    expect(forced.length).toBe(21 - decided.length);
     expect(forced.length).toBeGreaterThan(0);
   });
 
@@ -944,7 +971,7 @@ describe('objectui#4854: the four flagged surfaces in the console config', () =>
     const injectedSpecKeys = Object.keys(injected.resolve.alias).filter((k: string) =>
       k === SPEC_PACKAGE_NAME || k.startsWith(`${SPEC_PACKAGE_NAME}/`)
     );
-    expect(injectedSpecKeys).toHaveLength(19);
+    expect(injectedSpecKeys).toHaveLength(21);
     expect(injectedSpecKeys[injectedSpecKeys.length - 1]).toBe(SPEC_PACKAGE_NAME);
     expect(injected.resolve.alias[`${SPEC_PACKAGE_NAME}/ui`]).toBe(
       path.join(fs.realpathSync(installedSpecDir), 'dist/ui/index.mjs')
@@ -1191,7 +1218,7 @@ function consoleShapedBundle(
  * (`/…/objectstack/packages/spec`, or `/home/runner/work/objectstack/objectstack/
  * packages/spec` on CI) has no `@objectstack` segment anywhere, and that is the
  * one property this fixture has to reproduce. It stays minimal on purpose: the
- * exports-map derivation is covered above against the real 19-entry map, and
+ * exports-map derivation is covered above against the real 21-entry map, and
  * what these cases need is a legal package at a path of the wrong SHAPE.
  */
 function makeOutOfTreeSpecPackage(): string {
@@ -1410,6 +1437,366 @@ describe('objectui#4854: a real Vite build resolves the injected spec', () => {
     await expect(
       withEntry((root) => bundle({ [SPEC_PACKAGE_NAME]: installedSpecDir }, root))
     ).rejects.toThrow();
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* objectui#11327 — an injected console bundles exactly ONE zod instance.      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The injected spec arrives with its own install tree, so its bare `zod` import
+ * resolved to the framework's zod and the console bundled two instances; the
+ * metadata-admin schema modules' `z.toJSONSchema` then threw over the spec's
+ * schemas and the Studio's New Package dialog lost its Name / Id / Namespace.
+ *
+ * Three facts are pinned, each in both directions:
+ *
+ *   1. **Parity.** The console's zod must satisfy the range the injected spec
+ *      declares — refused by name when it does not (the 4.4.3-vs-`^4.6.1`
+ *      shape the card was reported at), accepted when it does.
+ *   2. **The redirect.** A REAL Vite build of a spec fixture whose own tree
+ *      carries a different zod emits both copies without the redirect (the
+ *      control: this fixture reproduces the split) and only the console's with
+ *      it, subpaths included.
+ *   3. **The guard.** On the same fixture, `assertSingleZodInstance` fails a
+ *      two-copy build naming both, fails a two-copy build whose copies share a
+ *      VERSION (instances, not versions), passes the one-copy build, and refuses
+ *      a verdict when it sees no zod at all.
+ *
+ * Why not `resolve.dedupe`: measured on the real console config while this was
+ * written, adding `zod` there emitted the same two copies byte-identical,
+ * because Vite resolves a deduped package from the root and `apps/console`
+ * declares no zod. The fixture builds below are the regression form of that
+ * reading: the "no redirect" leg IS the dedupe-less shape.
+ */
+describe('objectui#11327: an injected console carries exactly one zod instance', () => {
+  /** Writes a fake `zod` package whose modules announce which copy they are. */
+  function writeFakeZod(dir: string, version: string, copy: string): void {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({
+        name: 'zod',
+        version,
+        type: 'module',
+        exports: { '.': './index.js', './v4': './v4.js', './package.json': './package.json' },
+      })
+    );
+    fs.writeFileSync(path.join(dir, 'index.js'), `export const z = { copy: '${copy}' };\n`);
+    fs.writeFileSync(path.join(dir, 'v4.js'), `export const z = { copy: '${copy}_V4' };\n`);
+  }
+
+  interface ZodFixture {
+    root: string;
+    /** A console-side package that declares zod, with its own copy. */
+    anchorDir: string;
+    /** A framework-side spec package whose zod is hoisted to ITS tree's root. */
+    specDir: string;
+  }
+
+  /**
+   * Two install trees, the shape the card measured: a console anchor with its
+   * own zod, and a framework spec whose bare `zod` resolves from the framework's
+   * root `node_modules` — never from the console's.
+   */
+  function makeZodFixture(
+    { consoleVersion, specOwnVersion, specRange }: { consoleVersion: string; specOwnVersion: string; specRange: string }
+  ): ZodFixture {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'spec-zod-11327-')));
+    const anchorDir = path.join(root, 'console/packages/app-shell');
+    fs.mkdirSync(anchorDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(anchorDir, 'package.json'),
+      JSON.stringify({ name: 'anchor-11327', dependencies: { zod: `^${consoleVersion}` } })
+    );
+    writeFakeZod(path.join(anchorDir, 'node_modules/zod'), consoleVersion, 'CONSOLE_ZOD_11327');
+    fs.writeFileSync(
+      path.join(anchorDir, 'entry.mjs'),
+      [
+        "import { z } from 'zod';",
+        "import { specZ, specZ4 } from '@objectstack/spec';",
+        'globalThis.__probe11327 = [z.copy, specZ.copy, specZ4.copy, z === specZ];',
+      ].join('\n')
+    );
+
+    const specDir = path.join(root, 'framework/packages/spec');
+    fs.mkdirSync(path.join(specDir, 'dist'), { recursive: true });
+    fs.writeFileSync(
+      path.join(specDir, 'package.json'),
+      JSON.stringify({
+        name: SPEC_PACKAGE_NAME,
+        version: '0.0.0-probe11327',
+        type: 'module',
+        exports: { '.': { import: './dist/index.mjs' } },
+        dependencies: { zod: specRange },
+      })
+    );
+    fs.writeFileSync(
+      path.join(specDir, 'dist/index.mjs'),
+      [
+        "import { z } from 'zod';",
+        "import { z as z4 } from 'zod/v4';",
+        'export const specZ = z;',
+        'export const specZ4 = z4;',
+      ].join('\n')
+    );
+    writeFakeZod(path.join(root, 'framework/node_modules/zod'), specOwnVersion, 'SPEC_OWN_ZOD_11327');
+    return { root, anchorDir, specDir };
+  }
+
+  /** Bundles the fixture's entry for real, with the given plugins; returns the code. */
+  async function bundleFixture(fixture: ZodFixture, plugins: unknown[]): Promise<string> {
+    const injection = inject(fixture.specDir, fixture.anchorDir)!;
+    const result = (await build({
+      root: fixture.anchorDir,
+      logLevel: 'silent',
+      configFile: false,
+      resolve: { alias: injection.aliases },
+      plugins: plugins as never,
+      build: {
+        write: false,
+        minify: false,
+        lib: { entry: path.join(fixture.anchorDir, 'entry.mjs'), formats: ['es'], fileName: 'probe11327' },
+      },
+    })) as { output: { code?: string }[] }[];
+    return result[0].output.map((o) => o.code ?? '').join('\n');
+  }
+
+  describe('the narrow range reader', () => {
+    it.each([
+      ['4.6.5', '^4.6.1', true],
+      ['4.6.1', '^4.6.1', true],
+      ['4.4.3', '^4.6.1', false],
+      ['5.0.0', '^4.6.1', false],
+      ['0.3.9', '^0.3.1', true],
+      ['0.4.0', '^0.3.1', false],
+      ['0.0.4', '^0.0.3', false],
+      ['4.6.9', '~4.6.1', true],
+      ['4.7.0', '~4.6.1', false],
+      ['4.6.1', '4.6.1', true],
+      ['4.6.2', '=4.6.1', false],
+      ['9.0.0', '>=4.6.1', true],
+      ['4.6.0', '>=4.6.1', false],
+      ['4.9.0', '>=4.6.1 <5.0.0', true],
+      ['5.0.0', '>=4.6.1 <5.0.0', false],
+      ['3.25.76', '^3.25.0 || ^4.6.1', true],
+      ['4.0.0', '^3.25.0 || ^4.6.1', false],
+    ])('%s satisfies %s → %s', (version, range, expected) => {
+      expect(versionSatisfiesRange(version, range)).toBe(expected);
+    });
+
+    it.each([['4.x'], ['*'], ['workspace:^4.6.1'], ['catalog:'], ['latest'], ['']])(
+      'refuses to read `%s` rather than guess',
+      (range) => {
+        expect(() => versionSatisfiesRange('4.6.5', range)).toThrow();
+      }
+    );
+
+    it('refuses a version that is not a plain release', () => {
+      expect(() => versionSatisfiesRange('4.7.0-beta.1', '^4.6.1')).toThrow(/plain X\.Y\.Z/);
+    });
+  });
+
+  describe('the console zod and the parity check', () => {
+    it('resolves the REAL console anchor to a zod package directory and its version', () => {
+      const zod = resolveConsoleZod(CONSOLE_ZOD_ANCHOR);
+      const manifest = JSON.parse(fs.readFileSync(path.join(zod.packageDir, 'package.json'), 'utf8')) as {
+        name: string;
+        version: string;
+      };
+      expect(manifest.name).toBe('zod');
+      expect(zod.version).toBe(manifest.version);
+      expect(zod.packageDir).toBe(fs.realpathSync(zod.packageDir));
+      // The anchor really declares zod, which is what makes it an anchor.
+      const anchorManifest = JSON.parse(fs.readFileSync(path.join(CONSOLE_ZOD_ANCHOR, 'package.json'), 'utf8')) as {
+        dependencies?: Record<string, string>;
+      };
+      expect(anchorManifest.dependencies).toHaveProperty('zod');
+    });
+
+    it('throws, naming the anchor, when nothing on the walk up resolves zod', () => {
+      const lonely = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'spec-zod-11327-anchor-')));
+      try {
+        expect(() => resolveConsoleZod(lonely)).toThrow(new RegExp(escapeRegExp(lonely)));
+        expect(() => resolveConsoleZod(lonely)).toThrow(/does not resolve/);
+      } finally {
+        fs.rmSync(lonely, { recursive: true, force: true });
+      }
+    });
+
+    it('REFUSES the injection when the console zod is older than the spec declares — the card\'s shape', () => {
+      const fixture = makeZodFixture({ consoleVersion: '4.4.3', specOwnVersion: '4.6.1', specRange: '^4.6.1' });
+      try {
+        const attempt = () => inject(fixture.specDir, fixture.anchorDir);
+        expect(attempt).toThrow(/OBJECTSTACK_SPEC_DIST/);
+        // Both sides are named: the spec's range and the console's version and where it came from.
+        expect(attempt).toThrow(/`\^4\.6\.1`/);
+        expect(attempt).toThrow(/4\.4\.3/);
+        expect(attempt).toThrow(new RegExp(escapeRegExp(fixture.anchorDir)));
+      } finally {
+        fs.rmSync(fixture.root, { recursive: true, force: true });
+      }
+    });
+
+    it('accepts the injection when the console zod satisfies the spec\'s range', () => {
+      const fixture = makeZodFixture({ consoleVersion: '4.6.5', specOwnVersion: '4.6.1', specRange: '^4.6.1' });
+      try {
+        const injection = inject(fixture.specDir, fixture.anchorDir)!;
+        expect(injection.consoleZod).toEqual({
+          anchorDir: fixture.anchorDir,
+          packageDir: path.join(fixture.anchorDir, 'node_modules/zod'),
+          version: '4.6.5',
+        });
+        expect((injection.singleZodPlugin as { name: string }).name).toBe(SINGLE_ZOD_PLUGIN_NAME);
+      } finally {
+        fs.rmSync(fixture.root, { recursive: true, force: true });
+      }
+    });
+
+    it('reads a `peerDependencies` range too, and refuses one it cannot read', () => {
+      const fixture = makeZodFixture({ consoleVersion: '4.6.5', specOwnVersion: '4.6.1', specRange: '^4.6.1' });
+      try {
+        const manifestPath = path.join(fixture.specDir, 'package.json');
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        fs.writeFileSync(manifestPath, JSON.stringify({ ...manifest, peerDependencies: { zod: '^5.0.0' } }));
+        expect(() => inject(fixture.specDir, fixture.anchorDir)).toThrow(/`\^5\.0\.0` in `peerDependencies`/);
+        fs.writeFileSync(manifestPath, JSON.stringify({ ...manifest, dependencies: { zod: 'catalog:' } }));
+        expect(() => inject(fixture.specDir, fixture.anchorDir)).toThrow(/cannot be read here/);
+      } finally {
+        fs.rmSync(fixture.root, { recursive: true, force: true });
+      }
+    });
+
+    it('the REAL installed spec passes against the REAL console zod', () => {
+      // Anti-vacuity: the installed spec really declares a zod range to compare.
+      const manifest = JSON.parse(fs.readFileSync(path.join(installedSpecDir, 'package.json'), 'utf8')) as {
+        dependencies?: Record<string, string>;
+      };
+      expect(typeof manifest.dependencies?.zod).toBe('string');
+      expect(versionSatisfiesRange(resolveConsoleZod(CONSOLE_ZOD_ANCHOR).version, manifest.dependencies!.zod)).toBe(
+        true
+      );
+      expect(inject(installedSpecDir)!.consoleZod.packageDir).toBe(resolveConsoleZod(CONSOLE_ZOD_ANCHOR).packageDir);
+    });
+  });
+
+  describe('the redirect and the guard, in a real Vite build', () => {
+    let fixture: ZodFixture;
+    beforeAll(() => {
+      fixture = makeZodFixture({ consoleVersion: '4.6.5', specOwnVersion: '4.6.1', specRange: '^4.6.1' });
+    });
+    afterAll(() => {
+      fs.rmSync(fixture.root, { recursive: true, force: true });
+    });
+
+    it('CONTROL: without the redirect the fixture bundles both copies — the split the card measured', async () => {
+      const code = await bundleFixture(fixture, []);
+      expect(code).toContain('CONSOLE_ZOD_11327');
+      expect(code).toContain('SPEC_OWN_ZOD_11327');
+      expect(code).toContain('SPEC_OWN_ZOD_11327_V4');
+    });
+
+    it('with the redirect, every zod import — the spec\'s subpath included — is the console\'s copy', async () => {
+      const injection = inject(fixture.specDir, fixture.anchorDir)!;
+      const code = await bundleFixture(fixture, [injection.singleZodPlugin, assertSingleZodInstance()]);
+      expect(code).toContain('CONSOLE_ZOD_11327');
+      expect(code).toContain('CONSOLE_ZOD_11327_V4');
+      expect(code).not.toContain('SPEC_OWN_ZOD_11327');
+    });
+
+    it('the guard fails a two-copy build, naming both copies, their versions and who imported them', async () => {
+      const message = await bundleFixture(fixture, [assertSingleZodInstance()]).then(
+        () => 'BUILD PASSED',
+        (error: Error) => error.message
+      );
+      expect(message).toContain(`[${SINGLE_ZOD_GUARD_NAME}]`);
+      expect(message).toContain('carries 2 zod instances');
+      expect(message).toContain(`zod 4.6.1 at \`${path.join(fixture.root, 'framework/node_modules/zod')}\``);
+      expect(message).toContain(`zod 4.6.5 at \`${path.join(fixture.anchorDir, 'node_modules/zod')}\``);
+      // The spec's copy is traced to the spec, which is what tells a reader where to look.
+      expect(message).toContain(path.join(fixture.specDir, 'dist/index.mjs'));
+    });
+
+    it('the guard counts INSTANCES: two copies of one version still fail', async () => {
+      const twin = makeZodFixture({ consoleVersion: '4.6.5', specOwnVersion: '4.6.5', specRange: '^4.6.1' });
+      try {
+        await expect(bundleFixture(twin, [assertSingleZodInstance()])).rejects.toThrow(/carries 2 zod instances/);
+      } finally {
+        fs.rmSync(twin.root, { recursive: true, force: true });
+      }
+    });
+
+    it('the guard refuses a verdict when it sees no zod at all — its counter-probe', async () => {
+      const blind = makeZodFixture({ consoleVersion: '4.6.5', specOwnVersion: '4.6.1', specRange: '^4.6.1' });
+      try {
+        fs.writeFileSync(path.join(blind.anchorDir, 'entry.mjs'), 'globalThis.__probe11327 = 1;\n');
+        await expect(bundleFixture(blind, [assertSingleZodInstance()])).rejects.toThrow(/counter-probe failed/);
+      } finally {
+        fs.rmSync(blind.root, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('which module ids the guard counts as zod', () => {
+    // Labelled rows: one id carries a leading NUL (a virtual-module marker), and
+    // a `%s` title would print that byte raw into every test report.
+    it.each([
+      ['a pnpm store path', '/r/node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/core.js', '/r/node_modules/.pnpm/zod@4.6.5/node_modules/zod'],
+      ['a copy nested under another package', '/r/node_modules/a/node_modules/zod/index.js', '/r/node_modules/a/node_modules/zod'],
+      ['a virtual-module id with a query', '\0/r/node_modules/zod/index.js?commonjs-proxy', '/r/node_modules/zod'],
+      ['a sibling package named zod-*', '/r/node_modules/zod-to-json-schema/dist/index.js', null],
+      ['workspace source under a zod/ folder', '/r/packages/types/src/zod/index.zod.ts', null],
+    ])('%s', (_label, id, expected) => {
+      expect(zodPackageDirOf(id)).toBe(expected);
+    });
+  });
+
+  describe('wired into the REAL console config', () => {
+    /** The slice of the console config these cases read. */
+    interface ConsoleConfigSlice {
+      plugins: unknown[];
+      resolve: { dedupe: string[] };
+    }
+    const registered = (config: ConsoleConfigSlice) =>
+      (config.plugins.flat(Infinity) as ({ name?: string; enforce?: string } | null)[]).filter(
+        (p): p is { name?: string; enforce?: string } => Boolean(p)
+      );
+    const pluginNames = (config: ConsoleConfigSlice): string[] => registered(config).map((p) => p.name ?? '');
+
+    it('registers the guard in every build and the redirect only under the override', async () => {
+      const baseline = await loadConsoleConfig();
+      expect(pluginNames(baseline)).toContain(SINGLE_ZOD_GUARD_NAME);
+      expect(pluginNames(baseline)).not.toContain(SINGLE_ZOD_PLUGIN_NAME);
+
+      process.env.OBJECTSTACK_SPEC_DIST = installedSpecDir;
+      let injected: ConsoleConfigSlice;
+      try {
+        injected = await loadConsoleConfig('?objectstack-spec-dist=11327');
+      } finally {
+        delete process.env.OBJECTSTACK_SPEC_DIST;
+      }
+      expect(pluginNames(injected)).toContain(SINGLE_ZOD_GUARD_NAME);
+      expect(pluginNames(injected)).toContain(SINGLE_ZOD_PLUGIN_NAME);
+      // The redirect resolves before Vite's own resolver, or it would answer too late.
+      const redirect = registered(injected).find((p) => p.name === SINGLE_ZOD_PLUGIN_NAME);
+      expect(redirect!.enforce).toBe('pre');
+      // `zod` is not in `resolve.dedupe`: measured a silent no-op from this root.
+      expect(injected.resolve.dedupe).not.toContain('zod');
+    });
+
+    it('anchors the parity check on app-shell: a spec demanding a zod the console lacks fails the config', async () => {
+      const fixture = makeZodFixture({ consoleVersion: '4.6.5', specOwnVersion: '4.6.1', specRange: '^99.0.0' });
+      process.env.OBJECTSTACK_SPEC_DIST = fixture.specDir;
+      try {
+        await expect(loadConsoleConfig('?objectstack-spec-dist=11327-parity')).rejects.toThrow(
+          new RegExp(`\`\\^99\\.0\\.0\`[\\s\\S]*${escapeRegExp(CONSOLE_ZOD_ANCHOR)}`)
+        );
+      } finally {
+        delete process.env.OBJECTSTACK_SPEC_DIST;
+        fs.rmSync(fixture.root, { recursive: true, force: true });
+      }
+    });
   });
 });
 

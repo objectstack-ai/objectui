@@ -69,9 +69,10 @@
  *
  * ## The ceiling, stated rather than assumed (objectui#5155)
  *
- * `BaseSchema` still carries `[key: string]: any`, so anchoring buys DECLARED
- * members their declared types and does NOT buy rejection of a misspelling.
- * The counter-probe below pins that honestly, as #6576's does.
+ * While `BaseSchema` carried `[key: string]: any`, anchoring bought DECLARED
+ * members their declared types and did NOT buy rejection of a misspelling.
+ * The counter-probe below pinned that honestly, as #6576's did; objectui#8347
+ * removed the signature, and both counter-probes are flipped.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -105,8 +106,9 @@ export type assertionChartExtendsBase = Expect<ExtendsBase<ObjectChartSchema>>;
 export type assertionChartTypeIsRegistryKey = Expect<Equal<ObjectChartSchema['type'], 'object-chart'>>;
 /**
  * Inherited members resolve to their DECLARED types. `Equal`, not `extends`:
- * through the index signature a missing member reads `any`, which a one-way
- * check would accept (the objectui#7087 disabled-twin lesson).
+ * through the index signature a missing member read `any` until objectui#8347
+ * (it fails to compile now), which a one-way check would accept (the
+ * objectui#7087 disabled-twin lesson).
  */
 export type assertionChartInheritsVisible = Expect<Equal<ObjectChartSchema['visible'], boolean | ExpressionWire | undefined>>;
 export type assertionChartInheritsBind = Expect<Equal<ObjectChartSchema['bind'], string | undefined>>;
@@ -178,9 +180,12 @@ describe('ObjectChartSchema — compile-time pins (objectui#7946)', () => {
     expect([chart.aggregate?.groupBy, chart.xAxisKey, first && 'dataKey' in first ? first.dataKey : undefined]).toEqual(['stage', 'stage', 'amount']);
   });
 
-  it('still accepts a MISSPELLING — the ceiling, pinned honestly (objectui#5155)', () => {
+  it('refuses a MISSPELLING — the ceiling this row pinned is gone (objectui#8347)', () => {
+    // `BaseSchema`'s inherited `[key: string]: any` let `xAxisKy` compile until
+    // objectui#8347 removed it.
+    // @ts-expect-error — `xAxisKy` is no member; the key is `xAxisKey`
     const chart: ObjectChartSchema = { type: 'object-chart', chartType: 'bar', xAxisKy: 'stage' };
-    expect(chart.xAxisKy).toBe('stage');
+    expect(chart.type).toBe('object-chart');
   });
 });
 

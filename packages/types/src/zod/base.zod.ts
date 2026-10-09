@@ -20,6 +20,10 @@ import { z } from 'zod';
 import { I18nLabelSchema } from '@objectstack/spec/ui';
 import { aliasKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import { ExpressionWireSchema } from './expression.zod.js';
+import {
+  EvaluatedExpressionInputSchema as SpecEvaluatedExpressionInputSchema,
+  EvaluatedExpressionSchema as SpecEvaluatedExpressionSchema,
+} from '@objectstack/spec/shared';
 import type { SchemaNode } from '../base.js';
 import { stripImportedDefaults } from './imported-defaults.js';
 
@@ -192,6 +196,24 @@ export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
 }
 
 /**
+ * The type of {@link SchemaNodeSchema}, named by a type alias rather than spelled in
+ * the annotation (objectui#11466). `SchemaNode` (`../base.ts`) is the declared-node
+ * union, and resolving it walks back into this module's consts: through
+ * `AuthoringNode`, whose public-block members are the `z.input` of arms built on
+ * `BaseSchema` below. Type arguments spelled in a const's annotation are resolved
+ * eagerly, so they would reference themselves (TS4109); inside a type alias they are
+ * resolved when they are read. Typing only: the schema object does not change.
+ */
+type SchemaNodeZodType = z.ZodType<SchemaNode, SchemaNode>;
+
+/**
+ * The type of {@link NodeSlotSchema}, the single-or-list node slot, written out for
+ * the same reason as {@link SchemaNodeZodType}: inferring it from the `z.union` call
+ * would resolve `SchemaNode` while `SchemaNode` is being resolved.
+ */
+type NodeSlotZodType = z.ZodOptional<z.ZodUnion<readonly [SchemaNodeZodType, z.ZodArray<SchemaNodeZodType>]>>;
+
+/**
  * Schema Node — what a child slot holds: a COMPONENT document, or a primitive.
  *
  * ## The component arm is `AnyComponentSchema` (objectui#8344)
@@ -266,9 +288,15 @@ export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
  * what this schema accepts at runtime.
  *
  * ⛔ `SchemaNode` in `../base.ts` did NOT move under #8344 either: the TS face still
- * says `BaseSchema | primitive`, and `BaseSchema` carries an index signature, so the
- * runtime accept set is now NARROWER than the declaration rather than wider. The
- * declaration repair is its own worklist and ⛔ not this const's to make.
+ * said `BaseSchema | primitive`, and `BaseSchema` carried an index signature, so the
+ * runtime accept set was NARROWER than the declaration rather than wider. The
+ * declaration repair was its own worklist and ⛔ not this const's to make.
+ * ⚠️ Dated note, 2026-10-02 (objectui#11466): that repair has landed. `SchemaNode`'s
+ * object arm is `DeclaredNode`, the union of the declared node types with no
+ * `type: string` arm, so an undeclared `type` is refused on the TS face too. The
+ * members that extend `BaseSchema` kept its index signature until objectui#8347
+ * removed it; a key they do not declare is refused on the TS face now as well.
+ * The two sentences above are kept as the reading at #8344.
  *
  * ⭐ What #7760 bought: `__tests__/zod-mirror-parity.test.ts` can now compare the
  * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` single-or-list slots that
@@ -285,7 +313,7 @@ export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
  * a declaration or narrowing a mirror to make the annotation fit: either is a
  * contract change wearing a type-annotation's clothes, and both are ruled elsewhere.
  */
-export const SchemaNodeSchema: z.ZodType<SchemaNode, SchemaNode> = z.lazy(() => {
+export const SchemaNodeSchema: SchemaNodeZodType = z.lazy(() => {
   // `z.lazy` memoises this getter, and that is FINE — because what it returns is the
   // one live union, whose option slot 0 IS the recursion point and is written by
   // {@link defineNodeComponentUnion}. ⛔ Do not move the union's CONSTRUCTION in here:
@@ -293,6 +321,41 @@ export const SchemaNodeSchema: z.ZodType<SchemaNode, SchemaNode> = z.lazy(() => 
   // wrong, and it would put the accept set back at the mercy of import order.
   return nodeUnion;
 });
+
+/**
+ * `BaseSchemaCore`'s `children` slot: one node or a list of nodes. It is the same
+ * schema it always was, `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])`,
+ * held in a const only so its type can be written out ({@link NodeSlotZodType},
+ * objectui#11466). Typing only: the accept set does not change.
+ */
+const NodeSlotSchema: NodeSlotZodType = z
+  .union([SchemaNodeSchema, z.array(SchemaNodeSchema)])
+  .optional()
+  .describe('Child components (React-style)');
+
+/**
+ * `visibleWhen`'s wire: the spec's `EvaluatedExpressionInputSchema`, by
+ * reference, WITHOUT its string transform (objectui#8347, ruled Q6 = B).
+ *
+ * The TypeScript twin is the spec's input type, `EvaluatedExpressionInput`
+ * (`../base.ts`). The accept set here is that type's: a predicate string, or
+ * the envelope arm, which is the spec's own `EvaluatedExpressionSchema` read by
+ * reference. Every verdict is the spec's: the value is handed to
+ * `EvaluatedExpressionInputSchema` and its issues are the refusal, so a blank
+ * predicate string is refused with the spec's sentence. What is NOT taken is
+ * the spec's transform, which rewrites a bare string into
+ * `{ dialect: 'cel', source }` at parse: this mirror authors nothing into a
+ * parsed document, so a string stays a string.
+ * `../__tests__/visible-when-spec-input-8347.test.ts` pins both halves.
+ */
+const VisibleWhenInputSchema = z
+  .union([z.string(), stripImportedDefaults(SpecEvaluatedExpressionSchema)])
+  .superRefine((predicate, ctx) => {
+    const verdict = stripImportedDefaults(SpecEvaluatedExpressionInputSchema).safeParse(predicate);
+    if (!verdict.success) {
+      for (const issue of verdict.error.issues) ctx.addIssue({ code: 'custom', message: issue.message });
+    }
+  });
 
 /**
  * Base Schema - Core validation schema that all components extend
@@ -388,7 +451,7 @@ const BaseSchemaCore = z.object({
   /**
    * Child components or content — the one child-list spelling (objectui#6771)
    */
-  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Child components (React-style)'),
+  children: NodeSlotSchema,
 
   /**
    * Visibility control — a boolean, or the predicate STRING the renderer
@@ -414,8 +477,10 @@ const BaseSchemaCore = z.object({
   /**
    * Canonical conditional-visibility predicate (ADR-0089) — shown when truthy.
    * The spec folds the deprecated `visibleOn` / `visibility` aliases into this.
+   * The spec's evaluated-slot input, by reference and untransformed — see
+   * `VisibleWhenInputSchema` above (objectui#8347).
    */
-  visibleWhen: z.string().optional().describe('Canonical conditional-visibility predicate (ADR-0089)'),
+  visibleWhen: VisibleWhenInputSchema.optional().describe('Canonical conditional-visibility predicate (ADR-0089)'),
 
   /**
    * Conditional visibility expression
@@ -523,7 +588,7 @@ const nodeUnionOptions: [z.ZodType, ...z.ZodType[]] = [
   z.undefined(),
 ];
 
-const nodeUnion = z.union(nodeUnionOptions) as unknown as z.ZodType<SchemaNode, SchemaNode>;
+const nodeUnion = z.union(nodeUnionOptions) as unknown as SchemaNodeZodType;
 
 /**
  * A spec schema's fields, minus the keys objectui declares locally, as an

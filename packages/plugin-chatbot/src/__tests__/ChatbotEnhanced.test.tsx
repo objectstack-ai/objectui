@@ -678,7 +678,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
     expect(detail).toHaveTextContent('Add an options array.');
   });
 
-  it('renders a model picker and forwards changes', () => {
+  it('renders a model picker and forwards changes', async () => {
     const onModelChange = vi.fn();
     render(
       <ChatbotEnhanced
@@ -690,8 +690,11 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
         onModelChange={onModelChange}
       />
     );
-    const picker = screen.getByLabelText(/Model/i) as HTMLSelectElement;
-    fireEvent.change(picker, { target: { value: 'claude-3-5-sonnet' } });
+    // The shared `Select` (objectui#11865), still named by its aria-label.
+    const picker = screen.getByLabelText(/Model/i);
+    expect(picker).toHaveAttribute('role', 'combobox');
+    fireEvent.keyDown(picker, { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: 'Claude 3.5 · anthropic' }));
     expect(onModelChange).toHaveBeenCalledWith('claude-3-5-sonnet');
   });
 

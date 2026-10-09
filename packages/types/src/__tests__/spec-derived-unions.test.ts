@@ -136,9 +136,11 @@ const _minimalTypedParam: ActionParam = { name: 'priority', label: 'Priority', t
 // It was in it: a local fork PROVED equivalent to the spec's and then replaced
 // by a binding. objectstack#11027 then retired the spec's whole `ui/responsive`
 // vocabulary, and the maintainer ruling of 2026-09-04 (option A) re-homed this
-// union into `../mobile` rather than retiring it with the key, because
-// `responsive-grid` is a registered SDUI component whose authorable `columns`
-// reaches a resolver on the render path — the tombstone's own return condition.
+// union into `../mobile` rather than retiring it with the key, because a
+// renderer implements it — the tombstone's own return condition. Today that is
+// the `grid` node, whose authorable breakpoint `columns` is keyed by this
+// union; the ruling's original ground, the `responsive-grid` node, retired
+// under objectui#11441, which kept the vocabulary.
 //
 // So the assertion below is NOT the burn-down check any more, and this is the
 // restatement rather than a deletion: it never read the spec for this symbol
@@ -203,9 +205,11 @@ const _validationErrorShape: ValidationError = { field: 'name', message: 'requir
 //  - `NavigationItemSchema`— upstream IS precise now; pinned below. The live
 //                            blocker is SHAPE, and it is a RUNTIME one: see
 //                            `navigation-spec-parity.test.ts`.
-//  - `JoinedReportBlock`   — STILL erased, to `unknown`, by a cause #4171 never
-//                            covered. Pinned in
-//                            `report-chart-query-spec-parity.test.ts`.
+//  - `JoinedReportBlock`   — STILL erased then, to `unknown`, by a cause #4171 never
+//                            covered. Since BURNED DOWN: objectstack#20369 typed
+//                            it, spec 17.5.0 ships that, and objectui#10940
+//                            derived the published type from it. The derivation
+//                            is pinned in `report-chart-query-spec-parity.test.ts`.
 //
 // So the batch burns down to zero re-exports and the ledger's remaining debt is
 // now carried as state pins that name their own release condition, rather than as

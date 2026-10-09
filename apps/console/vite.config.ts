@@ -17,7 +17,11 @@ import zlib from 'node:zlib';
 import { viteCryptoStub } from '../../scripts/vite-crypto-stub.ts';
 import { viteMaplibreWorker } from '../../scripts/vite-maplibre-worker.ts';
 import { resolveClientDistInjection, widenVendorChunkTestForClient } from '../../scripts/vite-objectstack-client-dist.ts';
-import { formatConditionReport, resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';
+import {
+  assertSingleZodInstance,
+  formatConditionReport,
+  resolveSpecDistInjection,
+} from '../../scripts/vite-objectstack-spec-dist.ts';
 import { viteIneffectiveDynamicImports } from '../../scripts/vite-ineffective-dynamic-imports.ts';
 import { viteDeclaredLazyViews } from '../../scripts/vite-declared-lazy-views.ts';
 import { viteTypesZodLazy } from '../../scripts/vite-types-zod-lazy.ts';
@@ -737,9 +741,22 @@ const SPEC_MODULE_TEST = /@objectstack[\\/+]spec/;
 //
 // Inert when unset: `null` here leaves the alias table, the pre-bundle list, the
 // vendor chunk test and the dev server's fs allow-list at their baseline values.
+//
+// The injected spec also arrives with its OWN install tree, so left alone its
+// bare `zod` import resolves to the framework's zod and the bundle carries two
+// instances — at the console pin objectui#11327 was reported against, the
+// Studio's spec-derived forms crashed in `z.toJSONSchema` over them. The
+// injection therefore pins every `zod` import to ONE
+// copy: the one `CONSOLE_ZOD_ANCHOR` resolves. That package is the anchor
+// because it is where the console walks spec schemas with its own zod (the
+// metadata-admin `*-schema.ts` modules) and it declares `zod` itself; the
+// injection refuses the build when that copy is outside the range the
+// injected spec declares.
+const CONSOLE_ZOD_ANCHOR = path.resolve(import.meta.dirname, '../../packages/app-shell');
 const specDistInjection = resolveSpecDistInjection(process.env.OBJECTSTACK_SPEC_DIST, {
   vendorChunkTest: VENDOR_OBJECTSTACK_TEST,
   specModuleTest: SPEC_MODULE_TEST,
+  consoleZodFrom: CONSOLE_ZOD_ANCHOR,
 });
 if (specDistInjection) Object.assign(workspaceAliases, specDistInjection.aliases);
 
@@ -813,6 +830,15 @@ export default defineConfig({
     // eagerly-loaded chunk. Runs on CI/Vercel too — it costs microseconds and
     // the regression it catches is invisible in every other signal.
     assertLazyLinterStaysLazy(specModuleTest),
+    // Under OBJECTSTACK_SPEC_DIST: resolve every bare `zod` import — the injected
+    // spec's included — to the console's one copy (objectui#11327). Registered
+    // only while the override is live, like every other injection surface.
+    ...(specDistInjection ? [specDistInjection.singleZodPlugin] : []),
+    // …and in EVERY build, injected or not: fail when the emitted chunks carry
+    // more than one zod instance, or none at all (the counter-probe). Measures
+    // the outcome rather than trusting the redirect above, because the first
+    // mechanism tried for this (`resolve.dedupe`, see below) was a silent no-op.
+    assertSingleZodInstance(),
     // The same refusal one directory over: fails the build if the
     // `@object-ui/types/zod` validators rejoin the eager closure, AND if they
     // stop being reachable from `@object-ui/plugin-map` at all (objectui#10065).
@@ -897,6 +923,14 @@ export default defineConfig({
     // different sonner instances and toasts never rendered (the "click does
     // nothing — no feedback" bug). Deduping keeps one instance so context,
     // hooks, and the sonner observer all line up.
+    //
+    // ⛔ `zod` is deliberately NOT listed. Dedupe resolves a listed package from
+    // the Vite root, and this root (`apps/console`) declares no `zod`: the
+    // lookup finds nothing and Vite falls back to each importer's own copy
+    // without a warning. Measured on objectui#11327 with OBJECTSTACK_SPEC_DIST
+    // set — adding `zod` here emitted the same two zod copies, byte-identical.
+    // The one-zod rule is held by `specDistInjection.singleZodPlugin` and
+    // checked by `assertSingleZodInstance` in the plugin list above.
     dedupe: ['react', 'react-dom', 'sonner'],
   },
   optimizeDeps: {
@@ -923,9 +957,82 @@ export default defineConfig({
         // explicitly partitions modules with priority/test/name semantics.
         advancedChunks: {
           groups: [
-            { name: 'vendor-react', test: /[\\/]node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/, priority: 100 },
+            //
+            // ## `use-sync-external-store` is React glue, so `vendor-react` names it (objectui#11798)
+            //
+            // Recharts reaches the page only through `import()` (the lazy
+            // `chart` / `object-chart` registrations in `register-plugins.ts`,
+            // and the lazy `ChartRenderer` in app-shell's dataset preview), so
+            // `vendor-charts` is meant to load with the first chart. It loaded
+            // with EVERY page instead. A group captures its `test` matches AND,
+            // by rolldown's default `includeDependenciesRecursively: true`,
+            // everything they import, and recharts imports
+            // `use-sync-external-store/shim` through `react-redux`. Unnamed by
+            // any group, that shim went to `vendor-charts`, which won the
+            // priority-90 tie for it against `vendor-i18n` (listed below it).
+            // `react-i18next`'s `useTranslation` imports the same shim
+            // statically, so the eager `vendor-i18n` chunk imported
+            // `vendor-charts`, and the whole chart engine (recharts and d3) rode
+            // into the eager closure on a few hundred bytes of React glue. No
+            // chart module was statically reachable from the entry: the chunk
+            // rule alone made them eager, the objectui#5266 mechanism one group
+            // over.
+            //
+            // The repair names the shim's owner. This group outranks every
+            // other, so it claims `use-sync-external-store` first, and rolldown
+            // removes a module a higher-priority group claimed from the groups
+            // below it. `vendor-charts` keeps its default recursive capture and
+            // its own members; it just no longer holds a module an eager chunk
+            // needs. Whether a `vendor-charts` file is in the closure is what
+            // `apps/console/dist/eager-closure.json` answers after a build, and
+            // `pnpm check:eager-closure` weighs it.
+            //
+            // ⛔ Not `includeDependenciesRecursively: false` on `vendor-charts`,
+            // the other way to stop that capture. Measured on the console build
+            // of `8cc10b9` (a historical reading, ⛔ not re-derived by anything):
+            // recharts' other dependencies then fell to the recursive
+            // `plugin-charts` group, `plugin-charts` and `vendor-charts` imported
+            // each other, and a `chart` node rendered "Failed to load plugin: A
+            // is not a function" instead of a chart. That is the invalid-chunk
+            // risk rolldown documents for the flag, which the `data-adapter`
+            // note below says a new group taking it must re-check.
+            {
+              name: 'vendor-react',
+              test: /[\\/]node_modules[\\/](react|react-dom|react-router|scheduler|use-sync-external-store)[\\/]/,
+              priority: 100,
+            },
             { name: 'vendor-radix', test: /[\\/]node_modules[\\/]@radix-ui[\\/]/, priority: 95 },
-            { name: 'vendor-objectstack', test: vendorObjectstackTest, priority: 95 },
+            //
+            // ## `tags: ['$initial']` — this group claims only what the first screen runs (objectui#11101)
+            //
+            // A group claims by module ID, not by reachability, and this group's
+            // chunk is a static import of the entry. So every `@objectstack/*`
+            // module it claims is downloaded and parsed on every page load —
+            // including one the source reaches only through `import()`. That is
+            // how `@objectstack/lint` went eager in objectui#5266, and the
+            // lookaheads in `VENDOR_OBJECTSTACK_TEST` exclude that one package
+            // and nothing else. The tag closes the class: rolldown's built-in
+            // `$initial` tag marks a module statically reachable from an entry,
+            // so a vendor module that sits only behind an `import()` is no
+            // longer claimed here and follows its importer into a lazy chunk.
+            //
+            // What it moved, on objectui#11101's two builds of one tree that
+            // differ only in this tag: `@objectstack/spec`'s `/ai` and
+            // `/integration` entries, which the metadata designers' client
+            // validation (`views/metadata-admin/clientValidation.ts`) reaches
+            // only through `await import()`; `/contracts`, reached by lazy
+            // console pages and the linter; and `@objectstack/sdui-parser`,
+            // reached by the linter alone. The bytes are recorded once, on
+            // `BASELINE` in `scripts/check-eager-closure-budget.mjs`, ⛔ not here.
+            //
+            // ⛔ It moves nothing the first paint needs: `$initial` IS the static
+            // closure of the entry, so every module the first screen executes is
+            // still claimed by this group, into the same chunk. The linter's
+            // lookaheads stay — `assertLazyLinterStaysLazy` names them in its
+            // diagnostic. Dropping the tag puts the four modules back on every
+            // page load, and the lowered ceiling in
+            // `scripts/check-eager-closure-budget.mjs` is what reds on it.
+            { name: 'vendor-objectstack', test: vendorObjectstackTest, priority: 95, tags: ['$initial'] },
             { name: 'vendor-icons-core', test: /[\\/]node_modules[\\/]lucide-react[\\/]dist[\\/](lucide-react|esm[\\/](Icon|createLucideIcon|defaultAttributes|shared))/, priority: 90 },
             //
             // ## ONE CHUNK PER ICON — and ⛔ why this is not the regroup objectui#9251 forbids
@@ -979,6 +1086,9 @@ export default defineConfig({
             },
             { name: 'vendor-ui-utils', test: /[\\/]node_modules[\\/](class-variance-authority|clsx|tailwind-merge|sonner)[\\/]/, priority: 90 },
             { name: 'vendor-zod', test: /[\\/]node_modules[\\/]zod[\\/]/, priority: 90 },
+            // `vendor-charts` stays out of the eager closure because `vendor-react`
+            // claims `use-sync-external-store`; see the note on that group
+            // (objectui#11798).
             { name: 'vendor-charts', test: /[\\/]node_modules[\\/](recharts|d3-|victory-)/, priority: 90 },
             { name: 'vendor-dndkit', test: /[\\/]node_modules[\\/]@dnd-kit[\\/]/, priority: 90 },
             { name: 'vendor-i18n', test: /[\\/]node_modules[\\/](i18next|react-i18next)[\\/]/, priority: 90 },
@@ -1258,9 +1368,42 @@ export default defineConfig({
             { name: 'plugin-calendar', test: /[\\/]packages[\\/]plugin-calendar[\\/]/, priority: 70 },
             { name: 'plugin-kanban', test: /[\\/]packages[\\/]plugin-kanban[\\/]/, priority: 70 },
             { name: 'plugin-chatbot', test: /[\\/]packages[\\/]plugin-chatbot[\\/]/, priority: 70 },
-            // react-markdown / remark / micromark family — heavy markdown
-            // pipeline pulled in only by markdown/chatbot plugins.
-            { name: 'vendor-markdown', test: /[\\/]node_modules[\\/](react-markdown|remark-|rehype-|micromark|mdast-|hast-|unified|unist-|vfile|bail|trough|character-entities|decode-named-character-reference|devlop|estree-|comma-separated-tokens|space-separated-tokens|property-information|html-url-attributes|zwitch)/, priority: 85 },
+            //
+            // ## `vendor-markdown` claims only what the first load reaches (objectui#11854)
+            //
+            // The remark / rehype / micromark family. The chatbot's message
+            // renderer (`streamdown`, imported statically by `plugin-chatbot`)
+            // reaches most of it on every page, so this chunk is eager. Without
+            // the tag the group also claimed the family members that only
+            // `plugin-markdown` reaches — `rehype-highlight` with `lowlight` and
+            // `highlight.js`, `rehype-slug`, `rehype-autolink-headings`,
+            // `remark-github-blockquote-alert` and their helpers — and one eager
+            // member made all of them eager: the objectui#11798 capture
+            // mechanism, one group over. `tags: ['$initial']` is the same option,
+            // for the same reason, as on `vendor-objectstack` above
+            // (objectui#11101): the group claims a family member only when a
+            // static import from the entry reaches it, and the rest follows its
+            // importer, `plugin-markdown`'s own group, behind that plugin's lazy
+            // registration and the docs reader's lazy route. The bytes are
+            // recorded once, on `BASELINE` in
+            // `scripts/check-eager-closure-budget.mjs`, ⛔ not here.
+            //
+            // ⛔ Not `includeDependenciesRecursively: false`, the flag
+            // objectui#11798 measured into a chunk cycle on `vendor-charts`; the
+            // tag narrows what the group claims and leaves its capture alone.
+            //
+            // `react-markdown` is the one member with no static path from the
+            // entry that the first load still needs. `MarkdownContent` in
+            // `packages/fields` imports it statically, and that widget sits in
+            // the EAGER `ui-components` chunk although it is only reached through
+            // `React.lazy` — the co-tenancy recorded in
+            // `scripts/vite-ineffective-dynamic-imports.ts` (objectui#5325). Left
+            // unclaimed, `ui-components` (priority 80) would take it by its own
+            // capture, onto a budgeted line; claimed by the tagged group it
+            // cannot be. So it gets a group of its own here, and its chunk loads
+            // with whichever importer loads first.
+            { name: 'vendor-markdown', test: /[\\/]node_modules[\\/](remark-|rehype-|micromark|mdast-|hast-|unified|unist-|vfile|bail|trough|character-entities|decode-named-character-reference|devlop|estree-|comma-separated-tokens|space-separated-tokens|property-information|html-url-attributes|zwitch)/, priority: 85, tags: ['$initial'] },
+            { name: 'vendor-react-markdown', test: /[\\/]node_modules[\\/]react-markdown[\\/]/, priority: 84 },
             // Sentry — only fetched when the RUNTIME serves a DSN on
             // /api/v1/runtime/config (objectstack#12681); a deployment that
             // configured none never requests this chunk at all.

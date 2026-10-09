@@ -146,7 +146,9 @@ const FIXED: Array<[string, string[]]> = [
   ['console.objectView.ufShowAllRecords', ['„Alle Datensätze“']],
   ['home.gettingStarted.description', ['„Zuletzt geöffnet“']],
   ['search.resultsCount', ['„{{query}}“']],
-  ['search.resultsCountPlural', ['„{{query}}“']],
+  // objectui#11445 folded `search.resultsCountPlural` into the `resultsCount`
+  // count family: the value objectui#3876 fixed, and this span, live in `_other`.
+  ['search.resultsCount_other', ['„{{query}}“']],
   ['empty.objectNotFoundDescription', ['„{{name}}“']],
   ['empty.pageNotFoundDescription', ['„{{name}}“']],
   ['empty.dashboardNotFoundDescription', ['„{{name}}“']],
@@ -299,7 +301,22 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // `form.noPermissionToEdit`, the notice on a form locked for a closed
     // affordance, which each quote the object's label („{{object}}“-Datensätze)
     // — two interpolated spans, runtime data.
-    expect(okSpans, 'correctly paired spans').toBe(68);
+    // 69 once objectui#11131 added `fields.grid.noItemsAddHint`, the list-mode
+    // line-items grid's empty text, which quotes the Add button's label
+    // („{{label}}“) — one interpolated span, runtime data.
+    // 70 once objectui#11445 made `search.resultsCount` a count family — its
+    // `_one` and `_other` slots quote the query, and `resultsCountPlural` left.
+    // 71 once objectui#11695 added `objectActions.deleteConfirmTitle`, the
+    // delete confirmation's title, which quotes the record's name
+    // („{{name}}“) — one interpolated span, runtime data.
+    // 75 once objectui#11810 added `filterBuilder.emptyCheckHint.text` and
+    // `.list`, the filter builder's note on how its two empty checks differ,
+    // which each quote both operator labels („{{isEmpty}}“ / „{{isNull}}“) —
+    // four interpolated spans, the dropdown's own labels.
+    // 76 once objectui#11913 added `grid.import.invalidTime`, the import
+    // preview's refusal of a time cell, which quotes the cell („{{value}}“) —
+    // one interpolated span, runtime data.
+    expect(okSpans, 'correctly paired spans').toBe(76);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -334,8 +351,15 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // 66 / 66 / 0 after objectui#7699 added `fields.file.uploadIncomplete`, one
     // more matched pair. 68 / 68 / 0 after objectui#11000 added
     // `form.noPermissionToCreate` and `form.noPermissionToEdit`, one matched
-    // pair each.
-    expect({ open, close, rdq }).toEqual({ open: 68, close: 68, rdq: 0 });
+    // pair each. 69 / 69 / 0 after objectui#11131 added
+    // `fields.grid.noItemsAddHint`, one more matched pair. 70 / 70 / 0 after
+    // objectui#11445 made `search.resultsCount` a count family: `_one` and
+    // `_other` carry one matched pair each and `resultsCountPlural` left.
+    // 71 / 71 / 0 after objectui#11695 added `objectActions.deleteConfirmTitle`,
+    // one more matched pair. 75 / 75 / 0 after objectui#11810 added the two
+    // `filterBuilder.emptyCheckHint` values, two matched pairs each. 76 / 76 / 0
+    // after objectui#11913 added `grid.import.invalidTime`, one more matched pair.
+    expect({ open, close, rdq }).toEqual({ open: 76, close: 76, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

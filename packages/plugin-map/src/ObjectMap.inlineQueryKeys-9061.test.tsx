@@ -88,6 +88,7 @@ import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { NON_GRID_ROW_CEILING, nonGridRowCeilingQuery, ValueDataSource } from '@object-ui/core';
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 // Same stub the sibling ObjectMap pins use (no WebGL in this lane), widened on
 // `Marker` by the longitude it is handed: `sort` is unreadable from a count,

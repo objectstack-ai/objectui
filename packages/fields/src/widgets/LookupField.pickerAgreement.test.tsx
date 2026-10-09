@@ -70,7 +70,7 @@ const WORK_STEPS: Record<string, any> = {
  */
 const SCHEDULE_FIELDS: Record<string, any> = {
   name: { type: 'text', label: 'Name' },
-  work_step: { type: 'lookup', label: 'Work Step', reference_to: 'work_steps' },
+  work_step: { type: 'lookup', label: 'Work Step', reference: 'work_steps' },
   planned_on: { type: 'date', label: 'Planned On', format: 'medium' },
   status: {
     type: 'select',
@@ -167,7 +167,7 @@ async function readInlineDropdown(stepId: string): Promise<Record<string, Column
         onChange={() => {}}
         dataSource={dataSource}
         field={{
-          reference_to: 'work_schedules',
+          reference: 'work_schedules',
           display_field: 'name',
           lookup_columns: LOOKUP_COLUMNS,
         } as never}

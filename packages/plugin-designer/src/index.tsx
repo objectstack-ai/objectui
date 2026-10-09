@@ -79,13 +79,32 @@ export type { MetadataObjectsPageProps } from './MetadataObjectsPage';
 export { MetadataFieldsPage } from './MetadataFieldsPage';
 export type { MetadataFieldsPageProps } from './MetadataFieldsPage';
 
+/*
+ * The designer registrations' `inputs` (objectui#11434's sweep). `inputs` is
+ * an authoring surface: the html-tier page compiler builds its manifest from
+ * every known registration and its `validateTree` answers `unknown-prop` for a
+ * node key no input names — so a member the component READS but no row lists
+ * is warned off although it works. Measured against the six node declarations
+ * in `@object-ui/types`, the rows below are exactly the read members. What no
+ * row lists is unlisted on purpose: `body` and `children` (no designer reads a
+ * content channel, and both faces refuse them), and the retired tombstones
+ * (`autoLayout`, `previewMode`). Every row declares the kind its value has
+ * (`array` / `object` / `enum` / `string` / `boolean`): a `code` row answered
+ * `type-mismatch` ("expected a string") on every legal array or object value,
+ * the shape objectui#10993 settled on the registration row by declaring the
+ * `object` arm. Nothing else reads these rows' kinds: the published
+ * `sdui.manifest.json` and the `kind:'react'` scope carry the public tier
+ * alone, which no designer is in.
+ */
 ComponentRegistry.register('page-designer', PageDesigner, {
   namespace: 'plugin-designer',
   label: 'Page Designer',
   category: 'Designer',
   inputs: [
-    { name: 'canvas', type: 'code' },
-    { name: 'components', type: 'code' },
+    { name: 'canvas', type: 'object' },
+    { name: 'components', type: 'array' },
+    { name: 'palette', type: 'array' },
+    { name: 'propertyEditor', type: 'boolean' },
     { name: 'showComponentTree', type: 'boolean' },
     { name: 'undoRedo', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
@@ -97,9 +116,10 @@ ComponentRegistry.register('data-model-designer', DataModelDesigner, {
   label: 'Data Model Designer',
   category: 'Designer',
   inputs: [
-    { name: 'entities', type: 'code' },
-    { name: 'relationships', type: 'code' },
-    { name: 'autoLayout', type: 'boolean' },
+    { name: 'entities', type: 'array' },
+    { name: 'relationships', type: 'array' },
+    { name: 'canvas', type: 'object' },
+    { name: 'showRelationshipLabels', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
   ],
 });
@@ -110,8 +130,11 @@ ComponentRegistry.register('process-designer', ProcessDesigner, {
   category: 'Designer',
   inputs: [
     { name: 'processName', type: 'string' },
-    { name: 'nodes', type: 'code' },
-    { name: 'edges', type: 'code' },
+    { name: 'version', type: 'string' },
+    { name: 'nodes', type: 'array' },
+    { name: 'edges', type: 'array' },
+    { name: 'lanes', type: 'array' },
+    { name: 'canvas', type: 'object' },
     { name: 'showMinimap', type: 'boolean' },
     { name: 'showToolbar', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
@@ -125,62 +148,48 @@ ComponentRegistry.register('report-designer', ReportDesigner, {
   inputs: [
     { name: 'reportName', type: 'string' },
     { name: 'objectName', type: 'string' },
-    { name: 'sections', type: 'code' },
+    { name: 'pageSize', type: 'enum', enum: ['A4', 'A3', 'Letter', 'Legal', 'Tabloid'] },
+    { name: 'orientation', type: 'enum', enum: ['portrait', 'landscape'] },
+    { name: 'margins', type: 'object' },
+    { name: 'sections', type: 'array' },
     { name: 'showToolbar', type: 'boolean' },
     { name: 'showPropertyPanel', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
   ],
 });
 
-ComponentRegistry.register('app-creation-wizard', AppCreationWizard, {
-  namespace: 'plugin-designer',
-  label: 'App Creation Wizard',
-  category: 'Designer',
-  inputs: [
-    { name: 'availableObjects', type: 'code' },
-    { name: 'templates', type: 'code' },
-    { name: 'readOnly', type: 'boolean' },
-  ],
-});
-
-ComponentRegistry.register('navigation-designer', NavigationDesigner, {
-  namespace: 'plugin-designer',
-  label: 'Navigation Designer',
-  category: 'Designer',
-  inputs: [
-    { name: 'items', type: 'code' },
-    { name: 'showPreview', type: 'boolean' },
-    { name: 'readOnly', type: 'boolean' },
-  ],
-});
-
-ComponentRegistry.register('dashboard-editor', DashboardEditor, {
-  namespace: 'plugin-designer',
-  label: 'Dashboard Editor',
-  category: 'Designer',
-  inputs: [
-    { name: 'schema', type: 'code' },
-    { name: 'readOnly', type: 'boolean' },
-  ],
-});
-
-ComponentRegistry.register('branding-editor', BrandingEditor, {
-  namespace: 'plugin-designer',
-  label: 'Branding Editor',
-  category: 'Designer',
-  inputs: [
-    { name: 'branding', type: 'code' },
-    { name: 'appTitle', type: 'string' },
-    { name: 'readOnly', type: 'boolean' },
-  ],
-});
+/**
+ * ⛔ Four node type keys are RETIRED here (objectui#10859 batch 8, phase 2b,
+ * the seat's ruling on that card, by the objectui#10393 / objectui#8760
+ * route): `app-creation-wizard`, `navigation-designer`, `dashboard-editor` and
+ * `branding-editor`. `AppCreationWizard`, `NavigationDesigner`,
+ * `DashboardEditor` and `BrandingEditor` stay named exports of this package.
+ *
+ * ## What was here, and why it went
+ *
+ * One `ComponentRegistry.register(KEY, Component, { namespace:
+ * 'plugin-designer', category: 'Designer', ... })` per key — builder chrome
+ * published as node keys, each storing `plugin-designer:KEY` and the bare
+ * `KEY` fallback. No `@object-ui/types` arm claims any of them, so
+ * `objectui validate` refused a node authored with one of these types at
+ * `type` while the registry mounted it.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the nodes: 0 occurrences of any of the four as a node type in
+ * source, docs, examples, the catalog or objectstack, and 0 runtime emission,
+ * re-measured for phase 2b. The React components are mounted directly
+ * wherever they are used, so no host loses a path. The designer registrations
+ * around this block (`page-designer`, `object-manager` and the rest) are not
+ * part of this retirement.
+ */
 
 ComponentRegistry.register('object-manager', ObjectManager, {
   namespace: 'plugin-designer',
   label: 'Object Manager',
   category: 'Designer',
   inputs: [
-    { name: 'objects', type: 'code' },
+    { name: 'objects', type: 'array' },
     { name: 'showSystemObjects', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
   ],
@@ -192,7 +201,7 @@ ComponentRegistry.register('field-designer', FieldDesigner, {
   category: 'Designer',
   inputs: [
     { name: 'objectName', type: 'string' },
-    { name: 'fields', type: 'code' },
+    { name: 'fields', type: 'array' },
     { name: 'readOnly', type: 'boolean' },
   ],
 });

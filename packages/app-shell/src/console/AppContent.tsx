@@ -26,6 +26,7 @@ import {
   ExpressionProvider,
   createExpressionEvaluator,
   isObjectFieldVisible,
+  useExpressionPermissions,
 } from '../providers/ExpressionProvider.js';
 import { buildExpressionUser } from '../providers/expressionUser.js';
 import { useTrackRouteAsRecent } from '../hooks/useTrackRouteAsRecent.js';
@@ -34,7 +35,7 @@ import { useSignedInUserLocale } from '../hooks/useUserLocale.js';
 import { resolveRecordFormTarget, resolveFormViewLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget } from '../utils/recordFormNavigation.js';
 import { deriveRecordSurface, deriveRecordFlowSurface } from '@object-ui/plugin-view';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM } from '../urlParams.js';
-import { matchAppBySegment } from '../utils/appRoute.js';
+import { appRouteSegment, matchAppBySegment } from '../utils/appRoute.js';
 import { resolveHref, type NavTemplateContext } from '@object-ui/layout';
 
 // Components (eagerly loaded — always needed)
@@ -180,7 +181,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const homePath = useHomePath();
   const previewDrafts = usePreviewDrafts();
   const { t } = useObjectTranslation();
-  const { objectLabel } = useObjectLabel();
+  const { objectLabel, objectPluralLabel } = useObjectLabel();
 
   // Preload the metadata buckets that the routes under /apps/:appName/* assume
   // are fully loaded by render time (the lazy MetadataProvider only eagerly
@@ -251,6 +252,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     ((!appName || isSpecialRoute)
       ? (launcherApps.find((a: any) => a.isDefault === true) || launcherApps[0])
       : undefined);
+
+  // ADR-0048 (A) — the segment every `/apps/…` path this component builds is
+  // keyed on: the URL's own (`appName` — the package id, or the name alias the
+  // user followed), else the resolved app's route segment. Never `activeApp.name`
+  // raw: on a package-id route that is a second address for the same app, and
+  // the recent-items tracker below matches it against the URL (objectui#11818).
+  const appSegment = appName ?? appRouteSegment(activeApp);
 
   // A normal app was requested but isn't present in the loaded metadata — the
   // post-publish readiness lag, or a genuinely-missing app. Applies in BOTH
@@ -382,18 +390,17 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
 
   useEffect(() => {
     if (!activeApp?.name) return;
-    // ADR-0048 — build against the URL's own segment (`appName`, which may be the
-    // package id) so the match works and the redirect keeps the same segment;
+    // ADR-0048 — build against the URL's own segment (`appSegment`, which may be
+    // the package id) so the match works and the redirect keeps the same segment;
     // `activeApp.name` would flip a `/apps/<packageId>/…` URL to the name form.
-    const seg = appName ?? activeApp.name;
-    const packageMetadataPath = `/apps/${seg}/metadata/package`;
+    const packageMetadataPath = `/apps/${appSegment}/metadata/package`;
     if (
       location.pathname === packageMetadataPath ||
       location.pathname.startsWith(`${packageMetadataPath}/`)
     ) {
-      navigate(`/apps/${seg}/component/developer/packages`, { replace: true });
+      navigate(`/apps/${appSegment}/component/developer/packages`, { replace: true });
     }
-  }, [activeApp?.name, appName, location.pathname, navigate]);
+  }, [activeApp?.name, appSegment, location.pathname, navigate]);
 
   // objectstack-ai/objectstack#2604 — the create/edit overlay is URL-driven (`?form=new` / `?form=<id>`),
   // not component state: the record form is a TASK overlay over the origin
@@ -456,17 +463,20 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // device-local value is a cache from here on rather than a second setting.
   useSignedInUserLocale();
 
+  // objectui#11080 — both toasts read the session's language: the words around
+  // the operation's description are pack keys beside `actions.undo`, and the
+  // description itself is interpolated unchanged.
   useGlobalUndo({
     dataSource: dataSource ?? undefined,
     onUndo: (op: any) => {
-      toast.info(`Undo: ${op.description}`, { duration: 4000 });
+      toast.info(t('actions.undoneOperation', { description: op.description }), { duration: 4000 });
       setRefreshKey(k => k + 1);
       // Precisely-scoped invalidation — UndoableOperation carries the target
       // (objectName + recordId), so detail readers refresh in place too.
       if (op?.objectName) notifyDataChanged({ objectName: op.objectName, recordId: op.recordId });
     },
     onRedo: (op: any) => {
-      toast.info(`Redo: ${op.description}`, { duration: 3000 });
+      toast.info(t('actions.redoneOperation', { description: op.description }), { duration: 3000 });
       setRefreshKey(k => k + 1);
       if (op?.objectName) notifyDataChanged({ objectName: op.objectName, recordId: op.recordId });
     },
@@ -611,7 +621,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     if (editingRecord || !currentObjectDef) return;
     const target = resolvePostCreateTarget({
       objectName: currentObjectDef.name,
-      baseUrl: appName ? `/apps/${appName}` : (activeApp?.name ? `/apps/${activeApp.name}` : ''),
+      baseUrl: appSegment ? `/apps/${appSegment}` : '',
       pathname: location.pathname,
       search: window.location.search,
       surface: deriveRecordSurface(currentObjectDef),
@@ -631,7 +641,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
       originSp.delete(RECORD_FORM_LINK_PARAM);
       const originQs = originSp.toString();
       const originPath = `${location.pathname}${originQs ? `?${originQs}` : ''}`;
-      const originLabel = objectLabel(currentObjectDef as any);
+      // The origin is a list of the object's records, so the back link names
+      // it with the plural, as ObjectView's row navigation does (objectui#11733).
+      const originLabel = objectPluralLabel(currentObjectDef);
       navigate(target.url, {
         replace: true,
         state: originLabel ? { from: { pathname: originPath, label: originLabel } } : undefined,
@@ -639,12 +651,14 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
       return;
     }
     navigate(target.url, { replace: true });
-  }, [handleCrudSuccess, isChildFormTask, formObjectDef, editingRecord, currentObjectDef, appName, activeApp?.name, location.pathname, navigate, closeRecordForm, objectLabel, t]);
+  }, [handleCrudSuccess, isChildFormTask, formObjectDef, editingRecord, currentObjectDef, appSegment, location.pathname, navigate, closeRecordForm, objectLabel, objectPluralLabel, t]);
 
-  // Track recent items on route change.
+  // Track recent items on route change. The hook matches `appName` against the
+  // pathname's app segment, so it takes the ROUTE SEGMENT: handed
+  // `activeApp.name`, it recorded nothing on a package-id route (objectui#11818).
   useTrackRouteAsRecent({
     pathname: location.pathname,
-    appName: activeApp?.name,
+    appName: appSegment,
     objects: allObjects,
   });
 
@@ -655,7 +669,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     // preserved for any object without the flag.
     const target = resolveRecordFormTarget({
       objectDef: currentObjectDef as any,
-      baseUrl: appName ? `/apps/${appName}` : (activeApp?.name ? `/apps/${activeApp.name}` : ''),
+      baseUrl: appSegment ? `/apps/${appSegment}` : '',
       record,
     });
     if (target.kind === 'page') {
@@ -689,6 +703,10 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // object) and `features`. Its `user` was hand-rolled too, without
   // `positions` — so `'sales' in current_user.positions`, the gate the server
   // enforces on write, faulted here rather than hiding the field.
+  // objectui#4421 — the same `permissions` input the provider below reads, so
+  // `current_user.can(...)` in a field's `visibleWhen` answers here exactly as
+  // it does under the provider (one bag, objectui#6493).
+  const expressionPermissions = useExpressionPermissions();
   const expressionEvaluator = useMemo(
     // ⛔ No `app`: objectui#8155 removed it from the predicate scope, because
     // neither ADR-0068 nor the engine's `SCOPE_ROOTS` declares such a root.
@@ -706,8 +724,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     () => createExpressionEvaluator({
       user: buildExpressionUser(user),
       features,
+      permissions: expressionPermissions,
     }),
-    [user, features],
+    [user, features, expressionPermissions],
   );
 
   // objectui#5619 — `isWorkspaceAdminResolved` belongs in this readiness gate
@@ -1072,7 +1091,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                     score 16; declaration order breaks the tie). */}
                 <Route
                   path="metadata/package/*"
-                  element={<Navigate to={`/apps/${appName ?? activeApp.name}/component/developer/packages`} replace />}
+                  element={<Navigate to={`/apps/${appSegment}/component/developer/packages`} replace />}
                 />
                 <Route path="metadata">
                   <Route index element={<MetadataDirectoryPage />} />

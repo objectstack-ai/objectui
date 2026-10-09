@@ -393,6 +393,14 @@ const GREP_ENGINE_FLAG = '-P';
 /** The scanned tree. `examples/` is in it because an example app is exactly
  *  where a fourth reader would plausibly appear. */
 const SCAN_ROOTS = ['packages', 'apps', 'examples'] as const;
+/** Every `CHANGELOG.md` is outside the scanned tree. `pnpm changeset:version`
+ *  writes each pending changeset body into one, and the changeset for a
+ *  retirement names the key it retires. Without this exclusion the release
+ *  commit itself reads as five new readers of the array, which is what turned
+ *  the 17.7.0 release head red (objectui#11586). A CHANGELOG is history, not
+ *  code. The sibling censuses exclude it with the same spelling
+ *  (`eventable-schema-retired-6497.test.ts`). */
+const SCAN_EXCLUDES = [':!*CHANGELOG.md'] as const;
 
 /** The engine, for the diagnostics below: a failure that says "the anchor is
  *  dead" is only actionable if it also says WHICH git read it. */
@@ -414,7 +422,7 @@ const gitGrepFiles = (args: readonly string[]): string[] => {
   let out: string;
   let failure: Failure | undefined;
   try {
-    out = execFileSync('git', ['grep', ...args, '--', ...SCAN_ROOTS], {
+    out = execFileSync('git', ['grep', ...args, '--', ...SCAN_ROOTS, ...SCAN_EXCLUDES], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -762,8 +770,8 @@ type Equal<A, B> =
 type Expect<T extends true> = T;
 
 /** `?: never` reads as exactly `undefined` off the interface (`Equal`, not
- *  `extends`, because `BaseSchema`'s index signature makes a DELETED member read
- *  `any`, which a one-way check would accept). */
+ *  `extends`, because `BaseSchema`'s index signature made a DELETED member read
+ *  `any` until objectui#8347, which a one-way check would accept). */
 type RetiredIsNever<T> = Equal<T, undefined>;
 
 /** A runtime slot keeps a callable member. Over `NonNullable` so `undefined`
@@ -807,8 +815,8 @@ export type assertionStringTwinsStopDeclaringString = [
 ];
 
 /**
- * The member is DECLARED on the interface, not inherited from `BaseSchema`'s
- * `[key: string]: any` index signature.
+ * The member is DECLARED on the interface, not read through the
+ * `[key: string]: any` index signature `BaseSchema` carried until objectui#8347.
  *
  * ⚠️ This exists because objectui#7804's two keys enter this ledger from a base
  * state the other four never had: ABSENT. `Extract`-based helpers read an
@@ -828,7 +836,7 @@ export type assertionDetailSlotsAreDECLARED = [
 
 // The four helpers must be able to FAIL — synthetic controls, both directions.
 export type assertionDeclaresExactlyCanFail = [
-  // an ABSENT member, as `BaseSchema`'s index signature types it
+  // an ABSENT member, as `BaseSchema`'s index signature typed it (until objectui#8347)
   Expect<Equal<DeclaresExactly<any, () => void>, false>>,
   // a DECLARED member with the wrong signature
   Expect<Equal<DeclaresExactly<((n: number) => void) | undefined, () => void>, false>>,

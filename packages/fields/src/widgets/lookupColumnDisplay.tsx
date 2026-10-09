@@ -38,6 +38,7 @@
 import React from 'react';
 import { formatDate, getRecordDisplayName } from '@object-ui/core';
 import type { LookupColumnDef } from '@object-ui/types';
+import { BooleanValueText } from './booleanValueLabel.js';
 
 /**
  * Cell renderer function signature — matches `getCellRenderer` from
@@ -116,7 +117,7 @@ export function resolveSchemaOptions(
  * referenced object's schema (`fieldsMeta`) the same way the list view enriches
  * its columns. This is what lets a `select` column resolve its option label
  * (options + i18n) instead of title-casing the raw value (#3333), and what
- * carries `reference` / `reference_to` through to the lookup cell renderer so
+ * carries `reference` through to the lookup cell renderer so
  * an unresolved foreign-key id resolves to a name (#5492).
  *
  * Columns whose def carries no `type` inherit the schema field's type, so
@@ -240,6 +241,9 @@ export function renderLookupColumnValue(
     if (val.name || val.label) return String(val.name || val.label);
     return JSON.stringify(val);
   }
-  if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+  // The locale's word for the value (objectui#11689), the one every read-only
+  // boolean word reads. A node rather than a string: this function cannot call
+  // the translation hook itself, and both callers render what it returns.
+  if (typeof val === 'boolean') return <BooleanValueText value={val} />;
   return String(val);
 }

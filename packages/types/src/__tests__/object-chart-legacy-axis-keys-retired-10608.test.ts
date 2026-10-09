@@ -25,8 +25,9 @@
  *
  * ## Why tombstones and not deletions
  *
- * `BaseSchema` is `.passthrough()` on the zod side and carries an index
- * signature on the TS side, so an UNDECLARED key is not refused, it is KEPT.
+ * `BaseSchema` is `.passthrough()` on the zod side (and carried an index
+ * signature on the TS side until objectui#8347), so an UNDECLARED key is not
+ * refused there, it is KEPT.
  * Deleting the three members would hand the authored spelling exactly the
  * silent no-op this card closes; block (d) pins that consequence on a
  * misspelling, so the reason is a reading and not prose. `?: never` +
@@ -47,9 +48,10 @@
  * ## The lit controls
  *
  * Block (b): the spec spelling of the same intent parses on the same node, at
- * the same door. Block (e): the LIST-VIEW carrier that does read these names
- * (the `options.chart` bag) still accepts them — the retirement is scoped to
- * this node, and that boundary is pinned rather than stated.
+ * the same door. Block (e): the LIST-VIEW carrier that reads these names (the
+ * `options.chart` bag) accepted them until objectui#6152 round 12, which made
+ * the bag the spec's list-overlay bag; its dataset-only chart block refuses all
+ * three, so the boundary this block pinned is gone and it now pins the refusal.
  *
  * The `@ts-expect-error` directives in block (f) are REAL enforcement: this
  * package type-checks its tests through `tsconfig.test.json`, so re-widening a
@@ -65,6 +67,13 @@ import { ListViewSchema, safeValidateSchema } from '../zod/index.zod';
 
 const CHART = { type: 'object-chart', chartType: 'bar' } as const;
 const chart = (extra: Record<string, unknown>) => ({ ...CHART, ...extra });
+/**
+ * The AUTHORED node (objectui#11276): its props in the `properties` bag, the
+ * arm the public door judges. `authoredFlat` writes `extra` on that node
+ * itself. The mirror rows keep `chart(extra)`, the node as `ObjectChart` reads it.
+ */
+const authored = (extra: Record<string, unknown>) => ({ type: 'object-chart', properties: { chartType: 'bar', ...extra } });
+const authoredFlat = (extra: Record<string, unknown>) => ({ type: 'object-chart', properties: { chartType: 'bar' }, ...extra });
 
 /**
  * The retired keys, each with the values an author would plausibly have written
@@ -102,10 +111,17 @@ describe.each(RETIRED_KEYS)('objectui#10608 (a) — `%s` is RETIRED on `object-c
   it.each(values.map((v) => [JSON.stringify(v), v] as const))(
     'refuses `%s` at the public door and on the mirror: ONE `invalid_type` issue at the key, naming the remedy',
     (_label, value) => {
-      for (const r of [safeValidateSchema(chart({ [key]: value })), ObjectChartMirror.safeParse(chart({ [key]: value }))]) {
+      // objectui#11276: at the door the key is retired in the authored node's
+      // bag AND written flat on it (the flat mirror's own tombstone, by
+      // reference, not a pointer at a bag member that is itself retired).
+      for (const [r, path] of [
+        [safeValidateSchema(authored({ [key]: value })), ['properties', key]],
+        [safeValidateSchema(authoredFlat({ [key]: value })), [key]],
+        [ObjectChartMirror.safeParse(chart({ [key]: value })), [key]],
+      ] as const) {
         expect(r.success, `an authored \`${key}: ${JSON.stringify(value)}\` was ACCEPTED`).toBe(false);
         const issues = issuesOf(r);
-        expect(issues.map(({ code, path }) => ({ code, path }))).toEqual([{ code: 'invalid_type', path: [key] }]);
+        expect(issues.map(({ code, path }) => ({ code, path }))).toEqual([{ code: 'invalid_type', path }]);
         expect(issues[0]!.message).toContain(`\`${key}\``);
         expect(issues[0]!.message).toContain(remedy);
       }
@@ -130,12 +146,12 @@ describe('objectui#10608 (b) — LIT CONTROL: each remedy parses on the same nod
     ['`yAxis: [{ field }]` for `yAxisFields`', { yAxis: [{ field: 'amount' }] }],
     ['`aggregate: { field, function, groupBy }` for `aggregation`', { objectName: 'task', aggregate: { field: 'amount', function: 'sum', groupBy: 'status' } }],
   ])('%s', (_label, extra) => {
-    expect(issuesOf(safeValidateSchema(chart(extra)))).toEqual([]);
+    expect(issuesOf(safeValidateSchema(authored(extra)))).toEqual([]);
     expect(issuesOf(ObjectChartMirror.safeParse(chart(extra)))).toEqual([]);
   });
 
   it('all three remedies together, on one node', () => {
-    const node = chart({
+    const node = authored({
       objectName: 'task',
       aggregate: { field: 'amount', function: 'sum', groupBy: 'status' },
       xAxis: { field: 'status' },
@@ -169,23 +185,45 @@ describe('objectui#10608 (d) — CONTROL: an undeclared spelling is KEPT by `.pa
   });
 });
 
-/* ── (e) the boundary: the LIST-VIEW carrier keeps these names ────────────── */
+/* ── (e) the list-view carrier refuses these names too (objectui#6152 round 12) */
 
-describe('objectui#10608 (e) — CONTROL: the list-view carrier still takes these names', () => {
+describe('objectui#10608 (e) — the list-view carrier refuses these names too (objectui#6152 round 12)', () => {
   /*
-   * The carrier the authoring door still admits them on is the legacy
-   * `options.chart` bag — the one `resolveListChartBinding` reads beside
-   * `chart` and translates before it composes an `object-chart` node. (The
-   * spec's own `chart` block is dataset-only and refuses them already; that is
-   * the spec's ruling, not this card's, and is not pinned here.)
+   * Until objectui#6152 round 12 this block was a CONTROL: the legacy
+   * `options.chart` bag, which `resolveListChartBinding` reads beside `chart`,
+   * still admitted the three names, so the retirement above was scoped to the
+   * `object-chart` node. Round 12 made `ListViewSchema.options` the spec's
+   * list-overlay bag by reference, whose chart block is the spec's dataset-only
+   * list chart (as the top-level `chart` already was), so the bag refuses them
+   * with the spec's own `unrecognized_keys` at `options.chart`. The renderer's
+   * legacy read is not that round's to retire, so a view stored with them still
+   * renders.
    */
-  it('a `chart` list view authoring `xAxisField` / `yAxisFields` / `aggregation` in `options.chart` parses, on both doors', () => {
+  it('a `chart` list view authoring `xAxisField` / `yAxisFields` / `aggregation` in `options.chart` is refused, on both doors', () => {
     const view = {
       type: 'list-view',
       objectName: 'task',
       columns: ['name'],
       viewType: 'chart',
       options: { chart: { chartType: 'bar', xAxisField: 'status', yAxisFields: ['estimate'], aggregation: 'sum' } },
+    };
+    for (const r of [ListViewSchema.safeParse(view), safeValidateSchema(view)]) {
+      expect(r.success).toBe(false);
+      const issue = (r.error?.issues ?? []).find((i) => i.path.join('.') === 'options.chart') as
+        | { code?: string; keys?: string[] }
+        | undefined;
+      expect(issue?.code).toBe('unrecognized_keys');
+      expect([...(issue?.keys ?? [])].sort()).toEqual(['aggregation', 'xAxisField', 'yAxisFields']);
+    }
+  });
+
+  it('CONTROL: the dataset-bound spelling parses in the same bag, on both doors', () => {
+    const view = {
+      type: 'list-view',
+      objectName: 'task',
+      columns: ['name'],
+      viewType: 'chart',
+      options: { chart: { chartType: 'bar', dataset: 'task_ds', dimensions: ['status'], values: ['total_estimate'] } },
     };
     expect(issuesOf(ListViewSchema.safeParse(view))).toEqual([]);
     expect(issuesOf(safeValidateSchema(view))).toEqual([]);
@@ -198,12 +236,14 @@ type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type Expect<T extends true> = T;
 
-/** `Equal`, not `extends`: an UNDECLARED member reads `any` through the index signature. */
+/** `Equal`, not `extends`: an UNDECLARED member read `any` through the index signature until objectui#8347. */
 export type assertionXAxisFieldRetired = Expect<Equal<ObjectChartSchema['xAxisField'], undefined>>;
 export type assertionYAxisFieldsRetired = Expect<Equal<ObjectChartSchema['yAxisFields'], undefined>>;
 export type assertionAggregationRetired = Expect<Equal<ObjectChartSchema['aggregation'], undefined>>;
-/** The helper can FAIL — synthetic control (an undeclared key reads `any`). */
-export type assertionEqualCanFail = Expect<Equal<Equal<ObjectChartSchema['xAxisFeld'], undefined>, false>>;
+/** The helper can FAIL — synthetic control (a declared member is not `undefined`). */
+export type assertionEqualCanFail = Expect<Equal<Equal<ObjectChartSchema['type'], undefined>, false>>;
+/** An undeclared key is no member at all since objectui#8347 — it read `any` before. */
+export type assertionUndeclaredKeyIsNoMember = Expect<Equal<'xAxisFeld' extends keyof ObjectChartSchema ? true : false, false>>;
 
 describe('objectui#10608 (f) — the TS twin refuses what the mirror refuses', () => {
   it('each retired key is a compile error — checked by `tsc -p tsconfig.test.json`', () => {

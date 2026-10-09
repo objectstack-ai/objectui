@@ -21,11 +21,18 @@
  * (in the header) and the empty state (in the body) tell a consistent
  * story without repeating themselves verbatim.
  */
-import { resolveEffectiveCrudAffordances, type UserActionsOverride } from '@object-ui/core';
+import {
+  ExpressionEvaluator,
+  hasDeclaredPredicate,
+  resolveEffectiveCrudAffordances,
+  toPredicateInput,
+  type UserActionsOverride,
+} from '@object-ui/core';
 // The one authority for the narrowed `t` (objectui#8261): a key and optional
 // options (including a `defaultValue` used as the English fallback when a
 // locale lacks the key) — imported, not re-declared.
 import type { TranslateFn } from '@object-ui/i18n';
+import { actionRendersAt } from '@object-ui/types';
 
 export interface ManagedByEmptyState {
   title: string;
@@ -33,11 +40,70 @@ export interface ManagedByEmptyState {
   icon: string;
 }
 
+/**
+ * Does the list page's toolbar draw at least one of the object's declared
+ * actions? (objectui#11687)
+ *
+ * The answer is the toolbar's own verdict, asked with the same predicates the
+ * `action:bar` → `action:button` pair applies to `list_toolbar`: placement
+ * through `actionRendersAt`, the capability gate the caller passes in (the
+ * `useCapabilityGate` closure), and the action's `visible` gate, asked through
+ * `hasDeclaredPredicate` and evaluated fail-closed with no row bound — a list
+ * toolbar has no record. `requiresFeature` / `requiresMembershipReach` arrive
+ * already lowered into that `visible` (spec `lowerRequiresFeature`), so a
+ * multi-org-only "Invite User" counts in a multi-org deployment and not in a
+ * single-org one, exactly as the button does.
+ *
+ * Why "the toolbar draws an action" may stand for "the page offers a way to
+ * add a row" in the `better-auth` arm, without asking an action what it does:
+ * read off objectstack's platform objects when objectui#11687 landed, every
+ * `list_toolbar` action on a `better-auth` object either adds a row (Invite
+ * User, Register OAuth Application, Create Team, Enable 2FA, …) or sits on a
+ * list whose every view is filtered ("Sign out other devices" on sessions), so
+ * an empty one gets the list's view-filter copy rather than first-run copy.
+ * ⚠️ Nothing re-derives that reading (AGENTS.md #9); a `better-auth` object
+ * that gains a toolbar action which adds nothing should revisit it.
+ */
+export function listToolbarDrawsAction(
+  actions: readonly unknown[] | null | undefined,
+  mayInvoke: (requiredPermissions: unknown) => boolean,
+  predicateScope: Record<string, unknown>,
+): boolean {
+  if (!Array.isArray(actions)) return false;
+  return actions.some((candidate) => {
+    if (candidate == null || typeof candidate !== 'object') return false;
+    const action = candidate as {
+      locations?: readonly string[];
+      requiredPermissions?: unknown;
+      visible?: unknown;
+    };
+    if (!actionRendersAt(action, 'list_toolbar')) return false;
+    if (!mayInvoke(action.requiredPermissions)) return false;
+    if (!hasDeclaredPredicate(action.visible)) return true;
+    try {
+      return new ExpressionEvaluator({ ...predicateScope }).evaluateCondition(
+        toPredicateInput(action.visible),
+        { throwOnError: true },
+      );
+    } catch {
+      // Fail-closed, as `action:button` hides a button whose `visible` throws.
+      return false;
+    }
+  });
+}
+
+/**
+ * @param pageOffersCreate The list page offers a way to add a row: its generic
+ *   New button, or a `list_toolbar` action it draws
+ *   ({@link listToolbarDrawsAction}). The `better-auth` arm's copy says rows
+ *   are "not added by hand here", which that page contradicts (objectui#11687).
+ */
 export function resolveManagedByEmptyState(
   managedBy: string | undefined | null,
   t: TranslateFn,
   objectName?: string | null,
   userActions?: UserActionsOverride | null,
+  pageOffersCreate = false,
 ): ManagedByEmptyState | undefined {
   switch (managedBy) {
     // ADR-0103 — rows a platform service owns end to end: "entries appear
@@ -70,6 +136,30 @@ export function resolveManagedByEmptyState(
         }),
       };
     case 'better-auth':
+      // `sys_team` is an identity table that CAN be created by hand —
+      // the `create_team` toolbar action (multi-org gated) hits better-auth's
+      // `organization/create-team`. The generic "not added by hand here" copy
+      // below would flatly contradict that visible Create Team button
+      // (objectui review — the reported empty-state/CTA mismatch). Give teams
+      // their own accurate copy instead of the identity-record disclaimer.
+      if (objectName === 'sys_team') {
+        return {
+          icon: 'Users',
+          title: t('list.managedBy.betterAuthTeam.title', { defaultValue: 'No teams yet' }),
+          message: t('list.managedBy.betterAuthTeam.message', {
+            defaultValue:
+              'Teams group members within an organization. Create one with “Create Team”, or they arrive through your auth provider’s organization and SSO provisioning flows.',
+          }),
+        };
+      }
+      // objectui#11687 — a page that offers a way to add a row (its New
+      // button, or a toolbar action such as Invite User or Register OAuth
+      // Application) is contradicted by every arm below except `sys_team`'s,
+      // which names its own Create Team button. Yield to the list's own copy:
+      // first-run, or the view-filter / user-filter wording, which the list
+      // chooses from its query. The `engine-owned` arm above does the same for
+      // an opened `create` affordance.
+      if (pageOffersCreate) return undefined;
       // `sys_user` is the one identity table with a concrete onboarding
       // answer, so give it actionable guidance: teammates arrive via an
       // org-level invite + SSO just-in-time provisioning (ADR-0024 D9), and
@@ -86,22 +176,6 @@ export function resolveManagedByEmptyState(
           message: t('list.managedBy.betterAuthUser.message', {
             defaultValue:
               'User accounts are provisioned by the authentication provider, not created here. Invite teammates to your organization and they appear automatically on first sign-in (SSO just-in-time provisioning). App end-users arrive when they sign up through your app.',
-          }),
-        };
-      }
-      // `sys_team` is the other identity table that CAN be created by hand —
-      // the `create_team` toolbar action (multi-org gated) hits better-auth's
-      // `organization/create-team`. The generic "not added by hand here" copy
-      // below would flatly contradict that visible Create Team button
-      // (objectui review — the reported empty-state/CTA mismatch). Give teams
-      // their own accurate copy instead of the identity-record disclaimer.
-      if (objectName === 'sys_team') {
-        return {
-          icon: 'Users',
-          title: t('list.managedBy.betterAuthTeam.title', { defaultValue: 'No teams yet' }),
-          message: t('list.managedBy.betterAuthTeam.message', {
-            defaultValue:
-              'Teams group members within an organization. Create one with “Create Team”, or they arrive through your auth provider’s organization and SSO provisioning flows.',
           }),
         };
       }

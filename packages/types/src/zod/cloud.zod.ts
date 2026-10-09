@@ -9,9 +9,11 @@
 /**
  * @object-ui/types/zod - Cloud Widget Zod Validators
  *
- * The arm for `cloud:plan-status`, the SDUI widget `@object-ui/app-shell`
- * registers for the Cloud pricing page (`console/home/CloudPlanStatus.tsx`,
- * objectui#10919).
+ * The arms for `@object-ui/app-shell`'s armed `cloud:` SDUI widgets:
+ * `cloud:plan-status`, for the Cloud pricing page
+ * (`console/home/CloudPlanStatus.tsx`, objectui#10919), and
+ * `cloud:workspace-timezone-notice`, for the Cloud welcome page
+ * (`console/home/CloudWorkspaceTimezoneNotice.tsx`, objectui#11930).
  *
  * ## Why the arm lands with the registration
  *
@@ -28,6 +30,8 @@
  * nothing is read by reference: the members below are the keys the widget
  * reads, and no other.
  *
+ * `cloud:plan-status`:
+ *
  *   - `properties.plan` — the plan code of the card the node sits on. The page
  *     authors it in the `properties` bag, the one spelling a page component is
  *     written in, and the widget reads it there alone. Required: a node that
@@ -37,6 +41,16 @@
  *   - `properties` is closed: the widget reads no other key of the bag.
  *   - `body` / `children` — refused by name. The widget renders a badge and
  *     reads neither content channel (objectui#9256's rule for such nodes).
+ *
+ * `cloud:workspace-timezone-notice`:
+ *
+ *   - `properties` — optional and EMPTY: the widget reads no key of the bag.
+ *     The zone it prints comes from the organization's entitlements summary,
+ *     never from the page, so there is nothing for the node to author. The
+ *     closed, empty bag is `element:divider`'s spelling for a node with no
+ *     prop (`public-blocks.zod.ts`).
+ *   - `body` / `children` — refused by name. The widget renders one line of
+ *     its own copy and reads neither content channel.
  *
  * ⛔ No `.default()` anywhere in this module — see the "authors no default"
  * note in `index.zod.ts`.
@@ -79,4 +93,32 @@ export const CloudPlanStatusSchema = BaseSchema.extend({
     .describe('The `cloud:plan-status` props bag: `plan`, and no other key.'),
   body: retirementTombstone(CLOUD_PLAN_STATUS_NEITHER_CHANNEL),
   children: retirementTombstone(CLOUD_PLAN_STATUS_NEITHER_CHANNEL),
+});
+
+/** One refusal string for both content channels of `CloudWorkspaceTimezoneNoticeSchema`. */
+const CLOUD_WORKSPACE_TIMEZONE_NOTICE_NEITHER_CHANNEL =
+  'REFUSED (objectui#11930) — `cloud:workspace-timezone-notice` reads NEITHER content channel: its '
+  + 'registration hands the node to `CloudWorkspaceTimezoneNotice`, which reads only `className`, and '
+  + '`SchemaRenderer` strips both channels out of the props bag it spreads. An authored value would '
+  + 'render NOTHING — no render-time error or warning and no element; only the parser tier\'s '
+  + '`not-a-container` warning (objectui#9910) noticed it, because the registration declares no '
+  + '`children` input. What it renders instead: one line naming the timezone the workspace was seeded '
+  + 'with, read from the organization\'s entitlements summary, and nothing when the summary carries no seed.';
+
+/**
+ * `cloud:workspace-timezone-notice` — the welcome page's line naming the
+ * workspace's seeded timezone (objectui#11930). Pinned by
+ * `../__tests__/cloud-workspace-timezone-notice-arm-11930.test.ts`.
+ */
+export const CloudWorkspaceTimezoneNoticeSchema = BaseSchema.extend({
+  type: z.literal('cloud:workspace-timezone-notice'),
+  properties: z
+    .strictObject({})
+    .optional()
+    .describe(
+      'The `cloud:workspace-timezone-notice` props bag — the widget reads no prop, so the only bag it '
+      + 'accepts is `{}`. The zone it names comes from the organization\'s entitlements summary.',
+    ),
+  body: retirementTombstone(CLOUD_WORKSPACE_TIMEZONE_NOTICE_NEITHER_CHANNEL),
+  children: retirementTombstone(CLOUD_WORKSPACE_TIMEZONE_NOTICE_NEITHER_CHANNEL),
 });

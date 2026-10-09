@@ -11,9 +11,14 @@
  * zone pin covered: an `ObjectGantt` whose adapter gives no object schema.
  *
  * With no declared type to ask, the stored value's own shape answers, on the
- * read (`readTaskDate`) and on the write (`toStoredDateValue`): a stored
- * `YYYY-MM-DD` is a day, read at local midnight of that day and written back as
- * the day it was dropped on; a stored instant keeps its instant both ways. Two
+ * read (`readTaskDate`, and `readTaskEnd` for an end) and on the write
+ * (`toStoredDateValue`): a stored `YYYY-MM-DD` is a day, read at local
+ * midnight of that day and written back as the day it was dropped on; a stored
+ * instant keeps its instant both ways. An END day is inclusive
+ * (objectui#11141, re-derived from that card's rule): a stored `2026-10-05` to
+ * `2026-10-09` is drawn through the end of the 9th, to the 10th's midnight,
+ * and a bar handed back ending on a day's midnight is written as the day
+ * before it, the day it runs through. Two
  * adapters have no types to give: one with no `getObjectSchema`, and one whose
  * schema carries no fields (the `api` provider's adapter answers
  * `{ fields: {} }`). A chart with a business `timeZone` takes the same split
@@ -144,19 +149,28 @@ function zoneCases(zone: string | undefined, chartZone: string, instantDayHere: 
     if (zone) enter(zone);
   };
 
-  it.each(NO_TYPES)('%s: a stored `2026-10-05` → `2026-10-09` reads as those days at local midnight', async (noTypes) => {
+  it.each(NO_TYPES)('%s: a stored `2026-10-05` → `2026-10-09` reads from the 5th\'s midnight through the end of the 9th', async (noTypes) => {
     at();
     const m = await mount(DATE_ROW, noTypes);
     expect(parts(m.task.start)).toEqual([2026, 10, 5, 0]);
-    expect(parts(m.task.end)).toEqual([2026, 10, 9, 0]);
+    expect(parts(m.task.end)).toEqual([2026, 10, 10, 0]);
   });
 
   it.each(NO_TYPES)('%s: a drag onto the 7th writes the stored days back as days', async (noTypes) => {
     at();
     const m = await mount(DATE_ROW, noTypes);
-    expect(await written(m, { start: new Date(2026, 9, 7), end: new Date(2026, 9, 11) })).toEqual({
+    expect(await written(m, { start: new Date(2026, 9, 7), end: new Date(2026, 9, 12) })).toEqual({
       starts: '2026-10-07',
       ends: '2026-10-11',
+    });
+  });
+
+  it.each(NO_TYPES)('%s: the dates the view was handed, handed straight back, write the stored days (objectui#11141)', async (noTypes) => {
+    at();
+    const m = await mount(DATE_ROW, noTypes);
+    expect(await written(m, { start: m.task.start, end: m.task.end })).toEqual({
+      starts: '2026-10-05',
+      ends: '2026-10-09',
     });
   });
 
@@ -168,16 +182,16 @@ function zoneCases(zone: string | undefined, chartZone: string, instantDayHere: 
     expect(await written(m, { start: new Date(INSTANT_PLUS_2) })).toEqual({ starts: INSTANT_PLUS_2 });
   });
 
-  it(`no getObjectSchema, a chart in ${chartZone}: the day stands on its own midnight there and a drop writes the day back`, async () => {
+  it(`no getObjectSchema, a chart in ${chartZone}: the day stands on its own midnight there, the end runs through its day, and a drop writes the days back`, async () => {
     at();
     const shift = makeTzShift(chartZone);
     const m = await mount(DATE_ROW, 'no getObjectSchema', chartZone);
     // Where `GanttView` draws the bar: the task re-based into the chart zone.
     expect(parts(shift.to(m.task.start))).toEqual([2026, 10, 5, 0]);
-    expect(parts(shift.to(m.task.end))).toEqual([2026, 10, 9, 0]);
+    expect(parts(shift.to(m.task.end))).toEqual([2026, 10, 10, 0]);
     // What `GanttView` hands back for a drop onto the 7th: the inverse re-base.
     expect(
-      await written(m, { start: shift.from(new Date(2026, 9, 7)), end: shift.from(new Date(2026, 9, 11)) }),
+      await written(m, { start: shift.from(new Date(2026, 9, 7)), end: shift.from(new Date(2026, 9, 12)) }),
     ).toEqual({ starts: '2026-10-07', ends: '2026-10-11' });
   });
 }

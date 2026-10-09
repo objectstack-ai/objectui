@@ -28,10 +28,10 @@
  *
  * ## The ceiling, stated rather than assumed
  *
- * A closed PROPS type refuses a misspelled prop NAME. It does not refuse a
- * misspelled key INSIDE the node: `BaseSchema` carries `[key: string]: any`,
- * the protocol's passthrough. The counter-probe at the bottom keeps that
- * visible so nobody reads this pin as more than it is.
+ * A closed PROPS type refuses a misspelled prop NAME. It did not refuse a
+ * misspelled key INSIDE the node while `BaseSchema` carried
+ * `[key: string]: any`; objectui#8347 removed it, and the counter-probe at the
+ * bottom that kept that visible is flipped (see its note).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -66,6 +66,20 @@ export type assertionRestIsObjectChartProps = Expect<
 export type assertionEqualCanFail = Expect<Equal<Equal<BaseSchema, ObjectChartSchema>, false>>;
 export type assertionAnyProbeCanFire = Expect<Equal<IsAny<any>, true>>;
 
+/*
+ * The control nodes, each typed by the declaration its keys belong to, so a
+ * control states what it is rather than riding `BaseSchema`'s passthrough
+ * (objectui#11355). Each is handed to the shell's pre-gate `BaseSchema` prop as
+ * a typed value, which is the claim the controls make: these nodes are legal
+ * input to the shell.
+ */
+/** The `chart` alias registration hands this same shell an `object-chart` node under the alias tag. */
+type ChartAliasNode = Omit<ObjectChartSchema, 'type'> & { type: 'chart' };
+const chartAliasNode: ChartAliasNode = { type: 'chart', objectName: 'opportunity', chartType: 'bar' };
+/** Only the spec's per-element binding; `ObjectChartSchema.dataSource` is that binding, by reference. */
+const boundNode: ObjectChartSchema = { type: 'object-chart', dataSource: { object: 'opportunity', view: 'all' } };
+const objectChartNode: ObjectChartSchema = { type: 'object-chart', objectName: 'opportunity', chartType: 'bar' };
+
 /** Never called: compiled by `tsc -p tsconfig.test.json`, never rendered. */
 const probes = () => (
   <>
@@ -86,20 +100,25 @@ const probes = () => (
         post-gate `ObjectChartSchema` (whose `type` is the literal
         'object-chart'), and it must compile here: `index.tsx` registers this
         same shell under `chart`. */}
-    <ObjectChartBlock schema={{ type: 'chart', objectName: 'opportunity', chartType: 'bar' }} />
+    <ObjectChartBlock schema={chartAliasNode} />
     {/* C2 control: a pre-gate node that carries only the spec's binding. The
         gate maps `dataSource.object` onto `objectName`, so the node is legal
         input before it has any `objectName` or `chartType` of its own. */}
-    <ObjectChartBlock schema={{ type: 'object-chart', dataSource: { object: 'opportunity', view: 'all' } }} />
+    <ObjectChartBlock schema={boundNode} />
     {/* C3 control: `ObjectChart`'s own props still pass straight through the shell. */}
     <ObjectChartBlock
-      schema={{ type: 'object-chart', objectName: 'opportunity', chartType: 'bar' }}
+      schema={objectChartNode}
       dataSource={adapter}
       onSegmentClick={() => undefined}
     />
 
-    {/* CEILING, not a refusal: a misspelled key INSIDE the node still
-        compiles, through `BaseSchema`'s passthrough index signature. */}
+    {/* This row was the CEILING: a misspelled key INSIDE the node compiled
+        through `BaseSchema`'s index signature. objectui#8347 removed it, so a
+        fresh literal at the shell's pre-gate `BaseSchema` prop is excess-checked
+        against `BaseSchema` itself: the misspelling is refused, and so would a
+        correctly spelled `objectName` be. Hand the shell a typed node, as the
+        controls above do. */}
+    {/* @ts-expect-error — `objectNme` is no `BaseSchema` member, and the pre-gate prop is `BaseSchema` */}
     <ObjectChartBlock schema={{ type: 'object-chart', objectNme: 'opportunity' }} />
   </>
 );

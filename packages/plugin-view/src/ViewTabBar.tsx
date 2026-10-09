@@ -216,6 +216,8 @@ const SortableTab: React.FC<{
     isDragging: boolean;
   }) => React.ReactNode;
 }> = ({ id, disabled, children }) => {
+  // `role: 'button'`: these attributes land on the view's own `<button>`
+  // (objectui#11690), which a `tab` role would contradict.
   const {
     attributes,
     listeners,
@@ -223,7 +225,7 @@ const SortableTab: React.FC<{
     transform,
     transition,
     isDragging,
-  } = useSortable({ id, disabled, attributes: { role: 'tab', roleDescription: 'view tab', tabIndex: 0 } });
+  } = useSortable({ id, disabled, attributes: { role: 'button', roleDescription: 'view tab', tabIndex: 0 } });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -274,6 +276,7 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
   } = config;
 
   const viewTabLabel = useViewTabLabel();
+  const addViewLabel = viewTabLabel('view.addView', 'Add View');
 
   // --- Inline rename state ---
   const [renamingViewId, setRenamingViewId] = useState<string | null>(null);
@@ -450,34 +453,10 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
 
     const visibilityIcon = getVisibilityIcon(view);
 
-    const buildTabContent = (dragHandleProps?: {
-      listeners: DraggableSyntheticListeners;
-      attributes: Record<string, unknown>;
-      isDragging?: boolean;
-    }) => (
-      <div
-        data-testid={`view-tab-${view.id}`}
-        role="tab"
-        tabIndex={0}
-        aria-selected={isActive}
-        onClick={() => !isRenaming && onViewChange(view.id)}
-        onDoubleClick={() => startRename(view.id)}
-        onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
-          if (!isRenaming && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault();
-            onViewChange(view.id);
-          }
-        }}
-        {...(dragHandleProps?.listeners ?? {})}
-        {...(dragHandleProps?.attributes ?? {})}
-        className={cn(
-          'group/tab inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap relative outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          dragHandleProps?.isDragging ? 'cursor-grabbing' : 'cursor-pointer',
-          isActive
-            ? 'border-primary text-primary'
-            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-        )}
-      >
+    const hasActionsMenu = isActive && dropdownHasEntry;
+
+    const buildTabFace = (dragHandleProps?: { isDragging?: boolean }) => (
+      <>
         {reorderable && onReorderViews && (
           <span
             data-testid={`view-tab-drag-handle-${view.id}`}
@@ -507,6 +486,7 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') cancelRename();
             }}
+            aria-label={viewTabLabel('view.rename', 'Rename')}
             className="h-5 w-24 px-1 py-0 text-sm border-none focus-visible:ring-1"
             onClick={(e: React.MouseEvent<HTMLInputElement>) => e.stopPropagation()}
           />
@@ -546,13 +526,19 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
         {view.isDefault && (
           <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
         )}
-        {isActive && dropdownHasEntry && (
+      </>
+    );
+
+    // `ml-2` = the face's `gap-1.5` plus the `ml-0.5` this trigger had when it
+    // sat inside the tab, and `mr-3` the tab's own right padding, so the
+    // active tab keeps its measure now that the trigger is the frame's.
+    const buildActionsMenu = () => (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
                 data-testid={`view-tab-actions-${view.id}`}
-                className="ml-0.5 h-4 w-4 flex items-center justify-center rounded hover:bg-accent shrink-0 opacity-70 hover:opacity-100 transition-opacity"
+                className="ml-2 mr-3 h-4 w-4 flex items-center justify-center rounded hover:bg-accent shrink-0 opacity-70 hover:opacity-100 transition-opacity"
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
@@ -664,7 +650,55 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+    );
+
+    // objectui#11690 — the tab is a FRAME holding two sibling controls: the
+    // view button (switch / rename / drag) and, on the active view, the
+    // actions-menu button. Neither sits inside the other, because a control
+    // inside a control is announced as one and its inner half cannot be
+    // reached (axe `nested-interactive`). Nor are they `role="tab"`s: a tab's
+    // children are presentational and a `tablist` may own nothing but tabs, so
+    // under tab roles the actions button could be neither inside a tab nor
+    // beside one — and these views were never ARIA tabs anyway (no arrow-key
+    // roving, no tabpanel): every view is its own Tab stop that Enter / Space
+    // switches to, which is exactly a button. The current view says so with
+    // `aria-current`.
+    const buildTabContent = (dragHandleProps?: {
+      listeners: DraggableSyntheticListeners;
+      attributes: Record<string, unknown>;
+      isDragging?: boolean;
+    }) => (
+      <div
+        className={cn(
+          'group/tab inline-flex items-center text-sm font-medium border-b-2 transition-colors whitespace-nowrap relative',
+          isActive
+            ? 'border-primary text-primary'
+            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
         )}
+      >
+        {isRenaming ? (
+          <div className={cn('inline-flex items-center gap-1.5 py-2 pl-3', hasActionsMenu ? 'pr-0' : 'pr-3')}>
+            {buildTabFace(dragHandleProps)}
+          </div>
+        ) : (
+          <button
+            type="button"
+            data-testid={`view-tab-${view.id}`}
+            aria-current={isActive ? 'true' : undefined}
+            onClick={() => onViewChange(view.id)}
+            onDoubleClick={() => startRename(view.id)}
+            {...(dragHandleProps?.listeners ?? {})}
+            {...(dragHandleProps?.attributes ?? {})}
+            className={cn(
+              'inline-flex items-center gap-1.5 py-2 pl-3 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              hasActionsMenu ? 'pr-0' : 'pr-3',
+              dragHandleProps?.isDragging ? 'cursor-grabbing' : 'cursor-pointer',
+            )}
+          >
+            {buildTabFace(dragHandleProps)}
+          </button>
+        )}
+        {hasActionsMenu && buildActionsMenu()}
       </div>
     );
 
@@ -881,19 +915,21 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
           </DropdownMenu>
         )}
 
-        {/* Inline "+" Add View button */}
+        {/* Inline "+" Add View button — an icon alone names nothing, so the
+            tooltip's words are its accessible name too (objectui#11690). */}
         {showAddButton && onAddView && (
           <Tooltip>
             <TooltipTrigger asChild>
               <button type="button"
                 data-testid="view-tab-add"
                 onClick={onAddView}
+                aria-label={addViewLabel}
                 className="inline-flex items-center px-2 py-2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Plus className="h-4 w-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>Add View</TooltipContent>
+            <TooltipContent>{addViewLabel}</TooltipContent>
           </Tooltip>
         )}
 

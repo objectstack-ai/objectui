@@ -63,7 +63,7 @@ vi.mock('../previews/useObjectFields', () => ({
 }));
 
 import { FlowNodeInspector } from './FlowNodeInspector';
-import { fieldsForNodeType, localizeFlowFields, FLOW_NODE_TYPE_OPTIONS } from './flow-node-config';
+import { fieldsForNodeType, localizeFlowFields, FLOW_NODE_CONFIG_TYPES } from './flow-node-config';
 import type { MetadataSelection } from '../preview-registry';
 // ⛔ The `/automation` subpath is load bearing — these read `undefined` off the
 // package root, and any `.parse` on them then throws.
@@ -236,7 +236,7 @@ describe('the loop group hints the identifier the spec applies (objectui#9340)',
     // The lit control: descriptors in this SAME table do carry the slot, so the
     // `undefined` above is a deliberate non-declaration, not a shape that can
     // never hold one.
-    const declaring = FLOW_NODE_TYPE_OPTIONS.flatMap((t) => fieldsForNodeType(t)).filter((f) => f.defaultValue !== undefined);
+    const declaring = FLOW_NODE_CONFIG_TYPES.flatMap((t) => fieldsForNodeType(t)).filter((f) => f.defaultValue !== undefined);
     expect(declaring.length, 'other rows in this table DO declare a default').toBeGreaterThan(0);
   });
 
@@ -259,11 +259,11 @@ describe('the loop group hints the identifier the spec applies (objectui#9340)',
   });
 
   it('sweeps EVERY node type — so a third group growing the key cannot drift unseen', () => {
-    // The structural identification, generalised: walk every type the picker
-    // offers, keep the ones whose group owns this key, and hold each against
+    // The structural identification, generalised: walk every type the table
+    // holds a group for, keep the ones whose group owns this key, and hold each against
     // the identifier ITS OWN schema applies. `map` is in here as the live lit
     // control — if the fenced-off twin ever drifts, this arm reddens.
-    const offering = FLOW_NODE_TYPE_OPTIONS.filter((t) => iteratorRowOf(t) !== undefined);
+    const offering = FLOW_NODE_CONFIG_TYPES.filter((t) => iteratorRowOf(t) !== undefined);
 
     expect(
       offering.length,

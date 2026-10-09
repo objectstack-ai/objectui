@@ -15,6 +15,7 @@ import {
   VIEW_FILTER_PAIR_VALUE_OPERATORS,
   normalizeFilterOperator,
 } from "@objectstack/spec/ui"
+import { expandEmptyOperator } from "@objectstack/spec/data"
 import { SchemaRendererContext } from "@object-ui/react"
 import type {
   FilterBuilderCondition as AuthoredFilterBuilderCondition,
@@ -1132,6 +1133,11 @@ const useSafeFilterTranslation = createSafeTranslation(
     'filterBuilder.operators.is_not_null': 'Is not null',
     'filterBuilder.operators.exists': 'Is set',
     'filterBuilder.operators.notExists': 'Is not set',
+    // How the two empty checks differ, on the columns that keep both pairs
+    // (objectui#11810). The operator labels are interpolated rather than
+    // restated, so the hint names them exactly as the dropdown above it does.
+    'filterBuilder.emptyCheckHint.text': '"{{isEmpty}}" also matches blank text; "{{isNull}}" matches only a missing value.',
+    'filterBuilder.emptyCheckHint.list': '"{{isEmpty}}" also matches an empty list; "{{isNull}}" matches only a missing value.',
     // The half-filled range's description, read from the SHARED `validation`
     // namespace rather than declared as a new `filterBuilder.*` key
     // (objectui#10061). `{{field}} is required` already exists in all ten packs
@@ -1179,8 +1185,15 @@ const selectLikeTypes = ["select", "status"]
 const lookupLikeTypes = ["lookup", "master_detail", "user"]
 
 /**
- * The operators the dropdown offers for a field of `fieldType`, given the
- * opt-in ids this instance was granted.
+ * The operators a row on a field of `fieldType` can HOLD, given the opt-in ids
+ * this instance was granted — every operator the dropdown can draw for it.
+ *
+ * What the dropdown OFFERS a fresh choice is this set minus the nullness pair
+ * on a type that cannot tell "empty" from "null" (objectui#11810, see
+ * {@link offeredOperatorsForRow}). That narrowing is deliberately NOT applied
+ * here: callers outside this file (`app-shell`'s dataset read-back,
+ * `plugin-list`'s parity pin) ask "can the builder hold this row", and a
+ * stored `is_null` on a `select` column still can.
  *
  * A pure function rather than a closure so the selection rule — and above all
  * the {@link OPT_IN_OPERATORS} gate, whose whole job is to keep an operator OFF
@@ -1228,6 +1241,61 @@ export function operatorsForFieldType(
   return defaultOperators.filter(
     (op) => bucket.includes(op.value) && (!OPT_IN_OPERATORS.has(op.value) || granted.has(op.value)),
   )
+}
+
+/**
+ * The nullness pair a column offers only when its type can hold an empty
+ * value that is not null (objectui#11810).
+ */
+const NULLNESS_PAIR: ReadonlySet<string> = new Set(["is_null", "is_not_null"])
+
+/**
+ * Which row of the spec's ruled 「is empty」 table a column of `fieldType`
+ * takes — read from `@objectstack/spec`'s `expandEmptyOperator`, the one
+ * function every server face expands `$empty` with, never from a local type
+ * list (objectui#11810):
+ *
+ *   - `text` — text-like types: `is_empty` matches null OR `''`;
+ *   - `multi_value` — list-valued types: `is_empty` matches null OR `[]`;
+ *   - `null_only` — every other type: `is_empty` matches null only, which is
+ *     exactly what `is_null` matches.
+ *
+ * Keyed on the TYPE alone because that is all a field descriptor here carries:
+ * a `lookup` / `user` / `select` declared `multiple: true` is `multi_value` on
+ * the server and is judged `null_only` here. The pair it is then offered,
+ * `is_empty` / `is_not_empty`, is the one whose server expansion counts `[]`.
+ */
+function emptyCheckArm(fieldType: string | undefined) {
+  return expandEmptyOperator({ type: fieldType || "text" }).arm
+}
+
+/**
+ * The operators the dropdown MOUNTS for one row (objectui#11810).
+ *
+ * {@link operatorsForFieldType}, minus `is_null` / `is_not_null` on a column
+ * whose type cannot tell empty from null (`null_only`, see
+ * {@link emptyCheckArm}). There the two pairs are one predicate under two
+ * labels — every dialect this builder writes expands `is_empty` on such a
+ * column to "is null" — so an end user was asked to choose between two words
+ * for the same records. `is_empty` / `is_not_empty` is the pair that stays: it
+ * is offered on every bucket that has an empty check, so one label means one
+ * thing across columns.
+ *
+ * The row's OWN operator is always mounted. A stored filter that already
+ * reads `is_null` on a `select` column (a sharing rule's `$null`, a saved
+ * view's `is_null` rule) must still load as what it is: an unmounted operator
+ * draws a BLANK trigger (objectui#4768 / #7561), and nothing here rewrites a
+ * stored spelling (objectui#9306 folds spellings, never predicates).
+ */
+function offeredOperatorsForRow(
+  fieldType: string | undefined,
+  extraOperators: readonly string[] | undefined,
+  rowOperator: string,
+): ReadonlyArray<{ value: string; label: string }> {
+  const drawable = operatorsForFieldType(fieldType, extraOperators)
+  if (emptyCheckArm(fieldType) !== "null_only") return drawable
+  const held = normalizeFilterBuilderOperator(rowOperator)
+  return drawable.filter((op) => !NULLNESS_PAIR.has(op.value) || op.value === held)
 }
 
 /**
@@ -1401,6 +1469,43 @@ function FilterBuilder({
   const getOperatorsForField = (fieldValue: string) => {
     const field = fields.find((f) => f.value === fieldValue)
     return operatorsForFieldType(field?.type, extraOperators)
+  }
+
+  // What the row's operator dropdown mounts — see `offeredOperatorsForRow`.
+  const getOperatorsForRow = (condition: FilterBuilderCondition) => {
+    const field = fields.find((f) => f.value === condition.field)
+    return offeredOperatorsForRow(field?.type, extraOperators, condition.operator)
+  }
+
+  /**
+   * The line under the operator list that says how "Is empty" and "Is null"
+   * differ, for a dropdown that offers both (objectui#11810). Only a column
+   * whose type can hold an empty value that is not null keeps both pairs, and
+   * the hint names which empty value the extra pair counts. Nothing at all
+   * when the dropdown offers at most one of them.
+   */
+  const renderEmptyCheckHint = (condition: FilterBuilderCondition): React.ReactNode => {
+    const ids = new Set(getOperatorsForRow(condition).map((op) => op.value))
+    if (!ids.has("is_empty") || !ids.has("is_null")) return null
+    const field = fields.find((f) => f.value === condition.field)
+    const labels = {
+      isEmpty: t("filterBuilder.operators.is_empty"),
+      isNull: t("filterBuilder.operators.is_null"),
+    }
+    const arm = emptyCheckArm(field?.type)
+    // A stored `is_null` held on a `null_only` column mounts both, and on that
+    // column they match the same records: there is no difference to explain.
+    if (arm === "null_only") return null
+    return (
+      <p
+        className="mt-1 border-t px-2 pb-1 pt-1.5 text-xs text-muted-foreground"
+        data-testid="filter-empty-check-hint"
+      >
+        {arm === "text"
+          ? t("filterBuilder.emptyCheckHint.text", labels)
+          : t("filterBuilder.emptyCheckHint.list", labels)}
+      </p>
+    )
   }
 
   /**
@@ -1920,7 +2025,7 @@ function FilterBuilder({
                   // keeps its own spelling; only this comparison is folded.
                   value={mountedOperatorValue(
                     condition.operator,
-                    getOperatorsForField(condition.field),
+                    getOperatorsForRow(condition),
                   )}
                   // Radix hands back the `value` of a mounted `SelectItem`,
                   // and every one mounted below is a builder id; the guard is
@@ -1933,11 +2038,12 @@ function FilterBuilder({
                     <SelectValue placeholder={t('filterBuilder.operator')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {getOperatorsForField(condition.field).map((op) => (
+                    {getOperatorsForRow(condition).map((op) => (
                       <SelectItem key={op.value} value={op.value}>
                         {t(`filterBuilder.operators.${op.value}`)}
                       </SelectItem>
                     ))}
+                    {renderEmptyCheckHint(condition)}
                   </SelectContent>
                 </Select>
               </div>

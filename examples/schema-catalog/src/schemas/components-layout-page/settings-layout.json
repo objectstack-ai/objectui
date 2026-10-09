@@ -1,5 +1,6 @@
 {
   "type": "page",
+  "pageType": "utility",
   "title": "Settings",
   "description": "Manage your account settings and preferences",
   "children": [
@@ -34,16 +35,18 @@
         },
         {
           "type": "flex",
-          "justify": "between",
-          "children": [
-            {
-              "type": "text",
-              "content": "Email notifications"
-            },
-            {
-              "type": "switch"
-            }
-          ]
+          "properties": {
+            "justify": "between",
+            "children": [
+              {
+                "type": "text",
+                "content": "Email notifications"
+              },
+              {
+                "type": "switch"
+              }
+            ]
+          }
         }
       ]
     }

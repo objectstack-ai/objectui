@@ -138,9 +138,9 @@ function isUsableTarget(value: unknown): value is string {
  *
  * Recovering HERE is that ruling's own shape rather than an exception to it:
  * the door normalizes, the readers stay canonical. `reference_to` is the
- * ingestion choke points' business (`normalizeSchemaReferenceKeys`, which also
- * stamps a second key `FieldSchema` refuses) and is deliberately not touched by
- * this door, which serves a WRITE path.
+ * ingestion choke points' business (`normalizeSchemaReferenceKeys`, which folds
+ * it onto `reference`) and is deliberately not touched by this door, which
+ * serves a WRITE path.
  *
  * ## Three things this does not do
  *

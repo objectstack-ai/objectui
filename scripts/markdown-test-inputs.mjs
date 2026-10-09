@@ -205,6 +205,27 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.turbo', 'coverage',
  *              something else, and says what.
  */
 export const ADJUDICATED = new Map([
+  // objectui#11605. `bindingDocRows()` parses the binding doc's "which keys each
+  // one honours" table to learn what the `dataSource` binding supplies on each
+  // bound block -- so an edit to that table is an edit to this pin's input.
+  [
+    'apps/console/src/__tests__/objectname-binding-required-11605.test.ts',
+    { reads: ['content/docs/guide/data-source.md'] },
+  ],
+  // objectui#11403. The console's SDUI manifest pin lists the files the
+  // generator writes into a temp directory; no markdown in this tree is read.
+  [
+    'apps/console/src/__tests__/sdui-manifest-build-11403.test.ts',
+    {
+      reads: [],
+      walker: 'not-markdown: walks GENERATED output in a temp directory; its `sdui-blocks.md` literal names a file the generator writes, not one in this tree',
+    },
+  ],
+  // objectui#11165. Evaluates the guide's "customize only the header" fence, so an edit to that page is an edit to this test's input.
+  [
+    'examples/schema-catalog/test/slotted-pages-header-example-11165.test.ts',
+    { reads: ['content/docs/guide/slotted-pages.md'] },
+  ],
   [
     'packages/app-shell/src/views/metadata-admin/previews/readme-flow-canvas-draft.test.ts',
     { reads: ['packages/app-shell/README.md'] },
@@ -221,11 +242,15 @@ export const ADJUDICATED = new Map([
   // Usage" block and runs it through `objectui validate` end to end -- so an edit
   // to that README IS an edit to this test's input. The scanner also resolves the
   // bare `'README.md'` segment of that path against this package and the root;
-  // an `fs` trace of the file's run opened the plugin-ai README and nothing else.
+  // an `fs` trace of the file's run at objectui#10859 opened the plugin-ai README
+  // and nothing else. objectui#10872 batch 4 added the second read (its
+  // `QUICK_START` path): the first json fence under the quick-start's
+  // "### Add Actions" heading -- the taught `action:button` node -- which the
+  // page pin runs through `objectui validate` beside a `page:header`.
   [
     'packages/cli/src/__tests__/registered-types-validate-ratchet-10859.test.ts',
     {
-      reads: ['packages/plugin-ai/README.md'],
+      reads: ['packages/plugin-ai/README.md', 'content/docs/guide/quick-start.md'],
       notRead: ['README.md', 'packages/cli/README.md'],
     },
   ],
@@ -239,6 +264,24 @@ export const ADJUDICATED = new Map([
   [
     'packages/components/src/__tests__/guide-layout-page-buttons-7926.test.tsx',
     { reads: ['content/docs/guide/layout.md'] },
+  ],
+  // objectui#11436, which subsumes objectui#11423's layout-guide pin. Parses
+  // every fence of every page under `content/docs`, in any language, and renders
+  // each `type: "page"` node that authors a heading -- so an edit to any docs
+  // page's page fences IS an edit to this test's input. It also walks
+  // `examples` for page documents, which are not markdown. objectui#11450 adds
+  // every `README.md` under `packages/`, at any depth, read the same way; the
+  // tree is declared rather than its READMEs, so a README added tomorrow is on
+  // the trigger the day it lands. It does not read the root `README.md`: the
+  // scanner offers it because a bare `README.md` literal resolves against every
+  // ancestor directory.
+  [
+    'packages/components/src/__tests__/page-node-headings-drawn-11436.test.tsx',
+    {
+      reads: ['content/docs/**', 'packages/**'],
+      notRead: ['README.md'],
+      walker: 'markdown-tree: walks `content/docs` and parses every fence of every `.md`/`.mdx` under it, and walks `packages` for every `README.md` and parses its fences; its walk of `examples` collects JSON and script sources, not markdown',
+    },
   ],
   // The four-leg render pin for objectui#8021. Leg A is READ OFF
   // `content/docs/guide/schema-rendering.md` rather than transcribed -- both the
@@ -410,6 +453,17 @@ export const ADJUDICATED = new Map([
     'packages/plugin-markdown/src/toc-anchor-parity.test.tsx',
     { reads: ['content/docs/utilities/runner.mdx'] },
   ],
+  // objectui#11586. This reads a CHANGELOG as a CONTROL, the same shape as the
+  // components entry above. The test asserts that the published sheet lacks a
+  // class only that prose names, and it reads the file to prove the prose still
+  // names it.
+  [
+    'packages/runner/src/__tests__/published-stylesheet-sources.test.ts',
+    {
+      reads: ['packages/runner/CHANGELOG.md'],
+      notRead: ['CHANGELOG.md'],
+    },
+  ],
   [
     'packages/types/src/__tests__/action-callback-retired-7068.test.ts',
     {
@@ -446,6 +500,13 @@ export const ADJUDICATED = new Map([
     'packages/types/src/__tests__/calendar-flat-color-allday-8466.test.ts',
     { reads: ['packages/plugin-calendar/README.md'] },
   ],
+  // objectui#11521. Parses the `chartType` row of the page's `ChartSchema`
+  // table and holds its quoted values equal to the node's declared set -- so an
+  // edit to that page IS an edit to this test's input.
+  [
+    'packages/types/src/__tests__/chart-type-doc-row-11521.test.ts',
+    { reads: ['content/docs/api/schema-reference.md'] },
+  ],
   [
     'packages/types/src/__tests__/chat-message-avatar-keys-7295.test.ts',
     { reads: ['content/docs/plugins/plugin-chatbot.mdx'] },
@@ -464,9 +525,60 @@ export const ADJUDICATED = new Map([
       walker: 'markdown-tree: walks `content/docs` and collects handler rows from every `.md`/`.mdx` under it',
     },
   ],
+  // objectui#11117. `documentedBindings()` parses every json fence on these two
+  // pages that binds a node through `dataSource`, and asserts each one parses on
+  // `safeValidateSchema` -- the documented per-element bindings ARE this pin's
+  // input, so an edit to either page's binding fences is an edit to the test.
+  [
+    'packages/types/src/__tests__/element-data-source-objectname-waiver-11117.test.ts',
+    { reads: ['content/docs/utilities/data-objectstack.mdx', 'content/docs/guide/data-source.md'] },
+  ],
   [
     'packages/types/src/__tests__/filter-builder-mirror-6939.test.ts',
     { reads: ['content/docs/components/complex/filter-builder.mdx'] },
+  ],
+  // objectui#10872 batch 4. `taughtActionButton()` extracts the first json fence
+  // under the quick-start's "### Add Actions" heading -- the taught
+  // `action:button` node -- and judges it on both zod faces, in a page and alone.
+  // objectui#11586. Reads no markdown. Its only `.md` literal is the
+  // `:!*CHANGELOG.md` pathspec that keeps every CHANGELOG OUT of its `git grep`
+  // census.
+  [
+    'packages/types/src/__tests__/handler-keys-string-any-mirrors-7344.test.ts',
+    {
+      reads: [],
+      walker: 'not-markdown: lists the zod mirror sources in `packages/types/src/zod`',
+    },
+  ],
+  [
+    'packages/types/src/__tests__/held-public-block-arms-10872.test.ts',
+    { reads: ['content/docs/guide/quick-start.md'] },
+  ],
+  // objectui#11405. Reads every marked fence in the two guides that authors a
+  // bind-only `list`, with the marker gate's own `scanSkillFences`, and judges it
+  // through `safeValidateSchema` and the strict face -- so an edit to either guide
+  // is an edit to this test's input.
+  [
+    'packages/types/src/__tests__/list-bind-only-11405.test.ts',
+    {
+      reads: [
+        'skills/objectui/guides/data-integration.md',
+        'skills/objectui/guides/schema-expressions.md',
+      ],
+    },
+  ],
+  // objectui#6152 round 9 -- the corpus census of `object-calendar` containers.
+  // It walks the authored trees, reads every markdown document in them that
+  // names `object-calendar`, and parses each fenced element's `calendar`
+  // container -- so an edit to any of those documents IS an edit to this
+  // test's input. It reads the root `README.md` and every package's
+  // `README.md`, the second through the `packages` tree.
+  [
+    'packages/types/src/__tests__/object-calendar-container-by-reference-6152.test.ts',
+    {
+      reads: ['README.md', 'apps/**', 'content/**', 'docs/**', 'examples/**', 'packages/**', 'skills/**'],
+      walker: 'markdown-tree: walks `examples`, `content`, `skills`, `docs` and `apps`, and every package `README.md`, and parses the fences of each `.md`/`.mdx` that names `object-calendar`',
+    },
   ],
   [
     'packages/types/src/__tests__/object-calendar-record-source-7313.test.ts',
@@ -524,6 +636,26 @@ export const ADJUDICATED = new Map([
     'packages/types/src/__tests__/page-breadcrumbs-refusal-8871.test.ts',
     { reads: ['content/docs/guide/layout.md'] },
   ],
+  // objectui#11318. Runs every `type: "page"` JSON fence of the layout guide
+  // through the tolerant and the strict face, and reads its Schema API block --
+  // so an edit to that page IS an edit to this test's input.
+  [
+    'packages/types/src/__tests__/page-width-padding-refusal-11318.test.ts',
+    { reads: ['content/docs/guide/layout.md'] },
+  ],
+  // objectui#11321. Extracts the two `record:related_list` examples and the two
+  // `action:button` route examples and runs each through both faces and the
+  // spec -- so an edit to any of the three pages IS an edit to this test's input.
+  [
+    'packages/types/src/__tests__/public-block-doc-examples-bag-11321.test.ts',
+    {
+      reads: [
+        'content/docs/api/schema-reference.md',
+        'content/docs/guide/slotted-pages.md',
+        'packages/app-shell/README.md',
+      ],
+    },
+  ],
   // objectui#8256. Reads the root README's "Kanban Board" `json` fence and runs
   // it through `safeValidateSchema` -- so an edit to that page IS an edit to
   // this test's input, and a README-only pull request has to run the shard.
@@ -534,6 +666,14 @@ export const ADJUDICATED = new Map([
   [
     'packages/types/src/__tests__/schema-reference-named-list-view-keys-7923.test.ts',
     { reads: ['content/docs/api/schema-reference.md'] },
+  ],
+  // objectui#11465. Extracts the `sidebar` literal of the types README's
+  // "4. Composable" example and runs it through the strict and the tolerant
+  // face -- so an edit to that README IS an edit to this test's input, and a
+  // README-only pull request has to run the shard.
+  [
+    'packages/types/src/__tests__/sidebar-declared-surface-11465.test.ts',
+    { reads: ['packages/types/README.md'] },
   ],
   // objectui#10824. Extracts `@object-ui/plugin-timeline`'s README "Schema-Driven
   // Usage" block and runs it through `safeValidateSchema` and the strict

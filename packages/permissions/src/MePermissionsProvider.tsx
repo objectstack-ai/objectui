@@ -415,6 +415,10 @@ export function MePermissionsProvider({
       const held = new Set(perms);
       return required.every((p) => held.has(p));
     },
+    // [objectui#4421] The response's `objects` map, verbatim — the data
+    // `current_user.can(object, verb)` is answered from. Keyed on `dataKey`
+    // like every member here, so it is the SAME object for the same payload.
+    effectiveObjects: data?.objects,
     isLoaded,
   }));
 

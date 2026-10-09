@@ -117,7 +117,10 @@ describe('NumberCellRenderer — active display locale (objectui#4033)', () => {
 describe('CurrencyCellRenderer — CONTROL, unaffected by the ordinal default', () => {
   it('keeps grouping and the currency symbol for a whole amount', () => {
     renderCurrency(5000000, { currency: 'USD' }, 'en-US');
-    expect(screen.getByText('$5,000,000')).toBeInTheDocument();
+    // The `.00` moved on purpose with objectui#11444, which retired the
+    // whole-amount trimming (triage comment 5946462862); grouping, this
+    // control's subject, is unchanged.
+    expect(screen.getByText('$5,000,000.00')).toBeInTheDocument();
   });
 
   it('keeps grouping and the fractional part when the amount is not whole', () => {
@@ -136,11 +139,15 @@ describe('CurrencyCellRenderer — CONTROL, unaffected by the ordinal default', 
   it('follows the active locale for currency too', () => {
     renderCurrency(5000000, { currency: 'EUR' }, 'de-DE');
     // de-DE: grouped with dots and a TRAILING symbol, vs en-US's leading one.
-    expect(screen.getByText(/^5\.000\.000\s*€$/)).toBeInTheDocument();
+    // The `,00` moved on purpose with objectui#11444 (whole-amount trimming
+    // retired, triage comment 5946462862).
+    expect(screen.getByText(/^5\.000\.000,00\s*€$/)).toBeInTheDocument();
   });
 
   it('a currency field with NO resolved currency still groups (money, not an ordinal)', () => {
     renderCurrency(5000000, {}, 'en-US');
-    expect(screen.getByText('5,000,000')).toBeInTheDocument();
+    // The `.00` moved on purpose with objectui#11444 (whole-amount trimming
+    // retired, triage comment 5946462862); the separators are this control's.
+    expect(screen.getByText('5,000,000.00')).toBeInTheDocument();
   });
 });

@@ -548,7 +548,8 @@ describe('objectui#10758 — the host delegation reads bucket ① off the named 
     const protocol = Object.keys(SpecObjectListViewSchema.shape);
     expect(BUCKET_ONE.filter((m) => !protocol.includes(m))).toEqual([]);
     // Control on the same query: a key the protocol does NOT declare on a
-    // named view (objectui's retained `allowExport`) is refused by it.
+    // named view (objectui's own `allowExport`, a tombstone since
+    // objectui#11013) is refused by it.
     expect(protocol).not.toContain('allowExport');
   });
 

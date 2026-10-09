@@ -26,29 +26,34 @@
  * `GET /api/v1/meta/app`), narrowed to the app in the route, then
  * `activeArea.navigation ?? app.navigation`. No request of this block's own and
  * no adapter call, which is the ruling's "no external data-source dependency"
- * claim discharged.
+ * claim discharged. (A tree holding a `doc` entry also reads the `doc` / `book`
+ * lists through that same `MetadataProvider` cache — `useNavDocTargetCheck`,
+ * objectui#10188 — the cache's request, shared with the sidebar.)
  *
  * Every derived fact comes from `@object-ui/layout`, not from a second copy:
  *
  *   - hrefs from `resolveHref` — the documented single source of truth for
  *     nav → URL, so `recordId` / `filters` / `viewName` / `runAction`
  *     precedence cannot drift between the sidebar and an authored menu;
- *   - labels from `resolveNavItemLabel` — the same convention-based object /
- *     view / dashboard i18n resolution the sidebar gets, so the two surfaces
- *     cannot show one entry under two names;
+ *   - labels from `resolveNavItemLabel` — the same rule the sidebar gets: a
+ *     present label as authored (an inline locale map in the viewer's
+ *     `language`, the locale `UnifiedSidebar` passes, objectui#11299), and for
+ *     an entry with NO `label` the same inherited target label
+ *     (`useNavTargetLabel`, objectui#9868), so the two surfaces cannot show
+ *     one entry under two names;
  *   - the active row from `resolveActiveNavItem`, the round-trip inverse of
  *     `resolveHref`;
  *   - the item-level guards in the same ORDER `NavigationItemRenderer` applies
  *     them (`visible` → `requiredPermissions` → `requiresObject` →
- *     `requiresService`), wired to the same three console providers
- *     `UnifiedSidebar` wires them to.
+ *     `requiresService` → a `doc` entry's member-readability answer), wired to
+ *     the same console providers and hook `UnifiedSidebar` wires them to.
  *
  * ## Why not mount `NavigationRenderer` itself
  *
  * Measured, not assumed: `NavigationRenderer` renders through
  * `SidebarMenuButton`, which calls `useSidebar()`, which THROWS
  * ("useSidebar must be used within a SidebarProvider") outside the shell's
- * provider (`components/src/ui/sidebar.tsx:56-63`, read point at `:576`). A page
+ * provider (`useSidebar` in `components/src/ui/sidebar.tsx`). A page
  * block has to render standalone — in the Studio preview, in a test, in any
  * host — so mounting it would trade a dashed box for a crash. Wrapping the block
  * in its own `SidebarProvider` is worse than it looks: that provider renders a
@@ -111,7 +116,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import { useMetadata } from '@object-ui/react';
 import { useAuth } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
-import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { Badge, Separator, cn } from '@object-ui/components';
 import {
   hasVisibleNavigationItems,
@@ -123,6 +128,8 @@ import {
 import type { NavigationItem } from '@object-ui/types';
 import { useExpressionContext, evaluateVisibility } from '../providers/ExpressionProvider.js';
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
+import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
+import { useNavDocTargetCheck } from '../hooks/useNavDocTargetCheck.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
 import { getIcon } from '../utils/getIcon.js';
 import { appRouteSegment, matchAppBySegment } from '../utils/index.js';
@@ -149,14 +156,16 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
   schema: _schema,
   ...props
 }) => {
-  const { t } = useObjectTranslation();
-  const { objectLabel, viewLabel, dashboardLabel } = useObjectLabel();
+  const { t, language } = useObjectTranslation();
   const { apps, objects } = useMetadata();
   const { appName } = useParams();
   const { currentAppName } = useNavigationContext();
   const { pathname, search } = useLocation();
   const { user, activeOrganization } = useAuth();
   const dispatchNavAction = useNavActionDispatch();
+  // The same resolver `UnifiedSidebar` hands `NavigationRenderer`: an entry with
+  // no `label` shows its target's current label (objectui#9868).
+  const targetLabel = useNavTargetLabel();
 
   /* ── The three guards, wired to the same providers `UnifiedSidebar` uses ── */
 
@@ -205,16 +214,25 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
     return matchAppBySegment(list, appName ?? currentAppName ?? null);
   }, [apps, appName, currentAppName]);
 
+  // A `doc` entry the member may not read is not drawn (objectui#10188) — the
+  // same hook `UnifiedSidebar` wires, so the two menus agree.
+  const appAreas = (activeApp?.areas ?? []) as ReadonlyArray<{ navigation?: NavigationItem[] } | undefined>;
+  const checkDocTarget = useNavDocTargetCheck([
+    activeApp?.navigation as NavigationItem[] | undefined,
+    ...appAreas.map((area) => area?.navigation),
+  ]);
+
   const guards = useMemo(
     () => ({
       evaluateVisibility: evalVis,
       checkPermission: checkPerm,
       checkCapability: checkCap,
+      checkDocTarget,
       // This block DOES wire `onAction`, so `action` items count towards an
       // area's derived visibility here (framework#4509).
       hasActionHandler: true,
     }),
-    [evalVis, checkPerm, checkCap],
+    [evalVis, checkPerm, checkCap, checkDocTarget],
   );
 
   const items: NavigationItem[] = useMemo(() => {
@@ -243,15 +261,8 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
   /* ── Rendering ─────────────────────────────────────────────────────────── */
 
   const label = useCallback(
-    (item: NavigationItem) =>
-      resolveNavItemLabel(
-        item,
-        (objectName, fallback) => objectLabel({ name: objectName, label: fallback }),
-        t,
-        (dashboardName, fallback) => dashboardLabel({ name: dashboardName, label: fallback }),
-        (objectName, viewName, fallback) => viewLabel(objectName, viewName, fallback),
-      ),
-    [objectLabel, dashboardLabel, viewLabel, t],
+    (item: NavigationItem) => resolveNavItemLabel(item, t, targetLabel, language),
+    [t, targetLabel, language],
   );
 
   // A plain (hoisted) function declaration, not a `useCallback`: it recurses
@@ -267,6 +278,7 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
       if (item.requiredPermissions?.length && !checkPerm(item.requiredPermissions)) return null;
       if (item.requiresObject && !checkCap('object', item.requiresObject)) return null;
       if (item.requiresService && !checkCap('service', item.requiresService)) return null;
+      if (item.type === 'doc' && checkDocTarget && !checkDocTarget({ book: item.book, doc: item.doc })) return null;
 
       if (item.type === 'separator') {
         return (

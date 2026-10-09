@@ -7,7 +7,7 @@ import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregat
 import { Sheet, SheetContent, SheetHeader, SheetTitle, Dialog, DialogContent, DialogHeader, DialogTitle, RefreshIndicator, Button, ChartSkeleton, DataEmptyState } from '@object-ui/components';
 import { AlertCircle, ArrowUpRight, Inbox } from 'lucide-react';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
-import type { BaseSchema, DrillDownConfig, ObjectChartSchema } from '@object-ui/types';
+import type { BaseSchema, DrillDownConfig, ObjectChartSchema, ObjectDataTableSchema } from '@object-ui/types';
 
 /**
  * Humanize a snake_case or kebab-case string into Title Case.
@@ -350,44 +350,38 @@ export async function resolveGroupByLabels(
 
       // Build id→label map using display field from metadata with sensible fallbacks.
       //
-      // ⭐ objectui#7435 — the DECLARED spelling is ranked FIRST. Until this
+      // ⭐ objectui#7435 — the DECLARED spelling is ranked FIRST. Until that
       // change the chain had no `FieldSchema` leg at all, so `displayField` —
       // the only display spelling a spec-compliant author can emit, and the one
       // `getObjectSchema` serves — could not reach this reader in any shape. The
       // chart fell through to the generic `'name'` heuristic and drew the wrong
-      // axis label. This is the shape objectui#7155 established (declared leg
-      // first, recorded dialect behind it), not a new lenient alias: the two
-      // snake legs below are PRE-EXISTING reads, kept in their pre-existing
-      // relative order, and this change only puts the contract ahead of them.
+      // axis label.
       //
-      // MEASURED on the pin resolved here, `@objectstack/spec@17.4.0`:
+      // MEASURED on the pin resolved then, `@objectstack/spec@17.4.0`:
       // `FieldSchema.safeParse` ACCEPTS `displayField` and REFUSES
       // `reference_field` / `display_field` with `unrecognized_keys` (controls
       // lit in the same run — a minimal lookup def ACCEPTED, `zzz_not_a_real_key`
       // REJECTED).
       //
-      // ⚠️ Why the two snake legs STAY. A producer sweep for this site found no
-      // in-repo producer of either spelling (every occurrence in this repo is a
-      // test fixture) and zero key-position occurrences in the producer repo
-      // (control: `displayField`, 23 files). They are kept anyway, because
-      // neither measurement covers the two producers that can still emit them:
-      // a document stored before the key was tightened (the serve path runs no
-      // parse — objectui#7650), and a HOST `DataSource` whose `getObjectSchema`
-      // is not `ObjectStackAdapter`'s and therefore never passes through
-      // `normalizeSchemaReferenceKeys`. Dropping a leg here would be a silent
-      // regression for existing authored data; that is a retirement decision
-      // with its own evidence, not a side effect of adding the declared leg.
+      // ⭐ objectui#11070 round 6 — the `display_field` leg is RETIRED, with no
+      // alias. objectui#7435 kept it for two producers its sweep did not cover.
+      // The first, a document stored before the key was tightened, is now
+      // covered by the ingestion fold: `ObjectStackAdapter.getObjectSchema`
+      // runs `normalizeSchemaReferenceKeys`, which stamps a stored
+      // `display_field` onto `displayField` (objectui#7650 ruling A), so a
+      // served def reaches this read under the declared key. The second, a
+      // HOST `DataSource` whose `getObjectSchema` is not `ObjectStackAdapter`'s,
+      // is not folded, and its `display_field` now falls through to `'name'`;
+      // the round's changeset states that break.
       //
-      // ⚠️ `reference_field` in particular is graded `no-producer` by this
-      // repo's own register (`plugin-grid/src/relationalMetaKeys.ts`), and the
-      // verdict was re-derived for this change and HOLDS. It keeps its place
-      // relative to `display_field` on purpose — reordering two legs nothing
-      // produces would be an unmeasured behaviour change on top of a measured
-      // one. What this change does fix is that it is no longer read FIRST.
+      // ⚠️ `reference_field` STAYS. `FieldSchema` declares no twin the fold
+      // could stamp it onto, so the fold leaves it on the def as served, and
+      // retiring it here is a decision with its own evidence, not this one.
+      // It is graded `no-producer` by this repo's own register
+      // (`plugin-grid/src/relationalMetaKeys.ts`).
       const displayField: string =
         fieldDef.displayField
         || fieldDef.reference_field
-        || fieldDef.display_field
         || 'name';
       const idToName: Record<string, string> = {};
       for (const rec of records) {
@@ -458,11 +452,12 @@ export { extractRecords } from '@object-ui/core';
  *
  * With the anchor, a wrong VALUE TYPE on a declared key is a compile error at
  * the producer (`xAxisKey: 42`, `series: 'x'`, `type: 'chart'`, and every
- * `BaseSchema` member — `visible: 42`). ⚠️ A MISSPELLED key is still accepted:
- * `BaseSchema` carries `[key: string]: any` (objectui#5155), the same ceiling
- * objectui#6576 accepted knowingly. `__tests__/ObjectChart.schemaAnchor-7946.test.ts`
- * pins both halves, the ceiling included, so the anchor is not read as more
- * than it is.
+ * `BaseSchema` member — `visible: 42`). ⚠️ A MISSPELLED key was still accepted
+ * while `BaseSchema` carried `[key: string]: any` (objectui#5155), the same
+ * ceiling objectui#6576 accepted knowingly; objectui#8347 removed it, so a
+ * misspelled key in a fresh literal is refused now.
+ * `__tests__/ObjectChart.schemaAnchor-7946.test.ts` pins both halves, the
+ * flipped ceiling row included, so the anchor is not read as more than it is.
  */
 export interface ObjectChartProps {
   /**
@@ -559,6 +554,29 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // and the bar's name carries no English literal anywhere — the pack is the
   // only source of it.
   const { t, language } = useObjectTranslation();
+
+  /**
+   * The chart family this block DRAWS, for the two `compareTo` gates below:
+   * the comparison fetch in `fetchData` and the overlay series
+   * (`enableComparisonSeries`), objectui#11530.
+   *
+   * Read through `normalizeChartSchema`, the translation `ChartRenderer`
+   * dispatches on, so it is `chartType`, else `specType` (objectui#11520): a
+   * family on either channel meets `chartTypeIgnoresCompareTo` as the value the
+   * chart is drawn as. Both gates used to read `schema.chartType` alone, so a
+   * family on `specType` (the react tier's channel) was invisible to them. A
+   * `specType: scatter` then fetched the comparison window, got the overlay
+   * series and refused its own two series; a `specType: pie` paid for a fetch
+   * it never drew. ⛔ No compare decision in this file reads `schema.chartType`
+   * or `schema.specType` directly: one family reader here, one family list in
+   * `chartTypeIgnoresCompareTo`.
+   *
+   * `language` is passed although no label is read off the result, so the call
+   * in `resolveChartCategoryField` stays the package's one call without it. The
+   * memo is a cost hint only: the answer is a string, so nothing keys on an
+   * identity (AGENTS.md #10).
+   */
+  const chartFamily = useMemo(() => normalizeChartSchema(schema, language).chartType, [schema, language]);
 
   // Stable JSON keys for aggregate/filter so that callers passing a fresh
   // object literal on each render (e.g. DashboardRenderer.getComponentSchema)
@@ -815,8 +833,10 @@ export const ObjectChart = (props: ObjectChartProps) => {
           // #7194's two-or-more-series scatter refusal. WHICH families is
           // `chartTypeIgnoresCompareTo` in `@object-ui/core`'s chart-presentation:
           // the one declaration the dashboard's DatasetWidget reads too
-          // (objectui#7495). This file keeps no list of its own.
-          const wantsComparison = !!compareTo && !chartTypeIgnoresCompareTo(schema.chartType);
+          // (objectui#7495). This file keeps no list of its own. WHICH family
+          // this chart is, is `chartFamily`: the one it draws, on either family
+          // channel (objectui#11530).
+          const wantsComparison = !!compareTo && !chartTypeIgnoresCompareTo(chartFamily);
           // shiftFilterByCompareTo expects the raw filter (with date macros)
           // so it can substitute `{current_*}` tokens or re-resolve macros
           // against a shifted `now`. It only understands the date vocabulary,
@@ -950,7 +970,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
       // this list (`schema.aggregate`, `schema.dataset`, ...), which predate
       // this change.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, datasetKey, aggregateKey, filterKey, compareToKey, schema.xAxisKey, schema.chartType, runAggregate, filterScope, fieldOptionLabel]);
+  }, [schema.objectName, datasetKey, aggregateKey, filterKey, compareToKey, schema.xAxisKey, chartFamily, runAggregate, filterScope, fieldOptionLabel]);
 
   // objectui#10035 — the refresh input this chart had none of, so a host could
   // show it a write only by remounting it (AGENTS.md #8's corollary: refresh
@@ -1159,6 +1179,8 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // Merge data if not provided in schema. When `compareTo` is configured
   // for a supported chart type, also synthesize a second series so the
   // chart implementation renders the comparison overlay (dashed / muted).
+  // "Supported" is asked of the family the chart draws (`chartFamily`, either
+  // family channel), exactly as the comparison fetch asks it (objectui#11530).
   const compareToConfig: CompareToConfig | undefined = schema.compareTo;
   // The result column this aggregate projects its value under, and the column
   // the comparison overlay arrives in (framework#3701).
@@ -1166,7 +1188,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
   const comparisonKey = valueKey ? `${valueKey}${COMPARISON_SUFFIX}` : undefined;
   const enableComparisonSeries =
     !!compareToConfig &&
-    !chartTypeIgnoresCompareTo(schema.chartType) &&
+    !chartTypeIgnoresCompareTo(chartFamily) &&
     !!comparisonKey &&
     finalData.some((row: Record<string, any>) => row[comparisonKey] != null);
 
@@ -1548,7 +1570,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
     // read sites that agree. ⛔ Do not reintroduce a local pick at either end.
     const title = resolveDrillTitle(drillDown, drillEvent, pickLocalized(schema.title, language) || 'Details');
     const target = drillDown?.target ?? 'drawer';
-    const tableSchema = {
+    const tableSchema: ObjectDataTableSchema = {
       type: 'object-data-table',
       objectName: schema.objectName,
       filter: merged,
@@ -1636,6 +1658,19 @@ const OBJECT_CHART_DATA_SOURCE: ElementDataSourceMapping = {
 };
 
 /**
+ * Whether a chart node has no record source but its object (objectui#11605):
+ * no inline `data`, no `dataset`, no `bind` path. `ObjectChart` fetches only by
+ * `objectName` or `dataset`, and draws inline or bound rows without either.
+ *
+ * `data` and `bind` are read as the `BaseSchema` members they are. `dataset` is
+ * this block's own key and no `BaseSchema` member, so it is read by name with
+ * `Reflect.get` rather than through a second type literal that would re-declare
+ * the base members beside it.
+ */
+const chartNeedsObject = (node: BaseSchema): boolean =>
+  node.data == null && node.bind == null && Reflect.get(node, 'dataset') == null;
+
+/**
  * Registry shell for `object-chart` — maps the spec's
  * `PageComponentSchema.dataSource` binding onto the keys {@link ObjectChart}
  * reads (objectstack#6953).
@@ -1671,6 +1706,11 @@ export const ObjectChartBlock = elementDataSourceBlock(
       dataSource={props.dataSource}
       testId="object-chart"
       errorTitle="This chart’s data source could not be resolved"
+      // A chart that names its object in neither place has nothing to
+      // aggregate, and drew an empty chart frame with no axis and no message
+      // (objectui#11605). Inline `data`, a semantic-layer `dataset` and a `bind`
+      // path are its other record sources, so any of them opts out.
+      requiresObject={chartNeedsObject(props.schema)}
     >
       {(bound) => (
         // The ONE loose member of this signature, kept on purpose. This is
@@ -1691,7 +1731,18 @@ ComponentRegistry.register('object-chart', ObjectChartBlock, {
     label: 'Object Chart',
     category: 'view',
     inputs: [
-        { name: 'objectName', type: 'string', required: true },
+        // NOT required (objectui#11605). This block has no `ComponentPropsMap`
+        // row; the contract is the binding doc (`content/docs/guide/data-source.md`,
+        // "a node bound this way needs no `objectName` of its own"), and
+        // `ObjectChartBlock` lands `dataSource.object` here. The page compile
+        // reads this list, so `required: true` refused a bound node the
+        // renderer accepts. A node with neither is answered by the gate's hint.
+        {
+          name: 'objectName',
+          type: 'string',
+          description:
+            'Object this chart aggregates. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline `data`, the chart shows a hint naming this key instead of an empty frame.',
+        },
         { name: 'data', type: 'array', description: 'Optional static data' },
         { name: 'filter', type: 'array' },
         { name: 'aggregate', type: 'object', description: 'Aggregation config: { field, function, groupBy }' },

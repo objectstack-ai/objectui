@@ -31,11 +31,13 @@
  *
  * ## The instrument, stated rather than smuggled
  *
- * `enforceFieldSecurity` / `redactFields` are renderer-only keys — on neither
- * `@objectstack/spec`'s `RecordRelatedListProps` nor this block's registered
- * `inputs` (asserted in the columnMembers file). They are used here because
- * they are the ONLY switch that makes the block read a column member at all;
- * their presence here is not evidence that they are an authoring surface.
+ * `enforceFieldSecurity` / `redactFields` are used here because they are the
+ * ONLY switch that makes the block read a column member at all. They were
+ * renderer-only keys when this file was written; `@objectstack/spec` 17.5.0
+ * declares both on `RecordRelatedListProps`, and objectui#8649 published them
+ * as this block's `inputs` on the strength of that declaration (the
+ * columnMembers file ties the two together). Their presence here is not
+ * evidence either way.
  */
 
 import { describe, it, expect, vi, beforeAll } from 'vitest';

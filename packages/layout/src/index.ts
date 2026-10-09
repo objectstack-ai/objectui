@@ -3,12 +3,11 @@
  * Copyright (c) 2024-present ObjectStack Inc.
  */
 
+import { createElement, type FC, type ReactNode } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import { PageHeader } from './PageHeader';
+import type { AppComponentSchema } from '@object-ui/types';
 import { PageCard } from './PageCard';
-import { ResponsiveGrid } from './ResponsiveGrid';
-import { NavigationRenderer } from './NavigationRenderer';
-import { AppSchemaRenderer } from './AppSchemaRenderer';
+import { AppSchemaRenderer, type AppSchemaRendererProps } from './AppSchemaRenderer';
 
 export * from './PageHeader';
 export * from './AppShell';
@@ -18,139 +17,87 @@ export * from './ResponsiveGrid';
 export * from './NavigationRenderer';
 export * from './AppSchemaRenderer';
 
+/**
+ * The component the `app-schema-renderer` TAG is registered against: the seam
+ * that makes the registration's `schema` input true (objectui#11494, triage
+ * ruling A `5958227972`), in the shape of `@object-ui/plugin-detail`'s
+ * `DetailSectionNode`.
+ *
+ * `SchemaRenderer` strips a node's `schema` key out of the props it spreads,
+ * and hands every registered component the NODE itself as its `schema` prop.
+ * Registered directly, `AppSchemaRenderer` therefore took the node for its app
+ * document: a document nested under `schema` drew an empty shell, and only app
+ * keys written flat on the node, which nothing declares, drew (measured by
+ * objectui#11440). This adapter reads the nested document off the node it is
+ * handed and gives `AppSchemaRenderer` that, so the published input is the one
+ * spelling that draws.
+ *
+ * Why HERE and not in `SchemaRenderer` or `AppSchemaRenderer`: the strip is
+ * every node's, and `SchemaRenderer` already delivers the node, so reading
+ * `node.schema` needs no change to it. `AppSchemaRenderer` is a published
+ * component whose hosts pass `schema={appJson}` in JSX, and none goes through
+ * the registry; teaching it a node shape would put a second dialect in front of
+ * them (AGENTS.md #0.1).
+ *
+ * ⛔ No fallback to the node's own keys: a node's flat `navigation` / `title` is
+ * the second spelling the ruling refuses (the strict face refuses it as an
+ * unrecognized key), so it is not read. A node without `schema` hands the
+ * component an empty `app` document: the input is optional, as the
+ * registration declares it, and an omitted document draws the shell with no
+ * branding and no navigation, which is what such a node drew before.
+ * `mobileNavMode`, `basePath` and every other prop reach `AppSchemaRenderer`
+ * unchanged.
+ */
+type AppSchemaRendererNodeProps = Omit<AppSchemaRendererProps, 'schema' | 'children'> & {
+  /** The node, as `SchemaRenderer` hands it to every registered component. */
+  schema?: { schema?: AppComponentSchema };
+  children?: ReactNode;
+};
+
+/** The document an `app-schema-renderer` node without `schema` draws. */
+const NO_APP_DOCUMENT: AppComponentSchema = { type: 'app' };
+
+const AppSchemaRendererNode: FC<AppSchemaRendererNodeProps> = ({ schema: node, children, ...shellProps }) =>
+  createElement(AppSchemaRenderer, { ...shellProps, schema: node?.schema ?? NO_APP_DOCUMENT, children });
+
 export function registerLayout() {
-  // Legacy `page-header` alias. Kept for any consumer schemas that still
-  // reference the kebab-cased ID; the canonical renderer lives in
-  // `@object-ui/components` under the protocol-compliant `page:header`
-  // namespace. We intentionally do NOT re-register `page:header` here —
-  // doing so would (depending on package load order) clobber the
-  // record-aware renderer in components with this thinner one.
+  // ⛔ The `page-header` node type key is RETIRED (objectui#10859 batch 8,
+  // phase 2c, the seat's fork ruling on that card, by the objectui#10393 /
+  // objectui#8760 route). The page header authors write is `page:header`,
+  // which `@object-ui/components` registers and the spec's `PageHeaderProps`
+  // declares (its secondary line is `subtitle`). `PageHeader` itself stays a
+  // named export of this package.
   //
-  // `inputs` declares the AUTHORABLE surface, and it must name the same keys
-  // the spec does — the designer and the framework's
-  // `check:react-declaration-parity` read this list and treat everything in it
-  // as a legal input (objectui#3226). `@objectstack/spec/ui`'s
-  // `PageHeaderProps` declares `subtitle`; it has no `description`. This list
-  // used to declare `description`, so the alias did not merely tolerate a
-  // legacy spelling — it ADVERTISED a second dialect for the one concept
-  // `page:header` calls `subtitle`, and metadata authored against it renders
-  // a subtitle here and nothing at all under the canonical key.
+  // What was here: a registration of `PageHeader` under the kebab key
+  // `page-header` in the `layout` namespace, so it stored `layout:page-header`
+  // and the bare `page-header` fallback, with `isContainer: true` and five
+  // declared inputs (`title`, `subtitle`, `icon`, `actions`, the `children`
+  // slot). (Described rather than quoted, for the reason the `app-shell` note
+  // below gives: the pins that read this file take a verbatim call in a comment
+  // for a live registration.) No `@object-ui/types` arm claims the key, so
+  // `objectui validate` refused a `page-header` node at `type` while the
+  // registry mounted it.
   //
-  // The runtime `subtitle ?? description` fallback in `PageHeader.tsx` is gone
-  // too (objectui#3789). It was kept for out-of-repo consumer schemas — "no
-  // in-repo author writes `description`" was never evidence that nobody does —
-  // and it retired only once the ADR-0087 D2 conversion entry
-  // `page-header-subtitle-alias` (`description` → `subtitle` at load time, in
-  // the framework repo) was MEASURED to reach every spec-valid header position:
-  // regions, `slots.*` (objectstack#6776) and containers nested to any depth,
-  // `properties.children` / `items[].children` / `body` / `footer`
-  // (objectstack#6775, PR objectstack-ai/objectstack#7034). That measurement is now a standing pin —
-  // `__tests__/page-header-subtitle-conversion-coverage.test.ts` — so a spec
-  // build whose conversion reach narrows again goes red HERE, where the missing
-  // fallback would otherwise turn into a silently dropped second line.
-  //
-  // `isContainer: true` is the other half of the same principle, and it is NOT
-  // an extension of the spec's authoring surface (objectui#3900). `children` is
-  // a base property of EVERY node in objectui's JSON protocol — `BASE_PROPS` in
-  // `sdui-parser/src/validate.ts` lists it beside `type`/`id`/`className` — not
-  // a key of the spec's `PageHeaderProps`. So this flag answers the protocol
-  // question "does this node accept a child list?", and for this component the
-  // answer has always been yes: `PageHeader.tsx` deliberately re-introduces
-  // `schema.children` into the right-hand slot (that is how `record:quick_actions`
-  // nests under `page:header.children`), `content/docs/layout/page-header.mdx`
-  // publishes the slot's precedence as contract, and the docs page's only live
-  // demo is exactly that shape.
-  //
-  // Leaving the flag off did not make children illegal — nothing on the render
-  // path reads `isContainer` — it made the VALIDATOR lie: `sdui-parser`'s
-  // `not-a-container` diagnostic fired on the documented, demo-verified,
-  // correctly-rendering write-up. A warning that lies is worse than a missing
-  // one, because it trains authors (AI authors especially) to discount the true
-  // `not-a-container` reports on components that really are childless.
-  //
-  // `icon` and `actions` are the same lie on two more keys, found by auditing
-  // this list against the renderer's actual read points (objectui#3972). Each
-  // declared key below is aligned on the faces that have to agree, and the
-  // audit's negative results are as load-bearing as its positive ones:
-  //
-  //   RENDERER READS IT × A `ManifestInputType` CAN SPELL IT
-  //   - `title` / `subtitle`  — read at `PageHeader.tsx:121/122`; both are live
-  //     spec keys of `PageHeaderProps`, which is the objectui#3226 narrowing
-  //     above.
-  //   - `icon`      — read at `PageHeader.tsx:123`, rendered at `:231-233` (a
-  //     string goes through `LazyIcon`, a node renders as-is). This one stands
-  //     on the RENDERER-READ fact ALONE, and the change of footing is
-  //     deliberate rather than an oversight: `PageHeaderProps.icon` was retired
-  //     upstream as an ADR-0087 D2 tombstone in @objectstack/spec 17.0.0
-  //     (objectstack#6946 / PR objectstack#7115) because the CANONICAL
-  //     `page:header` renderer never read it. THIS renderer does — it draws the
-  //     icon beside the title — `content/docs/layout/page-header.mdx` publishes
-  //     the prop, and the docs page's only live demo
-  //     (`layout-page-header/pageheader-with-actions`) writes `"icon": "users"`,
-  //     so withdrawing the input would delete a working capability and make the
-  //     manifest gate report `unknown-prop` on the repo's own documented
-  //     example. `type: 'string'` because the AUTHORABLE spelling is an icon
-  //     name; the `React.ReactNode` form is a programmatic prop, not JSON.
-  //     objectui#3829 ruled it stays on exactly this footing. What keeps the
-  //     claim honest — and stops the retired spec key from reading as parity —
-  //     is `__tests__/page-header-authorable-keys.test.tsx`, which skips
-  //     tombstones when it derives the spec's key set.
-  //   - `actions`   — read at `:125`, resolved at `:199-203` and delegated to
-  //     `record:quick_actions`; `PageHeaderProps.actions` is a LIVE spec key (an
-  //     array of action ids), and the canonical `page:header` already publishes
-  //     it as `type: 'array'` (`components/.../containers.tsx:1692`). Spelled
-  //     identically here on purpose — one concept, one key, one type.
-  //
-  // NOT declared, deliberately, and each for its own reason:
-  //   - `breadcrumb` — spec declares it, this renderer has NO read point (the
-  //     word appears only in a comment and an `aria-label`). Declaring it would
-  //     be objectui#3829's defect in reverse: an authoring surface the platform
-  //     silently drops. (`page:header.icon` WAS that same case on the CANONICAL
-  //     renderer — which is why it sits in `UNPUBLISHED_EXEMPTIONS` in
-  //     `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`, and
-  //     why the spec retired the key there while `icon` stays declared HERE:
-  //     different renderers, opposite read facts.)
-  //   - `showBack` / `action` — this renderer reads them, the spec has no such
-  //     keys. Declaring one would publish a second dialect, which is the whole
-  //     point of the objectui#3226 narrowing above. (`description` used to sit
-  //     in this line for the same reason; objectui#3789 removed the read, so it
-  //     is no longer a key this renderer honours in any spelling.)
-  //   - `aria` — spec declares it; omitted for the reason every block omits it
-  //     (accessibility escape hatch, not a layout choice).
-  ComponentRegistry.register('page-header', PageHeader, {
-    namespace: 'layout',
-    label: 'Page Header',
-    category: 'Layout',
-    // LAYOUT containment (objectui#6804 / objectui#9910 Q2). It no longer
-    // carries the "renders a child list" fact — the `children` slot input
-    // below does, and it is the one thing `sdui-parser`'s `not-a-container`
-    // reads (objectui#9910 Q1; objectui#3900 is the card that first paid for
-    // the flag being wrong here).
-    isContainer: true,
-    inputs: [
-      { name: 'title', type: 'string' },
-      { name: 'subtitle', type: 'string' },
-      { name: 'icon', type: 'string', description: 'Lucide icon name' },
-      {
-        name: 'actions',
-        type: 'array',
-        description: 'ActionDef list (or action ids) rendered through record:quick_actions',
-      },
-      // The right-hand slot `PageHeader` renders `schema.children` into
-      // (`content/docs/layout/page-header.mdx` publishes its precedence).
-      // `children` is the protocol's base child-list key, not a
-      // `PageHeaderProps` member, so this line is licensed by the protocol
-      // rather than by spec parity — `__tests__/page-header-authorable-keys`
-      // states that carve-out by name.
-      { name: 'children', type: 'slot', description: 'Right-hand slot content; a JSX `children` prop wins over it' },
-    ],
-  });
+  // Why unregistering is the whole retirement: no source, doc, example or
+  // catalog document in this repository authors the node, and nothing emits
+  // it. objectstack's ADR-0087 conversion `page-header-subtitle-alias` renames
+  // the KEY `description` → `subtitle` on both header spellings; its own
+  // docblock says it does not rewrite the type, and that this registration "is
+  // objectui's to retire, on its own schedule". Its fixtures are test data, not
+  // producers. The opt-in `PROTOCOL_COMPONENTS` placeholder entry for the same
+  // spelling (`@object-ui/components`) went in the same change, so no host can
+  // bring the bare key back. The `subtitle ?? description` fallback this alias
+  // once carried was already gone (objectui#3789); the conversion-reach pin in
+  // `__tests__/page-header-subtitle-conversion-coverage.test.ts` stays, because
+  // it guards `page:header`.
 
   // Page Card — register ONLY as `layout:page:card`. `skipFallback` keeps this
   // thin div from clobbering the bare `page:card` key, which belongs to the
   // record-aware PageCardRenderer in @object-ui/components (it renders
   // title/body/children; this one only renders React children and would
-  // otherwise leak schema props onto the DOM). Same rationale as `page-header`.
+  // otherwise leak schema props onto the DOM). The retired `page-header` alias
+  // above made the same choice the other way round, by never claiming
+  // `page:header`.
   ComponentRegistry.register('page:card', PageCard, {
     namespace: 'layout',
     skipFallback: true,
@@ -214,65 +161,68 @@ export function registerLayout() {
   // `app-schema-renderer`. `__tests__/app-shell-not-a-component-key.test.tsx`
   // pins the current state and says the same thing where it fails.
 
-  ComponentRegistry.register('responsive-grid', ResponsiveGrid, {
-    namespace: 'layout',
-    label: 'Responsive Grid',
-    category: 'Layout',
-    isContainer: true,
-    inputs: [
-      { name: 'columns', type: 'object' },
-      { name: 'gap', type: 'number' },
-    ],
-  });
+  // ⛔ The `responsive-grid` node type key is RETIRED (objectui#11441, the
+  // maintainer's ruling `5950208338`, letter B, executed as an objectui#10859
+  // batch by the objectui#10393 / objectui#8760 route). A breakpoint grid has one
+  // spelling: the `grid` node from `@object-ui/components` with a breakpoint
+  // `columns` object (`{ "type": "grid", "columns": { "xs": 1, "md": 2 },
+  // "gap": 4 }`), which both validator faces accept and which refuses an unknown
+  // breakpoint key as an unrecognized key (`unrecognized_keys` on `columns`).
+  // `ResponsiveGrid` stays a named export of this package for hosts that
+  // compose it in React, and so does the
+  // `BreakpointColumnMap` it is typed by: the same ruling keeps objectui#7580's
+  // vocabulary half and retires only this registration.
+  //
+  // What was here: a registration of `ResponsiveGrid` under the kebab key
+  // `responsive-grid` in the `layout` namespace, so it stored
+  // `layout:responsive-grid` and the bare `responsive-grid` fallback, with
+  // `isContainer: true` and two declared inputs (`columns` as an object, `gap`
+  // as a number). (Described rather than quoted, for the reason the `app-shell`
+  // note above gives.) No `@object-ui/types` arm claimed the key, so
+  // `objectui validate` refused a `responsive-grid` node at `type` while the
+  // registry mounted it.
+  //
+  // Why unregistering is the whole retirement: no source, doc, example or
+  // catalog document in this repository or in objectstack authors the node, and
+  // nothing emits it. A node written with this type now renders the OBJUI-001
+  // "Unknown component type" panel.
 
-  // `items` is `NavigationItem[]` (`NavigationRenderer.tsx:108`) — an ARRAY, and
-  // it used to be declared `type: 'object'` (objectui#3972). Those are not two
-  // spellings of one check: `sdui-parser`'s `checkType` accepts `'object'` only
-  // for `typeof value === 'object' && !Array.isArray(value)` and `'array'` only
-  // for `Array.isArray(value)` (`validate.ts:124-129`), so the declaration made
-  // the manifest gate report `type-mismatch: <navigation-renderer> prop "items"
-  // expected an object` on the ONLY value this renderer can render — and stay
-  // silent on the object that would crash it.
+  // ⛔ The `navigation-renderer` node type key is RETIRED (objectui#11441, the
+  // same ruling, letter B, by the same route). Navigation has one home:
+  // application metadata, the app's `navigation` items plus what plugins
+  // contribute (ADR-0029 D7), drawn by the shell. In this package that is
+  // `AppSchemaRenderer`, the whole-shell door below (objectui#4841); in the
+  // console it is `UnifiedSidebar`, which mounts `NavigationRenderer` itself.
+  // `NavigationRenderer` stays a named export of this package; only the page
+  // node spelling goes.
   //
-  // This is not objectui#3832 (a key whose contract is a UNION, which the
-  // declaration could not spell before that card and now spells as an array of
-  // arms): `items` has ONE contract type, `ManifestInputType` has `'array'`, so
-  // the declaration was simply wrong about a type it could express exactly.
+  // What was here: a registration of `NavigationRenderer` under the kebab key
+  // `navigation-renderer` in the `layout` namespace, so it stored
+  // `layout:navigation-renderer` and the bare `navigation-renderer` fallback,
+  // with two declared inputs: `items`, a required array (objectui#3972 corrected
+  // its type from `object`; objectui#3987 made it required, because the
+  // renderer has no default and a node without it crashed on render), and
+  // `basePath`, an optional string. (Described rather than quoted, as above.)
+  // No `@object-ui/types` arm claimed the key, so `objectui validate` refused a
+  // `navigation-renderer` node at `type` while the registry mounted it.
   //
-  // `required: true` is the fourth face of the same agreement (objectui#3987).
-  // #3972 aligned the key's EXISTENCE and TYPE; optionality was still declared
-  // the opposite of what the component enforces. `NavigationRendererProps.items`
-  // has no `?` and the renderer supplies no default (`NavigationRenderer.tsx:1204`),
-  // so `{ "type": "navigation-renderer" }` — a node the validator passed in
-  // silence, because `validate.ts:55-64` only reports `missing-required-prop`
-  // when `input.required` is set — crashes on the first thing the render does
-  // with the prop: `collectPinnedItems(filteredItems)` at `:1242` does
-  // `for (const item of items)` (`:1410`) and throws
-  // `TypeError: items is not iterable`. (The `resolveActiveNavItem` memo above
-  // it survives, its `visit` guards `if (!nodes) return`; `filteredItems.slice()`
-  // at `:1247` would throw too but is never reached.)
-  //
-  // So this is not a stylistic "document it as required" — it is the one
-  // diagnostic that exists precisely to stop a node whose render is a
-  // guaranteed crash from shipping. `basePath` below stays optional because the
-  // renderer really does default it (`basePath = ''`); the two are declared
-  // differently because the component treats them differently.
-  ComponentRegistry.register('navigation-renderer', NavigationRenderer, {
-    namespace: 'layout',
-    label: 'Navigation Renderer',
-    category: 'Layout',
-    inputs: [
-      { name: 'items', type: 'array', required: true },
-      { name: 'basePath', type: 'string' },
-    ],
-  });
+  // Why unregistering is the whole retirement: no source, doc example or
+  // catalog document in this repository or in objectstack authors the node, and
+  // nothing emits it; every host that draws navigation mounts the component. A
+  // node written with this type now renders the OBJUI-001 "Unknown component
+  // type" panel: a loud refusal, not a second source of navigation.
 
-  ComponentRegistry.register('app-schema-renderer', AppSchemaRenderer, {
+  // Registered against `AppSchemaRendererNode` (above), NOT `AppSchemaRenderer`:
+  // the adapter is what hands the component the `schema` input (objectui#11494).
+  ComponentRegistry.register('app-schema-renderer', AppSchemaRendererNode, {
     namespace: 'layout',
     label: 'App Schema Renderer',
     category: 'Layout',
     isContainer: true,
     inputs: [
+      // The app document the shell draws (`@object-ui/types/zod`'s
+      // `AppComponentSchema`, which `AppSchemaRendererNodeSchema` declares by
+      // reference). Optional: a node without it draws the shell with no document.
       { name: 'schema', type: 'object' },
       { name: 'basePath', type: 'string' },
       // Declared as the vocabulary the renderer implements, not as free text

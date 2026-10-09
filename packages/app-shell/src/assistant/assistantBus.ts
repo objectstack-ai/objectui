@@ -21,6 +21,7 @@
  */
 
 import { useEffect, useSyncExternalStore } from 'react';
+import { useAuth } from '@object-ui/auth';
 
 export interface AssistantEditorField {
   name: string;
@@ -165,6 +166,83 @@ export function subscribeMetadataRefresh(listener: () => void): () => void {
   return () => {
     metadataRefreshListeners.delete(listener);
   };
+}
+
+// ── objectui#11666 — a proposed plan awaiting the user's approval ──────────
+// The chat knows, per conversation, whether the newest proposed plan still
+// waits for the user: `ChatbotEnhanced` derives it from the same producer its
+// plan card renders and reports it through `onPlanApprovalPendingChange`, and
+// the chat host (`ChatPane`) publishes that reading here. The launchers — the
+// console FAB and the ChatDock edge launcher — read it, and they are on screen
+// only while the chat is CLOSED, when no chat code is mounted to ask. This
+// store is where the reading outlives the chat.
+//
+// Only a mounted chat writes it, and every change to a plan's state in this
+// document happens inside a mounted chat (the approval click, a newer
+// proposal, the build that runs), so within the document it is the chat's own
+// reading, not a guess. What it cannot see is stated rather than papered over:
+// a change made in another tab or device, and a page reload. The durable copy
+// is the server conversation, which the launcher cannot read without the chat
+// graph it exists to keep out of the first load.
+//
+// Two keys, both load-bearing:
+//   * the conversation — opening a chat on ANOTHER thread does not clear a
+//     plan waiting in this one, so opening a chat clears nothing by itself;
+//   * the owner — the SPA keeps running across a sign-out (`AuthProvider`), so
+//     a reading is shown only to the user it was read for, never carried into
+//     the next session in the tab.
+// Kept OFF the snapshot bus above, like the two event channels: a plan's state
+// must not re-render every `useAssistant` consumer.
+
+/** conversation id → the user whose chat read its plan as awaiting approval. */
+let planApprovalOwners: ReadonlyMap<string, string> = new Map();
+const planApprovalListeners = new Set<() => void>();
+
+function subscribePlanApproval(listener: () => void): () => void {
+  planApprovalListeners.add(listener);
+  return () => {
+    planApprovalListeners.delete(listener);
+  };
+}
+
+function getPlanApprovalOwners(): ReadonlyMap<string, string> {
+  return planApprovalOwners;
+}
+
+/**
+ * Record a chat's reading of whether `conversationId`'s newest proposed plan
+ * awaits the user's approval (chat hosts call this). No-op when unchanged.
+ * `pending: false` also drops the reading of a conversation that was deleted.
+ */
+export function publishPlanApprovalPending(reading: {
+  userId: string | undefined;
+  conversationId: string;
+  pending: boolean;
+}): void {
+  const owner = reading.userId ?? '';
+  const current = planApprovalOwners.get(reading.conversationId);
+  if (reading.pending ? current === owner : current === undefined) return;
+  const next = new Map(planApprovalOwners);
+  if (reading.pending) next.set(reading.conversationId, owner);
+  else next.delete(reading.conversationId);
+  planApprovalOwners = next;
+  for (const l of planApprovalListeners) l();
+}
+
+/**
+ * True while any conversation of the signed-in user has a proposed plan
+ * awaiting approval, as last read by a mounted chat. Read by the launchers.
+ */
+export function usePlanApprovalPending(): boolean {
+  const owners = useSyncExternalStore(
+    subscribePlanApproval,
+    getPlanApprovalOwners,
+    getPlanApprovalOwners,
+  );
+  const { user } = useAuth();
+  const owner = user?.id ?? '';
+  for (const o of owners.values()) if (o === owner) return true;
+  return false;
 }
 
 /** Subscribe a component to the assistant bus snapshot. */

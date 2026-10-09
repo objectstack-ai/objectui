@@ -49,8 +49,9 @@ import { AddressField } from './widgets/AddressField.js';
 import { LocationField } from './widgets/LocationField.js';
 import { GeolocationField } from './widgets/GeolocationField.js';
 import { CodeField } from './widgets/CodeField.js';
+import { ObjectField } from './widgets/ObjectField.js';
 import { QRCodeField } from './widgets/QRCodeField.js';
-// The FORM's spec-alias table (`json` → `field:code`, `tree` → `field:lookup`,
+// The FORM's spec-alias table (`secret` → `field:password`, `tree` → `field:lookup`,
 // …) — inline resolution reuses it so spec spellings get the form's decision.
 // `isRetiredFieldType` / `reportRetiredFieldType` come from the same module on
 // purpose: it re-exports the live retirement gate (objectui#4814, hoisted to
@@ -122,6 +123,13 @@ const EDIT_WIDGETS: Record<string, React.ComponentType<FieldWidgetComponentProps
   location: LocationField,
   geolocation: GeolocationField,
   code: CodeField,
+  // `json` is keyed DIRECTLY, ahead of the alias table (objectui#11448). The
+  // form now resolves it to `field:object`, and `object` is excluded below as a
+  // container — so resolving it through the alias would have taken `json` out of
+  // inline editing altogether. It keeps the inline editor it had, with the face
+  // the record form uses for it: the JSON editor, not the raw-text code editor
+  // that showed `[object Object]` and wrote the edit back as a string.
+  json: ObjectField,
   qrcode: QRCodeField,
 };
 
@@ -169,9 +177,9 @@ export const DISCRETE_EDIT_TYPES = new Set<string>([
  * were keys in NEITHER table here, so the grid silently fell back to a plain
  * text input for all of them: typing over structured JSON or a hierarchy ref
  * is a value-corruption path (#2942). Resolving through the same alias table
- * the form uses gives each spec type the form's own decision: `json` → the
- * code editor, `tree` → the lookup picker, and the container/computed/binary
- * families → their documented exclusions.
+ * the form uses gives each spec type the form's own decision: `tree` → the
+ * lookup picker, and the container/computed/binary families → their documented
+ * exclusions. (`json` is keyed directly in {@link EDIT_WIDGETS} — see there.)
  */
 function resolveInlineEditType(type: string): string {
   if (type in EDIT_WIDGETS || INLINE_EXCLUDED_FIELD_TYPES.has(type)) return type;

@@ -33,6 +33,7 @@ import {
   listInstalledPackages,
   uninstallLocal,
   type LocalInstallEntry,
+  type LocalInstallNotLoaded,
 } from './marketplaceApi.js';
 import { MarketplaceAccessDenied } from './MarketplaceAccessDenied.js';
 
@@ -75,8 +76,23 @@ export function InstalledList() {
 
   useEffect(() => { void load(); }, []);
 
+  // objectui#11645 — the reason a `notLoaded` entry was refused, in plain words.
+  // A code the console has no sentence for still reads as not loaded, naming
+  // the code, rather than hiding the row the operator needs to uninstall.
+  const notLoadedReason = (marker: LocalInstallNotLoaded): string =>
+    marker.code === 'OS_PROTOCOL_INCOMPATIBLE'
+      ? t('marketplace.notLoaded.protocolIncompatible', { requiredRange: marker.requiredRange })
+      : t('marketplace.notLoaded.otherReason', { code: marker.code });
+
   const doUninstall = async (entry: LocalInstallEntry) => {
-    if (!confirm(t('marketplace.uninstall.confirm', { manifestId: entry.manifestId, version: entry.version }))) {
+    // A package the runtime did not load leaves nothing in the running kernel,
+    // so its confirm and its result drop the "stays loaded until restart"
+    // caveat that a loaded package's texts carry, which would contradict the
+    // row's own "Not loaded" (objectui#11645).
+    const question = entry.notLoaded
+      ? t('marketplace.uninstall.confirmNotLoaded', { manifestId: entry.manifestId, version: entry.version })
+      : t('marketplace.uninstall.confirm', { manifestId: entry.manifestId, version: entry.version });
+    if (!confirm(question)) {
       return;
     }
     setWorking(entry.manifestId);
@@ -85,7 +101,9 @@ export function InstalledList() {
       await uninstallLocal(entry.manifestId);
       setResult({
         ok: true,
-        message: t('marketplace.uninstall.successInList', { manifestId: entry.manifestId }),
+        message: entry.notLoaded
+          ? t('marketplace.uninstall.successNotLoaded', { manifestId: entry.manifestId })
+          : t('marketplace.uninstall.successInList', { manifestId: entry.manifestId }),
       });
       await load();
     } catch (e: any) {
@@ -141,12 +159,21 @@ export function InstalledList() {
                   <CardTitle className="text-base truncate flex items-center gap-2">
                     {entry.manifestId}
                     <Badge variant="outline">{t('marketplace.versionBadge', { version: entry.version })}</Badge>
+                    {entry.notLoaded && (
+                      <Badge variant="destructive">{t('marketplace.notLoaded.badge')}</Badge>
+                    )}
                   </CardTitle>
                   <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1">
                     <span>{t('marketplace.installedAt', { when: new Date(entry.installedAt).toLocaleString(displayLocale) })}</span>
                     {entry.installedBy && <span>{t('marketplace.installedBy', { user: entry.installedBy })}</span>}
                     <span>{t('marketplace.installedPackageId')} <code className="font-mono">{entry.packageId}</code></span>
                   </div>
+                  {entry.notLoaded && (
+                    <p className="text-xs text-destructive mt-1.5 flex items-start gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 mt-px shrink-0" aria-hidden="true" />
+                      <span>{notLoadedReason(entry.notLoaded)}</span>
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Button

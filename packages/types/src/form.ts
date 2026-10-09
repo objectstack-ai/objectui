@@ -17,6 +17,10 @@
 
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { SelectOptionBase } from './select-option.js';
+import type { GridFieldMetadata } from './field-types.js';
+// objectui#11070 — the field-metadata members `FormField` declares by
+// reference to the spec's `FieldSchema`. Type-only: no runtime edge.
+import type { Field as SpecField } from '@objectstack/spec/data';
 
 /**
  * Button component
@@ -1343,7 +1347,7 @@ export interface CalendarSchema extends BaseSchema {
    *
    * The tombstone reaches {@link UiCalendarSchema} on BOTH faces. On this one
    * it did not until objectui#9256's E3 slice: `UiCalendarSchema` was declared
-   * as a plain `Omit` of this interface, and because {@link BaseSchema} carries
+   * as a plain `Omit` of this interface, and because {@link BaseSchema} carried
    * an index signature that `Omit` resolved through `Exclude<string, 'type'>` =
    * `string` and collapsed every member into the signature — the checker
    * answered `any` for `UiCalendarSchema['body']` and for
@@ -1400,7 +1404,7 @@ export interface CalendarSchema extends BaseSchema {
    *
    * The tombstone reaches {@link UiCalendarSchema} on BOTH faces. On this one
    * it did not until objectui#9256's E3 slice: `UiCalendarSchema` was declared
-   * as a plain `Omit` of this interface, and because {@link BaseSchema} carries
+   * as a plain `Omit` of this interface, and because {@link BaseSchema} carried
    * an index signature that `Omit` resolved through `Exclude<string, 'type'>` =
    * `string` and collapsed every member into the signature — the checker
    * answered `any` for `UiCalendarSchema['body']` and for
@@ -1440,9 +1444,28 @@ export interface InputOTPSchema extends BaseSchema {
   label?: string;
   /**
    * Number of OTP digits
+   *
+   * READ SITE: `packages/components/src/renderers/form/input-otp.tsx`, as the
+   * slot count. Inert until objectui#11347: the renderer read an undeclared
+   * `maxLength` and drew six slots whatever `length` said, while every
+   * catalog entry and the docs page author `length`. The read moved to this
+   * spelling with no alias, which also makes the `@default` below true.
    * @default 6
    */
   length?: number;
+  /**
+   * Draw a visual separator between two halves of the slots
+   *
+   * READ SITE: `packages/components/src/renderers/form/input-otp.tsx`. `true`
+   * splits the {@link InputOTPSchema.length} slots into two groups at the
+   * midpoint and draws one separator (`role="separator"`) between them; an odd
+   * `length` puts the extra slot in the first group, and a single slot has
+   * nothing to separate. Absent or `false` draws one group. Declared by
+   * objectui#11365: the docs page and two catalog entries authored it while no
+   * type declared it and the renderer read nothing for it.
+   * @default false
+   */
+  separator?: boolean;
   /**
    * Default value
    */
@@ -1489,7 +1512,10 @@ export interface InputOTPSchema extends BaseSchema {
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
    * `maxLength`, `value` (in
-   * `packages/components/src/renderers/form/input-otp.tsx`).
+   * `packages/components/src/renderers/form/input-otp.tsx`). The undeclared
+   * `maxLength` read has since moved to the declared {@link InputOTPSchema.length}
+   * (objectui#11347), and objectui#11365 added a read of the declared
+   * {@link InputOTPSchema.separator}.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -1516,7 +1542,10 @@ export interface InputOTPSchema extends BaseSchema {
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
    * `maxLength`, `value` (in
-   * `packages/components/src/renderers/form/input-otp.tsx`).
+   * `packages/components/src/renderers/form/input-otp.tsx`). The undeclared
+   * `maxLength` read has since moved to the declared {@link InputOTPSchema.length}
+   * (objectui#11347), and objectui#11365 added a read of the declared
+   * {@link InputOTPSchema.separator}.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -1858,7 +1887,7 @@ export interface FormField {
    * The resolved object-field metadata **object** (typically a
    * {@link FieldMetadata} / server-served field definition), stashed by the
    * object-bound form paths so widgets can read `precision`, `currency`,
-   * `reference_to`, `dependsOn`, … It feeds the field-widget `field` prop.
+   * `reference`, `dependsOn`, … It feeds the field-widget `field` prop.
    *
    * ⚠️ Same key, different layer: in the SPEC form-view vocabulary `field` is
    * a **string** (the referenced object-field name). That authored shape ends
@@ -1916,6 +1945,242 @@ export interface FormField {
    * non-divider row the key has no meaning and is ignored by the renderer.
    */
   fields?: string[];
+
+  // ── Field metadata written on the entry itself (objectui#11070) ─────────
+  //
+  // A hand-authored `form` has no object schema behind it, so nothing is
+  // stashed on `field` above: the renderer hands each field widget the ENTRY
+  // ITSELF as its metadata carrier (`field: field.field || field`, the one
+  // `renderFieldComponent` call in `renderers/form/form.tsx`), and the
+  // built-in `input` / `textarea` branches spread the entry's remaining keys
+  // onto the native control. The members below are the keys that path reads
+  // off the entry. Each one `@objectstack/spec` declares on `FieldSchema` is
+  // typed BY REFERENCE to that member, so the two cannot drift; `pattern` is
+  // the one the spec does not declare.
+  //
+  // ⛔ Not every key a widget reads off the carrier is declared here. No
+  // widget reads a snake_case second spelling of a spec key any more: the
+  // length readers read ONLY the spec's `minLength` / `maxLength` (below),
+  // the lookup and user widgets ONLY the spec's `reference`, the formula
+  // widget ONLY the spec's `returnType`, and the summary widget no roll-up
+  // key at all (objectui#11752). Their snake_case forms (`min_length`, `max_length`, `reference_to`,
+  // `return_type`, `summary_type`, …) are retired, read by nothing and
+  // refused by the strict face (objectui#11070). The grid field's `columns`
+  // is the spec's inline grid column list, by reference (below).
+
+  /**
+   * Hold several values instead of one. Read by the `file`, `image`,
+   * `lookup` and `user` field widgets off their metadata carrier: the upload
+   * widgets put `multiple` on their file `<input>`, the pickers switch to
+   * multi-value selection. The built-in `select` branch does not read it.
+   */
+  multiple?: SpecField['multiple'];
+  /**
+   * Height of the inline editor, in text rows. The built-in `textarea` branch
+   * spreads it onto the `<textarea>` as `rows`; the `markdown` widget reads
+   * it for its inline editor (default 8).
+   */
+  rows?: SpecField['rows'];
+  /**
+   * Upload types the file picker offers, as MIME types or extensions
+   * (e.g. `["image/*", ".pdf"]`). The `file` widget joins them into its
+   * `<input type="file">`'s `accept` attribute.
+   */
+  accept?: SpecField['accept'];
+  /**
+   * Vector dimensionality. The `vector` widget prints it beside the value
+   * (`(768D)`), falling back to the value's own length when absent.
+   */
+  dimensions?: SpecField['dimensions'];
+  /**
+   * Target object of a `lookup` / `user` field, as `@objectstack/spec`'s
+   * `FieldSchema` spells it. The `lookup` widget resolves its target from
+   * this key alone and the `user` widget likewise (falling back to
+   * `sys_user`), so this is the object the picker queries through the
+   * injected adapter. The retired `reference_to` spelling is read by neither
+   * and is ⛔ NOT declared: the strict face refuses it by name
+   * (objectui#11070).
+   */
+  reference?: SpecField['reference'];
+  /**
+   * Minimum value. The `number` widget and the built-in `input` branch put it
+   * on the native control as `min`, which the browser enforces at submit
+   * (the form sets no `noValidate`). For a react-hook-form rule with its own
+   * message, write `validation.min` instead.
+   */
+  min?: SpecField['min'];
+  /**
+   * Maximum value. Read like {@link FormField.min}, as the native `max`.
+   */
+  max?: SpecField['max'];
+  /**
+   * Decimal places, a non-negative integer of at most 100. The `number`
+   * widget reads it as its `step` and its read-only width, the `percent`
+   * widget as the decimals of the percentage-point value (`scale: 2` reads
+   * 12.34%), and the `formula` and `summary` widgets when they draw a number;
+   * each resolves an absent `scale` through the spec's `resolveFieldScale`.
+   *
+   * ⛔ Not on a `currency` field. The `currency` widget does not read it: an
+   * amount's decimal places are its currency's ISO 4217 minor unit. So the
+   * zod face refuses `scale` on an entry of `type: 'currency'`, as the
+   * spec's `FieldSchema` refuses it (objectstack-ai/objectstack#19629),
+   * keyed on `type` as the spec keys it. A typed literal cannot refuse it,
+   * because this interface keeps an index signature (objectui#11070).
+   */
+  scale?: SpecField['scale'];
+  /**
+   * The currency of a `currency` field: `{ currencyMode: 'fixed',
+   * defaultCurrency: 'EUR' }` gives the field one currency. The `currency`
+   * widget resolves its code through `resolveFieldCurrency`
+   * (`@object-ui/i18n`), which reads `defaultCurrency` only under
+   * `currencyMode: 'fixed'`. Under `dynamic`, the spec's mode when none is
+   * written, the amount shows in the tenant default currency.
+   *
+   * A `currency` code written on the entry itself is still read first by
+   * `resolveFieldCurrency`, but the spec's `FieldSchema` refuses it as a
+   * field key, so it is ⛔ NOT declared here and the strict face refuses it
+   * (objectui#11070).
+   */
+  currencyConfig?: SpecField['currencyConfig'];
+  /**
+   * Minimum character length. The built-in `input` and `textarea` branches
+   * put it on the native control as `minlength`, which the browser enforces
+   * at submit. For a react-hook-form rule with its own message, write
+   * `validation.minLength` instead.
+   */
+  minLength?: SpecField['minLength'];
+  /**
+   * Maximum character length. The built-in `input` and `textarea` branches
+   * resolve it as the control's `maxLength` ceiling (the `textarea` branch
+   * also draws its `{n}/{max}` counter).
+   */
+  maxLength?: SpecField['maxLength'];
+  /**
+   * Regular expression the value must match, as a STRING — JSON has no
+   * `RegExp`. The built-in `input` branch puts it on the native control as
+   * `pattern`, which the browser enforces at submit. This is the spelling
+   * the `validation.pattern` refusal directs JSON authors to: that rule's
+   * `value` must be a compiled `RegExp` (objectui#5099), which a document
+   * cannot carry.
+   */
+  pattern?: string;
+  /**
+   * The value type a `formula` field computes (`number` / `text` /
+   * `boolean` / `date`). The `formula` widget draws the value by it, by the
+   * same rule as the formula table cell, so one stored value reads the same
+   * in a form and in a table (objectui#11748): a number formatted as a
+   * `number` field formats it (the viewer's display locale, at the width a
+   * `scale` on the field sets); a boolean as the UI language's Yes / No
+   * word, where any value that is not a JS boolean reads as empty; a date
+   * in `formatDate`'s default face, the date field's read-only face; and
+   * text as text, in monospace. With no `returnType`, a JS number is drawn
+   * as a number and anything else as text. The retired snake_case
+   * `return_type` is read by nothing and refused.
+   */
+  returnType?: SpecField['returnType'];
+  /**
+   * The roll-up definition of a `summary` field: the child `object`, the
+   * child `field` and the aggregation `function`, plus an optional
+   * `relationshipField` and `filter`. The backend computes the value from
+   * it; the `summary` widget does not read it to format. Whatever the
+   * `function`, the widget draws the value by the same rule as the summary
+   * table cell, so one stored value reads the same in a form and in a table
+   * (objectui#11752): a number formatted as a `number` field formats it (the
+   * viewer's display locale, at the width a `scale` on the field sets, at its
+   * natural precision with none, so a `count` reads whole), and anything else
+   * as text. The retired snake_case `summary_object` / `summary_field` /
+   * `summary_type` are read by nothing and refused.
+   */
+  summaryOperations?: SpecField['summaryOperations'];
+  /**
+   * The columns of a `grid` field: `@objectstack/spec`'s
+   * `FieldSchema.inlineColumns`, by reference — an array of the spec's strict,
+   * `name`-keyed inline grid column (`{ name, label?, type?, width?, … }`).
+   * The `grid` widget reads `columns` off its metadata carrier and each column
+   * by exactly the spec's keys, so a column the spec refuses (the retired
+   * `field` spelling, a `title`, a `type` outside its nine cell controls) is
+   * refused here too rather than rendered as an empty or plain-text cell. The
+   * spec spells the list `inlineColumns` on a `master_detail` field; a `grid`
+   * field is objectui's own type, whose key is `columns` (objectui#11070).
+   */
+  columns?: SpecField['inlineColumns'];
+
+  // ── The `grid` widget's field-level keys (objectui#11070 round 10) ──────
+  //
+  // A `form` `fields[]` entry of `type: 'grid'` is the authored path to the
+  // `grid` widget, which reads its field-level keys off that entry (its
+  // metadata carrier, as for `columns` above). Each member below is
+  // `GridFieldMetadata`'s own member BY REFERENCE, so the form-field face and
+  // the grid field's published type cannot drift; the meaning of each key is
+  // documented there. Only the `grid` widget reads them: on any other field
+  // type they are accepted and read by nothing. objectui#11610 renamed all
+  // eight from snake_case to camelCase.
+
+  /** The grid's minimum row count: {@link GridFieldMetadata.minRows}. */
+  minRows?: GridFieldMetadata['minRows'];
+  /** The grid's maximum row count: {@link GridFieldMetadata.maxRows}. */
+  maxRows?: GridFieldMetadata['maxRows'];
+  /** Whether the grid offers Add (on unless `false`): {@link GridFieldMetadata.allowAdd}. */
+  allowAdd?: GridFieldMetadata['allowAdd'];
+  /** Whether the grid offers Delete (on unless `false`): {@link GridFieldMetadata.allowDelete}. */
+  allowDelete?: GridFieldMetadata['allowDelete'];
+  /** Whether rows can be drag-reordered (on unless `false`): {@link GridFieldMetadata.allowReorder}. */
+  allowReorder?: GridFieldMetadata['allowReorder'];
+  /** The CHILD column summed into the footer total: {@link GridFieldMetadata.totalField}. */
+  totalField?: GridFieldMetadata['totalField'];
+  /** The Add button's label: {@link GridFieldMetadata.addLabel}. */
+  addLabel?: GridFieldMetadata['addLabel'];
+  /** The row field stamped with each row's index: {@link GridFieldMetadata.sortField}. */
+  sortField?: GridFieldMetadata['sortField'];
+
+  // ── Their retired snake_case spellings (objectui#11610) ─────────────────
+  //
+  // REFUSED BY NAME, as on `GridFieldMetadata` (where the retirement is
+  // documented): each is a `?: never` tombstone here (a declared member, so
+  // it outranks the index signature above), and an alias refusal naming the
+  // camelCase key on the zod mirror. `GRID_FIELD_RETIRED_KEYS` maps each to
+  // its replacement.
+
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.minRows}.
+   * @deprecated Write `minRows`. Nothing reads this spelling.
+   */
+  min_rows?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.maxRows}.
+   * @deprecated Write `maxRows`. Nothing reads this spelling.
+   */
+  max_rows?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.allowAdd}.
+   * @deprecated Write `allowAdd`. Nothing reads this spelling.
+   */
+  allow_add?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.allowDelete}.
+   * @deprecated Write `allowDelete`. Nothing reads this spelling.
+   */
+  allow_delete?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.allowReorder}.
+   * @deprecated Write `allowReorder`. Nothing reads this spelling.
+   */
+  allow_reorder?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.totalField}.
+   * @deprecated Write `totalField`. Nothing reads this spelling.
+   */
+  total_field?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.addLabel}.
+   * @deprecated Write `addLabel`. Nothing reads this spelling.
+   */
+  add_label?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.sortField}.
+   * @deprecated Write `sortField`. Nothing reads this spelling.
+   */
+  sort_field?: never;
 }
 
 /**
@@ -1970,6 +2235,18 @@ export interface FormSchema extends BaseSchema {
    * @default false
    */
   showCancel?: boolean;
+  /**
+   * Show the submit button (objectui#11070).
+   *
+   * The `form` renderer destructures this off the node with a `true` default
+   * and draws its submit button only while it holds (`{showSubmit && (` in
+   * `renderers/form/form.tsx`), so `false` renders the fields with no submit
+   * button — the display-only form the `fields-*` catalog examples author.
+   * Declared on both faces because the strict authoring face refused it as
+   * undeclared while the renderer read it.
+   * @default true
+   */
+  showSubmit?: boolean;
   /**
    * Form layout
    * @default 'vertical'
@@ -2158,9 +2435,26 @@ export interface LabelSchema extends BaseSchema {
     */
   label?: string;
   /**
-   * Legacy content property
+   * RETIRED (objectui#6152 round 4, ADR-0049) — a THIRD spelling of the label's
+   * text, beside {@link LabelSchema.text} and {@link LabelSchema.label}.
+   *
+   * The `label` renderer read it last, as `schema.text || schema.label ||
+   * schema.content`, and that read is dropped in the same change. No document
+   * authored it: the authored census over every tracked JSON file, Markdown JSON
+   * fence and `type: 'label'` object literal found it once, in a components test,
+   * against `label` 48 times and `text` 5 times. Honouring three spellings keeps
+   * one fact writable three ways (AGENTS.md #0.1), so it is retired at once, with
+   * no alias window. Which of `text` / `label` is canonical is a separate question
+   * and is not decided here.
+   *
+   * `?: never` rather than deleted: this interface carried `BaseSchema`'s index
+   * signature, so a deleted member would type-check silently (since
+   * objectui#8347, through a widened value only), while a tombstone
+   * makes presence a `tsc` error, and the zod twin refuses the key by name.
+   *
+   * @deprecated RETIRED (objectui#6152) — write the text as `text` (or `label`).
    */
-  content?: string;
+  content?: never;
   /**
    * HTML for attribute
    */
@@ -2175,8 +2469,9 @@ export interface LabelSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `content`, `label`, `text` (in
-   * `packages/components/src/renderers/form/label.tsx`).
+   * `label`, `text` (in
+   * `packages/components/src/renderers/form/label.tsx`; its third read,
+   * `content`, is retired by objectui#6152 round 4).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -2201,8 +2496,9 @@ export interface LabelSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `content`, `label`, `text` (in
-   * `packages/components/src/renderers/form/label.tsx`).
+   * `label`, `text` (in
+   * `packages/components/src/renderers/form/label.tsx`; its third read,
+   * `content`, is retired by objectui#6152 round 4).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -2599,7 +2895,8 @@ export interface CodeEditorSchema extends BaseSchema {
  * moved onto that card).
  *
  * The built-in `Omit<T, K>` is `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on
- * a type carrying {@link BaseSchema}'s `[key: string]: any` is `string | number`:
+ * a type carrying a string index signature (as every {@link BaseSchema}
+ * extender did until objectui#8347) is `string | number`:
  * the literal member names are absorbed, `Exclude` leaves `string`, and the
  * `Pick` rebuilds the index signature and NONE of the named members (the same
  * mechanism objectui#6151 and objectui#6269 measured at other positions). The
@@ -2631,8 +2928,8 @@ type OmitDeclared<T, K extends PropertyKey> = {
  * `{ type: 'input', inputType: 'email' }` when the input type is the choice.
  *
  * ⚠️ objectui#8499 shipped this interface with the key merely OMITTED, and
- * recorded why that was not enough: {@link BaseSchema} carries an index
- * signature and its mirror is `.passthrough()`, so `inputType` rode through
+ * recorded why that was not enough: {@link BaseSchema} carried an index
+ * signature then and its mirror is `.passthrough()`, so `inputType` rode through
  * both faces unchallenged while the renderer threw the value away. objectui#8762
  * closes that — the key is DECLARED and unwritable on both faces, so `tsc`
  * refuses it at the authoring site and the zod twin refuses it BY NAME with

@@ -41,7 +41,7 @@ import { t } from '../i18n';
  * fetched object list/fields.
  */
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,
@@ -204,9 +204,9 @@ describe('PageBlockInspector PROPERTIES labels follow the locale (#3913)', () =>
     expect(screen.getByText('属性')).toBeTruthy(); // chrome, already worked
     expect(screen.getByText('标题')).toBeTruthy(); // contents, the fix
     expect(screen.getByText('副标题')).toBeTruthy();
-    expect(screen.getByText('显示面包屑')).toBeTruthy();
     expect(screen.queryByText('Subtitle')).toBeNull();
-    expect(screen.queryByText('Show breadcrumb')).toBeNull();
+    // The breadcrumb toggle's label pair left with the toggle (objectui#11173);
+    // its absence is pinned in `PageBlockInspector.pageHeaderBreadcrumb-11173.test.tsx`.
   });
 });
 

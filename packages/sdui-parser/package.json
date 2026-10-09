@@ -1,6 +1,6 @@
 {
   "name": "@object-ui/sdui-parser",
-  "version": "17.6.0",
+  "version": "17.7.0",
   "type": "module",
   "sideEffects": false,
   "license": "MIT",
@@ -33,6 +33,7 @@
   "devDependencies": {
     "@object-ui/core": "workspace:*",
     "@object-ui/react": "workspace:*",
+    "@object-ui/types": "workspace:*",
     "@objectstack/spec": "^17.0.0"
   }
 }

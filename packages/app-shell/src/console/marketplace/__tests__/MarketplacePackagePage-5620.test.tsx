@@ -22,6 +22,18 @@
  * `features.installLocal: true`, the request still fired — and its answer
  * was discarded — on a marketplace-off runtime and for a refused viewer.
  *
+ * ## objectui#11627 retired the `marketplaceEnabled` half
+ *
+ * On a marketplace-OFF runtime that mounts install-local, the answer now HAS a
+ * consumer: an admin whose package is a local install gets its local menu
+ * above the disabled notice, and this request is what decides that. So the
+ * case that pinned "never fires on a marketplace-off runtime, even for an
+ * admin with installLocal on" pinned exactly the branch that card removed, and
+ * was replaced, not respelled. What still holds on a marketplace-off runtime,
+ * and is pinned below, is the rest of this card's class: no request where its
+ * answer has nowhere to go — installLocal off, or a refused viewer. The
+ * positive half lives in `MarketplacePackagePage.offlineLocalMenu-11627.test.tsx`.
+ *
  * ## What is NOT claimed
  *
  * That `features.installLocal` stops mattering. It is a genuinely separate
@@ -148,8 +160,18 @@ afterEach(() => {
 });
 
 describe('listLocalInstalls on a marketplace-OFF runtime', () => {
-  it('never fires, even with installLocal on and the viewer an admin', async () => {
+  it('never fires when installLocal is off too, even for an admin', async () => {
     viewer.isAdmin = true;
+    await bootOn(serverConfig(false, false));
+
+    render(<MarketplacePackagePage />);
+
+    await waitFor(() => expect(screen.getByTestId('marketplace-disabled')).toBeInTheDocument());
+    expect(listLocalInstalls).not.toHaveBeenCalled();
+  });
+
+  it('never fires for a refused (non-admin) viewer, even with installLocal on', async () => {
+    viewer.isAdmin = false;
     await bootOn(serverConfig(false, true));
 
     render(<MarketplacePackagePage />);

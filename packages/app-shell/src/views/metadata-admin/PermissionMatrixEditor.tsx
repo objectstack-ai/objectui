@@ -76,6 +76,11 @@ import { CapabilityMultiSelectField, parseCapabilityNames } from '@object-ui/fie
 import { PageShell } from './PageShell.js';
 import { HistoryPanel } from './ResourceHistoryPage.js';
 import { useMetadataClient, useMetadataTypes, type RichMetadataTypeEntry } from './useMetadata.js';
+// objectui#11773 — the package door's draft save sends the version it was built on.
+import { useDraftSaveGuard } from './DraftConflictDialog.js';
+// objectui#11787 — the package door autosaves through the pillars' own autosave.
+import { useDraftAutoSave, type DraftSend } from '../studio-design/useDraftAutoSave.js';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { t as translate, tFormat, useMetadataLocale } from './i18n.js';
 import { PermissionAdvancedFacets } from './PermissionAdvancedFacets.js';
 import { errorCodeIs } from '@object-ui/types';
@@ -229,11 +234,13 @@ export interface PermissionMatrixEditPageProps {
   packageId?: string;
   /**
    * ADR-0086 P2 (D6/D7 — the package door). When editing under a `packageId`,
-   * a permission set is package **metadata**: Save writes a **draft** (not a
-   * live record), published atomically with the rest of the package. `onDraftSaved`
-   * notifies the surface so its pending-changes counter refreshes; `publishNonce`
-   * bumps on publish so the editor re-reads the now-published baseline (its draft
-   * is gone). Both are no-ops at environment scope, where Save stays live (D7).
+   * a permission set is package **metadata**: an edit is autosaved to a
+   * **draft** (not a live record), published atomically with the rest of the
+   * package, the way the Data and Interfaces pillars save (objectui#11787).
+   * `onDraftSaved` notifies the surface so its pending-changes counter
+   * refreshes; `publishNonce` bumps on publish so the editor re-reads the
+   * now-published baseline (its draft is gone). Both are no-ops at environment
+   * scope, where the explicit Save stays and writes live config (D7).
    */
   onDraftSaved?: () => void;
   publishNonce?: number;
@@ -436,11 +443,24 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     // is enough: the anchor is a JSON snapshot, so a copy is anchor-identical.
     setDraft({ ...next });
   }, []);
+  // objectui#11773 — the version the package door's draft was saved at, sent as
+  // `If-Match` by its next draft save. A conflict's "reload" re-runs the load.
+  const [reloadNonce, setReloadNonce] = React.useState(0);
+  const reloadSet = React.useCallback(() => setReloadNonce((n) => n + 1), []);
+  const {
+    save: saveVersioned,
+    forget: forgetSetVersion,
+    dialog: draftConflictDialog,
+  } = useDraftSaveGuard(client, reloadSet);
   const [objects, setObjects] = React.useState<ObjectSummary[]>([]);
   const [fieldsByObject, setFieldsByObject] = React.useState<Record<string, FieldSummary[]>>({});
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  // objectui#11787 — when the package door's last draft save landed, for the
+  // status line that replaces its Save button ("Saved 10:42").
+  const [savedAt, setSavedAt] = React.useState<Date | null>(null);
+  const displayLocale = useDisplayLocale();
   const [error, setError] = React.useState<string | null>(null);
   // objectui#9484 — the ENVIRONMENT door's post-save baseline re-read REJECTED.
   // The write itself has already landed when that read runs, so this is an
@@ -475,10 +495,15 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // All permission-set api-names — the admin-scope editor's assignable
   // allowlist picks from these (ADR-0056 P3).
   const [allSetNames, setAllSetNames] = React.useState<string[]>([]);
+  // objectui#11799 — the same published read, held for the load below: a set
+  // it does not list has never been published. The load runs after this
+  // effect, so it reads this request rather than sending one of its own.
+  const publishedSetsRef = React.useRef<Promise<Array<{ name?: string }>> | null>(null);
   React.useEffect(() => {
     let cancelled = false;
-    client
-      .list<{ name?: string }>('permission', {})
+    const published = client.list<{ name?: string }>('permission', {});
+    publishedSetsRef.current = published;
+    published
       .then((rows) => {
         if (!cancelled)
           setAllSetNames(
@@ -508,18 +533,40 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     setCloneNotice(null);
     (async () => {
       try {
+        // ADR-0086 P2 (D6): under the package door a set is draft/published
+        // metadata, so surface the PENDING draft if one exists — otherwise a
+        // just-saved-not-yet-published edit would appear lost on reopen. Draft
+        // reads return the `{ type, name, item }` envelope; `null` = no draft.
+        const draftRead = packageId
+          ? client.getDraft<{ item?: PermissionSetDraft } | PermissionSetDraft>(type, name, { packageId }).catch(() => null)
+          : Promise.resolve(null);
+        const readLayered = () => client.layered<PermissionSetDraft>(type, name).catch(() => null);
+        // objectui#11799 — a set "+ New" created and nobody published has a
+        // draft and no layer, and `GET …/layers` answers 404 for it. Under the
+        // package door the layered envelope is used only without a pending
+        // draft: the draft wins for display, and the artifact tier it also
+        // feeds applies at environment scope only (`artifactTierApplies`). So
+        // a set the published list above does not hold is not asked while its
+        // draft is in hand. A listed set, a set with no draft and every
+        // environment-scope read are read as before; an unreadable list says
+        // nothing, and the set is read as before too. The list is the one read
+        // with this editor: a set published since has no draft (a publish
+        // drains it), so it is read again here.
+        const publishedSets = publishedSetsRef.current;
+        const neverPublished =
+          packageId && type === 'permission' && publishedSets
+            ? publishedSets.then((rows) => !(rows || []).some((r) => r?.name === name), () => false)
+            : Promise.resolve(false);
         const [lay, objList, pendingDraft] = await Promise.all([
-          client.layered<PermissionSetDraft>(type, name).catch(() => null),
+          packageId
+            ? neverPublished.then((unlisted) =>
+                unlisted ? draftRead.then((d) => (d ? null : readLayered())) : readLayered(),
+              )
+            : readLayered(),
           // In package scope, list only the objects this package declares
           // (ADR-0086 P0) — otherwise the whole environment leaks into the panel.
           client.list<any>('object', packageId ? { packageId } : {}).catch(() => []),
-          // ADR-0086 P2 (D6): under the package door a set is draft/published
-          // metadata, so surface the PENDING draft if one exists — otherwise a
-          // just-saved-not-yet-published edit would appear lost on reopen. Draft
-          // reads return the `{ type, name, item }` envelope; `null` = no draft.
-          packageId
-            ? client.getDraft<{ item?: PermissionSetDraft } | PermissionSetDraft>(type, name, { packageId }).catch(() => null)
-            : Promise.resolve(null),
+          draftRead,
         ]);
         if (cancelled) return;
         // ARTIFACT tier input (objectui#4518) — the `code` layer, and its
@@ -571,6 +618,8 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         } else {
           resetDraftBaseline(full);
         }
+        // objectui#11773 — a read serves no version: the next save is unpinned.
+        forgetSetVersion();
       } catch (err: any) {
         setError(err?.message ?? String(err));
       } finally {
@@ -580,7 +629,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     return () => {
       cancelled = true;
     };
-  }, [client, type, name, packageId, publishNonce, resetDraftBaseline]);
+  }, [client, type, name, packageId, publishNonce, resetDraftBaseline, reloadNonce, forgetSetVersion]);
 
   /* ── Lazy-load fields when an object is expanded ─────────── */
   async function ensureFields(objectName: string) {
@@ -807,7 +856,12 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   }
 
   /* ── Save ────────────────────────────────────────────────── */
-  async function doSave(force: boolean, pending?: PermissionSetDraft) {
+  /**
+   * `sent` is the autosave's claim on the buffer it sent (objectui#11787, the
+   * package door only); the environment door's Save and the destructive
+   * dialog's force-save pass none.
+   */
+  async function doSave(force: boolean, pending?: PermissionSetDraft, sent?: DraftSend) {
     const payload = pending ?? draft;
     setSaving(true);
     setError(null);
@@ -855,14 +909,35 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
       // (stamped with `packageId`) that the package's atomic Publish promotes,
       // exactly like the Data/Interfaces pillars — NOT a live record write.
       // Environment door (no packageId) stays live (config).
-      await client.save<PermissionSetDraft>(type, payload.name, toSave, {
+      // objectui#11773 — the guard pins the package door's DRAFT save; the
+      // environment door's live write passes through it unpinned, as before.
+      const outcome = await saveVersioned(type, payload.name, toSave, {
         force,
         ...(packageId ? { mode: 'draft' as const, packageId } : {}),
       });
+      // The author chose the saved version; the load replaces the matrix.
+      if (outcome === 'reloaded') return;
       if (packageId) {
-        // The draft is now the pending truth for display; the published baseline
-        // hasn't moved. Show what we just staged and let the surface count it.
-        resetDraftBaseline(toDisplayDraft(toSave));
+        setSavedAt(new Date());
+        if (sent && !sent.unmoved()) {
+          // objectui#11787 (the objectui#11204 rule) — the author edited while
+          // this autosave was in flight. Re-installing the staged body would
+          // throw that edit away, so the matrix keeps it and only the anchor
+          // moves to what this save sent: the edit stays dirty, and the
+          // autosave sends it next. The fresh identity makes `isDirty` read the
+          // moved anchor (objectui#9484).
+          try {
+            baselineRef.current = JSON.stringify(payload);
+          } catch {
+            baselineRef.current = null;
+          }
+          setDraft((current) => ({ ...current }));
+        } else {
+          // The draft is now the pending truth for display; the published
+          // baseline hasn't moved. Show what we just staged.
+          resetDraftBaseline(toDisplayDraft(toSave));
+        }
+        // Let the surface count it.
         onDraftSaved?.();
       } else {
         // objectui#9484 — this read runs AFTER `client.save` has returned: the
@@ -916,6 +991,28 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
       setSaving(false);
     }
   }
+
+  /* ── Autosave — the package door only (objectui#11787) ─────────── */
+  // ADR-0086 D6 puts the package door under package draft/publish "exactly
+  // like Data and Interfaces", and ADR-0033 §2 makes that draft the approval
+  // gate, so this door saves the way those pillars do: the shared autosave,
+  // 1.5s after the last edit, under the same conditions the Save button had
+  // (a CEL syntax error holds the edit, objectui#2413). ⛔ The environment door
+  // never autosaves: it writes live config (ADR-0086 D7), so every click would
+  // change access at once. It keeps its explicit Save, and `blocked` holds the
+  // timer there for good.
+  //
+  // The set is the open item; the host keys this page per set, so the target
+  // never moves within a mount. The buffer is that set's once its load lands.
+  const autosaveTarget = `${type}:${name}`;
+  useDraftAutoSave({
+    target: autosaveTarget,
+    loadedFor: loading ? '' : autosaveTarget,
+    dirty: isDirty,
+    blocked: !packageId || !writable || saving || celErrorCount > 0 || destructive !== null,
+    snapshot: draft,
+    save: (sent) => doSave(false, undefined, sent),
+  });
 
   /* ── Clone to customize (objectui#5987) ──────────────────────── */
   /**
@@ -1069,7 +1166,8 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           >
             <HistoryIcon className="h-4 w-4 mr-1" /> {t('engine.edit.history')}
           </Button>
-          {writable && (
+          {/* ADR-0086 D7 — the environment door's explicit Save: a live write. */}
+          {writable && !packageId && (
             <Button
               size="sm"
               onClick={() => doSave(false)}
@@ -1083,6 +1181,31 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
               )}
               {t('engine.edit.save')}
             </Button>
+          )}
+          {/* objectui#11787 — the package door autosaves (see the autosave
+              above), so its Save button gives way to the status line every
+              Studio pillar shows: saving while in flight, the last-saved time
+              once landed, and why an edit is held when a CEL error holds it. */}
+          {writable && packageId && (
+            saving ? (
+              <span
+                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
+                data-testid="perm-autosaving"
+              >
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {t('engine.studio.autoSaving')}
+              </span>
+            ) : celErrorCount > 0 && isDirty ? (
+              <span className="text-[11px] text-destructive" data-testid="perm-autosave-held">
+                {t('perm.cel.saveBlocked')}
+              </span>
+            ) : savedAt && !isDirty ? (
+              <span className="text-[11px] text-muted-foreground" data-testid="perm-saved-at">
+                {tFormat('engine.studio.data.lastSaved', locale, {
+                  time: savedAt.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' }),
+                })}
+              </span>
+            ) : null
           )}
           {/* objectui#5987 — the locked editor's PRIMARY action, in the slot Save
               would occupy: a code package ships this set, so the ruled path is
@@ -1246,7 +1369,12 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
                 <Input
                   id="perm-name"
                   value={draft.name}
-                  disabled={!writable}
+                  // objectui#11787 — on the package door the api name is the
+                  // set's identity in the package's drafts: the autosave writes
+                  // the draft under `draft.name`, so an editable name would
+                  // stage a new set at every pause while typing. It is set once,
+                  // by "+ New". The environment door keeps it editable.
+                  disabled={!writable || !!packageId}
                   onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
                   className="h-8 w-56"
                 />
@@ -1439,6 +1567,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           </SheetContent>
         </Sheet>
       )}
+      {draftConflictDialog}
     </PageShell>
   );
 }

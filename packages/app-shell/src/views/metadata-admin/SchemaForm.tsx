@@ -237,56 +237,161 @@ const KNOWN_PASSTHROUGH_WIDGETS = new Set<string>([
 ]);
 
 /**
+ * A union member that is ITSELF nothing but a union — no `type`, no
+ * `properties`, just `oneOf` / `anyOf`. Such a member accepts exactly what its
+ * own members accept, so {@link unionMembers} lists those in its place.
+ */
+function isBareUnion(node: unknown): node is JsonSchema {
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return false;
+  const n = node as JsonSchema;
+  return n.type === undefined && n.properties === undefined && Array.isArray(n.oneOf ?? n.anyOf);
+}
+
+/**
+ * The branches a union offers the value, with a bare nested union
+ * ({@link isBareUnion}) replaced by its own members (objectui#11251).
+ *
+ * The served `view` schema is the reason this exists: its top level is
+ * `anyOf: [ { oneOf: [ list ViewItem, form ViewItem ] }, container, list
+ * overlay, form overlay ]`. Scored as one member, the ViewItem wrapper has no
+ * `type` and no `required` of its own, so it scores zero and a stored ViewItem
+ * lost to the list overlay — whose form then showed that ViewItem's columns as
+ * empty, and whose top-level edits the ViewItem member strips on save. Listing
+ * the two ViewItem shapes directly is what lets the value reach them. The
+ * wrapper's own keywords (a `title` / `description`) ride along on each member,
+ * and the member's own keys win.
+ */
+function unionMembers(schema: JsonSchema): JsonSchema[] | undefined {
+  const own = (schema.oneOf ?? schema.anyOf) as unknown;
+  if (!Array.isArray(own) || own.length === 0) return undefined;
+  return (own as JsonSchema[]).flatMap((member) => {
+    if (!isBareUnion(member)) return [member];
+    const { oneOf: _oneOf, anyOf: _anyOf, ...wrapper } = member;
+    return (unionMembers(member) ?? [member]).map((inner) => ({ ...wrapper, ...inner }));
+  });
+}
+
+/**
+ * How many ways an object VALUE rules the branch out (objectui#11251): a key
+ * the branch does not declare while it is closed (`additionalProperties:
+ * false`); a primitive held under a key whose `const` / `enum` the branch pins
+ * to something else; a key the branch `required` that the value lacks.
+ *
+ * A value that carries no key at all contradicts no branch — an empty
+ * create-mode value is no evidence, and it still lands on the first branch.
+ *
+ * This is what tells the four `view` members apart: `viewKind` is a `const` /
+ * one-value `enum` on each of them, the overlays require `object` + `viewKind`
+ * (a container carries no `viewKind`), and the ViewItem member declares
+ * neither the overlay's inline keys nor the container's slots.
+ */
+function valueContradictions(branch: JsonSchema, value: Record<string, unknown>): number {
+  const props = branch.properties as Record<string, unknown> | undefined;
+  if (!props || typeof props !== 'object') return 0;
+  const present = Object.keys(value).filter((key) => value[key] !== undefined);
+  if (present.length === 0) return 0;
+  let n = 0;
+  if (Array.isArray(branch.required)) {
+    for (const key of branch.required as string[]) {
+      if (value[key] === undefined) n += 1;
+    }
+  }
+  for (const key of present) {
+    const held = value[key];
+    const prop = props[key] as JsonSchema | undefined;
+    if (!prop || typeof prop !== 'object') {
+      if (branch.additionalProperties === false) n += 1;
+      continue;
+    }
+    if (held === null || typeof held === 'object') continue;
+    if ('const' in prop) {
+      if (prop.const !== held) n += 1;
+    } else if (Array.isArray(prop.enum) && !(prop.enum as unknown[]).includes(held)) {
+      n += 1;
+    }
+  }
+  return n;
+}
+
+/**
  * Pick the best-matching branch of a JSON Schema `oneOf` / `anyOf`
  * union for the given value. Scores each branch by how many of its
  * `required` keys are present in the value (and same `type`); falls
  * back to the first branch when nothing matches (so create-mode forms
  * with empty values still render *something* structured).
  *
+ * Ranking, in order (objectui#11251):
+ *  1. the branch whose `type` fits the value's kind;
+ *  2. among those, the one the value contradicts least
+ *     ({@link valueContradictions});
+ *  3. then the items-type tiebreak and the count of `required` keys present;
+ *  4. then declaration order.
+ * Where the contradictions tie — every scalar and array value, an empty object,
+ * and an object no branch rules out — steps 1 and 3 are the score this
+ * function always computed, in the same order, so those picks are unchanged.
+ * (The one order the old sum could invert — a branch with no `type`
+ * outscoring a typed one on `required` keys alone — was absent from every
+ * served derivation of the installed spec when this was written; nothing
+ * re-checks that.) A bare nested union is scored member by member
+ * ({@link unionMembers}).
+ *
  * Returns the original schema unchanged when there's no union to
  * resolve. Used by the recursive renderer so View `data` (provider
  * discriminator), `columns`, `sort`, etc. produce real labelled
- * inputs instead of a raw JSON blob.
+ * inputs instead of a raw JSON blob — and by `SchemaFormBody` for a
+ * served schema whose TOP level is a union (the `view` type).
  */
 function resolveUnionBranch(
   schema: JsonSchema | undefined,
   value: unknown,
 ): JsonSchema | undefined {
   if (!schema) return schema;
-  const branches = (schema.oneOf ?? schema.anyOf) as JsonSchema[] | undefined;
-  if (!Array.isArray(branches) || branches.length === 0) return schema;
+  const branches = unionMembers(schema);
+  if (!branches) return schema;
 
   const isPlainObj = value != null && typeof value === 'object' && !Array.isArray(value);
   const isArray = Array.isArray(value);
   const valKeys = isPlainObj ? new Set(Object.keys(value as Record<string, unknown>)) : null;
 
-  let best: { branch: JsonSchema; score: number } | null = null;
+  let best: { branch: JsonSchema; kind: number; contradictions: number; rest: number } | null = null;
   const firstItem = isArray && (value as unknown[]).length ? (value as unknown[])[0] : undefined;
   const firstItemIsObj = firstItem != null && typeof firstItem === 'object' && !Array.isArray(firstItem);
   for (const b of branches) {
-    let score = 0;
+    let kind = 0;
+    let rest = 0;
     if (b.type === 'array' && isArray) {
-      score += 5;
+      kind += 5;
       // Tiebreaker for `anyOf [array<string>, array<object>]` etc — match the
       // branch's items.type against the actual element type.
       const itemType = (b.items as JsonSchema | undefined)?.type;
-      if (itemType === 'object' && firstItemIsObj) score += 3;
+      if (itemType === 'object' && firstItemIsObj) rest += 3;
       else if (
         (itemType === 'string' && typeof firstItem === 'string') ||
         (itemType === 'number' && typeof firstItem === 'number') ||
         (itemType === 'integer' && typeof firstItem === 'number')
-      ) score += 3;
+      ) rest += 3;
     }
-    if (b.type === 'object' && isPlainObj) score += 5;
-    if (b.type === 'string' && typeof value === 'string') score += 5;
-    if (b.type === 'number' && typeof value === 'number') score += 5;
-    if (b.type === 'boolean' && typeof value === 'boolean') score += 5;
+    if (b.type === 'object' && isPlainObj) kind += 5;
+    if (b.type === 'string' && typeof value === 'string') kind += 5;
+    if (b.type === 'number' && typeof value === 'number') kind += 5;
+    if (b.type === 'boolean' && typeof value === 'boolean') kind += 5;
     if (valKeys && Array.isArray(b.required)) {
       for (const r of b.required as string[]) {
-        if (valKeys.has(r)) score += 1;
+        if (valKeys.has(r)) rest += 1;
       }
     }
-    if (!best || score > best.score) best = { branch: b, score };
+    const contradictions = isPlainObj
+      ? valueContradictions(b, value as Record<string, unknown>)
+      : 0;
+    if (
+      !best ||
+      kind > best.kind ||
+      (kind === best.kind &&
+        (contradictions < best.contradictions ||
+          (contradictions === best.contradictions && rest > best.rest)))
+    ) {
+      best = { branch: b, kind, contradictions, rest };
+    }
   }
   // Merge the branch's shape on top of any parent metadata (title /
   // description) so the recursive renderer still sees the field's
@@ -435,6 +540,32 @@ function inferWidget(
 }
 
 /**
+ * The served declaration's mark on an arm whose authoring type a transform
+ * erased (objectui#9830), as `@objectstack/metadata-protocol` emits it — and the
+ * one version of its value this reader was written against. `@objectstack/spec`
+ * exports neither, so this is the reader's single spelling of the keyword.
+ */
+const ERASED_AUTHORING_INPUT_KEYWORD = 'x-objectstack-erased-authoring-input';
+const ERASED_AUTHORING_INPUT_VERSION = 1;
+
+/**
+ * The authoring type(s) the declaration says a transform erased from THIS
+ * node, or `undefined` when it carries no mark this reader understands — an
+ * absent mark, a malformed one, and one of another version all decline the same
+ * way, back to the unmarked husk. {@link admitsString} documents what the mark
+ * disambiguates and why it is the only signal read for it.
+ */
+function erasedAuthoringType(node: JsonSchema): string[] | undefined {
+  const mark = node[ERASED_AUTHORING_INPUT_KEYWORD];
+  if (!mark || typeof mark !== 'object' || Array.isArray(mark)) return undefined;
+  if (mark.version !== ERASED_AUTHORING_INPUT_VERSION) return undefined;
+  const type: unknown = mark.type;
+  if (typeof type === 'string') return [type];
+  if (Array.isArray(type) && type.every((t) => typeof t === 'string')) return type as string[];
+  return undefined;
+}
+
+/**
  * Does this schema admit a STRING value — looking THROUGH nested unions?
  *
  * ## Why this is not `schema.anyOf.some(b => b.type === 'string')`
@@ -467,18 +598,42 @@ function inferWidget(
  * same split one combinator over. `allOf` is deliberately NOT walked: it is an
  * intersection, so an arm typed string does not mean the value may be one.
  *
- * ## ⛔ What this deliberately does NOT read as a string arm
+ * ## ⛔ An EMPTY schema is not a string arm — unless the declaration marks it
  *
- * An EMPTY schema (`{}`). JSON Schema says `{}` admits everything, strings
- * included, and the platform's output-mode derivation emits exactly
- * `anyOf: [ {}, { …envelope } ]` for `hook.condition`, `sharing_rule.condition`
- * and `field.visibleWhen` / `readonlyWhen` / `requiredWhen` — the transform on
- * those keys erases its own input type. Reading that husk as "string allowed"
- * would mount the condition builder on any predicate-named key whose schema
- * derived to nothing, including one that is genuinely boolean-only, because
- * `{}` is what "we could not derive this" and "anything goes" BOTH look like on
- * the wire. Distinguishing them needs a signal only the DECLARATION side can
- * send, so that half is reported rather than guessed (objectui#9830 ②).
+ * JSON Schema says `{}` admits everything, strings included, and the
+ * platform's output-mode derivation emits exactly `anyOf: [ {}, { …envelope } ]`
+ * for `hook.condition`, `sharing_rule.condition` and `field.visibleWhen` /
+ * `readonlyWhen` / `requiredWhen` — the transform on those keys erases its own
+ * input type. `{}` is what "we could not derive this" and "anything goes" BOTH
+ * look like on the wire, so a BARE `{}` is still not read as a string arm:
+ * doing so would mount the condition builder on any predicate-named key whose
+ * schema derived to nothing, including one that is genuinely boolean-only.
+ *
+ * Telling the two apart needed a signal only the DECLARATION side can send, and
+ * it now sends one (objectui#9830, maintainer ruling B): the served projection
+ * annotates an erased arm IN PLACE with
+ * `"x-objectstack-erased-authoring-input": { "version": 1, "type": "string" }`,
+ * where `type` names the authoring type the transform erased. The mark sits on
+ * the erased arm itself — inside the member's `anyOf`, not on the member's own
+ * schema and not on the envelope — so this walk reads it on every node it
+ * visits, the same place it already reads `type`. {@link erasedAuthoringType}
+ * is that read, and it answers "string" only when the mark says so:
+ *
+ *  - a mark whose `type` names `string` IS a string arm: the arm accepted a
+ *    string before the transform ran, which is what an author writes there;
+ *  - a mark naming any other type says nothing about strings — the emitter
+ *    names whatever authoring type was erased, not only `string`;
+ *  - a mark of a version this reader was not written for is not evidence of
+ *    anything, so it declines exactly as an unmarked husk does;
+ *  - an UNMARKED `{}` keeps the veto — a genuinely open member is served that
+ *    way, and so is the envelope's own `ast` key one level below a marked arm.
+ *
+ * ⛔ Never a key-name rule instead (`condition` / `*When` ⇒ "must be a
+ * string"): the ruling refused that as an inference copied into every consumer
+ * and wrong in a direction nothing reports. The mark is SHAPE information, so it
+ * is read here, in the one shape test all five detectors share — a detector
+ * that saw it and a detector that did not would answer "does this admit a
+ * string?" two ways for one schema, the split this helper exists to close.
  *
  * ## The precedence this gate is one third of
  *
@@ -507,6 +662,7 @@ function admitsString(schema: JsonSchema | undefined): boolean {
     seen.add(node as object);
     const branch = node as JsonSchema;
     if (branch.type === 'string') return true;
+    if (erasedAuthoringType(branch)?.includes('string')) return true;
     for (const key of ['anyOf', 'oneOf'] as const) {
       const arms = branch[key];
       if (Array.isArray(arms)) pending.push(...(arms as unknown[]));
@@ -803,8 +959,9 @@ const CONDITION_FIELD_NAMES = new Set(['visible', 'hidden', 'disabled', 'visible
  * `disabled` / `visibleOn` / `condition` / `*When`) so it renders the no-code
  * condition builder instead of a raw expression text box. No enum, and the
  * schema must admit a string — {@link admitsString} holds that veto and
- * documents why it looks through nested unions and why an empty schema is not
- * one (objectui#9830).
+ * documents why it looks through nested unions, why an empty schema is not
+ * one, and why an empty schema the declaration MARKS as an erased string arm is
+ * (objectui#9830).
  */
 function detectConditionWidget(name: string, schema: JsonSchema | undefined): string | undefined {
   if (Array.isArray(schema?.enum)) return undefined;
@@ -1023,6 +1180,23 @@ function SchemaFormBody({
         <RawJsonEditor value={value} onChange={onChange} readOnly={readOnly} />
       );
     }
+  }
+
+  // objectui#11251 — a served schema whose TOP level is a union has no
+  // `properties` of its own. The `view` type is served that way: the server
+  // derives `ViewMetadataSchema`, an `anyOf` over the stored shapes (ViewItem,
+  // `defineView` container, list / form overlay). Read as-is it yields zero
+  // fields, the sectioned pre-flight below matches none of the served form, and
+  // the flat fallback has zero keys: an empty editor for every stored view.
+  // Resolve it against the value with the same resolver a union-typed FIELD
+  // goes through (`repeaterItemSchema`, `resolveFieldFace`), so the form
+  // describes the shape this body actually is. A schema that declares its own
+  // `properties` beside a union is left as it is.
+  if (
+    effectiveSchema.properties === undefined &&
+    Array.isArray(effectiveSchema.anyOf ?? effectiveSchema.oneOf)
+  ) {
+    effectiveSchema = resolveUnionBranch(effectiveSchema, value) ?? effectiveSchema;
   }
 
   // Resolve top-level object properties.
@@ -2496,6 +2670,75 @@ function RepeaterField({
     onChange([...rows, blank]);
     setOpenIdx(rows.length);
   };
+
+  // objectui#10239 — the rows are SCALARS. `repeaterItemSchema` resolves a
+  // union-typed repeater against its first row, so a `view.columns` stored as
+  // `['name', 'status']` lands on the array-of-string arm, and `items` here is
+  // `{ type: 'string' }`. The object-row layouts below would still hand every
+  // row the form's declared sub-fields: the card summary indexed a string by
+  // sub-field name (`'name'.link` is `String.prototype.link`), and editing a
+  // sub-field spread the string into `{"0":"n","1":"a",…,"field":"title"}`,
+  // which neither arm accepts. So each row is ONE control over the row value
+  // itself, and Add appends a scalar, keeping the array one the arm accepts.
+  //
+  // Only when there IS a row: an empty value resolves to the first arm by
+  // declaration order, which is no evidence the author wants scalars, and its
+  // first Add keeps giving the object row it always gave.
+  const itemSchema = (schema.items as JsonSchema | undefined) ?? {};
+  const itemType = itemSchema.type as string | undefined;
+  const scalarItems =
+    itemType === 'string' || itemType === 'number' || itemType === 'integer' || itemType === 'boolean';
+  if (scalarItems && rows.length > 0) {
+    const values = rows as unknown[];
+    // A cleared text row stays a string: `undefined` would serialise as `null`.
+    const replace = (i: number, v: unknown) =>
+      onChange(values.map((r, idx) => (idx === i ? (v === undefined && itemType === 'string' ? '' : v) : r)));
+    const addScalar = () => onChange([...values, itemType === 'string' ? '' : undefined]);
+    return (
+      <div className="space-y-2" role="group" aria-labelledby={ariaLabelledBy}>
+        {values.map((row, idx) => {
+          const rowPath = joinIdPath(idPath, idx);
+          const rowId = fieldHostId(rowPath);
+          // The row's control is named "HOST LABEL #n": the host label by IDREF,
+          // as every other row of this group face is, plus its own ordinal.
+          const ordinalId = `${rowId}-ordinal`;
+          const isScalar = row === null || typeof row !== 'object';
+          return (
+            <div key={idx} className="flex items-center gap-2">
+              <span id={ordinalId} className="w-8 shrink-0 text-xs text-muted-foreground">
+                #{idx + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <FieldControl
+                  id={rowId}
+                  ariaLabelledBy={ariaLabelledBy ? `${ariaLabelledBy} ${ordinalId}` : ordinalId}
+                  idPath={rowPath}
+                  // A stray non-scalar row in a scalar list is shown as the JSON
+                  // it is, never coerced into the scalar control.
+                  schema={isScalar ? itemSchema : {}}
+                  value={row}
+                  readOnly={readOnly}
+                  widgetContext={widgetContext}
+                  onChange={(v) => replace(idx, v)}
+                />
+              </div>
+              {!readOnly && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => remove(idx)}
+                  className="h-7 w-7 p-0" aria-label={t('engine.form.remove', locale)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          );
+        })}
+        {!readOnly && (
+          <Button type="button" variant="outline" size="sm" onClick={addScalar}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> {t('engine.form.addItem', locale)}
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   if (useGrid) {
     return (

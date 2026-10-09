@@ -23,6 +23,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateSchema } from '../schema-validator';
 import { hasDeclaredPredicate } from '../../evaluator/declaredPredicate';
+import { isUnevaluablePredicate } from '../../evaluator/unevaluablePredicate';
 
 /** The two keys this card is about, asserted identically — they are one rule. */
 const GATE_KEYS = ['visible', 'disabled'] as const;
@@ -57,10 +58,13 @@ const BOOLEANS: ReadonlyArray<readonly [string, unknown]> = [
 ];
 
 /**
- * Values that are neither a boolean nor a declared predicate. `hasDeclaredPredicate`
- * answers `false` for each — the junk arm of objectui#3850's ruling — and the
- * rule must keep reporting them. Every entry here was reported BEFORE this fix
- * too: the accept set widens, and nothing that was refused becomes accepted.
+ * Values that are neither a boolean nor a predicate the runtime can evaluate.
+ * `hasDeclaredPredicate` answers `false` for the absent and blank ones; the
+ * numbers, `{}` and the array it answers `true` for since objectui#11358 —
+ * declared gates that cannot be evaluated — and the rule refuses those through
+ * `isUnevaluablePredicate`. Either way the rule must keep reporting them. Every
+ * entry here was reported BEFORE this fix too: the accept set widens, and
+ * nothing that was refused becomes accepted.
  */
 const NOT_A_GATE: ReadonlyArray<readonly [string, unknown]> = [
   ['a number', 0],
@@ -123,11 +127,24 @@ describe.each(GATE_KEYS)('#6505 — the `%s` rule STILL BITES', (key) => {
 describe('#6505 — the validator delegates to `hasDeclaredPredicate`, it does not re-answer', () => {
   const ALL = [...DECLARED_PREDICATES, ...BOOLEANS, ...NOT_A_GATE];
 
-  it.each(GATE_KEYS)('the `%s` verdict equals `boolean || hasDeclaredPredicate` for every probe', (key) => {
+  // objectui#11358 split the delegation in two. A present value with no
+  // evaluable `source` is now DECLARED (so the runtime fails it instead of
+  // reading it as no gate), and this rule asks "can the runtime evaluate it?",
+  // so it also asks the runtime's own definition of the unevaluable state —
+  // still no answer written in the validator.
+  it.each(GATE_KEYS)('the `%s` verdict equals `boolean || (declared && !unevaluable)` for every probe', (key) => {
     for (const [label, value] of ALL) {
       const accepted = gateMessages(key, value).length === 0;
-      const expected = typeof value === 'boolean' || hasDeclaredPredicate(value);
+      const expected = typeof value === 'boolean' || (hasDeclaredPredicate(value) && !isUnevaluablePredicate(value));
       expect({ label, accepted }).toEqual({ label, accepted: expected });
     }
+  });
+
+  it.each(GATE_KEYS)('`%s`: an `ast`-only envelope is declared, and still refused (objectui#11358)', (key) => {
+    // The shape objectui#11358 was filed on. Reading `hasDeclaredPredicate`
+    // alone would accept it now; the rule must not.
+    const astOnly = { dialect: 'cel', ast: { kind: 'call', fn: '==' } };
+    expect(hasDeclaredPredicate(astOnly)).toBe(true);
+    expect(gateMessages(key, astOnly)).toHaveLength(1);
   });
 });

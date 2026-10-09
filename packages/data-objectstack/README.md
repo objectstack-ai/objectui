@@ -23,9 +23,9 @@ npm install @object-ui/data-objectstack
 ```typescript
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
 import { SchemaRenderer } from '@object-ui/react';
-import type { BaseSchema } from '@object-ui/types';
+import type { DeclaredNode } from '@object-ui/types';
 
-declare const mySchema: BaseSchema;
+declare const mySchema: DeclaredNode;
 
 // 1. Create the adapter
 const dataSource = createObjectStackAdapter({
@@ -67,6 +67,7 @@ const dataSource = createObjectStackAdapter({
 ## Features
 
 - ✅ **CRUD Operations**: Implements `find`, `findOne`, `create`, `update`, `delete`.
+- ✅ **Shared In-Flight Reads**: Concurrent `find` calls with the same resource and params, and concurrent `findOne` calls with the same resource, id and params, share one request. The entry is dropped when the read settles, so a later call reads again (this is not a response cache), and a failed read is not remembered. A write through the adapter drops the pending `findOne` reads of the resource it wrote, so a read asked after a save never gets an answer sent before it. `MetadataClient` shares its `listTypes`, `list`, `listDrafts`, `get` and `getDraft` reads the same way. Calls with the same method, URL and headers on clients built with the same `fetch` share one request, and every caller gets an answer no other caller holds. A save, publish or reset through any of those clients drops the reads still pending.
 - ✅ **Metadata Caching**: Automatic LRU caching of schema metadata with TTL expiration.
 - ✅ **Metadata Fetching**: Implements `getObjectSchema` to power auto-generated forms and grids.
 - ✅ **Query Translation**: Converts Object UI's OData-like query parameters to ObjectStack's native query format.
@@ -160,11 +161,23 @@ of going unnoticed.
 | `$icontains` | `icontains` | `{ name: { $icontains: 'john' } }` → `['name', 'icontains', 'john']` |
 | `$null` | `is_null` / `is_not_null` | `{ email: { $null: true } }` → `['email', 'is_null', true]` |
 | `$exists` | `is_not_null` / `is_null` | `{ email: { $exists: true } }` → `['email', 'is_not_null', true]` |
+| `$empty` | `is_empty` / `is_not_empty` | `{ email: { $empty: true } }` → `['email', 'is_empty', true]` |
 
-`$null` and `$exists` read their boolean: `$null: false` lowers to
-`is_not_null` and `$exists: false` to `is_null`. The lowered node's value slot
-is always `true` — the direction comes from the operator name, which is how the
-spec's `data/filter.zod.ts` reads it.
+`$null`, `$exists` and `$empty` read their boolean: `$null: false` lowers to
+`is_not_null`, `$exists: false` to `is_null` and `$empty: false` to
+`is_not_empty`. The lowered node's value slot is always `true` — the direction
+comes from the operator name, which is how the spec's `data/filter.zod.ts`
+reads it. `$empty` takes ONLY a boolean: any other flag throws `INVALID_FILTER`
+/ 400 at lowering time, which is how the spec's own doors treat it.
+
+`$empty` is not `$null`. objectstack#20446 admitted it to the spec's
+`FILTER_OPERATORS` and flipped the view operators `is_empty` / `is_not_empty`
+to lower to it; they lowered to `$null` before. Its meaning is the spec's ruled
+per-type table: a text-like field is empty when null or `''`, a multi-value
+field when null or `[]`, and any other field when null. Which backend applies
+that table, and how, is listed in the docblock of the spec's
+`FILTER_OPERATORS`, not here. Until objectui#11094 `convertFiltersToAST`
+refused `$empty` as an unknown operator.
 
 `$icontains` constrains its **comparand**, which no other row in this table
 does: `@objectstack/spec`'s `FILTER_TEXT_CASES` declares an empty or non-string
@@ -277,6 +290,19 @@ map to the canonical AST symbols, and rules spread into a logical node
 (`['and', ...rules, ...tuples]`) are lowered at depth. A rule that cannot be
 translated raises `MalformedFilterError` rather than being dropped — dropping
 one condition of an `and` would widen the result set and report success.
+
+An `icontains` rule constrains its **comparand** here exactly as `$icontains`
+does in the object form: `@objectstack/spec`'s `FILTER_TEXT_CASES` declares an
+empty or non-string comparand REFUSED, so a rule such as
+`{ field: 'name', operator: 'icontains', value: '' }` — or one whose `value` is
+a number, `null` or missing — throws `MalformedFilterError` (`INVALID_FILTER` /
+400) before any request is sent, instead of sending a predicate that constrains
+nothing or a question nobody wrote (objectui#9048). The reason is the spec's
+own, the one the object form's refusal carries (objectui#9001), and the message
+names the operator spelling that arrived (`icontains`, `ICONTAINS`, …) beside
+the `$icontains` spelling the contract uses. The rule is refused wherever it
+sits — at the top level, in a nested group, or spread into a logical node — and
+on both `find()` and `aggregate()`. Write a non-empty string, or drop the rule.
 
 Non-array filters are passed through unchanged on the aggregate path: a
 MongoDB-style object is already what `/analytics/query` accepts.
@@ -538,7 +564,10 @@ import {
   MalformedFilterError,    // A filter rule that cannot be translated (400
                            // INVALID_FILTER) — thrown rather than dropped,
                            // because dropping one condition of an `and` widens
-                           // the result set and reports success.
+                           // the result set and reports success. Also thrown,
+                           // before any request, for an `icontains` rule whose
+                           // `value` is empty or not a string, naming the
+                           // spelling that arrived. See "Rule-shaped arrays".
   UnloweredAggregateWhereError, // aggregate()'s spec-shape `where` was an array
                            // the spec's filter-AST gate rejects (400
                            // INVALID_FILTER). See "aggregate({ where }) does
@@ -735,9 +764,13 @@ prerequisite.
 
 ## Object-Metadata Write Guard
 
-`MetadataClient.save` refuses an `object` document whose `fields` carry a
-relationship field (`lookup`, `master_detail`) with a missing, empty or
-whitespace-only `reference`, **before** issuing the request:
+`MetadataClient.save` refuses an `object` document whose `fields` carry either
+of two incomplete fields, **before** issuing the request:
+
+- a relationship field (`lookup`, `master_detail`) with a missing, empty or
+  whitespace-only `reference`;
+- a choice field (`select`, `radio`) with no option source: neither a non-empty
+  `options` list nor a shared `picklist`. `options: []` counts as none.
 
 ```ts
 import { MetadataClient } from '@object-ui/data-objectstack';
@@ -748,17 +781,40 @@ await client.save('object', 'account', {
   name: 'account',
   fields: { owner: { type: 'lookup', label: 'Owner' } },
 });
-// throws: MetadataClient.save refused this object metadata write: the field
+// throws: The object was not saved: the field
 // `owner` is a `lookup` and carries no `reference` key at all ...
 ```
 
-Nothing that previously succeeded now fails. `@objectstack/spec` refuses the same
-document at the server with a 422 on `fields.owner.reference`, and that refusal
-blocks every *later* save of the object for as long as the half-filled field
-rides along in the draft. The guard moves the identical refusal earlier, names
-the field while it is still on screen, and leaves the draft in the client. Writes
-of every other metadata type are untouched, and the guard never strips the
-offending field — a dropped field reported as saved would be a silent deletion.
+For the relationship rule, nothing that previously succeeded now fails.
+`@objectstack/spec` refuses the same document at the server with a 422 on
+`fields.owner.reference`, and that refusal blocks every *later* save of the
+object for as long as the half-filled field rides along in the draft. The guard
+moves the identical refusal earlier, names the field while it is still on screen,
+and leaves the draft in the client.
+
+The choice rule is different, and on purpose: it holds a document the installed
+server still stores. It is the objectui half of the maintainer's ruling A on
+[objectstack#20827](https://github.com/objectstack-ai/objectstack/issues/20827),
+which refuses such a field at the `FieldSchema` door and has objectui stop
+sending it first. A `select` added in Studio, and saved before its first option,
+now waits in the client, with the field named, until it has one:
+
+```ts
+import { MetadataClient } from '@object-ui/data-objectstack';
+
+const client = new MetadataClient({ baseUrl: '/api/v1' });
+
+await client.save('object', 'deal', {
+  name: 'deal',
+  fields: { stage: { type: 'select', label: 'Stage', options: [] } },
+});
+// throws: The object was not saved: the field
+// `stage` is a `select` with no options ...
+```
+
+Writes of every other metadata type are untouched, and the guard never strips
+the offending field — a dropped field reported as saved would be a silent
+deletion.
 
 Hosts that write object metadata through their own transport can apply the same
 invariant at their own door:
@@ -776,10 +832,74 @@ async function uploadObject(name: string, body: unknown) {
 }
 ```
 
-`RELATIONSHIP_TYPES_REQUIRING_REFERENCE` and `OBJECT_METADATA_TYPE` are exported
-beside it. The relationship-type set is derived from the installed
-`@objectstack/spec` by this package's own pin, so it follows the contract rather
-than a remembered list.
+`RELATIONSHIP_TYPES_REQUIRING_REFERENCE`, `CHOICE_TYPES_REQUIRING_OPTIONS` and
+`OBJECT_METADATA_TYPE` are exported beside it. Both type sets are derived from
+the installed `@objectstack/spec` by this package's own pin (the choice set from
+its `field/choice-without-options` completeness rule), so they follow the
+contract rather than a remembered list.
+
+## Showing a Refused Metadata Save
+
+When the server's spec check refuses a metadata save, it answers `422
+INVALID_METADATA`. The error's `message` is a headline: a count of issues and
+where they are. What the author should do is in the structured issues, which
+`MetadataClient` puts on the thrown error's `issues`. Show the error through
+`formatMetadataError`, not through `message` alone:
+
+```ts
+import { MetadataClient, formatMetadataError } from '@object-ui/data-objectstack';
+
+const client = new MetadataClient({ baseUrl: '/api/v1' });
+
+try {
+  await client.save('object', 'account', {
+    name: 'account',
+    fields: { 'Bad Name': { type: 'text', label: 'Bad' } },
+  });
+} catch (err) {
+  showBanner(formatMetadataError(err));
+  // • fields.Bad Name — Invalid key in record
+  // • fields.Bad Name — Field names must be lowercase snake_case (e.g., "first_name", …)
+}
+
+declare function showBanner(text: string): void;
+```
+
+It writes one line per issue, naming the field, and falls back to the error's
+`message` when there are no issues. Render the text with a class that keeps
+newlines (`whitespace-pre-line`). `formatMetadataIssue(issue)` is the same
+one-line format for a single issue, for code that lists several failures, such
+as a publish response's `failed[]`.
+
+## Saving an Object You Read From the Server
+
+A select field can name a shared picklist (`picklist: 'industry'`) instead of
+carrying its own options. The server *serves* such a field with both keys:
+`picklist`, and the `options` it resolved from the list. The server's authoring
+check refuses the two together, with `422 INVALID_METADATA` at
+`fields.FIELD.options`, and that refuses the whole object. So code that reads an
+object, edits it, and saves the whole document back must drop those resolved
+options first. `dropServedPicklistOptions` does that:
+
+```ts
+import { MetadataClient, dropServedPicklistOptions } from '@object-ui/data-objectstack';
+
+const client = new MetadataClient({ baseUrl: '/api/v1' });
+
+const account = await client.get<Record<string, unknown>>('object', 'account');
+const edited = { ...account, label: 'Customer' };
+await client.save('object', 'account', dropServedPicklistOptions(edited));
+```
+
+It removes `options` from every field that names a picklist, and touches
+nothing else: a field without `picklist` keeps its inline `options`, and every
+other key is kept. It never mutates its input, and it returns the same object
+when there is nothing to remove.
+
+Apply it only to a body built from a served read. `MetadataClient.save` does
+not apply it for you: the client cannot tell a served copy from an author who
+wrote `picklist` and `options` together, and that second case should stay the
+server's refusal, which says which key to delete.
 
 ## User-Scoped State Adapter
 

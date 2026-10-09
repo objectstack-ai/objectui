@@ -23,7 +23,7 @@ import { ComponentRegistry, ExpressionEvaluator, declaredNameField, evalRowPredi
 import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
-import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate } from '@object-ui/react';
+import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate, resolveInlineAriaProps } from '@object-ui/react';
 import { renderChildren, renderNodeSlot, cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { RelatedCountStore, useRelatedCountVersion } from '../../hooks/related-count-store';
@@ -52,10 +52,13 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  Avatar,
+  AvatarImage,
 } from '../../ui';
 import { RecordTitleChip } from '../../custom/RecordTitleChip';
+import { isFileIdToken } from '@objectstack/spec/data';
 import { readActionEntryParamValues } from '../action/static-params';
-import { useObjectLabel, useSafeFieldLabel, useObjectTranslation, useSafeTranslate, createSafeTranslation, pickLocalized } from '@object-ui/i18n';
+import { useObjectLabel, useSafeFieldLabel, useObjectTranslation, useSafeTranslate, createSafeTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import { MoreHorizontal, RefreshCw } from 'lucide-react';
 
 /**
@@ -111,11 +114,9 @@ const MANUAL_REFRESH_SPIN_MS = 650;
  * screen reader is concerned — and it used to be built by a template literal
  * that hardcoded both the English word and English pluralization.
  *
- * Two keys, NOT an i18next `_one`/`_other` pair: zh/ja/ko have no separate
- * singular form, so those packs would legitimately omit the `_one` half and
- * `all-locales-key-parity` would read that as a missing key. Same convention as
- * `detail.reactionCount`/`reactionCountOne` and `detail.relatedRecords`/
- * `relatedRecordOne`.
+ * An i18next count family (objectui#11445): every pack spells out each CLDR
+ * category its language selects, and the `_one` / `_other` rows below are what
+ * `fallbackT` reads for a numeric `count` when no provider is mounted.
  *
  * `createSafeTranslation` rather than the per-call `useSafeTranslate` used
  * elsewhere in this file because these keys interpolate `{{count}}` and
@@ -123,7 +124,8 @@ const MANUAL_REFRESH_SPIN_MS = 650;
  */
 const TABS_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'common.itemCount': '{{count}} items',
-  'common.itemCountOne': '{{count}} item',
+  'common.itemCount_one': '{{count}} item',
+  'common.itemCount_other': '{{count}} items',
 };
 const useTabsTranslation = createSafeTranslation(TABS_DEFAULT_TRANSLATIONS, 'common.itemCount');
 
@@ -451,6 +453,24 @@ const interpolate = (
 };
 
 // ---------------------------------------------------------------------------
+// The `aria` bag of the four page blocks (objectui#11083)
+// ---------------------------------------------------------------------------
+//
+// `@objectstack/spec` declares an `aria` member (`AriaPropsSchema`) on
+// `page:header`, `page:tabs`, `page:card` and `page:accordion`, and
+// `SchemaRenderer` hoists `properties.aria` onto the node. None of the four
+// renderers below read it, so a declared accessible name reached no element.
+// Each one now spreads `resolveInlineAriaProps(schema?.aria, locale)` from
+// `@object-ui/react`, the one reader of that bag, onto the block's own root
+// element (the one carrying `className` and the designer props), against
+// `useDisplayLocale()`. ⛔ No mapping of the bag lives in this file.
+//
+// ⛔ None of the four adds a default role. The root keeps the role it had
+// (`header`'s own semantics, or none), so a block that authors no `aria`
+// renders the same DOM as before. Whether a nameless-role root should get a
+// default role is not decided here.
+
+// ---------------------------------------------------------------------------
 // page:tabs
 // ---------------------------------------------------------------------------
 
@@ -571,6 +591,10 @@ const containsAttachmentsNode = (nodes: any): boolean => {
 
 const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
+  // The block's `aria` bag, on the `Tabs` root (see "The `aria` bag of the four
+  // page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const tabsAria = resolveInlineAriaProps(schema?.aria, displayLocale);
   // `useTabsTranslation` surfaces `language` itself (it wraps
   // `useObjectTranslation`), so the count-badge copy and the tab-label
   // localization below read the same session locale from one hook.
@@ -890,6 +914,7 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       orientation={isVertical ? 'vertical' : 'horizontal'}
       className={cn(className, isVertical && 'flex gap-4 w-full')}
       {...designer}
+      {...tabsAria}
     >
       {/* Hide the tab strip entirely when there's only one tab — a single
           pill labelled "Details" is visual clutter rather than an
@@ -931,16 +956,16 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
               {item.count !== undefined && item.count !== null && item.count !== '' && Number(item.count) > 0 && (
                 <span
                   className="ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-muted px-1 text-[10px] font-medium leading-none text-muted-foreground"
-                  // Interpolate the FORMATTED count so the accessible name and
-                  // the visible digits never disagree (`1.2k`, not `1200`);
-                  // plurality is chosen from the raw numeric value. Passing a
-                  // STRING as `count` is deliberate: i18next only runs its own
-                  // plural resolution when `count` is not a string, so the
-                  // repo's two-key scheme stays in charge of the choice.
-                  aria-label={tTabs(
-                    Number(item.count) === 1 ? 'common.itemCountOne' : 'common.itemCount',
-                    { count: formatTabCount(item.count) },
-                  )}
+                  // The accessible name and the visible digits never disagree.
+                  // Below 1000 the badge shows the number itself, so it goes in
+                  // as a NUMBER and i18next selects the CLDR slot from it
+                  // (objectui#11445). A shortened `1.2k` goes in as the STRING
+                  // the badge shows: i18next plural-selects only for a number,
+                  // so the base key answers, and every pack writes it in a
+                  // count-invariant form (`Элементов: 1.2k`).
+                  aria-label={tTabs('common.itemCount', {
+                    count: Number(item.count) < 1000 ? Number(item.count) : formatTabCount(item.count),
+                  })}
                 >
                   {formatTabCount(item.count)}
                 </span>
@@ -993,6 +1018,10 @@ ComponentRegistry.register('tabs', PageTabsRenderer, {
 const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
   const { language } = useObjectTranslation();
+  // The block's `aria` bag, on the `Card` root (see "The `aria` bag of the four
+  // page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const cardAria = resolveInlineAriaProps(schema?.aria, displayLocale);
   // Resolve the title via pickLocalized so inline-i18n shapes (`{ en, zh }`)
   // render in the active locale. `labelText` only understands `{ default, value }`
   // and would silently blank an `{ en, zh }` title — e.g. the Cloud Pricing
@@ -1034,6 +1063,7 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     <Card
       className={cn(className, !bordered && 'border-0 shadow-none bg-transparent')}
       {...designer}
+      {...cardAria}
     >
       {title && (
         <CardHeader>
@@ -1097,6 +1127,10 @@ interface PageAccordionItem {
 const PageAccordionRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
   const { language } = useObjectTranslation();
+  // The block's `aria` bag, on the `Accordion` root of either variant (see
+  // "The `aria` bag of the four page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const accordionAria = resolveInlineAriaProps(schema?.aria, displayLocale);
   // Same lookup the tab strip reads (objectui#4645) — `page:accordion` is the
   // other renderer that localizes well-known English section labels, and the
   // two must not answer differently for the same token.
@@ -1157,6 +1191,7 @@ const PageAccordionRenderer: React.FC<any> = ({ schema, className, ...props }) =
         defaultValue={defaultOpen}
         className={className}
         {...designer}
+        {...accordionAria}
       >
         {commonChildren}
       </Accordion>
@@ -1170,6 +1205,7 @@ const PageAccordionRenderer: React.FC<any> = ({ schema, className, ...props }) =
       defaultValue={defaultOpen[0]}
       className={className}
       {...designer}
+      {...accordionAria}
     >
       {commonChildren}
     </Accordion>
@@ -1249,7 +1285,7 @@ ComponentRegistry.register('section', PageSectionRenderer, {
 });
 
 // ---------------------------------------------------------------------------
-// page:header — title row + optional subtitle + breadcrumb/action slots.
+// page:header — title row + optional subtitle + action slot.
 // `actions` entries are ACTION IDS, resolved against the object's own metadata
 // (objectstack#11592 ruling, objectui#6252) — see `resolvedHeaderActions`.
 // ---------------------------------------------------------------------------
@@ -1386,8 +1422,61 @@ function reportRefusedHeaderActions(
   );
 }
 
+/**
+ * The download path a bare `sys_file` id resolves to. A private copy of
+ * `@object-ui/fields`' `fileUrlFromId` rule; `recordPictureUrl` below says why
+ * it is a copy.
+ */
+const RECORD_PICTURE_FILE_PATH = '/api/v1/storage/files/';
+
+/**
+ * The URL the record chrome draws the record's picture from, or `undefined`
+ * when the value holds nothing to draw (objectui#11383).
+ *
+ * `value` is the served row's value of the field the object names in its
+ * `imageField`. `@objectstack/spec` refuses at parse an `imageField` that
+ * names an undeclared field or a field of any type but `image` / `avatar`, so
+ * the type is not checked again here. The value takes the spec's read forms
+ * for those types: the expanded `{ url, … }` the server hydrates a stored
+ * reference into, or the bare `sys_file` id when it did not (the stable
+ * download path serves it), a URL string on a row written before references,
+ * and a list of these on a `multiple` field. The first entry that resolves
+ * wins. Nothing else resolves: an object without a `url` is not a read form
+ * the spec admits, so it is not drawn.
+ *
+ * ⚠️ A SECOND RESOLUTION, and it says so. `readFileValue` in `@object-ui/fields`
+ * (its file-value module) resolves the same forms for the image cell
+ * (`ImageCellRenderer`). It is not imported because `@object-ui/fields`
+ * depends on this package, so the import would close a cycle, and moving that
+ * resolver down into `@object-ui/core` adds a public export, which this change
+ * does not make. The two agree on every form above; `readFileValue` also
+ * accepts an id-only object, which this does not.
+ * `packages/fields/src/widgets/file-value.recordChromeParity-11383.test.tsx`
+ * keeps the two resolutions together (seat ruling 5981856796, option C), and
+ * a change to either still has to be made in both.
+ */
+function recordPictureUrl(value: unknown): string | undefined {
+  for (const entry of Array.isArray(value) ? value : [value]) {
+    if (typeof entry === 'string') {
+      if (!entry) continue;
+      return isFileIdToken(entry)
+        ? `${RECORD_PICTURE_FILE_PATH}${encodeURIComponent(entry)}`
+        : entry;
+    }
+    if (entry !== null && typeof entry === 'object') {
+      const url = (entry as { url?: unknown }).url;
+      if (typeof url === 'string' && url) return url;
+    }
+  }
+  return undefined;
+}
+
 const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
+  // The block's `aria` bag, on the `header` root of both layouts below (see
+  // "The `aria` bag of the four page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const headerAria = resolveInlineAriaProps(schema?.aria, displayLocale);
   const ctx = useRecordContext();
   // Record-level inline-edit session (objectui#2572 item 4): while a shared
   // inline draft is active, header actions flagged `disableDuringInlineEdit`
@@ -1421,6 +1510,10 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // the SAME key `action:menu`'s overflow trigger already reads, so the two
   // `⋯` buttons a record page can show cannot read differently per locale.
   const tt = useSafeTranslate();
+  // One id base for the disabled-reason descriptions the header's actions
+  // render (objectui#11811); each action suffixes it, since `renderHeaderActions`
+  // below draws them in a loop where no hook can be called.
+  const disabledReasonIdBase = React.useId();
   // ── Manual refresh (objectui#3460) ────────────────────────────────────────
   // Rendered as page CHROME at the far end of the header row, NOT as a header
   // action: business/system actions come and go per object and record state,
@@ -1467,7 +1560,13 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     fieldOptionLabel,
     headerObjectName,
   );
-  const breadcrumb = (schema?.breadcrumb ?? schema?.properties?.breadcrumb) !== false;
+  // `breadcrumb` is deliberately NOT read (objectui#11166, ruling RETIRE). All
+  // it ever drew was an empty `data-page-breadcrumb-slot` div that nothing
+  // filled, and the console's app header already draws the trail. The spec
+  // refuses `PageHeaderProps.breadcrumb` by name since 17.6.0
+  // (objectstack#20758); a value that still reaches this renderer renders
+  // exactly as an absent one: ignored, no error. ⛔ Do not add a trail here;
+  // that is an ENFORCE ruling, not a fix.
 
   // Schema-level opt-outs let authors keep the historic "bare h1" header
   // when they don't want a record chip (e.g. a non-record landing page).
@@ -1646,15 +1745,23 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
    * Evaluate one header-action predicate. `label` is the locator carried into
    * the fault warning, so a hidden button names itself in the console.
    *
-   * `fallback: false` is what preserves both historical fail directions: a
-   * faulting `visible`/`disabled` hides/enables nothing new (fail-closed), and
-   * a faulting `hidden` leaves the action rendered exactly as the old
-   * `catch → undefined` did.
+   * `fallback` is the verdict a predicate that FAULTS resolves to, and it is
+   * the key's own fail direction, so the caller names it:
+   *
+   *   - `visible` → `false`: a faulting gate hides the action (fail-closed);
+   *   - `hidden`  → `false`: a faulting `hidden` leaves the action rendered,
+   *     exactly as the old `catch → undefined` did;
+   *   - `disabled` → `true`: a faulting gate DISABLES the action (fail-closed,
+   *     objectui#11212 — Rider 1 of objectui#4421: a permission-shaped gate is
+   *     closed while the permissions payload has not loaded). It used to
+   *     share `visible`'s `false`, which on this key means ENABLED — so
+   *     `disabled: !current_user.can(…)` left the action pressable until the
+   *     payload arrived, the one leg of this surface that failed open.
    */
   const evalHeaderPredicate = React.useCallback(
-    (pred: unknown, label: string): boolean =>
+    (pred: unknown, label: string, fallback: boolean): boolean =>
       evalRowPredicate(pred as never, ctx?.data ?? {}, {
-        fallback: false,
+        fallback,
         scope: headerPredicateScope,
         fields: headerPredicateFields,
         warnOnError: true,
@@ -1663,7 +1770,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     [ctx?.data, headerPredicateScope, headerPredicateFields],
   );
 
-  const headerActionsRaw = React.useMemo<any[]>(() => {
+  const headerActionPlan = React.useMemo<{ actions: any[]; authoredKeys: ReadonlySet<string> }>(() => {
     const recordData: any = ctx?.data;
     // The record binds three ways inside `evalRowPredicate` — `record.status`
     // (spec/canonical), bare `status` (the row-action shorthand) and
@@ -1711,7 +1818,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
             // applies by passing `def.visible` through untouched.
             // On a fault (`fallback: false`) the action hides rather than risk
             // surfacing a destructive button in the wrong state.
-            if (!evalHeaderPredicate(v, `page:header action "${String(a?.name)}" visible`)) {
+            if (!evalHeaderPredicate(v, `page:header action "${String(a?.name)}" visible`, false)) {
               return false;
             }
           }
@@ -1734,7 +1841,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
             // `fallback: false` keeps `hidden`'s historical fail direction: a
             // predicate that cannot be evaluated does NOT hide the action (the
             // old `catch → undefined` read as "not hidden").
-            if (evalHeaderPredicate(h, `page:header action "${String(a?.name)}" hidden`)) {
+            if (evalHeaderPredicate(h, `page:header action "${String(a?.name)}" hidden`, false)) {
               return false;
             }
           }
@@ -1774,6 +1881,19 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       if (key) seen.add(key);
       out.push(a);
     }
+    // Which surviving keys are AUTHORED (objectui#11811). Authored entries go
+    // through the dedupe first, so a host action survives under a key only
+    // when no authored action holds it — the key alone tells the two apart
+    // past the localizer, which copies every def. Read by the disabled-reason
+    // branch below: only an authored action's DECLARED `disabled` is a fact
+    // about the record; the host's Edit / Delete carry a boolean the host
+    // computed for reasons of its own (approval lock, `userActions`), which
+    // the host explains where it computes them.
+    const authoredKeys = new Set<string>(
+      authored
+        .map((a) => (a?.name || a?.id || '') as string)
+        .filter((key) => key !== ''),
+    );
     // Order the merged list before the inline/overflow split — the same rule
     // action:bar applies (objectui#2339):
     //   1. `order` ascending (unset = 0; lower = more prominent)
@@ -1784,18 +1904,21 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     const needsOrdering = out.some(
       (a) => a?.order !== undefined || a?.variant === 'primary',
     );
-    if (!needsOrdering) return out;
-    return [...out].sort((a, b) => {
+    if (!needsOrdering) return { actions: out, authoredKeys };
+    const ordered = [...out].sort((a, b) => {
       const byOrder = (a?.order ?? 0) - (b?.order ?? 0);
       if (byOrder !== 0) return byOrder;
       const ap = a?.variant === 'primary' ? 0 : 1;
       const bp = b?.variant === 'primary' ? 0 : 1;
       return ap - bp; // equal → stable sort preserves registration order
     });
+    return { actions: ordered, authoredKeys };
     // `evalHeaderPredicate` closes over `predicateScope` (via
     // `headerPredicateScope`) and the object's fields, so it replaces the raw
     // scope in this list rather than adding to it.
   }, [resolvedHeaderActions, hostSystemActions, ctx?.data, evalHeaderPredicate]);
+  const headerActionsRaw = headerActionPlan.actions;
+  const authoredHeaderActionKeys = headerActionPlan.authoredKeys;
 
   /**
    * Localize the surviving actions ONCE, here, so the button text and the
@@ -1941,11 +2064,14 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // envelope). Without this a CEL `disabled` silently did nothing (only
     // boolean was honoured).
     //
-    // Same entry, same bindings and same fail direction as `visible` above:
-    // ONE evaluator for this surface, so a `disabled` predicate cannot speak a
-    // different dialect from the `visible` predicate sitting next to it in the
-    // same action (objectui#3521). A faulting predicate still leaves the button
-    // enabled (`fallback: false`), it just says so once now.
+    // Same entry and same bindings as `visible` above: ONE evaluator for this
+    // surface, so a `disabled` predicate cannot speak a different dialect from
+    // the `visible` predicate sitting next to it in the same action
+    // (objectui#3521). Its fail direction is its OWN (objectui#11212): a
+    // predicate that faults DISABLES the button (`fallback: true`) and says so
+    // once — the closed answer on this key, as `visible`'s `false` is on that
+    // one. An absent or empty gate is still "not disabled"; only a DECLARED
+    // predicate that cannot be evaluated takes the fallback.
     const resolveDisabled = (d: any, actionName: unknown): boolean => {
       if (d === undefined || d === null) return false;
       if (typeof d === 'boolean') return d;
@@ -1953,7 +2079,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         ? d
         : (d && typeof d === 'object' && typeof (d as any).source === 'string' ? (d as any).source : undefined);
       if (!src) return false;
-      return evalHeaderPredicate(d, `page:header action "${String(actionName)}" disabled`);
+      return evalHeaderPredicate(d, `page:header action "${String(actionName)}" disabled`, true);
     };
     // A live inline-edit session disables actions the host flagged with
     // `disableDuringInlineEdit` (objectui#2572 item 4) — see `inlineEditing`
@@ -1961,6 +2087,20 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     const isActionDisabled = (action: any): boolean =>
       (inlineEditing && action?.disableDuringInlineEdit === true) ||
       resolveDisabled(action?.disabled, action?.name ?? action?.id);
+    // The reason a greyed-out action gives (objectui#11811) — or `undefined`
+    // when it gives none. Only an AUTHORED action's DECLARED `disabled` earns
+    // it: that verdict is a fact about the record, read off the action spec.
+    // The inline-edit lock above is the host's own state, and the host's Edit /
+    // Delete carry a boolean the host computed (see `authoredKeys` in the plan
+    // memo), so neither says "not available for this record". The reason is
+    // the generic one; an author-written reason beside the predicate would be a
+    // spec key, which is objectstack's to declare.
+    const disabledReasonFor = (action: any): string | undefined => {
+      const key = (action?.name || action?.id || '') as string;
+      if (key === '' || !authoredHeaderActionKeys.has(key)) return undefined;
+      if (!resolveDisabled(action?.disabled, action?.name ?? action?.id)) return undefined;
+      return tt('actions.notAvailableForRecord', 'Not available for this record');
+    };
     const renderButton = (action: any, idx: number) => {
       const label = resolveLabel(action);
       // `variant: 'primary'` is valid ActionSchema but not a Shadcn Button
@@ -1969,12 +2109,16 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       const size = action.size || 'sm';
       const disabled = isActionDisabled(action);
       const icon = typeof action.icon === 'string' ? action.icon : null;
-      return (
+      const actionKey = action.name || action.id || `header-action-${idx}`;
+      const disabledReason = disabledReasonFor(action);
+      const reasonId = `${disabledReasonIdBase}-reason-${idx}`;
+      const button = (
         <Button
-          key={action.name || action.id || `header-action-${idx}`}
+          key={actionKey}
           variant={variant}
           size={size}
           disabled={disabled}
+          aria-describedby={disabledReason ? reasonId : undefined}
           className="gap-2"
           onClick={() => {
             if (typeof action.onClick === 'function') {
@@ -1987,6 +2131,34 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           {icon && <LazyIcon name={icon} className="h-4 w-4" />}
           <span>{label}</span>
         </Button>
+      );
+      if (!disabledReason) return button;
+      // A natively `disabled` button fires no pointer or focus events, and the
+      // Button primitive adds `disabled:pointer-events-none` on top — so a
+      // tooltip (or a native `title`) on the button itself never opens. The
+      // wrapping span is the trigger instead, the idiom Radix documents for a
+      // disabled button: it takes the hover, and `tabIndex={0}` lets a keyboard
+      // user focus it, which opens the tooltip too. The reason is ALSO a
+      // persistent accessible description (`aria-describedby` on both the
+      // button and the span, onto an `sr-only` copy). Same shape as
+      // `record:quick_actions`' button and `DeclaredActionsBar`'s.
+      return (
+        <TooltipProvider key={actionKey} delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                tabIndex={0}
+                aria-describedby={reasonId}
+                data-disabled-reason=""
+                className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                {button}
+                <span id={reasonId} className="sr-only">{disabledReason}</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{disabledReason}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     };
     return (
@@ -2015,10 +2187,23 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
                 const icon = typeof action.icon === 'string' ? action.icon : null;
                 const isDestructive =
                   action.variant === 'destructive' || action.name === 'sys_delete';
+                // objectui#11811 — the same reason as the inline button, but
+                // drawn as a visible second line, not a tooltip. Inside the
+                // menu a tooltip trigger is unreachable from the keyboard: a
+                // disabled item is skipped by arrow-key focus (`focusable:
+                // !disabled` in the menu's roving group), and the menu traps
+                // Tab. The menu is already an explicit, opened surface, so the
+                // reason simply shows there, and is the item's description
+                // while its name stays the label alone.
+                const disabledReason = disabledReasonFor(action);
+                const labelId = `${disabledReasonIdBase}-more-label-${idx}`;
+                const reasonId = `${disabledReasonIdBase}-more-reason-${idx}`;
                 return (
                   <DropdownMenuItem
                     key={action.name || action.id || `overflow-action-${idx}`}
                     disabled={disabled}
+                    aria-labelledby={disabledReason ? labelId : undefined}
+                    aria-describedby={disabledReason ? reasonId : undefined}
                     onSelect={(e) => {
                       e.preventDefault();
                       if (typeof action.onClick === 'function') {
@@ -2033,7 +2218,14 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
                     )}
                   >
                     {icon && <LazyIcon name={icon} className="h-4 w-4" />}
-                    <span>{label}</span>
+                    {disabledReason ? (
+                      <span className="flex min-w-0 flex-col">
+                        <span id={labelId}>{label}</span>
+                        <span id={reasonId} className="text-xs text-muted-foreground">{disabledReason}</span>
+                      </span>
+                    ) : (
+                      <span>{label}</span>
+                    )}
                   </DropdownMenuItem>
                 );
               })}
@@ -2267,6 +2459,42 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         ? (titleCandidate.trim() ? titleCandidate : '')
         : (recordDisplayValueAt({ value: titleCandidate }, 'value') ?? '')) ||
       placeholderTitle;
+    // The record's picture (objectui#11383, ruling A on hotcrm#1199). The
+    // object names the field in its object-level `imageField`, and that
+    // declaration is the ONLY channel: ⛔ no `page:header` prop, and no field
+    // read by a conventional name (`logo`, `avatar`, `image`, …). The value is
+    // the served row's. A field the reader may not see arrives absent, so
+    // nothing is drawn: the server already masked it, and it is not decided
+    // again here. No declaration, or no drawable value, draws nothing at all,
+    // ⛔ never initials or a placeholder. That is also why this is a Radix
+    // `Avatar` with no `AvatarFallback`: its image renders once it has loaded,
+    // so a URL that fails to load leaves no broken-image icon behind.
+    //
+    // It goes in the chip's `icon` slot, which the chip marks `aria-hidden`:
+    // the H1 beside it already names the record, so the picture is
+    // decorative and its `alt` is empty. An `avatar` field is a person's photo
+    // and is drawn round and cropped; an `image` field (a logo) is drawn whole
+    // in a rounded square.
+    const pictureFieldName: unknown = objSchema?.imageField;
+    const pictureUrl =
+      typeof pictureFieldName === 'string' && pictureFieldName
+        ? recordPictureUrl(data?.[pictureFieldName])
+        : undefined;
+    const pictureIsAvatar =
+      pictureUrl !== undefined &&
+      objSchema?.fields?.[pictureFieldName as string]?.type === 'avatar';
+    const recordPicture = pictureUrl ? (
+      <Avatar
+        data-record-picture=""
+        className={cn('h-8 w-8', pictureIsAvatar ? 'rounded-full' : 'rounded-md')}
+      >
+        <AvatarImage
+          src={pictureUrl}
+          alt=""
+          className={pictureIsAvatar ? 'object-cover' : 'object-contain'}
+        />
+      </Avatar>
+    ) : undefined;
     // Width arbitration between the title column and the action tail
     // (objectui#7244). The tail is `shrink-0` — correct, buttons must not be
     // squeezed into unreadable slivers — so in a `nowrap` row it takes what it
@@ -2299,16 +2527,12 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           className,
         )}
         {...designer}
+        {...headerAria}
       >
         <div className="flex flex-col min-w-0 sm:min-w-48 flex-1">
-          {breadcrumb && (
-            <div
-              className="text-xs text-muted-foreground mb-1"
-              data-page-breadcrumb-slot
-            />
-          )}
           <RecordTitleChip
             title={resolvedTitle}
+            icon={recordPicture}
             objectLabel={objectLabel}
             resourceId={data?.id ? String(data.id) : undefined}
             showStar={showStar}
@@ -2335,10 +2559,8 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     <header
       className={cn('flex flex-col gap-2 pb-4 border-b', className)}
       {...designer}
+      {...headerAria}
     >
-      {breadcrumb && (
-        <div className="text-xs text-muted-foreground" data-page-breadcrumb-slot />
-      )}
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col">
           {explicitTitle && (
@@ -2373,7 +2595,10 @@ ComponentRegistry.register('header', PageHeaderRenderer, {
     { name: 'title', type: ['string', 'object'], description: 'Supports {field} interpolation and inline translation maps; falls back to the record title' },
     { name: 'subtitle', type: ['string', 'object'], description: 'Same interpolation as Title' },
     { name: 'actions', type: 'array', of: 'string', description: "Action IDS — the names of actions declared on the object's own metadata — rendered in the header before any host-injected system actions. An id whose action declares neither record_header nor record_more in its locations renders nowhere." },
-    { name: 'breadcrumb', type: 'boolean' },
+    // No `breadcrumb`: it was declared but NOT read (objectui#11166), and stayed
+    // here only while the spec accepted the key. `@objectstack/spec` 17.6.0
+    // carries the retirement (objectstack#20758, a tombstone refused by name),
+    // so the entry left at that bump (objectui#11438), as this comment asked.
     { name: 'recordChrome', type: 'boolean', description: 'Set false for the bare h1 header on non-record pages' },
     { name: 'showStar', type: 'boolean' },
     { name: 'showCopyId', type: 'boolean' },

@@ -117,36 +117,31 @@ describe('DetailViewFieldSchema.options is the spec authoring option schema (obj
   });
 
   /**
-   * ⚠️ Pinned as it stands on the INSTALLED `@objectstack/spec` 17.4.0: a
-   * whitespace-only string is ACCEPTED and canonicalized. objectstack `main`
-   * already moved `visibleWhen` to `EvaluatedExpressionInputSchema`, whose
-   * string arm refuses blank strings, so the next spec bump TIGHTENS this and
-   * turns this test red on purpose. When it does, flip it to a refusal.
+   * Flipped at the pin bump, as this row's 17.4.0 docblock instructed
+   * (objectui#11073). On `@objectstack/spec` 17.4.0 a whitespace-only string
+   * was ACCEPTED and canonicalized; 17.5.0 moved `visibleWhen` to
+   * `EvaluatedExpressionInputSchema`, whose string arm refuses a blank string.
+   * The mirror reads the spec by reference, so it refuses it too.
    */
-  it('accepts a whitespace-only `visibleWhen` on spec 17.4.0 (the next spec bump refuses it)', () => {
-    expect(optionOut('   ')).toEqual({
-      label: 'Open',
-      value: 'open',
-      visibleWhen: { dialect: 'cel', source: '   ' },
-    });
+  it('refuses a whitespace-only `visibleWhen` (spec 17.5.0 and later)', () => {
+    const r = field({ label: 'Open', value: 'open', visibleWhen: '   ' });
+    expect(r.success).toBe(false);
+    expect(issuesOf(r)).toContainEqual({ code: 'invalid_union', path: 'options.0.visibleWhen' });
   });
 
   /**
-   * TRIPWIRE for the spec-version gate in `zod-mirror-parity.test.ts`
-   * (`SpecEnvelopeAdmitsSourceless`). On the installed spec 17.4.0 the envelope's
-   * `source` is OPTIONAL in the static input type, and at runtime `ast` alone
-   * satisfies its refine (`{ dialect }` with neither is refused). So an envelope
-   * with no `source` parses, which the declaration's wire refuses. That is why
-   * `options` and its two containers are ledgered WIDER. objectstack `main` requires
-   * a non-blank `source`. When the pin bump turns this red, delete the gated rows,
-   * their `WIDER_ARMS` entries and the gate, then flip this to a refusal.
+   * The former TRIPWIRE for the spec-version gate `SpecEnvelopeAdmitsSourceless`,
+   * retired at the pin bump as it instructed (objectui#11073). On
+   * `@objectstack/spec` 17.4.0 the envelope's `source` was OPTIONAL and `ast`
+   * alone satisfied its refine, so a source-less envelope parsed and
+   * `options` and its two containers were ledgered WIDER. 17.5.0 requires a
+   * non-blank `source`, so the envelope is refused: the gated rows, their
+   * `WIDER_ARMS` entries and the gate are gone from `zod-mirror-parity.test.ts`.
    */
-  it('accepts a source-less `{ dialect, ast }` envelope on spec 17.4.0 (the gated WIDER rows rest on this)', () => {
-    expect(optionOut({ dialect: 'cel', ast: { kind: 'ident' } })).toEqual({
-      label: 'Open',
-      value: 'open',
-      visibleWhen: { dialect: 'cel', ast: { kind: 'ident' } },
-    });
+  it('refuses a source-less `{ dialect, ast }` envelope (spec 17.5.0 and later)', () => {
+    const r = field({ label: 'Open', value: 'open', visibleWhen: { dialect: 'cel', ast: { kind: 'ident' } } });
+    expect(r.success).toBe(false);
+    expect(issuesOf(r)).toContainEqual({ code: 'invalid_union', path: 'options.0.visibleWhen' });
   });
 
   it('gives the same verdict as the spec schema itself, over a spread of options', () => {

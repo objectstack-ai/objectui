@@ -21,6 +21,9 @@
 import type { z } from 'zod';
 import type {
   Action as SpecAction,
+  // objectui#11168 slice 3 — the `action:button` row's author state, so
+  // `UIActionSchema.size` takes the row's own vocabulary by reference.
+  ActionButtonProps as SpecActionButtonProps,
   ActionLocation,
   ActionParamSchema as SpecActionParamSchema,
   ActionType as SpecActionType,
@@ -750,7 +753,23 @@ export interface UIActionSchema {
   
   /** Success message to show after execution */
   successMessage?: string;
-  
+
+  /**
+   * Success copy per handler outcome (`ActionSchema.outcomeMessages`,
+   * `@objectstack/spec` 17.6.0): keys are the snake_case `outcome` values a
+   * `type: 'api'` or `type: 'script'` handler returns in its success payload,
+   * values the message shown for that outcome. `@object-ui/core`'s runner
+   * reads the entry named by the payload's `outcome` ahead of
+   * {@link successMessage}, so the declared action renderers forward the map
+   * (objectui#11344).
+   *
+   * DERIVED from the spec, never hand-copied: each value is an `I18nLabel`, a
+   * string or an inline per-locale map, and the spec's own refusals (the map
+   * beside `resultDialog`, beside `operation: 'update'`, or on a type with no
+   * server response) stay the spec's to enforce.
+   */
+  outcomeMessages?: SpecAction['outcomeMessages'];
+
   /** Error message to show on failure */
   errorMessage?: string;
   
@@ -769,11 +788,14 @@ export interface UIActionSchema {
    * along; only this read side was missing, so the forward was typed `any` in
    * both directions.
    *
-   * Reachability is unchanged and is not what this declares: the runtime reads
-   * the key only under a `rowRecord` guard that `action:button` never seeds,
-   * which `check:action-forward-parity`'s JUSTIFIED table records for the three
-   * sibling surfaces. Declaring the key does not make it reachable; it makes
-   * the forward compiler-checked.
+   * Reachability is not what this declares: the runtime reads the key only
+   * under a `rowRecord` guard, the record the invoking surface hands it. Since
+   * objectui#11168 (ruling B on objectui#11754) `action:button` hands it the
+   * record in scope for an `undoable` `operation: 'update'` of that record, so
+   * on that block the key is reachable. `action:icon`, `action:group`
+   * and `action:menu` hand it none, which `check:action-forward-parity`'s
+   * JUSTIFIED table records. Declaring the key makes the forward
+   * compiler-checked.
    */
   undoable?: SpecAction['undoable'];
 
@@ -845,8 +867,8 @@ export interface UIActionSchema {
    * `actions/__tests__/actionKeys.types.test.ts`; this is the read side of that
    * pair, which had no declaration to land in.
    *
-   * ⚠️ Not to be confused with the `disabled` PROP on `ActionButtonProps` /
-   * `ActionIconProps` (objectui#9131): that one is the host's EVALUATED
+   * ⚠️ Not to be confused with the `disabled` PROP on `ActionButtonRendererProps` /
+   * `ActionIconRendererProps` (objectui#9131): that one is the host's EVALUATED
    * verdict, a `boolean`, and lives on the renderer's props bag. This one is
    * the author's predicate and lives on the action.
    */
@@ -860,8 +882,22 @@ export interface UIActionSchema {
   /** Button variant */
   variant?: 'default' | 'primary' | 'secondary' | 'destructive' | 'outline' | 'ghost';
   
-  /** Button size */
-  size?: 'sm' | 'md' | 'lg';
+  /**
+   * Button size — the vocabulary `@objectstack/spec`'s `action:button` row
+   * declares, by reference: the Button primitive's `default`, `sm`, `lg` and
+   * `icon`, plus `md`, which renders as `default`.
+   *
+   * objectui#11168 slice 3: this was `'sm' | 'md' | 'lg'`, so `default` and
+   * `icon` — accepted by the row, published by the `action:button`
+   * registration since slice 2 and drawn as-is by the Button primitive — were
+   * TS2322 here. This type is ALSO the member type of the `action:group` /
+   * `action:menu` / `action:bar` lists, and the spec's member list is
+   * unconstrained, so the leaf's vocabulary is the one to take: measured through
+   * the real `SchemaRenderer`, a group MEMBER's `default` / `sm` / `md` / `lg` /
+   * `icon` render exactly as the same size on an `action:button` does (a
+   * member's own `md` is mapped to `default` by the group too).
+   */
+  size?: SpecActionButtonProps['size'];
   
   /** Custom CSS class */
   className?: string;
@@ -892,33 +928,106 @@ export interface UIActionSchema {
   onClick?: () => void | Promise<void>;
 }
 
-/**
- * Action group for organizing related actions
+/*
+ * `ActionGroup` — RETIRED (objectui#11168 slice 2). This interface stood here
+ * and was re-exported from the package entry, with no importer in this
+ * repository. It was not the TypeScript mirror of the `action:group` block,
+ * which is `ActionGroupBlockSchema` in `./zod/public-blocks.zod.ts` (the spec
+ * row by reference). It disagreed with that row on six counts:
+ *   - it required `name`, which the row refuses and slice 1 retired from the
+ *     block's published inputs;
+ *   - it required `label` and `actions`, which the row makes optional;
+ *   - it typed `visible` as a string only;
+ *   - it lacked `location`, `variant` and `size`.
+ * Type an `action:group` node with `ActionGroupBlockSchema` (or the spec's
+ * `ActionGroupProps` for its `properties` bag). Pinned retired by
+ * `__tests__/action-group-retired-11168.test.ts`.
  */
-export interface ActionGroup {
-  /** Group name */
-  name: string;
-  
-  /** Display label */
-  label: string;
-  
-  /** Optional icon */
-  icon?: string;
-  
-  /** Actions in this group */
-  actions: UIActionSchema[];
-  
-  /** Group visibility condition */
+
+/**
+ * The `action:bar` node — a location-aware action toolbar.
+ *
+ * Rendered by the `action:bar` renderer in `@object-ui/components`
+ * (`renderers/action/action-bar.tsx`), which reads the node as this type. The
+ * bar draws the {@link UIActionSchema} items in `actions` that render at
+ * `location` (`actionRendersAt`), splits them into an inline row and one "More"
+ * menu at `maxVisible` (`mobileMaxVisible` on a phone), and puts every item in
+ * `systemActions` in that same menu.
+ *
+ * Moved here from `@object-ui/components` by objectui#11355 (the seat's ruling
+ * B): a node schema lives in this package (AGENTS.md §3 and §8), so the hosts
+ * that build an `action:bar` node in code type it from the package they import
+ * every other node type from. No `@objectstack/spec` row exists for it: the
+ * spec's `ComponentPropsMap` has no `action:bar` entry, and `@object-ui/core`'s
+ * public-blocks list leaves it out on purpose.
+ *
+ * ⛔ No index signature, so the type checker re-derives the member list on
+ * every run: the renderer reading a key this type does not declare is a TS2339
+ * in `@object-ui/components`' `type-check`, and a literal typed with it that
+ * writes one is a TS2353. When objectui#11355 moved it (a dated reading, not
+ * re-derived here), the members were exactly the keys the renderer reads, and
+ * they covered every key an in-repo `action:bar` literal wrote. The renderer's
+ * pass-through for DOM and Shadcn props stays on its own parameter annotation
+ * (objectui#4422), not here.
+ */
+export interface ActionBarSchema {
+  type: 'action:bar';
+  /** Business actions to render — subject to the inline/overflow split at {@link ActionBarSchema.maxVisible}. */
+  actions?: UIActionSchema[];
+  /**
+   * System/chrome actions (Duplicate, Export, View History, Delete, etc.) that
+   * are *always* placed in the overflow menu — never inline — regardless of
+   * {@link ActionBarSchema.maxVisible}. They share a single overflow button
+   * with any business actions that spilled past `maxVisible` or were authored
+   * `component: 'action:menu'`, so a bar has at most one "More" menu.
+   *
+   * The first system action is automatically separated from business-overflow
+   * entries by a menu separator.
+   */
+  systemActions?: UIActionSchema[];
+  /** Render only the actions that declare this location; unset, no location filtering. */
+  location?: ActionLocation;
+  /** Maximum visible inline actions before overflow into the "More" menu (default: 3). */
+  maxVisible?: number;
+  /** Maximum visible inline actions on mobile devices (default: 1). Desktop uses `maxVisible` instead. */
+  mobileMaxVisible?: number;
+  /** Visibility condition expression. */
   visible?: string;
-  
-  /** Display as dropdown or inline */
-  display?: 'dropdown' | 'inline';
+  /** Layout direction. */
+  direction?: 'horizontal' | 'vertical';
+  /** Gap between items (Tailwind gap class, default: 'gap-2'). */
+  gap?: string;
+  /** Button variant for all actions (each action's own `variant` wins). */
+  variant?: string;
+  /** Button size for all actions (each action's own `size` wins). */
+  size?: string;
+  /** Custom CSS class. */
+  className?: string;
 }
 
 /**
- * Action execution context
+ * Action execution context — the ONE declaration of this name (objectui#6349,
+ * batch 4). `@object-ui/core`'s `ActionRunner` module used to declare a second
+ * `ActionContext`; it now re-exports this one, so `@object-ui/core` and
+ * `@object-ui/types` publish the same type under the name.
+ *
+ * The two copies had drifted on three members. `data` existed only on the
+ * runner's copy (the runner reads it as the fallback record id and as an API
+ * request body), so it is declared here. `record` and `user` were `any` on the
+ * runner's copy and `Record<string, any>` here; the narrower spelling stays,
+ * because the packages that build or read a runner context compile against it.
+ * That is a reading, not a guarantee: the instrument is `pnpm --filter PKG
+ * type-check` over the packages that import `ActionContext` or drive an
+ * `ActionRunner`, and it is what to re-run before trusting this sentence.
+ *
+ * The index signature stays: this is a runtime data bag whose keys are
+ * genuinely open (a host passes whatever its handlers read), unlike the closed
+ * action contract `ActionDef` in `@object-ui/core`.
  */
 export interface ActionContext {
+  /** Current form or scope data; the runner reads `data.id` when no `record` is set. */
+  data?: Record<string, any>;
+
   /** Current record data */
   record?: Record<string, any>;
   
@@ -937,23 +1046,78 @@ export interface ActionContext {
 }
 
 /**
- * Action execution result
+ * A single undoable CRUD operation — what an `undoable` action hands the
+ * runner on {@link ActionResult.undo}, and what `@object-ui/core`'s
+ * `UndoManager` stacks.
+ *
+ * Declared HERE since objectui#6349 (batch 4), moved down from
+ * `@object-ui/core`'s `UndoManager` module, which now re-exports it: the one
+ * declaration of `ActionResult` names it, and this package cannot import from
+ * `@object-ui/core` (that package depends on this one).
+ */
+export interface UndoableOperation {
+  id: string;
+  type: 'create' | 'update' | 'delete';
+  objectName: string;
+  recordId: string;
+  timestamp: number;
+  description: string;
+  /** Data needed to undo: for create=recordId, for update=previousData, for delete=fullRecord */
+  undoData: Record<string, unknown>;
+  /** Data needed to redo: for create=newData, for update=newData, for delete=recordId */
+  redoData: Record<string, unknown>;
+}
+
+/**
+ * Action execution result — the ONE declaration of this name (objectui#6349,
+ * batch 4). `@object-ui/core`'s `ActionRunner` module used to declare a second
+ * `ActionResult` (the contract its handlers return and its runner reads); it
+ * now re-exports this one, so `@object-ui/core` and `@object-ui/types` publish
+ * the same type under the name.
+ *
+ * The members are the runner's: `reload`, `redirect`, `modal`, `silent` and
+ * `undo` moved down with it. This copy's former `refresh` member is RETIRED,
+ * not kept beside `reload`: the runner reads `reload`, and nothing in this
+ * repository read or wrote `refresh`, so a handler that set it was ignored at
+ * runtime. A result literal naming `refresh` is now a compile error.
  */
 export interface ActionResult {
   /** Whether action succeeded */
   success: boolean;
-  
+
   /** Result data */
   data?: any;
-  
+
   /** Error message if failed */
   error?: string;
-  
-  /** Whether to refresh data */
-  refresh?: boolean;
-  
+
+  /** Whether the caller should reload its data after the action */
+  reload?: boolean;
+
   /** Whether to close dialog/modal */
   close?: boolean;
+
+  /** URL to navigate to after the action */
+  redirect?: string;
+
+  /** Modal schema to render (for type: 'modal') */
+  modal?: any;
+
+  /**
+   * Suppress the automatic success toast for this result. A handler sets this
+   * when the action only HANDED OFF to a follow-up UI rather than completing —
+   * e.g. a `flow` action that paused at a screen and opened the flow-runner. The
+   * action hasn't "completed yet", so a "success" toast on open would be
+   * misleading; the follow-up surface owns its own completion messaging.
+   */
+  silent?: boolean;
+
+  /**
+   * An undoable operation captured by the handler (e.g. an `undoable` update
+   * action's prior field values). When present, the runner pushes it onto the
+   * global UndoManager and the success toast offers an "Undo" affordance.
+   */
+  undo?: UndoableOperation;
 }
 
 /**

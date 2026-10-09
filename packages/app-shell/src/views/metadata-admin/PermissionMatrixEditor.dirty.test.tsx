@@ -8,7 +8,8 @@
  *
  *   • clean after the initial load,
  *   • dirty as soon as a matrix cell changes,
- *   • clean again after a successful Save (draft becomes the new baseline),
+ *   • clean again after a successful save (draft becomes the new baseline) —
+ *     on this door the save is the autosave (objectui#11787),
  *   • reset to false on unmount (a confirmed discard must clear the guard).
  */
 
@@ -102,9 +103,9 @@ describe('PermissionMatrixEditPage — onDirtyChange', () => {
     fireEvent.click(within(row).getByRole('button', { name: 'None' }));
     expect(onDirtyChange).toHaveBeenLastCalledWith(true);
 
-    // Save re-anchors the baseline — clean again, no reload needed.
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
-    await waitFor(() => expect(server.saved).toHaveLength(1));
+    // The save re-anchors the baseline — clean again, no reload needed. On
+    // this door the save is the autosave, after its pause (objectui#11787).
+    await waitFor(() => expect(server.saved).toHaveLength(1), { timeout: 4000 });
     await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
   });
 

@@ -72,6 +72,7 @@ const onCardMove = (cardId: string, fromCol: string, toCol: string, index: numbe
 
 - **Drag and drop cards** between columns
 - **Column limits** (WIP limits)
+- **Column totals**: a kanban view's `summarizeField` sums that field over each column's loaded cards in the column header, beside the count (with the count's `+` when the fetch window is full)
 - **Card badges** for status/priority
 - **Keyboard navigation**
 - **Lazy-loaded** (~100-150 KB loads only when rendered)
@@ -82,13 +83,21 @@ const onCardMove = (cardId: string, fromCol: string, toCol: string, index: numbe
 has no function value), never a member of the schema object below —
 `packages/plugin-kanban/README.md` documents this the same way.
 
-Neither are `onCardClick` and `onQuickAdd`, and since objectui#7804 the
-`object-kanban` validator **says so by name**: both are declared as
-objectui#6124 **runtime slots**, so an authored `onCardClick: { "action":
-"toast" }` is now refused with a message pointing at the node-type spelling,
-where before it parsed green and was handed to a call site expecting a function.
-A React host still supplies either function through the TypeScript interface or
-as a React prop; only the JSON face refuses them.
+Neither is `onCardClick`, and since objectui#7804 the `object-kanban` validator
+**says so by name**: it is declared as an objectui#6124 **runtime slot**, so an
+authored `onCardClick: { "action": "toast" }` is now refused with a message
+pointing at the node-type spelling, where before it parsed green and was handed
+to a call site expecting a function. A React host still supplies the function
+through the TypeScript interface or as a React prop; only the JSON face refuses
+it.
+
+⭐ `onQuickAdd` is a **tombstone** on `object-kanban` since objectui#11234, not a
+runtime slot. A supplied one used to reach the board and was never called,
+because its partner `quickAdd` is retired there. `ObjectKanban` now renders an
+internal board that takes the Quick Add pair only as explicit props, and it
+supplies neither half. So the TypeScript twin is `?: never` and the validator
+refuses the key by name. The pair lives on `KanbanRenderer` — see "Quick Add is
+a React-host capability" below.
 
 ⭐ `onCardMove` is declared too, since objectui#9342 — but as a **tombstone**,
 not a runtime slot. An authored one used to be accepted and silently dropped,
@@ -164,6 +173,9 @@ interface KanbanCard {
 | `columns` | `string[] \| KanbanLane[]` | Swimlane definitions — an array of `{ id, title }` lanes (one per `groupBy` value), **or** an array of bare value strings; never a mix. NOT a field projection. The bare-string array is accepted for spec parity but is ignored on this block (see the note above). |
 | `filter` | ViewFilterRule[] | Query filter for an object-driven board, lowered to `$filter` |
 | `limit` | number | Rows fetched by an object-driven board (default 100) |
+| `navigation` | `ViewNavigationConfig` | What a card click opens — the spec's `NavigationConfig` by reference, the type `ObjectGridSchema.navigation` uses: `mode` (`page`, `drawer`, `modal`, `split`, `popover`, `new_window` or `none`) with `size`, `openNewTab` and `preventNavigation`. With the key absent a click opens the record in a drawer, and a click handler from a parent view outranks the whole key. `page` — and a block written without `mode`, which takes the spec's `page` default — opens the record page through the record navigator the host publishes (objectui#11293); the console publishes one on its custom pages, record pages and list views, and under a host that publishes none the click opens nothing. |
+| `swimlaneField` | string | Record field that splits an object-driven board into horizontal swimlanes, across the `groupBy` columns. `@objectstack/spec` declares it on `object-kanban`, and both faces of `@object-ui/types` declare it since objectui#11355. With the key absent the board falls back to `grouping.fields[0].field` |
+| `grouping` | `GroupingConfig` | The fallback for `swimlaneField`: with that key absent, the board splits into swimlanes by `grouping.fields[0].field`. Nothing else in the block is read on this board. The type is `@objectstack/spec`'s `GroupingConfig`, `{ fields: [{ field, order?, collapsed? }] }`, which both faces of `@object-ui/types` take by reference since objectui#11216: at least one entry, no undeclared key, and a `field` without leading or trailing spaces |
 | `className` | string | Additional Tailwind CSS classes |
 
 ### Lane Properties
@@ -208,11 +220,13 @@ rendered on each card resolve in priority order:
 Defaulting to `highlightFields` keeps a card's contents consistent with the
 object's other views without every kanban view having to re-declare its fields.
 
-### Row cap (object-driven boards)
+### Fetch batch (object-driven boards)
 
 An object-driven board fetches at most `limit` records, defaulting to **100**. A
 board renders every fetched record into a lane and offers no pagination control,
-so this is the author's window on the object rather than a page size:
+so this is the author's window on the object — one fetch batch — rather than a
+page size. The default does not follow the display page size `@objectstack/spec`
+declares for `pagination.pageSize`:
 
 ```tsx
 import type { ObjectKanbanSchema } from '@object-ui/types'
@@ -469,10 +483,10 @@ export function useBoard(initialColumns: KanbanColumn[]) {
 ### Quick Add is a React-host capability, not a document one
 
 The Quick Add button at the bottom of a lane is gated on **both** halves of a
-pair: `quickAdd`, and an `onQuickAdd` handler. `onQuickAdd` is a runtime slot —
-a function — so it can only be supplied by a React host that mounts the board
-component directly: `KanbanRenderer`, exported from `@object-ui/plugin-kanban`,
-forwards both halves by identity.
+pair: `quickAdd`, and an `onQuickAdd` handler. `onQuickAdd` is a function, so it
+can only be supplied by a React host that mounts the board component directly:
+`KanbanRenderer`, exported from `@object-ui/plugin-kanban`, reads both halves off
+its `schema` and forwards them by identity.
 
 ⚠️ There is **no node type key** that reaches it. The `kanban-ui` registration
 retired with objectui#8257, so a document naming that tag is now an
@@ -480,18 +494,16 @@ retired with objectui#8257, so a document naming that tag is now an
 component instead.
 
 An **object-driven** board (`object-kanban`, or a kanban view inside `ListView` /
-`ObjectView`) supplies no `onQuickAdd` of its own, and a page written as
-constrained JSX cannot write one either: that tier parses and never executes, so
-a handler attribute is refused there. An authored `quickAdd: true` on that tag
-therefore renders no control. The authoring validator (`validateTree` in
-`@object-ui/sdui-parser`) reports it as an `inert-quick-add` **warning** naming
-the missing half — the document still parses, saves and renders.
-
-<Callout type="info">
-  `quickAdd` is being retired from `object-kanban`; it stays on the
-  `KanbanRenderer` component, where the pair works. Inline record creation from
-  an object-driven board is not a capability those boards have.
-</Callout>
+`ObjectView`) has no Quick Add control, and **both** halves of the pair are
+**retired** on it: `quickAdd` since objectui#8285, and `onQuickAdd` since
+objectui#11234. The board does not create records inline. Both
+`ObjectKanbanSchema` faces in `@object-ui/types` refuse both keys by name, and
+`@objectstack/spec` refuses `quickAdd`. `ObjectKanban` renders an internal board
+that takes the pair only as explicit props, and it supplies neither — so even a
+host that hands the board both halves of the pair gets no control. A page
+written as constrained JSX draws the ordinary `unknown-prop` **warning** for
+`quickAdd` (`validateTree` in `@object-ui/sdui-parser`), since the block has no
+such prop. Delete both keys; to offer Quick Add, mount `KanbanRenderer` as above.
 
 ## Bundle Size
 
@@ -516,7 +528,7 @@ The kanban board includes:
 shapes. Importing all three from the plugin does not resolve — its barrel never
 exported the schema type.
 
-```plaintext
+```ts
 import type { ObjectKanbanSchema } from '@object-ui/types'
 import type { KanbanCard, KanbanColumn } from '@object-ui/plugin-kanban'
 

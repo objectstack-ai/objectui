@@ -160,9 +160,11 @@ describe('objectui#7166 — the three retired keys were never delivered by this 
     // Control: the copy set is populated and still holds the key objectui#6875
     // genuinely delivered, so "does not contain" below is a reading.
     // ⚠️ objectui#7155 shrank the copy set from 7 to 3 (the snake_case dialect
-    // was retired), so this floor moved with it. It is still a floor, not a
+    // was retired), and objectui#11070 round 4 to 2 (`reference_to` was
+    // retired), so this floor moved with each. It is still a floor, not a
     // formality: at 0 every `not.toContain` below would pass vacuously.
-    expect(RELATIONAL_META_KEYS.length).toBeGreaterThan(2);
+    expect(RELATIONAL_META_KEYS.length).toBeGreaterThan(1);
+    expect(RELATIONAL_META_KEYS).toContain('reference');
     expect(RELATIONAL_META_KEYS).toContain('displayField');
     for (const key of ['descriptionField', 'lookupColumns', 'lookupFilters']) {
       expect(RELATIONAL_META_KEYS).not.toContain(key);

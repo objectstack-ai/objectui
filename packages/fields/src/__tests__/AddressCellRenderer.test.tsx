@@ -158,7 +158,9 @@ describe('address display renderer — controls (unchanged surfaces)', () => {
 
   it('leaves genuinely structural types stringifying as JSON', () => {
     // `address` moved out of the JSON bucket; `json` / `object` stay in it.
-    for (const type of ['json', 'object', 'composite', 'record']) {
+    // `composite` / `record` moved out too (objectui#11697): they draw labelled
+    // sub-values, pinned in `compositeRecordCell-11697.test.tsx`.
+    for (const type of ['json', 'object']) {
       const { container } = renderThroughDisplayRegistry(type, { a: 1 });
       expect(container.textContent).toBe('{"a":1}');
     }

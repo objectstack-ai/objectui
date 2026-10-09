@@ -12,8 +12,7 @@
  * This module is the tier's half of that ruling. It REPLACES the diagnostic the
  * prop walk would otherwise emit for `body`, rather than adding to it — two
  * diagnostics for one mistake is the shape `checkMemberTypes` already refuses
- * (objectui#8067), and it is the shape `checkKanbanQuickAdd` is written against
- * next door.
+ * (objectui#8067).
  *
  * WHY A REPLACEMENT AND NOT A BARE `unknown-prop`. After the retirement
  * "`<badge>` has no prop body" is TRUE — but it is the answer that sent authors
@@ -24,10 +23,8 @@
  * the tier teaches `children` only, and a `body` child list under a
  * non-container draws the same `not-a-container` the `children` spelling draws.
  *
- * SCOPE — deliberately the opposite of `checkKanbanQuickAdd`'s. That one is
- * asked AHEAD of the declaration lookup, because its claim is about the render
- * path and declaring the key must not disarm it. This one is asked INSIDE the
- * `!input` branch, because its claim is about a key nobody declares: a
+ * SCOPE — asked INSIDE the `!input` branch, because its claim is about a key
+ * nobody declares, so a
  * component that publishes its own `body` input keeps its declared type check
  * untouched. Re-derived against the registry rather than recalled: exactly one
  * registration in the tree declares an input named `body`, and it is

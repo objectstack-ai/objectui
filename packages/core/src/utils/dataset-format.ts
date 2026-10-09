@@ -69,29 +69,40 @@ export type DatasetResultField = AnalyticsResult['fields'][number];
 export type { PercentScale } from '@objectstack/spec/data';
 
 /**
- * Scale a stored `percent`-field value to its DISPLAY magnitude.
+ * Scale a stored percentage to its DISPLAY magnitude (percentage points), at
+ * the storage the caller STATES.
  *
- * Percent fields store a FRACTION (0–1) by convention — a stored `0.75` means
- * 75% (see the percent edit widget `PercentField`, which divides input by 100).
- * A value already in whole-percent form (magnitude ≥ 1, e.g. a `progress` /
- * `completion` field storing `57`) is passed through unchanged. This is the
- * SINGLE source of truth for percent display scaling, shared by the list-view
- * percent cell renderer (`formatPercent` in `@object-ui/fields`) and the dataset
- * measure formatter ({@link formatMeasure}) so a percent renders identically as
- * a row value and as an aggregated metric — the two surfaces can never drift.
+ * `percentScale` is the spec's `PercentScale`: `fraction` is a 0–1 ratio
+ * (`0.75` ⇒ 75, `1` ⇒ 100), `whole` is already in percentage points (`75` ⇒
+ * 75, `1` ⇒ 1). A caller holding a field definition reads it with the spec's
+ * `percentScaleOf` (`@objectstack/spec/data`): a `percent` field stores a
+ * fraction unless it declares a `max` above 1. A caller with no field (a
+ * computed ratio, a server measure column) states the storage it knows: a
+ * `derived: { op: 'ratio' }` measure is a fraction by definition, and the
+ * server annotates a measure column with its `percentScale`.
  *
- * ⚠️ That last sentence was briefly FALSE, and objectui#4576 is what made it
- * true again. Sharing the SCALING was never enough on its own: between #4553
- * and #4576 the cell renderer got the locale's percent CONVENTION from `Intl`
- * while {@link formatMeasure} appended a literal '%', so a German session read
- * `1.234,5 %` in a list cell and `1.234,5%` in a dashboard measure — the same
- * number, scaled identically, rendered under two conventions. Both ends now go
- * through the locale's own percent affix. If a third surface ever needs percent
- * display, it takes BOTH halves from here — the scaling AND the convention —
- * or this promise breaks again in the same place.
+ * ⛔ No storage is inferred from the VALUE any more (objectui#11475). This
+ * function used to be `value > -1 && value < 1 ? value * 100 : value`, a guess
+ * from the magnitude that read neither the field nor its `max`. A fraction-
+ * stored `1` (100%) therefore read `1%` in the list cell while the read-only
+ * form, which reads the declaration, read `100%`; a whole-stored `0.5` read
+ * `50%`. objectui#3136 was the same guess on a dashboard measure. The
+ * parameter is REQUIRED, so every caller says which storage it holds, and a
+ * value outside the union throws rather than falling to a branch silently.
+ *
+ * ⭐ The contract a third percent surface still owes is BOTH halves: this
+ * scaling, at the stored scale, AND the locale's percent convention
+ * (`style: 'percentPoints'`, see {@link formatMeasure} and `formatPercent` in
+ * `@object-ui/fields`). Between objectui#4553 and objectui#4576 the two ends
+ * shared the scaling and not the convention, so a German session read
+ * `1.234,5 %` in a list cell and `1.234,5%` in a dashboard measure.
  */
-export function percentDisplayValue(value: number): number {
-  return value > -1 && value < 1 ? value * 100 : value;
+export function percentDisplayValue(value: number, percentScale: PercentScale): number {
+  if (percentScale === 'fraction') return value * 100;
+  if (percentScale === 'whole') return value;
+  throw new TypeError(
+    `percentDisplayValue: percentScale must be 'fraction' or 'whole' (the spec's PercentScale), got ${String(percentScale)}`,
+  );
 }
 
 /**
@@ -300,8 +311,8 @@ function formatMeasureDate(v: unknown, format: string | undefined, locale: strin
  * is pure, so it moved DOWN into this package (`./number-display.ts`) and
  * `@object-ui/i18n` re-exports it. The duplicate implementation this file used
  * to carry is gone, and with it the drift that duplicate produced — see the
- * percent note in the body, and {@link percentDisplayValue}'s promise, which
- * is true again.
+ * percent note in the body, and the both-halves contract
+ * {@link percentDisplayValue}'s doc comment states.
  *
  * ── Date-valued measures (objectui#7178) ──
  * `min` / `max` over a date or datetime field is a legitimate measure, and it
@@ -406,18 +417,24 @@ export function formatMeasure(
   // A legacy "$" literal in the format string is still honored (explicit author
   // choice) — but it is NOT how a real currency field gets its symbol.
   const legacyDollar = format.includes('$') ? '$' : '';
-  // numeral's "0.0%" multiplies by 100, and a percent field stores a FRACTION
-  // (0.75 ⇒ 75%). Scale to display magnitude the SAME way the list-view cell
-  // renderer does — otherwise an avg of 0.608 renders as "0.6%" instead of
-  // "60.8%", disagreeing with the per-row "75%" the list already shows.
+  // The column's storage is STATED, never read off the value (objectui#11475).
   //
-  // A DECLARED `percentScale` from the server wins outright: the value-magnitude
-  // heuristic below cannot tell a 0–1 ratio of exactly 1 from 1 percentage point
-  // (both are the number 1) and resolves it as "1%", so an SLA rate of full
-  // compliance rendered as "1.0%" instead of "100.0%" (#3136). The heuristic
-  // stays as the fallback for columns that arrive without the annotation.
+  // The server annotates a percentage column with its `percentScale`: a
+  // `derived: { op: 'ratio' }` measure is a fraction by definition, and a
+  // measure over a `percent` field inherits that field's scale
+  // (`AnalyticsResult.fields[].percentScale`). That annotation wins, which is
+  // what fixed an SLA rate of full compliance reading "1.0%" instead of
+  // "100.0%" (#3136).
+  //
+  // A column the server does NOT annotate is, in the contract's words, "not a
+  // percentage", so the only statement left is the author's numeral PATTERN,
+  // and numeral's `%` multiplies by 100: a `'0.0%'` pattern states a fraction.
+  // That is the spec's own reading for a measure over a plain number ("keeps
+  // whatever the author's format string implies", `percentScaleOf`'s doc). It
+  // used to fall to a magnitude guess instead, which read an unannotated `57`
+  // as 57% and an unannotated `0.57` as 57% alike.
   const display = isPercent
-    ? (percentScale ? (percentScale === 'fraction' ? v * 100 : v) : percentDisplayValue(v))
+    ? percentDisplayValue(v, percentScale ?? 'fraction')
     : v;
   // The percent sign is the LOCALE's, not a literal '%' (objectui#4576).
   //
@@ -425,8 +442,8 @@ export function formatMeasure(
   // a German session read `1.234,5%` from a dashboard measure beside
   // `1.234,5 %` (no-break space — the German percent convention) from a list
   // cell showing the SAME number, because `formatPercent` had gone through
-  // `Intl` since #4553. That contradicted {@link percentDisplayValue}'s own
-  // promise that the two surfaces "can never drift": the SCALING had stopped
+  // `Intl` since #4553. That contradicted the promise {@link percentDisplayValue}
+  // made then, that the two surfaces "can never drift": the SCALING had stopped
   // drifting, the CONVENTION had started. Measured to differ in de, fr, es, ru,
   // sv, cs, fi (no-break space), tr (the sign moves to the FRONT: `%1.234,5`)
   // and ar (its own sign plus U+061C); en, ja, zh were already identical.

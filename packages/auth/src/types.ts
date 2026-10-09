@@ -13,6 +13,7 @@ import type {
   DelegableAdminScope,
 } from '@objectstack/spec/contracts';
 import type { TenancyPosture } from '@objectstack/spec/security';
+import type { AudiencePosture } from '@objectstack/spec/system';
 import type { AuthInvitationStatus } from './invitation-status.js';
 
 /**
@@ -295,6 +296,23 @@ export interface AuthPublicConfig {
      * Absent (older server / config not yet fetched) ⇒ no group affordances.
      */
     tenancyPosture?: TenancyPosture;
+    /**
+     * Which audience posture is in force — the deployment's declared answer
+     * to "who may self-register here" (`invite_only`, the undeclared default;
+     * `email_domain`; `open`). A value, not a flag: the spec lists it in
+     * `PUBLIC_AUTH_CONFIG_NON_FLAG_KEYS` beside `tenancyPosture`.
+     *
+     * It does NOT replace `emailPassword.disableSignUp`, and the server does
+     * not force that flag from it: under `invite_only` the sign-up route still
+     * admits a pending invitee (and a fresh deployment's first owner), so the
+     * two keys together read "sign-up is open to invitees only". A surface
+     * that offers a generic sign-up therefore reads both — the console's
+     * login and register pages and `@object-ui/app-shell`'s exported default
+     * ones do, through app-shell's `decideSignUpOffer` (objectui#11691,
+     * objectui#11705). Absent (older server / config not yet fetched) ⇒
+     * `disableSignUp` alone decides, as it did before the key existed.
+     */
+    audiencePosture?: AudiencePosture;
   };
 }
 
@@ -365,8 +383,16 @@ export interface AuthClient {
 
   /** List organizations the current user belongs to */
   listOrganizations: () => Promise<AuthOrganization[]>;
-  /** Create a new organization */
-  createOrganization: (data: { name: string; slug: string; logo?: string }) => Promise<AuthOrganization>;
+  /**
+   * Create a new organization.
+   *
+   * `timezone` (objectui#11908) is the creator's IANA zone, for example the
+   * browser's `Intl.DateTimeFormat().resolvedOptions().timeZone`. It travels
+   * as the `timezone` QUERY parameter of `POST /organization/create`, never in
+   * the body, which stays `{ name, slug, logo }`. Omitted or empty, nothing is
+   * sent and the server keeps its default zone; the server judges the value.
+   */
+  createOrganization: (data: { name: string; slug: string; logo?: string; timezone?: string }) => Promise<AuthOrganization>;
   /** Set the active organization for the current session */
   setActiveOrganization: (orgId: string) => Promise<AuthOrganization | null>;
   /** Get the full active organization object */

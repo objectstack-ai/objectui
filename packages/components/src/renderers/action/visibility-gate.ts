@@ -35,9 +35,13 @@
  *     scope (objectui#3848).
  *
  * The ruling: a gate is declared when normalization still leaves a condition to
- * evaluate. `''`, a whitespace-only string, an empty-`source` envelope and any
- * non-predicate value are therefore NOT declared, and one definition in core
- * says so for the renderers, `SchemaRenderer` and the execution entry alike.
+ * evaluate. `''`, a whitespace-only string and an empty-`source` envelope are
+ * therefore NOT declared, and one definition in core says so for the
+ * renderers, `SchemaRenderer` and the execution entry alike. (A non-predicate
+ * value — `0`, `{}`, an array, an `ast`-only envelope — was in that list until
+ * objectui#11358, which made it a DECLARED gate that cannot be evaluated: the
+ * normalizer keeps it, the evaluator faults on it, and each leg fails it in
+ * its key's fault direction — `visible` hidden, `disabled` greyed out.)
  *
  * The NAME is kept (`hasDeclaredVisibilityGate`) and this module keeps
  * re-exporting it: the five member-action call sites — `action:button`,
@@ -69,6 +73,10 @@
  *   | `{ source: '' }`             | shown → shown     | GREY → on         | on → on           |
  *   | `'   '` (whitespace)         | HIDDEN → shown    | on → on           | GREY → on         |
  *   | `0` / `{}` (not a predicate) | shown → shown     | GREY → on         | on → on           |
+ *
+ * (The table is objectui#3850's measurement. Since objectui#11358 the `0` /
+ * `{}` row reads HIDDEN / GREY / on: declared and faulting, each leg's fault
+ * direction — pinned in `__tests__/action-empty-predicate-scope.test.tsx`.)
  *   | `true` / `false` / CEL / `${…}`| unchanged        | unchanged         | unchanged         |
  *
  * The whitespace row is the one that moves on `visible`, and it moves toward the

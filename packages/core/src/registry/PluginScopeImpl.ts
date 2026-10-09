@@ -21,7 +21,7 @@ import type {
   PluginScopeConfig, 
   PluginEventHandler
 } from '@object-ui/types';
-import type { Registry, ComponentMeta as RegistryComponentMeta } from './Registry.js';
+import type { Registry, RegistryComponentMeta } from './Registry.js';
 
 /**
  * Event Bus for scoped plugin events

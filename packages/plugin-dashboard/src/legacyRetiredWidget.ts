@@ -21,8 +21,8 @@
  * The retirement therefore came with a graceful fallback: render a VISIBLE error
  * placeholder naming the fix, never a blank widget. That fallback was applied to
  * `DashboardRenderer` and to nothing else, while `DashboardGridLayout` — a
- * separately exported surface, registered as the `dashboard-grid` SDUI component
- * — kept falling through to its static-data branch with `data: []`. Same stored
+ * separately exported surface, then also registered as the `dashboard-grid` SDUI
+ * component (retired by objectui#10859 batch 8) — kept falling through to its static-data branch with `data: []`. Same stored
  * metadata, same product: a rebind prompt on one surface and a silent blank
  * chart on the other, which is worse for the user than the pre-retirement state
  * (no chart, no diagnostic, no path to fix).
@@ -40,9 +40,25 @@
  * feature, so the detector requires the absence of any widget-level data before
  * it looks at `object` at all — the same order `DashboardRenderer` has always
  * used.
+ *
+ * ⚠️ **Dated note, 2026-10-03 — the metric family's nested config is retired —
+ * objectui#11525.** When this paragraph was written the nested
+ * `provider: 'object'` config was live for every family; it no longer is for the
+ * single-value family (`metric`, `gauge`, `solid-gauge`, `kpi`, `bullet`, and a
+ * typeless widget, which resolves to `metric` since objectui#11514). By the
+ * maintainer's ruling C on objectui#11525, both surfaces' metric arms answer a
+ * dataset-less widget whose `options.data` (or widget-level `data`) is
+ * `{ provider: 'object', … }` with {@link LEGACY_RETIRED_WIDGET_SCHEMA}, as
+ * their pivot arms already did (objectui#10528). The chart and table families
+ * stay live. The retirement sits in those family arms, not in this detector: it
+ * says what a family may bind, not that a widget carries the retired top-level
+ * shape, so {@link isLegacyRetiredWidget} is unchanged and still steps aside
+ * for any widget-level data. The rest of this paragraph, and step 2's "live
+ * `provider: 'object'` nested config" below, are kept as the reading of
+ * objectui#4612.
  */
 
-import type { DashboardWidgetSchema } from '@object-ui/types';
+import type { DashboardWidgetSlotEntry } from './widgetDispatch';
 
 /**
  * The placeholder schema rendered in place of a retired inline-analytics widget.
@@ -101,10 +117,45 @@ type LegacyRetiredReadKeys = {
  * surface no observable behavior, and it keeps the predicate true on its own
  * terms for any surface that has no such fork.
  */
-export function isLegacyRetiredWidget(widget: DashboardWidgetSchema | null | undefined): boolean {
+export function isLegacyRetiredWidget(widget: DashboardWidgetSlotEntry | null | undefined): boolean {
   if (!widget) return false;
   const w = widget as LegacyRetiredReadKeys;
   if (w.dataset) return false;
   const widgetData = w.data || w.options?.data;
   return !widgetData && !!w.object;
+}
+
+/**
+ * The node types a widget's legacy `component` envelope no longer draws:
+ * `object-metric`, under its bare key and its registration's full name
+ * (objectui#11466, the maintainer's ruling A, which extends ruling C on
+ * objectui#11525 to this form).
+ *
+ * Ruling C put a dashboard metric's number on the semantic layer only: a
+ * metric binds a `dataset` (ADR-0021). It retired the dataset-less inline path
+ * the two surfaces built; an `object-metric` node an author placed in the
+ * envelope (`{ id, component, layout }`, objectui's own format, which the
+ * spec's widget has no member for) was the one inline metric form left. Both
+ * surfaces now answer it with {@link LEGACY_RETIRED_WIDGET_SCHEMA}, the same
+ * imported object their metric and pivot arms return, so the tile draws the
+ * rebind prompt and sends no query.
+ *
+ * ⛔ Every other envelope node draws as before, `object-chart` and
+ * `object-data-table` included, and so does an `object-metric` block authored
+ * on a page: this set is read only at the envelope.
+ */
+const RETIRED_ENVELOPE_NODE_TYPES: ReadonlySet<string> = new Set([
+  'object-metric',
+  'plugin-dashboard:object-metric',
+]);
+
+/** Is `node`, read from a widget's `component` envelope, a retired node type? */
+export function isRetiredEnvelopeNode(node: unknown): boolean {
+  return (
+    typeof node === 'object' &&
+    node !== null &&
+    'type' in node &&
+    typeof node.type === 'string' &&
+    RETIRED_ENVELOPE_NODE_TYPES.has(node.type)
+  );
 }

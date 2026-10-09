@@ -3,10 +3,13 @@
 /**
  * objectstack#7016 — the DECISION TABLE for `DashboardWidget.chartConfig`, pinned.
  *
- * `chartConfig` is declared as the full spec `ChartConfigSchema`, but the
- * dashboard dataset path only ever lowered `showLegend` (#3135). This file pins
- * which of the remaining keys now reach the chart schema and which are refused,
- * because the split is a contract, not an implementation detail:
+ * `chartConfig` was declared as the full spec `ChartConfigSchema`, but the
+ * dashboard dataset path only ever lowered `showLegend` (#3135). Since
+ * `@objectstack/spec` 17.5.0 it is `DashboardWidgetChartConfigSchema`, the
+ * same chrome keys with `type` / `xAxis` / `yAxis` / `series` (and, on every
+ * chart config, `aria`) refused at parse. This file pins which keys reach the
+ * chart schema and which are refused, because the split is a contract, not an
+ * implementation detail:
  *
  *  - forwarded, because the chart block measurably draws it (the DOM half of
  *    that claim lives in `DatasetWidget.chartConfig.dom.test.tsx` for the keys
@@ -20,20 +23,20 @@
  *    objectui#9203 deleted this face's forwarding and that file did not redden,
  *    because it hand-builds its own chart schema and never travels this seam.
  *    ⛔ Do not cite it as this face's coverage again — see its own header.
- *  - refused, because the value is DERIVED from the dataset selection and an
- *    authored one would shadow it: `type`, and the BINDING keys inside
- *    `xAxis`/`yAxis`/`series` (`ChartAxis.field`, `ChartSeries.name`);
+ *  - refused, because the dataset owns the chart's STRUCTURE: `type`, `xAxis`,
+ *    `yAxis` and `series`, whole (objectui#11315);
  *  - refused, because nothing on this path reads it: `aria`.
  *
  * ⚠️ `xAxis`/`yAxis`/`series` were refused WHOLESALE until objectui#4229, which
- * split them: their presentation half (per-series mark and axis binding, axis
- * scale and chrome) is the author's and now merges onto the derived bindings —
- * see `DatasetWidget.comboPresentation.test.tsx`. Only the data half is still
- * refused, and it is pinned below.
+ * merged their presentation half (per-series mark and axis binding, axis scale
+ * and chrome) onto the derived bindings. Spec 17.5.0 took the keys whole on
+ * this carrier, presentation included, so the refusal is wholesale again
+ * (objectui#11315); `DatasetWidget.comboPresentation.test.tsx` pins what a
+ * `combo` widget renders now.
  *
- * The refusals are pinned as hard as the forwards. Today's behaviour for them is
- * the contract until objectstack#5175's narrowing half rules on the shape, and a
- * silent "improvement" here would pre-empt that decision.
+ * The refusals are pinned as hard as the forwards. The spec refuses all five
+ * keys at parse; these cases pin that the renderer does not read them either,
+ * for a stored widget that reaches it without a parse.
  *
  * Asserted at the source — the schema handed to the renderer — via a stubbed
  * SchemaRenderer, the same seam `DatasetWidget.showLegend`/`.animation` use.
@@ -85,7 +88,6 @@ const renderWidget = async (chartConfig?: Record<string, unknown>, widgetType = 
 describe('DatasetWidget — chartConfig keys that ARE lowered (objectstack#7016)', () => {
   it('forwards the chart titles and the accessibility description', async () => {
     await renderWidget({
-      type: 'bar',
       title: 'Invoice value',
       subtitle: 'by status',
       description: 'Invoice value by status',
@@ -96,7 +98,7 @@ describe('DatasetWidget — chartConfig keys that ARE lowered (objectstack#7016)
   });
 
   it('forwards an explicit plot height', async () => {
-    await renderWidget({ type: 'bar', height: 420 });
+    await renderWidget({ height: 420 });
     expect(lastChartSchema.height).toBe(420);
   });
 
@@ -104,26 +106,25 @@ describe('DatasetWidget — chartConfig keys that ARE lowered (objectstack#7016)
   // default is a more honest answer than an invisible chart, so the key is
   // dropped rather than lowered.
   it('drops a non-positive or non-numeric height', async () => {
-    await renderWidget({ type: 'bar', height: 0 });
+    await renderWidget({ height: 0 });
     expect('height' in lastChartSchema).toBe(false);
     cleanup();
     lastChartSchema = null;
-    await renderWidget({ type: 'bar', height: -10 });
+    await renderWidget({ height: -10 });
     expect('height' in lastChartSchema).toBe(false);
   });
 
   it('forwards showDataLabels in both directions', async () => {
-    await renderWidget({ type: 'bar', showDataLabels: true });
+    await renderWidget({ showDataLabels: true });
     expect(lastChartSchema.showDataLabels).toBe(true);
     cleanup();
     lastChartSchema = null;
-    await renderWidget({ type: 'bar', showDataLabels: false });
+    await renderWidget({ showDataLabels: false });
     expect(lastChartSchema.showDataLabels).toBe(false);
   });
 
   it('forwards annotations and the interaction toggles', async () => {
     await renderWidget({
-      type: 'bar',
       annotations: [{ type: 'line', axis: 'y', value: 100, label: 'Target' }],
       interaction: { tooltips: false, brush: true },
     });
@@ -134,7 +135,7 @@ describe('DatasetWidget — chartConfig keys that ARE lowered (objectstack#7016)
   });
 
   it('drops an empty annotations array instead of emitting a dead key', async () => {
-    await renderWidget({ type: 'bar', annotations: [] });
+    await renderWidget({ annotations: [] });
     expect('annotations' in lastChartSchema).toBe(false);
   });
 
@@ -143,19 +144,19 @@ describe('DatasetWidget — chartConfig keys that ARE lowered (objectstack#7016)
   // through two DIFFERENT props, so the widget splits them — the same split the
   // react tier's ObjectChart performs.
   it('lowers an array `colors` as the positional palette', async () => {
-    await renderWidget({ type: 'bar', colors: ['#111111', '#222222'] });
+    await renderWidget({ colors: ['#111111', '#222222'] });
     expect(lastChartSchema.colors).toEqual(['#111111', '#222222']);
     expect('categoryColors' in lastChartSchema).toBe(false);
   });
 
   it('lowers a record `colors` as the per-category map, not as the palette', async () => {
-    await renderWidget({ type: 'pie', colors: { open: '#10B981', paid: '#EF4444' } });
+    await renderWidget({ colors: { open: '#10B981', paid: '#EF4444' } });
     expect(lastChartSchema.categoryColors).toEqual({ open: '#10B981', paid: '#EF4444' });
     expect('colors' in lastChartSchema).toBe(false);
   });
 
   it('keeps the pre-existing showLegend behaviour (#3135)', async () => {
-    await renderWidget({ type: 'bar', showLegend: false });
+    await renderWidget({ showLegend: false });
     expect(lastChartSchema.showLegend).toBe(false);
   });
 
@@ -174,37 +175,31 @@ describe('DatasetWidget — chartConfig keys that ARE lowered (objectstack#7016)
 });
 
 describe('DatasetWidget — chartConfig keys that are REFUSED (objectstack#7016)', () => {
-  // `xAxis` / `yAxis` / `series` were refused here too until objectui#4229,
-  // under the same criterion 2 — and that was half wrong. The DATA half of
-  // those keys is derived and still refused (below, and in
-  // `DatasetWidget.comboPresentation.test.tsx`); their PRESENTATION half is the
-  // author's and now merges forward, which is what makes an authored combo
-  // render as a combo. What remains refused, and is pinned here, is the part
-  // that would shadow the dataset's own derivation: the BINDINGS, i.e. the
-  // spec's `ChartAxis.field` and `ChartSeries.name`.
-  it('ignores an authored axis `field` and keeps the derived axis binding', async () => {
+  // `xAxis` / `yAxis` / `series` were refused here until objectui#4229 merged
+  // their presentation half forward, and are refused whole again since spec
+  // 17.5.0 retired them on this carrier (objectui#11315). The widget's values
+  // below are what a stored widget could still carry: nothing parses it on the
+  // way to this renderer, so the refusal has to hold here too.
+  it('emits no authored axis and keeps the derived axis binding', async () => {
     await renderWidget({
-      type: 'bar',
       xAxis: { field: 'not_a_column', title: 'Authored X' },
-      yAxis: [{ field: 'not_a_measure', min: 0, max: 5 }],
+      yAxis: [{ field: 'not_a_measure', min: 0, max: 5 }, { position: 'right' }],
     });
-    // The axes travel, stripped of the one key that names a column.
-    expect(lastChartSchema.xAxis).toEqual({ title: 'Authored X' });
-    expect(lastChartSchema.yAxis).toEqual([{ min: 0, max: 5 }]);
+    expect('xAxis' in lastChartSchema).toBe(false);
+    expect('yAxis' in lastChartSchema).toBe(false);
     // The derived binding is untouched: the dimension is still the category axis.
     expect(lastChartSchema.xAxisKey).toBe('status');
   });
 
   it('ignores an authored series and keeps one derived series per measure', async () => {
-    await renderWidget({ type: 'bar', series: [{ name: 'not_a_measure', stack: 'g' }] });
+    await renderWidget({ series: [{ name: 'total', type: 'line', yAxis: 'right', stack: 'g', color: '#ff0000' }] });
     // `series` on the emitted schema is the DERIVED one (internal `dataKey`
-    // shape, one entry per selected measure) — not the authored array. An entry
-    // naming a measure outside the selection matches nothing, so its
-    // presentation is dropped with it: membership belongs to the dataset.
+    // shape, one entry per selected measure) — not the authored array, and
+    // nothing of the authored entry is merged onto it, even though it names a
+    // selected measure: the derived binding is `dataKey` + `label`, and only that.
     expect(lastChartSchema.series).toHaveLength(1);
     expect(lastChartSchema.series[0].dataKey).toBe('total');
-    expect(lastChartSchema.series[0].name).toBeUndefined();
-    expect(lastChartSchema.series[0].stack).toBeUndefined();
+    expect(Object.keys(lastChartSchema.series[0]).sort()).toEqual(['dataKey', 'label']);
   });
 
   it('ignores chartConfig.type — the widget type owns the chart family', async () => {
@@ -216,14 +211,14 @@ describe('DatasetWidget — chartConfig keys that are REFUSED (objectstack#7016)
     expect('specType' in lastChartSchema).toBe(false);
   });
 
-  // Criterion 1: `aria` is declared by ChartConfigSchema and read by NOTHING on
-  // this path — AdvancedChartImpl has no `aria` prop, and SchemaRenderer's ARIA
-  // injection reads the FLAT `ariaLabel`/`ariaDescribedBy`/`role`. Forwarding it
-  // (nested, or flattened onto those three) would either stay inert or fight the
-  // accessible name `description` already sets. It stays out until #5175 rules.
+  // Criterion 1: `aria` is read by NOTHING on this path — AdvancedChartImpl has
+  // no `aria` prop, and SchemaRenderer's ARIA injection reads the FLAT
+  // `ariaLabel`/`ariaDescribedBy`/`role`. Forwarding it (nested, or flattened
+  // onto those three) would either stay inert or fight the accessible name
+  // `description` already sets. Spec 17.5.0 retired it as a tombstone
+  // (objectstack#17751, objectui#4044), so it is refused at parse as well.
   it('ignores aria — nested and flattened', async () => {
     await renderWidget({
-      type: 'bar',
       aria: { ariaLabel: 'Authored name', ariaDescribedBy: 'hint', role: 'figure' },
     });
     for (const key of ['aria', 'ariaLabel', 'ariaDescribedBy', 'role']) {

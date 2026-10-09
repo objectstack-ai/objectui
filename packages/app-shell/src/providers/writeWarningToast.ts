@@ -115,6 +115,14 @@ type StrippedLine = (t: TranslateFn, fields: string) => string;
  * shape the framework side of this seam uses (`service-automation`'s
  * `DROPPED_REASON_LABEL`), and the shape the spec's own schema comment asks every
  * consumer that branches on `reason` to use.
+ *
+ * The `computed` row (a `formula` field's caller-supplied value, stripped on
+ * every write path) was added by objectui#11206 ahead of the published pin:
+ * objectstack `b2805465` declared the arm while the pin of the day predated it,
+ * so the key type was widened by `| 'computed'` to compile against both. Since
+ * `@objectstack/spec` 17.6.0 the pin's own union carries `computed`, so the
+ * widening was a no-op and was deleted at that bump (objectui#11438), as its
+ * tripwire asked. The key type is the spec union again, exact in both directions.
  */
 const STRIPPED_LINE: Record<DroppedFieldsEvent['reason'], StrippedLine> = {
   readonly: (t: TranslateFn, fields: string) =>
@@ -133,6 +141,14 @@ const STRIPPED_LINE: Record<DroppedFieldsEvent['reason'], StrippedLine> = {
       fields,
       defaultValue:
         "The record's identifier cannot be changed by a save, so it did not take effect: {{fields}}",
+    }),
+  // Not a read-only lock either: the server computes a formula field on read and
+  // has nowhere to store a value for it, whoever sends one.
+  computed: (t: TranslateFn, fields: string) =>
+    t('detail.writeStrippedComputed', {
+      fields,
+      defaultValue:
+        'Calculated by the server from a formula, so the value sent did not take effect: {{fields}}',
     }),
 };
 

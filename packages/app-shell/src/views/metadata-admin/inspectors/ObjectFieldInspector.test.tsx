@@ -555,7 +555,11 @@ describe('ObjectFieldInspector — summary roll-up editor', () => {
 
   it('commits the child object into summaryOperations', () => {
     const { onPatch } = renderField({ total: { type: 'summary' } }, 'total');
-    fireEvent.change(controlFor('Child object'), { target: { value: 'crm_order' } });
+    // objectui#11783 — the object picker commits on blur or Enter, never on a
+    // keystroke, so the typed name is committed by leaving the input.
+    const input = controlFor('Child object');
+    fireEvent.change(input, { target: { value: 'crm_order' } });
+    fireEvent.blur(input);
     expect(onPatch.mock.calls.at(-1)![0].fields.total.summaryOperations).toEqual({
       object: 'crm_order',
     });

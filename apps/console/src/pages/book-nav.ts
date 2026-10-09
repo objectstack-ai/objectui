@@ -19,6 +19,10 @@
  * so the portal works the moment the backend serves `book` + `doc` through
  * the ordinary metadata API — without depending on a particular published
  * `@objectstack/spec` version or the `/meta/book/:name/tree` endpoint.
+ *
+ * The portal renders this resolver's answer over every doc it read: nothing
+ * narrows the doc set before it (objectui#11340), so book membership has one
+ * authority — the resolver — as ADR-0046 §6.4 asks.
  */
 
 // ── Authored spine (a subset of the framework `Book` shape) ────────────────
@@ -90,9 +94,9 @@ export interface ResolvedGroup {
   label: string;
   entries: ResolvedEntry[];
   /**
-   * True for the synthetic "Uncategorized" catch-all. It appears in EVERY
-   * book's resolution (it absorbs whatever the book's own groups didn't
-   * claim), so it must be excluded from authored-membership questions like
+   * True for the synthetic "Uncategorized" catch-all. It can appear in any
+   * book's resolution (it absorbs the book's own packages' docs that no group
+   * claimed), so it must be excluded from authored-membership questions like
    * "how many docs does this book organize?" or "which book owns this doc?".
    */
   synthetic?: boolean;
@@ -131,6 +135,28 @@ export function pkgOfBook(book: Book): string {
 /** The portal URL segment for a book (ADR-0046 §6: `slug`, default the name). */
 export function bookSlug(book: Book): string {
   return book.slug ?? book.name;
+}
+
+/**
+ * The book a portal segment names by its NAME where that name is not also some
+ * book's slug (objectui#11197) — or `null`.
+ *
+ * A `{ type: 'doc', book }` navigation entry names its book by NAME (the spec's
+ * `DocNavItemSchema.book`, the name the CLI's docs lint checks), while the portal
+ * addresses a book by {@link bookSlug}. The two differ exactly when the book
+ * authors a `slug`, so the entry's link would otherwise dead-end. Callers
+ * redirect a hit to the canonical `bookSlug(book)` URL, the one-canonical-URL
+ * rule (ADR-0046 §6.7) the flat-doc permalink redirect already follows.
+ *
+ * ⛔ A LAST-RESORT lookup: callers consult it only after every lookup that
+ * answers today (a book's slug, then an installed doc's name), so no URL that
+ * resolves today changes its answer. The slug guard here holds that even for a
+ * caller that forgets: a segment that is one book's slug and another's name is
+ * the slug's.
+ */
+export function bookNamedBy(segment: string, books: Book[]): Book | null {
+  if (books.some((b) => bookSlug(b) === segment)) return null;
+  return books.find((b) => b.name === segment) ?? null;
 }
 
 /** Compile a `*`-glob over doc names to a RegExp anchored on the whole name. */
@@ -234,8 +260,19 @@ export function resolveBookTree(book: Book, docs: ResolverDoc[], bookPackage?: s
   }
 
   // Orphans: docs claimed by no group fall into a synthetic Uncategorized
-  // group appended last — nothing is ever dropped.
-  const orphans = docs.filter((d) => !claimed.has(d.name)).sort(byOrderThenLabel);
+  // group appended last — but only the docs of the book's own packages: the
+  // book's (`bookPackage`, else `book.packageId`) and each group's `package`,
+  // asked through `include`'s own scope test (ADR-0046 §6.4; the framework's
+  // resolver answers the same since objectstack#20980). Another package's
+  // unplaced doc is that package's own book's orphan, not this one's. A book
+  // that declares no package keeps every unclaimed doc.
+  const ownPackages = [scopeDefault, ...groupsSorted.map((g) => g.package)].filter(
+    (p): p is string => typeof p === 'string' && p.length > 0,
+  );
+  const orphans = docs
+    .filter((d) => !claimed.has(d.name))
+    .filter((d) => ownPackages.length === 0 || ownPackages.some((p) => matchesInclude(d, '*', p)))
+    .sort(byOrderThenLabel);
   if (orphans.length) {
     resolvedGroups.push({
       key: UNCATEGORIZED_KEY,
@@ -277,27 +314,6 @@ export interface BookCard {
   docCount: number;
 }
 
-/** The set of packages a book draws from: its own plus any group overrides. */
-function bookPackages(book: Book): Set<string> {
-  const pkgs = new Set<string>();
-  if (book.packageId) pkgs.add(book.packageId);
-  for (const g of book.groups ?? []) if (g.package) pkgs.add(g.package);
-  return pkgs;
-}
-
-/**
- * Narrow the doc set to the packages a book draws from before resolving, so the
- * synthetic Uncategorized group stays scoped to the book instead of vacuuming
- * up every other package's docs. When a book declares no package (its own or a
- * group override) we can't scope safely, so all docs are kept and membership
- * falls to each group's `include` glob.
- */
-export function scopeDocsToBook(book: Book, docs: ResolverDoc[]): ResolverDoc[] {
-  const pkgs = bookPackages(book);
-  if (pkgs.size === 0) return docs;
-  return docs.filter((d) => pkgs.has(pkgOf(d)));
-}
-
 /** Sort books for the index: by `order`, then label, then name (stable). */
 export function sortBooks(books: Book[]): Book[] {
   return [...books]
@@ -316,7 +332,7 @@ export function sortBooks(books: Book[]): Book[] {
  * excluding the synthetic Uncategorized catch-all (see {@link ResolvedGroup}).
  */
 export function countBookDocs(book: Book, docs: ResolverDoc[]): number {
-  const resolved = resolveBookTree(book, scopeDocsToBook(book, docs));
+  const resolved = resolveBookTree(book, docs);
   const seen = new Set<string>();
   for (const g of resolved.groups) {
     if (g.synthetic) continue;
@@ -381,11 +397,18 @@ function humanizePackageId(pkg: string): string {
  * doc's own package. Used for the legacy `/docs/:name` permalink redirect and
  * as the default reading context. A doc curated into a cross-package authored
  * book is still reachable there, but its canonical URL is its home book.
+ *
+ * When the package ships several books, the home book is the one that CLAIMS
+ * the doc (authored membership, {@link findBookContainingDoc}), so a `{ doc }`
+ * navigation entry opens the page in its book's context (objectui#10188, the
+ * card's addendum). Only a doc no book of its package claims falls back to the
+ * package's first book in display order, as before.
  */
 export function homeBook(docName: string, portalBooks: Book[], docs: ResolverDoc[]): Book | null {
   const doc = docs.find((d) => d.name === docName);
   const pkg = doc ? pkgOf(doc) : namePrefix(docName);
-  return sortBooks(portalBooks).find((b) => pkgOfBook(b) === pkg) ?? null;
+  const ownBooks = sortBooks(portalBooks).filter((b) => pkgOfBook(b) === pkg);
+  return findBookContainingDoc(ownBooks, docs, docName)?.book ?? ownBooks[0] ?? null;
 }
 
 /**
@@ -400,7 +423,7 @@ export function findBookContainingDoc(
   docName: string,
 ): { book: Book; resolved: ResolvedBook } | null {
   for (const book of sortBooks(books)) {
-    const resolved = resolveBookTree(book, scopeDocsToBook(book, docs));
+    const resolved = resolveBookTree(book, docs);
     // Authored membership only — a doc that merely lands in this book's
     // synthetic Uncategorized group is not "owned" by it (every book has one).
     const has = resolved.groups.some(

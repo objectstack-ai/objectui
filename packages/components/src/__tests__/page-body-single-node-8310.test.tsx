@@ -32,13 +32,15 @@
  *   `packages/types/src/__tests__/page-body-arity-8310.test.ts`.
  * - **objectui#8912 — evidence, and it is RENDER OUTPUT.** The three
  *   `statistic` labels the flagship authors must appear in the rendered tree.
- *   ⛔ No compile-time check can stand in for this leg: `BaseSchema` is
- *   `.passthrough()` with an `[key: string]: any` index signature, so the
- *   defective key validated, type-checked, rode onto the node and drew nothing.
+ *   ⛔ No compile-time check could stand in for this leg when it was written:
+ *   `BaseSchema` was `.passthrough()` with an `[key: string]: any` index
+ *   signature, so the defective key validated, type-checked, rode onto the
+ *   node and drew nothing.
  *   `check:doc-types` only asks whether a fence's `type` literal is registered
- *   (`grid` is), and `check:doc-examples` compiles against that same index
- *   signature. Both are green on the defect BY DESIGN (objectui#4823), so a
- *   green from either is not a reading of this card.
+ *   (`grid` is), and `check:doc-examples` compiled against that same index
+ *   signature (objectui#8347 removed it). Both were green on the defect BY
+ *   DESIGN (objectui#4823), so a green from either is not a reading of this
+ *   card.
  *
  * ## ⚠️ Why the negative-space leg renders the OLD spelling
  *
@@ -155,14 +157,15 @@ describe('`grid` reads `children` and nothing else — the defect shape (objectu
 /* -------------------------------------------------------------------------- */
 
 /**
- * The `const schema = {` object literal inside the README's "Basic Usage"
+ * The `const schema: DeclaredNode = {` object literal inside the README's "Basic Usage"
  * fence, returned as source text. Scanned with brace-depth tracking rather than
  * a regex so a nested array cannot end the span early.
  */
 function basicUsageSchemaLiteral(): string {
   const heading = README.indexOf('#### Basic Usage');
   expect(heading).toBeGreaterThan(-1);
-  const start = README.indexOf('const schema = {', heading);
+  // The example is typed as the node the `schema` prop takes since objectui#11466.
+  const start = README.indexOf('const schema: DeclaredNode = {', heading);
   expect(start).toBeGreaterThan(-1);
 
   let depth = 0;

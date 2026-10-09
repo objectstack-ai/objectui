@@ -41,7 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@object-ui/components';
-import type { ComponentMeta } from '@object-ui/core';
+import type { RegistryComponentMeta } from '@object-ui/core';
 import { AlertTriangle, ChevronDown, ChevronsUpDown, ChevronUp, Eye, EyeOff, Plus, Search, Trash2 } from 'lucide-react';
 import { iconNames } from 'lucide-react/dynamic.mjs';
 import { toast } from 'sonner';
@@ -56,6 +56,9 @@ import type { ConditionScope } from './conditionScope.js';
 import { ConditionBuilder } from './inspectors/ConditionBuilder.js';
 import { expressionSource, writeExpressionSource } from './inspectors/expression-envelope.js';
 import { humanizeKey } from './inspectors/json-schema-to-fields.js';
+import { datasetSelectOptions } from './inspectors/dataset-picker-options.js';
+import type { DatasetCatalogEntry } from './previews/useDatasetCatalog.js';
+import { useMonacoFallback } from './useMonacoFallback.js';
 import {
   type LoadState,
   isLoading,
@@ -244,6 +247,20 @@ export interface WidgetContext {
    * free-text id the author can typo.
    */
   componentIds?: Array<{ id: string; type?: string; label?: string }>;
+  /**
+   * The analytics dataset catalog (objectui#11601). Drives the `ref:dataset`
+   * picker, so a spec-form field that declares that hint — a joined report's
+   * block `dataset` — is chosen from the real datasets, with the author's
+   * label and description beside each name, instead of a free-text name the
+   * author can typo. The value the picker writes is the dataset's name.
+   *
+   * The report inspector feeds the same `useDatasetCatalog` result its own
+   * top-level dataset picker reads. A host that never fetches the catalog
+   * omits this member; absence is {@link NOT_ASKED}, and the widget then
+   * renders a labelled text input, as it does for a completed load that found
+   * no datasets.
+   */
+  datasets?: LoadState<DatasetCatalogEntry[]>;
 }
 
 /* Stable empties for the arms that have no catalog to offer yet — `idle` and
@@ -254,6 +271,7 @@ const NO_OBJECT_NAMES: string[] = [];
 const NO_OBJECT_FIELDS: ObjectFieldOption[] = [];
 const NO_OBJECT_VIEWS: ObjectViewOption[] = [];
 const NO_OBJECT_ACTIONS: ObjectActionOption[] = [];
+const NO_DATASETS: DatasetCatalogEntry[] = [];
 
 export interface WidgetProps {
   /**
@@ -632,6 +650,87 @@ function RefComponentWidget({ id, ariaLabelledBy, required, value, onChange, rea
                 <span className="text-xs text-muted-foreground">{c.label || c.type}</span>
               )}
             </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* ref:dataset — pick an analytics dataset by name                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Single dataset picker for a field that declares `widget: 'ref:dataset'`
+ * (objectui#11601) — a report's `dataset`, and a joined report's block
+ * `dataset` once its row declares the hint. The datasets come from
+ * `context.datasets`; each option reads the author's label beside the name and
+ * the description after it (`datasetSelectOptions`, objectui#11161), and the
+ * value written is the dataset's NAME.
+ *
+ * The four arms of the catalog, as {@link RefObjectWidget} reads them:
+ *
+ *  - FAILED — the shared failure notice beside a freeform box that stays
+ *    enabled, so a failed catalog does not also block authoring (objectui#5170);
+ *  - LOADING — the stored name in a disabled box;
+ *  - `idle` (no host feeds a catalog) or a completed load with no datasets — a
+ *    labelled text input that writes the typed name. ⛔ Never the raw-JSON
+ *    face an unregistered hint falls back to;
+ *  - LOADED — the picker. A stored name the catalog does not offer is kept as
+ *    its own option, flagged `(not found)`, so it neither blanks the trigger
+ *    nor reads like an offered dataset (objectui#8488).
+ */
+function RefDatasetWidget({ id, ariaLabelledBy, required, value, onChange, readOnly, context }: WidgetProps) {
+  const locale = useMetadataLocale();
+  const datasetsState = context?.datasets ?? NOT_ASKED;
+  const current = value == null ? '' : String(value);
+  const freeform = (
+    <Input
+      {...controlNaming({ id, ariaLabelledBy, required })}
+      value={current}
+      disabled={readOnly}
+      onChange={(e) => onChange(e.target.value || undefined)}
+    />
+  );
+  if (datasetsState.status === 'error') {
+    return (
+      <div className="space-y-1.5">
+        <PickerLoadFailure message={datasetsState.message} testId="ref-dataset-load-failed" />
+        {freeform}
+      </div>
+    );
+  }
+  if (isLoading(datasetsState)) {
+    return (
+      <Input
+        {...controlNaming({ id, ariaLabelledBy, required })}
+        value={current}
+        disabled
+        placeholder={t('engine.form.loadingOptions', locale)}
+      />
+    );
+  }
+  const options = datasetSelectOptions(offeredOptions(datasetsState, NO_DATASETS));
+  if (options.length === 0) return freeform;
+  const offered = !current || options.some((o) => o.value === current);
+  return (
+    <Select value={current} onValueChange={(next) => onChange(next || undefined)} disabled={readOnly}>
+      <SelectTrigger {...controlNaming({ id, ariaLabelledBy, required })}>
+        <SelectValue placeholder={t('engine.form.selectEllipsis', locale)} />
+      </SelectTrigger>
+      <SelectContent>
+        {!offered && (
+          <SelectItem value={current}>
+            {tFormat('engine.form.flaggedValue', locale, {
+              value: current,
+              flag: t('engine.form.notFound', locale),
+            })}
+          </SelectItem>
+        )}
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
           </SelectItem>
         ))}
       </SelectContent>
@@ -2934,6 +3033,7 @@ function DynamicConfigWidget({ value, onChange, readOnly, fieldSpec, formData, c
 export const WIDGETS = {
   'ref:object': RefObjectWidget,
   'ref:component': RefComponentWidget,
+  'ref:dataset': RefDatasetWidget,
   'filter-mode': FilterModeWidget,
   'object-selector': ObjectSelectorWidget,
   'field-selector': FieldSelectorWidget,
@@ -2959,7 +3059,7 @@ export type RegisteredWidgetKey = keyof typeof WIDGETS;
 
 /**
  * The labelling vocabulary this host implements, DERIVED from the repo-wide
- * declaration type rather than restated (`ComponentMeta['labelling']`,
+ * declaration type rather than restated (`RegistryComponentMeta['labelling']`,
  * objectui#3961 → #4857 → #4871's joint ruling: no host may keep a local
  * variant of it).
  *
@@ -2974,7 +3074,7 @@ export type RegisteredWidgetKey = keyof typeof WIDGETS;
  * nowhere). Deriving by `Exclude` keeps the vocabulary single-sourced: rename or
  * re-spell a member in `packages/core` and this stops compiling.
  */
-export type WidgetLabelling = Exclude<NonNullable<ComponentMeta['labelling']>, 'display'>;
+export type WidgetLabelling = Exclude<NonNullable<RegistryComponentMeta['labelling']>, 'display'>;
 
 /**
  * How the HOST's visible label reaches each registered widget — the reviewed
@@ -3042,6 +3142,7 @@ export type WidgetLabelling = Exclude<NonNullable<ComponentMeta['labelling']>, '
 export const WIDGET_LABELLING: Record<RegisteredWidgetKey, WidgetLabelling> = {
   'ref:object': 'control',
   'ref:component': 'control',
+  'ref:dataset': 'control',
   'filter-mode': 'group',
   'object-selector': 'control',
   'field-selector': 'control',
@@ -3074,7 +3175,7 @@ export function widgetLabelling(widget: string | undefined): WidgetLabelling {
 }
 
 /* -------------------------------------------------------------------------- */
-/* CodeWidget — Monaco editor for `type: 'code'` fields                       */
+/* CodeWidget — Monaco editor (textarea fallback) for `type: 'code'` fields   */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -3131,6 +3232,18 @@ export function CodeWidget({
     : typeof value === 'string' ? value : (value == null ? '' : String(value));
   const commit = (next: string | undefined): void =>
     onChange(isExpression ? writeExpressionSource(value, next ?? '') : (next ?? ''));
+  // Monaco's core comes from a public CDN. Where it cannot be fetched (no
+  // egress, a strict CSP) the editor never paints, so this widget reads the
+  // page's one loader probe that the source editors read (objectui#11800) and
+  // renders a plain textarea instead (objectui#11858). The editor is mounted
+  // only once the probe has resolved: mounted earlier, its own `loader.init()`
+  // on a failing install logs a second report and leaks an uncaught rejection.
+  const [monacoStatus, containerRef] = useMonacoFallback();
+  const loadingEditor = (
+    <div className="h-[280px] flex items-center justify-center text-xs text-muted-foreground">
+      {t('engine.form.loadingEditor', locale)}
+    </div>
+  );
   return (
     // The editor's own focusable is Monaco's internal textarea — this widget
     // never renders it and cannot put the host id on it, so a `<label for>` can
@@ -3140,25 +3253,37 @@ export function CodeWidget({
         <span>{language}</span>
         {readOnly && <span>{t('engine.form.readOnly', locale)}</span>}
       </div>
-      <React.Suspense
-        fallback={
-          <div className="h-[280px] flex items-center justify-center text-xs text-muted-foreground">
-            {t('engine.form.loadingEditor', locale)}
-          </div>
-        }
-      >
-        <LazyCodeEditor
-          schema={{
-            type: 'code',
-            language,
-            theme: 'vs-dark',
-            height: '280px',
-            readOnly,
-          }}
-          value={editorText}
-          onChange={commit}
-        />
-      </React.Suspense>
+      <div ref={containerRef}>
+        {monacoStatus === 'unavailable' ? (
+          // The fallback is this widget's own element, so it takes the same
+          // IDREF as the group. It edits the same text and writes through the
+          // same `commit` as the editor: a string, or the expression envelope.
+          <textarea
+            value={editorText}
+            onChange={(e) => commit(e.target.value)}
+            readOnly={readOnly}
+            spellCheck={false}
+            aria-labelledby={ariaLabelledBy}
+            className="block h-[280px] w-full resize-y bg-background p-3 font-mono text-xs leading-relaxed outline-none"
+          />
+        ) : monacoStatus === 'loading' ? (
+          loadingEditor
+        ) : (
+          <React.Suspense fallback={loadingEditor}>
+            <LazyCodeEditor
+              schema={{
+                type: 'code',
+                language,
+                theme: 'vs-dark',
+                height: '280px',
+                readOnly,
+              }}
+              value={editorText}
+              onChange={commit}
+            />
+          </React.Suspense>
+        )}
+      </div>
     </div>
   );
 }

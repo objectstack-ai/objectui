@@ -4,7 +4,16 @@
  * A ⌘+K (Ctrl+K) command palette for quick navigation across apps, objects,
  * dashboards, pages, reports, and global actions.
  *
- * Uses Shadcn's Command (cmdk) component — keyboard-accessible, fuzzy search.
+ * Uses Shadcn's Command (cmdk) component — keyboard-accessible. The palette
+ * matches its navigation entries and built-in commands itself, on word
+ * prefixes and contiguous substrings (`matchesPaletteQuery`, objectui#11812),
+ * and renders only those that match; record hits come from the server search.
+ *
+ * Two scopes (objectui#11863). Inside an app (`scope` omitted) it searches that
+ * app. On `/studio` (`scope="studio"`), a frame outside every app, it has no
+ * app-scoped group and no full-search command, whose links all start with
+ * `/apps/APP`; it lists the Studio's packages, objects and flows instead, each
+ * opening its Studio page.
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
@@ -26,6 +35,10 @@ import {
   Sun,
   Monitor,
   Search,
+  Boxes,
+  Database,
+  Workflow,
+  type LucideIcon,
 } from 'lucide-react';
 import { useRecordSearch } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
@@ -35,11 +48,22 @@ import { useObjectTranslation } from '@object-ui/i18n';
 import { resolveKeyedI18nLabel, getRecordDisplayName, appRouteSegment } from '../utils/index.js';
 import { getIcon } from '../utils/getIcon.js';
 import { useRecentItems } from '../context/RecentItemsProvider.js';
+import { useRecentItemLabel } from '../hooks/useRecentItemLabel.js';
 import { useCommandPalette } from '../context/CommandPaletteProvider.js';
-import { resolveHref } from '@object-ui/layout';
+import { useMetadata } from '../providers/MetadataProvider.js';
+import { resolveHref, resolveNavItemLabel } from '@object-ui/layout';
+import type { NavigationItem } from '@object-ui/types';
+import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useAuth } from '@object-ui/auth';
+import { matchesPaletteQuery } from './paletteMatch.js';
+import { fetchPackages, type PkgEntry } from '../views/studio-design/packages-io.js';
+import { isPackageLessItem, studioOrgScopePath } from '../views/studio-design/studioScope.js';
+import { DESIGNER_SURFACE_PARAM, formatSurfaceParam } from '../views/metadata-admin/nav-selection.js';
 
-interface CommandPaletteProps {
+/** The palette of the active app: the frame `ConsoleLayout` draws for `/apps/APP`. */
+interface AppCommandPaletteProps {
+  /** Omitted inside an app; `'studio'` is the other scope. */
+  scope?: undefined;
   apps: any[];
   activeApp: any;
   objects: any[];
@@ -51,14 +75,49 @@ interface CommandPaletteProps {
   dataSource?: any;
 }
 
-export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSource }: CommandPaletteProps) {
+/**
+ * The palette on `/studio`, a frame outside every app (objectui#11863). It
+ * takes no app props: there is no active app to search, switch from, or build
+ * a `/apps/APP` link for. It lists the packages Studio opens, their objects and
+ * their flows, plus the organization's package-less flows.
+ */
+interface StudioCommandPaletteProps {
+  scope: 'studio';
+}
+
+type CommandPaletteProps = AppCommandPaletteProps | StudioCommandPaletteProps;
+
+/**
+ * What the app half of the palette reads in the `studio` scope: no app, so no
+ * navigation entry, no app to switch to, no object to search records of, and
+ * no data source (record search stays off).
+ */
+const NO_APP: Omit<AppCommandPaletteProps, 'scope'> = {
+  apps: [],
+  activeApp: null,
+  objects: [],
+  onAppChange: () => {},
+  dataSource: undefined,
+};
+
+export function CommandPalette(props: CommandPaletteProps) {
+  const inStudio = props.scope === 'studio';
+  const { apps, activeApp, objects, onAppChange, dataSource } = inStudio ? NO_APP : props;
   const { open, setOpen } = useCommandPalette();
   const [inputValue, setInputValue] = useState('');
   const navigate = useNavigate();
   const { appName } = useParams();
   const { setTheme } = useTheme();
   const { evaluator } = useExpressionContext();
-  const { t } = useObjectTranslation();
+  const { t, language } = useObjectTranslation();
+  // A nav entry's text, the way the sidebar and `nav:menu` name it: an entry
+  // with NO `label` shows its target's current label, else its target's machine
+  // name (objectui#9868 — `NavigationSyncEffect` writes such entries). A present
+  // label renders as authored — an inline locale map in the viewer's `language`,
+  // the locale the sidebar passes (objectui#11299).
+  const targetLabel = useNavTargetLabel();
+  const navLabel = (item: NavigationItem) =>
+    resolveNavItemLabel(item, t, targetLabel, language);
 
   // The ⌘K / Ctrl+K accelerator and the open-state source of truth now live in
   // CommandPaletteProvider so the keyboard shortcut, the header button, and the
@@ -85,6 +144,41 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
   const navItems = flattenNavigation(activeApp?.navigation || []).filter(
     (item) => evaluateVisibility(item.visible ?? item.visibleOn, evaluator)
   );
+
+  // The entries the palette shows for the query: a navigation entry or app by
+  // its label and its machine name, a built-in command by its value. They are
+  // matched here, on word prefixes and contiguous substrings, and only the
+  // matches are rendered, so cmdk's default subsequence scorer (it found
+  // "Field Zoo" for `zzzz`) no longer decides what shows (objectui#11812).
+  const matches = (...terms: Array<string | undefined>) => matchesPaletteQuery(inputValue, terms);
+  const navOfType = (type: string, nameKey: string) =>
+    navItems.filter((item) => item.type === type && matches(navLabel(item), item[nameKey]));
+  const objectItems = navOfType('object', 'objectName');
+  const dashboardItems = navOfType('dashboard', 'dashboardName');
+  const pageItems = navOfType('page', 'pageName');
+  const reportItems = navOfType('report', 'reportName');
+  const switchableApps = apps.filter((a) => a.active !== false);
+  const appItems =
+    switchableApps.length > 1
+      ? switchableApps.filter((app) => matches(resolveKeyedI18nLabel(app.label, t), app.name))
+      : [];
+  const themeCommands = THEME_COMMANDS.filter((command) => matches(command.value));
+  const themeLabel = {
+    light: t('console.commandPalette.lightTheme'),
+    dark: t('console.commandPalette.darkTheme'),
+    system: t('console.commandPalette.systemTheme'),
+  };
+  // The full-search page lives under an app (`/apps/APP/search`), so the
+  // `studio` scope, which has none, offers no such command (objectui#11863).
+  const showFullSearch = !inStudio && matches(FULL_SEARCH_VALUE);
+
+  // objectui#11863 — the Studio's packages, objects and flows, read only while
+  // the palette is open in the `studio` scope, matched like the entries above.
+  const studio = useStudioPaletteEntries(open && inStudio);
+  const studioMatches = (entry: StudioPaletteEntry) => matches(entry.label, entry.name);
+  const studioPackages = studio.packages.filter(studioMatches);
+  const studioObjects = studio.objects.filter(studioMatches);
+  const studioFlows = studio.flows.filter(studioMatches);
 
   // Whitelist of object names visible in this app's nav — used as the search
   // scope so we don't fan out to every object in the tenant.
@@ -115,6 +209,9 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
   // user types anything. Filtered down to record-type entries so we
   // don't double up with the per-app nav above.
   const { recentItems } = useRecentItems();
+  // The one way a recent entry is labelled (objectui#11678); for a record it
+  // is the title the entry was visited under.
+  const recentLabel = useRecentItemLabel();
   const recentRecords = useMemo(
     () => recentItems.filter((it) => it.type === 'record').slice(0, 5),
     [recentItems],
@@ -182,7 +279,7 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
       />
       <CommandList>
         <CommandEmpty>
-          {isSearching ? (
+          {isSearching || studio.loading ? (
             <span className="inline-flex items-center gap-2 text-muted-foreground">
               <span
                 aria-hidden
@@ -205,11 +302,11 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
             {recentRecords.map((item) => (
               <CommandItem
                 key={`recent:${item.id}`}
-                value={`recent ${item.label} ${item.id}`}
+                value={`recent ${recentLabel(item)} ${item.id}`}
                 onSelect={() => runCommand(() => navigate(item.href))}
               >
                 <Search className="mr-2 h-4 w-4" />
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">{recentLabel(item)}</span>
               </CommandItem>
             ))}
           </CommandGroup>
@@ -257,20 +354,19 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
           );
         })}
         {/* Object Navigation */}
-        {navItems.filter(i => i.type === 'object').length > 0 && (
+        {objectItems.length > 0 && (
           <CommandGroup heading={t('console.commandPalette.objects')}>
-            {navItems
-              .filter(i => i.type === 'object')
+            {objectItems
               .map(item => {
                 const Icon = getIcon(item.icon);
                 return (
                   <CommandItem
                     key={item.id}
-                    value={`object ${resolveKeyedI18nLabel(item.label, t)} ${item.objectName}`}
+                    value={`object ${navLabel(item)} ${item.objectName}`}
                     onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
                   >
                     <Icon className="mr-2 h-4 w-4" />
-                    <span>{resolveKeyedI18nLabel(item.label, t)}</span>
+                    <span>{navLabel(item)}</span>
                   </CommandItem>
                 );
               })}
@@ -278,66 +374,103 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
         )}
 
         {/* Dashboards */}
-        {navItems.filter(i => i.type === 'dashboard').length > 0 && (
+        {dashboardItems.length > 0 && (
           <CommandGroup heading={t('console.commandPalette.dashboards')}>
-            {navItems
-              .filter(i => i.type === 'dashboard')
+            {dashboardItems
               .map(item => (
                 <CommandItem
                   key={item.id}
-                  value={`dashboard ${resolveKeyedI18nLabel(item.label, t)} ${item.dashboardName}`}
+                  value={`dashboard ${navLabel(item)} ${item.dashboardName}`}
                   onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
                 >
                   <LayoutDashboard className="mr-2 h-4 w-4" />
-                  <span>{resolveKeyedI18nLabel(item.label, t)}</span>
+                  <span>{navLabel(item)}</span>
                 </CommandItem>
               ))}
           </CommandGroup>
         )}
 
         {/* Pages */}
-        {navItems.filter(i => i.type === 'page').length > 0 && (
+        {pageItems.length > 0 && (
           <CommandGroup heading={t('console.commandPalette.pages')}>
-            {navItems
-              .filter(i => i.type === 'page')
+            {pageItems
               .map(item => (
                 <CommandItem
                   key={item.id}
-                  value={`page ${resolveKeyedI18nLabel(item.label, t)} ${item.pageName}`}
+                  value={`page ${navLabel(item)} ${item.pageName}`}
                   onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
                 >
                   <FileText className="mr-2 h-4 w-4" />
-                  <span>{resolveKeyedI18nLabel(item.label, t)}</span>
+                  <span>{navLabel(item)}</span>
                 </CommandItem>
               ))}
           </CommandGroup>
         )}
 
         {/* Reports */}
-        {navItems.filter(i => i.type === 'report').length > 0 && (
+        {reportItems.length > 0 && (
           <CommandGroup heading={t('console.commandPalette.reports')}>
-            {navItems
-              .filter(i => i.type === 'report')
+            {reportItems
               .map(item => (
                 <CommandItem
                   key={item.id}
-                  value={`report ${resolveKeyedI18nLabel(item.label, t)} ${item.reportName}`}
+                  value={`report ${navLabel(item)} ${item.reportName}`}
                   onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
                 >
                   <BarChart3 className="mr-2 h-4 w-4" />
-                  <span>{resolveKeyedI18nLabel(item.label, t)}</span>
+                  <span>{navLabel(item)}</span>
                 </CommandItem>
               ))}
           </CommandGroup>
         )}
 
+        {/* Studio (objectui#11863): packages, objects and flows, `studio` scope only */}
+        {studioPackages.length > 0 && (
+          <CommandGroup heading={t('console.commandPalette.packages')}>
+            {studioPackages.map((entry) => (
+              <StudioPaletteItem
+                key={entry.key}
+                kind="studio-package"
+                entry={entry}
+                Icon={Boxes}
+                onOpen={() => runCommand(() => navigate(entry.href))}
+              />
+            ))}
+          </CommandGroup>
+        )}
+        {studioObjects.length > 0 && (
+          <CommandGroup heading={t('console.commandPalette.objects')}>
+            {studioObjects.map((entry) => (
+              <StudioPaletteItem
+                key={entry.key}
+                kind="studio-object"
+                entry={entry}
+                Icon={Database}
+                onOpen={() => runCommand(() => navigate(entry.href))}
+              />
+            ))}
+          </CommandGroup>
+        )}
+        {studioFlows.length > 0 && (
+          <CommandGroup heading={t('console.commandPalette.flows')}>
+            {studioFlows.map((entry) => (
+              <StudioPaletteItem
+                key={entry.key}
+                kind="studio-flow"
+                entry={entry}
+                Icon={Workflow}
+                onOpen={() => runCommand(() => navigate(entry.href))}
+              />
+            ))}
+          </CommandGroup>
+        )}
+
         {/* App Switching */}
-        {apps.filter(a => a.active !== false).length > 1 && (
+        {appItems.length > 0 && (
           <>
             <CommandSeparator />
             <CommandGroup heading={t('console.commandPalette.switchApp')}>
-              {apps
-                .filter(a => a.active !== false)
+              {appItems
                 .map(app => {
                   const Icon = getIcon(app.icon);
                   return (
@@ -359,36 +492,227 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
         )}
 
         {/* Theme */}
-        <CommandSeparator />
-        <CommandGroup heading={t('console.commandPalette.preferences')}>
-          <CommandItem value="theme light" onSelect={() => runCommand(() => setTheme('light'))}>
-            <Sun className="mr-2 h-4 w-4" />
-            <span>{t('console.commandPalette.lightTheme')}</span>
-          </CommandItem>
-          <CommandItem value="theme dark" onSelect={() => runCommand(() => setTheme('dark'))}>
-            <Moon className="mr-2 h-4 w-4" />
-            <span>{t('console.commandPalette.darkTheme')}</span>
-          </CommandItem>
-          <CommandItem value="theme system" onSelect={() => runCommand(() => setTheme('system'))}>
-            <Monitor className="mr-2 h-4 w-4" />
-            <span>{t('console.commandPalette.systemTheme')}</span>
-          </CommandItem>
-        </CommandGroup>
+        {themeCommands.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading={t('console.commandPalette.preferences')}>
+              {themeCommands.map(({ value, theme, Icon }) => (
+                <CommandItem key={value} value={value} onSelect={() => runCommand(() => setTheme(theme))}>
+                  <Icon className="mr-2 h-4 w-4" />
+                  <span>{themeLabel[theme]}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
 
         {/* Full Search Page */}
-        <CommandSeparator />
-        <CommandGroup heading={t('console.commandPalette.actions')}>
-          {/* Manual "Create App" deprecated — AI-first builder is the path. */}
-          <CommandItem
-            value="search all results full page"
-            onSelect={() => runCommand(() => navigate(`${baseUrl}/search`))}
-          >
-            <Search className="mr-2 h-4 w-4" />
-            <span>{t('console.commandPalette.openFullSearch')}</span>
-          </CommandItem>
-        </CommandGroup>
+        {showFullSearch && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading={t('console.commandPalette.actions')}>
+              {/* Manual "Create App" deprecated — AI-first builder is the path. */}
+              <CommandItem
+                value={FULL_SEARCH_VALUE}
+                onSelect={() => runCommand(() => navigate(`${baseUrl}/search`))}
+              >
+                <Search className="mr-2 h-4 w-4" />
+                <span>{t('console.commandPalette.openFullSearch')}</span>
+              </CommandItem>
+            </CommandGroup>
+          </>
+        )}
       </CommandList>
     </CommandDialog>
+  );
+}
+
+/** The theme commands, matched by their value (objectui#11812). */
+const THEME_COMMANDS = [
+  { value: 'theme light', theme: 'light', Icon: Sun },
+  { value: 'theme dark', theme: 'dark', Icon: Moon },
+  { value: 'theme system', theme: 'system', Icon: Monitor },
+] as const;
+
+/** The full-search command's value, which it is matched by (objectui#11812). */
+const FULL_SEARCH_VALUE = 'search all results full page';
+
+/** One Studio entry the `studio` scope lists (objectui#11863). */
+interface StudioPaletteEntry {
+  /** Unique within its group, and part of its cmdk `value`. */
+  key: string;
+  /** What the entry shows: a package's name, an object's or a flow's label. */
+  label: string;
+  /** Its machine name, matched like the label. */
+  name: string;
+  /** The Studio page it opens. */
+  href: string;
+  /** The name of the package it belongs to; absent on a package and on a package-less flow. */
+  packageName?: string;
+}
+
+/** The fields of a served object or flow the Studio groups read. */
+interface StudioServedItem {
+  name?: unknown;
+  label?: Parameters<typeof resolveKeyedI18nLabel>[0];
+  /** The owning package's machine id (the spec's `MetadataProtectionFields`). */
+  _packageId?: unknown;
+}
+
+interface StudioPaletteEntries {
+  packages: StudioPaletteEntry[];
+  objects: StudioPaletteEntry[];
+  flows: StudioPaletteEntry[];
+  /** Some list has not answered yet. */
+  loading: boolean;
+}
+
+const NO_STUDIO_ENTRIES: StudioPaletteEntries = { packages: [], objects: [], flows: [], loading: false };
+
+/**
+ * A Studio pillar opened on one item, through the pillar's `?surface=` deep
+ * link: the shape `studioOrgScopePath` builds for the package-less scope, under
+ * a package. An object opens in the Data pillar and a flow in Automations,
+ * the pillars `StudioDesignSurface` routes those surface types to.
+ */
+function studioSurfacePath(packageId: string, pillar: 'data' | 'automations', surface: { type: string; name: string }): string {
+  return `/studio/${encodeURIComponent(packageId)}/${pillar}?${DESIGNER_SURFACE_PARAM}=${encodeURIComponent(formatSurfaceParam(surface))}`;
+}
+
+/**
+ * The Studio's packages, objects and flows, as the `studio` scope lists them
+ * (objectui#11863). Nothing is read until `enabled` (the palette is open in that
+ * scope). The package list is read again each time it opens; until that read
+ * answers, the previous answer is shown.
+ *
+ * - **Packages** come from `fetchPackages`, the list the Studio landing and its
+ *   package switcher read; kernel packages are already left out there. Each
+ *   opens its Data pillar, as a landing card does.
+ * - **Objects** come from the metadata cache (`useMetadata().objects`), each
+ *   listed under the package it declares (`_packageId`) and opened in that
+ *   package's Data pillar. One whose package is not in the list has no Studio
+ *   page to open, and is left out.
+ * - **Flows** come from the same cache's `flow` list, the unscoped read that
+ *   carries every package's flows (the read the package-less scope narrows,
+ *   see `loadPackageLessSurfaces`). A packaged flow opens in its package's
+ *   Automations pillar; a flow that belongs to no package opens in the
+ *   package-less scope (objectui#11553).
+ *
+ * The published items only: an item that is still a draft is not in either
+ * cache list. Until the package list answers nothing is listed, so no entry
+ * is drawn without its package. If that read fails, the packaged entries are
+ * left out; the landing behind the palette shows the same read's error.
+ */
+function useStudioPaletteEntries(enabled: boolean): StudioPaletteEntries {
+  const metadata = useMetadata();
+  const { t } = useObjectTranslation();
+  const [packages, setPackages] = useState<PkgEntry[] | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    fetchPackages().then(
+      (list) => {
+        if (!cancelled) setPackages(list);
+      },
+      () => {
+        if (!cancelled) setPackages([]);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+
+  if (!enabled) return NO_STUDIO_ENTRIES;
+
+  // Read only while open: each read starts that type's fetch when it has not
+  // been loaded yet, and the provider re-renders this palette when it answers.
+  const objectItems: StudioServedItem[] = metadata.objects;
+  const flowItems: StudioServedItem[] = metadata.getItemsByType('flow');
+  const typeLoading = (type: string) => {
+    const status = metadata.getTypeStatus?.(type);
+    return status === 'idle' || status === 'loading';
+  };
+  const loading = packages === null || typeLoading('object') || typeLoading('flow');
+  if (packages === null) return { ...NO_STUDIO_ENTRIES, loading };
+
+  const byId = new Map(packages.map((pkg) => [pkg.id, pkg]));
+  const ownPackage = (item: StudioServedItem): PkgEntry | undefined =>
+    typeof item._packageId === 'string' ? byId.get(item._packageId) : undefined;
+  const named = (item: StudioServedItem): item is StudioServedItem & { name: string } =>
+    typeof item.name === 'string' && item.name !== '';
+
+  const objects: StudioPaletteEntry[] = [];
+  for (const item of objectItems) {
+    const pkg = ownPackage(item);
+    if (!pkg || !named(item)) continue;
+    objects.push({
+      key: `${pkg.id}:${item.name}`,
+      label: resolveKeyedI18nLabel(item.label, t) || item.name,
+      name: item.name,
+      href: studioSurfacePath(pkg.id, 'data', { type: 'object', name: item.name }),
+      packageName: pkg.name,
+    });
+  }
+
+  const flows: StudioPaletteEntry[] = [];
+  for (const item of flowItems) {
+    if (!named(item)) continue;
+    const label = resolveKeyedI18nLabel(item.label, t) || item.name;
+    if (isPackageLessItem(item)) {
+      flows.push({
+        key: `~org:${item.name}`,
+        label,
+        name: item.name,
+        href: studioOrgScopePath({ type: 'flow', name: item.name }),
+      });
+      continue;
+    }
+    const pkg = ownPackage(item);
+    if (!pkg) continue;
+    flows.push({
+      key: `${pkg.id}:${item.name}`,
+      label,
+      name: item.name,
+      href: studioSurfacePath(pkg.id, 'automations', { type: 'flow', name: item.name }),
+      packageName: pkg.name,
+    });
+  }
+
+  return {
+    packages: packages.map((pkg) => ({
+      key: pkg.id,
+      label: pkg.name,
+      name: pkg.id,
+      href: `/studio/${encodeURIComponent(pkg.id)}/data`,
+    })),
+    objects,
+    flows,
+    loading,
+  };
+}
+
+/** One Studio entry: its icon, its label, and the package it belongs to on the right. */
+function StudioPaletteItem({
+  kind,
+  entry,
+  Icon,
+  onOpen,
+}: {
+  kind: 'studio-package' | 'studio-object' | 'studio-flow';
+  entry: StudioPaletteEntry;
+  Icon: LucideIcon;
+  onOpen: () => void;
+}) {
+  return (
+    <CommandItem value={`${kind} ${entry.label} ${entry.name} ${entry.key}`} onSelect={onOpen}>
+      <Icon className="mr-2 h-4 w-4" />
+      <span className="truncate">{entry.label}</span>
+      {entry.packageName && (
+        <span className="ml-auto max-w-[45%] truncate text-xs text-muted-foreground">{entry.packageName}</span>
+      )}
+    </CommandItem>
   );
 }
 

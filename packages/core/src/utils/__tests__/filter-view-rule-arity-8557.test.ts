@@ -18,10 +18,11 @@
  *     → `[['tags', 'equals', ['a']]]`
  *     → `parseFilterAST` → `{ tags: ['a'] }`
  *
- * Section 1 pins that the spec's doors accept that node unjudged (measured
+ * Section 1 pinned that the spec's doors accept that node unjudged (measured
  * against `@objectstack/spec` 17.3.0), which is why the refusal used to arrive
  * two layers away as a `400 INVALID_FILTER` from `driver-sql`, or as an empty
- * list from an in-memory matcher.
+ * list from an in-memory matcher. Since 17.5.0 `parseFilterAST` refuses it
+ * itself; section 1 now pins that sibling refusal (objectui#11073).
  *
  * It is the SAME array-in-a-scalar-slot shape objectui#8530 / PR #8551 refused
  * in `convertFiltersToAST`'s object arm. That fix deliberately did not reach
@@ -103,16 +104,27 @@ const rule = (operator: string, value?: unknown) =>
   value === undefined ? { field: 'tags', operator } : { field: 'tags', operator, value };
 
 // ---------------------------------------------------------------------------
-// 1. Why the producer must refuse: the spec doors pass the old node unjudged
+// 1. Why the producer refuses first: the spec door judged nothing through 17.4.0
 // ---------------------------------------------------------------------------
 
-describe('objectui#8557 — the pre-fix node reaches the wire unjudged', () => {
-  it('is accepted by isFilterAST and lowered to an array comparand', () => {
-    // If the spec ever starts refusing this, the pin reddens and the reader
-    // learns the refusal gained a sibling — not that this arm can go.
+describe('objectui#8557 — the pre-fix node is judged by the spec door since 17.5.0', () => {
+  it('passes isFilterAST, and the lowering now REFUSES its array comparand', () => {
+    // Through `@objectstack/spec` 17.4.0 the lowering produced `{ tags: ['a'] }`
+    // unjudged. This pin was written to redden the day the spec refused it, and
+    // it did at 17.5.0 (objectui#11073): the reader learns the refusal gained a
+    // sibling — not that this arm can go.
     const preFixNode = ['tags', 'equals', ['a']];
     expect(isFilterAST(preFixNode)).toBe(true);
-    expect(parseFilterAST(preFixNode)).toEqual({ tags: ['a'] });
+    let thrown: unknown;
+    try {
+      parseFilterAST(preFixNode);
+    } catch (e) {
+      thrown = e;
+    }
+    expect((thrown as { code?: string } | undefined)?.code).toBe('INVALID_FILTER');
+    expect((thrown as Error).message).toMatch(
+      /^The implicit-equality comparand on field "tags" requires a single comparable value, but received an array/,
+    );
   });
 });
 

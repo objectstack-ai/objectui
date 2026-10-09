@@ -12,10 +12,20 @@
  * Drag-and-drop tree builder for NavigationItem[] with support for
  * recursive groups, quick add buttons, type badges, and live preview.
  * Aligned with @objectstack/spec NavigationItem schema.
+ *
+ * A row's and a preview entry's text is the runtime's own
+ * `resolveNavItemLabel` (`@object-ui/layout`, objectui#11196), so an entry
+ * with NO `label` shows the text it inherits, never a blank. The spec's rule:
+ * absent ⇒ the CURRENT label of what the entry opens. This designer is handed
+ * bare items and no metadata, so it names a target by the rule's machine-name
+ * rung (`pageName`, `dashboardName`, `objectName`, …, else the entry's `id`),
+ * as the console's renderer does for a host that supplies no target resolver.
+ * The inline rename edits the AUTHORED label; the inherited text is its
+ * placeholder, never its value.
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import type { NavigationItem, NavigationItemType } from '@object-ui/types';
+import type { KeyedI18nLabel, NavigationItem, NavigationItemType } from '@object-ui/types';
 import {
   BookOpen,
   ChevronDown,
@@ -42,6 +52,7 @@ import {
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { resolveKeyedI18nLabel } from '@object-ui/react';
+import { resolveNavItemLabel } from '@object-ui/layout';
 import { useDesignerTranslation } from './hooks/useDesignerTranslation';
 
 function cn(...inputs: (string | undefined | false)[]) {
@@ -102,14 +113,9 @@ function newNavItem(
 
 // Keyed by the spec-derived union, so a nav type the spec adds stops this file
 // compiling until it has an entry -- keep it a `Record`, never `Partial` or
-// `Record<string, ...>`.
-//
-// `| 'doc'` is the published pin lagging the spec: objectstack#19789 added the
-// `doc` nav item, and the pinned `@objectstack/spec` predates it, so without
-// the extra key a `doc:` entry is an excess property against the pin while its
-// absence fails the compile against objectstack `main` (Spec Main Shape Gate).
-// Drop `| 'doc'` at the pin bump that ships `doc`; the entry itself stays.
-const NAV_TYPE_META: Record<NavigationItemType | 'doc', { labelKey: string; color: string; Icon: React.FC<{ className?: string }> }> = {
+// `Record<string, ...>`. (The `| 'doc'` that bridged the pin lag behind
+// objectstack#19789 came off at the 17.5.0 pin, which ships `doc` — objectui#11197.)
+const NAV_TYPE_META: Record<NavigationItemType, { labelKey: string; color: string; Icon: React.FC<{ className?: string }> }> = {
   object: { labelKey: 'appDesigner.navTypeObject', color: 'bg-green-100 text-green-700', Icon: Database },
   dashboard: { labelKey: 'appDesigner.navTypeDashboard', color: 'bg-amber-100 text-amber-700', Icon: LayoutDashboard },
   page: { labelKey: 'appDesigner.navTypePage', color: 'bg-teal-100 text-teal-700', Icon: FileText },
@@ -135,6 +141,23 @@ const QUICK_ADD_TYPES: Array<{ type: NavigationItemType; labelKey: string }> = [
 // ============================================================================
 // Navigation Item Row (recursive)
 // ============================================================================
+
+/**
+ * The text the inline rename starts from: the AUTHORED label when it is a
+ * string, or objectui's keyed reference read as `resolveKeyedI18nLabel` reads
+ * it. A label written as an inline locale map (`{ en, 'zh-CN' }`) is not one
+ * string, so the draft starts empty — exactly what the keyed read answered for
+ * a map (it carries no `defaultValue` / `key`). objectui#11299 typed the label
+ * as the spec's `I18nLabel`, which is what made the map case visible here; the
+ * behaviour is unchanged.
+ */
+function labelDraftOf(label: unknown): string {
+  if (typeof label === 'string') return label;
+  if (typeof label === 'object' && label !== null && ('key' in label || 'defaultValue' in label)) {
+    return resolveKeyedI18nLabel(label as KeyedI18nLabel) ?? '';
+  }
+  return '';
+}
 
 interface NavItemRowProps {
   item: NavigationItem;
@@ -172,7 +195,7 @@ function NavItemRow({
   t,
 }: NavItemRowProps) {
   const [editingLabel, setEditingLabel] = useState(false);
-  const [labelDraft, setLabelDraft] = useState(resolveKeyedI18nLabel(item.label) ?? '');
+  const [labelDraft, setLabelDraft] = useState(labelDraftOf(item.label));
   const [editingIcon, setEditingIcon] = useState(false);
   const [iconDraft, setIconDraft] = useState(item.icon || '');
   const meta = NAV_TYPE_META[item.type];
@@ -184,7 +207,7 @@ function NavItemRow({
     if (labelDraft.trim()) {
       onUpdateLabel(item.id, labelDraft.trim());
     } else {
-      setLabelDraft(resolveKeyedI18nLabel(item.label) ?? '');
+      setLabelDraft(labelDraftOf(item.label));
     }
     setEditingLabel(false);
   };
@@ -276,11 +299,13 @@ function NavItemRow({
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleLabelCommit();
               if (e.key === 'Escape') {
-                setLabelDraft(resolveKeyedI18nLabel(item.label) ?? '');
+                setLabelDraft(labelDraftOf(item.label));
                 setEditingLabel(false);
               }
             }}
             autoFocus
+            placeholder={resolveNavItemLabel(item)}
+            data-testid={`nav-designer-label-input-${item.id}`}
             className="flex-1 rounded border border-blue-300 px-1.5 py-0.5 text-sm outline-none focus:ring-1 focus:ring-blue-400"
           />
         ) : (
@@ -291,12 +316,12 @@ function NavItemRow({
             )}
             onDoubleClick={() => {
               if (!readOnly) {
-                setLabelDraft(resolveKeyedI18nLabel(item.label) ?? '');
+                setLabelDraft(labelDraftOf(item.label));
                 setEditingLabel(true);
               }
             }}
           >
-            {resolveKeyedI18nLabel(item.label)}
+            {resolveNavItemLabel(item)}
           </span>
         )}
 
@@ -443,7 +468,7 @@ function PreviewItem({ item, depth }: { item: NavigationItem; depth: number }) {
         style={{ marginLeft: depth * 12 }}
       >
         <meta.Icon className="h-3 w-3 text-gray-400" />
-        <span className="truncate">{resolveKeyedI18nLabel(item.label)}</span>
+        <span className="truncate">{resolveNavItemLabel(item)}</span>
       </li>
       {item.type === 'group' && item.children?.map((child) => (
         <PreviewItem key={child.id} item={child} depth={depth + 1} />

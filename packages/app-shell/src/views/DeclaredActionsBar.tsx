@@ -31,7 +31,16 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { Button, Separator, cn, hasDeclaredVisibilityGate } from '@object-ui/components';
+import {
+  Button,
+  Separator,
+  cn,
+  hasDeclaredVisibilityGate,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@object-ui/components';
 import {
   ActionProvider,
   useAction,
@@ -178,6 +187,8 @@ const DeclaredActionButton: React.FC<{
   // these two lines carried — which existed only because `ActionDef.disabled`
   // could not describe the envelope arm — have nothing left to reach around.
   const isDisabledPred = useCondition(toPredicateInput(action.disabled), predicateRecord);
+  // Called up here with the other hooks: the `visible` gate below returns early.
+  const reasonId = React.useId();
 
   /**
    * Is the button this viewer is looking at an ADMIN OVERRIDE (objectui#5178)?
@@ -371,28 +382,42 @@ const DeclaredActionButton: React.FC<{
   // dialog body can never come from different bundle reads (objectui#4265).
   const label = isOverride ? overrideLabel : declaredLabel;
 
-  return (
+  // Is a `disabled` gate DECLARED? The same question the `visible` gate
+  // above asks, so it reads the same definition rather than re-spelling it.
+  // The name is historic — objectui#3492 arrived through `visible` — and the
+  // predicate is key-neutral: "declared" is `!= null && !== ''`, because an
+  // empty predicate is nothing to evaluate. Kept under that name
+  // deliberately (objectui#3842 ruling): one implementation behind two names
+  // is a dialect, not a clarification.
+  //
+  // `!= null` alone was a real defect here, and NOT for the reason it was on
+  // `visible`: the evaluation entry reads an empty predicate as "no
+  // condition → true", which on `visible` means SHOW (so an over-broad
+  // "declared" test cancels out and `''` renders either way), but here means
+  // DISABLE. A `disabled: ''` on a server-declared approval action rendered
+  // a permanently greyed-out Approve / Reject — the mirror image of
+  // objectui#3835 on the same surface, and equally impossible to tell from
+  // deliberate metadata by looking at it.
+  //
+  // Held apart from `loading` (objectui#11811): only the declared predicate is
+  // a fact about the record, so only it earns the "not available" reason. A
+  // button greyed out while its own action runs already says why — the spinner.
+  const disabledByPredicate = hasDeclaredVisibilityGate(action.disabled) ? isDisabledPred : false;
+  // The generic reason (objectui#11811). An author-written reason beside the
+  // predicate would be a spec key, which is objectstack's to declare — not one
+  // this bar may invent — so every predicate-disabled action says the same
+  // thing for now.
+  const disabledReason = disabledByPredicate
+    ? String(t('actions.notAvailableForRecord', { defaultValue: 'Not available for this record' }))
+    : undefined;
+
+  const button = (
     <Button
       type="button"
       size="sm"
       variant={variant as any}
-      // Is a `disabled` gate DECLARED? The same question the `visible` gate
-      // above asks, so it reads the same definition rather than re-spelling it.
-      // The name is historic — objectui#3492 arrived through `visible` — and the
-      // predicate is key-neutral: "declared" is `!= null && !== ''`, because an
-      // empty predicate is nothing to evaluate. Kept under that name
-      // deliberately (objectui#3842 ruling): one implementation behind two names
-      // is a dialect, not a clarification.
-      //
-      // `!= null` alone was a real defect here, and NOT for the reason it was on
-      // `visible`: the evaluation entry reads an empty predicate as "no
-      // condition → true", which on `visible` means SHOW (so an over-broad
-      // "declared" test cancels out and `''` renders either way), but here means
-      // DISABLE. A `disabled: ''` on a server-declared approval action rendered
-      // a permanently greyed-out Approve / Reject — the mirror image of
-      // objectui#3835 on the same surface, and equally impossible to tell from
-      // deliberate metadata by looking at it.
-      disabled={(hasDeclaredVisibilityGate(action.disabled) ? isDisabledPred : false) || loading}
+      disabled={disabledByPredicate || loading}
+      aria-describedby={disabledReason ? reasonId : undefined}
       onClick={handleClick}
       // Amber warning treatment for an override (objectui#5178) — the same
       // palette the approvals surfaces already use for "waiting / attention",
@@ -419,6 +444,35 @@ const DeclaredActionButton: React.FC<{
         : null}
       {label}
     </Button>
+  );
+  if (!disabledReason) return button;
+  // A natively `disabled` button fires no pointer or focus events, and the
+  // Button primitive adds `disabled:pointer-events-none` on top — so a tooltip
+  // (or a native `title`) on the button itself never opens: hovering or
+  // focusing it showed nothing (objectui#11811). The wrapping span is the
+  // trigger instead, the idiom Radix documents for a disabled button: it takes
+  // the hover, and `tabIndex={0}` lets a keyboard user focus it, which opens
+  // the tooltip too. The reason is ALSO a persistent accessible description
+  // (`aria-describedby` on both the button and the span, onto an `sr-only`
+  // copy), so a screen reader reaching either one hears it with the tooltip
+  // closed. Same shape as `record:quick_actions`' button.
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            tabIndex={0}
+            aria-describedby={reasonId}
+            data-disabled-reason=""
+            className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {button}
+            <span id={reasonId} className="sr-only">{disabledReason}</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{disabledReason}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
 

@@ -33,15 +33,15 @@
  * "N unsaved change(s)" would only translate the defect, so the counter is a
  * plural family: base + `_one` + `_other`, in all ten packs.
  *
- * The base key is load-bearing and is not decoration. i18next asks
- * `Intl.PluralRules` for the ONE suffix a language needs for that number and,
- * finding no such slot, walks `fallbackLng` to `en`. `ru` has four categories
- * (one/few/many/other) and `ar` six; no pack in this repo enumerates
- * `_few`/`_many`/`_two`/`_zero`, so without a base key `ru` renders ENGLISH at
- * counts 2-20. That is not hypothetical — it is objectui#3863, measured on
- * `detail.showEmptyRelated`, and `all-locales-key-parity.test.ts` owns the rule
- * that came out of it. The `ru` cases below at counts 1/2/5 are what prove the
- * mechanism actually reaches a plural-rich pack rather than merely type-checking.
+ * i18next asks `Intl.PluralRules` for the ONE suffix a language needs for that
+ * number and, finding no such slot, walks `fallbackLng` to `en`. `ru` has four
+ * categories (one/few/many/other) and `ar` six. When this landed no pack
+ * enumerated `_few`/`_many`/`_two`/`_zero`, so the base key was what kept `ru`
+ * out of ENGLISH at counts 2-20 (objectui#3863, measured on
+ * `detail.showEmptyRelated`); since objectui#11432 every pack spells out every
+ * category its language selects. `all-locales-key-parity.test.ts` owns both
+ * rules. The `ru` cases below at counts 1/2/5 are what prove the mechanism
+ * actually reaches a plural-rich pack rather than merely type-checking.
  *
  * The alternative convention in this repo — two sibling keys `xxxCount` /
  * `xxxCountOne` (`common.itemCount`, `collaboration.commentCount`) — was
@@ -198,11 +198,10 @@ describe('SettingsView save-bar counter pluralizes through i18next (objectui#402
     expect(screen.queryByText(/change\(s\)/)).toBeNull();
   });
 
-  it('ru: the counter is Russian at 1, 2 AND 5 — the categories only a base key can serve', async () => {
-    // ru's CLDR categories are one/few/many/other. `_one` covers 1, `_other`
-    // covers the `other` category, and 2 (`few`) / 5 (`many`) resolve NOTHING
-    // locally — they land on the BASE key. Without it they fall through
-    // `fallbackLng` to English, which is objectui#3863 exactly.
+  it('ru: the counter is Russian at 1, 2 AND 5 — one, few and many', async () => {
+    // ru's CLDR categories are one/few/many/other, each with its own slot since
+    // objectui#11432 (`few` and `many` landed on the BASE key before it). Without
+    // either, 2 and 5 fall through `fallbackLng` to English — objectui#3863.
     renderInLocale('ru');
     await dirty(1);
     const one = await screen.findByTestId('settings-unsaved-count');

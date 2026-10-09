@@ -81,8 +81,9 @@ type IsOptionalKey< T, K extends keyof T > = Partial< Pick< T, K > > extends Pic
 /**
  * `objectName` is OPTIONAL and still `string`. Both directions bite: required
  * again -> `string` is not `string | undefined` -> red; member DELETED -> the
- * key resolves through `BaseSchema`'s index signature to `any`, and
- * `Equal< any, … >` is false -> red.
+ * indexed access stops compiling -> red (until objectui#8347 the key resolved
+ * through `BaseSchema`'s index signature to `any`, and `Equal< any, … >` was
+ * false -> red).
  */
 export type _CalendarObjectNameIsOptionalString =
   Expect< Equal< TsObjectCalendarSchema['objectName'], string | undefined > >;
@@ -186,8 +187,9 @@ export const DATA_DOCUMENT: TsObjectCalendarSchema = {
  * kanban board walks its own: pre-fetched `data` prop → `bind` → an inline ROW
  * ARRAY on `data` → `objectName`, with no `staticData` rung, and objectui#7651
  * (ruled B, closed `not_planned`) refuses giving it the shared one. Its
- * refinement is `requireKanbanRecordSource`, written for that ladder, and the
- * verdict table lives in `object-kanban-record-source-7780.test.ts`.
+ * refinement is `requireRecordSource` with that board's own rung list
+ * (objectui#11117; until then a hand copy, `requireKanbanRecordSource`), and
+ * the verdict table lives in `object-kanban-record-source-7780.test.ts`.
  *
  * `groupBy` is still supplied, and now for a second reason as well as the
  * first: objectui#7322 made it the required lane key, so it was the only way
@@ -236,7 +238,7 @@ type DocumentName = keyof typeof DOCUMENTS;
 const DOCUMENT_NAMES = Object.keys(DOCUMENTS) as DocumentName[];
 
 /** The refinement's message, spelled exactly as the map/gantt members emit it. */
-const REFUSAL_MESSAGE = '`object-calendar` has no record source: declare one of `data`, `staticData` or `objectName`';
+const REFUSAL_MESSAGE = '`object-calendar` has no record source: declare one of `data`, `staticData` or `objectName`, or name the object in `dataSource.object`';
 
 function withType(type: string, name: DocumentName): Record<string, unknown> {
   return { type, ...DOCUMENTS[name] };

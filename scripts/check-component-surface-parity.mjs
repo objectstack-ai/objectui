@@ -814,7 +814,7 @@ function schemaTypeNameOf(fn, localTypes) {
     if (!typeNode) return null;
     if (ts.isTypeReferenceNode(typeNode) && ts.isIdentifier(typeNode.typeName))
       return typeNode.typeName.text;
-    // `GridSchema & { smColumns?: number }` -- the named half is the interface.
+    // `UIActionSchema & { actionType?: string }` -- the named half is the interface.
     if (ts.isIntersectionTypeNode(typeNode)) {
       for (const member of typeNode.types) {
         const named = nameOfTypeNode(member);

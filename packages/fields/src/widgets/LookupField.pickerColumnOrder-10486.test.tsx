@@ -89,7 +89,7 @@ async function readBoth(ds: any, field: Record<string, unknown> = {}): Promise<R
         value={undefined}
         onChange={() => {}}
         dataSource={ds}
-        field={{ reference_to: 'contract', ...field } as never}
+        field={{ reference: 'contract', ...field } as never}
       />
     </SchemaRendererContext.Provider>,
   );

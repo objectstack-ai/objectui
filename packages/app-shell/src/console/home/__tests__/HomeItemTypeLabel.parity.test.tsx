@@ -62,6 +62,7 @@ vi.mock('@object-ui/i18n', async (importOriginal) => {
 
 import { useObjectTranslation } from '@object-ui/i18n';
 import { HomeContinue } from '../HomeRail.js';
+import { useRecentItemLabel } from '../../../hooks/useRecentItemLabel.js';
 import { RecentApps } from '../RecentApps.js';
 import { StarredApps } from '../StarredApps.js';
 
@@ -79,7 +80,9 @@ const ITEM_LABEL = 'Quarterly revenue';
  */
 function Rail({ items }: { items: RecentItem[] }) {
   const { t } = useObjectTranslation();
-  return <HomeContinue items={items} onOpen={() => {}} t={t} />;
+  // HomePage hands the rail its labeller the same way (objectui#11678).
+  const labelOf = useRecentItemLabel();
+  return <HomeContinue items={items} onOpen={() => {}} t={t} labelOf={labelOf} />;
 }
 
 /**
@@ -98,15 +101,21 @@ function typeLabelOf(node: HTMLElement, itemLabel: string): string {
 }
 
 function renderAllThree(kind: string) {
-  const recent: RecentItem[] = [
+  // A synthetic kind is no member of the `RecentItem` union, so the entry is
+  // cast. It carries BOTH `name` (what a named kind — `report` here — is
+  // labelled from when no metadata is loaded) and `label` (what any other kind
+  // shows), so every surface renders ITEM_LABEL whichever arm the kind falls in
+  // (objectui#11678).
+  const recent = [
     {
       id: 'r1',
+      name: ITEM_LABEL,
       label: ITEM_LABEL,
       href: '/x',
-      type: kind as RecentItem['type'],
+      type: kind,
       visitedAt: new Date().toISOString(),
     },
-  ];
+  ] as unknown as RecentItem[];
   const favorites: FavoriteItem[] = [
     {
       id: 'f1',

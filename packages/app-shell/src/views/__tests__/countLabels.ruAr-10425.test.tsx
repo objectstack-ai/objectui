@@ -33,9 +33,16 @@
  * number — so no noun has to agree with the number. The `ru` value is the one
  * `ru` `lookup.recordCount` already reads (`Записей: {{count}}`). The `ar`
  * values use the `عدد …: {{count}}` shape of objectui#10242. The singular
- * halves, the key set and the call sites are unchanged. ⛔ Not an i18next
- * `_few` / `_two` family: `all-locales-key-parity.test.ts` holds every pack to
- * `en`'s key set.
+ * halves, the key set and the call sites were unchanged then.
+ *
+ * ## objectui#11445 — the repair this file pins now
+ *
+ * objectui#11432 let a pack hold every CLDR slot its language selects, so
+ * objectui#11445 made each of these keys an i18next count family: the six
+ * surfaces pass `count` and i18next picks the slot, so `ru` reads «2 записи» /
+ * «21 запись» and `ar` the dual at 2, the plural at 3-10 and the accusative
+ * singular at 11-99, rather than a count label. The `…One` siblings left all
+ * ten packs. The strings below are those, read from a real render.
  *
  * ## Why this file sits beside the objectui#10242 pin
  *
@@ -279,9 +286,9 @@ function browseCount(lang: Lang, count: number): string {
 type Rows = Partial<Record<Lang, Array<[number, string]>>>;
 
 /**
- * Every string this file expects. `1` is the untouched singular half. The
- * other counts are the representative numbers of objectui#10242: `ru` 2 (few),
- * 5 (many) and 21 (one); `ar` 2 (two), 3 (few) and 11 (many).
+ * Every string this file expects, at the representative numbers of
+ * objectui#10242: `ru` 2 (few), 5 (many) and 21 (one); `ar` 2 (two), 3 (few)
+ * and 11 (many). Each is the family slot i18next selects (objectui#11445).
  */
 const LIST_BAR: Rows = {
   en: [
@@ -290,15 +297,15 @@ const LIST_BAR: Rows = {
   ],
   ru: [
     [1, '1 запись'],
-    [2, 'Записей: 2'],
-    [5, 'Записей: 5'],
-    [21, 'Записей: 21'],
+    [2, '2 записи'],
+    [5, '5 записей'],
+    [21, '21 запись'],
   ],
   ar: [
     [1, '1 سجل'],
-    [2, 'عدد السجلات: 2'],
-    [3, 'عدد السجلات: 3'],
-    [11, 'عدد السجلات: 11'],
+    [2, 'سجلان (2)'],
+    [3, '3 سجلات'],
+    [11, '11 سجلًا'],
   ],
 };
 
@@ -307,17 +314,16 @@ const PICKER: Rows = {
     [1, '1 record'],
     [2, '2 records'],
   ],
-  // The control: `ru` already read this way, and the `ru` list bar now matches it.
   ru: [
     [1, '1 запись'],
-    [2, 'Записей: 2'],
-    [21, 'Записей: 21'],
+    [2, '2 записи'],
+    [21, '21 запись'],
   ],
   ar: [
-    [1, 'سجل واحد'],
-    [2, 'عدد السجلات: 2'],
-    [3, 'عدد السجلات: 3'],
-    [11, 'عدد السجلات: 11'],
+    [1, '1 سجل'],
+    [2, 'سجلان (2)'],
+    [3, '3 سجلات'],
+    [11, '11 سجلًا'],
   ],
 };
 
@@ -328,9 +334,9 @@ const CHIP: Rows = {
   ],
   ar: [
     [1, '👍 1 تفاعل'],
-    [2, '👍 عدد التفاعلات: 2'],
-    [3, '👍 عدد التفاعلات: 3'],
-    [11, '👍 عدد التفاعلات: 11'],
+    [2, '👍 تفاعلان (2)'],
+    [3, '👍 3 تفاعلات'],
+    [11, '👍 11 تفاعلًا'],
   ],
 };
 
@@ -339,17 +345,16 @@ const PRESENCE: Rows = {
     [1, '1 user present'],
     [2, '2 users present'],
   ],
-  // The control: `ru` already read this way.
   ru: [
     [1, 'Присутствует 1 пользователь'],
-    [2, 'Присутствует пользователей: 2'],
-    [21, 'Присутствует пользователей: 21'],
+    [2, 'Присутствуют 2 пользователя'],
+    [21, 'Присутствует 21 пользователь'],
   ],
   ar: [
     [1, '1 مستخدم متواجد'],
-    [2, 'عدد المستخدمين المتواجدين: 2'],
-    [3, 'عدد المستخدمين المتواجدين: 3'],
-    [11, 'عدد المستخدمين المتواجدين: 11'],
+    [2, 'مستخدمان متواجدان (2)'],
+    [3, '3 مستخدمين متواجدين'],
+    [11, '11 مستخدمًا متواجدًا'],
   ],
 };
 
@@ -358,17 +363,16 @@ const OVERFLOW: Rows = {
     [1, '1 more user'],
     [2, '2 more users'],
   ],
-  // The control: `ru` already read this way.
   ru: [
     [1, 'Ещё 1 пользователь'],
-    [2, 'Ещё пользователей: 2'],
-    [21, 'Ещё пользователей: 21'],
+    [2, 'Ещё 2 пользователя'],
+    [21, 'Ещё 21 пользователь'],
   ],
   ar: [
     [1, '1 مستخدم آخر'],
-    [2, 'عدد المستخدمين الآخرين: 2'],
-    [3, 'عدد المستخدمين الآخرين: 3'],
-    [11, 'عدد المستخدمين الآخرين: 11'],
+    [2, 'مستخدمان آخران (2)'],
+    [3, '3 مستخدمين آخرين'],
+    [11, '11 مستخدمًا آخر'],
   ],
 };
 
@@ -379,9 +383,9 @@ const BROWSE: Rows = {
   ],
   ar: [
     [1, '1 عنصر متاح'],
-    [2, 'عدد العناصر المتاحة: 2'],
-    [3, 'عدد العناصر المتاحة: 3'],
-    [11, 'عدد العناصر المتاحة: 11'],
+    [2, 'عنصران متاحان (2)'],
+    [3, '3 عناصر متاحة'],
+    [11, '11 عنصرًا متاحًا'],
   ],
 };
 
@@ -449,31 +453,28 @@ describe('count labels read correctly at every CLDR category in ru and ar (objec
     expect(browseCount('ar', 2)).not.toBe('2 عناصر متاحة');
   });
 
-  it('the count-not-one half is count-invariant: it ends in the number, after a colon', () => {
-    // The mechanism of the repair, stated on the pack values, so a later
-    // "natural-sounding" rewrite back to a number-then-noun form fails here
-    // with the reason attached: two slots cannot give that noun the right form.
+  it('each label is an i18next count family in ru and ar, and its `…One` sibling is gone', () => {
+    // The mechanism of the objectui#11445 repair, stated on the pack values: every
+    // CLDR slot the language selects is spelled, so i18next — not a `=== 1` key
+    // switch in the component — chooses the form.
     const at = (lang: 'ru' | 'ar', dotted: string) =>
       dotted
         .split('.')
         .reduce<unknown>((node, part) => (node as Record<string, unknown>)?.[part], builtInLocales[lang]);
-    const KEYS: Record<'ru' | 'ar', string[]> = {
-      ru: ['list.recordCount'],
-      ar: [
-        'list.recordCount',
-        'lookup.recordCount',
-        'detail.reactionCount',
-        'collaboration.presentUserCount',
-        'collaboration.moreUserCount',
-        'search.itemsAvailable',
-      ],
-    };
+    const KEYS = [
+      'list.recordCount',
+      'lookup.recordCount',
+      'detail.reactionCount',
+      'collaboration.presentUserCount',
+      'collaboration.moreUserCount',
+      'search.itemsAvailable',
+    ];
     for (const lang of ['ru', 'ar'] as const) {
-      for (const key of KEYS[lang]) {
-        const value = at(lang, key);
-        expect(value, `${lang} ${key}`).toMatch(/: \{\{count\}\}$/);
-        // …and the two halves are two different sentences.
-        expect(value, `${lang} ${key} equals its One half`).not.toBe(at(lang, `${key}One`));
+      for (const key of KEYS) {
+        for (const category of new Intl.PluralRules(lang).resolvedOptions().pluralCategories) {
+          expect(at(lang, `${key}_${category}`), `${lang} ${key}_${category}`).toEqual(expect.any(String));
+        }
+        expect(at(lang, `${key}One`), `${lang} ${key}One`).toBeUndefined();
       }
     }
   });

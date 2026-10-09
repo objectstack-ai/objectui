@@ -109,14 +109,18 @@ describe('PresenceAvatars group label (objectui#3440)', () => {
     expect(groupLabel()).toBe('5 anwesende Benutzer');
   });
 
-  /** A language that needs three forms; the pack picks, not the component. */
-  it('uses the Russian pack’s own singular / general forms', () => {
+  /**
+   * A language that needs three forms; the pack picks, not the component. A
+   * count family since objectui#11445, so 5 reads the `many` noun form where
+   * the code-selected pair's plural half could only give a count label.
+   */
+  it('uses the Russian pack’s own one / many forms', () => {
     renderStack('ru', { users: [users[0]] });
     expect(groupLabel()).toBe('Присутствует 1 пользователь');
     cleanup();
 
     renderStack('ru');
-    expect(groupLabel()).toBe('Присутствует пользователей: 5');
+    expect(groupLabel()).toBe('Присутствует 5 пользователей');
   });
 
   /** A language that needs none — one form for both, and no stray `s`. */
@@ -241,12 +245,14 @@ describe('the collaboration defaults map mirrors the en pack (objectui#3440)', (
     expect(fromMap).toEqual({ ...en.collaboration });
   });
 
-  it('carries the eight presence keys this change added', () => {
+  it('carries the presence keys this change added (the two counts as families, objectui#11445)', () => {
     for (const key of [
       'presentUserCount',
-      'presentUserCountOne',
+      'presentUserCount_one',
+      'presentUserCount_other',
       'moreUserCount',
-      'moreUserCountOne',
+      'moreUserCount_one',
+      'moreUserCount_other',
       'userStatusTitle',
       'statusActive',
       'statusIdle',

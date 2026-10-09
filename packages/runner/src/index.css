@@ -1,4 +1,17 @@
-@import 'tailwindcss';
+/*
+ * `source(none)` turns off Tailwind's AUTOMATIC source detection, so the only
+ * inputs are the `@source` lines below (objectui#11586). It is the same switch
+ * `packages/components/src/index.css` took in objectui#9569.
+ *
+ * Detection roots at `packages/runner`, where `pnpm build` runs, and scans every
+ * non-ignored file there, `CHANGELOG.md` included. `pnpm changeset:version`
+ * writes each pending changeset body into that file. On the 17.7.0 release head,
+ * detection compiled `paused`, `invert` and `flex-nowrap` back into this sheet
+ * from changelog prose. Those are three of the test-sourced classes the
+ * `@source not` lines below exist to keep out. On `main` it compiled
+ * `flex-shrink-0` and `isolate` the same way.
+ */
+@import 'tailwindcss' source(none);
 
 /* Class-based dark variant: follow `.dark` on <html>/ancestor instead of
    the OS `prefers-color-scheme`. Inlined here because @object-ui/runner
@@ -24,10 +37,9 @@
  * That covers runner's own tree and nothing else, so the utilities its
  * dependencies need were simply missing from the published bundle: fixing the
  * four sibling paths takes it from 228 to 1456 compiled selectors (21 kB ->
- * 136 kB). The automatic root is still on (there is no `source(none)` here, and
- * that parity question is objectui#8455), which is why the first line below is
- * a no-op today and still belongs here: it is the declared intent, and it is
- * what keeps runner's own source scanned the day the root moves.
+ * 136 kB). Detection is now off (`source(none)` above, objectui#11586), so the
+ * first line below is load-bearing. It is the only thing that scans runner's
+ * own source.
  */
 @source './**/*.{ts,tsx}';
 @source '../../components/src/**/*.{ts,tsx}';
@@ -41,9 +53,8 @@
  * not become a published byte. Same two-line spelling as
  * `packages/plugin-kanban/src/index.css`, anchored one level up because this
  * entry scans four sibling packages instead of only its own tree — `../../`
- * bases these on `packages/`, which contains every tree named above AND the
- * automatic-detection root, so runner's own tests are covered by the same two
- * lines (measured: negations do apply to files the automatic root found).
+ * bases these on `packages/`, which contains every tree named above, runner's
+ * own included, so runner's own tests are covered by the same two lines.
  *
  * Both lines earn their place. The file line removes nine test-sourced classes
  * (`flex-grow`, `flex-nowrap`, `h-[125px]`, `h-[400px]`, `invert`, `paused`,

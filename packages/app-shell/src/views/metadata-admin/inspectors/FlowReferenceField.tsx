@@ -20,6 +20,10 @@
  * a strict select over a closed enum, `manager` is auto-resolved (disabled
  * cell), and `queue` warns that the runtime doesn't resolve it.
  *
+ * An `object` reference renders the shared {@link ObjectPicker} instead
+ * (objectui#11783): still suggest-but-allow-anything, but the value is committed
+ * once, on a choice, Enter or blur, rather than on every keystroke.
+ *
  * Two layers:
  *   • {@link ReferenceCombobox} — the bare control, given an already-resolved
  *     concrete kind. Reused by the `objectList` repeater for per-row reference
@@ -47,7 +51,8 @@ import type { FlowReferenceSpec, ReferenceKind, RefValueSource } from './flow-no
 import { useMetadataClient } from '../useMetadata.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
 import { t, tFormat, useMetadataLocale, type SupportedLocale } from '../i18n.js';
-import { flagUnknownValue } from './_shared.js';
+import { flagUnknownValue, RequiredMarker } from './_shared.js';
+import { ObjectPicker } from './ObjectPicker.js';
 
 /** Context the reference picker needs to resolve dynamic option sources. */
 export interface FlowReferenceContext {
@@ -60,6 +65,11 @@ export interface FlowReferenceContext {
 interface Option {
   value: string;
   label: string;
+  /**
+   * Secondary text shown beside the label in the suggestion list — a connector
+   * action's authored `description` (objectui#11028). Absent → the label alone.
+   */
+  hint?: string;
 }
 
 /**
@@ -71,9 +81,10 @@ interface Option {
  * so the picker queried `GET /api/v1/meta/user` (which lists no `sys_user`
  * rows), came back empty, and silently degraded to a free-text id box
  * (objectstack-ai/objectstack#3508). They live in {@link KIND_TO_RECORD_LOOKUP} instead.
+ * `object` is absent too: it renders the shared {@link ObjectPicker}, which
+ * reads its own catalog (objectui#11783).
  */
 const KIND_TO_META_TYPE: Partial<Record<ReferenceKind, string>> = {
-  object: 'object',
   flow: 'flow',
   connector: 'connector',
   'email-template': 'email_template',
@@ -338,15 +349,27 @@ export function resolveConnectorName(kind: ReferenceKind, connectorSource: strin
   return typeof v === 'string' && v ? v : undefined;
 }
 
-/** A connector descriptor's action list → combobox options (exported for test). */
+/**
+ * A connector descriptor's action list → combobox options (exported for test).
+ *
+ * The action's `description` rides along as the option's `hint`, so the author
+ * reads what an action does where they pick it (objectui#11028). The served
+ * descriptor carries it as a plain string (`ConnectorActionDescriptor.description`
+ * in `@objectstack/spec`); a missing, blank or non-string one adds no hint.
+ */
 export function connectorActionsToOptions(actions: unknown): Option[] {
   if (!Array.isArray(actions)) return [];
   return actions
-    .filter((a): a is { key: string; label?: string } => !!a && typeof (a as { key?: unknown }).key === 'string' && !!(a as { key: string }).key)
-    .map((a) => ({
-      value: a.key,
-      label: typeof a.label === 'string' && a.label && a.label !== a.key ? `${a.label} (${a.key})` : a.key,
-    }));
+    .filter((a): a is { key: string; label?: unknown; description?: unknown } =>
+      !!a && typeof (a as { key?: unknown }).key === 'string' && !!(a as { key: string }).key)
+    .map((a) => {
+      const description = typeof a.description === 'string' ? a.description.trim() : '';
+      return {
+        value: a.key,
+        label: typeof a.label === 'string' && a.label && a.label !== a.key ? `${a.label} (${a.key})` : a.key,
+        ...(description ? { hint: description } : {}),
+      };
+    });
 }
 
 /**
@@ -416,7 +439,7 @@ function useMetadataListOptions(type: string | undefined): { options: Option[]; 
 /**
  * Fetch a connector's actions as combobox options from the runtime connector
  * descriptors (`GET /api/v1/automation/connectors`, each `{ name, actions:
- * [{key,label}] }`). `connectorName === undefined` disables the fetch (so the
+ * [{key,label,description}] }`). `connectorName === undefined` disables the fetch (so the
  * hook is safe to call unconditionally). Degrades to empty on any failure.
  */
 function useConnectorActionOptions(connectorName: string | undefined): { options: Option[]; loading: boolean } {
@@ -561,7 +584,7 @@ function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, 
             // and the lookup keys below are rejected.
             type: 'lookup',
             name: 'value',
-            reference_to: binding.object,
+            reference: binding.object,
             displayField: binding.displayField,
             // `position` commits the machine name, the rest the row id.
             idField: binding.valueField,
@@ -609,6 +632,11 @@ export interface ReferenceComboboxProps {
   context?: FlowReferenceContext;
   /** Show the "Fields of X." / unresolved hint under the control (default true). */
   showHint?: boolean;
+  /**
+   * The control's accessible name, for a caller that draws the visible label
+   * itself (the inspector field wrapper below). Read by the object picker.
+   */
+  ariaLabel?: string;
 }
 
 /**
@@ -620,7 +648,7 @@ export interface ReferenceComboboxProps {
  * (objectstack-ai/objectstack#3508). Hooks are called unconditionally (kind-gated args) so the
  * component is safe to use in a repeater where the kind changes per row.
  */
-export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect, disabled, placeholder, context, showHint = true }: ReferenceComboboxProps) {
+export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect, disabled, placeholder, context, showHint = true, ariaLabel }: ReferenceComboboxProps) {
   const listId = React.useId();
   // No `locale` prop here: the out-of-enum tier flag reads the designer's
   // locale itself, as the sibling `FlowObjectListField` does (objectui#10448).
@@ -642,7 +670,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
   // instances, ADR-0096), NOT the generic declared-metadata list — see the hook.
   const { options: connectorListOptions } = useConnectorListOptions(kind === 'connector', locale);
 
-  // Flat metadata-list kinds (object / flow / role / user / team / …).
+  // Flat metadata-list kinds (flow / connector / email-template).
   const listType =
     kind && kind !== 'object-field' && kind !== 'node' && kind !== 'connector-action' && kind !== 'connector'
       ? KIND_TO_META_TYPE[kind]
@@ -773,6 +801,24 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
     );
   }
 
+  // An object name (objectui#11783) → the shared picker: the catalog grouped
+  // and labelled, the platform's own objects collapsed under System, and the
+  // value committed ONCE — on a choice, Enter or blur — so nothing that
+  // resolves the trigger's object refetches per keystroke. Text that names no
+  // object (an expression, a template) is still committed as typed.
+  if (kind === 'object') {
+    return (
+      <ObjectPicker
+        ariaLabel={ariaLabel}
+        value={value != null ? String(value) : ''}
+        onCommit={commitSelection}
+        disabled={disabled}
+        placeholder={placeholder}
+        locale={locale}
+      />
+    );
+  }
+
   return (
     <div className="w-full space-y-1">
       <Input
@@ -788,7 +834,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
         <datalist id={listId}>
           {options.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {o.hint ? `${o.label} — ${o.hint}` : o.label}
             </option>
           ))}
         </datalist>
@@ -817,6 +863,8 @@ export interface FlowReferenceFieldProps {
   onCommit: (value: unknown) => void;
   disabled?: boolean;
   context?: FlowReferenceContext;
+  /** The spec requires this key (objectui#10948): the label carries {@link RequiredMarker}. */
+  required?: boolean;
 }
 
 /**
@@ -824,12 +872,15 @@ export interface FlowReferenceFieldProps {
  * resolved against the node's own sibling config keys (e.g. the script node's
  * `template` follows `actionType`).
  */
-export function FlowReferenceField({ field, value, onCommit, disabled, context }: FlowReferenceFieldProps) {
+export function FlowReferenceField({ field, value, onCommit, disabled, context, required }: FlowReferenceFieldProps) {
   const node = context?.node ?? null;
   const resolved = resolveRefKind(field.ref, (key) => configString(node, key));
   return (
     <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{field.label}</Label>
+      <Label className="text-xs text-muted-foreground">
+        {field.label}
+        {required && <RequiredMarker />}
+      </Label>
       <ReferenceCombobox
         resolved={resolved}
         value={value}
@@ -837,6 +888,7 @@ export function FlowReferenceField({ field, value, onCommit, disabled, context }
         disabled={disabled}
         placeholder={field.placeholder}
         context={context}
+        ariaLabel={field.label}
       />
     </div>
   );

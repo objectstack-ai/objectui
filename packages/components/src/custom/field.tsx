@@ -35,7 +35,7 @@ export interface FieldProps
  * A labelled form-control wrapper: label, slotted control, description, error.
  *
  * Named `FieldContainer`, not `Field` (objectstack#4115): `@objectstack/spec/data`
- * exports `Field` — an object FIELD's metadata (type, reference_to, options,
+ * exports `Field` — an object FIELD's metadata (type, reference, options,
  * permissions, …) and its builder namespace — which has nothing to do with this
  * `<div>`. Two unrelated things under one name is the defect that issue exists
  * to remove; `@object-ui/app-shell` already renamed the same kind of collision

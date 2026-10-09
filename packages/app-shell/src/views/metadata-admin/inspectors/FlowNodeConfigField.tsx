@@ -7,19 +7,23 @@
  */
 
 import * as React from 'react';
-import { isUnsetFieldValue } from './flow-node-config.js';
+import { isUnsetFieldValue, unsetNoticeApplies } from './flow-node-config.js';
 import type { FlowConfigField, InactiveRetainedKind } from './flow-node-config.js';
-import { t } from '../i18n.js';
+import { t, tFormat } from '../i18n.js';
+import { useObjectFields } from '../previews/useObjectFields.js';
+import { WIDGETS, OBJECTUI_SECRET_MASK } from '../widgets.js';
 import {
   InspectorNumberField,
   InspectorSelectField,
   InspectorCheckboxField,
+  RequiredMarker,
   flagUnknownValue,
 } from './_shared.js';
 import { Button, Label } from '@object-ui/components';
-import { FlowKeyValueField } from './FlowKeyValueField.js';
+import { FlowKeyValueField, type FlowKeyValueFieldProps } from './FlowKeyValueField.js';
 import { isValueEnvelopeSlot } from './flow-value-envelope.js';
 import { FlowStringListField } from './FlowStringListField.js';
+import { FlowRecipientsField } from './FlowRecipientsField.js';
 import { FlowObjectListField } from './FlowObjectListField.js';
 import { FlowReferenceField, type FlowReferenceContext } from './FlowReferenceField.js';
 import { validateExpressionClient } from './expression-validate.js';
@@ -35,11 +39,10 @@ import { findUnknownRefs, scopeRoots, describeUnknownRefs } from './flow-ref-che
  * ConditionBuilder's default context list is `record.id` / `user.*` / `org.*`,
  * which is right for its five record-scoped consumers and wrong here: at a
  * record-trigger gate the evaluation context is the changed record FLATTENED to
- * top level plus `previous`, and `record` is exactly the root `flow-scope.ts`
- * withholds on the start node. Inheriting the default would make this editor
- * emit `record.id` — the one spelling the `findUnknownRefs` note rendered a few
- * lines below, reading the SAME scope, flags as out of scope. One panel
- * contradicting its own generated output.
+ * top level plus `previous`, and that is the vocabulary this site declares. The
+ * engine binds `record` there too, and `flow-scope.ts` scopes it on the start
+ * node (objectui#11789), but `record.FIELD` is the same value as the bare
+ * `FIELD` the builder already offers — a second spelling, not a new subject.
  *
  * So the vocabulary offered here is exactly what `TriggerScope` declares: the
  * trigger record's fields (bare) and `previous` / `previous.FIELD`. Roots this
@@ -47,6 +50,137 @@ import { findUnknownRefs, scopeRoots, describeUnknownRefs } from './flow-ref-che
  * who needs one still has the raw CEL escape hatch.
  */
 const FLOW_TRIGGER_CONTEXT_SUBJECTS: ReadonlyArray<{ value: string; label?: string }> = [];
+
+/**
+ * The field-value maps whose KEYS are fields of the node's own target object
+ * (`config.objectName`) — objectui#11788. `CreateRecordConfigSchema.fields` and
+ * `UpdateRecordConfigSchema.fields` (in `@objectstack/spec/automation`) map a
+ * field name to the value written to it.
+ *
+ * Keyed by node type and PATH, not by a descriptor member, like
+ * `BLOCK_SWITCHES` in `flow-node-config.ts`: the offline table and the
+ * engine-published `configSchema` (`additionalProperties` → `keyValue`) both
+ * emit this path, so the picker holds whichever of the two drew the field.
+ * Only the key cell changes; the value cell keeps the slot's own dialect.
+ */
+const FIELD_VALUE_MAPS: ReadonlyArray<{ nodeType: string; path: readonly string[] }> = [
+  { nodeType: 'create_record', path: ['config', 'fields'] },
+  { nodeType: 'update_record', path: ['config', 'fields'] },
+];
+
+/**
+ * The target object whose fields key the map at `path` on `node`: its
+ * `config.objectName` ('' while none is chosen), or `null` when `path` is not a
+ * field-value map.
+ */
+function fieldValueMapObject(
+  node: Record<string, unknown> | null | undefined,
+  path: readonly string[],
+): string | null {
+  const type = node?.type;
+  if (typeof type !== 'string') return null;
+  const hit = FIELD_VALUE_MAPS.some(
+    (m) => m.nodeType === type && m.path.length === path.length && m.path.every((seg, i) => path[i] === seg),
+  );
+  if (!hit) return null;
+  const cfg = node?.config;
+  const objectName =
+    cfg && typeof cfg === 'object' && !Array.isArray(cfg) ? (cfg as Record<string, unknown>).objectName : undefined;
+  return typeof objectName === 'string' ? objectName.trim() : '';
+}
+
+/** A record node's field-value map: the key-value editor with the object's fields as key suggestions. */
+function FieldValueMapField({
+  objectName,
+  locale,
+  ...kv
+}: FlowKeyValueFieldProps & { objectName: string; locale?: string }) {
+  // The same field source the reference picker's `object-field` kind reads.
+  const { fields } = useObjectFields(objectName || undefined);
+  const keyOptions = React.useMemo(
+    () =>
+      fields.map((f) => ({
+        value: f.name,
+        label: f.label && f.label !== f.name ? `${f.label} (${f.name})` : f.name,
+      })),
+    [fields],
+  );
+  return (
+    <FlowKeyValueField
+      {...kv}
+      keyOptions={keyOptions}
+      keyHint={
+        objectName
+          ? tFormat('engine.inspector.reference.fieldsOf', locale, { object: objectName })
+          : t('engine.inspector.fieldMap.chooseObject', locale)
+      }
+    />
+  );
+}
+
+/** The metadata form's write-only credential input, reused as-is (objectui#11054). */
+const SecretWidget = WIDGETS['secret'];
+
+/**
+ * The `secret` kind (objectui#11054) — a flow-node credential, write-only.
+ *
+ * The widget speaks the metadata form's protocol: a value equal to
+ * `OBJECTUI_SECRET_MASK` means "one is stored" (the box starts empty with a
+ * leave-blank-to-keep hint and a Clear button); any other string is a value it
+ * would put INTO the input. A flow never carries the mask — a server that
+ * withholds the secret serves the start node without the key, and one that does
+ * not serves the value itself — so this adapter translates both directions:
+ *
+ * - READ: a value already on the node when the control mounts is `held`, and
+ *   is handed to the widget as the mask. It is never rendered, revealed or
+ *   echoed: the widget's own input only ever holds what the author types here.
+ * - WRITE: a typed value is committed as-is. Blank over a held value writes
+ *   nothing (the node keeps it); blank with nothing held commits `undefined`,
+ *   which the inspector's `setAtPath` turns into an ABSENT key — never `''`, and
+ *   never the mask, either of which a server would store as the secret. Clear
+ *   drops the key from the draft and forgets the held value.
+ *
+ * An absent key is what a withholding server reads as "keep the stored
+ * secret", so a save that never touched this control keeps it.
+ */
+function FlowSecretControl({
+  id,
+  value,
+  onCommit,
+  disabled,
+}: {
+  id: string;
+  value: unknown;
+  onCommit: (value: unknown) => void;
+  disabled?: boolean;
+}) {
+  const [held, setHeld] = React.useState<string | undefined>(() =>
+    typeof value === 'string' && value !== '' ? value : undefined,
+  );
+  const shown = held !== undefined && value === held ? OBJECTUI_SECRET_MASK : typeof value === 'string' && value !== '' ? value : undefined;
+  const onChange = (next: unknown) => {
+    if (next === OBJECTUI_SECRET_MASK) return; // blank over a held secret: keep it
+    if (next === null) {
+      setHeld(undefined); // Clear: forget it, and drop the key from the draft
+      onCommit(undefined);
+      return;
+    }
+    if (typeof next === 'string' && next !== '') {
+      onCommit(next);
+      return;
+    }
+    onCommit(held); // blank: back to what was held, or no key at all
+  };
+  return (
+    <SecretWidget
+      id={id}
+      value={shown}
+      onChange={onChange}
+      readOnly={disabled}
+      schema={{ type: 'string', writeOnly: true }}
+    />
+  );
+}
 
 export interface FlowNodeConfigFieldProps {
   field: FlowConfigField;
@@ -85,9 +219,22 @@ export interface FlowNodeConfigFieldProps {
    * DELIBERATELY. Omit to render the notice without the button.
    */
   onClearInactive?: () => void;
+  /**
+   * objectui#10948 — the installed spec refuses this node without a value at
+   * `field.path`. Supplied by the host inspector, which owns the node, from
+   * `specRequiresField` (`flow-required-keys.ts`) — the spec's own verdict,
+   * never a list kept here. The label carries {@link RequiredMarker}; a control
+   * this component owns carries `aria-required`.
+   */
+  required?: boolean;
+  /**
+   * objectui#10948 — for an `objectList` field, the column keys the spec
+   * requires on every row (`specRequiredColumns`), handed to the list editor.
+   */
+  requiredColumns?: ReadonlySet<string>;
 }
 
-export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, context, scopeGroups, approvalScopeGroups, triggerScope, inactiveRetained, onClearInactive }: FlowNodeConfigFieldProps) {
+export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, context, scopeGroups, approvalScopeGroups, triggerScope, inactiveRetained, onClearInactive, required, requiredColumns }: FlowNodeConfigFieldProps) {
   const refMode: 'expression' | 'template' =
     field.refMode ?? (field.kind === 'expression' ? 'expression' : 'template');
   // objectui#6226 — the row-based condition builder, on the fields that opted in
@@ -98,6 +245,35 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
   // `interpolate()` field (a loop `collection`) out even if one ever opts in.
   const asConditionBuilder =
     field.kind === 'expression' && !!field.conditionBuilder && !!triggerScope && refMode !== 'template';
+  // ADR-0032 — surface a malformed condition (e.g. the `{record.x}` brace-in-CEL
+  // mistake) inline, with the same corrective message the build/agent emit. Only
+  // for expression fields in a *predicate* mode — an expression field flagged
+  // `refMode: 'template'` (e.g. a loop/map collection authored as `{leadList}`)
+  // is an `interpolate()` single-brace template where `{var}` is legal, so the
+  // CEL brace-trap must be gated off or it false-positives on every `{…}`.
+  const isTemplate = refMode === 'template';
+  const exprIssue =
+    field.kind === 'expression' && !isTemplate ? validateExpressionClient('predicate', value, locale) : null;
+
+  // #1934 — pair the picker with a gentle, scope-aware "unknown reference"
+  // warning: CEL for predicate expression fields, `{…}` holes for template
+  // fields (including an expression field in template mode). Skipped for
+  // free-form code (refMode 'expression' on a textarea, e.g. a script body) and
+  // when scope is unknown. The brace error above takes precedence.
+  const scopeRole: 'predicate' | 'template' | null =
+    field.kind === 'expression'
+      ? isTemplate
+        ? 'template'
+        : 'predicate'
+      : refMode === 'template' && (field.kind === 'text' || field.kind === 'textarea')
+        ? 'template'
+        : null;
+  const unknownRefs =
+    !exprIssue && scopeRole && scopeGroups && scopeGroups.length > 0
+      ? findUnknownRefs(value, scopeRole, scopeRoots(scopeGroups.flatMap((g) => g.refs)))
+      : [];
+
+  const secretId = React.useId();
   const control = (() => {
     if (asConditionBuilder && triggerScope) {
       return (
@@ -112,6 +288,9 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             includePrevious: triggerScope.includePrevious,
             context: FLOW_TRIGGER_CONTEXT_SUBJECTS,
           }}
+          // objectui#11789 — one verdict: the scope note this field renders
+          // below replaces the raw editor's "Valid CEL", never sits under it.
+          scopeIssue={unknownRefs.length > 0}
         />
       );
     }
@@ -124,34 +303,43 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             onCommit={(v) => onCommit(v)}
             disabled={disabled}
             context={context}
+            required={required}
           />
         );
-      case 'keyValue':
-        return (
-          <FlowKeyValueField
-            label={field.label}
-            value={value}
-            onCommit={(v) => onCommit(v)}
-            disabled={disabled}
-            addLabel={t('engine.inspector.flowNode.kv.add', locale)}
-            keyLabel={t('engine.inspector.flowNode.kv.key', locale)}
-            valueLabel={t('engine.inspector.flowNode.kv.value', locale)}
-            removeLabel={t('engine.inspector.flowNode.kv.remove', locale)}
-            emptyLabel={t('engine.inspector.flowNode.kv.empty', locale)}
-            scopeGroups={scopeGroups}
-            // objectui#7588 — the per-value text / expression toggle, offered
-            // only on a map the spec's expression ledger declares `value`-role
-            // for this node type (today the assignment node's `assignments`).
-            valueEnvelope={
-              isValueEnvelopeSlot(context?.node?.type, field.path)
-                ? {
-                    toggleLabel: t('engine.inspector.flowNode.kv.asExpression', locale),
-                    expressionPlaceholder: t('engine.inspector.flowNode.kv.expressionPlaceholder', locale),
-                  }
-                : undefined
-            }
-          />
+      case 'keyValue': {
+        const kv: FlowKeyValueFieldProps = {
+          label: field.label,
+          value,
+          onCommit: (v) => onCommit(v),
+          disabled,
+          addLabel: t('engine.inspector.flowNode.kv.add', locale),
+          keyLabel: t('engine.inspector.flowNode.kv.key', locale),
+          valueLabel: t('engine.inspector.flowNode.kv.value', locale),
+          removeLabel: t('engine.inspector.flowNode.kv.remove', locale),
+          emptyLabel: t('engine.inspector.flowNode.kv.empty', locale),
+          scopeGroups,
+          required,
+          // objectui#7588 — the per-value text / expression toggle, offered
+          // only on a map the spec's expression ledger
+          // (`FLOW_NODE_EXPRESSION_PATHS`) declares `value`-role for this
+          // node type.
+          valueEnvelope: isValueEnvelopeSlot(context?.node?.type, field.path)
+            ? {
+                toggleLabel: t('engine.inspector.flowNode.kv.asExpression', locale),
+                expressionPlaceholder: t('engine.inspector.flowNode.kv.expressionPlaceholder', locale),
+              }
+            : undefined,
+        };
+        // objectui#11788 — a record node's field-value map: its keys are fields
+        // of the node's own target object, so the key cell lists them. The
+        // value cell is untouched.
+        const fieldMapObject = fieldValueMapObject(context?.node, field.path);
+        return fieldMapObject !== null ? (
+          <FieldValueMapField {...kv} objectName={fieldMapObject} locale={locale} />
+        ) : (
+          <FlowKeyValueField {...kv} />
         );
+      }
       case 'stringList':
         return (
           <FlowStringListField
@@ -159,10 +347,24 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             value={value}
             onCommit={(v) => onCommit(v)}
             disabled={disabled}
+            required={required}
             addLabel={t('engine.inspector.flowNode.list.add', locale)}
             itemLabel={t('engine.inspector.flowNode.list.item', locale)}
             removeLabel={t('engine.inspector.flowNode.list.remove', locale)}
             emptyLabel={t('engine.inspector.flowNode.list.empty', locale)}
+          />
+        );
+      case 'recipients':
+        return (
+          <FlowRecipientsField
+            label={field.label}
+            value={value}
+            onCommit={(v) => onCommit(v)}
+            disabled={disabled}
+            locale={locale}
+            context={context}
+            scopeGroups={scopeGroups}
+            required={required}
           />
         );
       case 'numberList':
@@ -180,6 +382,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
               onCommit(nums.length ? nums : undefined);
             }}
             disabled={disabled}
+            required={required}
             addLabel={t('engine.inspector.flowNode.list.add', locale)}
             itemLabel={t('engine.inspector.flowNode.list.item', locale)}
             removeLabel={t('engine.inspector.flowNode.list.remove', locale)}
@@ -204,6 +407,8 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             // objectui#10772 — with `context.node`, names a screen's `fields`
             // list, whose `visibleWhen` column binds the screen's own fields.
             fieldId={field.id}
+            required={required}
+            requiredColumns={requiredColumns}
           />
         );
       case 'number':
@@ -214,6 +419,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             placeholder={field.placeholder}
             onCommit={(v) => onCommit(v)}
             disabled={disabled}
+            required={required}
           />
         );
       case 'boolean': {
@@ -325,13 +531,31 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
               }
               onCommit={(v) => onCommit(v)}
               disabled={disabled}
+              required={required}
             />
           );
         })();
+      case 'secret': {
+        // objectui#11054 — keyed on the node, so a control moved to another
+        // node's value never carries the previous node's `held` secret over.
+        const nodeId = typeof context?.node?.id === 'string' ? context.node.id : '';
+        return (
+          <div className="space-y-1">
+            <Label htmlFor={secretId} className="text-xs text-muted-foreground">
+              {field.label}
+              {required && <RequiredMarker />}
+            </Label>
+            <FlowSecretControl key={nodeId} id={secretId} value={value} onCommit={onCommit} disabled={disabled} />
+          </div>
+        );
+      }
       case 'textarea':
         return (
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">{field.label}</Label>
+            <Label className="text-xs text-muted-foreground">
+              {field.label}
+              {required && <RequiredMarker />}
+            </Label>
             <VariableTextInput
               multiline
               rows={4}
@@ -341,6 +565,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
               groups={scopeGroups ?? []}
               placeholder={field.placeholder}
               disabled={disabled}
+              ariaRequired={required}
             />
           </div>
         );
@@ -349,7 +574,10 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
       default:
         return (
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">{field.label}</Label>
+            <Label className="text-xs text-muted-foreground">
+              {field.label}
+              {required && <RequiredMarker />}
+            </Label>
             <VariableTextInput
               mode={refMode}
               mono={field.kind === 'expression'}
@@ -358,39 +586,12 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
               groups={scopeGroups ?? []}
               placeholder={field.placeholder}
               disabled={disabled}
+              ariaRequired={required}
             />
           </div>
         );
     }
   })();
-
-  // ADR-0032 — surface a malformed condition (e.g. the `{record.x}` brace-in-CEL
-  // mistake) inline, with the same corrective message the build/agent emit. Only
-  // for expression fields in a *predicate* mode — an expression field flagged
-  // `refMode: 'template'` (e.g. a loop/map collection authored as `{leadList}`)
-  // is an `interpolate()` single-brace template where `{var}` is legal, so the
-  // CEL brace-trap must be gated off or it false-positives on every `{…}`.
-  const isTemplate = refMode === 'template';
-  const exprIssue =
-    field.kind === 'expression' && !isTemplate ? validateExpressionClient('predicate', value, locale) : null;
-
-  // #1934 — pair the picker with a gentle, scope-aware "unknown reference"
-  // warning: CEL for predicate expression fields, `{…}` holes for template
-  // fields (including an expression field in template mode). Skipped for
-  // free-form code (refMode 'expression' on a textarea, e.g. a script body) and
-  // when scope is unknown. The brace error above takes precedence.
-  const scopeRole: 'predicate' | 'template' | null =
-    field.kind === 'expression'
-      ? isTemplate
-        ? 'template'
-        : 'predicate'
-      : refMode === 'template' && (field.kind === 'text' || field.kind === 'textarea')
-        ? 'template'
-        : null;
-  const unknownRefs =
-    !exprIssue && scopeRole && scopeGroups && scopeGroups.length > 0
-      ? findUnknownRefs(value, scopeRole, scopeRoots(scopeGroups.flatMap((g) => g.refs)))
-      : [];
 
   return (
     <div className="space-y-1">
@@ -432,6 +633,20 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             </Button>
           )}
         </div>
+      )}
+      {/*
+        objectui#11054 — a key the engine refuses the flow without, while it is
+        empty. Shown only on a field its gate admits: a retained-but-inert value
+        above already says the field is not in effect.
+      */}
+      {!inactiveRetained && unsetNoticeApplies(field, value) && (
+        <p
+          className="text-[11px] leading-snug text-amber-700 dark:text-amber-400"
+          role="note"
+          data-testid="unset-notice"
+        >
+          {field.unsetNotice}
+        </p>
       )}
       {exprIssue && (
         <p className="text-[11px] leading-snug text-destructive" role="alert">

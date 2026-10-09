@@ -46,6 +46,9 @@ export {
   type ObjectUiGlobal,
 } from './observability/settleSignal.js';
 export { useRecentItems } from './hooks/useRecentItems.js';
+// From its own module, not the `useRecentItems` shim: it reads the metadata
+// cache, and the shim must not drag that into a list-only importer's graph.
+export { useRecentItemLabel } from './hooks/useRecentItemLabel.js';
 
 // Types
 export type {
@@ -64,7 +67,12 @@ export type {
 
 export type {
   RecentItem,
+  RecentItemInput,
+  RecentItemType,
+  RecentNamedItem,
+  RecentTextItem,
 } from './hooks/useRecentItems.js';
+export type { RecentItemLabelResolver } from './hooks/useRecentItemLabel.js';
 
 // Console building blocks — compose these in your App.tsx to build the console
 // routing tree. See examples/console-starter/src/App.tsx for a minimal example.
@@ -265,8 +273,20 @@ export { MarketplacePage } from './console/marketplace/MarketplacePage.js';
 export { MarketplacePackagePage } from './console/marketplace/MarketplacePackagePage.js';
 export { MarketplaceInstalledPage } from './console/marketplace/MarketplaceInstalledPage.js';
 export { LoginPage as DefaultLoginPage } from './console/auth/LoginPage.js';
+export { signInRefusalMessages } from './console/auth/signInRefusalMessages.js';
 export { RegisterPage as DefaultRegisterPage } from './console/auth/RegisterPage.js';
 export { signUpRefusalMessages } from './console/auth/signUpRefusalMessages.js';
+// The sign-up decision the default login/register pages above and the
+// console's own pages share — one rule, read off `disableSignUp` AND
+// `features.audiencePosture` (objectui#11691, objectui#11705).
+export {
+  decideSignUpOffer,
+  needsBootstrapProbe,
+  isInvitationRedirect,
+  type SignUpOffer,
+  type SignUpOfferContext,
+} from './console/auth/signUpOffer.js';
+export { useBootstrapStatus, type BootstrapStatus } from './console/auth/bootstrapStatus.js';
 export { ForgotPasswordPage as DefaultForgotPasswordPage } from './console/auth/ForgotPasswordPage.js';
 export { HomeLayout as DefaultHomeLayout, HomeLayout } from './console/home/HomeLayout.js';
 export { HomePage as DefaultHomePage, HomePage } from './console/home/HomePage.js';
@@ -316,6 +336,8 @@ import './console/connect/ConnectAgentWidget.js';
 import './console/home/CloudOnboardingNext.js';
 // SDUI widget for the Cloud pricing page's "current plan" marker (objectui#10919).
 import './console/home/CloudPlanStatus.js';
+// SDUI widget for the Cloud welcome page's seeded workspace-timezone line (objectui#11930).
+import './console/home/CloudWorkspaceTimezoneNotice.js';
 // SDUI widget: read-only admin diagnostic for the env's effective AI model
 // (cloud#797) — fetches GET /api/v1/ai/effective-model.
 import './console/diagnostics/CloudAiModelStatus.js';
@@ -346,21 +368,40 @@ import './views/global-notifications-renderer.js';
 // `nav:menu`, is not in the eager `PALETTE_PLACEHOLDER_BLOCKS` set).
 import './views/app-launcher-renderer.js';
 import './views/nav-menu-renderer.js';
-// The metadata-admin engine's five load-time registrations (built-in anchors,
-// default JSONSchemas, the datasource resource, built-in previews, built-in
-// inspectors). objectui#6776 moved them OUT of `views/metadata-admin/index.ts`
-// into this leaf so the page barrel became shakeable; the bare import lives
-// HERE, on the package entry, and must not be moved onto the page barrel —
-// `scripts/vite-declared-lazy-views.ts` reads a bare import as "this module is
-// not pure" and the whole eager closure comes back. See the leaf's own header.
+// The metadata-admin engine's three eager load-time registrations (built-in
+// anchors, default JSONSchemas, the datasource resource). objectui#6776 moved
+// them OUT of `views/metadata-admin/index.ts` into this leaf so the page barrel
+// became shakeable; the bare import lives HERE, on the package entry, and must
+// not be moved onto the page barrel — `scripts/vite-declared-lazy-views.ts`
+// reads a bare import as "this module is not pure" and the whole eager closure
+// comes back. See the leaf's own header.
 import './views/metadata-admin/register-builtins.js';
+// The built-in metadata DESIGNERS (every Preview and Inspector) are registered
+// from a chunk of their own, loaded here, at the entry's module scope, so
+// importing the package still registers them with no action from the host —
+// once the chunk has arrived rather than during this module's evaluation
+// (objectui#11939 step 2). Their three registries are observable (step 1), so
+// a reader that rendered first shows its "designer missing" state and then the
+// designer. A host's own registration is kept whichever comes first: see
+// `registerAsBuiltIns` in `views/metadata-admin/preview-registry.ts`.
+//
+// ⛔ Keep this edge DYNAMIC. A static import of that module, or of the
+// previews/inspectors it registers, from anything this entry reaches statically
+// puts every designer back on every console page's first load, and
+// `scripts/check-eager-closure-budget.mjs` is sized on the bytes that left.
+import('./views/metadata-admin/register-builtin-designers.js')
+  .then(({ registerBuiltinDesigners }) => registerBuiltinDesigners())
+  .catch((error: unknown) => {
+    // The readers keep their "designer missing" states; say why once, here.
+    console.error('[@object-ui/app-shell] The built-in metadata designers failed to load.', error);
+  });
 
 // Phase 3c — generic metadata admin engine. Re-exported so plugins
 // can call `registerMetadataResource()` to override the per-type
 // list / edit / create components, and host apps can compose the
 // page primitives directly when needed.
 //
-// ⚠️ These 25 runtime re-exports name the LEAF modules, never
+// ⚠️ These runtime re-exports name the LEAF modules, never
 // `./views/metadata-admin/index.js` (objectui#6776). The names and their types
 // are unchanged — an out-of-package consumer imports exactly what it imported
 // before — but a named re-export is an ordinary STATIC EDGE, and the console's
@@ -393,15 +434,22 @@ export {
   useGlobalDiagnostics,
   matchesQuery,
 } from './views/metadata-admin/useMetadata.js';
+// objectui#11939 — the `useRegistered*` hooks are the render-time reads of the
+// two designer registries: a component that reads through them re-renders when
+// a designer is registered after its first render. `get*` / `list*` remain the
+// reads for non-render code.
 export {
   registerMetadataPreview,
   getMetadataPreview,
   listMetadataPreviewTypes,
+  useRegisteredMetadataPreview,
+  useRegisteredMetadataPreviewTypes,
 } from './views/metadata-admin/preview-registry.js';
 export {
   registerMetadataInspector,
   getMetadataInspector,
   listMetadataInspectorTypes,
+  useRegisteredMetadataInspector,
 } from './views/metadata-admin/inspector-registry.js';
 export type {
   MetadataResourceConfig,
@@ -450,6 +498,14 @@ export type {
 // The builder's front door: pick/create a writable package → pillar builder.
 // Standalone at `/studio` and embedded via the `studio:builder` component ref.
 export { BuilderLanding } from './views/studio-design/BuilderLanding.js';
+// The one Studio scope that is not a package (objectui#11553): the
+// organization's own package-less flows, at `/studio/~org/automations`. A host
+// that declares the `/studio` routes reads the reserved segment from here.
+export {
+  STUDIO_ORG_SCOPE_SEGMENT,
+  STUDIO_ORG_SCOPE_PILLAR,
+  studioOrgScopePath,
+} from './views/studio-design/studioScope.js';
 
 // Setup › Packaged automation (ADR-0126 §7.4) — on/off + clone for the flows
 // installed packages ship. Reached through the `automation:packaged` component

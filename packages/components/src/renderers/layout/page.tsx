@@ -13,9 +13,17 @@
  */
 
 import React, { useMemo } from 'react';
-import type { BaseSchema, PageNodeSchema, PageNodeRegion, SchemaNode } from '@object-ui/types';
-import { SchemaRenderer, toRenderableSchema, PageVariablesProvider, PageVariableActionBridge } from '@object-ui/react';
+import type { DeclaredNode, PageNodeSchema, PageNodeRegion, SchemaNode } from '@object-ui/types';
+import { nodeSlotsFor } from '@object-ui/types';
+import {
+  SchemaRenderer,
+  toRenderableSchema,
+  PageVariablesProvider,
+  PageVariableActionBridge,
+  resolveInlineAriaProps,
+} from '@object-ui/react';
 import { ComponentRegistry, toDomProps } from '@object-ui/core';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { compile, manifestFromConfigs, type Diagnostic } from '@object-ui/sdui-parser';
 import { ReactKindPage } from './react-page';
 import { cn } from '../../lib/utils';
@@ -490,7 +498,13 @@ function getJsxManifest() {
         const meta = ComponentRegistry.getMeta(t);
         return { type: t, namespace: meta?.namespace, isContainer: meta?.isContainer, inputs: meta?.inputs };
       });
-    _jsxManifest = manifestFromConfigs(configs as unknown as Parameters<typeof manifestFromConfigs>[0]);
+    // `slotsFor` (objectui#11170): each entry carries the node slots its
+    // renderer reads besides `children`, from the one declaration in
+    // `@object-ui/types`, so the tier judges a node authored under a dialog's
+    // `content` or a tab item's `content` exactly as one under `children`.
+    _jsxManifest = manifestFromConfigs(configs as unknown as Parameters<typeof manifestFromConfigs>[0], {
+      slotsFor: nodeSlotsFor,
+    });
     _jsxManifestSig = version;
   }
   return _jsxManifest;
@@ -563,6 +577,18 @@ export const PageRenderer: React.FC<{
   } = props;
   const pageProps = toDomProps(props);
 
+  // The page's own `aria` bag (objectui#11083). The spec's `PageSchema`
+  // declares it as `AriaPropsSchema`, and `PageNodeSchema` mirrors it, so it is
+  // the NESTED vocabulary: `ariaLabel` is a plain string or an inline locale
+  // map. `toDomProps` above drops the `aria` prop, because it is an object and
+  // not a DOM attribute, so a declared accessible name used to reach no element.
+  // It is read through `resolveInlineAriaProps`, the one reader of that bag, and
+  // this renderer keeps no mapping of its own. The page supplies no default role.
+  // It is spread AFTER `pageProps`, so when a flat key and the nested bag name
+  // the same attribute, the page's own declared slot wins.
+  const locale = useDisplayLocale();
+  const pageAria = resolveInlineAriaProps(schema.aria, locale);
+
   // Select the layout variant based on template or page type
   const layoutElement = useMemo(() => {
     // `PageSchema['kind']` now spells the source-authored values too, matching
@@ -600,7 +626,22 @@ export const PageRenderer: React.FC<{
           </div>
         );
       }
-      return tree ? <SchemaRenderer schema={tree as unknown as BaseSchema} /> : null;
+      if (!tree) return null;
+      /**
+       * ⭐ THE ONE BOUNDARY CAST (objectui#11466). `tree` is author source
+       * parsed at runtime (`@object-ui/sdui-parser`'s `SchemaElement`: a
+       * `type: string` plus unknown props), so the compiler cannot know which
+       * declared node type each element is. Its validator is what judges it:
+       * `compile` runs `validateTree` against the registry manifest (an
+       * unknown component, an unknown or missing prop, a wrong coarse type, an
+       * illegal enum value), and this line is reached only when that reported
+       * no error (the `errors` early return above). So the tree crosses into
+       * `DeclaredNode` here, once, on that validator's word, which is shallower
+       * than the declarations. ⛔ No second cast of this kind: a node built in
+       * code names its declared type instead.
+       */
+      const validatedTree = tree as unknown as DeclaredNode;
+      return <SchemaRenderer schema={validatedTree} />;
     }
     const TemplateLayout = resolveTemplate(schema);
     if (TemplateLayout) {
@@ -658,6 +699,7 @@ export const PageRenderer: React.FC<{
       data-obj-type={dataObjType}
       style={style}
       {...pageProps}
+      {...pageAria}
     >
       <div className={cn(fullBleed ? 'space-y-6' : 'mx-auto space-y-6', maxWidthClass)}>
         {/* Implicit page title — the fallback heading for a page that does NOT

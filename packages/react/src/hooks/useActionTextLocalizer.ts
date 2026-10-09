@@ -41,21 +41,42 @@
  *   here overrides it.
  * - **A nameless action is not translatable.** Without `action.name` there is
  *   no `_actions.<name>` key to look up, so the literals pass through.
+ * - **The entry is keyed on the action's own object** (objectui#11439): its
+ *   declared `objectName`, else the host object the caller draws it on — the
+ *   object `translateObject` in `@objectstack/spec` stamps on an embedded
+ *   action. Only an action with neither reads `globalActions.<name>`; a bound
+ *   action never does (see `actionSuffixes` in `@object-ui/i18n`). The
+ *   runtime-side resolvers (`useConsoleActionRuntime`, `RecordDetailView`)
+ *   already key the param / description / result-dialog copy the same way, so
+ *   one action reads one bundle node on every surface.
  * - **`confirmText` / `successMessage` are resolved only when the action
  *   DECLARES them.** A bundle must not be able to bolt a confirmation gate
  *   onto an action whose metadata never asked for one (nor a success toast).
  *   Translation localizes what exists; it does not add behaviour. This mirrors
  *   what the already-correct call sites (`RecordDetailView`, `ObjectView`,
  *   `DeclaredActionsBar`) each spelled out by hand.
- * - **`label` is reduced through `pickLocalized` first**, because since rc.6 an
- *   authored `label` may be an `I18nLabel` map rather than a string. The map is
- *   collapsed to the active language BEFORE it is offered to the bundle as the
- *   fallback, so a per-locale literal and a bundle entry cannot disagree about
- *   what "the authored label" is.
+ * - **`outcomeMessages` follows the same rule, entry by entry**
+ *   (`@objectstack/spec` 17.6.0, objectui#11344): each outcome the action
+ *   declares resolves `_actions.<name>.outcomeMessages.<outcome>`; a bundle
+ *   entry for an outcome the action does not declare is never read, so a
+ *   bundle cannot add copy for an answer the author never wrote one for.
+ * - **`label`, `successMessage` and each `outcomeMessages` entry are reduced
+ *   through `pickLocalized` first**, because each is an `I18nLabel` — a string
+ *   or an inline per-locale map. The map is collapsed to the active language
+ *   BEFORE it is offered to the bundle as the fallback, so a per-locale
+ *   literal and a bundle entry cannot disagree about what "the authored text"
+ *   is, and the action runner, which has no language, only ever receives a
+ *   string.
+ * - **The success copy stays a template.** A `${result.*}` token, in a bundle
+ *   entry or in the authored text, passes through this hook untouched: the
+ *   action has not run yet, so there is no result to read. The runner fills
+ *   the token in after the action succeeds, through the same `${result.*}`
+ *   scope `onSuccess.navigate` reads — one interpolation, in one place.
  */
 
 import { useMemo } from 'react';
 import { useObjectLabel, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { isConfigBag } from '../utils/configBag.js';
 
 export interface ActionTextLocalizerOptions {
   /**
@@ -66,9 +87,11 @@ export interface ActionTextLocalizerOptions {
 }
 
 /**
- * Returns a copy of `action` with `label` — plus `confirmText` and
- * `successMessage` when the action declares them — resolved from the active
- * locale's bundle, falling back to the authored literals.
+ * Returns a copy of `action` with `label` — plus `confirmText`,
+ * `successMessage` and `outcomeMessages` when the action declares them —
+ * resolved from the active locale's bundle, falling back to the authored
+ * literals. `objectName` is the host object the action is drawn on; the
+ * action's own declared `objectName` wins over it when present.
  */
 export type ActionTextLocalizer = <T extends Record<string, any>>(
   objectName: string | undefined,
@@ -77,7 +100,7 @@ export type ActionTextLocalizer = <T extends Record<string, any>>(
 ) => T;
 
 export function useActionTextLocalizer(): ActionTextLocalizer {
-  const { actionLabel, actionConfirm, actionSuccess } = useObjectLabel();
+  const { actionLabel, actionConfirm, actionSuccess, actionOutcome } = useObjectLabel();
   const { language } = useObjectTranslation();
 
   return useMemo<ActionTextLocalizer>(() => {
@@ -103,17 +126,39 @@ export function useActionTextLocalizer(): ActionTextLocalizer {
         return displayLabel === (action as any).label ? action : { ...action, label: displayLabel };
       }
 
+      // The key object: the action's declared `objectName`, else the host the
+      // caller passes (objectui#11439). An action declared on `sales_order`
+      // drawn where the caller knows no object still reads `sales_order`'s
+      // `_actions` node, never `globalActions`.
+      const declared: unknown = action.objectName;
+      const keyObject = (typeof declared === 'string' && declared) || objectName;
+
       const out: Record<string, any> = {
         ...action,
-        label: actionLabel(objectName, name, displayLabel),
+        label: actionLabel(keyObject, name, displayLabel),
       };
       if ((action as any).confirmText !== undefined) {
-        out.confirmText = actionConfirm(objectName, name, (action as any).confirmText);
+        out.confirmText = actionConfirm(keyObject, name, (action as any).confirmText);
       }
       if ((action as any).successMessage !== undefined) {
-        out.successMessage = actionSuccess(objectName, name, (action as any).successMessage);
+        out.successMessage = actionSuccess(
+          keyObject,
+          name,
+          pickLocalized((action as any).successMessage, language),
+        );
+      }
+      // The map is an authored bag (outcome → copy), so the one "is this a
+      // real bag?" predicate in this package answers whether to read it.
+      const authoredOutcomes: unknown = action.outcomeMessages;
+      if (isConfigBag(authoredOutcomes)) {
+        const outcomeMessages: Record<string, string> = {};
+        for (const [outcome, copy] of Object.entries(authoredOutcomes)) {
+          const text = actionOutcome(keyObject, name, outcome, pickLocalized(copy, language));
+          if (text !== undefined) outcomeMessages[outcome] = text;
+        }
+        out.outcomeMessages = outcomeMessages;
       }
       return out as T;
     }) as ActionTextLocalizer;
-  }, [actionLabel, actionConfirm, actionSuccess, language]);
+  }, [actionLabel, actionConfirm, actionSuccess, actionOutcome, language]);
 }

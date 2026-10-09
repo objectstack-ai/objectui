@@ -21,7 +21,7 @@ import React, { forwardRef, useCallback, useState } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { ActionDef } from '@object-ui/core';
 import type { UIActionSchema } from '@object-ui/types';
-import { useAction } from '@object-ui/react';
+import { useAction, useRecordContext } from '@object-ui/react';
 import { useCondition, toPredicateInput, usePredicateRecordContext } from '@object-ui/react';
 import { Button } from '../../ui';
 import { cn } from '../../lib/utils';
@@ -31,6 +31,54 @@ import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { useAutoTriggerOnce } from './auto-trigger';
 import { readStaticParamValues } from './static-params';
+import { DisabledReasonTrigger, describedByWithReason, useDisabledReason } from './disabled-reason';
+
+/** A record value: a plain object, never `null` or an array. */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value != null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+/**
+ * The static values this button hands the runner, with the record in scope
+ * attached as the Undo baseline when the action is an `undoable` update of that
+ * record (objectui#11168, ruling B on objectui#11754, record 6030342264).
+ *
+ * The runner's `operation: 'update'` path offers Undo only when the invoking
+ * surface hands it the record the update writes, under `params._rowRecord`: it
+ * reads the prior value of every written field off that record
+ * (`captureUpdateUndoData`). The record page's declared-actions bar, the
+ * related-record bridge, `page:header` and the grid's rows already hand it one.
+ * This button handed it nothing, so a declared `undoable` was dropped one hop
+ * before the runner. This is the same spelling those hosts use; the dispatch
+ * strips the stash before it POSTs.
+ *
+ * Attached only when all of these hold, and otherwise `values` is returned
+ * as it came, the same object:
+ *
+ * - the action declares `undoable` and `operation: 'update'`, the path the
+ *   ruling names. On an `api` action the console's handler reads the stash for
+ *   more than Undo (it fills `{field}` tokens in the URL and seeds
+ *   `recordIdParam`), and this ruling does not change that path.
+ * - a record is in scope.
+ * - the update writes THAT record. The id the dispatch resolves (an explicit
+ *   `recordId` value, else the record's `recordIdField`, `id` by default) must
+ *   be the record's own `id`, because the runner keys the Undo by
+ *   `recordId ?? record.id`. A button in a record's scope that writes another
+ *   record would otherwise get the scoped record's values as its Undo, and an
+ *   Undo that restores the wrong values is worse than none.
+ */
+function withUndoBaseline(
+  schema: Pick<UIActionSchema, 'undoable' | 'operation' | 'recordIdField'>,
+  values: Record<string, unknown> | undefined,
+  record: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!schema.undoable || schema.operation !== 'update' || !record) return values;
+  const writtenId = values?.recordId ?? record[schema.recordIdField || 'id'];
+  if (writtenId == null || record.id == null || String(writtenId) !== String(record.id)) return values;
+  return { ...values, _rowRecord: record };
+}
 
 /**
  * The declared props. `schema` is `UIActionSchema` (objectui#4418): every key
@@ -45,7 +93,11 @@ import { readStaticParamValues } from './static-params';
  * as the SDUI envelope's component discriminator — `'action:button'` on every
  * authored path — and is no longer read as an action type by anything here.
  */
-export interface ActionButtonProps {
+// `…RendererProps`, not `ActionButtonProps` (objectui#11073): `@objectstack/spec/ui` 17.5.0 exports
+// `ActionButtonProps` as the block's AUTHORED property bag (`actionType`, `label`, `variant`, …).
+// This is the React envelope that carries a node (`schema`, `context`, `disabled`, an open
+// tail) — a different layer, named as objectui#7265 named `RecordAlertRendererProps`.
+export interface ActionButtonRendererProps {
   schema: UIActionSchema & { type: string; className?: string; actionType?: string };
   className?: string;
   /** Override context for this specific action */
@@ -61,21 +113,21 @@ export interface ActionButtonProps {
   [key: string]: any;
 }
 
-// `PropsWithoutRef` would collapse `ActionButtonProps` to its bare index
+// `PropsWithoutRef` would collapse `ActionButtonRendererProps` to its bare index
 // signature, so the type argument carries the declared props WITHOUT it (each
-// derived off `ActionButtonProps`, so the two cannot drift) and the index
+// derived off `ActionButtonRendererProps`, so the two cannot drift) and the index
 // signature stays on the parameter annotation — mechanism note on `action:bar`
 // (objectui#4422), pinned by
 // `__tests__/forwardref-props-annotation.guard.test.ts`.
 const ActionButtonRenderer = forwardRef<
   HTMLButtonElement,
   {
-    schema: ActionButtonProps['schema'];
-    className?: ActionButtonProps['className'];
-    context?: ActionButtonProps['context'];
+    schema: ActionButtonRendererProps['schema'];
+    className?: ActionButtonRendererProps['className'];
+    context?: ActionButtonRendererProps['context'];
   }
 >(
-  ({ schema, className, context: localContext, ...props }: ActionButtonProps, ref) => {
+  ({ schema, className, context: localContext, ...props }: ActionButtonRendererProps, ref) => {
     const {
       'data-obj-id': dataObjId,
       'data-obj-type': dataObjType,
@@ -110,6 +162,15 @@ const ActionButtonRenderer = forwardRef<
     // the fail-closed `visible` below turned that into "hidden".
     const recordData = usePredicateRecordContext(data);
 
+    // The record in scope for an `undoable` update's Undo baseline
+    // (objectui#11168, see `withUndoBaseline`): the row the host binds through
+    // `data` (a table's row, `DetailView`'s header, an `action:bar` member),
+    // else the record page's own record. An authored record page renders this
+    // node through `SchemaRenderer` with no `data`; its record is the
+    // `RecordContext` one, the record `${record.*}` in `properties` reads.
+    const recordContext = useRecordContext();
+    const recordInScope = asRecord(data) ?? asRecord(recordContext?.data);
+
     // Evaluate visibility and disabled conditions with record data context.
     // `visible` fails CLOSED on a throwing predicate (mirrors ActionEngine's
     // getActionsForLocation) — a precondition that can't be evaluated should
@@ -129,6 +190,13 @@ const ActionButtonRenderer = forwardRef<
     // business here instead of `any`'s.
     const isDisabled = useCondition(toPredicateInput(schema.disabled), recordData);
     const isEnabled = useCondition(toPredicateInput(schema.enabled), recordData);
+    // The reason a greyed-out button gives (objectui#11839): only the DECLARED
+    // `disabled` predicate, evaluated true, earns it — the verdict that is a
+    // fact about the record. `hostDisabled`, `loading` and the legacy `enabled`
+    // leg disable the button without one. See `./disabled-reason`.
+    const disabledReason = useDisabledReason(
+      hasDeclaredVisibilityGate(schema.disabled) && isDisabled,
+    );
 
     // Resolve icon
     const Icon = resolveIcon(schema.icon);
@@ -173,7 +241,14 @@ const ActionButtonRenderer = forwardRef<
         //
         // The two channels are independent, so the input-list branch forwards
         // the static values too.
-        const staticValues = readStaticParamValues(schema, 'action:button');
+        //
+        // An `undoable` update of the record in scope also carries that record
+        // as its Undo baseline (objectui#11168); see `withUndoBaseline`.
+        const staticValues = withUndoBaseline(
+          schema,
+          readStaticParamValues(schema, 'action:button'),
+          recordInScope,
+        );
         const paramsPayload: ActionDef = Array.isArray(schema.params)
           ? { actionParams: schema.params as any, params: staticValues }
           : { params: staticValues };
@@ -185,7 +260,7 @@ const ActionButtonRenderer = forwardRef<
         // where TypeScript actually RUNS the excess-property (freshness) check.
         // It does not run it on a literal that spreads a value of type `any`,
         // and `localContext` is exactly that: `PropsWithoutRef` collapses
-        // `ActionButtonProps` (which carries an `[key: string]: any` index
+        // `ActionButtonRendererProps` (which carries an `[key: string]: any` index
         // signature) to a pure index-signature type, so every destructured prop
         // arrives as `any`. Spreading it into the payload made this site absorb
         // unknown keys in silence while `action:group` / `action:menu` — same
@@ -248,6 +323,13 @@ const ActionButtonRenderer = forwardRef<
           patch: schema.patch,
           confirmText: schema.confirmText,
           successMessage: schema.successMessage,
+          // Success copy per handler outcome (spec 17.6.0, objectui#11344): the
+          // runner's success toast reads the entry named by the answer's
+          // `outcome` ahead of `successMessage`. An action-bar member is spread
+          // onto this node whole, so a registered action's map arrives here
+          // and, dropped, would never reach the toast — the objectstack#6837
+          // shape on the copy instead of the payload.
+          outcomeMessages: schema.outcomeMessages,
           errorMessage: schema.errorMessage,
           refreshAfter: schema.refreshAfter,
           // Forward `undoable` (and the row id field) so update actions can
@@ -311,7 +393,7 @@ const ActionButtonRenderer = forwardRef<
       } finally {
         setLoading(false);
       }
-    }, [schema, execute, loading, localContext]);
+    }, [schema, execute, loading, localContext, recordInScope]);
 
     // Client-side auto-trigger (#844): a caller (e.g. a welcome-page CTA that
     // deep-links into "create") can mark an action `autoTrigger: true` to run
@@ -334,7 +416,7 @@ const ActionButtonRenderer = forwardRef<
     // this gate is the only one on that path. See `hasDeclaredVisibilityGate`.
     if (hasDeclaredVisibilityGate(schema.visible) && !isVisible) return null;
 
-    return (
+    const button = (
       <Button
         ref={ref}
         type="button"
@@ -376,6 +458,9 @@ const ActionButtonRenderer = forwardRef<
         ) || loading}
         onClick={handleClick}
         {...toFormControlDomProps(rest)}
+        // After the pass-through, so an authored `ariaDescribedBy` and the
+        // reason are both kept (objectui#11839).
+        aria-describedby={describedByWithReason(rest['aria-describedby'], disabledReason)}
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
       >
         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -383,6 +468,9 @@ const ActionButtonRenderer = forwardRef<
         {schema.label}
       </Button>
     );
+    // A predicate-disabled button is wrapped in the trigger that carries its
+    // reason (objectui#11839); any other button is returned as it was.
+    return <DisabledReasonTrigger reason={disabledReason}>{button}</DisabledReasonTrigger>;
   },
 );
 
@@ -392,6 +480,30 @@ ComponentRegistry.register('button', ActionButtonRenderer, {
   namespace: 'action',
   skipFallback: true,
   label: 'Action Button',
+  // objectui#11168 slice 1 — the keys after `className` are the spec keys this
+  // block's `ComponentPropsMap` row declares, each published because it was
+  // measured HONOURED through the block path: the real `SchemaRenderer` hands
+  // it to this renderer, which consumes it or forwards it, and the runner (or
+  // the handler it dispatches to) acts on the forwarded value. The pins live
+  // in `__tests__/action-button-icon-inputs-11168.test.tsx`. `action:icon`
+  // publishes the same list minus `recordIdField`, which its spec row does not
+  // declare (and its renderer does not forward); the two are kept literal so
+  // the source readers that census registrations can still name every entry.
+  //
+  // `undoable` was held back by slice 1 with its measurement: the runner's
+  // update path offers Undo only when the invoking surface hands it the
+  // record it writes, and this block handed it none. Ruling B on objectui#11754
+  // (record 6030342264) made the block deliver it: an `undoable` update of the
+  // record in scope now carries that record as its Undo baseline
+  // (`withUndoBaseline` above), and the key is published at the end of this
+  // list. Pinned in `__tests__/action-button-undoable-11168.test.tsx`.
+  // `endpoint` is not on this row: 17.6.0 refuses it in favour of `target`.
+  //
+  // `outcomeMessages` is FORWARDED above but not published here
+  // (objectui#11344): it is an `ActionSchema` key, which reaches this renderer
+  // on the `action:bar` member path, and this block's own row does not accept
+  // it at the installed spec — `registry-inputs-spec-parity.test.ts` refuses an
+  // input the row does not declare. The input follows the row, upstream.
   inputs: [
     { name: 'name', type: 'string' },
     { name: 'label', type: 'string' },
@@ -407,12 +519,142 @@ ComponentRegistry.register('button', ActionButtonRenderer, {
       type: 'enum',
       enum: ['default', 'primary', 'secondary', 'destructive', 'outline', 'ghost'],
     },
+    // objectui#11168 slice 2 — the five sizes the spec row declares, each
+    // measured through the real `SchemaRenderer`: `default`, `sm`, `lg` and
+    // `icon` reach the Button primitive as-is, and `md` renders as `default`
+    // (the mapping above). `default` and `icon` were unpublished, so the page
+    // validator refused two values the renderer honours. Pinned in
+    // `__tests__/action-button-icon-inputs-11168.test.tsx`.
     {
       name: 'size',
       type: 'enum',
-      enum: ['sm', 'md', 'lg'],
+      enum: ['default', 'sm', 'md', 'lg', 'icon'],
+      description:
+        'Button size: the Button primitive\'s `default`, `sm`, `lg` or `icon`, plus `md`, which renders as `default` (default: `default`)',
     },
     { name: 'className', type: 'string' },
+    {
+      name: 'visible',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Visibility predicate: `true`/`false`, a bare CEL expression, or the `{ dialect: \'cel\', source }` envelope, evaluated against the row the host binds; the button is not rendered when it is false, nor when the predicate fails to evaluate. Omit for always-visible',
+    },
+    {
+      name: 'disabled',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Disabled predicate, in the same three shapes as `visible`: the button is shown but cannot be pressed while it holds. Omit for never-disabled',
+    },
+    {
+      name: 'params',
+      type: 'array',
+      description:
+        'The parameters to collect from the user before the action runs (`ActionParam` objects: `name`, `type`, `label`, …); each collected value reaches the executor under its parameter `name`. Static execution values ride `properties.params` instead',
+    },
+    {
+      name: 'description',
+      type: 'string',
+      description: 'Action description — the parameter dialog shows it under its title',
+    },
+    {
+      name: 'openIn',
+      type: 'enum',
+      enum: ['self', 'new-tab'],
+      description: 'For a `url` action: `self` navigates in place, `new-tab` opens a new browser tab',
+    },
+    {
+      name: 'method',
+      type: 'string',
+      description: 'HTTP method of an `api` action (`POST` when omitted)',
+    },
+    {
+      name: 'bodyExtra',
+      type: 'object',
+      description:
+        'Static request-body fields of an `api` action, merged last, so a constant here overrides a collected value of the same name',
+    },
+    {
+      name: 'bodyShape',
+      type: ['enum', 'object'],
+      enum: ['flat'],
+      description:
+        'How an `api` action shapes its request body: `flat` (the default) or `{ wrap: KEY }` to nest the collected values under that key, with `bodyExtra` beside it',
+    },
+    {
+      name: 'operation',
+      type: 'enum',
+      enum: ['update'],
+      description:
+        '`update` declares a single-record field write: the runner dispatches it to the platform action route with `patch` merged under the collected values',
+    },
+    {
+      name: 'patch',
+      type: 'object',
+      description:
+        'For `operation: update`: the field values written, merged UNDER the values the user supplies, so a collected value of the same name wins',
+    },
+    {
+      name: 'confirmText',
+      type: 'string',
+      description: 'Confirmation question asked before the action runs; the action runs only if it is confirmed',
+    },
+    {
+      name: 'successMessage',
+      type: 'string',
+      description: 'Toast text when the action succeeds; a `${result.*}` token reads the handler\'s answer (e.g. `${result.id}`)',
+    },
+    {
+      name: 'errorMessage',
+      type: 'string',
+      description: 'Toast text when the action fails, in place of the raw error',
+    },
+    {
+      name: 'refreshAfter',
+      type: 'boolean',
+      description: 'Refresh the surrounding data after the action succeeds',
+    },
+    {
+      name: 'locations',
+      type: 'array',
+      of: 'string',
+      description:
+        'The placements the action declares (`list_toolbar`, `list_item`, `record_header`, …). A `script` or `flow` action declared record-scoped (`list_item`, `record_header`, `record_more` or `record_section`) refuses to run when no record or single selection is in scope, instead of running without one',
+    },
+    {
+      name: 'toast',
+      type: 'object',
+      description:
+        'Toast behaviour: `{ showOnSuccess?, showOnError?, duration? }` — `false` suppresses that toast, `duration` is handed to the toast',
+    },
+    {
+      name: 'resultDialog',
+      type: 'object',
+      description:
+        'One-shot result dialog for a value the response shows exactly once (a 2FA code, a fresh secret); it replaces the success toast',
+    },
+    {
+      name: 'onSuccess',
+      type: 'object',
+      description:
+        'Post-success navigation `{ navigate, openIn? }`: `navigate` is a route template that can read `${result.*}`, `openIn` is `self` (the default) or `newTab`',
+    },
+    {
+      name: 'objectName',
+      type: 'string',
+      description: "Object the action acts on — dispatch goes to this object instead of the page's. Omit to act on the page's object",
+    },
+    {
+      name: 'recordIdField',
+      type: 'string',
+      description:
+        'For a `script` action run against a single selected row: the row field whose value is sent as the record id (default `id`)',
+    },
+    {
+      name: 'undoable',
+      type: 'boolean',
+      description:
+        'Offer an Undo affordance after an update action: once an `operation: update` succeeds, its success toast offers Undo, which writes back the values the fields it wrote held on the record in scope (the record page\'s record, or the row the host binds), provided that record carries each of them. The one limit: a button with no record in scope (standalone, or writing a record other than the one in scope) offers no Undo, because there is no row to restore',
+    },
   ],
   defaultProps: {
     label: 'Action',

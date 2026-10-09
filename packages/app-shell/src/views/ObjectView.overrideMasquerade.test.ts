@@ -52,12 +52,14 @@ const DEFINED_VIEWS = {
 
 const fallbackTab = () => ({ id: 'all', label: 'All records', type: 'grid', columns: [] });
 
-/** `ObjectView.tsx`'s own `savedViews` normalization (the `normalized` map in its `listViews` effect), verbatim. */
+/**
+ * `ObjectView.tsx`'s own `savedViews` normalization (the `normalized` map in its
+ * `listViews` effect), verbatim. objectui#11013 dropped its `objectName` stamp.
+ */
 function normalizeSavedViews(rows: any[]) {
   return rows.map((sv: any) => ({
     ...sv,
     id: viewRowId(sv),
-    objectName: sv.objectName || sv.object || OBJECT_NAME,
   }));
 }
 

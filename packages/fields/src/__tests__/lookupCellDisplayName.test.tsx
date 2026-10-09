@@ -43,7 +43,7 @@ describe('LookupCellRenderer — schema-aware display name (issue #2357)', () =>
       <SchemaRendererProvider dataSource={ds}>
         <LookupCellRenderer
           value={EXPANDED}
-          field={{ type: 'lookup', reference_to: 'mtc_request_a' } as any}
+          field={{ type: 'lookup', reference: 'mtc_request_a' } as any}
         />
       </SchemaRendererProvider>,
     );
@@ -59,7 +59,7 @@ describe('LookupCellRenderer — schema-aware display name (issue #2357)', () =>
       <SchemaRendererProvider dataSource={ds}>
         <LookupCellRenderer
           value={{ ...EXPANDED }}
-          field={{ type: 'lookup', reference_to: 'mtc_request_b' } as any}
+          field={{ type: 'lookup', reference: 'mtc_request_b' } as any}
         />
       </SchemaRendererProvider>,
     );
@@ -74,7 +74,7 @@ describe('LookupCellRenderer — schema-aware display name (issue #2357)', () =>
       <SchemaRendererProvider dataSource={ds}>
         <LookupCellRenderer
           value={{ ...EXPANDED }}
-          field={{ type: 'lookup', reference_to: 'mtc_request_c', display_field: 'req_number' } as any}
+          field={{ type: 'lookup', reference: 'mtc_request_c', display_field: 'req_number' } as any}
         />
       </SchemaRendererProvider>,
     );
@@ -93,7 +93,7 @@ describe('LookupCellRenderer — schema-aware display name (issue #2357)', () =>
       <SchemaRendererProvider dataSource={ds}>
         <LookupCellRenderer
           value={id}
-          field={{ type: 'lookup', reference_to: 'mtc_request_d' } as any}
+          field={{ type: 'lookup', reference: 'mtc_request_d' } as any}
         />
       </SchemaRendererProvider>,
     );
@@ -110,7 +110,7 @@ describe('LookupCellRenderer — schema-aware display name (issue #2357)', () =>
       <SchemaRendererProvider dataSource={ds}>
         <LookupCellRenderer
           value={{ id: 'rec2', framework_name: 'SOX' }}
-          field={{ type: 'lookup', reference_to: 'mtc_request_e' } as any}
+          field={{ type: 'lookup', reference: 'mtc_request_e' } as any}
         />
       </SchemaRendererProvider>,
     );

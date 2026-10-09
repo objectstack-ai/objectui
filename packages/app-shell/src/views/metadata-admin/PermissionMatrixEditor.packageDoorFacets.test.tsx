@@ -144,7 +144,9 @@ async function authorEveryFacet() {
   fireEvent.change(screen.getByPlaceholderText(USING_PLACEHOLDER), { target: { value: USING } });
 
   openFacet('Tab Visibility');
-  fireEvent.change(await screen.findByDisplayValue('Visible'), { target: { value: 'hidden' } });
+  // The visibility picker is the shared Select (objectui#11865): open it and pick, as a user does.
+  fireEvent.keyDown(await screen.findByTestId('tab-visibility-a_account'), { key: 'ArrowDown' });
+  fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'Hidden' }));
 
   openFacet('Delegated Admin Scope');
   const businessUnit = (await screen.findByText('Business unit')).parentElement!.querySelector(
@@ -170,9 +172,15 @@ describe('PermissionMatrixEditPage — the PACKAGE door persists every authored 
 
     await authorEveryFacet();
 
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
-    await waitFor(() => expect(server.saved).toHaveLength(1));
-    const body = server.saved[0] as any;
+    // objectui#11787 — the package door autosaves to its draft after the
+    // shared autosave's pause; it has no Save button. An authoring pause along
+    // the way may send an earlier body, so the save read is the one carrying
+    // the last facet authored.
+    await waitFor(
+      () => expect((server.saved.at(-1) as any)?.adminScope).toEqual({ businessUnit: 'emea' }),
+      { timeout: 4000 },
+    );
+    const body = server.saved.at(-1) as any;
 
     // The row filter reaches the wire — the key whose absence was the defect.
     expect(body.rowLevelSecurity).toEqual([AUTHORED_POLICY]);
@@ -188,7 +196,7 @@ describe('PermissionMatrixEditPage — the PACKAGE door persists every authored 
     });
     expect(body.fields['b_order.total']).toEqual({ readable: true, editable: true });
     // ADR-0086 P2 (D6/D7) — still a package-stamped DRAFT write, not a live one.
-    expect(server.savedOpts[0]).toMatchObject({ mode: 'draft', packageId: 'app.a' });
+    expect(server.savedOpts.at(-1)).toMatchObject({ mode: 'draft', packageId: 'app.a' });
   });
 
   it('keeps a policy carried by the pending draft when the published base has none', async () => {
@@ -206,8 +214,8 @@ describe('PermissionMatrixEditPage — the PACKAGE door persists every authored 
     const row = screen.getByText('a_account').closest('tr')!;
     fireEvent.click(within(row).getByRole('button', { name: 'None' }));
 
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
-    await waitFor(() => expect(server.saved).toHaveLength(1));
+    // objectui#11787 — autosaved after the shared pause (no Save button here).
+    await waitFor(() => expect(server.saved).toHaveLength(1), { timeout: 4000 });
     const body = server.saved[0] as any;
 
     expect(body.rowLevelSecurity).toEqual([AUTHORED_POLICY]);

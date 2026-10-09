@@ -299,15 +299,13 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
 
   // The form renderer passes `field: field.field || field` — `.field` is the
   // declared metadata slot (objectui#3090) — so the actual objectSchema field
-  // metadata (reference_to, displayField, etc.) can arrive nested at
+  // metadata (reference, displayField, etc.) can arrive nested at
   // `lookupField.field`. Unwrap it so lookup-specific properties resolve
   // correctly. (This used to credit the docs-demo `createFieldRenderer` wrapper,
   // which never produced the nesting and was removed in objectui#3910; the form
   // path is the real producer.)
-  // ObjectStack convention uses `reference` while the types use `reference_to`,
-  // so we check for both property names.
   const innerField = lookupField?.field;
-  const fieldMeta = (innerField && typeof innerField === 'object' && ('reference_to' in innerField || 'reference' in innerField || 'type' in innerField))
+  const fieldMeta = (innerField && typeof innerField === 'object' && ('reference' in innerField || 'type' in innerField))
     ? innerField
     : lookupField;
 
@@ -321,8 +319,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   const displayField = declaredDisplayField || DEFAULT_DISPLAY_FIELD;
   const descriptionField: string | undefined = fieldMeta?.descriptionField;
   const idField = fieldMeta?.idField || 'id';
-  // ObjectStack convention uses `reference`; types define `reference_to` — support both
-  const referenceTo: string | undefined = fieldMeta?.reference_to || fieldMeta?.reference;
+  // `reference` — `@objectstack/spec`'s `FieldSchema.reference` — is the only
+  // target spelling read (objectui#11070 round 4). A served def that still
+  // spells a legacy key was folded onto it at ingestion
+  // (`normalizeSchemaReferenceKeys`); no second spelling is read here.
+  const referenceTo: string | undefined = fieldMeta?.reference;
   // Inline quick-create — a STANDARD capability, default ON for user-facing
   // relations: an empty/zero-result picker offers to create the referenced
   // record (opening its create form; see handleCreateNew) so the first related

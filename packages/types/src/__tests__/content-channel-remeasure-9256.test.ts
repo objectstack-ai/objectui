@@ -45,6 +45,10 @@
  *     `process-designer`, `report-designer`, `object-manager`,
  *     `field-designer`) — the TypeScript face only: none of them has a zod
  *     mirror, so that face is the only gate, as it was for `nl-query`.
+ *     (⚠️ AMENDED 2026-10-02 (objectui#10859 batch 7) — a reading of
+ *     objectui#9256's tree. All six have a zod arm now in
+ *     `zod/designer.zod.ts`, which refuses both channels by name with the same
+ *     guidance; its pin is `designer-zod-arms-10859.test.ts`.)
  *
  * `body` was already refused on every one of these faces by `BaseSchema`
  * (objectui#6771); it is restated because that refusal names `children` as the
@@ -249,9 +253,9 @@ describe('objectui#9256 re-measure — the TypeScript face refuses both channels
     const listViewBody: ListViewSchema = { ...listView, body: CONTENT };
     // @ts-expect-error objectui#9256 — `list-view` reads neither channel (this face is `z.input` of the mirror)
     const listViewChildren: ListViewSchema = { ...listView, children: CONTENT };
-    // @ts-expect-error objectui#9256 — `page-designer` reads neither channel (no zod mirror; this face is the only gate)
+    // @ts-expect-error objectui#9256 — `page-designer` reads neither channel
     const pageDesignerBody: PageDesignerSchema = { ...pageDesigner, body: CONTENT };
-    // @ts-expect-error objectui#9256 — `page-designer` reads neither channel (no zod mirror; this face is the only gate)
+    // @ts-expect-error objectui#9256 — `page-designer` reads neither channel
     const pageDesignerChildren: PageDesignerSchema = { ...pageDesigner, children: CONTENT };
     // @ts-expect-error objectui#9256 — `data-model-designer` reads neither channel
     const dataModelDesignerBody: DataModelDesignerSchema = { ...dataModelDesigner, body: CONTENT };

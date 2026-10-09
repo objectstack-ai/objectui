@@ -8,18 +8,20 @@
       "children": [
         {
           "type": "flex",
-          "gap": 2,
-          "children": [
-            {
-              "type": "badge",
-              "label": "Nested"
-            },
-            {
-              "type": "badge",
-              "label": "Components",
-              "variant": "outline"
-            }
-          ]
+          "properties": {
+            "gap": 2,
+            "children": [
+              {
+                "type": "badge",
+                "label": "Nested"
+              },
+              {
+                "type": "badge",
+                "label": "Components",
+                "variant": "outline"
+              }
+            ]
+          }
         }
       ]
     },

@@ -140,9 +140,10 @@ describe('WidgetConfigPanel — offers no retired action key as an authoring fie
 });
 
 describe('DashboardWithConfig — a Studio save round-trip persists no retired key', () => {
+  // No dashboard-root `title`: retired (objectui#7509), so inert here, and it
+  // compiled only through `BaseSchema`'s index signature (objectui#11348).
   const schema: DashboardComponentSchema = {
     type: 'dashboard',
-    title: 'Sales',
     widgets: [{ id: 'w1', title: 'Revenue', type: 'bar', colorVariant: 'blue' } as never],
   };
 

@@ -6,15 +6,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type { BaseSchema } from '@object-ui/types';
+import type { SchemaNode } from '@object-ui/types';
 import type { SchemaRendererProps } from './SchemaRenderer.js';
 
 /**
  * Narrow a loosely-typed metadata node onto {@link SchemaRendererProps.schema}.
  *
  * `@object-ui/types` declares `SchemaNode` as
- * `BaseSchema | string | number | boolean | null | undefined`, and a lot of
- * metadata plumbing (page regions, header-bar actions, detail tabs, view
+ * `DeclaredNode | string | number | boolean | null | undefined` (its object
+ * arm the declared-node union, objectui#11466), and a lot of metadata plumbing (page regions, header-bar actions, detail tabs, view
  * configs) is typed with it. `SchemaRenderer` deliberately does NOT declare the
  * `number` / `boolean` members — nobody should be invited to author them — so
  * forwarding such a value needs one honest step in between.
@@ -72,7 +72,7 @@ import type { SchemaRendererProps } from './SchemaRenderer.js';
  * said the reconciliation was still pending and invited exactly that edit.
  */
 export function toRenderableSchema(
-  node: BaseSchema | string | number | boolean | null | undefined,
+  node: SchemaNode,
 ): SchemaRendererProps['schema'] {
   return typeof node === 'number' || typeof node === 'boolean'
     ? (node ? String(node) : undefined)

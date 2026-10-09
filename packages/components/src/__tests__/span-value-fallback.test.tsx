@@ -34,20 +34,30 @@
  * position. `body` stays refused — see `span-children-rendering.test.tsx`; it is
  * declared nowhere for this type, whereas `value` is declared twice.
  *
- * What the type surface can and cannot say, same as on #5027: `BaseSchema`
- * carries an index signature, so no spelling here is ever a TS error. The read
- * side is the only place the contract can be stated, which is why it is pinned
+ * What the type surface could and could not say when this was written, same as
+ * on #5027: `BaseSchema` carried an index signature, so no spelling here was a
+ * TS error (objectui#8347 removed it, so an undeclared spelling in a typed
+ * literal is one now). The read side is the only place the precedence contract
+ * can be stated, which is why it is pinned
  * rather than left to review.
  */
 
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import { SchemaRenderer } from '@object-ui/react';
-import type { TextSpanSchema } from '@object-ui/types';
+import type { TextSchema, TextSpanSchema } from '@object-ui/types';
 // Registers the renderers at module scope, NOT inside a `beforeAll` — there the
 // cold transform is billed to `hookTimeout`. See
 // object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
 import '../renderers';
+
+/**
+ * Types a child literal below as the `text` node it is (objectui#11347): a
+ * `children` entry is checked against `SchemaNode`, and since objectui#8347
+ * removed `BaseSchema`'s index signature a literal checked against it may
+ * author only `BaseSchema`'s own keys.
+ */
+const textNode = (schema: TextSchema): TextSchema => schema;
 
 describe('span reads its declared `value` key (#5050)', () => {
   it('renders the plain `{ type: "span", value }` the card reports rendering empty', () => {
@@ -76,7 +86,7 @@ describe('span reads its declared `value` key (#5050)', () => {
       type: 'span',
       className: 'both-keys',
       value: 'value must not render',
-      children: [{ type: 'text', content: 'children win' }],
+      children: [textNode({ type: 'text', content: 'children win' })],
     };
 
     const { container } = render(<SchemaRenderer schema={schema} />);
@@ -95,7 +105,7 @@ describe('span reads its declared `value` key (#5050)', () => {
       type: 'span',
       className: 'single-child-wins',
       value: 'value must not render',
-      children: { type: 'text', content: 'lone child wins' },
+      children: textNode({ type: 'text', content: 'lone child wins' }),
     };
 
     const { container } = render(<SchemaRenderer schema={schema} />);

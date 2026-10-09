@@ -62,7 +62,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { z } from 'zod';
 
 // Mutable so a case can publish a server `configSchema` for one node type and
@@ -79,7 +79,7 @@ vi.mock('../previews/useObjectFields', () => ({
 }));
 
 import { FlowNodeInspector } from './FlowNodeInspector';
-import { fieldsForNodeType, FLOW_NODE_TYPE_OPTIONS } from './flow-node-config';
+import { fieldsForNodeType, FLOW_NODE_CONFIG_TYPES } from './flow-node-config';
 import type { MetadataSelection } from '../preview-registry';
 // The runtime's own answer for an omitted `escalation` key. Imported so the
 // #6620 rows below compare the RENDERED control against the installed contract
@@ -94,7 +94,9 @@ import {
   ApprovalNodeConfigSchema,
   EndConfigSchema,
   FlowNodeSchema,
+  ScreenConfigSchema,
 } from '@objectstack/spec/automation';
+import { defaultNodeExtras } from '../previews/flow-canvas-parts';
 
 /* ── The `meta/*` double (objectui#7307) ───────────────────────────────
  * `FlowNodeInspector` renders `FlowReferenceField` for every reference-kind key
@@ -379,7 +381,7 @@ describe('boolean: a declared defaultValue seeds the control (objectui#8451, arm
     // ⇒ `screen.waitForInput` is the offline undeclared boolean that sentence
     // says does not exist — and it is undeclared CORRECTLY, so ⛔ do not read
     // this as an objectui#9277-class omission waiting to be declared. Measured
-    // on the installed `@objectstack/spec` (17.4.0): `waitForInput` is typed
+    // on the installed `@objectstack/spec` (17.7.0): `waitForInput` is typed
     // `z.boolean().optional()` with no `.default(...)`, so an omitted key
     // materialises nothing and there is no spec answer for a declaration to
     // mirror. Declaring one here would invent a default the runtime does not
@@ -806,9 +808,12 @@ describe('objectui#9109: the form states no default the installed spec does not 
    * on the trigger. ⚠️ `was` is HISTORY — nothing re-derives it, and it is here
    * only so a failure says what was removed. The live claim is the em-dash.
    */
+  // `screen` · `Form mode` was the second row. `@objectstack/spec` 17.5.0 gave
+  // `ScreenConfigSchema.mode` a `.default('create')`, so the declaration came
+  // back, backed this time, and its trigger states the default again — pinned
+  // positively below (objectui#11073).
   const GONE: readonly GoneRow[] = [
     { type: 'http_request', node: { config: {} }, label: 'Method', was: 'GET' },
-    { type: 'screen', node: { config: {} }, label: 'Form mode', was: 'Create' },
     { type: 'wait', node: { waitEventConfig: {} }, label: 'Wait for', was: 'Timer' },
     {
       type: 'boundary_event',
@@ -856,6 +861,42 @@ describe('objectui#9109: the form states no default the installed spec does not 
       ).toBeGreaterThan(1);
     },
   );
+
+  it('screen: Form mode states the default the spec applies since 17.5.0, as a placeholder (objectui#11073)', () => {
+    // Derived from the installed spec, as the end.outcome rows derive theirs:
+    // `ScreenConfigSchema` materialises a mode for an omitted key.
+    const specMode = (ScreenConfigSchema.parse({}) as { mode?: string }).mode;
+    expect(specMode, 'ScreenConfigSchema applies a default to an omitted mode').toBeTypeOf('string');
+    const field = fieldsForNodeType('screen').find((f) => f.id === 'mode');
+    expect(field?.defaultValue, 'screen.mode declares the default the spec applies').toBe(specMode);
+    const expected = field?.options?.find((o) => o.value === specMode)?.label;
+    expect(expected, 'and the declared default names an offered option').toBeTypeOf('string');
+
+    const { onPatch } = renderInspector(draftWith('screen', { config: {} }));
+    expect(triggerText('Form mode'), 'the trigger states the default the runtime applies').toBe(expected);
+    expect(triggerIsPlaceholder('Form mode'), 'as a placeholder, never as a selection').toBe(true);
+    // Shown, never written (objectui#6263): rendering patches nothing.
+    expect(onPatch.mock.calls).toEqual([]);
+  });
+
+  it('wait: a freshly SEEDED node shows its timer Duration, filled and editable (objectui#11088 decision 2 = A)', () => {
+    // The seed the designer now writes: `@objectstack/spec` 17.5.0 refuses a
+    // timer wait with no duration, so the fresh node carries the spec's own
+    // example value, and the author sees it and can change it at once.
+    const seed = defaultNodeExtras('wait');
+    expect(seed).toEqual({ waitEventConfig: { eventType: 'timer', timerDuration: 'PT1H' } });
+    const { onPatch } = renderInspector(draftWith('wait', seed));
+    expect(labelled('Duration'), 'the Duration control is on screen for a timer wait').not.toBeNull();
+    const duration = screen.getByDisplayValue('PT1H') as HTMLInputElement;
+    expect(duration.disabled || duration.readOnly, 'and it is an editable control').toBe(false);
+    fireEvent.change(duration, { target: { value: 'P3D' } });
+    fireEvent.blur(duration);
+    const written = onPatch.mock.calls.at(-1)?.[0] as { nodes?: Array<Record<string, unknown>> } | undefined;
+    expect(
+      (written?.nodes?.[0]?.waitEventConfig as Record<string, unknown> | undefined)?.timerDuration,
+      'an edit writes the spec key, not a copy beside it',
+    ).toBe('P3D');
+  });
 
   it('wait: the timer-only sibling now waits for a real eventType, and a STORED one still shows', () => {
     // The on-screen half of the false claim. `controllerAdmits` resolved the
@@ -919,7 +960,7 @@ describe('objectui#9109: the form states no default the installed spec does not 
 
 describe('the declaration surface this card names', () => {
   /**
-   * The nine declaring fields, as `<node type>.<field id>`. Triage named
+   * The ten declaring fields, as `<node type>.<field id>`. Triage named
    * this list the acceptance surface, so it is pinned: a PR that retires the
    * property, or that adds a tenth declaration, moves this line.
    *
@@ -928,8 +969,10 @@ describe('the declaration surface this card names', () => {
    * `wait.waitEventConfig.eventType`, `boundary_event.boundaryConfig.eventType`)
    * — triage's direction B, on the ground that the `defaultValue` doc comment
    * defines the property AS the spec default for its key, so a declaration with
-   * no spec counterpart is false by that definition. The nine that remain are
-   * the nine the installed spec actually applies, reconciled key by key in
+   * no spec counterpart is false by that definition. The nine that remained were
+   * the nine the installed spec applied; `@objectstack/spec` 17.5.0 began
+   * applying `screen.mode`'s, so the declaration returned and there are ten
+   * (objectui#11073), each reconciled key by key in
    * `flow-node-config.spec-reconciliation.test.ts`.
    *
    * ⚠️ The number is NOT a constant to copy, and it is not one card's
@@ -946,19 +989,21 @@ describe('the declaration surface this card names', () => {
    * here; that is a result, not a method. Whoever lands next re-reads the
    * number the same way rather than trusting this sentence.
    *
-   * Swept over the picker's node types plus the four that carry config but are
-   * not offered in the picker (ADR-0031 import/export-only, and the legacy
-   * aliases). The sweep is asserted to cover the picker so a new node type
-   * cannot slip a declaration past it.
+   * Swept over every group the table holds (`FLOW_NODE_CONFIG_TYPES`, the
+   * table's own keys), so a new node type cannot slip a declaration past it.
+   * Until objectui#11778 this walked the inspector's hand-kept type list plus
+   * the types that carry config but that list never offered (ADR-0031
+   * import/export-only, the legacy aliases, and `notify`); the table's keys
+   * hold every one of them, which the first assertion re-reads.
    */
   const OFF_PICKER_TYPES = ['boundary_event', 'parallel_gateway', 'join_gateway', 'legacy_action', 'notify'];
 
-  it('exactly nine fields declare a defaultValue, and these are they', () => {
-    const swept = [...FLOW_NODE_TYPE_OPTIONS, ...OFF_PICKER_TYPES];
+  it('exactly ten fields declare a defaultValue, and these are they', () => {
+    const swept = FLOW_NODE_CONFIG_TYPES;
     expect(
-      FLOW_NODE_TYPE_OPTIONS.every((t) => swept.includes(t)),
-      'the sweep covers every node type the picker offers',
-    ).toBe(true);
+      swept,
+      'the sweep walks the whole table, the types the retired hand list never offered included',
+    ).toEqual(expect.arrayContaining(OFF_PICKER_TYPES));
 
     const declaring = new Set<string>();
     for (const type of swept) {
@@ -976,6 +1021,10 @@ describe('the declaration surface this card names', () => {
       'approval.onEmptyApprovers',
       'boundary_event.boundaryConfig.interrupting',
       'end.outcome',
+      // The tenth since `@objectstack/spec` 17.5.0 applies `'create'` to an
+      // omitted mode (objectui#11073) — the declaration objectui#9109 deleted
+      // while the spec applied none, back now that it does.
+      'screen.mode',
     ].sort());
   });
 
@@ -993,7 +1042,7 @@ describe('the declaration surface this card names', () => {
    * whose growth should be visible in review.
    */
   it('every select-kind declaring field renders its declared default', () => {
-    const swept = [...FLOW_NODE_TYPE_OPTIONS, ...OFF_PICKER_TYPES];
+    const swept = FLOW_NODE_CONFIG_TYPES;
     const cases: Array<{ id: string; type: string; label: string; expected: string }> = [];
     for (const type of swept) {
       for (const field of fieldsForNodeType(type)) {
@@ -1013,16 +1062,25 @@ describe('the declaration surface this card names', () => {
 
     expect(
       cases.map((c) => c.id).sort(),
-      'the select-kind half of the declaration surface — four of the nine',
+      'the select-kind half of the declaration surface — five of the ten',
     ).toEqual([
       'approval.behavior',
       'approval.escalation.action',
       'approval.onEmptyApprovers',
       'end.outcome',
+      'screen.mode',
     ]);
 
     for (const c of cases) {
-      renderInspector(draftWith(c.type, { config: {} }));
+      // objectui#11660 — a field stored inside the approval escalation block is
+      // on screen only while that block EXISTS: the spec makes the block itself
+      // the switch, so no block reads off and hides its fields. Its case renders
+      // on the smallest block the spec accepts, `{ timeoutHours: 24 }` (the
+      // #6620 rows' fixture), whose own `enabled` is omitted and so reads on —
+      // the key under measurement is still unset. Every other case keeps the
+      // empty config.
+      const config = c.id.startsWith('approval.escalation.') ? { escalation: { timeoutHours: 24 } } : {};
+      renderInspector(draftWith(c.type, { config }));
       expect(
         triggerText(c.label),
         `${c.id}: an unset key states the declared default on the trigger`,

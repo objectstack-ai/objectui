@@ -76,7 +76,7 @@ const DEAL_SCHEMA = {
     name: { type: 'text', label: 'Name' },
     status: { type: 'text', label: 'Status' },
     // The only expandable member, so `$expand` has one predictable entry.
-    owner: { type: 'lookup', reference_to: 'user', label: 'Owner' },
+    owner: { type: 'lookup', reference: 'user', label: 'Owner' },
   },
 };
 

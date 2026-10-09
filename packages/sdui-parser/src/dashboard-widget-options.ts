@@ -26,23 +26,18 @@
  *   dateGranularity, sortBy, sortOrder, limit   (query-affecting, framework#3588)
  *   stageOrder                                  (funnel/pyramid stage order)
  *
- * plus ONE undeclared key with a real read site:
- *
- *   description — the metric-card sub-caption channel. Read at
- *   `widgetSubCaption.ts` (`(widget.options as …)?.description`, objectui#4032
- *   item 4 — that read sat inline in `DashboardRenderer.tsx` until
- *   objectui#8889 moved it, verbatim, into the hook BOTH dashboard surfaces
- *   now call, so the authored and bundle channels compose at one decision
- *   point) and, since objectui#7293, at `DatasetWidget.tsx`'s
- *   metric branch, which renders it in the caption row; the server's
- *   `translateDashboard` OVERLAYS the `widgets.{id}.subCaption` translation
- *   onto this key (objectstack#8056, objectstack#5428 item-4: 「两个作者字段两个
- *   key」). It entered the accepted set on the translation-pipeline evidence
- *   alone — warning on a key the platform's own pipeline writes would be a
- *   false positive on legal metadata — while the dataset-bound render path
- *   displayed it nowhere. #7293 closed that gap, so `description` is now
- *   accepted for the same reason as the declared five and the accepted set no
- *   longer outruns the measured read set.
+ * and nothing else. ⛔ Not `description`: it was the metric-card sub-caption
+ * (objectui#4032 item 4, objectui#7293), read by `DatasetWidget.tsx`'s metric
+ * branch and a resolver both dashboard surfaces called, and fed by the
+ * server's `translateDashboard` overlay of the `widgets.{id}.subCaption`
+ * translation. The spec never declared it. objectui#11389 (ruling C, which
+ * reverses objectstack#5428 item 4) retires it at both ends: objectstack
+ * first, in `@objectstack/spec` 17.7.0 (the overlay is gone and the
+ * translation key is a tombstone), then the readers here. So an authored
+ * `options.description` reaches no renderer and draws this warning like any
+ * other unconsumed key. A widget keeps one authored description,
+ * `widget.description`, the card-header subtitle, which is not an `options`
+ * key and is not judged here.
  *
  * Notably NOT consumed on the path a widget really renders through:
  * `thresholds` and `format`. Both were widely believed to work; both draw this
@@ -70,10 +65,9 @@
  *     legitimate code gets deleted by the next person who hits it, which puts
  *     the claim back where it started. Leg 2 of
  *     `__tests__/dashboard-widget-options-census.test.ts` derives exactly this
- *     bound: the DatasetWidget read set is the declared set plus the
- *     sub-caption key, and neither `format` nor `thresholds` is in it. Since
- *     objectui#7293 that absence is asserted in its OWN right rather than
- *     riding on an equality whose right-hand side can grow.
+ *     bound: the DatasetWidget read set is the declared set, and neither
+ *     `format` nor `thresholds` is in it. That absence is asserted in its OWN
+ *     right rather than riding on an equality whose right-hand side can grow.
  *
  * ## Scope — where the warning deliberately does NOT fire
  *
@@ -99,7 +93,8 @@
  * `@objectstack/spec`, re-extracts the `options.<key>` reads from
  * `DatasetWidget.tsx` source text (and fails loudly if that file gains a
  * consumption shape the extractor cannot see — a spread, a destructuring, a
- * computed access), re-checks the sub-caption read site, and trips on any NEW
+ * computed access), re-checks that the retired sub-caption key has no read
+ * site left in `plugin-dashboard`, and trips on any NEW
  * file in `packages/*\/src` or `apps/*\/src` that starts reading
  * `widget.options`. A renderer change that adds or removes a consumed key
  * fails that test until this list is updated — the cost of keeping this
@@ -122,12 +117,12 @@ export const DASHBOARD_WIDGET_HOST_TYPES: ReadonlySet<string> = new Set([
 
 /**
  * The accepted set: every `options` key with a renderer read site on the
- * dataset-bound path, plus the sub-caption convention key. Alphabetical; the
- * warning message prints it verbatim. Derivation and evidence: file header.
+ * dataset-bound path, which is exactly the set the spec declares.
+ * Alphabetical; the warning message prints it verbatim. Derivation and
+ * evidence: file header.
  */
 export const CONSUMED_WIDGET_OPTION_KEYS: readonly string[] = [
   'dateGranularity',
-  'description',
   'limit',
   'sortBy',
   'sortOrder',

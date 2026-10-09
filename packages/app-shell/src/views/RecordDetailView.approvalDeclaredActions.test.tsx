@@ -135,7 +135,7 @@ const SYS_APPROVAL_REQUEST_DEF = {
   fields: {
     id: { type: 'text', label: 'Id' },
     status: { type: 'text', label: 'Status' },
-    submitter_id: { type: 'lookup', label: 'Submitter', reference_to: 'sys_user' },
+    submitter_id: { type: 'lookup', label: 'Submitter', reference: 'sys_user' },
   },
   actions: [
     {

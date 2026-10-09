@@ -69,7 +69,7 @@ describe('a percent renders under ONE convention in a cell and in a measure (#45
     // The same underlying value on both paths: `formatPercent` takes the STORED
     // value and scales it through `percentDisplayValue`; `formatMeasure` is
     // told the column is already in whole percentage points.
-    const cell = formatPercent(0.805, 1, locale);
+    const cell = formatPercent(0.805, 'fraction', 1, locale);
     const measure = formatMeasure(80.5, '0.0%', undefined, 'whole', locale);
     expect(convention(measure)).toBe(convention(cell));
   });
@@ -77,12 +77,12 @@ describe('a percent renders under ONE convention in a cell and in a measure (#45
   it('the German case the card was filed for, spelled out', () => {
     // Both `1.234,5` followed by U+00A0 and the sign. Before #4576 the measure
     // had no space.
-    expect(formatPercent(1234.5, 1, 'de-DE')).toBe('1.234,5\u00a0%');
+    expect(formatPercent(1234.5, 'whole', 1, 'de-DE')).toBe('1.234,5\u00a0%');
     expect(formatMeasure(1234.5, '0.0%', undefined, 'whole', 'de-DE')).toBe('1.234,5\u00a0%');
   });
 
   it('MUST NOT CHANGE: English was always identical on both paths, and stays so', () => {
-    expect(formatPercent(1234.5, 1, 'en-US')).toBe('1,234.5%');
+    expect(formatPercent(1234.5, 'whole', 1, 'en-US')).toBe('1,234.5%');
     expect(formatMeasure(1234.5, '0.0%', undefined, 'whole', 'en-US')).toBe('1,234.5%');
   });
 
@@ -104,11 +104,11 @@ describe('a percent renders under ONE convention in a cell and in a measure (#45
     // `formatMeasure` had already moved onto `style: 'percentPoints'` in #4576;
     // the cell now renders through the same option, so there is one route and
     // no second rounding behaviour to keep in step.
-    expect(formatPercent(1.005, 2, 'en-US')).toBe('1.01%');
+    expect(formatPercent(1.005, 'whole', 2, 'en-US')).toBe('1.01%');
     expect(formatMeasure(1.005, '0.00%', undefined, 'whole', 'en-US')).toBe('1.01%');
     // …and asserted as an AGREEMENT rather than two coincidences, so a future
     // divergence at either end fails here whatever the two happen to render.
-    expect(formatPercent(1.005, 2, 'en-US')).toBe(
+    expect(formatPercent(1.005, 'whole', 2, 'en-US')).toBe(
       formatMeasure(1.005, '0.00%', undefined, 'whole', 'en-US'),
     );
   });

@@ -7,6 +7,17 @@
  *
  *  - Bounces to `/login` if `emailPassword.disableSignUp === true`
  *    (defense-in-depth; the server-side gate is the source of truth).
+ *  - Under an audience posture closed to strangers (`invite_only`), shows
+ *    the form only to an invitation redirect or on a deployment with no
+ *    owner yet, and otherwise explains that registration is by invitation
+ *    BEFORE the form — see `decideSignUpOffer` in `@object-ui/app-shell`, the
+ *    one decision this page shares with the package's exported
+ *    `DefaultRegisterPage` (objectui#11691, objectui#11705).
+ *  - Offers nothing until the config read ANSWERS (objectui#11806): while it
+ *    is pending the page shows its spinner, and when it fails it shows the
+ *    same "Cannot connect to server" panel with Retry as `/login`, in place
+ *    of the form. The sign-up request goes to the same server, so a
+ *    live-looking form would only have deferred that news to the submit.
  *  - Routes to `/verify-email-prompt` when the server requires email
  *    verification before sign-in, and carries `?redirect=` into the
  *    verification mail's link so it survives the inbox (objectui#10893).
@@ -16,15 +27,23 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth, RegisterForm } from '@object-ui/auth';
+import { useAuth, RegisterForm, AuthFormHeader, AUTH_LINK_CLASS } from '@object-ui/auth';
+import type { AuthPublicConfig } from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { Card } from '@object-ui/components';
-import { signUpRefusalMessages } from '@object-ui/app-shell';
+import {
+  signUpRefusalMessages,
+  decideSignUpOffer,
+  isInvitationRedirect,
+  needsBootstrapProbe,
+  useBootstrapStatus,
+} from '@object-ui/app-shell';
 import { AuthLayout } from './AuthLayout';
 import { followOauthAuthorize } from './followAuthorize';
 // Was a second module-private copy of LoginPage's helper; both now share one
 // implementation — objectui#4181. Behaviour here is unchanged.
 import { withConsoleBase, withConsoleBaseRootRelative } from '../../utils/consoleBase';
+import { ServerUnreachable } from './LoginPage';
 
 function isSafeRedirect(target: string | null): target is string {
   return !!target && target.startsWith('/') && !target.startsWith('//');
@@ -53,7 +72,23 @@ export function RegisterPage() {
     getAuthConfig,
   } = useAuth();
 
-  const [signUpDisabled, setSignUpDisabled] = useState<boolean | null>(null);
+  // The public auth config and where its read stands (objectui#11806), as on
+  // `/login`: `loading` until `getAuthConfig()` settles, `failed` once it
+  // rejected — the auth client has already retried by then — and `known` once
+  // the server answered. `authConfig` stays `null` until `known`, and the
+  // offer is consulted only once the read is `known`. `configReadAttempt`
+  // counts Retry presses, and re-runs the read below.
+  const [authConfig, setAuthConfig] = useState<AuthPublicConfig | null>(null);
+  const [configRead, setConfigRead] = useState<'loading' | 'failed' | 'known'>('loading');
+  const [configReadAttempt, setConfigReadAttempt] = useState(0);
+  const retryConfigRead = () => {
+    setConfigRead('loading');
+    setConfigReadAttempt((n) => n + 1);
+  };
+  // A retry in flight keeps the unreachable state up (its button reads
+  // "Retrying…") rather than flashing the form before the server has answered.
+  const serverUnreachable =
+    configRead === 'failed' || (configRead === 'loading' && configReadAttempt > 0);
   const [autoSelectingOrg, setAutoSelectingOrg] = useState(false);
   // Fire the OAuth hand-off fetch at most once (see LoginPage).
   const ssoHandoffStartedRef = useRef(false);
@@ -67,26 +102,45 @@ export function RegisterPage() {
     if (!isLoading) setHasBootstrapped(true);
   }, [isLoading]);
 
-  // Probe public auth config — bounce to /login if sign-up is gated off.
+  // Probe public auth config — what this visitor is offered follows from it.
+  // Once on mount, and again on each Retry after a failed read.
   useEffect(() => {
     let cancelled = false;
     getAuthConfig()
       .then((cfg) => {
         if (cancelled) return;
-        const disabled = cfg?.emailPassword?.disableSignUp === true;
-        setSignUpDisabled(disabled);
-        if (disabled) {
-          const search = redirect ? `?redirect=${encodeURIComponent(redirect)}` : '';
-          navigate(`/login${search}`, { replace: true });
-        }
+        setAuthConfig(cfg ?? null);
+        setConfigRead('known');
       })
       .catch(() => {
-        if (!cancelled) setSignUpDisabled(false);
+        // The server did not answer (the auth client retried first): say so
+        // instead of drawing a form whose submit goes to the same server.
+        if (!cancelled) setConfigRead('failed');
       });
     return () => {
       cancelled = true;
     };
-  }, [getAuthConfig, navigate, redirect]);
+  }, [getAuthConfig, configReadAttempt]);
+
+  // objectui#11691 — the offer reads `disableSignUp` AND the audience posture;
+  // the bootstrap probe runs only when the posture is closed to strangers and
+  // the visitor did not come from an invitation. See app-shell's
+  // `decideSignUpOffer`.
+  const invitationRedirect = isInvitationRedirect(redirect);
+  const bootstrap = useBootstrapStatus(
+    configRead === 'known' &&
+      hasBootstrapped &&
+      !user &&
+      needsBootstrapProbe(authConfig, invitationRedirect),
+  );
+  const signUpOffer = decideSignUpOffer(authConfig, { invitationRedirect, bootstrap });
+
+  // Sign-up switched off — bounce to /login.
+  useEffect(() => {
+    if (signUpOffer !== 'closed') return;
+    const search = redirect ? `?redirect=${encodeURIComponent(redirect)}` : '';
+    navigate(`/login${search}`, { replace: true });
+  }, [signUpOffer, navigate, redirect]);
 
   // Post-signup orchestration mirrors LoginPage exactly.
   useEffect(() => {
@@ -132,7 +186,25 @@ export function RegisterPage() {
     switchOrganization,
   ]);
 
-  if (signUpDisabled === null || (isLoading && !hasBootstrapped) || user) {
+  // The first session check has answered and nobody is signed in: the page is
+  // talking to a visitor, so a failed config read is theirs to see.
+  const awaitingSession = (isLoading && !hasBootstrapped) || !!user;
+  if (!awaitingSession && serverUnreachable) {
+    return (
+      <AuthLayout formWidth="md">
+        <Card className="border-border/60 px-4 py-8 shadow-sm shadow-primary/5 backdrop-blur supports-[backdrop-filter]:bg-card/95">
+          <ServerUnreachable retrying={configRead === 'loading'} onRetry={retryConfigRead} />
+        </Card>
+      </AuthLayout>
+    );
+  }
+
+  if (
+    awaitingSession ||
+    configRead !== 'known' ||
+    signUpOffer === 'closed' ||
+    signUpOffer === 'pending'
+  ) {
     return (
       <AuthLayout>
         <div className="flex flex-col items-center gap-3 py-10 text-sm text-muted-foreground">
@@ -150,6 +222,36 @@ export function RegisterPage() {
   const verificationCallbackURL = isSafeRedirect(redirect)
     ? withConsoleBaseRootRelative(redirect)
     : undefined;
+
+  // objectui#11691 — registration here is by invitation only. Say so BEFORE
+  // the form instead of refusing the finished form with
+  // `SELF_REGISTRATION_CLOSED`; the sentence is that refusal's own copy.
+  if (signUpOffer === 'by-invitation') {
+    return (
+      <AuthLayout formWidth="md">
+        <Card className="border-border/60 px-4 py-8 shadow-sm shadow-primary/5 backdrop-blur supports-[backdrop-filter]:bg-card/95">
+          <div
+            data-testid="register-by-invitation"
+            className="mx-auto flex w-full flex-col justify-center space-y-7 sm:w-[400px]"
+          >
+            <AuthFormHeader
+              title={t('auth.register.title', { defaultValue: 'Create an account' })}
+              description={t('auth.register.errors.selfRegistrationClosed', {
+                defaultValue:
+                  'Self-registration is not open on this environment. Ask an administrator for an invitation.',
+              })}
+            />
+            <p className="px-8 text-center text-sm text-muted-foreground">
+              {t('auth.register.hasAccountText', { defaultValue: 'Already have an account?' })}{' '}
+              <Link to={loginUrl} className={AUTH_LINK_CLASS}>
+                {t('auth.register.signInText', { defaultValue: 'Sign in' })}
+              </Link>
+            </p>
+          </div>
+        </Card>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout formWidth="md">

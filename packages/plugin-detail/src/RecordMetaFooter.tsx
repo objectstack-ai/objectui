@@ -25,7 +25,7 @@ const AUDIT_FIELDS = AUDIT_FIELD_BY_ROLE;
 export interface RecordMetaFooterProps {
   /** The current record data; expected to contain audit fields when available. */
   data: Record<string, any> | null | undefined;
-  /** Resolved object schema (used to read reference_to for created_by/updated_by). */
+  /** Resolved object schema (used to read `reference` for created_by/updated_by). */
   objectSchema?: any;
   /** Object name for future i18n hooks (currently unused). */
   objectName?: string;
@@ -133,7 +133,7 @@ const UserRef: React.FC<UserRefProps> = ({ value, objectSchema, fieldName }) => 
   const enrichedField: Record<string, any> = {
     name: fieldName,
     type: fieldDef?.type || 'lookup',
-    reference_to: refTarget,
+    reference: refTarget,
     ...(fieldDef?.reference_field && { reference_field: fieldDef.reference_field }),
   };
   const resolvedType = resolveCellRendererType(enrichedField as { type?: string }) || enrichedField.type;

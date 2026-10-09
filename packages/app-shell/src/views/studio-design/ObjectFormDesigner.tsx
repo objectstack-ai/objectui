@@ -26,17 +26,13 @@ import {
   useSensors,
   useDroppable,
   pointerWithin,
+  type CollisionDetection,
+  type KeyboardCoordinateGetter,
   type DragStartEvent,
   type DragOverEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-  sortableKeyboardCoordinates,
-} from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Plus, Trash2, ChevronUp, ChevronDown, Rows3, Settings2 } from 'lucide-react';
 import { inferColumns, containerGridColsFor, isWideFieldType } from '@object-ui/plugin-form';
@@ -55,12 +51,169 @@ import {
 } from '../metadata-admin/previews/object-fields-io.js';
 import { useSafeFieldLabel } from '@object-ui/i18n';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { isStudioHiddenSystemField } from './studioHiddenSystemField.js';
+import { formDndAccessibility, type FormDndLookups, type FormDndSlot } from './formDndAnnouncements.js';
 
 const UNGROUPED = '__ungrouped__';
+
+/**
+ * Kept off the layout canvas, and written back untouched on every commit: a
+ * field the host names in `systemFieldNames`, or one the platform injects AND
+ * hides (`system: true` + `hidden: true` — `__search`,
+ * `owning_business_unit_id`; objectui#11780). One test for all three readers
+ * below — the density count, the containers, and the write-back — so a field
+ * can never be hidden from the canvas and then dropped by the commit.
+ */
+function isKeptOffLayout(entry: FieldEntry, systemFieldNames: ReadonlySet<string>): boolean {
+  return systemFieldNames.has(entry.name) || isStudioHiddenSystemField(entry.def);
+}
 const cid = (key: string) => `g:${key}`; // container (section) droppable id
 const fid = (name: string) => `f:${name}`; // sortable field id
 const unCid = (id: string) => id.slice(2);
 const unFid = (id: string) => id.slice(2);
+
+/**
+ * Which droppable a drag is over (objectui#11871, objectui#11898). A pointer
+ * drag keeps `pointerWithin`: the droppable under the pointer, or none. A
+ * keyboard drag has no pointer: dnd-kit reads pointer coordinates off the
+ * activator event, and a `KeyboardEvent` has none, so `pointerWithin` answered
+ * nothing and every keyboard drop missed (objectui#11871). A keyboard drag is
+ * over the droppable `keyboardOver` names for it: the place its arrow keys
+ * chose, read off the layout (see {@link keyboardOverAt}). Not a rect test:
+ * moving the field into another group re-lays the canvas under the chip, and a
+ * rect test then lands on a neighbour of the place just announced
+ * (objectui#11898).
+ */
+function formCollision(keyboardOver: (activeId: string) => string): CollisionDetection {
+  return (args) => (args.pointerCoordinates ? pointerWithin(args) : [{ id: keyboardOver(String(args.active.id)) }]);
+}
+
+/**
+ * Where a keyboard drag would put the dragged field (objectui#11898): a
+ * container, and the field's 0-based index in it once dropped there, the field
+ * itself counted.
+ */
+interface KeyboardSlot {
+  container: string;
+  index: number;
+}
+
+/**
+ * The droppable a keyboard drag at `slot` is over: the one a drop on which
+ * lands `activeId` at `slot` by `onDragEnd`'s arithmetic (`dropPlaceIn` reads
+ * the same). In the field's own group, the field at that index, which is the
+ * field itself once `onDragOver` has carried it there; in another group, the
+ * field it goes before, or the group's section when it goes last. `null` slot:
+ * the drag has not stepped, so it is over its own card.
+ */
+function keyboardOverAt(layout: Record<string, string[]>, activeId: string, slot: KeyboardSlot | null): string {
+  const list = slot ? layout[slot.container] : undefined;
+  if (!slot || !list) return activeId;
+  return list[slot.index] ?? (list.includes(activeId) ? activeId : slot.container);
+}
+
+/**
+ * One arrow-key step of a keyboard drag, in the layout's reading order
+ * (objectui#11898): ArrowDown and ArrowRight take the field one place later,
+ * ArrowUp and ArrowLeft one place earlier, whatever the canvas's column count.
+ * Past either end of a group the step enters the next group shown, first
+ * place going down and last place going up, so an empty group is one step
+ * like any other. `null`: the field is already at that end of the canvas.
+ * `shown` says whether a group's section is on the canvas; the layout's keys
+ * are in canvas order, the order `derived` builds them in.
+ */
+function stepSlot(
+  layout: Record<string, string[]>,
+  activeId: string,
+  from: KeyboardSlot,
+  step: 1 | -1,
+  shown: (container: string) => boolean,
+): KeyboardSlot | null {
+  const places = (c: string) => layout[c].length + (layout[c].includes(activeId) ? 0 : 1);
+  const index = from.index + step;
+  if (index >= 0 && index < places(from.container)) return { container: from.container, index };
+  const order = Object.keys(layout).filter((c) => c === from.container || shown(c));
+  const next = order[order.indexOf(from.container) + step];
+  return next ? { container: next, index: step > 0 ? 0 : places(next) - 1 } : null;
+}
+
+const STEP_BY_KEY: Readonly<Record<string, 1 | -1>> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+
+/**
+ * One arrow key of a keyboard drag, for the keyboard sensor's coordinate
+ * getter (objectui#11898). dnd-kit's `sortableKeyboardCoordinates` picked each
+ * step's target by corner distance among the droppables in the arrow's
+ * direction. A section's droppable spans its whole grid, so on a multi-column
+ * canvas the nearest card won and an empty group was never reached; upward, a
+ * field's own section was the nearest, so the first ArrowUp from a group's
+ * first field went nowhere, and a full-row field's chip, as wide as the
+ * section, matched its own section's corners. This steps from `from` (`null`:
+ * the field's own place) through `layout` with `stepSlot`, hands the new place
+ * to `moveTo` for {@link formCollision}, and moves the chip onto the droppable
+ * the drag is now over: the card, an empty group's section, or the foot of a
+ * group the field joins last. `undefined`: not an arrow key, or nowhere to go.
+ */
+function keyboardStep(
+  event: KeyboardEvent,
+  { active, context }: Parameters<KeyboardCoordinateGetter>[1],
+  layout: Record<string, string[]>,
+  from: KeyboardSlot | null,
+  moveTo: (slot: KeyboardSlot) => void,
+): ReturnType<KeyboardCoordinateGetter> {
+  const step = STEP_BY_KEY[event.code];
+  if (!step) return undefined;
+  event.preventDefault();
+  const { collisionRect, droppableRects } = context;
+  const activeId = String(active);
+  const at = from ?? placeIn(layout, activeId);
+  const to = at && stepSlot(layout, activeId, at, step, (c) => droppableRects.has(c));
+  const overId = to && keyboardOverAt(layout, activeId, to);
+  const rect = overId ? droppableRects.get(overId) : undefined;
+  if (!collisionRect || !to || !rect) return undefined;
+  moveTo(to);
+  const atFoot = overId === to.container && layout[to.container].length > 0;
+  return { x: rect.left, y: atFoot ? rect.bottom - collisionRect.height : rect.top };
+}
+
+/** A field's place in a container map: the container id, a 0-based index and the container's size. */
+interface LayoutPlace {
+  container: string;
+  index: number;
+  total: number;
+}
+
+/** Where a field sits in a container map, or `null` when no container holds it. */
+function placeIn(layout: Record<string, string[]>, id: string): LayoutPlace | null {
+  const container = Object.keys(layout).find((k) => layout[k].includes(id));
+  return container ? { container, index: layout[container].indexOf(id), total: layout[container].length } : null;
+}
+
+/**
+ * Where a drop of `activeId` on `overId` lands, read off the same container
+ * map `onDragEnd` reads and with the same arithmetic, so the place the live
+ * region announces is the place the drop commits (objectui#11802). `null`
+ * where `onDragEnd` returns without moving anything. The handler is the rule;
+ * this restates it for the announcements, and the pins in
+ * `ObjectFormDesigner.dndAnnouncements-11802.test.tsx` compare the two on
+ * every drop they make.
+ */
+function dropPlaceIn(layout: Record<string, string[]>, activeId: string, overId: string): LayoutPlace | null {
+  const inContainer = (id: string): string | undefined =>
+    id.startsWith('g:') && id in layout ? id : Object.keys(layout).find((k) => layout[k].includes(id));
+  const from = inContainer(activeId);
+  const to = inContainer(overId);
+  if (!from || !to) return null;
+  if (from === to) {
+    const list = layout[from];
+    const oldIndex = list.indexOf(activeId);
+    const newIndex = overId.startsWith('g:') ? list.length - 1 : list.indexOf(overId);
+    // `onDragEnd` keeps the field where it is when either index is missing.
+    return { container: from, index: newIndex < 0 ? oldIndex : newIndex, total: list.length };
+  }
+  const toItems = layout[to];
+  const overIndex = overId.startsWith('g:') ? toItems.length : toItems.indexOf(overId);
+  return { container: to, index: overIndex < 0 ? toItems.length : overIndex, total: toItems.length + 1 };
+}
 
 export interface ObjectFormDesignerProps {
   /** Object metadata draft (reads `fields` + `fieldGroups`). */
@@ -72,7 +225,11 @@ export interface ObjectFormDesignerProps {
    * more reliable handle (a freshly created draft may not have been named yet).
    */
   objectName?: string;
-  /** Field names to hide from the layout (system/audit) but preserve on write. */
+  /**
+   * Field names to hide from the layout (system/audit) but preserve on write.
+   * A field marked `system: true` + `hidden: true` is hidden and preserved the
+   * same way without being named here (objectui#11780).
+   */
   systemFieldNames: Set<string>;
   /** Persist a partial object-draft patch (fields / fieldGroups) + mark dirty. */
   onChange: (patch: Record<string, unknown>) => void;
@@ -141,6 +298,7 @@ function SortableField({
   columns,
   selected,
   onSelect,
+  readOnly = false,
 }: {
   entry: FieldEntry;
   /** Already resolved through the project's field translations. */
@@ -148,9 +306,21 @@ function SortableField({
   columns: number;
   selected: boolean;
   onSelect: () => void;
+  /**
+   * objectui#11781 — a read-only package's card only opens the (greyed)
+   * inspector: it neither says nor looks draggable.
+   */
+  readOnly?: boolean;
 }): React.ReactElement {
   const locale = useMetadataLocale();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fid(entry.name) });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: fid(entry.name),
+    // objectui#11872 — the role a screen reader announces for the card, in the
+    // author's locale; left unset, dnd-kit writes its English `sortable`. A
+    // read-only card is not draggable, so it gets none: ARIA does not expose a
+    // blank `aria-roledescription`, and the card reads as the button it is.
+    attributes: { roleDescription: readOnly ? '' : t('engine.studio.designer.fieldRole', locale) },
+  });
   const type = String(entry.def.type ?? 'text');
   const required = !!entry.def.required;
   // Mirror the real form: wide widgets (textarea/markdown/html/…) take the whole
@@ -168,17 +338,29 @@ function SortableField({
       onClick={onSelect}
       {...attributes}
       {...listeners}
-      aria-label={tFormat('engine.studio.designer.fieldAria', locale, { label })}
+      // objectui#11924 — dnd-kit points every card's `aria-describedby` at the
+      // canvas's drag instructions, and `useSortable` cannot take it away
+      // (`disabled` keeps it and adds `aria-disabled`, though a click still
+      // selects). A read-only card cannot be dragged, so it names none.
+      aria-describedby={readOnly ? undefined : attributes['aria-describedby']}
+      aria-label={
+        readOnly
+          ? tFormat('engine.studio.designer.fieldAriaReadOnly', locale, { label })
+          : tFormat('engine.studio.designer.fieldAria', locale, { label })
+      }
       className={
-        'group relative flex cursor-grab touch-none select-none items-start gap-1.5 rounded-md border bg-background px-2 py-2 active:cursor-grabbing ' +
+        'group relative flex touch-none select-none items-start gap-1.5 rounded-md border bg-background px-2 py-2 ' +
+        (readOnly ? 'cursor-pointer ' : 'cursor-grab active:cursor-grabbing ') +
         (spanFull ? 'col-span-full ' : '') +
         (selected ? 'ring-2 ring-primary' : 'hover:border-foreground/25') +
         (isDragging ? ' opacity-40' : '')
       }
     >
-      <span className="mt-0.5 text-muted-foreground opacity-0 group-hover:opacity-100">
-        <GripVertical className="h-3.5 w-3.5" />
-      </span>
+      {!readOnly && (
+        <span className="mt-0.5 text-muted-foreground opacity-0 group-hover:opacity-100">
+          <GripVertical className="h-3.5 w-3.5" />
+        </span>
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1 text-xs font-medium">
           <span className="truncate">{label}</span>
@@ -328,6 +510,7 @@ function Section({
                 columns={columns}
                 selected={selectedField === name}
                 onSelect={() => onSelectField(name)}
+                readOnly={readOnly}
               />
             );
           })}
@@ -379,7 +562,7 @@ export function ObjectFormDesigner({
   // designer reads at the same density end users see. Each section's container
   // queries then clamp this cap to the actually-rendered width.
   const formColumns = React.useMemo(
-    () => inferColumns(view.entries.filter((e) => !systemFieldNames.has(e.name)).length),
+    () => inferColumns(view.entries.filter((e) => !isKeptOffLayout(e, systemFieldNames)).length),
     [view.entries, systemFieldNames],
   );
 
@@ -401,7 +584,7 @@ export function ObjectFormDesigner({
     const map: Record<string, string[]> = {};
     for (const c of containerOrder) map[c] = [];
     for (const e of view.entries) {
-      if (systemFieldNames.has(e.name)) continue;
+      if (isKeptOffLayout(e, systemFieldNames)) continue;
       const g = typeof e.def.group === 'string' ? e.def.group : '';
       const target = g && map[cid(g)] ? cid(g) : cid(UNGROUPED);
       map[target].push(fid(e.name));
@@ -422,9 +605,50 @@ export function ObjectFormDesigner({
     itemsRef.current = items;
   }, [items]);
 
+  // What the drag live region speaks (objectui#11802): the labels the cards and
+  // section headers render, never the `f:` / `g:` ids, and places read off the
+  // container map `onDragEnd` reads (`itemsRef` holds this render's `items`).
+  // dnd-kit subscribes the newest object each time a render commits, so a
+  // sentence always reads the committed layout and labels. A rebuild, here or
+  // on React's own account, changes no sentence.
+  const dndAccessibility = React.useMemo(() => {
+    const slot = (place: LayoutPlace | null): FormDndSlot | null =>
+      place && {
+        container: place.container,
+        group: labelOf.get(place.container) ?? t('engine.studio.designer.ungrouped', locale),
+        position: place.index + 1,
+        total: place.total,
+      };
+    const lookups: FormDndLookups = {
+      fieldLabel: (id) => {
+        const entry = entryByName.get(unFid(id));
+        // A drag starts only on a rendered card, which has an entry.
+        return entry ? fieldLabelOf(entry) : unFid(id);
+      },
+      slotOf: (id) => slot(placeIn(items, id)),
+      dropSlot: (id, overId) => slot(dropPlaceIn(items, id, overId)),
+      committedSlotOf: (id) => slot(placeIn(derived, id)),
+    };
+    return formDndAccessibility(locale, lookups);
+  }, [locale, items, derived, labelOf, entryByName, fieldLabelOf]);
+
+  // Where a keyboard drag's arrow keys have taken the field (objectui#11898),
+  // `null` from each keyboard pick-up until its first step. Held twice: the
+  // collision reads the state while it renders, and the coordinate getter,
+  // which the sensor keeps from the pick-up on, reads the ref when a key comes.
+  const [keyboardSlot, setKeyboardSlot] = React.useState<KeyboardSlot | null>(null);
+  const keyboardSlotRef = React.useRef<KeyboardSlot | null>(null);
+  const placeKeyboardDrag = (slot: KeyboardSlot | null) => {
+    keyboardSlotRef.current = slot;
+    setKeyboardSlot(slot);
+  };
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: (event, args) =>
+        keyboardStep(event, args, itemsRef.current, keyboardSlotRef.current, placeKeyboardDrag),
+      onActivation: () => placeKeyboardDrag(null),
+    }),
   );
 
   const findContainer = React.useCallback(
@@ -450,7 +674,9 @@ export function ObjectFormDesigner({
           editable.push({ name: e.name, def });
         }
       }
-      const system = view.entries.filter((e) => systemFieldNames.has(e.name));
+      // Every field the canvas does not show rides back unchanged — the same
+      // test that kept it off the containers (objectui#11780).
+      const system = view.entries.filter((e) => isKeptOffLayout(e, systemFieldNames));
       const finalView: FieldsView = { shape: view.shape, entries: [...system, ...editable] };
       onChange({ fields: writeFields(finalView) });
     },
@@ -527,7 +753,10 @@ export function ObjectFormDesigner({
     <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-background p-4">
       <div className="mb-3 flex items-center gap-2">
         <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Rows3 className="h-3.5 w-3.5" /> {t('engine.studio.designer.hint', locale)}
+          {/* objectui#11781 — a read-only package has no drag and no edit, so
+              its hint says what it is and what a click still does. */}
+          <Rows3 className="h-3.5 w-3.5" />{' '}
+          {readOnly ? t('engine.studio.designer.hintReadOnly', locale) : t('engine.studio.designer.hint', locale)}
         </span>
         {!readOnly && (
           <>
@@ -553,7 +782,8 @@ export function ObjectFormDesigner({
 
       <DndContext
         sensors={readOnly ? [] : sensors}
-        collisionDetection={pointerWithin}
+        collisionDetection={formCollision((id) => keyboardOverAt(items, id, keyboardSlot))}
+        accessibility={dndAccessibility}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}

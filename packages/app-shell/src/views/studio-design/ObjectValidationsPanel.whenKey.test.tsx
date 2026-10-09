@@ -31,7 +31,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { ValidationRuleSchema, ObjectSchema } from '@objectstack/spec/data';
 
 import { ObjectValidationsPanel } from './ObjectValidationsPanel';
@@ -81,30 +81,67 @@ function expectSpecAccepts(rule: unknown, what: string) {
   expect(`${what} :: ObjectSchema :: ${issuesOf(asDraft)}`).toBe(`${what} :: ObjectSchema :: (accepted)`);
 }
 
-/** Add `label` from the New menu and return the rule the panel emitted. */
+/** The types whose new rule waits for its guard before it is written (objectui#11820). */
+const GUARDED = new Set(['script', 'cross_field', 'conditional']);
+const GUARD = 'has(record.amount) && record.amount < 0';
+const THEN_GUARD = 'has(record.amount) && record.amount > 1000';
+
+/** Switch the open rule's guard editor to raw CEL and type `cel` into it. */
+function typeGuard(cel: string) {
+  fireEvent.click(screen.getByRole('button', { name: /Expression/ }));
+  const box = screen.getAllByRole('combobox').find((el) => el.tagName === 'TEXTAREA') as HTMLTextAreaElement;
+  fireEvent.change(box, { target: { value: cel } });
+}
+
+/** Pick `label` in the open rule's Type picker, the shared `Select` (objectui#11865). */
+async function pickType(label: string): Promise<void> {
+  fireEvent.keyDown(screen.getByTestId('rule-type'), { key: 'ArrowDown' });
+  fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: label }));
+}
+
+/**
+ * Add `label` from the New menu and return the rule the panel WROTE to the
+ * draft. A guarded type is written only once the author gives it its guard —
+ * and a conditional, its `then` rule's too — so those are filled in first.
+ */
 function addFromMenu(label: string): Record<string, unknown> {
   const onPatch = vi.fn();
   render(<ObjectValidationsPanel draft={baseDraft} onPatch={onPatch} />);
   fireEvent.click(screen.getByText('New'));
+  // The per-type list sits under Advanced since objectui#11861.
+  fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
   fireEvent.click(screen.getByRole('button', { name: label }));
+  const type = MENU.find(([, l]) => l === label)?.[0] ?? '';
+  if (GUARDED.has(type)) {
+    expect(onPatch).not.toHaveBeenCalled();
+    typeGuard(GUARD);
+    if (type === 'conditional') {
+      expect(onPatch).not.toHaveBeenCalled();
+      const then = screen.getByLabelText('Then — rule applied when the condition holds (JSON)');
+      const seeded = JSON.parse((then as HTMLTextAreaElement).value) as Record<string, unknown>;
+      fireEvent.change(then, { target: { value: JSON.stringify({ ...seeded, condition: THEN_GUARD }) } });
+      fireEvent.blur(then);
+    }
+  }
+  expect(onPatch).toHaveBeenCalledTimes(1);
   const patch = onPatch.mock.calls[0][0];
   return patch.validations[patch.validations.length - 1];
 }
 
 describe('whenKeyPin — ObjectValidationsPanel emits spec-parseable metadata', () => {
   // The class, not just the instance: every type the New menu offers.
-  it.each(MENU)('the %s skeleton parses through the spec the draft save uses', (type, label) => {
+  it.each(MENU)('the %s rule the New menu writes parses through the spec the draft save uses', (type, label) => {
     const added = addFromMenu(label);
     expect(added.type).toBe(type);
     expectSpecAccepts(added, `${type} skeleton`);
   });
 
-  it('seeds the conditional guard under `when` — the key the spec accepts', () => {
+  it('writes the conditional guard under `when` — the key the spec accepts', () => {
     const added = addFromMenu('Conditional — apply a rule when a guard holds');
-    expect(added.when).toBe('false');
+    expect(added.when).toBe(GUARD);
     expect(added).not.toHaveProperty('condition');
     // …and the nested `then` is a `script` rule, so ITS guard stays `condition`.
-    expect(added.then).toMatchObject({ type: 'script', condition: 'false' });
+    expect(added.then).toMatchObject({ type: 'script', condition: THEN_GUARD });
   });
 
   it('the spec refuses the key this panel used to write — so the pin above has teeth', () => {
@@ -181,13 +218,12 @@ describe('whenKeyPin — ObjectValidationsPanel emits spec-parseable metadata', 
     expectSpecAccepts(written, 'edited script');
   });
 
-  it('carries the guard across a type switch in each side\'s own spelling', () => {
+  it('carries the guard across a type switch in each side\'s own spelling', async () => {
     // script (`condition`) → conditional (`when`)
     const onPatch = vi.fn();
     render(<ObjectValidationsPanel draft={baseDraft} onPatch={onPatch} />);
-    fireEvent.change(screen.getByDisplayValue('Script — CEL fail condition'), {
-      target: { value: 'conditional' },
-    });
+    expect(screen.getByTestId('rule-type')).toHaveTextContent('Script — CEL fail condition');
+    await pickType('Conditional — apply a rule when a guard holds');
     const toConditional = onPatch.mock.calls[0][0].validations[0];
     expect(toConditional.when).toBe('record.amount < 0');
     expect(toConditional).not.toHaveProperty('condition');
@@ -210,9 +246,8 @@ describe('whenKeyPin — ObjectValidationsPanel emits spec-parseable metadata', 
       ],
     };
     render(<ObjectValidationsPanel draft={conditionalDraft} onPatch={onPatch2} />);
-    fireEvent.change(screen.getByDisplayValue('Conditional — apply a rule when a guard holds'), {
-      target: { value: 'script' },
-    });
+    expect(screen.getByTestId('rule-type')).toHaveTextContent('Conditional — apply a rule when a guard holds');
+    await pickType('Script — CEL fail condition');
     const toScript = onPatch2.mock.calls[0][0].validations[0];
     expect(toScript.condition).toBe('record.amount > 100');
     expect(toScript).not.toHaveProperty('when');

@@ -371,6 +371,21 @@ gates the "Sign in with SSO" button, `features.phoneNumberOtp` gates the
 verification-code mode, `features.deviceAuthorization` gates the device-approval page,
 and so on.
 
+### `features.audiencePosture` — read it beside `emailPassword.disableSignUp`
+
+`features.audiencePosture` reports which audience posture is in force: `invite_only` (the
+default when the deployment declares none), `email_domain` or `open`. It is a value, not a
+flag, and the server does **not** force `emailPassword.disableSignUp` from it: under
+`invite_only` the sign-up route still admits a pending invitee, and a fresh deployment's
+first owner. So `disableSignUp: false` on its own does not mean a stranger may register.
+
+A surface that offers a generic sign-up reads both keys. `disableSignUp: true` hides
+sign-up outright. Otherwise offer it when the posture is `open` or `email_domain`, or when
+the visitor came from an invitation; under `invite_only` say that registration is by
+invitation instead of rendering a form the server will refuse. A server that sends no
+`audiencePosture` predates the key, and `disableSignUp` alone decides there. The
+console's login and register pages are that reader (objectui#11691).
+
 ### Reserved flags — advertised by the server, consumed by nothing
 
 Two members of that map are **declared but deliberately not consumed** by this package:

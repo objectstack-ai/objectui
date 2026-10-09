@@ -44,7 +44,7 @@ import { PageSchema } from '@objectstack/spec/ui';
 // mount-time fetch instead of letting it escape to the real network. No
 // assertion here reads the fetched object list or its fields.
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,
@@ -104,7 +104,7 @@ describe('object-kanban inspector · the declared controls are on screen (object
     expect(screen.getByLabelText('Limit')).toBeTruthy();
   });
 
-  it('the row cap states DEFAULT_KANBAN_LIMIT while it is empty, and commits a number', () => {
+  it('the fetch batch box states DEFAULT_KANBAN_FETCH_BATCH_SIZE while it is empty, and commits a number', () => {
     const onPatch = renderInspector(pageDraft({ objectName: 'opportunity' }));
     const box = screen.getByLabelText('Limit') as HTMLInputElement;
     // Empty box, and the placeholder says what applies anyway.

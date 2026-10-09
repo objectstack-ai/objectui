@@ -13,10 +13,16 @@
  * Registering a default inspector here lets the host render a curated,
  * selection-less panel instead of the generic form. Selecting a
  * sub-element (a column) still swaps in the scoped inspector.
+ *
+ * Observable, like the preview registry (objectui#11939): a component reads it
+ * during render through `useRegisteredMetadataDefaultInspector(type)` and
+ * re-renders when a default inspector is registered later.
+ * `getMetadataDefaultInspector` reads the registry as it is at the moment of the
+ * call, for non-render code.
  */
 import type { ComponentType } from 'react';
 import type { SupportedLocale } from './i18n.js';
-import type { MetadataSelection } from './preview-registry.js';
+import { createObservableTypeRegistry, type MetadataSelection } from './preview-registry.js';
 
 export interface MetadataDefaultInspectorProps {
   /** Metadata type, e.g. 'view'. */
@@ -70,8 +76,13 @@ export interface MetadataDefaultInspectorProps {
 
 export type MetadataDefaultInspector = ComponentType<MetadataDefaultInspectorProps>;
 
-const REGISTRY = new Map<string, MetadataDefaultInspector>();
+const REGISTRY = createObservableTypeRegistry<MetadataDefaultInspector>();
 
+/**
+ * Register (or replace) the default inspector for a metadata type. Every
+ * component that read this type through
+ * {@link useRegisteredMetadataDefaultInspector} re-renders with the new entry.
+ */
 export function registerMetadataDefaultInspector(
   type: string,
   component: MetadataDefaultInspector,
@@ -79,8 +90,24 @@ export function registerMetadataDefaultInspector(
   REGISTRY.set(type, component);
 }
 
+/**
+ * The registered default inspector for a type, if any, as the registry is now.
+ * During render use {@link useRegisteredMetadataDefaultInspector}: this read is
+ * not told about a later registration.
+ */
 export function getMetadataDefaultInspector(
   type: string,
 ): MetadataDefaultInspector | undefined {
   return REGISTRY.get(type);
+}
+
+/**
+ * The registered default inspector for `type`, if any, for a component to
+ * render (objectui#11939). The component re-renders when a default inspector
+ * for `type` is registered or replaced after its first render.
+ */
+export function useRegisteredMetadataDefaultInspector(
+  type: string,
+): MetadataDefaultInspector | undefined {
+  return REGISTRY.useEntry(type);
 }

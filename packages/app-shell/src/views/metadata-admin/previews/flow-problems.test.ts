@@ -193,3 +193,35 @@ describe('deriveInvalidElements', () => {
     expect(invalidEdges.size).toBe(0);
   });
 });
+
+describe('buildFlowProblems — the connector registry reaches the expression scan (objectui#11085)', () => {
+  const REGISTRY = [
+    {
+      name: 'slack',
+      actions: [{ key: 'chat.postMessage', outputSchema: { type: 'object', properties: { ok: { type: 'boolean' } } } }],
+    },
+  ];
+  const args = (condition: string) => ({
+    variables: [{ name: 'threshold' }],
+    nodes: [
+      { id: 'start', type: 'start' },
+      { id: 'post', type: 'connector_action', connectorConfig: { connectorId: 'slack', actionId: 'chat.postMessage' } },
+      { id: 'check', type: 'decision', config: { condition } },
+    ],
+    edges: [
+      { source: 'start', target: 'post' },
+      { source: 'post', target: 'check' },
+    ],
+  });
+  const expressionWarningsOn = (problems: ReturnType<typeof buildFlowProblems>, nodeId: string) =>
+    problems.filter((p) => p.source === 'expression' && p.level === 'warning' && p.target.kind === 'node' && p.target.nodeId === nodeId);
+
+  it('with the registry, `post.ok` is in scope downstream of the connector action', () => {
+    expect(expressionWarningsOn(buildFlowProblems({ ...args('post.ok == true'), connectors: REGISTRY }), 'check')).toEqual([]);
+  });
+
+  it('lit control: without it, the same reference is reported; a root no node writes is reported either way', () => {
+    expect(expressionWarningsOn(buildFlowProblems(args('post.ok == true')), 'check')).toHaveLength(1);
+    expect(expressionWarningsOn(buildFlowProblems({ ...args('ghost.ok == true'), connectors: REGISTRY }), 'check')).toHaveLength(1);
+  });
+});

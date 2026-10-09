@@ -10,6 +10,7 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 let capturedProps: any = null;
 

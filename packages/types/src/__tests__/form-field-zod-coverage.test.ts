@@ -41,7 +41,7 @@ import { FieldConstraintsSchema, FormFieldSchema } from '../zod/form.zod.js';
  * `FormField` also declares `field` — the resolved object-field metadata stash
  * (#3090), which the object-bound form paths fill at RUNTIME with a
  * server-served field definition so widgets can read `precision`, `currency`,
- * `reference_to`, … No document ever writes it. And on the SPEC form-view side
+ * `reference`, … No document ever writes it. And on the SPEC form-view side
  * — the other authoring surface, the one #3090 keeps separate — that same key
  * name means something else entirely: a STRING naming the referenced object
  * field. Admitting `field` here and to `FormFieldSchema` would therefore make
@@ -77,11 +77,72 @@ const DECLARED_KEYS = [
   'span',
   // objectui#6236 — the section grouping claim (section-divider rows only).
   'fields',
+  // objectui#11070 — field metadata a hand-authored form writes on the entry
+  // itself, read off it by the field widgets and the built-in branches. All
+  // but `pattern` are the spec's `FieldSchema` members by reference.
+  'multiple',
+  'rows',
+  'accept',
+  'dimensions',
+  'reference',
+  'min',
+  'max',
+  // objectui#11070 round 13 — the decimal places the number-family widgets
+  // read, and the currency widget's fixed-currency declaration, by reference.
+  'scale',
+  'currencyConfig',
+  'minLength',
+  'maxLength',
+  'pattern',
+  // objectui#11070 round 3 — the spec spellings the `formula` and `summary`
+  // widgets read (their snake_case forms are retired), by reference too.
+  'returnType',
+  'summaryOperations',
+  // objectui#11070 round 7 — the `grid` widget's columns: the spec's
+  // `inlineColumns` list (its strict inline grid column), by reference.
+  'columns',
+  // objectui#11070 round 10 — the `grid` widget's field-level keys, the
+  // members of `GridFieldMetadata` (the TS twin carries each by reference),
+  // camelCase since objectui#11610.
+  'minRows',
+  'maxRows',
+  'allowAdd',
+  'allowDelete',
+  'allowReorder',
+  'totalField',
+  'addLabel',
+  'sortField',
+];
+
+/**
+ * Keys the schema DECLARES only to refuse by name — never authorable, so not in
+ * {@link DECLARED_KEYS}: the `grid` widget's eight retired snake_case spellings
+ * (objectui#11610), each an alias refusal naming its camelCase key, paired with
+ * a `?: never` tombstone on the TS twin. Their refusal is pinned in
+ * `grid-field-keys-camelcase-11610.test.ts`; this list only keeps the shape
+ * count honest, so a ninth arm (or a dropped one) must touch it.
+ */
+const REFUSED_BY_NAME_KEYS = [
+  'min_rows',
+  'max_rows',
+  'allow_add',
+  'allow_delete',
+  'allow_reorder',
+  'total_field',
+  'add_label',
+  'sort_field',
 ];
 
 describe('FormFieldSchema covers the FormField contract', () => {
-  it('validates exactly the declared key set', () => {
-    expect(Object.keys(FormFieldSchema.shape).sort()).toEqual([...DECLARED_KEYS].sort());
+  it('validates exactly the declared key set, plus the keys it refuses by name', () => {
+    expect(Object.keys(FormFieldSchema.shape).sort()).toEqual([...DECLARED_KEYS, ...REFUSED_BY_NAME_KEYS].sort());
+  });
+
+  it('each refused-by-name key refuses every value, so none of them is authorable (objectui#11610)', () => {
+    for (const key of REFUSED_BY_NAME_KEYS) {
+      expect(FormFieldSchema.safeParse({ name: 'lines', type: 'grid', [key]: 1 }).success, key).toBe(false);
+      expect(FormFieldSchema.safeParse({ name: 'lines', type: 'grid', [key]: 'x' }).success, key).toBe(false);
+    }
   });
 
   it('requires only `name` — `type` is optional, matching the interface', () => {

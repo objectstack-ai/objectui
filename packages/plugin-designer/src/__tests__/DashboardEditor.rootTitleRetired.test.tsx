@@ -122,6 +122,9 @@ describe('DashboardEditor — the root `title` read arm is retired (objectui#750
     // false (objectui#9513).
     const calls = onChange.mock.calls;
     const next = calls[calls.length - 1][0] as DashboardComponentSchema;
-    expect(next.widgets![0].title).toBe('Net Revenue');
+    // Read through the slot's element type (objectui#11514): both arms of the
+    // `widgets[]` union declare `title`.
+    const widgets: DashboardComponentSchema['widgets'] = next.widgets ?? [];
+    expect(widgets[0].title).toBe('Net Revenue');
   });
 });

@@ -111,9 +111,9 @@ const TASK_FIELDS: Record<string, any> = {
   id: { type: 'text', label: 'Id' },
   subject: { type: 'text', label: 'Subject' },
   starts_at: { type: 'datetime', label: 'Start' },
-  account: { type: 'lookup', reference_to: 'account', label: 'Account' },
-  secret_account: { type: 'lookup', reference_to: 'account', label: 'Secret Account' },
-  owner_dept: { type: 'master_detail', reference_to: 'department', label: 'Dept' },
+  account: { type: 'lookup', reference: 'account', label: 'Account' },
+  secret_account: { type: 'lookup', reference: 'account', label: 'Secret Account' },
+  owner_dept: { type: 'master_detail', reference: 'department', label: 'Dept' },
 };
 
 const ROW = { id: 't1', subject: 'Ship it', starts_at: '2026-01-01T09:00:00Z' };

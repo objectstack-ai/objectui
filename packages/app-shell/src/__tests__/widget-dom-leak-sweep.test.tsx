@@ -33,32 +33,37 @@
  *
  *   | package          | targets | targets leaking | leaked attributes |
  *   |------------------|---------|-----------------|-------------------|
- *   | plugin-charts    |       9 |               0 |                 0 |
+ *   | plugin-charts    |       5 |               0 |                 0 |
  *   | plugin-calendar  |       3 |               0 |                 0 |
  *   | plugin-chatbot   |       3 |               0 |                 0 |
- *   | plugin-dashboard |       8 |               2 |             7 / 9 |
- *   | components       |     160 |              90 |          12 .. 15 |
+ *   | plugin-dashboard |       7 |               0 |                 0 |
+ *   | components       |     150 |              82 |          12 .. 15 |
  *
- * **92 of 183 targets leak.** The `components` row is objectui#5574 and is
- * covered in its own section below; the two `plugin-dashboard` rows are the
- * older tail. Both are in {@link LEAK_LEDGER}:
- * `plugin-dashboard:metric` and `plugin-dashboard:metric-card`, the open tail
- * objectui#4425 owns directly. Two migration steps have closed their rows since
- * the phase-1 measurement:
+ * **82 of 168 targets leak.** All of them are the `components` row, which is
+ * objectui#5574 and is covered in its own section below. The four packages
+ * objectui#4425 named now read zero. Three migration steps have closed their
+ * rows since the phase-1 measurement:
  *
  *   - `plugin-chatbot:chatbot` / `chatbot-enhanced` — 14 attributes each,
  *     objectui#4431 / PR #4485, which also lifted `toDomProps` to
  *     `@object-ui/core` so later cards consume one executor.
  *   - `plugin-dashboard:dashboard` (spelled `view:dashboard` until
  *     objectui#9533) — `DashboardRenderer`'s widget-grid container, 13
- *     attributes, objectui#4432 / this file's most recent edit.
+ *     attributes, objectui#4432.
+ *   - `plugin-dashboard:metric` / `metric-card` — the KPI cards' open tail, 7
+ *     and 9 attributes, objectui#4425 itself: the last two rows inside these
+ *     four packages. See "what is left of it" below.
  *
- * The three packages now reading 0 are NOT clean for the same reason, and the
+ * The four packages now reading 0 are NOT clean for the same reason, and the
  * difference is worth keeping straight: `plugin-charts` never spreads the node
  * onto its container at all; `plugin-calendar`'s components take a declared prop
  * list and drop what they do not name, so the node's keys never reach an
- * element; `plugin-chatbot` and `DashboardRenderer`'s grid reach zero by
- * FILTERING — they still spread, through `toDomProps`.
+ * element; `plugin-chatbot`, `DashboardRenderer`'s grid and the two KPI cards
+ * reach zero by FILTERING — they still spread, through `toDomProps`. The KPI
+ * cards filter on the renderer's door only: rendered directly as React
+ * components they keep their declared `HTMLAttributes` pass-through
+ * (objectui#4426), and this gate, which renders every target through
+ * `SchemaRenderer`, never sees that door.
  *
  * `calendar-view` was originally swept with the `events` canary WITHHELD, because
  * authoring it crashed the component outright (objectui#4433) — a worse failure
@@ -81,23 +86,24 @@
  *   - a **deny-list** (`plugin-dashboard/src/schemaHostProps.ts`, #4357/PR
  *     #4428): destructure seven measured non-DOM props out, spread the rest.
  *
- * The deny-list is correct for the seven props it enumerates — this sweep
- * confirms all seven are gone from `metric` and `metric-card`. What it cannot
- * close is the **open tail**, exactly as `toDomProps`' docblock predicted: an
- * authored key the component does not declare still reaches the DOM. That is not
- * a hypothetical here; it is ledger rows {@link LEAK_LEDGER} `metric` and
- * `metric-card`, where `zzcanary` / `reference_to` / an authored
- * `props: { colorVariant }` all land as attributes while every one of the seven
- * named keys is correctly stripped. A deny-list bounded by enumeration cannot be
+ * The deny-list was correct for the seven props it enumerates — this sweep
+ * confirmed all seven gone from `metric` and `metric-card`. What it could not
+ * close was the **open tail**, exactly as `toDomProps`' docblock predicted: an
+ * authored key the component does not declare still reached the DOM. That was
+ * not a hypothetical here; it was two {@link LEAK_LEDGER} rows, `metric` (7
+ * attributes) and `metric-card` (9), where `zzcanary` / `reference_to` / `name`
+ * / an authored `props: { colorVariant }` — and, on `metric-card`, an authored
+ * `label` — all landed as attributes while every one of the seven named keys
+ * was correctly stripped. A deny-list bounded by enumeration cannot be
  * finished; a whitelist bounded by declaration can. That contrast IS the
  * measurement phase 2 waited for, and the ruling went to the whitelist on it.
  *
- * So the divergence is no longer a standing state of the repo — it is a
- * migration in progress, and the two rows still below are the last of it inside
- * these four packages. `plugin-dashboard` is now MIXED by design: its
- * `DashboardRenderer` grid container filters through `toDomProps` (#4432) while
- * the two KPI components still run the deny-list, and the two surviving rows are
- * precisely that difference, measured.
+ * The divergence is now gone from these four packages. objectui#4425 moved the
+ * two KPI components' renderer door onto `toDomProps` and deleted both rows in
+ * the same change — the two-way expiry below, which turned this gate red on
+ * exactly those two targets (each measured `[]` against its row) until they
+ * went. The deny-list stays in `schemaHostProps.ts` as the direct React door's
+ * filter, which this gate does not render.
  *
  * ## objectui#5574 — the family this sweep could not see, and what it found
  *
@@ -122,7 +128,7 @@
  * have failed. These two differ in exactly one thing: which namespace the extra
  * widget went into.
  *
- * ### The reading — 119 of 158 ON ARRIVAL, in seven shapes; 90 today
+ * ### The reading — 119 of 158 ON ARRIVAL, in seven shapes; 82 today
  *
  * The card named four candidates (`flex`, `stack`, `container`, `text`) and was
  * careful to call them candidates. All four leaked. So did 115 others, and the
@@ -139,8 +145,9 @@
  * so their rows had to go for the gate to pass — the two-way expiry below,
  * working exactly once it had something to expire. Later slices took more,
  * and objectui#5632's `ui:sidebar-trigger` took the last shape that named a
- * single renderer: **90 rows in FOUR shapes** remain, on a target set that has
- * itself grown to 160. What the arrival reading measured is preserved here in prose and in
+ * single renderer: **82 rows in FOUR shapes** remain, on a target set of 150
+ * today (it grew past 158, and objectui#10859 batch 8 phase 2d took the ten
+ * retired `ui:sidebar-*` part keys out of it). What the arrival reading measured is preserved here in prose and in
  * the burn-down note on {@link COMPONENTS_LEAK_GROUPS}; what the gate asserts
  * is always current truth, which is the whole point of not writing dates into
  * a ledger.
@@ -364,12 +371,17 @@ import { ComponentRegistry } from '@object-ui/core';
 // 测试纪律 / objectui#3010).
 import '@object-ui/components';
 // The one HOST this sweep needs beyond `SchemaRendererProvider` (trap 4). Four
-// `packages/components` targets read `useSidebar()` and throw
+// `packages/components` targets read `useSidebar()` and threw
 // `useSidebar must be used within a SidebarProvider` without it — measured, and
 // a throw renders attribute-clean error-boundary markup that reads as a clean
-// pass. It is a REACT host, deliberately not a `ui:sidebar-provider` SCHEMA
-// node: that node is itself a swept target carrying the full canary set, so
-// wrapping in it would attribute the wrapper's own leaks to the target inside.
+// pass. Two are left under it: `ui:header-bar`, which still throws bare, and
+// `ui:sidebar`, which since objectui#10859 batch 8 phase 2d mounts its own
+// provider only when none is above it, and so uses this one. The other two,
+// `ui:sidebar-trigger` and `ui:sidebar-menu-button`, retired with that phase.
+// It is a REACT host, deliberately not a `ui:sidebar-provider` SCHEMA node:
+// that node was itself a swept target carrying the full canary set, so
+// wrapping in it would have attributed the wrapper's own leaks to the target
+// inside (and that key retired with the same phase).
 import { SidebarProvider } from '@object-ui/components';
 // Two more HOSTS, added by objectui#5630 to deepen `element:repeater` and
 // `element:metadata_viewer` past their empty-state branch (see the section
@@ -434,7 +446,8 @@ const AUTHORED_EXTRAS = {
 
 /**
  * Authored `props: { … }`. `colorVariant` is objectui#4425's own measured
- * example — `metric-card` has no such prop, so it lands as `colorvariant`.
+ * example — `metric-card` has no such prop, so it landed as `colorvariant`
+ * until that card moved onto `toDomProps`.
  */
 const AUTHORED_PROPS = {
   colorVariant: 'success',
@@ -503,6 +516,13 @@ const CHART_SERIES = [{ dataKey: 'sales' }, { dataKey: 'revenue' }];
  * The scatter target's own rows and series, because scatter is the one family
  * here that {@link CHART_DATA} / {@link CHART_SERIES} cannot reach (objectui#7401).
  *
+ * Since objectui#10859 batch 8 (phase 2b) retired the `scatter-chart` key, the
+ * scatter target is `plugin-charts:chart` with `chartType: 'scatter'` — the
+ * spelling that draws — and the history below is about the retired key. Phase
+ * 2c retired `pie-chart`, `donut-chart` and `radar-chart` too, so their three
+ * targets left with their registrations (this sweep has one target per
+ * registered type).
+ *
  * ⭐ Until objectui#7401 this target was NOT SWEPT AT ALL. Its registration
  * declared its family as `defaultProps: { chartType: 'scatter' }`, nothing on
  * the SDUI path read that, and so `plugin-charts:scatter-chart` rendered — and
@@ -536,7 +556,7 @@ const SCATTER_SERIES = [{ dataKey: 'y' }];
 /**
  * The two OBJECT-BOUND chart targets (`plugin-charts:object-chart`,
  * `view:chart`). They stay object-bound — `objectName` is what makes them a
- * different registry path from the six inline chart targets above, which reach
+ * different registry path from the three inline chart targets above, which reach
  * `ObjectChart` through `ObjectChartBlock` and its `ElementDataSourceGate`.
  *
  * `data` / `series` are authored on TOP of that binding (`data` is a declared
@@ -595,7 +615,7 @@ const CALENDAR_OBJECT_EXTRAS = {
  * an ordinary authored prop while doing it.
  *
  * Measured on the tree this landed on: 152 of 158 targets matched it.
- * Today 157 of 160 targets match it; the other three are in
+ * Today 147 of 150 targets match it; the other three are in
  * {@link READY_OVERRIDE_REASONS}, each with the reason it cannot —
  * a recorded limitation with its own two-way assertion below, never a quiet
  * exemption (the `omitCanaries` discipline, applied to readiness).
@@ -758,9 +778,7 @@ const COMPONENTS_PLAIN_TYPES: readonly string[] = [
   'ui:main', 'ui:mark', 'ui:menubar', 'ui:nav', 'ui:navigation-menu', 'ui:ol', 'ui:p',
   'ui:page', 'ui:pagination', 'ui:password', 'ui:pre', 'ui:progress', 'ui:q',
   'ui:radio-group', 'ui:record', 'ui:resizable', 'ui:scroll-area', 'ui:section', 'ui:select',
-  'ui:separator', 'ui:sidebar-content', 'ui:sidebar-footer', 'ui:sidebar-group',
-  'ui:sidebar-header', 'ui:sidebar-inset', 'ui:sidebar-menu', 'ui:sidebar-menu-item',
-  'ui:sidebar-provider', 'ui:skeleton', 'ui:slider', 'ui:small', 'ui:sonner', 'ui:span',
+  'ui:separator', 'ui:skeleton', 'ui:slider', 'ui:small', 'ui:sonner', 'ui:span',
   'ui:spinner', 'ui:stack', 'ui:statistic', 'ui:strong', 'ui:sub', 'ui:sup', 'ui:switch',
   'ui:table', 'ui:tabs', 'ui:text', 'ui:textarea', 'ui:time', 'ui:toast', 'ui:toggle',
   'ui:toggle-group', 'ui:tree-view', 'ui:u', 'ui:ul', 'ui:utility',
@@ -782,10 +800,12 @@ const COMPONENTS_SPECIAL_TARGETS: readonly Target[] = [
   componentsTarget('action:group', { actions: CANARY_ACTIONS }),
   componentsTarget('action:menu', { actions: CANARY_ACTIONS }),
   // `useSidebar()` throws without the host — trap 4, and a caught throw is
-  // attribute-clean markup that passes.
+  // attribute-clean markup that passes. `ui:header-bar` still reads it.
+  // `ui:sidebar` no longer throws bare (it mounts its own provider when none is
+  // above it, objectui#10859 batch 8 phase 2d); it stays under the host, the
+  // app-shell context where it uses the host's provider. `ui:sidebar-trigger`
+  // and `ui:sidebar-menu-button` left the sweep with their retired keys.
   componentsTarget('ui:sidebar', {}, COMPONENTS_READY, 'sidebar'),
-  componentsTarget('ui:sidebar-trigger', {}, COMPONENTS_READY, 'sidebar'),
-  componentsTarget('ui:sidebar-menu-button', {}, COMPONENTS_READY, 'sidebar'),
   componentsTarget('ui:header-bar', {}, COMPONENTS_READY, 'sidebar'),
   componentsTarget('ui:toaster', {}, 'section[aria-label="Notifications alt+T"]'),
   // objectui#5630 — deepened past the empty-state placeholder. `items`
@@ -849,12 +869,11 @@ const COMPONENTS_TARGETS: readonly Target[] = [
 const TARGETS: Readonly<Record<string, readonly Target[]>> = {
   'plugin-charts': [
     { type: 'plugin-charts:bar-chart', schemaExtras: { data: CHART_DATA }, ready: '.recharts-responsive-container' },
-    { type: 'plugin-charts:chart', schemaExtras: { chartType: 'bar', data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
+    // The scatter carrier since objectui#10859 batch 8 retired `scatter-chart`:
+    // bar stays swept through `chart:bar` and `bar-chart`, and this target keeps
+    // the scatter arm swept (see SCATTER_DATA).
+    { type: 'plugin-charts:chart', schemaExtras: { chartType: 'scatter', data: SCATTER_DATA, xAxisKey: 'x', series: SCATTER_SERIES }, ready: '[data-slot="chart"]' },
     { type: 'plugin-charts:chart:bar', schemaExtras: { data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
-    { type: 'plugin-charts:pie-chart', schemaExtras: { data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
-    { type: 'plugin-charts:donut-chart', schemaExtras: { data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
-    { type: 'plugin-charts:radar-chart', schemaExtras: { data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
-    { type: 'plugin-charts:scatter-chart', schemaExtras: { data: SCATTER_DATA, xAxisKey: 'x', series: SCATTER_SERIES }, ready: '[data-slot="chart"]' },
     { type: 'plugin-charts:object-chart', schemaExtras: OBJECT_CHART_EXTRAS, ready: '[data-slot="chart"]' },
     { type: 'view:chart', schemaExtras: OBJECT_CHART_EXTRAS, ready: '[data-slot="chart"]' },
   ],
@@ -872,8 +891,11 @@ const TARGETS: Readonly<Record<string, readonly Target[]>> = {
     { type: 'plugin-chatbot:chatbot-floating', ready: '#floating-chatbot-portal' },
   ],
   'plugin-dashboard': [
-    { type: 'plugin-dashboard:dashboard-grid', ready: '[data-testid="grid-layout"]' },
     { type: 'plugin-dashboard:metric', schemaExtras: { label: 'Revenue', value: 42 }, ready: '.rounded-lg.border' },
+    // `label` is deliberately NOT this card's heading (`MetricCardProps` spells
+    // it `title`): authored here it is one more open-tail key, and it once
+    // leaked as `label="Revenue"` (objectui#4425). Kept so the gate keeps
+    // proving it stops at the component.
     { type: 'plugin-dashboard:metric-card', schemaExtras: { label: 'Revenue', value: 42 }, ready: '.rounded-lg.border' },
     { type: 'plugin-dashboard:object-metric', schemaExtras: { objectName: 'accounts' }, ready: '.rounded-lg.border' },
     { type: 'plugin-dashboard:pivot', ready: '[data-testid="pivot-empty-state"]' },
@@ -884,8 +906,8 @@ const TARGETS: Readonly<Record<string, readonly Target[]>> = {
     // key onto this package's own namespace; the renderer is the same one.
     { type: 'plugin-dashboard:dashboard', ready: '.grid.auto-rows-min' },
   ],
-  // objectui#5574 — 160 targets, built above rather than spelled here because
-  // 141 of them need nothing but the shared readiness class.
+  // objectui#5574 — 150 targets, built above rather than spelled here because
+  // 133 of them need nothing but the shared readiness class.
   components: COMPONENTS_TARGETS,
 };
 
@@ -978,7 +1000,7 @@ interface LedgerEntry {
 /* ── objectui#5574: the `packages/components` reading, as a LEDGER ─────────── */
 
 /**
- * 90 of the 160 `packages/components` targets leak, and they do it in exactly
+ * 82 of the 150 `packages/components` targets leak, and they do it in exactly
  * FOUR shapes (119 targets in seven shapes did on arrival; see the burn-down
  * note below — and note the arrival count of shapes read `eight` here until
  * objectui#5632 counted them: the groups were seven, and the card's own table
@@ -1070,8 +1092,10 @@ interface LedgerEntry {
  *     `id`, `class`, the resolved `aria-*`, `data-obj-*` and the primitive's own
  *     `data-sidebar="trigger"` — eight attributes, measured IDENTICAL before and
  *     after. That reading, plus the fact that the trigger still toggles and
- *     still carries its "Toggle Sidebar" accessible name, is pinned in
- *     `examples/schema-catalog/test/sidebar-trigger-dom-leak-5632.test.tsx`.
+ *     still carries its "Toggle Sidebar" accessible name, was pinned in
+ *     `examples/schema-catalog/test/sidebar-trigger-dom-leak-5632.test.tsx`
+ *     until objectui#10859 batch 8 phase 2d retired the `ui:sidebar-trigger`
+ *     key, and that file with it (2026-10-02).
  *
  * ## This is a ledger, not an allowlist — the difference, stated once
  *
@@ -1081,8 +1105,8 @@ interface LedgerEntry {
  * leaking a NINTH attribute the gate fails, because the measured set no longer
  * equals the recorded one; if it stops leaking, the gate ALSO fails until the
  * row goes. An allowlist has neither property. Nothing below is skipped,
- * `it.skip`-ed, quarantined or excluded from the sweep — all 160 targets render
- * and all 160 are scanned on every run, the 70 clean ones included.
+ * `it.skip`-ed, quarantined or excluded from the sweep — all 150 targets render
+ * and all 150 are scanned on every run, the 68 clean ones included.
  */
 
 /**
@@ -1155,9 +1179,7 @@ const COMPONENTS_LEAK_GROUPS: readonly LedgerGroup[] = [
       'ui:label', 'ui:li', 'ui:list', 'ui:loading', 'ui:main', 'ui:mark', 'ui:menubar',
       'ui:nav', 'ui:navigation-menu', 'ui:ol', 'ui:p', 'ui:pagination', 'ui:pre',
       'ui:progress', 'ui:q', 'ui:resizable', 'ui:scroll-area', 'ui:section',
-      'ui:separator', 'ui:sidebar', 'ui:sidebar-content', 'ui:sidebar-footer',
-      'ui:sidebar-group', 'ui:sidebar-header', 'ui:sidebar-inset', 'ui:sidebar-menu',
-      'ui:sidebar-menu-item', 'ui:sidebar-provider', 'ui:skeleton', 'ui:small', 'ui:span',
+      'ui:separator', 'ui:sidebar', 'ui:skeleton', 'ui:small', 'ui:span',
       'ui:strong', 'ui:sub', 'ui:sup', 'ui:table', 'ui:tabs',
       'ui:time', 'ui:toggle-group', 'ui:tree-view', 'ui:u', 'ui:ul',
     ],
@@ -1190,42 +1212,14 @@ const COMPONENTS_LEAK_GROUPS: readonly LedgerGroup[] = [
 ];
 
 const LEAK_LEDGER: Readonly<Record<string, LedgerEntry>> = {
-  /* ── plugin-dashboard: the OPEN TAIL a deny-list cannot close ───────────── */
-  //
-  // Read these two rows against what is NOT in them. Every one of the seven keys
-  // `schemaHostProps.ts` enumerates (#4357 / PR #4428) is absent — `schema`,
-  // `bind`, `events`, `props`, `ariaLabel`, `ariaDescribedBy`, `dataSource` are
-  // all correctly stripped, on both components, including the adapter. The
-  // deny-list does exactly what it claims.
-  //
-  // What remains is the half it cannot reach: keys the component does not
-  // declare and the list never names. That is `toDomProps`' argument, measured
-  // rather than predicted, and it is the reading objectui#4425 phase 2 is for.
-  'plugin-dashboard:metric': {
-    attributes: [
-      'name', 'reference_to', 'zzcanary', 'zzcanarycamel', 'zzcanarynum',
-      'zzcanaryobj', 'zzcanaryprop',
-    ],
-    reason:
-      'the seven deny-listed props are gone; the open tail of authored keys ' +
-      '`MetricWidget` does not declare still reaches the Card.',
-    issue: 'objectui#4425',
-  },
-  'plugin-dashboard:metric-card': {
-    attributes: [
-      'colorvariant', 'label', 'name', 'reference_to', 'zzcanary',
-      'zzcanarycamel', 'zzcanarynum', 'zzcanaryobj', 'zzcanaryprop',
-    ],
-    reason:
-      'the same open tail as `metric`, plus two keys that are the tail in ' +
-      'miniature: `colorvariant` is objectui#4425\'s own measured example, and ' +
-      '`label` leaks because `MetricCardProps` spells its heading `title` — so ' +
-      'authoring the key its sibling `MetricWidget` takes puts the heading on ' +
-      'the DOM as an attribute instead of rendering it.',
-    issue: 'objectui#4425',
-  },
+  // ⛔ No `plugin-dashboard` rows. The last two — `metric` and `metric-card`,
+  // the open tail `schemaHostProps.ts`' deny-list could not close — were
+  // deleted by objectui#4425 when both KPI components moved their renderer door
+  // onto `toDomProps`. Both targets are still swept above with the full canary
+  // set, so a regression there is a NEW leak on an unledgered target and fails
+  // on the empty-report branch below, naming every attribute.
 
-  /* ── packages/components: 90 of 160 targets, in four measured shapes ───── */
+  /* ── packages/components: 82 of 150 targets, in four measured shapes ───── */
   ...Object.fromEntries(
     COMPONENTS_LEAK_GROUPS.flatMap((group) =>
       group.targets.map((type) => [
@@ -1570,8 +1564,10 @@ describe('the sweep covers a real, non-empty target set (objectui#4425)', () => 
     const converged = [
       'action:button', 'action:icon', 'ui:button', 'ui:checkbox', 'ui:combobox',
       'ui:date-picker', 'ui:email', 'ui:file-upload', 'ui:input', 'ui:input-otp',
-      'ui:password', 'ui:radio-group', 'ui:sidebar-menu-button', 'ui:slider', 'ui:sonner',
+      'ui:password', 'ui:radio-group', 'ui:slider', 'ui:sonner',
       'ui:switch', 'ui:textarea', 'ui:toggle',
+      // `ui:sidebar-menu-button`, the eighteenth, retired with objectui#10859
+      // batch 8 phase 2d: no row and no target, because no registration.
     ];
     expect(
       converged.filter((type) => LEAK_LEDGER[type]),
@@ -1584,30 +1580,10 @@ describe('the sweep covers a real, non-empty target set (objectui#4425)', () => 
     expect(converged.filter((type) => !sweptTypes.has(type))).toEqual([]);
   });
 
-  it('`ui:sidebar-trigger` is CLEAN — the `schema` row may not be re-absorbed', () => {
-    // objectui#5632's slice: the one-member group that leaked FOURTEEN — the
-    // thirteen of `BARE_SPREAD_MINUS_NAME` plus `schema` itself. Its group is
-    // DELETED, and this is the inverted case that keeps it deleted, same
-    // treatment and same reason as the two families directly above.
-    //
-    // What this one adds over both is the SECOND mechanism. `schema` did not
-    // leak here because of the shape the group records; it leaked because this
-    // registration alone never destructured it (it renders no children, so it
-    // had no reason to name `schema` at all) and the injected node rode the
-    // spread. Re-ledgering that is the repair to refuse: the filter drops
-    // `schema` without anyone enumerating it, and a row here would say the
-    // opposite.
-    const converged = ['ui:sidebar-trigger'];
-    expect(
-      converged.filter((type) => LEAK_LEDGER[type]),
-      '`ui:sidebar-trigger` is converged on the form-control DOM declaration ' +
-        '(objectui#5632) and measures clean. A row here means a regression was ' +
-        're-ledgered instead of fixed.',
-    ).toEqual([]);
-    // …and it is still SWEPT, so "no row" cannot mean "no longer looked at".
-    const sweptTypes = new Set(ALL_TARGETS.map((target) => target.type));
-    expect(converged.filter((type) => !sweptTypes.has(type))).toEqual([]);
-  });
+  // `ui:sidebar-trigger` is CLEAN was pinned here (objectui#5632's one-member
+  // group that leaked `schema` itself). Its node key retired with objectui#10859
+  // batch 8 phase 2d, so there is no registration left to sweep or to
+  // re-ledger; `packages/cli`'s registered-types ratchet pins the absence.
 
   it('the ledger is well formed — every row names a swept target, a reason and an issue', () => {
     const sweptTypes = new Set(ALL_TARGETS.map((target) => target.type));
@@ -1805,27 +1781,27 @@ const wordForCount = (count: number): string => COUNT_WORDS[count] ?? String(cou
  */
 const DOCBLOCK_COUNTS = {
   /** `packages/components` targets swept: the plain types plus the specials. */
-  componentsTargets: 160,
+  componentsTargets: 150,
   /** Of those, the ones needing nothing but the shared readiness class. */
-  componentsPlainTypes: 141,
+  componentsPlainTypes: 133,
   /** Ledgered `packages/components` rows — targets with a recorded leak. */
-  componentsLedgered: 90,
+  componentsLedgered: 82,
   /** The complement: swept, scanned and clean. */
-  componentsClean: 70,
+  componentsClean: 68,
   /** Measured shapes the ledgered rows fall into. */
   componentsShapes: 4,
   /** Registry prefixes `packages/components` owns. */
   componentsPrefixes: 5,
   /** Targets the shared readiness selector reaches. */
-  componentsReadyMatched: 157,
+  componentsReadyMatched: 147,
   /** The rest, each with a recorded reason it cannot. */
   componentsReadyOverrides: 3,
   /** Attributes leaked by the shape with the most members. */
   commonestShapeAttributes: 14,
   /** Every target this sweep renders, all five packages. */
-  allTargets: 183,
-  /** Every ledgered row, `plugin-dashboard`'s open tail included. */
-  allLedgered: 92,
+  allTargets: 168,
+  /** Every ledgered row, all five packages. */
+  allLedgered: 82,
 } as const;
 
 type CountName = keyof typeof DOCBLOCK_COUNTS;
@@ -1900,7 +1876,7 @@ const QUOTED_COUNTS: readonly QuotedCount[] = [
   {
     where: 'the burn-down sentence under that heading',
     pattern:
-      /\*\*(\d+) rows in ([A-Z]+) shapes\*\* remain, on a target set that has itself grown to (\d+)\./,
+      /\*\*(\d+) rows in ([A-Z]+) shapes\*\* remain, on a target set of (\d+) today/,
     expected: [
       DOCBLOCK_COUNTS.componentsLedgered,
       wordForCount(DOCBLOCK_COUNTS.componentsShapes).toUpperCase(),

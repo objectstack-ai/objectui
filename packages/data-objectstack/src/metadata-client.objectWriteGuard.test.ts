@@ -22,6 +22,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { MetadataClient } from './metadata-client';
+import { assertObjectMetadataWritable } from './object-metadata-write-guard';
 
 function okResponse(): Response {
   return new Response(JSON.stringify({ success: true, version: 'v1' }), {
@@ -90,9 +91,50 @@ describe('MetadataClient.save — the door applies the object-metadata write gua
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('the message names the door, so an author sees where the write stopped', async () => {
+  it('the door refuses in the guard\'s own words, naming no code (objectui#11785)', async () => {
+    // Studio tells this refusal from any other failure by re-running the guard
+    // on the body it sent and comparing the two messages, so the door must add
+    // nothing of its own: no class name, and no label that differs by door.
     const { client } = harness();
-    await expect(client.save('object', 'account', HALF_FILLED))
-      .rejects.toThrow(/^MetadataClient\.save refused/);
+    let alone = '';
+    try {
+      assertObjectMetadataWritable('object', HALF_FILLED, 'probe');
+    } catch (e) {
+      alone = (e as Error).message;
+    }
+    expect(alone, 'the guard alone must refuse this body').not.toBe('');
+    const atDoor = await client.save('object', 'account', HALF_FILLED).then(
+      () => '',
+      (e: unknown) => (e as Error).message,
+    );
+    expect(atDoor).toBe(alone);
+    expect(atDoor).not.toMatch(/MetadataClient|@objectstack|objectstack#|objectui#/);
+  });
+});
+
+describe('MetadataClient.save — a choice field with no options stays in the client (objectui#11253)', () => {
+  const EMPTY_SELECT = {
+    name: 'account',
+    label: 'Account',
+    fields: [
+      { name: 'title', type: 'text', label: 'Title' },
+      { name: 'stage', type: 'select', label: 'Stage' },
+    ],
+  };
+
+  it('refuses it AND ISSUES NO REQUEST', async () => {
+    const { client, fetchImpl } = harness();
+    await expect(client.save('object', 'account', EMPTY_SELECT, { mode: 'draft' })).rejects.toThrow(/`stage`/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL — the same field with one option reaches the wire', async () => {
+    const { client, fetchImpl } = harness();
+    const body = {
+      ...EMPTY_SELECT,
+      fields: [EMPTY_SELECT.fields[0], { ...EMPTY_SELECT.fields[1], options: [{ label: 'Open', value: 'open' }] }],
+    };
+    await client.save('object', 'account', body, { mode: 'draft' });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });

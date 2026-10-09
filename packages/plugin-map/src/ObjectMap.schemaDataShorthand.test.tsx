@@ -22,11 +22,14 @@
  *
  * Decision batch #83 (2026-09-08), maintainer verbatim 「8348 以协议为准」 — the
  * CONTRACT decides, not the convention. A renderer honours the `data` spelling
- * its block's published row declares and no other. MEASURED: `@objectstack/spec`
- * 17.4.0 publishes no `ComponentPropsMap['object-map']` row at all, so the row
- * that governs this block is this repo's own `ObjectMapSchema.data` —
- * `ViewDataSchema.optional()`, a `z.discriminatedUnion('provider', [...])` over
- * OBJECT variants with no array arm. ⇒ the lift is gone.
+ * its block's published row declares and no other. The row is
+ * `ComponentPropsMap['object-map'].data` — a `z.discriminatedUnion('provider',
+ * [...])` over OBJECT variants with no array arm. ⇒ the lift is gone. When this
+ * file was written the installed spec published no such row and the block was
+ * judged through this repo's own `ObjectMapSchema.data`, spelled the same;
+ * ruling batch #136 item 3 (Q1-C) had the protocol gain it, and
+ * `ObjectMap.dataArmSpecRow-8348.test.tsx` now derives the arm from the
+ * INSTALLED row, so a release that moves it turns that file red.
  *
  * ⛔ WHAT THE REMOVAL DOES AND DOES NOT REACH — measured, per CARRIER
  *
@@ -69,6 +72,7 @@ import { ObjectMap } from './ObjectMap';
 // Registers `object-map` — row 3 renders through it.
 import './index';
 import type { DataSource } from '@object-ui/types';
+import './__tests__/webgl2Available';
 
 vi.mock('react-map-gl/maplibre', () => ({
   default: (props: any) => <div aria-label="Map">{props.children}</div>,

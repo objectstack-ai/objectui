@@ -111,7 +111,10 @@ describe('objectui#7149 — relative timestamps resolve from the packs', () => {
     cleanup();
 
     renderIn('ar', [entry({ timestamp: ago(MINUTES * 60_000) })]);
-    expect(screen.getByText(`منذ ${MINUTES} دقيقة`)).toBeTruthy();
+    // `detail.minutesAgo` is a count family since objectui#11445: 5 is `ar`
+    // `few` (3-10), which takes the plural noun — the single form it replaced
+    // read «منذ 5 دقيقة».
+    expect(screen.getByText(`منذ ${MINUTES} دقائق`)).toBeTruthy();
   });
 
   it('still reads English with no provider mounted — the defaults map, not a raw key', () => {

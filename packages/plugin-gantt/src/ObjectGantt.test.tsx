@@ -24,7 +24,10 @@ vi.mock('./GanttView', () => ({
               </div>
             ) : null}
             <button data-testid={`gv-view-${t.id}`} onClick={() => onTaskClick?.(t)}>view</button>
-            <button data-testid={`gv-update-${t.id}`} onClick={() => onTaskUpdate?.(t, { start: new Date('2024-02-01T00:00:00.000Z'), end: new Date('2024-02-05T00:00:00.000Z') })}>update</button>
+            {/* A bar dropped onto February 1st to 5th: its end is the EXCLUSIVE
+                instant GanttView hands back, the 6th's midnight, so a
+                date-only end field is written as the 5th (objectui#11141). */}
+            <button data-testid={`gv-update-${t.id}`} onClick={() => onTaskUpdate?.(t, { start: new Date('2024-02-01T00:00:00.000Z'), end: new Date('2024-02-06T00:00:00.000Z') })}>update</button>
             <button data-testid={`gv-delete-${t.id}`} onClick={() => onTaskDelete?.(t)}>delete</button>
           </div>
         ))}
@@ -135,8 +138,12 @@ describe('ObjectGantt', () => {
     expect(screen.getByTestId('gv-field-1-1').textContent).toBe('Status=In Progress');
     // Date field formatted (not the raw ISO string).
     expect(screen.getByTestId('gv-field-1-2').textContent).not.toContain('2024-01-05');
-    // Number field formatted.
-    expect(screen.getByTestId('gv-field-1-3').textContent).toBe('Effort=12.00');
+    // Number field formatted. MOVED by objectui#11254: `effort` declares no
+    // `scale`, and under ruling A′ (objectstack-ai/objectstack#19628) an
+    // undeclared `number` has no fixed width, so the stored `12` reads `12`
+    // (as the list cell reads it), not the `12.00` a constant two-place
+    // default padded it to.
+    expect(screen.getByTestId('gv-field-1-3').textContent).toBe('Effort=12');
   });
 
   it('formats a multi-value lookup (array of records) by joining display names', async () => {

@@ -4,8 +4,8 @@ import { cn } from '@object-ui/components';
 // The percent display path, read from the same package `renderFieldValue` in
 // this file's own package already reads it from (objectui#5607).
 // `@object-ui/fields` publishes one implementation, whose scaling half is
-// `percentDisplayValue` in `@object-ui/core` — so this adds no dependency edge,
-// and no second percent rule.
+// `percentDisplayValue` in `@object-ui/core` at a STATED storage — so this adds
+// no dependency edge, and no second percent rule.
 import { formatPercent } from '@object-ui/fields';
 import {
   createSafeTranslation,
@@ -18,7 +18,7 @@ import {
 import type { I18nLabel } from '@object-ui/types';
 import { ArrowDownIcon, ArrowUpIcon, MinusIcon, AlertCircle, Loader2 } from 'lucide-react';
 import { VARIANT_ICON_CLASSES, VARIANT_TEXT_CLASSES, type MetricColorVariant } from './colorVariants';
-import type { SchemaHostProps } from './schemaHostProps';
+import { hostDomProps, type SchemaHostProps } from './schemaHostProps';
 
 const TREND_LABEL_DEFAULTS: Record<string, string> = {
   'dashboard.trend.vsLastQuarter': 'vs last quarter',
@@ -68,14 +68,28 @@ function trendLabelKey(label: string): string | undefined {
  * - `'0,0'` / `'0,0.00'` → thousands separators with explicit decimals
  * - leading `$/¥/€/£` or `currency` prop → currency formatting
  * - trailing `%` → percent, handed WHOLE to `formatPercent`
- *   (`@object-ui/fields`), which owns both the fraction-vs-points scaling and
- *   the locale's percent convention. This function makes neither decision —
- *   see the branch's own note (objectui#9165).
+ *   (`@object-ui/fields`) at the storage the PATTERN states: numeral's `%`
+ *   multiplies by 100, so the value is a fraction. `formatPercent` owns the
+ *   scaling and the locale's percent convention — see the branch's own note
+ *   (objectui#9165, objectui#11475). A host that holds the field the value was
+ *   aggregated from renders the percent itself at that field's storage
+ *   (`ObjectMetricWidget`), the way it renders a currency.
  *
  * When no format is given but the value is a finite number, defaults to
  * thousands separators with no decimals — that's what users expect for
  * KPI cards (`1,930,000` not `1930000`).
  */
+/**
+ * The decimal places a numeral.js-style pattern fixes (`'0,0.00'` → 2,
+ * `'0.0%'` → 1, `'0,0'` → 0) — the one parse this tile's formatter makes, read
+ * by `ObjectMetricWidget` too when it renders a percent aggregate itself, so the
+ * two never read one authored pattern at two widths.
+ */
+export function metricPatternDecimals(format: string | undefined): number {
+  const decimalsMatch = (format || '').trim().match(/0\.(0+)/);
+  return decimalsMatch ? decimalsMatch[1].length : 0;
+}
+
 function formatMetricValue(
   value: string | number,
   format?: string,
@@ -97,8 +111,7 @@ function formatMetricValue(
   const isPercent = trimmed.endsWith('%');
 
   // Determine decimals from the format pattern (e.g. '0,0.00' → 2)
-  const decimalsMatch = trimmed.match(/0\.(0+)/);
-  const decimals = decimalsMatch ? decimalsMatch[1].length : 0;
+  const decimals = metricPatternDecimals(trimmed);
 
   // Compact / abbreviated notation (numeral.js 'a' convention, e.g. '0.0a' →
   // "1.1M", '$0a' → "$1M"). Keeps big KPI numbers from overflowing a tile.
@@ -157,9 +170,16 @@ function formatMetricValue(
     //    conventions.
     //
     // `decimals` still comes from this surface's numeral PATTERN (`'0.00%'` →
-    // 2), which is the one percent decision that genuinely belongs here — it is
-    // an author declaration on the widget, not a magnitude heuristic.
-    return formatPercent(value as number, decimals, locale);
+    // 2), an author declaration on the widget, not a magnitude heuristic.
+    //
+    // objectui#11475 — and so does the STORAGE. This tile holds no field, only
+    // a value and a pattern, and numeral's `%` multiplies by 100: the pattern
+    // states a fraction. `formatPercent` used to guess the storage from the
+    // value's magnitude, so a ratio of exactly 1 read `1%` here (objectui#3136
+    // was the same guess on the dataset measure). An aggregate over a
+    // `percent` field never reaches this branch with its own storage lost:
+    // `ObjectMetricWidget` renders that tile itself, at the field's storage.
+    return formatPercent(value as number, 'fraction', decimals, locale);
   }
 
   // MEASURED EXCEPTION to objectui#4033's ordinal no-grouping default, and the
@@ -221,9 +241,15 @@ export type { MetricColorVariant };
  * own signature — the renderer's private door, not the consumer's front door.
  * The narrower `FieldWidgetDomProps` shape (objectui#3221) is the other spelling
  * in this repo, but it exists to be bound key-by-key to a runtime whitelist
- * (`toDomProps`) in both directions; this component has no such whitelist, and
- * inventing a half of one here would declare a set the spread does not enforce.
- * Whether plugin widgets should get that whitelist is objectui#4425.
+ * (`toDomProps`) in both directions, and this declaration is the DIRECT React
+ * door's, which keeps no whitelist.
+ *
+ * The renderer's door does (objectui#4425, phase 2): rendered through
+ * `SchemaRenderer`, this component's element receives only what `toDomProps`
+ * passes, so an authored key it does not declare — or `name`, or an authored
+ * `title` — no longer reaches the `Card`. This declaration governs the direct
+ * door only, and what it promises still arrives there. Both doors, and how the
+ * component tells them apart, are `hostDomProps` in `./schemaHostProps`.
  */
 export interface MetricWidgetProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
@@ -306,8 +332,9 @@ export const MetricWidget = ({
   // Schema-shaped props `SchemaRenderer` injects, destructured out so the
   // spread below cannot write them to the DOM (objectui#4357). Named and
   // measured in `./schemaHostProps`; `schema` alone put a
-  // `schema="[object Object]"` attribute on every KPI card. The rest spread
-  // survives — it is the component's genuine DOM/aria passthrough.
+  // `schema="[object Object]"` attribute on every KPI card.
+  // Kept under its old binding name, so the exported signature's declaration
+  // text is unchanged; it is READ now, as the door discriminator below.
   schema: _schema,
   bind: _bind,
   events: _events,
@@ -317,6 +344,11 @@ export const MetricWidget = ({
   dataSource: _dataSource,
   ...domProps
 }: MetricWidgetProps & SchemaHostProps) => {
+  // What the `Card` may carry (objectui#4425): on the renderer's door, only
+  // what `toDomProps` passes — the open tail of authored keys this component
+  // does not declare stops here; on the direct React door, the declared
+  // `HTMLAttributes` pass-through, unchanged. See `hostDomProps`.
+  const hostProps = hostDomProps(_schema, domProps);
   const iconClasses = VARIANT_ICON_CLASSES[colorVariant] || VARIANT_ICON_CLASSES.default;
   const { t: tTrend } = useTrendT();
   // Two locale channels, deliberately distinct. `useDisplayLocale` is the
@@ -403,7 +435,7 @@ export const MetricWidget = ({
           onClick();
         }
       } : undefined}
-      {...domProps}
+      {...hostProps}
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium truncate">

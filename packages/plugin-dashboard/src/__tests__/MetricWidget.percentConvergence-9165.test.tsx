@@ -85,11 +85,16 @@ describe('MetricWidget percent branch agrees with the declared source (objectui#
    *
    * Rows 1 / -1 / -5 are the three the card measured as disagreeing (the tile
    * showed 100% / -100% / -500%); rows 0.25 / 12.3 already agreed.
+   *
+   * objectui#11475 — the source's STORAGE is now stated, not guessed from the
+   * value. A tile holds no field, and numeral's `%` multiplies by 100, so the
+   * tile states a fraction; the agreement is with the cell's own call at that
+   * storage.
    */
   it.each([[1], [-1], [-5], [0.25], [12.3]])(
     'stored %p renders the same on the tile as at the declared source',
     (stored) => {
-      expect(tileText(stored)).toBe(formatPercent(stored, 0, LOCALE));
+      expect(tileText(stored)).toBe(formatPercent(stored, 'fraction', 0, LOCALE));
     },
   );
 
@@ -102,13 +107,17 @@ describe('MetricWidget percent branch agrees with the declared source (objectui#
    * absolute. If either of these moves, the repair took something the card did
    * not authorise and this case is the one that fails.
    */
+  //
+  // objectui#11475 moved the `12.3` row on purpose: the magnitude guess read
+  // it as points (`12%`); the `%` pattern states a fraction, so it reads
+  // `1,230%`. The `0.25` row is the control that card left unmoved.
   it.each([
     [0.25, '25%'],
-    [12.3, '12%'],
+    [12.3, '1,230%'],
   ])('leaves the already-agreeing control %p at exactly %p', (stored, unmoved) => {
     expect(tileText(stored)).toBe(unmoved);
     // and it is still an agreement, not merely an unmoved byte string
-    expect(tileText(stored)).toBe(formatPercent(stored, 0, LOCALE));
+    expect(tileText(stored)).toBe(formatPercent(stored, 'fraction', 0, LOCALE));
   });
 
   /**
@@ -116,15 +125,15 @@ describe('MetricWidget percent branch agrees with the declared source (objectui#
    * through `formatPercent`, so the boundary decision has a pin that does not
    * depend on the percent renderer's own behaviour.
    *
-   * `percentDisplayValue` is the symmetric `value > -1 && value < 1`: exactly 1
-   * is points and passes through, and every value at or below -1 is points too.
-   * The retired local rule got both wrong.
+   * `percentDisplayValue` was then the symmetric `value > -1 && value < 1`.
+   * Since objectui#11475 it scales at a STATED storage, and the tile states a
+   * fraction (its `%` pattern), so every row is multiplied by 100.
    */
   it.each([[1], [-1], [-5], [0.25], [12.3]])(
     'takes its magnitude for %p from percentDisplayValue, not from a local predicate',
     (stored) => {
       const numerals = tileText(stored).replace(/[^\d.-]/g, '');
-      expect(Number(numerals)).toBe(Number(percentDisplayValue(stored).toFixed(0)));
+      expect(Number(numerals)).toBe(Number(percentDisplayValue(stored, 'fraction').toFixed(0)));
     },
   );
 });
@@ -145,8 +154,10 @@ describe('MetricWidget percent branch takes the CONVENTION half too (objectui#91
   it('groups a four-digit percent the way the declared source does', () => {
     // en moves from `1235%` to `1,235%` at four digits — objectui#4553 recorded
     // that move as the fix, not as a regression.
-    expect(tileText(1234.5)).toBe(formatPercent(1234.5, 0, LOCALE));
-    expect(tileText(1234.5)).not.toBe(`${percentDisplayValue(1234.5).toFixed(0)}%`);
+    // (objectui#11475: at the tile's stated fraction storage this is
+    // `123,450%`; still a grouped figure, which is what this row tests.)
+    expect(tileText(1234.5)).toBe(formatPercent(1234.5, 'fraction', 0, LOCALE));
+    expect(tileText(1234.5)).not.toBe(`${percentDisplayValue(1234.5, 'fraction').toFixed(0)}%`);
   });
 
   it("renders a non-en session under that locale's percent convention", () => {
@@ -154,9 +165,9 @@ describe('MetricWidget percent branch takes the CONVENTION half too (objectui#91
     // appended a bare ASCII '%' in every locale. Asserting against the declared
     // source keeps the expectation out of this file, and the second line is the
     // negative that names what was retired.
-    expect(tileText(1234.5, '0%', 'de-DE')).toBe(formatPercent(1234.5, 0, 'de-DE'));
+    expect(tileText(1234.5, '0%', 'de-DE')).toBe(formatPercent(1234.5, 'fraction', 0, 'de-DE'));
     expect(tileText(1234.5, '0%', 'de-DE')).not.toBe(
-      `${percentDisplayValue(1234.5).toFixed(0)}%`,
+      `${percentDisplayValue(1234.5, 'fraction').toFixed(0)}%`,
     );
   });
 
@@ -164,6 +175,6 @@ describe('MetricWidget percent branch takes the CONVENTION half too (objectui#91
     // `decimals` comes from the format PATTERN here, not from a field's
     // declared scale — that is this surface's own contract and the repair does
     // not move it.
-    expect(tileText(0.12345, '0.00%')).toBe(formatPercent(0.12345, 2, LOCALE));
+    expect(tileText(0.12345, '0.00%')).toBe(formatPercent(0.12345, 'fraction', 2, LOCALE));
   });
 });

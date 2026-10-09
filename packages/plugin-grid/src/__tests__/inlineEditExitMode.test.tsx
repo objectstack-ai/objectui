@@ -77,7 +77,7 @@ function makeDataSource() {
           id: { type: 'text' },
           name: { type: 'text', label: 'Name' },
           qty: { type: 'number', label: 'Qty' },
-          manager: { type: 'lookup', label: 'Manager', reference_to: 'users' },
+          manager: { type: 'lookup', label: 'Manager', reference: 'users' },
         },
       };
     },

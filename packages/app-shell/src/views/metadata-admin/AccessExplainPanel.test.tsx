@@ -201,17 +201,21 @@ describe('AccessExplainPanel (ADR-0090 D6)', () => {
     ];
     render(<AccessExplainPanel open onOpenChange={() => {}} packageId="com.example.showcase" />);
 
-    // The object field swaps from a free-text input to a <select> once loaded.
-    await waitFor(() => expect(screen.getByLabelText('Object').tagName).toBe('SELECT'));
+    // The object field swaps from a free-text input to the shared Select's
+    // trigger once loaded (objectui#11865).
+    await waitFor(() => expect(screen.getByLabelText('Object')).toHaveAttribute('role', 'combobox'));
     const objectField = screen.getByLabelText('Object');
-    expect(within(objectField).getByRole('option', { name: 'Account (showcase_account)' })).toBeInTheDocument();
-    expect(within(objectField).getByRole('option', { name: 'showcase_task' })).toBeInTheDocument();
+    fireEvent.keyDown(objectField, { key: 'ArrowDown' });
+    const listbox = await screen.findByRole('listbox');
+    expect(within(listbox).getByRole('option', { name: 'Account (showcase_account)' })).toBeInTheDocument();
+    expect(within(listbox).getByRole('option', { name: 'showcase_task' })).toBeInTheDocument();
     // The misleading free-text placeholder example is gone.
     expect(screen.queryByPlaceholderText(/crm_lead/)).toBeNull();
 
     // Selecting an object and explaining posts that object.
     fetchSpy.mockResolvedValue(jsonResponse(200, DECISION));
-    fireEvent.change(objectField, { target: { value: 'showcase_account' } });
+    fireEvent.click(within(listbox).getByRole('option', { name: 'Account (showcase_account)' }));
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
     fireEvent.click(screen.getByRole('button', { name: /explain$/i }));
     await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
     const body = JSON.parse(String((fetchSpy.mock.calls[0]?.[1] as any)?.body ?? '{}'));

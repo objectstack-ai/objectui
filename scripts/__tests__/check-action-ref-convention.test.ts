@@ -154,16 +154,19 @@ describe('the gate can fail (non-vacuity)', () => {
   });
 
   it('goes red on a stale exception — an entry that matches nothing', () => {
-    // This case used to mutate the real `stale.yml`, whose SHA pin was the only
-    // entry DECLARED_EXCEPTIONS ever held. objectui#8548 deleted that workflow
-    // and the entry with it, so the table is empty and the shape has to be
-    // reproduced over a synthetic one — which is stricter, not weaker: the
-    // assertion no longer depends on one particular workflow surviving.
+    // This case used to mutate the real `stale.yml`, whose SHA pin was the first
+    // entry DECLARED_EXCEPTIONS held. objectui#8548 deleted that workflow and the
+    // entry with it, so the shape is reproduced over a synthetic entry — which is
+    // stricter, not weaker: the assertion no longer depends on one particular
+    // workflow surviving. The synthetic entry is APPENDED to the real table, so
+    // the tree's own declared exceptions stay declared and the only entry under
+    // test is this one, whatever the real table holds (objectui#11174 added one).
     //
     // Both halves are pinned, because only the pair says the entry is doing
     // work. An entry that never silences anything would satisfy the second half
     // on its own.
     const declared = [
+      ...DECLARED_EXCEPTIONS,
       {
         workflow: 'control-bytes.yml',
         action: 'actions/checkout',
@@ -208,7 +211,11 @@ describe('the gate can fail (non-vacuity)', () => {
   });
 
   it('a declared exception silences the offender, and only that one', () => {
+    // Appended to the real table for the reason the stale-exception case gives:
+    // the tree's own declared exceptions stay declared, so `fake` is the only
+    // entry whose effect this case reads.
     const fake = [
+      ...DECLARED_EXCEPTIONS,
       { workflow: 'control-bytes.yml', action: 'actions/checkout', issue: 'objectui#1', reason: 'x'.repeat(50) },
     ];
     // Two off-convention refs, in two different workflows, and `fake` names only

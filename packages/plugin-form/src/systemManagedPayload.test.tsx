@@ -56,7 +56,7 @@ registerAllFields();
 const CHILD_SCHEMA = {
   name: 'kpi_entry_line',
   fields: {
-    sheet: { type: 'master_detail', label: 'Sheet', reference_to: 'kpi_entry_sheet' },
+    sheet: { type: 'master_detail', label: 'Sheet', reference: 'kpi_entry_sheet' },
     plan_indicator: { type: 'lookup', label: 'Indicator' },
     actual_value: { type: 'number', label: 'Actual' },
     remark: { type: 'textarea', label: 'Remark' },
@@ -214,11 +214,7 @@ describe('form write payloads — server-owned columns (objectui#10108)', () => 
             // Business fields only — no ownership or audit column is declared
             // in any section, which is what makes an emitted one an INJECTION
             // rather than a displayed field being echoed.
-            fields: [
-              { name: 'plan_indicator', label: 'Indicator' },
-              { name: 'actual_value', label: 'Actual' },
-              { name: 'remark', label: 'Remark' },
-            ],
+            fields: ['plan_indicator', 'actual_value', 'remark'],
           } as any}
           dataSource={ds}
         />,

@@ -20,6 +20,7 @@ import { z } from 'zod';
 import {
   AppSchema as SpecAppSchema,
   AppContextSelectorSchema as SpecAppContextSelectorSchema,
+  I18nLabelSchema as SpecI18nLabelSchema,
   NavigationAreaSchema as SpecNavigationAreaSchema,
   // ⚠️ NOT a crossing, so it stays RAW — see THE IMPORT BOUNDARY below. This is
   // the spec's own refinement FUNCTION, not a schema: `stripImportedDefaults`
@@ -31,7 +32,7 @@ import {
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
 import { aliasKeyRefusal, retirementTombstone } from './tombstone.zod.js';
-import type { AppMenuItem } from '../app.js';
+import type { AppMenuItem, NavigationItemType } from '../app.js';
 import { stripImportedDefaults } from './imported-defaults.js';
 
 /**
@@ -69,12 +70,66 @@ import { stripImportedDefaults } from './imported-defaults.js';
 // Unified NavigationItem Schema
 // ============================================================================
 
+/** A node of `@objectstack/spec`'s nav-item graph, as the walks below read it. */
+type SpecNavNode = z.ZodType & {
+  unwrap?: () => SpecNavNode;
+  element?: SpecNavNode;
+  options?: readonly SpecNavNode[];
+  shape?: Record<string, SpecNavNode & { value?: unknown }>;
+};
+
 /**
- * Navigation Item Type enum
+ * The arms of `@objectstack/spec`'s nav-item union, read off the spec `AppSchema`'s
+ * own `navigation` element (optional → array → lazy → the discriminated union).
+ * Reading it through `AppSchema`, which this mirror already crosses, keeps the
+ * read inside the objectui#8317 import boundary's measured population instead of
+ * adding a lazy root that population cannot walk (the objectui#10867 route).
+ * `undefined` when the walk finds no union; each caller throws its own refusal.
  */
-export const NavigationItemTypeSchema = z.enum([
-  'object', 'dashboard', 'page', 'report', 'url', 'component', 'group', 'separator', 'action',
-]);
+let specNavigationArms: readonly SpecNavNode[] | undefined;
+function readSpecNavigationArms(): readonly SpecNavNode[] | undefined {
+  if (specNavigationArms) return specNavigationArms;
+  let node = (stripImportedDefaults(SpecAppSchema) as unknown as SpecNavNode).shape?.navigation as SpecNavNode | undefined;
+  for (let hop = 0; node && !node.options && hop < 8; hop++) node = node.element ?? node.unwrap?.();
+  if (!node?.options?.length) return undefined;
+  specNavigationArms = Object.freeze([...node.options]);
+  return specNavigationArms;
+}
+
+/** The spec arm whose `type` literal is `type`, or `undefined`. */
+function readSpecNavigationArm(type: string): (SpecNavNode & { shape: NonNullable<SpecNavNode['shape']> }) | undefined {
+  const arm = readSpecNavigationArms()?.find((option) => option.shape?.type?.value === type);
+  return arm?.shape ? (arm as SpecNavNode & { shape: NonNullable<SpecNavNode['shape']> }) : undefined;
+}
+
+/**
+ * The discriminator of `@objectstack/spec`'s nav-item union: every arm's `type`
+ * literal, in the spec's order. Throws when an arm carries no string literal —
+ * an enum that silently lost a member is the objectui#11197 defect itself.
+ */
+function readSpecNavigationItemTypes(): [NavigationItemType, ...NavigationItemType[]] {
+  const types = (readSpecNavigationArms() ?? []).map((arm) => arm.shape?.type?.value);
+  if (types.length === 0 || types.some((type) => typeof type !== 'string')) {
+    throw new Error(
+      "objectui#11197: could not read a `type` literal off every arm of @objectstack/spec's AppSchema.navigation union",
+    );
+  }
+  return types as [NavigationItemType, ...NavigationItemType[]];
+}
+
+/**
+ * Navigation item type — READ OFF the discriminator of `@objectstack/spec`'s
+ * nav-item union at module load (objectui#11197), never hand-listed.
+ *
+ * The hand list this replaces had nine members after spec 17.5.0 added `doc`,
+ * so `objectui validate` refused `{ type: 'doc', book }` — an entry the spec's
+ * own docblock example spells — with `invalid_value` at `type`, while the
+ * TypeScript twin `NavigationItemType` (`../app.ts`), derived from the spec's
+ * union, already carried `doc`: the two faces of one package disagreed.
+ * `../__tests__/navigation-spec-parity.test.ts` fails the next time the spec's
+ * discriminator and this enum part.
+ */
+export const NavigationItemTypeSchema = z.enum(readSpecNavigationItemTypes());
 
 /**
  * Navigation Item Schema — unified model aligned with @objectstack/spec.
@@ -100,35 +155,44 @@ export const NavigationItemTypeSchema = z.enum([
  * The keys `@objectstack/spec`'s separator branch declares — `type`, `id` and
  * `order` on the installed pin — READ OFF the spec rather than restated
  * (objectui#10867). The spec does not export its `SeparatorNavItemSchema`, so
- * this walks the spec `AppSchema`'s own `navigation` element (optional → array
- * → lazy → the nav-item union) and takes the arm whose `type` literal is
- * `'separator'`. Reading it through `AppSchema`, which this mirror already
- * crosses, keeps the read inside the objectui#8317 import boundary's measured
- * population instead of adding a lazy root that population cannot walk.
+ * this takes the arm whose `type` literal is `'separator'` from
+ * {@link readSpecNavigationArms}, the walk of the spec `AppSchema`'s own
+ * `navigation` element.
  *
- * Computed on first use, because the spec schema is lazy. It throws when no such
- * arm exists: a separator check that silently allowed nothing, or everything,
- * would read as enforcement, and a thrown error is what the pin file sees.
+ * Computed on first use and memoised. It throws when no such arm exists: a
+ * separator check that silently allowed nothing, or everything, would read as
+ * enforcement, and a thrown error is what the pin file sees.
  */
 let specSeparatorKeys: readonly string[] | undefined;
 function getSpecSeparatorKeys(): readonly string[] {
   if (specSeparatorKeys) return specSeparatorKeys;
-  type Node = {
-    unwrap?: () => Node;
-    element?: Node;
-    options?: readonly Node[];
-    shape?: Record<string, Node & { value?: unknown }>;
-  };
-  let node = (stripImportedDefaults(SpecAppSchema) as unknown as Node).shape?.navigation as Node | undefined;
-  for (let hop = 0; node && !node.options && hop < 8; hop++) node = node.element ?? node.unwrap?.();
-  const arm = node?.options?.find((option) => option.shape?.type?.value === 'separator');
-  if (!arm?.shape) {
+  const arm = readSpecNavigationArm('separator');
+  if (!arm) {
     throw new Error(
       "objectui#10867: @objectstack/spec's AppSchema.navigation has no `type: 'separator'` arm to read the separator's keys from",
     );
   }
   specSeparatorKeys = Object.freeze(Object.keys(arm.shape));
   return specSeparatorKeys;
+}
+
+/**
+ * A PRESENT empty label is not "no label": it renders verbatim, i.e. as empty
+ * text, and silently opts the entry out of inheritance (objectui#9868). Refused
+ * as it was while `label` was required. ⚠️ A divergence from the spec, stated:
+ * the spec's base accepts `''`, so the platform's save door does not catch it —
+ * this mirror (what `objectui validate` answers) is where it is caught. Shared
+ * by both arms, so a `doc` entry answers exactly as its siblings do.
+ */
+function refuseEmptyNavLabel(item: { type: string; label?: unknown }, ctx: z.RefinementCtx): void {
+  if (item.label !== '') return;
+  ctx.addIssue({
+    code: 'custom',
+    path: ['label'],
+    message:
+      `\`label\` is empty on a navigation item of type '${item.type}': omit the key to inherit ` +
+      "the target's label at render time, or write the text to show",
+  });
 }
 
 /** `a`, `b` and `c` — the separator refusal's list of what a separator may carry. */
@@ -140,12 +204,21 @@ function codeList(keys: readonly string[]): string {
 const NavigationItemObject = z.object({
   // Declared optional so a bare `{ type: 'separator' }` — which the spec
   // accepts, and which carries no identity or text by definition — validates
-  // here too (objectstack#4115). Every OTHER type still requires both; that is
+  // here too (objectstack#4115). Every OTHER type still requires `id`; that is
   // re-imposed by the refinement below rather than by the field declarations,
   // because this is one flat shape and not the spec's discriminated union.
+  // `label` is optional for every type since objectui#9868 (inherited when
+  // absent); the refinement refuses only an EMPTY one.
   id: z.string().optional().describe('Unique identifier'),
-  type: NavigationItemTypeSchema.describe('Navigation item type'),
-  label: z.string().optional().describe('Display label'),
+  // Every type but `doc`, which is judged by its own arm below (objectui#11197).
+  type: NavigationItemTypeSchema.exclude(['doc']).describe('Navigation item type'),
+  // The spec's `I18nLabelSchema` BY REFERENCE (objectui#11299): a plain string,
+  // or an inline locale map (`{ en, 'zh-CN' }`) — exactly what the spec's
+  // shared nav-item base declares, so `objectui validate` and the platform's
+  // save door judge an entry label alike. Until objectui#11299 this was
+  // `z.string()` and refused a map the spec accepts. `refuseEmptyNavLabel`
+  // below still refuses an empty STRING — the one stated divergence.
+  label: stripImportedDefaults(SpecI18nLabelSchema).optional().describe("Display label: a plain string, or an inline locale map ({ en, 'zh-CN' }) rendered in the viewer's locale. Optional: absent ⇒ the entry inherits its target's current label at render time (view, else object / dashboard, else the target's machine name); present ⇒ rendered as authored. Never an empty string"),
   icon: z.string().optional().describe('Icon name (Lucide)'),
 
   // Type-specific target fields
@@ -199,7 +272,9 @@ const NavigationItemObject = z.object({
   // Identity and text are required for every real destination; only the
   // separator — a rule, not an entry — is exempt. Declaring the fields
   // optional above is what lets `{ type: 'separator' }` through, so without
-  // this an id-less `type: 'object'` item would validate too.
+  // this an id-less `type: 'object'` item would validate too. Since
+  // objectui#9868 the TEXT half is met by inheritance when `label` is absent
+  // (see below); identity is still required here.
   //
   // The separator carries exactly what the spec's separator declares
   // (objectui#10867). This shape is flat, so it declares `label`, `icon` and
@@ -218,15 +293,21 @@ const NavigationItemObject = z.object({
     }
     return;
   }
-  for (const key of ['id', 'label'] as const) {
-    if (typeof item[key] !== 'string' || item[key] === '') {
-      ctx.addIssue({
-        code: 'custom',
-        path: [key],
-        message: `\`${key}\` is required for navigation items of type '${item.type}'`,
-      });
-    }
+  // Identity is required; TEXT may be inherited (objectui#9868, the cloud#2021
+  // letter-A ruling, matching `@objectstack/spec` 17.5.0, whose shared nav-item
+  // base declares `label` optional for every entry type). An ABSENT `label`
+  // means "inherit the target's current label at render time" —
+  // `resolveNavItemLabel` in `@object-ui/layout` resolves it; this validator
+  // fills nothing in, so the parsed item keeps no `label` key. The rule above
+  // still holds: identity is the target, text is inherited.
+  if (typeof item.id !== 'string' || item.id === '') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['id'],
+      message: `\`id\` is required for navigation items of type '${item.type}'`,
+    });
   }
+  refuseEmptyNavLabel(item, ctx);
 
   // The spec's OWN target-exclusivity rule, CHAINED rather than restated
   // (objectui#8563). This schema is hand-written — it is not `.shape`-derived —
@@ -247,7 +328,78 @@ const NavigationItemObject = z.object({
   }
 });
 
-export const NavigationItemSchema: z.ZodType<any> = z.lazy(() => NavigationItemObject);
+/**
+ * The spec's own `doc` arm (`DocNavItemSchema`, ADR-0046) as the walk above
+ * reads it off `AppSchema`. Read once at module load: the `doc` arm below is
+ * built from it. It throws when the spec has no such arm, because a `doc` arm
+ * judged by nothing would accept every `doc` entry.
+ */
+function readSpecDocNavArm(): SpecNavNode & { shape: NonNullable<SpecNavNode['shape']> } {
+  const arm = readSpecNavigationArm('doc');
+  if (!arm) {
+    throw new Error("objectui#11197: @objectstack/spec's AppSchema.navigation has no `type: 'doc'` arm to judge a doc entry by");
+  }
+  return arm;
+}
+const specDocNavArm = readSpecDocNavArm();
+
+/**
+ * The `doc` arm (objectui#11197) — a documentation entry: `{ type: 'doc', book }`
+ * opens a book, `{ type: 'doc', doc }` opens one page, both opens that page in
+ * that book's context.
+ *
+ * ⭐ It accepts NOTHING the spec's `doc` arm refuses, because that arm is the
+ * JUDGE: every entry this arm parses is handed, whole, to the spec's own
+ * `DocNavItemSchema`, and each issue it raises is raised here. So the target
+ * rule (at least one of `book` / `doc`), the doc-name shape (a filename or a path
+ * is refused), the non-empty `book`, the snake_case `id` and the closed key set
+ * — `pinned`, `defaultOpen` and a sibling's target key included — are the spec's
+ * words, not a restatement that drifts. Chained, never copied: the objectui#8563
+ * posture this file already takes for `objectNavTargetExclusivity`.
+ *
+ * Why a SEPARATE arm, not a branch of the flat object above: that object strips
+ * unknown keys before any refinement sees them, so an unknown key on a `doc`
+ * entry would have been dropped here while the platform's save door refused it.
+ * This arm passes unknown keys through to the judge instead, and only the judge
+ * can refuse them — so nothing unknown survives a successful parse.
+ *
+ * The judge's OUTPUT is never used, only its verdict: the spec parse turns a
+ * `visible` string into an expression envelope, and this validator does not
+ * write values into an author's document (decision batches #69 / #90). The
+ * parsed entry is this arm's own — the flat object's schemas for the base keys
+ * the spec's arm spreads (so `label` is the spec's `I18nLabel` here as on every
+ * sibling, and an empty string is refused the same way), and the spec arm's own
+ * `book` / `doc` members for the two targets.
+ *
+ * The judge runs only on an entry whose keys already parsed, so one fault is
+ * never reported twice.
+ */
+const NavigationDocItemObject = z.looseObject({
+  ...Object.fromEntries(
+    Object.keys(specDocNavArm.shape)
+      .filter((key) => key !== 'type' && key in NavigationItemObject.shape)
+      .map((key) => [key, NavigationItemObject.shape[key as keyof typeof NavigationItemObject.shape]]),
+  ),
+  type: z.literal('doc').describe('Navigation item type'),
+  book: specDocNavArm.shape.book,
+  doc: specDocNavArm.shape.doc,
+}).superRefine((item, ctx) => {
+  const verdict = specDocNavArm.safeParse(item);
+  if (!verdict.success) {
+    for (const issue of verdict.error.issues) ctx.addIssue({ ...issue, message: issue.message });
+  }
+  refuseEmptyNavLabel(item, ctx);
+}, { when: (payload) => payload.issues.length === 0 });
+
+/**
+ * Both arms, discriminated on `type`: `doc` goes to its own arm, every other
+ * type to the flat object. An unknown `type` is refused at `type` with the
+ * discriminator's own "expected one of" message — the spec's union answers it
+ * the same way (`invalid_union` at `type`).
+ */
+const NavigationItemArms = z.discriminatedUnion('type', [NavigationItemObject, NavigationDocItemObject]);
+
+export const NavigationItemSchema: z.ZodType<any> = z.lazy(() => NavigationItemArms);
 
 /**
  * Navigation Area Schema — business-domain partition of navigation, DERIVED
@@ -448,6 +600,34 @@ const APP_ACTIONS_REFUSAL =
   + 'not to app metadata.';
 
 /**
+ * The `mobileNavMode` REFUSAL on the app document (objectui#11363). The mode is
+ * read in exactly two places, and the app document is neither: the
+ * `mobileNavMode` prop of `AppSchemaRenderer` (`@object-ui/layout`), and the
+ * `mobileNavMode` key of an `app-schema-renderer` node, which `SchemaRenderer`
+ * hands to that component as the prop and `sdui-parser` checks against the
+ * registration's enum. `@objectstack/spec`'s strict `AppSchema` refuses the key
+ * (`unrecognized_keys`, with no alias), and `AppSchemaRenderer` never reads it
+ * from `schema`, so before this arm `BaseSchema`'s `.passthrough()` kept it here
+ * unread, a misspelt value included, and the shell drew no bottom bar.
+ *
+ * `retirementTombstone`, NOT the `aliasKeyRefusal` that `logo` / `favicon` use:
+ * that helper composes "Did you mean `mobileNavMode` → CANONICAL?", and no member
+ * of this document means a mobile navigation mode. The remedy is a different
+ * channel, not a sibling spelling, so the alias sentence could only say
+ * something untrue (the reasoning `MenuItemSchema.shortcut` records). Same
+ * `z.never` primitive, same `invalid_type` at the key's own path. The guidance
+ * opens with the sentence the spec answers this key with, so both doors lead
+ * with one answer. The TS twin is `mobileNavMode?: never` in `../app.ts`; the
+ * pin is `../__tests__/app-mobile-nav-mode-refusal-11363.test.ts`.
+ */
+const APP_MOBILE_NAV_MODE_REFUSAL =
+  'Unrecognized key(s) on this app: `mobileNavMode`. The mobile navigation mode is not a key of the '
+  + 'app document (objectui#11363): `@objectstack/spec`\'s `AppSchema` refuses it, and `AppSchemaRenderer` '
+  + 'never reads it from the document. Set it where it is read: the `mobileNavMode` prop of '
+  + '`AppSchemaRenderer` (`@object-ui/layout`), or the `mobileNavMode` key of an `app-schema-renderer` '
+  + 'node, which `sdui-parser` checks against `\'drawer\'` | `\'bottom_nav\'`.';
+
+/**
  * App Schema — the objectui app-shell renderer node, derived from
  * `@objectstack/spec/ui` `AppSchema` (see {@link SpecAppFields}). The drift
  * guard is `__tests__/page-app-dashboard-spec-parity.test.ts`.
@@ -484,6 +664,9 @@ export const AppComponentSchema = BaseSchema.extend(SpecAppFields.shape).extend(
     + '(objectui#10842): write `branding: { favicon: \'/favicon.ico\' }`. The top-level `favicon` was an '
     + 'objectui-only second spelling that the platform refuses, and the console reads only `branding.favicon`.',
   ),
+  // Not a key of the app document; the reason and the remedy are on
+  // `APP_MOBILE_NAV_MODE_REFUSAL` above.
+  mobileNavMode: retirementTombstone(APP_MOBILE_NAV_MODE_REFUSAL),
   layout: z.enum(['sidebar', 'header', 'empty']).optional().describe('Global layout strategy'),
   menu: z.array(MenuItemSchema).optional().describe('Legacy navigation menu (deprecated, use navigation)'),
   navigation: z.array(NavigationItemSchema).optional().describe('Unified navigation tree'),
@@ -491,6 +674,112 @@ export const AppComponentSchema = BaseSchema.extend(SpecAppFields.shape).extend(
   contextSelectors: z.array(AppContextSelectorSchema).optional().describe('App-level scope dropdowns injected into nav items as {<id>} vars'),
   actions: retirementTombstone(APP_ACTIONS_REFUSAL),
 });
+
+/**
+ * objectui#11440 — ONE refusal string for both content channels of
+ * {@link AppSchemaRendererNodeSchema}. The registration declares
+ * `isContainer: true`, but the parser tier's containment check reads the
+ * `children` INPUT, never `isContainer` (objectui#9910), and the registration
+ * declares no such input, so the `not-a-container` clause holds here too.
+ */
+const APP_SCHEMA_RENDERER_NEITHER_CHANNEL =
+  'REFUSED (objectui#9256, ADR-0049) — `app-schema-renderer` reads NEITHER content channel: `SchemaRenderer` '
+  + 'strips `children` and `body` out of the props it hands `AppSchemaRenderer`, and the component reads no '
+  + '`schema.children` / `schema.body`. Measured through the real `SchemaRenderer` and registry (objectui#11440): '
+  + 'a node carrying `children` drew none of them. An authored value therefore rendered NOTHING — no render-time '
+  + 'error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it '
+  + '(the registration declares no `children` input). What it renders instead: the shell — its sidebar and, with '
+  + '`mobileNavMode: \'bottom_nav\'`, the bottom bar — around an empty main area. Page content reaches the shell '
+  + 'only as React `children`, when a host renders `AppSchemaRenderer` itself.';
+
+/**
+ * `app-schema-renderer` — the whole-shell node `@object-ui/layout` registers
+ * (objectui#11440, under the seat's amendment `5945583855` on objectui#10859:
+ * "declaring the node from its registration inputs").
+ *
+ * ## The defect this closes
+ *
+ * objectui#4841's ruling (`5307574602`) keeps `app-schema-renderer` "the one
+ * JSON door for 'render a whole shell from a schema'", and the governed guide
+ * `skills/objectui/guides/mobile.md` teaches the `mobileNavMode` key of this
+ * node (as does {@link APP_MOBILE_NAV_MODE_REFUSAL} above). No arm claimed the
+ * literal, so `objectui validate` refused that node with `invalid_union` at
+ * `type`.
+ *
+ * ## The members
+ *
+ * The registration declares three `inputs`: `schema` (object), `basePath`
+ * (string) and `mobileNavMode` (the enum `'drawer'` | `'bottom_nav'`). All
+ * three are declared here:
+ *  - `schema` — the app document the shell draws, as {@link AppComponentSchema}
+ *    itself, by reference (objectui#11494, triage ruling A `5958227972`).
+ *  - `mobileNavMode` — the two modes the renderer implements; `'bottom_nav'`
+ *    adds the fixed bottom bar.
+ *  - `basePath` — the prefix of every href the shell generates.
+ *
+ * ## `schema` is the document, nested: one spelling (objectui#11494)
+ *
+ * `SchemaRenderer` strips the `schema` key out of the props it spreads and
+ * hands every registered component the NODE as its `schema` prop. Registered
+ * directly, `AppSchemaRenderer` therefore read the document's keys off the node
+ * itself, and objectui#11440 measured through the real `SchemaRenderer` and
+ * registry that a node with its navigation nested under `schema` drew none of
+ * it. `@object-ui/layout` now registers the node through an adapter that hands
+ * `node.schema` to `AppSchemaRenderer`, so the nested document is what draws.
+ *
+ * The member is `AppComponentSchema` and not a copy of its members, so the
+ * document keeps its own refusals here: `mobileNavMode` inside `schema` is
+ * refused by {@link APP_MOBILE_NAV_MODE_REFUSAL}, while the same key on the node
+ * is the mode. The document is the `app` document, so its `type` is `'app'`.
+ * The document's keys written flat on the node are not declared, so the strict
+ * face refuses them as unrecognized keys, and the adapter does not read them:
+ * the document has one spelling. The member is optional, as the registration's
+ * input is: a node without it draws the shell with no document (no branding,
+ * no navigation), which is what the mobile guide's node draws.
+ *
+ * Neither content channel is read (see
+ * {@link APP_SCHEMA_RENDERER_NEITHER_CHANNEL}), so both are refused by name.
+ */
+export const AppSchemaRendererNodeSchema: AppSchemaRendererNodeSchemaType = BaseSchema.extend({
+  type: z.literal('app-schema-renderer'),
+  schema: AppComponentSchema.optional().describe(
+    'The app document the shell draws (branding, `navigation`, `areas`), nested: `{ "type": "app", ... }`',
+  ),
+  basePath: z.string().optional().describe('URL prefix for the hrefs the shell generates (e.g. "/apps/crm")'),
+  mobileNavMode: z
+    .enum(['drawer', 'bottom_nav'])
+    .optional()
+    .describe(
+      'Mobile navigation mode: "drawer" (the default) puts the sidebar in the mobile sheet overlay; "bottom_nav" '
+      + 'additionally renders a fixed bottom bar. These are the only two modes the renderer implements.',
+    ),
+  body: retirementTombstone(APP_SCHEMA_RENDERER_NEITHER_CHANNEL),
+  children: retirementTombstone(APP_SCHEMA_RENDERER_NEITHER_CHANNEL),
+});
+
+/**
+ * The TYPE of {@link AppSchemaRendererNodeSchema}, written out BY REFERENCE to
+ * {@link AppComponentSchema} for its `schema` member, on the precedent of
+ * `PageKindNodeSchemaType` in `layout.zod.ts` (objectui#11440). Without it,
+ * declaration emit re-serializes the whole app document a second time inside
+ * `AnyComponentSchema`, beside the `app` arm, and `tsc` refuses that union with
+ * TS7056 ("The inferred type of this node exceeds the maximum length the
+ * compiler will serialize"), measured on objectui#11494 against
+ * `@objectstack/spec` built from objectstack `main` (the `Spec Main Shape
+ * Gate`). A named type is emitted by name. It is a type only: the schema above
+ * and what it accepts are unchanged.
+ */
+export type AppSchemaRendererNodeSchemaType = z.ZodObject<
+  Omit<(typeof BaseSchema)['shape'], 'type' | 'body' | 'children'> & {
+    type: z.ZodLiteral<'app-schema-renderer'>;
+    schema: z.ZodOptional<typeof AppComponentSchema>;
+    basePath: z.ZodOptional<z.ZodString>;
+    mobileNavMode: z.ZodOptional<z.ZodEnum<{ drawer: 'drawer'; bottom_nav: 'bottom_nav' }>>;
+    body: ReturnType<typeof retirementTombstone>;
+    children: ReturnType<typeof retirementTombstone>;
+  },
+  z.core.$loose
+>;
 
 /**
  * Export type inference helpers

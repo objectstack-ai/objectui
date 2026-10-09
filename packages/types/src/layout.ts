@@ -20,6 +20,9 @@ import type { I18nLabel, Page as SpecPage, PageType as SpecPageType } from '@obj
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { PAGE_SPEC_EXCLUDED } from './zod/layout.zod.js';
 import type { BreakpointName } from './mobile.js';
+// objectui#10872 batch 9 — the per-breakpoint style maps `FlexSchema.responsiveStyles`
+// declares, by reference. Type-only.
+import type { ResponsiveStyles as SpecResponsiveStyles } from '@objectstack/spec/ui';
 
 /**
  * Basic HTML div container
@@ -563,9 +566,17 @@ export interface ContainerSchema extends BaseSchema {
    */
   centered?: boolean;
   /**
-   * Padding
+   * Padding step on the container's spacing scale; `0` means none.
+   *
+   * The steps are the ones `container.tsx` maps to a padding class, and only
+   * those (objectui#11424): it reads `schema.padding ?? 4` and tests it against
+   * one branch per step, so any other number matched no branch and drew no
+   * padding class at all — not even the default. This was `number`, which let
+   * `9` and `20` through; the zod mirror (`zod/layout.zod.ts`) refuses them
+   * with the set named.
+   * @default 4
    */
-  padding?: number;
+  padding?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10 | 12 | 16;
   /**
    * Child components
    */
@@ -608,8 +619,8 @@ export interface ContainerSchema extends BaseSchema {
  * erased every named member from the SHIPPED declaration, silently:
  * `Omit<T, K>` is `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on a type
  * carrying a string index signature is `string | number` — the literal member
- * names are absorbed. `FlexSchema` inherits `BaseSchema`'s `[key: string]: any`
- * (objectui#5155), so `Exclude<string | number, 'type'>` is still
+ * names are absorbed. `FlexSchema` inherited `BaseSchema`'s `[key: string]: any`
+ * (objectui#5155) until objectui#8347, so `Exclude<string | number, 'type'>` is still
  * `string | number`, and the `Pick` reconstructed a type with the index
  * signature and NONE of the named members. Measured against the emitted
  * `dist/layout.d.ts`: `FlexSchema` declared 25 properties, `StackSchema`
@@ -680,10 +691,17 @@ export interface FlexLayoutProps {
    */
   align?: 'start' | 'end' | 'center' | 'baseline' | 'stretch';
   /**
-   * Gap between items (Tailwind scale 0-8)
+   * Gap step between items; `0` means none.
+   *
+   * The steps are the ones `flex.tsx` maps to a gap class, and only those
+   * (objectui#11474): it reads `schema.gap ?? 2` and tests it against one
+   * branch per step, so any other number matched no branch and drew no gap
+   * class at all — not even the default. This was `number`, which let `9`
+   * through; the zod mirror (`zod/layout.zod.ts`) refuses it with the set
+   * named. {@link StackSchema} maps a different set and declares its own.
    * @default 2
    */
-  gap?: number;
+  gap?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   /**
    * Allow items to wrap
    * @default false
@@ -696,10 +714,36 @@ export interface FlexLayoutProps {
 }
 
 /**
- * Flexbox layout component
+ * Flexbox layout component — the node as the `flex` renderer reads it.
+ *
+ * ⚠️ That is the node AFTER `SchemaRenderer` hoists the `properties` bag, and
+ * the node as code composes it. An AUTHORED `flex` node takes the
+ * {@link FlexLayoutProps} members — the child list included — in its
+ * `properties` bag (objectui#11276, the maintainer's ruling A on
+ * objectui#11300): `{ type: 'flex', properties: { direction: 'col', gap: 4,
+ * children: [ … ] } }`. `objectui validate` refuses them written flat on the
+ * node, by name (the zod `FlexBlockSchema`), as `@objectstack/spec`'s page
+ * component does. A typed authored node checks its bag with
+ * `satisfies FlexLayoutProps`. A stored flat node keeps rendering: the hoist
+ * reads both spellings.
  */
 export interface FlexSchema extends BaseSchema, FlexLayoutProps {
   type: 'flex';
+  /**
+   * Per-breakpoint scoped style maps (ADR-0065): `@objectstack/spec`'s
+   * `ResponsiveStyles`, the type `PageComponentSchema.responsiveStyles`
+   * declares, by reference (objectui#10872 batch 9). `SchemaRenderer` compiles
+   * it to CSS scoped to this node: `large` is the unconditional base, and
+   * `medium` / `small` / `xsmall` are max-width overrides.
+   *
+   * Declared here, and not on {@link FlexLayoutProps}, because `flex` is the
+   * layout arm a producer writes the key on (the objectstack showcase; the
+   * reading is recorded on objectui#10872 and nothing here re-derives it).
+   * `stack` shares those props and has no measured producer, so it does not
+   * declare the key. The zod mirror spreads the same member from the
+   * public blocks' fragment (`NODE_ENVELOPE`).
+   */
+  responsiveStyles?: SpecResponsiveStyles;
   /**
    * REFUSED BY NAME (objectui#8284, ADR-0049) — `flex` reads `children`, and no
    * renderer read consumes `body`.
@@ -732,10 +776,32 @@ export interface FlexSchema extends BaseSchema, FlexLayoutProps {
  *
  * Declares the same members as {@link FlexSchema} — see {@link FlexLayoutProps}
  * for why they are shared through a third interface rather than derived with an
- * `Omit` (objectui#6151).
+ * `Omit` (objectui#6151) — except `responsiveStyles`, which `FlexSchema`
+ * declares on its own (objectui#10872 batch 9).
+ *
+ * `gap` is the one shared member `stack` declares itself: its renderer maps a
+ * different set of steps (objectui#11474). The `Omit` here crosses
+ * {@link FlexLayoutProps}, which carries no index signature, so it keeps every
+ * other member's name; the objectui#6151 hazard is an `Omit` over a type that
+ * carries a string index signature, as every `BaseSchema` extender did until
+ * objectui#8347. `__tests__/stack-schema-emitted-members.test.ts`
+ * measures the emitted declaration and holds the two member sets equal.
  */
-export interface StackSchema extends BaseSchema, FlexLayoutProps {
+export interface StackSchema extends BaseSchema, Omit<FlexLayoutProps, 'gap'> {
   type: 'stack';
+  /**
+   * Gap step between items; `0` means none.
+   *
+   * The steps are the ones `stack.tsx` maps to a gap class, and only those
+   * (objectui#11474): it reads `schema.gap ?? 2` and tests it against one
+   * branch per step, so any other number matched no branch and drew no gap
+   * class at all — not even the default. Unlike `flex`, `stack` has no branch
+   * for `7` and has one for `10`. This was `number`, which let `7` and `9`
+   * through; the zod mirror (`zod/layout.zod.ts`) refuses them with the set
+   * named.
+   * @default 2
+   */
+  gap?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10;
   /**
    * REFUSED BY NAME (objectui#8284, ADR-0049) — `stack` reads `children`, and no
    * renderer read consumes `body`.
@@ -764,13 +830,27 @@ export interface StackSchema extends BaseSchema, FlexLayoutProps {
 }
 
 /**
+ * The column counts the `grid` renderer maps to a column class
+ * (objectui#11491): {@link GridSchema.columns} takes one, as the bare number
+ * and at every breakpoint. Module-local: the member is the published face.
+ */
+type GridColumnCount = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+
+/**
  * CSS Grid layout component
  */
 export interface GridSchema extends BaseSchema {
   type: 'grid';
   /**
-   * Number of columns (responsive).
-   * Can be number or object: { xs: 1, sm: 2, md: 3, lg: 4 }
+   * Number of columns (responsive): a count from 1 to 12, or an object of such
+   * counts keyed by breakpoint: { xs: 1, sm: 2, md: 3, lg: 4 }
+   *
+   * The counts are the ones `grid.tsx` maps to a column class, and only those
+   * (objectui#11491): it spells `grid-cols-1` to `grid-cols-12` once per
+   * breakpoint and nothing else, so any other count drew no column class where
+   * it was authored. This was `number`, at the bare number and at every
+   * breakpoint; the zod mirror (`zod/layout.zod.ts`) refuses the rest with the
+   * set named.
    *
    * `grid.tsx` opens with `let baseCols = 2` and only overwrites it from an
    * authored `columns`, so a `grid` that omits the key renders `grid-cols-2`.
@@ -779,12 +859,48 @@ export interface GridSchema extends BaseSchema {
    * `maxWidth`).
    * @default 2
    */
-  columns?: number | Partial<Record<BreakpointName, number>>;
+  columns?: GridColumnCount | Partial<Record<BreakpointName, GridColumnCount>>;
   /**
-   * Gap between items (Tailwind scale 0-8)
+   * RETIRED (objectui#11505, ADR-0049) — a second spelling of the `sm` member
+   * of `columns`. Write the count in the breakpoint object, `columns: { sm: N }`;
+   * a bare `columns: C` beside it becomes the object's `xs: C`, and with no
+   * `columns` at all add `xs: 2` to keep the two columns the grid drew below `sm`.
+   * @deprecated The renderer no longer reads it; the zod mirror refuses it by name.
+   */
+  smColumns?: never;
+  /**
+   * RETIRED (objectui#11505, ADR-0049) — a second spelling of the `md` member
+   * of `columns`. Write `columns: { md: N }`, as {@link GridSchema.smColumns}
+   * describes for `sm`.
+   * @deprecated The renderer no longer reads it; the zod mirror refuses it by name.
+   */
+  mdColumns?: never;
+  /**
+   * RETIRED (objectui#11505, ADR-0049) — a second spelling of the `lg` member
+   * of `columns`. Write `columns: { lg: N }`, as {@link GridSchema.smColumns}
+   * describes for `sm`.
+   * @deprecated The renderer no longer reads it; the zod mirror refuses it by name.
+   */
+  lgColumns?: never;
+  /**
+   * RETIRED (objectui#11505, ADR-0049) — a second spelling of the `xl` member
+   * of `columns`. Write `columns: { xl: N }`, as {@link GridSchema.smColumns}
+   * describes for `sm`.
+   * @deprecated The renderer no longer reads it; the zod mirror refuses it by name.
+   */
+  xlColumns?: never;
+  /**
+   * Gap step between items; `0` means none.
+   *
+   * The steps are the ones `grid.tsx` maps to a gap class, and only those
+   * (objectui#11474): it looks `schema.gap ?? 4` up in its `GAPS` map and,
+   * for any other number, builds an arbitrary-value class at runtime that no
+   * compiled stylesheet defines, so the grid drew no gap at all. This was
+   * `number`; the zod mirror (`zod/layout.zod.ts`) refuses the rest with the
+   * set named.
    * @default 4
    */
-  gap?: number;
+  gap?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10 | 12;
   /**
    * Child components
    */
@@ -842,9 +958,10 @@ export interface CardSchema extends BaseSchema {
    * one of the fallback readers whose `body` arm the ruling drops in the
    * same change as the `body`-only registrations converge.
    *
-   * Refused by name rather than deleted: `BaseSchema` carries
-   * `[key: string]: any` and the zod twin ends `.passthrough()`, so a
-   * deleted member is ACCEPTED silently and rendered by nothing. The
+   * Refused by name rather than deleted: the zod twin ends `.passthrough()`
+   * (and `BaseSchema` carried `[key: string]: any` until objectui#8347; a
+   * widened value still skips the excess-property check), so a deleted member
+   * is ACCEPTED silently and rendered by nothing. The
    * `?: never` is what makes `tsc` answer at the authoring site, and the
    * mirror's `aliasKeyRefusal` names `children` at parse time.
    *
@@ -1234,9 +1351,10 @@ export interface AspectRatioSchema extends BaseSchema {
    * whenever no `image` was set, so it is one of the fallback readers whose
    * `body` arm drops in the same change.
    *
-   * Refused by name rather than deleted: `BaseSchema` carries
-   * `[key: string]: any` and the zod twin ends `.passthrough()`, so a
-   * deleted member is ACCEPTED silently and rendered by nothing. The
+   * Refused by name rather than deleted: the zod twin ends `.passthrough()`
+   * (and `BaseSchema` carried `[key: string]: any` until objectui#8347; a
+   * widened value still skips the excess-property check), so a deleted member
+   * is ACCEPTED silently and rendered by nothing. The
    * `?: never` is what makes `tsc` answer at the authoring site, and the
    * mirror's `aliasKeyRefusal` names `children` at parse time.
    *
@@ -1359,8 +1477,8 @@ export interface PageNodeRegion {
  * mirror's `specFieldsExcept` call also reads, so both faces project the same
  * spec surface and move together on a pin bump.
  *
- * TWO keys are omitted from the spec projection beyond the shared list, on
- * the TypeScript face only:
+ * ONE key is omitted from the spec projection beyond the shared list, on the
+ * TypeScript face only:
  *  - `slots` — the member below types each slot as objectui's `SchemaNode`
  *    (which admits primitives and `null`), not the spec's page-component
  *    shape, so it is not assignable to the spec's member and cannot sit beside
@@ -1369,16 +1487,17 @@ export interface PageNodeRegion {
  *    ⛔ not changed here. The mirror keeps validating the spec's `slots` — the
  *    omission is type-side only, so it is spelled beside the shared list, not
  *    inside it.
- *  - `assignedProfiles` — a FORWARD-COMPAT omission. On the installed spec the
- *    spec's member is `string[]` and the one below matches it, but objectstack
- *    `main` has retired the key (`retiredKey()`, so its input type is
- *    `undefined`), and the hand-written `string[]` is not assignable to that.
- *    Without this omission the twin would stop compiling at the next pin bump,
- *    which `Spec Main Shape Gate` measures today. Retiring the member here is
- *    objectui#9409's decision, which is on hold until the installed spec
- *    refuses the key. ⛔ It is not retired, and not widened, here. Like
- *    `slots`, it is spelled beside the shared list, so the mirror keeps
- *    validating whatever the installed spec declares.
+ *
+ * `assignedProfiles` is RETIRED (objectui#9409) and is no longer omitted.
+ * @objectstack/spec 17.5.0 made the spec's member a `retiredKey()` tombstone
+ * (ADR-0090 D2 deleted the Profile concept it was named after; ADR-0049
+ * enforce-or-remove), so this interface now takes it BY REFERENCE, like App
+ * `version` and Dashboard `refreshInterval`: its type is the spec's, which
+ * admits no value, and authoring one is a `tsc` error. The zod mirror refuses
+ * the same value at parse with the spec's own message. The hand-written
+ * `string[]` member, described as "Profiles that can access this page", is
+ * gone: nothing in this repository ever enforced it, so it read as access
+ * control while gating nothing. Page audience is the permission set's.
  *
  * The other members this interface writes itself (`icon`, `object`,
  * `template`, `variables`, `isDefault`, `aria`, `kind`)
@@ -1394,7 +1513,7 @@ export interface PageNodeRegion {
  * `@object-ui/components` registers `PageRenderer` under, i.e. the wire key
  * authored metadata carries. Nothing else in the repo pins it.
  */
-export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_SPEC_EXCLUDED)[number] | 'slots' | 'assignedProfiles'> {
+export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_SPEC_EXCLUDED)[number] | 'slots'> {
   type: 'page';
   /**
    * ⛔ REFUSED BY NAME — `actions` is not a member of this node and never was
@@ -1456,6 +1575,42 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    */
   breadcrumbs?: never;
   /**
+   * ⛔ REFUSED BY NAME — `maxWidth` is not a member of this node and never was
+   * (objectui#11318, ADR-0049 enforce-or-remove). It is a member of
+   * {@link ContainerSchema}.
+   *
+   * `PageRenderer` takes its max-width class from {@link PageNodeSchema.pageType}
+   * through `getPageMaxWidth` and has no read for this key: through the real
+   * `SchemaRenderer` a page carrying `maxWidth: 'lg'` drew the same inner class
+   * as the same page without it. `BaseSchema` is `.passthrough()`, so the value
+   * was never refused, only KEPT.
+   *
+   * The remedy is the two doors that already ship: {@link PageNodeSchema.pageType}
+   * sets the page's cap, and a narrower column is a `container` node in
+   * {@link PageNodeSchema.children} with its own `maxWidth`.
+   *
+   * `?: never` is the twin of `layout.zod.ts`'s `retirementTombstone` arm — the
+   * pair is what `__tests__/zod-mirror-parity.test.ts` compares, and it is what
+   * makes `tsc` refuse the key at the authoring site before anything runs.
+   */
+  maxWidth?: never;
+  /**
+   * ⛔ REFUSED BY NAME — `padding` is not a member of this node and never was
+   * (objectui#11318, ADR-0049 enforce-or-remove). It is a member of
+   * {@link ContainerSchema}.
+   *
+   * The page wrapper's inset is fixed and `PageRenderer` has no read for this
+   * key: through the real `SchemaRenderer` a page carrying `padding: false`
+   * kept the same wrapper padding classes as the same page without it.
+   *
+   * The remedy is a `container` node in {@link PageNodeSchema.children}, whose
+   * `padding` is a declared, rendered number (`0` for none).
+   *
+   * `?: never` is the twin of `layout.zod.ts`'s `retirementTombstone` arm, as
+   * for `maxWidth` above.
+   */
+  padding?: never;
+  /**
    * Page title
    */
   title?: string;
@@ -1512,9 +1667,10 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    * this key carried (objectui#8310 — one node OR a list) moved with it and
    * is restated on `children` below, because that is now the key it governs.
    *
-   * Refused by name rather than deleted: `BaseSchema` carries
-   * `[key: string]: any` and the zod twin ends `.passthrough()`, so a deleted
-   * member is ACCEPTED silently and rendered by nothing.
+   * Refused by name rather than deleted: the zod twin ends `.passthrough()`
+   * (and `BaseSchema` carried `[key: string]: any` until objectui#8347; a
+   * widened value still skips the excess-property check), so a deleted member
+   * is ACCEPTED silently and rendered by nothing.
    *
    * @deprecated Retired spelling of `children` — author `children`.
    */
@@ -1542,11 +1698,12 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    * WIDER parent — so nothing on the authoring path ever asked this key about
    * its arity. Pinned by `__tests__/page-body-arity-8310.test.ts`.
    *
-   * ⚠️ Bounded, and the bound was measured: `BaseSchema` carries
-   * `[key: string]: any`, so annotating an authored page catches a value of the
-   * WRONG TYPE (TS2322) and never a MISSPELLED key (an undeclared key is
+   * ⚠️ Bounded when written, and the bound was measured: `BaseSchema` carried
+   * `[key: string]: any`, so annotating an authored page caught a value of the
+   * WRONG TYPE (TS2322) and never a MISSPELLED key (an undeclared key was
    * absorbed by the index signature, zero diagnostics). This union repairs the
-   * first case only.
+   * first case only; objectui#8347 removed the signature, which closed the
+   * second on a fresh literal.
    */
   children?: SchemaNode | SchemaNode[];
   /**
@@ -1571,10 +1728,6 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    * objectui#7963), not this card's.
    */
   isDefault?: boolean;
-  /**
-   * Profiles that can access this page
-   */
-  assignedProfiles?: string[];
   /**
    * ARIA accessibility attributes.
    * Aligned with @objectstack/spec AriaPropsSchema.
@@ -1727,9 +1880,9 @@ export interface SemanticElementSchema extends BaseSchema {
  * a document carrying `h1`, and that document rendered and was refused.
  *
  * ⚠️ The per-tag keys below are declared on the WHOLE set, not per tag, so
- * `{ type: 'p', href: '…' }` type-checks. {@link BaseSchema} carries an index
- * signature, so it type-checked before this declaration existed too — this
- * narrows nothing and gains the author a named surface. `width` / `height` are
+ * `{ type: 'p', href: '…' }` type-checks. {@link BaseSchema} carried an index
+ * signature when this was declared, so it type-checked before this declaration
+ * existed too — this narrowed nothing and gained the author a named surface. `width` / `height` are
  * `string | number` rather than the registration's `number`, because the
  * renderer forwards them verbatim to the DOM attribute, which takes both.
  */

@@ -12,7 +12,7 @@ import { cn } from '@object-ui/components';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { I18nLabel } from '@object-ui/types';
 import { ArrowDownIcon, ArrowUpIcon, MinusIcon, AlertCircle, Loader2 } from 'lucide-react';
-import type { SchemaHostProps } from './schemaHostProps';
+import { hostDomProps, type SchemaHostProps } from './schemaHostProps';
 
 /**
  * DOM PASS-THROUGH (objectui#4426) — see `MetricWidget.tsx`'s interface header
@@ -31,6 +31,12 @@ import type { SchemaHostProps } from './schemaHostProps';
  * whole. The repo's spelling for this carve-out is `ComboboxProps`
  * (`extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "value" | "onChange">`),
  * omitted there for the same reason: the component's own contract owns the name.
+ *
+ * This declaration is the DIRECT React door's. Rendered through
+ * `SchemaRenderer`, the card's element receives only what `toDomProps` passes
+ * (objectui#4425, phase 2) — see `hostDomProps` in `./schemaHostProps`. That is
+ * also why an authored `label` stops at the component: it is not this card's
+ * heading (`title` is) and not an attribute either.
  */
 export interface MetricCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
   /**
@@ -68,8 +74,8 @@ export const MetricCard: React.FC<MetricCardProps & SchemaHostProps> = ({
   // Schema-shaped props `SchemaRenderer` injects, destructured out so the
   // spread below cannot write them to the DOM (objectui#4357). Named and
   // measured in `./schemaHostProps`; `schema` alone put a
-  // `schema="[object Object]"` attribute on every card. The rest spread
-  // survives — it is the component's genuine DOM/aria passthrough.
+  // `schema="[object Object]"` attribute on every card.
+  // READ now, as the door discriminator below (same binding as `MetricWidget`).
   schema: _schema,
   bind: _bind,
   events: _events,
@@ -79,13 +85,16 @@ export const MetricCard: React.FC<MetricCardProps & SchemaHostProps> = ({
   dataSource: _dataSource,
   ...domProps
 }) => {
+  // What the `Card` may carry (objectui#4425): the `toDomProps` whitelist on
+  // the renderer's door, the declared pass-through on the direct React door.
+  const hostProps = hostDomProps(_schema, domProps);
   // Resolve icon via lazy resolver — each icon ships as its own micro-chunk
   const IconComponent = icon ? getLazyIcon(icon) : null;
   // Label text follows the active UI language (not the tenant's number locale).
   const { language } = useObjectTranslation();
 
   return (
-    <Card className={cn("h-full", className)} {...domProps}>
+    <Card className={cn("h-full", className)} {...hostProps}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">
           {pickLocalized(title, language)}

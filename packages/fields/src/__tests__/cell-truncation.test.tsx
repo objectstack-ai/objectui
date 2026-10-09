@@ -47,7 +47,7 @@ describe('cell renderers truncate for real and expose the full text (issue #3466
       <SchemaRendererProvider dataSource={ds}>
         <LookupCellRenderer
           value={{ id: 'rec1', name: LONG }}
-          field={{ type: 'lookup', reference_to: 'obj_a' } as any}
+          field={{ type: 'lookup', reference: 'obj_a' } as any}
         />
       </SchemaRendererProvider>,
     );

@@ -1,7 +1,17 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect } from 'vitest';
-import { flowAncestors, nodeOutputRefs, resolveFlowScope, triggerFieldRefs } from './flow-scope';
+import {
+  connectorActionOutputKeys,
+  connectorActionOutputSchema,
+  edgeSourceOutputRefs,
+  flowAncestors,
+  hasCommittedConnectorAction,
+  nodeOutputRefs,
+  resolveEdgeScope,
+  resolveFlowScope,
+  triggerFieldRefs,
+} from './flow-scope';
 
 const tokens = (refs: ReadonlyArray<{ token: string }>) => refs.map((r) => r.token);
 const groupTokens = (scope: { refs: Array<{ token: string; group: string }> }, group: string) =>
@@ -116,13 +126,44 @@ describe('resolveFlowScope — graph-aware in-scope references', () => {
     expect(scope.trigger).toEqual({ objectName: 'crm_lead', fieldPrefix: 'record.', includePrevious: true });
   });
 
-  it('uses a BARE field prefix on the start node itself (entry condition)', () => {
+  it('uses a BARE field prefix on the start node itself (entry condition), and the whole `record` is in scope there too (objectui#11789)', () => {
     const scope = resolveFlowScope(draft, 'start');
     expect(scope.trigger).toEqual({ objectName: 'crm_lead', fieldPrefix: '', includePrevious: true });
-    // No whole-`record` token on the start node (fields are the bare context).
-    expect(groupTokens(scope, 'trigger')).not.toContain('record');
+    // The engine binds `record` beside the flattened fields before it runs the
+    // entry condition, so `record.status` is as valid there as bare `status`.
+    expect(groupTokens(scope, 'trigger')).toContain('record');
     // `previous` is still available on an update trigger.
     expect(groupTokens(scope, 'trigger')).toContain('previous');
+  });
+
+  /**
+   * The per-trigger table (objectui#11789), read off the engine: its run
+   * seeding binds `record` (with the record's fields flattened beside it)
+   * whenever the trigger hands it a record, and binds `previous` on EVERY run —
+   * to the pre-image when one exists, to `null` otherwise. So `record` follows
+   * "is this a record trigger", and `previous` follows "is there a pre-image".
+   * Each row is asserted at the start node AND downstream: one run, one scope.
+   */
+  it.each([
+    ['record-after-update', true, true],
+    ['record-before-update', true, true],
+    ['record-after-write', true, true],
+    ['record-before-write', true, true],
+    // The deleted row is the pre-image; the trigger reads `record` off it too.
+    ['record-after-delete', true, true],
+    // No prior row: `previous` is always `null`, so it is not offered.
+    ['record-after-create', true, false],
+    // No record is handed to these runs at all.
+    ['schedule', false, false],
+    ['manual', false, false],
+    ['api', false, false],
+  ])('%s: `record` in scope = %s, `previous` in scope = %s — at the start node and downstream', (triggerType, hasRecord, hasPrevious) => {
+    const flow = { ...draft, nodes: [{ id: 'start', type: 'start', config: { triggerType, objectName: 'crm_lead' } }, ...draft.nodes.slice(1)] };
+    for (const at of ['start', 'decide']) {
+      const trigger = groupTokens(resolveFlowScope(flow, at), 'trigger');
+      expect(trigger.includes('record'), `${triggerType} at ${at}: record`).toBe(hasRecord);
+      expect(trigger.includes('previous'), `${triggerType} at ${at}: previous`).toBe(hasPrevious);
+    }
   });
 
   it('omits the trigger record for a non-record trigger', () => {
@@ -132,7 +173,7 @@ describe('resolveFlowScope — graph-aware in-scope references', () => {
     expect(groupTokens(scope, 'trigger')).toEqual([]);
   });
 
-  it('omits `previous` for a create trigger', () => {
+  it('omits `previous` for a create trigger (the engine binds it only as `null` there)', () => {
     const create = { ...draft, nodes: [{ id: 'start', type: 'start', config: { triggerType: 'record-after-create', objectName: 'crm_lead' } }, ...draft.nodes.slice(1)] };
     expect(groupTokens(resolveFlowScope(create, 'decide'), 'trigger')).not.toContain('previous');
   });
@@ -196,5 +237,194 @@ describe('triggerFieldRefs', () => {
       'record.status',
       'previous.status',
     ]);
+  });
+});
+
+// objectui#11028 — a `connector_action` node offers `<nodeId>.<key>` for each
+// top-level `properties` key of its action's served `outputSchema`, the keys
+// the engine writes back from the handler's result. The schema is an open
+// record nothing validates, so every other shape offers nothing: keys are
+// never guessed.
+describe('connector action output references (objectui#11028)', () => {
+  const POST_OUTPUT = { type: 'object', properties: { ts: { type: 'string' }, channel: { type: 'string' } } };
+  /** A served `GET /automation/connectors` payload, unwrapped to the connector array. */
+  const REGISTRY = [
+    {
+      name: 'slack',
+      label: 'Slack',
+      actions: [
+        { key: 'chat.postMessage', label: 'Post Message', outputSchema: POST_OUTPUT },
+        { key: 'chat.delete', label: 'Delete Message' }, // declares no outputSchema
+      ],
+    },
+  ];
+  const connectorNode = (connectorConfig: Record<string, unknown> = { connectorId: 'slack', actionId: 'chat.postMessage' }) => ({
+    id: 'post',
+    type: 'connector_action',
+    label: 'Post to Slack',
+    connectorConfig,
+  });
+
+  describe('connectorActionOutputKeys', () => {
+    it('returns each top-level properties key, in declared order', () => {
+      expect(connectorActionOutputKeys({ type: 'object', properties: { ts: {}, channel: {} } })).toEqual(['ts', 'channel']);
+    });
+
+    it('returns no keys when the schema is absent or declares no properties', () => {
+      expect(connectorActionOutputKeys(undefined)).toEqual([]);
+      expect(connectorActionOutputKeys({})).toEqual([]);
+      expect(connectorActionOutputKeys({ type: 'object' })).toEqual([]);
+      expect(connectorActionOutputKeys({ type: 'object', properties: {} })).toEqual([]);
+    });
+
+    it('returns no keys for a schema that is not an object', () => {
+      expect(connectorActionOutputKeys(null)).toEqual([]);
+      expect(connectorActionOutputKeys('object')).toEqual([]);
+      expect(connectorActionOutputKeys(['ts'])).toEqual([]);
+    });
+
+    it('returns no keys when properties is not an object', () => {
+      expect(connectorActionOutputKeys({ properties: ['ts', 'channel'] })).toEqual([]);
+      expect(connectorActionOutputKeys({ properties: 'ts' })).toEqual([]);
+      expect(connectorActionOutputKeys({ properties: null })).toEqual([]);
+    });
+
+    it('reads only the TOP level: nested properties are not references of their own', () => {
+      expect(
+        connectorActionOutputKeys({ properties: { message: { type: 'object', properties: { text: {}, user: {} } } } }),
+      ).toEqual(['message']);
+    });
+  });
+
+  describe('connectorActionOutputSchema', () => {
+    it('finds the named action’s object schema in the registry', () => {
+      expect(connectorActionOutputSchema(REGISTRY, 'slack', 'chat.postMessage')).toEqual(POST_OUTPUT);
+    });
+
+    it('is undefined for any miss', () => {
+      expect(connectorActionOutputSchema(REGISTRY, 'slack', 'chat.delete')).toBeUndefined();
+      expect(connectorActionOutputSchema(REGISTRY, 'slack', 'nope')).toBeUndefined();
+      expect(connectorActionOutputSchema(REGISTRY, 'jira', 'chat.postMessage')).toBeUndefined();
+      expect(connectorActionOutputSchema(REGISTRY, undefined, 'chat.postMessage')).toBeUndefined();
+      expect(connectorActionOutputSchema(REGISTRY, 'slack', undefined)).toBeUndefined();
+      expect(connectorActionOutputSchema(undefined, 'slack', 'chat.postMessage')).toBeUndefined();
+      expect(
+        connectorActionOutputSchema([{ name: 'slack', actions: [{ key: 'x', outputSchema: ['ts'] }] }], 'slack', 'x'),
+      ).toBeUndefined();
+    });
+  });
+
+  describe('nodeOutputRefs — the connector_action branch', () => {
+    it('an outputSchema with two properties offers two references', () => {
+      const refs = nodeOutputRefs(connectorNode(), REGISTRY);
+      expect(tokens(refs)).toEqual(['post.ts', 'post.channel']);
+      expect(refs.every((r) => r.group === 'outputs' && r.detail === 'Post to Slack')).toBe(true);
+    });
+
+    it('an action with no outputSchema offers none', () => {
+      expect(nodeOutputRefs(connectorNode({ connectorId: 'slack', actionId: 'chat.delete' }), REGISTRY)).toEqual([]);
+    });
+
+    it('offers none without the registry, or before the connector and action are both chosen', () => {
+      expect(nodeOutputRefs(connectorNode())).toEqual([]);
+      expect(nodeOutputRefs(connectorNode({ connectorId: 'slack' }), REGISTRY)).toEqual([]);
+      expect(nodeOutputRefs(connectorNode({ actionId: 'chat.postMessage' }), REGISTRY)).toEqual([]);
+    });
+
+    it('reads the pair only on a connector_action node', () => {
+      expect(nodeOutputRefs({ ...connectorNode(), type: 'http' }, REGISTRY)).toEqual([]);
+    });
+  });
+
+  describe('resolveFlowScope — threaded registry', () => {
+    const flow = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        connectorNode(),
+        { id: 'decide', type: 'decision' },
+      ],
+      edges: [
+        { source: 'start', target: 'post' },
+        { source: 'post', target: 'decide' },
+      ],
+    };
+
+    it('offers the upstream connector action’s output keys downstream', () => {
+      expect(groupTokens(resolveFlowScope(flow, 'decide', undefined, REGISTRY), 'outputs')).toEqual(['post.ts', 'post.channel']);
+    });
+
+    it('never offers them at the connector node itself, and not without the registry', () => {
+      expect(groupTokens(resolveFlowScope(flow, 'post', undefined, REGISTRY), 'outputs')).toEqual([]);
+      expect(groupTokens(resolveFlowScope(flow, 'decide'), 'outputs')).toEqual([]);
+    });
+  });
+
+  describe('hasCommittedConnectorAction', () => {
+    it('is true only when a top-level connector_action has both a connector and an action', () => {
+      expect(hasCommittedConnectorAction({ nodes: [{ id: 's', type: 'start' }, connectorNode()] })).toBe(true);
+      expect(hasCommittedConnectorAction({ nodes: [connectorNode({ connectorId: 'slack' })] })).toBe(false);
+      expect(hasCommittedConnectorAction({ nodes: [{ id: 'h', type: 'http', connectorConfig: { connectorId: 'slack', actionId: 'x' } }] })).toBe(false);
+      expect(hasCommittedConnectorAction({})).toBe(false);
+    });
+  });
+});
+
+describe('edge scope — the source node’s own outputs are in scope on its out-edges (objectui#11085)', () => {
+  // The engine writes a node's outputs before `traverseNext` evaluates its
+  // out-edge guards, so `lead` (the get_record's `outputVariable`) exists when
+  // the guard on `fetch → route` runs.
+  const flow = {
+    variables: [{ name: 'threshold', type: 'number' }],
+    nodes: [
+      { id: 'start', type: 'start', config: { triggerType: 'record-after-update', objectName: 'crm_lead' } },
+      { id: 'fetch', type: 'get_record', config: { objectName: 'crm_lead', outputVariable: 'lead' } },
+      { id: 'route', type: 'decision' },
+      { id: 'recover', type: 'end' },
+    ],
+    edges: [
+      { source: 'start', target: 'fetch' },
+      { source: 'fetch', target: 'route', condition: "lead.status == 'open'" },
+      { source: 'fetch', target: 'recover', type: 'fault' },
+    ],
+  };
+
+  it('adds the source’s own outputs to the scope at the source', () => {
+    const edgeTokens = tokens(resolveEdgeScope(flow, { source: 'fetch', target: 'route' }).refs);
+    expect(edgeTokens).toContain('lead');
+    // The node scope itself is unchanged: a node never sees its own outputs.
+    expect(tokens(resolveFlowScope(flow, 'fetch').refs)).not.toContain('lead');
+    // Everything in scope at the source is kept, trigger included.
+    expect(edgeTokens).toEqual(expect.arrayContaining(tokens(resolveFlowScope(flow, 'fetch').refs)));
+    expect(resolveEdgeScope(flow, { source: 'fetch', target: 'route' }).trigger).toEqual(resolveFlowScope(flow, 'fetch').trigger);
+  });
+
+  it('a fault edge adds none — the engine walks it only when the node failed, with nothing written back', () => {
+    expect(edgeSourceOutputRefs(flow, { source: 'fetch', target: 'recover', type: 'fault' })).toEqual([]);
+    expect(tokens(resolveEdgeScope(flow, { source: 'fetch', target: 'recover', type: 'fault' }).refs)).not.toContain('lead');
+  });
+
+  it('an edge leaving the start node adds none, and a missing source resolves the flow variables alone', () => {
+    expect(edgeSourceOutputRefs(flow, { source: 'start', target: 'fetch' })).toEqual([]);
+    expect(edgeSourceOutputRefs(flow, { source: 'ghost', target: 'route' })).toEqual([]);
+    expect(tokens(resolveEdgeScope(flow, { target: 'route' }).refs)).toEqual(['threshold']);
+  });
+
+  it('a committed connector action’s declared keys join on its own out-edge, given the registry', () => {
+    const REGISTRY = [
+      { name: 'slack', actions: [{ key: 'chat.postMessage', outputSchema: { type: 'object', properties: { ok: { type: 'boolean' } } } }] },
+    ];
+    const withPost = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        { id: 'post', type: 'connector_action', connectorConfig: { connectorId: 'slack', actionId: 'chat.postMessage' } },
+        { id: 'done', type: 'end' },
+      ],
+      edges: [
+        { source: 'start', target: 'post' },
+        { source: 'post', target: 'done' },
+      ],
+    };
+    expect(tokens(resolveEdgeScope(withPost, { source: 'post', target: 'done' }, undefined, REGISTRY).refs)).toEqual(['post.ok']);
+    expect(tokens(resolveEdgeScope(withPost, { source: 'post', target: 'done' }).refs)).toEqual([]);
   });
 });

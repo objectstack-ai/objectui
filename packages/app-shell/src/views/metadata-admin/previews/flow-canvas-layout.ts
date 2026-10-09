@@ -13,12 +13,14 @@
  *
  * "Dependency-free" means no RUNTIME dependency: the imports below are
  * `import type`, erased at compile time, and they are here precisely so the
- * designer's edge guard cannot drift from the spec's expression envelope
- * (see {@link FlowDesignerEdge}) and its node geometry cannot drift from the
- * spec's `FlowNode.position` (see {@link FlowNodePosition}).
+ * designer's edge guard cannot drift from the server's edge-guard slot
+ * (see {@link FlowDesignerEdge}), the guard reader reads the spec's persisted
+ * expression contract (see {@link conditionText}), and its node geometry
+ * cannot drift from the spec's `FlowNode.position` (see
+ * {@link FlowNodePosition}).
  */
 
-import type { ExpressionInput } from '@objectstack/spec/shared';
+import type { EvaluatedExpressionInput, ExpressionInput } from '@objectstack/spec/shared';
 import type { FlowNode as SpecFlowNode } from '@objectstack/spec/automation';
 
 /**
@@ -137,10 +139,30 @@ export interface FlowDesignerNode {
  * never a layer difference — it was an over-wide READ type describing a shape
  * the server's own `FlowEdgeSchema` rejects and that nothing in this repo has
  * ever produced. Its cost was a wrong defect diagnosis (objectui#3171 was filed
- * against that phantom envelope and does not reproduce). It now mirrors the
- * spec by IMPORTING `ExpressionInput` rather than restating it, so the mirror
- * cannot go stale: a type that can no longer describe a spec-rejected condition
- * cannot mislead the next reader into filing against one either.
+ * against that phantom envelope and does not reproduce).
+ *
+ * It now IMPORTS the spec's type rather than restating it, and an import keeps
+ * the mirror from going stale only when it imports the type of the SLOT being
+ * mirrored. The spec has two expression contracts, and this member mirrors the
+ * narrower one:
+ *
+ * - `EvaluatedExpressionInputSchema` is the AUTHORED edge slot. The server's
+ *   `FlowEdgeSchema.condition` composes it (objectstack#15807), so an envelope
+ *   there must carry a `source`. `EvaluatedExpressionInput` is its input type,
+ *   and it is the type of this member.
+ * - `ExpressionInputSchema` is the PERSISTENCE contract (`source` OR `ast`),
+ *   and it still admits an `ast`-only envelope. This member imported ITS input
+ *   type until objectui#8946. Once the spec narrowed the edge slot, that import
+ *   was wider than the slot: it type-admitted an `ast`-only condition that
+ *   `FlowEdgeSchema` refuses at parse, which is the very drift importing was
+ *   meant to rule out.
+ *
+ * A type that cannot describe a spec-rejected condition cannot mislead the next
+ * reader into filing against one. That holds for the half of the slot's rule a
+ * type can carry. The other half cannot be carried by any type: a non-blank
+ * `source` is a `.refine` on a string, so `{ dialect: 'cel', source: '   ' }`
+ * still type-checks here and is refused only when the slot's schema parses it.
+ * `flow-designer-edge.types.test.ts` pins the half that is a type.
  *
  * `type` stays `string` deliberately (the spec's is a four-value enum): the
  * canvas round-trips whatever an authored flow carries, and the inspector's
@@ -150,7 +172,7 @@ export interface FlowDesignerEdge {
   id?: string;
   source: string;
   target: string;
-  condition?: ExpressionInput;
+  condition?: EvaluatedExpressionInput;
   type?: string;
   label?: string;
   isDefault?: boolean;
@@ -563,10 +585,19 @@ export function edgeKey(edge: FlowDesignerEdge, index: number): string {
  * The CEL source of an edge's optional guard — **the** reader for that field.
  *
  * Both authoring spellings resolve here: the bare string, and the ADR-0089
- * envelope that the spec's `ExpressionInputSchema` normalizes every authored
- * string INTO at parse time (so the envelope is what a persisted flow carries).
- * An envelope with only a compiled `ast` and no `source` (spec phase M9.2) has
- * no readable source yet, and says so rather than inventing text.
+ * envelope that the edge slot's schema, `EvaluatedExpressionInputSchema`,
+ * normalizes every authored string INTO at parse time (so the envelope is what
+ * a persisted flow carries).
+ *
+ * The parameter is deliberately NOT {@link FlowDesignerEdge}'s `condition`. It
+ * is the spec's PERSISTENCE contract, `ExpressionInput` (`source` OR `ast`),
+ * because a reader takes what a stored artifact can carry, and because
+ * `inspectors/expression-envelope.ts` reads every other expression-shaped key
+ * through this same function. The two contracts part on one shape: an envelope
+ * with only a compiled `ast` and no `source` (spec phase M9.2). The persistence
+ * contract admits it; the edge slot refuses it at parse (objectstack#15807), so
+ * `FlowDesignerEdge` can no longer describe one. It has no readable source, and
+ * the reader says so rather than inventing text.
  *
  * Every consumer of `condition` goes through this function — canvas labels and
  * the inspector, the Branches↔edges reconciliation in
@@ -579,7 +610,7 @@ export function edgeKey(edge: FlowDesignerEdge, index: number): string {
  * Add a fifth spelling and that class of bug comes straight back; call this
  * instead.
  */
-export function conditionText(c: FlowDesignerEdge['condition']): string | undefined {
+export function conditionText(c: ExpressionInput | undefined): string | undefined {
   if (!c) return undefined;
   if (typeof c === 'string') return c;
   if (typeof c === 'object' && typeof c.source === 'string') return c.source;

@@ -59,19 +59,28 @@ consumer is the missing input.
 Registration is a side effect of the import. There is no manual-registration
 export to iterate over — the import *is* the registration.
 
+An authored `object-map` node takes its props in its `properties` bag, whose
+members are `@objectstack/spec`'s `ComponentPropsMap['object-map']` row.
+`objectui validate` refuses a prop written flat on the node by name, naming its
+bag member, as the spec's own page component does (objectui#10859).
+`SchemaRenderer` hoists the bag onto the node before `ObjectMap` runs, so
+`ObjectMapSchema` (`@object-ui/types`) is the node as the component reads it.
+
 ```ts
 import '@object-ui/plugin-map';
-import type { ObjectMapSchema } from '@object-ui/types';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
 // Object-bound: the markers are the records the query returns.
-const schema: ObjectMapSchema = {
+const schema: ObjectMapBlockNode = {
   type: 'object-map',
-  objectName: 'stores',
-  map: {
-    latitudeField: 'lat',
-    longitudeField: 'lng',
-    titleField: 'name',
-    descriptionField: 'address',
+  properties: {
+    objectName: 'stores',
+    map: {
+      latitudeField: 'lat',
+      longitudeField: 'lng',
+      titleField: 'name',
+      descriptionField: 'address',
+    },
   },
 };
 ```
@@ -79,15 +88,17 @@ const schema: ObjectMapSchema = {
 A literal record array instead of a query, with the same `map` block:
 
 ```ts
-import type { ObjectMapSchema } from '@object-ui/types';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
-const schema: ObjectMapSchema = {
+const schema: ObjectMapBlockNode = {
   type: 'object-map',
-  staticData: [
-    { id: 1, name: 'San Francisco HQ', lat: 37.7749, lng: -122.4194 },
-    { id: 2, name: 'Oakland Office', lat: 37.8044, lng: -122.2711 },
-  ],
-  map: { latitudeField: 'lat', longitudeField: 'lng', titleField: 'name' },
+  properties: {
+    staticData: [
+      { id: 1, name: 'San Francisco HQ', lat: 37.7749, lng: -122.4194 },
+      { id: 2, name: 'Oakland Office', lat: 37.8044, lng: -122.2711 },
+    ],
+    map: { latitudeField: 'lat', longitudeField: 'lng', titleField: 'name' },
+  },
 };
 ```
 
@@ -120,7 +131,7 @@ round-trip, so inline rows must be JSON-serializable.
 The declared configuration input. Every key is optional, and the block is
 **closed** (objectui#5157): a key outside this table — a typo such as
 `latitudeFieId` — is refused by `objectui validate` with an `unrecognized_keys`
-issue at `map` that names it (on a root node; a nested node reports under
+issue at `properties.map` that names it (on a root node; a nested node reports under
 `invalid_union` at `children`, with the key in the arm detail). At runtime
 `ObjectMap` does not throw: it renders from the declared keys and warns
 `[ObjectMap] Invalid map configuration` in the console, naming the same key; the
@@ -137,7 +148,7 @@ required" refusal below rather than a map.
 | `descriptionField` | Field shown under the title in the marker popup. |
 | `zoom` | Zoom level. Declaring it opts this view out of the auto-fit (see below). |
 | `center` | `[latitude, longitude]` — a two-number **tuple**, latitude first. Declaring it opts this view out of the auto-fit. |
-| `style` | MapLibre style URL/spec, replacing the default public demo style. |
+| `style` | MapLibre style URL/spec, replacing the default public demo style. The node-level `mapStyle` is read before it, so it applies when `mapStyle` is absent. |
 
 **Nothing is guessed — an unbound map REFUSES.** A map with no coordinate binding
 renders
@@ -157,6 +168,14 @@ that happens to carry `latitude` / `longitude` columns no longer plots on a view
 that declared no binding — it refuses, and the fix is to declare the binding.
 A title field is still never guessed (objectui#5953): an unconfigured marker
 takes its title from the record-title precedence above.
+
+## Node-level keys beside the block
+
+| Key | Description |
+| --- | --- |
+| `mapStyle` | MapLibre style URL or spec, replacing the demo tiles. Read before `map.style`, so it wins when both are written. Not the node's base `style`, which is an inline CSS record. |
+| `enableClustering` | `true` groups nearby markers into numbered clusters. Absent, the map clusters only above 100 markers; `false` turns clustering off at any count. |
+| `navigation` | What a marker click opens — the spec's `NavigationConfig`. `drawer`, `modal` and `popover` open the marker's record; `new_window` (or `openNewTab: true`, which outranks every mode except `none`) opens the record page in a new tab; `preventNavigation: true` opens nothing. An absent key, `none` and `split` open nothing (the map hands the split shell no main panel). `page`, and a block without `mode` (the spec's `page` default), open the record page of the map's `objectName` through the record navigator the host publishes (the console publishes one on its custom pages, record pages and list views); under a host that publishes none, or on a map that names no `objectName`, the click opens nothing. A parent view's click handler outranks the whole key. |
 
 ## Initial camera
 
@@ -215,7 +234,9 @@ console.
 
 `ObjectMap` (the component), `ObjectMapRenderer` (the registered wrapper, for a
 host that registers types itself) and the `ObjectMapProps` type are the package's
-exports:
+exports. A component mounted directly is not behind `SchemaRenderer`, so nothing
+hoists a `properties` bag: its `schema` prop takes the node as the component
+reads it, with the keys flat:
 
 ```tsx
 import { ObjectMap, type ObjectMapProps } from '@object-ui/plugin-map';

@@ -1,8 +1,7 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect } from 'vitest';
-import { FlowEdgeSchema } from '@objectstack/spec/automation';
-import { EVALUATED_EXPRESSION_SOURCE_REQUIRED } from '@objectstack/spec/shared';
+import { FlowEdgeSchema, STRUCTURAL_CONDITION_SHAPE_REFUSAL } from '@objectstack/spec/automation';
 import { FlowSimulator } from '../flow-simulator';
 import { validateFlowDraft, findCycle } from '../flow-sim-validate';
 import type { SimEdge, SimNode } from '../flow-sim-types';
@@ -16,7 +15,7 @@ const run = (nodes: SimNode[], edges: SimEdge[], seed = {}, mocks = {}) => {
 
 /**
  * An edge as the PLATFORM persists it, not as a test hand-writes it: authoring
- * input goes through `FlowEdgeSchema`, whose `ExpressionInput` pipe rewrites a
+ * input goes through `FlowEdgeSchema`, whose `EvaluatedExpressionInput` pipe rewrites a
  * bare guard string into the `{ dialect: 'cel', source }` envelope. So the
  * envelope is not an exotic spelling the simulator may decline to support — it
  * is THE canonical persisted form, and a fixture that spells it by hand could
@@ -565,17 +564,29 @@ describe('decision guards in the spec expression envelope (#3216)', () => {
     // There is no CEL source to run, and the simulator's rule is to say so
     // rather than fake a result — the fix widened the reader, it did not make
     // every object a condition. It used to say "Branch has no condition." and
-    // take the default. The evaluated-slot rule objectstack main's edge schema
-    // applies (the installed 17.4.0 `FlowEdgeSchema`, which `specEdge` above
-    // uses, still admits this shape) (`EvaluatedExpressionSchema`, a non-blank
-    // `source`) refuses an `ast`-only envelope, so the runtime never registers
-    // the flow, and since
+    // take the default. The evaluated-slot rule the spec's edge schema applies
+    // (`EvaluatedExpressionSchema`, a non-blank `source`) refuses an `ast`-only
+    // envelope — `FlowEdgeSchema`, which `specEdge` above uses, admitted it
+    // through 17.4.0 and refuses it at `condition` since 17.5.0, the version
+    // this tree installs (objectui#11073) — so the runtime never registers the
+    // flow, and since
     // objectui#10615 the Debug run stops on it too.
+    //
+    // `SimEdge` cannot describe this guard since objectui#8946: it carries the
+    // edge slot's evaluated type. A draft is data, though, so the simulator
+    // must still refuse one at run time, and this row feeds it one anyway.
+    // @ts-expect-error — an `ast`-only guard has no `source`, and the edge slot's type requires one (objectui#8946).
     const astOnly: SimEdge = { id: 'e_hi', source: 'd', target: 'hi', condition: { dialect: 'cel', ast: { op: 'gt' } } };
     const sim = run(NODES, [START, astOnly, { id: 'e_lo', source: 'd', target: 'lo', isDefault: true }], { amount: 20 });
 
     const hiEval = edgeEval(sim, 'hi');
-    expect(hiEval.error).toContain(EVALUATED_EXPRESSION_SOURCE_REQUIRED);
+    // The shape rule answers first since `@objectstack/spec` 17.5.0: its
+    // `structuralConditionRefusal` refuses an object carrying an `ast` but no
+    // string `source`, before the evaluated-slot rule is reached. Through
+    // 17.4.0 this row read `EVALUATED_EXPRESSION_SOURCE_REQUIRED`, the second
+    // rule's sentence (objectui#11073).
+    expect(hiEval.error).toContain(STRUCTURAL_CONDITION_SHAPE_REFUSAL);
+    expect(hiEval.error).toContain('`ast`');
     expect(sim.state.status).toBe('error');
     expect(sim.state.visitedNodeIds).not.toContain('lo');
   });

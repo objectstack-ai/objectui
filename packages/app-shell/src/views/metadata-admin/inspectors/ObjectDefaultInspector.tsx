@@ -22,7 +22,7 @@
 import * as React from 'react';
 import type { MetadataDefaultInspectorProps } from '../default-inspector-registry.js';
 import { InspectorShell, InspectorTextField } from './_shared.js';
-import { Label } from '@object-ui/components';
+import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { toFieldNameLoose } from '../previews/object-fields-io.js';
 import { slugify } from '../createDerive.js';
 import { t } from '../i18n.js';
@@ -224,16 +224,26 @@ function AccessSection({
       <Field hint={posture === 'private' ? tr('designer.object.posture.privateHint') : tr('designer.object.posture.publicHint')}>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">{tr('designer.object.posture')}</Label>
-          <select
-            value={posture}
-            disabled={readOnly}
-            onChange={(e) => setPosture(e.target.value)}
-            data-testid="object-access-posture"
-            className="w-full rounded border bg-background px-2 py-1 text-[12px]"
-          >
-            <option value="public">{tr('designer.object.posture.public')}</option>
-            <option value="private">{tr('designer.object.posture.private')}</option>
-          </select>
+          {/*
+            objectui#11865 — the shared `Select`, where this used to be a
+            browser-native select element. A pick hands `setPosture` the
+            option's own value, as the native `change` did, and re-picking the
+            shown posture writes nothing. Items carry the two values as they
+            are: `posture` is derived and is always one of them, so neither an
+            empty value nor an outside one can reach this control. Read-only
+            disables the trigger in the primitive's own look (objectui#11781).
+            Like the native control it has no accessible name: the caption
+            above is a `Label` with no `htmlFor`.
+          */}
+          <Select value={posture} disabled={readOnly} onValueChange={setPosture}>
+            <SelectTrigger data-testid="object-access-posture" className="h-auto w-full rounded px-2 py-1 text-[12px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="public">{tr('designer.object.posture.public')}</SelectItem>
+              <SelectItem value="private">{tr('designer.object.posture.private')}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </Field>
 

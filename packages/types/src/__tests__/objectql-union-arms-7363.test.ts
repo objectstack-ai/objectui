@@ -81,8 +81,22 @@ describe('objectui#7363 — the two objectui#6576 schemas are arms of the Object
     expect(literals).toContain('object-gallery');
     expect(literals).toContain('object-data-table');
     // The ten arms PR #7355 left in place are all still there — this is an
-    // addition, not a reshuffle.
-    expect(literals).toHaveLength(12);
+    // addition, not a reshuffle — less `object-form` and `object-map`, whose
+    // authored arms left this union for `ObjectQLPublicBlockComponentSchema` in
+    // objectui#10859 batches 4 and 5 (`object-form-properties-bag-10859-b4.test.ts`,
+    // `object-map-properties-bag-10859-b5.test.ts`), and `object-chart`, whose
+    // authored arm left the same way in objectui#11276
+    // (`object-chart-properties-bag-11276.test.ts`), and `object-gantt`, whose
+    // authored arm left in objectui#10859 batch 6
+    // (`object-gantt-properties-bag-10859-b6.test.ts`), and `object-grid`, whose
+    // authored arm left in objectui#11276's `object-grid` batch
+    // (`object-grid-properties-bag-11276.test.ts`).
+    expect(literals).toHaveLength(7);
+    expect(literals).not.toContain('object-grid');
+    expect(literals).not.toContain('object-form');
+    expect(literals).not.toContain('object-map');
+    expect(literals).not.toContain('object-chart');
+    expect(literals).not.toContain('object-gantt');
   });
 
   it.each([

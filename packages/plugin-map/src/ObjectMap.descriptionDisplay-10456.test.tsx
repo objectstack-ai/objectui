@@ -36,6 +36,7 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 vi.mock('react-map-gl/maplibre', () => ({
   default: ({ children }: any) => <div aria-label="Map">{children}</div>,
@@ -137,7 +138,7 @@ describe('marker descriptions render as a display string (objectui#10456)', () =
         name: 'site',
         fields: {
           site_name: { type: 'text' },
-          owner: { type: 'lookup', reference_to: 'account' },
+          owner: { type: 'lookup', reference: 'account' },
           latitude: { type: 'number' },
           longitude: { type: 'number' },
         },

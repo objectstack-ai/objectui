@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import React from 'react';
+import i18next from 'i18next';
 import { createSafeTranslation, useSafeTranslate } from '../useSafeTranslation';
 // objectui#3865's control block mounts a real provider to show the i18next path
 // is untouched. `children` goes IN the props object (see provider.test.tsx's
@@ -246,6 +247,58 @@ describe('createSafeTranslation with an I18nProvider (objectui#3865 control)', (
     expect(result.current.t('objectui3865.absentFromEveryPack', { defaultValue: 'Inline' })).toBe(
       'Inline',
     );
+  });
+});
+
+// objectui#11445 — a count family's `_one` / `_other` rows answer on the
+// provider-less path, in i18next's own order. Before that card `fallbackT`
+// read `defaults[key]` literally, so a family's suffixed rows were dead and a
+// provider-less host could render "1 reply" only through a code-selected
+// `xxxCountOne` pair; the card converted those pairs into families. Every
+// expectation below is compared against a real i18next instance holding the
+// same rows as an `en` pack, so the two paths cannot drift apart unseen.
+describe('createSafeTranslation reads a count family the way i18next does (objectui#11445)', () => {
+  const FAMILY = {
+    'detail.test': 'Test Anchor',
+    'detail.replyCount': '{{count}} reply',
+    'detail.replyCount_one': '{{count}} reply',
+    'detail.replyCount_other': '{{count}} replies',
+    // A family with no rows in the table: the base answers, as i18next's would.
+    'detail.flat': '{{count}} things',
+  };
+  const useT = createSafeTranslation(FAMILY, 'detail.test');
+  const reference = i18next.createInstance();
+  void reference.init({
+    resources: { en: { translation: FAMILY } },
+    lng: 'en',
+    keySeparator: false,
+    initAsync: false,
+    interpolation: { escapeValue: false },
+  });
+
+  it.each([0, 1, 2, 21, 1.5])('count %s selects the slot i18next selects', (count) => {
+    const { result } = renderHook(() => useT());
+    const want = reference.t('detail.replyCount', { count });
+    expect(result.current.t('detail.replyCount', { count })).toBe(want);
+  });
+
+  it('one and other read different rows — the matrix above is not vacuous', () => {
+    const { result } = renderHook(() => useT());
+    expect(result.current.t('detail.replyCount', { count: 1 })).toBe('1 reply');
+    expect(result.current.t('detail.replyCount', { count: 3 })).toBe('3 replies');
+  });
+
+  it('a string count reads the base row on both paths (i18next selects only for a number)', () => {
+    const { result } = renderHook(() => useT());
+    expect(reference.t('detail.replyCount', { count: '3' })).toBe('3 reply');
+    expect(result.current.t('detail.replyCount', { count: '3' })).toBe('3 reply');
+  });
+
+  it('no count, or a key without suffixed rows, reads the base row', () => {
+    const { result } = renderHook(() => useT());
+    expect(result.current.t('detail.replyCount')).toBe('{{count}} reply');
+    expect(result.current.t('detail.flat', { count: 1 })).toBe(reference.t('detail.flat', { count: 1 }));
+    expect(result.current.t('detail.flat', { count: 1 })).toBe('1 things');
   });
 });
 

@@ -20,9 +20,9 @@ import React, { forwardRef, useCallback, useState } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { ActionDef } from '@object-ui/core';
 import type { UIActionSchema, ActionLocation } from '@object-ui/types';
-import { actionRendersAt } from '@object-ui/types';
+import { ACTION_LOCATIONS, actionRendersAt } from '@object-ui/types';
 import { useAction } from '@object-ui/react';
-import { useCondition, toPredicateInput, usePredicateRecordContext, useConfigBagEvaluator } from '@object-ui/react';
+import { useCondition, toPredicateInput, usePredicateRecordContext } from '@object-ui/react';
 import { Button } from '../../ui';
 import {
   DropdownMenu,
@@ -35,12 +35,19 @@ import { cn } from '../../lib/utils';
 import { Loader2, ChevronDown } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
-import { readActionEntryParamValues, readMemberStaticParamValues } from './static-params';
+import { readActionEntryParamValues } from './static-params';
+import {
+  DisabledReasonMenuLabel,
+  DisabledReasonTrigger,
+  menuItemReasonAria,
+  useDisabledReason,
+} from './disabled-reason';
 
+// No group-level `name` (objectui#11168): nothing renders, forwards or keys on
+// it, and `@objectstack/spec` refuses it on this block, so the registration
+// below stopped publishing it. Each MEMBER's own `name` is what identifies it.
 export interface ActionGroupSchema {
   type: 'action:group';
-  /** Group name */
-  name?: string;
   /** Group label */
   label?: string;
   /** Group icon */
@@ -51,8 +58,8 @@ export interface ActionGroupSchema {
   display?: 'dropdown' | 'inline';
   /** Filter actions by location */
   location?: ActionLocation;
-  /** Group visibility condition */
-  visible?: string;
+  /** Group visibility predicate: a boolean, a CEL string, or a `{ dialect, source }` envelope */
+  visible?: boolean | string | { dialect: string; source?: string };
   /** Button variant for inline actions */
   variant?: string;
   /** Button size for inline actions */
@@ -60,6 +67,28 @@ export interface ActionGroupSchema {
   /** Custom CSS class */
   className?: string;
   [key: string]: any;
+}
+
+/**
+ * One member's `visible` verdict — shared by both display modes' leaves, so the
+ * same member cannot be hidden in one mode and shown in the other.
+ *
+ * It fails CLOSED on a predicate that FAULTS (`throwOnError`), the policy
+ * `action:button`, `action:menu` and `action:bar` already apply to `visible`
+ * (objectui#11212, Rider 1 of objectui#4421): a precondition that cannot be
+ * evaluated hides the action rather than showing one whose guard is broken, and
+ * the fault is reported once, naming the action. It is the KEY's policy, not a
+ * special case for any one call: `current_user.can(…)` while the permissions
+ * payload has not loaded and an unbound root (`nope.x == 1`) both hide. These
+ * leaves used to fail SOFT to `true`, SHOWING an action whose gate could not be
+ * answered. Pinned three-state in `app-shell`'s
+ * `currentUserCan-failClosed-11212.render.test.tsx`.
+ */
+function useMemberVisible(action: UIActionSchema, recordData: Record<string, unknown>): boolean {
+  return useCondition(toPredicateInput(action.visible), recordData, {
+    throwOnError: true,
+    label: `action "${action.name ?? action.label ?? 'action:group member'}" (visible)`,
+  });
 }
 
 /**
@@ -72,19 +101,35 @@ const InlineActionButton: React.FC<{
   onExecute: (action: UIActionSchema) => Promise<void>;
   /** The row the group is mounted over — see `DropdownActionItem` (objectui#4075). */
   record?: unknown;
-}> = ({ action, variant, size, onExecute, record }) => {
+  /**
+   * The GROUP's host-evaluated enablement verdict, which the group takes by
+   * name and hands to every member it draws (objectui#11182). A group-level
+   * `disabled` has no control of its own to land on in inline mode — the
+   * wrapper is a `div` — so the members are what it disables.
+   */
+  hostDisabled?: boolean;
+}> = ({ action, variant, size, onExecute, record, hostDisabled }) => {
   const [loading, setLoading] = useState(false);
   // The row bound the three canonical ways — `record.status`, bare `status`,
   // `data.status`. This leaf used to evaluate against nothing at all, so a
   // row-scoped predicate faulted on its root (objectui#4075).
   const recordData = usePredicateRecordContext(record);
-  const isVisible = useCondition(toPredicateInput(action.visible), recordData);
+  // `visible` fails CLOSED on a predicate that faults, as on `action:button` and
+  // `action:menu` (objectui#11212): one fault policy per key on every action
+  // `visible` leg. See `useMemberVisible`.
+  const isVisible = useMemberVisible(action, recordData);
   // Spec field is `disabled` (boolean | CEL — disabled when TRUE). objectstack-ai/objectstack#1885 wired
   // it in action-button only; this leaf kept reading the legacy non-spec
   // `enabled`, so a spec-authored `disabled` guard did nothing here. `disabled`
   // is now the primary control; `enabled` stays as a deprecated fallback.
   const isDisabledPred = useCondition(toPredicateInput((action as any).disabled), recordData);
   const isEnabled = useCondition(toPredicateInput(action.enabled), recordData);
+  // The reason a greyed-out member gives (objectui#11839): only its DECLARED
+  // `disabled` predicate, evaluated true. The group's `hostDisabled` and this
+  // member's `loading` disable it without one. See `./disabled-reason`.
+  const disabledReason = useDisabledReason(
+    hasDeclaredVisibilityGate(action.disabled) && isDisabledPred,
+  );
 
   const Icon = resolveIcon(action.icon);
   const btnVariant = (action.variant as string) === 'primary' ? 'default' : (action.variant || variant || 'outline');
@@ -104,7 +149,7 @@ const InlineActionButton: React.FC<{
   // and render it (objectui#3812) — see `hasDeclaredVisibilityGate`.
   if (hasDeclaredVisibilityGate(action.visible) && !isVisible) return null;
 
-  return (
+  const button = (
     <Button
       type="button"
       variant={btnVariant as any}
@@ -119,13 +164,18 @@ const InlineActionButton: React.FC<{
       // `enabled` leg is negated and therefore behaviour-preserving under the
       // same definition — derivation in
       // `__tests__/action-disabled-declared-gate.test.tsx`.
-      disabled={(
+      //
+      // `hostDisabled` leads the OR (objectui#9131, applied to the group by
+      // objectui#11182): the group's host verdict is a reason to disable,
+      // never a reason to enable. See `action:button`.
+      disabled={hostDisabled || (
         hasDeclaredVisibilityGate((action as any).disabled)
           ? isDisabledPred
           : hasDeclaredVisibilityGate(action.enabled)
             ? !isEnabled
             : false
       ) || loading}
+      aria-describedby={disabledReason?.id}
       onClick={handleClick}
     >
       {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -134,6 +184,7 @@ const InlineActionButton: React.FC<{
       {action.label}
     </Button>
   );
+  return <DisabledReasonTrigger reason={disabledReason}>{button}</DisabledReasonTrigger>;
 };
 
 InlineActionButton.displayName = 'InlineActionButton';
@@ -163,11 +214,19 @@ export const DropdownActionItem: React.FC<{
   // its predicate in one display mode and fault in the other (objectui#4075,
   // the binding half of the objectui#3812 / #3842 "one leaf, one answer" rule).
   const recordData = usePredicateRecordContext(record);
-  const isVisible = useCondition(toPredicateInput(action.visible), recordData);
+  // Same fail-closed `visible` as `InlineActionButton` — one member, one answer
+  // in both display modes (objectui#11212).
+  const isVisible = useMemberVisible(action, recordData);
   // Spec `disabled` primary, legacy non-spec `enabled` fallback (see
   // InlineActionButton above — objectstack-ai/objectstack#1885 follow-through).
   const isDisabledPred = useCondition(toPredicateInput((action as any).disabled), recordData);
   const isEnabled = useCondition(toPredicateInput(action.enabled), recordData);
+  // The same reason as `InlineActionButton`'s, on the same verdict
+  // (objectui#11839), drawn the menu-item way: a visible second line that is the
+  // item's description. See `./disabled-reason`.
+  const disabledReason = useDisabledReason(
+    hasDeclaredVisibilityGate(action.disabled) && isDisabledPred,
+  );
   // Same declared-gate rule as `InlineActionButton` above — one action cannot be
   // hidden in one display mode and shown in the other (objectui#3812).
   if (hasDeclaredVisibilityGate(action.visible) && !isVisible) return null;
@@ -188,6 +247,7 @@ export const DropdownActionItem: React.FC<{
       {showSeparator && <DropdownMenuSeparator />}
       <DropdownMenuItem
         disabled={isDisabled}
+        {...menuItemReasonAria(disabledReason)}
         onSelect={async (e) => {
           e.preventDefault();
           if (isDisabled) return;
@@ -201,7 +261,7 @@ export const DropdownActionItem: React.FC<{
         {/* Dynamic icon resolution from Lucide, not component creation during render */}
         {/* eslint-disable-next-line react-hooks/static-components */}
         {Icon && <Icon className="mr-2 h-4 w-4" />}
-        <span>{action.label || action.name}</span>
+        <DisabledReasonMenuLabel reason={disabledReason}>{action.label || action.name}</DisabledReasonMenuLabel>
       </DropdownMenuItem>
     </>
   );
@@ -211,9 +271,11 @@ DropdownActionItem.displayName = 'DropdownActionItem';
 
 // Index signature on the parameter annotation, not on the `forwardRef` type
 // argument — see the mechanism note on `action:bar` (objectui#4422), pinned by
-// `__tests__/forwardref-props-annotation.guard.test.ts`.
+// `__tests__/forwardref-props-annotation.guard.test.ts`. `disabled` is the
+// host-EVALUATED enablement verdict, declared rather than left to the index
+// signature, as `ActionButtonRendererProps` declares it (objectui#9131).
 const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSchema; className?: string }>(
-  ({ schema, className, ...props }: { schema: ActionGroupSchema; className?: string; [key: string]: any }, ref) => {
+  ({ schema, className, ...props }: { schema: ActionGroupSchema; className?: string; disabled?: boolean; [key: string]: any }, ref) => {
     const {
       'data-obj-id': dataObjId,
       'data-obj-type': dataObjType,
@@ -223,19 +285,30 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
       // (objectui#4075). Also keeps `data` out of `...rest`, which is spread
       // onto the DOM wrapper in inline mode.
       data,
+      // The host's EVALUATED verdict, taken by name — the objectui#9131 rule
+      // `action:button` and `action:icon` follow (objectui#11182).
+      // `SchemaRenderer` forwards `disabled: __disabled || undefined` with the
+      // key unconditional. Left on `rest`, inline mode spread it onto the
+      // wrapping `div`, where a `disabled` attribute disables nothing, and
+      // dropdown mode dropped it: a host-disabled group left every member
+      // (inline) or its trigger (dropdown) pressable. Both modes consume it.
+      disabled: hostDisabled,
       ...rest
     } = props;
 
     const { execute } = useAction();
-    // The `SchemaRenderer` memo's `properties` evaluation, for the member this
-    // renderer runs itself (objectui#10290) — see `handleExecute`.
-    const evaluateBag = useConfigBagEvaluator();
     const [dropdownLoading, setDropdownLoading] = useState(false);
 
     // The row bound the three canonical ways — see `usePredicateRecordContext`.
     const recordData = usePredicateRecordContext(data);
 
-    const isVisible = useCondition(toPredicateInput(schema.visible), recordData);
+    // The group's OWN gate fails CLOSED on a faulting predicate, like its
+    // members' (`useMemberVisible`) and like the `action:bar` / `action:menu`
+    // hosts (objectui#11212).
+    const isVisible = useCondition(toPredicateInput(schema.visible), recordData, {
+      throwOnError: true,
+      label: `action:group "${schema.label ?? schema.icon ?? 'group'}" (visible)`,
+    });
 
     // Placement is `actionRendersAt`'s call (objectui#3142) — this used to
     // show an action with `locations: undefined` while hiding one with
@@ -265,19 +338,14 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
         // object is forwarded as values only for `type: 'api'`, the objectstack#5777
         // payload window; any other type drops it (objectui#10462).
         //
-        // The member's static values ride `properties.params`, as on
-        // `action:button`, and are evaluated here with the `SchemaRenderer` memo's
-        // evaluator and scope: the member never passes through that memo
-        // (objectui#10290). Independent of the input list, so both are forwarded.
-        // They win over the `api` window's object `params`, as `properties.params`
-        // wins over a node-level object on `action:button`.
-        const staticValues = readMemberStaticParamValues(action, evaluateBag);
-        const entryValues = Array.isArray(action.params)
-          ? undefined
-          : readActionEntryParamValues(action, action.type, 'action:group');
+        // A member has no other source of static values. It carries no
+        // `properties` bag, and its static parameter values are not part of the
+        // inline action vocabulary: an action that needs them is its own
+        // `action:button` node, whose `params` object carries them (the spec's
+        // member prescription, objectui#11638).
         const paramsPayload: ActionDef = Array.isArray(action.params)
-          ? { actionParams: action.params as any, params: staticValues }
-          : { params: staticValues !== undefined ? staticValues : entryValues };
+          ? { actionParams: action.params as any }
+          : { params: readActionEntryParamValues(action, action.type, 'action:group') };
         await execute({
           type: action.type,
           name: action.name,
@@ -303,6 +371,9 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
           patch: action.patch,
           confirmText: action.confirmText,
           successMessage: action.successMessage,
+          // See action-button.tsx — success copy per handler outcome, the
+          // toast's first rung (objectui#11344).
+          outcomeMessages: action.outcomeMessages,
           errorMessage: action.errorMessage,
           refreshAfter: action.refreshAfter,
           // Placement declaration — see action-button.tsx (#2210).
@@ -323,7 +394,7 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
           objectName: (action as any).objectName,
         });
       },
-      [execute, evaluateBag],
+      [execute],
     );
 
     // Dropdown items share the trigger's loading spinner, so wrap execution to
@@ -356,7 +427,8 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
               variant={(schema.variant || 'outline') as any}
               size={(schema.size === 'md' ? 'default' : (schema.size || 'default')) as any}
               className={cn(schema.className, className)}
-              disabled={dropdownLoading}
+              // `hostDisabled` leads the OR (objectui#9131) — see `action:button`.
+              disabled={hostDisabled || dropdownLoading}
               {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
             >
               {dropdownLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -398,6 +470,7 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
             size={schema.size}
             onExecute={handleExecute}
             record={data}
+            hostDisabled={hostDisabled}
           />
         ))}
       </div>
@@ -411,15 +484,40 @@ ComponentRegistry.register('group', ActionGroupRenderer, {
   namespace: 'action',
   skipFallback: true,
   label: 'Action Group',
+  // objectui#11168 slice 1 — each key below was decided by measuring what this
+  // renderer reads through the real `SchemaRenderer`, against the installed
+  // `ComponentPropsMap['action:group']` row; the pins live in
+  // `__tests__/action-group-menu-inputs-11168.test.tsx`.
+  //
+  // - `name` is NOT published: nothing reads a group-level `name` (inline mode
+  //   only leaks it onto the wrapping `<div>`), and the spec refuses it here.
+  // - `actions` is a LIST of action objects: the renderer reads
+  //   `schema.actions || []` and then `.filter` / `.map`, and the spec refuses
+  //   the `object` kind this entry used to declare.
+  // - `size` publishes the Button primitive's four sizes, the set the spec
+  //   accepts. `md` is not one of them; the renderer still maps a stored `md`
+  //   to `default` in dropdown mode, as a back-compat read.
   inputs: [
-    { name: 'name', type: 'string' },
     { name: 'label', type: 'string' },
     { name: 'icon', type: 'string' },
-    { name: 'actions', type: 'object' },
+    {
+      name: 'actions',
+      type: 'array',
+      of: 'object',
+      description:
+        'The actions in this group, in order. Each member is an action object the group draws and runs itself (`name`, `label`, `icon`, `type`, `target`, `locations`, `visible`, `disabled`, …); a member\'s executor is its own `type`',
+    },
     {
       name: 'display',
       type: 'enum',
       enum: ['inline', 'dropdown'],
+    },
+    {
+      name: 'location',
+      type: 'enum',
+      enum: [...ACTION_LOCATIONS],
+      description:
+        'Render only the members whose `locations` include this location. Omit to render every member',
     },
     {
       name: 'variant',
@@ -429,7 +527,15 @@ ComponentRegistry.register('group', ActionGroupRenderer, {
     {
       name: 'size',
       type: 'enum',
-      enum: ['sm', 'md', 'lg'],
+      enum: ['default', 'sm', 'lg', 'icon'],
+      description:
+        'Button size for the dropdown trigger and for every inline member that sets none',
+    },
+    {
+      name: 'visible',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Visibility predicate for the whole group: `true`/`false`, a bare CEL expression, or the `{ dialect: \'cel\', source }` envelope, evaluated against the row the host binds. Omit for always-visible',
     },
     { name: 'className', type: 'string' },
   ],

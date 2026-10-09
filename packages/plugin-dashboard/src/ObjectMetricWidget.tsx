@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { SchemaRendererContext, useFilterScope, useDataInvalidation } from '@object-ui/react';
-import { isDrillEnabled, resolveDrillTitle, isStructuredGroupBy, objectAggregateSpecQuery } from '@object-ui/core';
+import { isDrillEnabled, resolveDrillTitle, isStructuredGroupBy, objectAggregateSpecQuery, toFilterNode } from '@object-ui/core';
 import type { I18nLabel, ObjectChartSchema, ObjectMetricDrillDownConfig } from '@object-ui/types';
 import {
   useLocalization,
@@ -17,8 +17,9 @@ import {
   useObjectTranslation,
   pickLocalized,
 } from '@object-ui/i18n';
-import { formatCurrency } from '@object-ui/fields';
-import { MetricWidget } from './MetricWidget';
+import { formatCurrency, formatPercent, percentCellScale } from '@object-ui/fields';
+import { isFilterAST, parseFilterAST, resolveFieldScale } from '@objectstack/spec/data';
+import { MetricWidget, metricPatternDecimals } from './MetricWidget';
 import { DrillDownDrawer } from './DrillDownDrawer';
 import {
   resolveFilterPlaceholders,
@@ -81,6 +82,78 @@ function answersInFieldUnit(fn: string | undefined): boolean {
 }
 
 /**
+ * The numeral pattern `MetricWidget` reads a fixed width of `width` decimal
+ * places from: `'0,0'`, `'0,0.00'`, and with `percent` the same pattern ending
+ * in `%`. The tile's formatter takes its width from the pattern alone, so this
+ * is how a width resolved here reaches it.
+ */
+function widthPattern(width: number, percent: boolean): string {
+  return `0,0${width > 0 ? `.${'0'.repeat(width)}` : ''}${percent ? '%' : ''}`;
+}
+
+/**
+ * The decimal places `value` carries in its own shortest spelling, exponent
+ * included (`1e-7` counts seven). The same reading `plugin-grid`'s column
+ * footer takes of each value in `widestFractionDigits`, over one value, and
+ * capped at 20 for the same reason: the most a no-fixed-width list cell
+ * renders.
+ */
+function ownFractionDigits(value: number): number {
+  const [mantissa, exponent] = String(value).split('e');
+  const point = mantissa.indexOf('.');
+  const fraction = point === -1 ? 0 : mantissa.length - point - 1;
+  return Math.min(Math.max(fraction - (exponent ? Number(exponent) : 0), 0), 20);
+}
+
+/**
+ * The spec-shape query's `where`, lowered from the tile's filter
+ * (objectui#11526).
+ *
+ * The authored bag's `filter` is a `ViewFilterRule[]`: `ObjectMetricPropsSchema`
+ * in `@objectstack/spec/ui` declares it so. The two wires take it differently:
+ *
+ *   - the legacy bag carries it raw as `filter`, and `ObjectStackAdapter`
+ *     lowers it there (`lowerAnalyticsFilterForWire`: the rule list becomes
+ *     filter AST through `translateFilterArray`, then a `FilterCondition`
+ *     through `parseFilterAST`);
+ *   - the spec-shape query posts `where` VERBATIM, and the adapter refuses a
+ *     rule list there with `UnloweredAggregateWhereError` (objectui#6825,
+ *     ruling A: refuse, never lower). The producer lowers it.
+ *
+ * The adapter's lowering is module-private to `@object-ui/data-objectstack`,
+ * which this plugin does not depend on (it reads any `DataSource`), and
+ * `@object-ui/core` cannot re-export it: the adapter package depends on core.
+ * So the same two stages are taken from where they are public. `toFilterNode`
+ * is core's sink for a `ViewFilterRule[]` (the one `object-grid` lowers its own
+ * rule-list `filter` through, via `toFilterNodeSafely`), and `parseFilterAST`
+ * is the spec's single sink, the call the adapter makes. The result is the
+ * `FilterCondition` that `QuerySchema.where` declares; the pin
+ * `ObjectMetricWidget.ruleFilterSpecShape-11526` checks that every operator the
+ * spec's rule vocabulary declares lowers to one. That it equals the legacy
+ * wire's `where` was measured once, on objectui#11526's pull request, against
+ * the real adapter; nothing in this repo re-derives that equality.
+ *
+ * Three inputs keep what they had:
+ *
+ *   - a NON-array filter is already a `FilterCondition` (the flat record form),
+ *     so it is returned untouched;
+ *   - an EMPTY array lowers to `undefined`, so no `where` is posted, as the
+ *     legacy wire posts none;
+ *   - an array the lowering could not turn into a filter (`isFilterAST` says
+ *     no) is returned unparsed. `parseFilterAST` answers `undefined` for such
+ *     an array, which would post an UNFILTERED aggregate under a filtered
+ *     question; handed on, it meets the adapter's refusal and nothing is sent.
+ *
+ * A rule either sink refuses throws here, and `fetchMetric` shows it as the
+ * tile's error.
+ */
+function specShapeWhere(filter: unknown): unknown {
+  if (!Array.isArray(filter)) return filter;
+  const node = toFilterNode(filter);
+  return node !== undefined && isFilterAST(node) ? parseFilterAST(node) : node;
+}
+
+/**
  * ObjectMetricWidget — Data-bound metric widget.
  *
  * When a metric widget has an `object` binding and a `dataSource` is available,
@@ -104,10 +177,11 @@ export interface ObjectMetricWidgetProps {
    * `groupBy` is the contract's own union — BY REFERENCE through
    * `ObjectChartSchema['aggregate']`, which holds `ChartAggregate` from
    * `@objectstack/spec/ui` by reference in turn, never a local near-copy of it
-   * (`check:spec-symbols`). It is the same authored key both dashboard relays
-   * compose for the `object-metric` and the `object-chart` node out of one
-   * provider block, so a second spelling here could only be a way for the two
-   * to disagree.
+   * (`check:spec-symbols`). It is the same authored key the `object-chart` node
+   * carries, so a second spelling here could only be a way for the two to
+   * disagree. (Both dashboard relays used to compose this node and the chart's
+   * out of one `provider: 'object'` block; since objectui#11525 a dataset-less
+   * metric draws the retired-format placeholder, and this node is authored.)
    *
    * It used to say `string`, which was a claim about the AUTHOR that nothing
    * upstream backed: the value crosses two `any` seams on its way in
@@ -282,13 +356,52 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // Derive format/currency from the field metadata when the dashboard config
   // doesn't override them. A currency field has no pattern here: its amount is
   // rendered by the list cell's formatter below (`tileValue`).
+  //
+  // objectui#11254 (ruling A′ on objectstack-ai/objectstack#19628): a
+  // `percent` or `number` aggregate is shown at the field's WIDTH, read through
+  // `resolveFieldScale` from `@objectstack/spec/data` — the declared `scale`
+  // when it is well-formed, otherwise the protocol's own answer for the type.
+  // The list cell, the detail chip, the grid footer and the edit widget ask
+  // the same function, so a `percent` declaring `scale: 2` reads `12.34%` here
+  // as it does in the cell, and a declared `number` keeps its decimals. This
+  // memo used to infer `'0,0%'` / `'0,0'` from the TYPE alone, so a `number`
+  // declaring `scale: 2` whose average is 3.75 showed `4`.
+  //
+  // `percent` has an absent-width row, so it always gets a number. `number`
+  // has none: with no declaration it has no fixed width, and A′ rounds a
+  // COMPUTED result to the widest decimal count among the values that entered
+  // it, ⛔ never to a constant. This tile reads a server aggregate, not its
+  // inputs:
+  //  - a `min` / `max` IS one of those inputs, so its own decimal count is
+  //    that reading, and the grid footer prints the same bytes over the same
+  //    rows. With `invert`, the values that entered `1 - v` are `1` and `v`,
+  //    so the width is still `v`'s, read before the inversion;
+  //  - a `sum` / `avg` needs the inputs' widths, and the aggregate answer
+  //    carries none: `AnalyticsResultResponseSchema`'s column metadata in
+  //    `@objectstack/spec/api` has no width member. Every reading that would
+  //    honour A′ there needs the query or the spec to report one, so this arm
+  //    keeps the whole-number pattern it already had, and the question is
+  //    returned on objectui#11254 rather than answered here.
   const inferredFormat = useMemo(() => {
     if (format) return format;
     if (!valueFieldDef || !fieldUnitApplies) return undefined;
-    if (valueFieldDef.type === 'percent') return '0,0%';
-    if (valueFieldDef.type === 'number' || valueFieldDef.type === 'integer') return '0,0';
-    return undefined;
-  }, [format, valueFieldDef, fieldUnitApplies]);
+    const type = valueFieldDef.type;
+    const percent = type === 'percent';
+    if (!percent && type !== 'number' && type !== 'integer') return undefined;
+    const width = resolveFieldScale({ type, scale: valueFieldDef.scale });
+    if (width !== undefined) return widthPattern(width, percent);
+    const fn = aggregate?.function;
+    if (fn === 'min' || fn === 'max') {
+      const entered =
+        typeof fetchedValue === 'number'
+          ? fetchedValue
+          : typeof fetchedValue === 'string' && fetchedValue.trim() !== ''
+            ? Number(fetchedValue)
+            : NaN;
+      if (Number.isFinite(entered)) return widthPattern(ownFractionDigits(entered), false);
+    }
+    return '0,0';
+  }, [format, valueFieldDef, fieldUnitApplies, aggregate?.function, fetchedValue]);
 
   // Tenant default currency (localization.currency, ADR-0053) backstops a
   // currency field that declares no explicit code of its own.
@@ -355,8 +468,13 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
       // measure is projected under `chartMeasureKey`'s alias — the raw `field`,
       // or the literal `'count'` for a fieldless count — and both are limbs the
       // two chains already try (`row[field]`, `r.count`).
+      //
+      // The filter is lowered for the spec-shape query only (`specShapeWhere`,
+      // objectui#11526): its `where` is posted verbatim, while the legacy bag's
+      // `filter` is lowered by the adapter. The drill drawer below still gets
+      // `resolvedFilter` as it was.
       const results = isStructuredGroupBy(groupBy)
-        ? await ds.aggregate(objectName, objectAggregateSpecQuery(aggregate, groupBy, filterForRun))
+        ? await ds.aggregate(objectName, objectAggregateSpecQuery(aggregate, groupBy, specShapeWhere(filterForRun)))
         : await ds.aggregate(objectName, {
             field: aggregate.field,
             function: aggregate.function,
@@ -473,15 +591,18 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // the amount now goes to `formatCurrency` — the list cell's own formatter
   // (`CurrencyCellRenderer`), the same one the grid footer takes — so tile,
   // footer and cell agree by reference: the currency's ISO 4217 minor-unit
-  // count, a whole amount without its fraction. The finished string is not a
-  // number, so `MetricWidget` shows it as given.
+  // count, a whole amount included (objectui#11444 retired the whole-amount
+  // trimming). The finished string is not a number, so `MetricWidget` shows it
+  // as given.
   //
   // With NO code resolved the cell renders a plain number, and that one case
   // is restated rather than referenced: `MetricWidget` re-parses a string that
   // reads as a number (`12.50`) and re-formats it at its pattern's width, so a
   // pre-formatted plain amount would be rounded again. The pattern therefore
-  // carries the cell's own no-currency width — none for a whole amount, two
-  // otherwise — and the tile's pin compares it against the cell in one run.
+  // carries the cell's own no-currency width, two decimals, and the tile's pin
+  // compares it against the cell in one run. It was `0,0` for a whole amount
+  // while the cell trimmed one; that trimming retired with objectui#11444
+  // (triage comment 5946462862), so the restated width moved with it.
   //
   // The face is for an aggregate that answers in the field's unit; a count
   // over a currency field is a plain number (objectui#10356).
@@ -498,8 +619,45 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
       if (inferredCurrency) {
         tileValue = formatCurrency(amount, inferredCurrency, displayLocale);
       } else {
-        tileFormat = Number.isInteger(amount) ? '0,0' : '0,0.00';
+        tileFormat = '0,0.00';
       }
+    }
+  }
+
+  // The percent face (objectui#11475): the aggregated field is a `percent`,
+  // and the aggregate answers in its unit, so the value is stored the way the
+  // FIELD stores it — a `sum` / `avg` / `min` / `max` of fractions is a
+  // fraction, of percentage points is points. `MetricWidget` holds no field,
+  // only a value and a pattern, and reads a `%` pattern by numeral's own
+  // convention (a fraction), so a whole-stored field (`max: 100`, as every
+  // shipped percent field declares) averaging `50` would read `5000%` there.
+  // The tile is therefore rendered HERE, the way the currency face above is:
+  // through the list cell's formatter, at the storage the cell reads
+  // (`percentCellScale`, the spec's `percentScaleOf`), and the finished string
+  // is not a number, so `MetricWidget` shows it as given.
+  //
+  // The width is the one the tile would have read: an authored `%` pattern's
+  // decimals (`metricPatternDecimals`, `MetricWidget`'s own parse), otherwise
+  // the field's width as `inferredFormat` resolved it. An authored pattern that
+  // is not a percent pattern asked for a plain number and keeps that face.
+  // ⚠️ `invert` above stays the magnitude-gated `1 - v` it was; it is not this
+  // card's subject.
+  if (
+    fieldUnitApplies
+    && valueFieldDef?.type === 'percent'
+    && (!format || format.trim().endsWith('%'))
+  ) {
+    const stored =
+      typeof displayValue === 'number'
+        ? displayValue
+        : displayValue.trim() === ''
+          ? NaN
+          : Number(displayValue);
+    if (Number.isFinite(stored)) {
+      const width = format
+        ? metricPatternDecimals(format)
+        : (resolveFieldScale({ type: 'percent', scale: valueFieldDef.scale }) as number);
+      tileValue = formatPercent(stored, percentCellScale(valueFieldDef), width, displayLocale);
     }
   }
 

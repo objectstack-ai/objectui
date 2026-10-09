@@ -279,14 +279,19 @@ describe('page palette ↔ spec PageComponentType coverage', () => {
     }
   });
 
-  it('ai:chat_window is not offered — it has no inline renderer', () => {
+  it('ai:chat_window is not offered — it has no inline renderer, and the spec retired it', () => {
     // The palette used to offer it WITH a config panel while
     // `components/renderers/placeholders.tsx` deliberately excluded it to force
     // a loud error: an author dragged a block Studio advertised and got a red
     // "Unknown component type" box.
     expect((BLOCK_TYPE_META as any)['ai:chat_window']).toBeUndefined();
     expect(blockHasConfig('ai:chat_window')).toBe(false);
-    expect(PALETTE_EXCLUSIONS['ai:chat_window']).toBeTruthy();
+    // Excluded by the spec now, not by this palette: `@objectstack/spec` 17.7.0
+    // dropped it from `PageComponentType` (objectstack#21504), so it needs no
+    // exclusion entry, and "every exclusion names a real spec type" would refuse
+    // one (objectui#11717).
+    expect(specNames).not.toContain('ai:chat_window');
+    expect(PALETTE_EXCLUSIONS['ai:chat_window']).toBeUndefined();
   });
 
   it('element:button offers an action editor — without it the button is inert', () => {
@@ -395,10 +400,10 @@ describe('page palette ↔ spec PageComponentType coverage', () => {
  * to drop the value silently — now rejects the whole node BY NAME. A retirement
  * that leaves its producer standing makes the failure worse, not better.
  *
- * The `layout:page-header` ALIAS keeps its own `icon` input, deliberately: that
- * is a different renderer with a real read point, and it is guarded separately
- * in `packages/layout/src/__tests__/page-header-authorable-keys.test.tsx`. The
- * two are opposite read facts about two renderers, not an inconsistency.
+ * The `layout:page-header` ALIAS kept its own `icon` input, deliberately: that
+ * was a different renderer with a real read point. objectui#10859 batch 8
+ * retired the alias, so `page:header` is the only header node, and the
+ * contract refuses its `icon` by name (the ADR-0087 D2 tombstone).
  */
 describe('page:header `icon` — the designer field retired with the spec key (#3829)', () => {
   const fieldNames = () => BLOCK_CONFIG['page:header'].map((f) => f.name);
@@ -406,7 +411,8 @@ describe('page:header `icon` — the designer field retired with the spec key (#
   // POSITIVE half, for the reason the location dropdown states: without it the
   // negative pin below passes just as happily on a deleted panel.
   it('still offers the canonical header fields the renderer does implement', () => {
-    expect(fieldNames()).toEqual(['title', 'subtitle', 'breadcrumb']);
+    // `breadcrumb` left this list with objectui#11173 — see the next describe.
+    expect(fieldNames()).toEqual(['title', 'subtitle']);
   });
 
   it('does NOT offer the retired `icon` field', () => {
@@ -443,6 +449,45 @@ describe('page:header `icon` — the designer field retired with the spec key (#
       expect(t(key, 'en-US')).toBe(key);
       expect(t(key, 'zh-CN')).toBe(key);
     }
+  });
+});
+
+/**
+ * `page:header.breadcrumb` — the second canonical header toggle retired under
+ * the rule the `icon` describe above states (objectui#11173).
+ *
+ * The canonical `page:header` renderer stopped reading the key (objectui#11166),
+ * and objectstack#20758 retires `PageHeaderProps.breadcrumb` through ADR-0087.
+ * A designer that kept offering the toggle would author a key nothing reads,
+ * and — once objectui pins a spec release carrying that tombstone — one the
+ * platform refuses BY NAME. The producer leaves first, so the pin bump does not
+ * find it standing. When that bump lands, the `icon` describe's tombstone probe
+ * is the pattern for a third assertion here.
+ *
+ * NOT a strip, deliberately (triage ruling on the card): `RETIRED_BLOCK_PROP_KEYS`
+ * gains no `page:header` entry, because the spec's ADR-0087 conversion is the
+ * one strip and a second one here would hide its notice. The stored-page half —
+ * a page already carrying `breadcrumb: true` opens, and its next save keeps the
+ * key — is a fact about a real commit, so it is pinned on screen in
+ * `inspectors/PageBlockInspector.pageHeaderBreadcrumb-11173.test.tsx`.
+ */
+describe('page:header `breadcrumb` — the designer toggle retired with its reader (objectui#11173)', () => {
+  const fieldNames = () => BLOCK_CONFIG['page:header'].map((f) => f.name);
+
+  // The POSITIVE half is the `icon` describe's field-set pin above; it is the
+  // non-vacuity control for this negative one as well.
+  it('does NOT offer the retired `breadcrumb` toggle', () => {
+    expect(fieldNames().length, 'field list is empty — the pin would be vacuous').toBeGreaterThan(0);
+    expect(fieldNames()).not.toContain('breadcrumb');
+  });
+
+  // The i18n side, as for `icon`: a label kept past its field is dead
+  // vocabulary, so BOTH locale tables lost it. `t()` returns the key unchanged
+  // on a miss.
+  it('has no leftover translation for the retired toggle in either locale', () => {
+    const key = 'engine.inspector.pageBlock.field.page:header.breadcrumb';
+    expect(t(key, 'en-US')).toBe(key);
+    expect(t(key, 'zh-CN')).toBe(key);
   });
 });
 
@@ -589,7 +634,7 @@ describe('page:accordion `title` / items `value` — dead designer inputs (#5212
  * refusal — which is precisely why the CONTROL that the panel offers a `groupBy`
  * box matters more than it did: the schema no longer backstops its absence. `limit` is the third declared key it never offered:
  * `ObjectKanban.tsx` sends it as a real `$top`, so a board over
- * `DEFAULT_KANBAN_LIMIT` records was silently truncated with no way to widen it.
+ * `DEFAULT_KANBAN_FETCH_BATCH_SIZE` records was silently truncated with no way to widen it.
  *
  * The parse probes below are the instrument this surface otherwise lacks: they
  * read the CONTRACT rather than a spelling, so the next control added here is
@@ -717,7 +762,7 @@ describe('object-kanban — the `groupBy` control, and the retired `groupField` 
 
   /* ── the placeholder states the real default ──────────────────────────── */
 
-  it("`limit`'s placeholder is DEFAULT_KANBAN_LIMIT, read from the renderer", () => {
+  it("`limit`'s placeholder is DEFAULT_KANBAN_FETCH_BATCH_SIZE, read from the renderer", () => {
     // The box is empty by default and the board still caps the fetch, so the
     // hint is only honest while it equals the constant `ObjectKanban.tsx`
     // actually falls back to. Read from source rather than imported: the
@@ -728,8 +773,8 @@ describe('object-kanban — the `groupBy` control, and the retired `groupField` 
       path.resolve(here, '../../../../../../plugin-kanban/src/ObjectKanban.tsx'),
       'utf8',
     );
-    const declared = /export const DEFAULT_KANBAN_LIMIT = (\d+)/.exec(src)?.[1];
-    expect(declared, 'could not read DEFAULT_KANBAN_LIMIT from ObjectKanban.tsx').toBeTruthy();
+    const declared = /export const DEFAULT_KANBAN_FETCH_BATCH_SIZE = (\d+)/.exec(src)?.[1];
+    expect(declared, 'could not read DEFAULT_KANBAN_FETCH_BATCH_SIZE from ObjectKanban.tsx').toBeTruthy();
 
     const limit = BLOCK_CONFIG['object-kanban'].find((f) => f.name === 'limit');
     expect(limit?.kind).toBe('number');

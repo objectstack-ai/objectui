@@ -131,7 +131,8 @@ describe('inline editor ↔ SPEC FieldType parity (#2942)', () => {
       expect(isInlineExcludedFieldType(t), `${t} must be excluded from inline editing`).toBe(true);
       expect(hasFieldEditWidget(t), `${t} must not resolve to an editor`).toBe(false);
     }
-    // Editable through their form widgets: json → code editor, tree → lookup picker.
+    // Editable through their form widgets: json → the JSON editor (objectui#11448;
+    // the code editor before it), tree → lookup picker.
     for (const t of ['json', 'tree']) {
       expect(hasFieldEditWidget(t), `${t} must resolve to its form widget`).toBe(true);
     }

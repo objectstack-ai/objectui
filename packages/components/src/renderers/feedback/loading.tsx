@@ -26,8 +26,13 @@ ComponentRegistry.register('loading',
             size === ('xl' as any) && 'h-16 w-16'
           )}
         />
-        {schema.text && (
-          <p className="text-sm text-muted-foreground">{schema.text}</p>
+        {/* The message is the DECLARED `label` (`LoadingSchema.label`, "Loading
+            text/message", on both faces). The renderer used to read an
+            undeclared `text` here and leave `label` inert; no producer authors
+            either spelling, so the read moved to the declared one and `text`
+            is retired, with no alias (objectui#11347). */}
+        {schema.label && (
+          <p className="text-sm text-muted-foreground">{schema.label}</p>
         )}
       </div>
     );
@@ -53,7 +58,7 @@ ComponentRegistry.register('loading',
     namespace: 'ui',
     label: 'Loading',
     inputs: [
-      { name: 'text', type: 'string' },
+      { name: 'label', type: 'string' },
       { 
         name: 'size', 
         type: 'enum', 
@@ -64,7 +69,7 @@ ComponentRegistry.register('loading',
       { name: 'className', type: 'string' }
     ],
     defaultProps: {
-      text: 'Loading...',
+      label: 'Loading...',
       size: 'md',
       fullscreen: false
     }

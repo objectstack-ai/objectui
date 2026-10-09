@@ -44,24 +44,41 @@ When used through `ObjectGantt` (the wiring the framework uses for the
   fetched by `DetailView` itself when `dataSource.getObjectSchema` is
   available).
 
-  Override by setting `navigation` on the schema: set `{ "mode": "page" }` to
-  route to the standalone detail page instead.
+  Override it with `navigation` in the `properties` bag — the spec's
+  `NavigationConfig`, `{ mode, size, openNewTab, preventNavigation }`. What a
+  task click does with each member, measured through the real `SchemaRenderer`
+  (objectui#11168 slice 4):
+
+  - **absent** — the drawer above, this renderer's own default;
+  - `drawer`, `modal`, `popover` — the task's record in that overlay; `split` —
+    the record beside the chart, which stays drawn;
+  - `page`, and a block written without `mode` (the spec's `page` default) —
+    the record page in the same tab; `new_window` — the same page in a new tab;
+  - `none` — nothing; `preventNavigation: true` — nothing, whatever the mode;
+    `openNewTab: true` — the record page in a new tab, outranking every mode
+    except `none`; `size` — the overlay width.
 
   ```json
-  { "navigation": { "mode": "page" } }
+  { "type": "object-gantt", "properties": { "objectName": "project_task", "gantt": { "startDateField": "start_date", "endDateField": "end_date", "titleField": "name" }, "navigation": { "mode": "page" } } }
   ```
 
-  The destination route is **not** authorable here — `useNavigationOverlay`
-  builds no URL out of this config, so page mode hands the record to the
-  host's `onNavigate` / `onRowClick` and the host owns where it lands. *Which*
-  detail layout opens is not authorable here either: assign a `record` page to
-  the object and let `isDefault` pick the one that opens. Page assignment is
-  what resolves a detail layout; this block only decides **how** that detail
-  is surfaced (`mode`, `size`) — `@object-ui/react`'s `useNavigationOverlay`
-  docblock owns that account. `navigation` is the spec's `NavigationConfig`,
-  and its schema refuses any key it does not declare: an undeclared key
-  rejects the whole config, so the `mode` beside it never takes effect either.
-  `@objectstack/spec`'s `NavigationConfigSchema` owns the member list.
+  The record-page address is the gantt's own. It derives it from the page it
+  is on and does not use a record navigator the host publishes
+  (objectui#11293), so mounting one changes nothing. On the object's own list
+  or view route (`…/project_task/view/all`) the address is the record page
+  `…/project_task/record/ID`; on any other page, such as a custom page, the
+  gantt appends `/project_task/record/ID` to the current address. The object is
+  `data.object` when `data` is the object provider, else `objectName`; on
+  inline rows that name neither, no mode opens anything, the default drawer
+  included.
+
+  *Which* detail layout opens is not authorable here: assign a `record` page
+  to the object and let `isDefault` pick the one that opens. Page assignment
+  is what resolves a detail layout; this block only decides **how** that
+  detail is surfaced. `navigation`'s schema refuses any key it does not
+  declare: an undeclared key rejects the whole config, so the `mode` beside it
+  never takes effect either. `@objectstack/spec`'s `NavigationConfigSchema`
+  owns the member list.
 
 
 ### Drag-and-drop rescheduling
@@ -70,8 +87,13 @@ When the renderer is used through `ObjectGantt` (the standard wiring used by
 the framework's `gantt` stored view type) drag is enabled automatically: each bar
 shows a grab cursor; the body drags the entire task, and the two thin edge
 zones (≈6px) resize start or end. Pointer motion snaps to whole days using
-the current column width. On release `ObjectGantt` issues an optimistic local
-patch and a `dataSource.update(objectName, recordId, { [startDateField]: …,
+the current column width. A move shifts the start and the end by the same
+number of calendar days and keeps each one's time of day, so across a
+daylight-saving change a day task keeps its length in days and a 10:00 start
+stays at 10:00; dragging a summary moves every task beneath it the same way.
+With shift bands configured (`timeSegments`), a day-view drag moves by bands
+instead and keeps the bar's elapsed length. On release `ObjectGantt` issues an
+optimistic local patch and a `dataSource.update(objectName, recordId, { [startDateField]: …,
 [endDateField]: … })`. If the request fails the local state is reverted.
 
 When you embed the lower-level `<GanttView>` directly, pass `onTaskUpdate`
@@ -114,14 +136,19 @@ import '@object-ui/plugin-gantt';
 
 // Now you can use gantt types in your schemas.
 // The gantt is RECORD-DRIVEN: it names a data source and the fields to read.
-// It does not take a task array — see "Schema API" below.
+// It does not take a task array — see "Schema API" below. Its props go in the
+// node's `properties` bag, and its field mapping in the bag's `gantt` block.
 const schema = {
   type: 'object-gantt',
-  objectName: 'project_tasks',
-  titleField: 'name',
-  startDateField: 'start_date',
-  endDateField: 'end_date',
-  progressField: 'completion_percentage'
+  properties: {
+    objectName: 'project_tasks',
+    gantt: {
+      titleField: 'name',
+      startDateField: 'start_date',
+      endDateField: 'end_date',
+      progressField: 'completion_percentage'
+    }
+  }
 };
 ```
 
@@ -142,8 +169,10 @@ Both spellings of the surviving key resolve — `register` stores the namespaced
 configuration object, and the two other record sources, `data` and `staticData`.
 `objectName` is not a required input: the record source is one of `data`,
 `staticData` and `objectName` (read in that order), and the `object-gantt` schema
-refuses a block that declares none of them. `data` is a `{ provider, … }`
-data-source configuration, never a bare array; inline rows go under `staticData`.
+refuses a block that declares none of them, unless the node's `dataSource.object`
+names the object, which the registration then lands on `objectName`. `data` is a
+`{ provider, … }` data-source configuration, never a bare array; inline rows go
+under `staticData`.
 
 > **The bare `gantt` key is retired** (objectui#8008, ruled 2026-09-09). This
 > table used to carry a second row, `gantt` / `view:gantt`, on the same renderer.
@@ -227,6 +256,16 @@ The gantt node is **record-driven**: it names *where records come from* and
 objects further down this page are the component's runtime shape, produced by
 `ObjectGantt` from each record.
 
+An authored node takes its props in its `properties` bag, whose members are
+`@objectstack/spec`'s `ComponentPropsMap['object-gantt']` row, and its field
+mapping in the bag's `gantt` block. `objectui validate` judges the bag against
+that row and refuses a prop written flat on the node by name, naming where it
+goes (`Did you mean objectName → properties.objectName?`, or
+`startDateField → properties.gantt.startDateField`), as the spec's own page
+component does (objectui#10859). `SchemaRenderer` hoists the bag onto the node
+before `ObjectGantt` runs, so the reads below are the same for both: the
+renderer sees the hoisted node.
+
 `ObjectGantt` decides what to render from exactly two reads
 (`src/ObjectGantt.tsx`):
 
@@ -237,17 +276,22 @@ chart renders empty:
 ```typescript
 const recordSource = {
   type: 'object-gantt',
-
-  // Pick ONE of the three:
-  objectName: 'project_tasks',                          // load through the host DataSource
-  // data: { provider: 'value', items: [ /* records */ ] },  // inline records
-  // staticData: [ /* records */ ],                          // shorthand for the above
+  properties: {
+    // Pick ONE of the three:
+    objectName: 'project_tasks',                          // load through the host DataSource
+    // data: { provider: 'value', items: [ /* records */ ] },  // inline records
+    // staticData: [ /* records */ ],                          // shorthand for the above
+  },
+  // …or name the object in the node's `dataSource` binding instead of `objectName`:
+  // dataSource: { object: 'project_tasks' },
 };
 ```
 
-`data` is the spec's `ViewData` union — `{ provider: 'object', object }`,
-`{ provider: 'value', items }`, `{ provider: 'api', read, write }` or
-`{ provider: 'schema', schemaId }`.
+`data` is the spec's `ViewData` union. This chart reads three of its arms:
+`{ provider: 'object', object }`, `{ provider: 'value', items }` and
+`{ provider: 'api', read, write }`. The fourth, `{ provider: 'schema', schemaId }`,
+is accepted by the spec and is not a source this chart reads: measured, a gantt
+carrying it queries `objectName` instead.
 
 **The provider does not change which query keys apply.** An authored `filter`
 and `sort` narrow and order the rows on **every** provider, inline ones
@@ -261,8 +305,10 @@ row with an authored `filter` silently dropped.
 
 The same holds for the full-text pair: `search` is sent as `$search`, and
 `searchableFields` as `$searchFields` alongside it (never without a term). A
-list view's toolbar Search box writes both onto its gantt node — the chart runs
-its own query, so the node is the only way the term reaches it.
+list view's toolbar Search box writes both onto the gantt node it composes — the
+chart runs its own query, so the node is the only way the term reaches it. They
+are not authored keys: the spec's row does not declare them, so `objectui
+validate` refuses them in the bag.
 
 **2. How the fields map — `getGanttConfig`.** Two spellings, checked in order.
 The **`gantt` block wins whenever it is present**, and it is taken WHOLE — the
@@ -270,6 +316,10 @@ flat top-level keys are not merged into it. The flat spelling is read only when
 there is no `gantt` block, and then only when `startDateField` and
 `endDateField` are both present. A node carrying both spellings renders the
 block's values and gets a dev-mode warning naming the ignored top-level keys.
+**Author the `gantt` block**: the flat spelling is the runtime handoff
+`ObjectView` and `ListView` write onto the node they compose, and an authored
+node cannot carry it — `objectui validate` refuses each flat key and names
+`properties.gantt.KEY`, and the spec's row refuses it inside the bag too.
 
 Precedence follows the maintainer ruling on objectui#5018 (2026-08-17), which
 settled the identical two-faces shape for `plugin-map`; objectui#6469 inherited
@@ -279,31 +329,27 @@ block was discarded silently.
 ```typescript
 const fieldMapping = {
   type: 'object-gantt',
-  objectName: 'project_tasks',
-
-  // (a) flat spelling — read only when there is no `gantt` block,
-  //     and then only with BOTH date fields present
-  startDateField: 'start_date',
-  endDateField: 'end_date',
-  titleField: 'name',                 // defaults to 'name'
-  progressField: 'completion_percentage',
-  dependenciesField: 'dependent_task_ids',
-  colorField: 'bar_color',
-  parentField: 'parent_task',
-  typeField: 'task_kind',
-  viewMode: 'week',                   // 'day'|'week'|'month'|'quarter'|'year'
-
-  // (b) …or the same configuration as one block, which OUTRANKS (a):
-  // gantt: { startDateField: 'start_date', endDateField: 'end_date', … }
+  properties: {
+    objectName: 'project_tasks',
+    gantt: {
+      startDateField: 'start_date',
+      endDateField: 'end_date',
+      titleField: 'name',
+      progressField: 'completion_percentage',
+      dependenciesField: 'dependent_task_ids',
+      colorField: 'bar_color',
+      parentField: 'parent_task',
+      typeField: 'task_kind',
+      viewMode: 'week',               // 'day'|'week'|'month'|'quarter'|'year'
+    },
+  },
 };
 ```
 
-`viewMode` is real authoring surface (`ObjectGanttSchema`, derived from the
-spec's `GanttConfigSchema.viewMode`) and is honoured by **both** renderer
-branches — the timeline and the resource-workload grid. It reaches the renderer
-through `getGanttConfig`, so it only takes effect alongside a taken gantt
-config: as a top-level key it needs `startDateField` + `endDateField` beside it
-and no `gantt` block on the node, or it can sit inside the `gantt` block.
+`viewMode` is real authoring surface (a member of the spec's `GanttConfigSchema`,
+so of the `gantt` block) and is honoured by **both** renderer branches — the
+timeline and the resource-workload grid. It reaches the renderer through
+`getGanttConfig`, so it only takes effect alongside a taken gantt config.
 Omitting it is meaningful — a persisted layout then seeds the granularity before
 the renderer's `'day'` fallback.
 
@@ -321,21 +367,23 @@ the node mounts and simply finds nothing to draw:
 | `nameField` | never read | `titleField` |
 | `startField` | never read | `startDateField` |
 | `endField` | never read | `endDateField` |
-| `fields: { name, start, end, … }` | never read | the flat `*Field` keys, or the `gantt` block |
+| `fields: { name, start, end, … }` | never read | the `gantt` block |
 | `onTaskClick`, `onTaskUpdate` | never read *off the schema* | React props on `<ObjectGantt>` / `<GanttView>` — functions do not belong in serializable metadata |
 | `className` | never read off the schema | a React prop on `<ObjectGantt>` |
 
-Keys that **are** read but only through a cast, so they are easy to miss when
-grepping — all of them genuine, all optional: `readOnly` (disables every edit
-path — drag/resize/inline/delete/link/undo), `mobileReadOnly`, `markers`,
-`navigation`, `skipWeekends`, `holidays`, `criticalPath`, `showBaselines`,
-`persistLayout` / `viewName`, `label`.
+The keys the renderer reads beside `gantt` — `readOnly`, `mobileReadOnly`,
+`markers`, `navigation`, `skipWeekends`, `holidays`, `criticalPath`,
+`showBaselines`, `persistLayout` / `viewName` and `label` — are all optional,
+all declared by the spec's `object-gantt` row, and all published by the
+registration since objectui#11168 slice 4. Each is described in the table
+below.
 
 #### Full field-mapping reference (`GanttConfig` members)
 
 `titleField` / `startDateField` / `endDateField` are required; everything below
 is optional. Set them INSIDE the `gantt` block — beside a `gantt` block a
-top-level copy is ignored (with a dev-mode warning naming the losing keys).
+top-level copy is ignored (with a dev-mode warning naming the losing keys), and
+on an authored node `objectui validate` refuses it.
 
 | Key (under `gantt`) | Effect |
 | --- | --- |
@@ -362,19 +410,21 @@ declining keeps the manual placement. This is on by default whenever
 
 #### Node-level display and behaviour options
 
-True siblings of `gantt` on the node itself, not `GanttConfig` members — they
-apply with either spelling of the field mapping.
+True siblings of `gantt` in the `properties` bag, not `GanttConfig` members.
 
-| Key (on the node) | Effect |
+| Key (in `properties`, beside `gantt`) | Effect |
 | --- | --- |
 | `criticalPath: true` | Start with the critical-path (zero-slack chain) highlight on; the toolbar toggle stays available. |
 | `showBaselines: false` | Hide the baseline strips even when baseline fields are mapped (default `true`). |
 | `skipWeekends: true` | Working-calendar math: auto-schedule and critical path count working days only, and reschedules snap off Sat/Sun. In **day mode** this also folds weekend columns out of the timeline — Friday sits against Monday and a one-column drag advances one working day. Coarser scales stay linear. |
 | `holidays: ["yyyy-mm-dd", …]` | Extra non-working days for the working calendar, combined with or instead of `skipWeekends`. In day mode these columns fold out of the axis too. |
-| `markers: [{ date, label?, color? }]` | Extra vertical marker lines, like the Today line. |
-| `persistLayout: false` | Disable layout persistence. By default the toolbar's save-layout button snapshots the current granularity, zoom and task-list collapse state to `localStorage` (key `gantt-layout:OBJECT:VIEW`) and restores it on the next load. |
+| `markers: [{ date, label?, color? }]` | Extra vertical marker lines, like the Today line. `label` is drawn against the line and `color` paints it (the theme's primary colour when omitted); a date outside the chart's range draws no line. |
+| `persistLayout: false` | Disable layout persistence. By default the toolbar's save-layout button snapshots the current granularity, zoom and task-list collapse state, plus the quick-filter chips, to `localStorage` (key `gantt-layout:OBJECT:VIEW`) and restores it on the next load. `OBJECT` is `objectName`, else `data.object`, and `gantt` on inline rows that name neither. With `false` there is no save-layout button and nothing is stored. |
+| `viewName: "board"` | The `VIEW` half of that key (default `default`). Two gantts on the same object with different names keep separate layouts, and each restores only its own. |
 | `readOnly: true` | **Disable every edit path** — no bar drag/resize/progress, no inline edit, no delete, no dependency-link drag, no reorder, no auto-schedule, and the Undo/Redo buttons are hidden. A read-only badge shows in the toolbar and the right-click menu drops to view-only (or is suppressed when nothing is actionable). Task click and granularity switching still work. Use it for dashboards and shared read-only views. |
-| `mobileReadOnly: false` | On a narrow viewport (≤ 640 px) the chart auto-enters read-only, giving touch users a clean scrollable thumbnail — the same gating as `readOnly`, applied only while narrow. Enabled by default. |
+| `mobileReadOnly: false` | When the chart is narrow (under 640 px of its own measured width, or of the viewport until that is measured) it auto-enters read-only, giving touch users a clean scrollable thumbnail — the chart's write paths are gated as under `readOnly`, applied only while narrow. The record drawer is not: it locks under `readOnly` alone, so a task's record still opens writable on a narrow chart. Enabled by default; `false` keeps a narrow chart editable, and `readOnly: true` locks the chart and the drawer at any width. |
+| `label` | Names the exported PNG/PDF file: the link after `gantt.exportFileName` and before the object's own label, then `objectName`. A string, or an inline locale map (`{ "en": …, "zh-CN": … }`) resolved to the display locale. The chart draws it nowhere else. |
+| `navigation` | What a task click opens — see **Create / Edit / Delete / View** above. |
 
 The toolbar also carries **navigation** (jump-to-today / this-week / this-month
 buttons that scroll the timeline to the start of that period) and **export**
@@ -388,35 +438,37 @@ pulses it — useful in deep or long trees.
 ```json
 {
   "type": "object-gantt",
-  "objectName": "project_task",
-  "gantt": {
-    "titleField": "name",
-    "startDateField": "start_date",
-    "endDateField": "end_date",
-    "progressField": "progress",
-    "parentField": "parent_id",
-    "dependenciesField": "depends_on",
-    "typeField": "item_type",
-    "lockField": "is_locked",
-    "defaultCollapsedDepth": 2,
-    "colorField": "status",
-    "baselineStartField": "planned_start",
-    "baselineEndField": "planned_end",
-    "tooltipFields": [{ "field": "owner", "label": "Owner" }, "status", "effort"],
-    "groupByField": "owner",
-    "assigneeField": "owner",
-    "effortField": "effort",
-    "quickFilters": [
-      { "field": "status", "label": "Status" },
-      { "field": "project", "label": "Project" },
-      { "field": "priority", "label": "Priority", "options": ["high", "medium", "low"] }
-    ],
-    "autoZoomToFilter": true
+  "properties": {
+    "objectName": "project_task",
+    "gantt": {
+      "titleField": "name",
+      "startDateField": "start_date",
+      "endDateField": "end_date",
+      "progressField": "progress",
+      "parentField": "parent_id",
+      "dependenciesField": "depends_on",
+      "typeField": "item_type",
+      "lockField": "is_locked",
+      "defaultCollapsedDepth": 2,
+      "colorField": "status",
+      "baselineStartField": "planned_start",
+      "baselineEndField": "planned_end",
+      "tooltipFields": [{ "field": "owner", "label": "Owner" }, "status", "effort"],
+      "groupByField": "owner",
+      "assigneeField": "owner",
+      "effortField": "effort",
+      "quickFilters": [
+        { "field": "status", "label": "Status" },
+        { "field": "project", "label": "Project" },
+        { "field": "priority", "label": "Priority", "options": ["high", "medium", "low"] }
+      ],
+      "autoZoomToFilter": true
+    },
+    "criticalPath": true,
+    "skipWeekends": true,
+    "holidays": ["2026-01-01", "2026-12-25"],
+    "readOnly": false
   },
-  "criticalPath": true,
-  "skipWeekends": true,
-  "holidays": ["2026-01-01", "2026-12-25"],
-  "readOnly": false,
   "bind": "project_task"
 }
 ```
@@ -458,60 +510,64 @@ the full declaration.
 ### Basic Gantt Chart
 
 Inline records, no backend — `data.items` carries the records and the `*Field`
-keys say which of their fields the chart reads. Note that the record field
-names are yours; only the `*Field` keys are fixed vocabulary.
+keys of the `gantt` block say which of their fields the chart reads. Note that
+the record field names are yours; only the `*Field` keys are fixed vocabulary.
 
 ```typescript
 const schema = {
   type: 'object-gantt',
-  viewMode: 'week',
-  startDateField: 'start',
-  endDateField: 'end',
-  titleField: 'name',
-  progressField: 'progress',
-  dependenciesField: 'dependencies',
-  colorField: 'color',
-  data: {
-    provider: 'value',
-    items: [
-      {
-        id: '1',
-        name: 'Project Planning',
-        start: '2024-01-01',
-        end: '2024-01-07',
-        progress: 100,
-        // bar fill goes straight into an inline `backgroundColor` —
-        // it must be a CSS color, NOT a Tailwind class
-        color: '#3b82f6'
-      },
-      {
-        id: '2',
-        name: 'Design Phase',
-        start: '2024-01-08',
-        end: '2024-01-21',
-        progress: 75,
-        dependencies: ['1'],
-        color: '#a855f7'
-      },
-      {
-        id: '3',
-        name: 'Development',
-        start: '2024-01-22',
-        end: '2024-02-15',
-        progress: 30,
-        dependencies: ['2'],
-        color: '#22c55e'
-      },
-      {
-        id: '4',
-        name: 'Testing',
-        start: '2024-02-16',
-        end: '2024-02-28',
-        progress: 0,
-        dependencies: ['3'],
-        color: '#f97316'
-      }
-    ]
+  properties: {
+    gantt: {
+      viewMode: 'week',
+      startDateField: 'start',
+      endDateField: 'end',
+      titleField: 'name',
+      progressField: 'progress',
+      dependenciesField: 'dependencies',
+      colorField: 'color',
+    },
+    data: {
+      provider: 'value',
+      items: [
+        {
+          id: '1',
+          name: 'Project Planning',
+          start: '2024-01-01',
+          end: '2024-01-07',
+          progress: 100,
+          // bar fill goes straight into an inline `backgroundColor` —
+          // it must be a CSS color, NOT a Tailwind class
+          color: '#3b82f6'
+        },
+        {
+          id: '2',
+          name: 'Design Phase',
+          start: '2024-01-08',
+          end: '2024-01-21',
+          progress: 75,
+          dependencies: ['1'],
+          color: '#a855f7'
+        },
+        {
+          id: '3',
+          name: 'Development',
+          start: '2024-01-22',
+          end: '2024-02-15',
+          progress: 30,
+          dependencies: ['2'],
+          color: '#22c55e'
+        },
+        {
+          id: '4',
+          name: 'Testing',
+          start: '2024-02-16',
+          end: '2024-02-28',
+          progress: 0,
+          dependencies: ['3'],
+          color: '#f97316'
+        }
+      ]
+    }
   }
 };
 ```
@@ -522,7 +578,10 @@ Callbacks are **not** schema keys — the schema is serializable metadata, and a
 function cannot survive it. Through the registered `gantt` / `object-gantt`
 types the whole CRUD lifecycle is already wired to the host `DataSource`
 (create/edit/drag/delete/detail drawer), so there is usually nothing to pass.
-When you render the component yourself, hand the callbacks in as React props:
+When you render the component yourself, hand the callbacks in as React props.
+A component mounted without `SchemaRenderer` receives the node as it reads it,
+so its `schema` prop keeps its props on the node: nothing hoists a `properties`
+bag there.
 
 ```tsx
 import { ObjectGantt } from '@object-ui/plugin-gantt';
@@ -545,20 +604,25 @@ const interactiveChart = <ObjectGantt
 />;
 ```
 
-To turn editing off from the metadata instead, set `readOnly: true` on the
-schema — that one *is* read.
+To turn editing off from the metadata instead, set `readOnly: true` — in the
+`properties` bag of an authored node, or on the schema you mount — that one *is*
+read.
 
 ### With ObjectQL Integration
 
 ```typescript
 const schema = {
   type: 'object-gantt',
-  objectName: 'project_tasks',
-  titleField: 'name',
-  startDateField: 'start_date',
-  endDateField: 'end_date',
-  progressField: 'completion_percentage',
-  dependenciesField: 'dependent_task_ids'
+  properties: {
+    objectName: 'project_tasks',
+    gantt: {
+      titleField: 'name',
+      startDateField: 'start_date',
+      endDateField: 'end_date',
+      progressField: 'completion_percentage',
+      dependenciesField: 'dependent_task_ids'
+    }
+  }
 };
 ```
 
@@ -595,17 +659,21 @@ week view, one year in month and quarter view, a decade in year view), clamped
 to the ends of the timeline. They step the *label's* tier rather than a single
 column, so one click always changes what the label says.
 
-Set the initial scale with `viewMode`. It is read through the gantt config, so
-it needs the field mapping beside it (or a `gantt` block of its own):
+Set the initial scale with `viewMode`, a member of the `gantt` block, beside
+the field mapping:
 
 ```typescript
 const schema = {
   type: 'object-gantt',
-  viewMode: 'month',
-  objectName: 'project_tasks',
-  startDateField: 'start_date',
-  endDateField: 'end_date',
-  titleField: 'name'
+  properties: {
+    objectName: 'project_tasks',
+    gantt: {
+      viewMode: 'month',
+      startDateField: 'start_date',
+      endDateField: 'end_date',
+      titleField: 'name'
+    }
+  }
 };
 ```
 
@@ -692,7 +760,8 @@ const chartWithMarkers = <GanttView
 />;
 ```
 
-Through the schema, pass the same array as `markers` on the gantt node.
+Through the schema, pass the same array as `markers` in the gantt node's
+`properties` bag.
 
 ## Task Dependencies
 
@@ -757,7 +826,10 @@ be a CSV string (`"task1, task2"`), an array of ids, or an array of objects —
 
 The adapter is **not** a schema key — it reaches the renderer through the
 renderer context (or as an explicit `dataSource` prop), while the schema names
-the object and the fields:
+the object and the fields. Mounted directly as below, `ObjectGantt` takes the
+node as it reads it, typed `ObjectGanttSchema`, with its props on the node;
+through `SchemaRenderer` the same props go in the authored node's `properties`
+bag:
 
 ```tsx
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
@@ -812,29 +884,38 @@ const props: GanttViewProps = {
 };
 ```
 
-**The authored (JSON metadata) types** live in `@object-ui/types` — this package
-imports them and does not re-export them. There is no `GanttSchema`; the
-component schema is `ObjectGanttSchema`, and it is **record-driven**: it names an
-object and the fields to read, it does not carry a task array.
+**The authored (JSON metadata) node** is `{ type: 'object-gantt', properties }`,
+and the members of `properties` are `@objectstack/spec`'s
+`ComponentPropsMap['object-gantt']` row (its `ObjectGanttProps`). It is
+**record-driven**: it names an object and the fields to read, it does not carry
+a task array. There is no `GanttSchema`. `ObjectGanttSchema` in `@object-ui/types`
+— which this package imports and does not re-export — types the node as
+`ObjectGantt` reads it: after `SchemaRenderer` hoists the bag, or as you mount it
+yourself.
 
 ```typescript
-import type { ObjectGanttSchema } from '@object-ui/types';
+import type { ObjectGanttBlockNode } from '@object-ui/types';
 
-const gantt: ObjectGanttSchema = {
+const gantt: ObjectGanttBlockNode = {
   type: 'object-gantt',
-  objectName: 'project_tasks',
-  titleField: 'name',
-  startDateField: 'start_date',
-  endDateField: 'end_date',
-  progressField: 'completion_percentage',
-  dependenciesField: 'dependent_task_ids',
+  properties: {
+    objectName: 'project_tasks',
+    gantt: {
+      titleField: 'name',
+      startDateField: 'start_date',
+      endDateField: 'end_date',
+      progressField: 'completion_percentage',
+      dependenciesField: 'dependent_task_ids',
+    },
+  },
 };
 ```
 
 `dependenciesField` (plural) is the spec's spelling and the one to author. The
 singular `dependencyField` is a `@deprecated` legacy alias: `ObjectGantt` still
-reads it (`dependenciesField || dependencyField`), so existing metadata keeps
-working, but new metadata should not use it.
+reads it (`dependenciesField || dependencyField`) on a node built in code, but an
+authored node cannot carry it — `objectui validate` refuses it and names
+`properties.gantt.dependenciesField`.
 
 For a list view served under the `gantt` view type, the same configuration is a
 `gantt` block on `ListViewSchema` (typed by `GanttConfig`, also from

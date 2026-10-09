@@ -67,6 +67,10 @@
  *   "these survive" against keys that may themselves be dead would bake an
  *   unverified claim into the guard. Every key in {@link SURVIVING} was confirmed
  *   live by call site in `packages/plugin-designer/src/FieldDesigner.tsx`.
+ *   objectui#11434 later settled two of the eight: `validationRules` and
+ *   `addRule` labelled an editor for `DesignerFieldDefinition.validationRules`
+ *   that was never built, and left the ten packs and the designer defaults map
+ *   when that member was retired.
  */
 import { describe, it, expect } from 'vitest';
 import { builtInLocales } from '../locales/index';

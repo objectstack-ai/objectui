@@ -45,8 +45,9 @@ import '@object-ui/plugin-kanban';
 // `object-kanban`. (The STORED `NamedListView.type` value `"kanban"` is a
 // different layer and is unaffected — do not rewrite saved views.)
 //
-// ONE record source (`data`, `bind` or `objectName`) is what the surviving face
-// requires of every board; `groupBy` is OPTIONAL since objectui#8990 but is what
+// ONE record source (`data`, `bind` or `objectName`, or a `dataSource.object`
+// binding, which the registration lands on `objectName`) is what the surviving
+// face requires of every board; `groupBy` is OPTIONAL since objectui#8990 but is what
 // makes the lanes hold cards, so every working board authors it. The shape below
 // is the one the catalog fixture `plugin-kanban/basic-kanban-board.json` carries.
 const schema = {
@@ -126,7 +127,8 @@ import type { ObjectKanbanSchema } from '@object-ui/types';
 declare const columns: KanbanColumn[];
 
 // The board document. `type` is required, and so is ONE record source — `bind`,
-// `data` or `objectName`. `groupBy`, `columns` and `className` are optional.
+// `data` or `objectName`, or a `dataSource.object` binding, which lands on
+// `objectName`. `groupBy`, `columns`, `navigation` and `className` are optional.
 //
 // `groupBy` is OPTIONAL since objectui#8990, matching `@objectstack/spec`. It is
 // still the key that makes the board work: with no lane key the records are never
@@ -149,6 +151,7 @@ const board: ObjectKanbanSchema = {
   groupBy: 'status',                  // optional, but the field that makes the lanes
   data: [],                           // one record source is required
   columns,                            // Array of columns
+  navigation: { mode: 'modal' },      // What a card click opens (see below)
   className: 'h-full',                // Tailwind classes
 };
 
@@ -191,6 +194,21 @@ interface KanbanCard {
   coverImage?: string;                // Resolved cover-image URL, from the board's coverImageField
 }
 ```
+
+### Card-click navigation
+
+`navigation` is what a card click opens — the spec's `NavigationConfig` by
+reference, `ViewNavigationConfig` in `@object-ui/types`, the type
+`ObjectGridSchema.navigation` uses: `mode` (`page`, `drawer`, `modal`, `split`,
+`popover`, `new_window` or `none`) with `size`, `openNewTab` and
+`preventNavigation`. With the key absent a click opens the record in a drawer,
+and a click handler from a parent view outranks the whole key. `page` — and a
+block written without `mode`, which takes the spec's `page` default — opens the
+record page through the record navigator the host publishes on
+`RelatedRecordActionsContext` (objectui#11293); the console publishes one on its
+custom pages, record pages and list views. Under a host that publishes none,
+such as an embedded renderer, there is no record page to open and the click
+opens nothing.
 
 ## Features
 

@@ -30,7 +30,7 @@
  *
  * The shared widgets announce required on the state channel and never arm the
  * native attribute the hand-rolled controls carried, so the page refuses a
- * submit that leaves a required row empty itself (`findMissingRequired`). The
+ * submit that leaves a required row empty itself (`findSubmitRefusals`). The
  * refusal is pinned with its control: the same form, filled, submits.
  */
 
@@ -39,6 +39,7 @@ import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/re
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SchemaRendererProvider } from '@object-ui/react';
+import { createI18n } from '@object-ui/i18n';
 import { FormPage } from './FormPage';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -58,7 +59,7 @@ const OBJECT_SCHEMA = {
         { value: 'gift', label: 'Gift' },
       ],
     },
-    account: { type: 'lookup', label: 'Account', reference_to: 'showcase_account' },
+    account: { type: 'lookup', label: 'Account', reference: 'showcase_account' },
     agree: { type: 'boolean', label: 'Agree', required: true },
     priority: {
       type: 'radio',
@@ -145,6 +146,12 @@ async function renderForm() {
 }
 
 beforeEach(() => {
+  // The submit button reads the i18n catalogue (objectui#11071) through the
+  // provider `main.tsx` mounts above this route. The app's own factory
+  // registers its instance as react-i18next's global, which is how this
+  // unwrapped route reaches the `en` pack; the harness restores the global
+  // after every test (`installI18nGlobalReset`).
+  createI18n({ defaultLanguage: 'en', detectBrowserLanguage: false });
   writes = [];
   dataSource.find.mockClear();
 });

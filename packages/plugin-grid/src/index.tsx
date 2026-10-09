@@ -12,7 +12,6 @@ import {
   ElementDataSourceGate,
   noDataSourceMessage,
   useResolvedDataSource,
-  useSchemaContext,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
 import type { DataSource } from '@object-ui/types';
@@ -212,6 +211,22 @@ export const ObjectGridRenderer: React.FC<{ schema: any; [key: string]: any }> =
  * turned it into a retired-key tombstone the protocol refuses by name, and
  * objectui#5861 removed every renderer read of it (ADR-0049 enforce-or-remove).
  * It stays off this list because the contract refuses it, not by exemption.
+ * `resizableColumns` followed the same way: spec 17.7.0 tombstoned it
+ * (objectstack#21445), and objectui#6152 round 7 removed `ObjectGrid`'s
+ * `resizable ?? resizableColumns` read, so `resizable` is its only spelling.
+ *
+ * ## `description`, `emptyState` and `keyboardNavigation`: the 17.6.0 keys
+ *
+ * `@objectstack/spec` 17.6.0 adds three keys to the `object-grid` row
+ * (objectstack#20694). `description` and `emptyState` are published below
+ * (objectui#11227): `ObjectGrid` has read both since objectui#11068, and until
+ * the row declared them this list could not. `keyboardNavigation` joined the
+ * list WITH its reader, objectui#11068's build: `ObjectGrid` resolves it
+ * (default: on when the grid renders editable) and `data-table` moves a roving
+ * focus across its cells with the arrow keys. It was held off this list until
+ * then, because this list is what the renderer reads, not what the row allows.
+ * The row still marks it `[EXPERIMENTAL — not enforced]`; that marker is the
+ * spec's to drop, and no reader here depends on it.
  *
  * ## `data` declares the CONTRACT's shape, not the shortcut's (objectui#5090)
  *
@@ -235,11 +250,49 @@ export const ObjectGridRenderer: React.FC<{ schema: any; [key: string]: any }> =
  * read as back-compat, not advertised as authoring surface.
  */
 const GRID_QUERY_INPUTS: ComponentInput[] = [
-  { name: 'objectName', type: 'string', required: true },
+  // NOT required, as on the spec row (objectui#11605): `ComponentPropsMap
+  // ['object-grid']` leaves `objectName` optional "because the component-level
+  // `dataSource` binding can supply the object instead", and the gate above
+  // lands `dataSource.object` here. The page compile reads this list, so
+  // `required: true` refused a bound node the row and the renderer accept. A
+  // node with neither is answered by `ObjectGrid`'s own "object name required"
+  // error, unchanged.
+  {
+    name: 'objectName',
+    type: 'string',
+    description:
+      'Object this grid lists. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline `data` rows, the grid shows an error saying an object name is required and fetches nothing.',
+  },
   { name: 'columns', type: 'array', description: 'Columns to show, either field names (`["name", "email"]`) or column objects (`[{ field: "name", label: "Full Name", width: 200 }]`). The canonical spelling — the deprecated `fields` is only read when this is absent.' },
-  { name: 'filter', type: 'array', description: 'Filter criteria in JSON-rules form. The canonical spelling — the deprecated `defaultFilters` is only read when this is absent.' },
+  { name: 'filter', type: 'array', description: 'Base query filter — the `ViewFilterRule` array `[{ field, operator, value }, ...]`, lowered to `$filter`. The canonical spelling — the deprecated `defaultFilters` is only read when this is absent.' },
   // ── identity ──────────────────────────────────────────────────────────────
-  { name: 'label', type: 'string', description: 'Grid label, used as the table caption and as the export file title. The canonical spelling — the deprecated `title` is only read when this is absent.' },
+  // `label` is an `I18nLabel` in the spec row (`ComponentPropsMap['object-grid']`),
+  // and every read of it in `ObjectGrid` (the table caption, the export title,
+  // the record-detail overlay heading) resolves a map with the spec's
+  // `resolveI18nLabel` against `useDisplayLocale()`. So both arms are declared,
+  // as `ComponentInput.type` prescribes for a key whose render site resolves the
+  // map: a `'string'`-only declaration made the manifest gate report
+  // `type-mismatch` on a legal map (objectui#10993). The render is pinned by
+  // `ObjectGrid.labelI18nLabel-10993.test.tsx`, the manifest by the console's
+  // `i18nLabelInputsManifest-10993.test.ts`.
+  {
+    name: 'label',
+    type: ['string', 'object'],
+    description:
+      'Grid label, used as the table caption, as the export file title and in the record-detail overlay heading. The canonical spelling — the deprecated `title` is only read when this is absent. Accepts either a plain string or an inline per-locale map (`{ en: "Accounts", "zh-CN": "客户" }`) — the `I18nLabel` union the contract admits on this key — and the grid resolves the map against the display locale (the workspace\'s regional default when one is configured, otherwise the active UI language), falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
+  },
+  // `description` (objectui#11068 honoured it; objectui#11227 publishes it now
+  // that the spec row declares it, at 17.6.0) is an `I18nLabel` in the row too,
+  // and `ObjectGrid` resolves it with the same resolver as `label`, so both arms
+  // are declared for the same reason. The render is pinned by
+  // `ObjectGrid.declaredKeys-11068.test.tsx`, the manifest by the console's
+  // `i18nLabelInputsManifest-10993.test.ts`.
+  {
+    name: 'description',
+    type: ['string', 'object'],
+    description:
+      'One line of help text drawn above the grid\'s rows, in muted type. Accepts either a plain string or an inline per-locale map (`{ en: "Everyone you work with", "zh-CN": "你的所有联系人" }`) — the `I18nLabel` union the contract admits on this key — resolved against the display locale the way `label` is. A map with no usable entry draws no line.',
+  },
   // ── query shaping ─────────────────────────────────────────────────────────
   { name: 'sort', type: 'array', description: 'Initial sort order, `[{ field, order }]`. The only sort spelling this block reads — the retired single-sort `defaultSort` is refused by the protocol and ignored by the renderer.' },
   { name: 'pagination', type: 'object', description: 'Pagination config, `{ pageSize, pageSizeOptions, … }`. Presence enables paging with the object\'s settings, and an explicit off wins — the deprecated flat `showPagination: false` turns paging off even beside this object, because this object declares no off switch of its own. Prefer it over the deprecated flat `pageSize` / `showPagination` pair.' },
@@ -248,11 +301,17 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
   // ── presentation ──────────────────────────────────────────────────────────
   { name: 'rowHeight', type: 'enum', enum: ['compact', 'short', 'medium', 'tall', 'extra_tall'], description: 'Row density. An unrecognised value falls back to `compact` rather than erroring.' },
   { name: 'frozenColumns', type: 'number', description: 'How many leading columns stay pinned while the grid scrolls horizontally.' },
-  { name: 'resizable', type: 'boolean', description: 'Let users drag column borders to resize. The canonical spelling — the deprecated `resizableColumns` is only read when this is absent.' },
+  { name: 'resizable', type: 'boolean', description: 'Let users drag column borders to resize. On by default. The only spelling — the legacy `resizableColumns` is retired and refused by name (objectui#6152).' },
   { name: 'reorderableColumns', type: 'boolean', description: 'Let users drag columns into a different order.' },
   { name: 'showColumnTypeIcons', type: 'boolean', description: 'Show a field-type icon in each column header. Off by default — the type is usually obvious from the cell content, and the icons compete with the column labels.' },
   { name: 'rowColor', type: 'object', description: 'Rules that colour whole rows from a field value.' },
-  { name: 'conditionalFormatting', type: 'array', description: 'Row/cell styling rules. Accepts both the ObjectUI `{ field, operator, value }` form and the spec expression form `{ condition, style }`.' },
+  { name: 'conditionalFormatting', type: 'array', description: 'Row style rules, each `{ condition, style }` — a CEL `condition` over the row’s own `record.*` and a CSS `style` map, the rule a list view declares. The first matching rule styles that row. The native `{ field, operator, value }` rule, its `expression`, and a colour written beside `condition` instead of inside `style` are retired (objectui#11533).' },
+  // `emptyState` (objectui#11068 honoured it; objectui#11227 publishes it now
+  // that the spec row declares it, at 17.6.0, as the list view's own
+  // `EmptyStateSchema`). Its `title` and `message` are `I18nLabel` members that
+  // `ObjectGrid` resolves against the display locale. The members are pinned by
+  // `ObjectGrid.emptyStateI18nLabel-11227.test.tsx`.
+  { name: 'emptyState', type: 'object', description: 'What the grid draws in place of an empty table, `{ title, message, icon }`: a Lucide `icon` name, a `title` (default: the table\'s own "No results found") and a `message` (default: none). `title` and `message` each accept a plain string or an inline per-locale map, resolved against the display locale. Not drawn when a term typed into the grid\'s own server-side search box is what emptied it — the table and its search box stay, so the term can be cleared. Leave it out and an empty grid draws the table\'s own empty row.' },
   // ── grouping and roll-ups ─────────────────────────────────────────────────
   { name: 'grouping', type: 'object', description: 'Group rows by one or more fields into collapsible sections.' },
   { name: 'aggregations', type: 'array', description: 'Per-group roll-ups shown in group headers, `[{ field, type: "sum" | "count" | "avg" | "min" | "max" | "count_distinct" }]`. Needs `grouping` to have anything to roll up.' },
@@ -265,8 +324,13 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
   // ── behaviour ─────────────────────────────────────────────────────────────
   { name: 'editable', type: 'boolean', description: 'Enable inline cell editing (double-click or Enter opens a cell).' },
   { name: 'singleClickEdit', type: 'boolean', description: 'With `editable`, a single click opens the cell instead of a double-click. Has no effect on a non-editable grid.' },
+  // `keyboardNavigation` (objectui#11068's build; the row declares it since
+  // 17.6.0). The behaviour is `data-table`'s and is pinned there
+  // (`data-table-keyboard-navigation-11068.test.tsx`); the default and the
+  // relay are `ObjectGrid`'s (`ObjectGrid.keyboardNavigation-11068.test.tsx`).
+  { name: 'keyboardNavigation', type: 'boolean', description: 'Arrow-key cell navigation on the WAI-ARIA grid pattern: the grid\'s data cells take one place in the Tab order instead of one each (a link or button inside a cell keeps its own), and the arrow keys move focus between them (Home / End to the ends of the row, Ctrl+Home / Ctrl+End to the ends of the page). Enter still opens an editable cell, and an edit ended with Enter or Escape returns focus to its cell. Defaults to on when the grid renders editable; a read-only grid keeps every cell its own Tab stop unless this is `true`, and `false` turns it off on an editable grid.' },
   { name: 'navigation', type: 'object', description: 'What a row click does, `{ mode: "page" | "drawer" | "modal" | "split" | "none", … }`.' },
-  { name: 'operations', type: 'object', description: 'Toggles for the built-in create/read/update/delete/export/import affordances, e.g. `{ delete: false }`.' },
+  { name: 'operations', type: 'object', description: 'Toggles for the built-in affordances, `{ create, update, delete, export }`, e.g. `{ delete: false }`. A declared block replaces the default, so an `update` / `delete` it does not name is withheld.' },
   { name: 'exportOptions', type: 'object', description: 'Export config, `{ formats, maxRecords, includeHeaders, fileNamePrefix, streaming }`. `streaming` (default true) picks server-side streaming vs browser-side assembly for the export — a behaviour fork, not decoration; set it to `false` to force browser-side assembly. Needs `operations.export` to be reachable from the toolbar.' },
 ];
 
@@ -291,29 +355,30 @@ ComponentRegistry.register('grid', ObjectGridRenderer, {
   inputs: GRID_QUERY_INPUTS.map((i) => ({ ...i })),
 });
 
-// Register import-wizard component
-const ImportWizardRenderer: React.FC<{ schema: any; [key: string]: any }> = ({ schema, ...props }) => {
-  const { dataSource } = useSchemaContext() || {};
-  return (
-    <ImportWizard
-      objectName={schema.objectName}
-      objectLabel={schema.objectLabel}
-      fields={schema.fields ?? []}
-      dataSource={dataSource}
-      {...props}
-    />
-  );
-};
-
-ComponentRegistry.register('import-wizard', ImportWizardRenderer, {
-  namespace: 'plugin-grid',
-  label: 'Import Wizard',
-  category: 'plugin',
-  inputs: [
-    { name: 'objectName', type: 'string', required: true },
-    { name: 'fields', type: 'array', required: true },
-  ]
-});
+/**
+ * ⛔ The `import-wizard` node type key is RETIRED (objectui#10859 batch 8, phase 2b,
+ * the seat's ruling on that card, by the objectui#10393 / objectui#8760 route).
+ * The React export stays (the ruling's words): `ImportWizard` is still exported
+ * from this package, and app-shell mounts it directly (`ObjectView`'s import
+ * flow, `ExcelImportBar`).
+ *
+ * ## What was here, and why it went
+ *
+ * `ComponentRegistry.register('import-wizard', ImportWizardRenderer, {
+ * namespace: 'plugin-grid', ... })` — a renderer reading `objectName` /
+ * `objectLabel` / `fields` and the context `dataSource` into `ImportWizard`.
+ * It stored both `plugin-grid:import-wizard` and the bare `import-wizard` fallback.
+ * No `@object-ui/types` arm claims it, so `objectui validate` refused a node
+ * authored `type: 'import-wizard'` at `type` while the registry mounted it.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the node: 0 producers in source, docs, examples, the catalog
+ * or objectstack, and 0 runtime emission, re-measured for phase 2b. The ruling's
+ * criterion answered no for a NODE: the mainstream ships import as a setup
+ * tool, not an authorable block. The README and `plugin-grid.mdx` key-table
+ * rows went in the same change.
+ */
 
 // Note: 'grid' type is handled by @object-ui/components Grid layout component
 // This plugin only handles 'object-grid' which integrates with ObjectQL/ObjectStack

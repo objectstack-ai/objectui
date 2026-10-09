@@ -108,14 +108,21 @@ import { ListView } from '@object-ui/plugin-list';
 ```
 
 When both are present, `grouping` wins. End users can also add or remove
-grouping fields at runtime via the Group toolbar button.
+grouping fields at runtime via the Group toolbar button. Every such edit, in
+the toolbar's Group panel or in the compact toolbar's View settings popover
+(Clear included), fires `onGroupingChange` with the spec `GroupingConfig`, or
+with `undefined` when the grouping is cleared. A changed `schema.grouping` that
+the list re-reads does not fire it: that value came from the host
+(objectui#11860).
 
 A grouped **grid** is grouped on the server: over a data source that answers
 the group header query (`dataSource.queryGroupHeaders`), `ListView` hands the
 grid its own fetch, and the group set, every group count and each group's
 rows come from the query (see *Grouping is server-side* in the
-`@object-ui/plugin-grid` README). While a toolbar search is active it hands the
-grid its window instead, since the header query carries no search.
+`@object-ui/plugin-grid` README). A toolbar search is handed to that grid too,
+with the view's `searchableFields`: the grid puts the term on the group header
+query and on every group's row query, so only the groups holding matches are
+shown and each count is its matching rows (objectui#11021).
 
 Over a data source that declares no `queryGroupHeaders`, `ListView` does not
 fetch a window and group it — every count would be a page slice, and groups
@@ -127,6 +134,11 @@ still grouped in the browser, exactly.
 
 ### With Multiple View Types
 
+Each view type's configuration is a block of that name at the top level of the
+schema: `kanban`, `calendar`, `gallery`, `timeline`, `gantt`, `map`, `chart`,
+`tree`. Each block is `@objectstack/spec`'s own list-view block, and an unknown
+key in it is refused by name.
+
 ```tsx
 import { ListView } from '@object-ui/plugin-list';
 
@@ -136,24 +148,31 @@ import { ListView } from '@object-ui/plugin-list';
     objectName: 'deals',
     viewType: 'kanban',
     columns: ['name', 'amount', 'stage', 'close_date'],
-    options: {
-      kanban: {
-        groupField: 'stage',
-        titleField: 'name',
-      },
-      calendar: {
-        startDateField: 'close_date',
-        titleField: 'name',
-      },
-      chart: {
-        chartType: 'bar',
-        xAxisField: 'stage',
-        yAxisFields: ['amount'],
-      }
-    }
+    kanban: {
+      groupByField: 'stage',
+      columns: ['name', 'amount'],
+      titleField: 'name',
+    },
+    calendar: {
+      startDateField: 'close_date',
+      titleField: 'name',
+    },
+    // A chart binds a semantic-layer dataset and selects its dimensions and
+    // measures by name (ADR-0021).
+    chart: {
+      chartType: 'bar',
+      dataset: 'deal_pipeline',
+      dimensions: ['stage'],
+      values: ['total_amount'],
+    },
   }}
 />
 ```
+
+A stored view may also carry the same blocks in a legacy `options` bag
+(`options.kanban`, …), which the platform's view write door judges key by key
+with the same block schemas. `ListView` reads it under the top-level block, which
+wins per key. Author the top-level blocks.
 
 ### With Callbacks
 
@@ -170,6 +189,7 @@ import { ListView } from '@object-ui/plugin-list';
   onSearchChange={(search) => console.log('Search:', search)}
   onSortChange={(sort) => console.log('Sort:', sort)}
   onFilterChange={(filters) => console.log('Filters:', filters)}
+  onGroupingChange={(grouping) => console.log('Grouping:', grouping)}
 />
 ```
 
@@ -196,12 +216,11 @@ const view: ListViewSchema = {
   columns: ['title', 'status', 'assignee'],
   filters: [['status', '=', 'open']],
   sort: [{ field: 'title', order: 'asc' }],
-  options: {
-    grid: {},
-    kanban: { groupField: 'status', titleField: 'title', cardFields: ['assignee'] },
-    calendar: { startDateField: 'due_date', titleField: 'title' },
-    chart: { chartType: 'bar', xAxisField: 'status', yAxisFields: ['amount'] },
-  },
+  // One block per view type, at the top level. A grid has no block of its own:
+  // its settings are the top-level keys above.
+  kanban: { groupByField: 'status', columns: ['assignee'], titleField: 'title' },
+  calendar: { startDateField: 'due_date', titleField: 'title' },
+  chart: { chartType: 'bar', dataset: 'task_status', dimensions: ['status'], values: ['total_amount'] },
 };
 
 // `columns` also accepts ListColumn objects in place of the field-name strings.
@@ -222,11 +241,30 @@ const viewTypes: Record<NonNullable<ListViewSchema['viewType']>, string> = {
   map: 'Records at their geographic coordinates',
   chart: 'Aggregated bar / line / pie / area chart',
   tree: 'Hierarchical parent-child rows',
-  page: 'A published page mounted in place of rows',
 };
 
 export { view, richColumns, viewTypes };
 ```
+
+## Page size and fetch batch
+
+A list view asks the server for one window of records. When
+`pagination.pageSize` is not declared, what that window is depends on whether
+the view pages:
+
+- **The grid view pages on the server.** The window is one page, and the
+  grid's pager turns it. Its size is the default `@objectstack/spec` declares
+  for `pagination.pageSize`; the list reads it from the spec rather than
+  keeping a number of its own.
+- **Every other view does not page** — kanban, calendar, gallery and the rest,
+  and a grouped grid. The window is one fetch batch of **100** records, and
+  records past it are not reachable; the record-count bar says so when the
+  batch comes back full. It is a fetch size, not a page size, so it does not
+  follow the spec's display default.
+
+A declared `pagination.pageSize` sizes the window on every view, as before.
+With no declared size, switching between the grid view and another view
+changes the window, so the list fetches again.
 
 ## Page binding — `dataSource` (referencing a saved view by name)
 

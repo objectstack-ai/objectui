@@ -12,11 +12,19 @@
 import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense, type ComponentType } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { resolveFilterPlaceholders, DENSITY_MODE_TO_ROW_HEIGHT, normalizeListViewSchema, leadWithNameField, type FilterTokenScope } from '@object-ui/core';
-import { parseUserFilterParams, applyUserFilterParams } from './userFilterUrlState.js';
+import {
+    parseUserFilterParams,
+    applyUserFilterParams,
+    parseListStateParams,
+    applyListStateParams,
+    userFilterParamsKey,
+    type ListStatePatch,
+    type ListUrlState,
+} from './userFilterUrlState.js';
 import { buildListFilterKey, readListFilterState, writeListFilterState } from './listFilterStorage.js';
 import { VALUELESS_FILTER_OPERATORS } from './viewFilterFold.js';
 import { parseUrlEqualityFilterTriples } from './drillUrlFilters.js';
-import { narrowPersonalizationOverlay, isViewConfigPermissionDeniedError } from '@object-ui/data-objectstack';
+import { narrowPersonalizationOverlay, isViewConfigPermissionDeniedError, formatMetadataError, VIEW_OVERLAY_OWNED_KEYS } from '@object-ui/data-objectstack';
 const ObjectChart = lazy(() =>
   import('@object-ui/plugin-charts').then((m) => ({ default: m.ObjectChart })),
 );
@@ -41,14 +49,16 @@ import {
 import { Plus, Upload, Star, StarOff, Table as TableIcon, KanbanSquare, Calendar, LayoutGrid, Activity, GanttChart, MapPin, BarChart3 } from 'lucide-react';
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
+import { useServedViewItems, isServedView } from '../hooks/useServedViewItems.js';
 import { getIcon } from '../utils/getIcon.js';
-import type { DataSource, ListViewSchema, TreeViewConfig, ViewNavigationConfig } from '@object-ui/types';
+import type { ActionBarSchema, DataSource, ListViewSchema, TreeViewConfig, ViewNavigationConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
 import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope, type ViewEnvelope } from './runtime-metadata-persistence.js';
-import { ListViewSchema as SpecListViewSchema, normalizeFilterOperator } from '@objectstack/spec/ui';
+import { buildNewViewSpec } from './newViewSpec.js';
+import { ListViewSchema as SpecListViewSchema, normalizeFilterOperator, VIEW_CONSOLE_ROUND_TRIP_KEYS } from '@objectstack/spec/ui';
 import { CreateViewDialog } from './CreateViewDialog.js';
 import {
   usePreviewDrafts,
@@ -65,7 +75,7 @@ import { createIdentityImportDataSource, IDENTITY_IMPORT_OBJECT, type IdentityPa
 import { IdentityImportOptions, IdentityImportResultExtra, identityImportFields } from './IdentityImportPanels.js';
 import { importTargetFields } from './importTargetFields.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
-import { resolveManagedByEmptyState } from '../utils/managedByEmptyState.js';
+import { listToolbarDrawsAction, resolveManagedByEmptyState } from '../utils/managedByEmptyState.js';
 import { resolveViewId } from '../utils/resolveViewId.js';
 import { defaultListViewId, viewRowId, isSavedViewId, viewEntry } from '../utils/viewIdentity.js';
 import { warnSuppressedListNav } from '../utils/warnSuppressedListNav.js';
@@ -74,7 +84,7 @@ import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useRealtimeSubscription, useConflictResolution } from '@object-ui/collaboration';
-import { ActionProvider, useNavigationOverlay, SchemaRenderer, useActionTextLocalizer, useRowPredicate, RelatedRecordActionsProvider, notifyDataChanged } from '@object-ui/react';
+import { ActionProvider, useNavigationOverlay, SchemaRenderer, useActionTextLocalizer, useRowPredicate, RelatedRecordActionsProvider, notifyDataChanged, useCapabilityGate, usePredicateScope } from '@object-ui/react';
 import type { RelatedRecordActionsValue, RelatedRecordHandlers } from '@object-ui/react';
 import { toast } from 'sonner';
 import { useConsoleActionRuntime } from '../hooks/useConsoleActionRuntime.js';
@@ -208,7 +218,10 @@ export function timelineViewOptions(viewDef: any): Record<string, unknown> {
         // Only ever restate a binding the view actually declared.
         ...(declaredStart ? { startDateField: declaredStart } : {}),
         titleField: viewDef?.timeline?.titleField || 'name',
-        descriptionField: viewDef?.timeline?.descriptionField,
+        // objectui#6152 round 12: no `descriptionField`. The spec's timeline block
+        // has no such member, the bag refuses it, and nothing drew it: it landed
+        // only in the generated node's nested block, which `ObjectTimeline` never
+        // reads for a description (measured on objectui#6152, report 6070437445).
     };
 }
 
@@ -325,23 +338,32 @@ export function ganttViewOptions(viewDef: any): Record<string, unknown> {
  * pre-empt that decision and light the capability gate on the way past.
  *
  * What stays here is the view's OWN declared block, spread whole so every spec
- * key survives (`cardSize` / `visibleFields` / `coverFit` / …), the two legacy
- * cover spellings cross-filled BUT ONLY WHEN ONE WAS DECLARED, and the
+ * key survives (`cardSize` / `visibleFields` / `coverFit` / …), the cover
+ * binding under `coverField` BUT ONLY WHEN ONE WAS DECLARED, and the
  * `titleField` `'name'` floor — a display-name default, not a binding, exactly
  * as `ganttViewOptions` above keeps it.
+ *
+ * objectui#6152 round 12 (seat answer Q1 → A): the legacy `imageField` is no
+ * longer written beside `coverField`. `@object-ui/types` judges this bag as the
+ * spec's list overlay judges it, and that refuses `options.gallery.imageField`
+ * by name. The gate the paragraph above describes learned
+ * `options.gallery.coverField` in the same round, so the toggle still lights
+ * from what this writes and still stays dark when the view declared no cover.
  *
  * Exported for the regression suite.
  */
 export function galleryViewOptions(viewDef: any): Record<string, unknown> {
     const gallery = viewDef?.gallery;
-    // `ObjectGallery` reads `coverField` and the legacy `imageField`; each
-    // spelling answers for the other, and NEITHER is invented. Both rungs are
-    // present or both absent, so the gate cannot be lit by half a declaration.
-    const declaredImage = gallery?.imageField || gallery?.coverField;
+    // The cover binding goes out under the spec's `coverField` ONLY, and is never
+    // invented. objectui#6152 round 12 dropped the legacy `imageField` this used
+    // to cross-fill beside it: the bag refuses that key, `ObjectGallery` reads the
+    // nested `coverField` first, and `ListView`'s capability gate now reads
+    // `options.gallery.coverField` too, so the Gallery toggle still lights from
+    // what this writes. The legacy READ below stays (renderer-side retirement is
+    // a later round on objectui#6152).
     const declaredCover = gallery?.coverField || gallery?.imageField;
     return {
         ...(gallery || {}),
-        ...(declaredImage ? { imageField: declaredImage } : {}),
         ...(declaredCover ? { coverField: declaredCover } : {}),
         // Spelled through `viewDef` rather than the `gallery` local above, and
         // that is load-bearing: `ObjectView.titleFieldConvergence.test.tsx`
@@ -429,20 +451,31 @@ export function galleryViewOptions(viewDef: any): Record<string, unknown> {
  * as an alias refusal naming `groupByField`, so the key is refused BY NAME at
  * the read door instead of riding the passthrough. ⛔ Do not re-file it.
  *
- * ⚠️ `titleField` AND `cardFields` BELOW ARE ALSO OUTSIDE `KanbanConfigSchema`,
- * and are deliberately NOT swept up here. `cardFields` is a DECLARED deprecated
- * alias of the spec's `columns` in this repo's own `KanbanConfig` mirror
- * (`@object-ui/types`), and `titleField` is live — `ListView` forwards it onto
- * the generated node. Neither is a second spelling of a key this expression
- * already writes correctly, which is the whole of objectui#8213. They are
- * pinned as the KNOWN residual in `ObjectView.kanbanGroupByRetired-8213`, so a
- * fourth undeclared key reddens instead of joining them quietly.
+ * ⭐ THE CARD FIELDS GO OUT AS `columns`, THE SPEC'S SPELLING (objectui#6152
+ * round 12, seat answer Q1 → A). This wrote the legacy `cardFields` alias, which
+ * objectui#8213 left as a known residual. `@object-ui/types` now judges this bag
+ * as the spec's list overlay does and refuses `options.kanban.cardFields` by
+ * name, and `ListView`'s kanban branch reads `columns` for the cards when no
+ * `cardFields` is present: measured on objectui#6152 (report 6070437445), the
+ * generated node and the `$select` are identical under either spelling.
+ * `titleField` is a member of the spec's kanban block (measured on 17.7.0). Every key this
+ * expression writes is therefore a spec key, and
+ * `ObjectView.kanbanGroupByRetired-8213` pins that, so an undeclared key
+ * reddens instead of joining them quietly.
  *
  * ADR-0085: when the view doesn't pick a lane field, the object's declared
  * lifecycle (`stageField`) decides — including the strict `stageField: false`
  * suppression (no default lanes; the status-shaped field is declared
  * non-linear) and the shared name/type heuristic, which never invents a field
  * the object doesn't have (the old hard-coded 'status' did).
+ *
+ * objectui#11629: `summarizeField` (the spec's "Field to sum at top of column")
+ * is relayed only when the view declares it. This block is the only kanban
+ * config `ListView` receives on this page when the stored row carries no
+ * `options.kanban` bag. Without the relay, the key never reached `ListView`'s
+ * projection or the board's column headers, so a view that declared it
+ * rendered counts with no totals. Like the lane, an absent key stays absent:
+ * no default field is invented.
  *
  * Exported for the pin test.
  */
@@ -452,11 +485,50 @@ export function kanbanViewOptions(viewDef: any, objectDef: any): Record<string, 
         viewDef?.kanban?.groupField ||
         detectStatusField(objectDef as any) ||
         undefined;
+    const summarizeField = viewDef?.kanban?.summarizeField;
     return {
         ...(lane ? { groupByField: lane } : {}),
         titleField: viewDef?.kanban?.titleField || 'name',
-        cardFields: viewDef?.kanban?.columns,
+        // The spec's own spelling of the card fields (objectui#6152 round 12): the
+        // bag refuses the legacy `cardFields` this used to write, and `ListView`
+        // reads `columns` for the cards, so the board is unchanged.
+        columns: viewDef?.kanban?.columns,
+        ...(summarizeField ? { summarizeField } : {}),
     };
+}
+
+/**
+ * objectui#10380 — the stored row's legacy `options` bag, as this page hands it
+ * to `ListView`. A row with no bag (or a bag that is not an object) gives `{}`.
+ *
+ * `@objectstack/spec`'s flattened list overlay declares this bag
+ * (`ListViewOverlayOptionsSchema`). The view write door judges each
+ * `options.KIND` block key by key with that kind's own block schema, refuses
+ * an out-of-contract key by name, and stores what it accepts. The spec
+ * describes the bag as an underlay: the top-level `KIND` block "wins per key
+ * where both set one". The interface page has always forwarded the bag, so one
+ * stored row rendered two ways. Ruling A on objectui#10380 (comment
+ * 5824043998) keeps that forward ("what passes the door is legal"), so the
+ * object page now forwards the bag too.
+ *
+ * The relay below does three things with it, and none of them merges keys:
+ *   - `options` carries the bag. For each kind the bag carries, the bag's block
+ *     REPLACES this page's synthesized block (`kanbanViewOptions` and its
+ *     siblings). This is the rule `InterfaceListPage` applies to its `mapCfg`
+ *     (`view.options.map ?? derived`). A synthesized block stands in only for a
+ *     kind the bag does not carry, so a row with no bag is relayed exactly as
+ *     before.
+ *   - For each kind the bag carries, the view's own top-level block also goes
+ *     out at the top level, where `InterfaceListPage` puts it as well.
+ *   - `ListView` then lays the top-level block over the bag per key. That merge
+ *     already exists in each render branch (`{ ...options.KIND, ...KIND }`),
+ *     and it is the spec's precedence. ⛔ No second merge is written here.
+ *
+ * Exported for the pin test.
+ */
+export function storedLegacyOptions(viewDef: unknown): Record<string, any> {
+    const bag = viewDef && typeof viewDef === 'object' ? (viewDef as { options?: unknown }).options : undefined;
+    return bag && typeof bag === 'object' && !Array.isArray(bag) ? (bag as Record<string, unknown>) : {};
 }
 
 /**
@@ -611,6 +683,25 @@ export function defaultListColumnsFromObject(
         );
     }
     return [];
+}
+
+/**
+ * Assemble the list-view `spec` the add-view door (`handleViewCreate`: the
+ * Create View dialog from the view tab bar, and the view-config panel's create
+ * mode) hands to `viewEnvelope`.
+ *
+ * This door resolves only its own fallback columns: the object's default
+ * business columns (`defaultListColumnsFromObject` keeps the framework-injected
+ * `owner_id` / audit columns out of the lead, #2702 / #2777, so a new view
+ * never opens on a raw id). The spec itself, with every type-specific rule
+ * (the columns mirrored into `kanban.columns` and `gallery.visibleFields`), is
+ * built by `buildNewViewSpec`, the one builder this door shares with "Save as
+ * view" (objectui#11581).
+ *
+ * Exported for `CreateViewDialog.viewTypeParse-11581.test.tsx`. @internal
+ */
+export function buildAddViewSpec(config: Record<string, any>, objectDef: any): Record<string, any> {
+    return buildNewViewSpec(config, { fallbackColumns: defaultListColumnsFromObject(objectDef, 5) });
 }
 
 /**
@@ -797,6 +888,48 @@ export async function loadViewOverrides(
     return map;
 }
 
+/** `useObjectLabel().viewLabel` — the client bundle's view-label lookup. */
+type ViewLabelLookup = (objectName: string, viewName: string, fallback: string) => string;
+
+/**
+ * A switcher tab's text — the desktop tab bar and the mobile switcher draw the
+ * same string (objectui#11295).
+ *
+ * A view a server read served — a `/meta/view` document, or an entry the served
+ * object document embeds in its own `listViews` (objectui#11336) — arrives
+ * translated by the server, a published edit kept over the packaged catalog, so
+ * its text is drawn as given. Offering it to `viewLabel` as the fallback was a
+ * second translation pass in which the bundle won the edit back. Any other view
+ * — derived client-side — still goes through `viewLabel`, its only
+ * translation. `useServedViewItems` says which is which, and why.
+ */
+function viewTabLabel(
+    view: { id: string; name?: string; label?: string },
+    objectName: string,
+    servedViews: ReturnType<typeof useServedViewItems>,
+    viewLabel: ViewLabelLookup,
+): string {
+    const text = view.label || view.name || view.id;
+    return isServedView(servedViews, objectName, view.id) ? text : viewLabel(objectName, view.name || view.id, text);
+}
+
+/**
+ * The open view's name on the record page's way back (`location.state.from`),
+ * decided as {@link viewTabLabel} decides a tab's, so the link names the view
+ * the way its tab does. Empty when the view has no label: the caller falls back
+ * to the object's PLURAL label, since the link goes back to a list of its
+ * records (objectui#11733).
+ */
+function viewOriginLabel(
+    view: { id?: string; name?: string; label?: string },
+    objectName: string,
+    servedViews: ReturnType<typeof useServedViewItems>,
+    viewLabel: ViewLabelLookup,
+): string {
+    const text = view.label ?? '';
+    return isServedView(servedViews, objectName, view.id) ? text : viewLabel(objectName, view.name ?? '', text);
+}
+
 /**
  * Build the switcher's tab list — the ONE place a tab's identity is decided
  * (objectui#4211).
@@ -904,9 +1037,9 @@ export function buildViewTabs({
             columns: sv.columns,
             filter: sv.filter,
             sort: sv.sort,
-            showSearch: sv.showSearch,
-            showFilters: sv.showFilters,
-            showSort: sv.showSort,
+            // objectui#11013 — no `showSearch` / `showFilters` / `showSort`
+            // picks: the toolbar policy's declared spelling is `userActions`,
+            // which the row carries (and the spread below keeps) like any key.
             isPinned: sv.isPinned,
             isDefault: sv.isDefault,
             visibility: sv.visibility,
@@ -1040,7 +1173,31 @@ export function dispatchViewPatches(
  *   cannot arise here. A patch-only PUT would not narrow this row, it would
  *   **delete the user's view definition** — its `config`/`columns`/`filter`/
  *   `label` are not a frozen copy of anything, they are the view. This branch
- *   therefore still carries the body, byte-identical to the pre-fix write.
+ *   therefore still carries the body — with the patch placed where the body's
+ *   own shape keeps it (next section).
+ *
+ * ## Where the saved branch puts the patch (objectui#11625)
+ *
+ * The active tab of a served view carries the stored row's nested `config`
+ * (the ViewItem envelope `{ name, object, viewKind, config }`, merged into the
+ * tab by `loadViewOverrides`). A body with a `config` is judged by the spec's
+ * `viewItem` member of the `view` union, whose top level is stripped: the save
+ * door keeps only the keys that member declares (ADR-0005 appendix (c)), so a
+ * `rowHeight` spread beside `config` was answered `200` and dropped, and the
+ * density reverted on reload. For an envelope-shaped base the patch is
+ * therefore split by the spec's own vocabulary:
+ *
+ * - a key `ListViewSchema` declares (`rowHeight`, `sort`, `hiddenFields`,
+ *   `inlineEdit`) is written into `config`, and any stale copy of it on the
+ *   envelope is removed, so the wire carries the one spelling the door keeps;
+ * - any other key stays on the envelope. That is where the row-owned keys live
+ *   ({@link VIEW_ROW_STATE_KEYS}: `columnState` is the toolbar's one), and the
+ *   envelope's own row state (`isDefault`, `isPinned`, …) is never moved.
+ *
+ * A FLAT base (no `config`) is judged by the flattened `listOverlay` member,
+ * which declares the list-view keys at its top level, so it keeps the flat
+ * spread. Putting a `config` on such a body would move it to the `viewItem`
+ * member and strip every flat key the user's view is made of.
  *
  * The same `isSavedViewId` classification already decides the switcher's
  * readonly flag, its five mutating handlers, and whether `updateViewConfig`
@@ -1073,6 +1230,14 @@ export function dispatchViewPatches(
  * one. So the issue's three dispositions land as: tolerate on read (shipped),
  * strip on next write (here), no migration — and both halves are pinned.
  *
+ * ## What the caller hands in (objectui#11642)
+ *
+ * `persistViewPatch` passes the row the store holds when the write runs, read
+ * back, not the tab as it was at page load: for a saved view that row is
+ * `baseViewDef`, and for an overlay the stored overlay's own keys arrive inside
+ * `patch` while the tab still supplies `viewKind` only. See
+ * {@link toolbarWriteInputs}. This function's shapes are unchanged.
+ *
  * Extracted from `persistViewPatch` so the write shape is assertable without
  * mounting the view, the same reason `buildViewTabs`, `setDefaultViewPatches`
  * and `reorderViewPatches` above are exported.
@@ -1082,11 +1247,128 @@ export function buildPersistedViewBody(
     patch: Record<string, any>,
     opts: { isSavedView: boolean },
 ): Record<string, any> {
-    if (opts.isSavedView) return { ...(baseViewDef || {}), ...patch };
+    if (opts.isSavedView) {
+        const base = baseViewDef || {};
+        const baseConfig = base.config;
+        if (!baseConfig || typeof baseConfig !== 'object' || Array.isArray(baseConfig)) {
+            return { ...base, ...patch };
+        }
+        // objectui#11625 — an envelope-shaped row: list-view keys go inside
+        // `config`, everything else stays on the envelope (see the doc above).
+        const configKeys = getListViewConfigKeys();
+        const envelope: Record<string, any> = { ...base };
+        const config: Record<string, any> = { ...baseConfig };
+        for (const [key, value] of Object.entries(patch)) {
+            if (configKeys.has(key)) {
+                config[key] = value;
+                delete envelope[key];
+            } else {
+                envelope[key] = value;
+            }
+        }
+        return { ...envelope, config };
+    }
     const viewKind = (baseViewDef as any)?.viewKind;
     // Identity is stamped LAST for the same reason `updateViewConfig` stamps
     // `object`/`name`/the marker last: nothing in the payload can shadow it.
     return viewKind === undefined ? { ...patch } : { ...patch, viewKind };
+}
+
+/**
+ * What a toolbar write starts from (objectui#11642): **the row the store holds
+ * when the write runs**, read through {@link loadViewOverrides} — the reader a
+ * reload uses — and never the tab as it was when the page loaded.
+ *
+ * `updateViewConfig` is a whole-document PUT, so each write REPLACES the row.
+ * The write used to start from the active tab as it was at page load (or, for
+ * an overlay, from the pending patch alone), and nothing moved that base after
+ * a write landed. So a second toolbar change in one session was built from a
+ * row that no longer existed and silently dropped what the first one stored:
+ * measured live, a density change reverted after a header sort, on every row
+ * kind. Triage's ruling: after a successful write, the base for the next write
+ * is the row that write stored, on every row kind, with no client-side merge
+ * of guessed fields.
+ *
+ * Why the stored row is READ BACK rather than taken from the write itself,
+ * measured against the platform's save door (objectstack `main`, showcase app):
+ * the `PUT /api/v1/meta/view/NAME` answer carries no row — `{ success, version,
+ * seq, state, message }`, the shape `SaveMetaItemResponseSchema` declares — and
+ * the body sent is not what the door kept: it drops undeclared keys
+ * (ADR-0005 appendix (c)), a sort entry's row `id` among them. The read is the
+ * `GET /api/v1/meta/view` the page load takes, and the adapter drops its cache
+ * on every view write (`invalidateViewKeys`), so it is the post-write row, not
+ * the page-load copy. Reading when the write runs, rather than keeping a copy
+ * of the row after each write, also composes with a row another handler on this
+ * page wrote in between (set as default, pin, rename) and leaves no copy that
+ * has to be kept fresh.
+ *
+ * - **Saved view** (an envelope row or a flat row): the stored row is the base
+ *   {@link buildPersistedViewBody} places the patch on. The active tab is the
+ *   base only when no stored row was read — a draft-only view in preview mode,
+ *   or a failed read — which is how every write behaved before this change.
+ * - **Overlay**: the stored overlay's own keys ({@link VIEW_OVERLAY_OWNED_KEYS},
+ *   the keys `loadViewOverrides` narrows a marked overlay to) join the pending
+ *   patch, so the row becomes the user's patches composed. It still carries
+ *   nothing the shadowed view owns (objectui#5233): the tab supplies `viewKind`
+ *   only, exactly as before, and a key the stored row holds outside the owned
+ *   set is not carried forward.
+ */
+async function toolbarWriteInputs(
+    dataSource: unknown,
+    objectName: string,
+    viewId: string,
+    activeTab: Record<string, unknown>,
+    pending: Record<string, unknown>,
+    isSavedView: boolean,
+): Promise<{ base: Record<string, unknown>; patch: Record<string, unknown> }> {
+    const read: unknown = (await loadViewOverrides(dataSource, objectName, [viewId]))[viewId];
+    const stored = read && typeof read === 'object' && !Array.isArray(read)
+        ? (read as Record<string, unknown>)
+        : undefined;
+    if (isSavedView) return { base: stored ?? activeTab, patch: pending };
+    const owned: Record<string, unknown> = {};
+    for (const key of VIEW_OVERLAY_OWNED_KEYS) {
+        if (stored?.[key] !== undefined) owned[key] = stored[key];
+    }
+    return { base: activeTab, patch: { ...owned, ...pending } };
+}
+
+/**
+ * The provenance mark on the tab this page MAKES for an object that declares no
+ * list view (objectui#11643): the `fallbackTab` the views memo hands
+ * {@link buildViewTabs}, which pushes it only when no defined or primary view
+ * exists.
+ *
+ * That tab is not a view anybody authored or served. No server serves it, and
+ * unless a stored row of the same name shadows it, no row backs it. Its id
+ * `all` is the console's placeholder, not a view name: a bare `all` would
+ * collide across objects, and storing a toolbar change under it would mint a
+ * metadata row nobody authored. Before this mark, a toolbar change on it took
+ * the overlay branch of `persistViewPatch` like a served view's and was sent as
+ * `PUT /meta/view/all` carrying no `viewKind`; with no registry entry of that
+ * name to inherit one from, the door judged the body as a view container and
+ * refused it (`422 INVALID_METADATA`), and the change was gone on reload.
+ *
+ * Triage's ruling (objectui#11643, comment `5988346142`): the fallback tab's
+ * toolbar changes apply for the session and send no metadata write, and no view
+ * is created to hold them. An object that wants saved personalization declares
+ * a list view, and the served-view path then applies.
+ *
+ * Why a mark and not the id: an object may declare a served list view whose tab
+ * id is `all` as well (a bare key in the object's own `listViews`), and that one
+ * keeps saving. Provenance is decided where the tab is made. Object spread and
+ * `Object.assign` copy a symbol-keyed property, so the mark rides every copy of
+ * the tab this page takes (the views memo, the active view, a config draft
+ * spread over it); `Object.entries`, `Object.keys` and `JSON.stringify` skip
+ * it, so it never reaches a request body. Module-local and not exported: it is
+ * a fact about this page's own tab, not a contract.
+ */
+const CONSOLE_MADE_TAB = Symbol('objectui#11643 console-made fallback tab');
+
+/** Whether `tab` is the tab this page made for a view-less object — see {@link CONSOLE_MADE_TAB}. */
+function isConsoleMadeTab(tab: unknown): boolean {
+    return !!tab && typeof tab === 'object'
+        && (tab as { [CONSOLE_MADE_TAB]?: unknown })[CONSOLE_MADE_TAB] === true;
 }
 
 /**
@@ -1098,8 +1380,17 @@ export function buildPersistedViewBody(
  * body (objectstack `d5552ca13`). A view-config save is a whole-document PUT, so
  * these are carried forward at the envelope's top level; dropping them would
  * erase the default flag, the pin and the column widths the row held.
+ *
+ * objectui#11013 — read off the spec, not retyped: the keys of
+ * `VIEW_CONSOLE_ROUND_TRIP_KEYS` (objectstack#20456) declared on the `viewItem`
+ * member, which is the member this save's envelope is judged by. `_isOverride`
+ * is declared on the list overlay only, so it is not carried here. The same
+ * derivation is `@object-ui/data-objectstack`'s, where `listViews()` carries
+ * these keys back off the stored record.
  */
-const VIEW_ROW_STATE_KEYS = ['isDefault', 'isPinned', 'sortOrder', 'visibility', 'columnState'] as const;
+const VIEW_ROW_STATE_KEYS: readonly string[] = (
+    Object.keys(VIEW_CONSOLE_ROUND_TRIP_KEYS) as Array<keyof typeof VIEW_CONSOLE_ROUND_TRIP_KEYS>
+).filter((key) => (VIEW_CONSOLE_ROUND_TRIP_KEYS[key] as readonly string[]).includes('viewItem'));
 
 /**
  * The keys a list view's `config` may carry — read off the spec's own closed
@@ -1222,6 +1513,31 @@ export interface ConsoleObjectViewProps {
     externalRefreshKey?: number;
 }
 
+/**
+ * The list toolbar's inline-edit toggle, as this page wires it: it writes
+ * nothing (objectui#5144, triage's ruling E).
+ *
+ * The view's `inlineEdit` and `userActions.editInline` are the AUTHOR's
+ * permission keys. The spec says so for both ("the list is read-only unless
+ * the author opts in"), and `normalizeListViewSchema` folds the first into the
+ * second. This toggle used to persist a USER's edit mode into `inlineEdit`
+ * through `persistViewPatch`. After the fold, switching it off stored
+ * `inlineEdit: false`, which reads as "not offered", so the toggle was gone
+ * from the next load and nothing in the console could bring it back.
+ *
+ * The edit mode is now session state. `ListView` keeps it, and seeds it from
+ * the view's `inlineEdit` on each load. The callback stays wired because
+ * `ListView` offers the wide toolbar toggle only to a host that wires one.
+ *
+ * Recorded costs: the edit mode is not remembered across loads, and an overlay
+ * that already stores `inlineEdit: false` still reads off. That is existing
+ * data, and the maintainer's ruling rejects migrating it. A view that should
+ * offer inline editing declares `userActions.editInline: true`.
+ */
+function keepInlineEditModeForTheSession(): void {
+    // Deliberately empty: see the docblock.
+}
+
 export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const { objectName } = useParams();
     const { t } = useObjectTranslation();
@@ -1274,7 +1590,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     const location = useLocation();
     const { showDebug } = useMetadataInspector();
     const { t } = useObjectTranslation();
-    const { objectLabel, objectDescription: objectDesc, viewLabel, viewEmptyState, actionParamText, fieldLabel, fieldOptionLabel } = useObjectLabel();
+    const { objectLabel, objectPluralLabel, objectDescription: objectDesc, viewLabel, viewEmptyState, actionParamText, fieldLabel, fieldOptionLabel } = useObjectLabel();
+    // The views a server read served — `/meta/view`, and the object document's
+    // own `listViews` — already translated: their labels are drawn as given,
+    // every other view's through `viewLabel` (objectui#11295, objectui#11336).
+    const servedViews = useServedViewItems();
     // label + confirmText + successMessage through ONE call (objectui#4265).
     const localizeActionTexts = useActionTextLocalizer();
     const { isFavorite, toggleFavorite } = useFavorites();
@@ -1309,6 +1629,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // network write.
     const persistTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
     const persistPending = useRef<Record<string, Record<string, any>>>({});
+    // objectui#11642 — the writes to one view, chained. Each write reads the
+    // stored row it starts from (`toolbarWriteInputs`), so it must not start
+    // before the previous write to the same view has settled: a read taken
+    // while that PUT is still in flight returns the row from BEFORE it, and
+    // the second write would put the first change back.
+    const persistChains = useRef<Record<string, Promise<void>>>({});
     // `persistViewPatch` is defined (and its `useCallback` deps evaluated)
     // BEFORE `savedViews` state exists below — closing over it directly in
     // the dependency array would read it in its temporal dead zone. Mirror
@@ -1318,6 +1644,17 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     const persistViewPatch = useCallback(
         (viewIdLocal: string, baseViewDef: Record<string, any>, patch: Record<string, any>) => {
             if (!dataSource?.updateViewConfig || !objectName || !viewIdLocal) return;
+            // objectui#11643 — the tab this page made for an object that
+            // declares no list view has no row to write into. Its toolbar
+            // changes apply for the session (the list keeps them in its own
+            // state) and nothing is scheduled here: no read, no PUT, no toast.
+            // One rule for every control that reaches this function — density,
+            // sort, hidden fields, column order and widths. (The inline-edit
+            // toggle no longer reaches it: objectui#5144, ruling E.) A
+            // stored row that shadows the tab is a real row (`isSavedViewId`,
+            // the classification the write below uses) and keeps its save
+            // path. See `CONSOLE_MADE_TAB`.
+            if (isConsoleMadeTab(baseViewDef) && !isSavedViewId(savedViewsRef.current, viewIdLocal)) return;
             // Merge into pending payload — every key present is the latest
             // value the user intended.
             const prev = persistPending.current[viewIdLocal] || {};
@@ -1351,30 +1688,59 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 // `buildPersistedViewBody` for why the saved-view branch is
                 // deliberately NOT narrowed — its row IS the view, and
                 // `saveItem` is a whole-document PUT.
-                // Optional call: the guard at the top of `persistViewPatch`
-                // does not narrow across this `setTimeout` closure, and the
-                // contract declares `updateViewConfig` optional. `?.()` on the
-                // member keeps the adapter as `this`.
-                Promise.resolve(
-                    dataSource.updateViewConfig?.(
-                        objectName,
-                        viewIdLocal,
-                        buildPersistedViewBody(baseViewDef, merged, { isSavedView: targetIsSavedView }),
-                        { isSavedView: targetIsSavedView },
-                    )
-                ).catch((err: any) => {
-                    // objectstack#7494's ruling — the gate refuses ORG-WIDE
-                    // view-config writes for a session without the authoring
-                    // capability. The toggle that triggered this has ALREADY
-                    // moved on screen, so the refusal has to be SAID: swallowing
-                    // it into console.error leaves the operator with a density
-                    // they did not get and no way to learn why until a reload
-                    // silently puts it back.
-                    if (isViewConfigPermissionDeniedError(err)) {
-                        toast.error(t('console.objectView.viewConfigPermissionDenied'));
-                        return;
-                    }
-                    console.error('[ObjectView] Failed to persist view config:', err);
+                //
+                // objectui#11642 — and what the body starts from is the row
+                // the store holds when this write runs, read back, not the
+                // tab as it was at page load: see `toolbarWriteInputs`. The
+                // write waits for the previous write to this view first.
+                //
+                // Written as an assignment of one chain, not through a named
+                // local function: the write-refusal census
+                // (`writeRefusalCensus-11583.test.ts`) keys this write by its
+                // nearest named function, `persistViewPatch`, and reads its
+                // refusal path off the `.catch` below.
+                persistChains.current[viewIdLocal] = (persistChains.current[viewIdLocal] ?? Promise.resolve())
+                    .then(async () => {
+                        const { base, patch: toWrite } = await toolbarWriteInputs(
+                            dataSource, objectName, viewIdLocal, baseViewDef, merged, targetIsSavedView,
+                        );
+                        // Optional call: the guard at the top of `persistViewPatch`
+                        // does not narrow across this `setTimeout` closure, and the
+                        // contract declares `updateViewConfig` optional. `?.()` on
+                        // the member keeps the adapter as `this`.
+                        await dataSource.updateViewConfig?.(
+                            objectName,
+                            viewIdLocal,
+                            buildPersistedViewBody(base, toWrite, { isSavedView: targetIsSavedView }),
+                            { isSavedView: targetIsSavedView },
+                        );
+                    })
+                    .catch((err: any) => {
+                        // objectstack#7494's ruling — the gate refuses ORG-WIDE
+                        // view-config writes for a session without the authoring
+                        // capability. The toggle that triggered this has ALREADY
+                        // moved on screen, so the refusal has to be SAID: swallowing
+                        // it into console.error leaves the operator with a density
+                        // they did not get and no way to learn why until a reload
+                        // silently puts it back.
+                        if (isViewConfigPermissionDeniedError(err)) {
+                            toast.error(t('console.objectView.viewConfigPermissionDenied'));
+                            return;
+                        }
+                        console.error('[ObjectView] Failed to persist view config:', err);
+                        // objectui#11583: every other refusal is said too, with the
+                        // door's message. The client gate above answers only for a
+                        // session whose capabilities were reported; an unreported
+                        // one passes it, and the server's 403 lands here.
+                        toast.error(t('form.saveError'), {
+                            description: formatMetadataError(err),
+                            classNames: { description: 'whitespace-pre-line' },
+                        });
+                    });
+                // Drop the settled tail so the map holds only writes in flight.
+                const chained = persistChains.current[viewIdLocal];
+                void chained.then(() => {
+                    if (persistChains.current[viewIdLocal] === chained) delete persistChains.current[viewIdLocal];
                 });
             }, 300);
         },
@@ -1405,66 +1771,65 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      * folds through it. What is gone is the automatic write, not the fold.
      */
 
-    const handleViewConfigSave = useCallback((draft: Record<string, any>) => {
+    /**
+     * The view-config panel's edit Save. Resolves whether the draft was staged,
+     * so the panel stays dirty, and announces no draft, on anything but `true`
+     * (objectui#11583).
+     */
+    const handleViewConfigSave = useCallback(async (draft: Record<string, any>): Promise<boolean> => {
         setViewDraft(draft);
         setRefreshKey(k => k + 1);
 
         // ADR-0034: stage a per-item draft via the metadata seam; an explicit
         // Publish (RuntimeDraftBar) promotes it + records a version.
         const vid = draft.id;
-        if (metadataClient && vid) {
+        if (!metadataClient || !vid) {
+            console.warn('[ViewConfigPanel] Cannot persist view config: missing metadataClient or viewId.');
+            return false;
+        }
+        try {
             // `dataSource` + `objectName` let the seam drop this object's view
             // cache keys (#4373) — the adapter owns which keys those are.
-            persistRuntimeMetadata('view', vid, buildViewConfigSaveBody(objectName, draft), {
+            await persistRuntimeMetadata('view', vid, buildViewConfigSaveBody(objectName, draft), {
                 metadataClient,
                 dataSource,
                 objectName,
-            }).catch((err: any) => {
-                console.error('[ViewConfigPanel] Failed to persist view config:', err);
             });
-        } else {
-            console.warn('[ViewConfigPanel] Cannot persist view config: missing metadataClient or viewId.');
+            return true;
+        } catch (err) {
+            console.error('[ViewConfigPanel] Failed to persist view config:', err);
+            // objectui#11583: a refused save is SAID, with the door's own
+            // message, as the Create View doors do (objectui#11578).
+            toast.error(t('form.saveError'), {
+                description: formatMetadataError(err),
+                classNames: { description: 'whitespace-pre-line' },
+            });
+            return false;
         }
-    }, [metadataClient, dataSource, objectName]);
+    }, [metadataClient, dataSource, objectName, t]);
 
-    /** Create a new view via the config panel */
-    const handleViewCreate = useCallback(async (config: Record<string, any>) => {
+    /**
+     * Create a new view: the Create View dialog's door and the view-config
+     * panel's create mode. Resolves whether the view was saved, so the dialog
+     * closes only on `true` (objectui#11578).
+     */
+    const handleViewCreate = useCallback(async (config: Record<string, any>): Promise<boolean> => {
         try {
             let createdId: string | undefined;
             if (metadataClient) {
-                // Prefill sensible defaults so the saved view renders rows
-                // immediately even if the user didn't pick columns yet.
-                const objectDef = objects?.find?.((o: any) => o.name === objectName);
-                // Prefill business columns only — the shared helper keeps the
-                // framework-injected `owner_id` / audit columns out of the lead
-                // (#2702, #2777), so a newly created view never opens on a raw id.
-                const defaultColumns = defaultListColumnsFromObject(objectDef, 5);
-                const incomingColumns = Array.isArray(config.columns) && config.columns.length > 0
-                    ? config.columns
-                    : defaultColumns;
                 // ADR-0005 overlay path — write the full spec under a unique
                 // `name` via the metadata customization API instead of into
                 // the physical `sys_view` table (whose columns no longer
                 // accommodate the spec shape: arrays, nested objects, etc.).
-                const spec: Record<string, any> = { ...config, columns: incomingColumns };
-                // Per @objectstack/spec, certain view types nest their card/field
-                // list inside their type-specific subconfig (e.g. kanban.columns,
-                // gallery.visibleFields). The CreateViewDialog only collects
-                // required *picker* fields; we mirror the resolved column list
-                // into the subconfig here so the spec validator accepts the row.
-                if (config.type === 'kanban') {
-                    spec.kanban = { ...(spec.kanban || {}), columns: incomingColumns };
-                } else if (config.type === 'gallery') {
-                    const existing = spec.gallery || {};
-                    if (!Array.isArray(existing.visibleFields) || existing.visibleFields.length === 0) {
-                        spec.gallery = { ...existing, visibleFields: incomingColumns };
-                    }
-                }
+                // The spec comes from the builder "Save as view" also uses
+                // (`buildAddViewSpec` → `buildNewViewSpec`, objectui#11581):
+                // this door supplies only its default business columns.
+                const objectDef = objects?.find?.((o: any) => o.name === objectName);
+                const spec = buildAddViewSpec(config, objectDef);
                 // ADR-0034: a new view is created as an invisible per-item
                 // draft via the metadata seam; an explicit Publish promotes it.
-                // UI-layer concerns (default columns, kanban/gallery massaging
-                // above, and the auto-activation below) stay here; the canonical
-                // ViewItem envelope + qualified-name identity live in the seam.
+                // The auto-activation below stays here; the canonical ViewItem
+                // envelope + qualified-name identity live in the seam.
                 //
                 // #2767 P1: the qualified name `<object>.<key>` is used as BOTH
                 // the URL segment and `body.name`, so the sys_metadata row key,
@@ -1504,10 +1869,19 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     navigate(`view/${createdId}${previewSuffix}`);
                 }
             }
+            return true;
         } catch (err) {
             console.error('[ViewConfigPanel] Failed to create view:', err);
+            // objectui#11578: a refused save is SAID, with the door's own
+            // message (the field-anchored issues of a 422, or the refusal's
+            // text), and reported to the dialog as unsaved so it stays open.
+            toast.error(t('form.saveError'), {
+                description: formatMetadataError(err),
+                classNames: { description: 'whitespace-pre-line' },
+            });
+            return false;
         }
-    }, [dataSource, objectName, objects, navigate, viewId, metadataClient, previewDrafts]);
+    }, [dataSource, objectName, objects, navigate, viewId, metadataClient, previewDrafts, t]);
     
     // Record count tracking for footer
     const [recordCount, setRecordCount] = useState<number | undefined>(undefined);
@@ -1653,6 +2027,20 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                   ),
         [localizedToolbarActions, navRunAction],
     );
+    // The schema-driven toolbar, typed as the `action:bar` node it is
+    // (objectui#11355), not as the `BaseSchema` the `schema` prop accepts: a key
+    // `ActionBarSchema` does not declare is refused here. On mobile it collapses
+    // all schema-driven toolbar actions into a single overflow menu, so the
+    // icon-only New / Import buttons stay visible without pushing the page title
+    // off-screen.
+    const toolbarBar: ActionBarSchema = {
+        type: 'action:bar',
+        location: 'list_toolbar',
+        actions: toolbarActionsWithDeepLink,
+        size: 'sm',
+        variant: 'outline',
+        mobileMaxVisible: 0,
+    };
 
     // Resolve which generic CRUD affordances belong in the toolbar for
     // this object's lifecycle bucket (`managedBy`).  config tables show
@@ -1713,6 +2101,22 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
       label: 'builtin:create:disabledWhen',
     });
     const createDisabled = createPredicates?.disabledWhen != null && createDisabledPred;
+
+    /**
+     * objectui#11687 — does this page offer a way to add a row? The New button
+     * above, or a `list_toolbar` action the schema-driven toolbar draws (Invite
+     * User, Register OAuth Application, …), each by the verdict its own control
+     * renders on. The managed-by empty state reads it: a `better-auth` list
+     * must not say rows are "not added by hand here" beside such a button.
+     * A boolean, computed each render from the payload (`objectDef.actions`),
+     * so `renderListView` depends on a primitive, not a memoised identity
+     * (AGENTS.md #10).
+     */
+    const mayInvokeToolbarAction = useCapabilityGate();
+    const toolbarPredicateScope = usePredicateScope();
+    const pageOffersCreate =
+        (objectCanCreate && createVisible) ||
+        listToolbarDrawsAction(objectDef.actions, mayInvokeToolbarAction, toolbarPredicateScope);
 
     /**
      * [#5142] The object-list toolbar's IMPORT predicates — the `import` half
@@ -1822,8 +2226,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 .then((rows: any[]) => {
                     if (cancelled) return;
                     // Normalize: ensure each view has an `id` for ViewTabBar
-                    // (which is name-keyed downstream). Stamp `objectName`
-                    // so the defensive filter in handlers still works.
+                    // (which is name-keyed downstream).
+                    //
+                    // objectui#11013 — no `objectName` is stamped here any more.
+                    // It was read `sv.objectName || sv.object`, the undeclared
+                    // spelling first, and no reader of this array consumed the
+                    // stamp: the handlers act on the route's `objectName`. What
+                    // it did do was ride a saved view's whole-body toolbar save
+                    // back into the stored row, an undeclared key the console
+                    // itself minted. The row's bound object is its declared
+                    // `object`, which `listViews()` carries.
                     const normalized = (rows || []).map((sv: any) => ({
                         ...sv,
                         // Overlay rows are keyed by `name`. Prefer that as the
@@ -1834,7 +2246,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                         // array too, so the key written here and the key read
                         // back cannot drift apart (objectui#4211).
                         id: viewRowId(sv),
-                        objectName: sv.objectName || sv.object || objectName,
                     }));
                     setSavedViews(normalized);
                 })
@@ -1911,6 +2322,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 id: 'all',
                 label: t('console.objectView.allRecords'),
                 type: 'grid',
+                // objectui#11643 — made here, so marked here: its toolbar
+                // changes are session-only. See `CONSOLE_MADE_TAB`.
+                [CONSOLE_MADE_TAB]: true,
             }),
         });
 
@@ -2026,6 +2440,97 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         ? Array.isArray(viewDraft!.columns) && viewDraft!.columns.length > 0
         : activeTabDeclaresColumns;
 
+    /**
+     * objectui#11860 — the list's toolbar state in the URL: the Filter panel's
+     * conditions, the search term, the sort and the grouping, under the `uf_`
+     * family `userFilterUrlState` owns (its header names the params and their
+     * shapes). Panels and dialogs stay out of it.
+     *
+     * The SEED — what the list opens with — is decided once per list identity
+     * (object + view, the same identity `renderListView` keys the list on;
+     * `ListView` reads its initial filters and search once, at mount):
+     *
+     * 1. The URL, when it carries any `uf_*` state this page did not write
+     *    itself — an opened link, a reload, Back. It is then the WHOLE state:
+     *    the per-browser cache is not consulted, so a shared link opens the
+     *    same list for everyone who may read it. A piece the URL lacks is
+     *    absent, not filled from storage.
+     * 2. Otherwise the per-user cache (`listFilterStorage`, unchanged) for the
+     *    Filter panel and the search; the view's own sort and grouping.
+     *
+     * Then the seed is written back into the URL (replace, never a new history
+     * entry), so the address bar shows the list on screen: a restored filter
+     * is in the link a user copies, and an entry dropped on load (a field the
+     * object does not declare or the user cannot read, a condition the spec
+     * refuses) leaves the address bar too.
+     *
+     * "Did this page write it" is `ownListParamsRef`: the `uf_*` params as the
+     * last write by this page left them. It matters when the identity moves
+     * WITHOUT a navigation — the saved views arrive after the first render and
+     * the active view resolves to another one — where params this page wrote
+     * for the first view would otherwise read as a link to the second. A real
+     * view switch navigates to a path with no query string, so it starts from
+     * the cache, and the ad-hoc params never follow the user into another view.
+     */
+    const listIdentityKey = activeView?.id ? `${objectName}-${activeView.id}` : undefined;
+    const listSeedRef = useRef<{ key: string; source: 'url' | 'storage'; state: ListUrlState } | undefined>(undefined);
+    const ownListParamsRef = useRef<string | undefined>(undefined);
+    if (listIdentityKey && listSeedRef.current?.key !== listIdentityKey) {
+        const carried = userFilterParamsKey(searchParams);
+        if (carried && carried !== ownListParamsRef.current) {
+            // A field the object does not declare (a stale link) or one this
+            // user cannot read is dropped. Field-level permissions gate only
+            // once loaded — the same gate `ListView` puts on its columns.
+            const acceptField = (field: string) =>
+                !!objectDef.fields?.[field]
+                && (!perms.isLoaded || perms.checkField(objectDef.name, field, 'read'));
+            listSeedRef.current = {
+                key: listIdentityKey,
+                source: 'url',
+                state: parseListStateParams(searchParams, acceptField),
+            };
+        } else {
+            const stored = readListFilterState(buildListFilterKey(user?.id, objectName, activeView.id));
+            listSeedRef.current = {
+                key: listIdentityKey,
+                source: 'storage',
+                state: {
+                    filters: (stored?.filters ?? undefined) as ListUrlState['filters'],
+                    search: stored?.search || undefined,
+                },
+            };
+        }
+    }
+    useEffect(() => {
+        const seed = listSeedRef.current;
+        if (!seed || seed.key !== listIdentityKey) return;
+        const next = applyListStateParams(searchParams, {
+            filters: seed.state.filters ?? null,
+            search: seed.state.search ?? null,
+            sort: seed.state.sort ?? null,
+            grouping: seed.state.grouping ?? null,
+        });
+        // Only a mirror of the CACHE is this page's own write. A link's params,
+        // even rewritten, stay the link's: the identity can still move to the
+        // view the link names once the saved views arrive.
+        if (seed.source === 'storage') ownListParamsRef.current = userFilterParamsKey(next);
+        if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+        // Once per list identity, by design: later URL writes are the list's
+        // own changes, already on screen.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+    }, [listIdentityKey]);
+    /** Write the list's own change into the URL — replace, never a history entry per keystroke. */
+    const writeListUrlState = useCallback(
+        (patch: ListStatePatch) => {
+            setSearchParams(prev => {
+                const next = applyListStateParams(prev, patch);
+                ownListParamsRef.current = userFilterParamsKey(next);
+                return next;
+            }, { replace: true });
+        },
+        [setSearchParams],
+    );
+
     /** Real-time draft field update — propagates each toggle/input change immediately */
     const handleViewUpdate = useCallback((field: string, value: any) => {
         setViewDraft(prev => ({
@@ -2060,11 +2565,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             const Icon = VIEW_TYPE_ICONS[view.type as keyof typeof VIEW_TYPE_ICONS];
             return {
                 id: view.id,
-                label: viewLabel(objectDef.name, view.name || view.id, view.label || view.name || view.id),
+                label: viewTabLabel(view, objectDef.name, servedViews, viewLabel),
                 icon: Icon ? <Icon className="h-4 w-4" /> : undefined,
             };
         });
-    }, [views, objectDef.name, viewLabel]);
+    }, [views, objectDef.name, viewLabel, servedViews]);
     useMobileViewSwitcherRegistration({
         views: mobileViewSwitcherItems,
         activeViewId: activeViewId ?? '',
@@ -2157,6 +2662,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             setRefreshKey(k => k + 1);
         } catch (err) {
             console.error('[ViewTabBar] Failed to pin view:', err);
+            // objectui#11583: a refused pin is said, with the door's message.
+            toast.error(t('form.saveError'), {
+                description: formatMetadataError(err),
+                classNames: { description: 'whitespace-pre-line' },
+            });
         }
     }, [dataSource, objectName, isSavedView, t]);
 
@@ -2183,7 +2693,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             setRefreshKey(k => k + 1);
         } catch (err) {
             console.error('[ViewTabBar] Failed to set default view:', err);
-            toast.error('Failed to set default view');
+            // objectui#11583: said like its siblings, with the door's message.
+            toast.error(t('form.saveError'), {
+                description: formatMetadataError(err),
+                classNames: { description: 'whitespace-pre-line' },
+            });
         }
     }, [dataSource, objectName, savedViews, isSavedView, t]);
 
@@ -2210,10 +2724,17 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 await Promise.all(updates);
             } catch (err) {
                 console.error('[ViewTabBar] Failed to reorder views:', err);
+                // objectui#11583: the new order still shows from this
+                // browser's copy, but other sessions read the server's, so a
+                // refused write is said, with the door's message.
+                toast.error(t('form.saveError'), {
+                    description: formatMetadataError(err),
+                    classNames: { description: 'whitespace-pre-line' },
+                });
             }
         }
         setRefreshKey(k => k + 1);
-    }, [dataSource, savedViews, objectName]);
+    }, [dataSource, savedViews, objectName, t]);
 
     const handleConfigView = useCallback((vid: string) => {
         // System (metadata-defined) views are read-only — opening the
@@ -2251,7 +2772,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // and Sonner toast instead of native window.confirm.
     const actions = useObjectActions({
         objectName: objectDef.name,
-        objectLabel: objectDef.label,
+        // The label this page shows (its header and breadcrumb read the same
+        // `objectLabel`), so the delete confirmation that names the record
+        // (objectui#11695) and the delete toasts read it in the session's
+        // language; with no translation bundle it is `objectDef.label`.
+        objectLabel: objectLabel(objectDef),
+        objectDef,
         dataSource,
         onEdit,
         onRefresh: refreshData,
@@ -2389,16 +2915,34 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
 
     /**
      * End-user filter selections restored from `uf_*` URL params (ADR-0047
-     * persistence). Captured once per ObjectView mount — UserFilters only
-     * reads them at its own mount, and later URL writes must not churn the
-     * schema memo.
+     * persistence), read from the CURRENT location once per list identity —
+     * the identity `listSeedRef` seeds on and `renderListView` keys the list
+     * on (objectui#11992). A view switch keeps this page mounted and remounts
+     * the list, whose `UserFilters` read these once, at that mount. So each
+     * view starts from the selections its own URL carries: none on the bare
+     * path a view tab navigates to, the link's on a link, the entry's own on
+     * Back. A capture once per PAGE mount restored the first view's selections
+     * on every view after it, while their address bar showed none.
+     *
+     * Held per identity rather than re-read every render: the list's own
+     * writes (below) reach the URL after the list already shows them, and a
+     * new object here would rebuild the list's schema on every chip click.
+     * The router's location is read, not `window.location`: it is the one this
+     * page writes to and the one `listSeedRef` reads.
      */
-    const [initialUfSelections] = useState<Record<string, string[]> | undefined>(
-        () => parseUserFilterParams(new URLSearchParams(window.location.search)),
-    );
+    const ufSelectionsRef = useRef<{ key: string; selections: Record<string, string[]> | undefined } | undefined>(undefined);
+    if (listIdentityKey && ufSelectionsRef.current?.key !== listIdentityKey) {
+        ufSelectionsRef.current = { key: listIdentityKey, selections: parseUserFilterParams(searchParams) };
+    }
+    const initialUfSelections = listIdentityKey ? ufSelectionsRef.current?.selections : undefined;
     const handleUserFilterSelectionsChange = useCallback(
         (selections: Record<string, Array<string | number | boolean>>) => {
-            setSearchParams(prev => applyUserFilterParams(prev, selections), { replace: true });
+            setSearchParams(prev => {
+                const next = applyUserFilterParams(prev, selections);
+                // objectui#11860 — this page's own write (see `ownListParamsRef`).
+                ownListParamsRef.current = userFilterParamsKey(next);
+                return next;
+            }, { replace: true });
         },
         [setSearchParams],
     );
@@ -2429,7 +2973,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             const originState = {
               from: {
                 pathname: location.pathname + (location.search || ''),
-                label: viewLabel(objectDef.name, activeView?.name ?? '', activeView?.label ?? '') || objectLabel(objectDef),
+                label: viewOriginLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel) || objectPluralLabel(objectDef),
               },
             };
             if (viewId) {
@@ -2438,7 +2982,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 navigate(`record/${encodeURIComponent(String(recordId))}`, { state: originState });
             }
         },
-        [navigate, viewId, location.pathname, location.search, objectDef, activeView?.name, activeView?.label, viewLabel, objectLabel]
+        [navigate, viewId, location.pathname, location.search, objectDef, activeView?.id, activeView?.name, activeView?.label, viewLabel, objectPluralLabel, servedViews]
     );
     /**
      * The list surface's half of the record-link mechanism (objectui#4490):
@@ -2557,7 +3101,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         // survive that (the nav link has no query string). Keyed on the signed-in
         // user so two accounts on one browser never share filter values.
         const listFilterKey = buildListFilterKey(user?.id, objectName, activeView.id);
-        const storedListFilters = readListFilterState(listFilterKey);
+        // objectui#11860 — what the list opens with: the URL's state, else this
+        // cache (see `listSeedRef`). Same identity as the list's `key`.
+        const listSeed = listSeedRef.current?.key === identityKey ? listSeedRef.current.state : undefined;
 
         // Warn in dev mode if flat properties are used instead of nested spec format
         if (process.env.NODE_ENV === 'development') {
@@ -2678,6 +3224,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
 
         // objectui#7029: present only when the view actually declared one.
         const calendarOptions = calendarViewOptions(viewDef);
+        // objectui#10380: the stored row's judged legacy `options` bag. See
+        // `storedLegacyOptions` for how the relay below layers it.
+        const legacyOptions = storedLegacyOptions(viewDef);
 
         /**
          * objectui#10694, ruling 5839344270 (B) — where the hide-column
@@ -2762,7 +3311,18 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // client-side). All four below go through the same
             // persistViewPatch helper which debounces and batches concurrent
             // toggles.
-            sort: (viewDef as any).sort ?? listSchema.sort,
+            //
+            // objectui#11860 — a sort the URL carries is applied over the
+            // view's: an opened link sorts as it was sorted. `ListView` reads
+            // this as the list's declared sort too, so its "reset to default"
+            // returns to the sort the link opened with, the way it returns to
+            // a stored one.
+            sort: listSeed?.sort ?? (viewDef as any).sort ?? listSchema.sort,
+            // objectui#11860 — and a grouping the URL carries is laid over the
+            // view's, which the caller composed into `listSchema` (the census
+            // declares `grouping` relayed upstream; this reads no `viewDef`).
+            // `ListView` seeds its toolbar grouping from this value.
+            grouping: listSeed?.grouping ?? listSchema.grouping,
             // The ONE place this view's effective filter is computed (#2890).
             // It used to be computed twice — once here as `filter` for the child
             // views, once further down as `filters` for ListView — with the two
@@ -2837,7 +3397,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             onColumnStateChange: (state: { order?: string[]; widths?: Record<string, number> }) => {
                 persistViewPatch(viewDef.id, viewDef, { columnState: state });
             },
-            inlineEdit: viewDef.inlineEdit ?? viewDef.editRecordsInline ?? listSchema.inlineEdit,
+            // objectui#11013 — `inlineEdit` only. The `editRecordsInline`
+            // spelling this also read has no producer: no console surface
+            // writes it and the spec's view schema refuses it by name.
+            inlineEdit: viewDef.inlineEdit ?? listSchema.inlineEdit,
             // ADR-0047 — spec `appearance` (incl. allowedVisualizations, the
             // runtime visualization whitelist) flows from the view metadata;
             // the legacy bare `showDescription` flag is folded in on top.
@@ -2870,8 +3433,14 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 ...(normalizeListViewSchema(listSchema ?? {}) as { userActions?: object }).userActions,
                 ...(normalizeListViewSchema(viewDef ?? {}) as { userActions?: object }).userActions,
             },
-            allowExport: viewDef.allowExport ?? listSchema.allowExport,
-            exportOptions: viewDef.allowExport === false ? undefined : (viewDef.exportOptions ?? listSchema.exportOptions),
+            // objectui#11013 — no `allowExport` rung, and `exportOptions` is no
+            // longer withheld on a view's `allowExport: false`. Nothing writes
+            // `allowExport` onto a view: no console surface does, and the
+            // spec's view schema refuses it by name (the seat's disposition on
+            // objectstack#20456: no producer, no declared spelling). The
+            // export gate `ListView` keeps reading is the HOST's, carried in
+            // by `...listSchema` from the object-view node.
+            exportOptions: viewDef.exportOptions ?? listSchema.exportOptions,
             color: viewDef.color ?? listSchema.color,
             /**
              * The spec-canonical row-colour CONFIGURATION the author put on
@@ -2895,14 +3464,17 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
              * versus 'what the colours are').
              */
             rowColor: viewDef.rowColor ?? listSchema.rowColor,
-            // Propagate view-config properties (Bug 4 / items 14-22)
-            wrapHeaders: viewDef.wrapHeaders ?? listSchema.wrapHeaders,
-            clickIntoRecordDetails: viewDef.clickIntoRecordDetails ?? listSchema.clickIntoRecordDetails,
-            addRecordViaForm: viewDef.addRecordViaForm ?? listSchema.addRecordViaForm,
-            addDeleteRecordsInline: viewDef.addDeleteRecordsInline ?? listSchema.addDeleteRecordsInline,
-            collapseAllByDefault: viewDef.collapseAllByDefault ?? listSchema.collapseAllByDefault,
-            fieldTextColor: viewDef.fieldTextColor ?? listSchema.fieldTextColor,
-            prefixField: viewDef.prefixField ?? listSchema.prefixField,
+            // objectui#11013 — the seven renderer flags this relay used to read
+            // off the active view (`wrapHeaders`, `clickIntoRecordDetails`,
+            // `addRecordViaForm`, `addDeleteRecordsInline`,
+            // `collapseAllByDefault`, `fieldTextColor`, `prefixField`) have no
+            // rung. No console surface writes one onto a view, no view in this
+            // repository authors one, and the spec's view schema refuses each
+            // by name, so a stored view never supplies them. What reaches
+            // `ListView` is the host's value, carried by `...listSchema` from
+            // the object-view node (the objectui#5097 host-composition keys).
+            // The census answers each in `ObjectView.relayRungCensus-7559.test.ts`.
+            //
             // ViewData source override (spec `data` key): a view authored with
             // `data: {provider:'api', read, write}` must survive this explicit
             // picklist, or ObjectGantt falls back to provider:'object'.
@@ -2970,27 +3542,56 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     viewDef.name || viewDef.id || '',
                     viewDef.emptyState
                         ?? listSchema.emptyState
-                        ?? resolveManagedByEmptyState((objectDef as any)?.managedBy, t, objectDef.name, (objectDef as any)?.userActions),
+                        ?? resolveManagedByEmptyState((objectDef as any)?.managedBy, t, objectDef.name, (objectDef as any)?.userActions, pageOffersCreate),
                 ),
             aria: viewDef.aria ?? listSchema.aria,
             // (the legacy `filters` twin of the `filter` above lived here until
             // #2890 — see the note at its single remaining computation)
-            ...(viewDef.sort?.length ? { sort: viewDef.sort } : {}),
+            //
+            // objectui#11860 — and a second `sort` write lived here, the view's
+            // own sort spread in AFTER the `sort` rung above. Redundant with
+            // that rung while it read the view alone; once the rung put a
+            // URL-carried sort first, this spread overrode it on every view
+            // that declares a sort, so a link's sort reached the address bar
+            // and never the query. The rung is the one `sort` write.
+            // objectui#10380 — for each kind the stored row's legacy `options`
+            // bag carries, the view's own top-level block goes out at the top
+            // level, as `InterfaceListPage` sends it. `ListView` then lays it
+            // over the bag per key: the top-level block wins where both set a
+            // key, which is the precedence the spec declares for the bag. A kind
+            // the bag does not carry is relayed only through `options` below,
+            // exactly as before. See `storedLegacyOptions`.
+            ...(legacyOptions.kanban !== undefined ? { kanban: viewDef.kanban } : {}),
+            ...(legacyOptions.calendar !== undefined ? { calendar: viewDef.calendar } : {}),
+            ...(legacyOptions.timeline !== undefined ? { timeline: viewDef.timeline } : {}),
+            ...(legacyOptions.map !== undefined ? { map: viewDef.map } : {}),
+            ...(legacyOptions.gallery !== undefined ? { gallery: viewDef.gallery } : {}),
+            ...(legacyOptions.gantt !== undefined ? { gantt: viewDef.gantt } : {}),
+            ...(legacyOptions.tree !== undefined ? { tree: viewDef.tree } : {}),
+            ...(legacyOptions.chart !== undefined ? { chart: viewDef.chart } : {}),
             options: {
+                // objectui#10380 — the stored row's judged legacy bag, forwarded
+                // as the interface page forwards it. For each kind the bag
+                // carries, its block REPLACES this page's synthesized block below
+                // (the `mapCfg` rule of `InterfaceListPage`). Each synthesized
+                // block stands in only for a kind the bag does not carry.
+                ...legacyOptions,
                 // The lane key is the spec's `groupByField`, not the legacy
                 // `groupField` this used to write. See `kanbanViewOptions`.
-                kanban: kanbanViewOptions(viewDef, objectDef),
+                kanban: legacyOptions.kanban ?? kanbanViewOptions(viewDef, objectDef),
                 // The calendar config the view DECLARED, or no calendar key at
                 // all — never an invented field name (objectui#7029). With the
                 // key absent, ListView's capability gate stops offering the
                 // Calendar toggle for a view that configured none, and a view
                 // forced onto the calendar renderer reaches its refusal screen.
-                ...(calendarOptions ? { calendar: calendarOptions } : {}),
+                ...((legacyOptions.calendar ?? calendarOptions)
+                    ? { calendar: legacyOptions.calendar ?? calendarOptions }
+                    : {}),
                 // The date axis is resolved once, in ListView — this face only
                 // forwards what the view declared, floored at 'name'
                 // (objectui#3129, objectui#6557). See `timelineViewOptions`.
-                timeline: timelineViewOptions(viewDef),
-                map: {
+                timeline: legacyOptions.timeline ?? timelineViewOptions(viewDef),
+                map: legacyOptions.map ?? {
                     locationField: viewDef.map?.locationField,
                     titleField: viewDef.map?.titleField || 'name',
                     latitudeField: viewDef.map?.latitudeField,
@@ -3003,15 +3604,15 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 // cover binding to forward, ListView's capability gate stops
                 // offering the Gallery toggle to a view that configured none.
                 // See `galleryViewOptions`.
-                gallery: galleryViewOptions(viewDef),
+                gallery: legacyOptions.gallery ?? galleryViewOptions(viewDef),
                 // The gantt config the view DECLARED, title floored at 'name' —
                 // never an invented date field (`5f4514f7b`). With no date
                 // binding to forward, ListView's capability gate stops offering
                 // the Gantt toggle to a view that configured none, and a view
                 // forced onto the gantt renderer reaches its refusal screen.
                 // See `ganttViewOptions`.
-                gantt: ganttViewOptions(viewDef),
-                tree: {
+                gantt: legacyOptions.gantt ?? ganttViewOptions(viewDef),
+                tree: legacyOptions.tree ?? {
                     // Self-referencing tree-grid config (plugin-tree). Spread the
                     // full view-defined tree first so parentField/fields/
                     // defaultExpandedDepth survive; labelField falls back to the
@@ -3076,7 +3677,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 // which are already relayed whole. Undeclared stays `undefined`
                 // rather than the old permanently-truthy husk, which is what
                 // keeps the gate from offering a chart nobody configured.
-                chart: viewDef.chart,
+                chart: legacyOptions.chart ?? viewDef.chart,
             },
         };
         // objectui#10046 — equal content keeps the identity `ListView`'s fetch
@@ -3108,24 +3709,21 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 onBulkDelete={(records: any[]) => {
                     const valid = records.filter((r: any) => r?.id != null);
                     if (valid.length === 0) return;
-                    // Route through actions.execute so the shared AlertDialog
-                    // confirms once for the whole batch and the existing
-                    // delete handler (now batch-aware) handles refresh + toast.
-                    actions.execute({
-                        type: 'delete',
-                        confirmText: t('console.objectView.bulkDeleteConfirm', {
-                            count: valid.length,
-                            defaultValue: `Delete ${valid.length} selected records? This cannot be undone.`,
-                        }),
-                        params: { records: valid },
-                    });
+                    // `deleteRecords` confirms once for the whole batch, with the
+                    // shared copy that counts it (objectui#11695), and the
+                    // batch-aware delete handler handles refresh + toast.
+                    actions.deleteRecords(valid);
                 }}
                 onRowClick={(record: any, event?: any) => {
                     handleRowClick(record, event);
                 }}
                 onSortChange={(sort: any) => {
                     persistViewPatch(viewDef.id, viewDef, { sort });
+                    writeListUrlState({ sort });
                 }}
+                // objectui#11860 — the URL only: nothing else stores the
+                // toolbar grouping, and the view's own stays as authored.
+                onGroupingChange={(grouping) => writeListUrlState({ grouping: grouping ?? null })}
                 onFilterChange={(filter: any) => {
                     // SESSION state only (objectui#4155) — localStorage keeps
                     // the BUILDER's group verbatim, read back into
@@ -3135,25 +3733,27 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     // writes an empty group through this same handler. Nothing
                     // here touches the view's stored body.
                     writeListFilterState(listFilterKey, { filters: filter });
+                    // objectui#11860 — and the URL, so the list is a link.
+                    writeListUrlState({ filters: filter });
                 }}
                 onSearchChange={(search: string) => {
                     writeListFilterState(listFilterKey, { search });
+                    writeListUrlState({ search });
                 }}
                 onHiddenFieldsChange={persistHiddenFields}
-                onInlineEditChange={(next: boolean) => {
-                    persistViewPatch(viewDef.id, viewDef, { inlineEdit: next });
-                }}
+                // objectui#5144 (ruling E): session-only, writes nothing.
+                onInlineEditChange={keepInlineEditModeForTheSession}
                 onColumnStateChange={(state: { order?: string[]; widths?: Record<string, number> }) => {
                     persistViewPatch(viewDef.id, viewDef, { columnState: state });
                 }}
                 userFilterSelections={initialUfSelections}
                 onUserFilterSelectionsChange={handleUserFilterSelectionsChange}
-                initialFilters={storedListFilters?.filters as any}
-                initialSearchTerm={storedListFilters?.search}
+                initialFilters={listSeed?.filters}
+                initialSearchTerm={listSeed?.search}
                 dataSource={ds}
             />
         );
-    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, user?.id]);
+    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, writeListUrlState, user?.id, pageOffersCreate]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).
@@ -3166,14 +3766,30 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         [views, activeViewId, viewDraft]
     );
 
+    // objectui#11013 — the active view's toolbar policy, read under its declared
+    // spelling `userActions.search` / `.filter` / `.sort`. These used to be read
+    // as the bare `showSearch` / `showFilters` / `showSort` flags, so a view
+    // that declared `userActions: { search: false }` still got a search box
+    // here. A stored view that still carries a bare flag is folded onto
+    // `userActions` by `normalizeListViewSchema`, the one fold the relay's own
+    // `userActions` rung already runs; this read names no legacy key. Not
+    // memoised: `activeView` is a fresh object on every render while a draft is
+    // open, and the schema below keys on the three booleans, not on this value.
+    const activeViewUserActions = (normalizeListViewSchema(activeView ?? {}) as {
+        userActions?: { search?: boolean; filter?: boolean; sort?: boolean };
+    }).userActions;
+    const activeViewSearch = activeViewUserActions?.search !== false;
+    const activeViewFilter = activeViewUserActions?.filter !== false;
+    const activeViewSort = activeViewUserActions?.sort !== false;
+
     // Build the ObjectViewSchema for the plugin — reads from activeView (which merges draft)
     const objectViewSchema = useMemo(() => ({
         type: 'object-view' as const,
         objectName: objectDef.name,
         layout: 'page' as const,
-        showSearch: activeView?.showSearch !== false,
-        showFilters: activeView?.showFilters !== false,
-        showSort: activeView?.showSort !== false,
+        showSearch: activeViewSearch,
+        showFilters: activeViewFilter,
+        showSort: activeViewSort,
         showCreate: false, // We render our own create button in the header
         allowCreateView: isAdmin,
         viewActions: isAdmin ? [
@@ -3188,7 +3804,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 const originState = {
                   from: {
                     pathname: location.pathname + (location.search || ''),
-                    label: viewLabel(objectDef.name, activeView?.name ?? '', activeView?.label ?? '') || objectLabel(objectDef),
+                    label: viewOriginLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel) || objectPluralLabel(objectDef),
                   },
                 };
                 if (viewId) {
@@ -3198,7 +3814,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 }
             }
         },
-    }), [objectDef, onEdit, activeView?.showSearch, activeView?.showFilters, activeView?.showSort, activeView?.name, activeView?.label, navigate, viewId, isAdmin, location.pathname, location.search, viewLabel, objectLabel]);
+    }), [objectDef, onEdit, activeViewSearch, activeViewFilter, activeViewSort, activeView?.id, activeView?.name, activeView?.label, navigate, viewId, isAdmin, location.pathname, location.search, viewLabel, objectPluralLabel, servedViews]);
 
     return (
         <ActionProvider {...actionRuntime.actionProviderProps}>
@@ -3222,7 +3838,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
              <PageHeader
                  title={
                    <span className="inline-flex items-center gap-2">
-                     <span className="truncate">{objectLabel(objectDef)}</span>
+                     {/* The page lists the object's records, so it is titled
+                         with the plural, as the nav entry that opens it is
+                         (objectui#11696); the record page keeps the singular. */}
+                     <span className="truncate">{objectPluralLabel(objectDef)}</span>
                      <ManagedByBadge managedBy={(objectDef as any)?.managedBy} />
                    </span>
                  }
@@ -3230,14 +3849,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                  icon={(() => { const I = getIcon((objectDef as any)?.icon); return <I className="h-4 w-4" />; })()}
                  actions={
                    <>
-                    {/* Favorite toggle */}
+                    {/* Favorite toggle. The entry opens this list, so it is
+                        named with the plural the title above reads
+                        (objectui#11733). */}
                     {objectName && (
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => toggleFavorite({
                           id: `object:${objectName}`,
-                          label: objectLabel(objectDef),
+                          label: objectPluralLabel(objectDef),
                           href: `/apps/${appName}/${objectName}`,
                           type: 'object',
                         })}
@@ -3304,18 +3925,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                           onUpgrade={actionRuntime.openEntitlementDialog}
                         />
                       ) : (
-                      <SchemaRenderer schema={{
-                        type: 'action:bar',
-                        location: 'list_toolbar',
-                        actions: toolbarActionsWithDeepLink,
-                        size: 'sm',
-                        variant: 'outline',
-                        // On mobile, collapse all schema-driven toolbar actions
-                        // into a single overflow menu so the icon-only New /
-                        // Import buttons stay visible without pushing the page
-                        // title off-screen.
-                        mobileMaxVisible: 0,
-                      }} />
+                      <SchemaRenderer schema={toolbarBar} />
                       )
                     )}
 
@@ -3425,7 +4035,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                  const isSystem = !saved;
                  return {
                    id: view.id,
-                   label: viewLabel(objectDef.name, view.name || view.id, view.label || view.name || view.id),
+                   label: viewTabLabel(view, objectDef.name, servedViews, viewLabel),
                    type: view.type,
                    hasActiveFilters: Array.isArray(view.filter) && view.filter.length > 0,
                    hasActiveSort: Array.isArray(view.sort) && view.sort.length > 0,
@@ -3516,13 +4126,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                                 </div>
                                 {typeof recordCount === 'number' && (
                                     <div data-testid="record-count-footer" className="border-t px-3 sm:px-4 py-1.5 text-xs text-muted-foreground bg-muted/5 shrink-0">
-                                        {/* The two-key switch of `ListView`'s record-count bar
-                                            (objectui#10636). Packs whose plurals have more forms
-                                            than two write the count-not-one half as a count label
-                                            (objectui#10425). */}
-                                        {recordCount === 1
-                                            ? t('console.objectView.recordCountOne', { count: recordCount })
-                                            : t('console.objectView.recordCount', { count: recordCount })}
+                                        {/* One count family, like `ListView`'s record-count bar
+                                            (objectui#11445): i18next picks the CLDR slot. */}
+                                        {t('console.objectView.recordCount', { count: recordCount })}
                                     </div>
                                 )}
                             </div>

@@ -22,6 +22,9 @@ import {
   type RuntimeArtifactType,
 } from './runtime-metadata-persistence.js';
 import { useMetadataLocale, t, tFormat } from './metadata-admin/i18n.js';
+import { useObjectTranslation } from '@object-ui/i18n';
+import { formatMetadataError } from '@object-ui/data-objectstack';
+import { toast } from 'sonner';
 
 export interface RuntimeDraftBarProps {
   /** Artifact type — the `:type` in `/meta/:type/:name`. */
@@ -63,6 +66,20 @@ export interface RuntimeDraftBarProps {
   savedSignal?: number;
 }
 
+/**
+ * The leads of the bar's refusal toasts (objectui#11583), from the console's
+ * language packs. The engine table this file reads its labels from has no
+ * failure keys, and it covers two languages, not the console's ten. A hook of
+ * its own so its `t` is the packs' and the bar's `t` stays the table's.
+ */
+function useRefusalTitles(): { publishFailed: string; discardFailed: string } {
+  const { t } = useObjectTranslation();
+  return {
+    publishFailed: t('console.runtimeDraft.publishFailed'),
+    discardFailed: t('console.runtimeDraft.discardFailed'),
+  };
+}
+
 export function RuntimeDraftBar({
   type,
   name,
@@ -75,6 +92,7 @@ export function RuntimeDraftBar({
   savedSignal,
 }: RuntimeDraftBarProps) {
   const locale = useMetadataLocale();
+  const refusalTitles = useRefusalTitles();
   const [hasDraft, setHasDraft] = useState(false);
   const [busy, setBusy] = useState(false);
   // Track the `name` we've already resumed so reopening the same item doesn't
@@ -133,10 +151,16 @@ export function RuntimeDraftBar({
       onAfterChange?.();
     } catch (err) {
       console.error('[RuntimeDraftBar] Publish failed:', err);
+      // objectui#11583: a refused publish is said, with the door's message.
+      // The draft is still pending, so the indicator stays.
+      toast.error(refusalTitles.publishFailed, {
+        description: formatMetadataError(err),
+        classNames: { description: 'whitespace-pre-line' },
+      });
     } finally {
       setBusy(false);
     }
-  }, [type, name, metadataClient, dataSource, objectName, onAfterChange]);
+  }, [type, name, metadataClient, dataSource, objectName, onAfterChange, refusalTitles.publishFailed]);
 
   const handleDiscard = useCallback(async () => {
     if (!name) return;
@@ -153,10 +177,16 @@ export function RuntimeDraftBar({
       onAfterChange?.();
     } catch (err) {
       console.error('[RuntimeDraftBar] Discard draft failed:', err);
+      // objectui#11583: a refused discard is said, with the door's message.
+      // The draft is still pending, so the indicator stays.
+      toast.error(refusalTitles.discardFailed, {
+        description: formatMetadataError(err),
+        classNames: { description: 'whitespace-pre-line' },
+      });
     } finally {
       setBusy(false);
     }
-  }, [type, name, metadataClient, dataSource, objectName, onAfterChange, locale]);
+  }, [type, name, metadataClient, dataSource, objectName, onAfterChange, locale, refusalTitles.discardFailed]);
 
   // flag OFF, or nothing pending → render nothing (zero DOM, zero layout shift).
   // Nothing pending → render nothing (no indicator, no buttons).

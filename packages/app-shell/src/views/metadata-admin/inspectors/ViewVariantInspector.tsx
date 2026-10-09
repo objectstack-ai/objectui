@@ -189,7 +189,7 @@ function readObjectBinding(
   return { value: '', path: 'top' };
 }
 
-/** Build the View-type <select> options from the spec `type` enum. */
+/** Build the View-type picker's options (`InspectorSelectField`) from the spec `type` enum. */
 function useTypeOptions(locale?: string) {
   return React.useMemo(() => {
     const schema = getListVariantSchema();
@@ -440,7 +440,6 @@ export function ViewVariantInspector({
         label={t('engine.inspector.view.object', locale)}
         value={binding.value}
         onCommit={setObject}
-        placeholder={t('engine.inspector.view.objectPlaceholder', locale)}
         searchPlaceholder={t('engine.inspector.dataset.searchObjects', locale)}
         disabled={readOnly}
       />

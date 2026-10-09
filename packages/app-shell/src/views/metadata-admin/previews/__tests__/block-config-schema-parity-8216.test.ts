@@ -78,6 +78,16 @@
  *           every value by name. `@object-ui/test-support`'s `isShapeKeyTombstoned`
  *           is the shared judge (objectui#3809 / objectui#4947).
  *
+ * ## A control homed in the `dataSource` binding is judged by the binding
+ *
+ * A field marked `at: 'dataSource'` (objectui#11880) writes the node-level
+ * `dataSource.<name>`, not `properties.<name>`, so the block's props row is the
+ * wrong oracle for it: it is judged against the spec's `ElementDataSourceSchema`
+ * — the schema `PageComponentSchema.dataSource` is — on the SPEC face, and is
+ * not judged by the block's props on either face. Judging it at the props row
+ * would read a binding control as a retired flat key the day the spec
+ * tombstones `element:number.object`, which is exactly the move it made.
+ *
  * The REQUIRED direction — a schema-required key with no control — is measured
  * and reported on objectui#8216, and deliberately NOT gated here: objectui#7772's
  * triage records "an inspector need not expose every declared key" as a product
@@ -98,7 +108,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ComponentPropsMap } from '@objectstack/spec/ui';
+import { ComponentPropsMap, ElementDataSourceSchema } from '@objectstack/spec/ui';
 import * as objectUiZod from '@object-ui/types/zod';
 import {
   arrayElementSchema,
@@ -180,16 +190,10 @@ function oraclesFor(blockType: string): Array<{ face: OracleFace; schema: unknow
  * "every exemption names a real block" below would have failed on it.
  */
 const EXEMPT: Readonly<Record<string, { reason: string; card: string }>> = {
-  'element:definition-list': {
-    reason:
-      'objectui-native element block: absent from PageComponentType and ComponentPropsMap, and no @object-ui/types/zod arm declares it. Its declared face is the registry `inputs` list in components/renderers/basic/data-list.tsx, judged by a different gate (objectui#8067/objectui#8068) that reads top-level inputs only. A live item-key mismatch this gate structurally cannot see is objectui#8279.',
-    card: 'objectui#8281',
-  },
-  'element:repeater': {
-    reason:
-      'objectui-native element block: absent from PageComponentType and ComponentPropsMap, and no @object-ui/types/zod arm declares it. Same registry-`inputs`-only face as element:definition-list.',
-    card: 'objectui#8281',
-  },
+  // `element:definition-list` and `element:repeater` were the two rows here
+  // until `@objectstack/spec` 17.5.0 gave both a `ComponentPropsMap` entry
+  // (objectui#11073). The self-deleting row below turned red, as written, and
+  // both rows went: the two blocks are judged on the SPEC face now.
 };
 
 /* ── ledger ───────────────────────────────────────────────────────────────── */
@@ -200,9 +204,10 @@ const EXEMPT: Readonly<Record<string, { reason: string; card: string }>> = {
  * that stops applying is as red as a violation that is missing one.
  *
  * `face` scopes the row to the oracle that reports it, and it is load-bearing
- * rather than decoration: `object-form.formType` is a NODE-face declaration gap
- * while the SPEC face declares the key perfectly well, and an unscoped row
- * would absorb a future spec-face violation on the same name.
+ * rather than decoration: `object-form.formType` was a NODE-face declaration gap
+ * while the SPEC face declared the key perfectly well (until objectui#6152 round
+ * 1 closed it — see the note inside the ledger), and an unscoped row would have
+ * absorbed a future spec-face violation on the same name.
  */
 const LEDGER: ReadonlyArray<{ block: string; path: string; face: OracleFace; card: string; why: string }> = [
   // `object-kanban::limit@spec` stood here until @objectstack/spec 17.4.0. It was
@@ -214,14 +219,13 @@ const LEDGER: ReadonlyArray<{ block: string; path: string; face: OracleFace; car
   // declared `limit` upstream, which is the maintainer's option-A ruling on
   // objectui#8172, and the row went stale. Deleted rather than kept: a row that
   // no longer describes a violation is as red here as a violation with no row.
-  {
-    block: 'object-form',
-    path: 'formType',
-    face: 'node',
-    card: 'objectui#6152',
-    why:
-      'A declaration gap on the passthrough face only: the TS `ObjectFormSchema` declares `formType`, the spec declares it, PageBlockCanvas reads it, and the zod mirror omits it. objectui#6152 already carries this exact row in its UnmirroredDeclared table (objectql.zod.ts#ObjectFormSchema), so this ledger points there rather than opening a second card over the same debt.',
-  },
+  //
+  // `object-form::formType@node` stood here too, pointing at objectui#6152: the
+  // TS `ObjectFormSchema` and the spec both declared `formType`, PageBlockCanvas
+  // read it, and the zod mirror omitted it. objectui#6152 round 1 declared it on
+  // the mirror (with the other members that pair's `UnmirroredDeclared` entry
+  // recorded), the "every ledger row still applies" pin below turned red as
+  // written, and the row went.
 ];
 
 const ledgerId = (r: { block: string; path: string; face: OracleFace }) => `${r.block}::${r.path}@${r.face}`;
@@ -246,8 +250,13 @@ function judge(schema: unknown, name: string): Omit<Violation, 'id'> | undefined
 function census(): Violation[] {
   const found: Violation[] = [];
   for (const [blockType, fields] of Object.entries(BLOCK_CONFIG)) {
+    // Binding controls are judged by the binding's own schema, once.
+    for (const field of fields.filter((f) => f.at === 'dataSource')) {
+      const bound = judge(ElementDataSourceSchema, field.name);
+      if (bound) found.push({ id: `${blockType}::dataSource.${field.name}@spec`, ...bound });
+    }
     for (const { face, schema } of oraclesFor(blockType)) {
-      for (const field of fields) {
+      for (const field of fields.filter((f) => f.at !== 'dataSource')) {
         const top = judge(schema, field.name);
         if (top) found.push({ id: `${blockType}::${field.name}@${face}`, ...top });
 
@@ -329,6 +338,17 @@ describe('BLOCK_CONFIG ↔ node-schema parity — the instruments (objectui#8216
     // …and on the node face, where `retirementTombstone()` lives.
     expect(judge(NODE_ORACLES['object-kanban'], 'groupField')?.kind).toBe('RETIRED');
     expect(judge(NODE_ORACLES['object-kanban'], 'groupBy')).toBeUndefined();
+  });
+
+  it('the binding oracle can say no — and yes — for a control homed in `dataSource` (objectui#11880)', () => {
+    expect(judge(ElementDataSourceSchema, 'object')).toBeUndefined();
+    expect(judge(ElementDataSourceSchema, 'limit')).toBeUndefined();
+    expect(judge(ElementDataSourceSchema, 'titleField')?.kind).toBe('MISSING');
+    // The population is real: element:number's Object picker lives there.
+    const homed = Object.entries(BLOCK_CONFIG).flatMap(([type, fields]) =>
+      fields.filter((f) => f.at === 'dataSource').map((f) => `${type}.${f.name}`),
+    );
+    expect(homed).toContain('element:number.object');
   });
 
   it('the SPEC face really refuses an undeclared key by name, not silently', () => {
@@ -453,5 +473,19 @@ describe('BLOCK_CONFIG ↔ node-schema parity — the ratchet (objectui#8216)', 
     const bogus = kanban.safeParse({ ...base, notAKanbanKey: 1 });
     expect(bogus.success).toBe(false);
     expect(bogus.error.issues.flatMap((i: any) => i.keys ?? [])).toContain('notAKanbanKey');
+  });
+
+  it('the NODE-face ledger is empty too, and the row it last carried is re-measured', () => {
+    // Same non-vacuity problem as the spec face above, on the other oracle: an
+    // empty node-face ledger reads exactly like a node-oracle lookup that found
+    // nothing. The live control re-measures `object-form::formType@node`, the
+    // row objectui#6152 round 1 retired by declaring the key on the mirror.
+    expect(LEDGER.filter((r) => r.face === 'node').map(ledgerId)).toEqual([]);
+    const form = NODE_ORACLES['object-form'];
+    expect(form, 'the object-form node oracle must resolve, or the verdicts below prove nothing').toBeDefined();
+    expect(judge(form, 'formType')).toBeUndefined();
+    // …and the same oracle still reports an undeclared name, so the line above is
+    // not satisfied by an oracle that stopped judging.
+    expect(judge(form, 'notAnObjectFormKey')?.kind).toBe('MISSING');
   });
 });

@@ -15,7 +15,7 @@
  *     so the ordering is defensive, not a live path), and
  *   - the picker nonetheless shows the CANONICAL target, with both names
  *     present as options so the wrong reading would have shown the other one
- *     rather than an empty select.
+ *     rather than an empty picker.
  * The third case pins the write side: picking an object emits a nav item that
  * the spec's own `NavigationItemSchema` accepts whole.
  */
@@ -55,6 +55,7 @@ function renderInspector(node: Record<string, unknown>, onNavPatch = vi.fn()) {
       navId="navigation[0]"
       appDraft={{ navigation: [node] }}
       objects={OBJECTS}
+      packageId="com.acme.app"
       onNavPatch={onNavPatch}
       onClear={vi.fn()}
     />,
@@ -78,15 +79,18 @@ describe('StudioNavItemInspector — object binding (objectui#4881)', () => {
 
   it('binds the picker to `objectName`, not to the rejected `object`', () => {
     renderInspector(BOTH_KEYS_NODE);
-    // Before the flip this select showed `legacy_lead` — a real option here,
+    // Before the flip this picker showed `legacy_lead` — a real option here,
     // so this assertion fails loudly on the old reading rather than degrading
-    // to an empty value.
-    expect(screen.getByRole('combobox')).toHaveValue('crm_lead');
+    // to an empty value. The picker is the shared `Select` since objectui#11865:
+    // its trigger shows the chosen option's label.
+    expect(screen.getByRole('combobox').textContent).toBe('Leads (crm_lead)');
   });
 
-  it('picking an object writes a nav item the spec accepts whole', () => {
-    const onNavPatch = renderInspector({ id: 'nav_lead', type: 'object', label: 'New item' });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'crm_lead' } });
+  it('picking an object writes a nav item the spec accepts whole', async () => {
+    // The entry as the canvas births it: label-less since objectui#11196.
+    const onNavPatch = renderInspector({ id: 'nav_lead', type: 'object' });
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+    fireEvent.click(await screen.findByRole('option', { name: 'Leads (crm_lead)' }));
 
     expect(onNavPatch).toHaveBeenCalledTimes(1);
     const patched = (onNavPatch.mock.calls[0][0] as { navigation: Array<Record<string, unknown>> })

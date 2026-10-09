@@ -47,7 +47,7 @@ import {
   ChartContainerConfig
 } from './ChartContainerImpl';
 import { mapScatterClick, mapTreemapClick, mapSankeyClick } from './chartDrillEvents';
-import { formatterFor, domainFor, ticksFor, RENDERABLE, SINGLE_VALUE_CHART_TYPES, TABULAR_CHART_TYPES, effectiveChartFamily, comboBaseFamily, placeYAxes, type NormalizedAxis, type NormalizedSeries, type ValueAxisSlot, type YAxisPlacement } from './normalizeChartSchema';
+import { formatterFor, domainFor, ticksFor, RENDERABLE, SINGLE_VALUE_CHART_TYPES, TABULAR_CHART_TYPES, effectiveChartFamily, comboBaseFamily, placeYAxes, type DeclaredChartFamily, type NormalizedAxis, type NormalizedSeries, type ValueAxisSlot, type YAxisPlacement } from './normalizeChartSchema';
 import { buildCategoryRank, chartRowBucketId, isRealCalendarDate, toDateInputValue, toDisplayDate, type ChartSegmentClickEvent } from '@object-ui/core';
 import { useDisplayLocale, useSafeTranslate } from '@object-ui/i18n';
 
@@ -238,11 +238,22 @@ const seriesLabelForKey = (
 
 export interface AdvancedChartImplProps {
   /**
-   * Chart family. `combo` is renderer-local and rarely needs to be passed:
-   * series declaring different families derive it (`effectiveChartFamily`),
-   * which is how `@objectstack/spec` expresses a combo chart.
+   * Chart family, as the schema names it. `combo` is renderer-local and rarely
+   * needs to be passed: series declaring different families derive it
+   * (`effectiveChartFamily`), which is how `@objectstack/spec` expresses a
+   * combo chart.
+   *
+   * Typed as the declared chart families ({@link DeclaredChartFamily}: the
+   * spec's `ChartType` and the `object-chart` node's own union, by reference),
+   * so a misspelled family does not compile. The family dispatch below is the
+   * one place a family becomes a form: a chart for `RENDERABLE`, the number
+   * card for the single-value families, the tabular notice for the tabular
+   * ones, and a notice for anything else, which is how a value from unvalidated
+   * JSON outside the type is answered at runtime. ⛔ There is no default family
+   * (objectui#11520): an absent family is that notice too, never a bar. A
+   * caller that means a bar passes `'bar'`.
    */
-  chartType?: 'bar' | 'column' | 'horizontal-bar' | 'line' | 'area' | 'pie' | 'donut' | 'radar' | 'scatter' | 'funnel' | 'combo' | 'treemap' | 'sankey';
+  chartType?: DeclaredChartFamily;
   data?: Array<Record<string, any>>;
   config?: ChartContainerConfig;
   xAxisKey?: string;
@@ -406,13 +417,77 @@ const CATEGORY_AXIS_CHART_TYPES: ReadonlySet<string> = new Set([
 const X_AXIS_ALL_LABELS_MAX_BUCKETS = 5;
 
 /**
- * Longest rotated x-axis label kept before it is ellipsised, so a label the
- * bound above newly forces into view cannot overrun the 60px the axis reserves:
- * 12 chars ≈ 78px of text, × sin(35°) ≈ 45px of height, inside 60 − 10
- * (`tickMargin`). Deliberately scoped to that branch — charts above the bound
- * render their labels exactly as they did before.
+ * Longest rotated x-axis label kept before it is ellipsised (objectui#7247).
+ *
+ * It applies to EVERY rotated label, on both sides of the bound above
+ * (objectui#11796): the axis band below is sized from the longest label it
+ * draws, so an unbounded label would need an unbounded band, eating the plot.
+ * A shortened name is still a name; a clipped one reads as a different
+ * category. The full name stays on the bar's tooltip.
  */
 const ROTATED_X_LABEL_MAX_CHARS = 12;
+
+/** Degrees a rotated x-axis label is turned, away from the plot. */
+const ROTATED_X_LABEL_ANGLE = 35;
+
+/** The category x axis's `tickMargin`: the gap between a tick and its label. */
+const X_AXIS_TICK_MARGIN = 10;
+
+/**
+ * recharts' default `tickSize`. The x axis hides its tick LINES
+ * (`tickLine={false}`), but recharts still places each label `tickSize` +
+ * `tickMargin` away from the axis line.
+ */
+const RECHARTS_TICK_SIZE = 6;
+
+/** The axis tick text's font size: `ChartContainer`'s `text-xs`. */
+const AXIS_TICK_FONT_PX = 12;
+
+/**
+ * The advance, in em, {@link estimateLabelWidthPx} charges one glyph that is
+ * not wide: about the all-capitals advance of the sans fonts the tick text
+ * inherits, so it over-charges a mixed-case label rather than under-charging
+ * a capitalised one. A deliberate upper estimate, not a measurement of any
+ * one font: the tick text has no width before it is painted, and recharts'
+ * own measuring helper is not part of its public API.
+ */
+const NARROW_GLYPH_EM = 0.65;
+
+/** Glyphs set a full em wide: CJK ideographs, kana, Hangul, full-width forms. */
+const WIDE_GLYPH = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\u3000-\u303f\uff00-\uffef]/u;
+
+/** An upper estimate of one tick label's painted width, in px. */
+function estimateLabelWidthPx(label: string): number {
+  let ems = 0;
+  for (const glyph of label) ems += WIDE_GLYPH.test(glyph) ? 1 : NARROW_GLYPH_EM;
+  return ems * AXIS_TICK_FONT_PX;
+}
+
+/**
+ * The height the x axis reserves for its rotated labels (objectui#11796),
+ * derived from the longest label it draws.
+ *
+ * A rotated label is anchored at its END (`textAnchor: 'end'`), `tickSize` +
+ * `tickMargin` from the axis line, and turned away from the plot, so its
+ * START is the part farthest from the plot: the text drops
+ * `width · sin(angle)`, plus its line box below the anchor (about 1em: the
+ * baseline offset recharts gives a tick's first line, and the descent), turned
+ * by the same angle, `1em · cos(angle)`.
+ *
+ * The fixed 60px this replaced counted the text width alone, so the longest
+ * labels the cap above lets through ran past it, and the chart surface cut off
+ * the START of each label ("acklog" for Backlog). What the band reserves
+ * against what Chromium paints is the harness reading recorded on
+ * objectui#11796's pull request, taken once and not re-derived here;
+ * `AdvancedChartImpl.rotatedLabelBand-11796.test.tsx` pins the band itself.
+ */
+function rotatedXAxisHeight(labels: readonly string[]): number {
+  const rad = (ROTATED_X_LABEL_ANGLE * Math.PI) / 180;
+  const widest = labels.reduce((max, label) => Math.max(max, estimateLabelWidthPx(label)), 0);
+  return Math.ceil(
+    RECHARTS_TICK_SIZE + X_AXIS_TICK_MARGIN + AXIS_TICK_FONT_PX * Math.cos(rad) + widest * Math.sin(rad),
+  );
+}
 
 /**
  * Symbol AREA budget the scatter's edge margin below is sized against, in px².
@@ -1426,7 +1501,10 @@ function unplottedPointsNote(
  * This component is lazy-loaded to avoid including Recharts in the initial bundle
  */
 function AdvancedChartImplInner({
-  chartType: rawChartType = 'bar',
+  // ⛔ No `= 'bar'` default (objectui#11520): it drew a bar for every family
+  // that arrived unset, which is how a `specType: 'gauge'` chart became a bar
+  // chart with no note. An absent family is the notice in the dispatch below.
+  chartType: rawChartType,
   data: rawData = [],
   config = {},
   xAxisKey = 'name',
@@ -1676,22 +1754,6 @@ function AdvancedChartImplInner({
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  const ChartComponent = {
-    bar: BarChart,
-    'horizontal-bar': BarChart,
-    line: LineChart,
-    area: AreaChart,
-    pie: PieChart,
-    donut: PieChart,
-    radar: RadarChart,
-    scatter: ScatterChart,
-    funnel: FunnelChart as any,
-    // combo/treemap/sankey return from their own branches above; mapped here
-    // only so the index type stays exhaustive.
-    combo: ComposedChart,
-    treemap: BarChart,
-    sankey: BarChart,
-  }[chartType] || BarChart;
 
   // Format ISO date strings into compact "MMM D" / "MMM YYYY" labels for X-axis ticks.
   // Falls back to the raw value when not parseable as a date.
@@ -1829,24 +1891,31 @@ function AdvancedChartImplInner({
   );
 
   /**
-   * The x-axis formatter, plus the ellipsis step objectui#7247's label policy
-   * owes: once every bucket is drawn, a long rotated name would run past the
-   * 60px the axis reserves and be clipped mid-word. A shortened name is still
-   * a name; a clipped one reads as a different category.
+   * The x-axis formatter, plus the ellipsis step a rotated label owes
+   * (objectui#7247, every rotated label since objectui#11796): the axis band
+   * is sized from the longest label drawn, so the cap is what keeps that band
+   * bounded. See `ROTATED_X_LABEL_MAX_CHARS`.
    *
    * Kept separate from `xTickFormatter` on purpose — that one also formats the
    * horizontal-bar family's CATEGORY axis, which is the y axis, sizes its own
    * width from the longest label, and already draws all of them.
    */
   const xAxisTickFormatter = React.useMemo(() => {
-    if (!labelEveryBucket || !rotateXLabels) return xTickFormatter;
+    if (!rotateXLabels) return xTickFormatter;
     return (value: any): string => {
       const label = String(xTickFormatter(value) ?? '');
       return label.length > ROTATED_X_LABEL_MAX_CHARS
         ? `${label.slice(0, ROTATED_X_LABEL_MAX_CHARS - 1)}…`
         : label;
     };
-  }, [labelEveryBucket, rotateXLabels, xTickFormatter]);
+  }, [rotateXLabels, xTickFormatter]);
+
+  // objectui#11796 — the band a rotated x axis reserves, from the longest
+  // label it draws (see `rotatedXAxisHeight`). A number, so the axis props
+  // below key on the value rather than on this render's formatter.
+  const rotatedXAxisBand = rotateXLabels
+    ? rotatedXAxisHeight(data.map((d) => String(xAxisTickFormatter(d?.[xAxisKey]) ?? '')))
+    : undefined;
   const yTickFormatter = React.useMemo(
     () => formatterFor(primaryY?.format, displayLocale) ?? formatYTick,
     [primaryY?.format, displayLocale, formatYTick],
@@ -2016,7 +2085,7 @@ function AdvancedChartImplInner({
   // overlap, unchanged in kind from before this change.
   const xAxisCommonProps = React.useMemo(() => ({
     tickLine: false as const,
-    tickMargin: 10,
+    tickMargin: X_AXIS_TICK_MARGIN,
     axisLine: false as const,
     // A short categorical axis names every bucket; everything above the
     // bound now leans on recharts' own measured-overlap check with no added
@@ -2031,19 +2100,29 @@ function AdvancedChartImplInner({
     ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, ...xAxisTitleLayoutFor(xAxisAcross) } } : {}),
     // A rotated label hangs AWAY from the plot: down-left under a bottom axis
     // (`-35`), and up-left over a top one (`35`) — the same `-35` above the
-    // plot would slant every label down into the marks.
-    ...(rotateXLabels && { angle: xAxisAcross === 'top' ? 35 : -35, textAnchor: 'end' as const, height: 60 }),
-  }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title, xAxisAcross]);
+    // plot would slant every label down into the marks. Its band is sized
+    // from the longest label drawn (objectui#11796, `rotatedXAxisHeight`).
+    ...(rotateXLabels && {
+      angle: xAxisAcross === 'top' ? ROTATED_X_LABEL_ANGLE : -ROTATED_X_LABEL_ANGLE,
+      textAnchor: 'end' as const,
+      height: rotatedXAxisBand,
+    }),
+  }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title, xAxisAcross, rotatedXAxisBand]);
 
   // #2942 — the non-series spec families used to fall through the component
   // map's `|| BarChart` into a bar shell whose series marks all returned
   // null: grid, axes, tooltip and legend rendered with NO data marks,
-  // indistinguishable from an empty dataset. Reachable because ChartRenderer
-  // resolves `schema.chartType ?? spec.chartType` without going through
-  // `normalizeChartSchema`'s RENDERABLE gate. Single-value families render
+  // indistinguishable from an empty dataset. Single-value families render
   // the measure as a number (the spec's own framing for them); tabular ones
   // say which component owns the rendering; unknown values are named instead
   // of guessed at.
+  //
+  // objectui#11520 — this is the ONE family → form dispatch, and every channel
+  // reaches it with the family as named: `chartType` straight from
+  // `ChartRenderer`, and `specType` (the react tier's family) through
+  // `normalizeChartSchema`, which no longer drops the families this block
+  // draws no chart of. A chart that arrives with no family at all is the
+  // unknown-type notice below, not a bar.
   if (chartType && SINGLE_VALUE_CHART_TYPES.has(chartType)) {
     const dataKey = series[0]?.dataKey || 'value';
     const raw = data[0]?.[dataKey];
@@ -2071,17 +2150,42 @@ function AdvancedChartImplInner({
       </div>
     );
   }
-  if (chartType && !RENDERABLE.has(chartType)) {
+  if (!chartType || !RENDERABLE.has(chartType)) {
     return (
       <div
         className={`rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground ${className ?? ''}`}
         data-testid="advanced-chart-unknown-type"
         role="note"
       >
-        Chart type &ldquo;{chartType}&rdquo; is not a spec chart type — nothing was drawn.
+        {chartType ? (
+          <>Chart type &ldquo;{chartType}&rdquo; is not a spec chart type — nothing was drawn.</>
+        ) : (
+          <>This chart names no chart type — nothing was drawn.</>
+        )}
       </div>
     );
   }
+
+  // The recharts root the cartesian tail at the end draws in. It is read
+  // only past the dispatch above, which returns for every family outside
+  // `RENDERABLE` and for none (objectui#11520), so `chartType` is a drawn
+  // family here. combo/treemap/sankey return from their own branches below;
+  // they are mapped only so every drawn family has a row.
+  const cartesianRoots = {
+    bar: BarChart,
+    'horizontal-bar': BarChart,
+    line: LineChart,
+    area: AreaChart,
+    pie: PieChart,
+    donut: PieChart,
+    radar: RadarChart,
+    scatter: ScatterChart,
+    funnel: FunnelChart as any,
+    combo: ComposedChart,
+    treemap: BarChart,
+    sankey: BarChart,
+  };
+  const ChartComponent = cartesianRoots[chartType as keyof typeof cartesianRoots] || BarChart;
 
   // Pie and Donut charts
   if (chartType === 'pie' || chartType === 'donut') {
@@ -2916,11 +3020,24 @@ function AdvancedChartImplInner({
  * it (see `bucketNullCategories` in `@object-ui/core`), which is what keeps this
  * predicate meaning what it says.
  */
+/**
+ * The family the refusal guards below judge, `column` read as the bar it draws.
+ *
+ * ⛔ No `'bar'` default (objectui#11520). Each guard used to restate the
+ * component's own `= 'bar'`, so a chart that named no family was judged as a
+ * bar here before it was drawn as one. It now names no family to them either:
+ * none of them refuses it, and the component draws the unknown-type notice.
+ */
+function guardFamily(props: AdvancedChartImplProps): DeclaredChartFamily | undefined {
+  return props.chartType === 'column' ? 'bar' : props.chartType;
+}
+
 function hasNoCategoryKey(props: AdvancedChartImplProps): boolean {
-  const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
+  const chartType = guardFamily(props);
   const rows = Array.isArray(props.data) ? props.data : [];
   const key = props.xAxisKey ?? 'name';
   return (
+    chartType !== undefined &&
     CATEGORY_AXIS_CHART_TYPES.has(chartType) &&
     rows.length > 0 &&
     !rows.some((row) => row != null && typeof row === 'object' && key in row)
@@ -3019,9 +3136,9 @@ const SERIES_ONLY_CHART_TYPES: ReadonlySet<string> = new Set([
 type NoPlottableSeries = 'empty' | 'undeclared';
 
 function hasNoPlottableSeries(props: AdvancedChartImplProps): NoPlottableSeries | null {
-  const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
+  const chartType = guardFamily(props);
   const rows = Array.isArray(props.data) ? props.data : [];
-  if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0) return null;
+  if (chartType === undefined || !SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0) return null;
   if (props.series === undefined) return 'undeclared';
   if (Array.isArray(props.series) && props.series.length === 0) return 'empty';
   return null;
@@ -3079,10 +3196,10 @@ function hasNoPlottableSeries(props: AdvancedChartImplProps): NoPlottableSeries 
  * counts.
  */
 function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null {
-  const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
+  const chartType = guardFamily(props);
   const rows = Array.isArray(props.data) ? props.data : [];
   const series = Array.isArray(props.series) ? props.series : [];
-  if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
+  if (chartType === undefined || !SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
   const keys = Array.from(new Set(series.map((s) => String(s.dataKey))));
   const resolved = keys.every((key) =>
     rows.some(
@@ -3145,10 +3262,10 @@ function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null
  * at all". Scatter's absent key is already refused by `no-plottable-points`.
  */
 function hasNoCarriedSeriesKey(props: AdvancedChartImplProps): string[] | null {
-  const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
+  const chartType = guardFamily(props);
   const rows = Array.isArray(props.data) ? props.data : [];
   const series = Array.isArray(props.series) ? props.series : [];
-  if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
+  if (chartType === undefined || !SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
   const keys: unknown[] = Array.from(new Set(series.map((s) => s.dataKey)));
   const absent = keys.every(
     (key) =>

@@ -15,6 +15,11 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@object-ui/components';
 import { Share2, Copy, Check, Lock, Calendar } from 'lucide-react';
 
@@ -45,6 +50,49 @@ function generateToken(): string {
 
 function buildShareUrl(baseUrl: string, objectName: string, viewId: string, token: string): string {
   return `${baseUrl}/share/${objectName}/${viewId}?mode=readonly&token=${token}`;
+}
+
+/** The expiry choices: days, as the string the link's `expiresAt` is computed from. */
+const EXPIRY_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: '', label: 'Never' },
+  { value: '1', label: '1 day' },
+  { value: '7', label: '7 days' },
+  { value: '30', label: '30 days' },
+  { value: '90', label: '90 days' },
+];
+
+/**
+ * objectui#11865 — the expiry picker, drawn with the shared `Select`, the
+ * control the rest of the console picks with. It used to be a browser-native
+ * `<select>`. A pick writes the option's own value, the string the native
+ * control's `change` carried; re-picking the current option writes nothing, as
+ * it did there. Items carry the option's INDEX, not its value: "Never" is the
+ * option whose value is `''`, which `SelectItem` refuses. The value is this
+ * component's own state and only ever one of these options, so no value
+ * outside them can reach the picker.
+ */
+function ExpiryPicker({ value, onPick }: { value: string; onPick: (value: string) => void }) {
+  const at = EXPIRY_OPTIONS.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={String(at)}
+      onValueChange={(token) => {
+        const picked = EXPIRY_OPTIONS[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger className="h-8 w-full px-3 text-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {EXPIRY_OPTIONS.map((o, i) => (
+          <SelectItem key={o.value} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 export const SharedViewLink: React.FC<SharedViewLinkProps> = ({
@@ -134,17 +182,7 @@ export const SharedViewLink: React.FC<SharedViewLinkProps> = ({
                 <Calendar className="h-3.5 w-3.5" />
                 Expires after (optional)
               </label>
-              <select
-                value={expiresIn}
-                onChange={(e) => setExpiresIn(e.target.value)}
-                className="w-full h-8 text-xs rounded-md border border-input bg-background px-3"
-              >
-                <option value="">Never</option>
-                <option value="1">1 day</option>
-                <option value="7">7 days</option>
-                <option value="30">30 days</option>
-                <option value="90">90 days</option>
-              </select>
+              <ExpiryPicker value={expiresIn} onPick={setExpiresIn} />
             </div>
 
             <Button onClick={handleGenerateLink} className="w-full gap-2" size="sm">

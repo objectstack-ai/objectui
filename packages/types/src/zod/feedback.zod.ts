@@ -34,14 +34,14 @@ export const LoadingSchema = BaseSchema.extend({
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `fullscreen`, `size`, `text`.',
+    + 'What it renders instead: `fullscreen`, `label`, `size`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `loading` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `fullscreen`, `size`, `text`.',
+    + 'What it renders instead: `fullscreen`, `label`, `size`.',
   ),
 });
 
@@ -301,7 +301,7 @@ export const SonnerSchema = BaseSchema.extend({
 /**
  * Feedback Schema Union - All feedback component schemas
  */
-export const FeedbackSchema = z.discriminatedUnion('type', [
+const FeedbackSchemaInferred = z.discriminatedUnion('type', [
   LoadingSchema,
   ProgressSchema,
   SkeletonSchema,
@@ -311,3 +311,16 @@ export const FeedbackSchema = z.discriminatedUnion('type', [
   EmptySchema,
   SonnerSchema,
 ]);
+
+/**
+ * The TYPE of {@link FeedbackSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface FeedbackZodType extends FeedbackSchemaInferredType {
+  options: FeedbackSchemaInferredType['options'];
+}
+type FeedbackSchemaInferredType = typeof FeedbackSchemaInferred;
+
+/** The union above, typed by its named {@link FeedbackZodType}. */
+export const FeedbackSchema: FeedbackZodType = FeedbackSchemaInferred;

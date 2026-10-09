@@ -309,12 +309,20 @@ describe('ActionEngine.getActionsForLocation — visibility filter', () => {
         { name: 'tpl_empty', type: 'api', visible: { dialect: 'template', source: '' } } as any,
         { locations: ['record_section'] },
       );
+      // An object with NO `source` key is not an empty source: since
+      // objectui#11358 it is a declared gate that cannot be evaluated, and it
+      // hides — see that block at the foot of this file.
       engine.registerAction(
         { name: 'no_source', type: 'api', visible: {} } as any,
         { locations: ['record_section'] },
       );
-      expect(engine.getActionsForLocation('record_section').map(a => a.name))
-        .toEqual(['cel_empty', 'tpl_empty', 'no_source']);
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        expect(engine.getActionsForLocation('record_section').map(a => a.name))
+          .toEqual(['cel_empty', 'tpl_empty']);
+      } finally {
+        warn.mockRestore();
+      }
     });
   });
 
@@ -409,6 +417,12 @@ describe('ActionEngine.getActionsForLocation — visibility filter', () => {
  * ranges agreed on (`''`, `null`, `undefined`, `{}`, `[]`, the empty-`source`
  * envelope) plus every anti-mutation row below. Nothing can go red in the other
  * direction: this change only ever stops hiding an action.
+ *
+ * ⚠️ Since objectui#11358 the table's `0` / `NaN` / `{}` rows (and `[]`, and an
+ * envelope with no `source` key) are no longer "no gate": they are declared
+ * gates that cannot be evaluated, and this filter HIDES them. Their rows moved
+ * to the block below; the table above is the objectui#3957 measurement as it
+ * was taken.
  */
 describe('ActionEngine `visible` reads the ONE declared-gate definition (objectui#3957)', () => {
   const CTX = { record: { id: 'r1', status: 'open' }, user: { id: 'u1' } };
@@ -434,11 +448,6 @@ describe('ActionEngine `visible` reads the ONE declared-gate definition (objectu
     { label: "'' (empty predicate)", value: '', changed: false },
     { label: "'   ' (blank predicate text)", value: '   ', changed: true },
     { label: "'\\t\\n' (other blanks)", value: '\t\n', changed: true },
-    { label: '0 (not a predicate)', value: 0, changed: true },
-    { label: 'NaN (not a predicate)', value: NaN, changed: true },
-    { label: '{} (no source)', value: {}, changed: false },
-    { label: '[] (array)', value: [], changed: false },
-    { label: "{ dialect: 'cel' } (no source key)", value: { dialect: 'cel' }, changed: false },
     { label: "{ dialect: 'cel', source: '' } (what `objectstack build` emits)", value: { dialect: 'cel', source: '' }, changed: false },
     { label: "{ dialect: 'cel', source: '   ' } (blank source — objectui#3960)", value: { dialect: 'cel', source: '   ' }, changed: false },
     { label: "{ source: '   ' } (blank source, no dialect)", value: { source: '   ' }, changed: true },
@@ -458,8 +467,6 @@ describe('ActionEngine `visible` reads the ONE declared-gate definition (objectu
     expect(NO_GATE.filter(s => s.changed).map(s => s.label)).toEqual([
       "'   ' (blank predicate text)",
       "'\\t\\n' (other blanks)",
-      '0 (not a predicate)',
-      'NaN (not a predicate)',
       "{ source: '   ' } (blank source, no dialect)",
     ]);
   });
@@ -493,5 +500,64 @@ describe('ActionEngine `visible` reads the ONE declared-gate definition (objectu
     } finally {
       warn.mockRestore();
     }
+  });
+});
+
+/**
+ * objectui#11358 — a `visible` that is DECLARED but has no evaluable `source`
+ * (an `ast`-only envelope, `0`, `{}`, an array) hides the action on this
+ * filter, as it does on every renderer `visible` leg, and is reported once.
+ *
+ * The mechanism is not in this filter: `toPredicateInput` keeps the value as a
+ * `cel` envelope with no `source` instead of folding it into `undefined`, so
+ * `hasDeclaredPredicate` answers "declared", and the `throwOnError` evaluation
+ * throws for it — this filter's existing catch hides and warns. One report per
+ * action, from `warnHiddenPredicate`; the evaluator adds none of its own under
+ * `throwOnError`.
+ */
+describe('ActionEngine `visible`: declared but not evaluable fails closed (objectui#11358)', () => {
+  const CTX = { record: { id: 'r1', status: 'open' }, user: { id: 'u1' } };
+
+  const UNEVALUABLE: Array<{ label: string; value: unknown }> = [
+    { label: "an `ast`-only envelope ({ dialect: 'cel', ast })", value: { dialect: 'cel', ast: { kind: 'call', fn: '==' } } },
+    { label: '0', value: 0 },
+    { label: 'NaN', value: NaN },
+    { label: '{} (no source)', value: {} },
+    { label: '[] (array)', value: [] },
+    { label: "{ dialect: 'cel' } (no source key)", value: { dialect: 'cel' } },
+  ];
+
+  it.each(UNEVALUABLE)('visible: $label → declared, hidden, reported once', ({ value }) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(hasDeclaredPredicate(value)).toBe(true);
+      const engine = new ActionEngine({ ...CTX });
+      // A name per row, so `warnHiddenPredicate`'s per-action dedupe cannot
+      // carry one row's report into the next.
+      const name = `probe_11358_${UNEVALUABLE.findIndex(r => Object.is(r.value, value))}`;
+      engine.registerAction(
+        { name, type: 'api', visible: value } as unknown as ActionDef,
+        { locations: ['record_section'] },
+      );
+      expect(engine.getActionsForLocation('record_section')).toHaveLength(0);
+      // Asked twice: the second read must not report again.
+      expect(engine.getActionsForLocation('record_section')).toHaveLength(0);
+      const reports = warn.mock.calls.map(c => String(c[0]));
+      expect(reports.filter(r => r.includes(name))).toHaveLength(1);
+      expect(reports.filter(r => r.includes('[unevaluable]'))).toHaveLength(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('controls: an absent gate shows, a real CEL `source` evaluates as before', () => {
+    const shows = (visible: unknown) => {
+      const engine = new ActionEngine({ ...CTX });
+      engine.registerAction({ name: 'c', type: 'api', visible } as unknown as ActionDef, { locations: ['record_section'] });
+      return engine.getActionsForLocation('record_section').length === 1;
+    };
+    expect(shows(undefined)).toBe(true);
+    expect(shows({ dialect: 'cel', source: 'record.status == "open"' })).toBe(true);
+    expect(shows({ dialect: 'cel', source: 'record.status == "closed"' })).toBe(false);
   });
 });

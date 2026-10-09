@@ -38,6 +38,10 @@ import { render } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
+// Every type below is deliberately one no registration and no declaration names:
+// the suggestion is the point, so each crosses through the one test helper for
+// undeclared input (objectui#11466).
+import { undeclaredNode } from '@object-ui/test-support';
 
 /** Marker text that appears ONLY if the component actually rendered. */
 const RENDERED_MARKER = 'the-component-actually-rendered';
@@ -65,7 +69,7 @@ describe('objectui#5247 — case-only miss on the OBJUI-001 panel', () => {
     // would make the two assertions below agree about nothing.
     expect(ComponentRegistry.getKnownTypes()).toContain('page');
 
-    const { container } = render(<SchemaRenderer schema={{ type: 'Page' }} />);
+    const { container } = render(<SchemaRenderer schema={undeclaredNode({ type: 'Page' })} />);
     const text = container.textContent ?? '';
 
     // Half 1 — the ruled behaviour that must NOT change (this passes on a
@@ -80,7 +84,7 @@ describe('objectui#5247 — case-only miss on the OBJUI-001 panel', () => {
   });
 
   it('names the namespaced spelling too', () => {
-    const { container } = render(<SchemaRenderer schema={{ type: 'UI:Button' }} />);
+    const { container } = render(<SchemaRenderer schema={undeclaredNode({ type: 'UI:Button' })} />);
     const text = container.textContent ?? '';
 
     expect(text).not.toContain(RENDERED_MARKER);
@@ -92,7 +96,7 @@ describe('objectui#5247 — case-only miss on the OBJUI-001 panel', () => {
     // The counter-probe for the "always suggests" failure mode. On its own it
     // is a phantom — it passes on a revert — so it is pinned in the same run as
     // the two cases above.
-    const { container } = render(<SchemaRenderer schema={{ type: 'zzz' }} />);
+    const { container } = render(<SchemaRenderer schema={undeclaredNode({ type: 'zzz' })} />);
     const text = container.textContent ?? '';
 
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
@@ -103,7 +107,7 @@ describe('objectui#5247 — case-only miss on the OBJUI-001 panel', () => {
   it('does not reach for an edit distance — a typo that is not a case typo suggests nothing', () => {
     // `pge` is one deletion away from `page`. The ruling granted case, and only
     // case; a fuzzy match here would be scope it did not give.
-    const { container } = render(<SchemaRenderer schema={{ type: 'pge' }} />);
+    const { container } = render(<SchemaRenderer schema={undeclaredNode({ type: 'pge' })} />);
     const text = container.textContent ?? '';
 
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
@@ -117,7 +121,7 @@ describe('objectui#5247 — case-only miss on the OBJUI-001 panel', () => {
     ComponentRegistry.unregister('page', 'test5247');
     expect(ComponentRegistry.getKnownTypes()).not.toContain('page');
 
-    const { container } = render(<SchemaRenderer schema={{ type: 'Page' }} />);
+    const { container } = render(<SchemaRenderer schema={undeclaredNode({ type: 'Page' })} />);
     const text = container.textContent ?? '';
 
     expect(container.querySelector('[role="alert"]')).not.toBeNull();

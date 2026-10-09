@@ -10,7 +10,7 @@ const columns = [
   { name: 'amount', label: 'Amount', type: 'currency' as const },
 ];
 
-const field = { columns, total_field: 'amount' } as any;
+const field = { columns, totalField: 'amount' } as any;
 
 describe('GridField / LineItemsField — editable line items', () => {
   it('is exported under both names', () => {
@@ -396,9 +396,12 @@ describe('GridField / LineItemsField — editable line items', () => {
         { name: 'product', label: 'Product', type: 'text' as const },
         { name: 'quantity', label: 'Qty', type: 'number' as const },
         { name: 'unit_price', label: 'Unit Price', type: 'currency' as const },
-        { name: 'amount', label: 'Amount', type: 'currency' as const, computed: true, expr: 'record.quantity * record.unit_price', scale: 2 },
+        // No `scale`: `@objectstack/spec` 17.5.0 refuses it on a column that
+        // declares `type: 'currency'`, and the grid does not read it there
+        // (objectui#10783). The currency's minor unit decides.
+        { name: 'amount', label: 'Amount', type: 'currency' as const, computed: true, expr: 'record.quantity * record.unit_price' },
       ],
-      total_field: 'amount',
+      totalField: 'amount',
     } as any;
 
     it('renders a computed column read-only (no input) and recomputes on edit', () => {

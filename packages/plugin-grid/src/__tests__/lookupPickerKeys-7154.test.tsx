@@ -29,7 +29,7 @@
  *     consumer is `<CellRenderer field={fieldMeta}>` — the READ-ONLY cell
  *     (`ObjectGrid.tsx`, all three column-building paths). For a relational
  *     column that resolves to `LookupCellRenderer`, which reads exactly
- *     `reference_to`, `reference`, `display_field`, `displayField` and
+ *     `reference`, `displayField` and
  *     `reference_field` — none of the four.
  *   - The inline EDITOR is a different seam: `renderCellEditor` looks the field
  *     up in the object schema itself and spreads the WHOLE def into the widget
@@ -192,8 +192,10 @@ describe('objectui#7154 — the four picker keys reach the grid’s inline picke
   it('none of the four is on the relational copy set (the premise this file re-measures)', () => {
     // Control: the copy set is populated and holds the key objectui#6875 added,
     // so "does not contain" below is a reading and not an empty list.
-    // objectui#7155 shrank it from 7 to 3 by retiring the snake_case dialect.
-    expect(RELATIONAL_META_KEYS.length).toBeGreaterThan(2);
+    // objectui#7155 shrank it from 7 to 3 by retiring the snake_case dialect,
+    // and objectui#11070 round 4 to 2 by retiring `reference_to`.
+    expect(RELATIONAL_META_KEYS.length).toBeGreaterThan(1);
+    expect(RELATIONAL_META_KEYS).toContain('reference');
     expect(RELATIONAL_META_KEYS).toContain('displayField');
     for (const key of ['multiple', 'allowCreate', 'lookupPageSize', 'dependsOn']) {
       expect(RELATIONAL_META_KEYS).not.toContain(key);

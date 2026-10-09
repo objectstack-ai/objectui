@@ -7,11 +7,12 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import type { DataSource, TimelineSchema, ListViewTimelineConfig } from '@object-ui/types';
+import type { DataSource, TimelineSchema, ListViewTimelineConfig, ViewNavigationConfig } from '@object-ui/types';
 import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import { NavigationOverlay } from '@object-ui/components';
 import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver, recordDisplayValueAt, toDisplayDate } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
+import { firstDayOfWeek, useDisplayLocale } from '@object-ui/i18n';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { z } from 'zod';
 import { TimelineRenderer } from './renderer';
@@ -125,10 +126,14 @@ const OBJECT_BOUND_TIMELINE_VARIANTS = ['vertical', 'horizontal'] as const;
  * the refusal's message interpolates THIS list rather than restating it in
  * prose, so a rung added to (or retired from) the resolver cannot leave the
  * diagnostic naming a vocabulary the resolver no longer has. Every entry is a
- * DECLARED binding — the first two on `ListViewTimelineConfig`
- * (`@object-ui/types`), the last three on this component's own props and on
- * `TimelineExtensionSchema` — which is the property that distinguishes them
- * from the `'date'` literal objectui#7459 retired from the end of that chain.
+ * key an author can name — the first two on the nested `timeline` block
+ * (`ListViewTimelineConfig`, `@object-ui/types`), the last three on this
+ * component's own props and on `TimelineExtensionSchema` — which is the property
+ * that distinguishes them from the `'date'` literal objectui#7459 retired from
+ * the end of that chain. ⚠️ `timeline.dateField` is the pre-#2231 alias, and
+ * since objectui#6152 round 12 `ListViewTimelineConfig` refuses it by name (as
+ * the spec's slot does); the READ stays until the readers' retirement round, so
+ * a block stored with it still binds.
  *
  * Ordered canonical-first: the message tells the author which one to prefer by
  * position rather than by a second prose sentence that could drift from it.
@@ -166,11 +171,58 @@ export interface ObjectTimelineProps {
   schema: TimelineSchema & {
     objectName?: string;
     /**
-     * Spec-compliant nested timeline config. Typed as `ListViewTimelineConfig`
-     * — the spec shape plus the legacy `dateField` alias that `@object-ui/types`
-     * has always declared on it, and that this renderer now actually reads.
+     * The nested timeline block. `ListViewTimelineConfig` is
+     * `NonNullable<ListViewSchema['timeline']>` since objectui#6152 round 12
+     * (seat answer Q2 → B): the `@objectstack/spec` list-view slot by reference,
+     * strict and `.partial()`, with the legacy `dateField` refused by name
+     * (write `startDateField`). It is what this component receives on both
+     * routes: an authored `object-timeline` node's block (judged by the spec's
+     * element row) and the block `ListView` builds, which can leave out
+     * `titleField` or `startDateField`. It was the spec's `TimelineConfig` plus
+     * `dateField?: string` and a string index signature of `any`.
      */
     timeline?: ListViewTimelineConfig;
+    /**
+     * Entry-click navigation — what a click on an entry opens (an overlay
+     * mode, the record page in a new tab, or nothing), with the overlay `size`
+     * and the `openNewTab` / `preventNavigation` flags. Handed to
+     * `useNavigationOverlay` below, which the composed `onItemClick` fires.
+     *
+     * DECLARED by objectui#8654, the timeline arm of the objectui#8652
+     * maintainer ruling, verbatim 「B」: the platform half is
+     * `@objectstack/spec` 17.5.0, whose `ComponentPropsMap['object-timeline']`
+     * row declares `navigation: NavigationConfigSchema.optional()` for this
+     * block standalone, with no enclosing view. So this member follows the
+     * installed spec rather than leading it. Before it, the read went through
+     * an `as any` cast, and without the cast it would have compiled only
+     * through `BaseSchema`'s `[key: string]: any`.
+     *
+     * Declared HERE, beside `objectName`, `timeline`, `filter` and `sort`,
+     * rather than on `TimelineSchema` in `@object-ui/types`, and that is the
+     * spec's own split: `TimelineSchema` is the presentational rail, whose
+     * renderer never reads this key, while the spec declares it on the
+     * object-bound `object-timeline` row only. That row's other members live
+     * on this half for the same reason. The zod face of the row is
+     * `ObjectTimelineBlockSchema`'s `properties` bag, which reads the spec row
+     * by reference and so judges this key already.
+     *
+     * Same spec type as `ObjectKanbanSchema.navigation` and
+     * `ObjectCalendarSchema.navigation` — aligned with `@objectstack/spec`
+     * `NavigationConfig` rather than restated, so the vocabulary cannot fork.
+     *
+     * ⚠️ Unlike the board and the calendar, this renderer supplies NO default
+     * for an ABSENT key, and an absent key is not a `page` block: the hook's
+     * no-config branch hands the click to an `onNavigate` alone, which this
+     * component never passes, and never reads the host's record navigator. So
+     * a click opens nothing, under a host that publishes a navigator too. A
+     * block written without `mode` (`{ size: 'lg' }`) is different: it takes
+     * the spec's `page` default and opens the record page through that
+     * navigator (objectui#11293). A parent's `onRowClick` / `onItemClick`
+     * outranks the whole key. The members are pinned in
+     * `__tests__/timelineNavigationMembers-8654.test.tsx`, and the absent key
+     * against the mode-less block in `__tests__/objectTimelineInputs-11168.test.tsx`.
+     */
+    navigation?: ViewNavigationConfig;
     /**
      * Query filter for the object fetch, in any shape `toFilterNode` accepts
      * (spec `ViewFilterRule[]`, ObjectQL AST nodes, or a MongoDB-style object).
@@ -503,6 +555,9 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   const rawData = (props as any).data || boundData || fetchedData;
   const { t } = useTimelineTranslation();
   const { fieldOptionLabel } = useSafeFieldLabel();
+  // The tag this feed's dates format with (the renderer reads the same hook),
+  // and so the tag its week buckets start the week from (objectui#11675).
+  const displayLocale = useDisplayLocale();
 
   // Resolve TimelineConfig with backwards-compatible fallbacks (computed
   // outside the items-derivation block so we can also use them for
@@ -510,7 +565,8 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   const titleField = timelineConfig?.titleField ?? schema.mapping?.title ?? schema.titleField ?? 'name';
   // `dateField` is the pre-#2231 alias for `startDateField`. It was honored on
   // the FLAT prop (`schema.dateField`) but never on the nested config, even
-  // though `ListViewTimelineConfig` declares it there and both `ObjectView`
+  // though `ListViewTimelineConfig` declared it there (until objectui#6152
+  // round 12, which refuses it by name on that type) and both `ObjectView`
   // read-sites resolve it. A view authored as `timeline: { dateField }` therefore
   // fell all the way through to the caller's default (`created_at` / `due_date`),
   // which is usually absent from the projection — so every record bucketed into
@@ -694,24 +750,50 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     // Decide on a final group label for each item:
     //   - explicit groupBy → use the localized field-option label (or
     //     "Unassigned" when null);
-    //   - otherwise → date bucket (Overdue / Today / Tomorrow / This week
+    //   - otherwise → date bucket (Earlier / Today / Tomorrow / This week
     //     / Next week / Later / No date) so the timeline doesn't render
     //     as one undifferentiated stripe.
+    //
+    // The week is the locale's (objectui#11675): "This week" runs from the
+    // first day `firstDayOfWeek` gives the display locale, so an `en-US` feed
+    // starts its week on Sunday and an `en-GB` or `zh-CN` one on Monday, the
+    // day the calendar's grids start on for the same tag. Every bound is a
+    // local midnight stepped on the local calendar, ⛔ never a multiple of 24
+    // hours from today: across a DST change, N times 24 hours from a midnight
+    // is an hour off the midnight N days later, so the day after the change
+    // fell out of "Tomorrow" and the first day of next week fell into "This
+    // week" (the calendar-day rule of objectui#11005).
     const now = new Date();
     const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-    const today = startOfDay(now);
-    const day = 86400000;
-    const startOfWeek = today - ((now.getDay() + 6) % 7) * day; // Monday
-    const endOfWeek = startOfWeek + 7 * day;
-    const endOfNextWeek = endOfWeek + 7 * day;
+    const daysFromToday = (days: number) =>
+      new Date(now.getFullYear(), now.getMonth(), now.getDate() + days).getTime();
+    const today = daysFromToday(0);
+    const tomorrow = daysFromToday(1);
+    const daysIntoWeek = (now.getDay() - firstDayOfWeek(displayLocale) + 7) % 7;
+    const endOfWeek = daysFromToday(7 - daysIntoWeek);
+    const endOfNextWeek = daysFromToday(14 - daysIntoWeek);
 
+    // A day before today is "Earlier", never "Overdue" (objectui#11676).
+    // "Overdue" is a judgement about the RECORD, and it needs two facts this
+    // component is never given: that the bucketed field is a due date, and
+    // that the record is still open. The spec's `TimelineConfigSchema`
+    // declares neither (no due-date role, no closed-state marker), and the
+    // spec's field options declare no closed state either. The bucket used to
+    // pass that judgement on every past date, so a `created_at` timeline put
+    // every record under "Overdue", Done records included. ⛔ Not inferred
+    // from a field NAME (`due_date`) or a status VALUE (`done`): a guess here
+    // reads like a declaration and is wrong for every object that spells
+    // either one differently. Triage ruled on objectui#11676 that no timeline
+    // says "Overdue" (ruling A), so the bucket is the calendar position alone;
+    // a due-date timeline would be a new card that declares its signals in the
+    // spec first. Pinned in `__tests__/ObjectTimeline.pastBucket-11676.test.tsx`.
     const dateBucket = (raw: any): string => {
       if (!raw) return t('timeline.bucket.noDate');
       const ts = startOfDay(toDisplayDate(raw));
       if (Number.isNaN(ts)) return t('timeline.bucket.noDate');
-      if (ts < today) return t('timeline.bucket.overdue');
+      if (ts < today) return t('timeline.bucket.earlier');
       if (ts === today) return t('timeline.bucket.today');
-      if (ts === today + day) return t('timeline.bucket.tomorrow');
+      if (ts === tomorrow) return t('timeline.bucket.tomorrow');
       if (ts < endOfWeek) return t('timeline.bucket.thisWeek');
       if (ts < endOfNextWeek) return t('timeline.bucket.nextWeek');
       return t('timeline.bucket.later');
@@ -739,7 +821,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     }
 
     return mapped.map((m) => ({ ...m, group: dateBucket(m.startDate) }));
-  }, [schema.items, rawData, objectDef, schema.objectName, titleField, startDateField, endDateField, descField, variantField, colorField, groupByField, t, fieldOptionLabel]);
+  }, [schema.items, rawData, objectDef, schema.objectName, titleField, startDateField, endDateField, descField, variantField, colorField, groupByField, t, fieldOptionLabel, displayLocale]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshKey(k => k + 1);
@@ -750,8 +832,16 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     enabled: !!schema.objectName && !!dataSource,
   });
 
+  // `navigation` is a declared member of this component's schema since
+  // objectui#8654 (see `ObjectTimelineProps`), so it is read with no cast.
+  // ⛔ No `?? { mode: 'drawer' }` here: an absent key opening nothing is the
+  // behaviour the published description states and the member pins hold. The
+  // hook takes its no-config branch for it, which reaches only an `onNavigate`
+  // (none is passed here), not its `page` branch and the host's record
+  // navigator (objectui#11168 slice 5). Changing it is a behaviour decision,
+  // not a read-site edit.
   const navigation = useNavigationOverlay({
-    navigation: (schema as any).navigation,
+    navigation: schema.navigation,
     objectName: schema.objectName,
     onRowClick: onRowClick ?? onItemClick,
   });

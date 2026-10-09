@@ -47,27 +47,28 @@ Every UI component node MUST follow this shape:
 
 ⚠️ A deliberately SIMPLIFIED teaching copy of the published `BaseSchema`
 (`import type { BaseSchema } from '@object-ui/types';`), KEPT rather than
-replaced by an import: the published interface declares **21** members plus an
-index signature, and this rule is about the SHAPE, not the full member list.
-Nothing checks the copy against the real type. `properties`, `props` and
-`events` are **not declared members** — they reach a node through
-`BaseSchema`'s `[key: string]: any` index signature, which is exactly why the
-two rules below have to state who reads each of them.
+replaced by an import: it teaches the SHAPE, not the full member list, and
+nothing checks the copy against the real type. `BaseSchema` has **no index
+signature** (objectui#8347): on the TypeScript authoring face a key no member
+declares is a compile error in a fresh typed literal (TypeScript excess-checks
+only a FRESH object literal, so a value that reached its annotation through a
+wider variable is not re-checked); on the tolerant zod / JSON face
+(`.passthrough()`) it is kept, and the named reader decides. So `properties`,
+`props` and `events` are **absent** from the fence: `properties` is declared per
+block on the authoring node types (`AuthoringNode`), not on `BaseSchema`; `props`
+is the `element:*` envelope the runtime reads and the TypeScript face does not
+declare; `events` is read by nothing. The two rules below state who reads each.
 
 ```typescript
 interface BaseSchema {       // abridged — full member list: packages/types/src/base.ts
   type: string;              // Required: component type identifier
   id?: string;               // Optional: unique identifier
-  properties?: Record<string, any>; // Optional: spec config bag, hoisted onto
-                                    // the node. See "Rule: Keys Live on the Node".
-  props?: Record<string, any>; // Optional: element:* config envelope — NOT a
-                               // general bag. See "Rule: Keys Live on the Node".
   bind?: string;             // Optional: data binding path
   className?: string;        // Optional: Tailwind CSS classes
   hidden?: boolean | ExpressionWire;   // Optional: visibility predicate
   disabled?: boolean | ExpressionWire; // Optional: disabled predicate
-  events?: Record<string, ActionSchema[]>; // Optional: event handlers
   children?: BaseSchema[];   // Optional: object nodes; real slot is wider
+  // no index signature: a key no member declares is a compile error in a fresh typed literal
 }
 ```
 
@@ -230,7 +231,7 @@ nothing at all if the host published none. See "Available scope variables" in
 [`../guides/schema-expressions.md`](../guides/schema-expressions.md) for the
 verdict that move flips.
 
-**Readers only.** `list` and `tree-view` (`@object-ui/components`) and the `object-*` plugin widgets call `useDataScope`. `data-table` does NOT: it reads its rows from an inline `data` array on the node, so a `bind` on it is ignored and the table renders its header over an empty body — no error, no warning.
+**Readers only.** `list` and `tree-view` (`@object-ui/components`) and the `object-*` plugin widgets call `useDataScope`. `data-table` does NOT: it reads its rows from an inline `data` array on the node, so a `bind` on it is ignored and the table renders its header over an empty body — no error, and nothing on the page says why: the one signal is a render-time console warning (`[ObjectUI] DataTable bind:`, objectui#6575); the parser tier stays silent too, since `bind` is a base prop every node may carry and draws no `unknown-prop` (objectui#11008).
 
 **Provider rows into a `data-table`.** Measured on `origin/main` `f1c27f037`,
 real `SchemaRenderer` under a host scope publishing
@@ -244,34 +245,41 @@ real `SchemaRenderer` under a host scope publishing
 | `{ "type": "data-table", "properties": { "data": "${data.customers}" }, ... }` | the two rows |
 | `{ "type": "data-table", "data": [ 2 literal records ], ... }` | the two rows |
 
-Both failing legs fail the same way this file keeps warning about: a correct
-header over the empty state, nothing thrown, nothing logged. **Do not read that
-empty table as "the provider has no data."** The route this skill teaches is the
-last row — the host resolves the array and puts it on the node — for the reason
-given under "Rule: Keys Live on the Node": the third row works today, but its
-channel is objectui#4795's open question, not a taught surface.
+Both failing legs fail the same way: a correct header over the empty state,
+nothing thrown, a console warning each (`[ObjectUI] DataTable data:`,
+objectui#6665; dev-build `props`-bag warning, objectui#6708). **Do not read
+that empty table as "the provider has no data."** The route this skill teaches
+is the last row — the host resolves the array and puts it on the node — for the
+reason given under "Rule: Keys Live on the Node": the third row works today,
+but its channel is objectui#4795's open question, not a taught surface.
 
 ## Rule: Actions Are Node Types, Not An Event Bag
 
-A control that RUNS something MUST be its own node — `action:button` — with
-`actionType` naming the executor the action runner dispatches to and the node's
-own keys carrying that executor's arguments:
+A control that RUNS something MUST be its own node — `action:button` — and its
+props live in the node's `properties` bag (the spec's row for the block, hoisted
+onto the node by `SchemaRenderer` as the rule above describes): `actionType`
+names the executor the action runner dispatches to, and the row's other keys carry
+that executor's arguments. ⛔ Not flat on the node: the spec's strict page
+component refuses a node-level `actionType` / `target` as mis-layered
+(ADR-0089 D3a), and objectui's strict authoring face refuses the same two keys.
 
 <!-- os:check -->
 ```json
 {
   "type": "action:button",
-  "label": "Submit",
-  "actionType": "url",
-  "target": "/success"
+  "properties": {
+    "label": "Submit",
+    "actionType": "url",
+    "target": "/success"
+  }
 }
 ```
 
 **❌ DO NOT** use function references or inline callbacks in JSON schemas, and
 **❌ DO NOT** author an `events` bag. `BaseSchema` declares no `events` member and no
-renderer reads `schema.events`; "Rule: Component Schema Structure" above lists it
-only because the node accepts any key — `.passthrough()` keeps such a node, judges
-it by nothing and runs it by nothing (objectui#6497). `ButtonSchema.onClick` is a
+renderer reads `schema.events`: a typed literal refuses it (objectui#8347), and the
+tolerant zod face is `.passthrough()`, so one that arrives as data is kept, judged
+by nothing and run by nothing (objectui#6497). `ButtonSchema.onClick` is a
 runtime slot for a host-supplied function and is refused by name for the same reason.
 
 ## Rule: Action Params Use Field Types (Shared Widget Renderer)
@@ -330,7 +338,8 @@ spelled out.
 **`2xl` is the sixth key.** Six keys — `xs` … `xl` **plus `2xl`** — are
 objectui's own breakpoint vocabulary: `BreakpointName` in `@object-ui/types` is
 the key set of `GridSchema.columns`, and `BreakpointColumnMap` in
-`@object-ui/layout` (`responsive-grid`) spells the same six. Since objectui#7097
+`@object-ui/layout` (the type of the `ResponsiveGrid` React component's
+`columns` prop) spells the same six. Since objectui#7097
 the `grid` renderer reads all six. Measured on main: `{xs:1, xl:5}` →
 `grid grid-cols-1 xl:grid-cols-5 gap-4`; `{xs:1, "2xl":6}` →
 `grid grid-cols-1 2xl:grid-cols-6 gap-4`. On an `@object-ui/components` release

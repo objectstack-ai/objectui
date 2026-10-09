@@ -472,6 +472,12 @@ describe('PagePreview reads the designer locale (objectui#10862)', () => {
       stubRecordFetch([{ id: 'r1', name: 'Northwind' }, { id: 'r2', name: 'Contoso' }, { industry: 'retail' }]);
       inLang(lang, <PagePreview type="page" name="acct" draft={RECORD_PAGE} locale={LOCALE[lang]} />);
       await flush();
+      // The picker is the shared `Select` (objectui#11865), so its items are on
+      // the page while it is open: open it before reading them.
+      const picker = screen.getAllByRole('combobox').find((el) => norm(el.textContent) === 'Northwind');
+      expect(picker, 'the sample-record picker shows the first sample').toBeDefined();
+      fireEvent.keyDown(picker!, { key: 'ArrowDown' });
+      await screen.findByRole('listbox');
       expectSites(lang, [
         { key: 'engine.pagePreview.previewRecord' },
         { key: 'engine.pagePreview.sampleOther', vars: { count: 3 } },

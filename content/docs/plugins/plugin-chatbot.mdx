@@ -147,9 +147,9 @@ Each registration has its own importable authoring-face type in
 nineteen shared rows below are one declaration the two newer faces pick off
 `ChatbotSchema` by name, and a scoped row is declared only on the face(s) whose
 registration reads it. A key a registration ignores is therefore not a declared
-member of its type. It still type-checks (`BaseSchema` ends in an index
-signature, so an unlisted key is `any` rather than an error) and still parses
-(the Zod twins are `.passthrough()`). It is then dropped silently at render
+member of its type. In a typed literal it is a compile error (objectui#8347
+removed the `BaseSchema` index signature that typed an unlisted key `any`), but
+it still parses (the Zod twins are `.passthrough()`). It is then dropped silently at render
 time, on all three registrations alike. `chatbot-floating` used to be the
 exception: its registration ended its panel element with an unfiltered props
 spread, so three keys its type does not declare (`processVisibility`, `surface`,
@@ -230,10 +230,12 @@ The six keys below are declared in the `chatbot-floating` registration's own
 `inputs` (`packages/plugin-chatbot/src/renderer.tsx`). They configure the
 floating action button and the panel it opens; the `chatbot` and
 `chatbot-enhanced` registrations render neither and ignore them. `floatingConfig`
-is declared on `ChatbotSchema` and on `ChatbotFloatingSchema` alike
-(objectui#7655 declared the floating face with the same member; `ChatbotSchema`
-kept its own), so authoring it on an inline node type-checks and parses - and
-is dropped at render time, because the `chatbot` node never read it.
+is declared on `ChatbotFloatingSchema` only. It used to be declared on
+`ChatbotSchema` as well, so authoring it on a `chatbot` node type-checked and
+parsed, and was then dropped at render time, because the `chatbot` node never
+read it. objectui#6152 retired it there: writing `floatingConfig` on a `chatbot`
+node is now a compile error **and** a parse error that names `chatbot-floating`,
+the node type that reads it. `ChatbotEnhancedSchema` never declared it.
 
 **There is no `displayMode` key.** The presentation is selected by the node's
 own `type`: author a `chatbot-floating` node for the trigger-and-panel
@@ -668,7 +670,7 @@ Each of the three registrations has its own authoring-face type:
 `ChatbotFloatingSchema` (`chatbot-floating`) - see the typed examples under
 **Tool Messages** and **`chatbot-floating` panel and trigger keys** above.
 
-```plaintext
+```ts
 import type { ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessage, ChatToolInvocation } from '@object-ui/types'
 import { useObjectChat } from '@object-ui/plugin-chatbot'
 
@@ -707,7 +709,7 @@ You AUTHOR with `@object-ui/types`' `ChatMessage`. What `useObjectChat` HANDS
 BACK — from `messages` and from `onSend(content, messages)` — is
 `ObjectChatMessage`, exported from `@object-ui/plugin-chatbot`:
 
-```plaintext
+```ts
 import type { ObjectChatMessage } from '@object-ui/plugin-chatbot'
 ```
 

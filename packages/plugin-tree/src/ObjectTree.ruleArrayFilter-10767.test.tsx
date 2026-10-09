@@ -27,9 +27,12 @@
  * ## HOW THE INLINE ROWS ARE SPELLED HERE
  *
  * `{ provider: 'value', items }` under `schema.data`, and NO `data` PROP. The
- * `data` prop (and a bare array under `schema.data`) is the host-data
- * passthrough above the inline branch — rows a parent already queried, which
- * this card does not touch. `object-tree` admits no `staticData` rung.
+ * `data` prop is the host-data passthrough above the inline branch — rows a
+ * parent already queried, which this card does not touch. (A bare array under
+ * `schema.data` used to ride that passthrough too; objectui#8348 judges
+ * `data` against the block's published row, the `ViewData` union, so it is no
+ * longer a record source. `staticData` is the row's other inline rung and
+ * reaches the same `value` branch.)
  *
  * REVERSE VERIFICATION — direction predicted BEFORE running, from the committed
  * fix, by restoring the unlowered array arm in `ValueDataSource.find`:

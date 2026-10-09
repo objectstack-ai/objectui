@@ -78,11 +78,15 @@ export function defaultListViewId(objectName: string, list: unknown): string | u
  * that *is* saved, which both hid the set-default / rename / delete menu
  * entries (`readonly: !saved`) and short-circuited the handlers behind them.
  *
- * Order is `name` → `id` → `_id`: the overlay is name-keyed
- * (`/meta/view/:name` is name-addressed, and `ViewItemNameSchema` judges that
- * string), so `name` is the identity whenever the row carries one. Empty
- * strings are skipped rather than returned, so a blank `name` falls through to
- * the next spelling instead of yielding an id nothing can match.
+ * The identity is `name`, and only `name` (objectui#11013, ruling 甲 on
+ * objectstack#20051: objectui reads a stored view row by the spec's declared
+ * spellings). The overlay is name-keyed (`/meta/view/:name` is name-addressed,
+ * and `ViewItemNameSchema` judges that string); the spec declares `name` on
+ * every `view` member and a top-level `id` / `_id` on none, and every write
+ * path stamps `name` on the row it saves. This used to fall back to `id`, then
+ * `_id`, for a row with no `name`; such a row now has no identity, so the tab
+ * list skips it rather than keying a tab on an undeclared spelling. An empty
+ * `name` is no identity either.
  *
  * IDEMPOTENT by construction, which is what lets one function serve both the
  * producer and its readers: `viewRowId(normalized) === viewRowId(raw)` for
@@ -91,12 +95,8 @@ export function defaultListViewId(objectName: string, list: unknown): string | u
  */
 export function viewRowId(row: unknown): string | undefined {
   if (!row || typeof row !== 'object') return undefined;
-  const record = row as Record<string, unknown>;
-  for (const key of ['name', 'id', '_id'] as const) {
-    const value = record[key];
-    if (typeof value === 'string' && value !== '') return value;
-  }
-  return undefined;
+  const name = (row as Record<string, unknown>).name;
+  return typeof name === 'string' && name !== '' ? name : undefined;
 }
 
 /**

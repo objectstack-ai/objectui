@@ -36,23 +36,21 @@ const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve
 const BY_NAME_ASC = [{ field: 'name', order: 'asc' }];
 const BY_NAME_DESC = [{ field: 'name', order: 'desc' }];
 
-type Where = 'properties' | 'binding';
 type HostHandle = { setSort: (sort: unknown) => void };
 
 /**
- * Holds the picker's `sort` as state and rebuilds the node on every change.
- * `where` puts it on the flat `properties.sort` or on a `dataSource` binding
- * (no `view`, so nothing waits on a saved-view read).
+ * Holds the picker's `sort` as state and rebuilds the node on every change. The
+ * sort is the `dataSource` binding's (no `view`, so nothing waits on a
+ * saved-view read): the picker reads its query from the binding only
+ * (objectui#11880), so the flat `properties.sort` arm this file also drove is
+ * gone.
  */
-const Host = React.forwardRef<HostHandle, { adapter: any; where: Where }>(function Host({ adapter, where }, ref) {
+const Host = React.forwardRef<HostHandle, { adapter: any }>(function Host({ adapter }, ref) {
   const [sort, setSort] = React.useState<unknown>(BY_NAME_ASC);
   React.useImperativeHandle(ref, () => ({ setSort }), []);
   const schema = React.useMemo(
-    () =>
-      where === 'properties'
-        ? { type: 'element:record_picker', id: 'picker', properties: { object: 'account', sort } }
-        : { type: 'element:record_picker', id: 'picker', properties: {}, dataSource: { object: 'account', sort } },
-    [sort, where],
+    () => ({ type: 'element:record_picker', id: 'picker', properties: {}, dataSource: { object: 'account', sort } }),
+    [sort],
   );
   return (
     <AdapterCtx.Provider value={adapter as never}>
@@ -61,10 +59,10 @@ const Host = React.forwardRef<HostHandle, { adapter: any; where: Where }>(functi
   );
 });
 
-function mount(where: Where) {
+function mount() {
   const adapter = { find: vi.fn(async () => ({ data: [{ id: 'a1', name: 'Acme' }], total: 1 })), getObjectSchema: vi.fn() };
   const host = React.createRef<HostHandle>();
-  render(<Host ref={host} adapter={adapter} where={where} />);
+  render(<Host ref={host} adapter={adapter} />);
   return { adapter, host };
 }
 
@@ -73,22 +71,20 @@ const orderbys = (adapter: { find: { mock: { calls: any[][] } } }) =>
   adapter.find.mock.calls.map((c) => c[1]?.$orderby);
 
 describe('element:record_picker keys its read on the sort it sends (objectui#10664)', () => {
-  for (const where of ['properties', 'binding'] as const) {
-    it(`SUBJECT: a changed sort on the ${where} re-reads, with the new \`$orderby\``, async () => {
-      const { adapter, host } = mount(where);
-      await waitFor(() => expect(adapter.find).toHaveBeenCalled());
-      await settle();
-      expect(orderbys(adapter)).toEqual([BY_NAME_ASC]);
+  it('SUBJECT: a changed sort on the binding re-reads, with the new `$orderby`', async () => {
+    const { adapter, host } = mount();
+    await waitFor(() => expect(adapter.find).toHaveBeenCalled());
+    await settle();
+    expect(orderbys(adapter)).toEqual([BY_NAME_ASC]);
 
-      await act(async () => { host.current!.setSort(BY_NAME_DESC); });
-      await settle();
+    await act(async () => { host.current!.setSort(BY_NAME_DESC); });
+    await settle();
 
-      expect(orderbys(adapter), 'the changed sort never reached a read').toEqual([BY_NAME_ASC, BY_NAME_DESC]);
-    });
-  }
+    expect(orderbys(adapter), 'the changed sort never reached a read').toEqual([BY_NAME_ASC, BY_NAME_DESC]);
+  });
 
   it('CONTROL: an equal sort in a fresh array does not re-read', async () => {
-    const { adapter, host } = mount('properties');
+    const { adapter, host } = mount();
     await waitFor(() => expect(adapter.find).toHaveBeenCalled());
     await settle();
     const atRest = adapter.find.mock.calls.length;

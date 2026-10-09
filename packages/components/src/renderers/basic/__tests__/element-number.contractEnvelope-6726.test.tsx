@@ -58,9 +58,10 @@ function mount(envelope: Envelope) {
           {
             type: 'element:number',
             id: 'metric',
-            // Element config lives in the `properties` bag (`readProps`), not
-            // on the node — the same door an authored page writes through.
-            properties: { object: 'contact', aggregate: 'count' },
+            // Display config lives in the `properties` bag (`readProps`); the
+            // query is the node-level `dataSource` binding (objectui#11880).
+            dataSource: { object: 'contact' },
+            properties: { aggregate: 'count' },
           } as never
         }
       />

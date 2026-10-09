@@ -62,13 +62,10 @@ describe('computeRow stores a computed currency cell at its currency minor unit 
     expect(next.amount).toBe(1234.57);
   });
 
-  it('an authored `scale` on a currency column wins over the minor unit', () => {
-    // `InlineGridColumnSchema.scale` declares it for a computed
-    // "numeric/currency result", so the minor unit replaces only the old
-    // default of 2, never a declared width.
-    expect(computeRow([amountColumn({ scale: 2 })], { quantity: 3, unit_price: 411.523 }, 'JPY').amount).toBe(1234.57);
-    expect(computeRow([amountColumn({ scale: 0 })], { quantity: 3, unit_price: 411.523 }, 'USD').amount).toBe(1235);
-  });
+  // The row that stood here pinned an authored `scale` winning over the minor
+  // unit on the stored value. objectui#10783 reversed it: `@objectstack/spec`
+  // 17.5.0 refuses `scale` on a currency inline grid column, and the minor unit
+  // decides. `GridField.currencyScaleNotRead-10783.test.tsx` pins the reversal.
 
   it('no currency resolved: stored as computed, never at an invented two places', () => {
     const next = computeRow([amountColumn()], { quantity: 3, unit_price: 1.2345 });
@@ -143,44 +140,19 @@ describe('GridField shows a currency cell in its resolved currency (objectui#103
     expect(flat(screen.getAllByLabelText('Unit Price')[0].parentElement?.textContent)).toBe('');
   });
 
-  it('an authored `scale` also decides the currency cell display width', () => {
+  it('a stored amount with more places than the currency shows at the minor unit', () => {
     lineGrid('JPY', { value: [{ quantity: 3, unit_price: 411.523, amount: 1234.57 }] });
     expect(flat(document.querySelector('[data-computed="amount"]')?.textContent)).toBe('¥1,235');
-    cleanup();
-
-    render(
-      <LocalizationProvider value={{ currency: 'JPY', locale: 'en' }}>
-        <GridField
-          value={[{ quantity: 3, unit_price: 411.523, amount: 1234.57 }]}
-          onChange={() => {}}
-          field={{ columns: [lineColumns[0], lineColumns[1], amountColumn({ scale: 2 })] } as never}
-        />
-      </LocalizationProvider>,
-    );
-    expect(flat(document.querySelector('[data-computed="amount"]')?.textContent)).toBe('¥1,234.57');
   });
 
-  it('an authored currency `scale` above the engine ceiling is clamped on the display too (objectui#10071)', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    try {
-      expect(() =>
-        render(
-          <LocalizationProvider value={{ currency: 'USD', locale: 'en' }}>
-            <GridField
-              value={[{ quantity: 3, unit_price: 1.25, amount: 3.75 }]}
-              onChange={() => {}}
-              field={{ columns: [lineColumns[0], lineColumns[1], amountColumn({ scale: 105 })] } as never}
-            />
-          </LocalizationProvider>,
-        ),
-      ).not.toThrow();
-      const said = warn.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
-      expect(said).toContain('105');
-      expect(said).toContain('objectui#10071');
-    } finally {
-      warn.mockRestore();
-    }
-  });
+  // The second half of the row that stood here pinned an authored `scale`
+  // deciding the display width (`¥1,234.57` under `scale: 2`). objectui#10783
+  // reversed it with the stored half above; the reversal is pinned in
+  // `GridField.currencyScaleNotRead-10783.test.tsx`.
+
+  // The objectui#10071 row that stood here pinned the out-of-range clamp on
+  // this display. The clamp retired at the objectui#9808 SUNSET (objectui#11073):
+  // `@objectstack/spec` 17.5.0 refuses a `scale` above 100 at the declaration.
 
   it('an authored `prefix` replaces the symbol but not the width', () => {
     const onChange = vi.fn();

@@ -20,12 +20,20 @@
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+import { t } from '../metadata-admin/i18n';
 import { PackageOwdOverviewPanel } from './PackageOwdOverviewPanel';
+
+/** Pick a dial's option by its label, through the trigger, as a user does; the dials are the shared Select (objectui#11865). */
+async function pickOwd(testId: string, label: string): Promise<void> {
+  fireEvent.keyDown(screen.getByTestId(testId), { key: 'ArrowDown' });
+  const listbox = await screen.findByRole('listbox');
+  fireEvent.click(within(listbox).getByRole('option', { name: label }));
+}
 
 /** The published object: both OWD models set, plus a description. */
 const PUBLISHED = {
@@ -76,16 +84,18 @@ describe('PackageOwdOverviewPanel — the pending draft is read and re-saved as-
     render(<PackageOwdOverviewPanel client={makeClient()} packageId="com.example.showcase" locale="en-US" />);
     await screen.findByTestId('owd-row-crm_contact');
 
-    const internal = screen.getByTestId('owd-internal-crm_contact') as HTMLSelectElement;
+    const internal = screen.getByTestId('owd-internal-crm_contact');
     // Red on base: the spread over `effective` showed `private` from the published row.
-    expect(internal.value).toBe('');
+    // The dial is the shared Select's trigger (objectui#11865), so its text is what it shows.
+    expect(internal.textContent).toBe(t('engine.studio.settings.sharingUnset', 'en-US'));
+    expect(internal).not.toHaveTextContent(t('engine.studio.settings.sharingPrivate', 'en-US'));
   });
 
   it('SAVE: an edit lands on the draft alone — the published model and description the draft deleted do not come back', async () => {
     render(<PackageOwdOverviewPanel client={makeClient()} packageId="com.example.showcase" locale="en-US" />);
     await screen.findByTestId('owd-row-crm_contact');
 
-    fireEvent.change(screen.getByTestId('owd-internal-crm_contact'), { target: { value: 'public_read' } });
+    await pickOwd('owd-internal-crm_contact', t('engine.studio.settings.sharingPublicRead', 'en-US'));
     fireEvent.click(screen.getByTestId('owd-save'));
 
     await waitFor(() => expect(saved).toHaveLength(1));

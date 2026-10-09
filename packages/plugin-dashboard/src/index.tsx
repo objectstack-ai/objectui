@@ -42,6 +42,11 @@ export type {
   WidgetDatasetDimension,
   WidgetDatasetMeasure,
 } from './dataset-catalog';
+// objectui#11466 — the `plugin-dashboard:metric` node type, which
+// `./widgetDispatch` declares in `@object-ui/types`' `CustomNodeRegistry`.
+// Exported from the entry so the published typings load that declaration for
+// every consumer of this package, not only for this package's own program.
+export type { DashboardMetricNodeSchema } from './widgetDispatch';
 // objectui#9533 — the retirement table and the widget it renders. Exported for
 // the same reason the sibling packages export their tombstones: the assertion
 // that an authored `view:dashboard` is refused BY NAME, with the migration in
@@ -137,11 +142,25 @@ ComponentRegistry.register(
 );
 
 // Register metric widget (legacy)
+//
+// ⛔ `skipFallback: true` — the bare `metric` NODE key is RETIRED
+// (objectui#10859 batch 8, phase 2b, seat ruling M3 option A). Both dashboard
+// surfaces emit `plugin-dashboard:metric` through `DASHBOARD_NODE_TYPES`
+// (`./widgetDispatch`), so the bare fallback had no emitter left, only a
+// spelling `objectui validate` refuses at `type` while the registry mounted it.
+// The dashboard WIDGET type `metric` (the spec's `ChartTypeSchema` value) is a
+// different vocabulary and is untouched.
+//
+// The NODE key is a declared node type (objectui#11466):
+// `DashboardMetricNodeSchema` in `./widgetDispatch`, entered in
+// `CustomNodeRegistry` under `plugin-dashboard:metric`, so both surfaces hand
+// `SchemaRenderer` a declared node with no cast.
 ComponentRegistry.register(
   'metric',
   MetricWidget,
   {
     namespace: 'plugin-dashboard',
+    skipFallback: true,
     label: 'Metric Widget',
     category: 'Dashboard',
     inputs: [
@@ -152,11 +171,19 @@ ComponentRegistry.register(
 );
 
 // Register metric card (new standalone component)
+//
+// ⛔ `skipFallback: true` — the bare `metric-card` NODE key is RETIRED
+// (objectui#10859 batch 8, phase 2b, seat ruling M3 option A), for the reason
+// the `metric` registration above gives. The 2026-08-14 slot ruling
+// (objectstack#8593) is untouched: `{ type: 'metric-card', ... }` placed in a
+// dashboard's `widgets[]` is still the widget-slot spelling, and the surfaces
+// hand it to `SchemaRenderer` as `plugin-dashboard:metric-card`.
 ComponentRegistry.register(
   'metric-card',
   MetricCard,
   {
     namespace: 'plugin-dashboard',
+    skipFallback: true,
     label: 'Metric Card',
     category: 'Dashboard',
     inputs: [
@@ -202,7 +229,9 @@ const OBJECT_METRIC_DATA_SOURCE: ElementDataSourceMapping = {
  * The props keep their standing when there is no binding: `bound` IS the schema
  * by reference in that case, so `bound?.x ?? props.x` resolves to what the
  * spread already provided, and a host that renders this component with explicit
- * props and no schema at all (the dashboard grid path) is untouched.
+ * props and no schema at all is untouched. (This sentence named "the dashboard
+ * grid path" as such a host until objectui#11525 retired the dashboards'
+ * inline `object-metric` node; that path builds none now.)
  */
 const ObjectMetricBlock: React.FC<{ schema?: any; [key: string]: any }> = elementDataSourceBlock(({ schema, ...props }) => (
   <ElementDataSourceGate
@@ -211,6 +240,12 @@ const ObjectMetricBlock: React.FC<{ schema?: any; [key: string]: any }> = elemen
     dataSource={props.dataSource}
     testId="object-metric"
     errorTitle="This metric’s data source could not be resolved"
+    // A metric that names its object in neither place has nothing to
+    // aggregate, and drew a bare dash, which reads as a value (objectui#11605).
+    // A host rendering this widget with explicit props and no schema is not a
+    // node and is left alone, and an authored `fallbackValue` is a static tile
+    // the author chose.
+    requiresObject={schema != null && schema.fallbackValue === undefined}
   >
     {(bound) => (
       <ObjectMetricWidget
@@ -231,12 +266,49 @@ ComponentRegistry.register(
     label: 'Object Metric',
     category: 'Dashboard',
     inputs: [
-        { name: 'objectName', type: 'string', required: true },
-        { name: 'label', type: 'string' },
+        // NOT required, as on the spec row (objectui#11605): `ComponentPropsMap
+        // ['object-metric']` leaves `objectName` optional "because the
+        // component-level `dataSource` binding can supply the object instead",
+        // and `ObjectMetricBlock` lands `dataSource.object` here. The page
+        // compile reads this list, so `required: true` refused a bound node the
+        // row and the renderer accept. A node with neither is answered by the
+        // gate's "no object named" hint.
+        {
+          name: 'objectName',
+          type: 'string',
+          description:
+            'Object this metric aggregates. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no `fallbackValue`, the tile shows a hint naming this key instead of a value.',
+        },
+        // The row's three `I18nLabel` members (`ComponentPropsMap['object-metric']`):
+        // `label`, `description` and `title`. `MetricWidget` resolves `label` and
+        // `description` with `pickLocalized` against the active UI language, and
+        // `ObjectMetricWidget` resolves `title` (and `label` as its fallback) the
+        // same way for the drill-down panel's heading. So both arms are declared,
+        // as `ComponentInput.type` prescribes for a key whose render site resolves
+        // the map: a `'string'`-only declaration made the manifest gate report
+        // `type-mismatch` on a legal map (objectui#10993). The render is pinned by
+        // `ObjectMetric.i18nLabel-10993.test.tsx`, the manifest by the console's
+        // `i18nLabelInputsManifest-10993.test.ts`.
+        {
+          name: 'label',
+          type: ['string', 'object'],
+          description:
+            'Heading of the tile, and of the drill-down panel when `title` is not set. Accepts either a plain string or an inline per-locale map (`{ en: "Pipeline", "zh-CN": "销售管道" }`) — the `I18nLabel` union the contract admits on this key — and the tile resolves the map against the active UI language, falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
+        },
         { name: 'aggregate', type: 'object', description: 'Aggregation config: { field, function, groupBy }' },
         { name: 'icon', type: 'string' },
-        { name: 'description', type: 'string', description: 'Helper text rendered under the value.' },
-        { name: 'title', type: 'string', description: 'Heading of the drill-down panel. Defaults to `label` — set it only when the records list wants a different name from the tile.' },
+        {
+          name: 'description',
+          type: ['string', 'object'],
+          description:
+            'Helper text rendered under the value. Accepts either a plain string or an inline per-locale map (`{ en: "This quarter", "zh-CN": "本季度" }`), resolved against the active UI language with the same fallback chain as `label`.',
+        },
+        {
+          name: 'title',
+          type: ['string', 'object'],
+          description:
+            'Heading of the drill-down panel. Defaults to `label` — set it only when the records list wants a different name from the tile. Accepts either a plain string or an inline per-locale map (`{ en: "Open deals", "zh-CN": "进行中的商机" }`), resolved against the active UI language with the same fallback chain as `label`.',
+        },
         { name: 'filter', type: 'array', description: 'Criteria the aggregation is scoped by. The same filter narrows the drill-down list, so the number and the records behind it always agree.' },
         { name: 'colorVariant', type: 'enum', enum: ['default', 'blue', 'teal', 'orange', 'purple', 'success', 'warning', 'danger'], description: 'Colour of the icon container. Semantic, not decorative: `success` / `warning` / `danger` should track what the number means.' },
         { name: 'variant', type: 'enum', enum: ['card', 'bare'], description: '`card` draws the tile’s own surface; `bare` drops it, for a metric already sitting inside a card.' },
@@ -326,6 +398,12 @@ const ObjectPivotBlock: React.FC<{ schema?: any; [key: string]: any }> = element
     dataSource={props.dataSource}
     testId="object-pivot"
     errorTitle="This pivot table’s data source could not be resolved"
+    // A pivot that names its object in neither place has nothing to fetch, and
+    // drew the empty state that says its query "returned no records yet" — a
+    // query it never ran (objectui#11605). Inline `data` rows and a `bind`
+    // path are this table's other record sources, and a host rendering it with
+    // no schema is not a node.
+    requiresObject={schema != null && schema.data == null && schema.bind == null}
   >
     {(bound) => <ObjectPivotTable {...(props as any)} schema={bound as any} />}
   </ElementDataSourceGate>
@@ -341,7 +419,18 @@ ComponentRegistry.register(
     category: 'Dashboard',
     icon: 'table-2',
     inputs: [
-      { name: 'objectName', type: 'string', required: true },
+      // NOT required (objectui#11605). This block has no `ComponentPropsMap`
+      // row; the contract is the binding doc (`content/docs/guide/data-source.md`,
+      // "a node bound this way needs no `objectName` of its own"), and
+      // `ObjectPivotBlock` lands `dataSource.object` here. The page compile reads
+      // this list, so `required: true` refused a bound node the renderer
+      // accepts. A node with neither is answered by the gate's hint.
+      {
+        name: 'objectName',
+        type: 'string',
+        description:
+          'Object this pivot table cross-tabulates. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, the table shows a hint naming this key and fetches nothing.',
+      },
       { name: 'title', type: 'string' },
       { name: 'rowField', type: 'string', required: true },
       { name: 'columnField', type: 'string', required: true },
@@ -357,6 +446,10 @@ ComponentRegistry.register(
       { name: 'showColumnTotals', type: 'boolean' },
       { name: 'filter', type: 'array' },
       { name: 'format', type: 'string' },
+      // objectui#11440: read by `ObjectPivotTable` (`isDrillEnabled`,
+      // `computeDrillFilter`, the `DrillDownDrawer` it opens) and declared by the
+      // block's zod arm in `@object-ui/types`, so it is published here too.
+      { name: 'drillDown', type: 'object', description: 'Click-through config that opens the records behind a clicked cell, header or total — in a drawer, a dialog, the object’s list page (`target: "navigate"`), or an analytical report (`report`). The drilled list is this block’s `filter` narrowed by the clicked value. `drillDown.mode` does not apply: every click point on a pivot is an aggregated bucket, so it always drills through; `mode` belongs on `object-data-table`.' },
     ],
     defaultProps: {
       rowField: '',
@@ -367,25 +460,32 @@ ComponentRegistry.register(
   }
 );
 
-// Register dashboard grid layout component
-ComponentRegistry.register(
-  'dashboard-grid',
-  DashboardGridLayout,
-  {
-    namespace: 'plugin-dashboard',
-    label: 'Dashboard Grid (Editable)',
-    category: 'Complex',
-    icon: 'layout-grid',
-    inputs: [
-      { name: 'title', type: 'string' },
-      { name: 'className', type: 'string' }
-    ],
-    defaultProps: {
-        title: 'Dashboard',
-        widgets: [],
-    }
-  }
-);
+/**
+ * ⛔ The `dashboard-grid` node type key is RETIRED (objectui#10859 batch 8,
+ * phase 2b, the seat's ruling on that card, by the objectui#10393 /
+ * objectui#8760 route). `DashboardGridLayout` stays exported: a host that wants
+ * the drag/resize grid mounts the React component directly, as the README's
+ * "DashboardGridLayout — persisting drag / resize edits" section shows.
+ *
+ * ## What was here, and why it went
+ *
+ * `ComponentRegistry.register('dashboard-grid', DashboardGridLayout, {
+ * namespace: 'plugin-dashboard', ... })` — builder chrome published as a node
+ * key, storing both `plugin-dashboard:dashboard-grid` and the bare
+ * `dashboard-grid` fallback. No `@object-ui/types` arm claims it, so
+ * `objectui validate` refused a node authored `type: 'dashboard-grid'` at
+ * `type` while the registry mounted it.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the node: 0 producers in source, docs, examples or the catalog
+ * and 0 runtime emission, re-measured for phase 2b (objectstack names it only
+ * as a host type in its own `sdui-parser` widget-options lint, a reader). The
+ * key leaves `dashboardComponents` below and the console's lazy stubs
+ * (`apps/console/src/register-plugins.ts`, `apps/console/src/preview-gallery.tsx`)
+ * in the same change, so no map or host keeps it alive. The dashboard's
+ * authorable node is `dashboard` (`DashboardRenderer`).
+ */
 
 // Register object-aware data table (async data loading)
 ComponentRegistry.register(
@@ -445,13 +545,18 @@ for (const retired of Object.keys(RETIRED_DASHBOARD_NODE_TYPES)) {
 // `*Components` maps); every value is the exact component the side-effect
 // import registers for that type, including the two internal
 // data-source-gate wrappers for the `object-*` types.
+//
+// objectui#10859 batch 8 (phase 2b): `metric` and `metric-card` register with
+// `skipFallback: true`, so the type each serves is its NAMESPACED key, and the
+// map says so — iterating it must not re-create the retired bare keys.
+// `dashboard-grid` is retired and gone from the map; `DashboardGridLayout`
+// stays a named export.
 export const dashboardComponents = {
   'dashboard': DashboardRenderer,
-  'metric': MetricWidget,
-  'metric-card': MetricCard,
+  'plugin-dashboard:metric': MetricWidget,
+  'plugin-dashboard:metric-card': MetricCard,
   'object-metric': ObjectMetricBlock,
   'pivot': PivotTable,
   'object-pivot': ObjectPivotBlock,
-  'dashboard-grid': DashboardGridLayout,
   'object-data-table': ObjectDataTable,
 };

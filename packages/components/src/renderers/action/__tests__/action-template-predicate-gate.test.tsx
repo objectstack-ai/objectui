@@ -151,21 +151,27 @@ const SITES: Site[] = [
   },
   {
     id: 'action:icon',
-    failClosed: false,
+    // Fail-closed since objectui#11212 (it was fail-soft when #3871 landed —
+    // the "before" table above).
+    failClosed: true,
     mount: (a, s) => mountLeaf('action:icon', a, s),
     present: iconPresent,
     disabled: iconDisabled,
   },
   {
     id: 'action:group inline member',
-    failClosed: false,
+    // Fail-closed since objectui#11212 (it was fail-soft when #3871 landed —
+    // the "before" table above).
+    failClosed: true,
     mount: mountInlineGroup,
     present: buttonPresent,
     disabled: buttonDisabled,
   },
   {
     id: 'action:group dropdown member',
-    failClosed: false,
+    // Fail-closed since objectui#11212 (it was fail-soft when #3871 landed —
+    // the "before" table above).
+    failClosed: true,
     mount: (a, s) => mountInMenu(<DropdownActionItem action={a} index={0} onSelect={() => {}} />, s),
     present: menuItemPresent,
     disabled: menuItemDisabled,
@@ -232,9 +238,9 @@ describe.each(SITES)('$id — `${…}` template `disabled` / `enabled` (objectui
 
 /**
  * The two HOSTS whose own `visible` is a separate call site from their members'
- * (`action-bar.tsx:117` fail-closed, `action-group.tsx:206` fail-soft). A host
- * gated away takes its whole toolbar with it, so these are pinned on the
- * container rather than on a leaf.
+ * (`action:bar`'s and `action:group`'s own `useCondition`, both fail-closed —
+ * `action:group`'s since objectui#11212). A host gated away takes its whole
+ * toolbar with it, so these are pinned on the container rather than on a leaf.
  */
 describe('action:bar host `visible` — `${…}` template (objectui#3871, fail-closed)', () => {
   const barSchema = (visible: unknown) => ({
@@ -264,7 +270,7 @@ describe('action:bar host `visible` — `${…}` template (objectui#3871, fail-c
   });
 });
 
-describe('action:group host `visible` — `${…}` template (objectui#3871, fail-soft)', () => {
+describe('action:group host `visible` — `${…}` template (objectui#3871, fail-closed since objectui#11212)', () => {
   function renderGroup(visible: unknown, scope: Record<string, any>) {
     const Group = getRenderer('action:group');
     return render(

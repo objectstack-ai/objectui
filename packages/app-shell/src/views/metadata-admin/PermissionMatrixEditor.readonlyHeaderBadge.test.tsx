@@ -180,10 +180,11 @@ describe('PermissionMatrixEditPage — header writability badge vs the package g
     for (const box of boxes) expect(box).toBeDisabled();
   });
 
-  it('CONTROL — gating is untouched: a writable package keeps Save and live checkboxes', async () => {
+  it('CONTROL — gating is untouched: a writable package keeps live checkboxes', async () => {
     await renderMatrix();
 
-    expect(screen.getByRole('button', { name: /^Save$/ })).toBeEnabled();
+    // objectui#11787 — the package door autosaves: no Save button; the live controls are the writability read.
+    expect(screen.queryByRole('button', { name: /^Save$/ })).toBeNull();
     expect(screen.getByLabelText('a_account Read')).toBeEnabled();
   });
 });
@@ -238,8 +239,8 @@ describe('PermissionMatrixEditPage — badge and controls read ONE predicate (#4
       const badgeSaysReadOnly = headerBadgeTexts().includes('read-only');
 
       if (c.expectWritable) {
-        expect(save).not.toBeNull();
-        expect(save).toBeEnabled();
+        // objectui#11787 — the package door autosaves: no Save button; the live controls are the writability read.
+        expect(save).toBeNull();
         expect(readBox).toBeEnabled();
         expect(badgeSaysReadOnly).toBe(false);
       } else {

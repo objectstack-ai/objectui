@@ -49,12 +49,13 @@
  *
  * ## The ceiling, stated rather than assumed (objectui#5155)
  *
- * `BaseSchema` is `.passthrough()` and its TS twin carries `[key: string]: any`,
- * so declaring a key buys it its declared TYPE — `title: 42` is refused now —
- * but does NOT buy rejection of a MISSPELLING: `drillDwn: {}` still parses and
- * still compiles, exactly as `visibleWhn` does on `ObjectGallerySchema`
- * (objectui#6576). The counter-probe below pins that honestly so nobody reads
- * the declaration as more than it is.
+ * `BaseSchema` is `.passthrough()` and its TS twin carried `[key: string]: any`
+ * until objectui#8347, so declaring a key bought it its declared TYPE —
+ * `title: 42` is refused now — but did NOT buy rejection of a MISSPELLING:
+ * `drillDwn: {}` still parsed and still compiled, exactly as `visibleWhn` did on
+ * `ObjectGallerySchema` (objectui#6576). It still parses (the mirror is
+ * unchanged); since objectui#8347 it no longer compiles, and the counter-probe
+ * below is flipped to pin that.
  *
  * ## Four keys stay ledgered, and the ledger is not a waiver
  *
@@ -103,7 +104,7 @@ type Expect<T extends true> = T;
 
 /**
  * `Equal`, not `extends`: through `BaseSchema`'s index signature an UNDECLARED
- * member reads `any`, and a one-way check accepts `any` on both sides — which
+ * member read `any` (until objectui#8347), and a one-way check accepts `any` on both sides — which
  * is precisely the before-state this card removed (the objectui#7087
  * disabled-twin lesson).
  */
@@ -160,11 +161,13 @@ describe('ObjectChartSchema — compile-time pins for the three keys (objectui#8
     expect(withMode.drillDown).toBeTruthy();
   });
 
-  it('the ceiling: a MISSPELLING still compiles, because `BaseSchema` carries an index signature', () => {
-    // Not a defect being papered over — the honest bound of what declaring a
-    // key buys. Revisit deliberately when objectui#5155 lands.
+  it('the ceiling is gone: a MISSPELLING stops compiling, since objectui#8347 removed `BaseSchema`\'s index signature', () => {
+    // This row pinned the honest bound of what declaring a key bought while the
+    // signature stood ("revisit deliberately when objectui#5155 lands"). The
+    // removal landed as objectui#8347, and the row flipped with it.
+    // @ts-expect-error — `drillDwn` is no member of `ObjectChartSchema`; the key is `drillDown`
     const typo: ObjectChartSchema = { type: 'object-chart', chartType: 'bar', drillDwn: { enabled: true } };
-    expect(typo.drillDwn).toEqual({ enabled: true });
+    expect(typo.type).toBe('object-chart');
   });
 });
 
@@ -204,7 +207,10 @@ describe('the zod mirror declares the same three keys (objectui#8885)', () => {
     // (`data-display.zod.ts`) is a different widget's contract and would accept
     // both keys — so this is the assertion that fails if the binding is ever
     // re-pointed at it.
-    for (const drillDown of [{ enabled: true, mode: 'record' }, { enabled: true, report: { name: 'pipeline' } }]) {
+    // `report` as the dataset-bound report the wider type declares (its `{ name }` arm is
+    // retired, objectui#11517), so the refusal is of the member and not of its value.
+    const report = { name: 'pipeline', label: 'Pipeline', type: 'summary', dataset: 'deals_ds', rows: ['stage'], values: ['amount_sum'] };
+    for (const drillDown of [{ enabled: true, mode: 'record' }, { enabled: true, report }]) {
       const parsed = ObjectChartMirror.safeParse({ type: 'object-chart', chartType: 'bar', drillDown });
       expect(parsed.success).toBe(false);
       expect(JSON.stringify(parsed.error?.issues)).toContain('unrecognized_keys');

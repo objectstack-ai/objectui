@@ -118,7 +118,7 @@ function lookupGateHint(language: string): string {
           {
             name: 'contact',
             label: 'Contact',
-            reference_to: 'crm_contact',
+            reference: 'crm_contact',
             reference_field: 'name',
             dependsOn: [PARENT_A.name, PARENT_B.name],
           } as any

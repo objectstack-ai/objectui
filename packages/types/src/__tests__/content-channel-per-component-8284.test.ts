@@ -93,7 +93,7 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import type {
-  BoxSchema, TextSpanSchema, ContainerSchema, FlexSchema, StackSchema, GridSchema, ScrollAreaSchema,
+  BoxSchema, TextSpanSchema, ContainerSchema, FlexSchema, StackSchema, GridSchema, ScrollAreaSchema, TextSchema,
 } from '../layout';
 import type { FormSchema, ToggleSchema } from '../form';
 import type { AlertSchema, BadgeSchema } from '../data-display';
@@ -145,7 +145,7 @@ const ROWS: ReadonlyArray<readonly [
   ['tooltip', TooltipMirror as unknown as Mirror, 'children', 'body', {}],
 ];
 
-const CONTENT = [{ type: 'text', content: 'measured' }];
+const CONTENT: TextSchema[] = [{ type: 'text', content: 'measured' }];
 const issues = (m: Mirror, doc: unknown) => {
   const r = m.safeParse(doc);
   return r.success ? null : r.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message }));

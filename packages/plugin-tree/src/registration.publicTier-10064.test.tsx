@@ -76,15 +76,17 @@ describe('object-tree on the curated public tier (objectui#10064)', () => {
     expect((cfg?.inputs ?? []).map((i) => i.name)).toContain('objectName');
   });
 
-  it('withholds the `tree` alias, deliberately and not by omission', () => {
-    // `index.tsx` registers the SAME renderer twice: `object-tree` (the name
-    // @objectstack/spec declares on `ComponentPropsMap`) and `tree` (a bare
-    // view-namespace alias the spec does not declare). Only the declared
-    // spelling is curated — admitting a name the contract does not declare
-    // would widen the accepted set rather than pull it back to the declaration,
-    // and two spellings of one block is ambiguity an authoring model has no way
-    // to resolve (the same ground `record:chatter` is held out on).
-    expect(ComponentRegistry.getConfig('tree')).toBeDefined();
+  it('withholds the `tree` alias — retired outright since objectui#10859 batch 8', () => {
+    // `index.tsx` used to register the SAME renderer twice: `object-tree` (the
+    // name @objectstack/spec declares on `ComponentPropsMap`) and `tree` (a bare
+    // view-namespace alias the spec does not declare), and this row pinned that
+    // only the declared spelling was curated. objectui#10859 batch 8 went the
+    // rest of the way and unregistered the alias (`objectui validate` refused it
+    // at `type`, and nothing authored it), so it is now absent from the registry
+    // itself, not only from the roster. Lit control: `object-tree` resolves.
+    expect(ComponentRegistry.getConfig('object-tree')).toBeDefined();
+    expect(ComponentRegistry.getConfig('tree')).toBeUndefined();
+    expect(ComponentRegistry.getConfig('view:tree')).toBeUndefined();
     expect(PUBLIC_BLOCKS).not.toContain('tree');
     expect(publicTypes()).not.toContain('tree');
   });
@@ -95,6 +97,5 @@ describe('object-tree on the curated public tier (objectui#10064)', () => {
     // callers not to do, and it would make the admission un-reviewable from the
     // one list that is meant to be the single source of truth.
     expect(ComponentRegistry.getMeta('object-tree')?.tier).toBeUndefined();
-    expect(ComponentRegistry.getMeta('tree')?.tier).toBeUndefined();
   });
 });

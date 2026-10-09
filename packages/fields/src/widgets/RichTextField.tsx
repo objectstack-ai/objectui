@@ -74,8 +74,8 @@ function RichTextEditorSurface({
    *
    * ⚠️ It is NOT reachable through {@link domProps}: `maxLength` is not on the
    * `toDomProps` whitelist, and this widget read the key nowhere else — so
-   * before objectui#8438 a `max_length` authored on ANY of the three registry
-   * keys this widget serves reached no element at all, while the sibling
+   * before objectui#8438 a ceiling authored on ANY of the three registry keys
+   * this widget serves reached no element at all, while the sibling
    * `TextAreaField` had honoured it since framework#1878 §3.
    */
   maxLength?: number;
@@ -342,17 +342,20 @@ export function RichTextField({ value, onChange, field, readonly, error, ...prop
   // what retired the deliberate `as unknown as MarkdownFieldMetadata` its pin
   // test needed for as long as the union had no branch to write it against.
   // The cast below names two of the three because it does not have to
-  // discriminate: every key this widget consumes (`rows`, `mobile_fullscreen`,
-  // `placeholder`, `label`) is DECLARED on all three, so the two named already
-  // admit every read below — `rows` since the objectui#6140 Option A ruling
+  // discriminate: every key this widget consumes (`rows`, `maxLength`,
+  // `mobile_fullscreen`, `placeholder`, `label`) is DECLARED on all three, so
+  // the two named already admit every read below — `rows` since the objectui#6140 Option A ruling
   // (which is what retired the `as any` that used to launder this carrier).
   const richField = field as MarkdownFieldMetadata | HtmlFieldMetadata;
   const rows = richField?.rows || 8;
   /**
-   * The authored ceiling — the same dual read `TextAreaField` has carried
-   * since framework#1878 §3, and `max_length` is declared on all three of this
-   * widget's metadata faces (`MarkdownFieldMetadata`, `HtmlFieldMetadata`,
-   * `RichtextFieldMetadata`), so the cast above already admits it.
+   * The authored ceiling — the spec's `maxLength`, the same single read
+   * `TextAreaField` makes. It is declared on all three of this widget's
+   * metadata faces (`MarkdownFieldMetadata`, `HtmlFieldMetadata`,
+   * `RichtextFieldMetadata`) by reference to `FieldSchema.maxLength`, so the
+   * cast above already admits it. The snake_case `max_length` this widget also
+   * read until objectui#11070 is retired: the spec refuses it by name, and no
+   * reader reads it.
    *
    * ## Why this read did not exist until objectui#8438
    *
@@ -374,12 +377,8 @@ export function RichTextField({ value, onChange, field, readonly, error, ...prop
    * `buildValidationRules` (which has no field-type gate) rejected the same
    * text at SUBMIT. That is the worst ordering of the three possible ones —
    * the person is told after writing — and it is what this read ends.
-   *
-   * The camelCase half stays a narrow structural read for the same reason it
-   * does in `TextAreaField`: the objectui metadata types deliberately do not
-   * declare the spec spelling.
    */
-  const maxLength = (field as { maxLength?: number }).maxLength ?? richField?.max_length;
+  const maxLength = richField?.maxLength;
   // The stored syntax, DERIVED from the type's display pipeline rather than
   // read off a `format` key no rich-content type declares. Empty for a type
   // with no pipeline: the header names a syntax or it names nothing, it does

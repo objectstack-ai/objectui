@@ -12,6 +12,7 @@ import { Card, CardContent, cn } from '@object-ui/components';
 import { Clock, ArrowUpRight, Database, FileText, LayoutDashboard, File } from 'lucide-react';
 import { recentItemTypeLabel } from './recentItemTypeLabel.js';
 import type { RecentItem } from '../../hooks/useRecentItems.js';
+import { useRecentItemLabel } from '../../hooks/useRecentItemLabel.js';
 
 interface RecentAppsProps {
   items: RecentItem[];
@@ -36,6 +37,9 @@ const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
 export function RecentApps({ items }: RecentAppsProps) {
   const navigate = useNavigate();
   const { t } = useObjectTranslation();
+  // The entry stores identity, not text: its label is the item's own, read in
+  // the current language on this render (objectui#11678).
+  const recentLabel = useRecentItemLabel();
 
   if (items.length === 0) return null;
 
@@ -75,7 +79,7 @@ export function RecentApps({ items }: RecentAppsProps) {
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-sm truncate">{item.label}</h3>
+                    <h3 className="font-medium text-sm truncate">{recentLabel(item)}</h3>
                     <p className="text-xs text-muted-foreground">{typeLabel}</p>
                   </div>
                   <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 -translate-x-1 transition-[opacity,transform] duration-200 group-hover:opacity-100 group-hover:translate-x-0" />

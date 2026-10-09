@@ -44,7 +44,7 @@
  * the fetch side off the WIRE (`$top` the data source received).
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 
@@ -305,9 +305,10 @@ describe('ObjectGrid — one display page size from the spec, and a distinct fet
     // The display default is not one of the selector's fixed steps; without
     // the active size merged in, the control would display a size that is not
     // the one on screen.
-    const select = document.querySelector('select') as HTMLSelectElement | null;
-    expect(select).toBeTruthy();
-    expect(select!.value).toBe(String(SPEC_DISPLAY_DEFAULT));
+    // The selector is the shared `Select` (objectui#11865): its trigger shows
+    // the size in force.
+    const trigger = screen.getByRole('combobox');
+    expect(trigger.textContent).toBe(String(SPEC_DISPLAY_DEFAULT));
   });
 
   it('CONTROL — a declared page size is honoured on every surface, and on the bucketed fetch as before', async () => {

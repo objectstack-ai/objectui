@@ -30,6 +30,11 @@ import {
   PopoverContent,
   PopoverTrigger,
   GroupingEditor,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@object-ui/components';
 import {
   Settings2,
@@ -115,6 +120,57 @@ function Section({ title, badge, onClear, clearLabel, defaultOpen = true, childr
       </div>
       {open && <div className="px-3 pb-3">{children}</div>}
     </div>
+  );
+}
+
+/** The item a colour field none of the options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — the "Color by field" picker, drawn with the shared `Select`,
+ * the control the rest of the console picks with. It used to be a
+ * browser-native `<select>`. What a pick writes is unchanged: `onPick` receives
+ * the picked option's own value, the string the native control's `change`
+ * carried, and the caller turns it into the same row-colour config as before.
+ * Re-picking the current option writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value: "None" is the option whose
+ *   value is `''`, which `SelectItem` refuses.
+ * - A colour field none of the options carries gets an item of its own,
+ *   labelled with the field, so the trigger shows what the view holds. The
+ *   native control showed "None" there. Picking that item writes nothing.
+ */
+function ColorFieldPicker({
+  value,
+  options,
+  onPick,
+}: {
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the view's own field, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger className="h-8 rounded px-2 text-xs" data-testid="color-field-select">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -224,26 +280,20 @@ export function ViewSettingsPopover(props: ViewSettingsPopoverProps) {
             <label className="block text-[11px] text-muted-foreground mb-1">
               {t('list.colorByField', { defaultValue: 'Color by field' })}
             </label>
-            <select
-              className="w-full h-8 rounded border border-input bg-background px-2 text-xs"
+            <ColorFieldPicker
               value={rowColorConfig?.field || ''}
-              onChange={(e) => {
-                const field = e.target.value;
+              options={[
+                { value: '', label: t('list.none', { defaultValue: 'None' }) },
+                ...allFields.map((field) => ({ value: field.name, label: field.label || field.name })),
+              ]}
+              onPick={(field) => {
                 if (!field) {
                   setRowColorConfig(undefined);
                 } else {
                   setRowColorConfig({ field, colors: rowColorConfig?.colors || {} });
                 }
               }}
-              data-testid="color-field-select"
-            >
-              <option value="">{t('list.none', { defaultValue: 'None' })}</option>
-              {allFields.map((field) => (
-                <option key={field.name} value={field.name}>
-                  {field.label || field.name}
-                </option>
-              ))}
-            </select>
+            />
           </Section>
         )}
 

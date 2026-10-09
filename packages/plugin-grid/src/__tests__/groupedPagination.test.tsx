@@ -11,7 +11,7 @@
  * container so columns stay aligned with a single x-axis scrollbar.
  */
 import { describe, it, expect } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 import { PaginationConfigSchema } from '@objectstack/spec/ui';
@@ -120,9 +120,10 @@ describe('Grouped view pagination', () => {
     );
     expect(resizeTo, 'no fixed selector step splits the fixture into two pages').toBeDefined();
 
-    const select = document.querySelector('select') as HTMLSelectElement;
-    expect(select).toBeTruthy();
-    fireEvent.change(select, { target: { value: String(resizeTo) } });
+    // The selector is the shared `Select` (objectui#11865): open it and pick.
+    fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowDown' });
+    const listbox = await screen.findByRole('listbox');
+    fireEvent.click(within(listbox).getByRole('option', { name: String(resizeTo) }));
 
     // Two pages, page reset to 1, the first page shows `resizeTo` groups.
     await waitFor(() => expect(screen.getByText('Page 1 of 2')).toBeInTheDocument());

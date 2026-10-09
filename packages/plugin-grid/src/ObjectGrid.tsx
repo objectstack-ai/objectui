@@ -53,6 +53,7 @@ import {
   Badge, Button, NavigationOverlay, EmptyValue,
   legacyRecordDrawerWidthKey, recordOverlayWidthStorageKey, useOverlayAnchor,
   Popover, PopoverContent, PopoverTrigger,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   RefreshIndicator,
   DataEmptyState, resolveIcon,
 } from '@object-ui/components';
@@ -6443,18 +6444,25 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2 border-t">
       <div className="flex items-center gap-2">
         <span className="text-xs sm:text-sm text-muted-foreground">{t('table.rowsPerPage')}:</span>
-        <select
-          className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-          value={groupedPageSize}
-          onChange={(e) => { setGroupedPageSize(Number(e.target.value)); setGroupedPage(1); }}
+        {/* The shared `Select`, drawn as the DataTable pager draws its own
+            size picker (objectui#11865); it was a browser-native `<select>`.
+            A pick writes the same number and returns to page 1, as before. */}
+        <Select
+          value={String(groupedPageSize)}
+          onValueChange={(size) => { setGroupedPageSize(Number(size)); setGroupedPage(1); }}
         >
-          {/* The active size is merged in, as the DataTable pager does, so the
-              selector shows the size in force even when it is not one of the
-              steps: the spec's display default is not (objectui#9853). */}
-          {Array.from(new Set([5, 10, 20, 50, 100, groupedPageSize])).sort((a, b) => a - b).map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 w-20 px-2">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {/* The active size is merged in, as the DataTable pager does, so the
+                selector shows the size in force even when it is not one of the
+                steps: the spec's display default is not (objectui#9853). */}
+            {Array.from(new Set([5, 10, 20, 50, 100, groupedPageSize])).sort((a, b) => a - b).map((n) => (
+              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex items-center gap-2">
         <span className="text-xs sm:text-sm text-muted-foreground">

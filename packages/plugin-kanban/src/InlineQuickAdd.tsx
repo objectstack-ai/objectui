@@ -7,7 +7,7 @@
  */
 
 import * as React from "react"
-import { Button, Input } from "@object-ui/components"
+import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@object-ui/components"
 import { Check, X } from "lucide-react"
 import type { InlineFieldDefinition } from "./types"
 
@@ -46,7 +46,7 @@ export const InlineQuickAdd: React.FC<InlineQuickAddProps> = ({
     return initial
   })
 
-  const firstInputRef = React.useRef<HTMLInputElement | HTMLSelectElement>(null)
+  const firstInputRef = React.useRef<HTMLInputElement | HTMLButtonElement>(null)
 
   React.useEffect(() => {
     // Auto-focus first field on mount
@@ -124,6 +124,77 @@ export const InlineQuickAdd: React.FC<InlineQuickAddProps> = ({
   )
 }
 
+/** The item a value none of the options carries is shown by. */
+const OUTSIDE_OPTIONS = "outside"
+
+/**
+ * objectui#11865 — a select field of the quick-add form, drawn with the shared
+ * `Select`, the control the rest of the console picks with. It used to be a
+ * browser-native `<select>`. A pick writes the option's own value, the string
+ * the native control's `change` carried; re-picking the current option writes
+ * nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value: the placeholder is the
+ *   option whose value is `''`, which `SelectItem` refuses.
+ * - The value is matched as the native control matched it, by its string, so
+ *   a pre-filled `2` still shows the option whose value is `"2"`.
+ * - A value none of the options carries gets an item of its own, labelled with
+ *   the value, so the trigger shows what the card will be created with. The
+ *   native control showed the placeholder there. Picking that item writes
+ *   nothing.
+ * - `id` goes on the trigger, so the `<label htmlFor>` names it as it named the
+ *   native control, and the ref reaches the trigger, so it takes the form's
+ *   first focus.
+ * - Keys keep the form's contract: Enter on the closed picker still submits the
+ *   form and Escape still cancels it, as on the native control. The other open
+ *   keys (Space, the arrows) open the list, and a key pressed in the open list
+ *   stays in it: Enter there selects, and Escape closes the list, not the form.
+ */
+const QuickAddPicker = React.forwardRef<
+  HTMLButtonElement,
+  {
+    id?: string
+    value: unknown
+    options: ReadonlyArray<{ value: string; label: string }>
+    onPick: (value: string) => void
+    className?: string
+  }
+>(({ id, value, options, onPick, className }, ref) => {
+  const shown = String(value ?? "")
+  const at = options.findIndex(o => o.value === shown)
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={token => {
+        // `undefined` for the outside item: it is the form's own value, so there is nothing to write.
+        const picked = options[Number(token)]
+        if (picked) onPick(picked.value)
+      }}
+    >
+      <SelectTrigger
+        ref={ref}
+        id={id}
+        className={cn(className, "px-2 py-1")}
+        onKeyDown={e => {
+          // Enter is the form's submit key; it does not open the list.
+          if (e.key === "Enter") e.preventDefault()
+        }}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent onKeyDown={e => e.stopPropagation()}>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{shown}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+})
+QuickAddPicker.displayName = "QuickAddPicker"
+
 /** Renders a single field based on its type. */
 function renderField(
   field: InlineFieldDefinition,
@@ -137,24 +208,17 @@ function renderField(
   switch (field.type) {
     case "select":
       return (
-        <select
-          ref={ref as React.Ref<HTMLSelectElement>}
+        <QuickAddPicker
+          ref={ref as React.Ref<HTMLButtonElement>}
           id={id}
-          value={value ?? ""}
-          onChange={e => onChange(field.name, e.target.value)}
-          className={cn(
-            commonClasses,
-            "w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-          )}
-        >
-          <option value="">{field.placeholder ?? `Select ${field.label ?? field.name}...`}</option>
-          {(field.options ?? []).map(opt => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          value={value}
+          options={[
+            { value: "", label: field.placeholder ?? `Select ${field.label ?? field.name}...` },
+            ...(field.options ?? []),
+          ]}
+          onPick={picked => onChange(field.name, picked)}
+          className={commonClasses}
+        />
       )
 
     case "number":

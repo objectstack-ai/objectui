@@ -144,7 +144,9 @@ async function authorEveryFacet() {
   fireEvent.change(screen.getByPlaceholderText(USING_PLACEHOLDER), { target: { value: USING } });
 
   openFacet('Tab Visibility');
-  fireEvent.change(await screen.findByDisplayValue('Visible'), { target: { value: 'hidden' } });
+  // The visibility picker is the shared Select (objectui#11865): open it and pick, as a user does.
+  fireEvent.keyDown(await screen.findByTestId('tab-visibility-a_account'), { key: 'ArrowDown' });
+  fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'Hidden' }));
 
   openFacet('Delegated Admin Scope');
   const businessUnit = (await screen.findByText('Business unit')).parentElement!.querySelector(

@@ -201,6 +201,7 @@ import {
   newField,
 } from '../metadata-admin/previews/object-fields-io.js';
 import { CreateItemDialog } from './CreateItemDialog.js';
+import { FLOW_PRESETS, flowPresetTrigger, type FlowPreset } from './flowPresets.js';
 import {
   CreatePackageDialog,
   PackageDetailSheet,
@@ -5878,6 +5879,13 @@ export function AutomationsPillar({
   const [newTrigger, setNewTrigger] = React.useState('');
   const [newTriggerObject, setNewTriggerObject] = React.useState('');
   const startTrigger = React.useMemo(() => newFlowTriggerFields(locale), [locale]);
+  // objectui#11861 — the dialog opens on the starting points of
+  // `flowPresets.ts`; the trigger form above is the *Advanced* choice. A
+  // record preset waits for its object: `newNeeds` is the line the dialog
+  // shows while Create holds it.
+  const [newChoice, setNewChoice] = React.useState<FlowPreset | 'advanced'>(FLOW_PRESETS[0]);
+  const [newNeeds, setNewNeeds] = React.useState<string | null>(null);
+  const newChoiceGroup = React.useId();
   // objectui#11591 — keyed on the pillar's one type, as the inspector beside
   // it is, never on the open flow's: with no flow open (a deep link naming one
   // this rail does not hold, or an empty rail) a selection-keyed read found no
@@ -6248,6 +6256,8 @@ export function AutomationsPillar({
                   setError(null);
                   setNewTrigger('');
                   setNewTriggerObject('');
+                  setNewChoice(FLOW_PRESETS[0]);
+                  setNewNeeds(null);
                   setCreating(true);
                 }}
                 title={t('engine.studio.auto.newTitle', locale)}
@@ -6443,62 +6453,130 @@ export function AutomationsPillar({
         submitLabel={t('engine.studio.createDraft', locale)}
         submittingLabel={t('engine.studio.creating', locale)}
         busy={createBusy}
-        error={error?.message ?? null}
+        error={newNeeds ?? error?.message ?? null}
         locale={locale}
         extra={
-          /* objectui#11788 — the trigger, asked for here rather than found
-             later inside the Start node. The choices, their labels and which
-             of them watch an object are the Start node's own trigger field
-             (`fieldsForNodeType('start')`), so the two can never offer
-             different triggers; what is chosen is written where that field
-             writes it. */
-          startTrigger.trigger && (
-            <div className="space-y-3">
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">{startTrigger.trigger.label}</span>
-                <select
-                  value={newTrigger}
-                  data-testid="create-flow-trigger"
-                  onChange={(e) => setNewTrigger(e.target.value)}
-                  className="w-full rounded border bg-background px-2 py-1.5 text-sm"
-                >
-                  <option value="">{t('engine.studio.newAutoTrigger.later', locale)}</option>
-                  {(startTrigger.trigger.options ?? []).map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {startTrigger.trigger.help && (
-                <p className="-mt-2 text-[11px] text-muted-foreground">{startTrigger.trigger.help}</p>
-              )}
-              {startTrigger.object && newTrigger && startTrigger.object.showWhen?.equals.includes(newTrigger) && (
-                <ObjectPicker
-                  label={startTrigger.object.label}
-                  value={newTriggerObject}
-                  onCommit={setNewTriggerObject}
-                  locale={locale}
+          /* objectui#11861 — the dialog opens on starting points in plain
+             words (`flowPresets.ts`), the first one chosen. Each is one of the
+             Start node's trigger choices, written by the same create path. A
+             record one asks for its object right under it, with the Start
+             node's own Object field, and Create holds it until one is named.
+             *Advanced* is the trigger form below, unchanged: it writes what
+             it wrote. */
+          <fieldset className="space-y-2">
+            <legend className="mb-1 block text-sm font-medium">{t('engine.studio.auto.presets', locale)}</legend>
+            {FLOW_PRESETS.map((p) => (
+              <div key={p.id}>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name={newChoiceGroup}
+                    value={p.id}
+                    checked={newChoice === p}
+                    data-testid={`create-flow-preset-${p.id}`}
+                    onChange={() => {
+                      setNewChoice(p);
+                      setNewNeeds(null);
+                    }}
+                  />
+                  {t(p.labelKey, locale)}
+                </label>
+                {newChoice === p && startTrigger.object?.showWhen?.equals.includes(p.triggerType) && (
+                  <div className="ml-6 mt-1.5">
+                    <ObjectPicker
+                      label={startTrigger.object.label}
+                      value={newTriggerObject}
+                      onCommit={(v) => {
+                        setNewTriggerObject(v);
+                        setNewNeeds(null);
+                      }}
+                      locale={locale}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+            <div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name={newChoiceGroup}
+                  value="advanced"
+                  checked={newChoice === 'advanced'}
+                  data-testid="create-flow-advanced"
+                  onChange={() => {
+                    setNewChoice('advanced');
+                    setNewNeeds(null);
+                  }}
                 />
+                {/* The Validations and Actions menus' own word for the full form. */}
+                {t('engine.studio.rules.advanced', locale)}
+              </label>
+              {/* objectui#11788 — the trigger, asked for here rather than found
+                  later inside the Start node. The choices, their labels and
+                  which of them watch an object are the Start node's own
+                  trigger field (`fieldsForNodeType('start')`), so the two can
+                  never offer different triggers; what is chosen is written
+                  where that field writes it. */}
+              {newChoice === 'advanced' && startTrigger.trigger && (
+                <div className="ml-6 mt-1.5 space-y-3">
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-medium">{startTrigger.trigger.label}</span>
+                    <select
+                      value={newTrigger}
+                      data-testid="create-flow-trigger"
+                      onChange={(e) => setNewTrigger(e.target.value)}
+                      className="w-full rounded border bg-background px-2 py-1.5 text-sm"
+                    >
+                      <option value="">{t('engine.studio.newAutoTrigger.later', locale)}</option>
+                      {(startTrigger.trigger.options ?? []).map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {startTrigger.trigger.help && (
+                    <p className="-mt-2 text-[11px] text-muted-foreground">{startTrigger.trigger.help}</p>
+                  )}
+                  {startTrigger.object && newTrigger && startTrigger.object.showWhen?.equals.includes(newTrigger) && (
+                    <ObjectPicker
+                      label={startTrigger.object.label}
+                      value={newTriggerObject}
+                      onCommit={setNewTriggerObject}
+                      locale={locale}
+                    />
+                  )}
+                </div>
               )}
             </div>
-          )
+          </fieldset>
         }
-        onSubmit={({ label, name }) =>
-          void doCreateFlow(
-            label,
-            name,
-            newTrigger
-              ? {
-                  triggerType: newTrigger,
-                  objectName:
-                    startTrigger.object?.showWhen?.equals.includes(newTrigger) && newTriggerObject.trim()
-                      ? newTriggerObject.trim()
-                      : undefined,
-                }
-              : null,
-          )
-        }
+        onSubmit={({ label, name }) => {
+          if (newChoice === 'advanced') {
+            void doCreateFlow(
+              label,
+              name,
+              newTrigger
+                ? {
+                    triggerType: newTrigger,
+                    objectName:
+                      startTrigger.object?.showWhen?.equals.includes(newTrigger) && newTriggerObject.trim()
+                        ? newTriggerObject.trim()
+                        : undefined,
+                  }
+                : null,
+            );
+            return;
+          }
+          // A preset: its trigger, or nothing sent while it waits for its object.
+          const trigger = flowPresetTrigger(newChoice, startTrigger.object?.showWhen?.equals ?? [], newTriggerObject);
+          if (!trigger) {
+            setNewNeeds(t('engine.studio.auto.preset.needsObject', locale));
+            return;
+          }
+          void doCreateFlow(label, name, trigger);
+        }}
       />
     </div>
   );

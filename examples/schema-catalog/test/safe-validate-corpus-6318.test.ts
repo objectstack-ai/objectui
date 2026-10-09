@@ -15,9 +15,14 @@
  *
  * The bucket is reported by a COUNT and a file list on stdout. Nothing fails
  * when a file rejoins it: `objectui check` exits 0 whether the list is empty or
- * 53 entries long (`packages/cli/src/commands/check.ts` increments `errors`
- * only on a parse failure). So a corpus repair that is not pinned is a repair
- * that regresses silently — which is how the two shapes below got here.
+ * 53 entries long (`packages/cli/src/commands/check.ts` does not count a listed
+ * file as an error). So a corpus repair that is not pinned is a repair that
+ * regresses silently — which is how the two shapes below got here.
+ *
+ * Membership is judged through the door `check` itself reads,
+ * `validateAuthoredDocument` — the strict authoring face since objectui#5250 —
+ * so a fixture that gained an undeclared key, and rejoined the bucket for it,
+ * turns this pin red.
  *
  * ## The two shapes are NOT the same repair, and must not be pinned alike
  *
@@ -69,6 +74,8 @@
 import { describe, it, expect } from 'vitest';
 import { safeValidateSchema } from '@object-ui/types/zod';
 
+import { validateAuthoredDocument } from '../../../packages/cli/src/utils/authoring-face.js';
+
 import javascriptEditor from '../src/schemas/plugin-editor/javascript-editor.json' with { type: 'json' };
 import pythonEditor from '../src/schemas/plugin-editor/python-editor.json' with { type: 'json' };
 import readOnlyJsonViewer from '../src/schemas/plugin-editor/read-only-json-viewer.json' with { type: 'json' };
@@ -77,9 +84,12 @@ import basicSelect from '../src/schemas/components-form-select/basic-select.json
 import basicTabs from '../src/schemas/components-layout-tabs/basic-tabs.json' with { type: 'json' };
 import iconToolbar from '../src/schemas/components-basic-button-group/icon-toolbar.json' with { type: 'json' };
 
-/** Report the first issue rather than `false`, so a red run says what broke. */
+/**
+ * Report the issues rather than `false`, so a red run says what broke. Read
+ * through `check`'s own door, so "out of the bucket" means what `check` means.
+ */
 function reasons(schema: unknown): string[] {
-  const r = safeValidateSchema(schema);
+  const r = validateAuthoredDocument(schema);
   return r.success ? [] : r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
 }
 

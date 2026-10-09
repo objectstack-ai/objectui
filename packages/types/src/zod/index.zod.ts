@@ -734,8 +734,8 @@ export const SCHEMA_VERSION = '1.0.0';
  * run strict; renderer props keep the tolerant face unchanged").
  *
  * ⛔ Nothing here changes the accept set of anything exported above. The
- * rendering face keeps its `.passthrough()`; this is a SECOND face, and no
- * consumer in this repository is wired to it yet.
+ * rendering face keeps its `.passthrough()`; this is a SECOND face, and
+ * `objectui validate` and `objectui check` consume it (objectui#5250).
  *
  * ⚠️ The module is `../strict-authoring-face.ts`, OUTSIDE this directory, and
  * the placement is deliberate. `__tests__/zod-mirror-parity.test.ts` runs a

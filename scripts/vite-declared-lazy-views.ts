@@ -239,12 +239,20 @@ export const EAGER_WALK_CONTROL = 'packages/app-shell/src/views/ObjectView.tsx';
  * finding. The finding is the pair that reproduced on both rebuilds: the chunk
  * stayed EAGER and the eager chunk count did not move (45 of 513).
  *
- * ⛔ What has NOT changed: the five registrations are still load-bearing and
- * still unshakeable. {@link declaredSideEffectful} — not
+ * ⛔ What has NOT changed: the registrations in `register-builtins.ts` are
+ * still load-bearing and still unshakeable. {@link declaredSideEffectful} — not
  * {@link bareSideEffectImport}, which returns `null` for a top-level CALL —
  * is the guard that refuses to declare their module pure, and it now reads
  * `register-builtins.ts` out of the package's own array. Moving the bare import
  * back onto the page barrel would re-arm the whole defect under a new name.
+ *
+ * objectui#11939 step 2 took two of the five out of that module: the built-in
+ * previews and inspectors are registered by `register-builtin-designers.ts`,
+ * which the package entry loads with a dynamic `import()` and whose exported
+ * function its `.then` calls. That module registers nothing at load time, so
+ * the array does not name it and neither guard here is involved; the three
+ * registrations whose registries are not observable stay in
+ * `register-builtins.ts`, eager as before.
  *
  * ## Two entries were REMOVED here BEFORE that, and both removals are wins
  *

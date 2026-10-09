@@ -31,6 +31,7 @@ import {
   Upload,
   Globe,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useDesignerTranslation } from './hooks/useDesignerTranslation';
@@ -97,6 +98,70 @@ const FONT_FAMILIES = [
   'Noto Sans',
   'system-ui',
 ];
+
+/** The item a font none of the options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — the font family picker, drawn with the shared `Select`, the
+ * control the rest of the designer picks with. It used to be a browser-native
+ * `<select>`. What a pick writes is unchanged: `onPick` receives the picked
+ * option's own value, the string the native control's `change` carried, and
+ * the caller turns it into the same `fontFamily` as before. Re-picking the
+ * current option writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value: "Default (System)" is the
+ *   option whose value is `''`, which `SelectItem` refuses.
+ * - A font none of the options carries gets an item of its own, labelled with
+ *   the font, so the trigger shows what the branding holds. The native control
+ *   showed "Default (System)" there. Picking that item writes nothing.
+ * - `disabled` reaches the trigger through the primitive, as it reached the
+ *   native control.
+ * - `id` goes on the trigger, so the `<label htmlFor>` names it as it named the
+ *   native control.
+ */
+function FontPicker({
+  id,
+  value,
+  options,
+  onPick,
+  disabled,
+}: {
+  id: string;
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  disabled: boolean;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the branding's own font, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        id={id}
+        data-testid="branding-font-select"
+        className="h-auto rounded-md border-gray-300 py-2 pl-9 pr-3 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:ring-offset-0 disabled:bg-gray-50"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 // ============================================================================
 // BrandingEditor Component
@@ -398,21 +463,16 @@ export function BrandingEditor({
             </label>
             <div className="relative">
               <Type className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-              <select
+              <FontPicker
                 id="be-font"
-                data-testid="branding-font-select"
                 value={branding.fontFamily ?? ''}
-                onChange={(e) => updateBranding({ fontFamily: e.target.value || undefined })}
+                options={[
+                  { value: '', label: t('appDesigner.fontDefault') },
+                  ...FONT_FAMILIES.map((font) => ({ value: font, label: font })),
+                ]}
+                onPick={(font) => updateBranding({ fontFamily: font || undefined })}
                 disabled={readOnly}
-                className="block w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm shadow-sm outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50 appearance-none"
-              >
-                <option value="">{t('appDesigner.fontDefault')}</option>
-                {FONT_FAMILIES.map((font) => (
-                  <option key={font} value={font}>
-                    {font}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           </div>
         </div>

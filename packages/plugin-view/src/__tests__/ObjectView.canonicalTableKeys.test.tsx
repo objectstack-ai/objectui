@@ -44,16 +44,21 @@
  * PRECEDENCE, when an author writes both: the canonical key wins. Where
  * `ObjectView` itself resolves the pair (the non-grid fetch, and the delegated
  * `renderListView` schema) that choice is encoded in this file's `||` chains
- * and pinned below. On the grid path `ObjectView` forwards BOTH slots and
- * `ObjectGrid` arbitrates — it already resolves all four pairs canonical-first
+ * and pinned below. On the grid path `ObjectView` forwards BOTH slots of the
+ * pagination and selection pairs and `ObjectGrid` arbitrates canonical-first
  * (`schema.pagination?.pageSize ?? schema.pageSize`; `if (schema.selection
- * ?.type) … else if (schema.selectable !== undefined)`; `schemaFilter !==
- * undefined ? … : schema.defaultFilters`; `schemaSort ?? (schema.defaultSort
- * ? [schema.defaultSort] : undefined)`). Re-resolving the pair here instead
- * would have made the two layers disagree, and synthesising a `pagination`
- * object out of a legacy `pageSize` would flip `ObjectGrid`'s
+ * ?.type) … else if (schema.selectable !== undefined)`). Synthesising a
+ * `pagination` object out of a legacy `pageSize` would flip `ObjectGrid`'s
  * `paginationEnabled` (`schema.pagination !== undefined ? true : …`) for every
  * view that only ever wrote the legacy key.
+ *
+ * objectui#11880 item 5: the FILTER pair is the exception on the grid path.
+ * `ObjectView` resolves it itself and hands the winner in `filter` alone,
+ * never writing `defaultFilters`: `ObjectGrid`'s export and page reset read
+ * `filter` only, so a value in the legacy slot narrowed the rows but not the
+ * download. The precedence is unchanged (the canonical key wins unless it
+ * lowers to nothing), and `ObjectView.gridFilterHandoff-11880.test.tsx` reads
+ * it through the real grid.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -204,9 +209,10 @@ describe('grid path: the legacy spellings still work', () => {
     expect(forwardedGridSchema({ table: { selectable: true } as any }).selectable).toBe(true);
   });
 
-  it('still forwards table.defaultFilters', () => {
+  it('still honours table.defaultFilters, handed over in `filter` (objectui#11880 item 5)', () => {
     const grid = forwardedGridSchema({ table: { defaultFilters: { status: 'active' } } as any });
-    expect(grid.defaultFilters).toEqual({ status: 'active' });
+    expect(grid.filter).toEqual({ status: 'active' });
+    expect(grid.defaultFilters).toBeUndefined();
   });
 
   it('no longer forwards a retired table.defaultSort — and does not rescue it into `sort` (objectui#5861)', () => {
@@ -230,17 +236,20 @@ describe('grid path: the legacy spellings still work', () => {
     });
     expect(grid.pagination).toBeUndefined();
     expect(grid.selection).toBeUndefined();
-    expect(grid.filter).toBeUndefined();
     expect(grid.sort).toBeUndefined();
+    // objectui#11880 item 5 — the filter pair is resolved here, so the alias
+    // rides the only filter slot the node carries; nothing is synthesised.
+    expect(grid.filter).toEqual({ a: 1 });
+    expect(grid.defaultFilters).toBeUndefined();
   });
 });
 
-describe('grid path: both spellings written — each rides its own slot', () => {
-  // ObjectView forwards both and ObjectGrid arbitrates canonical-first (see the
-  // file header for the four expressions). What is pinned here is ObjectView's
-  // half: the canonical value must arrive in the canonical slot, or the
-  // downstream rule has nothing to prefer.
-  it('puts the canonical value in the canonical slot and the alias in the legacy one', () => {
+describe('grid path: both spellings written', () => {
+  // ObjectView forwards both slots of the pagination and selection pairs and
+  // ObjectGrid arbitrates canonical-first (see the file header). The filter
+  // pair is resolved here instead (objectui#11880 item 5): the canonical value
+  // arrives in `filter` and no `defaultFilters` is written.
+  it('puts each canonical value in its slot; the paging aliases ride theirs, the filter alias is not written', () => {
     const grid = forwardedGridSchema({
       table: {
         pagination: { pageSize: 25 },
@@ -258,7 +267,7 @@ describe('grid path: both spellings written — each rides its own slot', () => 
     expect(grid.selection).toEqual({ type: 'multiple' });
     expect(grid.selectable).toBe(false);
     expect(grid.filter).toEqual([['stage', '=', 'won']]);
-    expect(grid.defaultFilters).toEqual({ stage: 'lost' });
+    expect(grid.defaultFilters).toBeUndefined();
     expect(grid.sort).toEqual([{ field: 'name', order: 'desc' }]);
     // objectui#5861 — the sort pair has no legacy slot any more: the retired
     // `defaultSort` is dropped, not forwarded beside the canonical value.
@@ -268,10 +277,9 @@ describe('grid path: both spellings written — each rides its own slot', () => 
 
 describe('grid path: a named view still outranks the table segment', () => {
   // The FILTER segments ahead of `table` (`listViews` entry, then `activeView`)
-  // are untouched by objectui#5102 — they keep riding the legacy slot. The
-  // canonical slot must therefore stay EMPTY while one of them is active:
-  // ObjectGrid prefers the canonical slot, so a `table.filter` forwarded
-  // unconditionally would outrank the view the user is looking at.
+  // ride `filter` since objectui#11880 item 5, the one filter slot the node
+  // carries, so the view's filter must be the value in it: a `table.filter`
+  // there would outrank the view the user is looking at.
   //
   // The SORT half moved in objectui#5270 — see the sort assertion below for
   // why, and `ObjectView.namedViewSortArity.test.tsx` for the two consumers
@@ -293,8 +301,8 @@ describe('grid path: a named view still outranks the table segment', () => {
       ...namedView,
       table: { filter: [['stage', '=', 'lost']] } as any,
     } as any);
-    expect(grid.filter).toBeUndefined();
-    expect(grid.defaultFilters).toEqual([['stage', '=', 'won']]);
+    expect(grid.filter).toEqual([['stage', '=', 'won']]);
+    expect(grid.defaultFilters).toBeUndefined();
   });
 
   it('keeps the named view sort in force over a table.sort', () => {

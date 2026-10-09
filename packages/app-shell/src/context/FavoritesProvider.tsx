@@ -98,9 +98,18 @@ interface FavoritesContextValue {
   isPinned: (id: string) => boolean;
   /**
    * Set of NavigationItem ids that are currently pinned via a `type === 'nav'`
-   * favorite. Memoised; safe to use as a dependency.
+   * favorite, in the user's pinned order (objectui#12059): the order of the
+   * nav favorites in `favorites`. Memoised; safe to use as a dependency.
    */
   pinnedNavIds: Set<string>;
+  /**
+   * Put the named nav pins in this order (objectui#12059). `navIds` lists the
+   * `navId`s of nav favorites as the user arranged them; they take the
+   * positions those favorites already hold, in the order given, so a pin that
+   * is not named (one another app's sidebar draws, say) and every content
+   * favorite keep their places. An id with no nav favorite is ignored.
+   */
+  reorderNavPins: (navIds: string[]) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +155,51 @@ function capByBucket(items: FavoriteItem[]): FavoriteItem[] {
     }
   }
   return result;
+}
+
+/**
+ * `items` with `entry` added. A content favorite goes first (the most recent
+ * star leads). A nav pin goes LAST: the nav favorites' order is the user's
+ * pinned order, and a new pin joins it at the end (objectui#12059). When that
+ * takes the nav bucket past its cap, the earliest-pinned nav favorite rolls
+ * off, as the oldest did when pins were prepended.
+ */
+function withAddedFavorite(items: FavoriteItem[], entry: FavoriteItem): FavoriteItem[] {
+  if (entry.type !== 'nav') return capByBucket([entry, ...items]);
+  const next = [...items, entry];
+  const navPins = next.filter(f => f.type === 'nav');
+  if (navPins.length <= MAX_NAV_PINS) return capByBucket(next);
+  const earliest = navPins
+    .slice(0, -1)
+    .reduce((a, b) => (b.favoritedAt < a.favoritedAt ? b : a));
+  return capByBucket(next.filter(f => f !== earliest));
+}
+
+/**
+ * `items` with the nav favorites named by `navIds` put in that order, in the
+ * positions they already hold; `items` itself when nothing moves.
+ */
+function withNavPinOrder(items: FavoriteItem[], navIds: string[]): FavoriteItem[] {
+  const byNavId = new Map<string, FavoriteItem>();
+  for (const f of items) {
+    if (f.type === 'nav' && f.navId && !byNavId.has(f.navId)) byNavId.set(f.navId, f);
+  }
+  const wanted: FavoriteItem[] = [];
+  const seen = new Set<string>();
+  for (const id of navIds) {
+    const f = byNavId.get(id);
+    if (f && !seen.has(id)) { wanted.push(f); seen.add(id); }
+  }
+  const moving = new Set(wanted);
+  let k = 0;
+  let changed = false;
+  const next = items.map(f => {
+    if (!moving.has(f)) return f;
+    const placed = wanted[k++];
+    if (placed !== f) changed = true;
+    return placed;
+  });
+  return changed ? next : items;
 }
 
 function loadFavorites(userId?: string | null): FavoriteItem[] {
@@ -362,10 +416,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps) {
     (item: Omit<FavoriteItem, 'favoritedAt'>) => {
       setFavorites(prev => {
         if (prev.some(f => f.id === item.id)) return prev;
-        const updated = capByBucket([
-          { ...item, favoritedAt: new Date().toISOString() },
-          ...prev,
-        ]);
+        const updated = withAddedFavorite(prev, { ...item, favoritedAt: new Date().toISOString() });
         commit(updated);
         return updated;
       });
@@ -390,10 +441,7 @@ export function FavoritesProvider({ children }: FavoritesProviderProps) {
         const exists = prev.some(f => f.id === item.id);
         const updated = exists
           ? prev.filter(f => f.id !== item.id)
-          : capByBucket([
-              { ...item, favoritedAt: new Date().toISOString() },
-              ...prev,
-            ]);
+          : withAddedFavorite(prev, { ...item, favoritedAt: new Date().toISOString() });
         commit(updated);
         return updated;
       });
@@ -445,6 +493,18 @@ export function FavoritesProvider({ children }: FavoritesProviderProps) {
     [commit],
   );
 
+  const reorderNavPins = useCallback(
+    (navIds: string[]) => {
+      setFavorites(prev => {
+        const updated = withNavPinOrder(prev, navIds);
+        if (updated === prev) return prev;
+        commit(updated);
+        return updated;
+      });
+    },
+    [commit],
+  );
+
   const value = useMemo<FavoritesContextValue>(() => {
     const pinnedNavIds = new Set<string>();
     for (const f of favorites) {
@@ -461,8 +521,9 @@ export function FavoritesProvider({ children }: FavoritesProviderProps) {
       setPinned,
       isPinned: (id: string) => favorites.some(f => f.id === id && !!f.pinned),
       pinnedNavIds,
+      reorderNavPins,
     };
-  }, [favorites, addFavorite, removeFavorite, toggleFavorite, clearFavorites, refreshLabel, setPinned]);
+  }, [favorites, addFavorite, removeFavorite, toggleFavorite, clearFavorites, refreshLabel, setPinned, reorderNavPins]);
 
   return (
     <FavoritesContext.Provider value={value}>
@@ -497,6 +558,7 @@ export function useFavorites(): FavoritesContextValue {
       setPinned: () => {},
       isPinned: () => false,
       pinnedNavIds: new Set<string>(),
+      reorderNavPins: () => {},
     };
   }
   return ctx;

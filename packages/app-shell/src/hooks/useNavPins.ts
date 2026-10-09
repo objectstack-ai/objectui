@@ -7,6 +7,11 @@
  * the originating `NavigationItem.id`. Backed by the same backend channel as
  * regular favorites (UserDataAdapter), so pins now sync across devices.
  *
+ * The pins keep the user's order (objectui#12059): `pinnedIds` lists them in
+ * it, a new pin joins it at the end, an unpin leaves it, and `reorderPins`
+ * rearranges it. The order is the nav favorites' order in that same store, so
+ * it syncs with the pins and never lives in localStorage alone.
+ *
  * Migration from the old `objectui-nav-pins` localStorage key happens once
  * on `<FavoritesProvider>` mount — see `migrateLegacyNavPins`.
  *
@@ -52,6 +57,7 @@ export function useNavPins() {
     removeFavorite,
     setPinned,
     pinnedNavIds,
+    reorderNavPins,
   } = useFavorites();
 
   const togglePin = useCallback(
@@ -135,9 +141,19 @@ export function useNavPins() {
     }
   }, [favorites, removeFavorite]);
 
+  /** The pinned nav ids, in the user's pinned order. */
   const pinnedIds = useMemo(() => Array.from(pinnedNavIds), [pinnedNavIds]);
 
-  return { pinnedIds, togglePin, isPinned, applyPins, clearPins };
+  /**
+   * Store a new pinned order: `orderedIds` are nav ids as the user arranged
+   * them. Pins it does not name (another app's, say) keep their places.
+   */
+  const reorderPins = useCallback(
+    (orderedIds: string[]) => reorderNavPins(orderedIds),
+    [reorderNavPins],
+  );
+
+  return { pinnedIds, togglePin, isPinned, applyPins, clearPins, reorderPins };
 }
 
 // Re-export the type for legacy import paths.

@@ -188,14 +188,10 @@ function checkboxLabels(scope: HTMLElement): string[] {
     .map((box) => text(box.closest('label')));
 }
 
-function selectLabels(select: HTMLElement): string[] {
-  return Array.from((select as HTMLSelectElement).options).map(text).filter((label) => label !== 'None');
-}
-
 /**
- * The View settings popover's Row color picker is the shared `Select`
- * (objectui#11865), not a native select: read the fields its listbox offers,
- * leaving out "None" as `selectLabels` does.
+ * Both Row color pickers, the toolbar's and the View settings popover's, are
+ * the shared `Select` (objectui#11865), not native selects: read the fields
+ * the listbox offers, leaving out "None".
  */
 async function pickerLabels(trigger: HTMLElement): Promise<string[]> {
   return (await comboboxOptions(trigger)).filter((label) => label !== 'None');
@@ -319,7 +315,7 @@ const POSITIONS: Position[] = [
   },
   {
     name: 'the Row color select',
-    read: () => inPopover(toolbarButton(/^color/i), (c) => selectLabels(within(c).getByTestId('color-field-select'))),
+    read: () => inPopover(toolbarButton(/^color/i), (c) => pickerLabels(within(c).getByTestId('color-field-select'))),
   },
   {
     name: 'the user-filter chips, derived from the definition',
@@ -477,15 +473,42 @@ describe('a stored configuration on an unreadable field is kept as stored (objec
     mount(RESTRICTED, { rowColor: { field: 'secret_note', colors: {} } });
     await definitionLoaded();
     const content = await openPopover(toolbarButton(/^color/i));
-    expect(within(content).getByTestId('color-field-select')).toHaveValue('');
+    const picker = within(content).getByTestId('color-field-select');
+    expect(picker).toHaveTextContent(/^None$/);
     expect(within(content).queryByTestId('clear-row-color')).toBeNull();
+    // Nor does the picker offer it, as its own field or as the rule's.
+    expect(await comboboxOptions(picker)).toEqual(['None', 'Title', 'Status', 'Priority']);
     cleanup();
     // Control: with full read the select shows the rule and offers Clear.
     mount(FULL_READ, { rowColor: { field: 'secret_note', colors: {} } });
     await definitionLoaded();
     const full = await openPopover(toolbarButton(/^color/i));
-    expect(within(full).getByTestId('color-field-select')).toHaveValue('secret_note');
+    const fullPicker = within(full).getByTestId('color-field-select');
+    expect(fullPicker).toHaveTextContent(/^Secret Note$/);
     expect(within(full).getByTestId('clear-row-color')).toBeInTheDocument();
+    expect(await comboboxOptions(fullPicker)).toEqual(['None', ...FIELD_LABELS]);
+  });
+
+  it('a row-color rule on it outside the columns gets no item of its own: the picker never names it', async () => {
+    // The picker shows a field none of its options carries as an item of its
+    // own (objectui#11865). It is handed the OFFERED rule, so a rule on a field
+    // the caller may not read never reaches that item.
+    const columns = COLUMNS.filter((c) => c.field !== 'secret_note');
+    mount(RESTRICTED, { columns, rowColor: { field: 'secret_note', colors: {} } });
+    await definitionLoaded();
+    const content = await openPopover(toolbarButton(/^color/i));
+    const picker = within(content).getByTestId('color-field-select');
+    expect(picker).toHaveTextContent(/^None$/);
+    expect(within(content).queryByTestId('clear-row-color')).toBeNull();
+    expect(await comboboxOptions(picker)).toEqual(['None', 'Title', 'Status', 'Priority']);
+    cleanup();
+    // Control: with full read the same rule is the picker's own outside item.
+    mount(FULL_READ, { columns, rowColor: { field: 'secret_note', colors: {} } });
+    await definitionLoaded();
+    const full = await openPopover(toolbarButton(/^color/i));
+    const fullPicker = within(full).getByTestId('color-field-select');
+    expect(fullPicker).toHaveTextContent(/^secret_note$/);
+    expect(await comboboxOptions(fullPicker)).toEqual(['secret_note', 'None', 'Title', 'Status', 'Priority', 'Secret Status']);
   });
 
   it('a user-filter chip whose field a restored selection names stays until that selection is cleared', async () => {

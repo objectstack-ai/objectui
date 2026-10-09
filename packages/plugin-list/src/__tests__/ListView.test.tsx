@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { ComponentRegistry } from '@object-ui/core';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ListView, evaluateConditionalFormatting } from '../ListView';
 import type { DataSource, ListViewSchema } from '@object-ui/types';
 import { SchemaRendererProvider } from '@object-ui/react';
@@ -1883,9 +1883,10 @@ describe('ListView', () => {
   // NOTE: For the GRID view the rows-per-page selector now lives in the
   // DataTable's own server-driven pager (ObjectGrid forwards
   // pagination.pageSizeOptions straight through), so ListView no longer renders
-  // its native <select data-testid="page-size-selector"> for grids — that fixed
-  // a duplicate-control bug. The native fallback selector below is therefore
-  // exercised through a NON-grid view (gallery), which has no DataTable pager.
+  // its own selector (data-testid="page-size-selector") for grids — that fixed
+  // a duplicate-control bug. The fallback selector below (the shared `Select`
+  // since objectui#11865) is therefore exercised through a NON-grid view
+  // (gallery), which has no DataTable pager.
   // The grid combobox option list is covered in
   // components/data-table-manual-pagination.test.tsx.
   describe('pageSizeOptions', () => {
@@ -2382,8 +2383,10 @@ describe('ListView', () => {
         expect(screen.getByTestId('page-size-selector')).toBeInTheDocument();
       });
 
+      // The shared `Select` (objectui#11865): its trigger shows the size in force.
       const selector = screen.getByTestId('page-size-selector');
-      expect(selector).toHaveValue('25');
+      expect(selector).toHaveAttribute('role', 'combobox');
+      expect(selector).toHaveTextContent(/^25$/);
     });
 
     it('should re-fetch data when page size changes', async () => {
@@ -2410,9 +2413,10 @@ describe('ListView', () => {
 
       const fetchCountBefore = mockDataSource.find.mock.calls.length;
 
-      // Change page size to 50
+      // Change page size to 50, through the shared `Select` (objectui#11865)
       const selector = screen.getByTestId('page-size-selector');
-      fireEvent.change(selector, { target: { value: '50' } });
+      fireEvent.keyDown(selector, { key: 'ArrowDown' });
+      fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: '50' }));
 
       expect(onPageSizeChange).toHaveBeenCalledWith(50);
 
@@ -2442,12 +2446,10 @@ describe('ListView', () => {
         expect(screen.getByTestId('page-size-selector')).toBeInTheDocument();
       });
 
-      const options = screen.getByTestId('page-size-selector').querySelectorAll('option');
-      expect(options).toHaveLength(4);
-      expect(options[0]).toHaveValue('10');
-      expect(options[1]).toHaveValue('25');
-      expect(options[2]).toHaveValue('50');
-      expect(options[3]).toHaveValue('100');
+      // The shared `Select` (objectui#11865): its listbox lists every size, in order.
+      fireEvent.keyDown(screen.getByTestId('page-size-selector'), { key: 'ArrowDown' });
+      const options = within(await screen.findByRole('listbox')).getAllByRole('option');
+      expect(options.map((o) => o.textContent)).toEqual(['10', '25', '50', '100']);
     });
 
     it('should not render page size selector when pageSizeOptions is not configured', async () => {

@@ -1046,23 +1046,78 @@ export interface ActionContext {
 }
 
 /**
- * Action execution result
+ * A single undoable CRUD operation — what an `undoable` action hands the
+ * runner on {@link ActionResult.undo}, and what `@object-ui/core`'s
+ * `UndoManager` stacks.
+ *
+ * Declared HERE since objectui#6349 (batch 4), moved down from
+ * `@object-ui/core`'s `UndoManager` module, which now re-exports it: the one
+ * declaration of `ActionResult` names it, and this package cannot import from
+ * `@object-ui/core` (that package depends on this one).
+ */
+export interface UndoableOperation {
+  id: string;
+  type: 'create' | 'update' | 'delete';
+  objectName: string;
+  recordId: string;
+  timestamp: number;
+  description: string;
+  /** Data needed to undo: for create=recordId, for update=previousData, for delete=fullRecord */
+  undoData: Record<string, unknown>;
+  /** Data needed to redo: for create=newData, for update=newData, for delete=recordId */
+  redoData: Record<string, unknown>;
+}
+
+/**
+ * Action execution result — the ONE declaration of this name (objectui#6349,
+ * batch 4). `@object-ui/core`'s `ActionRunner` module used to declare a second
+ * `ActionResult` (the contract its handlers return and its runner reads); it
+ * now re-exports this one, so `@object-ui/core` and `@object-ui/types` publish
+ * the same type under the name.
+ *
+ * The members are the runner's: `reload`, `redirect`, `modal`, `silent` and
+ * `undo` moved down with it. This copy's former `refresh` member is RETIRED,
+ * not kept beside `reload`: the runner reads `reload`, and nothing in this
+ * repository read or wrote `refresh`, so a handler that set it was ignored at
+ * runtime. A result literal naming `refresh` is now a compile error.
  */
 export interface ActionResult {
   /** Whether action succeeded */
   success: boolean;
-  
+
   /** Result data */
   data?: any;
-  
+
   /** Error message if failed */
   error?: string;
-  
-  /** Whether to refresh data */
-  refresh?: boolean;
-  
+
+  /** Whether the caller should reload its data after the action */
+  reload?: boolean;
+
   /** Whether to close dialog/modal */
   close?: boolean;
+
+  /** URL to navigate to after the action */
+  redirect?: string;
+
+  /** Modal schema to render (for type: 'modal') */
+  modal?: any;
+
+  /**
+   * Suppress the automatic success toast for this result. A handler sets this
+   * when the action only HANDED OFF to a follow-up UI rather than completing —
+   * e.g. a `flow` action that paused at a screen and opened the flow-runner. The
+   * action hasn't "completed yet", so a "success" toast on open would be
+   * misleading; the follow-up surface owns its own completion messaging.
+   */
+  silent?: boolean;
+
+  /**
+   * An undoable operation captured by the handler (e.g. an `undoable` update
+   * action's prior field values). When present, the runner pushes it onto the
+   * global UndoManager and the success toast offers an "Undo" affordance.
+   */
+  undo?: UndoableOperation;
 }
 
 /**

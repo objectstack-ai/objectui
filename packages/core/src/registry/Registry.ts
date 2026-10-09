@@ -158,7 +158,7 @@ export type ComponentDeprecation = {
  * publishing registry mechanics on the general type was the alternative
  * objectui#6067 weighed and rejected.
  *
- * They live in their OWN named type so that `ComponentMeta` below can be
+ * They live in their OWN named type so that `RegistryComponentMeta` below can be
  * DERIVED from the canonical declaration instead of restating it. Until
  * objectui#6067 this file carried a second, thirteen-key structural copy of
  * the name: the nine shared members restated from `@object-ui/types`' `base.ts`,
@@ -261,6 +261,18 @@ export type RegistryComponentMetaExtras = {
  * the two keys the divergence had made unwritable at the very declaration most
  * component registrations import.
  *
+ * ## Its own NAME since objectui#6349 (batch 4)
+ *
+ * This type used to be published as `ComponentMeta` too — the same name as the
+ * canonical declaration it extends, with a different meaning (registration
+ * metadata: the canonical members PLUS the five registry-only keys). A derived
+ * declaration is still a second authority for the name, so the card's rename
+ * branch applies: the registration type is `RegistryComponentMeta` (the name
+ * `PluginScopeImpl.ts` already gave it locally), and `ComponentMeta` from this
+ * package is a plain re-export of `@object-ui/types`' one (just below). The
+ * registry's own doors — `register`, `registerLazy`, `getMeta` — are typed
+ * with this name, so a registration literal keeps accepting the registry keys.
+ *
  * NOTE for anyone pinning this: every member of both halves is OPTIONAL, so
  * `extends` is mutually TRUE between the two shapes even when their key sets
  * differ. Measured on the EMITTED `.d.ts` of both packages immediately before
@@ -271,7 +283,16 @@ export type RegistryComponentMetaExtras = {
  * compares `keyof` sets instead and keeps the assignability check beside it as
  * the labelled control that shows why.
  */
-export type ComponentMeta = CanonicalComponentMeta & RegistryComponentMetaExtras;
+export type RegistryComponentMeta = CanonicalComponentMeta & RegistryComponentMetaExtras;
+
+/**
+ * The general component metadata — `@object-ui/types`' ONE declaration,
+ * re-exported so an import of `ComponentMeta` from this package resolves to
+ * the same type as one from `@object-ui/types` (objectui#6349, batch 4). It
+ * carries none of the registry-only keys; a registration is typed with
+ * {@link RegistryComponentMeta}.
+ */
+export type { ComponentMeta } from '@object-ui/types';
 
 /**
  * ONE authority for `ComponentConfig` (objectui#6298) — this package RE-EXPORTS
@@ -304,8 +325,9 @@ export type ComponentMeta = CanonicalComponentMeta & RegistryComponentMetaExtras
  * counts declarations and ALIASING re-exports, never `export type { X } from …`
  * — which is why this convergence takes `ComponentConfig` off that gate's
  * `KNOWN_COLLISIONS` baseline. Deriving a new declaration here instead would
- * NOT have: `ComponentMeta` was converged that way by PR #6297 and is still a
- * row on that baseline today.
+ * NOT have: `ComponentMeta` was converged that way by PR #6297 and stayed a row
+ * on that baseline until objectui#6349 gave the registry's declaration its own
+ * name, `RegistryComponentMeta`.
  */
 export type { ComponentConfig } from '@object-ui/types';
 
@@ -319,7 +341,7 @@ export type { ComponentConfig } from '@object-ui/types';
  * one declaration for the shared members ({@link ComponentConfig}, in
  * `@object-ui/types`), a named extension for the rest
  * ({@link RegistryComponentMetaExtras}) — which is the shape PR #6297 gave
- * {@link ComponentMeta}.
+ * {@link RegistryComponentMeta}.
  *
  * It exists because the extras are NOT optional decoration on a registry entry:
  * {@link Registry.getNamespaceComponents} filters on `config.namespace`, and
@@ -327,7 +349,7 @@ export type { ComponentConfig } from '@object-ui/types';
  * bare re-export as the entry type would have silently dropped them.
  *
  * ⚠️ `ComponentConfig` remains the AUTHORING vocabulary and the general name;
- * registrations are checked against {@link ComponentMeta}, never against this.
+ * registrations are checked against {@link RegistryComponentMeta}, never against this.
  * Nothing writes a `RegistryComponentConfig` literal — the registry builds them.
  */
 export type RegistryComponentConfig<T = any> = ComponentConfig<T> &
@@ -349,7 +371,7 @@ export type RegistryComponentConfig<T = any> = ComponentConfig<T> &
  * — the read stamps it, and `manifestFromConfigs` carries it into the manifest
  * so a consumer that means the CURATED vocabulary can filter it out.
  */
-export type PublicComponentConfig<T = any> = Omit<ComponentMeta, 'tier'> & {
+export type PublicComponentConfig<T = any> = Omit<RegistryComponentMeta, 'tier'> & {
   type: string;
   /**
    * The registration's declared tier, or `'html'` for an entry that reaches the
@@ -357,7 +379,7 @@ export type PublicComponentConfig<T = any> = Omit<ComponentMeta, 'tier'> & {
    * curated roster or a `tier: 'public'` opt-in. Absent or `'public'` = the
    * curated JSON-surface vocabulary.
    */
-  tier?: ComponentMeta['tier'] | 'html';
+  tier?: RegistryComponentMeta['tier'] | 'html';
   component?: ComponentRenderer<T>;
   /** True while this entry is a `registerLazy` stub whose loader has not run. */
   lazy?: boolean;
@@ -374,7 +396,7 @@ export type LazyComponentLoader = () => Promise<unknown>;
 
 type LazyEntry = {
   loader: LazyComponentLoader;
-  meta?: ComponentMeta;
+  meta?: RegistryComponentMeta;
   /**
    * The full type this stub DECLARES — `namespace:type`, or the bare type with
    * no namespace. Written once, by `registerLazy`, on the line that computes the
@@ -434,7 +456,7 @@ type LazyEntry = {
  * The spliced element is an `InjectedComponentInput` (`@object-ui/types`): a
  * `ComponentInput` plus the framework-set `binding` marker, so it is a plain
  * subtype of the array's element type and the return value type-checks as a
- * `ComponentMeta` with no assertion. This used to read `as ComponentMeta`,
+ * `RegistryComponentMeta` with no assertion. This used to read `as ComponentMeta`,
  * because `ELEMENT_DATA_SOURCE_INPUT` carried a hand-written inline type and
  * `binding` had no declared home — and a cast at the one place the key is
  * written is exactly what would have hidden any later drift between the
@@ -450,10 +472,10 @@ type LazyEntry = {
  */
 export function withElementDataSourceInput<T>(
   component: ComponentRenderer<T>,
-  meta?: ComponentMeta,
-): ComponentMeta | undefined {
+  meta?: RegistryComponentMeta,
+): RegistryComponentMeta | undefined {
   if (!isElementDataSourceBlock(component)) return meta;
-  const inputs: NonNullable<ComponentMeta['inputs']> = meta?.inputs ?? [];
+  const inputs: NonNullable<RegistryComponentMeta['inputs']> = meta?.inputs ?? [];
   if (inputs.some((input) => input?.name === ELEMENT_DATA_SOURCE_INPUT.name)) return meta;
   const injected: InjectedComponentInput = { ...ELEMENT_DATA_SOURCE_INPUT };
   return { ...(meta ?? {}), inputs: [...inputs, injected] };
@@ -495,7 +517,7 @@ export class Registry<T = any> {
    * registry.register('button', ButtonComponent);
    * // Accessible as 'button'
    */
-  register(type: string, component: ComponentRenderer<T>, meta?: ComponentMeta) {
+  register(type: string, component: ComponentRenderer<T>, meta?: RegistryComponentMeta) {
     const fullType = meta?.namespace ? `${meta.namespace}:${type}` : type;
     // The `dataSource` declaration is EMITTED here, not written by the blocks
     // (objectui#6678). See `withElementDataSourceInput`.
@@ -670,7 +692,7 @@ export class Registry<T = any> {
    * @example
    * ComponentRegistry.registerLazy('object-map', () => import('@object-ui/plugin-map'), { namespace: 'plugin-map' });
    */
-  registerLazy(type: string, loader: LazyComponentLoader, meta?: ComponentMeta) {
+  registerLazy(type: string, loader: LazyComponentLoader, meta?: RegistryComponentMeta) {
     const fullType = meta?.namespace ? `${meta.namespace}:${type}` : type;
     const entry: LazyEntry = { loader, meta, fullType };
     this.lazyEntries.set(fullType, entry);
@@ -893,7 +915,7 @@ export class Registry<T = any> {
    * absent until the chunk loads. Consumers should treat that as "not yet
    * known", not as "declares no props".
    */
-  getMeta(type: string, namespace?: string): ComponentMeta | undefined {
+  getMeta(type: string, namespace?: string): RegistryComponentMeta | undefined {
     const key = namespace ? `${namespace}:${type}` : type;
     return this.components.get(key) ?? this.lazyEntries.get(key)?.meta;
   }

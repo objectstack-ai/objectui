@@ -31,7 +31,7 @@ import {
 } from '@object-ui/components';
 import type { DashboardWidgetSchema, DashboardWidgetTypeName } from '@object-ui/types';
 import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
-import { resolveDashboardFilterDefs, type DashboardFilterDef, type ComponentMeta } from '@object-ui/core';
+import { resolveDashboardFilterDefs, type DashboardFilterDef, type RegistryComponentMeta } from '@object-ui/core';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
 import { t, tFormat } from '../i18n.js';
 // The spec's `I18nLabel` resolver (new in @objectstack/spec 17.0.0-rc.6),
@@ -590,7 +590,7 @@ function Field({
   id: string;
   label: string;
   /**
-   * How `label` is associated with the control (`ComponentMeta.labelling`'s
+   * How `label` is associated with the control (`RegistryComponentMeta.labelling`'s
    * vocabulary, objectui#3961/#4010):
    *
    *  - `'control'` (default) — the child is a LABELABLE element carrying this
@@ -606,7 +606,7 @@ function Field({
    *    reads as closed. That was objectui#4010's defect on `widget-color`.
    *
    * DERIVED from the repo-wide vocabulary, not a restatement of it: the 2026-08-17
-   * ruling (objectui#4857 + objectui#4871) made `ComponentMeta['labelling']` the
+   * ruling (objectui#4857 + objectui#4871) made `RegistryComponentMeta['labelling']` the
    * single answer to "how does a host learn what a widget will render" and
    * forbade host-local variants. `'display'` is excluded because this panel has
    * no such field — every one of its children is an editable control or a
@@ -614,7 +614,7 @@ function Field({
    * introducing one is a compile error here rather than a silent degradation.
    * Re-spell a member in `packages/core` and this type stops compiling.
    */
-  labelling?: Exclude<NonNullable<ComponentMeta['labelling']>, 'display'>;
+  labelling?: Exclude<NonNullable<RegistryComponentMeta['labelling']>, 'display'>;
   children: React.ReactNode;
 }) {
   const group = labelling === 'group';

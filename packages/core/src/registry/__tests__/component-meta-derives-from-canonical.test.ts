@@ -7,9 +7,18 @@
  */
 
 /**
- * Convergence pin — `@object-ui/core`'s `ComponentMeta` is DERIVED from the one
- * declaration in `@object-ui/types`, not a structural copy of it
- * (objectui#6067).
+ * Convergence pin — `@object-ui/core`'s registration type is DERIVED from the
+ * one `ComponentMeta` declaration in `@object-ui/types`, not a structural copy
+ * of it (objectui#6067).
+ *
+ * ⚠️ Since objectui#6349 (batch 4) that registration type is named
+ * `RegistryComponentMeta`. It used to be published as `ComponentMeta` too — a
+ * derived declaration is still a second authority for the name — and
+ * `@object-ui/core`'s `ComponentMeta` is now a plain re-export of the canonical
+ * one. Every assertion below that reads the REGISTRATION surface reads
+ * `RegistryComponentMeta`; the history recorded in this header still says
+ * `ComponentMeta`, because that is what the type was called when it was
+ * measured. The last describe block pins the re-export.
  *
  * ## What was wrong
  *
@@ -85,13 +94,17 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import type { ComponentMeta as CanonicalComponentMeta } from '@object-ui/types';
-import type { ComponentMeta, RegistryComponentMetaExtras } from '../Registry.js';
+import type {
+  ComponentMeta as CoreComponentMeta,
+  RegistryComponentMeta,
+  RegistryComponentMetaExtras,
+} from '../Registry.js';
 
 /** Keys the canonical declaration has that the registration surface does not. */
-type OnlyOnCanonical = Exclude<keyof CanonicalComponentMeta, keyof ComponentMeta>;
+type OnlyOnCanonical = Exclude<keyof CanonicalComponentMeta, keyof RegistryComponentMeta>;
 
 /** Keys the registration surface adds on top of the canonical declaration. */
-type OnlyOnRegistry = Exclude<keyof ComponentMeta, keyof CanonicalComponentMeta>;
+type OnlyOnRegistry = Exclude<keyof RegistryComponentMeta, keyof CanonicalComponentMeta>;
 
 /**
  * Mutual-subset equality, wrapped in tuples so neither side distributes over a
@@ -99,7 +112,7 @@ type OnlyOnRegistry = Exclude<keyof ComponentMeta, keyof CanonicalComponentMeta>
  */
 type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 
-describe('ComponentMeta (core registry) — the key-set pin (the assertion a structural copy fails)', () => {
+describe('RegistryComponentMeta (core registry) — the key-set pin (the assertion a structural copy fails)', () => {
   it('leaves no canonical key unreachable at the registration surface', () => {
     // THIS is the pin. It read `"tags" | "description"` before objectui#6067
     // and `never` after — the one reading that moved. It goes red the moment a
@@ -143,21 +156,21 @@ describe('ComponentMeta (core registry) — the key-set pin (the assertion a str
   });
 });
 
-describe('ComponentMeta (core registry) — the assignability control (green on the diverged tree, kept to show the contrast)', () => {
+describe('RegistryComponentMeta (core registry) — the assignability control (green on the diverged tree, kept to show the contrast)', () => {
   it('is mutually assignable with the canonical declaration — and WAS before the convergence too', () => {
     // Both readings were `true` while `tags` and `description` were missing.
     // Recorded here as the control, not as the guarantee: if this pair were the
     // only assertion in the file, reverting objectui#6067 would leave it green.
     const bothWays: [
-      ComponentMeta extends CanonicalComponentMeta ? true : false,
-      CanonicalComponentMeta extends ComponentMeta ? true : false,
+      RegistryComponentMeta extends CanonicalComponentMeta ? true : false,
+      CanonicalComponentMeta extends RegistryComponentMeta ? true : false,
     ] = [true, true];
 
     expect(bothWays).toEqual([true, true]);
   });
 });
 
-describe('ComponentMeta (core registry) — the two keys the convergence delivers', () => {
+describe('RegistryComponentMeta (core registry) — the two keys the convergence delivers', () => {
   it('lets a registration write `tags` and `description` alongside the registry keys', () => {
     // The counter-probe the convergence has to survive. "The copy is gone" is
     // otherwise satisfiable by narrowing the type for everyone, and narrowing
@@ -167,7 +180,7 @@ describe('ComponentMeta (core registry) — the two keys the convergence deliver
     //
     // Before objectui#6067 the two annotated keys were a plain TS error on this
     // spelling and legal on `@object-ui/types`' — the divergence, at a call site.
-    const registration: ComponentMeta = {
+    const registration: RegistryComponentMeta = {
       label: 'Kanban Board',
       icon: 'layout-board',
       category: 'data',
@@ -217,7 +230,10 @@ const CANONICAL_IMPORT =
 
 /** The derived declaration, exactly as `Registry.ts` spells it. */
 const DERIVED_DECLARATION =
-  'export type ComponentMeta = CanonicalComponentMeta & RegistryComponentMetaExtras;';
+  'export type RegistryComponentMeta = CanonicalComponentMeta & RegistryComponentMetaExtras;';
+
+/** The general name, re-exported rather than declared (objectui#6349, batch 4). */
+const GENERAL_REEXPORT = "export type { ComponentMeta } from '@object-ui/types';";
 
 /** A property declaration for `name`, at any nesting depth. */
 const memberDeclaration = (name: string) => new RegExp(`^\\s*${name}\\??:`, 'm');
@@ -246,7 +262,7 @@ const REGISTRY_MEMBERS = [
   'deprecated',
 ];
 
-describe('ComponentMeta (core registry) — the source-identity pin', () => {
+describe('RegistryComponentMeta (core registry) — the source-identity pin', () => {
   it('imports the canonical declaration instead of restating it', () => {
     expect(REGISTRY_SRC).toContain(CANONICAL_IMPORT);
     expect(REGISTRY_SRC).toContain(DERIVED_DECLARATION);
@@ -274,5 +290,29 @@ describe('ComponentMeta (core registry) — the source-identity pin', () => {
     );
 
     expect(declared).toEqual(REGISTRY_MEMBERS);
+  });
+});
+
+describe('ComponentMeta from @object-ui/core — the re-export of the canonical declaration (objectui#6349, batch 4)', () => {
+  it('is the canonical type: same key set, no registry key on it', () => {
+    // `Exact` over the KEY SETS, not over the types: every member is optional,
+    // so assignability is mutual for any two of these shapes (the control
+    // above). The key sets are what a re-pointed or re-declared name would move.
+    const sameKeys: Exact<keyof CoreComponentMeta, keyof CanonicalComponentMeta> = true;
+    // A registry key on the general name is the defect the rename removed.
+    const noRegistryKey: Exact<
+      Extract<keyof CoreComponentMeta, keyof RegistryComponentMetaExtras>,
+      never
+    > = true;
+
+    expect([sameKeys, noRegistryKey]).toEqual([true, true]);
+  });
+
+  it('is re-exported in Registry.ts, not declared there', () => {
+    expect(REGISTRY_SRC).toContain(GENERAL_REEXPORT);
+    // LIT CONTROL for the matcher below: it finds the registration type's
+    // declaration, so its silence on the general name is a reading.
+    expect(/^export type RegistryComponentMeta\b/m.test(REGISTRY_SRC)).toBe(true);
+    expect(/^export (?:type|interface) ComponentMeta\b/m.test(REGISTRY_SRC)).toBe(false);
   });
 });

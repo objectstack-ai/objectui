@@ -21,39 +21,26 @@
  * redirect handling, action chaining, custom handler registration.
  */
 
-import type { ActionContext, RunnableActionType, UIActionSchema } from '@object-ui/types';
+import type { ActionContext, ActionResult, RunnableActionType, UIActionSchema } from '@object-ui/types';
 import type { Action as SpecActionInput } from '@objectstack/spec/ui';
 import { ExpressionEvaluator } from '../evaluator/ExpressionEvaluator.js';
 import { hasDeclaredPredicate } from '../evaluator/declaredPredicate.js';
-import { globalUndoManager, type UndoableOperation } from './UndoManager.js';
+import { globalUndoManager } from './UndoManager.js';
 import { warnOnDeprecatedObjectParams, warnOnUnknownActionKeys } from './actionKeys.js';
 import { readActionPayload } from './actionResponse.js';
 import { toPredicateRecord, type FieldContainerLike } from '../utils/predicate-record.js';
 
-export interface ActionResult {
-  success: boolean;
-  data?: any;
-  error?: string;
-  reload?: boolean;
-  close?: boolean;
-  redirect?: string;
-  /** Modal schema to render (for type: 'modal') */
-  modal?: any;
-  /**
-   * Suppress the automatic success toast for this result. A handler sets this
-   * when the action only HANDED OFF to a follow-up UI rather than completing —
-   * e.g. a `flow` action that paused at a screen and opened the flow-runner. The
-   * action hasn't "completed yet", so a "success" toast on open would be
-   * misleading; the follow-up surface owns its own completion messaging.
-   */
-  silent?: boolean;
-  /**
-   * An undoable operation captured by the handler (e.g. an `undoable` update
-   * action's prior field values). When present, the runner pushes it onto the
-   * global UndoManager and the success toast offers an "Undo" affordance.
-   */
-  undo?: UndoableOperation;
-}
+/**
+ * What an action handler returns and the runner reads — ONE authority, in
+ * `@object-ui/types` (objectui#6349, batch 4), re-exported here exactly as
+ * {@link ActionContext} is below. The members this module used to declare
+ * (`reload`, `redirect`, `modal`, `silent`, `undo`) moved down with it, and
+ * `UndoableOperation`, which types `undo`, moved down beside it
+ * (`./UndoManager.js` re-exports that one). The gate that counts authorities is
+ * `scripts/__tests__/one-authority-per-exported-name-6273.test.ts`; a re-export
+ * is not one.
+ */
+export type { ActionResult } from '@object-ui/types';
 
 /**
  * The context a runner executes actions in — ONE authority, in

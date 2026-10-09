@@ -1970,6 +1970,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       $filter: { object_name: objectName, record_id: pureRecordId },
       $orderby: { timestamp: 'asc' },
       $top: 200,
+      // The actor's record in place of its id, so a row with no `actor_name`
+      // names its user instead of reading "System" (objectui#12067). The
+      // shared constructor reads it; the `record:activity` block's own read
+      // passes the same expand.
+      $expand: ['actor_id'],
     })
       .then((res: any) => {
         recordRefusal('activity', false);

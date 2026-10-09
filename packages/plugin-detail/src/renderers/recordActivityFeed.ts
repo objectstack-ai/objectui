@@ -742,6 +742,37 @@ export function resetUnknownActivityTypeWarnings(): void {
 }
 
 /**
+ * The name of whoever acted on a `sys_activity` row, or `null` when the row
+ * names nobody this viewer can name (objectui#12067). One reading for every
+ * surface that shows these rows: `record:history`, and through
+ * {@link activityRowToFeedItem} the `record:activity` block and the console
+ * record page's merged feed.
+ *
+ *  1. `actor_name`, when it is non-blank. It is the snapshot the writer took at
+ *     the time of the action, so it wins even over the user's current name.
+ *  2. `actor_id`, a lookup to `sys_user`. A read that passes
+ *     `$expand: ['actor_id']` gets the user's record in place of the id, and
+ *     that record's `name` (`sys_user`'s declared name field) names the actor.
+ *     The engine expands every row of a page in one batched read. This is the
+ *     row the `@objectstack/*` 17.7.0 writer leaves: `actor_id` set and no
+ *     `actor_name` (objectstack#22510 fills `actor_name` from then on).
+ *  3. `null`, so the caller shows its existing fallback. That covers a row
+ *     with neither, and an `actor_id` the engine kept as the bare id because
+ *     this viewer may not read that user or the user is gone. A raw id is
+ *     never shown as a name.
+ */
+export function activityActorName(row: SysActivityRow): string | null {
+  const snapshot = row?.actor_name;
+  if (typeof snapshot === 'string' && snapshot.trim()) return snapshot.trim();
+  const actor = row?.actor_id;
+  if (actor && typeof actor === 'object') {
+    const name = (actor as { name?: unknown }).name;
+    if (typeof name === 'string' && name.trim()) return name.trim();
+  }
+  return null;
+}
+
+/**
  * One `sys_activity` row → one {@link FeedItem}, or `null` when the row is not
  * record activity (see {@link ACTIVITY_TYPE_TO_FEED_TYPE}).
  *
@@ -770,7 +801,9 @@ export function activityRowToFeedItem(
   return {
     id: row.id as string | number,
     type: feedType,
-    actor: row.actor_name ?? systemActorLabel,
+    // `systemActorLabel` only when no person can be named (objectui#12067):
+    // a row a user made used to read "System" whenever `actor_name` was empty.
+    actor: activityActorName(row) ?? systemActorLabel,
     actorAvatarUrl: row.actor_avatar_url ?? undefined,
     body: row.summary ?? '',
     createdAt: activityTimestamp(row),

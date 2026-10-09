@@ -260,6 +260,14 @@ lost data — the row is on the timeline; what it lacks is the icon and colour a
 mapped type gets. Give it one by adding the type to `ACTIVITY_TYPE_TO_FEED_TYPE`
 in `@object-ui/plugin-detail`.
 
+Each item names who acted. The row's `actor_name`, the name recorded when the
+action happened, wins when it is present. A row without one is named by its
+`actor_id`, a lookup to `sys_user`: the block's read expands it, so each user's
+record comes back with the page in the same request and the item shows that
+user's `name`. A row with neither, or whose user the viewer may not read, shows
+"System". `record:history` names the entries of its own `sys_activity` read the
+same way, and falls back to "Unknown user".
+
 The rows that really are dropped are the four the map lists as non-activity —
 `commented` / `mentioned` / `login` / `logout` — and they go silently on
 purpose: each is a decision already taken, and a warning about a decision

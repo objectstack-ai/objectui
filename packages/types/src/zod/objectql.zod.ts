@@ -1559,8 +1559,8 @@ const LIST_VIEW_LOCAL_OVERRIDES = [
 // canonical keys, `ListView` lifted `calendar.defaultView` onto the calendar it
 // built, and its kanban and calendar branches spread the rest of the block onto
 // the generated node, so a view stored before the spec closed these slots still
-// rendered as written. Since that round no renderer reads a key this mirror
-// refuses: the render path still parses nothing, so such a stored view renders,
+// rendered as written. Since that round no renderer reads a key these four blocks
+// refuse: the render path still parses nothing, so such a stored view renders,
 // but without what the refused key used to bind (the lane, the cards, the cover,
 // the timeline axis fall to their defaults or to the refusal screens). This
 // mirror is the door an author meets (`safeValidateSchema`, `objectui validate`,
@@ -2080,7 +2080,9 @@ const TimelineConfig = stripImportedDefaults(SpecListViewSchema).shape.timeline.
  * ⚠️ THE READERS MOVED SECOND (objectui#6152 round 14). `ListView` still merges
  * each `options.KIND` under the top-level block, but it reads each kind's
  * declared keys only: the alias rungs, the `options.grid` spread and the spreads
- * of the rest of a block onto the node it builds are retired. The render path
+ * of the rest of a block onto the node it builds are retired. The one exception
+ * is `chart`, whose legacy axes `ListView` still reads until the next round on
+ * objectui#6152 (the legacy chart binding is its own round). The render path
  * parses nothing, so a row stored before the view write door judged the bag
  * (`@objectstack/spec` 17.5.0) still renders, without what a refused key used to
  * bind. This mirror is the door an author meets. The writers moved with it in

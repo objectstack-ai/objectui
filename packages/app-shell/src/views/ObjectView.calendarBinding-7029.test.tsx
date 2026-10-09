@@ -68,16 +68,17 @@ describe('calendarViewOptions — the object page forwards, it does not invent (
         titleField: 'subject',
         colorField: 'status',
         allDayField: 'all_day',
-        defaultView: 'week',
       },
     });
+    // The spec block's five keys. Re-spelled by objectui#6152 round 14: this
+    // fixture also carried `defaultView`, which is not a member of a list view's
+    // calendar block (every door refuses it, and `ListView` no longer lifts it).
     expect(out).toEqual({
       startDateField: 'start_date',
       endDateField: 'end_date',
       titleField: 'subject',
       colorField: 'status',
       allDayField: 'all_day',
-      defaultView: 'week',
     });
   });
 

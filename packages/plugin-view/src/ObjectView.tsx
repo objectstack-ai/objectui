@@ -3013,7 +3013,20 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
             // folds in LAST. Spread rather than `??` on purpose: this slot is a
             // merge of toggle sets, not a winner-takes-all pick, and a named
             // view that toggles one action must not blank the rest.
-            ...currentNamedViewConfig?.userActions,
+            //
+            // objectui#5144 — through the same fold as the two layers above.
+            // A named view carries no `show*` flag (its strict record refuses
+            // them), but it can carry the spec's `inlineEdit`, which the fold
+            // turns into `userActions.editInline`. Spread raw, a host view's or
+            // the node's folded `inlineEdit` outranked the named view's own,
+            // the inverse of the named-first `inlineEdit` rung below. The fold
+            // is handed the two members it reads into `userActions` here, by
+            // name rather than the whole view, so the fence's read census
+            // (`objectViewHostSurface.test.tsx`) still sees each one.
+            ...(normalizeListViewSchema({
+              userActions: currentNamedViewConfig?.userActions,
+              inlineEdit: currentNamedViewConfig?.inlineEdit,
+            }) as { userActions?: object }).userActions,
           },
           compactToolbar: currentNamedViewConfig?.compactToolbar ?? activeView?.compactToolbar ?? (schema as any).compactToolbar,
           // objectui#11013 — the host `views` entry is no longer read for

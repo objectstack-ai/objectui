@@ -2060,6 +2060,8 @@ const pt = {
       placeholder: "Digite um comando ou pesquise…",
       noResults: "Nenhum resultado encontrado.",
       objects: "Objetos",
+      packages: "Pacotes",
+      flows: "Fluxos",
       dashboards: "Painéis",
       pages: "Páginas",
       reports: "Relatórios",

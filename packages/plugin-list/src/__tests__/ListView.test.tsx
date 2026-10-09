@@ -2654,6 +2654,10 @@ describe('ListView — inline-edit toggle drives grid editability', () => {
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
+      // objectui#5144: inline editing is offered only where the view opts in
+      // (the spec's `.default(false)`). This case is about the toggle, so the
+      // view opts in and starts out of edit mode.
+      userActions: { editInline: true },
     };
 
     renderWithProvider(
@@ -2684,6 +2688,8 @@ describe('ListView — inline-edit toggle drives grid editability', () => {
       objectName: 'contacts',
       viewType: 'grid',
       fields: ['name', 'email'],
+      // objectui#5144: the view opts in, as in the case above.
+      userActions: { editInline: true },
     };
 
     renderWithProvider(

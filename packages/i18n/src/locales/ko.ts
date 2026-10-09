@@ -2018,6 +2018,8 @@ const ko = {
       placeholder: "명령어를 입력하거나 검색…",
       noResults: "결과를 찾을 수 없습니다.",
       objects: "객체",
+      packages: "패키지",
+      flows: "플로우",
       dashboards: "대시보드",
       pages: "페이지",
       reports: "보고서",

@@ -309,7 +309,9 @@ describe('objectui#11643 — the console-made tab of a view-less object keeps it
     expect(listSchema.label).toBe(FALLBACK_TAB_LABEL);
 
     // Every control that reaches `persistViewPatch`, through both the schema's
-    // and the list's own spelling of it.
+    // and the list's own spelling of it. `onInlineEditChange` no longer reaches
+    // it at all (objectui#5144, ruling E: the toggle is session-only); it stays
+    // here because it must still write nothing.
     act(() => {
       listSchema.onDensityChange('comfortable');
       listSchema.onSortChange(SORT);

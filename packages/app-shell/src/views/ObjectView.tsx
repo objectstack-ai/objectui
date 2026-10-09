@@ -1518,6 +1518,31 @@ export interface ConsoleObjectViewProps {
     externalRefreshKey?: number;
 }
 
+/**
+ * The list toolbar's inline-edit toggle, as this page wires it: it writes
+ * nothing (objectui#5144, triage's ruling E).
+ *
+ * The view's `inlineEdit` and `userActions.editInline` are the AUTHOR's
+ * permission keys. The spec says so for both ("the list is read-only unless
+ * the author opts in"), and `normalizeListViewSchema` folds the first into the
+ * second. This toggle used to persist a USER's edit mode into `inlineEdit`
+ * through `persistViewPatch`. After the fold, switching it off stored
+ * `inlineEdit: false`, which reads as "not offered", so the toggle was gone
+ * from the next load and nothing in the console could bring it back.
+ *
+ * The edit mode is now session state. `ListView` keeps it, and seeds it from
+ * the view's `inlineEdit` on each load. The callback stays wired because
+ * `ListView` offers the wide toolbar toggle only to a host that wires one.
+ *
+ * Recorded costs: the edit mode is not remembered across loads, and an overlay
+ * that already stores `inlineEdit: false` still reads off. That is existing
+ * data, and the maintainer's ruling rejects migrating it. A view that should
+ * offer inline editing declares `userActions.editInline: true`.
+ */
+function keepInlineEditModeForTheSession(): void {
+    // Deliberately empty: see the docblock.
+}
+
 export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const { objectName } = useParams();
     const { t } = useObjectTranslation();
@@ -1629,7 +1654,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // changes apply for the session (the list keeps them in its own
             // state) and nothing is scheduled here: no read, no PUT, no toast.
             // One rule for every control that reaches this function — density,
-            // sort, hidden fields, column order and widths, inline edit. A
+            // sort, hidden fields, column order and widths. (The inline-edit
+            // toggle no longer reaches it: objectui#5144, ruling E.) A
             // stored row that shadows the tab is a real row (`isSavedViewId`,
             // the classification the write below uses) and keeps its save
             // path. See `CONSOLE_MADE_TAB`.
@@ -3714,9 +3740,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     writeListUrlState({ search });
                 }}
                 onHiddenFieldsChange={persistHiddenFields}
-                onInlineEditChange={(next: boolean) => {
-                    persistViewPatch(viewDef.id, viewDef, { inlineEdit: next });
-                }}
+                // objectui#5144 (ruling E): session-only, writes nothing.
+                onInlineEditChange={keepInlineEditModeForTheSession}
                 onColumnStateChange={(state: { order?: string[]; widths?: Record<string, number> }) => {
                     persistViewPatch(viewDef.id, viewDef, { columnState: state });
                 }}

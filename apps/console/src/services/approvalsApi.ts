@@ -15,7 +15,12 @@ import { TokenStorage } from '@object-ui/auth';
 import type { ApprovalCancelReason } from '@objectstack/spec/contracts';
 
 const SERVER_URL = (import.meta.env.VITE_SERVER_URL || '').replace(/\/$/, '');
-const API_BASE = `${SERVER_URL}/api/v1`;
+/**
+ * The API root every approvals read and write goes to. Exported so the
+ * standard-renderer data source (`approvalRequestsDataSource.ts`) reaches the
+ * same routes without a second spelling of where they live (objectui#12032).
+ */
+export const API_BASE = `${SERVER_URL}/api/v1`;
 
 export interface ApprovalProcessRow {
   id: string;

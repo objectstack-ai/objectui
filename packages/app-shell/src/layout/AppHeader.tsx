@@ -165,10 +165,11 @@ export function AppHeader({
   // synthetic `⌘K` KeyboardEvent re-dispatch that did nothing under automation.
   const { openCommandPalette } = useCommandPalette();
   // objectui#11912 — the search trigger is drawn only where a palette is
-  // mounted. Outside a `CommandPaletteProvider` (the `home` / `orgs` / `studio`
-  // frames: `/home`, `/ai`, the organizations pages, `/studio`)
-  // `openCommandPalette` is the inert fallback and no ⌘K handler is installed,
-  // so a "Search ⌘K" there opens nothing.
+  // mounted. Outside a `CommandPaletteProvider` (the `home` / `orgs` frames:
+  // `/home`, `/ai`, the organizations pages) `openCommandPalette` is the inert
+  // fallback and no ⌘K handler is installed, so a "Search ⌘K" there opens
+  // nothing. The `/studio` landing mounts one with the palette's `studio` scope
+  // (objectui#11863), so its `studio` variant draws the trigger.
   const hasCommandPalette = useCommandPaletteProviderMounted();
   // Click-reachable entry for the keyboard-shortcuts dialog (was `?`-key only).
   // Shares the `?shortcuts=1` URL param with KeyboardShortcutsDialog (C2/C3).

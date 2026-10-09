@@ -2062,6 +2062,8 @@ const fr = {
       placeholder: "Tapez une commande ou recherchez…",
       noResults: "Aucun résultat trouvé.",
       objects: "Objets",
+      packages: "Packages",
+      flows: "Flux",
       dashboards: "Tableaux de bord",
       pages: "Pages",
       reports: "Rapports",

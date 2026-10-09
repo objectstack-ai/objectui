@@ -1037,6 +1037,16 @@ record search. Its open state and the command that opens it are provided by
 `CommandPaletteProvider` (wired in by `ConsoleLayout`) and exposed via
 `useCommandPalette()`.
 
+`CommandPalette` has two scopes. Inside an app it takes `apps`, `activeApp`,
+`objects`, `onAppChange` and an optional `dataSource`, and searches that app.
+`<CommandPalette scope="studio" />` takes no other prop: it is the palette of the
+`/studio` landing, a frame outside every app, which the console mounts under its
+own `CommandPaletteProvider`. It leaves out every app-scoped group and the
+full-search command (their links start with `/apps/APP`), and lists the Studio's
+packages, their objects and their flows, each opening its Studio page. The
+header's search trigger is drawn wherever a provider is mounted, so `AppHeader`
+with `variant="studio"` shows it there.
+
 ```tsx
 import { useCommandPalette } from '@object-ui/app-shell';
 

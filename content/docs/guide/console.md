@@ -28,6 +28,7 @@ The console opens at **http://localhost:5180** (the port is fixed in `apps/conso
 | **Expression Visibility** | Show/hide navigation items using `visible: "${data.role === 'admin'}"`. |
 | **Branding** | Per-app colors, favicons, and logos via `AppShell` branding. |
 | **Command Palette** | `⌘+K` opens a searchable command bar for quick navigation. |
+| **Search in Studio** | On the Studio landing (`/studio`) the header's search, or `⌘+K`, opens the command palette over the Studio rather than an app: its packages, their objects and their flows, matched by label or machine name. A package opens its Data pillar, an object opens in its package's Data pillar, a flow in its package's Automations pillar, and a flow that belongs to no package in `/studio/~org/automations`. App entries, record search and the full-search page are not offered there, since no app is open. |
 | **Studio Package Scope** | Studio home, metadata counts, quick-create links, and diagnostics follow the selected package. |
 | **Package-less Flows in Studio** | Flows that belong to no package — such as a clone of a packaged flow, made from Setup › Packaged automation — are listed and edited at `/studio/~org/automations`, reached from the Studio home ("Not in a package") or the package switcher. They open editable, edits save as drafts, and Publish promotes those drafts. |
 | **Studio Automations Rail** | The Automations pillar's flow rail has a search box that matches a flow's label or its machine name, case-insensitively. A long flow name wraps instead of being cut off. |

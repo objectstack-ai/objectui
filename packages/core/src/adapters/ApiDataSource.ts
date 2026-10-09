@@ -260,8 +260,16 @@ export class ApiDataSource<T = any> implements DataSource<T> {
         queryParams,
       });
       return raw ?? null;
-    } catch {
-      return null;
+    } catch (err) {
+      // `null` is "not found", and only a 404 says that. Every other failure
+      // (a refusal, a 5xx, a transport error) rejects, as `ObjectStackAdapter`
+      // does, so a record page can tell "no access" and "could not load" from
+      // "not found" (objectui#11902, objectui#12032). The status is read from
+      // the message `request` above composes ("ApiDataSource: HTTP 404 …").
+      if (err instanceof Error && /^ApiDataSource: HTTP 404\b/.test(err.message)) {
+        return null;
+      }
+      throw err;
     }
   }
 

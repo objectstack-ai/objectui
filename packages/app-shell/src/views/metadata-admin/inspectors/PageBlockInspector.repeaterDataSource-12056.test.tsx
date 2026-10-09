@@ -76,7 +76,8 @@ function renderInspector(draft: Record<string, unknown>): Mock<MetadataInspector
 
 /** The block as the inspector last wrote it (the patch is shallow: `{ regions }`). */
 const committedBlock = (onPatch: Mock<MetadataInspectorProps['onPatch']>): Record<string, unknown> =>
-  (onPatch.mock.calls.at(-1)![0] as any).regions[0].components[0];
+  (onPatch.mock.calls.at(-1)![0] as { regions: Array<{ components: Array<Record<string, unknown>> }> }).regions[0]
+    .components[0];
 
 describe('the designer writes the node-level `dataSource` for element:repeater (objectui#12056)', () => {
   it('the Object picker writes `dataSource.object`, not `properties.object`', () => {

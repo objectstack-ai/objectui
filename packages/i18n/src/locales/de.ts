@@ -2018,6 +2018,8 @@ const de = {
       placeholder: "Befehl eingeben oder suchen…",
       noResults: "Keine Ergebnisse gefunden.",
       objects: "Objekte",
+      packages: "Pakete",
+      flows: "Flows",
       dashboards: "Dashboards",
       pages: "Seiten",
       reports: "Berichte",

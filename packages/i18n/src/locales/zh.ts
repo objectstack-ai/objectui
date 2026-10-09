@@ -1819,6 +1819,8 @@ const zh = {
       records: '记录',
       recentRecords: '最近访问',
       objects: '对象',
+      packages: '软件包',
+      flows: '流程',
       dashboards: '仪表盘',
       pages: '页面',
       reports: '报表',

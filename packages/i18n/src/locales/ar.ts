@@ -2207,6 +2207,8 @@ const ar = {
       placeholder: "اكتب أمراً أو ابحث…",
       noResults: "لم يتم العثور على نتائج.",
       objects: "الكائنات",
+      packages: "الحزم",
+      flows: "التدفقات",
       dashboards: "لوحات المعلومات",
       pages: "الصفحات",
       reports: "التقارير",

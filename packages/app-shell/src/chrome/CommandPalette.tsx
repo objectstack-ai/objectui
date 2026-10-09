@@ -8,6 +8,12 @@
  * matches its navigation entries and built-in commands itself, on word
  * prefixes and contiguous substrings (`matchesPaletteQuery`, objectui#11812),
  * and renders only those that match; record hits come from the server search.
+ *
+ * Two scopes (objectui#11863). Inside an app (`scope` omitted) it searches that
+ * app. On `/studio` (`scope="studio"`), a frame outside every app, it has no
+ * app-scoped group and no full-search command, whose links all start with
+ * `/apps/APP`; it lists the Studio's packages, objects and flows instead, each
+ * opening its Studio page.
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
@@ -29,6 +35,10 @@ import {
   Sun,
   Monitor,
   Search,
+  Boxes,
+  Database,
+  Workflow,
+  type LucideIcon,
 } from 'lucide-react';
 import { useRecordSearch } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
@@ -40,13 +50,20 @@ import { getIcon } from '../utils/getIcon.js';
 import { useRecentItems } from '../context/RecentItemsProvider.js';
 import { useRecentItemLabel } from '../hooks/useRecentItemLabel.js';
 import { useCommandPalette } from '../context/CommandPaletteProvider.js';
+import { useMetadata } from '../providers/MetadataProvider.js';
 import { resolveHref, resolveNavItemLabel } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
 import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useAuth } from '@object-ui/auth';
 import { matchesPaletteQuery } from './paletteMatch.js';
+import { fetchPackages, type PkgEntry } from '../views/studio-design/packages-io.js';
+import { isPackageLessItem, studioOrgScopePath } from '../views/studio-design/studioScope.js';
+import { DESIGNER_SURFACE_PARAM, formatSurfaceParam } from '../views/metadata-admin/nav-selection.js';
 
-interface CommandPaletteProps {
+/** The palette of the active app: the frame `ConsoleLayout` draws for `/apps/APP`. */
+interface AppCommandPaletteProps {
+  /** Omitted inside an app; `'studio'` is the other scope. */
+  scope?: undefined;
   apps: any[];
   activeApp: any;
   objects: any[];
@@ -58,7 +75,34 @@ interface CommandPaletteProps {
   dataSource?: any;
 }
 
-export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSource }: CommandPaletteProps) {
+/**
+ * The palette on `/studio`, a frame outside every app (objectui#11863). It
+ * takes no app props: there is no active app to search, switch from, or build
+ * a `/apps/APP` link for. It lists the packages Studio opens, their objects and
+ * their flows, plus the organization's package-less flows.
+ */
+interface StudioCommandPaletteProps {
+  scope: 'studio';
+}
+
+type CommandPaletteProps = AppCommandPaletteProps | StudioCommandPaletteProps;
+
+/**
+ * What the app half of the palette reads in the `studio` scope: no app, so no
+ * navigation entry, no app to switch to, no object to search records of, and
+ * no data source (record search stays off).
+ */
+const NO_APP: Omit<AppCommandPaletteProps, 'scope'> = {
+  apps: [],
+  activeApp: null,
+  objects: [],
+  onAppChange: () => {},
+  dataSource: undefined,
+};
+
+export function CommandPalette(props: CommandPaletteProps) {
+  const inStudio = props.scope === 'studio';
+  const { apps, activeApp, objects, onAppChange, dataSource } = inStudio ? NO_APP : props;
   const { open, setOpen } = useCommandPalette();
   const [inputValue, setInputValue] = useState('');
   const navigate = useNavigate();
@@ -124,7 +168,17 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
     dark: t('console.commandPalette.darkTheme'),
     system: t('console.commandPalette.systemTheme'),
   };
-  const showFullSearch = matches(FULL_SEARCH_VALUE);
+  // The full-search page lives under an app (`/apps/APP/search`), so the
+  // `studio` scope, which has none, offers no such command (objectui#11863).
+  const showFullSearch = !inStudio && matches(FULL_SEARCH_VALUE);
+
+  // objectui#11863 — the Studio's packages, objects and flows, read only while
+  // the palette is open in the `studio` scope, matched like the entries above.
+  const studio = useStudioPaletteEntries(open && inStudio);
+  const studioMatches = (entry: StudioPaletteEntry) => matches(entry.label, entry.name);
+  const studioPackages = studio.packages.filter(studioMatches);
+  const studioObjects = studio.objects.filter(studioMatches);
+  const studioFlows = studio.flows.filter(studioMatches);
 
   // Whitelist of object names visible in this app's nav — used as the search
   // scope so we don't fan out to every object in the tenant.
@@ -225,7 +279,7 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
       />
       <CommandList>
         <CommandEmpty>
-          {isSearching ? (
+          {isSearching || studio.loading ? (
             <span className="inline-flex items-center gap-2 text-muted-foreground">
               <span
                 aria-hidden
@@ -370,6 +424,47 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
           </CommandGroup>
         )}
 
+        {/* Studio (objectui#11863): packages, objects and flows, `studio` scope only */}
+        {studioPackages.length > 0 && (
+          <CommandGroup heading={t('console.commandPalette.packages')}>
+            {studioPackages.map((entry) => (
+              <StudioPaletteItem
+                key={entry.key}
+                kind="studio-package"
+                entry={entry}
+                Icon={Boxes}
+                onOpen={() => runCommand(() => navigate(entry.href))}
+              />
+            ))}
+          </CommandGroup>
+        )}
+        {studioObjects.length > 0 && (
+          <CommandGroup heading={t('console.commandPalette.objects')}>
+            {studioObjects.map((entry) => (
+              <StudioPaletteItem
+                key={entry.key}
+                kind="studio-object"
+                entry={entry}
+                Icon={Database}
+                onOpen={() => runCommand(() => navigate(entry.href))}
+              />
+            ))}
+          </CommandGroup>
+        )}
+        {studioFlows.length > 0 && (
+          <CommandGroup heading={t('console.commandPalette.flows')}>
+            {studioFlows.map((entry) => (
+              <StudioPaletteItem
+                key={entry.key}
+                kind="studio-flow"
+                entry={entry}
+                Icon={Workflow}
+                onOpen={() => runCommand(() => navigate(entry.href))}
+              />
+            ))}
+          </CommandGroup>
+        )}
+
         {/* App Switching */}
         {appItems.length > 0 && (
           <>
@@ -441,6 +536,176 @@ const THEME_COMMANDS = [
 
 /** The full-search command's value, which it is matched by (objectui#11812). */
 const FULL_SEARCH_VALUE = 'search all results full page';
+
+/** One Studio entry the `studio` scope lists (objectui#11863). */
+interface StudioPaletteEntry {
+  /** Unique within its group, and part of its cmdk `value`. */
+  key: string;
+  /** What the entry shows: a package's name, an object's or a flow's label. */
+  label: string;
+  /** Its machine name, matched like the label. */
+  name: string;
+  /** The Studio page it opens. */
+  href: string;
+  /** The name of the package it belongs to; absent on a package and on a package-less flow. */
+  packageName?: string;
+}
+
+interface StudioPaletteEntries {
+  packages: StudioPaletteEntry[];
+  objects: StudioPaletteEntry[];
+  flows: StudioPaletteEntry[];
+  /** Some list has not answered yet. */
+  loading: boolean;
+}
+
+const NO_STUDIO_ENTRIES: StudioPaletteEntries = { packages: [], objects: [], flows: [], loading: false };
+
+/**
+ * A Studio pillar opened on one item, through the pillar's `?surface=` deep
+ * link: the shape `studioOrgScopePath` builds for the package-less scope, under
+ * a package. An object opens in the Data pillar and a flow in Automations,
+ * the pillars `StudioDesignSurface` routes those surface types to.
+ */
+function studioSurfacePath(packageId: string, pillar: 'data' | 'automations', surface: { type: string; name: string }): string {
+  return `/studio/${encodeURIComponent(packageId)}/${pillar}?${DESIGNER_SURFACE_PARAM}=${encodeURIComponent(formatSurfaceParam(surface))}`;
+}
+
+/**
+ * The Studio's packages, objects and flows, as the `studio` scope lists them
+ * (objectui#11863). Nothing is read until `enabled` (the palette is open in that
+ * scope). The package list is read again each time it opens; until that read
+ * answers, the previous answer is shown.
+ *
+ * - **Packages** come from `fetchPackages`, the list the Studio landing and its
+ *   package switcher read; kernel packages are already left out there. Each
+ *   opens its Data pillar, as a landing card does.
+ * - **Objects** come from the metadata cache (`useMetadata().objects`), each
+ *   listed under the package it declares (`_packageId`) and opened in that
+ *   package's Data pillar. One whose package is not in the list has no Studio
+ *   page to open, and is left out.
+ * - **Flows** come from the same cache's `flow` list, the unscoped read that
+ *   carries every package's flows (the read the package-less scope narrows,
+ *   see `loadPackageLessSurfaces`). A packaged flow opens in its package's
+ *   Automations pillar; a flow that belongs to no package opens in the
+ *   package-less scope (objectui#11553).
+ *
+ * The published items only: an item that is still a draft is not in either
+ * cache list. Until the package list answers nothing is listed, so no entry
+ * is drawn without its package. If that read fails, the packaged entries are
+ * left out; the landing behind the palette shows the same read's error.
+ */
+function useStudioPaletteEntries(enabled: boolean): StudioPaletteEntries {
+  const metadata = useMetadata();
+  const { t } = useObjectTranslation();
+  const [packages, setPackages] = useState<PkgEntry[] | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    fetchPackages().then(
+      (list) => {
+        if (!cancelled) setPackages(list);
+      },
+      () => {
+        if (!cancelled) setPackages([]);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+
+  if (!enabled) return NO_STUDIO_ENTRIES;
+
+  // Read only while open: each read starts that type's fetch when it has not
+  // been loaded yet, and the provider re-renders this palette when it answers.
+  const objectItems: any[] = metadata.objects;
+  const flowItems: any[] = metadata.getItemsByType('flow');
+  const typeLoading = (type: string) => {
+    const status = metadata.getTypeStatus?.(type);
+    return status === 'idle' || status === 'loading';
+  };
+  const loading = packages === null || typeLoading('object') || typeLoading('flow');
+  if (packages === null) return { ...NO_STUDIO_ENTRIES, loading };
+
+  const byId = new Map(packages.map((pkg) => [pkg.id, pkg]));
+  const ownPackage = (item: any): PkgEntry | undefined =>
+    typeof item?._packageId === 'string' ? byId.get(item._packageId) : undefined;
+  const hasName = (item: any): boolean => typeof item?.name === 'string' && item.name !== '';
+
+  const objects: StudioPaletteEntry[] = [];
+  for (const item of objectItems) {
+    const pkg = ownPackage(item);
+    if (!pkg || !hasName(item)) continue;
+    objects.push({
+      key: `${pkg.id}:${item.name}`,
+      label: resolveKeyedI18nLabel(item.label, t) || item.name,
+      name: item.name,
+      href: studioSurfacePath(pkg.id, 'data', { type: 'object', name: item.name }),
+      packageName: pkg.name,
+    });
+  }
+
+  const flows: StudioPaletteEntry[] = [];
+  for (const item of flowItems) {
+    if (!hasName(item)) continue;
+    const label = resolveKeyedI18nLabel(item.label, t) || item.name;
+    if (isPackageLessItem(item)) {
+      flows.push({
+        key: `~org:${item.name}`,
+        label,
+        name: item.name,
+        href: studioOrgScopePath({ type: 'flow', name: item.name }),
+      });
+      continue;
+    }
+    const pkg = ownPackage(item);
+    if (!pkg) continue;
+    flows.push({
+      key: `${pkg.id}:${item.name}`,
+      label,
+      name: item.name,
+      href: studioSurfacePath(pkg.id, 'automations', { type: 'flow', name: item.name }),
+      packageName: pkg.name,
+    });
+  }
+
+  return {
+    packages: packages.map((pkg) => ({
+      key: pkg.id,
+      label: pkg.name,
+      name: pkg.id,
+      href: `/studio/${encodeURIComponent(pkg.id)}/data`,
+    })),
+    objects,
+    flows,
+    loading,
+  };
+}
+
+/** One Studio entry: its icon, its label, and the package it belongs to on the right. */
+function StudioPaletteItem({
+  kind,
+  entry,
+  Icon,
+  onOpen,
+}: {
+  kind: 'studio-package' | 'studio-object' | 'studio-flow';
+  entry: StudioPaletteEntry;
+  Icon: LucideIcon;
+  onOpen: () => void;
+}) {
+  return (
+    <CommandItem value={`${kind} ${entry.label} ${entry.name} ${entry.key}`} onSelect={onOpen}>
+      <Icon className="mr-2 h-4 w-4" />
+      <span className="truncate">{entry.label}</span>
+      {entry.packageName && (
+        <span className="ml-auto max-w-[45%] truncate text-xs text-muted-foreground">{entry.packageName}</span>
+      )}
+    </CommandItem>
+  );
+}
 
 /** Flatten nested navigation groups into a flat list of leaf items */
 function flattenNavigation(items: any[]): any[] {

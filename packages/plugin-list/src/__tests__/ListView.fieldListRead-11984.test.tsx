@@ -192,6 +192,15 @@ function selectLabels(select: HTMLElement): string[] {
   return Array.from((select as HTMLSelectElement).options).map(text).filter((label) => label !== 'None');
 }
 
+/**
+ * The View settings popover's Row color picker is the shared `Select`
+ * (objectui#11865), not a native select: read the fields its listbox offers,
+ * leaving out "None" as `selectLabels` does.
+ */
+async function pickerLabels(trigger: HTMLElement): Promise<string[]> {
+  return (await comboboxOptions(trigger)).filter((label) => label !== 'None');
+}
+
 // ---------------------------------------------------------------------------
 // The enumeration pin
 // ---------------------------------------------------------------------------
@@ -330,7 +339,7 @@ const POSITIONS: Position[] = [
   {
     name: 'View settings: the Row color select',
     schemaExtra: { compactToolbar: true, rowColor: { field: 'status', colors: {} } },
-    read: () => inPopover(viewSettings(), (c) => selectLabels(within(c).getByTestId('color-field-select'))),
+    read: () => inPopover(viewSettings(), (c) => pickerLabels(within(c).getByTestId('color-field-select'))),
   },
   {
     name: 'View settings: the hide-fields section',

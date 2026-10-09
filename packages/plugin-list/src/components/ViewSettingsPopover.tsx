@@ -73,7 +73,12 @@ export interface ViewSettingsPopoverProps {
   hiddenFields?: Set<string>;
   updateHiddenFields?: (next: Set<string>) => void;
 
-  /** Record editing — toggle inline cell editing (persists `inlineEdit` on the view). */
+  /**
+   * Record editing — toggle the grid's inline-edit mode. `setInlineEdit` hands
+   * the change to the host, which decides what it does with it; the console
+   * keeps it session-only and writes nothing to the view (objectui#5144,
+   * ruling E).
+   */
   showInlineEdit?: boolean;
   inlineEdit?: boolean;
   setInlineEdit?: (next: boolean) => void;

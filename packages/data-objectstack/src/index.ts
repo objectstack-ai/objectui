@@ -2886,7 +2886,9 @@ export function viewItemObjectName(item: any): string | undefined {
  *
  * `updateViewConfig` has exactly ONE production caller — `ObjectView`'s
  * `persistViewPatch`, invoked only for the toolbar-driven density / sort /
- * hiddenFields / columnState / inlineEdit toggle. That single call site is
+ * hiddenFields / columnState toggles. (The inline-edit toggle wrote
+ * `inlineEdit` through it until objectui#5144; the console now keeps that
+ * toggle session-only and writes nothing for it.) That single call site is
  * NOT itself the explicit "create/save a view" path (that goes through
  * {@link ObjectStackAdapter.createView} or the ADR-0034 metadata seam,
  * `viewEnvelope` in app-shell) — but it fires for a toggle on EITHER kind of
@@ -2963,11 +2965,14 @@ function isPersonalizationOverlayRow(item: any, spec: any): boolean {
  * One per `persistViewPatch` call site in app-shell's `ObjectView` — the ONLY
  * production writer of these rows — read off the tree rather than recalled:
  * `rowHeight` (the density toggle, spec-canonical since #2890), `sort`,
- * `hiddenFields`, `columnState` and `inlineEdit`. Nothing else in such a row
- * is an opinion the user expressed; anything else it carries is a COPY of the
- * source view as it stood at write time, because `persistViewPatch` USED TO
- * send `{ ...baseViewDef, ...patch }` and this adapter persists what it is
- * given.
+ * `hiddenFields` and `columnState`. Plus `inlineEdit`, which no console call
+ * site writes since objectui#5144 (triage's ruling E: the inline-edit toggle
+ * is session-only). It stays owned so an overlay the old toggle wrote is still
+ * read; the ruling keeps that data rather than migrating it. Nothing else in
+ * such a row is an opinion the user expressed; anything else it carries is a
+ * COPY of the source view as it stood at write time, because
+ * `persistViewPatch` USED TO send `{ ...baseViewDef, ...patch }` and this
+ * adapter persists what it is given.
  *
  * That copy was the defect the maintainer ruled on (objectstack#7494, comment
  * 5261754173): an overlay written by a mere column drag froze the view's
@@ -3000,9 +3005,10 @@ function isPersonalizationOverlayRow(item: any, spec: any): boolean {
  * ⛔ Do not grow this list to make some other key "stick" through an overlay.
  * A key that belongs to the view belongs in the view; the overlay is a patch,
  * and a patch that carries the whole document is what this list exists to
- * stop. Adding a sixth entry is only correct alongside a sixth
- * `persistViewPatch` call site — {@link narrowPersonalizationOverlay} is what
- * a reader checks that against.
+ * stop. Adding an entry is only correct alongside a `persistViewPatch` call
+ * site that writes it — {@link narrowPersonalizationOverlay} is what a reader
+ * checks that against. `inlineEdit` is the one entry with no such call site,
+ * kept for reading rows written before objectui#5144.
  */
 export const VIEW_OVERLAY_OWNED_KEYS = Object.freeze([
   'rowHeight',

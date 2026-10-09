@@ -15,7 +15,15 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Badge } from '@object-ui/components';
+import {
+  Button,
+  Badge,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@object-ui/components';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { toast } from 'sonner';
 import { useObjectTranslation } from '@object-ui/i18n';
@@ -58,6 +66,63 @@ function normalizeFields(schema: any): WizardField[] {
       options: def?.options,
     }))
     .filter((f) => f.name && !NON_WRITABLE_TYPES.includes(f.type));
+}
+
+/** The item a held object name none of the listed objects carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — the target-object picker, drawn with the shared `Select`
+ * the rest of the console picks with. It used to be a browser-native
+ * `<select>`. What a pick writes is unchanged: `onPick` receives the picked
+ * object's `name`, the string the native control's `change` carried, and the
+ * bar imports into it as before.
+ *
+ * - Items carry their option's INDEX, not its value, as every picker on
+ *   objectui#11865 does; an index cannot collide with an object name.
+ * - A held name none of the listed objects carries (a `defaultObjectName` the
+ *   list does not return, or any name while the list is loading or failed) gets
+ *   an item of its own, labelled with the name, so the trigger shows the
+ *   object Import would load into. The native control showed the first listed
+ *   object there, or nothing. Picking that item writes nothing.
+ * - Disabled follows the primitive (objectui#11781): `disabled` disables the
+ *   trigger itself.
+ */
+function ObjectPicker({
+  value,
+  options,
+  onPick,
+  disabled,
+}: {
+  value: string;
+  options: ReadonlyArray<{ name: string; label: string }>;
+  onPick: (name: string) => void;
+  disabled: boolean;
+}) {
+  const at = options.findIndex((o) => o.name === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the held name, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.name);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger className="h-8 w-auto gap-2 px-2">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.name}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 export function ExcelImportBar({ file, dataSource, defaultObjectName, onDone }: ExcelImportBarProps) {
@@ -144,16 +209,12 @@ export function ExcelImportBar({ file, dataSource, defaultObjectName, onDone }: 
       </span>
       <code className="font-medium">{file.name}</code>
       <span className="text-muted-foreground">{t('excelImport.into')}</span>
-      <select
-        className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+      <ObjectPicker
         value={selected}
-        onChange={(e) => setSelected(e.target.value)}
+        options={objects ?? []}
+        onPick={setSelected}
         disabled={!objects || objects.length === 0}
-      >
-        {(objects ?? []).map((o) => (
-          <option key={o.name} value={o.name}>{o.label}</option>
-        ))}
-      </select>
+      />
       <Button size="sm" onClick={openWizard} disabled={!selected || loadingFields}>
         {loadingFields ? t('excelImport.opening') : t('excelImport.importAction')}
       </Button>

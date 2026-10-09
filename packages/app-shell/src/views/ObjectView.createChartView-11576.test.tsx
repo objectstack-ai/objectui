@@ -22,7 +22,7 @@
 
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, cleanup, act, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, cleanup, act, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { ListViewSchema, ViewItemSchema } from '@objectstack/spec/ui';
 
@@ -161,8 +161,22 @@ function mount(listViews: Record<string, unknown>) {
 }
 
 const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 300)));
-const select = (key: string) => screen.getByTestId(`create-view-required-${key}`) as HTMLSelectElement;
-const optionValues = (el: HTMLSelectElement) => Array.from(el.options).map((o) => o.value);
+/** The config pick for `key`: the shared Select's trigger (objectui#11865). */
+const picker = (key: string) => screen.getByTestId(`create-view-required-${key}`);
+
+/** Open `key`'s picker from the keyboard and return the options it lists. */
+async function openPicker(key: string): Promise<HTMLElement[]> {
+  fireEvent.keyDown(picker(key), { key: 'ArrowDown' });
+  return within(await screen.findByRole('listbox')).getAllByRole('option');
+}
+
+/** The labels `key`'s picker lists, in order; it is closed again after. */
+async function optionLabels(key: string): Promise<string[]> {
+  const labels = (await openPicker(key)).map((o) => o.textContent ?? '');
+  fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+  return labels;
+}
 
 /** Create a chart view through the tab bar's add button; return the saved body. */
 async function createChartViewThroughTheTabBar() {
@@ -172,9 +186,12 @@ async function createChartViewThroughTheTabBar() {
   const card = await screen.findByTestId('create-view-type-chart');
   await waitFor(() => expect((card as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(card);
-  await waitFor(() => expect(optionValues(select('values'))).toContain('total_amount'));
-  expect(optionValues(select('dataset'))).not.toContain('account_metrics');
-  fireEvent.change(select('values'), { target: { value: 'total_amount' } });
+  await waitFor(() => expect(picker('values')).toBeEnabled());
+  expect((await optionLabels('dataset')).filter((label) => label.includes('account_metrics'))).toEqual([]);
+  const measure = (await openPicker('values')).find((o) => o.textContent === 'total_amount');
+  if (!measure) throw new Error('the measure picker lists no "total_amount"');
+  fireEvent.click(measure);
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
   await act(async () => {
     fireEvent.click(screen.getByTestId('create-view-submit'));
   });

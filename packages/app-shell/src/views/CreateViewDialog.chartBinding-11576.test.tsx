@@ -163,8 +163,29 @@ const DEAL = {
 const COLUMNS = ['name', 'stage', 'amount'];
 const LEGACY_KEYS = ['xAxisField', 'yAxisFields'];
 
-const select = (key: string) => screen.getByTestId(`create-view-required-${key}`) as HTMLSelectElement;
-const optionValues = (el: HTMLSelectElement) => Array.from(el.options).map((o) => o.value);
+/** The config pick for `key`: the shared Select's trigger (objectui#11865). */
+const picker = (key: string) => screen.getByTestId(`create-view-required-${key}`);
+
+/** The labels `key`'s picker lists, in order, read by opening it from the keyboard; it is closed again after. */
+async function optionLabels(key: string): Promise<string[]> {
+  fireEvent.keyDown(picker(key), { key: 'ArrowDown' });
+  const listbox = await screen.findByRole('listbox');
+  const labels = within(listbox).getAllByRole('option').map((o) => o.textContent ?? '');
+  fireEvent.keyDown(listbox, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+  return labels;
+}
+
+/** Pick the option labelled `label` in `key`'s picker, once the picker is enabled. */
+async function pick(key: string, label: string) {
+  await waitFor(() => expect(picker(key)).toBeEnabled());
+  fireEvent.keyDown(picker(key), { key: 'ArrowDown' });
+  const listbox = await screen.findByRole('listbox');
+  const option = within(listbox).getAllByRole('option').find((o) => o.textContent === label);
+  if (!option) throw new Error(`${key} lists no "${label}"`);
+  fireEvent.click(option);
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+}
 
 /** Open the dialog on `crm_deal`, pick Chart, and wait for this object's catalog. */
 async function openChartPicker(onCreate = vi.fn()) {
@@ -174,16 +195,15 @@ async function openChartPicker(onCreate = vi.fn()) {
   return onCreate;
 }
 
-/** Pick `measure` in the open chart picker and press Create. */
+/** Pick the measure labelled `measure` in the open chart picker and press Create. */
 async function pickMeasureAndCreate(measure: string) {
-  await waitFor(() => expect(optionValues(select('values'))).toContain(measure));
-  fireEvent.change(select('values'), { target: { value: measure } });
+  await pick('values', measure);
   const submit = screen.getByTestId('create-view-submit') as HTMLButtonElement;
   await waitFor(() => expect(submit.disabled).toBe(false));
   fireEvent.click(submit);
 }
 
-/** Pick `measure`, submit, and return the payload the dialog handed `onCreate`. */
+/** Pick the measure labelled `measure`, submit, and return the payload the dialog handed `onCreate`. */
 async function submitWithMeasure(onCreate: ReturnType<typeof vi.fn>, measure: string) {
   await pickMeasureAndCreate(measure);
   expect(onCreate).toHaveBeenCalledTimes(1);
@@ -226,17 +246,19 @@ describe('the catalog reader carries each dataset\'s base object (objectui#11576
 describe('the chart picker offers only the datasets this object exposes (objectui#11576)', () => {
   it('lists the dataset over crm_deal, never the one over crm_account', async () => {
     await openChartPicker();
-    await waitFor(() => expect(optionValues(select('dataset'))).toContain('deal_metrics'));
-    expect(optionValues(select('dataset'))).not.toContain('account_metrics');
     // The one dataset this object exposes is picked for the user, as a single
     // eligible field is for every other view type.
-    expect(select('dataset').value).toBe('deal_metrics');
+    await waitFor(() => expect(picker('dataset')).toHaveTextContent('Deal metrics (deal_metrics)'));
+    const datasets = await optionLabels('dataset');
+    expect(datasets).toContain('Deal metrics (deal_metrics)');
+    expect(datasets.filter((label) => label.includes('account_metrics'))).toEqual([]);
   });
 
   it('offers the chosen dataset\'s own measures and dimensions', async () => {
     await openChartPicker();
-    await waitFor(() => expect(optionValues(select('values'))).toEqual(['', 'total_amount', 'deal_count']));
-    expect(optionValues(select('dimensions'))).toEqual(['', 'stage']);
+    await waitFor(() => expect(picker('values')).toBeEnabled());
+    expect(await optionLabels('values')).toEqual(['console.objectView.selectOption', 'Total amount', 'Deals']);
+    expect(await optionLabels('dimensions')).toEqual(['console.objectView.selectOption', 'Stage']);
     expect(screen.queryByTestId('create-view-required-xAxisField')).toBeNull();
     expect(screen.queryByTestId('create-view-required-yAxisFields')).toBeNull();
   });
@@ -260,7 +282,7 @@ describe('the chart picker offers only the datasets this object exposes (objectu
 
 describe('the chart payload is the spec ListView chart block (objectui#11576)', () => {
   it('writes chartType + dataset + values + dimensions, and no legacy axis key', async () => {
-    const payload = await submitWithMeasure(await openChartPicker(), 'total_amount');
+    const payload = await submitWithMeasure(await openChartPicker(), 'Total amount');
     expect(payload.type).toBe('chart');
     expect(payload.chart).toEqual({
       chartType: 'bar',
@@ -280,7 +302,7 @@ describe('the chart payload is the spec ListView chart block (objectui#11576)', 
   });
 
   it('DOOR 1, ObjectDataPage.buildSaveAsViewSpec: the spec ListViewSchema and the ViewItem gate accept it', async () => {
-    const payload = await submitWithMeasure(await openChartPicker(), 'total_amount');
+    const payload = await submitWithMeasure(await openChartPicker(), 'Total amount');
     const spec = buildSaveAsViewSpec(payload, COLUMNS, []);
     expectAccepted(ListViewSchema, spec);
     expectAccepted(ViewItemSchema, viewEnvelope('crm_deal', spec, { name: payload.name, label: payload.label }));
@@ -308,7 +330,7 @@ describe('the save door answers 2xx for a chart view created through "Save as vi
     fireEvent.click(screen.getByTestId('object-data-save-as-view'));
     await waitFor(() => expect((screen.getByTestId('create-view-type-chart') as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByTestId('create-view-type-chart'));
-    await pickMeasureAndCreate('total_amount');
+    await pickMeasureAndCreate('Total amount');
     await waitFor(() => expect(puts).toHaveLength(1));
     // The door's verdict first: before this card it answered 422 here.
     expect(puts[0].status).toBe(200);

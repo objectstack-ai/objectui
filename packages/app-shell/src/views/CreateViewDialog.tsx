@@ -38,6 +38,11 @@ import {
   DialogTitle,
   Input,
   Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   cn,
 } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
@@ -249,6 +254,76 @@ interface PickOption {
  * hook sees one list rather than a fresh array per render.
  */
 const NO_DATASETS: DatasetCatalogEntry[] = [];
+
+/** The item a held value none of a picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — one config pick (a group-by field, a date field, the chart's
+ * type, dataset, measure or dimension), drawn with the shared `Select` the rest
+ * of the console picks with. It used to be a browser-native `<select>`. What a
+ * pick writes is unchanged: `onPick` receives the picked option's own `value`,
+ * the string the native control's `change` carried, and the dialog stores it
+ * through `choose` as before.
+ *
+ * - Items carry their option's INDEX, not its value. The first option is the
+ *   "select a field" placeholder, whose value is `''`, which `SelectItem`
+ *   refuses; picking it still clears the pick, as it did. An index cannot
+ *   collide with a field or dataset name, as a stand-in string could.
+ * - A held value none of the options carries (a field the object no longer
+ *   has) gets an item of its own, labelled with the value, so the trigger
+ *   shows what Create would write. The native control showed the placeholder
+ *   there. Picking that item writes nothing.
+ * - Disabled follows the primitive (objectui#11781): `disabled` disables the
+ *   trigger itself.
+ * - `id` lands on the trigger, so the row's `<label htmlFor>` names it as it
+ *   named the native control, and `aria-required` still announces the state.
+ */
+function ConfigPicker({
+  id,
+  required,
+  value,
+  options,
+  onPick,
+  disabled,
+}: {
+  id: string;
+  required: boolean;
+  value: string;
+  options: ReadonlyArray<PickOption>;
+  onPick: (value: string) => void;
+  disabled: boolean;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the held value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        id={id}
+        data-testid={id}
+        aria-required={required ? 'true' : undefined}
+        className="h-9 px-2 text-xs"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 /** `LABEL (name)`, or the bare name when the dataset declares no other label. */
 function datasetOptionLabel(d: DatasetCatalogEntry): string {
@@ -747,25 +822,20 @@ export function CreateViewDialog({
                       <span className="ml-1 text-destructive" aria-hidden="true">*</span>
                     )}
                   </label>
-                  <select
+                  <ConfigPicker
                     id={`create-view-required-${rf.key}`}
-                    aria-required={rf.optional ? undefined : 'true'}
-                    data-testid={`create-view-required-${rf.key}`}
+                    required={!rf.optional}
                     value={selectedFieldValue}
-                    onChange={(e) => choose(rf, e.target.value)}
+                    options={[
+                      {
+                        value: '',
+                        label: isField ? t('console.objectView.selectField') : t('console.objectView.selectOption'),
+                      },
+                      ...options,
+                    ]}
+                    onPick={(value) => choose(rf, value)}
                     disabled={noEligible || pending}
-                    className={cn(
-                      'h-9 w-full rounded-md border bg-background px-2 text-xs',
-                      'border-input',
-                    )}
-                  >
-                    <option value="">
-                      {isField ? t('console.objectView.selectField') : t('console.objectView.selectOption')}
-                    </option>
-                    {options.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                  />
                   {rf.helpI18nKey && !noEligible && (
                     <p className="text-[11px] text-muted-foreground">
                       {t(rf.helpI18nKey)}

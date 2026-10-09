@@ -109,7 +109,8 @@ function makeDataSource() {
 }
 
 const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 300)));
-const select = (key: string) => screen.getByTestId(`create-view-required-${key}`) as HTMLSelectElement;
+/** The config pick for `key`: the shared Select's trigger, which shows the option it holds (objectui#11865). */
+const picker = (key: string) => screen.getByTestId(`create-view-required-${key}`);
 
 beforeEach(() => {
   cleanup();
@@ -149,7 +150,7 @@ describe('ObjectView.handleViewCreate persists a kanban through the one builder 
     await waitFor(() => expect(card.disabled).toBe(false));
     fireEvent.click(card);
     // `stage` is the object's one select field, so the dialog picks it.
-    await waitFor(() => expect(select('groupByField').value).toBe('stage'));
+    await waitFor(() => expect(picker('groupByField')).toHaveTextContent('Stage'));
     await act(async () => {
       fireEvent.click(screen.getByTestId('create-view-submit'));
     });

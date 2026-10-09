@@ -42,7 +42,7 @@
 
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, cleanup, fireEvent, waitFor, screen } from '@testing-library/react';
+import { render, cleanup, fireEvent, waitFor, screen, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { ListViewSchema, ViewItemSchema } from '@objectstack/spec/ui';
 import { getMetadataTypeSchema } from '@objectstack/spec/kernel';
@@ -160,8 +160,8 @@ const DEAL = {
 const COLUMNS = defaultListColumnsFromObject(DEAL, 5);
 
 interface ParseRow {
-  /** The picks to make, in order: the select's key and the option to choose. */
-  picks: Array<[key: string, value: string]>;
+  /** The picks to make, in order: the picker's key and the label of the option to choose. */
+  picks: Array<[key: string, label: string]>;
   /** The block the dialog writes under the type's key (`undefined`: none). */
   block?: Record<string, unknown>;
 }
@@ -173,29 +173,34 @@ interface ParseRow {
  */
 const PARSE_ROWS: Record<string, ParseRow> = {
   grid: { picks: [] },
-  kanban: { picks: [['groupByField', 'stage']], block: { groupByField: 'stage' } },
+  kanban: { picks: [['groupByField', 'Stage']], block: { groupByField: 'stage' } },
   calendar: {
-    picks: [['startDateField', 'start_date'], ['titleField', 'name']],
+    picks: [['startDateField', 'Start'], ['titleField', 'Name']],
     block: { startDateField: 'start_date', titleField: 'name' },
   },
-  gallery: { picks: [['coverField', 'photo']], block: { coverField: 'photo' } },
+  gallery: { picks: [['coverField', 'Photo']], block: { coverField: 'photo' } },
   timeline: {
-    picks: [['startDateField', 'start_date'], ['titleField', 'name']],
+    picks: [['startDateField', 'Start'], ['titleField', 'Name']],
     block: { startDateField: 'start_date', titleField: 'name' },
   },
   gantt: {
-    picks: [['startDateField', 'start_date'], ['endDateField', 'end_date'], ['titleField', 'name']],
+    picks: [['startDateField', 'Start'], ['endDateField', 'End'], ['titleField', 'Name']],
     block: { startDateField: 'start_date', endDateField: 'end_date', titleField: 'name' },
   },
   map: {
-    picks: [['latitudeField', 'latitude'], ['longitudeField', 'longitude']],
+    picks: [['latitudeField', 'Latitude'], ['longitudeField', 'Longitude']],
     block: { latitudeField: 'latitude', longitudeField: 'longitude' },
   },
   chart: {
-    picks: [['chartType', 'bar'], ['dataset', 'deal_metrics'], ['values', 'total_amount'], ['dimensions', 'stage']],
+    picks: [
+      ['chartType', 'console.objectView.chartTypeBar'],
+      ['dataset', 'Deal metrics (deal_metrics)'],
+      ['values', 'Total amount'],
+      ['dimensions', 'Stage'],
+    ],
     block: { chartType: 'bar', dataset: 'deal_metrics', values: ['total_amount'], dimensions: ['stage'] },
   },
-  tree: { picks: [['parentField', 'parent']], block: { parentField: 'parent' } },
+  tree: { picks: [['parentField', 'Parent deal']], block: { parentField: 'parent' } },
 };
 
 /**
@@ -206,18 +211,23 @@ const typeCards = () =>
   Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-testid^="create-view-type-"]'));
 const typeCard = (type: string) =>
   typeCards().find((b) => b.getAttribute('data-testid') === `create-view-type-${type}`);
-const select = (key: string) => screen.getByTestId(`create-view-required-${key}`) as HTMLSelectElement;
-const optionValues = (el: HTMLSelectElement) => Array.from(el.options).map((o) => o.value);
+/** The config pick for `key`: the shared Select's trigger, which shows the option it holds (objectui#11865). */
+const picker = (key: string) => screen.getByTestId(`create-view-required-${key}`);
 const submitButton = () => screen.getByTestId('create-view-submit') as HTMLButtonElement;
 
 /** Pick `type` in the open dialog, make the row's picks, name it, and press Create. */
 async function pickAndCreate(type: string, picks: ParseRow['picks']) {
   await waitFor(() => expect(typeCard(type)?.disabled).toBe(false));
   fireEvent.click(typeCard(type)!);
-  for (const [key, value] of picks) {
-    await waitFor(() => expect(optionValues(select(key))).toContain(value));
-    fireEvent.change(select(key), { target: { value } });
-    await waitFor(() => expect(select(key).value).toBe(value));
+  for (const [key, label] of picks) {
+    await waitFor(() => expect(picker(key)).toBeEnabled());
+    fireEvent.keyDown(picker(key), { key: 'ArrowDown' });
+    const listbox = await screen.findByRole('listbox');
+    const option = within(listbox).getAllByRole('option').find((o) => o.textContent === label);
+    if (!option) throw new Error(`${type}: ${key} lists no "${label}"`);
+    fireEvent.click(option);
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+    await waitFor(() => expect(picker(key).textContent).toBe(label));
   }
   fireEvent.change(screen.getByTestId('create-view-name-input'), { target: { value: `New ${type}` } });
   await waitFor(() => expect(submitButton().disabled).toBe(false));

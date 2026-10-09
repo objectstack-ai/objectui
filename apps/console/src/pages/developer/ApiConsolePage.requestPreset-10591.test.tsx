@@ -166,7 +166,8 @@ afterEach(() => {
 const fetchedUrls = () => fetchSpy.mock.calls.map(([input]) => String(input));
 
 const urlField = () => screen.getByPlaceholderText('/api/v1/...') as HTMLInputElement;
-const methodField = () => screen.getByRole('combobox') as HTMLSelectElement;
+/** The method selector: the shared Select's trigger, which shows the verb it holds (objectui#11865). */
+const methodField = () => screen.getByRole('combobox');
 
 function renderPageAt(url: string) {
   return render(
@@ -183,7 +184,7 @@ describe('ApiConsolePage request preset (objectui#10591)', () => {
     renderPageAt(`/?path=${encodeURIComponent(EXECUTE_PATH)}&method=POST`);
 
     expect(urlField()).toHaveValue(EXECUTE_PATH);
-    expect(methodField()).toHaveValue('POST');
+    expect(methodField()).toHaveTextContent(/^POST$/);
     // POST shows the body editor, as picking the verb by hand would.
     expect(screen.getByText('Request Body (JSON)')).toBeInTheDocument();
     // Let endpoint discovery settle (its built-in Auth group is listed even
@@ -197,7 +198,7 @@ describe('ApiConsolePage request preset (objectui#10591)', () => {
     renderPageAt('/');
 
     expect(urlField()).toHaveValue('');
-    expect(methodField()).toHaveValue('GET');
+    expect(methodField()).toHaveTextContent(/^GET$/);
     expect(screen.queryByText('Request Body (JSON)')).not.toBeInTheDocument();
     expect(await screen.findByText('Auth')).toBeInTheDocument();
   });
@@ -211,17 +212,17 @@ describe('ApiConsolePage request preset (objectui#10591)', () => {
     renderPageAt(`/?path=${encodeURIComponent(path)}&method=DELETE`);
 
     expect(urlField()).toHaveValue('');
-    expect(methodField()).toHaveValue('GET');
+    expect(methodField()).toHaveTextContent(/^GET$/);
   });
 
   it('accepts the method in any case, and ignores a verb the selector does not offer', () => {
     renderPageAt(`/?path=${encodeURIComponent(EXECUTE_PATH)}&method=patch`);
-    expect(methodField()).toHaveValue('PATCH');
+    expect(methodField()).toHaveTextContent(/^PATCH$/);
     cleanup();
 
     renderPageAt(`/?path=${encodeURIComponent(EXECUTE_PATH)}&method=TRACE`);
     expect(urlField()).toHaveValue(EXECUTE_PATH);
-    expect(methodField()).toHaveValue('GET');
+    expect(methodField()).toHaveTextContent(/^GET$/);
   });
 
   it('reads the preset once: a later query change does not overwrite the editor', () => {
@@ -252,7 +253,7 @@ describe('ApiConsolePage request preset (objectui#10591)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'retarget' }));
 
     expect(urlField()).toHaveValue(EXECUTE_PATH);
-    expect(methodField()).toHaveValue('POST');
+    expect(methodField()).toHaveTextContent(/^POST$/);
   });
 });
 
@@ -341,7 +342,7 @@ describe('the request preset through the console route table (objectui#10591)', 
     await lazyRouteSettled();
 
     expect(await screen.findByPlaceholderText('/api/v1/...')).toHaveValue(EXECUTE_PATH);
-    expect(methodField()).toHaveValue('POST');
+    expect(methodField()).toHaveTextContent(/^POST$/);
     expect(screen.queryByTestId('root-catch-all')).not.toBeInTheDocument();
     expect(screen.queryByText('Component not registered')).not.toBeInTheDocument();
     expect(fetchedUrls().some((u) => u.includes('/ai/tools/'))).toBe(false);
@@ -355,7 +356,7 @@ describe('the request preset through the console route table (objectui#10591)', 
     await lazyRouteSettled();
 
     expect(await screen.findByPlaceholderText('/api/v1/...')).toHaveValue(EXECUTE_PATH);
-    expect(methodField()).toHaveValue('POST');
+    expect(methodField()).toHaveTextContent(/^POST$/);
   });
 
   it('harness control: an app-less URL reaches the root catch-all, not the console', async () => {

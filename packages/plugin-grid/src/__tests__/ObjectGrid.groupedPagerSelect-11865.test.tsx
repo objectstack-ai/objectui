@@ -42,6 +42,7 @@ import React from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, within, waitFor, act } from '@testing-library/react';
 import { PaginationConfigSchema } from '@objectstack/spec/ui';
+import type { ObjectGridSchema } from '@object-ui/types';
 import { ObjectGrid } from '../ObjectGrid';
 import { registerAllFields } from '@object-ui/fields';
 import { ActionProvider } from '@object-ui/react';
@@ -61,19 +62,18 @@ const ITEMS = Array.from({ length: GROUP_COUNT }, (_, i) => ({
 const groupRows = () => document.querySelectorAll('[data-testid^="group-row-"]');
 const pageLabel = () => screen.queryByText(/^Page \d+ of \d+$/)?.textContent ?? 'NO PAGER';
 
-function renderGrouped(extra?: Record<string, unknown>) {
+function renderGrouped(extra?: Partial<ObjectGridSchema>) {
+  const schema: ObjectGridSchema = {
+    type: 'object-grid',
+    objectName: 'test_object',
+    columns: [{ field: 'name', label: 'Name' }],
+    data: { provider: 'value', items: ITEMS },
+    grouping: { fields: [{ field: 'category' }] },
+    ...extra,
+  };
   render(
     <ActionProvider>
-      <ObjectGrid
-        schema={{
-          type: 'object-grid',
-          objectName: 'test_object',
-          columns: [{ field: 'name', label: 'Name' }],
-          data: { provider: 'value', items: ITEMS },
-          grouping: { fields: [{ field: 'category' }] },
-          ...extra,
-        } as any}
-      />
+      <ObjectGrid schema={schema} />
     </ActionProvider>,
   );
 }

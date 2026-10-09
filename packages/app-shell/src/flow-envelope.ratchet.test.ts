@@ -18,7 +18,9 @@
  *
  * If this fails: don't hand-roll the check. Import `interpretFlowResponse` from
  * `utils/flowResponse` — it classifies transport failure / flow failure /
- * screen pause / terminal success, and guarantees a string error.
+ * screen pause / terminal success, and guarantees a string error. A flow
+ * LAUNCH goes through `launchConsoleFlow` (`utils/flowLaunch`), which already
+ * applies it on both doors (objectui#12037).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -81,15 +83,32 @@ describe('#2958 ratchet — flow trigger/resume callers use interpretFlowRespons
         expect(offenders).toEqual([]);
     });
 
-    it('still guards something — the three known callers are present', () => {
+    it('still guards something — the known callers are present', () => {
         // A ratchet that matches nothing passes vacuously forever. Pin that the
-        // copies it exists for are actually being scanned.
+        // copies it exists for are actually being scanned. Since objectui#12037
+        // the two LAUNCH handlers no longer build the request themselves: both
+        // call `launchConsoleFlow` (`utils/flowLaunch`), which picks the door
+        // and owns the trigger-route call, so it is the launch caller scanned
+        // here; `FlowRunner` is the resume caller.
         expect(callers.map((f) => path.relative(appShellSrc, f))).toEqual(
             expect.arrayContaining([
-                path.join('hooks', 'useConsoleActionRuntime.tsx'),
-                path.join('views', 'RecordDetailView.tsx'),
+                path.join('utils', 'flowLaunch.ts'),
                 path.join('views', 'FlowRunner.tsx'),
             ]),
         );
+    });
+
+    it('both flow-launch handlers delegate to the one launch module', () => {
+        // The other half of the move above: a handler that went back to a
+        // hand-rolled fetch would name the route again and be caught by the
+        // offenders assertion, and one that dropped the delegation entirely is
+        // caught here.
+        for (const rel of [
+            path.join('hooks', 'useConsoleActionRuntime.tsx'),
+            path.join('views', 'RecordDetailView.tsx'),
+        ]) {
+            const src = stripComments(readFileSync(path.join(appShellSrc, rel), 'utf8'));
+            expect(src, `${rel} should launch flows via launchConsoleFlow`).toMatch(/launchConsoleFlow\s*(<[^>]*>)?\s*\(/);
+        }
     });
 });

@@ -22,11 +22,11 @@ import { render, screen } from '@testing-library/react';
 import {
   ChatbotEnhanced,
   resolveProposalCardState,
-  type ChatMessage,
+  type ChatbotEnhancedMessage,
 } from '../ChatbotEnhanced';
 
 /** A granular edit that RETURNED a confirm-gate preview. */
-function proposalMessage(): ChatMessage {
+function proposalMessage(): ChatbotEnhancedMessage {
   return {
     id: 'a1',
     role: 'assistant',
@@ -48,8 +48,8 @@ function proposalMessage(): ChatMessage {
 }
 
 function replayMessage(
-  outcome: NonNullable<NonNullable<ChatMessage['toolInvocations']>[number]['replayOutcome']>,
-): ChatMessage {
+  outcome: NonNullable<NonNullable<ChatbotEnhancedMessage['toolInvocations']>[number]['replayOutcome']>,
+): ChatbotEnhancedMessage {
   return {
     id: 'a2',
     role: 'assistant',

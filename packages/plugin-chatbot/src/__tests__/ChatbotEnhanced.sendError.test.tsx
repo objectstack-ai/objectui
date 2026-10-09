@@ -12,7 +12,7 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ChatbotEnhanced } from '../ChatbotEnhanced';
-import type { ChatMessage } from '../ChatbotEnhanced';
+import type { ChatbotEnhancedMessage } from '../ChatbotEnhanced';
 
 const LABELS = {
   sendFailedRateLimited: 'RATE_LIMIT_MSG',
@@ -129,7 +129,7 @@ describe('ChatbotEnhanced send-failure UX', () => {
  * so with no rollback the user cannot re-approve at all and the build silently
  * never starts. The happy flip was pinned on its own; this is the other side.
  */
-const planMessage: ChatMessage[] = [
+const planMessage: ChatbotEnhancedMessage[] = [
   {
     id: 'a1',
     role: 'assistant',
@@ -148,7 +148,7 @@ const planMessage: ChatMessage[] = [
         },
       },
     ],
-  } as unknown as ChatMessage,
+  } as unknown as ChatbotEnhancedMessage,
 ];
 
 describe('ChatbotEnhanced plan approval — optimistic flip rollback (#2627)', () => {

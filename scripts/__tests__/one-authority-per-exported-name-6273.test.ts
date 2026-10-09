@@ -388,8 +388,17 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // package's barrel, so no importer could name it, and objectui#8651 measured
   // that `ObjectCalendar`'s props belong at the published `ObjectCalendarSchema`
   // instead. One authority remains, in `@object-ui/types`.
-  ['ChatMessage', ['packages/plugin-chatbot/src/ChatbotEnhanced.tsx', 'packages/types/src/complex.ts']],
-  ['ChatToolInvocation', ['packages/plugin-chatbot/src/ChatbotEnhanced.tsx', 'packages/types/src/complex.ts']],
+  // `ChatMessage` / `ChatToolInvocation` sat here, colliding between
+  // `packages/plugin-chatbot/src/ChatbotEnhanced.tsx` and
+  // `packages/types/src/complex.ts`. Two meanings, not drift: `@object-ui/types`
+  // declares the JSON/SDUI AUTHORING contract (`role` admits `'tool'`, the
+  // legacy tool states, no approval states — objectui#10018) and the plugin the
+  // RUNTIME shape `<ChatbotEnhanced>` renders (the approval states plus the
+  // render-only keys), and `toRuntimeMessages` converts one into the other.
+  // RENAME branch: the runtime declarations now spell `ChatbotEnhancedMessage` /
+  // `ChatbotEnhancedToolInvocation`, the names the plugin root already published
+  // them under, and the plugin root no longer publishes a `ChatMessage` at all
+  // (objectui#6349, batch 5).
   // `ComboboxOption` sat here, colliding between
   // `packages/components/src/custom/combobox.tsx` and `packages/types/src/form.ts`.
   // The component's copy was a strict SUBSET (`value`, `label`; the types copy
@@ -499,7 +508,14 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // package entry publishes it, and both former declarations re-export it, which
   // this gate does not count. One authority now, so the entry would fail the
   // stale-baseline direction.
-  ['UndoRedoState', ['packages/plugin-designer/src/hooks/useUndoRedo.ts', 'packages/types/src/ui-action.ts']],
+  // `UndoRedoState` sat here, colliding between
+  // `packages/plugin-designer/src/hooks/useUndoRedo.ts` and
+  // `packages/types/src/ui-action.ts`. Two meanings — the designer's generic hook
+  // result versus a non-generic action-history snapshot — but the
+  // `@object-ui/types` one had no reader and no writer in the repository and no
+  // `@objectstack/spec` counterpart, so it was RETIRED with its two companions
+  // (`UndoRedoEntry`, `UndoRedoConfig`) rather than renamed. The designer's
+  // declaration is the one authority (objectui#6349, batch 5).
   ['UserDataAdapter', ['packages/app-shell/src/context/UserStateAdapters.tsx', 'packages/data-objectstack/src/userState.ts']],
   // `ValidationFunction` sat here, colliding between
   // `packages/types/src/data-protocol.ts` and `packages/types/src/field-types.ts`.
@@ -614,7 +630,7 @@ describe('objectui#6273 — the matcher discriminates', () => {
       '// export interface KanbanCard is declared in @object-ui/types',
       '/** `export type { X as Y }` publishes a second meaning. */',
       "expect(typesFile).toContain('export interface HeatmapSchema extends BaseSchema {');", // create-plugin/src/__tests__/templates.test.ts:449
-      "expect(source).toContain('export type { ChatMessage }');", // plugin-chatbot/src/__tests__/chat-message-contract.test.ts:448
+      "expect(source).toContain('export type { ChatMessage }');", // plugin-chatbot's chat-message-contract test quoted this until objectui#6349 batch 5
       "expect(typesSrc).toContain('export interface CalendarEvent {');", // plugin-calendar/src/__tests__/name-collision-5044.test.ts:173
       'const tpl = `export interface ${vars.pascalName}Schema extends BaseSchema {`;', // create-plugin/src/templates.ts:417
     ]) {

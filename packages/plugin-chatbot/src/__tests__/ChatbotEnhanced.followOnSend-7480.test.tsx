@@ -63,7 +63,7 @@ vi.mock('../elements/conversation', () => {
 });
 
 const { ChatbotEnhanced } = await import('../ChatbotEnhanced');
-type ChatMessage = import('../ChatbotEnhanced').ChatMessage;
+type ChatbotEnhancedMessage = import('../ChatbotEnhanced').ChatbotEnhancedMessage;
 
 beforeEach(() => {
   scrollToBottom.mockClear();
@@ -107,7 +107,7 @@ describe('ChatbotEnhanced follows the thread when the user SENDS (objectui#7480)
 
   it('does NOT scroll when messages merely arrive — the user may have scrolled up', async () => {
     const onSendMessage = vi.fn();
-    const first: ChatMessage[] = [{ id: 'm1', role: 'user', content: 'hello' } as ChatMessage];
+    const first: ChatbotEnhancedMessage[] = [{ id: 'm1', role: 'user', content: 'hello' } as ChatbotEnhancedMessage];
     const { rerender } = render(
       <ChatbotEnhanced placeholder="Ask…" onSendMessage={onSendMessage} messages={first} />,
     );
@@ -121,14 +121,14 @@ describe('ChatbotEnhanced follows the thread when the user SENDS (objectui#7480)
       <ChatbotEnhanced
         placeholder="Ask…"
         onSendMessage={onSendMessage}
-        messages={[...first, { id: 'm2', role: 'assistant', content: 'wor' } as ChatMessage]}
+        messages={[...first, { id: 'm2', role: 'assistant', content: 'wor' } as ChatbotEnhancedMessage]}
       />,
     );
     rerender(
       <ChatbotEnhanced
         placeholder="Ask…"
         onSendMessage={onSendMessage}
-        messages={[...first, { id: 'm2', role: 'assistant', content: 'working on it' } as ChatMessage]}
+        messages={[...first, { id: 'm2', role: 'assistant', content: 'working on it' } as ChatbotEnhancedMessage]}
       />,
     );
     expect(scrollToBottom).not.toHaveBeenCalled();

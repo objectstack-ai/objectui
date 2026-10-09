@@ -20,7 +20,7 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
-import { ChatbotEnhanced, type ChatMessage } from '../ChatbotEnhanced';
+import { ChatbotEnhanced, type ChatbotEnhancedMessage } from '../ChatbotEnhanced';
 
 const TARGET = 'customer_management';
 const TARGET_LABEL = '客户管理';
@@ -32,7 +32,7 @@ function renderIn(language: string, ui: React.ReactElement) {
   );
 }
 
-const planMessages = (targetApp: string): ChatMessage[] => [
+const planMessages = (targetApp: string): ChatbotEnhancedMessage[] => [
   {
     id: 'a1',
     role: 'assistant',
@@ -55,7 +55,7 @@ const planMessages = (targetApp: string): ChatMessage[] => [
   },
 ];
 
-const designingMessages = (targetApp: string): ChatMessage[] => [
+const designingMessages = (targetApp: string): ChatbotEnhancedMessage[] => [
   { id: 'u1', role: 'user', content: '加一张跟进表' },
   {
     id: 'a1',

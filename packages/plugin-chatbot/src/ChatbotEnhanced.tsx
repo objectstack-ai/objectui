@@ -84,7 +84,14 @@ import {
 } from './elements/sources';
 import { parseResultEnvelope, detectAuthoringVerdict, type DraftReview } from './mapMessages';
 
-export interface ChatMessage {
+/**
+ * One chat message as `<ChatbotEnhanced>` RENDERS it — the runtime contract of
+ * this package. Not `@object-ui/types`' `ChatMessage`, which is the JSON/SDUI
+ * AUTHORING contract (`ChatbotSchema['messages']`); `toRuntimeMessages`
+ * converts one into the other. Two meanings, two names (objectui#6349,
+ * batch 5): this declaration used to be called `ChatMessage` too.
+ */
+export interface ChatbotEnhancedMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -98,7 +105,7 @@ export interface ChatMessage {
    * `ToolUIPart` shape (see `vercel/ai` v3) so we can render them with the
    * vendored `<Tool>` element without any extra mapping.
    */
-  toolInvocations?: ChatToolInvocation[];
+  toolInvocations?: ChatbotEnhancedToolInvocation[];
   /** Chain-of-thought / reasoning text emitted alongside the answer. */
   reasoning?: string;
   /** Optional citation / RAG sources for this assistant message. */
@@ -231,7 +238,15 @@ export interface ChatBlueprintProgress {
   seq?: number;
 }
 
-export interface ChatToolInvocation {
+/**
+ * One tool invocation as `<ChatbotEnhanced>` RENDERS it: the AI SDK v6 states
+ * (the three approval states included) plus the render-only keys
+ * `mapMessages.ts` lifts out of tool results. Not `@object-ui/types`'
+ * `ChatToolInvocation`, the AUTHORING face that refuses those states
+ * (objectui#10018). Two meanings, two names (objectui#6349, batch 5): this
+ * declaration used to be called `ChatToolInvocation` too.
+ */
+export interface ChatbotEnhancedToolInvocation {
   toolCallId: string;
   toolName: string;
   args?: unknown;
@@ -452,7 +467,7 @@ export type ChatbotProcessVisibility = 'hidden' | 'summary' | 'debug';
 export type ChatbotSurface = 'card' | 'plain';
 
 export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElement> {
-  messages?: ChatMessage[];
+  messages?: ChatbotEnhancedMessage[];
   placeholder?: string;
   /**
    * Send handler. Signature kept backwards compatible — `files` is the list
@@ -575,7 +590,7 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
    * When provided, tool parts whose result drafted metadata (ADR-0033) render a
    * "Review N change(s)" button inside their body. The callback receives the
    * reviewable `{ type, name }` targets; the host typically navigates to the
-   * designer's review/diff. See `ChatToolInvocation.draftReview`.
+   * designer's review/diff. See `ChatbotEnhancedToolInvocation.draftReview`.
    */
   onReviewDraft?: (items: Array<{ type: string; name: string }>) => void;
   /** Label for the review-draft button (default "Review {n} change(s)"). */
@@ -982,7 +997,7 @@ function ModelPicker({
   );
 }
 
-function formatMessageProps(role: ChatMessage['role']): MessageProps['from'] {
+function formatMessageProps(role: ChatbotEnhancedMessage['role']): MessageProps['from'] {
   // The vendored Message only knows user/assistant — render system as assistant
   // (FloatingChatbotProvider already renders system messages inline elsewhere).
   return role === 'user' ? 'user' : 'assistant';
@@ -1041,7 +1056,7 @@ export function isProposalResult(result: unknown): boolean {
   );
 }
 
-export function getToolState(tool: ChatToolInvocation): ToolSummaryState {
+export function getToolState(tool: ChatbotEnhancedToolInvocation): ToolSummaryState {
   const state =
     tool.state ??
     (tool.errorText
@@ -1111,7 +1126,7 @@ export function resolveProposalCardState(input: {
  */
 const PROPOSAL_HEADER_STATE: Record<
   ProposalCardState,
-  NonNullable<ChatToolInvocation['state']>
+  NonNullable<ChatbotEnhancedToolInvocation['state']>
 > = {
   pending: 'approval-requested',
   'in-progress': 'input-available',
@@ -1159,7 +1174,7 @@ function formatChangeRow(
  * result did NOT parse into a structured `proposedPlan` — the case that used to
  * leave the user with a bare "reply 确认 to build" text and no button.
  */
-function isBuildProposalTool(tool: ChatToolInvocation): boolean {
+function isBuildProposalTool(tool: ChatbotEnhancedToolInvocation): boolean {
   return tool.toolName === 'propose_blueprint';
 }
 
@@ -1172,7 +1187,7 @@ function isBuildProposalTool(tool: ChatToolInvocation): boolean {
  * "确认" phrase. Only the finished, non-error state qualifies: a running proposal
  * keeps its live timer, an errored one keeps its error card.
  */
-function isUnstructuredBuildProposal(tool: ChatToolInvocation): boolean {
+function isUnstructuredBuildProposal(tool: ChatbotEnhancedToolInvocation): boolean {
   return (
     isBuildProposalTool(tool) &&
     getToolState(tool) === 'completed' &&
@@ -1251,7 +1266,7 @@ export function classifyAssumptions(assumptions: readonly string[]): {
   return { designNotes, deferred };
 }
 
-function shouldRenderDetailedTool(tool: ChatToolInvocation): boolean {
+function shouldRenderDetailedTool(tool: ChatbotEnhancedToolInvocation): boolean {
   const state = getToolState(tool);
   return (
     state === 'awaiting' ||
@@ -1376,7 +1391,7 @@ function useExtendChip(
 }
 
 function summarizeTools(
-  tools: ChatToolInvocation[],
+  tools: ChatbotEnhancedToolInvocation[],
   /**
    * objectui#7254 — the activity chips name the same tools the detailed cards
    * do, so they take the same `chatbot.tool.*` lookup. Optional so a
@@ -2086,7 +2101,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       }
     }, [error]);
 
-    const handleCopy = React.useCallback((message: ChatMessage) => {
+    const handleCopy = React.useCallback((message: ChatbotEnhancedMessage) => {
       void navigator.clipboard?.writeText(message.content);
       setCopiedId(message.id);
       window.setTimeout(() => setCopiedId((prev) => (prev === message.id ? null : prev)), 1500);
@@ -2200,7 +2215,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
     const replayOutcomeByProposalId = React.useMemo(() => {
       const byId = new Map<
         string,
-        NonNullable<ChatToolInvocation['replayOutcome']> | { kind: 'applying' }
+        NonNullable<ChatbotEnhancedToolInvocation['replayOutcome']> | { kind: 'applying' }
       >();
       const dispatchErrorTargets = new Map<string, number>(); // proposalId → replay order
       const proposals: Array<{ id: string; toolName: string; order: number }> = [];
@@ -2293,7 +2308,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       onPlanApprovalPendingChangeRef.current?.(planApprovalPending);
     }, [planApprovalPending]);
 
-    const renderToolDetail = (tool: ChatToolInvocation) => {
+    const renderToolDetail = (tool: ChatbotEnhancedToolInvocation) => {
       const state =
         tool.state ??
         (tool.errorText

@@ -13,7 +13,7 @@ import {
   ChatbotEnhanced,
   classifyAssumptions,
   selectDesignHintIndex,
-  type ChatMessage,
+  type ChatbotEnhancedMessage,
 } from '../ChatbotEnhanced';
 
 describe('ChatbotEnhanced (AI Elements composition)', () => {
@@ -39,7 +39,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
   });
 
   it('renders user and assistant messages', () => {
-    const messages: ChatMessage[] = [
+    const messages: ChatbotEnhancedMessage[] = [
       { id: 'u1', role: 'user', content: 'Hello' },
       { id: 'a1', role: 'assistant', content: 'Hi! How can I help?' },
     ];
@@ -52,7 +52,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
     // Regression: a propose_blueprint tool carries `proposedPlan` but no
     // draftReview — it must route to the DETAILED tool body (where the card
     // lives), not the summary chip strip, or the confirm-gate card never shows.
-    const messages: ChatMessage[] = [
+    const messages: ChatbotEnhancedMessage[] = [
       {
         id: 'a1',
         role: 'assistant',
@@ -83,7 +83,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
 
   it('renders the "Open in Builder →" handoff card and fires onOpenBuilder (ADR-0057 P4)', () => {
     const onOpenBuilder = vi.fn();
-    const messages: ChatMessage[] = [
+    const messages: ChatbotEnhancedMessage[] = [
       {
         id: 'a1',
         role: 'assistant',
@@ -110,7 +110,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
 
   it('keeps only the LATEST handoff card actionable; older ones are superseded/inert (#2458 UX#5)', () => {
     const onOpenBuilder = vi.fn();
-    const messages: ChatMessage[] = [
+    const messages: ChatbotEnhancedMessage[] = [
       {
         id: 'a1',
         role: 'assistant',
@@ -141,7 +141,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
   });
 
   it('disables "Open in Builder" when no host wired onOpenBuilder', () => {
-    const messages: ChatMessage[] = [
+    const messages: ChatbotEnhancedMessage[] = [
       {
         id: 'a1',
         role: 'assistant',
@@ -161,7 +161,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
   // (content still empty). We must not withhold it until the text part finishes.
   it('renders the handoff card at output-available while still streaming, before prose arrives (#2458)', () => {
     const onOpenBuilder = vi.fn();
-    const messages: ChatMessage[] = [
+    const messages: ChatbotEnhancedMessage[] = [
       { id: 'u1', role: 'user', content: '帮我搭一个客户管理应用' },
       {
         id: 'a1',
@@ -232,7 +232,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
     expect(screen.queryByText('(called suggest_builder)')).not.toBeInTheDocument();
   });
 
-  const planMessage = (questions: string[]): ChatMessage[] => [
+  const planMessage = (questions: string[]): ChatbotEnhancedMessage[] => [
     {
       id: 'a1',
       role: 'assistant',
@@ -309,7 +309,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
 
   // issue #432: once the plan's build has run, re-clicking "Build it" rebuilt
   // the whole app. The card must collapse to an inert "Built" badge.
-  const planThenBuild: ChatMessage[] = [
+  const planThenBuild: ChatbotEnhancedMessage[] = [
     ...planMessage([]),
     {
       id: 'a2',
@@ -339,7 +339,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
   });
 
   const Q_INTERVIEW = 'Track interviews as a separate object or a stage field?';
-  const planWithChoices: ChatMessage[] = [
+  const planWithChoices: ChatbotEnhancedMessage[] = [
     {
       id: 'a1',
       role: 'assistant',
@@ -577,7 +577,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
   });
 
   it('hides raw tool JSON for drafting tools in summary mode but keeps the Review affordance', () => {
-    const draftTool: ChatMessage = {
+    const draftTool: ChatbotEnhancedMessage = {
       id: 'a1',
       role: 'assistant',
       content: 'Built your sales CRM.',
@@ -612,7 +612,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
   it('#2493 — the draft-review summary can truncate (min-w-0) and its action row wraps, so it does not overflow on mobile', () => {
     const longSummary =
       'built 5 artifact(s) — live in your new app, grouped under app.pi8e — objects, views and a task board, all wired and ready to publish';
-    const draftTool: ChatMessage = {
+    const draftTool: ChatbotEnhancedMessage = {
       id: 'ov1',
       role: 'assistant',
       content: 'Built your app.',
@@ -642,7 +642,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
   });
 
   it('expands the verification chip into the actual lint findings (ADR-0038 L1)', () => {
-    const issueTool: ChatMessage = {
+    const issueTool: ChatbotEnhancedMessage = {
       id: 'a2',
       role: 'assistant',
       content: 'Drafted your app.',
@@ -719,7 +719,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
   describe('fallback confirm gate for an unstructured propose_blueprint', () => {
     // A completed propose_blueprint with NO proposedPlan (detector returned
     // undefined) — the regression case.
-    const unstructured: ChatMessage[] = [
+    const unstructured: ChatbotEnhancedMessage[] = [
       {
         id: 'a1',
         role: 'assistant',
@@ -763,7 +763,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
     });
 
     it('collapses the fallback card to an inert "Built" badge once apply_blueprint has run', () => {
-      const built: ChatMessage[] = [
+      const built: ChatbotEnhancedMessage[] = [
         ...unstructured,
         {
           id: 'a2',
@@ -806,7 +806,7 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
     });
 
     it('prefers the RICH plan card over the fallback when the plan DID parse', () => {
-      const structured: ChatMessage[] = [
+      const structured: ChatbotEnhancedMessage[] = [
         {
           id: 'a1',
           role: 'assistant',
@@ -836,9 +836,9 @@ describe('ChatbotEnhanced (AI Elements composition)', () => {
 });
 
 describe('ChatbotEnhanced — auto-publish drafts (self-use magic moment)', () => {
-  const userMsg: ChatMessage = { id: 'u1', role: 'user', content: 'build a todo app' };
+  const userMsg: ChatbotEnhancedMessage = { id: 'u1', role: 'user', content: 'build a todo app' };
   // A whole-app build: the backend marks it `autoPublishable` (apply_blueprint).
-  const draftMsg = (packageId: string): ChatMessage => ({
+  const draftMsg = (packageId: string): ChatbotEnhancedMessage => ({
     id: 'a1',
     role: 'assistant',
     content: 'Built your app.',
@@ -852,7 +852,7 @@ describe('ChatbotEnhanced — auto-publish drafts (self-use magic moment)', () =
     ],
   });
   // An incremental edit: NOT auto-publishable — stays a draft for review.
-  const editMsg = (packageId: string): ChatMessage => ({
+  const editMsg = (packageId: string): ChatbotEnhancedMessage => ({
     id: 'e1',
     role: 'assistant',
     content: 'Drafted a field.',
@@ -955,7 +955,7 @@ describe('ChatbotEnhanced — auto-publish drafts (self-use magic moment)', () =
     // Regression: dedup must be per draft tool call, not per packageId — both
     // builds target com.workspace; keying by packageId would skip the second.
     const onPublishDrafts = vi.fn();
-    const build = (callId: string, name: string): ChatMessage => ({
+    const build = (callId: string, name: string): ChatbotEnhancedMessage => ({
       id: 'a-' + callId,
       role: 'assistant',
       content: 'built',
@@ -985,7 +985,7 @@ describe('ChatbotEnhanced — auto-publish drafts (self-use magic moment)', () =
 });
 
 describe('ChatbotEnhanced — streaming build preview (live build tree)', () => {
-  const buildMsg = (phase: 'structure' | 'data' | 'done'): ChatMessage => ({
+  const buildMsg = (phase: 'structure' | 'data' | 'done'): ChatbotEnhancedMessage => ({
     id: 'a1',
     role: 'assistant',
     content: '',
@@ -1022,7 +1022,7 @@ describe('ChatbotEnhanced — streaming build preview (live build tree)', () => 
 
   it('offers "Open app" on a finished build that created an app, wired to onOpenBuiltApp', () => {
     const onOpenBuiltApp = vi.fn();
-    const doneWithApp: ChatMessage = {
+    const doneWithApp: ChatbotEnhancedMessage = {
       ...buildMsg('done'),
       buildProgress: {
         ...buildMsg('done').buildProgress!,
@@ -1040,7 +1040,7 @@ describe('ChatbotEnhanced — streaming build preview (live build tree)', () => 
   it('renders "Design in Studio" as the PRIMARY action and demotes Open app', () => {
     const onDesignBuiltApp = vi.fn();
     const onOpenBuiltApp = vi.fn();
-    const doneWithApp: ChatMessage = {
+    const doneWithApp: ChatbotEnhancedMessage = {
       ...buildMsg('done'),
       buildProgress: {
         ...buildMsg('done').buildProgress!,
@@ -1063,7 +1063,7 @@ describe('ChatbotEnhanced — streaming build preview (live build tree)', () => 
 
   it("passes the build's OWN package id (from its draft envelope) to the Studio CTA — history-safe", () => {
     const onDesignBuiltApp = vi.fn();
-    const doneWithApp: ChatMessage = {
+    const doneWithApp: ChatbotEnhancedMessage = {
       ...buildMsg('done'),
       toolInvocations: [
         {
@@ -1121,7 +1121,7 @@ describe('ChatbotEnhanced — streaming build preview (live build tree)', () => 
   // LLM's display name (`library`, which can collide across apps).
   it('the draft Preview button passes the app package id as the route segment', () => {
     const onPreviewDraftApp = vi.fn();
-    const msg: ChatMessage = {
+    const msg: ChatbotEnhancedMessage = {
       id: 'a1',
       role: 'assistant',
       content: '',
@@ -1141,7 +1141,7 @@ describe('ChatbotEnhanced — streaming build preview (live build tree)', () => 
 
   it('onDraftArtifacts carries the app package id for the auto-opened preview pane', () => {
     const onDraftArtifacts = vi.fn();
-    const msg: ChatMessage = {
+    const msg: ChatbotEnhancedMessage = {
       id: 'a1',
       role: 'assistant',
       content: '',
@@ -1168,8 +1168,8 @@ describe('ChatbotEnhanced — streaming build preview (live build tree)', () => 
  * and the chat must show what the publish ACTUALLY did, not just "Published".
  */
 describe('ChatbotEnhanced — publish build-health line (ADR-0038)', () => {
-  const userMsg: ChatMessage = { id: 'u1', role: 'user', content: 'build it' };
-  const draftMsg = (packageId: string): ChatMessage => ({
+  const userMsg: ChatbotEnhancedMessage = { id: 'u1', role: 'user', content: 'build it' };
+  const draftMsg = (packageId: string): ChatbotEnhancedMessage => ({
     id: 'a1',
     role: 'assistant',
     content: 'Built your app.',
@@ -1308,7 +1308,7 @@ describe('ChatbotEnhanced — activity-driven liveness (not a fake clock)', () =
     vi.useRealTimers();
   });
 
-  const buildMsg = (done: number, items: Array<{ type: string; name: string }>, phase = 'structure'): ChatMessage[] => [
+  const buildMsg = (done: number, items: Array<{ type: string; name: string }>, phase = 'structure'): ChatbotEnhancedMessage[] => [
     {
       id: 'b1',
       role: 'assistant',
@@ -1400,7 +1400,7 @@ describe('ChatbotEnhanced — activity-driven liveness (not a fake clock)', () =
     // the panel green (receiving), proving liveness rides REAL server bytes and
     // not a free clock (without the heartbeat, this same gap goes amber — see the
     // test above).
-    const seedingMsg = (seq: number): ChatMessage[] => [
+    const seedingMsg = (seq: number): ChatbotEnhancedMessage[] => [
       {
         id: 'b1',
         role: 'assistant',
@@ -1451,7 +1451,7 @@ describe('ChatbotEnhanced — propose_blueprint in-progress design hints', () =>
     vi.useRealTimers();
   });
 
-  const runningProposal: ChatMessage[] = [
+  const runningProposal: ChatbotEnhancedMessage[] = [
     { id: 'u1', role: 'user', content: 'build me a CRM' },
     {
       id: 'a1',
@@ -1597,7 +1597,7 @@ describe('ChatbotEnhanced — proposed plan deferred-assumptions section', () =>
     });
   });
 
-  const planWithAssumptions = (assumptions: string[]): ChatMessage[] => [
+  const planWithAssumptions = (assumptions: string[]): ChatbotEnhancedMessage[] => [
     {
       id: 'a1',
       role: 'assistant',
@@ -1713,7 +1713,7 @@ describe('ChatbotEnhanced — design-wait staging (dots + forward progress)', ()
     vi.useRealTimers();
   });
 
-  const runningProposal: ChatMessage[] = [
+  const runningProposal: ChatbotEnhancedMessage[] = [
     { id: 'u1', role: 'user', content: 'build me a CRM' },
     {
       id: 'a1',
@@ -1797,8 +1797,8 @@ describe('ChatbotEnhanced — propose_blueprint live design progress (data-bluep
   // `data-blueprint-progress` part — lifted onto the message as blueprintProgress
   // by uiMessageToChatMessage (see mapMessages.test.ts for the event→data half).
   const designing = (
-    blueprintProgress: NonNullable<ChatMessage['blueprintProgress']>,
-  ): ChatMessage[] => [
+    blueprintProgress: NonNullable<ChatbotEnhancedMessage['blueprintProgress']>,
+  ): ChatbotEnhancedMessage[] => [
     { id: 'u1', role: 'user', content: 'build me a recruiting app' },
     {
       id: 'a1',

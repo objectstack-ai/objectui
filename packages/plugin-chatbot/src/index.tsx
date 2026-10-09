@@ -10,15 +10,15 @@ import * as React from "react"
 import { cn } from "@object-ui/components"
 import { Button, Input, ScrollArea, Avatar, AvatarFallback, AvatarImage } from "@object-ui/components"
 import { Send } from "lucide-react"
-// The package's single chat message contract. A SECOND, minimal `ChatMessage`
-// used to be declared right here and exported from this barrel under the
-// natural name; it is retired — see the documented re-export at the bottom of
-// this file (objectui#4383).
-import type { ChatMessage } from "./ChatbotEnhanced"
+// The package's single chat message contract — the RUNTIME shape, named
+// `ChatbotEnhancedMessage` so it no longer shares a name with
+// `@object-ui/types`' authoring `ChatMessage` (objectui#6349, batch 5). See the
+// documented re-export at the bottom of this file.
+import type { ChatbotEnhancedMessage } from "./ChatbotEnhanced"
 
 // Chatbot container props
 export interface ChatbotProps extends React.HTMLAttributes<HTMLDivElement> {
-  messages?: ChatMessage[]
+  messages?: ChatbotEnhancedMessage[]
   placeholder?: string
   onSendMessage?: (message: string) => void
   disabled?: boolean
@@ -140,7 +140,7 @@ Chatbot.displayName = "Chatbot"
 
 // Individual message component
 export interface ChatMessageProps {
-  message: ChatMessage
+  message: ChatbotEnhancedMessage
   showTimestamp?: boolean
   userAvatarUrl?: string
   userAvatarFallback?: string
@@ -301,7 +301,7 @@ export * from './renderer';
 export { ChatbotEnhanced, publishHealthFromResponse } from './ChatbotEnhanced';
 export type {
   ChatbotEnhancedProps,
-  ChatToolInvocation as ChatbotEnhancedToolInvocation,
+  ChatbotEnhancedToolInvocation,
   ChatSource as ChatbotEnhancedSource,
   ChatbotLabels,
   ToolDecisionState,
@@ -313,36 +313,24 @@ export type {
  * The chat message contract of `@object-ui/plugin-chatbot` — the shape
  * `<ChatbotEnhanced>` renders and `uiMessagesToChatMessages()` produces.
  *
- * This barrel used to DECLARE a second, minimal `ChatMessage` of its own
- * (`id`/`role`/`content`/`timestamp`/`avatar`/`avatarFallback` only) while the
- * enhanced shape was re-exported from the same module under the alias
- * `ChatbotEnhancedMessage`. One natural name, two contracts: an importer who
- * reached for `ChatMessage` silently got the narrow one, and the mismatch
- * compiled because every construction site spreads the extra keys
- * conditionally (`...(x ? { toolInvocations } : {})`), which defeats
- * excess-property checking — so the declared type was narrower than every
- * value flowing through it (objectui#4040; corrected for app-shell's
- * `AiChatPage` in PR #4379, but the barrel itself was left as-is).
+ * Named `ChatbotEnhancedMessage`, and ONLY that, since objectui#6349 (batch 5).
+ * This barrel used to publish the same declaration as `ChatMessage` too, with
+ * `ChatbotEnhancedMessage` a deprecated alias of it (objectui#4383). But
+ * `@object-ui/types` also publishes a `ChatMessage` — the JSON/SDUI AUTHORING
+ * contract (`ChatbotSchema['messages']`: `role` admits `'tool'`, `timestamp`
+ * may be a `Date`) — so one natural name stood for two contracts across the
+ * two packages, and an IDE auto-import picked between them by alphabet. That
+ * is the defect objectui#4383 removed inside this package, at package scope.
+ * Two meanings now have two names: `ChatMessage` is the authoring contract
+ * (import it from `@object-ui/types`), and this is the runtime one.
+ * `toRuntimeMessages` converts the first into the second.
  *
- * The minimal declaration is retired rather than renamed: nothing produced it,
- * no importer asked for it, and every field it had is present with the same
- * type on the enhanced shape, which adds only OPTIONAL keys on top. So
- * `ChatMessage` now denotes one contract everywhere in this package
- * (objectui#4383). Pinned at compile time in
- * `__tests__/chat-message-contract.test.ts`.
+ * Pinned at compile time in `__tests__/chat-message-contract.test.ts`.
  *
  * `<Chatbot>` renders only the core fields; the enhanced surface (tool calls,
  * reasoning, sources, build progress, charts) is `<ChatbotEnhanced>`.
  */
-export type { ChatMessage } from './ChatbotEnhanced';
-
-/**
- * @deprecated Use `ChatMessage`. This alias now denotes the SAME type — it is
- * kept only so importers that spelled the disambiguating name while the barrel
- * still carried two shapes (e.g. app-shell's `AiChatPage`, PR #4379) keep
- * compiling. New code should import `ChatMessage` (objectui#4383).
- */
-export type { ChatMessage as ChatbotEnhancedMessage } from './ChatbotEnhanced';
+export type { ChatbotEnhancedMessage } from './ChatbotEnhanced';
 
 // Re-export the vendored Vercel AI Elements (MIT, src/elements/) so app
 // authors who want to compose their own chat surface don't have to reach
@@ -350,7 +338,7 @@ export type { ChatMessage as ChatbotEnhancedMessage } from './ChatbotEnhanced';
 // these instead of dropping back to the legacy primitives.
 export * as AIElements from './elements';
 
-// UIMessage (AI SDK v6) → ChatMessage adapter. Apps that hold raw
+// UIMessage (AI SDK v6) → ChatbotEnhancedMessage adapter. Apps that hold raw
 // `useChat` state can convert it to the shape `<ChatbotEnhanced>` expects.
 export {
   uiMessageToChatMessage,
@@ -375,10 +363,10 @@ export type {
 } from './mapMessages';
 
 // `@object-ui/types` ChatMessage (the JSON/SDUI AUTHORING contract) → the
-// runtime `ChatMessage` above. Exported for the same reason as the mappers on
-// the line before: a host that holds authored messages and renders these
-// components hits the drift (`role: 'tool'`, `timestamp: Date`, legacy tool
-// states) and would otherwise reach for `as any` — which is exactly the defect
+// runtime `ChatbotEnhancedMessage` above. Exported for the same reason as the
+// mappers on the line before: a host that holds authored messages and renders
+// these components hits the drift (`role: 'tool'`, `timestamp: Date`, legacy
+// tool states) and would otherwise reach for `as any` — which is exactly the defect
 // objectui#4399 removed from this package's own three renderers. Every
 // narrowing decision it makes is documented in `chatMessageAdapter.ts`.
 export {

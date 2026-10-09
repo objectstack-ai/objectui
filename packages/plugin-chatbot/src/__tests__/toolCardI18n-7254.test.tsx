@@ -17,7 +17,7 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
-import { ChatbotEnhanced, type ChatMessage } from '../ChatbotEnhanced';
+import { ChatbotEnhanced, type ChatbotEnhancedMessage } from '../ChatbotEnhanced';
 
 function renderZh(ui: React.ReactElement) {
   return render(
@@ -27,7 +27,7 @@ function renderZh(ui: React.ReactElement) {
   );
 }
 
-const proposal: ChatMessage = {
+const proposal: ChatbotEnhancedMessage = {
   id: 'a1',
   role: 'assistant',
   content: '',
@@ -42,7 +42,7 @@ const proposal: ChatMessage = {
   ],
 };
 
-const plan: ChatMessage = {
+const plan: ChatbotEnhancedMessage = {
   id: 'a2',
   role: 'assistant',
   content: '',

@@ -23,7 +23,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ChatbotEnhanced, type ChatMessage } from '../ChatbotEnhanced';
+import { ChatbotEnhanced, type ChatbotEnhancedMessage } from '../ChatbotEnhanced';
 
 const QUOTA_ZH = '今天的 AI 设计额度已用完，明天会重置；升级后可继续设计。';
 const QUOTA_EN = "You've used today's free AI design quota. It resets tomorrow — upgrade to keep designing.";
@@ -57,7 +57,7 @@ function offlineFailure(): Error {
   return e;
 }
 
-function changesMessage(): ChatMessage[] {
+function changesMessage(): ChatbotEnhancedMessage[] {
   return [
     {
       id: 'a1',
@@ -74,7 +74,7 @@ function changesMessage(): ChatMessage[] {
           },
         },
       ],
-    } as unknown as ChatMessage,
+    } as unknown as ChatbotEnhancedMessage,
   ];
 }
 

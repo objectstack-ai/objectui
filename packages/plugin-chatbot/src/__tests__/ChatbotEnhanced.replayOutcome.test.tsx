@@ -17,9 +17,9 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ChatbotEnhanced, type ChatMessage } from '../ChatbotEnhanced';
+import { ChatbotEnhanced, type ChatbotEnhancedMessage } from '../ChatbotEnhanced';
 
-function proposalMessage(): ChatMessage {
+function proposalMessage(): ChatbotEnhancedMessage {
   return {
     id: 'a1',
     role: 'assistant',
@@ -39,10 +39,10 @@ function proposalMessage(): ChatMessage {
 
 function replayMessage(
   outcome: NonNullable<
-    NonNullable<ChatMessage['toolInvocations']>[number]['replayOutcome']
+    NonNullable<ChatbotEnhancedMessage['toolInvocations']>[number]['replayOutcome']
   > | undefined,
-  extra: Partial<NonNullable<ChatMessage['toolInvocations']>[number]> = {},
-): ChatMessage {
+  extra: Partial<NonNullable<ChatbotEnhancedMessage['toolInvocations']>[number]> = {},
+): ChatbotEnhancedMessage {
   return {
     id: 'a2',
     role: 'assistant',
@@ -141,7 +141,7 @@ describe('ChatbotEnhanced — confirm card replay terminal states (objectui#5695
   });
 
   it('a second proposal after a replayed one keeps its own live buttons (positional, per-card)', () => {
-    const second: ChatMessage = {
+    const second: ChatbotEnhancedMessage = {
       id: 'a3',
       role: 'assistant',
       content: '',
@@ -166,7 +166,7 @@ describe('ChatbotEnhanced — confirm card replay terminal states (objectui#5695
 });
 
 describe('self-repair supersede (objectui#5695 follow-up)', () => {
-  const dispatchFailedReplay = (): ChatMessage =>
+  const dispatchFailedReplay = (): ChatbotEnhancedMessage =>
     replayMessage({
       kind: 'failed',
       dispatchError: true,
@@ -182,7 +182,7 @@ describe('self-repair supersede (objectui#5695 follow-up)', () => {
   });
 
   it("the model's later successful authoring result supersedes the dispatch error — never 未生效 over a landed change", () => {
-    const selfRepair: ChatMessage = {
+    const selfRepair: ChatbotEnhancedMessage = {
       id: 'a3',
       role: 'assistant',
       content: '',
@@ -206,7 +206,7 @@ describe('self-repair supersede (objectui#5695 follow-up)', () => {
   });
 
   it('a REAL publish failure (publishFailed envelope) is NOT superseded by later results', () => {
-    const later: ChatMessage = {
+    const later: ChatbotEnhancedMessage = {
       id: 'a3',
       role: 'assistant',
       content: '',

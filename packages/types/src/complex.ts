@@ -1122,7 +1122,9 @@ export interface ChatToolInvocation {
  * authoring package gives an author no name to reach for.
  *
  * `@object-ui/plugin-chatbot` spells the same three states on its runtime
- * `ChatToolInvocation`. Its `chat-message-contract.test.ts` derives this alias
+ * `ChatbotEnhancedToolInvocation` (named apart from this authoring
+ * `ChatToolInvocation` since objectui#6349, batch 5: two meanings, two names).
+ * Its `chat-message-contract.test.ts` derives this alias
  * through `ChatbotSchema['onSend']` and pins the two spellings EQUAL, so
  * neither can move alone.
  */

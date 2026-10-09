@@ -21,17 +21,17 @@ npm install @object-ui/plugin-chatbot
 
 ### Basic (Local/Demo Mode)
 
-`ChatMessage` is this package's runtime message contract, and `role` on it is
+`ChatbotEnhancedMessage` is this package's runtime message contract, and `role` on it is
 the closed union `'user' | 'assistant' | 'system'`. Annotate the state with it:
 an unannotated array literal widens `role` to `string`, which `<Chatbot>` then
 refuses.
 
 ```tsx
 import { useState } from 'react';
-import { Chatbot, type ChatMessage } from '@object-ui/plugin-chatbot';
+import { Chatbot, type ChatbotEnhancedMessage } from '@object-ui/plugin-chatbot';
 
 function App() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [messages, setMessages] = useState<ChatbotEnhancedMessage[]>([
     {
       id: '1',
       role: 'assistant',
@@ -40,7 +40,7 @@ function App() {
   ]);
 
   const handleSend = (content: string) => {
-    const newMessage: ChatMessage = {
+    const newMessage: ChatbotEnhancedMessage = {
       id: Date.now().toString(),
       role: 'user',
       content
@@ -120,7 +120,7 @@ function MyChat() {
 
 `messages` — and the `onSend(content, messages)` callback fed from it — is
 typed `ObjectChatMessage[]`, exported from this package. It is deliberately
-neither of the two `ChatMessage` types nearby, because neither is true of both
+neither of the two message contracts nearby, because neither is true of both
 modes (objectui#4424):
 
 - **Not `@object-ui/types`' authoring `ChatMessage`.** In API mode the values
@@ -133,7 +133,7 @@ modes (objectui#4424):
   API mode also produces the AI SDK's three approval states
   (`'approval-requested'` / `'approval-responded'` / `'output-denied'`), which
   the authoring contract refuses — they are runtime-only (objectui#10018).
-- **Not this package's runtime `ChatMessage` either.** In local mode an authored
+- **Not this package's runtime `ChatbotEnhancedMessage` either.** In local mode an authored
   `'tool'` role and the legacy `'partial-call'` / `'call'` / `'result'` tool
   states pass through untouched; they are folded only at the render seam
   (`toRuntimeMessages`, `chatMessageAdapter.ts`).
@@ -299,9 +299,9 @@ import { AIElements } from '@object-ui/plugin-chatbot';
 </AIElements.Conversation>;
 ```
 
-### The `ChatMessage` type
+### The `ChatbotEnhancedMessage` type
 
-`ChatMessage` is this package's one message contract — the shape
+`ChatbotEnhancedMessage` is this package's one message contract — the shape
 `<ChatbotEnhanced>` renders and the mappers below produce. On top of the core
 `id` / `role` / `content` / `timestamp` / `avatar` / `avatarFallback` fields it
 carries the streaming and agent-process keys (`streaming`, `toolInvocations`,
@@ -309,21 +309,24 @@ carries the streaming and agent-process keys (`streaming`, `toolInvocations`,
 `charts`), all optional.
 
 ```tsx
-import type { ChatMessage } from '@object-ui/plugin-chatbot';
+import type { ChatbotEnhancedMessage } from '@object-ui/plugin-chatbot';
 ```
 
-> This barrel used to export **two** different `ChatMessage` types: a minimal
-> one declared here, plus the enhanced shape aliased as
-> `ChatbotEnhancedMessage`. Reaching for the natural name got you the narrow
-> contract with no compiler complaint (objectui#4383). The minimal shape is
-> retired; `ChatbotEnhancedMessage` is now a **deprecated alias of the same
-> type**, kept only so existing importers keep compiling.
+Its tool invocations are `ChatbotEnhancedToolInvocation`, also exported here.
 
-Note that `@object-ui/types` also exports a `ChatMessage`. That one is the
-**JSON/SDUI schema** type (`ChatbotSchema['messages']`, `role` includes
-`'tool'`, `timestamp` may be a `Date`) — the authoring contract, not the React
-runtime one. Import the schema type from `@object-ui/types` and the runtime
-type from this package.
+`ChatMessage` is **not** exported from this package. That name belongs to
+`@object-ui/types`, where it is the **JSON/SDUI schema** type
+(`ChatbotSchema['messages']`, `role` includes `'tool'`, `timestamp` may be a
+`Date`) — the authoring contract, not the React runtime one. Import the schema
+type from `@object-ui/types` and the runtime type from this package.
+
+> Migrating: this package used to publish the runtime shape as `ChatMessage`
+> too, with `ChatbotEnhancedMessage` a deprecated alias of it (objectui#4383).
+> One name for two contracts across the two packages let an auto-import pick
+> the wrong one, so the runtime name is now `ChatbotEnhancedMessage` alone
+> (objectui#6349). Replace `import { type ChatMessage } from
+> '@object-ui/plugin-chatbot'` with `ChatbotEnhancedMessage` — the shape is
+> unchanged.
 
 ### Authoring → runtime: `toRuntimeMessages`
 
@@ -400,9 +403,9 @@ chat routes can use `surface="plain"` to remove the outer panel border and let
 messages, controls, and the prompt input sit in a continuous workspace:
 
 ```tsx
-import { ChatbotEnhanced, type ChatMessage } from '@object-ui/plugin-chatbot';
+import { ChatbotEnhanced, type ChatbotEnhancedMessage } from '@object-ui/plugin-chatbot';
 
-declare const messages: ChatMessage[];
+declare const messages: ChatbotEnhancedMessage[];
 
 <ChatbotEnhanced
   messages={messages}
@@ -423,9 +426,9 @@ Use `processVisibility="debug"` for developer or admin trace surfaces that need
 the full reasoning panel, raw tool names, tool parameters, and tool results:
 
 ```tsx
-import { ChatbotEnhanced, type ChatMessage } from '@object-ui/plugin-chatbot';
+import { ChatbotEnhanced, type ChatbotEnhancedMessage } from '@object-ui/plugin-chatbot';
 
-declare const messages: ChatMessage[];
+declare const messages: ChatbotEnhancedMessage[];
 
 <ChatbotEnhanced
   messages={messages}

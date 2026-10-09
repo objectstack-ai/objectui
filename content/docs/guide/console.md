@@ -30,6 +30,8 @@ The console opens at **http://localhost:5180** (the port is fixed in `apps/conso
 | **Command Palette** | `⌘+K` opens a searchable command bar for quick navigation. |
 | **Studio Package Scope** | Studio home, metadata counts, quick-create links, and diagnostics follow the selected package. |
 | **Package-less Flows in Studio** | Flows that belong to no package — such as a clone of a packaged flow, made from Setup › Packaged automation — are listed and edited at `/studio/~org/automations`, reached from the Studio home ("Not in a package") or the package switcher. They open editable, edits save as drafts, and Publish promotes those drafts. |
+| **Studio Automations Rail** | The Automations pillar's flow rail has a search box that matches a flow's label or its machine name, case-insensitively. A long flow name wraps instead of being cut off. |
+| **Create App in Studio** | In a package that has no app yet, the Studio header's **Create app** saves the new app as a draft and then opens the **Interfaces** pillar, where that app is designed. Leaving a pillar that holds an unsent edit asks first. |
 | **Read-only Packages in Studio** | The Studio home lists code and installed packages under "Installed (read-only · browsable)". Clicking a card opens the package for browsing (`/studio/:packageId/data`). The card's **Customize with an overlay** link opens the package's metadata directory (`/apps/setup/metadata?package=:packageId`). Whether an item can take an org overlay is decided per metadata type (`allowOrgOverride`), not per package, and the directory marks each type. Unless the runtime reports `features.marketplace: false`, the section also links to the marketplace (`/apps/setup/system/marketplace`), the same route as Home's "Start with a template". |
 | **Design in Studio** | Workspace admins get a top-bar entry inside a running app that opens its owning package on the Studio design surface. On an interface route — a dashboard, page, or report — it deep-links straight to that surface's design page in the Interfaces pillar (`/studio/:packageId/interfaces?surface=<type>:<name>`, e.g. `surface=page:showcase_crm_workbench`); elsewhere (objects, the app root) it opens the package's Data tab (`/studio/:packageId/data`). These interfaces are authored in Studio — there is no in-page edit panel. |
 | **Dashboard Refresh** | A dashboard page shows a **Refresh All** button above its widgets, and a dashboard that sets `refreshIntervalSeconds` (Studio's auto-refresh field) re-reads its widgets' data every that many seconds. Widgets re-read in place, so they are not remounted. `0` or no value means no automatic refresh. Known gap: a dataset-bound single-value (KPI) tile does not refresh yet. |
@@ -39,13 +41,16 @@ The console opens at **http://localhost:5180** (the port is fixed in `apps/conso
 
 ### Object design (Studio Data tab)
 
-Selecting an object in Studio's **Data** pillar (`/studio/:packageId/data`) opens a
-tab strip over that object — **Records · Form · Validations · Hooks · Actions ·
-API · Settings**. Each of Validations, Hooks and Actions is a no-code **config
-panel driven by the corresponding metadata**, and each supports **adding** new
-entries — no code round-trip required:
+Selecting an object in Studio's **Data** pillar (`/studio/:packageId/data`) opens
+two tabs over that object, **Records · Form**, and an **Advanced** menu that holds
+**Validations · Hooks · Actions · API · Settings** (objectui#5813). The
+**Advanced** trigger keeps its own name whichever of those panels is open: the
+open panel is the checked item inside the menu, and the trigger shows as
+selected while one of its panels is open. Each of Validations, Hooks and Actions
+is a no-code **config panel driven by the corresponding metadata**, and each
+supports **adding** new entries — no code round-trip required:
 
-| Tab | Edits | Panel |
+| Advanced item | Edits | Panel |
 |-----|-------|-------|
 | **Validations** | the object's inline `validations[]` (spec `ValidationRuleSchema`) | Master-detail covering **every** rule type — `script`, `cross_field`, `state_machine`, `format`, `json_schema`, `conditional`. The **New** menu opens on common rules in plain words (*End date on or after start date*, *Number can't be negative*, *Reject the save when…*); each writes a working rule, or waits for the condition the author gives. Every rule type is under **Advanced**. A new rule whose type carries a condition (`script`, `cross_field`, `conditional`) is saved only once it has one; a rule's type can still be switched in place. CEL predicates reuse the shared `ConditionBuilder`, fed the object's draft fields. |
 | **Hooks** | the separate `hook` metadata type targeting this object | Master-detail whose editor is the platform `SchemaForm` **driven by the live `hook` JSONSchema from `/meta/types`**, so its fields and enums always match the running server's contract. |

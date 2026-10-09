@@ -128,7 +128,7 @@ const TYPE_LABEL_KEYS: Record<string, string> = {
   joined: 'engine.inspector.report.type.joined',
 };
 
-/** Build the Report-type <select> options from the spec `type` enum. */
+/** Build the Report-type picker's options (`InspectorSelectField`) from the spec `type` enum. */
 function useTypeOptions(locale: MetadataDefaultInspectorProps['locale']) {
   return React.useMemo(() => {
     const schema = getReportSchema();

@@ -42,7 +42,15 @@ import {
   Square,
   Workflow,
 } from 'lucide-react';
-import { EmptyDescription, resolveIcon } from '@object-ui/components';
+import {
+  EmptyDescription,
+  resolveIcon,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@object-ui/components';
 import type { ActionParam } from '@object-ui/types';
 import { paramDegradesWithoutTarget, resolveParamWidgetType } from '../../../utils/paramToField.js';
 import type { MetadataPreviewProps } from '../preview-registry.js';
@@ -559,15 +567,26 @@ function renderFieldMock(p: ActionParam, fieldLabel: string, locale?: string): R
   const inputMock = (type: string) => (
     <input type={type} className={cls} placeholder={placeholder} value={value} readOnly />
   );
+  // objectui#11865 — the shared `Select`, the primitive `SelectField` draws
+  // the dialog's picker with, where this mock used to be a browser-native
+  // select element. It stays a disabled control that shows the placeholder and
+  // writes nothing. Items carry their option's INDEX, because an authored
+  // option's value may be `''`, which `SelectItem` refuses.
   const selectMock = (
-    <select className={cls} disabled value="">
-      <option value="">{placeholder || tFormat('engine.actionPreview.param.selectPlaceholder', locale, { label: fieldLabel })}</option>
-      {options.map((o, i) => (
-        <option key={i} value={o.value}>
-          {localize(o.label)}
-        </option>
-      ))}
-    </select>
+    <Select disabled value="">
+      <SelectTrigger className={`${cls} h-auto`}>
+        <SelectValue
+          placeholder={placeholder || tFormat('engine.actionPreview.param.selectPlaceholder', locale, { label: fieldLabel })}
+        />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o, i) => (
+          <SelectItem key={i} value={String(i)}>
+            {localize(o.label)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
   const note = (text: React.ReactNode) => <div className="text-[10px] text-amber-700">{text}</div>;
 

@@ -189,7 +189,7 @@ function readObjectBinding(
   return { value: '', path: 'top' };
 }
 
-/** Build the View-type <select> options from the spec `type` enum. */
+/** Build the View-type picker's options (`InspectorSelectField`) from the spec `type` enum. */
 function useTypeOptions(locale?: string) {
   return React.useMemo(() => {
     const schema = getListVariantSchema();

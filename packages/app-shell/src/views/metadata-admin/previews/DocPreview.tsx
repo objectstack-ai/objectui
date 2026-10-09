@@ -50,6 +50,15 @@
 import * as React from 'react';
 import { BookOpen, FileText, Globe, Languages, Plus, X } from 'lucide-react';
 import { SchemaRenderer } from '@object-ui/react';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@object-ui/components';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { useMetadataClient } from '../useMetadata.js';
 import { t as tr, tFormat } from '../i18n.js';
@@ -94,7 +103,87 @@ function useBooks(): BooksState {
   return state;
 }
 
-const selectCls = 'h-7 rounded-md border bg-background px-2 text-xs max-w-[280px] disabled:opacity-60';
+/** The item a stored `group` none of the options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/** One option of the book-section picker: a group key and what it is called. */
+interface SectionOption {
+  value: string;
+  label: string;
+}
+
+/**
+ * objectui#11865 — the book-section picker, drawn with the shared `Select`, the
+ * control the rest of the designer picks with. It used to be a browser-native
+ * select element, one optgroup per book. What a pick writes is unchanged:
+ * `onPick` receives the picked option's own value (`''` for "not placed in a
+ * section", else the group key), the string the native control's `change`
+ * carried, and re-picking the current option writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value: "not placed" is `''`,
+ *   which `SelectItem` refuses, and a group key is not book-scoped, so two
+ *   books can offer the same key. The trigger shows the first option that
+ *   carries the stored key, the one the native control selected.
+ * - Each book is a `SelectGroup` headed by a `SelectLabel`, where the native
+ *   control had an optgroup.
+ * - A stored key none of the options carries gets an item of its own, labelled
+ *   `outsideLabel`. Once the books are listed the caller says the key is in no
+ *   book; while they load, or when they fail to, it is the key itself. The
+ *   native control showed "not placed in a section" in those two states.
+ *   Picking that item writes nothing.
+ * - `id` lands on the trigger, so the caller's `<label htmlFor>` names it as it
+ *   named the native control, and `disabled` is the primitive's own.
+ */
+function BookSectionPicker({
+  id,
+  value,
+  none,
+  books,
+  outsideLabel,
+  disabled,
+  onPick,
+}: {
+  id: string;
+  value: string;
+  none: SectionOption;
+  books: ReadonlyArray<{ name: string; label: string; options: ReadonlyArray<SectionOption> }>;
+  outsideLabel: string;
+  disabled: boolean;
+  onPick: (value: string) => void;
+}) {
+  const options = [none, ...books.flatMap((b) => b.options)];
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      disabled={disabled}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the stored key, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger id={id} className="h-7 w-auto max-w-[280px] gap-1 px-2 text-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="0">{none.label}</SelectItem>
+        {books.map((b) => (
+          <SelectGroup key={b.name}>
+            <SelectLabel>{b.label}</SelectLabel>
+            {b.options.map((o) => (
+              <SelectItem key={`${b.name}:${o.value}`} value={String(options.indexOf(o))}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{outsideLabel}</SelectItem>}
+      </SelectContent>
+    </Select>
+  );
+}
+
 const inputCls = 'h-7 rounded-md border bg-background px-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function DocPreview({ draft, onPatch, editing, locale, diagnostics }: MetadataPreviewProps) {
@@ -114,7 +203,6 @@ export function DocPreview({ draft, onPatch, editing, locale, diagnostics }: Met
   const books = useBooks();
   const group = typeof d.group === 'string' ? d.group : '';
   const placements = books.status === 'loaded' ? resolvePlacements(d, books.books) : [];
-  const knownKeys = books.status === 'loaded' ? new Set(books.books.flatMap((b) => b.groups.map((g) => g.key))) : null;
 
   const patch = (p: Record<string, unknown>) => onPatch?.(p);
 
@@ -138,28 +226,25 @@ export function DocPreview({ draft, onPatch, editing, locale, diagnostics }: Met
       <label htmlFor="doc-book-section" className="text-xs text-muted-foreground shrink-0">
         {tr('engine.docPreview.bookSection', locale)}
       </label>
-      <select
+      <BookSectionPicker
         id="doc-book-section"
-        className={selectCls}
         value={group}
+        none={{ value: '', label: tr('engine.docPreview.noSection', locale) }}
+        books={
+          books.status === 'loaded'
+            ? books.books.map((b) => ({
+                name: b.name,
+                label: b.label,
+                options: b.groups.map((g) => ({ value: g.key, label: g.label })),
+              }))
+            : []
+        }
+        outsideLabel={
+          books.status === 'loaded' ? tFormat('engine.docPreview.unknownSection', locale, { key: group }) : group
+        }
         disabled={!canEdit}
-        onChange={(e) => patch({ group: e.target.value || undefined })}
-      >
-        <option value="">{tr('engine.docPreview.noSection', locale)}</option>
-        {books.status === 'loaded' &&
-          books.books.map((b) => (
-            <optgroup key={b.name} label={b.label}>
-              {b.groups.map((g) => (
-                <option key={`${b.name}:${g.key}`} value={g.key}>
-                  {g.label}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        {group && knownKeys && !knownKeys.has(group) && (
-          <option value={group}>{tFormat('engine.docPreview.unknownSection', locale, { key: group })}</option>
-        )}
-      </select>
+        onPick={(v) => patch({ group: v || undefined })}
+      />
     </div>
   );
 

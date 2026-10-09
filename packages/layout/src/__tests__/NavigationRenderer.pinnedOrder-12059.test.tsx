@@ -230,24 +230,27 @@ describe('objectui#12059 — the pinned section keeps the user’s order', () =>
     renderNav(items, { onPinnedReorder });
     const site = within(pinnedSection()).getByRole('link', { name: 'Site' });
 
-    // Records whether anything before it prevented the click's default, then
-    // stops the test DOM from following the link itself.
-    let reachedPrevented: boolean | null = null;
-    const record = (event: Event) => { reachedPrevented = event.defaultPrevented; event.preventDefault(); };
+    // The click as the browser would deliver it after the press is released.
+    // `record` sits last on its path (window, bubbling): it notes whether the
+    // click got that far and stops the test DOM from following the link itself.
+    let reached: { prevented: boolean } | null = null;
+    const record = (event: Event) => { reached = { prevented: event.defaultPrevented }; event.preventDefault(); };
     window.addEventListener('click', record);
     try {
-      // Control: a plain click is the browser's to follow.
-      site.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-      expect(reachedPrevented).toBe(false);
+      // Control: a plain click reaches the window unprevented — the browser's to follow.
+      fireEvent.click(site);
+      expect(reached).toEqual({ prevented: false });
 
       // A drag: press, cross the activation distance, come back, release.
+      reached = null;
       fireEvent.pointerDown(site, { isPrimary: true, button: 0, clientX: 20, clientY: 116 });
       fireEvent.pointerMove(document, { isPrimary: true, clientX: 20, clientY: 130 });
       fireEvent.pointerMove(document, { isPrimary: true, clientX: 20, clientY: 116 });
       fireEvent.pointerUp(document, { isPrimary: true, button: 0, clientX: 20, clientY: 116 });
-      const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-      site.dispatchEvent(click);
-      expect(click.defaultPrevented).toBe(true);
+      // `fireEvent` answers `false` when the click's default was prevented; it
+      // was prevented before the click reached `record`.
+      expect(fireEvent.click(site)).toBe(false);
+      expect(reached).toBeNull();
     } finally {
       window.removeEventListener('click', record);
     }

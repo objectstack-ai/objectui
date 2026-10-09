@@ -215,7 +215,8 @@ describe('StudioDesignSurface — every load site takes the served draft as-is, 
     // The first object auto-opens; the Settings panel lives under "Advanced".
     const advanced = await screen.findByTestId('data-tabs-advanced', undefined, { timeout: 8000 });
     await userEvent.click(advanced);
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Settings' }));
+    // A radio item since objectui#11794: the menu checks the open panel.
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Settings' }));
 
     // The dial is the shared Select's trigger (objectui#11865), so what it shows
     // is its text: a button's `value` is '' whatever the dial holds.

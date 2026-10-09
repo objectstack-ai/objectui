@@ -303,7 +303,8 @@ describe.each(CASES)('Data pillar on an object with $title (objectui#11780)', ({
     const before = seenColumns[seenColumns.length - 1];
 
     await userEvent.click(await screen.findByTestId('data-tabs-advanced'));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Settings' }));
+    // A radio item since objectui#11794: the menu checks the open panel.
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Settings' }));
     fireEvent.click(await screen.findByRole('button', { name: 'rename-object' }));
     fireEvent.click(screen.getByRole('button', { name: 'Records' }));
     await waitFor(() => expect(screen.getByTestId('grid-columns')).toBeInTheDocument(), { timeout: 4000 });

@@ -44,6 +44,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   Badge,
   Separator,
   Sheet,
@@ -1371,13 +1373,22 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         setAppDraftPending(label);
         setAppCreating(false);
         onDraftSaved();
+        // objectui#11794 — the app lives in the Interfaces pillar, so that is
+        // where its author lands, instead of being left on the pillar the
+        // header button was pressed from. Navigation only: the save above is
+        // the whole write. Same door as a pillar link: an unsent edit on the
+        // pillar being left asks first, and a "stay" keeps the author there
+        // with the app already created.
+        if (tab !== 'interfaces' && confirmLeavePillar()) {
+          shellNavigate(`/studio/${scopeSegment}/interfaces`);
+        }
       } catch (e) {
         setAppErr(formatMetadataError(e));
       } finally {
         setAppBusy(false);
       }
     },
-    [appAddObjects, loadPackageObjects, shellClient, packageId, locale, onDraftSaved],
+    [appAddObjects, loadPackageObjects, shellClient, packageId, locale, onDraftSaved, tab, confirmLeavePillar, shellNavigate, scopeSegment],
   );
 
   // objectui#5800, fixed in passing — the topbar's app detection used to
@@ -5146,9 +5157,13 @@ export function DataPillar({
                       {tab.label}
                     </button>
                   ))}
-                  {/* "Advanced" — the five power panels (objectui#5813). When one
-                      is open the trigger wears its NAME and the active pill, so
-                      the collapsed default never hides where you are. */}
+                  {/* "Advanced" — the five power panels (objectui#5813). The
+                      trigger keeps its own name whichever panel is open
+                      (objectui#11794): renamed to the panel ("Validations ▾") it
+                      hid the one word that says sibling panels sit behind it.
+                      Where you are still shows twice — the trigger takes the
+                      active pill while one of its panels is open, and the menu
+                      marks that panel as the checked radio item. */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
@@ -5162,22 +5177,24 @@ export function DataPillar({
                             : 'text-muted-foreground hover:text-foreground')
                         }
                       >
-                        {activeAdvancedTab
-                          ? activeAdvancedTab.label
-                          : t('engine.studio.data.tab.advanced', locale)}
+                        {t('engine.studio.data.tab.advanced', locale)}
                         <ChevronDown className="h-3 w-3" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
-                      {advancedDataTabs.map((tab) => (
-                        <DropdownMenuItem
-                          key={tab.key}
-                          onSelect={() => selectViewMode(tab.key)}
-                          className={viewMode === tab.key ? 'font-medium text-primary' : undefined}
-                        >
-                          {tab.label}
-                        </DropdownMenuItem>
-                      ))}
+                      <DropdownMenuRadioGroup
+                        value={activeAdvancedTab?.key ?? ''}
+                        onValueChange={(key) => {
+                          const picked = advancedDataTabs.find((tabDef) => tabDef.key === key);
+                          if (picked) selectViewMode(picked.key);
+                        }}
+                      >
+                        {advancedDataTabs.map((tab) => (
+                          <DropdownMenuRadioItem key={tab.key} value={tab.key}>
+                            {tab.label}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -5788,6 +5805,13 @@ export function AutomationsPillar({
   const layoutRowRef = React.useRef<HTMLDivElement>(null);
   const configFolded = useIsNarrowerThan(layoutRowRef, AUTOMATIONS_CONFIG_FOLD_WIDTH);
   const [flows, setFlows] = React.useState<Surface[]>([]);
+  // objectui#11794 — the rail's search: a case-insensitive match on the label
+  // or the machine name. Ephemeral (AGENTS.md #8): nobody expects it back.
+  const [railQuery, setRailQuery] = React.useState('');
+  const railNeedle = railQuery.trim().toLowerCase();
+  const shownFlows = railNeedle
+    ? flows.filter((f) => f.label.toLowerCase().includes(railNeedle) || f.name.toLowerCase().includes(railNeedle))
+    : flows;
   // objectui#7255 — same live-pulse subscription as the sibling rails; this
   // one only replaces the flow LIST, so it needs no edit-buffer hold either.
   const metadataRefreshNonce = useMetadataRefreshNonce();
@@ -6230,37 +6254,52 @@ export function AutomationsPillar({
         )}
         <nav
           className={cn(
-            'flex w-52 shrink-0 flex-col overflow-auto border-r bg-background p-2',
+            'flex w-52 shrink-0 flex-col border-r bg-background',
             isMobile && 'absolute inset-y-0 left-0 z-20 shadow-lg transition-transform duration-200',
             isMobile && !railOpen && '-translate-x-full',
           )}
         >
-          <div className="flex items-center gap-1 px-2 pb-1 pt-1">
-            <p className="flex-1 text-[11px] font-medium text-muted-foreground">{t('engine.studio.auto.heading', locale)}</p>
-            {/* objectui#11553 — no "New" in the package-less scope: new
-                authoring stays package-first, and this scope reaches flows
-                that already exist without a package. */}
-            {!readOnly && packageId !== null && (
+          {/* objectui#11794 — the heading, New and the search stay put while
+              the list under them scrolls, as the Data pillar's object rail. */}
+          <div className="shrink-0 p-2 pb-1">
+            <div className="flex items-center gap-1 px-2 pb-1 pt-1">
+              <p className="flex-1 text-[11px] font-medium text-muted-foreground">{t('engine.studio.auto.heading', locale)}</p>
+              {/* objectui#11553 — no "New" in the package-less scope: new
+                  authoring stays package-first, and this scope reaches flows
+                  that already exist without a package. */}
+              {!readOnly && packageId !== null && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setNewTrigger('');
+                    setNewTriggerObject('');
+                    setNewChoice(FLOW_PRESETS[0]);
+                    setNewNeeds(null);
+                    setCreating(true);
+                  }}
+                  title={t('engine.studio.auto.newTitle', locale)}
+                  className="inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[11px] hover:bg-muted"
+                >
+                  <Plus className="h-3 w-3" /> {t('engine.studio.new', locale)}
+                </button>
+              )}
+            </div>
+            {/* objectui#11794 — a long rail had no way to find one flow. The
+                search matches the label and the machine name, as the object
+                rail's does. */}
+            <input
+              value={railQuery}
+              onChange={(e) => setRailQuery(e.target.value)}
+              placeholder={t('engine.studio.designer.search', locale)}
+              data-testid="auto-rail-search"
+              className="h-7 w-full rounded-md border bg-background px-2 text-[11px] outline-none placeholder:text-muted-foreground/70 focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto p-2 pt-1">
+            {shownFlows.map((f) => (
               <button
                 type="button"
-                onClick={() => {
-                  setError(null);
-                  setNewTrigger('');
-                  setNewTriggerObject('');
-                  setNewChoice(FLOW_PRESETS[0]);
-                  setNewNeeds(null);
-                  setCreating(true);
-                }}
-                title={t('engine.studio.auto.newTitle', locale)}
-                className="inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[11px] hover:bg-muted"
-              >
-                <Plus className="h-3 w-3" /> {t('engine.studio.new', locale)}
-              </button>
-            )}
-          </div>
-          {flows.length > 0 &&
-            flows.map((f) => (
-              <button type="button"
                 key={f.name}
                 onClick={() => {
                   setCurrent(f);
@@ -6272,21 +6311,29 @@ export function AutomationsPillar({
                 }
               >
                 <Workflow className="h-3.5 w-3.5 shrink-0" />
-                <span className="flex-1 truncate">{f.label}</span>
+                {/* objectui#11794 — the whole name, wrapped: `truncate` cut a
+                    flow's name to a stub in this rail's width. */}
+                <span className="min-w-0 flex-1 break-words">{f.label}</span>
                 <FlowStatusDot state={flowStatus[f.name]} locale={locale} />
               </button>
             ))}
-          {flows.length === 0 && !creating && (
-            <p className="px-2 py-3 text-[11px] text-muted-foreground">
-              {error
-                ? t('engine.studio.loadFailed', locale)
-                : !listed
-                  ? t('engine.studio.loading', locale)
-                  : packageId === null
-                    ? t('engine.studio.org.none', locale)
-                    : t('engine.studio.auto.none', locale)}
-            </p>
-          )}
+            {flows.length > 0 && shownFlows.length === 0 && (
+              <p className="px-2 py-3 text-[11px] text-muted-foreground">
+                {tFormat('engine.list.emptyQuery', locale, { query: railQuery.trim() })}
+              </p>
+            )}
+            {flows.length === 0 && !creating && (
+              <p className="px-2 py-3 text-[11px] text-muted-foreground">
+                {error
+                  ? t('engine.studio.loadFailed', locale)
+                  : !listed
+                    ? t('engine.studio.loading', locale)
+                    : packageId === null
+                      ? t('engine.studio.org.none', locale)
+                      : t('engine.studio.auto.none', locale)}
+              </p>
+            )}
+          </div>
         </nav>
 
         <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-muted/30 p-4">

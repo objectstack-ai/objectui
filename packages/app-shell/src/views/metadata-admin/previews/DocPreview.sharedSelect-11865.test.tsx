@@ -155,7 +155,7 @@ describe('a doc picks its book section with the shared Select (objectui#11865)',
     ['retired_section', 3, ['{"group":"getting_started"}'], ''],
     ['retired_section', 4, ['{"group":"reference"}'], ''],
     ['retired_section', 5, [], 're-pick'],
-  ] as const)('stored %s, option %i writes %j %s', async (group, at, expected) => {
+  ] as const)('stored %s, option %i writes %j %s', async (group, at, expected, _note) => {
     const patches = await mount(group);
     const options = within(await openSections()).getAllByRole('option');
     fireEvent.click(options[at]!);

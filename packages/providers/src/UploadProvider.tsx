@@ -40,7 +40,12 @@ export interface UploadResult {
 }
 
 export interface UploadOptions {
-  /** Logical folder / key prefix (e.g. "avatars/"). */
+  /**
+   * Logical folder / key prefix (e.g. "avatars/"), handed to the presign
+   * callback of `createS3Adapter` and `createAzureBlobAdapter`.
+   * `createObjectStackUploadAdapter` never sends it: that server derives the
+   * object key itself, and a path is not a storage scope (objectui#12055).
+   */
   path?: string;
   /** Progress callback in 0–1. */
   onProgress?: (ratio: number) => void;
@@ -197,8 +202,14 @@ export interface ObjectStackUploadAdapterOptions {
    */
   basePath?: string;
   /**
-   * Logical key prefix forwarded to the server as `scope`. Useful for
-   * partitioning uploads (e.g. "avatars", "logos", "attachments/case").
+   * The storage scope the server files every upload from this adapter
+   * under, sent as the presigned upload request's `scope`. It is not a key
+   * prefix or folder. The server accepts only the values of the `scope`
+   * select on its `sys_file` object (`@objectstack/service-storage`) and
+   * refuses any other value; `attachments`, for example, is the scope of
+   * files joined to records through `sys_attachment`. Omit it and the
+   * request carries no scope, so the server applies its default
+   * (objectui#12055).
    */
   scope?: string;
   /** Override `fetch` (tests, ServiceWorker queues). */
@@ -255,7 +266,11 @@ export function createObjectStackUploadAdapter(
           filename: name,
           mimeType,
           size: file.size,
-          scope: opts.scope ?? options.path,
+          // The adapter's own scope, or none. `options.path` is never sent
+          // as the scope: it is a key prefix for the S3/Azure presign
+          // callbacks, and this server refuses any scope outside its
+          // vocabulary (objectui#12055).
+          scope: opts.scope,
         }),
       });
       if (!presignRes.ok) {
@@ -308,7 +323,7 @@ export function createObjectStackUploadAdapter(
         name,
         size: file.size,
         mimeType,
-        meta: { fileId, scope: opts.scope ?? options.path },
+        meta: { fileId, scope: opts.scope },
       };
     },
   };

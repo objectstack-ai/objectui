@@ -148,11 +148,13 @@ describe('the object page emits ONE lane spelling — the spec\'s (objectui#8213
     expect(refusedKeys(emitted)).not.toContain('groupBy');
   });
 
-  it('for a view that declared the LEGACY alias', () => {
-    // The alias READ is untouched by this card: the value arrives legacy and
-    // leaves canonical, and leaves under one key only.
-    const emitted = kanbanViewOptions({ kanban: { groupField: 'stage' } }, OBJECT_WITH_STAGE);
+  it('for a view that stored the retired LEGACY alias', () => {
+    // The alias READ was untouched by this card; objectui#6152 round 14 retired
+    // it. The lane is the detector's (a value the alias does not name), and it
+    // still leaves under one key only.
+    const emitted = kanbanViewOptions({ kanban: { groupField: 'name' } }, OBJECT_WITH_STAGE);
     expect(laneKeysOf(emitted)).toEqual(['groupByField']);
+    expect(emitted.groupByField).toBe('stage');
   });
 
   it('for a lane the ADR-0085 detector supplied', () => {
@@ -172,9 +174,10 @@ describe('the object page emits ONE lane spelling — the spec\'s (objectui#8213
 describe('the one reader of `groupBy` still gets the same value (objectui#8213)', () => {
   it('carries the lane under `groupByField`, the rung the collectors read first', () => {
     // The census question, stated as a property rather than as a claim about
-    // call sites. `ListView`'s two projection/expand collectors list
+    // call sites. `ListView`'s two projection/expand collectors listed
     // `v.groupByField, v.groupField, v.groupBy` as candidates for the SAME lane
-    // value; deleting the third is only safe because the first carries it. If a
+    // value; deleting the third was only safe because the first carries it, and
+    // since objectui#6152 round 14 the first is the only one they list. If a
     // future edit moved the value onto `groupBy` alone, this reddens.
     expect(kanbanViewOptions({}, OBJECT_WITH_STAGE).groupByField).toBe('stage');
   });

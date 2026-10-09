@@ -233,7 +233,7 @@ describe('every declared key has a reader (objectui#8253)', () => {
   });
 });
 
-describe('`titleField` is NOT declared — the reads that survive are tolerance (objectui#8841)', () => {
+describe('`titleField` is NOT declared — the reads that survived were tolerance (objectui#8841), retired by objectui#6152 round 14', () => {
   // objectui#8253 put this key to a measurement — declare it if the console
   // WRITES it, else delete the read — and then declared it on READ-side
   // evidence instead. `@objectstack/spec@17.4.0` settles it: `TreeConfigSchema`
@@ -293,36 +293,33 @@ describe('`titleField` is NOT declared — the reads that survive are tolerance 
     expect(read(RESOLVER)).toContain('titleField');
   });
 
-  it('the three tolerant dual-reads survive, undeclared, pending a follow-up', () => {
-    // ⚠️ This is a RECORD, not an endorsement. Each of these reads a key the
-    // protocol refuses and no face declares; each reads it through `any`, which
-    // is why none of them had to change when the declaration went. Retiring them
-    // touches three packages and is a decision, not a rider on this card.
-    expect(read(VIEW_BRANCH)).toContain('viewOptions.tree?.titleField');
-    expect(read(LIST_BRANCH)).toContain('treeCfg.titleField');
+  it('the three tolerant dual-reads are RETIRED (objectui#6152 round 14)', () => {
+    // This card left them as a RECORD, not an endorsement: each read a key the
+    // protocol refuses and no face declares, through `any`, and retiring them
+    // touched three packages, so it was a decision rather than a rider here.
+    // objectui#6152 round 14 took that decision, in all three at once.
+    expect(read(VIEW_BRANCH)).not.toContain('viewOptions.tree?.titleField');
+    expect(read(LIST_BRANCH)).not.toContain('treeCfg.titleField');
+    // CONTROL: the same instrument finds the canonical rung in both.
+    expect(read(VIEW_BRANCH)).toContain('viewOptions.tree?.labelField');
+    expect(read(LIST_BRANCH)).toContain('treeCfg.labelField');
 
     const rung = read(CONSOLE_COMPOSITION)
       .split('\n')
       .map((l) => l.trim())
       .find((l) => l.startsWith('labelField:') && l.includes('viewDef') && /\btree\b/.test(l));
     expect(rung, 'the console composition has no `viewDef` tree `labelField` rung').toBeDefined();
-    expect(rung).toContain('titleField');
+    expect(rung).not.toContain('titleField');
 
-    // ⛔ And the console rung is NOT cast to `TreeViewConfig` on the tolerant
-    // half. It cannot be — the type is the protocol's block now and does not
-    // carry the key — and casting it to a local `{ titleField?: string }`
-    // instead would re-declare exactly what this card removed. The canonical
-    // rung on the same line stays typed; that asymmetry is the change.
+    // The canonical rung on the same line stays typed.
     expect(rung).toContain("(viewDef.tree as TreeViewConfig | undefined)?.labelField");
-    expect(rung).not.toContain('as TreeViewConfig | undefined)?.titleField');
   });
 
-  it("objectui#6557's pin on the rung is still in the tree, and still passes", () => {
-    // Named explicitly: the tolerant console rung above is the behaviour that
-    // pin asserts, so deleting the rung without touching that file would redden
-    // it. Whoever takes the follow-up is told here.
+  it("objectui#6557's pin on the rung followed the retirement", () => {
+    // That file pinned the tolerant console rung while it lived; since
+    // objectui#6152 round 14 it pins that the retired rung answers nothing.
     expect(read('packages/app-shell/src/views/ObjectView.titleFieldConvergence.test.tsx'))
-      .toContain('tree.titleField');
+      .toContain("the tree's retired `tree.titleField` rung answers nothing");
   });
 
   it("CONTROL: the console's create-view dialog still does NOT offer it for `tree`", () => {

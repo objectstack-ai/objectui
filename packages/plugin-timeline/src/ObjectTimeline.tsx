@@ -126,21 +126,22 @@ const OBJECT_BOUND_TIMELINE_VARIANTS = ['vertical', 'horizontal'] as const;
  * the refusal's message interpolates THIS list rather than restating it in
  * prose, so a rung added to (or retired from) the resolver cannot leave the
  * diagnostic naming a vocabulary the resolver no longer has. Every entry is a
- * key an author can name — the first two on the nested `timeline` block
+ * key an author can name — the first on the nested `timeline` block
  * (`ListViewTimelineConfig`, `@object-ui/types`), the last three on this
  * component's own props and on `TimelineExtensionSchema` — which is the property
  * that distinguishes them from the `'date'` literal objectui#7459 retired from
- * the end of that chain. ⚠️ `timeline.dateField` is the pre-#2231 alias, and
- * since objectui#6152 round 12 `ListViewTimelineConfig` refuses it by name (as
- * the spec's slot does); the READ stays until the readers' retirement round, so
- * a block stored with it still binds.
+ * the end of that chain. `timeline.dateField`, the pre-#2231 alias, is not
+ * among them: `ListViewTimelineConfig` refuses it by name since objectui#6152
+ * round 12 (as the spec's slot does), and objectui#6152 round 14 retired the
+ * read, so a block stored with it binds nothing and meets the refusal below.
+ * The FLAT `dateField` is a different key: it is declared on this component's
+ * props and on `TimelineExtensionSchema`, and it stays.
  *
  * Ordered canonical-first: the message tells the author which one to prefer by
  * position rather than by a second prose sentence that could drift from it.
  */
 const OBJECT_BOUND_TIMELINE_DATE_BINDINGS = [
   'timeline.startDateField',
-  'timeline.dateField',
   'mapping.date',
   'startDateField',
   'dateField',
@@ -563,14 +564,13 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   // outside the items-derivation block so we can also use them for
   // grouping / color resolution).
   const titleField = timelineConfig?.titleField ?? schema.mapping?.title ?? schema.titleField ?? 'name';
-  // `dateField` is the pre-#2231 alias for `startDateField`. It was honored on
-  // the FLAT prop (`schema.dateField`) but never on the nested config, even
-  // though `ListViewTimelineConfig` declared it there (until objectui#6152
-  // round 12, which refuses it by name on that type) and both `ObjectView`
-  // read-sites resolve it. A view authored as `timeline: { dateField }` therefore
-  // fell all the way through to the caller's default (`created_at` / `due_date`),
-  // which is usually absent from the projection — so every record bucketed into
-  // "No date" while the data it needed was sitting in the row (objectui#3129).
+  // The nested block is read by its spec key only. `timeline.dateField`, the
+  // pre-#2231 alias for `startDateField`, had a rung here (objectui#3129) until
+  // objectui#6152 round 14 retired it: `ListViewTimelineConfig` and the spec's
+  // slot refuse it by name, and neither `ListView` nor `ObjectView` restates it
+  // any longer, so a stored block that still carries it binds nothing and gets
+  // the refusal below, which names the keys to write. The FLAT `dateField` rung
+  // at the tail is this component's own declared prop, not the alias, and stays.
   //
   // objectui#7459 — the chain ENDS here. It used to close with a SIXTH rung:
   // the bare field name d-a-t-e as a literal, which nobody has ever declared —
@@ -587,7 +587,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   // fabricated. `undefined` from here is therefore a real answer, and the
   // refusal below is what answers it.
   const startDateField =
-    timelineConfig?.startDateField ?? timelineConfig?.dateField
+    timelineConfig?.startDateField
     ?? schema.mapping?.date ?? schema.startDateField ?? schema.dateField;
   const endDateField = timelineConfig?.endDateField ?? schema.endDateField ?? startDateField;
   const descField = schema.mapping?.description ?? schema.descriptionField ?? 'description';

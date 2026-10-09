@@ -24,17 +24,19 @@
  * producers DRIFTED. So the vocabulary of both is derived and compared here —
  * whichever one a future edit moves, this file reddens.
  *
- * ⚠️ WHY `normalizeListViewSchema` CANNOT SAVE THIS. The alias fold maps
+ * ⚠️ WHY `normalizeListViewSchema` COULD NOT SAVE THIS. Its alias fold mapped
  * `kanban.groupField` to `groupByField` on the DECLARED path only, and its own
  * suite pins that boundary as intentional ("does not reach into the legacy
  * `options.*` twin"). `ObjectView` writes into `options.kanban`, on the far
  * side of that boundary, so nothing folded it and the alias read was
- * load-bearing purely because of where this producer wrote.
+ * load-bearing purely because of where this producer wrote. (The fold retired
+ * in objectui#6152 round 14, with the alias reads.)
  *
- * ⚠️ THE ALIAS IS NOT RETIRED AND NO ALIAS READ WAS TOUCHED. Stored metadata
- * still authors `groupField`; `ListView` resolving `groupByField || groupField`
- * is exactly why the sibling could drop the alias write. The arms below assert
- * what this face WRITES, never what any face reads.
+ * ⚠️ THIS CARD RETIRED NO ALIAS READ: it changed what this face WRITES. The
+ * reads went later, on their own ruling (objectui#6152 round 14): this face,
+ * `ListView` and `ObjectView` read the lane from `groupByField` alone now. The
+ * legacy-alias arm below was re-judged then: it pins that the alias names no
+ * lane, with a value the detector would never pick.
  *
  * ⚠️ `groupBy` WAS STILL WRITTEN WHEN THIS FILE LANDED, and is not any more:
  * objectui#8213 ran the producer census this file deferred and retired the
@@ -80,11 +82,12 @@ describe('the object page writes the SPEC lane key (objectui#8193)', () => {
     expect(out).not.toHaveProperty('groupField');
   });
 
-  it('emits `groupByField` for a view that declared the LEGACY alias', () => {
-    // Reading the alias is untouched — a view that authored `groupField` still
-    // resolves its lane. What changed is that the alias stops being propagated:
-    // the value comes in legacy and leaves canonical.
-    const out = kanbanViewOptions({ kanban: { groupField: 'stage' } }, OBJECT_WITH_STAGE);
+  it('a view that stored the retired LEGACY alias gets the detector\'s lane, not the alias\'s (objectui#6152 round 14)', () => {
+    // When this card landed the alias was still READ (the value came in legacy
+    // and left canonical), and this arm wrote `stage`, the very field the
+    // detector picks, so it could not tell a read alias from an ignored one.
+    // Re-judged with a value the detector never picks: the alias names no lane.
+    const out = kanbanViewOptions({ kanban: { groupField: 'name' } }, OBJECT_WITH_STAGE);
     expect(out.groupByField).toBe('stage');
     expect(out).not.toHaveProperty('groupField');
   });

@@ -102,19 +102,20 @@ describe('galleryViewOptions — the object page forwards, it does not invent (o
     expect(out).not.toHaveProperty('imageField');
   });
 
-  it('CONTROL: a stored legacy `imageField` still answers `coverField`', () => {
-    // The legacy READ is not this round's to retire: a row stored before the
-    // view write door judged it can still carry `imageField`, and its cover
-    // still binds. The block spread forwards the stored key as it was stored;
-    // nothing here SYNTHESIZES it.
+  it('a stored legacy `imageField` answers nothing (objectui#6152 round 14)', () => {
+    // Round 12 left the legacy READ in place for rows stored before the view
+    // write door judged the bag; round 14 retired it. The cover binding is read
+    // from `coverField` alone, so no `coverField` is synthesized from the alias.
+    // The block spread still forwards the stored key as it was stored (a
+    // carrier, not a reader): nothing downstream reads it any more.
     const out = galleryViewOptions({ gallery: { imageField: 'logo' } });
-    expect(out.coverField).toBe('logo');
+    expect(out).not.toHaveProperty('coverField');
     expect(out.imageField).toBe('logo');
   });
 
   it('CONTROL: both spellings stored — `coverField` keeps its own value', () => {
-    // `coverField` prefers itself, then the legacy spelling; the stored legacy
-    // key rides the spread unchanged.
+    // `coverField` is read from itself alone; the stored legacy key rides the
+    // spread unchanged.
     const out = galleryViewOptions({ gallery: { imageField: 'logo', coverField: 'photo' } });
     expect(out.coverField).toBe('photo');
     expect(out.imageField).toBe('logo');

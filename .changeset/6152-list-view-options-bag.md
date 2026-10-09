@@ -70,3 +70,10 @@ chart, and no longer show the bag.
 What did not move: the renderers' reads. `ListView` still merges each `options.KIND` under the
 top-level block and still reads the legacy spellings, so a view stored before these doors closed
 renders as before; only authored metadata meets the refusal.
+
+**Note added 2026-10-09 (objectui#6152 round 14):** the renderers' reads have moved. `ListView`
+still merges each `options.KIND` under the top-level block, but it reads each kind's declared keys
+only: the legacy spellings, `options.grid` and the undeclared keys a bag carries are no longer read,
+so a view stored with one of them renders without what that key used to bind; see
+`.changeset/6152-list-view-readers-retired.md`. The legacy chart axes (`options.chart.xAxisField`
+and the rest) are still read until the next round on objectui#6152.

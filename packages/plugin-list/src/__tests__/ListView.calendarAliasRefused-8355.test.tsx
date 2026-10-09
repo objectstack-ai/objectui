@@ -163,13 +163,17 @@ describe('objectui#8355 · half 1 — the generated node carries the canonical k
     expect(node.titleField).toBe('name');
   });
 
-  it('CONTROL: an unrelated renderer-ahead knob still rides the block through', async () => {
-    // The branch strips exactly TWO keys; it did not become a whitelist.
+  it('CONTROL: the block\'s other DECLARED keys still reach the node; an undeclared one does not (objectui#6152 round 14)', async () => {
+    // This card stripped exactly TWO keys and pinned that the branch did not
+    // become a whitelist, with `defaultView` as the knob that still rode
+    // through. objectui#6152 round 14 made it one ON PURPOSE: the branch now
+    // forwards the spec calendar block's five keys by name, so the declared
+    // `allDayField` still arrives and the refused `defaultView` does not.
     const node = await generatedCalendarNode({
       calendar: { startDateField: 'kickoff', allDayField: 'is_all_day', defaultView: 'week' },
     });
     expect(node.allDayField).toBe('is_all_day');
-    expect(node.defaultView).toBe('week');
+    expect(node).not.toHaveProperty('defaultView');
   });
 
   it('CONTROL: the LEGACY `options.calendar` nesting is stripped on the same path', async () => {

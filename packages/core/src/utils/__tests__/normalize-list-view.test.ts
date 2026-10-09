@@ -301,77 +301,57 @@ describe('normalizeListViewSchema (#2890)', () => {
     });
   });
 
-  describe('per-view-type config aliases (#2890 phase-3 carry-over)', () => {
+  describe('per-view-type config aliases are NOT folded (objectui#6152 round 14)', () => {
+    // #2890's phase-3 carry-over folded `kanban.groupField` / `cardFields`,
+    // `gallery.imageField` and `timeline.dateField` onto their spec keys here,
+    // and eleven cases pinned that fold. objectui#6152 round 14 retired it with
+    // every renderer-side reader of the four: each list-view door refuses them
+    // by name, so a stored block that still carries one passes through this
+    // boundary untouched and binds nothing downstream. Re-judged then: the
+    // cases whose subject was the fold were replaced by the two below; the
+    // boundary cases that never depended on it stay.
+
     /** The nested per-view config off a normalized schema, as a plain bag. */
     const cfg = (out: unknown, key: string): Record<string, unknown> =>
       (out as Record<string, unknown>)[key] as Record<string, unknown>;
 
-    it('folds each of the four aliases onto its spec key', () => {
-      const out = normalizeListViewSchema({
-        viewType: 'grid',
-        kanban: { groupField: 'stage', cardFields: ['name', 'amount'] },
-        gallery: { imageField: 'logo' },
-        timeline: { dateField: 'due_date' },
-      });
-      expect(cfg(out, 'kanban')).toEqual({ groupByField: 'stage', columns: ['name', 'amount'] });
-      expect(cfg(out, 'gallery')).toEqual({ coverField: 'logo' });
-      expect(cfg(out, 'timeline')).toEqual({ startDateField: 'due_date' });
+    it('passes each of the four aliases through untouched, beside the canonical key', () => {
+      const kanban = { groupByField: 'canonical', groupField: 'legacy', columns: ['canonical'], cardFields: ['legacy'] };
+      const gallery = { coverField: 'canonical', imageField: 'legacy' };
+      const timeline = { startDateField: 'canonical', dateField: 'legacy' };
+      const out = normalizeListViewSchema({ viewType: 'grid', kanban, gallery, timeline });
+      expect(cfg(out, 'kanban')).toEqual(kanban);
+      expect(cfg(out, 'gallery')).toEqual(gallery);
+      expect(cfg(out, 'timeline')).toEqual(timeline);
     });
 
-    it('drops each legacy key so a missed read-site fails loudly', () => {
-      const out = normalizeListViewSchema({
-        viewType: 'grid',
-        kanban: { groupField: 'stage', cardFields: ['name'] },
-        gallery: { imageField: 'logo' },
-        timeline: { dateField: 'due_date' },
-      });
-      expect('groupField' in cfg(out, 'kanban')).toBe(false);
-      expect('cardFields' in cfg(out, 'kanban')).toBe(false);
-      expect('imageField' in cfg(out, 'gallery')).toBe(false);
-      expect('dateField' in cfg(out, 'timeline')).toBe(false);
-    });
-
-    it('lets the canonical key win when a config carries both', () => {
-      const out = normalizeListViewSchema({
-        viewType: 'grid',
-        kanban: { groupByField: 'canonical', groupField: 'legacy', columns: ['canonical'], cardFields: ['legacy'] },
-        gallery: { coverField: 'canonical', imageField: 'legacy' },
-        timeline: { startDateField: 'canonical', dateField: 'legacy' },
-      });
-      expect(cfg(out, 'kanban')).toEqual({ groupByField: 'canonical', columns: ['canonical'] });
-      expect(cfg(out, 'gallery')).toEqual({ coverField: 'canonical' });
-      expect(cfg(out, 'timeline')).toEqual({ startDateField: 'canonical' });
-    });
-
-    it('is what corrects ListView\'s inverted kanban precedence', () => {
-      // `ListView`'s kanban adapter resolves `cardFields || columns` — legacy
-      // over canonical, the same inversion A2 fixed for `densityMode`. The fold
-      // is what makes the canonical value the one that reaches it: after this,
-      // the adapter's `cardFields` term is undefined and `columns` carries the
-      // authored value.
-      const out = normalizeListViewSchema({
-        viewType: 'grid',
-        kanban: { columns: ['canonical'], cardFields: ['legacy'] },
-      });
-      expect(cfg(out, 'kanban').cardFields).toBeUndefined();
-      expect(cfg(out, 'kanban').columns).toEqual(['canonical']);
-    });
-
-    it('folds a view whose ONLY legacy vocabulary is a nested alias', () => {
-      // Guards the early return: every top-level key here is already canonical,
-      // so before this fold existed the schema returned untouched.
-      const out = normalizeListViewSchema({
+    it('returns a view whose ONLY legacy vocabulary is a nested alias by reference', () => {
+      // The early return's per-view term retired with the fold: every top-level
+      // key here is canonical, so there is nothing left to do.
+      const schema = {
         type: 'list-view',
         viewType: 'kanban',
         columns: ['name'],
         kanban: { groupField: 'stage' },
-      });
-      expect(cfg(out, 'kanban')).toEqual({ groupByField: 'stage' });
+        gallery: { imageField: 'logo' },
+        timeline: { dateField: 'due' },
+      };
+      expect(normalizeListViewSchema(schema)).toBe(schema);
     });
 
-    it('leaves `calendar.defaultView` alone — it is a local extension, not an alias', () => {
-      // No spec counterpart, so it wants promotion upstream. Folding it would
-      // delete an authored value with nowhere to put it.
+    it('CONTROL: a fold that still runs leaves the nested blocks as written', () => {
+      // `fields` → `columns` still folds, so this schema is copied rather than
+      // returned by reference, and the per-view blocks ride the copy unchanged.
+      const kanban = { groupField: 'stage', swimlaneField: 'owner' };
+      const out = normalizeListViewSchema({ viewType: 'grid', fields: ['name'], kanban }) as Record<string, unknown>;
+      expect(out.columns).toEqual(['name']);
+      expect(cfg(out, 'kanban')).toEqual({ groupField: 'stage', swimlaneField: 'owner' });
+    });
+
+    it('leaves `calendar.defaultView` alone', () => {
+      // Never folded: no spec counterpart on a list view's calendar block. Since
+      // objectui#6152 round 11 the doors refuse it, and since round 14 no
+      // renderer lifts it either.
       const out = normalizeListViewSchema({
         viewType: 'calendar',
         calendar: { startDateField: 'starts_at', defaultView: 'week' },
@@ -379,33 +359,14 @@ describe('normalizeListViewSchema (#2890)', () => {
       expect(cfg(out, 'calendar')).toEqual({ startDateField: 'starts_at', defaultView: 'week' });
     });
 
-    it('preserves the renderer-ahead knobs the configs are `.passthrough()` for', () => {
-      const out = normalizeListViewSchema({
-        viewType: 'grid',
-        kanban: { groupField: 'stage', swimlaneField: 'owner' },
-        timeline: { dateField: 'due', endField: 'done' },
-      });
-      expect(cfg(out, 'kanban')).toEqual({ groupByField: 'stage', swimlaneField: 'owner' });
-      expect(cfg(out, 'timeline')).toEqual({ startDateField: 'due', endField: 'done' });
-    });
-
     it('does not reach into the legacy `options.*` twin', () => {
-      // `options` is a sanctioned passthrough bag, not the declared per-view
-      // path. ListView merges it UNDER `schema.kanban`, and its readers already
-      // try both nestings, so folding only the declared path changes nothing
-      // there — stated as a test so the boundary is deliberate, not accidental.
+      // `options` is the stored bag, merged UNDER `schema.kanban` by ListView.
+      // Stated as a test so the boundary is deliberate, not accidental.
       const out = normalizeListViewSchema({
         viewType: 'grid',
         options: { kanban: { groupField: 'stage' } },
       });
       expect(cfg(cfg(out, 'options'), 'kanban') as unknown).toEqual({ groupField: 'stage' });
-    });
-
-    it('does not mutate the nested config object', () => {
-      const kanban = { groupField: 'stage' };
-      const schema = { viewType: 'grid', kanban };
-      normalizeListViewSchema(schema);
-      expect(kanban).toEqual({ groupField: 'stage' });
     });
 
     it('returns the input by reference when every nested config is canonical', () => {

@@ -457,8 +457,11 @@ describe('objectui#8355 — the `dateField` / `endField` rungs are RETIRED at bo
     // The carrier assertion, inverted. The branch used to end by spreading the
     // authored `calendar` block FLAT onto the `object-calendar` node it emits,
     // which is the whole reason an authored `calendar.dateField` ever reached
-    // this renderer as a flat key. It now strips the two retired spellings
-    // first, exactly as the kanban branch strips its own stray `groupBy`.
+    // this renderer as a flat key. objectui#8355 stripped the two retired
+    // spellings out of that spread; objectui#6152 round 14 retired the spread
+    // itself, so the branch now reads the block's five declared keys by name and
+    // spreads nothing of the block into the node. Re-judged then: the row below
+    // pinned the destructure-then-spread shape, whose subject is gone.
     //
     // ⭐ THIS ROW IS SECONDARY, AND THE NEXT READER SHOULD KNOW WHICH ONE IS NOT.
     // The LOAD-BEARING witness is `plugin-list`'s
@@ -488,27 +491,21 @@ describe('objectui#8355 — the `dateField` / `endField` rungs are RETIRED at bo
     expect(nextCase, `${PRODUCER}: no branch follows the calendar one; the bound is unsafe`)
       .toBeGreaterThan(at);
     const branch = producer.slice(at, nextCase);
-    // ⚠️ Asserted on the RETURNED spread, not on the merge. The branch still
-    // merges `{ ...options.calendar, ...calendar }` into a local — that is where
-    // the canonical keys come from — so an assertion that the branch never
-    // mentions that spread would be false for a correct tree. What changed is
-    // WHAT REACHES THE NODE: the merged block is destructured and only the
-    // remainder is spread into the return.
+    // Since objectui#6152 round 14 nothing of the block is spread into the
+    // node: no merged local, no remainder. The retired spellings are therefore
+    // named nowhere in the branch's code (comments are masked), and each of the
+    // five declared keys is read by name. ⚠️ Still spelling-bound, as the
+    // paragraph above says: the runtime witness is the load-bearing one.
     for (const key of RETIRED_ALIASES) {
-      expect(branch, `${PRODUCER}'s calendar branch no longer destructures ${key} out of the authored block`)
-        .toContain(`${key}:`);
+      expect(branch, `${PRODUCER}'s calendar branch names the retired ${key} in code again`)
+        .not.toMatch(new RegExp(`\\b${key}\\b`));
     }
-    // ⚠️ Both spellings carry a TRAILING COMMA on purpose, and that is what makes
-    // them discriminating. `...restCalendar` without one also matches the
-    // DESTRUCTURING pattern that produces the local, which survives a revert of
-    // the return spread — measured: an ablation that restored the two raw
-    // spreads left this row green until the comma was added. And
-    // `...(schema.calendar || {})` without one also matches the MERGE that feeds
-    // the destructure, which a correct tree still contains.
-    expect(branch, `${PRODUCER} no longer spreads the stripped remainder into the node`)
-      .toContain('...restCalendar,');
-    expect(branch, `${PRODUCER} spreads the authored calendar block RAW into the node again — the retired aliases reach it`)
-      .not.toContain('...(schema.calendar || {}),');
+    for (const key of ['startDateField', 'endDateField', 'titleField', 'colorField', 'allDayField']) {
+      expect(branch, `${PRODUCER}'s calendar branch no longer reads the declared ${key} by name`)
+        .toContain(`schema.calendar?.${key}`);
+    }
+    expect(branch, `${PRODUCER} spreads a calendar block or its remainder into the node again`)
+      .not.toMatch(/\.\.\.(restCalendar|calendarCfg|\(schema(\.options\?)?\.calendar)/);
     // The runtime half of this row — the node `ListView` really emits — is in
     // `plugin-list`'s `ListView.calendarAliasRefused-8355.test.tsx`; a text read
     // alone cannot see what a spread produces, which is the blindness that

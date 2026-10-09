@@ -159,13 +159,24 @@ describe('ListView → ObjectTimeline: an undeclared axis reaches the refusal (o
     expect(refusal()!.textContent ?? '').toContain('timeline.startDateField');
   });
 
-  it('CONTROL: the LEGACY `timeline.dateField` alias still renders', async () => {
-    // The alias is resolved by the face, not by a floor. If step ③ had taken it
-    // with the fabrication, a pre-#2231 view would start refusing — a regression
-    // the ruling did not order.
+  it('a stored LEGACY `timeline.dateField` reaches the refusal too (objectui#6152 round 14)', async () => {
+    // Step ③ kept the alias (the ruling ordered no regression for a pre-#2231
+    // view), and this arm pinned that it still rendered. objectui#6152 round 14
+    // retired the alias reads on their own ruling: every list-view door refuses
+    // the key by name. A stored one now binds no axis, so it gets the refusal,
+    // which names the key to write. The TOP-LEVEL spelling, which the core fold
+    // used to rewrite, retired in the same round; the legacy `options` bag is
+    // pinned beside it in the next arm.
     await mountListView({ ...LIST_BASE, timeline: { dateField: 'start_date' } });
-    await waitFor(() => expect(canvas()).not.toBeNull());
-    expect(refusal()).toBeNull();
+    await waitFor(() => expect(refusal()).not.toBeNull());
+    expect(canvas()).toBeNull();
+    expect(refusal()!.textContent ?? '').toContain('timeline.startDateField');
+  });
+
+  it('…and from the legacy `options` bag (objectui#6152 round 14)', async () => {
+    await mountListView({ ...LIST_BASE, options: { timeline: { dateField: 'start_date' } } });
+    await waitFor(() => expect(refusal()).not.toBeNull());
+    expect(canvas()).toBeNull();
   });
 
   it('CONTROL: a CALENDAR-bound view still renders its timeline', async () => {
@@ -195,9 +206,10 @@ describe('ObjectView → ObjectTimeline: the second face reaches it too (objectu
     expect(screen.queryByText('Spring Launch')).toBeNull();
   });
 
-  it('CONTROL: the LEGACY `timeline.dateField` alias still renders here too', async () => {
+  it('a stored LEGACY `timeline.dateField` reaches the refusal here too (objectui#6152 round 14)', async () => {
     await mountObjectView({ timeline: { dateField: 'start_date' } });
-    await waitFor(() => expect(canvas()).not.toBeNull());
-    expect(refusal()).toBeNull();
+    await waitFor(() => expect(refusal()).not.toBeNull());
+    expect(canvas()).toBeNull();
+    expect(screen.queryByText('Spring Launch')).toBeNull();
   });
 });

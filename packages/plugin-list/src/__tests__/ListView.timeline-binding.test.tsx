@@ -98,30 +98,33 @@ describe('ListView — timeline date binding reaches the renderer (objectui#3129
     expect(findCalls[0].$select).toContain('start_date');
   });
 
-  it('forwards the nested LEGACY alias `timeline.dateField`', async () => {
-    // The gap this pins: `dateField` was resolved out of `options.timeline` but
-    // NOT out of the spec-canonical `schema.timeline`, so the flat prop fell
-    // through to the `'created_at'` floor of the day — a field the projection
-    // does not request, which is why the timeline rendered every record under
-    // "No date" even though the rows carried the configured date all along.
-    // (That floor is gone as of objectui#7070 step ③; an unresolved alias now
-    // reaches the renderer's refusal instead of a wrong axis.)
+  it('does NOT forward the retired nested alias `timeline.dateField` (objectui#6152 round 14)', async () => {
+    // This arm pinned the opposite: `dateField` was once resolved out of
+    // `options.timeline` but NOT out of `schema.timeline`, and the fix made both
+    // nestings bind (objectui#3129). Every list-view door refuses the alias by
+    // name since rounds 11 and 12, and round 14 retired the reads and the core
+    // fold, so neither nesting binds an axis: the renderer's refusal answers
+    // (objectui#7070 step ③ made that refusal reachable), and nothing is fetched
+    // for it.
     const props = await timelineProps({ ...BASE, timeline: { dateField: 'start_date' } });
-    expect(props.schema.startDateField).toBe('start_date');
-    expect(findCalls[0].$select).toContain('start_date');
+    expect(props.schema.startDateField).toBeUndefined();
+    expect(findCalls[0].$select).not.toContain('start_date');
   });
 
-  it('forwards the legacy `options.timeline` nesting (both keys)', async () => {
+  it('forwards the legacy `options.timeline` nesting by its spec key; the retired alias binds nothing (objectui#6152 round 14)', async () => {
     const viaStart = await timelineProps({
       ...BASE,
       options: { timeline: { startDateField: 'start_date', endDateField: 'end_date' } },
     });
     expect(viaStart.schema.startDateField).toBe('start_date');
 
+    // This half used to read `start_date` too: the bag's `dateField` was a rung
+    // of `resolveTimelineDateBinding`. Round 14 retired it, and no fold reaches
+    // into the bag, so the axis is absent and the renderer's refusal answers.
     captured = [];
     findCalls = [];
     const viaAlias = await timelineProps({ ...BASE, options: { timeline: { dateField: 'start_date' } } });
-    expect(viaAlias.schema.startDateField).toBe('start_date');
+    expect(viaAlias.schema.startDateField).toBeUndefined();
   });
 
   it('binds to the CALENDAR date axis when the view declares no timeline one', async () => {
@@ -187,14 +190,18 @@ describe('ListView — timeline date binding reaches the renderer (objectui#3129
     // the renderer could not use. Same function now answers both questions.
     expect(resolveTimelineDateBinding({ options: { calendar: { startDateField: 'start_date' } } }))
       .toEqual({ startDateField: 'start_date', endDateField: undefined, titleField: undefined });
-    expect(resolveTimelineDateBinding({ timeline: { dateField: 'a' }, calendar: { startDateField: 'b' } }).startDateField)
+    // The timeline's own axis wins over the calendar's. Re-spelled from the
+    // retired `timeline.dateField` (objectui#6152 round 14): the precedence was
+    // the subject, the alias only the spelling it was written in.
+    expect(resolveTimelineDateBinding({ timeline: { startDateField: 'a' }, calendar: { startDateField: 'b' } }).startDateField)
       .toBe('a');
     expect(resolveTimelineDateBinding({}).startDateField).toBeUndefined();
   });
 
-  it('offers the Timeline visualization for a config using only the alias', async () => {
-    // The capability gate had the same vocabulary gap, so a grid view carrying
-    // only the aliased timeline config never offered the Timeline option.
+  it('does NOT offer the Timeline visualization for a config using only the retired alias (objectui#6152 round 14)', async () => {
+    // The gate once had the same vocabulary gap the arm above describes, and
+    // this arm pinned that it learned the alias. The alias retired with the
+    // reads, so the gate must not offer a Timeline nothing would bind.
     const dataSource = makeDataSource() as any;
     render(
       <SchemaRendererProvider dataSource={dataSource}>
@@ -209,7 +216,7 @@ describe('ListView — timeline date binding reaches the renderer (objectui#3129
     if (trigger) fireEvent.click(trigger);
     const option =
       screen.queryByRole('tab', { name: 'Timeline' }) ?? screen.queryByRole('button', { name: 'Timeline' });
-    expect(option).toBeTruthy();
+    expect(option).toBeFalsy();
   });
 });
 

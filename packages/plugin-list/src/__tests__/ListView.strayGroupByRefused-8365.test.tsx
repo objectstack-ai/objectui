@@ -206,12 +206,13 @@ describe('objectui#8365 · half 1 — the CANONICAL lane wins on the generated n
     expect(node.groupBy).toBe(CANONICAL);
   });
 
-  it('CONTROL: the legacy `kanban.groupField` alias still resolves the lane', async () => {
-    // The VIEW-LEVEL legacy alias is LIVE and untouched by this card — only the
-    // third spelling is refused. Without this arm the fix could have narrowed
-    // the alias read as well and nothing here would notice.
+  it('the retired legacy `kanban.groupField` alias no longer resolves the lane (objectui#6152 round 14)', async () => {
+    // This card left the VIEW-LEVEL alias live (only the third spelling was
+    // refused), and this arm pinned that it still resolved. objectui#6152 round
+    // 14 retired the alias read and the core fold on their own ruling, so the
+    // stored alias names no lane.
     const node = await generatedKanbanNode({ kanban: { groupField: CANONICAL } });
-    expect(node.groupBy).toBe(CANONICAL);
+    expect(node.groupBy).not.toBe(CANONICAL);
   });
 
   it('LANE CONTROL: `groupBy` alone no longer sets the lane — option B, not a silent re-grouping', async () => {

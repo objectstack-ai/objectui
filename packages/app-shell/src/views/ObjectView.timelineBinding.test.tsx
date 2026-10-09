@@ -51,9 +51,12 @@ describe('timelineViewOptions — the object page forwards, it does not resolve 
     expect(out.scale).toBe('month');
   });
 
-  it('promotes the legacy `dateField` alias onto the spec key', () => {
+  it('does NOT promote the retired `dateField` alias onto the spec key (objectui#6152 round 14)', () => {
+    // It used to: this face resolved `startDateField || dateField`. Every
+    // list-view door refuses the alias by name and `ListView` no longer reads
+    // it either, so the relay restates the spec key alone.
     expect(timelineViewOptions({ timeline: { dateField: 'start_date' } }).startDateField)
-      .toBe('start_date');
+      .toBeUndefined();
   });
 
   it('invents NO date field when the view declares none', () => {

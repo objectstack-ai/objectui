@@ -41,7 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@object-ui/components';
-import type { ComponentMeta } from '@object-ui/core';
+import type { RegistryComponentMeta } from '@object-ui/core';
 import { AlertTriangle, ChevronDown, ChevronsUpDown, ChevronUp, Eye, EyeOff, Plus, Search, Trash2 } from 'lucide-react';
 import { iconNames } from 'lucide-react/dynamic.mjs';
 import { toast } from 'sonner';
@@ -3059,7 +3059,7 @@ export type RegisteredWidgetKey = keyof typeof WIDGETS;
 
 /**
  * The labelling vocabulary this host implements, DERIVED from the repo-wide
- * declaration type rather than restated (`ComponentMeta['labelling']`,
+ * declaration type rather than restated (`RegistryComponentMeta['labelling']`,
  * objectui#3961 → #4857 → #4871's joint ruling: no host may keep a local
  * variant of it).
  *
@@ -3074,7 +3074,7 @@ export type RegisteredWidgetKey = keyof typeof WIDGETS;
  * nowhere). Deriving by `Exclude` keeps the vocabulary single-sourced: rename or
  * re-spell a member in `packages/core` and this stops compiling.
  */
-export type WidgetLabelling = Exclude<NonNullable<ComponentMeta['labelling']>, 'display'>;
+export type WidgetLabelling = Exclude<NonNullable<RegistryComponentMeta['labelling']>, 'display'>;
 
 /**
  * How the HOST's visible label reaches each registered widget — the reviewed

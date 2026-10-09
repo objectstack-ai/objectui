@@ -351,8 +351,22 @@ const filesOf = (sites: readonly Located[]): string[] => [
  * real tree.
  */
 const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
-  ['ActionContext', ['packages/core/src/actions/ActionRunner.ts', 'packages/types/src/ui-action.ts']],
-  ['ActionResult', ['packages/core/src/actions/ActionRunner.ts', 'packages/types/src/ui-action.ts']],
+  // `ActionContext` sat here, colliding between
+  // `packages/core/src/actions/ActionRunner.ts` and `packages/types/src/ui-action.ts`.
+  // One concept (the runner's execution data bag) whose copies had drifted on
+  // three members: `data` existed only on the runner's copy, and `record` /
+  // `user` were `any` there and `Record<string, any>` in `@object-ui/types`.
+  // `@object-ui/types` is the one authority — it gained `data`, kept the
+  // narrower `record` / `user` — and `ActionRunner.ts` now RE-EXPORTS it
+  // (objectui#6349, batch 4).
+  // `ActionResult` sat here too, same pair of files. One concept (what a
+  // handler returns and the runner reads), but the runner's copy carried five
+  // members the `@object-ui/types` copy lacked — `reload`, `redirect`, `modal`,
+  // `silent` and `undo` — and the types copy carried a `refresh` nothing read
+  // or wrote. `@object-ui/types` is the one authority: it took the runner's
+  // members, `refresh` was retired, and `UndoableOperation` (which types `undo`)
+  // moved down beside it, so `ActionRunner.ts` and `UndoManager.ts` both
+  // RE-EXPORT (objectui#6349, batch 4).
   ['AggregationConfig', ['packages/plugin-grid/src/useGroupedData.ts', 'packages/types/src/data-protocol.ts']],
   ['AppShellProps', ['packages/app-shell/src/types.ts', 'packages/layout/src/AppShell.tsx']],
   // `ActionSchema` sat here, colliding between `packages/types/src/crud.ts` and
@@ -389,12 +403,14 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // — and `Registry.ts` now RE-EXPORTS it, which this gate does not count. The
   // entry would fail the stale-baseline direction.
   //
-  // ⚠️ `ComponentMeta` below is the same PAIR OF FILES and is deliberately
-  // still here: PR #6297 converged its SHAPE (`CanonicalComponentMeta &
-  // RegistryComponentMetaExtras`) but left a declaration in `Registry.ts`, and
-  // a derived declaration is still an authority. That contrast is why #6298
-  // took the re-export route rather than the derive route.
-  ['ComponentMeta', ['packages/core/src/registry/Registry.ts', 'packages/types/src/base.ts']],
+  // `ComponentMeta` sat here too, same pair of files. PR #6297 converged its
+  // SHAPE (`CanonicalComponentMeta & RegistryComponentMetaExtras`) but left a
+  // declaration in `Registry.ts`, and a derived declaration is still an
+  // authority — which is why #6298 took the re-export route for
+  // `ComponentConfig`. The two were different MEANINGS (registration metadata =
+  // the general metadata plus five registry-only keys), so the remedy was the
+  // RENAME branch: `Registry.ts` declares `RegistryComponentMeta` and
+  // re-exports `@object-ui/types`' `ComponentMeta` (objectui#6349, batch 4).
   // `ConditionalFormattingRule` had a THIRD site, `packages/plugin-kanban/src/KanbanEnhanced.tsx`,
   // which left the tree when objectui#8932 deleted that module; the two below still collide.
   ['ConditionalFormattingRule', ['packages/plugin-kanban/src/KanbanImpl.tsx', 'packages/types/src/objectql.ts']],

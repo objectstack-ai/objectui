@@ -8,7 +8,7 @@
 
 import React from 'react';
 import type { DateFieldMetadata, DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
-import { ComponentRegistry, percentDisplayValue, type PercentScale, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, withoutDeniedFields, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
+import { ComponentRegistry, percentDisplayValue, type PercentScale, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, withoutDeniedFields, type RegistryComponentMeta, type DateDisplayOptions } from '@object-ui/core';
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
 // runtime import in the barrel and not a hand-written coordinate range.
@@ -4396,7 +4396,7 @@ const FIELD_TYPES_SKIP_FALLBACK = new Set([
 
 /**
  * The labelling declaration of EVERY registered field widget
- * (`ComponentMeta.labelling` — the closed `'control' | 'group' | 'display'`
+ * (`RegistryComponentMeta.labelling` — the closed `'control' | 'group' | 'display'`
  * vocabulary, objectui#3961 extended by objectui#4857). This `Record` is keyed
  * by the widget map's own literal key union, so it is exhaustive BY
  * CONSTRUCTION: registering a widget without deciding how a host's label
@@ -4448,7 +4448,7 @@ const FIELD_TYPES_SKIP_FALLBACK = new Set([
  */
 export const FIELD_WIDGET_LABELLING: Record<
   RegisteredFieldWidgetType,
-  NonNullable<ComponentMeta['labelling']>
+  NonNullable<RegistryComponentMeta['labelling']>
 > = {
   text: 'control',
   textarea: 'control',

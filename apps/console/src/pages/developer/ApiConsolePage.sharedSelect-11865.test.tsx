@@ -22,9 +22,10 @@
  * source of the method it holds is typed `HttpMethod`, the five verbs the
  * selector lists, so no value outside them reaches it.
  *
- * DIRECTION, observed against the native control: every pin here but the name
- * pin is red there, because each one reads the selector as the primitive's
- * trigger. What makes the send rows guards of "the conversion changed nothing
+ * DIRECTION, observed against the native control: every pin here is red there,
+ * because each one reads the selector as the primitive's trigger, except three
+ * green on both sides by design: the name pin, the literal control and the
+ * no-pick case. What makes the send rows guards of "the conversion changed nothing
  * the page sends" is the literal each compares against: a `change` event on
  * the pre-conversion page's native control, then Send, led to that same
  * `fetch` call, read once on that page with these fixtures.
@@ -171,6 +172,7 @@ describe('every verb sends what the native control sent', () => {
     expect(await send()).toBe(withBody);
   });
 
+  // Green against the native control too, by design: no pick is made.
   it('with no pick, Send uses GET', async () => {
     renderPageAt();
     await settle();

@@ -230,7 +230,9 @@ describe('each picker lists what the native control listed, and shows the same p
       if (!disabled) expect(picker(key)).toBeEnabled();
     });
     if (disabled) {
+      // The primitive's disabled trigger: Radix marks it `data-disabled`.
       expect(picker(key)).toBeDisabled();
+      expect(picker(key)).toHaveAttribute('data-disabled');
       return;
     }
     expect(await optionLabels(key)).toEqual(labels);
@@ -352,7 +354,8 @@ describe('a picker with nothing to offer yet is disabled through the primitive (
   it('the chart measure, before a dataset is picked: disabled, and the keyboard does not open it', async () => {
     await openType('chart');
     expect(picker('values')).toBeDisabled();
-    expect(picker('values')).toHaveTextContent(SELECT_OPTION);
+    expect(picker('values')).toHaveAttribute('data-disabled');
+    expect(picker('values').textContent).toBe(SELECT_OPTION);
     fireEvent.keyDown(picker('values'), { key: 'ArrowDown' });
     fireEvent.keyDown(picker('values'), { key: 'Enter' });
     await settle();
@@ -371,7 +374,8 @@ describe('a picker with nothing to offer yet is disabled through the primitive (
     );
     await settle();
     expect(picker('groupByField')).toBeDisabled();
-    expect(picker('groupByField')).toHaveTextContent(SELECT_FIELD);
+    expect(picker('groupByField')).toHaveAttribute('data-disabled');
+    expect(picker('groupByField').textContent).toBe(SELECT_FIELD);
     expect(screen.getByTestId('create-view-error-no-field-groupByField')).toHaveTextContent('console.objectView.noEligibleFieldForType');
   });
 });

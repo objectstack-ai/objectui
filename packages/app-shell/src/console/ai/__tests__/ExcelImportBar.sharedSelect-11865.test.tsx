@@ -169,7 +169,7 @@ describe('every option imports into what the native control imported into', () =
   it('starts on `defaultObjectName` when the list carries it', async () => {
     const { dataSource } = mount('crm_deal');
     await settle();
-    expect(trigger()).toHaveTextContent('Deal');
+    expect(trigger().textContent).toBe('Deal');
     expect(await doImport(dataSource)).toBe(
       '{"getObjectSchema":[["crm_deal"]],"wizard":{"objectName":"crm_deal","objectLabel":"Deal","fields":[{"name":"title","label":"Title","type":"text","required":false}],"file":"deals.xlsx"}}',
     );
@@ -196,7 +196,7 @@ describe('a held object name the list does not carry is what the trigger shows',
     await settle();
     // The native control was disabled and blank here while Import loaded into `crm_deal`.
     expect(trigger()).toBeDisabled();
-    expect(trigger()).toHaveTextContent('crm_deal');
+    expect(trigger().textContent).toBe('crm_deal');
     expect(importButton()).toBeEnabled();
     expect(await doImport(dataSource)).toBe(
       '{"getObjectSchema":[["crm_deal"]],"wizard":{"objectName":"crm_deal","objectLabel":"crm_deal","fields":[{"name":"title","label":"Title","type":"text","required":false}],"file":"deals.xlsx"}}',
@@ -209,7 +209,9 @@ describe('with no object to list, the picker is disabled through the primitive (
     h.objects = [];
     mount();
     await settle();
+    // The primitive's disabled trigger: Radix marks it `data-disabled`.
     expect(trigger()).toBeDisabled();
+    expect(trigger()).toHaveAttribute('data-disabled');
     fireEvent.keyDown(trigger(), { key: 'ArrowDown' });
     fireEvent.keyDown(trigger(), { key: 'Enter' });
     await settle();

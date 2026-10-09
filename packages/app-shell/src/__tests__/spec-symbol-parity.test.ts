@@ -186,7 +186,9 @@ const RENAMES: Array<[local: string, formerly: string, specMeaning: string]> = [
   ['ScreenFieldInput', 'FieldInput', "the authoring shape of an object FIELD (Omit<Partial<Field>, 'type'>)"],
   ['ConversationListItem', 'ConversationSummary', 'the AI context-COMPACTION record (keyPoints, tokensSaved, …)'],
   ['AppShellRuntimeConfig', 'RuntimeConfig', 'the ENGINE runtime config (engine, engineConfig, resourceLimits)'],
-  ['PageHeaderComponentProps', 'PageHeaderProps', 'the AUTHORED SDUI page-header node schema (strings, action ids)'],
+  // Renamed again in objectui#6349 (batch 8): `@object-ui/layout` publishes
+  // `PageHeaderComponentProps` for its own, different header component.
+  ['ConsolePageHeaderProps', 'PageHeaderProps', 'the AUTHORED SDUI page-header node schema (strings, action ids)'],
   ['FlowDesignerNode', 'FlowNode', 'a COMPLETE authored flow node (label required)'],
   ['FlowDesignerEdge', 'FlowEdge', 'a COMPLETE authored flow edge (id required, condition needs `dialect`)'],
   ['PackageManifestRow', 'PackageManifest', 'the full authored package manifest (~40 keys)'],

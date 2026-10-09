@@ -37,7 +37,18 @@ import {
 } from './recordFields';
 import { humanizeFieldKey } from './utils';
 
-export interface RecordDetailDrawerProps {
+/**
+ * Props of the dashboard's read-only drill drawer.
+ *
+ * Named `DashboardRecordDetailDrawerProps`, not `RecordDetailDrawerProps`:
+ * `@object-ui/plugin-detail` publishes `RecordDetailDrawerProps` for its own
+ * record drawer, a different component. That drawer is editable, deletes, and
+ * resizes, and it takes an `open` flag, a `recordId` and a `dataSource`. This
+ * one only shows a record the table already fetched. Neither package depends
+ * on the other, so the two could not share one declaration, and the narrower
+ * drawer has the specific name (objectui#6349, batch 8).
+ */
+export interface DashboardRecordDetailDrawerProps {
   /** The record to display, or `null` when nothing is selected. */
   record: Record<string, any> | null;
   /** Object the record belongs to (drives label translation + field meta). */
@@ -80,7 +91,7 @@ function resolveRecordTitle(record: Record<string, any>, explicit?: string): str
   return id != null ? String(id) : 'Record';
 }
 
-export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({
+export const RecordDetailDrawer: React.FC<DashboardRecordDetailDrawerProps> = ({
   record,
   objectName,
   objectSchema,

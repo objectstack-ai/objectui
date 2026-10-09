@@ -15,11 +15,12 @@
  * point:
  *
  *  - `PageHeaderProps` → `PageHeaderComponentProps`, the name
- *    `@object-ui/app-shell` already settled on for its own header props
- *    (objectui#3169). Reused deliberately: one concept, one name, even across
- *    two packages that each draw their own header. Still exported by this
- *    package, still guarded below — that is the whole of what this file now
- *    covers.
+ *    `@object-ui/app-shell` had already given its own header props
+ *    (objectui#3169). The two headers turned out to be different components,
+ *    so app-shell's took the specific name `ConsolePageHeaderProps` in
+ *    objectui#6349 (batch 8), and this package is the one authority for this
+ *    name. Still exported by this package, still guarded below — that is the
+ *    whole of what this file now covers.
  *  - `Page` → `PageNodeRenderer` → **deleted** (objectui#3223, ADR-0049
  *    enforce-or-remove). The rename was correct and did not go far enough: the
  *    renderer was registered nowhere and called from nowhere — the `page` key

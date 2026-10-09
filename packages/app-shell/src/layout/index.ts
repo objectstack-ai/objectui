@@ -15,4 +15,4 @@ export { PreviewBadge } from './PreviewBadge.js';
 export type { PreviewBadgeProps } from './PreviewBadge.js';
 export { AuthPageLayout } from './AuthPageLayout.js';
 export { PageHeader } from './PageHeader.js';
-export type { PageHeaderComponentProps } from './PageHeader.js';
+export type { ConsolePageHeaderProps } from './PageHeader.js';

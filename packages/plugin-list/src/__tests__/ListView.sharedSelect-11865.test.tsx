@@ -64,7 +64,7 @@ afterEach(() => cleanup());
 let gridRowColor: unknown;
 ComponentRegistry.register(
   'object-grid',
-  (props: Record<string, any>) => {
+  (props: { schema?: { rowColor?: unknown } }) => {
     gridRowColor = props.schema?.rowColor;
     return <div data-testid="grid-spy" />;
   },

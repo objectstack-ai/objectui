@@ -9,14 +9,17 @@
  * shared autosave: an edit is sent 1.5s after the last change, a save that
  * lands reports to the surface (`onDraftSaved`) so the header's count
  * refreshes, and an edit taken while a save is in flight is kept and sent next
- * (the objectui#11204 rule every pillar keeps). The held half — a blocking CEL
+ * (the objectui#11204 rule every pillar keeps). A hook keeps the name it was
+ * created with: the inspector commits the name on every keystroke and the draft
+ * is stored under it, so a rename is held rather than staged as one more hook
+ * per pause while typing. The held half — a blocking CEL
  * verdict holds the autosave — is pinned beside it in
  * `ObjectHooksPanel.celGate.test.tsx`.
  */
 
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
 
 const hook = {
   name: 'guard_hook',
@@ -75,6 +78,9 @@ afterEach(() => {
 });
 
 const AUTOSAVE = { timeout: 4000 };
+const pause = (ms: number) => act(async () => {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+});
 
 async function openGuard(onDraftSaved?: () => void) {
   render(<ObjectHooksPanel objectName="invoice" packageId="com.example.showcase" onDraftSaved={onDraftSaved} />);
@@ -112,6 +118,32 @@ describe('ObjectHooksPanel — a hook autosaves to its draft (objectui#11787)', 
     fireEvent.click(screen.getByRole('button', { name: /New/ }));
     await waitFor(() => expect(mockClient.save).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(onDraftSaved).toHaveBeenCalledTimes(1));
+  });
+
+  it('holds a rename typed with a pause between its parts, and saves once the name is back', async () => {
+    render(<ObjectHooksPanel objectName="invoice" packageId="com.example.showcase" />);
+    fireEvent.click(await screen.findByText('Guard'));
+    const name = () => screen.getByTestId('hook-name') as HTMLInputElement;
+    await screen.findByTestId('hook-name');
+    expect(name().value).toBe('guard_hook');
+
+    // Typed in two parts, with a pause longer than the autosave's between them.
+    fireEvent.change(name(), { target: { value: 'audit' } });
+    await pause(1600);
+    fireEvent.change(name(), { target: { value: 'audit_trail' } });
+    await pause(2300);
+
+    // No draft staged under either typed name: the probe on the head before
+    // this pin measured two, `hook/audit` and `hook/audit_trail`.
+    expect(mockClient.save).not.toHaveBeenCalled();
+    expect(screen.getByTestId('hooks-rename-held')).toHaveTextContent('guard_hook');
+
+    // CONTROL: the same edit path saves once the hook has its own name again,
+    // under that name.
+    fireEvent.change(name(), { target: { value: 'guard_hook' } });
+    await waitFor(() => expect(mockClient.save).toHaveBeenCalledTimes(1), AUTOSAVE);
+    expect(mockClient.save.mock.calls[0][1]).toBe('guard_hook');
+    expect(screen.queryByTestId('hooks-rename-held')).toBeNull();
   });
 
   it('keeps an edit taken while the autosave is in flight, and sends it next (objectui#11204)', async () => {

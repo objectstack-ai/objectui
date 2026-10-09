@@ -19,8 +19,9 @@
  * and on the right the hook's inspector (the platform's generic metadata form,
  * SchemaForm, until the curated one registers). An edit autosaves to the
  * hook's draft the way the other Studio editors do (objectui#11787): the shared
- * autosave, 1.5s after the last edit, held while a CEL syntax error stands, and
- * the panel's status line in place of the old Save hook button.
+ * autosave, 1.5s after the last edit, held while a CEL syntax error stands or
+ * while the hook's name differs from the one it was created with, and the
+ * panel's status line in place of the old Save hook button.
  *
  * A new hook targets the object it is created from (`addHook`). Its target
  * picker is told which objects belong to this package (objectui#11820), so it
@@ -298,11 +299,20 @@ export function ObjectHooksPanel({
   // is read-only. The hook is the open item; the buffer is its own once the
   // install above has run for it.
   const hookTarget = `hook:${selected ?? ''}`;
+  // objectui#11787 — a hook keeps the name it was created with ("+ New" sets
+  // it). The draft is stored under its name, and the inspector commits the name
+  // on every keystroke, so a rename the autosave sent would stage one more hook
+  // per pause while typing (measured: two drafts, each under a partial name,
+  // beside the original). The same rule the package door's permission matrix
+  // keeps for its api name: a renamed buffer is held, and the line below says
+  // how to get the edit saved.
+  const renamedFrom =
+    draft !== null && draftFor !== null && String(draft.name ?? '') !== draftFor ? draftFor : null;
   useDraftAutoSave({
     target: hookTarget,
     loadedFor: `hook:${draftFor ?? ''}`,
     dirty,
-    blocked: !draft?.name || saving || !!disabled || blockingIssues > 0,
+    blocked: !draft?.name || saving || !!disabled || blockingIssues > 0 || renamedFrom !== null,
     snapshot: draft,
     save,
   });
@@ -408,7 +418,7 @@ export function ObjectHooksPanel({
                   <Loader2 className="h-3 w-3 animate-spin" />
                   {t('engine.studio.autoSaving', locale)}
                 </span>
-              ) : blockingIssues > 0 && dirty ? (
+              ) : renamedFrom !== null ? null : blockingIssues > 0 && dirty ? (
                 <span className="text-[11px] text-destructive" data-testid="hooks-autosave-held">
                   {t('perm.cel.saveBlocked', locale)}
                 </span>
@@ -420,6 +430,15 @@ export function ObjectHooksPanel({
                 </span>
               ) : null}
             </div>
+            {renamedFrom !== null && !disabled && (
+              <p
+                role="status"
+                data-testid="hooks-rename-held"
+                className="border-b bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground"
+              >
+                {tFormat('engine.studio.hooks.renameHeld', locale, { name: renamedFrom })}
+              </p>
+            )}
             <div className="min-h-0 flex-1 overflow-auto">
               {HookInspector ? (
                 <HookTargetScopeContext.Provider value={hookTargetScope}>

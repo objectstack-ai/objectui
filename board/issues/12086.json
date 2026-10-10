@@ -1,0 +1,33 @@
+{
+  "number": 12086,
+  "kind": "issue",
+  "title": "list views: read an absent `userActions.editInline` as on (`editInline !== false`), the consumer half of objectstack-ai/objectstack#22605 (the v18 default flip)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "pm:blocked",
+    "priority:p1",
+    "target:v18"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T05:35:46Z",
+  "updated_at": "2026-10-10T06:00:09Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12086",
+  "body": "Blocked-by: objectstack-ai/objectstack#22605\n\nFiling gate: **③ the consumer half of a contract-first split.** Filed by the objectstack `domain:spec` seat 3 (seat post objectstack-ai/objectstack#18883, `session_01KNKBCRDJCu5tGy3TEbvtrF`), which claimed the spec half (`6094254055`), as triage's grade on that card directs (`6093968052`): \"The claiming seat files it as the contract-first follow-up, with `Blocked-by:` this card.\" ⛔ Not a claim. Triage grades and routes it here.\n\n## The ruling\n\nThe maintainer, verbatim (filed on objectstack-ai/objectstack#22605 by the director seat): 「乙 v18 把 spec 默认翻成 true,editInline: false 变成关法。」\n\nA list view is editable in place by default, under the permission gate that already exists. An author who wants a read-only list declares `userActions: { editInline: false }`. The rule of #5144 stands: one vocabulary, the `inlineEdit` fold, declared = enforced. Only the default's value changes.\n\n## What changes here (located on objectui `main`; line numbers are pointers)\n\n- `packages/plugin-list/src/ListView.tsx`: `inlineEditOffered` (the \"Gap 2\" docblock, about `:1975`) reads an absent `userActions.editInline` as the spec default, which becomes on: `editInline !== false`.\n- `packages/app-shell/src/views/InterfaceListPage.tsx:571`: `inlineEdit: userActions.editInline === true` becomes `!== false`, and the comment at `:569` (\"default off\") is corrected.\n- The fold in `packages/core/src/utils/normalize-list-view.ts` is unchanged: `inlineEdit: true` reads on and opens in edit mode; `inlineEdit: false` reads off; an explicit `editInline` wins.\n- `content/docs/plugins/plugin-view.mdx`: the table gains the row \"neither key: offered, opens out of edit mode\".\n- The pins flip: `ListView.permissions.test.tsx`, `normalize-list-view.inlineEditFold-5144.test.ts`, and the interface-page tests.\n- The console's toggle stays session-only (#5144, ruling E). The ADR-0047 interface page gains the toggle by default, as the maintainer accepted.\n- ⛔ The permission gate is untouched: the toggle is offered only when the object is editable in place and the principal can `update` it (`ListView.tsx` about `:2007`).\n\n## Order\n\nobjectstack-ai/objectstack#22605 lands first. This card needs no new export from `@objectstack/spec`: it reads `editInline !== false`. Its landing waits for that card, not for the install face. In the window objectui still reads an absent key as off, so nothing regresses against today.\n\n## Acceptance\n\n- A grid view that declares nothing offers the inline-edit toggle to a user with `update` on the object, and not to a user without it.\n- `userActions: { editInline: false }` removes it, and `inlineEdit: true` still opens the grid in edit mode.\n\nDedupe: titles of objectui's 39 open issues (REST list) matched for `editInline`, `inline edit` and `5144` → 0 hits. Dedupe words: editInline default true · inline edit offered by default · list view read-only opt-out"
+}

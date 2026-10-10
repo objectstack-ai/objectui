@@ -10,16 +10,24 @@
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
-  "assignees": [],
+  "labels": [
+    "area:workflow",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "marchtian"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-10T02:20:35Z",
-  "updated_at": "2026-10-10T02:38:21Z",
+  "updated_at": "2026-10-10T08:27:03Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 1,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12080",
   "body": "Filing class: ① product defect (user-visible) — reach: browser, measured once on 17.7.0. Maintainer instruction for platform problems found in the hotclm browser test, verbatim, 2026-10-10: 「你遇到的平台问题应该提交issue」.\n\n**Reader:** objectui triage → the console's screen-flow runner (the dialog that hosts a flow screen).\n\n## Symptom\n\nMeasured in `objectstack-ai/hotclm` during its full browser pass on `@objectstack/*` 17.7.0 (objectstack-ai/hotclm#87, `main` @ `c31c7e2`), Chromium 1194, viewport 1440×900, signed in as a business requester launching the app's intake screen flow (`contract_intake`).\n\n- The screen dialog measures **448px wide** (on screen x=496–944) — exactly Tailwind's `max-w-md` — and stays 448px however wide the window is. Every field renders in one column.\n- The intake flow's second screen carries 13 fields (title, signing entity, department, amount, currency, estimate flag, start/end date, term, summary, governing law, confidentiality term, …). In a 448px single column it is taller than the viewport: the **Submit / Next button sits below the fold**, and the user has to discover that the overlay scrolls. Screenshot: `qa/browser-test-17-7/screenshots/18-finding-intake-step2-submit-below-viewport-after-wheel.png` on branch `claude/issue-87-browser-test-17-7` of `objectstack-ai/hotclm` (taken after a mouse-wheel scroll; the page behind is dimmed, two thirds of the screen unused).\n\n## Expected\n\nA screen dialog sized to its content — wider on wide displays, or a multi-column layout for long screens, as record forms already get — with the primary action always reachable (sticky footer). The app cannot change this: the screen spec carries no width or layout hint for the dialog, and splitting the screen in two just to fit a fixed width would be an app-side workaround of a platform limit.\n\n## Dedupe\n\nMCP `search_issues` on `objectstack-ai/objectui`, query `flow screen dialog fixed narrow width max-w-md submit button below viewport long screen` → 5 hits, none on the flow runner: #620 / #705 / #679 / #618 (closed, Feb 2026 — `ModalForm` record-form dialogs), #11795 (closed — Studio below tablet width).\n\n---\n_Filed by the `repo:hotclm` PM seat from a measured browser finding._"

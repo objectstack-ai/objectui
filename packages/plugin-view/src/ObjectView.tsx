@@ -85,9 +85,11 @@ import {
   columnIdentity,
   convertSortToQueryParams,
   recordDelete,
+  resolveAffordance,
   resolveFilterPlaceholders,
   toFilterNodeSafely,
   type FilterTokenScope,
+  type SchemaLike,
 } from '@object-ui/core';
 import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema, notifyDataChanged, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import type { HandleClickModifiers } from '@object-ui/react';
@@ -3266,7 +3268,19 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
   // Render toolbar — only named view tabs; filter/sort/search is handled by ListView
   const renderToolbar = () => {
-    const showCreateButton = schema.showCreate !== false && operations.create !== false;
+    // objectui#12082: the button is the `listNew` row of the affordance-to-grant
+    // map (`resolveAffordance` in `@object-ui/core`) — the object's policy, the
+    // effective operation set and the caller's create grant — on top of the
+    // node's own authoring toggles, exactly as the console's list pages read it.
+    // It used to read the two toggles alone, so a caller without the create
+    // grant was offered a New whose form the server then refused to save. With
+    // no permission provider mounted the grant reads open, as before.
+    const createGranted = resolveAffordance('listNew', {
+      objectSchema: objectSchema as SchemaLike | null,
+      objectName: schema.objectName,
+      perms,
+    }).allowed;
+    const showCreateButton = schema.showCreate !== false && operations.create !== false && createGranted;
     const showViewSwitcherToggle = schema.showViewSwitcher === true; // Changed: default to false (hidden)
 
     const namedViewTabs = renderNamedViewTabs();

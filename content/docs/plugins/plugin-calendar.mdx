@@ -56,6 +56,12 @@ default.
 
 When `ObjectCalendar` is bound to an object (i.e. it has `objectName` and a `dataSource`), the new dates are persisted automatically via `dataSource.update()` — local state is updated optimistically and rolled back on failure. To intercept (e.g. for a confirm dialog) pass an `onEventDrop` prop; supplying your own handler disables the default persistence.
 
+The default persistence is offered only to a caller who may make the write: events
+are draggable when the `calendarReschedule` row of the affordance-to-grant map
+(`@object-ui/core`) allows it — the object's policy, the effective API operation
+set and the caller's **update** grant. Without it the events stay where they are.
+With no permission provider mounted it reads open.
+
 ```jsx
 <ObjectCalendar
   schema={{ type: 'object-calendar', objectName: 'campaign' }}
@@ -82,6 +88,12 @@ option for `select`/`status`, `false` for booleans, `0` for numerics,
 or the field's declared `defaultValue`). This ensures the create
 succeeds against `NOT NULL` columns without forcing the user through
 the full form.
+
+Quick-create is offered only when the `calendarQuickCreate` row of the
+affordance-to-grant map allows it (the caller's **create** grant, with the
+object's policy and the effective API operation set): without it a day click
+opens nothing and the time grid starts no range drag. With no permission
+provider mounted it reads open.
 
 To override (e.g. open your own multi-field create form), pass
 `onDateClick`:

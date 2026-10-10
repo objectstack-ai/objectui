@@ -74,6 +74,14 @@
  * against four grant shapes and holds the row set to its own expectation table,
  * and its census refuses a console source file that reads a CRUD grant without
  * this map.
+ *
+ * An affordance that reads NO grant is invisible to a census of grant reads —
+ * the calendar's quick-create and drag-to-reschedule and the kanban card move
+ * were such affordances until they gained their rows. So the same pin also
+ * counts the WRITES: every call site that invokes a create, update or delete on
+ * a data source has an entry there naming the row it sits behind and the file
+ * that reads it, or the reason it has none. A write site added without an entry
+ * turns that pin red.
  */
 
 import {
@@ -116,7 +124,10 @@ export const AFFORDANCE_GRANTS = {
   recordEdit: { crud: 'edit', grant: 'update' },
   /** The record page's Delete. */
   recordDelete: { crud: 'delete', grant: 'delete' },
-  /** An object list's New (toolbar button and the phone "+"). */
+  /**
+   * An object list's New: the console list page's toolbar button and phone
+   * "+", and the `object-view` node's toolbar button (`@object-ui/plugin-view`).
+   */
   listNew: { crud: 'create', grant: 'create' },
   /** An object list's Import, and the import wizard's writable target fields. */
   listImport: { crud: 'import', grant: 'create', field: 'create' },
@@ -132,11 +143,18 @@ export const AFFORDANCE_GRANTS = {
   rowDelete: { crud: 'delete', grant: 'delete' },
   /** A grid's inline add-record row. */
   gridAddRow: { crud: 'create', grant: 'create' },
-  /** A related list's "+ New", asked of the CHILD object. */
+  /**
+   * A related list's "+ New", asked of the CHILD object — and a line-items
+   * panel's add-a-line (its Add, entry row and Duplicate), which creates a child
+   * under the same parent.
+   */
   relatedNew: { crud: 'create', grant: 'create' },
   /** A related list row's Edit, asked of the child object. */
   relatedRowEdit: { crud: 'edit', grant: 'update' },
-  /** A related list row's Delete, asked of the child object. */
+  /**
+   * A related list row's Delete, asked of the child object — and a line-items
+   * panel's remove-a-line, which deletes that child on Save.
+   */
   relatedRowDelete: { crud: 'delete', grant: 'delete' },
   /** A lookup picker's "Create new", asked of the TARGET object. */
   lookupCreateNew: { crud: 'create', grant: 'create' },
@@ -144,6 +162,12 @@ export const AFFORDANCE_GRANTS = {
   attachmentUpload: { crud: null, grant: 'create' },
   /** The record Attachments panel's per-row delete, asked of `sys_attachment`. */
   attachmentDelete: { crud: null, grant: 'delete' },
+  /** A calendar's quick-create: an empty-day click, or a time-range drag in the week / day grid. */
+  calendarQuickCreate: { crud: 'create', grant: 'create' },
+  /** A calendar's drag-to-reschedule: moving or resizing an event writes its date fields. */
+  calendarReschedule: { crud: 'edit', grant: 'update' },
+  /** A kanban's card move: a cross-column drop writes the record's `groupBy` field. */
+  kanbanCardMove: { crud: 'edit', grant: 'update' },
 } as const satisfies Record<string, AffordanceGrantRow>;
 
 /** A console affordance with a row in {@link AFFORDANCE_GRANTS}. */

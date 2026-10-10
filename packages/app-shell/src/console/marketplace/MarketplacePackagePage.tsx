@@ -68,7 +68,7 @@ import {
 } from './marketplaceApi.js';
 import { getCloudBase, getRuntimeConfig, isMarketplaceEnabled } from '../../runtime-config.js';
 import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
-import { extractItems, useMetadata } from '../../providers/MetadataProvider.js';
+import { useMetadata } from '../../providers/MetadataProvider.js';
 import { appRouteSegment, filterActiveApps, resolveKeyedI18nLabel } from '../../utils/index.js';
 import { waitForServedApp, type ServedApp } from './waitForServedApp.js';
 import { SuggestedBindingsPanel, type SuggestedBindingsStrings } from '../../components/SuggestedBindingsPanel.js';
@@ -357,9 +357,13 @@ export function MarketplacePackagePage() {
     setDeploy({ phase: 'waiting', manifestId });
     const wait = await waitForServedApp({
       manifestId,
+      // The SDK's declared list answer (`GetMetaItemsResponse`: `{ type,
+      // items }`). Not `MetadataProvider`'s `extractItems`: a value import of
+      // that module from this lazy page made rolldown park the provider in
+      // this page's chunk, which pulled the page into the eager closure.
       readApps: async () => {
         if (!adapter) throw new Error('No data adapter to read the app list through');
-        return extractItems(await adapter.getClient().meta.getItems('app'));
+        return (await adapter.getClient().meta.getItems('app')).items;
       },
     });
     if (!wait.served) {

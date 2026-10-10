@@ -45,12 +45,13 @@
  *   insert is kept, and no rule it lacks is added.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, waitFor, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import React from 'react';
 
 import { MePermissionsProvider } from '@object-ui/permissions';
 import { registerAllFields } from '@object-ui/fields';
 import { ObjectForm } from './ObjectForm';
+import { MasterDetailForm } from './MasterDetailForm';
 
 registerAllFields();
 afterEach(cleanup);
@@ -216,5 +217,76 @@ describe.each(SUBMITTING)('ObjectForm $layout — the create-only body (objectui
     const { body } = await submit(ds);
     expect(body).toMatchObject({ contract: 'C-7', version_no: 3 });
     expect(body).not.toHaveProperty('notes');
+  });
+});
+
+/**
+ * The same rule one level down: the line-item grid of a CREATE-mode
+ * `MasterDetailForm`. Every line there is a new child record, so its cells ask
+ * the create question of the child object; a create-only grant on the child
+ * gets live cells. An EDIT form's lines may already exist, and one lock per
+ * column cannot split per row, so its cells keep the edit question — the
+ * control row.
+ */
+describe('MasterDetailForm under a create-only grant on the child (objectui#12082)', () => {
+  const PARENT = 'clm_contract';
+  const CHILD = 'clm_payment_plan';
+  const COLUMNS = [
+    { name: 'seq', label: 'Instalment No.', type: 'number' },
+    { name: 'notes', label: 'Instalment notes', type: 'text' },
+  ];
+  const envelopeFor = (): any => ({
+    ...createOnly(),
+    objects: {
+      [PARENT]: { allowCreate: true, allowRead: true, allowEdit: true, allowDelete: false },
+      [CHILD]: { allowCreate: true, allowRead: true, allowEdit: false, allowDelete: false },
+    },
+  });
+  function mountMD(mode: 'create' | 'edit') {
+    const ds = {
+      getObjectSchema: vi.fn(async (obj: string) =>
+        obj === PARENT ? { name: PARENT, fields: { title: { type: 'text', label: 'Title' } } } : null,
+      ),
+      findOne: vi.fn().mockResolvedValue({ id: 'K1', title: 'MSA' }),
+      find: vi.fn().mockResolvedValue({ data: mode === 'edit' ? [{ id: 'P1', contract: 'K1', seq: 1, notes: 'n' }] : [] }),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    };
+    render(
+      <MePermissionsProvider initialPermissions={envelopeFor()}>
+        <MasterDetailForm
+          schema={{
+            objectName: PARENT,
+            mode,
+            ...(mode === 'edit' ? { recordId: 'K1' } : {}),
+            fields: ['title'],
+            details: [{ childObject: CHILD, relationshipField: 'contract', columns: COLUMNS }],
+          } as any}
+          dataSource={ds as any}
+        />
+      </MePermissionsProvider>,
+    );
+  }
+  const cells = (label: string) =>
+    waitFor(() => {
+      const els = screen.getAllByLabelText(label) as HTMLInputElement[];
+      if (els.length === 0) throw new Error(`${label} cells not rendered yet`);
+      return els;
+    });
+
+  it('a create form\'s line cells are live: every line is an insert of the child', async () => {
+    mountMD('create');
+    for (const el of [...(await cells('Instalment No.')), ...(await cells('Instalment notes'))]) {
+      expect(el.disabled).toBe(false);
+    }
+  });
+
+  it('CONTROL — an edit form\'s line cells stay locked under the same grant', async () => {
+    mountMD('edit');
+    await waitFor(async () => expect((await cells('Instalment No.')).length).toBeGreaterThan(1));
+    for (const el of [...(await cells('Instalment No.')), ...(await cells('Instalment notes'))]) {
+      expect(el.disabled).toBe(true);
+    }
   });
 });

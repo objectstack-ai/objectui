@@ -39,6 +39,7 @@ import { useUpload } from '@object-ui/providers';
 import { useObjectTranslation, type TranslateFn } from '@object-ui/i18n';
 import { useAdapter, extractFieldErrors, extractWriteErrorMessage } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
+import { resolveFieldAffordance } from '@object-ui/core';
 import { CheckCircle2, AlertCircle, User, Lock, Upload, Loader2, X, Globe } from 'lucide-react';
 
 /**
@@ -461,9 +462,11 @@ interface LanguageCardProps {
  * truth rather than rendering blank.
  *
  * Availability is asked, not discovered from a rejection: the card renders
- * nothing until the row has been read, and `checkField('sys_user', 'locale',
- * 'write')` — which consults field-level permissions and falls back to the
- * object gate's `allowEdit` — decides between an editable control and a
+ * nothing until the row has been read, and the field question an edit asks —
+ * the `editFormFields` row of the affordance-to-grant map, read through
+ * `resolveFieldAffordance` from `@object-ui/core` (objectui#12082): it consults
+ * field-level permissions and falls back to the object gate's `allowEdit` —
+ * decides between an editable control and a
  * read-only one carrying the reason. A failed read hides the card, the same
  * "render nothing rather than something you will have to retract" idiom
  * `LocaleSwitcher` uses for a locale list it does not have yet. That is the
@@ -472,7 +475,7 @@ interface LanguageCardProps {
 function LanguageCard({ userId }: LanguageCardProps) {
   const { t, offerableLanguages } = useObjectTranslation();
   const adapter = useAdapter();
-  const { checkField } = usePermissions();
+  const perms = usePermissions();
 
   const [stored, setStored] = useState<string | null>(null);
   const [choice, setChoice] = useState<string>(USE_DEPLOYMENT_DEFAULT);
@@ -519,7 +522,7 @@ function LanguageCard({ userId }: LanguageCardProps) {
 
   if (!adapter || !rowRead || offerableLanguages === null) return null;
 
-  const writable = checkField('sys_user', 'locale', 'write');
+  const writable = resolveFieldAffordance('editFormFields', perms, 'sys_user', 'locale');
   const dirty = choice !== (stored ?? USE_DEPLOYMENT_DEFAULT);
 
   const handleSave = async (e: React.FormEvent) => {

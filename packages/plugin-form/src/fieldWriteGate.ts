@@ -343,12 +343,19 @@ const LOCKED_ON_EVERY_ROW = 'true';
  * replaces any `readonlyWhen` it declared — a lock on every row already covers
  * every row a narrower lock would. Rows are untouched: whether a line may be
  * added or removed stays the container's own answer.
+ *
+ * `mode` is the form the grid sits in, and picks the question the cells ask
+ * the same way it does for a form's fields (objectui#12082): a CREATE form's
+ * lines are all new child records, so their cells ask the create question. A
+ * grid anywhere else — an edit form, a record page's line-items block — may
+ * hold existing lines beside new ones, and one lock per column cannot split
+ * per row, so it asks the edit question, as it always did.
  */
 export function applyColumnPermissions<T extends Record<string, any>>(
   columns: T[] | undefined,
-  { perms, objectName }: Pick<ApplyFieldPermissionsOptions, 'perms' | 'objectName'>,
+  { perms, objectName, mode }: Pick<ApplyFieldPermissionsOptions, 'perms' | 'objectName' | 'mode'>,
 ): T[] | undefined {
-  return gateByPermission(columns, perms, objectName, undefined, (c) => ({
+  return gateByPermission(columns, perms, objectName, mode, (c) => ({
     ...c,
     readonlyWhen: LOCKED_ON_EVERY_ROW,
   }));

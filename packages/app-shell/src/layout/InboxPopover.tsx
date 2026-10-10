@@ -657,67 +657,67 @@ export function InboxPopover({
           </TabsContent>
 
           {showActivity && (
-          <TabsContent value="activity" className="m-0 max-h-80 overflow-auto">
-            {/*
-              "No recent activity" is an ASSERTION about the feed, so it is made
-              only once the feed has answered (objectui#12081, the #4235 rule).
-              An unanswered read says so instead — and beside the list, not
-              only in place of it, so stale rows never pass for a fresh answer.
-            */}
-            {activity.status !== 'ready' && (
-              <div
-                className="flex items-center justify-center gap-2 px-3 py-3 text-sm text-muted-foreground"
-                data-testid="inbox-activity-unanswered"
-              >
-                {activity.status === 'error' ? (
-                  <>
-                    <CircleAlert className="h-4 w-4 text-amber-500" />
-                    {t('errors.unknown', { defaultValue: 'An unexpected error occurred.' })}
-                  </>
-                ) : (
-                  t('common.loading', { defaultValue: 'Loading…' })
-                )}
-              </div>
-            )}
-            {activity.value.length === 0 ? (
-              activity.status === 'ready' && (
-                <div className="px-3 py-8 text-sm text-muted-foreground text-center motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300">
-                  {t('layout.activityFeed.empty', { defaultValue: 'No recent activity' })}
+            <TabsContent value="activity" className="m-0 max-h-80 overflow-auto">
+              {/*
+                "No recent activity" is an ASSERTION about the feed, so it is made
+                only once the feed has answered (objectui#12081, the #4235 rule).
+                An unanswered read says so instead — and beside the list, not
+                only in place of it, so stale rows never pass for a fresh answer.
+              */}
+              {activity.status !== 'ready' && (
+                <div
+                  className="flex items-center justify-center gap-2 px-3 py-3 text-sm text-muted-foreground"
+                  data-testid="inbox-activity-unanswered"
+                >
+                  {activity.status === 'error' ? (
+                    <>
+                      <CircleAlert className="h-4 w-4 text-amber-500" />
+                      {t('errors.unknown', { defaultValue: 'An unexpected error occurred.' })}
+                    </>
+                  ) : (
+                    t('common.loading', { defaultValue: 'Loading…' })
+                  )}
                 </div>
-              )
-            ) : (
-              <ul className="divide-y">
-                {activity.value.slice(0, 20).map((a, idx) => (
-                  <li
-                    key={a.id}
-                    className="px-3 py-2.5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-200"
-                    style={{ animationDelay: `${Math.min(idx, 6) * 20}ms` }}
-                  >
-                    <div className="text-sm leading-tight truncate">
-                      <span className="font-medium">{a.user}</span>{' '}
-                      <span className="text-muted-foreground">{a.description}</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                      {timeAgo(a.timestamp, displayLocale)} · {a.objectName}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {/* Footer link to dedicated /sys_activity list. Symmetric with
-                the Notifications tab footer — the popover caps at 20 rows;
-                users need a path to the full activity stream. Rendered even
-                in the empty state so users can still browse historical data. */}
-            <div className="border-t px-3 py-2 text-center">
-              <button
-                type="button"
-                onClick={goToAllActivity}
-                className="text-xs text-primary hover:underline"
-              >
-                {t('layout.activityFeed.viewAll', { defaultValue: 'View all activity' })}
-              </button>
-            </div>
-          </TabsContent>
+              )}
+              {activity.value.length === 0 ? (
+                activity.status === 'ready' && (
+                  <div className="px-3 py-8 text-sm text-muted-foreground text-center motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300">
+                    {t('layout.activityFeed.empty', { defaultValue: 'No recent activity' })}
+                  </div>
+                )
+              ) : (
+                <ul className="divide-y">
+                  {activity.value.slice(0, 20).map((a, idx) => (
+                    <li
+                      key={a.id}
+                      className="px-3 py-2.5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-200"
+                      style={{ animationDelay: `${Math.min(idx, 6) * 20}ms` }}
+                    >
+                      <div className="text-sm leading-tight truncate">
+                        <span className="font-medium">{a.user}</span>{' '}
+                        <span className="text-muted-foreground">{a.description}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {timeAgo(a.timestamp, displayLocale)} · {a.objectName}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {/* Footer link to dedicated /sys_activity list. Symmetric with
+                  the Notifications tab footer — the popover caps at 20 rows;
+                  users need a path to the full activity stream. Rendered even
+                  in the empty state so users can still browse historical data. */}
+              <div className="border-t px-3 py-2 text-center">
+                <button
+                  type="button"
+                  onClick={goToAllActivity}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {t('layout.activityFeed.viewAll', { defaultValue: 'View all activity' })}
+                </button>
+              </div>
+            </TabsContent>
           )}
         </Tabs>
       </PopoverContent>

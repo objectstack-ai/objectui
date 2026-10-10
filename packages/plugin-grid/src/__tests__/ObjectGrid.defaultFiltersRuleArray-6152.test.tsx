@@ -16,8 +16,15 @@
  * registered renderer and a `ValueDataSource` that APPLIES the `$filter` it receives,
  * so "the same rows" is a reading of what the grid draws, not only of what it sends.
  *
- * The fixtures are typed `ObjectGridSchema` with no cast: the rule array is what the
- * declaration takes.
+ * The fixtures are typed by the shape legacy metadata carries (objectui#12093). The
+ * declaration follows the `object-grid` row by reference: the rule array on the
+ * installed `@objectstack/spec`, a retired-key tombstone on objectstack `main`
+ * (objectstack#11509), which no current document can author. The grid still READS the
+ * key for metadata written before that retirement, and that read is what this file
+ * pins, so a `defaultFilters` node is built by `withDefaultFilters` below from the `filter` rule
+ * array, the shape the key carries on both specs. Which spec says the rule array is
+ * the declaration is `grid-default-filters-gantt-map-filter-round10-6152.test.ts`'s
+ * question in `@object-ui/types`, answered there against the row.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -36,7 +43,7 @@ const ROWS = [
 ];
 const NAMES = ROWS.map((r) => r.name);
 
-type Rules = NonNullable<ObjectGridSchema['defaultFilters']>;
+type Rules = NonNullable<ObjectGridSchema['filter']>;
 const OPEN: Rules = [{ field: 'status', operator: 'equals', value: 'open' }];
 const CLOSED: Rules = [{ field: 'status', operator: 'equals', value: 'closed' }];
 
@@ -82,6 +89,10 @@ const node = (extra: Partial<ObjectGridSchema>): ObjectGridSchema => ({
   ...extra,
 });
 
+/** A node carrying the legacy `defaultFilters` (see the header): written as legacy metadata has it. */
+const withDefaultFilters = (defaultFilters: Rules, extra: Partial<ObjectGridSchema> = {}): ObjectGridSchema =>
+  ({ ...node(extra), defaultFilters }) as unknown as ObjectGridSchema;
+
 describe('objectui#6152 round 10 — a `defaultFilters` rule array draws what the same `filter` draws', () => {
   it('CONTROL: with neither key, every row is drawn and no `$filter` goes out', async () => {
     const { $filter, drawn } = await draw(node({}));
@@ -90,25 +101,25 @@ describe('objectui#6152 round 10 — a `defaultFilters` rule array draws what th
   });
 
   it('`defaultFilters: [rule]` sends the lowered AST and draws the matching rows', async () => {
-    const { $filter, drawn } = await draw(node({ defaultFilters: OPEN }));
+    const { $filter, drawn } = await draw(withDefaultFilters(OPEN));
     expect($filter).toEqual([['status', 'equals', 'open']]);
     expect(drawn).toEqual(['Acme', 'Cyan']);
   });
 
   it('the same array written as `filter` sends the same `$filter` and draws the same rows', async () => {
-    const legacy = await draw(node({ defaultFilters: OPEN }));
+    const legacy = await draw(withDefaultFilters(OPEN));
     const canonical = await draw(node({ filter: OPEN }));
     expect(legacy).toEqual(canonical);
   });
 
   it('LIT CONTROL: a different rule array moves both readings, so the equality above can fail', async () => {
-    const { $filter, drawn } = await draw(node({ defaultFilters: CLOSED }));
+    const { $filter, drawn } = await draw(withDefaultFilters(CLOSED));
     expect($filter).toEqual([['status', 'equals', 'closed']]);
     expect(drawn).toEqual(['Beta']);
   });
 
   it('CONTROL: written both ways, `filter` still wins', async () => {
-    const { $filter, drawn } = await draw(node({ filter: OPEN, defaultFilters: CLOSED }));
+    const { $filter, drawn } = await draw(withDefaultFilters(CLOSED, { filter: OPEN }));
     expect($filter).toEqual([['status', 'equals', 'open']]);
     expect(drawn).toEqual(['Acme', 'Cyan']);
   });

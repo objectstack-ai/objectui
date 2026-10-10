@@ -73,6 +73,18 @@ function gridNode(over: Partial<ObjectGridSchema>): ObjectGridSchema {
   return { type: 'object-grid', objectName: 'task', columns: COLUMNS, ...over };
 }
 
+/**
+ * A node carrying the deprecated `defaultFilters` as metadata written on the
+ * installed `@objectstack/spec` has it: the `filter` rule array. objectstack
+ * `main` retires the key (objectstack#11509, a tombstone there), so the declared
+ * `ObjectGridSchema.defaultFilters` refuses the value on that spec; the grid
+ * still READS it for such metadata, which is what the two rows below pin
+ * (objectui#12093).
+ */
+function legacyDefaultFiltersNode(rules: ViewFilterRule[]): ObjectGridSchema {
+  return { ...gridNode({}), defaultFilters: rules } as unknown as ObjectGridSchema;
+}
+
 function ui(adapter: Adapter, node: ObjectGridSchema, user: string | null = USER, org: string | null = ORG) {
   return (
     <FilterScopeProvider currentUserId={user} currentOrgId={org}>
@@ -124,7 +136,7 @@ describe('object-grid — the node’s own filter reaches the query resolved (ob
     const adapter = makeAdapter();
     // objectui#6152 round 10: `defaultFilters` is the row's rule array too (it was a
     // `Record`, the `{ owner: '{current_user_id}' }` this cell used to write).
-    render(ui(adapter, gridNode({ defaultFilters: MINE })));
+    render(ui(adapter, legacyDefaultFiltersNode(MINE)));
     const sent = JSON.stringify(await queriedFilter(adapter.find));
     expect(sent).toContain(USER);
     expect(sent).not.toContain('{current_user_id}');
@@ -158,7 +170,7 @@ describe('object-grid — the node’s own filter reaches the query resolved (ob
 
   it('re-queries with the new id when the user changes and only `defaultFilters` carries the token', async () => {
     const adapter = makeAdapter();
-    const node = gridNode({ defaultFilters: MINE });
+    const node = legacyDefaultFiltersNode(MINE);
     const { rerender } = render(ui(adapter, node));
     expect(JSON.stringify(await queriedFilter(adapter.find, 0))).toContain(USER);
     await settle();

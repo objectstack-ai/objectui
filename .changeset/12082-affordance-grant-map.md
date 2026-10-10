@@ -2,6 +2,12 @@
 '@object-ui/core': minor
 '@object-ui/permissions': minor
 '@object-ui/plugin-form': patch
+'@object-ui/app-shell': patch
+'@object-ui/fields': patch
+'@object-ui/plugin-list': patch
+'@object-ui/plugin-grid': patch
+'@object-ui/plugin-detail': patch
+'@object-ui/console': patch
 ---
 
 A create form asks its fields the create question, so a role that may create
@@ -41,8 +47,31 @@ permission set marks `editable: false` stays disabled and out of the body.
   field entry when there is one and from `allowCreate` otherwise; the
   role-based `PermissionProvider` answers it as it answers `'write'`.
 
-**Behaviour (plugin-form).** Every `ObjectForm` layout reads the map: a create
-form's fields and its outbound filter ask the create question, and the
-form-wide lock (with its "You don't have permission to …" notice) also engages
-when the caller's object grant for the form's mode is denied, not only when the
-managed-object policy or the effective API operation set closes it.
+**Behaviour, by package.** With no permission provider mounted every grant
+still reads open, as before.
+
+- `@object-ui/plugin-form`: every `ObjectForm` layout's fields and outbound
+  filter ask the question of the form's mode (create or edit). The form-wide
+  lock, with its "You don't have permission to …" notice, also engages when the
+  caller's object grant for the form's mode is denied, not only when the
+  managed-object policy or the effective API operation set closes it. A
+  create-mode `MasterDetailForm`'s line cells ask the create question of the
+  child object, since every line there is a new record.
+- `@object-ui/app-shell`: the record page's Edit and Delete (and the record
+  body's in-place editing) read the caller's update / delete grant; they read
+  none before. The import wizard's write targets ask the create question, so a
+  caller offered Import keeps every field the insert accepts. List New / Import,
+  the related lists and the Attachments panel read the map with the verdicts
+  they had.
+- `@object-ui/fields`: a lookup's "Create new" reads the create grant (and the
+  managed-object policy and operation set) of the object the field references;
+  it read no grant before.
+- `@object-ui/plugin-grid`: row Edit / Delete, in-place editing, the template
+  download and the add-record row read the map; the add-record row now also
+  honours the object's managed-object policy and effective `create` operation.
+- `@object-ui/plugin-detail`: `record:details` in-place editing reads the
+  caller's update grant; the detail header's object gate adds the effective
+  operation set.
+- `@object-ui/plugin-list` and `@object-ui/console`: bulk Delete, the
+  inline-edit toggle and the profile page's language field read the map with
+  the verdicts they had.

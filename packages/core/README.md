@@ -179,6 +179,44 @@ withoutDeniedFields({ account_code: 'A-1', salary: 100 }, policy, 'account', ['a
 - When nothing is withheld the SAME object comes back, so callers can tell the
   two cases apart by identity.
 
+### Affordance-to-grant map (`AFFORDANCE_GRANTS`, `resolveAffordance`)
+
+Every console affordance that offers a write — a create form's fields, the
+record header's Edit, a list's New and Import, a lookup's "Create new", a grid
+row's Delete, and the rest — reads the grant it exercises from ONE table,
+`AFFORDANCE_GRANTS` (objectui#12082). A row names the CRUD-affordance bit the
+affordance needs, the object grant it exercises (`create`, `update` or
+`delete`) and, for an affordance that offers fields, the field question it asks
+(`create` for an insert, `write` for an update).
+
+`resolveAffordance` is the one verdict: the object's managed-object policy, the
+server's effective API operation set and the caller's grant must all allow it,
+and the row's `userActions` predicates are surfaced only then.
+
+```typescript
+import { resolveAffordance, resolveFieldAffordance } from '@object-ui/core'
+
+// `perms` is structural: `usePermissions()` from `@object-ui/permissions`
+// satisfies it. With no provider mounted every grant reads open.
+const perms = {
+  isLoaded: true,
+  can: (_object: string, grant: 'create' | 'update' | 'delete') => grant === 'create',
+  checkField: (_object: string, _field: string, action: 'create' | 'write') => action === 'create',
+  getObjectApiOperations: () => undefined,
+}
+
+resolveAffordance('listNew', { objectSchema: null, objectName: 'orders', perms })
+// { allowed: true }  — the create grant is held
+resolveAffordance('recordEdit', { objectSchema: null, objectName: 'orders', perms })
+// { allowed: false } — Edit reads the update grant, which is not
+
+resolveFieldAffordance('createFormFields', perms, 'orders', 'title') // true
+resolveFieldAffordance('editFormFields', perms, 'orders', 'title')   // false
+```
+
+An affordance added later gets a row here and reads it through these functions;
+it does not spell its own `can(object, verb)`.
+
 ### Undo snapshot for an update (`captureUpdateUndoData`)
 
 An `undoable` update restores exactly the fields it wrote, from their values

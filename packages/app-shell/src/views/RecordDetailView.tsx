@@ -66,6 +66,7 @@ import { parseAuditValue, collectAuditChanges, collectLookupIds, formatAuditValu
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useActionModal } from '../hooks/useActionModal.js';
 import { useRecentItems } from '../hooks/useRecentItems.js';
+import { useObjectPresence } from '../hooks/useObjectPresence.js';
 
 interface RecordDetailViewProps {
   dataSource: any;
@@ -290,6 +291,106 @@ interface ReactionLedger {
   steps: ReactionStep[];
   /** The set this ledger last put on the row. */
   shown: FeedItem['reactions'];
+}
+
+/**
+ * The object that stores a comment's reactions, one row per (comment, emoji,
+ * user), each row the reactor's own record (objectstack-ai/objectstack#22566,
+ * ruling A amended on objectstack-ai/objectstack#22505; objectui#12078).
+ *
+ * A member adds a reaction by creating their row (`comment_id`, `emoji`; the
+ * server stamps `user_id` from the session) and takes it back by deleting that
+ * row. Nobody's write touches anyone else's reaction, so two members reacting
+ * at the same moment both stay stored, which a whole-set write to
+ * `sys_comment.reactions` could not do: the later write replaced the earlier.
+ *
+ * A deployment whose framework predates the object has no such object, and
+ * there the chatter keeps the `sys_comment.reactions` column path (see
+ * `reactionStore` in the view). That column is retired by
+ * objectstack-ai/objectstack#22573, after this.
+ */
+const COMMENT_REACTION_OBJECT = 'sys_comment_reaction';
+
+/**
+ * How many comment ids one `sys_comment_reaction` read carries in its
+ * `comment_id` `$in`. A record's comment read has no page size (it reads the
+ * whole thread), so a busy thread is read in pages of this many ids, the pages
+ * in parallel. The bound is the URL: the data door's `find` is a GET carrying
+ * the filter in its query string, about 45 bytes per UUID-shaped id, so a page
+ * of 100 ids is a URL of about 4.6 KB, well under the request-line limits of
+ * Node's HTTP server (16 KB for all headers) and of common proxies (8 KB).
+ */
+const REACTION_READ_COMMENT_IDS = 100;
+
+/**
+ * The reaction rows of `commentIds`: one `sys_comment_reaction` read per page
+ * of {@link REACTION_READ_COMMENT_IDS} ids, never one read per comment. Rows
+ * come oldest first, so each comment's emoji keep the order they were first
+ * given in.
+ */
+async function readCommentReactionRows(
+  dataSource: { find: (resource: string, params?: any) => Promise<any> },
+  commentIds: readonly string[],
+): Promise<Array<Record<string, unknown>>> {
+  const pages: string[][] = [];
+  for (let i = 0; i < commentIds.length; i += REACTION_READ_COMMENT_IDS) {
+    pages.push(commentIds.slice(i, i + REACTION_READ_COMMENT_IDS));
+  }
+  const answers = await Promise.all(
+    pages.map((ids) =>
+      dataSource.find(COMMENT_REACTION_OBJECT, {
+        $filter: { comment_id: { $in: ids } },
+        $orderby: { created_at: 'asc' },
+      }),
+    ),
+  );
+  return answers.flatMap((res) => (Array.isArray(res?.data) ? res.data : []));
+}
+
+/**
+ * Reaction rows grouped per comment into the `{ emoji: userIds[] }` shape the
+ * `sys_comment.reactions` column stores, so both stores reach the screen
+ * through one aggregator. `own` keeps the row id of each of `userId`'s own
+ * reactions, per comment and emoji: the id a second click deletes.
+ */
+function groupReactionRows(
+  rows: ReadonlyArray<Record<string, unknown>>,
+  userId: string,
+): { stored: Map<string, Record<string, string[]>>; own: Map<string, Map<string, string>> } {
+  const stored = new Map<string, Record<string, string[]>>();
+  const own = new Map<string, Map<string, string>>();
+  for (const row of rows) {
+    const commentId = String(row.comment_id);
+    const emoji = String(row.emoji);
+    const reactor = String(row.user_id);
+    const byEmoji = stored.get(commentId) ?? {};
+    (byEmoji[emoji] ??= []).push(reactor);
+    stored.set(commentId, byEmoji);
+    if (reactor === userId) {
+      const mine = own.get(commentId) ?? new Map<string, string>();
+      mine.set(emoji, String(row.id));
+      own.set(commentId, mine);
+    }
+  }
+  return { stored, own };
+}
+
+/** Whether `userId`'s id is among the stored ids of a row's `emoji` reaction. */
+function holdsOwnReaction(reactions: readonly Reaction[] | undefined, emoji: string, userId: string): boolean {
+  return (reactions ?? []).some((r) => r.emoji === emoji && storedUserIds(r).includes(userId));
+}
+
+/**
+ * One (comment, emoji)'s reaction-record writes by the signed-in user, run one
+ * after another: a click that takes a reaction back needs the id of the row an
+ * earlier click is still creating.
+ */
+interface ReactionRecordQueue {
+  tail: Promise<void>;
+  /** Writes queued and not yet answered. */
+  pending: number;
+  /** Whether the newest click on this key showed the signed-in user's reaction. */
+  shown: boolean;
 }
 
 /**
@@ -1844,6 +1945,33 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   const [settledFeedKey, setSettledFeedKey] = useState<string | null>(null);
   const feedLoading = feedFetchKey !== null && settledFeedKey !== feedFetchKey;
 
+  // ── Where a comment's reactions are stored (objectui#12078) ─────────────
+  //
+  // `records`: one `sys_comment_reaction` row per member, emoji and comment,
+  // read in one batched `$in` read and written as the member's own row
+  // (COMMENT_REACTION_OBJECT). `column`: the `sys_comment.reactions` JSON
+  // column, read off each comment and written back whole — kept ONLY where the
+  // deployment has no `sys_comment_reaction` (a framework that predates
+  // objectstack-ai/objectstack#22566, such as cloud's v17 pin), so reactions
+  // there keep working exactly as before rather than reading empty and failing
+  // every write. The object registry answers which, through the shell's one
+  // presence reading; per its contract only an earned `absent` changes the
+  // path, and every uncertain answer takes the records path. `null` until the
+  // registry has answered, and the feed read waits for it: comments and their
+  // reactions are read as one answer.
+  const reactionPresence = useObjectPresence(COMMENT_REACTION_OBJECT);
+  const reactionStore: 'records' | 'column' | null = !reactionPresence.settled
+    ? null
+    : reactionPresence.presence === 'absent'
+      ? 'column'
+      : 'records';
+  /**
+   * The signed-in user's own reaction rows, per comment (`[thread, comment]`)
+   * and emoji: the row id a click that takes the reaction back deletes. Filled
+   * by the read, and by each create and delete as it answers.
+   */
+  const ownReactionRowsRef = useRef(new Map<string, Map<string, string>>());
+
   // Fetch comments from API.
   //
   // NOTE: Record-level presence ("who else is viewing this record") used to
@@ -1855,6 +1983,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // realtime / OCC plan.
   useEffect(() => {
     if (!dataSource || !objectName || !pureRecordId) return;
+    // The comment read needs to know where reactions are stored; until the
+    // registry says, nothing is read and the panel stays in its loading state.
+    if (feedsEnabled && reactionStore === null) return;
     let cancelled = false;
     const threadId = `${objectName}:${pureRecordId}`;
     // The two reads below run in PARALLEL and are collected here so the
@@ -1888,11 +2019,19 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // thread_id, author_id, author_name, author_avatar_url, body,
     // reactions (JSON string), parent_id, created_at, updated_at.
     //
-    // Reactions are stored as a JSON object of `{ emoji: string[] }`
-    // (one array of user-ids per emoji). The aggregator below counts
-    // entries and flags the currently-signed-in user, and keeps each
-    // emoji's stored ids as `userIds`: a reaction click writes the row
-    // back from them, changing only the clicker's own id (objectui#11019).
+    // Either store reaches the screen as `{ emoji: string[] }` (one array of
+    // user-ids per emoji). The aggregator below counts entries and flags the
+    // currently-signed-in user, and keeps each emoji's stored ids as
+    // `userIds`: a reaction click changes only the clicker's own id
+    // (objectui#11019).
+    const toReactions = (stored: Record<string, string[]> | undefined): FeedItem['reactions'] => {
+      if (!stored) return undefined;
+      return Object.entries(stored).map(([emoji, ids]) => {
+        const userIds = Array.isArray(ids) ? ids : [];
+        return { emoji, count: userIds.length, reacted: userIds.includes(currentUser.id), userIds };
+      });
+    };
+    // The `column` store: the JSON in `sys_comment.reactions`.
     const parseReactions = (raw: unknown): FeedItem['reactions'] => {
       if (!raw) return undefined;
       let parsed: Record<string, string[]> | undefined;
@@ -1901,17 +2040,37 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       } else if (typeof raw === 'object') {
         parsed = raw as Record<string, string[]>;
       }
-      if (!parsed) return undefined;
-      return Object.entries(parsed).map(([emoji, stored]) => {
-        const userIds = Array.isArray(stored) ? stored : [];
-        return { emoji, count: userIds.length, reacted: userIds.includes(currentUser.id), userIds };
-      });
+      return toReactions(parsed);
     };
 
     if (feedsEnabled) inFlight.push(dataSource.find('sys_comment', { $filter: { thread_id: threadId }, $orderby: { created_at: 'asc' } })
-      .then((res: any) => {
+      .then(async (res: any) => {
         recordRefusal('comments', false);
         if (!res?.data?.length) return;
+        // The `records` store (objectui#12078): ONE batched read of the
+        // comments' reaction rows (paged only past REACTION_READ_COMMENT_IDS
+        // ids), never one read per comment, grouped here into the column's
+        // shape. The column is not read on this path: a reaction stored only
+        // there is not shown (the maintainer ruled no migration of it,
+        // objectstack-ai/objectstack#22505). A failed reaction read does not
+        // take the comments down with it; they show without reactions.
+        let records: ReturnType<typeof groupReactionRows> | null = null;
+        if (reactionStore === 'records') {
+          const commentIds = res.data.map((c: any) => String(c.id));
+          try {
+            records = groupReactionRows(await readCommentReactionRows(dataSource, commentIds), currentUser.id);
+          } catch {
+            records = null;
+          }
+          if (records) {
+            for (const commentId of commentIds) {
+              ownReactionRowsRef.current.set(
+                JSON.stringify([threadId, commentId]),
+                records.own.get(commentId) ?? new Map<string, string>(),
+              );
+            }
+          }
+        }
         const mapped: FeedItem[] = res.data.map((c: any) => ({
           id: c.id,
           type: 'comment' as const,
@@ -1921,7 +2080,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           createdAt: c.created_at,
           updatedAt: c.updated_at,
           parentId: c.parent_id ?? undefined,
-          reactions: parseReactions(c.reactions),
+          reactions:
+            reactionStore === 'records'
+              ? toReactions(records?.stored.get(String(c.id)))
+              : parseReactions(c.reactions),
         }));
         // Into THIS record's slice — `threadId` is the key the effect closed
         // over, so a response that arrives after the user navigated away
@@ -2020,7 +2182,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     });
 
     return () => { cancelled = true; };
-  }, [dataSource, objectName, pureRecordId, currentUser, feedsEnabled, activitiesEnabled, feedFetchKey]);
+  }, [dataSource, objectName, pureRecordId, currentUser, feedsEnabled, activitiesEnabled, feedFetchKey, reactionStore]);
 
   /**
    * Note: comment-mention → notification fan-out lives on the server
@@ -2187,8 +2349,21 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
    * (`toggleOwnReaction`, objectui#11019), so every other user's reaction is
    * written back as it was read. Two people reacting at the same moment still
    * means the later write wins.
+   *
+   * All of the above is the `column` store, which runs only where the
+   * deployment has no `sys_comment_reaction`. On the `records` store
+   * (objectui#12078) a click writes nothing but the clicker's own row: it
+   * creates that row, or deletes it, so no write can replace another member's
+   * reaction and two members reacting at once both stay stored. The writes of
+   * one comment and emoji run one after another (a take-back deletes the row an
+   * earlier click is still creating). Once the last of them answers, the row
+   * must show the clicker's reaction exactly when the server holds their row;
+   * if it does not, a write was refused, and the clicker's own id on that emoji
+   * is put back as stored and the same error is raised. As on the column store,
+   * that is skipped when a re-read already replaced what the click showed.
    */
   const reactionLedgersRef = useRef(new Map<string, ReactionLedger>());
+  const reactionQueuesRef = useRef(new Map<string, ReactionRecordQueue>());
 
   const handleToggleReaction = useCallback(
     (itemId: string | number, emoji: string) => {
@@ -2199,11 +2374,91 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       // with a row cached for another record cannot reach across.
       const key = feedRecordKey;
       const row = (feedItemsByRecord[key] ?? EMPTY_FEED).find(item => item.id === itemId);
-      // Only a `sys_comment` row stores reactions, and those are the feed's
+      // Only a `sys_comment` row carries reactions, and those are the feed's
       // `comment` rows. The panel offers the control on comment rows only;
       // this refuses any other id without a write, so a `sys_activity` id can
-      // never key a `sys_comment` update (objectui#11035).
+      // never key a `sys_comment` update or a reaction row (objectui#11035).
       if (!row || row.type !== 'comment') return;
+
+      if (reactionStore === 'records') {
+        const userId = currentUser.id;
+        const want = !holdsOwnReaction(row.reactions, emoji, userId);
+        const commentKey = JSON.stringify([key, String(itemId)]);
+        const writeKey = JSON.stringify([key, String(itemId), emoji]);
+        const ownRows = () => {
+          let mine = ownReactionRowsRef.current.get(commentKey);
+          if (!mine) {
+            mine = new Map<string, string>();
+            ownReactionRowsRef.current.set(commentKey, mine);
+          }
+          return mine;
+        };
+        const shown = toggleOwnReaction(row.reactions, emoji, userId);
+        setFeedItemsByRecord(prev => ({
+          ...prev,
+          [key]: (prev[key] ?? EMPTY_FEED).map(item => (item.id === itemId ? { ...item, reactions: shown } : item)),
+        }));
+
+        let queue = reactionQueuesRef.current.get(writeKey);
+        if (!queue) {
+          queue = { tail: Promise.resolve(), pending: 0, shown: want };
+          reactionQueuesRef.current.set(writeKey, queue);
+        }
+        const q = queue;
+        q.pending += 1;
+        q.shown = want;
+        // Each write decides when its turn comes, from the row the server
+        // holds by then: a click whose wish is already stored writes nothing.
+        const write = async () => {
+          const rowId = ownRows().get(emoji);
+          if (want && rowId === undefined) {
+            const created: any = await dataSource.create(COMMENT_REACTION_OBJECT, {
+              comment_id: String(itemId),
+              emoji,
+            });
+            if (created?.id == null || created.id === '') {
+              throw new Error(`The ${emoji} reaction was stored without an id, so it cannot be taken back.`);
+            }
+            ownRows().set(emoji, String(created.id));
+          } else if (!want && rowId !== undefined) {
+            if ((await dataSource.delete(COMMENT_REACTION_OBJECT, rowId)) === false) {
+              throw new Error(`The ${emoji} reaction was not deleted.`);
+            }
+            ownRows().delete(emoji);
+          }
+        };
+        q.tail = q.tail
+          .then(write)
+          // A refused write leaves the server's row as it was; the check
+          // below reads that, so the rejection itself carries nothing more.
+          .catch(() => {})
+          .then(() => {
+            q.pending -= 1;
+            if (q.pending > 0) return;
+            reactionQueuesRef.current.delete(writeKey);
+            const stored = ownRows().has(emoji);
+            if (stored === q.shown) return;
+            setFeedItemsByRecord(prev => {
+              const rows = prev[key];
+              const current = rows?.find(item => item.id === itemId);
+              if (!rows || !current || holdsOwnReaction(current.reactions, emoji, userId) !== q.shown) return prev;
+              return {
+                ...prev,
+                [key]: rows.map(item =>
+                  item === current ? { ...item, reactions: toggleOwnReaction(item.reactions, emoji, userId) } : item,
+                ),
+              };
+            });
+            toast.error(
+              t('detail.reactionFailed', {
+                defaultValue: 'Your reaction was not saved. Please try again.',
+              }),
+            );
+          });
+        return;
+      }
+      if (reactionStore !== 'column') return;
+
       const rowKey = JSON.stringify([key, String(itemId)]);
       let ledger = reactionLedgersRef.current.get(rowKey);
       if (!ledger || ledger.shown !== row.reactions) {
@@ -2263,7 +2518,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           () => settle('failed'),
         );
     },
-    [currentUser.id, dataSource, feedRecordKey, feedItemsByRecord, t],
+    [currentUser.id, dataSource, feedRecordKey, feedItemsByRecord, reactionStore, t],
   );
 
   useEffect(() => {

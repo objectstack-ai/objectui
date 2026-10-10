@@ -17,6 +17,11 @@
  * `sys_activity` row. The observed channel is the data source's `update` calls.
  * A small probe mounted on the same page reads the page's `DiscussionContext`,
  * so the handler is also driven with an id no panel control hands it any more.
+ *
+ * Since objectui#12078 this runs on the column store, which the page uses only
+ * where the deployment has no `sys_comment_reaction` (the registry below lists
+ * none). The handler refuses a non-comment id before it picks a store, so the
+ * reaction-row store is refused the same id by the same check.
  */
 
 import * as React from 'react';
@@ -157,7 +162,10 @@ async function mount(dataSource: any, { withProbe = false } = {}) {
     invalidate: () => {},
     ensureType: async () => pages,
     getItem: async () => null,
-    getItemsByType: (type: string) => (type === 'page' ? pages : []),
+    // The registry lists this deployment's objects, and `sys_comment_reaction`
+    // is not one of them, so the page keeps reactions in the
+    // `sys_comment.reactions` column (objectui#12078).
+    getItemsByType: (type: string) => (type === 'page' ? pages : type === 'object' ? OBJECTS : []),
   } as any;
   render(
     <MemoryRouter initialEntries={[`/app/demo/${OBJECT_NAME}/${RECORD_ID}`]}>

@@ -47,12 +47,15 @@
 import { describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { ComponentPropsMap, ElementDataSourceSchema, PageComponentSchema } from '@objectstack/spec/ui';
+import type { ElementRepeaterPropsSchema as SpecElementRepeaterPropsSchema } from '@objectstack/spec/ui';
 
 import { ElementRepeaterBlockSchema, StrictAnyComponentSchema, safeValidateSchema } from '../zod/index.zod.js';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
 import type { PublicBlockNodeOf } from '../authoring-nodes.js';
 
 const TYPE = 'element:repeater';
+
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
 /** The spec's row, as the published map carries it. */
 const ROW = (ComponentPropsMap as unknown as Record<string, z.ZodObject>)[TYPE];
@@ -237,14 +240,16 @@ describe('`dataSource` on the repeater arm IS the spec\'s binding (objectui#1188
   });
 
   it('the TypeScript authoring face types the binding as the spec\'s, and refuses a member it does not declare', () => {
+    // objectui#12093: the object is named by the binding alone. The bag's flat
+    // `object` is retired upstream; the pin below holds it to the installed row.
     const bound: PublicBlockNodeOf<'element:repeater'> = {
       type: TYPE,
-      properties: { object: 'contact', fields: ['name'] },
+      properties: { fields: ['name'] },
       dataSource: { object: 'contact', view: 'active', limit: 5 },
     };
     const aliased: PublicBlockNodeOf<'element:repeater'> = {
       type: TYPE,
-      properties: { object: 'contact' },
+      properties: {},
       // @ts-expect-error `objectName` is not a member of the spec's ElementDataSourceSchema
       dataSource: { object: 'contact', objectName: 'contact' },
     };
@@ -256,6 +261,24 @@ describe('`dataSource` on the repeater arm IS the spec\'s binding (objectui#1188
       dataSource: { object: 'contact', limit: 10 },
     };
     expect([bound, aliased, bindingOnly].map((node) => node.type)).toEqual([TYPE, TYPE, TYPE]);
+  });
+
+  it('the bag\'s flat `object` type-checks exactly where the installed row takes it (objectui#12093)', () => {
+    // objectstack#11509 retires the flat `object` (objectstack PR #22421: a tombstone
+    // on objectstack `main`), and the installed release still declares it. This file
+    // is compiled against both: by the pull-request type-check against the installed
+    // spec, and by the Spec Main Shape Gate against `main`. So the pin is the ROW's
+    // verdict held on the face, not either answer written down: where the row
+    // refuses the key, the typed node refuses it. A re-forked `object: string` on
+    // the bag turns this red on `main`; a bag that dropped the key while the row
+    // still takes it turns it red on the installed spec.
+    type FaceTakesFlatObject =
+      { type: typeof TYPE; properties: { object: string } } extends PublicBlockNodeOf<'element:repeater'> ? true : false;
+    type RowTakesFlatObject = { object: string } extends Pick<z.input<typeof SpecElementRepeaterPropsSchema>, 'object'>
+      ? true
+      : false;
+    const verdict: Equal<FaceTakesFlatObject, RowTakesFlatObject> = true;
+    expect(verdict).toBe(true);
   });
 });
 

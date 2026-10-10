@@ -22,6 +22,11 @@
  * The panel is read the way a user reads it: each chip's emoji and count from
  * its text, and whether a reaction is the signed-in user's own from the emoji
  * picker's `aria-selected` (the chip itself marks that only by colour).
+ *
+ * Since objectui#12078 this is the column store, which the page uses only where
+ * the deployment has no `sys_comment_reaction` (the registry below lists none).
+ * Where it has one, a click writes the member's own reaction row instead:
+ * `RecordDetailView.reactionRecords-12078.test.tsx`.
  */
 
 import * as React from 'react';
@@ -139,7 +144,10 @@ function mount(dataSource: any, wrap: (tree: React.ReactElement) => React.ReactE
     invalidate: () => {},
     ensureType: async () => pages,
     getItem: async () => null,
-    getItemsByType: (type: string) => (type === 'page' ? pages : []),
+    // The registry lists this deployment's objects, and `sys_comment_reaction`
+    // is not one of them, so the page keeps reactions in the
+    // `sys_comment.reactions` column (objectui#12078).
+    getItemsByType: (type: string) => (type === 'page' ? pages : type === 'object' ? OBJECTS : []),
   } as any;
   return render(
     wrap(

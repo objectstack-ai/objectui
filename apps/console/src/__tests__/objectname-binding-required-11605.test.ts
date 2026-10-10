@@ -119,14 +119,18 @@ const DOC_ROWS = bindingDocRows();
 /**
  * The key the binding's `object` lands on. The doc: "it lands on the block's
  * own object key, which is `objectName` everywhere except `record:line_items`"
- * (its row spells that key in the `object` column), and "The two `element:*`
- * rows keep their configuration in the node's `properties` bag ...
- * `dataSource.object` wins over `properties.object`".
+ * (its row spells that key in the `object` column).
+ *
+ * `undefined` for the `element:*` blocks: each reads `dataSource.object`
+ * itself, so the binding lands on no key of theirs (objectui#11880), and since
+ * objectui#12085 neither `element:number` nor `element:repeater` publishes a
+ * flat `object` for it to land on. Row 3 asserts that exception is exactly the
+ * `element:*` tags, so it cannot quietly cover an `object-*` block.
  */
-function objectKeyOf(tag: string): string {
+function objectKeyOf(tag: string): string | undefined {
   const named = /\(`([^`]+)`\)/.exec(DOC_ROWS.get(tag)?.object ?? '');
   if (named) return named[1];
-  if (tag.startsWith('element:')) return 'object';
+  if (tag.startsWith('element:')) return undefined;
   return 'objectName';
 }
 
@@ -137,7 +141,8 @@ function objectKeyOf(tag: string): string {
  * are supplied too, but no registration requires one, so they are not read.
  */
 function bindingSupplies(tag: string): Set<string> {
-  const supplied = new Set([objectKeyOf(tag)]);
+  const key = objectKeyOf(tag);
+  const supplied = new Set<string>(key === undefined ? [] : [key]);
   const view = DOC_ROWS.get(tag)?.view ?? '';
   if (view === '✅' || view.includes('columns')) supplied.add('columns');
   return supplied;
@@ -234,10 +239,20 @@ describe('objectui#11605 — a bound registration requires no input its binding 
     expect(undocumented, `${BINDING_DOC} must say what the binding supplies on each bound block`).toEqual([]);
     for (const tag of BOUND) {
       const key = objectKeyOf(tag);
+      if (key === undefined) continue;
       expect(
         inputsOf(tag).map((input) => input.name),
         `<${tag}>: the binding's object lands on "${key}", which the entry does not declare`,
       ).toContain(key);
+    }
+    // The exception is the `element:*` tags and nothing else, and it is not
+    // vacuous: the two whose flat `object` objectui#12085 stopped publishing
+    // are bound entries of the shipped manifest that declare no `object`.
+    const landsNowhere = BOUND.filter((tag) => objectKeyOf(tag) === undefined);
+    expect(landsNowhere.every((tag) => tag.startsWith('element:'))).toBe(true);
+    for (const tag of ['element:number', 'element:repeater']) {
+      expect(landsNowhere, tag).toContain(tag);
+      expect(inputsOf(tag).map((input) => input.name), tag).not.toContain('object');
     }
     // Controls on the doc reading: the exception it names, and a full-view row.
     expect(objectKeyOf('record:line_items')).toBe('childObject');

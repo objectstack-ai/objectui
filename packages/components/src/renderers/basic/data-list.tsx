@@ -158,8 +158,9 @@ function RepeaterRenderer({ schema }: { schema: any }) {
   // .dataSource`), resolved through `useElementDataSource` as `element:number`
   // and `element:record_picker` resolve theirs, against the repeater's own
   // adapter. It is read FIRST; the flat `properties` query keys are the
-  // fallback until the spec retires them at the v18 pin bump (objectstack#11509,
-  // ruled A-narrow, objectui first). Where a node carries both, the precedence
+  // fallback, a back-compat read for metadata written before the spec retired
+  // them (objectstack#11509, ruled A-narrow, objectui first). They are not
+  // published as inputs (objectui#12085). Where a node carries both, the precedence
   // is the one table `ElementDataSourceGate` applies to every gate-wrapped
   // block, so the repeater adds no dialect of its own:
   //   - `object`: the binding's;
@@ -303,42 +304,32 @@ function RepeaterRenderer({ schema }: { schema: any }) {
 // The renderer READS the node-level `dataSource` binding (objectui#11880), so
 // it declares it from the seam every reader of the binding declares it from:
 // the marker makes `Registry.register` emit `ELEMENT_DATA_SOURCE_INPUT` into
-// these `inputs`. The flat query keys stay published and READ, as the binding's
-// fallback, until the spec retires them at the v18 pin bump (objectstack#11509);
-// `object` stays required because the spec row requires it. The seam comes from
-// `@object-ui/core` for the measured reason `element:record_picker`'s
-// registration states.
+// these `inputs`. That binding is the ONE query door published here
+// (objectui#12085): `@objectstack/spec` retires the flat `object` / `filter` /
+// `sort` / `limit` as tombstones (objectstack#11509), and publishing them made
+// the html tier accept the retired spelling while a required `object` refused a
+// repeater bound through `dataSource` alone. The renderer still READS the flat
+// four as the binding's fallback, for metadata written before that retirement:
+// the spec row records the read as the console's tolerance, not a door it keeps,
+// and a back-compat read is not an authoring surface, so it is not declared.
+// The seam comes from `@object-ui/core` for the measured reason
+// `element:record_picker`'s registration states.
 ComponentRegistry.register('repeater', elementDataSourceBlock(RepeaterRenderer), {
   namespace: 'element',
   skipFallback: true,
   label: 'Repeater',
   category: 'content',
-  // objectui#11168 slice 2 — the members of `fields`, `filter` and `sort` are
-  // pinned in `__tests__/element-list-inputs-11168.test.tsx`: what the
-  // renderer prints for each `fields` entry, and what it hands the adapter for
-  // `filter` (context tokens resolved first) and `sort`.
+  // objectui#11168 slice 2 — the members of `fields` are pinned in
+  // `__tests__/element-list-inputs-11168.test.tsx`: what the renderer prints
+  // for each entry. The query's own members (`filter`, `sort`) are the
+  // binding's, pinned in `__tests__/data-list.elementDataSource-11880.test.tsx`.
   inputs: [
-    {
-      name: 'object',
-      type: 'string',
-      required: true,
-      description: 'Object whose records the list repeats over; a node-level `dataSource.object` wins',
-    },
     { name: 'titleField', type: 'string' },
     {
       name: 'fields',
       type: 'array',
       description: 'Fields shown after the title on each line, in order: a bare field name, or `{ field }`',
     },
-    {
-      name: 'filter',
-      type: 'array',
-      of: 'object',
-      description:
-        'Filter rules `[{ field, operator, value }]`. A string `value` may be a context token such as `{current_user_id}`, resolved before the query',
-    },
-    { name: 'sort', type: 'array', of: 'object', description: 'Sort order `[{ field, order }]`, applied in list order' },
-    { name: 'limit', type: 'number' },
     { name: 'emptyText', type: 'string' },
     { name: 'divided', type: 'boolean', description: 'Separator between rows' },
   ],

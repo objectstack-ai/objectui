@@ -1,0 +1,32 @@
+{
+  "number": 12099,
+  "kind": "issue",
+  "title": "plugin-list: a page `list-view` node is written `data` / `type`, and the metadata page reads `properties.type` as the list kind (objectstack-ai/objectstack#22444, ruling C)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "enhancement",
+    "pm:blocked",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T18:11:55Z",
+  "updated_at": "2026-10-10T18:54:14Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12099",
+  "body": "Filing gate: **② a card a maintainer ruling names.** objectstack-ai/objectstack#22444, ruling `6100463199` (batch #313 item 1, letter C, maintainer 「同意」 2026-10-10T17:51Z): \"objectui moves first\". Filed by objectstack `domain:spec` seat 2 (objectstack-ai/objectstack#18549) · `marchtian` · session `session_016njDy8ozy9B9Ns5Y8kAWEK`, as the ruling's execution section asks. ⛔ Not a claim. objectui triage sets the lane, grade and order.\n\n## The ruling, verbatim (the part this repository carries)\n\n> **C — the page carrier converges on the spec spelling; one list view has one set of property names wherever it is embedded.** objectui moves first: `plugin-list`'s page registration (`packages/plugin-list/src/index.tsx`, the `objectName` / `viewType` inputs and `defaultProps`) publishes `data` / `type` instead, and the metadata page renderer reads `properties.type` as the list kind (today `HOIST_PROTECTED_KEYS` in `SchemaRenderer.tsx:262` keeps `type` out of the hoisted props; the objectui card decides how the kind travels without clobbering the node's own `type`); its README, guides and the seven files carrying page `list-view` nodes follow.\n\nand, from the same record: \"Stored page nodes authored with the old spelling are carried by an ADR-0087 D2 conversion in the same spec PR … ⛔ never by a fallback read in objectui.\"\n\n## What is true today (read on objectui `main` `de302c731`)\n\n- `packages/plugin-list/src/index.tsx:87` registers `list-view`. Its `inputs` publish `viewType` (enum) and `options`, and its `defaultProps` are `objectName: ''`, `viewType: 'grid'`, `options: {}`.\n- `packages/react/src/SchemaRenderer.tsx:262`: `HOIST_PROTECTED_KEYS = new Set(['type', 'id'])`. A metadata page node's `properties.type` is never hoisted, so the spec's list kind key has no channel on that carrier today.\n- The objectstack spec's `ListViewSchema` spells the binding `data: { provider: 'object', object }` and the kind `type`. objectstack's react layer retired `objectName` / `viewType` on `ListView` with no window (objectstack-ai/objectstack#14791, maintainer ruling 2026-09-07; `REACT_RETIRED_OVERLAY_PROPS.ListView`).\n- The ruling counts about 7 files and 45 mentions of the old spelling on page `list-view` nodes (README, guides, `InterfaceListPage.tsx`, plugin-view `ObjectView.tsx` among them). That is the ruling's own grep reading, not re-measured by this filing seat.\n\n## Done when\n\n- A metadata page node `{ type: 'list-view', properties: { data: { provider: 'object', object: 'X' }, type: 'kanban', kanban: { … } } }` renders a kanban over `X`. A grid is the default only when `properties.type` is absent.\n- The registration's `inputs` and `defaultProps` publish `data` / `type`; `objectName` / `viewType` are gone from them.\n- No objectui source, README or guide authors `objectName` / `viewType` on a page `list-view` node. The runtime-built nodes are written in the new spelling.\n- ⛔ No fallback read of `objectName` / `viewType`: stored nodes are converted on the objectstack side (below).\n- Pins: kanban through `properties.type` on a metadata page, and the node's own `type` stays `list-view`, unclobbered.\n\n## Order across the two repositories (a technical sequencing note, not part of the ruling's wording)\n\n1. This card lands.\n2. One objectstack PR then moves `.objectui-sha` past it and lands objectstack-ai/objectstack#22444's spec half together: the `'list-view'` `ComponentPropsMap` row, the by-name refusals of `objectName` / `viewType`, and the ADR-0087 D2 conversion of stored page nodes. Landing the pin move and the conversion in one PR means no stored node meets a console that reads only the new spelling before its conversion exists.\n\nobjectstack-ai/objectstack#22444 waits on this card (`Blocked-by:` there).\n\nDedupe: REST list of the 100 most recently created objectui issues, open and closed, titles matched for `list-view|viewType|objectName|HOIST` → 4 hits (#12071, #12065, #12063, #12052). All are rounds of objectui#6152's reader retirement, not this subject. Dedupe words: page list-view objectName viewType data type · properties.type list kind metadata page · plugin-list registration inputs defaultProps.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

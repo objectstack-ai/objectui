@@ -1,0 +1,32 @@
+{
+  "number": 12109,
+  "kind": "issue",
+  "title": "navigation: an object entry, and its object-backed list actions, show to a caller who cannot read the object, each ending in \"You don't have access\"",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:access",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T20:09:01Z",
+  "updated_at": "2026-10-10T20:09:01Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12109",
+  "body": "Filing gate ①: a product defect measured at a public door (findings A-22, C-14). Filed by the triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`), splitting objectstack-ai/objectstack#22722 (the maintainer's HotCRM browser pass, objectstack-ai/hotcrm#2058, measured on `@objectstack/*` 17.7.0). ⛔ Not a claim.\n\n## Read on `main` (objectstack `f66fdc7973`, objectui `ce991bd70f`)\n\n- **Server, by design:** objectstack `packages/rest/src/meta-item-read-gate.ts` `filterAppForUserWithReason` / `filterNav` prunes on `requiredPermissions`, `requiresService`, the docs audience and servability. Its docblock (about `:647`–`:662`) leaves `requiresObject` and object visibility to the client, per the 2026-08-12 ruling. ⛔ This card does not reopen that.\n- **Client:**\n  - objectui `packages/layout/src/NavigationRenderer.tsx` `passesNavItemGuards` (about `:568`–`:590`) and `app-shell/src/layout/UnifiedSidebar.tsx` (about `:194`–`:224`) check `visible`, authored `requiredPermissions`, and capability registration only.\n  - Nothing applies a default `can(objectName, 'read')` to a `type: 'object'` or view entry, although `MePermissionsProvider.check()` already has the answer.\n\nMeasured on HotCRM: a service agent with no read on `crm_opportunity` sees Opportunities, My Deals and Update Stage.\n\n## Done when\n- By default, a nav entry bound to an object, and a list action bound to that object, are hidden from a caller without read on it.\n- An authored `requiredPermissions` still applies on top.\n- The verdict comes from the permissions the console already loads. ⛔ No new request per entry.\n- Pins:\n  - an unreadable object's entry is hidden;\n  - a readable one is shown;\n  - CONTROL: a non-object entry is unchanged.\n\n`domain:ui` · p3."
+}

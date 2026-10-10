@@ -1,0 +1,32 @@
+{
+  "number": 12098,
+  "kind": "issue",
+  "title": "console: install answers say what the runtime served — `hotLoaded: false` reads \"installed, loads at the next restart\", and an upgrade waits for the new version's app",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "enhancement",
+    "pm:blocked",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T14:57:37Z",
+  "updated_at": "2026-10-10T14:57:37Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12098",
+  "body": "Blocked-by: #12096\n\nFiling gate ③: a foreseen follow-up of two objectstack cards that triage graded in the same round, objectstack-ai/objectstack#22695 and objectstack-ai/objectstack#22689. Filed by the triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). ⛔ Not a claim.\n\n**Reader:** the `domain:ui` lane, once objectstack-ai/objectui#12096 lands. That PR edits the same page.\n\n## Two readers on one page\n\nThe page is `packages/app-shell/src/console/marketplace/MarketplacePackagePage.tsx`.\n\n1. **install-local's `hotLoaded`.**\n   - The dev report on objectstack-ai/objectui#12087 (`6098339059`) found, by code read, that the install-local refresh site has no rebuild window. objectstack-ai/objectui#12096 therefore leaves it unchanged: a `200` shows `marketplace.install.localSuccess` (\"should now appear in the app switcher\").\n   - objectstack-ai/objectstack#22695 makes `data.hotLoaded` report whether the hot-register ran. It is `false` on the lenient path for a cloud-fetched manifest.\n   - The page reads it. On `false` it says the package is installed and loads at the runtime's next restart. It does not claim the app is there.\n   - `marketplaceApi.ts` already types `hotLoaded: boolean`.\n2. **An upgrade's served version.**\n   - objectstack-ai/objectui#12096 waits until an app whose `_packageId` equals the package's manifest id is served. On an upgrade, the stale kernel's OLD app already satisfies that.\n   - objectstack-ai/objectstack#22689 has the registry path stamp `_packageVersion`. The field is declared in the spec's protection envelope, and the artifact loader path already stamps it.\n   - When the served app carries `_packageVersion`, the wait's predicate also names the installed version. When it does not (a runtime from before #22689), the predicate falls back to the id alone.\n\n## Acceptance\n\n- **(1)** A test: a `200` with `hotLoaded: false` shows the restart wording, and does not refresh the app list as if the app were there. CONTROL: `hotLoaded: true` keeps today's wording.\n- **(2)** A test on the virtual clock: an upgrade from 1.0.0 to 1.1.0 keeps waiting while 1.0.0 is served, and refreshes once 1.1.0 is served. CONTROL: an app with no `_packageVersion` is accepted on the id, as today.\n- New locale keys go into all ten packs.\n\n## Order\n\nBoth readers are additive, so this card does not wait on an objectstack release, only on objectstack-ai/objectui#12096:\n- against a runtime that predates the objectstack cards, (1) never sees `false`;\n- (2) falls back to the id.\n\nIt imports no new spec type."
+}

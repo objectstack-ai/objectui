@@ -1,0 +1,32 @@
+{
+  "number": 12103,
+  "kind": "issue",
+  "title": "field write grants in the console: in-place edit on the record body and list inline edit ignore the caller's field `editable`, and the owner field is offered without the transfer grant",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:access",
+    "bug",
+    "domain:ui",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T20:05:28Z",
+  "updated_at": "2026-10-10T20:05:28Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12103",
+  "body": "Blocked-by: #12094\n\nFiling gate ①: a product defect measured at a public door (finding C-02). Filed by the triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`), splitting objectstack-ai/objectstack#22722 (the maintainer's HotCRM browser pass, objectstack-ai/hotcrm#2058, measured on `@objectstack/*` 17.7.0). ⛔ Not a claim.\n\n## Read on objectui `main` `ce991bd70f`\n\n- **ObjectForm layouts gate each field:** `packages/plugin-form/src/fieldWriteGate.ts` `gateByPermission` (about `:153`) reads `checkField('write')` from `MePermissionsProvider`.\n- **Two write surfaces do not:**\n  - in-place edit on the record body (`packages/plugin-detail/src/DetailSection.tsx` about `:366`–`:382`, which reads only `readonly`, computed and system flags);\n  - list inline edit (`packages/core/src/utils/affordanceGrants.ts` about `:114`–`:126`: `recordEdit` and `listInlineEdit` ask no field question).\n- **Nothing reads `objects[].allowTransfer`** from `/auth/me/permissions`, so the owner field is editable without the transfer grant. objectstack serves that grant from `plugin-hono-server/src/current-user-endpoints.ts`.\n- Measured on HotCRM: a rep with `crm_account.annual_revenue: { readable: true, editable: false }` gets an editable input, and Save answers 403 \"Field write denied\". Owner change answers 403 \"requires the transfer grant\".\n\n## Done when\n\n- **Measure first:** `GET /auth/me/permissions` as such a rep reports `fields[\"crm_account.annual_revenue\"].editable: false`.\n  - If it reports `true` while the write refuses, the server's per-caller answer disagrees with enforcement. The research read finds that enforcement folds a field's `requiredPermissions` and `/me/permissions` does not.\n  - In that case stop: that half is objectstack's, and the card returns to triage to be split.\n- In-place edit and list inline edit honour the field write grant, as `fieldWriteGate` does.\n- The owner field honours `allowTransfer`.\n- Pins:\n  - a non-editable field is read-only in both surfaces;\n  - an owner field without the transfer grant is read-only;\n  - CONTROL: an editable field is unchanged.\n\n**Family:** affordance ≠ grant, whose close-out is #12082.\n- PR #12094 (in flight) covers object-level write affordances, and edits `affordanceGrants.ts`, so this card waits for it.\n- This card carries the field-level half. Its rows join the same map and census.\n\n`domain:ui` · p2."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 12107,
+  "kind": "issue",
+  "title": "console: a write answer's `warnings` (advisory validation hits) is shown to the user after save, on the existing write-warning channel",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:api",
+    "domain:ui",
+    "enhancement",
+    "pm:on-hold",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T20:07:44Z",
+  "updated_at": "2026-10-10T20:07:44Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12107",
+  "body": "Filing gate ①: the console half of findings A-05, B-10, C-10. Filed by the triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`), splitting objectstack-ai/objectstack#22722 (the maintainer's HotCRM browser pass, objectstack-ai/hotcrm#2058, measured on `@objectstack/*` 17.7.0). ⛔ Not a claim.\n\n**Restart when:** a published `@objectstack/spec` release that objectui installs carries the `warnings` key on `CreateDataResponseSchema` / `UpdateDataResponseSchema` (objectstack-ai/objectstack#22726). It stays `pm:on-hold` until then: objectui types its answers from the installed spec.\n\n## Read on objectui `main` `ce991bd70f`\n\n`packages/data-objectstack/src/index.ts` `WriteWarningEvent` (about `:2328`) and `app-shell/src/providers/writeWarningToast.ts` already carry `droppedFields` to a toast. `warnings` rides the same channel.\n\n## Done when\n\n- After a save whose answer carries `warnings`, the user sees each message, through the same toast channel `droppedFields` uses.\n- The read is additive: an answer without the key shows nothing new. That also holds against a runtime that predates the key.\n- Pins:\n  - a warning is shown after save;\n  - CONTROL: no key, no toast.\n\n`domain:ui` · p3."
+}

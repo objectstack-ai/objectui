@@ -2,8 +2,8 @@
   "number": 12087,
   "kind": "issue",
   "title": "marketplace: after a successful install, the console refreshes the app list while the runtime still serves the pre-install kernel (stale-while-rebuild, ~60 s) and caches it — the installed app does not appear",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "hotlong",
@@ -14,7 +14,6 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-10T09:25:22Z",
-  "updated_at": "2026-10-10T14:09:04Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-10T20:10:45Z",
+  "closed_at": "2026-10-10T20:09:28Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12087",
   "body": "## What the user saw\n\nThe maintainer installed HotCRM 3.1.0 from the environment console's marketplace page (staging `os-6hf1jq.objectos.app`, `/_console/apps/setup/system/marketplace/pkg_7d6823ee-…`) on 2026-10-10 at 08:53Z. About 27 minutes later they reported 「我刚在环境中安装了 hotcrm，但是没显示出来」: HotCRM did not show among their apps.\n\n## What was true server-side (measured)\n\n| time (UTC) | event | source |\n|---|---|---|\n| 08:53:13 | install written; `last_published_at` (freshness) stamped | control plane `sys_package_installation` / `sys_environment` |\n| 08:53:25 | `[KernelManager] kernel demoted to stale — serving it while the rebuild runs {reason: \"freshness\"}` | staging container log |\n| **08:54:25** | **new kernel ready**. From here `GET /api/v1/meta/app` returns HotCRM (`crm_enterprise`) | container log |\n| 08:59:54 | sample-data replay finished in the background (9 accounts etc.) | log + `sample_data_seeded_at` |\n| 09:2xZ | a **fresh** browser tab shows HotCRM first under 「我的应用」 (3 apps), with 18 `crm_*` objects | reading |\n\nSo the install worked. The runtime served the **pre-install kernel for ~60 s** after the install answered, by design: stale-while-rebuild.\n\n## Why the console most likely kept showing the old list\n\n`MarketplacePackagePage.tsx` (~:337–365 on `main`):\n- On a successful install it clears `objectui:metadata:*` from sessionStorage and calls `refreshMetadata()` **immediately**.\n- That refetch lands inside the stale-serve window above, so the fresh `app` list is the **pre-install** one.\n- `MetadataProvider` then caches that list: in memory with a 5-min TTL, and in the tab's sessionStorage seed (`objectui:metadata:app:<org>:<principal>`), which a reload in the same tab reads back first.\n- The result: the console shows the success toast while the app never appears, until the cache is refetched or the tab is closed.\n\nThis is inferred from the timeline and the code. It was **not** reproduced end-to-end in the maintainer's own tab.\n\n**Repro for the dev:**\n1. On a staging or local stack whose rebuild takes more than a few seconds, install an app from the env console's package page.\n2. Without closing the tab, open 「我的应用」 and the app switcher at +10 s, +90 s and after a same-tab reload.\n3. Compare with a new tab.\n\n## Fix direction (for the dev to measure)\n\n- **Hold the refresh until the app is served.** After a successful install into the current environment, poll `GET /meta/app` (bounded, e.g. every 5 s for up to 3–5 min) until the installed package's app appears, and only then refresh and persist the metadata cache.\n- **Tell the user what is happening.** Show a 「正在部署应用…」 state rather than declaring success while the app is absent. Once it appears, offer 「打开 HotCRM」.\n- **Never persist an `app` list fetched during the window** in which the install is known not to be served yet.\n- **Alternative:** the runtime exposes \"rebuild pending\" (the freshness state it already logs) so the console can wait on that instead of on the list.\n\nFound by the maintainer's session `64cb68a6-01c7-4dc6-acc6-ccb459c90ef2`.\n"

@@ -1,0 +1,32 @@
+{
+  "number": 12110,
+  "kind": "issue",
+  "title": "console rendering, from the HotCRM pass: column label precedence, star rating widget, reference rail (nameField, refresh), gantt year, approval drawer approver and headline, public form heading and editor hints",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T20:09:31Z",
+  "updated_at": "2026-10-10T20:09:31Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12110",
+  "body": "Filing gate ①: seven small rendering defects measured at a public door (findings A-02, A-03, B-13, B-14, B-20, C-18, A-09, B-08). Filed by the triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`), splitting objectstack-ai/objectstack#22722 (the maintainer's HotCRM browser pass, objectstack-ai/hotcrm#2058, measured on `@objectstack/*` 17.7.0). ⛔ Not a claim.\n\nOne card on purpose: each item is a few lines in one file, all are `domain:ui`, and none needs a decision. One PR, with a pin per item.\n\n## Items (read on objectui `main` `ce991bd70f`)\n\n1. **A view's explicit column `label` loses to the field label** (A-02).\n   - `packages/plugin-grid/src/ObjectGrid.tsx` about `:3508`–`:3511` passes `col.label` as the fallback of a translated field-label lookup.\n   - An authored column label must win over the field's label.\n2. **`type: rating` with `widget: 'star_rating'` renders as a text box** (A-03).\n   - `packages/components/src/renderers/form/form.tsx` resolves `widget` first (about `:3131`), finds no `field:star_rating`, and falls to the default text input (about `:4480`).\n   - That contradicts the spec's promise that an unregistered widget \"degrades to the `type` renderer\".\n   - `packages/fields/src/index.tsx` (about `:3769`) maps `rating` cells to a number.\n   - Fall back to the `type` renderer, and give `rating` a rating cell.\n3. **The reference rail ignores `nameField`** (B-13). `packages/plugin-detail/src/renderers/record-reference-rail.tsx` `pickDisplayName` (about `:226`–`:245`) uses a fixed ladder, and the fetch (about `:440`–`:460`) keeps only `.fields` of the target schema.\n4. **`refreshAfter: true` does not refresh the reference rail** (B-14).\n   - The same file latches its fetch on `parentId::entriesSig` (about `:304`, `:370`–`:377`) and does not subscribe to the data-invalidation bus.\n   - `RecordDetailView.tsx` `notifyRecordChanged` (about `:557`, `:1116`) posts only there.\n5. **Gantt dates show no year** (B-20). `packages/plugin-gantt/src/GanttView.tsx` formats `{ month, day }` at about `:3978`, `:4000`, `:4013`, `:4302`, `:4522` and `:4837`. Show the year at least when it is not the current one.\n6. **Approval drawer** (C-18), in `apps/console/src/pages/system/ApprovalsInboxPage.tsx`:\n   - **Approver label:** `formatIdentity` (about `:222`–`:228`) cuts a long id in the middle (\"positi…ager\"). A `position:<p>` approver should show the position's label.\n   - **Headline:** `decisionAmountEntry` (about `:632`–`:656`) takes the first key matching `AMOUNT_KEY_RE`, even a zero \"Child Account Revenue\". Prefer the object's declared amount field, and never headline a zero from an unrelated key.\n   - Not in this item: the raw option values. the fix for #11677 (`3409fe89e4`, after the 17.7.0 pin) draws them through `RecordFieldFace`. #12081 item 7 can close against it once checked.\n7. **Public form heading and editor hints** (A-09, B-08):\n   - `apps/console/src/components/FormPage.tsx` `loadPublicForm` (about `:1436`) falls back to the object's API name. Use the object's label.\n   - `packages/fields/src/widgets/RichTextField.tsx` about `:417`–`:418` shows \"Format: markdown\" and \"Rich text editor (basic)\" to anonymous visitors. Hide editor hints on the public surface.\n\n**Not in this card:** a completed task's due date shown as \"Overdue\" (C-19) is #11815, on hold until objectui installs a spec release with `settledWhen`.\n\n`domain:ui` · p3."
+}

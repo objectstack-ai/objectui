@@ -2,8 +2,8 @@
   "number": 12079,
   "kind": "issue",
   "title": "First screen after sign-in is the retired Studio home when the app serves an empty navigation",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "zhuangjianguo",
@@ -14,7 +14,6 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-10T00:55:07Z",
-  "updated_at": "2026-10-10T12:47:38Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-10T20:08:42Z",
+  "closed_at": "2026-10-10T20:07:27Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 5,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12079",
   "body": "Found during the objectstack-ai/hotclm#87 browser pass on `main` @ `c31c7e2`, `@objectstack/*` 17.7.0. The maintainer asked for this issue: the page is Studio's old home, retired a long time ago, and nobody should land on it.\n\n## What a user sees\n\n`pnpm demo`, no operator setup, sign in as `admin@objectos.ai`. The browser goes to `/_console/apps/clm?package=app.objectstack.hotclm`. The sidebar is empty, and the main pane shows the old **Studio** home: \"Good morning · Studio · Your control center for modeling data, designing experiences, and automating the platform\", metadata counters, Quick actions (New Object / New View …), Explore. None of it is about contracts, and nothing says what to do next.\n\nScreenshot: `qa/browser-test-17-7/screenshots/02-p1-first-screen-after-sign-in.png` on branch `claude/issue-87-browser-test-17-7`.\n\n## Why it happens (read from the 17.7.0 console bundle)\n\n1. `GET /api/v1/meta/app/clm` → `200`, `\"navigation\": []` for the dev admin. Every HotCLM group is gated on a `clm_*.access` capability (`src/apps/clm.app.ts`), and the dev admin holds no `clm_*` set (README, \"The dev admin is deliberately none of them\").\n2. The console's app index route resolves its landing page from the navigation and falls back to the Studio home when nothing resolves. In `@objectstack/console/dist/assets/index-ocmkyCt6.js`:\n   ```js\n   path:`/`, element: (()=>{ let e = Wv(R,{currentUserId:s?.id??null});\n     return e ? <Navigate to={e} replace/> : <kv/> })()\n   // Wv(e,t) = Hv(e?.navigation||[], t)\n   // kv = lazy(import('./metadata-admin-CEhVmXFv.js').StudioHomePage)\n   ```\n   So any app whose navigation is empty for the current user lands on `StudioHomePage`. HotCLM is not the only app this can happen to.\n\n## Producer\n\n- **Platform (console):** the empty-navigation fallback renders a retired page. It should show an app-level empty state instead, for example \"You have no access to anything in HotCLM yet: ask an administrator for a permission set\", or send a platform admin to Setup. This belongs upstream in `objectstack-ai/objectstack`. This session could not reach that repo, so the issue is filed here for the seat to forward.\n- **App (contributing):** the dev admin gets `navigation: []` by design. That design question is open in objectstack-ai/hotclm#28 and objectstack-ai/hotclm#11, so this issue does not decide it.\n\n## Repro\n\n1. `rm -rf .objectstack/data && pnpm demo`\n2. Sign in as `admin@objectos.ai` / `admin123`\n3. You land on the Studio home with an empty sidebar."

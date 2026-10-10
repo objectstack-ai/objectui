@@ -1,0 +1,32 @@
+{
+  "number": 12104,
+  "kind": "issue",
+  "title": "timeline: a lookup `groupByField` renders one \"[object Object]\" group, and a text `groupByField` groups adjacent runs instead of bucketing by key",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T20:05:51Z",
+  "updated_at": "2026-10-10T20:05:51Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12104",
+  "body": "Filing gate ①: a product defect measured at a public door (findings A-18, B-06, C-05, C-06). Filed by the triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`), splitting objectstack-ai/objectstack#22722 (the maintainer's HotCRM browser pass, objectstack-ai/hotcrm#2058, measured on `@objectstack/*` 17.7.0). ⛔ Not a claim.\n\n## Read on objectui `main` `ce991bd70f`\n\n`packages/plugin-timeline/src/ObjectTimeline.tsx`, `effectiveItems`:\n- The group key is the raw `item[groupByField]` (about `:681`, kept as `group` at `:716`). The `groupByField` branch (about `:802`–`:816`) falls back to `String(value)`, so an expanded lookup becomes `[object Object]`. The header's CSS uppercases it.\n- Title and description already go through `recordDisplayValueAt` (`:709`, `:713`); the group key does not.\n- The items are sorted by start date only (about `:744`). `renderer.tsx` `groupAdjacent()` (about `:1512`) then merges only consecutive equal keys. That is right for date buckets and wrong for an explicit `groupByField`.\n\nMeasured on HotCRM: `groupByField: 'owner_id'` on the opportunity, event and task timelines, and `'crm_account'` on contracts, each render one group. `channel` renders DIGITAL 1, EMAIL 1, DIGITAL 1 ….\n\n## Done when\n- The group key is the field's display value, through `recordDisplayValueAt`. A lookup groups by the referenced record's name.\n- With `groupByField` set, items are bucketed by key: one group per key, dates ordered within each. Date buckets are unchanged.\n- Pins:\n  - a lookup group key;\n  - a text key whose rows interleave in date order;\n  - CONTROL: a timeline with no `groupByField`.\n\n`domain:ui` · p2."
+}

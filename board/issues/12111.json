@@ -1,0 +1,32 @@
+{
+  "number": 12111,
+  "kind": "issue",
+  "title": "console: a formula field whose `returnType` is currency renders as money (the consumer of objectstack's formula currency result)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "pm:on-hold",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T20:09:56Z",
+  "updated_at": "2026-10-10T20:09:56Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12111",
+  "body": "Filing gate ①: the console half of finding B-15. Filed by the triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`), splitting objectstack-ai/objectstack#22722 (the maintainer's HotCRM browser pass, objectstack-ai/hotcrm#2058, measured on `@objectstack/*` 17.7.0). ⛔ Not a claim.\n\n**Restart when:** a published `@objectstack/spec` release that objectui installs carries the formula currency result (objectstack-ai/objectstack#22727).\n\n## Read on objectui `main` `ce991bd70f`\n\n`packages/fields/src/index.tsx` `FormulaCellRenderer` (about `:2672`–`:2705`) sends every numeric formula to `NumberCellRenderer`.\n\n## Done when\n\n- A formula declared with the currency result renders through the currency renderer, in cells, forms and detail.\n- Pins:\n  - a currency formula renders as money;\n  - CONTROL: a numeric formula renders as today.\n\n`domain:ui` · p3."
+}

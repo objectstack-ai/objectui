@@ -14,20 +14,19 @@
     "area:access",
     "bug",
     "domain:ui",
-    "pm:dispatched",
+    "pm:queue",
+    "pm:retriage",
     "priority:p2"
   ],
-  "assignees": [
-    "marchtian"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-10T03:34:35Z",
-  "updated_at": "2026-10-10T14:00:50Z",
+  "updated_at": "2026-10-10T20:12:28Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 10,
+  "comments": 11,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12082",
   "body": "Filing class: ① product defect (user-visible) — reach: browser, measured on `@objectstack/*` 17.7.0 (Console as pinned in 17.7.0). Maintainer instruction for platform problems found in testing, verbatim, 2026-10-10: 「你遇到的平台问题应该提交issue」.\n\n**Reader:** objectui triage → the form renderer (`plugin-form`) / the Console's permission check.\n\n## Symptom\n\nMeasured in `objectstack-ai/hotclm` while fixing objectstack-ai/hotclm#90 (draft PR objectstack-ai/hotclm#91; report on #90). The app's intake screen flow embeds an object form in **create** mode for `clm_contract_version`. The requester's permission set grants that object `allowCreate: true, allowEdit: false` (the app's design: requesters create versions, never edit them). Once `GET /api/v1/auth/me/permissions` has loaded:\n\n- every field of the create form renders **disabled** — \"You do not have edit access to this field.\";\n- Save & Continue then posts an empty body: `POST /api/v1/data/clm_contract_version` → `400 VALIDATION_FAILED \"Contract is required; Version No. is required; File is required\"`.\n\nSo every user of a create-only grant is blocked at that step. (The server accepts the create: with the client's permission copy patched to `allowEdit: true`, the same create lands `201` under the user's real `allowCreate`.)\n\n## Cause (dev's source read of the 17.7.0 bundle — for triage to confirm)\n\n`checkField(object, field, 'write')` reads `objects[o].allowEdit`, and `plugin-form` disables every field failing it whenever `mode !== 'view'` — **create included**. A create form should check `allowCreate` (field-level create/insert permission), not `allowEdit`.\n\n## Minimal repro\n\nAny permission set with `allowCreate: true, allowEdit: false` on an object; open that object's create form (or a flow object-form screen in create mode) after `/auth/me/permissions` has loaded.\n\n## Dedupe\n\nMCP `search_issues` on this repo, `create form fields disabled when allowEdit false allowCreate true checkField write create mode` → 2 hits: #11000 (closed — every field disabled when the create affordance is **closed**, the opposite grant) and #3402 (closed — unrelated). Neither covers a create-allowed, edit-denied grant.\n\n---\n_Filed by the `repo:hotclm` PM seat from a measured dev finding._"

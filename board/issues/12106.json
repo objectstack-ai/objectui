@@ -1,0 +1,32 @@
+{
+  "number": 12106,
+  "kind": "issue",
+  "title": "record activity feed: an object's `activityMilestones` rows of type `completed` (\"Case resolved\", \"Case closed\") are hidden as if they were completed tasks",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T20:07:07Z",
+  "updated_at": "2026-10-10T20:07:07Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12106",
+  "body": "Filing gate ①: a product defect measured at a public door (finding B-05). Filed by the triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`), splitting objectstack-ai/objectstack#22722 (the maintainer's HotCRM browser pass, objectstack-ai/hotcrm#2058, measured on `@objectstack/*` 17.7.0). ⛔ Not a claim.\n\n## Read on objectui `main` `ce991bd70f`\n\n- `packages/plugin-detail/src/renderers/recordActivityFeed.ts`:\n  - `ACTIVITY_TYPE_TO_FEED_TYPE` maps `completed: 'task'` (about `:136`), and `COMPLETED_FEED_TYPES = {'task'}` (about `:265`);\n  - `applyFeedConfig` drops those rows whenever `showCompleted !== true` (about `:870`).\n- The synthesized default page composes a bare `record:discussion`, so `showCompleted` is unset and the rows are hidden.\n- The fetch keeps them: the page's own `GET /api/v1/data/sys_activity?…` returns them. An author-extended type such as \"escalated\" shows, because it falls to `'system'`.\n- Spec: `showCompleted` defaults to `false` (`packages/spec/src/ui/component.zod.ts` about `:1803`). `activityMilestones[].type` forwards the author's type verbatim (`object.zod.ts` about `:2385`).\n\n## Done when\n- A milestone row the object's `activityMilestones` wrote is not treated as a completed task. \"Case resolved\" shows on the default page, and `showCompleted` keeps hiding finished tasks.\n- **Measure first** whether the console can tell a milestone row from a task completion with what `sys_activity` carries today.\n  - If it can, this is a console change.\n  - If it cannot without a new spec key, stop and return the card to triage, ⛔ rather than inventing a marker.\n- Pins:\n  - a milestone `completed` row is shown;\n  - a completed task stays hidden by default;\n  - `showCompleted: true` shows both.\n\n`domain:ui` · p2."
+}

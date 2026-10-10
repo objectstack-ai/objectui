@@ -1,0 +1,32 @@
+{
+  "number": 12108,
+  "kind": "issue",
+  "title": "forms: a field whose `defaultValue` is a CEL expression opens empty on a new record with no sign that the server will fill it on save",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T20:08:26Z",
+  "updated_at": "2026-10-10T20:08:26Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12108",
+  "body": "Filing gate ①: a product defect measured at a public door (findings A-20, B-11; the CEL half). Filed by the triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`), splitting objectstack-ai/objectstack#22722 (the maintainer's HotCRM browser pass, objectstack-ai/hotcrm#2058, measured on `@objectstack/*` 17.7.0). ⛔ Not a claim.\n\n## Read on objectui `main` `ce991bd70f`\n\n- `packages/plugin-form/src/schemaDefaults.ts` (`schemaDefaultValues`, `isSeedableDefault`, and the docblock at about `:56`–`:73`) deliberately leaves a CEL or runtime-token default unseeded. The client cannot evaluate it, and the server resolves it at insert.\n- The field opens empty, or on \"Select an option\", with nothing that says a value will be set.\n- **Not in this card:**\n  - The option-level `default: true` half is fixed on `main` by objectui PR #11944 (#11914, closed), after the 17.7.0 pin `0abd4f9f`. It ships with the next console release.\n\n## Done when (the cheapest truthful fix; ⛔ no client-side CEL evaluation, ⛔ no new server door in this card)\n- An empty field whose default the server resolves shows that it will be set on save, with a placeholder or hint naming it.\n- **Measure** a required field with a CEL default.\n  - If the form blocks Save on it, that is a defect in this card: the server fills it, so the form must not refuse.\n  - Pin the measured behaviour either way.\n- Pins:\n  - the hint on a CEL default;\n  - CONTROL: a literal default is seeded as today.\n\n`domain:ui` · p3."
+}

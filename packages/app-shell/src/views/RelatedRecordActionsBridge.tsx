@@ -81,10 +81,9 @@ import {
   type RelatedRecordHandlers,
   type RelatedRowActionDef,
 } from '@object-ui/react';
-import { evalRowPredicate, type ActionDef, type RowCrudPredicates } from '@object-ui/core';
+import { evalRowPredicate, resolveAffordance, type ActionDef, type RowCrudPredicates } from '@object-ui/core';
 import { actionRendersAt, type ActionLocation } from '@object-ui/types';
 import { usePermissions } from '@object-ui/permissions';
-import { resolveEffectiveCrudAffordances } from '../utils/crudAffordances.js';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM, RECORD_TRAIL_PARAM, appendRecordTrail } from '../urlParams.js';
 
 /**
@@ -236,7 +235,7 @@ export function RelatedRecordActionsBridge({
   const navigate = useNavigate();
   const { execute } = useAction();
   const [, setSearchParams] = useSearchParams();
-  const { getObjectApiOperations, can } = usePermissions();
+  const perms = usePermissions();
   // [#4646] The host predicate scope (`features.*` / `os.user.*` / …), read
   // ONCE here rather than per resolved child list — `resolve` is hook-free by
   // construction (see the module note). This is the same scope
@@ -372,17 +371,21 @@ export function RelatedRecordActionsBridge({
         // Delete to a principal with no write grant on the child. `can()`
         // answers `true` with no `PermissionProvider`, which keeps standalone
         // embeds exactly where they were.
-        const rawAff = resolveEffectiveCrudAffordances(childDef, getObjectApiOperations(objectName));
-        const objectCanCreate = rawAff.create && can(objectName, 'create');
+        //
+        // [objectui#12082] All three layers are the child's rows of the
+        // affordance-to-grant map — `relatedNew`, `relatedRowEdit`,
+        // `relatedRowDelete` — resolved by `resolveAffordance` from
+        // `@object-ui/core`, the one verdict every console affordance reads.
+        const source = { objectSchema: childDef, objectName, perms };
+        const newVerdict = resolveAffordance('relatedNew', source);
+        const objectCanCreate = newVerdict.allowed;
         // [#4646] The per-scope layer, on top of the object-level verdict above.
         // Surfaced only when that verdict passed — the same posture
         // `resolveRowCrudAffordances` takes for the row predicates
         // (`editPredicates: canEdit ? aff.editPredicates : undefined`): a
         // predicate cannot re-open an affordance the bucket, the effective API
         // operations or the principal's grant already closed.
-        const createPredicates: RowCrudPredicates | undefined = objectCanCreate
-          ? rawAff.createPredicates
-          : undefined;
+        const createPredicates: RowCrudPredicates | undefined = newVerdict.predicates;
         /**
          * `visibleWhen` — fails CLOSED, and counts as DECLARED by `!= null`
          * rather than by truthiness, so `visibleWhen: false` hides "+ New"
@@ -416,10 +419,9 @@ export function RelatedRecordActionsBridge({
             parentObjectFields,
           );
         const aff = {
-          ...rawAff,
           create: objectCanCreate && createVisible,
-          edit: rawAff.edit && can(objectName, 'update'),
-          delete: rawAff.delete && can(objectName, 'delete'),
+          edit: resolveAffordance('relatedRowEdit', source).allowed,
+          delete: resolveAffordance('relatedRowDelete', source).allowed,
         };
         const handlers: RelatedRecordHandlers = {
           // Viewing a child record is always allowed when the list is visible.
@@ -488,7 +490,7 @@ export function RelatedRecordActionsBridge({
     // the #4646 create predicates: a parent record that changes (a save, a
     // status transition) must re-resolve "+ New" for every related list under
     // it, or the toolbar keeps answering for the record's previous state.
-    [objects, base, dataSource, localizeActionTexts, runRowAction, openChildForm, recordHref, openRecord, getObjectApiOperations, can, parentRecord, parentObjectFields, predicateScope, hasParentRecord],
+    [objects, base, dataSource, localizeActionTexts, runRowAction, openChildForm, recordHref, openRecord, perms, parentRecord, parentObjectFields, predicateScope, hasParentRecord],
   );
 
   return (

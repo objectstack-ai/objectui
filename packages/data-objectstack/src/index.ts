@@ -46,6 +46,7 @@ import {
 import type { AnalyticsResult, DatasetSelection } from '@objectstack/spec/contracts';
 import type {
   DataSource,
+  ConnectionState,
   // #4564 — the canonical `deleteView` receipt shapes, declared beside the
   // `DataSource` interface they belong to. Imported for the local uses below
   // and re-exported under the same names further down, so this package's
@@ -2031,9 +2032,11 @@ export function createQuietHttpLogger(): any {
 }
 
 /**
- * Connection state for monitoring
+ * Connection state for monitoring. Declared once in `@object-ui/types`, which
+ * `@object-ui/collaboration` re-exports too (objectui#6349, batch 10); this
+ * package's entry keeps publishing it under the same name.
  */
-export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
+export type { ConnectionState } from '@object-ui/types';
 
 /**
  * Connection state change event

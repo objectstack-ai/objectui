@@ -436,6 +436,7 @@ export type {
   QueryParams,
   QueryResult,
   DataSource,
+  ConnectionState,
   DeleteViewResult,
   ViewHomeDeleteOutcome,
   GlobalSearchHit,

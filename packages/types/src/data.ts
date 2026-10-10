@@ -975,6 +975,20 @@ export interface DataSource<T = any> {
 }
 
 /**
+ * The lifecycle state of one client connection: a data adapter's link to its
+ * server, or a realtime socket. `@object-ui/data-objectstack`'s adapter reports
+ * it through `getConnectionState()` / `onConnectionStateChange`, and
+ * `@object-ui/collaboration`'s `useRealtimeSubscription` returns it as
+ * `connectionState`. Both packages re-export this one declaration under the
+ * same name.
+ *
+ * Declared here once (objectui#6349, batch 10). Those two packages each used to
+ * declare the same five states, and neither depends on the other, so the one
+ * authority sits in this package, which both already depend on.
+ */
+export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
+
+/**
  * How each incoming import row is committed against existing data. Imported from
  * `@objectstack/spec/api` at the top of this module.
  * - `insert` — always create a new record (default; ignores `matchFields`)

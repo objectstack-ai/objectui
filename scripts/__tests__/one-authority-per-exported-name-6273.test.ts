@@ -456,7 +456,15 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // functions). Neither package's built entry exports the name. RENAME branch:
   // the designer's declaration now spells `DesignerConfirmDialogState`
   // (objectui#6349, batch 6).
-  ['ConnectionState', ['packages/collaboration/src/useRealtimeSubscription.ts', 'packages/data-objectstack/src/index.ts']],
+  // `ConnectionState` sat here, colliding between
+  // `packages/collaboration/src/useRealtimeSubscription.ts` and
+  // `packages/data-objectstack/src/index.ts`. One vocabulary declared twice:
+  // the same five states, type-equal on both built entries — the realtime
+  // socket's state and the data adapter's. Neither package depends on the
+  // other, so neither could re-point at the other without a new dependency.
+  // Both depend on `@object-ui/types`, so the ONE declaration moved down there
+  // (`data.ts`, beside `DataSource`) and both sites now RE-EXPORT it; both
+  // package roots still publish the name (objectui#6349, batch 10).
   ['DataSource', ['packages/app-shell/src/types.ts', 'packages/types/src/data.ts']],
   // `Diagnostic` sat here with THREE sites and three meanings:
   // `packages/sdui-parser/src/types.ts` (a parser finding: `severity`, `code`,

@@ -478,6 +478,36 @@ enable, or disable packages; direct `/metadata/package` links redirect there.
 The Studio sidebar also flattens the root Overview group so Home and package
 navigation sit directly under the package selector.
 
+### The Setup catalog: the environment scope (`?scope=environment`)
+
+Positions and permission sets live in the environment registry (objectstack
+ADR-0131 D3), and Setup lists that registry (D7). Setup does not add a page
+family for them: it uses the same metadata-admin list and editors at
+`…/metadata/position` and `…/metadata/permission`, with the query parameter
+`scope=environment` (`ENVIRONMENT_SCOPE_QUERY`, from
+`views/metadata-admin/catalog-scope.ts`). The scope changes three things:
+
+- **The list** shows every item the registry serves for the type, the
+  platform's own sets included. It is not narrowed to one project package.
+  Every link it emits keeps the scope, and so does the editor's breadcrumb.
+- **The gates.** A caller without `manage_metadata` gets no create affordance
+  and a read-only editor, and the page says why in the deployment's own terms.
+  Under `single` the platform administrator defines these items. Under a wall
+  the operator defines them in Studio. In both cases the organization assigns
+  them. The editors apply the caller gate in every scope, because the metadata
+  door refuses that caller's save in every scope.
+- **The Setup half of an item.** It renders under the definition: a permission
+  set's holders (`AssignedUsersSection`), and a position's holders
+  (`PositionHoldersSection`). Both read and write assignment rows by the
+  item's name.
+
+The list has an active switch and an active/inactive filter. Both read the
+catalog row's `active` flag through `catalog-activation.ts`, which is the only
+module on these pages that reads or writes a catalog row. They do so until the
+server's activation ledger accepts `permission` and `position`. Capabilities
+are not in this scope yet: `GET /api/v1/meta/capability` serves the
+capabilities that packages declare, but not the platform's own.
+
 ### Package-less flows (`/studio/~org/automations`)
 
 A flow that belongs to no package — a clone of a packaged flow is one, by

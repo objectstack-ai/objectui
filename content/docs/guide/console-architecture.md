@@ -98,6 +98,14 @@ full list:
 Read those two route trees in the source rather than trusting a hand-copied table to stay
 current.
 
+The Setup catalog for positions and permission sets is not a separate route family. It is
+the metadata-admin list and editor with the query parameter `scope=environment`, for
+example `/apps/setup/metadata/permission?scope=environment`. That scope lists every item
+the registry serves for the type and adds the Setup half of an item, which is who holds
+it. The console's legacy `system/roles`, `system/positions` and `system/permissions`
+URLs forward there. The `@object-ui/app-shell` README describes the scope under "The
+Setup catalog".
+
 | Route Pattern | Component | Purpose |
 |---------------|-----------|---------|
 | `/apps/:appName` | Home redirect | Redirects to the first object in navigation |

@@ -126,7 +126,7 @@ async function clickNotification(n: InboxNotification) {
       notifications={[n]}
       unreadCount={1}
       pendingApprovalsCount={0}
-      activities={[]}
+      activity={{ value: [], status: 'ready', readable: true }}
       onMarkAllRead={vi.fn()}
       onMarkRead={markRead}
     />,

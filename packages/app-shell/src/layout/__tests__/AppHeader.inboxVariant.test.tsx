@@ -204,6 +204,11 @@ const ACTIVITY_ROW = {
 
 /** What the fake `sys_activity` collection holds for the current test. */
 let activityRows: Array<Record<string, unknown>> = [];
+/**
+ * What the fake `sys_activity` read rejects with instead, when set — the
+ * objectui#12081 block uses it for the server's own `403` (a stale grant).
+ */
+let activityError: unknown = null;
 
 /**
  * What the fake `sys_notification_receipt` collection holds. `null` keeps the
@@ -230,7 +235,9 @@ const fakeAdapter = {
         data: receiptRows ?? (inboxRows.length ? [DELIVERED_RECEIPT] : []),
       });
     }
-    if (object === 'sys_activity') return Promise.resolve({ data: activityRows });
+    if (object === 'sys_activity') {
+      return activityError ? Promise.reject(activityError) : Promise.resolve({ data: activityRows });
+    }
     return Promise.resolve({ data: [] });
   },
   getClient: () => undefined,
@@ -240,6 +247,7 @@ vi.mock('../../providers/AdapterProvider', () => ({
   useAdapter: () => fakeAdapter,
 }));
 
+import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
 import { AppHeader } from '../AppHeader';
 import { useHomeInbox } from '../../hooks/useHomeInbox';
 import { __resetSharedUserFeeds } from '../../hooks/sharedUserFeeds';
@@ -254,6 +262,7 @@ beforeEach(() => {
   // Default: no activity, no approvals — so the #4110 cases above keep the
   // exact badge arithmetic they were written against (approvals addend 0).
   activityRows = [];
+  activityError = null;
   approvalRows = [];
   receiptRows = null;
   // Drop the shared feeds' cache and poll timer so cases do not inherit each
@@ -421,14 +430,14 @@ describe('AppHeader — Approvals + Activity fill in every variant (#4197)', () 
  * the same commit — the duplicate-read site the card called out.
  */
 function HomeTodoCardProbe() {
-  const { pendingApprovalsCount, activities } = useHomeInbox();
+  const { pendingApprovalsCount, activity } = useHomeInbox();
   return (
     // Fenced off with a testid so the assertions below can tell the card's
     // copy of a row apart from the bell's — when the fix works, BOTH render
     // the same text and an unscoped `getByText` is ambiguous by construction.
     <div data-testid="home-cards">
       <span data-testid="home-approvals-count">{pendingApprovalsCount}</span>
-      <span data-testid="home-activity-summary">{activities[0]?.description ?? ''}</span>
+      <span data-testid="home-activity-summary">{activity.value[0]?.description ?? ''}</span>
     </div>
   );
 }
@@ -752,5 +761,108 @@ describe('AppHeader — the bell panel renders what the inbox returns, under BOT
     );
     expect(screen.getByText('Approval reminder: INV-1008')).toBeInTheDocument();
     expect(screen.queryByText("You're all caught up")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * objectui#12081 item 8 — the bell's Activity tab asked `sys_activity` for
+ * every signed-in user, and every non-admin was answered `403`.
+ *
+ * The `403` is OBJECT-level, not a row filter a narrower query could pass:
+ * objectstack's `member_default` set names `sys_activity` deliberately NOT
+ * (its own comment says so), and the server already narrows the rows of an
+ * admitted read to the records the caller can open. So no scoped query gets a
+ * caller without the object grant any rows, and the record Discussion tab's
+ * activity half is refused for that caller too — the tab renders its refusal
+ * state there (objectui#11195). The honest answer here is the one the shell
+ * already gives for an object the deployment lacks: decide BEFORE asking.
+ *
+ * What the user saw was the second defect: the `403` went to `markFailed()`,
+ * the store said `error`, and the hook handed its consumers `.value` alone —
+ * the empty array — so the tab read "No recent activity". A denial dressed
+ * as an answer, the #4235 shape on another feed.
+ *
+ * Real `AppHeader`, real shared feed, real `MePermissionsProvider` with the
+ * payload `/auth/me/permissions` serves. The settle point is the inbox row:
+ * the inbox read goes out on both sides of this change, so an ABSENCE asserted
+ * after it is an absence and not a tree that has not run yet.
+ */
+describe('AppHeader — the Activity tab asks only a caller who may read sys_activity (objectui#12081)', () => {
+  /** `/auth/me/permissions` for an authenticated member — `member_default`'s two inbox reads, no `*`. */
+  const MEMBER: MePermissionsResponse = {
+    authenticated: true,
+    userId: 'u1',
+    tenantId: null,
+    roles: [],
+    permissionSets: ['member_default'],
+    objects: {
+      sys_inbox_message: { allowRead: true, allowCreate: false, allowEdit: false, allowDelete: false },
+      sys_notification_receipt: { allowRead: true, allowCreate: false, allowEdit: false, allowDelete: false },
+    },
+    fields: {},
+  };
+  /** The same member, plus an app set that grants read on `sys_activity`. */
+  const ACTIVITY_READER: MePermissionsResponse = {
+    ...MEMBER,
+    objects: {
+      ...MEMBER.objects,
+      sys_activity: { allowRead: true, allowCreate: false, allowEdit: false, allowDelete: false },
+    },
+  };
+
+  const renderBell = (perms: MePermissionsResponse) =>
+    render(
+      <MePermissionsProvider initialPermissions={perms}>
+        <AppHeader variant="home" />
+      </MePermissionsProvider>,
+    );
+
+  beforeEach(() => {
+    activityRows = [ACTIVITY_ROW];
+  });
+
+  it('a member without the grant issues no sys_activity request and is not told "No recent activity"', async () => {
+    renderBell(MEMBER);
+
+    expect(await screen.findByText('Contract expiring: Zhang San')).toBeInTheDocument();
+    expect(activityReads()).toHaveLength(0);
+    // The tab is not offered at all — neither its trigger, nor an empty state
+    // that would assert something about rows the caller may not read, nor a
+    // drill into a list page that answers this caller 403.
+    expect(screen.queryByText('Activity feed')).not.toBeInTheDocument();
+    expect(screen.queryByText('No recent activity')).not.toBeInTheDocument();
+    expect(screen.queryByText('View all activity')).not.toBeInTheDocument();
+  });
+
+  it('a caller holding the grant still gets the feed (the control)', async () => {
+    renderBell(ACTIVITY_READER);
+
+    expect(await screen.findByText('updated Contract C-1')).toBeInTheDocument();
+    expect(activityReads()).toHaveLength(1);
+    expect(screen.getByText('Activity feed')).toBeInTheDocument();
+    expect(screen.queryByText('No recent activity')).not.toBeInTheDocument();
+  });
+
+  it('a 403 from the server (a stale grant) reads as failed, never as "No recent activity"', async () => {
+    activityError = Object.assign(new Error("operation 'find' on object 'sys_activity' is not permitted"), {
+      httpStatus: 403,
+      code: 'PERMISSION_DENIED',
+    });
+    renderBell(ACTIVITY_READER);
+
+    await waitFor(() => expect(activityReads()).toHaveLength(1));
+    expect(await screen.findByTestId('inbox-activity-unanswered')).toHaveTextContent(
+      'An unexpected error occurred.',
+    );
+    expect(screen.queryByText('No recent activity')).not.toBeInTheDocument();
+  });
+
+  it('a genuinely empty feed still says so — the empty copy is earned, not retired', async () => {
+    activityRows = [];
+    renderBell(ACTIVITY_READER);
+
+    await waitFor(() => expect(activityReads()).toHaveLength(1));
+    expect(await screen.findByText('No recent activity')).toBeInTheDocument();
+    expect(screen.queryByTestId('inbox-activity-unanswered')).not.toBeInTheDocument();
   });
 });

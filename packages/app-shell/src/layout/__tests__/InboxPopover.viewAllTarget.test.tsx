@@ -108,7 +108,7 @@ function renderPopover(props: Partial<React.ComponentProps<typeof InboxPopover>>
       notifications={props.notifications ?? []}
       unreadCount={props.unreadCount ?? 0}
       pendingApprovalsCount={props.pendingApprovalsCount ?? 0}
-      activities={props.activities ?? []}
+      activity={props.activity ?? { value: [], status: 'ready', readable: true }}
       onMarkAllRead={props.onMarkAllRead ?? vi.fn()}
       onMarkRead={props.onMarkRead ?? vi.fn()}
     />,

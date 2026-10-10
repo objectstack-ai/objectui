@@ -3566,6 +3566,11 @@ const pt = {
       localMarketplaceUnavailable: "Este runtime não tem OS_CLOUD_URL configurado.",
       updateTo: "Atualizar → v{{version}}",
       installedVersion: "Instalado v{{version}}",
+      deploying: "Implantando o aplicativo…",
+      deployed: "O aplicativo foi implantado e está pronto.",
+      openApp: "Abrir {{name}}",
+      deployTimeout: "A instalação foi registrada, mas este ambiente ainda não está servindo o aplicativo. Ele pode ainda estar sendo implantado — verifique novamente em instantes. Se nunca aparecer, o pacote pode não ter sido carregado, pode não incluir nenhum aplicativo ou o aplicativo pode exigir uma permissão que você não tem.",
+      checkAgain: "Verificar novamente",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

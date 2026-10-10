@@ -35,8 +35,9 @@ import {
 } from '@object-ui/components';
 import { ArrowLeft, ExternalLink, Download, AlertCircle, Package, Trash2, MoreHorizontal, CheckCircle2, ArrowUpCircle, Database, Loader2 } from 'lucide-react';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { useDisplayLocale } from '@object-ui/i18n';
+import { useAdapter } from '@object-ui/react';
 import { PackageIcon } from './PackageIcon.js';
 import { MarkdownText } from './MarkdownText.js';
 import { PluginDisclosure } from './PluginDisclosure.js';
@@ -65,12 +66,39 @@ import {
   type LocalInstallNotLoaded,
   type CloudInstallationInfo,
 } from './marketplaceApi.js';
-import { getRuntimeConfig, isMarketplaceEnabled } from '../../runtime-config.js';
+import { getCloudBase, getRuntimeConfig, isMarketplaceEnabled } from '../../runtime-config.js';
 import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
-import { useMetadata } from '../../providers/MetadataProvider.js';
+import { extractItems, useMetadata } from '../../providers/MetadataProvider.js';
+import { appRouteSegment, filterActiveApps, resolveKeyedI18nLabel } from '../../utils/index.js';
+import { waitForServedApp, type ServedApp } from './waitForServedApp.js';
 import { SuggestedBindingsPanel, type SuggestedBindingsStrings } from '../../components/SuggestedBindingsPanel.js';
 import type { SuggestedBinding } from '../../services/suggestedBindingsApi.js';
 import { errorCodeIs } from '@object-ui/types';
+
+/**
+ * Whether a cloud install lands in the environment this console renders, read
+ * off the same two facts `installPackage` routes on. With a cloud base the
+ * install goes through the same-origin `/cloud-connection/install` proxy, which
+ * installs into the environment the HOSTNAME names and never reads the picked
+ * id. Without one it goes to the control plane for the picked environment,
+ * which is this one only when the runtime named it as its own.
+ */
+function installLandsInThisEnvironment(selectedEnv: string): boolean {
+  if (getCloudBase()) return true;
+  const currentEnvId = getRuntimeConfig().defaultEnvironmentId;
+  return !!currentEnvId && currentEnvId === selectedEnv;
+}
+
+/**
+ * objectui#12087 — after an install into THIS environment, the page waits for
+ * the runtime to serve the package's app before it refreshes the metadata
+ * cache. `served` carries the first app of the package a user can open, or
+ * `null` when every one is inactive or hidden.
+ */
+type DeployState =
+  | { phase: 'waiting'; manifestId: string }
+  | { phase: 'served'; manifestId: string; app: ServedApp | null }
+  | { phase: 'timeout'; manifestId: string };
 
 export function MarketplacePackagePage() {
   const navigate = useNavigate();
@@ -97,6 +125,10 @@ export function MarketplacePackagePage() {
   };
   const basePath = appName ? `/apps/${appName}` : '';
   const { refresh: refreshMetadata } = useMetadata();
+  // The adapter `MetadataProvider` reads through: the deploy wait asks the
+  // same `GET /meta/app` the cache would, without the cache persisting it.
+  const adapter = useAdapter();
+  const { appLabel } = useObjectLabel();
   // The runtime's own answer, read once per render -- the same read the
   // catalog page makes (objectui#5504). `false` means this runtime mounts no
   // marketplace at all, so there is no package to fetch and nothing to
@@ -139,6 +171,7 @@ export function MarketplacePackagePage() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [installResult, setInstallResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [deploy, setDeploy] = useState<DeployState | null>(null);
   // Tracks whether the package has been installed into the current
   // environment via the cloud install path. Used to flip the primary
   // CTA from "Install to Cloud" → "Installed" so the user gets
@@ -307,6 +340,56 @@ export function MarketplacePackagePage() {
     }
   };
 
+  /**
+   * objectui#12087 — wait until this environment serves the installed
+   * package's app, and only then refresh and persist the metadata cache.
+   *
+   * The cache persists every `app` list it fetches (the tab's sessionStorage
+   * seed) and keeps it in memory with no re-read of its own, so a refresh that
+   * lands while the runtime still serves the pre-install kernel fixes the
+   * pre-install list in place: the install "succeeded" and the app never
+   * appeared. The wait reads `GET /meta/app` past the cache instead, and the
+   * refresh, the seed drop and the bus pulse all wait for it. On expiry nothing
+   * is refreshed, and the page says the app has not appeared rather than that
+   * the install succeeded.
+   */
+  const awaitServedInstall = async (manifestId: string) => {
+    setDeploy({ phase: 'waiting', manifestId });
+    const wait = await waitForServedApp({
+      manifestId,
+      readApps: async () => {
+        if (!adapter) throw new Error('No data adapter to read the app list through');
+        return extractItems(await adapter.getClient().meta.getItems('app'));
+      },
+    });
+    if (!wait.served) {
+      setDeploy({ phase: 'timeout', manifestId });
+      return;
+    }
+    // Invalidate the metadata cache so the newly-installed app's
+    // objects/views/menus are fetched fresh on next access, not only the
+    // `app` list: otherwise a menu entry of the new app fails with "metadata
+    // not found" against objects/views cached from before the install.
+    try {
+      // Drop the persisted seed too — refresh() overwrites it when the new
+      // list comes back, but clearing first protects against a partial
+      // failure leaving the pre-install list for the next reload.
+      if (typeof sessionStorage !== 'undefined') {
+        for (const key of Object.keys(sessionStorage)) {
+          if (key.startsWith('objectui:metadata:')) {
+            sessionStorage.removeItem(key);
+          }
+        }
+      }
+      await refreshMetadata();
+    } catch {
+      // Non-fatal: the app is served; worst case the user navigates away and
+      // back to pick up the new metadata.
+    }
+    emitMetadataRefresh();
+    setDeploy({ phase: 'served', manifestId, app: filterActiveApps(wait.apps)[0] ?? null });
+  };
+
   const doInstall = async () => {
     if (!packageId || !selectedEnv) return;
     setInstalling(true);
@@ -332,36 +415,18 @@ export function MarketplacePackagePage() {
           if (info) setCloudInstall(info);
         }
       } catch { /* non-fatal */ }
-      // Invalidate the metadata cache so the newly-installed app's
-      // objects/views/menus are fetched fresh on next access. Without
-      // this the user sees the new app in the switcher (the `app` list
-      // gets refreshed) but clicking a menu entry fails with "metadata
-      // not found" because objects/views/etc. are still cached from
-      // before the install. Only useful when installing into the env
-      // currently rendered by this SPA — for cross-env installs the
-      // refresh is a harmless no-op (re-fetches the current env's
-      // metadata, which is unchanged).
-      const currentEnvId = getRuntimeConfig().defaultEnvironmentId;
-      if (!currentEnvId || currentEnvId === selectedEnv) {
-        try {
-          // Drop the persisted `app` cache too — refresh() overwrites it
-          // when the new app list comes back, but clearing first protects
-          // against partial failures leaving stale data on next reload.
-          if (typeof sessionStorage !== 'undefined') {
-            for (const key of Object.keys(sessionStorage)) {
-              if (key.startsWith('objectui:metadata:')) {
-                sessionStorage.removeItem(key);
-              }
-            }
-          }
-          await refreshMetadata();
-        } catch {
-          // Non-fatal: install succeeded; worst case the user navigates
-          // away and back to pick up the new metadata.
-        }
+      if (installLandsInThisEnvironment(selectedEnv) && data) {
+        // objectui#12087 — the runtime answers this install while it still
+        // serves the PRE-install kernel, so nothing is refreshed yet: the wait
+        // below refreshes once the package's app is served. Not awaited, and
+        // not cancelled on unmount: an operator who leaves this page while the
+        // app deploys still gets the refreshed cache when it lands.
+        void awaitServedInstall(data.package.manifest_id);
+      } else {
+        // Another environment: nothing this console renders changed, so there
+        // is nothing here to wait for or to refresh.
+        setInstallResult({ ok: true, message: t('marketplace.install.success') });
       }
-      setInstallResult({ ok: true, message: t('marketplace.install.success') });
-      emitMetadataRefresh();
     } catch (e: any) {
       setInstallResult({ ok: false, message: e?.message ?? String(e) });
     } finally {
@@ -670,6 +735,55 @@ export function MarketplacePackagePage() {
       </button>
     </div>
   );
+  // objectui#12087 — the install-into-this-environment status, from the
+  // install answering until its app is served (or the wait expires). Drawn in
+  // the install dialog while it is open and on the page once it is closed, so
+  // closing the dialog does not hide what is still happening.
+  const deployApp = deploy?.phase === 'served' ? deploy.app : null;
+  const deployNote = deploy && (
+    <div
+      role="status"
+      data-testid="install-deploy-status"
+      className={`flex items-start gap-2 rounded-md border p-3 text-sm ${
+        deploy.phase === 'served'
+          ? 'border-green-500/30 bg-green-500/5 text-green-700 dark:text-green-400'
+          : deploy.phase === 'timeout'
+            ? 'border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400'
+            : 'border-border bg-muted/40 text-foreground'
+      }`}
+    >
+      {deploy.phase === 'waiting'
+        ? <Loader2 className="h-4 w-4 mt-0.5 shrink-0 animate-spin" aria-hidden="true" />
+        : deploy.phase === 'served'
+          ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
+          : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />}
+      <div className="flex-1 space-y-2">
+        <div>
+          {deploy.phase === 'waiting'
+            ? t('marketplace.install.deploying')
+            : deploy.phase === 'served'
+              ? t('marketplace.install.deployed')
+              : t('marketplace.install.deployTimeout')}
+        </div>
+        {deployApp && appRouteSegment(deployApp) ? (
+          <Button size="sm" onClick={() => navigate(`/apps/${appRouteSegment(deployApp)}`)}>
+            {t('marketplace.install.openApp', {
+              name: appLabel({
+                name: String(deployApp.name ?? appRouteSegment(deployApp)),
+                label: resolveKeyedI18nLabel(deployApp.label, t),
+              }),
+            })}
+          </Button>
+        ) : null}
+        {deploy.phase === 'timeout' ? (
+          <Button size="sm" variant="outline" onClick={() => void awaitServedInstall(deploy.manifestId)}>
+            {t('marketplace.install.checkAgain')}
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+
   // `suggestFor` is the manifest id whose suggested audience bindings a
   // successful local INSTALL surfaces (ADR-0090 D5), or `null` where no install
   // door is drawn and the only result this banner can carry is an uninstall's.
@@ -956,6 +1070,8 @@ export function MarketplacePackagePage() {
 
       {sampleDataNote}
 
+      {!installOpen && deployNote}
+
       {localResultNote(pkg.manifest_id)}
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -1111,17 +1227,20 @@ export function MarketplacePackagePage() {
             </div>
           )}
 
-          {installResult && (
+          {deployNote || (installResult && (
             <div className={`rounded-md border p-3 text-sm ${installResult.ok ? 'border-green-500/30 bg-green-500/5 text-green-700' : 'border-destructive/30 bg-destructive/5 text-destructive'}`}>
               {installResult.message}
             </div>
-          )}
+          ))}
 
           {/* ADR-0090 D5 — after a successful install into THIS runtime,
               surface the package's suggested audience bindings for the admin
               to confirm or dismiss (the server never auto-binds). Cross-env
-              installs are resolved from that env's own Studio instead. */}
-          {installResult?.ok === true
+              installs are resolved from that env's own Studio instead.
+              objectui#12087 — mounted once the app is SERVED: the panel reads
+              this runtime once, on mount, and before that the runtime still
+              serves the kernel from before the install. */}
+          {deploy?.phase === 'served'
             && getRuntimeConfig().defaultEnvironmentId
             && getRuntimeConfig().defaultEnvironmentId === selectedEnv && (
             <SuggestedBindingsPanel packageId={pkg.manifest_id} strings={suggestionStrings} />
@@ -1132,7 +1251,7 @@ export function MarketplacePackagePage() {
             {!envsError && (
               <Button
                 onClick={doInstall}
-                disabled={!selectedEnv || installing || installResult?.ok === true || (containsCode && !acknowledged)}
+                disabled={!selectedEnv || installing || installResult?.ok === true || deploy !== null || (containsCode && !acknowledged)}
               >
                 {installing ? t('marketplace.action.installing') : t('marketplace.action.install')}
               </Button>

@@ -3510,6 +3510,11 @@ const ja = {
       localMarketplaceUnavailable: "このランタイムにはOS_CLOUD_URLが設定されていないため、マーケットプレイスカタログにアクセスできません。",
       updateTo: "更新 → v{{version}}",
       installedVersion: "インストール済み v{{version}}",
+      deploying: "アプリをデプロイしています…",
+      deployed: "アプリのデプロイが完了しました。",
+      openApp: "{{name}} を開く",
+      deployTimeout: "インストールは記録されましたが、この環境ではまだアプリが提供されていません。デプロイ中の可能性があります。しばらくしてから再確認してください。表示されない場合は、パッケージが読み込まれていない、アプリが含まれていない、またはアプリにあなたが持っていない権限が必要な可能性があります。",
+      checkAgain: "再確認",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

@@ -3648,6 +3648,11 @@ const zh = {
         localMarketplaceUnavailable: '本运行时未配置 OS_CLOUD_URL，无法访问应用市场目录。',
         updateTo: '更新 → v{{version}}',
         installedVersion: '已安装 v{{version}}',
+        deploying: '正在部署应用…',
+        deployed: '应用已部署完成。',
+        openApp: '打开 {{name}}',
+        deployTimeout: '安装已记录，但当前环境尚未提供该应用。它可能仍在部署中，请稍后再次检查。如果一直没有出现，可能是软件包未能加载、不包含应用，或其应用需要你尚未拥有的权限。',
+        checkAgain: '再次检查',
       },
       // objectui#3546 — the MarketplacePage "Your organization" strip.
       org: {

@@ -3508,6 +3508,11 @@ const de = {
       localMarketplaceUnavailable: "Dieses Laufzeitsystem hat keine OS_CLOUD_URL konfiguriert.",
       updateTo: "Aktualisieren → v{{version}}",
       installedVersion: "Installiert v{{version}}",
+      deploying: "App wird bereitgestellt…",
+      deployed: "Die App ist bereitgestellt und einsatzbereit.",
+      openApp: "{{name}} öffnen",
+      deployTimeout: "Die Installation wurde erfasst, aber diese Umgebung stellt die App noch nicht bereit. Die Bereitstellung läuft möglicherweise noch – prüfen Sie es gleich erneut. Erscheint sie nie, wurde das Paket womöglich nicht geladen, enthält keine App, oder die App erfordert eine Berechtigung, die Ihnen fehlt.",
+      checkAgain: "Erneut prüfen",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

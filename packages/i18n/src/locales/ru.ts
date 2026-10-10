@@ -3658,6 +3658,11 @@ const ru = {
       localMarketplaceUnavailable: "OS_CLOUD_URL не настроен.",
       updateTo: "Обновить → v{{version}}",
       installedVersion: "Установлено v{{version}}",
+      deploying: "Развёртывание приложения…",
+      deployed: "Приложение развёрнуто и готово к работе.",
+      openApp: "Открыть {{name}}",
+      deployTimeout: "Установка записана, но эта среда пока не предоставляет приложение. Возможно, развёртывание ещё идёт — проверьте снова чуть позже. Если оно так и не появится, пакет мог не загрузиться, не содержать приложения или требовать разрешение, которого у вас нет.",
+      checkAgain: "Проверить снова",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

@@ -15,7 +15,7 @@ const fields = {
   locked_note: { type: 'text', label: '锁定备注', readonly: true },
 };
 
-const permsAllowing = (allow: (field: string, op: 'read' | 'write') => boolean): ImportFieldPerms => ({
+const permsAllowing = (allow: (field: string, op: 'read' | 'write' | 'create') => boolean): ImportFieldPerms => ({
   isLoaded: true,
   checkField: (_obj, field, op) => allow(field, op),
 });
@@ -44,10 +44,12 @@ describe('importTargetFields', () => {
     expect(names).not.toContain('child_sum');
   });
 
-  it('match-only targets are gated on FLS read; write targets on FLS write', () => {
-    // Reader who cannot write `name` and cannot read `locked_note`.
+  it('match-only targets are gated on FLS read; write targets on the FLS insert question', () => {
+    // Reader who cannot write `name` and cannot read `locked_note`. An explicit
+    // field-level refusal answers the insert question (`create`) and the update
+    // one (`write`) alike, so the stub refuses both.
     const out = importTargetFields('device', fields, permsAllowing((field, op) =>
-      op === 'write' ? field === 'slot' : field !== 'locked_note',
+      op === 'read' ? field !== 'locked_note' : field === 'slot',
     ));
     const names = out.map((f) => f.name);
     expect(names).toContain('slot'); // writable
@@ -56,6 +58,23 @@ describe('importTargetFields', () => {
     // `name` lost write access → degrades to a match-only (readable) target
     // rather than disappearing: it can still locate rows.
     expect(out.find((f) => f.name === 'name')).toMatchObject({ matchOnly: true, required: false });
+  });
+
+  it('objectui#12082: write targets ask the create question — a create-only caller keeps them', () => {
+    // A create-only grant with no field entries: the resolver answers `create`
+    // from `allowCreate` and `write` from `allowEdit`. Import inserts, and the
+    // Import affordance is itself gated on the create grant, so every
+    // insertable field stays a write target. Asking `write` here left this
+    // caller an Import wizard whose every target was match-only.
+    const createOnly = permsAllowing((_field, op) => op !== 'write');
+    const out = importTargetFields('device', fields, createOnly);
+    const byName = Object.fromEntries(out.map((f) => [f.name, f]));
+    expect(byName.name).toMatchObject({ required: true });
+    expect(byName.name.matchOnly).toBeUndefined();
+    expect(byName.slot.matchOnly).toBeUndefined();
+    // CONTROL — the edit-only mirror image loses them: `write` held, `create` refused.
+    const editOnly = importTargetFields('device', fields, permsAllowing((_field, op) => op !== 'create'));
+    expect(editOnly.find((f) => f.name === 'name')).toMatchObject({ matchOnly: true, required: false });
   });
 
   it('without a loaded perms channel, falls back to schema-only derivation', () => {

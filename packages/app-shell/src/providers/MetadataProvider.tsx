@@ -11,13 +11,7 @@ import { ActiveOrganizationStorage, TokenStorage, useAuth } from '@object-ui/aut
 import { type ObjectStackAdapter } from '@object-ui/data-objectstack';
 import { normalizeSchemaReferenceKeys } from '@object-ui/core';
 import { resolveInlineMode } from '@object-ui/plugin-form';
-import {
-  MetadataCtx,
-  useMetadata,
-  type MetadataContextValue,
-  type MetadataCacheState,
-  type MetadataTypeStatus,
-} from '@object-ui/react';
+import { MetadataCtx, useMetadata, type MetadataContextValue, type MetadataCacheState, type MetadataTypeStatus } from '@object-ui/react';
 import { usePreviewDrafts } from '../preview/PreviewModeContext.js';
 import { createConsoleMetadataClient } from '../views/metadata-admin/metadataClientFactory.js';
 import { subscribeCanvasInvalidate, subscribeMetadataRefresh } from '../assistant/assistantBus.js';

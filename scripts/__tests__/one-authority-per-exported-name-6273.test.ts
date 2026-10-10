@@ -456,7 +456,15 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // functions). Neither package's built entry exports the name. RENAME branch:
   // the designer's declaration now spells `DesignerConfirmDialogState`
   // (objectui#6349, batch 6).
-  ['ConnectionState', ['packages/collaboration/src/useRealtimeSubscription.ts', 'packages/data-objectstack/src/index.ts']],
+  // `ConnectionState` sat here, colliding between
+  // `packages/collaboration/src/useRealtimeSubscription.ts` and
+  // `packages/data-objectstack/src/index.ts`. One vocabulary declared twice:
+  // the same five states, type-equal on both built entries — the realtime
+  // socket's state and the data adapter's. Neither package depends on the
+  // other, so neither could re-point at the other without a new dependency.
+  // Both depend on `@object-ui/types`, so the ONE declaration moved down there
+  // (`data.ts`, beside `DataSource`) and both sites now RE-EXPORT it; both
+  // package roots still publish the name (objectui#6349, batch 10).
   ['DataSource', ['packages/app-shell/src/types.ts', 'packages/types/src/data.ts']],
   // `Diagnostic` sat here with THREE sites and three meanings:
   // `packages/sdui-parser/src/types.ts` (a parser finding: `severity`, `code`,
@@ -566,7 +574,18 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // depends on the other. RENAME branch: the dashboard's declaration now spells
   // `DashboardRecordDetailDrawerProps` (objectui#6349, batch 8).
   ['SchemaNode', ['packages/sdui-parser/src/types.ts', 'packages/types/src/base.ts']],
-  ['ThemeProviderProps', ['packages/providers/src/types.ts', 'packages/react/src/context/ThemeContext.tsx']],
+  // `ThemeProviderProps` sat here, colliding between
+  // `packages/providers/src/types.ts` and
+  // `packages/react/src/context/ThemeContext.tsx`. Two providers, not one
+  // drifted shape: react's is its theme-system `ThemeProvider` (`themes`
+  // documents, a theme-NAME `defaultTheme`, `defaultMode`, `persist`,
+  // `target`), and providers' a mode-only provider whose `defaultTheme` is the
+  // mode itself (a `ThemePreference`). Neither package depends on the other.
+  // RENAME branch: providers' declaration now spells
+  // `ThemePreferenceProviderProps`, and the providers root publishes that name
+  // instead; react keeps the general one. The two `ThemeProvider` components
+  // keep their names — value names are outside this gate's bound
+  // (objectui#6349, batch 10).
   // `TranslateFn` sat here — i18next's `t` narrowed to `(key, options?) => string`,
   // declared BYTE-IDENTICALLY in three files (one sha256 across the three).
   // objectui#8165 re-pointed `packages/app-shell/src/providers/saveAdvisoryToast.ts`
@@ -607,7 +626,16 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // existed. RENAME branch again: field-types' declaration now spells
   // `FieldValidationFunction`, the name `src/index.ts` always published it under
   // (objectui#6349).
-  ['VersionEntry', ['packages/collaboration/src/useConflictResolution.ts', 'packages/plugin-designer/src/components/VersionHistory.tsx']],
+  // `VersionEntry` sat here, colliding between
+  // `packages/collaboration/src/useConflictResolution.ts` and
+  // `packages/plugin-designer/src/components/VersionHistory.tsx`. Two meanings
+  // that share `version`, `timestamp`, `userId` and `userName`: collaboration's
+  // is a version its conflict-resolution hook RECORDS (an `id` and a per-field
+  // `changes` diff that revert and compare replay), the designer's a row its
+  // `VersionHistory` timeline DISPLAYS (a prose `description`, `isCurrent`).
+  // Neither package depends on the other, and only collaboration's entry
+  // exports the name. RENAME branch: the designer's declaration now spells
+  // `VersionHistoryEntry` (objectui#6349, batch 10).
   // `ViewSwitcherProps` sat here, colliding between
   // `packages/plugin-list/src/ViewSwitcher.tsx` and
   // `packages/plugin-view/src/ViewSwitcher.tsx`. Two switchers, not one:

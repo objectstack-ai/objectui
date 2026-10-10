@@ -16,7 +16,18 @@ function cn(...inputs: (string | undefined | false)[]) {
   return twMerge(clsx(inputs));
 }
 
-export interface VersionEntry {
+/**
+ * One row of the {@link VersionHistory} timeline.
+ *
+ * Named `VersionHistoryEntry`, not `VersionEntry` (objectui#6349, batch 10).
+ * `@object-ui/collaboration` publishes a `VersionEntry` with a different
+ * meaning: a version its `useConflictResolution` hook RECORDS, with an `id`
+ * and a per-field `changes` diff that `revertToVersion` and `compareVersions`
+ * read. This is a display row instead: a prose `description` and an
+ * `isCurrent` flag, with no diff. This package's entry never exported the
+ * old name, so the rename moves no import.
+ */
+export interface VersionHistoryEntry {
   /** Version number */
   version: number;
   /** Timestamp */
@@ -33,7 +44,7 @@ export interface VersionEntry {
 
 export interface VersionHistoryProps {
   /** Version entries */
-  versions: VersionEntry[];
+  versions: VersionHistoryEntry[];
   /** Called when user wants to restore a version */
   onRestore?: (version: number) => void;
   /** CSS class */

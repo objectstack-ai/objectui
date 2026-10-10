@@ -40,7 +40,20 @@ export interface MetadataProviderProps {
  */
 export type ThemePreference = ThemeMode | 'system';
 
-export interface ThemeProviderProps {
+/**
+ * Props of this package's `ThemeProvider`, which stores one
+ * {@link ThemePreference} and applies it as the `light` / `dark` class.
+ *
+ * Named `ThemePreferenceProviderProps`, not `ThemeProviderProps`
+ * (objectui#6349, batch 10). `@object-ui/react` publishes a
+ * `ThemeProviderProps` with a different meaning: the props of its theme-system
+ * `ThemeProvider`, which registers whole `Theme` documents and turns the
+ * active one into CSS variables. There `defaultTheme` is a theme NAME and the
+ * mode is `defaultMode`; here `defaultTheme` is the mode itself. One exported
+ * name stood for both, so this, the narrower of the two, takes the specific
+ * name and react keeps the general one.
+ */
+export interface ThemePreferenceProviderProps {
   defaultTheme?: ThemePreference;
   storageKey?: string;
   children: ReactNode;

@@ -19,7 +19,7 @@ export {
 export type {
   DataSourceProviderProps,
   MetadataProviderProps,
-  ThemeProviderProps,
+  ThemePreferenceProviderProps,
   ThemePreference,
 } from './types.js';
 

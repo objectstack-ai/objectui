@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import type { ConnectionState } from '@object-ui/types';
 
 /**
  * WebSocket connection configuration for {@link useRealtimeSubscription}.
@@ -38,7 +39,13 @@ export interface RealtimeSubscriptionConfig {
   authToken?: string;
 }
 
-export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'error';
+/**
+ * The socket's connection state. Declared once in `@object-ui/types`, which
+ * `@object-ui/data-objectstack` re-exports too, for its adapter's connection
+ * (objectui#6349, batch 10); this package's entry keeps publishing it under
+ * the same name.
+ */
+export type { ConnectionState } from '@object-ui/types';
 
 export interface RealtimeMessage<T = unknown> {
   type: string;

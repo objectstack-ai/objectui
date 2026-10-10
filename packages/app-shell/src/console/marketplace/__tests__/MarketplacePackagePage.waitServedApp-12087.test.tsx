@@ -241,13 +241,13 @@ describe('MarketplacePackagePage waits for the installed app to be served (objec
     const open = await screen.findByRole('button', { name: '«marketplace.install.openApp:Acme CRM»' });
     expect(screen.getByTestId('install-deploy-status')).toHaveTextContent('«marketplace.install.deployed»');
 
-    // The wait slept through the stale reads, one interval each.
-    expect(sleeps).toEqual([20, 20, 20]);
     // The cache holds the installed app, in memory and in the persisted seed,
     // and no seed write after the install ever lacked it.
     await waitFor(() => expect(screen.getByTestId('apps').textContent).toBe('setup,crm_enterprise'));
-    expect(seedWrites.some((w) => w.afterInstall && w.hasApp)).toBe(true);
     expect(staleSeedWrites()).toEqual([]);
+    expect(seedWrites.some((w) => w.afterInstall && w.hasApp)).toBe(true);
+    // The wait slept through the stale reads, one interval each.
+    expect(sleeps).toEqual([20, 20, 20]);
 
     fireEvent.click(open);
     expect(navigate).toHaveBeenCalledWith(`/apps/${PKG}`);

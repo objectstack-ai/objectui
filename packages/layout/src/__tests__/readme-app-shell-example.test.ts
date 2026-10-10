@@ -66,10 +66,12 @@
  * `app-shell-docs-nav-example.test.ts`'s surface (objectui#4793), and pinning
  * the whole docs tree to source is objectui#3786's problem, not this one.
  *
- * Note also that `@object-ui/app-shell` exports a DIFFERENT `AppShellProps`
- * (`packages/app-shell/src/types.ts`) which really does declare `header` — that
- * is a separate component, and reading this one's key list off this one's source
- * is what keeps the two from being conflated again.
+ * Note also that `@object-ui/app-shell` exports a DIFFERENT props type for its
+ * own `AppShell`, `MinimalAppShellProps` (`packages/app-shell/src/types.ts`),
+ * which really does declare `header` — that is a separate component, and
+ * reading this one's key list off this one's source is what keeps the two from
+ * being conflated again. Until objectui#6349 (batch 9) it was also spelled
+ * `AppShellProps`.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -264,9 +266,9 @@ describe("the README's AppShell examples pass only props AppShellProps declares 
       [
         'An `<AppShell>` example in packages/layout/README.md is passing `header` again.',
         'That prop does not exist on this component (objectui#4817). Note that',
-        '`@object-ui/app-shell` exports a different `AppShellProps` which DOES declare',
-        '`header` — this README documents `@object-ui/layout`\'s, whose top-bar slot is',
-        '`navbar`.',
+        '`@object-ui/app-shell`\'s own `AppShell` takes `MinimalAppShellProps`, which DOES',
+        'declare `header` — this README documents `@object-ui/layout`\'s, whose top-bar',
+        'slot is `navbar`.',
       ].join('\n'),
     ).toBe(false);
   });

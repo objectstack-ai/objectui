@@ -52,7 +52,7 @@ export { useRecentItemLabel } from './hooks/useRecentItemLabel.js';
 
 // Types
 export type {
-  AppShellProps,
+  MinimalAppShellProps,
 } from './types.js';
 
 export type {

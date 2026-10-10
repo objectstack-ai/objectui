@@ -376,7 +376,17 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // (`field`, `type`). RENAME branch: the general name stays on
   // `@object-ui/types`, and the grid's declaration now spells
   // `GroupAggregationConfig` (objectui#6349, batch 7).
-  ['AppShellProps', ['packages/app-shell/src/types.ts', 'packages/layout/src/AppShell.tsx']],
+  // `AppShellProps` sat here, colliding between `packages/app-shell/src/types.ts`
+  // and `packages/layout/src/AppShell.tsx`. Two components, not one drifted
+  // shape: app-shell's is the props of its minimal `AppShell` container
+  // (`header` and `footer` slots, no routing) and layout's the props of the
+  // sidebar shell the console's `ConsoleLayout` composes (`navbar`,
+  // `defaultOpen`, `branding`, `rightRail`). app-shell depends on layout, but
+  // re-pointing its name at layout's does not compile. RENAME branch: app-shell's
+  // declaration now spells `MinimalAppShellProps`, and the app-shell root
+  // publishes that name instead; layout is the one authority. The two `AppShell`
+  // components keep their names — value names are outside this gate's bound
+  // (objectui#6349, batch 9).
   // `ActionSchema` sat here, colliding between `packages/types/src/crud.ts` and
   // `packages/types/src/ui-action.ts`. Structurally unrelated types — 28 members
   // each, 9 shared, `type` the literal `'action'` there and `ActionType` here — so
@@ -520,7 +530,14 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // `type: 'separator'` legal on one side and a refusal on the other. That is
   // the RENAME branch: app's declaration now spells `AppMenuItem`, the name
   // `src/index.ts` always published it under (objectui#6349).
-  ['MetadataTypeStatus', ['packages/app-shell/src/providers/MetadataProvider.tsx', 'packages/react/src/context/AppShellContext.tsx']],
+  // `MetadataTypeStatus` sat here, colliding between
+  // `packages/app-shell/src/providers/MetadataProvider.tsx` and
+  // `packages/react/src/context/AppShellContext.tsx`. One status, declared
+  // twice with the same four words (`'idle' | 'loading' | 'ready' | 'error'`):
+  // the provider's per-type cache entries carry it and the context's
+  // `getTypeStatus` returns it. app-shell depends on `@object-ui/react`, so
+  // react's is the one authority and `MetadataProvider.tsx` RE-EXPORTS it; the
+  // app-shell root still publishes the name (objectui#6349, batch 9).
   // `NamedActionDef` sat here — two IDENTICAL declarations inside plugin-grid.
   // `resolveLegacyRowActions.ts` is the one authority; `resolveBulkActions.ts`
   // re-exports it (objectui#6349).
@@ -570,7 +587,15 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // `@objectstack/spec` counterpart, so it was RETIRED with its two companions
   // (`UndoRedoEntry`, `UndoRedoConfig`) rather than renamed. The designer's
   // declaration is the one authority (objectui#6349, batch 5).
-  ['UserDataAdapter', ['packages/app-shell/src/context/UserStateAdapters.tsx', 'packages/data-objectstack/src/userState.ts']],
+  // `UserDataAdapter` sat here, colliding between
+  // `packages/app-shell/src/context/UserStateAdapters.tsx` and
+  // `packages/data-objectstack/src/userState.ts`. One contract with identical
+  // members (`load()` and `save(items)`, generic over the item): the adapter
+  // `createObjectStackUserStateAdapter` builds is the adapter app-shell's
+  // registry injects. app-shell depends on `@object-ui/data-objectstack`, so
+  // that declaration is the one authority (it took app-shell's contract notes)
+  // and `UserStateAdapters.tsx` RE-EXPORTS it; the app-shell root still
+  // publishes the name (objectui#6349, batch 9).
   // `ValidationFunction` sat here, colliding between
   // `packages/types/src/data-protocol.ts` and `packages/types/src/field-types.ts`.
   // The two signatures disagree at both ends of the arrow — data-protocol's takes

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { AppShellProps } from '../types.js';
+import type { MinimalAppShellProps } from '../types.js';
 
 /**
  * AppShell - Minimal layout container
@@ -13,7 +13,7 @@ export function AppShell({
   footer,
   children,
   className = '',
-}: AppShellProps): ReactNode {
+}: MinimalAppShellProps): ReactNode {
   return (
     <div className={`app-shell flex h-screen flex-col ${className}`}>
       {header && <div className="app-shell-header">{header}</div>}

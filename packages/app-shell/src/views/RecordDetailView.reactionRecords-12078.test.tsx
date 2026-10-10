@@ -243,18 +243,20 @@ async function mountAs(member: string, dataSource: any, objects: unknown[] = REG
 
 type View = ReturnType<typeof within>;
 
+/** The view's reaction chips: a labelled button holding an emoji and a count. */
+function chipButtons(view: View): HTMLElement[] {
+  return (view.queryAllByRole('button') as HTMLElement[]).filter(
+    (b) => !!b.getAttribute('aria-label') && b.children.length === 2 && EMOJI.includes(b.children[0].textContent ?? ''),
+  );
+}
+
 /** The comment's reaction chips, in order, each as `emoji count`. */
 function chips(view: View): string[] {
-  return view
-    .queryAllByRole('button')
-    .filter((b) => b.getAttribute('aria-label') && b.children.length === 2 && EMOJI.includes(b.children[0].textContent ?? ''))
-    .map((b) => `${b.children[0].textContent} ${b.children[1].textContent}`);
+  return chipButtons(view).map((b) => `${b.children[0].textContent} ${b.children[1].textContent}`);
 }
 
 function chip(view: View, emoji: string): HTMLElement {
-  const found = view
-    .queryAllByRole('button')
-    .find((b) => b.getAttribute('aria-label') && b.children.length === 2 && b.children[0].textContent === emoji);
+  const found = chipButtons(view).find((b) => b.children[0].textContent === emoji);
   if (!found) throw new Error(`no ${emoji} chip on the panel (chips: ${chips(view).join(', ') || 'none'})`);
   return found;
 }
@@ -522,7 +524,7 @@ describe('which store the chatter uses is read from the object registry (objectu
     const u1 = server.as('u1');
     const view = render(tree('u1', u1, metadataFor(REGISTRY.present, 'loading')));
     await act(async () => {});
-    expect(u1.find.mock.calls.filter(([objectName]: [string]) => objectName === 'sys_comment')).toEqual([]);
+    expect(u1.find.mock.calls.filter((call) => call[0] === 'sys_comment')).toEqual([]);
 
     view.rerender(tree('u1', u1, metadataFor(REGISTRY.present, 'ready')));
     await within(view.container).findByText(COMMENT_BODY);

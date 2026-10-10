@@ -43,7 +43,7 @@ import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // framework-injected bookkeeping columns are hidden from the body outright.
 // Both sets are derived, not restated — see record-detail-system-fields.ts.
 import { AUDIT_FIELD_NAMES, HIDDEN_SYSTEM_FIELD_NAMES } from './record-detail-system-fields.js';
-import type { FeedItem, Reaction } from '@object-ui/types';
+import type { DataSource, FeedItem, Reaction } from '@object-ui/types';
 import type { ActionDef, ActionParamDef, ConfirmationHandler } from '@object-ui/core';
 import type { ConsoleActionDispatch } from '../consoleActionDispatch.js';
 import { useRecordApprovals, recordLockedByApproval, isSubmitterOf } from '../hooks/useRecordApprovals.js';
@@ -329,7 +329,7 @@ const REACTION_READ_COMMENT_IDS = 100;
  * given in.
  */
 async function readCommentReactionRows(
-  dataSource: { find: (resource: string, params?: any) => Promise<any> },
+  dataSource: Pick<DataSource<Record<string, unknown>>, 'find'>,
   commentIds: readonly string[],
 ): Promise<Array<Record<string, unknown>>> {
   const pages: string[][] = [];
@@ -2056,7 +2056,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         // take the comments down with it; they show without reactions.
         let records: ReturnType<typeof groupReactionRows> | null = null;
         if (reactionStore === 'records') {
-          const commentIds = res.data.map((c: any) => String(c.id));
+          const commentIds: string[] = res.data.map((c: { id: unknown }) => String(c.id));
           try {
             records = groupReactionRows(await readCommentReactionRows(dataSource, commentIds), currentUser.id);
           } catch {
@@ -2412,7 +2412,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         const write = async () => {
           const rowId = ownRows().get(emoji);
           if (want && rowId === undefined) {
-            const created: any = await dataSource.create(COMMENT_REACTION_OBJECT, {
+            const created: { id?: unknown } | undefined = await dataSource.create(COMMENT_REACTION_OBJECT, {
               comment_id: String(itemId),
               emoji,
             });

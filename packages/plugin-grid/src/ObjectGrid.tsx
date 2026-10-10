@@ -58,7 +58,7 @@ import {
   DataEmptyState, resolveIcon,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -1755,8 +1755,30 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // every account, so the row kebab and the bulk bar used to fail open for a
   // read-only principal. Undefined when no object name is resolved (element
   // data source), which leaves the affordance verdict untouched.
-  const permissionUpdate = objectName ? perms.can(objectName, 'update') : undefined;
-  const permissionDelete = objectName ? perms.can(objectName, 'delete') : undefined;
+  //
+  // [objectui#12082] Every object-level verdict this grid renders — the row
+  // kebab's Edit / Delete, the bulk bar's Delete, in-place editing and the
+  // add-record row — is a row of the affordance-to-grant map, resolved by
+  // `resolveAffordance` from `@object-ui/core` against this one source: the
+  // object's `managedBy` / `userActions`, the effective operation set and the
+  // caller's grant, all asked of `objectName`. With no `objectName` (an element
+  // or inline data source) nothing is asked and every verdict reads open.
+  //
+  // KEY COLLISION — the OBJECT's `userActions` block, and the only one these
+  // verdicts can consume. `userActions` names two different shapes: on a VIEW
+  // it is toolbar policy (`UserActionsConfigSchema` — `sort`/`search`/`filter`/
+  // `refresh`/`rowHeight`/`addRecordForm`/`editInline`/`buttons`, which rejects
+  // `edit` BY NAME), on an OBJECT it is the CRUD-predicate block `edit`/
+  // `delete`/`create` carrying `visibleWhen`/`disabledWhen`. Only the object
+  // block means anything to the map's rows — or to `listViewPredicates` at the
+  // `$select` read below, which carries the full measurement. So the source
+  // stays `objectSchema`-only and must never gain the VIEW's `userActions` as a
+  // fallback: that is the shadowing this grid was fixed for (maintainer ruling
+  // of 2026-08-20 on objectui#5240, Q3=B). Pinned by
+  // `__tests__/gridNonAuthorKeys.test.tsx`.
+  const affordanceSource = { objectSchema: objectSchema as SchemaLike | null | undefined, objectName, perms };
+  const rowEditVerdict = resolveAffordance('rowEdit', affordanceSource);
+  const rowDeleteVerdict = resolveAffordance('rowDelete', affordanceSource);
   // [#5148] …and the same verdict for `create`, the third face of the shape.
   // Its two siblings above have carried the principal's own grant since #4096
   // while the inline add-record row below rode on the author-declared
@@ -1767,7 +1789,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // add row underneath stayed live and walked that user through a write it
   // already knew the server would 403. Resolved here beside its siblings so
   // the three read as one block rather than drifting apart again.
-  const permissionCreate = objectName ? perms.can(objectName, 'create') : undefined;
+  const addRowGranted = resolveAffordance('gridAddRow', affordanceSource).allowed;
 
   // [#5143] Whether THIS principal may edit THIS object's rows in place — the
   // single verdict behind every inline-edit affordance this grid renders
@@ -1796,9 +1818,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // embed, the Studio designer, and a pure inline-data grid with no object
   // semantics at all keep today's behavior. The narrowing only ever engages
   // where there IS an object to have a verdict about.
-  const objectInlineEditable =
-    isObjectInlineEditable(objectSchema, effectiveApiOps) &&
-    (objectName ? perms.can(objectName, 'update') : true);
+  const objectInlineEditable = resolveAffordance('listInlineEdit', affordanceSource).allowed;
 
   // [#5143] The authored request ∧ the verdict — resolved ONCE and read by all
   // three inline-edit props below (`editable`, `renderCellEditor`, and the
@@ -1903,6 +1923,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // [#4096] …and neither is `apiOperations`, which describes the OBJECT, not
   // the caller — so the principal's own `allowEdit` / `allowDelete` is ANDed on
   // top, matching the toolbar and the record header on the very same screen.
+  // [objectui#12082] Those object layers arrive as the map's `rowEdit` /
+  // `rowDelete` verdicts (`affordanceSource` above); this call adds the row
+  // wiring on top of them.
   //
   // Resolved HERE, above the error / loading early returns, rather than beside
   // the row-actions column it feeds: the record-level layer below is a hook and
@@ -1915,23 +1938,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     rowActionsDeclared,
     hasOnEdit: !!onEdit,
     hasOnDelete: !!onDelete,
-    managedBy: (objectSchema as any)?.managedBy,
-    // KEY COLLISION — the OBJECT's block, and the only one this can consume.
-    // `userActions` names two different shapes: on a VIEW it is toolbar policy
-    // (`UserActionsConfigSchema` — `sort`/`search`/`filter`/`refresh`/
-    // `rowHeight`/`addRecordForm`/`editInline`/`buttons`, which rejects `edit`
-    // BY NAME), on an OBJECT it is the CRUD-predicate block `edit`/`delete`/
-    // `create` carrying `visibleWhen`/`disabledWhen`. Only the object block
-    // means anything to `resolveRowCrudAffordances` — or to
-    // `listViewPredicates` at the `$select` read below, which carries the full
-    // measurement. So this read stays `objectSchema`-only and must never gain a
-    // `(schema as any).userActions ??` left operand: that is the shadowing this
-    // grid was fixed for (maintainer ruling of 2026-08-20 on objectui#5240,
-    // Q3=B). Pinned by `__tests__/gridNonAuthorKeys.test.tsx`.
-    userActions: (objectSchema as any)?.userActions,
-    effectiveApiOperations: effectiveApiOps,
-    permissionUpdate,
-    permissionDelete,
+    // The object's `managedBy` / `userActions` reach these two verdicts through
+    // `affordanceSource.objectSchema` above — see the KEY COLLISION note there.
+    edit: rowEditVerdict,
+    delete: rowDeleteVerdict,
   });
   // [#4296] …and neither of those describes the ROW. `allowEdit` is the
   // principal's verdict on the OBJECT; `writeScope`, the sharing model and RLS
@@ -5556,7 +5566,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // has no record to bind, and that precedent surfaces predicates only AFTER
     // the object-level verdict passed. The conjunct that was missing here is
     // that verdict, which is what this adds.
-    showAddRow: !!operations?.create && (permissionCreate ?? true),
+    showAddRow: !!operations?.create && addRowGranted,
     onAddRecord: onAddRecord,
     rowClassName: schema.rowColor ? (row: any, _idx: number) => getRowClassName(row) : undefined,
     rowStyle: schema.conditionalFormatting?.length ? (row: any, _idx: number) => getRowStyle(row) : undefined,

@@ -1,6 +1,42 @@
 // Copyright (c) 2026 ObjectStack Inc. MIT.
 import { describe, it, expect } from 'vitest';
-import { resolveRowCrudAffordances, resolveRowRecordCrudAffordance } from '../rowCrudAffordances';
+import { resolveAffordance, type SchemaLike } from '@object-ui/core';
+import {
+  resolveRowCrudAffordances as resolveFromVerdicts,
+  resolveRowRecordCrudAffordance,
+} from '../rowCrudAffordances';
+
+/**
+ * [objectui#12082] The object layers (a)–(d) now reach the row resolver as the
+ * affordance-to-grant map's `rowEdit` / `rowDelete` verdicts, which `ObjectGrid`
+ * resolves with `resolveAffordance` from the object schema, the effective
+ * operation set and the caller's grant. This adapter keeps every row below in
+ * the shape it was written in — bucket, `userActions`, operation set, grant —
+ * and resolves those through the map exactly as the grid does, so the matrix
+ * now pins the map AND the row wiring together.
+ */
+type RowInputs = Omit<Parameters<typeof resolveFromVerdicts>[0], 'edit' | 'delete'> & {
+  managedBy?: string | null;
+  userActions?: SchemaLike['userActions'];
+  effectiveApiOperations?: readonly string[] | null;
+  permissionUpdate?: boolean;
+  permissionDelete?: boolean;
+};
+
+function resolveRowCrudAffordances(opts: RowInputs) {
+  const { managedBy, userActions, effectiveApiOperations, permissionUpdate, permissionDelete, ...wiring } = opts;
+  const perms = {
+    can: (_object: string, verb: 'create' | 'update' | 'delete') =>
+      (verb === 'update' ? permissionUpdate : verb === 'delete' ? permissionDelete : undefined) !== false,
+    getObjectApiOperations: () => effectiveApiOperations ?? undefined,
+  };
+  const source = { objectSchema: { managedBy, userActions }, objectName: 'row_object', perms };
+  return resolveFromVerdicts({
+    ...wiring,
+    edit: resolveAffordance('rowEdit', source),
+    delete: resolveAffordance('rowDelete', source),
+  });
+}
 
 /** The row-level verdict only — drops the object-level bulk-delete bit. */
 const rowGate = (opts: Parameters<typeof resolveRowCrudAffordances>[0]) => {

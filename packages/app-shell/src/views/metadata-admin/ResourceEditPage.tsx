@@ -2034,7 +2034,8 @@ function MetadataResourceEditPageImpl({
   // specific item is locked because it comes from a code package, we
   // show a different message inviting the user to create their own.
   const showArtifactLockedBanner =
-    readOnly && isArtifactItem && !!entry?.allowRuntimeCreate;
+    // objectui#7611 — and only for a caller who could author the new item.
+    readOnly && isArtifactItem && !!entry?.allowRuntimeCreate && canAuthor;
 
   // Preview tab — opt-in via `registerMetadataPreview()`. Hidden in
   // create mode (nothing to preview yet) and inside the embedded
@@ -2982,7 +2983,14 @@ function MetadataResourceEditPageImpl({
                 widgetContext={widgetContext}
               />
             )}
-            {EnvironmentSection && !PreviewComponent && <EnvironmentSection name={name} />}
+            {/* objectui#7611 — under the designer, too: `position` renders
+                through its preview, so the section takes a bounded strip
+                below the canvas instead of squeezing it. */}
+            {EnvironmentSection && (
+              <div className={PreviewComponent ? 'shrink-0 max-h-[35vh] overflow-y-auto' : undefined}>
+                <EnvironmentSection name={name} />
+              </div>
+            )}
           </div>
         </div>
       </div>

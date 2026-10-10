@@ -64,9 +64,12 @@ describe('LayeredDiff overlay-scope badge (objectui#4982)', () => {
     // `translateConsoleValue` returns the input verbatim for every non-zh
     // locale, for all four layer badges. Whether the other nine locale packs
     // should gain these values is a separate decision, deliberately not made
-    // here; this case pins that this fix did not quietly make it.
-    render(<LayeredDiff layered={layeredWith('org')} locale="en-US" />);
-    expect(screen.getByText('org')).toBeInTheDocument();
+    // here; this case pins that this fix did not quietly make it. `env` is a
+    // scope on the installed spec and on objectstack `main` alike, which
+    // narrows the enum to it (objectstack#15206 S5); `org` stood here, a scope
+    // on the installed spec only (objectui#12093).
+    render(<LayeredDiff layered={layeredWith('env')} locale="en-US" />);
+    expect(screen.getByText('env')).toBeInTheDocument();
   });
 
   it('keeps the no-overlay branch on the "none" badge', () => {

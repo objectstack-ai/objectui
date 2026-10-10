@@ -486,7 +486,23 @@ type NamedViewConfig = NonNullable<ObjectViewSchema['listViews']>[string];
 interface AuthoredFilterSegments {
   view: NamedListView['filter'];
   table: ObjectGridSchema['filter'];
-  tableDefaults: ObjectGridSchema['defaultFilters'];
+  tableDefaults: ObjectGridSchema['filter'];
+}
+
+/**
+ * The deprecated `table.defaultFilters`, read as the legacy rung's value
+ * (objectui#12093). Its declared type follows the `object-grid` row by
+ * reference: the `filter` rule array on the installed `@objectstack/spec`, and
+ * a retired-key tombstone on objectstack `main` (objectstack#11509), where no
+ * current document can author it. This component keeps READING it for
+ * metadata written before that retirement, exactly as before, so the value is
+ * typed by the shape such metadata has: the rule array `filter` takes on both
+ * specs. A back-compat read, not an authoring surface; it goes with the rung
+ * at the pin that carries the tombstone.
+ */
+function legacyTableDefaults(table: ObjectViewSchema['table']): ObjectGridSchema['filter'] {
+  const legacy: unknown = table?.defaultFilters;
+  return legacy as ObjectGridSchema['filter'];
 }
 
 /**
@@ -1385,7 +1401,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     {
       view: currentNamedViewConfig?.filter || activeViewQueryInputs?.filter,
       table: schema.table?.filter,
-      tableDefaults: schema.table?.defaultFilters,
+      tableDefaults: legacyTableDefaults(schema.table),
     },
     filterScope,
   );

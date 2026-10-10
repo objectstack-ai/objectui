@@ -90,7 +90,7 @@ function renderPopover(props: {
       notifications={props.notifications}
       unreadCount={props.unreadCount ?? props.notifications.filter((n) => !n.is_read).length}
       pendingApprovalsCount={props.pendingApprovalsCount}
-      activities={[]}
+      activity={{ value: [], status: 'ready', readable: true }}
       onMarkAllRead={vi.fn()}
       onMarkRead={vi.fn()}
     />,

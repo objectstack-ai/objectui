@@ -4,7 +4,8 @@
  * The inbox streams the Home work-dashboard surfaces:
  *   - pendingApprovalsCount — items waiting on the user (REST endpoint)
  *   - notifications         — latest in-app inbox messages (assignments/@mentions)
- *   - activities            — recent human activity feed (sys_activity)
+ *   - activity              — recent human activity feed (sys_activity), with
+ *                             its status and the caller's read grant
  *
  * A deployment without the approvals plugin, the inbox pipeline or a
  * `sys_activity` object still renders Home: a MISSING object (404 /
@@ -61,9 +62,9 @@ import {
   useHumanActivityFeed,
   useSharedInboxFeed,
   useSharedPendingApprovalsCount,
+  type ActivityFeedReading,
 } from './sharedUserFeeds.js';
 import { groupNotifications } from '../layout/inboxGrouping.js';
-import type { ActivityItem } from '../layout/ActivityFeed.js';
 
 export interface HomeNotification {
   id: string;
@@ -113,7 +114,14 @@ export interface HomeInboxData {
   unreadTopicCount: number;
   /** Whether `notifications` is an answer — see {@link HomeInboxStatus}. */
   notificationsStatus: HomeInboxStatus;
-  activities: ActivityItem[];
+  /**
+   * Home's cut of the activity feed, with its status and whether the caller
+   * may read the feed at all (objectui#12081). The rows and the status travel
+   * together for the reason `notificationsStatus` exists: rows alone made a
+   * refused `sys_activity` read indistinguishable from an empty feed, and the
+   * card said "No recent activity" to every non-admin.
+   */
+  activity: ActivityFeedReading;
 }
 
 export function useHomeInbox(limit = 5): HomeInboxData {
@@ -123,7 +131,7 @@ export function useHomeInbox(limit = 5): HomeInboxData {
   // (actor "System"). `useSharedInboxFeed` is the bell's already-joined inbox
   // superset, cut here to what is actually waiting on the user.
   const pendingApprovalsCount = useSharedPendingApprovalsCount();
-  const activities = useHumanActivityFeed(limit);
+  const activity = useHumanActivityFeed(limit);
   const { value: messages, status: notificationsStatus } = useSharedInboxFeed();
 
   const notifications = useMemo<HomeNotification[]>(() => {
@@ -164,6 +172,6 @@ export function useHomeInbox(limit = 5): HomeInboxData {
     notifications,
     unreadTopicCount,
     notificationsStatus,
-    activities,
+    activity,
   };
 }

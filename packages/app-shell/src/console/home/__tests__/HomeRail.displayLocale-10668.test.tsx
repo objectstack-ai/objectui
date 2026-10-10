@@ -49,16 +49,20 @@ function railUnder(locale: string) {
         </div>
         <div data-testid="activity">
           <HomeActivity
-            items={[
-              {
-                id: 'a1',
-                type: 'update',
-                objectName: 'account',
-                user: 'Priya',
-                description: 'updated Northwind',
-                timestamp: threeDaysAgo(),
-              },
-            ]}
+            activity={{
+              value: [
+                {
+                  id: 'a1',
+                  type: 'update',
+                  objectName: 'account',
+                  user: 'Priya',
+                  description: 'updated Northwind',
+                  timestamp: threeDaysAgo(),
+                },
+              ],
+              status: 'ready',
+              readable: true,
+            }}
             onViewAll={() => {}}
             t={t}
           />

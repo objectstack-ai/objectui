@@ -5,7 +5,8 @@
  * used to occupy separate top-bar buttons:
  *   - Notifications (mentions, assignments, system alerts)
  *   - Approvals (pending approval requests for the user)
- *   - Activity (recent activity feed across the org)
+ *   - Activity (the recent activity the caller may read; no tab at all for a
+ *     caller without read on `sys_activity`, objectui#12081)
  *
  * Rendered as a single bell button + popover with a tabbed body. The badge
  * shows the combined unread pressure — distinct unread *topics* + pending
@@ -32,9 +33,9 @@ import {
   TabsTrigger,
   TabsContent,
 } from '@object-ui/components';
-import { Bell, CheckSquare, Activity as ActivityIcon, ChevronRight } from 'lucide-react';
+import { Bell, CheckSquare, Activity as ActivityIcon, ChevronRight, CircleAlert } from 'lucide-react';
 import { useObjectTranslation, useDisplayLocale } from '@object-ui/i18n';
-import type { ActivityItem } from './ActivityFeed.js';
+import type { ActivityFeedReading } from '../hooks/sharedUserFeeds.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { resolveHostAppSegment, resolveNotificationTarget } from '../utils/appRoute.js';
@@ -105,7 +106,26 @@ export interface InboxPopoverProps {
   notifications: InboxNotification[];
   unreadCount: number;
   pendingApprovalsCount: number;
-  activities: ActivityItem[];
+  /**
+   * The Activity tab's rows, whether they are an answer, and whether the
+   * caller may read the feed at all (objectui#12081).
+   *
+   * Required, and one value rather than rows plus optional flags, for the
+   * reason `HomeActionCenter` takes `notificationsStatus` as required: the
+   * tab used to take the rows alone, so a refused `sys_activity` read arrived
+   * as `[]` and the tab said "No recent activity" to every non-admin. A call
+   * site that cannot say whether its rows are an answer must not be able to
+   * reach the empty copy by saying nothing.
+   *
+   *  - `readable: false` — no Activity tab at all: no trigger, no empty state,
+   *    no drill into a list page that answers this caller `403`;
+   *  - `status: 'ready'` — the rows ARE the answer; only here does an empty
+   *    list say "No recent activity";
+   *  - `status: 'error'` — the read failed (a refusal included): the tab says
+   *    so, beside whatever rows it last had;
+   *  - `idle` / `loading` — not asked yet, or in flight.
+   */
+  activity: ActivityFeedReading;
   onMarkAllRead: () => void;
   onMarkRead: (id: string) => void;
   /**
@@ -120,7 +140,7 @@ export function InboxPopover({
   notifications,
   unreadCount,
   pendingApprovalsCount,
-  activities,
+  activity,
   onMarkAllRead,
   onMarkRead,
   onMarkManyRead,
@@ -137,6 +157,11 @@ export function InboxPopover({
   // Chosen on every open by `handleOpenChange` below, never while open, so a
   // count that changes under an open popover does not move the tab.
   const [tab, setTab] = useState<InboxTab>('notifications');
+  // A caller who may not read `sys_activity` is offered no Activity tab
+  // (objectui#12081), so neither a remembered pick nor the current tab may
+  // land on it: the tab strip would show no selection over an empty body.
+  const showActivity = activity.readable;
+  const shownTab: InboxTab = tab === 'activity' && !showActivity ? 'notifications' : tab;
   // Sub-filter inside Notifications: default to Unread so users see what
   // actually needs their attention first. The popover caps at 20 rows from
   // the server (`?view=mine` already scopes to current user), so we filter
@@ -182,14 +207,15 @@ export function InboxPopover({
   // bell showed when it was clicked.
   const handleOpenChange = (next: boolean) => {
     if (next) {
+      const picked = recallPickedTab();
       setTab(
         openingTab(
           {
             notifications: unreadTopics > 0,
             approvals: pendingApprovalsCount > 0,
-            activity: activities.length > 0,
+            activity: showActivity && activity.value.length > 0,
           },
-          recallPickedTab(),
+          picked === 'activity' && !showActivity ? null : picked,
         ),
       );
     }
@@ -402,7 +428,7 @@ export function InboxPopover({
             </span>
           </div>
         )}
-        <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
+        <Tabs value={shownTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="w-full justify-start rounded-none border-b bg-transparent px-1 h-9">
             <TabsTrigger value="notifications" className="text-xs gap-1.5 data-[state=active]:bg-transparent">
               <Bell className="h-3.5 w-3.5" />
@@ -428,10 +454,12 @@ export function InboxPopover({
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="activity" className="text-xs gap-1.5 data-[state=active]:bg-transparent">
-              <ActivityIcon className="h-3.5 w-3.5" />
-              {t('sidebar.activityFeed', { defaultValue: 'Activity feed' })}
-            </TabsTrigger>
+            {showActivity && (
+              <TabsTrigger value="activity" className="text-xs gap-1.5 data-[state=active]:bg-transparent">
+                <ActivityIcon className="h-3.5 w-3.5" />
+                {t('sidebar.activityFeed', { defaultValue: 'Activity feed' })}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="notifications" className="m-0 max-h-80 overflow-auto">
@@ -628,44 +656,69 @@ export function InboxPopover({
             </div>
           </TabsContent>
 
-          <TabsContent value="activity" className="m-0 max-h-80 overflow-auto">
-            {activities.length === 0 ? (
-              <div className="px-3 py-8 text-sm text-muted-foreground text-center motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300">
-                {t('layout.activityFeed.empty', { defaultValue: 'No recent activity' })}
+          {showActivity && (
+            <TabsContent value="activity" className="m-0 max-h-80 overflow-auto">
+              {/*
+                "No recent activity" is an ASSERTION about the feed, so it is made
+                only once the feed has answered (objectui#12081, the #4235 rule).
+                An unanswered read says so instead — and beside the list, not
+                only in place of it, so stale rows never pass for a fresh answer.
+              */}
+              {activity.status !== 'ready' && (
+                <div
+                  className="flex items-center justify-center gap-2 px-3 py-3 text-sm text-muted-foreground"
+                  data-testid="inbox-activity-unanswered"
+                >
+                  {activity.status === 'error' ? (
+                    <>
+                      <CircleAlert className="h-4 w-4 text-amber-500" />
+                      {t('errors.unknown', { defaultValue: 'An unexpected error occurred.' })}
+                    </>
+                  ) : (
+                    t('common.loading', { defaultValue: 'Loading…' })
+                  )}
+                </div>
+              )}
+              {activity.value.length === 0 ? (
+                activity.status === 'ready' && (
+                  <div className="px-3 py-8 text-sm text-muted-foreground text-center motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300">
+                    {t('layout.activityFeed.empty', { defaultValue: 'No recent activity' })}
+                  </div>
+                )
+              ) : (
+                <ul className="divide-y">
+                  {activity.value.slice(0, 20).map((a, idx) => (
+                    <li
+                      key={a.id}
+                      className="px-3 py-2.5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-200"
+                      style={{ animationDelay: `${Math.min(idx, 6) * 20}ms` }}
+                    >
+                      <div className="text-sm leading-tight truncate">
+                        <span className="font-medium">{a.user}</span>{' '}
+                        <span className="text-muted-foreground">{a.description}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {timeAgo(a.timestamp, displayLocale)} · {a.objectName}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {/* Footer link to dedicated /sys_activity list. Symmetric with
+                  the Notifications tab footer — the popover caps at 20 rows;
+                  users need a path to the full activity stream. Rendered even
+                  in the empty state so users can still browse historical data. */}
+              <div className="border-t px-3 py-2 text-center">
+                <button
+                  type="button"
+                  onClick={goToAllActivity}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {t('layout.activityFeed.viewAll', { defaultValue: 'View all activity' })}
+                </button>
               </div>
-            ) : (
-              <ul className="divide-y">
-                {activities.slice(0, 20).map((a, idx) => (
-                  <li
-                    key={a.id}
-                    className="px-3 py-2.5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-200"
-                    style={{ animationDelay: `${Math.min(idx, 6) * 20}ms` }}
-                  >
-                    <div className="text-sm leading-tight truncate">
-                      <span className="font-medium">{a.user}</span>{' '}
-                      <span className="text-muted-foreground">{a.description}</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                      {timeAgo(a.timestamp, displayLocale)} · {a.objectName}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {/* Footer link to dedicated /sys_activity list. Symmetric with
-                the Notifications tab footer — the popover caps at 20 rows;
-                users need a path to the full activity stream. Rendered even
-                in the empty state so users can still browse historical data. */}
-            <div className="border-t px-3 py-2 text-center">
-              <button
-                type="button"
-                onClick={goToAllActivity}
-                className="text-xs text-primary hover:underline"
-              >
-                {t('layout.activityFeed.viewAll', { defaultValue: 'View all activity' })}
-              </button>
-            </div>
-          </TabsContent>
+            </TabsContent>
+          )}
         </Tabs>
       </PopoverContent>
     </Popover>

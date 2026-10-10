@@ -80,7 +80,7 @@ import { useUrlOverlay } from '../hooks/useUrlOverlay.js';
 import { KEYBOARD_SHORTCUTS_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRecordTrailHref } from '../urlParams.js';
 import { useAiSurfaceEnabled } from '../hooks/useAiSurface.js';
 import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
-import { useSharedActivityFeed } from '../hooks/sharedUserFeeds.js';
+import { useSharedActivityFeed, type ActivityFeedReading } from '../hooks/sharedUserFeeds.js';
 import { useInboxBell } from '../hooks/useInboxBell.js';
 import { useHomePath } from '../hooks/useHomePath.js';
 import { useServedViewItems, isServedView } from '../hooks/useServedViewItems.js';
@@ -251,8 +251,12 @@ export function AppHeader({
    * tenant-scoped, not app-scoped, and gating it left this tab reading "No
    * recent activity" on Home / Organizations / the AI screen while the card
    * two hundred pixels below listed the rows.
+   *
+   * It carries its status and the caller's read grant (objectui#12081): a
+   * caller who may not read `sys_activity` is offered no Activity tab and
+   * issues no read, and a read that fails says so rather than reading empty.
    */
-  const apiActivities = useSharedActivityFeed();
+  const apiActivity = useSharedActivityFeed();
   /**
    * The bell's inbox — rows, badge addends and the three mark-read paths — now
    * comes from `useInboxBell`, the ONE wiring of `sharedUserFeeds` onto an
@@ -293,9 +297,12 @@ export function AppHeader({
 
   const tenantPresence = useTenantPresence();
   const activeUsers = presenceUsers ?? (tenantPresence.length > 0 ? tenantPresence : EMPTY_PRESENCE_USERS);
-  // The `activities` prop still wins where a host passes one; otherwise the
-  // shared feed, which is `[]` (not null) until the first read lands.
-  const activeActivities = activities ?? apiActivities;
+  // The `activities` prop still wins where a host passes one — rows a host
+  // hands over are its answer, so they arrive `ready`; otherwise the shared
+  // feed, which says for itself whether its rows are one.
+  const activeActivity: ActivityFeedReading = activities
+    ? { value: activities, status: 'ready', readable: true }
+    : apiActivity;
   const orgList = organizations ?? [];
   const hasOrgSection = isOrganizationsLoading || orgList.length > 0 || !!activeOrganization;
   // Mirror the server's `beforeCreateOrganization` gate so the "Create
@@ -738,7 +745,7 @@ export function AppHeader({
             notifications={notifications}
             unreadCount={unreadCount}
             pendingApprovalsCount={pendingApprovalsCount}
-            activities={activeActivities}
+            activity={activeActivity}
             onMarkAllRead={markAllRead}
             onMarkRead={markNotificationRead}
             onMarkManyRead={markManyRead}

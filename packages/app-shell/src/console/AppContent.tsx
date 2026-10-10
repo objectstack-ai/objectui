@@ -49,6 +49,8 @@ import { KeyboardShortcutsDialog } from '../chrome/KeyboardShortcutsDialog.js';
 import { OnboardingWalkthrough } from '../chrome/OnboardingWalkthrough.js';
 import { RouteFader } from '../chrome/RouteFader.js';
 import { NavigationSyncEffect } from '../hooks/useNavigationSync.js';
+import { AppNoAccessEmptyState, appServesNoNavigation } from './AppNoAccessEmptyState.js';
+import { resolveSetupAppPath } from './ConsoleShell.js';
 
 // Route-based code splitting — lazy-load less-frequently-used routes
 const RecordDetailView = lazy(() => import('../views/RecordDetailView.js').then(m => ({ default: m.RecordDetailView })));
@@ -1075,13 +1077,30 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 <Route
                   path="/"
                   element={(() => {
-                    // When the app declares a landing target (home page or
-                    // first nav route) honour it; otherwise — e.g. the
-                    // metadata-admin "Studio" app whose nav is built from
-                    // domains and has no single landing — render the rich
-                    // overview instead of a blank `<Navigate to="">`.
+                    // When the app declares a landing target (first nav
+                    // route) honour it.
                     const landing = resolveLandingRoute(activeApp, { currentUserId: user?.id ?? null });
-                    return landing ? <Navigate to={landing} replace /> : <StudioHomePage />;
+                    if (landing) return <Navigate to={landing} replace />;
+                    // objectui#12079 — an app that serves this caller NO
+                    // navigation (every group gated on a capability they do
+                    // not hold) is an app they have no access in yet. Say so,
+                    // and offer Setup to a caller who can grant access: the
+                    // same `isWorkspaceAdmin` read the no-app empty state
+                    // above gates its Setup button on, and the same Setup
+                    // URL the `/setup` deep link resolves.
+                    if (appServesNoNavigation(activeApp)) {
+                      return (
+                        <AppNoAccessEmptyState
+                          app={activeApp}
+                          setupPath={isWorkspaceAdmin ? resolveSetupAppPath(apps) : null}
+                        />
+                      );
+                    }
+                    // A navigation with no landing: the metadata-admin
+                    // "Studio" app, whose nav is built from `component`
+                    // items the landing resolver does not walk. Its root is
+                    // the rich overview, not a blank `<Navigate to="">`.
+                    return <StudioHomePage />;
                   })()}
                 />
                 {/* Metadata admin routes — declared BEFORE the generic

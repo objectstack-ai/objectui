@@ -41,6 +41,8 @@ import {
   getRecordDisplayName,
   isEmptyValue,
   resolveNameField,
+  resolveAffordance,
+  type SchemaLike,
 } from '@object-ui/core';
 import { getBadgeColorClasses, getBadgeHexAppearance, getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
 import { usePermissions } from '@object-ui/permissions';
@@ -1533,6 +1535,20 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   } | null>(null);
   const [pendingSubmitting, setPendingSubmitting] = useState(false);
 
+  // objectui#12082 — the card move is the `kanbanCardMove` row of the
+  // affordance-to-grant map (`resolveAffordance` in `@object-ui/core`): the
+  // object's policy, the effective operation set and the caller's update grant.
+  // A closed row draws the cards as not movable and hands the board no mover,
+  // so no drop can reach `persistCardMove`. It used to read no grant at all: a
+  // read-only caller could drag a card, watch it land, and get the server's
+  // refusal and a rollback. With no permission provider mounted the grant
+  // reads open, as before.
+  const cardMoveGranted = resolveAffordance('kanbanCardMove', {
+    objectSchema: objectDef as SchemaLike | null,
+    objectName: schema.objectName,
+    perms,
+  }).allowed;
+
   // Pre-evaluate the target column's `requiredWhen` predicates and collect what
   // the move makes required BEFORE writing anything (objectui#4254). The board
   // used to PATCH the column value alone into a refusal the user could neither
@@ -1726,7 +1742,11 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         // bag below, an authored `onCardMove` was accepted by the passthrough,
         // substituted here, and silently dropped; the arm can only tombstone the
         // key once no renderer reads it off the document.
-        onCardMove={handleCardMove}
+        //
+        // objectui#12082: handed only when `kanbanCardMove` allows the write,
+        // and the cards are drawn not movable otherwise (see `cardMoveGranted`).
+        onCardMove={cardMoveGranted ? handleCardMove : undefined}
+        cardsMovable={cardMoveGranted}
         schema={{
           ...effectiveSchema,
           // `5591f03bd` — the lane headers count rows that came back, so when

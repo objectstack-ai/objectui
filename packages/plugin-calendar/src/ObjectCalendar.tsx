@@ -79,6 +79,8 @@ import {
   isRealCalendarDate,
   toDateInputValue,
   toDisplayDate,
+  resolveAffordance,
+  type SchemaLike,
 } from '@object-ui/core';
 
 /**
@@ -1043,6 +1045,27 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // own container instead.
   const { anchorRef, anchorCaptureProps } = useOverlayAnchor();
 
+  // objectui#12082 — the calendar's two default writes are rows of the
+  // affordance-to-grant map (`resolveAffordance` in `@object-ui/core`):
+  // quick-create is `calendarQuickCreate`, drag-to-reschedule is
+  // `calendarReschedule`, each the object's policy, the effective operation set
+  // and the caller's grant on the object the write goes to (`schema.objectName`,
+  // the object both handlers below write). `CalendarView` draws an affordance
+  // only when it is handed its handler, so a closed row is a handler withheld
+  // in the JSX below: no draggable event, no range drag, no dialog on a day
+  // click. They used to read no grant at all, so a read-only caller could drag
+  // an event or submit the dialog and the server refused the write. With no
+  // permission provider mounted both grants read open, as before. The policy
+  // half reads this object's schema only when it IS the written object (an
+  // authored `data` block can point the read elsewhere).
+  const writeAffordanceSource = {
+    objectSchema: schemaObjectName === schema.objectName ? (objectSchema as SchemaLike | null) : null,
+    objectName: schema.objectName,
+    perms,
+  };
+  const quickCreateGranted = resolveAffordance('calendarQuickCreate', writeAffordanceSource).allowed;
+  const rescheduleGranted = resolveAffordance('calendarReschedule', writeAffordanceSource).allowed;
+
   // Default drag-to-reschedule handler. When the caller hasn't provided an
   // `onEventDrop`, persist the new dates back to the data source so dragging
   // an event in the month view actually changes the record. Optimistic
@@ -1418,14 +1441,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             }
           }}
           // Quick-create on empty-day click. Caller-supplied onDateClick
-          // wins; otherwise open the quick-create dialog.
-          onDateClick={(day) => {
-            if (onDateClick) {
-              onDateClick(day);
-            } else {
-              handleDateClickDefault(day);
-            }
-          }}
+          // wins; otherwise open the quick-create dialog — when the
+          // `calendarQuickCreate` row allows it (objectui#12082).
+          onDateClick={onDateClick ?? (quickCreateGranted ? handleDateClickDefault : undefined)}
           onNavigate={(date) => {
             setCurrentDate(date);
             onNavigate?.(date);
@@ -1436,15 +1454,18 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           }}
           onAddClick={undefined}
           // Wire drag-to-reschedule: caller-supplied handler wins, otherwise
-          // fall back to persisting via dataSource.update().
-          onEventDrop={(event, newStart, newEnd) => {
-            if (onEventDrop) {
-              onEventDrop(event.data, newStart, newEnd);
-            } else {
-              void handleEventDropDefault(event.data, newStart, newEnd);
-            }
-          }}
-          onTimeRangeSelect={handleTimeRangeSelectDefault}
+          // fall back to persisting via dataSource.update() — when the
+          // `calendarReschedule` row allows it (objectui#12082).
+          onEventDrop={
+            onEventDrop
+              ? (event, newStart, newEnd) => onEventDrop(event.data, newStart, newEnd)
+              : rescheduleGranted
+                ? (event, newStart, newEnd) => {
+                    void handleEventDropDefault(event.data, newStart, newEnd);
+                  }
+                : undefined
+          }
+          onTimeRangeSelect={quickCreateGranted ? handleTimeRangeSelectDefault : undefined}
         />
       </div>
       {/* objectui#7210 — a month drawn from the first N rows of a larger set

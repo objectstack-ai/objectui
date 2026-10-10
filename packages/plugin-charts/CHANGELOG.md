@@ -1,5 +1,175 @@
 # @object-ui/plugin-charts
 
+## 17.8.0
+
+### Minor Changes
+
+- fd060f0: The `object-chart` and `view:chart` registrations no longer declare `objectName`
+  required, so the page compile accepts a node whose `dataSource` binding names the
+  object, and a chart that names its object in neither place shows a hint instead
+  of an empty frame (objectui#11605).
+  
+  `object-chart` has no spec row. The binding doc says a node bound by
+  `dataSource.object` needs no `objectName` of its own, and the renderer agrees:
+  `dataSource.object` lands on `objectName` before the chart reads the node. The
+  registrations still declared `required: true`, and the page compile reads them,
+  so a bound chart with no `objectName` of its own was refused with
+  `missing-required-prop` and the save failed.
+  
+  **Clause-②: yes (widening)** — an `object-chart` (or `view:chart`) node that
+  names its object through `dataSource.object` and sets no `objectName` now
+  compiles and saves. A node that names its object in neither place also compiles
+  now, and the chart shows "No object named: set objectName or dataSource.object."
+  where it used to draw an empty frame with no message. A chart with inline
+  `data`, a `dataset` or a `bind` path shows no hint and renders as before. The
+  published `objectName` inputs now carry a description that says the binding can
+  supply them.
+
+### Patch Changes
+
+- 82500a7: Rotated x-axis labels fit inside the chart, and the dashboard inspector's Layout fields are readable (objectui#11796).
+  
+  - **Rotated category labels are no longer cut off.** When a bar, line or area chart turns its x-axis labels to fit them, each label hangs its start away from the plot. The axis used to reserve a fixed 60px for them, which counted the text width alone, so the longest labels ran past it and the chart cut off their first letters ("acklog" for Backlog, "ogress" for In Progress on a dashboard bar chart). The axis now reserves the room its longest drawn label needs at the rotation angle: more for long labels, less for short ones, with a wide glyph (Chinese, Japanese, Korean) counted a full em. Every rotated label is now shortened with an ellipsis past 12 characters, also on axes with more than five categories, where a long label used to be clipped mid-word instead. The full name stays on the bar's tooltip. Charts whose labels do not rotate keep the axis height they had.
+  - **The dashboard inspector stacks its fields.** Studio's dashboard inspector is a narrow side panel, and the dashboard form's Layout section put Columns, Gap and Refresh Interval Seconds in three columns there: a two-digit value showed one digit and the labels wrapped onto several lines. The inspector now renders every section of the form in one column, in the declared field order. Other forms keep the column layout their sections declare.
+  
+  Nothing is added to either package entry: no export, prop, type member or language-pack key.
+- d03b022: `ObjectChart` decides its missing-category-axis refusal before it fetches, so a chart that refuses reads nothing (objectui#12061).
+  
+  The refusal (`chart-missing-category-axis`, objectui#8168) is drawn when an object-bound chart declares no category by any spelling (`aggregate.groupBy`, `xAxisKey`, `xAxis.field`). It was a render-time return only: the fetch ran anyway, issuing the object's `find` with no `$top` (or `aggregate` with no `groupBy`), and the rows were then discarded. Since objectui#6152 round 15, every chart list view that names no `dataset` composes that node, so each render of such a view paid for the read.
+  
+  Now the refusal and the fetch read one value. A refused chart issues no `find`, no `aggregate` and no comparison query, and a data-invalidation event for its object does not start one. The refusal's code, `role="alert"` and wording are unchanged, and it is still the first paint, with no loading skeleton before it. A chart with a category fetches exactly as before. A chart that is refused at mount and later given a category (for example, a spec `xAxis` added in a designer preview) fetches at that point.
+- 0253416: feat(plugin-list)!: a chart list view binds only an ADR-0021 `dataset`; the legacy inline chart axes and their `name` / `value` floors are retired on every route (objectui#6152, round 15)
+  
+  Clause-②: no
+  
+  **Changed (breaking for a stored chart view that names no `dataset`).** Every door refuses the
+  pre-ADR-0021 chart axes on a list view: `@objectstack/spec`'s chart block is a strict object of
+  `chartType`, `dataset`, `dimensions` and `values`, and `@object-ui/types`, `objectui validate` and the
+  platform's view write door judge by it, top-level and in the `options` bag. The renderers kept
+  reading the axes, so a chart view stored before the doors closed still drew an inline aggregate, and
+  a chart view that declared nothing was drawn from the invented fields `name` and `value`. They no
+  longer do, on every route that did: `ListView`'s chart branch and its capability gate, the object
+  page's chart view (`@object-ui/app-shell`) and `ObjectView`'s own views (`@object-ui/plugin-view`).
+  
+  | stored chart block (either nesting) | what renders now | write instead |
+  | :--- | :--- | :--- |
+  | `xAxisField` / `categoryField`, `yAxisFields` / `valueField`, `aggregation` (and, on the object page, `series` and `filter` on the block) | the chart's refusal: "Chart category axis required", in place of the chart; a view of another type no longer offers Chart in its view switcher | `chart: { dataset, values, dimensions }`, naming an ADR-0021 dataset of the object |
+  | no binding at all on a view whose `viewType` is `chart` | the same refusal, where a chart grouped by `name` and counting `value` used to draw | the same dataset block |
+  
+  A dataset-bound chart renders as before. The refusal is `ObjectChart`'s own screen for an object-bound
+  chart that names no category axis (objectui#8168); its remedy names that component's keys, not the
+  list view's dataset block.
+  
+  **Not measured: production.** The census before this change (objectui#6152 round 13) found no writer
+  and no stored row carrying these axes in any repository corpus a seat can reach, with positive
+  controls; this repository's create-view dialog writes the dataset block. Stored view and page
+  metadata in deployments was not measured. A row that carries the axes renders the refusal until it is
+  re-saved with a dataset block.
+  
+  - `@object-ui/plugin-view`: an `ObjectView` kanban view no longer reads `kanban.conditionalFormatting`.
+    The list view's kanban block does not declare it, and every door that judges the block refuses it
+    by name; the view's own `conditionalFormatting` is the one place it is read. The development-only
+    flat-key warning no longer names `dateField`, `groupBy`, `groupField`, `imageField` or
+    `subtitleField`, which it told an author to move into a block that refuses them.
+  - `@object-ui/app-shell`: the object page's development-only flat-key warning no longer names the
+    twelve keys every per-kind block refuses (among them `groupField`, `imageField`, `cardFields`,
+    `xAxisField`, `yAxisFields`, `aggregation` and `series`).
+  - `@object-ui/plugin-charts`, `@object-ui/types`: comments only, where they said the list-view relays
+    still read the legacy axes.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [e06365c]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/components@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/i18n@17.8.0
+  - @object-ui/react@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

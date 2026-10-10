@@ -1,5 +1,167 @@
 # @object-ui/plugin-chatbot
 
+## 17.8.0
+
+### Minor Changes
+
+- fc3c2cc: Five fixes on the AI build surface, from the 2026-10-05 cloud acceptance run (objectui#11658).
+  
+  - **The first AI build lands on the running app.** The built-moment transition still moves the conversation into the Studio workbench at `/studio/PKG/interfaces`. The Interfaces canvas now opens in **Run** mode with the properties panel collapsed, where it used to open in Design with the panel open. One click on **Design** brings back the design overlays and the properties panel. Every other way into Studio, the "Design in Studio" button included, still opens in Design. The transition asks for this with router state, which the pillar reads once at mount; it is not a URL param, so a reload or a shared link opens the designer.
+  - **The in-app composer names the task.** Inside an app, the composer placeholder reads "Ask about your data, or ask me to change this app…". This covers the console dock in a running app, the Studio dock and `/ai/build?package=`. It used to read "Ask {agent}…", which showed as「向 构建 提问…」in Chinese. The cold-start build surface and the ask agent keep the placeholders they had. New key: `console.ai.askOrChangeApp`.
+  - **The AI usage popover shows one figure.** The popover shows the share of the single AI pool used so far (`console.ai.usage.poolUsed`, for example "19% used"). It no longer shows the build / data-Q&A split, because that split cannot honestly say which part a single-composer turn used. The keys `console.ai.usage.meterBuild`, `meterAsk` and `breakdownTitle` are retired from all ten packs. `useAiUsage` still reads `breakdown` from the wire and validates it strictly, but nothing renders it.
+  - **The usage gauge no longer looks like a loading spinner.** The header glyph is now a closed outline in the tone colour with a pie wedge inside it. It used to be a stroked arc over a faint track, which at low usage had the outline of a spinner.
+  - **The plan card's scope chip is localized.** The extend-mode chip on the proposed-plan card and on the live design panel reads the pack's `chatbot.plan.extendTarget` sentence, where it used to show the English literal "Adding to existing app". It names the target app by its label, and the internal name moves to the chip's tooltip. `ChatbotEnhanced` gains an optional `resolveAppLabel(appName)` prop, and the console passes one over its metadata apps. A host `planExtendLabel` still takes precedence, but the prop no longer defaults to an English string.
+- 848ba0e: The chat launchers show a marker while a proposed plan awaits the user's approval (objectui#11666, item 6 of objectui#2458). A user who closed the chat with a blueprint still waiting on them used to get no sign of it from the launcher they return to.
+  
+  What a user sees: while the newest proposed plan of a conversation still offers "Build it", the console's assistant button (the floating launcher on app pages and Home) and the ChatDock edge launcher Studio uses carry a small amber dot. Assistive tech reads it as the button's description, from the new `console.ai.dock.planAwaitingApproval` key in the active language. With no plan awaiting, neither launcher shows anything. The dot goes away when the plan stops awaiting: the user approves it, its build runs, or a newer proposal takes its place and is itself approved or built. Opening the chat clears nothing by itself, and neither does opening another conversation. Deleting the conversation from the `/ai` sidebar drops it.
+  
+  Where the reading comes from: the chat's own plan card. `ChatbotEnhanced` derives "awaiting approval" from the same producer its card header and body read (`resolveProposalCardState` reads `pending`), and reports it to its host. The console's chat pane publishes that reading on the assistant bus, per conversation and per signed-in user, and the launchers read the bus. They import no chat code. The reading is exact for everything that happens in the tab. It does not see a decision made in another tab or on another device, and a page reload starts it empty until a chat on that conversation is opened again. The durable copy is the server conversation, which the launchers do not read.
+  
+  **Clause-②: yes (widening).** Two published surfaces widen:
+  
+  - `@object-ui/plugin-chatbot`: the exported `ChatbotEnhancedProps` type gains one optional member, `onPlanApprovalPendingChange`, a callback that takes one boolean and returns nothing. `ChatbotEnhanced` calls it once on mount and again whenever the boolean changes. Without it nothing changes.
+  - `@object-ui/i18n`: every built-in locale pack gains one key, `console.ai.dock.planAwaitingApproval`. The `en` pack is exported from the package entry, so the key also joins the translation-key type derived from it.
+  
+  `@object-ui/app-shell` adds no export: the bus functions the pane and the launchers use (`publishPlanApprovalPending`, `usePlanApprovalPending`) ship inside `dist/` but are not on the package entry, and the exported `assistantBus` object and `AssistantSnapshot` type are unchanged. No prop, export or key is removed, and no existing member changes type.
+- 6d5eb34: The chat build panel reads cloud's post-apply verification loop, and an unknown build phase no longer reads as "Building" (objectui#11988, the receiver objectstack-ai/cloud#2172's ruling A orders).
+  
+  After `apply_blueprint` finishes, cloud's agent loop reports its verification hops on a second `data-build-progress` part with the id `build-verify`, beside the build tree. A hop is `{ phase: 'verify', hop, tool }` and the exit is `{ phase: 'done' }`. The receiver used to take the last `data-build-progress` part whatever its id, and turned every phase other than `data` and `done` into `structure`. So the first verification hop replaced the finished tree with "Building your app…".
+  
+  - **The tree and the verification part are read apart, by part id.** The `build-verify` part never displaces the tree, whichever order the two parts arrive in. A message that carries only the tree maps and renders exactly as before.
+  - **The build panel shows a verification line under the tree.** It reads "Checking the change… step N" while a hop runs, with the hop's tool name as its tooltip, and "Checked the change" once the `done` frame arrives. A `build-verify` part on a message that has no build tree is not drawn as a tree.
+  - **Phases are read against the spec's vocabulary.** The receiver's phase table and frame type are typed by `@objectstack/spec/ai`'s own `BuildProgressPhase` and `BUILD_PROGRESS_FRAME_TYPE`, so a phase the spec adds or drops fails the type check here instead of drifting. The spec's runtime module is not imported, because it would put its whole AI schema module on the console's first load. A phase outside the vocabulary, or a frame without one, is now `unknown` and shows as a warning line ("Unknown build phase") on the tree header or on the verification line. It is no longer coerced to `structure`.
+  - **Type change.** `ChatBuildProgress.phase`, reached through `ChatMessage['buildProgress']`, widens from `'structure' | 'data' | 'done'` to `'structure' | 'data' | 'verify' | 'done' | 'unknown'`: the spec's phase vocabulary plus `'unknown'`, held equal to the spec's union by a compile-time test. `ChatBuildProgress` also gains an optional `verify` member, `{ phase, hop?, tool? }`. The published typings name no new `@objectstack/spec` symbol, so the package's spec range is unchanged.
+  - **New language-pack keys, in all ten packs:** `chatbot.build.verifying`, `chatbot.build.verifyStep`, `chatbot.build.verified` and `chatbot.build.unknownPhase`.
+- b4e0787: The runtime chat contracts have their own names, apart from `@object-ui/types`' authoring `ChatMessage` / `ChatToolInvocation` (objectui#6349, batch 5). The shape `<ChatbotEnhanced>` renders is declared as `ChatbotEnhancedMessage`, and its tool invocations as `ChatbotEnhancedToolInvocation` — the names this package already published them under. `ChatbotEnhancedMessage` is no longer deprecated.
+  
+  **Type changes, breaking for some consumers.**
+  
+  - `ChatMessage` is no longer exported from `@object-ui/plugin-chatbot`. It denoted the same type as `ChatbotEnhancedMessage`, while `@object-ui/types` publishes a different `ChatMessage` (the JSON/SDUI authoring contract), so one name stood for two contracts across the two packages. Replace `import { type ChatMessage } from '@object-ui/plugin-chatbot'` with `ChatbotEnhancedMessage`; the shape is unchanged. The compiler names the replacement (TS2460: declared locally, exported as `ChatbotEnhancedMessage`). For authored messages, import `ChatMessage` from `@object-ui/types` and convert them with `toRuntimeMessages`.
+  - `ChatbotEnhancedToolInvocation` keeps its name and shape; only its declaration was renamed from `ChatToolInvocation`, a name this package's entry never exported.
+  
+  The README and the plugin-chatbot docs page now teach `ChatbotEnhancedMessage`. No runtime behaviour changes.
+
+### Patch Changes
+
+- d39ac2e: The AI Approvals inbox shows the error, not an empty queue, when its read fails, and its poll stops on an answer that will not change (objectui#11736).
+  
+  On a deployment with no AI service, the open edition answers `501` on `/api/v1/ai/pending-actions`. `AiPendingActionsInbox` rendered the error alert and, beneath it, "No actions waiting". That reads as a live approval queue that happens to be empty, on a deployment that has none. `usePendingActions` also re-armed its five-second interval whatever the read answered, so the page asked the dead endpoint every five seconds for as long as it stayed open.
+  
+  - The inbox shows the empty state only when the read answered. When the read failed, the error alert stands alone.
+  - `usePendingActions` now arms each poll after the previous read settles, according to its answer:
+    - A refused read stops the poll. That is `501`, or any `4xx` except `408` and `429`, such as `401`, `403` or `404`. A manual `refresh()` that succeeds, the re-fetch after `approve` or `reject`, or a change to the hook's options starts it again.
+    - A transient failure backs the poll off. That is no answer at all, `408`, `429`, or a `5xx` other than `501`. The delay doubles with each consecutive failure, up to 120 seconds, or up to `pollInterval` if that is longer.
+    - A read that succeeds polls again after `pollInterval`, as before, and resets the backoff.
+  
+  The policy is in the hook, so every caller of `usePendingActions` gets it, not only the inbox. With a working endpoint nothing changes: an empty queue still shows "No actions waiting", and the poll keeps its interval.
+  
+  **Clause-②: no.** No export, prop, option, return member or language-pack key is added or removed, and no accepted input widens.
+- 8f8f760: Three more controls pick with the shared `Select`, the control the rest of the console picks with (objectui#11865, the list view and the chatbot): `ListView`'s "Color by field" and its "Rows per page" selector (the fallback for views without a grid pager), and `ChatbotEnhanced`'s model picker.
+  
+  The three were browser-native selects, so they looked and behaved differently from the console's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour. "Color by field" now matches its twin in the compact toolbar's View settings popover, which made the same change earlier.
+  
+  What they write is unchanged. Each option gives the same value as before: "None" still clears the row-colour config, a field keeps the config's colours, each page size still reaches `onPageSizeChange` and refetches at that size, and each model still reaches `onModelChange` as its id. Re-picking the current option writes nothing. The model picker keeps its accessible name, the `model` label. A row-colour rule on a field the caller may not read still shows as "None" and is never offered.
+  
+  One display change: a value none of a picker's options carries now shows as itself. The native select showed its first option instead: "None" for a row-colour field outside the list's columns, the first size for a page size in force that is not one of the options (an undeclared size, for instance), and the first model for a selected model the environment no longer offers.
+  
+  **Clause-②: no.** No published face moves: the package entries export the same names, the two components take the same props, and no i18n key is added. What moves is the three controls' own markup, described above.
+- 1f1c4b5: Doc comments now name the runtime message type `ChatbotEnhancedMessage`, its name since objectui#6349 batch 5, instead of `ChatbotEnhanced.ChatMessage` (objectui#6349, batch 6).
+  
+  No type or runtime behaviour changes.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [e06365c]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/components@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/i18n@17.8.0
+  - @object-ui/react@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

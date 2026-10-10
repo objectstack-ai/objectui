@@ -1,5 +1,369 @@
 # @object-ui/plugin-view
 
+## 17.8.0
+
+### Minor Changes
+
+- 9fc68aa: Screen readers can name and reach the controls of the view tab bar, the settings form, the sidebar menus, the table's selection column and the percent cell (objectui#11690). axe-core (wcag2a + wcag2aa) on an object list page and on a Setup settings page reported the faults below; each is fixed where it is produced and pinned by an axe run on that component.
+  
+  - **View tab bar (`ViewTabBar`).** The "+" add-view button is named, through the existing `view.addView` key, and its tooltip reads the same translated words instead of a hard-coded "Add View". Each view is now a `<button>`; the current one carries `aria-current="true"`. The views were `role="tab"` elements with no `tablist`, and the active view's actions button sat inside its tab, so it was a control inside a control. That button is now the view button's sibling, still named "View actions for …" and still one Tab stop away. Tab roles could not hold it: a tab's content is presentational and a tablist may contain only tabs. These views never had the tabs keyboard model (arrow keys, a tab panel) either. Every view stays its own Tab stop. When the bar is not reorderable, as the console renders it, Enter or Space switches to the focused view. With drag-to-reorder on, Enter or Space on a view starts a keyboard drag instead, as it did before this change, so a view is switched to by click. The rename box is now outside the view button and is named through `view.rename`. With drag-to-reorder on, the sortable attributes describe the view as a button. Breaking for anything that queried the bar by `role="tab"` or `aria-selected`: query `data-testid="view-tab-ID"` or `aria-current` instead.
+  - **Settings form (`@object-ui/console`).** Each row's label is bound to its control, so text, number, password, textarea, JSON, colour, switch and select controls are named by it. Clicking a label now focuses or toggles its control. A radio group and a multiselect checkbox group are named by the row label too.
+  - **Sidebar menus (`NavigationRenderer`).** With drag-to-reorder on (the desktop default), every row was wrapped in a `<div>` between the menu's `<ul>` and its `<li>`. The sortable node is now the row's own `<li>`. A separator and a nested group inside a menu are now list items too: the separator's item is hidden from assistive tech, and a top-level group is unchanged.
+  - **Table selection column (`data-table`).** The select-all checkbox and each row's checkbox are named through the existing `table.selectAllRows` and `table.selectRow` keys.
+  - **Percent cell (`PercentCellRenderer`).** The progress bar is named by the formatted value beside it (`aria-labelledby`), so the name is in the viewer's locale.
+  
+  No language-pack key, export or prop is added; every new name reads a key the packs already carried.
+- 17acfbb: A record delete confirmation now names what it deletes and confirms with a destructive "Delete" button (objectui#11695).
+  
+  Deleting a row from an object list, a selection of rows, or a record from its own page opened a dialog titled "Confirm Action" with a "Continue" button in the primary style, and nothing in it said which record was about to go. The dialog now:
+  
+  - titles one record by the object label and the record's display name, for example `Delete Product "QA Widget 0"?`. The name comes from the same resolver the record header and lookups use, so an object's declared `nameField` is honoured;
+  - titles a selection by its size and the object label, for example `Delete 3 Product records?`;
+  - labels its confirm button "Delete" and paints it in the destructive button style.
+  
+  The body is unchanged: the plain delete question, the batch question, or, for a package-owned permission set, the reset question from ADR-0094. The record page's Delete now asks that same question, so a package-owned permission set deleted from its own page also gets the reset question instead of the plain one.
+  
+  The three dialogs (the console list's row and bulk Delete, the record page's Delete, and the registered `object-view`'s grid Delete) take this copy from one place:
+  
+  - `@object-ui/core`: `recordDelete.confirmCopy(deps, target)` returns `{ title, message, confirmText }` for one record (`{ record }`) or a batch (`{ count }`). The `ConfirmationHandler` options gain `destructive?: boolean`.
+  - `@object-ui/app-shell`: `ActionConfirmDialog` paints the confirm button destructive when `options.destructive` is set. `useObjectActions` accepts `objectDef` and returns `deleteRecords(records)` for a confirmed batch delete. `deleteRecord` now asks through `onConfirm` with the full copy before the delete runs, rather than through the action runner's one-argument confirm. The console list passes its translated object label, so the delete toasts read the same label the page header shows.
+  - `@object-ui/i18n`: new keys in all ten packs: `objectActions.deleteConfirmTitle`, the `objectActions.bulkDeleteConfirmTitle` count family, and `objectActions.deleteConfirmButton`.
+  
+  Other confirmations are unchanged. They keep the `actionConfirm.*` title and "Continue" button and the primary style.
+- 0253416: feat(plugin-list)!: a chart list view binds only an ADR-0021 `dataset`; the legacy inline chart axes and their `name` / `value` floors are retired on every route (objectui#6152, round 15)
+  
+  Clause-②: no
+  
+  **Changed (breaking for a stored chart view that names no `dataset`).** Every door refuses the
+  pre-ADR-0021 chart axes on a list view: `@objectstack/spec`'s chart block is a strict object of
+  `chartType`, `dataset`, `dimensions` and `values`, and `@object-ui/types`, `objectui validate` and the
+  platform's view write door judge by it, top-level and in the `options` bag. The renderers kept
+  reading the axes, so a chart view stored before the doors closed still drew an inline aggregate, and
+  a chart view that declared nothing was drawn from the invented fields `name` and `value`. They no
+  longer do, on every route that did: `ListView`'s chart branch and its capability gate, the object
+  page's chart view (`@object-ui/app-shell`) and `ObjectView`'s own views (`@object-ui/plugin-view`).
+  
+  | stored chart block (either nesting) | what renders now | write instead |
+  | :--- | :--- | :--- |
+  | `xAxisField` / `categoryField`, `yAxisFields` / `valueField`, `aggregation` (and, on the object page, `series` and `filter` on the block) | the chart's refusal: "Chart category axis required", in place of the chart; a view of another type no longer offers Chart in its view switcher | `chart: { dataset, values, dimensions }`, naming an ADR-0021 dataset of the object |
+  | no binding at all on a view whose `viewType` is `chart` | the same refusal, where a chart grouped by `name` and counting `value` used to draw | the same dataset block |
+  
+  A dataset-bound chart renders as before. The refusal is `ObjectChart`'s own screen for an object-bound
+  chart that names no category axis (objectui#8168); its remedy names that component's keys, not the
+  list view's dataset block.
+  
+  **Not measured: production.** The census before this change (objectui#6152 round 13) found no writer
+  and no stored row carrying these axes in any repository corpus a seat can reach, with positive
+  controls; this repository's create-view dialog writes the dataset block. Stored view and page
+  metadata in deployments was not measured. A row that carries the axes renders the refusal until it is
+  re-saved with a dataset block.
+  
+  - `@object-ui/plugin-view`: an `ObjectView` kanban view no longer reads `kanban.conditionalFormatting`.
+    The list view's kanban block does not declare it, and every door that judges the block refuses it
+    by name; the view's own `conditionalFormatting` is the one place it is read. The development-only
+    flat-key warning no longer names `dateField`, `groupBy`, `groupField`, `imageField` or
+    `subtitleField`, which it told an author to move into a block that refuses them.
+  - `@object-ui/app-shell`: the object page's development-only flat-key warning no longer names the
+    twelve keys every per-kind block refuses (among them `groupField`, `imageField`, `cardFields`,
+    `xAxisField`, `yAxisFields`, `aggregation` and `series`).
+  - `@object-ui/plugin-charts`, `@object-ui/types`: comments only, where they said the list-view relays
+    still read the legacy axes.
+- 3fd8625: feat(plugin-list)!: the renderers stop reading the list-view keys every door refuses: the pre-#2231 aliases, `calendar.defaultView`, and the undeclared keys a per-kind block carries (objectui#6152, round 14)
+  
+  Clause-②: no
+  
+  **Changed (breaking for a stored view that carries a refused key).** Rounds 11 and 12 of
+  objectui#6152 closed the doors: `@object-ui/types`, `objectui validate` and `@objectstack/spec`'s
+  view write door refuse these keys on a list view's per-kind blocks, top-level and under the legacy
+  `options` bag. The renderers kept reading them, so a view stored before the doors closed still
+  rendered as written. They no longer read them, on every route that did: `normalizeListViewSchema`
+  (`@object-ui/core`), which folded the four aliases onto their spec keys before anything else read
+  the view, `ListView`, the object page's relay (`@object-ui/app-shell`), `ObjectView`'s own views
+  (`@object-ui/plugin-view`) and `ObjectTimeline`. A stored view that carries one of these keys still renders, without what the key
+  used to bind. Write the spec's key instead:
+  
+  | stored key (either nesting) | what renders now | write instead |
+  | :--- | :--- | :--- |
+  | `kanban.groupField` | lanes as for a view that names none: the object's declared lifecycle field (`status` on an `object-view` element's own views) | `kanban.groupByField` |
+  | `kanban.cardFields` | cards show `kanban.columns`, or the view's own fields | `kanban.columns` |
+  | `gallery.imageField` | no cover binding: `ObjectGallery` tries `image`, and the Gallery view is not offered | `gallery.coverField` |
+  | `timeline.dateField`, and `calendar.dateField` read as a timeline axis | no timeline axis: the timeline's refusal names the keys to write, and the Timeline view is not offered | `timeline.startDateField` (or `calendar.startDateField`) |
+  | `calendar.defaultView` | the calendar opens on its own default view | nothing on a list view: the initial mode is the `object-calendar` element's flat `defaultView` |
+  | `kanban.swimlaneField` and any other undeclared kanban key | not drawn | nothing: the spec's kanban block has no swimlane |
+  | `tree.titleField` | the tree labels by `name` | `tree.labelField` |
+  | an undeclared key under `calendar`, `tree` or `gantt`, or anything under `options.grid` | not forwarded to the view | the block's declared key, or a top-level key of the view for a grid |
+  
+  The declared keys keep their route: `kanban.summarizeField`, `calendar.colorField` and
+  `calendar.allDayField` are now read by name where the removed spreads used to carry them, and every
+  `gantt` key the spec declares reaches the gantt through a typed table that `tsc` keeps total. A
+  block key named like a node key (`objectName`, `filter`) can no longer override the node's own
+  value. `ListView`'s projection collectors stop asking the server for the fields these keys named.
+  
+  **Not measured: production.** The census before this change (objectui#6152 round 13) found no
+  writer and no stored row carrying these keys in any repository corpus a seat can reach, with
+  positive controls; stored view and page metadata in deployments was not measured. A row that
+  carries one of these keys renders as the table says until it is re-saved with the key on the
+  right.
+  
+  Not in this change: the legacy chart axes (`chart.xAxisField`, `yAxisFields`, `categoryField`,
+  `valueField`, `aggregation`), which `ListView` still reads until the next round on objectui#6152.
+  
+  - `@object-ui/core`: `normalizeListViewSchema` returns a view whose only legacy vocabulary is one of
+    these nested aliases by reference, with the alias in place; it no longer removes it either.
+  - `@object-ui/types`: the refusal messages of these keys no longer say a stored view still renders
+    through the alias, and the kanban `groupBy` refusal no longer suggests the refused `groupField`.
+  
+  **Note added 2026-10-09 (objectui#6152 round 15):** the legacy chart axes are no longer read either.
+  `ListView`, the object page and `ObjectView`'s own views read no `xAxisField`, `yAxisFields`,
+  `categoryField`, `valueField` or `aggregation` on a chart block, so a chart view that names no
+  `dataset` binds nothing and `ObjectChart` refuses it on screen; see
+  `.changeset/6152-list-view-legacy-chart-retired.md`.
+
+### Patch Changes
+
+- 282f252: The record drawer of an object view opens as a right-hand panel on a desktop, and stays a bottom sheet on a phone (objectui#11775).
+  
+  An object view whose record surface is the drawer (an authored `layout: 'drawer'` or `navigation: { mode: 'drawer' }`, a light object on a desktop, or a page with nowhere to route) opened its create, edit and view form in vaul's `Drawer` with `direction: 'right'`. vaul applies the direction to the slide and the drag gesture only, and the shipped `DrawerContent` styles itself as a bottom sheet whatever the direction, so on a desktop the form drew as a sheet pinned to the bottom-left of the window, at most 672px wide, with a drag handle.
+  
+  - **Desktop:** the form opens in the right-hand `Sheet`, full height and anchored to the right edge, the panel the console's record drawer (`NavigationOverlay` in drawer mode) already opens a record in. It keeps the width it had: the full window up to 672px.
+  - **Phone (below 768px):** the form stays on vaul's bottom sheet, which now slides up and is dragged down to close, the direction it is drawn in, and spans the screen at every phone width.
+  
+  `DrawerContent` itself is unchanged, so every other bottom sheet draws as before.
+- 2063f7a: Four plugin controls pick with the shared `Select`, the control the rest of the console picks with (objectui#11865, the plugins' single selects): `SharedViewLink`'s "Expires after", `ViewSettingsPopover`'s "Color by field", a `select` field of the kanban `InlineQuickAdd` form, and the grouped grid's "Rows per page".
+  
+  The four were browser-native selects, so they looked and behaved differently from the console's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour. The grouped grid's size picker is now drawn as the flat grid's pager draws its own.
+  
+  What they write is unchanged. Each option gives the same value as before: "Never" still generates a link with no expiry, "None" still clears the row-colour config, the quick-add placeholder still submits an empty string, and each page size still repaginates from page 1. Re-picking the current option writes nothing. The quick-add picker keeps the accessible name its label gave the native select and still takes the form's first focus. Its keys keep the form's contract: Enter on the closed picker still submits the form and Escape still cancels it; Space and the arrow keys open the list, and Enter or Escape inside the open list selects or closes it without submitting or cancelling the form.
+  
+  One display change: a value none of a picker's options carries now shows as itself. The native select showed its first option instead ("None" for a row-colour field, the placeholder for a quick-add value), which is not what the view or the form holds.
+  
+  **Clause-②: no.** No published face moves: the package entries export the same names, the four components take the same props, and no i18n key is added. What moves is the four controls' own markup, described above.
+- 5bc55c0: An `object-view` grid now exports the filter it shows, and returns to page 1 when that filter changes (objectui#11880, item 5).
+  
+  `ObjectView` hands the grid it draws one filter slot, `filter`, carrying the whole chain: the active named view's filter, else `table.filter` unless it lowers to nothing (absent, `[]` or `{}`), else the deprecated `table.defaultFilters`. It no longer writes `defaultFilters` on that grid node, which `@objectstack/spec` retires on `object-grid` (objectstack#11509).
+  
+  Two user-visible corrections, both on an `object-view` rendered by the registered renderer (a page node, the Studio's stored-view preview; a host that supplies `renderListView` already behaved this way):
+  
+  - **The export carries the view's filter.** A named view's filter and an authored `table.defaultFilters` narrowed the rows on screen, but the server-streamed export (CSV, XLSX, JSON) was handed no filter and downloaded every record of the object. It now downloads the rows the view shows, as it already did for `table.filter`.
+  - **Changing the filter returns the grid to page 1.** When a named view's filter or `table.defaultFilters` changed while the grid stayed mounted, the next query kept the old page index, which could ask for a page the new result does not have. It now returns to page 1, as `table.filter` already did.
+  
+  What did not change: which filter applies (each rung and each pair sends the same query and draws the same rows), and a refused filter still draws the grid's malformed-filter panel and queries nothing. Nothing is added to or removed from any published type, schema or export.
+- acc4328: A gallery view handed to `ObjectView` now draws with the `coverFit`, `cardSize` and `visibleFields` its `gallery` block declares (objectui#12053).
+  
+  `ObjectView` builds the `object-gallery` node for a gallery view, whether the view comes from the host `views` prop or from a named `listViews` entry. It built a flat node that carried the cover field and the title field only, while `ObjectGallery` reads `coverFit`, `cardSize` and `visibleFields` from the node's nested `gallery` block. So `coverFit: 'contain'` drew covers cropped, `cardSize` was ignored and cards showed none of their `visibleFields`.
+  
+  The node now carries the block nested, the shape `ListView` already hands `ObjectGallery`. It holds the five keys the spec's gallery block declares (`coverField`, `coverFit`, `cardSize`, `titleField`, `visibleFields`), each copied by name. A key the spec does not declare is not carried. The node no longer carries the flat `imageField` and `titleField`, because `ObjectGallery` reads the nested values first. A gallery view with no `titleField` still titles its cards by `name`.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 3c3115e: List views read `userActions.editInline` with the spec's default, off. A view's `inlineEdit` folds into it, and the console's inline-edit toggle no longer writes to the view (objectui#5144).
+  
+  **Breaking for a view that relied on the old default.** The spec declares `userActions.editInline` with `.default(false)`: the list is read-only unless the author opts in. The interface page already read it that way. The object-list toolbar did not: it read an absent `editInline` as "defer to the host", so every console grid offered the inline-edit toggle unless a view said `editInline: false`. The toolbar now reads it as the spec does. A grid view that declares neither `userActions.editInline` nor `inlineEdit` no longer offers the inline-edit toggle, on the wide toolbar or in the compact settings popover, and never opens in edit mode.
+  
+  **The fold.** `normalizeListViewSchema` (`@object-ui/core`) now folds a boolean `inlineEdit` into `userActions.editInline`, the way it already folds the `show*` flags into the other toggles:
+  
+  - `inlineEdit: true` reads as `editInline: true`: the toggle is offered and the grid opens in edit mode;
+  - `inlineEdit: false` reads as `editInline: false`: no toggle;
+  - an explicit `userActions.editInline` wins over `inlineEdit`, in both directions;
+  - a view with neither key reads off.
+  
+  `inlineEdit` stays on the folded view, because `ListView` opens the grid in edit mode from it. Nothing migrates stored views.
+  
+  **The console toggle is session-only (`@object-ui/app-shell`).** Both keys are the author's permission. The console's toolbar toggle used to store a user's edit mode in the view's `inlineEdit`; after the fold, switching it off would have taken the toggle away for good. It now writes nothing. The toggle switches edit mode for the session, and each load starts from the view's own `inlineEdit`. `ListView` still reports the toggle through `onInlineEditChange`.
+  
+  **A named view's `inlineEdit` keeps its precedence (`@object-ui/plugin-view`).** On a host's `renderListView`, `ObjectView` merges `userActions` from the node, the host's `views` entry and the active named view, the named view last. The named view's `userActions` now go through the same fold as the other two. So a named view's `inlineEdit` decides whether inline editing is offered ahead of a host entry's, as it already decided the edit mode.
+  
+  **What to do.** A view that should offer inline editing declares `userActions.editInline: true`. The toggle then stays offered whatever the user does with it. Two costs come with the session-only toggle:
+  
+  - the edit mode is not remembered across loads;
+  - a view, or a personalization overlay, where the old toggle stored `inlineEdit: false` still reads off. That is existing data, and it is not migrated. Declaring `userActions.editInline: true` on the view brings the toggle back.
+  
+  Nothing is added to a package entry: no export, prop, type member or language-pack key.
+- b13ea3c: feat(types)!: `ObjectGridSchema.defaultFilters` and the flat `ObjectGanttSchema` / `ObjectMapSchema` `filter` follow their `@objectstack/spec` rows (objectui#6152, round 10)
+  
+  Clause-②: yes
+  
+  `@objectstack/spec` has typed `ComponentPropsMap['object-grid'].defaultFilters` as the same
+  `ViewFilterRule` array as `filter`, `[{ field, operator, value }, ...]`, since 17.6.0: the legacy
+  fallback `ObjectGrid` reads only when `filter` is absent, refusing the MongoDB-style record, a bare
+  string and the AST tuple array. The `object-gantt` and `object-map` rows type `filter` the same
+  way. `@object-ui/types` now takes each row's own member by reference, on the TypeScript interface
+  and on the zod mirror, with no alias window.
+  
+  **Widened.** `ObjectGridSchema.defaultFilters` was `Record<string, any>` and
+  `z.record(z.string(), z.any())`, so the zod mirror REFUSED the rule array the row declares. The
+  flat grid mirror is the source of an `object-view`'s `table` slot, so
+  `table: { defaultFilters: [{ field: 'status', operator: 'equals', value: 'open' }] }` now parses
+  there, on the tolerant and the strict face and through `safeValidateSchema`.
+  
+  **Narrowed (breaking).**
+  
+  - The record form of `defaultFilters` is refused: on the interface (a compile error, in an
+    `object-view`'s `table` too) and on the zod mirror, at `defaultFilters` (`table.defaultFilters`
+    in an `object-view`), with the protocol's own message, which computes the rule array from the
+    record's keys. Respell
+    `defaultFilters: { status: 'open' }` as
+    `defaultFilters: [{ field: 'status', operator: 'equals', value: 'open' }]`, or, better, move it
+    to `filter`, which takes the same array and wins when both are written.
+  - `ObjectGanttSchema.filter` and `ObjectMapSchema.filter` were `any[]` and `z.array(z.any())`, so
+    `filter: [['status', '=', 'open']]` type-checked and parsed. Both are the row's rule array now;
+    respell the tuple as `[{ field: 'status', operator: 'equals', value: 'open' }]`. These two flat
+    types describe the node as the renderers read it: an authored `object-gantt` / `object-map`
+    node's `properties` bag is the row itself, which refused the tuple array already.
+  
+  What did not move: the renderers' reads. `ObjectGrid` lowers `defaultFilters` through the same
+  `toFilterNode` sink as `filter`, so a rule array there sends the same `$filter` and draws the same
+  rows as the same array written as `filter`; the sink still lowers a record or an AST that reaches
+  the slot at runtime, and `ObjectGantt` / `ObjectMap` still forward an AST a host composes. The
+  `@object-ui/core`, `@object-ui/plugin-grid` and `@object-ui/plugin-view` entries are comment
+  repairs to sentences that called the key `Record<string, any>`. `@object-ui/plugin-grid`,
+  `@object-ui/plugin-view` and `@object-ui/plugin-map` also carry typed test fixtures re-spelled to
+  the rule array, and `@object-ui/plugin-grid` a pin of the above through the real renderer.
+- d7e9e9a: feat(types)!: `object-grid` `operations` and the `object-grid` / `object-kanban` / `object-calendar` `filter` follow the `@objectstack/spec` 17.7.0 rows (objectui#6152, round 8)
+  
+  Clause-②: no
+  
+  **Narrowed (breaking).** `@objectstack/spec` 17.7.0 types `object-grid`'s `operations` as the
+  strict `{ create?, update?, delete?, export? }` block, refusing `read` and `import` by name, and
+  the `filter` of `object-grid`, `object-kanban` and `object-calendar` as the `ViewFilterRule` array
+  `[{ field, operator, value }, ...]`, refusing the MongoDB-style record and the AST tuple array.
+  `@object-ui/types` now says the same, with no alias window:
+  
+  - `ObjectGridSchema.operations` takes the row's block by reference. `read` and `import` are
+    `?: never` on the interface and refused by name at their own path on the flat zod
+    `ObjectGridSchema`: no `object-grid` code reads either. The flat mirror is the source of an
+    `object-view`'s `table` slot, so `table.operations.read` / `.import` are refused there too, and
+    the `read` refusal names the view-level spelling, `navigation: { mode: 'none' }` or the view's
+    own `operations: { read: false }`.
+  - `ObjectGridSchema.filter`, `ObjectKanbanSchema.filter` and `ObjectCalendarSchema.filter` take
+    their row's own member by reference, on the interface and on the zod mirror. They were `any[]`
+    and `z.array(z.any())`, so `filter: [['status', '=', 'open']]` type-checked and parsed. It is now
+    refused, on an authored `object-kanban` / `object-calendar` node and in an `object-view`'s
+    `table` slot; respell it `filter: [{ field: 'status', operator: 'equals', value: 'open' }]`.
+  
+  What did not move: an `object-view`'s own `operations.read` (the protocol has no `object-view`
+  row, and `ObjectView` reads it as its row-click gate), and the renderers' reads. `ObjectGrid`
+  still lowers an AST array, and the board and the calendar still hand whatever `filter` reaches
+  the node to `$filter`, because hosts compose that form at runtime.
+  
+  - `@object-ui/plugin-view`: the grid node `ObjectView` composes no longer carries the view's
+    `read` toggle in its `operations` block; the view keeps reading it.
+  - `@object-ui/plugin-grid`, `@object-ui/plugin-kanban`, `@object-ui/plugin-calendar`: the
+    registrations' `filter` inputs describe the `ViewFilterRule` array, and the grid's `operations`
+    input names the four toggles.
+  - `@object-ui/console`: the registry parity pins' prose stops calling these rows `z.unknown()`.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [15f6702]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [3f0b0cd]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [902ebab]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [d768c31]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [846f982]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [e06365c]
+- Updated dependencies [8aebc6f]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [bfca7ec]
+- Updated dependencies [5e446ab]
+- Updated dependencies [9844bbf]
+- Updated dependencies [0aa8c0c]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [2063f7a]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [9fc6ad7]
+- Updated dependencies [f1781be]
+- Updated dependencies [fbad078]
+- Updated dependencies [ccddd11]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [c0c0a0d]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/components@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/plugin-form@17.8.0
+  - @object-ui/i18n@17.8.0
+  - @object-ui/react@17.8.0
+  - @object-ui/plugin-grid@17.8.0
+  - @object-ui/permissions@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

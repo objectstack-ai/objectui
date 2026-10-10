@@ -1,5 +1,7 @@
 # @object-ui/create-plugin
 
+## 17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

@@ -1,5 +1,119 @@
 # @object-ui/plugin-map
 
+## 17.8.0
+
+### Patch Changes
+
+- fbaa79d: A map view in a browser without WebGL2 shows its own "Map failed to load" alert and lists its records, instead of crashing the page (objectui#11819).
+  
+  MapLibre draws only through WebGL2. Without it — hardware acceleration turned off, a GPU-blocklisted browser, some remote desktops, headless Chromium — the page body was replaced by the render-failure card *Component "object-map" failed to render — Cannot read properties of undefined (reading 'destroy')*, which names neither the map nor the cause. `ObjectMap` now asks the browser for a WebGL2 context before it mounts the map. When there is none it never constructs a map: it shows the amber "Map failed to load" alert, naming WebGL2, and lists the records the markers would have drawn. The search box above narrows that list, and choosing a record does what clicking its marker does. A style or tile failure is unchanged: the map keeps running with its markers and shows the alert over them.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- b13ea3c: feat(types)!: `ObjectGridSchema.defaultFilters` and the flat `ObjectGanttSchema` / `ObjectMapSchema` `filter` follow their `@objectstack/spec` rows (objectui#6152, round 10)
+  
+  Clause-②: yes
+  
+  `@objectstack/spec` has typed `ComponentPropsMap['object-grid'].defaultFilters` as the same
+  `ViewFilterRule` array as `filter`, `[{ field, operator, value }, ...]`, since 17.6.0: the legacy
+  fallback `ObjectGrid` reads only when `filter` is absent, refusing the MongoDB-style record, a bare
+  string and the AST tuple array. The `object-gantt` and `object-map` rows type `filter` the same
+  way. `@object-ui/types` now takes each row's own member by reference, on the TypeScript interface
+  and on the zod mirror, with no alias window.
+  
+  **Widened.** `ObjectGridSchema.defaultFilters` was `Record<string, any>` and
+  `z.record(z.string(), z.any())`, so the zod mirror REFUSED the rule array the row declares. The
+  flat grid mirror is the source of an `object-view`'s `table` slot, so
+  `table: { defaultFilters: [{ field: 'status', operator: 'equals', value: 'open' }] }` now parses
+  there, on the tolerant and the strict face and through `safeValidateSchema`.
+  
+  **Narrowed (breaking).**
+  
+  - The record form of `defaultFilters` is refused: on the interface (a compile error, in an
+    `object-view`'s `table` too) and on the zod mirror, at `defaultFilters` (`table.defaultFilters`
+    in an `object-view`), with the protocol's own message, which computes the rule array from the
+    record's keys. Respell
+    `defaultFilters: { status: 'open' }` as
+    `defaultFilters: [{ field: 'status', operator: 'equals', value: 'open' }]`, or, better, move it
+    to `filter`, which takes the same array and wins when both are written.
+  - `ObjectGanttSchema.filter` and `ObjectMapSchema.filter` were `any[]` and `z.array(z.any())`, so
+    `filter: [['status', '=', 'open']]` type-checked and parsed. Both are the row's rule array now;
+    respell the tuple as `[{ field: 'status', operator: 'equals', value: 'open' }]`. These two flat
+    types describe the node as the renderers read it: an authored `object-gantt` / `object-map`
+    node's `properties` bag is the row itself, which refused the tuple array already.
+  
+  What did not move: the renderers' reads. `ObjectGrid` lowers `defaultFilters` through the same
+  `toFilterNode` sink as `filter`, so a rule array there sends the same `$filter` and draws the same
+  rows as the same array written as `filter`; the sink still lowers a record or an AST that reaches
+  the slot at runtime, and `ObjectGantt` / `ObjectMap` still forward an AST a host composes. The
+  `@object-ui/core`, `@object-ui/plugin-grid` and `@object-ui/plugin-view` entries are comment
+  repairs to sentences that called the key `Record<string, any>`. `@object-ui/plugin-grid`,
+  `@object-ui/plugin-view` and `@object-ui/plugin-map` also carry typed test fixtures re-spelled to
+  the rule array, and `@object-ui/plugin-grid` a pin of the above through the real renderer.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [e06365c]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [d99b731]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/components@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/react@17.8.0
+  - @object-ui/permissions@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

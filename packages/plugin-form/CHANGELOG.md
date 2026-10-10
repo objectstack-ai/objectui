@@ -1,5 +1,271 @@
 # @object-ui/plugin-form
 
+## 17.8.0
+
+### Minor Changes
+
+- 902ebab: The `record:line_items` registration no longer declares `childObject` required,
+  so the page compile accepts a node whose `dataSource` binding names the child
+  object (objectui#11569).
+  
+  `@objectstack/spec`'s `record:line_items` row leaves `childObject` optional,
+  because the node's `dataSource` binding can supply it, and the renderer agrees:
+  `dataSource.object` lands on `childObject` before the panel reads the node. The
+  registration still declared `required: true`, and the page compile reads the
+  registration, so a bound node with no `childObject` of its own was refused with
+  `missing-required-prop` and the save failed.
+  
+  **Clause-②: yes (widening)** — a `record:line_items` node that names its child object
+  through `dataSource.object` and sets no `childObject` now compiles and saves. A
+  node that names its child object in neither place also compiles now: the panel
+  shows its configuration hint naming `childObject` and loads nothing, as it did
+  before when such a node reached it. `relationshipField` and `columns` are still
+  required. The published `childObject` input now carries a description that says
+  the binding can supply it.
+- fd060f0: The `object-form`, `view:form`, `embeddable-form` and
+  `object-master-detail-form` registrations no longer declare `objectName`
+  required, so the page compile accepts a node whose `dataSource` binding names the
+  object, and a form that names its object in neither place shows a hint instead of
+  a form with no fields (objectui#11605).
+  
+  `@objectstack/spec`'s `object-form` and `object-master-detail-form` rows leave
+  `objectName` optional, because the node's `dataSource` binding can supply it;
+  `embeddable-form` has no spec row, and the binding doc says a bound node needs no
+  `objectName` of its own. Each renderer agrees: `dataSource.object` lands on
+  `objectName` before the form reads the node. The registrations still declared
+  `required: true`, and the page compile reads them, so a bound form with no
+  `objectName` of its own was refused with `missing-required-prop` and the save
+  failed.
+  
+  **Clause-②: yes (widening)** — an `object-form`, `view:form`, `embeddable-form`
+  or `object-master-detail-form` node that names its object through
+  `dataSource.object` and sets no `objectName` now compiles and saves. A node that
+  names its object in neither place also compiles now, and shows "No object named:
+  set objectName or dataSource.object." where it used to draw a field-less card, a
+  public form that could not submit, or an empty parent form. An `object-form`
+  or `view:form` whose fields are declared inline shows no hint and renders as
+  before: non-empty `customFields`, or `sections` whose every field is an inline
+  field, the target-less collector the `tabbed`, `wizard`, `split`, `drawer` and
+  `modal` variants render. `formId` on `embeddable-form` and `details` on
+  `object-master-detail-form` are still required. The published `objectName`
+  inputs now carry a description that says the binding can supply them.
+- 9dfaca6: The default (`simple`) `object-form` draws a self-describing inline section entry, as the `tabbed`, `wizard`, `split`, `drawer` and `modal` forms already did (objectui#11615). Before, the default form resolved every section entry against its parent field pool and skipped an inline `{ name, … }` entry whose name the pool did not hold. The same section drew that entry on every other form type and drew nothing for it on `simple`, apart from a console warning when the object declared the name.
+  
+  **Clause-②: yes (widening, with one break for TypeScript readers).** Authored input is only widened: nothing either package accepted before is refused now. Code that READS `ObjectFormSection.fields` can break at compile time, described under "Breaking for TypeScript readers" below.
+  
+  - `@object-ui/types`: `ObjectFormSection.fields` is `(string | SpecFormFieldInput | FormField)[]`. The new arm is the form view's `{ field, … }` entry, and it is `@objectstack/spec`'s `FormFieldInput` by reference, not a copy. The form already drew that entry. Before, a TypeScript author could not annotate it, because `FormField` requires `name` and types `field` as an object. The zod mirror is unchanged: a section's `fields` entry is still `z.any()` there.
+  - `@object-ui/plugin-form`, layout types: the section `fields` of the five layout configs is `NonNullable<ObjectFormSection['fields']>`, by reference. Those configs are `FormSectionConfig` (tabbed), `WizardStepConfig`, `SplitFormSectionConfig`, `DrawerFormSectionConfig` and `ModalFormSectionConfig`, reached through the exported `TabbedFormSchema`, `WizardFormSchema`, `SplitFormSchema`, `DrawerFormSchema` and `ModalFormSchema`. Each of these layouts already drew the `{ field }` entry. Before, their types refused it, and `ObjectForm` passing an authored section to them would no longer compile once the section type named the entry.
+  - `@object-ui/plugin-form`, section drawing: on `simple`, an entry that names itself is drawn as it stands, whatever the field pool holds. Such an entry is an object whose `field` is not a string and whose `name` is a string. This is the existing `isInlineFieldDef` predicate that the submit-target rule already reads. It does not require `type`: the spec's inline arm makes `type` optional, and the other five forms draw a typeless entry as the default input.
+  - `@object-ui/plugin-form`, inline collector: a `simple` form with no data source and no `submitHandler`, whose sections list only inline entries, is now a self-contained collector, as on the other five forms. It opens on `initialValues` / `initialData`, and its `onSuccess` receives the collected values. Before, that form drew no fields and refused the submit. Its submit carve-out now reads the shared `hasInlineFieldSource`.
+  
+  **Breaking for TypeScript readers of `ObjectFormSection.fields`** (still `minor`: objectui's major follows the `@objectstack` family major, so its own breaks ship as `minor` and are stated here). A consumer that narrowed an entry with `typeof entry === 'string' ? entry : entry.name` compiled while every object entry was typed as an inline `FormField`. It no longer compiles: `Property 'name' does not exist on type 'FormFieldInput | FormField'`. The read was already wrong at runtime for a `{ field }` entry, where it gave `undefined`. Remedy: name an entry by its arm. The string is the name itself, the `{ field }` entry names its field by `field`, and the inline entry names it by `name`. `@object-ui/plugin-form` now exports `sectionEntryName(entry)`, which applies exactly that rule and returns `undefined` for an entry that names nothing. It sits beside `resolveSectionGroupReferences`, whose result it reads. The repo's own reader, an app-shell test over that resolver's result, is respelled this way.
+  
+  **What stays refused or warned.**
+  
+  - A field name and a `{ field }` entry still resolve against the pool on `simple`. A name the pool does not hold is still dropped, and still warned about once when the object declares it, because top-level `fields` and `sections` still intersect (objectui#9884).
+  - An inline entry with no `name` is malformed and is still not drawn on `simple`.
+  - A form with no data source and no `submitHandler` still refuses its submit with `DataSource is required for form submission (inline mode not configured)` unless every section entry is inline. One name or `{ field }` entry among inline ones is enough to refuse, on all six forms.
+  
+  **Behaviour change for an existing schema.** On `simple`, an inline entry whose name the object declares but top-level `fields` leaves out used to be dropped with the intersection warning. It is now drawn as its own definition, with no warning, as on the other five forms. With a data source, its value is still written only if the object declares the field. As on every form, a key the object does not declare is stripped from the write.
+
+### Patch Changes
+
+- 15f6702: `deriveColumns`, the default columns of a master-detail inline grid whose author listed none, now takes which columns it draws, their order and which of them are `defaultHidden` from `@objectstack/spec`'s `deriveInlineGridColumns`, and its visible budget from the spec's `DEFAULT_MAX_INLINE_GRID_COLUMNS` (objectui#11345). The rule is the spec's now, so objectstack's `field-no-consumers` lint credits exactly the columns this grid draws.
+  
+  The output does not change. The signature is the same, and each column's label, cell type, options, lookup target, conditional rules and computed expression are still built from the child field here, including a plain text column for a field whose definition is falsy. The module-level `DEFAULT_MAX_INLINE_COLUMNS` constant, which the package entry never exported, is removed.
+  
+  `@object-ui/plugin-form` raises its `@objectstack/spec` floor from `^17.0.0` to `^17.6.0`, because its published entry now imports `deriveInlineGridColumns` and `DEFAULT_MAX_INLINE_GRID_COLUMNS`, which the spec first exports in 17.6.0.
+- 3f0b0cd: The per-row expand form of an inline master-detail collection now takes both of its rules from `@objectstack/spec` (objectui#11428), as the collection's grid columns already do. `deriveFormFields`, the form's fields when its author listed none, returns the spec's `deriveInlineRowFormFields` answer, and `MasterDetailForm` offers a row the form when the spec's `isInlineRowFormOffered` says so. The rules are the spec's now, so objectstack's `field-no-consumers` lint credits exactly the fields this form draws.
+  
+  The output does not change. `deriveFormFields` keeps its signature and returns the same names in the same order, and a row is offered the form exactly when it was before: always in `form` mode, and in `grid` mode only when the form has more fields than the grid has columns. How each named field renders is still decided here.
+  
+  `@object-ui/plugin-form` raises its `@objectstack/spec` floor from `^17.6.0` to `^17.7.0`, because its published entry now imports `deriveInlineRowFormFields` and `isInlineRowFormOffered`, which the spec first exports in 17.7.0.
+- c0862c1: `@objectstack/spec` 17.7.0 retires `sortField` on an `object-master-detail-form` `details` entry (objectstack-ai/objectstack#21589), so `objectui validate` now refuses an entry that writes it, at that member, with the spec's retired-key message (objectui#11717). The form never read it: the line-position field is derived from the child object (objectui#11070). The `details` registration description and the `MasterDetailDetailConfig` docblock now say so. The type is unchanged: it already left the key off.
+- e06365c: fix(components): fields that belong to no field group no longer render under the last group's heading (objectui#11777)
+  
+  On an object where some fields join a declared `fieldGroups` entry and the rest join none, the create and edit forms drew the ungrouped fields straight on under the last group's heading, in the same grid and even in the same row as that group's last field, so they read as its members. The Studio form designer shows those fields apart, in their own trailing area.
+  
+  The form renderer now ends a section's field grid where the section's heading stops claiming fields. The fields after it start a block of their own below a rule, with no heading and no placeholder title. Ungrouped fields keep their place after the groups, and a section without a heading that follows a titled one is set apart the same way. Every stacked form layout gets this: the default form, `formType: 'modal'` and `formType: 'drawer'`, with sections derived from `fieldGroups` or listed explicitly. A form with no groups, a form whose every field is in a group, collapse and a group's `visibleWhen` render as before.
+- ccddd11: A create form preselects the option a field's option list marks `default: true` (objectui#11914).
+  
+  A `select` field that declares no `defaultValue` but marks one option `default: true` opened on the "Select an option" placeholder in every object-form container, the console's create dialog included. The server stores the marked option when a create omits the field, so the objectstack tutorial's Create Ticket form showed Priority and Status empty and could not be submitted until the user picked the values the metadata had already chosen.
+  
+  The create form now reads the option list the way the server's insert path does:
+  
+  - only when the field declares no `defaultValue`. A field-level default, static or runtime, always wins, and the option flag is then not seeded;
+  - a single-valued field takes the first marked option;
+  - a multi-valued field (`multiselect`, or `select` with `multiple: true`) takes every marked option, as an array.
+  
+  A value the caller seeds or the user picks still wins. Edit forms are unchanged: they show the stored record.
+  
+  Nothing is added to the package entry: no export, prop or type member.
+- 023f00d: A create form asks its fields the create question, so a role that may create
+  records but not edit them can fill and submit the form (objectui#12082). Every
+  console affordance that offers a write now reads the grant it exercises from
+  one map.
+  
+  **The defect.** A create form gated each field on `checkField(object, field,
+  'write')`, whose fallback for a field the permission set does not mention is
+  the object's `allowEdit`. Under a grant of `allowCreate: true, allowEdit: false`
+  every field of the create form rendered disabled, the outbound filter stripped
+  every field from the body, and the save posted an empty record that the server
+  refused for its required fields — while the server accepts the same create.
+  
+  **The server's insert rule, which the create question follows.** The server's
+  field-level write step refuses a write that names a field whose explicit
+  field-level entry has `editable: false`; a field with no entry passes it, and
+  object admission decides the operation (`allowCreate` for an insert,
+  `allowEdit` for an update). So a create-form field now reads its explicit entry
+  when there is one and the object's create grant when there is none. A field the
+  permission set marks `editable: false` stays disabled and out of the body.
+  
+  **Clause-②: yes (widening)**
+  
+  - `@object-ui/core` exports the affordance-to-grant map: `AFFORDANCE_GRANTS`
+    (one row per affordance: the CRUD-affordance bit it needs, the object grant it
+    exercises and, for an affordance that offers fields, the field question it
+    asks), `resolveAffordance` (managed-object policy ∧ the server's effective API
+    operation set ∧ the caller's grant, with the row's `userActions` predicates
+    surfaced only when all three allow it), `resolveFieldAffordance`,
+    `formFieldsAffordance`, and their types (`ConsoleAffordance`,
+    `FieldAffordance`, `AffordanceGrant`, `FieldAffordanceGrant`,
+    `AffordanceGrantRow`, `AffordanceGrantPrincipal`, `FieldAffordancePrincipal`,
+    `AffordanceSource`, `AffordanceVerdict`).
+  - `@object-ui/permissions`: `checkField`'s action accepts `'create'` beside
+    `'read'` and `'write'`. `MePermissionsProvider` answers it from the explicit
+    field entry when there is one and from `allowCreate` otherwise; the
+    role-based `PermissionProvider` answers it as it answers `'write'`.
+  
+  **Behaviour, by package.** With no permission provider mounted every grant
+  still reads open, as before.
+  
+  - `@object-ui/plugin-form`: every `ObjectForm` layout's fields and outbound
+    filter ask the question of the form's mode (create or edit). The form-wide
+    lock, with its "You don't have permission to …" notice, also engages when the
+    caller's object grant for the form's mode is denied, not only when the
+    managed-object policy or the effective API operation set closes it. A
+    create-mode `MasterDetailForm`'s line cells ask the create question of the
+    child object, since every line there is a new record.
+  - `@object-ui/app-shell`: the record page's Edit and Delete (and the record
+    body's in-place editing) read the caller's update / delete grant; they read
+    none before. The import wizard's write targets ask the create question, so a
+    caller offered Import keeps every field the insert accepts. List New / Import,
+    the related lists and the Attachments panel read the map with the verdicts
+    they had.
+  - `@object-ui/fields`: a lookup's "Create new" reads the create grant (and the
+    managed-object policy and operation set) of the object the field references;
+    it read no grant before.
+  - `@object-ui/plugin-grid`: row Edit / Delete, in-place editing, the template
+    download and the add-record row read the map; the add-record row now also
+    honours the object's managed-object policy and effective `create` operation.
+  - `@object-ui/plugin-detail`: `record:details` in-place editing reads the
+    caller's update grant; the detail header's object gate adds the effective
+    operation set.
+  - `@object-ui/plugin-list` and `@object-ui/console`: bulk Delete, the
+    inline-edit toggle and the profile page's language field read the map with
+    the verdicts they had.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [055d350]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [db4cb6b]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [e06365c]
+- Updated dependencies [3035948]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [5ab2f19]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [a368ccb]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/components@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/i18n@17.8.0
+  - @object-ui/react@17.8.0
+  - @object-ui/fields@17.8.0
+  - @object-ui/permissions@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

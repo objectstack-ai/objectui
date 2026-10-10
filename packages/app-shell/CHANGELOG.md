@@ -1,5 +1,1891 @@
 # @object-ui/app-shell — Changelog
 
+## 17.8.0
+
+### Minor Changes
+
+- c3623eb: Studio reads shared picklists: a select field can use one, an object with a picklist-bound field saves again, and the picklist page is read-only (objectui#10202, the objectui half of objectstack#18164 phase 2).
+  
+  A shared picklist is one list of options that select fields on several objects name with `picklist: 'NAME'` instead of carrying their own (`@objectstack/spec` 17.6.0, `data/picklist.zod.ts`). The kind is package-owned: it is authored in a package, and the runtime takes no create, edit or delete for it.
+  
+  - **"Use picklist" in the select-field editor.** For a `select`, `radio`, `multiselect` or `checkboxes` field, an "Options from" picker lists the picklists the runtime serves, by name, beside "This field's own options". Choosing a picklist sets `picklist` and removes the field's `options`. A bound field shows the list's values read-only, and offers no inline options editor, because the spec refuses `picklist` together with `options`. Its default value is chosen from the list's values. Changing the field to a type that takes no options drops the binding. A stored name the served list no longer has is shown flagged as not found. If the list cannot be loaded, the picker says so and still offers the field's own options.
+  - **Saving an object with a picklist-bound field works again.** The runtime serves such a field with the options it resolved from the list and its extensions. The metadata-admin object designer and the Studio data page sent those back, and the save was refused with `422 INVALID_METADATA` whatever had been edited. Both now leave `options` out of every field that names a picklist. Every other field and key is sent as it was. The metadata-admin designer's live check now judges the body it sends, so it no longer reports "`picklist` and `options` cannot both be declared" on such an object.
+  - **The picklist page is read-only.** Its detail view shows the list's label, name, description and owning package, each option with its label and value, and the options other packages add to it (`picklistExtensions`), each under the package that declares it. It offers no create, edit or delete. The list page already offered no create for this kind.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The new copy lives in the metadata-admin designer's own string tables (en and zh).
+- d2e8599: The console asks `GET /api/v1/usage/storage` only when the runtime serves it (objectui#11002). On a self-hosted or open-source runtime, an environment admin's console used to request that cloud-only endpoint on every shell mount and log a 404 each time. Now neither the storage-capacity banner nor the read-rate report asks unless the runtime config's `features.storageUsage` is `true`. The cloud distribution sends that key exactly when it mounts the endpoint (cloud#2481), and every other runtime sends no key.
+  
+  **Clause-②: yes (widening)** — the exported `RuntimeFeatures` type gains one optional member, `storageUsage?: boolean`, so `AppShellRuntimeConfig.features` and the value `getRuntimeConfig()` returns carry it too. It is `false` by default and after any runtime-config payload whose `features.storageUsage` is not the literal `true` (absent, `false`, `'true'` and `1` all read as `false`). It is `true` only when the payload sends `true`. As with the other feature keys, a payload with no `features` object leaves the current value. Nothing else on the package entry changes: no export is added or removed, and no existing member changes type.
+  
+  **Behaviour change.** `ConsoleShell`'s two banners request the endpoint only when the viewer is the environment admin, as before, and `features.storageUsage` is on. Both read the same flag and still share one request. A cloud runtime older than the one that serves the key (cloud#2517) sends no key, so its admins see neither banner until that runtime is upgraded.
+  
+  Not published: the accessor the banners read, `isStorageUsageServed()`. Like its siblings `isMarketplaceEnabled()` and `isAiStudioEnabled()`, it ships inside `dist/` but is not exported from the package entry. `useStorageUsageReading` and `useReadRateReading` are unchanged and keep their `enabled = true` default.
+- 39a3e91: The screen-flow runner names the flow by its label, in the user's language (objectui#11092, the objectui half of objectstack#20318).
+  
+  Since `@objectstack/spec` 17.6.0 every answer that evaluated a flow carries the flow's authored label as `AutomationResult.flowLabel` (objectstack#20633). `FlowRunner` now resolves the flow's display name in this order: the active language's `flows.FLOW.label` from the app's translation bundle, then the served `flowLabel`, then the flow's API name. The bundle is the one the runner already reads for screen headings and field copy, and the lookup is the spec's own `translateFlow`.
+  
+  Where it shows:
+  
+  - **The runner header.** A line above the screen's heading names the flow. The heading is still the step's own title (or the `flowRunner.title` fallback), and it is still the dialog's accessible name.
+  - **The completion toast.** `Flow "{{flow}}" completed` names the flow by the resolved label instead of its API name. A flow's own `successMessage` still takes precedence. The message key and its translations are unchanged.
+  
+  All three places that open the runner pass the label through: a flow action on a list or toolbar, a flow action on a record page, and the developer Flow Runs page's Test Run panel. A resume answer that pauses on a further screen carries the label forward.
+  
+  Against a server older than objectstack#20633 no label is served, so the header line and the toast show the flow's API name, unless the app's bundle translates `flows.FLOW.label` for the active language.
+  
+  **Clause-②: yes (widening).** The exported `ScreenFlowState` type gains one optional member, `flowLabel`, typed by the contract as `Pick` of `AutomationResult`'s `flowLabel` (an optional string). `FlowRunnerProps.state` accepts it through that type. No prop, export or i18n key is added or removed, and no existing member changes type.
+- b508ac5: A Studio form field that declares the `ref:dataset` widget now renders a dataset picker instead of the JSON editor fallback (objectui#11601).
+  
+  The metadata forms had no renderer for `ref:dataset`, so a field declaring it fell back to a raw
+  JSON box with a "falling back to JSON" note. The new widget offers the analytics dataset catalog,
+  showing each dataset's label beside its name and its description after it, and writes the dataset
+  name. It works for a field in a form section and for a column of a repeater row, in both the grid
+  and the card layouts. A stored dataset the catalog does not list stays visible and is marked
+  "(not found)". While the catalog is loading the field shows the stored name, and if the catalog
+  fails to load the field shows the load-failure notice beside a text box that stays editable. A
+  form whose host does not supply a catalog shows a plain text input for the dataset name.
+  
+  The report inspector now supplies its dataset catalog to the report's form. A joined report's
+  block row picks up the dataset picker once the spec's "Joined blocks" row declares `ref:dataset`
+  (objectstack#21714). Until objectui is built against a spec that carries that declaration, a
+  block's `dataset` is still entered as free text.
+  
+  The dataset option list that the report and dashboard-widget inspectors already show is unchanged.
+  
+  `SchemaForm`'s `widgetContext` prop gains one optional member, `datasets`, the catalog the new widget
+  reads. It is additive: a host that passes no `datasets` renders exactly as before, except that a
+  `ref:dataset` field now shows the text input instead of the JSON fallback.
+- 76993f8: A field group's `visibleWhen` now gates its section on the record detail page, the same way it gates the section on the entry form (objectui#11630). Take an object whose `fieldGroups` entry declares `visibleWhen: "record.kind == 'pro'"`. The edit form hid the "Pro details" section on a `basic` row, but the detail page drew it on every row, header included. The detail page now draws it only where the predicate holds.
+  
+  **How it works.** The detail body now writes each field group as `@objectstack/spec`'s own reference form, `{ group: KEY }` (`RecordDetailsProps.sections[].group`). `record:details` resolves the reference against the object's `fieldGroups`: the group's members, label, icon, description and collapse state, and its `visibleWhen`. The predicate is evaluated per record with the form's own evaluator (`resolveFieldRuleState` from `@object-ui/core`, under `usePredicateScope`), and both spellings work as they do on the form: a bare CEL string or a `{ dialect: 'cel', source }` envelope.
+  
+  - Values bind under `record.`, so a bare identifier is unbound.
+  - A declared field the row does not carry compares as `null`.
+  - A relation binds as its stored id, even when the page's record arrived expanded.
+  - `previous` binds the persisted row, as on the record's edit form.
+  - A predicate that cannot be evaluated SHOWS the section and warns once, which is what the form does.
+  
+  A FALSE verdict removes the whole section, heading and members. This is display only: the record API serves those fields either way.
+  
+  **Clause-②: yes (output shape change).** BREAKING for code that reads the synthesized sections of a grouped object. The bump is still `minor`: under this repo's release model, objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.
+  
+  - `buildDefaultPageSchema`, `buildDefaultTabs`, `buildDefaultDetails` and `resolveDetailSections` (`@object-ui/plugin-detail`) change the `record:details` `properties.sections[]` they emit for an object with `fieldGroups`:
+    - Each declared group becomes `{ group: KEY, columns }`. It used to be an enumerated copy of the group: `name`, `label`, `icon`, `description`, `collapsible`, `defaultCollapsed`, `columns`, and `fields` as rich `{ name, label, type, … }` descriptors.
+    - The trailing ungrouped section keeps `columns` and lists `fields` as bare names.
+    - The node now parses as `RecordDetailsProps`; the old one was refused at every field object. Pages Studio seeds from it (`createSeed`) change the same way. An explicit `sections` option is still returned unchanged.
+  - `record:details` gates a `{ group }` reference with the group's `visibleWhen`. It does not read `visibleWhen` off an enumerated section, a key the spec refuses there.
+  - The console's default record page (`RecordDetailView`, `@object-ui/app-shell`) writes `{ group: KEY, showBorder: true }` for each declared group. Its ungrouped primary and "More details" sections are unchanged.
+  - The `record:details` registration's `sections` input description now says a `{ group }` reference inherits the group's `visibleWhen`, and that one written on a section itself is not read.
+  - Unchanged: `deriveFieldGroupDetailSections` still returns the resolved, enumerated sections (what a reference renders as), with no `visibleWhen` on them. No type member, zod member, registered `inputs` entry, prop or i18n key is added.
+  
+  **Migration.**
+  
+  - FROM reading a group's heading or members off a synthesized section (`sections[i].label`, `sections[i].fields`) → TO `deriveFieldGroupDetailSections(def)`, which returns the resolved sections, or the group's own entry in `def.fieldGroups`.
+  - FROM a stored page section copied from an older seed, `{ name: 'pro', label: 'Pro details', fields: [ … ] }` → TO `{ group: 'pro' }`, with `columns` / `showBorder` / `headerColor` kept if you set them. Only the reference form inherits the group's `visibleWhen`; an enumerated copy renders on every row, as before.
+- 7b17705: Installed Apps now reads a package the runtime refused to load at startup as "Not loaded", says why, and keeps its Uninstall (objectui#11645).
+  
+  After a restart whose startup check refused a package built for another platform protocol, the install-local listing still lists the package, so it can be uninstalled or replaced. Since `@objectstack/*` 17.7.0 the listing marks such an entry with `notLoaded: { code, requiredRange }` in place of `withSampleData`. Installed Apps drew every listed entry as installed. Now:
+  
+  - the row carries a "Not loaded" badge beside its version, and one sentence naming the reason: for `OS_PROTOCOL_INCOMPATIBLE`, that the package targets protocol `requiredRange`, which this runtime does not support. A refusal code the console has no sentence for still reads "Not loaded" and names the code;
+  - Uninstall stays on the row. Its confirm and its result no longer say that the package stays loaded until the next restart;
+  - the package's Details page no longer offers re-seed or purge of sample data for such an entry, since both act on objects the runtime never registered. Uninstall and Reinstall stay.
+  
+  A loaded entry renders as before.
+  
+  The language packs gain `marketplace.notLoaded.badge`, `marketplace.notLoaded.protocolIncompatible`, `marketplace.notLoaded.otherReason`, `marketplace.uninstall.confirmNotLoaded` and `marketplace.uninstall.successNotLoaded`, in all ten languages.
+- 848ba0e: The chat launchers show a marker while a proposed plan awaits the user's approval (objectui#11666, item 6 of objectui#2458). A user who closed the chat with a blueprint still waiting on them used to get no sign of it from the launcher they return to.
+  
+  What a user sees: while the newest proposed plan of a conversation still offers "Build it", the console's assistant button (the floating launcher on app pages and Home) and the ChatDock edge launcher Studio uses carry a small amber dot. Assistive tech reads it as the button's description, from the new `console.ai.dock.planAwaitingApproval` key in the active language. With no plan awaiting, neither launcher shows anything. The dot goes away when the plan stops awaiting: the user approves it, its build runs, or a newer proposal takes its place and is itself approved or built. Opening the chat clears nothing by itself, and neither does opening another conversation. Deleting the conversation from the `/ai` sidebar drops it.
+  
+  Where the reading comes from: the chat's own plan card. `ChatbotEnhanced` derives "awaiting approval" from the same producer its card header and body read (`resolveProposalCardState` reads `pending`), and reports it to its host. The console's chat pane publishes that reading on the assistant bus, per conversation and per signed-in user, and the launchers read the bus. They import no chat code. The reading is exact for everything that happens in the tab. It does not see a decision made in another tab or on another device, and a page reload starts it empty until a chat on that conversation is opened again. The durable copy is the server conversation, which the launchers do not read.
+  
+  **Clause-②: yes (widening).** Two published surfaces widen:
+  
+  - `@object-ui/plugin-chatbot`: the exported `ChatbotEnhancedProps` type gains one optional member, `onPlanApprovalPendingChange`, a callback that takes one boolean and returns nothing. `ChatbotEnhanced` calls it once on mount and again whenever the boolean changes. Without it nothing changes.
+  - `@object-ui/i18n`: every built-in locale pack gains one key, `console.ai.dock.planAwaitingApproval`. The `en` pack is exported from the package entry, so the key also joins the translation-key type derived from it.
+  
+  `@object-ui/app-shell` adds no export: the bus functions the pane and the launchers use (`publishPlanApprovalPending`, `usePlanApprovalPending`) ship inside `dist/` but are not on the package entry, and the exported `assistantBus` object and `AssistantSnapshot` type are unchanged. No prop, export or key is removed, and no existing member changes type.
+- 57d82cb: The AI chat's tool-approval card and its "Open in Builder" handoff card are translated in every language (objectui#11667).
+  
+  The console's AI chat passed three English literals to the inline approval card: "Approve & run", "Reject", and the deny reason "Operator rejected from chat". It also left the handoff card on its English defaults: "Build this in the Builder", "Open in Builder →", and the superseded card's tooltip "A newer request is available". A zh-CN reader met all six in English, among labels that were already translated.
+  
+  All six now come from the language packs:
+  
+  - The approve and reject buttons reuse the AI Approvals inbox's keys `aiApprovals.approveAndExecute` and `aiApprovals.reject`. They make the same decision on the same pending action, through the same endpoint. English readers now see "Approve & Execute" in place of "Approve & run", the inbox's wording.
+  - The deny reason, sent as `reason` on the reject request and stored as the pending action's `rejection_reason`, follows the UI language. People read it in the AI Approvals inbox, and the model reads it as prose on its next turn. No code parses it.
+  - The handoff card's three strings are new keys.
+  
+  **Widened public surface (`@object-ui/i18n`).** Four new keys in all ten language packs, so the exported `en` pack and the `TranslationKeys` type derived from it gain four members:
+  
+  - `console.ai.toolDenyReason`
+  - `console.ai.builderHandoffTitle`
+  - `console.ai.builderHandoffOpen`
+  - `console.ai.builderHandoffSuperseded`
+  
+  No component prop or exported type changes. `ChatbotEnhanced` already took all six strings as props.
+- de96f3d: The keyboard-shortcuts dialog (`?`) lists only shortcuts that do something (objectui#11674).
+  
+  **Clause-②: no (narrowing)**: no accept set changes; the dialog shows fewer rows, and seven unused `console.shortcuts.*` keys leave all ten locale packs.
+  
+  The dialog was a static list, separate from every key handler, and six of its rows did nothing. `N` (create record), `R` (refresh data), `⌘/Ctrl+E` (edit record), `⌘/Ctrl+/` (focus search) and `⌘/Ctrl+D` (dark mode) had no handler anywhere, and the sidebar row said `B` while the sidebar toggles on `⌘/Ctrl+B`. The AI-assistant rows (`⌘/Ctrl+Shift+O`, `⌘/Ctrl+Shift+S`) were listed inside apps, where their only handler, on the AI chat page, is not mounted.
+  
+  `@object-ui/app-shell`: each shortcut is now advertised beside its handler, for as long as that handler is mounted, and `KeyboardShortcutsDialog` lists what is advertised. Inside an app it lists `⌘K` (command palette), `?` (this dialog), `Esc` (close a dialog or panel) and `⌘B` (toggle the sidebar). The AI chat page advertises its own two shortcuts, so they are listed only where that page is mounted. Rows are grouped as before and sorted by their text. A host that mounts `KeyboardShortcutsDialog` outside the console layout now sees the shortcuts whose handlers it mounts, not a fixed list.
+  
+  `@object-ui/i18n` (BREAKING; `minor` under this repository's release model, where objectui's major follows the `@objectstack` major): `console.shortcuts.focusSearch`, `createRecord`, `refreshData`, `editRecord`, `toggleDarkMode`, `groups.dataViews` and `groups.preferences` are removed from all ten packs. Nothing reads them now. A host that calls `t()` with one of them gets the key back; supply the string from your own resources if you still need it.
+- 48c82c9: "Recently Accessed" shows each item's own label, in the current language, and a visit that does not change the list no longer writes the `ui.recent` preference (objectui#11678).
+  
+  The route tracker used to store a label it made from the route's machine name at visit time: a dashboard labelled "Delivery Operations" was listed as "Showcase Ops Dashboard", and stayed in English after switching to 中文. An object, dashboard, page or report entry now stores its identity only, `type` and `name`, and every surface that lists recent items (the Home cards and rail, the sidebar's Recent group, Studio home, the command palette) labels it when it renders, through the new `useRecentItemLabel` hook. That hook reuses the resolver each kind already has: the navigation target label for an object or a dashboard, and the page's or report's metadata label through the `pageLabel` / `reportLabel` bundle lookup. An item whose metadata is not loaded shows its machine name until it is. A record keeps the title it was visited under, and a Studio metadata item its name.
+  
+  Lists already stored in the old shape are read by identity, which was always in the entry's `id`; their stored label is dropped, so they show the current label on first render.
+  
+  `RecentItemsProvider` now refuses to write a list equal to the one it holds, whoever reports the visit: revisiting the item already at the head of the list changes nothing and writes nothing, and its `visitedAt` stays the time it became the most recent entry. Going from an object's list to one of its views no longer saves the list a second time.
+  
+  **Breaking (types):** `RecentItem` is now a union. `RecentNamedItem` (`object`, `dashboard`, `page`, `report`) carries `name` and no `label`; `RecentTextItem` (`record`, `metadata`) carries `label`. `addRecentItem` takes `RecentItemInput`, so a call that passes a `label` for an object, dashboard, page or report no longer compiles, and code that reads `item.label` off a recent entry should call `useRecentItemLabel()` instead. `useRecentItemLabel`, `RecentItemLabelResolver`, `RecentItemInput`, `RecentItemType`, `RecentNamedItem` and `RecentTextItem` are new exports of `@object-ui/app-shell`.
+  
+  **Clause-②: yes (narrowing).** The package entry gains six exports, and `addRecentItem` refuses the label-carrying shape it used to take for those four kinds.
+- abd374b: The console's settings pages resolve icons through the shared `getLazyIcon` helper and no longer log `[lucide-react]: Name in Lucide DynamicIcon not found` (objectui#11679).
+  
+  - **Settings hub and namespace pages.** The settings hub, each settings namespace page and its action buttons used the console's own icon helper. That helper passed every name to lucide's `DynamicIcon` without checking that Lucide has it. Its tokeniser also turned `Building2`, the icon the framework's company settings declare, into `building2`, which is not a Lucide name. `DynamicIcon` then logged the error above on the settings hub and on the company page. It drew a bare fallback glyph that ignored the page's sizing classes. The pages now use `getLazyIcon` from `@object-ui/components`: `Building2` shows the building icon, and a name Lucide does not have shows the `Database` fallback at the page's size, with no console error. The console's own helper is removed.
+  - **App shell icons.** App-shell's internal `getIcon` now re-exports `getLazyIcon` instead of keeping a copy. Its copy already checked the name before calling `DynamicIcon`, but used the same tokeniser, so a digit-suffixed Lucide name such as `Building2` showed the `Database` fallback in the sidebar, app switcher and other shell chrome. Those names now resolve to their own icons. A name that resolved before resolves to the same icon; `lazy-icon-digit-boundary-9414.test.ts` in `@object-ui/components` re-derives that against the installed Lucide on every run.
+  
+  No export is added to or removed from either package's entry.
+- 22b503c: Read-only boolean values, the boolean list face and the Home greeting's punctuation follow the language (objectui#11689).
+  
+  Under zh-CN a record showed its boolean values as "Yes" / "No", and the Home greeting joined a Chinese greeting to the person's name with an ASCII comma and closed it with an ASCII period.
+  
+  - **Booleans.** The read-only surfaces that draw a boolean as a word now read the existing `common.yes` / `common.no` keys: `BooleanField`'s readonly display, a `FormulaField` whose `returnType` is `boolean`, the lookup column's plain-text fallback, and the record-detail highlights chip. zh-CN shows the Chinese words; English is unchanged. Without an `I18nProvider` the words stay "Yes" / "No".
+  - **The boolean list face.** `BooleanCellRenderer`, which every list surface draws, spelled its status badge ("Active — Off") and its completion indicator's accessible names ("Completed" / "Not completed") in English. All three now come from the language packs. The grid also handed that face the authored field label while its header printed the translated one, so the badge named the column in the authored language under a translated header. The face now receives the label the header prints.
+  - **Greeting.** The comma before the name and the closing mark are two new keys, so zh-CN reads the full-width comma and full stop, Japanese its own marks and Arabic its own comma. English is unchanged, and the name keeps its own colour.
+  
+  **Widened public surface.**
+  
+  - `@object-ui/i18n`: five new keys in all ten language packs, so the exported `en` pack and the `TranslationKeys` type derived from it gain `home.greetingSeparator`, `home.greetingEnd`, `fields.boolean.offBadge`, `fields.boolean.completed` and `fields.boolean.notCompleted`.
+  - `@object-ui/fields`: a new export, `useBooleanValueLabel()`, with its type `BooleanValueLabel`. It returns the current language's word for a boolean value, and `@object-ui/plugin-detail`'s highlights chip reads it.
+- 17acfbb: A record delete confirmation now names what it deletes and confirms with a destructive "Delete" button (objectui#11695).
+  
+  Deleting a row from an object list, a selection of rows, or a record from its own page opened a dialog titled "Confirm Action" with a "Continue" button in the primary style, and nothing in it said which record was about to go. The dialog now:
+  
+  - titles one record by the object label and the record's display name, for example `Delete Product "QA Widget 0"?`. The name comes from the same resolver the record header and lookups use, so an object's declared `nameField` is honoured;
+  - titles a selection by its size and the object label, for example `Delete 3 Product records?`;
+  - labels its confirm button "Delete" and paints it in the destructive button style.
+  
+  The body is unchanged: the plain delete question, the batch question, or, for a package-owned permission set, the reset question from ADR-0094. The record page's Delete now asks that same question, so a package-owned permission set deleted from its own page also gets the reset question instead of the plain one.
+  
+  The three dialogs (the console list's row and bulk Delete, the record page's Delete, and the registered `object-view`'s grid Delete) take this copy from one place:
+  
+  - `@object-ui/core`: `recordDelete.confirmCopy(deps, target)` returns `{ title, message, confirmText }` for one record (`{ record }`) or a batch (`{ count }`). The `ConfirmationHandler` options gain `destructive?: boolean`.
+  - `@object-ui/app-shell`: `ActionConfirmDialog` paints the confirm button destructive when `options.destructive` is set. `useObjectActions` accepts `objectDef` and returns `deleteRecords(records)` for a confirmed batch delete. `deleteRecord` now asks through `onConfirm` with the full copy before the delete runs, rather than through the action runner's one-argument confirm. The console list passes its translated object label, so the delete toasts read the same label the page header shows.
+  - `@object-ui/i18n`: new keys in all ten packs: `objectActions.deleteConfirmTitle`, the `objectActions.bulkDeleteConfirmTitle` count family, and `objectActions.deleteConfirmButton`.
+  
+  Other confirmations are unchanged. They keep the `actionConfirm.*` title and "Continue" button and the primary style.
+- 6be0f7a: Object list pages are titled with the object's plural label (objectui#11696).
+  
+  A list page read "Project" while the nav entry that opens it read "Projects", and the breadcrumb read "Project ▾". The object's `pluralLabel` was declared by the spec, served on every object document and carried into the client translation bundle, but no console surface resolved it.
+  
+  - **`useObjectLabel().objectPluralLabel(objectDef)`** (`@object-ui/i18n`) — new member beside `objectLabel`. It returns the translated plural (`{ns}.objects.{objectName}.pluralLabel`), else the declared `objectDef.pluralLabel`, else the singular as `objectLabel` resolves it, so an object that declares no plural keeps its label. The first two steps match how `translateObject` in `@objectstack/spec` serves `pluralLabel` from `/meta`: a bundle that translates `label` but not `pluralLabel` shows the declared plural, here as on every other consumer.
+  - **The list page titles** read the plural: the object list (`ObjectView`'s page header) and the object's `/data` page (`ObjectDataPage`'s page header, the URL-defined data slice badged "Data").
+  - **The object breadcrumb** reads the plural: the object segment, its "Switch Object" entries, and the object crumbs of a record's ancestor trail. Each links to an object list, so the segment stays plural when the trail continues into a record ("Projects › Apollo").
+  
+  The record page, the record drawer (including the one the `/data` page opens), and "New" actions keep the singular.
+- 7e2d5b0: `DefaultLoginPage` and `DefaultRegisterPage` offer a generic sign-up only where the server would accept one (objectui#11705). Under the default `invite_only` audience posture the server keeps `emailPassword.disableSignUp` off, so that a pending invitee can still register, and refuses anyone else with `403 SELF_REGISTRATION_CLOSED`. These two pages read `disableSignUp` alone, so every host that mounts them (`examples/console-starter` does) offered "Sign up" and the full form to every visitor, and the server refused the finished form. They now read `features.audiencePosture` too, through the same decision the console's own pages have used since objectui#11691, moved into this package so both call one rule.
+  
+  **Behaviour change.** Under `invite_only` with an owner, `DefaultLoginPage` shows no "Sign up" link, and `DefaultRegisterPage` says that registration is by invitation (the `auth.register.errors.selfRegistrationClosed` text) instead of rendering the form. A visitor whose `?redirect=` is an invitation-acceptance page (`/accept-invitation/ID`, where `DefaultAcceptInvitationPage` bounces a signed-out visitor) still gets the link and the form, and so does every visitor while the deployment has no owner yet, which `GET /api/v1/auth/bootstrap-status` answers. Only that case makes the extra request. `open` and `email_domain` are unchanged, as is a server that sends no `audiencePosture`. `disableSignUp: true` still hides everything, invitees included. Both pages now carry `?redirect=` between `/login` and `/register`, which is how the register page knows the visitor came from an invitation. After a successful sign-in or sign-up they still navigate to `/`.
+  
+  **Clause-②: yes (widening)** — the package entry gains the decision and the probe it reads: `decideSignUpOffer`, `needsBootstrapProbe`, `isInvitationRedirect` and `useBootstrapStatus`, and the types `SignUpOffer`, `SignUpOfferContext` and `BootstrapStatus`. They moved here from the private `apps/console` unchanged, and the console's pages and `/setup` entry now import them from this package. No existing export is removed or changes type.
+  
+  Not published: `audienceAdmitsUninvitedSignUp`, the posture predicate the decision restates from the spec's `audiencePermitsSelfRegistration`. It ships inside `dist/` but is not exported from the package entry. Take the spec's own predicate instead.
+- ded4494: The organization Settings page no longer offers a slug edit the framework will refuse (objectui#11720). From framework 17.7.0, better-auth's organization update refuses a new slug with `403` while the organization has an environment that is neither archived nor failed, and every cloud organization is born with its production environment, so every owner's slug edit on this page failed as a toast. The page now asks the data API for the organization's `sys_environment` rows, counted the way that guard counts them. While one counts, the slug renders read-only with a note that says why: a rename also moves the environments' subdomains.
+  
+  **Behaviour change.** A save sends `slug` only when it changed. A name-only save therefore carries no slug, so it answers `200` on every host, and a stale form can no longer write back a slug that was renamed elsewhere. A single-environment runtime (one whose runtime config serves `singleEnvironment: true`, as the CLI's `os serve` does) has no `sys_environment` object, so the page does not ask there at all. On any other host without that object the read is refused. Either way the field stays editable, and a changed slug goes out in the same single update call as before. The refused read is one extra request per owner visit to the page.
+  
+  **Clause-②: yes (widening)** — the `en` pack of `@object-ui/i18n`, and with it `TranslationKeys`, gains `organization.settings.slugLockedNote`, translated in all ten packs. No export, prop or schema key is added; the environment read stays module-private.
+- 7ebff39: The Studio landing (`/studio`) gets the console's own header (objectui#11863). Its old header held one control, the product wordmark linking back to Home. It now mounts `AppHeader` with `variant="studio"`: the brand logo, then a fixed "Studio" crumb, then the header's right-hand cluster as on Home and the Workspaces page (the inbox, help, and the account menu with profile, theme, language and sign-out). The brand links to the declared landing (`useHomePath()`), as the wordmark did, so the landing and the Studio builder's Home button still name one home. No command palette is mounted on `/studio`, so the header shows no search trigger there.
+  
+  **Note added 2026-10-09 (objectui#11863 Q2, PR objectui#12044):** the last sentence above no longer holds. From objectui#11863 Q2 the landing mounts the command palette in its `studio` scope, so the header draws the search trigger and `⌘K` opens the palette; see `.changeset/11863-studio-search.md`.
+  
+  **Clause-②: yes (widening; and one narrowing in `@object-ui/i18n`).** `AppHeader`'s `variant` prop accepts a fourth member, `'studio'`, beside `'app'`, `'home'` and `'orgs'`. It draws the brand and a fixed crumb, as `'orgs'` does. The union is not exported by name (the package entry exports `AppHeader` only), so a host meets it as the prop's type: a host that switches exhaustively over that type must handle `'studio'`. A call that passes no `variant` resolves it as before (`'app'` with an `appName`, `'home'` without). No export is added or removed.
+  
+  `@object-ui/i18n`: each of the ten packs gains `console.studio.title` ("Studio", a product name every pack writes as is), the crumb's label, and drops `console.studio.backToHome`, the retired wordmark's tooltip, which nothing reads any more.
+  
+  **Narrowed public surface (`@object-ui/i18n`).** The exported `en` pack and the `TranslationKeys` type derived from it lose one member, `console.studio.backToHome`. Code that reads `en.console.studio.backToHome`, or passes that key to `t()` expecting a translation, has to drop it. This is released as `minor` under objectui's version policy, which keeps the major aligned with `@objectstack`.
+- 054fd84: The Studio landing (`/studio`) lists the packages the author was last in, above its package cards (objectui#11863). A visit to a package's pillar builder (`/studio/PKG/TAB`) is recorded as a recent `package` entry. Before this, a Studio visit recorded nothing: the route tracker reads `/apps/APP` routes only.
+  
+  The entry stores the package's identity and no display text, as objectui#11678 did for objects, dashboards, pages and reports: its `id` is `package:PKG`, its `name` the package id, and its `href` the bare `/studio/PKG` route, which opens the Data pillar. The landing labels each entry from the package list it loads, so a renamed package shows its new name, and a package the list no longer has shows its id, as a missing object does. Moving between pillars of one package leaves the list as it is, so nothing is written. The package-less scope (`/studio/~org`) is not a package and records nothing. A principal the Studio entry gate refuses never reaches the builder, so records nothing.
+  
+  The app sidebar's Recent group and the metadata-admin app's home leave package entries out: neither loads the full package list, so they could only draw a package as its id. Home's Recently Accessed and the command palette's recent group already list other kinds only.
+  
+  **Clause-②: yes (widening).** The exported `RecentItemType` union gains `'package'`, so `RecentNamedItem`'s `type` and `RecentItem` carry it too, and a host's exhaustive `switch` or `Record` over the union must handle it. `useRecentItemLabel` takes an optional argument, `{ packages }`: the package list (`id` and `name` per row) that labels a `package` entry. A call with no argument resolves every other kind as before and draws a package entry as its id. No export is added or removed. `@object-ui/i18n` gains one key in all ten packs, `home.recentApps.itemType.package`, the label of the new kind.
+- 5275d1f: The Studio landing (`/studio`) gets search (objectui#11863). It mounts the command palette, so its header shows the "Search ⌘K" trigger and `Ctrl+K` / `⌘K` opens the palette. Until now only the frame inside an app mounted one, so the landing's header drew no trigger (objectui#11912's rule). The entry for the landing's new header says it shows no search trigger; with this change it does.
+  
+  On `/studio` no app is active, so the palette leaves out everything that belongs to an app: the app's objects, dashboards, pages and reports, record search, app switching, and the "Open Full Search Page" command, whose link starts with `/apps/APP` (mounted without an app it would have gone to `/apps/undefined/search`). It lists the Studio instead, in three groups:
+  
+  - **Packages**: the packages the Studio landing lists (kernel packages left out). Each opens its Data pillar, `/studio/PKG/data`.
+  - **Objects**: the objects of those packages, each opened in its package's Data pillar on that object (`/studio/PKG/data?surface=object:NAME`).
+  - **Flows**: the flows of those packages, each opened in its package's Automations pillar on that flow (`/studio/PKG/automations?surface=flow:NAME`), and the flows that belong to no package, opened in the package-less scope (`/studio/~org/automations?surface=flow:NAME`).
+  
+  An entry matches the query by its label or its machine name, as the palette's other entries do; an object or a packaged flow shows its package's name beside it. Nothing is read until the palette opens. Objects and flows are the published ones from the metadata cache, so an item that is still only a draft is not listed. The theme commands and the recently viewed records stay.
+  
+  **Clause-②: yes (widening).** `CommandPalette`'s props gain a second form, `scope="studio"`, which takes no other prop. The props a host passes inside an app (`apps`, `activeApp`, `objects`, `onAppChange`, `dataSource`) are unchanged and still required there; that form leaves `scope` out. The props type is not exported by name (the package entry exports `CommandPalette` only), so a host meets it as the component's props. No export is added or removed. `@object-ui/i18n` gains two keys in all ten packs, `console.commandPalette.packages` and `console.commandPalette.flows`, the headings of two of the new groups; the objects group reuses `console.commandPalette.objects`.
+- 45d5853: New SDUI widget `cloud:workspace-timezone-notice`: one line on the Cloud welcome page naming the timezone a workspace was seeded with at creation (objectui#11930, the objectui half of objectstack-ai/cloud#2676).
+  
+  **Clause-②: yes** — four published surfaces widen, and nothing that parsed or rendered before changes:
+  
+  - the accept set of `AnyComponentSchema`, and so of `safeValidateSchema` and `objectui validate`, widens by one `type` literal, `cloud:workspace-timezone-notice`. `@object-ui/types/zod` exports one new schema, `CloudWorkspaceTimezoneNoticeSchema`, and `@object-ui/types` exports its TypeScript twin of the same name, a member of `AnySchema`;
+  - `@object-ui/i18n` adds one key, `cloudWorkspaceTimezoneNotice.seeded`, to all ten locale packs;
+  - `@object-ui/cli`: `objectui check` knows `cloud:workspace-timezone-notice` as a registered type;
+  - `@object-ui/app-shell` registers the widget, and its `sideEffects` array names the new module in its source and published spellings.
+  
+  **Why.** The welcome page is static metadata, and nothing in a page's expression scope carries a per-organization value, so the page could not say which timezone the workspace was created with. The seed is available only from the org-scoped `GET /cloud/environment-entitlements` summary, as the additive `workspaceTimezoneSeed` string.
+  
+  **What changed, in observable terms.**
+  
+  - A page places the node with no props: `{ "type": "cloud:workspace-timezone-notice" }`. The widget reads the summary through the hook the environment list and `cloud:plan-status` already use, and when the summary carries `workspaceTimezoneSeed` it renders one muted line naming that zone, verbatim. In English: "The workspace timezone was set to Asia/Shanghai from your browser when the workspace was created. You can change it in Settings → Localization."
+  - It renders nothing when the summary carries no seed (workspaces created before the seed existed, and control planes that do not send it yet), while the summary loads, when the request fails or rejects, and when the body is not the `{ success, data }` envelope. A failed request does not throw.
+  - The line is text only: no link and no dismissal state.
+  - The node's `className` and `responsiveStyles` reach the line.
+  - The widget is registered under one key, `cloud:workspace-timezone-notice`. There is no bare `workspace-timezone-notice` fallback and no `app-shell:`-prefixed twin.
+  - `CloudWorkspaceTimezoneNoticeSchema` takes no prop: `properties` is optional and may only be `{}`, so any key in the bag, the zone included, is refused at `properties`. `body` and `children` are refused by name, because the widget reads neither.
+- 4babf40: The built-in metadata designers leave the console's first load: `@object-ui/app-shell` registers them from a chunk it loads on its own, once the package entry has run (objectui#11939, step 2 of objectui#6795).
+  
+  Every built-in Preview, scoped Inspector and default Inspector used to be registered while the package entry was being evaluated, so their code sat on every page's first load although only metadata authors render them. The entry now starts loading them with a dynamic `import()` at its own module scope and registers them when that chunk arrives. Importing the package still registers every built-in designer with no action from the host; they are available a moment later than before instead of during the import. The entry for step 1 (the observable designer registries) says every built-in designer is still registered when the package loads: that held at step 1, and this step replaces it.
+  
+  What a reader sees in that moment: a surface that renders before the chunk arrives shows its existing "designer missing" state, then the designer, with no reload. That is the observable registries of step 1 at work, through the `useRegistered*` hooks. A read with `getMetadataPreview`, `getMetadataInspector`, `listMetadataPreviewTypes` or `listMetadataInspectorTypes` returns what is registered at the moment of the call, so code that reads right after importing the package can find no built-in designer yet. During render, read through the hooks.
+  
+  A host's own designer is kept, whichever arrives first. The built-ins are registered only for a type that has no designer yet: a host that calls `registerMetadataPreview` or `registerMetadataInspector` right after importing the package keeps its component when the built-ins land later, and a host that registers after they landed replaces the built-in, as before.
+  
+  The three registrations whose registries are not observable stay where they were, during the entry's evaluation: the Related tab's anchors, the generic form's fallback schemas and the datasource resource.
+  
+  `sideEffects` in `@object-ui/app-shell`'s `package.json` is unchanged. The module that registers the designers performs no registration at load time: the entry calls the function it exports.
+  
+  No export is added, removed or changed. The console's dev-only designer gallery waits for the built-in designers to arrive before it renders its list, so it never lists zero designers.
+- a835c31: The metadata designer registries are observable, so a designer registered after a surface rendered now appears in it (objectui#11939, step 1 of objectui#6795).
+  
+  The preview, scoped-inspector and default-inspector registries were plain maps read during render with no change notification. A surface that rendered before its designer was registered kept its fallback for good, whatever registered later. objectui#6795 measured this: "still fallback after registration: true | late inspector rendered: false". Each registry now notifies on every registration that changes an entry, and every surface that reads one during render re-renders when its entry arrives:
+  
+  - the metadata editor (`MetadataResourceEditPage`): its canvas, its scoped and default inspectors, and the switch into design mode for a type with a canvas;
+  - the embedded item editor's preview;
+  - the Studio pillars: the Interfaces canvas and inspector rail, the Data pillar's field rail, the Automations canvas and rail, and the designer-missing notices of those pillars;
+  - the object Settings, Actions and Hooks panels;
+  - the console's dev-only designer gallery.
+  
+  Today every built-in designer is still registered when `@object-ui/app-shell` loads, so nothing an author sees changes. This step is what lets a later change load the designers lazily without leaving those surfaces empty.
+  
+  **Clause-②: yes (widening).** The package entry gains three hooks:
+  
+  - `useRegisteredMetadataPreview(type: string): MetadataPreview | undefined`
+  - `useRegisteredMetadataPreviewTypes(): readonly string[]`
+  - `useRegisteredMetadataInspector(type: string): MetadataInspector | undefined`
+  
+  Each one reads its registry through React's `useSyncExternalStore` and re-renders the calling component when what it read changes. `useRegisteredMetadataPreviewTypes` returns a frozen, sorted array that stays the same array until a new type is registered. Use these hooks for reads during render. `getMetadataPreview`, `listMetadataPreviewTypes`, `getMetadataInspector` and `listMetadataInspectorTypes` are unchanged: same signatures, same results, and each `list*` call still returns a new array. They read the registry as it is at the moment of the call, so they stay the right read in event handlers and other code that does not render. `registerMetadataPreview` and `registerMetadataInspector` keep their signatures and their overwrite behaviour; registering a type again with the component it already holds notifies no one. No export is removed, and no existing export changes type.
+- 8a55f0c: The console sidebar no longer lets a user drag the app's menu into a private order; the Pinned section is now the one place a user orders entries (objectui#12059). Arranging an app's navigation is Studio's job: the menu is drawn in the order authored for the app, and every user sees that order. This reverses objectui#11626, which had extended menu drag-to-reorder to grouped menus.
+  
+  **`@object-ui/layout` (breaking, declared `minor` per the version policy).** `NavigationRenderer` retires `enableReorder` and `onReorder`, and with them every sortable path through the menu: no menu row draws a grip or carries a sortable role. `AppSchemaRenderer` retires the same two props, which only handed them through. Two props are added for the pinned section: `pinnedOrder` (the pinned entry ids in the user's order; the section draws in that order, an unnamed pinned entry following in menu order) and `onPinnedReorder` (makes the pinned rows sortable and receives the drawn ids in their new order). A pinned row is dragged by the row itself: no grip at rest, a grab cursor, and a line marking where the row will land. From the keyboard, with the row's link focused, Space picks it up, the arrow keys move it, Space drops it and Escape cancels; Enter still follows the link. The row's link stays a link and the row's one focus stop. The click a pointer drag ends with is not followed.
+  
+  **`@object-ui/app-shell`.** The sidebar no longer reads or writes the per-user menu order it kept in localStorage (`objectui-nav-order-APP`); a key left from before is ignored. The pinned order is stored with the pins, in the `UserDataAdapter`-backed favorites, so it syncs across devices the way the pins do: it is the order of the `type: 'nav'` entries in the stored list. A new pin now joins the end of that order (a content favorite still goes first), and an unpin leaves the others in order. `useFavorites()` gains `reorderNavPins(navIds)`, which puts the named pins in a new order in the places they already hold, so a pin another app's sidebar draws and every content favorite stay put; `useNavPins()` gains `reorderPins(orderedIds)` over it, and its `pinnedIds` lists the pins in the user's order. At the nav-pin cap a new pin still joins the end and the earliest-pinned one rolls off. Pins made before this change are now drawn in their stored order, which is newest first (a pin used to be put at the front of the list), rather than in menu order, until the user drags them.
+  
+  **`@object-ui/i18n` (breaking, declared `minor`).** `console.nav.dragToReorder`, the label of the retired menu grip, is removed from all ten packs. `view.dragToReorder` is a different key and stays.
+  
+  **Clause-②: yes.** Published surface changes: `NavigationRendererProps` loses `enableReorder` / `onReorder` and gains `pinnedOrder` / `onPinnedReorder`; `AppSchemaRendererProps` loses `enableReorder` / `onReorder`; the return of `useFavorites()` gains `reorderNavPins`; the return of `useNavPins()` gains `reorderPins`; the `console.nav.dragToReorder` pack key leaves.
+- 3c3115e: List views read `userActions.editInline` with the spec's default, off. A view's `inlineEdit` folds into it, and the console's inline-edit toggle no longer writes to the view (objectui#5144).
+  
+  **Breaking for a view that relied on the old default.** The spec declares `userActions.editInline` with `.default(false)`: the list is read-only unless the author opts in. The interface page already read it that way. The object-list toolbar did not: it read an absent `editInline` as "defer to the host", so every console grid offered the inline-edit toggle unless a view said `editInline: false`. The toolbar now reads it as the spec does. A grid view that declares neither `userActions.editInline` nor `inlineEdit` no longer offers the inline-edit toggle, on the wide toolbar or in the compact settings popover, and never opens in edit mode.
+  
+  **The fold.** `normalizeListViewSchema` (`@object-ui/core`) now folds a boolean `inlineEdit` into `userActions.editInline`, the way it already folds the `show*` flags into the other toggles:
+  
+  - `inlineEdit: true` reads as `editInline: true`: the toggle is offered and the grid opens in edit mode;
+  - `inlineEdit: false` reads as `editInline: false`: no toggle;
+  - an explicit `userActions.editInline` wins over `inlineEdit`, in both directions;
+  - a view with neither key reads off.
+  
+  `inlineEdit` stays on the folded view, because `ListView` opens the grid in edit mode from it. Nothing migrates stored views.
+  
+  **The console toggle is session-only (`@object-ui/app-shell`).** Both keys are the author's permission. The console's toolbar toggle used to store a user's edit mode in the view's `inlineEdit`; after the fold, switching it off would have taken the toggle away for good. It now writes nothing. The toggle switches edit mode for the session, and each load starts from the view's own `inlineEdit`. `ListView` still reports the toggle through `onInlineEditChange`.
+  
+  **A named view's `inlineEdit` keeps its precedence (`@object-ui/plugin-view`).** On a host's `renderListView`, `ObjectView` merges `userActions` from the node, the host's `views` entry and the active named view, the named view last. The named view's `userActions` now go through the same fold as the other two. So a named view's `inlineEdit` decides whether inline editing is offered ahead of a host entry's, as it already decided the edit mode.
+  
+  **What to do.** A view that should offer inline editing declares `userActions.editInline: true`. The toggle then stays offered whatever the user does with it. Two costs come with the session-only toggle:
+  
+  - the edit mode is not remembered across loads;
+  - a view, or a personalization overlay, where the old toggle stored `inlineEdit: false` still reads off. That is existing data, and it is not migrated. Declaring `userActions.editInline: true` on the view brings the toggle back.
+  
+  Nothing is added to a package entry: no export, prop, type member or language-pack key.
+- 0253416: feat(plugin-list)!: a chart list view binds only an ADR-0021 `dataset`; the legacy inline chart axes and their `name` / `value` floors are retired on every route (objectui#6152, round 15)
+  
+  Clause-②: no
+  
+  **Changed (breaking for a stored chart view that names no `dataset`).** Every door refuses the
+  pre-ADR-0021 chart axes on a list view: `@objectstack/spec`'s chart block is a strict object of
+  `chartType`, `dataset`, `dimensions` and `values`, and `@object-ui/types`, `objectui validate` and the
+  platform's view write door judge by it, top-level and in the `options` bag. The renderers kept
+  reading the axes, so a chart view stored before the doors closed still drew an inline aggregate, and
+  a chart view that declared nothing was drawn from the invented fields `name` and `value`. They no
+  longer do, on every route that did: `ListView`'s chart branch and its capability gate, the object
+  page's chart view (`@object-ui/app-shell`) and `ObjectView`'s own views (`@object-ui/plugin-view`).
+  
+  | stored chart block (either nesting) | what renders now | write instead |
+  | :--- | :--- | :--- |
+  | `xAxisField` / `categoryField`, `yAxisFields` / `valueField`, `aggregation` (and, on the object page, `series` and `filter` on the block) | the chart's refusal: "Chart category axis required", in place of the chart; a view of another type no longer offers Chart in its view switcher | `chart: { dataset, values, dimensions }`, naming an ADR-0021 dataset of the object |
+  | no binding at all on a view whose `viewType` is `chart` | the same refusal, where a chart grouped by `name` and counting `value` used to draw | the same dataset block |
+  
+  A dataset-bound chart renders as before. The refusal is `ObjectChart`'s own screen for an object-bound
+  chart that names no category axis (objectui#8168); its remedy names that component's keys, not the
+  list view's dataset block.
+  
+  **Not measured: production.** The census before this change (objectui#6152 round 13) found no writer
+  and no stored row carrying these axes in any repository corpus a seat can reach, with positive
+  controls; this repository's create-view dialog writes the dataset block. Stored view and page
+  metadata in deployments was not measured. A row that carries the axes renders the refusal until it is
+  re-saved with a dataset block.
+  
+  - `@object-ui/plugin-view`: an `ObjectView` kanban view no longer reads `kanban.conditionalFormatting`.
+    The list view's kanban block does not declare it, and every door that judges the block refuses it
+    by name; the view's own `conditionalFormatting` is the one place it is read. The development-only
+    flat-key warning no longer names `dateField`, `groupBy`, `groupField`, `imageField` or
+    `subtitleField`, which it told an author to move into a block that refuses them.
+  - `@object-ui/app-shell`: the object page's development-only flat-key warning no longer names the
+    twelve keys every per-kind block refuses (among them `groupField`, `imageField`, `cardFields`,
+    `xAxisField`, `yAxisFields`, `aggregation` and `series`).
+  - `@object-ui/plugin-charts`, `@object-ui/types`: comments only, where they said the list-view relays
+    still read the legacy axes.
+- 3fd8625: feat(plugin-list)!: the renderers stop reading the list-view keys every door refuses: the pre-#2231 aliases, `calendar.defaultView`, and the undeclared keys a per-kind block carries (objectui#6152, round 14)
+  
+  Clause-②: no
+  
+  **Changed (breaking for a stored view that carries a refused key).** Rounds 11 and 12 of
+  objectui#6152 closed the doors: `@object-ui/types`, `objectui validate` and `@objectstack/spec`'s
+  view write door refuse these keys on a list view's per-kind blocks, top-level and under the legacy
+  `options` bag. The renderers kept reading them, so a view stored before the doors closed still
+  rendered as written. They no longer read them, on every route that did: `normalizeListViewSchema`
+  (`@object-ui/core`), which folded the four aliases onto their spec keys before anything else read
+  the view, `ListView`, the object page's relay (`@object-ui/app-shell`), `ObjectView`'s own views
+  (`@object-ui/plugin-view`) and `ObjectTimeline`. A stored view that carries one of these keys still renders, without what the key
+  used to bind. Write the spec's key instead:
+  
+  | stored key (either nesting) | what renders now | write instead |
+  | :--- | :--- | :--- |
+  | `kanban.groupField` | lanes as for a view that names none: the object's declared lifecycle field (`status` on an `object-view` element's own views) | `kanban.groupByField` |
+  | `kanban.cardFields` | cards show `kanban.columns`, or the view's own fields | `kanban.columns` |
+  | `gallery.imageField` | no cover binding: `ObjectGallery` tries `image`, and the Gallery view is not offered | `gallery.coverField` |
+  | `timeline.dateField`, and `calendar.dateField` read as a timeline axis | no timeline axis: the timeline's refusal names the keys to write, and the Timeline view is not offered | `timeline.startDateField` (or `calendar.startDateField`) |
+  | `calendar.defaultView` | the calendar opens on its own default view | nothing on a list view: the initial mode is the `object-calendar` element's flat `defaultView` |
+  | `kanban.swimlaneField` and any other undeclared kanban key | not drawn | nothing: the spec's kanban block has no swimlane |
+  | `tree.titleField` | the tree labels by `name` | `tree.labelField` |
+  | an undeclared key under `calendar`, `tree` or `gantt`, or anything under `options.grid` | not forwarded to the view | the block's declared key, or a top-level key of the view for a grid |
+  
+  The declared keys keep their route: `kanban.summarizeField`, `calendar.colorField` and
+  `calendar.allDayField` are now read by name where the removed spreads used to carry them, and every
+  `gantt` key the spec declares reaches the gantt through a typed table that `tsc` keeps total. A
+  block key named like a node key (`objectName`, `filter`) can no longer override the node's own
+  value. `ListView`'s projection collectors stop asking the server for the fields these keys named.
+  
+  **Not measured: production.** The census before this change (objectui#6152 round 13) found no
+  writer and no stored row carrying these keys in any repository corpus a seat can reach, with
+  positive controls; stored view and page metadata in deployments was not measured. A row that
+  carries one of these keys renders as the table says until it is re-saved with the key on the
+  right.
+  
+  Not in this change: the legacy chart axes (`chart.xAxisField`, `yAxisFields`, `categoryField`,
+  `valueField`, `aggregation`), which `ListView` still reads until the next round on objectui#6152.
+  
+  - `@object-ui/core`: `normalizeListViewSchema` returns a view whose only legacy vocabulary is one of
+    these nested aliases by reference, with the alias in place; it no longer removes it either.
+  - `@object-ui/types`: the refusal messages of these keys no longer say a stored view still renders
+    through the alias, and the kanban `groupBy` refusal no longer suggests the refused `groupField`.
+  
+  **Note added 2026-10-09 (objectui#6152 round 15):** the legacy chart axes are no longer read either.
+  `ListView`, the object page and `ObjectView`'s own views read no `xAxisField`, `yAxisFields`,
+  `categoryField`, `valueField` or `aggregation` on a chart block, so a chart view that names no
+  `dataset` binds nothing and `ObjectChart` refuses it on screen; see
+  `.changeset/6152-list-view-legacy-chart-retired.md`.
+- d328698: The metadata-admin widget registry's labelling vocabulary (`WidgetLabelling`) and the dashboard widget inspector's `labelling` prop are typed against `@object-ui/core`'s `RegistryComponentMeta['labelling']` instead of `ComponentMeta['labelling']` (objectui#6349, batch 4). `@object-ui/core`'s `ComponentMeta` is now the general component metadata and no longer carries `labelling`; the registration type that does is `RegistryComponentMeta`.
+  
+  **Breaking-change note.** Nothing breaks for a consumer of this package: both types still resolve to the same `'control' | 'group'` vocabulary, and no runtime behaviour changes. The breaking half of this rename is `@object-ui/core`'s, recorded in its changeset.
+- 1b2d016: The props of this package's minimal `AppShell` container are declared and exported as `MinimalAppShellProps` instead of `AppShellProps` (objectui#6349, batch 9). `@object-ui/layout` publishes a different `AppShellProps`: the props of its sidebar `AppShell`, the shell the console composes, which takes `navbar`, `defaultOpen`, `branding` and `rightRail` where this container takes `header` and `footer`. One exported name stood for two props types across the two packages, and layout keeps it.
+  
+  **Type change, breaking for some consumers.** `AppShellProps` is no longer exported from `@object-ui/app-shell`. Replace `import type { AppShellProps } from '@object-ui/app-shell'` with `MinimalAppShellProps`; the members (`sidebar`, `header`, `footer`, `children`, `className`) are unchanged. The old import fails to compile with TS2305 ("has no exported member 'AppShellProps'"). The `AppShell` component keeps its name.
+  
+  `MetadataTypeStatus` and `UserDataAdapter` are no longer declared a second time in this package. `MetadataTypeStatus` is re-exported from `@object-ui/react`, which declares the same four statuses (`'idle' | 'loading' | 'ready' | 'error'`) for `MetadataContextValue.getTypeStatus`. `UserDataAdapter` is re-exported from `@object-ui/data-objectstack`, whose `createObjectStackUserStateAdapter` builds exactly the adapter `UserStateAdaptersProvider` injects. Both declarations had the same members as this package's copies, so this package's entry still exports both names with the same shapes, and those imports do not change.
+  
+  No runtime behaviour changes.
+
+### Patch Changes
+
+- 6e9090c: An object page's view tab, and the breadcrumb that names the open view, draw the label of a view the object document embeds as the server served it (objectui#11336).
+  
+  Since `@objectstack/spec` 17.6.0 (objectstack#21072) the server translates the `listViews` an object document embeds, from `objects.OBJECT._views.KEY` and with a published edit kept over the packaged catalog, as it already did for `/meta/view` documents. The console still ran its own catalog over those labels a second time, so a published edit to such a view drew as the packaged string. A view counts as served now when its key is in the served `/meta/object` document's own `listViews`, read before the console merges view documents into it, as well as when a `/meta/view` document carries its name. Its label is drawn as given. A view only the console derives, such as a stack container's expansion, is still named by the client catalog.
+  
+  Against a server older than that release, a view the object document embeds arrives untranslated and is now drawn as authored.
+  
+  **Clause-②: no.** Nothing on the package entry changes. The predicate (`isServedView`) and its hook (`useServedViewItems`) are not exported from `@object-ui/app-shell`.
+- 278d244: On a read-only package, a click on a flow canvas node in Studio Automations selects the node and opens its inspector read-only again (objectui#11546).
+  
+  On a read-only canvas the node's press stopped short of claiming the event, so it reached the
+  canvas background. The background cleared the selection and took the pointer, and the browser
+  then fired the click at the canvas instead of the node, so the inspector rail kept its empty
+  state and a packaged flow's node configuration could not be read.
+  
+  A press on a node in the designer now belongs to the node on a read-only canvas too. The click
+  selects the node and the inspector opens with every input disabled, as objectui#11124 set out.
+  Only the drag is withheld: a press-and-drag on a read-only node moves nothing and writes nothing.
+  The editable designer drags and selects as before, and the Delete key still deletes only on an
+  editable canvas. Outside design mode, where a node click selects nothing, a press on a node still
+  pans the canvas.
+- b65aa5e: "Save as view" now saves a Kanban view the platform accepts, and both Create View doors save the same view from the same dialog choices (objectui#11581).
+  
+  The Create View dialog persists a new view through two doors: "Save as view" on the object data
+  page, and Create View on the object page (the view tab bar's add button, and the view-config
+  panel's create mode). The two assembled the saved view separately, and only the object page's
+  door copied the view's columns into the type blocks that carry a field list of their own. So:
+  
+  - a Kanban saved through "Save as view" had no `kanban.columns`, which `@objectstack/spec`
+    requires ("Fields to show on cards"), and the platform's view write door refused it;
+  - a Gallery saved through "Save as view" had no `gallery.visibleFields`, so its cards showed
+    nothing under the title, while the same choices on the object page showed the view's columns.
+  
+  Both doors now build the view through one builder. Each door still supplies its own columns (the
+  data page's current columns, or the object's default business columns), and "Save as view" still
+  folds the page's URL conditions into the view's `filter`. The builder writes those columns into
+  `kanban.columns`, and into `gallery.visibleFields` when the gallery declares none. A view created
+  on the object page is saved exactly as before.
+- e8c0b96: A refused save, pin, reorder, view setting, report save, publish or discard in the console is now said to the user, and the view-config panel no longer reports a refused save as saved (objectui#11583).
+  
+  objectui#11578 made the two Create View doors say a refused save. The console's other metadata
+  writes on the object page, the report page and the draft bar still caught a refusal with a
+  console line and nothing else, so a permission refusal or a spec refusal looked like a saved
+  change:
+  
+  - the view-config panel's Save on an existing view;
+  - pinning or unpinning a view, and reordering views in "Manage views";
+  - a toolbar setting on a list view (density, sort, columns, hidden fields), when the server
+    refuses it (the console's own permission check already said its refusal, and still does);
+  - the report editor's Save;
+  - Publish and Discard draft on the draft bar of those two editors.
+  
+  Each now raises the refusal through the console's error toast, with the save door's own
+  message: the field-anchored issues of a validation refusal, one per line, or the refusal's text.
+  The draft bar's toasts lead with "Publish failed" or "Discard failed", two new strings in all
+  ten language packs; the others lead with "Failed to save". Set as default, which already raised
+  an untranslated "Failed to set default view" with no reason, now does the same.
+  
+  The report editor waits for its save. It closes once the report is saved; a refused save leaves
+  it open with the edit in place, so Save can be pressed again (it used to close at once, and
+  reopening it showed the stored report). Save is disabled, and the editor read-only, while the
+  save is in flight.
+  
+  The view-config panel waits for the save before it reports the edit as saved. A refused save
+  leaves the panel dirty, so Save stays enabled for a retry, and the "unpublished changes"
+  indicator is not raised for a draft that was never written. Save is disabled while the save is
+  in flight. `ViewConfigPanel`'s `onSave` accepts any return, as it did when it was typed `void`:
+  the panel awaits it, and `false` (returned, or resolved by a promise) or a rejection means the
+  save was refused; anything else, nothing included, is read as saved.
+- b92329c: Studio's "Organization flows" page no longer says its drafts publish atomically, and a deep link to a flow that is not on the page no longer says no metadata designers are registered (objectui#11591).
+  
+  On the package-less page (`/studio/~org/automations`), the pending-changes sheet read "Publishing releases the 1 pending draft of this package atomically." That page has no package, and its Publish promotes each draft by itself: a draft that fails stays pending while the others go live. The sheet now says so there, through a new `preview.changes.confirmNoteSeparate` plural family in all ten language packs. A package's sheet keeps its sentence unchanged. `DraftChangesPanel` picks the sentence from its `packageId` prop: with a package, the atomic sentence; without one, the per-draft sentence.
+  
+  On the Automations pillar, the canvas chip read the designer registry for the open flow's type. With no flow open (a deep link naming a flow the list does not hold, or an empty list), it found none and showed "No metadata designers are registered in this session…" beside the right message, on a page whose flow designer is registered. The chip now reads the registry for the pillar's own type, `flow`, as the configuration panel beside it already did. The notice still shows when no designer is registered, whether or not a flow is open.
+- 59917c4: A grid toolbar change on a served view is stored where the save door keeps it, so it survives a reload (objectui#11625). This covers density, a column-header sort and the hide-fields toggle, on a packaged view such as the showcase's `showcase_task.default` and on a view a user created.
+  
+  The console saves a toolbar change on a served view by sending the whole stored row, the ViewItem envelope `{ name, object, viewKind, config }`, back to `PUT /api/v1/meta/view/NAME`. It wrote the changed key beside `config` instead of inside it. The door judges a body that has a `config` by the spec's `viewItem` member and drops undeclared top-level keys, as ADR-0005 appendix (c) designs it. So it answered `200`, stored no change, and the view reverted on reload.
+  
+  The changed key now goes into `config` when it is a key `ListViewSchema` declares: `rowHeight`, `sort`, `hiddenFields` or `inlineEdit`. Every other key stays on the envelope, where the row keeps it: `columnState`, `isDefault`, `isPinned`, `sortOrder` and `visibility`. A row without a `config` is still written flat. So is the personalization overlay (the row with `_isOverride`), whose flat body the door already keeps.
+  
+  Still open: the console builds each save from the view as it was when the page loaded. A second toolbar change to the same view in the same session therefore overwrites the first one. For example, changing density and then sorting keeps only the sort after a reload. This was true before this fix, on every kind of row.
+  
+  **Clause-②: no.** Nothing on the package entry changes. `buildPersistedViewBody` is exported from `ObjectView.tsx` but not from `@object-ui/app-shell`.
+- b88937b: Drag-to-reorder of a grouped sidebar menu, within each level (objectui#11626), was retired before it was released. objectui#12059 removed every drag-to-reorder of the sidebar menu: an app's menu order is authored in Studio, and every user sees that order. Nothing of objectui#11626 ships, because objectui#12059 retires the menu reorder whole: `NavigationRenderer`'s `enableReorder` / `onReorder`, the menu drag grip, and the sidebar's per-user menu order in localStorage (`objectui-nav-order-APP`), each of which predates objectui#11626, are gone. The objectui#12059 changeset describes what replaced them: the pinned section is the one place a user orders entries.
+- 0baf86f: On a runtime with no marketplace that still mounts install-local (an offline boot, `OS_CLOUD_URL=off`), a local install's Details page now offers its local menu: re-seed sample data, purge sample data and uninstall from this runtime (objectui#11627).
+  
+  Installed Apps links each local install's Details to the marketplace package page. That page answered a marketplace-off runtime with the "App Marketplace is turned off" notice and nothing else, so the local menu below that check could not be reached and no install-local request was ever issued. Now, when the runtime config reports `features.installLocal` and the viewer is an admin, the page draws the package's header (manifest id and installed version) and its local menu above the same notice. The menu issues the same `POST /api/v1/marketplace/install-local/MANIFEST_ID/reseed-sample-data` and `.../purge-sample-data` calls as on a marketplace-on runtime. The page finds the install by the id Installed Apps put in the link (the ledger entry's `packageId`), and the menu acts on its manifest id.
+  
+  Everything that needs a marketplace stays refused as before: the page sends no catalog request and no cloud-installation probe, and it draws no install-to-cloud button, readme or version list. A viewer who is not an admin, a runtime that does not mount install-local, and a package that is not a local install all see the notice alone, as before.
+  
+  **Clause-②: no.** Nothing on the package entry changes: no export, prop, type member or i18n key is added. `MarketplacePackagePage` takes no props, and the strings it draws already existed.
+- 0abd4f9: The External Datasource panel in Setup and Studio reads the `{ success, data }` envelope its routes answer (objectui#11628). On a federated datasource such as the showcase's `showcase_external`, the Tables tab listed no remote tables. "Refresh catalog" showed no snapshot time, and "Run validation" replaced the panel with a render error (`Cannot read properties of undefined (reading 'length')`). Because the list was empty, the import dialog could not be opened. The client read `tables`, `draft`, `catalog` and the validation verdict from the top of the body, but the server puts each one under `data`. The panel now lists the remote tables, shows the snapshot time after a refresh, renders the validation rows, and opens the import dialog on the generated draft.
+  
+  Refusals on these routes now reach the user. Every refusal used to read `[object Object]`, because the client turned the ADR-0112 `{ error: { code, message } }` object into a string. That covered a missing capability, an unknown remote table, an unreachable datasource, and a capability refusal from "Import as Object". The panel now shows the server's message and code. The "federation is not enabled on this server" hint now appears when the server answers `503 SERVICE_UNAVAILABLE`. Before, it never did, because the client compared against a code the server no longer sends.
+  
+  A successful response that is not the `{ success: true, data }` envelope is now an error that names the route. Before, the panel showed it as an empty list.
+  
+  **Clause-②: no.** Nothing is added to or removed from the package entry. The changed module is not exported from it.
+- f4370f4: The `object-kanban` board totals the view's `summarizeField` in each column header (objectui#11629).
+  
+  `@objectstack/spec` declares `summarizeField` on the view-level `KanbanConfig` ("Field to sum at top of column"), and `ListView`'s kanban branch passes it onto the `object-kanban` node it generates. The board never read it, so a view that set it showed the card count and no total. Each column header now shows the sum of that field over the column's cards, beside the count, on both the flat layout and the swimlane layout's column-title row.
+  
+  - The total is written by the field's own cell renderer, the one the cards use for that field. A currency field totals as currency, and a number field keeps its declared `scale`. A sum over a number field with no declared `scale` is rounded to the widest input, so `0.1 + 0.2` reads `0.3`.
+  - An absent, `null` or empty value counts as `0`, and an empty column totals `0`. A numeric string counts as the number the card shows for it. A column holding any other value shows no total, never `NaN`.
+  - The total covers the cards the board loaded. When the board's own fetch filled its window, the total carries the same `+` the count carries (`6+`).
+  - No total is shown for a field the viewer may not read, or a field the object does not declare. The rows never carry such a field, so the column would read `0`.
+  - A `Σ` glyph sets the total apart from the count badge beside it. The field's label is the total's tooltip and its screen-reader name, and the glyph is hidden from assistive technology. No translation key is added.
+  
+  A board whose node carries no `summarizeField` renders exactly as before. The console's object page now passes a view's `summarizeField` on to the list view with the lane, title and card fields it already relayed, so a board opened there shows the totals (until now the key was dropped on that page). Nothing is added to the package entry: the total reaches the header through a package-private context, the same channel the records-settled signal uses.
+- 531b26c: Two grid toolbar changes to one view in one session now both survive a reload (objectui#11642). Before, the second change overwrote the first: changing density and then sorting by a column header kept only the sort. This held on every kind of view row: a served view's ViewItem envelope, a saved view stored flat, and a personalization overlay.
+  
+  The console saves a toolbar change with `PUT /api/v1/meta/view/NAME`, which replaces the whole row. It built each body from the view as it was when the page loaded, or, for an overlay, from the new change alone. Nothing refreshed that starting point after a save landed, so each later save dropped the earlier one.
+  
+  Each toolbar save now starts from the row the store holds when the save runs. The console reads it back with the same `GET /api/v1/meta/view` request the page load makes, because the save answer carries no row and the save door drops undeclared keys from the body it receives. A saved view's change is placed on that row. An overlay keeps the keys it already stored, the ones `VIEW_OVERLAY_OWNED_KEYS` in `@object-ui/data-objectstack` names, and the new change is added to them, so the overlay still holds nothing the view it shadows owns. Saves to the same view run one after another, so a change made while the previous save is still in flight starts from the row that save stored. Two changes made within the save debounce are still sent as one save.
+  
+  **Clause-②: no.** Nothing on the package entry changes.
+- 4367146: On an object that declares no list view, a grid toolbar change no longer sends a save the door refuses (objectui#11643). Such an object opens on the "All Records" tab the console makes for it, whose id is `all`. A density change there used to send `PUT /api/v1/meta/view/all` with no `viewKind`, the door answered `422 INVALID_METADATA`, an error toast appeared, and the density was gone on reload.
+  
+  That tab is not a stored or served view, so there is no row to save into. Its toolbar changes (density, sort, hidden fields, column order and widths, inline edit) now apply for the session only: the list keeps them, no request is sent and no error is shown. No view is created to hold them; an object that wants saved toolbar settings declares a list view, and the served-view save path applies to it.
+  
+  The console tells its own tab apart by where it was made, not by its id. A served view whose tab id is also `all`, a saved view beside the console's tab, and a stored row named `all` that shadows that tab all keep saving as before.
+  
+  **Clause-②: no.** Nothing on the package entry changes.
+- fc3c2cc: Five fixes on the AI build surface, from the 2026-10-05 cloud acceptance run (objectui#11658).
+  
+  - **The first AI build lands on the running app.** The built-moment transition still moves the conversation into the Studio workbench at `/studio/PKG/interfaces`. The Interfaces canvas now opens in **Run** mode with the properties panel collapsed, where it used to open in Design with the panel open. One click on **Design** brings back the design overlays and the properties panel. Every other way into Studio, the "Design in Studio" button included, still opens in Design. The transition asks for this with router state, which the pillar reads once at mount; it is not a URL param, so a reload or a shared link opens the designer.
+  - **The in-app composer names the task.** Inside an app, the composer placeholder reads "Ask about your data, or ask me to change this app…". This covers the console dock in a running app, the Studio dock and `/ai/build?package=`. It used to read "Ask {agent}…", which showed as「向 构建 提问…」in Chinese. The cold-start build surface and the ask agent keep the placeholders they had. New key: `console.ai.askOrChangeApp`.
+  - **The AI usage popover shows one figure.** The popover shows the share of the single AI pool used so far (`console.ai.usage.poolUsed`, for example "19% used"). It no longer shows the build / data-Q&A split, because that split cannot honestly say which part a single-composer turn used. The keys `console.ai.usage.meterBuild`, `meterAsk` and `breakdownTitle` are retired from all ten packs. `useAiUsage` still reads `breakdown` from the wire and validates it strictly, but nothing renders it.
+  - **The usage gauge no longer looks like a loading spinner.** The header glyph is now a closed outline in the tone colour with a pie wedge inside it. It used to be a stroked arc over a faint track, which at low usage had the outline of a spinner.
+  - **The plan card's scope chip is localized.** The extend-mode chip on the proposed-plan card and on the live design panel reads the pack's `chatbot.plan.extendTarget` sentence, where it used to show the English literal "Adding to existing app". It names the target app by its label, and the internal name moves to the chip's tooltip. `ChatbotEnhanced` gains an optional `resolveAppLabel(appName)` prop, and the console passes one over its metadata apps. A host `planExtendLabel` still takes precedence, but the prop no longer defaults to an English string.
+- f9f4a62: Console, record page and Studio copy from the 2026-10-05 cloud acceptance run (objectui#11659).
+  
+  **The cloud home's primary button reads "Open workspace" (zh 「进入工作区」), not "Open Production".** A new customer has exactly one environment, and "production" is control-plane vocabulary. The `cloud:onboarding-next` widget's ready-state button now resolves `cloudOnboarding.openWorkspace`, which replaces `cloudOnboarding.openProduction` in all ten language packs, and the hint under it (`cloudOnboarding.hintReady`) says "workspace" instead of "production environment". The button still navigates to the page's `openProductionUrl`; the page-metadata contract is unchanged.
+  
+  **The create-workspace dialog asks for the name only.** `CreateWorkspaceDialog` no longer shows the "URL slug" field: the customer never sees the slug take effect at this step. The slug is still generated from the name, by the same rule as before, and sent with the create call; the owner can change it later in organization settings. Because the slug is no longer the user's to fix in the dialog, a slug collision (`ORGANIZATION_ALREADY_EXISTS` or `ORGANIZATION_SLUG_ALREADY_TAKEN`) is retried with a short random suffix, up to three attempts in all; any other refusal is shown as before. The `workspace.slugLabel` and `workspace.slugHint` pack keys are left in place, now unread.
+  
+  **The backup-password reminder no longer appears in the user's first session.** 「建议设置一个备用密码」 showed on the environment home right after a new user built their first app: the reminder was gated on a home-visit count (quiet on the first home mount, shown on the second), and coming back to home after building is the second mount inside the first sitting. It now stays quiet for 12 hours after the first home visit on the device, so it first shows on a later day's visit. The first-visit record (`os:recovery-pw-first-seen`) now holds a timestamp; a device that holds the old `'1'` flag starts the 12 hours over rather than reading it as long ago. When storage is unavailable it stays quiet. `RecoveryPasswordReminder` moves out of `HomePage.tsx` into its own module; it is not exported from the package entry, and its other conditions (dismissed, SSO-enforced, has a local password) are unchanged.
+  
+  **The record header's highlight row no longer cuts a phone number.** A drawer's highlight row read 「0574-876」 for the stored `0574-8765-4321`, with no ellipsis. The phone cell draws a dial icon, the number and a copy button in one `inline-flex` box, and the chip's single-line clip cannot put an ellipsis on such a box, so a 9rem chip cut the number mid-way. `HeaderHighlight` now gives a `phone` chip the wide basis that `email` and `url` already take, so a whole number shows; the full value stays in the chip's hover title. Other field types keep their chip width.
+  
+  **Studio's dashboard widgets list names each widget's kind in the designer's language.** The list read 「按客户状态统计数量 · bar」: beside each title, `DashboardDefaultInspector` printed the stored `type` id. It now prints the name the add-widget picker shows for that kind (`engine.widgetPicker.type.*`, zh 「柱状图」, en "Bar chart"), with the id on hover. A type the catalogue does not know still prints its id. The stored `type` is unchanged.
+  
+  **Studio's automation pillar copy is plain language in zh.** The list heading read 「自动化 · flow」 and the top bar 「默认 OFF · 审阅后再启用」: an internal metadata type and an English switch state inside Chinese copy. They now read 「自动化」 and 「默认停用 · 审阅后再启用」, matching the pillar's own 已启用 / 已停用, and the canvas hint 「可视化编排 · 点选节点配置」 reads 「点选画布上的节点即可配置」. The en heading drops the type too ("Automations"). Whether the pillar is offered on a given plan is not decided here.
+- 9f3ed7b: The flow designer's SLA escalation switch on an approval node no longer writes a refused `escalation: { enabled: false }` block, and switching it off keeps the values the author entered (objectui#11660).
+  
+  `ApprovalNodeConfigSchema` requires `escalation.timeoutHours` whether or not `enabled` is `false`. So `{ enabled: false, timeoutHours: 24 }` is a valid way to switch escalation off, and the runtime skips escalation for it. Having no block at all is also valid. The bare `{ enabled: false }` is not. The inspector wrote that bare block when an author switched off a node with nothing entered, because the switch drew on over a node that had no block. The flow saved and then failed at the approval node on every run, or, once the platform judges the block at save time, the save is refused.
+  
+  - **No block reads off.** A node without an `escalation` block used to draw the switch on, with its four fields showing. The inspector applied the declared default (`true`) although there was no block for it to apply to. It now draws the switch off, and rendering writes nothing. A block that omits `enabled` still reads on, and a stored `enabled: false` still reads off.
+  - **Switching off with nothing entered writes no block.** Switching on writes `{ enabled: true }` alone. Switching back off before anything is entered removes the block instead of writing `{ enabled: false }`. A `config` left empty is dropped, as it is for any other cleared field.
+  - **Switching off a block that holds values keeps them.** The block gets `enabled: false`, and every entered value stays exactly as stored. They show as kept but not in effect, with a Clear action (objectui#6499). A block that has values but no `timeoutHours` yet keeps them too: no hours are filled in, and the block stays refused at `escalation.timeoutHours` until hours are entered, as it was before the switch.
+  - **Clearing the last kept value removes the block**, instead of leaving `{ enabled: false }` behind. A block that still holds another value is kept.
+  
+  The offline field table and the `configSchema` the engine publishes for the approval node behave the same. A stored block is never rewritten just because the node is opened.
+  
+  **Clause-②: no.** Nothing on the package entry changes. The new helpers (`switchedBlockOf`, `readFieldValue`, `isBareSwitchedOffBlock`) live in the inspector's own module, which `@object-ui/app-shell` does not export.
+- 5ba2555: The flow designer saves a screen field's `Min` and `Max` as numbers (objectui#11664).
+  
+  A screen node's `fields` list is edited as a table, one row per field. The screen descriptor's `configSchema` declares `min` and `max` as `type: 'number'`, but the table had no number column, so it rendered them as text cells. Authoring `Min` = 1 saved `min: '1'`, and the text cell read a code-authored field's stored `min: 0` back as `'0'`. The screen contract (`ScreenFieldConfigSchema.min` / `.max` are `z.number()`) refuses strings, so every run of such a flow failed at the screen node.
+  
+  - **A number or integer item property is now a number column**, the same mapping the designer already used for a node's top-level number fields. Its cell is a number input.
+  - **A number column commits a number.** A typed `0` is saved as `0`. Clearing the cell removes the key; it does not save `''`, `null` or `NaN`. An entry the browser cannot read as a number saves nothing, as in the top-level number field.
+  - **A stored number stays a number** when another cell of its row is edited.
+  - **Editing a code-authored field no longer drops its other settings.** The designer shows its built-in screen form until the server's `configSchema` arrives, then the server's form. Rows read while the built-in form was showing had no `Min` or `Max` cell, so the next edit saved the field without its `min` and `max`, and without its `options`, `defaultValue`, `placeholder`, `inlineHelpText` and `reference`. A row now reads a column that appears later from the stored field. Nothing is saved until the author edits.
+  - **Stored strings are not converted.** A string already stored in a number column (as the old text cell saved it) is kept exactly as it is until the author types over it, and the screen contract still refuses it. Strings in other columns are unchanged.
+  
+  This applies to every object-list column the engine publishes with a number or integer type, not only the screen's `min` and `max`. The designer's built-in screen form, used when the server publishes no `configSchema`, has no `Min` or `Max` column and is unchanged.
+  
+  **Clause-②: no.** Nothing on the package entry changes. The new `number` column kind is on `FlowConfigColumn`, in the inspector's own module, which `@object-ui/app-shell` does not export. The object-list row changes are internal to that module.
+- d52d908: Studio's automation canvas header names the open flow by its label, not by the metadata type word (objectui#11665, the residual of objectui#11659 ruling 6).
+  
+  With a flow open, the header printed the literal chip `flow · NAME` in every language, so a Chinese author read an English type word and an API name next to the pillar's plain-language copy. The header now prints the flow's label, the same string its row in the rail prints; a label that resolves to nothing falls back to the API name. The API name is kept for the authors who need it, on the chip's tooltip, headed by the designer's existing "API name" row (`API name` in English, `API 名称` in Chinese).
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 267b539: The console's success toast no longer covers an open drawer's expand and close buttons and title (objectui#11685).
+  
+  The toaster stays in the top-right corner (objectui#7482 moved it there, away from the assistant composer). That corner is also where every right-side drawer keeps its chrome, so a toast raised with the record drawer open, after creating a record or running a record action such as Approve, sat on the drawer's expand and close buttons, its title and the record's own header actions. While a right-edge drawer is open, `ConsoleToaster` now offsets the toaster instead:
+  
+  - When the page left of the drawer is wide enough for a toast, the toaster moves into that strip, against the drawer's left edge. It covers no part of the drawer, and the strip is under the drawer's overlay, so no control sits there.
+  - When that strip is too narrow (a phone, or a drawer nearly as wide as the window), the toaster drops below the drawer's header.
+  
+  When the drawer closes, the toaster returns to the corner. It follows the drawer when the window is resized or the drawer is dragged wider or narrower. Every `side="right"` sheet in the console gets the same treatment, the record drawer included. Centred dialogs, popovers, and left or bottom sheets leave the toaster where it is. An `offset` passed to `ConsoleToaster` by its caller still wins.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 834c559: An empty list's copy no longer contradicts the page it sits on (objectui#11687).
+  
+  An identity list (an object managed by the authentication provider) said its records are "not added by hand here", even beside an "Invite User" or "Register OAuth Application" button on the same page. The console now asks whether the page offers a way to add a row: its New button, or a toolbar action the page draws, judged by the same placement, capability and `visible` gates the toolbar applies. When it does, the identity copy is not used and the list shows its own empty state instead. When the toolbar action is hidden (for example a multi-organization-only Invite User in a single-organization deployment), the identity copy stays. The Teams list keeps its own copy, which already names its Create Team button.
+  
+  A list view emptied by its own declared filter said "No records match your current filters or search." when no filter or search had been applied. That message is now said only when the user applied a filter or a search. A view emptied by its own filter alone keeps the "No matching records" title and reads "No records match this view’s filter.", through a new `list.viewFilterNoMatchesMessage` key in all ten language packs and in `LIST_DEFAULT_TRANSLATIONS`. A list with no filter at all still gets the first-run copy.
+- 9cf08d9: Browse Marketplace now says why the catalog failed to load, and no longer draws "No apps have been approved for the marketplace yet." under the error (objectui#11688).
+  
+  A refusal the server answered in plain text, such as an egress proxy's `403` "Host not in allowlist: cloud.objectos.ai", was shown as the bare status text ("Forbidden"), and every load failure carried the "check that it is online" hint. Now:
+  
+  - the error shows the server's own text: a JSON error's message, as before, or the body of a `text/plain` refusal. Any other body that is not JSON, such as an HTML error page, still shows the status text;
+  - the "check that it is online" hint is shown only when no server answered (a network failure, a CORS refusal) or the server answered `502`, `503` or `504`. A refusal such as a `401` or `403` shows its cause without it;
+  - the empty state is drawn only when the catalog loaded empty, and the "Your organization" packages and the installed count still appear when the public catalog fails to load.
+  
+  The package detail page reads its load through the same request helper, so a plain-text refusal there now shows its text too.
+- da35453: Objects with a picklist-bound field save again from the OWD overview, the Setup fields and objects pages, the metadata-admin embedded-item editor, and `MetadataService.saveFields` (objectui#11692).
+  
+  The runtime serves a field that names a shared picklist (`picklist: 'NAME'`) with the options it resolved from the list. The authoring door refuses `options` beside `picklist`, with `422 INVALID_METADATA` at `fields.FIELD.options`, and the refusal covers the whole object. objectui#10202 fixed the two designers that host the select-field editor. These writers also seed their save from a served object read, so they sent the resolved options back and were refused, whatever had been edited:
+  
+  - **Studio → Access → OWD overview.** Changing an object's sharing model and saving was refused.
+  - **The Setup fields page** (`MetadataFieldsPage`). Editing any field of such an object was refused.
+  - **The Setup objects page** (`MetadataObjectsPage`). Relabelling such an object was refused.
+  - **The metadata-admin embedded-item editor** (`EmbeddedItemEditor`, opened from an object's fields, indexes or validations). Saving any item of such an object was refused.
+  - **`MetadataService.saveFields`.** A field list built from the served object was refused.
+  
+  Each now leaves `options` out of every field that names a picklist, before the PUT. A field without `picklist` keeps its inline `options` unchanged, and no other key is touched.
+  
+  `dropServedPicklistOptions` is now exported from `@object-ui/data-objectstack`. It is the served-to-authored conversion these writers apply, and it moves here from `@object-ui/app-shell` (it was not exported there), because `@object-ui/plugin-designer` does not depend on `app-shell`. It is for code that builds an object PUT from a served read. `MetadataClient.save` does not apply it, and neither do `MetadataService.saveObject` and `MetadataService.saveMetadataItem`, which read nothing: a body that pairs `picklist` with `options` without a served read behind it is still refused by the server, with its prescription.
+- 02a3896: Dashboards and reports no longer waste the first screen (objectui#11694).
+  
+  - **"Refresh All" shares a row instead of taking one.** On a dashboard the refresh button (with its record count) was a full-width row of its own between the filter bar and the widgets. It now sits at the right end of the filter bar's row. On a dashboard without filters it sits at the right of the dashboard's own header when the dashboard draws one, and otherwise stands alone in a row only as tall as the button.
+  - **The rows above the widgets are as tall as their content.** On a dashboard that declares `columns`, every grid row had a 5rem minimum, the floor chart widgets need. The header and the filter bar row no longer take that minimum. On a filtered dashboard the first row of charts moves up by the height of the old refresh row plus the space the filter bar row left below its controls.
+  - **A report's card follows its content.** The console report page drew every report inside a card with a 37.5rem minimum height, so a short table sat at the top of a mostly empty frame. The card is now as tall as the report.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 2c876f0: The inbox bell opens on the tab that has something in it (objectui#11698).
+  
+  The popover always opened on Notifications. With no unread notifications and three pending approvals, the bell read "3" and the click showed "You're all caught up", with the three approvals behind the next tab.
+  
+  On each open the popover now picks the first tab with items, in the order Notifications (an unread notification), Approvals (a pending approval), Activity (an activity row). When every tab is empty it opens on the tab the user last selected, or on Notifications if none was selected. A tab the user selects is remembered for the browser tab's session and reopens first, unless it is empty while another tab has items. The tab does not change while the popover is open.
+- 9b673e5: A record page open reads its record once: the page's own `$expand` read is no longer sent a second time when the object definition reaches the page again as a new object (objectui#11699).
+  
+  Measured on full reloads of a showcase task record page (a real ObjectStack backend and a production console build, 4 reloads per build): the page's `$expand` read of the record (`GET /api/v1/data/OBJ?populate=…`) went from 2 per open, one after the other, to 1. API requests per reload went from 40 to 39. The second read came from a host re-render that handed the page an identical object definition as a new object. The definition was equal to the previous one, so nothing the read sends had changed.
+  
+  - **The record page keys its record read on what the read sends.** The load effect depended on the object definition, the page and the permission answer as objects. All it reads from them is whether a page exists and the list of relations to expand after field-level security. It now depends on those two values. The record is no longer read again for an equal definition handed down as a new object, for an assigned page that replaces the synthesized default page, or for a permission answer that leaves the list unchanged. A permission answer that denies a relation still reads the record again without that relation, and so does a definition whose relations change.
+  - **`useMetadata().objects` keeps its identity.** The list and its entries stay the same objects while the stored object and view metadata stay the same. A re-render, or another metadata type landing, no longer rebuilds them. A landed object or view fetch, or an invalidation, still produces a new list that carries the change.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. `mergeViewsIntoObjects` and `attachInlineSubforms` keep their signatures.
+- 2b635e5: `DefaultRegisterPage` sends a signed-in visitor on to `/` instead of leaving them on an empty page (objectui#11714). The page asks the bootstrap probe only about a visitor who is signed out, so under the default `invite_only` audience posture a signed-in visitor got an offer that never settled: an empty layout with no text, no form and no link. Under `open` they got the sign-up form. The page offers nothing a signed-in user can use, so once the session check answers with a user it now sends them where it sends a visitor after a successful sign-up, `/`, replacing `/register` in the history, without waiting for the auth config or the probe. The console's own register page already did this.
+  
+  A signed-out visitor is offered what objectui#11705 describes. The page now waits for the session check before it offers anything or probes, so a visitor who turns out to be signed in is never shown the form first. `decideSignUpOffer` is unchanged, and so is `DefaultLoginPage`. Honouring `?redirect=` after a sign-in or sign-up is not part of this change. The package README's sign-up table gains a row for a signed-in visitor, and its `useSignUpOffer` example answers `signed-in` for one.
+  
+  **Clause-②: no.** No export, prop, type member or i18n key is added or removed, and no accepted input widens.
+- 5a2a6ab: A console toast's Undo and close buttons work while a drawer or dialog is open, and a click on a toast no longer reaches what lies under it (objectui#11723).
+  
+  Creating a record or running a record action such as Approve raises a success toast with an Undo button, often while the record drawer is still open. The drawer, like every Radix modal, turns pointer events off for the rest of the page, the toaster included, so the toast could not be clicked. The click went through it: onto the drawer's overlay, which closed the drawer and left the action in place; onto the drawer's expand or close button; or onto a record action under the toast.
+  
+  `ConsoleToaster` now makes each toast take its own clicks while a modal is open, and a press on a toast no longer counts as a click outside the modal:
+  
+  - With the record drawer open, Undo runs and the drawer stays open, and the close button dismisses the toast and nothing else. The same holds under a centred dialog: the change is in the toaster, not in any one modal.
+  - A click anywhere on a toast stays on the toast.
+  - Only the toasts take the pointer, not the area around them, so the dismiss timer still runs while the pointer rests beside a toast (objectui#7482). As anywhere else, a toast pauses while the pointer is on it.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 885a96f: Titles and links outside the object list page that name a list of an object's records read the object's plural label (objectui#11733).
+  
+  objectui#11696 titled the object list page and its breadcrumb with `useObjectLabel().objectPluralLabel`: the translated plural, else the declared `pluralLabel`, else the label. The other places that name the same kind of list now read it too:
+  
+  - **Related-list titles on the record page** (`RecordDetailView`): a section listing a child object's records is titled with the child's plural ("Tasks"). A child that points at the parent through more than one field is titled with its plural and that field's label ("Opportunities · Partner Project"); that title was built from the child's untranslated label before.
+  - **`record:related_list` and `record:reference_rail` with no authored title** (`@object-ui/plugin-detail`): the list heading, each rail card, and the rail's "+ N empty (…)" line read the bundle's `objects.{name}.pluralLabel`, else the translated label, else the humanized object name. These blocks hold the related object's name only, so they read bundle keys, not a declared `pluralLabel`.
+  - **The record form page's breadcrumb link** (`RecordFormPage`): the link to the object's list reads the plural; the "Create …" / "Edit …" title and the save toast keep the singular.
+  - **Favorites and recent items**: the favorite saved by the object list page's star button is labelled with the plural, and a recent `object` entry is named with the plural (`useRecentItemLabel`).
+  - **The record page's back link**: when the open list view has no label, the link back to the list reads the plural, both when a row or a link cell opens the record (`ObjectView`) and when a create lands on the new record's page.
+  
+  Unchanged: an unlabelled `object` navigation entry still inherits the singular (`useNavTargetLabel`, step 3 of the spec's navigation-label rule), and record-scoped text keeps the singular: the record page, the record drawer title, "New …", "Create …" / "Edit …", the delete confirmation and toasts, and the import wizard's object name.
+- 91dff12: The translation designer's preview names each global action by its translated label (objectui#11755).
+  
+  `TranslationDataSchema` declares every `globalActions` entry as an action translation node (`label`, `description`, `confirmText`, and the rest), not a string. The preview treated the category as a flat string map and drew each value with `String(v)`, so every entry the spec accepts read as `NAME[object Object]`. The category's sample now shows the node's `label`, quoted as a flat string is. A node without a `label` shows its key count, as the other nested categories do.
+  
+  The other categories render as before. Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 1bc17da: The package Details page and the marketplace catalog read a package this runtime refused to load as not loaded, not as installed (objectui#11760, following objectui#11645).
+  
+  After a restart whose startup refused a package (for example one that targets a protocol this runtime does not support), the install-local listing marks it `notLoaded` (`@objectstack/*` 17.7.0). Installed Apps reads that marker since objectui#11645. Three other places still said such a package was installed and running:
+  
+  - **Details header.** It drew the green "Installed · vX" badge. It now draws the installed version and a "Not loaded" badge, with the reason beneath, in the catalog view and in the view an offline runtime draws.
+  - **Details' own Uninstall.** It confirmed and reported that the app stays loaded in the running kernel until the next restart. It now uses the texts Installed Apps uses for the same entry: nothing of the package is running, and no restart is needed.
+  - **The catalog.** A catalog card drew "Installed vX", and a "Your organization" card drew "Installed". Both now draw "Not loaded", and the catalog card keeps the installed version beside it.
+  
+  A loaded package renders as before on every face. Nothing is added to the package entry: no export, prop, type member or language-pack key. The texts are the ones objectui#11645 added.
+- 179f6fe: The translation designer's preview draws the groups of the schema it validates a bundle against (objectui#11765).
+  
+  The designer judges a translation draft by the per-app `TranslationDataSchema` groups, but the preview drew a hand-kept list that had drifted from them. It left out `picklists`, `datasets`, `pages`, `flows` and `settingsCommon`, so a spec-valid bundle of only one of those groups read as empty. It also listed `validationMessages`, which the spec removed, and `settings`, which only the platform schema declares. Both counted toward the coverage denominator, so a spec-valid bundle could never reach full coverage.
+  
+  The preview now draws one card per schema group, in the schema's order, and divides coverage by that count. A key the schema refuses is not drawn and not counted. A nested entry of a single key now reads `{1 key}` rather than `{1 keys}`.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The new headings are rows of the designer's own string table.
+- 2b30d39: The flow designer's Remove node takes the node's edges with it, and a new node never inherits the edges a removed one left behind (objectui#11772, the objectui half of objectstack#22088).
+  
+  Removing a node from the flow inspector left every edge that named it in the draft. The next node the designer added got the same id (`node_1`), so those edges re-attached to it, drawn on top of each other where the author saw one line. A published flow then ran that node once per edge: one record update created the same follow-up record three times.
+  
+  - **Remove node removes the node's edges in the same change.** When the node sat on a single path (one edge in, and one edge out with no condition, label or default flag), its predecessor is reconnected to its successor through the edge that led in, which keeps its id, condition, label and position. So removing a node that was inserted on a connection gives that connection back. A decision, a join, or a node whose edge out carries a condition or label loses its edges and is not reconnected. The canvas's Delete key makes the same removal.
+  - **A new node never takes an id the editing session has seen**, on a node or at either end of an edge. A flow saved with an edge to a missing node no longer hands that edge to the next node added.
+  - **The Problems panel flags a repeated connection**: an edge that joins the same two nodes the same way (the same type, condition, default flag and label) as an earlier edge. Each extra copy is its own row, and clicking the row selects that copy so the author can remove it. Two edges that join the same nodes differently, such as two decision branches leading to one node, are not flagged. An edge to a missing node was already flagged. Stored flows are not rewritten: these rows are how an author finds and repairs one.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The new Problems-panel row lives in the metadata-admin designer's own string tables (en and zh).
+- 2dec305: Studio's metadata draft saves send the version they were built on (objectui#11773). Once an editor has saved, its later saves no longer replace a draft that was saved elsewhere in the meantime without saying so.
+  
+  Each guarded draft save of an existing item now sends `If-Match` with the `version` the editor's previous save received, and records the new receipt's version. The `/meta` draft door refuses a stale version with `409 METADATA_CONFLICT`. The editor then shows a dialog with three choices: reload the saved version (unsaved edits on screen are dropped), overwrite it after a second confirmation (the save is sent again without `If-Match`), or keep editing (nothing is saved, and the next save is refused again). The destructive-change confirmation (`409 DESTRUCTIVE_CHANGE`) is a separate flow and is unchanged.
+  
+  The guarded saves are the Data pillar's object autosave and column reorder, the Automations pillar's flow autosave and enable switch, the Interfaces pillar's autosave of the open item (a page, dashboard or other item it edits) and its navigation autosave, the metadata designer's draft save, the Access pillar's package-scoped permission-set save, and the object Hooks panel's save. Creating an item sends no `If-Match`.
+  
+  The protection starts at an editor's second save. A draft read serves no version, so the first save after an editor loads, reloads or switches items is still sent without `If-Match`.
+  
+  Nothing on the package entry changes. The guard (`useDraftSaveGuard`) and its dialog are not exported from `@object-ui/app-shell`, and the new strings are rows in the designer's module-local string table, not language-pack keys.
+- 8273f4b: Studio's Interfaces rail tells apart nav entries that open the same object, and previews each one's data slice or named view (objectui#11774).
+  
+  An app's navigation can hold several entries on one object: the plain list, slices of it (`filters`) and named views of it (`viewName`). The Interfaces rail identified an entry by its target alone, so every entry on that object was the same surface. Clicking a slice such as "Urgent Tasks" highlighted every entry on the object at once, previewed the whole unfiltered list, and a reload or a shared link landed on the first of them.
+  
+  - **Highlight:** only the entry you clicked is active. Entries are told apart by their nav item `id`.
+  - **Preview:** the canvas shows what the running app opens for that entry: a `filters` entry previews its slice, read the way the app's data surface reads the entry's link, and a `viewName` entry previews that named view of the object.
+  - **Deep link:** the Interfaces pillar now writes the open entry's id beside `?surface=`, as `&nav=` followed by the id, so a reload or a shared link opens the same entry. A `?surface=` link without it, including every link made before this release, resolves exactly as before, and so does one whose entry no longer exists.
+  
+  Apps whose entries each open a different object behave as before.
+- 03fc85d: Studio's navigation editor no longer fails every autosave while an "Add nav item" entry is still unbound, and its error banner goes once a nav save lands (objectui#11776).
+  
+  "Add nav item" adds an entry before its target is picked, and the spec refuses an entry that names no
+  target for its type: an `object` entry needs an `objectName`. The save sent it anyway, so each autosave
+  failed with "navigation.N.objectName — Invalid input" until the entry was bound or removed. The save now
+  leaves out every entry that names no target for its type, at every depth of the tree, and sends the rest
+  in the editor's order with their ids unchanged. A `group` is always sent. The unbound entry stays on the
+  editor's canvas, in its place, and is sent there once its target is picked; until then the editor counts
+  it as an unsaved edit, so leaving the page warns before it is dropped.
+  
+  The banner a failed nav save raises now clears when a later nav save lands. It is held apart from a
+  failure the open page or dashboard is showing, which a nav save leaves in place.
+  
+  A nav entry's remove control is now reachable from the keyboard: it is in the tab order after its card,
+  shows on keyboard focus as it does on hover, and Enter or Space removes the entry. It was mounted only
+  while a pointer hovered the card.
+- 32124ac: The flow designer's three ways to add a node agree: each opens the add-node palette, the picked node goes into the flow's path and is laid out, and the node inspector's Node Type list is the palette's list (objectui#11778).
+  
+  - **The "+" on an edge and a node's "Add connected node" ask for the type.** Both used to add a "Create record" node at once. They now open the same grouped, searchable palette as the toolbar's Add node, with its Recently used group, and add the node you pick.
+  - **The new node goes into the path.** The "+" on an edge splits that edge, as before. Add connected node and the toolbar's Add node put the node after a node: the node whose "+" you pressed, or for the toolbar the selected node, else Start. When that node has one way on, the new node goes between it and the next node. When it has none, the new node follows it. A decision, an approval, or a node that already leads to two or more nodes gets the new node as a new branch, as before. With End selected, the toolbar puts the new node before End. The toolbar used to start a second branch from the selected node, or add a node with no connection at all when nothing was selected.
+  - **The new node is laid out.** A node inserted on an edge was pinned halfway between the edge's two ends, on top of the card above it. It now has no stored position, so the canvas lays it out on its own row and moves the nodes below it down. Nodes you have dragged keep their positions.
+  - **The Node Type list is the palette's.** It offers every node type the palette offers, under the palette's names, so a node can now be changed into a Notify node. It no longer shows raw type names such as `http_request`, `connector_action` or `try_catch`. It no longer offers a type the palette does not add, such as Start, or `http_request`, the older spelling of the palette's HTTP request (`http`). A node whose stored type the palette does not list, such as Start, still shows that type under its name.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 16cda0b: Studio's Automations pillar now shows the state a flow actually runs in, and shows it the same way in the rail, the flow header and the Problems panel (objectui#11779).
+  
+  - **Trigger.** The flow header's Trigger pill reads the trigger the flow's Start node declares, in the Start node inspector's own words. A record-triggered flow reads its event and object (for example *Record updated · task*), where it read the flow type *autolaunched*. A flow with no trigger on its Start node still reads its type.
+  - **Status.** The header's Status pill reads the engine's runtime state for the flow, as the rail does: *On*, *Off*, *Not running here*, or *Unpublished draft* for a flow the engine does not have. A published flow without a `status` key used to read *draft*, although the engine runs it. Where no runtime state is available (the metadata-admin page, or a backend without `GET /api/v1/automation/_status`), the pill reads the flow's own switch: *Enabled* or *Disabled*.
+  - **Not running here.** An enabled flow whose declared trigger is not armed on this deployment, such as a scheduled flow while package-authored scheduled work is switched off, reads a grey *Not running here* in the rail and the header instead of a green *On*. Its hover text is the platform's reason, and the Problems panel shows the same reason as a note, which is not counted as a problem. A flow that declares no trigger still reads *On*.
+  - **New flows start off.** A flow created with *New* is saved with `status: 'obsolete'`, so its switch reads *Disabled*, as the "Off by default · review before enabling" bar says. It used to read *Enabled*, and a package publish armed it as soon as it had a trigger.
+- d53fd02: Studio's Data pillar no longer shows the columns the platform adds to an object and hides (objectui#11780).
+  
+  The records grid, the Form preview and the form designer showed "Search Index" (`__search`) and "Owning Business Unit" (`owning_business_unit_id`) on every object, while the runtime list hides both. The three views now leave out every field the served metadata marks both `system: true` and `hidden: true`, which is how the platform marks the columns it injects for its own use. The tenant column `organization_id` carries the same marks and stays out as before.
+  
+  - A field you hid yourself (`hidden: true` without `system`) still shows in Studio, so you can open it and un-hide it.
+  - A system field that is not hidden, such as the reassignable `owner_id`, still shows.
+  - The audit columns (`created_at`, `updated_by` and the rest) stay out of these views as before.
+  - The form designer only hides these fields. Moving, reordering or regrouping fields saves them back with their definitions unchanged.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 8962734: Studio's field inspector closes when you leave the view that opened it, and a read-only package reads as read-only (objectui#11781).
+  
+  - **The field inspector belongs to its view.** In the Data pillar, opening a field's *Field properties* from Records or Form and then switching to another view (Records, Form, or Advanced → Validations, Hooks, Actions, API or Settings) closes the inspector, the same as its Close button. Re-selecting the view you are on keeps it open. Escape closes it as well, unless something inside it (an open menu, select, dialog or autocomplete) already answered that Escape, or the key was pressed outside the Data pillar.
+  - **Read-only wording.** On a read-only package the Form view's layout caption says it is a read-only layout instead of "Draft layout", the form designer's hint says the package is read-only and that a click shows a field's properties instead of "Drag to reorder…", and each field card's accessible name drops "drag to reorder", its grab cursor and its drag handle. The Access pillar's banner says the package is read-only, in a muted chip, instead of the amber "saved as draft"; its tooltip says the permission sets can be viewed but not changed. Writable packages are unchanged.
+  - **Read-only look in the validation editor.** On a read-only package the Validations editor's inputs, selects and JSON boxes wear the same disabled look as the field inspector's inputs, instead of the editable white fill and dark text.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The new copy lives in the metadata-admin designer's own string tables (en and zh).
+- b0aa892: Studio's field inspector says when a translation overrides the label being edited (objectui#11782).
+  
+  The inspector's Label input edits a field's source label. The Data pillar's grid headers and form canvas show the label the app's translation bundle gives the field for the active language, so a translated field read one way on the canvas and another in the input, with nothing explaining why: the showcase's `showcase_account.tax_id` showed "Tax ID" on the canvas and "Tax ID (EIN)" in the input.
+  
+  A muted line under the Label input now reads, for example, `Shown as “Tax ID” in en: the app’s translation bundle overrides this label.` The label comes from the same resolver the grid and the canvas use (`useSafeFieldLabel().fieldLabel` from `@object-ui/i18n`), and the language named is the one that resolver reads, so a `ja` session is told `ja` even though the designer's own strings are English. The line shows only when the translated label differs from the input's current value: a field with no translation, or one whose translation equals the label being edited, shows nothing. The input still edits and saves the source label exactly as before, and how translations resolve is unchanged.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The new copy lives in the metadata-admin designer's own string tables (en and zh).
+- 57dbe34: Studio's object-name inputs now share one object picker that offers the objects it already holds, grouped and labelled, and resolves a name only once it is chosen (objectui#11783).
+  
+  A Lookup field's *Related object* and a summary field's child object, and every flow input that names an object (the trigger's *Object*, a record node's object, a screen's object form, a map node's item object, a time-relative sweep's object), used to save the draft on every keystroke. Each save made Studio look up the typed prefix, so typing `repairs_repair_ticket` into the trigger's *Object* sent about forty `GET /api/v1/meta/object/PREFIX` requests, each answered 404. The suggestions listed every served object by bare name, the platform's internal objects first, and a draft object showed no label.
+  
+  - **One lookup, for the chosen name.** Typing stays in the input. The name is saved when the author chooses a suggestion, presses Enter or leaves the input, and only that name is looked up. Escape abandons the typing.
+  - **Any value is still accepted.** Enter and leaving the input keep exactly what was typed, matched or not, so a flow value that is an expression still saves as before, and the server judges an unknown object name as it always did.
+  - **Grouped and labelled suggestions.** The objects of the package being edited come first, then the other objects, each shown with its label and its name. The platform's own objects, the ones it marks `isSystem`, sit in a collapsed *System* group. A search still reaches them, so a Lookup to `sys_user` stays one search away. A draft object of the package is offered with the label its draft declares and marked as a draft.
+  - The trigger's *Object* input no longer suggests `crm_lead`, an object most apps do not have.
+  
+  Nothing is added to the package's entry: no export, prop, type member or language-pack key.
+- 58b277c: The package sheet's Delete, Discard changes and Duplicate ask in-app before they act, Cancel on Delete deletes nothing, and Studio returns to its landing after the open package is deleted (objectui#11784).
+  
+  Delete app used to ask two browser confirms in a row, and the second one's Cancel still deleted the
+  package's structure, keeping only its records. It now opens one dialog: the author picks "Delete the
+  structure, keep the records" or "Delete the structure and the data" (nothing is preselected), types
+  the package's name, and only then is the delete button enabled. Cancel, at any point, sends no
+  request. "Keep the records" sends the delete with `?keepData=true`, as before; the other choice
+  also drops the object tables.
+  
+  After deleting the package that is open in Studio, Studio now returns to its landing (`/studio`),
+  where the next package can be picked or a new one created. It used to open whichever package the
+  list started with. With no package left at all it still goes to the home page, as before. The
+  console's Packages page is unchanged: a delete there reloads the list in place.
+  
+  Discard changes (N) used to discard every pending draft at once. It now asks first, naming the count.
+  
+  Duplicate used to ask for the new package id in a browser prompt. It now opens the same inline form
+  the Studio landing uses: a name and a package id, checked by the same package-id rule, with the
+  Create copy button disabled until the id is valid. A duplicate that the server reports as not done is
+  now shown as an error rather than as "Package duplicated".
+  
+  None of the three uses a browser dialog any more, so they also work inside an embedded frame, where
+  those dialogs are blocked or answered automatically.
+- 4a9fe31: Studio shows a refused save as a sentence the author can act on, with the technical detail behind a "Details" disclosure (objectui#11785).
+  
+  - **Studio's save strips.** The Data, Automations and Interfaces pages used to print the refusal verbatim: the write guard's developer prose, or the server's raw issue paths such as `nodes.2.config.title — …`. Each strip now shows one sentence that names the input the refusal is about, in the terms the editor shows. On the Data page that is the field's label. On the Automations page it is the step's label and the inspector input, so a refusal at `nodes.2.config.title` reads "Check Title on the step “Notify approver” — …". On the Interfaces page it is the navigation item and its input. A "Show me" button opens that field, step or navigation item. The raw text stays under a closed "Details" disclosure, unchanged. A path Studio cannot place on the open page keeps its line there, and the sentence says the draft was refused.
+  - **A Picklist with no options.** Switching a field to Picklist before it has an option now says "Changes not saved: the field “Status” needs at least one option…", instead of the guard's message.
+  - **The object write guard's message names no code.** `assertObjectMetadataWritable` no longer prints the door's class name, a package name or tracker ids. Its message is the same at every door, so the other surfaces that show it as their banner read the field, its type and the remedy. Its signature, error type and exports are unchanged.
+  
+  `formatMetadataError` is unchanged, so every other surface that calls it prints what it printed before. Nothing is added to either package entry: no export, prop, type member or language-pack key. The new sentences are rows in the metadata-admin designer's own string tables (en and zh).
+- 04c8f56: Studio keeps an incomplete field or step as an unsaved edit with a hint, instead of showing a red error before the author can finish it (objectui#11786).
+  
+  - **Data page.** Switching a field to Picklist (or Radio) before it has an option, or to Lookup (or Master-detail) before its target is picked, no longer draws a red "Changes not saved" strip. The edit stays on screen, unsaved. The inspector says what the field needs under the options editor ("Add at least one option") or under the related-object picker ("Pick the object to link to"), and a neutral line names the field, with "Show me" when its inspector is not open. Adding the option or picking the target saves the change as usual.
+  - **Automations page.** A step added before its required inputs are filled in, such as a new Notify step without a Title, is no longer sent, so it no longer draws a 422 and a red strip. The step's inspector says "Required" under that input, and the same neutral line names the step and the input.
+  - **Publish.** While a page holds such an edit, Publish refuses and names the field or step, instead of publishing the last saved drafts without the edit.
+  
+  Studio decides "incomplete" with the same checks that would refuse the save: the object write guard for fields, and the flow rules from `@objectstack/spec` for steps. A save of a finished draft that is refused still shows the red strip, with the raw text under "Details", as before. Nothing is added to the package entry: no export, prop, type member or language-pack key. The new strings are rows in the metadata-admin designer's own string tables (en and zh).
+- 6694abe: Studio saves one way on a package: the permission matrix and hooks autosave to the package draft like the other pillars, every create dialog says *Save as draft*, and the Changes count keeps up with a save (objectui#11787).
+  
+  - **Permission matrix, package door.** An edit is saved to the package's draft 1.5 seconds after the last change, the same autosave the Data and Interfaces pillars run, and the header shows *Saving…* and then *Saved* with the time in place of the Save button. A CEL syntax error in the row filter holds the edit and says why. An edit made while a save is in flight is kept and sent next. The set's API name can no longer be edited here, because the autosave stores the draft under that name. It is set when the set is created.
+  - **Permission matrix, environment-admin door.** Unchanged. It keeps its explicit Save, because it writes live access configuration (ADR-0086 D7).
+  - **Hooks.** A hook autosaves to its draft the same way, and the *Save hook* button is gone. A hook whose run condition does not parse is held until it does. A hook keeps the name it was created with: while its name is changed the autosave holds, and a line says to change it back. The draft is stored under the hook's name, so a rename is not a save. Creating a hook and saving one both update the Changes count.
+  - **Create dialogs.** *New permission set* now says *Save as draft*, like every other Studio create dialog.
+  - **Changes count.** After a draft save, the header no longer says "No drafts pending publish" next to an item's "Unpublished draft" chip. It counts at least the draft just saved until its next read answers, and that read is sent after the save instead of reusing a read that was already in flight.
+  
+  No export, prop, type or language-pack key changes.
+- 31add5f: Studio builds a "notify the owner when the ticket is done" flow without JSON (objectui#11788).
+  
+  - **Notify recipients render online.** With a backend, the notify node's form had no Recipients field, and its recipients sat in Advanced (JSON). The node descriptor publishes `recipients` with no `type`, because the contract takes a string or a list of strings, so the descriptor-driven form left the key out. A key the descriptor declares but the form cannot type now keeps Studio's own editor for it, in its declared place and with the descriptor's description. The same fix brings back the http node's Headers and Body editors.
+  - **Recipients are picked.** Each recipient row is a field of the trigger record (`{record.FIELD}`), a user (the user id), a team (`team:ID`) or an email address. These are the values the messaging service already resolves. Any other stored value, such as a flow variable or a `role:` selector, shows under "Other" and is saved unchanged. A recipient stored as a single string now shows as a row and stays a string.
+  - **Record field values pick their field.** On a create or update record node, the key of each field value lists the fields of the node's object. The value input is unchanged.
+  - **New automation asks for the trigger.** The dialog offers the Start node's own triggers, asks for the object when the trigger watches one, and writes the choice to the Start node. Left unset, the flow is created as before.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The new strings are in the metadata-admin designer's own string tables (en and zh).
+- 5aa7f55: Studio's flow designer judges a record-triggered flow's Entry condition against the scope the engine binds, and shows one verdict per expression (objectui#11789).
+  
+  - **`record` is in scope on the Start node.** The engine binds the whole `record` beside the record's flattened fields before it evaluates the start condition, so `record.status == 'done' && previous.status != 'done'` is as valid as `status == 'done' && previous.status != 'done'`. The Start node used to leave `record` out, and the editor showed "Valid CEL" together with "`record` is not a reference in scope at this step." An edge leaving the Start node reads the same scope, so its guard accepts `record` too.
+  - **`previous` follows the pre-image.** It is in scope on update, create-or-update and, new here, delete triggers, where the engine binds the deleted row as `previous`. It stays out on a create trigger, where the engine binds it only as `null`, so a member read of it fails when the flow runs. A schedule, manual or API flow gains neither `record` nor `previous`.
+  - **One verdict.** When the Entry condition names a reference that is not in scope at the node, the scope note replaces "Valid CEL" in the raw CEL editor instead of appearing below it. Other surfaces of that editor, the permission set's row-level security clauses among them, are unchanged.
+  
+  **Clause-②: no.** No export, exported type or language-pack key changes. The editor's new optional input is internal to the package and is not reachable from its entry.
+- 59ce048: Studio's nav editor offers every nav item type the spec declares, not only *Link to object* (objectui#11790).
+  
+  In a writable package, *Add nav item* still adds an entry that links an object, and selects it. The nav-item inspector now has a **Type** choice that lists every member of `@objectstack/spec`'s `NavigationItemSchema` (with the 17.7.0 spec: object, page, dashboard, report, URL, action, component, documentation, group and separator), so the new entry can become any of them, and an existing entry can change its type.
+  
+  - Each type that opens something picks its target from what the package already has: its pages, dashboards, reports, actions, docs and books, published and draft alike. A record page is not offered, because a page entry cannot pass it a record id, and neither is an action bound to an object, because the menu runs only actions that are not. A component entry picks one of the screens registered with the console. A URL entry is typed, with the window it opens in.
+  - A change of type keeps the entry's id, label, icon, visibility and permission gates, and badge, and drops what it opened. Every entry the editor writes is one that the spec's strict member for its type accepts. A separator keeps only its id and order. A group is added with no items under it, because this editor does not nest entries. An entry that holds children can change only to a type that keeps them.
+  - Saving is unchanged (objectui#11776). An entry whose target is not picked yet, or was cleared, stays in the editor and is left out of what is saved. A group and a separator open nothing, so they are saved as they are.
+  - The Interfaces rail shows a URL, component or documentation entry under its own icon. Such an entry opens no design surface, so its row stays disabled. A separator card on the nav canvas can no longer be renamed, because a separator has no label.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The new copy lives in the metadata-admin designer's own string tables (en and zh).
+- 66e8025: Studio's Interfaces rail draws a separator as a divider and shows a navigation item's badge, as the running app's sidebar does (objectui#11791).
+  
+  - **Separator.** A `separator` entry used to show in the rail as a greyed, unlabeled row with a generic icon. It is now a thin rule between the rows around it. It cannot be clicked, the keyboard skips it, and a screen reader does not announce it, which is how the app's sidebar treats it.
+  - **Badge.** An entry's `badge` was not shown in the rail. It is now a pill after the entry's label, in the entry's `badgeVariant`, or in the default style when none is set, the same pill the sidebar draws. A badge of `0` is shown too, as the sidebar shows it. An entry that opens no design surface, such as a URL, keeps its badge on its disabled row. A group heading shows no badge, as in the sidebar.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 4e7dd56: Studio's *New package* dialog fills in and checks the Package ID, and *New object* shows the object name that will be saved (objectui#11792).
+  
+  - **The Package ID follows the display name.** In the create dialog, typing a display name fills the Package ID as `com.<organization>.<name>`. The organization part is the active organization's slug, which the session already holds. With no active organization it is left out, giving `com.<name>`. The object namespace keeps following the id as before. Once you edit the id yourself, it stops following the name.
+  - **An id the server would refuse is caught in the dialog.** *Create package* used to send any non-empty id. `Repairs Center` was sent and refused with a 400. The id field is now the same input the landing page's Duplicate form uses: it lowercases, removes unsupported characters and says so, and explains the format while the id is invalid. *Create package* stays disabled until the id passes `ManifestSchema`'s own id rule from `@objectstack/spec`, the rule `POST /api/v1/packages` checks.
+  - **New object previews the saved name.** The Data pillar saves a new object under its package namespace (`repair_ticket` is saved as `repairs_repair_ticket`). The *New object* dialog now shows that name under the identifier field. It uses the same rule the save uses.
+  
+  Editing and viewing a package are unchanged. The app, automation and access *New* dialogs are unchanged. Nothing is added to the package entry: no export, prop, type member or language-pack key. The new copy lives in the metadata-admin designer's own string tables (en and zh).
+- 72f5c60: Studio's field inspector picks a field type from a searchable list grouped by category, where it was one flat select of every type (objectui#11793).
+  
+  The *Type* control shows the field's type with its icon. Opening it lists the types under their categories (Text, Relation, Media and the rest), each row the type's icon, its name and a one-line description of what the type holds. Typing narrows the list: the search matches a type's name as shown, its category, its id (`lookup`, `master_detail`) and its English name, so an author working in Chinese finds a type by the English word too. Arrow keys and Enter choose a type without the mouse.
+  
+  Choosing a type retypes the field exactly as before. Choosing the type the field already has changes nothing, a read-only field keeps the control disabled, and a stored type the catalog does not list is still shown flagged as not found.
+  
+  The descriptions are new rows of the metadata-admin designer's own string tables (en and zh), because `@objectstack/spec` carries no per-type description. Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 8de8ba2: The Studio header's *More* trigger keeps its own name (objectui#11794). While *Access*, the pillar it holds, was open, the trigger renamed itself to "Access", which hid the word that says this control is the overflow menu. It now always reads *More*, the same rule the Data pillar's *Advanced* trigger follows. It still takes the active pillar styling while one of its pillars is open, and inside the menu that pillar's link is marked as the current page (`aria-current="page"`), so assistive technology reads where the author is.
+- 8f815f4: Studio navigation details (objectui#11794):
+  
+  - **The Data pillar's *Advanced* trigger keeps its own name.** With one of its panels open it used to rename itself to that panel ("Validations"), which hid the word that says sibling panels sit behind it. It now always reads *Advanced*, takes the active pill while one of its panels is open, and the menu marks the open panel as the checked item (the items are radio items now, so assistive technology reads which one is open).
+  - **The Automations rail can be searched.** A search box above the flow list matches a flow's label or its machine name, case-insensitively, and a search that matches nothing says so. A flow's name wraps instead of being cut to a stub.
+  - **Create app opens the Interfaces pillar**, where the new app lives, instead of leaving its author on the pillar the button was pressed from. The create writes exactly what it wrote before; only where the author lands changes. Leaving a pillar that holds an unsent edit asks first, as a pillar link does.
+- 70f1b27: Studio on a smaller or resized window (objectui#11795). Studio stays a desktop tool; three things change below desktop width:
+  
+  - **The flow canvas re-fits when its width changes.** A window resize, the Studio chat dock opening or closing, or a side panel toggled beside the canvas now frames the diagram again: centred, and zoomed out only as far as the whole flow needs, never past 100%. A flow opened at a narrow width and then widened used to keep the narrow framing, with its Start and End cards clipped at the left edge. Adding, dragging or editing a node still leaves the viewport where it is, and so does a change in the canvas's height alone, such as a notice appearing above it.
+  - **On a narrow Automations row the Configuration panel opens as a drawer.** When the pillar's row has no room for the 288px Configuration panel beside one flow column, the panel no longer reserves that width. Selecting a node opens its configuration in a drawer over the canvas, and closing the drawer clears the selection. The row is measured on its own, so the Studio chat dock beside it counts. Wider rows keep the panel as before.
+  - **On a phone, one line under the Studio header says that Studio is built for a desktop screen.**
+- 82500a7: Rotated x-axis labels fit inside the chart, and the dashboard inspector's Layout fields are readable (objectui#11796).
+  
+  - **Rotated category labels are no longer cut off.** When a bar, line or area chart turns its x-axis labels to fit them, each label hangs its start away from the plot. The axis used to reserve a fixed 60px for them, which counted the text width alone, so the longest labels ran past it and the chart cut off their first letters ("acklog" for Backlog, "ogress" for In Progress on a dashboard bar chart). The axis now reserves the room its longest drawn label needs at the rotation angle: more for long labels, less for short ones, with a wide glyph (Chinese, Japanese, Korean) counted a full em. Every rotated label is now shortened with an ellipsis past 12 characters, also on axes with more than five categories, where a long label used to be clipped mid-word instead. The full name stays on the bar's tooltip. Charts whose labels do not rotate keep the axis height they had.
+  - **The dashboard inspector stacks its fields.** Studio's dashboard inspector is a narrow side panel, and the dashboard form's Layout section put Columns, Gap and Refresh Interval Seconds in three columns there: a two-digit value showed one digit and the labels wrapped onto several lines. The inspector now renders every section of the form in one column, in the declared field order. Other forms keep the column layout their sections declare.
+  
+  Nothing is added to either package entry: no export, prop, type member or language-pack key.
+- 6d8bf0c: Opening a Studio package no longer sends the same read several times at once (objectui#11797).
+  
+  Several readers mount together on Studio entry and each one used to send its own request for the same answer. A caller that arrives while an identical request is still pending now waits for that request instead of sending another:
+  
+  - **`@object-ui/app-shell`:** the package list (`GET /api/v1/packages`, read by the Studio package switcher, the read-only gate and the object-name namespace lookup) and the pending-drafts count (`GET /api/v1/meta/_drafts`, read by the Studio top bar and the chat bar).
+  - **`@object-ui/data-objectstack`:** `MetadataClient.listTypes`, `list`, `listDrafts`, `get` and `getDraft`. Requests are shared between clients built on the same `fetch`, so the per-component clients the console creates share them too. Each caller, the first one included, still gets an answer object that no other caller holds.
+  
+  This is not a response cache. Once a request settles, the next call goes to the server again. A failed request is shared only by the callers already waiting, and the next call retries. A write the reader can see drops any read still pending, so a read made after the write never gets the answer of a request sent before it. For the metadata client that is any save, publish or reset through a client on the same `fetch`. For the app-shell reads it is a package duplicate, the `objectui:packages-changed` announcement and the publish refresh pulse.
+  
+  No exported function, method signature, option or type changes.
+- a025f4d: Four more editors stop asking for the layers of an item that was never published, so the browser console no longer logs a 404 for it (objectui#11799). The framework answers `GET /meta/:type/:name/layers` with a 404 for an item with no layer, and each editor already holds the answer that tells it so.
+  
+  - **The Access pillar's OWD overview.** An object the package's published list does not hold is not asked for its layers while its draft is in hand, on open and on save. A published object is read as before.
+  - **The list-view panel of an `object` leaf.** The view's layers are read only when it has no pending draft, the one case the panel uses them. A view the panel created and nobody published no longer logs a 404 each time the leaf opens.
+  - **The metadata edit page.** The refresh after a save and the refresh after "Discard draft" reuse the page's own answer when its load found no layer, and the refresh after a create asks nothing: a draft makes no layer. The page's first load of a never-published item still reads `/layers`.
+  - **The permission matrix under a package.** A set the published set list does not hold (one "+ New" created) is not asked for its layers on open while its draft is in hand. A published set is read as before.
+  
+  What each editor shows is unchanged. No REST answer, export, prop or type member changes.
+- 5dff027: Studio stops asking questions whose expected answer is an error, so the browser console no longer fills with red lines that hide real failures (objectui#11799).
+  
+  - **`MetadataClient.getDraft()` reads the drafts ledger first.** It reads `GET /meta/_drafts` through the client's shared read, and sends `GET /meta/:type/:name?state=draft` only when the ledger lists the name. An item with no draft no longer logs a 404. The method still resolves `null` when there is no draft and the draft envelope when there is one. A draft saved a moment ago is found, because a write drops the ledger read that was pending when it landed. A ledger the caller cannot read (403, 501, a network fault) counts as unknown, and the item read is sent as before.
+  - **Studio reads an item's published baseline only when it uses it.** The Interfaces pillar's leaves and the Automations pillar's flows read `GET /meta/:type/:name/layers` only for an item with no pending draft, and the Interfaces pillar reads none for an app found only in the drafts ledger. An item that was never saved always has a draft, so it no longer logs a 404 for `/layers`. Opening a leaf or a flow now waits for the ledger before it reads the item, one round trip more than the parallel reads it replaces. The Data pillar still reads `/layers` for an object that was never published: that answer is how it tells it has no records table yet.
+  - **The AI usage indicator asks nothing while AI is off.** It reads `GET /ai/usage` only while the agent catalog at its base lists an agent, the signal the console gates every AI entry point on. On an open-edition server, Studio's copilot dock no longer logs a 501 for it each time it mounts.
+  
+  No REST answer, export, prop or type member changes.
+- 456238c: Studio's source editors report a Monaco loader that cannot be reached once, as one console warning that names the URL, and no longer leave uncaught errors behind (objectui#11800).
+  
+  On an install without access to the Monaco CDN (no egress, or a Content-Security-Policy that blocks it), opening a source page in Studio already fell back to a plain textarea, by design. The browser QA pass that found this also saw six uncaught `Event` errors and "Monaco initialization: error: Event" twice, in the dev build. The uncaught errors came from `@monaco-editor/loader`: every `loader.init()` call made while the loader fails leaves one rejected promise no caller can reach. The canvas preview, the inspector editor and the editor's own Monaco `Editor` each called it, and StrictMode doubled each call.
+  
+  - The metadata designer's code editors (the JSON source tab and the html/react page source editor) call `loader.init()` once per page and share the answer.
+  - The Monaco `Editor` mounts only after the loader has resolved. While it loads, the editor area shows the skeleton it already showed while the editor module loaded. On a failing install the `Editor` never mounts, so it does not log its own init error.
+  - The one rejection the loader leaves unhandled is cancelled in an `unhandledrejection` listener that matches the loader's own failure by identity. Every other rejection on the page is still reported.
+  - The failure is logged once per page as a `console.warn` naming the cause. For a blocked CDN that is the loader script URL, e.g. `https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/min/vs/loader.js`.
+  
+  The textarea fallback looks and behaves as before, and still appears as soon as the loader fails. A source editor opened after the failure is known now shows the textarea on its first render. Monaco is still loaded from the CDN; serving it from the console's own assets is not part of this change. Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- d33270a: zh-CN Studio names a pillar by the label its tab shows, and the settings label lookups stop logging missing-translation warnings for text they fall back from by design (objectui#11801).
+  
+  - **Studio, zh-CN.** Two hints called a Studio pillar 支柱, a literal rendering of the code word "pillar" that no tab shows, and left the pillar's name in English: the navigation-item inspector's "no objects yet" line and the Interfaces pillar's hint under an object's runtime preview. Both now name the pillar by its tab label, 「数据」. The second hint took the word "Data" from a literal in the component rather than from the string table, so it read English in every language; it now reads the tab label, and en-US shows the same text as before.
+  - **Console settings.** `useSettingsLabel` finds a setting's translated label, help line and option labels by probing a convention key in each top-level translation namespace that has a `settings` member, and shows the manifest's own text when the probe misses. Every miss went through `t()`, so a development build logged one "Missing translation" warning per probe, most visibly for the timezone field of the workspace-timezone prompt an administrator sees at an app's first open. The lookup now asks i18next whether the key exists before translating it, which logs nothing. What the prompt and the Settings page show is unchanged.
+  
+  Nothing is added to a package entry: no export, prop, type member or language-pack key.
+- 33e3583: Studio's form designer tells a screen reader which field it is dragging and where, by name and in the author's language (objectui#11802).
+  
+  A screen reader heard the canvas's internal ids during a drag, in English whatever the console language: "Draggable item f:name was dropped over droppable area g:new_group". The designer now gives dnd-kit its own sentences for picking a field up, carrying it over a group, dropping it and cancelling, plus the keyboard instructions read when a field card is focused, in en and zh. Each sentence names the field and the group by the labels the canvas shows, through the same object translations, and says the place as "N of M" inside the group: "Name moved to New group, position 1 of 1." The place a drop announces is the place it commits. A drop outside every group, or a cancelled drag, says the field is back where it was, and names that place.
+  
+  Dragging works as before: which field moves, where it lands and what is saved are unchanged. Nothing is added to the package entry: no export, prop, type member or language-pack key. The new copy lives in the metadata-admin designer's own string tables.
+- 99c481d: Studio's API tab shows an example create body the server would accept (objectui#11803).
+  
+  - **Each value fits its field's type.** The example used to type every field it did not list by name as `"string"`, including selects, locations and times. Each value now follows the stored form the record write path accepts for that type, read from `@objectstack/spec`'s field-value contract: a select or radio shows its first option's code, a location a `{ "lat", "lng" }` object, a time `HH:MM`, an email, URL or phone value in a valid format, a lookup a record id, and a file field a file id. A multi-valued field shows an array. A number stays inside the field's declared `min` and `max`, a text value inside its `minLength` and `maxLength`, and a text field with a `valueDomain` shows a member of that domain.
+  - **Every required field is listed.** The example used to stop at the first 8 writable fields in the order the server returns them, which put platform columns such as `owner_id` ahead of the object's own fields, and left out a required field declared later. Required fields now come first and are always listed. Optional fields follow, the object's own before the platform's, up to 8 fields in all. A line under the example names the optional fields it leaves out.
+  
+  The copied cURL already carried the `Authorization: Bearer` header; that is unchanged. Nothing is added to the package entry: no export, prop or language-pack key. The new line's copy lives in the metadata-admin designer's own string table (en and zh).
+- 3035948: fix: the package sheet and the record create form no longer log React warnings (objectui#11804)
+  
+  The package sheet's "Pending changes" header was a paragraph holding the draft-count badge, and the badge renders a block element. A block inside a paragraph is invalid HTML, so every time a package with pending drafts opened the sheet, from the console's metadata admin or from Studio's *Package info & settings*, React logged a DOM-nesting error. The header is now a block container with the same classes, and it looks the same.
+  
+  A select field the create form did not seed opened as an uncontrolled dropdown, and the user's first pick switched it to controlled, so React logged "Select is changing from uncontrolled to controlled". The select widget now renders a controlled dropdown from its first render for every host that hands it an `onChange`: an unset value shows the placeholder exactly as before. What a form saves is unchanged. A picked value is saved as before, and an untouched select still sends no value. A select node rendered with no `onChange` stays uncontrolled, so it still shows the user's pick.
+- 09821b1: The login and register pages say when the server cannot be reached, and offer sign-up only once the server has said whether it accepts sign-ups (objectui#11806). This applies to the console's own `/login` and `/register`, and to `DefaultLoginPage` and `DefaultRegisterPage`.
+  
+  All four pages read `/api/v1/auth/config` to decide what a visitor is offered. They treated a failed read like a server that sends no config, and `decideSignUpOffer` answers that as "offer it". The login pages also held the config as `null` while the read was pending. So with the server down, `/login` drew a normal-looking form and offered "Sign up", `/register` drew the full registration form, and the visitor found out only when they submitted.
+  
+  **Behaviour change.**
+  - While the config read is pending, the login pages show their form behind its own spinner, with no "Sign up" link. The register pages show no form, as before.
+  - When the read fails, every page shows "Cannot connect to server", the hint to check the network or the backend, and a Retry button, in place of the form. The auth client has already retried the read itself by then. Nothing is offered.
+  - Retry reads the config again. While that read is in flight the button reads "Retrying…" and the form stays hidden. When the server answers, the page shows what that answer decides, exactly as before: the form, the "Sign up" link, the by-invitation notice, or, on `/register`, the bounce to `/login`.
+  - When the server answers the first read, nothing changes.
+  
+  `packages/app-shell/README.md` documents the two new states in its sign-up table. Its `useSignUpOffer` recipe for hosts now asks `decideSignUpOffer` only once the read has answered, and answers `unreachable` for a failed read.
+  
+  **Clause-②: no.** No export of the package entry, prop, type member or accepted value changes. `decideSignUpOffer` and its answers are unchanged: the pages consult it only once the read has answered. The text comes from existing `en` keys: `console.error.connectionFailed`, `console.error.checkServer`, `console.actions.retry` and `console.actions.retrying`.
+- b9d9397: Studio's publish review and publish confirmation say what changes (objectui#11807).
+  
+  - **Changes panel, per-item diff.** Expanding a pending draft now lists the top-level keys it adds (`+`), changes (`~`) and removes (`−`), the way it already listed the object's fields, instead of one "Also changed:" list that mixed all three.
+  - **Changes panel, a draft that changes nothing.** Once an entry's drill-in finds the draft equal to its published version (after the framework's read decorations are stripped, as before), the row drops its *Update* badge and shows an "equal" glyph whose accessible name is the drill-in's "No differences detected" sentence. The mark is learned on expand, where both bodies are already read: deciding it for every row when the sheet opens would cost two reads per draft. The draft is still published with the rest, so the panel's counts are unchanged.
+  - **Studio's Publish, the success toast.** It names how many items went live, read from the batch's own `published[]` ("Published 2 items in this package (one atomic release)"); the package-less scope names its flow drafts the same way. A runtime that answers without `published[]` gets the previous sentence, which names no number.
+  - **Studio's Publish, nothing to publish.** The batch's `nothing_to_publish` answer, and a package-less publish that finds no pending draft, now say "No drafts pending publish". The first used to raise "Action failed"; the second used to raise the success toast.
+  - **Studio's Publish, a refused batch.** The error toast names each refused item with the server's reason again, as `formatPublishFailures` was written to. Since the publish moved onto `MetadataClient` (objectui#10039), the batch's own `success: false` was read before `failed[]`, and every refusal read "Action failed".
+  
+  **Clause-②: no.** No export, prop, `@object-ui/types` member or `packages/i18n` key is added or removed. The new toast strings live in the Studio string table (`engine.studio.publishedAllCount`, `engine.studio.publishedAllFlows` and their singular rows); `engine.studio.org.published`, which no call site reads any more, is removed.
+- e81c846: Studio's landing page now points a read-only package at the routes that exist for customizing it (objectui#11808).
+  
+  - **A read-only package's card links to its org overlay.** Code and installed packages are read-only (ADR-0070 D2): nothing new is authored into them, and *Duplicate* does not apply to them, because ADR-0070 D4's Duplicate clones a writable base. They are customized by org overlay where the item's metadata type allows it (`allowOrgOverride`, ADR-0005). Each read-only card now has a *Customize with an overlay* link to the package's metadata directory (`/apps/setup/metadata?package=…`), which marks per type whether it accepts an overlay. Clicking the card itself still opens the package for browsing.
+  - **The marketplace, where the runtime has one.** Below the read-only section's explanation, *Or install a template app from the marketplace* opens the marketplace route that Home's *Start with a template* opens. A runtime without a marketplace (`features.marketplace: false`) shows no such link, because that route does not exist there.
+  - **The landing's description says the same.** It used to call code-loaded packages "browse only"; it now says they are browsed here and customized with an org overlay.
+  
+  *Duplicate* stays on writable bases and is unchanged. Nothing is added to the package entry: no export, prop, route or language-pack key. The new copy lives in the metadata-admin designer's own string tables (en and zh).
+- 455c646: A record action greyed out by its declared `disabled` predicate now says why (objectui#11811). It shows the reason "Not available for this record", and the same text is its accessible description (`aria-describedby`), so a screen reader announces it too. Before, the action carried no tooltip, no `title` and no description, so a user could not learn why it was off.
+  
+  Where it shows:
+  
+  - **The record page header** (`page:header`, `@object-ui/components`). On an inline action button, hovering it or focusing it from the keyboard opens a tooltip with the reason. On an action in the ⋯ overflow menu, the reason is a second line under the label. A tooltip there could not be reached from the keyboard, because the menu skips a disabled item and traps Tab.
+  - **The `record:quick_actions` bar** (`@object-ui/plugin-detail`), for example a record page's section bar. Hovering or focusing the button opens the tooltip.
+  - **The `DeclaredActionsBar`** (`@object-ui/app-shell`), which renders server-declared actions on the approvals surfaces. Hovering or focusing the button opens the tooltip.
+  
+  A natively disabled button receives no pointer or focus events, so the tooltip's trigger is a focusable wrapper around the button, the pattern Radix documents for a disabled trigger.
+  
+  What stays unchanged: a button greyed out only while its own action runs shows no reason. So do the header's Edit and Delete that the console injects, whose `disabled` the host computes (for example while the record is locked for approval), and a header action greyed out by a live inline-edit session.
+  
+  The reason is the same generic sentence for every action. An author-written reason beside the predicate would be a new key on the action spec, which is objectstack's to declare. It is not part of this change.
+  
+  **Clause-②: yes (widening).** `@object-ui/i18n` gains one language-pack key, `actions.notAvailableForRecord`, translated in all ten packs. No export, prop or type member is added, removed or changed.
+- 9cb4e29: The ⌘K command palette lists a navigation entry only when the query is a word prefix or a contiguous substring of its label or machine name, so a query that matches nothing shows "No results" (objectui#11812).
+  
+  The Objects, Dashboards, Pages, Reports and Switch App groups went through cmdk's default subsequence scorer, which matches letters scattered across an entry. On the showcase app `zzzz` listed "Field Zoo" and "New Project (Wizard)", `ingest` listed "In-Progress Tasks", "Cascading Select", "Page Authoring" and "Styling (ADR-0065)" next to the real record hit, and `wayne` listed "Styling (ADR-0065)" next to Wayne Enterprises.
+  
+  - **An entry matches** when the query, ignoring case, starts a word of its label or machine name (`field` finds "Field Zoo", `zoo` finds `showcase_field_zoo`), or, from three characters on, appears anywhere in one of them (`view` finds "Task Overview"). A hyphen and a space read alike. There is no typo tolerance.
+  - **Chinese and Japanese labels**: Han, Hiragana and Katakana are written without spaces, so each of their characters starts a word, and a one-character query finds a label that holds it anywhere.
+  - **The theme and "Open Full Search Page" commands** follow the same rule over the words they were already searched by (`theme light`, `search all results full page`).
+  - **Record hits are unchanged**: the server search finds them, and each is listed as before.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- d4c39de: Console links into an app use the app's route segment, its package id, instead of its name (objectui#11818). ADR-0048 option A routes `/apps/SEGMENT` on the package id and keeps the app name only as a fallback alias. Three places built the address from the name instead.
+  
+  - **The bell's approvals link.** *View approvals* and *Open Approvals Inbox* opened the approvals page under the app's name. From `/apps/com.example.showcase/…` they went to `/apps/showcase_app/system/approvals`, which is the same app at a second address. They now land on `/apps/com.example.showcase/system/approvals`, using the same resolver as the bell's "View all" links and notification rows. Outside an app, for example on `/home`, the link opens the app the user last had open if it is still active, and otherwise the first active app. Before, it fell back to `setup` there. This matches the approvals card on Home.
+  - **Recently viewed.** A visit to an object list, dashboard, page or report was recorded only when the URL used the app's name. On the package-id address, which is the one every sidebar link builds, the visit was dropped. It is now recorded, with the address the user visited.
+  - **The `global:search` page block outside an app.** When the block renders outside `/apps/APP/…`, its record links used the last app's name. When no app was remembered, the app segment was empty, and the link came out as `/apps/OBJECT/record/ID`, with the object's name where the app belongs. They now use an active app's package id. Inside an app the URL's own segment is kept, as before.
+  
+  No export, prop or route changes.
+- b4693b7: Studio's new validation rules, hooks and actions start from safe defaults (objectui#11820).
+  
+  - **Validation rules.** A new Script, Cross-field or Conditional rule is no longer saved as a rule that can never fire. It used to be written to the object draft at once with the condition `false` and no "Runs on" box checked. Now it is listed and open but not saved, marked "Not saved — needs a condition", with the same "Not saved yet" line Studio shows for other unfinished edits, until you give it a condition (for a Conditional rule, its Then rule's condition too). Leaving the Rules view before then discards it. Every new rule starts on Create + Update. An existing rule is edited as before.
+  - **Hooks.** A new hook still targets the object you create it from. Its object picker now lists this package's objects first, and puts every other object (other packages' objects and the platform's own `sys_*` tables) under "Other objects" with a line saying a hook there runs on that object's events wherever they happen. "All objects (*)" shows the same kind of warning. Choosing either deliberately still works. The metadata admin's hook editor, which knows no package, keeps its flat list.
+  - **Actions.** A new action starts as "Update fields on this record — no code" instead of a sandboxed-JS script, and you add the field values it writes.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- a49c4bd: Studio's Interfaces pillar can now create a dashboard or a report in a writable package (objectui#11823, step 2).
+  
+  A **New** menu beside the navigation rail offers *New dashboard* and *New report*. Each opens the
+  shared create dialog (a name, and the identifier derived from it), and on save:
+  
+  - the item is saved as a draft in the package: a dashboard with no widget yet, and a report bound
+    to the dataset and the measure the dialog asks for, since a report must name a dataset and at
+    least one of its measures;
+  - an entry linking it is added to the app's navigation and saved with it, so it appears in the
+    rail at once. A dashboard entry carries no label and shows the dashboard's own; a report entry
+    carries the name typed in the dialog, since a report entry does not take its report's label;
+  - the new item opens on its canvas in design mode: the dashboard canvas with "Add widget", or the
+    report canvas with its Properties panel.
+  
+  An identifier that another dashboard or report already holds, published in any package or as a
+  draft, is refused in the dialog and nothing is saved. The menu is not offered on a read-only
+  package, on a package with no app yet, or while the navigation is being edited.
+- bee5d6f: Studio's Interfaces pillar edits an object's list view (objectui#11823, step 1). The Properties panel of an `object` leaf used to say that nothing is edited there. It now edits the list view the canvas beside it shows: the columns (add, remove, drag or move up and down), the filter and the sort.
+  
+  - **Which view.** The view the canvas opens, read from the nav entry the way the running app reads it. An entry that names a view (`viewName`) edits that view. Any other entry edits the object's default list view: the view flagged `isDefault`, else `OBJECT.default`, the name the platform gives a container's default `list`.
+  - **Where it is saved.** In the package draft, as a `view` metadata item (`{ name, object, viewKind: 'list', config }`), through the metadata draft write the other Studio editors use, with their version guard and autosave. Publishing the package publishes it with the rest of its drafts.
+  - **A view that does not exist yet** is created by the first edit, seeded with the columns the running app shows for an object with no view.
+  - **The canvas shows the edit at once.** It renders the panel's view, unsaved changes included, as the running app renders that list. An object entry now previews the list the running app opens: the object's default list view or, for an object with no list view yet, the default columns the running app shows. Before, it drew a plain grid of the object's fields.
+  - **A read-only package** shows the panel with every control disabled, and nothing is saved.
+  
+  A studio-canvas leaf of any other type keeps its "nothing is edited from this panel" statement. Nothing is added to the package entry: no export, prop, type member or language-pack key. The panel's copy lives in the designer's own string tables (en and zh).
+- 7546570: Studio's Interfaces pillar can now create a page in a writable package, and opens it on its source beside a live preview (objectui#11823, step 3).
+  
+  The **New** menu beside the navigation rail offers *New page* after *New dashboard* and *New report*.
+  It opens the shared create dialog (a name, and the identifier derived from it) with one more choice,
+  the language the page is written in:
+  
+  - **HTML** (the default): built from the platform's components and HTML tags, parsed and never run;
+  - **React**: real React code, run when the page renders. It is offered only where the deployment runs
+    React pages (a deployment can turn them off).
+  
+  On save:
+  
+  - the page is saved as a draft in the package: an app page (a page the app's navigation can open) of
+    the chosen kind, starting from a short source with one line of text;
+  - an entry linking it, carrying the name typed in the dialog, is added to the app's navigation and
+    saved with it, so it appears in the rail at once;
+  - the page opens with its source in the code editor on the right and the live preview, drawn by the
+    same renderer the running app uses, on the canvas.
+  
+  An identifier that another page already holds, published in any package or as a draft, is refused in
+  the dialog and nothing is saved. As for dashboards and reports, the menu is not offered on a read-only
+  package, on a package with no app yet, or while the navigation is being edited.
+- 87f7b6c: Renaming a node in the flow designer keeps it connected: the node inspector's ID field renames the node's edges with it, and only a finished, unique id is ever applied (objectui#11827).
+  
+  The ID field used to apply each keystroke as a rename of its own and change only the node. Every edge kept naming the old id, so the renamed node was left with no connections, and a published flow never ran it. The inspector also lost the node after the first character typed.
+  
+  - **The rename applies when you leave the field or press Enter.** Typing writes nothing until then, and Escape puts the current id back.
+  - **The node's edges follow the rename in the same change.** Every edge that started or ended at the old id now names the new one, and keeps its id, condition, label, default flag and position. A boundary event attached to the node stays attached to it. The inspector and the canvas stay on the renamed node.
+  - **An id that cannot be used is refused under the field, and nothing changes.** That is an empty id, an id another node in the flow already has (including a node inside a loop, parallel or try/catch region), or an id an edge still names after its node was removed. The field shows the current id again, and the message says why.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The new messages live in the metadata-admin designer's own string tables (en and zh).
+- 9b530d8: Renaming a node in the flow designer now also updates the expressions that read its outputs, removing a node that is still referenced is refused, and the Problems panel reports a reference to a node that does not exist as an error (objectui#11838).
+  
+  Later nodes read a node's outputs by its id. A decision branch reads `x.decision == 'approve'`, and a record field reads `{x.field}`. Renaming `x` used to update its edges and boundary event, but these expressions still named `x`. The saved draft then read a node that no longer existed, and the Problems panel showed only a scope warning.
+  
+  - **The rename updates every expression that reads the node, in the same change.** This covers decision branches, edge conditions, value expressions, and `{x.field}` or `{{x.field}}` holes in text, including those inside a loop, parallel or try/catch region. Each expression is read with the expression parser. Only the node's name changes. A different identifier that contains the old id (`xy`), a field named like it (`y.x`), text inside quotes, and a variable the expression itself declares with the same name (`rows.exists(x, x.ok)`) are not changed.
+  - **A rename that cannot update an expression safely is refused, and nothing changes.** If an expression that reads the node does not parse, the message under the ID field names it. The rename is also refused when the old or new id is also a variable name in the flow, because the expression could mean either one.
+  - **Removing a node that is still referenced is refused, and nothing changes.** While a boundary event is attached to the node, or an expression reads its outputs, both **Remove node** in the inspector and the **Delete** key on the canvas refuse the removal. The message names each place that still refers to the node: under the button, or at the top of the canvas. Change or remove those first, and the removal then goes through. The node's own edges are still removed with it, as before.
+  - **The Problems panel reports two new errors.** An expression that reads a node that does not exist is an error, for example `x.decision` in a flow saved without node `x`. So is a boundary event attached to a node that does not exist. Each error is shown on the node or edge where the expression is written. The debugger's Run check is unchanged, because the platform accepts these flows and fails only when it reaches that node.
+  
+  No export, prop, type member or language-pack key is added. The new messages are in the metadata-admin designer's own string tables (en and zh).
+- ad15852: Studio's object inputs no longer suggest objects of other apps (objectui#11842).
+  
+  In the flow inspector, the object input of a get, create, update or delete record node, a legacy action, a map's item object, a screen's object form and a time-relative trigger's sweep object showed an example object name as its placeholder: `contract`, `contracts`, `crm_account` or `showcase_task`. The view inspector's object input showed `e.g. crm_lead`. An author reads a placeholder as a suggestion, and in an app without that object the suggestion names something that will not resolve. These placeholders are gone. The flow inputs are the shared object picker, whose list offers the objects the app has, and the view's object input shows its own empty prompt.
+  
+  Placeholders that do not name an object stay, and the values each input accepts are unchanged. The view inspector's `engine.inspector.view.objectPlaceholder` string leaves both designer locales. Nothing is added to the package entry: no export, prop or type member.
+- b6f8fc8: Studio's Objects rail lists an object that is still only a draft by the label its draft declares, not by its API name (objectui#11843).
+  
+  A package's draft-only object labelled "Repair Ticket" used to be listed as `repairs_repair_ticket`, while a published object beside it showed its label. The rail now takes a draft-only object's label from the package's draft-overlaid object list, which serves each pending draft with its own label.
+  
+  - A draft-only object that declares no label is still listed by its name.
+  - A published object keeps its published label, even while a pending draft of it declares another one.
+  - The rail lists the same objects in the same order as before: the published objects, then the draft-only ones.
+  - If the draft-overlaid read fails, or the server does not serve pending drafts to you, the rail lists draft-only objects by name, as before.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 4373484: Setup's app editor no longer offers a Label or an Icon field on a separator entry (objectui#11847).
+  
+  The spec's separator member declares `type`, `id` and `order` and nothing else, and it is strict. The app editor's nav inspector drew its Label and Icon fields for every entry, so a label typed on a separator (for example showcase's `nav_sep_reports`) wrote `{ type: 'separator', label }`, and the save refused it with `unrecognized_keys [label]`, a field the editor itself had offered. A separator now shows the same note the Studio's nav inspector shows in place of its Label field, and no text field at all. A page, object or any other entry keeps both fields. Opening a separator writes nothing.
+  
+  Which describing fields an entry is offered is now one rule, read by both nav inspectors: an entry is offered a field exactly when the spec member for its type declares it. The Studio's nav inspector already hid its Label field on a separator, and its behaviour is unchanged.
+  
+  Nothing is added to the package entry: no export, prop, type member, language-pack key or accepted input.
+- 475bda1: Both *Duplicate* forms judge a new package id by the spec's id rule, the one the server refuses by (objectui#11855).
+  
+  The Studio landing's *Duplicate* form, and the package sheet's form that reuses it, armed their button with a regex of their own. It disagreed with the server in both directions: it refused `163.com.crm`, a digit-led segment the spec accepts, and it let `com.acme.my_app`, `com.-x` and `a..b` through to a 400 from the duplicate route. Its notice also told the author that underscores are allowed. Both forms now judge by `ManifestSchema.shape.id` from the installed `@objectstack/spec`, with the hint and notice the *New package* dialog already shows, so the three package-id forms share one rule and one wording. A plain id such as `com.example.myapp`, and the prefilled id (the source id with `-copy` appended), are armed as before.
+  
+  An underscore stays in the field when typed, and the hint says underscores are not allowed, as in the *New package* dialog.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The two strings that described the old rule are removed from the console's own string table.
+- 3683591: Metadata-form code fields stay editable when Monaco cannot load (objectui#11858).
+  
+  Monaco's core is fetched from a public CDN. On an install that cannot reach it (no public egress, or a Content-Security-Policy that blocks it), every field a metadata form renders through its `code` widget sat on Monaco's "Loading..." with nothing editable, a hook's handler body on the hook edit page among them. Each of those editors also logged its own Monaco initialization error, and the page reported an uncaught error. A field's `visibleWhen`, `readonlyWhen` and `requiredWhen`, and a hook's run `condition`, were not affected: those rows render the condition builder.
+  
+  The `code` widget now reads the same one-per-page loader check that the JSON source tab and the html/react page source editor already use (objectui#11800). When the loader fails, the widget renders a plain textarea, read-only when the field is. The textarea writes the same value the editor writes: a string, or the expression envelope for an expression row, keeping its `dialect` and `meta`. The failure is reported once per page, as one console line that names the loader URL. Nothing escapes as an uncaught error. Monaco itself is mounted only after the check succeeds. While the check is pending, the widget shows its existing "Loading editor…" placeholder. If the check has not answered, or Monaco has painted nothing, by the end of the grace period the source editors use, the widget falls back to the textarea the same way. Where the CDN is reachable, Monaco loads as before.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 75bacf9: A console object list's toolbar grouping is now in the URL, beside its Filter panel conditions, search term and sort, so a grouped list can be shared as a link or bookmarked (objectui#11860).
+  
+  `ListView` (`@object-ui/plugin-list`) has a new optional prop, `onGroupingChange`. It fires when the user changes the grouping in either grouping editor: the toolbar's Group panel (adding, changing or removing a level, or Clear) and the compact toolbar's View settings popover. The value is the `@objectstack/spec` `GroupingConfig` (`{ fields: [{ field, order, collapsed }] }`), the shape `schema.grouping` takes, or `undefined` when the grouping is cleared. It does not fire when the list re-reads a changed `schema.grouping` from its host. A host that does not pass it behaves as before.
+  
+  The console object page (`@object-ui/app-shell`) writes that value into a fourth `uf_` query parameter, `uf__group`, as JSON, and opens a list grouped by it:
+  
+  - **A URL that carries a grouping opens the list grouped that way**, over the grouping the view declares. A URL without one opens the view's declared grouping.
+  - **Malformed or out-of-date groupings are dropped.** This applies to a value that is not valid JSON, a grouping or level the spec's `GroupingConfigSchema` rejects, and a field the object no longer has or the user may not read. The list still opens, and the dropped entry is removed from the address bar.
+  - Each change replaces the current history entry. Clearing the grouping removes the parameter; the spec has no empty grouping, so a link to a view that declares a grouping cannot carry "no grouping". Switching to another view opens it on its own grouping. Opening or closing the Group panel leaves the URL unchanged.
+  
+  The grouping is written to the URL only: it is not stored on the view or in the per-browser filter memory.
+  
+  Also fixed on the console object page: a link's `uf__sort` now sorts the list on a view that declares a sort of its own. Before, the view's declared sort overrode it, so the link's sort showed in the address bar while the list stayed in the view's order.
+- 340bfab: A console object list's Filter panel conditions, search term and sort are now in the URL, so a filtered, sorted list can be shared as a link or bookmarked (objectui#11860).
+  
+  The list writes them into the `uf_` query parameters it already uses for quick filters, under three new names:
+  
+  - `uf__filter`: the Filter panel's group, as `{ logic, conditions }`. Each condition is one `@objectstack/spec` view filter rule (`{ field, operator, value }`), the shape a saved view stores. The panel's AND/OR choice is kept.
+  - `uf__search`: the search term.
+  - `uf__sort`: the sort, as the spec's list-view `sort` array (`[{ field, order }]`). A cleared sort is written as `[]`.
+  
+  How a list opens:
+  
+  - **A URL that carries list state opens that list.** This covers an opened link, a reload and Back. The URL's state replaces the per-browser filter and search memory entirely, so everyone who opens a shared link sees the same list. A piece the URL does not carry starts empty.
+  - **A URL with no list state restores the per-browser memory**, as before. The address bar then shows the restored filter and search, so a copied link includes them. A sort the URL does not carry is the view's own sort.
+  - **Malformed or out-of-date entries are dropped.** This applies to a value that is not valid JSON, a condition or sort entry the spec rejects, and a field the object no longer has or the user may not read. The list still opens, and the dropped entry is removed from the address bar.
+  
+  Each change replaces the current history entry rather than adding one, so Back leaves the list in one step. Switching to another view opens it without the previous view's parameters. When a URL carries a sort, the list's "reset to default" returns to that sort.
+  
+  Panels and dialogs are not written to the URL; opening or closing the Filter panel or the search box leaves it unchanged.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The per-browser filter memory is unchanged.
+- d8be368: Studio's action "New" menu opens on common actions in plain words, with the blank action under "Advanced" (part of objectui#11861: the actions entry).
+  
+  "New" in an object's Actions view used to add one action, "New action": an update of this record with no field values yet (objectui#11820). It now opens on four starting points, each an action of a shape the spec already has:
+  
+  - **Change a picklist field** — asks for a new value of the object's first picklist (its own: never a system, hidden or read-only one), then saves it. It is the declarative record update with that field as its one input (`operation: 'update'`, `params: [{ field }]`), labelled "Change Status" for a Status field, and written at once.
+  - **Run a flow**, **Open a web page**, **Open a page in a dialog** — a `flow`, `url` or `modal` action. The spec refuses each of these without a `target`, and only the author knows which one they mean. So, like a new validation rule waiting for its condition (objectui#11820), the action is listed as not saved and kept in the panel until the action editor's own Flow name, URL or page input is filled in. The first value given writes it. Delete drops it unsent, and leaving the view before then drops it too.
+  
+  The menu row for "Change a picklist field" names the field it will ask about. When the object has no picklist the author can change, the row is listed disabled, saying what it needs.
+  
+  The blank action, still named "New action", is unchanged, one click away under "Advanced". No starting point writes a script.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The new copy lives in the metadata-admin designer's own string tables (en and zh).
+- f0268ad: Studio's "New automation" dialog opens on common starting points in plain words, with the trigger form under "Advanced" (objectui#11861: the automations entry, the last of the three).
+  
+  The dialog used to ask for a name and then offer the Start node's whole trigger list ("Record before update", "Time-relative (date sweep)", "Manual / autolaunched", …), with "Choose later on the Start node" first (objectui#11788). It now asks "When it runs", with four starting points, the first one chosen:
+  
+  - **When a record is created**, **When a record is updated**, **When a record is deleted** — a record-change automation on the object the author names right under the choice. A record trigger with no object is not the automation its name promises: it would watch every object's records. So Create sends nothing until the object is named, and the dialog says "Choose the object it watches."
+  - **When a button or another automation starts it** — an automation started by an action button ("Run a flow"), another automation, or a manual run. Nothing more to fill in.
+  
+  Each starting point is one of the Start node's own trigger choices, written where the Start node writes it, so the new automation is exactly the one "Advanced" creates for that trigger: a Start node and an End node, born switched off (objectui#11779).
+  
+  A schedule, a time-relative sweep and Webhook / API are not offered as starting points: package-authored scheduled work is off unless a deployment switches it on, and an API-triggered automation is refused without a secret, which this dialog does not ask for. All three stay in the trigger list under "Advanced", which is unchanged and writes what it wrote. No starting point adds a step or writes a script.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The new copy lives in the metadata-admin designer's own string tables (en and zh).
+- 7546570: Studio's validation-rule "New" menu opens on common rules in plain words, with the rule types under "Advanced" (part of objectui#11861: the validation-rule entry).
+  
+  "New" in an object's Validations view used to open on the spec's rule types ("Script — CEL fail condition", "Cross-field — CEL over multiple fields", …). It now opens on three starting points, each a rule of a type the spec already has:
+  
+  - **End date on or after start date** — a `cross_field` rule on the object's first two date fields (its own fields: never a system or hidden one). It is written at once, with its message, and the error attaches to the end date.
+  - **Number can't be negative** — a `script` rule on the object's first number, currency or percent field, written at once with its message.
+  - **Reject the save when…** — a `script` rule whose condition the author builds. As with any new rule since objectui#11820, it is not saved until it has a condition, and it opens with the condition editor focused.
+  
+  Each menu row names the fields it will use. A preset the object has no fields for is listed disabled, saying what it needs. Every condition a preset fills guards each comparison with `!= null`. The server rejects a write whose rule condition cannot be evaluated, and comparing an empty value is such a condition. The guard keeps the rule from rejecting records that leave the field empty. The filled rules open as editable condition rows, not raw CEL.
+  
+  The per-type list is unchanged, one click away under "Advanced". New rules still start on Create + Update.
+  
+  "Unique" and "Required when…" are not offered as validation presets. The spec has no uniqueness rule type; it points to a unique index or a field's `unique` instead. "Required when" is a field's own setting (`requiredWhen`), already in the field inspector.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The new copy lives in the metadata-admin designer's own string tables (en and zh).
+- 0feabe8: Studio, and the app designer's navigation canvas, show a label first and the machine name or id as secondary text, in the places that showed only the machine name or id (objectui#11862).
+  
+  - **Explain access names its principal as a person.** The Principal line of the result used to print the raw user id. It now shows the user's name and email, with the id beneath it in small monospace text, and does the same for the person an agent acts on behalf of. The name comes from the row the user picker handed back, or else from the same `sys_user` lookup the picker reads. An id that lookup cannot answer still reads as the id.
+  - **The Access pillar's permission-set list.** Each set shows its label, with its machine name beneath it in small monospace text. A set that has no label, or that is listed only from its pending draft (whose list entry carries no label), reads as its name, as before.
+  - **The Interfaces navigation rail.** Each entry shows its label, with the machine name of what it opens beneath it. An entry that opens nothing yet reads as "Item N" by its place, never as the `nav_item_N` id the editor gave it, and the nav-item inspector's Label field offers the same wording as its placeholder.
+  - **The navigation editor's cards.** While you edit an app's navigation (Studio's Interfaces nav editor, and the app designer's navigation canvas), a card for an entry with no label that opens nothing yet reads as "Item N" by its place, never as its `nav_item_N` id, and selecting it titles the selection the same way. A bound entry, an entry with a label of its own and a group read as before.
+  
+  Nothing that is saved changes: no label is written where the author typed none, and nav item ids are minted as before. Nothing is added to the package entry: no export, prop or language-pack key.
+- b1f0dcc: Studio's package record sharing overview picks each object's internal and external sharing model with the shared `Select`. That is the control Studio's object Settings tab already uses for the same two sharing models (objectui#11865, the overview's part of that card). A permission set's advanced facets keep their native selects for now: the shared `Select` adds bytes to the console's first load there, and the first-load budget has no room for them yet.
+  
+  The overview's two dials were browser-native selects, so they looked and behaved differently from Studio's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
+  
+  What they write is unchanged. Each option leaves the row with the same working value as before, so Save sends the same object draft, and "not set" still drops the key. Re-picking the current option changes nothing. The native selects had no label, and the new triggers have none either. A read-only package still shows each value as text, with no picker, as before.
+  
+  One display change: a stored sharing model that neither dial offers now shows as itself. The native select showed "not set" instead, which is not what the object says.
+  
+  **Clause-②: no.** No published face moves: `PackageOwdOverviewPanel` takes the same props, the package entry exports the same names, and no i18n key is added. What moves is the overview's own markup, described above.
+- 0bbb67b: Studio's *Explain access* panel picks the object and the operation with the shared `Select`, the control Studio's validation rule editor already picks with (objectui#11865, the *Explain access* part of that card).
+  
+  The two pickers were browser-native selects, so they looked and behaved differently from Studio's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour. In the object list, typing an object's leading letters jumps to it.
+  
+  What they set is unchanged. Each option makes Explain send the same request as before: an object sends its name, an operation sends its name, and "Select an object…" leaves Explain disabled until an object is picked. Re-picking the current option changes nothing. Each picker keeps the accessible name its label gave the native select.
+  
+  One display change: when the object the panel holds is not one of the package's objects, the object picker now shows that object. The native select showed "Select an object…" instead, while Explain still asked about the held object.
+  
+  Unchanged: without a package's object list the object is still a free-text input, and the user picker, the record selector and the explain request itself are untouched.
+  
+  **Clause-②: no.** No published face moves: `AccessExplainPanel` takes the same props, the package entry exports the same names, and no i18n key is added. What moves is the panel's own markup, described above.
+- fb361ef: Studio's Interfaces create dialog picks a new page's source kind, and a new report's dataset and measure, with the shared `Select`, the control the rest of Studio picks with (objectui#11865, the create dialog's part of that card).
+  
+  The three pickers were browser-native selects, so they looked and behaved differently from Studio's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
+  
+  What they write is unchanged. Each option gives the dialog the same value as before: the page kind is still `html` or `react`, "Choose a dataset…" still clears both the dataset and the measure, a dataset pick still clears the measure, and "Choose a measure…" still clears the measure. Re-picking the current option writes nothing. Each picker keeps the accessible name its label gave the native select ("Written in", "Dataset", "Measure"). The dialog has no read-only state: a read-only package offers no create entry, as before.
+  
+  One display change: a value none of a picker's options carries now shows as itself. The native select showed its first option instead ("HTML", "Choose a dataset…" or "Choose a measure…"), which is not what the dialog would save.
+  
+  **Clause-②: no.** No published face moves: the package entry exports the same names, the dialog's field components (internal to the package) take the same props, and no i18n key is added. What moves is the dialog's own markup, described above.
+- 1ad0c08: A permission set's advanced facets pick with the shared `Select`, the control the rest of Studio picks with (objectui#11865, the facets' part of that card): a Row-Level Security policy's operation, and a tab's visibility under Tab Visibility.
+  
+  The two pickers were browser-native selects, so they looked and behaved differently from Studio's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
+  
+  What they write is unchanged. Each option gives the draft the same policy operation or tab visibility as before, and Save sends the same permission set. Re-picking the current option writes nothing. The native selects had no label, and the new triggers have none either. In a read-only permission set each trigger is disabled, as the native select was, and wears the shared `Select`'s own disabled look.
+  
+  One display change: a stored operation or visibility that the picker does not offer now shows as itself, an empty one included. The native select showed its first option instead ("all" for an operation, "Visible" for a tab), which is not what the permission set holds.
+  
+  **Clause-②: no.** No published face moves: `PermissionAdvancedFacets` is internal to the package and takes the same props, the package entry exports the same names, and no i18n key is added. What moves is the two controls' own markup, described above.
+- f2bff5c: Four metadata-admin pickers use the shared `Select`, the control the rest of the console picks with (objectui#11865, the metadata-admin previews and inspectors' part of that card): a record page preview's sample-record picker (`PagePreview`), a doc's book-section picker (`DocPreview`), the select-param mock in an action's input-dialog preview (`ActionPreview`), and the object designer's access posture (`ObjectDefaultInspector`).
+  
+  The four were browser-native selects, so they looked and behaved differently from the console's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour. The book-section picker keeps one heading per book as a group of the dropdown. The action preview's mock now matches the dialog it previews, whose select field is the same primitive.
+  
+  What they write is unchanged. Each sample record binds the same record as before. Each book section writes the same `group`, and "Not placed in a section" still removes the key; a section key that two books share writes that key from either book. Each posture writes the same `access` patch: "Private" sets `access.default` to `private`, and "Public" clears `access`. Re-picking the shown option writes nothing. The action preview's mock stays disabled and writes nothing. The book-section picker keeps the name its label gave the native select ("Book section"), and read-only mode still disables it and the posture picker, now in the shared control's own disabled look. The sample-record picker, the posture picker and the mock had no accessible name before and have none now.
+  
+  One display change: while the book list loads, or when it cannot be read, a doc already placed in a section shows that section's key. The native select showed "Not placed in a section" instead, which is not what the doc holds.
+  
+  `ViewVariantInspector` and `ReportDefaultInspector` already picked through the shared `Select`; only a code comment in each named a native select, and it now names the picker.
+  
+  **Clause-②: no.** No published face moves: the package entry exports the same names, the four components take the same props, and no i18n key is added. What moves is the four controls' own markup, described above.
+- 869d0bf: The Create View dialog, the AI build panel's Excel import bar and the API console's method selector pick with the shared `Select`, the control the rest of the console picks with (objectui#11865, the shell and console single selects' part of that card).
+  
+  Three pickers were browser-native selects, so they looked and behaved differently from the console's other dropdowns: in the Create View dialog, each pick a view type asks for (kanban's group-by field, the date and title fields, the gallery cover, the map coordinates, the tree parent, and the chart's type, dataset, measure and dimension); in the Excel import bar, the object to import into; in the API console, the HTTP method. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
+  
+  What they write is unchanged. Every Create View pick hands the dialog's caller the same view config as before, and the "select a field" option still clears the pick and leaves Create disabled; choosing another dataset still clears the measure and dimension picked from the previous one. Each object in the import bar still imports into that object. Each method still sends the same request, with the body only for POST, PATCH and PUT. Re-picking the current option writes nothing. Each picker keeps the accessible name it had: the Create View picks from their labels, still marked required; the import bar's object picker and the API console's method selector had no label and still have none. A Create View pick with nothing to offer yet, and the import bar with no object to list, are the shared control's disabled trigger.
+  
+  One display change: a value none of a picker's options carries now shows as itself. The native select showed its first option, or nothing, instead, which is not what the page holds: a Create View pick of a field the object no longer has (Create still writes it), or an import bar opened on an object its list does not return (Import still loads into it).
+  
+  **Clause-②: no.** No published face moves: neither package's entry or exports change, and no i18n key is added. What moves is these components' own markup, described above.
+- 5382a86: Five of the Studio design surface's pickers use the shared `Select`, the control the rest of Studio picks with (objectui#11865, the design surface's part of that card): in the navigation editor's item inspector, *Link object*, the target picker of a page, dashboard, report, action, component or doc entry (its *Doc page* and *Book* included) and a URL entry's *Open in*; in *New object*, the record sharing (OWD) choice; and in *New automation*, the trigger under *Advanced*.
+  
+  The five were browser-native selects, so they looked and behaved differently from Studio's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
+  
+  What they write is unchanged. Each object, target and *Open in* choice writes the same navigation entry as before, and "Choose" still unbinds the entry by removing its target key. Each record sharing choice saves the same `sharingModel` on the new object's draft, and each trigger saves the same Start node on the new flow, "Choose later on the Start node" still saving none. Re-picking the shown option writes nothing. Each picker keeps the name its label gave the native select; *Link object* had none and has none. None of the five has a read-only state: a read-only package closes navigation editing and offers neither *New* entry, as before.
+  
+  One display change: an entry whose object, or whose *Open in*, is a value the picker does not offer now shows that value, listed first. The native select showed "Choose object" or "Same tab" instead, which is not what the entry holds.
+  
+  **Clause-②: no.** No published face moves: the package entry exports the same names, the surface's components take the same props, and no i18n key is added. What moves is the five controls' own markup, described above.
+- d21bd08: Studio's object Settings tab picks the sharing model, the external sharing model, the name field, the lifecycle field and the next highlight field with the shared `Select`, the control Studio's validation rule editor already picks with (objectui#11865, the object settings part of that card).
+  
+  The five pickers were browser-native selects, so they looked and behaved differently from Studio's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
+  
+  What they write is unchanged. Each option writes the same patch as before, key for key: "not set", "auto-derived" and "auto-detect" still clear their key, "None" on the lifecycle field still writes `stageField: false`, and "+ Add field…" still writes nothing. Re-picking the current option writes nothing. Each labelled picker keeps the accessible name its label gave the native select.
+  
+  On a read-only package the four pickers are disabled and wear the shared control's own disabled look (objectui#11781), and the "add field" picker is not shown, as before.
+  
+  One display change: an object whose stored value is not among a picker's options now shows that value. This happens, for example, when the name field names a field that has been removed, or the lifecycle field names one that is not a select field. The native select showed its first option instead ("not set", "auto-derived" or "auto-detect"), which is not what the object says.
+  
+  **Clause-②: no.** No published face moves: `ObjectSettingsPanel` takes the same props, the package entry exports the same names, and no i18n key is added. What moves is the panel's own markup, described above.
+- f19b915: Studio's validation rule editor picks a rule's type, field, built-in format and severity with the shared `Select`, the control the condition builder beside them already uses (objectui#11865, the validation editor's part of that card).
+  
+  The four pickers were browser-native selects, so they looked and behaved differently from the condition builder's dropdowns in the same editor. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
+  
+  What they write is unchanged. Each option writes the same rule as before, key for key: a type switch still reseeds the rule, "pick a field" still writes an empty `field`, and the format's "none" still clears `format`. Re-picking the current option writes nothing. Each picker keeps the accessible name its caption gave the native select.
+  
+  On a read-only package each picker is disabled and wears the shared control's own disabled look (objectui#11781).
+  
+  One display change: a rule whose stored value is not among a picker's options now shows that value. This happens, for example, when a rule's field has been removed from the object. The native select showed its first option instead ("pick a field", "none", or "error"), which is not what the rule says.
+  
+  **Clause-②: no.** No published face moves: `ObjectValidationsPanel` takes the same props, the package entry exports the same names, and no i18n key is added. What moves is the editor's own markup, described above.
+- a476dee: Studio's form designer can be arranged from the keyboard (objectui#11871). Picking a field card up with Space or Enter, moving it with the arrow keys and dropping it with Space or Enter now moves the field: within its group, and into another group. The draft records the move, and the live region names the place the field lands, the same as for a pointer drop. Before, every keyboard drop missed its target: the field stayed where it was, the draft was unchanged, and the live region said the field was dropped outside the groups.
+  
+  The cause was the drag context's collision detection, `pointerWithin`, which answers no drop target when there are no pointer coordinates, and a keyboard drag has none. The designer now uses `pointerWithin` for a pointer drag, unchanged, and `closestCorners` for a keyboard drag.
+  
+  Nothing is added to the package entry: no export, prop or type member changes.
+- fc82a31: Studio's form designer announces a field card's role in the author's language (objectui#11872).
+  
+  A screen reader read every field card in the Form tab's designer as "sortable", in English whatever the console language: dnd-kit writes that word into `aria-roledescription` when it is given no role of its own. Each card now announces "draggable field", or its zh translation, after the card's label.
+  
+  A card in a read-only package cannot be dragged, so it now announces no custom role, and a screen reader reads it as a plain button. Its blank `aria-roledescription` is one the accessibility tree does not expose.
+  
+  Dragging, selecting and what is saved are unchanged. Nothing is added to the package entry: no export, prop, type member or language-pack key. The new copy lives in the metadata-admin designer's own string tables.
+- 74add0c: `element:record_picker` and `element:number` bind data through the node-level `dataSource` only (objectui#11880, part of the objectui half of objectstack#11509, ruled A-narrow).
+  
+  - Neither element reads the flat `properties.object` / `filter` / `sort` / `limit` beside the binding any more: the `composed?.x ?? props.x` fallbacks are gone, and `element:number`'s filter is the binding's alone (the AND with `properties.filter` is gone). An element whose node names no `dataSource.object` issues no query. The flat keys stay published until `@objectstack/spec` retires them in v18; each input's description now says it is not read and names the binding member that is.
+  - The Studio page designer writes `element:number`'s object to `dataSource.object` at node level, and its measure picker reads the object from there. A stored `properties.object` stays visible in the inspector's Advanced section.
+  - `element.number.noObject` now names only `dataSource.object`, in all ten language packs.
+  
+  Breaking for an author who wrote the flat keys on these two elements: move them into `dataSource`. `element:repeater` is unchanged.
+- 247f503: Studio's condition builder no longer writes `!field` or a bare `field` for a field that is not a boolean, when it knows the field's type (objectui#11894).
+  
+  Its two operators that take no value compiled to a bare field and to `!` plus the field, whatever the field was. CEL's `!` and a bare `&&` operand take a boolean, so on a date, text or lookup field the condition could not be evaluated, and a server-evaluated condition refused the write it guarded. A validation rule built on the Studio Rules tab as *status equals done AND due date is empty / false* saved as `record.status == 'done' && !record.due_date`, and every write to a done record was then refused (`no such overload: !null`, or `!string` when a due date was set).
+  
+  The two operators now follow the field's declared type. On a boolean field they read *is true* / *is false* and compile as before. On any other field they read *is not empty* / *is empty* and compile to a null-or-empty check, by the row of the platform's "is empty" table the field takes (`expandEmptyOperator` from `@objectstack/spec`): null only (`== null`) for a date, number or single-value lookup; null or `''` for a text field; null or an empty list (`size(...) == 0`) for a tags, multi-select or checkboxes field, and for a lookup, user, select or file field declared `multiple` where the editor's field list carries that flag. A subject the builder cannot type (a context value such as `user.isAdmin`, a flow variable, or a formula field, whose value takes its return type) keeps the words and the form it had. A new row starts on *equals* rather than on *is set / true*.
+  
+  The Studio Rules tab now hands the builder each field's type and `multiple` flag, so the rule above is saved as `record.status == 'done' && record.due_date == null`. The other editors that mount the builder (hook conditions, action visibility, page-block visibility, flow conditions and schema-form condition fields) already passed the type, but not `multiple`, so there a lookup declared `multiple` is checked as a single value.
+  
+  A condition stored by the old builder as `!field` on a typed non-boolean field is not rewritten: it opens in the expression editor as written.
+- 2fec2e0: Studio's field pickers offer the fields of an object that is still an unpublished draft (objectui#11895).
+  
+  Studio and the metadata-admin designers read an object's fields through one hook, and that hook asked for the published object only. For an object built in Studio and not yet published, that read answers "not found", so every picker on it offered no fields: the flow Start node's entry-condition builder listed only `previous`, and an author had to switch to Expression mode and type the condition by hand.
+  
+  The hook now reads the draft-overlaid object (`?preview=draft`), the same read the object picker already makes for its list. A pending draft's fields are offered before the first publish; an object with a pending draft offers the draft's fields; an object with no draft reads as before, in the same single request. A name with neither a draft nor a published object still shows the not-found message. Only callers that may read drafts see them: the server answers anyone else the published object. The runtime view configuration panel passes its own field list and does not send this read.
+  
+  No export, prop, type member or language-pack key changes.
+- 60d11cd: Studio's form designer can be arranged from the keyboard on a canvas of any width (objectui#11898). With a field card picked up, each arrow key now moves it one place in the form's reading order: ArrowDown and ArrowRight one place later, ArrowUp and ArrowLeft one place earlier, from the end of one group into the next and into an empty group, whatever the number of columns. The drop commits the place the live region last announced.
+  
+  Before, on a form wider than one column, the arrow keys skipped an empty group, so a keyboard author could not put a field into a new group; a full-row field such as a textarea did not move up, or moved to the end of its group; and the first ArrowUp from a group's first field could do nothing. A keyboard drop could also commit one place past the one announced, after the field had been carried into another group.
+  
+  The cause was the keyboard sensor's coordinate getter, dnd-kit's `sortableKeyboardCoordinates`, which picks each step's target by distance on screen, and the keyboard branch of the drag's collision detection, `closestCorners` (objectui#11871), which then judged the drop target by the same distance. The designer now steps through its own layout, and a keyboard drag is over the drop target that layout names for the place it reached. A pointer drag is unchanged.
+  
+  Nothing is added to the package entry: no export, prop or type member changes.
+- f1781be: The console's record page now says what its record read actually answered: no access, not found, or could not load (objectui#11902). It used to answer every failed read with "Record not found — The record you are looking for does not exist or may have been deleted."
+  
+  - **A refused read** (the `forbidden` kind of `classifyLoadError`, the shared read classifier the list view's error panel, the activity feed and the attachments panel already use: a 403, or the `PERMISSION_DENIED` envelope that comes with it) renders "You don't have access to OBJECT records", naming the object by its label. The refusal is about the object, so the page says nothing about whether the record exists, and it offers no Retry, because retrying a permission decision cannot change it. A viewer sent a link to a record they cannot read is no longer told it may have been deleted, so they can ask for access instead of reporting a lost record.
+  - **A failed read** (a 5xx, a transport error, any other rejection) renders "Couldn't load this record" with a Retry button. Retry re-runs the page's own record read; when it succeeds, the record renders.
+  - **Not found is unchanged.** A read that answers with no record, which is how the data adapter answers a 404, still renders today's not-found copy. A found record renders as before.
+  
+  The four new strings live beside the not-found rows in the `empty` namespace of every built-in locale pack (`empty.recordAccessDenied`, `empty.recordAccessDeniedDescription`, `empty.recordLoadFailed`, `empty.recordLoadFailedDescription`); the Retry button reads the existing `common.retry`.
+  
+  **Clause-②: no.** No export, prop, type member or accepted input changes; the new locale rows are additive.
+- 4ebc250: Studio's flow designer connects two nodes the flow already has (objectui#11905).
+  
+  - **Canvas.** Every card except an End now has a connect handle on its bottom edge, beside its "+". Press it, drag, and drop on another node to connect the two. Until now the canvas drew an edge only while adding a node, so a node left without one could only be deleted and added again, which lost its configuration. The new edge is the one the "+" on that node would draw: it gets a fresh id, and out of a decision it carries that decision's next branch. Only the flow's edges are written, so a reconnected node keeps its configuration exactly as stored. Releasing over no node writes nothing.
+  - **Connection inspector.** *From* and *To* are now pickers over the flow's nodes instead of read-only text, and they write through the same patch as the panel's other fields. An endpoint that names a node the flow does not have shows flagged, and picking a real node repairs the edge.
+  - **One rule for both.** Either way, a connection is refused, with the reason shown and nothing written, when it would join a node to itself, join two nodes another edge already joins, or name a node the flow does not have.
+  
+  Nothing is added to a package entry: no export, prop, type member or language-pack key.
+- dfa15c8: A new workspace now takes its creator's browser timezone when it is created, so its first administrator is no longer asked for a zone the browser already knows (objectui#11908).
+  
+  `createOrganization` accepts an optional `timezone`, an IANA zone such as `Asia/Shanghai`, on both `AuthClient` and the `useAuth()` context. The client sends it as the `timezone` query parameter of `POST /organization/create`; the request body stays `{ name, slug }` (plus `logo` when given). When the zone is absent or empty, no parameter is sent and the server keeps its default zone. A server that does not read the parameter ignores it.
+  
+  The console's create-workspace dialog and the first-run setup page's create branch both pass the browser's `Intl.DateTimeFormat().resolvedOptions().timeZone`. A browser that reports no zone sends none. Existing workspaces are unchanged, and the one-time timezone prompt still asks about a workspace whose zone is still the default.
+- 0c9fb8e: Studio's field type catalog now holds every field type the spec declares: it gains `user`,
+  `secret` and `record` (objectui#11909).
+  
+  - A field of one of these types reads its type's name in the field inspector's Type control,
+    where it read "(not found)".
+  - The Type control and the canvas's *Add field* palette offer all three: **User** under
+    Relation, **Secret** under Text, and **Record Map** under Advanced, each with an icon and a
+    one-line description, in English and Chinese.
+  - Adding one writes just its type and label. A `user` field needs no target: the spec fixes
+    it to users.
+  
+  The catalog's type list is now the spec's own `FieldType`, so a field type the spec adds later
+  cannot go missing from Studio unnoticed.
+- a523a3e: Studio keeps a new dashboard widget as an unsaved edit until a dataset and a measure are picked, instead of showing a red error right after *Add widget* (objectui#11910).
+  
+  - **Interfaces page, a dashboard in Design mode.** *Add widget* → *Metric* (or any other type the picker offers) no longer sends the widget before it is bound, so it no longer draws a 422 and a red "Changes not saved" strip. The widget stays on the canvas, unsaved. A neutral line names what it needs ("Not saved yet: Dataset on the widget “New metric (kpi)” needs a value."), with "Show me" when that widget's inspector is not the one open. The widget inspector says "Required" under the Dataset picker, then under the measures once a dataset is picked. Picking a measure saves the dashboard as usual.
+  - **Publish.** While a dashboard holds such a widget, Publish refuses and names the widget, instead of publishing the last saved drafts without it.
+  
+  Studio decides "not yet bound" with the widget rules from `@objectstack/spec`: a widget is held only when the spec refuses it for nothing but a missing dataset, dimensions or measures. A widget the spec or the server refuses for anything else, such as a dataset name that is wrong or two measures on a metric, is sent, and its refusal shows the red strip as before. Nothing is added to the package entry: no export, prop, type member or language-pack key. The new string is a row in the metadata-admin designer's own string tables (en and zh).
+- a920d8c: The console header no longer shows a "Search ⌘K" trigger where it would open nothing (objectui#11912).
+  
+  On `/home`, `/ai`, `/organizations` and an organization's own pages, the header showed the search trigger, but no command palette is mounted in those frames: a click did nothing, and neither did `Ctrl+K`. `AppHeader` now draws the trigger (desktop and compact) only under a `CommandPaletteProvider`. Inside an app, where `ConsoleLayout` mounts the provider and `AppContent` mounts the palette, the trigger is unchanged and opens the palette as before.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. `useCommandPalette()` keeps its return shape and its no-op fallback outside a provider.
+- fbad078: The Import Wizard's preview checks a `time` column, and the user import's email column, the way the server's import judges them, so the import button no longer counts rows the server then refuses (objectui#11913).
+  
+  - **A `time` column is checked.** A cell is marked where the server's `parseDateCell` reads no time of day from it and the import refuses it with `invalid_time`. The server takes a wall clock (`10:00`, `09:30:15`), an ISO 8601 day or date-time (stored as its UTC time of day) and a year-first date. It refuses `25:00`, `abc`, `10:00Z` and `9am`, and the preview now marks them with the sentence `"{{value}}" is not a valid time` (in English). An `invalid_time` row error from the server's dry run (Validate data) is shown with the same sentence.
+  - **The user import's email column is checked by the user import endpoint's rule.** That endpoint refuses an address that is not printable ASCII, is longer than 254 characters, or sits on the placeholder domain, with `INVALID_EMAIL`. The column used to reach the wizard typed as text, so the preview checked nothing there. It is now typed `email` and checked by that rule instead of the record validator's. The two rules differ both ways: the record rule takes a non-ASCII domain such as `735431496@柴仟.com`, and the endpoint's rule takes `a@b..c`.
+  
+  Additions to the published surface:
+  
+  - `@object-ui/plugin-grid`: `ImportWizardProps['fields'][number]` gains an optional `emailRule?: 'identity'`. Left out, an `email` column is checked by the record validator's rule, as before. Set to `'identity'`, it is checked by the user import endpoint's rule.
+  - `@object-ui/i18n`: every language pack gains `grid.import.invalidTime`, with a `{{value}}` placeholder.
+- 7129cd5: Studio's action editor writes a script body that names its language, so the first keystroke is no longer refused (objectui#11921).
+  
+  - **Switching to "Run a script".** Choosing "What it does: Run a script" on an "Update fields" action now writes a body in Expression (L1), the language the Script language picker already shows. It used to write no body, and typing into the editor wrote a body with no language, which the spec refused until you picked a language by hand. The body is complete, and saves, as soon as you type its source.
+  - **Typing and changing the language.** Every body the editor writes keeps the language it names. Switching a Sandboxed JS (L2) body to Expression (L1) drops the L2-only grants and limits (`capabilities`, `timeoutMs`, `memoryMb`), which an expression body cannot carry.
+  - **Switching to "Update fields".** The action gets the empty field-value list a new action starts with, so it is saveable at once instead of refused for having nothing to write.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- c6e1b8c: A refused package publish names each refused item with the server's reason, on the package sheet and on Home's *Publish all* and the draft-preview bar (objectui#11922).
+  
+  `POST /packages/:id/publish-drafts` answers a refusal (`outcome: 'refused'`) on a 200, with the batch's own `success: false` and every item that did not publish, with its reason, in `failed[]`. Both doors read `success` first and stopped there: the package sheet showed "Action failed", and Home's *Publish all* and the draft-preview bar toasted "Publish failed: publish-drafts did not publish this package". Both now read `failed[]` first, as Studio's publish does (objectui#11807).
+  
+  - **The package sheet.** A rolled-back batch (ADR-0067 D2) keeps its "Nothing was published — the batch rolled back" row and names the causal item with its reason. The drafts rolled back with it are not listed as causes. A refusal with no rolled-back item (the runtime's pre-flight checks) keeps its "Published N; M failed" row and now names every refused item with its reason after it.
+  - **Home's *Publish all* and the draft-preview bar.** The "Publish failed" toast names the refused items with their reasons, leaving out the rolled-back ones, in place of "publish-drafts did not publish this package".
+  
+  A published batch, and a batch that carries an envelope `error` with an empty `failed[]`, read as before. Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 70e3d77: Studio's validation-rule "Runs on" boxes follow the spec's events (objectui#11923).
+  
+  In an object's Validations view, the "Runs on" row offered Create, Update and Delete. The spec admits only `insert` and `update` for a rule's `events`, so ticking Delete wrote a rule the object's save refused. The row now offers exactly the events the spec declares, read from `@objectstack/spec` rather than from a list kept in Studio, so it is Create and Update today.
+  
+  A rule with no `events` key (authored in code or by AI) opened with no box checked, though the spec defaults it to Create and Update and the server runs it on both. Ticking Create then wrote `['insert']` and stopped the rule running on updates. Such a rule now shows both boxes checked, and each tick or untick writes the whole resulting list: unticking Create writes `['update']`. Unticking the last box writes an empty list, which the spec accepts and the server reads as running on nothing.
+  
+  A rule that still carries `delete` from before this fix opens without a Delete box; its boxes show the events the server runs it on. Editing its message or another setting keeps the stored list as it is. The next tick or untick on the row writes only the spec's events, so that save goes through.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The Delete label row (en and zh) is removed from the metadata-admin designer's own string table, as nothing reads it any more.
+- 94f48a2: A read-only package's form designer no longer tells a screen reader how to drag a field card (objectui#11924).
+  
+  In the Form tab of a read-only package, a field card cannot be dragged, but it still pointed `aria-describedby` at the canvas's drag instructions, so a screen reader read "To pick up a field, press Space or Enter. …" (or the zh translation) for a card that does not move. A read-only card now carries no description; a writable card keeps the instructions.
+  
+  Selecting a field, the card's name and its place in the tab order are unchanged. Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- ccc2824: Studio's page previews draw the page's own kind, as the running app does (objectui#11933): the live preview beside an `html` or `react` page's source, and the Interfaces page canvas in Run mode.
+  
+  Both previews wrote the page's kind into the node `type` only. `PageRenderer` reads the kind from `pageType`, so it fell back to a record page: an `app` or `home` page previewed at the record width and without its title heading, while the running app drew it with both. The two previews and the running app's page view now build the `{ type, pageType }` pair with one shared builder, so each preview draws a page's width and title heading as the app does. A `record` page previews as before, and an empty page draft still shows the "add components" message. The running app's page view renders exactly as before.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- bcd3f08: Studio's field inspector offers no *Default value* control on a `record`, `location` or `address` field, as it offers none on a `composite` or `repeater` field (objectui#11947).
+  
+  These types store an object, and the spec judges a field's literal default against its stored value. The inspector showed a text box for their default, so typing in it wrote a string, and the object's save was refused ("expected record, received string"). No control in the inspector can write an object, so these types now show no default control. A `text` field keeps its text box, and the other types are unchanged.
+  
+  A default such a field already carries, written in code, stays on the field. Editing the field's other settings in the inspector saves it unchanged.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 402adc8: Studio Interfaces: a leaf save that goes through now clears the red "Changes not saved" strip an earlier refused save showed (objectui#11950).
+  
+  A dashboard, report or page leaf whose draft the server refused showed the refusal strip, and the strip stayed after the next edit was saved. It kept saying the draft was refused until the author left the leaf. Each leaf save now starts clear, as the Data and Automations pillars' saves do: the strip goes when the next save is sent, and a save that is refused again shows its own refusal. The notice for a dashboard widget held unsent until it is bound is separate, and a save does not clear it.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 989b190: Studio keeps a dashboard widget as an unsaved edit while the author changes its measure, instead of showing a red error the moment the last measure is removed (objectui#11951).
+  
+  - **Interfaces page, a dashboard in Design mode.** Removing a widget's last measure in the widget inspector no longer sends the widget with an empty measure list, so it no longer draws a 422 and a red "Changes not saved" strip. The widget is held as a new, unbound widget is held: a neutral line names what it needs ("Not saved yet: Values (measures) on the widget “Pipeline” needs a value."), the inspector says "Required" under the measures, and Publish refuses while it is held. Picking another measure saves the dashboard as usual.
+  - **Every binding input, in every unset state.** A dataset cleared to an empty name is held like an absent one. A dimension list emptied of its last dimension is saved at once wherever the spec accepts that, which is every widget type with one measure. Where the spec refuses it, a scatter with two measures and no dimension, the widget is held and the inspector says "Required" under the dimensions.
+  
+  A widget the spec refuses for anything else, such as a dataset name that is wrong or two measures on a metric or a pie, is still sent, and its refusal shows the red strip as before. Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 31741d5: Studio's field inspector gives `rating`, `slider` and `progress` fields a number *Default value* control, so the default saves as a number (objectui#11966).
+  
+  These three types store a number, and `@objectstack/spec`'s `FieldSchema` refuses a literal default that is not one. The inspector offered them a text box instead, so a default typed there (`3`) saved as the string `'3'` and was refused with "expected number, received string". They now get the same number control as `number`, `currency` and `percent` fields: the inspector gives it to every type in the spec's numeric value class (`NUMERIC_VALUE_TYPES`), except the computed `summary`, which still has no default control.
+  
+  A default already stored as a string is not converted. It stays on the field through other edits, and the number box shows it empty. Typing a number replaces it.
+  
+  The control takes any number. It is not limited to the field's `min` / `max`, and the spec does not check a default against them either.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 0ab2b98: Studio's flow-node inspector, in its fallback form, writes only config keys the node's contract declares (objectui#11968).
+  
+  The fallback form is the hand-written field table the inspector renders when the engine has published no config schema for a node type: while `GET /automation/actions` is loading, and when that call fails. Two of its groups wrote keys their contract does not declare:
+  
+  - **HTTP request.** The group offered an **Output variable** row that wrote `config.outputVariable`. The `http` executor never reads that key, its contract does not declare it, and the engine refuses to register a flow that carries it. An author who filled it in on the fallback form saved a flow that then never registered. The row is gone, as it is on the online form, which never offered it.
+  - **Notify.** The **Click-through URL** row wrote `config.url`, a converted spelling of `actionUrl`. It now writes `actionUrl`, the key the contract declares and the online form writes.
+  
+  A flow that already stores either key still opens: the key is shown in the Advanced (JSON) block, where it can be cleared, and an unrelated edit keeps it unchanged. A new test holds every fallback group to the keys its node's contract declares, read from the installed `@objectstack/spec`.
+  
+  Nothing is added to or removed from the package entry.
+- 1b8388b: A rolled-back Studio publish shows its "Nothing was published" banner again (objectui#11985).
+  
+  When a package publish fails, the server rolls the whole batch back and marks every draft that went down with the failing one with the code `BATCH_ABORTED`. Studio's publish message compared that code to a lower-case `batch_aborted`, so the match never happened: instead of the banner, the cause and a count of the aborted drafts, the author got one parallel line per draft, each sibling reading as if it had failed on its own. Studio's publish toasts and the AI chat page's publish summary now match `BATCH_ABORTED` exactly as the server sends it, so they lead with the banner, name the item that caused the rollback and count the rest. A publish that fails without rolling anything back still lists each failed draft with its own error.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- 9c37982: A console list's view-tab switch starts the next view with the quick-filter selections its own URL carries (objectui#11992). The object page read the `uf_FIELD` selections once per page mount. A switch keeps the page mounted, so every view after the first restored the first view's selections. For example, after `view/qa?uf_priority=urgent`, the `qb` tab queried `priority = urgent` and its chip showed one selection, while its address bar carried no `uf_` param. A link copied there did not reproduce the list on screen.
+  
+  The page now reads the selections from the current location once per list (object and view), the same identity it already seeds the Filter panel, search and sort on (objectui#11915). A view tab, which navigates to a bare path, opens the next view with no quick filter. A link or Back to a filtered entry restores that entry's selections. A fresh load of a filtered link still applies them. The per-user cache keeps its precedence, and a view switch writes the address bar no more than before.
+  
+  Nothing is added to or removed from the package entry: no export, prop, type member or language-pack key.
+- ea79b77: The embedded item editor ("Save into object", opened from a metadata item's Related drawer) now saves into the parent's draft (objectui#12027).
+  
+  It saves an item such as `object.fields.amount` by writing the whole parent back. It used to base that write on the parent's published version and send it in publish mode. For a parent that exists only as a draft, there is no published version: the layered read answers 404 by design, and the client reads that as every layer empty. So the save sent a publish-mode write of a one-field stub, without the draft's name, label or other fields, and then showed "Saved.".
+  
+  - **A parent with a pending draft:** the save reads that draft, splices the item into it, and writes it back as a draft (`mode=draft`). Every other field the draft holds is kept, and nothing is written live. This covers a draft-only parent and a published parent whose draft has moved on.
+  - **A published parent with no draft:** the save reads the published body and writes it as before.
+  - **A parent with neither:** the save is refused with an error ("Failed to load TYPE/NAME: (not found)"), and nothing is sent.
+  - A failed draft read is the save's error, and nothing is sent. A refused draft save still marks the sub-form field its issues name.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The refusal reuses existing strings from the metadata-admin designer's own table.
+- 049012b: A compact record-preview card for any `(object_name, record_id)` pair, kept inside the package for the approval surfaces to compose (objectui#12029, the first child of objectui#2763).
+  
+  The card resolves the target object's definition and draws the record the way the record page's header draws it: the title from the shared record-title ladder (`getRecordDisplayName`), the object's label above it, and the object's highlight fields (`highlightFields`, else the same derivation the record page uses) through the record page's own highlights strip. A field the loaded permission policy denies is not drawn and is not expanded.
+  
+  It has four states:
+  
+  - **Loading** while the definition or the record read is in flight.
+  - **Readable** when the read returns the record.
+  - **Unreadable** for every other answer: no definition, no record, a refused read or a failed one. All of them render the same card, with the Approvals Inbox's cause-free sentence (`approvalsInbox.recordUnresolvable`), so it never says whether the record was deleted or is hidden from the viewer.
+  - **Absent** when the pair names no record. It renders the empty-value dash and reads nothing.
+  
+  Cost: one definition read per object, shared by every card of that object through the metadata provider's cache, and one record read per card. The card re-reads in place when the record is invalidated.
+  
+  No surface uses the card yet. **Clause-②: no.** Nothing on the package entry changes: the card is not exported, registers no component type, and adds no language-pack key.
+- ba9e820: The record approvals panel draws its decision-progress tally through one module-internal indicator, `DecisionProgressIndicator` (objectui#12033, part of objectui#2763). The tally is an approval request's `decision_progress` as the approval-service contract declares it: approvals of every approver on a `unanimous` node, approvals of the threshold on a `quorum` (M-of-N) node, and satisfied groups, with one badge per group, on a `per_group` countersign node. The panel renders the same markup as before and reads the same `approvalsInbox.*` copy rows.
+  
+  The indicator is not exported from the package entry and is not registered as an SDUI component type; registering it is the approval detail page's step (objectui#2763 B1).
+- e97a0e2: A console click on a declared `type: 'flow'` action now starts its flow through the action endpoint, `POST /api/v1/actions/:object/:action`, so the server-side gates that action declares apply to the click (objectui#12037).
+  
+  Both flow-launch handlers used to start every flow through `POST /api/v1/automation/:flow/trigger`: the list and page runtime (`useConsoleActionRuntime`) and the record page (`RecordDetailView`). That route starts a flow by name, so the action's own `requiredPermissions` (ADR-0066 D4, whose console half only hides the button), its activation switch, its param contract and the caller-scoped load of its subject record never ran for the click.
+  
+  - **Which door.** A click goes through the action endpoint exactly when its object and `name` resolve to a declared action of type `flow` with the same `target`, in the object metadata the console already holds. A refusal comes back with the endpoint's own code (for example `403 PERMISSION_DENIED` for a missing capability) and shows as the action's error toast. A paused screen run opens the flow runner as before and resumes under the declared `target`. A refused end and a failed run show as before.
+  - **What stays on the trigger route.** A flow start that names no declared action keeps the trigger route: an inline page button with no `name` or a non-matching one, and a dashboard header action. Such a start has no action gate to apply, and the trigger route refuses an elevated self-triggered flow just as the action endpoint does (objectstack-ai/objectstack#22424). An object-less declared action, and a standalone action row that no object definition embeds, are not in the object metadata, so a click on one keeps the trigger route, as every flow click did before.
+  - **A related list's toolbar flow action no longer sends the parent record's id.** On a record page, a child object's flow action launched from its related list's toolbar has no row. It used to be sent with the page's own record id against the child object. It now goes out with no record, as an object-level start. A row action still addresses the child row.
+  
+  Nothing published changes: no export, prop or language-pack key is added.
+- a368ccb: A pointer field draws the record it points at, the console reads an approval request's record page through the approvals routes, and the approval decision panel is built for the request page (objectui#12045, B1 of objectui#2763).
+  
+  - **The approval decision panel (`@object-ui/app-shell`, module-internal).** One panel that draws the request's decision progress (`DecisionProgressIndicator`) above the request's own declared decision actions (`DeclaredActionsBar` at `record_section`, decided through `ActionParamDialog`). It reads the bound request and takes no authorable props; outside a `sys_approval_request` record page it renders nothing. After a decision it invalidates the request record and its timeline instead of remounting. It is not registered as a component type yet: the type `record:approval_decision` is proposed to the spec on objectstack-ai/objectstack#22472, and its registration lands with the spec row.
+  - **`referenceVia` pointer pairs (`@object-ui/fields`).** `resolveRecordPointer(field, row)` returns the record a `text` field declaring `referenceVia` points at on one row (`{ objectName, recordId }`, the new `RecordPointer` type), and `RECORD_POINTER_CARD_TYPE` is the registry key a resolved pair is drawn with. The package's default under that key draws the record id as text, as the field drew before.
+  - **The record details grid draws the pair (`@object-ui/plugin-detail`).** A field declaring `referenceVia` is resolved from the row and drawn with the pointer face; with `@object-ui/app-shell` loaded that face is the record preview card, so `sys_approval_request.record_id` and the other pointer fields show the record they point at. A pair whose row leaves either half blank draws the stored text.
+  - **The console's approval request page.** The console's record route for `sys_approval_request` mounts the record page over the routed approvals source, so the request carries the `viewer` block its declared actions gate on and the decision tally. The source now reads one request's `sys_approval_action` timeline from `GET /approvals/requests/:id/actions`, applying the read's `$orderby`, `$top` and `$skip` itself, dropping `$select` and `$expand`, and refusing any other parameter with `UNSUPPORTED_QUERY_PARAM`. On a request's own page the record view no longer asks for approvals opened on the request itself.
+  
+  No language-pack key is added, and `CellRendererProps` is unchanged.
+  
+  **Superseded in part (objectui#12072):** outside a `sys_approval_request` record page the panel now draws a short localized notice instead of nothing, so the sentence above saying it renders nothing there no longer holds when both changes release together.
+- 9b6c19e: The record Attachments panel offers Upload and delete only to a caller whose `sys_attachment` grant allows them (objectui#12047).
+  
+  Upload and delete used to render for every caller, and the panel learned about a missing grant
+  only from the server's refusal. A caller who could read a record's attachments but not create
+  one picked a file, the upload stored it, and only then was the attach refused: the error came
+  after the file was already uploaded, and that file stayed behind with nothing attached to it.
+  
+  Upload now shows only with the create grant on `sys_attachment`, and delete only with the delete
+  grant. Being the uploader does not open delete without that grant, because the server checks the
+  grant before it applies its uploader-or-record-editor rule. The grant comes from the permissions
+  the console already loads, so the panel makes no new request and the buttons never appear and then
+  vanish while permissions load. The server's refusal messages stay in place for a grant that changes
+  after the page renders and for a record the caller may not edit.
+- 2a48bd4: The page designer writes a repeater's query into its node-level `dataSource` binding, as it already does for `element:number` (objectui#12056, the repeater half of objectui#11880).
+  
+  In the page-block inspector, an `element:repeater`'s Object picker now writes `dataSource.object` and its Limit box writes `dataSource.limit`. They used to write `properties.object` and `properties.limit`, the flat keys `@objectstack/spec` retires in v18 (objectstack#11509). The repeater's Title field and Fields pickers now list the fields of the object in `dataSource.object`. The Empty text and Dividers between rows controls still write `properties`. The repeater's renderer already reads the binding first (objectui#11880), and `objectui validate` accepts the node the designer now writes, because `@object-ui/types` takes the spec gate's `object` waiver for this element in the same change.
+  
+  A repeater already stored with a flat `properties.object` or `properties.limit` is not migrated. The inspector shows the binding's values in the curated controls, and a stored flat key stays visible and editable under Advanced.
+  
+  Nothing is added to the package entry: no export, prop, type member or language-pack key. The controls keep their existing labels.
+- e391f87: A record's History tab and activity feed name the user behind an activity row that carries `actor_id` and no `actor_name` (objectui#12067). On `@objectstack/*` 17.7.0 the audit writer fills only `actor_id`, so `record:history` showed every such entry as "Unknown user", and the `record:activity` block and the console record page's activity feed showed the change as made by "System". Their `sys_activity` reads now expand `actor_id`, which brings each user's record back with the page in the same request, and the entry shows that user's `name`. `actor_name`, when present, still wins: it is the name recorded when the action happened. A row with neither, or whose user the viewer may not read, keeps the existing fallback, and a raw user id is never shown as a name.
+- 20c6d35: The approval decision panel draws a short notice instead of nothing when it is placed anywhere other than an approval request's record page (objectui#12072).
+  
+  - **`@object-ui/app-shell`.** Off a `sys_approval_request` record page, that is on another object's record page or on a page with no record at all, the decision panel (the renderer proposed as `record:approval_decision`, still module-internal) now draws a muted notice saying it works only on approval request pages. A misplaced block is therefore visible to its author instead of silently empty. On a request page whose record has not loaded yet it still draws nothing, and on a request page with its record it draws the panel as before. This replaces the clause of objectui#12045's entry that says the panel renders nothing outside a request page.
+  - **`@object-ui/i18n`.** One new language-pack key for that notice, `approvalsInbox.decisionPanelOffRequestPage`, in all ten packs.
+  
+  **Clause-②: yes (widening).** The published language packs gain one key, `approvalsInbox.decisionPanelOffRequestPage`, so the exported `en` pack and the `TranslationKeys` type read off it gain that one member. No export or prop is added or removed, and no existing key changes.
+- de302c7: The record chatter stores each reaction as the member's own `sys_comment_reaction` record, and stops writing the whole `sys_comment.reactions` column (objectui#12078; ruling A, amended, on objectstack-ai/objectstack#22505).
+  
+  A reaction click used to write the comment's whole reaction set back with one `sys_comment` update. Two members reacting at the same moment therefore left only the later write stored. A member who could read a record but not edit it could not react to another member's comment either, because that update is the comment author's (or a parent editor's) to make.
+  
+  - **Read.** After the comment read, the chatter reads the comments' reactions in one `sys_comment_reaction` read, `comment_id` `$in` the comment ids, and groups the rows into the reactions the panel already renders. It never reads per comment. A thread of more than 100 comments is read in pages of 100 ids, in parallel, which keeps each request URL near 4.6 KB.
+  - **Write.** A click creates the member's own reaction row (`comment_id`, `emoji`; the server stamps `user_id`), and a second click deletes that row. Nothing else is written, so another member's reaction can no longer be overwritten, and both of two simultaneous reactions stay. A refused write puts the reaction back and shows the same "Your reaction was not saved" error as before.
+  - **Reactions stored only in the column are not shown** where the object exists. The maintainer ruled that the column's reactions need no migration.
+  - **A deployment without `sys_comment_reaction` keeps the column path, unchanged.** This covers a framework that predates objectstack-ai/objectstack#22566, such as cloud's v17 pin. The chatter asks the object registry it already loads. Only an earned "absent" answer keeps the column path; a registry that lists nothing, or has not answered, is not read as absence. The comment read waits until the registry has answered.
+  
+  Nothing on the package entry changes: no export, prop, type member or language-pack key. `CommentThread` (`@object-ui/collaboration`) and `Reaction` (`@object-ui/types`) are untouched.
+- 4d0ff23: fix(console): a long flow screen or action parameter list keeps its Submit / Confirm on screen (objectui#12080)
+  
+  A flow `screen` dialog without an object form, and the action parameter dialog, had no height bound. A screen or a `params` list taller than the window overflowed both edges of the fixed overlay: the heading above the top, the primary action below the bottom. The overlay locks page scrolling, so a mouse wheel moved nothing, and only keyboard focus could reach Submit.
+  
+  Both dialogs are now at most `90vh` tall. The fields scroll in their own region between the header and a footer that stays on screen. A screen with more than eight declared fields, or a list of more than eight shown params, also gets the wider dialog an object-form step already had, with two columns from the `sm` breakpoint up. Shorter screens and lists keep their previous width and single column.
+  
+  No new metadata key: the dialog sizes itself by the number of fields.
+- 023f00d: A create form asks its fields the create question, so a role that may create
+  records but not edit them can fill and submit the form (objectui#12082). Every
+  console affordance that offers a write now reads the grant it exercises from
+  one map.
+  
+  **The defect.** A create form gated each field on `checkField(object, field,
+  'write')`, whose fallback for a field the permission set does not mention is
+  the object's `allowEdit`. Under a grant of `allowCreate: true, allowEdit: false`
+  every field of the create form rendered disabled, the outbound filter stripped
+  every field from the body, and the save posted an empty record that the server
+  refused for its required fields — while the server accepts the same create.
+  
+  **The server's insert rule, which the create question follows.** The server's
+  field-level write step refuses a write that names a field whose explicit
+  field-level entry has `editable: false`; a field with no entry passes it, and
+  object admission decides the operation (`allowCreate` for an insert,
+  `allowEdit` for an update). So a create-form field now reads its explicit entry
+  when there is one and the object's create grant when there is none. A field the
+  permission set marks `editable: false` stays disabled and out of the body.
+  
+  **Clause-②: yes (widening)**
+  
+  - `@object-ui/core` exports the affordance-to-grant map: `AFFORDANCE_GRANTS`
+    (one row per affordance: the CRUD-affordance bit it needs, the object grant it
+    exercises and, for an affordance that offers fields, the field question it
+    asks), `resolveAffordance` (managed-object policy ∧ the server's effective API
+    operation set ∧ the caller's grant, with the row's `userActions` predicates
+    surfaced only when all three allow it), `resolveFieldAffordance`,
+    `formFieldsAffordance`, and their types (`ConsoleAffordance`,
+    `FieldAffordance`, `AffordanceGrant`, `FieldAffordanceGrant`,
+    `AffordanceGrantRow`, `AffordanceGrantPrincipal`, `FieldAffordancePrincipal`,
+    `AffordanceSource`, `AffordanceVerdict`).
+  - `@object-ui/permissions`: `checkField`'s action accepts `'create'` beside
+    `'read'` and `'write'`. `MePermissionsProvider` answers it from the explicit
+    field entry when there is one and from `allowCreate` otherwise; the
+    role-based `PermissionProvider` answers it as it answers `'write'`.
+  
+  **Behaviour, by package.** With no permission provider mounted every grant
+  still reads open, as before.
+  
+  - `@object-ui/plugin-form`: every `ObjectForm` layout's fields and outbound
+    filter ask the question of the form's mode (create or edit). The form-wide
+    lock, with its "You don't have permission to …" notice, also engages when the
+    caller's object grant for the form's mode is denied, not only when the
+    managed-object policy or the effective API operation set closes it. A
+    create-mode `MasterDetailForm`'s line cells ask the create question of the
+    child object, since every line there is a new record.
+  - `@object-ui/app-shell`: the record page's Edit and Delete (and the record
+    body's in-place editing) read the caller's update / delete grant; they read
+    none before. The import wizard's write targets ask the create question, so a
+    caller offered Import keeps every field the insert accepts. List New / Import,
+    the related lists and the Attachments panel read the map with the verdicts
+    they had.
+  - `@object-ui/fields`: a lookup's "Create new" reads the create grant (and the
+    managed-object policy and operation set) of the object the field references;
+    it read no grant before.
+  - `@object-ui/plugin-grid`: row Edit / Delete, in-place editing, the template
+    download and the add-record row read the map; the add-record row now also
+    honours the object's managed-object policy and effective `create` operation.
+  - `@object-ui/plugin-detail`: `record:details` in-place editing reads the
+    caller's update grant; the detail header's object gate adds the effective
+    operation set.
+  - `@object-ui/plugin-list` and `@object-ui/console`: bulk Delete, the
+    inline-edit toggle and the profile page's language field read the map with
+    the verdicts they had.
+- 5d77c09: feat(types)!: a list view's legacy `options` bag is the `@objectstack/spec` list overlay's bag by reference, `ListViewTimelineConfig` is the list view's own `timeline` block, and `ListViewGalleryConfig` is retired (objectui#6152, round 12)
+  
+  Clause-②: no
+  
+  **Narrowed (breaking), `@object-ui/types`.** `@objectstack/spec`'s authoring list view declares no
+  `options` bag. Its one home is the flattened list overlay on the view write door
+  (`VIEW_METADATA_MEMBERS.listOverlay`), where it is a strict object of the eight kinds that name a
+  block, each judged by its own list-view block with every key optional. `ListViewSchema.options` was
+  a record of `any` with three named refusals, so `ListViewSchema`, `AnyComponentSchema`,
+  `safeValidateSchema` (`objectui validate`), `StrictAnyComponentSchema` and the TypeScript
+  `ListViewSchema['options']` accepted what that door refuses. It is now that member's own bag, taken
+  by reference, with this package's `kanban`, `calendar`, `gallery` and `timeline` blocks in it, so
+  each named refusal gives the same message under `options.KIND` as under the top-level `KIND`. What is
+  refused now, and what to write instead:
+  
+  - A key that is not one of the eight kinds is refused with the spec's own `unrecognized_keys` at
+    `options`. `options.grid` gets the spec's guidance: a grid has no per-kind block, so its settings
+    (`columns`, `sort`, `filter`, …) are top-level keys of the view. Remove it.
+  - An undeclared key in any kind (for example `options.kanban.swimlaneField`,
+    `options.timeline.descriptionField`, `options.tree.titleField`, `options.chart.xAxisField`) is
+    refused with the spec's own `unrecognized_keys` at that kind. Before this change it was kept and
+    never examined.
+  - `options.kanban.groupField` is refused by name: write `groupByField`.
+  - `options.kanban.cardFields` is refused by name: write `columns`.
+  - `options.gallery.imageField` is refused by name: write `coverField`.
+  - `options.timeline.dateField` is refused by name: write `startDateField`.
+  - `options.calendar.defaultView` is refused by name: the initial view mode is a member of the
+    `object-calendar` element (its flat `defaultView`), not of a list view's calendar block.
+  - `options.chart`'s legacy axes (`xAxisField`, `yAxisFields`, `categoryField`, `valueField`,
+    `aggregation`) are refused: write the dataset-bound block, `chart: { dataset, dimensions, values }`.
+  - A value of the wrong type (for example `options.kanban: 42`, or a number where a field name
+    belongs) is refused at its path.
+  
+  The three refusals already in place (`options.kanban.groupBy`, objectui#8365;
+  `options.calendar.dateField` / `endField`, objectui#8355) keep their messages, and now report
+  `invalid_type` at the key, as the top-level blocks do, where they reported `custom`. Each kind is
+  `.partial()`, as the spec's bag is: the renderer reads the bag as a per-key underlay of the top-level
+  block, so a required member is not asked of it.
+  
+  **Changed, `@object-ui/types`.** `ListViewTimelineConfig` is `NonNullable<ListViewSchema['timeline']>`:
+  the spec's list-view slot, strict and `.partial()`, with the legacy `dateField` refused by name
+  (write `startDateField`). It was the spec's `TimelineConfig` plus `dateField?: string` and a string
+  index signature of `any`, so a block with any key compiled.
+  
+  **Retired, `@object-ui/types`.** The `ListViewGalleryConfig` type export is gone. Nothing in this
+  repository used it, and the spec has no element of that shape. Write the spec's `GalleryConfig`,
+  which this package re-exports.
+  
+  **`@object-ui/app-shell`.** The object page's relay writes the spec's spellings into the bag it hands
+  `ListView`: `options.kanban.columns` where it wrote `cardFields`, no `options.gallery.imageField`
+  beside `coverField`, and no `options.timeline.descriptionField`. What renders does not change: the
+  board reads `columns` for its cards, the gallery reads `coverField` first, and nothing drew the
+  timeline's nested `descriptionField`.
+  
+  **`@object-ui/plugin-list`.** `ListView`'s capability gate also reads `options.gallery.coverField`, so
+  a bag binding its cover under the spec's key offers the Gallery view; it read only the legacy
+  `imageField` there. The README's examples author the top-level per-kind blocks and a dataset-bound
+  chart, and no longer show the bag.
+  
+  **`@object-ui/plugin-timeline`.** `ObjectTimeline`'s nested `schema.timeline` prop takes the new
+  `ListViewTimelineConfig`.
+  
+  What did not move: the renderers' reads. `ListView` still merges each `options.KIND` under the
+  top-level block and still reads the legacy spellings, so a view stored before these doors closed
+  renders as before; only authored metadata meets the refusal.
+  
+  **Note added 2026-10-09 (objectui#6152 round 14):** the renderers' reads have moved. `ListView`
+  still merges each `options.KIND` under the top-level block, but it reads each kind's declared keys
+  only: the legacy spellings, `options.grid` and the undeclared keys a bag carries are no longer read,
+  so a view stored with one of them renders without what that key used to bind; see
+  `.changeset/6152-list-view-readers-retired.md`. The legacy chart axes (`options.chart.xAxisField`
+  and the rest) are still read until the next round on objectui#6152.
+  
+  **Note added 2026-10-09 (objectui#6152 round 15):** the legacy chart axes are no longer read, in the
+  bag or at the top level: a chart block that names no `dataset` binds nothing, and `ObjectChart`
+  refuses it on screen; see `.changeset/6152-list-view-legacy-chart-retired.md`.
+- 1f1c4b5: The flow designer's structural-check finding type is declared as `FlowSimDiagnostic` instead of `Diagnostic` (objectui#6349, batch 6), because `@object-ui/sdui-parser` publishes `Diagnostic` for a parser finding, a different shape. The type is internal: this package's entry exports neither name, so no import changes. The doc comment above the chat page's `ChatbotEnhancedMessage` import now says what `@object-ui/plugin-chatbot` publishes since objectui#6349 batch 5.
+  
+  No runtime behaviour changes.
+- d758f2f: The props of the console's page header are declared as `ConsolePageHeaderProps` instead of `PageHeaderComponentProps` (objectui#6349, batch 8). `@object-ui/layout` publishes `PageHeaderComponentProps` for the props of its own `PageHeader`, which is a different component: it takes string `title` and `subtitle` with record tokens and action definitions, where the console's header takes rendered nodes. This package's entry does not export the console header, so no import changes and the props are the same.
+  
+  No runtime behaviour changes.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [15f6702]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [3f0b0cd]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [902ebab]
+- Updated dependencies [bdc9049]
+- Updated dependencies [b61c116]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [d768c31]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [4c127cd]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [b88937b]
+- Updated dependencies [f4370f4]
+- Updated dependencies [76993f8]
+- Updated dependencies [c000398]
+- Updated dependencies [e398a54]
+- Updated dependencies [f1a177c]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [846f982]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [055d350]
+- Updated dependencies [7300fca]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [daa7caf]
+- Updated dependencies [da35453]
+- Updated dependencies [d50f724]
+- Updated dependencies [02a3896]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [db4cb6b]
+- Updated dependencies [4590363]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [885a96f]
+- Updated dependencies [d39ac2e]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [72167a9]
+- Updated dependencies [282f252]
+- Updated dependencies [e06365c]
+- Updated dependencies [4a9fe31]
+- Updated dependencies [82500a7]
+- Updated dependencies [6d8bf0c]
+- Updated dependencies [5dff027]
+- Updated dependencies [3035948]
+- Updated dependencies [8aebc6f]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [bfca7ec]
+- Updated dependencies [5e446ab]
+- Updated dependencies [9844bbf]
+- Updated dependencies [0aa8c0c]
+- Updated dependencies [cef0eee]
+- Updated dependencies [75bacf9]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [5ad8183]
+- Updated dependencies [e8f9977]
+- Updated dependencies [2063f7a]
+- Updated dependencies [8f8f760]
+- Updated dependencies [74add0c]
+- Updated dependencies [5bc55c0]
+- Updated dependencies [aaba865]
+- Updated dependencies [9fc6ad7]
+- Updated dependencies [f1781be]
+- Updated dependencies [5ab2f19]
+- Updated dependencies [dfa15c8]
+- Updated dependencies [fbad078]
+- Updated dependencies [ccddd11]
+- Updated dependencies [077d198]
+- Updated dependencies [45d5853]
+- Updated dependencies [e44f9bc]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [164f02c]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [e616327]
+- Updated dependencies [902fbe1]
+- Updated dependencies [16b9d44]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [a368ccb]
+- Updated dependencies [acc4328]
+- Updated dependencies [7282c6a]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [d03b022]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [e391f87]
+- Updated dependencies [20c6d35]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [a600924]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [12ff256]
+- Updated dependencies [12ff256]
+- Updated dependencies [12ff256]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [b4e0787]
+- Updated dependencies [1f1c4b5]
+- Updated dependencies [1f1c4b5]
+- Updated dependencies [c0c0a0d]
+- Updated dependencies [c0c0a0d]
+- Updated dependencies [c0c0a0d]
+- Updated dependencies [d758f2f]
+- Updated dependencies [d758f2f]
+- Updated dependencies [d758f2f]
+- Updated dependencies [1b2d016]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/components@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/plugin-form@17.8.0
+  - @object-ui/plugin-dashboard@17.8.0
+  - @object-ui/i18n@17.8.0
+  - @object-ui/react@17.8.0
+  - @object-ui/plugin-detail@17.8.0
+  - @object-ui/plugin-grid@17.8.0
+  - @object-ui/plugin-designer@17.8.0
+  - @object-ui/plugin-charts@17.8.0
+  - @object-ui/plugin-kanban@17.8.0
+  - @object-ui/plugin-list@17.8.0
+  - @object-ui/fields@17.8.0
+  - @object-ui/layout@17.8.0
+  - @object-ui/auth@17.8.0
+  - @object-ui/plugin-chatbot@17.8.0
+  - @object-ui/plugin-calendar@17.8.0
+  - @object-ui/plugin-view@17.8.0
+  - @object-ui/data-objectstack@17.8.0
+  - @object-ui/providers@17.8.0
+  - @object-ui/permissions@17.8.0
+  - @object-ui/collaboration@17.8.0
+  - @object-ui/plugin-editor@17.8.0
+  - @object-ui/plugin-report@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

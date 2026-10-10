@@ -1,5 +1,7 @@
 # @object-ui/react-runtime
 
+## 17.8.0
+
 ## 17.7.0
 
 ### Patch Changes

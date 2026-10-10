@@ -1,5 +1,158 @@
 # @object-ui/plugin-calendar
 
+## 17.8.0
+
+### Minor Changes
+
+- 9ca3cac: The calendar and the timeline start the week on the first day of the week of the user's locale (objectui#11675), instead of a fixed Sunday (calendar) and a fixed Monday (timeline). Under `en-US` both start on Sunday; under `en-GB` or `zh-CN` both start on Monday; under `ar-EG` both start on Saturday. There is no separate week-start setting: the first day comes from the locale the dates are already formatted with.
+  
+  - **`@object-ui/i18n` exports `firstDayOfWeek(locale)` and its `WeekdayIndex` type.** It returns the first day of the week for a BCP-47 tag, numbered as `Date.prototype.getDay` numbers weekdays (0 is Sunday), which is also what react-day-picker's `weekStartsOn` takes. It reads the engine's `Intl.Locale` week info (`getWeekInfo()`, else the `weekInfo` accessor), including a `-u-fw-` keyword on the tag. Where the engine has neither, it reads CLDR's first-day table by the tag's region, or the region CLDR's likely subtags give it (`en` reads `US`, `zh` reads `CN`), and a region the table does not list reads Monday, CLDR's world default. A malformed tag throws the same `RangeError` that formatting a date with it would.
+  - **The calendar's weeks start on the locale's first day.** `CalendarView` (and `object-calendar` through it) reads the first day from its `locale` prop, else the display locale, and the month grid's rows, its weekday heads, the week view's columns, the header's week range, the day a span that wraps into a new row shows its title on, and the header's date popover all start there. The popover used to take date-fns's own week start for the tag, which is not CLDR's for every tag (date-fns reads `es-MX` as `es`, a Monday start, where CLDR starts Mexico's week on Sunday) and which read Sunday until the date-fns locale had loaded.
+  - **The object timeline's "This week" and "Next week" start on the display locale's first day.** The bucket bounds are also stepped on the local calendar now, so across a DST change the day after it is "Tomorrow" again, and the first day of next week no longer falls into "This week".
+  
+  A host that relied on the calendar always starting on Sunday, or on the timeline's week always starting on Monday, now sees the locale's first day. The gantt variant's `week` axis is unchanged: it still counts plan weeks from the axis's first day.
+
+### Patch Changes
+
+- d7e9e9a: feat(types)!: `object-grid` `operations` and the `object-grid` / `object-kanban` / `object-calendar` `filter` follow the `@objectstack/spec` 17.7.0 rows (objectui#6152, round 8)
+  
+  Clause-②: no
+  
+  **Narrowed (breaking).** `@objectstack/spec` 17.7.0 types `object-grid`'s `operations` as the
+  strict `{ create?, update?, delete?, export? }` block, refusing `read` and `import` by name, and
+  the `filter` of `object-grid`, `object-kanban` and `object-calendar` as the `ViewFilterRule` array
+  `[{ field, operator, value }, ...]`, refusing the MongoDB-style record and the AST tuple array.
+  `@object-ui/types` now says the same, with no alias window:
+  
+  - `ObjectGridSchema.operations` takes the row's block by reference. `read` and `import` are
+    `?: never` on the interface and refused by name at their own path on the flat zod
+    `ObjectGridSchema`: no `object-grid` code reads either. The flat mirror is the source of an
+    `object-view`'s `table` slot, so `table.operations.read` / `.import` are refused there too, and
+    the `read` refusal names the view-level spelling, `navigation: { mode: 'none' }` or the view's
+    own `operations: { read: false }`.
+  - `ObjectGridSchema.filter`, `ObjectKanbanSchema.filter` and `ObjectCalendarSchema.filter` take
+    their row's own member by reference, on the interface and on the zod mirror. They were `any[]`
+    and `z.array(z.any())`, so `filter: [['status', '=', 'open']]` type-checked and parsed. It is now
+    refused, on an authored `object-kanban` / `object-calendar` node and in an `object-view`'s
+    `table` slot; respell it `filter: [{ field: 'status', operator: 'equals', value: 'open' }]`.
+  
+  What did not move: an `object-view`'s own `operations.read` (the protocol has no `object-view`
+  row, and `ObjectView` reads it as its row-click gate), and the renderers' reads. `ObjectGrid`
+  still lowers an AST array, and the board and the calendar still hand whatever `filter` reaches
+  the node to `$filter`, because hosts compose that form at runtime.
+  
+  - `@object-ui/plugin-view`: the grid node `ObjectView` composes no longer carries the view's
+    `read` toggle in its `operations` block; the view keeps reading it.
+  - `@object-ui/plugin-grid`, `@object-ui/plugin-kanban`, `@object-ui/plugin-calendar`: the
+    registrations' `filter` inputs describe the `ViewFilterRule` array, and the grid's `operations`
+    input names the four toggles.
+  - `@object-ui/console`: the registry parity pins' prose stops calling these rows `z.unknown()`.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [b61c116]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [4c127cd]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [76993f8]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [7300fca]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [4590363]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [885a96f]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [72167a9]
+- Updated dependencies [e06365c]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [a368ccb]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [e391f87]
+- Updated dependencies [20c6d35]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/components@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/i18n@17.8.0
+  - @object-ui/react@17.8.0
+  - @object-ui/plugin-detail@17.8.0
+  - @object-ui/permissions@17.8.0
+  - @object-ui/mobile@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

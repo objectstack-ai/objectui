@@ -1,5 +1,255 @@
 # @object-ui/components
 
+## 17.8.0
+
+### Minor Changes
+
+- f0496bd: `action:button` delivers `undoable` where a record is in scope, and publishes it (objectui#11168, ruling B on objectui#11754).
+  
+  An `action:button` that declares `undoable: true` on an `operation: update` now offers Undo in its success toast. Undo writes back the prior values of the fields the update wrote, read off the record in scope: the record page's record, or the row the host binds to the node through `data` (a table's row, `DetailView`'s header, an `action:bar` member). Before, the block forwarded `undoable` but handed the runner no record, so the update ran and no Undo was offered anywhere the block was used.
+  
+  - **What the block now sends.** For an `undoable` `operation: update`, the button hands the runner the record in scope under `params._rowRecord`, the spelling the record page's header, the declared-actions bar, the related-record bridge and the grid's rows already use. The route dispatch strips it before it POSTs. It is attached only when the update writes that record, so where no explicit `recordId` is given, the shared route dispatch (`createServerActionHandler`) now takes the record id from it, as it does for those hosts; the record page's own dispatch already wrote to its record.
+  - **The one limit.** A button with no record in scope offers no Undo, because there is no row to restore. The same holds for a button whose `recordId` names a record other than the one in scope: its Undo would restore another record's values. A record that does not carry every written field offers no Undo, as before.
+  - **Unchanged.** A button that is not `undoable`, and an `undoable` action that is not an `operation: update`, dispatch exactly as before, with no record attached.
+  - **Published.** `undoable` is a published input of `action:button` (a boolean, with a description that states the limit), so the page validator stops reporting it as an unknown prop. Nothing is refused that was accepted before.
+  
+  `@object-ui/types`: the `UIActionSchema.undoable` doc comment no longer says `action:button` never hands the runner a record. No type changes.
+- c4c506b: **Clause-②: yes (narrowing)**
+  
+  One declaration of the per-type NODE SLOTS — the keys other than `children` through which a renderer hands authored nodes back to `SchemaRenderer` — and three readers that walk it instead of stopping at `children` (objectui#11170, the follow-up PR #11126's Acceptance notes filed).
+  
+  New on `@object-ui/types`, beside `BaseSchema.children`: `NODE_SLOT_DECLARATIONS` (one row per renderer, under every registry spelling that resolves to it), `nodeSlotsFor(type)`, `nodeSlotPathSegments(path)` and `nodeSlotValues(node, path)`, with the types `NodeSlotDeclaration`, `NodeSlotRow`, `NodeSlotSegment` and `NodeSlotValue`. A position is spelled as a key path — `trigger`, `items[].content`, `regions[].components`, `items[]`, `report.sections[].content` — and the value at its end is one node or a list of nodes. The `page:*` rows are `@objectstack/spec`'s `pageComponentSlotPositions()` placed on the type whose renderer reads each position, pinned against that export in both directions; every other row is objectui's own, pinned against the live renderer. `body` stays retired as the generic child-list key (objectui#6771): it appears only on the four `page:*` types whose renderer still paints it for stored documents, marked `retired`.
+  
+  Accept sets that narrow, each reader FROM → TO:
+  
+  - `@object-ui/cli` — `objectui check`'s unevaluated-expression refusal (`findUnbindableTextExpressions`). FROM: the document root and every node its `children` hold. TO: those, and every node under a slot its type declares — so a `${…}` on `title` / `label` / `value` / `description` of a node under a dialog's `content`, a tab item's `content`, a page's `regions[].components`, a carousel item, a detail view's `tabs[].content` is now refused with the slot path (`items → 0 → content → value`). The false-refusal rows of PR #11126's ablation 2 stay green: a form's `fields[]`, a grid's `columns[]` and `{ "type": "multiple" }` are not slots. Measured over this repository's own JSON corpus and docs fences: no new finding.
+  - `@object-ui/core` — `validateSchema`. FROM: `validateChildren` recursed through `children` only. TO: it also recurses through the declared slots, so an invalid node under one (a retired `crud` spelling under `dialog.content`, an `INVALID_SCHEMA` member) is reported with its own path, spelled as `schema.items[0].content`. Measured over the same corpus: no new finding.
+  - `@object-ui/sdui-parser` — `validateTree`. FROM: the walk descended `children` alone, and a manifest entry carried no slot. TO: `ManifestComponent` gains `slots?: readonly string[]`, `manifestFromConfigs` gains `opts.slotsFor` (hand it `nodeSlotsFor`) and projects each entry's non-retired positions, and `validateTree` descends them — an unknown component, an unknown or mis-typed prop or an illegal enum under a slot now draws its diagnostic. A manifest built without the option serialises byte-identically and keeps the `children`-only reach. The `RETIRED_CHILD_LIST_KEY` refusals are unchanged.
+  - `@object-ui/components` — the `kind:'html'` page's compile manifest (`getJsxManifest`) is built with `slotsFor`, so an html-tier page whose slot-held node fails validation now fails to compile the way one under `children` does. Narrowing: a page that compiled with an unknown tag under a `dialog`'s `content` no longer does.
+  
+  Docs: `content/docs/utilities/cli.mdx`'s "Component nodes only" rule, the gate's own docblock, `validateChildren`'s comment and the parser's header now say the walk follows `children` and the declared slots; the declaration's header is where the slot list is explained.
+- c096f03: The record page header draws the record's picture beside its title, from the field the object names in its object-level `imageField` (`@objectstack/spec` 17.6.0, objectstack#21182) (objectui#11383). The picture is the served row's value of that `image` or `avatar` field: the expanded `{ url }`, a bare file id (drawn from the stable download path), a URL string, or the first drawable entry of a list. An object that declares no `imageField`, an empty value, or a field the reader may not see draws nothing, with no initials or placeholder; `recordChrome: false` keeps the bare header. The declaration is the only channel: no `page:header` prop is read and no field is read by a conventional name such as `logo` or `avatar`.
+- 73b5d77: `action:group` and `action:menu` no longer read a member's `properties.params` (objectui#11638). A container member's `properties.params` no longer reaches the action runner.
+  
+  **Why.** `@objectstack/spec` refuses a `properties` key on an `action:group` / `action:menu` member, with this prescription: "A member carries no `properties` bag: its static parameter values (`properties.params`) are not part of the inline action vocabulary. For a `type: 'api'` member's request body write `bodyExtra`; to run an action with static parameter values, author it as its own `action:button` node, whose `params` object carries them." The census behind that ruling found no writer of the key. The renderers kept a read the spec refuses, so the read is retired.
+  
+  **Behaviour change**, shipped as `minor` per this repository's version policy:
+  
+  - A member's `properties.params` is not forwarded as the runner's `params`, and it is no longer template-evaluated. This holds for an `action:group` member (inline and dropdown), an `action:menu` item, and an `action:bar` member that lands in the overflow menu.
+  - A member whose `params` is an array forwards it as `actionParams` alone. The runner's `params` then carries only what the user answers in the parameter dialog.
+  - A `type: 'api'` member's object `params` is its request payload (the objectstack#5777 window), and a `properties.params` beside it no longer replaces that payload.
+  - Unchanged: an `action:button` / `action:icon` node reads its static values from `properties.params` as before, and so does an `action:bar` member drawn inline, which the bar mounts on one of those two renderers.
+  
+  **FROM** a container member carrying static values:
+  
+  ```json
+  { "type": "action:group", "actions": [
+    { "name": "edit", "label": "Edit", "type": "navigate_edit", "properties": { "params": { "recordId": "${record.id}" } } }
+  ] }
+  ```
+  
+  **TO** its own `action:button` node:
+  
+  ```json
+  { "type": "action:button", "properties": { "label": "Edit", "actionType": "navigate_edit", "params": { "recordId": "${record.id}" } } }
+  ```
+  
+  For a `type: 'api'` member's request body, write `bodyExtra` on the member.
+  
+  **Clause-②: no.** No export, prop, type member or i18n key is added or removed. The retired helper lived in a module that `@object-ui/components` does not re-export from its entry.
+- 9fc68aa: Screen readers can name and reach the controls of the view tab bar, the settings form, the sidebar menus, the table's selection column and the percent cell (objectui#11690). axe-core (wcag2a + wcag2aa) on an object list page and on a Setup settings page reported the faults below; each is fixed where it is produced and pinned by an axe run on that component.
+  
+  - **View tab bar (`ViewTabBar`).** The "+" add-view button is named, through the existing `view.addView` key, and its tooltip reads the same translated words instead of a hard-coded "Add View". Each view is now a `<button>`; the current one carries `aria-current="true"`. The views were `role="tab"` elements with no `tablist`, and the active view's actions button sat inside its tab, so it was a control inside a control. That button is now the view button's sibling, still named "View actions for …" and still one Tab stop away. Tab roles could not hold it: a tab's content is presentational and a tablist may contain only tabs. These views never had the tabs keyboard model (arrow keys, a tab panel) either. Every view stays its own Tab stop. When the bar is not reorderable, as the console renders it, Enter or Space switches to the focused view. With drag-to-reorder on, Enter or Space on a view starts a keyboard drag instead, as it did before this change, so a view is switched to by click. The rename box is now outside the view button and is named through `view.rename`. With drag-to-reorder on, the sortable attributes describe the view as a button. Breaking for anything that queried the bar by `role="tab"` or `aria-selected`: query `data-testid="view-tab-ID"` or `aria-current` instead.
+  - **Settings form (`@object-ui/console`).** Each row's label is bound to its control, so text, number, password, textarea, JSON, colour, switch and select controls are named by it. Clicking a label now focuses or toggles its control. A radio group and a multiselect checkbox group are named by the row label too.
+  - **Sidebar menus (`NavigationRenderer`).** With drag-to-reorder on (the desktop default), every row was wrapped in a `<div>` between the menu's `<ul>` and its `<li>`. The sortable node is now the row's own `<li>`. A separator and a nested group inside a menu are now list items too: the separator's item is hidden from assistive tech, and a top-level group is unchanged.
+  - **Table selection column (`data-table`).** The select-all checkbox and each row's checkbox are named through the existing `table.selectAllRows` and `table.selectRow` keys.
+  - **Percent cell (`PercentCellRenderer`).** The progress bar is named by the formatted value beside it (`aria-labelledby`), so the name is in the viewer's locale.
+  
+  No language-pack key, export or prop is added; every new name reads a key the packs already carried.
+- c0862c1: `element:text` drops the two pre-convergence `variant` spellings `heading` and `subheading`, which `@objectstack/spec` 17.7.0 retires (objectstack#21015, objectui#11717). The registry `inputs` enum is the contract's nine values again: `h1` to `h6`, `body`, `caption` and `overline`. The html tier therefore refuses `heading` / `subheading` with `invalid-enum`, as `objectui validate` and the spec do. A stored node that still carries one renders as `body`, the renderer's answer for any value outside the contract. Migration: `heading` -> `h2`, `subheading` -> `h3`. `os migrate meta --from 17` lists the edits.
+- 1e1f09e: The list filter builder starts on the view's first column, hides hidden fields, and offers one empty check where "empty" and "null" mean the same records (objectui#11810).
+  
+  - **Field list.** The list view's Filter panel no longer offers a field the object definition marks `hidden: true` (Organization, Owning Business Unit, the search index). Its fields follow the view's columns in the order the grid shows them, then the other business fields, then the system fields (created / modified / owner). A hidden field stays listed only when the view names it in `filterableFields`, or when a condition the panel already holds filters on it, so a restored filter still shows its field.
+  - **"Add filter".** A new condition starts on the view's first visible column instead of the hidden Organization field.
+  - **Empty checks.** On a column whose type cannot hold an empty value other than null (select, lookup, number, date and the other "null only" types of `@objectstack/spec`'s `expandEmptyOperator`), the operator list offers "Is empty" / "Is not empty" and no longer "Is null" / "Is not null": there they match the same records. Text columns and list-valued columns keep both pairs, and the operator list says how they differ ("Is empty" also matches blank text, or an empty list). A stored "Is null" condition on such a column still loads and shows as "Is null". Every `FilterBuilder` consumer gets this offer; what a row can hold (`operatorsForFieldType`) is unchanged.
+  
+  `@object-ui/i18n` gains two language-pack keys in all ten packs, `filterBuilder.emptyCheckHint.text` and `filterBuilder.emptyCheckHint.list`, which carry that hint. No export, prop or type member is added.
+  
+  `@object-ui/components` raises its `@objectstack/spec` floor from `^17.0.0` to `^17.5.0`, because its published entry now imports `expandEmptyOperator`, which the spec first exports in 17.5.0.
+- 455c646: A record action greyed out by its declared `disabled` predicate now says why (objectui#11811). It shows the reason "Not available for this record", and the same text is its accessible description (`aria-describedby`), so a screen reader announces it too. Before, the action carried no tooltip, no `title` and no description, so a user could not learn why it was off.
+  
+  Where it shows:
+  
+  - **The record page header** (`page:header`, `@object-ui/components`). On an inline action button, hovering it or focusing it from the keyboard opens a tooltip with the reason. On an action in the ⋯ overflow menu, the reason is a second line under the label. A tooltip there could not be reached from the keyboard, because the menu skips a disabled item and traps Tab.
+  - **The `record:quick_actions` bar** (`@object-ui/plugin-detail`), for example a record page's section bar. Hovering or focusing the button opens the tooltip.
+  - **The `DeclaredActionsBar`** (`@object-ui/app-shell`), which renders server-declared actions on the approvals surfaces. Hovering or focusing the button opens the tooltip.
+  
+  A natively disabled button receives no pointer or focus events, so the tooltip's trigger is a focusable wrapper around the button, the pattern Radix documents for a disabled trigger.
+  
+  What stays unchanged: a button greyed out only while its own action runs shows no reason. So do the header's Edit and Delete that the console injects, whose `disabled` the host computes (for example while the record is locked for approval), and a header action greyed out by a live inline-edit session.
+  
+  The reason is the same generic sentence for every action. An author-written reason beside the predicate would be a new key on the action spec, which is objectstack's to declare. It is not part of this change.
+  
+  **Clause-②: yes (widening).** `@object-ui/i18n` gains one language-pack key, `actions.notAvailableForRecord`, translated in all ten packs. No export, prop or type member is added, removed or changed.
+- 4f4fc03: The list's Sort picker lists a field it keeps only for the current sort as removable, never as a new choice (objectui#11943).
+  
+  `SortBuilder`'s `fields` entries take an optional `disabled`. A disabled entry is drawn as an unavailable option in every row's dropdown and cannot be chosen by click or keyboard. A row whose field it already is still shows its label, and can be changed to another field or removed. "Add sort" seeds the first entry that is not disabled, and is disabled when every entry is. An entry without the flag behaves as before.
+  
+  `ListView` sets the flag on each field its Sort picker keeps only because the current sort names it: a field the user may not read, a field the platform refuses to order by, and a relational field listed as ordering by ID. Before this, a stored or URL sort on such a field left it choosable in the picker's other rows, and "Add sort" seeded it when it came first.
+
+### Patch Changes
+
+- c000398: A lookup whose `dependsOn` names a parent field drops its selection when that parent changes or is cleared (objectui#11631).
+  
+  Before, the picker re-scoped its candidate list to the new parent but kept the record already chosen. An invoice whose Account was switched from Northwind to Contoso saved Contoso beside a Northwind contact. The server checks only that a reference exists, so it accepted the pair. Now the form clears the dependent lookup as soon as any parent that scopes it takes a different value. It writes `null`, or `[]` for a multi-value lookup, so an edit clears the stored value instead of leaving it unchanged. A cleared lookup that scopes another lookup clears that one too.
+  
+  What does not clear it: opening an existing record, whether its values are present when the form mounts or arrive after; switching a mounted drawer to another record; a `resetOnSubmit` or Cancel reset; a change to any other field. A lookup that holds nothing is not written to. Which parents count is read from the same field-level `dependsOn` array the picker scopes its query by, so a `dependsOn` the picker ignores clears nothing either.
+  
+  The rule covers every form the `form` renderer draws, including the object form and its drawer, modal, split, tabbed and wizard variants. The console's form-view page (`/forms/:name`, `/f/:slug`) has its own renderer and is not changed here.
+  
+  **Clause-②: no.** Nothing on the package entry changes. No export, prop, type member or i18n key is added, and `CASCADE_OPTION_WIDGET_TYPES` is unchanged.
+- e6dcd85: An authored `view:calendar` or `view:timeline` node loads its plugin and renders the calendar or the timeline, and a console boot no longer logs the registry's race warning for those two keys (objectui#11680).
+  
+  The console declares both views as lazy stubs, then registers a protocol placeholder for each protocol key nothing renders yet. The placeholder registrar asked the registry about loaded components only, so it read the two stubbed keys as free and took them, and the registry cleared the stubs under them. Until some other node happened to load the calendar or the timeline chunk, an authored `view:calendar` or `view:timeline` drew the dashed "Component Placeholder" box instead of the view. `registerPlaceholders()` and the eager palette placeholders now skip a key a pending lazy stub holds (`ComponentRegistry.hasLazy`). The key stays with the plugin that declared it, and `SchemaRenderer` loads that plugin the first time the node renders. A protocol key that nothing declares still gets its placeholder.
+  
+  The registry's collision warnings now name a stub by the full type it declared. A stub found under its own namespaced key was named with its namespace written twice (`view:view:calendar`), and `register`, `registerLazy` and `unregister` compared ownership against that doubled spelling.
+  
+  **Clause-②: no.** No export is added or removed, and no accepted input changes. The placeholder registrar is not exported, and the field the registry now records on a lazy stub lives on a type the package does not export.
+- 7a2c60b: The data table sizes an auto-width column from what its cells draw, and a right-pinned column no longer covers another one (objectui#11682).
+  
+  **Auto width.** A column with no `width` was estimated from the length of its stored value. A currency cell stores `200000` and draws `200,000.00`, so it truncated. A lookup stores an id and draws a name, and a date stores an ISO string and draws `Feb 3, 2027`, so those columns were too wide. On the showcase's Tasks list at a 1440px viewport the columns added up to more than the list's width, and the right-aligned Progress percentage sat under the right-pinned Actions column.
+  
+  The table now reads back what each auto-sized column's header and cells drew. Where the page is laid out, the column gets the width its widest drawn cell and its header need to render whole, padding included. Where nothing is laid out, the drawn text's length is the estimate's input, at the same 8px a character as before. The stored value is read only before the first draw. The 80px floor and the 400px cap stay. A masked column is still sized from its header alone. An explicit `width`, a `fitContent` column and a width the user dragged are unchanged. The width follows the rows that are drawn, so on a table that pages, searches or sorts its own rows it can change with the page, the search or the sort.
+  
+  **Right-pinned columns.** Every right-pinned column stuck at `right: 0`, so a column an author pinned right beside the auto-pinned row-actions column was drawn under it. Each one now sticks at the measured width of the pinned columns after it, as left-pinned columns already do. A table with one right-pinned column renders as before.
+  
+  Nothing is added to the package entry: no export, prop, type member or schema key.
+- e06365c: fix(components): fields that belong to no field group no longer render under the last group's heading (objectui#11777)
+  
+  On an object where some fields join a declared `fieldGroups` entry and the rest join none, the create and edit forms drew the ungrouped fields straight on under the last group's heading, in the same grid and even in the same row as that group's last field, so they read as its members. The Studio form designer shows those fields apart, in their own trailing area.
+  
+  The form renderer now ends a section's field grid where the section's heading stops claiming fields. The fields after it start a block of their own below a rule, with no heading and no placeholder title. Ungrouped fields keep their place after the groups, and a section without a heading that follows a titled one is set apart the same way. Every stacked form layout gets this: the default form, `formType: 'modal'` and `formType: 'drawer'`, with sections derived from `fieldGroups` or listed explicitly. A form with no groups, a form whose every field is in a group, collapse and a group's `visibleWhen` render as before.
+- 9844bbf: Grid inline edit marks a row modified only when a value really changed, draws one "Actions" column, and the "Edit inline" toggle reports its state (objectui#11816).
+  
+  - **A row is modified only by a real change.** The data table staged every committed cell edit, so clicking into a cell and out again showed "1 row modified · Cancel All · Save All (1)" for a row nobody had changed. An edit is now staged only when the value differs from the one the row loaded with. `null`, `undefined`, `''` and `[]` count as the same empty value, a number equals the decimal string that spells it (`5` and `'5'`), and a multi-value set equals the same set in another order. Staging the loaded value back removes the cell's edit, and the row is no longer counted as modified once none of its cells are.
+  - **One "Actions" column.** With inline edit on, the trailing column that only holds a modified row's cancel and save buttons was headed "Actions" too, beside the grid's own row-menu column, and in larger type. When that column can only hold those buttons (the table is editable, has a save handler, and is given no row-menu handler), its header is now a pencil icon with the accessible name "Edit" (the existing `table.edit` key). A column that can hold a row menu keeps the "Actions" header, now in the same small muted type as the other column headers.
+  - **The "Edit inline" toolbar toggle sets `aria-pressed`** to whether inline edit is on.
+  
+  No export, prop, type member or language-pack key is added.
+- cef0eee: An action drawn by `action:button`, `action:icon`, `action:group` or `action:menu` and greyed out by its declared `disabled` predicate now says why (objectui#11839). It shows the reason "Not available for this record", the same generic sentence and the same language-pack key (`actions.notAvailableForRecord`) objectui#11811 gave the record header, the section bar and `DeclaredActionsBar`. The same text is the control's accessible description (`aria-describedby`), so a screen reader announces it too. Before, the control carried no tooltip, no `title` and no description.
+  
+  Where it shows:
+  
+  - **A button** (`action:button`, `action:icon`, and an `action:group` member in inline mode, including the members `action:bar` draws). Hovering it or focusing it from the keyboard opens a tooltip with the reason. A natively disabled button receives no pointer or focus events, so the tooltip's trigger is a focusable wrapper around it. On `action:icon`, which has no visible label, the tooltip shows the label above the reason, and the icon's accessible name stays its label.
+  - **A menu item** (an `action:menu` item, including `action:bar`'s overflow menu, and an `action:group` member in dropdown mode). The reason is a second line under the label. A tooltip there could not open: a disabled menu item takes no pointer events, and the menu's keyboard navigation skips it.
+  
+  What stays unchanged: a control greyed out while its own action runs, a control the host disables (the `disabled` it forwards, such as a disabled group's members), and an action disabled only through the legacy `enabled` key show no reason.
+  
+  **Clause-②: no.** No export, prop, type member or language-pack key is added, removed or changed.
+- 7241a81: The list Group panel picks its field with the shared `Select`, the control the Filter and Sort panels beside it pick a field with (objectui#11865, the Group panel's part of that card).
+  
+  `GroupingEditor` drew each grouping level's field picker as a browser-native select, so it looked and behaved differently from the Filter and Sort panels next to it. It now uses the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
+  
+  What it writes is unchanged. Picking a field changes only that level's `field`, and `onChange` receives the same `{ fields: [...] }` value as before, key for key. Each level still lists its own field plus the fields no other level uses, in the order of `fieldOptions`. The order toggle, the "collapsed by default" checkbox, the remove button and the add button are unchanged, and removing the last level still passes `undefined`.
+  
+  One display change: a level grouped by a field that `fieldOptions` does not list now shows that field's name in its picker. This happens when a view is grouped by a column it does not show. The native select showed the first listed field instead, which was not the field the list was grouped by.
+  
+  **Clause-②: no.** Nothing on the package entry changes. `GroupingEditorProps` and the exports of `@object-ui/components` are unchanged, and no i18n key is added.
+- 74add0c: `element:record_picker` and `element:number` bind data through the node-level `dataSource` only (objectui#11880, part of the objectui half of objectstack#11509, ruled A-narrow).
+  
+  - Neither element reads the flat `properties.object` / `filter` / `sort` / `limit` beside the binding any more: the `composed?.x ?? props.x` fallbacks are gone, and `element:number`'s filter is the binding's alone (the AND with `properties.filter` is gone). An element whose node names no `dataSource.object` issues no query. The flat keys stay published until `@objectstack/spec` retires them in v18; each input's description now says it is not read and names the binding member that is.
+  - The Studio page designer writes `element:number`'s object to `dataSource.object` at node level, and its measure picker reads the object from there. A stored `properties.object` stays visible in the inspector's Advanced section.
+  - `element.number.noObject` now names only `dataSource.object`, in all ten language packs.
+  
+  Breaking for an author who wrote the flat keys on these two elements: move them into `dataSource`. `element:repeater` is unchanged.
+- aaba865: `element:repeater` reads the node-level `dataSource` binding first (objectui#11880, the repeater half of the objectui step of objectstack#11509, ruled A-narrow).
+  
+  - **Renderer (`@object-ui/components`).** A repeater bound only through `dataSource` now lists the records it names; it showed "No records" before. Its flat `properties.object` / `filter` / `sort` / `limit` stay read, as the fallback, until `@objectstack/spec` retires them in v18, so a repeater that carries only the flat keys reads exactly as before. Where a node carries both, the precedence is the one `ElementDataSourceGate` applies to every object-bound block: the binding's `object`; the flat `filter` AND-combined with the binding's (and its saved view's), so neither is dropped; the binding's own `sort` and `limit`, else the flat key, else the saved view's. An unresolvable `view`, or a filter the merge refuses, shows the configuration-error panel and reads nothing. The registration now publishes the injected `dataSource` input; `object` stays required.
+  - **Schema (`@object-ui/types`).** `ElementRepeaterBlockSchema` declares `dataSource` as `@objectstack/spec`'s `ElementDataSourceSchema`, by reference, and its bag's `object` stays required. Clause-②: the strict authoring face (`StrictAnyComponentSchema`) now ACCEPTS a repeater carrying `properties.object` plus a well-formed `dataSource`, which it refused as an unrecognized key; and the tolerant face (`safeValidateSchema`) now JUDGES the binding, so a repeater whose `dataSource` the spec's own node schema refuses (a string, a non-string `object`, an undeclared member, a record-form `filter`) is refused at `dataSource` where it was passed through unjudged. The TypeScript node type derived from the arm types the binding. A repeater whose bag omits `object` is refused at `properties.object` on both faces, as before.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/sdui-parser@17.8.0
+  - @object-ui/i18n@17.8.0
+  - @object-ui/react@17.8.0
+  - @object-ui/react-runtime@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

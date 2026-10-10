@@ -1,5 +1,31 @@
 # @object-ui/auth
 
+## 17.8.0
+
+### Minor Changes
+
+- f1a177c: `LoginForm` shows its "Don't have an account? Sign up" row only when the caller passes `registerUrl` (objectui#11634). The prop used to default to `'/register'`, so a caller that passed `undefined` to withhold the link got it back. Both console login pages pass `undefined` when the server's `/auth/config` reports `emailPassword.disableSignUp: true`, so a deployment with sign-up turned off still offered a sign-up link. The server refused the sign-up and `/register` sent the user back to the login page.
+  
+  **Behaviour change.** A `LoginForm` rendered without `registerUrl` no longer shows a sign-up link. A caller that left the prop out and relied on the `'/register'` default now passes the URL itself, `registerUrl="/register"`, to keep the link. The console app's login page and `@object-ui/app-shell`'s `DefaultLoginPage` already pass the URL whenever sign-up is on, so neither changes. Leaving the prop out, or passing `undefined`, is the one way to render no link: no second "off" value is added.
+  
+  **Clause-②: no.** The prop's type is unchanged (`registerUrl?: string`). No export, prop, type member or i18n key is added or removed.
+- daa7caf: The console's login and register pages offer a generic sign-up only where the server would accept one (objectui#11691). `/api/v1/auth/config` states the sign-up rule as two keys, `emailPassword.disableSignUp` and `features.audiencePosture`, and the server deliberately does not force the first from the second: under `invite_only` its sign-up route still admits a pending invitee. The pages read only `disableSignUp`, so under the default `invite_only` posture `/login` offered "Sign up" and `/register` refused the finished form with `SELF_REGISTRATION_CLOSED`.
+  
+  Both pages now read both keys:
+  
+  - `disableSignUp: true` still hides sign-up outright, invitation links included.
+  - Under `open` or `email_domain`, nothing changes.
+  - Under `invite_only`, `/login` shows no "Sign up" link. A visitor who arrived from an invitation (`?redirect=/accept-invitation/ID`, the signed-out bounce of the invitation page) still gets the link, and `/register` still renders the form for them. A deployment with no owner yet (`GET /api/v1/auth/bootstrap-status` answers `hasOwner: false`) keeps the link for its first owner, because the server admits the first account under every posture.
+  - Otherwise `/register` says that self-registration is not open and points back to sign-in, before any field is filled in, instead of refusing the submitted form.
+  - A server that sends no `audiencePosture` is answered as before, by `disableSignUp` alone. A posture value the console does not recognise reads as closed.
+  
+  **Clause-②: yes.** `@object-ui/auth`'s published `AuthPublicConfig.features` gains an optional `audiencePosture` member, typed as `@objectstack/spec`'s `AudiencePosture`. The package's `@objectstack/spec` range moves from `^17.0.0` to `^17.3.0`, the first release that declares that type. No export, prop or i18n key is added or removed: the register page's explanation reuses the existing `auth.register.errors.selfRegistrationClosed` sentence.
+- dfa15c8: A new workspace now takes its creator's browser timezone when it is created, so its first administrator is no longer asked for a zone the browser already knows (objectui#11908).
+  
+  `createOrganization` accepts an optional `timezone`, an IANA zone such as `Asia/Shanghai`, on both `AuthClient` and the `useAuth()` context. The client sends it as the `timezone` query parameter of `POST /organization/create`; the request body stays `{ name, slug }` (plus `logo` when given). When the zone is absent or empty, no parameter is sent and the server keeps its default zone. A server that does not read the parameter ignores it.
+  
+  The console's create-workspace dialog and the first-run setup page's create branch both pass the browser's `Intl.DateTimeFormat().resolvedOptions().timeZone`. A browser that reports no zone sends none. Existing workspaces are unchanged, and the one-time timezone prompt still asks about a workspace whose zone is still the default.
+
 ## 17.7.0
 
 ### Minor Changes

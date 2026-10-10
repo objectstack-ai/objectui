@@ -1,5 +1,187 @@
 # @object-ui/plugin-designer
 
+## 17.8.0
+
+### Minor Changes
+
+- 12ff256: The row type of the `VersionHistory` timeline is declared as `VersionHistoryEntry` instead of `VersionEntry` (objectui#6349, batch 10). `@object-ui/collaboration` publishes an unrelated `VersionEntry`: a version its `useConflictResolution` hook records, with an `id` and a per-field `changes` diff. This timeline's rows carry a prose `description` and an `isCurrent` flag instead, and one exported name has one declaration.
+  
+  **Breaking-change note.** Nothing breaks for a consumer of this package: the package entry never exported `VersionEntry`, so no import named it, and the rows keep the same members (`version`, `timestamp`, `userId`, `userName`, `description`, `isCurrent`). Only the type name shown in the published declaration of `VersionHistory`'s `versions` prop changes.
+  
+  No runtime behaviour changes.
+- 1f1c4b5: The result type of `useConfirmDialog` is declared as `DesignerConfirmDialogState` instead of `ConfirmDialogState` (objectui#6349, batch 6). `@object-ui/app-shell` declares an unrelated `ConfirmDialogState` (the data its action-confirm dialog renders, with the promise's resolver), and one exported name has one declaration.
+  
+  **Breaking-change note.** Nothing breaks for a consumer of this package: the package entry never exported `ConfirmDialogState`, so no import named it, and the hook's result keeps the same members (`isOpen`, `title`, `message`, `confirm`, `onConfirm`, `onCancel`). Only the type name shown in the published declaration of `useConfirmDialog` changes. `ReturnType<typeof useConfirmDialog>` resolves to the same shape as before.
+  
+  No runtime behaviour changes.
+
+### Patch Changes
+
+- 2e818d0: The dashboard surfaces read every `widgets[]` entry without leaning on `BaseSchema`'s index signature: a widget key is read on the widget arm alone, and the `chart` node is built as a private hand-off type (objectui#11598).
+  
+  **N1, the `chart` producers.** `DashboardRenderer` and `DashboardGridLayout` build a `chart` node for a series widget bound to inline rows, and compose two render keys onto it: the dashboard palette (`colors`) and `isAnimationActive: false`, the deterministic first paint inside the grid (#2756). `ChartSchema` declares neither key, on either face, and the chart renderer reads both. Each producer now checks its literal against a hand-off type private to this package, `ChartSchema` plus those two keys, and hands the node on with no cast; the type is not exported, and the keys stay off `@object-ui/types`, because the strict authoring face refuses both on an authored `chart` node. Nothing drawn changes.
+  
+  **N2, widget keys on the slot entry.** An entry of `widgets[]` is a widget or a component node placed in the slot (a `metric-card`), and only the widget declares the widget keys (`dataset`, `options`, `chartConfig`, `filter`, `component`, `colorVariant`, `values`, `dimensions`, …). Every read of one now narrows the entry to the widget first, on `DashboardRenderer`, `DashboardGridLayout`, `DashboardWithConfig` and `DashboardEditor`. What changes is confined to a `metric-card` entry that carries a widget key, which `@object-ui/types/zod`'s strict face refuses and only the tolerant face accepts:
+  
+  - a `metric-card` carrying `dataset` draws its card; it used to draw the dataset tile in the card's place, on both dashboard surfaces;
+  - a `metric-card` carrying `options` draws its own keys; `options` used to be spread over them, so `options.value` replaced `value`;
+  - a `metric-card` carrying a `component` draws its card; the envelope's node used to be drawn instead.
+  
+  A document the strict face accepts draws exactly as before. `@object-ui/types`' docblocks on `DASHBOARD_COMPONENT_WIDGET_TYPES` and the Zod widget vocabulary, which described the dataset tile in the card's place and the `options` spread as live, were corrected to match; no type in it changes. In `DashboardEditor`, a `metric-card` entry is no longer offered the Color Variant select: the card declares no `colorVariant`, `MetricCard` draws nothing from it, and a pick stored a key publish refuses. A widget is offered it as before.
+- da35453: Objects with a picklist-bound field save again from the OWD overview, the Setup fields and objects pages, the metadata-admin embedded-item editor, and `MetadataService.saveFields` (objectui#11692).
+  
+  The runtime serves a field that names a shared picklist (`picklist: 'NAME'`) with the options it resolved from the list. The authoring door refuses `options` beside `picklist`, with `422 INVALID_METADATA` at `fields.FIELD.options`, and the refusal covers the whole object. objectui#10202 fixed the two designers that host the select-field editor. These writers also seed their save from a served object read, so they sent the resolved options back and were refused, whatever had been edited:
+  
+  - **Studio → Access → OWD overview.** Changing an object's sharing model and saving was refused.
+  - **The Setup fields page** (`MetadataFieldsPage`). Editing any field of such an object was refused.
+  - **The Setup objects page** (`MetadataObjectsPage`). Relabelling such an object was refused.
+  - **The metadata-admin embedded-item editor** (`EmbeddedItemEditor`, opened from an object's fields, indexes or validations). Saving any item of such an object was refused.
+  - **`MetadataService.saveFields`.** A field list built from the served object was refused.
+  
+  Each now leaves `options` out of every field that names a picklist, before the PUT. A field without `picklist` keeps its inline `options` unchanged, and no other key is touched.
+  
+  `dropServedPicklistOptions` is now exported from `@object-ui/data-objectstack`. It is the served-to-authored conversion these writers apply, and it moves here from `@object-ui/app-shell` (it was not exported there), because `@object-ui/plugin-designer` does not depend on `app-shell`. It is for code that builds an object PUT from a served read. `MetadataClient.save` does not apply it, and neither do `MetadataService.saveObject` and `MetadataService.saveMetadataItem`, which read nothing: a body that pairs `picklist` with `options` without a served read behind it is still refused by the server, with its prescription.
+- 5ad8183: The dashboard designer's widget property panel picks a widget's Type and Color Variant with the shared `Select`, and the designers' property panel (`PropertyEditor`) draws a `select` field with it too: the control the rest of the console picks with (objectui#11865, the dashboard designer's part of that card).
+  
+  The three pickers were browser-native selects, so they looked and behaved differently from the console's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour.
+  
+  What they write is unchanged. Each option hands the panel the same value as before: a type pick still writes `type`, a colour pick still writes `colorVariant`, and a `select` field still calls `onChange` with the field's name and the option's value, an option whose value is empty included. A type the widget door refuses the widget's measures under is still a disabled option and still writes nothing. Re-picking the current option writes nothing. The Type and Color Variant pickers keep the accessible name their labels gave the native selects; a `select` field's caption named no control before and names none now. Read-only disables the Type and Color Variant triggers in the shared `Select`'s own disabled look; `PropertyEditor` has no read-only state, as before.
+  
+  One display change: a value none of a picker's options carries now shows as itself (a stored `area` type, a `metric-card` entry's type, a field value no option carries). The native select showed its first option instead ("KPI Metric", "Default"), which is not what the widget or the field holds. A `select` field with no value and no empty option shows nothing rather than its first option.
+  
+  **Clause-②: no.** No published face moves: the package entry exports the same names, `DashboardEditorProps`, `PropertyEditorProps` and `PropertyField` take the same members, and no i18n key is added. What moves is the panels' own markup, described above: a test that drove one of these controls as a native select now picks through the trigger.
+- e8f9977: The designer forms pick with the shared `Select`, the control the rest of the console picks with (objectui#11865, the designer forms' part of that card): `FieldDesigner`'s type filter, `DataModelDesigner`'s field-type picker on each field row, `BrandingEditor`'s font family and `AppCreationWizard`'s template.
+  
+  The four pickers were browser-native selects, so they looked and behaved differently from the console's other dropdowns. They now use the shared Radix `Select`: the same trigger, dropdown and keyboard behaviour. The type filter keeps its category headings (Text, Number, Date & Time, Choice, Relation, Advanced) as groups of the dropdown.
+  
+  What they write is unchanged. Each option gives the form the same value as before: "All Types" still clears the type filter, "Default (System)" still clears the branding's `fontFamily`, and "None" still sets the draft's `template` to an empty string. Re-picking the current option writes nothing. The font family and template pickers keep the accessible name their label gave the native select ("Font Family", "Template") and show read-only mode as disabled. The type filter stays enabled in read-only mode, as before, and a read-only data model still shows each field's type as text. On a data model entity card, a click on the type picker still does not select the card, and Delete or Escape on it still does not act on the canvas.
+  
+  One display change: a value none of a picker's options carries now shows as itself. The native select showed its first option instead (`text` for a field type, "Default (System)" for a font, "None" for a template), which is not what the form holds.
+  
+  **Clause-②: no.** No published face moves: the package entry exports the same names, the four components take the same props, and no i18n key is added. What moves is the four controls' own markup, described above.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [15f6702]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [3f0b0cd]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [902ebab]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [d768c31]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [b88937b]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [846f982]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [da35453]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [4590363]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [e06365c]
+- Updated dependencies [4a9fe31]
+- Updated dependencies [6d8bf0c]
+- Updated dependencies [5dff027]
+- Updated dependencies [8aebc6f]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [bfca7ec]
+- Updated dependencies [5e446ab]
+- Updated dependencies [9844bbf]
+- Updated dependencies [0aa8c0c]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [2063f7a]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [9fc6ad7]
+- Updated dependencies [f1781be]
+- Updated dependencies [fbad078]
+- Updated dependencies [ccddd11]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [c0c0a0d]
+- Updated dependencies [d758f2f]
+- Updated dependencies [1b2d016]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/components@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/plugin-form@17.8.0
+  - @object-ui/i18n@17.8.0
+  - @object-ui/react@17.8.0
+  - @object-ui/plugin-grid@17.8.0
+  - @object-ui/layout@17.8.0
+  - @object-ui/data-objectstack@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

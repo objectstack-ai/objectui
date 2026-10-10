@@ -1,5 +1,714 @@
 # @object-ui/types
 
+## 17.8.0
+
+### Minor Changes
+
+- 18d7b48: A form field declares `scale` and `currencyConfig` on both faces, by reference to `@objectstack/spec`'s `FieldSchema`, so the strict authoring face accepts the decimal places and the fixed currency the field widgets read (objectui#11070).
+  
+  A hand-authored `form` hands each field widget the `fields[]` entry itself as its metadata carrier. The `number`, `percent`, `formula` and `summary` widgets read `scale` off it, and the `currency` widget reads `currencyConfig` through `resolveFieldCurrency`. Both keys always drew; only the declarations were missing. Each is now the spec member itself, value checks included.
+  
+  - **TypeScript.** `FormField` gains `scale?: SpecField['scale']` and `currencyConfig?: SpecField['currencyConfig']`. Both used to fall to the index signature's `any`. A typed literal with a value of the wrong type (a string `scale`, a `currencyMode` outside `fixed` / `dynamic`) is now a compile error.
+  - **zod (`@object-ui/types/zod`).** WIDENS on the strict authoring face (`StrictAnyComponentSchema`): `fields[].scale` and `fields[].currencyConfig` used to be refused with `unrecognized_keys`, and now parse. NARROWS on the tolerant face (`safeValidateSchema`), where both keys used to be stripped unjudged: a `scale` that is not a whole number from 0 to 100 is now refused, and so is a `currencyConfig` the spec refuses (a `currencyMode` outside `fixed` / `dynamic`, a `defaultCurrency` that is not three characters, or a member the spec's config does not declare, such as the removed `precision`). The values are now kept. No spec default (`dynamic`, `CNY`) is written into the document.
+  - **`scale` on a `currency` field is refused, on both faces.** The spec's `FieldSchema` refuses it there (objectstack-ai/objectstack#19629): an amount's decimal places are its currency's ISO 4217 minor unit. The `currency` widget never read it. The rule is keyed on `type`, as the spec keys it, and the refusal is the spec's own text. This is the only one of the spec's cross-key rules this face carries. The others (`rows`, `minLength` / `maxLength`, `multiple`) key on the spec's field-type sets, and a form field's `type` is a widget id (`input`, `select`, …) those sets do not hold.
+  - **Not declared: `currency` on a form field.** The spec's `FieldSchema` refuses it as a field key, so the strict face still refuses it. `resolveFieldCurrency` still reads it at runtime. Declare a fixed currency as `currencyConfig: { currencyMode: 'fixed', defaultCurrency: 'EUR' }`.
+  
+  BREAKING (`@object-ui/types`), for a document whose form field carries a `scale` or a `currencyConfig` the spec refuses, or a `scale` on a `currency` field: it no longer validates on the tolerant face. Fix the value, or delete `scale` from the `currency` field. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  **Clause-②: yes (widening)**: both keys widen the strict face, and their spec value checks, plus the spec's `currency` rule on `scale`, narrow the tolerant face.
+- 172acc3: The `sidebar` node declares `side` on both faces, so the strict authoring face accepts the edge the sidebar is drawn against (objectui#11070).
+  
+  `side` is `'left'` (the default) or `'right'`. These are the two values the `sidebar` registration offers, and the edge shadcn's `Sidebar` pins the collapsible form to. The node hands the key to shadcn through the props it forwards, so it always drew; only the declaration was missing. `@objectstack/spec` has no `sidebar` row to take it from, so it is declared locally.
+  
+  - **TypeScript.** `SidebarSchema` gains `side?: 'left' | 'right'`. A typed literal carrying `side: 'right'` used to be refused as an excess property, and now compiles.
+  - **zod (`@object-ui/types/zod`).** WIDENS on the strict authoring face (`StrictAnyComponentSchema`): `side` used to be refused with `unrecognized_keys`, and now parses. NARROWS on the tolerant face (`safeValidateSchema`, which `objectui validate` runs): a `side` other than the two edges used to parse unjudged, and is now refused with `invalid_value` at `side`. Nothing changes for `left` or `right`.
+  - **The retired `position` key.** It stays refused by name on every face. Its refusal now also says that `side: 'right'` draws the sidebar against the right edge.
+  
+  BREAKING (`@object-ui/types`), for a document whose `sidebar` node carries a `side` that is neither `left` nor `right`: it no longer validates. Write `left` or `right`. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  **Clause-②: yes (widening)**: `side` widens the strict face, and its two-value enum narrows the tolerant face.
+- c4c506b: **Clause-②: yes (narrowing)**
+  
+  One declaration of the per-type NODE SLOTS — the keys other than `children` through which a renderer hands authored nodes back to `SchemaRenderer` — and three readers that walk it instead of stopping at `children` (objectui#11170, the follow-up PR #11126's Acceptance notes filed).
+  
+  New on `@object-ui/types`, beside `BaseSchema.children`: `NODE_SLOT_DECLARATIONS` (one row per renderer, under every registry spelling that resolves to it), `nodeSlotsFor(type)`, `nodeSlotPathSegments(path)` and `nodeSlotValues(node, path)`, with the types `NodeSlotDeclaration`, `NodeSlotRow`, `NodeSlotSegment` and `NodeSlotValue`. A position is spelled as a key path — `trigger`, `items[].content`, `regions[].components`, `items[]`, `report.sections[].content` — and the value at its end is one node or a list of nodes. The `page:*` rows are `@objectstack/spec`'s `pageComponentSlotPositions()` placed on the type whose renderer reads each position, pinned against that export in both directions; every other row is objectui's own, pinned against the live renderer. `body` stays retired as the generic child-list key (objectui#6771): it appears only on the four `page:*` types whose renderer still paints it for stored documents, marked `retired`.
+  
+  Accept sets that narrow, each reader FROM → TO:
+  
+  - `@object-ui/cli` — `objectui check`'s unevaluated-expression refusal (`findUnbindableTextExpressions`). FROM: the document root and every node its `children` hold. TO: those, and every node under a slot its type declares — so a `${…}` on `title` / `label` / `value` / `description` of a node under a dialog's `content`, a tab item's `content`, a page's `regions[].components`, a carousel item, a detail view's `tabs[].content` is now refused with the slot path (`items → 0 → content → value`). The false-refusal rows of PR #11126's ablation 2 stay green: a form's `fields[]`, a grid's `columns[]` and `{ "type": "multiple" }` are not slots. Measured over this repository's own JSON corpus and docs fences: no new finding.
+  - `@object-ui/core` — `validateSchema`. FROM: `validateChildren` recursed through `children` only. TO: it also recurses through the declared slots, so an invalid node under one (a retired `crud` spelling under `dialog.content`, an `INVALID_SCHEMA` member) is reported with its own path, spelled as `schema.items[0].content`. Measured over the same corpus: no new finding.
+  - `@object-ui/sdui-parser` — `validateTree`. FROM: the walk descended `children` alone, and a manifest entry carried no slot. TO: `ManifestComponent` gains `slots?: readonly string[]`, `manifestFromConfigs` gains `opts.slotsFor` (hand it `nodeSlotsFor`) and projects each entry's non-retired positions, and `validateTree` descends them — an unknown component, an unknown or mis-typed prop or an illegal enum under a slot now draws its diagnostic. A manifest built without the option serialises byte-identically and keeps the `children`-only reach. The `RETIRED_CHILD_LIST_KEY` refusals are unchanged.
+  - `@object-ui/components` — the `kind:'html'` page's compile manifest (`getJsxManifest`) is built with `slotsFor`, so an html-tier page whose slot-held node fails validation now fails to compile the way one under `children` does. Narrowing: a page that compiled with an unknown tag under a `dialog`'s `content` no longer does.
+  
+  Docs: `content/docs/utilities/cli.mdx`'s "Component nodes only" rule, the gate's own docblock, `validateChildren`'s comment and the parser's header now say the walk follows `children` and the declared slots; the declaration's header is where the slot list is explained.
+- 9db9ff3: A form view's `subforms[].columns` entry is judged by `@objectstack/spec`'s `InlineGridColumnSchema` now, by reference, so `objectui validate` and `os validate` give one verdict on a column (objectui#11266).
+  
+  BREAKING (`@object-ui/types`): the accept set of the tolerant face narrows. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  `@objectstack/spec` 17.6.0 holds `FormViewSchema.subforms[].columns` to its closed inline grid column schema (objectstack-ai/objectstack#20927). The `object-form` mirror still read `z.array(z.any())` there, so `objectui validate` accepted columns that `os validate` refuses.
+  
+  What each face does now:
+  
+  - **zod (`@object-ui/types/zod`).** NARROWS on the tolerant face (`safeValidateSchema`, which `objectui validate` runs) and on the strict authoring face, wherever `subforms` is read: the object-view `form` slot and the `object-form` mirror. A column with an undeclared key is refused at the column, with one `unrecognized_keys` issue naming the key. A column that declares `type: 'currency'` and carries `scale` is refused at that `scale`, in the spec's own words. A bare field-name string is refused at the column with `invalid_type`. Each verdict is the spec schema's, because the column is handed to it.
+  - **TypeScript.** A `subforms[].columns` entry on `ObjectFormSchema` (and so on `ObjectViewSchema['form']`) is `InlineGridColumn` from `@objectstack/spec/data`, by reference, where it was `any`. A string column no longer compiles, and neither does an object literal with an undeclared column key.
+  
+  **Migration.**
+  
+  - FROM `columns: ['product', 'quantity']` → TO `columns: [{ name: 'product' }, { name: 'quantity' }]`
+  - FROM a column carrying a key `InlineGridColumn` does not declare → TO the same column without that key. A column that declares no `type` takes its label, type and the rest from the child object's field.
+  - FROM `{ name: 'amount', type: 'currency', scale: 2 }` → TO `{ name: 'amount', type: 'currency' }`. A currency amount's decimal places come from its currency's minor unit, not from the column.
+  
+  Not refused here: a `scale` on a column that declares no `type` (`{ name: 'amount', scale: 2 }`) when its child field is a currency. Seeing that takes the child object's fields, which are not in the document the validator judges. `defineStack` refuses it at publish, and the master-detail form reports it at render.
+  
+  The parse output is the spec schema's too: a column `readonlyWhen` or `requiredWhen` written as a string comes back from `safeValidateSchema` as the spec's `{ dialect: 'cel', source }` envelope. The document you pass in is not changed.
+  
+  **Clause-②: yes (narrowing)**: a `subforms[].columns` entry that is not a valid `InlineGridColumn` used to parse with its value kept, and is now refused at the column.
+- b10c68e: `FlexBlockNode`, the TypeScript type of an authored `flex` node, types its bag's child list as nodes: `properties.children` is `SchemaNode | SchemaNode[]`, where it was `unknown[] | SchemaNode` (objectui#11564).
+  
+  **Clause-②: yes (narrowing)**, TypeScript authoring face only, shipped as `minor` per this repository's version policy. The list is the form a `flex` node is authored in (`{ type: 'flex', properties: { children: [ … ] } }`), and until now each entry was `unknown`, while a single child was already judged as a node. Each list entry is now judged as a node too, against its own `type`:
+  
+  - an entry whose `type` no declaration names, or an object with no `type`, no longer compiles;
+  - an entry that is itself a list no longer compiles;
+  - a misspelled key on a node type without an index signature (the spec-derived nodes, such as `element:text`, and a closed `CustomNodeRegistry` entry) no longer compiles. Node types that extend `BaseSchema` keep its index signature until objectui#8347 removes it, so a misspelled key on one of them still compiles, in the list exactly as in a single child;
+  - a primitive entry (a string, a number, `null`) still compiles, as in every node slot.
+  
+  The type is the flat `FlexSchema` mirror's own `children` member, by reference, which is also the member `FlexLayoutProps` declares. Every other member of `FlexBlockNode` and of its bag is still read off the `FlexBlockSchema` arm.
+  
+  What does NOT move: every zod face and every runtime path. `FlexBlockSchema` keeps `z.array(z.unknown())` for the list, because `@objectstack/spec`'s page walk already judges each entry there, once, at its real path, on the tolerant and the strict face (objectui#11223). The one entry kind where the faces now differ is a nested list, which the walk passes through unvisited and the TypeScript face refuses; `@object-ui/types`' mirror-parity ledger records the divergence.
+  
+  **Migration.** Give each list entry its declared node type (or `DeclaredNode`), declare a custom type in `CustomNodeRegistry`, and flatten a nested list into the one list.
+  
+  ⚠️ **Dated note, 2026-10-04 — `BaseSchema` loses its index signature — objectui#8347.** At this change, "Node types that extend `BaseSchema` keep its index signature until objectui#8347 removes it, so a misspelled key on one of them still compiles" held. Later in this same release objectui#8347 removed that signature, so a misspelled key on a node type that extends `BaseSchema` no longer compiles either, in the list exactly as in a single child. `.changeset/8347-baseschema-closed-face.md` states what ships. The rest of this entry is kept as the reading of this change.
+- 8b14aec: **BREAKING — `PartialSchema<T>` is RETIRED from `@object-ui/types`** (objectui#11608, enforce-or-remove). The utility type leaves the `.` entry, the one entry that published it, with no replacement alias.
+  
+  **Clause-②: yes (narrowing)**, shipped as `minor` per this repository's version policy: one name leaves the published surface, and the break is stated here.
+  
+  - **Why.** The alias had no reader: no producer, doc or skill in this repository, and none in the sibling repositories the census could read. While `BaseSchema` carried an index signature it declared `type` alone, whatever `T` was (objectui#6397). objectui#8347 removed that signature, which made the alias work as written and brought its published-export question due. A published capability with no reader is retired, not kept for its sunk cost.
+  - **objectui#8347's note.** That release note says `PartialSchema<T>` works as written once `BaseSchema` lost its index signature. This removal supersedes it.
+  
+  **FROM** `import type { PartialSchema } from '@object-ui/types'`, annotating a value as `PartialSchema<T>`.
+  **TO** the node type's own declared members: annotate a whole node with its node type (`ButtonSchema`, `InputSchema`, …). For a partial value, write `Partial<T> & { type: T['type'] }` inline. It keeps every member `T` declares, with `type` required and the rest optional, and a misspelled key is still refused.
+  
+  ```ts
+  // before
+  import type { ButtonSchema, PartialSchema } from '@object-ui/types';
+  const patch: PartialSchema<ButtonSchema> = { type: 'button', label: 'Save' };
+  
+  // after: the import above is a compile error naming the symbol
+  import type { ButtonSchema } from '@object-ui/types';
+  const patch: Partial<ButtonSchema> & { type: ButtonSchema['type'] } = { type: 'button', label: 'Save' };
+  ```
+- 2abec3a: The `grid` field's eight field-level keys are camelCase now, and their snake_case spellings are retired and refused by name on every face (objectui#11610).
+  
+  BREAKING (`@object-ui/types`, `@object-ui/fields`): a `grid` field's metadata, and a `form` `fields[]` entry of `type: 'grid'`, must spell these keys in camelCase. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  - FROM `min_rows` → TO `minRows`
+  - FROM `max_rows` → TO `maxRows`
+  - FROM `allow_add` → TO `allowAdd`
+  - FROM `allow_delete` → TO `allowDelete`
+  - FROM `allow_reorder` → TO `allowReorder`
+  - FROM `total_field` → TO `totalField`
+  - FROM `add_label` → TO `addLabel`
+  - FROM `sort_field` → TO `sortField`
+  
+  Why: `@objectstack/spec`'s runtime form field declares config keys in camelCase only, so it could not declare these keys as they were written (objectstack-ai/objectstack#21704, fork 2, ruled B). There is no alias window and no dual read: no reader reads the snake_case spellings any more, and no stored producer outside this repository's own fixtures, which move with this change, was found to write them.
+  
+  **Migration.** Rename each key; its value stays the same. `totalField` keeps its meaning: the CHILD column summed into the grid's footer, which is the value a spec `amountField` carries. It is not the parent field the spec's own `totalField` names on a master-detail subform.
+  
+  What each face does with a snake_case key now:
+  
+  - **TypeScript.** `GridFieldMetadata` and `FormField` declare each as a `never` member, so an authored value no longer compiles. The camelCase members carry the value types the snake_case members had, and `FormField` still takes each one by reference to `GridFieldMetadata`.
+  - **zod (`@object-ui/types/zod`).** NARROWS on the tolerant face (`safeValidateSchema`, which `objectui validate` runs) and on the strict authoring face: a form field entry carrying a snake_case key used to parse with the value kept, and is now refused with one `invalid_type` issue at that key. The message leads with ``Did you mean `min_rows` → `minRows`?`` (each key names its own replacement). WIDENS on both faces: the camelCase keys parse, judged by the same value types.
+  - **The `grid` widget (`@object-ui/fields`).** `GridField` reads the camelCase keys only. A field whose metadata still carries a snake_case key is drawn as an inline alert naming each retired key beside its replacement (`role="alert"`, `data-testid="grid-field-retired-keys"`) instead of the grid, and the same text goes to `console.error` once. Nothing is thrown, so the rest of the form still draws, and the rows are not changed.
+  
+  New export from `@object-ui/types`: `GRID_FIELD_RETIRED_KEYS`, the snake_case to camelCase map that the zod refusals and the widget both read, with its key type `GridFieldRetiredKey`.
+  
+  `@object-ui/plugin-form`'s master-detail and line-items adapters now hand the grid the camelCase keys, typed against `GridFieldMetadata` instead of cast through `any`. What they draw does not change.
+  
+  **Clause-②: yes (narrowing)**: the camelCase spellings widen each face, and the snake_case spellings narrow it.
+- 9dfaca6: The default (`simple`) `object-form` draws a self-describing inline section entry, as the `tabbed`, `wizard`, `split`, `drawer` and `modal` forms already did (objectui#11615). Before, the default form resolved every section entry against its parent field pool and skipped an inline `{ name, … }` entry whose name the pool did not hold. The same section drew that entry on every other form type and drew nothing for it on `simple`, apart from a console warning when the object declared the name.
+  
+  **Clause-②: yes (widening, with one break for TypeScript readers).** Authored input is only widened: nothing either package accepted before is refused now. Code that READS `ObjectFormSection.fields` can break at compile time, described under "Breaking for TypeScript readers" below.
+  
+  - `@object-ui/types`: `ObjectFormSection.fields` is `(string | SpecFormFieldInput | FormField)[]`. The new arm is the form view's `{ field, … }` entry, and it is `@objectstack/spec`'s `FormFieldInput` by reference, not a copy. The form already drew that entry. Before, a TypeScript author could not annotate it, because `FormField` requires `name` and types `field` as an object. The zod mirror is unchanged: a section's `fields` entry is still `z.any()` there.
+  - `@object-ui/plugin-form`, layout types: the section `fields` of the five layout configs is `NonNullable<ObjectFormSection['fields']>`, by reference. Those configs are `FormSectionConfig` (tabbed), `WizardStepConfig`, `SplitFormSectionConfig`, `DrawerFormSectionConfig` and `ModalFormSectionConfig`, reached through the exported `TabbedFormSchema`, `WizardFormSchema`, `SplitFormSchema`, `DrawerFormSchema` and `ModalFormSchema`. Each of these layouts already drew the `{ field }` entry. Before, their types refused it, and `ObjectForm` passing an authored section to them would no longer compile once the section type named the entry.
+  - `@object-ui/plugin-form`, section drawing: on `simple`, an entry that names itself is drawn as it stands, whatever the field pool holds. Such an entry is an object whose `field` is not a string and whose `name` is a string. This is the existing `isInlineFieldDef` predicate that the submit-target rule already reads. It does not require `type`: the spec's inline arm makes `type` optional, and the other five forms draw a typeless entry as the default input.
+  - `@object-ui/plugin-form`, inline collector: a `simple` form with no data source and no `submitHandler`, whose sections list only inline entries, is now a self-contained collector, as on the other five forms. It opens on `initialValues` / `initialData`, and its `onSuccess` receives the collected values. Before, that form drew no fields and refused the submit. Its submit carve-out now reads the shared `hasInlineFieldSource`.
+  
+  **Breaking for TypeScript readers of `ObjectFormSection.fields`** (still `minor`: objectui's major follows the `@objectstack` family major, so its own breaks ship as `minor` and are stated here). A consumer that narrowed an entry with `typeof entry === 'string' ? entry : entry.name` compiled while every object entry was typed as an inline `FormField`. It no longer compiles: `Property 'name' does not exist on type 'FormFieldInput | FormField'`. The read was already wrong at runtime for a `{ field }` entry, where it gave `undefined`. Remedy: name an entry by its arm. The string is the name itself, the `{ field }` entry names its field by `field`, and the inline entry names it by `name`. `@object-ui/plugin-form` now exports `sectionEntryName(entry)`, which applies exactly that rule and returns `undefined` for an entry that names nothing. It sits beside `resolveSectionGroupReferences`, whose result it reads. The repo's own reader, an app-shell test over that resolver's result, is respelled this way.
+  
+  **What stays refused or warned.**
+  
+  - A field name and a `{ field }` entry still resolve against the pool on `simple`. A name the pool does not hold is still dropped, and still warned about once when the object declares it, because top-level `fields` and `sections` still intersect (objectui#9884).
+  - An inline entry with no `name` is malformed and is still not drawn on `simple`.
+  - A form with no data source and no `submitHandler` still refuses its submit with `DataSource is required for form submission (inline mode not configured)` unless every section entry is inline. One name or `{ field }` entry among inline ones is enough to refuse, on all six forms.
+  
+  **Behaviour change for an existing schema.** On `simple`, an inline entry whose name the object declares but top-level `fields` leaves out used to be dropped with the intersection warning. It is now drawn as its own definition, with no warning, as on the other five forms. With a data source, its value is still written only if the object declares the field. As on every form, a key the object does not declare is stripped from the write.
+- 89cc738: Inside a dashboard widget's legacy `component` envelope, a `metric-card` is now judged by the slot's component arm alone, so every key that arm refuses is refused there too, with the arm's own message (objectui#11709).
+  
+  BREAKING (`@object-ui/types`): a widget's `component` envelope that holds a `metric-card` the component arm refuses is now refused by `objectui validate`. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  - FROM `{ "id": "w", "component": { "type": "metric-card", "value": "$123,456", "label": "Total Revenue" } }`
+  - TO `{ "id": "w", "component": { "type": "metric-card", "value": "$123,456", "title": "Total Revenue" } }`
+  
+  Why: the envelope's `component` slot was a plain union of the component arm and passthrough `BaseSchema`. A union takes the first arm that parses, and `BaseSchema` admits any node, so a card the arm refused parsed through it on the tolerant face (`safeValidateSchema`, which `objectui validate` runs). That covered `label`, `children`, a `trend` outside `up | down | neutral`, a card with no `value`, and every other value the arm's members refuse. The strict authoring face and the TypeScript twin already refused the same documents. `body` was refused, but by both arms, so the validator printed `BaseSchema`'s message beside the arm's.
+  
+  **Migration.** Write the card the way it is written directly in `widgets[]`: `title` for the heading, a `value`, `trend` from its enum, and no `body` or `children`. A card the strict face accepts parses exactly as before.
+  
+  What each face does now:
+  
+  - **zod (`@object-ui/types/zod`), tolerant face.** NARROWS. The slot reads the node's `type` before the union runs. A `type` the component arm declares (`metric-card`) goes to that arm alone, so its issues come back at their own paths with the arm's own messages, and no `BaseSchema` reading stands beside them. That is the shape the same card already has directly in `widgets[]`. Every other node goes to the same two-arm union as before, so a `custom` widget's `component` keeps the passthrough.
+  - **zod, strict authoring face.** It already refused the documents above. It is derived from the same slot, so its refusal now also arrives as the arm's issues alone. It NARROWS in one corner: a card with no `value` that carries only `BaseSchema` keys (`{ "type": "metric-card" }`, or that plus `id` / `className`) used to parse there through the strict `BaseSchema` arm, and is refused now for its missing `value`.
+  - **TypeScript.** Unchanged. `DashboardWidgetSchema.component` already refused every literal above, that corner included.
+  
+  **Supersedes a line of objectui#4425's note.** That note says the tolerant face still accepts a `label` inside the `component` envelope, through the envelope's `BaseSchema` fallback. It is refused there now.
+  
+  Nothing widens, and no export is added. The routing is module-private, like the component arm itself.
+- c0862c1: `DashboardWidgetSchema` chains `@objectstack/spec`'s `checkDashboardWidgetChartMeasureArity` after the metric-family check (objectui#11334, objectui#11417), so `safeValidateSchema` and `objectui validate` now refuse what the spec refuses since 17.7.0. The refusal is one `custom` issue at `values`, with the spec's own message:
+  
+  - two or more measures with no `dimensions` on a chart type that has no rendering for them without a dimension (`pie`, `donut`, `funnel`, `scatter`, `radar`, `treemap`, `sankey`);
+  - two or more measures on `pie`, `donut`, `funnel`, `treemap` or `sankey`, even with a dimension. These draw one series and dropped every measure after the first.
+  
+  This narrows the accepted documents (breaking for a document of either shape). The fix: use `table` or a bar-family type for several measures, or give each measure its own widget. A widget stored before the refusal still renders, and the dashboard's dropped-measure warning still names what it drops. The widget editor's measure picker asks the same door, so it stops offering a second measure on these widgets.
+- c0862c1: The `page` node and the spec page-kind nodes (`record` / `home` / `utility`) chain `@objectstack/spec`'s `checkPageRequiresKind` (objectui#11717), as they already chain `checkPageSourceCompleteness`. A page that writes `requires` on a kind the platform does not compile at save is now refused at `requires` with the spec's own message, as the spec refuses it since 17.7.0. That covers `react`, `full` and `slotted` pages, and a page with no `kind`, an empty list included. `requires` stays legal on `html` and `jsx` pages, where the platform derives it from the compiled source. This narrows the accepted documents. The fix: delete the key.
+- aaba865: `element:repeater` reads the node-level `dataSource` binding first (objectui#11880, the repeater half of the objectui step of objectstack#11509, ruled A-narrow).
+  
+  - **Renderer (`@object-ui/components`).** A repeater bound only through `dataSource` now lists the records it names; it showed "No records" before. Its flat `properties.object` / `filter` / `sort` / `limit` stay read, as the fallback, until `@objectstack/spec` retires them in v18, so a repeater that carries only the flat keys reads exactly as before. Where a node carries both, the precedence is the one `ElementDataSourceGate` applies to every object-bound block: the binding's `object`; the flat `filter` AND-combined with the binding's (and its saved view's), so neither is dropped; the binding's own `sort` and `limit`, else the flat key, else the saved view's. An unresolvable `view`, or a filter the merge refuses, shows the configuration-error panel and reads nothing. The registration now publishes the injected `dataSource` input; `object` stays required.
+  - **Schema (`@object-ui/types`).** `ElementRepeaterBlockSchema` declares `dataSource` as `@objectstack/spec`'s `ElementDataSourceSchema`, by reference, and its bag's `object` stays required. Clause-②: the strict authoring face (`StrictAnyComponentSchema`) now ACCEPTS a repeater carrying `properties.object` plus a well-formed `dataSource`, which it refused as an unrecognized key; and the tolerant face (`safeValidateSchema`) now JUDGES the binding, so a repeater whose `dataSource` the spec's own node schema refuses (a string, a non-string `object`, an undeclared member, a record-form `filter`) is refused at `dataSource` where it was passed through unjudged. The TypeScript node type derived from the arm types the binding. A repeater whose bag omits `object` is refused at `properties.object` on both faces, as before.
+- 45d5853: New SDUI widget `cloud:workspace-timezone-notice`: one line on the Cloud welcome page naming the timezone a workspace was seeded with at creation (objectui#11930, the objectui half of objectstack-ai/cloud#2676).
+  
+  **Clause-②: yes** — four published surfaces widen, and nothing that parsed or rendered before changes:
+  
+  - the accept set of `AnyComponentSchema`, and so of `safeValidateSchema` and `objectui validate`, widens by one `type` literal, `cloud:workspace-timezone-notice`. `@object-ui/types/zod` exports one new schema, `CloudWorkspaceTimezoneNoticeSchema`, and `@object-ui/types` exports its TypeScript twin of the same name, a member of `AnySchema`;
+  - `@object-ui/i18n` adds one key, `cloudWorkspaceTimezoneNotice.seeded`, to all ten locale packs;
+  - `@object-ui/cli`: `objectui check` knows `cloud:workspace-timezone-notice` as a registered type;
+  - `@object-ui/app-shell` registers the widget, and its `sideEffects` array names the new module in its source and published spellings.
+  
+  **Why.** The welcome page is static metadata, and nothing in a page's expression scope carries a per-organization value, so the page could not say which timezone the workspace was created with. The seed is available only from the org-scoped `GET /cloud/environment-entitlements` summary, as the additive `workspaceTimezoneSeed` string.
+  
+  **What changed, in observable terms.**
+  
+  - A page places the node with no props: `{ "type": "cloud:workspace-timezone-notice" }`. The widget reads the summary through the hook the environment list and `cloud:plan-status` already use, and when the summary carries `workspaceTimezoneSeed` it renders one muted line naming that zone, verbatim. In English: "The workspace timezone was set to Asia/Shanghai from your browser when the workspace was created. You can change it in Settings → Localization."
+  - It renders nothing when the summary carries no seed (workspaces created before the seed existed, and control planes that do not send it yet), while the summary loads, when the request fails or rejects, and when the body is not the `{ success, data }` envelope. A failed request does not throw.
+  - The line is text only: no link and no dismissal state.
+  - The node's `className` and `responsiveStyles` reach the line.
+  - The widget is registered under one key, `cloud:workspace-timezone-notice`. There is no bare `workspace-timezone-notice` fallback and no `app-shell:`-prefixed twin.
+  - `CloudWorkspaceTimezoneNoticeSchema` takes no prop: `properties` is optional and may only be `{}`, so any key in the bag, the zone included, is refused at `properties`. `body` and `children` are refused by name, because the widget reads neither.
+- 2a48bd4: An `element:repeater` node may omit `properties.object` when its `dataSource.object` names the object. The zod arm `ElementRepeaterBlockSchema` now applies the same `object` waiver as the spec's props gate (objectui#12056).
+  
+  `ComponentPropsMap['element:repeater']` requires `object`. The spec's props gate in `@objectstack/lint` (`suppliedByDataSource`) does not report a missing `object` on any component whose `dataSource.object` is a non-empty name. `ElementNumberBlockSchema` already applies that waiver. The repeater arm did not, so it refused the node the Studio page designer now writes: `properties: {}` beside `dataSource: { object: … }`. The arm now applies the waiver the same way `element:number`'s does. The bag is the spec row with `object` alone made optional, and a node refinement puts the requirement back wherever no binding names the object.
+  
+  - **WIDENS, both zod faces.** The strict face (`StrictAnyComponentSchema`, which `objectui validate` and `objectui check` run) and the tolerant face (`safeValidateSchema`) used to refuse such a repeater at `properties.object`, whatever its `dataSource` said. Both now accept it when `dataSource.object` is a non-empty string.
+  - **Still refused at `properties.object`.** A bag with no `object` is refused when the node has no binding that names one: no `dataSource`, or a `dataSource.object` that is empty or not a string. The refusal is a `custom` issue with `params.code` `ELEMENT_REPEATER_OBJECT_REQUIRED`, and its message names both remedies. A `properties.object` of the wrong type is still refused by the row itself.
+  - **TypeScript.** The inferred `ElementRepeaterBlockSchema` type now types `properties.object` as optional, and so does the authoring type `PublicBlockNodeOf<'element:repeater'>` derived from it.
+  
+  **Clause-② yes (widening):** a strict face widens to the spec gate's rule. No export is added or removed.
+- c7b30bd: feat(types)!: `UnifiedViewConfig.chart` retires with a tombstone that names the spec's list chart block, and the three `object-chart` legacy-axis refusals stop calling those keys a list-view spelling (objectui#12063)
+  
+  Clause-②: no
+  
+  **Retired (breaking), `@object-ui/types`.** `UnifiedViewConfig.chart` declared the list-view chart's
+  pre-ADR-0021 inline query: `chartType` beside `xAxisField`, `yAxisFields`, `aggregation`, `series`,
+  `config` and `filter`. No route reads those axes since objectui#6152 round 15, and every list-view door
+  refuses them by name. The member is now `chart?: never`, so a value typed `UnifiedViewConfig` that
+  writes `chart` stops compiling on upgrade, at any value. A plain deletion would not have refused it:
+  the interface keeps its `[key: string]: any` index signature, which would admit `chart` as `any`.
+  
+  | before | after | write instead |
+  | :--- | :--- | :--- |
+  | `chart: { chartType, xAxisField, yAxisFields, aggregation, series, config, filter }` on a `UnifiedViewConfig` | a compile error at `chart` | the spec's list chart block, `ListChartConfig` from `@objectstack/spec/ui` (the `chart` member of its `ListView`): `{ chartType, dataset, dimensions, values }`, bound to an ADR-0021 dataset by name |
+  
+  **Not measured: consumers outside the checkouts a seat can reach.** A census before this change found
+  nothing that imports `UnifiedViewConfig` in this repository (packages, apps, tests, docs, examples,
+  skills), in the ObjectStack framework checkout or in the installed dependency tree, each with a
+  positive control. It is a one-time reading, recorded on the pull request, and nothing re-derives it.
+  Host applications built on the published package were not measured.
+  
+  **Changed, `@object-ui/types`.** The `object-chart` node's refusals of `xAxisField`, `yAxisFields` and
+  `aggregation`, and the docblocks of the same three `ObjectChartSchema` members in the published
+  `.d.ts`, no longer call each key "the list-view chart block's spelling": no list-view route reads that
+  spelling, and the list view's chart block refuses it. Each refusal and each docblock still names its
+  key and the same remedy: `xAxis: { field }`, `yAxis: [{ field }]` and
+  `aggregate: { field, function, groupBy }`.
+- eb4552e: A `metric-card` placed in a dashboard's widget slot refuses `label` by name and points at `title`, the key its heading is drawn from (objectui#4425).
+  
+  BREAKING (`@object-ui/types`): a `metric-card` in a dashboard's `widgets[]` that carries `label` is now refused. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  - FROM `{ "type": "metric-card", "label": "Total Revenue", "value": "$123,456" }`
+  - TO `{ "type": "metric-card", "title": "Total Revenue", "value": "$123,456" }`
+  
+  Why: `MetricCard` draws `title` as the card heading and reads no `label`. `label` is how the sibling `metric` node spells its heading, and the card inherited it from `BaseSchema`, so a card authored with `label` validated on every face and drew no heading. Nothing said so: no render-time error or warning, and the parser tier's `validateTree` does not walk a dashboard's `widgets`. The objectui#8284 ruling settles which way to go: one spelling per rendered thing, and the other spelling is refused by name.
+  
+  **Migration.** Rename the key to `title`. The value keeps its type: a plain string or an inline per-locale map.
+  
+  What each face does now:
+  
+  - **TypeScript.** `DashboardWidgetSlotComponentSchema` restates the inherited member as `label?: never`, so a card literal carrying `label` no longer compiles: on the interface, in `DashboardComponentSchema.widgets`, and inside a widget's `component` envelope.
+  - **zod (`@object-ui/types/zod`).** NARROWS on the tolerant face (`safeValidateSchema`, which `objectui validate` runs) and on the strict authoring face. A `metric-card` entry in `widgets[]` that carries `label` used to parse with the key kept. It is now refused with one `invalid_union` at the widget. Among that union's per-arm issues, the slot's component arm reports an `invalid_type` at `label` whose message asks ``Did you mean `label` → `title`?``. Inside a widget's `component` envelope the strict face refuses it too. The tolerant face still accepts it there through the envelope's `BaseSchema` fallback, the limit the card's other refusals (`body`, `children`, a `trend` outside its enum) already have on that path.
+  
+  Nothing widens, and no export is added. The refusal message is private to the module, like the arm itself.
+- b13ea3c: feat(types)!: `ObjectGridSchema.defaultFilters` and the flat `ObjectGanttSchema` / `ObjectMapSchema` `filter` follow their `@objectstack/spec` rows (objectui#6152, round 10)
+  
+  Clause-②: yes
+  
+  `@objectstack/spec` has typed `ComponentPropsMap['object-grid'].defaultFilters` as the same
+  `ViewFilterRule` array as `filter`, `[{ field, operator, value }, ...]`, since 17.6.0: the legacy
+  fallback `ObjectGrid` reads only when `filter` is absent, refusing the MongoDB-style record, a bare
+  string and the AST tuple array. The `object-gantt` and `object-map` rows type `filter` the same
+  way. `@object-ui/types` now takes each row's own member by reference, on the TypeScript interface
+  and on the zod mirror, with no alias window.
+  
+  **Widened.** `ObjectGridSchema.defaultFilters` was `Record<string, any>` and
+  `z.record(z.string(), z.any())`, so the zod mirror REFUSED the rule array the row declares. The
+  flat grid mirror is the source of an `object-view`'s `table` slot, so
+  `table: { defaultFilters: [{ field: 'status', operator: 'equals', value: 'open' }] }` now parses
+  there, on the tolerant and the strict face and through `safeValidateSchema`.
+  
+  **Narrowed (breaking).**
+  
+  - The record form of `defaultFilters` is refused: on the interface (a compile error, in an
+    `object-view`'s `table` too) and on the zod mirror, at `defaultFilters` (`table.defaultFilters`
+    in an `object-view`), with the protocol's own message, which computes the rule array from the
+    record's keys. Respell
+    `defaultFilters: { status: 'open' }` as
+    `defaultFilters: [{ field: 'status', operator: 'equals', value: 'open' }]`, or, better, move it
+    to `filter`, which takes the same array and wins when both are written.
+  - `ObjectGanttSchema.filter` and `ObjectMapSchema.filter` were `any[]` and `z.array(z.any())`, so
+    `filter: [['status', '=', 'open']]` type-checked and parsed. Both are the row's rule array now;
+    respell the tuple as `[{ field: 'status', operator: 'equals', value: 'open' }]`. These two flat
+    types describe the node as the renderers read it: an authored `object-gantt` / `object-map`
+    node's `properties` bag is the row itself, which refused the tuple array already.
+  
+  What did not move: the renderers' reads. `ObjectGrid` lowers `defaultFilters` through the same
+  `toFilterNode` sink as `filter`, so a rule array there sends the same `$filter` and draws the same
+  rows as the same array written as `filter`; the sink still lowers a record or an AST that reaches
+  the slot at runtime, and `ObjectGantt` / `ObjectMap` still forward an AST a host composes. The
+  `@object-ui/core`, `@object-ui/plugin-grid` and `@object-ui/plugin-view` entries are comment
+  repairs to sentences that called the key `Record<string, any>`. `@object-ui/plugin-grid`,
+  `@object-ui/plugin-view` and `@object-ui/plugin-map` also carry typed test fixtures re-spelled to
+  the rule array, and `@object-ui/plugin-grid` a pin of the above through the real renderer.
+- d7e9e9a: feat(types)!: `object-grid` `operations` and the `object-grid` / `object-kanban` / `object-calendar` `filter` follow the `@objectstack/spec` 17.7.0 rows (objectui#6152, round 8)
+  
+  Clause-②: no
+  
+  **Narrowed (breaking).** `@objectstack/spec` 17.7.0 types `object-grid`'s `operations` as the
+  strict `{ create?, update?, delete?, export? }` block, refusing `read` and `import` by name, and
+  the `filter` of `object-grid`, `object-kanban` and `object-calendar` as the `ViewFilterRule` array
+  `[{ field, operator, value }, ...]`, refusing the MongoDB-style record and the AST tuple array.
+  `@object-ui/types` now says the same, with no alias window:
+  
+  - `ObjectGridSchema.operations` takes the row's block by reference. `read` and `import` are
+    `?: never` on the interface and refused by name at their own path on the flat zod
+    `ObjectGridSchema`: no `object-grid` code reads either. The flat mirror is the source of an
+    `object-view`'s `table` slot, so `table.operations.read` / `.import` are refused there too, and
+    the `read` refusal names the view-level spelling, `navigation: { mode: 'none' }` or the view's
+    own `operations: { read: false }`.
+  - `ObjectGridSchema.filter`, `ObjectKanbanSchema.filter` and `ObjectCalendarSchema.filter` take
+    their row's own member by reference, on the interface and on the zod mirror. They were `any[]`
+    and `z.array(z.any())`, so `filter: [['status', '=', 'open']]` type-checked and parsed. It is now
+    refused, on an authored `object-kanban` / `object-calendar` node and in an `object-view`'s
+    `table` slot; respell it `filter: [{ field: 'status', operator: 'equals', value: 'open' }]`.
+  
+  What did not move: an `object-view`'s own `operations.read` (the protocol has no `object-view`
+  row, and `ObjectView` reads it as its row-click gate), and the renderers' reads. `ObjectGrid`
+  still lowers an AST array, and the board and the calendar still hand whatever `filter` reaches
+  the node to `$filter`, because hosts compose that form at runtime.
+  
+  - `@object-ui/plugin-view`: the grid node `ObjectView` composes no longer carries the view's
+    `read` toggle in its `operations` block; the view keeps reading it.
+  - `@object-ui/plugin-grid`, `@object-ui/plugin-kanban`, `@object-ui/plugin-calendar`: the
+    registrations' `filter` inputs describe the `ViewFilterRule` array, and the grid's `operations`
+    input names the four toggles.
+  - `@object-ui/console`: the registry parity pins' prose stops calling these rows `z.unknown()`.
+- cf62edf: feat(types)!: the list view's `kanban`, `calendar`, `gallery` and `timeline` blocks are the `@objectstack/spec` 17.7.0 `ListViewSchema` slots by reference, and their `.passthrough()` is gone (objectui#6152, round 11)
+  
+  Clause-②: no
+  
+  **Narrowed (breaking).** `@objectstack/spec` 17.7.0 judges each per-view-type block of a list view as
+  a strict object. `@object-ui/types` kept the four as the named spec schema `.partial()` plus
+  `.passthrough()`, with four accepted aliases and an objectui-only `calendar.defaultView`. So
+  `ListViewSchema`, `AnyComponentSchema`, `safeValidateSchema` (`objectui validate`) and the TypeScript
+  `ListViewSchema` accepted what the spec refuses. The strict authoring face, `StrictAnyComponentSchema`,
+  narrows too: it already refused an undeclared key, but it accepted the aliases, `calendar.defaultView`
+  and a calendar block without `startDateField`. Each block is now the spec's own slot, taken by
+  reference, and the TypeScript face derived from it loses its index signature. What is refused now,
+  and what to write instead:
+  
+  - An undeclared key on any of the four blocks (for example `kanban.swimlaneField` or
+    `timeline.endField`) is refused with the spec's own `unrecognized_keys` at the block. Before this
+    change it was kept and never examined.
+  - `kanban.groupField` is refused by name: write `groupByField`.
+  - `kanban.cardFields` is refused by name: write `columns`.
+  - `gallery.imageField` is refused by name: write `coverField`.
+  - `timeline.dateField` is refused by name: write `startDateField`.
+  - `calendar.defaultView` is refused by name: the spec has no such member on a list view's calendar
+    block. The initial view mode is a member of the `object-calendar` element (its flat `defaultView`).
+  - A list view's `calendar` block without `startDateField` is refused at `calendar.startDateField`,
+    as the spec refuses it. `kanban` and `timeline` stay `.partial()`, because app-shell's derived
+    defaults leave out `columns` and `titleField`, and the gallery block requires nothing.
+  
+  Each by-name refusal reports `invalid_type` at the key's own path, with the spec's own lead sentence
+  followed by the canonical key. The refusals already in place (`kanban.groupBy`, objectui#8365;
+  `calendar.dateField` / `calendar.endField`, objectui#8355) are unchanged. Round 9 of this card
+  (the `object-calendar` element's container) left this list-view block open; this change closes it.
+  
+  What did not move: the renderers. `normalizeListViewSchema` still folds the four aliases onto their
+  canonical keys, and `ListView` still lifts `calendar.defaultView` and spreads the rest of the kanban
+  and calendar blocks onto the node it builds. A view stored with one of these keys therefore renders as
+  before; only authored metadata meets the refusal. The legacy `options.KIND` bag is unchanged.
+  
+  **Note added 2026-10-08 (objectui#6152 round 12):** the legacy `options.KIND` bag is no longer
+  unchanged. It is now the spec's list-overlay bag by reference, with these four blocks in it, so each
+  refusal above also applies under `options.KIND`, with the same message; see
+  `.changeset/6152-list-view-options-bag.md`. The renderers' reads still have not moved.
+  
+  **Note added 2026-10-09 (objectui#6152 round 14):** the renderers' reads have moved. No renderer reads
+  the four aliases, `calendar.defaultView` or an undeclared key of these blocks any longer, so a view
+  stored with one of them renders without what that key used to bind; see
+  `.changeset/6152-list-view-readers-retired.md` for what changes on screen and what to write instead.
+- 5d77c09: feat(types)!: a list view's legacy `options` bag is the `@objectstack/spec` list overlay's bag by reference, `ListViewTimelineConfig` is the list view's own `timeline` block, and `ListViewGalleryConfig` is retired (objectui#6152, round 12)
+  
+  Clause-②: no
+  
+  **Narrowed (breaking), `@object-ui/types`.** `@objectstack/spec`'s authoring list view declares no
+  `options` bag. Its one home is the flattened list overlay on the view write door
+  (`VIEW_METADATA_MEMBERS.listOverlay`), where it is a strict object of the eight kinds that name a
+  block, each judged by its own list-view block with every key optional. `ListViewSchema.options` was
+  a record of `any` with three named refusals, so `ListViewSchema`, `AnyComponentSchema`,
+  `safeValidateSchema` (`objectui validate`), `StrictAnyComponentSchema` and the TypeScript
+  `ListViewSchema['options']` accepted what that door refuses. It is now that member's own bag, taken
+  by reference, with this package's `kanban`, `calendar`, `gallery` and `timeline` blocks in it, so
+  each named refusal gives the same message under `options.KIND` as under the top-level `KIND`. What is
+  refused now, and what to write instead:
+  
+  - A key that is not one of the eight kinds is refused with the spec's own `unrecognized_keys` at
+    `options`. `options.grid` gets the spec's guidance: a grid has no per-kind block, so its settings
+    (`columns`, `sort`, `filter`, …) are top-level keys of the view. Remove it.
+  - An undeclared key in any kind (for example `options.kanban.swimlaneField`,
+    `options.timeline.descriptionField`, `options.tree.titleField`, `options.chart.xAxisField`) is
+    refused with the spec's own `unrecognized_keys` at that kind. Before this change it was kept and
+    never examined.
+  - `options.kanban.groupField` is refused by name: write `groupByField`.
+  - `options.kanban.cardFields` is refused by name: write `columns`.
+  - `options.gallery.imageField` is refused by name: write `coverField`.
+  - `options.timeline.dateField` is refused by name: write `startDateField`.
+  - `options.calendar.defaultView` is refused by name: the initial view mode is a member of the
+    `object-calendar` element (its flat `defaultView`), not of a list view's calendar block.
+  - `options.chart`'s legacy axes (`xAxisField`, `yAxisFields`, `categoryField`, `valueField`,
+    `aggregation`) are refused: write the dataset-bound block, `chart: { dataset, dimensions, values }`.
+  - A value of the wrong type (for example `options.kanban: 42`, or a number where a field name
+    belongs) is refused at its path.
+  
+  The three refusals already in place (`options.kanban.groupBy`, objectui#8365;
+  `options.calendar.dateField` / `endField`, objectui#8355) keep their messages, and now report
+  `invalid_type` at the key, as the top-level blocks do, where they reported `custom`. Each kind is
+  `.partial()`, as the spec's bag is: the renderer reads the bag as a per-key underlay of the top-level
+  block, so a required member is not asked of it.
+  
+  **Changed, `@object-ui/types`.** `ListViewTimelineConfig` is `NonNullable<ListViewSchema['timeline']>`:
+  the spec's list-view slot, strict and `.partial()`, with the legacy `dateField` refused by name
+  (write `startDateField`). It was the spec's `TimelineConfig` plus `dateField?: string` and a string
+  index signature of `any`, so a block with any key compiled.
+  
+  **Retired, `@object-ui/types`.** The `ListViewGalleryConfig` type export is gone. Nothing in this
+  repository used it, and the spec has no element of that shape. Write the spec's `GalleryConfig`,
+  which this package re-exports.
+  
+  **`@object-ui/app-shell`.** The object page's relay writes the spec's spellings into the bag it hands
+  `ListView`: `options.kanban.columns` where it wrote `cardFields`, no `options.gallery.imageField`
+  beside `coverField`, and no `options.timeline.descriptionField`. What renders does not change: the
+  board reads `columns` for its cards, the gallery reads `coverField` first, and nothing drew the
+  timeline's nested `descriptionField`.
+  
+  **`@object-ui/plugin-list`.** `ListView`'s capability gate also reads `options.gallery.coverField`, so
+  a bag binding its cover under the spec's key offers the Gallery view; it read only the legacy
+  `imageField` there. The README's examples author the top-level per-kind blocks and a dataset-bound
+  chart, and no longer show the bag.
+  
+  **`@object-ui/plugin-timeline`.** `ObjectTimeline`'s nested `schema.timeline` prop takes the new
+  `ListViewTimelineConfig`.
+  
+  What did not move: the renderers' reads. `ListView` still merges each `options.KIND` under the
+  top-level block and still reads the legacy spellings, so a view stored before these doors closed
+  renders as before; only authored metadata meets the refusal.
+  
+  **Note added 2026-10-09 (objectui#6152 round 14):** the renderers' reads have moved. `ListView`
+  still merges each `options.KIND` under the top-level block, but it reads each kind's declared keys
+  only: the legacy spellings, `options.grid` and the undeclared keys a bag carries are no longer read,
+  so a view stored with one of them renders without what that key used to bind; see
+  `.changeset/6152-list-view-readers-retired.md`. The legacy chart axes (`options.chart.xAxisField`
+  and the rest) are still read until the next round on objectui#6152.
+  
+  **Note added 2026-10-09 (objectui#6152 round 15):** the legacy chart axes are no longer read, in the
+  bag or at the top level: a chart block that names no `dataset` binds nothing, and `ObjectChart`
+  refuses it on screen; see `.changeset/6152-list-view-legacy-chart-retired.md`.
+- 1473757: feat(types)!: the `object-calendar` element's `calendar` container is the `@objectstack/spec` 17.7.0 slot by reference, and its `.passthrough()` is gone (objectui#6152, round 9)
+  
+  Clause-②: no
+  
+  **Narrowed (breaking).** `@objectstack/spec` 17.7.0 types `ComponentPropsMap['object-calendar'].calendar`
+  as a strict copy of the list view's calendar block: `startDateField` required, `endDateField`,
+  `titleField`, `colorField` and `allDayField` optional, and any other key refused with
+  `unrecognized_keys`. `@object-ui/types` kept the container as the list view block `.partial()` plus
+  `.passthrough()`, so it accepted two things the spec refuses. It now takes the row's own member by
+  reference, on the zod `ObjectCalendarSchema` and, through the derived `ObjectCalendarBlockConfig`,
+  on the TypeScript interface:
+  
+  - A key outside the five, inside the block, is refused. That includes `calendar.defaultView`:
+    `ObjectCalendar` reads the view mode from the node's own `defaultView` and never from the block,
+    so write `defaultView: 'week'` on the node.
+  - A block without `startDateField` is refused at `calendar.startDateField`. `ObjectCalendar`
+    returns the block whole, so such a block mounted a calendar that placed no event.
+  - `ObjectCalendarBlockConfig` no longer has an index signature, and its `startDateField` is
+    required, so a typed literal with either shape is now a compile error.
+  
+  The retired `calendar.dateField` / `calendar.endField` keep their by-name refusal (objectui#8355),
+  which names the key to write instead. A census pin in this package's tests re-derives, on every
+  run, that each `object-calendar` container authored in this repository's examples, docs and
+  READMEs parses on the narrowed container.
+  
+  What did not move: the list view's own `calendar` block, which keeps `.passthrough()` and
+  `defaultView`, and the renderers' reads.
+  
+  **Note added 2026-10-08 (objectui#6152 round 11):** the list view's `calendar` block no longer keeps
+  `.passthrough()` or `defaultView`. It is now the spec's own list-view slot by reference, strict, with
+  `defaultView` refused by name; see `.changeset/6152-list-view-blocks-strict.md`. The renderers' reads
+  still have not moved.
+  
+  **Note added 2026-10-09 (objectui#6152 round 14, PR objectui#12052):** the renderers' reads have now
+  moved. The list view no longer lifts `calendar.defaultView` onto the calendar it builds, and the
+  renderers' reads of the keys the list view's `kanban`, `calendar`, `gallery` and `timeline` blocks
+  refuse are retired; see `.changeset/6152-list-view-readers-retired.md`.
+- d73d987: feat(types)!: retire `object-grid`'s `resizableColumns` on both faces, and stop `ObjectGrid` reading it (objectui#6152, round 7)
+  
+  **Retired (breaking).** `resizableColumns` was the legacy second spelling of `resizable` on
+  `object-grid`, read only when `resizable` was absent. `@objectstack/spec` 17.7.0 retired it in the
+  `object-grid` row (objectstack#21445), so an authored document that writes it, flat on the node or
+  inside its `properties` bag, was already refused by name before this change. This change retires
+  the rest of it, with no alias window:
+  
+  - `@object-ui/types`: `ObjectGridSchema.resizableColumns` is now `?: never`, so writing it on a
+    typed literal is a `tsc` error. The flat zod `ObjectGridSchema` in `@object-ui/types/zod` (the
+    node as `ObjectGrid` reads it after the `properties` hoist, or as code composes it) refuses the
+    key by name at the key, where `.passthrough()` used to keep it unexamined. The refusal names
+    `properties.resizable`.
+  - `@object-ui/plugin-grid`: `ObjectGrid` reads `resizable` alone. A node that still carries
+    `resizableColumns` (one composed in code, past the type) now gets the default, resizable
+    columns, as if it had written nothing: `resizableColumns: false` no longer turns the column
+    resize handles off. The `object-grid` registration's `resizable` input no longer describes the
+    old spelling as a fallback.
+  
+  Rename the key to `resizable`; on an authored node, that is `properties.resizable`.
+  
+  An `object-view`'s `table.resizableColumns` is unchanged: the slot already refused it by name.
+- 12ff256: `ConnectionState` is a new export: the lifecycle state of one client connection, `'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error'` (objectui#6349, batch 10). `@object-ui/data-objectstack` (its adapter's connection) and `@object-ui/collaboration` (`useRealtimeSubscription`'s socket) each used to declare these same five states. Neither of those packages depends on the other, and both depend on this one, so the one declaration now lives here and both re-export it under the same name.
+  
+  Nothing is removed or narrowed. No runtime behaviour changes.
+- d328698: `ActionContext` and `ActionResult` each have one declaration again, here, and `UndoableOperation` is published from this package (objectui#6349, batch 4). `@object-ui/core` used to declare second copies of `ActionContext`, `ActionResult` and `UndoableOperation`; it now re-exports these, so both packages publish the same types under those names.
+  
+  **Type changes, breaking for some consumers.**
+  
+  - `ActionContext` gains a declared `data?: Record<string, any>` member, the one member only the runner's copy declared (the runner reads it as the fallback record id and as an API request body). Before, `data` was reached only through the index signature, as `any`. A write of a non-object `data` on a value typed `ActionContext` no longer type-checks.
+  - `ActionResult` becomes the runner's contract. It gains `reload`, `redirect`, `modal`, `silent` and `undo` (typed `UndoableOperation`). Its `refresh` member is **removed**: the runner reads `reload`, and nothing read or wrote `refresh`, so a handler that set it was ignored at runtime. A result literal naming `refresh` is now a compile error; write `reload` instead.
+  - `UndoableOperation` (the `undo` payload: `id`, `type`, `objectName`, `recordId`, `timestamp`, `description`, `undoData`, `redoData`) is a new export, moved down from `@object-ui/core` with the same members.
+  
+  No runtime behaviour changes.
+- b4e0787: `UndoRedoEntry`, `UndoRedoConfig` and `UndoRedoState` are retired from this package (objectui#6349, batch 5). Nothing in the repository read or wrote any of the three, `@objectstack/spec` declares no such shape, and no runtime produced or consumed it — a published protocol type the runtime never honoured. `UndoRedoState` was also declared, with an unrelated meaning, by `@object-ui/plugin-designer`'s `useUndoRedo` hook; that hook result is now the one declaration of the name.
+  
+  **Type changes, breaking for some consumers.**
+  
+  - `UndoRedoEntry`, `UndoRedoConfig` and `UndoRedoState` are no longer exported. An import of any of them is now a compile error. There is no replacement in this package; an undo/redo history in a designer surface is `useUndoRedo`'s result in `@object-ui/plugin-designer`.
+  
+  A doc comment beside `ChatToolInvocation` now names `@object-ui/plugin-chatbot`'s `ChatbotEnhancedToolInvocation`, the runtime declaration's new name; `ChatMessage` and `ChatToolInvocation` themselves are unchanged.
+  
+  No runtime behaviour changes.
+- b403bb3: **`BaseSchema` no longer declares `[key: string]: any`** (objectui#8347, executing the objectui#7927 ruling: the TypeScript face is a contract). Every node type extends `BaseSchema`, so a node literal annotated with its node type now refuses a key that no declaration names, a misspelled key included, where it used to type it `any`. The correct spelling compiles as before.
+  
+  **Clause-②: yes (narrowing)**, shipped as `minor` per this repository's version policy. The removal narrows the TypeScript authoring face of every node type; the `visibleWhen` change below widens both faces to the envelope the spec's own parse writes.
+  
+  - **What does not move.** The zod faces keep their accept sets for every key but `visibleWhen`: the tolerant mirror is still `.passthrough()`, so `safeValidateSchema` keeps an undeclared key, and the derived strict face refuses it as before. `ComponentRendererProps`, the renderer props type, keeps its own index signature. Nothing a renderer draws changes.
+  - **The bound.** TypeScript runs its excess-property check only on a fresh object literal. A value that reached its annotation through a variable of a wider type is not re-checked.
+  - **`PartialSchema<T>` works as written.** With the signature gone, `keyof T` is the literal member union again, so the alias keeps `T`'s declared members, optional, with `type` required. While the signature stood it declared `type` alone (objectui#6397).
+  - **`BaseSchema.visibleWhen` is the spec's `EvaluatedExpressionInput`**, by reference: a predicate string, or the `{ dialect, source }` envelope. The zod twin takes `EvaluatedExpressionInputSchema`'s verdict without its transform, so a string parses to itself. A dialect-less envelope, an unknown dialect and a blank predicate are refused, as the spec refuses them. Both faces read `string` before, which refused the envelope a spec parse writes into this key.
+  - **`@object-ui/plugin-kanban`.** `ObjectKanban` reads the `sort` the element data-source gate writes through a read type private to the package. `ObjectKanbanSchema` still declares no `sort` (objectui#8174). Nothing drawn changes.
+  - **`@object-ui/plugin-timeline`.** `TimelineRenderSchema`, the `schema` prop type of the exported `TimelineRenderer`, gains one optional member: the `onItemClick` slot `ObjectTimeline` composes. That is a one-member optional widening of an exported prop type. `TimelineSchema`, the authoring face, still declares no `onItemClick`. Nothing drawn changes.
+  
+  **Migration.** Where a literal stops compiling, the key is misspelled (fix it) or not declared on that node type (declare it on the type that reads it, by reference to the `@objectstack/spec` row, or remove it). Do not cast past the error. `props`, the legacy alias of `properties`, is not declared on the TypeScript face; the renderer still reads it, so write `properties`.
+
+### Patch Changes
+
+- f0496bd: `action:button` delivers `undoable` where a record is in scope, and publishes it (objectui#11168, ruling B on objectui#11754).
+  
+  An `action:button` that declares `undoable: true` on an `operation: update` now offers Undo in its success toast. Undo writes back the prior values of the fields the update wrote, read off the record in scope: the record page's record, or the row the host binds to the node through `data` (a table's row, `DetailView`'s header, an `action:bar` member). Before, the block forwarded `undoable` but handed the runner no record, so the update ran and no Undo was offered anywhere the block was used.
+  
+  - **What the block now sends.** For an `undoable` `operation: update`, the button hands the runner the record in scope under `params._rowRecord`, the spelling the record page's header, the declared-actions bar, the related-record bridge and the grid's rows already use. The route dispatch strips it before it POSTs. It is attached only when the update writes that record, so where no explicit `recordId` is given, the shared route dispatch (`createServerActionHandler`) now takes the record id from it, as it does for those hosts; the record page's own dispatch already wrote to its record.
+  - **The one limit.** A button with no record in scope offers no Undo, because there is no row to restore. The same holds for a button whose `recordId` names a record other than the one in scope: its Undo would restore another record's values. A record that does not carry every written field offers no Undo, as before.
+  - **Unchanged.** A button that is not `undoable`, and an `undoable` action that is not an `operation: update`, dispatch exactly as before, with no record attached.
+  - **Published.** `undoable` is a published input of `action:button` (a boolean, with a description that states the limit), so the page validator stops reporting it as an unknown prop. Nothing is refused that was accepted before.
+  
+  `@object-ui/types`: the `UIActionSchema.undoable` doc comment no longer says `action:button` never hands the runner a record. No type changes.
+- bdc9049: fix(types): `AnyComponentSchema`'s declaration prints every category union by name, so `@object-ui/types` no longer sits at the edge of TypeScript's serialization ceiling (objectui#11573)
+  
+  `tsc` prints an inferred type in full wherever a declaration uses it, and past
+  its serialization ceiling it refuses with TS7056 ("The inferred type of this
+  node exceeds the maximum length the compiler will serialize"). `@object-ui/types`
+  then emits no declarations, and every consumer of `@object-ui/types/zod` fails
+  with TS7016. `AnyComponentSchema` listed every category union inline, so its
+  declaration printed the sum of all of them: measured with TypeScript's own
+  counter, it read under one percent short of the ceiling against
+  `@objectstack/spec` built from objectstack `main`, and the Spec Main Shape Gate
+  had already gone red on it once.
+  
+  Each of the sixteen category unions `AnyComponentSchema` lists now has a named
+  type in its own module — an interface that extends the union's inferred type
+  and adds no member (`LayoutZodType`, `PublicBlockComponentZodType` and their
+  siblings) — and `AnyComponentSchema`'s declaration prints a reference to each
+  instead of its body.
+  
+  What changes for a consumer is the printed `.d.ts` TEXT of existing exports,
+  and nothing else: `AnyComponentSchema` and the sixteen unions are the same
+  values, and every type read through `z.input` / `z.output` is unchanged. The
+  new names are exported from their own modules, which is what lets the
+  declaration reference them; they are not added to the `@object-ui/types/zod`
+  entry, so nothing new is importable.
+  
+  `packages/types/src/__tests__/any-component-emit-headroom-11573.test.ts` reads
+  the declaration's size with the compiler's own counter, fails when it crosses a
+  tenth of the ceiling below it, and lists every member as named or inline.
+- 2e818d0: The dashboard surfaces read every `widgets[]` entry without leaning on `BaseSchema`'s index signature: a widget key is read on the widget arm alone, and the `chart` node is built as a private hand-off type (objectui#11598).
+  
+  **N1, the `chart` producers.** `DashboardRenderer` and `DashboardGridLayout` build a `chart` node for a series widget bound to inline rows, and compose two render keys onto it: the dashboard palette (`colors`) and `isAnimationActive: false`, the deterministic first paint inside the grid (#2756). `ChartSchema` declares neither key, on either face, and the chart renderer reads both. Each producer now checks its literal against a hand-off type private to this package, `ChartSchema` plus those two keys, and hands the node on with no cast; the type is not exported, and the keys stay off `@object-ui/types`, because the strict authoring face refuses both on an authored `chart` node. Nothing drawn changes.
+  
+  **N2, widget keys on the slot entry.** An entry of `widgets[]` is a widget or a component node placed in the slot (a `metric-card`), and only the widget declares the widget keys (`dataset`, `options`, `chartConfig`, `filter`, `component`, `colorVariant`, `values`, `dimensions`, …). Every read of one now narrows the entry to the widget first, on `DashboardRenderer`, `DashboardGridLayout`, `DashboardWithConfig` and `DashboardEditor`. What changes is confined to a `metric-card` entry that carries a widget key, which `@object-ui/types/zod`'s strict face refuses and only the tolerant face accepts:
+  
+  - a `metric-card` carrying `dataset` draws its card; it used to draw the dataset tile in the card's place, on both dashboard surfaces;
+  - a `metric-card` carrying `options` draws its own keys; `options` used to be spread over them, so `options.value` replaced `value`;
+  - a `metric-card` carrying a `component` draws its card; the envelope's node used to be drawn instead.
+  
+  A document the strict face accepts draws exactly as before. `@object-ui/types`' docblocks on `DASHBOARD_COMPONENT_WIDGET_TYPES` and the Zod widget vocabulary, which described the dataset tile in the card's place and the `options` spread as live, were corrected to match; no type in it changes. In `DashboardEditor`, a `metric-card` entry is no longer offered the Color Variant select: the card declares no `colorVariant`, `MetricCard` draws nothing from it, and a pick stored a key publish refuses. A widget is offered it as before.
+- c0862c1: objectui now resolves `@objectstack/*` 17.7.0 (objectui#11717). Two declared `@objectstack/spec` floors move, each because the package's published code now imports something an older release does not export:
+  
+  - `@object-ui/types`: `^17.6.0` to `^17.7.0`. Its zod mirrors chain `checkDashboardWidgetChartMeasureArity` and `checkPageRequiresKind`, which the spec first exports in 17.7.0.
+  - `@object-ui/plugin-dashboard`: `^17.5.0` to `^17.6.0`. `DatasetWidget` reads `DASHBOARD_WIDGET_MULTI_MEASURE_TYPES`, which the spec first exports in 17.6.0, instead of restating it. What the widget draws does not change.
+  
+  No other declared range moves.
+  
+  - `@object-ui/console`: the bundle inlines the 17.7.0 packages, so its client-side validation answers as a 17.7.0 server does, refusals included. The first screen is heavier: the eager closure grows by 183,008 gzipped bytes against a `main` build, nearly all of it in the `vendor-objectstack` chunk, and the bundle budget is re-pinned over the new reading on a maintainer ruling. It comes down again by whatever objectstack#22044 recovers.
+- 4c0de52: A formula reads the same in a read-only form and in a table cell (objectui#11748).
+  
+  The read-only form face (`FormulaField`) and the table cell (`FormulaCellRenderer`) formatted a formula's value separately, so one stored value read two ways. The form printed a number raw or with two fixed decimals, in monospace (`200000`, `200000.00`), where the cell read `200,000`. The cell printed a declared boolean or date raw (`true`, `2026-07-04`), where the form read `Yes` and `Jul 4`.
+  
+  Both faces now use one rule. The type is the field's declared `returnType`. With no `returnType`, a JS number is a number and any other value is text. No type is inferred from the expression. Each type is drawn the way the matching field type draws it:
+  
+  - **number**: formatted in the viewer's locale, at the width a declared `scale` gives, as on a number field. `200000` reads `200,000` in en-US and zh-CN in both faces; two fixed decimals are no longer added.
+  - **boolean**: the language's Yes / No word in both faces (`是` / `否` in zh-CN). The cell no longer prints `true`. Only a JS boolean counts, as on a boolean field. A non-boolean value draws the empty-value mark, where the form used to read `Yes` for the string `'false'`.
+  - **date**: the date field's read-only face, `formatDate`'s default (`Jul 4`, or `Jul 4, 2020` outside the current year), in both faces. The cell does not use the date cell's relative face (`Today`, `2 days ago`), because the form has no relative face to match. An unparsable value draws the empty-value mark.
+  - **text**: the value in monospace, as before. The form now prints it the way the cell does: an empty string or empty list draws the empty-value mark, where the form drew a blank, and an expanded record reads its name, where the form printed `[object Object]`.
+  
+  objectui#11683 changed the cell for numbers only and left a declared boolean or date as it was. This change converts both.
+  
+  No export, prop or language-pack key is added. The `returnType` doc comments in `@object-ui/types`, on `FormulaFieldMetadata` and on the form field, now describe this rule for both faces in place of the retired two-decimal face.
+- a80fef7: A summary (roll-up) field reads the same in a read-only form and in a table cell (objectui#11752).
+  
+  The read-only form face (`SummaryField`) formatted the value by the roll-up's aggregation function: a `count` as it arrived, a `sum` / `avg` / `min` / `max` at two fixed decimals. The table cell, which `summary` shares with `formula`, draws a number as the number cell does. So one stored value read two ways: a `sum` over `15750.5` read `15750.50` in the form and `15,750.5` in the cell, and a `count` of `12000` read `12000` and `12,000`.
+  
+  The form face now reads the value the way the cell does, whatever the function:
+  
+  - **number**: formatted as a number field formats it, in the viewer's display locale. With no `scale` on the field the value keeps its own precision, so `15750.5` reads `15,750.5` and a `count` of `12000` reads `12,000` in en-US and zh-CN, in both faces. A count stays whole. A `scale` on the field fixes the width in both faces (`scale: 2` reads `15,750.50`). Two fixed decimals are no longer added, so an average reads at its own precision unless the field declares a `scale`.
+  - **empty**: an empty string or empty list draws the empty-value mark, as in the cell, where the form drew a blank. A stored `0` (a `count` or `sum` over no child rows) reads `0`, where the form read `0.00`.
+  - **anything else**: the value as text, as the cell prints it.
+  
+  No export, prop or language-pack key is added. The `summaryOperations` doc comments in `@object-ui/types`, on `SummaryFieldMetadata` and on the form field, now describe this rule in place of the retired per-function face.
+- 55e90fd: Comments and test names only (objectui#5250). The `@object-ui/types` docblocks that called `safeValidateSchema`, the tolerant face, what `objectui validate` or `objectui check` runs now name the strict authoring face, `StrictAnyComponentSchema`, which both commands run since objectui#5250 slice A. No schema, export or accept set changes.
+- 0253416: feat(plugin-list)!: a chart list view binds only an ADR-0021 `dataset`; the legacy inline chart axes and their `name` / `value` floors are retired on every route (objectui#6152, round 15)
+  
+  Clause-②: no
+  
+  **Changed (breaking for a stored chart view that names no `dataset`).** Every door refuses the
+  pre-ADR-0021 chart axes on a list view: `@objectstack/spec`'s chart block is a strict object of
+  `chartType`, `dataset`, `dimensions` and `values`, and `@object-ui/types`, `objectui validate` and the
+  platform's view write door judge by it, top-level and in the `options` bag. The renderers kept
+  reading the axes, so a chart view stored before the doors closed still drew an inline aggregate, and
+  a chart view that declared nothing was drawn from the invented fields `name` and `value`. They no
+  longer do, on every route that did: `ListView`'s chart branch and its capability gate, the object
+  page's chart view (`@object-ui/app-shell`) and `ObjectView`'s own views (`@object-ui/plugin-view`).
+  
+  | stored chart block (either nesting) | what renders now | write instead |
+  | :--- | :--- | :--- |
+  | `xAxisField` / `categoryField`, `yAxisFields` / `valueField`, `aggregation` (and, on the object page, `series` and `filter` on the block) | the chart's refusal: "Chart category axis required", in place of the chart; a view of another type no longer offers Chart in its view switcher | `chart: { dataset, values, dimensions }`, naming an ADR-0021 dataset of the object |
+  | no binding at all on a view whose `viewType` is `chart` | the same refusal, where a chart grouped by `name` and counting `value` used to draw | the same dataset block |
+  
+  A dataset-bound chart renders as before. The refusal is `ObjectChart`'s own screen for an object-bound
+  chart that names no category axis (objectui#8168); its remedy names that component's keys, not the
+  list view's dataset block.
+  
+  **Not measured: production.** The census before this change (objectui#6152 round 13) found no writer
+  and no stored row carrying these axes in any repository corpus a seat can reach, with positive
+  controls; this repository's create-view dialog writes the dataset block. Stored view and page
+  metadata in deployments was not measured. A row that carries the axes renders the refusal until it is
+  re-saved with a dataset block.
+  
+  - `@object-ui/plugin-view`: an `ObjectView` kanban view no longer reads `kanban.conditionalFormatting`.
+    The list view's kanban block does not declare it, and every door that judges the block refuses it
+    by name; the view's own `conditionalFormatting` is the one place it is read. The development-only
+    flat-key warning no longer names `dateField`, `groupBy`, `groupField`, `imageField` or
+    `subtitleField`, which it told an author to move into a block that refuses them.
+  - `@object-ui/app-shell`: the object page's development-only flat-key warning no longer names the
+    twelve keys every per-kind block refuses (among them `groupField`, `imageField`, `cardFields`,
+    `xAxisField`, `yAxisFields`, `aggregation` and `series`).
+  - `@object-ui/plugin-charts`, `@object-ui/types`: comments only, where they said the list-view relays
+    still read the legacy axes.
+- 3fd8625: feat(plugin-list)!: the renderers stop reading the list-view keys every door refuses: the pre-#2231 aliases, `calendar.defaultView`, and the undeclared keys a per-kind block carries (objectui#6152, round 14)
+  
+  Clause-②: no
+  
+  **Changed (breaking for a stored view that carries a refused key).** Rounds 11 and 12 of
+  objectui#6152 closed the doors: `@object-ui/types`, `objectui validate` and `@objectstack/spec`'s
+  view write door refuse these keys on a list view's per-kind blocks, top-level and under the legacy
+  `options` bag. The renderers kept reading them, so a view stored before the doors closed still
+  rendered as written. They no longer read them, on every route that did: `normalizeListViewSchema`
+  (`@object-ui/core`), which folded the four aliases onto their spec keys before anything else read
+  the view, `ListView`, the object page's relay (`@object-ui/app-shell`), `ObjectView`'s own views
+  (`@object-ui/plugin-view`) and `ObjectTimeline`. A stored view that carries one of these keys still renders, without what the key
+  used to bind. Write the spec's key instead:
+  
+  | stored key (either nesting) | what renders now | write instead |
+  | :--- | :--- | :--- |
+  | `kanban.groupField` | lanes as for a view that names none: the object's declared lifecycle field (`status` on an `object-view` element's own views) | `kanban.groupByField` |
+  | `kanban.cardFields` | cards show `kanban.columns`, or the view's own fields | `kanban.columns` |
+  | `gallery.imageField` | no cover binding: `ObjectGallery` tries `image`, and the Gallery view is not offered | `gallery.coverField` |
+  | `timeline.dateField`, and `calendar.dateField` read as a timeline axis | no timeline axis: the timeline's refusal names the keys to write, and the Timeline view is not offered | `timeline.startDateField` (or `calendar.startDateField`) |
+  | `calendar.defaultView` | the calendar opens on its own default view | nothing on a list view: the initial mode is the `object-calendar` element's flat `defaultView` |
+  | `kanban.swimlaneField` and any other undeclared kanban key | not drawn | nothing: the spec's kanban block has no swimlane |
+  | `tree.titleField` | the tree labels by `name` | `tree.labelField` |
+  | an undeclared key under `calendar`, `tree` or `gantt`, or anything under `options.grid` | not forwarded to the view | the block's declared key, or a top-level key of the view for a grid |
+  
+  The declared keys keep their route: `kanban.summarizeField`, `calendar.colorField` and
+  `calendar.allDayField` are now read by name where the removed spreads used to carry them, and every
+  `gantt` key the spec declares reaches the gantt through a typed table that `tsc` keeps total. A
+  block key named like a node key (`objectName`, `filter`) can no longer override the node's own
+  value. `ListView`'s projection collectors stop asking the server for the fields these keys named.
+  
+  **Not measured: production.** The census before this change (objectui#6152 round 13) found no
+  writer and no stored row carrying these keys in any repository corpus a seat can reach, with
+  positive controls; stored view and page metadata in deployments was not measured. A row that
+  carries one of these keys renders as the table says until it is re-saved with the key on the
+  right.
+  
+  Not in this change: the legacy chart axes (`chart.xAxisField`, `yAxisFields`, `categoryField`,
+  `valueField`, `aggregation`), which `ListView` still reads until the next round on objectui#6152.
+  
+  - `@object-ui/core`: `normalizeListViewSchema` returns a view whose only legacy vocabulary is one of
+    these nested aliases by reference, with the alias in place; it no longer removes it either.
+  - `@object-ui/types`: the refusal messages of these keys no longer say a stored view still renders
+    through the alias, and the kanban `groupBy` refusal no longer suggests the refused `groupField`.
+  
+  **Note added 2026-10-09 (objectui#6152 round 15):** the legacy chart axes are no longer read either.
+  `ListView`, the object page and `ObjectView`'s own views read no `xAxisField`, `yAxisFields`,
+  `categoryField`, `valueField` or `aggregation` on a chart block, so a chart view that names no
+  `dataset` binds nothing and `ObjectChart` refuses it on screen; see
+  `.changeset/6152-list-view-legacy-chart-retired.md`.
+
 ## 17.7.0
 
 ### Minor Changes

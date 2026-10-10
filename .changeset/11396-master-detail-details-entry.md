@@ -1,4 +1,0 @@
----
----
-
-No release. `@object-ui/plugin-form`'s exported `MasterDetailDetailConfig` is now derived from `@objectstack/spec`'s `details` entry by reference (`ComponentPropsMap['object-master-detail-form'].details[]`, a closed shape since 17.6.0) instead of restating it by hand, minus the one member the renderer does not read (`sortField`: retired here by objectui#11070, and on objectstack `main` by objectstack-ai/objectstack#21589, unreleased after 17.6.0; the subtraction holds on both spec shapes). Member for member the type is the same as before — the same keys, the same member types, `columns` the same inline grid column — so what a caller may write does not move. The `object-master-detail-form` registration declares `of: 'object'` and a description for `details`; tests and the console's parity prose follow (objectui#11396).

@@ -1,5 +1,109 @@
 # @object-ui/data-objectstack
 
+## 17.8.0
+
+### Minor Changes
+
+- da35453: Objects with a picklist-bound field save again from the OWD overview, the Setup fields and objects pages, the metadata-admin embedded-item editor, and `MetadataService.saveFields` (objectui#11692).
+  
+  The runtime serves a field that names a shared picklist (`picklist: 'NAME'`) with the options it resolved from the list. The authoring door refuses `options` beside `picklist`, with `422 INVALID_METADATA` at `fields.FIELD.options`, and the refusal covers the whole object. objectui#10202 fixed the two designers that host the select-field editor. These writers also seed their save from a served object read, so they sent the resolved options back and were refused, whatever had been edited:
+  
+  - **Studio → Access → OWD overview.** Changing an object's sharing model and saving was refused.
+  - **The Setup fields page** (`MetadataFieldsPage`). Editing any field of such an object was refused.
+  - **The Setup objects page** (`MetadataObjectsPage`). Relabelling such an object was refused.
+  - **The metadata-admin embedded-item editor** (`EmbeddedItemEditor`, opened from an object's fields, indexes or validations). Saving any item of such an object was refused.
+  - **`MetadataService.saveFields`.** A field list built from the served object was refused.
+  
+  Each now leaves `options` out of every field that names a picklist, before the PUT. A field without `picklist` keeps its inline `options` unchanged, and no other key is touched.
+  
+  `dropServedPicklistOptions` is now exported from `@object-ui/data-objectstack`. It is the served-to-authored conversion these writers apply, and it moves here from `@object-ui/app-shell` (it was not exported there), because `@object-ui/plugin-designer` does not depend on `app-shell`. It is for code that builds an object PUT from a served read. `MetadataClient.save` does not apply it, and neither do `MetadataService.saveObject` and `MetadataService.saveMetadataItem`, which read nothing: a body that pairs `picklist` with `options` without a served read behind it is still refused by the server, with its prescription.
+
+### Patch Changes
+
+- 4590363: A record open no longer sends the same record read twice at once, and asks each explain question once, with concurrent callers sharing the request (objectui#11699).
+  
+  A record page open sent `GET /api/v1/data/OBJ/ID` twice at the same moment and `POST /api/v1/security/explain` four times: the `update` and the `delete` question, each asked twice. Both reads came from the details block, whose load effect runs again while its first read is still on the wire. Each question was asked by the page header and by the details block, which mounts while the header's answer is still pending. The record page's own `$expand` read of the record, which it sends again when the object definition changes identity, is not changed here.
+  
+  - **`ObjectStackAdapter.findOne` shares an in-flight read**, the way `find` already did. Calls for the same resource, id and params that arrive while a read is pending get that read's answer. The entry is dropped when the read settles, so a later call reads again: this is not a response cache. A failed read reaches every caller that shared it and is not remembered. A write through the adapter (`create`, `update`, `delete`, the bulk and batch writes) drops the pending `findOne` reads of the resource it wrote, so a record read asked after a save never gets an answer sent before it.
+  - **The record-level edit and delete probe (`useRecordEditable`) shares an unanswered question.** Mounts asking the same question (same principal, object, record and operation) while it is pending wait on one request. A question whose record changes while it is pending is not shared, so the re-ask is a fresh request. No pending question is shared across a change of the signed-in principal.
+  
+  Nothing is added to either package entry: no export, prop, type member or language-pack key. `findOne` keeps its signature.
+- 4a9fe31: Studio shows a refused save as a sentence the author can act on, with the technical detail behind a "Details" disclosure (objectui#11785).
+  
+  - **Studio's save strips.** The Data, Automations and Interfaces pages used to print the refusal verbatim: the write guard's developer prose, or the server's raw issue paths such as `nodes.2.config.title — …`. Each strip now shows one sentence that names the input the refusal is about, in the terms the editor shows. On the Data page that is the field's label. On the Automations page it is the step's label and the inspector input, so a refusal at `nodes.2.config.title` reads "Check Title on the step “Notify approver” — …". On the Interfaces page it is the navigation item and its input. A "Show me" button opens that field, step or navigation item. The raw text stays under a closed "Details" disclosure, unchanged. A path Studio cannot place on the open page keeps its line there, and the sentence says the draft was refused.
+  - **A Picklist with no options.** Switching a field to Picklist before it has an option now says "Changes not saved: the field “Status” needs at least one option…", instead of the guard's message.
+  - **The object write guard's message names no code.** `assertObjectMetadataWritable` no longer prints the door's class name, a package name or tracker ids. Its message is the same at every door, so the other surfaces that show it as their banner read the field, its type and the remedy. Its signature, error type and exports are unchanged.
+  
+  `formatMetadataError` is unchanged, so every other surface that calls it prints what it printed before. Nothing is added to either package entry: no export, prop, type member or language-pack key. The new sentences are rows in the metadata-admin designer's own string tables (en and zh).
+- 6d8bf0c: Opening a Studio package no longer sends the same read several times at once (objectui#11797).
+  
+  Several readers mount together on Studio entry and each one used to send its own request for the same answer. A caller that arrives while an identical request is still pending now waits for that request instead of sending another:
+  
+  - **`@object-ui/app-shell`:** the package list (`GET /api/v1/packages`, read by the Studio package switcher, the read-only gate and the object-name namespace lookup) and the pending-drafts count (`GET /api/v1/meta/_drafts`, read by the Studio top bar and the chat bar).
+  - **`@object-ui/data-objectstack`:** `MetadataClient.listTypes`, `list`, `listDrafts`, `get` and `getDraft`. Requests are shared between clients built on the same `fetch`, so the per-component clients the console creates share them too. Each caller, the first one included, still gets an answer object that no other caller holds.
+  
+  This is not a response cache. Once a request settles, the next call goes to the server again. A failed request is shared only by the callers already waiting, and the next call retries. A write the reader can see drops any read still pending, so a read made after the write never gets the answer of a request sent before it. For the metadata client that is any save, publish or reset through a client on the same `fetch`. For the app-shell reads it is a package duplicate, the `objectui:packages-changed` announcement and the publish refresh pulse.
+  
+  No exported function, method signature, option or type changes.
+- 5dff027: Studio stops asking questions whose expected answer is an error, so the browser console no longer fills with red lines that hide real failures (objectui#11799).
+  
+  - **`MetadataClient.getDraft()` reads the drafts ledger first.** It reads `GET /meta/_drafts` through the client's shared read, and sends `GET /meta/:type/:name?state=draft` only when the ledger lists the name. An item with no draft no longer logs a 404. The method still resolves `null` when there is no draft and the draft envelope when there is one. A draft saved a moment ago is found, because a write drops the ledger read that was pending when it landed. A ledger the caller cannot read (403, 501, a network fault) counts as unknown, and the item read is sent as before.
+  - **Studio reads an item's published baseline only when it uses it.** The Interfaces pillar's leaves and the Automations pillar's flows read `GET /meta/:type/:name/layers` only for an item with no pending draft, and the Interfaces pillar reads none for an app found only in the drafts ledger. An item that was never saved always has a draft, so it no longer logs a 404 for `/layers`. Opening a leaf or a flow now waits for the ledger before it reads the item, one round trip more than the parallel reads it replaces. The Data pillar still reads `/layers` for an object that was never published: that answer is how it tells it has no records table yet.
+  - **The AI usage indicator asks nothing while AI is off.** It reads `GET /ai/usage` only while the agent catalog at its base lists an agent, the signal the console gates every AI entry point on. On an open-edition server, Studio's copilot dock no longer logs a 501 for it each time it mounts.
+  
+  No REST answer, export, prop or type member changes.
+- 12ff256: `ConnectionState` is re-exported from `@object-ui/types` instead of being declared a second time here (objectui#6349, batch 10). `@object-ui/collaboration` declared the same five states for `useRealtimeSubscription`, so both packages now publish the one declaration under the same name. The union is unchanged, and so are `getConnectionState()`, `ConnectionStateEvent` and every import of `ConnectionState` from this package.
+  
+  No runtime behaviour changes.
+- 1b2d016: Doc comments only. `UserDataAdapter` now carries the contract notes `@object-ui/app-shell` kept on its own copy of the interface: implementations must be safe to call concurrently and should never throw, so the hosting provider can degrade to localStorage when the backend fails. `@object-ui/app-shell` now re-exports this declaration instead of declaring a second one (objectui#6349, batch 9). The type and its members are unchanged.
+  
+  No runtime behaviour changes.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [2e818d0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [aaba865]
+- Updated dependencies [45d5853]
+- Updated dependencies [d99b731]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/core@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

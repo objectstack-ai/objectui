@@ -1,5 +1,127 @@
 # @object-ui/plugin-tree
 
+## 17.8.0
+
+### Patch Changes
+
+- a58626c: fix(plugin-tree): tree cells draw the same field faces as list cells, so a boolean no longer shows as `true` (objectui#11686)
+  
+  A tree view, such as the Org Chart tab on Setup → Business Units, printed most column values as raw text. Its cells knew only option labels and referenced records; every other type was printed as stored, so the boolean "Active" column read `true`, and dates, numbers and currency amounts showed their stored form while the list tabs on the same page drew them properly.
+  
+  Each tree cell whose column the object defines now draws through the field package's cell display for that field type, the same one the grid, kanban and gallery cards use. A boolean draws the read-only checkbox, a date the locale-aware date, a currency the formatted amount, a select its option badge and a lookup the referenced record's name. Where a display names its own column, as the boolean display's badge for an inactive `active` field does, it uses the column label the tree's header shows, so it reads in the session's language. A column the object does not define keeps the plain text it showed before.
+  
+  `@object-ui/plugin-tree` now declares `@object-ui/fields` as a dependency; it already reached it through `@object-ui/plugin-detail`. Nothing is added to the package entry: no export, prop, type member or language-pack key.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [b61c116]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [4c127cd]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [76993f8]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [055d350]
+- Updated dependencies [7300fca]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [db4cb6b]
+- Updated dependencies [4590363]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [885a96f]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [72167a9]
+- Updated dependencies [e06365c]
+- Updated dependencies [3035948]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [5ab2f19]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [a368ccb]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [e391f87]
+- Updated dependencies [20c6d35]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/components@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/i18n@17.8.0
+  - @object-ui/react@17.8.0
+  - @object-ui/plugin-detail@17.8.0
+  - @object-ui/fields@17.8.0
+  - @object-ui/permissions@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

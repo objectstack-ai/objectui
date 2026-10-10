@@ -1,5 +1,266 @@
 # @object-ui/plugin-timeline
 
+## 17.8.0
+
+### Minor Changes
+
+- 9ca3cac: The calendar and the timeline start the week on the first day of the week of the user's locale (objectui#11675), instead of a fixed Sunday (calendar) and a fixed Monday (timeline). Under `en-US` both start on Sunday; under `en-GB` or `zh-CN` both start on Monday; under `ar-EG` both start on Saturday. There is no separate week-start setting: the first day comes from the locale the dates are already formatted with.
+  
+  - **`@object-ui/i18n` exports `firstDayOfWeek(locale)` and its `WeekdayIndex` type.** It returns the first day of the week for a BCP-47 tag, numbered as `Date.prototype.getDay` numbers weekdays (0 is Sunday), which is also what react-day-picker's `weekStartsOn` takes. It reads the engine's `Intl.Locale` week info (`getWeekInfo()`, else the `weekInfo` accessor), including a `-u-fw-` keyword on the tag. Where the engine has neither, it reads CLDR's first-day table by the tag's region, or the region CLDR's likely subtags give it (`en` reads `US`, `zh` reads `CN`), and a region the table does not list reads Monday, CLDR's world default. A malformed tag throws the same `RangeError` that formatting a date with it would.
+  - **The calendar's weeks start on the locale's first day.** `CalendarView` (and `object-calendar` through it) reads the first day from its `locale` prop, else the display locale, and the month grid's rows, its weekday heads, the week view's columns, the header's week range, the day a span that wraps into a new row shows its title on, and the header's date popover all start there. The popover used to take date-fns's own week start for the tag, which is not CLDR's for every tag (date-fns reads `es-MX` as `es`, a Monday start, where CLDR starts Mexico's week on Sunday) and which read Sunday until the date-fns locale had loaded.
+  - **The object timeline's "This week" and "Next week" start on the display locale's first day.** The bucket bounds are also stepped on the local calendar now, so across a DST change the day after it is "Tomorrow" again, and the first day of next week no longer falls into "This week".
+  
+  A host that relied on the calendar always starting on Sunday, or on the timeline's week always starting on Monday, now sees the locale's first day. The gantt variant's `week` axis is unchanged: it still counts plan weeks from the axis's first day.
+- c910630: The timeline's unused "Overdue" bucket label is removed: `timeline.bucket.overdue` is gone from all ten language packs and from the timeline's built-in English defaults (objectui#11676).
+  
+  Nothing has read the key since a past date on a timeline went under "Earlier". No timeline heads a group "Overdue": a date is overdue only when it is a due date and the record is still open, and a timeline declares neither fact. Overdue records are still marked where record state lives: the date cell's due treatment, the gantt's alert colour and conditional formatting.
+  
+  **Narrowed public surface (`@object-ui/i18n`).** The exported `en` pack and the `TranslationKeys` type derived from it lose one member, `timeline.bucket.overdue`. Code that reads `en.timeline.bucket.overdue`, or passes that key to `t()` expecting a translation, has to drop it. This is released as `minor` under objectui's version policy, which keeps the major aligned with `@objectstack`. The date cell's "Overdue 3d" phrase is a different key, `fields.relativeDate.overdue`, and stays in every pack.
+- ce464d9: An object-bound timeline no longer heads every past date "Overdue": a day before today goes under a neutral "Earlier" bucket, translated in every language (objectui#11676).
+  
+  Without a `groupByField`, `ObjectTimeline` groups its entries into date buckets, and every day before today went under "Overdue", whatever the date meant. The showcase's Activity Timeline, bound to `created_at`, put all ten tasks under "Overdue", the two Done ones included. A creation date cannot be overdue, and a closed record cannot be either.
+  
+  "Overdue" needs two facts: that the date is a due date, and that the record is still open. Nothing the timeline reads declares either one. The timeline configuration (`startDateField`, `endDateField`, `titleField`, `groupByField`, `colorField`, `scale`) names no due-date role, and no field option marks a closed state. So a past day is now "Earlier", and the timeline does not guess either fact from a field name or a status value. Today, Tomorrow, This week, Next week, Later and No date are unchanged.
+  
+  **Widened public surface (`@object-ui/i18n`).** One new key in all ten language packs, `timeline.bucket.earlier`, so the exported `en` pack and the `TranslationKeys` type derived from it gain one member. The timeline no longer reads `timeline.bucket.overdue`, and this release also removes that key from every pack (the "Overdue" bucket label retirement entry). No component prop or exported type changes.
+- 3fd8625: feat(plugin-list)!: the renderers stop reading the list-view keys every door refuses: the pre-#2231 aliases, `calendar.defaultView`, and the undeclared keys a per-kind block carries (objectui#6152, round 14)
+  
+  Clause-②: no
+  
+  **Changed (breaking for a stored view that carries a refused key).** Rounds 11 and 12 of
+  objectui#6152 closed the doors: `@object-ui/types`, `objectui validate` and `@objectstack/spec`'s
+  view write door refuse these keys on a list view's per-kind blocks, top-level and under the legacy
+  `options` bag. The renderers kept reading them, so a view stored before the doors closed still
+  rendered as written. They no longer read them, on every route that did: `normalizeListViewSchema`
+  (`@object-ui/core`), which folded the four aliases onto their spec keys before anything else read
+  the view, `ListView`, the object page's relay (`@object-ui/app-shell`), `ObjectView`'s own views
+  (`@object-ui/plugin-view`) and `ObjectTimeline`. A stored view that carries one of these keys still renders, without what the key
+  used to bind. Write the spec's key instead:
+  
+  | stored key (either nesting) | what renders now | write instead |
+  | :--- | :--- | :--- |
+  | `kanban.groupField` | lanes as for a view that names none: the object's declared lifecycle field (`status` on an `object-view` element's own views) | `kanban.groupByField` |
+  | `kanban.cardFields` | cards show `kanban.columns`, or the view's own fields | `kanban.columns` |
+  | `gallery.imageField` | no cover binding: `ObjectGallery` tries `image`, and the Gallery view is not offered | `gallery.coverField` |
+  | `timeline.dateField`, and `calendar.dateField` read as a timeline axis | no timeline axis: the timeline's refusal names the keys to write, and the Timeline view is not offered | `timeline.startDateField` (or `calendar.startDateField`) |
+  | `calendar.defaultView` | the calendar opens on its own default view | nothing on a list view: the initial mode is the `object-calendar` element's flat `defaultView` |
+  | `kanban.swimlaneField` and any other undeclared kanban key | not drawn | nothing: the spec's kanban block has no swimlane |
+  | `tree.titleField` | the tree labels by `name` | `tree.labelField` |
+  | an undeclared key under `calendar`, `tree` or `gantt`, or anything under `options.grid` | not forwarded to the view | the block's declared key, or a top-level key of the view for a grid |
+  
+  The declared keys keep their route: `kanban.summarizeField`, `calendar.colorField` and
+  `calendar.allDayField` are now read by name where the removed spreads used to carry them, and every
+  `gantt` key the spec declares reaches the gantt through a typed table that `tsc` keeps total. A
+  block key named like a node key (`objectName`, `filter`) can no longer override the node's own
+  value. `ListView`'s projection collectors stop asking the server for the fields these keys named.
+  
+  **Not measured: production.** The census before this change (objectui#6152 round 13) found no
+  writer and no stored row carrying these keys in any repository corpus a seat can reach, with
+  positive controls; stored view and page metadata in deployments was not measured. A row that
+  carries one of these keys renders as the table says until it is re-saved with the key on the
+  right.
+  
+  Not in this change: the legacy chart axes (`chart.xAxisField`, `yAxisFields`, `categoryField`,
+  `valueField`, `aggregation`), which `ListView` still reads until the next round on objectui#6152.
+  
+  - `@object-ui/core`: `normalizeListViewSchema` returns a view whose only legacy vocabulary is one of
+    these nested aliases by reference, with the alias in place; it no longer removes it either.
+  - `@object-ui/types`: the refusal messages of these keys no longer say a stored view still renders
+    through the alias, and the kanban `groupBy` refusal no longer suggests the refused `groupField`.
+  
+  **Note added 2026-10-09 (objectui#6152 round 15):** the legacy chart axes are no longer read either.
+  `ListView`, the object page and `ObjectView`'s own views read no `xAxisField`, `yAxisFields`,
+  `categoryField`, `valueField` or `aggregation` on a chart block, so a chart view that names no
+  `dataset` binds nothing and `ObjectChart` refuses it on screen; see
+  `.changeset/6152-list-view-legacy-chart-retired.md`.
+- b403bb3: **`BaseSchema` no longer declares `[key: string]: any`** (objectui#8347, executing the objectui#7927 ruling: the TypeScript face is a contract). Every node type extends `BaseSchema`, so a node literal annotated with its node type now refuses a key that no declaration names, a misspelled key included, where it used to type it `any`. The correct spelling compiles as before.
+  
+  **Clause-②: yes (narrowing)**, shipped as `minor` per this repository's version policy. The removal narrows the TypeScript authoring face of every node type; the `visibleWhen` change below widens both faces to the envelope the spec's own parse writes.
+  
+  - **What does not move.** The zod faces keep their accept sets for every key but `visibleWhen`: the tolerant mirror is still `.passthrough()`, so `safeValidateSchema` keeps an undeclared key, and the derived strict face refuses it as before. `ComponentRendererProps`, the renderer props type, keeps its own index signature. Nothing a renderer draws changes.
+  - **The bound.** TypeScript runs its excess-property check only on a fresh object literal. A value that reached its annotation through a variable of a wider type is not re-checked.
+  - **`PartialSchema<T>` works as written.** With the signature gone, `keyof T` is the literal member union again, so the alias keeps `T`'s declared members, optional, with `type` required. While the signature stood it declared `type` alone (objectui#6397).
+  - **`BaseSchema.visibleWhen` is the spec's `EvaluatedExpressionInput`**, by reference: a predicate string, or the `{ dialect, source }` envelope. The zod twin takes `EvaluatedExpressionInputSchema`'s verdict without its transform, so a string parses to itself. A dialect-less envelope, an unknown dialect and a blank predicate are refused, as the spec refuses them. Both faces read `string` before, which refused the envelope a spec parse writes into this key.
+  - **`@object-ui/plugin-kanban`.** `ObjectKanban` reads the `sort` the element data-source gate writes through a read type private to the package. `ObjectKanbanSchema` still declares no `sort` (objectui#8174). Nothing drawn changes.
+  - **`@object-ui/plugin-timeline`.** `TimelineRenderSchema`, the `schema` prop type of the exported `TimelineRenderer`, gains one optional member: the `onItemClick` slot `ObjectTimeline` composes. That is a one-member optional widening of an exported prop type. `TimelineSchema`, the authoring face, still declares no `onItemClick`. Nothing drawn changes.
+  
+  **Migration.** Where a literal stops compiling, the key is misspelled (fix it) or not declared on that node type (declare it on the type that reads it, by reference to the `@objectstack/spec` row, or remove it). Do not cast past the error. `props`, the legacy alias of `properties`, is not declared on the TypeScript face; the renderer still reads it, so write `properties`.
+
+### Patch Changes
+
+- c0862c1: The `object-gantt` `markers` input and the `object-timeline` `items` and `mapping` inputs open their descriptions with the `@objectstack/spec` 17.7.0 row's own describe text, which is true of these renderers (objectui#11168's rule, followed at objectui#11717). The renderer-specific sentences after it are unchanged.
+- 5d77c09: feat(types)!: a list view's legacy `options` bag is the `@objectstack/spec` list overlay's bag by reference, `ListViewTimelineConfig` is the list view's own `timeline` block, and `ListViewGalleryConfig` is retired (objectui#6152, round 12)
+  
+  Clause-②: no
+  
+  **Narrowed (breaking), `@object-ui/types`.** `@objectstack/spec`'s authoring list view declares no
+  `options` bag. Its one home is the flattened list overlay on the view write door
+  (`VIEW_METADATA_MEMBERS.listOverlay`), where it is a strict object of the eight kinds that name a
+  block, each judged by its own list-view block with every key optional. `ListViewSchema.options` was
+  a record of `any` with three named refusals, so `ListViewSchema`, `AnyComponentSchema`,
+  `safeValidateSchema` (`objectui validate`), `StrictAnyComponentSchema` and the TypeScript
+  `ListViewSchema['options']` accepted what that door refuses. It is now that member's own bag, taken
+  by reference, with this package's `kanban`, `calendar`, `gallery` and `timeline` blocks in it, so
+  each named refusal gives the same message under `options.KIND` as under the top-level `KIND`. What is
+  refused now, and what to write instead:
+  
+  - A key that is not one of the eight kinds is refused with the spec's own `unrecognized_keys` at
+    `options`. `options.grid` gets the spec's guidance: a grid has no per-kind block, so its settings
+    (`columns`, `sort`, `filter`, …) are top-level keys of the view. Remove it.
+  - An undeclared key in any kind (for example `options.kanban.swimlaneField`,
+    `options.timeline.descriptionField`, `options.tree.titleField`, `options.chart.xAxisField`) is
+    refused with the spec's own `unrecognized_keys` at that kind. Before this change it was kept and
+    never examined.
+  - `options.kanban.groupField` is refused by name: write `groupByField`.
+  - `options.kanban.cardFields` is refused by name: write `columns`.
+  - `options.gallery.imageField` is refused by name: write `coverField`.
+  - `options.timeline.dateField` is refused by name: write `startDateField`.
+  - `options.calendar.defaultView` is refused by name: the initial view mode is a member of the
+    `object-calendar` element (its flat `defaultView`), not of a list view's calendar block.
+  - `options.chart`'s legacy axes (`xAxisField`, `yAxisFields`, `categoryField`, `valueField`,
+    `aggregation`) are refused: write the dataset-bound block, `chart: { dataset, dimensions, values }`.
+  - A value of the wrong type (for example `options.kanban: 42`, or a number where a field name
+    belongs) is refused at its path.
+  
+  The three refusals already in place (`options.kanban.groupBy`, objectui#8365;
+  `options.calendar.dateField` / `endField`, objectui#8355) keep their messages, and now report
+  `invalid_type` at the key, as the top-level blocks do, where they reported `custom`. Each kind is
+  `.partial()`, as the spec's bag is: the renderer reads the bag as a per-key underlay of the top-level
+  block, so a required member is not asked of it.
+  
+  **Changed, `@object-ui/types`.** `ListViewTimelineConfig` is `NonNullable<ListViewSchema['timeline']>`:
+  the spec's list-view slot, strict and `.partial()`, with the legacy `dateField` refused by name
+  (write `startDateField`). It was the spec's `TimelineConfig` plus `dateField?: string` and a string
+  index signature of `any`, so a block with any key compiled.
+  
+  **Retired, `@object-ui/types`.** The `ListViewGalleryConfig` type export is gone. Nothing in this
+  repository used it, and the spec has no element of that shape. Write the spec's `GalleryConfig`,
+  which this package re-exports.
+  
+  **`@object-ui/app-shell`.** The object page's relay writes the spec's spellings into the bag it hands
+  `ListView`: `options.kanban.columns` where it wrote `cardFields`, no `options.gallery.imageField`
+  beside `coverField`, and no `options.timeline.descriptionField`. What renders does not change: the
+  board reads `columns` for its cards, the gallery reads `coverField` first, and nothing drew the
+  timeline's nested `descriptionField`.
+  
+  **`@object-ui/plugin-list`.** `ListView`'s capability gate also reads `options.gallery.coverField`, so
+  a bag binding its cover under the spec's key offers the Gallery view; it read only the legacy
+  `imageField` there. The README's examples author the top-level per-kind blocks and a dataset-bound
+  chart, and no longer show the bag.
+  
+  **`@object-ui/plugin-timeline`.** `ObjectTimeline`'s nested `schema.timeline` prop takes the new
+  `ListViewTimelineConfig`.
+  
+  What did not move: the renderers' reads. `ListView` still merges each `options.KIND` under the
+  top-level block and still reads the legacy spellings, so a view stored before these doors closed
+  renders as before; only authored metadata meets the refusal.
+  
+  **Note added 2026-10-09 (objectui#6152 round 14):** the renderers' reads have moved. `ListView`
+  still merges each `options.KIND` under the top-level block, but it reads each kind's declared keys
+  only: the legacy spellings, `options.grid` and the undeclared keys a bag carries are no longer read,
+  so a view stored with one of them renders without what that key used to bind; see
+  `.changeset/6152-list-view-readers-retired.md`. The legacy chart axes (`options.chart.xAxisField`
+  and the rest) are still read until the next round on objectui#6152.
+  
+  **Note added 2026-10-09 (objectui#6152 round 15):** the legacy chart axes are no longer read, in the
+  bag or at the top level: a chart block that names no `dataset` binds nothing, and `ObjectChart`
+  refuses it on screen; see `.changeset/6152-list-view-legacy-chart-retired.md`.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [e06365c]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/components@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/i18n@17.8.0
+  - @object-ui/react@17.8.0
+  - @object-ui/permissions@17.8.0
+  - @object-ui/mobile@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

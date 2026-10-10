@@ -1,5 +1,63 @@
 # @object-ui/providers — Changelog
 
+## 17.8.0
+
+### Minor Changes
+
+- 7282c6a: `createObjectStackUploadAdapter` no longer sends an upload's `path` as the storage scope (objectui#12055).
+  
+  The adapter used to send `scope: opts.scope ?? options.path` in its presigned upload request, so an adapter built without a `scope` turned the `path` a caller passed to `upload(file, { path })` into the scope. A path is a key prefix for the S3 and Azure presign callbacks, not a scope: the ObjectStack storage service accepts only the values of the `scope` select on its `sys_file` object and refuses any other, so such an upload failed at the presign step. The adapter now sends only the `scope` it was built with, or none, and the server applies its default. `UploadResult.meta.scope` reports the same value.
+  
+  The `scope` option's documentation no longer teaches free key prefixes ("avatars", "logos", "attachments/case"). It names the server's `sys_file` scope select as the vocabulary. The option's type is unchanged (`string`).
+  
+  BREAKING (`@object-ui/providers`), for a caller that relied on `path` to choose the scope of an adapter built without one: the upload is now filed under the server's default scope. Remedy: pass one of the server's scopes as the adapter's `scope`, or none to take the server's default. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  **Clause-②: no (narrowing)**: no export, type member or option is added, and no type changes. The request the adapter sends narrows: a `path` no longer reaches it.
+- 12ff256: The props of this package's `ThemeProvider` are declared and exported as `ThemePreferenceProviderProps` instead of `ThemeProviderProps` (objectui#6349, batch 10). `@object-ui/react` publishes a different `ThemeProviderProps`: the props of its theme-system `ThemeProvider`, which registers whole `Theme` documents, takes a theme name as `defaultTheme` and the mode as `defaultMode`, and writes the active theme as CSS variables. This package's provider stores one `ThemePreference` (`auto | light | dark | system`) and takes that mode as `defaultTheme`. One exported name stood for two props types across the two packages, and react keeps it.
+  
+  **Type change, breaking for some consumers.** `ThemeProviderProps` is no longer exported from `@object-ui/providers`. Replace `import type { ThemeProviderProps } from '@object-ui/providers'` with `ThemePreferenceProviderProps`; the members (`defaultTheme`, `storageKey`, `children`) are unchanged. The old import fails to compile with TS2724 ("has no exported member named 'ThemeProviderProps'"). That error's "Did you mean" names the `ThemeProvider` component, not the replacement; using the component's name as a type fails too (TS2749), so write `ThemePreferenceProviderProps`. The `ThemeProvider` component and `useTheme` keep their names.
+  
+  No runtime behaviour changes.
+
+### Patch Changes
+
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [2e818d0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [aaba865]
+- Updated dependencies [45d5853]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [eb4552e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

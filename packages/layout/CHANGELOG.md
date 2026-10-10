@@ -1,5 +1,98 @@
 # @object-ui/layout
 
+## 17.8.0
+
+### Minor Changes
+
+- 9fc68aa: Screen readers can name and reach the controls of the view tab bar, the settings form, the sidebar menus, the table's selection column and the percent cell (objectui#11690). axe-core (wcag2a + wcag2aa) on an object list page and on a Setup settings page reported the faults below; each is fixed where it is produced and pinned by an axe run on that component.
+  
+  - **View tab bar (`ViewTabBar`).** The "+" add-view button is named, through the existing `view.addView` key, and its tooltip reads the same translated words instead of a hard-coded "Add View". Each view is now a `<button>`; the current one carries `aria-current="true"`. The views were `role="tab"` elements with no `tablist`, and the active view's actions button sat inside its tab, so it was a control inside a control. That button is now the view button's sibling, still named "View actions for …" and still one Tab stop away. Tab roles could not hold it: a tab's content is presentational and a tablist may contain only tabs. These views never had the tabs keyboard model (arrow keys, a tab panel) either. Every view stays its own Tab stop. When the bar is not reorderable, as the console renders it, Enter or Space switches to the focused view. With drag-to-reorder on, Enter or Space on a view starts a keyboard drag instead, as it did before this change, so a view is switched to by click. The rename box is now outside the view button and is named through `view.rename`. With drag-to-reorder on, the sortable attributes describe the view as a button. Breaking for anything that queried the bar by `role="tab"` or `aria-selected`: query `data-testid="view-tab-ID"` or `aria-current` instead.
+  - **Settings form (`@object-ui/console`).** Each row's label is bound to its control, so text, number, password, textarea, JSON, colour, switch and select controls are named by it. Clicking a label now focuses or toggles its control. A radio group and a multiselect checkbox group are named by the row label too.
+  - **Sidebar menus (`NavigationRenderer`).** With drag-to-reorder on (the desktop default), every row was wrapped in a `<div>` between the menu's `<ul>` and its `<li>`. The sortable node is now the row's own `<li>`. A separator and a nested group inside a menu are now list items too: the separator's item is hidden from assistive tech, and a top-level group is unchanged.
+  - **Table selection column (`data-table`).** The select-all checkbox and each row's checkbox are named through the existing `table.selectAllRows` and `table.selectRow` keys.
+  - **Percent cell (`PercentCellRenderer`).** The progress bar is named by the formatted value beside it (`aria-labelledby`), so the name is in the viewer's locale.
+  
+  No language-pack key, export or prop is added; every new name reads a key the packs already carried.
+- 8a55f0c: The console sidebar no longer lets a user drag the app's menu into a private order; the Pinned section is now the one place a user orders entries (objectui#12059). Arranging an app's navigation is Studio's job: the menu is drawn in the order authored for the app, and every user sees that order. This reverses objectui#11626, which had extended menu drag-to-reorder to grouped menus.
+  
+  **`@object-ui/layout` (breaking, declared `minor` per the version policy).** `NavigationRenderer` retires `enableReorder` and `onReorder`, and with them every sortable path through the menu: no menu row draws a grip or carries a sortable role. `AppSchemaRenderer` retires the same two props, which only handed them through. Two props are added for the pinned section: `pinnedOrder` (the pinned entry ids in the user's order; the section draws in that order, an unnamed pinned entry following in menu order) and `onPinnedReorder` (makes the pinned rows sortable and receives the drawn ids in their new order). A pinned row is dragged by the row itself: no grip at rest, a grab cursor, and a line marking where the row will land. From the keyboard, with the row's link focused, Space picks it up, the arrow keys move it, Space drops it and Escape cancels; Enter still follows the link. The row's link stays a link and the row's one focus stop. The click a pointer drag ends with is not followed.
+  
+  **`@object-ui/app-shell`.** The sidebar no longer reads or writes the per-user menu order it kept in localStorage (`objectui-nav-order-APP`); a key left from before is ignored. The pinned order is stored with the pins, in the `UserDataAdapter`-backed favorites, so it syncs across devices the way the pins do: it is the order of the `type: 'nav'` entries in the stored list. A new pin now joins the end of that order (a content favorite still goes first), and an unpin leaves the others in order. `useFavorites()` gains `reorderNavPins(navIds)`, which puts the named pins in a new order in the places they already hold, so a pin another app's sidebar draws and every content favorite stay put; `useNavPins()` gains `reorderPins(orderedIds)` over it, and its `pinnedIds` lists the pins in the user's order. At the nav-pin cap a new pin still joins the end and the earliest-pinned one rolls off. Pins made before this change are now drawn in their stored order, which is newest first (a pin used to be put at the front of the list), rather than in menu order, until the user drags them.
+  
+  **`@object-ui/i18n` (breaking, declared `minor`).** `console.nav.dragToReorder`, the label of the retired menu grip, is removed from all ten packs. `view.dragToReorder` is a different key and stays.
+  
+  **Clause-②: yes.** Published surface changes: `NavigationRendererProps` loses `enableReorder` / `onReorder` and gains `pinnedOrder` / `onPinnedReorder`; `AppSchemaRendererProps` loses `enableReorder` / `onReorder`; the return of `useFavorites()` gains `reorderNavPins`; the return of `useNavPins()` gains `reorderPins`; the `console.nav.dragToReorder` pack key leaves.
+
+### Patch Changes
+
+- b88937b: Drag-to-reorder of a grouped sidebar menu, within each level (objectui#11626), was retired before it was released. objectui#12059 removed every drag-to-reorder of the sidebar menu: an app's menu order is authored in Studio, and every user sees that order. Nothing of objectui#11626 ships, because objectui#12059 retires the menu reorder whole: `NavigationRenderer`'s `enableReorder` / `onReorder`, the menu drag grip, and the sidebar's per-user menu order in localStorage (`objectui-nav-order-APP`), each of which predates objectui#11626, are gone. The objectui#12059 changeset describes what replaced them: the pinned section is the one place a user orders entries.
+- d758f2f: Doc comment only. The `PageHeaderComponentProps` comment no longer says `@object-ui/app-shell` shares the name: the console's header props are now `ConsolePageHeaderProps`, so this package is the one authority for `PageHeaderComponentProps` (objectui#6349, batch 8). The type and its members are unchanged.
+  
+  No runtime behaviour changes.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [c096f03]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [c000398]
+- Updated dependencies [73b5d77]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [7a2c60b]
+- Updated dependencies [9fc68aa]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [e06365c]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [9844bbf]
+- Updated dependencies [cef0eee]
+- Updated dependencies [7241a81]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [45d5853]
+- Updated dependencies [4f4fc03]
+- Updated dependencies [d99b731]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/components@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/react@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

@@ -1,5 +1,127 @@
 # @object-ui/react
 
+## 17.8.0
+
+### Minor Changes
+
+- fd060f0: `ElementDataSourceGate` takes a `requiresObject` prop: when a placement opts in
+  and its node names its object in neither place, the gate renders a short "no
+  object named" hint instead of the block (objectui#11605).
+  
+  The object-bound registrations stopped declaring their object key required,
+  because the `dataSource` binding can supply it and the page compile has no "this
+  key or that binding" form. So the page compile accepts a node that names no
+  object at all, and the runtime's answer is the only signal left for it. Several
+  blocks answered such a node with an empty list, board, form, chart, dash or pivot,
+  which reads as an empty query.
+  
+  **Clause-②: yes (widening)** — `ElementDataSourceGateProps` gains the optional
+  `requiresObject` boolean. With it set, the gate reads the mapping's object key
+  (`objectName` unless the mapping names another) on the node after the binding
+  lands, so a node bound by `dataSource.object` renders as before; a node that names
+  no object gets the hint, "No object named: set objectName or dataSource.object."
+  (`data-testid` `{testId}-no-object`), and the block is not mounted. Without the
+  prop, or with a mapping whose `object` is `false`, nothing changes. The hint is
+  drawn after the view states, so a binding that is still resolving or failed to
+  resolve keeps its own panel.
+
+### Patch Changes
+
+- 92f4e2b: An action's translated copy is now read from ONE bundle node, chosen by the object the action belongs to, the same way `@objectstack/spec` 17.7.0 reads it on the server (objectui#11439). That object is the action's declared `objectName`, else the object whose `actions` embed it.
+  
+  - An action that belongs to an object reads `objects.OBJECT._actions.ACTION.*` only. Copy for it filed under `globalActions.ACTION` no longer applies: its label, confirm text, success message, outcome messages, description, parameters and result dialog show the authored text instead, as they already did everywhere the server translates. Move that copy to `objects.OBJECT._actions.ACTION`, which is where `os validate` asks for it.
+  - An action with no object (no `objectName`, not embedded in an object) still reads `globalActions.ACTION.*`.
+  - `useActionTextLocalizer` keys on the action's declared `objectName` before the object its caller passes, so an action declared on one object reads that object's copy wherever it is drawn.
+  
+  `useObjectLabel()` and `useActionTextLocalizer()` keep their signatures; no input, export or translation key is added.
+- Updated dependencies [18d7b48]
+- Updated dependencies [172acc3]
+- Updated dependencies [f0496bd]
+- Updated dependencies [c4c506b]
+- Updated dependencies [9db9ff3]
+- Updated dependencies [d92b2a1]
+- Updated dependencies [92f4e2b]
+- Updated dependencies [b10c68e]
+- Updated dependencies [bdc9049]
+- Updated dependencies [e8c0b96]
+- Updated dependencies [b92329c]
+- Updated dependencies [2e818d0]
+- Updated dependencies [fd060f0]
+- Updated dependencies [8b14aec]
+- Updated dependencies [2abec3a]
+- Updated dependencies [9dfaca6]
+- Updated dependencies [7b17705]
+- Updated dependencies [fc3c2cc]
+- Updated dependencies [f9f4a62]
+- Updated dependencies [848ba0e]
+- Updated dependencies [57d82cb]
+- Updated dependencies [de96f3d]
+- Updated dependencies [9ca3cac]
+- Updated dependencies [c910630]
+- Updated dependencies [ce464d9]
+- Updated dependencies [e6dcd85]
+- Updated dependencies [834c559]
+- Updated dependencies [22b503c]
+- Updated dependencies [da35453]
+- Updated dependencies [d50f724]
+- Updated dependencies [17acfbb]
+- Updated dependencies [6be0f7a]
+- Updated dependencies [4590363]
+- Updated dependencies [89cc738]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [c0862c1]
+- Updated dependencies [ded4494]
+- Updated dependencies [d172f63]
+- Updated dependencies [4c0de52]
+- Updated dependencies [a80fef7]
+- Updated dependencies [3bf8894]
+- Updated dependencies [4a9fe31]
+- Updated dependencies [6d8bf0c]
+- Updated dependencies [5dff027]
+- Updated dependencies [1e1f09e]
+- Updated dependencies [455c646]
+- Updated dependencies [7ebff39]
+- Updated dependencies [054fd84]
+- Updated dependencies [5275d1f]
+- Updated dependencies [74add0c]
+- Updated dependencies [aaba865]
+- Updated dependencies [f1781be]
+- Updated dependencies [fbad078]
+- Updated dependencies [45d5853]
+- Updated dependencies [6d5eb34]
+- Updated dependencies [d99b731]
+- Updated dependencies [2571a3e]
+- Updated dependencies [2a48bd4]
+- Updated dependencies [8a55f0c]
+- Updated dependencies [c7b30bd]
+- Updated dependencies [20c6d35]
+- Updated dependencies [023f00d]
+- Updated dependencies [eb4552e]
+- Updated dependencies [3c3115e]
+- Updated dependencies [55e90fd]
+- Updated dependencies [b13ea3c]
+- Updated dependencies [d7e9e9a]
+- Updated dependencies [cf62edf]
+- Updated dependencies [0253416]
+- Updated dependencies [5d77c09]
+- Updated dependencies [3fd8625]
+- Updated dependencies [1473757]
+- Updated dependencies [d73d987]
+- Updated dependencies [12ff256]
+- Updated dependencies [12ff256]
+- Updated dependencies [d328698]
+- Updated dependencies [d328698]
+- Updated dependencies [b4e0787]
+- Updated dependencies [1b2d016]
+- Updated dependencies [b403bb3]
+  - @object-ui/types@17.8.0
+  - @object-ui/core@17.8.0
+  - @object-ui/i18n@17.8.0
+  - @object-ui/data-objectstack@17.8.0
+
 ## 17.7.0
 
 ### Minor Changes

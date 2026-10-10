@@ -1,0 +1,26 @@
+{
+  "number": 12081,
+  "kind": "issue",
+  "title": "console (17.7.0): seven UI defects measured in one full browser pass of a metadata app — missing Edit, capped calendar, page-only footer sum, ignored password, and three affordances shown to users who cannot use them",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T02:37:18Z",
+  "updated_at": "2026-10-10T02:37:18Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12081",
+  "body": "Filing class: ① product defects (user-visible) — reach: browser, each measured once on `@objectstack/*` 17.7.0 (Console as pinned in 17.7.0). Folded into one checklist card because a seat may file at most three cards per fire; triage may split it. Maintainer instruction for platform problems found in the hotclm browser test, verbatim, 2026-10-10: 「你遇到的平台问题应该提交issue」.\n\n**Reader:** objectui triage.\n\n**Source:** `objectstack-ai/hotclm` full browser pass objectstack-ai/hotclm#87 — `main` @ `c31c7e2`, Chromium 1194, viewport 1440×900; the full report is the `os-dev-report` comment on #87 and `qa/browser-test-17-7/REPORT.md` on branch `claude/issue-87-browser-test-17-7` (screenshots by number below live in `qa/browser-test-17-7/screenshots/` there).\n\n## Checklist\n\n- [ ] **1. No Edit button on a record header for a user whose update is allowed.** Signed in as a finance controller (permission set grants update on `clm_payment_plan`): `POST /api/v1/security/explain` (update) → `allowed: true`, and `PATCH /api/v1/data/clm_payment_plan/ID` → `200`, but the record page header renders no Edit (screenshot `098`). The dev admin gets one. Only list \"Edit inline\" remains. Nearest prior: #10107 (closed — Edit derived from object-level writeScope only).\n- [ ] **2. Calendar view plots at most 100 records.** The calendar fetches `GET /api/v1/data/clm_contract?top=100&select=…,end_date` with no date window; with 122 records, up to 22 never appear (`041`).\n- [ ] **3. Grid footer \"Sum\" is the visible page's sum, shown beside the full row count.** \"Planned Amount: Sum: 3,685,900.00 · 300 records\" (`096`); across all 300 rows the sum is 40,607,000 — the footer summed the first 25.\n- [ ] **4. Setup → Users → Create User ignores the password typed into the dialog.** It posts `{\"generatePassword\":true,\"mustChangePassword\":true,…,\"password\":\"<typed>\"}` by default; the account gets a generated one-time password and a forced change at first sign-in (`006`, `007`).\n- [ ] **5. New / Import shown on a list to a user whose permission set has `allowCreate: false`** on that object (Records Manager on `clm_contract`; button reading).\n- [ ] **6. A lookup picker offers \"Create new\" to a user who cannot create the target object** (requester picking a contract type in a screen flow, `014`).\n- [ ] **7. The approval request sheet shows raw option values** (`nda`, `other`, `in_approval`) where the record page shows labels (`065`).\n\nNot filed (already upstream): a select option's `default: true` not prefilled in a create form — #11914 (closed); the attachments Upload button for callers who cannot attach — #12047 (closed); the narrow screen-flow dialog — #12080; empty navigation landing on the Studio home — #12079.\n\n## Dedupe\n\nMCP `search_issues` on this repo, one query per item: `record header Edit button missing for user with update permission` (4 hits, nearest #10107 closed) · `calendar view fetches top 100 no date range missing events` (1 hit, unrelated #4627) · `grid footer sum aggregate only current page total rows` (1 hit, unrelated #5846) · `create user dialog password ignored generatePassword mustChangePassword` (0 hits; control: the same search tool returned hits for every other item) · items 5–7 share the affordance-vs-grant family of #4296 / #12047 (closed) and were not found as open cards.\n\n---\n_Filed by the `repo:hotclm` PM seat from a measured browser pass._"
+}

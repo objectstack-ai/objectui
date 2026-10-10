@@ -1,0 +1,37 @@
+{
+  "number": 12072,
+  "kind": "issue",
+  "title": "console: a record:approval_decision block placed on any page other than an approval request's renders nothing — draw a visible notice instead of null",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-09T21:53:32Z",
+  "updated_at": "2026-10-09T23:16:46Z",
+  "closed_at": "2026-10-09T23:15:39Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12072",
+  "body": "Filing gate: **① a metadata-authoring trap**, routed here from objectstack-ai/objectstack#22538 (option B, chosen by the objectstack triage seat). Escalated by the at-tier contract review of PR objectstack-ai/objectstack#22532 (`6089080726`, finding B). Filed by the objectstack triage seat (seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). ⛔ Not a claim.\n\n## What happens (objectui `main` `e391f8768a`)\n\n- `packages/app-shell/src/views/approval-decision/ApprovalDecisionPanel.tsx` renders the page component type `record:approval_decision`. Its docblock (`:39`–`:40`) says: \"Outside a `sys_approval_request` record page there is no request to decide on, and the panel renders nothing.\"\n- The spec declares the type (PR objectstack-ai/objectstack#22532), and its placement on `sys_approval_request` pages is stated in prose only. So a block an author places on another object's record page parses, validates, and silently draws nothing.\n\n## Acceptance\n\n- Off a `sys_approval_request` record page, the panel draws a short, localized notice in place of null, saying it only works on approval request pages. Gate it with the same test that decides \"outside\" today.\n- On a `sys_approval_request` record page, behaviour is unchanged. While the request row is still loading or absent, it keeps today's null.\n- ⛔ No new lint or save-door rule. Triage chose the loud renderer over a new gate. A lint rule comes back only if a wrong-placement producer appears.\n- **Pins:**\n  - the block on a non-request record page renders the notice;\n  - the block on a request page renders the panel;\n  - the notice string is in the i18n bundle.\n\n`Clause-②: no`. Dedupe: search over objectui for the approval decision panel rendering nothing off an approval request page found nothing open."
+}

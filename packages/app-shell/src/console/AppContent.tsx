@@ -49,7 +49,8 @@ import { KeyboardShortcutsDialog } from '../chrome/KeyboardShortcutsDialog.js';
 import { OnboardingWalkthrough } from '../chrome/OnboardingWalkthrough.js';
 import { RouteFader } from '../chrome/RouteFader.js';
 import { NavigationSyncEffect } from '../hooks/useNavigationSync.js';
-import { AppNoAccessEmptyState, appServesNoNavigation } from './AppNoAccessEmptyState.js';
+import { AppNoAccessEmptyState } from './AppNoAccessEmptyState.js';
+import { appServesNoNavigation } from './appServesNoNavigation.js';
 import { resolveSetupAppPath } from './ConsoleShell.js';
 
 // Route-based code splitting — lazy-load less-frequently-used routes

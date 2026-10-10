@@ -121,7 +121,7 @@ vi.mock('@object-ui/react', async (importOriginal) => ({
 }));
 
 import { AppContent } from '../AppContent';
-import { appServesNoNavigation } from '../AppNoAccessEmptyState';
+import { appServesNoNavigation } from '../appServesNoNavigation';
 
 function LocationProbe() {
   const location = useLocation();

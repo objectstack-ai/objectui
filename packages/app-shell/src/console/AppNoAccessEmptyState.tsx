@@ -31,34 +31,7 @@ import {
   EmptyTitle,
 } from '@object-ui/components';
 import { useObjectLabel, useObjectTranslation } from '@object-ui/i18n';
-import { hasVisibleNavigationItems } from '@object-ui/layout';
-import type { NavigationItem } from '@object-ui/types';
 import { resolveKeyedI18nLabel } from '../utils/index.js';
-
-/** The two trees an app's sidebar draws from: the top level and every area. */
-interface AppNavigationLike {
-  navigation?: NavigationItem[] | null;
-  areas?: Array<{ navigation?: NavigationItem[] | null } | null> | null;
-}
-
-/**
- * Whether the app serves this caller nothing to navigate to: no item in its
- * top-level `navigation` and none in any `areas[].navigation`.
- *
- * The question is structural. It reuses the sidebar's own predicate,
- * `hasVisibleNavigationItems`, with no guards, so a `separator` and a `group`
- * with no children count as nothing, exactly as the sidebar draws them. The
- * sidebar wires an action dispatcher, so an `action` item counts as content.
- *
- * ⛔ This is NOT "no landing route". The Studio app serves a full navigation
- * made only of `component` items, which the landing resolver does not walk, so
- * it has no landing either. Its root keeps rendering `StudioHomePage`.
- */
-export function appServesNoNavigation(app: AppNavigationLike | null | undefined): boolean {
-  const options = { hasActionHandler: true };
-  if (hasVisibleNavigationItems(app?.navigation ?? [], options)) return false;
-  return !(app?.areas ?? []).some((area) => hasVisibleNavigationItems(area?.navigation ?? [], options));
-}
 
 export interface AppNoAccessEmptyStateProps {
   /** The active app, as the console's metadata list carries it. */

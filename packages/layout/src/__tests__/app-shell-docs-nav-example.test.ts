@@ -93,8 +93,8 @@ const SIDEBAR_NAV_SRC = readFileSync(
 /**
  * The page documents `@object-ui/layout`'s AppShell — every example on it
  * imports from `@object-ui/layout` — so this is the source of truth for its
- * props. `packages/app-shell` exports a same-named `AppShellProps` for a
- * different component; that one is not what this page teaches.
+ * props. `packages/app-shell` exports `MinimalAppShellProps` for a different,
+ * same-named `AppShell` component; that one is not what this page teaches.
  */
 const APP_SHELL_SRC = readFileSync(
   join(REPO_ROOT, 'packages', 'layout', 'src', 'AppShell.tsx'),

@@ -100,10 +100,12 @@
  * (objectui#4793 / #4808); pinning the whole docs tree to source is
  * objectui#3786's problem, not this one.
  *
- * Note also that `@object-ui/app-shell` exports a DIFFERENT `AppShellProps`
- * (`packages/app-shell/src/types.ts`) which really does declare `header` — that
- * is a separate component, and reading this one's key list off this one's source
- * is what keeps the two from being conflated again.
+ * Note also that `@object-ui/app-shell` exports a DIFFERENT props type for its
+ * own `AppShell`, `MinimalAppShellProps` (`packages/app-shell/src/types.ts`),
+ * which really does declare `header` — that is a separate component, and
+ * reading this one's key list off this one's source is what keeps the two from
+ * being conflated again. Until objectui#6349 (batch 9) it was also spelled
+ * `AppShellProps`.
  */
 
 import { describe, it, expect } from 'vitest';

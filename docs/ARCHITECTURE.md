@@ -160,7 +160,7 @@ Third-Party App
 
 ```tsx
 import { AppShell } from '@object-ui/app-shell';
-import type { AppShellProps } from '@object-ui/app-shell';
+import type { MinimalAppShellProps } from '@object-ui/app-shell';
 import { ObjectView } from '@object-ui/plugin-view';
 import { DataSourceProvider, useDataSource } from '@object-ui/providers';
 import type { DataSourceProviderProps } from '@object-ui/providers';
@@ -172,7 +172,7 @@ import type { DataSourceProviderProps } from '@object-ui/providers';
 // records where the value goes rather than checking it), and `MySidebar` is
 // your own component, returning whatever `AppShell` accepts for `sidebar`.
 declare const myAPI: DataSourceProviderProps['dataSource'];
-declare function MySidebar(): AppShellProps['sidebar'];
+declare function MySidebar(): MinimalAppShellProps['sidebar'];
 
 function MyConsole() {
   return (
@@ -207,10 +207,10 @@ asked to run on the server, where neither exists.
 'use client';
 
 import { AppShell } from '@object-ui/app-shell';
-import type { AppShellProps } from '@object-ui/app-shell';
+import type { MinimalAppShellProps } from '@object-ui/app-shell';
 import { ThemeProvider } from '@object-ui/providers';
 
-export default function RootLayout({ children }: { children: AppShellProps['children'] }) {
+export default function RootLayout({ children }: { children: MinimalAppShellProps['children'] }) {
   return (
     <ThemeProvider>
       <AppShell>{children}</AppShell>

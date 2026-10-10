@@ -376,7 +376,17 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // (`field`, `type`). RENAME branch: the general name stays on
   // `@object-ui/types`, and the grid's declaration now spells
   // `GroupAggregationConfig` (objectui#6349, batch 7).
-  ['AppShellProps', ['packages/app-shell/src/types.ts', 'packages/layout/src/AppShell.tsx']],
+  // `AppShellProps` sat here, colliding between `packages/app-shell/src/types.ts`
+  // and `packages/layout/src/AppShell.tsx`. Two components, not one drifted
+  // shape: app-shell's is the props of its minimal `AppShell` container
+  // (`header` and `footer` slots, no routing) and layout's the props of the
+  // sidebar shell the console's `ConsoleLayout` composes (`navbar`,
+  // `defaultOpen`, `branding`, `rightRail`). app-shell depends on layout, but
+  // re-pointing its name at layout's does not compile. RENAME branch: app-shell's
+  // declaration now spells `MinimalAppShellProps`, and the app-shell root
+  // publishes that name instead; layout is the one authority. The two `AppShell`
+  // components keep their names — value names are outside this gate's bound
+  // (objectui#6349, batch 9).
   // `ActionSchema` sat here, colliding between `packages/types/src/crud.ts` and
   // `packages/types/src/ui-action.ts`. Structurally unrelated types — 28 members
   // each, 9 shared, `type` the literal `'action'` there and `ActionType` here — so

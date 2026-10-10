@@ -512,7 +512,11 @@ const WRITE_SITES: Record<string, WriteSite> = {
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleAddReply :: create':
     unmapped('the record feed\'s reply composer creates a sys_comment row and reads no grant on sys_comment'),
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction :: update':
-    unmapped("the record feed's reaction toggle updates a sys_comment row and reads no grant on sys_comment"),
+    unmapped("the record feed's reaction toggle on a deployment with no sys_comment_reaction updates the sys_comment row's reactions and reads no grant on sys_comment"),
+  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction > write :: create':
+    unmapped("the record feed's reaction toggle creates the member's sys_comment_reaction row and reads no grant on sys_comment_reaction"),
+  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction > write :: delete':
+    unmapped("the record feed's reaction toggle deletes the member's sys_comment_reaction row and reads no grant on sys_comment_reaction"),
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > onClick :: delete':
     mapped(['recordDelete'], RECORD_PAGE),
   'packages/app-shell/src/views/RelatedRecordActionsBridge.tsx :: RelatedRecordActionsBridge > value > resolve :: delete':

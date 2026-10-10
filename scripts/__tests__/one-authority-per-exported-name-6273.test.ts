@@ -530,14 +530,15 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // `PageHeaderComponentProps` sat here, colliding between
   // `packages/app-shell/src/layout/PageHeader.tsx` and
   // `packages/layout/src/PageHeader.tsx`. Two components, not one drifted
-  // shape: layout's is the renderer of the authored `page:header` node (string
-  // `title` / `subtitle` with record tokens, `actions` as action definitions,
-  // `showBack`, `schema`, every DOM attribute) and app-shell's is the console's
-  // own title row (rendered-node `title` / `subtitle` / `actions`, `accentColor`,
-  // `sticky`). app-shell depends on layout, but re-pointing its name at
-  // layout's does not compile. RENAME branch: the console's declaration now
-  // spells `ConsolePageHeaderProps`, and layout is the one authority
-  // (objectui#6349, batch 8).
+  // shape: layout's is its published `<PageHeader>` (string `title` /
+  // `subtitle` with record tokens, `actions` as action definitions, `showBack`,
+  // `schema`, every DOM attribute) and app-shell's is the console's own title
+  // row (rendered-node `title` / `subtitle` / `actions`, `accentColor`,
+  // `sticky`). Neither is the `page:header` renderer, which
+  // `@object-ui/components` registers. app-shell depends on layout, but
+  // re-pointing its name at layout's does not compile. RENAME branch: the
+  // console's declaration now spells `ConsolePageHeaderProps`, and layout is
+  // the one authority (objectui#6349, batch 8).
   // `RecordDetailDrawerProps` sat here, colliding between
   // `packages/plugin-dashboard/src/RecordDetailDrawer.tsx` and
   // `packages/plugin-detail/src/RecordDetailDrawer.tsx`. Two drawers, not one:

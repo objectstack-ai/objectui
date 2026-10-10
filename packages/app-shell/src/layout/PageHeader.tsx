@@ -39,11 +39,12 @@ import { cn } from '@object-ui/components';
  *
  * Not `PageHeaderComponentProps` either. This interface carried that name
  * until objectui#6349 (batch 8). `@object-ui/layout` publishes it for the
- * props of its own `<PageHeader>`, the renderer of the authored `page:header`
- * node, and that is a different component. Its `title` and `subtitle` are
- * strings with record tokens, its `actions` are action definitions handed to
- * `record:quick_actions`, and it adds `showBack` and `schema` on top of every
- * DOM attribute. This console title row takes rendered nodes, and its
+ * props of its own `<PageHeader>`, which is a different React component.
+ * Its `title` and `subtitle` are strings with record tokens, its
+ * `actions` are action definitions handed to `record:quick_actions`, and it
+ * adds `showBack` and `schema` on top of every DOM attribute. (It is not the
+ * `page:header` renderer either: `@object-ui/components` registers that node
+ * type.) This console title row takes rendered nodes, and its
  * `actions` is one rendered node. The two shapes do not fit each other, so
  * this name cannot be re-pointed at layout's, and the console's header has the
  * specific name.

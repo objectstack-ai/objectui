@@ -9,14 +9,22 @@
 /**
  * objectui#5144 — a view's `inlineEdit` folds into `userActions.editInline`.
  *
- * The spec declares `userActions.editInline` with `.default(false)`. Stored
- * views never carried that key: they carry `inlineEdit`, which authors declare
- * and the console's list toolbar used to write. Until this fold, `ListView`
- * could not read `editInline` with the spec default without taking inline
- * editing away from every stored console view, so it read an absent
- * `editInline` as "defer to the host". The maintainer ruled the B-fold: the
- * stored key folds into the spec key, and the spec default is read as written.
- * Triage's ruling E then stopped the toolbar writing `inlineEdit` at all.
+ * The spec declared `userActions.editInline` with `.default(false)` when this
+ * fold landed. Stored views never carried that key: they carry `inlineEdit`,
+ * which authors declare and the console's list toolbar used to write. Until
+ * this fold, `ListView` could not read `editInline` with the spec default
+ * without taking inline editing away from every stored console view, so it read
+ * an absent `editInline` as "defer to the host". The maintainer ruled the
+ * B-fold: the stored key folds into the spec key, and the spec default is read
+ * as written. Triage's ruling E then stopped the toolbar writing `inlineEdit`
+ * at all.
+ *
+ * The maintainer's v18 ruling (objectstack#22605) flipped that default to
+ * `true`, and `ListView` reads an absent `editInline` as on (objectui#12086).
+ * The fold is unchanged by it, and so is this table: the fold applies no
+ * default, it carries a boolean `inlineEdit` over. What the flip changes is
+ * the reader's verdict on the `neither key` row, pinned with the rest of the
+ * toolbar's behaviour.
  *
  * This file pins the fold's table. `@object-ui/plugin-list`'s
  * `ListView.permissions.test.tsx` pins what the toolbar does with its output.

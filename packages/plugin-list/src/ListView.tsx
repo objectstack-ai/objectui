@@ -1979,11 +1979,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    *
    * ## Gap 2 — the declared `userActions.editInline`, with the spec's default
    *
-   * `ListViewSchema.userActions.editInline` is spec-declared with
-   * `.default(false)`: "the list is read-only unless the author opts in". It is
-   * read here with that default (`=== true`), so a view that declares nothing
-   * is not offered inline editing. That is the same reading the ADR-0047
-   * interface page takes.
+   * `ListViewSchema.userActions.editInline` defaults to `true`: a list view is
+   * editable in place by default, under the gate above, and
+   * `editInline: false` is the opt-out (the maintainer's v18 ruling,
+   * objectstack#22605, which flipped the earlier `.default(false)`). It is read
+   * here with that default (`!== false`), so a view that declares nothing is
+   * offered inline editing wherever the gate admits the principal. The ADR-0047
+   * interface page reads the same default.
    *
    * A view's `inlineEdit` reaches this read through the fold, not around it
    * (objectui#5144). `normalizeListViewSchema` folds a boolean `inlineEdit`
@@ -1992,7 +1994,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    *  - a view with `inlineEdit: true` offers the toggle;
    *  - a view with `inlineEdit: false` reads off;
    *  - an explicit `editInline` wins over `inlineEdit`, either way;
-   *  - a view with neither key reads off.
+   *  - a view with neither key offers the toggle and opens out of edit mode.
    *
    * Both keys are the author's permission. This gate decides whether the toggle
    * is offered. Whether the grid is in edit mode is the `inlineEdit` state above:
@@ -2001,16 +2003,17 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * (objectui#5144, ruling E). That write made the toggle one-way, because
    * switching it off stored `inlineEdit: false`, which this gate then read as
    * "not offered". A view with `editInline: true` and no `inlineEdit` offers the
-   * toggle and opens out of edit mode.
+   * toggle and opens out of edit mode, the same as a view with neither key.
    *
-   * ⚠️ The remedy for a view that relied on the old default: declare
-   * `userActions.editInline: true`. Two costs are recorded with the ruling. The
-   * edit mode is not remembered across loads. A view or overlay that already
-   * stores `inlineEdit: false`, written by the old toggle, still reads off;
-   * that is existing data, and it is not migrated.
+   * ⚠️ A list that is read-only by nature declares
+   * `userActions.editInline: false`. Two costs are recorded with the
+   * objectui#5144 ruling. The edit mode is not remembered across loads. A view
+   * or overlay that already stores `inlineEdit: false`, written by the old
+   * toggle, still reads off; that is existing data, it is not migrated, and
+   * declaring `userActions.editInline: true` brings the toggle back.
    */
   const inlineEditOffered = React.useMemo(() => {
-    if ((schema.userActions as Record<string, boolean | undefined> | undefined)?.editInline !== true) {
+    if ((schema.userActions as Record<string, boolean | undefined> | undefined)?.editInline === false) {
       return false;
     }
     // [objectui#12082] The `listInlineEdit` row of the affordance-to-grant map:

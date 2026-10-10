@@ -11,10 +11,10 @@
  * outranks the host's, for whether inline editing is offered too.
  *
  * `normalizeListViewSchema` folds a view's `inlineEdit` into
- * `userActions.editInline`, and `ListView` offers inline editing only where
- * that reads `true`. The relay that builds the `list-view` node merges
- * `userActions` across three layers: the node, the host's `views` entry, and
- * the named view, most specific last. It folded the first two and spread the
+ * `userActions.editInline`, and `ListView` withholds inline editing where that
+ * reads `false` (an absent key reads on, objectui#12086). The relay that builds
+ * the `list-view` node merges `userActions` across three layers: the node, the
+ * host's `views` entry, and the named view, most specific last. It folded the first two and spread the
  * named view's raw. So once the fold existed, a host-layer `inlineEdit` became
  * a folded `editInline` that outranked the named view's own `inlineEdit`, the
  * inverse of the named-first `inlineEdit` rung on the same node. The seat's

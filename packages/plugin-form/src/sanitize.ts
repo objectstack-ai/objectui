@@ -119,7 +119,8 @@ const COMPUTED_FIELD_TYPES = new Set([
  * refused for the next, on the identical object — so it cannot be read off
  * `objectSchema` and must not be re-derived here. `fieldWriteGate` in
  * `./fieldWriteGate` adapts the ONE resolver that owns that answer
- * (`checkField(object, field, 'write')` in `@object-ui/permissions`) into this
+ * (`checkField` in `@object-ui/permissions`, asked the question the form's
+ * mode reads from the affordance-to-grant map — objectui#12082) into this
  * predicate. It arrives here, at the single outbound filter, rather than as a
  * strip loop after each container's call, because every such loop is a copy
  * that can be forgotten — and one of the three containers had forgotten it

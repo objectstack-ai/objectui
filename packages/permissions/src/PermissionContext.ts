@@ -12,8 +12,17 @@ import type { PermissionAction, PermissionCheckResult, FieldLevelPermission } fr
 export interface PermissionContextValue {
   /** Check if action is allowed on object */
   check: (object: string, action: PermissionAction, record?: Record<string, unknown>) => PermissionCheckResult;
-  /** Check field-level permissions */
-  checkField: (object: string, field: string, action: 'read' | 'write') => boolean;
+  /**
+   * Check field-level permissions.
+   *
+   * `write` asks whether the caller may change the field on an existing record
+   * (the server's update rule); `create` whether they may set it on a new one
+   * (its insert rule, objectui#12082). The two differ only for a field the
+   * permission set does not mention: the server's field step lets it through
+   * and object admission decides — `allowEdit` on an update, `allowCreate` on
+   * an insert. An explicit field-level entry answers both the same way.
+   */
+  checkField: (object: string, field: string, action: 'read' | 'write' | 'create') => boolean;
   /** Get field permissions for an object */
   getFieldPermissions: (object: string) => FieldLevelPermission[];
   /** Get row filter for an object */

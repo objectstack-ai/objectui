@@ -7,10 +7,11 @@ import { useRecordContext, SchemaRenderer } from '@object-ui/react';
  * Props of this package's `<PageHeader>` React component.
  *
  * Named `PageHeaderComponentProps`, not `PageHeaderProps` (objectui#3161,
- * objectstack#4115 ledger batch 7) — the same name `@object-ui/app-shell`
- * settled on for its own header props in objectui#3169, deliberately reused
- * rather than re-invented, so one concept does not end up with two dialect
- * names one package apart.
+ * objectstack#4115 ledger batch 7). `@object-ui/app-shell` once used this
+ * name for its own console header (objectui#3169). That header is a different
+ * component, with rendered-node `title`, `subtitle` and `actions`, so since
+ * objectui#6349 (batch 8) it is `ConsolePageHeaderProps`, and this package is
+ * the one authority for this name.
  *
  * `@objectstack/spec/ui` owns `PageHeaderProps` for the AUTHORED `page:header`
  * node: a zod object of `title: string`, `subtitle`, an icon NAME, `breadcrumb`
@@ -21,7 +22,7 @@ import { useRecordContext, SchemaRenderer } from '@object-ui/react';
  * prop rides along. Authored layer vs rendered layer, which is exactly the
  * one-name-two-layers failure objectstack#4115 exists to end.
  *
- * Pinned by `__tests__/spec-symbol-batch7.test.tsx`, which fails if the spec
+ * Pinned by `__tests__/spec-symbol-batch7.test.ts`, which fails if the spec
  * stops owning `PageHeaderProps` (then this can take the plain name back) or
  * starts owning `PageHeaderComponentProps`.
  */

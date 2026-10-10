@@ -45,8 +45,16 @@ import {
  * deliberately NOT a visualization: the spec models it as a list view that
  * mounts a published page rather than one a user switches into, and
  * `AppearanceConfig.allowedVisualizations` excludes it for the same reason.
+ *
+ * The props are named `ListViewSwitcherProps`, not `ViewSwitcherProps`, for the
+ * same reason. `@object-ui/plugin-view` publishes `ViewSwitcherProps` for a
+ * different switcher: the `view-switcher` renderer, which takes a
+ * `ViewSwitcherSchema` and the host callbacks and is keyed on the whole
+ * `ViewType`. Neither package depends on the other, so the two could not share
+ * one declaration. The general name stays with the schema-driven renderer, and
+ * this list view's switcher has the specific one (objectui#6349, batch 8).
  */
-export interface ViewSwitcherProps {
+export interface ListViewSwitcherProps {
   currentView: ListViewVisualization;
   availableViews?: ListViewVisualization[];
   onViewChange: (view: ListViewVisualization) => void;
@@ -71,7 +79,7 @@ export interface ViewSwitcherProps {
 // `gantt` is the one real glyph change of the three: `GanttChartSquare` and
 // `ChartGantt` are DIFFERENT objects (the identity-preserving live spelling is
 // `SquareChartGantt`). `ChartGantt` is chosen over it so the two switchers draw
-// the same glyph for the same `ViewType` — #5586 landed `ChartGantt` for
+// the same glyph for the same visualization — #5586 landed `ChartGantt` for
 // `gantt` in `plugin-view`, and one view type showing two different icons
 // depending on which switcher is on screen is the drift worth avoiding.
 const VIEW_ICONS: Record<ListViewVisualization, React.ReactNode> = {
@@ -165,7 +173,7 @@ function useViewLabels(): Record<ListViewVisualization, string> {
  * menu of the available visualizations. Replaces the full button row so
  * the toolbar stays one line tall.
  */
-export const ViewSwitcherDropdown: React.FC<ViewSwitcherProps> = ({
+export const ViewSwitcherDropdown: React.FC<ListViewSwitcherProps> = ({
   currentView,
   availableViews = ['grid', 'kanban'],
   onViewChange,
@@ -273,7 +281,7 @@ export const ViewSwitcherDropdown: React.FC<ViewSwitcherProps> = ({
   );
 };
 
-export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
+export const ViewSwitcher: React.FC<ListViewSwitcherProps> = ({
   currentView,
   availableViews = ['grid', 'kanban'],
   onViewChange,

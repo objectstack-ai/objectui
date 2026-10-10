@@ -25,7 +25,7 @@ import { cn } from '@object-ui/components';
 /**
  * Props of the app-shell `<PageHeader>` React component.
  *
- * Named `PageHeaderComponentProps`, not `PageHeaderProps`:
+ * Named `ConsolePageHeaderProps`, not `PageHeaderProps`:
  * `@objectstack/spec/ui` exports a `PageHeaderProps` **zod schema** describing
  * the AUTHORED SDUI page-header node — `title: string`, `subtitle`, `icon`
  * (an icon NAME), `breadcrumb`, `actions: string[]` (action ids), `aria`. This
@@ -37,10 +37,19 @@ import { cn } from '@object-ui/components';
  * objectstack#4115 defect. `__tests__/spec-symbol-parity.test.ts` pins that the spec
  * does not own this name.
  *
- * `@object-ui/layout` carries the same collision (objectui#3161, batch 7) and
- * adopted this same name, so the two packages do not invent two dialects.
+ * Not `PageHeaderComponentProps` either. This interface carried that name
+ * until objectui#6349 (batch 8). `@object-ui/layout` publishes it for the
+ * props of its own `<PageHeader>`, which is a different React component.
+ * Its `title` and `subtitle` are strings with record tokens, its
+ * `actions` are action definitions handed to `record:quick_actions`, and it
+ * adds `showBack` and `schema` on top of every DOM attribute. (It is not the
+ * `page:header` renderer either: `@object-ui/components` registers that node
+ * type.) This console title row takes rendered nodes, and its
+ * `actions` is one rendered node. The two shapes do not fit each other, so
+ * this name cannot be re-pointed at layout's, and the console's header has the
+ * specific name.
  */
-export interface PageHeaderComponentProps {
+export interface ConsolePageHeaderProps {
   /** Page title (required, becomes <h1>). */
   title: React.ReactNode;
   /**
@@ -114,7 +123,7 @@ export function PageHeader({
   sticky = false,
   className,
   'data-testid': testId,
-}: PageHeaderComponentProps) {
+}: ConsolePageHeaderProps) {
   // Resolve accent → CSS var. Falls back to the Shadcn primary token so the
   // header follows whatever brand the active app has injected.
   const accent = accentColor || 'hsl(var(--primary))';

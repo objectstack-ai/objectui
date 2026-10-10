@@ -45,7 +45,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 import { PageHeader } from '../PageHeader';
-import type { PageHeaderComponentProps } from '../PageHeader';
+import type { ConsolePageHeaderProps } from '../PageHeader';
 // The sibling component this card exists to agree with. A type-only import:
 // nothing from `@object-ui/layout` is rendered here.
 import type { PageHeaderComponentProps as LayoutPageHeaderProps } from '@object-ui/layout';
@@ -114,7 +114,7 @@ type HasKey<T, K extends string> = K extends keyof T ? true : false;
 
 describe('both `PageHeader`s spell the secondary line the same way', () => {
   it('is pinned at compile time', () => {
-    type _ConsoleHasSubtitle = Assert<HasKey<PageHeaderComponentProps, 'subtitle'>>;
+    type _ConsoleHasSubtitle = Assert<HasKey<ConsolePageHeaderProps, 'subtitle'>>;
     type _LayoutHasSubtitle = Assert<HasKey<LayoutPageHeaderProps, 'subtitle'>>;
 
     // Only this side can be pinned negatively. `@object-ui/layout`'s props
@@ -125,7 +125,7 @@ describe('both `PageHeader`s spell the secondary line the same way', () => {
     // half of the retirement is pinned where it belongs, on rendered output, in
     // `packages/layout/src/__tests__/page-header-authorable-keys.test.tsx`.
     type _ConsoleHasNoDescription = Assert<
-      HasKey<PageHeaderComponentProps, 'description'> extends true ? false : true
+      HasKey<ConsolePageHeaderProps, 'description'> extends true ? false : true
     >;
 
     expect(true).toBe(true);

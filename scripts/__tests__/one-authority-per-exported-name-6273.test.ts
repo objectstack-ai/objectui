@@ -527,8 +527,27 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // `OrgTranslate` sat here — two IDENTICAL declarations inside app-shell's
   // organizations console. `orgErrorMessage.ts` is the one authority;
   // `orgRoleLabel.ts` re-exports it (objectui#6349).
-  ['PageHeaderComponentProps', ['packages/app-shell/src/layout/PageHeader.tsx', 'packages/layout/src/PageHeader.tsx']],
-  ['RecordDetailDrawerProps', ['packages/plugin-dashboard/src/RecordDetailDrawer.tsx', 'packages/plugin-detail/src/RecordDetailDrawer.tsx']],
+  // `PageHeaderComponentProps` sat here, colliding between
+  // `packages/app-shell/src/layout/PageHeader.tsx` and
+  // `packages/layout/src/PageHeader.tsx`. Two components, not one drifted
+  // shape: layout's is its published `<PageHeader>` (string `title` /
+  // `subtitle` with record tokens, `actions` as action definitions, `showBack`,
+  // `schema`, every DOM attribute) and app-shell's is the console's own title
+  // row (rendered-node `title` / `subtitle` / `actions`, `accentColor`,
+  // `sticky`). Neither is the `page:header` renderer, which
+  // `@object-ui/components` registers. app-shell depends on layout, but
+  // re-pointing its name at layout's does not compile. RENAME branch: the
+  // console's declaration now spells `ConsolePageHeaderProps`, and layout is
+  // the one authority (objectui#6349, batch 8).
+  // `RecordDetailDrawerProps` sat here, colliding between
+  // `packages/plugin-dashboard/src/RecordDetailDrawer.tsx` and
+  // `packages/plugin-detail/src/RecordDetailDrawer.tsx`. Two drawers, not one:
+  // plugin-detail's is the published, editable record drawer (`open`,
+  // `recordId`, `dataSource`, save, delete, resize) and plugin-dashboard's is
+  // the read-only drill drawer of a table widget (`record` may be `null`,
+  // `target` is `'drawer' | 'dialog'`, `fields` whitelists). Neither package
+  // depends on the other. RENAME branch: the dashboard's declaration now spells
+  // `DashboardRecordDetailDrawerProps` (objectui#6349, batch 8).
   ['SchemaNode', ['packages/sdui-parser/src/types.ts', 'packages/types/src/base.ts']],
   ['ThemeProviderProps', ['packages/providers/src/types.ts', 'packages/react/src/context/ThemeContext.tsx']],
   // `TranslateFn` sat here — i18next's `t` narrowed to `(key, options?) => string`,
@@ -564,7 +583,16 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // `FieldValidationFunction`, the name `src/index.ts` always published it under
   // (objectui#6349).
   ['VersionEntry', ['packages/collaboration/src/useConflictResolution.ts', 'packages/plugin-designer/src/components/VersionHistory.tsx']],
-  ['ViewSwitcherProps', ['packages/plugin-list/src/ViewSwitcher.tsx', 'packages/plugin-view/src/ViewSwitcher.tsx']],
+  // `ViewSwitcherProps` sat here, colliding between
+  // `packages/plugin-list/src/ViewSwitcher.tsx` and
+  // `packages/plugin-view/src/ViewSwitcher.tsx`. Two switchers, not one:
+  // plugin-view's is the `view-switcher` renderer (a `ViewSwitcherSchema` plus
+  // host callbacks, keyed on the whole `ViewType`) and plugin-list's is the list
+  // view's visualization switcher (`currentView` / `availableViews`, keyed on
+  // `@object-ui/core`'s `ListViewVisualization`). Neither package depends on
+  // the other. RENAME branch: plugin-list's declaration now spells
+  // `ListViewSwitcherProps`, and the plugin-list root publishes that name
+  // instead (objectui#6349, batch 8).
   // `ViewType` sat here, colliding between
   // `packages/plugin-list/src/ViewSwitcher.tsx` and `packages/types/src/views.ts`.
   // Two meanings, not drift: `@object-ui/types`' is the whole view-type

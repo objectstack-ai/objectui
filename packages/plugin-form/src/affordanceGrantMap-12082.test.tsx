@@ -58,6 +58,13 @@ import {
 } from '@object-ui/core';
 import { MePermissionsProvider, usePermissions, type MePermissionsResponse } from '@object-ui/permissions';
 import { closedFormAffordance, gateFormFields } from './fieldWriteGate';
+// The ONE answer to "is this span a comment, or code?" — a census that strips
+// comments with a private regex reports clean over code a phantom comment ate.
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { stripComments as stripCommentsUntyped } from '../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const stripComments: (source: string) => string = stripCommentsUntyped;
 
 afterEach(cleanup);
 
@@ -255,7 +262,8 @@ describe('fail-open: no permission provider mounted (objectui#12082)', () => {
 // The census: no console source reads a CRUD grant outside the map.
 //
 // Population: every `.ts` / `.tsx` under `packages/*/src` and `apps/*/src`,
-// tests, stories and declaration files excluded, with comments stripped. The
+// tests, stories and declaration files excluded, with comments stripped by
+// `scripts/js-comment-mask.mjs`. The
 // enumeration is a walk of the tree from this file's own location, and the
 // control below holds that the walk reached the readers this card converted —
 // a walk that found nothing would otherwise read as a clean tree.
@@ -312,8 +320,6 @@ function sourcesUnder(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** Block comments (JSX ones included), then line comments. */
-const stripComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 
 function census(): Map<string, number> {
   const roots: string[] = [];

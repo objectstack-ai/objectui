@@ -12,7 +12,7 @@ import {
 } from '@object-ui/components';
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, ArrowRight, ArrowLeft, Save, Trash2, ClipboardPaste, Download, Undo2 } from 'lucide-react';
 import { useObjectTranslation, notifyDataChanged } from '@object-ui/react';
-import { sanitizeFileNameBase } from '@object-ui/core';
+import { resolveAffordance, sanitizeFileNameBase } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import {
@@ -2107,10 +2107,14 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   // of the object, the server's own gate on it (it answers 403 otherwise). Same
   // permission source as the toolbar that opens this wizard; with no
   // PermissionProvider mounted `can()` answers true and the server decides.
-  const { can } = usePermissions();
+  // [objectui#12082] That is the `importTemplate` row of the affordance-to-grant
+  // map (`resolveAffordance` in `@object-ui/core`) — the create grant, with no
+  // CRUD-affordance bit: the template has its own endpoint, not the data door.
+  const perms = usePermissions();
   const templateSource = dataSource as Partial<DataSource> | undefined;
   const fetchTemplate = templateSource?.downloadImportTemplate;
-  const downloadTemplate = typeof fetchTemplate === 'function' && can(objectName, 'create')
+  const downloadTemplate = typeof fetchTemplate === 'function'
+    && resolveAffordance('importTemplate', { objectName, perms }).allowed
     ? () => fetchTemplate.call(templateSource, objectName)
     : undefined;
 

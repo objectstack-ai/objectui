@@ -300,19 +300,24 @@ export function MePermissionsProvider({
   const dataKey: object = data ?? NO_DATA;
 
   const checkField = CHECK_FIELD([dataKey], () =>
-    (object: string, field: string, action: 'read' | 'write'): boolean => {
+    (object: string, field: string, action: 'read' | 'write' | 'create'): boolean => {
       if (!data) return false; // fail-closed
       // Normalize casing — backend stores keys lowercase but callers may
       // pass schema.objectName as "Account" / "account" interchangeably.
       const objKey = (object ?? '').toLowerCase();
       const key = `${objKey}.${field}`;
       const fieldPerm = data.fields?.[key] ?? data.fields?.[`${object}.${field}`];
+      // An explicit entry answers `write` and `create` alike: the server's
+      // field step refuses a non-editable field on insert and update both.
       if (fieldPerm) {
         return action === 'read'
           ? fieldPerm.readable !== false
           : fieldPerm.editable !== false;
       }
-      // No explicit field-level override → defer to object-level perms.
+      // No explicit field-level override → defer to object-level perms: the
+      // field step lets the field through and object admission decides, so
+      // the answer is the grant of the operation asked about (objectui#12082)
+      // — `allowCreate` on an insert, `allowEdit` on an update.
       const objPerm = data.objects?.[objKey] ?? data.objects?.[object] ?? data.objects?.['*'];
       if (!objPerm) {
         // [objectstack-ai/objectstack#2926 ④] Unknown-object default is authentication-gated:
@@ -326,8 +331,9 @@ export function MePermissionsProvider({
         //    would brick public forms.
         return data.authenticated !== true;
       }
-      return action === 'read'
-        ? objPerm.allowRead !== false
+      if (action === 'read') return objPerm.allowRead !== false;
+      return action === 'create'
+        ? objPerm.allowCreate !== false
         : objPerm.allowEdit !== false;
     },
   );

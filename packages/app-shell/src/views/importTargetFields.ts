@@ -8,7 +8,11 @@
  * downloadable template) rather than let a user map to a column the import
  * will reject. The FLS bit comes from the server-resolved /me/permissions
  * channel (checkField), not from the schema, which carries no per-caller
- * permission bits (objectstack#3661).
+ * permission bits (objectstack#3661). The question asked is the `listImport`
+ * row's of the affordance-to-grant map (objectui#12082): `create`, the
+ * server's insert rule — the Import affordance itself is gated on the create
+ * grant, so a create-only caller who is offered Import can map every field the
+ * insert accepts, instead of finding every target refused by the edit grant.
  *
  * Storage-backed but non-writable fields — autonumber and `readonly` — stay in
  * the list as MATCH-ONLY targets (#020: "update the row whose record number
@@ -18,6 +22,8 @@
  * insert, so passing their values through is safe. Gated on FLS read —
  * matching leaks the column's values by existence.
  */
+
+import { resolveFieldAffordance } from '@object-ui/core';
 
 export interface ImportTargetField {
   name: string;
@@ -31,7 +37,7 @@ export interface ImportTargetField {
 /** Minimal slice of the permissions channel this helper consults. */
 export interface ImportFieldPerms {
   isLoaded: boolean;
-  checkField: (objectName: string, fieldName: string, op: 'read' | 'write') => boolean;
+  checkField(objectName: string, fieldName: string, op: 'read' | 'write' | 'create'): boolean;
 }
 
 const COMPUTED_TYPES = new Set(['formula', 'summary']);
@@ -47,7 +53,7 @@ export function importTargetFields(
     const writable = !computed
       && def?.type !== 'autonumber'
       && !def?.readonly
-      && (!perms?.isLoaded || perms.checkField(objectName, name, 'write'));
+      && resolveFieldAffordance('listImport', perms, objectName, name);
     const matchOnly = !writable && !computed
       && (!perms?.isLoaded || perms.checkField(objectName, name, 'read'));
     if (!writable && !matchOnly) continue;

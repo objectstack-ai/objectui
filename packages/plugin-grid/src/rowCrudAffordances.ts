@@ -18,9 +18,11 @@
  *     input, not one half of a union with `rowActions` — see "`operations` is
  *     the ceiling" below.
  *
- *  2. The OBJECT's resolved CRUD affordance — the SAME shared policy the
- *     toolbar, the record header, the form and the related lists run
- *     (`resolveEffectiveCrudAffordances` in `@object-ui/core`). It folds three layers:
+ *  2. The OBJECT's resolved verdict — the `rowEdit` / `rowDelete` rows of the
+ *     affordance-to-grant map (`resolveAffordance` in `@object-ui/core`,
+ *     objectui#12082), the SAME resolver the toolbar, the record header, the
+ *     form and the related lists read. The caller resolves it and hands it in
+ *     as `edit` / `delete`; it folds four layers:
  *
  *       a. the ADR-0103 lifecycle bucket (`managedBy`) — engine-owned
  *          `system` / `append-only` / `better-auth` objects default their
@@ -41,8 +43,8 @@
  *
  *       d. [#4096] the CURRENT PRINCIPAL's effective permission on the object
  *          (`/me/permissions` `allowEdit` / `allowDelete`, reached through
- *          `usePermissions().can(obj, 'update' | 'delete')`) — passed in as
- *          `permissionUpdate` / `permissionDelete`.
+ *          `usePermissions().can(obj, 'update' | 'delete')`) — the grant the
+ *          map's rows name.
  *
  * Layer (c) and layer (d) answer DIFFERENT questions and neither substitutes
  * for the other. `apiOperations` is the object's API EXPOSURE SURFACE — "which
@@ -61,7 +63,7 @@
  * survive a server denial, and neither can survive a permission denial. An
  * absent effective set (unrestricted object / old backend / no
  * `PermissionProvider`) leaves the bucket verdict untouched, an absent
- * `permissionUpdate` / `permissionDelete` likewise leaves it untouched — the
+ * grant answer likewise leaves it untouched — the
  * no-provider host keeps today's behavior, because `usePermissions()` without a
  * `PermissionProvider` answers `can: () => true` by design (standalone embeds
  * have no permission source and must not lose their Edit/Delete) — and an
@@ -142,7 +144,7 @@
  * opposite answers to "may this user write THIS record".
  */
 
-import { resolveEffectiveCrudAffordances, type RowCrudPredicates, type UserActionOverride } from '@object-ui/core';
+import type { AffordanceVerdict, RowCrudPredicates, UserActionOverride } from '@object-ui/core';
 
 // The `userActions.{edit,delete}` override shape (bare boolean or #2614 object
 // form) and its per-record predicates are parsed in exactly one place —
@@ -151,6 +153,9 @@ import { resolveEffectiveCrudAffordances, type RowCrudPredicates, type UserActio
 export type { RowCrudPredicates } from '@object-ui/core';
 /** A `userActions.edit` / `delete` flag: bare boolean or the #2614 object form. */
 export type RowCrudUserAction = UserActionOverride;
+
+/** No object to judge (no verdict handed in): nothing narrows, no predicates. */
+const NO_OBJECT_VERDICT: AffordanceVerdict = Object.freeze({ allowed: true });
 
 export function resolveRowCrudAffordances(opts: {
   operationsUpdate?: boolean;
@@ -175,35 +180,16 @@ export function resolveRowCrudAffordances(opts: {
   rowActionsDeclared?: boolean;
   hasOnEdit?: boolean;
   hasOnDelete?: boolean;
-  /** The object's ADR-0103 lifecycle bucket; absent → the `platform` default. */
-  managedBy?: string | null;
-  /** The object's `userActions` block ({ create, edit, delete, import }). */
-  userActions?: { edit?: RowCrudUserAction; delete?: RowCrudUserAction } | null;
   /**
-   * [objectstack#3720] The server-resolved effective API operation set for this object
-   * (`/me/permissions` `apiOperations`, objectstack#3391). `undefined` / `null` (old
-   * backend, unrestricted object, no provider) leaves the object verdict
-   * untouched; an empty array means "expose nothing" → both entries hidden.
+   * [objectui#12082] The OBJECT-level verdict for the generic Edit: the
+   * `rowEdit` row of the affordance-to-grant map, as `resolveAffordance`
+   * returns it — layers (a)–(d) in this module's header, with the object's
+   * `userActions.edit` predicates surfaced only when it allows. Absent: no
+   * object to have a verdict about, which narrows nothing.
    */
-  effectiveApiOperations?: readonly string[] | null;
-  /**
-   * [#4096] The current principal's effective `update` permission on this
-   * object — `usePermissions().can(objectName, 'update')`, which
-   * `MePermissionsProvider` maps to `/me/permissions` `allowEdit`.
-   *
-   * `undefined` (no object name resolved, caller that has not wired the check)
-   * leaves the verdict untouched, exactly like `effectiveApiOperations`. Note
-   * that "no `PermissionProvider`" does NOT arrive here as `undefined`: the
-   * hook's provider-less fallback answers `true`, which is the same
-   * no-narrowing outcome.
-   */
-  permissionUpdate?: boolean;
-  /**
-   * [#4096] The current principal's effective `delete` permission on this
-   * object — `usePermissions().can(objectName, 'delete')` → `allowDelete`.
-   * Same `undefined` semantics as `permissionUpdate`.
-   */
-  permissionDelete?: boolean;
+  edit?: AffordanceVerdict;
+  /** [objectui#12082] The `rowDelete` half of {@link edit}, same rule. */
+  delete?: AffordanceVerdict;
 }): {
   canEdit: boolean;
   canDelete: boolean;
@@ -232,18 +218,16 @@ export function resolveRowCrudAffordances(opts: {
    */
   objectDeletePredicates?: RowCrudPredicates;
 } {
-  // The object-level verdict comes from the shared policy — bucket default,
-  // `userActions` override, then the server's effective operation set. The row
-  // gate is that verdict AND the consumer having actually wired the affordance.
-  const aff = resolveEffectiveCrudAffordances(
-    { managedBy: opts.managedBy, userActions: opts.userActions },
-    opts.effectiveApiOperations,
-  );
-  // [#4096] …then the principal's own verdict. `apiOperations` above is the
-  // object's exposure surface and says nothing about WHO is asking, so without
-  // this the row kebab fails open for every account with no write grant.
-  const objectCanEdit = aff.edit && opts.permissionUpdate !== false;
-  const objectCanDelete = aff.delete && opts.permissionDelete !== false;
+  // The object-level verdict is the map's (objectui#12082): bucket default,
+  // `userActions` override, the server's effective operation set and — [#4096]
+  // — the principal's own grant, which the operation set cannot stand in for
+  // (it is the object's exposure surface and says nothing about WHO is
+  // asking). The row gate is that verdict AND the consumer having actually
+  // wired the affordance.
+  const editVerdict = opts.edit ?? NO_OBJECT_VERDICT;
+  const deleteVerdict = opts.delete ?? NO_OBJECT_VERDICT;
+  const objectCanEdit = editVerdict.allowed;
+  const objectCanDelete = deleteVerdict.allowed;
   // [objectui#9819] `operations` is the CEILING — an INTERSECTION, like every
   // layer above. `rowActions` (`wantEditAction` / `wantDeleteAction`) can no
   // longer re-open what the block withheld, and a member the authored block
@@ -259,9 +243,9 @@ export function resolveRowCrudAffordances(opts: {
     canEdit,
     canDelete,
     objectCanDelete,
-    editPredicates: canEdit ? aff.editPredicates : undefined,
-    deletePredicates: canDelete ? aff.deletePredicates : undefined,
-    objectDeletePredicates: objectCanDelete ? aff.deletePredicates : undefined,
+    editPredicates: canEdit ? editVerdict.predicates : undefined,
+    deletePredicates: canDelete ? deleteVerdict.predicates : undefined,
+    objectDeletePredicates: objectCanDelete ? deleteVerdict.predicates : undefined,
   };
 }
 

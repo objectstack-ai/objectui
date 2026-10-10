@@ -137,6 +137,33 @@ function DiscountField() {
 }
 ```
 
+### `checkField` — which write a field question is about
+
+`usePermissions().checkField(object, field, action)` answers three questions.
+`'read'` asks whether the caller may see the field. `'write'` asks whether they
+may change it on an EXISTING record (the server's update rule) and `'create'`
+whether they may set it on a NEW one (its insert rule). The two write questions
+differ only for a field the permission set does not mention: the server lets
+such a field through and object admission decides, so `'write'` falls back to
+the object's `allowEdit` and `'create'` to its `allowCreate`. An explicit
+field-level entry answers both the same way.
+
+```tsx
+import { usePermissions } from '@object-ui/permissions';
+
+function TitleInput({ mode }: { mode: 'create' | 'edit' }) {
+  const { checkField } = usePermissions();
+  // A create form asks the create question: a role that may create orders but
+  // not edit them can still fill a new order's title.
+  const writable = checkField('orders', 'title', mode === 'create' ? 'create' : 'write');
+  return <input disabled={!writable} />;
+}
+```
+
+Console affordances do not pick the question themselves: they read it from the
+affordance-to-grant map in `@object-ui/core` (`AFFORDANCE_GRANTS`,
+`resolveAffordance`, `resolveFieldAffordance`).
+
 ### PermissionGuard
 
 Conditionally renders children based on permissions. `fallback` selects the

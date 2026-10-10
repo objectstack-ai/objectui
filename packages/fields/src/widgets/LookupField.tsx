@@ -18,7 +18,7 @@ import type { RecordPickerFilterColumn } from './RecordPickerDialog.js';
 import { PeoplePicker } from './PeoplePicker.js';
 import { useRecordQuery } from './useRecordQuery.js';
 import { deriveLookupColumns } from './deriveLookupColumns.js';
-import { buildExpandFields, getRecordDisplayName, mergeFilterNodes, toPredicateRecord, withoutDeniedFields } from '@object-ui/core';
+import { buildExpandFields, getRecordDisplayName, mergeFilterNodes, resolveAffordance, toPredicateRecord, withoutDeniedFields } from '@object-ui/core';
 import { getRecentLookupIds, pushRecentLookupId } from './recentLookups.js';
 import { getPersonInitials } from './personDisplay.js';
 import { getCellRendererResolver } from './_cell-renderer-bridge.js';
@@ -1157,12 +1157,27 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // returns a local runner and useHasActionProvider is false.
   const { execute } = useAction();
   const hasActionProvider = useHasActionProvider();
-  const canCreate = !!onCreateNew || (allowCreate && (hasActionProvider || hasDataSource));
+  // objectui#12082 (objectui#12081 item 6) — the built-in quick-create writes a
+  // record of the TARGET object, so it reads that object's `lookupCreateNew`
+  // row of the affordance-to-grant map: its managed-object policy, the
+  // server's effective API operation set for it, and the caller's create grant
+  // on it. `allowCreate` above says the field OFFERS quick-create; it was never
+  // a grant, and nothing here used to ask for one, so a requester who cannot
+  // create contract types was offered "Create new" for one. The schema is the
+  // target's once fetched (`null` until then reads as the default bucket); with
+  // no permission provider the grant reads open. A host-supplied
+  // `onCreateNew` is the host's own affordance and is not gated here.
+  const createGranted = resolveAffordance('lookupCreateNew', {
+    objectSchema: refObjectSchema,
+    objectName: referenceTo,
+    perms,
+  }).allowed;
+  const canCreate = !!onCreateNew || (allowCreate && createGranted && (hasActionProvider || hasDataSource));
   const handleCreateNew = useCallback(
     async (q: string) => {
       const label = (q || '').trim();
       if (onCreateNew) { onCreateNew(label); setIsOpen(false); return; }
-      if (!allowCreate || !referenceTo) return;
+      if (!allowCreate || !createGranted || !referenceTo) return;
       setCreateError(null);
 
       // Preferred path — open the referenced object's FULL create form so the
@@ -1215,7 +1230,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         setCreating(false);
       }
     },
-    [onCreateNew, allowCreate, referenceTo, hasActionProvider, execute, dataSource, displayField, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, handleSelect, perms],
+    [onCreateNew, allowCreate, createGranted, referenceTo, hasActionProvider, execute, dataSource, displayField, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, handleSelect, perms],
   );
 
   /**

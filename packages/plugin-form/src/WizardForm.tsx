@@ -959,7 +959,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         // payload. A simple form's mobile `stepper` renders through here too.
         const { writePayload } = formWritePayload(mergedData, schema, {
           objectSchema,
-          canEdit: fieldWriteGate(perms, schema.objectName),
+          canEdit: fieldWriteGate(perms, schema.objectName, schema.mode),
           snapshot: loadedRecordRef.current,
         });
 

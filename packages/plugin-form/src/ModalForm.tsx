@@ -635,7 +635,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       // enough on its own — but the verdict is the same resolver's, adapted by
       // `fieldWriteGate` rather than copied here (`80c54122e`).
       const payload = sanitizeFormData(data, objectSchema, {
-        canEdit: fieldWriteGate(perms, schema.objectName),
+        canEdit: fieldWriteGate(perms, schema.objectName, schema.mode),
       });
       // Omit the fields the producer owns (#4069) — see
       // `omitServerResolvedDefaults` for why an empty key is not the same as

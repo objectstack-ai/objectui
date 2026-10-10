@@ -44,6 +44,9 @@ const { permsStub, state } = vi.hoisted(() => {
     permsStub: {
       isLoaded: false,
       checkField: () => true,
+      // The caller's object grant (objectui#12082) holds every verb, so the
+      // effective set stays the only variable, as the comment above says.
+      can: () => true,
       getObjectApiOperations: () => state.effectiveOps,
     },
   };

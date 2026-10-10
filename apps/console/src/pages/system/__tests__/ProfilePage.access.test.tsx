@@ -60,7 +60,7 @@ vi.mock('@object-ui/react', async (importOriginal) => ({
 
 vi.mock('@object-ui/permissions', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  usePermissions: () => ({ checkField: () => true }),
+  usePermissions: () => ({ isLoaded: true, checkField: () => true }),
 }));
 
 const { ProfilePage } = await import('../ProfilePage');

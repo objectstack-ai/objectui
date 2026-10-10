@@ -7,17 +7,26 @@
  */
 
 /**
- * 「May this caller edit this field?」 — asked once, of the resolver that owns
- * the answer (`80c54122e`).
+ * 「May this caller write this field through this form?」 — asked once, of the
+ * resolver that owns the answer (`80c54122e`), with the question the form's
+ * mode asks (objectui#12082).
  *
  * ## The one answer, and where it lives
  *
- * `checkField(object, field, 'write')` in `@object-ui/permissions` IS that
+ * `checkField(object, field, action)` in `@object-ui/permissions` IS that
  * resolver: `MePermissionsProvider` reads the server's `/me/permissions`
  * envelope, looks the caller's field-level grant up by `"<object>.<field>"`,
- * and falls back to the object-level `allowEdit` for a field the permission
- * set never mentions. ⛔ Nothing in this module re-derives any rung of it. It
- * only ADAPTS that one verdict into the two shapes a form container needs:
+ * and falls back to the object-level grant for a field the permission set
+ * never mentions. WHICH question a form asks is not this module's to decide
+ * either: it is the form's row in the affordance-to-grant map
+ * (`AFFORDANCE_GRANTS` in `@object-ui/core`, read through
+ * `formFieldsAffordance` / `resolveFieldAffordance`). A create form asks
+ * `create` — the server's insert rule, whose fallback is `allowCreate` — and
+ * every other form that writes asks `write`, whose fallback is `allowEdit`.
+ * Asking `write` in create mode was objectui#12082: a create-only role met a
+ * create form with every field disabled and a save that posted `{}`.
+ * ⛔ Nothing in this module re-derives any rung of it. It only ADAPTS that one
+ * verdict into the shapes a form container needs:
  *
  *  - {@link fieldWriteGate} — the predicate `sanitizeFormData` takes, so the
  *    OUTBOUND payload never carries a field the caller may read but not edit;
@@ -28,7 +37,9 @@
  *    columns, spelled in the one lock the grid reads (objectui#10163).
  *
  * And one form-level step built on the render pass: {@link gateFormFields},
- * which adds the ADR-0092 D4 managed-object lock to it. It is the ONE step
+ * which adds the form-wide lock to it — the form's affordance closed by the
+ * ADR-0092 D4 managed-object policy, the effective API operation set or the
+ * caller's object grant (objectui#12082). It is the ONE step
  * every `ObjectForm` layout draws its resolved fields through (objectui#10612).
  *
  * ## Why both halves live in one module
@@ -55,15 +66,21 @@
  * would brick those surfaces without adding any security the server does not
  * already provide.
  *
- * ⚠️ The managed-object lock {@link gateFormFields} adds is NOT a
- * per-principal answer, so it does not fail open with the field-level half:
- * its first input is the object's own `managedBy` bucket and `userActions`,
- * read with no principal at all, exactly as the default arm has always read
- * it. Only its second input — the server's effective API operation set — is
- * absent without a provider, and absent leaves the bucket's answer standing.
+ * ⚠️ The form-wide lock {@link gateFormFields} adds is only PARTLY a
+ * per-principal answer, and only that part fails open: its first input is the
+ * object's own `managedBy` bucket and `userActions`, read with no principal at
+ * all, exactly as the default arm has always read it. Its second input — the
+ * server's effective API operation set — is absent without a provider, and
+ * absent leaves the bucket's answer standing; its third — the caller's object
+ * grant, `can` — answers `true` without a provider.
  */
 
-import { resolveEffectiveCrudAffordances, type SchemaLike } from '@object-ui/core';
+import {
+  formFieldsAffordance,
+  resolveAffordance,
+  resolveFieldAffordance,
+  type SchemaLike,
+} from '@object-ui/core';
 
 /**
  * The permission surface this module consumes — structurally the subset of
@@ -73,7 +90,7 @@ import { resolveEffectiveCrudAffordances, type SchemaLike } from '@object-ui/cor
  */
 export interface FieldWritePrincipal {
   isLoaded: boolean;
-  checkField: (object: string, field: string, action: 'read' | 'write') => boolean;
+  checkField(object: string, field: string, action: 'read' | 'write' | 'create'): boolean;
 }
 
 /** A field-name predicate: `true` when the caller may write that field. */
@@ -87,19 +104,30 @@ export type FieldWriteGate = (fieldName: string) => boolean;
  * this straight to `sanitizeFormData`, whose option is absent-or-predicate, so
  * an unresolved principal produces the byte-identical payload it produced
  * before this gate existed.
+ *
+ * `mode` is required, not optional: it picks the question (objectui#12082),
+ * and a container that forgot it would silently strip a create-only caller's
+ * whole body again. A mode that writes nothing (`view`) gets the edit
+ * question, the stricter of the two.
  */
 export function fieldWriteGate(
   perms: FieldWritePrincipal | null | undefined,
   objectName: string,
+  mode: string | undefined,
 ): FieldWriteGate | undefined {
   if (!perms?.isLoaded) return undefined;
-  return (fieldName: string) => perms.checkField(objectName, fieldName, 'write');
+  const affordance = formFieldsAffordance(mode) ?? 'editFormFields';
+  return (fieldName: string) => resolveFieldAffordance(affordance, perms, objectName, fieldName);
 }
 
 export interface ApplyFieldPermissionsOptions {
   perms: FieldWritePrincipal | null | undefined;
   objectName: string;
-  /** A `view`-mode form renders everything read-only already. */
+  /**
+   * The form's mode, which picks the field question (objectui#12082): `create`
+   * asks the insert rule, any other mode but `view` the update rule. A
+   * `view`-mode form renders everything read-only already.
+   */
   mode?: string;
   /**
    * Optional hint placed on a field the caller may read but not edit, used
@@ -131,11 +159,14 @@ function gateByPermission<T extends Record<string, any>>(
 ): T[] | undefined {
   if (!Array.isArray(fields)) return fields;
   if (!perms?.isLoaded) return fields;
+  // The form's row in the affordance-to-grant map: `undefined` for a `view`
+  // form, which asks no write question at all.
+  const affordance = formFieldsAffordance(mode);
   const out: T[] = [];
   for (const f of fields) {
     if (!f?.name) { out.push(f); continue; }
     if (!perms.checkField(objectName, f.name, 'read')) continue; // omit entirely
-    if (mode !== 'view' && !perms.checkField(objectName, f.name, 'write')) {
+    if (affordance && !resolveFieldAffordance(affordance, perms, objectName, f.name)) {
       out.push(markDenied(f));
       continue;
     }
@@ -160,12 +191,14 @@ export function applyFieldPermissions<T extends Record<string, any>>(
 }
 
 /**
- * The principal surface {@link gateFormFields} reads: the field-level resolver
- * plus the server's effective API operation set for an object (`/me/permissions`
- * `apiOperations`, objectstack#3391). `undefined` from it means "no effective set", which
- * leaves the object's own affordance standing.
+ * The principal surface {@link gateFormFields} reads: the field-level resolver,
+ * the server's effective API operation set for an object (`/me/permissions`
+ * `apiOperations`, objectstack#3391; `undefined` means "no effective set",
+ * which leaves the object's own affordance standing), and the caller's object
+ * grant (`usePermissions().can`, objectui#12082).
  */
 export interface FormFieldPrincipal extends FieldWritePrincipal {
+  can(object: string, action: 'create' | 'update' | 'delete'): boolean;
   getObjectApiOperations?: (object: string) => readonly string[] | undefined;
 }
 
@@ -180,20 +213,27 @@ export interface GateFormFieldsOptions extends ApplyFieldPermissionsOptions {
 }
 
 /**
- * The managed-object blanket lock (ADR-0092 D4 / ADR-0103): `true` when the
- * object's resolved CRUD affordance for the form's mode is CLOSED — `edit` for
- * an edit form, `create` for a create form.
+ * The form-wide lock: `true` when the form's affordance is CLOSED — the
+ * `createFormFields` row for a create form, `editFormFields` for an edit form,
+ * resolved through the affordance-to-grant map (`resolveAffordance` in
+ * `@object-ui/core`, objectui#12082).
  *
- * It routes through the SAME shared `resolveEffectiveCrudAffordances` policy
- * the detail (`isObjectInlineEditable`) and grid surfaces use, instead of
- * re-deriving the bucket lock: `platform` and admin-editable `config` resolve
- * open; the engine-owned buckets (`engine-owned`, `append-only`,
- * `better-auth`) resolve closed unless the object OPENED per-record writing via
- * `userActions.{edit,create}` (e.g. sys_user opens `edit` for its profile
- * fields). objectstack#3546 intersects that with the server's effective API operation set
- * for the object, so the lock also engages when the server denies `update`
- * (edit) or `create` (create) — the intersection the detail header and the
- * list toolbar apply.
+ * That resolver is the SAME one the record header, the list toolbar, the
+ * related lists and the grids read, so a form cannot disagree with the button
+ * that opened it. Three layers, intersected:
+ *
+ *  - the managed-object policy (ADR-0092 D4 / ADR-0103): `platform` and
+ *    admin-editable `config` resolve open; the engine-owned buckets
+ *    (`engine-owned`, `append-only`, `better-auth`) resolve closed unless the
+ *    object OPENED per-record writing via `userActions.{edit,create}` (e.g.
+ *    sys_user opens `edit` for its profile fields);
+ *  - the server's effective API operation set for the object (objectstack#3546),
+ *    so the lock engages when the server denies `update` (edit) or `create`
+ *    (create);
+ *  - the caller's object grant (objectui#12082): `allowEdit` for an edit form,
+ *    `allowCreate` for a create form. Before the map, the edit form's half of
+ *    this reached the fields only through the field question's `allowEdit`
+ *    fallback, and the create form's half not at all.
  *
  * Any other mode never locks here: a `view` form disables every field on its
  * own, and a form with no declared mode was never locked by the default arm.
@@ -206,19 +246,19 @@ function managedModeLocked(
   mode: string | undefined,
 ): boolean {
   if (mode !== 'edit' && mode !== 'create') return false;
-  const affordances = resolveEffectiveCrudAffordances(
-    objectSchema,
-    perms?.getObjectApiOperations?.(objectName),
-  );
-  return mode === 'edit' ? !affordances.edit : !affordances.create;
+  const affordance = formFieldsAffordance(mode);
+  if (!affordance) return false;
+  return !resolveAffordance(affordance, { objectSchema, objectName, perms }).allowed;
 }
 
 /** The form-level affordance {@link closedFormAffordance} can report closed. */
 export type ClosedFormAffordance = 'create' | 'edit';
 
 /**
- * Which affordance the managed-object lock found CLOSED for this form, or
- * `undefined` when the lock does not engage (objectui#11000).
+ * Which affordance the form-wide lock found CLOSED for this form, or
+ * `undefined` when the lock does not engage (objectui#11000) — closed by the
+ * managed-object policy, the effective API operation set or, since
+ * objectui#12082, the caller's object grant.
  *
  * It is {@link managedModeLocked}, the very predicate {@link gateFormFields}
  * disables every drawn field on, read for its reason: `create` for a create
@@ -253,7 +293,7 @@ export function closedFormAffordance({
  *
  *  1. field-level security — {@link applyFieldPermissions}: drop what the
  *     caller may not READ, lock what they may read but not WRITE;
- *  2. the managed-object lock — every drawn field is `disabled` when
+ *  2. the form-wide lock — every drawn field is `disabled` when
  *     {@link managedModeLocked} says the mode's affordance is closed. Only
  *     `disabled`, not `readOnly`: the default arm's lock always drew a
  *     disabled input, and the submit button is left as it is.
@@ -303,12 +343,19 @@ const LOCKED_ON_EVERY_ROW = 'true';
  * replaces any `readonlyWhen` it declared — a lock on every row already covers
  * every row a narrower lock would. Rows are untouched: whether a line may be
  * added or removed stays the container's own answer.
+ *
+ * `mode` is the form the grid sits in, and picks the question the cells ask
+ * the same way it does for a form's fields (objectui#12082): a CREATE form's
+ * lines are all new child records, so their cells ask the create question. A
+ * grid anywhere else — an edit form, a record page's line-items block — may
+ * hold existing lines beside new ones, and one lock per column cannot split
+ * per row, so it asks the edit question, as it always did.
  */
 export function applyColumnPermissions<T extends Record<string, any>>(
   columns: T[] | undefined,
-  { perms, objectName }: Pick<ApplyFieldPermissionsOptions, 'perms' | 'objectName'>,
+  { perms, objectName, mode }: Pick<ApplyFieldPermissionsOptions, 'perms' | 'objectName' | 'mode'>,
 ): T[] | undefined {
-  return gateByPermission(columns, perms, objectName, undefined, (c) => ({
+  return gateByPermission(columns, perms, objectName, mode, (c) => ({
     ...c,
     readonlyWhen: LOCKED_ON_EVERY_ROW,
   }));

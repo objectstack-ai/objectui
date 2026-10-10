@@ -21,7 +21,7 @@ import { useDensityMode, resolveInlineAriaProps } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
+import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveAffordance, type SchemaLike, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -1857,7 +1857,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // Missing effective set (unrestricted object / old backend / no provider)
   // keeps the current behavior. The frontend consumes the effective set the
   // server resolved; it never reads the raw `apiMethods`.
-  const { getObjectApiOperations, can: canDo } = usePermissions();
+  const affordancePerms = usePermissions();
+  const { getObjectApiOperations } = affordancePerms;
   const effectiveApiOps = schema.objectName ? getObjectApiOperations(schema.objectName) : undefined;
   const exportPermitted =
     schema.allowExport !== false &&
@@ -1876,15 +1877,19 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // all describe the OBJECT, so without this the most destructive entry on a
   // kanban/gallery board stayed visible for an account with no delete grant.
   // `can()` answers `true` with no `PermissionProvider` (standalone embeds).
+  // [objectui#12082] The four layers are the `listBulkDelete` row of the
+  // affordance-to-grant map, resolved by `resolveAffordance` from
+  // `@object-ui/core` — the one verdict every console affordance reads.
+  const bulkDeleteVerdict = React.useMemo(
+    () => resolveAffordance('listBulkDelete', { objectSchema: objectDef as SchemaLike, objectName: schema.objectName, perms: affordancePerms }),
+    [objectDef, schema.objectName, affordancePerms],
+  );
   const permittedBulkActions = React.useMemo(() => {
     const declared = schema.bulkActions;
     if (!declared || declared.length === 0) return declared;
-    const objectDeleteAllowed =
-      resolveEffectiveCrudAffordances(objectDef as any, effectiveApiOps).delete &&
-      (schema.objectName ? canDo(schema.objectName, 'delete') : true);
-    if (objectDeleteAllowed) return declared;
+    if (bulkDeleteVerdict.allowed) return declared;
     return declared.filter((a: unknown) => String(a).toLowerCase() !== 'delete');
-  }, [schema.bulkActions, schema.objectName, objectDef, effectiveApiOps, canDo]);
+  }, [schema.bulkActions, bulkDeleteVerdict]);
 
   /**
    * [objectui#4420] The PER-RECORD half of the same key, for the same bar.
@@ -1927,10 +1932,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * through the action runner carrying their own gates, exactly as the
    * object-level gate above leaves them alone.
    */
-  const deleteVisibleWhen = React.useMemo(
-    () => resolveEffectiveCrudAffordances(objectDef as any, effectiveApiOps).deletePredicates?.visibleWhen,
-    [objectDef, effectiveApiOps],
-  );
+  // The predicate envelope rides the SAME `listBulkDelete` verdict
+  // (objectui#12082): surfaced only when the bar's Delete itself is allowed,
+  // which is the only case the bar offers Delete in.
+  const deleteVisibleWhen = bulkDeleteVerdict.predicates?.visibleWhen;
   const predicateScope = usePredicateScope();
   const bulkDeleteEligibility = React.useMemo(
     () => partitionRowsByPredicate(deleteVisibleWhen as never, selectedRows as Array<Record<string, unknown>>, {
@@ -2008,11 +2013,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     if ((schema.userActions as Record<string, boolean | undefined> | undefined)?.editInline !== true) {
       return false;
     }
-    return (
-      isObjectInlineEditable(objectDef as any, effectiveApiOps) &&
-      (schema.objectName ? canDo(schema.objectName, 'update') : true)
-    );
-  }, [schema.userActions, schema.objectName, objectDef, effectiveApiOps, canDo]);
+    // [objectui#12082] The `listInlineEdit` row of the affordance-to-grant map:
+    // the same conjunction, read from the one table.
+    return resolveAffordance('listInlineEdit', { objectSchema: objectDef as SchemaLike, objectName: schema.objectName, perms: affordancePerms }).allowed;
+  }, [schema.userActions, schema.objectName, objectDef, affordancePerms]);
 
   // Normalize exportOptions: support both ObjectUI object format and spec string[] format
   const resolvedExportOptions = React.useMemo(() => {

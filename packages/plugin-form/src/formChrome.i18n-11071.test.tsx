@@ -48,7 +48,11 @@ import { registerAllFields } from '@object-ui/fields';
 const { permsStub } = vi.hoisted(() => ({
   permsStub: {
     isLoaded: true,
-    checkField: (_object: string, field: string, op: string) => !(field === 'salary' && op === 'write'),
+    // Readable but not writable: an explicit field-level `editable: false`
+    // refuses the insert question (`create`) and the update one (`write`)
+    // alike (objectui#12082).
+    checkField: (_object: string, field: string, op: string) => !(field === 'salary' && op !== 'read'),
+    can: () => true,
     getObjectApiOperations: () => undefined,
   },
 }));

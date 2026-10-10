@@ -1285,7 +1285,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     // the record as the form now holds it, whether or not a field was written.
     const { payload, writePayload } = formWritePayload(formData, schema, {
       objectSchema,
-      canEdit: fieldWriteGate(perms, schema.objectName),
+      canEdit: fieldWriteGate(perms, schema.objectName, schema.mode),
       snapshot: loadedRecordRef.current,
     });
 

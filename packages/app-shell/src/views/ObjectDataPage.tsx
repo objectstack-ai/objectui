@@ -43,7 +43,7 @@ import { formatMetadataError } from '@object-ui/data-objectstack';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { usePermissions, useFieldPermissions } from '@object-ui/permissions';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
-import { resolveFilterPlaceholders } from '@object-ui/core';
+import { resolveAffordance, resolveFilterPlaceholders, type SchemaLike } from '@object-ui/core';
 import { normalizeFilterOperator, ViewFilterRuleSchema } from '@objectstack/spec/ui';
 import type { ViewFilterRule } from '@objectstack/spec/ui';
 import { parseUserFilterParams, applyUserFilterParams } from './userFilterUrlState.js';
@@ -73,7 +73,7 @@ import {
   PREVIEW_QUERY_VALUE,
 } from '../preview/PreviewModeContext.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
-import { resolveEffectiveCrudAffordances, type RowCrudPredicates } from '../utils/crudAffordances.js';
+import type { RowCrudPredicates } from '../utils/crudAffordances.js';
 
 /** Field types the auto-derived user-filter bar offers as dropdowns. */
 const USER_FILTER_TYPES = new Set(['select', 'multiselect', 'radio', 'enum', 'boolean']);
@@ -195,7 +195,8 @@ export function ObjectDataPage({ dataSource, objects }: any) {
   const { objectLabel, objectPluralLabel, fieldLabel } = useObjectLabel();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { can, getObjectApiOperations } = usePermissions();
+  const perms = usePermissions();
+  const { can } = perms;
   const { canRead } = useFieldPermissions(objectName ?? '');
   const { user, activeOrganization } = useAuth();
   const { isAdmin } = useWorkspaceAdminStatus();
@@ -423,17 +424,19 @@ export function ObjectDataPage({ dataSource, objects }: any) {
   // objectstack#3391 effective-API-operation intersection was absent, so the toolbar could
   // offer a create the server would 405.
   //
-  // Resolved exactly as `ObjectView` does: the spec's bucket/`userActions`
-  // matrix (ADR-0103, delegated to `resolveCrudAffordances`), INTERSECTED with
-  // the server-resolved effective API operations for this object. `undefined`
-  // (unrestricted object / old backend) leaves the bucket affordances as-is.
-  const affordances = React.useMemo(
+  // Resolved exactly as `ObjectView` does, through the SAME `listNew` row of
+  // the affordance-to-grant map (`resolveAffordance` in `@object-ui/core`,
+  // objectui#12082): the spec's bucket/`userActions` matrix (ADR-0103,
+  // delegated to `resolveCrudAffordances`), INTERSECTED with the
+  // server-resolved effective API operations for this object, AND the caller's
+  // create grant. `undefined` operations (unrestricted object / old backend)
+  // leave the bucket affordances as-is.
+  const newVerdict = React.useMemo(
     () =>
-      resolveEffectiveCrudAffordances(
-        objectDef as any,
-        objectDef ? getObjectApiOperations(objectDef.name) : undefined,
-      ),
-    [objectDef, getObjectApiOperations],
+      objectDef
+        ? resolveAffordance('listNew', { objectSchema: objectDef as SchemaLike, objectName: objectDef.name, perms })
+        : { allowed: false },
+    [objectDef, perms],
   );
 
   /**
@@ -460,10 +463,8 @@ export function ObjectDataPage({ dataSource, objects }: any) {
    * ONE RENDER POINT here, unlike `ObjectView`: this page has no phone FAB —
    * the whole PageHeader lives under `hidden sm:block`.
    */
-  const objectCanCreate = !!objectDef && affordances.create && can(objectDef.name, 'create');
-  const createPredicates: RowCrudPredicates | undefined = objectCanCreate
-    ? affordances.createPredicates
-    : undefined;
+  const objectCanCreate = newVerdict.allowed;
+  const createPredicates: RowCrudPredicates | undefined = newVerdict.predicates;
   /** `visibleWhen` — fails CLOSED, declared-ness by `?? true` rather than by
    *  truthiness, so `visibleWhen: false` (the objectui#3492 shape) hides "New"
    *  instead of reading as "ungated". The `true` default is a boolean, which
@@ -543,8 +544,8 @@ export function ObjectDataPage({ dataSource, objects }: any) {
             <>
               {/* [#5164] `objectCanCreate && createVisible` — the bucket +
                   object-level `userActions` + objectstack#3391 effective-operations
-                  verdict (all folded into `affordances.create`) AND the
-                  principal's grant, then the toolbar-scope `visibleWhen` layer
+                  verdict AND the principal's grant (the map's `listNew` row,
+                  objectui#12082), then the toolbar-scope `visibleWhen` layer
                   on top of it. Greyed, not gone, is the `disabledWhen` case. */}
               {objectCanCreate && createVisible && (
                 <Button

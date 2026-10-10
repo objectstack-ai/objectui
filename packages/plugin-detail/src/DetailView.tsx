@@ -44,7 +44,7 @@ import { ActivityTimeline } from './ActivityTimeline';
 import { HistoryTimeline } from './HistoryTimeline';
 import { RecordMetaFooter } from './RecordMetaFooter';
 import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, declaredNameField, getRecordDisplayName, formatTitleTemplate, recordDisplayValueAt, toDisplayDate, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
+import { buildExpandFields, declaredNameField, getRecordDisplayName, formatTitleTemplate, recordDisplayValueAt, resolveAffordance, toDisplayDate, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import type { DetailViewSchema, DataSource, ActionSchema, SchemaNode } from '@object-ui/types';
@@ -388,13 +388,24 @@ export const DetailView: React.FC<DetailViewProps> = ({
    * Only consulted when the object-level check already passes — when it
    * doesn't, the buttons are hidden anyway and the request would be waste.
    * Fails open (see `useRecordEditable`); the server remains the authority.
+   *
+   * [objectui#12082] The object-level check is the `recordEdit` /
+   * `recordDelete` row of the affordance-to-grant map (`resolveAffordance` in
+   * `@object-ui/core`) — the same rows the console record page's header reads:
+   * the server's effective operation set and the caller's grant. The row's
+   * third layer, the object's own policy (bucket + the BOOLEAN `userActions`
+   * form), is deliberately left out here (`objectSchema: null`): on this
+   * surface it is the HOST's channel, lowered into `showEdit` / `showDelete`,
+   * and this view must not grow a second definition of it (objectui#4419,
+   * pinned in `DetailView.userActionPredicates.test.tsx`). With no provider
+   * mounted the grant and the operation set read open.
    */
   const objectAllowsUpdate = React.useMemo(
-    () => !perms?.isLoaded || !rawSchema.objectName || perms.can(rawSchema.objectName, 'update'),
+    () => resolveAffordance('recordEdit', { objectSchema: null, objectName: rawSchema.objectName, perms }).allowed,
     [perms, rawSchema.objectName],
   );
   const objectAllowsDelete = React.useMemo(
-    () => !perms?.isLoaded || !rawSchema.objectName || perms.can(rawSchema.objectName, 'delete'),
+    () => resolveAffordance('recordDelete', { objectSchema: null, objectName: rawSchema.objectName, perms }).allowed,
     [perms, rawSchema.objectName],
   );
   const recordId =

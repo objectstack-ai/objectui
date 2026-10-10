@@ -11,7 +11,7 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense, type ComponentType } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
-import { resolveFilterPlaceholders, DENSITY_MODE_TO_ROW_HEIGHT, normalizeListViewSchema, leadWithNameField, type FilterTokenScope } from '@object-ui/core';
+import { resolveFilterPlaceholders, DENSITY_MODE_TO_ROW_HEIGHT, normalizeListViewSchema, leadWithNameField, resolveAffordance, type FilterTokenScope, type SchemaLike } from '@object-ui/core';
 import {
     parseUserFilterParams,
     applyUserFilterParams,
@@ -70,7 +70,7 @@ import { useMobileViewSwitcherRegistration } from '../layout/MobileViewSwitcherC
 import type { MobileViewSwitcherItem } from '../layout/MobileViewSwitcherContext.js';
 import { ManagedByBadge } from '../components/ManagedByBadge.js';
 import { RecordDetailView } from './RecordDetailView.js';
-import { resolveEffectiveCrudAffordances, type RowCrudPredicates } from '../utils/crudAffordances.js';
+import type { RowCrudPredicates } from '../utils/crudAffordances.js';
 import { createIdentityImportDataSource, IDENTITY_IMPORT_OBJECT, type IdentityPasswordPolicy } from './identityImport.js';
 import { IdentityImportOptions, IdentityImportResultExtra, identityImportFields } from './IdentityImportPanels.js';
 import { importTargetFields } from './importTargetFields.js';
@@ -1895,7 +1895,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     const { user, activeOrganization } = useAuth();
     const { isAdmin } = useWorkspaceAdminStatus();
     const perms = usePermissions();
-    const { can, getObjectApiOperations } = perms;
 
     // [ADR-0066 / objectstack#7494] Hand the adapter the session's REPORTED
     // system capabilities so its `updateViewConfig` gate has something to judge
@@ -2057,11 +2056,18 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // operation set for this object (from /me/permissions apiOperations), so the
     // toolbar never offers Import/Export/New/Edit/Delete the server would 405.
     // `undefined` (unrestricted object / old backend) leaves affordances as-is.
-    // The identity-import bypass below is independent of `affordances.import`.
-    const affordances = useMemo(
-      () => resolveEffectiveCrudAffordances(objectDef as any, getObjectApiOperations(objectDef.name)),
-      [objectDef, getObjectApiOperations],
-    );
+    // objectui#12082: New and Import are the `listNew` / `listImport` rows of
+    // the affordance-to-grant map (`resolveAffordance` in `@object-ui/core`),
+    // which ANDs the caller's create grant onto that intersection itself and
+    // surfaces the row's `userActions` predicates only when all three allow it.
+    // The identity-import bypass below is independent of the `listImport` row.
+    const { newVerdict, importVerdict } = useMemo(() => {
+      const source = { objectSchema: objectDef as SchemaLike, objectName: objectDef.name, perms };
+      return {
+        newVerdict: resolveAffordance('listNew', source),
+        importVerdict: resolveAffordance('listImport', source),
+      };
+    }, [objectDef, perms]);
 
     // Externally-triggered refreshes (e.g. global ModalForm submit, undo, redo)
     // reach every `refreshKey` reader through the sum declared with the counter
@@ -2089,10 +2095,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      * rendered twice, so both consume these SAME two values; computing the
      * predicate once here is what keeps them from disagreeing with each other.
      */
-    const objectCanCreate = affordances.create && can(objectDef.name, 'create');
-    const createPredicates: RowCrudPredicates | undefined = objectCanCreate
-      ? affordances.createPredicates
-      : undefined;
+    const objectCanCreate = newVerdict.allowed;
+    const createPredicates: RowCrudPredicates | undefined = newVerdict.predicates;
     /** `visibleWhen` — fails CLOSED, declared-ness by `?? true`. As Import. */
     const createVisible = useRowPredicate(createPredicates?.visibleWhen ?? true, null, {
       fallback: false,
@@ -2150,13 +2154,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      * the same posture the related-list bridge takes, because a predicate may
      * not RE-OPEN what the bucket, the effective API operations (objectstack#3391) or the
      * principal's grant have closed. The identity-import bypass below is a
-     * different affordance entirely (it does not read `affordances.import`) and
+     * different affordance entirely (it does not read the `listImport` row) and
      * is deliberately left outside this layer.
      */
-    const objectCanImport = affordances.import && can(objectDef.name, 'create');
-    const importPredicates: RowCrudPredicates | undefined = objectCanImport
-      ? affordances.importPredicates
-      : undefined;
+    const objectCanImport = importVerdict.allowed;
+    const importPredicates: RowCrudPredicates | undefined = importVerdict.predicates;
     /**
      * `visibleWhen` — fails CLOSED, and counts as DECLARED by `?? true` rather
      * than by truthiness, so `visibleWhen: false` hides Import instead of

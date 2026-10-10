@@ -23,6 +23,7 @@ import { createObjectStackUploadAdapter } from '@object-ui/providers';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { useObjectTranslation, isPermissionError, classifyLoadError } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
+import { resolveAffordance } from '@object-ui/core';
 
 /**
  * RecordAttachmentsPanel — generic record Attachments surface (objectstack-ai/objectstack#2727,
@@ -162,8 +163,12 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
   /**
    * objectui#12047 — the two write affordances follow the caller's grant on
    * `sys_attachment`, read from the permissions the console already holds
-   * (`usePermissions`; no request of its own) with the same `can(object, verb)`
-   * call the other console CRUD affordances make.
+   * (`usePermissions`; no request of its own). Since objectui#12082 they are
+   * the `attachmentUpload` / `attachmentDelete` rows of the affordance-to-grant
+   * map (`resolveAffordance` in `@object-ui/core`), the one table every console
+   * CRUD affordance reads. Both rows carry no CRUD-affordance bit: an upload
+   * and a delete go through the storage route, not `sys_attachment`'s generic
+   * data door, so that door's operation set says nothing about them.
    *
    * Upload needs `create`. Without it the three-step presigned flow below
    * commits a `sys_file` and only the final `sys_attachment` insert is
@@ -189,9 +194,9 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
    * change between render and click, and the parent-record gate judges the
    * record, which this verdict cannot see.
    */
-  const { can } = usePermissions();
-  const canUpload = can('sys_attachment', 'create');
-  const canDelete = can('sys_attachment', 'delete');
+  const perms = usePermissions();
+  const canUpload = resolveAffordance('attachmentUpload', { objectName: 'sys_attachment', perms }).allowed;
+  const canDelete = resolveAffordance('attachmentDelete', { objectName: 'sys_attachment', perms }).allowed;
 
   // Same base-URL convention as RecordDetailView's raw API fetches: the
   // Vite dev console proxies same-origin `/api` unless VITE_SERVER_URL

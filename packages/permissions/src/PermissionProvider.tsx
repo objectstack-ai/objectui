@@ -100,9 +100,14 @@ export function PermissionProvider({
   );
 
   const checkField = CHECK_FIELD([permissions, userRoles], () =>
-    (object: string, field: string, action: 'read' | 'write'): boolean => {
+    (object: string, field: string, action: 'read' | 'write' | 'create'): boolean => {
       const objectConfig = permissions.find((p) => p.object === object);
       if (!objectConfig) return true; // No config means no restrictions
+
+      // A role's field permission has one write bit, `write`, and no
+      // per-operation split: setting a field on a new record (`create`) reads
+      // it exactly as changing it on an existing one does, and a field the
+      // config does not mention keeps this provider's default allow for both.
 
       // Same guard as `evaluator.ts` (objectui#4812): a config that omits the
       // required `roles` must deny or fall through, never throw. Here the

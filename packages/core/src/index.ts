@@ -23,6 +23,9 @@ export * from './builder/schema-builder.js';
 export * from './utils/dom-props.js';
 export * from './utils/filter-converter.js';
 export * from './utils/managedBy.js';
+// The affordance-to-grant map (objectui#12082): every console affordance that
+// offers a write reads the grant it exercises from this one table.
+export * from './utils/affordanceGrants.js';
 export * from './utils/extract-records.js';
 // The non-grid row ceiling (objectui#7210), homed beside the `extractRecords`
 // it wraps by objectui#7508's ruling A′. `@object-ui/react` re-exports three of

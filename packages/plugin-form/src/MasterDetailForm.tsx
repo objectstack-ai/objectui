@@ -677,6 +677,14 @@ interface MasterDetailLinesProps {
    * entry's own config cannot carry it (objectui#6394).
    */
   parentObjectName: string;
+  /**
+   * The form's mode, which picks the question the child grids' cells ask
+   * (objectui#12082): every line of a CREATE form is a new child record, so its
+   * cells ask the create question (the server's insert rule); an edit form's
+   * lines may already exist, and a per-column lock cannot split per row, so
+   * they keep the edit question.
+   */
+  formMode: 'create' | 'edit';
 }
 
 /**
@@ -703,6 +711,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   onRowExpand,
   onAddViaForm,
   parentObjectName,
+  formMode,
 }) => {
   // The subtotal / tax / grand-total stack formats in the display locale; it
   // used to pass `toLocaleString` an explicit `undefined`, i.e. the MACHINE's
@@ -893,7 +902,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
                   // the record-form containers share: a child column the caller
                   // may not read is omitted, and one they may read but not edit
                   // renders its cells locked (objectui#10163).
-                  columns: applyColumnPermissions(d.columns, { perms, objectName: d.childObject }),
+                  columns: applyColumnPermissions(d.columns, { perms, objectName: d.childObject, mode: formMode }),
                   // Show the per-grid running total whenever an amount column is
                   // set — unless the document totals stack below subsumes it.
                   // The grid's `totalField` names the CHILD column summed (this
@@ -1819,6 +1828,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
         onRowExpand={(entryId, rowIdx) => setExpanded({ entryId, rowIdx })}
         onAddViaForm={addRowViaForm}
         parentObjectName={schema.objectName}
+        formMode={isEdit ? 'edit' : 'create'}
       />
 
       {/* Per-row "expand to full form": an inline editor panel for the selected

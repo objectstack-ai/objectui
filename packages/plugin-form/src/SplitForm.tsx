@@ -384,7 +384,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
       // the identical payload.
       const { writePayload } = formWritePayload(data, schema, {
         objectSchema,
-        canEdit: fieldWriteGate(perms, schema.objectName),
+        canEdit: fieldWriteGate(perms, schema.objectName, schema.mode),
         snapshot: loadedRecordRef.current,
       });
 

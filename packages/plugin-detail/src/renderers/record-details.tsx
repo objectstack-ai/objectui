@@ -20,7 +20,7 @@ import {
   declaredNameField,
   deriveTitleField,
   formatTitleTemplate,
-  isObjectInlineEditable,
+  resolveAffordance,
   type FieldRulePredicate,
   recordDisplayValueAt,
   resolveFieldRuleState,
@@ -933,8 +933,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // user-editable, so the per-field double-click / pencil affordances must not
   // be offered on them — unless the object opened `userActions.edit` (the
   // ADR-0103 admin/user-writable set). This is the shared resolved `edit`
-  // affordance from `@object-ui/core` (`isObjectInlineEditable`), the single
-  // source of truth — formerly a hand-mirrored `NON_EDITABLE_BUCKETS` set kept
+  // affordance from `@object-ui/core`, the single source of truth — formerly a hand-mirrored `NON_EDITABLE_BUCKETS` set kept
   // in lockstep by hand because plugin-detail can't depend on app-shell.
   // Authors can still force-disable with `inlineEdit: false`.
   // [objectstack#3546] Also AND inline-editability with the server's effective API
@@ -942,10 +941,17 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // record body must not offer double-click/pencil editing the server would
   // 405. `undefined` (unrestricted / old backend) leaves the bucket affordance
   // untouched (backward-compatible).
-  const objectInlineEditable = isObjectInlineEditable(
-    objSchema,
-    perms?.getObjectApiOperations?.(objectName),
-  );
+  // [objectui#12082] …and AND the caller's update grant: this is the
+  // `recordEdit` row of the affordance-to-grant map (`resolveAffordance` from
+  // `@object-ui/core`), the SAME row the record page's header Edit reads, so
+  // the body's pencils and the header CTA cannot disagree. Before the map the
+  // body read no grant, so a standalone `record:details` offered in-place
+  // editing to a read-only caller. With no provider the grant reads open.
+  const objectInlineEditable = resolveAffordance('recordEdit', {
+    objectSchema: objSchema,
+    objectName,
+    perms,
+  }).allowed;
   const inlineEditDefault = (schema.inlineEdit ?? true) && objectInlineEditable;
 
   const synthesized: any = {

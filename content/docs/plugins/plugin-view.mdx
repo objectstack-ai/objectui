@@ -405,7 +405,11 @@ the `show*` flags control whether the matching toolbar affordance is visible.
 ### Create
 
 `operations.create` enables record creation; `showCreate` shows the button. Both
-default to on. The new-record form opens on the surface a `drawer` or `modal`
+default to on, and the button also needs the `listNew` row of the
+affordance-to-grant map (`@object-ui/core`) to allow it — the object's policy,
+the effective API operation set and the caller's **create** grant — exactly as
+the console's list pages read it. With no permission provider mounted that grant
+reads open. The new-record form opens on the surface a `drawer` or `modal`
 navigation names, and on the `layout` surface otherwise, under `split` and
 `popover` too (see Opening a record):
 

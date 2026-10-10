@@ -74,6 +74,14 @@
  * against four grant shapes and holds the row set to its own expectation table,
  * and its census refuses a console source file that reads a CRUD grant without
  * this map.
+ *
+ * An affordance that reads NO grant is invisible to a census of grant reads —
+ * the calendar's quick-create and drag-to-reschedule and the kanban card move
+ * were such affordances until they gained their rows. So the same pin also
+ * counts the WRITES: every call site that invokes a create, update or delete on
+ * a data source has an entry there naming the row it sits behind and the file
+ * that reads it, or the reason it has none. A write site added without an entry
+ * turns that pin red.
  */
 
 import {

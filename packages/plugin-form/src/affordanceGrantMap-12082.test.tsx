@@ -337,7 +337,7 @@ function sourcesUnder(dir: string, out: string[] = []): string[] {
 }
 
 
-/** Every console source file: `.ts` / `.tsx` under `packages/*/src` and `apps/*/src`. */
+// Every console source file: `.ts` / `.tsx` under `packages/*/src` and `apps/*/src`.
 function consoleSources(): string[] {
   const roots: string[] = [];
   for (const top of ['packages', 'apps']) {
@@ -686,7 +686,10 @@ function scanWrites(rel: string, text: string): { sites: Set<string>; rowsRead: 
     if (ts.isCallExpression(n)) {
       const callee = n.expression;
       const calleeText = callee.getText(sf);
-      let verb: Verb | undefined = WRITE_HELPERS[calleeText];
+      // An own-key test, never a bare index: `valueOf(…)` would read the prototype.
+      let verb: Verb | undefined = Object.prototype.hasOwnProperty.call(WRITE_HELPERS, calleeText)
+        ? WRITE_HELPERS[calleeText]
+        : undefined;
       if (!verb && ts.isPropertyAccessExpression(callee)) {
         const member = MEMBER_WRITES.get(callee.name.text);
         if (member && n.arguments.length >= member.arity) verb = member.verb;
@@ -734,6 +737,7 @@ describe('the write census: every write call site sits behind a map row, or says
         "const Panel = () => <List onDelete={async () => { await (ds as any).delete?.('o', '1'); }} />;",
         'const api = { remove: async () => recordDelete.run(deps, action) };',
         "const ok = resolveAffordance('rowEdit', source);",
+        'const n = toString(x) + x.valueOf() + hasOwnProperty(y);',
       ].join('\n'),
     );
     expect([...found].sort()).toEqual([

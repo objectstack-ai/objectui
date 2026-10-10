@@ -1523,12 +1523,14 @@ export interface ConsoleObjectViewProps {
  * nothing (objectui#5144, triage's ruling E).
  *
  * The view's `inlineEdit` and `userActions.editInline` are the AUTHOR's
- * permission keys. The spec says so for both ("the list is read-only unless
- * the author opts in"), and `normalizeListViewSchema` folds the first into the
- * second. This toggle used to persist a USER's edit mode into `inlineEdit`
- * through `persistViewPatch`. After the fold, switching it off stored
- * `inlineEdit: false`, which reads as "not offered", so the toggle was gone
- * from the next load and nothing in the console could bring it back.
+ * permission keys, and `normalizeListViewSchema` folds the first into the
+ * second. `editInline` is on by default since the v18 ruling (objectstack#22605,
+ * objectui#12086), so a view that declares neither key offers the toggle, and
+ * `editInline: false` withdraws it. This toggle used to persist a USER's edit
+ * mode into `inlineEdit` through `persistViewPatch`. After the fold, switching
+ * it off stored `inlineEdit: false`, which reads as "not offered", so the
+ * toggle was gone from the next load and nothing in the console could bring it
+ * back.
  *
  * The edit mode is now session state. `ListView` keeps it, and seeds it from
  * the view's `inlineEdit` on each load. The callback stays wired because
@@ -1536,8 +1538,8 @@ export interface ConsoleObjectViewProps {
  *
  * Recorded costs: the edit mode is not remembered across loads, and an overlay
  * that already stores `inlineEdit: false` still reads off. That is existing
- * data, and the maintainer's ruling rejects migrating it. A view that should
- * offer inline editing declares `userActions.editInline: true`.
+ * data, and the maintainer's ruling rejects migrating it. Declaring
+ * `userActions.editInline: true` on such a view brings the toggle back.
  */
 function keepInlineEditModeForTheSession(): void {
     // Deliberately empty: see the docblock.

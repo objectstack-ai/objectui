@@ -127,13 +127,14 @@ const SHOW_FLAG_TO_USER_ACTION: Record<string, string> = {
  * Whether a view's `inlineEdit` folds into `userActions.editInline`
  * (objectui#5144, the maintainer's B-fold).
  *
- * The spec declares `userActions.editInline` with `.default(false)`: "the list
- * is read-only unless the author opts in". It declares the view's `inlineEdit`
- * as the same kind of permission ("allow inline editing"). Stored views carry
- * `inlineEdit`, not `editInline`: authored views declare it, and the console's
- * list toolbar used to write it. Folding it here puts both keys on one
- * vocabulary, so `ListView` can read `editInline` with the spec default and a
- * view that has inline editing keeps it.
+ * The spec declares `userActions.editInline` with `.default(true)` since the
+ * maintainer's v18 ruling (objectstack#22605): a list is editable in place by
+ * default, and `editInline: false` is the opt-out. It declares the view's
+ * `inlineEdit` as the same kind of permission ("allow inline editing"). Stored
+ * views carry `inlineEdit`, not `editInline`: authored views declare it, and
+ * the console's list toolbar used to write it. Folding it here puts both keys
+ * on one vocabulary, so `ListView` can read `editInline` with the spec default
+ * and a view's own `inlineEdit` still decides it when `editInline` is absent.
  *
  * The console's toolbar no longer writes `inlineEdit` (objectui#5144, ruling
  * E). It persisted a user's edit mode into this permission key, so switching
@@ -402,7 +403,8 @@ function readListViewKind(value: unknown): string | undefined {
  *    the value carried over and an explicit `editInline` winning. `inlineEdit`
  *    stays on the result, because `ListView` seeds the grid's edit mode from
  *    it. See {@link foldsInlineEditIntoEditInline}. An absent pair stays
- *    absent here as well; `ListView` reads that as off, the spec's default.
+ *    absent here as well; `ListView` reads that as on, the spec's default
+ *    (objectstack#22605).
  *  - `aria: { label, describedBy }` → the spec's `AriaProps`
  *    (`{ ariaLabel, ariaDescribedBy }`), and `sharing: { visibility, enabled }`
  *    → the spec's `ViewSharing` (`{ type }`) — #2890 scope A step 5. `aria.live`

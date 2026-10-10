@@ -1,22 +1,23 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * objectui#5144, the interface-page half.
+ * objectui#5144, the interface-page half, with the v18 default (objectui#12086).
  *
  * An ADR-0047 interface page reads the page config's `userActions.editInline`
- * as `=== true` and hands it to `ListView` as the view's `inlineEdit`. It does
- * not forward `editInline` itself, so the `userActions` block it builds carries
- * no `editInline` key. Before objectui#5144, `ListView` read that absent key as
- * "defer to the host channel" and offered inline editing on this page's compact
- * toolbar. The page itself read the absent case as off.
+ * with the protocol's default, on (`!== false`, objectstack#22605), and hands
+ * it to `ListView` as the view's `inlineEdit`. It does not forward `editInline`
+ * itself, so the `userActions` block it builds carries no `editInline` key. The
+ * page wires no inline-edit toggle, so that `inlineEdit` is the grid's edit
+ * mode: a page that declares nothing opens its grid editable in place, and
+ * `editInline: false` is the opt-out.
  *
- * After the B-fold, `ListView` reads what this page composes through
- * `normalizeListViewSchema`, which folds the `inlineEdit` the page sets into
- * `userActions.editInline`. So the two readings agree. This file pins it by
- * capturing the schema the page hands `ListView` and running it through the
- * real fold, which is the input `ListView`'s `inlineEditOffered` reads. What
- * `ListView` does with `editInline` is pinned in `@object-ui/plugin-list`'s
- * `ListView.permissions.test.tsx`.
+ * `ListView` reads what this page composes through `normalizeListViewSchema`,
+ * which folds the `inlineEdit` the page sets into `userActions.editInline`. So
+ * the two readings agree. This file pins it by capturing the schema the page
+ * hands `ListView` and running it through the real fold, which is the input
+ * `ListView`'s `inlineEditOffered` reads. What `ListView` does with
+ * `editInline`, the permission gate included, is pinned in
+ * `@object-ui/plugin-list`'s `ListView.permissions.test.tsx`.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -104,29 +105,29 @@ describe('InterfaceListPage: editInline reads the same as ListView after the fol
     testObjects = [];
   });
 
-  it('an ABSENT page editInline reads off on both: no edit mode, and `editInline` folds to false', async () => {
+  it('an ABSENT page editInline reads on, on both: edit mode, and `editInline` folds to true (objectui#12086)', async () => {
     const schema = await composedSchema({ search: true });
-    // The page's own reading (unchanged): `=== true`.
-    expect(schema.inlineEdit).toBe(false);
+    // The page's own reading: the protocol default, `!== false`.
+    expect(schema.inlineEdit).toBe(true);
     // The page forwards no `editInline` of its own…
     expect(schema.userActions).not.toHaveProperty('editInline');
-    // …so `ListView` reads the folded one, which is off.
-    expect(editInlineRead(schema)).toBe(false);
+    // …so `ListView` reads the folded one, which is on.
+    expect(editInlineRead(schema)).toBe(true);
   });
 
-  it('a page with no `userActions` block at all reads off the same way', async () => {
+  it('a page with no `userActions` block at all reads on the same way', async () => {
     const schema = await composedSchema(undefined);
-    expect(schema.inlineEdit).toBe(false);
-    expect(editInlineRead(schema)).toBe(false);
+    expect(schema.inlineEdit).toBe(true);
+    expect(editInlineRead(schema)).toBe(true);
   });
 
-  it('a page that opts in reads on, on both', async () => {
+  it('an explicit page `editInline: true` reads on, on both', async () => {
     const schema = await composedSchema({ editInline: true });
     expect(schema.inlineEdit).toBe(true);
     expect(editInlineRead(schema)).toBe(true);
   });
 
-  it('an explicit page `editInline: false` stays off', async () => {
+  it('an explicit page `editInline: false` is the opt-out: off on both', async () => {
     const schema = await composedSchema({ editInline: false });
     expect(schema.inlineEdit).toBe(false);
     expect(editInlineRead(schema)).toBe(false);

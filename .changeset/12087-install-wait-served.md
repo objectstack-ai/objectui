@@ -1,6 +1,6 @@
 ---
 '@object-ui/app-shell': patch
-'@object-ui/i18n': patch
+'@object-ui/i18n': minor
 ---
 
 After a marketplace install into the environment the console is rendering, the package page waits until that environment serves the installed package's app, and only then refreshes and persists the app list (objectui#12087).
@@ -13,4 +13,4 @@ A cloud install answers once the control plane has written the installation. The
 - The install-time suggested audience bindings mount once the app is served, so their one read reaches the rebuilt runtime.
 - An install into another environment shows the same success message as before. It no longer refreshes this console's own metadata, which that install did not change.
 
-Five language-pack keys are added under `marketplace.install` (`deploying`, `deployed`, `openApp`, `deployTimeout`, `checkAgain`), in all ten packs. No export, prop or type changes on the package entries.
+Five language-pack keys are added under `marketplace.install` (`deploying`, `deployed`, `openApp`, `deployTimeout`, `checkAgain`), in all ten packs. The exported `en` pack, and the `TranslationKeys` type derived from it (`typeof en`, exported from the `@object-ui/i18n` entry), gain these five members under `marketplace.install`, which is why `@object-ui/i18n` is a minor bump. No export, prop or type on the `@object-ui/app-shell` entry changes.

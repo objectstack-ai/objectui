@@ -43,17 +43,37 @@ import { GetMetaItemLayeredResponseSchema } from '@objectstack/spec/api';
 import type { MetadataLayered, MetadataOverlayScope } from './metadata-client';
 
 // ── Compile-time: the alias IS the spec's vocabulary, both directions ────────
+//
+// This file is compiled against TWO specs: the pull-request type-check against
+// the INSTALLED `@objectstack/spec`, and the Spec Main Shape Gate against one
+// built from objectstack `main`. The two vocabularies differ today: objectstack
+// PR #22628 (objectstack#15206 S5, ADR-0131) narrowed `overlayScope` on `main`
+// to `env`, while the installed release still declares `org | env`. So the
+// expected set is READ OFF THE SCHEMA VALUE, never written down here
+// (objectui#12093): each line below holds on either spec and fails on either
+// when the alias stops being the spec's.
+
+/** The value set the spec schema itself declares, read off the schema VALUE (not the published type the alias indexes). */
+const specOverlayScope = GetMetaItemLayeredResponseSchema.shape.overlayScope;
+type SpecOverlayScope = (typeof specOverlayScope)['_zod']['output'];
 
 // Every value the producer can send flows into the alias. A narrower
 // restatement (say, dropping `env`) fails here.
-const _specCovers = null as unknown as 'org' | 'env' | null satisfies MetadataOverlayScope;
-// …and the alias is no WIDER than that. This is the line that fails the day the
-// spec adds a scope — deliberately, because a new scope needs a zh-CN label
-// (see mechanism 3 above) rather than silently reaching the badge.
-const _noWider = null as unknown as MetadataOverlayScope satisfies 'org' | 'env' | null;
+const _specCovers = null as unknown as SpecOverlayScope satisfies MetadataOverlayScope;
+// …and the alias is no WIDER than the spec: a revert to `string | null`, or a
+// restatement that keeps a scope the spec dropped, fails here.
+const _noWider = null as unknown as MetadataOverlayScope satisfies SpecOverlayScope;
+// …and no wider than the scopes `LAYER_SCOPE_ZH` labels (mechanism 3 above).
+// This bound is the LABEL TABLE, not the vocabulary: a superset of the spec on
+// both specs. It is the line that fails the day the spec adds a scope —
+// deliberately, because a new scope needs a zh-CN label rather than silently
+// reaching the badge.
+const _labelled = null as unknown as MetadataOverlayScope satisfies 'org' | 'env' | null;
 // The interface field is the alias, not a widened `string`.
 const _fieldIsAlias = null as unknown as MetadataLayered['overlayScope'] satisfies MetadataOverlayScope;
-const _org: MetadataLayered['overlayScope'] = 'org';
+// `env` and `null` are values on both specs. An `org` literal stood here, and
+// `org` is a value on the installed spec only; `_specCovers` above carries it
+// wherever the spec declares it.
 const _env: MetadataLayered['overlayScope'] = 'env';
 const _none: MetadataLayered['overlayScope'] = null;
 // @ts-expect-error — objectui#4982: the spelling the old comment claimed is not
@@ -62,11 +82,15 @@ const _none: MetadataLayered['overlayScope'] = null;
 const _notASpecScope: MetadataLayered['overlayScope'] = 'organization';
 
 // ── Runtime: what the producer's schema actually declares ────────────────────
-
-const specOverlayScope = GetMetaItemLayeredResponseSchema.shape.overlayScope;
+//
+// vitest runs against the INSTALLED spec only (the Spec Main Shape Gate
+// type-checks and runs no test), so the literal below is a reading of that
+// release. objectstack `main` declares `env` alone (objectstack#15206 S5): at
+// the pin that carries it, this line and `LAYER_SCOPE_ZH`'s `org` entry move
+// together.
 
 describe('MetadataLayered.overlayScope tracks the spec enum (objectui#4982)', () => {
-  it('the producer vocabulary is exactly org | env, plus null', () => {
+  it('the producer vocabulary is exactly org | env, plus null, on the installed spec', () => {
     // Read through `@object-ui/test-support` rather than `.unwrap().options`
     // (objectui#5872 class (4)). The bare spelling was a SEVENTH way to ask this
     // question and the only one with neither a cast nor a guard: it answered

@@ -7147,8 +7147,15 @@ export function translateFlowMeta(
  * Deliberately zh-only, like every other group here — `translateConsoleValue`
  * returns the raw value for the other nine locale packs by existing design, and
  * whether to extend it is a separate decision, not a rider on this fix.
+ *
+ * `org` is keyed beside the spec's union, not through it (objectui#12093):
+ * the installed `@objectstack/spec` declares `org | env`, and objectstack
+ * `main` narrows the enum to `env` (objectstack#15206 S5, ADR-0131), where a
+ * keyed `org` would be an unknown property and stop this file compiling in the
+ * Spec Main Shape Gate. A server on the installed release still sends `org`,
+ * so its label stays; the completeness check above is unchanged on both specs.
  */
-const LAYER_SCOPE_ZH: Record<NonNullable<MetadataOverlayScope>, string> = {
+const LAYER_SCOPE_ZH: Record<NonNullable<MetadataOverlayScope> | 'org', string> = {
   org: '组织',
   env: '环境',
 };

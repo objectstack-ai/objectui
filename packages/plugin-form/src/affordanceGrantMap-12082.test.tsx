@@ -56,7 +56,7 @@ import {
   type ConsoleAffordance,
   type FieldAffordance,
 } from '@object-ui/core';
-import { MePermissionsProvider, usePermissions } from '@object-ui/permissions';
+import { MePermissionsProvider, usePermissions, type MePermissionsResponse } from '@object-ui/permissions';
 import { closedFormAffordance, gateFormFields } from './fieldWriteGate';
 
 afterEach(cleanup);
@@ -123,7 +123,7 @@ const SHAPES: Array<{ shape: string; bits: Record<string, boolean>; holds: Reado
   },
 ];
 
-const envelope = (bits: Record<string, boolean>, fields: Record<string, unknown> = {}): any => ({
+const envelope = (bits: Record<string, boolean>, fields: MePermissionsResponse['fields'] = {}): MePermissionsResponse => ({
   authenticated: true,
   userId: 'u-pin',
   tenantId: null,
@@ -134,7 +134,7 @@ const envelope = (bits: Record<string, boolean>, fields: Record<string, unknown>
 });
 
 /** The value `usePermissions()` hands a reader under `perms` — or with no provider at all. */
-function principalUnder(perms: any | null): ReturnType<typeof usePermissions> {
+function principalUnder(perms: MePermissionsResponse | null): ReturnType<typeof usePermissions> {
   let captured: ReturnType<typeof usePermissions> | null = null;
   function Probe() {
     captured = usePermissions();
@@ -203,13 +203,14 @@ describe.each(SHAPES)('every row under a $shape grant (objectui#12082)', ({ bits
   it.each(['create', 'edit'] as const)('the form reader, %s mode: fields and the form-wide lock follow the form row', (mode) => {
     const perms = principalUnder(envelope(bits));
     const allowed = holds.has(mode === 'create' ? 'create' : 'update');
-    const drawn = gateFormFields([{ name: 'title' }, { name: 'amount' }], {
+    const fields: Array<{ name: string; disabled?: boolean }> = [{ name: 'title' }, { name: 'amount' }];
+    const drawn = gateFormFields(fields, {
       perms,
       objectName: OBJECT,
       mode,
       objectSchema: null,
     })!;
-    expect(drawn.map((f: any) => !!f.disabled)).toEqual([!allowed, !allowed]);
+    expect(drawn.map((f) => !!f.disabled)).toEqual([!allowed, !allowed]);
     expect(closedFormAffordance({ perms, objectName: OBJECT, mode, objectSchema: null })).toBe(
       allowed ? undefined : mode,
     );

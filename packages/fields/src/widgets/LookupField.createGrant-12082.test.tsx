@@ -40,7 +40,7 @@ import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-libra
 import '@testing-library/jest-dom';
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { MePermissionsProvider } from '@object-ui/permissions';
+import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
 import { LookupField } from './LookupField';
 
 afterEach(cleanup);
@@ -68,7 +68,7 @@ function makeDataSource() {
 type Grant = { allowCreate: boolean; apiOperations?: string[] };
 
 /** `/me/permissions` with `target` and `source` grants on the two objects. */
-const envelope = (target: Grant, source: Grant = { allowCreate: true }): any => ({
+const envelope = (target: Grant, source: Grant = { allowCreate: true }): MePermissionsResponse => ({
   authenticated: true,
   userId: 'u-requester',
   tenantId: null,
@@ -82,7 +82,7 @@ const envelope = (target: Grant, source: Grant = { allowCreate: true }): any => 
 });
 
 /** Open the picker, type a query that matches nothing, and report whether "Create new" is offered. */
-async function offersCreateNew(perms: any | null): Promise<boolean> {
+async function offersCreateNew(perms: MePermissionsResponse | null): Promise<boolean> {
   const ds = makeDataSource();
   const widget = <LookupField field={field} value={undefined} onChange={vi.fn()} readonly={false} dataSource={ds as any} />;
   render(perms ? <MePermissionsProvider initialPermissions={perms}>{widget}</MePermissionsProvider> : widget);

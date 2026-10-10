@@ -48,7 +48,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import React from 'react';
 
-import { MePermissionsProvider } from '@object-ui/permissions';
+import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
 import { registerAllFields } from '@object-ui/fields';
 import { ObjectForm } from './ObjectForm';
 import { MasterDetailForm } from './MasterDetailForm';
@@ -66,7 +66,7 @@ const FIELDS = {
 const RECORD = { id: 'v1', contract: 'C-1', version_no: 1, notes: 'first' };
 
 /** `/me/permissions` for the card's requester: create, never edit. */
-const createOnly = (fields: Record<string, unknown> = {}): any => ({
+const createOnly = (fields: MePermissionsResponse['fields'] = {}): MePermissionsResponse => ({
   authenticated: true,
   userId: 'u-requester',
   tenantId: null,
@@ -108,7 +108,7 @@ function makeDS() {
 function mount(
   layout: (names: string[]) => Record<string, unknown>,
   mode: 'create' | 'edit',
-  perms: any,
+  perms: MePermissionsResponse,
   ds: ReturnType<typeof makeDS>,
 ) {
   render(
@@ -235,7 +235,7 @@ describe('MasterDetailForm under a create-only grant on the child (objectui#1208
     { name: 'seq', label: 'Instalment No.', type: 'number' },
     { name: 'notes', label: 'Instalment notes', type: 'text' },
   ];
-  const envelopeFor = (): any => ({
+  const envelopeFor = (): MePermissionsResponse => ({
     ...createOnly(),
     objects: {
       [PARENT]: { allowCreate: true, allowRead: true, allowEdit: true, allowDelete: false },

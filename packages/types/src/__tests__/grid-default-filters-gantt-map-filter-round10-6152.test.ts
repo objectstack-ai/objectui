@@ -215,13 +215,31 @@ describe('objectui#6152 round 10 — the TypeScript face', () => {
     const mapRecord: TsObjectMapSchema = { type: 'object-map', objectName: 'site', filter: { status: 'open' } };
     // @ts-expect-error `filter` is the `ViewFilterRule` array, not the AST tuple array
     const mapTuples: TsObjectMapSchema = { type: 'object-map', objectName: 'site', filter: [['status', '=', 'open']] };
-    // Lit controls on the same faces.
-    const grid: TsObjectGridSchema = { type: 'object-grid', objectName: 'task', defaultFilters: RULES };
-    const slot: TsObjectViewSchema = { type: 'object-view', objectName: 'task', table: { defaultFilters: RULES } };
+    // Lit controls on the same faces. The grid's `defaultFilters` is not one of them
+    // any more: its verdict on the rule array is the row's (objectui#12093, below).
     const gantt: TsObjectGanttSchema = { type: 'object-gantt', objectName: 'task', filter: RULES };
     const map: TsObjectMapSchema = { type: 'object-map', objectName: 'site', filter: RULES };
     expect([gridRecord, slotRecord, ganttTuples, mapRecord, mapTuples]).toHaveLength(5);
-    expect([grid.defaultFilters, slot.table?.defaultFilters, gantt.filter, map.filter]).toEqual([RULES, RULES, RULES, RULES]);
+    expect([gantt.filter, map.filter]).toEqual([RULES, RULES]);
+  });
+
+  it('`defaultFilters` takes the rule array on both grid faces exactly where the installed row does (objectui#12093)', () => {
+    // objectstack#11509 retires `object-grid.defaultFilters` (objectstack PR #22421: a
+    // tombstone on objectstack `main`), and the installed release still declares it as
+    // the rule array. This file is compiled against both: by the pull-request type-check
+    // against the installed spec, and by the Spec Main Shape Gate against `main`. So the
+    // pin is the ROW's verdict held on each face, not either answer written down: where
+    // the row refuses the rule array, the flat mirror and the `object-view` `table` slot
+    // refuse it too. These replace the two literals that asserted the rule array
+    // compiles there.
+    type RowTakesRules = { defaultFilters: ViewFilterRule[] } extends Pick<SpecObjectGridProps, 'defaultFilters'> ? true : false;
+    type GridTakesRules = { defaultFilters: ViewFilterRule[] } extends Pick<TsObjectGridSchema, 'defaultFilters'> ? true : false;
+    type SlotTakesRules = { defaultFilters: ViewFilterRule[] } extends Pick<NonNullable<TsObjectViewSchema['table']>, 'defaultFilters'>
+      ? true
+      : false;
+    const grid: Equal<GridTakesRules, RowTakesRules> = true;
+    const slot: Equal<SlotTakesRules, RowTakesRules> = true;
+    expect([grid, slot]).toEqual([true, true]);
   });
 });
 
@@ -230,9 +248,12 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B 
 type Expect<T extends true> = T;
 
 export type assertionRound10MembersAreTheRows = [
+  // `defaultFilters` is the row's member on both grid faces, by reference, whatever the
+  // row declares: the rule array on the installed release, the tombstone on objectstack
+  // `main` (objectstack#11509). It used to be written down as `ViewFilterRule[]`, which
+  // only the installed release satisfies (objectui#12093).
   Expect<Equal<TsObjectGridSchema['defaultFilters'], SpecObjectGridProps['defaultFilters']>>,
-  Expect<Equal<TsObjectGridSchema['defaultFilters'], ViewFilterRule[] | undefined>>,
-  Expect<Equal<NonNullable<TsObjectViewSchema['table']>['defaultFilters'], ViewFilterRule[] | undefined>>,
+  Expect<Equal<NonNullable<TsObjectViewSchema['table']>['defaultFilters'], SpecObjectGridProps['defaultFilters']>>,
   Expect<Equal<TsObjectGanttSchema['filter'], SpecObjectGanttProps['filter']>>,
   Expect<Equal<TsObjectMapSchema['filter'], SpecObjectMapProps['filter']>>,
   Expect<Equal<TsObjectGanttSchema['filter'], ViewFilterRule[] | undefined>>,

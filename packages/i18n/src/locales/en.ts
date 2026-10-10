@@ -3262,6 +3262,11 @@ const en = {
     appAccessDenied: "You don't have access to this app",
     appAccessDeniedDescription: 'This app exists, but your account is not authorized to open it. Ask an administrator to grant you access.',
     appAccessDeniedHome: 'Back to home',
+    // objectui#12079 — the app root when the app serves this caller no navigation (`AppNoAccessEmptyState`).
+    appNothingAvailable: 'Nothing in {{app}} is available to you yet',
+    appNothingAvailableDescription: 'This app has no pages your account can open. Ask an administrator to grant you access.',
+    appNothingAvailableGrantDescription: 'This app has no pages your account can open. You can grant access in Setup.',
+    openSetup: 'Open Setup',
     createFirstApp: 'Create Your First App',
     systemSettings: 'System Settings',
     back: 'Back',

@@ -267,6 +267,23 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.list.createHint': 'Click "New" above to create the first {type}.',
   'engine.list.readOnlyHint':
     'This type is read-only — instances are defined by code artifacts in packages.',
+  // objectui#7611 — the environment scope (Setup catalog). See `catalog-scope.ts`.
+  'engine.catalog.col.active': 'Active',
+  'engine.catalog.status.all': 'All',
+  'engine.catalog.status.active': 'Active',
+  'engine.catalog.status.inactive': 'Inactive',
+  'engine.catalog.active.on': 'Active — click to deactivate',
+  'engine.catalog.active.off': 'Inactive — click to activate',
+  'engine.catalog.active.noRow':
+    'This item has no catalog row yet, so it cannot be switched off here. The switch moves to the activation ledger once the server accepts this type there.',
+  'engine.catalog.active.unknown': 'Activation state could not be read.',
+  'engine.catalog.active.failed': 'The switch was not saved: {message}',
+  'engine.catalog.readOnly.single':
+    'Read-only for your account. {type} items are defined by the platform administrator (the `manage_metadata` capability); your organization assigns them.',
+  'engine.catalog.readOnly.walled':
+    'Read-only for organization administrators. On this deployment the platform operator defines {type} items for every organization in Studio; your organization assigns them.',
+  'engine.edit.capabilityReadOnly':
+    'Read-only for your account: changing this item requires the `manage_metadata` capability, which the platform administrator holds.',
   'engine.edit.save': 'Save',
   'engine.edit.publish': 'Publish',
   'engine.edit.publishBlockedDirty': 'Save first, then publish.',
@@ -3684,6 +3701,22 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.list.emptyQuery': '没有匹配 "{query}" 的结果',
   'engine.list.createHint': '点击上方"新建"创建第一个 {type}。',
   'engine.list.readOnlyHint': '此类型为只读 — 实例由包内的代码工件定义。',
+  'engine.catalog.col.active': '启用',
+  'engine.catalog.status.all': '全部',
+  'engine.catalog.status.active': '已启用',
+  'engine.catalog.status.inactive': '已停用',
+  'engine.catalog.active.on': '已启用 — 点击停用',
+  'engine.catalog.active.off': '已停用 — 点击启用',
+  'engine.catalog.active.noRow':
+    '此条目还没有目录行，暂时无法在此停用。服务端在激活台账中接受此类型后，开关将改由台账承载。',
+  'engine.catalog.active.unknown': '无法读取启用状态。',
+  'engine.catalog.active.failed': '开关未保存：{message}',
+  'engine.catalog.readOnly.single':
+    '您的账号只能查看。{type}由平台管理员定义（需要 `manage_metadata` 能力）；您的组织负责分配。',
+  'engine.catalog.readOnly.walled':
+    '组织管理员只能查看。此部署中由平台运营方在 Studio 中为所有组织定义{type}；您的组织负责分配。',
+  'engine.edit.capabilityReadOnly':
+    '您的账号只能查看：修改此条目需要 `manage_metadata` 能力，该能力由平台管理员持有。',
   'engine.edit.save': '保存',
   'engine.edit.publish': '发布',
   'engine.edit.publishBlockedDirty': '请先保存再发布。',

@@ -240,7 +240,9 @@ import { systemRoutes } from '../AppContent';
 const chain: string[] = [];
 function ChainRecorder() {
   const location = useLocation();
-  const here = location.pathname;
+  // The query string rides along: the Setup catalog's scope is a query
+  // parameter (objectui#7611), and every other landing here carries none.
+  const here = location.pathname + location.search;
   if (chain[chain.length - 1] !== here) chain.push(here);
   return null;
 }
@@ -269,19 +271,12 @@ beforeEach(() => {
 
 describe('system-hub entries reach the framework system objects (objectui#3655)', () => {
   /**
-   * All five. `roles` and `positions` converge on ONE object on purpose:
-   * ADR-0090 D3 renamed `sys_role` -> `sys_position`, so the sidebar's "Roles"
-   * and the retired hub's "Positions" were the same surface in old and new
-   * vocabulary.
-   * `permissions` -> `sys_permission_set` is objectui#3655's decision A (see
-   * the file docblock); it landed one PR after the other four.
+   * The two that still name an OBJECT. The other three name the security
+   * catalog and are measured in the next describe (objectui#7611).
    */
   it.each([
     ['/apps/setup/system/users', '/apps/setup/sys_user', 'sys_user'],
     ['/apps/setup/system/organizations', '/apps/setup/sys_organization', 'sys_organization'],
-    ['/apps/setup/system/roles', '/apps/setup/sys_position', 'sys_position'],
-    ['/apps/setup/system/positions', '/apps/setup/sys_position', 'sys_position'],
-    ['/apps/setup/system/permissions', '/apps/setup/sys_permission_set', 'sys_permission_set'],
   ])('%s reaches %s in ONE hop', async (url, target, objectName) => {
     renderConsoleAt(url);
 
@@ -347,6 +342,54 @@ describe('system-hub entries reach the framework system objects (objectui#3655)'
   });
 });
 
+describe('the catalog entries reach the Setup catalog (objectui#7611)', () => {
+  /**
+   * `roles`, `positions` and `permissions` name the security CATALOG, which
+   * ADR-0131 D3 moves into the environment registry, so they land on the
+   * metadata-admin list of the registry type in its environment scope. `roles`
+   * and `positions` still converge on ONE surface (ADR-0090 D3 renamed
+   * `sys_role` -> `sys_position`), and `permissions` still means the
+   * permission-set surface (objectui#3655 decision A).
+   */
+  it.each([
+    ['/apps/setup/system/roles', '/apps/setup/metadata/position?scope=environment', 'position'],
+    ['/apps/setup/system/positions', '/apps/setup/metadata/position?scope=environment', 'position'],
+    ['/apps/setup/system/permissions', '/apps/setup/metadata/permission?scope=environment', 'permission'],
+  ])('%s reaches %s in ONE hop', async (url, target, type) => {
+    renderConsoleAt(url);
+
+    expect(await screen.findByTestId('metadata-resource-list-page')).toHaveTextContent(type);
+    expect(chain).toEqual([url, target]);
+    // Never the row page the URL used to land on.
+    expect(screen.queryByTestId('object-view')).not.toBeInTheDocument();
+  });
+
+  it('preserves the app prefix', () => {
+    renderConsoleAt('/apps/my-app/system/permissions');
+
+    expect(chain).toEqual([
+      '/apps/my-app/system/permissions',
+      '/apps/my-app/metadata/permission?scope=environment',
+    ]);
+  });
+
+  /**
+   * The zero-app branch declares the metadata routes too, so the catalog is
+   * reachable on a deployment with no app — unlike the object pages the three
+   * URLs used to land on, which end at the "No Apps Configured" guard there.
+   */
+  it.each([
+    ['/apps/setup/system/positions', '/apps/setup/metadata/position?scope=environment'],
+    ['/apps/setup/system/permissions', '/apps/setup/metadata/permission?scope=environment'],
+  ])('with no apps, %s still reaches the catalog', async (url, target) => {
+    metadataApps = [];
+    renderConsoleAt(url);
+
+    expect(await screen.findByTestId('metadata-resource-list-page')).toBeInTheDocument();
+    expect(chain).toEqual([url, target]);
+  });
+});
+
 describe('zero-app branch — measured, not asserted away (objectui#3655)', () => {
   /**
    * On a zero-app deployment this is the branch the sidebar's Users /
@@ -369,9 +412,6 @@ describe('zero-app branch — measured, not asserted away (objectui#3655)', () =
   it.each([
     ['/apps/setup/system/users', '/apps/setup/sys_user'],
     ['/apps/setup/system/organizations', '/apps/setup/sys_organization'],
-    ['/apps/setup/system/roles', '/apps/setup/sys_position'],
-    ['/apps/setup/system/positions', '/apps/setup/sys_position'],
-    ['/apps/setup/system/permissions', '/apps/setup/sys_permission_set'],
   ])('%s still redirects, and the target is the no-apps empty state', async (url, target) => {
     metadataApps = [];
     renderConsoleAt(url);

@@ -136,6 +136,19 @@ import { validateMetadataDraft, hasClientValidator, type DraftMode } from './cli
 import { describeIssuePath, issueSlicePath, issueSliceFingerprint } from './issuePath.js';
 import { buildCreateModeBody } from './createBody.js';
 import { errorCodeIs, errorCodeIsAnyOf } from '@object-ui/types';
+import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
+import { environmentScopeSuffix, isEnvironmentScope } from './catalog-scope.js';
+import { PositionHoldersSection } from './PositionHoldersSection.js';
+
+/**
+ * objectui#7611 — the Setup half of an item, rendered under its definition in
+ * the ENVIRONMENT scope (`catalog-scope.ts`): who holds it. Keyed by type and
+ * internal to this page; the permission set's half lives in its own editor,
+ * `PermissionMatrixEditPage`, which renders `AssignedUsersSection`.
+ */
+const ENVIRONMENT_SECTIONS: Readonly<Record<string, React.ComponentType<{ name: string }>>> = {
+  position: PositionHoldersSection,
+};
 
 /**
  * ADR-0010 §3.6 lock state -> the lock banner's headline sentence.
@@ -1718,8 +1731,8 @@ function MetadataResourceEditPageImpl({
           setEditing(false);
         }
       } else {
-        // No artifact baseline → return to the list view.
-        navigate(`../`, { relative: 'path' });
+        // No artifact baseline → return to the list view (in its scope).
+        navigate(`../${scopeSuffix}`, { relative: 'path' });
       }
     } catch (err: any) {
       setError(err?.message ?? String(err));
@@ -1840,8 +1853,17 @@ function MetadataResourceEditPageImpl({
     : isArtifactItem
       ? !!entry?.allowOrgOverride
       : !!(entry?.allowOrgOverride || entry?.allowRuntimeCreate);
-  const canWrite = canWriteByType && (createMode || lockEditable);
+  // objectui#7611 — the CALLER tier. The metadata door refuses every save
+  // without `manage_metadata` (measured on objectstack main: 403 "Saving a
+  // metadata item requires the `manage_metadata` capability."), so a caller
+  // without it gets the read-only page and the reason, not a Save that fails
+  // at the end. Unknown fails open (`useCanAuthorMetadata`).
+  const canAuthor = useCanAuthorMetadata();
+  const canWrite = canWriteByType && (createMode || lockEditable) && canAuthor;
   const readOnly = !canWrite && !createMode;
+  const envScope = isEnvironmentScope(searchParams);
+  const scopeSuffix = environmentScopeSuffix(searchParams);
+  const EnvironmentSection = envScope && !createMode && !embedded ? ENVIRONMENT_SECTIONS[type] : undefined;
 
   // #2272 — designer deep-link: `?sel=nav:<id>` selects the nav item with
   // that spec `id` (stable across reorders, unlike the positional selection
@@ -2012,7 +2034,8 @@ function MetadataResourceEditPageImpl({
   // specific item is locked because it comes from a code package, we
   // show a different message inviting the user to create their own.
   const showArtifactLockedBanner =
-    readOnly && isArtifactItem && !!entry?.allowRuntimeCreate;
+    // objectui#7611 — and only for a caller who could author the new item.
+    readOnly && isArtifactItem && !!entry?.allowRuntimeCreate && canAuthor;
 
   // Preview tab — opt-in via `registerMetadataPreview()`. Hidden in
   // create mode (nothing to preview yet) and inside the embedded
@@ -2419,7 +2442,7 @@ function MetadataResourceEditPageImpl({
                     size="sm"
                     variant="outline"
                     className="shrink-0 h-7 bg-background/60"
-                    onClick={() => navigate(`../new`, { relative: 'path' })}
+                    onClick={() => navigate(`../new${scopeSuffix}`, { relative: 'path' })}
                   >
                     {t('engine.list.create', locale)}
                   </Button>
@@ -2461,7 +2484,16 @@ function MetadataResourceEditPageImpl({
                 this read-only notice is redundant (and its CTA has been
                 folded into the lock banner). Only render it for the
                 non-locked read-only cases. */}
-            {readOnly && !isLocked && (
+            {readOnly && !isLocked && !canAuthor && (
+              <div
+                data-testid="capability-readonly-banner"
+                className="text-xs text-amber-800 border border-amber-300/70 bg-amber-50/70 rounded-md px-3 py-2.5 dark:text-amber-200 dark:border-amber-700/40 dark:bg-amber-950/20 flex items-start gap-2"
+              >
+                <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>{t('engine.edit.capabilityReadOnly', locale)}</span>
+              </div>
+            )}
+            {readOnly && !isLocked && canAuthor && (
               <div data-testid="readonly-banner" className="text-xs text-amber-800 border border-amber-300/70 bg-amber-50/70 rounded-md px-3 py-2.5 dark:text-amber-200 dark:border-amber-700/40 dark:bg-amber-950/20 flex items-start gap-3">
                 <div className="flex-1">
                   {showArtifactLockedBanner ? (
@@ -2495,7 +2527,7 @@ function MetadataResourceEditPageImpl({
                     size="sm"
                     variant="outline"
                     className="shrink-0"
-                    onClick={() => navigate(`../new`, { relative: 'path' })}
+                    onClick={() => navigate(`../new${scopeSuffix}`, { relative: 'path' })}
                   >
                     {t('engine.list.create', locale)}
                   </Button>
@@ -2950,6 +2982,14 @@ function MetadataResourceEditPageImpl({
                 createMode={createMode}
                 widgetContext={widgetContext}
               />
+            )}
+            {/* objectui#7611 — under the designer, too: `position` renders
+                through its preview, so the section takes a bounded strip
+                below the canvas instead of squeezing it. */}
+            {EnvironmentSection && (
+              <div className={PreviewComponent ? 'shrink-0 max-h-[35vh] overflow-y-auto' : undefined}>
+                <EnvironmentSection name={name} />
+              </div>
             )}
           </div>
         </div>

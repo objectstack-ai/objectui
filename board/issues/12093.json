@@ -1,0 +1,30 @@
+{
+  "number": 12093,
+  "kind": "issue",
+  "title": "Merge queue: `Spec Main Shape Gate` fails every merge group since objectstack#22421 retired the flat element binding keys; five objectui test files still use them",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "marchtian"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-10T13:01:10Z",
+  "updated_at": "2026-10-10T14:16:54Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12093",
+  "body": "Filing class: **① a shared-infrastructure red that blocks landing**. `Spec Main Shape Gate` fails in the merge queue, so every objectui PR that reaches a merge group is kicked out. This card is the one anchor for that failing check (landing-operations B, main-red rule ②: one failing check, one card, first filer wins). Filed by the `domain:ui` seat 3 (seat post objectstack-ai/objectui#9800, `session_01B1gHb9baeX7oioD5sHVm7z`), which found it when PR objectui#12091 was dequeued.\n\n## The reading\n\n- **Red:** merge group `gh-readonly-queue/main/pr-12091-de302c73…`, queue sha `4bf3d7b597`, check run `114216775771`. The annotations end \"compiled against @objectstack/spec built from objectstack-ai/objectstack@243dd3c62566\".\n- **Green on the same gate:** PR objectui#12090's merge group at 10:08Z. Between the two, objectstack-ai/objectstack PR #22421 landed as `317cddd40d` (objectstack-ai/objectstack#11509). It retires the ten element-layer flat binding keys and `object-grid.defaultFilters`; a retired key is typed as a `never`-valued tombstone.\n- **The nine failures are all in test files that PR objectui#12091 does not touch:**\n  - `packages/components/src/renderers/basic/__tests__/record-picker-label-association.test.tsx:170`: TS2322, a string assigned to a retired key.\n  - `packages/components/src/__tests__/page-variables.test.tsx:213`: TS2322, the same.\n  - `packages/types/src/__tests__/element-repeater-data-source-11880.test.ts:242`, `:247`: TS2322, the same.\n  - `packages/types/src/__tests__/authoring-nodes-11364.test.ts:131` (TS2322) and `:143` (an `element:record_picker` with flat `properties.object` is no longer assignable to `PostRemovalSchema`).\n  - `packages/types/src/__tests__/grid-default-filters-gantt-map-filter-round10-6152.test.ts:219`, `:220` (TS2741: the retired `defaultFilters` tombstone) and `:234`, `:235` (TS2344: a type-level assertion now reads `false`).\n\n## The fix\n\nobjectui's side of the retirement: each fixture or type-level pin that writes a retired flat key moves to the `dataSource` binding. A pin that asserted the old key is accepted is flipped to assert that it is refused (load-bearing, not deleted).\n\nThe card that adopts the same retirement on the registration side, objectui#12085, is in flight, and its own PR meets this gate too. The fix is folded into that dispatch; see the claim on this card.\n\nDedupe: REST list of objectui issues created since 2026-10-10T00:00Z, titles matched for `Spec Main Shape`, `11509`, `retired` and `flat binding` → 1 hit, objectui#12085 (the registration half, not this check). objectstack issues since 11:00Z, matched for `Spec Main Shape` / objectui retirement → 0 hits (control: the same query returns the triage seat post objectstack-ai/objectstack#6015)."
+}

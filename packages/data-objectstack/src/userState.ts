@@ -68,8 +68,21 @@ export interface ObjectStackUserStateAdapterOptions {
   onError?: (where: 'load' | 'save', error: unknown) => void;
 }
 
+/**
+ * Generic persistence adapter for a user-scoped list.
+ *
+ * Implementations must be safe to call concurrently and should *never*
+ * throw — failures should be swallowed so the hosting provider can degrade
+ * to localStorage-only mode without crashing the UI.
+ *
+ * This is the one declaration of the name: `@object-ui/app-shell`'s
+ * `UserStateAdaptersProvider` injects adapters of this type and re-exports it
+ * (objectui#6349, batch 9).
+ */
 export interface UserDataAdapter<T> {
+  /** Load the persisted list for the current user. Resolve to [] when absent. */
   load(): Promise<T[]>;
+  /** Persist the full list (debounced upstream). Errors are silently ignored. */
   save(items: T[]): Promise<void>;
 }
 

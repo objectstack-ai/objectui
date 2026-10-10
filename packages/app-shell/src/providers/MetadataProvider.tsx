@@ -11,20 +11,28 @@ import { ActiveOrganizationStorage, TokenStorage, useAuth } from '@object-ui/aut
 import { type ObjectStackAdapter } from '@object-ui/data-objectstack';
 import { normalizeSchemaReferenceKeys } from '@object-ui/core';
 import { resolveInlineMode } from '@object-ui/plugin-form';
-import { MetadataCtx, useMetadata, type MetadataContextValue, type MetadataCacheState } from '@object-ui/react';
+import {
+  MetadataCtx,
+  useMetadata,
+  type MetadataContextValue,
+  type MetadataCacheState,
+  type MetadataTypeStatus,
+} from '@object-ui/react';
 import { usePreviewDrafts } from '../preview/PreviewModeContext.js';
 import { createConsoleMetadataClient } from '../views/metadata-admin/metadataClientFactory.js';
 import { subscribeCanvasInvalidate, subscribeMetadataRefresh } from '../assistant/assistantBus.js';
 
-export type { MetadataCacheState, MetadataContextValue };
+// `MetadataTypeStatus` is `@object-ui/react`'s, the one authority: the status
+// `MetadataContextValue.getTypeStatus` returns is the same four words this
+// provider's cache entries carry, so this module re-exports it rather than
+// declaring a second copy (objectui#6349, batch 9).
+export type { MetadataCacheState, MetadataContextValue, MetadataTypeStatus };
 export { useMetadataItem } from '@object-ui/react';
 export { useMetadata };
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-export type MetadataTypeStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface TypeCacheEntry {
   status: MetadataTypeStatus;

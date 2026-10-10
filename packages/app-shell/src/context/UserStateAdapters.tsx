@@ -23,24 +23,18 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import type { UserDataAdapter } from '@object-ui/data-objectstack';
 
 // ---------------------------------------------------------------------------
 // Adapter contract
 // ---------------------------------------------------------------------------
 
-/**
- * Generic persistence adapter for a user-scoped list.
- *
- * Implementations must be safe to call concurrently and should *never*
- * throw — failures should be swallowed so the hosting provider can degrade
- * to localStorage-only mode without crashing the UI.
- */
-export interface UserDataAdapter<T> {
-  /** Load the persisted list for the current user. Resolve to [] when absent. */
-  load(): Promise<T[]>;
-  /** Persist the full list (debounced upstream). Errors are silently ignored. */
-  save(items: T[]): Promise<void>;
-}
+// `UserDataAdapter` is `@object-ui/data-objectstack`'s, the one authority:
+// `createObjectStackUserStateAdapter` returns exactly the contract this
+// registry injects, so this module re-exports it rather than declaring a
+// second copy. Its contract notes (never throw; degrade to localStorage) live
+// on that declaration (objectui#6349, batch 9).
+export type { UserDataAdapter };
 
 export type UserStateKind = 'favorites' | 'recent' | 'flowPaletteRecents';
 

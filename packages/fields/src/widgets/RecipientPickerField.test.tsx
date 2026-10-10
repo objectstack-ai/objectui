@@ -22,6 +22,7 @@ import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { MetadataCtx, type MetadataContextValue } from '@object-ui/react';
 import { RecipientPickerField } from './RecipientPickerField';
 
 const USERS = [
@@ -64,7 +65,6 @@ describe('RecipientPickerField — candidate query', () => {
       ['team', 'sys_team'],
       ['business_unit', 'sys_business_unit'],
       ['unit_and_subordinates', 'sys_business_unit'],
-      ['position', 'sys_position'],
     ] as const) {
       const ds = mockDataSource([]);
       const { unmount } = renderPicker(type, ds);
@@ -153,5 +153,76 @@ describe('RecipientPickerField — localizable copy', () => {
   it('prompts for a recipient type before one is chosen', () => {
     renderPicker('', mockDataSource([]));
     expect(screen.getByText('Select a recipient type first.')).toBeInTheDocument();
+  });
+});
+
+/**
+ * objectui#7611 (ADR-0131 D3/D7) — a position recipient is picked from the
+ * REGISTRY: the console metadata store's `position` items, never `sys_position`
+ * rows, and never a merge of the two.
+ */
+describe('RecipientPickerField — position candidates come from the registry (objectui#7611)', () => {
+  const POSITIONS = [
+    { name: 'sales_manager', label: 'Sales Manager' },
+    { name: 'account_exec', label: 'Account Executive' },
+  ];
+
+  function metadataStore(items: unknown[]): MetadataContextValue & { ensureType: ReturnType<typeof vi.fn> } {
+    return {
+      apps: [], objects: [], dashboards: [], reports: [], pages: [],
+      loading: false, error: null,
+      refresh: async () => {}, invalidate: () => {},
+      ensureType: vi.fn().mockResolvedValue(items),
+      getItem: async () => null,
+      getItemsByType: () => [],
+    } as any;
+  }
+
+  function renderInStore(store: MetadataContextValue | null, ds: any, value = '', onChange = vi.fn()) {
+    const picker = (
+      <RecipientPickerField
+        value={value}
+        onChange={onChange}
+        field={{ name: 'recipient_id' } as any}
+        dataSource={ds}
+        dependentValues={{ recipient_type: 'position' }}
+      />
+    );
+    return render(store ? <MetadataCtx.Provider value={store}>{picker}</MetadataCtx.Provider> : picker);
+  }
+
+  it('lists the position items of the registry and never queries sys_position', async () => {
+    const store = metadataStore(POSITIONS);
+    const ds = mockDataSource([{ id: 'row_1', name: 'row_only_position' }]);
+    renderInStore(store, ds);
+
+    await waitFor(() => expect(store.ensureType).toHaveBeenCalledWith('position'));
+    fireEvent.click(screen.getByRole('combobox'));
+    expect(await screen.findByText('Sales Manager')).toBeInTheDocument();
+    expect(screen.getByText('Account Executive')).toBeInTheDocument();
+    // One source: a row the registry does not hold is not offered, and the
+    // data source is never asked.
+    expect(screen.queryByText('row_only_position')).not.toBeInTheDocument();
+    expect(ds.find).not.toHaveBeenCalled();
+  });
+
+  it('stores the chosen item by its machine name', async () => {
+    const store = metadataStore(POSITIONS);
+    const onChange = vi.fn();
+    renderInStore(store, mockDataSource([]), '', onChange);
+
+    await waitFor(() => expect(store.ensureType).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(await screen.findByText('Account Executive'));
+    expect(onChange).toHaveBeenCalledWith('account_exec');
+  });
+
+  it('degrades to the text input when no metadata store is mounted', () => {
+    const ds = mockDataSource([]);
+    renderInStore(null, ds, 'sales_manager');
+    // No reader of the registry ⇒ no list to offer; the stored name stays
+    // editable instead of an empty list that can never fill.
+    expect(screen.getByDisplayValue('sales_manager')).toBeInTheDocument();
+    expect(ds.find).not.toHaveBeenCalled();
   });
 });

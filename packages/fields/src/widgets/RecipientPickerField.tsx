@@ -1,6 +1,6 @@
 import React from 'react';
 import { Combobox, EmptyValue, cn } from '@object-ui/components';
-import { SchemaRendererContext } from '@object-ui/react';
+import { MetadataCtx, SchemaRendererContext } from '@object-ui/react';
 import type { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useFieldTranslation } from './useFieldTranslation.js';
@@ -20,8 +20,13 @@ import { useFieldTranslation } from './useFieldTranslation.js';
  *   team                  → sys_team, store `id`
  *   business_unit         → sys_business_unit, store `id`
  *   unit_and_subordinates → sys_business_unit, store `id`
- *   position              → sys_position, store `name` (matched against
- *                           sys_user_position.position at evaluation time)
+ *
+ * One kind lists CATALOG ITEMS instead of records (objectui#7611, ADR-0131
+ * D3/D7): its candidates are the `position` items of the environment registry,
+ * read through the console's metadata store, and the picker stores the item's
+ * `name` (matched against `sys_user_position.position` at evaluation time):
+ *
+ *   position              → the `position` registry, store `name`
  *
  * One kind is NOT a record picker and therefore has no row above:
  *
@@ -51,7 +56,32 @@ const TYPE_TO_OBJECT: Record<string, RecipientMapping> = {
   team: { object: 'sys_team', storeField: 'id', labelFields: ['name', 'label'], placeholderKey: 'fields.recipient.selectTeam' },
   business_unit: { object: 'sys_business_unit', storeField: 'id', labelFields: ['name', 'label'], placeholderKey: 'fields.recipient.selectBusinessUnit' },
   unit_and_subordinates: { object: 'sys_business_unit', storeField: 'id', labelFields: ['name', 'label'], placeholderKey: 'fields.recipient.selectUnitAndSubordinates' },
-  position: { object: 'sys_position', storeField: 'name', labelFields: ['label', 'name'], placeholderKey: 'fields.recipient.selectPosition' },
+};
+
+/** A recipient kind whose candidates are catalog items of one metadata type. */
+interface RegistryRecipientMapping {
+  /** The metadata type listed — the registry's `GET /api/v1/meta/<type>`. */
+  type: string;
+  /** Catalog items are referenced by machine name (ADR-0131 D4). */
+  storeField: 'name';
+  /** Candidate display-label keys, in preference order. */
+  labelFields: string[];
+  /** i18n key for the "choose one" placeholder (see {@link RecipientMapping}). */
+  placeholderKey: string;
+}
+
+/**
+ * The recipient kinds whose candidates come from the registry (objectui#7611).
+ *
+ * ADR-0131 D3 gives positions one home, the environment registry, and D7 says
+ * a picker LISTS that registry: one source, with no second list of
+ * `sys_position` rows merged in. The read goes through the console's metadata
+ * store (`useMetadata().ensureType`), the same reader that serves apps and
+ * objects, so the list is fetched once per session and shared with every
+ * other registry consumer.
+ */
+const TYPE_TO_REGISTRY: Record<string, RegistryRecipientMapping> = {
+  position: { type: 'position', storeField: 'name', labelFields: ['label', 'name'], placeholderKey: 'fields.recipient.selectPosition' },
 };
 
 /**
@@ -148,7 +178,15 @@ export function RecipientPickerField({
   const disabled = props.disabled;
   const dependentValues: Record<string, any> = (props as any).dependentValues ?? {};
   const recipientType = String(dependentValues.recipient_type ?? '');
-  const mapping = TYPE_TO_OBJECT[recipientType];
+  const recordMapping = TYPE_TO_OBJECT[recipientType];
+  // The console's metadata store, or `null` outside a `<MetadataProvider>`.
+  // Read raw rather than through `useMetadata()`, whose no-provider fallback
+  // answers every type with `[]`: an empty registry and an absent reader are
+  // different facts, and only the second degrades to the text input below.
+  const metadataStore = React.useContext(MetadataCtx);
+  const registryMapping = metadataStore ? TYPE_TO_REGISTRY[recipientType] : undefined;
+  const mapping: { storeField: 'id' | 'name'; labelFields: string[]; placeholderKey: string } | undefined =
+    recordMapping ?? registryMapping;
   const objectName = String(dependentValues.object_name ?? '');
   const isFieldRecipient = recipientType === FIELD_RECIPIENT_TYPE;
   // Only this data source can answer "which columns does that object declare?".
@@ -181,7 +219,7 @@ export function RecipientPickerField({
 
   React.useEffect(() => {
     setRecords(null);
-    if (!dataSource || !mapping || typeof dataSource.find !== 'function') return;
+    if (!dataSource || !recordMapping || typeof dataSource.find !== 'function') return;
     let cancelled = false;
     (async () => {
       try {
@@ -189,7 +227,7 @@ export function RecipientPickerField({
         // supported again (objectstack#3821 fixed ApiDataSource walking it
         // character by character), but the structured form can't regress that
         // way for any data source.
-        const res = await dataSource.find(mapping.object, { $top: 500, $orderby: { name: 'asc' } });
+        const res = await dataSource.find(recordMapping.object, { $top: 500, $orderby: { name: 'asc' } });
         const list: any[] = res?.data ?? res?.records ?? (Array.isArray(res) ? res : []);
         if (!cancelled) setRecords(Array.isArray(list) ? list : []);
       } catch {
@@ -199,7 +237,37 @@ export function RecipientPickerField({
     return () => {
       cancelled = true;
     };
-  }, [dataSource, mapping?.object]);
+  }, [dataSource, recordMapping?.object]);
+
+  // The registry kinds' load (objectui#7611): the type's catalog items, from
+  // the metadata store. Sorted by machine name, the order the record kinds
+  // ask the server for. Keyed on the TYPE alone: the store's context value is
+  // rebuilt whenever any type it caches settles, and AGENTS.md #10 forbids an
+  // effect that keys on that identity, so the store is read through a ref.
+  const metadataStoreRef = React.useRef(metadataStore);
+  metadataStoreRef.current = metadataStore;
+  const registryType = registryMapping?.type;
+  React.useEffect(() => {
+    const store = metadataStoreRef.current;
+    if (!registryType || !store) return;
+    setRecords(null);
+    let cancelled = false;
+    store
+      .ensureType(registryType)
+      .then((items) => {
+        if (cancelled) return;
+        const list = (Array.isArray(items) ? items : []).filter(
+          (it: any) => typeof it?.name === 'string' && it.name,
+        );
+        setRecords([...list].sort((a: any, b: any) => String(a.name).localeCompare(String(b.name))));
+      })
+      .catch(() => {
+        if (!cancelled) setRecords([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [registryType]);
 
   // The `field` mode's own load: the SHARED object's schema, keyed on the
   // sibling `object_name`. Re-run when the admin switches object, so the

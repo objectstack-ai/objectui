@@ -350,19 +350,28 @@ describe('element:number — the `dataSource` members it reads, and the ones it 
 describe('element:number declares the `dataSource` binding it reads (objectui#10909)', () => {
   const inputs = () => ComponentRegistry.getMeta('element:number')?.inputs ?? [];
 
-  it('the registration declares dataSource as an object binding; the flat `object` / `filter` say they are not read (objectui#11880)', () => {
+  it('the registration declares dataSource as an object binding, and publishes no flat `object` / `filter` (objectui#12085)', () => {
     const dataSource = inputs().find((input) => input.name === 'dataSource');
     expect(dataSource, 'element:number publishes no dataSource input').toBeTruthy();
     expect((dataSource as { binding?: string }).binding).toBe('object');
-    // Published until the spec's v18 retirement (objectstack#11509), never
-    // required, and each description names the binding member that IS read.
-    const object = inputs().find((input) => input.name === 'object');
-    expect(object?.required).not.toBe(true);
-    expect(object?.description).toMatch(/NOT READ/);
-    expect(object?.description).toMatch(/dataSource\.object/);
-    const filter = inputs().find((input) => input.name === 'filter');
-    expect(filter?.description).toMatch(/NOT READ/);
-    expect(filter?.description).toMatch(/dataSource\.filter/);
+    // Nothing reads the flat pair (objectui#11880), and `@objectstack/spec`
+    // retires both as tombstones (objectstack#11509), so neither is offered.
+    const names = inputs().map((input) => input.name);
+    for (const key of ['object', 'filter']) expect(names, key).not.toContain(key);
+  });
+
+  it('the html tier reports a flat `object` / `filter` as props the metric does not have', () => {
+    const manifest = manifestFromConfigs(
+      ComponentRegistry.getAllConfigs() as unknown as Parameters<typeof manifestFromConfigs>[0],
+    );
+    const bound = { type: 'element:number', dataSource: { object: 'contact' }, aggregate: 'count' };
+    const verdict = (node: Record<string, unknown>) =>
+      validateTree(node as never, manifest).diagnostics.map((d) => ({ severity: d.severity, code: d.code }));
+    for (const [key, value] of Object.entries({ object: 'contact', filter: [{ field: 'status', operator: 'equals', value: 'hot' }] })) {
+      expect(verdict({ ...bound, [key]: value }), key).toEqual([{ severity: 'warning', code: 'unknown-prop' }]);
+    }
+    // Control: the bound node alone draws nothing, so each report above is that key's.
+    expect(verdict(bound)).toEqual([]);
   });
 
   it('the html tier accepts the dataSource form without a diagnostic', () => {

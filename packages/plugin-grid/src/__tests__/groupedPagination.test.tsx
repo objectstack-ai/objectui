@@ -15,6 +15,7 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import '@testing-library/jest-dom';
 import React from 'react';
 import { PaginationConfigSchema } from '@objectstack/spec/ui';
+import { en } from '@object-ui/i18n/locales';
 
 import { ObjectGrid } from '../ObjectGrid';
 import { registerAllFields } from '@object-ui/fields';
@@ -80,12 +81,9 @@ describe('Grouped view pagination', () => {
     renderGroupedGrid();
     await waitFor(() => expect(screen.getByText('Page 1 of 3')).toBeInTheDocument());
 
-    // The "next" chevron is the 3rd of the 4 nav buttons (first, prev, next, last).
-    const navButtons = screen
-      .getByText('Page 1 of 3')
-      .parentElement!.querySelectorAll('button');
-    expect(navButtons.length).toBe(4);
-    fireEvent.click(navButtons[2]); // next
+    // Found by role and name (objectui#12143), not by its place among the four:
+    // with no provider the grid's defaults table stands in for the `en` pack.
+    fireEvent.click(screen.getByRole('button', { name: en.table.nextPage }));
 
     await waitFor(() => expect(screen.getByText('Page 2 of 3')).toBeInTheDocument());
     expect(screen.getByText(catName(DISPLAY_DEFAULT + 1))).toBeInTheDocument();
@@ -97,10 +95,7 @@ describe('Grouped view pagination', () => {
     renderGroupedGrid();
     await waitFor(() => expect(screen.getByText('Page 1 of 3')).toBeInTheDocument());
 
-    const navButtons = screen
-      .getByText('Page 1 of 3')
-      .parentElement!.querySelectorAll('button');
-    fireEvent.click(navButtons[3]); // last
+    fireEvent.click(screen.getByRole('button', { name: en.table.lastPage }));
 
     await waitFor(() => expect(screen.getByText('Page 3 of 3')).toBeInTheDocument());
     // Two full pages leave the remaining ten groups for the last one.

@@ -469,6 +469,12 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // Reused by the grouped-view pager (falls back here when no I18nProvider).
   'table.rowsPerPage': 'Rows per page',
   'table.pageInfo': 'Page {{current}} of {{total}}',
+  // The grouped-view pager's four icon buttons are named by these
+  // (objectui#12143): the `data-table` pager's own keys, objectui#12124.
+  'table.firstPage': 'First page',
+  'table.previousPage': 'Previous page',
+  'table.nextPage': 'Next page',
+  'table.lastPage': 'Last page',
   // The heading of an authored `emptyState` that declares no `title`
   // (objectui#11068): the words the table's own empty row shows, so leaving the
   // member out changes nothing a user reads.
@@ -6574,16 +6580,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           {t('table.pageInfo', { current: safeGroupedPage, total: totalGroupPages })}
         </span>
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" onClick={() => setGroupedPage(1)} disabled={safeGroupedPage === 1}>
+          <Button variant="outline" size="icon" onClick={() => setGroupedPage(1)} disabled={safeGroupedPage === 1} aria-label={t('table.firstPage')}>
             <ChevronsLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setGroupedPage(Math.max(1, safeGroupedPage - 1))} disabled={safeGroupedPage === 1}>
+          <Button variant="outline" size="icon" onClick={() => setGroupedPage(Math.max(1, safeGroupedPage - 1))} disabled={safeGroupedPage === 1} aria-label={t('table.previousPage')}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setGroupedPage(Math.min(totalGroupPages, safeGroupedPage + 1))} disabled={safeGroupedPage === totalGroupPages}>
+          <Button variant="outline" size="icon" onClick={() => setGroupedPage(Math.min(totalGroupPages, safeGroupedPage + 1))} disabled={safeGroupedPage === totalGroupPages} aria-label={t('table.nextPage')}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setGroupedPage(totalGroupPages)} disabled={safeGroupedPage === totalGroupPages}>
+          <Button variant="outline" size="icon" onClick={() => setGroupedPage(totalGroupPages)} disabled={safeGroupedPage === totalGroupPages} aria-label={t('table.lastPage')}>
             <ChevronsRight className="h-4 w-4" />
           </Button>
         </div>

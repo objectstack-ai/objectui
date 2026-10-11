@@ -78,9 +78,9 @@ export const STUDIO_PACKAGE_SELECTOR_ID = 'active_package';
  * parties this file does not own —
  *
  *  1. bookmarked / shared Studio URLs already carrying `?package=…`;
- *  2. six Studio surfaces that read `?package` straight off the query string
- *     (`StudioHomePage`, `DirectoryPage`, `ResourceListPage`,
- *     `ResourceEditPage` ×2, `AiChatPage`);
+ *  2. the Studio surfaces that read `?package` straight off the query string
+ *     (`DirectoryPage`, `ResourceListPage`, `ResourceEditPage` ×2,
+ *     `AiChatPage`);
  *  3. Studio's own nav metadata in `@objectstack/platform-objects`, which
  *     declares `params: { package: '{active_package}' }` on ~15 nav items —
  *     i.e. the destination query key is chosen by the APP metadata, not by
@@ -95,7 +95,7 @@ export const STUDIO_PACKAGE_SELECTOR_ID = 'active_package';
  * Sunset: delete the entry (and this table) once either
  *  (a) `AppContextSelectorSchema` gains an explicit query-key field so the app
  *      author declares it, or
- *  (b) Studio's nav metadata and the six reader surfaces above move to
+ *  (b) Studio's nav metadata and the reader surfaces above move to
  *      `?active_package=`,
  * at which point the plain `id` derivation needs no exception.
  */

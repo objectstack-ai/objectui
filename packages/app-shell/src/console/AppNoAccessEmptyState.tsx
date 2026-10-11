@@ -10,9 +10,9 @@
  * therefore arrives as `navigation: []` for a caller who holds none of those
  * capabilities. The sidebar is empty, and the app index route has no landing
  * to resolve. Until objectui#12079 that route fell back to `StudioHomePage`,
- * the Studio app's own overview, so the caller saw metadata counters and
- * "New Object" quick actions inside an app that had nothing to do with Studio,
- * and nothing told them what to do next.
+ * the Studio app's overview (retired by objectui#12113), so the caller saw
+ * metadata counters and "New Object" quick actions inside an app that had
+ * nothing to do with Studio, and nothing told them what to do next.
  *
  * This is an app-level empty state instead. It names the app and says the
  * caller has no access in it yet. A caller who can grant access gets a link to

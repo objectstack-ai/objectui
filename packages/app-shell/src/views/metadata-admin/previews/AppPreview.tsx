@@ -262,8 +262,9 @@ function findFirstLanding(items: NavItem[]): NavItem | undefined {
     }
     if (it.kind === 'url' || it.kind === 'separator' || it.kind === 'action') continue;
     // A `doc` entry has an href (the docs portal) but is never a landing: the
-    // runtime's `findFirstRoute` lands on object / page / dashboard / report
-    // only (objectui#11197).
+    // runtime's `findFirstRoute` lands on object / page / dashboard / report /
+    // component only (objectui#11197). A `component` entry lands here as it
+    // does there, which the runtime learned in objectui#12113.
     if (it.kind === 'doc') continue;
     if (it.href) return it;
   }

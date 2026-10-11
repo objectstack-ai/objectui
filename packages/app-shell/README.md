@@ -471,12 +471,14 @@ It is *not* repaired from the last selected package any more: Studio declares
 URL for `'query'`, `sessionStorage` for `'session'`, neither for `'none'`
 (objectstack#5994). An app that wants its scope remembered beyond the URL
 declares `persist: 'session'`, which keeps it out of the address bar in
-exchange. The Studio home overview, quick-create links,
-metadata counts, and diagnostics all follow that active package. The dedicated
+exchange. Metadata counts, diagnostics and the metadata lists all follow that
+active package. The dedicated
 package-management page remains the global place to create, import, publish,
 enable, or disable packages; direct `/metadata/package` links redirect there.
-The Studio sidebar also flattens the root Overview group so Home and package
-navigation sit directly under the package selector.
+The Studio sidebar also flattens the root Overview group so its entries sit
+directly under the package selector. The Studio app has no home page of its
+own: its root opens the first navigation entry that leads to a page, by the
+same rule as every app (objectui#12113).
 
 ### The Setup catalog: the environment scope (`?scope=environment`)
 

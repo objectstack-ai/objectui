@@ -373,14 +373,15 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const navigationItems = context === 'home' ? homeNavigation : appNavigation;
   const basePath = context === 'app' && activeApp ? `/apps/${appRouteSegment(activeApp)}` : '';
   const isStudioApp = context === 'app' && activeApp?.name === 'studio';
-  // Studio's home link carries the active package scope. Read (and re-emit)
-  // it through the SAME per-selector key derivation the selector writes with,
-  // instead of assuming the literal `package` key — for `active_package` the
-  // derivation resolves to `package`, so existing links are byte-identical,
-  // and the two halves can no longer drift apart (objectui#3500).
+  // Studio's package-management link carries the active package scope. Read
+  // (and re-emit) it through the SAME per-selector key derivation the selector
+  // writes with, instead of assuming the literal `package` key — for
+  // `active_package` the derivation resolves to `package`, so existing links
+  // are byte-identical, and the two halves can no longer drift apart
+  // (objectui#3500).
   const studioScopeKey = contextSelectorQueryKey(STUDIO_PACKAGE_SELECTOR_ID);
   const studioScopeValue = contextValues[STUDIO_PACKAGE_SELECTOR_ID];
-  const studioHomeSearch = React.useMemo(() => {
+  const studioScopeSearch = React.useMemo(() => {
     if (!isStudioApp) return '';
     const packageId = new URLSearchParams(location.search).get(studioScopeKey) || studioScopeValue;
     return packageId ? `?${studioScopeKey}=${encodeURIComponent(packageId)}` : '';
@@ -404,7 +405,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
             ...item,
             type: 'url' as const,
             label: packageManagementLabel,
-            url: `${basePath}/component/developer/packages${studioHomeSearch}`,
+            url: `${basePath}/component/developer/packages${studioScopeSearch}`,
             children,
           }];
         }
@@ -417,7 +418,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
       if (!isOverviewGroup(item)) return [item];
       return item.children ?? [];
     });
-  }, [activeApp?.name, basePath, context, navigationItems, studioHomeSearch, t]);
+  }, [activeApp?.name, basePath, context, navigationItems, studioScopeSearch, t]);
 
   // Apply pin state
   const processedNavigation = React.useMemo(
@@ -427,8 +428,6 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
 
   // Recent section collapsed by default
   const [recentExpanded, setRecentExpanded] = React.useState(false);
-
-  const isStudioHomeActive = isStudioApp && location.pathname.replace(/\/+$/, '') === basePath;
 
   return (
     <>
@@ -475,27 +474,6 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
                   {contextSelectorsUI}
                 </SidebarGroupContent>
               </div>
-            </SidebarGroup>
-          )}
-
-          {isStudioApp && (
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isStudioHomeActive}
-                      tooltip={t('home.nav', { defaultValue: 'Home' })}
-                    >
-                      <Link to={{ pathname: basePath, search: studioHomeSearch }}>
-                        <Home className="h-4 w-4" />
-                        <span>{t('home.nav', { defaultValue: 'Home' })}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
             </SidebarGroup>
           )}
 

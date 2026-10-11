@@ -16,7 +16,6 @@
 
 export { MetadataDirectoryPage } from './DirectoryPage.js';
 export { PackagesPage } from './PackagesPage.js';
-export { StudioHomePage } from './StudioHomePage.js';
 export { MetadataResourceRouter } from './ResourceRouter.js';
 export { MetadataResourceListPage } from './ResourceListPage.js';
 export { MetadataResourceEditPage } from './ResourceEditPage.js';

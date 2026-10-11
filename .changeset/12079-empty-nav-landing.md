@@ -12,6 +12,6 @@ The app root now shows "Nothing in APP is available to you yet", with the app's 
 Unchanged:
 
 - An app with a landing page still opens on it.
-- The Studio app still opens on its own home. Its navigation is full but holds only `component` items, which the landing resolver does not walk, so it reaches the same fallback with a non-empty navigation.
+- The Studio app, whose navigation is full, does not get the empty state. Where its root opens instead is objectui#12113: the app's first navigation entry.
 
 New `@object-ui/i18n` keys, in all ten language packs: `empty.appNothingAvailable`, `empty.appNothingAvailableDescription`, `empty.appNothingAvailableGrantDescription` and `empty.openSetup`.

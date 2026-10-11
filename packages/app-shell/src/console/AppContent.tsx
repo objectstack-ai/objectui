@@ -67,7 +67,6 @@ const ObjectDataPage = lazy(() => import('../views/ObjectDataPage.js').then(m =>
 // level so URLs read like a normal nested resource (RFC-style) instead of
 // piggy-backing on the legacy ComponentRegistry fan-out.
 const MetadataDirectoryPage = lazy(() => import('../views/metadata-admin/index.js').then(m => ({ default: m.MetadataDirectoryPage })));
-const StudioHomePage = lazy(() => import('../views/metadata-admin/index.js').then(m => ({ default: m.StudioHomePage })));
 const MetadataResourceListPage = lazy(() => import('../views/metadata-admin/index.js').then(m => ({ default: m.MetadataResourceListPage })));
 const MetadataResourceEditPage = lazy(() => import('../views/metadata-admin/index.js').then(m => ({ default: m.MetadataResourceEditPage })));
 const MetadataResourceHistoryPage = lazy(() => import('../views/metadata-admin/index.js').then(m => ({ default: m.MetadataResourceHistoryPage })));
@@ -1078,8 +1077,10 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 <Route
                   path="/"
                   element={(() => {
-                    // When the app declares a landing target (first nav
-                    // route) honour it.
+                    // The app's landing is its first navigation item that
+                    // addresses a page inside the app (`resolveLandingRoute`).
+                    // The Studio app lands on its first entry too
+                    // (objectui#12113).
                     const landing = resolveLandingRoute(activeApp, { currentUserId: user?.id ?? null });
                     if (landing) return <Navigate to={landing} replace />;
                     // objectui#12079 — an app that serves this caller NO
@@ -1097,11 +1098,14 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                         />
                       );
                     }
-                    // A navigation with no landing: the metadata-admin
-                    // "Studio" app, whose nav is built from `component`
-                    // items the landing resolver does not walk. Its root is
-                    // the rich overview, not a blank `<Navigate to="">`.
-                    return <StudioHomePage />;
+                    // A navigation with no landing: every entry the sidebar
+                    // draws is a `url`, `action` or `doc` link, or the items
+                    // live only under `areas`, which the resolver does not
+                    // walk. The root renders no page of its own and the
+                    // sidebar offers the entries. It used to render the
+                    // Studio app's overview, `StudioHomePage`, which
+                    // objectui#12113 retired.
+                    return null;
                   })()}
                 />
                 {/* Metadata admin routes — declared BEFORE the generic
@@ -1256,7 +1260,17 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
 function findFirstRoute(items: any[], ctx?: NavTemplateContext): string {
   if (!items || items.length === 0) return '';
   for (const item of items) {
-    if (item.type === 'object' || item.type === 'page' || item.type === 'dashboard' || item.type === 'report') {
+    // objectui#12113 — a `component` entry lands too: its URL is the one the
+    // sidebar follows, through `buildItemRoute` → `resolveHref`. Without it
+    // the Studio app, whose navigation is all `component` entries, had no
+    // landing at all.
+    if (
+      item.type === 'object' ||
+      item.type === 'page' ||
+      item.type === 'dashboard' ||
+      item.type === 'report' ||
+      item.type === 'component'
+    ) {
       const route = buildItemRoute(item, ctx);
       if (route) return route;
       continue;
@@ -1289,9 +1303,12 @@ function buildItemRoute(item: any, ctx?: NavTemplateContext): string {
 /**
  * Resolves the route to navigate to when the user lands on the bare
  * `/console/apps/:appName` URL: the app's landing page is its FIRST reachable
- * navigation item, in `order` — `findFirstRoute` walks groups and skips the
- * item types that address nothing (`url`, `separator`, `action`). Which app
- * the ROOT lands on is a separate question, decided by `isDefault`.
+ * navigation item, in `order` — `findFirstRoute` walks groups and lands on an
+ * `object`, `page`, `dashboard`, `report` or `component` entry (objectui#12113
+ * added `component`). It skips the item types that address nothing inside
+ * the app (`url`, `separator`, `action`), and a `doc` entry is never the
+ * landing (objectui#11197). Which app the ROOT lands on is a separate
+ * question, decided by `isDefault`.
  *
  * This used to honour an explicit `app.homePageId`. Spec 17.0.0 retired that
  * key (objectstack#4667, premise corrected in objectstack-ai/objectstack#4709 / objectui#3287): it was

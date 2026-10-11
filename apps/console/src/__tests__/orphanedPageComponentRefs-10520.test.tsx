@@ -58,7 +58,6 @@ import { MemoryRouter, Routes, Route, useParams } from 'react-router-dom';
 // `packages/app-shell/src` by `apps/console/vite.config.ts`).
 vi.mock('../../../../packages/app-shell/src/views/metadata-admin', () => ({
   MetadataDirectoryPage: () => <div data-testid="metadata-directory-page" />,
-  StudioHomePage: () => <div data-testid="studio-home-page" />,
   MetadataResourceListPage: () => <div data-testid="metadata-resource-list-page" />,
   MetadataResourceEditPage: () => <div data-testid="metadata-resource-edit-page" />,
   MetadataResourceHistoryPage: () => <div data-testid="metadata-resource-history-page" />,

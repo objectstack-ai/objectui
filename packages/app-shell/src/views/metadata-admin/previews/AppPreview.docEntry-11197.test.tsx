@@ -38,7 +38,7 @@ describe('objectui#11197 — AppPreview (read-only) draws a `doc` entry', () => 
     expect(screen.getByText('/apps/crm/docs/crm_manual')).toBeTruthy();
   });
 
-  it('never names a `doc` entry as the landing — the runtime lands on object / page / dashboard / report only', () => {
+  it('never names a `doc` entry as the landing — the runtime lands on object / page / dashboard / report / component only', () => {
     render(<AppPreview type="app" name="crm" draft={DRAFT} />);
     expect(screen.getByText('→ Accounts')).toBeTruthy();
   });

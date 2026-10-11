@@ -12,13 +12,14 @@
  * no next step.
  *
  * What is pinned here:
- *   - empty navigation renders the empty state, not `StudioHomePage`;
+ *   - empty navigation renders the empty state;
  *   - the Setup link is offered only to a caller the console already treats
  *     as able to administer (`useWorkspaceAdminStatus`), at the URL the
  *     `/setup` deep link resolves (`resolveSetupAppPath`);
  *   - control: an app with a landing still navigates to it;
- *   - control: the Studio app, whose navigation holds only `component` items
- *     and so has no landing either, still renders its own home.
+ *   - control: the Studio app, whose navigation holds only `component` items,
+ *     is not given the empty state: its root lands on its first entry
+ *     (objectui#12113 retired `StudioHomePage`, the root it rendered here).
  *
  * NOTE ON SCOPE: routing only. `ConsoleLayout` and the lazily imported pages
  * are stubbed, as in `AppContent.inaccessibleAppStrand.test.tsx`.
@@ -34,7 +35,6 @@ import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 // `import()` races a bounded `findBy` window.
 vi.mock('../../views/metadata-admin', () => ({
   MetadataDirectoryPage: () => <div data-testid="metadata-directory-page" />,
-  StudioHomePage: () => <div data-testid="studio-home-page">studio</div>,
   MetadataResourceListPage: () => <div data-testid="metadata-resource-list-page" />,
   MetadataResourceEditPage: () => <div data-testid="metadata-resource-edit-page" />,
   MetadataResourceHistoryPage: () => <div data-testid="metadata-resource-history-page" />,
@@ -154,12 +154,11 @@ describe('AppContent — an app with empty navigation lands on an empty state (o
     metadataApps = [];
   });
 
-  it('renders the app-level empty state, not the Studio home, and names the app', async () => {
+  it('renders the app-level empty state and names the app', async () => {
     metadataApps = [CLM_EMPTY];
     renderConsoleAt('/apps/clm');
 
     const emptyState = await screen.findByTestId('app-no-access-empty-state');
-    expect(screen.queryByTestId('studio-home-page')).not.toBeInTheDocument();
     expect(emptyState).toHaveTextContent('Nothing in HotCLM is available to you yet');
     // The app root, not a redirect somewhere else.
     expect(screen.getByTestId('pathname').textContent).toBe('/apps/clm');
@@ -186,7 +185,6 @@ describe('AppContent — an app with empty navigation lands on an empty state (o
     expect(link).toHaveTextContent('Open Setup');
     // `resolveSetupAppPath` — the Setup app's canonical `/apps/PACKAGE_ID` URL.
     expect(link).toHaveAttribute('href', '/apps/com.objectstack.setup');
-    expect(screen.queryByTestId('studio-home-page')).not.toBeInTheDocument();
   });
 
   it('reads the admin verdict, not whether Setup is in the app list', async () => {
@@ -221,9 +219,10 @@ describe('AppContent — an app with empty navigation lands on an empty state (o
     expect(screen.queryByTestId('app-no-access-empty-state')).not.toBeInTheDocument();
   });
 
-  it('control: the Studio app, whose navigation has no landing, still renders its own home', async () => {
-    // Studio's navigation is all `component` items, which the landing resolver
-    // does not walk, so it reaches the same fallback with a FULL navigation.
+  it('control: the Studio app, whose navigation is all `component` items, lands on its first entry', async () => {
+    // A FULL navigation of `component` items is not "no navigation": the
+    // landing resolver walks `component` items (objectui#12113), so the root
+    // navigates to the first one instead of reaching the empty state.
     metadataApps = [
       {
         name: 'studio',
@@ -240,7 +239,9 @@ describe('AppContent — an app with empty navigation lands on an empty state (o
     ];
     renderConsoleAt('/apps/studio');
 
-    expect(await screen.findByTestId('studio-home-page')).toBeInTheDocument();
+    // `metadata:directory` resolves to the app's `metadata` route.
+    expect(await screen.findByTestId('metadata-directory-page')).toBeInTheDocument();
+    expect(screen.getByTestId('pathname').textContent).toBe('/apps/studio/metadata');
     expect(screen.queryByTestId('app-no-access-empty-state')).not.toBeInTheDocument();
   });
 });

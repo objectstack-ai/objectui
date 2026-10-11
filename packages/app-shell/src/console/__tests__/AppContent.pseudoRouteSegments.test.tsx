@@ -132,7 +132,6 @@ import {
 // `import()` races a bounded `findBy` window.
 vi.mock('../../views/metadata-admin', () => ({
   MetadataDirectoryPage: () => <div data-testid="metadata-directory-page">directory</div>,
-  StudioHomePage: () => <div data-testid="studio-home-page">studio</div>,
   MetadataResourceListPage: () => {
     const { type } = useParams<{ type?: string }>();
     return <div data-testid="metadata-resource-list-page">{type}</div>;

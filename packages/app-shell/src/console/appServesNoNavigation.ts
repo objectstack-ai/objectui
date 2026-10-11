@@ -26,9 +26,14 @@ interface AppNavigationLike {
  * with no children count as nothing, exactly as the sidebar draws them. The
  * sidebar wires an action dispatcher, so an `action` item counts as content.
  *
- * ⛔ This is NOT "no landing route". The Studio app serves a full navigation
- * made only of `component` items, which the landing resolver does not walk, so
- * it has no landing either. Its root keeps rendering `StudioHomePage`.
+ * ⛔ This is NOT "no landing route". The landing resolver walks the top-level
+ * `navigation` only and lands on an `object`, `page`, `dashboard`, `report` or
+ * `component` entry, so an app can serve entries and still have no landing:
+ * one whose entries are all `url`, `action` or `doc` links, or one that serves
+ * them only under `areas`. Such an app is not one the caller has no access in,
+ * and this answers no for it. The Studio app is not that case: its navigation
+ * is all `component` entries, and its root lands on the first one
+ * (objectui#12113).
  */
 export function appServesNoNavigation(app: AppNavigationLike | null | undefined): boolean {
   const options = { hasActionHandler: true };

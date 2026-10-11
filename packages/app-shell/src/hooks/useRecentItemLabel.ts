@@ -44,8 +44,8 @@
  * navigation renderer uses too, including before the type's metadata has
  * loaded. That covers a package missing from `packages`, or a call that passes
  * no list: ⛔ so a surface that has no package list does not draw package
- * entries at all, rather than show their ids (the app sidebar and the
- * metadata-admin app's home, `StudioHomePage`, leave them out for that reason).
+ * entries at all, rather than show their ids (the app sidebar leaves them out
+ * for that reason).
  *
  * A record or a Studio metadata item (`RecentTextItem`) carries its own text,
  * which is returned as stored.

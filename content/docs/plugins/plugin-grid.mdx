@@ -258,6 +258,8 @@ source for the whole set's figures in ONE aggregate query through
 `queryGroupHeaders`, with no `groupBy`: the query behind the rows (its filter,
 search and search fields), without its page, sort or projection. Turning the
 page or sorting asks nothing; a refresh or a write to the object asks again.
+A grid whose columns declare no summary that maps to an aggregate (none at
+all, only `none`, or only unknown members) has no footer and asks nothing.
 These figures are the server's, so "empty" means a stored `null`. The answer is
 used only when its row count equals the count the grid shows. Otherwise the
 footer shows the page's figure and says so: `Sum (this page): 32,500`. That is

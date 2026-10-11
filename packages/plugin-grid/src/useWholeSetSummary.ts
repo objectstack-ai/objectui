@@ -53,7 +53,13 @@
  *     estimate, not a count — the two describe different numbers of rows,
  *     and the footer stays on the page, labelled as the page's.
  *
- * ## Asked once per question
+ * ## Asked only for a footer, once per question
+ *
+ * A grid whose columns declare no summary that maps to an aggregate (none at
+ * all, only `none`, only unknown members) asks nothing: `wholeSetSummaryNodes`
+ * answers `null`, and the read is `off`. Every console list view is a paged
+ * grid with object-form columns, so without this gate each of them would send
+ * an aggregate query for a footer it never draws.
  *
  * The question is the object, the query and the summary columns; the window
  * (`$top`, `$skip`), the order and the projection are not in it, so a page
@@ -79,13 +85,52 @@ import { useDataInvalidation } from '@object-ui/react';
 const WINDOW_KEYS: ReadonlySet<string> = new Set(['$top', '$skip', '$orderby', '$select', '$expand', '$count']);
 
 /**
+ * The aggregation nodes the columns' summaries map to — `count` first
+ * (`COUNT(*)`, which a `count` summary rides), then one node per declared
+ * summary, deduplicated — or `null` when NO column declares a summary that
+ * maps to an aggregate: none at all, only `none`, only members the table does
+ * not know or cannot map, or a summary over no field. A grid with no footer
+ * figure has nothing to ask, so `null` here is what keeps the read off
+ * (objectui#12081 item 3, rework round 1): the `count` node alone is not a
+ * question anybody asked.
+ */
+export function wholeSetSummaryNodes(columns: readonly ListColumn[] | undefined): AggregationNode[] | null {
+  const nodes = new Map<string, AggregationNode>([[LIST_VIEW_GROUP_COUNT_ALIAS, { function: 'count', alias: LIST_VIEW_GROUP_COUNT_ALIAS }]]);
+  let declared = false;
+  for (const column of columns ?? []) {
+    const summary = column?.summary;
+    if (summary === undefined || summary === null) continue;
+    const member = (typeof summary === 'string' ? summary : summary.type) as ColumnSummary;
+    const mapping = Object.prototype.hasOwnProperty.call(COLUMN_SUMMARY_AGGREGATION, member)
+      ? COLUMN_SUMMARY_AGGREGATION[member]
+      : undefined;
+    // `none`, an unknown member, and a member with no counterpart ask nothing:
+    // the footer draws no figure for the first two and keeps the third on the
+    // page (`deriveColumnSummary` finds no column for it).
+    if (!mapping || mapping.kind === 'none' || mapping.kind === 'unmapped') continue;
+    const field = typeof summary === 'string' ? column.field : (summary.field ?? column.field);
+    if (typeof field !== 'string' || field === '') continue;
+    declared = true;
+    const fn = mapping.kind === 'derived' ? mapping.from : mapping.function;
+    const aggregated = mapping.fieldless ? undefined : field;
+    const alias = columnSummaryAlias(fn, aggregated);
+    if (!nodes.has(alias)) nodes.set(alias, { function: fn, ...(aggregated !== undefined ? { field: aggregated } : {}), alias });
+  }
+  return declared ? [...nodes.values()] : null;
+}
+
+/**
  * The aggregate query for the whole matched set behind `findParams`, or
- * `null` when it cannot be asked as the same question (see the module note).
+ * `null` when there is nothing to ask ({@link wholeSetSummaryNodes}) or it
+ * cannot be asked as the same question (see the module note).
  */
 export function compileWholeSetSummaryQuery(
   columns: readonly ListColumn[] | undefined,
   findParams: Readonly<Record<string, unknown>>,
 ): EngineAggregateOptions | null {
+  const aggregations = wholeSetSummaryNodes(columns);
+  if (aggregations === null) return null;
+
   for (const key of Object.keys(findParams)) {
     if (!WINDOW_KEYS.has(key) && key !== '$filter' && key !== '$search' && key !== '$searchFields') return null;
   }
@@ -113,30 +158,10 @@ export function compileWholeSetSummaryQuery(
   // `groupSearchOf` reads the grouped grid's pair.
   const term = typeof search === 'string' ? search.trim() : '';
 
-  const nodes = new Map<string, AggregationNode>([[LIST_VIEW_GROUP_COUNT_ALIAS, { function: 'count', alias: LIST_VIEW_GROUP_COUNT_ALIAS }]]);
-  for (const column of columns ?? []) {
-    const summary = column?.summary;
-    if (summary === undefined || summary === null) continue;
-    const member = (typeof summary === 'string' ? summary : summary.type) as ColumnSummary;
-    const mapping = Object.prototype.hasOwnProperty.call(COLUMN_SUMMARY_AGGREGATION, member)
-      ? COLUMN_SUMMARY_AGGREGATION[member]
-      : undefined;
-    // `none`, an unknown member, and a member with no counterpart ask nothing:
-    // the footer draws no figure for the first two and keeps the third on the
-    // page (`deriveColumnSummary` finds no column for it).
-    if (!mapping || mapping.kind === 'none' || mapping.kind === 'unmapped') continue;
-    const field = typeof summary === 'string' ? column.field : (summary.field ?? column.field);
-    if (typeof field !== 'string' || field === '') continue;
-    const fn = mapping.kind === 'derived' ? mapping.from : mapping.function;
-    const aggregated = mapping.fieldless ? undefined : field;
-    const alias = columnSummaryAlias(fn, aggregated);
-    if (!nodes.has(alias)) nodes.set(alias, { function: fn, ...(aggregated !== undefined ? { field: aggregated } : {}), alias });
-  }
-
   return {
     ...(where ? { where } : {}),
     ...(term ? { search: term, ...(Array.isArray(searchFields) && searchFields.length > 0 ? { searchFields: searchFields as string[] } : {}) } : {}),
-    aggregations: [...nodes.values()],
+    aggregations,
   } as EngineAggregateOptions;
 }
 
@@ -148,7 +173,10 @@ export interface WholeSetSummaryInput {
   enabled: boolean;
   dataSource?: DataSource;
   objectName?: string;
-  /** The grid's columns; only those carrying a `summary` contribute. */
+  /**
+   * The grid's columns; only those carrying a `summary` that maps to an
+   * aggregate contribute, and with none of them the read is `off`.
+   */
   columns: ListColumn[] | undefined;
   /**
    * The find params behind the rows on screen — the host's `findParams`, or
@@ -163,7 +191,8 @@ export interface WholeSetSummaryInput {
 }
 
 /**
- * - `off` — not asked: the rows are the whole set.
+ * - `off` — not asked: the rows are the whole set, or no column declares a
+ *   summary that maps to an aggregate.
  * - `pending` — asked, no answer to THIS question in hand yet.
  * - `answered` — the whole set's header row, its `count` agreeing with the grid's.
  * - `unavailable` — no door, a refusal, an unaskable query, or an answer whose
@@ -189,8 +218,12 @@ const NOTHING_HELD: Held = { question: '', answer: PENDING };
 export function useWholeSetSummary(input: WholeSetSummaryInput): WholeSetSummary {
   const { enabled, dataSource, objectName, columns, findParams, count, reloadKey } = input;
 
-  const query = enabled && findParams ? compileWholeSetSummaryQuery(columns, findParams) : null;
-  const canAsk = enabled
+  // The gate (rework round 1): a grid whose columns declare no summary that
+  // maps to an aggregate draws no footer, so it asks nothing and listens to
+  // nothing — the read is `off`, exactly as for rows that are the whole set.
+  const active = enabled && wholeSetSummaryNodes(columns) !== null;
+  const query = active && findParams ? compileWholeSetSummaryQuery(columns, findParams) : null;
+  const canAsk = active
     && !!objectName
     && query !== null
     && typeof dataSource?.queryGroupHeaders === 'function';
@@ -227,7 +260,7 @@ export function useWholeSetSummary(input: WholeSetSummaryInput): WholeSetSummary
     return () => { cancelled = true; };
   }, [canAsk, dataSource, objectName, question, reloadKey, invalidationNonce]);
 
-  if (!enabled) return OFF;
+  if (!active) return OFF;
   if (!canAsk) return UNAVAILABLE;
   // Read in the render the question changes, never one render late.
   const answer = held.question === question ? held.answer : PENDING;

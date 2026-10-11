@@ -456,6 +456,38 @@ describe('CONTROL: rows that ARE the whole set keep their footer and ask nothing
   });
 });
 
+describe('a grid with no footer figure asks nothing (objectui#12081 item 3, rework round 1)', () => {
+  /** Long enough for an effect's request to have gone out; the last leg below proves it is. */
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
+
+  it('a host-driven paged grid whose columns declare no summary, only `none`, or only unknown members keeps queryGroupHeaders uncalled', async () => {
+    // Every console list view is this grid: object-form columns, one page of
+    // more, handed down with manualPagination + rowCount + findParams.
+    const cases: Array<[string, unknown[]]> = [
+      ['no summary', [{ field: 'name', label: 'Name' }, { field: 'amount', label: 'Amount', type: 'number' }]],
+      ['only none', [{ field: 'name', label: 'Name', summary: 'none' }, { field: 'amount', label: 'Amount', summary: { type: 'none' } }]],
+      ['only unknown members', [{ field: 'name', label: 'Name', summary: 'median' }, { field: 'amount', label: 'Amount', summary: { type: 'total' } }]],
+    ];
+    for (const [label, columns] of cases) {
+      const ds = makeDataSource();
+      render(hostGrid(ds, { rows: ROWS, columns }));
+      await waitFor(() => expect(screen.getByText('Line 0')).toBeInTheDocument());
+      await settle();
+      expect({ label, asked: ds.queryGroupHeaders.mock.calls.length }).toEqual({ label, asked: 0 });
+      expect(screen.queryByTestId('column-summary-footer')).toBeNull();
+      cleanup();
+    }
+
+    // Control leg: the same harness and the same wait DO see a request once a
+    // column declares a summary, so the zeros above are readings.
+    const ds = makeDataSource();
+    render(hostGrid(ds, { rows: ROWS }));
+    await waitFor(() => expect(screen.getByText('Line 0')).toBeInTheDocument());
+    await settle();
+    expect(ds.queryGroupHeaders.mock.calls.length).toBe(1);
+  });
+});
+
 describe('the page label is the pack\'s, not an English suffix (objectui#12081 item 3)', () => {
   it('zh: the pack places the scope', async () => {
     const ds = makeDataSource({ door: 'absent' });

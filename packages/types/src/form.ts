@@ -2207,7 +2207,7 @@ export interface FormField {
   // #0.1; objectui#11610), and the census ledger records the read.
   //
   // `step` is the spec's number, so HTML's `'any'` is refused here. No
-  // producer writes it: the control that draws a number derives `'any'`
+  // producer writes `'any'`: the control that draws a number derives it
   // itself when the field declares neither `step` nor `scale`
   // (objectui#12130; `ObjectForm` wrote it until then).
 

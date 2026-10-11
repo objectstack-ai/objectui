@@ -4751,8 +4751,8 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           // `maxLength`, which renders no attribute — an uncapped field is
           // left exactly as it was.
           maxLength={maxLength}
-          // The `input` arm's rule (objectui#12130): an object-bound number
-          // field reaches this arm when its `field:` widget is not registered.
+          // The `input` arm's rule (objectui#12130), for an entry that says
+          // `inputType: 'number'` and whose type names no registered widget.
           {...(inputType === 'number' ? { step: nativeNumberStep(fieldProps.field) } : null)}
           onClick={(e) => {
             openNativePickerOnClick(inputType)?.(e);

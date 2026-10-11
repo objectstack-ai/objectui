@@ -579,6 +579,15 @@ carrying callbacks.
 }
 ```
 
+A name in `bulkActions` runs that action once per selected record. If the
+action declares `params`, the selection bar's dialog collects them once, before
+the run, and resolves them as the record page's action dialog does. A
+field-backed param (`{ "field": "crm_campaign", "objectOverride":
+"crm_campaign_member" }`) takes its type, label, options, default and picker
+target from that field, so a lookup param renders the record picker and the
+confirm step shows the picked record's label. A param whose field is not in
+the object metadata is refused, and the run is blocked.
+
 ### Row callbacks are component props
 
 `onRowClick`, `onRowSelect`, `onCellChange`, `onRowSave`, `onBatchSave`,

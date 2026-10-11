@@ -153,6 +153,11 @@ gets its real widget, not a text box (ADR-0059):
 - **Field-backed params** declare `field` (+ optional `objectOverride`) and
   inherit label, type, options, lookup picker config, `multiple`, `accept`,
   and `maxSize` from the object's field definition; inline properties override.
+  The same resolution runs when the action is named in a list's `bulkActions`
+  and launched from the selection bar, so a field-backed lookup param gets the
+  record picker there too. On the selection bar, the field's picker target,
+  display field and `dependsOn` reach the picker; its other picker settings
+  (`lookupFilters`, `lookupColumns`, …) do not yet.
 - `required` blocks submit while the value is empty; `visible` (a CEL
   predicate over `features` / `current_user` / `data`) hides a param
   entirely — e.g. gate a param on an opt-in server capability. There is no

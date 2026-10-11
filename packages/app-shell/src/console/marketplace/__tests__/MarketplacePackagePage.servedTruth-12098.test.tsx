@@ -302,13 +302,13 @@ describe('an upgrade waits for the new version to be served (objectui#12098)', (
     await renderPage();
     fireEvent.click(await screen.findByRole('button', { name: '«marketplace.action.updateTo»' }));
     fireEvent.click(await screen.findByRole('button', { name: '«marketplace.action.install»' }));
-    expect(await screen.findByText('«marketplace.install.deploying»')).toBeInTheDocument();
   }
 
   it('keeps waiting while 1.0.0 is served, and refreshes once 1.1.0 is served', async () => {
     server.before = [SETUP, appAt('1.0.0')];
     server.after = [SETUP, appAt('1.1.0')];
     await upgrade();
+    expect(await screen.findByText('«marketplace.install.deploying»')).toBeInTheDocument();
     // The wait names the version the install answer names.
     expect(waits).toEqual([{ manifestId: PKG, version: '1.1.0' }]);
 

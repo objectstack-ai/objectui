@@ -126,8 +126,8 @@ export function SuggestedBindingsPanel({
         resolved = suggestion;
         setNotInForce((ids) => {
           const next = new Set(ids);
-          if (bindingCreated) next.delete(resolved.id);
-          else next.add(resolved.id);
+          if (bindingCreated) next.delete(suggestion.id);
+          else next.add(suggestion.id);
           return next;
         });
         if (bindingCreated) toast.success(strings.confirmedToast(s));
@@ -138,10 +138,10 @@ export function SuggestedBindingsPanel({
       }
       put(resolved);
       onResolved?.(resolved);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // The server's message is the explanation ("carries view-all…", "is
       // observed, not accepted…") — show it, then show what the server holds.
-      toast.error(err?.message ?? String(err));
+      toast.error(err instanceof Error ? err.message : String(err));
       reread();
     } finally {
       setBusyId(null);

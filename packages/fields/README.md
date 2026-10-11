@@ -129,14 +129,10 @@ import {
 
 type KnownObject = ResolveActionParamsContext['objects'][number];
 
-// What the caller renders, and what the session's metadata store holds.
-const callerObjects: KnownObject[] = [{ name: 'crm_lead', fields: {} }];
-const storeObjects: KnownObject[] = [
-  {
-    name: 'crm_campaign_member',
-    fields: { crm_campaign: { type: 'lookup', label: 'Campaign', reference: 'crm_campaign' } },
-  },
-];
+// The object definitions the caller renders, and the ones the session's
+// metadata store holds (`useMetadata().objects` from `@object-ui/react`).
+declare const callerObjects: KnownObject[];
+declare const storeObjects: KnownObject[];
 
 const params: RawActionParam[] = [
   { field: 'crm_campaign', objectOverride: 'crm_campaign_member' }, // field-backed
@@ -149,7 +145,8 @@ const resolved = resolveActionParams(params, {
   fieldLabel: (_objectName, _fieldName, fallback) => fallback,
   locale: 'en',
 });
-// resolved[0] is a `lookup` param labelled 'Campaign' whose `referenceTo` is 'crm_campaign'.
+// resolved[0] takes its type, label and `referenceTo` from the
+// `crm_campaign_member.crm_campaign` field definition; resolved[1] is as declared.
 ```
 
 - `resolveActionParam(param, ctx)` / `resolveActionParams(params, ctx)` — a

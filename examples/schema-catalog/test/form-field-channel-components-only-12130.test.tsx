@@ -21,10 +21,11 @@
  * `FormSchema.defaultValues`, the form's initial-values channel, and reads it
  * back from the same places.
  *
- * It also measures the default branch's number input (objectui#12130 round
+ * It also measures the default branch's own control (objectui#12130 round
  * 3): with no `number` widget registered, an entry that says
  * `inputType: 'number'` draws a native number input there, and its step
- * follows the registered widget's rule.
+ * follows the registered widget's rule; an entry's `className` joins the
+ * control's own classes there instead of replacing them.
  *
  * This file imports no field widgets on purpose. That absence IS the registry
  * set it measures, so a module-scope `@object-ui/fields` import added here
@@ -122,5 +123,19 @@ describe('the default branch\'s number input takes the `number` widget\'s step w
     expect(await stepOf({})).toEqual({ type: 'number', step: 'any' });
     expect(await stepOf({ scale: 2 })).toEqual({ type: 'number', step: '0.01' });
     expect(await stepOf({ step: 5, scale: 2 })).toEqual({ type: 'number', step: '5' });
+  });
+});
+
+describe('the default branch merges an entry\'s `className` into its control\'s classes (objectui#12130)', () => {
+  it('a read-only control keeps its read-only tint beside the authored class', async () => {
+    const classesOf = (m: Awaited<ReturnType<typeof mount>>) =>
+      (m.row().querySelector('input')?.getAttribute('class') ?? '').split(/\s+/);
+    const without = await mount({ type: 'text', readonly: true });
+    expect(classesOf(without)).toContain('bg-muted/40');
+    without.unmount();
+
+    const withKey = await mount({ type: 'text', readonly: true, className: 'authored-cls-12130' });
+    expect(classesOf(withKey)).toEqual(expect.arrayContaining(['bg-muted/40', 'authored-cls-12130']));
+    expect(withKey.row().getAttribute('class') ?? '').not.toContain('authored-cls-12130');
   });
 });

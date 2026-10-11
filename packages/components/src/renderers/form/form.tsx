@@ -4474,14 +4474,17 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
         // File inputs cannot be controlled with value prop. No cap applies to a
         // file picker.
         const { value, ...fileProps } = domFieldProps;
-        return <Input type="file" placeholder={placeholder} className="min-h-[44px] sm:min-h-0" {...fileProps} />;
+        return <Input type="file" placeholder={placeholder} {...fileProps} className={cn('min-h-[44px] sm:min-h-0', fileProps.className)} />;
       }
       return (
         <Input
           type={inputType || 'text'}
           placeholder={placeholder}
-          className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass)}
           {...domFieldProps}
+          // After the spread, and MERGED: an entry's `className` adds to this
+          // branch's own classes instead of replacing them (objectui#12130).
+          // Every built-in branch writes it this way.
+          className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass, domFieldProps.className)}
           // After the spread, so the resolved cap is the one written (the
           // #3222 discipline). `undefined` when the field declares no
           // `maxLength`, which renders no attribute.
@@ -4547,15 +4550,16 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
             placeholder={placeholder}
             label={label}
             error={error}
+            {...rest}
             // `readonly` is destructured off `props` at the top of this
             // function, so — exactly like `label` and `mobile_fullscreen` — it
             // is NOT in `rest` and has to be forwarded by name (objectui#3400).
             // The non-fullscreen exit below always did this; this exit forwarded
             // neither the attribute nor the tint, which is why a read-only long
             // text field was editable in place the moment the fullscreen flag
-            // was on. (`disabled` rides `rest`, which no strip touches.)
-            className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass)}
-            {...rest}
+            // was on. (`disabled` rides `rest`, which no strip touches.) The
+            // entry's `className` is merged in, not spread over (objectui#12130).
+            className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass, rest.className)}
             // After the spread, so the resolved cap is the one written (the
             // #3222 discipline).
             maxLength={maxLength}
@@ -4567,8 +4571,8 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
       return (
         <BuiltinTextarea
           placeholder={placeholder}
-          className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass)}
           {...rest}
+          className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass, rest.className)}
           maxLength={maxLength}
           readOnly={readonly}
           value={rest.value ?? ''}
@@ -4584,8 +4588,8 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           checked={value}
           onCheckedChange={onChange}
           disabled={cbDisabled || readonly}
-          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"
           {...checkboxProps}
+          className={cn('min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0', checkboxProps.className)}
         />
       );
     }
@@ -4598,8 +4602,8 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           checked={value}
           onCheckedChange={onChange}
           disabled={swDisabled || readonly}
-          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"
           {...switchProps}
+          className={cn('min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0', switchProps.className)}
         />
       );
     }
@@ -4740,8 +4744,8 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           // `secret` and `ui:password`, which the table now carries.
           type={inputType || NATIVE_INPUT_FIELD_TYPES[declaredType] || 'text'}
           placeholder={placeholder}
-          className={cn(readonlyInputClass)}
           {...domFieldProps}
+          className={cn(readonlyInputClass, domFieldProps.className)}
           // After the spread, so the resolved cap is the one written (the
           // #3222 discipline). `undefined` when the field declares no
           // `maxLength`, which renders no attribute — an uncapped field is

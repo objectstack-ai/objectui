@@ -585,7 +585,7 @@ export function useColumnSummary(
  */
 export function useScopedColumnSummary(
   columns: ListColumn[] | undefined,
-  data: any[],
+  data: SummaryRow[],
   fieldMetadata: SummaryFieldMetadata | undefined,
   scope: ColumnSummaryScope,
   wholeRow: ListViewGroupHeaderRow | undefined,

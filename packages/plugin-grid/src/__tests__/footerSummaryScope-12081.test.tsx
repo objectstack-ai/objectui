@@ -43,6 +43,7 @@ import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/re
 import '@testing-library/jest-dom';
 import React from 'react';
 import { parseFilterAST } from '@objectstack/spec/data';
+import type { DataSource, ObjectGridSchema } from '@object-ui/types';
 
 import { ObjectGrid } from '../ObjectGrid';
 import { __clearRecordCrudVerdictCache } from '../hooks/useRecordCrudVerdicts';
@@ -53,7 +54,7 @@ import { ActionProvider, I18nProvider, notifyDataChanged } from '@object-ui/reac
 beforeAll(() => {
   registerAllFields();
   if (!Element.prototype.scrollIntoView) {
-    Element.prototype.scrollIntoView = vi.fn() as any;
+    Element.prototype.scrollIntoView = vi.fn() as unknown as Element['scrollIntoView'];
   }
 });
 beforeEach(() => {
@@ -68,7 +69,7 @@ afterEach(() => {
 const OBJECT = 'plan_line';
 const PAGE = 25;
 
-interface Row { id: string; name: string; stage: string; amount: number; note: string | null }
+type Row = { id: string; name: string; stage: string; amount: number; note: string | null } & Record<string, unknown>;
 /** 300 rows; every fifth `note` is empty, every third row is `won`. */
 const ROWS: Row[] = Array.from({ length: 300 }, (_, i) => ({
   id: `r${i}`,
@@ -113,26 +114,29 @@ type AggregateQuery = { where?: unknown; groupBy?: string[]; aggregations?: Agg[
 
 /** One aggregation node over a row set, as `engine.aggregate` answers it. */
 function aggregateOf(rows: Row[], node: Agg): number | null {
-  const values = node.field === undefined ? [] : rows.map((r) => (r as any)[node.field!]).filter((v) => v !== null && v !== undefined);
+  const values: unknown[] = node.field === undefined ? [] : rows.map((r) => r[node.field!]).filter((v) => v !== null && v !== undefined);
+  const total = (): number => values.reduce((a: number, b) => a + Number(b), 0);
   switch (node.function) {
     case 'count': return node.field === undefined ? rows.length : values.length;
     case 'count_distinct': return new Set(values).size;
-    case 'sum': return values.reduce((a, b) => a + Number(b), 0);
-    case 'avg': return values.length === 0 ? null : values.reduce((a, b) => a + Number(b), 0) / values.length;
+    case 'sum': return total();
+    case 'avg': return values.length === 0 ? null : total() / values.length;
     case 'min': return values.length === 0 ? null : Math.min(...values.map(Number));
     case 'max': return values.length === 0 ? null : Math.max(...values.map(Number));
     default: throw new Error(`double: unsupported aggregation ${node.function}`);
   }
 }
 
+type FilterInput = Parameters<typeof parseFilterAST>[0];
+
 const matching = (where: unknown, search: unknown, searchFields: unknown) =>
-  ROWS.filter((r) => matchesWhere(r as any, where) && matchesSearch(r as any, search, searchFields));
+  ROWS.filter((r) => matchesWhere(r, where) && matchesSearch(r, search, searchFields));
 
 function makeDataSource(opts: { door?: 'answers' | 'absent' | 'refuses' | 'no-row' | 'strings' } = {}) {
   const door = opts.door ?? 'answers';
-  const ds: Record<string, any> = {
+  const ds: Record<string, ReturnType<typeof vi.fn>> = {
     find: vi.fn(async (_object: string, params: Record<string, unknown>) => {
-      const where = params.$filter === undefined ? undefined : parseFilterAST(params.$filter as any);
+      const where = params.$filter === undefined ? undefined : parseFilterAST(params.$filter as FilterInput);
       const rows = matching(where, params.$search, params.$searchFields);
       const skip = (params.$skip as number | undefined) ?? 0;
       const top = (params.$top as number | undefined) ?? rows.length;
@@ -162,6 +166,8 @@ function makeDataSource(opts: { door?: 'answers' | 'absent' | 'refuses' | 'no-ro
   return ds;
 }
 
+type TestDataSource = ReturnType<typeof makeDataSource>;
+
 const sumOf = (rows: Row[]) => rows.reduce((a, r) => a + r.amount, 0);
 const fmt = (n: number) => n.toLocaleString('en');
 
@@ -170,17 +176,17 @@ const AMOUNT_SUM = [
   { field: 'amount', label: 'Amount', type: 'number', summary: 'sum' },
 ];
 
-const ownFetchGrid = (ds: any, columns: unknown[] = AMOUNT_SUM, extra: Record<string, unknown> = {}) => (
+const ownFetchGrid = (ds: TestDataSource, columns: unknown[] = AMOUNT_SUM, extra: Record<string, unknown> = {}) => (
   <ActionProvider>
     <ObjectGrid
-      schema={{ type: 'object-grid', objectName: OBJECT, columns, pagination: { pageSize: PAGE }, ...extra } as any}
-      dataSource={ds}
+      schema={{ type: 'object-grid', objectName: OBJECT, columns, pagination: { pageSize: PAGE }, ...extra } as unknown as ObjectGridSchema}
+      dataSource={ds as unknown as DataSource}
     />
   </ActionProvider>
 );
 
 /** The host's page, as `ListView` hands one down (objectui#4501's literal, key for key). */
-function hostGrid(ds: any, opts: {
+function hostGrid(ds: TestDataSource, opts: {
   rows: Row[];
   page?: number;
   findParams?: Record<string, unknown> | null;
@@ -195,8 +201,8 @@ function hostGrid(ds: any, opts: {
   return (
     <ActionProvider>
       <ObjectGrid
-        schema={{ type: 'object-grid', objectName: OBJECT, columns: opts.columns ?? AMOUNT_SUM, pagination: { pageSize: PAGE } } as any}
-        dataSource={ds}
+        schema={{ type: 'object-grid', objectName: OBJECT, columns: opts.columns ?? AMOUNT_SUM, pagination: { pageSize: PAGE } } as unknown as ObjectGridSchema}
+        dataSource={ds as unknown as DataSource}
         data={opts.rows.slice((page - 1) * PAGE, page * PAGE)}
         manualPagination
         rowCount={opts.rowCount ?? opts.rows.length}
@@ -261,7 +267,7 @@ describe('the footer reads the whole matched set when the grid shows one page of
   it('(c) a filter and a search narrow the count and the footer alike', async () => {
     const ds = makeDataSource();
     const filter = ['stage', '=', 'won'];
-    const narrowed = matching(parseFilterAST(filter as any), 'Line 1', ['name']);
+    const narrowed = matching(parseFilterAST(filter as FilterInput), 'Line 1', ['name']);
     // Not a coincidence the assertions could pass by: a strict subset, larger than a page.
     expect(narrowed.length).toBeGreaterThan(PAGE);
     expect(narrowed.length).toBeLessThan(ROWS.length);
@@ -283,7 +289,7 @@ describe('the footer reads the whole matched set when the grid shows one page of
     const [object, query] = ds.queryGroupHeaders.mock.calls[0];
     expect(object).toBe(OBJECT);
     expect(query).toEqual({
-      where: parseFilterAST(filter as any),
+      where: parseFilterAST(filter as FilterInput),
       search: 'Line 1',
       searchFields: ['name'],
       aggregations: [
@@ -430,8 +436,8 @@ describe('CONTROL: rows that ARE the whole set keep their footer and ask nothing
     render(
       <ActionProvider>
         <ObjectGrid
-          schema={{ type: 'object-grid', objectName: OBJECT, columns: AMOUNT_SUM, data: { provider: 'value', items: rows } } as any}
-          dataSource={ds as any}
+          schema={{ type: 'object-grid', objectName: OBJECT, columns: AMOUNT_SUM, data: { provider: 'value', items: rows } } as unknown as ObjectGridSchema}
+          dataSource={ds as unknown as DataSource}
         />
       </ActionProvider>,
     );
@@ -442,7 +448,7 @@ describe('CONTROL: rows that ARE the whole set keep their footer and ask nothing
   it('a grid whose one page is the whole matched set', async () => {
     const ds = makeDataSource();
     const filter = ['amount', '>', 29000];
-    const few = matching(parseFilterAST(filter as any), undefined, undefined);
+    const few = matching(parseFilterAST(filter as FilterInput), undefined, undefined);
     expect(few.length).toBeLessThan(PAGE);
     render(ownFetchGrid(ds, AMOUNT_SUM, { filter }));
     await waitFor(() => expect(footerText('amount')).toBe(`Amount: Sum: ${fmt(sumOf(few))}`));

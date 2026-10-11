@@ -205,9 +205,10 @@ export function useWholeSetSummary(input: WholeSetSummaryInput): WholeSetSummary
   useEffect(() => {
     if (!canAsk || !dataSource || !objectName) return;
     let cancelled = false;
-    // Re-asking the question in hand keeps its answer on screen until the
-    // new one lands; a different question starts with none.
-    setHeld((prev) => (prev.question === question ? prev : { question, answer: PENDING }));
+    // Nothing is set before the answer lands: re-asking the question in hand
+    // keeps its answer on screen until the new one replaces it, and a
+    // different question reads as pending by itself (the read below compares
+    // the held question with this render's).
     const asked = (JSON.parse(question) as [string, EngineAggregateOptions])[1];
     // Through a resolved promise, so a source that throws synchronously is a
     // refusal like any other rather than a render error.

@@ -245,6 +245,44 @@ describe('a read field key changes what its widget does (objectui#12130)', () =>
     expect(await open({ subtitle: ['dept'] })).toContain('Opsdept');
   });
 
+  /**
+   * Reports every image as loaded. happy-dom never loads one, so Radix's
+   * `AvatarImage` draws no `img` whether or not a URL reached it; with this in
+   * place an `img` is drawn exactly when an avatar URL reached the Avatar (the
+   * technique of `PeoplePicker.outputFls-10433.test.tsx` in `@object-ui/fields`).
+   */
+  class LoadedImage {
+    complete = true;
+    naturalWidth = 1;
+    src = '';
+    crossOrigin: string | null = null;
+    referrerPolicy = '';
+    addEventListener(): void {}
+    removeEventListener(): void {}
+  }
+
+  it.each(['user', 'lookup'])('`avatarField` (%s) is the record field each search-picker candidate draws its avatar from', async (type) => {
+    // Each candidate carries an avatar in the default field (`image`) and in
+    // another one: both legs read a drawn `img`, so neither passes on a picker
+    // that draws no avatar at all.
+    const people = [{ id: 'u1', name: 'Ann', image: 'https://cdn.example/ann-image.png', photo: 'https://cdn.example/ann-photo.png' }];
+    const drawn = async (field: Row) => {
+      const m = await mount({ type, reference: 'sys_user', picker: 'search', ...field }, { dataSource: dataSourceOf(people) });
+      await click(m.row().querySelector('[data-testid^="lookup-trigger"]'));
+      const src = document.querySelector('[data-testid="person-row"] img')?.getAttribute('src') ?? null;
+      m.unmount();
+      return src;
+    };
+    const realImage = window.Image;
+    (window as unknown as { Image: unknown }).Image = LoadedImage;
+    try {
+      expect(await drawn({})).toBe('https://cdn.example/ann-image.png');
+      expect(await drawn({ avatarField: 'photo' })).toBe('https://cdn.example/ann-photo.png');
+    } finally {
+      window.Image = realImage;
+    }
+  });
+
   /** Open a lookup's browse-all dialog; its column headers and the queries it made. */
   const browseAll = async (field: Row) => {
     const ds = dataSourceOf();

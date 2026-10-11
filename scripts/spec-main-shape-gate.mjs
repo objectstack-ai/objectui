@@ -176,8 +176,9 @@
  * -- replayed as its own. The measurement is on this issue's pull request.
  *
  * So the injection is part of turbo's hash: `turbo.json`'s `globalDependencies`
- * names `TURBO_HASH_MARKER`, the marker above reached through the root link to
- * the spec. Measured on turbo 2.10:
+ * names `TURBO_HASH_MARKER`, the `MARKER_FILE` `inject` writes into every
+ * replaced copy, reached through the root link to the spec. Measured on turbo
+ * 2.10:
  *
  *  - Absent, a global dependency hashes as nothing: installed trees share
  *    entries with each other as before, and an injected tree hashes apart from

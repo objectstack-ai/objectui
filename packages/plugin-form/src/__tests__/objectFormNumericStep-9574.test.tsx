@@ -27,13 +27,16 @@
  *    `toDomProps` whitelist does not forward `step`, so `NumberField` derives
  *    its own from `scale`. Deleting the producer's assignment outright left
  *    every rendered `<input>` on this route byte-identical.
- *  - **Built-in `input` control** (a field declaring `widget: 'input'`): the
- *    renderer's `input` branch spreads the leftover field props straight onto
- *    the `<input>`, so the producer's `step` IS the attribute the browser
- *    enforces. Until objectui#12110 this block reached the same spread through
- *    a `widget` naming a component nothing registers; that name now degrades
- *    to the `type` renderer, as `@objectstack/spec`'s `FieldSchema.widget`
- *    describes, which is the registered route above.
+ *  - **Built-in `input` control** (a field declaring `widget: 'input'`): since
+ *    objectui#12130 `ObjectForm` writes no `step`. The renderer's `input`
+ *    branch derives the `<input>`'s step from the same metadata carrier, by
+ *    `NumberField`'s rule (an explicit `step`, else `10^-scale`, else `any`),
+ *    and that derived step is the attribute the browser enforces, so the
+ *    first block below pins the derivation. Until objectui#12110 this block
+ *    reached a second such input through a `widget` naming a component
+ *    nothing registers; that name now degrades to the `type` renderer, as
+ *    `@objectstack/spec`'s `FieldSchema.widget` describes, which is the
+ *    registered route above.
  *
  * ⇒ the first block below is the load-bearing pin — it fails on the
  * `precision`-derived expression, where these three inputs all read

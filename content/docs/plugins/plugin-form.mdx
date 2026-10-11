@@ -72,9 +72,8 @@ examples used to be, and they now live in the catalog under
 name (`json-schema/ui/FormField.json`) with a different key set, so read this
 table against the `@object-ui/types` copy rather than the same-named schema in
 the spec. This page does not redeclare it, because a locally written
-`interface` compiles no matter how far it has drifted from the real one. It
-has **23 declared keys**, and `name` is the only **required** one: `type` and
-`label` are both optional.
+`interface` compiles no matter how far it has drifted from the real one.
+`name` is its only **required** key: `type` and `label` are both optional.
 
 | Key | Type | What it does |
 | --- | --- | --- |
@@ -98,23 +97,21 @@ has **23 declared keys**, and `name` is the only **required** one: `type` and
 | `dependsOn` | `DependsOnInput` | cascading parent(s): a bare name, a list of names, or `{ field, param }` entries |
 | `span` | `'auto' \| 'full'` | relative field width, independent of the column count (preferred) |
 | `colSpan` | `number` | legacy column span (1–4), clamped to the current column count |
+| `className` | `string` | the classes of the element the field's type renders (its control, or a `section-divider` row's divider), joined with that element's own classes; never the field row: `span` / `colSpan` for width, `FormSchema.fieldContainerClass` for the grid |
 | `field` | `Record<string, any>` | the resolved object-field **metadata object**, stashed by the object-bound paths so widgets can read `precision`, `currency`, `reference`, … |
 
 `FormField` also declares `[key: string]: any`, so a misspelled or invented key
-is **not** a compile error — it is simply outside the contract. Two that a
-reader might expect here, and that are **not** declared members:
+is **not** a compile error — it is simply outside the contract. One that a
+reader might expect here, and that is **not** a declared member:
 
 | Not a `FormField` key | Write this instead |
 | --- | --- |
 | `defaultValue` | `FormSchema.defaultValues`, at form level. An object-bound form seeds from the object field's own declared `defaultValue` instead |
-| `className` | `span` / `colSpan` for width, `FormSchema.fieldContainerClass` for the field grid |
 
 An undeclared key still rides the props spread down to whichever component the
-field resolves to, so a field-level `className` can visibly land on a built-in
-control — but nothing in the contract promises that, and a registered widget
-honours it only if it happens to spread its leftover props. A field-level
-`defaultValue` reaches the widget the same way and changes nothing: the control
-is bound to react-hook-form, whose initial values come from the form.
+field resolves to. A field-level `defaultValue` reaches the widget the same way
+and changes nothing: the control is bound to react-hook-form, whose initial
+values come from the form.
 
 #### `validation` is an object keyed by rule name
 

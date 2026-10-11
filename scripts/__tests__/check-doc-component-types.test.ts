@@ -2603,11 +2603,13 @@ describe('objectui#5118 — the plugin-form page teaches the real `validation` s
     for (const rule of ['required?:', 'minLength?:', 'maxLength?:', 'min?:', 'max?:', 'pattern?:', 'validate?:']) {
       expect(types.slice(types.indexOf('export interface FieldValidationRules {'))).toContain(rule);
     }
-    // `defaultValue` / `className` are named as NON-members; that is only true
-    // while the interface really omits them.
+    // `defaultValue` is named as a NON-member; that is only true while the
+    // interface really omits it. `className` is named as a declared member
+    // since objectui#12130 declared it; that is only true while the interface
+    // really declares it.
     const formField = types.slice(types.indexOf('export interface FormField {'));
     const declaredKeys = formField.slice(0, formField.indexOf('\n}'));
     expect(declaredKeys).not.toMatch(/^\s{2}defaultValue\??:/m);
-    expect(declaredKeys).not.toMatch(/^\s{2}className\??:/m);
+    expect(declaredKeys).toMatch(/^\s{2}className\??:/m);
   });
 });

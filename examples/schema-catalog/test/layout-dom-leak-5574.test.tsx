@@ -150,7 +150,13 @@ const NODE_CENSUS: Readonly<Record<string, { rendered: number; noElement: number
   // element, and the badge demo's four bare item labels, which do not — so
   // rendered moves by 12 and no-element by 15. The other items are `button`
   // labels. Catalog authoring, not a renderer change.
-  text: { rendered: 687, noElement: 140 },
+  // 687 -> 684 and 140 -> 137 with objectui#5250 slice C: the three items of
+  // `components-data-display-list/basic-list` carried a `type: 'text'` that
+  // `ui:list` never reads (it draws each item's `content`), so this structural
+  // walk collected them as three bare text nodes that draw no element. The
+  // items now author `content` alone, so both counts move by exactly three.
+  // Catalog authoring, not a renderer change.
+  text: { rendered: 684, noElement: 137 },
   // The objectui#3965 migration population (80 nodes retyped from `div`) plus
   // the 4 nodes of the components-layout-box exemplars. `box` is born on
   // `toDomProps` and class-transparency, so it joins the measured set as a

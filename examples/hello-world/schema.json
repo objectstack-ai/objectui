@@ -8,7 +8,7 @@
       "children": [
         { "type": "text", "content": "Welcome to ObjectUI!" },
         { "type": "text", "content": "This UI is rendered from a JSON schema." },
-        { "type": "button", "content": "Get Started", "variant": "default" }
+        { "type": "button", "label": "Get Started", "variant": "default" }
       ]
     }
   ]

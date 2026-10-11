@@ -7,7 +7,7 @@
     },
     {
       "label": "Products",
-      "items": [
+      "children": [
         {
           "label": "All Products",
           "href": "/products"

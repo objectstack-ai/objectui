@@ -71,7 +71,7 @@ export const dashboardSchema: FlexBlockNode = {
                   type: 'card',
                   title: 'User Management',
                   description: 'Manage your users and permissions',
-                  content: {
+                  children: {
                     type: 'data-table',
                     columns: [
                       { header: 'ID', accessorKey: 'id', width: '80px' },

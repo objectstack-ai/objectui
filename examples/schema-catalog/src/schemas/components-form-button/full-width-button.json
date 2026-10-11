@@ -1,6 +1,6 @@
 {
   "type": "button",
   "label": "Full Width Button",
-  "fullWidth": true,
+  "className": "w-full",
   "variant": "default"
 }

@@ -1,8 +1,6 @@
 {
   "type": "combobox",
   "placeholder": "Select language...",
-  "searchPlaceholder": "Search languages...",
-  "emptyText": "No language found.",
   "options": [
     {
       "value": "js",

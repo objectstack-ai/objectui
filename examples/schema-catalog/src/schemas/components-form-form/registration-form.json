@@ -27,7 +27,5 @@
       "max": 120
     }
   ],
-  "submitButton": {
-    "label": "Register"
-  }
+  "submitLabel": "Register"
 }

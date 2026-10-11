@@ -65,11 +65,13 @@
 
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useRecordContext, useSafeFieldLabel } from '@object-ui/react';
+import { useRecordContext, useSafeFieldLabel, subscribeDataChanges, dataChangeMatches } from '@object-ui/react';
 import { cn, Card, CardHeader, CardTitle, CardContent, Badge, Skeleton } from '@object-ui/components';
 import {
   composeParentScopeFilter,
+  declaredNameField,
   isMultiValueRelationship,
+  recordDisplayValueAt,
   type FieldContainerLike,
 } from '@object-ui/core';
 import { ChevronRight } from 'lucide-react';
@@ -223,10 +225,25 @@ const humanize = (s: string) =>
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .trim();
 
-const pickDisplayName = (row: any, displayField?: string): string => {
+/**
+ * A related row's name: the entry's own `displayField`, then the target
+ * object's DECLARED name field, then the fixed ladder below.
+ *
+ * The middle rung is objectui#12110 item 3 (finding B-13 of the HotCRM browser
+ * pass). The ladder alone named a row by whichever of its keys the row
+ * happened to carry, so an object that declares its record name (ADR-0079's
+ * `nameField`) was named by its `subject` or its `code` instead. The pointer is
+ * read through `@object-ui/core`'s `declaredNameField` and the value through
+ * `recordDisplayValueAt`, the two halves `getRecordDisplayName` reads its own
+ * declared rung with, so the rail and every other title surface agree on what
+ * a declared name field is and when its value is empty.
+ */
+const pickDisplayName = (row: any, displayField?: string, nameField?: string): string => {
   if (displayField && row?.[displayField] != null && row[displayField] !== '') {
     return String(row[displayField]);
   }
+  const declared = recordDisplayValueAt(row, nameField);
+  if (declared) return declared;
   return (
     row?.name ||
     row?.title ||
@@ -302,6 +319,10 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
   // whole queue (every related collection fetched 3–5×). We fetch once per
   // (parentId + entries) and skip identical re-runs.
   const fetchedSigRef = React.useRef<string>('');
+  // The (parentId + entries) half of that signature, kept apart so a run can
+  // tell a REFRESH of the scope already on screen from a new scope — see the
+  // invalidation subscription below (objectui#12110 item 4).
+  const fetchedScopeRef = React.useRef<string>('');
   React.useEffect(() => {
     if (railVisible) return; // latch: once visible, stop observing
     const el = railRef.current;
@@ -328,6 +349,11 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
   // Empty until a schema proves otherwise: the seam then compiles equality,
   // which is byte for byte the wire this rail has always sent.
   const [entryFields, setEntryFields] = React.useState<Record<string, FieldContainerLike>>({});
+  // The CHILD objects' declared name fields (ADR-0079 `nameField`), keyed by
+  // object name, from the same schema read — what names each related row
+  // (objectui#12110 item 3). Absent for an object that declares none, and for
+  // an adapter that cannot serve the schema: the row ladder applies then.
+  const [entryNameFields, setEntryNameFields] = React.useState<Record<string, string>>({});
   // One warning per (object, field) per mounted rail — the link suppression
   // below is silent on screen by construction, so the developer channel is the
   // only place it can be said at all. Fired from the effect, never from render.
@@ -366,15 +392,47 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `entries` is tracked by CONTENT (`authoredLimitSig`), the way the fetch effect below tracks it by `entriesSig`; an inline array on a schema node is a new object every render.
   }, [authoredLimitSig]);
 
+  // [objectui#12110 item 4] The rail's reader side of the data-invalidation
+  // bus (`@object-ui/react`, objectui#2269). A record action with
+  // `refreshAfter: true` posts `notifyDataChanged({ objectName: <parent>,
+  // recordId })`; any dataSource write reaches the bus through the console's
+  // mutation bridge; the header's manual refresh posts `'*'`. The rail
+  // latched its fetch on (parentId + entries) and heard none of them, so its
+  // counts and rows went stale beside a record and related lists that
+  // refreshed. A change to the PARENT record (its action may have written
+  // children), to any ENTRY's object, or to everything now bumps a nonce the
+  // fetch effect's signature carries — a refetch in place, never a remount
+  // (AGENTS.md #8). Keyed on primitives only: the entry objects by content.
+  const parentObjectName = ctx?.objectName;
+  const entryObjectsSig = JSON.stringify(entries.map((e) => e.objectName));
+  const [invalidationNonce, setInvalidationNonce] = React.useState(0);
+  React.useEffect(() => {
+    const objects = JSON.parse(entryObjectsSig) as string[];
+    return subscribeDataChanges((change) => {
+      const parentStale =
+        !!parentObjectName && !!parentId && dataChangeMatches(change, parentObjectName, String(parentId));
+      if (parentStale || objects.some((objectName) => dataChangeMatches(change, objectName))) {
+        setInvalidationNonce((n) => n + 1);
+      }
+    });
+  }, [parentObjectName, parentId, entryObjectsSig]);
+
   React.useEffect(() => {
     if (!railVisible) return;
     if (!dataSource?.find || !parentId || entries.length === 0) return;
-    // Fetch once per (parentId + entries). Re-runs triggered purely by a new
-    // `dataSource` identity (drawer mount churn) are no-ops; navigating to a
-    // different record changes the signature and refetches.
-    const sig = `${parentId}::${entriesSig}`;
+    // Fetch once per (parentId + entries) and once per bus invalidation.
+    // Re-runs triggered purely by a new `dataSource` identity (drawer mount
+    // churn) are no-ops; navigating to a different record changes the
+    // signature and refetches.
+    const scope = `${parentId}::${entriesSig}`;
+    const sig = `${scope}::${invalidationNonce}`;
     if (fetchedSigRef.current === sig) return;
+    // A bus-driven refetch of the scope already on screen keeps its rows and
+    // counts up while it reads (objectui#12110 item 4): the skeleton is for a
+    // scope with nothing to show yet, not for a refresh.
+    const refreshing = fetchedScopeRef.current === scope;
     fetchedSigRef.current = sig;
+    fetchedScopeRef.current = scope;
     // objectui#10684 — only the run whose signature is still the dispatched
     // one commits. Navigating to another record (or changing the entries)
     // while this run's reads are in flight dispatches a new signature, and an
@@ -384,7 +442,7 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
     // so the mounted-latch promise stands: that run's answers still land.
     const isCurrent = () => mountedRef.current && fetchedSigRef.current === sig;
     // Mark every entry as loading up front so the skeletons render.
-    setStates((prev) => {
+    if (!refreshing) setStates((prev) => {
       const next = { ...prev };
       for (const entry of entries) {
         next[entry.objectName] = {
@@ -446,11 +504,18 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
       // trade this card's loud 400 on one relationship shape for a silently
       // empty rail on every entry in the app.
       const fieldsFor = new Map<string, FieldContainerLike>();
+      const nameFieldFor = new Map<string, string>();
       if (typeof dataSource.getObjectSchema === 'function') {
         await Promise.all(
           Array.from(new Set(entries.map((e) => e.objectName))).map(async (name) => {
             try {
-              fieldsFor.set(name, (await dataSource.getObjectSchema(name))?.fields);
+              const schema = await dataSource.getObjectSchema(name);
+              fieldsFor.set(name, schema?.fields);
+              // The same read names the rows (objectui#12110 item 3): the
+              // schema's declared name field, which this rail used to drop
+              // with everything else but `fields`.
+              const nameField = declaredNameField(schema);
+              if (typeof nameField === 'string' && nameField !== '') nameFieldFor.set(name, nameField);
             } catch {
               // Equality it is — the wire this rail has always sent.
             }
@@ -459,6 +524,7 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
       }
       if (!isCurrent()) return;
       setEntryFields(Object.fromEntries(fieldsFor));
+      setEntryNameFields(Object.fromEntries(nameFieldFor));
       for (const entry of entries) {
         if (!isMultiValueRelationship(fieldsFor.get(entry.objectName), entry.relationshipField)) {
           continue;
@@ -490,7 +556,7 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
         Array.from({ length: Math.min(MAX_CONCURRENCY, queue.length) }, () => runWorker()),
       );
     })();
-  }, [railVisible, dataSource, parentId, entriesSig]);
+  }, [railVisible, dataSource, parentId, entriesSig, invalidationNonce]);
 
   // useState must run unconditionally — declared above the empty-entries early
   // return so hook order stays stable across renders.
@@ -586,7 +652,7 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
                 <ul className="divide-y">
                   {state.items.map((item) => {
                     const id = item.id || item._id;
-                    const name = pickDisplayName(item, entry.displayField);
+                    const name = pickDisplayName(item, entry.displayField, entryNameFields[key]);
                     const href = id
                       ? `../${entry.objectName}/record/${encodeURIComponent(String(id))}`
                       : undefined;

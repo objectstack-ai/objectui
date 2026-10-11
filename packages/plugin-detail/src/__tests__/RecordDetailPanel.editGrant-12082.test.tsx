@@ -34,8 +34,8 @@ import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/pe
 import { RecordDetailPanel } from '../RecordDetailPanel';
 
 const OBJECT = 'crm_opportunity';
-const RECORD = { id: 'o1', name: 'Acme renewal', stage: 'Prospecting' };
-const FIELDS = { id: { type: 'text' }, name: { type: 'text', label: 'Name' }, stage: { type: 'text', label: 'Stage' } };
+const RECORD = { id: 'o1', name: 'Acme renewal', note: 'Call back in May' };
+const FIELDS = { id: { type: 'text' }, name: { type: 'text', label: 'Name' }, note: { type: 'text', label: 'Note' } };
 
 const SHAPES: Array<{ shape: string; bits: Record<string, boolean>; update: boolean }> = [
   { shape: 'create-only', bits: { allowCreate: true, allowRead: true, allowEdit: false, allowDelete: false }, update: false },
@@ -58,7 +58,7 @@ const envelope = (bits: Record<string, unknown>, named = true): MePermissionsRes
   roles: ['member'],
   permissionSets: ['member'],
   objects: { [OBJECT]: bits as never },
-  fields: named ? { [`${OBJECT}.stage`]: { readable: true, editable: true } } : {},
+  fields: named ? { [`${OBJECT}.note`]: { readable: true, editable: true } } : {},
 });
 
 beforeAll(() => {
@@ -95,8 +95,8 @@ function mount(perms: MePermissionsResponse | null, objectSchema: Record<string,
 
 /** Does a double-click on the field value open an editor for it? */
 function inlineEditOffered(): boolean {
-  fireEvent.doubleClick(screen.getByText(RECORD.stage));
-  return screen.queryByDisplayValue(RECORD.stage) !== null;
+  fireEvent.doubleClick(screen.getByText(RECORD.note));
+  return screen.queryByDisplayValue(RECORD.note) !== null;
 }
 
 describe.each(SHAPES)('the record overlay under a $shape grant (objectui#12082)', ({ bits, update }) => {

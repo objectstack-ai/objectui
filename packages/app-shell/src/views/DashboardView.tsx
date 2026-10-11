@@ -21,9 +21,11 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from '@object-ui/components';
-import { LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, Lock } from 'lucide-react';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { useActionModal } from '../hooks/useActionModal.js';
+import { useMetaItemRefusal } from '../hooks/useMetaItemRefusal.js';
+import { usePreviewDrafts } from '../preview/PreviewModeContext.js';
 import { SkeletonDashboard } from '../skeletons/index.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
@@ -153,10 +155,26 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
     queueMicrotask(() => setIsLoading(false));
   }, [dashboardName]);
 
-  const { dashboards, objects: metadataObjects } = useMetadata();
+  // `dashboards` is read first: its getter starts the list's fetch, and the
+  // status read after it is that fetch's.
+  const { dashboards, objects: metadataObjects, getTypeStatus } = useMetadata();
   // ADR-0048 Phase 2 — prefer the dashboard owned by the current app's package.
   const { app: activeApp } = useExpressionContext();
   const dashboard = preferLocal(dashboards as any[], dashboardName, (activeApp as any)?._packageId);
+
+  // ---- A miss: refused, or not there? (objectui#12112) ---------------------
+  // The server lists only the dashboards this caller may open
+  // (objectstack#22731), so a dashboard withheld by its `requiredPermissions`
+  // is absent from `dashboards` exactly like a name that does not exist. Only
+  // the by-name read tells them apart, so a miss is asked there, once the list
+  // has answered (before that, absence is not yet a miss). Not in draft
+  // preview: the probe reads the published world, and this page reads the
+  // draft one — `AppContent` skips its app probe there for the same reason.
+  const previewDrafts = usePreviewDrafts();
+  const dashboardsStatus = getTypeStatus?.('dashboard') ?? 'ready';
+  const dashboardsSettled = dashboardsStatus === 'ready' || dashboardsStatus === 'error';
+  const missedName = !dashboard && dashboardsSettled && !previewDrafts && dashboardName ? dashboardName : null;
+  const access = useMetaItemRefusal('dashboard', missedName);
 
   // ---- Runtime capability gate --------------------------------------------
   // Hide widgets whose `requiresObject` is not registered (mirrors
@@ -190,6 +208,24 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
   }
 
   if (!dashboard) {
+    if (!dashboardsSettled || access.checking) {
+      return <SkeletonDashboard />;
+    }
+    // Refused: said as a permission refusal, and in the server's own sentence,
+    // which names the dashboard. ⛔ Not "not found": the dashboard exists.
+    if (access.refusal) {
+      return (
+        <div className="h-full flex items-center justify-center p-8">
+          <Empty data-testid="dashboard-access-denied">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Lock className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <EmptyTitle>{t('dashboard.widgetForbiddenTitle')}</EmptyTitle>
+            {access.refusal.message && <EmptyDescription>{access.refusal.message}</EmptyDescription>}
+          </Empty>
+        </div>
+      );
+    }
     return (
       <div className="h-full flex items-center justify-center p-8">
          <Empty>

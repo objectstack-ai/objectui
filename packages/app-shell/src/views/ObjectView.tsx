@@ -46,8 +46,9 @@ import {
   NavigationOverlay,
   isFilterValueComplete,
 } from '@object-ui/components';
-import { Plus, Upload, Star, StarOff, Table as TableIcon, KanbanSquare, Calendar, LayoutGrid, Activity, GanttChart, MapPin, BarChart3 } from 'lucide-react';
+import { Plus, Upload, Star, StarOff, Table as TableIcon, KanbanSquare, Calendar, LayoutGrid, Activity, GanttChart, MapPin, BarChart3, Lock } from 'lucide-react';
 import { useFavorites } from '../hooks/useFavorites.js';
+import { useMetaItemRefusal } from '../hooks/useMetaItemRefusal.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
 import { useServedViewItems, isServedView } from '../hooks/useServedViewItems.js';
 import { getIcon } from '../utils/getIcon.js';
@@ -2436,6 +2437,18 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             );
         }
     }, [requestedViewId, resolvedViewId, objectDef.name, views]);
+    // objectui#12112 — a requested view that missed may be one the server
+    // refuses this caller: `/meta/view` lists only the views they may open
+    // (objectstack#22731), so the switcher never carries it, while a URL still
+    // can. The by-name read tells a refusal from absence. It is asked by the
+    // canonical `OBJECT.KEY` name that route addresses a view item by (a short
+    // name is the key), and not in draft preview, whose list is the draft
+    // world while the probe reads the published one. A refusal replaces the
+    // list below; any other answer keeps the fall-back to the default view.
+    const missedViewName = requestedViewId && !resolvedViewId && !previewDrafts
+        ? (requestedViewId.includes('.') ? requestedViewId : `${objectDef.name}.${requestedViewId}`)
+        : null;
+    const viewAccess = useMetaItemRefusal('view', missedViewName);
     const activeViewId = resolvedViewId || defaultViewId || views[0]?.id;
     const baseView = views.find((v: any) => v.id === activeViewId) || views[0];
     const activeView = viewDraft && viewDraft.id === baseView?.id
@@ -3827,6 +3840,20 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         },
     }), [objectDef, onEdit, activeViewSearch, activeViewFilter, activeViewSort, activeView?.id, activeView?.name, activeView?.label, navigate, viewId, isAdmin, location.pathname, location.search, viewLabel, objectPluralLabel, servedViews]);
 
+    // objectui#12112 — the list area for a view the server refused: said as a
+    // permission refusal, in the server's own sentence, which names the view.
+    const refusedViewFace = viewAccess.refusal ? (
+        <div className="h-full flex items-center justify-center p-8">
+            <Empty data-testid="view-access-denied">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                    <Lock className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <EmptyTitle>{t('list.loadErrorForbiddenTitle')}</EmptyTitle>
+                {viewAccess.refusal.message && <EmptyDescription>{viewAccess.refusal.message}</EmptyDescription>}
+            </Empty>
+        </div>
+    ) : null;
+
     return (
         <ActionProvider {...actionRuntime.actionProviderProps}>
         <RelatedRecordActionsProvider value={listRecordActions}>
@@ -4064,7 +4091,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                <div className="hidden sm:block border-b px-3 sm:px-4 bg-background overflow-x-auto shrink-0">
                  <ViewTabBar
                    views={viewTabItems}
-                   activeViewId={activeViewId}
+                   activeViewId={viewAccess.refusal ? '' : activeViewId}
                    onViewChange={handleViewChange}
                    viewTypeIcons={VIEW_TYPE_ICONS}
                    config={{
@@ -4118,6 +4145,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                             <div className="flex-1 min-w-0 relative h-full flex flex-col">
                                 <div className="flex-1 relative overflow-hidden">
                                     <div className="h-full overflow-auto">
+                                        {refusedViewFace ?? (viewAccess.checking ? null : (
                                         <PluginObjectView
                                             schema={objectViewSchema}
                                             dataSource={dataSource}
@@ -4133,6 +4161,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                                             hideNamedViewTabs
                                             onViewAction={handleViewAction}
                                         />
+                                        ))}
                                     </div>
                                 </div>
                                 {typeof recordCount === 'number' && (
@@ -4163,6 +4192,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 <div className="flex-1 min-w-0 relative h-full flex flex-col">
                     <div className="flex-1 relative overflow-hidden">
                         <div className="h-full overflow-auto">
+                            {refusedViewFace ?? (viewAccess.checking ? null : (
                             <PluginObjectView
                                 schema={objectViewSchema}
                                 dataSource={dataSource}
@@ -4178,6 +4208,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                                 hideNamedViewTabs
                                 onViewAction={handleViewAction}
                             />
+                            ))}
                         </div>
                     </div>
                     {/* Record count footer removed — ListView already renders record-count-bar */}

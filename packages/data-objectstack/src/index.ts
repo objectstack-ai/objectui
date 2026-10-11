@@ -1062,6 +1062,21 @@ export function isApiAccessDeniedError(error: unknown): boolean {
 export type AppAccessVerdict = 'granted' | 'denied' | 'not_found' | 'unreachable' | 'unknown';
 
 /**
+ * What {@link ObjectStackAdapter.probeMetaItemAccess} obtained about one item
+ * of any type the by-name meta route gates per caller (objectui#12112). The
+ * verdicts mean what they mean for an app ({@link AppAccessVerdict}).
+ */
+export interface MetaItemAccess {
+  readonly verdict: AppAccessVerdict;
+  /**
+   * The refusal's own `message`, as the server wrote it — for a dashboard,
+   * `You do not have permission to open the 'NAME' dashboard.` Only on
+   * `denied`, and absent when the server wrote none.
+   */
+  readonly message?: string;
+}
+
+/**
  * The ADR-0112 standard catalog code the by-name meta app route answers with
  * when an app exists and the session lacks its `requiredPermissions`
  * (objectstack#8013, `sendError(res, 403, 'PERMISSION_DENIED', …)` in
@@ -6206,28 +6221,59 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * @param appName - the app name as it appears in the URL segment
    */
   async probeAppAccess(appName: string): Promise<AppAccessVerdict> {
+    // Singular `app`, the address objectstack#8013 pinned its cases against,
+    // and the same one `MetadataProvider` reads items by.
+    return (await this.probeMetaItemAccess('app', appName)).verdict;
+  }
+
+  /**
+   * {@link probeAppAccess} for any metadata type whose by-name read refuses a
+   * caller (objectui#12112): why `name` is not in this session's list of
+   * `type`, plus the server's own sentence when it refused.
+   *
+   * Since objectstack#22731 a dashboard and a list view carry the app's gate:
+   * `GET /api/v1/meta/dashboard` and `/meta/view` list only what the caller may
+   * open, so a withheld item and a missing one are the same absence there, and
+   * the by-name read of one the caller does not hold answers `403`
+   * `PERMISSION_DENIED`, "the app arm's whole refusal (same emitter, same
+   * envelope)". The verdicts are therefore read exactly as for an app.
+   *
+   * `message` is the refusal's `message`, as the server wrote it: the one
+   * sentence that names the item and says it was refused. Only on `denied`.
+   *
+   * Nothing here throws, and nothing is cached: a verdict about the CALLER
+   * must not outlive a grant.
+   *
+   * @param type - the singular metadata type (`app`, `dashboard`, `view`)
+   * @param name - the item's name, as the by-name route addresses it
+   */
+  async probeMetaItemAccess(type: string, name: string): Promise<MetaItemAccess> {
     // Nothing was asked, so nothing was measured. `AppContent` never reaches
     // here with an empty name (`requestedAppMissing` requires one), so this is
     // the contract for a direct caller rather than a live path.
-    if (!appName) return 'unknown';
+    if (!type || !name) return { verdict: 'unknown' };
     try {
-      // Singular `app`, the address objectstack#8013 pinned its cases against,
-      // and the same one `MetadataProvider` reads items by. No `connect()`
-      // first: this route is only ever asked after the app LIST has already
-      // loaded through this same client, and the client's route resolution
-      // falls back to the conventional `/api/v1/meta` regardless — so a
-      // discovery round trip here could only add a failure mode.
-      const envelope = await this.client.meta.getItem('app', appName);
-      return metaEnvelopeCarriesItem(envelope) ? 'granted' : 'not_found';
+      // No `connect()` first: this route is only ever asked after the type's
+      // LIST has already loaded through this same client, and the client's
+      // route resolution falls back to the conventional `/api/v1/meta`
+      // regardless — so a discovery round trip here could only add a failure
+      // mode.
+      const envelope = await this.client.meta.getItem(type, name);
+      return { verdict: metaEnvelopeCarriesItem(envelope) ? 'granted' : 'not_found' };
     } catch (err) {
-      if (isAppPermissionDeniedError(err)) return 'denied';
+      if (isAppPermissionDeniedError(err)) {
+        const message = (err as { message?: unknown } | null)?.message;
+        return typeof message === 'string' && message.trim()
+          ? { verdict: 'denied', message }
+          : { verdict: 'denied' };
+      }
       // The other declared answer this route gives. Ordered after the denial so
       // a server that ever carried both codes still reports the permission
       // fact, which is the one a caller may act on.
-      if (isMetaItemAbsentError(err)) return 'not_found';
+      if (isMetaItemAbsentError(err)) return { verdict: 'not_found' };
       // 5xx, offline, a timeout, a transport that ate the envelope, a 404 with
-      // no declared code. None of them said anything about the app.
-      return 'unreachable';
+      // no declared code. None of them said anything about the item.
+      return { verdict: 'unreachable' };
     }
   }
 

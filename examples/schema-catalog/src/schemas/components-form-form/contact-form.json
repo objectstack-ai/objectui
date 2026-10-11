@@ -31,10 +31,8 @@
       "name": "address",
       "label": "Address",
       "type": "textarea",
-      "columnSpan": 2
+      "colSpan": 2
     }
   ],
-  "submitButton": {
-    "label": "Submit"
-  }
+  "submitLabel": "Submit"
 }

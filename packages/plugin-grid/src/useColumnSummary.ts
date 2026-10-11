@@ -8,7 +8,8 @@
 
 import { useMemo } from 'react';
 import type { ListColumn } from '@object-ui/types';
-import type { ColumnSummary } from '@objectstack/spec/ui';
+import type { ColumnSummary, ListViewGroupHeaderRow } from '@objectstack/spec/ui';
+import { deriveColumnSummary } from '@objectstack/spec/ui';
 import type { CurrencyConfig } from '@objectstack/spec/data';
 import { resolveFieldScale } from '@objectstack/spec/data';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency, createSafeTranslation } from '@object-ui/i18n';
@@ -113,6 +114,7 @@ const TYPE_LABEL_KEYS: Record<ColumnSummaryType, string> = {
  */
 const SUMMARY_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.summary.pattern': '{{label}}: {{value}}',
+  'grid.summary.pagePattern': '{{label}} (this page): {{value}}',
   'grid.summary.count': 'Count',
   'grid.summary.countEmpty': 'Empty',
   'grid.summary.countFilled': 'Filled',
@@ -370,14 +372,22 @@ function formatSummaryLabel(
   // it, and only for a column with no fixed width. Required for the reason
   // `displayLocale` is: a dropped argument must not type-check into a width.
   inputFractionDigits: number,
+  // objectui#12081 item 3 — the figure covers only the page on screen of a
+  // larger matched set (see `ColumnSummaryScope`), so the label says so.
+  // Required for the reason the two above are: a dropped argument must not
+  // type-check into a label that reads as the whole set's total.
+  pageOnly: boolean,
 ): string {
   if (value === null) return '';
   const labelKey = TYPE_LABEL_KEYS[type as ColumnSummaryType];
   // `|| type` is the backstop for an aggregation with no key — it echoes the
   // raw kind, as before, never a half-resolved `grid.summary.<junk>`.
   const label = labelKey ? t(labelKey) : type;
+  // The page scope is its own whole pattern, not a suffix glued onto the
+  // label: where the scope sits, and its brackets, are the translator's, as
+  // the separator is (objectui#4024).
   const join = (formatted: string): string =>
-    t('grid.summary.pattern', { label, value: formatted });
+    t(pageOnly ? 'grid.summary.pagePattern' : 'grid.summary.pattern', { label, value: formatted });
 
   if (PERCENT_TYPES.has(type)) {
     return join(`${value.toLocaleString(displayLocale, { maximumFractionDigits: 1 })}%`);
@@ -497,6 +507,45 @@ function formatSummaryLabel(
   return join(formatted);
 }
 
+/** The `objectSchema.fields` slice the footer formats with. */
+type SummaryFieldMetadata = Record<string, { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: CurrencyConfig; precision?: number | null; scale?: number | null; max?: number }>;
+
+/**
+ * Which rows the footer's figures describe (objectui#12081 item 3).
+ *
+ * The footer is drawn beside a count, and its figures read as that count's
+ * rows' figures. Under server paging the rows a grid holds are ONE page of the
+ * matched set, so a figure computed from them is the page's, and drawn beside
+ * the set's count it read as the set's total — "Sum: 3,685,900.00 · 300
+ * records" where the 300 rows sum to 40,607,000 (objectstack-ai/hotclm#87).
+ *
+ *   - `rows` — the rows handed in ARE the set: inline rows, a host's whole
+ *     result, a grid whose one page holds every match. Computed from them, as
+ *     the footer always has been.
+ *   - `whole` — the rows are one page of more, and the server answered the
+ *     whole matched set's figures (`useWholeSetSummary`): each figure is read
+ *     off that answer through the spec's `deriveColumnSummary`.
+ *   - `page` — the rows are one page of more and no whole-set answer is in
+ *     hand (no door, a refusal, a query that cannot be repeated, or the answer
+ *     still on its way). The figure is the page's, and the label says so
+ *     (`grid.summary.pagePattern`). ⛔ Never a page figure under the plain
+ *     label beside the set's count.
+ */
+export type ColumnSummaryScope = 'rows' | 'whole' | 'page';
+
+/**
+ * A server figure as a number: `null` is the aggregate's own "no value" (an
+ * `avg` over no values), `undefined` is no figure at all. A driver may answer
+ * a decimal or a 64-bit count as its string spelling, so a string is parsed;
+ * anything that does not parse is no figure.
+ */
+function serverFigure(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : Number.NaN;
+  return Number.isFinite(n) ? n : undefined;
+}
+
 /**
  * Hook to compute column summary/aggregation values.
  *
@@ -518,7 +567,28 @@ export function useColumnSummary(
   data: any[],
   // `currencyConfig` is the spec's own type, not a restated subset, so a field
   // def written in the spec's shape (`currencyMode` included) is accepted as is.
-  fieldMetadata?: Record<string, { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: CurrencyConfig; precision?: number | null; scale?: number | null; max?: number }>
+  fieldMetadata?: SummaryFieldMetadata
+): { summaries: Map<string, ColumnSummaryResult>; hasSummary: boolean } {
+  // The rows a caller hands this public hook are the set it summarises, as
+  // they always were. Only the grid knows when its rows are one page of more,
+  // and it says so through `useScopedColumnSummary`.
+  return useScopedColumnSummary(columns, data, fieldMetadata, 'rows', undefined);
+}
+
+/**
+ * {@link useColumnSummary}, told which rows its figures describe — the grid's
+ * entry (objectui#12081 item 3). `wholeRow` is the server's answer for the
+ * whole matched set, read only under the `whole` scope.
+ *
+ * Module-internal: the package barrel exports `useColumnSummary` alone, so
+ * its signature is unchanged for every caller outside this package.
+ */
+export function useScopedColumnSummary(
+  columns: ListColumn[] | undefined,
+  data: SummaryRow[],
+  fieldMetadata: SummaryFieldMetadata | undefined,
+  scope: ColumnSummaryScope,
+  wholeRow: ListViewGroupHeaderRow | undefined,
 ): { summaries: Map<string, ColumnSummaryResult>; hasSummary: boolean } {
   // Tenant default currency (ADR-0053) backstops a currency column that
   // declares no explicit code, so the footer agrees with the cells above it.
@@ -551,7 +621,24 @@ export function useColumnSummary(
       if (config.type === 'none' || !SUPPORTED_SUMMARY_TYPES.has(config.type)) continue;
 
       const targetField = config.field || col.field;
-      const result = computeAggregation(config.type, data, targetField);
+
+      // objectui#12081 item 3 — the whole matched set's figure, read off the
+      // server's answer through the spec's own read-back (the four derived
+      // members included). The two percents come back as a ratio in `0..1`;
+      // this footer's percent unit is points, as `computeAggregation` answers
+      // it. A figure the answer does not carry is NOT the whole set's: that
+      // one column falls back to the page, labelled as the page's.
+      let result: number | null;
+      let pageOnly = scope === 'page';
+      const fromServer = scope === 'whole' && wholeRow
+        ? serverFigure(deriveColumnSummary(wholeRow, col.summary as ColumnSummarySetting, col.field))
+        : undefined;
+      if (fromServer !== undefined) {
+        result = fromServer !== null && PERCENT_TYPES.has(config.type) ? fromServer * 100 : fromServer;
+      } else {
+        result = computeAggregation(config.type, data, targetField);
+        if (scope === 'whole') pageOnly = true;
+      }
 
       // The column contributes its declared `type` (a `ListColumn` member,
       // which outranks the field's); every other hint is read off the FIELD
@@ -579,10 +666,16 @@ export function useColumnSummary(
 
       // The widest decimal count among the numeric values this aggregation
       // read — what a no-fixed-width `number` column rounds its result to.
-      // The count and percent families read raw cells, not numbers.
+      // The count and percent families read raw cells, not numbers. A
+      // whole-set figure read values this grid never held, so the widest it
+      // can know is the page's, and a `min` / `max` is itself one of the
+      // values it read, so its own width counts too.
       const inputFractionDigits = NON_NUMERIC_TYPES.has(config.type)
         ? 0
-        : widestFractionDigits(numericValues(data, targetField));
+        : widestFractionDigits([
+          ...numericValues(data, targetField),
+          ...(fromServer != null && (config.type === 'min' || config.type === 'max') ? [fromServer] : []),
+        ]);
 
       summaries.set(col.field, {
         field: col.field,
@@ -595,10 +688,11 @@ export function useColumnSummary(
           tenantCurrency,
           displayLocale,
           inputFractionDigits,
+          pageOnly,
         ),
       });
     }
 
     return { summaries, hasSummary: summaries.size > 0 };
-  }, [columns, data, fieldMetadata, tenantCurrency, displayLocale, t]);
+  }, [columns, data, fieldMetadata, tenantCurrency, displayLocale, t, scope, wholeRow]);
 }

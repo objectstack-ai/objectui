@@ -24,6 +24,17 @@
  * package's app is served" is: some item of the list has
  * `_packageId === manifestId`.
  *
+ * On an upgrade the id alone is not enough (objectui#12098): the stale kernel
+ * still serves the OLD version's app, which wears the same `_packageId`, so the
+ * wait would settle on the first read and the caller would persist the
+ * pre-upgrade list. The protection envelope also declares `_packageVersion`
+ * ("Owning package version."), which the runtime stamps on every app it
+ * registers from a package (objectstack#22689). So when the caller names the
+ * version the install answer reports, an app that wears `_packageVersion`
+ * counts only at that version. An app that wears none comes from a runtime
+ * that predates the stamp: it counts on the id alone, as before, because
+ * nothing it serves can tell the two versions apart.
+ *
  * ## What it cannot tell apart
  *
  * The list is the only signal. When the bound expires with no such app, the
@@ -50,6 +61,12 @@ export interface ServedAppWaitOptions {
   /** The installed package's manifest id, matched against each app's `_packageId`. */
   manifestId: string;
   /**
+   * The version the install answer names (`installation.version`), matched
+   * against each app's `_packageVersion` where the app wears one. Absent when
+   * the answer names none: the id alone decides.
+   */
+  version: string | undefined;
+  /**
    * One `GET /meta/app` read, as items. ⛔ Not through the metadata cache: the
    * cache persists what it reads, and every read before `served` may be the
    * pre-install kernel's answer.
@@ -70,6 +87,7 @@ export interface ServedAppWaitOptions {
 export type ServedApp = Record<string, unknown> & {
   name?: unknown;
   _packageId?: unknown;
+  _packageVersion?: unknown;
   label?: string | { key: string; defaultValue?: string; params?: Record<string, unknown> };
 };
 
@@ -81,14 +99,19 @@ export type ServedAppWait =
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-function isAppOf(manifestId: string) {
-  return (item: unknown): item is ServedApp =>
-    !!item && typeof item === 'object' && (item as ServedApp)._packageId === manifestId;
+function isAppOf(manifestId: string, version: string | undefined) {
+  return (item: unknown): item is ServedApp => {
+    if (!item || typeof item !== 'object') return false;
+    const app = item as ServedApp;
+    if (app._packageId !== manifestId) return false;
+    return version === undefined || app._packageVersion === undefined || app._packageVersion === version;
+  };
 }
 
 export async function waitForServedApp(options: ServedAppWaitOptions): Promise<ServedAppWait> {
   const {
     manifestId,
+    version,
     readApps,
     intervalMs = SERVED_APP_POLL_INTERVAL_MS,
     capMs = SERVED_APP_WAIT_CAP_MS,
@@ -100,7 +123,7 @@ export async function waitForServedApp(options: ServedAppWaitOptions): Promise<S
   // (a fast rebuild, or none) settles without any wait at all.
   for (;;) {
     try {
-      const apps = (await readApps()).filter(isAppOf(manifestId));
+      const apps = (await readApps()).filter(isAppOf(manifestId, version));
       if (apps.length > 0) return { served: true, apps };
     } catch {
       // A read that fails while the runtime swaps kernels answers neither way.

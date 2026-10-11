@@ -694,11 +694,18 @@ const en = {
     // right-to-left — so a pack owns the whole shape. Same reasoning as
     // `collaboration.resolvedSuffix` below.
     //
+    // `pagePattern` is `pattern` for a figure that covers only the page on
+    // screen of a larger matched set — the footer's fallback when the server
+    // cannot answer the whole set's figure (objectui#12081 item 3). A whole
+    // pattern rather than a suffix, for the same reason: where the scope sits
+    // is the pack's.
+    //
     // `countEmpty`/`percentEmpty` (and the filled pair) deliberately share a
     // word: the trailing `%` is what tells the two families apart on screen,
     // exactly as the renderer's own comment says.
     summary: {
       pattern: '{{label}}: {{value}}',
+      pagePattern: '{{label}} (this page): {{value}}',
       count: 'Count',
       countEmpty: 'Empty',
       countFilled: 'Filled',
@@ -4128,6 +4135,10 @@ const en = {
         signInFirst: 'You need to sign into ObjectStack Cloud first. Click "Open on cloud" below.',
         success: 'Installed successfully. Open the environment to see the new app.',
         localSuccess: 'Installed v{{version}} to this runtime. "{{name}}" should now appear in the app switcher.',
+        // objectui#12098 — the install answered `hotLoaded: false`: installed, and
+        // the running kernel did not register it (objectstack#22695), so nothing
+        // of it is served before the next restart.
+        localLoadsAtRestart: 'Installed v{{version}} to this runtime. "{{name}}" loads when the runtime next restarts; it does not appear in the app switcher until then.',
         localManifestConflict: '{{message}}\nTip: a local app already owns this manifest_id. Remove it from objectstack.config.ts first.',
         localUnauthorized: 'Sign in to this runtime first, then try again.',
         localMarketplaceUnavailable: 'This runtime has no OS_CLOUD_URL configured, so the marketplace catalog is unreachable.',

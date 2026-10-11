@@ -489,6 +489,7 @@ const ja = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}}: {{value}}",
+      pagePattern: "{{label}}（このページ）: {{value}}",
       count: "件数",
       countEmpty: "空欄",
       countFilled: "入力済み",
@@ -3506,6 +3507,7 @@ const ja = {
       signInFirst: "最初にObjectStack Cloudにサインインしてください。",
       success: "インストールが完了しました。環境を開いて新しいアプリを確認してください。",
       localSuccess: "このランタイムに v{{version}} をインストールしました。「{{name}}」がアプリスイッチャーに表示されます。",
+      localLoadsAtRestart: "このランタイムに v{{version}} をインストールしました。「{{name}}」はランタイムの次回再起動時に読み込まれ、それまではアプリスイッチャーに表示されません。",
       localManifestConflict: "{{message}}\nヒント：ローカルアプリがすでにこのmanifest_idを使用しています。最初にobjectstack.config.tsから削除してください。",
       localUnauthorized: "最初にこのランタイムにサインインしてから再試行してください。",
       localMarketplaceUnavailable: "このランタイムにはOS_CLOUD_URLが設定されていないため、マーケットプレイスカタログにアクセスできません。",

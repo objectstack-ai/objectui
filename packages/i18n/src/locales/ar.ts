@@ -553,6 +553,7 @@ const ar = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}}: {{value}}",
+      pagePattern: "{{label}} (هذه الصفحة): {{value}}",
       count: "العدد",
       countEmpty: "فارغة",
       countFilled: "ممتلئة",
@@ -3779,6 +3780,7 @@ const ar = {
       signInFirst: "يجب عليك أولاً تسجيل الدخول إلى ObjectStack Cloud.",
       success: "تم التثبيت بنجاح. افتح البيئة لرؤية التطبيق الجديد.",
       localSuccess: "تم تثبيت v{{version}} في هذا الوقت التشغيل. يجب أن يظهر \"{{name}}\" الآن في مبدّل التطبيقات.",
+      localLoadsAtRestart: "تم تثبيت v{{version}} في وقت التشغيل هذا. سيُحمَّل \"{{name}}\" عند إعادة التشغيل التالية لوقت التشغيل، ولن يظهر في مبدّل التطبيقات قبل ذلك.",
       localManifestConflict: "{{message}}\nملاحظة: تطبيق محلي يمتلك بالفعل هذا المعرف. أزله أولاً من objectstack.config.ts.",
       localUnauthorized: "سجل الدخول إلى هذا الوقت التشغيل أولاً.",
       localMarketplaceUnavailable: "هذا الوقت التشغيل لا يحتوي على OS_CLOUD_URL مُهيأ.",

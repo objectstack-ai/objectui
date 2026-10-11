@@ -489,6 +489,7 @@ const de = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}}: {{value}}",
+      pagePattern: "{{label}} (diese Seite): {{value}}",
       count: "Anzahl",
       countEmpty: "Leer",
       countFilled: "Ausgefüllt",
@@ -3504,6 +3505,7 @@ const de = {
       signInFirst: "Sie müssen sich zuerst bei ObjectStack Cloud anmelden.",
       success: "Erfolgreich installiert. Öffnen Sie die Umgebung, um die neue App zu sehen.",
       localSuccess: "v{{version}} in diesem Laufzeitsystem installiert. „{{name}}“ sollte jetzt im App-Wechsler erscheinen.",
+      localLoadsAtRestart: "v{{version}} in diesem Laufzeitsystem installiert. „{{name}}“ wird beim nächsten Neustart des Laufzeitsystems geladen und erscheint erst dann im App-Wechsler.",
       localManifestConflict: "{{message}}\nHinweis: Eine lokale App besitzt bereits diese manifest_id. Entfernen Sie sie zuerst aus objectstack.config.ts.",
       localUnauthorized: "Melden Sie sich zuerst in diesem Laufzeitsystem an.",
       localMarketplaceUnavailable: "Dieses Laufzeitsystem hat keine OS_CLOUD_URL konfiguriert.",

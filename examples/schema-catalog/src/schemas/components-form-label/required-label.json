@@ -7,7 +7,6 @@
       {
         "type": "label",
         "text": "Password",
-        "required": true,
         "htmlFor": "password"
       },
       {

@@ -35,7 +35,10 @@
  * - expiry: the honest timeout, no pulse, no success, nothing persisted, and
  *   "Check again" starts another wait;
  * - CONTROL: the `installLocal` branch (the runtime hot-registers before it
- *   answers) refreshes at once, as before, and starts no wait.
+ *   answers) refreshes at once, as before, and starts no wait;
+ * - objectui#12098: that branch answered `hotLoaded: false` (the runtime's
+ *   lenient path, objectstack#22695) says the app loads at the next restart,
+ *   and sends no refresh.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -88,7 +91,7 @@ const clock = { now: 0, pending: [] as Array<() => void>, sleeps: [] as number[]
  * it answers.
  */
 const REBUILD_MS = 60_000;
-const server = { installedAt: null as number | null, rebuildMs: REBUILD_MS, hotRegistered: false };
+const server = { installedAt: null as number | null, rebuildMs: REBUILD_MS, hotRegistered: false, hotLoaded: true };
 const serving = () =>
   server.hotRegistered || (server.installedAt !== null && clock.now - server.installedAt >= server.rebuildMs);
 
@@ -96,7 +99,8 @@ const installs: Array<{ route: 'cloud' | 'local'; input: Record<string, unknown>
 vi.mock('../marketplaceApi', () => ({
   listMarketplacePackages: async () => ({ items: [] }),
   listLocalInstalls: async () =>
-    server.hotRegistered
+    // The ledger lists a local install whether or not the kernel registered it.
+    installs.some((i) => i.route === 'local')
       ? [{ packageId: PKG, versionId: 'v1', manifestId: PKG, version: '1.0.0', installedAt: '2026-10-11T00:00:00.000Z' }]
       : [],
   listOrgPackages: async () => ({ connected: true, items: [ORG_ROW] }),
@@ -114,19 +118,19 @@ vi.mock('../marketplaceApi', () => ({
   },
   installLocal: async (input: Record<string, unknown>) => {
     installs.push({ route: 'local', input });
-    server.hotRegistered = true;
-    return { manifestId: PKG, version: '1.0.0' };
+    server.hotRegistered = server.hotLoaded;
+    return { manifestId: PKG, version: '1.0.0', hotLoaded: server.hotLoaded };
   },
 }));
 
-/** Every wait the page starts: its manifest id, and whether it kept the real interval and bound. */
-const waits: Array<{ manifestId: string; defaults: boolean }> = [];
+/** Every wait the page starts: its manifest id and version, and whether it kept the real interval and bound. */
+const waits: Array<{ manifestId: string; version: string | undefined; defaults: boolean }> = [];
 vi.mock('../waitForServedApp', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../waitForServedApp')>();
   return {
     ...actual,
     waitForServedApp: (o: Parameters<typeof actual.waitForServedApp>[0]) => {
-      waits.push({ manifestId: o.manifestId, defaults: o.intervalMs === undefined && o.capMs === undefined });
+      waits.push({ manifestId: o.manifestId, version: o.version, defaults: o.intervalMs === undefined && o.capMs === undefined });
       return actual.waitForServedApp({
         ...o,
         now: () => clock.now,
@@ -228,6 +232,7 @@ beforeEach(() => {
   server.installedAt = null;
   server.rebuildMs = REBUILD_MS;
   server.hotRegistered = false;
+  server.hotLoaded = true;
   installs.length = 0;
   waits.length = 0;
   navigate.mockReset();
@@ -240,7 +245,7 @@ beforeEach(() => {
     if (key.startsWith('objectui:metadata:app:')) {
       const items = JSON.parse(value) as Array<{ _packageId?: string }>;
       seedWrites.push({
-        afterInstall: server.installedAt !== null || server.hotRegistered,
+        afterInstall: installs.length > 0,
         hasApp: items.some((a) => a._packageId === PKG),
       });
     }
@@ -266,7 +271,7 @@ describe('MarketplacePage org install waits for the installed app to be served (
     expect(installs).toEqual([{ route: 'cloud', input: { packageId: 'pkg_1', environmentId: '', seedSampleData: true } }]);
     expect(pulses).toEqual([]);
     expect(staleSeedWrites()).toEqual([]);
-    expect(waits).toEqual([{ manifestId: PKG, defaults: true }]);
+    expect(waits).toEqual([{ manifestId: PKG, version: '1.0.0', defaults: true }]);
     const status = screen.getByTestId('org-deploy-status');
     expect(status).toHaveTextContent('Acme CRM');
     expect(status).toHaveTextContent('«marketplace.install.deploying»');
@@ -321,8 +326,8 @@ describe('MarketplacePage org install waits for the installed app to be served (
     fireEvent.click(within(status).getByRole('button', { name: '«marketplace.install.checkAgain»' }));
     expect(await screen.findByRole('button', { name: '«marketplace.install.openApp:Acme CRM»' })).toBeInTheDocument();
     expect(waits).toEqual([
-      { manifestId: PKG, defaults: true },
-      { manifestId: PKG, defaults: true },
+      { manifestId: PKG, version: '1.0.0', defaults: true },
+      { manifestId: PKG, version: '1.0.0', defaults: true },
     ]);
     expect(pulses).toEqual([{ at: SERVED_APP_WAIT_CAP_MS, served: true }]);
     await waitFor(() => expect(screen.getByTestId('apps').textContent).toBe('setup,crm_enterprise'));
@@ -341,5 +346,19 @@ describe('MarketplacePage org install waits for the installed app to be served (
     expect(screen.queryByTestId('org-deploy-status')).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId('apps').textContent).toBe('setup,crm_enterprise'));
     expect(staleSeedWrites()).toEqual([]);
+  });
+
+  it('objectui#12098: the installLocal branch answered hotLoaded: false says the app loads at the next restart, and sends no refresh', async () => {
+    server.hotLoaded = false;
+    await bootConsole({ installLocal: true });
+    await renderPageAndInstall();
+
+    expect(installs).toEqual([{ route: 'local', input: { packageId: PKG, versionId: 'latest' } }]);
+    expect(await screen.findByText('«marketplace.install.localLoadsAtRestart:Acme CRM»')).toBeInTheDocument();
+    expect(screen.queryByText('«marketplace.org.installed:Acme CRM»')).not.toBeInTheDocument();
+    expect(pulses).toEqual([]);
+    expect(seedWrites.filter((w) => w.afterInstall)).toEqual([]);
+    expect(waits).toEqual([]);
+    expect(screen.getByTestId('apps').textContent).toBe('setup');
   });
 });

@@ -117,12 +117,13 @@ function toLoadFailure(e: unknown): LoadFailure {
  * (objectui#12087), in the same words. The strip lists several packages and
  * this status sits above them all, so it names its package (`name`, the row's
  * display name). `served` carries the first app of the package a user can open,
- * or `null` when every one is inactive or hidden.
+ * or `null` when every one is inactive or hidden. `version` is the one the
+ * install answer names, which the wait matches too (objectui#12098).
  */
 type OrgDeployState =
-  | { phase: 'waiting'; manifestId: string; name: string }
-  | { phase: 'served'; manifestId: string; name: string; app: ServedApp | null }
-  | { phase: 'timeout'; manifestId: string; name: string };
+  | { phase: 'waiting'; manifestId: string; version: string | undefined; name: string }
+  | { phase: 'served'; manifestId: string; version: string | undefined; name: string; app: ServedApp | null }
+  | { phase: 'timeout'; manifestId: string; version: string | undefined; name: string };
 
 export function MarketplacePage() {
   const navigate = useNavigate();
@@ -229,12 +230,13 @@ export function MarketplacePage() {
    * earlier one's, and an earlier wait that settles late never overwrites it.
    * Its pulse still goes out, because its app IS served.
    */
-  const awaitServedOrgInstall = async (manifestId: string, name: string) => {
+  const awaitServedOrgInstall = async (manifestId: string, version: string | undefined, name: string) => {
     const settle = (next: OrgDeployState) =>
       setOrgDeploy((cur) => (cur?.manifestId === manifestId ? next : cur));
-    setOrgDeploy({ phase: 'waiting', manifestId, name });
+    setOrgDeploy({ phase: 'waiting', manifestId, version, name });
     const wait = await waitForServedApp({
       manifestId,
+      version,
       // The SDK's declared list answer (`GetMetaItemsResponse`: `{ type,
       // items }`), read the way the package page reads it.
       readApps: async () => {
@@ -243,11 +245,11 @@ export function MarketplacePage() {
       },
     });
     if (!wait.served) {
-      settle({ phase: 'timeout', manifestId, name });
+      settle({ phase: 'timeout', manifestId, version, name });
       return;
     }
     emitMetadataRefresh();
-    settle({ phase: 'served', manifestId, name, app: filterActiveApps(wait.apps)[0] ?? null });
+    settle({ phase: 'served', manifestId, version, name, app: filterActiveApps(wait.apps)[0] ?? null });
   };
 
   // Install an org package into the current environment (ADR-0007 step ②).
@@ -266,22 +268,32 @@ export function MarketplacePage() {
     setOrgMsg(null);
     try {
       if (getRuntimeConfig().features.installLocal) {
-        await installLocal({ packageId: pkg.manifest_id || pkg.id, versionId: 'latest' });
-        setOrgMsg({ ok: true, text: t('marketplace.org.installed', { defaultValue: `Installed ${pkg.display_name}`, name: pkg.display_name }) });
+        const result = await installLocal({ packageId: pkg.manifest_id || pkg.id, versionId: 'latest' });
+        // objectui#12098 — `hotLoaded: false` is the runtime's lenient path
+        // (objectstack#22695): installed, loaded at its next restart. Nothing
+        // of it is served until then, so the strip says so and nothing is
+        // refreshed, as on the package page.
+        setOrgMsg({
+          ok: true,
+          text: result.hotLoaded
+            ? t('marketplace.org.installed', { defaultValue: `Installed ${pkg.display_name}`, name: pkg.display_name })
+            : t('marketplace.install.localLoadsAtRestart', { version: result.version, name: pkg.display_name }),
+        });
         await load();
-        // The runtime hot-registered the package before it answered, so the
-        // live registry already holds it. Pulse every mounted MetadataProvider
+        // On `hotLoaded` the runtime registered the package before it answered,
+        // so the live registry already holds it. Pulse every mounted MetadataProvider
         // so the new app appears in the nav (and its objects/views resolve)
         // without a manual browser refresh.
-        emitMetadataRefresh();
+        if (result.hotLoaded) emitMetadataRefresh();
       } else {
-        await installPackage({ packageId: pkg.id, environmentId: '', seedSampleData: true });
+        const installResp = await installPackage({ packageId: pkg.id, environmentId: '', seedSampleData: true });
         // objectui#12097 — this answer lands while the runtime still serves the
         // PRE-install kernel, so nothing is refreshed here: the wait refreshes
         // once the package's app is served. Not awaited, and not cancelled on
         // unmount, as on the package page: an operator who leaves this page
         // while the app deploys still gets the refreshed cache when it lands.
-        void awaitServedOrgInstall(pkg.manifest_id, pkg.display_name);
+        // It waits for the version the answer names (objectui#12098).
+        void awaitServedOrgInstall(pkg.manifest_id, installResp?.installation?.version, pkg.display_name);
         await load();
       }
     } catch (e: any) {
@@ -393,7 +405,7 @@ export function MarketplacePage() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => void awaitServedOrgInstall(orgDeploy.manifestId, orgDeploy.name)}
+            onClick={() => void awaitServedOrgInstall(orgDeploy.manifestId, orgDeploy.version, orgDeploy.name)}
           >
             {t('marketplace.install.checkAgain')}
           </Button>

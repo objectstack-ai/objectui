@@ -502,6 +502,7 @@ const fr = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}} : {{value}}",
+      pagePattern: "{{label}} (cette page) : {{value}}",
       count: "Nombre",
       countEmpty: "Vides",
       countFilled: "Remplis",
@@ -3568,6 +3569,7 @@ const fr = {
       signInFirst: "Vous devez d'abord vous connecter à ObjectStack Cloud.",
       success: "Installé avec succès. Ouvrez l'environnement pour voir la nouvelle application.",
       localSuccess: "v{{version}} installé dans ce runtime. \"{{name}}\" devrait maintenant apparaître dans le sélecteur d'applications.",
+      localLoadsAtRestart: "v{{version}} installé dans ce runtime. \"{{name}}\" sera chargé au prochain redémarrage du runtime et n'apparaîtra pas dans le sélecteur d'applications d'ici là.",
       localManifestConflict: "{{message}}\nRemarque : Une application locale possède déjà ce manifest_id. Supprimez-la d'abord de objectstack.config.ts.",
       localUnauthorized: "Connectez-vous d'abord à ce runtime.",
       localMarketplaceUnavailable: "Ce runtime n'a pas de OS_CLOUD_URL configuré.",

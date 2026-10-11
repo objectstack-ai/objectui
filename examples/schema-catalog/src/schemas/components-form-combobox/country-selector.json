@@ -1,7 +1,6 @@
 {
   "type": "combobox",
   "placeholder": "Select country...",
-  "searchPlaceholder": "Search countries...",
   "options": [
     {
       "value": "us",

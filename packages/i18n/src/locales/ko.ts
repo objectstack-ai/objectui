@@ -489,6 +489,7 @@ const ko = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}}: {{value}}",
+      pagePattern: "{{label}} (이 페이지): {{value}}",
       count: "개수",
       countEmpty: "빈 값",
       countFilled: "채워짐",
@@ -3503,6 +3504,7 @@ const ko = {
       signInFirst: "먼저 ObjectStack Cloud에 로그인해야 합니다.",
       success: "설치 성공. 환경을 열어 새 앱을 확인하세요.",
       localSuccess: "이 런타임에 v{{version}} 설치됨. \"{{name}}\"이(가) 이제 앱 전환기에 표시됩니다.",
+      localLoadsAtRestart: "이 런타임에 v{{version}} 설치됨. \"{{name}}\"은(는) 런타임이 다음에 다시 시작될 때 로드되며, 그때까지는 앱 전환기에 표시되지 않습니다.",
       localManifestConflict: "{{message}}\n참고: 로컬 앱이 이미 이 manifest_id를 가지고 있습니다. 먼저 objectstack.config.ts에서 제거하세요.",
       localUnauthorized: "먼저 이 런타임에 로그인하세요.",
       localMarketplaceUnavailable: "이 런타임에 OS_CLOUD_URL이 구성되지 않았습니다.",

@@ -3,7 +3,7 @@
   "items": [
     {
       "label": "Getting Started",
-      "items": [
+      "children": [
         {
           "label": "Introduction",
           "description": "Learn the basics",

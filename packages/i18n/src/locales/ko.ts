@@ -489,6 +489,7 @@ const ko = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}}: {{value}}",
+      pagePattern: "{{label}} (이 페이지): {{value}}",
       count: "개수",
       countEmpty: "빈 값",
       countFilled: "채워짐",

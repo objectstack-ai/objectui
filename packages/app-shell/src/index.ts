@@ -425,6 +425,10 @@ export { MetadataQuickFind } from './views/metadata-admin/QuickFind.js';
 export { PageShell as MetadataPageShell } from './views/metadata-admin/PageShell.js';
 export { SchemaForm } from './views/metadata-admin/SchemaForm.js';
 export { LayeredDiff } from './views/metadata-admin/LayeredDiff.js';
+// objectui#7611 — the Setup catalog's URL scope (`?scope=environment`), for a
+// host that routes its own legacy URLs onto the catalog (the console's
+// `system/positions` / `system/permissions`). A dependency-free leaf.
+export { ENVIRONMENT_SCOPE_QUERY } from './views/metadata-admin/catalog-scope.js';
 export {
   registerMetadataResource,
   getMetadataResource,

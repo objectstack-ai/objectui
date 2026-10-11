@@ -16,11 +16,12 @@
  */
 
 import * as React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Badge } from '@object-ui/components';
 import { ChevronRight } from 'lucide-react';
 import type { RichMetadataTypeEntry } from './useMetadata.js';
 import { useMetadataLocale, t, translateMetadataType, translateMetadataDomain } from './i18n.js';
+import { environmentScopeSuffix } from './catalog-scope.js';
 
 export interface PageShellProps {
   /** The type entry from `/meta/types` (or a synthesized stub). */
@@ -156,6 +157,10 @@ export function PageShell({
     const idx = pathname.indexOf('/metadata');
     return idx >= 0 ? pathname.slice(0, idx + '/metadata'.length) : '/metadata';
   }, [pathname]);
+  // objectui#7611 — an editor opened from the Setup catalog returns to the
+  // Setup catalog, not to the package-scoped Studio list of the same type.
+  const [search] = useSearchParams();
+  const scopeSuffix = environmentScopeSuffix(search);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -176,7 +181,7 @@ export function PageShell({
                 </Link>
                 <ChevronRight className="h-3 w-3 shrink-0" />
                 <Link
-                  to={`${metadataBase}/${encodeURIComponent(type)}`}
+                  to={`${metadataBase}/${encodeURIComponent(type)}${scopeSuffix}`}
                   className="hover:text-foreground shrink-0"
                 >
                   {label}

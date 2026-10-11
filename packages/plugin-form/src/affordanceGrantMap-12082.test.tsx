@@ -645,6 +645,10 @@ const WRITE_SITES: Record<string, WriteSite> = {
     unmapped("Setup's permission-set assignment creates sys_user_permission_set rows and reads no grant on that object"),
   'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx :: AssignedUsersSection > removeUser :: delete':
     unmapped("Setup's permission-set assignment deletes sys_user_permission_set rows and reads no grant on that object"),
+  'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > addHolders :: create':
+    unmapped("Setup's position assignment creates sys_user_position rows and reads no grant on that object"),
+  'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > removeHolder :: delete':
+    unmapped("Setup's position assignment deletes sys_user_position rows and reads no grant on that object"),
   // ── core ──
   'packages/core/src/actions/TransactionManager.ts :: TransactionManager > executeBatch :: batch':
     door('the action engine\'s transaction executor runs the operations its caller hands it'),

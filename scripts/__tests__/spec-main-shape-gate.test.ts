@@ -11,6 +11,8 @@ import {
   satisfiesRange,
   parseWorkspaceGlobs,
   MARKER_FILE,
+  SPEC_PACKAGE_NAME,
+  TURBO_HASH_MARKER,
 } from '../spec-main-shape-gate.mjs';
 import { pullRequestTrigger, readWorkflows, repoRoot, subscribesMergeGroup } from './workflow-checks.js';
 
@@ -562,5 +564,164 @@ describe('the injection reads the spec against the dependencies it was built wit
     expect(satisfiesRange('4.6.1', '^4.6.1')).toBe(true);
     expect(satisfiesRange('5.0.0', '^4.6.1')).toBe(false);
     expect(() => satisfiesRange('4.6.1', 'workspace:*')).toThrow(/does not read/);
+  });
+});
+
+/**
+ * objectui#12114 — a linked git worktree shares the main checkout's turbo
+ * cache, and `--force` skips cache reads but still WRITES. So a local
+ * reproduction of this gate recorded main-spec verdicts that a sibling
+ * worktree's ordinary, installed-spec `pnpm type-check` replayed as its own: a
+ * false green. The fix puts the injection inside turbo's hash, through
+ * `turbo.json`'s `globalDependencies`; the script header carries the why.
+ *
+ * The second case drives a REAL turbo (`--dry=json`, which computes the hashes
+ * and runs nothing) over a fixture that copies this repository's `turbo.json`,
+ * so it fails the day that file stops hashing the marker.
+ */
+describe('a local reproduction cannot leave a verdict an installed tree replays (objectui#12114)', () => {
+  const made: string[] = [];
+  afterEach(() => {
+    for (const dir of made.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const STORE_SPEC = 'node_modules/.pnpm/@objectstack+spec@17.4.0/node_modules/@objectstack/spec';
+
+  /**
+   * An installed tree, linked the way pnpm links it (RELATIVE symlinks into the
+   * virtual store), in a git repository that ignores `node_modules` as this one
+   * does: the file turbo has to hash is an ignored one.
+   */
+  function installedTree({ rootLink }: { rootLink: boolean }) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-gate-turbo-'));
+    made.push(root);
+    const repo = path.join(root, 'objectui');
+    fs.mkdirSync(path.join(repo, 'scripts'), { recursive: true });
+    for (const file of ['spec-main-shape-gate.mjs', 'invoked-as.mjs']) {
+      fs.copyFileSync(path.join(repoRoot, 'scripts', file), path.join(repo, 'scripts', file));
+    }
+    fs.copyFileSync(path.join(repoRoot, 'turbo.json'), path.join(repo, 'turbo.json'));
+
+    const store = path.join(repo, STORE_SPEC);
+    // What a reinstall does to an injected copy: the directory is replaced.
+    const install = () => {
+      fs.rmSync(store, { recursive: true, force: true });
+      fs.mkdirSync(store, { recursive: true });
+      fs.writeFileSync(path.join(store, 'package.json'), JSON.stringify({ name: SPEC_PACKAGE_NAME, version: '17.4.0' }));
+    };
+    install();
+    const devDependencies = rootLink ? { [SPEC_PACKAGE_NAME]: '^17.4.0' } : {};
+    if (rootLink) {
+      fs.mkdirSync(path.join(repo, 'node_modules', '@objectstack'), { recursive: true });
+      fs.symlinkSync(`../.pnpm/@objectstack+spec@17.4.0/node_modules/@objectstack/spec`, path.join(repo, 'node_modules', '@objectstack', 'spec'));
+    }
+    const app = path.join(repo, 'packages', 'app');
+    fs.mkdirSync(path.join(app, 'node_modules', '@objectstack'), { recursive: true });
+    fs.symlinkSync(`../../../../${STORE_SPEC}`, path.join(app, 'node_modules', '@objectstack', 'spec'));
+    fs.writeFileSync(
+      path.join(app, 'package.json'),
+      JSON.stringify({ name: 'app', scripts: { 'type-check': 'tsc --noEmit' }, dependencies: { [SPEC_PACKAGE_NAME]: '^17.4.0' } }),
+    );
+    fs.writeFileSync(
+      path.join(repo, 'package.json'),
+      JSON.stringify({ name: 'root', private: true, packageManager: 'pnpm@10.31.0', devDependencies }),
+    );
+    fs.writeFileSync(path.join(repo, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
+    fs.writeFileSync(path.join(repo, '.gitignore'), 'node_modules\n.turbo\n');
+    execFileSync('git', ['init', '-q'], { cwd: repo });
+
+    const upstream = path.join(root, 'objectstack');
+    fs.mkdirSync(path.join(upstream, 'packages', 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(upstream, 'packages', 'spec', 'package.json'), JSON.stringify({ name: SPEC_PACKAGE_NAME }));
+    const pack = path.join(root, 'pack', 'package');
+    fs.mkdirSync(path.join(pack, 'dist'), { recursive: true });
+    fs.writeFileSync(path.join(pack, 'dist', 'index.d.ts'), 'export {};\n');
+    fs.writeFileSync(
+      path.join(pack, 'package.json'),
+      JSON.stringify({ name: SPEC_PACKAGE_NAME, version: '17.4.0', exports: { '.': { types: './dist/index.d.ts' } } }),
+    );
+    const tarball = path.join(root, 'spec.tgz');
+    execFileSync('tar', ['-czf', tarball, '-C', path.join(root, 'pack'), 'package']);
+
+    const inject = () =>
+      spawnSync(
+        'node',
+        [path.join(repo, 'scripts', 'spec-main-shape-gate.mjs'), 'inject', '--tarball', tarball, '--sha', 'f'.repeat(40), '--upstream-checkout', upstream],
+        { encoding: 'utf8' },
+      );
+    // The global files turbo hashed, and every task's hash.
+    const hashes = () => {
+      const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('TURBO_')));
+      const dry = JSON.parse(
+        execFileSync(path.join(repoRoot, 'node_modules', '.bin', 'turbo'), ['run', 'type-check', '--dry=json'], {
+          cwd: repo,
+          encoding: 'utf8',
+          env: { ...env, TURBO_TELEMETRY_DISABLED: '1' },
+          // turbo warns that the fixture has no lockfile; a failure still throws with it.
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }),
+      );
+      const tasks: Record<string, string> = {};
+      for (const task of dry.tasks) tasks[task.taskId] = task.hash;
+      return { files: Object.keys(dry.globalCacheInputs.files), tasks };
+    };
+    return { install, inject, hashes };
+  }
+
+  it('turbo.json hashes the marker inject writes, by a literal path through the root link', () => {
+    expect(TURBO_HASH_MARKER).toBe(`node_modules/${SPEC_PACKAGE_NAME}/${MARKER_FILE}`);
+    const turbo = JSON.parse(fs.readFileSync(path.join(repoRoot, 'turbo.json'), 'utf8'));
+    expect(turbo.globalDependencies ?? [], 'without it an injected tree and an installed one hash alike').toContain(
+      TURBO_HASH_MARKER,
+    );
+    // turbo does not expand a wildcard inside node_modules: a glob there would
+    // hash nothing, silently.
+    expect(TURBO_HASH_MARKER).not.toMatch(/[*?[{!]/);
+    // pnpm creates the root link the path goes through only because the root
+    // manifest declares the spec.
+    const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+    expect(
+      ['dependencies', 'devDependencies', 'optionalDependencies'].some((field) => manifest[field]?.[SPEC_PACKAGE_NAME]),
+      `the root manifest no longer declares ${SPEC_PACKAGE_NAME}, so ${TURBO_HASH_MARKER} never exists`,
+    ).toBe(true);
+    // The marker can never be committed.
+    expect(spawnSync('git', ['check-ignore', '-q', 'node_modules'], { cwd: repoRoot }).status).toBe(0);
+  });
+
+  it('real turbo: an injected tree hashes apart from an installed one, and back once the injection is undone', () => {
+    const tree = installedTree({ rootLink: true });
+    const installed = tree.hashes();
+    expect(installed.tasks).toHaveProperty(['app#type-check']);
+    expect(installed.files).not.toContain(TURBO_HASH_MARKER);
+
+    const first = tree.inject();
+    expect(first.status, first.stderr).toBe(0);
+    expect(first.stdout).toContain(`turbo hashes ${TURBO_HASH_MARKER}`);
+    const injected = tree.hashes();
+    expect(injected.files).toContain(TURBO_HASH_MARKER);
+    for (const [task, hash] of Object.entries(installed.tasks)) {
+      expect(injected.tasks[task], `${task} hashes as installed after an injection`).not.toBe(hash);
+    }
+
+    // A second injection at the same sha shares no entry with the first.
+    expect(tree.inject().status).toBe(0);
+    const again = tree.hashes();
+    for (const [task, hash] of Object.entries(injected.tasks)) expect(again.tasks[task]).not.toBe(hash);
+
+    // Undone the way a reinstall undoes it, the tree hashes as installed again:
+    // the marker cannot outlive the injection.
+    tree.install();
+    expect(tree.hashes()).toEqual(installed);
+  });
+
+  it('the firing control: without the root link the same injection hashes as installed, and inject says so', () => {
+    // The marker inside the virtual store alone is invisible to turbo, so the
+    // hash above moved because of the root-linked path and nothing else.
+    const tree = installedTree({ rootLink: false });
+    const installed = tree.hashes();
+    const result = tree.inject();
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain(`⚠️ ${TURBO_HASH_MARKER} is absent`);
+    expect(tree.hashes()).toEqual(installed);
   });
 });

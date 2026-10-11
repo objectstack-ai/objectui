@@ -248,6 +248,26 @@ formatting hint (`currency`, `defaultCurrency`, `currencyConfig`, `precision`,
 reads it. `ListColumnSchema` declares none of them, so a column that carries one
 does not change the footer (objectui#11588).
 
+**Which rows the figures describe (objectui#12081).** The footer is drawn
+beside the count of the matched set, so its figures are that set's. When the
+grid holds every matched row (rows handed in whole, or one page that holds every
+match) they are computed from those rows. When the grid holds one page of a
+larger set — it pages on the server, or a host such as `ListView` hands it one
+page with `manualPagination`, `rowCount` and `findParams` — it asks the data
+source for the whole set's figures in ONE aggregate query through
+`queryGroupHeaders`, with no `groupBy`: the query behind the rows (its filter,
+search and search fields), without its page, sort or projection. Turning the
+page or sorting asks nothing; a refresh or a write to the object asks again.
+A grid whose columns declare no summary that maps to an aggregate (none at
+all, only `none`, or only unknown members) has no footer and asks nothing.
+These figures are the server's, so "empty" means a stored `null`. The answer is
+used only when its row count equals the count the grid shows. Otherwise the
+footer shows the page's figure and says so: `Sum (this page): 32,500`. That is
+the case when the data source has no `queryGroupHeaders`, refuses the query or
+answers without one row, when the query carries a key this read cannot repeat,
+and when the count shown is an estimate. The platform's paged count under a
+search is one.
+
 The footer row renders only when at least one column resolves to a summary — a
 view whose columns are all `none` (or carry no `summary`) has no footer.
 

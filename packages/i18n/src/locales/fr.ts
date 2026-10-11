@@ -502,6 +502,7 @@ const fr = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}} : {{value}}",
+      pagePattern: "{{label}} (cette page) : {{value}}",
       count: "Nombre",
       countEmpty: "Vides",
       countFilled: "Remplis",

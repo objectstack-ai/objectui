@@ -69,7 +69,8 @@ import { useRowColor } from './useRowColor';
 import { useGroupedDataInOptionOrder, usableGroupingFields, type GroupOptionRanks, type ServerGroupSource } from './useGroupedData';
 import { groupSearchOf, useServerGroupHeaders, useServerGroupRows, type ServerGroupLeaf } from './useServerGrouping';
 import { GroupRow } from './GroupRow';
-import { useColumnSummary } from './useColumnSummary';
+import { useScopedColumnSummary } from './useColumnSummary';
+import { useWholeSetSummary } from './useWholeSetSummary';
 import { resolveRowCrudAffordances, resolveRowRecordCrudAffordance } from './rowCrudAffordances';
 import { useRecordCrudVerdicts } from './hooks/useRecordCrudVerdicts';
 import { resolveLegacyRowActions } from './resolveLegacyRowActions';
@@ -3230,6 +3231,51 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     if (serverGroupTotal !== undefined) setTotalMatching(serverGroupTotal);
   }, [serverGroupTotal]);
 
+  // The query the cross-page fan-out would replay — from whichever side owns the
+  // fetch (objectui#4501). ONE value, read by the fan-out AND by the affordance
+  // gate below, so the offer and the thing it promises can never disagree —
+  // and by the footer, whose whole-set figures are this same query's
+  // (objectui#12081 item 3). Declared here, above the footer's hook, rather
+  // than beside the fan-out: hooks run before the component's early returns.
+  //
+  // `hasInlineData` is exactly the data loader's own guard (`if (hasInlineData)
+  // return`), which makes it the precise test for "this grid did not issue the
+  // query behind the rows on screen". In that case `lastFindParamsRef` is not
+  // merely empty, it is WRONG — either never written, or left over from an
+  // earlier own-fetch — so the host's `findParams` is the only admissible
+  // source, and there is deliberately no fallback to the ref and no `?? {}`
+  // default: replaying `{}` is what asked the server for the whole object and
+  // fed up to 5000 unmatched records to bulk delete.
+  const bulkFanoutParams: Record<string, unknown> | null = hasInlineData
+    ? (hostFindParams ?? null)
+    : (lastFindParamsRef.current ?? null);
+
+  // The real match total, from whichever side owns the fetch — ONE derived
+  // value with ONE answer (objectui#4464). The pager has always read it this
+  // way; the cross-page "Select all N matching" affordance read the raw
+  // `totalMatching` STATE instead, whose only writer is this component's own
+  // data loader. Under a host that fetches the rows itself (ListView passing
+  // `manualPagination` + `rowCount`, i.e. the console) that loader never runs,
+  // so the state stayed `undefined` and `BulkActionBar`'s gate was permanently
+  // false while the pager, two lines away, showed the correct page count off
+  // the very number the bar needed.
+  //
+  // Every consumer reads this const — the pager's `rowCount`, both
+  // `BulkActionBar` sites, and the footer's whole-set read, which checks the
+  // count it is answered against this one (objectui#12081 item 3). Do NOT
+  // re-spell the conditional at a second consumption site: two copies of the
+  // fallback is exactly how one of them gets missed again (this defect, and
+  // #4138 before it).
+  //
+  // This answers HOW MANY match, and `canOfferSelectAllMatching` (objectui#4501)
+  // independently answers WHETHER the escalation may be offered at all. The two
+  // compose and neither substitutes for the other: the bar sites read this total
+  // only *through* that floor, so a host with a real `rowCount` but no
+  // `findParams` still gets no offer — a number to display is not a query to
+  // replay. The floor also subsumes the `singleSelection` suppression that used
+  // to be spelled at these sites (`!singleSelection` is its first conjunct).
+  const resolvedTotalMatching = externalManualPagination ? hostRowCount : totalMatching;
+
   // --- Column summary support ---
   const summaryColumns = React.useMemo(() => {
     const cols = normalizeColumns(schema.columns);
@@ -3238,7 +3284,34 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     }
     return undefined;
   }, [schema.columns]);
-  const { summaries, hasSummary } = useColumnSummary(summaryColumns, data, objectSchema?.fields);
+  // [objectui#12081 item 3] Whether the rows the footer reads ARE the set it
+  // is drawn beside. Under server paging they are one page of it: a host
+  // (`ListView`) hands this grid one window with the set's `rowCount`, or this
+  // grid's own loader asked for one page of `fetchWindow` rows. Rows handed in
+  // without a declared page are the set, and so is a first page that holds
+  // every match. Only the flat table draws the footer, so a grouped grid asks
+  // nothing.
+  const footerRowsAreTheSet = externalManualPagination
+    ? (hostRowCount as number) <= data.length
+    : hasInlineData || (serverPage === 1 && (typeof totalMatching === 'number'
+      ? totalMatching <= data.length
+      : data.length < fetchWindow));
+  const wholeSetSummary = useWholeSetSummary({
+    enabled: !footerRowsAreTheSet && !isGrouped && !serverGroupedFetch && data.length > 0,
+    dataSource,
+    objectName,
+    columns: summaryColumns,
+    findParams: bulkFanoutParams,
+    count: resolvedTotalMatching,
+    reloadKey: String(refreshKey),
+  });
+  const { summaries, hasSummary } = useScopedColumnSummary(
+    summaryColumns,
+    data,
+    objectSchema?.fields,
+    footerRowsAreTheSet ? 'rows' : (wholeSetSummary.status === 'answered' ? 'whole' : 'page'),
+    wholeSetSummary.row,
+  );
 
   // An authored column the renderer cannot read now says so, instead of just
   // not being there (objectui#5349 — the Q2 objectui#5068 deferred).
@@ -4928,22 +5001,6 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // matching" escalation must never be offered.
   const singleSelection = selectionMode === 'single';
 
-  // The query the cross-page fan-out would replay — from whichever side owns the
-  // fetch (objectui#4501). ONE value, read by the fan-out AND by the affordance
-  // gate below, so the offer and the thing it promises can never disagree.
-  //
-  // `hasInlineData` is exactly the data loader's own guard (`if (hasInlineData)
-  // return`), which makes it the precise test for "this grid did not issue the
-  // query behind the rows on screen". In that case `lastFindParamsRef` is not
-  // merely empty, it is WRONG — either never written, or left over from an
-  // earlier own-fetch — so the host's `findParams` is the only admissible
-  // source, and there is deliberately no fallback to the ref and no `?? {}`
-  // default: replaying `{}` is what asked the server for the whole object and
-  // fed up to 5000 unmatched records to bulk delete.
-  const bulkFanoutParams: Record<string, unknown> | null = hasInlineData
-    ? (hostFindParams ?? null)
-    : (lastFindParamsRef.current ?? null);
-
   // The floor. With no query to replay there is no honest "all N matching", so
   // the escalation is not offered — the same answer as a match set that does not
   // exist. This is what makes an unfiltered fan-out structurally unreachable
@@ -5318,29 +5375,6 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     ? schema.searchableFields.length > 0
     : (schema.showSearch !== undefined ? schema.showSearch : true);
 
-  // The real match total, from whichever side owns the fetch — ONE derived
-  // value with ONE answer (objectui#4464). The pager has always read it this
-  // way; the cross-page "Select all N matching" affordance read the raw
-  // `totalMatching` STATE instead, whose only writer is this component's own
-  // data loader. Under a host that fetches the rows itself (ListView passing
-  // `manualPagination` + `rowCount`, i.e. the console) that loader never runs,
-  // so the state stayed `undefined` and `BulkActionBar`'s gate was permanently
-  // false while the pager, two lines away, showed the correct page count off
-  // the very number the bar needed.
-  //
-  // All three consumers now read this const — the pager's `rowCount` and both
-  // `BulkActionBar` sites. Do NOT re-spell the conditional at a second
-  // consumption site: two copies of the fallback is exactly how one of them
-  // gets missed again (this defect, and #4138 before it).
-  //
-  // This answers HOW MANY match, and `canOfferSelectAllMatching` (objectui#4501)
-  // independently answers WHETHER the escalation may be offered at all. The two
-  // compose and neither substitutes for the other: the bar sites read this total
-  // only *through* that floor, so a host with a real `rowCount` but no
-  // `findParams` still gets no offer — a number to display is not a query to
-  // replay. The floor also subsumes the `singleSelection` suppression that used
-  // to be spelled at these sites (`!singleSelection` is its first conjunct).
-  const resolvedTotalMatching = externalManualPagination ? hostRowCount : totalMatching;
   const manualPage = externalManualPagination ? hostPage : serverPage;
   const manualPageSize = externalManualPagination
     ? (hostPageSize ?? serverPageSize)

@@ -797,6 +797,13 @@ export interface DataSource<T = any> {
    * fetches no rows (objectui#10881). Rows a host hands in whole are still
    * grouped where they are.
    *
+   * The same query with NO `groupBy` asks for the whole filtered set as ONE
+   * header row: a flat grid whose rows are one page of more reads its column
+   * footer's figures off that row, so they describe the rows the grid's count
+   * counts rather than the page on screen (objectui#12081). A source that
+   * answers grouped queries only may refuse it; the footer then says its
+   * figure is the page's.
+   *
    * ⛔ Not a second spelling of {@link aggregate}: that member takes the
    * analytics-shaped {@link AggregateParams} (one field, one function, one
    * `groupBy`) and may degrade to a client-side reduction; this one takes the

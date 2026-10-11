@@ -47,12 +47,17 @@ const asBareArray: Envelope = (rows) => rows;
 const asRecords: Envelope = (rows) => ({ records: rows, total: rows.length });
 const asItems: Envelope = (rows) => ({ items: rows, total: rows.length });
 
-/** A directory holding one set with one DIRECT grantee — nothing else. */
+/**
+ * A directory holding one set with one DIRECT grantee — nothing else. The
+ * grant names its set (objectui#7611: holders are read by the set's NAME); no
+ * position distributes it (no metadata store is mounted, so the registry
+ * answers no positions).
+ */
 const DIRECTORY: Record<string, Record<string, unknown>[]> = {
   sys_permission_set: [{ id: 'ps_1', name: 'showcase_contributor' }],
-  sys_user_permission_set: [{ id: 'grant_1', permission_set_id: 'ps_1', user_id: 'u_direct' }],
-  sys_position_permission_set: [],
-  sys_position: [],
+  sys_user_permission_set: [
+    { id: 'grant_1', permission_set_id: 'ps_1', permission_set: 'showcase_contributor', user_id: 'u_direct' },
+  ],
   sys_user_position: [],
   sys_user: [{ id: 'u_direct', name: 'Direct Dana', email: 'dana@example.com' }],
 };

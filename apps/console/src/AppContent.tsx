@@ -10,7 +10,7 @@
 
 import { lazy, Suspense, useMemo } from 'react';
 import { Route, useParams, useLocation, useNavigate, Navigate } from 'react-router-dom';
-import { DefaultAppContent, LoadingScreen, RecordDetailView, useAdapter, useMetadata } from '@object-ui/app-shell';
+import { DefaultAppContent, ENVIRONMENT_SCOPE_QUERY, LoadingScreen, RecordDetailView, useAdapter, useMetadata } from '@object-ui/app-shell';
 import { MePermissionsProvider } from '@object-ui/permissions';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import type { DataSource } from '@object-ui/types';
@@ -129,17 +129,12 @@ function MetadataRedirect() {
  *                                       record-scoped `nav_organization`
  *                                       needs a runtime `{current_org_id}`
  *                                       that a static redirect cannot resolve)
- *   roles         -> sys_position      (ADR-0090 D3 renamed `sys_role` ->
- *                                       `sys_position`; the sidebar's "Roles"
- *                                       and the retired hub's "Positions" were
- *                                       the same surface under old/new
- *                                       vocabulary)
- *   positions     -> sys_position      (`nav_positions`)
- *   permissions   -> sys_permission_set(`nav_permission_sets`; this one was
- *                                       held back in PR #3673 and is resolved
- *                                       by objectui#3655's decision A — the
- *                                       reasoning is recorded at the route
- *                                       block below)
+ *
+ * Three of the five no longer land on an object at all (objectui#7611):
+ * `roles`, `positions` and `permissions` name the security CATALOG, which
+ * ADR-0131 D3 moves into the environment registry, so they forward onto the
+ * Setup catalog — the metadata-admin list in its environment scope — through
+ * {@link SystemCatalogRedirect} below.
  *
  * Same shape as `ObjectRedirect` / `MetadataRedirect` above (a legacy URL is
  * translated, the page is not resurrected), including their treatment of
@@ -152,6 +147,27 @@ function SystemObjectRedirect({ objectName }: { objectName: string }) {
   // the end keeps an app segment that happens to be spelled `system` intact.
   const prefix = location.pathname.replace(/\/system\/[^/]+\/?$/, '');
   return <Navigate to={`${prefix}/${objectName}`} replace />;
+}
+
+/**
+ * Forwards the retired `system/{roles,positions,permissions}` console pages
+ * onto the Setup CATALOG (objectui#7611): the metadata-admin list of the
+ * registry type, in its environment scope (`…/metadata/<type>?scope=environment`,
+ * `catalog-scope.ts` in `@object-ui/app-shell`).
+ *
+ * ADR-0131 D3 gives positions and permission sets one home, the environment
+ * registry, and D7 says Setup lists that registry; the ruling that unblocked
+ * objectui#7611 says the Setup pages are the existing metadata-admin pages,
+ * re-routed. The words map as they always did — `roles` was ADR-0090 D3's old
+ * name for positions, and objectui#3655 decision A bound `permissions` to the
+ * permission-set surface (layer 2), not the capability definitions (layer 1).
+ * Same prefix handling, and the same treatment of `location.search` /
+ * `location.hash`, as {@link SystemObjectRedirect}.
+ */
+function SystemCatalogRedirect({ type }: { type: 'position' | 'permission' }) {
+  const location = useLocation();
+  const prefix = location.pathname.replace(/\/system\/[^/]+\/?$/, '');
+  return <Navigate to={`${prefix}/metadata/${type}?${ENVIRONMENT_SCOPE_QUERY}`} replace />;
 }
 
 /**
@@ -238,8 +254,11 @@ export const systemRoutes = (
     <Route path="system/metadata" element={<MetadataRedirect />} />
     <Route path="system/metadata/:metadataType" element={<MetadataRedirect />} />
     <Route path="system/metadata/:metadataType/:itemName" element={<MetadataRedirect />} />
-    {/* Legacy URL redirects → the framework-owned system objects (objectui#3655).
-        All five resolve now. `system/permissions` was the one held back in PR
+    {/* Legacy URL redirects → the framework-owned system objects (objectui#3655),
+        and — since objectui#7611 — the Setup catalog for the last three
+        (`SystemCatalogRedirect`: positions and permission sets are registry
+        items, ADR-0131 D3). The history below is why `permissions` means the
+        permission-set surface. All five resolve. `system/permissions` was the one held back in PR
         #3673: the framework splits what this console calls "Permissions" into
         TWO Setup entries, and picking one on a hunch would have bound every
         future click and bookmark to a surface nobody chose.
@@ -269,9 +288,9 @@ export const systemRoutes = (
         distinction that actually holds. */}
     <Route path="system/users" element={<SystemObjectRedirect objectName="sys_user" />} />
     <Route path="system/organizations" element={<SystemObjectRedirect objectName="sys_organization" />} />
-    <Route path="system/roles" element={<SystemObjectRedirect objectName="sys_position" />} />
-    <Route path="system/positions" element={<SystemObjectRedirect objectName="sys_position" />} />
-    <Route path="system/permissions" element={<SystemObjectRedirect objectName="sys_permission_set" />} />
+    <Route path="system/roles" element={<SystemCatalogRedirect type="position" />} />
+    <Route path="system/positions" element={<SystemCatalogRedirect type="position" />} />
+    <Route path="system/permissions" element={<SystemCatalogRedirect type="permission" />} />
   </>
 );
 

@@ -2,15 +2,12 @@
   "type": "list",
   "items": [
     {
-      "type": "text",
       "content": "Item 1"
     },
     {
-      "type": "text",
       "content": "Item 2"
     },
     {
-      "type": "text",
       "content": "Item 3"
     }
   ]

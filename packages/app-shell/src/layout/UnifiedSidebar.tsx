@@ -52,6 +52,7 @@ import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
 import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useNavDocTargetCheck } from '../hooks/useNavDocTargetCheck.js';
 import { matchAppBySegment, appRouteSegment, resolveKeyedI18nLabel } from '../utils/index.js';
+import { withoutUnreadableObjectEntries } from '../utils/navObjectReadGate.js';
 import { useHomePath } from '../hooks/useHomePath.js';
 // Aliased for symmetry with objectui's own `resolveKeyedI18nLabel` above (the
 // names stopped colliding in objectui#4167): this is the spec's resolver (new in
@@ -231,6 +232,23 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // an area that renders nothing. Same derivation as `AppSchemaRenderer`
   // (@object-ui/layout); the predicate is shared, not re-implemented.
   const areas: NavigationArea[] = activeApp?.areas || [];
+  // An entry bound to an object the caller may not read is not drawn
+  // (objectui#12109): the tree is pruned HERE, before it reaches the layout,
+  // because no callback the layout asks answers "may this member read this
+  // object" (see `withoutUnreadableObjectEntries`). Every area's tree and the
+  // flat tree are pruned the same way, so the area election below and the drawn
+  // menu read the same tree. Not memoised: a tree with nothing to prune comes
+  // back as the very array it was, so a caller who may read everything hands
+  // the layout the authored tree, and nothing downstream keys on the identity
+  // of a pruned one (AGENTS.md #10).
+  const readableAreas = areas.map((area) => {
+    if (!area.navigation) return area;
+    const navigation = withoutUnreadableObjectEntries(area.navigation, can);
+    return navigation === area.navigation ? area : { ...area, navigation };
+  });
+  const readableAppNavigation: NavigationItem[] | undefined = activeApp?.navigation
+    ? withoutUnreadableObjectEntries(activeApp.navigation, can)
+    : activeApp?.navigation;
   // A `doc` entry the member may not read is not drawn (objectui#10188) —
   // defence in depth behind the server's app read, which already drops it
   // (objectstack#19790). Asked only in an app: on Home `activeApp` is merely
@@ -238,7 +256,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const checkDocTarget = useNavDocTargetCheck(
     context === 'app' ? [activeApp?.navigation, ...areas.map((area) => area.navigation)] : [],
   );
-  const visibleAreas = areas.filter((area) =>
+  const visibleAreas = readableAreas.filter((area) =>
     hasVisibleNavigationItems(area.navigation, {
       evaluateVisibility: evalVis,
       checkPermission: checkPerm,
@@ -271,7 +289,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // covers the frame between a gating change hiding the active area and the
   // effect above re-electing.
   const activeArea = visibleAreas.find((a) => a.id === activeAreaId) ?? visibleAreas[0];
-  const appNavigation: NavigationItem[] = activeArea?.navigation || activeApp?.navigation || [];
+  const appNavigation: NavigationItem[] = activeArea?.navigation || readableAppNavigation || [];
 
   // App-level context selectors (e.g. Studio's package scope). Their
   // values are injected into nav items as `{<id>}` template vars so a

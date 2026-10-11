@@ -19,7 +19,7 @@ import { CONFIG_FILES as VITEST_CONFIG_FILES } from './helpers/vitest-config-pro
  * the one with the widest blast radius.
  *
  * Turbo hashes a task from its `inputs`. `$TURBO_DEFAULT$` covers only files
- * inside the package directory, and `globalDependencies` is unset — so any file
+ * inside the package directory, and `globalDependencies` holds no source file — so any file
  * the task reads from elsewhere in the repo is invisible to the cache key. When
  * such a file changes, turbo does not re-run the task; it REPLAYS the previous
  * verdict. `build` declared no `inputs` AT ALL, so it ran on that default,

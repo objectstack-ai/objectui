@@ -5,6 +5,11 @@
 // direct-grants-only list told the admin "0 users" for any
 // normally-administered set (positions are THE distribution channel in
 // ADR-0090), right before they edit or delete it.
+//
+// objectui#7611 — by NAME, against the registry: grants are read by their
+// `permission_set` name column, and the positions that distribute the set are
+// the registry's position definitions whose `permissionSets` names it
+// (ADR-0131 D4) — never `sys_position_permission_set` / `sys_position` rows.
 
 import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -14,22 +19,25 @@ import { AssignedUsersSection } from './AssignedUsersSection';
 vi.mock('@object-ui/react', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useAdapter: () => mockAdapter,
+  useMetadata: () => mockMetadataStore,
 }));
 vi.mock('@object-ui/fields', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/fields')>()),
   RecordPickerDialog: () => null,
 }));
 
+// The registry's position definitions — the binding is part of the definition.
+const registryPositions = [
+  { name: 'contributor', label: 'Contributor', permissionSets: ['showcase_contributor'] },
+  { name: 'everyone', label: 'Everyone', permissionSets: ['member_default', 'showcase_contributor'] },
+  { name: 'auditor', label: 'Auditor', permissionSets: ['showcase_auditor'] },
+];
+const mockMetadataStore = { ensureType: vi.fn(async () => registryPositions) };
+
 const data: Record<string, any[]> = {
   sys_permission_set: [{ id: 'ps_1', name: 'showcase_contributor' }],
-  sys_user_permission_set: [{ id: 'grant_1', permission_set_id: 'ps_1', user_id: 'u_direct' }],
-  sys_position_permission_set: [
-    { id: 'bind_1', position_id: 'pos_contrib', permission_set_id: 'ps_1' },
-    { id: 'bind_2', position_id: 'pos_everyone', permission_set_id: 'ps_1' },
-  ],
-  sys_position: [
-    { id: 'pos_contrib', name: 'contributor', label: 'Contributor' },
-    { id: 'pos_everyone', name: 'everyone', label: 'Everyone' },
+  sys_user_permission_set: [
+    { id: 'grant_1', permission_set_id: 'ps_1', permission_set: 'showcase_contributor', user_id: 'u_direct' },
   ],
   sys_user_position: [
     { id: 'up_1', user_id: 'u_held', position: 'contributor' },
@@ -83,5 +91,29 @@ describe('AssignedUsersSection — effective holders (objectui#2382)', () => {
     await waitFor(() => expect(screen.getByText('Held Henry')).toBeTruthy());
     // One removable (direct grant) row → exactly one Remove button.
     expect(screen.getAllByLabelText('Remove')).toHaveLength(1);
+  });
+});
+
+describe('AssignedUsersSection — by name, against the registry (objectui#7611)', () => {
+  it('reads grants by the set NAME and the distributing positions from the registry', async () => {
+    mockAdapter.find.mockClear();
+    render(<AssignedUsersSection permissionSetName="showcase_contributor" />);
+    await waitFor(() => expect(screen.getByText('Held Henry')).toBeTruthy());
+
+    const reads = mockAdapter.find.mock.calls.map(([object]) => object);
+    // No catalog row is read to LIST holders.
+    expect(reads).not.toContain('sys_position_permission_set');
+    expect(reads).not.toContain('sys_position');
+    expect(reads).not.toContain('sys_permission_set');
+    const grantQuery = mockAdapter.find.mock.calls.find(([o]) => o === 'sys_user_permission_set')?.[1];
+    expect(grantQuery?.$filter).toEqual({ permission_set: 'showcase_contributor' });
+    expect(mockMetadataStore.ensureType).toHaveBeenCalledWith('position');
+  });
+
+  it('a position whose definition does not name the set contributes nobody', async () => {
+    render(<AssignedUsersSection permissionSetName="showcase_auditor" />);
+    // `auditor` names `showcase_auditor`, but nobody holds it in the fixture,
+    // and the direct grant above is for another set: an empty list.
+    await waitFor(() => expect(screen.getByText(/No users assigned yet/)).toBeTruthy());
   });
 });

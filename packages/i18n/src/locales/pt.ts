@@ -501,6 +501,7 @@ const pt = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}}: {{value}}",
+      pagePattern: "{{label}} (esta página): {{value}}",
       count: "Contagem",
       countEmpty: "Vazios",
       countFilled: "Preenchidos",

@@ -158,12 +158,45 @@
  *
  * `turbo`'s `type-check` task is cached, and its hash covers this repository's
  * sources, its lockfile and a declared env list -- it does NOT cover the CONTENT
- * of `node_modules`. An injected spec therefore changes nothing turbo hashes:
- * a second run after an injection can replay the verdict recorded BEFORE it, and
- * a run at a new objectstack sha can replay the verdict from the old one. Both
- * are green answers to a question that was never asked. The workflow runs the
- * typecheck with the cache bypassed for exactly this reason, and
- * `scripts/__tests__/spec-main-shape-gate.test.ts` pins that it keeps doing so.
+ * of `node_modules`. The injected spec's own files therefore change nothing
+ * turbo hashes: a second run after an injection could replay the verdict
+ * recorded BEFORE it, and a run at a new objectstack sha the verdict from the
+ * old one. Both are green answers to a question that was never asked. The
+ * workflow runs the typecheck with the cache bypassed for exactly this reason,
+ * and `scripts/__tests__/spec-main-shape-gate.test.ts` pins that it keeps doing
+ * so. The marker below closes both cases too; the bypass does not lean on it.
+ *
+ * ## ...and an injected tree must not leave a verdict an INSTALLED tree replays (objectui#12114)
+ *
+ * The reverse direction is local, and the bypass does not close it: `--force`
+ * (`TURBO_FORCE=true`) skips cache READS and still WRITES. A linked git worktree
+ * shares the main checkout's `.turbo/cache` (turbo logs "using shared worktree
+ * cache"), so a reproduction in one worktree recorded main-spec verdicts that a
+ * later ordinary `pnpm type-check` in a sibling -- same sources, installed spec
+ * -- replayed as its own. The measurement is on this issue's pull request.
+ *
+ * So the injection is part of turbo's hash: `turbo.json`'s `globalDependencies`
+ * names `TURBO_HASH_MARKER`, the `MARKER_FILE` `inject` writes into every
+ * replaced copy, reached through the root link to the spec. Measured on turbo
+ * 2.10:
+ *
+ *  - Absent, a global dependency hashes as nothing: installed trees share
+ *    entries with each other as before, and an injected tree hashes apart from
+ *    all of them in both directions, with no flag to remember. The marker holds
+ *    the sha and the injection time, so two injections never share one either.
+ *  - The path is LITERAL because turbo does not expand a wildcard inside
+ *    `node_modules`: a glob over the virtual store hashes nothing, silently. The
+ *    root link exists because the root manifest declares the spec; the consumer
+ *    proof below requires it to resolve to a marked copy, and `inject` says so
+ *    out loud when there is no root link to hash.
+ *  - The marker lives INSIDE the replaced copy, so it cannot outlive the
+ *    injection: `pnpm install --force` or a fresh install replaces that
+ *    directory, and the tree hashes as installed again. A plain `pnpm install`
+ *    leaves the injection and its marker both in place.
+ *
+ * A local reproduction is therefore `inject`, then `pnpm type-check --continue`
+ * with no flag, then `pnpm install --frozen-lockfile --force` to undo it. The
+ * test file above pins the wiring and drives a real turbo over a fixture.
  */
 
 import fs from 'node:fs';
@@ -182,6 +215,13 @@ export const UPSTREAM_REPO = 'objectstack-ai/objectstack';
 
 /** The marker `inject` leaves inside every replaced copy. */
 export const MARKER_FILE = '.spec-main-shape-gate.json';
+
+/**
+ * That marker as `turbo.json`'s `globalDependencies` names it: a LITERAL path
+ * through the repository root's own link to the spec. See "...and an injected
+ * tree must not leave a verdict" in the header.
+ */
+export const TURBO_HASH_MARKER = ['node_modules', SPEC_PACKAGE_NAME, MARKER_FILE].join('/');
 
 const repoRootDefault = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -833,7 +873,20 @@ export function inject({ tarball, sha, upstreamCheckout, repoRoot = repoRootDefa
     );
   }
 
-  return { targets, consumers, version: manifest.version, sha, substitutions, resolutions, oneCopy };
+  // The marker turbo hashes (objectui#12114). The root link, when there is one,
+  // already passed the consumer proof above, so this reads where turbo will look.
+  const hashMarker = fs.existsSync(path.join(repoRoot, TURBO_HASH_MARKER)) ? TURBO_HASH_MARKER : null;
+  log(
+    hashMarker
+      ? `spec-main-shape-gate: turbo hashes ${hashMarker}, so this tree's task hashes no longer match an ` +
+          `installed tree's: a type-check here neither replays an installed verdict nor leaves one for a sibling ` +
+          `worktree. \`pnpm install --frozen-lockfile --force\` undoes the injection and the marker together.`
+      : `spec-main-shape-gate: ⚠️ ${TURBO_HASH_MARKER} is absent -- no root link to the spec -- so turbo hashes ` +
+          `this tree like an installed one, and a type-check here leaves verdicts a sibling worktree's installed ` +
+          `type-check can replay.`,
+  );
+
+  return { targets, consumers, version: manifest.version, sha, substitutions, resolutions, oneCopy, hashMarker };
 }
 
 /**

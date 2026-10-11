@@ -197,15 +197,14 @@ registerMetadataResource({
   domain: 'security',
   EditPage: PermissionMatrixEditPage,
   searchableFields: ['name', 'label'],
+  // objectui#7611 — no `managedBy` column: the registry serves no such key on a
+  // permission set (measured on objectstack main), so it read "Custom" for every
+  // set, the platform's own included. Provenance is the list's own Source badge,
+  // read from the served `_packageId` / `_provenance`.
   listColumns: [
     { key: 'name', label: 'Name', width: '30%' },
     { key: 'label', label: 'Label', width: '30%' },
-    {
-      key: 'managedBy',
-      label: 'Source',
-      width: '15%',
-      render: (v) => (v === 'package' ? 'Package' : 'Custom'),
-    },
+    { key: 'description', label: 'Description' },
   ],
 });
 

@@ -76,6 +76,7 @@ import { IdentityImportOptions, IdentityImportResultExtra, identityImportFields 
 import { importTargetFields } from './importTargetFields.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { listToolbarDrawsAction, resolveManagedByEmptyState } from '../utils/managedByEmptyState.js';
+import { mayReadObject } from '../utils/navObjectReadGate.js';
 import { resolveViewId } from '../utils/resolveViewId.js';
 import { defaultListViewId, viewRowId, isSavedViewId, viewEntry } from '../utils/viewIdentity.js';
 import { warnSuppressedListNav } from '../utils/warnSuppressedListNav.js';
@@ -1993,11 +1994,21 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         apiBase: (import.meta as any).env?.VITE_SERVER_URL || '',
         refreshKey,
     });
+    // objectui#12109 — this object's list actions are drawn only for a caller
+    // who may read the object. Every one of them is bound to it (an action's
+    // `objectName` is what merges it into `objectDef.actions`), and a caller
+    // without read gets the list's "You don't have access" under them, so a
+    // drawn action could only end there. The verdict is the one the sidebar
+    // prunes this object's navigation entry on (`mayReadObject`), so the entry
+    // and its list actions go together. A boolean, read each render from the
+    // provider's verdict, so the memo below keys on a primitive (AGENTS.md #10).
+    const listActionsReadable = mayReadObject(perms.can, objectDef.name);
+    const listActions = listActionsReadable ? objectDef.actions : undefined;
     // Localized `list_toolbar` actions, shared by the generic action bar and the
     // environment-aware toolbar (the action:bar renderer filters by location).
     const localizedToolbarActions = useMemo(
-        () => (objectDef.actions || []).map((a: any) => localizeActionTexts(objectDef.name, a)),
-        [objectDef, localizeActionTexts],
+        () => (listActionsReadable ? objectDef.actions || [] : []).map((a: any) => localizeActionTexts(objectDef.name, a)),
+        [objectDef, localizeActionTexts, listActionsReadable],
     );
 
     // [#5216] The DECLARED nav `runAction` slot, consumed generically.
@@ -2127,7 +2138,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     const toolbarPredicateScope = usePredicateScope();
     const pageOffersCreate =
         (objectCanCreate && createVisible) ||
-        listToolbarDrawsAction(objectDef.actions, mayInvokeToolbarAction, toolbarPredicateScope);
+        listToolbarDrawsAction(listActions, mayInvokeToolbarAction, toolbarPredicateScope);
 
     /**
      * [#5142] The object-list toolbar's IMPORT predicates — the `import` half
@@ -3917,7 +3928,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     )}
 
                     {/* Schema-driven toolbar actions */}
-                    {objectDef.actions?.some((a: any) => a.locations?.includes('list_toolbar')) && (
+                    {listActions?.some((a: any) => a.locations?.includes('list_toolbar')) && (
                       isEnvironmentList ? (
                         <EnvironmentListToolbar
                           actions={localizedToolbarActions}

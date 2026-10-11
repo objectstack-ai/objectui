@@ -18,7 +18,5 @@
       "required": true
     }
   ],
-  "submitButton": {
-    "label": "Sign In"
-  }
+  "submitLabel": "Sign In"
 }

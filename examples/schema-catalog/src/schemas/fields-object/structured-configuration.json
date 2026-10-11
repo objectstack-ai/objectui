@@ -6,12 +6,7 @@
     {
       "name": "config",
       "label": "Configuration",
-      "type": "object",
-      "schema": {
-        "api_key": "string",
-        "timeout": "number",
-        "enabled": "boolean"
-      }
+      "type": "object"
     }
   ]
 }

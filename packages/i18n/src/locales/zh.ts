@@ -472,6 +472,7 @@ const zh = {
     // pack controls its own separator and word order.
     summary: {
       pattern: '{{label}}:{{value}}',
+      pagePattern: '{{label}}（本页）:{{value}}',
       count: '计数',
       countEmpty: '空值',
       countFilled: '非空',

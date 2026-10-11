@@ -489,6 +489,7 @@ const ja = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}}: {{value}}",
+      pagePattern: "{{label}}（このページ）: {{value}}",
       count: "件数",
       countEmpty: "空欄",
       countFilled: "入力済み",

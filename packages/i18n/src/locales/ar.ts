@@ -553,6 +553,7 @@ const ar = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}}: {{value}}",
+      pagePattern: "{{label}} (هذه الصفحة): {{value}}",
       count: "العدد",
       countEmpty: "فارغة",
       countFilled: "ممتلئة",

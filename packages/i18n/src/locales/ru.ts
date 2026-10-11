@@ -523,6 +523,7 @@ const ru = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}}: {{value}}",
+      pagePattern: "{{label}} (эта страница): {{value}}",
       count: "Количество",
       countEmpty: "Пустые",
       countFilled: "Заполненные",

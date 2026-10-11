@@ -154,10 +154,13 @@ const DeclaredActionButton: React.FC<{
   // and an absent reader are different facts (`DecisionOutputRegistry`). Held
   // in a ref and read at click time, so no callback keys on the store's
   // context identity, which is rebuilt whenever any type it caches settles
-  // (AGENTS.md #10).
+  // (AGENTS.md #10). The ref is synced after each commit rather than during
+  // render; a click always lands after one.
   const metadataStore = React.useContext(MetadataCtx);
   const metadataStoreRef = React.useRef(metadataStore);
-  metadataStoreRef.current = metadataStore;
+  React.useEffect(() => {
+    metadataStoreRef.current = metadataStore;
+  });
 
   const recordData = record != null && typeof record === 'object' ? (record as Record<string, any>) : {};
   /**

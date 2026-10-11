@@ -18,11 +18,12 @@
  * administrator assigns what the operator defined).
  *
  * The shape follows `AssignedUsersSection` (a permission set's holders):
- * people first, add through `RecordPickerDialog`, remove per row. A refusal is
- * shown in the server's own words — notably the one a position still answers
- * when it has a definition but no catalog row (measured on objectstack
- * `main`: the assignment door looks the name up in `sys_position`), which this
- * page must not paper over.
+ * people first, add through `RecordPickerDialog`, remove per row. The server
+ * judges the name against the security catalog (objectstack's
+ * `position-catalog-refusal`, ADR-0131 stage 2a): any position the registry
+ * serves is assignable, a registry-only one included, and a name the catalog
+ * does not resolve is refused. A refusal is shown in the server's own words,
+ * which this page must not paper over.
  */
 
 import * as React from 'react';

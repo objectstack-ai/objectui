@@ -19,7 +19,6 @@ import { Button } from '@object-ui/components';
 import { Input } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
 import { Switch } from '@object-ui/components';
-import { useAdapter } from '@object-ui/react';
 import {
   Select,
   SelectContent,
@@ -45,11 +44,12 @@ import { t, tFormat, translateMetadataType, useMetadataLocale } from './i18n.js'
 import { buildPackageScopeOptions } from './package-scope.js';
 import { ENVIRONMENT_SCOPE_QUERY, isEnvironmentScope } from './catalog-scope.js';
 import {
+  audienceAnchorsOf,
   hasCatalogActivation,
-  readCatalogRowStates,
-  writeCatalogActive,
-  type CatalogRowDoor,
-  type CatalogRowState,
+  isCatalogItemActive,
+  readCatalogActivation,
+  writeCatalogActivation,
+  type CatalogActivation,
 } from './catalog-activation.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
 import { postureHasOrgWall, useTenancyPosture } from '../../hooks/useTenancyPosture.js';
@@ -140,13 +140,12 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   const envScope = isEnvironmentScope(searchParams);
   const canAuthor = useCanAuthorMetadata();
   const posture = useTenancyPosture();
-  const adapter = useAdapter();
   const activation = envScope && hasCatalogActivation(type);
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'active' | 'inactive'>('all');
-  // The item → row-state answer of `catalog-activation.ts` (the one row read
-  // these pages keep, pending the activation ledger). `null` while unread,
+  // The activation ledger's answer for the switch column, with the names the
+  // door refuses to switch (`catalog-activation.ts`). `null` while unread,
   // `'error'` when the read was refused or failed.
-  const [rowStates, setRowStates] = React.useState<Map<string, CatalogRowState> | 'error' | null>(null);
+  const [ledger, setLedger] = React.useState<CatalogLedger | 'error' | null>(null);
   const [switching, setSwitching] = React.useState<string | null>(null);
   const [switchError, setSwitchError] = React.useState<string | null>(null);
 
@@ -277,38 +276,35 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   }, [projectPackages, activePackage, pkgSuffix, navigate, envScope]);
 
   // objectui#7611 — the activation state the switch column shows. Re-read on
-  // the list's own refresh, never on an unrelated render.
+  // the list's own refresh, never on an unrelated render. The anchors arrive
+  // with the states, so no anchor is ever drawn as a live switch.
   React.useEffect(() => {
-    if (!activation || !adapter) {
-      setRowStates(null);
+    if (!activation) {
+      setLedger(null);
       return;
     }
-    let cancelled = false;
-    readCatalogRowStates(adapter as unknown as CatalogRowDoor, type)
-      .then((states) => {
-        if (!cancelled) setRowStates(states);
+    const controller = new AbortController();
+    Promise.all([readCatalogActivation(type, controller.signal), audienceAnchorsOf(type)])
+      .then(([states, anchors]) => {
+        if (!controller.signal.aborted) setLedger({ states, anchors });
       })
       .catch(() => {
-        if (!cancelled) setRowStates('error');
+        if (!controller.signal.aborted) setLedger('error');
       });
-    return () => {
-      cancelled = true;
-    };
-    // `adapter` is the provider's long-lived instance, not a memoised value.
-  }, [activation, adapter, type, refreshKey]);
+    return () => controller.abort();
+  }, [activation, type, refreshKey]);
 
   const toggleActive = React.useCallback(
-    async (itemName: string, state: CatalogRowState) => {
-      if (!adapter) return;
+    async (itemName: string, enabled: boolean) => {
       setSwitching(itemName);
       setSwitchError(null);
       try {
-        await writeCatalogActive(adapter as unknown as CatalogRowDoor, type, state.id, !state.active);
-        setRowStates((prev) => {
-          if (!(prev instanceof Map)) return prev;
-          const next = new Map(prev);
-          next.set(itemName, { ...state, active: !state.active });
-          return next;
+        const now = await writeCatalogActivation(type, itemName, !enabled);
+        setLedger((prev) => {
+          if (!prev || prev === 'error') return prev;
+          const states = new Map(prev.states);
+          states.set(itemName, now);
+          return { ...prev, states };
         });
       } catch (err: any) {
         setSwitchError(err?.message ?? String(err));
@@ -316,7 +312,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
         setSwitching(null);
       }
     },
-    [adapter, type],
+    [type],
   );
 
   React.useEffect(() => {
@@ -387,11 +383,10 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
     if (!matchesQuery(row.item, query, searchableFields)) return false;
     if (sourceFilter !== 'all' && row.source !== sourceFilter) return false;
     if (activation && statusFilter !== 'all') {
-      // Only a KNOWN state filters: an item whose state is unread or that has
-      // no row is neither active nor inactive to this filter.
-      const state = rowStates instanceof Map ? rowStates.get(String(row.item.name ?? '')) : undefined;
-      if (!state) return false;
-      if ((statusFilter === 'active') !== state.active) return false;
+      // Only a KNOWN state filters: while the ledger is unread or unreadable,
+      // no item is either active or inactive to this filter.
+      if (!ledger || ledger === 'error') return false;
+      if ((statusFilter === 'active') !== isCatalogItemActive(ledger.states, String(row.item.name ?? ''))) return false;
     }
     return true;
   });
@@ -730,7 +725,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                         <td className="px-3 py-2 align-top">
                           <CatalogActiveCell
                             itemName={name}
-                            states={rowStates}
+                            ledger={ledger}
                             canSwitch={canAuthor}
                             busy={switching === name}
                             locale={locale}
@@ -779,56 +774,57 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   );
 }
 
+/** The activation ledger's states for a type, and the names its door refuses. */
+interface CatalogLedger {
+  states: CatalogActivation;
+  anchors: ReadonlySet<string>;
+}
+
 /**
- * objectui#7611 — one item's active switch in the environment scope. Its three
- * non-switch states are each said, never rendered as a guessed "on": the state
- * is still loading, the read failed, or the item has no catalog row to hold the
- * flag (see `catalog-activation.ts`).
+ * objectui#7611 — one item's active switch in the environment scope, showing
+ * the activation ledger's state (see `catalog-activation.ts`). Its non-switch
+ * states are each said, never rendered as a guessed "on": the state is still
+ * loading, or the read failed. An audience anchor shows its state on a
+ * disabled switch with the reason, because the door refuses to switch it.
  */
 function CatalogActiveCell({
   itemName,
-  states,
+  ledger,
   canSwitch,
   busy,
   locale,
   onToggle,
 }: {
   itemName: string;
-  states: Map<string, CatalogRowState> | 'error' | null;
+  ledger: CatalogLedger | 'error' | null;
   canSwitch: boolean;
   busy: boolean;
   locale: string;
-  onToggle: (itemName: string, state: CatalogRowState) => void;
+  onToggle: (itemName: string, enabled: boolean) => void;
 }) {
-  if (states === null) return <span className="text-xs text-muted-foreground">…</span>;
-  if (states === 'error') {
+  if (ledger === null) return <span className="text-xs text-muted-foreground">…</span>;
+  if (ledger === 'error') {
     return (
       <span className="text-xs text-muted-foreground" title={t('engine.catalog.active.unknown', locale)}>
         ?
       </span>
     );
   }
-  const state = states.get(itemName);
-  if (!state) {
-    return (
-      <span
-        className="text-xs text-muted-foreground"
-        title={t('engine.catalog.active.noRow', locale)}
-        data-testid={`catalog-active-${itemName}`}
-      >
-        —
-      </span>
-    );
-  }
+  const enabled = isCatalogItemActive(ledger.states, itemName);
+  const anchor = ledger.anchors.has(itemName);
+  const label = anchor
+    ? t('engine.catalog.active.anchor', locale)
+    : t(enabled ? 'engine.catalog.active.on' : 'engine.catalog.active.off', locale);
   return (
-    <Switch
-      checked={state.active}
-      disabled={!canSwitch || busy}
-      onCheckedChange={() => onToggle(itemName, state)}
-      aria-label={t(state.active ? 'engine.catalog.active.on' : 'engine.catalog.active.off', locale)}
-      title={t(state.active ? 'engine.catalog.active.on' : 'engine.catalog.active.off', locale)}
-      data-testid={`catalog-active-${itemName}`}
-    />
+    <span className="inline-flex" title={label}>
+      <Switch
+        checked={enabled}
+        disabled={anchor || !canSwitch || busy}
+        onCheckedChange={() => onToggle(itemName, enabled)}
+        aria-label={label}
+        data-testid={`catalog-active-${itemName}`}
+      />
+    </span>
   );
 }
 

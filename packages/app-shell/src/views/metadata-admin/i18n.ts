@@ -274,8 +274,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.catalog.status.inactive': 'Inactive',
   'engine.catalog.active.on': 'Active — click to deactivate',
   'engine.catalog.active.off': 'Inactive — click to activate',
-  'engine.catalog.active.noRow':
-    'This item has no catalog row yet, so it cannot be switched off here. The switch moves to the activation ledger once the server accepts this type there.',
+  'engine.catalog.active.anchor':
+    'An audience anchor: it carries the baseline every principal of the deployment holds, so it cannot be switched off. Change what it grants through the permission sets bound to it.',
   'engine.catalog.active.unknown': 'Activation state could not be read.',
   'engine.catalog.active.failed': 'The switch was not saved: {message}',
   'engine.catalog.readOnly.single':
@@ -3707,8 +3707,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.catalog.status.inactive': '已停用',
   'engine.catalog.active.on': '已启用 — 点击停用',
   'engine.catalog.active.off': '已停用 — 点击启用',
-  'engine.catalog.active.noRow':
-    '此条目还没有目录行，暂时无法在此停用。服务端在激活台账中接受此类型后，开关将改由台账承载。',
+  'engine.catalog.active.anchor':
+    '受众锚点：它承载此部署中每个主体都持有的基线，因此不能停用。请通过绑定到它的权限集来调整它授予的内容。',
   'engine.catalog.active.unknown': '无法读取启用状态。',
   'engine.catalog.active.failed': '开关未保存：{message}',
   'engine.catalog.readOnly.single':

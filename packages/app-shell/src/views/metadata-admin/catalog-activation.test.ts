@@ -1,80 +1,115 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * objectui#7611 — the row-state seam behind the Setup catalog's active switch
- * (`catalog-activation.ts`): the one place the catalog pages still read and
- * write a catalog row, pending the activation ledger. Pinned so that the seam
- * stays ONE seam: which object each type's flag lives on, the by-name answer,
- * the row write, and the type it refuses.
+ * objectui#7611 — the Setup catalog's active switch (`catalog-activation.ts`)
+ * reads and writes the activation ledger, never a catalog row. Pinned: which
+ * types have a switch, the ledger read (the resolver's reading of the rows,
+ * and no catalog row read), the door write and its refusals in the server's
+ * own words, and the names the door refuses to switch.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { AUDIENCE_ANCHOR_POSITIONS } from '@objectstack/spec/identity';
 import {
+  audienceAnchorsOf,
   hasCatalogActivation,
-  readCatalogRowStates,
-  writeCatalogActive,
-  type CatalogRowDoor,
+  isCatalogItemActive,
+  readCatalogActivation,
+  writeCatalogActivation,
 } from './catalog-activation';
 
-function door(rows: unknown): CatalogRowDoor & { find: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> } {
-  return {
-    find: vi.fn(async () => rows),
-    update: vi.fn(async () => ({})),
-  };
+interface Call {
+  url: string;
+  method: string;
+  body?: string;
 }
+
+/** Stub `fetch` with one canned answer; returns the calls it saw. */
+function stubFetch(status: number, body: unknown): Call[] {
+  const calls: Call[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), method: init?.method ?? 'GET', body: init?.body as string | undefined });
+      return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+  return calls;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('catalog-activation (objectui#7611)', () => {
   it('offers a switch for permission sets and positions, never for capabilities', () => {
     expect(hasCatalogActivation('permission')).toBe(true);
     expect(hasCatalogActivation('position')).toBe(true);
-    // Capabilities are not in the Setup catalog scope (objectui#7611's
-    // follow-up moves them), and ADR-0126 §3 gives a capability no switch.
+    // The door refuses `capability` with 400 (ADR-0126 §3: code-only).
     expect(hasCatalogActivation('capability')).toBe(false);
   });
 
-  it('answers each row by its item NAME, reading the type’s own object', async () => {
-    const d = door({
-      data: [
-        { id: 'ps_1', name: 'alpha', active: true },
-        { id: 'ps_2', name: 'beta', active: false },
-        // No `active` column value: the column's default, active.
-        { id: 'ps_3', name: 'gamma' },
-        // A row with no name cannot be joined to an item.
-        { id: 'ps_4' },
+  it("reads the type's ledger rows by name, as the resolver reads them, and no catalog row", async () => {
+    const calls = stubFetch(200, {
+      object: 'sys_metadata_activation',
+      records: [
+        { metadata_type: 'permission', name: 'off_set', active: false },
+        // A driver that round-trips booleans as 0/1.
+        { metadata_type: 'permission', name: 'off_by_zero', active: 0 },
+        { metadata_type: 'permission', name: 'on_set', active: true },
+        // Another type's row with a colliding name is not this type's switch.
+        { metadata_type: 'position', name: 'on_set', active: false },
+        { metadata_type: 'flow', name: 'some_flow', active: false },
       ],
+      total: 5,
+      hasMore: false,
     });
-    const states = await readCatalogRowStates(d, 'permission');
-    expect(d.find).toHaveBeenCalledWith('sys_permission_set', { $select: ['id', 'name', 'active'], $top: 1000 });
+    const states = await readCatalogActivation('permission');
     expect([...states.entries()]).toEqual([
-      ['alpha', { id: 'ps_1', active: true }],
-      ['beta', { id: 'ps_2', active: false }],
-      ['gamma', { id: 'ps_3', active: true }],
+      ['off_set', false],
+      ['off_by_zero', false],
+      ['on_set', true],
     ]);
-
-    const p = door({ data: [] });
-    await readCatalogRowStates(p, 'position');
-    expect(p.find.mock.calls[0][0]).toBe('sys_position');
+    // No row means ACTIVE.
+    expect(isCatalogItemActive(states, 'never_switched')).toBe(true);
+    expect(calls).toEqual([{ url: '/api/v1/data/sys_metadata_activation?top=1000', method: 'GET', body: undefined }]);
+    expect(calls.some((c) => /sys_permission_set|sys_position/.test(c.url))).toBe(false);
   });
 
   it('reads nothing for a type without a switch', async () => {
-    const d = door({ data: [{ id: 'c1', name: 'x' }] });
-    expect((await readCatalogRowStates(d, 'capability')).size).toBe(0);
-    expect(d.find).not.toHaveBeenCalled();
+    const calls = stubFetch(200, { records: [] });
+    expect((await readCatalogActivation('capability')).size).toBe(0);
+    expect(calls).toEqual([]);
   });
 
-  it('writes the flag on the row the data door addresses, and refuses an unknown type', async () => {
-    const d = door({ data: [] });
-    await writeCatalogActive(d, 'position', 'pos_1', false);
-    expect(d.update).toHaveBeenCalledWith('sys_position', 'pos_1', { active: false });
-    await expect(writeCatalogActive(d, 'capability', 'c1', true)).rejects.toThrow(/capability/);
+  it('rejects a refused read with the server message, and a truncated one, rather than answering "active"', async () => {
+    stubFetch(403, { error: 'You do not have permission to perform this action.', code: 'PERMISSION_DENIED' });
+    await expect(readCatalogActivation('permission')).rejects.toThrow('You do not have permission to perform this action.');
+    stubFetch(200, { records: [], hasMore: true });
+    await expect(readCatalogActivation('position')).rejects.toThrow(/more than 1000 rows/);
   });
 
-  it('propagates a refused read rather than answering "active"', async () => {
-    const d: CatalogRowDoor = {
-      find: async () => {
-        throw new Error('403');
-      },
-      update: async () => ({}),
-    };
-    await expect(readCatalogRowStates(d, 'permission')).rejects.toThrow('403');
+  it('switches through the door with exactly { enabled }, and answers the state the server reports', async () => {
+    const calls = stubFetch(200, { success: true, data: { type: 'position', name: 'auditor', enabled: false } });
+    await expect(writeCatalogActivation('position', 'auditor', false)).resolves.toBe(false);
+    expect(calls).toEqual([
+      { url: '/api/v1/security/_activation/position/auditor', method: 'POST', body: '{"enabled":false}' },
+    ]);
+  });
+
+  it("rejects a door refusal with the server's own sentence, and a type without a switch before any request", async () => {
+    const lastAdmin =
+      "Switching permission set 'admin_full_access' off would leave no administrator who can sign in.";
+    stubFetch(403, { success: false, error: { code: 'PERMISSION_DENIED', message: lastAdmin, httpStatus: 403 } });
+    await expect(writeCatalogActivation('permission', 'admin_full_access', false)).rejects.toThrow(lastAdmin);
+
+    const calls = stubFetch(200, {});
+    await expect(writeCatalogActivation('capability', 'manage_metadata', false)).rejects.toThrow(/capability/);
+    expect(calls).toEqual([]);
+  });
+
+  it("names the spec's audience anchors for positions, and none for permission sets", async () => {
+    expect([...(await audienceAnchorsOf('position'))].sort()).toEqual([...AUDIENCE_ANCHOR_POSITIONS].sort());
+    expect((await audienceAnchorsOf('position')).has('everyone')).toBe(true);
+    expect((await audienceAnchorsOf('permission')).size).toBe(0);
   });
 });

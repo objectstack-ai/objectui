@@ -14,18 +14,28 @@
  *  - re-gated for Setup (#22621 → A): a caller without `manage_metadata` gets
  *    no create affordance and the posture's own reason, and a holder gets the
  *    create affordance and no reason;
- *  - the active switch: per item, read from the row-state seam, written
- *    through it, disabled for a caller who cannot author, and an honest "—"
- *    for an item that has no row.
+ *  - the active switch: per item, the activation ledger's state (no row is
+ *    active) with no catalog row read, written through the activation door by
+ *    name, the door's refusal shown in its own words, disabled for a caller
+ *    who cannot author, and disabled with the reason on an audience anchor.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, cleanup, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import * as React from 'react';
 import { MemoryRouter } from 'react-router-dom';
+// The switch column waits on `audienceAnchorsOf`'s dynamic import of this exact
+// specifier. Loaded here, its cost lands in the import phase rather than inside
+// a `findBy` window (AGENTS.md, test discipline).
+import '@objectstack/spec/identity';
 
 const PROJECT_PKG = 'com.example.showcase';
 const TYPE = 'permission';
+
+const POSITIONS: Record<string, unknown>[] = [
+  { name: 'everyone', label: 'Everyone', _packageId: 'com.objectstack.plugin-security', _provenance: 'package' },
+  { name: 'auditor', label: 'Auditor', _packageId: PROJECT_PKG, _provenance: 'package' },
+];
 
 const ITEMS: Record<string, unknown>[] = [
   { name: 'admin_full_access', label: 'Administrator', _packageId: 'com.objectstack.plugin-security', _provenance: 'package' },
@@ -40,15 +50,18 @@ const CLIENT = {
       ? [{ manifest: { id: PROJECT_PKG, scope: 'project', name: 'Showcase' } }]
       : type === TYPE
         ? ITEMS
-        : [],
+        : type === 'position'
+          ? POSITIONS
+          : [],
 };
 
 const ENTRY = { type: TYPE, label: 'Permission Set', allowOrgOverride: false, allowRuntimeCreate: true };
+const POSITION_ENTRY = { type: 'position', label: 'Position', allowOrgOverride: false, allowRuntimeCreate: true };
 
 vi.mock('./useMetadata', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useMetadataClient: () => CLIENT,
-  useMetadataTypes: () => ({ loading: false, error: null, entries: [ENTRY] }),
+  useMetadataTypes: () => ({ loading: false, error: null, entries: [ENTRY, POSITION_ENTRY] }),
 }));
 
 vi.mock('./i18n', async (importOriginal) => ({
@@ -67,19 +80,12 @@ vi.mock('../../hooks/useTenancyPosture', async (importOriginal) => ({
   useTenancyPosture: () => posture,
 }));
 
-/** The catalog rows the switch reads: one per item but the environment one. */
-const ROWS = [
-  { id: 'ps_admin', name: 'admin_full_access', active: true },
-  { id: 'ps_audit', name: 'showcase_auditor', active: false },
-];
-const ADAPTER = {
-  find: vi.fn(async (object: string) => (object === 'sys_permission_set' ? { data: ROWS } : { data: [] })),
-  update: vi.fn(async () => ({})),
-};
-vi.mock('@object-ui/react', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  useAdapter: () => ADAPTER,
-}));
+/** The activation ledger the switch reads: one row, switching a set off. */
+let ledgerRows: Record<string, unknown>[] = [];
+/** What the activation door answers. */
+let doorAnswer: { status: number; body: unknown } = { status: 200, body: {} };
+/** Every request the page sent through `fetch`. */
+const requests: Array<{ url: string; method: string; body?: string }> = [];
 
 // Imported AFTER the mocks so the page picks them up.
 import { MetadataResourceListPage } from './ResourceListPage';
@@ -88,15 +94,35 @@ import { t, tFormat, translateMetadataType } from './i18n';
 beforeEach(() => {
   canAuthor = true;
   posture = 'single';
-  ADAPTER.find.mockClear();
-  ADAPTER.update.mockClear();
+  ledgerRows = [{ metadata_type: 'permission', name: 'showcase_auditor', active: false }];
+  doorAnswer = { status: 200, body: {} };
+  requests.length = 0;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      requests.push({ url: String(url), method, body: init?.body as string | undefined });
+      const json = (status: number, body: unknown) =>
+        new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (method === 'GET' && String(url).startsWith('/api/v1/data/sys_metadata_activation')) {
+        return json(200, { object: 'sys_metadata_activation', records: ledgerRows, hasMore: false });
+      }
+      if (method === 'POST' && String(url).startsWith('/api/v1/security/_activation/')) {
+        return json(doorAnswer.status, doorAnswer.body);
+      }
+      return json(404, { success: false, error: { message: `unexpected ${method} ${url}` } });
+    }),
+  );
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
-function mount(search: string) {
+function mount(search: string, type: string = TYPE) {
   return render(
-    <MemoryRouter initialEntries={[`/apps/setup/metadata/${TYPE}${search}`]}>
-      <MetadataResourceListPage type={TYPE} />
+    <MemoryRouter initialEntries={[`/apps/setup/metadata/${type}${search}`]}>
+      <MetadataResourceListPage type={type} />
     </MemoryRouter>,
   );
 }
@@ -157,25 +183,40 @@ describe('re-gated for Setup (#22621 → A)', () => {
   });
 });
 
-describe('the active switch (row-state seam, pending the activation ledger)', () => {
-  it('shows each item’s row state and an honest dash for an item with no row', async () => {
+describe('the active switch (the activation ledger, through its door)', () => {
+  it("shows each item's ledger state, an item with no row as active, and reads no catalog row", async () => {
     mount('?scope=environment');
     const admin = await screen.findByTestId('catalog-active-admin_full_access');
     expect(admin).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('catalog-active-showcase_auditor')).toHaveAttribute('aria-checked', 'false');
-    const none = screen.getByTestId('catalog-active-env_authored_set');
-    expect(none).toHaveTextContent('—');
-    expect(none).toHaveAttribute('title', t('engine.catalog.active.noRow', 'en-US'));
-    expect(ADAPTER.find).toHaveBeenCalledWith('sys_permission_set', expect.objectContaining({ $select: ['id', 'name', 'active'] }));
+    // An environment-authored set has no catalog row, and is switchable all the same.
+    expect(screen.getByTestId('catalog-active-env_authored_set')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('catalog-active-env_authored_set')).not.toBeDisabled();
+    expect(requests.map((r) => r.url)).toContain('/api/v1/data/sys_metadata_activation?top=1000');
+    expect(requests.some((r) => /sys_permission_set|sys_position/.test(r.url))).toBe(false);
   });
 
-  it('flips the row through the data door, by its id', async () => {
+  it('switches through the activation door, by the item name', async () => {
+    doorAnswer = { status: 200, body: { success: true, data: { type: 'permission', name: 'showcase_auditor', enabled: true } } };
+    mount('?scope=environment');
+    fireEvent.click(await screen.findByTestId('catalog-active-showcase_auditor'));
+    await waitFor(() =>
+      expect(screen.getByTestId('catalog-active-showcase_auditor')).toHaveAttribute('aria-checked', 'true'),
+    );
+    expect(requests.filter((r) => r.method === 'POST')).toEqual([
+      { url: '/api/v1/security/_activation/permission/showcase_auditor', method: 'POST', body: '{"enabled":true}' },
+    ]);
+  });
+
+  it("shows the door's refusal in the server's own words, and leaves the switch as it was", async () => {
+    const refusal = 'A refusal sentence the server wrote.';
+    doorAnswer = { status: 403, body: { success: false, error: { code: 'PERMISSION_DENIED', message: refusal, httpStatus: 403 } } };
     mount('?scope=environment');
     fireEvent.click(await screen.findByTestId('catalog-active-admin_full_access'));
-    await waitFor(() => expect(ADAPTER.update).toHaveBeenCalledWith('sys_permission_set', 'ps_admin', { active: false }));
-    await waitFor(() =>
-      expect(screen.getByTestId('catalog-active-admin_full_access')).toHaveAttribute('aria-checked', 'false'),
-    );
+    expect(
+      await screen.findByText(tFormat('engine.catalog.active.failed', 'en-US', { message: refusal })),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('catalog-active-admin_full_access')).toHaveAttribute('aria-checked', 'true');
   });
 
   it('is disabled for a caller who cannot author', async () => {
@@ -184,10 +225,19 @@ describe('the active switch (row-state seam, pending the activation ledger)', ()
     expect(await screen.findByTestId('catalog-active-admin_full_access')).toBeDisabled();
   });
 
+  it('on positions, an audience anchor is a disabled switch that says why; CONTROL: another position is live', async () => {
+    mount('?scope=environment', 'position');
+    const anchor = await screen.findByTestId('catalog-active-everyone');
+    expect(anchor).toBeDisabled();
+    expect(anchor).toHaveAttribute('aria-label', t('engine.catalog.active.anchor', 'en-US'));
+    expect(anchor.parentElement).toHaveAttribute('title', t('engine.catalog.active.anchor', 'en-US'));
+    expect(screen.getByTestId('catalog-active-auditor')).not.toBeDisabled();
+  });
+
   it('is absent outside the environment scope', async () => {
     const { container } = mount('');
     await waitFor(() => expect(linkTo(container, 'showcase_auditor')).not.toBeNull());
     expect(screen.queryByTestId('catalog-active-showcase_auditor')).toBeNull();
-    expect(ADAPTER.find).not.toHaveBeenCalled();
+    expect(requests.some((r) => r.url.includes('sys_metadata_activation'))).toBe(false);
   });
 });

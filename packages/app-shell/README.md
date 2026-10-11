@@ -501,15 +501,19 @@ family for them: it uses the same metadata-admin list and editors at
   (`PositionHoldersSection`). Both read and write assignment rows by the
   item's name.
 
-The list has an active switch and an active/inactive filter. Both read the
-catalog row's `active` flag through `catalog-activation.ts`, which is the only
-module on these pages that reads or writes a catalog row. They do so until the
-server's activation ledger accepts `permission` and `position`. On a framework
-whose authorization resolver already reads deactivation from that ledger
-(objectstack's ADR-0131 stage 1 onward), the row flag no longer switches a
-grant off, so until the ledger door lands the switch changes the flag and
-nothing else. Capabilities are not in this scope yet: the Capabilities page
-and the capability picker still read `sys_capability` rows.
+The list has an active switch and an active/inactive filter, through
+`catalog-activation.ts`. Both show the activation ledger's state
+(`sys_metadata_activation`, read through the data door), which is what the
+authorization resolver reads: an item with no ledger row is active. The switch
+writes through the ledger's door, `POST /api/v1/security/_activation/:type/:name`
+with `{ enabled }` (objectstack's ADR-0131 stage 2c), and reads or writes no
+catalog row. A refusal from the door (`403` for a caller who may not switch, or
+for switching off the last administrator who can sign in; `404`; `503`) is
+shown in the server's own words. The audience anchors `everyone` and `guest`,
+which the door refuses to switch, show a disabled switch and the reason.
+Capabilities are not in this scope yet: the Capabilities page and the
+capability picker still read `sys_capability` rows, and a capability has no
+switch.
 
 ### Package-less flows (`/studio/~org/automations`)
 

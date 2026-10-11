@@ -21,6 +21,11 @@
  * `FormSchema.defaultValues`, the form's initial-values channel, and reads it
  * back from the same places.
  *
+ * It also measures the default branch's number input (objectui#12130 round
+ * 3): with no `number` widget registered, an entry that says
+ * `inputType: 'number'` draws a native number input there, and its step
+ * follows the registered widget's rule.
+ *
  * This file imports no field widgets on purpose. That absence IS the registry
  * set it measures, so a module-scope `@object-ui/fields` import added here
  * would silently turn it into a copy of the file beside it.
@@ -102,5 +107,20 @@ describe('`defaultValue` on a form field never becomes the submitted value witho
 
     const withKey = await mount({ ...field, defaultValue: value });
     expect((await withKey.submit())?.f).toBeUndefined();
+  });
+});
+
+describe('the default branch\'s number input takes the `number` widget\'s step without `@object-ui/fields` (objectui#12130)', () => {
+  it('an explicit `step` wins, else `10^-scale`, else `any`', async () => {
+    const stepOf = async (field: Row) => {
+      const m = await mount({ type: 'number', inputType: 'number', ...field });
+      const input = m.row().querySelector('input');
+      const read = { type: input?.getAttribute('type'), step: input?.getAttribute('step') };
+      m.unmount();
+      return read;
+    };
+    expect(await stepOf({})).toEqual({ type: 'number', step: 'any' });
+    expect(await stepOf({ scale: 2 })).toEqual({ type: 'number', step: '0.01' });
+    expect(await stepOf({ step: 5, scale: 2 })).toEqual({ type: 'number', step: '5' });
   });
 });

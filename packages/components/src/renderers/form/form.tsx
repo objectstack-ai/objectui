@@ -4349,6 +4349,32 @@ const BuiltinSelectControl = React.forwardRef<HTMLButtonElement, BuiltinSelectCo
   },
 );
 
+/**
+ * The `step` of a number input this renderer draws itself: the `input` arm,
+ * and the unregistered-widget `default` arm, under `inputType: 'number'`
+ * (objectui#12130).
+ *
+ * The registered `number` widget's rule, read off the same metadata carrier
+ * (`field`, which the call site sets to `field.field || field`): an explicit
+ * numeric `step` wins (the spec's `FieldSchema.step`, which `FormField`
+ * declares by reference), else `10^-scale` (decimal places, never
+ * `precision`'s total digits, objectui#9574), else `'any'`. Not an absent
+ * attribute: that is HTML's step of 1, which refuses every decimal a field
+ * that declares no `scale` never ruled out. This package cannot import
+ * `NumberField`, so the rule is restated here; keep the two in step.
+ *
+ * Derived where it is consumed, so no producer writes the HTML-only `'any'`
+ * onto an entry, where the spec's numeric `step` refuses it. `ObjectForm`
+ * wrote it until objectui#12130; `objectFormNumericStep-9574.test.tsx` pins
+ * both of its routes.
+ */
+function nativeNumberStep(carrier: Record<string, unknown> | undefined): number | 'any' {
+  const step = carrier?.step;
+  if (typeof step === 'number') return step;
+  const scale = carrier?.scale;
+  return typeof scale === 'number' ? Math.pow(10, -scale) : 'any';
+}
+
 function renderFieldComponent(type: string, props: RenderFieldProps) {
   // 1. Resolve the specialized FIELD WIDGET — and only a field widget.
   //    A form field's type either names a `field:`-namespaced widget or takes
@@ -4460,6 +4486,10 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           // #3222 discipline). `undefined` when the field declares no
           // `maxLength`, which renders no attribute.
           maxLength={maxLength}
+          // After the spread too: a number input's step is resolved from the
+          // metadata carrier, not taken from whatever the entry spread
+          // (objectui#12130, `nativeNumberStep`).
+          {...(inputType === 'number' ? { step: nativeNumberStep(fieldProps.field) } : null)}
           onClick={(e) => {
             openNativePickerOnClick(inputType)?.(e);
             domFieldProps.onClick?.(e);
@@ -4717,6 +4747,9 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           // `maxLength`, which renders no attribute — an uncapped field is
           // left exactly as it was.
           maxLength={maxLength}
+          // The `input` arm's rule (objectui#12130): an object-bound number
+          // field reaches this arm when its `field:` widget is not registered.
+          {...(inputType === 'number' ? { step: nativeNumberStep(fieldProps.field) } : null)}
           onClick={(e) => {
             openNativePickerOnClick(inputType)?.(e);
             domFieldProps.onClick?.(e);

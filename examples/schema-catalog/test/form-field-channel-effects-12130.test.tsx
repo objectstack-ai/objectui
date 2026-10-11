@@ -111,6 +111,21 @@ describe('a read field key changes what its widget does (objectui#12130)', () =>
     expect(withKey.row().querySelector('input')?.getAttribute('step')).toBe('5');
   });
 
+  it('`step` (built-in `input`, `inputType: \'number\'`) sets the input step, by the `number` widget\'s rule', async () => {
+    // The form renderer's own number input derives its step where it draws
+    // it: an explicit `step` wins, else `10^-scale`, else `any`. No producer
+    // writes the step onto the entry for it.
+    const stepOf = async (field: Row) => {
+      const m = await mount({ type: 'input', inputType: 'number', ...field });
+      const step = m.row().querySelector('input')?.getAttribute('step');
+      m.unmount();
+      return step;
+    };
+    expect(await stepOf({})).toBe('any');
+    expect(await stepOf({ scale: 2 })).toBe('0.01');
+    expect(await stepOf({ step: 5, scale: 2 })).toBe('5');
+  });
+
   it('`language` (code) names the language the editor asks for', async () => {
     const without = await mount({ type: 'code' });
     expect(without.row().querySelector('[placeholder]')?.getAttribute('placeholder')).toContain('javascript');

@@ -1062,42 +1062,19 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
           formField.inputType = 'number';
           formField.min = field.min;
           formField.max = field.max;
-          // Step is DECIMAL PLACES (`scale`), never the total digit count
-          // (`precision`). The two are separate members with separate meanings
-          // in the installed `@objectstack/spec` — "Decimal places
-          // (non-negative integer)" against "Total digits (non-negative
-          // integer)" — and `NumberField` already states the rule verbatim one
-          // layer down: "Step follows `scale` (decimal places), not
-          // `precision` (total digit count)". Deriving granularity from
-          // `precision` gave a `decimal(10, 0)` field a step of `1e-10`.
-          //
-          // `typeof`, not truthiness: `scale: 0` is a valid declaration (the
-          // spec's own example is an ordinal integer declared with `scale: 0`)
-          // and it means "steps by 1".
-          //
-          // The undeclared case resolves to `'any'`, matching `NumberField`'s
-          // tail, and NOT to `undefined`: an absent `step` attribute is HTML's
-          // default of 1, which refuses every decimal the author never said
-          // anything about. A field that declares no `scale` claims no
-          // granularity, so the control must not invent one.
-          //
-          // ⚠️ WHERE THIS KEY IS ACTUALLY READ — measured on this branch's
-          // base, through a real ObjectForm render, because the same file's
-          // `formField.maxLength` tombstone below shows how easily a key
-          // written here reaches nothing. The registered `field:*` widgets
-          // DROP it: their metadata carrier is `formField.field` (the raw
-          // object-schema field, assigned above) and their `toDomProps`
-          // whitelist does not forward `step`, so `NumberField`,
-          // `CurrencyField` and `PercentField` each derive their own. What
-          // this key does reach is the form renderer's built-in `input`
-          // control — a field whose declared `widget` is `input` — where the
-          // leftover props are spread onto the `<input>`. (A `widget` naming a
-          // component the app never registered used to reach a second such
-          // input; since objectui#12110 it degrades to the `type` renderer,
-          // as the spec's `widget` describes, i.e. to the registered widget.)
-          // Both halves are pinned by `objectFormNumericStep-9574.test.tsx`,
-          // which measures the two routes side by side.
-          formField.step = typeof field.scale === 'number' ? Math.pow(10, -field.scale) : 'any';
+          // No `step` is written here (objectui#12130): the control that
+          // draws this field derives it. The registered `number`, `currency`
+          // and `percent` widgets always derived their own and dropped this
+          // key. The form renderer's own number input (a field whose `widget`
+          // is `input`) now derives it from the metadata carrier
+          // (`formField.field`, the raw object field assigned above) by the
+          // `number` widget's rule: an explicit numeric `step` wins, else
+          // `10^-scale` (decimal places, never `precision`'s total digit
+          // count, objectui#9574), else `'any'`. This line used to write that
+          // step onto the entry, `'any'` included, which the spec's numeric
+          // `FieldSchema.step` refuses; `FormField` now declares `step` by
+          // reference to it. `objectFormNumericStep-9574.test.tsx` pins both
+          // routes.
         }
 
         if (field.type === 'date') {

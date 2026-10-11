@@ -65,6 +65,7 @@ import {
   filterRefusalSubject,
   toFilterNodeSafely,
   userActionPredicates,
+  resolveAffordance,
   type FilterNode,
 } from '@object-ui/core';
 import { useSafeFieldLabel } from '@object-ui/react';
@@ -1344,6 +1345,32 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     setDeleteTarget(null);
   }, [deleteTarget, onRowDelete]);
 
+  /**
+   * May the caller Add existing here? The write's row of the affordance-to-grant
+   * map (`resolveAffordance` in `@object-ui/core`, objectui#12082), asked of the
+   * object the write goes to:
+   *
+   *  - with a `linkField` the picked records become link rows of THIS list's
+   *    object (`api`, the junction) — a create of the child, `relatedNew`, the
+   *    row the list's "+ New" reads;
+   *  - without one the picked record itself is re-parented — an update of the
+   *    picked object (`picker.object`), `relatedRowEdit`, the row a related
+   *    list row's Edit reads.
+   *
+   * The button and its dialog are withheld when the row is closed: the server
+   * refuses that write for this caller. With no permission provider every
+   * grant reads open, as before.
+   */
+  const addGranted = !add
+    ? false
+    : add.linkField
+      ? resolveAffordance('relatedNew', { objectSchema, objectName: api, perms }).allowed
+      : resolveAffordance('relatedRowEdit', {
+          objectSchema: add.picker?.object === api ? objectSchema : null,
+          objectName: add.picker?.object,
+          perms,
+        }).allowed;
+
   // Add existing records via picker → create link rows (junction) or re-parent
   // (1:m). Server-side insert rules (e.g. the AI-seat cap) surface inline.
   const handleAddRecords = React.useCallback(async (records: any[]) => {
@@ -2320,8 +2347,10 @@ export const RelatedList: React.FC<RelatedListProps> = ({
                 the Studio designer preview and context-free embeds
                 (`renderers/record-related-list.tsx`). Same principle as #3838
                 one condition further: an affordance is offered only where the
-                capability behind it exists (objectui#3895). */}
-            {add && pickerObject && dataSource && (
+                capability behind it exists (objectui#3895) — and, since
+                objectui#12082, only where the caller's grant allows the write
+                it ends in (`addGranted`, above). */}
+            {add && pickerObject && dataSource && addGranted && (
               <Button
                 variant={isEmpty ? 'ghost' : 'outline'}
                 size="sm"
@@ -2514,7 +2543,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
           render-path bare read of `add.picker` rather than optional-chaining
           it: off-spec `add` still does nothing at all, so no second dialect
           appears (AGENTS.md #0.1). #3838. */}
-      {add && pickerObject && dataSource && (
+      {add && pickerObject && dataSource && addGranted && (
         <RecordPickerDialog
           open={pickerOpen}
           onOpenChange={(o) => setPickerOpen(o)}

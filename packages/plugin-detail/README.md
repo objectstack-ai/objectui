@@ -568,6 +568,16 @@ add callback both required the adapter already, so without it the button used to
 render and do nothing at all when clicked — visible in hosts that supply no
 `RecordContext` (Studio designer previews, context-free embeds).
 
+…and only where the caller may make the write it ends in (objectui#12082). With
+a `linkField` the picked records become link rows of the list's own object: the
+**create** grant there, the `relatedNew` row of the affordance-to-grant map in
+`@object-ui/core`. Without one the picked record is re-parented: the **update**
+grant on `add.picker.object`, the `relatedRowEdit` row. The remove that the
+`record:related_list` renderer falls back to when an `add` config is present and
+no host handed over a delete reads the list object's `relatedRowDelete` row, the
+row the host's own delete reads, so it never puts back a delete the host
+withheld. With no permission provider mounted these read open.
+
 The `record:related_list` renderer is automatically gated on the current
 user's object-level `read` permission for the child object: when the
 permission system (`@object-ui/permissions`) is loaded and denies read,

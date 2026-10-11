@@ -311,6 +311,45 @@ interface ReactionLedger {
  */
 const COMMENT_REACTION_OBJECT = 'sys_comment_reaction';
 
+/** The object the record feed's comments and replies are rows of. */
+const COMMENT_OBJECT = 'sys_comment';
+
+/**
+ * Which writes the record feed may offer: its comment and reply composers, and
+ * its reaction control on either store (objectui#12082).
+ *
+ * Each is a row of the affordance-to-grant map (`resolveAffordance` in
+ * `@object-ui/core`), asked of the object it writes, with that object's schema
+ * as the registry serves it: the object's managed-object policy, the server's
+ * effective API operation set for it, AND the caller's grant on it. The grant
+ * is not a platform default the panel could assume: the `everyone` baseline
+ * names neither object, and an application grants them in its own sets, so a
+ * member whose sets do not was offered a composer whose post the server
+ * refused. With no permission provider mounted every grant reads open, as
+ * before.
+ *
+ * A composer or control whose row is closed is withheld: the panel draws each
+ * from its handler's presence (`RecordActivityTimeline`'s
+ * `showCommentInput`, the reply input and the reaction picker).
+ */
+function resolveFeedWriteGates(
+  objects: readonly unknown[] | undefined,
+  perms: AffordanceGrantPrincipal | null | undefined,
+): { comment: boolean; reactionAdd: boolean; reactionRemove: boolean; reactionColumn: boolean } {
+  const source = (objectName: string) => ({
+    objectSchema: ((objects ?? []).find((o) => (o as { name?: unknown } | null)?.name === objectName) ??
+      null) as SchemaLike | null,
+    objectName,
+    perms,
+  });
+  return {
+    comment: resolveAffordance('feedComment', source(COMMENT_OBJECT)).allowed,
+    reactionAdd: resolveAffordance('feedReactionAdd', source(COMMENT_REACTION_OBJECT)).allowed,
+    reactionRemove: resolveAffordance('feedReactionRemove', source(COMMENT_REACTION_OBJECT)).allowed,
+    reactionColumn: resolveAffordance('feedReactionColumn', source(COMMENT_OBJECT)).allowed,
+  };
+}
+
 /**
  * How many comment ids one `sys_comment_reaction` read carries in its
  * `comment_id` `$in`. A record's comment read has no page size (it reads the
@@ -2196,6 +2235,14 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
    */
 
   /**
+   * The feed's writes this caller may be offered, read from the
+   * affordance-to-grant map (objectui#12082; `resolveFeedWriteGates` above).
+   * Booleans, so the handlers below key on what they read, not on an object.
+   */
+  const feedGates = resolveFeedWriteGates(objects, perms);
+  const reactionRemoveGranted = feedGates.reactionRemove;
+
+  /**
    * A comment is on the panel only once the server has it (objectui#10899,
    * maintainer ruling on cloud#2431: a failed comment write is never rendered
    * as sent).
@@ -2383,6 +2430,13 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       if (reactionStore === 'records') {
         const userId = currentUser.id;
         const want = !holdsOwnReaction(row.reactions, emoji, userId);
+        // The control is offered on the add row (`feedReactionAdd`, where it is
+        // handed over below); taking a reaction back is the delete of the
+        // caller's own row, its own row of the map. A click that would take
+        // back with that row closed writes nothing and shows nothing changed,
+        // rather than showing a take-back the server then refuses
+        // (objectui#12082).
+        if (!want && !reactionRemoveGranted) return;
         const commentKey = JSON.stringify([key, String(itemId)]);
         const writeKey = JSON.stringify([key, String(itemId), emoji]);
         const ownRows = () => {
@@ -2518,7 +2572,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           () => settle('failed'),
         );
     },
-    [currentUser.id, dataSource, feedRecordKey, feedItemsByRecord, reactionStore, t],
+    [currentUser.id, dataSource, feedRecordKey, feedItemsByRecord, reactionStore, reactionRemoveGranted, t],
   );
 
   useEffect(() => {
@@ -3193,9 +3247,21 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           loading={feedLoading}
           activityDenied={feedRefusal?.activity ?? false}
           commentsDenied={feedRefusal?.comments ?? false}
-          onAddComment={handleAddComment as any}
-          onAddReply={handleAddReply as any}
-          onToggleReaction={handleToggleReaction as any}
+          // objectui#12082: each write is handed over only where its row of
+          // the affordance-to-grant map allows it, and the panel draws the
+          // composer, the reply input and the reaction picker from the
+          // handler's presence. The reaction control is the add row on the
+          // records store (its take-back asks the remove row per click), and
+          // the column row where the deployment stores reactions in a column.
+          onAddComment={feedGates.comment ? (handleAddComment as any) : undefined}
+          onAddReply={feedGates.comment ? (handleAddReply as any) : undefined}
+          onToggleReaction={
+            (reactionStore === 'records'
+              ? feedGates.reactionAdd
+              : reactionStore === 'column' && feedGates.reactionColumn)
+              ? (handleToggleReaction as any)
+              : undefined
+          }
           mentionSuggestions={mentionSuggestions}
         >
         {/* No `approval` handler in the set below (objectui#3055): the record

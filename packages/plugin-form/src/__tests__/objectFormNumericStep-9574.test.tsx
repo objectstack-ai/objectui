@@ -27,10 +27,13 @@
  *    `toDomProps` whitelist does not forward `step`, so `NumberField` derives
  *    its own from `scale`. Deleting the producer's assignment outright left
  *    every rendered `<input>` on this route byte-identical.
- *  - **Unregistered widget** (a field declaring a `widget` the app never
- *    registered): the renderer's fallback branch spreads the leftover field
- *    props straight onto the `<input>`, so the producer's `step` IS the
- *    attribute the browser enforces.
+ *  - **Built-in `input` control** (a field declaring `widget: 'input'`): the
+ *    renderer's `input` branch spreads the leftover field props straight onto
+ *    the `<input>`, so the producer's `step` IS the attribute the browser
+ *    enforces. Until objectui#12110 this block reached the same spread through
+ *    a `widget` naming a component nothing registers; that name now degrades
+ *    to the `type` renderer, as `@objectstack/spec`'s `FieldSchema.widget`
+ *    describes, which is the registered route above.
  *
  * ⇒ the first block below is the load-bearing pin — it fails on the
  * `precision`-derived expression, where these three inputs all read
@@ -49,17 +52,17 @@ import { ObjectForm } from '../ObjectForm';
  * `decimal(10, 0)` and `decimal(10, 2)` — the two cases the card names — plus
  * a field that declares neither digit member.
  *
- * The `widget` key on the first three names a component nothing registers,
- * which is what routes them to the renderer's fallback branch (see the header).
+ * The `widget` key names the built-in `input` control, which is what routes
+ * them to the branch that spreads the producer's props (see the header).
  */
 const FALLBACK_OBJECT = {
   name: 'invoice_line',
   fields: {
-    qty: { type: 'number', label: 'Qty', precision: 10, scale: 0, widget: 'nothing-registers-this' },
-    amount: { type: 'number', label: 'Amount', precision: 10, scale: 2, widget: 'nothing-registers-this' },
-    fee: { type: 'currency', label: 'Fee', precision: 10, scale: 2, widget: 'nothing-registers-this' },
-    rate: { type: 'percent', label: 'Rate', precision: 10, scale: 2, widget: 'nothing-registers-this' },
-    unscaled: { type: 'number', label: 'Unscaled', precision: 10, widget: 'nothing-registers-this' },
+    qty: { type: 'number', label: 'Qty', precision: 10, scale: 0, widget: 'input' },
+    amount: { type: 'number', label: 'Amount', precision: 10, scale: 2, widget: 'input' },
+    fee: { type: 'currency', label: 'Fee', precision: 10, scale: 2, widget: 'input' },
+    rate: { type: 'percent', label: 'Rate', precision: 10, scale: 2, widget: 'input' },
+    unscaled: { type: 'number', label: 'Unscaled', precision: 10, widget: 'input' },
   },
 };
 
@@ -97,7 +100,7 @@ async function renderFields(objectSchema: unknown) {
 }
 
 describe('ObjectForm numeric step follows `scale` (objectui#9574)', () => {
-  it('hands the fallback input a step of 10^-scale — 1 for scale 0, 0.01 for scale 2', async () => {
+  it('hands the built-in input a step of 10^-scale — 1 for scale 0, 0.01 for scale 2', async () => {
     const input = await renderFields(FALLBACK_OBJECT);
 
     // `decimal(10, 0)`: ten total digits, ZERO decimal places ⇒ steps by 1.

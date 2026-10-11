@@ -84,7 +84,7 @@ has **23 declared keys**, and `name` is the only **required** one: `type` and
 | `description` | `string` | help text rendered under the control |
 | `type` | `string` | optional, defaults to `'input'`. Built-ins: `input`, `textarea`, `checkbox`, `switch`, `select`; any other value resolves through the registry (`field:<type>` first, then the bare name) |
 | `inputType` | `string` | HTML input type for `type: 'input'` — `'email'`, `'password'`, `'tel'`, … |
-| `widget` | `string` | widget override; wins over `type` (spec `FormField.widget`) |
+| `widget` | `string` | widget override; wins over `type` when it can render — a registered `field:<widget>`, a built-in control, or a native email / password input. Any other name falls back to `type`, as the spec's `FieldSchema.widget` says ("Degrades to the `type` renderer when unregistered") |
 | `placeholder` | `string` | placeholder text |
 | `required` | `boolean` | the presence rule. `validation.required` does **not** make a field required — it only supplies the message |
 | `disabled` | `boolean` | not interactive, muted |

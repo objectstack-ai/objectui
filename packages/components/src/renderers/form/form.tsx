@@ -1485,6 +1485,31 @@ ComponentRegistry.register('form',
       }
     }, [rawFields]);
 
+    // The `previous` binding — the persisted record, seeded the same way as
+    // `ruleRecord` so a predicate naming a column the read didn't return
+    // compares against `null` instead of faulting (objectui#3484). `undefined`
+    // when the host supplied no `previousValues`, which is how an INSERT is
+    // told apart from an UPDATE: the server exempts inserts from the
+    // `readonlyWhen` strip entirely, so the renderer must not invent a
+    // `previous` for them.
+    const previousRecord = React.useMemo(() => {
+      if (!previousValues || typeof previousValues !== 'object') return undefined;
+      const out: Record<string, unknown> = {};
+      for (const f of fields) if (f?.name) out[f.name] = null;
+      for (const k of Object.keys(previousValues)) {
+        if (previousValues[k] !== undefined) out[k] = previousValues[k];
+      }
+      return out;
+    }, [fields, previousValues]);
+
+    // Is this an INSERT? Same signal the memo above documents and the read-only
+    // strip already gates on: `FormSchema.previousValues` is set by an
+    // edit-mode host only, and its ABSENCE is the declared "this is an insert"
+    // (objectui#3484). Read once here, above the boolean seed that needs it
+    // first, so the seed and the rule-state call sites below cannot each
+    // answer the mode differently.
+    const isCreateForm = previousRecord === undefined;
+
     // A two-state control has no third state, so a boolean field that nobody
     // supplied a value for starts at `false` — not `undefined`. Without this
     // the switch renders OFF while the form holds NOTHING: the create payload
@@ -1497,6 +1522,16 @@ ComponentRegistry.register('form',
     // that only lived in the field would be wiped by the first `form.reset`.
     // Callers that DO supply a value (including `null` from a loaded record)
     // are untouched.
+    //
+    // Nor is a field the server fills on this insert (objectui#12121): a
+    // runtime `defaultValue` (a CEL envelope or a runtime token) is the
+    // producer's to resolve, and `ObjectQL.applyFieldDefaults` resolves it
+    // only for a key that arrives absent or null. A seeded `false` is
+    // neither, so it was submitted and the declaration never ran. Left
+    // unseeded, the untouched control is empty: `omitServerResolvedDefaults`
+    // drops the key from the create payload, and the "set on save" hint and
+    // the `required` suppression below read this same `isServerOwnedValue`
+    // verdict. A value the user sets, `false` included, is submitted as usual.
     const defaultValues = React.useMemo(() => {
       const seeded: Record<string, unknown> = { ...(authoredDefaultValues as Record<string, unknown>) };
       let added = false;
@@ -1504,11 +1539,12 @@ ComponentRegistry.register('form',
         if (typeof f?.name !== 'string') continue;
         if (hasOwn(seeded, f.name)) continue;
         if (!BOOLEAN_WIDGET_TYPES.has(resolveWidgetType(f))) continue;
+        if (isServerOwnedValue(f, isCreateForm)) continue;
         seeded[f.name] = false;
         added = true;
       }
       return added ? seeded : authoredDefaultValues;
-    }, [authoredDefaultValues, fields]);
+    }, [authoredDefaultValues, fields, isCreateForm]);
 
     // Initialize react-hook-form. `shouldFocusError: false` because RHF's
     // native focus-on-error only works for fields whose registered ref is a
@@ -1569,30 +1605,6 @@ ComponentRegistry.register('form',
     // rather than faulting — mirroring the server, which evaluates over the
     // full merged record.
     const watched = form.watch() as Record<string, unknown>;
-
-    // The `previous` binding — the persisted record, seeded the same way as
-    // `ruleRecord` so a predicate naming a column the read didn't return
-    // compares against `null` instead of faulting (objectui#3484). `undefined`
-    // when the host supplied no `previousValues`, which is how an INSERT is
-    // told apart from an UPDATE: the server exempts inserts from the
-    // `readonlyWhen` strip entirely, so the renderer must not invent a
-    // `previous` for them.
-    const previousRecord = React.useMemo(() => {
-      if (!previousValues || typeof previousValues !== 'object') return undefined;
-      const out: Record<string, unknown> = {};
-      for (const f of fields) if (f?.name) out[f.name] = null;
-      for (const k of Object.keys(previousValues)) {
-        if (previousValues[k] !== undefined) out[k] = previousValues[k];
-      }
-      return out;
-    }, [fields, previousValues]);
-
-    // Is this an INSERT? Same signal the memo above documents and the read-only
-    // strip already gates on: `FormSchema.previousValues` is set by an
-    // edit-mode host only, and its ABSENCE is the declared "this is an insert"
-    // (objectui#3484). Read once here so the three rule-state call sites below
-    // cannot each answer the mode differently.
-    const isCreateForm = previousRecord === undefined;
 
     // Global predicate scope (from the host shell's ExpressionProvider) — carries
     // `current_user` (plus the ADR-0068 D1 `user` / `ctx.user` / `os.user` aliases,

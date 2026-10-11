@@ -19,6 +19,8 @@ import type {
   PermissionCheckResult,
   FieldLevelPermission,
 } from '@object-ui/types';
+import { objectPermissionGrants } from '@objectstack/spec/security';
+import { SystemFieldName } from '@objectstack/spec/system';
 import { PermCtx, type PermissionContextValue } from './PermissionContext.js';
 import { createDiscardProofCache } from './discardProofCache.js';
 
@@ -42,6 +44,13 @@ export interface MePermissionsResponse {
     allowDelete?: boolean;
     viewAllRecords?: boolean;
     modifyAllRecords?: boolean;
+    /**
+     * The transfer grant: may the caller change a record's owner. The server
+     * refuses an update that writes the owner field without it (or without
+     * `modifyAllRecords`, which implies it), and `checkField` reads it for that
+     * field's `write` question (objectui#12103).
+     */
+    allowTransfer?: boolean;
     /**
      * [objectstack#3391] Server-resolved effective API operation set for this object
      * (enum-ordered). Present only when the object tightens exposure via
@@ -307,6 +316,23 @@ export function MePermissionsProvider({
       const objKey = (object ?? '').toLowerCase();
       const key = `${objKey}.${field}`;
       const fieldPerm = data.fields?.[key] ?? data.fields?.[`${object}.${field}`];
+      const objPerm = data.objects?.[objKey] ?? data.objects?.[object] ?? data.objects?.['*'];
+      // [objectui#12103] An update that writes the record's OWNER is a
+      // transfer: the server's security step refuses it unless the caller holds
+      // the transfer grant, whatever the field's own entry says. So `write` for
+      // that field needs the grant too, read with the spec's own predicate
+      // (`allowTransfer`, or `modifyAllRecords`, which implies it). The field is
+      // the one the spec names, as the server's guard keys it. `create` is not
+      // narrowed: on insert the server stamps an empty owner to the caller and
+      // accepts the caller's own id. An object the answer does not mention
+      // takes the unknown-object default below.
+      if (
+        action === 'write' &&
+        field === SystemFieldName.OWNER_ID &&
+        !(objPerm ? objectPermissionGrants(objPerm, 'allowTransfer') : data.authenticated !== true)
+      ) {
+        return false;
+      }
       // An explicit entry answers `write` and `create` alike: the server's
       // field step refuses a non-editable field on insert and update both.
       if (fieldPerm) {
@@ -318,7 +344,6 @@ export function MePermissionsProvider({
       // field step lets the field through and object admission decides, so
       // the answer is the grant of the operation asked about (objectui#12082)
       // — `allowCreate` on an insert, `allowEdit` on an update.
-      const objPerm = data.objects?.[objKey] ?? data.objects?.[object] ?? data.objects?.['*'];
       if (!objPerm) {
         // [objectstack-ai/objectstack#2926 ④] Unknown-object default is authentication-gated:
         //  - authenticated session → fail-CLOSED. The server resolved this

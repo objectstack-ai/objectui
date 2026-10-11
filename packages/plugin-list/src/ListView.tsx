@@ -15,13 +15,22 @@ import { VALUELESS_FILTER_BUILDER_OPERATORS, isFilterValueComplete } from '@obje
 import { ViewSwitcherDropdown } from './ViewSwitcher';
 import { ViewSettingsPopover } from './components/ViewSettingsPopover';
 import { UserFilters } from './UserFilters';
-import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
+import {
+  calendarWindowCovers,
+  calendarWindowFilter,
+  calendarWindowFor,
+  fetchCalendarWindow,
+  initialCalendarWindow,
+  type CalendarVisibleRange,
+  type CalendarWindow,
+} from './calendarWindow';
+import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation, useFilterScope, useResolvedFilter, NonGridRowCeilingNote } from '@object-ui/react';
 import type { LoadErrorKind } from '@object-ui/react';
 import { useDensityMode, resolveInlineAriaProps } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveAffordance, type SchemaLike, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
+import { type ListViewVisualization, resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveAffordance, type SchemaLike, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, applyNonGridRowCeiling, type NonGridCeilingResult } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -1081,14 +1090,33 @@ const DEFAULT_LIST_DISPLAY_PAGE_SIZE = readSpecDisplayPageSize();
  * A fetch batch, ⛔ not a page size (objectui#9853, ruling 5824040487,
  * structure B): its value is kept, and it does not follow the display default,
  * so no view silently loses reachable records when the protocol's page size
- * moves. A DECLARED `pagination.pageSize` still sizes this fetch, as it always
- * has; only the undeclared fallback is split by kind.
+ * moves. A DECLARED `pagination.pageSize` still sizes this fetch on every
+ * view but a windowed calendar; only the undeclared fallback is split by kind.
+ * A calendar with a start date bound walks its visible days in steps of this
+ * batch whatever page size is declared, so a declared size no longer sizes its
+ * fetch (`calendarWindowed`, objectui#12081).
  *
  * Exported for pins that assert "the fetch batch" rather than its value
  * (objectui#9853, ruling record 5909000462); the package index does not
  * re-export it.
  */
 export const DEFAULT_LIST_FETCH_BATCH_SIZE = 100;
+
+/**
+ * The rows of one `find` answer, in every envelope this view's fetch accepts: a
+ * bare array, or an object carrying `data`, `records` or `value`. One reader
+ * for the single window and for the calendar's date-window walk
+ * (objectui#12081), so the two accept the same answers.
+ */
+function readListRows(results: unknown): any[] {
+  if (Array.isArray(results)) return results;
+  if (results && typeof results === 'object') {
+    if (Array.isArray((results as any).data)) return (results as any).data;
+    if (Array.isArray((results as any).records)) return (results as any).records;
+    if (Array.isArray((results as any).value)) return (results as any).value;
+  }
+  return [];
+}
 
 /**
  * What the contract admits as a page size. The spec's view pagination config
@@ -2457,6 +2485,82 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     !Array.isArray(schema.data) && (schema.data as any)?.provider !== 'value' && !ganttOwnsData;
   const invalidationNonce = useDataInvalidation(listFetchesForItself ? schema.objectName || undefined : undefined);
 
+  /**
+   * The calendar's date bindings, for the fetch effect's window
+   * (objectui#12081): the same two reads the calendar branch below makes for
+   * the node it hands the calendar, so the window is on the field the calendar
+   * draws by. Declared bindings only (objectui#7029): an undeclared one stays
+   * absent. ⚠️ Change one pair, change both.
+   */
+  const calendarStartField: string | undefined =
+    schema.calendar?.startDateField || schema.options?.calendar?.startDateField || undefined;
+  const calendarEndField: string | undefined =
+    schema.calendar?.endDateField || schema.options?.calendar?.endDateField || undefined;
+
+  /**
+   * Does this view fetch a DATE WINDOW for the calendar it hosts?
+   * (objectui#12081 item 2.)
+   *
+   * A hosted calendar draws the rows this component fetched. That fetch used
+   * to be the one unpaged window every non-grid kind gets — the first
+   * `DEFAULT_LIST_FETCH_BATCH_SIZE` records of the object, with no date
+   * condition — so a month holding more than one batch drew whichever records
+   * came first and never the rest (objectstack-ai/hotclm#87: 122 contracts, up
+   * to 22 never drawn), with this view's "Showing first 100 records" as the only
+   * sign. Now the fetch selects the days the calendar draws, on its start field
+   * (and end field, where one is bound), and walks them in fetch-batch steps up
+   * to the platform's non-grid ceiling (objectui#7210, ruling a′), whose
+   * footnote this view draws under the calendar when it bites. ⛔ No bigger
+   * `$top`: the step stays the batch (objectui#9853).
+   *
+   * Only where this component fetches, and only with a start binding: without
+   * one the calendar draws its refusal (objectui#7029), and there is no field
+   * to window on.
+   *
+   * The window comes from the calendar, which alone knows the days it draws:
+   * `ObjectCalendar` reports them through `onVisibleRangeChange`. Until it
+   * does, the window covers any month grid today can open on
+   * (`initialCalendarWindow`), so the first fetch does not wait for the
+   * calendar to mount and the calendar's first report falls inside it.
+   */
+  const calendarWindowed = currentView === 'calendar' && listFetchesForItself && !!calendarStartField;
+  // The window this view fetches for the calendar, and whether its last fetch
+  // stopped at the ceiling: a truncated window is asked again for a narrower
+  // range even when it covers it, since the narrower one may fit.
+  const [heldCalendarWindow, setHeldCalendarWindow] = React.useState<{ window: CalendarWindow; truncated: boolean }>(
+    () => ({ window: initialCalendarWindow(), truncated: false }),
+  );
+  const calendarWindow = heldCalendarWindow.window;
+  // The ceiling result of the last window fetch, for the footnote.
+  const [calendarCeiling, setCalendarCeiling] = React.useState<NonGridCeilingResult | null>(null);
+  // The host callback the calendar reports its days through. A `useState`
+  // initialiser, so its identity is React's guarantee rather than a memo's
+  // (AGENTS.md #10); it reads only a setter. A range the held window already
+  // covers moves nothing, so the calendar's first report, a view change inside
+  // the month or the phone's switch to the day view asks for nothing.
+  const [handleCalendarVisibleRange] = React.useState(() => (range: CalendarVisibleRange) => {
+    const next = calendarWindowFor(range);
+    setHeldCalendarWindow((held) =>
+      calendarWindowCovers(held.window, next) && !held.truncated ? held : { window: next, truncated: false },
+    );
+  });
+  // Leaving the calendar drops its window: the view pane is keyed on
+  // `currentView`, so a calendar shown again is a new one, opening on today.
+  // Adjusted during render, when the view changes, rather than in an effect, so
+  // a calendar shown again never fetches the window the last one was left on.
+  const [calendarWindowForView, setCalendarWindowForView] = React.useState(currentView);
+  if (calendarWindowForView !== currentView) {
+    setCalendarWindowForView(currentView);
+    if (currentView !== 'calendar') {
+      setHeldCalendarWindow({ window: initialCalendarWindow(), truncated: false });
+      setCalendarCeiling(null);
+    }
+  }
+  // The window as the fetch effect's dependency: a string, compared by value,
+  // and empty when this view is not windowing, so the window of a calendar
+  // that is not on screen re-runs nothing.
+  const calendarWindowKey = calendarWindowed ? `${calendarWindow.from}/${calendarWindow.to}` : '';
+
   // objectui#10689 — the fetch effect's dep on the three view-level PREDICATE
   // carriers its projection harvests (objectui#3501), as a CONTENT key over the
   // operand NAMES alone: the shape `plugin-grid`'s `predicateProjectionKey`
@@ -2890,11 +2994,20 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           return Array.from(required);
         })();
 
+        // [objectui#12081] A hosted calendar's fetch is its date window (see
+        // `calendarWindowed`): the window's node joins the effective filter
+        // under one `and`, so every view filter, panel filter, user filter and
+        // search still narrows it.
+        const calendarWindowNode = calendarWindowed && calendarStartField
+          ? calendarWindowFilter(calendarWindow, calendarStartField, calendarEndField)
+          : undefined;
+        const queryFilter = calendarWindowNode ? mergeFilterNodes(finalFilter, calendarWindowNode) : finalFilter;
+
         // Only send $filter when there is one. Sending an empty array results in
         // `?filter=%5B%5D` which is wasted bandwidth and can defeat server-side
         // query parsing/caching. `buildEffectiveFilter` returns a non-empty AST
         // or `undefined`, so this is the whole test.
-        const hasFilter = finalFilter !== undefined;
+        const hasFilter = queryFilter !== undefined;
 
         // `fetchSkip` is resolved at render (see its definition) and named in
         // this effect's dependency list, so what reaches the wire and what
@@ -2907,9 +3020,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // query — a second literal reconstructed for the consumer would be a
         // copy free to drift from what was actually asked.
         const findParams: Record<string, unknown> = {
-           ...(hasFilter ? { $filter: finalFilter } : {}),
+           ...(hasFilter ? { $filter: queryFilter } : {}),
            $orderby: sort,
-           $top: effectivePageSize,
+           // [objectui#12081] The calendar's window is walked in fetch-batch
+           // steps, so its first request asks for the batch; the walk sets
+           // each later step's `$top` and `$skip` itself.
+           $top: calendarWindowNode ? DEFAULT_LIST_FETCH_BATCH_SIZE : effectivePageSize,
            ...(skip > 0 ? { $skip: skip } : {}),
            ...(selectFields ? { $select: selectFields } : {}),
            ...(expandFields.length > 0 ? { $expand: expandFields } : {}),
@@ -2921,25 +3037,41 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
            } : {}),
         };
 
-        const results = await dataSource.find(schema.objectName, findParams);
-
         // Stale request guard: only apply the latest request's results
-        if (!isMounted || requestId !== fetchRequestIdRef.current) return;
-        
-        let items: any[] = [];
-        if (Array.isArray(results)) {
-            items = results;
-        } else if (results && typeof results === 'object') {
-           if (Array.isArray((results as any).data)) {
-              items = (results as any).data; 
-           } else if (Array.isArray((results as any).records)) {
-              items = (results as any).records;
-           } else if (Array.isArray((results as any).value)) {
-              items = (results as any).value;
-           }
+        const isCurrentRequest = () => isMounted && requestId === fetchRequestIdRef.current;
+
+        let results: unknown;
+        let items: any[];
+        // [objectui#12081] The calendar's date window, walked to its end or to
+        // the platform ceiling (objectui#7210, ruling a′). The walk returns the
+        // probe row past the ceiling, and `applyNonGridRowCeiling` cuts it off
+        // and says whether it had to, for the footnote under the calendar.
+        let windowCeiling: NonGridCeilingResult | null = null;
+        if (calendarWindowNode) {
+          const objectName = schema.objectName;
+          const walked = await fetchCalendarWindow(
+            (params) => dataSource.find(objectName, params),
+            findParams,
+            DEFAULT_LIST_FETCH_BATCH_SIZE,
+            readListRows,
+            isCurrentRequest,
+          );
+          if (walked === null) return;
+          windowCeiling = applyNonGridRowCeiling(walked);
+          results = walked;
+          items = windowCeiling.rows;
+        } else {
+          results = await dataSource.find(schema.objectName, findParams);
+          if (!isCurrentRequest()) return;
+          items = readListRows(results);
         }
-        
+
         setData(items);
+        if (windowCeiling) {
+          const truncated = windowCeiling.truncated;
+          setHeldCalendarWindow((held) => (held.truncated === truncated ? held : { ...held, truncated }));
+        }
+        setCalendarCeiling(windowCeiling);
 
         // Capture the real match total (objectstack-ai/objectstack#2212: findData now returns it).
         // With a known total the grid pages server-side, so the "showing first N"
@@ -2991,7 +3123,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // The "…but the real total is known, so nothing is hidden" half of the
         // old expression moved to the banner's own render gate below, for the
         // same reason `serverTotal` did (objectui#7394).
-        setDataLimitReached(items.length >= effectivePageSize);
+        // A calendar's window is walked to its end, so it hides no reachable
+        // row behind a batch: when the ceiling stops it, the a′ footnote says
+        // so instead (objectui#12081).
+        setDataLimitReached(!calendarWindowNode && items.length >= effectivePageSize);
       } catch (err) {
         // Only log + surface errors from the latest request. A failed fetch is
         // NOT an empty result — record it so the render shows an error panel
@@ -3079,13 +3214,19 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // objectui#10689 — `predicateProjectionKey` is the harvested predicate
     // operands, a string compared by value; see its declaration above.
     //
+    // objectui#12081 — `calendarWindowKey` is the hosted calendar's date
+    // window, a string compared by value and empty on every other view, so it
+    // re-runs this effect when the calendar moves to days the held window does
+    // not cover, and on a switch into or out of a windowed calendar — the one
+    // switch whose query changes — and on nothing else (objectui#7394).
+    //
     // ⚠️ The directive below governs the NEXT LINE. Anything written between it
     // and the dependency array detaches it from the array and turns it into an
     // unused directive — which `eslint .` reports as an ERROR, and which also
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, predicateProjectionKey, ganttOwnsData, invalidationNonce, groupingNeedsHeaderQuery]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
+  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, predicateProjectionKey, ganttOwnsData, invalidationNonce, groupingNeedsHeaderQuery, calendarWindowKey]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to
@@ -3680,6 +3821,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // these two now match it, and the whole branch matches the sibling
         // faces that never invent (`resolveTimelineDateBinding` above,
         // app-shell's `calendarViewOptions` / `defaultCalendarFromObject`).
+        // ⚠️ The fetch windows on these same two reads, made again at component
+        // scope as `calendarStartField` / `calendarEndField` (objectui#12081):
+        // change one pair, change both.
         const startDateField =
           schema.calendar?.startDateField || schema.options?.calendar?.startDateField;
         const endDateField =
@@ -3725,6 +3869,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...(titleField ? { titleField } : {}),
           ...(colorField ? { colorField } : {}),
           ...(allDayField ? { allDayField } : {}),
+          // objectui#12081 — the days the calendar draws come back here, and
+          // this view's fetch windows on them (`calendarWindowed`). Handed only
+          // where this view windows: elsewhere nothing would read the report.
+          ...(calendarWindowed ? { onVisibleRangeChange: handleCalendarVisibleRange } : {}),
         };
       }
       case 'gallery': {
@@ -4058,7 +4206,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // asynchronously (`/me/permissions`) and `objectDef` loads into state, so a
   // grid schema built before either resolved must be rebuilt when they do —
   // otherwise `editable` keeps the pre-verdict answer for the session.
-  }, [currentView, schema, authoredFilter, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm, gridOwnsGroupedFetch]);
+  }, [currentView, schema, authoredFilter, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm, gridOwnsGroupedFetch, calendarWindowed, handleCalendarVisibleRange]);
 
   const hasFilters = currentFilters.conditions && currentFilters.conditions.length > 0;
 
@@ -5505,7 +5653,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               </Button>
             )}
           </DataErrorState>
-        ) : loading && data.length === 0 ? (
+        ) : loading && data.length === 0 && !calendarWindowed ? (
+          // [objectui#12081] Not over a windowed calendar: the calendar holds
+          // the date it shows, and this panel would unmount it, so a refetch
+          // after moving to an empty month would reopen it on today. It draws
+          // its own loading state from the `loading` it is handed below.
           <div
             className="flex flex-col h-full min-h-[200px] p-4 gap-2"
             data-testid="list-loading"
@@ -5632,7 +5784,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               // it, so only the grid is handed it.
               ? { objectFields: objectDef.fields }
               : {})}
-            loading={loading}
+            // [objectui#12081] A windowed calendar keeps drawing while the
+            // next window loads (the refresh bar above says so), and shows its
+            // own loading state only when it has nothing to draw.
+            loading={calendarWindowed ? loading && data.length === 0 : loading}
             onRowSelect={setSelectedRows}
             {...(paginate && serverTotal != null
               ? {
@@ -5668,6 +5823,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           />
         )}
       </div>
+
+      {/* objectui#12081 — the hosted calendar's window stopped at the platform
+          ceiling (objectui#7210, ruling a′): it draws the first N, and this
+          says so, with both numbers. Under the calendar, as the chart's
+          footnote sits under the chart (objectui#7148); renders nothing when
+          the window fit. */}
+      {calendarWindowed && calendarCeiling && <NonGridRowCeilingNote result={calendarCeiling} />}
 
       {/* Add Record (bottom position) */}
       {toolbarFlags.showAddRecordBottom && (
@@ -5793,7 +5955,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               fallback selector for pager-less views (gallery/kanban/calendar).
               It is the shared `Select` (objectui#11865): a size in force that
               is not one of the options shows as itself, not as the first one. */}
-          {currentView !== 'grid' && schema.pagination?.pageSizeOptions && schema.pagination.pageSizeOptions.length > 0 && (
+          {/* Not on a windowed calendar either (objectui#12081): its fetch walks
+              the date window in fetch batches, so a page size changes nothing
+              it draws. */}
+          {currentView !== 'grid' && !calendarWindowed && schema.pagination?.pageSizeOptions && schema.pagination.pageSizeOptions.length > 0 && (
             <div className="ml-auto flex items-center gap-2">
               <span>{t('table.rowsPerPage', { defaultValue: 'Rows per page' })}</span>
               <ListOptionPicker

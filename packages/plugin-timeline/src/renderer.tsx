@@ -1506,16 +1506,36 @@ function MetaChip({ label, color }: { label: string; color?: string }) {
   );
 }
 
-/** Group adjacent items that share the same `group` key (already in
- *  display order) into a single section so the renderer can drop a
- *  sticky header above each bucket. */
-function groupAdjacent<T extends { group?: string | null }>(items: T[]): Array<{ key: string; items: T[] }> {
+/**
+ * Bucket items by their `group` key into one section per key, so the renderer
+ * can drop a sticky header above each bucket (objectui#12104).
+ *
+ * Sections come in the order of each key's FIRST item, and items keep their
+ * input order inside a section. `ObjectTimeline` hands items over sorted by
+ * start date, so a group sits where its earliest entry falls and its entries
+ * stay in date order.
+ *
+ * This used to merge only ADJACENT items with equal keys. That is the same
+ * answer for the date buckets, which are contiguous in date order by
+ * construction, and the wrong one for an explicit `groupByField` whose values
+ * interleave in date order: every change of key opened a new section, so one
+ * key drew many headers. Bucketing lives here and not in the composer because
+ * the horizontal branch below draws the same item array, draws no groups, and
+ * keeps its date order.
+ */
+function bucketByGroup<T extends { group?: string | null }>(items: T[]): Array<{ key: string; items: T[] }> {
   const out: Array<{ key: string; items: T[] }> = [];
+  const byKey = new Map<string, { key: string; items: T[] }>();
   for (const it of items) {
     const key = it.group == null ? '' : String(it.group);
-    const last = out[out.length - 1];
-    if (last && last.key === key) last.items.push(it);
-    else out.push({ key, items: [it] });
+    const bucket = byKey.get(key);
+    if (bucket) {
+      bucket.items.push(it);
+    } else {
+      const fresh = { key, items: [it] };
+      byKey.set(key, fresh);
+      out.push(fresh);
+    }
   }
   return out;
 }
@@ -1598,7 +1618,7 @@ export const TimelineRenderer = ({ schema, className, style, ...hostProps }: { s
       // automatic date bucketing fallback). When present we render
       // sticky bucket headers; when absent we keep the historical flat
       // list so JSON-defined timelines aren't visually disturbed.
-      const groups = groupAdjacent(items as Array<any>);
+      const groups = bucketByGroup(items as Array<any>);
       const hasGroups = groups.some((g) => g.key !== '');
 
       const renderItem = (item: any, key: React.Key) => {

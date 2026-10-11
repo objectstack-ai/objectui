@@ -47,6 +47,16 @@
  * way for both questions. So a create form follows what the server enforces on
  * insert, and adds no rule the server does not have.
  *
+ * The `write` question is the server's whole update rule for the field, so it
+ * also carries the one field whose update needs an OBJECT grant beyond
+ * `allowEdit`: the record's owner, the field the spec's `SystemFieldName`
+ * constant names `OWNER_ID`. The server refuses an update that writes it without
+ * the transfer grant (`allowTransfer`, or `modifyAllRecords`), so the resolver
+ * answers `write` for it with that grant too (objectui#12103). Every row that
+ * asks `write` therefore offers the owner field only to a caller who may
+ * transfer the record — the in-place edit, the list's in-cell edit and an edit
+ * form alike, with no row of its own to forget.
+ *
  * ## The verdict
  *
  * An affordance shows when the managed-object policy, the effective API
@@ -120,8 +130,12 @@ export const AFFORDANCE_GRANTS = {
   createFormFields: { crud: 'create', grant: 'create', field: 'create' },
   /** An edit form's fields (every `ObjectForm` layout) and its form-wide lock. */
   editFormFields: { crud: 'edit', grant: 'update', field: 'write' },
-  /** The record page's Edit — the header CTA and the record body's in-place editing. */
-  recordEdit: { crud: 'edit', grant: 'update' },
+  /**
+   * The record page's Edit — the header CTA and the record body's in-place
+   * editing (the details body and the highlights strip), each of whose fields
+   * asks the update question (objectui#12103).
+   */
+  recordEdit: { crud: 'edit', grant: 'update', field: 'write' },
   /** The record page's Delete. */
   recordDelete: { crud: 'delete', grant: 'delete' },
   /**
@@ -133,8 +147,8 @@ export const AFFORDANCE_GRANTS = {
   listImport: { crud: 'import', grant: 'create', field: 'create' },
   /** The import wizard's template download — its endpoint answers 403 without the create grant. */
   importTemplate: { crud: null, grant: 'create' },
-  /** A list's inline (in-cell) editing. */
-  listInlineEdit: { crud: 'edit', grant: 'update' },
+  /** A list's inline (in-cell) editing, each of whose cells asks the update question (objectui#12103). */
+  listInlineEdit: { crud: 'edit', grant: 'update', field: 'write' },
   /** A list's bulk Delete. */
   listBulkDelete: { crud: 'delete', grant: 'delete' },
   /** A grid row's Edit. */

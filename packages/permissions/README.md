@@ -148,6 +148,14 @@ such a field through and object admission decides, so `'write'` falls back to
 the object's `allowEdit` and `'create'` to its `allowCreate`. An explicit
 field-level entry answers both the same way.
 
+One field's update needs more than its own grant: the record's owner, the
+field the spec's `SystemFieldName` constant names `OWNER_ID`. The server refuses an
+update that writes it unless the caller holds the transfer grant
+(`allowTransfer`, or `modifyAllRecords`), so `MePermissionsProvider` answers
+`'write'` for the owner field with that grant as well (objectui#12103).
+`'create'` is unchanged: on insert the server stamps an empty owner to the
+caller and accepts the caller's own id.
+
 ```tsx
 import { usePermissions } from '@object-ui/permissions';
 

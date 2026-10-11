@@ -77,6 +77,22 @@ The new record is optimistically inserted into local state so it
 appears immediately. To override (e.g. open your own create form), pass
 `onDateClick={(day) => …}` — the default behaviour is skipped.
 
+## Reporting the visible days
+
+A host that fetches the calendar's records for it, and hands them over as
+`data`, can fetch only the days on screen. `ObjectCalendar` reports them
+through `onVisibleRangeChange={({ start, end }) => …}`: once on mount, and
+again whenever navigation or a view change moves them. `start` is local
+midnight of the first day drawn and `end` local midnight of the day after the
+last, so the range is half-open. In the month view it covers the whole
+six-week grid, including the leading and trailing days of the neighbouring
+months, under the locale's first day of the week; in the week view it is the
+week, and in the day view the day. An unchanged range is not reported again.
+
+`ListView` (`@object-ui/plugin-list`) uses it to fetch a calendar view's
+visible days instead of one batch of the object (objectui#12081). Like the
+other host callbacks, it is forwarded only when the value is a function.
+
 ## Installation
 
 ```bash

@@ -24,6 +24,7 @@ import {
   PopoverTrigger
 } from "@object-ui/components"
 import { createSafeTranslation, firstDayOfWeek, useDisplayLocale, type WeekdayIndex } from "@object-ui/i18n"
+import { getMonthDays, getWeekStart } from "./visibleDays"
 
 const DEFAULT_EVENT_COLOR = "bg-blue-100 text-blue-900 border border-blue-200"
 const STABLE_DEFAULT_DATE = new Date()
@@ -450,54 +451,6 @@ function CalendarView({
       </div>
     </div>
   )
-}
-
-/**
- * How many days `date` lies after the start of its week, for a week that
- * starts on `weekStart` (objectui#11675): 0 on the first day, 6 on the last.
- */
-function daysIntoWeek(date: Date, weekStart: WeekdayIndex): number {
-  return (date.getDay() - weekStart + 7) % 7
-}
-
-/** `date` moved back, on the local calendar, to the first day of its week. */
-function getWeekStart(date: Date, weekStart: WeekdayIndex): Date {
-  const d = new Date(date)
-  d.setDate(d.getDate() - daysIntoWeek(d, weekStart))
-  return d
-}
-
-function getMonthDays(date: Date, weekStart: WeekdayIndex): Date[] {
-  const year = date.getFullYear()
-  const month = date.getMonth()
-  const firstDay = new Date(year, month, 1)
-  const lastDay = new Date(year, month + 1, 0)
-  // The grid's first row opens on the week's first day, so the days of the
-  // previous month before the 1st fill the row up to it.
-  const leadingDays = daysIntoWeek(firstDay, weekStart)
-  const days: Date[] = []
-
-  // Add previous month days
-  for (let i = leadingDays - 1; i >= 0; i--) {
-    const prevDate = new Date(firstDay.getTime())
-    prevDate.setDate(prevDate.getDate() - (i + 1))
-    days.push(prevDate)
-  }
-
-  // Add current month days
-  for (let i = 1; i <= lastDay.getDate(); i++) {
-    days.push(new Date(year, month, i))
-  }
-
-  // Add next month days
-  const remainingDays = 42 - days.length
-  for (let i = 1; i <= remainingDays; i++) {
-    const nextDate = new Date(lastDay.getTime())
-    nextDate.setDate(nextDate.getDate() + i)
-    days.push(nextDate)
-  }
-
-  return days
 }
 
 function isSameDay(date1: Date, date2: Date): boolean {

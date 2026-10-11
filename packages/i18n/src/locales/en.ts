@@ -3262,6 +3262,11 @@ const en = {
     appAccessDenied: "You don't have access to this app",
     appAccessDeniedDescription: 'This app exists, but your account is not authorized to open it. Ask an administrator to grant you access.',
     appAccessDeniedHome: 'Back to home',
+    // objectui#12079 — the app root when the app serves this caller no navigation (`AppNoAccessEmptyState`).
+    appNothingAvailable: 'Nothing in {{app}} is available to you yet',
+    appNothingAvailableDescription: 'This app has no pages your account can open. Ask an administrator to grant you access.',
+    appNothingAvailableGrantDescription: 'This app has no pages your account can open. You can grant access in Setup.',
+    openSetup: 'Open Setup',
     createFirstApp: 'Create Your First App',
     systemSettings: 'System Settings',
     back: 'Back',
@@ -4123,6 +4128,13 @@ const en = {
         localMarketplaceUnavailable: 'This runtime has no OS_CLOUD_URL configured, so the marketplace catalog is unreachable.',
         updateTo: 'Update → v{{version}}',
         installedVersion: 'Installed v{{version}}',
+        // objectui#12087 — an install into THIS environment, from its answer
+        // until the runtime serves the package's app (MarketplacePackagePage).
+        deploying: 'Deploying the app…',
+        deployed: 'The app is deployed and ready.',
+        openApp: 'Open {{name}}',
+        deployTimeout: 'The install was recorded, but this environment is not serving the app yet. It may still be deploying — check again shortly. If it never appears, the package may not have loaded, may include no app, or its app may need a permission you do not hold.',
+        checkAgain: 'Check again',
       },
       // objectui#3546 — the MarketplacePage "Your organization" strip.
       org: {

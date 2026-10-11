@@ -101,7 +101,7 @@ async function clickTo(label: string, pendingApprovalsCount: number): Promise<st
       notifications={[]}
       unreadCount={0}
       pendingApprovalsCount={pendingApprovalsCount}
-      activities={[]}
+      activity={{ value: [], status: 'ready', readable: true }}
       onMarkAllRead={vi.fn()}
       onMarkRead={vi.fn()}
     />,

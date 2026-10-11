@@ -40,6 +40,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { z } from 'zod';
+import type { ElementRecordPickerPropsSchema as SpecElementRecordPickerPropsSchema } from '@objectstack/spec/ui';
 import type { BaseSchema } from '../base.js';
 import type {
   AuthoringNode,
@@ -122,16 +123,32 @@ describe('objectui#11364: the spec-declared nodes have a TypeScript authoring fa
     const input: ElementTextInputNode = { type: 'element:text_input', id: 'ws', properties: { label: 'Workspace', inputType: 'email' } };
     // @ts-expect-error `lable` is not a member of ComponentPropsMap['element:text_input']
     const badInput: ElementTextInputNode = { type: 'element:text_input', properties: { lable: 'Workspace' } };
-    // The spec's props gate waives the bag's `object` beside a `dataSource.object`.
+    // The object is named by the node-level `dataSource` binding, which the renderer reads.
     const bound: ElementRecordPickerNode = {
       type: 'element:record_picker',
       dataSource: { object: 'account' },
       properties: { placeholder: 'Pick an account' },
     };
-    const unbound: ElementRecordPickerNode = { type: 'element:record_picker', properties: { object: 'account', emptyText: 'None' } };
     // @ts-expect-error `objct` is not a member of ComponentPropsMap['element:record_picker']
     const badPicker: ElementRecordPickerNode = { type: 'element:record_picker', properties: { objct: 'account' } };
-    expect([input, badInput, bound, unbound, badPicker]).toHaveLength(5);
+    expect([input, badInput, bound, badPicker]).toHaveLength(4);
+  });
+
+  it('element:record_picker: the bag\'s flat `object` type-checks exactly where the installed row takes it (objectui#12093)', () => {
+    // objectstack#11509 retires the flat `object` (objectstack PR #22421: a tombstone
+    // on objectstack `main`), and the installed release still declares it. This file
+    // is compiled against both: by the pull-request type-check against the installed
+    // spec, and by the Spec Main Shape Gate against `main`. So the pin is the ROW's
+    // verdict held on the node type, not either answer written down: where the row
+    // refuses the key, `ElementRecordPickerNode` refuses a bag that writes it. This
+    // replaces the `unbound` literal that asserted the flat key compiles.
+    type NodeTakesFlatObject =
+      { type: 'element:record_picker'; properties: { object: string } } extends ElementRecordPickerNode ? true : false;
+    type RowTakesFlatObject = { object: string } extends Pick<z.input<typeof SpecElementRecordPickerPropsSchema>, 'object'>
+      ? true
+      : false;
+    const verdict: Equal<NodeTakesFlatObject, RowTakesFlatObject> = true;
+    expect(verdict).toBe(true);
   });
 
   it('the spec-row nodes carry the node envelope and refuse a node-level child list, exactly as element:text does', () => {
@@ -140,7 +157,12 @@ describe('objectui#11364: the spec-declared nodes have a TypeScript authoring fa
     const styles = { small: { padding: '8px' } };
     const textStyled: PostRemovalSchema = { type: 'element:text', properties: { content: 'x' }, responsiveStyles: styles };
     const inputStyled: PostRemovalSchema = { type: 'element:text_input', properties: { label: 'x' }, responsiveStyles: styles };
-    const pickerStyled: PostRemovalSchema = { type: 'element:record_picker', properties: { object: 'a' }, responsiveStyles: styles };
+    const pickerStyled: PostRemovalSchema = {
+      type: 'element:record_picker',
+      dataSource: { object: 'a' },
+      properties: {},
+      responsiveStyles: styles,
+    };
     // The `body` / `children` tombstones every arm carries: a node-level child list is refused
     // after the removal on all three, and on each node type itself.
     // @ts-expect-error control: `element:text` refuses a node-level `children` (objectui#9256)

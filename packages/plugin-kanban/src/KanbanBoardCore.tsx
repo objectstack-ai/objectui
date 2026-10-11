@@ -37,6 +37,13 @@ export interface KanbanBoardCoreProps {
   objectFields?: KanbanRendererProps['objectFields'];
   /** Forwarded unchanged — see `KanbanRendererProps.onCardMove`. */
   onCardMove?: KanbanRendererProps['onCardMove'];
+  /**
+   * Whether the cards may be dragged at all (default `true`). A PROP, never a
+   * schema key: `ObjectKanban` passes `false` when its `kanbanCardMove` row of
+   * the affordance-to-grant map is closed (objectui#12082), so the board offers
+   * no move the caller may not make.
+   */
+  cardsMovable?: boolean;
   /** Half of the Quick Add pair. Only `KanbanRenderer` supplies it. */
   quickAdd?: boolean;
   /** The other half of the Quick Add pair. Only `KanbanRenderer` supplies it. */
@@ -84,6 +91,7 @@ export const KanbanBoardCore: React.FC<KanbanBoardCoreProps> = ({
   schema,
   objectFields,
   onCardMove,
+  cardsMovable,
   quickAdd,
   onQuickAdd,
 }) => {
@@ -106,6 +114,7 @@ export const KanbanBoardCore: React.FC<KanbanBoardCoreProps> = ({
       <LazyKanban
         columns={processedColumns}
         onCardMove={onCardMove}
+        cardsMovable={cardsMovable}
         onCardClick={schema.onCardClick}
         className={schema.className}
         quickAdd={quickAdd}

@@ -367,7 +367,7 @@ describe('objectui#5144 (ruling E) — the console inline-edit toggle writes not
     expect(folded()).toEqual({ editInline: false, inlineEdit: false });
   });
 
-  it('control: the same served view with no overlay declares nothing, and reads off by the spec default', async () => {
+  it('control: the same served view with no overlay declares nothing, which `ListView` reads on by the v18 spec default (objectui#12086)', async () => {
     const { meta } = makeStore([]);
     await openPage(meta, PLAIN_OBJECT, 'all');
     expect(folded()).toEqual({ editInline: undefined, inlineEdit: undefined });

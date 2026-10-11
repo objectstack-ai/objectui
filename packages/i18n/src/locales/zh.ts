@@ -2852,6 +2852,10 @@ const zh = {
     appAccessDenied: '你没有访问此应用的权限',
     appAccessDeniedDescription: '此应用存在，但你的账号未获授权打开它。请联系管理员为你开通访问权限。',
     appAccessDeniedHome: '返回首页',
+    appNothingAvailable: '{{app}} 中暂时没有你可以使用的内容',
+    appNothingAvailableDescription: '此应用中没有你的账号可以打开的页面。请联系管理员为你开通访问权限。',
+    appNothingAvailableGrantDescription: '此应用中没有你的账号可以打开的页面。你可以在 Setup 中授予访问权限。',
+    openSetup: '打开 Setup',
     createFirstApp: '创建您的第一个应用',
     systemSettings: '系统设置',
     back: '返回',
@@ -3644,6 +3648,11 @@ const zh = {
         localMarketplaceUnavailable: '本运行时未配置 OS_CLOUD_URL，无法访问应用市场目录。',
         updateTo: '更新 → v{{version}}',
         installedVersion: '已安装 v{{version}}',
+        deploying: '正在部署应用…',
+        deployed: '应用已部署完成。',
+        openApp: '打开 {{name}}',
+        deployTimeout: '安装已记录，但当前环境尚未提供该应用。它可能仍在部署中，请稍后再次检查。如果一直没有出现，可能是软件包未能加载、不包含应用，或其应用需要你尚未拥有的权限。',
+        checkAgain: '再次检查',
       },
       // objectui#3546 — the MarketplacePage "Your organization" strip.
       org: {

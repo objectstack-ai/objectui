@@ -2975,6 +2975,10 @@ const ar = {
     appAccessDenied: "ليس لديك حق الوصول إلى هذا التطبيق",
     appAccessDeniedDescription: "هذا التطبيق موجود، لكن حسابك غير مخوَّل بفتحه. اطلب من المسؤول منحك حق الوصول.",
     appAccessDeniedHome: "العودة إلى الرئيسية",
+    appNothingAvailable: "لا يتوفر لك أي شيء في {{app}} بعد",
+    appNothingAvailableDescription: "لا يحتوي هذا التطبيق على صفحات يمكن لحسابك فتحها. اطلب من المسؤول منحك حق الوصول.",
+    appNothingAvailableGrantDescription: "لا يحتوي هذا التطبيق على صفحات يمكن لحسابك فتحها. يمكنك منح حق الوصول من الإعداد.",
+    openSetup: "فتح الإعداد",
     createFirstApp: "إنشاء أول تطبيق",
     systemSettings: "إعدادات النظام",
     back: "رجوع",
@@ -3779,6 +3783,11 @@ const ar = {
       localMarketplaceUnavailable: "هذا الوقت التشغيل لا يحتوي على OS_CLOUD_URL مُهيأ.",
       updateTo: "تحديث → v{{version}}",
       installedVersion: "مثبت v{{version}}",
+      deploying: "جارٍ نشر التطبيق…",
+      deployed: "تم نشر التطبيق وهو جاهز.",
+      openApp: "فتح {{name}}",
+      deployTimeout: "تم تسجيل التثبيت، لكن هذه البيئة لا تقدّم التطبيق بعد. قد يكون النشر لا يزال جاريًا — تحقّق مرة أخرى بعد قليل. إذا لم يظهر أبدًا، فربما لم تُحمَّل الحزمة، أو لا تتضمن أي تطبيق، أو يتطلب تطبيقها إذنًا لا تملكه.",
+      checkAgain: "تحقّق مرة أخرى",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

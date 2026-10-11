@@ -2755,6 +2755,10 @@ const ko = {
     appAccessDenied: "이 앱에 접근할 권한이 없습니다",
     appAccessDeniedDescription: "이 앱은 존재하지만 계정에 여는 권한이 없습니다. 관리자에게 접근 권한을 요청하세요.",
     appAccessDeniedHome: "홈으로 돌아가기",
+    appNothingAvailable: "{{app}}에서 아직 사용할 수 있는 항목이 없습니다",
+    appNothingAvailableDescription: "이 앱에는 계정으로 열 수 있는 페이지가 없습니다. 관리자에게 접근 권한을 요청하세요.",
+    appNothingAvailableGrantDescription: "이 앱에는 계정으로 열 수 있는 페이지가 없습니다. 설정에서 접근 권한을 부여할 수 있습니다.",
+    openSetup: "설정 열기",
     createFirstApp: "첫 번째 앱 만들기",
     systemSettings: "시스템 설정",
     back: "뒤로",
@@ -3503,6 +3507,11 @@ const ko = {
       localMarketplaceUnavailable: "이 런타임에 OS_CLOUD_URL이 구성되지 않았습니다.",
       updateTo: "업데이트 → v{{version}}",
       installedVersion: "v{{version}} 설치됨",
+      deploying: "앱을 배포하는 중…",
+      deployed: "앱이 배포되어 사용할 준비가 되었습니다.",
+      openApp: "{{name}} 열기",
+      deployTimeout: "설치는 기록되었지만 이 환경에서 아직 앱을 제공하지 않습니다. 아직 배포 중일 수 있으니 잠시 후 다시 확인하세요. 계속 나타나지 않으면 패키지가 로드되지 않았거나, 앱이 포함되어 있지 않거나, 앱에 사용자에게 없는 권한이 필요할 수 있습니다.",
+      checkAgain: "다시 확인",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

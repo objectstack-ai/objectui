@@ -85,9 +85,11 @@ import {
   columnIdentity,
   convertSortToQueryParams,
   recordDelete,
+  resolveAffordance,
   resolveFilterPlaceholders,
   toFilterNodeSafely,
   type FilterTokenScope,
+  type SchemaLike,
 } from '@object-ui/core';
 import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema, notifyDataChanged, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import type { HandleClickModifiers } from '@object-ui/react';
@@ -486,7 +488,23 @@ type NamedViewConfig = NonNullable<ObjectViewSchema['listViews']>[string];
 interface AuthoredFilterSegments {
   view: NamedListView['filter'];
   table: ObjectGridSchema['filter'];
-  tableDefaults: ObjectGridSchema['defaultFilters'];
+  tableDefaults: ObjectGridSchema['filter'];
+}
+
+/**
+ * The deprecated `table.defaultFilters`, read as the legacy rung's value
+ * (objectui#12093). Its declared type follows the `object-grid` row by
+ * reference: the `filter` rule array on the installed `@objectstack/spec`, and
+ * a retired-key tombstone on objectstack `main` (objectstack#11509), where no
+ * current document can author it. This component keeps READING it for
+ * metadata written before that retirement, exactly as before, so the value is
+ * typed by the shape such metadata has: the rule array `filter` takes on both
+ * specs. A back-compat read, not an authoring surface; it goes with the rung
+ * at the pin that carries the tombstone.
+ */
+function legacyTableDefaults(table: ObjectViewSchema['table']): ObjectGridSchema['filter'] {
+  const legacy: unknown = table?.defaultFilters;
+  return legacy as ObjectGridSchema['filter'];
 }
 
 /**
@@ -1385,7 +1403,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     {
       view: currentNamedViewConfig?.filter || activeViewQueryInputs?.filter,
       table: schema.table?.filter,
-      tableDefaults: schema.table?.defaultFilters,
+      tableDefaults: legacyTableDefaults(schema.table),
     },
     filterScope,
   );
@@ -3250,7 +3268,19 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
   // Render toolbar — only named view tabs; filter/sort/search is handled by ListView
   const renderToolbar = () => {
-    const showCreateButton = schema.showCreate !== false && operations.create !== false;
+    // objectui#12082: the button is the `listNew` row of the affordance-to-grant
+    // map (`resolveAffordance` in `@object-ui/core`) — the object's policy, the
+    // effective operation set and the caller's create grant — on top of the
+    // node's own authoring toggles, exactly as the console's list pages read it.
+    // It used to read the two toggles alone, so a caller without the create
+    // grant was offered a New whose form the server then refused to save. With
+    // no permission provider mounted the grant reads open, as before.
+    const createGranted = resolveAffordance('listNew', {
+      objectSchema: objectSchema as SchemaLike | null,
+      objectName: schema.objectName,
+      perms,
+    }).allowed;
+    const showCreateButton = schema.showCreate !== false && operations.create !== false && createGranted;
     const showViewSwitcherToggle = schema.showViewSwitcher === true; // Changed: default to false (hidden)
 
     const namedViewTabs = renderNamedViewTabs();

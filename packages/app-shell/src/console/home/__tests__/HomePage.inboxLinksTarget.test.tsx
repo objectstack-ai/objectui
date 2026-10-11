@@ -94,7 +94,7 @@ vi.mock('../../../hooks/useHomeInbox', () => ({
     pendingApprovalsCount: 0,
     notifications: notificationsFixture,
     unreadTopicCount: notificationsFixture.length,
-    activities: activitiesFixture,
+    activity: { value: activitiesFixture, status: 'ready', readable: true },
   }),
 }));
 vi.mock('../../../hooks/useAiSurface', () => ({ resolveAiApiBase: () => '' }));

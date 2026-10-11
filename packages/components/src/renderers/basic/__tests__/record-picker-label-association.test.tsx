@@ -60,12 +60,12 @@ afterEach(cleanup);
 function renderPicker(properties: Record<string, unknown>, schemaExtra: Record<string, unknown> = {}) {
   const C = ComponentRegistry.get('element:record_picker') as React.ComponentType<any>;
   if (!C) throw new Error('element:record_picker is not registered');
-  return render(<C schema={{ type: 'element:record_picker', properties, ...schemaExtra }} />);
+  return render(<C schema={{ type: 'element:record_picker', dataSource: { object: 'account' }, properties, ...schemaExtra }} />);
 }
 
 describe('element:record_picker — label→combobox association (objectui#5771)', () => {
   it('resolves the label to the combobox, so getByLabelText finds the trigger', () => {
-    renderPicker({ object: 'account', label: 'Owner' }, { id: 'owner_picker' });
+    renderPicker({ label: 'Owner' }, { id: 'owner_picker' });
 
     const combobox = screen.getByRole('combobox');
     expect(screen.getByLabelText('Owner')).toBe(combobox);
@@ -73,7 +73,7 @@ describe('element:record_picker — label→combobox association (objectui#5771)
   });
 
   it('gives the combobox the LABEL as its accessible name — the caption the docs advertise', () => {
-    renderPicker({ object: 'account', label: 'Owner' }, { id: 'owner_picker' });
+    renderPicker({ label: 'Owner' }, { id: 'owner_picker' });
 
     // Findable BY that accessible name, the way an author-facing a11y check
     // (and the testing-library query the PM route calls for) would drive it.
@@ -85,7 +85,7 @@ describe('element:record_picker — label→combobox association (objectui#5771)
     // The #3341 failure mode: two attributes present but pointing at nothing.
     // Read `for` off the rendered label and resolve it through the DOM, rather
     // than asserting `id`/`htmlFor` as two independent strings.
-    renderPicker({ object: 'account', label: 'Owner' }, { id: 'owner_picker' });
+    renderPicker({ label: 'Owner' }, { id: 'owner_picker' });
 
     const label = document.querySelector('label[for]');
     expect(label).not.toBeNull();
@@ -98,7 +98,7 @@ describe('element:record_picker — label→combobox association (objectui#5771)
   it('registers the label on the trigger via the DOM `labels` collection', () => {
     // The association browsers actually use for both the accessible name and
     // click-to-focus.
-    renderPicker({ object: 'account', label: 'Owner' }, { id: 'owner_picker' });
+    renderPicker({ label: 'Owner' }, { id: 'owner_picker' });
 
     const trigger = screen.getByTestId('record-picker-trigger') as HTMLButtonElement;
     expect(trigger.labels).not.toBeNull();
@@ -121,7 +121,7 @@ describe('element:record_picker — label→combobox association (objectui#5771)
     // accessible name either (measured — `role="combobox"` does not support
     // "name from content"), so the empty name below is not an artifact of
     // omitting `placeholder`.
-    renderPicker({ object: 'account', label: 'Owner', placeholder: 'Select…' });
+    renderPicker({ label: 'Owner', placeholder: 'Select…' });
 
     const trigger = screen.getByTestId('record-picker-trigger');
     expect(trigger).toHaveTextContent('Select…');
@@ -133,7 +133,7 @@ describe('element:record_picker — label→combobox association (objectui#5771)
   });
 
   it('renders no label element when `label` is absent — the fix cannot be "always associate"', () => {
-    renderPicker({ object: 'account', placeholder: 'Select…' }, { id: 'owner_picker' });
+    renderPicker({ placeholder: 'Select…' }, { id: 'owner_picker' });
 
     // No `label` was authored, so there is nothing for `htmlFor`/`id` to
     // associate — pinned so a later change cannot silently start minting a
@@ -152,7 +152,8 @@ describe('element:record_picker — label→combobox association (objectui#5771)
           schema={{
             type: 'element:record_picker',
             id: 'owner_picker',
-            properties: { object: 'account', label: { en: 'Owner', 'zh-CN': '负责人' } },
+            dataSource: { object: 'account' },
+            properties: { label: { en: 'Owner', 'zh-CN': '负责人' } },
           }}
         />
       </I18nProvider>,
@@ -167,7 +168,8 @@ describe('element:record_picker — label→combobox association (objectui#5771)
         schema={{
           type: 'element:record_picker',
           id: 'owner_picker',
-          properties: { object: 'account', label: 'Owner' },
+          dataSource: { object: 'account' },
+          properties: { label: 'Owner' },
         }}
       />,
     );

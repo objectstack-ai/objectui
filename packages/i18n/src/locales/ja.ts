@@ -2758,6 +2758,10 @@ const ja = {
     appAccessDenied: "このアプリへのアクセス権限がありません",
     appAccessDeniedDescription: "このアプリは存在しますが、お使いのアカウントには開く権限がありません。管理者にアクセス権の付与を依頼してください。",
     appAccessDeniedHome: "ホームに戻る",
+    appNothingAvailable: "{{app}} で利用できるものはまだありません",
+    appNothingAvailableDescription: "このアプリには、お使いのアカウントで開けるページがありません。管理者にアクセス権の付与を依頼してください。",
+    appNothingAvailableGrantDescription: "このアプリには、お使いのアカウントで開けるページがありません。設定でアクセス権を付与できます。",
+    openSetup: "設定を開く",
     createFirstApp: "最初のアプリを作成",
     systemSettings: "システム設定",
     back: "戻る",
@@ -3506,6 +3510,11 @@ const ja = {
       localMarketplaceUnavailable: "このランタイムにはOS_CLOUD_URLが設定されていないため、マーケットプレイスカタログにアクセスできません。",
       updateTo: "更新 → v{{version}}",
       installedVersion: "インストール済み v{{version}}",
+      deploying: "アプリをデプロイしています…",
+      deployed: "アプリのデプロイが完了しました。",
+      openApp: "{{name}} を開く",
+      deployTimeout: "インストールは記録されましたが、この環境ではまだアプリが提供されていません。デプロイ中の可能性があります。しばらくしてから再確認してください。表示されない場合は、パッケージが読み込まれていない、アプリが含まれていない、またはアプリにあなたが持っていない権限が必要な可能性があります。",
+      checkAgain: "再確認",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

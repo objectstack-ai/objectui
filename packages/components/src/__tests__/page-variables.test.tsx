@@ -210,7 +210,8 @@ describe('element:record_picker', () => {
         schema={{
           type: 'element:record_picker',
           id: 'picker',
-          properties: { object: 'showcase_project', emptyText: 'No projects' },
+          dataSource: { object: 'showcase_project' },
+          properties: { emptyText: 'No projects' },
         }}
       />,
     );

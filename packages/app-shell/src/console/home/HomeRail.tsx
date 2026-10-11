@@ -17,7 +17,7 @@ import {
   FileText, Database, LayoutDashboard, File, CircleAlert,
 } from 'lucide-react';
 import { useDisplayLocale } from '@object-ui/i18n';
-import type { ActivityItem } from '../../layout/ActivityFeed.js';
+import type { ActivityFeedReading } from '../../hooks/sharedUserFeeds.js';
 import type { HomeInboxStatus, HomeNotification } from '../../hooks/useHomeInbox.js';
 import type { RecentItem } from '../../hooks/useRecentItems.js';
 import type { RecentItemLabelResolver } from '../../hooks/useRecentItemLabel.js';
@@ -279,15 +279,46 @@ export function HomeContinue({
   );
 }
 
-export function HomeActivity({ items, onViewAll, t }: { items: ActivityItem[]; onViewAll: () => void; t: TFn }) {
+/**
+ * Home's activity card. Takes the feed's whole reading, not its rows
+ * (objectui#12081): "No recent activity" is an ASSERTION about the feed, made
+ * only once it has answered — the rule `HomeActionCenter` above applies to
+ * the inbox (#4235). The rows alone could not tell a refused `sys_activity`
+ * read from an empty feed, so every non-admin was told there was none.
+ *
+ * Renders nothing for a caller who may not read `sys_activity`
+ * (`readable: false`): no card, no empty claim, and no drill into a list page
+ * that answers them `403`. `HomePage` drops the column with it.
+ */
+export function HomeActivity({ activity, onViewAll, t }: { activity: ActivityFeedReading; onViewAll: () => void; t: TFn }) {
   // The display locale, as `HomeActionCenter` above (objectui#10668).
   const displayLocale = useDisplayLocale();
+  if (!activity.readable) return null;
+  const items = activity.value;
   return (
     <Card icon={Activity} title={t('sidebar.activityFeed', { defaultValue: 'Activity feed' })}>
+      {/* Beside the list, not only in place of it, as on the action centre. */}
+      {activity.status !== 'ready' && (
+        <div
+          className="flex items-center gap-2 pb-2 text-sm text-muted-foreground"
+          data-testid="home-activity-unanswered"
+        >
+          {activity.status === 'error' ? (
+            <>
+              <CircleAlert className="h-4 w-4 text-amber-500" />
+              {t('errors.unknown', { defaultValue: 'An unexpected error occurred.' })}
+            </>
+          ) : (
+            t('common.loading', { defaultValue: 'Loading…' })
+          )}
+        </div>
+      )}
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {t('layout.activityFeed.empty', { defaultValue: 'No recent activity' })}
-        </p>
+        activity.status === 'ready' && (
+          <p className="text-sm text-muted-foreground">
+            {t('layout.activityFeed.empty', { defaultValue: 'No recent activity' })}
+          </p>
+        )
       ) : (
         <ul className="flex flex-col gap-2.5">
           {items.slice(0, 5).map((a) => (

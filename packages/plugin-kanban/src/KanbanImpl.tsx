@@ -155,7 +155,21 @@ export interface KanbanBoardProps {
    * whole leaves it unset and keeps the bare number.
    */
   countsAreWindowed?: boolean
+  /**
+   * Whether the cards may be dragged at all (default `true`). `ObjectKanban`
+   * passes `false` when the caller may not make the move its `onCardMove`
+   * writes — the `kanbanCardMove` row of the affordance-to-grant map
+   * (objectui#12082) — so no card offers a drag that would be refused.
+   */
+  cardsMovable?: boolean
 }
+
+/**
+ * Whether the board's cards are draggable — {@link KanbanBoardProps.cardsMovable},
+ * read by every {@link SortableCard} however deep the layout (flat columns,
+ * swimlane rows, the drag overlay) without threading it through each.
+ */
+const KanbanCardsMovable = React.createContext(true)
 
 /**
  * Evaluate conditional formatting rules for a card.
@@ -187,6 +201,9 @@ function getCardStyles(
 }
 
 function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }: { card: KanbanCard; onCardClick?: (card: KanbanCard, event?: React.MouseEvent) => void; conditionalFormatting?: KanbanConditionalFormattingRule[]; objectFields?: unknown }) {
+  // A disabled sortable attaches no drag listeners and reports
+  // `aria-disabled` (objectui#12082).
+  const movable = React.useContext(KanbanCardsMovable)
   const {
     attributes,
     listeners,
@@ -194,7 +211,7 @@ function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: card.id })
+  } = useSortable({ id: card.id, disabled: !movable })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -209,7 +226,7 @@ function SortableCard({ card, onCardClick, conditionalFormatting, objectFields }
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} role="listitem" aria-label={card.title}
       onClick={(e) => onCardClick?.(card, e)}
     >
-      <Card className="mb-2 cursor-grab active:cursor-grabbing border-border border-l-4 border-l-primary/40 bg-card/60 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 group touch-manipulation" style={cardStyles}>
+      <Card className={cn("mb-2 border-border border-l-4 border-l-primary/40 bg-card/60 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 group touch-manipulation", movable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer")} style={cardStyles}>
         {card.coverImage && (
           <div className="w-full h-32 overflow-hidden rounded-t-lg">
             <img
@@ -696,18 +713,24 @@ function DndBridge({ children }: { children: (dnd: ReturnType<typeof useDnd>) =>
   return <>{children(dnd)}</>
 }
 
-export default function KanbanBoard({ columns, onCardMove, onCardClick, className, quickAdd, onQuickAdd, coverImageField, conditionalFormatting, objectFields, swimlaneField, countsAreWindowed }: KanbanBoardProps) {
+export default function KanbanBoard({ columns, onCardMove, onCardClick, className, quickAdd, onQuickAdd, coverImageField, conditionalFormatting, objectFields, swimlaneField, countsAreWindowed, cardsMovable = true }: KanbanBoardProps) {
   const hasDnd = useHasDndProvider()
 
   if (hasDnd) {
     return (
-      <DndBridge>
-        {(dnd) => <KanbanBoardInner columns={columns} onCardMove={onCardMove} onCardClick={onCardClick} className={className} dnd={dnd} quickAdd={quickAdd} onQuickAdd={onQuickAdd} coverImageField={coverImageField} conditionalFormatting={conditionalFormatting} objectFields={objectFields} swimlaneField={swimlaneField} countsAreWindowed={countsAreWindowed} />}
-      </DndBridge>
+      <KanbanCardsMovable.Provider value={cardsMovable}>
+        <DndBridge>
+          {(dnd) => <KanbanBoardInner columns={columns} onCardMove={onCardMove} onCardClick={onCardClick} className={className} dnd={dnd} quickAdd={quickAdd} onQuickAdd={onQuickAdd} coverImageField={coverImageField} conditionalFormatting={conditionalFormatting} objectFields={objectFields} swimlaneField={swimlaneField} countsAreWindowed={countsAreWindowed} />}
+        </DndBridge>
+      </KanbanCardsMovable.Provider>
     )
   }
 
-  return <KanbanBoardInner columns={columns} onCardMove={onCardMove} onCardClick={onCardClick} className={className} dnd={null} quickAdd={quickAdd} onQuickAdd={onQuickAdd} coverImageField={coverImageField} conditionalFormatting={conditionalFormatting} objectFields={objectFields} swimlaneField={swimlaneField} countsAreWindowed={countsAreWindowed} />
+  return (
+    <KanbanCardsMovable.Provider value={cardsMovable}>
+      <KanbanBoardInner columns={columns} onCardMove={onCardMove} onCardClick={onCardClick} className={className} dnd={null} quickAdd={quickAdd} onQuickAdd={onQuickAdd} coverImageField={coverImageField} conditionalFormatting={conditionalFormatting} objectFields={objectFields} swimlaneField={swimlaneField} countsAreWindowed={countsAreWindowed} />
+    </KanbanCardsMovable.Provider>
+  )
 }
 
 function KanbanBoardInner({ columns, onCardMove, onCardClick, className, dnd, quickAdd, onQuickAdd, coverImageField: _coverImageField, conditionalFormatting, objectFields, swimlaneField, countsAreWindowed }: KanbanBoardProps & { dnd: ReturnType<typeof useDnd> | null }) {

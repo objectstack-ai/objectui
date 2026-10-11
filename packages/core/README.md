@@ -215,7 +215,13 @@ resolveFieldAffordance('editFormFields', perms, 'orders', 'title')   // false
 ```
 
 An affordance added later gets a row here and reads it through these functions;
-it does not spell its own `can(object, verb)`.
+it does not spell its own `can(object, verb)`. That includes an affordance that
+reads NO grant at all — the calendar's quick-create and drag-to-reschedule
+(`calendarQuickCreate`, `calendarReschedule`) and the kanban card move
+(`kanbanCardMove`) were such affordances until they gained their rows. The map's
+enumeration pin in `@object-ui/plugin-form` (`affordanceGrantMap-12082.test.tsx`)
+also counts every write call site in the console tree and holds each to the row
+it sits behind, or to the reason it has none.
 
 ### Undo snapshot for an update (`captureUpdateUndoData`)
 

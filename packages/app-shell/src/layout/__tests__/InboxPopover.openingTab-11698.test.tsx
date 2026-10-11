@@ -63,6 +63,8 @@ interface Inbox {
   notifications: InboxNotification[];
   pendingApprovalsCount: number;
   activities: ActivityItem[];
+  /** The caller's read grant on `sys_activity` (objectui#12081); absent = holds it. */
+  readable?: boolean;
 }
 
 function bell(inbox: Inbox) {
@@ -73,7 +75,7 @@ function bell(inbox: Inbox) {
           notifications={inbox.notifications}
           unreadCount={inbox.notifications.filter((n) => !n.is_read).length}
           pendingApprovalsCount={inbox.pendingApprovalsCount}
-          activities={inbox.activities}
+          activity={{ value: inbox.activities, status: 'ready', readable: inbox.readable ?? true }}
           onMarkAllRead={() => {}}
           onMarkRead={() => {}}
         />
@@ -215,5 +217,33 @@ describe("InboxPopover — keeps the user's tab within the session (objectui#116
 
     rerender(bell({ notifications: [], pendingApprovalsCount: 0, activities: [] }));
     expect(open().selected).toMatch(/approvals/i);
+  });
+});
+
+/**
+ * objectui#12081 — a caller who may not read `sys_activity` is offered no
+ * Activity tab. "With every tab empty, the picked tab is kept" would otherwise
+ * reopen the popover onto a tab that is no longer there: a remembered pick
+ * outlives the grant it was made under (sessionStorage, across every layout's
+ * bell), so the pick is set aside rather than honoured.
+ */
+describe('InboxPopover — no Activity tab without the read grant (objectui#12081)', () => {
+  it('offers no Activity tab to a caller without the grant', () => {
+    render(bell({ notifications: [], pendingApprovalsCount: 0, activities: [], readable: false }));
+    open();
+    const tabs = within(screen.getByRole('dialog')).getAllByRole('tab').map((t) => t.textContent ?? '');
+    expect(tabs.some((t) => /activity/i.test(t))).toBe(false);
+    expect(screen.getByRole('dialog').textContent).not.toContain('No recent activity');
+  });
+
+  it('a remembered Activity pick does not reopen onto the tab once the caller is not offered it', () => {
+    const { rerender } = render(bell({ notifications: [], pendingApprovalsCount: 0, activities: activity(1) }));
+    open();
+    choose(/activity/i);
+    close();
+
+    rerender(bell({ notifications: [], pendingApprovalsCount: 0, activities: [], readable: false }));
+    const { selected } = open();
+    expect(selected).toMatch(/notifications/i);
   });
 });

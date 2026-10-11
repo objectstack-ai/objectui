@@ -469,6 +469,13 @@ save returned as its next `ifMatch`, so its second save is not refused over its
 own first one. A host `submitHandler` receives the same payload in edit mode.
 The package README has the full rule, under "What an edit save writes".
 
+A `record:line_items` panel offers adding a line (its Add button, entry row and
+Duplicate) only when the caller may create the CHILD object, and removing one
+only when they may delete it — the `relatedNew` and `relatedRowDelete` rows of the
+affordance-to-grant map in `@object-ui/core`, the same rows a related list reads
+for the same two writes. Its cells ask each column's field question, as the form
+layouts do. With no permission provider mounted both read open.
+
 ## Examples
 
 ### Form with Validation

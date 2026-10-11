@@ -657,33 +657,21 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
 // The renderer READS the node-level `dataSource` binding (objectui#10909), so it
 // declares it from the seam every reader of the binding declares it from: the
 // marker below makes `Registry.register` emit `ELEMENT_DATA_SOURCE_INPUT` into
-// these `inputs`. The flat `object` / `filter` stay PUBLISHED and are NOT
-// READ: the binding is the only place the metric reads them from
-// (objectui#11880). The spec still declares both, and their published
-// retirement ships with the spec half of objectstack#11509 and the pin bump
-// that carries it; until then each description says so. Same shape as
-// `element:record_picker`'s registration, and the seam comes from
-// `@object-ui/core` for the same measured reason stated there.
+// these `inputs`, and the binding is the only place the metric reads its
+// object and filter from (objectui#11880). The flat `object` / `filter` are not
+// published (objectui#12085): nothing reads them, and `@objectstack/spec`
+// retires both as tombstones (objectstack#11509), so a published flat key
+// would point an author at a spelling the contract refuses and the metric
+// ignores. The seam comes from `@object-ui/core` for the measured reason
+// `element:record_picker`'s registration states.
 ComponentRegistry.register('number', elementDataSourceBlock(ElementNumberRenderer), {
   namespace: 'element',
   skipFallback: true,
   label: 'Number',
   category: 'content',
   inputs: [
-    {
-      name: 'object',
-      type: 'string',
-      description:
-        'NOT READ (objectui#11880): the aggregate runs over the object the node-level `dataSource.object` names, and a node without one shows the "no object named" notice. `@objectstack/spec` retires this flat key in v18 (objectstack#11509).',
-    },
     { name: 'aggregate', type: 'enum', enum: ['count', 'sum', 'avg', 'min', 'max'], required: true },
     { name: 'field', type: 'string', description: 'Measure field (required for every aggregate except count)' },
-    {
-      name: 'filter',
-      type: 'array',
-      description:
-        'NOT READ (objectui#11880): the aggregate is scoped by the node-level `dataSource.filter`, AND-combined with the filter of the saved view its `view` names. This flat key is not combined with it and never applies; `@objectstack/spec` retires it in v18 (objectstack#11509).',
-    },
     { name: 'format', type: 'enum', enum: ['number', 'currency', 'percent'] },
     { name: 'prefix', type: 'string' },
     { name: 'suffix', type: 'string' },

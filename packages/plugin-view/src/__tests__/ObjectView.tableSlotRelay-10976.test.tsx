@@ -135,8 +135,18 @@ const RELAYED: Required<Pick<TableSlot, RelayKey>> = {
   singleClickEdit: true,
 };
 
+/**
+ * `table.defaultFilters` as metadata written on the installed `@objectstack/spec`
+ * carries it: the `filter` rule array. objectstack `main` retires the key
+ * (objectstack#11509, a tombstone there), and this component still READS it by
+ * name for such metadata (objectui#11880 item 5), so the sample is typed by the
+ * shape it has on the installed spec rather than by the slot's declaration,
+ * which is the tombstone on `main` (objectui#12093).
+ */
+type LegacyDefaultFilters = { defaultFilters: NonNullable<TableSlot['filter']> };
+
 /** One authored value per by-name key, each copied onto the node unchanged. */
-const BY_NAME: Required<Pick<TableSlot, Exclude<ByNameKey, 'operations'>>> = {
+const BY_NAME: Required<Pick<TableSlot, Exclude<ByNameKey, 'operations' | 'defaultFilters'>>> & LegacyDefaultFilters = {
   className: 'table-probe',
   columns: ['subject', 'stage'],
   // objectui#6152 round 10: the grid row's rule array (the slot's type was a `Record`). Its

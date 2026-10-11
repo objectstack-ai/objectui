@@ -308,10 +308,11 @@ from that source and shows no hint.
 in the node's `properties` bag and take their query from the binding **only**:
 every query key either one reads comes from `dataSource` and from nowhere else.
 The flat `properties.object`, `properties.filter`, `properties.sort` and
-`properties.limit` that the spec still declares on these two elements are not
-read, and `@objectstack/spec` retires them in v18 (objectstack#11509). The
-binding's filter is AND-combined with its view's filter, as on every block
-above. On `element:number`,
+`properties.limit` on these two elements are not read, and `@objectstack/spec`
+retires them (objectstack#11509). `element:number` no longer offers its flat
+`object` or `filter` (objectui#12085), so the page validator reports either one
+as a prop the metric does not have. The binding's filter is AND-combined with its
+view's filter, as on every block above. On `element:number`,
 `{ "dataSource": { "object": "contact" }, "properties": { "aggregate": "count" } }`
 is a complete metric; its `sort` and `limit` are not read, because an aggregate
 has no ordering and a capped count would be a wrong number, and a filter the
@@ -324,10 +325,14 @@ offers no records. The Studio page designer writes the metric's object into
 
 `element:repeater` reads the binding **first**, and its flat
 `properties.object`, `properties.filter`, `properties.sort` and
-`properties.limit` only as the fallback, until `@objectstack/spec` retires those
-four keys in v18 (objectstack#11509) and its pin bump moves them into
-`dataSource`. A repeater bound only through `dataSource` lists the records it
-names, and one carrying only the flat keys reads them exactly as before. Where a
+`properties.limit` only as a fallback, for metadata written before
+`@objectstack/spec` retired those four keys (objectstack#11509); the spec's
+conversion moves them into `dataSource`. The repeater offers the binding alone
+(objectui#12085): it requires no prop, and the page validator accepts a repeater
+bound through `dataSource` alone and reports a flat `object`, `filter`, `sort`
+or `limit` as a prop the repeater does not have. A repeater bound only through
+`dataSource` lists the records it names, and one carrying only the flat keys
+reads them exactly as before. Where a
 node carries both, the repeater follows the precedence `ElementDataSourceGate`
 applies to the object-bound blocks above: the binding's `object` wins; `properties.filter` is AND-combined
 with the binding's filter (and its view's), so neither is dropped; and for `sort`

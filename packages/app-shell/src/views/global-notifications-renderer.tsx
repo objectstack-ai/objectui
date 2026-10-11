@@ -82,7 +82,9 @@ export const GlobalNotificationsRenderer: React.FC<GlobalNotificationsRendererPr
     markRead,
     markManyRead,
   } = useInboxBell();
-  const activities = useSharedActivityFeed();
+  // Rows, status and the caller's read grant together (objectui#12081), the
+  // same reading the header bell hands the same popover.
+  const activity = useSharedActivityFeed();
 
   return (
     <div className={className} data-block="global:notifications" {...splitDesigner(props)}>
@@ -90,7 +92,7 @@ export const GlobalNotificationsRenderer: React.FC<GlobalNotificationsRendererPr
         notifications={notifications}
         unreadCount={unreadCount}
         pendingApprovalsCount={pendingApprovalsCount}
-        activities={activities}
+        activity={activity}
         onMarkAllRead={markAllRead}
         onMarkRead={markRead}
         onMarkManyRead={markManyRead}

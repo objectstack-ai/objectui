@@ -17,6 +17,11 @@
  * data source whose `sys_comment` `update` payload is the observed channel. The
  * signed-in user is the varied axis, so one case can hand the row a first user
  * stored and read it back as a second user.
+ *
+ * Since objectui#12078 this is the column store, which the page uses only where
+ * the deployment has no `sys_comment_reaction` (the registry below lists none).
+ * Where it has one, a click writes the member's own reaction row instead:
+ * `RecordDetailView.reactionRecords-12078.test.tsx`.
  */
 
 import * as React from 'react';
@@ -124,7 +129,10 @@ async function mountAs(userId: string, dataSource: any) {
     invalidate: () => {},
     ensureType: async () => pages,
     getItem: async () => null,
-    getItemsByType: (type: string) => (type === 'page' ? pages : []),
+    // The registry lists this deployment's objects, and `sys_comment_reaction`
+    // is not one of them, so the page keeps reactions in the
+    // `sys_comment.reactions` column (objectui#12078).
+    getItemsByType: (type: string) => (type === 'page' ? pages : type === 'object' ? OBJECTS : []),
   } as any;
   render(
     <MemoryRouter initialEntries={[`/app/demo/${OBJECT_NAME}/${RECORD_ID}`]}>

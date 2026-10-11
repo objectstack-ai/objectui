@@ -96,7 +96,7 @@ afterEach(() => {
 async function typesByRow(): Promise<Record<string, string>> {
   const { result } = renderHook(() => useSharedActivityFeed());
   await settle();
-  return Object.fromEntries(result.current.map((a) => [a.id, a.type]));
+  return Object.fromEntries(result.current.value.map((a) => [a.id, a.type]));
 }
 
 describe('objectui#6730 — the shared activity feed no longer calls everything an update', () => {
@@ -121,9 +121,9 @@ describe('objectui#6730 — the shared activity feed no longer calls everything 
 
     // A bucket, not a drop: every row that named an action and said something
     // still reaches the surface. (objectui#5840's failure mode was the drop.)
-    expect(result.current.map((a) => a.id)).toEqual(ACTIVITY_ROWS.map((r) => r.id));
+    expect(result.current.value.map((a) => a.id)).toEqual(ACTIVITY_ROWS.map((r) => r.id));
 
-    const unmapped = result.current.find((a) => a.id === 'r6');
+    const unmapped = result.current.value.find((a) => a.id === 'r6');
     expect(unmapped?.description).toBe('countersigned');
     expect(unmapped?.objectName).toBe('crm_contract');
 
@@ -139,7 +139,7 @@ describe('objectui#6730 — the shared activity feed no longer calls everything 
     const { result } = renderHook(() => useSharedActivityFeed());
     await settle();
 
-    const nowRow = result.current.find((a) => a.id === 'r7');
+    const nowRow = result.current.value.find((a) => a.id === 'r7');
     // The fold is behaviour-preserving: the same answer the inline copy gave,
     // now produced by the one reading this package owns. Pinned against
     // plugin-detail's folded copy value-for-value in the pure suite.
@@ -147,6 +147,6 @@ describe('objectui#6730 — the shared activity feed no longer calls everything 
     expect(nowRow?.timestamp).not.toBe('NOW()');
 
     // Unchanged rows keep their own timestamp — the fallback is a fallback.
-    expect(result.current.find((a) => a.id === 'r1')?.timestamp).toBe('2026-08-20T10:00:00Z');
+    expect(result.current.value.find((a) => a.id === 'r1')?.timestamp).toBe('2026-08-20T10:00:00Z');
   });
 });

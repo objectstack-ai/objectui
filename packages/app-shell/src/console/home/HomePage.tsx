@@ -39,7 +39,7 @@ import {
   resolveHostAppSegment,
   resolveNotificationTarget,
 } from '../../utils/index.js';
-import { Empty, EmptyTitle, EmptyDescription, Button } from '@object-ui/components';
+import { Empty, EmptyTitle, EmptyDescription, Button, cn } from '@object-ui/components';
 import { Sparkles, UploadCloud, MessageSquareText, Hammer, LayoutTemplate } from 'lucide-react';
 import { usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { usePublishAllDrafts } from '../../preview/usePublishAllDrafts.js';
@@ -244,7 +244,7 @@ export function HomePage() {
   const { favorites } = useFavorites();
   const { user } = useAuth();
   const { isAdmin, isResolved: isAdminResolved } = useWorkspaceAdminStatus();
-  const { pendingApprovalsCount, notifications, unreadTopicCount, notificationsStatus, activities } =
+  const { pendingApprovalsCount, notifications, unreadTopicCount, notificationsStatus, activity } =
     useHomeInbox();
   // Home renders OUTSIDE the `/apps/:appName/*` router, so there is no
   // `params.appName` to read — `currentAppName` (published by ConsoleLayout on
@@ -599,10 +599,18 @@ export function HomePage() {
             />
           </div>
 
-          {/* Continue where you left off + ambient activity */}
-          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          {/* Continue where you left off + ambient activity. The activity column
+              exists only for a caller who may read `sys_activity`
+              (objectui#12081) — `HomeActivity` renders nothing otherwise, and an
+              empty 360px column would be a hole where the card was. */}
+          <div
+            className={cn(
+              'grid grid-cols-1 items-start gap-6',
+              activity.readable && 'lg:grid-cols-[minmax(0,1fr)_360px]',
+            )}
+          >
             <HomeContinue items={recentApps} onOpen={(href) => navigate(href)} t={t} labelOf={recentLabel} />
-            <HomeActivity items={activities} onViewAll={() => navigate(`/apps/${hostAppSegment}/sys_activity`)} t={t} />
+            <HomeActivity activity={activity} onViewAll={() => navigate(`/apps/${hostAppSegment}/sys_activity`)} t={t} />
           </div>
         </div>
       </div>

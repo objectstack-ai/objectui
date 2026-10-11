@@ -99,7 +99,7 @@ let approvalsFixture = 0;
 vi.mock('../../../hooks/sharedUserFeeds', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useSharedPendingApprovalsCount: () => approvalsFixture,
-  useHumanActivityFeed: () => [],
+  useHumanActivityFeed: () => ({ value: [], status: 'ready', readable: true }),
 }));
 
 import { useHomeInbox } from '../../../hooks/useHomeInbox';

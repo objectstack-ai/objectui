@@ -39,10 +39,11 @@
  *    a retry that cannot work; the input and the reason stay on screen
  *    together.
  * 2. **The message had one carrier, and it was the transient one.** The toast
- *    is kept — it is the console's failure idiom and it is viewport-fixed, so
- *    it survives a tall `object-form` step scrolled past its own header — and
- *    an inline destructive `Alert` (`role="alert"`) now carries the same
- *    sentence inside the dialog, next to the values that produced it.
+ *    is kept — it is the console's failure idiom and it is viewport-fixed —
+ *    and an inline destructive `Alert` (`role="alert"`) now carries the same
+ *    sentence inside the dialog, next to the values that produced it. It sits
+ *    above the scrolling body (objectui#12080), so it stays in view however
+ *    far a tall screen is scrolled.
  * 3. **Success invalidated the wrong thing.** Both hosts answer `onComplete`
  *    with `notifyDataChanged({ objectName: <this page's object> })`, which is
  *    the record the user is LOOKING at — never the record the flow WROTE. The
@@ -143,6 +144,25 @@
  * `defaultValue` each key carries, which `check:i18n-keys` pins to its `en`
  * value. The server's own refusal sentence is passed through untranslated by
  * design — it is prose the backend composed, not a string with a key.
+ *
+ * ## A long screen still reaches its Submit (objectui#12080)
+ *
+ * The dialog is height-bounded on every screen, not only on an `object-form`
+ * step: at most `90vh` tall, with the header (and any notice under it) on top,
+ * the screen body in the ONE scrolling region, and the footer below it. The
+ * upstream `DialogContent` has no height bound, so a flat screen taller than
+ * the window used to overflow both edges of a fixed, scroll-locked overlay —
+ * the heading above the top, Submit below the bottom, and nothing a mouse
+ * wheel could move. Keeping the footer OUTSIDE the scrolling region is what
+ * keeps Submit on screen however long the screen is.
+ *
+ * Width follows the screen's length, not a layout key: no spec key asks for
+ * one, and the renderer can size by content. A flat screen declaring more
+ * than {@link NARROW_SCREEN_MAX_FIELDS} fields gets the `object-form` step's
+ * wider dialog and two columns from `sm` up; a shorter one keeps the narrow
+ * single column it always had. The count is the DECLARED one, so a field a
+ * `visibleWhen` reveals mid-edit never makes the dialog jump width.
+ * `ActionParamDialog` takes the same bound for a long `params` list.
  */
 import { Suspense, useEffect, useState } from 'react';
 import {
@@ -155,6 +175,7 @@ import {
   DialogTitle,
   DialogDescription,
   Button,
+  cn,
 } from '@object-ui/components';
 import { notifyDataChanged, useObjectTranslation } from '@object-ui/react';
 import {
@@ -171,6 +192,7 @@ import {
   isObjectFormScreen,
   initialScreenValues,
   screenFieldBoundViolations,
+  screenFields,
   visibleScreenFields,
   type ScreenFieldSpec,
   type ScreenSpec,
@@ -178,6 +200,16 @@ import {
 import { interpretFlowResponse } from '../utils/flowResponse.js';
 
 export type { ScreenSpec, ScreenFieldSpec } from './ScreenView.js';
+
+/**
+ * The most declared fields a flat screen keeps the narrow single-column dialog
+ * for; a longer one gets the wide two-column dialog (objectui#12080 — see the
+ * header). Eight is the most single-line fields the narrow column was
+ * measured to show whole, with no scrolling, inside the `90vh` bound on a
+ * 1440×900 window — a reading taken once in Chromium for objectui#12080 and
+ * recorded on its pull request; nothing here re-derives it.
+ */
+const NARROW_SCREEN_MAX_FIELDS = 8;
 
 /** The `flows` group of a spec `TranslationData` — typed by the spec, so the address below is checked against it. */
 type FlowsTranslation = NonNullable<TranslationData['flows']>;
@@ -402,9 +434,9 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
     // #31). See utils/flowResponse.
     const outcome = interpretFlowResponse<ScreenSpec>(res, json, 'Resume');
     if (outcome.kind === 'failed') {
-      // Two carriers on purpose (`c40f3b8ca`): the toast is fixed to the viewport and
-      // reaches a user scrolled to the bottom of a tall object-form step; the
-      // inline Alert stays with the values that caused it.
+      // Two carriers on purpose (`c40f3b8ca`): the toast is the console's
+      // viewport-fixed failure idiom; the inline Alert stays in the dialog,
+      // above the scrolling body, with the values that caused it.
       toast.error(outcome.error);
       setResumeError({ message: outcome.error, retryable: outcome.retryable });
       return;
@@ -531,10 +563,17 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
   // withdrawing the submit affordance is one behaviour with two causes, and
   // splitting it is how the `object-form` arm of it gets forgotten.
   const terminal = refused !== null || (resumeError !== null && !resumeError.retryable);
+  // A long flat screen widens to two columns (objectui#12080 — see the header).
+  const isLongScreen = !isObjectForm && screenFields(screen).length > NARROW_SCREEN_MAX_FIELDS;
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o && !submitting) onClose(); }}>
-      <DialogContent className={isObjectForm ? 'sm:max-w-3xl max-h-[90vh] overflow-y-auto' : 'sm:max-w-md'}>
+      {/* Bounded on every screen (objectui#12080): a flex column at most 90vh
+          tall, in which only the body below can give up height (`min-h-0`)
+          and scroll, so the header and the footer always stay on screen. */}
+      <DialogContent
+        className={cn('flex max-h-[90vh] flex-col', isObjectForm || isLongScreen ? 'sm:max-w-3xl' : 'sm:max-w-md')}
+      >
         <DialogHeader>
           {/* The flow being run (objectui#11092), above the step's own heading,
               which stays the dialog's title. */}
@@ -565,34 +604,42 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
           </Alert>
         )}
 
-        {/* The screen body pulls in lazily-loaded chunks (an `object-form` step
-            mounts ObjectForm, whose field widgets are lazy). Without a boundary
-            HERE, that suspension unwinds to the host's nearest <Suspense> — a
-            route-level one on some surfaces — which swaps the whole page for a
-            fallback and destroys the host's state, taking this dialog (and the
-            run it is driving) with it. */}
-        <Suspense fallback={<div className="py-6 text-sm text-muted-foreground">{t('common.loading', { defaultValue: 'Loading…' })}</div>}>
-          <ScreenView
-            screen={shown}
-            values={values}
-            onValueChange={setVal}
-            dataSource={dataSource}
-            objects={objects}
-            objectForm={{
-              onSuccess: onObjectFormSaved,
-              onCancel: onClose,
-              // Withdrawn once the run is gone: the record this step created was
-              // already persisted, so a second Save would duplicate it AND still
-              // have no suspension to resume.
-              showSubmit: !terminal,
-              showCancel: true,
-              submitText: t('flowRunner.saveAndContinue', { defaultValue: 'Save & Continue' }),
-              cancelText: terminal
-                ? t('common.close', { defaultValue: 'Close' })
-                : t('common.cancel', { defaultValue: 'Cancel' }),
-            }}
-          />
-        </Suspense>
+        {/* The ONE scrolling region (objectui#12080). `-mx-6 px-6` runs it to
+            the dialog's edges, so the scrollbar sits on the border and a
+            control's focus ring is not clipped at the sides. */}
+        <div className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6" data-testid="flow-screen-body">
+          {/* The screen body pulls in lazily-loaded chunks (an `object-form` step
+              mounts ObjectForm, whose field widgets are lazy). Without a boundary
+              HERE, that suspension unwinds to the host's nearest <Suspense> — a
+              route-level one on some surfaces — which swaps the whole page for a
+              fallback and destroys the host's state, taking this dialog (and the
+              run it is driving) with it. */}
+          <Suspense fallback={<div className="py-6 text-sm text-muted-foreground">{t('common.loading', { defaultValue: 'Loading…' })}</div>}>
+            <ScreenView
+              screen={shown}
+              values={values}
+              onValueChange={setVal}
+              dataSource={dataSource}
+              objects={objects}
+              // Two columns from `sm` up; `space-y-0` replaces the body's own
+              // stack spacing, which would offset every grid cell but the last.
+              className={isLongScreen ? 'grid gap-4 space-y-0 sm:grid-cols-2' : undefined}
+              objectForm={{
+                onSuccess: onObjectFormSaved,
+                onCancel: onClose,
+                // Withdrawn once the run is gone: the record this step created was
+                // already persisted, so a second Save would duplicate it AND still
+                // have no suspension to resume.
+                showSubmit: !terminal,
+                showCancel: true,
+                submitText: t('flowRunner.saveAndContinue', { defaultValue: 'Save & Continue' }),
+                cancelText: terminal
+                  ? t('common.close', { defaultValue: 'Close' })
+                  : t('common.cancel', { defaultValue: 'Cancel' }),
+              }}
+            />
+          </Suspense>
+        </div>
 
         {!isObjectForm && (
           <DialogFooter>

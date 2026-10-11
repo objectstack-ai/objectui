@@ -67,7 +67,7 @@ function popoverUnder(locale: string) {
             notifications={notifications()}
             unreadCount={3}
             pendingApprovalsCount={0}
-            activities={activities()}
+            activity={{ value: activities(), status: 'ready', readable: true }}
             onMarkAllRead={() => {}}
             onMarkRead={() => {}}
           />

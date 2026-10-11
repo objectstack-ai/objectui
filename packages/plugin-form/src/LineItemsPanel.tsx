@@ -39,6 +39,7 @@ import {
   filterRefusalSubject,
   toFilterNodeSafely,
   convertSortToQueryParams,
+  resolveAffordance,
 } from '@object-ui/core';
 
 // The panel's own chrome. A provider-less host — a standalone embed, this
@@ -693,6 +694,26 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     }
   }, [dataSource, parentId, heldForAnotherParent, rows, original, schema, parentObject, childSchema]);
 
+  // objectui#12082 — adding and removing a line are rows of the
+  // affordance-to-grant map (`resolveAffordance` in `@object-ui/core`), asked
+  // of the CHILD object: a new line is a child created under this parent
+  // (`relatedNew`), a removed line a child deleted on Save (`relatedRowDelete`)
+  // — the same two rows a related list reads for the same two writes. Each is
+  // the child's policy, its effective operation set and the caller's grant on
+  // it. They used to read `schema.readonly` alone, so a caller who may not
+  // create or delete the child was offered both and Save sent a batch the
+  // server refused. The policy half has no child schema to read here
+  // (`objectSchema: null`, the default bucket). With no permission provider
+  // mounted both read open, as before.
+  const lineAddGranted = useMemo(
+    () => resolveAffordance('relatedNew', { objectSchema: null, objectName: schema.childObject, perms }).allowed,
+    [schema.childObject, perms],
+  );
+  const lineRemoveGranted = useMemo(
+    () => resolveAffordance('relatedRowDelete', { objectSchema: null, objectName: schema.childObject, perms }).allowed,
+    [schema.childObject, perms],
+  );
+
   const gridField = useMemo(
     () =>
       ({
@@ -700,7 +721,8 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
         // share: a column the caller may not read is omitted, and one they may
         // read but not edit renders its cells locked — on the same page where
         // the surrounding form already disables that field (objectui#10163).
-        // Adding and removing lines stay on `schema.readonly` below.
+        // Adding and removing lines are the map rows above, on top of
+        // `schema.readonly` below.
         columns: applyColumnPermissions(schema.columns, { perms, objectName: schema.childObject }),
         // The grid's `totalField` is the CHILD column summed (this block's
         // `amountField`), shown whenever one is named, exactly as
@@ -710,13 +732,13 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
         totalField: schema.amountField || (schema.totalField ? 'amount' : undefined),
         minRows: schema.minRows,
         maxRows: schema.maxRows,
-        allowAdd: !schema.readonly,
-        allowDelete: !schema.readonly,
+        allowAdd: !schema.readonly && lineAddGranted,
+        allowDelete: !schema.readonly && lineRemoveGranted,
         // Checked against the grid's published type (objectui#11610), so a key
         // the grid does not declare, or one of its retired snake_case
         // spellings, fails to compile here.
       } satisfies Partial<GridFieldMetadata>) as GridFieldMetadata,
-    [schema, perms],
+    [schema, perms, lineAddGranted, lineRemoveGranted],
   );
 
   // The config hint names the property to set as code, and the property name

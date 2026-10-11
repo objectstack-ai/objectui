@@ -109,7 +109,7 @@ async function clickNotification(n: InboxNotification): Promise<string> {
       notifications={[n]}
       unreadCount={1}
       pendingApprovalsCount={0}
-      activities={[]}
+      activity={{ value: [], status: 'ready', readable: true }}
       onMarkAllRead={vi.fn()}
       onMarkRead={markRead}
     />,
@@ -176,7 +176,7 @@ describe('Bell notification rows follow the deep link to the record (objectui#51
         notifications={[notif({ id: 'n1', action_url: 'https://status.example.com/incident/7' })]}
         unreadCount={1}
         pendingApprovalsCount={0}
-        activities={[]}
+        activity={{ value: [], status: 'ready', readable: true }}
         onMarkAllRead={vi.fn()}
         onMarkRead={markRead}
       />,

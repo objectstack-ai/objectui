@@ -70,7 +70,11 @@ const onCardMove = (cardId: string, fromCol: string, toCol: string, index: numbe
 
 ## Features
 
-- **Drag and drop cards** between columns
+- **Drag and drop cards** between columns — on an object-bound board
+  (`object-kanban`), only for a caller the `kanbanCardMove` row of the
+  affordance-to-grant map allows (the object's policy, the effective API
+  operation set and the caller's **update** grant); without it the cards are
+  not movable. With no permission provider mounted it reads open.
 - **Column limits** (WIP limits)
 - **Column totals**: a kanban view's `summarizeField` sums that field over each column's loaded cards in the column header, beside the count (with the count's `+` when the fetch window is full)
 - **Card badges** for status/priority

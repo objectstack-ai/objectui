@@ -22,6 +22,17 @@
  * objectui#8672 ruling A for the reference-bearing pickers).
  *
  * Returns collected param values or null on cancel.
+ *
+ * ## A long `params` list still reaches Confirm (objectui#12080)
+ *
+ * The dialog takes the bound `FlowRunner`'s screen dialog has: at most `90vh`
+ * tall, the param list in the ONE scrolling region, the header above it and
+ * the footer below it. The upstream `DialogContent` has no height bound, so a
+ * list taller than the window used to overflow both edges of a fixed,
+ * scroll-locked overlay — its first required params above the top, Confirm
+ * below the bottom, and nothing a mouse wheel could move. A list of more than
+ * {@link NARROW_PARAM_MAX_COUNT} params also widens to two columns from `sm`
+ * up; a shorter one keeps the default width and its single column.
  */
 
 import { Suspense, useState, useEffect, useMemo } from 'react';
@@ -37,6 +48,7 @@ import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
+  cn,
 } from '@object-ui/components';
 import { ChevronDown, Lock } from 'lucide-react';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
@@ -74,6 +86,14 @@ interface ActionParamDialogProps {
   state: ParamDialogState;
   onOpenChange: (open: boolean) => void;
 }
+
+/**
+ * The most params the dialog keeps its default single-column width for; a
+ * longer list gets the wide two-column dialog (objectui#12080 — see the
+ * header). The same count as `FlowRunner`'s `NARROW_SCREEN_MAX_FIELDS`, so a
+ * flow screen and an action's params lay out alike.
+ */
+const NARROW_PARAM_MAX_COUNT = 8;
 
 /**
  * Filter action params by their optional `visible` predicate, evaluated on the
@@ -478,11 +498,17 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
     setErrors(prev => ({ ...prev, [name]: false }));
   };
 
+  // A long list widens to two columns (objectui#12080 — see the header).
+  const isLongList = visibleParams.length > NARROW_PARAM_MAX_COUNT;
+
   return (
     <Dialog open={state.open} onOpenChange={(open) => {
       if (!open) handleCancel();
     }}>
-      <DialogContent>
+      {/* Bounded (objectui#12080): a flex column at most 90vh tall, in which
+          only the body below can give up height (`min-h-0`) and scroll, so the
+          header and the footer always stay on screen. */}
+      <DialogContent className={cn('flex max-h-[90vh] flex-col', isLongList && 'sm:max-w-3xl')}>
         <DialogHeader>
           <DialogTitle>{state.title || t('actionDialog.title')}</DialogTitle>
           {/* `whitespace-pre-line` so a description composed of more than one
@@ -494,7 +520,13 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        {/* The ONE scrolling region (objectui#12080). `-mx-6 px-6` runs it to
+            the dialog's edges, so the scrollbar sits on the border and a
+            control's focus ring is not clipped at the sides. */}
+        <div
+          className={cn('-mx-6 grid min-h-0 flex-1 gap-4 overflow-y-auto px-6 py-4', isLongList && 'sm:grid-cols-2')}
+          data-testid="action-param-body"
+        >
           {visibleParams.map((rawParam) => {
             const param = {
               ...rawParam,

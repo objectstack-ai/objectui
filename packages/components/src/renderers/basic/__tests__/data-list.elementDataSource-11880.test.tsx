@@ -9,9 +9,10 @@
 /**
  * objectui#11880 (the repeater half) — `element:repeater` reads the node-level
  * `dataSource` binding FIRST, with its flat `properties` query keys as the
- * fallback until the spec's v18 pin bump retires them (ruling
+ * fallback for metadata written before the spec retired them (ruling
  * objectstack-ai/objectstack#11509, A-narrow, objectui first; triage on
- * objectui#11880: direction A).
+ * objectui#11880: direction A). Since objectui#12085 the registration publishes
+ * the binding alone: the fallback is read, never offered.
  *
  * ## The defect
  *
@@ -47,6 +48,8 @@ import * as React from 'react';
 import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { AdapterCtx, SchemaRenderer, notifyDataChanged } from '@object-ui/react';
+import { manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
+import type { SchemaElement } from '@object-ui/sdui-parser';
 // Registers every `element:*` renderer at module scope, not in a hook
 // (object-ui/no-dynamic-import-in-test-hook, objectui#3010).
 import '../../../renderers';
@@ -215,16 +218,41 @@ describe('element:repeater reads the node-level `dataSource` (objectui#11880)', 
   });
 });
 
-describe('element:repeater declares what it reads (objectui#11880)', () => {
+describe('element:repeater publishes the binding as its one query door (objectui#11880, objectui#12085)', () => {
   const inputs = () => (ComponentRegistry.getConfig('element:repeater')?.inputs ?? []) as Array<{ name: string; required?: boolean }>;
 
-  it('publishes the injected `dataSource` beside the flat query keys it still falls back to', () => {
+  /** The page validator's verdict on one node, over the manifest the registry publishes. */
+  const diagnose = (node: Record<string, unknown>) =>
+    validateTree(
+      node as unknown as SchemaElement,
+      manifestFromConfigs(ComponentRegistry.getAllConfigs() as unknown as Parameters<typeof manifestFromConfigs>[0]),
+    ).diagnostics.map((diagnostic) => ({ severity: diagnostic.severity, code: diagnostic.code }));
+
+  it('publishes the injected `dataSource`, and none of the flat query keys `@objectstack/spec` retires', () => {
     const names = inputs().map((input) => input.name);
     expect(names).toContain('dataSource');
-    for (const key of ['object', 'filter', 'sort', 'limit']) expect(names, key).toContain(key);
+    // The renderer still READS these four as the binding's fallback (pinned
+    // above), for metadata written before the retirement; a back-compat read is
+    // not an authoring surface, so none of them is published.
+    for (const key of ['object', 'filter', 'sort', 'limit']) expect(names, key).not.toContain(key);
   });
 
-  it('`object` stays required, as the spec row requires it', () => {
-    expect(inputs().find((input) => input.name === 'object')?.required).toBe(true);
+  it('requires no input: the object is named by `dataSource.object`', () => {
+    expect(inputs().filter((input) => input.required).map((input) => input.name)).toEqual([]);
+  });
+
+  it('the html tier accepts a repeater bound through `dataSource` alone (it raised `missing-required-prop` before)', () => {
+    expect(diagnose({ type: 'element:repeater', dataSource: { object: 'contact', limit: 5 }, titleField: 'name' })).toEqual([]);
+  });
+
+  it('the html tier reports each retired flat query key as a prop the repeater does not have', () => {
+    const bound = { type: 'element:repeater', dataSource: { object: 'contact' } };
+    const flat: Record<string, unknown> = { object: 'contact', filter: ACTIVE, sort: BY_NAME, limit: 5 };
+    for (const [key, value] of Object.entries(flat)) {
+      expect(diagnose({ ...bound, [key]: value }), key).toEqual([{ severity: 'warning', code: 'unknown-prop' }]);
+    }
+    // Control: the same node without the flat key draws nothing, so each
+    // report above is that key's.
+    expect(diagnose(bound)).toEqual([]);
   });
 });

@@ -2809,6 +2809,10 @@ const es = {
     appAccessDenied: "No tiene acceso a esta aplicación",
     appAccessDeniedDescription: "Esta aplicación existe, pero su cuenta no está autorizada para abrirla. Solicite acceso a un administrador.",
     appAccessDeniedHome: "Volver al inicio",
+    appNothingAvailable: "Aún no hay nada disponible para usted en {{app}}",
+    appNothingAvailableDescription: "Esta aplicación no tiene páginas que su cuenta pueda abrir. Solicite acceso a un administrador.",
+    appNothingAvailableGrantDescription: "Esta aplicación no tiene páginas que su cuenta pueda abrir. Puede conceder el acceso en la configuración.",
+    openSetup: "Abrir la configuración",
     createFirstApp: "Crear primera aplicación",
     systemSettings: "Configuración del sistema",
     back: "Atrás",
@@ -3571,6 +3575,11 @@ const es = {
       localMarketplaceUnavailable: "Este runtime no tiene configurado OS_CLOUD_URL.",
       updateTo: "Actualizar → v{{version}}",
       installedVersion: "Instalado v{{version}}",
+      deploying: "Desplegando la aplicación…",
+      deployed: "La aplicación está desplegada y lista.",
+      openApp: "Abrir {{name}}",
+      deployTimeout: "La instalación se registró, pero este entorno aún no ofrece la aplicación. Puede que siga desplegándose; vuelve a comprobarlo en breve. Si nunca aparece, es posible que el paquete no se haya cargado, que no incluya ninguna aplicación o que su aplicación requiera un permiso que no tienes.",
+      checkAgain: "Comprobar de nuevo",
     },
     // objectui#3546 — the MarketplacePage "Your organization" strip.
     org: {

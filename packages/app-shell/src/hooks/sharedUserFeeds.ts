@@ -7,8 +7,8 @@
  *   | ------------------------ | ------------------------------------------ | ---------------------------------- |
  *   | pending approvals count  | `GET /api/v1/approvals/requests?status=…`  | AppHeader bell badge + Approvals   |
  *   |                          |                                            | tab; Home's To-do card             |
- *   | recent activity          | `find('sys_activity', top 20, desc)`       | AppHeader bell Activity tab;       |
- *   |                          |                                            | Home's activity card               |
+ *   | recent activity          | `find('sys_activity', top 20, desc)`,      | AppHeader bell Activity tab;       |
+ *   |                          | asked only with the caller's read grant    | Home's activity card               |
  *   | inbox messages           | `find('sys_inbox_message', top 20, desc)`  | AppHeader bell Notifications tab   |
  *   |                          | ⋈ `find('sys_notification_receipt')`       | + badge; Home's action centre      |
  *
@@ -47,6 +47,7 @@
  */
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useAuth } from '@object-ui/auth';
+import { usePermissions } from '@object-ui/permissions';
 import { errorCodeIs } from '@object-ui/types';
 // Re-exported from `@object-ui/react` — import it through the provider module
 // so a consumer that stubs the provider stubs this too.
@@ -566,7 +567,8 @@ const activityFeed = new SharedFeed<ActivityItem[]>(NO_ACTIVITIES, 0);
  * Stable string id per adapter instance, so swapping the adapter (tenant
  * switch) drops the previous tenant's rows instead of serving them from cache.
  * Feed-neutral: each feed composes it with whatever else scopes its rows (the
- * inbox adds the signed-in user id, since its query is `mine`).
+ * inbox adds the signed-in user id, since its query is `mine`; the activity
+ * feed adds it too, since the server narrows its rows per caller).
  */
 const adapterKeys = new WeakMap<object, string>();
 let adapterSeq = 0;
@@ -624,7 +626,32 @@ export function isMissingResource(err: unknown): boolean {
 }
 
 /**
- * The 20 most recent activity rows, tenant-wide, mapped onto `ActivityItem`.
+ * The activity feed as its consumers read it (objectui#12081): the shared
+ * snapshot — the rows, and whether they are an ANSWER — plus whether this
+ * caller may read `sys_activity` at all.
+ *
+ * `readable` is a separate bit rather than a fifth status word because it is a
+ * different question: the status dialect is the one #4300 ruled ("is this
+ * value an answer?") and every feed here speaks it; `readable` says whether
+ * there is a widget to put an answer in. A consumer checks it FIRST — `false`
+ * renders no widget at all — and only then reads `status`, where an empty
+ * `value` means "no recent activity" in `ready` and nothing else.
+ */
+export interface ActivityFeedReading extends SharedFeedSnapshot<ActivityItem[]> {
+  /**
+   * `false` only when the caller's LOADED permissions refuse read on
+   * `sys_activity`: no read was issued, and the consumer renders nothing.
+   * See {@link useSharedActivityFeed} for why unknown permissions read `true`.
+   */
+  readable: boolean;
+}
+
+const ACTIVITY_OBJECT = 'sys_activity';
+
+/**
+ * The 20 most recent activity rows THIS caller may read, mapped onto
+ * `ActivityItem`, with whether they are an answer and whether the caller may
+ * read the feed at all ({@link ActivityFeedReading}).
  *
  * Not polled — it is a landing-surface feed on both consumers, and the bell
  * never polled it either. Degrades to empty when `sys_activity` is absent
@@ -653,17 +680,58 @@ export function isMissingResource(err: unknown): boolean {
  *     lands here on purpose (see {@link useObjectPresence}): a registry with no
  *     provider, still loading, errored, or listing nothing is not evidence of
  *     absence, and a wrong `absent` would cost a real deployment its feed.
+ *
+ * ## Nor asking a caller the server will refuse (objectui#12081)
+ *
+ * The same rule, for the other doomed request. objectstack's `member_default`
+ * permission set names `sys_activity` deliberately NOT — it has no `user_id`
+ * to scope by — so on a deployment whose app sets do not grant it, every
+ * non-admin's read was answered `403` on every page load. That `403` is
+ * object-level: the server already narrows an ADMITTED read to the rows whose
+ * record the caller can open, so no narrower query passes it, and the record
+ * Discussion tab's own `sys_activity` read is refused for that caller too.
+ * What made it visible was the hook below handing its consumers `.value`
+ * alone: the `403` reached them as the empty array and they said "No recent
+ * activity" — a denial wearing the shape of an answer, the #4235 defect on
+ * another feed. Both halves close here:
+ *
+ *   - the caller's object grant decides BEFORE asking, read from the
+ *     permission context every console surface already reads
+ *     (`usePermissions().can(object, 'read')`, the same read gate the route
+ *     and the navigation apply). It is three-valued too, and again only one
+ *     value skips the read: permissions not loaded (no provider mounted — a
+ *     standalone embed, a designer preview — or a provider whose refetch
+ *     failed) are unknown, and unknown READS, exactly as before; a loaded
+ *     grant reads; only a loaded refusal sends nothing, and the consumers
+ *     render no widget ({@link ActivityFeedReading.readable});
+ *   - the snapshot reaches the consumers WITH its status, so a read that is
+ *     refused anyway (a stale grant), or fails for any other reason, reads as
+ *     `error` and never as an empty feed.
+ *
+ * The key carries the signed-in user beside the adapter, as the inbox's does:
+ * the server's narrowing makes these rows the caller's own, and a sign-out
+ * keeps the SPA (and this store) running, so an adapter-only key served the
+ * previous user's rows to the next one in the tab. The user is a KEY part,
+ * not a gate: the query names no user, so a host without auth still reads.
  */
-export function useSharedActivityFeed(): ActivityItem[] {
+export function useSharedActivityFeed(): ActivityFeedReading {
   const dataSource = useAdapter();
-  const activity = useObjectPresence('sys_activity');
+  const { user } = useAuth();
+  const activity = useObjectPresence(ACTIVITY_OBJECT);
+  const perms = usePermissions();
+  // Unknown (not loaded) reads: a wrong refusal would cost a caller who CAN
+  // read their feed, with no error anywhere — the one-sided risk #7476 named.
+  const readable = !perms.isLoaded || perms.can(ACTIVITY_OBJECT, 'read');
+  const adapter = adapterKey(dataSource);
 
-  return useSharedFeed(
+  const snapshot = useSharedFeed(
     activityFeed,
     // The presence verdict is part of the key so the feed re-attaches (and
     // re-decides) when the registry finally answers — it is `null` until then,
     // which is what keeps the doomed request from going out in that window.
-    activity.settled ? adapterKey(dataSource) : null,
+    // A refused grant keeps it `null` for good: nothing is asked, and the
+    // consumer is handed the `idle` snapshot under `readable: false`.
+    activity.settled && readable && adapter ? `${adapter}:${user?.id ?? ''}` : null,
     async ({ markUnavailable, markFailed }) => {
       if (!dataSource) return undefined;
       if (activity.presence === 'absent') {
@@ -673,12 +741,13 @@ export function useSharedActivityFeed(): ActivityItem[] {
         return undefined;
       }
       const res = await Promise.resolve(
-        dataSource.find('sys_activity', { $orderby: { timestamp: 'desc' }, $top: 20 }) as Promise<{
+        dataSource.find(ACTIVITY_OBJECT, { $orderby: { timestamp: 'desc' }, $top: 20 }) as Promise<{
           data?: unknown[];
         }>,
       ).catch((err: unknown) => {
         // No `sys_activity` object ⇒ this deployment has no audit plugin, which
-        // is an answer. Anything else is a read that failed and must say so.
+        // is an answer. Anything else — a refusal included — is a read that
+        // failed and must say so.
         if (isMissingResource(err)) markUnavailable();
         else markFailed();
         return null;
@@ -686,23 +755,26 @@ export function useSharedActivityFeed(): ActivityItem[] {
       if (!res) return undefined;
       return mapActivityRows(Array.isArray(res.data) ? res.data : []);
     },
-  ).value;
+  );
+  return { value: snapshot.value, status: snapshot.status, readable };
 }
 
 /**
  * Home's narrower cut of the same rows: real human actions only — drop the
  * `sys_*` / `ai_*` system churn (actor "System", UUID titles) that the bell's
- * full feed still shows — capped at `limit`.
+ * full feed still shows — capped at `limit`. The status and the grant are the
+ * shared feed's, unchanged: a cut of the rows is not a different answer.
  */
-export function useHumanActivityFeed(limit: number): ActivityItem[] {
-  const all = useSharedActivityFeed();
-  return useMemo(() => {
-    const human = all.filter((a) => {
+export function useHumanActivityFeed(limit: number): ActivityFeedReading {
+  const { value: all, status, readable } = useSharedActivityFeed();
+  const human = useMemo(() => {
+    const kept = all.filter((a) => {
       const actor = a.user.trim();
       return actor.length > 0 && actor.toLowerCase() !== 'system';
     });
-    return human.slice(0, limit);
+    return kept.slice(0, limit);
   }, [all, limit]);
+  return { value: human, status, readable };
 }
 
 // ── Inbox messages ───────────────────────────────────────────────────────────

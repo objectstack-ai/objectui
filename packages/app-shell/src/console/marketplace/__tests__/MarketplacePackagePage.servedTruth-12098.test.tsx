@@ -217,7 +217,7 @@ async function renderPage() {
       </MetadataProvider>
     </AdapterCtx.Provider>,
   );
-  await waitFor(() => expect(screen.getByTestId('apps').textContent).toBe(server.before.map((a: any) => a.name).join(',')));
+  await waitFor(() => expect(screen.getByTestId('apps').textContent).toBe(server.before.map((a) => (a as { name: string }).name).join(',')));
 }
 
 /** Let one poll interval pass on the virtual clock: open the wait's one pending sleep. */

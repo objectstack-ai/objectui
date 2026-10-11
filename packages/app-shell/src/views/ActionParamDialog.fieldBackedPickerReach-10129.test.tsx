@@ -87,7 +87,7 @@ import {
   resolveActionParams,
   withKnownObjects,
   type RawActionParam,
-} from '../utils/resolveActionParams';
+} from '@object-ui/fields';
 import { paramToField, paramDegradesWithoutTarget } from '../utils/paramToField';
 
 /* ────────────────────────────────────────────────────────────────────────── */

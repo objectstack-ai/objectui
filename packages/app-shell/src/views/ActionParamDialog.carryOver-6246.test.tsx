@@ -55,7 +55,7 @@ import '@object-ui/fields';
 
 import { ActionParamDialog, serializeParamValues } from './ActionParamDialog';
 import { ActionPreview } from './metadata-admin/previews/ActionPreview';
-import { resolveActionParams, type RawActionParam } from '../utils/resolveActionParams';
+import { resolveActionParams, type RawActionParam } from '@object-ui/fields';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /* The shipped declaration                                                    */

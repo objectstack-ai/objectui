@@ -46,7 +46,7 @@ import { ActionParamDialog, type ParamDialogState } from '../views/ActionParamDi
 import { ActionResultDialog, type ResultDialogState } from '../views/ActionResultDialog.js';
 import { FlowRunner, type ScreenFlowState, type ScreenSpec } from '../views/FlowRunner.js';
 import { FlowRefusalNotice, type FlowRefusalState } from '../views/FlowRefusalNotice.js';
-import { resolveActionParams, withKnownObjects } from '../utils/resolveActionParams.js';
+import { resolveActionParams, withKnownObjects } from '@object-ui/fields';
 import { EnvironmentEntitlementDialog, type EntitlementDialogState } from '../environment/EnvironmentEntitlementDialog.js';
 import { entitlementDialogFromError, type EntitlementDialogSpec } from '../environment/entitlements.js';
 import { resolvePageVarTokens } from '../utils/resolvePageVarTokens.js';

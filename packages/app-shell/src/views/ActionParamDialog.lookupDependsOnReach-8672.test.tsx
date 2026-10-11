@@ -79,7 +79,7 @@ import {
   resolveActionParams,
   type ResolveActionParamsContext,
   type RawActionParam,
-} from '../utils/resolveActionParams';
+} from '@object-ui/fields';
 
 beforeAll(() => {
   if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = vi.fn() as never;

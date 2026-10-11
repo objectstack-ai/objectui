@@ -43,7 +43,7 @@ import '@testing-library/jest-dom';
 import { PredicateScopeProvider, SchemaRendererContext } from '@object-ui/react';
 import { SelectField } from '@object-ui/fields';
 import type { ActionParamOption } from '@object-ui/core';
-import { resolveActionParams, type ResolveActionParamsContext } from './resolveActionParams';
+import { resolveActionParams, type ResolveActionParamsContext } from '@object-ui/fields';
 import { paramToField } from './paramToField';
 
 /**

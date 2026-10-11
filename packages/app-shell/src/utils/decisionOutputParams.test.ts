@@ -27,7 +27,7 @@ import {
   decisionOutputParams,
   foldDecisionOutputs,
 } from './decisionOutputParams';
-import { resolveActionParams } from './resolveActionParams';
+import { resolveActionParams } from '@object-ui/fields';
 import { paramToField } from './paramToField';
 
 const t = (key: string) => `t:${key}`;

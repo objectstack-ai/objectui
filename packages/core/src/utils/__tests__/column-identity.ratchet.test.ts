@@ -122,8 +122,10 @@ interface Entry {
 const INVENTORY: Record<string, Entry> = {
   // ── the column-identity family: EMPTY (was 24 in PR1; 22 after re-triage) ──
 
-  // ── two layers, not two spellings (7) ────────────────────────────────────
-  'app-shell/src/utils/resolveActionParams.ts': {
+  // ── two layers, not two spellings (6) ────────────────────────────────────
+  // Moved from `app-shell/src/utils/` by objectui#12105 so the bulk dialog
+  // reads the same resolver; its two named readers are unchanged.
+  'fields/src/resolveActionParams.ts': {
     count: 2,
     verdict: 'two-layer',
     why: 'BOTH orders appear here and both are right: `field ?? name` picks the key to read off the ROW (row data is keyed by object field), `name ?? field` names the PARAM in the action payload, defaulting to the field it binds. Two concepts, not two spellings. Lowered 3 -> 2 in objectui#3174: each order is now exactly ONE named reader (`rowValueKey` / `paramName`) that every call site in the file goes through, so the count is the number of CONCEPTS here rather than the number of times they were open-coded. Deliberately NOT converged onto `columnIdentity()`: that reader is canonical-first because a column IS the object field it shows, whereas a param merely BINDS one, so borrowing it would invert the param-name precedence and rename every field-backed param that also names itself.',
@@ -134,11 +136,6 @@ const INVENTORY: Record<string, Entry> = {
     why: '`DashboardFilterDef` declares both: `name` is the filter variable\'s handle, `field` is the object field it targets. `name || field` defaults an unnamed filter\'s handle to its field — a derivation, not a dual read.',
   },
   'app-shell/src/views/metadata-admin/previews/ActionPreview.tsx': {
-    count: 1,
-    verdict: 'two-layer',
-    why: 'Action param name, same layering as resolveActionParams.',
-  },
-  'plugin-grid/src/resolveBulkActions.ts': {
     count: 1,
     verdict: 'two-layer',
     why: 'Action param name, same layering as resolveActionParams.',
@@ -267,8 +264,10 @@ describe('column identity dual-read ratchet (#3104)', () => {
     // two orders through one named reader each; 12 again since objectui#10277
     // mirrored that file's row-key reader into the `$select` harvest; 13 since
     // objectui#10404 mirrored its param-name reader there too; 12 since
-    // objectui#10475 deleted `ObjectForm.tsx`'s section-entry join.
-    expect(sum(() => true)).toBe(12);
+    // objectui#10475 deleted `ObjectForm.tsx`'s section-entry join; 11 since
+    // objectui#12105 retired plugin-grid's hand-mapped `toBulkParam`, whose
+    // param-name read now comes from the shared resolver's `paramName`.
+    expect(sum(() => true)).toBe(11);
   });
 
   it('records a precedence for every read left in the family', () => {

@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { resolveBulkActions, PROMOTED_BULK_BATCH_SIZE } from '../resolveBulkActions';
+import { resolveBulkActions, resolvePromotedBulkParams, PROMOTED_BULK_BATCH_SIZE } from '../resolveBulkActions';
 import type { BulkActionDef } from '@object-ui/types';
 
 const PUSH_DOWN = {
@@ -102,6 +102,10 @@ describe('resolveBulkActions', () => {
   });
 
   it('maps spec param keys onto the dialog vocabulary', () => {
+    // [objectui#12105] The fold attaches no `params` of its own; they are the
+    // action's, resolved when the dialog opens (`resolvePromotedBulkParams`)
+    // through the shared resolver. `owner` is field-backed, so the context
+    // carries the field it binds — the inline keys still override it.
     const withParams = {
       name: 'reassign',
       params: [
@@ -122,8 +126,14 @@ describe('resolveBulkActions', () => {
       bulkActions: ['reassign'],
       objectActions: [withParams],
     });
+    expect(defs[0].params).toBeUndefined();
 
-    expect(defs[0].params).toEqual([
+    const resolved = resolvePromotedBulkParams(defs[0], {
+      objectName: 'job',
+      objects: [{ name: 'job', fields: { owner: { type: 'lookup', label: 'Owner', reference: 'sys_user' } } }],
+      fieldLabel: (_o, _f, fallback) => fallback,
+    });
+    expect(resolved.params).toEqual([
       expect.objectContaining({
         name: 'owner',
         label: 'New owner',

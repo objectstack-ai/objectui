@@ -54,7 +54,8 @@ vi.mock('./useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,
 }));
 
-import { paramDegradesWithoutTarget, resolveParamWidgetType } from '../../utils/paramToField.js';
+import { paramDegradesWithoutTarget } from '../../utils/paramToField.js';
+import { resolveParamWidgetType } from '@object-ui/fields';
 import { ActionPreview } from './previews/ActionPreview';
 import { ActionDefaultInspector, PARAM_TYPE_OPTS } from './inspectors/ActionDefaultInspector';
 import { __setCelFormulaLoader } from './celAuthoring';

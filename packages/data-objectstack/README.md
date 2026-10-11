@@ -871,6 +871,29 @@ newlines (`whitespace-pre-line`). `formatMetadataIssue(issue)` is the same
 one-line format for a single issue, for code that lists several failures, such
 as a publish response's `failed[]`.
 
+## Asking Why a Metadata Item Is Not Listed
+
+The server filters metadata lists per caller. An app, a dashboard or a list view
+the caller may not open is left out of their list, exactly like a name that does
+not exist. `probeMetaItemAccess(type, name)` asks the by-name route which one it
+is:
+
+```ts
+import { ObjectStackAdapter, type MetaItemAccess } from '@object-ui/data-objectstack';
+
+const adapter = new ObjectStackAdapter({ baseUrl: '/api/v1' });
+
+const access: MetaItemAccess = await adapter.probeMetaItemAccess('dashboard', 'legal_board');
+// { verdict: 'denied', message: "You do not have permission to open the 'legal_board' dashboard." }
+```
+
+`verdict` is `granted`, `denied`, `not_found`, `unreachable` (no answer was
+obtained) or `unknown` (nothing was asked). Only `denied`, read from the
+`PERMISSION_DENIED` code and never from the status, is a permission refusal,
+and only then does `message` carry the server's sentence. The probe never
+throws and caches nothing. `probeAppAccess(name)` is the same probe for an app,
+returning the verdict alone.
+
 ## Saving an Object You Read From the Server
 
 A select field can name a shared picklist (`picklist: 'industry'`) instead of

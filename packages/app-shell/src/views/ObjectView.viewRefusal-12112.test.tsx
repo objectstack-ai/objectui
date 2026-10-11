@@ -35,7 +35,7 @@ import { render, cleanup, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MePermissionsProvider, type MePermissionsResponse } from '@object-ui/permissions';
 import { AdapterCtx } from '@object-ui/react';
-import { en } from '@object-ui/i18n';
+import { createI18n, en, I18nProvider } from '@object-ui/i18n';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -134,23 +134,32 @@ function makeDataSource() {
   } as never;
 }
 
-function openView(viewId: string, access: Record<string, unknown>) {
+/**
+ * The same object, opened in split navigation with a record open: the list
+ * sits in the overlay's left pane, the page's other place the list is drawn.
+ */
+const SPLIT_OBJECTS = [{ ...OBJECTS[0], navigation: { mode: 'split' } }];
+
+function openView(viewId: string, access: Record<string, unknown>, opts: { split?: boolean } = {}) {
   const probeMetaItemAccess = vi.fn(async () => access);
+  const objects = opts.split ? SPLIT_OBJECTS : OBJECTS;
   render(
-    <AdapterCtx.Provider value={{ probeMetaItemAccess } as never}>
-      <MePermissionsProvider initialPermissions={PERMISSIONS}>
-        <ExpressionProvider user={{ id: 'u_author', name: 'Author' }}>
-          <MemoryRouter initialEntries={[`/apps/clm/${OBJECT_NAME}/view/${viewId}`]}>
-            <Routes>
-              <Route
-                path="/apps/:appName/:objectName/view/:viewId"
-                element={<ObjectView dataSource={makeDataSource()} objects={OBJECTS} onEdit={() => {}} />}
-              />
-            </Routes>
-          </MemoryRouter>
-        </ExpressionProvider>
-      </MePermissionsProvider>
-    </AdapterCtx.Provider>,
+    <I18nProvider instance={createI18n({ defaultLanguage: 'en', detectBrowserLanguage: false })}>
+      <AdapterCtx.Provider value={{ probeMetaItemAccess } as never}>
+        <MePermissionsProvider initialPermissions={PERMISSIONS}>
+          <ExpressionProvider user={{ id: 'u_author', name: 'Author' }}>
+            <MemoryRouter initialEntries={[`/apps/clm/${OBJECT_NAME}/view/${viewId}${opts.split ? '?recordId=r1' : ''}`]}>
+              <Routes>
+                <Route
+                  path="/apps/:appName/:objectName/view/:viewId"
+                  element={<ObjectView dataSource={makeDataSource()} objects={objects} onEdit={() => {}} />}
+                />
+              </Routes>
+            </MemoryRouter>
+          </ExpressionProvider>
+        </MePermissionsProvider>
+      </AdapterCtx.Provider>
+    </I18nProvider>,
   );
   return probeMetaItemAccess;
 }
@@ -173,6 +182,14 @@ describe('objectui#12112 — a refused list view, opened by name, says it was re
     // Not the silent fall-back: no view is drawn, and no tab claims the page.
     expect(screen.queryByTestId('plugin-object-view')).toBeNull();
     expect(screen.getByTestId('view-tab-bar').getAttribute('data-active-view')).toBe('');
+  });
+
+  it('the same refusal in split navigation, where the list sits beside an open record', async () => {
+    openView('clm_contract.legal_review', { verdict: 'denied', message: REFUSAL }, { split: true });
+
+    const refusal = await screen.findByTestId('view-access-denied');
+    expect(refusal.textContent).toContain(REFUSAL);
+    expect(screen.queryByTestId('plugin-object-view')).toBeNull();
   });
 
   it('a short name is asked by the canonical `OBJECT.KEY` name the by-name route addresses', async () => {

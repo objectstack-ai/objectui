@@ -33,7 +33,7 @@ vi.mock('@object-ui/plugin-dashboard', async (importOriginal) => ({
   DashboardRenderer: () => null,
 }));
 
-const meta = vi.hoisted(() => ({ value: null as any }));
+const meta = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock('../providers/MetadataProvider', () => ({ useMetadata: () => meta.value }));
 
 const route = vi.hoisted(() => ({ dashboardName: 'legal_board' }));
@@ -48,7 +48,7 @@ vi.mock('./MetadataInspector', () => ({
   MetadataPanel: () => null,
   useMetadataInspector: () => ({ showDebug: false }),
 }));
-const adapterRef = vi.hoisted(() => ({ value: {} as any }));
+const adapterRef = vi.hoisted(() => ({ value: {} as unknown }));
 vi.mock('../providers/AdapterProvider', () => ({ useAdapter: () => adapterRef.value }));
 vi.mock('../providers/ExpressionProvider', () => ({ useExpressionContext: () => ({ app: undefined }) }));
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
@@ -80,7 +80,7 @@ function mount(dashboards: unknown[], typeStatus: string = 'ready', previewDraft
     getTypeStatus: () => typeStatus,
   };
   const page = (
-    <MetadataCtx.Provider value={meta.value}>
+    <MetadataCtx.Provider value={meta.value as never}>
       <DashboardView />
     </MetadataCtx.Provider>
   );

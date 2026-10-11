@@ -184,7 +184,8 @@ key under `props` never reaches a `ui:*` / `page:*` renderer at all.
 ```jsonc
 {
   "type": "data-table",
-  "columns": [{ "header": "Name", "accessorKey": "name" }]  // ✅ declared by DataTableSchema, read off the node
+  "columns": [{ "header": "Name", "accessorKey": "name" }],  // ✅ declared by DataTableSchema, read off the node
+  "data": [{ "name": "Ada Lovelace" }]  // ✅ required by DataTableSchema: the rows live inline on the node
 }
 ```
 

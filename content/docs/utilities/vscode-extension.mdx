@@ -188,98 +188,68 @@ Hover over properties to see:
 
 ### Validation
 
-Real-time validation with error messages:
+Real-time validation flags a value the extension knows to be out of range — an `input`'s
+`inputType` or a `button`'s `variant` outside its set — and suggests a `label` on `input`,
+`textarea` and `select` nodes:
 
+{/* doc-json: fragment — a deliberately refused node: it shows the out-of-range `variant` the extension warns about */}
 ```jsonc
 {
   "type": "button",
-  "invalidProp": true  // ❌ Error: Unknown property
+  "label": "Save",
+  "variant": "primary" // ⚠️ Invalid variant "primary". Must be one of: default, destructive, outline, secondary, ghost, link
 }
 ```
+
+It does not flag a key no schema declares. `objectui validate` does: it judges a document through
+the strict authoring face and refuses an undeclared key by name (see the [CLI](/docs/utilities/cli)).
 
 ## Snippets
 
-Type these prefixes and press Tab to insert templates:
+Type `oui-` and press Tab to insert one of the templates the extension ships, defined in
+`packages/vscode-extension/snippets/objectui.json`:
 
-### `objectui-button`
+| Prefix | Inserts |
+|--------|---------|
+| `oui-empty` | a node with a `className` and an empty `children` slot |
+| `oui-form` | a card holding a labelled `input` and a `button` |
+| `oui-card` | a `card` with a `title`, a `description` and a `children` slot |
+| `oui-input` | an `input` with a `label`, a `placeholder`, an `inputType` and `required` |
+| `oui-textarea` | a `textarea` with a `label`, a `placeholder` and `rows` |
+| `oui-button` | a `button` with a `label` and a `variant` |
+| `oui-text` | a `text` node with `content` |
+| `oui-grid` | a responsive grid `div` |
+| `oui-dashboard` | a dashboard `div` with a heading and a metric card |
+| `oui-separator` | a `separator` |
+| `oui-container` | a centred container `div` |
+| `oui-flex` | a flex `div` |
+
+`oui-form`, with its placeholders left at their defaults, inserts:
 
 ```json
 {
-  "type": "button",
-  "variant": "default",
-  "children": "Click me"
-}
-```
-
-### `objectui-form`
-
-```json
-{
-  "type": "form",
-  "fields": [
-    {
-      "name": "fieldName",
-      "type": "text",
-      "label": "Label",
-      "required": true
+  "type": "div",
+  "className": "max-w-2xl mx-auto p-6",
+  "children": {
+    "type": "card",
+    "title": "Form Title",
+    "children": {
+      "type": "div",
+      "className": "space-y-4",
+      "children": [
+        {
+          "type": "input",
+          "label": "Name",
+          "placeholder": "Enter your name",
+          "required": true
+        },
+        {
+          "type": "button",
+          "label": "Submit"
+        }
+      ]
     }
-  ],
-  "onSubmit": {
-    "type": "ajax",
-    "url": "/api/endpoint",
-    "method": "POST"
   }
-}
-```
-
-### `objectui-grid`
-
-```json
-{
-  "type": "data-table",
-  "dataSource": {
-    "type": "api",
-    "url": "/api/data"
-  },
-  "columns": [
-    {
-      "key": "id",
-      "title": "ID"
-    }
-  ]
-}
-```
-
-### `objectui-app`
-
-```json
-{
-  "type": "app",
-  "title": "My App",
-  "pages": [
-    {
-      "path": "/",
-      "title": "Home",
-      "component": {
-        "type": "div",
-        "children": []
-      }
-    }
-  ]
-}
-```
-
-### `objectui-chart`
-
-```json
-{
-  "type": "bar-chart",
-  "data": [
-    { "name": "A", "value": 100 }
-  ],
-  "dataKey": "value",
-  "xAxisKey": "name",
-  "height": 300
 }
 ```
 

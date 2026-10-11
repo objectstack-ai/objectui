@@ -54,9 +54,11 @@
  *      answer: `@objectstack/spec`'s schemas are strict, so they reject keys a
  *      TypeScript annotation never sees (an object literal assigned through a
  *      widened type, or written with no annotation at all). That is objectui#5138
- *      shape 1, left unruled on purpose — it needs a way to mark which blocks are
- *      complete documents rather than prose fragments, and guessing that boundary
- *      is what produces a gate people learn to ignore.
+ *      shape 1. For a ts/tsx block it stays unanswered here. For a `json` /
+ *      `jsonc` fence it is answered by the sibling gate
+ *      `scripts/check-doc-json-fences.mjs` (objectui#5250), which judges each
+ *      node document in `content/docs` through the strict authoring face and
+ *      marks the deliberate fragments with a declaration it re-judges.
  *   2. **Whether a `type` literal names a registered component.** That is
  *      `scripts/check-doc-component-types.mjs`, the first dimension, and it stays
  *      its own gate: it needs no install and no build, and it must keep running
@@ -3533,6 +3535,13 @@ export {
   TS_FENCE_LANGUAGES,
   FRAGMENT_MARKER,
   VERIFICATION_CLAIM,
+  // The blockquote reading and the declaration floor, shared with the JSON-fence
+  // sibling (`check-doc-json-fences.mjs`, objectui#5250) so a quoted fence and a
+  // fragment reason are read by ONE rule in both gates.
+  MIN_REASON_LENGTH,
+  quoteDepthOf,
+  stripQuotePrefix,
+  isBlankAtDepth,
   UNDECLARED_CONTROL_PACKAGE,
   ROOT_DECLARED_CONTROL_PACKAGE,
   main,

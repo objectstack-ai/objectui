@@ -33,13 +33,16 @@ Customize dashboard blocks for your needs:
 
 ### Add Real Data
 
+A `card` fetches nothing. A live figure comes from a data-bound block: an
+`element:number` takes its object from the per-element `dataSource` binding and
+its aggregate from its `properties` bag (see the
+[Data Source guide](/docs/guide/data-source)):
+
 ```json
 {
-  "type": "card",
-  "dataSource": {
-    "api": "/api/stats/revenue",
-    "method": "GET"
-  }
+  "type": "element:number",
+  "dataSource": { "object": "order" },
+  "properties": { "aggregate": "count" }
 }
 ```
 
@@ -55,13 +58,16 @@ Customize dashboard blocks for your needs:
 
 ### Add Actions
 
+A control that runs something is its own node type, `action:button`, and its
+props go in the `properties` bag; `actionType: "url"` navigates to `target`:
+
 ```json
 {
-  "type": "button",
-  "label": "View Details",
-  "action": {
-    "type": "navigate",
-    "path": "/dashboard/details"
+  "type": "action:button",
+  "properties": {
+    "label": "View Details",
+    "actionType": "url",
+    "target": "/dashboard/details"
   }
 }
 ```

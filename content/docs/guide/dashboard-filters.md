@@ -202,6 +202,7 @@ it refuses the same documents before they reach the platform.
 
 Options can also be fetched from an object at runtime:
 
+<!-- doc-json: fragment — not a component node: a `globalFilters[]` member, whose `type` is the filter's input type and only collides with the `select` node type -->
 ```json
 {
   "name": "industry",

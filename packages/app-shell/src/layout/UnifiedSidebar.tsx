@@ -237,19 +237,18 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // because no callback the layout asks answers "may this member read this
   // object" (see `withoutUnreadableObjectEntries`). Every area's tree and the
   // flat tree are pruned the same way, so the area election below and the drawn
-  // menu read the same tree.
-  const readableAreas = React.useMemo(
-    () => areas.map((area) => {
-      if (!area.navigation) return area;
-      const navigation = withoutUnreadableObjectEntries(area.navigation, can);
-      return navigation === area.navigation ? area : { ...area, navigation };
-    }),
-    [areas, can],
-  );
-  const readableAppNavigation = React.useMemo(
-    () => (activeApp?.navigation ? withoutUnreadableObjectEntries(activeApp.navigation, can) : activeApp?.navigation),
-    [activeApp?.navigation, can],
-  );
+  // menu read the same tree. Not memoised: a tree with nothing to prune comes
+  // back as the very array it was, so a caller who may read everything hands
+  // the layout the authored tree, and nothing downstream keys on the identity
+  // of a pruned one (AGENTS.md #10).
+  const readableAreas = areas.map((area) => {
+    if (!area.navigation) return area;
+    const navigation = withoutUnreadableObjectEntries(area.navigation, can);
+    return navigation === area.navigation ? area : { ...area, navigation };
+  });
+  const readableAppNavigation: NavigationItem[] | undefined = activeApp?.navigation
+    ? withoutUnreadableObjectEntries(activeApp.navigation, can)
+    : activeApp?.navigation;
   // A `doc` entry the member may not read is not drawn (objectui#10188) —
   // defence in depth behind the server's app read, which already drops it
   // (objectstack#19790). Asked only in an app: on Home `activeApp` is merely

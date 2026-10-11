@@ -121,7 +121,7 @@ function makeDataSource() {
     create: vi.fn(async () => ({})),
     update: vi.fn(async () => ({})),
     delete: vi.fn(async () => ({})),
-  } as any;
+  } as never;
 }
 
 const USER = { id: 'u_agent', name: 'Agent' };

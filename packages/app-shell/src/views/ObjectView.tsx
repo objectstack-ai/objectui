@@ -2003,7 +2003,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // and its list actions go together. A boolean, read each render from the
     // provider's verdict, so the memo below keys on a primitive (AGENTS.md #10).
     const listActionsReadable = mayReadObject(perms.can, objectDef.name);
-    const listActions: any[] | undefined = listActionsReadable ? objectDef.actions : undefined;
+    const listActions = listActionsReadable ? objectDef.actions : undefined;
     // Localized `list_toolbar` actions, shared by the generic action bar and the
     // environment-aware toolbar (the action:bar renderer filters by location).
     const localizedToolbarActions = useMemo(

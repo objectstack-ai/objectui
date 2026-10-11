@@ -169,11 +169,17 @@ describe('the highlights strip asks the same question (objectui#12103)', () => {
     expect(screen.getByTestId('session').textContent).toBe(`editing:${OWNER}`);
   });
 
-  it('CONTROL: an editable highlight enters the session, and only it becomes an input', () => {
+  it('CONTROL: an editable highlight enters the session and becomes an input', () => {
     strip(envelope());
     fireEvent.doubleClick(screen.getByText('Acme'));
     expect(screen.getByTestId('session').textContent).toBe('editing:name');
     expect(screen.getByDisplayValue('Acme')).toBeInTheDocument();
+  });
+
+  it('once the session is open, the refused highlight stays a read display', () => {
+    strip(envelope());
+    fireEvent.doubleClick(screen.getByText('Acme'));
     expect(screen.queryByDisplayValue('5000')).toBeNull();
+    expect(screen.getByText('5000')).toBeInTheDocument();
   });
 });

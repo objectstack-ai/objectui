@@ -671,7 +671,7 @@ describe('a local reproduction cannot leave a verdict an installed tree replays 
   it('turbo.json hashes the marker inject writes, by a literal path through the root link', () => {
     expect(TURBO_HASH_MARKER).toBe(`node_modules/${SPEC_PACKAGE_NAME}/${MARKER_FILE}`);
     const turbo = JSON.parse(fs.readFileSync(path.join(repoRoot, 'turbo.json'), 'utf8'));
-    expect(turbo.globalDependencies, 'without it an injected tree and an installed one hash alike').toContain(
+    expect(turbo.globalDependencies ?? [], 'without it an injected tree and an installed one hash alike').toContain(
       TURBO_HASH_MARKER,
     );
     // turbo does not expand a wildcard inside node_modules: a glob there would

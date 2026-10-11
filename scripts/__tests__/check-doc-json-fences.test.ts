@@ -251,8 +251,18 @@ describe('one authority — the CLI door and the gate agree on every judged docu
     const r = analyze({ root: repoRoot, judge, tolerant, nodeTypes, parseJsonc });
     const judged = r.judged as { site: string; value: unknown }[];
     expect(judged.length, 'the corpus walk judged nothing — the agreement below would be vacuous').toBeGreaterThan(0);
-    const gate = judged.map((j) => `${j.site} ${judge(j.value).success}`);
-    const cli = judged.map((j) => `${j.site} ${door.validateAuthoredDocument(j.value).success}`);
+    // The two controls ride with the corpus. Every fence the corpus refuses is
+    // refused by the TOLERANT face as well (declared fragments, each red on both
+    // faces), so the corpus alone cannot tell the strict door from a tolerant
+    // one — measured: a door re-pointed at `AnyComponentSchema` stayed green
+    // over the corpus. The REFUSES control is strict-only by construction.
+    const population = [
+      ...judged,
+      { site: 'REFUSED_CONTROL', value: REFUSED_CONTROL },
+      { site: 'ACCEPTED_CONTROL', value: ACCEPTED_CONTROL },
+    ];
+    const gate = population.map((j) => `${j.site} ${judge(j.value).success}`);
+    const cli = population.map((j) => `${j.site} ${door.validateAuthoredDocument(j.value).success}`);
     expect(cli).toEqual(gate);
     // Both verdicts occur, so the agreement is not over one constant answer.
     expect(new Set(judged.map((j) => judge(j.value).success))).toEqual(new Set([true, false]));

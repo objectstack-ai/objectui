@@ -449,13 +449,16 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // `CalendarView` reads it with (`dialogLocale` is that rule, above), and
   // through the helper the grids draw with, so the reported range is the drawn
   // one. Keyed on the two instants, never on an identity (AGENTS.md #10): an
-  // unchanged range reports nothing, and the host callback is read through a
-  // ref so a host that hands a fresh function each render does not re-report.
+  // unchanged range reports nothing. The host callback is read through a ref,
+  // refreshed after every commit and before the report runs, so a host that
+  // hands a fresh function each render does not re-report.
   const visibleRange = getVisibleDateRange(currentDate, view, firstDayOfWeek(dialogLocale));
   const visibleStartMs = visibleRange.start.getTime();
   const visibleEndMs = visibleRange.end.getTime();
   const onVisibleRangeChangeRef = useRef(onVisibleRangeChange);
-  onVisibleRangeChangeRef.current = onVisibleRangeChange;
+  useEffect(() => {
+    onVisibleRangeChangeRef.current = onVisibleRangeChange;
+  });
   useEffect(() => {
     onVisibleRangeChangeRef.current?.({ start: new Date(visibleStartMs), end: new Date(visibleEndMs) });
   }, [visibleStartMs, visibleEndMs]);

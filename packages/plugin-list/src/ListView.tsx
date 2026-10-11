@@ -2521,35 +2521,38 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * calendar to mount and the calendar's first report falls inside it.
    */
   const calendarWindowed = currentView === 'calendar' && listFetchesForItself && !!calendarStartField;
-  const [calendarWindow, setCalendarWindow] = React.useState<CalendarWindow>(() => initialCalendarWindow());
-  // Did the last window fetch stop at the ceiling? A truncated window is
-  // re-asked for a narrower range even when it covers it: the narrower one may
-  // fit under the ceiling.
-  const calendarWindowTruncatedRef = React.useRef(false);
+  // The window this view fetches for the calendar, and whether its last fetch
+  // stopped at the ceiling: a truncated window is asked again for a narrower
+  // range even when it covers it, since the narrower one may fit.
+  const [heldCalendarWindow, setHeldCalendarWindow] = React.useState<{ window: CalendarWindow; truncated: boolean }>(
+    () => ({ window: initialCalendarWindow(), truncated: false }),
+  );
+  const calendarWindow = heldCalendarWindow.window;
   // The ceiling result of the last window fetch, for the footnote.
   const [calendarCeiling, setCalendarCeiling] = React.useState<NonGridCeilingResult | null>(null);
   // The host callback the calendar reports its days through. A `useState`
   // initialiser, so its identity is React's guarantee rather than a memo's
-  // (AGENTS.md #10); it reads only a setter and a ref. A range the held window
-  // already covers moves nothing, so the calendar's first report, a view change
-  // inside the month or the phone's switch to the day view re-asks nothing.
+  // (AGENTS.md #10); it reads only a setter. A range the held window already
+  // covers moves nothing, so the calendar's first report, a view change inside
+  // the month or the phone's switch to the day view asks for nothing.
   const [handleCalendarVisibleRange] = React.useState(() => (range: CalendarVisibleRange) => {
     const next = calendarWindowFor(range);
-    setCalendarWindow((held) =>
-      calendarWindowCovers(held, next) && !calendarWindowTruncatedRef.current ? held : next,
+    setHeldCalendarWindow((held) =>
+      calendarWindowCovers(held.window, next) && !held.truncated ? held : { window: next, truncated: false },
     );
   });
   // Leaving the calendar drops its window: the view pane is keyed on
   // `currentView`, so a calendar shown again is a new one, opening on today.
-  React.useEffect(() => {
-    if (currentView === 'calendar') return;
-    calendarWindowTruncatedRef.current = false;
-    setCalendarCeiling(null);
-    setCalendarWindow((held) => {
-      const fresh = initialCalendarWindow();
-      return held.from === fresh.from && held.to === fresh.to ? held : fresh;
-    });
-  }, [currentView]);
+  // Adjusted during render, when the view changes, rather than in an effect, so
+  // a calendar shown again never fetches the window the last one was left on.
+  const [calendarWindowForView, setCalendarWindowForView] = React.useState(currentView);
+  if (calendarWindowForView !== currentView) {
+    setCalendarWindowForView(currentView);
+    if (currentView !== 'calendar') {
+      setHeldCalendarWindow({ window: initialCalendarWindow(), truncated: false });
+      setCalendarCeiling(null);
+    }
+  }
   // The window as the fetch effect's dependency: a string, compared by value,
   // and empty when this view is not windowing, so the window of a calendar
   // that is not on screen re-runs nothing.
@@ -3061,7 +3064,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         }
 
         setData(items);
-        calendarWindowTruncatedRef.current = windowCeiling?.truncated ?? false;
+        if (windowCeiling) {
+          const truncated = windowCeiling.truncated;
+          setHeldCalendarWindow((held) => (held.truncated === truncated ? held : { ...held, truncated }));
+        }
         setCalendarCeiling(windowCeiling);
 
         // Capture the real match total (objectstack-ai/objectstack#2212: findData now returns it).

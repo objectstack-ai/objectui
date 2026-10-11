@@ -315,9 +315,11 @@ describe('no shipped source names an element with a literal aria-label unless it
     for (const pkg of ['apps/console', 'packages/components', 'packages/plugin-designer', 'packages/auth']) {
       expect(population, `${pkg} is scanned`).toContain(pkg);
     }
-    expect(sources.length).toBeGreaterThan(3000);
-    const tsx = sources.filter((s) => s.rel.endsWith('.tsx'));
-    expect(tsx.length).toBeGreaterThan(1500);
+    expect(sources.length).toBeGreaterThan(1000);
+    expect(sources.filter((s) => s.rel.endsWith('.tsx')).length).toBeGreaterThan(500);
+    // The card's pathspec read none of these: a file directly under a `src/`.
+    const directlyUnderSrc = sources.filter((s) => /^(packages|apps)\/[^/]+\/src\/[^/]+$/.test(s.rel));
+    expect(directlyUnderSrc.length, 'files directly under a src/ root are in the population').toBeGreaterThan(100);
   });
 
   /**

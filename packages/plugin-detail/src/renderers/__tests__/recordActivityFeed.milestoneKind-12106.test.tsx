@@ -34,7 +34,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { FeedItemType as SpecFeedItemType } from '@objectstack/spec/data';
 import { RecordContextProvider } from '@object-ui/react';
-import type { FeedItem } from '@object-ui/types';
+import type { DataSource, FeedItem } from '@object-ui/types';
 import {
   MILESTONE_ACTIVITY_FEED_TYPE,
   PRODUCED_FEED_TYPES,
@@ -171,9 +171,9 @@ describe('the `record:activity` self-fetch shows the milestone (objectui#12106)'
   });
 
   it('renders "Case resolved" and hides the unmarked completion by default', async () => {
-    const dataSource = {
-      find: vi.fn(async () => ({ data: [CASE_RESOLVED, COMPLETED_UNMARKED], total: 2 })),
-    } as any;
+    // A partial double: the self-fetch calls `find` and nothing else.
+    const find = vi.fn(async () => ({ data: [CASE_RESOLVED, COMPLETED_UNMARKED], total: 2 }));
+    const dataSource = { find } as unknown as DataSource;
     render(
       <RecordContextProvider
         objectName="crm_case"
@@ -181,10 +181,10 @@ describe('the `record:activity` self-fetch shows the milestone (objectui#12106)'
         data={{ id: 'case-1', name: 'Printer jam on floor 3' }}
         dataSource={dataSource}
       >
-        <RecordActivityRenderer schema={{} as any} />
+        <RecordActivityRenderer schema={{}} />
       </RecordContextProvider>,
     );
-    await waitFor(() => expect(dataSource.find).toHaveBeenCalled());
+    await waitFor(() => expect(find).toHaveBeenCalled());
     expect(await screen.findByText(String(CASE_RESOLVED.summary))).toBeTruthy();
     expect(screen.queryByText(String(COMPLETED_UNMARKED.summary))).toBeNull();
   });

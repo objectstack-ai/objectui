@@ -60,6 +60,18 @@ import type { I18nLabel } from '@objectstack/spec/ui';
 import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
 
 /**
+ * The bundler-replaced `process.env.NODE_ENV` idiom the dev-only warnings below
+ * read, declared for THIS module only. This package's source program carries no
+ * node typings on purpose — a browser library, the same stance and the same
+ * reasoning as `@object-ui/components`' `browser-process-shim.d.ts`. Declared
+ * here, module-scoped, rather than as a second ambient global, so it can never
+ * shadow the real node global in a program that does load `@types/node` (the
+ * defect that shim's header records). The runtime read is unchanged from when
+ * this module lived in app-shell: a consumer's bundler replaces it.
+ */
+declare const process: { env: { NODE_ENV?: string } };
+
+/**
  * Param-only type spellings the dialog historically accepted, folded onto the
  * canonical form widget vocabulary. These are legacy dialect entries kept for
  * params already authored with them — new params should use spec `FieldType`

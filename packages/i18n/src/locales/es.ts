@@ -505,6 +505,7 @@ const es = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}}: {{value}}",
+      pagePattern: "{{label}} (esta página): {{value}}",
       count: "Recuento",
       countEmpty: "Vacíos",
       countFilled: "Rellenos",

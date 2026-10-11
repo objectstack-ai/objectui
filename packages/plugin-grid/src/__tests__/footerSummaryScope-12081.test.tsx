@@ -48,7 +48,7 @@ import { ObjectGrid } from '../ObjectGrid';
 import { __clearRecordCrudVerdictCache } from '../hooks/useRecordCrudVerdicts';
 import { installExplainDouble } from './explainDouble';
 import { registerAllFields } from '@object-ui/fields';
-import { ActionProvider, notifyDataChanged } from '@object-ui/react';
+import { ActionProvider, I18nProvider, notifyDataChanged } from '@object-ui/react';
 
 beforeAll(() => {
   registerAllFields();
@@ -128,7 +128,7 @@ function aggregateOf(rows: Row[], node: Agg): number | null {
 const matching = (where: unknown, search: unknown, searchFields: unknown) =>
   ROWS.filter((r) => matchesWhere(r as any, where) && matchesSearch(r as any, search, searchFields));
 
-function makeDataSource(opts: { door?: 'answers' | 'absent' | 'refuses' } = {}) {
+function makeDataSource(opts: { door?: 'answers' | 'absent' | 'refuses' | 'no-row' | 'strings' } = {}) {
   const door = opts.door ?? 'answers';
   const ds: Record<string, any> = {
     find: vi.fn(async (_object: string, params: Record<string, unknown>) => {
@@ -149,8 +149,14 @@ function makeDataSource(opts: { door?: 'answers' | 'absent' | 'refuses' } = {}) 
       if (door === 'refuses') throw Object.assign(new Error('refused'), { code: 'UNSUPPORTED_QUERY_PARAM' });
       const groupBy = query.groupBy ?? [];
       if (groupBy.length > 0) throw new Error('double: this suite asks no grouped query');
+      if (door === 'no-row') return [];
       const rows = matching(query.where, query.search, query.searchFields);
-      return [Object.fromEntries((query.aggregations ?? []).map((node) => [node.alias, aggregateOf(rows, node)]))];
+      // `strings`: a driver answering decimals and 64-bit counts as their string
+      // spelling (node-postgres does, for `numeric` and `bigint`).
+      return [Object.fromEntries((query.aggregations ?? []).map((node) => {
+        const value = aggregateOf(rows, node);
+        return [node.alias, door === 'strings' && value !== null ? String(value) : value];
+      }))];
     });
   }
   return ds;
@@ -179,6 +185,8 @@ function hostGrid(ds: any, opts: {
   page?: number;
   findParams?: Record<string, unknown> | null;
   columns?: unknown[];
+  /** The count the host shows, when it is not the rows' own length. */
+  rowCount?: number;
 }) {
   const page = opts.page ?? 1;
   const findParams = opts.findParams === undefined
@@ -191,7 +199,7 @@ function hostGrid(ds: any, opts: {
         dataSource={ds}
         data={opts.rows.slice((page - 1) * PAGE, page * PAGE)}
         manualPagination
-        rowCount={opts.rows.length}
+        rowCount={opts.rowCount ?? opts.rows.length}
         page={page}
         pageSize={PAGE}
         onPageChange={() => {}}
@@ -240,7 +248,11 @@ describe('the footer reads the whole matched set when the grid shows one page of
     await waitFor(() => expect(footerText('amount')).toBe(`Amount: Sum: ${fmt(sumOf(ROWS))}`));
     const asked = ds.queryGroupHeaders.mock.calls.length;
 
-    fireEvent.click(screen.getByRole('button', { name: /next page/i }));
+    // The pager's icon buttons carry no accessible name; the next-page one is
+    // the button holding the full-size right chevron.
+    const next = document.querySelector('button svg.lucide-chevron-right.h-4')?.closest('button');
+    expect(next).toBeTruthy();
+    fireEvent.click(next!);
     await waitFor(() => expect(screen.getByText('Line 25')).toBeInTheDocument());
     expect(footerText('amount')).toBe(`Amount: Sum: ${fmt(sumOf(ROWS))}`);
     expect(ds.queryGroupHeaders.mock.calls.length).toBe(asked);
@@ -314,6 +326,34 @@ describe('the footer reads the whole matched set when the grid shows one page of
     expect(footerText('note')).toBe(`Note: Empty: ${fmt(ROWS.length - notes.length)}`);
   });
 
+  it('a currency column — the issue\'s own shape — formats the whole-set figure as its cells', async () => {
+    const ds = makeDataSource();
+    render(hostGrid(ds, {
+      rows: ROWS,
+      columns: [
+        { field: 'name', label: 'Name' },
+        { field: 'amount', label: 'Planned Amount', type: 'currency', summary: 'sum' },
+      ],
+    }));
+    // No code resolved: a plain number at two decimals, as the cell renders it.
+    await waitFor(() => expect(footerText('amount')).toBe(`Planned Amount: Sum: ${sumOf(ROWS).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`));
+  });
+
+  it('a driver answering its figures as strings is read as numbers', async () => {
+    const ds = makeDataSource({ door: 'strings' });
+    render(hostGrid(ds, {
+      rows: ROWS,
+      columns: [
+        { field: 'name', label: 'Name', summary: 'count' },
+        { field: 'amount', label: 'Amount', type: 'number', summary: 'sum' },
+        { field: 'note', label: 'Note', summary: 'percent_filled' },
+      ],
+    }));
+    await waitFor(() => expect(footerText('amount')).toBe(`Amount: Sum: ${fmt(sumOf(ROWS))}`));
+    expect(footerText('name')).toBe(`Name: Count: ${fmt(ROWS.length)}`);
+    expect(footerText('note')).toBe('Note: Filled: 80%');
+  });
+
   it('a write to the object asks again, so the footer follows the data', async () => {
     const ds = makeDataSource();
     render(hostGrid(ds, { rows: ROWS }));
@@ -340,6 +380,30 @@ describe('no whole-set answer: the figure is the page\'s, and the label says so 
     render(ownFetchGrid(ds));
     await waitFor(() => expect(ds.queryGroupHeaders).toHaveBeenCalled());
     await waitFor(() => expect(footerText('amount')).toBe(pageLabel));
+  });
+
+  it('(b) the answer is not one row', async () => {
+    const ds = makeDataSource({ door: 'no-row' });
+    render(hostGrid(ds, { rows: ROWS }));
+    await waitFor(() => expect(ds.queryGroupHeaders).toHaveBeenCalled());
+    await waitFor(() => expect(footerText('amount')).toBe(pageLabel));
+  });
+
+  it('(b) the answer counts other rows than the count shown — the platform\'s paged count under a search is an estimate', async () => {
+    // Measured on the 17.7.0 data door: under `$search` a paged find answers
+    // `total` as offset + page + 1 (26 for a page of 25 over 138 matches),
+    // because `engine.count` takes no search. The whole-set figures describe the
+    // 138; drawn beside "26" they would describe other rows than the count's.
+    const ds = makeDataSource();
+    const searched = matching(undefined, 'Line 1', ['name']);
+    expect(searched.length).toBeGreaterThan(PAGE + 1);
+    render(hostGrid(ds, {
+      rows: searched,
+      rowCount: PAGE + 1,
+      findParams: { $orderby: [{ field: 'name', order: 'asc' }], $top: PAGE, $search: 'Line 1', $searchFields: ['name'] },
+    }));
+    await waitFor(() => expect(ds.queryGroupHeaders).toHaveBeenCalled());
+    await waitFor(() => expect(footerText('amount')).toBe(`Amount: Sum (this page): ${fmt(sumOf(searched.slice(0, PAGE)))}`));
   });
 
   it('(b) a host that hands a page but names no query', async () => {
@@ -383,5 +447,19 @@ describe('CONTROL: rows that ARE the whole set keep their footer and ask nothing
     render(ownFetchGrid(ds, AMOUNT_SUM, { filter }));
     await waitFor(() => expect(footerText('amount')).toBe(`Amount: Sum: ${fmt(sumOf(few))}`));
     expect(ds.queryGroupHeaders).not.toHaveBeenCalled();
+  });
+});
+
+describe('the page label is the pack\'s, not an English suffix (objectui#12081 item 3)', () => {
+  it('zh: the pack places the scope', async () => {
+    const ds = makeDataSource({ door: 'absent' });
+    render(
+      <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false }}>
+        {hostGrid(ds, { rows: ROWS })}
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(footerText('amount')).toContain('（本页）'));
+    expect(footerText('amount')).toContain('合计');
+    expect(footerText('amount')).not.toMatch(/this page|Sum/);
   });
 });

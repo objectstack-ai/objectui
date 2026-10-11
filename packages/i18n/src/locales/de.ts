@@ -488,6 +488,7 @@ const de = {
     // pack controls its own separator and word order.
     summary: {
       pattern: "{{label}}: {{value}}",
+      pagePattern: "{{label}} (diese Seite): {{value}}",
       count: "Anzahl",
       countEmpty: "Leer",
       countFilled: "Ausgefüllt",

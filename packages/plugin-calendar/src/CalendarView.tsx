@@ -500,6 +500,34 @@ function getMonthDays(date: Date, weekStart: WeekdayIndex): Date[] {
   return days
 }
 
+/**
+ * The days a calendar showing `date` in `view` draws, as a half-open range of
+ * local midnights: `start` is the first day on screen and `end` the day after
+ * the last (objectui#12081).
+ *
+ * Read off the SAME helpers the three grids draw with — `getMonthDays` for the
+ * month grid (its leading and trailing days included), `getWeekStart` for the
+ * week columns, the day itself for the day column — so the range a host fetches
+ * for is the range drawn, under the locale's first day of the week. Exported
+ * for `ObjectCalendar`, which reports it to a host through
+ * `onVisibleRangeChange`; the package index does not re-export it.
+ */
+export function getVisibleDateRange(
+  date: Date,
+  view: "month" | "week" | "day",
+  weekStart: WeekdayIndex,
+): { start: Date; end: Date } {
+  if (view === "month") {
+    const days = getMonthDays(date, weekStart)
+    return {
+      start: startOfDay(days[0]),
+      end: moveByCalendarDays(startOfDay(days[days.length - 1]), 1),
+    }
+  }
+  const start = startOfDay(view === "week" ? getWeekStart(date, weekStart) : date)
+  return { start, end: moveByCalendarDays(start, view === "week" ? 7 : 1) }
+}
+
 function isSameDay(date1: Date, date2: Date): boolean {
   return (
     date1.getFullYear() === date2.getFullYear() &&

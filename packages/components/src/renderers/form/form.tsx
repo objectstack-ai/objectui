@@ -364,7 +364,7 @@ const useSafeFormTranslation = createSafeTranslation(
     'form.visibleWhenFaulted':
       "Can't submit: the visibleWhen rule of {{fields}} could not be evaluated. The rule must be fixed before this form can be submitted.",
     // objectui#12108 — the hint under an empty field the server fills at insert
-    // (see `FieldDescription`). Byte-identical to the `en` pack.
+    // (see `renderFieldDescription`). Byte-identical to the `en` pack.
     'form.serverDefaultHint': 'Set automatically when saved.',
   },
   'common.selectOption',
@@ -979,13 +979,10 @@ function withReadonlyHostGroup(labelId: string | undefined, node: React.ReactNod
  * widget reads its placeholder off the field metadata, not off the host, and
  * the date, time, boolean and user widgets draw none at all.
  */
-function FieldDescription({
-  description,
-  serverDefaultHint,
-}: {
-  description?: string;
-  serverDefaultHint?: string;
-}): React.ReactElement | null {
+function renderFieldDescription(
+  description: string | undefined,
+  serverDefaultHint: string | undefined,
+): React.ReactNode {
   if (!description && !serverDefaultHint) return null;
   return (
     <FormDescription>
@@ -3539,8 +3536,8 @@ ComponentRegistry.register('form',
                   ...(groupLabelId ? { 'aria-labelledby': groupLabelId } : null),
                 }))}
               </FormControl>
-              <FieldDescription
-                description={description}
+              {renderFieldDescription(
+                description,
                 // objectui#12108 — shown exactly while the submit would omit
                 // the key, so the server fills the field: it is server-owned
                 // (`serverOwned`, the classifier the required suppression above
@@ -3554,12 +3551,10 @@ ComponentRegistry.register('form',
                 // an empty stored column there is filled by no save. The same
                 // gate hides the hint on a locked field of a real create form,
                 // which is a missing hint, never a wrong one.
-                serverDefaultHint={
-                  serverOwned && !readonly && !fieldDisabled && isMissingForRequired(formField.value)
-                    ? t('form.serverDefaultHint')
-                    : undefined
-                }
-              />
+                serverOwned && !readonly && !fieldDisabled && isMissingForRequired(formField.value)
+                  ? t('form.serverDefaultHint')
+                  : undefined,
+              )}
               <FormMessage />
             </FormItem>
           )}

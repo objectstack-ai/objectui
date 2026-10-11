@@ -816,6 +816,18 @@ export const ADJUDICATED = new Map([
       walker: 'markdown-tree',
     },
   ],
+  [
+    'scripts/__tests__/check-doc-json-fences.test.ts',
+    {
+      // objectui#5250: the agreement test walks the JSON-fence gate's own scan
+      // surface, `content/docs/**` (the CI pipeline guide it also reads by name
+      // is inside it). Its `README.md` is a file the test writes into a
+      // temporary fixture tree, never the root document.
+      reads: ['content/docs/**'],
+      notRead: ['README.md'],
+      walker: 'markdown-tree',
+    },
+  ],
   // `./*` rather than the eight root documents it used to list, and the
   // distinction is the whole of objectui#9142. This test does not read a list
   // of root documents -- it runs `git ls-files -- '*.md'`, keeps the paths with

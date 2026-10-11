@@ -62,6 +62,13 @@ const IDS = [
  * Measured on `origin/main` @ `d88e20f55` through `measure()` below, mirror
  * untouched. `sha256` is over the full `textContent`; `visibleText` is the
  * same string with the chart's `<style>` element's text removed.
+ *
+ * `visibleText` and `sha256` re-measured through `measure()` at `fd4059c`, after
+ * objectui#12110 item 5 added the year to a task's dates outside the current
+ * year (these tiles are 2023/2024, the clock is frozen in 2026): the task-list
+ * date lines read `2/1/24 → 2/14/24` where they read `2/1 → 2/14`, and with those
+ * year segments removed the text equals the `d88e20f55` reading exactly.
+ * `elements` and `tags` are the `d88e20f55` readings, unchanged.
  */
 const PRE_REPAIR: Record<(typeof IDS)[number], {
   elements: number;
@@ -72,31 +79,31 @@ const PRE_REPAIR: Record<(typeof IDS)[number], {
   'plugin-gantt/construction-project-phases': {
     elements: 407,
     tags: { DIV: 185, STYLE: 1, BUTTON: 26, svg: 19, path: 52, SPAN: 112, circle: 2, line: 5, rect: 1, defs: 1, marker: 3 },
-    sha256: '19a41af45950a5c6be4b440dfb09c154826f049be3b87e75931348a21b1746cb',
+    sha256: '4c6e64c406493520094108eb3d50029fd97c4cefa45c748f30f5a517cf2504f9',
     visibleText:
       'January 2024DayWeekMonthQuarterYearTodayThis weekThis monthTask NameJan 2024Feb 2024Mar 2024' +
       '25T26F27S28S29M30T31W1T2F3S4S5M6T7W8T9F10S11S12M13T14W15T16F17S18S19M20T21W22T23F24S25S26M27T28W29T1F2S3S' +
-      'Site Preparation2/1 → 2/14Foundation2/15 → 3/15Framing3/16 → 4/30Electrical & Plumbing5/1 → 5/31Interior Finishing6/1 → 7/15' +
+      'Site Preparation2/1/24 → 2/14/24Foundation2/15/24 → 3/15/24Framing3/16/24 → 4/30/24Electrical & Plumbing5/1/24 → 5/31/24Interior Finishing6/1/24 → 7/15/24' +
       'Site Preparation100%Foundation75%Framing30%Electrical & Plumbing0%Interior Finishing0%',
   },
   'plugin-gantt/project-timeline-with-dependencies': {
     elements: 354,
     tags: { DIV: 156, STYLE: 1, BUTTON: 24, svg: 17, path: 44, SPAN: 100, circle: 2, line: 5, rect: 1, defs: 1, marker: 3 },
-    sha256: '3294ccbe33d159b947d01ea52f367b26ce7b4084a1ae89f0ed54661cf36002f8',
+    sha256: 'd9ec16c55958f4e3e5793422c52f695f3b5c6604eece02eb863bfad56a26fdfe',
     visibleText:
       'December 2023DayWeekMonthQuarterYearTodayThis weekThis monthTask NameDec 2023Jan 2024Feb 2024' +
       '25M26T27W28T29F30S31S1M2T3W4T5F6S7S8M9T10W11T12F13S14S15M16T17W18T19F20S21S22M23T24W25T26F27S28S29M30T31W1T' +
-      'Design Phase1/1 → 1/15Development1/16 → 2/28Testing3/1 → 3/15' +
+      'Design Phase1/1/24 → 1/15/24Development1/16/24 → 2/28/24Testing3/1/24 → 3/15/24' +
       'Design Phase100%Development60%Testing0%',
   },
   'plugin-gantt/sprint-development-timeline': {
     elements: 436,
     tags: { DIV: 200, STYLE: 1, BUTTON: 27, svg: 20, path: 58, SPAN: 118, circle: 2, line: 5, rect: 1, defs: 1, marker: 3 },
-    sha256: 'af064c159287029592b508f22314336603aafacaf33bfdc67325e2212c6350d4',
+    sha256: '8e96bcc1bce4d3b56018ad01f7460838b41c754d2ce0f9192e4b2019b53d3297',
     visibleText:
       'December 2023DayWeekMonthQuarterYearTodayThis weekThis monthTask NameDec 2023Jan 2024Feb 2024' +
       '25M26T27W28T29F30S31S1M2T3W4T5F6S7S8M9T10W11T12F13S14S15M16T17W18T19F20S21S22M23T24W25T26F27S28S29M30T31W1T' +
-      'Sprint Planning1/1 → 1/3User Authentication1/4 → 1/10Dashboard UI1/4 → 1/12API Integration1/11 → 1/18Testing & QA1/19 → 1/25Deployment1/26 → 1/28' +
+      'Sprint Planning1/1/24 → 1/3/24User Authentication1/4/24 → 1/10/24Dashboard UI1/4/24 → 1/12/24API Integration1/11/24 → 1/18/24Testing & QA1/19/24 → 1/25/24Deployment1/26/24 → 1/28/24' +
       'Sprint Planning100%User Authentication100%Dashboard UI85%API Integration40%Testing & QA0%Deployment0%',
   },
 };

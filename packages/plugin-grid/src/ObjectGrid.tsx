@@ -3579,14 +3579,24 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           .filter((col) => resolvesToDataColumn(col))
           .filter((col) => passesFieldGate(col))
           .map((col, colIndex) => {
-            // Fall back to the SCHEMA FIELD's label before prettifying the machine
-            // name — otherwise a column declared as bare { field } shows an English
-            // name-derived header (e.g. "Request title") even when the field has a
-            // localized label (e.g. "申请标题") on a non-English app.
-            const rawHeader = resolveColumnLabel(col.label)
-              || resolveColumnLabel(objectFields?.[col.field]?.label)
+            // The column's own `label` is the spec's "Display label override"
+            // (`ListColumnSchema`), so when the author wrote one it IS the
+            // header, and the field-label lookup is not consulted
+            // (objectui#12110 item 1). It used to be handed to that lookup as
+            // its FALLBACK, so any bundle translating the field — which a
+            // deployed app's bundle does for every field — replaced the
+            // override with the field's label.
+            //
+            // With no override, fall back to the SCHEMA FIELD's label before
+            // prettifying the machine name — otherwise a column declared as bare
+            // { field } shows an English name-derived header (e.g. "Request
+            // title") even when the field has a localized label (e.g. "申请标题")
+            // on a non-English app.
+            const authoredHeader = resolveColumnLabel(col.label);
+            const rawHeader = resolveColumnLabel(objectFields?.[col.field]?.label)
               || col.field.charAt(0).toUpperCase() + col.field.slice(1).replace(/_/g, ' ');
-            const header = schema.objectName ? resolveFieldLabel(schema.objectName, col.field, rawHeader) : rawHeader;
+            const header = authoredHeader
+              || (schema.objectName ? resolveFieldLabel(schema.objectName, col.field, rawHeader) : rawHeader);
 
             // Build custom cell renderer based on column configuration
             let cellRenderer: ((value: any, row: any) => React.ReactNode) | undefined;

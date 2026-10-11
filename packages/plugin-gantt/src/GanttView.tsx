@@ -929,6 +929,23 @@ export function GanttView({
   // the last resort, so no fallback belongs here. `ObjectGantt`'s tooltips and
   // `ResourceWorkload` read the same hook, so one gantt shows one locale.
   const dateLocale = useDisplayLocale();
+  // A task's DAY as the task list, the tooltip and the drag previews print it
+  // (objectui#12110 item 5, finding B-20 of the HotCRM browser pass). These
+  // faces printed `{ month, day }` only, so a plan reaching into another year
+  // read `3/2` for two days a year apart. The year is added whenever the date's
+  // year is not the current one — "now" in the view's zone, the same `now` the
+  // today line reads — as two digits on the compact numeric faces (the Start /
+  // End cells are narrow) and in full on the short-month face; a day in the
+  // current year reads as it always did. The header bands keep their own
+  // formats and are not this helper's readers.
+  const currentYear = tzShift.now().getFullYear();
+  const formatTaskDay = (date: Date, month: 'numeric' | 'short'): string =>
+    date.toLocaleDateString(
+      dateLocale,
+      date.getFullYear() === currentYear
+        ? { month, day: 'numeric' }
+        : { month, day: 'numeric', year: month === 'numeric' ? '2-digit' : 'numeric' },
+    );
   const containerRef = React.useRef<HTMLDivElement>(null);
   // Observed container width — the source every auto-sized dimension below
   // derives from: row height, base column width, and the task-list pane width.
@@ -3975,7 +3992,7 @@ export function GanttView({
                           className="text-[10px] text-muted-foreground"
                           data-testid={`gantt-row-dates-${task.id}`}
                         >
-                          {row.start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })} → {endDayOf(row.start, row.end).toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
+                          {formatTaskDay(row.start, 'numeric')} → {formatTaskDay(endDayOf(row.start, row.end), 'numeric')}
                         </span>
                       )}
                     </span>
@@ -3997,7 +4014,7 @@ export function GanttView({
                       onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
-                    row.start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })
+                    formatTaskDay(row.start, 'numeric')
                   )}
                 </div>
                 <div className="w-16 gantt-sm-w20 text-right text-xs text-muted-foreground" data-testid={`gantt-row-end-${task.id}`}>
@@ -4010,7 +4027,7 @@ export function GanttView({
                       onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
-                    endDayOf(row.start, row.end).toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })
+                    formatTaskDay(endDayOf(row.start, row.end), 'numeric')
                   )}
                 </div>
                   </>
@@ -4299,9 +4316,9 @@ export function GanttView({
                          </div>
                        ) : (
                          <div className="text-muted-foreground">
-                           {row.start.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}
+                           {formatTaskDay(row.start, 'short')}
                            {' → '}
-                           {endDayOf(row.start, row.end).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}
+                           {formatTaskDay(endDayOf(row.start, row.end), 'short')}
                            {' · '}{durationDays}{t('gantt.tooltip.days')}
                            {' · '}{Math.round(row.progress)}%
                          </div>
@@ -4519,9 +4536,9 @@ export function GanttView({
                             style={{ left: Math.max(liveStyle.left, 4), top: summaryBarTop + summaryBarHeight + 2 }}
                             data-testid={`gantt-summary-drag-chip-${task.id}`}
                           >
-                            {computeDragChanges(dragState).start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
+                            {formatTaskDay(computeDragChanges(dragState).start, 'numeric')}
                             {' → '}
-                            {dragPreviewEndDay(dragState).toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
+                            {formatTaskDay(dragPreviewEndDay(dragState), 'numeric')}
                           </div>
                         )}
                         {tooltip}
@@ -4834,7 +4851,7 @@ export function GanttView({
                             bar's text width never shifts on hover. */}
                         <span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                           {isDragging
-                            ? `${computeDragChanges(dragState!).start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })} → ${dragPreviewEndDay(dragState!).toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}`
+                            ? `${formatTaskDay(computeDragChanges(dragState!).start, 'numeric')} → ${formatTaskDay(dragPreviewEndDay(dragState!), 'numeric')}`
                             : `${Math.round(liveProgress)}%`}
                         </span>
                       </div>

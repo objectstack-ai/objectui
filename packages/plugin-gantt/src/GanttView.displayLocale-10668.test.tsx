@@ -101,8 +101,9 @@ describe('GanttView — the timeline follows the display locale (objectui#10668)
     expect(faces.units).toContain('9.3.');
     expect(faces.groups, `got: ${JSON.stringify(faces.groups)}`).toContain('März 2020');
     expect(faces.period).toBe('März 2020');
-    expect(faces.start).toBe('2.3.');
-    expect(faces.end).toBe('13.3.');
+    // 2020 is not the current year, so the task list names it (objectui#12110 item 5).
+    expect(faces.start).toBe('2.3.20');
+    expect(faces.end).toBe('13.3.20');
   });
 
   it('control: renders them as en-US under an en-US display locale', () => {
@@ -111,8 +112,8 @@ describe('GanttView — the timeline follows the display locale (objectui#10668)
     expect(faces.units).toContain('3/9');
     expect(faces.groups, `got: ${JSON.stringify(faces.groups)}`).toContain('Mar 2020');
     expect(faces.period).toBe('March 2020');
-    expect(faces.start).toBe('3/2');
-    expect(faces.end).toBe('3/13');
+    expect(faces.start).toBe('3/2/20');
+    expect(faces.end).toBe('3/13/20');
   });
 
   /** ⭐ THE PIN: no runner locale can make both readings equal. */

@@ -17,7 +17,7 @@ const en = {
     },
   },
   // objectui#2600 B5 — capability picker scope group headers (labels come from
-  // the sys_capability registry; only these group titles are UI strings).
+  // the capability registry; only these group titles are UI strings).
   capability: {
     group: {
       platform: 'Platform',
@@ -153,6 +153,7 @@ const en = {
     itemCount_one: '{{count}} item',
     itemCount_other: '{{count}} items',
     toggleSidebar: 'Toggle sidebar',
+    breadcrumb: 'Breadcrumb',
     package: 'Package',
     done: 'Done',
     editInStudio: 'Edit in studio',
@@ -401,9 +402,13 @@ const en = {
       remove: 'Remove image {{index}}',
       enlarge: 'Enlarge {{name}}',
       preview: 'Image preview',
+      cropPreview: 'Image crop preview',
       previous: 'Previous image',
       next: 'Next image',
       counter: '{{current}} / {{total}}',
+    },
+    percent: {
+      slider: 'Percentage',
     },
     richText: {
       format: 'Format: {{format}}',
@@ -625,6 +630,7 @@ const en = {
     selectAllRows: 'Select all rows',
     expandRow: 'Expand row',
     collapseRow: 'Collapse row',
+    rowActions: 'Row actions',
     hideColumn: 'Hide column',
     freezeColumn: 'Freeze column',
     unfreezeColumn: 'Unfreeze column',
@@ -673,6 +679,7 @@ const en = {
     bulkAllOnPage_other: 'All {{count}} on this page are selected.',
     bulkSelectAllMatching: 'Select all {{count}} matching',
     bulkAllMatchingSelected: 'All {{count}} matching records are selected.',
+    bulkActions: 'Bulk actions',
     rowHeight: 'Row height: {{mode}}',
     empty: 'Empty',
     yes: 'Yes',
@@ -1627,6 +1634,8 @@ const en = {
   designer: {
     undo: 'Undo',
     redo: 'Redo',
+    canvasMinimap: 'Canvas minimap',
+    versionHistory: 'Version history',
   },
   dashboard: {
     addWidget: 'Add widget',
@@ -3036,6 +3045,7 @@ const en = {
     allDocs: 'All documentation',
     keyboardShortcuts: 'Keyboard shortcuts',
     onlineDocs: 'Online documentation',
+    loadingDocumentation: 'Loading documentation',
   },
   sidebar: {
     settings: 'Settings',
@@ -4197,6 +4207,13 @@ const en = {
         dismiss: 'Dismiss',
         confirmedToast: '"{{set}}" is now granted to {{anchor}}.',
         dismissedToast: 'Suggestion for "{{set}}" dismissed.',
+        guestUnsupported: 'Cannot be granted here: the Guest position takes no sets from accepted suggestions.',
+        acceptedState: '"{{set}}" was accepted for all signed-in users (the Everyone position).',
+        notInForceState: '"{{set}}" was accepted but is not in force yet: the Everyone position did not change on this request. The server log says why.',
+        dismissedState: '"{{set}}" is not granted: the suggestion was dismissed or revoked.',
+        revoke: 'Revoke',
+        revoking: 'Revoking…',
+        revokedToast: 'Acceptance of "{{set}}" revoked.',
       },
       uninstall: {
         confirm: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe cached manifest will be removed. The app will remain loaded in the running kernel until the next restart.',

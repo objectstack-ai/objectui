@@ -1391,7 +1391,7 @@ export function RecordPickerDialog({
                 tabIndex={0}
                 onKeyDown={handleTableKeyDown}
                 role="grid"
-                aria-label="Records"
+                aria-label={t('console.commandPalette.records')}
               >
                 {/* Loading overlay for subsequent fetches (page/sort/filter) */}
                 {loading && (

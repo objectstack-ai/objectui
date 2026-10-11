@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from '@object-ui/components';
 import { RotateCw, Crop as CropIcon } from 'lucide-react';
+import { useFieldTranslation } from './useFieldTranslation.js';
 
 export interface ImageCropperDialogProps {
   open: boolean;
@@ -49,6 +50,7 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
   outputName = 'cropped.png',
   onConfirm,
 }) => {
+  const { t } = useFieldTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [rotation, setRotation] = useState(0); // 0, 90, 180, 270
@@ -194,7 +196,7 @@ export const ImageCropperDialog: React.FC<ImageCropperDialogProps> = ({
               ref={canvasRef}
               data-testid="image-cropper-canvas"
               role="img"
-              aria-label="Image crop preview"
+              aria-label={t('fields.image.cropPreview')}
               className="border rounded-md cursor-move touch-none max-w-full"
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}

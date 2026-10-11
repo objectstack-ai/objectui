@@ -427,9 +427,57 @@ const BOOLEAN_WIDGET_TYPES = new Set([
 /**
  * Which control a field row will render as — the same precedence
  * `resolvedType` applies further down (explicit form-config `widget`, then the
- * resolved field metadata's own widget hint, then the bare `type`).
+ * resolved field metadata's own widget hint, then the bare `type`), each
+ * widget hint taken only when it can render (see {@link resolveRenderableWidget}).
  */
-const resolveWidgetType = (f: any): string => f?.widget || f?.field?.widget || f?.type;
+const resolveWidgetType = (f: any): string =>
+  resolveRenderableWidget(f?.type, f?.widget, f?.field?.widget);
+
+/**
+ * The first widget hint that can render, else `type` — objectui#12110 item 2.
+ *
+ * `@objectstack/spec`'s `FieldSchema.widget` names "a registered field
+ * component (resolved as `field:<widget>`)" and promises that it "Degrades to
+ * the `type` renderer when unregistered". This renderer used to take the hint
+ * whether or not anything could draw it, so a `rating` field declaring
+ * `widget: 'star_rating'` — a name nothing registers — fell past the registered
+ * `field:rating` widget to the default branch's plain text box (finding A-03
+ * of the HotCRM browser pass).
+ *
+ * The hints are tried in precedence order (the form config's, then the field
+ * metadata's), so an unrenderable form-level override falls back to the
+ * object's own hint before it falls back to the type.
+ */
+function resolveRenderableWidget(type: string, ...hints: unknown[]): string {
+  for (const hint of hints) {
+    if (typeof hint === 'string' && hint !== '' && widgetRendersAsItself(hint)) return hint;
+  }
+  return type;
+}
+
+/**
+ * Does `renderFieldComponent` have a deliberate rendering for this widget NAME?
+ *
+ *  - a built-in control (`input`, `textarea`, …) — a `switch` arm;
+ *  - a registered field widget, resolved exactly as `renderFieldComponent`
+ *    resolves it ({@link resolvesToRegisteredFieldWidget});
+ *  - one of the `default` arm's own declared inputs: a native email / password
+ *    input ({@link NATIVE_INPUT_FIELD_TYPES}) or the secret refusal
+ *    ({@link SECRET_FIELD_TYPES}). These are kept on purpose: degrading a
+ *    secret-declaring hint to its field's `type` could put the value on screen
+ *    as clear text, the one degrade objectui#5322 rules out.
+ *
+ * Anything else names a component nothing draws, and the spec's degrade
+ * applies.
+ */
+function widgetRendersAsItself(widget: string): boolean {
+  if (BUILTIN_FIELD_TYPES.has(widget)) return true;
+  if (resolvesToRegisteredFieldWidget(widget)) return true;
+  const declared = normalizeFieldType(widget);
+  return hasOwn(NATIVE_INPUT_FIELD_TYPES, widget)
+    || hasOwn(NATIVE_INPUT_FIELD_TYPES, declared)
+    || SECRET_FIELD_TYPES.has(declared);
+}
 
 const BUILTIN_FIELD_TYPES = new Set(['input', 'textarea', 'checkbox', 'switch', 'select']);
 
@@ -2154,7 +2202,9 @@ ComponentRegistry.register('form',
       for (const f of fields as FormFieldConfig[]) {
         const name = f?.name;
         if (!name) continue;
-        const resolvedType = (f as any).widget || f.type;
+        // The render path's own resolution (objectui#12110 item 2), so a hint
+        // that degrades to its `type` there is judged as that type here too.
+        const resolvedType = resolveWidgetType(f);
         // `field:select` and `select` name the SAME field kind, so this clear
         // must recognise both spellings — the object-form path
         // (`mapFieldTypeToFormType`) emits the prefixed id, hand-written SDUI
@@ -3184,8 +3234,11 @@ ComponentRegistry.register('form',
       // A built-in type declared `multiple` is routed to its multi-value
       // widget HERE, before any reader of `resolvedType` runs
       // (objectui#11116) — see `applyDeclaredArity`.
+      //
+      // A hint nothing can draw degrades to `type`, as the spec promises
+      // (objectui#12110 item 2) — see `resolveRenderableWidget`.
       const resolvedType = applyDeclaredArity(
-        widget || fieldProps.field?.widget || type,
+        resolveRenderableWidget(type, widget, fieldProps.field?.widget),
         fieldProps.multiple,
       );
 

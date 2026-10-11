@@ -21,11 +21,13 @@
  * object looked right), so the round trip through both stages is the pin.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   decisionOutputDefs,
   decisionOutputParams,
+  decisionOutputsReadRegistry,
   foldDecisionOutputs,
+  readDecisionOutputRegistry,
 } from './decisionOutputParams';
 import { resolveActionParams } from '@object-ui/fields';
 import { paramToField } from './paramToField';
@@ -82,6 +84,7 @@ describe('decisionOutputParams — declaration → param', () => {
     const [param] = decisionOutputParams(
       [{ key: 'parallel_positions', label: '并行会审岗位', type: 'position', multiple: true }],
       t,
+      { registry: { position: [] } },
     );
     expect(param).toMatchObject({ label: '并行会审岗位', multiple: true });
   });
@@ -127,7 +130,6 @@ describe('decisionOutputParams — the params survive resolution (objectui#2955)
   // union, and a bare table widens it to `string` (objectui#4040).
   it.each([
     ['department', 'sys_business_unit'],
-    ['position', 'sys_position'],
     ['team', 'sys_team'],
   ] as const)('a %s output reaches the widget as a %s picker', (type, referenceTo) => {
     const [param] = decisionOutputParams([{ key: 'k', type, multiple: true }], t);
@@ -151,7 +153,7 @@ describe('decisionOutputParams — the params survive resolution (objectui#2955)
     // were dropped in resolution the dialog would submit a blank value and let
     // the server 400 instead.
     const [param] = decisionOutputParams(
-      [{ key: 'k', type: 'position', required: true }], t, { decision: 'approve' },
+      [{ key: 'k', type: 'team', required: true }], t, { decision: 'approve' },
     );
     expect(widgetFor(param)).toMatchObject({ type: 'lookup', required: true });
   });
@@ -164,10 +166,140 @@ describe('decisionOutputParams — the params survive resolution (objectui#2955)
   it('never degrades a typed picker to a record-id text box', () => {
     // The #2955 symptom, stated as the invariant: no declared record kind may
     // arrive at the widget as `text` (that is the "paste a UUID" fallback).
+    // `position` is a catalog kind, so it is judged with a registry read in
+    // hand — an empty one, the state a fresh environment can be in.
     for (const type of ['user', 'department', 'position', 'team'] as const) {
-      const [param] = decisionOutputParams([{ key: 'k', type }], t);
+      const [param] = decisionOutputParams([{ key: 'k', type }], t, { registry: { position: [] } });
       expect(widgetFor(param).type).not.toBe('text');
     }
+  });
+});
+
+/**
+ * objectui#7611 (ADR-0131 D3/D4) — a `position` output lists the position
+ * REGISTRY and commits the position's machine name, which is what the spec
+ * says the output collects (objectstack#22710) and what the engine's
+ * `resolveAs: 'position'` matches against `sys_user_position.position`. It used
+ * to be a `sys_position` lookup: a fresh database holds no `sys_position` rows,
+ * so the picker offered nothing, and a row it did offer committed a row id.
+ */
+describe('decisionOutputParams — a position output lists the registry (objectui#7611)', () => {
+  const POSITIONS = [
+    { name: 'manager', label: 'Project Manager' },
+    { name: 'auditor', label: 'Auditor' },
+    { name: 'exec' },
+    { label: 'nameless — not a catalog item' },
+    { name: '', label: 'empty name — not a catalog item' },
+  ];
+
+  it('offers the registry items by name, sorted by name, labelled by `label`', () => {
+    const [param] = decisionOutputParams(
+      [{ key: 'parallel_positions', type: 'position', multiple: true }],
+      t,
+      { registry: { position: POSITIONS } },
+    );
+    expect(param).toMatchObject({ type: 'select', multiple: true });
+    expect(param.options).toEqual([
+      { value: 'auditor', label: 'Auditor' },
+      { value: 'exec', label: 'exec' },
+      { value: 'manager', label: 'Project Manager' },
+    ]);
+    // Nothing names the retired record source.
+    expect(param.reference).toBeUndefined();
+    expect(JSON.stringify(param)).not.toContain('sys_position');
+  });
+
+  it('reaches the widget as a select whose values are the machine names', () => {
+    const [param] = decisionOutputParams(
+      [{ key: 'parallel_positions', type: 'position', multiple: true }],
+      t,
+      { registry: { position: POSITIONS } },
+    );
+    const field = widgetFor(param);
+    expect(field).toMatchObject({ type: 'select', multiple: true });
+    expect((field.options as Array<{ value: string }>).map((o) => o.value)).toEqual([
+      'auditor',
+      'exec',
+      'manager',
+    ]);
+  });
+
+  it('an empty registry is still a picker, with nothing to offer', () => {
+    const [param] = decisionOutputParams([{ key: 'p', type: 'position' }], t, {
+      registry: { position: [] },
+    });
+    expect(widgetFor(param)).toMatchObject({ type: 'select', options: [] });
+  });
+
+  it('no registry reader degrades to the free-text box an untyped output gets', () => {
+    // An absent reader is a different fact from an empty registry — the same
+    // split `RecipientPickerField` draws on the same registry.
+    const [param] = decisionOutputParams([{ key: 'p', type: 'position' }], t);
+    expect(param).toMatchObject({ type: 'text', helpText: 't:actions.decisionOutput.helpMultiValue' });
+  });
+
+  it('keeps `required` on approve, so a blank registry pick blocks Confirm', () => {
+    const [param] = decisionOutputParams(
+      [{ key: 'p', type: 'position', required: true }],
+      t,
+      { decision: 'approve', registry: { position: POSITIONS } },
+    );
+    expect(widgetFor(param)).toMatchObject({ type: 'select', required: true });
+  });
+
+  it('folds the picked names into the decide body unchanged', () => {
+    expect(foldDecisionOutputs({ 'outputs.parallel_positions': ['auditor', 'manager'] })).toEqual({
+      rest: {},
+      outputs: { parallel_positions: ['auditor', 'manager'] },
+    });
+  });
+});
+
+describe('decisionOutputsReadRegistry (objectui#7611)', () => {
+  it('is true only when an output is a catalog kind', () => {
+    expect(decisionOutputsReadRegistry([{ key: 'a', type: 'team' }, { key: 'b', type: 'position' }])).toBe(true);
+    expect(
+      decisionOutputsReadRegistry([
+        { key: 'a', type: 'user' },
+        { key: 'b', type: 'department' },
+        { key: 'c', type: 'team' },
+        { key: 'd', type: 'text' },
+        { key: 'e' },
+      ]),
+    ).toBe(false);
+    expect(decisionOutputsReadRegistry([])).toBe(false);
+  });
+});
+
+describe('readDecisionOutputRegistry (objectui#7611)', () => {
+  it('reads each catalog type the outputs list, once, and nothing else', async () => {
+    const ensureType = vi.fn(async (type: string) => (type === 'position' ? [{ name: 'ops' }] : []));
+    const registry = await readDecisionOutputRegistry(
+      [
+        { key: 'a', type: 'position' },
+        { key: 'b', type: 'position', multiple: true },
+        { key: 'c', type: 'team' },
+        { key: 'd', type: 'user' },
+        { key: 'e' },
+      ],
+      { ensureType },
+    );
+    expect(ensureType.mock.calls).toEqual([['position']]);
+    expect(registry).toEqual({ position: [{ name: 'ops' }] });
+  });
+
+  it('reads nothing when no output is a catalog kind', async () => {
+    const ensureType = vi.fn(async () => []);
+    expect(await readDecisionOutputRegistry([{ key: 'c', type: 'team' }], { ensureType })).toEqual({});
+    expect(ensureType).not.toHaveBeenCalled();
+  });
+
+  it('answers `{}` without a reader, and `[]` for a read that fails', async () => {
+    expect(await readDecisionOutputRegistry([{ key: 'a', type: 'position' }], null)).toEqual({});
+    const failing = { ensureType: vi.fn(async () => { throw new Error('HTTP_500'); }) };
+    expect(await readDecisionOutputRegistry([{ key: 'a', type: 'position' }], failing)).toEqual({
+      position: [],
+    });
   });
 });
 

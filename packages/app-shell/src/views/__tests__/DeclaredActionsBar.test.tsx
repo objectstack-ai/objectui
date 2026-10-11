@@ -99,7 +99,7 @@ import { DeclaredActionsBar } from '../DeclaredActionsBar';
 // The real provider — the `@object-ui/react` double above spreads `actual`, so
 // the ambient predicate scope the objectui#4080 no-row case needs is the
 // shipped one, not a stand-in for it.
-import { PredicateScopeProvider } from '@object-ui/react';
+import { MetadataCtx, PredicateScopeProvider } from '@object-ui/react';
 
 const REQUEST = { id: 'req_1', status: 'pending', record_id: 'proj_9' };
 
@@ -337,7 +337,9 @@ describe('DeclaredActionsBar chrome localization (objectui#2762)', () => {
     // `reference`. Spelled `referenceTo` the target was dropped, and the
     // Approval Center rendered a "paste a record id" text box where a
     // sys_position multi-select belonged. The full round trip is pinned in
-    // `utils/decisionOutputParams.test.ts`; this pins what the BAR emits.
+    // `utils/decisionOutputParams.test.ts`; this pins what the BAR emits for a
+    // record kind (a `position` output lists the registry since objectui#7611 —
+    // pinned below).
     const decideAction = {
       name: 'approval_approve',
       type: 'api',
@@ -351,7 +353,7 @@ describe('DeclaredActionsBar chrome localization (objectui#2762)', () => {
         record={{
           ...REQUEST,
           decision_output_defs: [
-            { key: 'parallel_positions', label: '并行会审岗位', type: 'position', multiple: true },
+            { key: 'owning_teams', label: '负责团队', type: 'team', multiple: true },
           ],
         }}
         location="record_section"
@@ -365,13 +367,90 @@ describe('DeclaredActionsBar chrome localization (objectui#2762)', () => {
     const params = executeSpy.mock.calls[0][0].actionParams as Array<Record<string, unknown>>;
     expect(params).toHaveLength(1);
     expect(params[0]).toMatchObject({
-      name: 'outputs.parallel_positions',
-      label: '并行会审岗位',
+      name: 'outputs.owning_teams',
+      label: '负责团队',
       type: 'lookup',
-      reference: 'sys_position',
+      reference: 'sys_team',
       multiple: true,
     });
     expect(params[0].referenceTo).toBeUndefined();
+  });
+
+  it('lists the position registry for a position output and offers names (objectui#7611)', async () => {
+    // ADR-0131 D3/D4: positions live in the environment registry and are
+    // referenced by machine name. The bar reads the registry through the
+    // console's metadata store — the reader `RecipientPickerField` lists the
+    // same registry through — and hands the dialog a select whose values are
+    // the names the engine routes by. A fresh database has no `sys_position`
+    // rows, so the lookup this replaces offered nothing.
+    const ensureType = vi.fn(async (type: string) =>
+      type === 'position'
+        ? [{ name: 'manager', label: 'Project Manager' }, { name: 'auditor', label: 'Auditor' }]
+        : [],
+    );
+    const store = { ensureType } as unknown as React.ContextType<typeof MetadataCtx>;
+    render(
+      <MetadataCtx.Provider value={store}>
+        <DeclaredActionsBar
+          objectName="sys_approval_request"
+          record={{
+            ...REQUEST,
+            decision_output_defs: [
+              { key: 'parallel_positions', label: '并行会审岗位', type: 'position', multiple: true },
+            ],
+          }}
+          location="record_section"
+          actions={[{
+            name: 'approval_approve', type: 'api', label: 'Approve',
+            target: '/api/v1/approvals/requests/{id}/approve', locations: ['record_section'],
+          }] as any}
+        />
+      </MetadataCtx.Provider>,
+    );
+
+    fireEvent.click(screen.getByText('Approve'));
+    await waitFor(() => expect(executeSpy).toHaveBeenCalled());
+
+    expect(ensureType.mock.calls).toEqual([['position']]);
+    const params = executeSpy.mock.calls[0][0].actionParams as Array<Record<string, unknown>>;
+    expect(params).toHaveLength(1);
+    expect(params[0]).toMatchObject({
+      name: 'outputs.parallel_positions',
+      label: '并行会审岗位',
+      type: 'select',
+      multiple: true,
+      options: [
+        { value: 'auditor', label: 'Auditor' },
+        { value: 'manager', label: 'Project Manager' },
+      ],
+    });
+    expect(params[0].reference).toBeUndefined();
+  });
+
+  it('dispatches in the click\'s own tick when no output lists the registry (objectui#7611)', () => {
+    // Only a decision with a catalog output waits for the registry read; every
+    // other decision dispatches synchronously, as it did before — a store is
+    // mounted here, so it is the OUTPUTS that decide, not the store's absence.
+    const ensureType = vi.fn(async () => []);
+    const store = { ensureType } as unknown as React.ContextType<typeof MetadataCtx>;
+    render(
+      <MetadataCtx.Provider value={store}>
+        <DeclaredActionsBar
+          objectName="sys_approval_request"
+          record={{ ...REQUEST, decision_output_defs: [{ key: 'owning_team', type: 'team' }] }}
+          location="record_section"
+          actions={[{
+            name: 'approval_approve', type: 'api', label: 'Approve',
+            target: '/api/v1/approvals/requests/{id}/approve', locations: ['record_section'],
+          }] as any}
+        />
+      </MetadataCtx.Provider>,
+    );
+
+    fireEvent.click(screen.getByText('Approve'));
+
+    expect(executeSpy).toHaveBeenCalledTimes(1);
+    expect(ensureType).not.toHaveBeenCalled();
   });
 
   it('localizes the decision-output help text', async () => {

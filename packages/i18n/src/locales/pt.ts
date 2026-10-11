@@ -13,7 +13,7 @@ const pt = {
       notRestored: 'O servidor aceitou a solicitação, mas não restaurou sua sessão de administrador — você ainda está personificando {{user}}. Saia e entre novamente para encerrar.',
     },
   },
-  // objectui#2600 B5 — capability picker scope group headers (labels come from the sys_capability registry).
+  // objectui#2600 B5 — capability picker scope group headers (labels come from the capability registry).
   capability: {
     label: {
       manage_users: "Gerenciar usuários",
@@ -132,6 +132,7 @@ const pt = {
     itemCount_many: "{{count}} de itens",
     itemCount_other: "{{count}} itens",
     toggleSidebar: "Alternar barra lateral",
+    breadcrumb: "Trilha de navegação",
     package: "Pacote",
     done: "Concluído",
     editInStudio: "Editar no Studio",
@@ -266,9 +267,13 @@ const pt = {
       remove: "Remover a imagem {{index}}",
       enlarge: "Ampliar {{name}}",
       preview: "Pré-visualização da imagem",
+      cropPreview: "Pré-visualização do recorte da imagem",
       previous: "Imagem anterior",
       next: "Próxima imagem",
       counter: "{{current}} / {{total}}",
+    },
+    percent: {
+      slider: "Porcentagem",
     },
     relativeDate: {
       overdue: "Atrasado {{count}} d",
@@ -403,6 +408,7 @@ const pt = {
     selectAllRows: "Selecionar todas as linhas",
     expandRow: "Expandir linha",
     collapseRow: "Recolher linha",
+    rowActions: "Ações da linha",
     hideColumn: "Ocultar coluna",
     freezeColumn: "Fixar coluna",
     unfreezeColumn: "Soltar coluna",
@@ -444,6 +450,7 @@ const pt = {
     bulkAllOnPage_other: "Os {{count}} desta página estão selecionados.",
     bulkSelectAllMatching: "Selecionar todas as {{count}} correspondências",
     bulkAllMatchingSelected: "Todos os {{count}} registros correspondentes estão selecionados.",
+    bulkActions: "Ações em massa",
     bulk: {
       confirmDefault: "Isto será aplicado a {{count}} registro(s).",
       confirmDefault_one: "Isto será aplicado a {{count}} registro.",
@@ -1058,6 +1065,8 @@ const pt = {
   designer: {
     undo: "Desfazer",
     redo: "Refazer",
+    canvasMinimap: "Minimapa da tela",
+    versionHistory: "Histórico de versões",
   },
   detail: {
     editInlineHint: "Clique duas vezes para editar",
@@ -2578,6 +2587,7 @@ const pt = {
     appDocs: 'Documentação deste app',
     allDocs: 'Toda a documentação',
     onlineDocs: 'Documentação online',
+    loadingDocumentation: 'Carregando documentação',
   },
   sidebar: {
     packageManagement: "Gerenciamento de pacotes",
@@ -3472,6 +3482,13 @@ const pt = {
       dismiss: "Dispensar",
       confirmedToast: "\"{{set}}\" agora está concedido a {{anchor}}.",
       dismissedToast: "Sugestão de \"{{set}}\" dispensada.",
+      guestUnsupported: "Não é possível conceder aqui: os conjuntos da posição Guest não são derivados de sugestões aceitas.",
+      acceptedState: "\"{{set}}\" foi aceito para todos os usuários autenticados (a posição Everyone).",
+      notInForceState: "\"{{set}}\" foi aceito, mas ainda não está em vigor: a posição Everyone não mudou nesta solicitação. O log do servidor informa o motivo.",
+      dismissedState: "\"{{set}}\" não está concedido: a sugestão foi dispensada ou revogada.",
+      revoke: "Revogar",
+      revoking: "Revogando…",
+      revokedToast: "Aceitação de \"{{set}}\" revogada.",
     },
     title: "Marketplace de aplicativos",
     subtitle: "Explore aplicativos aprovados publicados no catálogo ObjectStack. Clique em um aplicativo para ver os detalhes e instalá-lo em um de seus ambientes.",

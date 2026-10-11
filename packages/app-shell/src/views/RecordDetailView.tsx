@@ -2110,6 +2110,18 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             }
           }
         }
+        // objectui#12144: each comment's reply count is its children in the
+        // rows this read returned. `sys_comment` stores no count: its object
+        // definition says to count `parent_id` children at read time. With
+        // threading on, the timeline shows a comment's replies only under a
+        // `replyCount` above zero, so without this a stored reply was shown
+        // nowhere. Counted the way the timeline groups replies: by the row's
+        // `parent_id`, when it has one. A reply whose parent is not among
+        // these rows counts toward no item here.
+        const replyCounts = new Map<unknown, number>();
+        for (const c of res.data as Array<{ parent_id?: unknown }>) {
+          if (c.parent_id) replyCounts.set(c.parent_id, (replyCounts.get(c.parent_id) ?? 0) + 1);
+        }
         const mapped: FeedItem[] = res.data.map((c: any) => ({
           id: c.id,
           type: 'comment' as const,
@@ -2119,6 +2131,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           createdAt: c.created_at,
           updatedAt: c.updated_at,
           parentId: c.parent_id ?? undefined,
+          replyCount: replyCounts.get(c.id),
           reactions:
             reactionStore === 'records'
               ? toReactions(records?.stored.get(String(c.id)))

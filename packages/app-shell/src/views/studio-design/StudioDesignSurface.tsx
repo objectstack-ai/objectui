@@ -6856,10 +6856,11 @@ export function AccessPillar({
         )}
       </div>
 
-      {/* ADR-0090 D5/D9 — this package's pending suggested audience bindings
-          (isDefault sets shipped by the package, awaiting the admin's
-          confirm). Renders nothing when there are none or for non-admins;
-          confirm is enforced server-side by the anchor gates. */}
+      {/* ADR-0090 D5/D9 — this package's suggested audience bindings
+          (isDefault sets shipped by the package) and the deployment's
+          decision on each. Renders nothing when there are none or for a
+          caller without manage_metadata (the list answers 403); accept and
+          revoke are enforced server-side by the anchor gates. */}
       {!readOnly && (
         <SuggestedBindingsPanel
           packageId={packageId}
@@ -6883,6 +6884,17 @@ export function AccessPillar({
               }),
             dismissedToast: (s) =>
               tFormat('engine.studio.access.suggestDismissedToast', locale, { set: s.permission_set_name }),
+            guestUnsupported: t('engine.studio.access.suggestGuestUnsupported', locale),
+            acceptedState: (s) =>
+              tFormat('engine.studio.access.suggestAcceptedState', locale, { set: s.permission_set_name }),
+            notInForceState: (s) =>
+              tFormat('engine.studio.access.suggestNotInForceState', locale, { set: s.permission_set_name }),
+            dismissedState: (s) =>
+              tFormat('engine.studio.access.suggestDismissedState', locale, { set: s.permission_set_name }),
+            revoke: t('engine.studio.access.suggestRevoke', locale),
+            revoking: t('engine.studio.access.suggestRevoking', locale),
+            revokedToast: (s) =>
+              tFormat('engine.studio.access.suggestRevokedToast', locale, { set: s.permission_set_name }),
           }}
         />
       )}

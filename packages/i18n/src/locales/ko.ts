@@ -13,7 +13,7 @@ const ko = {
       notRestored: '서버가 요청을 받았지만 관리자 세션을 복원하지 않았습니다. 여전히 {{user}} 계정을 대행하고 있습니다. 로그아웃 후 다시 로그인하여 종료하세요.',
     },
   },
-  // objectui#2600 B5 — capability picker scope group headers (labels come from the sys_capability registry).
+  // objectui#2600 B5 — capability picker scope group headers (labels come from the capability registry).
   capability: {
     label: {
       manage_users: "사용자 관리",
@@ -127,6 +127,7 @@ const ko = {
     itemCount_one: "{{count}}개 항목",
     itemCount_other: "{{count}}개 항목",
     toggleSidebar: "사이드바 전환",
+    breadcrumb: "탐색 경로",
     package: "패키지",
     done: "완료",
     editInStudio: "Studio에서 편집",
@@ -261,9 +262,13 @@ const ko = {
       remove: "이미지 {{index}} 삭제",
       enlarge: "{{name}} 확대",
       preview: "이미지 미리보기",
+      cropPreview: "이미지 자르기 미리보기",
       previous: "이전 이미지",
       next: "다음 이미지",
       counter: "{{current}} / {{total}}",
+    },
+    percent: {
+      slider: "백분율",
     },
     relativeDate: {
       overdue: "기한 초과 {{count}}일",
@@ -397,6 +402,7 @@ const ko = {
     selectAllRows: "모든 행 선택",
     expandRow: "행 펼치기",
     collapseRow: "행 접기",
+    rowActions: "행 작업",
     hideColumn: "열 숨기기",
     freezeColumn: "열 고정",
     unfreezeColumn: "열 고정 해제",
@@ -434,6 +440,7 @@ const ko = {
     bulkAllOnPage_other: "이 페이지의 {{count}}건이 모두 선택되었습니다.",
     bulkSelectAllMatching: "일치하는 {{count}}건 모두 선택",
     bulkAllMatchingSelected: "일치하는 레코드 {{count}}건이 모두 선택되었습니다.",
+    bulkActions: "일괄 작업",
     bulk: {
       confirmDefault: "레코드 {{count}}건에 적용됩니다.",
       confirmDefault_one: "레코드 {{count}}건에 적용됩니다.",
@@ -1032,6 +1039,8 @@ const ko = {
   designer: {
     undo: "실행 취소",
     redo: "다시 실행",
+    canvasMinimap: "캔버스 미니맵",
+    versionHistory: "버전 기록",
   },
   detail: {
     editInlineHint: "더블클릭하여 편집",
@@ -2533,6 +2542,7 @@ const ko = {
     appDocs: '이 앱의 문서',
     allDocs: '전체 문서',
     onlineDocs: '온라인 문서',
+    loadingDocumentation: '문서 로딩 중',
   },
   sidebar: {
     packageManagement: "패키지 관리",
@@ -3411,6 +3421,13 @@ const ko = {
       dismiss: "닫기",
       confirmedToast: "\"{{set}}\"이(가) 이제 {{anchor}}에 부여되었습니다.",
       dismissedToast: "\"{{set}}\" 제안을 닫았습니다.",
+      guestUnsupported: "여기서는 부여할 수 없습니다. Guest 위치의 세트는 승인된 제안에서 파생되지 않습니다.",
+      acceptedState: "\"{{set}}\"이(가) 로그인한 모든 사용자(Everyone 위치)에 대해 승인되었습니다.",
+      notInForceState: "\"{{set}}\"이(가) 승인되었지만 아직 적용되지 않았습니다. 이 요청으로 Everyone 위치가 변경되지 않았습니다. 이유는 서버 로그에 기록되어 있습니다.",
+      dismissedState: "\"{{set}}\"은(는) 부여되지 않았습니다. 제안이 닫혔거나 취소되었습니다.",
+      revoke: "취소",
+      revoking: "취소하는 중…",
+      revokedToast: "\"{{set}}\" 승인을 취소했습니다.",
     },
     title: "앱 마켓플레이스",
     subtitle: "ObjectStack 카탈로그에 게시된 승인된 앱을 탐색하세요. 앱을 클릭하여 세부 정보를 보고 환경 중 하나에 설치하세요.",

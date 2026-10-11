@@ -9,6 +9,7 @@
 import React from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useDesignerTranslation } from '../hooks/useDesignerTranslation';
 
 function cn(...inputs: (string | undefined | false)[]) {
   return twMerge(clsx(inputs));
@@ -51,6 +52,7 @@ export function Minimap({
   size = 150,
   className,
 }: MinimapProps) {
+  const { t } = useDesignerTranslation();
   const scale = Math.min(size / canvasWidth, size / canvasHeight);
   const scaledWidth = canvasWidth * scale;
   const scaledHeight = canvasHeight * scale;
@@ -70,7 +72,7 @@ export function Minimap({
         className,
       )}
       role="img"
-      aria-label="Canvas minimap"
+      aria-label={t('designer.canvasMinimap')}
     >
       <svg width={scaledWidth} height={scaledHeight} viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}>
         <rect width={canvasWidth} height={canvasHeight} fill="hsl(var(--muted))" opacity="0.3" />

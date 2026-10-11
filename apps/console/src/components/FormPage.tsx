@@ -1433,7 +1433,19 @@ async function loadPublicForm(slug: string): Promise<LoadedForm> {
     // `payload.label` keeps its precedence: when an envelope identity label
     // does arrive it is a deliberate per-view name, and this card changed the
     // fallback ORDER, not which value wins where one already did.
-    label: payload.label ?? payload.form?.title ?? payload.form?.label ?? payload.object,
+    //
+    // objectui#12110 item 7 (finding A-09 of the HotCRM browser pass): a form
+    // that names itself nowhere is headed by its OBJECT's label, which this
+    // endpoint serves on `objectSchema`, before the API name — the database
+    // table name is what an anonymous visitor must never be greeted by. The
+    // API name stays the last resort, for a payload that carries no label at
+    // all; `||` rather than `??` there so an empty label cannot blank the
+    // heading.
+    label:
+      payload.label
+      ?? payload.form?.title
+      ?? payload.form?.label
+      ?? (payload.objectSchema?.label || payload.object),
     object: payload.object,
     form: payload.form,
     objectSchema: payload.objectSchema,

@@ -10,6 +10,7 @@ import * as React from 'react';
 import { Button, ScrollArea } from '@object-ui/components';
 import { Undo2, Redo2, History as HistoryIcon, RotateCcw } from 'lucide-react';
 import type { UndoRedoState } from '../hooks/useUndoRedo';
+import { useDesignerTranslation } from '../hooks/useDesignerTranslation';
 
 export interface HistoryPanelProps<T> {
   /** The undo/redo state returned by `useUndoRedo` / `useDesignerHistory`. */
@@ -52,6 +53,7 @@ export function HistoryPanel<T>({
   className,
 }: HistoryPanelProps<T>) {
   const { timeline, currentIndex, undo, redo, jumpTo, canUndo, canRedo } = history;
+  const { t } = useDesignerTranslation();
 
   const defaultRenderLabel = React.useCallback(
     (_entry: T, _index: number, position: number) => {
@@ -86,7 +88,7 @@ export function HistoryPanel<T>({
               size="sm"
               onClick={undo}
               disabled={!canUndo}
-              aria-label="Undo"
+              aria-label={t('designer.undo')}
               data-testid="history-panel-undo"
             >
               <Undo2 className="size-4" />
@@ -97,7 +99,7 @@ export function HistoryPanel<T>({
               size="sm"
               onClick={redo}
               disabled={!canRedo}
-              aria-label="Redo"
+              aria-label={t('designer.redo')}
               data-testid="history-panel-redo"
             >
               <Redo2 className="size-4" />

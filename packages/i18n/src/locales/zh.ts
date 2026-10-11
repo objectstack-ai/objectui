@@ -17,7 +17,7 @@ const zh = {
     },
   },
   // objectui#2600 B5 — 能力选择器的作用域分组标题(能力标签本身来自
-  // sys_capability 注册表,这里只本地化分组标题这类 UI 字符串)。
+  // capability 注册表,这里只本地化分组标题这类 UI 字符串)。
   capability: {
     group: {
       platform: '平台',
@@ -134,6 +134,7 @@ const zh = {
     itemCount_one: '{{count}} 项',
     itemCount_other: '{{count}} 项',
     toggleSidebar: '切换侧边栏',
+    breadcrumb: '面包屑导航',
     package: '软件包',
     done: '完成',
     editInStudio: '在 Studio 中编辑',
@@ -291,9 +292,13 @@ const zh = {
       remove: '移除图片 {{index}}',
       enlarge: '放大 {{name}}',
       preview: '图片预览',
+      cropPreview: '图片裁剪预览',
       previous: '上一张',
       next: '下一张',
       counter: '{{current}} / {{total}}',
+    },
+    percent: {
+      slider: '百分比',
     },
     richText: {
       format: '格式: {{format}}',
@@ -408,6 +413,7 @@ const zh = {
     selectAllRows: '选择所有行',
     expandRow: '展开行',
     collapseRow: '折叠行',
+    rowActions: '行操作',
     hideColumn: '隐藏列',
     freezeColumn: '冻结列',
     unfreezeColumn: '取消冻结列',
@@ -456,6 +462,7 @@ const zh = {
     bulkAllOnPage_other: '本页 {{count}} 项已全选。',
     bulkSelectAllMatching: '选择全部 {{count}} 项匹配记录',
     bulkAllMatchingSelected: '已选择全部 {{count}} 项匹配记录。',
+    bulkActions: '批量操作',
     rowHeight: '行高: {{mode}}',
     empty: '空',
     yes: '是',
@@ -1057,6 +1064,8 @@ const zh = {
   designer: {
     undo: '撤销',
     redo: '重做',
+    canvasMinimap: '画布缩略图',
+    versionHistory: '版本历史',
   },
   detail: {
     back: '返回',
@@ -2623,6 +2632,7 @@ const zh = {
     appDocs: '本应用文档',
     allDocs: '全部文档',
     onlineDocs: '在线文档',
+    loadingDocumentation: '正在加载文档',
   },
   sidebar: {
     settings: '设置',
@@ -3701,6 +3711,13 @@ const zh = {
         dismiss: '忽略',
         confirmedToast: '「{{set}}」已授予 {{anchor}}。',
         dismissedToast: '已忽略「{{set}}」的建议。',
+        guestUnsupported: '此处无法授予：Guest 岗位的权限集不由已接受的建议派生。',
+        acceptedState: '「{{set}}」已为所有已登录用户（Everyone 岗位）接受。',
+        notInForceState: '「{{set}}」已接受，但尚未生效：本次请求未改变 Everyone 岗位。原因见服务器日志。',
+        dismissedState: '「{{set}}」未授予：该建议已被忽略或撤销。',
+        revoke: '撤销',
+        revoking: '撤销中…',
+        revokedToast: '已撤销对「{{set}}」的接受。',
       },
       uninstall: {
         confirm: '从本运行时卸载 {{manifestId}} v{{version}}？\n\n磁盘上的清单缓存将被移除。运行中的内核仍会保留该应用，直到下次重启运行时才会真正卸载。',

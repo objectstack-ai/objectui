@@ -15,9 +15,11 @@ import { toast } from 'sonner';
 import { useAdapter } from '@object-ui/react';
 import { useMetadata } from '@object-ui/react';
 import { ArrowLeft } from 'lucide-react';
+import { useDesignerTranslation } from '../hooks/useDesignerTranslation';
 
 export function DashboardDesignPage() {
   const navigate = useNavigate();
+  const { t } = useDesignerTranslation();
   const { dashboardName } = useParams<{ dashboardName: string }>();
   const dataSource = useAdapter();
   const { dashboards, refresh } = useMetadata();
@@ -134,7 +136,7 @@ export function DashboardDesignPage() {
           type="button"
           onClick={() => navigate(-1)}
           className="rounded p-1.5 text-muted-foreground hover:text-foreground"
-          aria-label="Go back"
+          aria-label={t('detail.goBack')}
           data-testid="dashboard-design-back"
         >
           <ArrowLeft className="h-4 w-4" />

@@ -422,8 +422,15 @@ describe('Approvals drawer summary — field metadata faces (objectui#11677)', (
   });
 
   it('labels the lead from the metadata read, as the record page does — not from `payload_labels`', async () => {
-    useRequest(INVOICE);
-    const dialog = await openedDrawer(INVOICE);
+    // A billed invoice: `total` is a `summary` roll-up, so it leads only with a
+    // non-zero value — the dogfood invoice's own `total: 0` is a zero from a
+    // name match, which objectui#12110 item 6 keeps out of the headline.
+    const billed = {
+      ...INVOICE,
+      payload: { ...(INVOICE.payload as Record<string, unknown>), total: 1180 },
+    };
+    useRequest(billed);
+    const dialog = await openedDrawer(billed);
     await waitFor(() => expect(summaryRows(dialog).get('region')?.value).toBe('EMEA'));
 
     const lead = dialog.querySelector('[data-summary-lead]');
@@ -431,7 +438,7 @@ describe('Approvals drawer summary — field metadata faces (objectui#11677)', (
     // The record page reads "Total" for this field; the snapshot's server
     // label ("Subtotal") is what the card showed before.
     expect(lead?.children[0]?.textContent).toBe('Total');
-    expect((lead?.children[1]?.textContent ?? '').trim()).toBe(recordPageFace('showcase_invoice', 'total', 0));
+    expect((lead?.children[1]?.textContent ?? '').trim()).toBe(recordPageFace('showcase_invoice', 'total', 1180));
   });
 
   it('a payload key the object does not declare takes no row once the schema answered', async () => {

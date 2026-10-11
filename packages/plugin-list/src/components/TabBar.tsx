@@ -185,9 +185,12 @@ export const TabBarSelect: React.FC<TabBarProps> = ({
 }) => {
   const visibleTabs = React.useMemo(() => getVisibleTabs(tabs), [tabs]);
   const tabLabel = useTabLabel();
+  // objectui#12145 — the trigger's accessible name. The same key the app
+  // header's view switcher reads for the same name.
+  const { t } = useObjectTranslation();
 
   const defaultTab = React.useMemo(() => {
-    const def = visibleTabs.find(t => t.isDefault);
+    const def = visibleTabs.find(tab => tab.isDefault);
     return def?.name ?? visibleTabs[0]?.name;
   }, [visibleTabs]);
 
@@ -195,7 +198,7 @@ export const TabBarSelect: React.FC<TabBarProps> = ({
   const activeTabName = controlledActiveTab ?? internalActiveTab;
 
   const activeTab = React.useMemo(
-    () => visibleTabs.find(t => t.name === activeTabName) ?? visibleTabs[0],
+    () => visibleTabs.find(tab => tab.name === activeTabName) ?? visibleTabs[0],
     [visibleTabs, activeTabName],
   );
 
@@ -219,7 +222,7 @@ export const TabBarSelect: React.FC<TabBarProps> = ({
             variant="ghost"
             size="sm"
             className="h-7 px-2 text-xs font-medium text-foreground gap-1.5 max-w-[60vw] truncate"
-            aria-label="Switch view"
+            aria-label={t('topbar.switchView', { defaultValue: 'Switch view' })}
           >
             {/* eslint-disable-next-line react-hooks/static-components -- resolveIcon returns a stable lucide icon component from a static registry, not a component created during render */}
             {ActiveIcon && <ActiveIcon className="h-3.5 w-3.5 shrink-0" />}

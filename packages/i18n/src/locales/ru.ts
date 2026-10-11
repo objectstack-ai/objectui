@@ -13,7 +13,7 @@ const ru = {
       notRestored: 'Сервер принял запрос, но не восстановил сеанс администратора — вы всё ещё работаете от имени {{user}}. Выйдите и войдите снова, чтобы завершить.',
     },
   },
-  // objectui#2600 B5 — capability picker scope group headers (labels come from the sys_capability registry).
+  // objectui#2600 B5 — capability picker scope group headers (labels come from the capability registry).
   capability: {
     label: {
       manage_users: "Управление пользователями",
@@ -147,6 +147,7 @@ const ru = {
     itemCount_many: "{{count}} элементов",
     itemCount_other: "{{count}} элемента",
     toggleSidebar: "Переключить боковую панель",
+    breadcrumb: "Навигационная цепочка",
     package: "Пакет",
     done: "Готово",
     editInStudio: "Редактировать в Studio",
@@ -281,9 +282,13 @@ const ru = {
       remove: "Удалить изображение {{index}}",
       enlarge: "Увеличить {{name}}",
       preview: "Предпросмотр изображения",
+      cropPreview: "Предпросмотр обрезки изображения",
       previous: "Предыдущее изображение",
       next: "Следующее изображение",
       counter: "{{current}} / {{total}}",
+    },
+    percent: {
+      slider: "Процент",
     },
     relativeDate: {
       overdue: "Просрочено на {{count}} дн.",
@@ -419,6 +424,7 @@ const ru = {
     selectAllRows: "Выбрать все строки",
     expandRow: "Развернуть строку",
     collapseRow: "Свернуть строку",
+    rowActions: "Действия со строкой",
     hideColumn: "Скрыть столбец",
     freezeColumn: "Закрепить столбец",
     unfreezeColumn: "Открепить столбец",
@@ -464,6 +470,7 @@ const ru = {
     bulkAllOnPage_other: "Выбраны все записи на этой странице ({{count}}).",
     bulkSelectAllMatching: "Выбрать все совпадения ({{count}})",
     bulkAllMatchingSelected: "Выбраны все подходящие записи ({{count}}).",
+    bulkActions: "Массовые действия",
     bulk: {
       confirmDefault: "Будет применено к записям: {{count}}.",
       confirmDefault_one: "Будет применено к записям: {{count}}.",
@@ -1097,6 +1104,8 @@ const ru = {
   designer: {
     undo: "Отменить",
     redo: "Повторить",
+    canvasMinimap: "Миникарта холста",
+    versionHistory: "История версий",
   },
   detail: {
     editInlineHint: "Дважды щёлкните для редактирования",
@@ -2645,6 +2654,7 @@ const ru = {
     appDocs: 'Документация приложения',
     allDocs: 'Вся документация',
     onlineDocs: 'Онлайн-документация',
+    loadingDocumentation: 'Загрузка документации',
   },
   sidebar: {
     packageManagement: "Управление пакетами",
@@ -3558,6 +3568,13 @@ const ru = {
       dismiss: "Закрыть",
       confirmedToast: "«{{set}}» теперь предоставлен: {{anchor}}.",
       dismissedToast: "Предложение по «{{set}}» закрыто.",
+      guestUnsupported: "Здесь предоставить нельзя: наборы позиции Guest не выводятся из принятых предложений.",
+      acceptedState: "«{{set}}» принят для всех вошедших пользователей (позиция Everyone).",
+      notInForceState: "«{{set}}» принят, но ещё не действует: этот запрос не изменил позицию Everyone. Причина указана в журнале сервера.",
+      dismissedState: "«{{set}}» не предоставлен: предложение закрыто или отозвано.",
+      revoke: "Отозвать",
+      revoking: "Отзыв…",
+      revokedToast: "Принятие «{{set}}» отозвано.",
     },
     title: "Маркетплейс приложений",
     subtitle: "Просматривайте одобренные приложения из каталога ObjectStack. Нажмите на приложение, чтобы увидеть подробности и установить его.",

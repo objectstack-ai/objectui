@@ -298,11 +298,20 @@ export const usePromptInputAttachments = () => {
 export type PromptInputAttachmentProps = HTMLAttributes<HTMLDivElement> & {
   data: PromptInputFileItem;
   className?: string;
+  /**
+   * The remove button's accessible name. ObjectUI addition to the vendored
+   * element (objectui#12145), in the same spirit as `ToolHeader`'s
+   * `statusLabels` (objectui#7254): `props` reach the chip, not the button
+   * inside it, so a caller had no way to name the button in its own language.
+   * Additive and optional: omitted, the upstream English name stays.
+   */
+  removeLabel?: string;
 };
 
 export function PromptInputAttachment({
   data,
   className,
+  removeLabel = "Remove attachment",
   ...props
 }: PromptInputAttachmentProps) {
   const attachments = usePromptInputAttachments();
@@ -343,7 +352,7 @@ export function PromptInputAttachment({
               )}
             </div>
             <Button
-              aria-label="Remove attachment"
+              aria-label={removeLabel}
               className="absolute inset-0 size-5 cursor-pointer rounded p-0 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 [&>svg]:size-2.5"
               onClick={(e) => {
                 e.stopPropagation();

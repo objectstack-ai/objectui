@@ -187,8 +187,10 @@ describe('the catalog plans draw each successor where the plan puts it (objectui
     const { ends } = await drawn(plan);
     const { endDateField: e } = plan.gantt;
     for (const row of plan.staticData) {
-      const [, month, day] = (row[e] as string).split('-').map(Number);
-      expect(ends.get(String(row.id)), `task ${row.id}`).toBe(`${month}/${day}`);
+      const [year, month, day] = (row[e] as string).split('-').map(Number);
+      // The catalog's plans are authored in 2024, which is not the current
+      // year, so the End cell names the year too (objectui#12110 item 5).
+      expect(ends.get(String(row.id)), `task ${row.id}`).toBe(`${month}/${day}/${String(year).slice(-2)}`);
     }
   });
 });

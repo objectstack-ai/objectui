@@ -9,6 +9,7 @@
 import { useMemo } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { BookOpen, Loader2 } from 'lucide-react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { DocShell } from './DocShell';
 import { useBookData } from './use-book-data';
 import { buildBookCards, pkgOfBook, type Book } from './book-nav';
@@ -26,6 +27,7 @@ import { buildBookCards, pkgOfBook, type Book } from './book-nav';
  */
 export default function AppDocsIndex() {
   const { appName } = useParams<{ appName?: string }>();
+  const { t } = useObjectTranslation();
   const { books, docs, state } = useBookData();
 
   const myBooks = useMemo<Book[]>(
@@ -37,7 +39,7 @@ export default function AppDocsIndex() {
   if (state === 'loading') {
     return (
       <div className="flex h-full items-center justify-center p-10 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading documentation" />
+        <Loader2 className="h-5 w-5 animate-spin" aria-label={t('help.loadingDocumentation', { defaultValue: 'Loading documentation' })} />
       </div>
     );
   }

@@ -211,18 +211,34 @@ describe('objectui#8408 — public form heading and description', () => {
     expect(header.querySelector('h1 ~ p')?.textContent).toBe(DESCRIPTION);
   });
 
-  it('NO_TITLE_STILL_FALLS_BACK — a form with neither title nor label keeps the API name', async () => {
-    // The no-widening control. This card adds one arm to a fallback chain; it
-    // does not change what happens when every arm legitimately misses, and a
-    // renderer that started printing something else there would be a different
-    // change than the one that was ruled.
+  it('NO_TITLE_TAKES_THE_OBJECT_LABEL — a form with neither title nor label is headed by the object\'s label (objectui#12110 item 7)', async () => {
+    // This leg used to pin the API name here, as the no-widening control of
+    // objectui#8408. The HotCRM browser pass (finding A-09) measured that
+    // fallback as the defect it is — an anonymous visitor greeted by the
+    // database table name — and objectui#12110 rules the object's label in
+    // ahead of it. The served payload carries that label on `objectSchema`.
     const { title, description, ...untitled } = APPLY_FORM;
     void title;
     void description;
     renderPublic({ ...SERVED, form: untitled });
     const header = await liveHeader();
 
-    expect(header.querySelector('h1')?.textContent).toBe(API_NAME);
+    expect(header.querySelector('h1')?.textContent).toBe(INQUIRY_SCHEMA.label);
+    expect(header.textContent).not.toContain(API_NAME);
     expect(header.querySelector('h1 ~ p')).toBeNull();
+  });
+
+  it('NO_LABEL_ANYWHERE_FALLS_BACK — with no object label either, the API name is the last resort', async () => {
+    // The no-widening control, moved one arm down: when every arm before it
+    // legitimately misses, the chain still ends where it always ended.
+    const { title, description, ...untitled } = APPLY_FORM;
+    void title;
+    void description;
+    const { label, ...unlabelledSchema } = INQUIRY_SCHEMA;
+    void label;
+    renderPublic({ ...SERVED, form: untitled, objectSchema: unlabelledSchema });
+    const header = await liveHeader();
+
+    expect(header.querySelector('h1')?.textContent).toBe(API_NAME);
   });
 });

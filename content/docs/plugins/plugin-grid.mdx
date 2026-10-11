@@ -181,7 +181,7 @@ re-exported from `@object-ui/types`; it is the type of `ObjectGridSchema`'s
 | Key | Type | Meaning |
 | --- | --- | --- |
 | `field` | `string` (**required**) | The field this column reads. There is no `accessorKey`. |
-| `label` | `string \| Record<string, string>` | Header text, or an inline locale map. There is no `header`. |
+| `label` | `string \| Record<string, string>` | Header text, or an inline locale map. There is no `header`. An authored label is the header as written; a column without one takes the field's (translated) label. |
 | `width` | `number` | Column width in pixels. |
 | `align` | `'left' \| 'center' \| 'right'` | Cell alignment. |
 | `hidden` | `boolean` | Hidden by default, revealable in the column chooser. |

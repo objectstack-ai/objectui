@@ -2,135 +2,75 @@
 
 /**
  * "Clone to customize" — the locked permission matrix's primary action
- * (objectui#5987, the UI half of objectstack#11513).
+ * (objectui#5987, the UI half of objectstack#11513), calling the server's
+ * clone door (objectui#7611, PR-4).
  *
  * ## What is pinned
  *
  * The artifact tier (`isArtifactBackedLayer`, objectui#4518 / #4526) locks a set
  * a code package ships. The maintainer's ruling on objectstack#11513 — 「同意
  * 第一步(创业阶段,Salesforce 式)」: lock the base, clone to customize — makes
- * cloning the sanctioned edit path, and the server's own `403 not_overridable`
- * refusal names the `clone_permission_set` action as the remedy. This suite pins
- * that the editor:
+ * cloning the sanctioned edit path. The seat's ruling on objectui#7611
+ * (6097763840, Q1 → A) puts the copy on the server: a door that copies the
+ * whole definition under a new name, "objectui calling it with a name and a
+ * label". This suite pins that the editor:
  *
  *   1. renders "Clone to customize" as the locked editor's PRIMARY action, in
  *      the slot Save would occupy, and names cloning FIRST in its guidance
  *      (en-US and zh-CN);
- *   2. runs the PUBLISHED `clone_permission_set` action — the one declared on
- *      the `sys_permission_set` object the console holds — through the shared
- *      action runner, with THIS set's row as its identity, never a clone
- *      assembled from create / update calls;
- *   3. opens the returned clone, which loads with no code layer and is
- *      writable;
- *   4. shows no clone prompt on an org-owned set, a type-locked set or a
- *      host-locked package (the controls);
- *   5. surfaces the same guidance when a save that reached the server is
- *      refused `403 NOT_OVERRIDABLE` (the card's item 3), keyed on the code.
+ *   2. asks for a new name and label, and POSTs exactly `{ name, label }` to
+ *      `POST /api/v1/security/permission-sets/:name/clone` for THIS set — no
+ *      record read, no record action, no facet sent;
+ *   3. opens the returned copy, which loads with no code layer and is writable,
+ *      in the same scope, with the server's notice shown as sent;
+ *   4. shows a refusal's own message as sent (409 a taken name, 403 a caller
+ *      without `manage_metadata`), and stays on the base;
+ *   5. offers no clone to a caller without `manage_metadata`, nor on an
+ *      org-owned set, a type-locked set or a host-locked package (the
+ *      controls);
+ *   6. surfaces the same guidance when a save that reached the server is
+ *      refused `403 NOT_OVERRIDABLE`, keyed on the code.
  *
- * ## Red-first
+ * ## The door's answers are transcribed from the door
  *
- * Every case below that asserts the clone affordance fails on the base this
- * branch was cut from (`origin/main` at `a2f361b8c1`): the locked editor offered
- * no clone action, its guidance never named cloning, and a `NOT_OVERRIDABLE`
- * refusal rendered the transport's message alone.
- *
- * ## The action fixture is the shipped declaration
- *
- * `@objectstack/plugin-security` is not a dependency of this repo, so the Clone
- * action cannot be imported. `CLONE_ACTION` below is transcribed from the
- * `clone_permission_set` action on `SysPermissionSet`
- * (`sys-permission-set.object.ts` in that package, identical at the published
- * tag `@objectstack/plugin-security@17.4.0` and on `main` when read). The suite
- * asserts the DISPATCH carries that declaration — not a list of this editor's
- * own — which is what "wired to the published action" means here.
+ * The 200 body is `{ success: true, data: { permissionSet, notice } }`, the
+ * notice being `PERMISSION_SET_CLONE_NOTICE` and the refusal texts the door's
+ * own (`packages/runtime/src/domains/permission-set-clone.ts`, objectstack
+ * #22881), each measured against a running showcase for this suite's PR.
  */
 
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-router-dom';
 
-/* ── The shipped declaration ─────────────────────────────────────────────── */
-
-const SYS_PERMISSION_SET = 'sys_permission_set';
 const BASE_SET = 'showcase_contributor';
 const CLONE_NAME = 'my_clone';
+const CLONE_LABEL = 'My clone';
+const DOOR = `/api/v1/security/permission-sets/${BASE_SET}/clone`;
 
-/** The five facets the shipped action declares `carryOver` on. */
-const CARRIED = [
-  'object_permissions',
-  'field_permissions',
-  'system_permissions',
-  'row_level_security',
-  'tab_permissions',
-] as const;
+/** `PERMISSION_SET_CLONE_NOTICE`, as the door sends it. */
+const NOTICE =
+  'The copy is a new permission set authored in this environment, with no link to the set it was copied '
+  + 'from: changes to that set do not reach it. Not copied: delegated-admin scope (`adminScope`) and the '
+  + 'everyone-baseline suggestion (`isDefault`) — grant either deliberately on the copy if it needs one. '
+  + 'The copy is held by nobody yet: add it to a position, or assign it to users.';
 
-/** `clone_permission_set`, as `SysPermissionSet` declares it. */
-const CLONE_ACTION = {
-  name: 'clone_permission_set',
-  label: 'Clone',
-  icon: 'copy',
-  variant: 'secondary',
-  mode: 'custom',
-  locations: ['list_item', 'record_header'],
-  type: 'api',
-  method: 'POST',
-  target: '/api/v1/data/sys_permission_set',
-  bodyExtra: { active: true },
-  description:
-    'Copies this set\'s permissions into a new organization-owned set you can edit. '
-    + 'Delegated-admin scope is not copied — grant it deliberately on the new set if it needs one.',
-  successMessage: 'Permission set cloned',
-  refreshAfter: true,
-  params: [
-    { name: 'label', label: 'New Display Name', type: 'text', required: true },
-    { name: 'name', label: 'New API Name', type: 'text', required: true, helpText: 'snake_case machine name, unique per organization' },
-    { field: 'description', defaultFromRow: true },
-    { field: 'object_permissions', defaultFromRow: true, carryOver: true },
-    { field: 'field_permissions', defaultFromRow: true, carryOver: true },
-    { field: 'system_permissions', defaultFromRow: true, carryOver: true },
-    { field: 'row_level_security', defaultFromRow: true, carryOver: true },
-    { field: 'tab_permissions', defaultFromRow: true, carryOver: true },
-  ],
-};
+/** The door's 409 for a taken name. */
+const NAME_TAKEN =
+  `Permission set '${CLONE_NAME}' already exists — a clone must take a NEW machine name. `
+  + 'Permission sets are assigned by name, so a second definition under one name would change what every '
+  + `holder of '${CLONE_NAME}' is granted (ADR-0126 §7.1). Retry with a name no permission set uses (for example '${CLONE_NAME}_copy').`;
 
-/** The object the action is declared on, as the console's metadata store holds it. */
-const SYS_PERMISSION_SET_DEF = {
-  name: SYS_PERMISSION_SET,
-  label: 'Permission Set',
-  fields: {
-    label: { type: 'text', label: 'Display Name', required: true },
-    name: { type: 'text', label: 'API Name', required: true },
-    description: { type: 'textarea', label: 'Description' },
-    object_permissions: { type: 'textarea', label: 'Object Permissions' },
-    field_permissions: { type: 'textarea', label: 'Field Permissions' },
-    system_permissions: { type: 'textarea', label: 'System Permissions' },
-    row_level_security: { type: 'textarea', label: 'Row-Level Security' },
-    tab_permissions: { type: 'textarea', label: 'Tab Permissions' },
-  },
-  actions: [CLONE_ACTION],
-};
-
-/** The set's `sys_permission_set` row — the identity the clone runs against. */
-const ROW = {
-  id: 'ps_1',
-  name: BASE_SET,
-  label: 'Contributor',
-  description: 'Ships with the showcase',
-  managed_by: 'package',
-  object_permissions: JSON.stringify({ a_account: { allowRead: true, allowCreate: true } }),
-  field_permissions: '{}',
-  system_permissions: '[]',
-  row_level_security: '{}',
-  tab_permissions: '{}',
-};
+/** The metadata door's capability refusal, which the clone door asks too. */
+const NO_CAPABILITY = 'Saving a metadata item requires the `manage_metadata` capability.';
 
 /* ── Fakes ───────────────────────────────────────────────────────────────── */
 
 // Which sets a code package ships, by name: the layered envelope's `code` slot.
 let codeLayerByName: Record<string, Record<string, unknown> | null> = {};
-// What `client.save` does — the default resolves; item 3 makes it refuse.
+// What `client.save` does — the default resolves; item 6 makes it refuse.
 let saveImpl: (type: string, name: string, payload: Record<string, unknown>) => Promise<unknown> =
   async (_t, _n, payload) => payload;
 
@@ -179,87 +119,87 @@ vi.mock('./i18n', async (importOriginal) => ({
   useMetadataLocale: () => localeFixture,
 }));
 
-// The console's record adapter and metadata store, as the editor reaches them
-// through `@object-ui/react`. `ActionProvider` / `useAction` stay REAL: the
-// dispatch under test goes through the genuine runner.
-let rows: Array<Record<string, unknown>> = [ROW];
-const adapterFind = vi.fn(async (object: string, params: { $filter?: { name?: string } }) => ({
-  data: object === SYS_PERMISSION_SET ? rows.filter((r) => r.name === params?.$filter?.name) : [],
-}));
-let objectDefs: Array<Record<string, unknown>> = [SYS_PERMISSION_SET_DEF];
-const ensureType = vi.fn(async (type: string) => (type === 'object' ? objectDefs : []));
-
-vi.mock('@object-ui/react', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@object-ui/react')>()),
-  useAdapter: () => ({ find: adapterFind }),
-  useMetadata: () => ({
-    apps: [],
-    objects: objectDefs,
-    dashboards: [],
-    reports: [],
-    pages: [],
-    loading: false,
-    error: null,
-    refresh: async () => {},
-    invalidate: () => {},
-    ensureType,
-    getItem: async () => null,
-    getItemsByType: () => [],
-    getTypeStatus: () => 'ready' as const,
-  }),
+let canAuthor = true;
+vi.mock('../../hooks/useCanAuthorMetadata', () => ({
+  useCanAuthorMetadata: () => canAuthor,
 }));
 
-import { ActionProvider } from '@object-ui/react';
+// The holders section reads grants of its own; here it only says which set it
+// was handed, so the scope the copy opens in is visible.
+vi.mock('./AssignedUsersSection', () => ({
+  AssignedUsersSection: ({ permissionSetName }: { permissionSetName: string }) => (
+    <div data-testid="assigned-users-stub">{permissionSetName}</div>
+  ),
+}));
+
 import { PermissionMatrixEditPage } from './PermissionMatrixEditor';
 
-/* ── The runner's seams ──────────────────────────────────────────────────── */
+/* ── The door ────────────────────────────────────────────────────────────── */
 
-// What the console api handler would answer for the POST — the data door's
-// `CreateDataResponse` (`{ object, id, record }`) after the handler unwraps the
-// `{ success, data }` envelope.
-let apiResult: { success: boolean; data?: unknown; error?: string } = {
-  success: true,
-  data: { object: SYS_PERMISSION_SET, id: 'ps_2', record: { id: 'ps_2', name: CLONE_NAME, label: 'My clone' } },
-};
-// Snapshots of what the api handler was handed: the runner rewrites
-// `action.params` in place after collection, so the object is copied at the
-// moment of the call.
-const dispatched: any[] = [];
-const apiHandler = vi.fn(async (action: any, _ctx: any) => {
-  dispatched.push(JSON.parse(JSON.stringify(action)));
-  return apiResult;
-});
-// The param dialog: records the definitions it was asked to render and answers
-// with the two typed values plus the seeded carry-overs, as the real dialog's
-// serialization would.
-let paramAnswer: Record<string, unknown> | null = {
-  label: 'My clone',
-  name: CLONE_NAME,
-  description: ROW.description,
-  ...Object.fromEntries(CARRIED.map((f) => [f, ROW[f]])),
-};
-const paramCollection = vi.fn(async (_params: any[], _action?: any) => paramAnswer);
-const toastSpy = vi.fn();
+interface Call {
+  url: string;
+  method: string;
+  body: unknown;
+}
+let doorAnswer: { status: number; body: unknown } = { status: 200, body: null };
+const calls: Call[] = [];
+
+function okAnswer(name = CLONE_NAME) {
+  return {
+    status: 200,
+    body: {
+      success: true,
+      data: { permissionSet: { ...SET_BODY, name, label: CLONE_LABEL }, notice: NOTICE },
+    },
+  };
+}
+
+function refusal(status: number, code: string, message?: string) {
+  return {
+    status,
+    body: { success: false, error: { code, ...(message ? { message } : {}), httpStatus: status } },
+  };
+}
+
+function stubFetch() {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({
+        url: String(url),
+        method: init?.method ?? 'GET',
+        body: typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body,
+      });
+      return new Response(JSON.stringify(doorAnswer.body), {
+        status: doorAnswer.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }),
+  );
+}
 
 function RoutedEditor() {
   const { name = '' } = useParams<{ name?: string }>();
-  return <PermissionMatrixEditPage type="permission" name={name} />;
+  const { search } = useLocation();
+  return (
+    <>
+      <span data-testid="route-search">{search}</span>
+      <PermissionMatrixEditPage type="permission" name={name} />
+    </>
+  );
 }
 
 /**
  * The routed metadata admin: `metadata/:type/:name`, the one surface where the
- * artifact tier engages (environment scope, no `packageId`), wrapped in the
- * real `ActionProvider` with the console runtime's three seams faked.
+ * artifact tier engages (environment scope, no `packageId`).
  */
-async function renderRouted() {
+async function renderRouted(search = '') {
   clientImpl = makeClient();
   render(
-    <MemoryRouter initialEntries={[`/apps/setup/metadata/permission/${BASE_SET}`]}>
-      <ActionProvider onParamCollection={paramCollection} onToast={toastSpy} handlers={{ api: apiHandler }}>
-        <Routes>
-          <Route path="/apps/:appName/metadata/:type/:name" element={<RoutedEditor />} />
-        </Routes>
-      </ActionProvider>
+    <MemoryRouter initialEntries={[`/apps/setup/metadata/permission/${BASE_SET}${search}`]}>
+      <Routes>
+        <Route path="/apps/:appName/metadata/:type/:name" element={<RoutedEditor />} />
+      </Routes>
     </MemoryRouter>,
   );
   await screen.findByText('Account');
@@ -269,9 +209,7 @@ async function renderPlain(props?: { packageId?: string; readOnly?: boolean; emb
   clientImpl = makeClient();
   render(
     <MemoryRouter>
-      <ActionProvider onParamCollection={paramCollection} onToast={toastSpy} handlers={{ api: apiHandler }}>
-        <PermissionMatrixEditPage type="permission" name={BASE_SET} {...props} />
-      </ActionProvider>
+      <PermissionMatrixEditPage type="permission" name={BASE_SET} {...props} />
     </MemoryRouter>,
   );
   await screen.findByText('Account');
@@ -281,34 +219,31 @@ const CLONE_EN = /^Clone to customize$/;
 const CLONE_ZH = /^克隆后自定义$/;
 const cloneButtons = () => screen.queryAllByRole('button', { name: CLONE_EN });
 const saveButton = () => screen.queryByRole('button', { name: /^Save$/ });
+const createCopy = () => screen.getByRole('button', { name: /^Create copy$/ });
+
+/** Open the dialog from the first Clone button and fill both fields. */
+async function fillDialog(name = CLONE_NAME, label = CLONE_LABEL) {
+  fireEvent.click(cloneButtons()[0]);
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText('New machine name'), { target: { value: name } });
+  fireEvent.change(within(dialog).getByLabelText('New label'), { target: { value: label } });
+  return dialog;
+}
 
 beforeEach(() => {
   codeLayerByName = { [BASE_SET]: { _packageId: 'com.example.showcase', name: BASE_SET } };
   saveImpl = async (_t, _n, payload) => payload;
   typeFlags = { allowOrgOverride: false, allowRuntimeCreate: true };
   localeFixture = 'en-US';
-  rows = [ROW];
-  objectDefs = [SYS_PERMISSION_SET_DEF];
-  apiResult = {
-    success: true,
-    data: { object: SYS_PERMISSION_SET, id: 'ps_2', record: { id: 'ps_2', name: CLONE_NAME, label: 'My clone' } },
-  };
-  paramAnswer = {
-    label: 'My clone',
-    name: CLONE_NAME,
-    description: ROW.description,
-    ...Object.fromEntries(CARRIED.map((f) => [f, ROW[f]])),
-  };
-  dispatched.length = 0;
-  apiHandler.mockClear();
-  paramCollection.mockClear();
-  adapterFind.mockClear();
-  ensureType.mockClear();
-  toastSpy.mockClear();
+  canAuthor = true;
+  doorAnswer = okAnswer();
+  calls.length = 0;
+  stubFetch();
 });
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -321,8 +256,6 @@ describe('PermissionMatrixEditPage — the locked editor offers Clone to customi
     const [clone] = cloneButtons();
     expect(clone).toBeInTheDocument();
     expect(clone).toBeEnabled();
-    // Its hint names the published action it runs.
-    expect(clone).toHaveAttribute('title', expect.stringContaining('clone_permission_set'));
     // The visible locked-state guidance names cloning.
     expect(screen.getByRole('note')).toHaveTextContent(/Clone to customize/);
   });
@@ -360,102 +293,124 @@ describe('PermissionMatrixEditPage — the locked editor offers Clone to customi
   });
 });
 
-describe('PermissionMatrixEditPage — Clone to customize runs the PUBLISHED clone_permission_set action (objectui#5987)', () => {
-  it('dispatches the action declared on sys_permission_set, with THIS set\'s row as its identity', async () => {
+describe('PermissionMatrixEditPage — Clone to customize calls the clone door with a name and a label (objectui#7611)', () => {
+  it('POSTs exactly { name, label } to the door for THIS set, and nothing else', async () => {
     await renderRouted();
     fireEvent.click(cloneButtons()[0]);
+    const dialog = await screen.findByRole('dialog');
+    // Nothing is sent until both are given.
+    expect(createCopy()).toBeDisabled();
+    fireEvent.change(within(dialog).getByLabelText('New machine name'), { target: { value: CLONE_NAME } });
+    expect(createCopy()).toBeDisabled();
+    fireEvent.change(within(dialog).getByLabelText('New label'), { target: { value: CLONE_LABEL } });
+    fireEvent.click(createCopy());
 
-    await waitFor(() => expect(apiHandler).toHaveBeenCalledTimes(1));
-
-    // The identity was read off the set's own record, by name.
-    expect(adapterFind).toHaveBeenCalledWith(SYS_PERMISSION_SET, { $filter: { name: BASE_SET }, $top: 1 });
-    // The action was resolved off the object definition the console holds.
-    expect(ensureType).toHaveBeenCalledWith('object');
-
-    // The dialog was asked to render the DECLARED params — the shipped list,
-    // carry-overs included — not a list of this editor's own.
-    expect(paramCollection).toHaveBeenCalledTimes(1);
-    const [askedParams, askedAction] = paramCollection.mock.calls[0];
-    expect(askedParams.map((p: any) => p.name ?? p.field)).toEqual(
-      CLONE_ACTION.params.map((p: any) => p.name ?? p.field),
-    );
-    expect(askedAction.name).toBe('clone_permission_set');
-
-    // What reached the api handler IS the published declaration…
-    const [action] = dispatched;
-    expect(action.name).toBe('clone_permission_set');
-    expect(action.type).toBe('api');
-    expect(action.method).toBe('POST');
-    expect(action.target).toBe('/api/v1/data/sys_permission_set');
-    expect(action.objectName).toBe(SYS_PERMISSION_SET);
-    expect(action.bodyExtra).toEqual({ active: true });
-    expect(action.actionParams.map((p: any) => p.name ?? p.field)).toEqual(
-      CLONE_ACTION.params.map((p: any) => p.name ?? p.field),
-    );
-    // …carrying the set's identity and the collected values.
-    expect(action.params._rowRecord).toEqual(ROW);
-    expect(action.params.name).toBe(CLONE_NAME);
-    expect(action.params.label).toBe('My clone');
-    for (const facet of CARRIED) expect(action.params[facet]).toBe(ROW[facet]);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    // The one request this clone makes: no record read, no record action.
+    expect(calls[0]).toEqual({ url: DOOR, method: 'POST', body: { name: CLONE_NAME, label: CLONE_LABEL } });
   });
 
-  it('the returned clone opens writable: the route hops to it, and it offers Save with no clone prompt', async () => {
-    await renderRouted();
-    fireEvent.click(cloneButtons()[0]);
+  it('the copy opens writable, in the same scope, with the server\'s notice shown as sent', async () => {
+    await renderRouted('?scope=environment');
+    await fillDialog();
+    fireEvent.click(createCopy());
 
-    // The clone loads with no code layer (`codeLayerByName` names only the
+    // The copy loads with no code layer (`codeLayerByName` names only the
     // base), so the artifact tier does not engage.
     const save = await screen.findByRole('button', { name: /^Save$/ });
     expect(save).toBeEnabled();
     expect(cloneButtons()).toHaveLength(0);
     expect(screen.queryByRole('note')).toBeNull();
     expect(screen.queryByText(/provided by a code package/)).toBeNull();
-    // The editor is on the clone, not the base: it read the clone's envelope.
+    // The editor is on the copy, not the base: it read the copy's envelope…
     expect(clientImpl.layered.mock.calls.some((c: unknown[]) => c[1] === CLONE_NAME)).toBe(true);
+    // …in the Setup catalog still, where the copy's holders are listed.
+    expect(screen.getByTestId('route-search')).toHaveTextContent('?scope=environment');
+    expect(screen.getByTestId('assigned-users-stub')).toHaveTextContent(CLONE_NAME);
+    // What was not copied, in the server's words.
+    expect(screen.getByTestId('perm-clone-notice')).toHaveTextContent(NOTICE);
   });
 
-  it('an embedded host has no route: the clone is announced by name instead', async () => {
+  it('an embedded host has no route: the copy is announced by name, with the server\'s notice', async () => {
     await renderPlain({ embedded: true });
-    fireEvent.click(cloneButtons()[0]);
+    await fillDialog();
+    fireEvent.click(createCopy());
 
-    const notice = await screen.findByRole('status');
+    const notice = await screen.findByTestId('perm-clone-notice');
     expect(notice).toHaveTextContent(new RegExp(`Cloned as ${CLONE_NAME}`));
+    expect(notice).toHaveTextContent(NOTICE);
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('a cancelled dialog runs nothing and shows no error', async () => {
-    paramAnswer = null;
+  it('a cancelled dialog sends nothing and shows no error', async () => {
     await renderRouted();
-    fireEvent.click(cloneButtons()[0]);
+    await fillDialog();
+    fireEvent.click(screen.getByRole('button', { name: /^Cancel$/ }));
 
-    await waitFor(() => expect(paramCollection).toHaveBeenCalledTimes(1));
-    expect(apiHandler).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(calls).toHaveLength(0);
     expect(screen.queryByRole('alert')).toBeNull();
     // Still on the locked base.
     expect(cloneButtons()).toHaveLength(1);
   });
 
-  it('⛔ no fallback clone: an object that publishes no clone action is a refusal, not a create call', async () => {
-    objectDefs = [{ ...SYS_PERMISSION_SET_DEF, actions: [] }];
+  it('an answer that names no copy is said so, never guessed', async () => {
+    doorAnswer = { status: 200, body: { success: true, data: { notice: NOTICE } } };
     await renderRouted();
-    fireEvent.click(cloneButtons()[0]);
+    await fillDialog();
+    fireEvent.click(createCopy());
 
-    await screen.findByText(/publishes no clone_permission_set action/);
-    expect(apiHandler).not.toHaveBeenCalled();
-    expect(paramCollection).not.toHaveBeenCalled();
+    await screen.findByText(/did not name it/);
+    expect(clientImpl.layered.mock.calls.some((c: unknown[]) => c[1] === CLONE_NAME)).toBe(false);
+  });
+});
+
+describe('PermissionMatrixEditPage — the door\'s refusals are shown as sent (objectui#7611)', () => {
+  it('409, a taken name: the server\'s message in the dialog, which stays open on the base', async () => {
+    doorAnswer = refusal(409, 'RESOURCE_CONFLICT', NAME_TAKEN);
+    await renderRouted();
+    const dialog = await fillDialog();
+    fireEvent.click(createCopy());
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(NAME_TAKEN);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    // Nothing opened: the editor is still on the base.
+    expect(clientImpl.layered.mock.calls.every((c: unknown[]) => c[1] === BASE_SET)).toBe(true);
+    // Editing the name clears the refusal, ready for a retry.
+    fireEvent.change(within(dialog).getByLabelText('New machine name'), { target: { value: 'my_clone_2' } });
+    expect(within(dialog).queryByRole('alert')).toBeNull();
   });
 
-  it('⛔ no fallback clone: a set with no sys_permission_set row is a refusal naming the set', async () => {
-    rows = [];
+  it('403, a caller the client could not tell apart (unknown fails open): the server\'s sentence', async () => {
+    doorAnswer = refusal(403, 'PERMISSION_DENIED', NO_CAPABILITY);
     await renderRouted();
-    fireEvent.click(cloneButtons()[0]);
+    const dialog = await fillDialog();
+    fireEvent.click(createCopy());
 
-    await screen.findByText(new RegExp(`no sys_permission_set record named ${BASE_SET}`));
-    expect(apiHandler).not.toHaveBeenCalled();
-    expect(paramCollection).not.toHaveBeenCalled();
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(NO_CAPABILITY);
+  });
+
+  it('a refusal with no message names the HTTP status, and only then', async () => {
+    doorAnswer = refusal(503, 'SERVICE_UNAVAILABLE');
+    await renderRouted();
+    const dialog = await fillDialog();
+    fireEvent.click(createCopy());
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Could not clone this permission set (HTTP 503).',
+    );
   });
 });
 
 describe('PermissionMatrixEditPage — no clone prompt where the artifact tier is not the gate (objectui#5987)', () => {
+  it('a caller without manage_metadata is offered no clone: the door would refuse it (objectui#7611)', async () => {
+    canAuthor = false;
+    await renderRouted();
+
+    expect(cloneButtons()).toHaveLength(0);
+    expect(screen.getByTestId('perm-capability-readonly')).toHaveTextContent(/manage_metadata/);
+  });
+
   it('an org-owned set (no code layer) is writable and shows no clone prompt', async () => {
     codeLayerByName = {};
     await renderRouted();
@@ -515,11 +470,15 @@ describe('PermissionMatrixEditPage — a save the server refuses as a packaged s
     // …and it is not ALSO rendered as the generic red strip.
     expect(screen.getAllByText(SERVER_TEXT)).toHaveLength(1);
 
-    // The offered action is the same dispatch as the lock's.
+    // The offered action is the same dialog as the lock's, for THIS set.
     fireEvent.click(within(alert).getByRole('button', { name: CLONE_EN }));
-    await waitFor(() => expect(apiHandler).toHaveBeenCalledTimes(1));
-    expect(dispatched[0].name).toBe('clone_permission_set');
-    expect(dispatched[0].params._rowRecord).toEqual(ROW);
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(BASE_SET);
+    fireEvent.change(within(dialog).getByLabelText('New machine name'), { target: { value: CLONE_NAME } });
+    fireEvent.change(within(dialog).getByLabelText('New label'), { target: { value: CLONE_LABEL } });
+    fireEvent.click(createCopy());
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0].url).toBe(DOOR);
   });
 
   it('the refusal is keyed on the CODE: the lowercase spelling an older server emits is the same refusal', async () => {

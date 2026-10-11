@@ -71,7 +71,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@object-ui/components';
-import { useAdapter, useAction, useMetadata, useActionTextLocalizer } from '@object-ui/react';
 import { CapabilityMultiSelectField, parseCapabilityNames } from '@object-ui/fields';
 import { PageShell } from './PageShell.js';
 import { HistoryPanel } from './ResourceHistoryPage.js';
@@ -87,11 +86,7 @@ import { AssignedUsersSection } from './AssignedUsersSection.js';
 import { isEnvironmentScope } from './catalog-scope.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
 import { errorCodeIs } from '@object-ui/types';
-import {
-  PERMISSION_SET_OBJECT,
-  buildCloneDispatch,
-  findCloneAction,
-} from './permission-set-clone-dispatch.js';
+import { PermissionSetCloneDialog, type PermissionSetCloned } from './PermissionSetCloneDialog.js';
 import {
   mergePermissionSlice,
   scopePermissionSet,
@@ -290,22 +285,10 @@ export interface PermissionMatrixEditPageProps {
 export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, publishNonce, onOpenOwd, onDirtyChange, readOnly = false, embedded = false }: PermissionMatrixEditPageProps) {
   const navigate = useNavigate();
   const client = useMetadataClient();
-  // Data adapter (records) — read by "Clone to customize" below. The capability
-  // picker takes no data source: it lists the capability registry through the
-  // console metadata store (objectui#7611, `CapabilityMultiSelectField`).
-  const adapter = useAdapter();
-  // objectui#5987 — the three seams "Clone to customize" dispatches through:
-  // the console's shared action runner (`useAction()` under
-  // `GlobalActionRuntimeProvider` is the fully wired console runner — api
-  // handler, param-collection dialog, toasts), the console's metadata store
-  // (where the `sys_permission_set` object definition, and with it the
-  // published `clone_permission_set` action, is read from), and the
-  // `_actions.<name>` bundle localizer every declared-action surface uses for
-  // the dialog title. Resolution and dispatch shape live in
-  // `permission-set-clone-dispatch.ts` — see its header for why.
-  const { execute: executeAction } = useAction();
-  const metadataStore = useMetadata();
-  const localizeActionTexts = useActionTextLocalizer();
+  // The editor reads no record: the capability picker lists the capability
+  // registry through the console metadata store (objectui#7611,
+  // `CapabilityMultiSelectField`), and "Clone to customize" calls the server's
+  // clone door with a name and a label (`PermissionSetCloneDialog.tsx`).
   const { entries } = useMetadataTypes(client);
   const entry: RichMetadataTypeEntry | undefined = entries.find((t) => t.type === type);
   // Does a code package SHIP this set? Read off the layered envelope the load
@@ -411,14 +394,23 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // objectui#7611 — the fourth gate, the CALLER: the metadata door refuses a
   // save without `manage_metadata` (measured on objectstack main: 403 "Saving a
   // metadata item requires the `manage_metadata` capability."), and so does the
-  // data door the clone runs through for an organization administrator. Unknown
-  // fails open (`useCanAuthorMetadata`). Its reason is named in the body below.
+  // clone door, which asks the same verdict (`metaWriteCapabilityVerdict`), so
+  // a caller without it is offered no clone. Unknown fails open
+  // (`useCanAuthorMetadata`); the door then answers 403, shown as sent. Its
+  // reason is named in the body below.
   const canAuthor = useCanAuthorMetadata();
   const writable = canWriteByType && !readOnly && canAuthor;
+  // objectui#7611 — does the server hold this set at all? `false` only when the
+  // layered read answered the not-found shape (no effective, code or overlay
+  // layer): a name nobody has saved yet, which this editor's first Save creates.
+  // `null` until a load lands, and after a failed read, which says nothing.
+  const [existsOnServer, setExistsOnServer] = React.useState<boolean | null>(null);
   // objectui#7611 — the Setup catalog (`?scope=environment`) shows who holds the
-  // set under its definition; Studio's design surface does not.
+  // set under its definition; Studio's design surface does not. Nor does a set
+  // the server does not hold yet: a grant names a set that exists, so Add there
+  // could only be refused (400), and there is nobody to list.
   const [searchParams] = useSearchParams();
-  const showAssignments = !embedded && isEnvironmentScope(searchParams);
+  const showAssignments = !embedded && isEnvironmentScope(searchParams) && existsOnServer !== false;
   // Which gate to NAME when the surface is locked (host > artifact > type).
   // The artifact tier is the DECIDING one only where the type tier would have
   // said yes: with both flags false the honest reason is still "this type has
@@ -481,16 +473,18 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // does NOT live on `error`: that strip means "your save failed", which is the
   // opposite of the truth here.
   const [postSaveRereadFailed, setPostSaveRereadFailed] = React.useState(false);
-  // objectui#5987 — "Clone to customize" in flight; the clone's name when the
-  // host is embedded (no route to open it on); and the env-door save the
-  // server refused as a PACKAGED set (403 `NOT_OVERRIDABLE`), holding the
-  // server's message. That last one is NOT `error`: the red strip renders the
-  // transport's text, which for this refusal says "edit the source artifact
-  // and redeploy" — the pre-ruling remedy — so a save that reached the server
-  // used to end in a generic refusal while the lock's own guidance says
-  // "clone". Keyed on the refusal's CODE, never on its prose.
-  const [cloning, setCloning] = React.useState(false);
-  const [cloneNotice, setCloneNotice] = React.useState<string | null>(null);
+  // objectui#5987 — "Clone to customize": whether its dialog is open; the copy
+  // the server reported (its name and the server's notice), shown on the copy
+  // once it opens, or on this set when the host is embedded (no route to open
+  // the copy on); and the env-door save the server refused as a PACKAGED set
+  // (403 `NOT_OVERRIDABLE`), holding the server's message. That last one is NOT
+  // `error`: the red strip renders the transport's text, which for this refusal
+  // says "edit the source artifact and redeploy" — the pre-ruling remedy — so a
+  // save that reached the server used to end in a generic refusal while the
+  // lock's own guidance says "clone". Keyed on the refusal's CODE, never on its
+  // prose.
+  const [cloneOpen, setCloneOpen] = React.useState(false);
+  const [cloned, setCloned] = React.useState<PermissionSetCloned | null>(null);
   const [saveRefusedAsLocked, setSaveRefusedAsLocked] = React.useState<string | null>(null);
   const [destructive, setDestructive] = React.useState<
     null | { issues: Array<{ kind?: string; path?: string; message?: string }>; pending: PermissionSetDraft }
@@ -537,13 +531,15 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     // set can never carry the previous one's artifact verdict for a frame
     // (objectui#4518).
     setCodeIsArtifact(false);
+    setExistsOnServer(null);
     // Same reason: a notice raised by the previous set's save must not survive
     // into a set that is about to be read fresh (objectui#9484).
     setPostSaveRereadFailed(false);
-    // Same reason again (objectui#5987): a refusal or a clone notice belongs
-    // to the set that raised it.
+    // Same reason again (objectui#5987): a refusal belongs to the set that
+    // raised it, and a clone notice to the copy it reports — kept only while
+    // that copy is the set being opened (the routed hop to it).
     setSaveRefusedAsLocked(null);
-    setCloneNotice(null);
+    setCloned((c) => (c && c.name === name ? c : null));
     (async () => {
       try {
         // ADR-0086 P2 (D6): under the package door a set is draft/published
@@ -587,6 +583,10 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         // baseline comes from, so the writability verdict and the body on
         // screen can never be read from different round trips.
         setCodeIsArtifact(isArtifactBackedLayer(lay));
+        // objectui#7611 — `MetadataClient.layered` answers a 404 as an envelope
+        // with every layer null; a rejected read was caught to `null` above and
+        // decides nothing.
+        setExistsOnServer(lay ? lay.effective != null || lay.code != null || lay.overlay != null : null);
         // Read decorations do NOT seed the editor (objectui#8181). `doSave`
         // below re-bases on a fresh RAW `layered` read, which drops them — but
         // its `.catch(() => null)` arm falls back to this very body and
@@ -981,6 +981,10 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
         // (404-shaped) envelope.
         resetDraftBaseline(toDisplayDraft((lay?.effective ?? toSave) as PermissionSetDraft));
         setPostSaveRereadFailed(rereadFailed);
+        // The write landed, so the server holds the set now whatever the
+        // confirming read said (objectui#7611: its holders can be listed). Only
+        // when it was saved under the name this page lists holders for.
+        if (payload.name === name) setExistsOnServer(true);
       }
       setDestructive(null);
     } catch (err: any) {
@@ -1027,67 +1031,35 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     save: (sent) => doSave(false, undefined, sent),
   });
 
-  /* ── Clone to customize (objectui#5987) ──────────────────────── */
+  /* ── Clone to customize (objectui#5987, objectui#7611) ─────────── */
   /**
-   * Run the server-published `clone_permission_set` record action on THIS set.
+   * The server accepted a clone of THIS set (`PermissionSetCloneDialog`, which
+   * asks for the copy's name and label and calls the clone door). What this
+   * editor adds is only where the copy OPENS: on the routed metadata admin it
+   * navigates to the copy, which loads with no code layer and is therefore
+   * writable, and the server's notice is shown there; an embedded host has no
+   * route, so the copy is announced by name instead.
    *
-   * Every step is the same one a `record_header` "Clone" button on the
-   * `sys_permission_set` record page takes — resolve the action off the object
-   * definition (`findCloneAction`), shape the dispatch (`buildCloneDispatch`:
-   * the row under `params._rowRecord`, the declared `params` ARRAY as
-   * `actionParams`), and `execute` — so the clone's payload, dialog, refusal
-   * toasts and success toast are the published action's, not this editor's.
-   * What this editor adds is only where the clone OPENS: on the routed
-   * metadata admin it navigates to the clone, which loads with no code layer
-   * and is therefore writable; an embedded host has no route, so the clone is
-   * announced by name instead.
-   *
-   * Two refusals, no fallbacks (AGENTS.md #0.1): an object that publishes no
-   * such action, or a set with no `sys_permission_set` row, ends here with a
-   * message naming what is missing — never a clone assembled from create /
-   * update calls.
+   * An answer that names no copy is said so, never guessed at (#0.1): the door
+   * reports the set it saved.
    */
-  async function cloneToCustomize() {
-    if (cloning) return;
-    setCloning(true);
+  function onCloned(copy: PermissionSetCloned) {
+    setCloneOpen(false);
     setError(null);
-    setCloneNotice(null);
-    try {
-      const cloneAction = findCloneAction(await metadataStore.ensureType('object'));
-      if (!cloneAction) throw new Error(t('perm.clone.actionMissing'));
-
-      // The row the action runs against — `AssignedUsersSection` resolves the
-      // same set's record the same way. `data` is the adapter's `QueryResult`
-      // contract; a bare array is not read (#0.1 — fix the producer).
-      const found = adapter ? await adapter.find(PERMISSION_SET_OBJECT, { $filter: { name }, $top: 1 }) : null;
-      const row = (found?.data ?? [])[0] as Record<string, unknown> | undefined;
-      if (!row) throw new Error(tFormat('perm.clone.rowMissing', locale, { name }));
-
-      const result = await executeAction(buildCloneDispatch(cloneAction, row, localizeActionTexts));
-      // A cancelled dialog and a refused POST both come back `success: false`;
-      // the runner has already toasted a refusal, and a cancel needs nothing.
-      if (!result.success) return;
-      // The data door answers the spec's `CreateDataResponse` — `{ object, id,
-      // record }` — which the console api handler unwraps to `result.data`.
-      const created = result.data as { record?: { name?: unknown } } | null | undefined;
-      const cloneName = typeof created?.record?.name === 'string' ? created.record.name : '';
-      if (!cloneName) {
-        setError(t('perm.clone.noName'));
-        return;
-      }
-      if (embedded) {
-        setCloneNotice(cloneName);
-      } else {
-        // Same spelling as ResourceEditPage's post-create hop: the route is
-        // `metadata/:type/:name`, so `../<clone>` opens the clone under the
-        // same type. It loads with `code: null`, so the artifact tier does not
-        // engage and Save is offered.
-        navigate(`../${encodeURIComponent(cloneName)}`, { relative: 'path' });
-      }
-    } catch (err: any) {
-      setError(err?.message ?? String(err));
-    } finally {
-      setCloning(false);
+    if (!copy.name) {
+      setCloned(null);
+      setError(t('perm.clone.noName'));
+      return;
+    }
+    setCloned(copy);
+    if (!embedded) {
+      // Same spelling as ResourceEditPage's post-create hop: the route is
+      // `metadata/:type/:name`, so `../<copy>` opens the copy under the same
+      // type, keeping the query string (the Setup catalog's `?scope=`).
+      navigate(
+        { pathname: `../${encodeURIComponent(copy.name)}`, search: searchParams.toString() ? `?${searchParams}` : '' },
+        { relative: 'path' },
+      );
     }
   }
 
@@ -1120,19 +1092,10 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
 
   // objectui#5987 — one element, two seats: the header slot Save would occupy
   // when the artifact tier locks the surface, and the refused-save strip when a
-  // save reached the server anyway. Same label, same hint, same dispatch.
+  // save reached the server anyway. Same label, same hint, same dialog.
   const cloneButton = (
-    <Button
-      size="sm"
-      onClick={() => void cloneToCustomize()}
-      disabled={cloning}
-      title={t('perm.clone.hint')}
-    >
-      {cloning ? (
-        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-      ) : (
-        <Copy className="h-4 w-4 mr-1" />
-      )}
+    <Button size="sm" onClick={() => setCloneOpen(true)} disabled={cloneOpen} title={t('perm.clone.hint')}>
+      <Copy className="h-4 w-4 mr-1" />
       {t('perm.clone.action')}
     </Button>
   );
@@ -1285,16 +1248,22 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           </div>
         )}
 
-        {/* objectui#5987 — an embedded host has no route to open the clone on,
-            so the clone is announced by name (advisory, like the re-read
-            notice below). */}
-        {cloneNotice !== null && (
+        {/* objectui#5987 — the copy the clone door saved: on the copy itself
+            once the routed hop opens it, or, on an embedded host (no route to
+            open it on), announced by name on this set. The server's notice
+            (what was not copied, and that the copy is held by nobody yet) is
+            shown as sent (advisory, like the re-read notice below). */}
+        {cloned !== null && (embedded || cloned.name === name) && (cloned.name !== name || !!cloned.notice) && (
           <div
             role="status"
+            data-testid="perm-clone-notice"
             className="m-4 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200 flex items-start gap-2"
           >
             <Copy className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>{tFormat('perm.clone.done', locale, { name: cloneNotice })}</span>
+            <div className="space-y-1">
+              {cloned.name !== name && <p>{tFormat('perm.clone.done', locale, { name: cloned.name })}</p>}
+              {cloned.notice && <p>{cloned.notice}</p>}
+            </div>
           </div>
         )}
 
@@ -1549,6 +1518,15 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           </div>
         )}
       </div>
+
+      {cloneOpen && (
+        <PermissionSetCloneDialog
+          source={name}
+          locale={locale}
+          onClose={() => setCloneOpen(false)}
+          onCloned={onCloned}
+        />
+      )}
 
       {/* Destructive-change dialog */}
       <Dialog open={!!destructive} onOpenChange={(open) => !open && setDestructive(null)}>

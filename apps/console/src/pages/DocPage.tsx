@@ -174,7 +174,7 @@ export default function DocPage() {
   if (state === 'loading') {
     return (
       <div className="flex h-full items-center justify-center p-10 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading documentation" />
+        <Loader2 className="h-5 w-5 animate-spin" aria-label={t('help.loadingDocumentation', { defaultValue: 'Loading documentation' })} />
       </div>
     );
   }

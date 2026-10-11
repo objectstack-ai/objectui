@@ -127,6 +127,7 @@ const de = {
     itemCount_one: "{{count}} Element",
     itemCount_other: "{{count}} Elemente",
     toggleSidebar: "Seitenleiste umschalten",
+    breadcrumb: "Brotkrümelnavigation",
     package: "Paket",
     done: "Fertig",
     editInStudio: "Im Studio bearbeiten",
@@ -261,9 +262,13 @@ const de = {
       remove: "Bild {{index}} entfernen",
       enlarge: "{{name}} vergrößern",
       preview: "Bildvorschau",
+      cropPreview: "Vorschau des Bildzuschnitts",
       previous: "Vorheriges Bild",
       next: "Nächstes Bild",
       counter: "{{current}} / {{total}}",
+    },
+    percent: {
+      slider: "Prozentsatz",
     },
     relativeDate: {
       overdue: "{{count}} T. überfällig",
@@ -397,6 +402,7 @@ const de = {
     selectAllRows: "Alle Zeilen auswählen",
     expandRow: "Zeile erweitern",
     collapseRow: "Zeile reduzieren",
+    rowActions: "Zeilenaktionen",
     hideColumn: "Spalte ausblenden",
     freezeColumn: "Spalte fixieren",
     unfreezeColumn: "Spalte lösen",
@@ -434,6 +440,7 @@ const de = {
     bulkAllOnPage_other: "Alle {{count}} auf dieser Seite sind ausgewählt.",
     bulkSelectAllMatching: "Alle {{count}} Treffer auswählen",
     bulkAllMatchingSelected: "Alle {{count}} übereinstimmenden Datensätze sind ausgewählt.",
+    bulkActions: "Massenaktionen",
     bulk: {
       confirmDefault: "Dies wird auf {{count}} Datensätze angewendet.",
       confirmDefault_one: "Dies wird auf {{count}} Datensatz angewendet.",
@@ -1032,6 +1039,8 @@ const de = {
   designer: {
     undo: "Rückgängig",
     redo: "Wiederholen",
+    canvasMinimap: "Minikarte der Arbeitsfläche",
+    versionHistory: "Versionsverlauf",
   },
   detail: {
     editInlineHint: "Zum Bearbeiten doppelklicken",
@@ -2533,6 +2542,7 @@ const de = {
     appDocs: 'Dokumentation dieser App',
     allDocs: 'Gesamte Dokumentation',
     onlineDocs: 'Online-Dokumentation',
+    loadingDocumentation: 'Dokumentation wird geladen',
   },
   sidebar: {
     packageManagement: "Paketverwaltung",

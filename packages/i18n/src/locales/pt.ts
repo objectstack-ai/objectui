@@ -132,6 +132,7 @@ const pt = {
     itemCount_many: "{{count}} de itens",
     itemCount_other: "{{count}} itens",
     toggleSidebar: "Alternar barra lateral",
+    breadcrumb: "Trilha de navegação",
     package: "Pacote",
     done: "Concluído",
     editInStudio: "Editar no Studio",
@@ -266,9 +267,13 @@ const pt = {
       remove: "Remover a imagem {{index}}",
       enlarge: "Ampliar {{name}}",
       preview: "Pré-visualização da imagem",
+      cropPreview: "Pré-visualização do recorte da imagem",
       previous: "Imagem anterior",
       next: "Próxima imagem",
       counter: "{{current}} / {{total}}",
+    },
+    percent: {
+      slider: "Porcentagem",
     },
     relativeDate: {
       overdue: "Atrasado {{count}} d",
@@ -403,6 +408,7 @@ const pt = {
     selectAllRows: "Selecionar todas as linhas",
     expandRow: "Expandir linha",
     collapseRow: "Recolher linha",
+    rowActions: "Ações da linha",
     hideColumn: "Ocultar coluna",
     freezeColumn: "Fixar coluna",
     unfreezeColumn: "Soltar coluna",
@@ -444,6 +450,7 @@ const pt = {
     bulkAllOnPage_other: "Os {{count}} desta página estão selecionados.",
     bulkSelectAllMatching: "Selecionar todas as {{count}} correspondências",
     bulkAllMatchingSelected: "Todos os {{count}} registros correspondentes estão selecionados.",
+    bulkActions: "Ações em massa",
     bulk: {
       confirmDefault: "Isto será aplicado a {{count}} registro(s).",
       confirmDefault_one: "Isto será aplicado a {{count}} registro.",
@@ -1058,6 +1065,8 @@ const pt = {
   designer: {
     undo: "Desfazer",
     redo: "Refazer",
+    canvasMinimap: "Minimapa da tela",
+    versionHistory: "Histórico de versões",
   },
   detail: {
     editInlineHint: "Clique duas vezes para editar",
@@ -2578,6 +2587,7 @@ const pt = {
     appDocs: 'Documentação deste app',
     allDocs: 'Toda a documentação',
     onlineDocs: 'Documentação online',
+    loadingDocumentation: 'Carregando documentação',
   },
   sidebar: {
     packageManagement: "Gerenciamento de pacotes",

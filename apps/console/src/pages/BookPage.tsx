@@ -9,6 +9,7 @@
 import { useMemo } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { BookOpen, FileQuestion, Loader2, Lock } from 'lucide-react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { DocShell } from './DocShell';
 import { useBookData } from './use-book-data';
 import { resolveBookTree, bookSlug, firstDoc } from './book-nav';
@@ -43,6 +44,7 @@ export function DocRefusal({ name, message }: { name?: string; message?: string 
  */
 export default function BookPage() {
   const { slug, appName } = useParams<{ slug: string; appName?: string }>();
+  const { t } = useObjectTranslation();
   const { books, docs, state } = useBookData();
 
   const found = useMemo(() => books.find((b) => bookSlug(b) === slug), [books, slug]);
@@ -54,7 +56,7 @@ export default function BookPage() {
   if (state === 'loading') {
     return (
       <div className="flex h-full items-center justify-center p-10 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading documentation" />
+        <Loader2 className="h-5 w-5 animate-spin" aria-label={t('help.loadingDocumentation', { defaultValue: 'Loading documentation' })} />
       </div>
     );
   }

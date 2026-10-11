@@ -329,7 +329,7 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-muted-foreground">
+          <nav aria-label={t('common.breadcrumb')} className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link
               to={objectListUrl}
               className="hover:text-foreground transition-colors"

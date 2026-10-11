@@ -156,7 +156,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
     <div
       className="border-t border-primary/30 px-4 py-2 flex flex-col gap-1.5 text-xs bg-primary/10 text-foreground shrink-0 shadow-sm motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in-0 motion-safe:duration-200"
       role="region"
-      aria-label="Bulk actions"
+      aria-label={t('grid.bulkActions', { defaultValue: 'Bulk actions' })}
       data-testid="bulk-actions-bar"
     >
       {(showCrossPageAffordance || allMatchingSelected) && (

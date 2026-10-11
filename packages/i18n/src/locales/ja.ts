@@ -127,6 +127,7 @@ const ja = {
     itemCount_one: "{{count}} 件",
     itemCount_other: "{{count}} 件",
     toggleSidebar: "サイドバーを切り替え",
+    breadcrumb: "パンくずリスト",
     package: "パッケージ",
     done: "完了",
     editInStudio: "Studio で編集",
@@ -261,9 +262,13 @@ const ja = {
       remove: "画像 {{index}} を削除",
       enlarge: "{{name}} を拡大",
       preview: "画像プレビュー",
+      cropPreview: "画像の切り抜きプレビュー",
       previous: "前の画像",
       next: "次の画像",
       counter: "{{current}} / {{total}}",
+    },
+    percent: {
+      slider: "パーセンテージ",
     },
     relativeDate: {
       overdue: "期限超過 {{count}}日",
@@ -397,6 +402,7 @@ const ja = {
     selectAllRows: "すべての行を選択",
     expandRow: "行を展開",
     collapseRow: "行を折りたたむ",
+    rowActions: "行のアクション",
     hideColumn: "列を非表示",
     freezeColumn: "列を固定",
     unfreezeColumn: "列の固定を解除",
@@ -434,6 +440,7 @@ const ja = {
     bulkAllOnPage_other: "このページの {{count}} 件がすべて選択されています。",
     bulkSelectAllMatching: "該当する {{count}} 件すべてを選択",
     bulkAllMatchingSelected: "該当する {{count}} 件のレコードがすべて選択されています。",
+    bulkActions: "一括操作",
     bulk: {
       confirmDefault: "{{count}} 件のレコードに適用されます。",
       confirmDefault_one: "{{count}} 件のレコードに適用されます。",
@@ -1032,6 +1039,8 @@ const ja = {
   designer: {
     undo: "元に戻す",
     redo: "やり直す",
+    canvasMinimap: "キャンバスのミニマップ",
+    versionHistory: "バージョン履歴",
   },
   detail: {
     editInlineHint: "ダブルクリックで編集",
@@ -2535,6 +2544,7 @@ const ja = {
     appDocs: 'このアプリのドキュメント',
     allDocs: 'すべてのドキュメント',
     onlineDocs: 'オンラインドキュメント',
+    loadingDocumentation: 'ドキュメントを読み込み中',
   },
   sidebar: {
     packageManagement: "パッケージ管理",

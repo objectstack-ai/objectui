@@ -229,6 +229,8 @@ const TABLE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // objectui#11690 — the selection checkboxes' accessible names.
   'table.selectAllRows': 'Select all rows',
   'table.selectRow': 'Select row',
+  // objectui#12145 — the row menu trigger's accessible name.
+  'table.rowActions': 'Row actions',
   'table.edit': 'Edit',
   'table.delete': 'Delete',
   'common.actions': 'Actions',
@@ -676,7 +678,7 @@ const DataTableRowActionsMenu: React.FC<{
           size="icon"
           className="h-8 w-8"
           onClick={(e) => e.stopPropagation()}
-          aria-label="Row actions"
+          aria-label={t('table.rowActions')}
         >
           <MoreHorizontal className="h-4 w-4" />
         </Button>

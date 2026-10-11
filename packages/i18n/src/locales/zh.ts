@@ -134,6 +134,7 @@ const zh = {
     itemCount_one: '{{count}} 项',
     itemCount_other: '{{count}} 项',
     toggleSidebar: '切换侧边栏',
+    breadcrumb: '面包屑导航',
     package: '软件包',
     done: '完成',
     editInStudio: '在 Studio 中编辑',
@@ -291,9 +292,13 @@ const zh = {
       remove: '移除图片 {{index}}',
       enlarge: '放大 {{name}}',
       preview: '图片预览',
+      cropPreview: '图片裁剪预览',
       previous: '上一张',
       next: '下一张',
       counter: '{{current}} / {{total}}',
+    },
+    percent: {
+      slider: '百分比',
     },
     richText: {
       format: '格式: {{format}}',
@@ -408,6 +413,7 @@ const zh = {
     selectAllRows: '选择所有行',
     expandRow: '展开行',
     collapseRow: '折叠行',
+    rowActions: '行操作',
     hideColumn: '隐藏列',
     freezeColumn: '冻结列',
     unfreezeColumn: '取消冻结列',
@@ -456,6 +462,7 @@ const zh = {
     bulkAllOnPage_other: '本页 {{count}} 项已全选。',
     bulkSelectAllMatching: '选择全部 {{count}} 项匹配记录',
     bulkAllMatchingSelected: '已选择全部 {{count}} 项匹配记录。',
+    bulkActions: '批量操作',
     rowHeight: '行高: {{mode}}',
     empty: '空',
     yes: '是',
@@ -1057,6 +1064,8 @@ const zh = {
   designer: {
     undo: '撤销',
     redo: '重做',
+    canvasMinimap: '画布缩略图',
+    versionHistory: '版本历史',
   },
   detail: {
     back: '返回',
@@ -2623,6 +2632,7 @@ const zh = {
     appDocs: '本应用文档',
     allDocs: '全部文档',
     onlineDocs: '在线文档',
+    loadingDocumentation: '正在加载文档',
   },
   sidebar: {
     settings: '设置',

@@ -163,6 +163,7 @@ const ar = {
     itemCount_many: "{{count}} عنصرًا",
     itemCount_other: "{{count}} عنصر",
     toggleSidebar: "تبديل الشريط الجانبي",
+    breadcrumb: "مسار التنقل",
     package: "الحزمة",
     done: "تم",
     editInStudio: "التعديل في Studio",
@@ -297,9 +298,13 @@ const ar = {
       remove: "إزالة الصورة {{index}}",
       enlarge: "تكبير {{name}}",
       preview: "معاينة الصورة",
+      cropPreview: "معاينة قص الصورة",
       previous: "الصورة السابقة",
       next: "الصورة التالية",
       counter: "{{current}} / {{total}}",
+    },
+    percent: {
+      slider: "النسبة المئوية",
     },
     relativeDate: {
       overdue: "متأخر {{count}} يوم",
@@ -437,6 +442,7 @@ const ar = {
     selectAllRows: "تحديد جميع الصفوف",
     expandRow: "توسيع الصف",
     collapseRow: "طي الصف",
+    rowActions: "إجراءات الصف",
     hideColumn: "إخفاء العمود",
     freezeColumn: "تجميد العمود",
     unfreezeColumn: "إلغاء تجميد العمود",
@@ -490,6 +496,7 @@ const ar = {
     bulkAllOnPage_other: "تم تحديد جميع العناصر ({{count}}) في هذه الصفحة.",
     bulkSelectAllMatching: "تحديد كل النتائج المطابقة ({{count}})",
     bulkAllMatchingSelected: "تم تحديد جميع السجلات المطابقة ({{count}}).",
+    bulkActions: "إجراءات جماعية",
     bulk: {
       confirmDefault: "سيُطبَّق هذا على {{count}} من السجلات.",
       confirmDefault_zero: "سيُطبَّق هذا على {{count}} من السجلات.",
@@ -1155,6 +1162,8 @@ const ar = {
   designer: {
     undo: "تراجع",
     redo: "إعادة",
+    canvasMinimap: "الخريطة المصغرة للوحة",
+    versionHistory: "سجل الإصدارات",
   },
   detail: {
     editInlineHint: "انقر نقرًا مزدوجًا للتحرير",
@@ -2737,6 +2746,7 @@ const ar = {
     appDocs: 'وثائق هذا التطبيق',
     allDocs: 'كل الوثائق',
     onlineDocs: 'الوثائق عبر الإنترنت',
+    loadingDocumentation: 'جارٍ تحميل الوثائق',
   },
   sidebar: {
     packageManagement: "إدارة الحزم",

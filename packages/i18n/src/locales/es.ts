@@ -132,6 +132,7 @@ const es = {
     itemCount_many: "{{count}} de elementos",
     itemCount_other: "{{count}} elementos",
     toggleSidebar: "Alternar barra lateral",
+    breadcrumb: "Ruta de navegación",
     package: "Paquete",
     done: "Listo",
     editInStudio: "Editar en Studio",
@@ -271,9 +272,13 @@ const es = {
       remove: "Eliminar la imagen {{index}}",
       enlarge: "Ampliar {{name}}",
       preview: "Vista previa de la imagen",
+      cropPreview: "Vista previa del recorte de la imagen",
       previous: "Imagen anterior",
       next: "Imagen siguiente",
       counter: "{{current}} / {{total}}",
+    },
+    percent: {
+      slider: "Porcentaje",
     },
     relativeDate: {
       overdue: "Atrasado {{count}} d",
@@ -408,6 +413,7 @@ const es = {
     selectAllRows: "Seleccionar todas las filas",
     expandRow: "Expandir fila",
     collapseRow: "Contraer fila",
+    rowActions: "Acciones de fila",
     hideColumn: "Ocultar columna",
     freezeColumn: "Fijar columna",
     unfreezeColumn: "Desfijar columna",
@@ -449,6 +455,7 @@ const es = {
     bulkAllOnPage_other: "Están seleccionados los {{count}} de esta página.",
     bulkSelectAllMatching: "Seleccionar las {{count}} coincidencias",
     bulkAllMatchingSelected: "Están seleccionados los {{count}} registros coincidentes.",
+    bulkActions: "Acciones masivas",
     bulk: {
       confirmDefault: "Esto se aplicará a {{count}} registro(s).",
       confirmDefault_one: "Esto se aplicará a {{count}} registro.",
@@ -1063,6 +1070,8 @@ const es = {
   designer: {
     undo: "Deshacer",
     redo: "Rehacer",
+    canvasMinimap: "Minimapa del lienzo",
+    versionHistory: "Historial de versiones",
   },
   detail: {
     editInlineHint: "Haga doble clic para editar",
@@ -2583,6 +2592,7 @@ const es = {
     appDocs: 'Documentación de esta app',
     allDocs: 'Toda la documentación',
     onlineDocs: 'Documentación en línea',
+    loadingDocumentation: 'Cargando documentación',
   },
   sidebar: {
     packageManagement: "Gestión de paquetes",

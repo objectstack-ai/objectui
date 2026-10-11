@@ -6,6 +6,7 @@ import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useBadInputRefusal, BadInputMessage, BAD_INPUT_BORDER } from './numberBadInput.js';
 import { formatPercentPoints } from './number-format.js';
+import { useFieldTranslation } from './useFieldTranslation.js';
 
 /**
  * The stored fraction a typed percentage-point value becomes — computed by
@@ -128,6 +129,7 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
   // Before the readonly return below: hooks are unconditional (objectui#6780).
   const { refusal, readBadInput } = useBadInputRefusal('12.5');
   const locale = useDisplayLocale();
+  const { t } = useFieldTranslation();
 
   // The storage convention, read through the spec's `percentScaleOf` BY
   // REFERENCE (objectui#11475): a field declaring a `max` above 1 (e.g.
@@ -291,7 +293,7 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
         step={sliderStep}
         disabled={readonly || props.disabled}
         className="w-full"
-        aria-label="Percentage"
+        aria-label={t('fields.percent.slider')}
         data-testid="percent-slider"
       />
     </div>

@@ -133,6 +133,7 @@ const fr = {
     itemCount_many: "{{count}} d'éléments",
     itemCount_other: "{{count}} éléments",
     toggleSidebar: "Basculer la barre latérale",
+    breadcrumb: "Fil d'Ariane",
     package: "Package",
     done: "Terminé",
     editInStudio: "Modifier dans Studio",
@@ -267,9 +268,13 @@ const fr = {
       remove: "Supprimer l'image {{index}}",
       enlarge: "Agrandir {{name}}",
       preview: "Aperçu de l'image",
+      cropPreview: "Aperçu du recadrage de l'image",
       previous: "Image précédente",
       next: "Image suivante",
       counter: "{{current}} / {{total}}",
+    },
+    percent: {
+      slider: "Pourcentage",
     },
     relativeDate: {
       overdue: "En retard de {{count}} j",
@@ -404,6 +409,7 @@ const fr = {
     selectAllRows: "Sélectionner toutes les lignes",
     expandRow: "Développer la ligne",
     collapseRow: "Réduire la ligne",
+    rowActions: "Actions de la ligne",
     hideColumn: "Masquer la colonne",
     freezeColumn: "Figer la colonne",
     unfreezeColumn: "Libérer la colonne",
@@ -445,6 +451,7 @@ const fr = {
     bulkAllOnPage_other: "Les {{count}} éléments de cette page sont sélectionnés.",
     bulkSelectAllMatching: "Sélectionner les {{count}} correspondances",
     bulkAllMatchingSelected: "Les {{count}} enregistrements correspondants sont tous sélectionnés.",
+    bulkActions: "Actions groupées",
     bulk: {
       confirmDefault: "Ceci s'appliquera à {{count}} enregistrement(s).",
       confirmDefault_one: "Ceci s'appliquera à {{count}} enregistrement.",
@@ -1059,6 +1066,8 @@ const fr = {
   designer: {
     undo: "Annuler",
     redo: "Rétablir",
+    canvasMinimap: "Mini-carte du canevas",
+    versionHistory: "Historique des versions",
   },
   detail: {
     editInlineHint: "Double-cliquez pour modifier",
@@ -2580,6 +2589,7 @@ const fr = {
     appDocs: 'Documentation de cette app',
     allDocs: 'Toute la documentation',
     onlineDocs: 'Documentation en ligne',
+    loadingDocumentation: 'Chargement de la documentation',
   },
   sidebar: {
     packageManagement: "Gestion des packages",

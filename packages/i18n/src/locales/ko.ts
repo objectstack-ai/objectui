@@ -127,6 +127,7 @@ const ko = {
     itemCount_one: "{{count}}개 항목",
     itemCount_other: "{{count}}개 항목",
     toggleSidebar: "사이드바 전환",
+    breadcrumb: "탐색 경로",
     package: "패키지",
     done: "완료",
     editInStudio: "Studio에서 편집",
@@ -261,9 +262,13 @@ const ko = {
       remove: "이미지 {{index}} 삭제",
       enlarge: "{{name}} 확대",
       preview: "이미지 미리보기",
+      cropPreview: "이미지 자르기 미리보기",
       previous: "이전 이미지",
       next: "다음 이미지",
       counter: "{{current}} / {{total}}",
+    },
+    percent: {
+      slider: "백분율",
     },
     relativeDate: {
       overdue: "기한 초과 {{count}}일",
@@ -397,6 +402,7 @@ const ko = {
     selectAllRows: "모든 행 선택",
     expandRow: "행 펼치기",
     collapseRow: "행 접기",
+    rowActions: "행 작업",
     hideColumn: "열 숨기기",
     freezeColumn: "열 고정",
     unfreezeColumn: "열 고정 해제",
@@ -434,6 +440,7 @@ const ko = {
     bulkAllOnPage_other: "이 페이지의 {{count}}건이 모두 선택되었습니다.",
     bulkSelectAllMatching: "일치하는 {{count}}건 모두 선택",
     bulkAllMatchingSelected: "일치하는 레코드 {{count}}건이 모두 선택되었습니다.",
+    bulkActions: "일괄 작업",
     bulk: {
       confirmDefault: "레코드 {{count}}건에 적용됩니다.",
       confirmDefault_one: "레코드 {{count}}건에 적용됩니다.",
@@ -1032,6 +1039,8 @@ const ko = {
   designer: {
     undo: "실행 취소",
     redo: "다시 실행",
+    canvasMinimap: "캔버스 미니맵",
+    versionHistory: "버전 기록",
   },
   detail: {
     editInlineHint: "더블클릭하여 편집",
@@ -2533,6 +2542,7 @@ const ko = {
     appDocs: '이 앱의 문서',
     allDocs: '전체 문서',
     onlineDocs: '온라인 문서',
+    loadingDocumentation: '문서 로딩 중',
   },
   sidebar: {
     packageManagement: "패키지 관리",

@@ -196,7 +196,7 @@ export const RecordAlertRenderer: React.FC<RecordAlertRendererProps> = ({ schema
   const record = recordCtx?.data;
   const objectName = recordCtx?.objectName || '';
   const recordId = (recordCtx?.recordId as any) ?? record?.id;
-  const { language } = useObjectTranslation();
+  const { language, t } = useObjectTranslation();
 
   // Authored copy may carry inline translations (`{ en, 'zh-CN', … }`) —
   // resolve to the current language before rendering / keying.
@@ -355,7 +355,10 @@ export const RecordAlertRenderer: React.FC<RecordAlertRendererProps> = ({ schema
         <button
           type="button"
           onClick={handleDismiss}
-          aria-label="Dismiss"
+          // objectui#12145 — the close button's accessible name, read from the
+          // pack. It borrows the dismissible home banner's key rather than
+          // adding a second key for the same name.
+          aria-label={t('home.recoveryReminder.dismiss', { defaultValue: 'Dismiss' })}
           className="absolute right-3 top-3 inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/80 hover:bg-foreground/5 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <LazyIcon name="X" className="h-4 w-4" aria-hidden="true" />

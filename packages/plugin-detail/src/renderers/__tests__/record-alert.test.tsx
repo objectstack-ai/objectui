@@ -97,6 +97,7 @@ import { PredicateScopeProvider } from '@object-ui/react';
 // case below (objectui#4998) resolves deterministically instead of riding
 // whatever language another test file left on the global i18next singleton.
 import { I18nProvider } from '@object-ui/i18n';
+import { en, zh } from '@object-ui/i18n/locales';
 
 const RECORD_DEFAULTS = {
   recordCtx: {
@@ -226,6 +227,23 @@ describe('RecordAlertRenderer', () => {
       </I18nProvider>,
     );
     expect(screen.getByTestId('alert-cta').textContent).toBe('Send again');
+  });
+
+  // objectui#12145 — the dismiss button's accessible name is read from the
+  // pack (`home.recoveryReminder.dismiss`, borrowed rather than a second key
+  // for the same name). It was `aria-label="Dismiss"`, so under zh a screen
+  // reader heard English. Read against the PACK, never against a literal.
+  it('names the dismiss button from the pack under zh, not with the English word (objectui#12145)', async () => {
+    const zhName = zh.home.recoveryReminder.dismiss;
+    const enName = en.home.recoveryReminder.dismiss;
+    expect(zhName).not.toBe(enName);
+    render(
+      <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false }} persistLanguage={false}>
+        <RecordAlertRenderer schema={{ properties: { title: 'X', dismissible: true, dismissKey: 'zh_name' } }} />
+      </I18nProvider>,
+    );
+    expect(await screen.findByRole('button', { name: zhName })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: enName })).toBeNull();
   });
 
   it('does NOT render a CTA when the action name fails to resolve in metadata', () => {

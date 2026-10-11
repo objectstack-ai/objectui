@@ -36,6 +36,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
+import { en, zh } from '@object-ui/i18n/locales';
 import { RecordFormPage } from './RecordFormPage';
 
 const { toastSuccess } = vi.hoisted(() => ({ toastSuccess: vi.fn() }));
@@ -85,6 +86,9 @@ vi.mock('../providers/AdapterProvider', () => ({
 
 type Lang = 'en' | 'zh-CN';
 
+/** The breadcrumb landmark's name in each language under test, read from the pack. */
+const CRUMB_NAME: Record<Lang, string> = { en: en.common.breadcrumb, 'zh-CN': zh.common.breadcrumb };
+
 /** The catalog as the console loads it: `zh-CN` translates both scalars. */
 const BUNDLE: Record<Lang, Record<string, unknown>> = {
   en: {},
@@ -119,8 +123,11 @@ async function pageText(lang: Lang, mode: 'create' | 'edit', objectName: string)
     </I18nProvider>,
   );
   const title = (await screen.findByTestId('record-form-page-title')).textContent ?? '';
-  // The breadcrumb's one link is the way to the object's list.
-  const crumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
+  // The breadcrumb's one link is the way to the object's list. The landmark
+  // is found by the name the language under test's PACK gives it
+  // (`common.breadcrumb`, objectui#12145): under zh-CN that is the zh pack's
+  // word, so this lookup is also the package's zh role-and-name pin.
+  const crumb = screen.getByRole('navigation', { name: CRUMB_NAME[lang] });
   const link = crumb.querySelector('a');
   expect(link?.getAttribute('href')).toBe(`/apps/demo/${objectName}`);
   fireEvent.click(screen.getByTestId('fire-success'));

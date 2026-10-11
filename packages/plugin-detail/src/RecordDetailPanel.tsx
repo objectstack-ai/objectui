@@ -28,13 +28,23 @@
  * that omits `onDelete` gets no delete action. That is what lets a gantt row
  * locked through `lockField` open read-only without the panel knowing what a
  * lock is.
+ *
+ * ⚠️ …and a handler handed in is a WIRING, not a grant (objectui#12082). The
+ * inline edit is the `recordEdit` row of the affordance-to-grant map, the row
+ * the record page reads for the same in-place edit: the object's policy, the
+ * server's effective operation set and the caller's update grant. Read HERE,
+ * once, because every host that offers the overlay's inline edit reaches it
+ * through this panel's `onFieldSave` — the calendar, the kanban and the gantt.
+ * A closed row withholds the edit session as an absent handler does. The
+ * delete action is `DetailView`'s own `recordDelete` read, unchanged.
  */
 
 import React from 'react';
-import { isExpandableFieldType } from '@object-ui/core';
+import { isExpandableFieldType, resolveAffordance, type SchemaLike } from '@object-ui/core';
 import type { DataSource } from '@object-ui/types';
 import { SYSTEM_MANAGED_FIELD_NAMES } from '@object-ui/types';
 import { InlineEditProvider } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { DetailView } from './DetailView';
 import { InlineEditSaveBar } from './InlineEditSaveBar';
 import { useDetailTranslation } from './useDetailTranslation';
@@ -248,19 +258,31 @@ export function RecordDetailPanel({
 }: RecordDetailPanelProps) {
   const { t } = useDetailTranslation();
   const fields = buildRecordDetailFields(record, objectSchema, systemFields);
+  const perms = usePermissions();
+  // objectui#12082 — the overlay's inline edit is the `recordEdit` row, asked
+  // of the object this panel shows, with that object's schema for the policy
+  // half. With no permission provider mounted the grant and the operation set
+  // read open, so a standalone overlay behaves as before.
+  const editGranted = resolveAffordance('recordEdit', {
+    objectSchema: objectSchema as SchemaLike | null | undefined,
+    objectName,
+    perms,
+  }).allowed;
+  const fieldSave = editGranted ? onFieldSave : undefined;
 
   return (
     /* One inline-edit session scoped to this overlay. `canEdit` gates on
        handler presence so an omitted onFieldSave yields a strictly
-       read-only panel (objectui#2407 P1). */
-    <InlineEditProvider canEdit={!!onFieldSave}>
+       read-only panel (objectui#2407 P1) — and on the `recordEdit` verdict
+       above, so a handler the caller may not use yields the same panel. */
+    <InlineEditProvider canEdit={!!fieldSave}>
       <DetailView
         dataSource={dataSource}
         // Capability = handler presence: a caller that omits onFieldSave /
         // onDelete gets a strictly read-only panel (no inline editors, no
         // delete action) — e.g. a gantt row locked via lockField. Hardcoding
         // these on would let the panel bypass row-level locks.
-        inlineEdit={!!onFieldSave}
+        inlineEdit={!!fieldSave}
         schema={{
           type: 'detail-view',
           objectName,
@@ -305,9 +327,9 @@ export function RecordDetailPanel({
           per-field onFieldSave over the draft, preserving the overlay's
           existing persistence contract (plugin-gantt/kanban/calendar). */}
       <InlineEditSaveBar
-        onFieldSave={onFieldSave ? async (field, value) => {
+        onFieldSave={fieldSave ? async (field, value) => {
           try {
-            await onFieldSave(field, value);
+            await fieldSave(field, value);
           } catch (err) {
             console.error('[RecordDetailPanel] inline field save failed:', err);
             // Rethrow so the save bar surfaces the failure inline and keeps

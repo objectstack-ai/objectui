@@ -311,7 +311,11 @@ describe('ObjectGrid bulk delete vs the object delete verdict (#3720)', () => {
 
   it('drops a bulkActionDefs entry whose operation is delete', async () => {
     renderGrid({
-      effectiveOps: READ_ONLY,
+      // [objectui#12082] An effective set that serves `update` but not
+      // `delete`: the update def is the control that stays, now that a bulk
+      // field update rides the edit verdict (`bulkUpdateGrant-12082.test.tsx`)
+      // — under READ_ONLY it is withheld too.
+      effectiveOps: ['get', 'list', 'update'],
       schema: {
         bulkActionDefs: [
           { name: 'purge', label: 'Purge', operation: 'delete' },

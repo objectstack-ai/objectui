@@ -74,11 +74,11 @@ const envelope = (bits: Record<string, unknown>): MePermissionsResponse => ({
   fields: {},
 });
 
-function mount(perms: MePermissionsResponse | null) {
+function mount(perms: MePermissionsResponse | null, childSchema: Record<string, unknown> | null = null) {
   const panel = (
     <SchemaRendererProvider
       dataSource={{
-        getObjectSchema: vi.fn().mockResolvedValue(null),
+        getObjectSchema: vi.fn().mockResolvedValue(childSchema),
         find: vi.fn().mockResolvedValue({ data: ROWS }),
         create: vi.fn(),
         update: vi.fn(),
@@ -121,5 +121,28 @@ describe('LineItemsPanel: the map\'s other layers and fail-open (objectui#12082)
     mount(envelope({ allowCreate: true, allowRead: true, allowEdit: true, allowDelete: true, apiOperations: ['read', 'update'] }));
     await settled();
     expect(offered()).toEqual({ add: false, duplicate: false, remove: false });
+  });
+
+  // The contract review's rider: the panel already loads the child's schema
+  // (for the save's sanitize), so it hands that schema to the affordance
+  // source, as `RelatedRecordActionsBridge` does, and the child's own policy is
+  // read too — not only its grant and operation set.
+  it("the child object's policy closes add and remove under the full grant", async () => {
+    mount(
+      envelope({ allowCreate: true, allowRead: true, allowEdit: true, allowDelete: true }),
+      { name: CHILD, userActions: { create: false, delete: false }, fields: { description: { type: 'text' }, amount: { type: 'number' } } },
+    );
+    await settled();
+    // The child schema settles after the rows paint; wait for the verdict that reads it.
+    await waitFor(() => expect(offered()).toEqual({ add: false, duplicate: false, remove: false }));
+  });
+
+  it('CONTROL: a child schema whose policy leaves create and delete open keeps both', async () => {
+    mount(
+      envelope({ allowCreate: true, allowRead: true, allowEdit: true, allowDelete: true }),
+      { name: CHILD, fields: { description: { type: 'text' }, amount: { type: 'number' } } },
+    );
+    await settled();
+    expect(offered()).toEqual({ add: true, duplicate: true, remove: true });
   });
 });

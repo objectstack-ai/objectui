@@ -32,7 +32,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BatchTransactionOperation, DataSource, GridFieldMetadata, I18nLabel } from '@object-ui/types';
-import { runBatchTransaction } from '@object-ui/core';
+import { resolveAffordance, runBatchTransaction } from '@object-ui/core';
 import { LineItemsField } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
 import {
@@ -682,7 +682,8 @@ interface MasterDetailLinesProps {
    * (objectui#12082): every line of a CREATE form is a new child record, so its
    * cells ask the create question (the server's insert rule); an edit form's
    * lines may already exist, and a per-column lock cannot split per row, so
-   * they keep the edit question.
+   * they keep the edit question. For the same reason only an edit form's
+   * Remove asks the child's delete grant: a create form's lines are drafts.
    */
   formMode: 'create' | 'edit';
 }
@@ -790,6 +791,22 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
           table needs. */}
       {entries.map((entry) => {
         const d = entry.config;
+        // objectui#12082 — adding and removing a line are rows of the
+        // affordance-to-grant map, asked of the CHILD object, the same two
+        // rows `LineItemsPanel` reads for the same two writes: a new line is a
+        // child created under this parent (`relatedNew`), a removed line a
+        // child deleted (`relatedRowDelete`). Each is the child's policy, its
+        // effective operation set and the caller's grant on it; the policy half
+        // reads the default bucket, since a fully configured entry loads no
+        // child schema into this render. Remove asks only on an EDIT form: a
+        // create form's batch holds nothing but creates
+        // (`buildMasterDetailBatch`), so a line removed there is a draft dropped
+        // before it is ever written, never a server delete. With no permission
+        // provider mounted both read open, as before.
+        const lineSource = { objectSchema: null, objectName: d.childObject, perms };
+        const lineAddGranted = resolveAffordance('relatedNew', lineSource).allowed;
+        const lineRemoveGranted =
+          formMode === 'create' || resolveAffordance('relatedRowDelete', lineSource).allowed;
         return (
         // Keyed on the entry's SYNTHESIZED identity, not on the map index. The
         // old key put `d.childObject` — `undefined` for a declined entry —
@@ -912,6 +929,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
                   sortField: entry.sortField,
                   minRows: d.minRows,
                   maxRows: d.maxRows,
+                  // The map rows above: the grid's Add, entry row and Duplicate
+                  // follow `allowAdd`, its per-row Remove `allowDelete`.
+                  allowAdd: lineAddGranted,
+                  allowDelete: lineRemoveGranted,
                   addLabel: d.inlineMode === 'form' ? (d.addLabel || t('detail.add')) : d.addLabel,
                   // Checked against the grid's published type (objectui#11610), so
                   // a key the grid does not declare, or one of its retired

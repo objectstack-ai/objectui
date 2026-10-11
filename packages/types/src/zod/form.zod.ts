@@ -1167,7 +1167,7 @@ export const FormFieldSchema = z.object({
   // `crop` and `defaultName` typed as the widget reads them. `defaultValue`
   // and `defaultChecked` stay undeclared: no reader asks for either, and
   // neither becomes the field's value (`FormSchema.defaultValues` does).
-  step: stripImportedDefaults(SpecFieldSchema).shape.step,
+  // `step` stays undeclared too, open: see the TS twin.
   language: stripImportedDefaults(SpecFieldSchema).shape.language,
   maxSize: stripImportedDefaults(SpecFieldSchema).shape.maxSize,
   capture: z.union([z.enum(['environment', 'user']), z.literal(false)]).optional()

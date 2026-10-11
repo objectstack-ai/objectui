@@ -117,7 +117,6 @@ const DECLARED_KEYS = [
   // `examples/schema-catalog/test/`). The spec's `FieldSchema` members by
   // reference, plus `idField` / `picker` / `subtitle` from the field metadata
   // types and `capture` / `crop` / `defaultName` as their widgets read them.
-  'step',
   'language',
   'maxSize',
   'capture',

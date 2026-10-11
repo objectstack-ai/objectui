@@ -2199,12 +2199,12 @@ export interface FormField {
   // ⛔ Not declared: `defaultValue` and `defaultChecked`. No reader asks for
   // either, and neither becomes the field's value (the effects file measures
   // both). A form's initial values are {@link FormSchema.defaultValues}.
+  //
+  // ⛔ Not declared either, and open on objectui#12130: `step`. The `number`
+  // and `slider` widgets read it, but `ObjectForm` (`@object-ui/plugin-form`)
+  // writes `step: 'any'` onto the entries it builds, a value the spec's
+  // numeric `FieldSchema.step` refuses. The census ledger carries it.
 
-  /**
-   * Increment of a numeric field: the `number` widget puts it on its input as
-   * `step`, and the `slider` widget reads it as its step too.
-   */
-  step?: SpecField['step'];
   /**
    * Language of a `code` field, e.g. `python`. The `code` widget's editor
    * asks for code in it (default `javascript`).

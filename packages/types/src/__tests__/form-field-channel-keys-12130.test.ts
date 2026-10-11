@@ -12,10 +12,10 @@
  * The runtime half lives in `examples/schema-catalog/test/` (this package is
  * "Zero deps. No React", so it cannot render): the census there records every
  * key of a `form` `fields[]` entry that a reader asks for by name, and the
- * effects file beside it renders each one with and without. Fifteen keys were
- * read, changed what their widget does, and were refused by the strict face;
- * this card declares them on `FormFieldSchema` and `FormField`. This file pins
- * the faces:
+ * effects file beside it renders each one with and without. The keys this
+ * card declares on `FormFieldSchema` and `FormField` are the ones that were
+ * read, changed what their widget does, and were refused by the strict face.
+ * This file pins the faces:
  *
  *   1. each declared key parses on the strict face, and a misspelled sibling
  *      is still refused by name at the same path;
@@ -60,7 +60,6 @@ const form = (field: Record<string, unknown>) => ({ type: 'form', fields: [{ nam
 
 /** Each declared key on an entry of a type whose widget reads it (the census names those types). */
 const DECLARED: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
-  ['step', { type: 'number', step: 5 }],
   ['language', { type: 'code', language: 'python' }],
   ['maxSize', { type: 'file', maxSize: 1048576 }],
   ['capture', { type: 'file', capture: 'environment' }],
@@ -101,7 +100,6 @@ describe('each declared key is judged by its declared type (objectui#12130)', ()
   });
 
   const WRONG: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
-    ['step', { type: 'number', step: 'five' }],
     ['language', { type: 'code', language: 3 }],
     ['maxSize', { type: 'file', maxSize: 0 }],
     ['capture', { type: 'file', capture: 'front' }],
@@ -175,7 +173,7 @@ type IsAny<T> = 0 extends 1 & T ? true : false;
 
 /** Each member is a named, typed member — not the index signature's `any`. */
 export type assertionChannelMembersAreTyped = Expect<Equal<
-  IsAny<FormField['step'] | FormField['language'] | FormField['maxSize'] | FormField['capture'] | FormField['crop']
+  IsAny<FormField['language'] | FormField['maxSize'] | FormField['capture'] | FormField['crop']
     | FormField['defaultName'] | FormField['allowCreate'] | FormField['descriptionField'] | FormField['displayField']
     | FormField['idField'] | FormField['lookupColumns'] | FormField['lookupFilters'] | FormField['lookupPageSize']
     | FormField['picker'] | FormField['subtitle']>,
@@ -184,7 +182,6 @@ export type assertionChannelMembersAreTyped = Expect<Equal<
 
 /** The spec's `FieldSchema` members, by reference. */
 export type assertionSpecMembersByReference = [
-  Expect<Equal<FormField['step'], SpecField['step']>>,
   Expect<Equal<FormField['language'], SpecField['language']>>,
   Expect<Equal<FormField['maxSize'], SpecField['maxSize']>>,
   Expect<Equal<FormField['allowCreate'], SpecField['allowCreate']>>,

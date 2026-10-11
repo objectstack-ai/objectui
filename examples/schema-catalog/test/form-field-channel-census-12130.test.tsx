@@ -289,6 +289,12 @@ const CURRENCY = 'entry@i18n/src/currency.ts';
  */
 const LEDGER: Readonly<Record<string, LedgerRow>> = {
   // ── read, and still open: the refusal may be false ──────────────────────
+  step: {
+    readers: ['entry@fields/src/widgets/NumberField.tsx', 'entry@fields/src/widgets/SliderField.tsx'],
+    why: 'OPEN — read and effective (the effects pins), but `ObjectForm` writes `step: \'any\'` onto the entries it '
+      + 'builds, which the spec\'s numeric `FieldSchema.step` refuses. Declaring it by reference breaks that producer; '
+      + 'declaring `number | \'any\'` departs from the spec. A decision on objectui#12130.',
+  },
   avatarField: {
     readers: [LOOKUP, USER],
     why: 'OPEN — the avatar field of the search picker. The widgets read both spellings, `avatar_field` first; '
@@ -348,7 +354,6 @@ const LEDGER: Readonly<Record<string, LedgerRow>> = {
  * re-derived on every run.
  */
 const DECLARED_BY_12130: Readonly<Record<string, readonly string[]>> = {
-  step: ['number', 'slider'],
   language: ['code'],
   maxSize: ['file', 'image'],
   capture: ['file'],

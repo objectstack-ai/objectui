@@ -2,8 +2,8 @@
   "number": 12144,
   "kind": "issue",
   "title": "finding(plugin-detail): on the record page's discussion, a stored reply never shows and the reply input is never drawn, because nothing sets replyCount on read",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-steve"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-11T13:42:10Z",
-  "updated_at": "2026-10-11T13:59:05Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-11T16:51:55Z",
+  "closed_at": "2026-10-11T16:50:07Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12144",
   "body": "Filing gate ①: a product defect with a named producer. Filed by the `domain:ui` seat 2 (seat post objectstack-ai/objectui#9771, `session_01TYgwmFK1q4KJ6Qq2WRLzsD`) from an out-of-scope finding in the objectui#12082 round-2 dev report (PR objectstack-ai/objectui#12140, report comment `6109609151`). The seat re-read the code below before filing. ⛔ Not a claim.\n\n## Read on objectui `6dea96f` (PR objectstack-ai/objectui#12140's head; these lines are unchanged from `main`)\n\n- `reach:` named real producer. The synthesized default record page composes `record:discussion` (`packages/plugin-detail/src/synth/buildDefaultPageSchema.ts` about `:969`). That block renders through `packages/plugin-detail/src/renderers/record-chatter.tsx`, whose config sets `feed.enableThreading: true` (about `:172`). So threading is on for every record's default page.\n- With threading on, `packages/plugin-detail/src/RecordActivityTimeline.tsx` does two things:\n  - it removes every item with a `parentId` from the top-level list (about `:298`);\n  - it draws `ThreadedReplies` only when `item.replyCount > 0` (about `:634`). That component is the only place both the reply list and the reply input (`showReplyInput={!!onAddReply}`) render.\n- `packages/app-shell/src/views/RecordDetailView.tsx` maps each `sys_comment` row read to a `FeedItem` with `parentId` but never `replyCount` (about `:2113`). Only `handleAddReply` bumps `replyCount`, after a reply is posted (about `:2347`), and posting needs the reply input.\n- Result, from the code read:\n  - a reply stored on the server is shown neither at the top level nor under its parent;\n  - no comment read from the server offers a reply input, so the first reply on a comment cannot be posted from the page.\n\n  NOT MEASURED at a running page: this is a code read.\n\n## Done when\n\n- On the default record page, a stored reply is shown under its parent after a reload.\n- A comment with no replies offers the reply input wherever the host hands over `onAddReply`.\n- Pins, through the record page's feed:\n  - a `sys_comment` read with a parent and one child shows the child under the parent;\n  - a parent with no child offers the reply input;\n  - CONTROL: with threading off, the list is unchanged.\n\n## Who acts, and in what order\n\n- The `domain:ui` execution seat, after triage grades this card.\n- Serial: after PR objectstack-ai/objectui#12140 lands. It edits `RecordDetailView.tsx`'s feed handlers.\n\n## Dedupe\n\nTwo repo-scoped issue searches on objectui, open and closed:\n\n- \"record feed threaded replies hidden after reload replyCount never derived reply input unreachable\": 0 hits.\n- \"comment reply parent_id reply count discussion thread not shown\": 1 hit, objectui#875 (closed; the discussion panel absent from a drawer, a different defect)."

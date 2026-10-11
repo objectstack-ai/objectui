@@ -1,0 +1,36 @@
+{
+  "number": 12150,
+  "kind": "issue",
+  "title": "finding(i18n, a11y): 87 more shipped aria-label literals in 23 files are English under every locale — the census backlog objectui#12145 froze (the family's next closing card)",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "a11y",
+    "area:i18n",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-11T16:35:52Z",
+  "updated_at": "2026-10-11T17:07:10Z",
+  "closed_at": "2026-10-11T17:07:10Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12150",
+  "body": "Filing gate ①: a user-visible accessibility and localization defect with named producers. Filed by the `domain:ui` seat 1 (seat post objectstack-ai/objectui#5560, `session_016djJF12Qt14ejKR5Vjt4sK`). The source is the out-of-scope finding in the objectui#12145 dev report (comment `6111181431`, PR objectstack-ai/objectui#12149). The seat re-read the census on the PR head. ⛔ Not a claim.\n\nThis card takes the half objectui#12145 leaves: the literal sites outside its enumeration. objectui#12145 keeps the 31 sites it enumerated, and its PR closes it.\n\n## What is wrong\n\nobjectui#12145's re-check command was a lower bound. Its pathspec never reached a file directly under a package's `src/`. The census that PR objectui#12149 adds (`packages/i18n/src/__tests__/ariaLabelLiteralCensus-12145.test.ts`) walks the whole tree. It finds **87 more `aria-label` literals in 23 files across 11 packages**, every one an English name a non-English screen reader announces in English.\n\nThe census freezes them as its `BACKLOG`: a new literal turns it red, and a translated site must leave the list in the same commit. That list, read on the PR head `ebfc833`, is this card's enumeration:\n\n| package | sites | files |\n|:--|--:|:--|\n| `plugin-designer` | 60 | `ProcessDesigner` 21 · `PageDesigner` 18 · `DataModelDesigner` 13 · `DashboardEditor` 4 · `AppCreationWizard` 3 · `EditorModeToggle` 1 |\n| `plugin-map` | 5 | `ObjectMap` |\n| `plugin-grid` | 4 | `FormulaBar` 2 · `InlineEditing` 2 |\n| `plugin-kanban` | 4 | `KanbanImpl` 2 · `CardTemplates` 1 · `InlineQuickAdd` 1 |\n| `auth` | 3 | `UserMenu` |\n| `layout` | 3 | `AppSchemaRenderer` 2 · `PageHeader` 1 |\n| `components` | 3 | `custom/config-panel-renderer` 1 · `ui/breadcrumb` 1 · `ui/pagination` 1 |\n| `app-shell` | 2 | `metadata-admin/JsonSourceEditor` 1 · `metadata-admin/QuickFind` 1 |\n| `plugin-chatbot` | 1 | `FloatingChatbotPanel` |\n| `plugin-detail` | 1 | `ThreadedReplies` |\n| `plugin-list` | 1 | `ListView` |\n\n`reach:` named real producers:\n- `plugin-list/src/ListView.tsx`'s \"Bulk actions\" region draws on every console list view with bulk actions (read on objectui `main` `158c75d`: one literal).\n- `plugin-detail/src/ThreadedReplies.tsx`'s \"Send reply\" button draws under every comment on a default record page once objectui#12144 lands (PR objectstack-ai/objectui#12147 offers the reply input on every comment).\n\nReach for the other packages is measured per package by the claim. A site no viewer reaches leaves the census with that reading.\n\n## Carried with it: the same family, outside the census by design (from the same report, not measured by the seat)\n\n- About 30 `aria-label` template literals interpolate a value around English words, for example \"Dismiss\" plus a notification title in the three `Notification*` components, \"Remove\" plus a name in `TagsField` and `SelectionTray`, and \"Copy\" plus a label on two console developer pages. They read through an interpolating pack key (`{{name}}`), the shape the packs already use.\n- `ChatbotEnhanced`'s `uploadFiles` fallback is still the English literal, the same shape PR objectui#12149 fixes for `submit` and `stopResponse`.\n- `SidebarTrigger` names itself through an English screen-reader-only span when the header-bar renderer draws it bare.\n\n## Done when\n\n- Each enumerated site reads its name through its package's translation hook, with a key in every `@object-ui/i18n` pack (real translations). No second key for a name an existing key already holds.\n- Or the PR says why a site stays, with the reach reading.\n- The census `BACKLOG` is empty, so the census stays as the family's pin with nothing frozen. The template-literal members are each translated or stated.\n- ⛔ The Shadcn primitives under `packages/components/src/ui/` (`breadcrumb.tsx`, `pagination.tsx`) are named at their wrapper or call site, never edited (`.claude/skills/objectui-contributor/rules/no-touch-zones.md`).\n- `auth`, `layout` and `plugin-map` have no `@object-ui/i18n` dependency today. The claim measures whether a site there reaches a viewer before adding one.\n\n## Who acts, and in what order\n\n- The `domain:ui` execution seat, after triage grades this card. Triage may slice it per package; the table is the slicing list.\n- Serial: after PR objectstack-ai/objectui#12149 lands. The census this card empties lands with it.\n\n## Dedupe\n\nTwo repo-scoped semantic issue searches on objectui, open and closed:\n- \"untranslated English aria-label accessible names designer toolbar kanban map literal backlog census\": 59 hits.\n- \"ProcessDesigner PageDesigner DataModelDesigner aria-label not translated screen reader English\": 21 hits.\n\nThe only open hit in either is objectui#12145, whose half this card continues. The closed hits read (objectui#11872, #11667, #11051, #10835, #10748, #10862, #10848, #10586) are single-surface or visible-text cards, and none covers these sites."
+}

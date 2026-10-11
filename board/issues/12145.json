@@ -2,8 +2,8 @@
   "number": 12145,
   "kind": "issue",
   "title": "finding(i18n, a11y): 31 shipped aria-label attributes are literal English, so a non-English screen reader hears English names (the family's closing card)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -15,18 +15,23 @@
     "area:i18n",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-steve"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-11T13:52:17Z",
-  "updated_at": "2026-10-11T14:02:14Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-11T17:08:23Z",
+  "closed_at": "2026-10-11T17:05:45Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12145",
   "body": "Filing gate ①: a user-visible accessibility and localization defect with a named producer. Filed by the `domain:ui` seat 2 (seat post objectstack-ai/objectui#9771, `session_01TYgwmFK1q4KJ6Qq2WRLzsD`). The source is the out-of-scope finding in the objectui#12124 dev report (comment `6109512642`), which the contract review on PR objectstack-ai/objectui#12142 (comment `6109713074`) escalated to the seat. ⛔ Not a claim.\n\n## Read on objectui `main` `dca25af`\n\n- `reach:` named real producer. `packages/components/src/renderers/complex/data-table.tsx` about `:674`: the row-actions trigger carries `aria-label=\"Row actions\"`. That trigger is drawn on every row of a grid with row actions, so under `zh` a screen reader announces it in English.\n- The same shape recurs across shipped sources: an `aria-label` written as an English literal, never read through the package's translation hook. Earlier single-site cards closed one position each (for example objectui#10104, #4474, #4645). No open card covers the family, so this card is its closing card.\n- The enumeration below is the family as of this read. Re-check with:\n\n  `git grep -n -E 'aria-label=\"[A-Z][a-z]' -- 'packages/*/src/**/*.tsx' 'apps/*/src/**/*.tsx'`, dropping `__tests__`, `.test.` and `.stories.` paths.\n\n  It finds 31 sites in 9 packages. It is a lower bound: it does not see `aria-label={'…'}`, `title=` or `placeholder=` literals.\n\n## The 31 sites\n\n- `apps/console/src/pages/AppDocsIndex.tsx` about `:40`: \"Loading documentation\"\n- `apps/console/src/pages/BookPage.tsx` about `:57`: \"Loading documentation\"\n- `apps/console/src/pages/DocPage.tsx` about `:177`: \"Loading documentation\"\n- `apps/console/src/pages/DocsIndex.tsx` about `:34`: \"Loading documentation\"\n- `apps/console/src/pages/DocsSlug.tsx` about `:100`: \"Loading documentation\"\n- `packages/app-shell/src/views/RecordFormPage.tsx` about `:332`: \"Breadcrumb\"\n- `packages/components/src/custom/spinner.tsx` about `:17`: \"Loading\"\n- `packages/components/src/debug/DebugPanel.tsx` about `:272`: \"Developer Debug Panel\"\n- `packages/components/src/debug/DebugPanel.tsx` about `:282`: \"Close debug panel\"\n- `packages/components/src/renderers/complex/data-table.tsx` about `:674`: \"Row actions\"\n- `packages/components/src/ui/pagination.tsx` about `:75`: \"Go to previous page\"\n- `packages/components/src/ui/pagination.tsx` about `:91`: \"Go to next page\"\n- `packages/components/src/ui/sidebar.tsx` about `:321`: \"Toggle Sidebar\"\n- `packages/fields/src/widgets/ImageCropperDialog.tsx` about `:197`: \"Image crop preview\"\n- `packages/fields/src/widgets/PercentField.tsx` about `:294`: \"Percentage\"\n- `packages/fields/src/widgets/RecordPickerDialog.tsx` about `:1394`: \"Records\"\n- `packages/plugin-chatbot/src/elements/message.tsx` about `:255`: \"Previous branch\"\n- `packages/plugin-chatbot/src/elements/message.tsx` about `:279`: \"Next branch\"\n- `packages/plugin-chatbot/src/elements/message.tsx` about `:367`: \"Remove attachment\"\n- `packages/plugin-chatbot/src/elements/message.tsx` about `:395`: \"Remove attachment\"\n- `packages/plugin-chatbot/src/elements/prompt-input.tsx` about `:346`: \"Remove attachment\"\n- `packages/plugin-chatbot/src/elements/prompt-input.tsx` about `:1068`: \"Submit\"\n- `packages/plugin-designer/src/components/HistoryPanel.tsx` about `:89`: \"Undo\"\n- `packages/plugin-designer/src/components/HistoryPanel.tsx` about `:100`: \"Redo\"\n- `packages/plugin-designer/src/components/Minimap.tsx` about `:73`: \"Canvas minimap\"\n- `packages/plugin-designer/src/components/VersionHistory.tsx` about `:67`: \"Version history\"\n- `packages/plugin-designer/src/pages/DashboardDesignPage.tsx` about `:137`: \"Go back\"\n- `packages/plugin-detail/src/renderers/record-alert.tsx` about `:358`: \"Dismiss\"\n- `packages/plugin-detail/src/renderers/record-path.tsx` about `:427`: \"Alternative terminal stages\"\n- `packages/plugin-grid/src/components/BulkActionBar.tsx` about `:159`: \"Bulk actions\"\n- `packages/plugin-list/src/components/TabBar.tsx` about `:222`: \"Switch view\"\n\n## Done when\n\n- Each enumerated site reads its accessible name through its package's translation hook, with a key in every `@object-ui/i18n` pack (real translations).\n- Or, where a site is shown not to reach a viewer (for example `DebugPanel`, if it is development-only), the PR says why it stays.\n- The re-check command above returns no site outside that stated list.\n- Pins: per package, one role-and-name query under `zh` reads the `zh` pack's name.\n\n## Who acts, and in what order\n\n- The `domain:ui` execution seat, after triage grades this card.\n- Triage may slice it per package; the enumeration is the slicing list.\n- Serial: `data-table.tsx` after PR objectstack-ai/objectui#12142 lands. `ObjectGrid.tsx` is not in this list.\n\n## Dedupe\n\nOne repo-scoped issue search on objectui, open and closed: \"hard-coded English aria-label not translated accessible names locale literal strings\", 31 hits. The 25 read are all closed single-site or single-surface cards (objectui#11872, #11667, #11252, #10748, #10969, #10104, #9652, #4645, #4474, #4024 and others), and none is open on these sites."

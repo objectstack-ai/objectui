@@ -14,6 +14,8 @@ import {
   FRAGMENT_MARKER,
   FRAGMENT_MARKER_EXAMPLES,
   REFUSED_CONTROL,
+  SCAN_SURFACE,
+  SURFACE_ANCHORS,
   analyze,
   classifyFence,
   controlFailures,
@@ -28,6 +30,7 @@ import {
   FRAGMENT_MARKER as SNIPPET_FRAGMENT_MARKER,
   FRAGMENT_MARKER_EXAMPLES as SNIPPET_FRAGMENT_MARKER_EXAMPLES,
 } from '../check-doc-snippet-types.mjs';
+import { packageReadmePages as familyPackageReadmes, ROOT_PAGES as FAMILY_ROOT_PAGES } from '../check-doc-component-types.mjs';
 
 /**
  * objectui#5250 — the JSON-fence gate the maintainer ruling orders "on top of"
@@ -87,8 +90,8 @@ function tempTree(files: Record<string, string>): string {
 
 const FENCE = '```';
 const fence = (lang: string, value: unknown): string => [`${FENCE}${lang}`, JSON.stringify(value, null, 2), FENCE].join('\n');
-const run = (files: Record<string, string>, anchor: string | null = null) =>
-  analyze({ root: tempTree(files), judge, tolerant, nodeTypes, parseJsonc, anchor });
+const run = (files: Record<string, string>, anchors: readonly string[] | null = null) =>
+  analyze({ root: tempTree(files), judge, tolerant, nodeTypes, parseJsonc, anchors });
 const reasons = (r: { findings: { reason: string }[] }) => r.findings.map((f) => f.reason);
 
 describe('scanJsonFences — what the gate reads', () => {
@@ -216,11 +219,85 @@ describe('analyze — the verdicts, against the real face', () => {
 
   it('ANTI-IDLE: an enumeration that judged nothing, or lost its anchor, is a precondition, never a green', () => {
     expect(run({ 'content/docs/a.mdx': fence('json', { name: 'not a node' }) }).preconditions.map((p) => p.reason)).toEqual(['nothing-judged']);
-    expect(run({ 'content/docs/a.mdx': fence('json', { type: 'button', label: 'Go' }) }, 'content/docs/anchor.mdx').preconditions.map((p) => p.reason)).toEqual([
+    expect(run({ 'content/docs/a.mdx': fence('json', { type: 'button', label: 'Go' }) }, ['content/docs/anchor.mdx']).preconditions.map((p) => p.reason)).toEqual([
       'anchor-unread',
     ]);
-    const empty = analyze({ root: tempTree({ 'README.md': '# not on the surface' }), judge, tolerant, nodeTypes, parseJsonc, anchor: null });
+    // Only pages OFF the surface (objectui#12131): a record, a README below a
+    // package root, a CHANGELOG, a changeset and a skill page. Each holds a
+    // refused node document, so a leg that reached any of them would report it.
+    const refusedDoc = fence('json', { type: 'button', label: 'Go', nonsense: 1 });
+    const empty = run({
+      'docs/audits/2026-01-record.md': refusedDoc,
+      'packages/demo/src/renderers/README-KANBAN.md': refusedDoc,
+      'packages/demo/src/README.md': refusedDoc,
+      'packages/demo/CHANGELOG.md': refusedDoc,
+      '.changeset/a-change.md': refusedDoc,
+      'skills/demo/README.md': refusedDoc,
+    });
+    expect(empty.documents).toEqual([]);
+    expect(empty.findings).toEqual([]);
     expect(empty.preconditions.map((p) => p.reason)).toEqual(['empty-enumeration']);
+  });
+});
+
+/**
+ * objectui#12131 — the published READMEs joined the scan surface, because this
+ * gate was green while three README examples were refused by `objectui
+ * validate`. Each test below goes RED against the content-docs-only surface the
+ * gate had before: that surface read neither README, so it reported nothing and
+ * judged nothing there.
+ */
+describe('the scan surface — the published READMEs (objectui#12131)', () => {
+  const refusedDoc = fence('json', { type: 'button', label: 'Go', action: { type: 'submit' } });
+  const acceptedDoc = fence('json', { type: 'button', label: 'Go' });
+
+  it('RED: refuses a node document in a package\'s own README and in the root README, and names each', () => {
+    const r = run({ 'content/docs/a.mdx': acceptedDoc, 'packages/demo/README.md': refusedDoc, 'README.md': refusedDoc });
+    expect(reasons(r)).toEqual(['refused', 'refused']);
+    // fixture-address: pages in the temp fixture tree this test writes, as the gate under test reports them
+    expect(r.findings.map((f) => f.site)).toEqual(['packages/demo/README.md:1', 'README.md:1']);
+    expect(r.findings.map((f) => f.issues)).toEqual([['at (root): undeclared key "action"'], ['at (root): undeclared key "action"']]);
+  });
+
+  it('walks the legs in their declared order and counts each leg\'s pages', () => {
+    const r = run({ 'content/docs/a.mdx': acceptedDoc, 'packages/demo/README.md': acceptedDoc, 'README.md': acceptedDoc });
+    expect(r.legs.map((l) => l.leg)).toEqual(SCAN_SURFACE.map((l) => l.leg));
+    expect(r.legs.map((l) => l.pages)).toEqual([['content/docs/a.mdx'], ['packages/demo/README.md'], ['README.md']]);
+    expect(r.documents).toEqual(['content/docs/a.mdx', 'packages/demo/README.md', 'README.md']);
+    expect(r.accepted).toHaveLength(3);
+  });
+
+  it('takes a README fragment declared with the HTML-comment marker, and judges a declaration there as anywhere else', () => {
+    const declared = run({ 'packages/demo/README.md': [FRAGMENT_MARKER_EXAMPLES[1], refusedDoc].join('\n') });
+    expect(declared.findings).toEqual([]);
+    expect(declared.declared).toHaveLength(1);
+
+    const stale = run({ 'README.md': [FRAGMENT_MARKER_EXAMPLES[1], acceptedDoc].join('\n') });
+    expect(reasons(stale)).toEqual(['stale-fragment-marker']);
+  });
+
+  it('ANTI-IDLE: every leg owes its anchor — a README leg that collected nothing is a precondition, never a green', () => {
+    const r = run({ [ANCHOR_DOCUMENT]: acceptedDoc }, SURFACE_ANCHORS);
+    expect(r.judged).toHaveLength(1);
+    expect(r.preconditions.map((p) => `${p.reason} ${p.site}`)).toEqual(
+      SURFACE_ANCHORS.filter((a) => a !== ANCHOR_DOCUMENT).map((a) => `anchor-unread ${a}`),
+    );
+  });
+
+  it('every leg names an anchor, and the anchors are one per leg', () => {
+    expect(SURFACE_ANCHORS).toEqual(SCAN_SURFACE.map((l) => l.anchor));
+    expect(new Set(SURFACE_ANCHORS).size).toBe(SCAN_SURFACE.length);
+    expect(SURFACE_ANCHORS).toContain(ANCHOR_DOCUMENT);
+  });
+
+  it('its README legs are the doc-gate family\'s, read from the real tree', () => {
+    const docs = listDocuments(repoRoot);
+    const family = familyPackageReadmes(repoRoot).map((abs: string) => path.relative(repoRoot, abs).split(path.sep).join('/'));
+    // Non-vacuous: an empty family leg would make the equality below pass.
+    expect(family.length, 'the family collected no package README').toBeGreaterThan(10);
+    expect(docs.filter((d) => /^packages\/[^/]+\/README\.md$/.test(d))).toEqual(family);
+    for (const name of FAMILY_ROOT_PAGES) expect(docs).toContain(name);
+    expect(docs.filter((d) => d.startsWith('docs/') || d.startsWith('skills/') || /CHANGELOG\.md$/.test(d))).toEqual([]);
   });
 });
 
@@ -268,8 +345,11 @@ describe('one authority — the CLI door and the gate agree on every judged docu
     expect(new Set(judged.map((j) => judge(j.value).success))).toEqual(new Set([true, false]));
   });
 
-  it(`reads its anchor page, ${ANCHOR_DOCUMENT}, from the real corpus`, () => {
-    expect(listDocuments(repoRoot)).toContain(ANCHOR_DOCUMENT);
+  it.each(SURFACE_ANCHORS)('reads its anchor page %s, and judges a node document there, from the real corpus', (anchor) => {
+    expect(listDocuments(repoRoot)).toContain(anchor);
+    const r = analyze({ root: repoRoot, judge, tolerant, nodeTypes, parseJsonc, anchors: [anchor] });
+    expect(r.preconditions).toEqual([]);
+    expect(r.judged.some((j: { doc: string }) => j.doc === anchor)).toBe(true);
   });
 });
 

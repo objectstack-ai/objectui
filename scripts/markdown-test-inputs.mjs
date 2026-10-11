@@ -820,11 +820,12 @@ export const ADJUDICATED = new Map([
     'scripts/__tests__/check-doc-json-fences.test.ts',
     {
       // objectui#5250: the agreement test walks the JSON-fence gate's own scan
-      // surface, `content/docs/**` (the CI pipeline guide it also reads by name
-      // is inside it). Its `README.md` is a file the test writes into a
-      // temporary fixture tree, never the root document.
-      reads: ['content/docs/**'],
-      notRead: ['README.md'],
+      // surface (the CI pipeline guide it also reads by name is inside it).
+      // objectui#12131 widened that surface to the published READMEs: the root
+      // `README.md` and every `packages/NAME/README.md`, a leg taken by IMPORT
+      // from `check-doc-component-types.mjs`, hence `packages/**` as in the
+      // carriage census's entry above.
+      reads: ['README.md', 'content/docs/**', 'packages/**'],
       walker: 'markdown-tree',
     },
   ],

@@ -1174,7 +1174,7 @@ copying it out of an IDE hover got TS2322, and nothing in this repository had ev
 | `pnpm check:doc-snippets` (`scripts/check-doc-snippet-types.mjs`) | fenced `ts` / `tsx` blocks in the **documents** the `UNGATED_DOCS` ledger does not exempt | **Yes** |
 | `pnpm check:doc-snippets --emit-census` | code this repository's generators emit from **template literals** | No — report-only |
 | `pnpm check:doc-examples` (`scripts/check-doc-example-types.mjs`) | fenced `ts` / `tsx` blocks in JSDoc **`@example`** tags on exported declarations under `packages/NAME/src/**` | **Yes** |
-| `pnpm check:doc-json` (`scripts/check-doc-json-fences.mjs`) | fenced `json` / `jsonc` **node documents** in `content/docs`, judged through the strict authoring face | **Yes** |
+| `pnpm check:doc-json` (`scripts/check-doc-json-fences.mjs`) | fenced `json` / `jsonc` **node documents** in `content/docs`, every `packages/NAME/README.md` and the root `README.md`, judged through the strict authoring face | **Yes** |
 
 **Why it shares this job rather than getting a workflow.** It is a *sibling* of the gate above, not a
 fork: it imports that script's compiler host, its built-`.d.ts` resolution and every one of its
@@ -1218,17 +1218,27 @@ The job's **last** step runs `scripts/check-doc-json-fences.mjs` (`pnpm check:do
 gates above read `ts` / `tsx` only, so a `json` fence was checked by nothing:
 [#5229](https://github.com/objectstack-ai/objectui/issues/5229) taught a `validation` bag on an
 `input` node in `content/docs/blocks/forms.mdx` while every shipped tool was green. Every fenced
-`json` / `jsonc` block under `content/docs` that parses into an object whose `type` names a node
+`json` / `jsonc` block on its scan surface that parses into an object whose `type` names a node
 schema is judged through the **strict authoring face** — `StrictAnyComponentSchema`, read from the
 `@object-ui/types` the build step above produced, the face `objectui validate` and `objectui check`
 judge an authored document with ([#5250](https://github.com/objectstack-ai/objectui/issues/5250)).
 So a key no schema declares fails here exactly as it fails `objectui validate`; the tolerant face
 keeps it, because `BaseSchemaCore` is `.passthrough()` for the renderer.
 
+**What it reads.** Three legs, declared once in the script's `SCAN_SURFACE` and printed leg by leg
+in its summary: every `.mdx` / `.md` page under `content/docs`, every package's own `README.md`
+(`packages/NAME/README.md`), and the root `README.md`. The two README legs are the ones the other doc
+gates walk, imported from the component-type gate rather than spelled a second time. They joined in
+[#12131](https://github.com/objectstack-ai/objectui/issues/12131), after the root README's form and
+dashboard examples and a table in `packages/plugin-dashboard/README.md` were refused by
+`objectui validate` while this gate was green. Pages off that surface are not read, and the summary
+says so: `docs/audits/**` (point-in-time records, kept out on purpose), `skills/**`, CHANGELOGs,
+changesets, and READMEs below a package root, which are published only when a package's `files`
+reaches them.
+
 **What it does not judge, it counts.** A fence that is not JSON, not an object, carries no string
 `type`, or names a `type` no node schema declares is not judged; the summary prints each bucket, and
-`--list` prints every fence with its bucket. Pages outside `content/docs` are not read, and the
-summary says so.
+`--list` prints every fence with its bucket.
 
 **Fragments are declared, and the declaration is re-judged.** A node document that is deliberately
 not complete or not valid — a refused example that shows the error, an excerpt that elides required
@@ -1240,9 +1250,10 @@ one that is not a node document at all, is reported as stale, so the declaration
 **It proves itself before it judges the docs.** The face must resolve inside `packages/types/dist/`;
 a document carrying an undeclared key must be refused by the strict face and accepted by the
 tolerant one; a declared-only document must be accepted; and the walk must judge at least one node
-document, including one from its anchor page. Its exit codes are the sibling gates' three: `0`
-clean, `1` the gate ran and found errors, `2` it **could not run** — `@object-ui/types` unbuilt, or
-a control or the enumeration failed — which is neither green nor red.
+document, including one from each leg's anchor page, so a README leg that read nothing cannot pass.
+Its exit codes are the sibling gates' three: `0` clean, `1` the gate ran and found errors, `2` it
+**could not run** — `@object-ui/types` unbuilt, or a control or the enumeration failed — which is
+neither green nor red.
 
 **If it fails:** each refusal names the page, the line of its fence, and each reason — an undeclared
 key by name and path, anything else by the face's own message. Remove the key, or replace it with

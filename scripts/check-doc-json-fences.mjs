@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /**
- * Every fenced `json` / `jsonc` NODE DOCUMENT in `content/docs` must pass the
- * STRICT AUTHORING FACE — `StrictAnyComponentSchema`, the face `objectui
- * validate` and `objectui check` judge an authored document with.
+ * Every fenced `json` / `jsonc` NODE DOCUMENT on this gate's scan surface —
+ * `content/docs`, every package's own `README.md` and the root `README.md`
+ * (`SCAN_SURFACE`) — must pass the STRICT AUTHORING FACE —
+ * `StrictAnyComponentSchema`, the face `objectui validate` and `objectui
+ * check` judge an authored document with.
  *
  * Run:  node scripts/check-doc-json-fences.mjs          (also `pnpm check:doc-json`)
  *       node scripts/check-doc-json-fences.mjs --list   (also print every fence and
@@ -16,8 +18,8 @@
  *       2 = THE GATE COULD NOT RUN, so nothing printed above is a verdict about
  *       any document: `@object-ui/types` is not built, the JSONC reader cannot
  *       be resolved, a control failed, or the enumeration came back empty or
- *       without its anchor page. Fix the tree and re-run. Never read this as a
- *       documentation defect, and never as a pass.
+ *       without one of its legs' anchor pages. Fix the tree and re-run. Never
+ *       read this as a documentation defect, and never as a pass.
  *
  * The three codes are the sibling gate's (`scripts/check-doc-snippet-types.mjs`,
  * its "Why could not run is its own exit code" section), for the same reason.
@@ -58,6 +60,46 @@
  * the resolved file and refuses one outside the package's `dist/`. The
  * workflow (`doc-snippet-types.yml`) runs this gate after it has built the
  * snippet gate's `--build-filter` closure, which carries `@object-ui/types`.
+ *
+ * ## The scan surface, declared once (objectui#12131)
+ *
+ * `SCAN_SURFACE` below is everything this gate reads: one leg per entry, in
+ * walk order, and the summary prints it leg by leg with the pages each leg
+ * collected. Three legs:
+ *
+ *   1. every `.mdx` / `.md` page under `content/docs` — the population
+ *      objectui#5250's measurement priced;
+ *   2. every package's own `README.md`, `packages/NAME/README.md`;
+ *   3. the root `README.md`.
+ *
+ * Legs 2 and 3 are the published READMEs, and they joined because this gate
+ * was green while three README examples were refused by `objectui validate`
+ * (objectui#12131): the root README's form and dashboard, and a table in
+ * `packages/plugin-dashboard/README.md`. That card's first phase repaired the
+ * three; these legs keep them covered. Both legs are IMPORTED from
+ * `check-doc-component-types.mjs` (`PACKAGE_READMES` / `packageReadmePages`,
+ * `ROOT_PAGES`) rather than spelled again here: they are the README legs the
+ * doc-gate family already walks, so this gate reads the READMEs its siblings
+ * read, and a change to the family's legs moves this gate with them.
+ *
+ * Why a package's OWN README and not every `README*.md` in the tree: the own
+ * README is the page published with the package — npm packs it whatever
+ * `files` says, and `vsce publish` makes the VS Code extension's its
+ * Marketplace page, so a `private` flag is not a "not published" predicate. A
+ * README below a package root is published only when the package's `files`
+ * reaches it. When objectui#12131 measured that with `npm pack --dry-run` per
+ * package, none did — a dated reading, ⛔ not re-derived by this gate. So the
+ * deliberately refused `onCardMove` example in `README-KANBAN.md`, under
+ * `packages/components/src/renderers/complex/`, stays off the surface with no
+ * marker. If that page ever ships, it joins and owes a `doc-json: fragment`
+ * declaration.
+ *
+ * ⛔ Off the surface on purpose, and not to be widened onto as a side effect:
+ * `docs/audits/**` — point-in-time records, not teaching surfaces; triage on
+ * objectui#12131 kept them out of this scan, and a block inside a record is
+ * not this gate's to repair. CHANGELOGs and `.changeset/` are history.
+ * `skills/**` is a governed, published surface whose fences belong to its
+ * owner (objectui#12135).
  *
  * ## What a "node document" is — the population, stated
  *
@@ -127,11 +169,16 @@
  *   ACCEPTS     a declared-only document MUST be accepted. A harness broken the
  *               other way reds every page at once and reads as "the docs are
  *               full of defects".
- *   ANTI-IDLE   the walk must judge at least one node document, and
- *               `ANCHOR_DOCUMENT` — the page objectui#5229 was found on — must
- *               contribute one. An enumeration that collapsed (a moved root, a
- *               broken language filter, a scanner that stopped seeing fences)
- *               exits 2 instead of printing a green over nothing.
+ *   ANTI-IDLE   the walk must judge at least one node document, and EVERY leg
+ *               of `SCAN_SURFACE` carries an `anchor` page that must contribute
+ *               one: `ANCHOR_DOCUMENT` — the page objectui#5229 was found on —
+ *               for `content/docs`, and for each README leg a README
+ *               objectui#12131 repaired. An enumeration that collapsed (a moved
+ *               root, a leg that stopped collecting, a broken language filter, a
+ *               scanner that stopped seeing fences) exits 2 instead of printing
+ *               a green over nothing. A leg that collects no page cannot hand in
+ *               its anchor, so a README leg that silently judged zero READMEs is
+ *               this control failing, not a green.
  *
  * ## What this gate does NOT answer
  *
@@ -140,11 +187,13 @@
  *      `scripts/check-doc-component-types.mjs`.
  *   3. Whether a `${…}` sits on a key `SchemaRenderer` evaluates —
  *      `scripts/check-doc-expression-carriage.mjs` (report-only).
- *   4. ⚠️ Any page outside `content/docs`. The package READMEs, the root
- *      `README.md`, the `apps/<app>/docs` trees and the root `docs/` tree are
- *      NOT READ here, and nothing about them is claimed by a green run. That is
- *      the population objectui#5250's measurement priced; widening it is a
- *      change of this constant and of the pages it would then read.
+ *   4. ⚠️ Any page off `SCAN_SURFACE`. The `apps/<app>/docs` trees, the root
+ *      `docs/` tree (`docs/audits/**` included, deliberately — see "The scan
+ *      surface"), a README below a package root, the READMEs under `apps/`,
+ *      `examples/` and `patches/`, `skills/**`, CHANGELOGs and `.changeset/`
+ *      are NOT READ here, and nothing about them is claimed by a green run.
+ *      Widening is a change of `SCAN_SURFACE` and of the pages it would then
+ *      read.
  *   5. Whether a key the face DECLARES is read by a renderer. A declared key
  *      nothing reads passes here; that is the declaration side's question.
  */
@@ -160,6 +209,7 @@ import {
   quoteDepthOf,
   stripQuotePrefix,
 } from './check-doc-snippet-types.mjs';
+import { PACKAGE_READMES, ROOT_PAGES, packageReadmePages } from './check-doc-component-types.mjs';
 import { isEntrypoint } from './invoked-as.mjs';
 import { closesFence, openFence } from './markdown-fence-scan.mjs';
 
@@ -167,7 +217,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-/** The scan surface. See the header's "does NOT answer" item 4. */
+/** The content tree — the first leg of `SCAN_SURFACE`. */
 export const DOCS_ROOT = 'content/docs';
 
 /** Page extensions collected under `DOCS_ROOT` — both, as the sibling gate collects. */
@@ -177,11 +227,63 @@ export const DOC_EXTENSIONS = ['.mdx', '.md'];
 export const JSON_FENCE_LANGUAGES = new Set(['json', 'jsonc']);
 
 /**
- * A page that must contribute at least one judged node document on every run —
- * the page objectui#5229 was found on. If it stops holding one (moved, renamed,
- * or its fences rewritten away), name another; ⛔ never delete the control.
+ * The `content/docs` leg's anchor: a page that must contribute at least one
+ * judged node document on every run — the page objectui#5229 was found on. If
+ * it stops holding one (moved, renamed, or its fences rewritten away), name
+ * another; ⛔ never delete the control.
  */
 export const ANCHOR_DOCUMENT = 'content/docs/blocks/forms.mdx';
+
+const toPosix = (root, abs) => relative(root, abs).split(sep).join('/');
+
+/** Every page under `DOCS_ROOT`, repo-relative and POSIX-separated, in a stable order. */
+function contentDocsPages(root) {
+  const out = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir).sort()) {
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (DOC_EXTENSIONS.some((ext) => entry.endsWith(ext))) out.push(toPosix(root, p));
+    }
+  };
+  const docsRoot = join(root, DOCS_ROOT);
+  if (existsSync(docsRoot)) walk(docsRoot);
+  return out;
+}
+
+/**
+ * The scan surface, one leg per entry, in walk order — the header's "The scan
+ * surface, declared once" (objectui#12131). Each leg says what it reads
+ * (`leg`, the words the summary prints), lists its pages repo-relative
+ * (`pages(root)`), and names the page that must contribute a judged node
+ * document on every real run (`anchor`, the ANTI-IDLE control). The README
+ * legs come from `check-doc-component-types.mjs`, the family's one spelling of
+ * them, in the slot its siblings walk them: package READMEs before the root
+ * pages.
+ *
+ * Both README anchors are pages objectui#12131 repaired. If one stops holding a
+ * node document, name another page on the same leg; ⛔ never delete the control.
+ */
+export const SCAN_SURFACE = Object.freeze([
+  Object.freeze({
+    leg: `every ${DOC_EXTENSIONS.join(' / ')} page under ${DOCS_ROOT}/`,
+    anchor: ANCHOR_DOCUMENT,
+    pages: contentDocsPages,
+  }),
+  Object.freeze({
+    leg: `every ${PACKAGE_READMES.dir}/NAME/${PACKAGE_READMES.name}`,
+    anchor: 'packages/plugin-dashboard/README.md',
+    pages: (root) => packageReadmePages(root).map((abs) => toPosix(root, abs)),
+  }),
+  Object.freeze({
+    leg: `the root ${ROOT_PAGES.join(', ')}`,
+    anchor: 'README.md',
+    pages: (root) => ROOT_PAGES.filter((name) => existsSync(join(root, name))),
+  }),
+]);
+
+/** Every leg's anchor — what `analyze` checks by default. */
+export const SURFACE_ANCHORS = Object.freeze(SCAN_SURFACE.map((l) => l.anchor));
 
 /** The package and entry the face is read from — the one `@object-ui/cli` imports. */
 export const FACE_PACKAGE_DIR = 'packages/types';
@@ -219,19 +321,14 @@ export const ACCEPTED_CONTROL = { type: 'button', label: 'Save' };
 
 // ── Scanning ─────────────────────────────────────────────────────────────────
 
+/** Each leg of `SCAN_SURFACE` with the pages it collects under `root`. */
+export function surfaceLegs(root = repoRoot) {
+  return SCAN_SURFACE.map(({ leg, anchor, pages }) => ({ leg, anchor, pages: pages(root) }));
+}
+
 /** Every page in the scan set, repo-relative and POSIX-separated, in a stable order. */
 export function listDocuments(root = repoRoot) {
-  const out = [];
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir).sort()) {
-      const p = join(dir, entry);
-      if (statSync(p).isDirectory()) walk(p);
-      else if (DOC_EXTENSIONS.some((ext) => entry.endsWith(ext))) out.push(relative(root, p).split(sep).join('/'));
-    }
-  };
-  const docsRoot = join(root, DOCS_ROOT);
-  if (existsSync(docsRoot)) walk(docsRoot);
-  return out;
+  return surfaceLegs(root).flatMap((l) => l.pages);
 }
 
 /**
@@ -411,8 +508,9 @@ export function describeIssue(issue) {
  *
  * `judge(document)` is the strict verdict (`{ success, error? }`); `tolerant`
  * is the tolerant face's, read for words only. Both are injected so the test
- * suite can hand in the CLI's own door and the source face. `anchor: null`
- * switches the anchor control off, for a fixture tree that has no anchor page.
+ * suite can hand in the CLI's own door and the source face. `anchors` defaults
+ * to every leg's anchor; `anchors: null` switches the anchor control off, for a
+ * fixture tree that has no anchor page.
  *
  * @param {{
  *   root?: string,
@@ -420,13 +518,14 @@ export function describeIssue(issue) {
  *   tolerant?: (doc: unknown) => { success: boolean },
  *   nodeTypes: Set<string>,
  *   parseJsonc: (text: string, errors: unknown[], options: object) => unknown,
- *   anchor?: string | null,
+ *   anchors?: readonly string[] | null,
  * }} options
  */
-export function analyze({ root = repoRoot, judge, tolerant, nodeTypes, parseJsonc, anchor = ANCHOR_DOCUMENT }) {
+export function analyze({ root = repoRoot, judge, tolerant, nodeTypes, parseJsonc, anchors = SURFACE_ANCHORS }) {
   const findings = [];
   const preconditions = [];
-  const documents = listDocuments(root);
+  const legs = surfaceLegs(root);
+  const documents = legs.flatMap((l) => l.pages);
   const buckets = { notJson: [], notAnObject: [], noTypeKey: [], unresolvedType: [] };
   const judged = [];
   const accepted = [];
@@ -500,15 +599,17 @@ export function analyze({ root = repoRoot, judge, tolerant, nodeTypes, parseJson
   }
 
   if (documents.length === 0) {
-    preconditions.push({ reason: 'empty-enumeration', site: DOCS_ROOT, detail: 'no page was found on the scan surface' });
+    preconditions.push({ reason: 'empty-enumeration', site: 'SCAN_SURFACE', detail: 'no page was found on any leg of the scan surface' });
   } else if (judged.length === 0) {
-    preconditions.push({ reason: 'nothing-judged', site: DOCS_ROOT, detail: 'the walk judged no node document at all — the enumeration collapsed, so a green here would be over nothing' });
+    preconditions.push({ reason: 'nothing-judged', site: 'SCAN_SURFACE', detail: 'the walk judged no node document at all — the enumeration collapsed, so a green here would be over nothing' });
   }
-  if (anchor && !judged.some((j) => j.doc === anchor)) {
-    preconditions.push({ reason: 'anchor-unread', site: anchor, detail: 'the anchor page contributed no judged node document — the scanner, the language filter or the page has moved; name another anchor, never delete the control' });
+  for (const anchor of anchors ?? []) {
+    if (!judged.some((j) => j.doc === anchor)) {
+      preconditions.push({ reason: 'anchor-unread', site: anchor, detail: 'the anchor page contributed no judged node document — its leg, the scanner, the language filter or the page has moved; name another anchor on the same leg, never delete the control' });
+    }
   }
 
-  return { documents, fenceCount, buckets, judged, accepted, declared, refused, findings, preconditions };
+  return { legs, documents, fenceCount, buckets, judged, accepted, declared, refused, findings, preconditions };
 }
 
 // ── Loading the face and the reader ──────────────────────────────────────────
@@ -600,15 +701,16 @@ export async function main(argv = process.argv.slice(2), root = repoRoot) {
   }
 
   const unresolvedTypes = [...new Set(r.buckets.unresolvedType.map((b) => b.type))].sort();
+  const unreadAnchors = new Set(r.preconditions.filter((p) => p.reason === 'anchor-unread').map((p) => p.site));
   console.log(
     [
       '',
       `JSON doc fences — strict authoring face: ${faceRelative} (StrictAnyComponentSchema, the face \`objectui validate\` and \`objectui check\` judge with)`,
-      `  scan surface: every ${DOC_EXTENSIONS.join(' / ')} page under ${DOCS_ROOT}/ — ${r.documents.length} page(s), ${r.fenceCount} json/jsonc fence(s)`,
+      `  scan surface: ${r.legs.map((l) => `${l.leg} (${l.pages.length} page(s))`).join(' · ')} — ${r.documents.length} page(s), ${r.fenceCount} json/jsonc fence(s)`,
       `  judged node documents: ${r.judged.length} — ${r.accepted.length} accepted, ${r.declared.length} declared fragment(s) the face refuses as declared, ${r.refused.length} refused`,
       `  not judged: ${r.buckets.notJson.length} not JSON · ${r.buckets.notAnObject.length} not an object · ${r.buckets.noTypeKey.length} without a string \`type\` · ${r.buckets.unresolvedType.length} with a \`type\` no node schema declares${unresolvedTypes.length ? ` (${unresolvedTypes.join(', ')})` : ''}`,
-      `  controls: RESOLUTION, REFUSES, ACCEPTS hold over ${nodeTypes.size} node type(s); anchor ${ANCHOR_DOCUMENT} ${r.preconditions.some((p) => p.reason === 'anchor-unread') ? 'NOT read' : 'read'}`,
-      `  NOT read: pages outside ${DOCS_ROOT}/ (see this script's header) — a green run claims nothing about them`,
+      `  controls: RESOLUTION, REFUSES, ACCEPTS hold over ${nodeTypes.size} node type(s); anchors ${SURFACE_ANCHORS.map((a) => `${a} ${unreadAnchors.has(a) ? 'NOT read' : 'read'}`).join(', ')}`,
+      `  NOT read: every page off that surface — docs/audits/**, skills/**, CHANGELOGs, .changeset/ and READMEs below a package root among them (see this script's header) — a green run claims nothing about them`,
     ].join('\n'),
   );
 
@@ -625,7 +727,7 @@ export async function main(argv = process.argv.slice(2), root = repoRoot) {
     );
     return EXIT_CODES.documentsFailed;
   }
-  console.log('✅  Every judged JSON node document in the docs passes the strict authoring face.');
+  console.log('✅  Every judged JSON node document on the scan surface passes the strict authoring face.');
   return EXIT_CODES.verified;
 }
 

@@ -10,10 +10,13 @@
 // `permission_set` name column, and the positions that distribute the set are
 // the registry's position definitions whose `permissionSets` names it
 // (ADR-0131 D4) — never `sys_position_permission_set` / `sys_position` rows.
+// A new grant is written by name alone, and the fixture is a database with no
+// `sys_permission_set` row at all (objectstack ADR-0131 D10, stage 6b-2-pre).
 
 import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { normaliseClientError } from '@object-ui/data-objectstack';
 import { AssignedUsersSection } from './AssignedUsersSection';
 
 vi.mock('@object-ui/react', async (importOriginal) => ({
@@ -21,10 +24,19 @@ vi.mock('@object-ui/react', async (importOriginal) => ({
   useAdapter: () => mockAdapter,
   useMetadata: () => mockMetadataStore,
 }));
-vi.mock('@object-ui/fields', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@object-ui/fields')>()),
-  RecordPickerDialog: () => null,
-}));
+// The picker stands in as one button, rendered while it is open, that selects
+// `pickedUsers` — the same `onSelectRecords` hand-off the real dialog makes.
+vi.mock('@object-ui/fields', async (importOriginal) => {
+  const { createElement } = await import('react');
+  return {
+    ...(await importOriginal<typeof import('@object-ui/fields')>()),
+    RecordPickerDialog: (props: { open: boolean; onSelectRecords?: (records: unknown[]) => void }) =>
+      props.open
+        ? createElement('button', { type: 'button', onClick: () => props.onSelectRecords?.(pickedUsers) }, 'pick')
+        : null,
+  };
+});
+const pickedUsers = [{ id: 'u_new', name: 'New Nora' }];
 
 // The registry's position definitions — the binding is part of the definition.
 const registryPositions = [
@@ -35,10 +47,7 @@ const registryPositions = [
 const mockMetadataStore = { ensureType: vi.fn(async () => registryPositions) };
 
 const data: Record<string, any[]> = {
-  sys_permission_set: [{ id: 'ps_1', name: 'showcase_contributor' }],
-  sys_user_permission_set: [
-    { id: 'grant_1', permission_set_id: 'ps_1', permission_set: 'showcase_contributor', user_id: 'u_direct' },
-  ],
+  sys_user_permission_set: [{ id: 'grant_1', permission_set: 'showcase_contributor', user_id: 'u_direct' }],
   sys_user_position: [
     { id: 'up_1', user_id: 'u_held', position: 'contributor' },
     // The direct grantee ALSO holds the position — must merge into one row.
@@ -115,5 +124,60 @@ describe('AssignedUsersSection — by name, against the registry (objectui#7611)
     // `auditor` names `showcase_auditor`, but nobody holds it in the fixture,
     // and the direct grant above is for another set: an empty list.
     await waitFor(() => expect(screen.getByText(/No users assigned yet/)).toBeTruthy());
+  });
+});
+
+/** Open the picker and select `pickedUsers` (the stand-in above). */
+async function addThroughPicker() {
+  await waitFor(() => expect(screen.getByText('Held Henry')).toBeTruthy());
+  fireEvent.click(screen.getByText('Add user'));
+  fireEvent.click(await screen.findByText('pick'));
+}
+
+describe('AssignedUsersSection — a grant by name, on a database with no catalog row (objectui#7611)', () => {
+  it('ADD writes { user_id, permission_set } alone and reads no sys_permission_set row', async () => {
+    mockAdapter.find.mockClear();
+    mockAdapter.create.mockClear();
+    render(<AssignedUsersSection permissionSetName="showcase_contributor" />);
+    await addThroughPicker();
+
+    await waitFor(() => expect(mockAdapter.create).toHaveBeenCalledTimes(1));
+    // Exactly these two keys: no legacy `permission_set_id`, whatever its value.
+    expect(mockAdapter.create).toHaveBeenCalledWith('sys_user_permission_set', {
+      user_id: 'u_new',
+      permission_set: 'showcase_contributor',
+    });
+    const reads = mockAdapter.find.mock.calls.map(([object]) => object);
+    expect(reads).not.toContain('sys_permission_set');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it("shows the server's refusal of a name its catalog does not hold, in the server's words", async () => {
+    // The error as the adapter throws it: the client's error for a
+    // `400 VALIDATION_FAILED` with one `reference_not_found` entry at
+    // `permission_set`, through the adapter's own `normaliseClientError`.
+    const said = "Permission Set: no permission set is named 'showcase_contributor'.";
+    const clientError = Object.assign(new Error(said), {
+      code: 'VALIDATION_FAILED',
+      httpStatus: 400,
+      details: { fields: [{ field: 'permission_set', code: 'reference_not_found', message: said }] },
+    });
+    mockAdapter.create.mockClear();
+    mockAdapter.create.mockRejectedValueOnce(normaliseClientError(clientError));
+    render(<AssignedUsersSection permissionSetName="showcase_contributor" />);
+    await addThroughPicker();
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe(said);
+  });
+
+  it('REMOVE deletes the direct grant by its row id', async () => {
+    mockAdapter.delete.mockClear();
+    render(<AssignedUsersSection permissionSetName="showcase_contributor" />);
+    await waitFor(() => expect(screen.getByText('Held Henry')).toBeTruthy());
+    fireEvent.click(screen.getByLabelText('Remove'));
+
+    await waitFor(() => expect(mockAdapter.delete).toHaveBeenCalledTimes(1));
+    expect(mockAdapter.delete).toHaveBeenCalledWith('sys_user_permission_set', 'grant_1');
   });
 });

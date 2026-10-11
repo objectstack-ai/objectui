@@ -23,6 +23,7 @@ import {
   SelectItem 
 } from '../../ui/select';
 import { renderChildren } from '../../lib/utils';
+import { toFormControlDomProps } from '../../lib/form-control-dom-props';
 import { toControlValue, matchOptionValue, type OptionValue } from './option-value';
 import { RHF_RECOGNIZED_RULE_KEYS } from './validationRuleKeys';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
@@ -687,46 +688,60 @@ function dependentLookupParents(f: FormFieldConfig | undefined): string[] {
   return resolveDependsOnFields(declared).filter((parent) => parent !== name);
 }
 
-function stripRendererOnlyProps<T extends Record<string, any>>(props: T): T {
-  const {
-    dataSource: _dataSource,
-    inputType: _inputType,
-    options: _options,
-    field: _field,
-    schema: _schema,
-    showActions: _showActions,
-    fieldContainerClass: _fieldContainerClass,
-    mobileStickyActions: _mobileStickyActions,
-    mobile_fullscreen: _mobileFullscreen,
-    dependentValues: _dependentValues,
-    dependsOn: _dependsOn,
-    // objectstack#5407 — the sibling name→label map is for widgets that NAME a
-    // controlling field in their own copy (the lookup gate hint). No builtin
-    // branch renders such copy, and an object-valued prop reaching a DOM node
-    // is a React warning, so it is stripped here exactly like `dependentValues`.
-    dependsOnLabels: _dependsOnLabels,
-    emptyHint: _emptyHint,
-    // The field's own label (objectui#3393). It is forwarded from the single
-    // call site for ONE reader — the built-in `textarea` branch's fullscreen
-    // dialog, which names the field in its title and in the expand button's
-    // accessible name — and is renderer-only everywhere else: `<FormLabel>`
-    // above already renders it, and every other built-in branch spreads its
-    // leftover props straight onto a DOM node, where `label` would show up as
-    // a stray `label="Notes"` attribute on an `<input>` / `<textarea>` /
-    // Radix control. The `textarea` branch therefore reads it off the
-    // PRE-strip props, exactly like `mobile_fullscreen`.
-    label: _label,
-    // The validation message (objectui#3222) is for REGISTERED widgets, which
-    // need it to put `aria-invalid` on the control they render. The builtin
-    // branch below renders its control directly inside `<FormControl>`, whose
-    // Slot already injects `aria-invalid` / `aria-describedby` — so here the
-    // prop has no reader and would only reach the DOM as a stray `error="…"`
-    // attribute.
-    error: _error,
-    ...domProps
-  } = props;
+/**
+ * The attributes a built-in branch puts on its native control BY NAME, per
+ * host element (objectui#12155).
+ *
+ * The built-in branches used to spread a BLOCKLIST of the entry's leftover
+ * keys (`stripRendererOnlyProps`, now gone) onto the control, so any key no
+ * entry of that list named reached the DOM. A field-level `defaultValue` was
+ * the costly case: the `textarea` branches and the `default` arm drew it in
+ * the control, react-hook-form never saw it, and the submit carried no value,
+ * so the user saw a value that was not saved (a form's initial values are
+ * `FormSchema.defaultValues`, the one spelling). `defaultChecked` checked the
+ * Radix checkbox's hidden bubble input while the visible box stayed unchecked.
+ * A blocklist cannot be finished, because the set of keys an author may write
+ * is open (the objectui#4428 measurement `dom-props.ts` in `@object-ui/core`
+ * records), so the branches now take the family's form-control ALLOWLIST,
+ * `toFormControlDomProps`, and add only what is listed here.
+ *
+ * Each key below reached the control through the old spread and has a reader
+ * that says so, which is why it is forwarded rather than dropped:
+ *
+ *  - `min`, `max`, `minLength`, `pattern`, `rows`: `FormField` in
+ *    `@object-ui/types` documents each one as put on the built-in branch's
+ *    native control, and the `form` docs page lists the first four as the
+ *    field's validation keys. The browser enforces them at submit.
+ *  - `step`: `FormField` declares it, the spec's number (objectui#12130).
+ *    On a number input the `input` and `default` arms resolve it from the
+ *    metadata carrier after this spread (`nativeNumberStep`), which decides
+ *    whether the input accepts a decimal at all
+ *    (`objectFormNumericStep-9574.test.tsx`); this forward is what reaches the
+ *    other input types that step, such as `time`.
+ *  - `multiple`, `accept`: `ObjectForm` in `@object-ui/plugin-form` writes
+ *    them onto the entries it builds for a `file` / `image` field it routes to
+ *    the built-in `input`.
+ *
+ * ⛔ Add a key here only with such a reader. A key nobody documents for the
+ * built-in control and no producer writes for it is the open tail this
+ * allowlist exists to refuse. `maxLength` is not listed: every branch that
+ * caps resolves it by name after the spread (objectui#3439, objectui#5201).
+ */
+const BUILTIN_HOST_ATTRIBUTES = {
+  input: ['min', 'max', 'step', 'minLength', 'pattern', 'multiple', 'accept'],
+  textarea: ['rows', 'minLength'],
+} as const;
 
-  return domProps as T;
+/** The {@link BUILTIN_HOST_ATTRIBUTES} of `host` the entry carries, by name. */
+function builtinHostAttributes(
+  fieldProps: Record<string, unknown>,
+  host: keyof typeof BUILTIN_HOST_ATTRIBUTES,
+): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of BUILTIN_HOST_ATTRIBUTES[host]) {
+    if (fieldProps[key] !== undefined) picked[key] = fieldProps[key];
+  }
+  return picked;
 }
 
 /** Serialize a JS value as a CEL literal (string / number / bool / list / null). */
@@ -1151,8 +1166,8 @@ function FullscreenTextarea({
    * passenger on `rest` — it must not reach the inline `<Textarea>` as a stray
    * `error="…"` attribute, and the primitive needs it by name.
    *
-   * Like `label` and `mobile_fullscreen`, it is read off the PRE-strip props at
-   * the call site: `stripRendererOnlyProps` discards `error` for the DOM,
+   * Like `label` and `mobile_fullscreen`, it is read off `fieldProps` at the
+   * call site: the DOM allowlist (`toFormControlDomProps`) drops `error`,
    * correctly, because the INLINE control gets its `aria-invalid` from
    * `<FormControl>`'s Slot. The DIALOG's control is built from scratch and gets
    * nothing from that Slot, which is the whole of objectui#4824.
@@ -3568,8 +3583,9 @@ ComponentRegistry.register('form',
                   // props contract (`FieldWidgetComponentProps & AriaAttributes`)
                   // and every widget forwards its leftover props to the control
                   // it renders. The builtin branch is the same story — neither
-                  // `stripRegisteredFieldProps` nor `stripRendererOnlyProps`
-                  // touches `aria-*`. That is precisely why #3222 refused to
+                  // `stripRegisteredFieldProps` nor the builtin branches' DOM
+                  // allowlist (`toFormControlDomProps`) drops `aria-*`. That is
+                  // precisely why #3222 refused to
                   // sink a `required` BOOLEAN into the widget contract: a
                   // boolean gives the asterisk a second author and the next
                   // AI-written widget draws its own, while `aria-required` goes
@@ -4440,7 +4456,17 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
   }
 
   const { inputType, options = [], placeholder, readonly, emptyHint, ...fieldProps } = props;
-  const domFieldProps = stripRendererOnlyProps(fieldProps);
+  // What reaches the control is an ALLOWLIST (objectui#12155): the family's
+  // form-control set (`id`, `className`, `name`, `disabled`, the handlers,
+  // `aria-*`, `data-*`), plus, per host, the attributes in
+  // `BUILTIN_HOST_ATTRIBUTES`. Every other leftover key of the entry stays off
+  // the DOM, a field-level `defaultValue` / `defaultChecked` included, so the
+  // control never draws a value the form does not hold.
+  const domFieldProps: Record<string, any> = toFormControlDomProps(fieldProps);
+  // react-hook-form's binding, handed to each control BY NAME. The allowlist
+  // keeps `name`, `disabled` and `onBlur`; these three it drops, because they
+  // are the control's state and its ref, not attributes.
+  const { value, onChange, ref: controlRef } = fieldProps;
   // Text-like controls get a real readonly treatment (native `readOnly` +
   // a soft, non-"disabled" tint) instead of being grayed out. Toggle/choice
   // controls (checkbox/switch/select) have no meaningful "look but don't
@@ -4471,20 +4497,33 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
       // here (the objectui#5201 triage ruling).
       const maxLength = (fieldProps as any).maxLength;
       if (inputType === 'file') {
-        // File inputs cannot be controlled with value prop. No cap applies to a
-        // file picker.
-        const { value, ...fileProps } = domFieldProps;
-        return <Input type="file" placeholder={placeholder} {...fileProps} className={cn('min-h-[44px] sm:min-h-0', fileProps.className)} />;
+        // File inputs cannot be controlled with value prop, so `value` is not
+        // passed. No cap applies to a file picker. The entry's `className` is
+        // merged in, not spread over (objectui#12130).
+        return (
+          <Input
+            type="file"
+            placeholder={placeholder}
+            {...domFieldProps}
+            {...builtinHostAttributes(fieldProps, 'input')}
+            className={cn('min-h-[44px] sm:min-h-0', domFieldProps.className)}
+            ref={controlRef}
+            onChange={onChange}
+          />
+        );
       }
       return (
         <Input
           type={inputType || 'text'}
           placeholder={placeholder}
           {...domFieldProps}
+          {...builtinHostAttributes(fieldProps, 'input')}
           // After the spread, and MERGED: an entry's `className` adds to this
           // branch's own classes instead of replacing them (objectui#12130).
           // Every built-in branch writes it this way.
           className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass, domFieldProps.className)}
+          ref={controlRef}
+          onChange={onChange}
           // After the spread, so the resolved cap is the one written (the
           // #3222 discipline). `undefined` when the field declares no
           // `maxLength`, which renders no attribute.
@@ -4498,7 +4537,7 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
             domFieldProps.onClick?.(e);
           }}
           readOnly={readonly}
-          value={domFieldProps.value ?? ''}
+          value={value ?? ''}
         />
       );
     }
@@ -4514,16 +4553,17 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
       // producer and it stamps `mobile_fullscreen` (#3245/#3300), which is also
       // the single spelling `TextAreaField` and `RichTextField` read.
       //
-      // `label` rides the same way: read off the PRE-strip props, because
-      // `stripRendererOnlyProps` discards it for the DOM (objectui#3393). It
-      // used to be discarded by a local `const { label: _label, ...rest }` on
-      // the next line — which ESLint flagged as an unused binding, correctly:
-      // the call site never forwarded a `label`, so the guard was defending
-      // against something that never arrived, while every OTHER built-in
-      // branch had no guard at all. Now the strip owns it for all branches.
+      // `label` rides the same way: read off `fieldProps`, because the DOM
+      // allowlist (`toFormControlDomProps`) keeps it off the control
+      // (objectui#3393, objectui#12155). It used to be discarded by a local
+      // `const { label: _label, ...rest }` on the next line — which ESLint
+      // flagged as an unused binding, correctly: the call site never forwarded
+      // a `label`, so the guard was defending against something that never
+      // arrived, while every OTHER built-in branch had no guard at all. Now the
+      // allowlist keeps it off the DOM for all branches.
       //
       // `error` rides the same way, and for the same reason (objectui#4824):
-      // `stripRendererOnlyProps` discards it because the INLINE control takes
+      // the allowlist drops it because the INLINE control takes
       // its `aria-invalid` from `<FormControl>`'s Slot and would only gain a
       // stray `error="…"` attribute. The fullscreen DIALOG's control is built
       // from scratch inside this branch, reaches no Slot, and so had no way to
@@ -4543,7 +4583,7 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
       // kept it off the element went with the read.
       const { mobile_fullscreen, label, error } = fieldProps as any;
       const maxLength = (fieldProps as any).maxLength;
-      const rest = domFieldProps;
+      const rest = { ...domFieldProps, ...builtinHostAttributes(fieldProps, 'textarea') };
       if (mobile_fullscreen) {
         return (
           <FullscreenTextarea
@@ -4557,14 +4597,16 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
             // The non-fullscreen exit below always did this; this exit forwarded
             // neither the attribute nor the tint, which is why a read-only long
             // text field was editable in place the moment the fullscreen flag
-            // was on. (`disabled` rides `rest`, which no strip touches.) The
+            // was on. (`disabled` rides `rest`: the allowlist keeps it.) The
             // entry's `className` is merged in, not spread over (objectui#12130).
             className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass, rest.className)}
+            ref={controlRef}
+            onChange={onChange}
             // After the spread, so the resolved cap is the one written (the
             // #3222 discipline).
             maxLength={maxLength}
             readOnly={readonly}
-            value={rest.value ?? ''}
+            value={value ?? ''}
           />
         );
       }
@@ -4573,16 +4615,21 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           placeholder={placeholder}
           {...rest}
           className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass, rest.className)}
+          ref={controlRef}
+          onChange={onChange}
           maxLength={maxLength}
           readOnly={readonly}
-          value={rest.value ?? ''}
+          value={value ?? ''}
         />
       );
     }
 
     case 'checkbox': {
-      // For checkbox, we need to handle the value differently
-      const { value, onChange, disabled: cbDisabled, ...checkboxProps } = domFieldProps;
+      // For checkbox, we need to handle the value differently. `checkboxProps`
+      // is the allowlist's output (objectui#12155): an authored
+      // `defaultChecked` used to ride it onto Radix's hidden bubble input,
+      // checking that input while the visible box stayed unchecked.
+      const { disabled: cbDisabled, ...checkboxProps } = domFieldProps;
       return (
         <Checkbox
           checked={value}
@@ -4590,13 +4637,14 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           disabled={cbDisabled || readonly}
           {...checkboxProps}
           className={cn('min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0', checkboxProps.className)}
+          ref={controlRef}
         />
       );
     }
 
     case 'switch': {
       // For switch, we need to handle the value differently (same as checkbox)
-      const { value, onChange, disabled: swDisabled, ...switchProps } = domFieldProps;
+      const { disabled: swDisabled, ...switchProps } = domFieldProps;
       return (
         <Switch
           checked={value}
@@ -4604,13 +4652,14 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           disabled={swDisabled || readonly}
           {...switchProps}
           className={cn('min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0', switchProps.className)}
+          ref={controlRef}
         />
       );
     }
 
     case 'select': {
       // For select with react-hook-form, we need to handle the onChange
-      const { value: selectValue, onChange: selectOnChange, disabled: selDisabled, ...selectProps } = domFieldProps;
+      const { disabled: selDisabled, ...selectProps } = domFieldProps;
 
       // Safety check for options. When a dependent (cascading) select is still
       // waiting on its controlling field the renderer passes a gate hint (#2284)
@@ -4627,10 +4676,11 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
       return (
         <BuiltinSelectControl
           {...selectProps}
+          ref={controlRef}
           options={options}
           placeholder={placeholder}
-          value={selectValue}
-          onValueChange={selectOnChange}
+          value={value}
+          onValueChange={onChange}
           disabled={selDisabled || readonly}
         />
       );
@@ -4745,7 +4795,16 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           type={inputType || NATIVE_INPUT_FIELD_TYPES[declaredType] || 'text'}
           placeholder={placeholder}
           {...domFieldProps}
+          {...builtinHostAttributes(fieldProps, 'input')}
           className={cn(readonlyInputClass, domFieldProps.className)}
+          ref={controlRef}
+          onChange={onChange}
+          // `value` as react-hook-form holds it, `undefined` included: this arm
+          // has always handed the control the form's value unchanged, and only
+          // the form's value (objectui#12155). A field-level `defaultValue`
+          // used to reach the element here and draw a value the form did not
+          // hold.
+          value={value}
           // After the spread, so the resolved cap is the one written (the
           // #3222 discipline). `undefined` when the field declares no
           // `maxLength`, which renders no attribute — an uncapped field is

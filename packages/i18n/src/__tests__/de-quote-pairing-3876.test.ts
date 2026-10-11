@@ -319,7 +319,12 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // 77 once objectui#12098 added `marketplace.install.localLoadsAtRestart`,
     // the install-local answer that loads at the next restart, which quotes
     // the package name („{{name}}“) — one interpolated span, runtime data.
-    expect(okSpans, 'correctly paired spans').toBe(77);
+    // 84 once objectui#7611 added the suggested-bindings panel's states:
+    // `marketplace.suggestedBindings.acceptedState` and `.notInForceState`
+    // quote the set („{{set}}“) and the position („Everyone“) — two spans
+    // each; `.dismissedState` and `.revokedToast` quote the set — one each;
+    // `.guestUnsupported` quotes the position („Guest“) — one.
+    expect(okSpans, 'correctly paired spans').toBe(84);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -364,7 +369,9 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // after objectui#11913 added `grid.import.invalidTime`, one more matched pair.
     // 77 / 77 / 0 after objectui#12098 added
     // `marketplace.install.localLoadsAtRestart`, one more matched pair.
-    expect({ open, close, rdq }).toEqual({ open: 77, close: 77, rdq: 0 });
+    // 84 / 84 / 0 after objectui#7611 added five suggested-bindings values,
+    // seven matched pairs between them.
+    expect({ open, close, rdq }).toEqual({ open: 84, close: 84, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

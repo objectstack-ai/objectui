@@ -735,8 +735,15 @@ const WRITE_SITES: Record<string, WriteSite> = {
   'packages/plugin-calendar/src/ObjectCalendar.tsx :: ObjectCalendar > renderRecordOverlay > onDelete :: delete':
     mapped(['recordDelete'], DETAIL_VIEW),
   // ── plugin-designer ──
+  // objectui#12082, leg B: measured, this write has no grant that could make it
+  // honest — its target does not exist, so it fails for every caller alike.
   'packages/plugin-designer/src/pages/DashboardDesignPage.tsx :: DashboardDesignPage > saveSchema :: update':
-    unmapped("the dashboard designer's Save updates a sys_dashboard row and reads no grant on sys_dashboard"),
+    outOfFamily(
+      "the dashboard designer's Save writes `sys_dashboard`, a per-type table objectui retired (dashboards persist through " +
+        "`/meta`, ADR-0034; `runtime-metadata-persistence.ts` in @object-ui/app-shell) and one no objectstack server registers " +
+        "(absent from the spec's PLATFORM_OBJECTS_BY_PACKAGE and CLOUD_PROVIDED_OBJECT_NAMES, read 2026-10-11), so it fails " +
+        'for every caller whatever their grant; no in-app link reaches its route either',
+    ),
   // ── plugin-detail ──
   'packages/plugin-detail/src/InlineEditSaveBar.tsx :: updateVia :: update': {
     ...mapped(['recordEdit'], RECORD_PAGE, RECORD_DETAILS, DETAIL_SECTION, HEADER_HIGHLIGHT),
@@ -842,11 +849,12 @@ const WRITE_SITES: Record<string, WriteSite> = {
  * done-when is a census with no `unmapped` entry, and then this list is empty.
  */
 const UNMAPPED_BACKLOG: ReadonlySet<string> = new Set([
+  // Setup's permission-set and position assignment: the readers of the
+  // objectui#7611 epic's C9, graded with it.
   'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx :: AssignedUsersSection > addUsers :: create',
   'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx :: AssignedUsersSection > removeUser :: delete',
   'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > addHolders :: create',
   'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > removeHolder :: delete',
-  'packages/plugin-designer/src/pages/DashboardDesignPage.tsx :: DashboardDesignPage > saveSchema :: update',
 ]);
 
 const isFn = (e: ts.Node | undefined): boolean => !!e && (ts.isArrowFunction(e) || ts.isFunctionExpression(e));

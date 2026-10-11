@@ -49,8 +49,8 @@
  *
  * The `write` question is the server's whole update rule for the field, so it
  * also carries the one field whose update needs an OBJECT grant beyond
- * `allowEdit`: the record's owner (`SystemFieldName.OWNER_ID` in
- * `@objectstack/spec`). The server refuses an update that writes it without
+ * `allowEdit`: the record's owner, the field the spec's `SystemFieldName`
+ * constant names `OWNER_ID`. The server refuses an update that writes it without
  * the transfer grant (`allowTransfer`, or `modifyAllRecords`), so the resolver
  * answers `write` for it with that grant too (objectui#12103). Every row that
  * asks `write` therefore offers the owner field only to a caller who may

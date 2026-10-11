@@ -148,8 +148,8 @@ such a field through and object admission decides, so `'write'` falls back to
 the object's `allowEdit` and `'create'` to its `allowCreate`. An explicit
 field-level entry answers both the same way.
 
-One field's update needs more than its own grant: the record's owner
-(`SystemFieldName.OWNER_ID` in `@objectstack/spec`). The server refuses an
+One field's update needs more than its own grant: the record's owner, the
+field the spec's `SystemFieldName` constant names `OWNER_ID`. The server refuses an
 update that writes it unless the caller holds the transfer grant
 (`allowTransfer`, or `modifyAllRecords`), so `MePermissionsProvider` answers
 `'write'` for the owner field with that grant as well (objectui#12103).

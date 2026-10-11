@@ -58,7 +58,7 @@ import {
   DataEmptyState, resolveIcon,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, resolveAffordance, resolveFieldAffordance, type SchemaLike, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -4455,7 +4455,21 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // mark the column so the data-table never opens an editor (otherwise it
     // falls back to a plain text box for e.g. a Formula or File cell). Only
     // force `false`; leave editable unset otherwise so the grid-level flag wins.
-    if (next.editable !== false && !isFieldInlineEditable(fieldDef)) {
+    //
+    // [objectui#12103] …and neither is a field THIS CALLER may not write: the
+    // field question of the `listInlineEdit` row of the affordance-to-grant map,
+    // the same `write` question an edit form asks (`fieldWriteGate`). A field
+    // the permission set marks `editable: false`, or the owner field without
+    // the transfer grant, keeps a read cell while the rest of the row edits;
+    // before, its editor opened and the save answered 403. `inlineEditable`
+    // above stays the object-level verdict for the whole grid — this only
+    // narrows one column. With no `objectName`, or no provider mounted, nothing
+    // is asked and the column is untouched.
+    if (
+      next.editable !== false &&
+      (!isFieldInlineEditable(fieldDef) ||
+        (!!objectName && !resolveFieldAffordance('listInlineEdit', perms, objectName, col.accessorKey)))
+    ) {
       next.editable = false;
     }
     return next;

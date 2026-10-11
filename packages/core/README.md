@@ -187,7 +187,13 @@ row's Delete, and the rest — reads the grant it exercises from ONE table,
 `AFFORDANCE_GRANTS` (objectui#12082). A row names the CRUD-affordance bit the
 affordance needs, the object grant it exercises (`create`, `update` or
 `delete`) and, for an affordance that offers fields, the field question it asks
-(`create` for an insert, `write` for an update).
+(`create` for an insert, `write` for an update). The fields of a form, of the
+record page's in-place edit (`recordEdit`) and of a list's in-cell edit
+(`listInlineEdit`) each ask that question, so a field the caller's permission
+set marks `editable: false` is offered read-only on every one of them
+(objectui#12103). The `write` question is the server's whole update rule for a
+field, so for the record's owner field it also needs the transfer grant
+(`allowTransfer`, or `modifyAllRecords`).
 
 `resolveAffordance` is the one verdict: the object's managed-object policy, the
 server's effective API operation set and the caller's grant must all allow it,

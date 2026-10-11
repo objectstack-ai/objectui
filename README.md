@@ -193,7 +193,6 @@ published is not an error: the expression is returned as its own source text.
 ```json
 {
   "type": "form",
-  "title": "Contact Us",
   "fields": [
     { "name": "name", "type": "text", "label": "Full Name", "required": true },
     { "name": "email", "type": "email", "label": "Email", "required": true },
@@ -234,14 +233,13 @@ published is not an error: the expression is returned as its own source text.
 ```json
 {
   "type": "dashboard",
-  "title": "Sales Dashboard",
   "widgets": [
-    { "type": "statistic", "label": "Revenue", "value": "${stats.revenue}", "trend": "up", "description": "+12%", "w": 3, "h": 1 },
-    { "type": "statistic", "label": "Orders", "value": "${stats.orders}", "trend": "up", "description": "+8%", "w": 3, "h": 1 },
-    { "type": "statistic", "label": "Customers", "value": "${stats.customers}", "trend": "up", "description": "+5%", "w": 3, "h": 1 },
-    { "type": "statistic", "label": "Conversion", "value": "${stats.conversion}", "trend": "down", "description": "-2%", "w": 3, "h": 1 },
-    { "type": "chart", "chartType": "line", "title": "Revenue Over Time", "w": 8, "h": 3 },
-    { "type": "chart", "chartType": "pie", "title": "Sales by Region", "w": 4, "h": 3 }
+    { "type": "metric-card", "title": "Revenue", "value": "$56,789", "trend": "up", "trendValue": "+12%", "layout": { "x": 0, "y": 0, "w": 3, "h": 1 } },
+    { "type": "metric-card", "title": "Orders", "value": "1,234", "trend": "up", "trendValue": "+8%", "layout": { "x": 3, "y": 0, "w": 3, "h": 1 } },
+    { "type": "metric-card", "title": "Customers", "value": "432", "trend": "up", "trendValue": "+5%", "layout": { "x": 6, "y": 0, "w": 3, "h": 1 } },
+    { "type": "metric-card", "title": "Conversion", "value": "3.2%", "trend": "down", "trendValue": "-2%", "layout": { "x": 9, "y": 0, "w": 3, "h": 1 } },
+    { "id": "revenue_over_time", "type": "line", "title": "Revenue Over Time", "dataset": "sales", "dimensions": ["month"], "values": ["revenue"], "layout": { "x": 0, "y": 1, "w": 8, "h": 3 } },
+    { "id": "sales_by_region", "type": "pie", "title": "Sales by Region", "dataset": "sales", "dimensions": ["region"], "values": ["revenue"], "layout": { "x": 8, "y": 1, "w": 4, "h": 3 } }
   ]
 }
 ```

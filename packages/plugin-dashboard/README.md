@@ -797,9 +797,13 @@ the schema arrives, or for good when the read failed (objectui#10657). A column
 that authors its `type` draws from it meanwhile. The record drawer a row opens
 (record drill-down) draws every value as the mask in that window too.
 
+Authored as a node, the object-bound table is `object-data-table`. A bare `table`
+is the static component: it takes its rows in `data` and declares neither
+`objectName` nor a column `format`.
+
 ```jsonc
 {
-  "type": "table",
+  "type": "object-data-table",
   "objectName": "opportunity",
   "columns": [
     { "accessorKey": "name",        "header": "Opportunity" },

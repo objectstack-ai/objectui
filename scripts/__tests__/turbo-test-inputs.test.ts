@@ -19,7 +19,7 @@ import {
  * that objectui#3514 closed for `type-check`, and it has it worse.
  *
  * Turbo hashes a task from its `inputs`. `$TURBO_DEFAULT$` covers only files
- * inside the package directory, and `globalDependencies` is unset — so any file
+ * inside the package directory, and `globalDependencies` holds no source file — so any file
  * the task reads from elsewhere in the repo is invisible to the cache key. When
  * such a file changes, turbo does not re-run the task; it REPLAYS the previous
  * verdict. Before this guard, EVERY entry in the `test` task's list was

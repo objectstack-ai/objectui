@@ -14,7 +14,7 @@ import { outOfPackageFiles } from './helpers/tsc-program';
  * program reaches OUTSIDE its own package directory.
  *
  * Turbo hashes a task from its `inputs`. `$TURBO_DEFAULT$` covers only files
- * inside the package directory, and `globalDependencies` is unset — so any file
+ * inside the package directory, and `globalDependencies` holds no source file — so any file
  * the program reads from elsewhere in the repo is invisible to the cache key.
  * When such a file changes, turbo does not re-run the task; it REPLAYS the
  * previous verdict. That is a gate whose answer depends on cache state rather

@@ -24,7 +24,7 @@
  *   3. the keys measured NOT to work stay refused by name on the strict face:
  *      `defaultValue` and `defaultChecked`, which no reader asks for and
  *      neither of which becomes the field's value, and the snake_case second
- *      spellings of four declared keys;
+ *      spellings of five declared keys;
  *   4. the TypeScript face carries each spec member and each field metadata
  *      member by reference (type-level, read by `tsc -p tsconfig.test.json`
  *      only — vitest does not typecheck).
@@ -74,6 +74,7 @@ const DECLARED: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
   ['lookupPageSize', { type: 'lookup', reference: 'account', lookupPageSize: 25 }],
   ['picker', { type: 'user', reference: 'sys_user', picker: 'search' }],
   ['subtitle', { type: 'user', reference: 'sys_user', picker: 'search', subtitle: ['email'] }],
+  ['avatarField', { type: 'user', reference: 'sys_user', picker: 'search', avatarField: 'photo' }],
 ];
 
 /* ── 1. accepted on the strict face; a misspelling beside it is not ─────── */
@@ -114,6 +115,7 @@ describe('each declared key is judged by its declared type (objectui#12130)', ()
     ['lookupPageSize', { type: 'lookup', lookupPageSize: -10 }],
     ['picker', { type: 'user', picker: 'table' }],
     ['subtitle', { type: 'user', subtitle: 'email' }],
+    ['avatarField', { type: 'user', avatarField: ['photo'] }],
   ];
 
   it.each(WRONG)('a wrong `fields[].%s` value is refused at that key, on both faces', (key, field) => {
@@ -153,11 +155,14 @@ describe('the keys objectui#12130 measured not to work stay refused by name (obj
 
   // The snake_case spellings the `lookup` widget still reads before the spec's
   // camelCase keys this card declares (the census ledger records the reads).
+  // `avatar_field` is the `lookup` and `user` widgets' first read of the
+  // search picker's `avatarField`, which this face declares camelCase only.
   const SECOND_SPELLINGS: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
     ['allow_create', { type: 'lookup', allow_create: false }],
     ['lookup_columns', { type: 'lookup', lookup_columns: ['name'] }],
     ['lookup_page_size', { type: 'lookup', lookup_page_size: 25 }],
     ['reference_field', { type: 'lookup', reference_field: 'title' }],
+    ['avatar_field', { type: 'user', picker: 'search', avatar_field: 'photo' }],
   ];
 
   it.each(SECOND_SPELLINGS)('the second spelling `fields[].%s` is refused by name', (key, field) => {
@@ -176,7 +181,7 @@ export type assertionChannelMembersAreTyped = Expect<Equal<
   IsAny<FormField['language'] | FormField['maxSize'] | FormField['capture'] | FormField['crop']
     | FormField['defaultName'] | FormField['allowCreate'] | FormField['descriptionField'] | FormField['displayField']
     | FormField['idField'] | FormField['lookupColumns'] | FormField['lookupFilters'] | FormField['lookupPageSize']
-    | FormField['picker'] | FormField['subtitle']>,
+    | FormField['picker'] | FormField['subtitle'] | FormField['avatarField']>,
   false
 >>;
 
@@ -200,4 +205,5 @@ export type assertionLocalMembers = [
   Expect<Equal<FormField['capture'], 'environment' | 'user' | false | undefined>>,
   Expect<Equal<FormField['crop'], boolean | undefined>>,
   Expect<Equal<FormField['defaultName'], string | undefined>>,
+  Expect<Equal<FormField['avatarField'], string | undefined>>,
 ];

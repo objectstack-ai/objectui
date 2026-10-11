@@ -295,13 +295,6 @@ const LEDGER: Readonly<Record<string, LedgerRow>> = {
       + 'builds, which the spec\'s numeric `FieldSchema.step` refuses. Declaring it by reference breaks that producer; '
       + 'declaring `number | \'any\'` departs from the spec. A decision on objectui#12130.',
   },
-  avatarField: {
-    readers: [LOOKUP, USER],
-    why: 'OPEN — the avatar field of the search picker. The widgets read both spellings, `avatar_field` first; '
-      + '`UserFieldMetadata` declares the snake_case one, the field keys of this face are camelCase (objectui#11610), '
-      + 'and the spec declares neither. Which spelling to declare is a decision on objectui#12130.',
-  },
-  avatar_field: { readers: [LOOKUP, USER], why: 'OPEN — the other spelling of `avatarField`, above.' },
   className: {
     readers: [
       'props@fields/src/widgets/CheckboxesField.tsx', 'props@fields/src/widgets/CurrencyField.tsx',
@@ -320,6 +313,10 @@ const LEDGER: Readonly<Record<string, LedgerRow>> = {
   lookup_columns: { readers: [LOOKUP], why: 'ALIAS of the spec\'s `lookupColumns`, which this face declares; the widget reads it first.' },
   lookup_page_size: { readers: [LOOKUP], why: 'ALIAS of the spec\'s `lookupPageSize`, which this face declares; the widget reads it first.' },
   reference_field: { readers: [LOOKUP, USER], why: 'ALIAS — the legacy fallback of `displayField`, which this face declares.' },
+  avatar_field: {
+    readers: [LOOKUP, USER],
+    why: 'ALIAS of `avatarField`, which this face declares camelCase only (objectui#12130 round 2); the widgets read it first.',
+  },
   defaultCurrency: {
     readers: [CURRENCY],
     why: 'ALIAS — the pre-spec top-level spelling of `currencyConfig.defaultCurrency`, which `resolveFieldCurrency` still falls back to.',
@@ -368,6 +365,7 @@ const DECLARED_BY_12130: Readonly<Record<string, readonly string[]>> = {
   lookupPageSize: ['lookup', 'master_detail'],
   picker: ['lookup', 'master_detail', 'user'],
   subtitle: ['lookup', 'master_detail', 'user'],
+  avatarField: ['lookup', 'master_detail', 'user'],
 };
 
 /* ── the census ──────────────────────────────────────────────────────────── */

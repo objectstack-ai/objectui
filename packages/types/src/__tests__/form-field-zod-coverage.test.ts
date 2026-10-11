@@ -131,6 +131,9 @@ const DECLARED_KEYS = [
   'lookupPageSize',
   'picker',
   'subtitle',
+  // objectui#12130 round 2 — the search picker's avatar field, camelCase only;
+  // the `avatar_field` spelling the widgets read first stays refused.
+  'avatarField',
 ];
 
 /**

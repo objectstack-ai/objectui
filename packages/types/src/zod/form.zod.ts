@@ -1164,10 +1164,12 @@ export const FormFieldSchema = z.object({
   // `examples/schema-catalog/test/`). The spec's `FieldSchema` members by
   // reference; `idField` / `picker` / `subtitle` stated once from the field
   // metadata types' members the TS twin carries by reference; `capture`,
-  // `crop` and `defaultName` typed as the widget reads them. `defaultValue`
-  // and `defaultChecked` stay undeclared: no reader asks for either, and
-  // neither becomes the field's value (`FormSchema.defaultValues` does).
-  // `step` stays undeclared too, open: see the TS twin.
+  // `crop`, `defaultName` and `avatarField` typed as the widget reads them.
+  // `defaultValue` and `defaultChecked` stay undeclared: no reader asks for
+  // either, and neither becomes the field's value (`FormSchema.defaultValues`
+  // does). `avatar_field` stays undeclared: the second spelling of
+  // `avatarField` (AGENTS.md #0.1). `step` stays undeclared too, open: see
+  // the TS twin.
   language: stripImportedDefaults(SpecFieldSchema).shape.language,
   maxSize: stripImportedDefaults(SpecFieldSchema).shape.maxSize,
   capture: z.union([z.enum(['environment', 'user']), z.literal(false)]).optional()
@@ -1188,6 +1190,8 @@ export const FormFieldSchema = z.object({
     .describe('Picker of a `lookup` / `user` field: `search` is the search-first people picker; read by the `lookup` and `user` widgets'),
   subtitle: z.array(z.string()).optional()
     .describe('Record fields shown beside each candidate of the search picker; read by the `lookup` and `user` widgets'),
+  avatarField: z.string().optional()
+    .describe('Record field each candidate of the search picker draws its avatar image from (default `image`); read by the `lookup` and `user` widgets'),
 }).superRefine((field, ctx) => {
   // objectui#11070 round 13 — the spec's one cross-key rule on `scale`; see
   // CURRENCY_FIELD_SCALE_REFUSAL.

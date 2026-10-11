@@ -2193,12 +2193,17 @@ export interface FormField {
   // and changes what that widget does; on any other field type it is accepted
   // and read by nothing. The spec's `FieldSchema` members are typed by
   // reference, `idField` / `picker` / `subtitle` are the field metadata
-  // types' members by reference, and `capture`, `crop` and `defaultName`,
-  // which no type declared, are typed as the widget reads them.
+  // types' members by reference, and `capture`, `crop`, `defaultName` and
+  // `avatarField`, which no type declared, are typed as the widget reads them.
   //
   // ⛔ Not declared: `defaultValue` and `defaultChecked`. No reader asks for
   // either, and neither becomes the field's value (the effects file measures
   // both). A form's initial values are {@link FormSchema.defaultValues}.
+  //
+  // ⛔ Not declared: `avatar_field`, the snake_case second spelling of
+  // `avatarField` that the `lookup` and `user` widgets still read first. The
+  // face declares one spelling, camelCase like its other keys (AGENTS.md
+  // #0.1; objectui#11610), and the census ledger records the read.
   //
   // ⛔ Not declared either, and open on objectui#12130: `step`. The `number`
   // and `slider` widgets read it, but `ObjectForm` (`@object-ui/plugin-form`)
@@ -2276,6 +2281,14 @@ export interface FormField {
    * (`picker: 'search'`): {@link UserFieldMetadata.subtitle}.
    */
   subtitle?: UserFieldMetadata['subtitle'];
+  /**
+   * Record field each candidate of the search picker (`picker: 'search'`) of
+   * a `lookup` or `user` field draws its avatar image from (default `image`).
+   * Typed as the widgets read it: the spec's `FieldSchema` declares neither
+   * spelling, and {@link UserFieldMetadata} declares only the snake_case one,
+   * which this face refuses.
+   */
+  avatarField?: string;
 }
 
 /**

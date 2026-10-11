@@ -10,21 +10,31 @@
  * ("disable + clone", landed machinery that converges later — §8) and
  * pre-charts `position` there: disabling is one `active` bit of
  * deployment-level state in the tenant-less activation ledger
- * `sys_metadata_activation`, written by the enable/disable doors. Measured on
- * objectstack `main` for objectui#7611: the ledger has exactly two write
- * doors, `POST /automation/:name/toggle` and
- * `POST /actions/_activation/:object/:action`, and each fixes its own
- * `metadata_type` (`flow`, `action`), so neither accepts `permission` or
- * `position`; and the authorization resolver still reads the row's flag
- * (`isRowActive`). Until the server opens a ledger door for the two types and
- * moves its consult point onto it, a switch wired to the ledger would flip a
- * bit nothing reads.
+ * `sys_metadata_activation`, written by the enable/disable doors.
  *
- * So the switch keeps TODAY's behaviour: the row's `active` column through
- * the data door, which is exactly what the Setup object pages' Activate and
- * Deactivate actions write (`PATCH /api/v1/data/<object>/<id>` with
- * `{ active }`). The data door decides who may write it — measured: the
- * platform administrator may, an organization administrator is refused.
+ * The two halves of that move land separately on the server, and this seam
+ * sits between them:
+ *
+ *  - **The reader has moved.** From objectstack's ADR-0131 stage 1
+ *    (objectstack#15204) the authorization resolver reads a position's or a
+ *    permission set's deactivation from the ledger only, and reads neither
+ *    catalog row's `active` column. On such a framework the flag this module
+ *    writes no longer switches a grant off (measured for objectui#7611 on a
+ *    stage-1 showcase: a holder's resolved grants were unchanged after the
+ *    switch). On a framework from before stage 1, the resolver reads the row
+ *    flag and the switch takes effect.
+ *  - **The write door has not.** No ledger door accepts `permission` or
+ *    `position` yet: the two that exist, `POST /automation/:name/toggle` and
+ *    `POST /actions/_activation/:object/:action`, each fix their own
+ *    `metadata_type` (`flow`, `action`). The door for these two types is
+ *    objectstack#15204 stage 2c.
+ *
+ * So the switch keeps the behaviour of the Setup object pages' Activate and
+ * Deactivate actions: the row's `active` column through the data door
+ * (`PATCH /api/v1/data/<object>/<id>` with `{ active }`). The data door
+ * decides who may write it — measured: the platform administrator may, an
+ * organization administrator is refused. When the ledger door lands, this
+ * module moves onto it (objectui#7611's follow-up).
  *
  * ## Why this is a seam and not a second list
  *

@@ -26,8 +26,8 @@ describe('catalog-activation (objectui#7611)', () => {
   it('offers a switch for permission sets and positions, never for capabilities', () => {
     expect(hasCatalogActivation('permission')).toBe(true);
     expect(hasCatalogActivation('position')).toBe(true);
-    // The capability registry is incomplete (it serves package capabilities
-    // only), so Setup does not list it at all — and has no switch for it.
+    // Capabilities are not in the Setup catalog scope (objectui#7611's
+    // follow-up moves them), and ADR-0126 §3 gives a capability no switch.
     expect(hasCatalogActivation('capability')).toBe(false);
   });
 

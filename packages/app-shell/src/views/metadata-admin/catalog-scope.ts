@@ -60,10 +60,12 @@ export function environmentScopeSuffix(search: QueryLike): string {
 /**
  * The catalog types Setup administers through this scope, with the data
  * object that still holds each one's ACTIVE flag (see `catalog-activation.ts`).
- * `capability` is deliberately absent: `GET /api/v1/meta/capability` serves the
- * package-declared capabilities only, not the platform's own (objectui#7611
- * measured 2 of 11 on the showcase), so a Setup page reading it would show
- * less than the page it replaces.
+ * `capability` is absent: the Capabilities page and the capability picker
+ * still read `sys_capability` rows, and moving them onto the registry is
+ * objectui#7611's follow-up. (The registry serves the platform's own
+ * capabilities since objectstack#22669, #15204 stage 6b-1a; before it, it
+ * served the package-declared ones only.) A capability has no switch either
+ * (ADR-0126 §3).
  */
 export const SETUP_CATALOG_TYPES: Readonly<Record<string, { rowObject: string }>> = {
   permission: { rowObject: 'sys_permission_set' },

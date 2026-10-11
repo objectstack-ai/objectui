@@ -504,9 +504,12 @@ family for them: it uses the same metadata-admin list and editors at
 The list has an active switch and an active/inactive filter. Both read the
 catalog row's `active` flag through `catalog-activation.ts`, which is the only
 module on these pages that reads or writes a catalog row. They do so until the
-server's activation ledger accepts `permission` and `position`. Capabilities
-are not in this scope yet: `GET /api/v1/meta/capability` serves the
-capabilities that packages declare, but not the platform's own.
+server's activation ledger accepts `permission` and `position`. On a framework
+whose authorization resolver already reads deactivation from that ledger
+(objectstack's ADR-0131 stage 1 onward), the row flag no longer switches a
+grant off, so until the ledger door lands the switch changes the flag and
+nothing else. Capabilities are not in this scope yet: the Capabilities page
+and the capability picker still read `sys_capability` rows.
 
 ### Package-less flows (`/studio/~org/automations`)
 

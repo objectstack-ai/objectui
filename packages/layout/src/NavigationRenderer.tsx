@@ -566,6 +566,14 @@ export interface NavigationVisibilityOptions {
  * A gate that holds on one path into a subtree and not on another is the
  * authoring trap this predicate exists to prevent, so the three callers share
  * the statement rather than agreeing about it.
+ *
+ * What it does NOT ask: whether the member may read the object a `type:
+ * 'object'` entry opens. This layer holds no permissions and none of its
+ * callbacks answers that question ({@link CapabilityChecker} asks whether the
+ * RUNTIME has the object), so a host that knows prunes such an entry from the
+ * tree before handing it here, which reaches all three callers at once. The
+ * console does (`withoutUnreadableObjectEntries` in `@object-ui/app-shell`,
+ * objectui#12109).
  */
 function passesNavItemGuards(
   item: NavigationItem,

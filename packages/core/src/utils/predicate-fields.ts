@@ -114,7 +114,7 @@ const TARGET_ROW_TOKEN = /\{([a-z_][a-z0-9_]*)\}/gi;
 /**
  * The row key a `defaultFromRow` param seeds its value from — `field` wins,
  * because row data is keyed by object field; `name` is the fallback. The same
- * precedence `resolveActionParam` (`@object-ui/app-shell`) reads, which is the
+ * precedence `resolveActionParam` (`@object-ui/fields`) reads, which is the
  * point: the projection must carry the key the runtime looks up, not the
  * param's payload name. `remove_team_member` seeds `teamId` from `team_id`.
  */

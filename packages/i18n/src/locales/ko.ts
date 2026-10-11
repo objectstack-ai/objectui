@@ -192,6 +192,7 @@ const ko = {
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "양식 필드를 작성한 다음 제출하거나 취소하세요.",
     deniedDescription: "이 필드를 편집할 권한이 없습니다.",
+    serverDefaultHint: "저장 시 자동으로 설정됩니다.",
     masterDetail: {
       loadingColumns: "열 로드 중…",
       subtotal: "소계",

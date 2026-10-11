@@ -49,6 +49,25 @@
  *     per-record dispatch — it has nowhere to carry an `execution` flag, so
  *     aggregate mode (objectui#3139) requires the authored-def form above.
  *
+ * ## A promoted def's params are its ACTION's, resolved when its dialog opens
+ *
+ * A promoted def carries no `params` of its own out of this fold. Its params
+ * are the source action's (`actionDef.params`, spec `ActionParamSchema`), and
+ * {@link resolvePromotedBulkParams} resolves them at DISPATCH time through
+ * `resolveActionParam` — the one resolver the single-record dialog uses, which
+ * lives in `@object-ui/fields` so this package can reach it (objectui#12105).
+ * That is what lets a field-backed param (`{ field, objectOverride }`) inherit
+ * its type, label, options and picker target from the field definition here
+ * exactly as it does on the record page.
+ *
+ * Until objectui#12105 this module mapped those params by hand (`toBulkParam`
+ * renamed `field` onto `name`, defaulted `type` to `'text'`, and read `object`
+ * only off an inline `reference`), so every field-backed param drew a raw text
+ * box on the selection bar and the confirm step listed raw ids. Resolving at
+ * dispatch rather than here, during render, mirrors the record path's timing
+ * too: the grid awaits the session's object metadata first, so an
+ * `objectOverride` target that has not loaded yet is a wait, not a refusal.
+ *
  * A promoted def carries `operation: 'custom'` plus the source action under
  * {@link BulkActionDef.actionDef}: it is NOT a data-plane mass update, it is
  * one action run over N records through the action runner. `useBulkExecutor`
@@ -64,6 +83,14 @@
  */
 
 import type { BulkActionDef, BulkActionParam } from '@object-ui/types';
+import type { ActionParamDef } from '@object-ui/core';
+// The ONE action-param resolver, shared with app-shell's single-record dialog
+// (objectui#12105). ⛔ Never re-implement any of its field lookup here.
+import {
+  resolveActionParams,
+  type RawActionParam,
+  type ResolveActionParamsContext,
+} from '@object-ui/fields';
 // One authority for `NamedActionDef` (objectui#6349): `resolveLegacyRowActions.ts`
 // declares the `ActionDef` subset both folds read, and this module re-exports
 // it so the name stays reachable from here exactly as before. A re-export, not
@@ -84,25 +111,104 @@ export const PROMOTED_BULK_BATCH_SIZE = 25;
 const BULK_VARIANTS = new Set(['primary', 'secondary', 'danger', 'ghost']);
 
 /**
- * Map a spec `ActionParam` onto the dialog's `BulkActionParam`. The two carry
- * the same information under different key names — collecting the values ONCE
- * in the bulk dialog is the whole point, so the runner must not be handed the
- * param defs again (it would re-prompt per record).
+ * The plugin-grid-local hand-off key a promoted param carries when the shared
+ * resolver could NOT find its backing field (`ActionParamDef.unresolvedField`,
+ * `<object>.<field>`). Written only by {@link toBulkParam} and read only by
+ * `BulkActionDialog`, which refuses the param on it exactly as the
+ * single-record dialog does, instead of drawing an input from the placeholder
+ * type the resolver fell back to.
+ *
+ * Deliberately NOT a declared `BulkActionParam` member: that interface is also
+ * the AUTHORING face of `bulkActionDefs[].params`, and a key only the host
+ * writes at runtime does not belong there (AGENTS.md #0.1). It rides the
+ * interface's catch-all, and {@link unresolvedFieldOf} is its one reader.
  */
-function toBulkParam(p: Record<string, unknown>): BulkActionParam | null {
-  const name = (typeof p.name === 'string' && p.name) || (typeof p.field === 'string' && p.field) || '';
-  if (!name) return null;
-  const out: BulkActionParam = {
-    ...p,
-    name,
-    type: typeof p.type === 'string' ? p.type : 'text',
+const UNRESOLVED_FIELD_KEY = 'unresolvedField';
+
+/** The `<object>.<field>` a promoted param could not be resolved against, if any. */
+export function unresolvedFieldOf(param: BulkActionParam): string | undefined {
+  const value = param[UNRESOLVED_FIELD_KEY];
+  return typeof value === 'string' && value !== '' ? value : undefined;
+}
+
+/**
+ * Map ONE resolved param onto the bulk dialog's `BulkActionParam` vocabulary.
+ *
+ * The input is the shared resolver's output, never the authored param: the
+ * field lookup, the label (i18n via `fieldLabel`, inline per-locale maps via
+ * `locale`), the option labels and the picker target were all settled there.
+ * This function only RENAMES onto the bulk spelling — `helpText` → `help`,
+ * `defaultValue` → `default`, `referenceTo` → `object`, `displayField` →
+ * `labelField` — and carries `dependsOn`, which the bulk param declares.
+ * `accept` / `maxSize` ride along because the file widgets read them and a
+ * promoted param always delivered them (the hand-mapper spread the raw param).
+ *
+ * The rest of the resolved picker config (`descriptionField`, `lookupColumns`,
+ * `lookupFilters`, …) is NOT forwarded: the bulk adapter (`bulkParamToField`)
+ * has no rename for those widget keys, and growing one is a convergence of the
+ * two param adapters, not this card. Named in objectui#12105's PR.
+ *
+ * Collecting the values ONCE in the bulk dialog is the whole point, so the
+ * runner must not be handed the param defs again (it would re-prompt per
+ * record) — see `stripCollectedActionKeys` in `ObjectGrid`.
+ */
+function toBulkParam(resolved: ActionParamDef): BulkActionParam | null {
+  // An inline param with neither `name` nor `field` resolves to `name: ''`: it
+  // has no body key to collect a value under, so it is not offered.
+  if (!resolved.name) return null;
+  return {
+    name: resolved.name,
+    label: resolved.label,
+    type: resolved.type,
+    ...(resolved.required !== undefined && { required: resolved.required }),
+    ...(resolved.helpText !== undefined && { help: resolved.helpText }),
+    ...(resolved.defaultValue !== undefined && { default: resolved.defaultValue }),
+    ...(resolved.options !== undefined && { options: resolved.options }),
+    ...(resolved.placeholder !== undefined && { placeholder: resolved.placeholder }),
+    ...(resolved.multiple !== undefined && { multiple: resolved.multiple }),
+    ...(resolved.referenceTo !== undefined && { object: resolved.referenceTo }),
+    ...(resolved.displayField !== undefined && { labelField: resolved.displayField }),
+    ...(resolved.dependsOn !== undefined && { dependsOn: resolved.dependsOn }),
+    ...(resolved.accept !== undefined && { accept: resolved.accept }),
+    ...(resolved.maxSize !== undefined && { maxSize: resolved.maxSize }),
+    ...(resolved.unresolvedField !== undefined && { [UNRESOLVED_FIELD_KEY]: resolved.unresolvedField }),
   };
-  if (typeof p.label === 'string') out.label = p.label;
-  if (typeof p.helpText === 'string') out.help = p.helpText;
-  if (p.defaultValue !== undefined) out.default = p.defaultValue;
-  // `reference` is the spec spelling of the lookup target; the dialog reads `object`.
-  if (typeof p.reference === 'string') out.object = p.reference;
-  return out;
+}
+
+/**
+ * Resolve a promoted def's params for its dialog, through the ONE resolver
+ * (objectui#12105). Called by `ObjectGrid` when the user opens the def, after
+ * it has asked the session for its object metadata — the single-record
+ * dialog's order exactly (`useConsoleActionRuntime`'s param handler).
+ *
+ * Returned unchanged (by reference):
+ *  - an authored def with no attached action — its `params` are already in the
+ *    bulk vocabulary and are used as authored;
+ *  - a def whose author wrote `params` itself (an `execution: 'aggregate'` def
+ *    naming an action): authored keys win every collision, as they do in the
+ *    fold below;
+ *  - an action that declares no params.
+ *
+ * `ctx` is the resolver's own context, unchanged: the owning object
+ * (`objectName`), every object known to the caller (`objects` — union the
+ * grid's own schema with the session's via `withKnownObjects`, caller first),
+ * and the label translators.
+ */
+export function resolvePromotedBulkParams(
+  def: BulkActionDef,
+  ctx: ResolveActionParamsContext,
+): BulkActionDef {
+  const source = def.actionDef;
+  if (!source || Array.isArray(def.params)) return def;
+  const declared = Array.isArray(source.params) ? source.params : [];
+  const raw = declared.filter(
+    (p): p is RawActionParam => !!p && typeof p === 'object',
+  );
+  if (raw.length === 0) return def;
+  const params = resolveActionParams(raw, ctx)
+    .map(toBulkParam)
+    .filter((p): p is BulkActionParam => p !== null);
+  return params.length > 0 ? { ...def, params } : def;
 }
 
 /** Resolves an action's display label through the app's i18n bundle. */
@@ -111,10 +217,8 @@ export type ActionLabelResolver = (actionName: string, fallback: string) => stri
 /** Build the selection-bar def for an object action. */
 function toBulkActionDef(action: NamedActionDef, localize?: ActionLabelResolver): BulkActionDef {
   const name = String(action.name);
-  const rawParams = Array.isArray(action.params) ? action.params : [];
-  const params = rawParams
-    .map(p => (p && typeof p === 'object' ? toBulkParam(p as Record<string, unknown>) : null))
-    .filter((p): p is BulkActionParam => p !== null);
+  // No `params` here: the action's params are resolved when its dialog opens
+  // (`resolvePromotedBulkParams`, objectui#12105) — see the module header.
   const variant = typeof action.variant === 'string' && BULK_VARIANTS.has(action.variant)
     ? (action.variant as BulkActionDef['variant'])
     : undefined;
@@ -138,7 +242,6 @@ function toBulkActionDef(action: NamedActionDef, localize?: ActionLabelResolver)
     // Not an `update`/`delete` mass mutation — the source action owns what it
     // does. `actionDef` below is what makes this run (see useBulkExecutor).
     operation: 'custom',
-    ...(params.length > 0 && { params }),
     ...(confirmText !== undefined && { confirmText }),
     ...(action.visible != null && { visible: action.visible as BulkActionDef['visible'] }),
     // [ADR-0066 D4 / objectui#3492] The capability gate travels with the action.

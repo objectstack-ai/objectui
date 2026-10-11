@@ -59,7 +59,9 @@ const mask: (source: string) => string = maskComments;
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../../..');
 
 const PREVIEW = 'packages/app-shell/src/views/metadata-admin/previews/ActionPreview.tsx';
-const RESOLVER = 'packages/app-shell/src/utils/resolveActionParams.ts';
+// Moved out of app-shell into `@object-ui/fields` by objectui#12105, so the
+// bulk dialog reads the same resolver (the read this docblock quotes is unchanged).
+const RESOLVER = 'packages/fields/src/resolveActionParams.ts';
 
 /** Read a tracked file, and prove the read landed or every assertion on it is vacuous. */
 function read(rel: string): string {

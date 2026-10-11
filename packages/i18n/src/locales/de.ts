@@ -192,6 +192,7 @@ const de = {
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Füllen Sie die Formularfelder aus und senden Sie ab oder brechen Sie ab.",
     deniedDescription: "Sie haben keinen Bearbeitungszugriff auf dieses Feld.",
+    serverDefaultHint: "Wird beim Speichern automatisch gesetzt.",
     masterDetail: {
       loadingColumns: "Spalten werden geladen…",
       subtotal: "Zwischensumme",

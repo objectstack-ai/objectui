@@ -202,6 +202,7 @@ const es = {
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Complete los campos del formulario y luego envíe o cancele.",
     deniedDescription: "No tienes permiso para editar este campo.",
+    serverDefaultHint: "Se establece automáticamente al guardar.",
     masterDetail: {
       loadingColumns: "Cargando columnas…",
       subtotal: "Subtotal",

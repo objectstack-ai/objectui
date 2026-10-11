@@ -110,6 +110,60 @@ The app-shell `ActionParamDialog` uses these to render declared action params
 through the exact same widgets as the object form — with a drift test pinning
 param support ⊇ form support.
 
+### Resolving declared action params
+
+An action param is declared either inline (`name` + `type`) or field-backed
+(`field`, plus `objectOverride` when the field lives on another object). Before
+a dialog can render one, it has to be resolved against the object's field
+definitions. This package holds the one resolver for that, shared by the
+record page's action dialog (`@object-ui/app-shell`) and the selection bar's
+bulk dialog (`@object-ui/plugin-grid`):
+
+```ts
+import {
+  resolveActionParams,
+  withKnownObjects,
+  type RawActionParam,
+  type ResolveActionParamsContext,
+} from '@object-ui/fields';
+
+type KnownObject = ResolveActionParamsContext['objects'][number];
+
+// The object definitions the caller renders, and the ones the session's
+// metadata store holds (`useMetadata().objects` from `@object-ui/react`).
+declare const callerObjects: KnownObject[];
+declare const storeObjects: KnownObject[];
+
+const params: RawActionParam[] = [
+  { field: 'crm_campaign', objectOverride: 'crm_campaign_member' }, // field-backed
+  { name: 'note', type: 'textarea', label: 'Note' }, // inline
+];
+
+const resolved = resolveActionParams(params, {
+  objectName: 'crm_lead', // the owner when a param names no objectOverride
+  objects: withKnownObjects(callerObjects, storeObjects), // the caller's defs win by name
+  fieldLabel: (_objectName, _fieldName, fallback) => fallback,
+  locale: 'en',
+});
+// resolved[0] takes its type, label and `referenceTo` from the
+// `crm_campaign_member.crm_campaign` field definition; resolved[1] is as declared.
+```
+
+- `resolveActionParam(param, ctx)` / `resolveActionParams(params, ctx)` — a
+  field-backed param inherits the field's type, label, options, placeholder,
+  help text, default and picker config. Inline keys on the param override the
+  field. A param whose field is not in `ctx.objects` comes back with
+  `unresolvedField: '<object>.<field>'`, and both dialogs refuse it rather than
+  drawing an input.
+- `withKnownObjects(supplied, stored)` — unions two object lists by `name`,
+  the caller's first.
+- `resolveParamWidgetType(type)` — the param-type fold (`checkbox`,
+  `reference`, `datetime-local` aliases) onto `resolveFormWidgetType`.
+- `RESOLVED_ONLY_PARAM_KEYS` — keys of the resolved shape an author may not
+  write on a param (`referenceTo`, `displayField`, …), each with the fix the
+  resolver's dev warning prints.
+- Types: `RawActionParam`, `RawActionParamOption`, `ResolveActionParamsContext`.
+
 ### Enumerating the CELL renderer registry
 
 `listCellRendererTypes()` is the read-side twin of `FORM_FIELD_TYPES`: every

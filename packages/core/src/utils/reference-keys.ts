@@ -288,7 +288,7 @@ type UnfoldableReason = 'no-declared-twin' | 'ambiguous-probe' | 'canonical-occu
  * ⚠️ Not NO reader, and the line never says so (objectui#7650). Some reads of a
  * retired spelling were KEPT on purpose and still see a value this arm leaves
  * alone. For the two `no-declared-twin` keys: `resolveActionParam` in
- * `@object-ui/app-shell` reads `id_field` and `title_format` (objectui#7435
+ * `@object-ui/fields` reads `id_field` and `title_format` (objectui#7435
  * kept them; its pin `resolveActionParams.declaredLookupLegs-7435.test.ts`
  * calls them the snake spellings that must keep working), and
  * `resolveGroupByLabels` in `@object-ui/plugin-charts` reads

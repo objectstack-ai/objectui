@@ -363,6 +363,9 @@ const useSafeFormTranslation = createSafeTranslation(
     // not be evaluated (see `handleSubmit`). Byte-identical to the `en` pack.
     'form.visibleWhenFaulted':
       "Can't submit: the visibleWhen rule of {{fields}} could not be evaluated. The rule must be fixed before this form can be submitted.",
+    // objectui#12108 — the hint under an empty field the server fills at insert
+    // (see `renderFieldDescription`). Byte-identical to the `en` pack.
+    'form.serverDefaultHint': 'Set automatically when saved.',
   },
   'common.selectOption',
 );
@@ -955,6 +958,42 @@ ReadonlyFieldGroup.displayName = 'ReadonlyFieldGroup';
 function withReadonlyHostGroup(labelId: string | undefined, node: React.ReactNode): React.ReactNode {
   if (!labelId) return node;
   return <ReadonlyFieldGroup labelId={labelId}>{node}</ReadonlyFieldGroup>;
+}
+
+/**
+ * The help line under one field: its authored `description`, and the
+ * "set automatically when saved" hint when the caller passes one
+ * (objectui#12108).
+ *
+ * Why the hint exists: a CREATE form leaves a server-owned control EMPTY on
+ * purpose. `@object-ui/plugin-form`'s `schemaDefaults.ts` does not seed a CEL
+ * envelope or a runtime token (the client cannot evaluate it), and the submit
+ * omits the key so the server resolves the declared default at insert. With
+ * nothing here the user saw an empty control, or "Select an option", and no
+ * sign that a value was coming. The caller decides WHEN; this only draws it.
+ *
+ * Both go inside the ONE `<FormDescription>`, the field's text first, because
+ * `<FormControl>` names that element's id in the control's `aria-describedby`:
+ * the hint is announced with the field, and no second element reuses the id.
+ * Drawn here, under the control, rather than as a placeholder: a registered
+ * widget reads its placeholder off the field metadata, not off the host, and
+ * the date, time, boolean and user widgets draw none at all.
+ */
+function renderFieldDescription(
+  description: string | undefined,
+  serverDefaultHint: string | undefined,
+): React.ReactNode {
+  if (!description && !serverDefaultHint) return null;
+  return (
+    <FormDescription>
+      {description}
+      {serverDefaultHint && (
+        <span className={description ? 'block' : undefined} data-server-default-hint="true">
+          {serverDefaultHint}
+        </span>
+      )}
+    </FormDescription>
+  );
 }
 
 function stripRegisteredFieldProps(type: string, props: RenderFieldProps): RenderFieldProps {
@@ -2945,6 +2984,11 @@ ComponentRegistry.register('form',
       // dialect the server enforces (requiredWhen / readonlyWhen), so
       // the UX and the persisted verdict agree. A field with no rules
       // resolves to its static flags unchanged.
+      //
+      // `serverOwned` is read twice below — by the required suppression here
+      // and by the "set on save" hint under the control (objectui#12108) — so
+      // it is computed once: one classifier, one answer per field.
+      const serverOwned = isServerOwnedValue(field, isCreateForm);
       const ruleState = resolveFieldRuleState(
         { visibleWhen, readonlyWhen, requiredWhen },
         ruleRecord,
@@ -2958,7 +3002,7 @@ ComponentRegistry.register('form',
           // producer) nor a `requiredWhen` predicate resolving TRUE against the
           // live record, which used to re-require it here with nothing the user
           // could type to unblock the submit (#4085).
-          serverOwnedValue: isServerOwnedValue(field, isCreateForm),
+          serverOwnedValue: serverOwned,
         },
         previousRecord,
         // The host shell's predicate scope — `current_user` and friends (#6010).
@@ -3492,8 +3536,24 @@ ComponentRegistry.register('form',
                   ...(groupLabelId ? { 'aria-labelledby': groupLabelId } : null),
                 }))}
               </FormControl>
-              {description && (
-                <FormDescription>{description}</FormDescription>
+              {renderFieldDescription(
+                description,
+                // objectui#12108 — shown exactly while the submit would omit
+                // the key, so the server fills the field: it is server-owned
+                // (`serverOwned`, the classifier the required suppression above
+                // reads) and its live value is empty by `isMissingForRequired`,
+                // the predicate `omitServerResolvedDefaults` drops a key by. A
+                // typed value is submitted and wins, so the hint goes with it.
+                //
+                // Not on a control that takes no input. The containers send
+                // `previousValues` in EDIT mode only, so a `mode: 'view'` form
+                // reads as create here, and every field it draws is disabled:
+                // an empty stored column there is filled by no save. The same
+                // gate hides the hint on a locked field of a real create form,
+                // which is a missing hint, never a wrong one.
+                serverOwned && !readonly && !fieldDisabled && isMissingForRequired(formField.value)
+                  ? t('form.serverDefaultHint')
+                  : undefined,
               )}
               <FormMessage />
             </FormItem>

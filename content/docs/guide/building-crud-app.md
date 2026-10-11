@@ -311,7 +311,8 @@ declares — the `status` and `priority` fields above start on `Todo` and
 `Medium`, already submittable, rather than empty next to a required marker.
 Only static defaults are seeded: a `defaultValue` that is a runtime token
 (`'NOW()'`, `'current_user'`) or a CEL expression is an instruction the server
-resolves at insert time, so the form leaves that field empty and lets it. In
+resolves at insert time, so the form leaves that field empty and lets it, with
+*Set automatically when saved.* under the field while it stays empty. In
 **edit** mode nothing is seeded — the form shows the record as stored. Values
 you pass as `initialData` / `initialValues` outrank a schema default.
 

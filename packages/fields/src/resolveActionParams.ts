@@ -19,6 +19,24 @@
  * expected by `ActionParamDialog`, so the dialog itself stays agnostic to
  * field references.
  *
+ * ## ONE resolver, two dialogs (objectui#12105)
+ *
+ * This module used to live in `@object-ui/app-shell` (`src/utils/`), which only
+ * the single-record `ActionParamDialog` could reach. The selection bar's bulk
+ * dialog lives in `@object-ui/plugin-grid`, which `app-shell` depends on and
+ * which therefore can never import from it, so a promoted bulk action's
+ * field-backed param (`{ field, objectOverride }`) was mapped by hand in
+ * plugin-grid's `toBulkParam` — never against the field definition — and drew a
+ * raw text box where the record dialog drew the record picker.
+ *
+ * It moved here because this is the one package BOTH sides already depend on
+ * that holds everything the resolver reads: `@object-ui/core` (the
+ * `ActionParamDef` it emits and the reference-bearing family), this package's
+ * {@link resolveFormWidgetType} (the widget fold `resolveParamWidgetType` asks)
+ * and `@objectstack/spec` (the inline per-locale label). Nothing app-shell-local
+ * came with it except that three-row param alias table. Both dialogs now call
+ * these functions; ⛔ never a second copy of the resolution logic on either side.
+ *
  * AUTHORING vs RESOLVED is the load-bearing distinction here, and the two
  * vocabularies are not interchangeable (objectui#3174). What an author may
  * write is exactly the spec's `ActionParamSchema` key set — mirrored by
@@ -31,14 +49,55 @@
  */
 import { EXPANDABLE_FIELD_TYPES } from '@object-ui/core';
 import type { ActionParamDef, ActionParamOption } from '@object-ui/core';
-// The fold from a PARAM type spelling to the widget key that renders it —
-// the one alias table, read rather than restated. See `isLookupResolvedType`.
-import { resolveParamWidgetType } from './paramToField.js';
+// The form's widget fold. Imported from the barrel this module is re-exported
+// by — a cycle in the SOURCE graph only, and a call-time one: nothing at this
+// module's top level reads it, and the published bundle is a single file.
+import { resolveFormWidgetType } from './index.js';
 import type { I18nLabel } from '@objectstack/spec/ui';
 // Aliased per PR #4169's convention — app-shell has its OWN `resolveI18nLabel`
 // (renamed `resolveKeyedI18nLabel` by objectui#4167) over the translation-KEY
 // vocabulary, which does not accept the inline per-locale map this resolves.
 import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+
+/**
+ * The bundler-replaced `process.env.NODE_ENV` idiom the dev-only warnings below
+ * read, declared for THIS module only. This package's source program carries no
+ * node typings on purpose — a browser library, the same stance and the same
+ * reasoning as `@object-ui/components`' `browser-process-shim.d.ts`. Declared
+ * here, module-scoped, rather than as a second ambient global, so it can never
+ * shadow the real node global in a program that does load `@types/node` (the
+ * defect that shim's header records). The runtime read is unchanged from when
+ * this module lived in app-shell: a consumer's bundler replaces it.
+ */
+declare const process: { env: { NODE_ENV?: string } };
+
+/**
+ * Param-only type spellings the dialog historically accepted, folded onto the
+ * canonical form widget vocabulary. These are legacy dialect entries kept for
+ * params already authored with them — new params should use spec `FieldType`
+ * values directly.
+ */
+const PARAM_TYPE_ALIASES: Record<string, string> = {
+  checkbox: 'boolean',
+  reference: 'lookup',
+  'datetime-local': 'datetime',
+  // NOTE: spec's `autonumber` (vs the widget-map key `auto_number`) is folded
+  // in the shared `mapFieldTypeToFormType`, so `resolveFormWidgetType` already
+  // handles it — no param-only alias needed here.
+};
+
+/**
+ * Resolve a param `type` to the form widget key that renders it — the fold from
+ * a PARAM type spelling to its widget, the one alias table, read rather than
+ * restated (see `isLookupResolvedType` below, and app-shell's `paramToField`,
+ * which asks the same question one step later). Any type in `FORM_FIELD_TYPES`
+ * resolves to itself (identity — asserted by app-shell's drift test); aliases
+ * and unknown types resolve through the same fallback chain the form applies
+ * (unknown → `text`).
+ */
+export function resolveParamWidgetType(paramType: string): string {
+  return resolveFormWidgetType(PARAM_TYPE_ALIASES[paramType] ?? paramType);
+}
 
 /**
  * Resolved params keep raw `FieldType` values (`text` / `email` / `select` /
@@ -599,7 +658,7 @@ export function resolveActionParam(
   //    — the unexplained "paste a UUID" box objectui#3405 exists to prevent.
   //    Gaining them RESTORES the rule this block states; it does not widen it.
   //  - it carried `reference`, and that spelling survives the change: the fold
-  //    is where it belongs (`PARAM_TYPE_ALIASES` in `paramToField.ts` keeps it
+  //    is where it belongs (`PARAM_TYPE_ALIASES` at the top of this file keeps it
   //    as a legacy param dialect, folded to `lookup`), not hand-copied into a
   //    membership test. Measured, not assumed — `reference` is refused by
   //    `ActionParamSchema` and absent from `@objectstack/spec`'s `FieldType`,
@@ -667,7 +726,7 @@ export function resolveActionParam(
         // then refused to ship, routing the disposition to objectui#8672.
         //
         // The dialog now supplies that record (see `paramNeedsDependentValues`
-        // in `views/ActionParamDialog.tsx`), so the gate lifts as soon as the
+        // in app-shell's `views/ActionParamDialog.tsx`), so the gate lifts as soon as the
         // named parent carries a value and `LookupField` narrows the picker by
         // it. The two halves ship together on purpose: either alone is a
         // regression, and this comment is the reason they may not be split

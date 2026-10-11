@@ -51,7 +51,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { deriveRelatedLists } from '../deriveRelatedLists';
-import { resolveActionParams } from '../resolveActionParams';
+import { resolveActionParams } from '@object-ui/fields';
 
 /** Broken-on-purpose: the two keys disagree, so the answer names the reader's choice. */
 const DIVERGENT = { type: 'master_detail' as const, reference: 'canonical_target', reference_to: 'legacy_target' };

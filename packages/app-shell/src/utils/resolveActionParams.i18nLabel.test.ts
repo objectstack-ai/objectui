@@ -28,7 +28,7 @@ import {
   resolveActionParams,
   type ResolveActionParamsContext,
   type RawActionParam,
-} from './resolveActionParams';
+} from '@object-ui/fields';
 
 const ctx = (over: Partial<ResolveActionParamsContext> = {}): ResolveActionParamsContext => ({
   objectName: 'sys_user',

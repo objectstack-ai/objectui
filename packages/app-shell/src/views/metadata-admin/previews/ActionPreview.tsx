@@ -52,7 +52,8 @@ import {
   SelectValue,
 } from '@object-ui/components';
 import type { ActionParam } from '@object-ui/types';
-import { paramDegradesWithoutTarget, resolveParamWidgetType } from '../../../utils/paramToField.js';
+import { paramDegradesWithoutTarget } from '../../../utils/paramToField.js';
+import { resolveParamWidgetType } from '@object-ui/fields';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';

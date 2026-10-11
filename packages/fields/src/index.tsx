@@ -4347,6 +4347,27 @@ export function resolveFormWidgetType(fieldType: string): string {
  */
 export { CASCADE_OPTION_WIDGET_TYPES } from '@object-ui/core';
 
+/**
+ * The ONE action-param resolver (objectui#12105): a declared action param —
+ * inline, or field-backed via `{ field, objectOverride }` — resolved against
+ * the object's field definitions into the `ActionParamDef` a param dialog
+ * renders. Exported from here because this is the package both of its callers
+ * depend on: app-shell's single-record `ActionParamDialog` and plugin-grid's
+ * selection-bar bulk dialog (a promoted action's params). See the module.
+ */
+export {
+  resolveActionParam,
+  resolveActionParams,
+  resolveParamWidgetType,
+  withKnownObjects,
+  RESOLVED_ONLY_PARAM_KEYS,
+} from './resolveActionParams.js';
+export type {
+  RawActionParam,
+  RawActionParamOption,
+  ResolveActionParamsContext,
+} from './resolveActionParams.js';
+
 /** Cache so each widget type creates one lazy component (and one chunk request). */
 const lazyFieldWidgets = new Map<string, React.ComponentType<any>>();
 

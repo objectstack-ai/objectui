@@ -33,7 +33,7 @@ import { FlowRefusalNotice, type FlowRefusalState } from './FlowRefusalNotice.js
 import { RelatedRecordActionsBridge } from './RelatedRecordActionsBridge.js';
 import { withPageTabsUrlSync } from '../utils/pageTabsUrlSync.js';
 import { RECORD_DETAIL_TAB_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRecordTrailHref } from '../urlParams.js';
-import { resolveActionParams } from '../utils/resolveActionParams.js';
+import { resolveActionParams } from '@object-ui/fields';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
 import { actionContextOrg } from '../utils/actionContextOrg.js';

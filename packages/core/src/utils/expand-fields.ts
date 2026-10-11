@@ -101,7 +101,8 @@ import { columnIdentity } from './column-identity.js';
  *  - the dashboard's relation/link test — `isLookupType` in
  *    `packages/plugin-dashboard/src/recordFields.tsx` (objectui#5692);
  *  - the action-param RESOLVER (one step before `paramToField`) —
- *    `packages/app-shell/src/utils/resolveActionParams.ts` (objectui#5874);
+ *    `packages/fields/src/resolveActionParams.ts` (objectui#5874; moved out of
+ *    app-shell by objectui#12105 so the bulk dialog shares it);
  *  - the detail header's relation test — `HeaderHighlight.tsx` in
  *    `packages/plugin-detail` (objectui#5874);
  *  - the detail drawer's relation test — `RecordDetailDrawer.tsx` in

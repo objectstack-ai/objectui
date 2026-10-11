@@ -26,7 +26,7 @@ import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, T
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { parseFilterAST, resolveFieldScale, type FilterCondition } from '@objectstack/spec/data';
-import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, RelatedRecordActionsProvider, useDataInvalidation, useFilterScope } from '@object-ui/react';
+import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, RelatedRecordActionsProvider, useDataInvalidation, useFilterScope, useMetadata } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 // objectui#8920 — the grid reaches a cell renderer through THIS module and
 // nowhere else. `getCellRenderer` / `resolveCellRendererType` are deliberately
@@ -35,7 +35,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 // what stops a seventh site picking a convention of its own.
 import { resolveGridCellRendering, gridCellRendererForFixedKey, linkCellRenderer, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { isMaskedGridColumn, isWithheldGridColumn } from './maskedColumn';
-import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer } from '@object-ui/fields';
+import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer, withKnownObjects } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -75,7 +75,7 @@ import { resolveRowCrudAffordances, resolveRowRecordCrudAffordance } from './row
 import { useRecordCrudVerdicts } from './hooks/useRecordCrudVerdicts';
 import { resolveLegacyRowActions } from './resolveLegacyRowActions';
 import { applyRelationalMeta } from './relationalMetaKeys';
-import { resolveBulkActions, describeUnusableBulkActionDefs } from './resolveBulkActions';
+import { resolveBulkActions, describeUnusableBulkActionDefs, resolvePromotedBulkParams } from './resolveBulkActions';
 import { partitionBulkRows } from './bulkEligibility';
 import { resolvesToDataColumn, describeUnresolvedColumns } from './columnSpellingDiagnostics';
 import { RowActionMenu, formatActionLabel } from './components/RowActionMenu';
@@ -1531,8 +1531,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // The one date/number locale resolver: tenant regional default → active UI
   // language → 'en' (objectui#4272). Read unconditionally at component level.
   const displayLocale = useDisplayLocale();
-  const { t } = useGridTranslation();
-  const { fieldLabel: resolveFieldLabel, translateOptions, actionLabel: resolveActionLabel } = useSafeFieldLabel();
+  const { t, language: uiLanguage } = useGridTranslation();
+  const { fieldLabel: resolveFieldLabel, fieldOptionLabel: resolveFieldOptionLabel, translateOptions, actionLabel: resolveActionLabel } = useSafeFieldLabel();
+  // The session's object metadata (objectui#12105) — what a promoted bulk
+  // action's `objectOverride` param resolves against, as on the record page.
+  // The CONTEXT VALUE is closed over, never a snapshot of its `objects`
+  // getter, which reads the live cache at call time.
+  const metadata = useMetadata();
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [useCardView, setUseCardView] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -5146,6 +5151,27 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     })();
   };
 
+  // [objectui#12105] A PROMOTED def's params are its action's, resolved here —
+  // when the dialog opens — through the one resolver the record page uses
+  // (`resolveActionParam`, `@object-ui/fields`), so a field-backed param
+  // (`{ field, objectOverride }`) inherits its type, label, options and picker
+  // target instead of drawing a raw text box. The order is the record dialog's:
+  // ask the session for its object metadata first, so an `objectOverride`
+  // target that has not loaded yet is a wait rather than a refusal; then union
+  // this grid's own schema with the session's objects, the grid's FIRST (it is
+  // the world this grid renders). An authored def comes back unchanged.
+  const resolveDialogParams = async (def: BulkActionDef): Promise<BulkActionDef> => {
+    if (!def.actionDef) return def;
+    await metadata.ensureType('object').catch(() => []);
+    return resolvePromotedBulkParams(def, {
+      objectName: objectName ?? '',
+      objects: withKnownObjects(objectSchema ? [objectSchema] : undefined, metadata.objects),
+      fieldLabel: resolveFieldLabel,
+      fieldOptionLabel: resolveFieldOptionLabel,
+      locale: uiLanguage,
+    });
+  };
+
   // Rich BulkActionDef dispatcher — opens the BulkActionDialog (params →
   // confirm → progress → result). When the user closes the dialog after a
   // run, refresh data so the grid reflects mutations.
@@ -5160,7 +5186,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         scope: predicateScope,
         fields: objectSchema?.fields,
       });
-      setActiveBulkDef(def);
+      setActiveBulkDef(await resolveDialogParams(def));
       setActiveBulkRows(eligible);
       setActiveBulkSkipped(skipped);
     })();

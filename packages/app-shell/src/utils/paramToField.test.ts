@@ -18,7 +18,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { FORM_FIELD_TYPES } from '@object-ui/fields';
 import { EXPANDABLE_FIELD_TYPES, type ActionParamDef } from '@object-ui/core';
-import { paramToField, paramDegradesWithoutTarget, resolveParamWidgetType } from './paramToField';
+import { paramToField, paramDegradesWithoutTarget } from './paramToField';
+import { resolveParamWidgetType } from '@object-ui/fields';
 
 const p = (over: Partial<ActionParamDef>): ActionParamDef => ({
   name: 'x',

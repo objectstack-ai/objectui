@@ -38,6 +38,7 @@ import {
   isLookupishParam,
   lookupTargetObject,
 } from './bulkParamToField';
+import { unresolvedFieldOf } from '../resolveBulkActions';
 
 export interface BulkActionDialogProps {
   /** The action being executed. */
@@ -247,6 +248,11 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
 
   const paramsValid = useMemo(() => {
     for (const p of params) {
+      // [objectui#12105] A promoted param whose backing field the shared
+      // resolver could not find is refused below, so it can never be filled:
+      // the run is blocked, as the single-record dialog blocks its submit,
+      // rather than dispatched without a value nobody could supply.
+      if (unresolvedFieldOf(p)) return false;
       if (p.required) {
         const v = values[p.name];
         if (v === undefined || v === null || v === '') return false;
@@ -382,21 +388,49 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
 
         {step === 'params' && (
           <div className="space-y-3">
-            {params.map(p => (
-              <ParamField
-                key={p.name}
-                param={p}
-                multiple={isParamMultiple(p)}
-                value={values[p.name]}
-                // The WHOLE in-progress record, not only this row's value: an
-                // option widget's per-option `visibleWhen` is resolved against
-                // it, so a sibling param's value can narrow this param's
-                // offered list (objectui#4757).
-                values={values}
-                dataSource={dataSource}
-                onChange={(v) => setValues(prev => ({ ...prev, [p.name]: v }))}
-              />
-            ))}
+            {params.map(p => {
+              // [objectui#12105] The refusal comes FIRST, ahead of
+              // `bulkParamToField`, which would otherwise build a widget from
+              // the placeholder type the resolver fell back to — the same order,
+              // and the same copy, as app-shell's `ActionParamDialog`.
+              const unresolved = unresolvedFieldOf(p);
+              if (unresolved) {
+                return (
+                  <div key={p.name} className="space-y-1.5">
+                    <Label className="text-xs">{p.label ?? p.name}</Label>
+                    <div
+                      role="alert"
+                      data-testid={`bulk-param-unresolved-${p.name}`}
+                      className="grid gap-1 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive"
+                    >
+                      <p>
+                        {t('actionDialog.unresolvedParam', {
+                          defaultValue:
+                            'This parameter cannot be shown: the field it is backed by is missing from the object metadata, so the control it needs cannot be built. Ask an administrator to fix the action definition.',
+                        })}
+                      </p>
+                      {/* An identifier, rendered verbatim in every locale. */}
+                      <p className="font-mono">{unresolved}</p>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <ParamField
+                  key={p.name}
+                  param={p}
+                  multiple={isParamMultiple(p)}
+                  value={values[p.name]}
+                  // The WHOLE in-progress record, not only this row's value: an
+                  // option widget's per-option `visibleWhen` is resolved against
+                  // it, so a sibling param's value can narrow this param's
+                  // offered list (objectui#4757).
+                  values={values}
+                  dataSource={dataSource}
+                  onChange={(v) => setValues(prev => ({ ...prev, [p.name]: v }))}
+                />
+              );
+            })}
           </div>
         )}
 
@@ -647,9 +681,13 @@ interface ParamFieldProps {
  * strict; its strict sibling `ActionParamSchema` refuses both. That accept is a
  * NULL reading, measured with both controls in
  * `__tests__/bulkLookupDependsOnReach-8755.test.tsx` leg B. Whether the key
- * should become authorable BY CONTRACT on this surface — by closing that schema,
- * or by giving bulk the field-backed route `resolveActionParams` gives the
- * single-record dialog — is upstream of this repo and is left open there.
+ * should become authorable BY CONTRACT on this surface by closing that schema
+ * is upstream of this repo and is left open there. The other route this
+ * sentence used to name — the field-backed one `resolveActionParams` gives the
+ * single-record dialog — now exists for a PROMOTED action's params
+ * (objectui#12105, `resolvePromotedBulkParams`): a field that declares
+ * `dependsOn` hands it to the bulk param exactly as it does on the record page.
+ * An AUTHORED `bulkActionDefs[].params` entry still has no such route.
  *
  * ⭐ **Why this is not `CASCADE_OPTION_WIDGET_TYPES.add('lookup')`.** That set is
  * shared verbatim with the object form's cascade-CLEAR loop and with

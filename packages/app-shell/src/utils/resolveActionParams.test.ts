@@ -24,7 +24,7 @@ import {
   resolveActionParams,
   type ResolveActionParamsContext,
   type RawActionParam,
-} from './resolveActionParams';
+} from '@object-ui/fields';
 import { paramToField } from './paramToField';
 
 const ctx = (over: Partial<ResolveActionParamsContext> = {}): ResolveActionParamsContext => ({

@@ -328,7 +328,7 @@ describe('the id_field diagnostic carries the PUBLISHED spec reason (objectui#76
   });
 
   it('the `id_field` line never claims NO reader sees the value — kept snake reads do', () => {
-    // `resolveActionParam` (app-shell) reads `id_field` on purpose — objectui#7435
+    // `resolveActionParam` (fields) reads `id_field` on purpose — objectui#7435
     // kept it — and `resolveGroupByLabels` (plugin-charts) reads it too. So the
     // line may only speak for the consumers of the declared spellings.
     normalizeFieldReferenceKeys(plainField({ id_field: 'code' }), 'owner', 'account');

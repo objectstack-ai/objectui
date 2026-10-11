@@ -13,32 +13,11 @@
  * asserting param support ⊇ form support.
  */
 import { EXPANDABLE_FIELD_TYPES, type ActionParamDef } from '@object-ui/core';
-import { resolveFormWidgetType } from '@object-ui/fields';
-
-/**
- * Param-only type spellings the dialog historically accepted, folded onto the
- * canonical form widget vocabulary. These are legacy dialect entries kept for
- * params already authored with them — new params should use spec `FieldType`
- * values directly.
- */
-const PARAM_TYPE_ALIASES: Record<string, string> = {
-  checkbox: 'boolean',
-  reference: 'lookup',
-  'datetime-local': 'datetime',
-  // NOTE: spec's `autonumber` (vs the widget-map key `auto_number`) is folded
-  // in the shared `mapFieldTypeToFormType`, so `resolveFormWidgetType` already
-  // handles it — no param-only alias needed here.
-};
-
-/**
- * Resolve a param `type` to the form widget key that renders it. Any type in
- * `FORM_FIELD_TYPES` resolves to itself (identity — asserted by the drift
- * test); aliases and unknown types resolve through the same fallback chain the
- * form applies (unknown → `text`).
- */
-export function resolveParamWidgetType(paramType: string): string {
-  return resolveFormWidgetType(PARAM_TYPE_ALIASES[paramType] ?? paramType);
-}
+// The param-type fold (its alias table included) moved to `@object-ui/fields`
+// beside the resolver that reads it first (objectui#12105). This adapter asks
+// the same question one step later, so it reads the same function — never a
+// local copy of the table.
+import { resolveParamWidgetType } from '@object-ui/fields';
 
 /**
  * Widget keys whose picker cannot query without an explicitly DECLARED target,

@@ -68,7 +68,7 @@ import {
   resolveActionParams,
   type ResolveActionParamsContext,
   type RawActionParam,
-} from './resolveActionParams';
+} from '@object-ui/fields';
 import { paramToField } from './paramToField';
 
 /** The camel column list — kept by reference so identity is assertable. */

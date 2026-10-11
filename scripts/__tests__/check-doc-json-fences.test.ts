@@ -277,11 +277,13 @@ describe('the scan surface — the published READMEs (objectui#12131)', () => {
   });
 
   it('ANTI-IDLE: every leg owes its anchor — a README leg that collected nothing is a precondition, never a green', () => {
+    const readmeAnchors = SURFACE_ANCHORS.filter((a) => a !== ANCHOR_DOCUMENT);
+    // Non-vacuous: both README legs exist, so there are anchors to fail.
+    expect(readmeAnchors).toContain('README.md');
+    expect(readmeAnchors.some((a) => /^packages\/[^/]+\/README\.md$/.test(a))).toBe(true);
     const r = run({ [ANCHOR_DOCUMENT]: acceptedDoc }, SURFACE_ANCHORS);
     expect(r.judged).toHaveLength(1);
-    expect(r.preconditions.map((p) => `${p.reason} ${p.site}`)).toEqual(
-      SURFACE_ANCHORS.filter((a) => a !== ANCHOR_DOCUMENT).map((a) => `anchor-unread ${a}`),
-    );
+    expect(r.preconditions.map((p) => `${p.reason} ${p.site}`)).toEqual(readmeAnchors.map((a) => `anchor-unread ${a}`));
   });
 
   it('every leg names an anchor, and the anchors are one per leg', () => {

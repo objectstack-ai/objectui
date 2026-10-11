@@ -4197,6 +4197,13 @@ const en = {
         dismiss: 'Dismiss',
         confirmedToast: '"{{set}}" is now granted to {{anchor}}.',
         dismissedToast: 'Suggestion for "{{set}}" dismissed.',
+        guestUnsupported: 'Cannot be granted here: the Guest position takes no sets from accepted suggestions.',
+        acceptedState: '"{{set}}" was accepted for all signed-in users (the Everyone position).',
+        notInForceState: '"{{set}}" was accepted but is not in force yet: the Everyone position did not change on this request. The server log says why.',
+        dismissedState: '"{{set}}" is not granted: the suggestion was dismissed or revoked.',
+        revoke: 'Revoke',
+        revoking: 'Revoking…',
+        revokedToast: 'Acceptance of "{{set}}" revoked.',
       },
       uninstall: {
         confirm: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe cached manifest will be removed. The app will remain loaded in the running kernel until the next restart.',

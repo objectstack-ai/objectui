@@ -3701,6 +3701,13 @@ const zh = {
         dismiss: '忽略',
         confirmedToast: '「{{set}}」已授予 {{anchor}}。',
         dismissedToast: '已忽略「{{set}}」的建议。',
+        guestUnsupported: '此处无法授予：Guest 岗位的权限集不由已接受的建议派生。',
+        acceptedState: '「{{set}}」已为所有已登录用户（Everyone 岗位）接受。',
+        notInForceState: '「{{set}}」已接受，但尚未生效：本次请求未改变 Everyone 岗位。原因见服务器日志。',
+        dismissedState: '「{{set}}」未授予：该建议已被忽略或撤销。',
+        revoke: '撤销',
+        revoking: '撤销中…',
+        revokedToast: '已撤销对「{{set}}」的接受。',
       },
       uninstall: {
         confirm: '从本运行时卸载 {{manifestId}} v{{version}}？\n\n磁盘上的清单缓存将被移除。运行中的内核仍会保留该应用，直到下次重启运行时才会真正卸载。',

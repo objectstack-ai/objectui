@@ -339,7 +339,8 @@ describe("in-place edit and in-cell edit ask an edit form's field question (obje
 
 describe('the owner field: an update that writes it needs the transfer grant (objectui#12103)', () => {
   it('without the transfer grant every update-question row offers the owner read-only — absent and false alike', () => {
-    for (const transfer of [{ allowTransfer: false }, {}]) {
+    const transfers: Array<Record<string, boolean>> = [{ allowTransfer: false }, {}];
+    for (const transfer of transfers) {
       const perms = principalUnder(envelope({ ...EDITOR, ...transfer }));
       for (const row of WRITE_FIELD_ROWS) {
         expect(resolveFieldAffordance(row, perms, OBJECT, OWNER), `${row} ${JSON.stringify(transfer)}`).toBe(false);
@@ -348,7 +349,8 @@ describe('the owner field: an update that writes it needs the transfer grant (ob
   });
 
   it('allowTransfer, or modifyAllRecords which implies it, opens the owner on every update-question row', () => {
-    for (const grant of [{ allowTransfer: true }, { modifyAllRecords: true }]) {
+    const grants: Array<Record<string, boolean>> = [{ allowTransfer: true }, { modifyAllRecords: true }];
+    for (const grant of grants) {
       const perms = principalUnder(envelope({ ...EDITOR, ...grant }));
       for (const row of WRITE_FIELD_ROWS) {
         expect(resolveFieldAffordance(row, perms, OBJECT, OWNER), `${row} ${JSON.stringify(grant)}`).toBe(true);

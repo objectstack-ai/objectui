@@ -1,6 +1,6 @@
 ---
 '@object-ui/app-shell': patch
-'@object-ui/data-objectstack': patch
+'@object-ui/data-objectstack': minor
 ---
 
 **A dashboard or a list view the server refuses you, opened by its URL, now says it was refused** (objectui#12112, the console half of objectstack#22611's ruling A).

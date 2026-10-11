@@ -251,6 +251,17 @@ meeting is `completed` → `task`, hidden unless `showCompleted`; a not-yet-held
 meeting is `scheduled` → `event`, shown, because an upcoming meeting is the part
 of a timeline you still act on.
 
+A milestone is the exception to the `completed` rule. When an object's
+`activityMilestones` entry fires, plugin-audit writes the row with the type the
+declaration names and stamps `metadata.kind: 'milestone'` on it. A milestone is
+not a completed activity, so a `completed` row with that marker renders as a
+`system` item and shows whatever `showCompleted` says. That covers "Case
+resolved" on a case, and a task's own "Task completed" on that task's page. A
+`completed` row without the marker is still a `task` item, hidden by default.
+That includes every row a runtime from before the marker serves, a row an app
+inserts itself, and a milestone row served to a reader who may not read a field
+the milestone watches (the server leaves the marker off for that reader).
+
 A row whose `type` is in neither list is **not dropped**: it renders through the
 generic `system` presentation and logs one `console.warn` naming the type.
 `sys_activity.type` is author-extensible and is not validated on write, so a
@@ -285,7 +296,7 @@ itself, so everything above describes that page too.
 | `filterMode` | Which slice the filter dropdown opens on (`all` / `comments_only` / `changes_only` / `tasks_only`). The user can still change it. An unrecognised value falls back to `all`. | — |
 | `showFilterToggle` | Shows/hides that dropdown. | — |
 | `limit` | Items per page; also caps the scoped `sys_activity` read. "Load more" grows the window by this much and re-reads. Must be a positive integer **number**: any other value (a string such as `"5"`, a boolean, a fraction, zero or a negative) is ignored, the block uses its default of 20, and one `console.warn` names the value. The same rule applies to `feed.limit` on `record:chatter` / `record:discussion` and to `limit` on `record:history` (default 50). | — |
-| `showCompleted` | Include completed activities (`sys_activity.type = 'completed'`, which surfaces as a `task` item). Off by default, per spec. | — |
+| `showCompleted` | Include completed activities (`sys_activity.type = 'completed'`, which surfaces as a `task` item). Off by default, per spec. A milestone row (`metadata.kind: 'milestone'`) is not a completed activity: it surfaces as a `system` item and shows either way. | — |
 | `unifiedTimeline` | Default `true` mixes field changes and comments in one timeline (Airtable style). `false` un-mixes them: the panel becomes a discussion stream and field changes stay in `record:history`. | — |
 | `showCommentInput` | Shows the composer. | A host discussion context to persist the comment. Without one the feed is read-only and no composer is rendered. |
 | `enableMentions` | Offers @-mention autocomplete in the composer. `false` withholds the suggestions. | The host context's user list. |
@@ -307,9 +318,9 @@ itself, so everything above describes that page too.
 | kind | produced by |
 |---|---|
 | `field_change` | `sys_activity` types `created` / `updated` / `deleted` / `assigned` / `shared` |
-| `task` | `sys_activity` type `completed` |
+| `task` | `sys_activity` type `completed`, except a milestone row |
 | `event` | `sys_activity` type `scheduled` |
-| `system` | `sys_activity` type `system`, **and** any author-extended type the map has never seen (it renders through the generic presentation rather than vanishing) |
+| `system` | `sys_activity` type `system`, **and** any author-extended type the map has never seen (it renders through the generic presentation rather than vanishing), **and** a `completed` row a milestone fired (`metadata.kind: 'milestone'`) |
 | `comment` | `sys_comment` rows, merged in by the console's record page and handed to the block through the discussion context |
 
 The other eight — `email`, `call`, `note`, `file`, `record_create`,
@@ -400,7 +411,7 @@ decision as a defect is how a warning channel gets ignored:
   filterMode?: string,             // Default filter mode
   showFilterToggle?: boolean,      // Show filter mode buttons
   limit?: number,                  // Items per page
-  showCompleted?: boolean,         // Show completed tasks
+  showCompleted?: boolean,         // Include completed activities
   unifiedTimeline?: boolean,       // Unified timeline view
   showCommentInput?: boolean,      // Show comment input
   enableMentions?: boolean,        // Enable @mentions

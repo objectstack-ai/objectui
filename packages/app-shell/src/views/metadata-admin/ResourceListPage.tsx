@@ -812,9 +812,13 @@ function CatalogActiveCell({
   }
   const enabled = isCatalogItemActive(ledger.states, itemName);
   const anchor = ledger.anchors.has(itemName);
+  // A switch the caller cannot use states the state, and offers no click; the
+  // page's read-only reason says why.
   const label = anchor
     ? t('engine.catalog.active.anchor', locale)
-    : t(enabled ? 'engine.catalog.active.on' : 'engine.catalog.active.off', locale);
+    : canSwitch
+      ? t(enabled ? 'engine.catalog.active.on' : 'engine.catalog.active.off', locale)
+      : t(enabled ? 'engine.catalog.status.active' : 'engine.catalog.status.inactive', locale);
   return (
     <span className="inline-flex" title={label}>
       <Switch

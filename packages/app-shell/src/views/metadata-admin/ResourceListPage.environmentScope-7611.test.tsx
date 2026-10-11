@@ -219,10 +219,16 @@ describe('the active switch (the activation ledger, through its door)', () => {
     expect(screen.getByTestId('catalog-active-admin_full_access')).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('is disabled for a caller who cannot author', async () => {
+  it('is disabled for a caller who cannot author, and states the state without offering a click', async () => {
     canAuthor = false;
     mount('?scope=environment');
-    expect(await screen.findByTestId('catalog-active-admin_full_access')).toBeDisabled();
+    const on = await screen.findByTestId('catalog-active-admin_full_access');
+    expect(on).toBeDisabled();
+    expect(on).toHaveAttribute('aria-label', t('engine.catalog.status.active', 'en-US'));
+    expect(screen.getByTestId('catalog-active-showcase_auditor')).toHaveAttribute(
+      'aria-label',
+      t('engine.catalog.status.inactive', 'en-US'),
+    );
   });
 
   it('on positions, an audience anchor is a disabled switch that says why; CONTROL: another position is live', async () => {

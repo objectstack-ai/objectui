@@ -608,7 +608,7 @@ Always type your schemas for better IDE support and fewer runtime errors.
 {
   "type": "empty",
   "visibleOn": "${items.length === 0}",
-  "message": "No items found",
+  "title": "No items found",
   "action": {
     "type": "button",
     "label": "Create New"

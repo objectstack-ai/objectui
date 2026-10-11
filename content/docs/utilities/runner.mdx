@@ -267,6 +267,7 @@ import '@object-ui/plugin-myplugin'
 
 …then give it a page to render, as `src/app-data/pages/index.json` — the page served at `/`:
 
+{/* doc-json: fragment — its child is `my-component`, the type the reader's own plugin registers, so no node schema here declares it */}
 ```json
 {
   "type": "page",
@@ -291,6 +292,7 @@ Experiment with complex schemas:
 
 Test how multiple plugins work together:
 
+{/* doc-json: fragment — a type-only skeleton: each child names a plugin node type, with the data props that type requires left for the reader to fill in */}
 ```json
 {
   "type": "div",
@@ -338,20 +340,20 @@ serve it from your own backend and load it with `?api=<base>`.
         {
           "type": "card",
           "title": "Revenue",
-          "value": "$125,000",
-          "change": "+12.5%"
+          "description": "+12.5%",
+          "children": { "type": "text", "content": "$125,000", "className": "text-2xl font-bold" }
         },
         {
           "type": "card",
           "title": "Orders",
-          "value": "1,234",
-          "change": "+8.2%"
+          "description": "+8.2%",
+          "children": { "type": "text", "content": "1,234", "className": "text-2xl font-bold" }
         },
         {
           "type": "card",
           "title": "Customers",
-          "value": "567",
-          "change": "+5.1%"
+          "description": "+5.1%",
+          "children": { "type": "text", "content": "567", "className": "text-2xl font-bold" }
         }
       ]
     },
@@ -495,6 +497,7 @@ ComponentRegistry.register('my-component', MyComponent)
 Add a page document to `src/app-data/pages/`. The file name is the route: this one is
 served at `/my-page`.
 
+{/* doc-json: fragment — its innermost child is `my-component`, the type the reader registers in the step above, so no node schema here declares it */}
 ```jsonc
 // src/app-data/pages/my-page.json
 {

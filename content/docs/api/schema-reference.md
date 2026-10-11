@@ -710,7 +710,7 @@ A single-record detail view with grouped fields, actions, and tabs.
       "title": "Customer Info",
       "fields": [
         { "name": "customer", "label": "Customer", "type": "text" },
-        { "name": "email", "label": "Email", "type": "email" },
+        { "name": "email", "label": "Email", "type": "text" },
         { "name": "created", "label": "Created", "type": "date", "format": "MMM d, yyyy" }
       ]
     },

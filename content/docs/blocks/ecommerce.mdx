@@ -39,25 +39,30 @@ Customize e-commerce blocks for your store:
 
 ### Add Product Data
 
+A `card` fetches nothing. Records come from a data-bound block that names its
+object in the per-element `dataSource` binding (see the
+[Data Source guide](/docs/guide/data-source)):
+
 ```json
 {
-  "type": "card",
-  "dataSource": {
-    "api": "/api/products",
-    "method": "GET"
-  }
+  "type": "object-grid",
+  "dataSource": { "object": "product", "limit": 20 }
 }
 ```
 
 ### Add to Cart Action
 
+A control that runs something is its own node type, `action:button`, and its
+props go in the `properties` bag; `actionType: "api"` sends the request to
+`target`:
+
 ```json
 {
-  "type": "button",
-  "label": "Add to Cart",
-  "action": {
-    "type": "submit",
-    "endpoint": "/api/cart",
+  "type": "action:button",
+  "properties": {
+    "label": "Add to Cart",
+    "actionType": "api",
+    "target": "/api/cart",
     "method": "POST"
   }
 }

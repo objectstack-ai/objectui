@@ -128,7 +128,7 @@ All ObjectUI components follow the same schema-based pattern:
   "type": "button",
   "label": "Click Me",
   "variant": "default",
-  "size": "md",
+  "size": "default",
   "className": "mt-4"
 }
 ```

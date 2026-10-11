@@ -1548,6 +1548,32 @@ const DOC_TYPE_EXEMPTIONS = {
       '(phase 2b) gave that registration `skipFallback: true`, which is the only reason this value ' +
       'used to pass here as a registered key.',
   },
+  // The root README's "Dashboard" copy-paste schema (objectui#12131). It used to
+  // pass here by teaching registered COMPONENT keys (`statistic`, `chart`) in a
+  // dashboard's `widgets[]`, a slot that reads neither, which the strict
+  // authoring face refused; written in the slot's own vocabulary, its values are
+  // these three.
+  'README.md': {
+    'metric-card':
+      'Dashboard widget-slot entry directly in a `dashboard`\'s `widgets[]` — ' +
+      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module; its TypeScript face ' +
+      'is `DashboardWidgetSlotComponentSchema`), the closed ' +
+      'component slot of the 2026-08-14 ruling (objectstack#8593). Not a node position: the node ' +
+      'type is `dashboard`, which the enclosing snippet spells. The dashboard hands the entry to ' +
+      'the registry as `plugin-dashboard:metric-card`, a registration with `skipFallback: true` ' +
+      '(objectui#10859 batch 8), so the bare value is not a registry key. Same vocabulary as the ' +
+      '`packages/plugin-dashboard/README.md` entry above.',
+    line:
+      'Dashboard widget kind under `widgets[].type` — `DashboardWidgetTypeName` (`@object-ui/types`\' ' +
+      '`complex` module) declares that CLOSED vocabulary, and its spec half flows in BY REFERENCE ' +
+      'from `ChartTypeSchema` (@objectstack/spec/ui), where `line` is a member. Not a node type: the ' +
+      'node type is `dashboard`, which the enclosing snippet spells. Same vocabulary as the ' +
+      '`packages/plugin-dashboard/README.md` entry above.',
+    pie:
+      'Dashboard widget kind under `widgets[].type` — a member of `ChartTypeSchema` ' +
+      '(@objectstack/spec/ui) reaching this repo by reference through `DashboardWidgetTypeName`. ' +
+      'Same vocabulary as `line` above.',
+  },
 };
 
 /**

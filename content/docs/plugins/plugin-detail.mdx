@@ -218,7 +218,16 @@ Three sources, in precedence order:
 2. **A mounted discussion context** — the console's record page wraps the
    record body in one, carrying the merged `sys_comment` + `sys_activity` feed
    *and* the comment / reply / reaction handlers. When it is present the block
-   presents that feed instead of fetching a second, poorer copy.
+   presents that feed instead of fetching a second, poorer copy. The record page
+   hands each handler over only where the caller may make that write
+   (objectui#12082): the composer and the reply input need the **create** grant
+   on `sys_comment`; the reaction control needs the **create** grant on
+   `sys_comment_reaction`, and taking a reaction back its **delete** grant; on a
+   deployment with no `sys_comment_reaction` the control needs the **update**
+   grant on `sys_comment`. These are the `feedComment`, `feedReactionAdd`,
+   `feedReactionRemove` and `feedReactionColumn` rows of the affordance-to-grant
+   map in `@object-ui/core`, which also read each object's policy and effective
+   API operation set. With no permission provider mounted they read open.
 3. **Self-fetch** — otherwise the block reads `sys_activity` scoped to the
    record it is bound to (`object_name` + `record_id`), newest first, `limit`
    rows per page. This is what makes it work on a hand-authored record page

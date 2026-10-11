@@ -112,19 +112,20 @@ function commit(container: HTMLElement, id: string) {
 describe('GanttView names an end by the day the bar runs through (objectui#11141)', () => {
   it('the End cell names the 15th for a bar that runs through it, where it read the 16th', () => {
     const { container } = renderView([THROUGH_15TH]);
-    expect(text(container, 'gantt-row-start-a')).toBe('1/1');
-    expect(text(container, 'gantt-row-end-a')).toBe('1/15');
+    // 2024 is not the current year, so each face names it (objectui#12110 item 5).
+    expect(text(container, 'gantt-row-start-a')).toBe('1/1/24');
+    expect(text(container, 'gantt-row-end-a')).toBe('1/15/24');
   });
 
   it('the row sublabel does too, below the Start / End threshold', () => {
     const { container } = renderView([THROUGH_15TH], {}, 800);
-    expect(text(container, 'gantt-row-dates-a')).toBe('1/1 → 1/15');
+    expect(text(container, 'gantt-row-dates-a')).toBe('1/1/24 → 1/15/24');
   });
 
   it('the tooltip names the 15th and counts the fifteen days the bar runs through', () => {
     const { container } = renderView([THROUGH_15TH]);
     const tip = hoverTooltip(container, 'a');
-    expect(tip).toContain('Jan 1 → Jan 15');
+    expect(tip).toContain('Jan 1, 2024 → Jan 15, 2024');
     expect(tip).toContain('· 15');
     expect(tip).not.toContain('Jan 16');
   });
@@ -140,7 +141,7 @@ describe('GanttView names an end by the day the bar runs through (objectui#11141
     act(() => { handle.dispatchEvent(pointer('pointerdown', 500)); });
     act(() => { window.dispatchEvent(pointer('pointermove', 500 + 2 * pxPerDay)); });
     // Two days on: the bar runs through the 17th, its end is the 18th's midnight.
-    expect(bar.textContent).toContain('1/1 → 1/17');
+    expect(bar.textContent).toContain('1/1/24 → 1/17/24');
     act(() => { window.dispatchEvent(pointer('pointerup', 500 + 2 * pxPerDay)); });
     expect(onTaskUpdate).toHaveBeenCalledTimes(1);
     expect(onTaskUpdate.mock.calls[0][1].end.getTime()).toBe(new Date(2024, 0, 18).getTime());
@@ -148,13 +149,13 @@ describe('GanttView names an end by the day the bar runs through (objectui#11141
 
   it('control: an end inside a day names that day, as it did', () => {
     const { container } = renderView([task('b', new Date(2024, 0, 1), new Date(2024, 0, 15, 17))]);
-    expect(text(container, 'gantt-row-end-b')).toBe('1/15');
+    expect(text(container, 'gantt-row-end-b')).toBe('1/15/24');
   });
 
   it('control: a zero-length span names its own day, not the day before', () => {
     const { container } = renderView([task('m', new Date(2024, 0, 15), new Date(2024, 0, 15))]);
-    expect(text(container, 'gantt-row-start-m')).toBe('1/15');
-    expect(text(container, 'gantt-row-end-m')).toBe('1/15');
+    expect(text(container, 'gantt-row-start-m')).toBe('1/15/24');
+    expect(text(container, 'gantt-row-end-m')).toBe('1/15/24');
   });
 });
 

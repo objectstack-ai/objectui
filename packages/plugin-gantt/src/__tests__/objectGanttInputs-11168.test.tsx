@@ -247,6 +247,17 @@ describe('object-gantt publishes the eleven spec keys its renderer honours (obje
 // ── gantt ───────────────────────────────────────────────────────────────────
 
 describe('`object-gantt.gantt` — the members are field names, and the block is taken whole (objectui#11168)', () => {
+  // The Start / End faces name a date's year when it is not the current one
+  // (objectui#12110 item 5), so the fixtures' 2026 dates are pinned to a 2026
+  // clock (Date only): these legs read which FIELDS the dates come from, and
+  // must not change meaning on New Year's Day.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 2, 15, 12));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   const titleOf = (id: string) => screen.getByTestId(`gantt-row-title-${id}`).textContent;
   const startOf = (id: string) => screen.getByTestId(`gantt-row-start-${id}`).textContent;
   const endOf = (id: string) => screen.getByTestId(`gantt-row-end-${id}`).textContent;

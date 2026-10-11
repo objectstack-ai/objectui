@@ -209,8 +209,8 @@ their own index signature — see below.)
 
 ### Form Field
 
-`FormField` (`packages/types/src/form.ts`) declares 23 keys, and `name` is the
-only **required** one:
+`FormField` (`packages/types/src/form.ts`): `name` is the only **required**
+key:
 
 | Key | Type | What it does |
 |---|---|---|
@@ -234,15 +234,15 @@ only **required** one:
 | `dependsOn` | `DependsOnInput` | cascading parent(s): a bare name, a list of names, or `{ field, param }` entries |
 | `span` | `'auto' \| 'full'` | relative width, independent of the column count (preferred) |
 | `colSpan` | `number` | legacy column span (1–4), clamped to the current column count |
+| `className` | `string` | the classes of the element the field's type renders (its control, or a `section-divider` row's divider), joined with that element's own classes; never the field row: `span` / `colSpan` for width, `FormSchema.fieldContainerClass` for the grid |
 | `field` | `Record<string, any>` | the resolved object-field **metadata object**, stashed by the object-bound paths so widgets can read `precision`, `currency`, `reference`, … In the *spec* form-view vocabulary `field` is a string (the referenced field name); that shape ends at `normalizeSectionField` and never reaches a runtime `FormField` |
 
 `FormField` declares its own `[key: string]: any`, so an invented key on a field
-still type-checks. Two that a reader might expect, and that are **not** declared:
+still type-checks. One that a reader might expect, and that is **not** declared:
 
 | Not a `FormField` key | Write this instead |
 |---|---|
 | `defaultValue` | `FormSchema.defaultValues` at form level. An object-bound form seeds from the object field's own declared `defaultValue` — see [What a create form opens with](#what-a-create-form-opens-with) |
-| `className` | `span` / `colSpan` for width, `FormSchema.fieldContainerClass` for the grid. (An undeclared key still rides the props spread down to whichever component the field resolves to, so a field-level `className` can visibly land on a built-in control — but nothing in the contract promises that, and a registered widget honours it only if it happens to spread its leftover props. The renderer reads it *explicitly* nowhere: it used to stamp the `type: 'section-divider'` pseudo-field from an authored section's `className`, and that read was **retired** in objectstack#13626 — see [Section styling is not authorable](#section-styling-is-not-authorable).) |
 
 There is no `ValidationRule` type in this repo, under any spelling.
 

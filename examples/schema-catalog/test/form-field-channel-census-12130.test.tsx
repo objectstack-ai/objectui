@@ -50,7 +50,11 @@
  * The keys read and not declared on `FormFieldSchema` must be exactly the keys
  * of {@link LEDGER}, each with the readers recorded there. A widget that starts
  * reading a new undeclared key turns this file red, naming the key and its
- * readers; so does a ledger row whose read is gone.
+ * readers; so does a ledger row whose read is gone. Each row says why the
+ * strict face's refusal of its key stands, or that the question is still open.
+ * {@link DECLARED_BY_12130} names, for each key this card declared, the field
+ * types whose widget reads it; on every other type the key is accepted and
+ * read by nothing.
  *
  * ## What it does not see (bounds, said per AGENTS.md #9)
  *
@@ -284,24 +288,14 @@ const CURRENCY = 'entry@i18n/src/currency.ts';
  * refusal is right.
  */
 const LEDGER: Readonly<Record<string, LedgerRow>> = {
-  // ── read, and the widget acts on it: the strict face's refusal is false ──
-  step: { readers: ['entry@fields/src/widgets/NumberField.tsx', 'entry@fields/src/widgets/SliderField.tsx'], why: 'READ AND EFFECTIVE, refused' },
-  language: { readers: ['entry@fields/src/widgets/CodeField.tsx'], why: 'READ AND EFFECTIVE, refused' },
-  maxSize: { readers: ['entry@fields/src/widgets/FileField.tsx', 'entry@fields/src/widgets/ImageField.tsx'], why: 'READ AND EFFECTIVE, refused' },
-  capture: { readers: ['entry@fields/src/widgets/FileField.tsx'], why: 'READ AND EFFECTIVE, refused' },
-  crop: { readers: ['entry@fields/src/widgets/ImageField.tsx'], why: 'READ AND EFFECTIVE, refused' },
-  defaultName: { readers: ['entry@fields/src/widgets/AvatarField.tsx'], why: 'READ AND EFFECTIVE, refused' },
-  allowCreate: { readers: [LOOKUP], why: 'READ AND EFFECTIVE, refused' },
-  descriptionField: { readers: [LOOKUP], why: 'READ AND EFFECTIVE, refused' },
-  displayField: { readers: [LOOKUP, USER], why: 'READ AND EFFECTIVE, refused' },
-  idField: { readers: [LOOKUP], why: 'READ AND EFFECTIVE, refused' },
-  lookupColumns: { readers: [LOOKUP], why: 'READ AND EFFECTIVE, refused' },
-  lookupFilters: { readers: [LOOKUP, USER], why: 'READ AND EFFECTIVE, refused' },
-  lookupPageSize: { readers: [LOOKUP], why: 'READ AND EFFECTIVE, refused' },
-  picker: { readers: [LOOKUP, USER], why: 'READ AND EFFECTIVE, refused' },
-  subtitle: { readers: [LOOKUP, USER], why: 'READ AND EFFECTIVE, refused' },
-  avatarField: { readers: [LOOKUP, USER], why: 'READ, refused' },
-  avatar_field: { readers: [LOOKUP, USER], why: 'READ, refused' },
+  // ── read, and still open: the refusal may be false ──────────────────────
+  avatarField: {
+    readers: [LOOKUP, USER],
+    why: 'OPEN — the avatar field of the search picker. The widgets read both spellings, `avatar_field` first; '
+      + '`UserFieldMetadata` declares the snake_case one, the field keys of this face are camelCase (objectui#11610), '
+      + 'and the spec declares neither. Which spelling to declare is a decision on objectui#12130.',
+  },
+  avatar_field: { readers: [LOOKUP, USER], why: 'OPEN — the other spelling of `avatarField`, above.' },
   className: {
     readers: [
       'props@fields/src/widgets/CheckboxesField.tsx', 'props@fields/src/widgets/CurrencyField.tsx',
@@ -311,27 +305,64 @@ const LEDGER: Readonly<Record<string, LedgerRow>> = {
       'props@fields/src/widgets/RatingField.tsx', 'props@fields/src/widgets/RecipientPickerField.tsx',
       'props@fields/src/widgets/TagsField.tsx',
     ],
-    why: 'READ, refused',
+    why: 'OPEN — read off props by these widgets and forwarded to the control by the rest; on a built-in branch it '
+      + 'replaces the branch\'s own classes. Whether a field entry declares it, and which element it styles, is a '
+      + 'decision on objectui#12130.',
   },
-  // ── second spellings of a key the spec or this face spells otherwise ────
-  allow_create: { readers: [LOOKUP], why: 'READ, refused' },
-  lookup_columns: { readers: [LOOKUP], why: 'READ, refused' },
-  lookup_page_size: { readers: [LOOKUP], why: 'READ, refused' },
-  reference_field: { readers: [LOOKUP, USER], why: 'READ, refused' },
-  defaultCurrency: { readers: [CURRENCY], why: 'READ, refused' },
-  // ── runtime values no document can carry, and host-stamped keys ─────────
-  dataSource: { readers: [LOOKUP], why: 'READ, refused' },
-  onCreateNew: { readers: [LOOKUP], why: 'READ, refused' },
+  // ── second spellings of a declared key: refused (AGENTS.md #0.1) ────────
+  allow_create: { readers: [LOOKUP], why: 'ALIAS of the spec\'s `allowCreate`, which this face declares; the widget reads it first.' },
+  lookup_columns: { readers: [LOOKUP], why: 'ALIAS of the spec\'s `lookupColumns`, which this face declares; the widget reads it first.' },
+  lookup_page_size: { readers: [LOOKUP], why: 'ALIAS of the spec\'s `lookupPageSize`, which this face declares; the widget reads it first.' },
+  reference_field: { readers: [LOOKUP, USER], why: 'ALIAS — the legacy fallback of `displayField`, which this face declares.' },
+  defaultCurrency: {
+    readers: [CURRENCY],
+    why: 'ALIAS — the pre-spec top-level spelling of `currencyConfig.defaultCurrency`, which `resolveFieldCurrency` still falls back to.',
+  },
+  // ── runtime values no document can carry ────────────────────────────────
+  dataSource: { readers: [LOOKUP], why: 'RUNTIME SLOT — a data-source adapter instance; the form hands the widget its own.' },
+  onCreateNew: { readers: [LOOKUP], why: 'RUNTIME SLOT — a host-supplied function; JSON has no function value (the objectui#6124 shape).' },
   onUploadingChange: {
     readers: ['props@fields/src/widgets/AvatarField.tsx', 'props@fields/src/widgets/FileField.tsx', 'props@fields/src/widgets/ImageField.tsx'],
-    why: 'READ, refused',
+    why: 'RUNTIME SLOT — a host-supplied function; JSON has no function value (the objectui#6124 shape).',
   },
+  // ── runtime-only, by an existing ruling ─────────────────────────────────
   field: {
     readers: ['entry@components/src/renderers/form/form.tsx', 'entry@core/src/validation/server-owned-value.ts', LOOKUP, USER],
-    why: 'READ, refused',
+    why: 'RUNTIME-ONLY (objectui#6609) — the resolved object-field metadata stash; in the authored vocabulary the same '
+      + 'key names an object field (objectui#3090).',
   },
-  mobile_fullscreen: { readers: ['entry@fields/src/widgets/RichTextField.tsx'], why: 'READ, refused' },
-  currency: { readers: [CURRENCY], why: 'READ, refused' },
+  mobile_fullscreen: {
+    readers: ['entry@fields/src/widgets/RichTextField.tsx'],
+    why: 'RUNTIME-ONLY (objectui#3245) — stamped by `ObjectForm` from `ObjectFormSchema.mobile.fullscreenLongText`.',
+  },
+  currency: {
+    readers: [CURRENCY],
+    why: 'RUNTIME-ONLY (objectui#11070 round 13) — the spec\'s `FieldSchema` refuses it; `currencyConfig` is the declared spelling.',
+  },
+};
+
+/**
+ * The keys objectui#12130 declared on `FormFieldSchema`, each with the field
+ * types whose widget reads it. The face is flat, so each key is accepted on
+ * every other type too, where nothing reads it: this map is that list,
+ * re-derived on every run.
+ */
+const DECLARED_BY_12130: Readonly<Record<string, readonly string[]>> = {
+  step: ['number', 'slider'],
+  language: ['code'],
+  maxSize: ['file', 'image'],
+  capture: ['file'],
+  crop: ['image'],
+  defaultName: ['avatar'],
+  allowCreate: ['lookup', 'master_detail'],
+  descriptionField: ['lookup', 'master_detail'],
+  displayField: ['lookup', 'master_detail', 'user'],
+  idField: ['lookup', 'master_detail'],
+  lookupColumns: ['lookup', 'master_detail'],
+  lookupFilters: ['lookup', 'master_detail', 'user'],
+  lookupPageSize: ['lookup', 'master_detail'],
+  picker: ['lookup', 'master_detail', 'user'],
+  subtitle: ['lookup', 'master_detail', 'user'],
 };
 
 /* ── the census ──────────────────────────────────────────────────────────── */
@@ -374,6 +405,11 @@ describe('every key the channel reads is declared on FormFieldSchema, or ledgere
 
   it.each(Object.entries(LEDGER))('ledger row `%s` names exactly the readers the census records', (key, row) => {
     expect(readers(key)).toEqual([...row.readers].sort());
+  });
+
+  it.each(Object.entries(DECLARED_BY_12130))('`%s` is declared, and read only by the types named for it', (key, types) => {
+    expect(declared.has(key)).toBe(true);
+    expect([...(census.get(key)?.types ?? [])].sort()).toEqual([...types].sort());
   });
 });
 

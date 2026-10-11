@@ -112,6 +112,26 @@ const DECLARED_KEYS = [
   'totalField',
   'addLabel',
   'sortField',
+  // objectui#12130 — the rest of the field metadata the channel reads off the
+  // entry, measured at runtime (`form-field-channel-census-12130.test.tsx` in
+  // `examples/schema-catalog/test/`). The spec's `FieldSchema` members by
+  // reference, plus `idField` / `picker` / `subtitle` from the field metadata
+  // types and `capture` / `crop` / `defaultName` as their widgets read them.
+  'step',
+  'language',
+  'maxSize',
+  'capture',
+  'crop',
+  'defaultName',
+  'allowCreate',
+  'descriptionField',
+  'displayField',
+  'idField',
+  'lookupColumns',
+  'lookupFilters',
+  'lookupPageSize',
+  'picker',
+  'subtitle',
 ];
 
 /**

@@ -38,7 +38,7 @@
  */
 
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { stripReadDecorations } from '@objectstack/spec/kernel';
 import {
   Save,
@@ -83,6 +83,9 @@ import { useDraftAutoSave, type DraftSend } from '../studio-design/useDraftAutoS
 import { useDisplayLocale } from '@object-ui/i18n';
 import { t as translate, tFormat, useMetadataLocale } from './i18n.js';
 import { PermissionAdvancedFacets } from './PermissionAdvancedFacets.js';
+import { AssignedUsersSection } from './AssignedUsersSection.js';
+import { isEnvironmentScope } from './catalog-scope.js';
+import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
 import { errorCodeIs } from '@object-ui/types';
 import {
   PERMISSION_SET_OBJECT,
@@ -405,14 +408,24 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   const canWriteByType = artifactTierApplies
     ? !!entry?.allowOrgOverride
     : !!(entry?.allowOrgOverride || entry?.allowRuntimeCreate);
-  const writable = canWriteByType && !readOnly;
+  // objectui#7611 — the fourth gate, the CALLER: the metadata door refuses a
+  // save without `manage_metadata` (measured on objectstack main: 403 "Saving a
+  // metadata item requires the `manage_metadata` capability."), and so does the
+  // data door the clone runs through for an organization administrator. Unknown
+  // fails open (`useCanAuthorMetadata`). Its reason is named in the body below.
+  const canAuthor = useCanAuthorMetadata();
+  const writable = canWriteByType && !readOnly && canAuthor;
+  // objectui#7611 — the Setup catalog (`?scope=environment`) shows who holds the
+  // set under its definition; Studio's design surface does not.
+  const [searchParams] = useSearchParams();
+  const showAssignments = !embedded && isEnvironmentScope(searchParams);
   // Which gate to NAME when the surface is locked (host > artifact > type).
   // The artifact tier is the DECIDING one only where the type tier would have
   // said yes: with both flags false the honest reason is still "this type has
   // no runtime write channel at all", which is also the refusal the server
   // reaches first (`!overlayAllowed && !runtimeCreateAllowed`).
   const lockedByArtifactTier =
-    artifactTierApplies && !entry?.allowOrgOverride && !!entry?.allowRuntimeCreate;
+    artifactTierApplies && !entry?.allowOrgOverride && !!entry?.allowRuntimeCreate && canAuthor;
   const locale = useMetadataLocale();
   const t = React.useCallback((k: string) => translate(k, locale), [locale]);
   const OBJECT_ACTIONS = React.useMemo(() => getObjectActions(locale), [locale]);
@@ -1225,6 +1238,20 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           </div>
         )}
 
+        {/* objectui#7611 — the caller cannot author this set at all: say so,
+            once, instead of a matrix whose controls are disabled for no visible
+            reason. The host and type gates keep their own badges. */}
+        {!canAuthor && !readOnly && (
+          <div
+            role="note"
+            data-testid="perm-capability-readonly"
+            className="m-4 rounded-md border bg-muted/40 p-3 text-sm flex items-start gap-2"
+          >
+            <Lock className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+            <span>{t('engine.edit.capabilityReadOnly')}</span>
+          </div>
+        )}
+
         {/* objectui#5987 — the locked-state guidance, visible rather than
             tooltip-only, naming the ruled path first. The badge in the identity
             strip below still carries the full reasoning in its hint. */}
@@ -1508,10 +1535,15 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
             t={t}
           />
         </div>
-        {/* ADR-0056 P4 — user assignment MOVED to the Setup sys_permission_set
-            record page (RecordPermissionAssignmentsRenderer, P1b). In the pure
-            model this editor is the *design* surface (facets only); *assigning*
-            users is a Setup act, so it no longer lives here. */}
+        {/* ADR-0056 P4 — assigning users is a Setup act, so the DESIGN surface
+            (Studio, embedded) never shows it. objectui#7611 — the Setup catalog
+            IS this editor in the environment scope (ADR-0131 D3), so there the
+            set's holders render under its definition, by name. */}
+        {showAssignments && (
+          <div className="mx-4 mb-4 shrink-0 max-h-[35vh] overflow-y-auto rounded-md border" data-testid="perm-assignments">
+            <AssignedUsersSection permissionSetName={name} />
+          </div>
+        )}
       </div>
 
       {/* Destructive-change dialog */}

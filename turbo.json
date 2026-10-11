@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": ["NODE_ENV"],
+  "globalDependencies": ["node_modules/@objectstack/spec/.spec-main-shape-gate.json"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

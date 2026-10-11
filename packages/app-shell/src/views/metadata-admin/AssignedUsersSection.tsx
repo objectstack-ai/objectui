@@ -14,6 +14,24 @@
  * rules on the junction insert (e.g. the AI-seat cap) are caught and shown as a
  * friendly, localized inline message — not a raw developer error.
  *
+ * ## By name, against the registry (objectui#7611, ADR-0131 D3/D4)
+ *
+ * The set is addressed by its machine NAME throughout:
+ *
+ *  - direct grants are the `sys_user_permission_set` rows whose `permission_set`
+ *    column names the set — the by-name column the platform's grant readers
+ *    key on (a grant with no name grants nothing through them);
+ *  - the positions that distribute the set are the registry's `position`
+ *    definitions whose `permissionSets` list names it (ADR-0131 D4 — the
+ *    binding is part of the position's definition), read through the console's
+ *    metadata store, never `sys_position_permission_set` / `sys_position` rows.
+ *
+ * ⚠️ One row read remains, and only on ADD: the grant door still requires
+ * `permission_set_id` and refuses a grant that carries the name alone
+ * (measured on objectstack `main`: 400 `VALIDATION_FAILED` on
+ * `permission_set`). {@link resolveGrantRowId} is that read, pending the
+ * server half that accepts a grant by name.
+ *
  * Permission-set-agnostic: every role gets the same UI, and the AI seat
  * (`ai_seat`) is just one of them. The generic add-by-picker engine (spec
  * RecordRelatedListProps.add) powers the capability; this is the polished
@@ -23,7 +41,7 @@
 import * as React from 'react';
 import { Button } from '@object-ui/components';
 import { RecordPickerDialog } from '@object-ui/fields';
-import { useAdapter } from '@object-ui/react';
+import { useAdapter, useMetadata } from '@object-ui/react';
 import { Plus, X, Users, Loader2, AlertCircle } from 'lucide-react';
 import { useMetadataLocale } from './i18n.js';
 
@@ -62,6 +80,7 @@ function useCopy() {
             direct: '直授',
             viaPosition: (p: string) => '经岗位 ' + p,
             everyoneNote: '已绑定到 everyone 锚点 — 所有登录成员都持有此权限集。',
+            noGrantRow: '此权限集还没有目录行，服务端暂时无法按名称分配。',
             positionHeldHint: '经岗位持有 — 在岗位的指派中移除。',
           }
         : {
@@ -78,6 +97,7 @@ function useCopy() {
             direct: 'direct',
             viaPosition: (p: string) => 'via position ' + p,
             everyoneNote: 'Bound to the everyone anchor — every signed-in member holds this set.',
+            noGrantRow: 'This set has no catalog row yet, and the server does not accept a grant by name alone yet.',
             positionHeldHint: 'Held via a position — remove it on the position’s assignments.',
           },
     [zh],
@@ -108,11 +128,44 @@ const asArray = (res: any): any[] =>
 const personLabel = (u: any): string =>
   u?.full_name || u?.name || u?.display_name || u?.email || String(u?.id ?? '');
 
+/** The audience anchors: implicit memberships, noted rather than enumerated. */
+const ANCHOR_POSITIONS = new Set(['everyone', 'guest']);
+
+/**
+ * The positions whose DEFINITION distributes `setName` — its `permissionSets`
+ * list names the set (ADR-0131 D4; `PositionSchema.permissionSets`).
+ */
+export function positionsDistributing(positions: readonly unknown[], setName: string): string[] {
+  const out: string[] = [];
+  for (const raw of positions) {
+    const p = raw as { name?: unknown; permissionSets?: unknown } | null;
+    if (typeof p?.name !== 'string' || !p.name) continue;
+    if (Array.isArray(p.permissionSets) && p.permissionSets.includes(setName)) out.push(p.name);
+  }
+  return out;
+}
+
+/**
+ * The `sys_permission_set` row id a NEW grant must carry — the one row read
+ * left here, pending the server half: the grant door requires
+ * `permission_set_id` and stamps the name from it (see the module doc).
+ */
+async function resolveGrantRowId(adapter: any, setName: string): Promise<string | null> {
+  const rows = asArray(
+    await adapter.find('sys_permission_set', { $filter: { name: setName }, $select: ['id'], $top: 1 }),
+  );
+  return rows[0]?.id != null ? String(rows[0].id) : null;
+}
+
 export function AssignedUsersSection({ permissionSetName }: AssignedUsersSectionProps) {
   const adapter = useAdapter() as any;
   const c = useCopy();
 
-  const [setId, setSetId] = React.useState<string | null>(null);
+  const metadataStore = useMetadata();
+  // Read through a ref: the store's context value is rebuilt whenever any
+  // cached type settles, and AGENTS.md #10 forbids keying `load` on it.
+  const metadataStoreRef = React.useRef(metadataStore);
+  metadataStoreRef.current = metadataStore;
   const [rows, setRows] = React.useState<AssignedRow[]>([]);
   const [everyoneBound, setEveryoneBound] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
@@ -123,43 +176,25 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const sets = asArray(
-        await adapter.find('sys_permission_set', { $filter: { name: permissionSetName }, $top: 1 }),
-      );
-      const id = sets[0]?.id ? String(sets[0].id) : null;
-      setSetId(id);
-      if (!id) {
-        setRows([]);
-        setEveryoneBound(false);
-        return;
-      }
-
-      // Effective holders = direct grants ∪ holders of every position bound to
-      // the set (objectui#2382). In the ADR-0090 model positions are THE
-      // distribution channel — a direct-grants-only list told the admin
-      // "0 users" for any normally-administered set.
+      // Direct grants, by the set's NAME.
       const grants = asArray(
-        await adapter.find('sys_user_permission_set', { $filter: { permission_set_id: id }, $top: 500 }),
+        await adapter.find('sys_user_permission_set', { $filter: { permission_set: permissionSetName }, $top: 500 }),
       );
 
+      // Effective holders = direct grants ∪ holders of every position that
+      // distributes the set (objectui#2382). In the ADR-0090 model positions
+      // are THE distribution channel — a direct-grants-only list told the
+      // admin "0 users" for any normally-administered set.
       let positionNames: string[] = [];
       let boundEveryone = false;
       try {
-        const bindings = asArray(
-          await adapter.find('sys_position_permission_set', { $filter: { permission_set_id: id }, $top: 200 }),
-        );
-        const positionIds = [...new Set(bindings.map((b: any) => b.position_id).filter(Boolean).map(String))];
-        if (positionIds.length) {
-          const positions = asArray(
-            await adapter.find('sys_position', { $filter: { id: { $in: positionIds } }, $top: 200 }),
-          );
-          const names = positions.map((p: any) => String(p.name ?? '')).filter(Boolean);
-          // The audience anchors are implicit memberships — `everyone` is every
-          // signed-in member; enumerating them as rows would be noise. Surface
-          // a note instead and expand only the explicit positions.
-          boundEveryone = names.includes('everyone');
-          positionNames = names.filter((n) => n !== 'everyone' && n !== 'guest');
-        }
+        const positions = await metadataStoreRef.current.ensureType('position');
+        const names = positionsDistributing(positions, permissionSetName);
+        // The audience anchors are implicit memberships — `everyone` is every
+        // signed-in member; enumerating them as rows would be noise. Surface
+        // a note instead and expand only the explicit positions.
+        boundEveryone = names.includes('everyone');
+        positionNames = names.filter((n) => !ANCHOR_POSITIONS.has(n));
       } catch {
         /* position expansion is additive — direct grants still render */
       }
@@ -218,14 +253,21 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
 
   const addUsers = React.useCallback(
     async (records: any[]) => {
-      if (!setId) return;
       setBusy(true);
       setError(null);
       try {
+        const setId = await resolveGrantRowId(adapter, permissionSetName);
+        if (!setId) throw new Error(c.noGrantRow);
         for (const u of records || []) {
           const uid = u?.id != null ? String(u.id) : null;
           if (!uid || assignedIds.has(uid)) continue;
-          await adapter.create('sys_user_permission_set', { permission_set_id: setId, user_id: uid });
+          // The id is what the grant door requires today; the name rides
+          // beside it and the door refuses a mismatch (module doc).
+          await adapter.create('sys_user_permission_set', {
+            permission_set_id: setId,
+            permission_set: permissionSetName,
+            user_id: uid,
+          });
         }
         await load();
       } catch (err: any) {
@@ -242,7 +284,7 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
         setPickerOpen(false);
       }
     },
-    [adapter, setId, assignedIds, load, rows.length, c],
+    [adapter, permissionSetName, assignedIds, load, rows.length, c],
   );
 
   const removeUser = React.useCallback(
@@ -271,7 +313,7 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
         <Button
           variant="outline"
           size="sm"
-          disabled={busy || !setId}
+          disabled={busy}
           onClick={() => {
             setError(null);
             setPickerOpen(true);
@@ -351,18 +393,16 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
         </ul>
       )}
 
-      {setId && (
-        <RecordPickerDialog
-          open={pickerOpen}
-          onOpenChange={(o: boolean) => setPickerOpen(o)}
-          multiple
-          dataSource={adapter}
-          objectName="sys_user"
-          title={c.pickTitle}
-          onSelect={() => {}}
-          onSelectRecords={(records: any[]) => void addUsers(records)}
-        />
-      )}
+      <RecordPickerDialog
+        open={pickerOpen}
+        onOpenChange={(o: boolean) => setPickerOpen(o)}
+        multiple
+        dataSource={adapter}
+        objectName="sys_user"
+        title={c.pickTitle}
+        onSelect={() => {}}
+        onSelectRecords={(records: any[]) => void addUsers(records)}
+      />
     </div>
   );
 }

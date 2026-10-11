@@ -18,6 +18,7 @@ import { Plus, Search, RefreshCw, AlertTriangle, Lock } from 'lucide-react';
 import { Button } from '@object-ui/components';
 import { Input } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
+import { Switch } from '@object-ui/components';
 import {
   Select,
   SelectContent,
@@ -41,6 +42,17 @@ import {
 } from './registry.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from './i18n.js';
 import { buildPackageScopeOptions } from './package-scope.js';
+import { ENVIRONMENT_SCOPE_QUERY, isEnvironmentScope } from './catalog-scope.js';
+import {
+  audienceAnchorsOf,
+  hasCatalogActivation,
+  isCatalogItemActive,
+  readCatalogActivation,
+  writeCatalogActivation,
+  type CatalogActivation,
+} from './catalog-activation.js';
+import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
+import { postureHasOrgWall, useTenancyPosture } from '../../hooks/useTenancyPosture.js';
 
 export interface MetadataResourceListPageProps {
   type?: string;
@@ -121,6 +133,21 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   const [sourceFilter, setSourceFilter] = React.useState<string>('all');
   const [searchParams, setSearchParams] = useSearchParams();
   const [refreshKey, setRefreshKey] = React.useState(0);
+  // objectui#7611 — the ENVIRONMENT scope (`?scope=environment`): the Setup
+  // catalog. The list is the registry's whole list for the type, not one
+  // project package's slice, and it is re-gated for Setup — see
+  // `catalog-scope.ts`.
+  const envScope = isEnvironmentScope(searchParams);
+  const canAuthor = useCanAuthorMetadata();
+  const posture = useTenancyPosture();
+  const activation = envScope && hasCatalogActivation(type);
+  const [statusFilter, setStatusFilter] = React.useState<'all' | 'active' | 'inactive'>('all');
+  // The activation ledger's answer for the switch column, with the names the
+  // door refuses to switch (`catalog-activation.ts`). `null` while unread,
+  // `'error'` when the read was refused or failed.
+  const [ledger, setLedger] = React.useState<CatalogLedger | 'error' | null>(null);
+  const [switching, setSwitching] = React.useState<string | null>(null);
+  const [switchError, setSwitchError] = React.useState<string | null>(null);
 
   // Studio is scoped to a single *project* package at a time. Load the
   // installed packages and keep only project-scoped ones — anything not
@@ -201,6 +228,8 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   // navigation all agree on the active scope. Runs once packages resolve
   // and the URL holds no valid project package.
   React.useEffect(() => {
+    // The environment scope lists every package's items: no package to repair.
+    if (envScope) return;
     if (!projectPackages || projectPackages.length === 0) return;
     if (urlPackage && projectPackages.some((p) => p.id === urlPackage)) return;
     // If the current app's package is known we can repair immediately; otherwise
@@ -218,15 +247,22 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
 
   // Carry the active package into create/edit navigation as `?package=` so
   // the editor binds newly-saved rows to that software package.
-  const pkgSuffix = activePackage
-    ? `?package=${encodeURIComponent(activePackage)}`
-    : '';
+  const pkgSuffix = envScope
+    ? `?${ENVIRONMENT_SCOPE_QUERY}`
+    : activePackage
+      ? `?package=${encodeURIComponent(activePackage)}`
+      : '';
 
   // ADR-0070 D3 — never start a create that would orphan the item. When a real
   // writable base exists, create into it (defaulting away from the Local/null
   // scope); when none exists yet, prompt to create a base first.
   const [showCreateBase, setShowCreateBase] = React.useState(false);
   const handleCreate = React.useCallback(() => {
+    // An environment-authored item belongs to no package (ADR-0131 D3).
+    if (envScope) {
+      navigate(`./new?${ENVIRONMENT_SCOPE_QUERY}`);
+      return;
+    }
     const bases = projectPackages ?? [];
     if (projectPackages !== null && bases.length === 0) {
       setShowCreateBase(true);
@@ -237,7 +273,47 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
       return;
     }
     navigate(`./new${pkgSuffix}`);
-  }, [projectPackages, activePackage, pkgSuffix, navigate]);
+  }, [projectPackages, activePackage, pkgSuffix, navigate, envScope]);
+
+  // objectui#7611 — the activation state the switch column shows. Re-read on
+  // the list's own refresh, never on an unrelated render. The anchors arrive
+  // with the states, so no anchor is ever drawn as a live switch.
+  React.useEffect(() => {
+    if (!activation) {
+      setLedger(null);
+      return;
+    }
+    const controller = new AbortController();
+    Promise.all([readCatalogActivation(type, controller.signal), audienceAnchorsOf(type)])
+      .then(([states, anchors]) => {
+        if (!controller.signal.aborted) setLedger({ states, anchors });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setLedger('error');
+      });
+    return () => controller.abort();
+  }, [activation, type, refreshKey]);
+
+  const toggleActive = React.useCallback(
+    async (itemName: string, enabled: boolean) => {
+      setSwitching(itemName);
+      setSwitchError(null);
+      try {
+        const now = await writeCatalogActivation(type, itemName, !enabled);
+        setLedger((prev) => {
+          if (!prev || prev === 'error') return prev;
+          const states = new Map(prev.states);
+          states.set(itemName, now);
+          return { ...prev, states };
+        });
+      } catch (err: any) {
+        setSwitchError(err?.message ?? String(err));
+      } finally {
+        setSwitching(null);
+      }
+    },
+    [type],
+  );
 
   React.useEffect(() => {
     let cancelled = false;
@@ -287,6 +363,8 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
         // Per-type hide hook (e.g. `view` drops the bare aggregated
         // container the framework keeps for runtime dual-read).
         if (config.listFilter && !config.listFilter(row.item)) return false;
+        // objectui#7611 — the environment scope is the whole registry list.
+        if (envScope) return true;
         // Mandatory project-package scope: show nothing until a concrete
         // project package is active, then only rows tagged with it. The
         // 'sys_metadata' sentinel and untagged rows never match.
@@ -297,13 +375,19 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
         // (ADR-0070 D5 — the package-less "Local / Custom" scope is removed).
         return pkg === activePackage;
       }),
-    [items, activePackage, config],
+    [items, activePackage, config, envScope],
   );
 
   // User-driven filters (search query + source provenance) on top of scope.
   const filtered = scopedItems.filter((row) => {
     if (!matchesQuery(row.item, query, searchableFields)) return false;
     if (sourceFilter !== 'all' && row.source !== sourceFilter) return false;
+    if (activation && statusFilter !== 'all') {
+      // Only a KNOWN state filters: while the ledger is unread or unreadable,
+      // no item is either active or inactive to this filter.
+      if (!ledger || ledger === 'error') return false;
+      if ((statusFilter === 'active') !== isCatalogItemActive(ledger.states, String(row.item.name ?? ''))) return false;
+    }
     return true;
   });
 
@@ -337,6 +421,15 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   const columns = config.listColumns ?? defaultColumns(config.primaryKey ?? 'name');
   const locale = useMetadataLocale();
   const typeLabel = translateMetadataType(type, locale, entry?.label ?? type);
+  // The type offers SOME runtime write channel (the editors' type tier), and —
+  // in the environment scope — the caller holds the capability the metadata
+  // door requires. The server refuses either way; this is the half that says
+  // so before the click (objectui#7611, the #22621 → A parity gate).
+  const typeWritable = !!(entry?.allowOrgOverride || entry?.allowRuntimeCreate);
+  const canCreate = typeWritable && (!envScope || canAuthor);
+  // Packages load only for the package scope; the environment scope never
+  // waits on them.
+  const packagesPending = !envScope && projectPackages === null;
 
   // Localise default column labels — registered columns keep their
   // hand-authored labels (consumers may want bespoke wording).
@@ -397,7 +490,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
           >
             <RefreshCw className="h-4 w-4" />
           </Button>
-          {(entry?.allowOrgOverride || entry?.allowRuntimeCreate) && (
+          {canCreate && (
             <Button
               size="sm"
               variant={config.createFields ? 'default' : 'outline'}
@@ -442,10 +535,48 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
               <SelectItem value="runtime">{t('engine.list.source.runtime', locale)} ({sourceCounts.runtime})</SelectItem>
             </SelectContent>
           </Select>
+          {activation && (
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+              <SelectTrigger className="w-[150px]" data-testid="catalog-status-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('engine.catalog.status.all', locale)}</SelectItem>
+                <SelectItem value="active">{t('engine.catalog.status.active', locale)}</SelectItem>
+                <SelectItem value="inactive">{t('engine.catalog.status.inactive', locale)}</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
+        {/* objectui#7611 — the environment scope says WHY a caller cannot
+            define here, in the posture's own terms (#22621 → A): under
+            `single` the platform administrator defines and an organization
+            administrator reads; under a wall the operator defines in Studio
+            and tenants assign. */}
+        {envScope && !canAuthor && (
+          <div
+            data-testid="catalog-readonly-reason"
+            className="text-xs text-amber-800 border border-amber-300/70 bg-amber-50/70 rounded-md px-3 py-2.5 dark:text-amber-200 dark:border-amber-700/40 dark:bg-amber-950/20 flex items-start gap-2"
+          >
+            <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>
+              {tFormat(
+                postureHasOrgWall(posture) ? 'engine.catalog.readOnly.walled' : 'engine.catalog.readOnly.single',
+                locale,
+                { type: typeLabel },
+              )}
+            </span>
+          </div>
+        )}
+        {switchError && (
+          <div className="text-xs text-destructive border border-destructive/30 rounded p-2 bg-destructive/5">
+            {tFormat('engine.catalog.active.failed', locale, { message: switchError })}
+          </div>
+        )}
+
         {/* Body */}
-        {(loading || projectPackages === null) && (
+        {(loading || packagesPending) && (
           <div className="text-sm text-muted-foreground">{t('engine.edit.loading', locale)} {type}…</div>
         )}
         {error && (
@@ -453,7 +584,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
             {error}
           </div>
         )}
-        {!loading && !error && projectPackages !== null && projectPackages.length === 0 && (
+        {!loading && !error && !envScope && projectPackages !== null && projectPackages.length === 0 && (
           <Empty>
             <EmptyTitle>No project packages installed</EmptyTitle>
             <EmptyDescription>
@@ -462,7 +593,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
             </EmptyDescription>
           </Empty>
         )}
-        {!loading && !error && projectPackages !== null && projectPackages.length > 0 && filtered.length === 0 && (
+        {!loading && !error && !packagesPending && (envScope || (projectPackages?.length ?? 0) > 0) && filtered.length === 0 && (
           <Empty>
             <EmptyTitle>
               {scopedItems.length === 0
@@ -471,11 +602,11 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
             </EmptyTitle>
             <EmptyDescription>
               {config.emptyStateHint ??
-                (entry?.allowOrgOverride || entry?.allowRuntimeCreate
+                (canCreate
                   ? tFormat('engine.list.createHint', locale, { type: typeLabel })
                   : t('engine.list.readOnlyHint', locale))}
             </EmptyDescription>
-            {scopedItems.length === 0 && (entry?.allowOrgOverride || entry?.allowRuntimeCreate) && (
+            {scopedItems.length === 0 && canCreate && (
               <div className="mt-4">
                 <Button onClick={handleCreate}>
                   <Plus className="h-4 w-4 mr-1" />
@@ -499,6 +630,9 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                       {localizeColumnLabel(c)}
                     </th>
                   ))}
+                  {activation && (
+                    <th className="px-3 py-2 text-left font-medium w-[90px]">{t('engine.catalog.col.active', locale)}</th>
+                  )}
                   <th className="px-3 py-2 text-right font-medium w-[80px]">{t('engine.list.col.source', locale)}</th>
                 </tr>
               </thead>
@@ -512,9 +646,14 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                   // workspace suffix for runtime/overlay-only rows (no real
                   // package, or the `sys_metadata` rehydration sentinel).
                   const rowPkg = (row.item as any)._packageId as string | undefined;
-                  const rowEditSuffix = rowPkg && rowPkg !== 'sys_metadata'
-                    ? `?package=${encodeURIComponent(rowPkg)}`
-                    : pkgSuffix;
+                  // The environment scope keeps its own scope instead: a
+                  // catalog name has ONE holder per deployment (ADR-0131), so
+                  // the editor resolves it by name alone.
+                  const rowEditSuffix = envScope
+                    ? pkgSuffix
+                    : rowPkg && rowPkg !== 'sys_metadata'
+                      ? `?package=${encodeURIComponent(rowPkg)}`
+                      : pkgSuffix;
                   const invalid = row.diagnostics?.valid === false;
                   const errorList = row.diagnostics?.errors ?? [];
                   const warnList = (row.diagnostics as any)?.warnings ?? [];
@@ -582,6 +721,18 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
                           </td>
                         );
                       })}
+                      {activation && (
+                        <td className="px-3 py-2 align-top">
+                          <CatalogActiveCell
+                            itemName={name}
+                            ledger={ledger}
+                            canSwitch={canAuthor}
+                            busy={switching === name}
+                            locale={locale}
+                            onToggle={toggleActive}
+                          />
+                        </td>
+                      )}
                       <td className="px-3 py-2 text-right align-top">
                         {(row.item._lock as string | undefined) && row.item._lock !== 'none' && (
                           <span
@@ -620,6 +771,64 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
         )}
       </div>
     </PageShell>
+  );
+}
+
+/** The activation ledger's states for a type, and the names its door refuses. */
+interface CatalogLedger {
+  states: CatalogActivation;
+  anchors: ReadonlySet<string>;
+}
+
+/**
+ * objectui#7611 — one item's active switch in the environment scope, showing
+ * the activation ledger's state (see `catalog-activation.ts`). Its non-switch
+ * states are each said, never rendered as a guessed "on": the state is still
+ * loading, or the read failed. An audience anchor shows its state on a
+ * disabled switch with the reason, because the door refuses to switch it.
+ */
+function CatalogActiveCell({
+  itemName,
+  ledger,
+  canSwitch,
+  busy,
+  locale,
+  onToggle,
+}: {
+  itemName: string;
+  ledger: CatalogLedger | 'error' | null;
+  canSwitch: boolean;
+  busy: boolean;
+  locale: string;
+  onToggle: (itemName: string, enabled: boolean) => void;
+}) {
+  if (ledger === null) return <span className="text-xs text-muted-foreground">…</span>;
+  if (ledger === 'error') {
+    return (
+      <span className="text-xs text-muted-foreground" title={t('engine.catalog.active.unknown', locale)}>
+        ?
+      </span>
+    );
+  }
+  const enabled = isCatalogItemActive(ledger.states, itemName);
+  const anchor = ledger.anchors.has(itemName);
+  // A switch the caller cannot use states the state, and offers no click; the
+  // page's read-only reason says why.
+  const label = anchor
+    ? t('engine.catalog.active.anchor', locale)
+    : canSwitch
+      ? t(enabled ? 'engine.catalog.active.on' : 'engine.catalog.active.off', locale)
+      : t(enabled ? 'engine.catalog.status.active' : 'engine.catalog.status.inactive', locale);
+  return (
+    <span className="inline-flex" title={label}>
+      <Switch
+        checked={enabled}
+        disabled={anchor || !canSwitch || busy}
+        onCheckedChange={() => onToggle(itemName, enabled)}
+        aria-label={label}
+        data-testid={`catalog-active-${itemName}`}
+      />
+    </span>
   );
 }
 

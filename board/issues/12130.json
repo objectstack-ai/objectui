@@ -1,0 +1,32 @@
+{
+  "number": 12130,
+  "kind": "issue",
+  "title": "types(strict face): `objectui validate` tells authors to remove a form field's `defaultChecked` and `defaultValue`, keys the field widgets read",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "domain:spec",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-11T07:48:34Z",
+  "updated_at": "2026-10-11T07:54:43Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12130",
+  "body": "Filing class: **① product defect**, a `finding` of class (a). Reach: a public door. `objectui validate` and `objectui check` (the strict authoring face) give a wrong answer.\n\n- **Who acts:** triage grades and routes. objectui#11070 used the same channel with declarations in `packages/types`, so the likely reader is the `domain:spec` @ objectui seat.\n- **Dedupe:** an objectui issue search for \"strict authoring face refuses form field defaultChecked defaultValue undeclared key that the renderer reads\" returned 19 hits, closed included. None is this defect. The nearest are objectui#11070 (closed, the parent class, whose grade this falsifies) and objectui#12121 (in flight, a different defect: a CEL `defaultValue` on a console create form).\n- **Found by:** the `domain:devx` @ objectui seat (`session_01DwLS3LzXyNmyTunMGbpc8W`), from the slice C runtime probe of objectui#5250.\n\n## The reading\n\nFrom the `os-dev-report` `6106791022` on objectui#5250. ⛔ This seat has not re-measured it.\n\n- A form with `fields: [{ \"name\": \"remember\", \"type\": \"checkbox\", \"label\": \"Remember me\", \"defaultChecked\": true }]` gets 「Undeclared key `defaultChecked` … Remove it」 from the strict face. Rendered through the real `SchemaRenderer` with `@object-ui/fields` registered, `defaultChecked: true` draws the box checked (`checked=\"\"`). `false` looks identical only because it is the default.\n- A text field's `defaultValue: \"zzz\"` renders as the input's value. A select field's `defaultValue` is inert.\n- The channel is the one objectui#11070 round 12 recorded for `scale`: `form.tsx` hands the field entry to the widget as its schema.\n- objectui#11070 graded these pairs class (i), read by nothing, from a source read. The runtime reading falsifies that grade for `defaultChecked`, and for `defaultValue` on a text field.\n- Named producer: `packages/types/examples/login-form.ts` (`defaultChecked: true`). Slice C (PR objectui#12128) left it untouched for this reason.\n\n## Why it matters\n\nThe strict face is the door the maintainer's ruling on objectui#5250 (`5534418546`) built for authors and agents. A refusal that says 「Remove it」 about a key that works teaches people and agents to delete working configuration. That is the false refusal the park review `5887006513` ruled out before strict could be switched on.\n\n## Direction (for triage; not a ruling)\n\nobjectui#11070 offered two outcomes per key: declare it on the field schema, or rule it runtime-only. The taker should also re-measure which other per-field keys travel the same channel, rather than taking these two as the whole set."
+}

@@ -1,0 +1,34 @@
+{
+  "number": 12126,
+  "kind": "issue",
+  "title": "metadata-admin: register a `ref-multi:permission` widget (multi-pick declared permission sets by name) so the position form's `permissionSets` row can bind the registry (objectstack#22682 item 3, ADR-0131 D4)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "enhancement",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-11T07:06:41Z",
+  "updated_at": "2026-10-11T07:55:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12126",
+  "body": "Filing gate: ④, the objectui layer of a cross-layer item. Its spec layer is objectstack-ai/objectstack#22682 item 3, ready as objectstack-ai/objectstack#22794 and held in draft until this lands. Acting reader: the objectui `domain:ui` seat. When it lands and objectstack's `.objectui-sha` pin carries it, objectstack's `domain:spec` seat lands objectstack#22794.\nDedupe: the semantic issue search \"position form permissionSets permission set multi picker widget ref-multi metadata-admin\" on objectstack-ai/objectstack-ai/objectui returned 1 hit, #5092 (closed, unrelated: duplicate SchemaForm ids).\n\n## What objectui needs\n\nobjectstack#22794 sets the position form's `permissionSets` row (`packages/spec/src/identity/position.form.ts`) to `widget: 'ref-multi:permission'`, where today it is `type: 'tags'`. This is ADR-0131 D4: references to declared items are by machine name, resolved registry-first, so the designer should offer the declared permission sets rather than free text.\n\nobjectui registers no such widget today. Measured at `origin/main` `206505c` and at objectstack's pin `20c6d351ad74`, which read the same at every line below:\n- `inferWidget` returns an explicit widget first (`SchemaForm.tsx:447`).\n- `resolveFieldFace` sends an unregistered hint to `{ kind: 'raw-json', hint }` (`:870`), rendered at `:2223` as a JSON textarea under \"widget ref-multi:permission — falling back to JSON until a custom renderer is registered.\"\n- So landing the spec first would turn today's tag box into a JSON box. That is why this lands first, the same order `ref:dataset` took (objectui#11601, then objectstack#21714).\n\n## Where (measured by the objectstack dev, report objectstack 6106502193)\n\n- `packages/app-shell/src/views/metadata-admin/widgets.tsx`:\n  - a `WIDGETS` entry (`:3033`) and a `WIDGET_LABELLING` entry (`:3142`);\n  - a `WidgetContext` catalog member for the permission-set names;\n  - the widget itself. It offers the declared names, commits each pick's name into the list, and keeps a stored name the catalog lacks visible and flagged, as `RefDatasetWidget` (`:684`) does.\n  - The key's grammar: the `ref:` family's list form, with the arity in the prefix and the exact registry type after the colon. The vocabulary already spells multi-value pickers as their own keys (`field-ref` / `field-multi`, `select` / `multiselect`, `action-multi`), and the single `ref:` widgets read `String(value)` and write one string.\n- `packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx`: feed the `permission` list into `widgetContext`. The position form arrives as `entry?.form` from `/meta/types` (`:456`, `:457`, `:2943`).\n- `SchemaForm.widgetLabelling.test.tsx`: its `CASES` roster must name every `WIDGETS` key (`:199`), and `WIDGET_LABELLING` must equal the `WIDGETS` key set (`:181`).\n- `__tests__/SchemaForm.controlWidgetFailureArmNaming-9931.test.tsx`, if the widget is declared `'control'`.\n- `i18n.ts`: the placeholder and failure strings (en and zh).\n- The registry type is `permission` on both sides: spec `MetadataTypeSchema`, where `getMetadataTypeSchema('permission')` is `PermissionSetSchema`, and objectui `registerMetadataResource({ type: 'permission' })` (`PermissionMatrixEditor.tsx:28`).\n\n## Done when\n\n- The position form's `permissionSets` row, given `widget: 'ref-multi:permission'`, renders a multi-picker of declared permission-set names; the stored value stays a list of names.\n- A stored name not in the catalog stays visible and flagged.\n- The widget-labelling parities pass.\n- objectstack's `.objectui-sha` pin is then bumped past it, so objectstack#22794 can land."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 12131,
+  "kind": "issue",
+  "title": "docs: four README JSON examples and three component-page interface blocks teach keys `objectui validate` refuses, outside the JSON-fence gate's scan surface",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "documentation",
+    "domain:devx",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-11T07:49:07Z",
+  "updated_at": "2026-10-11T07:55:40Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12131",
+  "body": "Filing class: **① product defect** in shipped docs, a `finding` of class (b). Reach: a public door. `objectui validate` refuses a node authored the way the page shows it.\n\n- **Who acts:** triage grades and routes. The likely reader is the `domain:devx` @ objectui seat: the docs, plus the scan surface of `scripts/check-doc-json-fences.mjs`, which PR objectui#12127 adds. The README half depends on that PR landing.\n- **Dedupe:** an objectui issue search for \"README json example refused by objectui validate strict face, docs interface block fullWidth submitButton label required undeclared\" returned 24 hits, closed included. None is this. The nearest are objectui#11298 (closed, an earlier instance on `layout.md` / `flex.mdx`, fixed) and objectui#5250. Its slices B and C cover only `content/docs` JSON fences and the non-docs class (i) documents.\n- **Found by:** the `domain:devx` @ objectui seat (`session_01DwLS3LzXyNmyTunMGbpc8W`), from the slice B and C delivery of objectui#5250.\n\n## The enumeration\n\nFrom the `os-dev-report` `6106791022` on objectui#5250, at objectui `29b99490`. ⛔ This seat has not re-measured it, so re-derive it.\n\n1. **JSON node documents outside `content/docs` that the strict face refuses: 4.** These are the bound the new gate's header states (it reads `content/docs` only).\n   - the root `README.md` flagship form example (undeclared `title`);\n   - the root `README.md` dashboard example;\n   - a table example in `packages/plugin-dashboard/README.md`;\n   - one `docs/audits` record.\n2. **Interface blocks that name keys no schema declares and no renderer reads: 3.** Each was probed through the real `SchemaRenderer` in slice C: `fullWidth` renders identically, and `submitButton` / `required` only echo as stray DOM attributes.\n   - `content/docs/components/form/button.mdx`: `fullWidth`;\n   - `content/docs/components/form/form.mdx`: `submitButton`;\n   - `content/docs/components/form/label.mdx`: `required` (「Show required indicator」).\n\n   Related: the catalog fixture `components-form-label/required-label.json` keeps a name that promises a required indicator. `packages/components/src/renderers/form/label.tsx` reads no `required` (on objectui `origin/main` its one `required` is its own `text` input's metadata).\n\n## Direction (for triage; not a ruling)\n\n- **README examples:** repair each, or declare it as a fragment, and widen the gate's scan surface to the READMEs so they stay covered. That is a blind-spot repair to the existing gate, not a new gate.\n- **Interface blocks:** remove each key, or replace it with the declared key its renderer reads. Slice C's probes found `className: \"w-full\"` for a full-width button and `submitLabel` for a form's submit text."
+}

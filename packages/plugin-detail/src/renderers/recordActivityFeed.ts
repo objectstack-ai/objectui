@@ -79,7 +79,10 @@ export const DEFAULT_ACTIVITY_LIMIT = 20;
  *    ADR-0052 §5b.2 `activityMilestones[].type` is applied verbatim by
  *    plugin-audit's `audit-writers.ts` (`if (milestone.type) activityType =
  *    milestone.type`). That is how `completed` is produced, and it is a general
- *    door, not a special case.
+ *    door, not a special case. A row that door wrote also carries
+ *    `metadata.kind: 'milestone'`, and the mapper overrides this table's
+ *    `completed` entry for it: see {@link MILESTONE_ACTIVITY_FEED_TYPE}
+ *    (objectui#12106).
  *
  * So `scheduled` is a value that is written, stored and queryable while being
  * undeclared upstream. Dropping it was not a decision this map made; it was the
@@ -166,6 +169,48 @@ export const ACTIVITY_TYPE_TO_FEED_TYPE: Readonly<Record<string, FeedItemType | 
 export const UNMAPPED_ACTIVITY_FEED_TYPE: FeedItemType = 'system';
 
 /**
+ * The `metadata.kind` value plugin-audit stamps on a `sys_activity` row that a
+ * declared `activityMilestones` entry fired (objectui#12106, writer half
+ * objectstack#22771).
+ *
+ * ADR-0052 §5 keeps `type` domain-neutral and puts a row's domain kind in
+ * `metadata.kind`. A fired milestone keeps the `type` its declaration names,
+ * so "Case resolved" declared with `type: 'completed'` arrives as a
+ * `completed` row, and only this marker tells it from a finished task. The
+ * writer's own name for the value is `ACTIVITY_MILESTONE_KIND`
+ * (`@objectstack/plugin-audit`, `activity-field-redaction.ts`). That package is
+ * a server plugin this UI package does not depend on, so the value is restated
+ * here and pinned by the tests.
+ */
+const ACTIVITY_MILESTONE_KIND = 'milestone';
+
+/**
+ * The feed type a milestone row renders as when its `type` would otherwise land
+ * on a feed type `showCompleted` hides (objectui#12106).
+ *
+ * Today that is a `completed` row that a milestone fired, such as "Case
+ * resolved", or a task's own "Task completed" on that task's page. Triage
+ * ruled route B: a milestone is not a completed activity, so it shows whatever
+ * `showCompleted` says. `showCompleted` keeps its spec meaning ("Include
+ * completed activities") for every row without the marker.
+ *
+ * `system`, not `task` with an exemption, because every other reader of the
+ * feed type then stays right with no new member on `FeedItem`:
+ *
+ *  - `filterMode: 'tasks_only'` and `types: ['task']` keep meaning tasks. A
+ *    case milestone is not one.
+ *  - {@link COMPLETED_FEED_TYPES} stays exact: `task` is still produced only by
+ *    completed activities.
+ *  - The icon and colour are the ones every other author-typed milestone
+ *    already gets (`escalated` reaches `system` through
+ *    {@link UNMAPPED_ACTIVITY_FEED_TYPE}), and the ones app-shell's
+ *    `ActivityItem` surface gives `completed`.
+ *  - A host feed arrives already mapped, so the rule needs nothing carried
+ *    past this module.
+ */
+export const MILESTONE_ACTIVITY_FEED_TYPE: FeedItemType = 'system';
+
+/**
  * Feed kinds an ObjectUI surface produces WITHOUT going through
  * {@link ACTIVITY_TYPE_TO_FEED_TYPE}.
  *
@@ -247,6 +292,7 @@ export const DELIBERATELY_UNADOPTED_FEED_TYPES: readonly FeedItemType[] = [
 export const PRODUCED_FEED_TYPES: ReadonlySet<FeedItemType> = new Set<FeedItemType>([
   ...Object.values(ACTIVITY_TYPE_TO_FEED_TYPE).filter((v): v is FeedItemType => Boolean(v)),
   UNMAPPED_ACTIVITY_FEED_TYPE,
+  MILESTONE_ACTIVITY_FEED_TYPE,
   ...FEED_TYPES_PRODUCED_OFF_MAP,
 ]);
 
@@ -261,8 +307,46 @@ export const PRODUCED_FEED_TYPES: ReadonlySet<FeedItemType> = new Set<FeedItemTy
  * {@link ACTIVITY_TYPE_TO_FEED_TYPE}, pinned in the tests). A future producer
  * that emits OPEN tasks makes this coarse, and would need a completion marker
  * on `FeedItem` before `showCompleted` could stay honest.
+ *
+ * A `completed` row that a milestone fired never reaches these types: the
+ * mapper sends it to {@link MILESTONE_ACTIVITY_FEED_TYPE} (objectui#12106).
  */
 const COMPLETED_FEED_TYPES = new Set<string>(['task']);
+
+/**
+ * Whether a `sys_activity` row carries the milestone marker,
+ * `metadata.kind === 'milestone'` (objectui#12106).
+ *
+ * `metadata` is a `textarea` column, declared as "JSON-serialized additional
+ * context". plugin-audit writes it with `safeStringify`, the read-side
+ * redaction re-serialises it, and the writer's own test reads the served row
+ * with `JSON.parse(r.metadata)`. So the marker is read from that JSON string
+ * and from nothing else. ⛔ Not from an already-parsed object: no served row
+ * carries one, and reading both would be a second dialect (AGENTS.md #0.1).
+ *
+ * Every other value is "no marker": an absent or non-string `metadata`, a
+ * string that is not a JSON object, or a `kind` that is not `'milestone'` (an
+ * app may write its own kind, such as `'email'`). Such a row keeps today's
+ * reading. That includes every row a runtime from before objectstack#22771
+ * serves, and every row the redaction served without the kind because the
+ * reader is not served a field the milestone watches.
+ */
+function isMilestoneActivityRow(row: SysActivityRow): boolean {
+  const raw = row?.metadata;
+  if (typeof raw !== 'string') return false;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+  return (
+    typeof parsed === 'object'
+    && parsed !== null
+    && !Array.isArray(parsed)
+    && (parsed as { kind?: unknown }).kind === ACTIVITY_MILESTONE_KIND
+  );
+}
 
 /** A row as `sys_activity` returns it. Loose on purpose: the block reads a
  *  system table it does not own, and an unknown column is not an error. */
@@ -788,6 +872,12 @@ export function activityActorName(row: SysActivityRow): string | null {
  *    {@link UNMAPPED_ACTIVITY_FEED_TYPE} and says so once. It used to return
  *    `null` here, which made every extended value invisible — the same outcome
  *    objectui#5840 was filed for, reached by a different route.
+ *
+ * One override sits on top of the first outcome (objectui#12106): a row whose
+ * type maps to a feed type `showCompleted` hides, but which carries the
+ * milestone marker, renders as {@link MILESTONE_ACTIVITY_FEED_TYPE}. A
+ * milestone is not a completed activity. A row without the marker is mapped
+ * exactly as before.
  */
 export function activityRowToFeedItem(
   row: SysActivityRow,
@@ -796,8 +886,13 @@ export function activityRowToFeedItem(
   const rawType = String(row?.type);
   const known = Object.prototype.hasOwnProperty.call(ACTIVITY_TYPE_TO_FEED_TYPE, rawType);
   if (!known) warnUnknownActivityType(rawType);
-  const feedType = known ? ACTIVITY_TYPE_TO_FEED_TYPE[rawType] : UNMAPPED_ACTIVITY_FEED_TYPE;
-  if (!feedType) return null;
+  const mapped = known ? ACTIVITY_TYPE_TO_FEED_TYPE[rawType] : UNMAPPED_ACTIVITY_FEED_TYPE;
+  if (!mapped) return null;
+  // The marker is read only for a row that would otherwise be hidden as
+  // completed, so every other row is mapped without parsing its `metadata`.
+  const feedType = COMPLETED_FEED_TYPES.has(mapped) && isMilestoneActivityRow(row)
+    ? MILESTONE_ACTIVITY_FEED_TYPE
+    : mapped;
   return {
     id: row.id as string | number,
     type: feedType,

@@ -761,11 +761,13 @@ const DOC_TYPE_EXEMPTIONS = {
       'formatted by. Not a node type. objectui#10859 batch 8 retired the bare `date` field-widget ' +
       'fallback, which is the only reason this value used to pass here as a registered key.',
   },
-  'content/docs/blocks/authentication.mdx': {
-    submit:
-      'ActionSchema discriminant under a button\'s `action` key, not a node type. ' +
-      '`@object-ui/types` ActionSchema.',
-  },
+  // `content/docs/blocks/{authentication,dashboard,ecommerce,forms,marketing}.mdx`
+  // each had one entry here — `submit` / `navigate` / `analytics`, the
+  // discriminant inside a `button` node's `action` bag. objectui#5250 slice B
+  // removed every one of those bags: `button` declares no `action` and nothing
+  // reads one, so the strict authoring face refused all five snippets, which now
+  // teach an `action:button` node instead (or, for `analytics`, nothing — no
+  // executor of that name exists). Deleted with their sites.
   // `content/docs/blocks/block-schema.mdx` had five entries here — `block`,
   // `block-instance`, `block-library`, `block-editor` (the four block-family
   // discriminants) and `string` (a `BlockVariable.type` data type) — plus a note
@@ -774,18 +776,6 @@ const DOC_TYPE_EXEMPTIONS = {
   // (ADR-0049 enforce-or-remove, maintainer ruling 2026-09-02, option C1), so
   // every one of those entries would now fail as `stale-exemption`. Deleted with
   // their site rather than re-pointed — there is no page left to point at.
-  'content/docs/blocks/dashboard.mdx': {
-    navigate: 'ActionSchema discriminant under a node\'s `action` key.',
-  },
-  'content/docs/blocks/ecommerce.mdx': {
-    submit: 'ActionSchema discriminant under a node\'s `action` key.',
-  },
-  'content/docs/blocks/forms.mdx': {
-    submit: 'ActionSchema discriminant under a node\'s `action` key.',
-  },
-  'content/docs/blocks/marketing.mdx': {
-    analytics: 'ActionSchema discriminant under a node\'s `action` key.',
-  },
   'content/docs/components/complex/filter-ui.mdx': {
     'date-range':
       'Filter control type — `packages/types/src/crud.ts:329` and `views.ts:804` declare it in the ' +
@@ -1205,15 +1195,13 @@ const DOC_TYPE_EXEMPTIONS = {
   'content/docs/guide/schema-playground.md': {
     reset:
       'ActionSchema discriminant under a form\'s `actions[]`, alongside `submit` — an action ' +
-      'definition in a list, not a rendered child. Same vocabulary as blocks/authentication.mdx.',
+      'definition in a list, not a rendered child.',
     submit:
       'ActionSchema discriminant under a form\'s `actions[]`, alongside `reset` — an action ' +
-      'definition in a list, not a rendered child. Same vocabulary as blocks/authentication.mdx.',
-    date:
-      'Column type under a `grid` node\'s `columns[]` — the field type a column renders its cells ' +
-      'by (`ListColumnSchema.type`, @objectstack/spec/ui). Not a node type. objectui#10859 batch 8 ' +
-      'retired the bare `date` field-widget fallback, which is the only reason this value used to ' +
-      'pass here as a registered key.',
+      'definition in a list, not a rendered child.',
+    // `date` stood here too — a column type under the layout `grid` that page
+    // taught as a data table. objectui#5250 slice B rewrote that snippet as the
+    // `data-table` it described, whose columns carry no `type`; deleted with its site.
   },
   'content/docs/guide/schema-rendering.md': {
     'admin-panel':
@@ -1308,10 +1296,11 @@ const DOC_TYPE_EXEMPTIONS = {
     'your-component':
       'Deliberate placeholder in the "load your own plugin" walkthrough — the reader registers it.',
   },
-  'content/docs/utilities/vscode-extension.mdx': {
-    ajax: 'ActionSchema discriminant under a form\'s `onSubmit`, not a node type.',
-    api: 'Data source kind under a node\'s `dataSource`, not a node type.',
-  },
+  // `content/docs/utilities/vscode-extension.mdx` had two entries here — `ajax`
+  // (under a form's `onSubmit`) and `api` (under a `data-table`'s `dataSource`).
+  // Both sat in snippets the extension never shipped; objectui#5250 slice B
+  // rewrote that section from `packages/vscode-extension/snippets/objectui.json`.
+  // Deleted with their sites.
 
   // ── `packages/NAME/README.md` (objectui#8115) ────────────────────────────────
   //

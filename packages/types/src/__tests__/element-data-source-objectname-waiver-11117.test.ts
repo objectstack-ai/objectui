@@ -221,3 +221,34 @@ describe('objectui#11117 — every documented per-element binding parses on the 
     expect(refused).toEqual([]);
   });
 });
+
+/**
+ * objectui#5250 — a refusal's `path` is minted per issue, never shared.
+ *
+ * zod 4 copies an added issue SHALLOWLY (`util.issue` spreads it) and then
+ * prefixes its `path` IN PLACE (`util.prefixIssues`: `iss.path.unshift(segment)`)
+ * as the issue climbs out of an array slot or an object key. So an `addIssue`
+ * that hands over an array it keeps — built once, when the arm was defined —
+ * has that array rewritten by the first refusal reported from inside a
+ * container, and every later refusal of the arm reports the rewritten path, for
+ * the life of the module. `objectui check` judges many files in one process,
+ * and the `unit` project shares one module graph per worker (`isolate: false`),
+ * so both read the drift: measured, after the docs corpus went through the
+ * strict face, a bare `object-kanban` member parse reported its ROOT refusal at
+ * `0 → 0 → 0 → 0`.
+ *
+ * The probe refuses each arm from inside a parent's child list, then refuses it
+ * bare again: the bare path must not have moved.
+ */
+describe('objectui#5250 — a refusal reported from inside a container leaves the next one where it was', () => {
+  it.each(ARMS)('%s: the bare refusal path is unchanged by a nested refusal', (type, member) => {
+    const before = recordSourceIssues(member.safeParse({ type }) as Parsed).map((i) => i.path);
+    const nested = safeValidateSchema({ type: 'card', title: 'Records', children: [{ type }] }) as Parsed;
+    const nestedPaths = recordSourceIssues(nested).map((i) => i.path);
+    expect(nestedPaths.length, `the nested node must be refused for this probe to mean anything: ${explain(nested)}`).toBeGreaterThan(0);
+    for (const p of nestedPaths) expect(p.slice(0, 2), explain(nested)).toEqual(['children', 0]);
+    const after = recordSourceIssues(member.safeParse({ type }) as Parsed).map((i) => i.path);
+    expect(before).toEqual([REFUSAL_PATH[type]]);
+    expect(after).toEqual([REFUSAL_PATH[type]]);
+  });
+});

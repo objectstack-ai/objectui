@@ -100,7 +100,6 @@ A content card with a header, a description, and a `children` content list:
   "type": "card",
   "title": "Monthly Revenue",
   "description": "Revenue summary for the current month",
-  "icon": "dollar-sign",
   "children": {
     "type": "stack",
     "direction": "col",
@@ -125,10 +124,12 @@ A content card with a header, a description, and a `children` content list:
 
 A complete form with validation, driven entirely by schema:
 
+A form draws no heading of its own (put the title on a `card` around it), a select's `options` are
+`{ "label", "value" }` objects, and a field's starting value goes in the form's `defaultValues`:
+
 ```json
 {
   "type": "form",
-  "title": "Create Account",
   "fields": [
     {
       "name": "fullName",
@@ -149,8 +150,11 @@ A complete form with validation, driven entirely by schema:
       "name": "role",
       "type": "select",
       "label": "Role",
-      "options": ["Admin", "Editor", "Viewer"],
-      "defaultValue": "Viewer"
+      "options": [
+        { "label": "Admin", "value": "Admin" },
+        { "label": "Editor", "value": "Editor" },
+        { "label": "Viewer", "value": "Viewer" }
+      ]
     },
     {
       "name": "bio",
@@ -159,6 +163,7 @@ A complete form with validation, driven entirely by schema:
       "placeholder": "Tell us about yourself..."
     }
   ],
+  "defaultValues": { "role": "Viewer" },
   "actions": [
     { "type": "submit", "label": "Create Account", "variant": "default" },
     { "type": "reset", "label": "Reset", "variant": "outline" }
@@ -166,33 +171,28 @@ A complete form with validation, driven entirely by schema:
 }
 ```
 
-### Grid
+### Data Table
 
-A data grid with sortable columns and row actions:
+A table over inline rows, with sortable columns and pagination. `grid` is the layout grid (a
+column count and a gap), not a data table:
 
 ```json
 {
-  "type": "grid",
-  "title": "Team Members",
+  "type": "data-table",
+  "caption": "Team Members",
   "columns": [
-    { "field": "name", "label": "Name", "sortable": true },
-    { "field": "role", "label": "Role", "sortable": true },
-    { "field": "status", "label": "Status", "sortable": true },
-    { "field": "joined", "label": "Joined", "type": "date" }
+    { "header": "Name", "accessorKey": "name", "sortable": true },
+    { "header": "Role", "accessorKey": "role", "sortable": true },
+    { "header": "Status", "accessorKey": "status", "sortable": true },
+    { "header": "Joined", "accessorKey": "joined" }
   ],
-  "rows": [
+  "data": [
     { "name": "Alice Chen", "role": "Engineer", "status": "Active", "joined": "2024-01-15" },
     { "name": "Bob Smith", "role": "Designer", "status": "Active", "joined": "2024-03-22" },
     { "name": "Carol Jones", "role": "PM", "status": "Away", "joined": "2023-11-08" }
   ],
-  "actions": [
-    { "label": "Edit", "icon": "pencil", "action": "edit" },
-    { "label": "Delete", "icon": "trash", "action": "delete", "variant": "destructive" }
-  ],
-  "pagination": {
-    "pageSize": 10,
-    "showPageSizeOptions": true
-  }
+  "pagination": true,
+  "pageSize": 10
 }
 ```
 
@@ -208,7 +208,7 @@ Schemas can be nested to build complex layouts. Here is a dashboard that combine
   "children": {
     "type": "grid",
     "columns": 3,
-    "gap": "md",
+    "gap": 4,
     "children": [
       {
         "type": "card",

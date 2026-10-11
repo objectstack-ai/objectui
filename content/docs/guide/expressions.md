@@ -216,34 +216,16 @@ The scope the evaluator builds is what you published, plus two names the rendere
 > is `record` (ADR-0089 D3) — rewrite such a gate to `record.*` rather than re-publishing a
 > `data` key.
 
-### Scoped Data
+### Lists
 
-Some components provide scoped data:
-
-```jsonc
-{
-  "type": "list",
-  "items": "${users}",
-  "itemTemplate": {
-    "type": "card",
-    "title": "${item.name}",    // 'item' is scoped data
-    "description": "${item.email}"
-  }
-}
-```
-
-### Index in Loops
-
-Access the current index in loops:
+`list` has no item template, and it provides no `item` or `index` scope for an expression to
+read. It draws its `items` array — or the array its `bind` path resolves to — one row per entry:
+a string, or an object whose `content` is a node.
 
 ```json
 {
   "type": "list",
-  "items": "${users}",
-  "itemTemplate": {
-    "type": "text",
-    "content": "#${index + 1}: ${item.name}"
-  }
+  "bind": "users"
 }
 ```
 
@@ -406,7 +388,7 @@ Two neighbouring traps: `text` is not a `badge` key at all — the badge's text 
 {
   "type": "empty",
   "visibleOn": "${items.length === 0}",
-  "message": "No items to display",
+  "title": "No items to display",
   "description": "Start by adding your first item"
 }
 ```
@@ -453,28 +435,42 @@ and a fail-soft surface answers it by showing the field on every row.
 
 ### Dependent Fields
 
+A form's fields are its `fields` array, and each field's `visibleOn` is evaluated against that
+row:
+
 ```json
 {
   "type": "form",
-  "children": [
+  "fields": [
     {
-      "type": "select",
       "name": "country",
+      "type": "select",
       "label": "Country",
-      "options": ["USA", "Canada", "Mexico"]
+      "options": [
+        { "label": "USA", "value": "USA" },
+        { "label": "Canada", "value": "Canada" },
+        { "label": "Mexico", "value": "Mexico" }
+      ]
     },
     {
-      "type": "select",
       "name": "state",
+      "type": "select",
       "label": "State/Province",
       "visibleOn": "${record.country === 'USA'}",
-      "options": ["CA", "NY", "TX"]
+      "options": [
+        { "label": "CA", "value": "CA" },
+        { "label": "NY", "value": "NY" },
+        { "label": "TX", "value": "TX" }
+      ]
     }
   ]
 }
 ```
 
-### Dynamic Validation
+### Validation
+
+An `input` declares no `validations` bag, and nothing reads one. `inputType: "email"` renders an
+email input, which the browser validates, and `required` marks it required:
 
 ```json
 {
@@ -482,10 +478,7 @@ and a fail-soft surface answers it by showing the field on every row.
   "name": "email",
   "label": "Email",
   "required": true,
-  "validations": {
-    "isEmail": true,
-    "errorMessage": "Please enter a valid email"
-  }
+  "inputType": "email"
 }
 ```
 

@@ -816,6 +816,19 @@ export const ADJUDICATED = new Map([
       walker: 'markdown-tree',
     },
   ],
+  [
+    'scripts/__tests__/check-doc-json-fences.test.ts',
+    {
+      // objectui#5250: the agreement test walks the JSON-fence gate's own scan
+      // surface (the CI pipeline guide it also reads by name is inside it).
+      // objectui#12131 widened that surface to the published READMEs: the root
+      // `README.md` and every `packages/NAME/README.md`, a leg taken by IMPORT
+      // from `check-doc-component-types.mjs`, hence `packages/**` as in the
+      // carriage census's entry above.
+      reads: ['README.md', 'content/docs/**', 'packages/**'],
+      walker: 'markdown-tree',
+    },
+  ],
   // `./*` rather than the eight root documents it used to list, and the
   // distinction is the whole of objectui#9142. This test does not read a list
   // of root documents -- it runs `git ls-files -- '*.md'`, keeps the paths with

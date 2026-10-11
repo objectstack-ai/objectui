@@ -54,13 +54,17 @@ behaviour. Common customisations:
 
 ### Wire Up Submission
 
+A control that runs something is its own node type, `action:button`, and its
+props go in the `properties` bag; `actionType: "api"` sends the request to
+`target`:
+
 ```json
 {
-  "type": "button",
-  "label": "Sign In",
-  "action": {
-    "type": "submit",
-    "endpoint": "/api/auth/login",
+  "type": "action:button",
+  "properties": {
+    "label": "Sign In",
+    "actionType": "api",
+    "target": "/api/auth/login",
     "method": "POST"
   }
 }

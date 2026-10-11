@@ -93,13 +93,17 @@ or in a TypeScript-authored schema pass the real thing —
 
 ### Add Submit Action
 
+A control that runs something is its own node type, `action:button`, and its
+props go in the `properties` bag; `actionType: "api"` sends the request to
+`target`:
+
 ```json
 {
-  "type": "button",
-  "label": "Submit",
-  "action": {
-    "type": "submit",
-    "endpoint": "/api/contact",
+  "type": "action:button",
+  "properties": {
+    "label": "Submit",
+    "actionType": "api",
+    "target": "/api/contact",
     "method": "POST"
   }
 }

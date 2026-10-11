@@ -47,7 +47,7 @@ import { iconNames } from 'lucide-react/dynamic.mjs';
 import { toast } from 'sonner';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { useMetadataLocale, t, tFormat } from './i18n.js';
-import type { FormFieldSpec, VisibilityPredicate } from './form-spec.js';
+import type { FormFieldSpec, FormViewSpec, VisibilityPredicate } from './form-spec.js';
 import { usePredicateScope } from '@object-ui/react';
 import { buildPredicateCtx, visibleOptions, type PredicateCtx } from './predicate.js';
 import { foldFilterGroupToSpecRules, FILTER_FOLD_REFUSAL_KEYS } from '../viewFilterFold.js';
@@ -91,6 +91,16 @@ export interface ObjectActionOption {
   name: string;
   label?: string;
   locations?: string[];
+}
+
+/**
+ * One declared item of a metadata registry, as a `ref-multi:<type>` picker
+ * offers it (objectui#12126): the item's machine name, which is what the picker
+ * stores, and the author's label for it.
+ */
+export interface RegistryItemOption {
+  name: string;
+  label?: string;
 }
 
 /**
@@ -261,6 +271,21 @@ export interface WidgetContext {
    * no datasets.
    */
   datasets?: LoadState<DatasetCatalogEntry[]>;
+  /**
+   * The permission-set catalog (objectui#12126): every permission set the
+   * environment registry serves (metadata type `permission`). Drives the
+   * `ref-multi:permission` picker, so a spec-form field that declares that hint
+   * (the position form's `permissionSets`, ADR-0131 D4: a reference to a
+   * declared item is by machine name, resolved registry-first) is chosen from
+   * the declared sets instead of typed as free text. The picker stores the
+   * picked sets' names, as a list.
+   *
+   * `ResourceEditPage` loads it only for a form that declares the hint
+   * (`formDeclaresWidget`). A host that never fetches it omits this member;
+   * absence is {@link NOT_ASKED}, and the widget then takes typed names, as it
+   * does for a completed load that found no permission sets.
+   */
+  permissionSets?: LoadState<RegistryItemOption[]>;
 }
 
 /* Stable empties for the arms that have no catalog to offer yet — `idle` and
@@ -272,6 +297,7 @@ const NO_OBJECT_FIELDS: ObjectFieldOption[] = [];
 const NO_OBJECT_VIEWS: ObjectViewOption[] = [];
 const NO_OBJECT_ACTIONS: ObjectActionOption[] = [];
 const NO_DATASETS: DatasetCatalogEntry[] = [];
+const NO_REGISTRY_ITEMS: RegistryItemOption[] = [];
 
 export interface WidgetProps {
   /**
@@ -736,6 +762,189 @@ function RefDatasetWidget({ id, ariaLabelledBy, required, value, onChange, readO
       </SelectContent>
     </Select>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/* ref-multi:<type> — pick declared registry items by name, as a list         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What one `ref-multi:<type>` registration binds (objectui#12126): the catalog
+ * it reads off {@link WidgetContext} and the copy that names its add control.
+ * The key's grammar is the list form of the `ref:` pickers: arity in the
+ * prefix, the exact registry type after the colon.
+ */
+interface RefMultiRegistry {
+  /** The registry type after `ref-multi:`. Names the widget's test ids. */
+  type: string;
+  catalog: (context: WidgetContext | undefined) => LoadState<RegistryItemOption[]> | undefined;
+  /** The add control's accessible name. */
+  addLabelKey: string;
+  /** The add picker's placeholder while declared items remain unpicked. */
+  addPlaceholderKey: string;
+  /** The add picker's placeholder once every declared item is picked. */
+  allAddedKey: string;
+}
+
+/**
+ * Multi picker for a field that declares `widget: 'ref-multi:<type>'`
+ * (objectui#12126). The value is a LIST of the picked items' machine names,
+ * in the order they were added; picking appends a name, removing drops it.
+ *
+ * The catalog's four arms, as {@link RefDatasetWidget} reads them, with the
+ * names already stored listed in every arm, each removable while editable:
+ *
+ *  - FAILED — the shared failure notice beside a text box that stays enabled,
+ *    so a failed catalog does not also block authoring (objectui#5170);
+ *  - LOADING — the add box disabled, saying the options are loading;
+ *  - `idle` (no host feeds a catalog) or a completed load that found nothing —
+ *    a text box that adds the typed names. ⛔ Never the raw-JSON face an
+ *    unregistered hint falls back to;
+ *  - LOADED — an add picker offering the declared items not yet picked.
+ *
+ * A stored name the LOADED catalog does not declare stays in the list, flagged
+ * `(not found)`, so it is neither dropped nor read as a declared item
+ * (objectui#8488). The flag is a claim about the registry's answer, so it is
+ * made only once the catalog has answered.
+ *
+ * Labelled `'group'`, as `field-multi` / `action-multi` are (objectui#4871):
+ * the add control is gated behind `!readOnly`, so no one labelable element
+ * carries the field in both states, and the host's label names the list.
+ */
+function RefMultiWidget({
+  registry,
+  value,
+  onChange,
+  readOnly,
+  context,
+  ariaLabelledBy,
+}: WidgetProps & { registry: RefMultiRegistry }) {
+  const locale = useMetadataLocale();
+  const catalogState = registry.catalog(context) ?? NOT_ASKED;
+  const testId = `ref-multi-${registry.type}`;
+  const selected = Array.isArray(value)
+    ? (value as unknown[]).filter((v): v is string => typeof v === 'string')
+    : [];
+  const loadError = loadErrorOf(catalogState);
+  const loading = isLoading(catalogState);
+  // The flag needs an answered question: only a LOADED catalog can say that a
+  // name is not declared.
+  const declared =
+    catalogState.status === 'loaded' ? offeredOptions(catalogState, NO_REGISTRY_ITEMS) : null;
+  const [draft, setDraft] = React.useState('');
+
+  const add = (names: string[]) => {
+    const next = [...selected];
+    for (const name of names) if (!next.includes(name)) next.push(name);
+    if (next.length !== selected.length) onChange(next);
+  };
+  const commitDraft = () => {
+    const names = draft.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+    setDraft('');
+    if (names.length) add(names);
+  };
+  const removeAt = (i: number) => {
+    const next = selected.slice();
+    next.splice(i, 1);
+    onChange(next);
+  };
+
+  const addLabel = t(registry.addLabelKey, locale);
+  const remaining = (declared ?? NO_REGISTRY_ITEMS).filter((o) => !selected.includes(o.name));
+  const freeform = (
+    <Input
+      data-testid={`${testId}-freeform`}
+      aria-label={addLabel}
+      value={draft}
+      disabled={loading}
+      placeholder={loading ? t('engine.form.loadingOptions', locale) : t('engine.form.tagsPlaceholder', locale)}
+      onChange={(e) => setDraft(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+          e.preventDefault();
+          commitDraft();
+        }
+      }}
+      onBlur={commitDraft}
+    />
+  );
+
+  return (
+    <div className="space-y-2" data-testid={testId} role="group" aria-labelledby={ariaLabelledBy}>
+      {selected.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5">
+          {selected.map((name, i) => {
+            const entry = declared?.find((o) => o.name === name);
+            const notFound = declared !== null && !entry;
+            return (
+              <li
+                key={name}
+                data-not-found={notFound || undefined}
+                className={
+                  'inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs ' +
+                  (notFound ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-input bg-muted')
+                }
+              >
+                {entry?.label && entry.label !== name && <span>{entry.label}</span>}
+                <code className="font-mono">{name}</code>
+                {notFound && (
+                  <span className="text-amber-700">{t('engine.form.notFound', locale)}</span>
+                )}
+                {!readOnly && (
+                  <button
+                    type="button"
+                    aria-label={tFormat('engine.form.removeNamed', locale, { name })}
+                    onClick={() => removeAt(i)}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    ×
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {loadError && <PickerLoadFailure message={loadError} testId={`${testId}-load-failed`} />}
+      {!readOnly &&
+        (declared && declared.length > 0 ? (
+          <Select value="" onValueChange={(name) => add([name])} disabled={remaining.length === 0}>
+            {/* No host id: the group above is the named surface, as on
+                {@link FieldRefMultiWidget}'s add trigger. */}
+            <SelectTrigger data-testid={`${testId}-add`} aria-label={addLabel}>
+              <SelectValue
+                placeholder={t(remaining.length ? registry.addPlaceholderKey : registry.allAddedKey, locale)}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {remaining.map((o) => (
+                <SelectItem key={o.name} value={o.name}>
+                  <span className="flex items-center gap-2">
+                    {o.label && o.label !== o.name && <span>{o.label}</span>}
+                    <code className="text-xs text-muted-foreground">{o.name}</code>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          freeform
+        ))}
+    </div>
+  );
+}
+
+/** The `ref-multi:permission` registration: the permission-set registry (objectui#12126). */
+const PERMISSION_REGISTRY: RefMultiRegistry = {
+  type: 'permission',
+  catalog: (context) => context?.permissionSets,
+  addLabelKey: 'engine.form.addPermissionSetPlain',
+  addPlaceholderKey: 'engine.form.addPermissionSet',
+  allAddedKey: 'engine.form.allPermissionSetsAdded',
+};
+
+function RefMultiPermissionWidget(props: WidgetProps) {
+  return <RefMultiWidget {...props} registry={PERMISSION_REGISTRY} />;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -3034,6 +3243,7 @@ export const WIDGETS = {
   'ref:object': RefObjectWidget,
   'ref:component': RefComponentWidget,
   'ref:dataset': RefDatasetWidget,
+  'ref-multi:permission': RefMultiPermissionWidget,
   'filter-mode': FilterModeWidget,
   'object-selector': ObjectSelectorWidget,
   'field-selector': FieldSelectorWidget,
@@ -3129,7 +3339,9 @@ export type WidgetLabelling = Exclude<NonNullable<RegistryComponentMeta['labelli
  *  - real composites — `filter-mode` (mode radiogroup + field/tab pickers),
  *    `master-detail` (a table of per-cell inputs), `condition` (predicate rows),
  *    `dynamic-config` (a driver-shaped sub-form), `field-multi` / `action-multi`
- *    (an ordered set with reorder/remove buttons plus an auxiliary add picker);
+ *    (an ordered set with reorder/remove buttons plus an auxiliary add picker),
+ *    `ref-multi:permission` (a list of names with remove buttons plus an
+ *    auxiliary add control, objectui#12126);
  *  - single non-labelable surfaces — `color-picker`'s `div[role="radiogroup"]`,
  *    `multiselect`'s `div[role="group"]` of checkbox buttons, and `code`, whose
  *    only focusable is Monaco's internal textarea that this widget never renders.
@@ -3143,6 +3355,7 @@ export const WIDGET_LABELLING: Record<RegisteredWidgetKey, WidgetLabelling> = {
   'ref:object': 'control',
   'ref:component': 'control',
   'ref:dataset': 'control',
+  'ref-multi:permission': 'group',
   'filter-mode': 'group',
   'object-selector': 'control',
   'field-selector': 'control',
@@ -3172,6 +3385,21 @@ export const WIDGET_LABELLING: Record<RegisteredWidgetKey, WidgetLabelling> = {
 export function widgetLabelling(widget: string | undefined): WidgetLabelling {
   if (!widget) return 'control';
   return WIDGET_LABELLING[widget as RegisteredWidgetKey] ?? 'control';
+}
+
+/**
+ * Does a form layout declare `widget` on any of its fields — in a section, in a
+ * legacy `groups` entry, or on a sub-field of a composite or repeater row
+ * (objectui#12126)?
+ *
+ * A host asks this before it loads a catalog only that widget reads, so the
+ * request is sent for the forms that use the catalog and for no other. Typed on
+ * {@link RegisteredWidgetKey}: a host asks about a widget this registry renders.
+ */
+export function formDeclaresWidget(form: FormViewSpec | undefined, widget: RegisteredWidgetKey): boolean {
+  const declares = (fields: Array<string | FormFieldSpec> | undefined): boolean =>
+    (fields ?? []).some((f) => typeof f !== 'string' && (f.widget === widget || declares(f.fields)));
+  return [...(form?.sections ?? []), ...(form?.groups ?? [])].some((s) => declares(s.fields));
 }
 
 /* -------------------------------------------------------------------------- */

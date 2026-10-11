@@ -28,6 +28,7 @@ import { humanizeLabel } from '@object-ui/fields';
 import {
   columnIdentity,
   elementDataSourceBlock,
+  resolveAffordance,
   type ElementDataSourceConfig,
 } from '@object-ui/core';
 import type { RecordRelatedListComponentProps } from '@object-ui/types';
@@ -322,10 +323,26 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
   const authoredActions: unknown = schema.actions;
   const actionsAuthored = authoredActions !== undefined;
   const needsActionLookup = !!objectName && relatedListActionsNeedLookup(authoredActions);
+  /**
+   * The FALLBACK remove (below, `onRowDelete`): offered with an `add` config
+   * when no host handed over a delete. It deletes a row of THIS list's object,
+   * so it reads that object's `relatedRowDelete` row of the affordance-to-grant
+   * map (`resolveAffordance` in `@object-ui/core`, objectui#12082) — the row
+   * the host's own delete reads — with the object's registered schema. So it
+   * never offers a delete the host withheld: on a record page the host
+   * withholds `onDelete` exactly when that row is closed, and the fallback used
+   * to put the delete straight back. With no host and no permission provider
+   * every grant reads open, as before. Withheld while the schema is in flight.
+   */
+  const removeFallbackCandidate = !!objectName && !!schema.add && !!ctx?.dataSource && !handlers?.onDelete;
   const { item: relatedObjectMeta, loading: relatedObjectMetaLoading } = useMetadataItem(
     'object',
-    needsActionLookup ? objectName : null,
+    needsActionLookup || removeFallbackCandidate ? objectName : null,
   );
+  const removeFallbackGranted =
+    removeFallbackCandidate &&
+    !relatedObjectMetaLoading &&
+    resolveAffordance('relatedRowDelete', { objectSchema: relatedObjectMeta, objectName, perms }).allowed;
   const localizeActionTexts = useActionTextLocalizer();
   const placedActions = React.useMemo((): PlacedRelatedListActions<RelatedRowActionDef> | null => {
     if (!actionsAuthored) return null;
@@ -610,14 +627,16 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
           // Delete the child record (删). Prefer the host handler (gated by
           // lifecycle affordance + permissions); fall back to the generic
           // link/junction remove when an `add` config is present so managed
-          // assignment lists keep working without a host provider. RelatedList
+          // assignment lists keep working without a host provider — and only
+          // where the map's `relatedRowDelete` row allows it
+          // (`removeFallbackGranted` above, objectui#12082). RelatedList
           // shows the confirm dialog and refreshes after this resolves.
           handlers?.onDelete
             ? (row: any) => {
                 const id = rowId(row);
                 if (id != null) return handlers.onDelete!(id, row);
               }
-            : schema.add && ctx?.dataSource
+            : removeFallbackGranted
               ? async (row: any) => {
                   const id = row?.id ?? row?._id;
                   if (id != null) await ctx?.dataSource?.delete?.(objectName, String(id));

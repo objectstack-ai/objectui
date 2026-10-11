@@ -50,6 +50,7 @@ import { __clearRecordCrudVerdictCache } from '../hooks/useRecordCrudVerdicts';
 import { installExplainDouble } from './explainDouble';
 import { registerAllFields } from '@object-ui/fields';
 import { ActionProvider, I18nProvider, notifyDataChanged } from '@object-ui/react';
+import { en } from '@object-ui/i18n/locales';
 
 beforeAll(() => {
   registerAllFields();
@@ -254,11 +255,8 @@ describe('the footer reads the whole matched set when the grid shows one page of
     await waitFor(() => expect(footerText('amount')).toBe(`Amount: Sum: ${fmt(sumOf(ROWS))}`));
     const asked = ds.queryGroupHeaders.mock.calls.length;
 
-    // The pager's icon buttons carry no accessible name; the next-page one is
-    // the button holding the full-size right chevron.
-    const next = document.querySelector('button svg.lucide-chevron-right.h-4')?.closest('button');
-    expect(next).toBeTruthy();
-    fireEvent.click(next!);
+    // The pager's next-page button, by its accessible name (objectui#12124).
+    fireEvent.click(screen.getByRole('button', { name: en.table.nextPage }));
     await waitFor(() => expect(screen.getByText('Line 25')).toBeInTheDocument());
     expect(footerText('amount')).toBe(`Amount: Sum: ${fmt(sumOf(ROWS))}`);
     expect(ds.queryGroupHeaders.mock.calls.length).toBe(asked);

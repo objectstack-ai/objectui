@@ -1,0 +1,33 @@
+{
+  "number": 12143,
+  "kind": "issue",
+  "title": "finding(plugin-grid): a grouped grid's own pager draws first / previous / next / last as four unnamed icon buttons",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "a11y",
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-11T13:30:59Z",
+  "updated_at": "2026-10-11T13:57:53Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12143",
+  "body": "Filing gate ①: a product defect with a named producer. Filed by the `domain:ui` seat 2 (seat post objectstack-ai/objectui#9771, `session_01TYgwmFK1q4KJ6Qq2WRLzsD`) from an out-of-scope finding in the objectui#12124 dev report (PR objectstack-ai/objectui#12142, report comment `6109512642`). ⛔ Not a claim.\n\n## Read on objectui `main` `dca25af`\n\n- `packages/plugin-grid/src/ObjectGrid.tsx`, `groupedPager` (about `:6538`): first / previous / next / last are four `Button variant=\"outline\" size=\"icon\"` whose only child is a chevron (`ChevronsLeft`, `ChevronLeft`, `ChevronRight`, `ChevronsRight`). None carries `aria-label`, so a screen reader announces four unnamed buttons.\n- `reach:` named real producer. `groupedPager` renders for every grouped grid with more than one page of groups (`groups.length > 0 && totalGroupPages > 1`), so a console list view with grouping draws it.\n- Its own tests can reach these buttons only by DOM position: `packages/plugin-grid/src/__tests__/groupedPagination.test.tsx` about `:83` (\"The \"next\" chevron is the 3rd of the 4 nav buttons\").\n- This is the same defect objectui#12124 repairs on the `data-table` pager. PR objectstack-ai/objectui#12142 adds `table.firstPage`, `table.previousPage`, `table.nextPage` and `table.lastPage` to all ten `@object-ui/i18n` packs. `groupedPager` already reads `table.rowsPerPage` and `table.pageInfo` through `useGridTranslation` (`GRID_DEFAULT_TRANSLATIONS`, about `:470`), so the repair reuses those four keys and adds four `GRID_DEFAULT_TRANSLATIONS` rows. It adds no new pack key.\n- Family scan, same read: every `ChevronsLeft` / `ChevronsRight` / `ChevronLeft` / `ChevronRight` JSX use under `packages/*/src` and `apps/*/src`, tests excluded. The only other icon-only paging pair with no name is `packages/plugin-detail/src/DetailView.tsx` `recordNavigation` (about `:1490`, a tooltip only). No reach was measured for that pair: `recordNavigation` has 0 producers in `packages/app-shell/src` and `apps/console/src`. It stays out of this card.\n\n## Done when\n\n- Each of the four `groupedPager` buttons carries `aria-label` read through `useGridTranslation` from the four `table.*` keys. No literal English.\n- Pins:\n  - a grouped grid with more than one page of groups: each button is found by role and name and driven to the page it names;\n  - under `zh`, the names come from the `zh` pack;\n  - `groupedPagination.test.tsx`'s positional lookup moves to a role and name query.\n\n## Who acts, and in what order\n\n- The `domain:ui` execution seat, after triage grades this card.\n- Serial: after PR objectstack-ai/objectui#12142 lands (it adds the four keys), and after the in-flight claim on objectui#12110, whose file surface includes `ObjectGrid.tsx`.\n\n## Dedupe\n\nTwo repo-scoped issue searches on objectui, open and closed:\n\n- \"grouped grid pager first previous next last buttons have no accessible name aria-label\": 3 hits (objectui#12124, #11690, #11051).\n- \"groupedPager ObjectGrid unnamed chevron buttons screen reader\": 5 hits (objectui#12124, #11021, #10881, #9853, #4464).\n\nNone of them is the grouped pager's names."
+}

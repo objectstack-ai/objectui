@@ -2,7 +2,7 @@
   "number": 12129,
   "kind": "pull_request",
   "title": "fix(console,i18n): install answers say what the runtime served (objectui#12098)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -21,10 +21,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-11T07:37:25Z",
-  "updated_at": "2026-10-11T07:57:53Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-11T08:32:43Z",
+  "closed_at": "2026-10-11T08:32:41Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-11T08:32:41Z",
   "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/12129",

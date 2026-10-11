@@ -1,0 +1,33 @@
+{
+  "number": 12141,
+  "kind": "issue",
+  "title": "metadata-admin reads `/meta/types` `allowEnvironmentOverlay` (the server renames `allowOrgOverride`, objectstack#22340 S2)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p1",
+    "target:v18"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-11T13:22:54Z",
+  "updated_at": "2026-10-11T13:56:19Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12141",
+  "body": "Filing gate: ④, the objectui layer of a cross-layer item. Its spec and server layer is objectstack-ai/objectstack#22340 S2, ruled Q1 A / Q2 A in objectstack-ai/objectstack#22340 `6073921182`. The name was fixed by that card's pre-build contract review `6109457426`. Filed by objectstack's `domain:spec` seat 3 (#18883, `zhuangjianguo`, session `session_01KNKBCRDJCu5tGy3TEbvtrF`), which holds the S2 claim `6109099576`. ⛔ Not a claim.\nActing reader: triage grades it, then objectui's executing seat claims and builds it. objectstack's S2 bumps `.objectui-sha` to this card's merge.\nDedupe: the semantic issue search \"allowOrgOverride rename environment overlay meta types Studio write gate\" on objectstack-ai/objectui returned 1 hit, #4446 (closed; a permission-matrix gate bug that has already been fixed, not this rename).\n\n## What changes on the server, and when\n\nThe registry key `allowOrgOverride` and its `GET /meta/types` wire field `entries[].allowOrgOverride` are renamed to **`allowEnvironmentOverlay`**.\n- Meaning: may an environment overlay this packaged item. Since ADR-0131 C5 that is the only scope the key has. It decides the write door, the managed-content seal on read and on write, and Studio's edit gate.\n- `entries[].overrideSource` keeps its values (`registry` / `env`). Its description is renamed to match.\n- After S2 the server writes ONLY the new name. The old name is refused at parse by a tombstone.\n\n**Order:** this card merges first, then objectstack S2 lands with its `.objectui-sha` bump to this merge (ruling Q2 A: one landing for the server rename, this companion and the pin).\n- Between the two merges, objectui `main` reads a field the server does not write yet. The bundled console is unaffected, because its pin stays where it is until S2.\n- ⛔ No dual read of both names. That would be the dual-spelling window the ruling did not take, and a consumer-side fallback.\n\n## Where (measured by objectstack's re-measure `6109312314` at objectui `main` `1d1cfe0c11`, re-read at `dca25aff2e`)\n\n12 non-test source files read the field (50 hits). objectui types it itself, so no build or gate would see a missed rename. Studio would silently turn every packaged item of the five overlay types (view, dashboard, report, translation, email_template) read-only.\n- `packages/app-shell/src/views/metadata-admin/`:\n  - `useMetadata.ts:72-89`: `RichMetadataTypeEntry { allowOrgOverride?; overrideSource?; supportsOverlay? }`, the type;\n  - `registry.ts:456-472`: `resolveResourceConfig`'s server entry and return types;\n  - `ResourceEditPage.tsx`: 12 hits. The write gates are at `:1442-1443` and `:1882-1885`, and the read-only banner token at `:2550`;\n  - `PermissionMatrixEditor.tsx` 17 (gates `:409`, `:410`, `:428`), `DirectoryPage.tsx` 3 (`:171`, `:175` filters, `:458` badge), `ResourceListPage.tsx:428`, `StudioHomePage.tsx:223`, `EmbeddedItemEditor.tsx:104`, `PageShell.tsx:100`, `previews/PicklistPreview.tsx`;\n  - `i18n.ts`: 2 strings in each of en and zh, plus 1 comment.\n- `studio-design/BuilderLanding.tsx`: 3 hits, prose.\n- Tests: 58 files / 112 hits. Docs: `content/docs/guide/console.md`. A pending changeset, `.changeset/11808-readonly-package-card.md`, names the old key as history; leave it.\n\n## Carried with it (the same lines; read, not measured in a browser)\n\n- **The read-only banner prescribes a remedy that no longer exists.** `ResourceEditPage.tsx:2548-2550`, with i18n `engine.edit.readOnlyTypeBanner` (`i18n.ts:2076` en, `:5378` zh), tells an admin to set `OBJECTSTACK_METADATA_WRITABLE` and to \"flip {override} in the registry\". The server reads only `OS_METADATA_WRITABLE` (objectstack `sys-metadata-repository.ts:415`). The registry is a TypeScript literal that no deployment edits. `DirectoryPage.tsx:468`, `PageShell.tsx:111` and `useMetadata.ts:87` repeat the variable name.\n- **The hatch value is wider than what it opens.** After ADR-0131 D6, the hatch-elevated value (`true` with `overrideSource: 'env'`) is reported for types whose managed items stay sealed. objectstack pins this in `managed-content-sealed.dogfood.test.ts:125-135` and `rest-meta-managed-seal-hatch.test.ts:181-186`. The artifact-tier gate (`isArtifactItem ? !!entry.allowOrgOverride`) therefore opens an edit the server refuses with a 403. This is pre-existing and loud, not silent. objectstack S2's describe will say the elevation opens only unmanaged items. Whether this gate should read more than the flag is this lane's call.\n- **`supportsOverlay`** is declared at `useMetadata.ts:89` and read nowhere in objectui source. Its meaning is corrected in S2: it lets a stored overlay row of a managed item be removed through the delete door, and it decides no read.\n\n## Done when\n\n- objectui source and tests read `allowEnvironmentOverlay` and never `allowOrgOverride`. `git grep allowOrgOverride` over `packages/**/src` answers 0, with CHANGELOGs and pending changesets left as history.\n- The five types' packaged items stay editable in Studio against a server that writes the new name. Test: each write gate keyed on the new field. Negative control: a type without it stays read-only.\n- The banner, the badge and the label name `OS_METADATA_WRITABLE` and no registry flip.\n- A changeset for the touched packages."
+}

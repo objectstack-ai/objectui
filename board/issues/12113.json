@@ -13,18 +13,20 @@
   "labels": [
     "area:studio",
     "domain:ui",
-    "pm:queue",
+    "pm:dispatched",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "zhuangjianguo"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-11T02:04:10Z",
-  "updated_at": "2026-10-11T04:33:15Z",
+  "updated_at": "2026-10-11T14:00:09Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 2,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12113",
   "body": "Ruled: 6105451919 · letter A1 · 2026-10-11T04:32Z\n\nFiling class: **a maintainer-requested card.** The maintainer asked for it in the `domain:ui` seat 3 session (`session_01B1gHb9baeX7oioD5sHVm7z`), verbatim, 2026-10-11: 「要开卡：Studio 首页要不要退役」. It carries an open question from that seat's round report, raised by the contract review of PR objectui#12091. ~~⛔ Not graded or routed here: triage grades.~~ Ruled A1 (6105451919): `StudioHomePage` retires, the Studio app root resolves to its own first navigation item; the `domain:ui` lane claims it.\n\n## The contradiction\n\n- **objectui#12079's body:** the maintainer says `StudioHomePage` is \"Studio's old home, retired a long time ago, and nobody should land on it\".\n- **objectui `main` `5330afd1`, after objectui#12079 landed (PR objectui#12091):**\n  - Only an app whose navigation serves nothing now gets the empty state. That was the card's scope.\n  - The Studio app itself still lands on the page. In `packages/app-shell/src/console/AppContent.tsx`, the app index route falls back to `return <StudioHomePage />` for \"a navigation with no landing: the metadata-admin 'Studio' app, whose nav is built from `component` items the landing resolver does not walk\".\n  - The sidebar keeps a matching \"Studio home\" entry: `UnifiedSidebar.tsx`'s `isStudioHomeActive`, the app root with its package scope.\n  - `appServesNoNavigation.ts` records the choice: \"Its root keeps rendering `StudioHomePage`\".\n- **The other entry point:** the `/studio` route (`apps/console/src/components/StudioRoute.tsx`) is a separate builder surface. Home's Studio button and `StudioDesignSurface` both navigate there.\n\nSo both of these are true on `main`: the page is retired in the maintainer's words, and it is the live root of `/apps/<studio app>`, linked from that app's own sidebar.\n\n## The decision this card asks for\n\n- **A. Retire it.** The Studio app's root goes somewhere else, and `StudioHomePage` with its sidebar home entry goes away.\n  - Where the root goes is part of the decision: for example, a redirect to `/studio`, or to the first `component` item of the Studio app's navigation (the package management page).\n  - Its in-repo readers move with it: `useRecentItemLabel.ts` and `ContextSelectors.tsx` name it, and so do its tests.\n- **B. Keep it.** The page stays as the Studio app's overview, and objectui#12079's wording is corrected on the record. Nothing in code changes.\n\n## What a fix would touch (for triage, not a ruling)\n\n- `packages/app-shell/src/console/AppContent.tsx`: the app index route's last fallback.\n- `packages/app-shell/src/layout/UnifiedSidebar.tsx`: the Studio home entry.\n- `packages/app-shell/src/views/metadata-admin/StudioHomePage.tsx` and its export from `views/metadata-admin/index.ts`. That index is not the package entry: `@object-ui/app-shell`'s `exports` map is `.` and `./styles.css`, and `src/index.ts` does not name it. To be re-checked when taken.\n\nDedupe: an objectui issue search for `StudioHomePage`, retire, Studio app root and home page finds objectui#12079 (closed, the empty-navigation card this follows) and four unrelated closed cards."

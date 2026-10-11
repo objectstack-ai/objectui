@@ -1,7 +1,7 @@
 {
   "number": 5748,
   "kind": "issue",
-  "title": "[PM seat] domain:devx @ objectui — 🟢 zhuangjianguo · session_01DwLS3LzXyNmyTunMGbpc8W",
+  "title": "[PM seat] domain:devx @ objectui — ⏳ vacant",
   "state": "open",
   "state_reason": null,
   "draft": null,
@@ -13,18 +13,16 @@
   "labels": [
     "pm:seat"
   ],
-  "assignees": [
-    "zhuangjianguo"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-23T04:28:06Z",
-  "updated_at": "2026-10-11T06:35:53Z",
+  "updated_at": "2026-10-11T12:53:46Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 93,
+  "comments": 94,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/5748",
-  "body": "**Seat registration — `domain:devx` @ `objectui` (seat 1).** Lane scope and standing duties live in the pm-dispatch skill (`references/lanes/devx.md`); this post carries current state only. Readers: body + comments later than the body's last edit.\n\nBody revision written 2026-10-11T06:34Z (takeover compression). The previous holder's full ledger (R60–R82, `session_015h79niBMyoB1xcaQje3uiz`) is the body revision before this one, kept in the edit history; the takeover audit is the round-open marker `6106236990`.\n\n## 1 · Current PM\n\n- **`zhuangjianguo`** (`GET /user`) · `session_01DwLS3LzXyNmyTunMGbpc8W` · seated 2026-10-11T06:26Z on the maintainer's summons `/pm-dispatch devx@objectui` · round **R83**.\n- Wake: self-bound Routine `trig_01KgFA5r1Qpbf4PVhXMHtya7` (hourly at :33 UTC). `batch` 3.\n\n## 2 · Inheritance ledger\n\n| item | state |\n|:--|:--|\n| previous holder | `session_015h79niBMyoB1xcaQje3uiz` (`baozhoutao`), last output on this lane 2026-09-19T00:30Z (PR objectui#9975), no shift-close brief; 0 in-flight cards inherited |\n| in flight (R83) | objectui#12114 (claim `6106248336`) · objectui#5250 slices B + C (claim `6106262820`) |\n| `pm:queue`, undispatched | 0 |\n| `pm:on-hold` | objectui#11762 · objectui#3592 |\n| no pm state label | objectui#4806 (`tracking`) |\n| decision box (lane) | 0 open `needs-user-decision` |\n| seat 2 | objectui#10917, `⏳ vacant` |\n\n## 3 · Hot-file serial queue\n\n| file | cards, in order | region |\n|:--|:--|:--|\n| `scripts/spec-main-shape-gate.mjs` + its test | objectui#12114 | the `inject` path and local recipe |\n| `scripts/check-doc-snippet-types.mjs` (or a new sibling gate) + `content/docs/**` JSON fences | objectui#5250 slice B | the JSON-fence judgment and the pages it refuses |\n| `examples/schema-catalog/**` · `examples/hello-world/schema.json` · `packages/types/examples/{dashboard,login-form}.ts` | objectui#5250 slice C | class (i) documents only |\n\n## 4 · Notes\n\n- Publication: an objectui merge is not published by itself. It reaches npm through the `chore: release packages` PR (the maintainer's release act). The verification layer for a landing is the content probe on `main`; ⛔ not npm.\n- Harness at seating: `check-harness-current` CURRENT at objectstack `e84aeb36c`.\n- Cross-seat: the open PR objectui#12089 (`pm:epic` objectui#7611) touches `content/docs/guide/console-architecture.md`; if slice B's re-derived fence list includes that page, the later lander merges `main`.\n"
+  "body": "**Seat registration — `domain:devx` @ `objectui` (seat 1).** Lane scope and standing duties live in the pm-dispatch skill (`references/lanes/devx.md`); this post carries current state only. Readers: body + comments later than the body's last edit.\n\nBody revision written 2026-10-11T12:49Z (shift close).\n\n## 1 · Current PM\n\n- **⏳ vacant.** The last shift was `zhuangjianguo` · `session_01DwLS3LzXyNmyTunMGbpc8W`, from 2026-10-11T06:26Z (round-open marker `6106236990`) to this revision. The shift-close brief is the newest comment.\n- The seat Routine `trig_01KgFA5r1Qpbf4PVhXMHtya7` is deleted at this close.\n- Successor: summon with `/pm-dispatch devx@objectui`, then read this body and the brief.\n\n## 2 · Inheritance ledger\n\n| item | state |\n|:--|:--|\n| in flight | 0 |\n| awaiting landing | 0 |\n| `pm:queue` (lane) | 0 |\n| `pm:on-hold` | objectui#11762 (restart: an `@objectstack/spec` release after 17.7.0 whose tag has `93125aeeb8` as an ancestor; npm `latest` read 17.7.0 at close) · objectui#3592 (restart: resolved `vite` ≥ 9; the lockfile read `vite@8.2.2` at close) |\n| no pm state label | objectui#4806 (`tracking`) |\n| decision box (lane) | 0 open `needs-user-decision` |\n| landed this shift | objectui#12114 → PR objectui#12125 · objectui#5250 slices B + C → PRs objectui#12127, objectui#12128 (card closed) · objectui#12131 → PRs objectui#12134, objectui#12139 (card closed) |\n| filed this shift, routed elsewhere | objectui#12130 (`domain:spec`, p2) · objectui#12135 (`domain:skills`, in flight there) |\n| seat 2 | objectui#10917, `⏳ vacant` |\n\n## 3 · Hot-file serial queue\n\nNone open.\n\n## 4 · Notes\n\n- Publication: an objectui merge is not published by itself. It reaches npm through the `chore: release packages` PR (the maintainer's release act). The verification layer for a landing is the content probe on `main`; ⛔ not npm. objectui#12127 added an `@object-ui/types` patch changeset (`.changeset/5250-record-source-issue-path.md`), which rides the next release.\n- The scan surface of `scripts/check-doc-json-fences.mjs` is now `content/docs` + `packages/NAME/README.md` + the root `README.md` (objectui#12131).\n"
 }

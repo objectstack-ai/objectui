@@ -134,7 +134,10 @@ describe('the permission-set catalog reaches a form that declares `ref-multi:per
     await waitFor(() => expect(within(list).getAllByRole('listitem')[1]).toHaveTextContent('(not found)'));
     expect(within(list).getAllByRole('listitem')[0]).not.toHaveTextContent('(not found)');
 
-    await userEvent.click(screen.getByRole('combobox', { name: ADD }));
+    // A form-only type opens in view mode; either Edit button (header, or the
+    // view-mode notice) enters the editable form.
+    await userEvent.click(screen.getAllByRole('button', { name: t('engine.edit.edit', 'en-US') })[0]);
+    await userEvent.click(await screen.findByRole('combobox', { name: ADD }));
     // Sorted by name; the stored `sales_rep` is not offered again; a nameless row is not an option.
     expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual(['Full accessadmin_full_access']);
     await userEvent.click(screen.getByRole('option', { name: /admin_full_access/ }));

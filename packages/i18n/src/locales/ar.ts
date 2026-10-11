@@ -13,7 +13,7 @@ const ar = {
       notRestored: 'قبل الخادم الطلب لكنه لم يستعد جلسة المسؤول — ما زلت تنتحل هوية {{user}}. سجّل الخروج ثم الدخول مرة أخرى لإنهائها.',
     },
   },
-  // objectui#2600 B5 — capability picker scope group headers (labels come from the sys_capability registry).
+  // objectui#2600 B5 — capability picker scope group headers (labels come from the capability registry).
   capability: {
     label: {
       manage_users: "إدارة المستخدمين",

@@ -13,7 +13,7 @@ const fr = {
       notRestored: 'Le serveur a accepté la demande mais n’a pas restauré votre session administrateur — vous incarnez toujours {{user}}. Déconnectez-vous puis reconnectez-vous pour y mettre fin.',
     },
   },
-  // objectui#2600 B5 — capability picker scope group headers (labels come from the sys_capability registry).
+  // objectui#2600 B5 — capability picker scope group headers (labels come from the capability registry).
   capability: {
     label: {
       manage_users: "Gérer les utilisateurs",

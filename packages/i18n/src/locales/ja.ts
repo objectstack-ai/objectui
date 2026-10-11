@@ -13,7 +13,7 @@ const ja = {
       notRestored: 'サーバーはリクエストを受け付けましたが、管理者セッションを復元しませんでした。まだ {{user}} として操作しています。サインアウトして再度サインインして終了してください。',
     },
   },
-  // objectui#2600 B5 — capability picker scope group headers (labels come from the sys_capability registry).
+  // objectui#2600 B5 — capability picker scope group headers (labels come from the capability registry).
   capability: {
     label: {
       manage_users: "ユーザー管理",

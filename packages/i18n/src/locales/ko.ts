@@ -13,7 +13,7 @@ const ko = {
       notRestored: '서버가 요청을 받았지만 관리자 세션을 복원하지 않았습니다. 여전히 {{user}} 계정을 대행하고 있습니다. 로그아웃 후 다시 로그인하여 종료하세요.',
     },
   },
-  // objectui#2600 B5 — capability picker scope group headers (labels come from the sys_capability registry).
+  // objectui#2600 B5 — capability picker scope group headers (labels come from the capability registry).
   capability: {
     label: {
       manage_users: "사용자 관리",

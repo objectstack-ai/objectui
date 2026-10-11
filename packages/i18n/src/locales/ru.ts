@@ -13,7 +13,7 @@ const ru = {
       notRestored: 'Сервер принял запрос, но не восстановил сеанс администратора — вы всё ещё работаете от имени {{user}}. Выйдите и войдите снова, чтобы завершить.',
     },
   },
-  // objectui#2600 B5 — capability picker scope group headers (labels come from the sys_capability registry).
+  // objectui#2600 B5 — capability picker scope group headers (labels come from the capability registry).
   capability: {
     label: {
       manage_users: "Управление пользователями",

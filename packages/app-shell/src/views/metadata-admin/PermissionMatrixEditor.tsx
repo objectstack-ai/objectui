@@ -290,9 +290,9 @@ export interface PermissionMatrixEditPageProps {
 export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, publishNonce, onOpenOwd, onDirtyChange, readOnly = false, embedded = false }: PermissionMatrixEditPageProps) {
   const navigate = useNavigate();
   const client = useMetadataClient();
-  // Data adapter (records) — the capability picker reads the live sys_capability
-  // registry (ADR-0056 P2). The metadata `client` handles the draft; capability
-  // rows are data, fetched like AssignedUsersSection does.
+  // Data adapter (records) — read by "Clone to customize" below. The capability
+  // picker takes no data source: it lists the capability registry through the
+  // console metadata store (objectui#7611, `CapabilityMultiSelectField`).
   const adapter = useAdapter();
   // objectui#5987 — the three seams "Clone to customize" dispatches through:
   // the console's shared action runner (`useAction()` under
@@ -1332,11 +1332,16 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
                 so the summary carries the human label — no need to repeat it. */}
             <span className="font-medium truncate">{draft.label || draft.name}</span>
             {/* [A4 framework#2920] Provenance tri-state — platform / package /
-                admin(custom) — mirrors the unified sys_* `managed_by` vocab. */}
-            <Badge variant="outline" className="text-[10px] shrink-0">
+                admin(custom) — mirrors the unified sys_* `managed_by` vocab.
+                objectui#7611 (F2): "Package" also reads the layered envelope
+                this editor already fetches (`codeIsArtifact`, the artifact
+                gate's own input). The registry serves no `managedBy`, and at
+                the environment scope there is no `packageId`, so a set a code
+                package ships read "Custom" beside its own lock. */}
+            <Badge variant="outline" className="text-[10px] shrink-0" data-testid="perm-provenance-badge">
               {draft.managedBy === 'platform'
                 ? t('perm.badge.platform')
-                : draft.managedBy === 'package' || packageId
+                : draft.managedBy === 'package' || packageId || codeIsArtifact
                   ? t('perm.badge.package')
                   : t('perm.badge.custom')}
             </Badge>
@@ -1449,8 +1454,8 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
             <p className="text-xs text-muted-foreground mt-0.5 mb-2">
               {t('perm.field.systemCapabilitiesHelp')}
             </p>
-            {/* objectui#3332 — the capability chip wall grows with the live
-                sys_capability registry (44+ nav capabilities → 20+ rows). It is
+            {/* objectui#3332 — the capability chip wall grows with the
+                capability registry (44+ nav capabilities → 20+ rows). It is
                 a non-shrinking sibling of the flex-1 matrix, so unbounded it
                 squeezes the object list to ~0px with no page scrollbar. Cap it
                 to a viewport share and scroll internally; the matrix keeps the
@@ -1465,7 +1470,6 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
                   setDraft((p) => ({ ...p, systemPermissions: parseCapabilityNames(v) }))
                 }
                 field={{ name: 'system_permissions' } as any}
-                dataSource={adapter as any}
                 readonly={!writable}
               />
             </div>

@@ -13,7 +13,7 @@ const es = {
       notRestored: 'El servidor aceptó la solicitud pero no restauró su sesión de administrador: sigue suplantando a {{user}}. Cierre sesión y vuelva a iniciarla para terminar.',
     },
   },
-  // objectui#2600 B5 — capability picker scope group headers (labels come from the sys_capability registry).
+  // objectui#2600 B5 — capability picker scope group headers (labels come from the capability registry).
   capability: {
     label: {
       manage_users: "Gestionar usuarios",

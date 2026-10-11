@@ -17,7 +17,7 @@ const en = {
     },
   },
   // objectui#2600 B5 — capability picker scope group headers (labels come from
-  // the sys_capability registry; only these group titles are UI strings).
+  // the capability registry; only these group titles are UI strings).
   capability: {
     group: {
       platform: 'Platform',

@@ -13,7 +13,7 @@ const de = {
       notRestored: 'Der Server hat die Anfrage angenommen, aber Ihre Administratorsitzung nicht wiederhergestellt — Sie handeln weiterhin als {{user}}. Melden Sie sich ab und erneut an, um dies zu beenden.',
     },
   },
-  // objectui#2600 B5 — capability picker scope group headers (labels come from the sys_capability registry).
+  // objectui#2600 B5 — capability picker scope group headers (labels come from the capability registry).
   capability: {
     label: {
       manage_users: "Benutzer verwalten",

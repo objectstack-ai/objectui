@@ -53,9 +53,10 @@ const { approvalsApiStub, getObjectSchema, ADAPTER, AUTH, I18N, SCHEMA } = vi.ho
     },
   };
   const getObjectSchema = vi.fn(async (): Promise<unknown> => SCHEMA);
+  type Row = Record<string, unknown>;
   const approvalsApiStub = {
-    listRequests: vi.fn(async () => ({ data: [], total: 0 })),
-    getRequest: vi.fn(async () => ({ data: null })),
+    listRequests: vi.fn(async (): Promise<{ data: Row[]; total: number }> => ({ data: [], total: 0 })),
+    getRequest: vi.fn(async (): Promise<{ data: Row | null }> => ({ data: null })),
     listActions: vi.fn(async () => ({ data: [] })),
     approve: vi.fn(async () => ({ data: null, finalized: true })),
     reject: vi.fn(async () => ({ data: null, finalized: true })),

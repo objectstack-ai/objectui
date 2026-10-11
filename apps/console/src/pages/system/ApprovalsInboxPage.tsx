@@ -269,7 +269,11 @@ const NO_POSITION_LABELS: ReadonlyMap<string, string> = new Map();
 function usePositionLabels(row: ApprovalRequestRow | null | undefined): ReadonlyMap<string, string> {
   const store = useMetadata();
   const storeRef = useRef(store);
-  storeRef.current = store;
+  // Synced in an effect, not during render; declared before the read below,
+  // so it runs first in the same commit.
+  useEffect(() => {
+    storeRef.current = store;
+  });
   const wantedKey = (row?.pending_approvers ?? [])
     .filter((a): a is string =>
       typeof a === 'string' && a.startsWith(POSITION_REF_PREFIX) && !row?.pending_approver_names?.[a])

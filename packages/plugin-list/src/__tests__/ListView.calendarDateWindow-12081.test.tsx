@@ -167,7 +167,8 @@ describe('ListView — a hosted calendar is handed every record of its visible w
     for (const params of ds.calls) expect(params.$top).toBeLessThanOrEqual(FETCH_BATCH);
     // …and paged through, not capped: the walk took more than one step.
     expect(ds.calls.length).toBeGreaterThan(1);
-    // Every step carries the window on the calendar's date field.
+    // Every step carries the window on the field the calendar draws by.
+    expect(lastCalendarProps.schema.startDateField).toBe('end_date');
     for (const params of ds.calls) expect(JSON.stringify(params.$filter)).toContain('"end_date"');
     // The records of months the grid does not show are not the calendar's: a
     // window that was not sent would have handed August's over first.

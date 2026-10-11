@@ -149,7 +149,6 @@ const pageSizeWarnings = () => warnings.filter((w) => w.includes('ListView pagin
 const UNPAGED_VIEWS: Array<[string, Record<string, unknown>]> = [
   ['kanban', { viewType: 'kanban', kanban: { groupByField: 'status' } }],
   ['gallery', { viewType: 'gallery' }],
-  ['calendar', { viewType: 'calendar', calendar: { startDateField: 'due' } }],
   ['timeline', { viewType: 'timeline', timeline: { startDateField: 'due' } }],
   ['grouped grid', { viewType: 'grid', grouping: { fields: [{ field: 'status' }] } }],
 ];
@@ -176,6 +175,20 @@ describe('ListView — the paged grid reads the spec display default, every unpa
 
     await waitFor(() => expect(ds.find).toHaveBeenCalled());
     expect(tops(ds)).toEqual([FETCH_BATCH]);
+    expect(tops(ds)).not.toContain(SPEC_DISPLAY_DEFAULT);
+  });
+
+  it('the unpaged calendar walks its date window in fetch-batch steps, never the page size (objectui#12081)', async () => {
+    // Since objectui#12081 a calendar's fetch is the date window it draws,
+    // walked to its end rather than cut at one batch. The step is still the
+    // batch this ruling keeps: every request asks for it, none for the page
+    // size. This double ignores the window and pages the whole object, so the
+    // walk is one step per batch of TOTAL.
+    const ds = makeDataSource();
+    renderList({ viewType: 'calendar', calendar: { startDateField: 'due' } }, ds);
+
+    await waitFor(() => expect(ds.find).toHaveBeenCalledTimes(Math.ceil(TOTAL / FETCH_BATCH)));
+    expect(new Set(tops(ds))).toEqual(new Set([FETCH_BATCH]));
     expect(tops(ds)).not.toContain(SPEC_DISPLAY_DEFAULT);
   });
 

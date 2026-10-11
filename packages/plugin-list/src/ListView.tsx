@@ -2483,9 +2483,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   const invalidationNonce = useDataInvalidation(listFetchesForItself ? schema.objectName || undefined : undefined);
 
   /**
-   * The calendar's date bindings, read ONCE: the calendar branch below hands
-   * them to the calendar, and the fetch effect windows on them (objectui#12081).
-   * Declared bindings only (objectui#7029): an undeclared one stays absent.
+   * The calendar's date bindings, for the fetch effect's window
+   * (objectui#12081): the same two reads the calendar branch below makes for
+   * the node it hands the calendar, so the window is on the field the calendar
+   * draws by. Declared bindings only (objectui#7029): an undeclared one stays
+   * absent. ⚠️ Change one pair, change both.
    */
   const calendarStartField: string | undefined =
     schema.calendar?.startDateField || schema.options?.calendar?.startDateField || undefined;
@@ -3810,11 +3812,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // these two now match it, and the whole branch matches the sibling
         // faces that never invent (`resolveTimelineDateBinding` above,
         // app-shell's `calendarViewOptions` / `defaultCalendarFromObject`).
-        // Read once at component scope (`calendarStartField` /
-        // `calendarEndField`), because the fetch windows on the same two
-        // bindings (objectui#12081).
-        const startDateField = calendarStartField;
-        const endDateField = calendarEndField;
+        // ⚠️ The fetch windows on these same two reads, made again at component
+        // scope as `calendarStartField` / `calendarEndField` (objectui#12081):
+        // change one pair, change both.
+        const startDateField =
+          schema.calendar?.startDateField || schema.options?.calendar?.startDateField;
+        const endDateField =
+          schema.calendar?.endDateField || schema.options?.calendar?.endDateField;
         const titleField =
           schema.calendar?.titleField || schema.options?.calendar?.titleField;
         // ⭐ THIS BRANCH FORWARDS THE BLOCK'S DECLARED KEYS ONLY. It used to end
@@ -4193,7 +4197,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // asynchronously (`/me/permissions`) and `objectDef` loads into state, so a
   // grid schema built before either resolved must be rebuilt when they do —
   // otherwise `editable` keeps the pre-verdict answer for the session.
-  }, [currentView, schema, authoredFilter, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm, gridOwnsGroupedFetch, calendarStartField, calendarEndField, calendarWindowed, handleCalendarVisibleRange]);
+  }, [currentView, schema, authoredFilter, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm, gridOwnsGroupedFetch, calendarWindowed, handleCalendarVisibleRange]);
 
   const hasFilters = currentFilters.conditions && currentFilters.conditions.length > 0;
 

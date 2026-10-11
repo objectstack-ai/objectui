@@ -256,15 +256,25 @@ the view pages:
   grid's pager turns it. Its size is the default `@objectstack/spec` declares
   for `pagination.pageSize`; the list reads it from the spec rather than
   keeping a number of its own.
-- **Every other view does not page** — kanban, calendar, gallery and the rest,
-  and a grouped grid. The window is one fetch batch of **100** records, and
-  records past it are not reachable; the record-count bar says so when the
-  batch comes back full. It is a fetch size, not a page size, so it does not
-  follow the spec's display default.
+- **Every other view does not page** — kanban, gallery and the rest, and a
+  grouped grid. The window is one fetch batch of **100** records, and records
+  past it are not reachable; the record-count bar says so when the batch comes
+  back full. It is a fetch size, not a page size, so it does not follow the
+  spec's display default.
+- **The calendar view fetches the days it shows.** With a start date bound
+  (`calendar.startDateField`), the window is the calendar's visible days on
+  that field (and on `calendar.endDateField` when one is bound, so a span that
+  runs into the month is fetched), plus the records with no start date, which
+  the calendar lists as unscheduled. The list walks that window in steps of the
+  same fetch batch of 100 until it is exhausted, so every record of the month
+  is drawn, and stops at the platform's non-grid ceiling of 2,000 records with
+  a note under the calendar naming both numbers. Moving to a month the fetched
+  window does not cover fetches that month. The calendar reports the days it
+  draws through its `onVisibleRangeChange` callback (objectui#12081).
 
-A declared `pagination.pageSize` sizes the window on every view, as before.
-With no declared size, switching between the grid view and another view
-changes the window, so the list fetches again.
+A declared `pagination.pageSize` sizes the window on every view but the
+calendar, as before. With no declared size, switching between the grid view and
+another view changes the window, so the list fetches again.
 
 ## Page binding — `dataSource` (referencing a saved view by name)
 

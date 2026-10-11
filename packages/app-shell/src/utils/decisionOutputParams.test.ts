@@ -188,6 +188,7 @@ describe('decisionOutputParams — a position output lists the registry (objectu
     { name: 'auditor', label: 'Auditor' },
     { name: 'exec' },
     { label: 'nameless — not a catalog item' },
+    { name: '', label: 'empty name — not a catalog item' },
   ];
 
   it('offers the registry items by name, sorted by name, labelled by `label`', () => {

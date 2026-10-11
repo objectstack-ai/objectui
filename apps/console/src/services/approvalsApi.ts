@@ -135,9 +135,10 @@ export interface ApprovalRequestRow {
   /**
    * framework#3447 follow-up: the normalized TYPED declarations behind
    * `decision_outputs` — `{ key, label?, type?, multiple? }` — so the decide
-   * dialog renders a record picker (user / department / position / team; id
-   * values, `multiple` → id array) instead of free text. Prefer this and fall
-   * back to the bare key list (older backend).
+   * dialog renders a picker instead of free text: user / department / team
+   * pick records and commit ids, position lists the position registry and
+   * commits machine names (objectui#7611); `multiple` → an array of them.
+   * Prefer this and fall back to the bare key list (older backend).
    */
   decision_output_defs?: Array<{
     key: string;

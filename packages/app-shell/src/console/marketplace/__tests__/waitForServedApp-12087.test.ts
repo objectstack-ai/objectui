@@ -46,7 +46,7 @@ describe('waitForServedApp (objectui#12087)', () => {
   it('CONTROL: an app served on the first read settles at once, with no sleep before it', async () => {
     const rt = runtime(0);
     const clock = virtualClock();
-    const wait = await waitForServedApp({ manifestId: PKG, readApps: rt.readApps, ...clock });
+    const wait = await waitForServedApp({ manifestId: PKG, version: undefined, readApps: rt.readApps, ...clock });
     expect(wait).toEqual({ served: true, apps: [CRM] });
     expect(rt.reads).toBe(1);
     expect(clock.sleeps).toEqual([]);
@@ -55,7 +55,7 @@ describe('waitForServedApp (objectui#12087)', () => {
   it('keeps reading through the stale window and settles on the first read that serves the app', async () => {
     const rt = runtime(3);
     const clock = virtualClock();
-    const wait = await waitForServedApp({ manifestId: PKG, readApps: rt.readApps, ...clock });
+    const wait = await waitForServedApp({ manifestId: PKG, version: undefined, readApps: rt.readApps, ...clock });
     expect(wait).toEqual({ served: true, apps: [CRM] });
     expect(rt.reads).toBe(4);
     expect(clock.sleeps).toEqual([
@@ -68,7 +68,7 @@ describe('waitForServedApp (objectui#12087)', () => {
   it('reports served: false once the bound expires, after a bounded number of reads', async () => {
     const rt = runtime(Number.POSITIVE_INFINITY);
     const clock = virtualClock();
-    const wait = await waitForServedApp({ manifestId: PKG, readApps: rt.readApps, ...clock });
+    const wait = await waitForServedApp({ manifestId: PKG, version: undefined, readApps: rt.readApps, ...clock });
     expect(wait).toEqual({ served: false });
     // One read at t=0, then one per interval while the next one still fits the bound.
     expect(rt.reads).toBe(Math.floor(SERVED_APP_WAIT_CAP_MS / SERVED_APP_POLL_INTERVAL_MS) + 1);
@@ -79,7 +79,7 @@ describe('waitForServedApp (objectui#12087)', () => {
     const rt = runtime(Number.POSITIVE_INFINITY);
     const clock = virtualClock();
     const wait = await waitForServedApp({
-      manifestId: PKG, readApps: rt.readApps, intervalMs: 10, capMs: 35, ...clock,
+      manifestId: PKG, version: undefined, readApps: rt.readApps, intervalMs: 10, capMs: 35, ...clock,
     });
     expect(wait).toEqual({ served: false });
     expect(rt.reads).toBe(4);
@@ -91,6 +91,7 @@ describe('waitForServedApp (objectui#12087)', () => {
     const clock = virtualClock();
     const wait = await waitForServedApp({
       manifestId: PKG,
+      version: undefined,
       readApps: async () => {
         reads++;
         if (reads === 1) throw new Error('503 while the kernel swaps');
@@ -106,6 +107,7 @@ describe('waitForServedApp (objectui#12087)', () => {
     const clock = virtualClock();
     const wait = await waitForServedApp({
       manifestId: PKG,
+      version: undefined,
       readApps: async () => [
         { name: 'crm_enterprise' },
         { name: 'crm_enterprise', _packageId: 'com.other.crm' },

@@ -93,12 +93,13 @@ function installLandsInThisEnvironment(selectedEnv: string): boolean {
  * objectui#12087 — after an install into THIS environment, the page waits for
  * the runtime to serve the package's app before it refreshes the metadata
  * cache. `served` carries the first app of the package a user can open, or
- * `null` when every one is inactive or hidden.
+ * `null` when every one is inactive or hidden. `version` is the one the install
+ * answer names, so "Check again" waits for the same version (objectui#12098).
  */
 type DeployState =
-  | { phase: 'waiting'; manifestId: string }
-  | { phase: 'served'; manifestId: string; app: ServedApp | null }
-  | { phase: 'timeout'; manifestId: string };
+  | { phase: 'waiting'; manifestId: string; version: string | undefined }
+  | { phase: 'served'; manifestId: string; version: string | undefined; app: ServedApp | null }
+  | { phase: 'timeout'; manifestId: string; version: string | undefined };
 
 export function MarketplacePackagePage() {
   const navigate = useNavigate();
@@ -352,11 +353,16 @@ export function MarketplacePackagePage() {
    * refresh, the seed drop and the bus pulse all wait for it. On expiry nothing
    * is refreshed, and the page says the app has not appeared rather than that
    * the install succeeded.
+   *
+   * objectui#12098 — on an upgrade the stale kernel still serves the OLD
+   * version's app under the same `_packageId`, so the wait also names the
+   * version the install answered with (see `waitForServedApp`).
    */
-  const awaitServedInstall = async (manifestId: string) => {
-    setDeploy({ phase: 'waiting', manifestId });
+  const awaitServedInstall = async (manifestId: string, version: string | undefined) => {
+    setDeploy({ phase: 'waiting', manifestId, version });
     const wait = await waitForServedApp({
       manifestId,
+      version,
       // The SDK's declared list answer (`GetMetaItemsResponse`: `{ type,
       // items }`). Not `MetadataProvider`'s `extractItems`: a value import of
       // that module from this lazy page made rolldown park the provider in
@@ -367,7 +373,7 @@ export function MarketplacePackagePage() {
       },
     });
     if (!wait.served) {
-      setDeploy({ phase: 'timeout', manifestId });
+      setDeploy({ phase: 'timeout', manifestId, version });
       return;
     }
     // Invalidate the metadata cache so the newly-installed app's
@@ -391,7 +397,7 @@ export function MarketplacePackagePage() {
       // back to pick up the new metadata.
     }
     emitMetadataRefresh();
-    setDeploy({ phase: 'served', manifestId, app: filterActiveApps(wait.apps)[0] ?? null });
+    setDeploy({ phase: 'served', manifestId, version, app: filterActiveApps(wait.apps)[0] ?? null });
   };
 
   const doInstall = async () => {
@@ -424,8 +430,10 @@ export function MarketplacePackagePage() {
         // serves the PRE-install kernel, so nothing is refreshed yet: the wait
         // below refreshes once the package's app is served. Not awaited, and
         // not cancelled on unmount: an operator who leaves this page while the
-        // app deploys still gets the refreshed cache when it lands.
-        void awaitServedInstall(data.package.manifest_id);
+        // app deploys still gets the refreshed cache when it lands. The version
+        // is the answer's own (objectui#12098), never the catalog's latest: an
+        // answer that names none waits on the id alone, as before.
+        void awaitServedInstall(data.package.manifest_id, installResp?.installation?.version);
       } else {
         // Another environment: nothing this console renders changed, so there
         // is nothing here to wait for or to refresh.
@@ -450,6 +458,16 @@ export function MarketplacePackagePage() {
     setLocalResult(null);
     try {
       const result = await installLocal({ packageId });
+      const name = data?.package ? localizePackage(data.package as any, language).displayName : result.manifestId;
+      // objectui#12098 — `hotLoaded` says whether the running kernel registered
+      // the package (objectstack#22695). `false` is the runtime's lenient path:
+      // installed and in its ledger, loaded at its next restart. Nothing of it
+      // is served until then, so the app list is not refreshed as if it were,
+      // and the page says when the app will appear.
+      if (!result.hotLoaded) {
+        setLocalResult({ ok: true, message: t('marketplace.install.localLoadsAtRestart', { version: result.version, name }) });
+        return;
+      }
       try {
         await refreshMetadata('app');
       } catch {
@@ -457,10 +475,7 @@ export function MarketplacePackagePage() {
       }
       setLocalResult({
         ok: true,
-        message: t('marketplace.install.localSuccess', {
-          version: result.version,
-          name: data?.package ? localizePackage(data.package as any, language).displayName : result.manifestId,
-        }),
+        message: t('marketplace.install.localSuccess', { version: result.version, name }),
       });
       emitMetadataRefresh();
     } catch (e: any) {
@@ -780,7 +795,7 @@ export function MarketplacePackagePage() {
           </Button>
         ) : null}
         {deploy.phase === 'timeout' ? (
-          <Button size="sm" variant="outline" onClick={() => void awaitServedInstall(deploy.manifestId)}>
+          <Button size="sm" variant="outline" onClick={() => void awaitServedInstall(deploy.manifestId, deploy.version)}>
             {t('marketplace.install.checkAgain')}
           </Button>
         ) : null}

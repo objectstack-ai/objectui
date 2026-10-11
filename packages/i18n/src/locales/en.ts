@@ -4128,6 +4128,10 @@ const en = {
         signInFirst: 'You need to sign into ObjectStack Cloud first. Click "Open on cloud" below.',
         success: 'Installed successfully. Open the environment to see the new app.',
         localSuccess: 'Installed v{{version}} to this runtime. "{{name}}" should now appear in the app switcher.',
+        // objectui#12098 — the install answered `hotLoaded: false`: installed, and
+        // the running kernel did not register it (objectstack#22695), so nothing
+        // of it is served before the next restart.
+        localLoadsAtRestart: 'Installed v{{version}} to this runtime. "{{name}}" loads when the runtime next restarts; it does not appear in the app switcher until then.',
         localManifestConflict: '{{message}}\nTip: a local app already owns this manifest_id. Remove it from objectstack.config.ts first.',
         localUnauthorized: 'Sign in to this runtime first, then try again.',
         localMarketplaceUnavailable: 'This runtime has no OS_CLOUD_URL configured, so the marketplace catalog is unreachable.',

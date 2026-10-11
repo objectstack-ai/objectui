@@ -3644,6 +3644,7 @@ const zh = {
         signInFirst: '请先登录 ObjectStack Cloud，然后点击下方"在云端打开"。',
         success: '安装成功。打开环境即可看到新应用。',
         localSuccess: '已将 v{{version}} 安装到本运行时。"{{name}}" 应该已经出现在应用切换器中。',
+        localLoadsAtRestart: '已将 v{{version}} 安装到本运行时。"{{name}}" 将在运行时下次重启时加载，在此之前不会出现在应用切换器中。',
         localManifestConflict: '{{message}}\n提示：本地已有应用占用此 manifest_id，请先从 objectstack.config.ts 中移除。',
         localUnauthorized: '请先登录本运行时再试。',
         localMarketplaceUnavailable: '本运行时未配置 OS_CLOUD_URL，无法访问应用市场目录。',

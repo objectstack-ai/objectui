@@ -3654,6 +3654,7 @@ const ru = {
       signInFirst: "Сначала войдите в ObjectStack Cloud.",
       success: "Установлено. Откройте среду, чтобы увидеть новое приложение.",
       localSuccess: "v{{version}} установлено. \"{{name}}\" должно появиться в переключателе.",
+      localLoadsAtRestart: "v{{version}} установлено. \"{{name}}\" загрузится при следующем перезапуске среды выполнения и до этого не появится в переключателе.",
       localManifestConflict: "{{message}}\nПримечание: Локальное приложение уже имеет этот manifest_id. Сначала удалите его из objectstack.config.ts.",
       localUnauthorized: "Сначала войдите в этот рантайм.",
       localMarketplaceUnavailable: "OS_CLOUD_URL не настроен.",

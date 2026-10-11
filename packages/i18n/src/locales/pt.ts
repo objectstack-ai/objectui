@@ -3566,6 +3566,7 @@ const pt = {
       signInFirst: "Você deve primeiro fazer login no ObjectStack Cloud.",
       success: "Instalado com sucesso. Abra o ambiente para ver o novo aplicativo.",
       localSuccess: "v{{version}} instalado neste runtime. \"{{name}}\" deve aparecer no seletor de aplicativos agora.",
+      localLoadsAtRestart: "v{{version}} instalado neste runtime. \"{{name}}\" será carregado na próxima reinicialização do runtime e não aparecerá no seletor de aplicativos até lá.",
       localManifestConflict: "{{message}}\nNota: Um aplicativo local já possui este manifest_id. Remova-o primeiro de objectstack.config.ts.",
       localUnauthorized: "Faça login neste runtime primeiro.",
       localMarketplaceUnavailable: "Este runtime não tem OS_CLOUD_URL configurado.",

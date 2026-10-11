@@ -48,6 +48,11 @@
  *     `requiresService` → a `doc` entry's member-readability answer), wired to
  *     the same console providers and hook `UnifiedSidebar` wires them to.
  *
+ * The tree those guards run over is the sidebar's too: an entry bound to an
+ * object the caller may not read is pruned first, by the one function
+ * `UnifiedSidebar` prunes with (`withoutUnreadableObjectEntries`, in this
+ * package, objectui#12109) — the layout holds no permissions to ask.
+ *
  * ## Why not mount `NavigationRenderer` itself
  *
  * Measured, not assumed: `NavigationRenderer` renders through
@@ -130,6 +135,7 @@ import { useExpressionContext, evaluateVisibility } from '../providers/Expressio
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
 import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useNavDocTargetCheck } from '../hooks/useNavDocTargetCheck.js';
+import { withoutUnreadableObjectEntries } from '../utils/navObjectReadGate.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
 import { getIcon } from '../utils/getIcon.js';
 import { appRouteSegment, matchAppBySegment } from '../utils/index.js';
@@ -235,16 +241,22 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
     [evalVis, checkPerm, checkCap, checkDocTarget],
   );
 
+  // An entry bound to an object the caller may not read is not drawn
+  // (objectui#12109) — pruned before the guards run, through the same function
+  // `UnifiedSidebar` prunes with, so the area election and the drawn rows here
+  // read the tree the sidebar reads.
   const items: NavigationItem[] = useMemo(() => {
+    const readable = (navigation: NavigationItem[] | undefined): NavigationItem[] =>
+      withoutUnreadableObjectEntries(navigation ?? [], can);
     const areas = (activeApp?.areas as any[]) || [];
     if (areas.length > 0) {
       const firstVisible = areas.find((area: any) =>
-        hasVisibleNavigationItems(area?.navigation ?? [], guards),
+        hasVisibleNavigationItems(readable(area?.navigation), guards),
       );
-      if (firstVisible) return firstVisible.navigation ?? [];
+      if (firstVisible) return readable(firstVisible.navigation);
     }
-    return (activeApp?.navigation as NavigationItem[]) ?? [];
-  }, [activeApp, guards]);
+    return readable(activeApp?.navigation as NavigationItem[] | undefined);
+  }, [activeApp, guards, can]);
 
   const basePath = activeApp ? `/apps/${appRouteSegment(activeApp) ?? activeApp.name}` : '';
 

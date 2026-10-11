@@ -148,6 +148,9 @@ const HOST_CALLBACKS = [
   'onDelete',
   'onNavigate',
   'onViewChange',
+  // objectui#12081 — the days on screen, reported to the host that fetches for
+  // the calendar (`ListView` windows its calendar fetch on them).
+  'onVisibleRangeChange',
   'onEventDrop',
 ] as const;
 

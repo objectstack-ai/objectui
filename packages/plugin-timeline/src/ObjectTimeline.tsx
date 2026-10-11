@@ -727,8 +727,9 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     // wrong hour. The shared step tells the two shapes apart by the value: a
     // date-only string is local midnight of the day it names, and a value
     // with a time part keeps its instant. The three must read alike: the
-    // vertical renderer groups ADJACENT items, so a sort that disagreed with
-    // the buckets would split a bucket or order it wrongly.
+    // vertical renderer orders its groups by each group's earliest entry
+    // (objectui#12104), so a sort that disagreed with the buckets would order
+    // them, and the entries inside each, wrongly.
     //
     // A value the shared step refuses (unparsable, or a day its month does
     // not have, objectui#10026) sorts with the dateless items, as it buckets
@@ -748,8 +749,9 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     });
 
     // Decide on a final group label for each item:
-    //   - explicit groupBy → use the localized field-option label (or
-    //     "Unassigned" when null);
+    //   - explicit groupBy → the field's display value: the localized
+    //     field-option label, else the resolver's display string (or
+    //     "Unassigned" when it has none);
     //   - otherwise → date bucket (Earlier / Today / Tomorrow / This week
     //     / Next week / Later / No date) so the timeline doesn't render
     //     as one undifferentiated stripe.
@@ -800,24 +802,44 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     };
 
     if (groupByField) {
-      const allEmpty = mapped.every((m) => m.group == null || m.group === '');
-      if (!allEmpty) {
-        const groupSelectOptions = optionMap(groupByField);
-        return mapped.map((m) => {
-          const meta = resolveOptionMeta(groupByField, m.group, groupSelectOptions);
-          return {
-            ...m,
-            group: meta
-              ? meta.label
-              : (m.group != null && m.group !== ''
-                  ? String(m.group)
-                  : t('timeline.bucket.unassigned')),
-          };
-        });
+      // The group key is the field's DISPLAY value (objectui#12104): the
+      // localized label of the option the value names, else what
+      // `recordDisplayValueAt` reads, the resolver the title and the
+      // description above already use. This read used to stringify the raw
+      // value, and the object fetch above expands every declared relation, so
+      // a lookup arrived as `{ id, name }` and every row keyed on
+      // "[object Object]": one group for the whole feed. An empty display
+      // value is the resolver's own definition (null, a blank string, an
+      // expanded record with no name) and groups under "Unassigned".
+      //
+      // ⛔ No name is invented for a lookup the resolver cannot name: an
+      // unexpanded foreign key groups under the id itself, which is what the
+      // title slot shows for it too (AGENTS.md #0.1).
+      //
+      // An ARRAY (a multi-valued field: `multiselect`, `tags`, a lookup with
+      // `multiple`) keeps the key it had, its stringified value. The resolver
+      // reads no display value off an array, so routing one through it would
+      // move every such row under "Unassigned", and how a multi-valued row
+      // should group (one combined group, or one group per value) is a
+      // decision this change does not make.
+      //
+      // One group per key is drawn by the renderer's vertical branch, which
+      // buckets by this key in the order of each key's earliest entry. The
+      // order is NOT changed here: the horizontal branch draws the same array,
+      // draws no groups, and must keep its date order.
+      const groupSelectOptions = optionMap(groupByField);
+      const groupKeys = mapped.map((m): string | undefined => {
+        const opt = m.group != null && m.group !== '' ? groupSelectOptions[String(m.group)] : undefined;
+        if (opt?.label) return fieldOptionLabel(objectName, groupByField, String(m.group), opt.label);
+        if (Array.isArray(m.group)) return String(m.group);
+        return recordDisplayValueAt(m._data, groupByField);
+      });
+      if (groupKeys.some((key) => key !== undefined)) {
+        return mapped.map((m, i) => ({ ...m, group: groupKeys[i] ?? t('timeline.bucket.unassigned') }));
       }
       // Fall through to date bucketing — explicit groupBy field exists
-      // but every record's value is empty, so a single empty lane would
-      // be useless.
+      // but no record has a display value for it, so a single
+      // "Unassigned" lane would be useless.
     }
 
     return mapped.map((m) => ({ ...m, group: dateBucket(m.startDate) }));

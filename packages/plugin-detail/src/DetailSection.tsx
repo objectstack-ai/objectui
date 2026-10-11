@@ -27,6 +27,8 @@ import {
 } from '@object-ui/components';
 import { ChevronDown, ChevronRight, Copy, Check, Eye, EyeOff, Pencil } from 'lucide-react';
 import { SchemaRenderer, toRenderableSchema, useInlineEdit } from '@object-ui/react';
+import { resolveFieldAffordance } from '@object-ui/core';
+import { usePermissions } from '@object-ui/permissions';
 import {
   getCellRenderer,
   resolveCellRendererType,
@@ -167,6 +169,12 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
    * session to read, exactly as it has no draft.
    */
   const serverFieldErrors = useInlineEdit()?.fieldErrors ?? null;
+  /**
+   * The caller's permissions, for the field question in-place edit asks of each
+   * field (objectui#12103). With no provider mounted `isLoaded` is false and
+   * the question is not asked, so a bare `DetailSection` behaves as before.
+   */
+  const perms = usePermissions();
 
   /**
    * What the copy affordance WRITES (objectui#8395).
@@ -378,7 +386,16 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
     // clipboard are the READ direction of the same refusal, and `isInlineExcluded`
     // (objectui#4221) already holds the WRITE direction of it.
     const isMaskedField = isMaskedDetailFieldType(field.type, objectDefField?.type);
-    const fieldEditable = !isReadonly && !isComputedField && !isSystemField && !isInlineExcluded;
+    // The CALLER's write grant on this field (objectui#12103): the field
+    // question of the `recordEdit` row of the affordance-to-grant map, the same
+    // `write` question an edit form asks (`fieldWriteGate`). A field the
+    // permission set marks `editable: false` — or the owner field without the
+    // transfer grant — stays a read display, so in-place edit never offers a
+    // write the server refuses with 403. The flags above are the object's; this
+    // one is the principal's, and it only narrows.
+    const isWriteGranted = !objectName || resolveFieldAffordance('recordEdit', perms, objectName, field.name);
+    const fieldEditable =
+      !isReadonly && !isComputedField && !isSystemField && !isInlineExcluded && isWriteGranted;
     const canInlineEditField = fieldEditable && !!onEnterInlineEdit;
 
     const displayValue = (() => {

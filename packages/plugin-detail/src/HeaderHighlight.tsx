@@ -17,7 +17,8 @@ import {
   TooltipTrigger,
 } from '@object-ui/components';
 import type { HighlightField } from '@object-ui/types';
-import { EXPANDABLE_FIELD_TYPES } from '@object-ui/core';
+import { EXPANDABLE_FIELD_TYPES, resolveFieldAffordance } from '@object-ui/core';
+import { usePermissions } from '@object-ui/permissions';
 import { getCellRenderer, resolveCellRendererType, useBooleanValueLabel } from '@object-ui/fields';
 import { useSafeFieldLabel, useInlineEdit } from '@object-ui/react';
 import { Check, X, Pencil } from 'lucide-react';
@@ -63,6 +64,9 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
   const inline = useInlineEdit();
   const editing = inline?.editing ?? false;
   const canEdit = inline?.canEdit ?? false;
+  // The caller's permissions, for the field question the strip asks of each
+  // highlight — the same one the details body asks (objectui#12103).
+  const perms = usePermissions();
 
   // The STAGED record: the saved record this strip receives, overlaid with the
   // edit session's draft by the same spread `DetailView` gives the details body
@@ -155,7 +159,16 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
               field.type,
               objectDefField?.type,
             );
-            const fieldEditable = !isComputed && !isReadonly && !isSystem && !isInlineExcluded;
+            // The CALLER's write grant on this field (objectui#12103): the
+            // `recordEdit` row's field question, asked exactly as the details
+            // body asks it, since the strip and the body are one edit session
+            // with one Save. A field refused for this caller — `editable: false`
+            // in their permission set, or the owner without the transfer grant
+            // — exposes no editor here either.
+            const isWriteGranted =
+              !objectName || resolveFieldAffordance('recordEdit', perms, objectName, field.name);
+            const fieldEditable =
+              !isComputed && !isReadonly && !isSystem && !isInlineExcluded && isWriteGranted;
             const canInlineEditField = canEdit && fieldEditable;
             const editorActive = editing && canInlineEditField;
 

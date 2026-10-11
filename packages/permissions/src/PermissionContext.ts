@@ -21,6 +21,10 @@ export interface PermissionContextValue {
    * permission set does not mention: the server's field step lets it through
    * and object admission decides — `allowEdit` on an update, `allowCreate` on
    * an insert. An explicit field-level entry answers both the same way.
+   *
+   * `write` is the server's whole update rule, so for the record's owner field
+   * (`SystemFieldName.OWNER_ID`) it also needs the transfer grant — the server
+   * refuses an update that writes the owner without it (objectui#12103).
    */
   checkField: (object: string, field: string, action: 'read' | 'write' | 'create') => boolean;
   /** Get field permissions for an object */

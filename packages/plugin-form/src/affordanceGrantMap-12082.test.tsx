@@ -68,7 +68,8 @@ import {
   type FieldAffordance,
 } from '@object-ui/core';
 import { MePermissionsProvider, usePermissions, type MePermissionsResponse } from '@object-ui/permissions';
-import { closedFormAffordance, gateFormFields } from './fieldWriteGate';
+import { SystemFieldName } from '@objectstack/spec/system';
+import { closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWriteGate';
 import ts from 'typescript';
 // The ONE answer to "is this span a comment, or code?" — a census that strips
 // comments with a private regex reports clean over code a phantom comment ate.
@@ -118,6 +119,10 @@ const EXPECTED_FIELD_GRANT: Record<string, Grant> = {
   createFormFields: 'create',
   editFormFields: 'update',
   listImport: 'create',
+  // objectui#12103: the record page's in-place edit and a list's in-cell edit
+  // offer fields to write, so each asks the update question of every field.
+  recordEdit: 'update',
+  listInlineEdit: 'update',
 };
 
 const OBJECT = 'pin_object';
@@ -270,6 +275,119 @@ describe('fail-open: no permission provider mounted (objectui#12082)', () => {
     }
     for (const row of FIELD_ROWS) {
       expect(resolveFieldAffordance(row, perms, OBJECT, 'any_field'), row).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// objectui#12103: the record page's in-place edit (`recordEdit`) and a list's
+// in-cell edit (`listInlineEdit`) ask each field the SAME question an edit form
+// asks, and the owner field's update needs the transfer grant on all of them.
+// Measured first on a live backend: `/me/permissions` reported
+// `editable: false` for the field and `allowTransfer: false` for the object,
+// and the server refused both writes with 403, so the client follows an answer
+// the server already gives.
+// ---------------------------------------------------------------------------
+
+/** The owner field, as the spec names it and the server's transfer guard keys it. */
+const OWNER = SystemFieldName.OWNER_ID;
+
+/** The field rows that ask the update question, and those that ask the insert one. */
+const WRITE_FIELD_ROWS = FIELD_ROWS.filter((r) => AFFORDANCE_GRANTS[r].field === 'write');
+const CREATE_FIELD_ROWS = FIELD_ROWS.filter((r) => AFFORDANCE_GRANTS[r].field === 'create');
+
+/** A caller who may edit the object but holds no transfer grant unless one is added. */
+const EDITOR = { allowCreate: true, allowRead: true, allowEdit: true, allowDelete: false };
+
+describe("in-place edit and in-cell edit ask an edit form's field question (objectui#12103)", () => {
+  it('the rows that ask the update question are the edit form, the in-place edit and the in-cell edit', () => {
+    expect([...WRITE_FIELD_ROWS].sort()).toEqual(['editFormFields', 'listInlineEdit', 'recordEdit']);
+  });
+
+  it.each(SHAPES)("under a $shape grant each answers every field exactly as an edit form's gate does", ({ bits }) => {
+    const perms = principalUnder(
+      envelope({ ...bits, allowTransfer: false }, {
+        [`${OBJECT}.annual_revenue`]: { readable: true, editable: false },
+        [`${OBJECT}.name`]: { readable: true, editable: true },
+      }),
+    );
+    // `fieldWriteGate` is what every ObjectForm layout hands its outbound
+    // strip: the predicate the card names as the one to follow.
+    const gate = fieldWriteGate(perms, OBJECT, 'edit');
+    expect(gate).toBeDefined();
+    for (const field of ['annual_revenue', 'name', 'any_field', OWNER]) {
+      for (const row of ['recordEdit', 'listInlineEdit'] as const) {
+        expect(resolveFieldAffordance(row, perms, OBJECT, field), `${row} ${field}`).toBe(gate!(field));
+      }
+    }
+  });
+
+  it('a field marked editable: false is refused by both; CONTROL: an editable field is open on both', () => {
+    const perms = principalUnder(
+      envelope(EDITOR, {
+        [`${OBJECT}.annual_revenue`]: { readable: true, editable: false },
+        [`${OBJECT}.name`]: { readable: true, editable: true },
+      }),
+    );
+    for (const row of ['recordEdit', 'listInlineEdit'] as const) {
+      expect(resolveFieldAffordance(row, perms, OBJECT, 'annual_revenue'), row).toBe(false);
+      expect(resolveFieldAffordance(row, perms, OBJECT, 'name'), row).toBe(true);
+      expect(resolveFieldAffordance(row, perms, OBJECT, 'any_field'), row).toBe(true);
+    }
+  });
+});
+
+describe('the owner field: an update that writes it needs the transfer grant (objectui#12103)', () => {
+  it('without the transfer grant every update-question row offers the owner read-only — absent and false alike', () => {
+    const transfers: Array<Record<string, boolean>> = [{ allowTransfer: false }, {}];
+    for (const transfer of transfers) {
+      const perms = principalUnder(envelope({ ...EDITOR, ...transfer }));
+      for (const row of WRITE_FIELD_ROWS) {
+        expect(resolveFieldAffordance(row, perms, OBJECT, OWNER), `${row} ${JSON.stringify(transfer)}`).toBe(false);
+      }
+    }
+  });
+
+  it('allowTransfer, or modifyAllRecords which implies it, opens the owner on every update-question row', () => {
+    const grants: Array<Record<string, boolean>> = [{ allowTransfer: true }, { modifyAllRecords: true }];
+    for (const grant of grants) {
+      const perms = principalUnder(envelope({ ...EDITOR, ...grant }));
+      for (const row of WRITE_FIELD_ROWS) {
+        expect(resolveFieldAffordance(row, perms, OBJECT, OWNER), `${row} ${JSON.stringify(grant)}`).toBe(true);
+      }
+    }
+  });
+
+  it('CONTROL: the transfer grant moves no other field', () => {
+    for (const transfer of [false, true]) {
+      const perms = principalUnder(envelope({ ...EDITOR, allowTransfer: transfer }));
+      for (const row of WRITE_FIELD_ROWS) {
+        expect(resolveFieldAffordance(row, perms, OBJECT, 'name'), `${row} transfer=${transfer}`).toBe(true);
+      }
+    }
+  });
+
+  it('an explicit editable: false entry on the owner refuses it even with the transfer grant', () => {
+    const perms = principalUnder(
+      envelope({ ...EDITOR, allowTransfer: true }, { [`${OBJECT}.${OWNER}`]: { readable: true, editable: false } }),
+    );
+    for (const row of WRITE_FIELD_ROWS) {
+      expect(resolveFieldAffordance(row, perms, OBJECT, OWNER), row).toBe(false);
+    }
+  });
+
+  it('the insert question is not narrowed: on insert the server stamps the caller as owner and accepts their own id', () => {
+    const perms = principalUnder(envelope({ ...EDITOR, allowTransfer: false }));
+    expect(CREATE_FIELD_ROWS.length).toBeGreaterThan(0);
+    for (const row of CREATE_FIELD_ROWS) {
+      expect(resolveFieldAffordance(row, perms, OBJECT, OWNER), row).toBe(true);
+    }
+  });
+
+  it('with no permission provider the owner reads open, as every field question does', () => {
+    const perms = principalUnder(null);
+    for (const row of WRITE_FIELD_ROWS) {
+      expect(resolveFieldAffordance(row, perms, OBJECT, OWNER), row).toBe(true);
     }
   });
 });
@@ -480,6 +598,8 @@ const DETAIL_VIEW = 'packages/plugin-detail/src/DetailView.tsx';
 const OBJECT_GRID = 'packages/plugin-grid/src/ObjectGrid.tsx';
 const RECORD_PAGE = 'packages/app-shell/src/views/RecordDetailView.tsx';
 const RECORD_DETAILS = 'packages/plugin-detail/src/renderers/record-details.tsx';
+const DETAIL_SECTION = 'packages/plugin-detail/src/DetailSection.tsx';
+const HEADER_HIGHLIGHT = 'packages/plugin-detail/src/HeaderHighlight.tsx';
 const CONSOLE_LIST = 'packages/app-shell/src/views/ObjectView.tsx';
 const LIST_VIEW = 'packages/plugin-list/src/ListView.tsx';
 
@@ -583,8 +703,10 @@ const WRITE_SITES: Record<string, WriteSite> = {
   'packages/plugin-designer/src/pages/DashboardDesignPage.tsx :: DashboardDesignPage > saveSchema :: update':
     unmapped("the dashboard designer's Save updates a sys_dashboard row and reads no grant on sys_dashboard"),
   // ── plugin-detail ──
-  'packages/plugin-detail/src/InlineEditSaveBar.tsx :: updateVia :: update':
-    mapped(['recordEdit'], RECORD_PAGE, RECORD_DETAILS),
+  'packages/plugin-detail/src/InlineEditSaveBar.tsx :: updateVia :: update': {
+    ...mapped(['recordEdit'], RECORD_PAGE, RECORD_DETAILS, DETAIL_SECTION, HEADER_HIGHLIGHT),
+    note: 'the page and the record body read the object verdict; the details body and the highlights strip ask each field the row\'s field question (objectui#12103)',
+  } as WriteSite,
   'packages/plugin-detail/src/RelatedList.tsx :: RelatedList > handleAddRecords :: create':
     unmapped("a related list's Add existing (picker) creates a junction row and reads no grant on it"),
   'packages/plugin-detail/src/RelatedList.tsx :: RelatedList > handleAddRecords :: update':

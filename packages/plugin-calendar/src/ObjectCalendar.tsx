@@ -22,11 +22,12 @@
  * - Works with object/value data providers
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import type { ObjectCalendarSchema, DataSource, CalendarConfig } from '@object-ui/types';
 import { CalendarView, type CalendarViewEvent } from './CalendarView';
+import { getVisibleDateRange } from './visibleDays';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { useDisplayLocale } from '@object-ui/i18n';
+import { firstDayOfWeek, useDisplayLocale } from '@object-ui/i18n';
 import {
   useNavigationOverlay,
   useSafeTranslate,
@@ -176,6 +177,20 @@ export interface ObjectCalendarComponentProps {
   onDelete?: (record: any) => void;
   onNavigate?: (date: Date) => void;
   onViewChange?: (view: 'month' | 'week' | 'day') => void;
+  /**
+   * The days the calendar draws, reported to a host that fetches its records
+   * for it (objectui#12081): on mount, and again whenever navigation or a view
+   * change moves them. `start` is local midnight of the first day on screen and
+   * `end` local midnight of the day after the last, so the range is half-open.
+   *
+   * This is the channel `ListView` windows its calendar fetch through: the
+   * calendar alone knows which days it draws (the month grid's leading and
+   * trailing days, the locale's first day of the week, the phone's day view),
+   * so the host is told rather than left to infer them from `onNavigate` and
+   * `onViewChange`, neither of which fires for the state the calendar opens
+   * on.
+   */
+  onVisibleRangeChange?: (range: { start: Date; end: Date }) => void;
   onEventDrop?: (record: any, newStart: Date, newEnd?: Date) => void;
   locale?: string;
 }
@@ -370,6 +385,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   onDateClick,
   onNavigate,
   onViewChange,
+  onVisibleRangeChange,
   onEventDrop,
   locale,
 }) => {
@@ -427,6 +443,25 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile]);
+
+  // objectui#12081 — the days on screen, for a host that fetches for this
+  // calendar. Under the locale's first day of the week, read by the rule
+  // `CalendarView` reads it with (`dialogLocale` is that rule, above), and
+  // through the helper the grids draw with, so the reported range is the drawn
+  // one. Keyed on the two instants, never on an identity (AGENTS.md #10): an
+  // unchanged range reports nothing. The host callback is read through a ref,
+  // refreshed after every commit and before the report runs, so a host that
+  // hands a fresh function each render does not re-report.
+  const visibleRange = getVisibleDateRange(currentDate, view, firstDayOfWeek(dialogLocale));
+  const visibleStartMs = visibleRange.start.getTime();
+  const visibleEndMs = visibleRange.end.getTime();
+  const onVisibleRangeChangeRef = useRef(onVisibleRangeChange);
+  useEffect(() => {
+    onVisibleRangeChangeRef.current = onVisibleRangeChange;
+  });
+  useEffect(() => {
+    onVisibleRangeChangeRef.current?.({ start: new Date(visibleStartMs), end: new Date(visibleEndMs) });
+  }, [visibleStartMs, visibleEndMs]);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // P2: Auto-subscribe to DataSource mutation events (standalone mode only).

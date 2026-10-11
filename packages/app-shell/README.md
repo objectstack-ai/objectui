@@ -511,9 +511,11 @@ catalog row. A refusal from the door (`403` for a caller who may not switch, or
 for switching off the last administrator who can sign in; `404`; `503`) is
 shown in the server's own words. The audience anchors `everyone` and `guest`,
 which the door refuses to switch, show a disabled switch and the reason.
-Capabilities are not in this scope yet: the Capabilities page and the
-capability picker still read `sys_capability` rows, and a capability has no
-switch.
+Capabilities are listed by the same scope, `…/metadata/capability?scope=environment`:
+the capability registry (the platform's curated capabilities beside every
+package-declared one), read-only, because the type offers no runtime write
+channel. That page has no switch, because a capability has no activation. The
+capability picker in the permission-set editor lists the same registry.
 
 ### Package-less flows (`/studio/~org/automations`)
 

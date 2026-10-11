@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -60,20 +60,14 @@ interface DoorModule {
 const FACE_SPECIFIER = '@object-ui/types/zod';
 const DOOR_SPECIFIER = '../../packages/cli/src/utils/authoring-face.ts';
 
-let face: FaceModule;
-let door: DoorModule;
-let judge: (doc: unknown) => Verdict;
-let tolerant: (doc: unknown) => Verdict;
-let nodeTypes: Set<string>;
+// At module scope, not in a hook: the cold transform of the face belongs to the
+// import phase, where no test or hook timeout applies (AGENTS.md section 9).
+const face = (await import(/* @vite-ignore */ FACE_SPECIFIER)) as FaceModule;
+const door = (await import(/* @vite-ignore */ DOOR_SPECIFIER)) as DoorModule;
+const judge = (doc: unknown): Verdict => face.StrictAnyComponentSchema.safeParse(doc);
+const tolerant = (doc: unknown): Verdict => face.AnyComponentSchema.safeParse(doc);
+const nodeTypes: Set<string> = nodeTypesOf(face.AnyComponentSchema);
 const parseJsonc = createRequire(path.join(repoRoot, 'packages/cli/package.json'))('jsonc-parser').parse;
-
-beforeAll(async () => {
-  face = (await import(/* @vite-ignore */ FACE_SPECIFIER)) as FaceModule;
-  door = (await import(/* @vite-ignore */ DOOR_SPECIFIER)) as DoorModule;
-  judge = (doc) => face.StrictAnyComponentSchema.safeParse(doc);
-  tolerant = (doc) => face.AnyComponentSchema.safeParse(doc);
-  nodeTypes = nodeTypesOf(face.AnyComponentSchema);
-}, 60_000);
 
 const tempRoots: string[] = [];
 afterAll(() => {
@@ -170,6 +164,7 @@ describe('analyze — the verdicts, against the real face', () => {
   it('RED: refuses a node document carrying an undeclared key, and names the key', () => {
     const r = run({ 'content/docs/a.mdx': fence('json', { type: 'button', label: 'Go', action: { type: 'submit' } }) });
     expect(reasons(r)).toEqual(['refused']);
+    // fixture-address: a page in the temp fixture tree this test writes, as the gate under test reports it
     expect(r.findings[0].site).toBe('content/docs/a.mdx:1');
     expect(r.findings[0].detail).toMatch(/tolerant face accepts it/);
     expect(r.findings[0].issues).toEqual(['at (root): undeclared key "action"']);

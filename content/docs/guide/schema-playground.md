@@ -124,7 +124,7 @@ A content card with a header, a description, and a `children` content list:
 
 A complete form with validation, driven entirely by schema:
 
-A form draws no title of its own (put it in a `card` around the form), a select's `options` are
+A form draws no heading of its own (put the title on a `card` around it), a select's `options` are
 `{ "label", "value" }` objects, and a field's starting value goes in the form's `defaultValues`:
 
 ```json

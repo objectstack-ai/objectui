@@ -607,7 +607,7 @@ export async function main(argv = process.argv.slice(2), root = repoRoot) {
       `  scan surface: every ${DOC_EXTENSIONS.join(' / ')} page under ${DOCS_ROOT}/ — ${r.documents.length} page(s), ${r.fenceCount} json/jsonc fence(s)`,
       `  judged node documents: ${r.judged.length} — ${r.accepted.length} accepted, ${r.declared.length} declared fragment(s) the face refuses as declared, ${r.refused.length} refused`,
       `  not judged: ${r.buckets.notJson.length} not JSON · ${r.buckets.notAnObject.length} not an object · ${r.buckets.noTypeKey.length} without a string \`type\` · ${r.buckets.unresolvedType.length} with a \`type\` no node schema declares${unresolvedTypes.length ? ` (${unresolvedTypes.join(', ')})` : ''}`,
-      `  controls: RESOLUTION, REFUSES, ACCEPTS hold over ${nodeTypes.size} node type(s); anchor ${ANCHOR_DOCUMENT} read`,
+      `  controls: RESOLUTION, REFUSES, ACCEPTS hold over ${nodeTypes.size} node type(s); anchor ${ANCHOR_DOCUMENT} ${r.preconditions.some((p) => p.reason === 'anchor-unread') ? 'NOT read' : 'read'}`,
       `  NOT read: pages outside ${DOCS_ROOT}/ (see this script's header) — a green run claims nothing about them`,
     ].join('\n'),
   );

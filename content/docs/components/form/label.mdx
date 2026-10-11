@@ -9,9 +9,9 @@ The Label component renders accessible labels for form fields.
 
 <SchemaExample id="components-form-label/form-label" />
 
-## Required Field
+## With a Password Input
 
-<SchemaExample id="components-form-label/required-label" />
+<SchemaExample id="components-form-label/password-label" />
 
 ## Schema
 
@@ -20,7 +20,6 @@ interface LabelSchema {
   type: 'label';
   text: string;                   // Label text
   htmlFor?: string;               // Associated input ID
-  required?: boolean;             // Show required indicator
   className?: string;
 }
 ```

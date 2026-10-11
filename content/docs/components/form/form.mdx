@@ -41,10 +41,8 @@ interface FormField {
 interface FormSchema {
   type: 'form';
   fields: FormField[];            // Form fields
-  submitButton?: {
-    label: string;
-    variant?: string;
-  };
+  defaultValues?: Record<string, any>;  // Initial values, keyed by field name
+  submitLabel?: string;           // Submit button text (default 'Submit')
   
   // Events
   // RUNTIME SLOT (objectui#6124): a React host supplies it; JSON refuses it

@@ -2166,6 +2166,12 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.form.addFieldPlain': 'Add field',
   'engine.form.searchFields': 'Search fields…',
   'engine.form.allFieldsAdded': 'All fields added',
+  // objectui#12126 — the `ref-multi:permission` picker's add control: its
+  // accessible name, its placeholder, and the placeholder once every declared
+  // permission set is picked.
+  'engine.form.addPermissionSetPlain': 'Add permission set',
+  'engine.form.addPermissionSet': 'Add permission set…',
+  'engine.form.allPermissionSetsAdded': 'All permission sets added',
   'engine.form.noObjectFields': 'No object fields ({error}).',
   // objectui#10862, slice 4 — the not-found `error` the field and dataset
   // catalogue hooks (`useObjectFields`, `useDatasetSemantics`) publish, read
@@ -5445,6 +5451,10 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.form.addFieldPlain': '添加字段',
   'engine.form.searchFields': '搜索字段…',
   'engine.form.allFieldsAdded': '已添加全部字段',
+  // objectui#12126 — zh half of the `ref-multi:permission` add control.
+  'engine.form.addPermissionSetPlain': '添加权限集',
+  'engine.form.addPermissionSet': '添加权限集…',
+  'engine.form.allPermissionSetsAdded': '已添加全部权限集',
   'engine.form.noObjectFields': '没有对象字段（{error}）。',
   // objectui#10862, slice 4.
   'engine.form.objectNotFound': '未找到对象',

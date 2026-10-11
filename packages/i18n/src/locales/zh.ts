@@ -205,6 +205,7 @@ const zh = {
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: '填写表单字段,然后提交或取消。',
     deniedDescription: '您没有此字段的编辑权限。',
+    serverDefaultHint: '保存时自动设置。',
     masterDetail: {
       loadingColumns: '正在加载列…',
       subtotal: '小计',

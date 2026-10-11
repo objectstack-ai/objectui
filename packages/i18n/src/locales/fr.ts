@@ -198,6 +198,7 @@ const fr = {
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Remplissez les champs du formulaire, puis envoyez ou annulez.",
     deniedDescription: "Vous n'avez pas l'autorisation de modifier ce champ.",
+    serverDefaultHint: "Défini automatiquement lors de l'enregistrement.",
     masterDetail: {
       loadingColumns: "Chargement des colonnes…",
       subtotal: "Sous-total",

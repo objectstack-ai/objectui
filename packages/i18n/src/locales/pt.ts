@@ -197,6 +197,7 @@ const pt = {
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Preencha os campos do formulário e depois envie ou cancele.",
     deniedDescription: "Você não tem permissão para editar este campo.",
+    serverDefaultHint: "Definido automaticamente ao salvar.",
     masterDetail: {
       loadingColumns: "Carregando colunas…",
       subtotal: "Subtotal",

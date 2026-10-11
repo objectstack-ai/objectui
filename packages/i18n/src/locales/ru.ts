@@ -212,6 +212,7 @@ const ru = {
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Заполните поля формы, затем отправьте или отмените.",
     deniedDescription: "У вас нет прав на редактирование этого поля.",
+    serverDefaultHint: "Задаётся автоматически при сохранении.",
     masterDetail: {
       loadingColumns: "Загрузка столбцов…",
       subtotal: "Промежуточный итог",

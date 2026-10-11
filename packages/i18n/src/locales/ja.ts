@@ -192,6 +192,7 @@ const ja = {
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "フォームの項目を入力してから、送信またはキャンセルしてください。",
     deniedDescription: "このフィールドを編集する権限がありません。",
+    serverDefaultHint: "保存時に自動で設定されます。",
     masterDetail: {
       loadingColumns: "列を読み込み中…",
       subtotal: "小計",

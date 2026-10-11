@@ -228,6 +228,7 @@ const ar = {
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "املأ حقول النموذج ثم أرسل أو ألغِ.",
     deniedDescription: "ليس لديك إذن لتعديل هذا الحقل.",
+    serverDefaultHint: "يُعيَّن تلقائيًا عند الحفظ.",
     masterDetail: {
       loadingColumns: "جارٍ تحميل الأعمدة…",
       subtotal: "المجموع الفرعي",

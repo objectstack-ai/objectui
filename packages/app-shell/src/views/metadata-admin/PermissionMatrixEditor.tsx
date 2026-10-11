@@ -86,7 +86,8 @@ import { AssignedUsersSection } from './AssignedUsersSection.js';
 import { isEnvironmentScope } from './catalog-scope.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
 import { errorCodeIs } from '@object-ui/types';
-import { PermissionSetCloneDialog, type PermissionSetCloned } from './PermissionSetCloneDialog.js';
+import { PermissionSetCloneDialog } from './PermissionSetCloneDialog.js';
+import type { PermissionSetCloned } from './permission-set-clone.js';
 import {
   mergePermissionSlice,
   scopePermissionSet,
@@ -288,7 +289,8 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // The editor reads no record: the capability picker lists the capability
   // registry through the console metadata store (objectui#7611,
   // `CapabilityMultiSelectField`), and "Clone to customize" calls the server's
-  // clone door with a name and a label (`PermissionSetCloneDialog.tsx`).
+  // clone door with a name and a label (`PermissionSetCloneDialog.tsx`,
+  // `permission-set-clone.ts`).
   const { entries } = useMetadataTypes(client);
   const entry: RichMetadataTypeEntry | undefined = entries.find((t) => t.type === type);
   // Does a code package SHIP this set? Read off the layered envelope the load

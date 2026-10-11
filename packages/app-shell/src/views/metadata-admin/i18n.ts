@@ -2530,9 +2530,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.readOnly.artifact.hint':
     'A code package ships this permission set, so it is locked here: an environment-scope edit would overlay a packaged item, and the metadata-type registry declares allowOrgOverride false for permission (ADR-0005 forbids per-org overlay of a packaged set: silent privilege drift). The server refuses the write with 403 not_overridable. Clone to customize: the copy is an ordinary permission set authored in this environment, under a new name, that you edit here, and upgrades keep flowing to this base. Other routes: edit the source artifact and redeploy, create a new runtime set, or ask an operator for the documented OS_METADATA_WRITABLE escape hatch.',
   // objectui#5987 — "Clone to customize", the locked editor's primary action.
-  // objectui#7611 — it asks for a new name and label and calls the server's
-  // clone door (`PermissionSetCloneDialog.tsx`), which copies the whole
-  // definition; never a hand-rolled copy.
+  // objectui#7611 — it asks for a new name and label (`PermissionSetCloneDialog.tsx`)
+  // and calls the server's clone door (`permission-set-clone.ts`), which copies
+  // the whole definition; never a hand-rolled copy.
   'perm.clone.action': 'Clone to customize',
   'perm.clone.hint':
     'Copies this set under a new name you choose. The copy is an ordinary permission set authored in this environment, editable here, and upgrades keep flowing to the package-provided base.',

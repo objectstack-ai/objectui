@@ -223,7 +223,7 @@ import components_form_input_otp_8_digit from './schemas/components-form-input-o
 import components_form_input_otp_verification_form from './schemas/components-form-input-otp/verification-form.json' with { type: 'json' };
 import components_form_input_otp_with_visual_separator from './schemas/components-form-input-otp/with-visual-separator.json' with { type: 'json' };
 import components_form_label_form_label from './schemas/components-form-label/form-label.json' with { type: 'json' };
-import components_form_label_required_label from './schemas/components-form-label/required-label.json' with { type: 'json' };
+import components_form_label_password_label from './schemas/components-form-label/password-label.json' with { type: 'json' };
 import components_form_radio_group_basic_radio_group from './schemas/components-form-radio-group/basic-radio-group.json' with { type: 'json' };
 import components_form_radio_group_disabled from './schemas/components-form-radio-group/disabled.json' with { type: 'json' };
 import components_form_radio_group_form_field from './schemas/components-form-radio-group/form-field.json' with { type: 'json' };
@@ -2370,14 +2370,14 @@ const REGISTRY: Record<string, Example> = {
     },
     schema: components_form_label_form_label,
   },
-  'components-form-label/required-label': {
-    id: 'components-form-label/required-label',
+  'components-form-label/password-label': {
+    id: 'components-form-label/password-label',
     meta: {
-      title: "Required Label",
+      title: "Password Label",
       description: "",
       category: 'components-form-label',
     },
-    schema: components_form_label_required_label,
+    schema: components_form_label_password_label,
   },
   'components-form-radio-group/basic-radio-group': {
     id: 'components-form-radio-group/basic-radio-group',

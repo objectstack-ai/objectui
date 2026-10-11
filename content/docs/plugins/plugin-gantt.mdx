@@ -36,6 +36,14 @@ The `@object-ui/plugin-gantt` plugin provides Gantt chart visualization for Obje
   `dataSource.update()` automatically (optimistic local update + revert on
   failure). See the [package README](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-gantt/README.md#drag-and-drop-rescheduling) for details on the
   lower-level `onTaskUpdate` hook when embedding `<GanttView>` directly.
+- **Writes follow the caller's grant**: a bar's drag, resize and progress, its
+  title edited in place and its dependency links are offered only when the
+  `rowEdit` row of the affordance-to-grant map (`@object-ui/core`) allows them —
+  the object's policy, the effective API operation set and the caller's
+  **update** grant — and a row's Delete only when `rowDelete` does. The record
+  drawer's inline edit reads the record page's `recordEdit` row. With no
+  permission provider mounted they read open, as `readOnly` and `lockField`
+  still close them.
 
 <PluginLoader plugins={['gantt']}>
 

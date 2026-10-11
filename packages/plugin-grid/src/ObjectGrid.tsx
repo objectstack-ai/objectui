@@ -4937,8 +4937,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `bulkActions: ['delete']` / `bulkActionDefs[].operation === 'delete'` is a
   // WIRING declaration, not a permission grant — so the built-in delete is
   // filtered out of both when the verdict is off. Custom action ids and
-  // non-delete operations are untouched: they route through the action runner
-  // and carry their own gates.
+  // `custom` operations are untouched: they route through the action runner
+  // and carry their own gates. (An `update` operation is the edit verdict's —
+  // see `bulkActionDefs` below.)
   const declaredBulkActions = schema.batchActions ?? schema.bulkActions;
   const explicitBulkActions = objectCanDelete
     ? declaredBulkActions
@@ -4959,8 +4960,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     localizeLabel: (actionName, fallback) =>
       resolveActionLabel(schema.objectName, actionName, fallback),
   });
+  // [objectui#12082] …and a bulk FIELD UPDATE (`operation: 'update'`) is the
+  // same object's edit verdict, the map's `rowEdit` row the row kebab's Edit
+  // reads (`rowEditVerdict` above): a def that writes a patch to every selected
+  // record must not outlive the caller's update grant, the effective operation
+  // set or the object's policy any more than the bulk delete outlives its
+  // delete verdict. A withheld def takes its dialog with it, and so the
+  // executor's per-row update, its undo and its retry, which re-run that write.
+  // `custom` defs are untouched, as above.
   const bulkActionDefs: BulkActionDef[] = resolvedBulkDefs.filter(
-    (def: BulkActionDef) => objectCanDelete || def?.operation !== 'delete',
+    (def: BulkActionDef) =>
+      (objectCanDelete || def?.operation !== 'delete')
+      && (rowEditVerdict.allowed || def?.operation !== 'update'),
   );
   // Names still dispatched by string: the unresolved ones, plus `'delete'`
   // when the author asked for it — or the implicit bulk-delete affordance.

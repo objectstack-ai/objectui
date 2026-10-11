@@ -193,7 +193,6 @@ published is not an error: the expression is returned as its own source text.
 ```json
 {
   "type": "form",
-  "title": "Contact Us",
   "fields": [
     { "name": "name", "type": "text", "label": "Full Name", "required": true },
     { "name": "email", "type": "email", "label": "Email", "required": true },
@@ -231,17 +230,18 @@ published is not an error: the expression is returned as its own source text.
 
 #### 📈 Dashboard
 
+A row of live KPI tiles. A `dashboard` node's `widgets[]` takes `metric-card` entries and
+dataset-bound charts instead; see the [`@object-ui/plugin-dashboard` README](packages/plugin-dashboard/README.md).
+
 ```json
 {
-  "type": "dashboard",
-  "title": "Sales Dashboard",
-  "widgets": [
-    { "type": "statistic", "label": "Revenue", "value": "${stats.revenue}", "trend": "up", "description": "+12%", "w": 3, "h": 1 },
-    { "type": "statistic", "label": "Orders", "value": "${stats.orders}", "trend": "up", "description": "+8%", "w": 3, "h": 1 },
-    { "type": "statistic", "label": "Customers", "value": "${stats.customers}", "trend": "up", "description": "+5%", "w": 3, "h": 1 },
-    { "type": "statistic", "label": "Conversion", "value": "${stats.conversion}", "trend": "down", "description": "-2%", "w": 3, "h": 1 },
-    { "type": "chart", "chartType": "line", "title": "Revenue Over Time", "w": 8, "h": 3 },
-    { "type": "chart", "chartType": "pie", "title": "Sales by Region", "w": 4, "h": 3 }
+  "type": "grid",
+  "columns": 4,
+  "children": [
+    { "type": "statistic", "label": "Revenue", "value": "${stats.revenue}", "trend": "up", "description": "+12%" },
+    { "type": "statistic", "label": "Orders", "value": "${stats.orders}", "trend": "up", "description": "+8%" },
+    { "type": "statistic", "label": "Customers", "value": "${stats.customers}", "trend": "up", "description": "+5%" },
+    { "type": "statistic", "label": "Conversion", "value": "${stats.conversion}", "trend": "down", "description": "-2%" }
   ]
 }
 ```

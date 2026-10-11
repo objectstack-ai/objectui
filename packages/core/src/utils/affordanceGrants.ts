@@ -133,7 +133,9 @@ export const AFFORDANCE_GRANTS = {
   /**
    * The record page's Edit — the header CTA and the record body's in-place
    * editing (the details body and the highlights strip), each of whose fields
-   * asks the update question (objectui#12103).
+   * asks the update question (objectui#12103) — and the record overlay's
+   * inline edit, the same body in the overlay the calendar, kanban and gantt
+   * open (`RecordDetailPanel` in `@object-ui/plugin-detail`).
    */
   recordEdit: { crud: 'edit', grant: 'update', field: 'write' },
   /** The record page's Delete. */
@@ -143,7 +145,12 @@ export const AFFORDANCE_GRANTS = {
    * "+", and the `object-view` node's toolbar button (`@object-ui/plugin-view`).
    */
   listNew: { crud: 'create', grant: 'create' },
-  /** An object list's Import, and the import wizard's writable target fields. */
+  /**
+   * An object list's Import, and the import wizard's writable target fields —
+   * and the AI build panel's spreadsheet import (`ExcelImportBar` in
+   * `@object-ui/app-shell`), the wizard's second mount, asked of the object it
+   * imports into.
+   */
   listImport: { crud: 'import', grant: 'create', field: 'create' },
   /** The import wizard's template download — its endpoint answers 403 without the create grant. */
   importTemplate: { crud: null, grant: 'create' },
@@ -151,23 +158,29 @@ export const AFFORDANCE_GRANTS = {
   listInlineEdit: { crud: 'edit', grant: 'update', field: 'write' },
   /** A list's bulk Delete. */
   listBulkDelete: { crud: 'delete', grant: 'delete' },
-  /** A grid row's Edit. */
+  /**
+   * A grid row's Edit — and the writes that update the same rows in place: a
+   * grid's bulk field update (a `bulkActionDefs` `update` operation, with its
+   * undo and retry), and a gantt task's in-chart edits (a bar's drag, resize
+   * and progress, its title edited in place, and its dependency links).
+   */
   rowEdit: { crud: 'edit', grant: 'update' },
-  /** A grid row's Delete. */
+  /** A grid row's Delete — and a gantt row's Delete. */
   rowDelete: { crud: 'delete', grant: 'delete' },
   /** A grid's inline add-record row. */
   gridAddRow: { crud: 'create', grant: 'create' },
   /**
    * A related list's "+ New", asked of the CHILD object — and a line-items
-   * panel's add-a-line (its Add, entry row and Duplicate), which creates a child
-   * under the same parent.
+   * panel's or a master-detail form's add-a-line (its Add, entry row and
+   * Duplicate), which creates a child under the same parent.
    */
   relatedNew: { crud: 'create', grant: 'create' },
   /** A related list row's Edit, asked of the child object. */
   relatedRowEdit: { crud: 'edit', grant: 'update' },
   /**
    * A related list row's Delete, asked of the child object — and a line-items
-   * panel's remove-a-line, which deletes that child on Save.
+   * panel's or a master-detail EDIT form's remove-a-line, which deletes that
+   * child on Save.
    */
   relatedRowDelete: { crud: 'delete', grant: 'delete' },
   /** A lookup picker's "Create new", asked of the TARGET object. */

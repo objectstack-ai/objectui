@@ -40,6 +40,7 @@ import {
   toFilterNodeSafely,
   convertSortToQueryParams,
   resolveAffordance,
+  type SchemaLike,
 } from '@object-ui/core';
 
 // The panel's own chrome. A provider-less host — a standalone embed, this
@@ -702,16 +703,19 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   // the child's policy, its effective operation set and the caller's grant on
   // it. They used to read `schema.readonly` alone, so a caller who may not
   // create or delete the child was offered both and Save sent a batch the
-  // server refused. The policy half has no child schema to read here
-  // (`objectSchema: null`, the default bucket). With no permission provider
-  // mounted both read open, as before.
+  // server refused. The policy half reads the child's own schema — the one
+  // this panel already loads for the save's sanitize (`childSchema` above) —
+  // as `RelatedRecordActionsBridge` hands a related list's child schema to the
+  // same two rows; until it arrives it reads the default bucket. With no
+  // permission provider mounted the grant and the operation set read open, as
+  // before.
   const lineAddGranted = useMemo(
-    () => resolveAffordance('relatedNew', { objectSchema: null, objectName: schema.childObject, perms }).allowed,
-    [schema.childObject, perms],
+    () => resolveAffordance('relatedNew', { objectSchema: childSchema as SchemaLike | null, objectName: schema.childObject, perms }).allowed,
+    [childSchema, schema.childObject, perms],
   );
   const lineRemoveGranted = useMemo(
-    () => resolveAffordance('relatedRowDelete', { objectSchema: null, objectName: schema.childObject, perms }).allowed,
-    [schema.childObject, perms],
+    () => resolveAffordance('relatedRowDelete', { objectSchema: childSchema as SchemaLike | null, objectName: schema.childObject, perms }).allowed,
+    [childSchema, schema.childObject, perms],
   );
 
   const gridField = useMemo(

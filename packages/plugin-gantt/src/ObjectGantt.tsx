@@ -73,6 +73,8 @@ import {
   createFieldColorResolver,
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
+  resolveAffordance,
+  type SchemaLike,
   applyNonGridRowCeiling,
   nonGridRowCeilingQuery,
   type NonGridCeilingResult,
@@ -2284,6 +2286,27 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     }
   }, [pendingDelete, effectiveDataSource, resource, data, reload, notifyWriteError, t]);
 
+  // objectui#12082 — the chart's in-chart writes are rows of the
+  // affordance-to-grant map (`resolveAffordance` in `@object-ui/core`), asked of
+  // the object every write below goes to (`resource`): a bar's drag / resize /
+  // progress, its title edited in place and its dependency links update the
+  // task record (`rowEdit`), and the row kebab's Delete deletes it
+  // (`rowDelete`). Each is the object's policy, the effective operation set and
+  // the caller's grant. `GanttView` draws an affordance only when it is handed
+  // its handler, so a closed row is a handler withheld in the JSX below — the
+  // same way `readOnly` and `lockField` already close them. They used to read
+  // no grant at all, so a read-only caller could drag a bar, link two tasks or
+  // delete a row and the server refused the write. With no permission provider
+  // mounted both rows read open, as before. The record overlay's inline edit
+  // reads its own row in `RecordDetailPanel`.
+  const writeAffordanceSource = {
+    objectSchema: objectSchema as SchemaLike | null | undefined,
+    objectName: resource,
+    perms,
+  };
+  const taskEditGranted = resolveAffordance('rowEdit', writeAffordanceSource).allowed;
+  const taskDeleteGranted = resolveAffordance('rowDelete', writeAffordanceSource).allowed;
+
   if (loading) {
     return (
       <div className={className}>
@@ -2499,10 +2522,10 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
             }
             onTaskClick?.(task.data);
           }}
-          onTaskUpdate={handleTaskUpdateDefault}
-          onTaskDelete={requestDelete}
-          onDependencyCreate={ganttConfig?.dependenciesField ? handleDependencyCreate : undefined}
-          onDependencyDelete={ganttConfig?.dependenciesField ? handleDependencyDelete : undefined}
+          onTaskUpdate={taskEditGranted ? handleTaskUpdateDefault : undefined}
+          onTaskDelete={taskDeleteGranted ? requestDelete : undefined}
+          onDependencyCreate={taskEditGranted && ganttConfig?.dependenciesField ? handleDependencyCreate : undefined}
+          onDependencyDelete={taskEditGranted && ganttConfig?.dependenciesField ? handleDependencyDelete : undefined}
           markers={schema.markers}
           autoSchedule={!!ganttConfig?.dependenciesField}
           rescheduleOnConflict={!!ganttConfig?.dependenciesField}

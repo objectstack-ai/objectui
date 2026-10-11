@@ -608,6 +608,15 @@ target from that field, so a lookup param renders the record picker and the
 confirm step shows the picked record's label. A param whose field is not in
 the object metadata is refused, and the run is blocked.
 
+The selection bar offers a write only to a caller who may make it. A bulk Delete
+is the `rowDelete` row of the affordance-to-grant map (`@object-ui/core`), and a
+`bulkActionDefs` entry with `operation: 'update'` — a patch written to every
+selected record — is the `rowEdit` row, the same rows the row menu's Delete and
+Edit read: the object's policy, the effective API operation set and the
+caller's **delete** or **update** grant. A closed row removes the button, and
+with it the dialog, its undo and its retry. `custom` entries are unchanged.
+With no permission provider mounted both read open.
+
 ### Row callbacks are component props
 
 `onRowClick`, `onRowSelect`, `onCellChange`, `onRowSave`, `onBatchSave`,

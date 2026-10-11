@@ -547,6 +547,13 @@ describe('the census: every affordance reads the map (objectui#12082)', () => {
 // — a button that opens a form. The form's submit is a site here, behind the
 // form rows; the opener itself is pinned by its own runtime test
 // (`ObjectView.createGrant-12082.test.tsx` in `@object-ui/plugin-view`).
+//
+// One site key can also hide several doors: a component that issues a write
+// its HOST gates (the import wizard, mounted by the console list and by the AI
+// build panel's spreadsheet import) has one site and one door per mount. Those
+// are listed in `HOST_GATED`, and every mount must be a file its site names —
+// that is how a second mount with no grant read is seen. A host-gated component
+// not listed there is not seen; the list is written by hand, like the ledger.
 // ---------------------------------------------------------------------------
 
 type Verb = 'create' | 'update' | 'delete' | 'batch';
@@ -602,11 +609,13 @@ const DETAIL_SECTION = 'packages/plugin-detail/src/DetailSection.tsx';
 const HEADER_HIGHLIGHT = 'packages/plugin-detail/src/HeaderHighlight.tsx';
 const CONSOLE_LIST = 'packages/app-shell/src/views/ObjectView.tsx';
 const LIST_VIEW = 'packages/plugin-list/src/ListView.tsx';
-
-const OVERLAY_INLINE_EDIT =
-  "the record overlay's inline field edit: `RecordDetailPanel` opens its inline-edit session on handler " +
-  'PRESENCE alone (`canEdit={!!onFieldSave}`), so a caller without the update grant is offered the editors; ' +
-  'the recordEdit row is the candidate';
+// The record overlay's one seam: the calendar, the kanban and the gantt hand it
+// their `onFieldSave`, and it reads the `recordEdit` row before it opens the
+// inline-edit session.
+const RECORD_PANEL = 'packages/plugin-detail/src/RecordDetailPanel.tsx';
+const OBJECT_GANTT = 'packages/plugin-gantt/src/ObjectGantt.tsx';
+const MASTER_DETAIL = 'packages/plugin-form/src/MasterDetailForm.tsx';
+const EXCEL_IMPORT_BAR = 'packages/app-shell/src/console/ai/ExcelImportBar.tsx';
 const ADAPTER = 'a DataSource implementation: it runs the writes its callers hand it';
 
 /**
@@ -700,7 +709,7 @@ const WRITE_SITES: Record<string, WriteSite> = {
   'packages/plugin-calendar/src/ObjectCalendar.tsx :: ObjectCalendar > submitQuickCreate :: create':
     mapped(['calendarQuickCreate'], 'packages/plugin-calendar/src/ObjectCalendar.tsx'),
   'packages/plugin-calendar/src/ObjectCalendar.tsx :: ObjectCalendar > renderRecordOverlay > onFieldSave :: update':
-    unmapped(OVERLAY_INLINE_EDIT),
+    mapped(['recordEdit'], RECORD_PANEL),
   'packages/plugin-calendar/src/ObjectCalendar.tsx :: ObjectCalendar > renderRecordOverlay > onDelete :: delete':
     mapped(['recordDelete'], DETAIL_VIEW),
   // ── plugin-designer ──
@@ -724,8 +733,10 @@ const WRITE_SITES: Record<string, WriteSite> = {
     outOfFamily('a public embeddable form submits with no signed-in principal, so there is no grant to read; the server\'s public-form policy decides'),
   'packages/plugin-form/src/LineItemsPanel.tsx :: LineItemsPanel > save :: batch':
     mapped(['relatedNew', 'relatedRowDelete', 'editFormFields'], 'packages/plugin-form/src/LineItemsPanel.tsx', FIELD_WRITE_GATE),
-  'packages/plugin-form/src/MasterDetailForm.tsx :: MasterDetailForm > sendBatch :: batch':
-    unmapped("the master's fields are behind the form rows (its header ObjectForm), but its line grids' add / remove read no child grant; relatedNew / relatedRowDelete are the candidates, except that a create-mode master's removed line is never a server delete"),
+  'packages/plugin-form/src/MasterDetailForm.tsx :: MasterDetailForm > sendBatch :: batch': {
+    ...mapped(['createFormFields', 'editFormFields', 'relatedNew', 'relatedRowDelete'], MASTER_DETAIL, FIELD_WRITE_GATE),
+    note: "the master's fields are its header ObjectForm's; its line grids' add reads relatedNew of the child, and remove relatedRowDelete on an EDIT form only — a create form's batch holds only creates, so a removed line there is never a server delete",
+  } as WriteSite,
   'packages/plugin-form/src/ModalForm.tsx :: ModalForm > handleSubmit :: create': mapped(['createFormFields'], FIELD_WRITE_GATE),
   'packages/plugin-form/src/ModalForm.tsx :: ModalForm > handleSubmit :: update': mapped(['editFormFields'], FIELD_WRITE_GATE),
   'packages/plugin-form/src/ObjectForm.tsx :: SimpleObjectForm > handleSubmit :: create': mapped(['createFormFields'], FIELD_WRITE_GATE),
@@ -739,33 +750,33 @@ const WRITE_SITES: Record<string, WriteSite> = {
   'packages/plugin-form/src/occSave.tsx :: useOccSave > saveWithOcc :: update': helper('saveWithOcc'),
   // ── plugin-gantt ──
   'packages/plugin-gantt/src/ObjectGantt.tsx :: ObjectGantt > handleTaskUpdateDefault :: update':
-    unmapped("a gantt's drag / resize of a task bar writes its dates and reads no update grant (only `readOnly` and `lockField`)"),
+    mapped(['rowEdit'], OBJECT_GANTT),
   'packages/plugin-gantt/src/ObjectGantt.tsx :: ObjectGantt > persistDependencies :: update':
-    unmapped("a gantt's dependency edit writes the dependencies field and reads no update grant"),
+    mapped(['rowEdit'], OBJECT_GANTT),
   'packages/plugin-gantt/src/ObjectGantt.tsx :: ObjectGantt > confirmDelete :: delete':
-    unmapped("a gantt row kebab's Delete reads no delete grant"),
-  'packages/plugin-gantt/src/ObjectGantt.tsx :: ObjectGantt > renderRecordOverlay :: update': unmapped(OVERLAY_INLINE_EDIT),
+    mapped(['rowDelete'], OBJECT_GANTT),
+  'packages/plugin-gantt/src/ObjectGantt.tsx :: ObjectGantt > renderRecordOverlay :: update': mapped(['recordEdit'], RECORD_PANEL),
   'packages/plugin-gantt/src/ObjectGantt.tsx :: ObjectGantt > renderRecordOverlay :: delete': mapped(['recordDelete'], DETAIL_VIEW),
   // ── plugin-grid ──
   'packages/plugin-grid/src/ImportWizard.tsx :: ImportWizard > legacyImport :: create': {
-    ...mapped(['listImport'], CONSOLE_LIST, 'packages/app-shell/src/views/importTargetFields.ts'),
-    note: "the console list's Import; the AI build panel's spreadsheet import (`ExcelImportBar`) mounts the same wizard with no grant read",
+    ...mapped(['listImport'], CONSOLE_LIST, 'packages/app-shell/src/views/importTargetFields.ts', EXCEL_IMPORT_BAR),
+    note: "one site, two mounts: the console list's Import and the AI build panel's spreadsheet import (`ExcelImportBar`) each read the row where they offer Import; HOST_GATED below holds every mount of the wizard to this list",
   } as WriteSite,
   'packages/plugin-grid/src/ObjectGrid.tsx :: ObjectGrid > defaultRowSave :: update': mapped(['listInlineEdit'], OBJECT_GRID),
   'packages/plugin-grid/src/ObjectGrid.tsx :: ObjectGrid > defaultBatchSave :: update': mapped(['listInlineEdit'], OBJECT_GRID),
   'packages/plugin-grid/src/hooks/useBulkExecutor.ts :: useBulkExecutor > run > perRow :: delete': mapped(['rowDelete'], OBJECT_GRID),
   'packages/plugin-grid/src/hooks/useBulkExecutor.ts :: useBulkExecutor > run > perRow :: update':
-    unmapped("a grid's bulk field update (a `bulkActionDefs` update operation) reads no update grant; only its delete operation rides the rowDelete verdict"),
+    mapped(['rowEdit'], OBJECT_GRID),
   'packages/plugin-grid/src/hooks/useBulkExecutor.ts :: useBulkExecutor > undo :: update':
-    unmapped("the undo of a grid bulk field update, the inverse of that unmapped write"),
+    mapped(['rowEdit'], OBJECT_GRID),
   'packages/plugin-grid/src/hooks/useBulkExecutor.ts :: useBulkExecutor > retry :: delete': mapped(['rowDelete'], OBJECT_GRID),
   'packages/plugin-grid/src/hooks/useBulkExecutor.ts :: useBulkExecutor > retry :: update':
-    unmapped("the retry of a grid bulk field update, that same unmapped write"),
+    mapped(['rowEdit'], OBJECT_GRID),
   // ── plugin-kanban ──
   'packages/plugin-kanban/src/ObjectKanban.tsx :: ObjectKanban > persistCardMove :: update':
     mapped(['kanbanCardMove'], 'packages/plugin-kanban/src/ObjectKanban.tsx'),
   'packages/plugin-kanban/src/ObjectKanban.tsx :: ObjectKanban > renderRecordOverlay > onFieldSave :: update':
-    unmapped(OVERLAY_INLINE_EDIT),
+    mapped(['recordEdit'], RECORD_PANEL),
   'packages/plugin-kanban/src/ObjectKanban.tsx :: ObjectKanban > renderRecordOverlay > onDelete :: delete':
     mapped(['recordDelete'], DETAIL_VIEW),
   // ── plugin-view ──
@@ -805,14 +816,34 @@ function scopeName(n: ts.Node, sf: ts.SourceFile): string | null {
   return null;
 }
 
-/** The write sites in one source text, and the map rows it reads. */
-function scanWrites(rel: string, text: string): { sites: Set<string>; rowsRead: Set<string> } {
+/**
+ * Write sites inside a component its HOST gates — component name → the site.
+ *
+ * The component issues the write, but the affordance that opens it (an Import
+ * button) is drawn by whoever mounts it, so each mount is a door of its own
+ * behind one site key: the census above cannot tell two mounts apart. So every
+ * console source that mounts the component (a JSX element of that name) must
+ * be named in the site's `readBy`, and the mapped-site check holds each named
+ * file to reading one of the site's rows. A mount added later with no grant
+ * read turns this red, naming the file.
+ */
+const HOST_GATED: Readonly<Record<string, string>> = {
+  ImportWizard: 'packages/plugin-grid/src/ImportWizard.tsx :: ImportWizard > legacyImport :: create',
+};
+
+/** The write sites in one source text, the map rows it reads, and the host-gated components it mounts. */
+function scanWrites(rel: string, text: string): { sites: Set<string>; rowsRead: Set<string>; mounts: Set<string> } {
   const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, false, rel.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const sites = new Set<string>();
   const rowsRead = new Set<string>();
+  const mounts = new Set<string>();
   const visit = (n: ts.Node, chain: string[]): void => {
     const name = scopeName(n, sf);
     const here = name ? [...chain, name] : chain;
+    if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) {
+      const tag = n.tagName.getText(sf);
+      if (Object.prototype.hasOwnProperty.call(HOST_GATED, tag)) mounts.add(tag);
+    }
     if (ts.isCallExpression(n)) {
       const callee = n.expression;
       const calleeText = callee.getText(sf);
@@ -837,23 +868,25 @@ function scanWrites(rel: string, text: string): { sites: Set<string>; rowsRead: 
     ts.forEachChild(n, (c) => visit(c, here));
   };
   visit(sf, []);
-  return { sites, rowsRead };
+  return { sites, rowsRead, mounts };
 }
 
-function writeCensus(): { sites: Set<string>; rowsReadBy: Map<string, Set<string>> } {
+function writeCensus(): { sites: Set<string>; rowsReadBy: Map<string, Set<string>>; mountsBy: Map<string, Set<string>> } {
   const sites = new Set<string>();
   const rowsReadBy = new Map<string, Set<string>>();
+  const mountsBy = new Map<string, Set<string>>();
   for (const file of consoleSources()) {
     const rel = path.relative(repoRoot, file).split(path.sep).join('/');
     const scanned = scanWrites(rel, readFileSync(file, 'utf8'));
     for (const s of scanned.sites) sites.add(s);
     if (scanned.rowsRead.size) rowsReadBy.set(rel, scanned.rowsRead);
+    for (const m of scanned.mounts) mountsBy.set(m, (mountsBy.get(m) ?? new Set()).add(rel));
   }
-  return { sites, rowsReadBy };
+  return { sites, rowsReadBy, mountsBy };
 }
 
 describe('the write census: every write call site sits behind a map row, or says why not (objectui#12082)', () => {
-  const { sites, rowsReadBy } = writeCensus();
+  const { sites, rowsReadBy, mountsBy } = writeCensus();
 
   it('CONTROL — the recognizer fires on each shape, and not on a collection\'s delete(key)', () => {
     const { sites: found, rowsRead } = scanWrites(
@@ -877,6 +910,13 @@ describe('the write census: every write call site sits behind a map row, or says
       'pin/probe.tsx :: save :: update',
     ]);
     expect([...rowsRead]).toEqual(['rowEdit']);
+    // …and the mount walk fires on a host-gated component's JSX element, in
+    // either form, and on nothing else.
+    const { mounts } = scanWrites(
+      'pin/mounts.tsx',
+      'const A = () => <><ImportWizard open /><ImportWizardHelp /><Other><ImportWizard></ImportWizard></Other></>;',
+    );
+    expect([...mounts]).toEqual(['ImportWizard']);
   });
 
   it('CONTROL — the walk reached the data door and the five sites the card names', () => {
@@ -948,5 +988,41 @@ describe('the write census: every write call site sits behind a map row, or says
     // The object-view New leads to a write (it opens a create form) rather than
     // issuing one, so it is read where it is offered, not counted as a site.
     expect(rowsReadBy.get('packages/plugin-view/src/ObjectView.tsx')?.has('listNew')).toBe(true);
+  });
+
+  it("the record overlay's inline edit is ONE seam: all three hosts' writes sit behind recordEdit, read only at RecordDetailPanel", () => {
+    const overlay = Object.entries(WRITE_SITES).filter(
+      ([key]) => key.includes(' > renderRecordOverlay') && key.endsWith(' :: update'),
+    );
+    expect(overlay.map(([key]) => key.split(' :: ')[0]).sort()).toEqual([
+      'packages/plugin-calendar/src/ObjectCalendar.tsx',
+      'packages/plugin-gantt/src/ObjectGantt.tsx',
+      'packages/plugin-kanban/src/ObjectKanban.tsx',
+    ]);
+    for (const [key, site] of overlay) {
+      expect(site, key).toEqual({ kind: 'mapped', rows: ['recordEdit'], readBy: [RECORD_PANEL] });
+    }
+    expect(rowsReadBy.get(RECORD_PANEL)?.has('recordEdit')).toBe(true);
+  });
+
+  it('every mount of a host-gated write component is a file its site names, so each mount reads the row', () => {
+    const problems: string[] = [];
+    for (const [component, key] of Object.entries(HOST_GATED)) {
+      const site = WRITE_SITES[key];
+      if (site?.kind !== 'mapped') {
+        problems.push(`${key}: the site ${component} hosts is not a mapped entry`);
+        continue;
+      }
+      for (const file of mountsBy.get(component) ?? []) {
+        if (!site.readBy.includes(file)) {
+          problems.push(`${file} mounts ${component} but is not named by ${key}: read its row where the mount offers it, and name the file there`);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('CONTROL — the mount walk reaches both mounts of the import wizard', () => {
+    expect([...(mountsBy.get('ImportWizard') ?? [])]).toEqual(expect.arrayContaining([CONSOLE_LIST, EXCEL_IMPORT_BAR]));
   });
 });

@@ -304,9 +304,13 @@ client cannot evaluate the expression. It is not drawn:
 - on an edit form, where the default was resolved at insert;
 - on a control that takes no input (disabled or read-only). The containers send
   `previousValues` in edit mode only, so the renderer reads a `mode: 'view'` form
-  as create, and this is what keeps the hint off it;
-- on a boolean. The renderer starts an unsupplied two-state control at `false`
-  (cloud#972), so the field is never empty and the submit sends that value.
+  as create, and this is what keeps the hint off it.
+
+A boolean is no exception (objectui#12121). The renderer starts an unsupplied
+two-state control at `false` (cloud#972) only when the field is not
+server-owned, so a boolean with a runtime default opens unchecked with the hint
+under it, and an untouched one is omitted from the submit. A value the user
+sets, `false` included, is submitted as usual.
 
 An option's `default: true` is read the way the server's insert path reads it
 (`ObjectQL.applyFieldDefaults`, which falls back to the marked option), so the

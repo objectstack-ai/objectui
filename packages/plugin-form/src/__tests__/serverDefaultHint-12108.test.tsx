@@ -20,10 +20,12 @@
  * Pinned here, through the public `ObjectForm` entry in every layout it
  * routes to, with the real registered field widgets:
  *
- *   1. the hint on a CEL default (text, date, select, number) and on a
- *      runtime token, in every layout. Not a boolean: the renderer seeds an
- *      unsupplied two-state control `false` (cloud#972), so it is never empty
- *      and the submit sends that value — no hint is the true answer there;
+ *   1. the hint on a CEL default (text, date, select, number, boolean) and
+ *      on a runtime token, in every layout. A boolean is server-filled too
+ *      (objectui#12121): the renderer seeds an unsupplied two-state control
+ *      `false` (cloud#972) only when its default is not a runtime one, so a
+ *      CEL-default boolean opens empty, with the hint, and is omitted from the
+ *      create payload, while a plain boolean still seeds `false`;
  *   2. CONTROL: a literal default is seeded as today, and carries no hint;
  *      a field with no default carries none either;
  *   3. the hint follows the live value — a typed value removes it;
@@ -64,6 +66,8 @@ const OBJECT_SCHEMA = {
     close_date: { type: 'date', label: 'Close date', required: true, defaultValue: cel('today()') },
     stage: { type: 'select', label: 'Stage', required: true, defaultValue: cel("'prospect'"), options: STAGES },
     amount: { type: 'number', label: 'Amount', defaultValue: cel('0') },
+    // A two-state control the server fills: not seeded `false` (objectui#12121).
+    active: { type: 'boolean', label: 'Active', defaultValue: cel('true') },
     // A runtime token: the same classifier, so the same hint.
     reminded_at: { type: 'datetime', label: 'Reminded at', defaultValue: 'NOW()' },
     // An authored description beside a CEL default: both are drawn.
@@ -88,7 +92,7 @@ const OBJECT_SCHEMA = {
 };
 
 /** The fields whose default the server resolves. */
-const SERVER_FILLED = ['code', 'close_date', 'stage', 'amount', 'reminded_at', 'region'];
+const SERVER_FILLED = ['code', 'close_date', 'stage', 'amount', 'active', 'reminded_at', 'region'];
 const NOT_SERVER_FILLED = ['title', 'status'];
 
 const SECTIONS = [{ name: 'main', label: 'Main', fields: Object.keys(OBJECT_SCHEMA.fields) }];

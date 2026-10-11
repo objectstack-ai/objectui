@@ -48,7 +48,12 @@
  *     carries `sortField`, which is no member: the block DERIVES it from the
  *     child object (`deriveDetail` picks its `position` / `sort_order` / …
  *     field), and objectui#11070 round 9 retired the detail's `sortField`
- *     member that used to override it. A member dropped from that object, or
+ *     member that used to override it. It also carries `allowAdd` and
+ *     `allowDelete`, which are no members either: they are the
+ *     affordance-to-grant map's verdicts on the CHILD object (`relatedNew` /
+ *     `relatedRowDelete`, objectui#12082), both open with no permission
+ *     provider mounted, as here, so an authored `allowAdd` still reaches
+ *     nothing (row 2). A member dropped from that object, or
  *     a key the grid does not declare, reaches a grid that reads nothing
  *     there; since objectui#11610 the object is checked against
  *     `GridFieldMetadata` at compile time, and a retired snake_case key there
@@ -68,9 +73,10 @@
  *
  *   1. Each member renders as its own section, in AUTHORED order, headed by
  *      `title` (or `Line Items`), with `columns` in authored order.
- *   2. The grid object is exactly six keys. Each authored member arrives under
- *      the grid's key, and off-list members are NOT forwarded, including
- *      one written in the grid's own spelling (`allowAdd`).
+ *   2. The grid object is exactly eight keys. Each authored member arrives
+ *      under the grid's key, and off-list members are NOT forwarded, including
+ *      one written in the grid's own spelling (`allowAdd`): the grid's
+ *      `allowAdd` / `allowDelete` are the map's verdicts, never the author's.
  *   2c. `sortField` is no member (objectui#11070 round 9). On a detail the
  *      block derives, the grid's `sortField` is the child's sort-named field
  *      even when a `sortField` naming another field is written beside it. On
@@ -238,7 +244,7 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
     expect(gridOf('Line Items').field.columns.map((c: { name: string }) => c.name)).toEqual(['note']);
   });
 
-  it('2. four members reach the grid under its keys, as exactly six keys, and off-list members are not forwarded', async () => {
+  it('2. four members reach the grid under its keys, as exactly eight keys, and off-list members are not forwarded', async () => {
     await mount({
       details: [
         {
@@ -260,6 +266,8 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
     const field = await waitFor(() => gridOf('Lines').field);
     expect(Object.keys(field).sort(), 'the one object this block hands the grid').toEqual([
       'addLabel',
+      'allowAdd',
+      'allowDelete',
       'columns',
       'maxRows',
       'minRows',
@@ -272,18 +280,24 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
       addLabel: 'Add a line',
       // The detail's `amountField`, the CHILD column summed.
       totalField: 'qty',
+      // The map's verdicts on the child (objectui#12082), open with no
+      // permission provider: the authored `allowAdd: false` reached nothing.
+      allowAdd: true,
+      allowDelete: true,
     });
     expect(field.sortField, 'a fully configured detail derives nothing (row 2c)').toBeUndefined();
     expect(gridOf('Lines').displayMode).toBe('grid');
   });
 
-  it('2b. control: with none of the four authored and nothing derived, the same six keys arrive EMPTY', async () => {
+  it('2b. control: with none of the four authored and nothing derived, the same eight keys arrive, the members EMPTY', async () => {
     await mount({ details: [{ childObject: 'po_line', relationshipField: 'po', title: 'Lines', columns: [QTY] }] });
     const field = await waitFor(() => gridOf('Lines').field);
     // The key set first: `toEqual` treats a key holding `undefined` as absent,
-    // so on its own it could not tell "six keys, five empty" from "one key".
+    // so on its own it could not tell "eight keys, five empty" from "three keys".
     expect(Object.keys(field).sort()).toEqual([
       'addLabel',
+      'allowAdd',
+      'allowDelete',
       'columns',
       'maxRows',
       'minRows',
@@ -297,6 +311,8 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
       maxRows: undefined,
       addLabel: undefined,
       totalField: undefined,
+      allowAdd: true,
+      allowDelete: true,
     });
   });
 

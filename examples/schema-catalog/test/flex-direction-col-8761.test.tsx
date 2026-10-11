@@ -57,7 +57,7 @@ import { getExample } from '../src/index.js';
 
 const IDS = [
   'components-form-label/form-label',
-  'components-form-label/required-label',
+  'components-form-label/password-label',
   'components-form-date-picker/form-field',
   'components-form-input-otp/verification-form',
   'components-form-radio-group/form-field',

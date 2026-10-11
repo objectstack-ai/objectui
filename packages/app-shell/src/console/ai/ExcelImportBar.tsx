@@ -12,6 +12,11 @@
  * mapping, dry-run and the real server-side import. So the magic-flow trial
  * goes from "one sentence → app with demo data" to "app with MY data" — the
  * retention hinge for a spreadsheet refugee.
+ *
+ * Import is the `listImport` row of the affordance-to-grant map (objectui#12082),
+ * the row the console list's Import reads for the same wizard: it is offered for
+ * the picked object only when the caller's create grant and the server's
+ * effective operation set allow it, and picking another object asks again.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -27,6 +32,8 @@ import {
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { toast } from 'sonner';
 import { useObjectTranslation } from '@object-ui/i18n';
+import { resolveAffordance } from '@object-ui/core';
+import { usePermissions } from '@object-ui/permissions';
 import { ImportWizard } from '@object-ui/plugin-grid';
 
 interface WizardField {
@@ -133,6 +140,17 @@ export function ExcelImportBar({ file, dataSource, defaultObjectName, onDone }: 
   const [loadingFields, setLoadingFields] = useState(false);
   const [fields, setFields] = useState<WizardField[] | null>(null);
   const [open, setOpen] = useState(false);
+  const perms = usePermissions();
+  // objectui#12082 — the `listImport` row, asked of the picked object. The bar
+  // has not read that object's schema when it offers Import (it reads it on the
+  // press), so the policy half reads the default bucket; the grant and the
+  // effective operation set are the server's own refusal. With no permission
+  // provider mounted both read open, as before.
+  const importGranted = resolveAffordance('listImport', {
+    objectSchema: null,
+    objectName: selected,
+    perms,
+  }).allowed;
 
   // List the env's user objects so the user can target the import. Uses the
   // uncached meta list endpoint; filters platform/system objects.
@@ -162,7 +180,7 @@ export function ExcelImportBar({ file, dataSource, defaultObjectName, onDone }: 
   }, [authFetch, defaultObjectName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function openWizard() {
-    if (!selected) return;
+    if (!selected || !importGranted) return;
     setLoadingFields(true);
     try {
       const schema = await dataSource.getObjectSchema(selected);
@@ -215,7 +233,7 @@ export function ExcelImportBar({ file, dataSource, defaultObjectName, onDone }: 
         onPick={setSelected}
         disabled={!objects || objects.length === 0}
       />
-      <Button size="sm" onClick={openWizard} disabled={!selected || loadingFields}>
+      <Button size="sm" onClick={openWizard} disabled={!selected || loadingFields || !importGranted}>
         {loadingFields ? t('excelImport.opening') : t('excelImport.importAction')}
       </Button>
       <Button size="sm" variant="ghost" onClick={onDone}>

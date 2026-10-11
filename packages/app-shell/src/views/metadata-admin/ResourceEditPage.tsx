@@ -94,8 +94,10 @@ import {
 } from './SchemaForm.js';
 import {
   collectPageComponentIds,
+  formDeclaresWidget,
   type ObjectActionOption,
   type ObjectFieldOption,
+  type RegistryItemOption,
   type WidgetContext,
 } from './widgets.js';
 import {
@@ -990,6 +992,33 @@ function MetadataResourceEditPageImpl({
     ),
   );
 
+  // The permission-set catalog — fuels the `ref-multi:permission` picker
+  // (objectui#12126), which the position form's `permissionSets` row declares
+  // (ADR-0131 D4: a reference to a declared item is by machine name, resolved
+  // registry-first). Loaded only when the form on screen declares that widget,
+  // so no other editor sends the request. The list is the whole registry, not
+  // one package's: a position names permission sets from the environment
+  // catalog, platform-shipped sets included (ADR-0131 D3).
+  const declaresPermissionSets = formDeclaresWidget(
+    createMode && config.createSchema ? undefined : entry?.form,
+    'ref-multi:permission',
+  );
+  const permissionSetsState = usePickerLoad<RegistryItemOption[]>(
+    React.useMemo(
+      () =>
+        declaresPermissionSets
+          ? async () => {
+              const rows = (await client.list('permission')) as Array<{ name?: string; label?: string }>;
+              return rows
+                .filter((r): r is { name: string; label?: string } => typeof r?.name === 'string' && !!r.name)
+                .map((r) => ({ name: r.name, label: r.label }))
+                .sort((a, b) => a.name.localeCompare(b.name));
+            }
+          : null,
+      [client, declaresPermissionSets],
+    ),
+  );
+
   // Component ids placed on the page being edited — fuels the `ref:component`
   // picker so a page variable's `source` (the component that writes it) is
   // chosen from the real canvas components, not a free-text id. Derived from
@@ -1043,8 +1072,9 @@ function MetadataResourceEditPageImpl({
       objectActions: mapLoaded(objectCatalogState, (catalog) => catalog.actions),
       objectViews: objectViewsState,
       componentIds,
+      permissionSets: permissionSetsState,
     }),
-    [type, objectsState, objectCatalogState, objectViewsState, componentIds],
+    [type, objectsState, objectCatalogState, objectViewsState, componentIds, permissionSetsState],
   );
 
   // Load layered view + initial draft.

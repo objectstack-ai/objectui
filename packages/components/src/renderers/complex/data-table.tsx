@@ -202,6 +202,11 @@ function safeObjectLabel(value: unknown): string {
 const TABLE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'table.rowsPerPage': 'Rows per page',
   'table.pageInfo': 'Page {{current}} of {{total}}',
+  // objectui#12124 — the pager's four icon buttons' accessible names.
+  'table.firstPage': 'First page',
+  'table.previousPage': 'Previous page',
+  'table.nextPage': 'Next page',
+  'table.lastPage': 'Last page',
   'table.totalRecords': '{{count}} total',
   'table.noResults': 'No results found',
   'table.noResultsHint': 'Try adjusting your filters or search query.',
@@ -3420,6 +3425,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 size="icon"
                 onClick={() => goToPage(1)}
                 disabled={effectivePage === 1}
+                aria-label={t('table.firstPage')}
               >
                 <ChevronsLeft className="h-4 w-4" />
               </Button>
@@ -3428,6 +3434,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 size="icon"
                 onClick={() => goToPage(effectivePage - 1)}
                 disabled={effectivePage === 1}
+                aria-label={t('table.previousPage')}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -3436,6 +3443,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 size="icon"
                 onClick={() => goToPage(effectivePage + 1)}
                 disabled={effectivePage === totalPages}
+                aria-label={t('table.nextPage')}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -3444,6 +3452,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 size="icon"
                 onClick={() => goToPage(totalPages)}
                 disabled={effectivePage === totalPages}
+                aria-label={t('table.lastPage')}
               >
                 <ChevronsRight className="h-4 w-4" />
               </Button>

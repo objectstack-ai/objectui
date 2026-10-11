@@ -19,9 +19,10 @@ import {
   Button,
   Skeleton,
 } from '@object-ui/components';
-import { Package, Search, RefreshCcw, Store, AlertCircle, CheckCircle2, Settings } from 'lucide-react';
+import { Package, Search, RefreshCcw, Store, AlertCircle, CheckCircle2, Settings, Loader2 } from 'lucide-react';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
-import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectLabel, useObjectTranslation } from '@object-ui/i18n';
+import { useAdapter } from '@object-ui/react';
 import { PackageIcon } from './PackageIcon.js';
 import { MarketplaceAccessDenied } from './MarketplaceAccessDenied.js';
 import { MarketplaceResolving } from './MarketplaceResolving.js';
@@ -40,6 +41,8 @@ import {
 } from './marketplaceApi.js';
 import { getCloudBase, getRuntimeConfig, isMarketplaceEnabled } from '../../runtime-config.js';
 import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
+import { appRouteSegment, filterActiveApps, resolveKeyedI18nLabel } from '../../utils/index.js';
+import { waitForServedApp, type ServedApp } from './waitForServedApp.js';
 
 /**
  * Format a published-at timestamp as a localized relative string.
@@ -107,11 +110,29 @@ function toLoadFailure(e: unknown): LoadFailure {
   };
 }
 
+/**
+ * objectui#12097 — an org install on a cloud-managed environment, from the
+ * install answering until the runtime serves the package's app, or the wait
+ * expires: the three states the package page draws for the same install
+ * (objectui#12087), in the same words. The strip lists several packages and
+ * this status sits above them all, so it names its package (`name`, the row's
+ * display name). `served` carries the first app of the package a user can open,
+ * or `null` when every one is inactive or hidden.
+ */
+type OrgDeployState =
+  | { phase: 'waiting'; manifestId: string; name: string }
+  | { phase: 'served'; manifestId: string; name: string; app: ServedApp | null }
+  | { phase: 'timeout'; manifestId: string; name: string };
+
 export function MarketplacePage() {
   const navigate = useNavigate();
   const { appName } = useParams();
   const { isAdmin, isResolved } = useWorkspaceAdminStatus();
   const { t, language } = useObjectTranslation();
+  const { appLabel } = useObjectLabel();
+  // The adapter `MetadataProvider` reads through: the deploy wait asks the
+  // same `GET /meta/app` the cache would, without the cache persisting it.
+  const adapter = useAdapter();
   const formatRelative = useRelativeFormatter();
   const basePath = appName ? `/apps/${appName}` : '';
   // The runtime's own answer, read once per render. `false` means this
@@ -137,6 +158,7 @@ export function MarketplacePage() {
   const [orgItems, setOrgItems] = useState<OrgPackageSummary[]>([]);
   const [orgInstalling, setOrgInstalling] = useState<string | null>(null);
   const [orgMsg, setOrgMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [orgDeploy, setOrgDeploy] = useState<OrgDeployState | null>(null);
   const [installedIds, setInstalledIds] = useState<Set<string>>(new Set());
 
   const installedByManifestId = useMemo(() => {
@@ -190,6 +212,44 @@ export function MarketplacePage() {
     void load();
   }, [marketplaceEnabled]);
 
+  /**
+   * objectui#12097 — wait until this environment serves the installed org
+   * package's app, and only then pulse the metadata refresh.
+   *
+   * The pulse makes every mounted `MetadataProvider` re-read its loaded types
+   * and persist what it reads (the tab's sessionStorage seed). A pulse that
+   * lands while the runtime still serves the pre-install kernel fixes the
+   * pre-install `app` list in place: the install "succeeded" and the app never
+   * appeared. `waitForServedApp` (objectui#12087) reads `GET /meta/app` past
+   * the cache instead, and the pulse waits for it. On expiry nothing is
+   * refreshed, and the strip says the app has not appeared rather than that
+   * the install succeeded.
+   *
+   * One status for the whole strip: a later install's status replaces an
+   * earlier one's, and an earlier wait that settles late never overwrites it.
+   * Its pulse still goes out, because its app IS served.
+   */
+  const awaitServedOrgInstall = async (manifestId: string, name: string) => {
+    const settle = (next: OrgDeployState) =>
+      setOrgDeploy((cur) => (cur?.manifestId === manifestId ? next : cur));
+    setOrgDeploy({ phase: 'waiting', manifestId, name });
+    const wait = await waitForServedApp({
+      manifestId,
+      // The SDK's declared list answer (`GetMetaItemsResponse`: `{ type,
+      // items }`), read the way the package page reads it.
+      readApps: async () => {
+        if (!adapter) throw new Error('No data adapter to read the app list through');
+        return (await adapter.getClient().meta.getItems('app')).items;
+      },
+    });
+    if (!wait.served) {
+      settle({ phase: 'timeout', manifestId, name });
+      return;
+    }
+    emitMetadataRefresh();
+    settle({ phase: 'served', manifestId, name, app: filterActiveApps(wait.apps)[0] ?? null });
+  };
+
   // Install an org package into the current environment (ADR-0007 step ②).
   //
   // Two deployment shapes, two semantically-correct routes:
@@ -207,15 +267,23 @@ export function MarketplacePage() {
     try {
       if (getRuntimeConfig().features.installLocal) {
         await installLocal({ packageId: pkg.manifest_id || pkg.id, versionId: 'latest' });
+        setOrgMsg({ ok: true, text: t('marketplace.org.installed', { defaultValue: `Installed ${pkg.display_name}`, name: pkg.display_name }) });
+        await load();
+        // The runtime hot-registered the package before it answered, so the
+        // live registry already holds it. Pulse every mounted MetadataProvider
+        // so the new app appears in the nav (and its objects/views resolve)
+        // without a manual browser refresh.
+        emitMetadataRefresh();
       } else {
         await installPackage({ packageId: pkg.id, environmentId: '', seedSampleData: true });
+        // objectui#12097 — this answer lands while the runtime still serves the
+        // PRE-install kernel, so nothing is refreshed here: the wait refreshes
+        // once the package's app is served. Not awaited, and not cancelled on
+        // unmount, as on the package page: an operator who leaves this page
+        // while the app deploys still gets the refreshed cache when it lands.
+        void awaitServedOrgInstall(pkg.manifest_id, pkg.display_name);
+        await load();
       }
-      setOrgMsg({ ok: true, text: t('marketplace.org.installed', { defaultValue: `Installed ${pkg.display_name}`, name: pkg.display_name }) });
-      await load();
-      // The install merged a package into the live registry. Pulse every
-      // mounted MetadataProvider so the new app appears in the nav (and its
-      // objects/views resolve) without a manual browser refresh.
-      emitMetadataRefresh();
     } catch (e: any) {
       setOrgMsg({ ok: false, text: e?.message ?? String(e) });
     } finally {
@@ -279,6 +347,60 @@ export function MarketplacePage() {
   if (!isResolved) return <MarketplaceResolving />;
 
   if (!isAdmin) return <MarketplaceAccessDenied />;
+
+  // objectui#12097 — the org install's deploy status, drawn as the package
+  // page draws it (objectui#12087), under the package's name.
+  const orgDeployApp = orgDeploy?.phase === 'served' ? orgDeploy.app : null;
+  const orgDeployNote = orgDeploy && (
+    <div
+      role="status"
+      data-testid="org-deploy-status"
+      className={`flex items-start gap-2 rounded-md border p-3 text-sm ${
+        orgDeploy.phase === 'served'
+          ? 'border-green-500/30 bg-green-500/5 text-green-700 dark:text-green-400'
+          : orgDeploy.phase === 'timeout'
+            ? 'border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400'
+            : 'border-border bg-muted/40 text-foreground'
+      }`}
+    >
+      {orgDeploy.phase === 'waiting'
+        ? <Loader2 className="h-4 w-4 mt-0.5 shrink-0 animate-spin" aria-hidden="true" />
+        : orgDeploy.phase === 'served'
+          ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
+          : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />}
+      <div className="flex-1 space-y-2">
+        <div>
+          <div className="font-medium">{orgDeploy.name}</div>
+          <div>
+            {orgDeploy.phase === 'waiting'
+              ? t('marketplace.install.deploying')
+              : orgDeploy.phase === 'served'
+                ? t('marketplace.install.deployed')
+                : t('marketplace.install.deployTimeout')}
+          </div>
+        </div>
+        {orgDeployApp && appRouteSegment(orgDeployApp) ? (
+          <Button size="sm" onClick={() => navigate(`/apps/${appRouteSegment(orgDeployApp)}`)}>
+            {t('marketplace.install.openApp', {
+              name: appLabel({
+                name: String(orgDeployApp.name ?? appRouteSegment(orgDeployApp)),
+                label: resolveKeyedI18nLabel(orgDeployApp.label, t),
+              }),
+            })}
+          </Button>
+        ) : null}
+        {orgDeploy.phase === 'timeout' ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void awaitServedOrgInstall(orgDeploy.manifestId, orgDeploy.name)}
+          >
+            {t('marketplace.install.checkAgain')}
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
@@ -383,6 +505,7 @@ export function MarketplacePage() {
             </h2>
             <Badge variant="secondary" className="text-xs">{orgItems.length}</Badge>
           </div>
+          {orgDeployNote}
           {orgMsg && (
             <div className={`rounded-md border p-3 text-sm ${orgMsg.ok ? 'border-green-500/30 bg-green-500/5 text-green-700 dark:text-green-400' : 'border-destructive/30 bg-destructive/5 text-destructive'}`}>
               {orgMsg.text}

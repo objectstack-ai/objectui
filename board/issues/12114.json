@@ -1,0 +1,26 @@
+{
+  "number": 12114,
+  "kind": "issue",
+  "title": "scripts: a local Spec Main Shape Gate reproduction writes main-spec type-check verdicts into turbo's worktree-shared cache, so a later unforced installed-spec type-check in any worktree replays them (a false green)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-11T02:04:40Z",
+  "updated_at": "2026-10-11T02:04:40Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12114",
+  "body": "Filing class: **a mechanizable guard, measured by a dispatched dev and asked for by the maintainer.** The maintainer asked for it in the `domain:ui` seat 3 session (`session_01B1gHb9baeX7oioD5sHVm7z`), verbatim, 2026-10-11: 「要开卡：发现一个可以做成机制的问题：在本地复现这个闸门时，turbo 的跨 worktree 共享缓存会把基于 main 版 spec 的结果，回放给基于已安装版 spec 的类型检查，得到假绿。复现时需要加 TURBO_FORCE=true。」 ⛔ Not graded or routed here: triage grades.\n\n## The measurement\n\nFrom the `os-dev-report` `6100892115` on objectui#12085 (the dispatch that folded objectui#12093's gate fix, PR objectui#12100):\n\n- The dev reproduced `Spec Main Shape Gate` locally. They built `@objectstack/spec` from objectstack `main`, packed it, and injected it with `node scripts/spec-main-shape-gate.mjs inject` into a **sibling git worktree**, then ran the type-check there.\n- turbo 2.10 here uses a cache **shared across worktrees** (its log line: \"using shared worktree cache\").\n- A later **unforced** `pnpm type-check` against the INSTALLED spec, in another worktree with equal task hashes, reported 81/81. **80 of those were cache hits replayed from the main-spec run.** The dev discarded the run as NOT MEASURED, and a `TURBO_FORCE=true` re-run (81/81 forced, 0 cache hits) gave the real verdict.\n\n## Why the script's existing guard does not cover it\n\n`scripts/spec-main-shape-gate.mjs`'s header section \"The turbo cache is a FALSE GREEN here, and the workflow must bypass it\" covers the **gate's own** run: turbo's `type-check` hash covers sources, the lockfile and a declared env list, but not the content of `node_modules`. So a run after an injection can replay the pre-injection verdict. The workflow runs `TURBO_FORCE=true pnpm type-check` (`.github/workflows/spec-main-shape-gate.yml`), and `scripts/__tests__/spec-main-shape-gate.test.ts` pins that.\n\nThis finding is the **reverse direction, and local only**:\n- the injected run's verdicts are **written** to a cache other worktrees read;\n- the next ordinary type-check in any worktree — a dev's normal pre-push gate against the installed spec — can replay them.\n\nThat is a green (or red) answer to a question about a spec the worktree does not have. CI is unaffected: it forces, and it shares no cache with a local worktree.\n\n## Direction (for triage to grade, not a ruling)\n\nMake the local reproduction unable to poison the shared cache. Some candidate options:\n- `inject` refuses to finish without stating the guard, or the script's local recipe runs the type-check itself with `TURBO_FORCE=true` (or `--force`) and never writes cache entries for an injected tree;\n- an injected worktree gets its own cache directory (`--cache-dir` / `TURBO_CACHE_DIR`), so it never shares entries;\n- the injection marker becomes part of turbo's hash (for example a `globalDependencies` file that `inject` writes), so injected and installed trees can never share an entry.\n\nEach option needs a pin: a local reproduction followed by an installed type-check in a sibling worktree must not report a cache hit for `type-check`.\n\nDedupe: an objectui issue search for turbo shared worktree cache, replay, Spec Main Shape Gate local reproduction and `TURBO_FORCE` finds six turbo-input and gate cards: objectui#4178, #4184, #4185, #6577, #7855 and #9944, all closed. None is this direction."
+}

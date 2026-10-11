@@ -2189,12 +2189,13 @@ export interface FormField {
   // `SchemaRenderer`: `examples/schema-catalog/test/form-field-channel-census-12130.test.tsx`
   // records every key of the entry a reader asks for by name, and
   // `form-field-channel-effects-12130.test.tsx` beside it renders each one
-  // with and without. Every member below is read by the widget its note names
-  // and changes what that widget does; on any other field type it is accepted
-  // and read by nothing. The spec's `FieldSchema` members are typed by
-  // reference, `idField` / `picker` / `subtitle` are the field metadata
-  // types' members by reference, and `capture`, `crop`, `defaultName` and
-  // `avatarField`, which no type declared, are typed as the widget reads them.
+  // with and without. Every member below is read by the widget or branch its
+  // note names and changes what it does; where no note names a field type, it
+  // is accepted and read by nothing. The spec's `FieldSchema` members are
+  // typed by reference (`step` among them), `idField` / `picker` / `subtitle`
+  // are the field metadata types' members by reference, and `capture`,
+  // `crop`, `defaultName`, `avatarField` and `className`, which no type
+  // declared for a form field, are typed as they are read.
   //
   // ⛔ Not declared: `defaultValue` and `defaultChecked`. No reader asks for
   // either, and neither becomes the field's value (the effects file measures
@@ -2205,10 +2206,10 @@ export interface FormField {
   // face declares one spelling, camelCase like its other keys (AGENTS.md
   // #0.1; objectui#11610), and the census ledger records the read.
   //
-  // ⛔ Not declared either, and open on objectui#12130: `step`. The `number`
-  // and `slider` widgets read it, but `ObjectForm` (`@object-ui/plugin-form`)
-  // writes `step: 'any'` onto the entries it builds, a value the spec's
-  // numeric `FieldSchema.step` refuses. The census ledger carries it.
+  // `step` is the spec's number, so HTML's `'any'` is refused here. No
+  // producer writes it: the control that draws a number derives `'any'`
+  // itself when the field declares neither `step` nor `scale`
+  // (objectui#12130; `ObjectForm` wrote it until then).
 
   /**
    * Language of a `code` field, e.g. `python`. The `code` widget's editor
@@ -2289,6 +2290,28 @@ export interface FormField {
    * which this face refuses.
    */
   avatarField?: string;
+  /**
+   * Step of the field's number input: the spec's `FieldSchema.step`, a
+   * number (never HTML's `'any'`). The `number` widget and the form
+   * renderer's own number input (an entry with `inputType: 'number'`) put it
+   * on the `<input>`; without it they derive `10^-scale` from
+   * {@link FormField.scale}, else `'any'`, so decimals stay accepted. The
+   * `slider` widget steps by it (default 1).
+   */
+  step?: SpecField['step'];
+  /**
+   * Classes for the element this field's type renders, joined with the
+   * classes that element already has (`cn`, so a conflicting utility written
+   * here wins). That is the control a built-in branch (`input`, `textarea`,
+   * `checkbox`, `switch`, `select`, and the default for an unregistered
+   * widget) draws, the element a registered field widget renders, or a
+   * `section-divider` row's divider. Never the field row: its width is
+   * {@link FormField.colSpan} / {@link FormField.span}, and the grid is
+   * {@link FormSchema.fieldContainerClass}. Some widgets draw no class from
+   * it, and most read-only displays draw none.
+   * `form-field-channel-effects-12130.test.tsx` measures where it lands.
+   */
+  className?: string;
 }
 
 /**

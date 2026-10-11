@@ -75,6 +75,8 @@ const DECLARED: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
   ['picker', { type: 'user', reference: 'sys_user', picker: 'search' }],
   ['subtitle', { type: 'user', reference: 'sys_user', picker: 'search', subtitle: ['email'] }],
   ['avatarField', { type: 'user', reference: 'sys_user', picker: 'search', avatarField: 'photo' }],
+  ['step', { type: 'number', step: 0.5 }],
+  ['className', { type: 'input', className: 'w-48' }],
 ];
 
 /* ── 1. accepted on the strict face; a misspelling beside it is not ─────── */
@@ -116,6 +118,10 @@ describe('each declared key is judged by its declared type (objectui#12130)', ()
     ['picker', { type: 'user', picker: 'table' }],
     ['subtitle', { type: 'user', subtitle: 'email' }],
     ['avatarField', { type: 'user', avatarField: ['photo'] }],
+    // HTML's `'any'`: the spec's `step` is a number, so this is refused on the
+    // tolerant face too, which kept it before objectui#12130 declared `step`.
+    ['step', { type: 'number', step: 'any' }],
+    ['className', { type: 'input', className: ['w-48'] }],
   ];
 
   it.each(WRONG)('a wrong `fields[].%s` value is refused at that key, on both faces', (key, field) => {
@@ -181,7 +187,8 @@ export type assertionChannelMembersAreTyped = Expect<Equal<
   IsAny<FormField['language'] | FormField['maxSize'] | FormField['capture'] | FormField['crop']
     | FormField['defaultName'] | FormField['allowCreate'] | FormField['descriptionField'] | FormField['displayField']
     | FormField['idField'] | FormField['lookupColumns'] | FormField['lookupFilters'] | FormField['lookupPageSize']
-    | FormField['picker'] | FormField['subtitle'] | FormField['avatarField']>,
+    | FormField['picker'] | FormField['subtitle'] | FormField['avatarField'] | FormField['step']
+    | FormField['className']>,
   false
 >>;
 
@@ -195,6 +202,7 @@ export type assertionSpecMembersByReference = [
   Expect<Equal<FormField['lookupColumns'], SpecField['lookupColumns']>>,
   Expect<Equal<FormField['lookupFilters'], SpecField['lookupFilters']>>,
   Expect<Equal<FormField['lookupPageSize'], SpecField['lookupPageSize']>>,
+  Expect<Equal<FormField['step'], SpecField['step']>>,
 ];
 
 /** The field metadata types' members, by reference; the rest as their widgets read them. */
@@ -206,4 +214,5 @@ export type assertionLocalMembers = [
   Expect<Equal<FormField['crop'], boolean | undefined>>,
   Expect<Equal<FormField['defaultName'], string | undefined>>,
   Expect<Equal<FormField['avatarField'], string | undefined>>,
+  Expect<Equal<FormField['className'], string | undefined>>,
 ];

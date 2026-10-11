@@ -1162,14 +1162,14 @@ export const FormFieldSchema = z.object({
   // objectui#12130 — the rest of the field metadata the channel reads off the
   // entry, measured at runtime (the census and effects pins under
   // `examples/schema-catalog/test/`). The spec's `FieldSchema` members by
-  // reference; `idField` / `picker` / `subtitle` stated once from the field
-  // metadata types' members the TS twin carries by reference; `capture`,
-  // `crop`, `defaultName` and `avatarField` typed as the widget reads them.
+  // reference (`step` among them, so HTML's `'any'` is refused); `idField` /
+  // `picker` / `subtitle` stated once from the field metadata types' members
+  // the TS twin carries by reference; `capture`, `crop`, `defaultName`,
+  // `avatarField` and `className` typed as they are read.
   // `defaultValue` and `defaultChecked` stay undeclared: no reader asks for
   // either, and neither becomes the field's value (`FormSchema.defaultValues`
   // does). `avatar_field` stays undeclared: the second spelling of
-  // `avatarField` (AGENTS.md #0.1). `step` stays undeclared too, open: see
-  // the TS twin.
+  // `avatarField` (AGENTS.md #0.1).
   language: stripImportedDefaults(SpecFieldSchema).shape.language,
   maxSize: stripImportedDefaults(SpecFieldSchema).shape.maxSize,
   capture: z.union([z.enum(['environment', 'user']), z.literal(false)]).optional()
@@ -1192,6 +1192,9 @@ export const FormFieldSchema = z.object({
     .describe('Record fields shown beside each candidate of the search picker; read by the `lookup` and `user` widgets'),
   avatarField: z.string().optional()
     .describe('Record field each candidate of the search picker draws its avatar image from (default `image`); read by the `lookup` and `user` widgets'),
+  step: stripImportedDefaults(SpecFieldSchema).shape.step,
+  className: z.string().optional()
+    .describe('Classes for the element this field\'s type renders (the control, or a section-divider row\'s divider), joined with that element\'s own classes; never the field row'),
 }).superRefine((field, ctx) => {
   // objectui#11070 round 13 — the spec's one cross-key rule on `scale`; see
   // CURRENCY_FIELD_SCALE_REFUSAL.

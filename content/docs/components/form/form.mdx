@@ -29,10 +29,14 @@ interface FormField {
   maxLength?: number;
   min?: number;
   max?: number;
+  step?: number;     // a number, never 'any'; without one, a number input steps by 10^-scale, or 'any' with no scale
   pattern?: string;
   
   // Options (for select, radio-group)
   options?: Array<{ value: string; label: string }>;
+
+  // Styling: the classes of the control this field draws, joined with its own; never the field row
+  className?: string;
 }
 
 interface FormSchema {

@@ -134,6 +134,10 @@ const DECLARED_KEYS = [
   // objectui#12130 round 2 — the search picker's avatar field, camelCase only;
   // the `avatar_field` spelling the widgets read first stays refused.
   'avatarField',
+  // objectui#12130 round 3 — the spec's numeric `step`, by reference, and the
+  // classes of the element the field's type renders.
+  'step',
+  'className',
 ];
 
 /**

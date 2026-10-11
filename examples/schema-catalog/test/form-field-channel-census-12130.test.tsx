@@ -53,8 +53,8 @@
  * readers; so does a ledger row whose read is gone. Each row says why the
  * strict face's refusal of its key stands, or that the question is still open.
  * {@link DECLARED_BY_12130} names, for each key this card declared, the field
- * types whose widget reads it; on every other type the key is accepted and
- * read by nothing.
+ * types whose widget reads it by name; on every other type the key is
+ * accepted and read by nothing, except where that map's note says otherwise.
  *
  * ## What it does not see (bounds, said per AGENTS.md #9)
  *
@@ -288,26 +288,6 @@ const CURRENCY = 'entry@i18n/src/currency.ts';
  * refusal is right.
  */
 const LEDGER: Readonly<Record<string, LedgerRow>> = {
-  // ── read, and still open: the refusal may be false ──────────────────────
-  step: {
-    readers: ['entry@fields/src/widgets/NumberField.tsx', 'entry@fields/src/widgets/SliderField.tsx'],
-    why: 'OPEN — read and effective (the effects pins), but `ObjectForm` writes `step: \'any\'` onto the entries it '
-      + 'builds, which the spec\'s numeric `FieldSchema.step` refuses. Declaring it by reference breaks that producer; '
-      + 'declaring `number | \'any\'` departs from the spec. A decision on objectui#12130.',
-  },
-  className: {
-    readers: [
-      'props@fields/src/widgets/CheckboxesField.tsx', 'props@fields/src/widgets/CurrencyField.tsx',
-      'props@fields/src/widgets/FilterConditionField.tsx', 'props@fields/src/widgets/MultiSelectField.tsx',
-      'props@fields/src/widgets/ObjectRefField.tsx', 'props@fields/src/widgets/PasswordField.tsx',
-      'props@fields/src/widgets/PercentField.tsx', 'props@fields/src/widgets/RadioField.tsx',
-      'props@fields/src/widgets/RatingField.tsx', 'props@fields/src/widgets/RecipientPickerField.tsx',
-      'props@fields/src/widgets/TagsField.tsx',
-    ],
-    why: 'OPEN — read off props by these widgets and forwarded to the control by the rest; on a built-in branch it '
-      + 'replaces the branch\'s own classes. Whether a field entry declares it, and which element it styles, is a '
-      + 'decision on objectui#12130.',
-  },
   // ── second spellings of a declared key: refused (AGENTS.md #0.1) ────────
   allow_create: { readers: [LOOKUP], why: 'ALIAS of the spec\'s `allowCreate`, which this face declares; the widget reads it first.' },
   lookup_columns: { readers: [LOOKUP], why: 'ALIAS of the spec\'s `lookupColumns`, which this face declares; the widget reads it first.' },
@@ -366,6 +346,17 @@ const DECLARED_BY_12130: Readonly<Record<string, readonly string[]>> = {
   picker: ['lookup', 'master_detail', 'user'],
   subtitle: ['lookup', 'master_detail', 'user'],
   avatarField: ['lookup', 'master_detail', 'user'],
+  // Round 3. The spec's number: the form renderer's own number input reads it
+  // too, under `inputType: 'number'`, which no entry here carries (the
+  // effects file measures that input).
+  step: ['number', 'slider'],
+  // Round 3. These widgets read it by name; the built-in branches and every
+  // widget that spreads its props onto its control apply it too, which no
+  // recorder sees. The effects file measures where it lands, type by type.
+  className: [
+    'checkboxes', 'currency', 'filter-condition', 'multiselect', 'object-ref', 'password',
+    'percent', 'radio', 'rating', 'recipient-picker', 'tags',
+  ],
 };
 
 /* ── the census ──────────────────────────────────────────────────────────── */

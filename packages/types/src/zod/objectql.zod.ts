@@ -2690,7 +2690,12 @@ function requireRecordSource(
     if (bindingRung === 'counts' && dataSourceSuppliesObject(node)) return;
     ctx.addIssue({
       code: 'custom',
-      path,
+      // A FRESH array per issue (objectui#5250). zod copies an added issue
+      // shallowly and then prefixes its `path` in place as the issue climbs out
+      // of an array slot or an object key, so handing over `path` itself let the
+      // first refusal reported from inside a container rewrite this arm's path
+      // for every refusal after it, for the life of the module.
+      path: [...path],
       params: { code: 'RECORD_SOURCE_REQUIRED' },
       message,
     });

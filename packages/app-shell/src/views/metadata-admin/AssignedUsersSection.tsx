@@ -14,23 +14,27 @@
  * rules on the junction insert (e.g. the AI-seat cap) are caught and shown as a
  * friendly, localized inline message — not a raw developer error.
  *
- * ## By name, against the registry (objectui#7611, ADR-0131 D3/D4)
+ * ## By name, against the registry (objectui#7611, ADR-0131 D3/D4/D10)
  *
- * The set is addressed by its machine NAME throughout:
+ * The set is addressed by its machine NAME throughout, and no
+ * `sys_permission_set` row is read or written:
  *
  *  - direct grants are the `sys_user_permission_set` rows whose `permission_set`
  *    column names the set — the by-name column the platform's grant readers
  *    key on (a grant with no name grants nothing through them);
+ *  - ADD writes a grant by name alone, `{ user_id, permission_set }`. The set is
+ *    the security catalog's definition of that name, so a set with no catalog
+ *    row is granted like any other. The grant's legacy `permission_set_id`
+ *    column is never written: no writer fills it and the server derives
+ *    nothing from it (objectstack ADR-0131 D10, stage 6b-2-pre). A name the
+ *    catalog does not hold is refused by the server (`400 VALIDATION_FAILED`,
+ *    `reference_not_found` at `permission_set`), and the refusal is shown in
+ *    the server's own words;
+ *  - REMOVE deletes the direct grant's own row, by its id;
  *  - the positions that distribute the set are the registry's `position`
  *    definitions whose `permissionSets` list names it (ADR-0131 D4 — the
  *    binding is part of the position's definition), read through the console's
  *    metadata store, never `sys_position_permission_set` / `sys_position` rows.
- *
- * ⚠️ One row read remains, and only on ADD: the grant door still requires
- * `permission_set_id` and refuses a grant that carries the name alone
- * (measured on objectstack `main`: 400 `VALIDATION_FAILED` on
- * `permission_set`). {@link resolveGrantRowId} is that read, pending the
- * server half that accepts a grant by name.
  *
  * Permission-set-agnostic: every role gets the same UI, and the AI seat
  * (`ai_seat`) is just one of them. The generic add-by-picker engine (spec
@@ -80,7 +84,6 @@ function useCopy() {
             direct: '直授',
             viaPosition: (p: string) => '经岗位 ' + p,
             everyoneNote: '已绑定到 everyone 锚点 — 所有登录成员都持有此权限集。',
-            noGrantRow: '此权限集还没有目录行，服务端暂时无法按名称分配。',
             positionHeldHint: '经岗位持有 — 在岗位的指派中移除。',
           }
         : {
@@ -97,7 +100,6 @@ function useCopy() {
             direct: 'direct',
             viaPosition: (p: string) => 'via position ' + p,
             everyoneNote: 'Bound to the everyone anchor — every signed-in member holds this set.',
-            noGrantRow: 'This set has no catalog row yet, and the server does not accept a grant by name alone yet.',
             positionHeldHint: 'Held via a position — remove it on the position’s assignments.',
           },
     [zh],
@@ -143,18 +145,6 @@ export function positionsDistributing(positions: readonly unknown[], setName: st
     if (Array.isArray(p.permissionSets) && p.permissionSets.includes(setName)) out.push(p.name);
   }
   return out;
-}
-
-/**
- * The `sys_permission_set` row id a NEW grant must carry — the one row read
- * left here, pending the server half: the grant door requires
- * `permission_set_id` and stamps the name from it (see the module doc).
- */
-async function resolveGrantRowId(adapter: any, setName: string): Promise<string | null> {
-  const rows = asArray(
-    await adapter.find('sys_permission_set', { $filter: { name: setName }, $select: ['id'], $top: 1 }),
-  );
-  return rows[0]?.id != null ? String(rows[0].id) : null;
 }
 
 export function AssignedUsersSection({ permissionSetName }: AssignedUsersSectionProps) {
@@ -256,17 +246,14 @@ export function AssignedUsersSection({ permissionSetName }: AssignedUsersSection
       setBusy(true);
       setError(null);
       try {
-        const setId = await resolveGrantRowId(adapter, permissionSetName);
-        if (!setId) throw new Error(c.noGrantRow);
         for (const u of records || []) {
           const uid = u?.id != null ? String(u.id) : null;
           if (!uid || assignedIds.has(uid)) continue;
-          // The id is what the grant door requires today; the name rides
-          // beside it and the door refuses a mismatch (module doc).
+          // By name alone: no catalog row is read and no legacy
+          // `permission_set_id` is written (module doc).
           await adapter.create('sys_user_permission_set', {
-            permission_set_id: setId,
-            permission_set: permissionSetName,
             user_id: uid,
+            permission_set: permissionSetName,
           });
         }
         await load();

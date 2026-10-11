@@ -52,6 +52,11 @@
  *    write affordance with no row yet (`unmapped`, the backlog this census
  *    found, named one by one). A write site added later with no entry turns it
  *    red, naming the site; an entry whose site is gone turns it red too.
+ * 8. **The backlog is frozen.** `UNMAPPED_BACKLOG` names every key the census
+ *    still grades `unmapped`, and the two must be equal: a NEW `unmapped` entry
+ *    turns it red until the site is graded (`mapped`, or the reason it is no
+ *    affordance), and a key graded out of the backlog must leave the list. So
+ *    the backlog can only shrink.
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
@@ -550,10 +555,11 @@ describe('the census: every affordance reads the map (objectui#12082)', () => {
 //
 // One site key can also hide several doors: a component that issues a write
 // its HOST gates (the import wizard, mounted by the console list and by the AI
-// build panel's spreadsheet import) has one site and one door per mount. Those
-// are listed in `HOST_GATED`, and every mount must be a file its site names —
-// that is how a second mount with no grant read is seen. A host-gated component
-// not listed there is not seen; the list is written by hand, like the ledger.
+// build panel's spreadsheet import) has one site and one door per mount. Such a
+// site is found, not listed: it is host-gated when a file it names as a reader
+// mounts the component the write is written in, and then every mount must be a
+// file its site names — that is how a second mount with no grant read is seen.
+// What that derivation cannot see is written beside `hostGatedSites` below.
 // ---------------------------------------------------------------------------
 
 type Verb = 'create' | 'update' | 'delete' | 'batch';
@@ -591,7 +597,10 @@ type WriteSite =
   | { kind: 'door'; why: string }
   /** A write that is not a CRUD affordance on a record the caller browses. */
   | { kind: 'outOfFamily'; why: string }
-  /** A write affordance with no map row yet — the backlog this census found, named one by one. */
+  /**
+   * A write affordance with no map row yet — the backlog this census found,
+   * named one by one. FROZEN: only a key `UNMAPPED_BACKLOG` holds may carry it.
+   */
   | { kind: 'unmapped'; why: string };
 
 const mapped = (rows: ConsoleAffordance[], ...readBy: string[]): WriteSite => ({ kind: 'mapped', rows, readBy });
@@ -796,6 +805,39 @@ const WRITE_SITES: Record<string, WriteSite> = {
     mapped(['editFormFields'], 'apps/console/src/pages/system/ProfilePage.tsx'),
 };
 
+/**
+ * The `unmapped` backlog, FROZEN (objectui#12082: the contract review's
+ * freeze, the first step of triage's order on the card).
+ *
+ * These are the write affordances the census found with no map row, and the
+ * only keys `WRITE_SITES` may grade `unmapped`. The pin below holds the two
+ * equal in both directions:
+ *
+ *  - a write site entered as `unmapped` that this list does not hold is red —
+ *    a new write affordance is graded when it lands (a map row read where it is
+ *    offered, or the reason it is no affordance), never parked here;
+ *  - a key graded out of `unmapped` (mapped, out of family, or gone from the
+ *    tree) is red until it is deleted from this list.
+ *
+ * ⛔ Never add a key here. The list exists to shrink to nothing: the card's
+ * done-when is a census with no `unmapped` entry, and then this list is empty.
+ */
+const UNMAPPED_BACKLOG: ReadonlySet<string> = new Set([
+  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleAddComment :: create',
+  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleAddReply :: create',
+  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction :: update',
+  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction > write :: create',
+  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction > write :: delete',
+  'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx :: AssignedUsersSection > addUsers :: create',
+  'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx :: AssignedUsersSection > removeUser :: delete',
+  'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > addHolders :: create',
+  'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > removeHolder :: delete',
+  'packages/plugin-designer/src/pages/DashboardDesignPage.tsx :: DashboardDesignPage > saveSchema :: update',
+  'packages/plugin-detail/src/RelatedList.tsx :: RelatedList > handleAddRecords :: create',
+  'packages/plugin-detail/src/RelatedList.tsx :: RelatedList > handleAddRecords :: update',
+  'packages/plugin-detail/src/renderers/record-related-list.tsx :: RecordRelatedListBody :: delete',
+]);
+
 const isFn = (e: ts.Node | undefined): boolean => !!e && (ts.isArrowFunction(e) || ts.isFunctionExpression(e));
 
 /** Does this initializer open a named scope — a function, or an object / call carrying one? */
@@ -816,22 +858,46 @@ function scopeName(n: ts.Node, sf: ts.SourceFile): string | null {
   return null;
 }
 
+/** The component a write site is written in: the first enclosing symbol of its key. */
+const componentOf = (key: string): string => key.split(' :: ')[1].split(' > ')[0];
+
 /**
- * Write sites inside a component its HOST gates — component name → the site.
+ * The write sites inside a component its HOST gates, as `[component, site]` —
+ * DERIVED from the ledger and the tree, never listed by hand.
  *
  * The component issues the write, but the affordance that opens it (an Import
  * button) is drawn by whoever mounts it, so each mount is a door of its own
- * behind one site key: the census above cannot tell two mounts apart. So every
- * console source that mounts the component (a JSX element of that name) must
- * be named in the site's `readBy`, and the mapped-site check holds each named
+ * behind one site key: the write census cannot tell two mounts apart. A mapped
+ * site is host-gated exactly when a file it names in `readBy` mounts the
+ * component the write is written in (a JSX element of that name) — its gate
+ * lives in a host. Then every console source that mounts the component must be
+ * named in the site's `readBy` too, and the mapped-site check holds each named
  * file to reading one of the site's rows. A mount added later with no grant
- * read turns this red, naming the file.
+ * read turns the pin red, naming the file; so does a NEW host-gated component,
+ * with no list to remember it in.
+ *
+ * What this does NOT see, said here rather than left to be assumed (AGENTS.md
+ * #9): a host that reaches the writing code through anything but a JSX element
+ * of the component's own name — a hook it calls (`useObjectActions`,
+ * `useBulkExecutor`), a function it calls, an alias it imports under, or a
+ * wrapper component it mounts instead — is not a mount to this walk. A site
+ * whose readers mount the component only that way is not derived as
+ * host-gated, and a new caller of it that offers the write with no grant read
+ * is not seen.
  */
-const HOST_GATED: Readonly<Record<string, string>> = {
-  ImportWizard: 'packages/plugin-grid/src/ImportWizard.tsx :: ImportWizard > legacyImport :: create',
-};
+function hostGatedSites(mountsBy: ReadonlyMap<string, ReadonlySet<string>>): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  for (const [key, site] of Object.entries(WRITE_SITES)) {
+    if (site.kind !== 'mapped') continue;
+    const component = componentOf(key);
+    const own = key.slice(0, key.indexOf(' :: '));
+    const mounts = mountsBy.get(component);
+    if (mounts && site.readBy.some((f) => f !== own && mounts.has(f))) out.push([component, key]);
+  }
+  return out;
+}
 
-/** The write sites in one source text, the map rows it reads, and the host-gated components it mounts. */
+/** The write sites in one source text, the map rows it reads, and the components it mounts (JSX element names). */
 function scanWrites(rel: string, text: string): { sites: Set<string>; rowsRead: Set<string>; mounts: Set<string> } {
   const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, false, rel.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const sites = new Set<string>();
@@ -840,10 +906,7 @@ function scanWrites(rel: string, text: string): { sites: Set<string>; rowsRead: 
   const visit = (n: ts.Node, chain: string[]): void => {
     const name = scopeName(n, sf);
     const here = name ? [...chain, name] : chain;
-    if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) {
-      const tag = n.tagName.getText(sf);
-      if (Object.prototype.hasOwnProperty.call(HOST_GATED, tag)) mounts.add(tag);
-    }
+    if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) mounts.add(n.tagName.getText(sf));
     if (ts.isCallExpression(n)) {
       const callee = n.expression;
       const calleeText = callee.getText(sf);
@@ -910,13 +973,13 @@ describe('the write census: every write call site sits behind a map row, or says
       'pin/probe.tsx :: save :: update',
     ]);
     expect([...rowsRead]).toEqual(['rowEdit']);
-    // …and the mount walk fires on a host-gated component's JSX element, in
-    // either form, and on nothing else.
+    // …and the mount walk records each JSX element by its exact name, in either
+    // form: a fragment is no element, and a longer name is another component.
     const { mounts } = scanWrites(
       'pin/mounts.tsx',
       'const A = () => <><ImportWizard open /><ImportWizardHelp /><Other><ImportWizard></ImportWizard></Other></>;',
     );
-    expect([...mounts]).toEqual(['ImportWizard']);
+    expect([...mounts].sort()).toEqual(['ImportWizard', 'ImportWizardHelp', 'Other']);
   });
 
   it('CONTROL — the walk reached the data door and the five sites the card names', () => {
@@ -967,6 +1030,21 @@ describe('the write census: every write call site sits behind a map row, or says
     expect(problems).toEqual([]);
   });
 
+  it('the unmapped backlog is frozen: no NEW unmapped entry, and a key graded out of it leaves the list', () => {
+    const graded = Object.entries(WRITE_SITES)
+      .filter(([, site]) => site.kind === 'unmapped')
+      .map(([key]) => key);
+    const added = graded.filter((key) => !UNMAPPED_BACKLOG.has(key)).sort();
+    const left = [...UNMAPPED_BACKLOG].filter((key) => !graded.includes(key)).sort();
+    expect(
+      { added, left },
+      'The unmapped backlog is frozen. A write site entered as `unmapped` that UNMAPPED_BACKLOG does not hold ' +
+        '(added) is graded now: give it a row in AFFORDANCE_GRANTS and read it where the affordance is offered ' +
+        '(`mapped`), or enter the measured reason it is no affordance (`outOfFamily`). A backlog key no longer ' +
+        'graded `unmapped` (left) is deleted from UNMAPPED_BACKLOG: the list only shrinks.',
+    ).toEqual({ added: [], left: [] });
+  });
+
   it('the write helpers and their entries name each other', () => {
     const named = new Set(
       Object.values(WRITE_SITES).flatMap((site) => (site.kind === 'helper' ? [site.helper] : [])),
@@ -1007,14 +1085,12 @@ describe('the write census: every write call site sits behind a map row, or says
 
   it('every mount of a host-gated write component is a file its site names, so each mount reads the row', () => {
     const problems: string[] = [];
-    for (const [component, key] of Object.entries(HOST_GATED)) {
+    for (const [component, key] of hostGatedSites(mountsBy)) {
       const site = WRITE_SITES[key];
-      if (site?.kind !== 'mapped') {
-        problems.push(`${key}: the site ${component} hosts is not a mapped entry`);
-        continue;
-      }
+      if (site?.kind !== 'mapped') continue;
+      const own = key.slice(0, key.indexOf(' :: '));
       for (const file of mountsBy.get(component) ?? []) {
-        if (!site.readBy.includes(file)) {
+        if (file !== own && !site.readBy.includes(file)) {
           problems.push(`${file} mounts ${component} but is not named by ${key}: read its row where the mount offers it, and name the file there`);
         }
       }
@@ -1022,7 +1098,10 @@ describe('the write census: every write call site sits behind a map row, or says
     expect(problems).toEqual([]);
   });
 
-  it('CONTROL — the mount walk reaches both mounts of the import wizard', () => {
+  it('CONTROL — the derivation finds the import wizard host-gated, and the mount walk reaches both its mounts', () => {
+    // A derivation that found nothing would pass the pin above over every
+    // tree; this is the site the hand-written list it replaced held.
+    expect(hostGatedSites(mountsBy).map(([component]) => component)).toEqual(expect.arrayContaining(['ImportWizard']));
     expect([...(mountsBy.get('ImportWizard') ?? [])]).toEqual(expect.arrayContaining([CONSOLE_LIST, EXCEL_IMPORT_BAR]));
   });
 });

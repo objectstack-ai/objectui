@@ -34,7 +34,7 @@ one has its own section below.
 | `skill-examples.yml` | Skill Example Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a MARKED fenced example in a `skills/` or `.claude/skills/` guide no longer compiles against the packages' built types, no longer parses as JSON, uses a bare `any`, or carries a marker that opts nothing in |
 | `skill-eval-tokens.yml` | Skill Eval Token Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when an eval assertion's `must_contain` token is not taught as a whole token anywhere in its own `skills/` bundle |
 | `doc-component-types.yml` | Doc Component Type Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a `content/docs/**.mdx` snippet teaches a `type` nothing registers |
-| `doc-snippet-types.yml` | Doc Snippet Type Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a covered documentation snippet no longer compiles against the packages' built types, **or** when a covered JSDoc `@example` block does (two gates, one job — see below) |
+| `doc-snippet-types.yml` | Doc Snippet Type Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a covered documentation snippet no longer compiles against the packages' built types, **or** when a covered JSDoc `@example` block does, **or** when a `json` / `jsonc` node document in `content/docs` is refused by the strict authoring face (three gates, one job — see below) |
 | `doc-fence-languages.yml` | Doc Fence Language Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a TypeScript block sits under a fence the snippet gate does not read |
 | `doc-example-ids.yml` | Doc Example Id Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a `content/docs/**` page references a schema-catalog example id the registry does not carry, or when the gate's own population collapses |
 | `pre-install-import-graph.yml` | Pre-Install Import Graph Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a gate a workflow runs *before* `pnpm install` reaches a package anywhere in its import graph |
@@ -1159,7 +1159,7 @@ names: `pnpm exec turbo run build $(node scripts/check-doc-snippet-types.mjs --b
 
 ### JSDoc `@example` Types — the second gate in this job (`doc-snippet-types.yml`)
 
-The same job's **last** step runs `scripts/check-doc-example-types.mjs`
+The same job's second blocking step runs `scripts/check-doc-example-types.mjs`
 (`pnpm check:doc-examples`). It asks the snippet gate's question of a different corpus: every fenced
 `ts` / `tsx` block inside a JSDoc `@example` on an **exported** declaration under
 `packages/NAME/src/**` must compile `--strict` against the packages' built `dist/*.d.ts`, or be
@@ -1174,6 +1174,7 @@ copying it out of an IDE hover got TS2322, and nothing in this repository had ev
 | `pnpm check:doc-snippets` (`scripts/check-doc-snippet-types.mjs`) | fenced `ts` / `tsx` blocks in the **documents** the `UNGATED_DOCS` ledger does not exempt | **Yes** |
 | `pnpm check:doc-snippets --emit-census` | code this repository's generators emit from **template literals** | No — report-only |
 | `pnpm check:doc-examples` (`scripts/check-doc-example-types.mjs`) | fenced `ts` / `tsx` blocks in JSDoc **`@example`** tags on exported declarations under `packages/NAME/src/**` | **Yes** |
+| `pnpm check:doc-json` (`scripts/check-doc-json-fences.mjs`) | fenced `json` / `jsonc` **node documents** in `content/docs`, judged through the strict authoring face | **Yes** |
 
 **Why it shares this job rather than getting a workflow.** It is a *sibling* of the gate above, not a
 fork: it imports that script's compiler host, its built-`.d.ts` resolution and every one of its
@@ -1210,6 +1211,43 @@ same way — so a row can be invalidated by an edit that merely moves lines abov
 example, or declare it. Run it locally exactly as this job does: build first
 (`pnpm exec turbo run build $(node scripts/check-doc-snippet-types.mjs --build-filter)`), then
 `pnpm check:doc-examples`; the gate prints that same recipe when it exits `2`.
+
+### JSON Node Documents — the third gate in this job (`doc-snippet-types.yml`)
+
+The job's **last** step runs `scripts/check-doc-json-fences.mjs` (`pnpm check:doc-json`). The two
+gates above read `ts` / `tsx` only, so a `json` fence was checked by nothing:
+[#5229](https://github.com/objectstack-ai/objectui/issues/5229) taught a `validation` bag on an
+`input` node in `content/docs/blocks/forms.mdx` while every shipped tool was green. Every fenced
+`json` / `jsonc` block under `content/docs` that parses into an object whose `type` names a node
+schema is judged through the **strict authoring face** — `StrictAnyComponentSchema`, read from the
+`@object-ui/types` the build step above produced, the face `objectui validate` and `objectui check`
+judge an authored document with ([#5250](https://github.com/objectstack-ai/objectui/issues/5250)).
+So a key no schema declares fails here exactly as it fails `objectui validate`; the tolerant face
+keeps it, because `BaseSchemaCore` is `.passthrough()` for the renderer.
+
+**What it does not judge, it counts.** A fence that is not JSON, not an object, carries no string
+`type`, or names a `type` no node schema declares is not judged; the summary prints each bucket, and
+`--list` prints every fence with its bucket. Pages outside `content/docs` are not read, and the
+summary says so.
+
+**Fragments are declared, and the declaration is re-judged.** A node document that is deliberately
+not complete or not valid — a refused example that shows the error, an excerpt that elides required
+keys, an object whose `type` only collides with a node type — carries
+`{/* doc-json: fragment - why */}` (the HTML-comment form in `.md`) on the line above its fence. The
+declared fence must be one the strict face refuses: a declaration on a fence the face accepts, or on
+one that is not a node document at all, is reported as stale, so the declarations can only shrink.
+
+**It proves itself before it judges the docs.** The face must resolve inside `packages/types/dist/`;
+a document carrying an undeclared key must be refused by the strict face and accepted by the
+tolerant one; a declared-only document must be accepted; and the walk must judge at least one node
+document, including one from its anchor page. Its exit codes are the sibling gates' three: `0`
+clean, `1` the gate ran and found errors, `2` it **could not run** — `@object-ui/types` unbuilt, or
+a control or the enumeration failed — which is neither green nor red.
+
+**If it fails:** each refusal names the page, the line of its fence, and each reason — an undeclared
+key by name and path, anything else by the face's own message. Remove the key, or replace it with
+the declared key its renderer reads; declare a deliberate fragment. Run it locally with
+`pnpm --filter @object-ui/types build`, then `pnpm check:doc-json`.
 
 ## Fence Languages (`doc-fence-languages.yml`)
 

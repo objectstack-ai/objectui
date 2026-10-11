@@ -185,3 +185,15 @@ jobs:
       # narrowing what the gate scans.
       - name: Compile JSDoc `@example` blocks against the built types
         run: node scripts/check-doc-example-types.mjs
+
+      # objectui#5250 (the maintainer ruling's JSON-fence slice). Every `json` /
+      # `jsonc` node document in `content/docs` is judged through the STRICT
+      # authoring face — `StrictAnyComponentSchema`, read from the
+      # `@object-ui/types` the build step above produced (the snippet gate's
+      # closure carries it) — the face `objectui validate` judges with. A fence
+      # that is deliberately not a complete node document is declared on the
+      # line above it, and the declaration is re-judged on every run. Last of
+      # the three, for the reason the step above gives: a newly wired blocking
+      # gate must not mask an established one.
+      - name: Judge JSON doc fences through the strict authoring face
+        run: node scripts/check-doc-json-fences.mjs

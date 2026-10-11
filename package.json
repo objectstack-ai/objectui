@@ -77,6 +77,7 @@
     "check:prompt-keys": "node scripts/check-prompt-component-keys.mjs",
     "check:doc-snippets": "node scripts/check-doc-snippet-types.mjs",
     "check:doc-examples": "node scripts/check-doc-example-types.mjs",
+    "check:doc-json": "node scripts/check-doc-json-fences.mjs",
     "check:doc-fences": "node scripts/check-doc-fence-languages.mjs",
     "check:doc-example-ids": "node scripts/check-doc-example-ids.mjs",
     "check:eager-closure": "node scripts/check-eager-closure-budget.mjs",

@@ -68,6 +68,12 @@
  * the engine resolves. `ObjectForm` had been seeding them verbatim — that is
  * fixed here along with the missing-seeding half.
  *
+ * Left empty is not left unexplained: the form renderer in
+ * `@object-ui/components` draws "Set automatically when saved." under such a
+ * control while it stays empty (objectui#12108). It is drawn there, not seeded
+ * here as a placeholder, because the renderer is where the live value and the
+ * one description slot every field type shares both live.
+ *
  * ONE token is additionally RESOLVED (not seeded literally) when the caller
  * threads a {@link SeedContext}: `current_user`, whose engine-side resolution
  * is "the acting user's id" — a value this very session knows exactly. That is
@@ -223,8 +229,10 @@ export function isCreateFormMode(
  *
  * Note this drops the required MARKER (and `aria-required`) too, since both are
  * driven by this one boolean — which is the honest reading: in create mode the
- * user really is not required to provide the value. Surfacing what the server
- * WILL supply is issue #4069's option B, a separate follow-up card.
+ * user really is not required to provide the value. The form renderer says
+ * THAT the server supplies it — "Set automatically when saved." under the
+ * empty control (objectui#12108), keyed on the same classifier. Previewing
+ * WHAT it will supply is issue #4069's option B, still a separate card.
  *
  * The CONDITIONAL spelling (`requiredWhen`) reaches the same verdict, ruled
  * identically in #4085 — but it cannot be decided here, because it is resolved

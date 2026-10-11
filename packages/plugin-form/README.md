@@ -265,7 +265,7 @@ what `buildValidationRules` emits for an object field of type `email`.
 **Why the array spelling fails silently.** The only reader of this key is the
 basic form renderer, which spreads it into the rule object handed to
 react-hook-form — `const rules: any = { ...validation }`
-(`packages/components/src/renderers/form/form.tsx:1652`). Spreading an **array**
+(`renderFormField` in `packages/components/src/renderers/form/form.tsx`). Spreading an **array**
 into an object literal produces numeric keys (`{ '0': …, '1': … }`), which
 react-hook-form does not recognise: every rule is dropped, nothing throws, and
 the form looks validated while validating nothing.
@@ -281,14 +281,32 @@ option list marks `default: true`. Every object-form container
 | Declared | Create form opens with | Why |
 |---|---|---|
 | `defaultValue: 'draft'` (any static literal) | `draft`, preselected and submittable | the value is known; making the user pick it is busywork, and on a status-like field every wrong option is one click away |
-| `defaultValue: 'NOW()'` / `'current_user'` (a runtime token) | empty | the token is an *instruction*, not a value. The server resolves it at insert — but only for fields that arrive empty, so seeding the literal text would suppress it |
-| `defaultValue: cel\`today()\`` (an Expression envelope) | empty | same reason: the server evaluates it per insert |
+| `defaultValue: 'NOW()'` / `'current_user'` (a runtime token) | empty, with *Set automatically when saved.* under it | the token is an *instruction*, not a value. The server resolves it at insert — but only for fields that arrive empty, so seeding the literal text would suppress it |
+| `defaultValue: cel\`today()\`` (an Expression envelope) | empty, with *Set automatically when saved.* under it | same reason: the server evaluates it per insert |
 | an option's `default: true`, and no `defaultValue` | that option, preselected and submittable | the server stores the marked option when the field is omitted; see below |
 | nothing | empty | no default is invented |
 
 `initialData` / `initialValues` passed by the caller always outrank a schema
 default — a lookup prefill or a "duplicate this record" seed is the more
 specific instruction.
+
+**The "set on save" hint (objectui#12108).** A field left empty for the server
+is not left unexplained: the form renderer draws *Set automatically when saved.*
+(locale key `form.serverDefaultHint`) in the field's description slot, after any
+`description` the field declares, and the control's `aria-describedby` already
+names that element. It is drawn exactly while the submit would omit the key — the
+field is server-owned (`isServerOwnedValue` from `@object-ui/core`, the classifier
+the `required` suppression below reads) and its value is empty by
+`isMissingForRequired`, the predicate `omitServerResolvedDefaults` drops a key by.
+So a value the user types removes it, and the hint never names the value, since the
+client cannot evaluate the expression. It is not drawn:
+
+- on an edit form, where the default was resolved at insert;
+- on a control that takes no input (disabled or read-only). The containers send
+  `previousValues` in edit mode only, so the renderer reads a `mode: 'view'` form
+  as create, and this is what keeps the hint off it;
+- on a boolean. The renderer starts an unsupplied two-state control at `false`
+  (cloud#972), so the field is never empty and the submit sends that value.
 
 An option's `default: true` is read the way the server's insert path reads it
 (`ObjectQL.applyFieldDefaults`, which falls back to the marked option), so the
@@ -344,8 +362,9 @@ remind_at: Field.datetime({ requiredWhen: 'record.status == "scheduled"', defaul
 
 The required marker and `aria-required` go with the rule in the create case,
 since one verdict drives all three — in that mode the user genuinely is not
-required to provide the value. Showing what the server *will* supply, as a
-non-authoritative preview, is a separate follow-up.
+required to provide the value. The hint above says *that* the server supplies it;
+showing *what* it will supply, as a non-authoritative preview, is a separate
+follow-up.
 
 The two halves of that verdict are importable, so a host with its own form
 renderer applies the same rule rather than re-deriving it (objectui#6059):
@@ -1044,7 +1063,8 @@ only — the basic `form` node has no `mode` (retired by objectui#10286, see
 A bare `form` never fetches or saves by itself: it has no object name and no
 query, so there is nothing for it to call an adapter *with*. It collects values
 and hands them to your `onSubmit`, which the renderer awaits
-(`packages/components/src/renderers/form/form.tsx:1428`). Any persistence is
+(`await onSubmitProp(formData)` in the submit handler of
+`packages/components/src/renderers/form/form.tsx`). Any persistence is
 whatever that function does:
 
 ```typescript
@@ -1075,9 +1095,9 @@ a JSON metadata document cannot carry one. Metadata pages take the `object-form`
 route above.
 
 What the adapter on the context still does for a bare `form` is supply the
-**field widgets**: the renderer reads it at `form.tsx:1004`
+**field widgets**: the renderer reads it
 (`const contextDataSource = schemaCtx?.dataSource ?? null`) and passes it down
-per field at `:2061`, which is how a lookup or cascading select loads its
+per field (`dataSource: contextDataSource`), which is how a lookup or cascading select loads its
 options. Nothing else about the form is wired to it.
 
 ### Keys that look like wiring but are not
@@ -1087,7 +1107,7 @@ nothing:
 
 | Written on a form schema | What actually happens |
 |---|---|
-| `dataSource` | **Discarded.** The basic form strips it in both directions — `dataSource: _dataSource` at `form.tsx:304` (`stripRendererOnlyProps`) and `:2168` — so it never reaches a widget and never reaches the DOM. The adapter the fields receive is the context one |
+| `dataSource` | **Discarded.** The basic form strips it in both directions — `dataSource: _dataSource` in `stripRendererOnlyProps` and again in the renderer's own props destructure — so it never reaches a widget and never reaches the DOM. The adapter the fields receive is the context one |
 | `resource` | **Never read.** It is not declared on `FormSchema` or `ObjectFormSchema` at all. It used to exist elsewhere in the protocol — on `CRUDSchema`, where `CRUDBuilder` set it — but objectui#5373 retired both under ADR-0049, so today the key names nothing anywhere in this package's surface, and no form renderer reads it under any spelling |
 
 Both survived compilation while `FormSchema` and `ObjectFormSchema` extended a
@@ -1103,11 +1123,11 @@ anything.
 > A top-level `dataSource` **does** mean something on a schema node, but it is not
 > an adapter: it is the spec's element **binding** (`PageComponentSchema.dataSource`,
 > objectstack#6953) — a descriptor such as `{ object: 'users' }` — resolved by
-> `useElementDataSource` (`packages/react/src/hooks/useElementDataSource.ts:139`).
+> `useElementDataSource` (`packages/react/src/hooks/useElementDataSource.ts`).
 > `object-form` passes through that gate, and honours the binding's `object` key
 > only. Handing that slot a live adapter is rejected on purpose: the predicate
 > refuses any value carrying a `find` method
-> (`packages/core/src/data-scope/element-data-source.ts:131`), so an adapter written
+> (`isElementDataSourceConfig` in `packages/core/src/data-scope/element-data-source.ts`), so an adapter written
 > there is ignored rather than mistaken for a binding. Pass adapters through the
 > provider above.
 

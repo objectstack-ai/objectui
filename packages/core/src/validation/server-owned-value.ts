@@ -73,7 +73,11 @@ function isExpressionEnvelope(v: unknown): boolean {
  *   2. the create-mode static `required` rule (#4069) —
  *      `isRequiredInForm` in `@object-ui/plugin-form`;
  *   3. the create-mode `requiredWhen` rule (#4085) —
- *      {@link isServerOwnedValue}, read by `resolveFieldRuleState`.
+ *      {@link isServerOwnedValue}, read by `resolveFieldRuleState`;
+ *   4. the "Set automatically when saved." hint (objectui#12108) — the form
+ *      renderer reads the same {@link isServerOwnedValue} answer it hands to
+ *      `resolveFieldRuleState`, so the hint and the lowered `required` are
+ *      one verdict.
  */
 export function isRuntimeDefault(v: unknown): boolean {
   return isRuntimeDefaultToken(v) || isExpressionEnvelope(v);

@@ -287,6 +287,7 @@ async function measure(arm: string, spec: Exit) {
   // 1. The canaries reach nothing, and the legitimate set reaches the control.
   const leak = await mount({ type, ...spec.route, ...CANARIES, ...spec.keys, maxLength: MAX_LENGTH, placeholder: 'Type here', required: true });
   const row = leak.row();
+  expect(row, 'the form renders the field').toBeTruthy();
   const control = spec.control(row);
   expect(control, 'the branch renders its control').toBeTruthy();
   expect(everyElement(row).filter((el) => el.hasAttribute(CANARY_KEY)), 'the canary key').toEqual([]);

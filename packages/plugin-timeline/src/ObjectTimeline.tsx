@@ -816,6 +816,13 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
       // unexpanded foreign key groups under the id itself, which is what the
       // title slot shows for it too (AGENTS.md #0.1).
       //
+      // An ARRAY (a multi-valued field: `multiselect`, `tags`, a lookup with
+      // `multiple`) keeps the key it had, its stringified value. The resolver
+      // reads no display value off an array, so routing one through it would
+      // move every such row under "Unassigned", and how a multi-valued row
+      // should group (one combined group, or one group per value) is a
+      // decision this change does not make.
+      //
       // One group per key is drawn by the renderer's vertical branch, which
       // buckets by this key in the order of each key's earliest entry. The
       // order is NOT changed here: the horizontal branch draws the same array,
@@ -823,9 +830,9 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
       const groupSelectOptions = optionMap(groupByField);
       const groupKeys = mapped.map((m): string | undefined => {
         const opt = m.group != null && m.group !== '' ? groupSelectOptions[String(m.group)] : undefined;
-        return opt?.label
-          ? fieldOptionLabel(objectName, groupByField, String(m.group), opt.label)
-          : recordDisplayValueAt(m._data, groupByField);
+        if (opt?.label) return fieldOptionLabel(objectName, groupByField, String(m.group), opt.label);
+        if (Array.isArray(m.group)) return String(m.group);
+        return recordDisplayValueAt(m._data, groupByField);
       });
       if (groupKeys.some((key) => key !== undefined)) {
         return mapped.map((m, i) => ({ ...m, group: groupKeys[i] ?? t('timeline.bucket.unassigned') }));

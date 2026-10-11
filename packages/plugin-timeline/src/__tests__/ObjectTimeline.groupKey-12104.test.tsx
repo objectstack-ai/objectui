@@ -36,8 +36,8 @@
  * ── The controls ────────────────────────────────────────────────────────────
  * The date buckets (no `groupByField`), an unexpanded lookup id (the
  * resolver's own answer: the id itself, no name is invented for it, AGENTS.md
- * #0.1), and the horizontal rail, which draws no groups and keeps its date
- * order. Each was right before the fix and must stay right after it. The
+ * #0.1), a multi-valued field (its key is left as it was), and the horizontal
+ * rail, which draws no groups and keeps its date order. Each was right before the fix and must stay right after it. The
  * horizontal arm is also why the bucketing lives in the renderer's vertical
  * branch and not in the composer: both branches draw the same item array.
  *
@@ -241,6 +241,19 @@ describe('an explicit groupByField draws one group per display value (objectui#1
     ]);
 
     expect(feed()).toEqual(['u1: First, Second', 'u2: Third']);
+  });
+
+  // An array has no display value under the resolver, so a multi-valued field
+  // keeps the key it had (its stringified value) rather than moving every row
+  // under "Unassigned". How a multi-valued row should group is not decided here.
+  it('CONTROL: a multi-valued field keeps the group key it had', () => {
+    mountInline(block({ groupByField: 'tags' }), [
+      { id: 't1', subject: 'First', due: '2026-03-01', tags: ['urgent', 'vip'] },
+      { id: 't2', subject: 'Second', due: '2026-03-02', tags: ['urgent', 'vip'] },
+      { id: 't3', subject: 'Third', due: '2026-03-03', tags: ['vip'] },
+    ]);
+
+    expect(feed()).toEqual(['urgent,vip: First, Second', 'vip: Third']);
   });
 
   it('CONTROL: a timeline with no groupByField draws its date buckets, in date order, exactly as before', () => {

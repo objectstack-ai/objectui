@@ -179,8 +179,10 @@ describe('`object-form` default arm — what stays pool-driven after the switch 
   it('the POOLED field is the base: an entry override keeps a per-field fact only the pool carries', async () => {
     // The default arm's field generator writes facts the shared
     // `fromObjectSchema` never produces — here the numeric `step` derived from
-    // `scale`, which the form renderer's unregistered-widget fallback spreads
-    // onto its input (the route `objectFormNumericStep-9574` pins). So the step
+    // `scale`, which the form renderer's built-in `input` control spreads
+    // onto its input (the route `objectFormNumericStep-9574` pins; until
+    // objectui#12110 an unregistered `widget` name reached the same spread,
+    // and now degrades to the registered widget instead). So the step
     // survives an entry override only if the override is written onto the
     // pooled field. This row used the ADR-0092 D4 managed-object lock until
     // objectui#10612 moved that lock out of the generator into
@@ -190,7 +192,7 @@ describe('`object-form` default arm — what stays pool-driven after the switch 
       ...OBJECT_SCHEMA,
       fields: {
         ...OBJECT_SCHEMA.fields,
-        qty: { type: 'number', label: 'Qty', scale: 2, widget: 'nothing-registers-this' },
+        qty: { type: 'number', label: 'Qty', scale: 2, widget: 'input' },
       },
     };
     const sections = MAIN_SECTION([{ field: 'qty', label: 'SECTION LABEL' }, 'customer']);
@@ -200,7 +202,7 @@ describe('`object-form` default arm — what stays pool-driven after the switch 
     expect(controlOf('qty')?.getAttribute('step'), '…and the pooled step stays').toBe('0.01');
 
     // The control: the same section on an arm with no pool, whose base is
-    // `fromObjectSchema`, draws the same fallback input with no step — so the
+    // `fromObjectSchema`, draws the same built-in input with no step — so the
     // `0.01` above is the pool's fact and not the renderer's.
     cleanup();
     await mount('drawer', { sections }, { objectSchema: STEPPED });

@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { FileQuestion, Loader2 } from 'lucide-react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { useAdapter } from '@object-ui/app-shell';
 import { DocShell } from './DocShell';
 import BookPage, { DocRefusal } from './BookPage';
@@ -70,6 +71,7 @@ async function refusalFor(
  */
 export default function DocsSlug() {
   const { slug, appName } = useParams<{ slug: string; appName?: string }>();
+  const { t } = useObjectTranslation();
   const { books, docs, state } = useBookData();
   const adapter = useAdapter();
 
@@ -97,7 +99,7 @@ export default function DocsSlug() {
   if (state === 'loading' || (unanswered && !!adapter && answer?.slug !== slug)) {
     return (
       <div className="flex h-full items-center justify-center p-10 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading documentation" />
+        <Loader2 className="h-5 w-5 animate-spin" aria-label={t('help.loadingDocumentation', { defaultValue: 'Loading documentation' })} />
       </div>
     );
   }

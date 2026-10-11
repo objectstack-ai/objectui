@@ -16,7 +16,7 @@
  * The declaration was a seven-member list under a doc comment claiming it
  * mirrored `PLATFORM_CAPABILITIES`. The spec grew an eighth member
  * (`manage_sharing`) and the list did not follow, so that capability fell
- * through to `byName.get(name)?.label` — the English label the `sys_capability`
+ * through to `byName.get(name)?.label` — the English label the capability
  * registry serves — and rendered untranslated in all ten packs, beside seven
  * siblings that localize. Every gate stayed green, and the reason is exact:
  * `scripts/check-i18n-call-site-keys.mjs` reads this declaration as the
@@ -70,6 +70,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import { MetadataCtx, type MetadataContextValue } from '@object-ui/react';
 import '@testing-library/jest-dom';
 import { PLATFORM_CAPABILITIES } from '@objectstack/spec/security';
 import { builtInLocales } from '@object-ui/i18n/locales';
@@ -176,8 +177,9 @@ const enLabels = (): Record<string, unknown> => {
 };
 
 /**
- * One `sys_capability` row per declared platform capability, each carrying a
- * label that is NOT the localized one. Any assertion that reads `REGISTRY …`
+ * One capability registry item per declared platform capability (objectui#7611:
+ * the picker lists the registry), each carrying a label that is NOT the
+ * localized one. Any assertion that reads `REGISTRY …`
  * back has caught the widget falling through to the registry.
  */
 const registryRows = () =>
@@ -186,20 +188,28 @@ const registryRows = () =>
     label: `REGISTRY ${c.label}`,
     description: c.description,
     scope: c.scope,
-    active: true,
   }));
 
-const mockDataSource = (rows: unknown[]) =>
-  ({ find: vi.fn().mockResolvedValue({ data: rows }) }) as any;
+/** The console metadata store, serving `items` as the `capability` registry. */
+const metadataStore = (items: unknown[]) =>
+  ({
+    apps: [], objects: [], dashboards: [], reports: [], pages: [],
+    loading: false, error: null,
+    refresh: async () => {}, invalidate: () => {},
+    ensureType: vi.fn(async (type: string) => (type === 'capability' ? items : [])),
+    getItem: async () => null,
+    getItemsByType: () => [],
+  }) as unknown as MetadataContextValue;
 
-const renderPicker = (rows: unknown[]) =>
+const renderPicker = (items: unknown[]) =>
   render(
-    <CapabilityMultiSelectField
-      value={'[]'}
-      onChange={vi.fn()}
-      field={{ name: 'system_permissions' } as any}
-      dataSource={mockDataSource(rows)}
-    />,
+    <MetadataCtx.Provider value={metadataStore(items)}>
+      <CapabilityMultiSelectField
+        value={'[]'}
+        onChange={vi.fn()}
+        field={{ name: 'system_permissions' } as any}
+      />
+    </MetadataCtx.Provider>,
   );
 
 describe('the curated capability set is PLATFORM_CAPABILITIES (objectui#6285)', () => {

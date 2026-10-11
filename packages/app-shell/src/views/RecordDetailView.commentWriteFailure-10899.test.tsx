@@ -16,11 +16,13 @@
  * (`RecordActivityTimeline`), over a fake data source whose `sys_comment`
  * `create` is the varied axis. `sonner` is the observed channel for the error.
  *
- * The reply writer (`handleAddReply`) takes the same shape, but its input is
- * not reachable from a loaded feed — `ThreadedReplies` renders only under an
- * item whose `replyCount > 0`, and no read sets that — so the composer-side
- * half of the reply contract is pinned in plugin-detail
- * (`composerKeepsDraftOnRejection-10899.test.tsx`) instead.
+ * The reply writer (`handleAddReply`) takes the same shape. Its input is
+ * reachable from a loaded feed: the timeline offers it on every comment row the
+ * page hands `onAddReply` for, a comment with no replies included
+ * (objectui#12144). So its failure path is pinned here too, through the reply
+ * input under a comment read from `sys_comment`. The input's own half (a
+ * rejection keeps the reply draft) is also pinned in plugin-detail
+ * (`composerKeepsDraftOnRejection-10899.test.tsx`).
  */
 
 import * as React from 'react';
@@ -69,6 +71,7 @@ import { RecordDetailView } from './RecordDetailView';
 const EMPTY_COMMENTS = DETAIL_DEFAULT_TRANSLATIONS['detail.noCommentsYet'];
 const COMMENT_PLACEHOLDER = DETAIL_DEFAULT_TRANSLATIONS['detail.leaveCommentPlaceholder'];
 const SUBMIT_COMMENT = DETAIL_DEFAULT_TRANSLATIONS['detail.submitComment'];
+const REPLY_PLACEHOLDER = DETAIL_DEFAULT_TRANSLATIONS['detail.replyPlaceholder'];
 const OBJECT_NAME = 'crm_customer';
 const RECORD_ID = 'rec-1';
 
@@ -212,5 +215,42 @@ describe('a failed comment write is never rendered as sent (objectui#10899)', ()
     expect(await screen.findByText('written for real', { selector: ':not(textarea):not(input)' })).toBeInTheDocument();
     await waitFor(() => expect(box.value).toBe(''));
     expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('a rejected reply create under a comment read from the server adds no reply, raises a localized error, and keeps the draft (objectui#12144)', async () => {
+    const dataSource = makeDataSource([
+      {
+        id: 'c1',
+        thread_id: `${OBJECT_NAME}:${RECORD_ID}`,
+        author_name: 'Grace',
+        body: 'Signed the renewal',
+        created_at: '2026-10-01T08:00:00.000Z',
+      },
+    ]);
+    mount(dataSource);
+    await screen.findByText('Signed the renewal');
+
+    // The comment has no replies; its reply input is offered all the same.
+    const input = (await screen.findByPlaceholderText(REPLY_PLACEHOLDER)) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Countersigned copy attached' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    expect(dataSource.create).toHaveBeenCalledWith(
+      'sys_comment',
+      expect.objectContaining({
+        thread_id: `${OBJECT_NAME}:${RECORD_ID}`,
+        parent_id: 'c1',
+        body: 'Countersigned copy attached',
+      }),
+    );
+    // The reply is not "sent": no reply row, and the parent shows no reply count.
+    expect(feedRow('Countersigned copy attached')).toBeNull();
+    expect(screen.queryByRole('button', { name: /\d+ repl/ })).toBeNull();
+    // The error is the localized one, not the transport's text.
+    const [message] = vi.mocked(toast.error).mock.calls[0];
+    expect(String(message)).not.toContain('sys_comment');
+    // The user's text survives for a retry.
+    await waitFor(() => expect(input.value).toBe('Countersigned copy attached'));
   });
 });

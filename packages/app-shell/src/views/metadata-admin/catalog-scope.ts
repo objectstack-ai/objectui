@@ -58,14 +58,18 @@ export function environmentScopeSuffix(search: QueryLike): string {
 }
 
 /**
- * The catalog types Setup administers through this scope. Each name is also
- * the activation ledger's `metadata_type` and the activation door's `:type`
- * (see `catalog-activation.ts`). `capability` is absent: the Capabilities page
- * and the capability picker still read `sys_capability` rows, and moving them
- * onto the registry is objectui#7611's follow-up. (The registry serves the
- * platform's own capabilities since objectstack#22669, #15204 stage 6b-1a;
- * before it, it served the package-declared ones only.) A capability has no
- * switch either: ADR-0126 §3 makes it code-only, and the activation door
- * refuses the type with `400`.
+ * The catalog types Setup administers through this scope with an active
+ * switch. Each name is also the activation ledger's `metadata_type` and the
+ * activation door's `:type` (see `catalog-activation.ts`).
+ *
+ * `capability` is absent ON PURPOSE, and it is a catalog all the same. The
+ * Capabilities page is this scope's list of the type,
+ * `…/metadata/capability?scope=environment`: the capability registry (the
+ * platform's curated capabilities, served since objectstack#22669, beside
+ * every package-declared one), read-only because the served type entry offers
+ * no runtime write channel. The capability picker lists the same registry
+ * (objectui#7611). What a capability lacks is the switch: ADR-0126 §3 makes it
+ * code-only, and the activation door refuses the type with `400`, so naming it
+ * here would put a switch on that page that every click refuses.
  */
 export const SETUP_CATALOG_TYPES = ['permission', 'position'] as const;

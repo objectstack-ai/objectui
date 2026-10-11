@@ -1,7 +1,6 @@
 import React from 'react';
 import { Badge, EmptyValue, cn } from '@object-ui/components';
-import { SchemaRendererContext } from '@object-ui/react';
-import type { DataSource, QueryParams } from '@object-ui/types';
+import { MetadataCtx } from '@object-ui/react';
 import { FieldWidgetComponentProps } from './types.js';
 import { useFieldTranslation } from './useFieldTranslation.js';
 
@@ -14,9 +13,27 @@ import { useFieldTranslation } from './useFieldTranslation.js';
  * (e.g. `["setup.access","studio.access"]`; `security-plugin.ts` writes
  * `JSON.stringify(...)` and reads `parseJson(...)`). Editing that as raw JSON is
  * the anti-pattern ADR-0056 removes. This widget renders the same value as a
- * multi-select over the live `sys_capability` registry — grouped by scope,
- * labelled, with the capability description on hover — while round-tripping the
- * stored value **byte-for-byte** as a JSON string of names.
+ * multi-select over the capability registry — grouped by scope, labelled, with
+ * the capability description on hover — while round-tripping the stored value
+ * **byte-for-byte** as a JSON string of names.
+ *
+ * ## The options are the registry, and only the registry (objectui#7611)
+ *
+ * ADR-0131 D3 gives capabilities one home, the environment registry, and D7
+ * says a picker LISTS that registry. The registry is `GET /api/v1/meta/capability`:
+ * the platform's curated capabilities (objectstack registers
+ * `PLATFORM_CAPABILITIES` as `capability` items at boot) beside every
+ * package-declared one. It is read through the console's metadata store
+ * (`MetadataCtx` `ensureType`), the reader `RecipientPickerField` uses for the
+ * `position` registry, so the list is fetched once per session and shared with
+ * every other registry consumer.
+ *
+ * The picker read `sys_capability` rows until then. Nothing writes such a row
+ * any more, so on a fresh database it offered only the set's own selections.
+ * ⛔ There is no second source merged in: no `sys_capability` read, and no
+ * data-source fallback when the store is absent. The one union kept is with
+ * the set's own selections (see `byName`), so a granted name the registry
+ * does not serve is still shown and never dropped.
  *
  * ## Not a registry field widget (objectui#3308)
  *
@@ -32,12 +49,18 @@ import { useFieldTranslation } from './useFieldTranslation.js';
  * which is the defined behavior for an unregistered widget.
  */
 
+/**
+ * The metadata type whose items are the options. A capability declaration
+ * carries `name`, `label`, `description` and `scope` (`@objectstack/spec`'s
+ * `CapabilityDeclarationSchema`), which is all this picker reads.
+ */
+const CAPABILITY_REGISTRY_TYPE = 'capability';
+
 interface Capability {
   name: string;
   label?: string;
   description?: string;
   scope?: string;
-  active?: boolean;
 }
 
 /**
@@ -67,7 +90,7 @@ export function parseCapabilityNames(value: unknown): string[] {
 /**
  * Scope → group header order (platform powers first). The visible header is
  * localized via `capability.group.<scope>` (objectui#2600 B5) — the capability
- * *labels themselves* still come from the sys_capability registry, whose
+ * *labels themselves* still come from the capability registry, whose
  * per-locale localization is tracked separately (framework).
  */
 const SCOPE_ORDER = ['platform', 'org', 'other'] as const;
@@ -75,7 +98,7 @@ const SCOPE_ORDER = ['platform', 'org', 'other'] as const;
 /**
  * objectui#2600 B5 — the curated platform capabilities whose labels this picker
  * localizes client-side via `capability.label.<name>`; package- and
- * admin-authored capabilities keep their authored `sys_capability` label.
+ * admin-authored capabilities keep the label their registry declaration carries.
  *
  * ## This IS `@objectstack/spec/security`'s `PLATFORM_CAPABILITIES`, and the
  * ## equality is CHECKED rather than claimed (objectui#6285)
@@ -83,7 +106,7 @@ const SCOPE_ORDER = ['platform', 'org', 'other'] as const;
  * The names below are the spec's, with the dot spellings written as underscores
  * (see the transform note under the declaration). It used to say that in prose
  * and nothing held it: the spec grew `manage_sharing`, this list did not follow,
- * and that capability fell through to the English label the `sys_capability`
+ * and that capability fell through to the English label the capability
  * registry serves — untranslated in all ten packs, beside seven siblings that
  * localize, with every gate green.
  *
@@ -153,44 +176,55 @@ export function CapabilityMultiSelectField({
   ...props
 }: FieldWidgetComponentProps<string | string[]>) {
   const { t } = useFieldTranslation();
-  const ctx = React.useContext(SchemaRendererContext);
-  // The context leg needs no cast since objectui#7912 typed the seam; the
-  // `props` leg still does, because `FieldWidgetProps.dataSource` is declared
-  // `unknown` in this package.
-  const dataSource: DataSource | null =
-    (props.dataSource as DataSource | null | undefined) ?? ctx?.dataSource ?? null;
   const disabled = props.disabled;
 
   const [caps, setCaps] = React.useState<Capability[] | null>(null);
 
   const selected = React.useMemo(() => parseCapabilityNames(value), [value]);
 
-  // Load the live capability registry (active only). Mirrors LookupField's
-  // context-dataSource access: no registration path forwards a `dataSource`
-  // prop to a field widget, so the SchemaRenderer context is the reliable
-  // source. (The absent forwarder named here used to be the docs-demo
-  // `createFieldRenderer`, removed in objectui#3910 — the conclusion is
-  // unchanged and now holds for the only remaining path.)
+  // The registry read (objectui#7611): the `capability` items of the console's
+  // metadata store. Read raw rather than through `useMetadata()`, whose
+  // no-provider fallback answers every type with `[]` — the same reading
+  // `RecipientPickerField` takes. Without a store there is no registry reader,
+  // so the options are the set's own selections and nothing loads.
+  //
+  // Keyed on whether a store is mounted, never on the store: its context value
+  // is rebuilt whenever any type it caches settles, and AGENTS.md #10 forbids
+  // an effect that keys on that identity, so the store is read through a ref.
+  const metadataStore = React.useContext(MetadataCtx);
+  const metadataStoreRef = React.useRef(metadataStore);
+  metadataStoreRef.current = metadataStore;
+  const hasMetadataStore = metadataStore !== null;
   React.useEffect(() => {
-    if (!dataSource || typeof (dataSource as any).find !== 'function') return;
+    const store = metadataStoreRef.current;
+    if (!store) {
+      setCaps([]);
+      return;
+    }
     let cancelled = false;
-    (async () => {
-      try {
-        const res = await dataSource.find('sys_capability', {
-          $filter: { active: true },
-          $top: 500,
-        } as QueryParams);
-        const rows: Capability[] =
-          (res as any)?.data ?? (res as any)?.records ?? (Array.isArray(res) ? res : []);
-        if (!cancelled) setCaps(Array.isArray(rows) ? rows : []);
-      } catch {
+    store
+      .ensureType(CAPABILITY_REGISTRY_TYPE)
+      .then((items) => {
+        if (cancelled) return;
+        const list: Capability[] = [];
+        for (const it of Array.isArray(items) ? items : []) {
+          if (typeof it?.name !== 'string' || !it.name) continue;
+          list.push({
+            name: it.name,
+            label: typeof it.label === 'string' ? it.label : undefined,
+            description: typeof it.description === 'string' ? it.description : undefined,
+            scope: typeof it.scope === 'string' ? it.scope : undefined,
+          });
+        }
+        setCaps(list);
+      })
+      .catch(() => {
         if (!cancelled) setCaps([]);
-      }
-    })();
+      });
     return () => {
       cancelled = true;
     };
-  }, [dataSource]);
+  }, [hasMetadataStore]);
 
   // Emit as a JSON string so the value round-trips byte-equivalent to the
   // `system_permissions` textarea's `JSON.stringify(string[])` storage.
@@ -199,9 +233,9 @@ export function CapabilityMultiSelectField({
     [onChange],
   );
 
-  // Union of the fetched registry and any *selected* names not present in it
-  // (unknown / legacy / package-owned-inactive), so no current grant is hidden
-  // or dropped. Unknown names land in the "other" group.
+  // Union of the registry and any *selected* names it does not serve (unknown,
+  // legacy, or declared by a package no longer installed), so no current grant
+  // is hidden or dropped. Unknown names land in the "other" group.
   const byName = React.useMemo(() => {
     const map = new Map<string, Capability>();
     for (const c of caps ?? []) if (c?.name) map.set(c.name, c);

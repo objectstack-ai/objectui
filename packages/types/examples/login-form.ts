@@ -53,8 +53,7 @@ export const loginFormSchema: FormSchema = {
     {
       name: 'remember',
       type: 'checkbox',
-      label: 'Remember me',
-      defaultChecked: false
+      label: 'Remember me'
     }
   ],
   

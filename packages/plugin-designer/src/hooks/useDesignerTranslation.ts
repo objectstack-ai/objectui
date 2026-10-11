@@ -212,6 +212,15 @@ export const DESIGNER_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // its consumer; both call sites resolve through THIS hook, so the row belongs
   // here beside the other borrowed `common.*` entries — not in `packages/components`.
   'common.delete': 'Delete',
+  // objectui#12145 — accessible names: `HistoryPanel`'s undo / redo buttons,
+  // `Minimap`'s image, `VersionHistory`'s region, and `DashboardDesignPage`'s
+  // back button. The back button borrows `detail.goBack` rather than adding a
+  // second key for the same name.
+  'designer.undo': 'Undo',
+  'designer.redo': 'Redo',
+  'designer.canvasMinimap': 'Canvas minimap',
+  'designer.versionHistory': 'Version history',
+  'detail.goBack': 'Go back',
 };
 
 /**

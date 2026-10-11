@@ -17,7 +17,7 @@
 
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { SelectOptionBase } from './select-option.js';
-import type { GridFieldMetadata } from './field-types.js';
+import type { GridFieldMetadata, LookupFieldMetadata, UserFieldMetadata } from './field-types.js';
 // objectui#11070 — the field-metadata members `FormField` declares by
 // reference to the spec's `FieldSchema`. Type-only: no runtime edge.
 import type { Field as SpecField } from '@objectstack/spec/data';
@@ -2181,6 +2181,114 @@ export interface FormField {
    * @deprecated Write `sortField`. Nothing reads this spelling.
    */
   sort_field?: never;
+
+  // ── The rest of the entry's field metadata (objectui#12130) ─────────────
+  //
+  // objectui#11070 graded the channel above from a source read, and missed
+  // keys on it. objectui#12130 measured it at runtime through the real
+  // `SchemaRenderer`: `examples/schema-catalog/test/form-field-channel-census-12130.test.tsx`
+  // records every key of the entry a reader asks for by name, and
+  // `form-field-channel-effects-12130.test.tsx` beside it renders each one
+  // with and without. Every member below is read by the widget its note names
+  // and changes what that widget does; on any other field type it is accepted
+  // and read by nothing. The spec's `FieldSchema` members are typed by
+  // reference, `idField` / `picker` / `subtitle` are the field metadata
+  // types' members by reference, and `capture`, `crop`, `defaultName` and
+  // `avatarField`, which no type declared, are typed as the widget reads them.
+  //
+  // ⛔ Not declared: `defaultValue` and `defaultChecked`. No reader asks for
+  // either, and neither becomes the field's value (the effects file measures
+  // both). A form's initial values are {@link FormSchema.defaultValues}.
+  //
+  // ⛔ Not declared: `avatar_field`, the snake_case second spelling of
+  // `avatarField` that the `lookup` and `user` widgets still read first. The
+  // face declares one spelling, camelCase like its other keys (AGENTS.md
+  // #0.1; objectui#11610), and the census ledger records the read.
+  //
+  // ⛔ Not declared either, and open on objectui#12130: `step`. The `number`
+  // and `slider` widgets read it, but `ObjectForm` (`@object-ui/plugin-form`)
+  // writes `step: 'any'` onto the entries it builds, a value the spec's
+  // numeric `FieldSchema.step` refuses. The census ledger carries it.
+
+  /**
+   * Language of a `code` field, e.g. `python`. The `code` widget's editor
+   * asks for code in it (default `javascript`).
+   */
+  language?: SpecField['language'];
+  /**
+   * Largest file a `file` or `image` field accepts, in bytes. The widget
+   * refuses a larger pick before any upload starts.
+   */
+  maxSize?: SpecField['maxSize'];
+  /**
+   * Camera capture mode of a `file` field: `'environment'` or `'user'` adds a
+   * camera input in that mode, `false` never offers one. Without it, the
+   * widget offers the rear camera on a touch device when the field accepts
+   * images. Typed as the `file` widget reads it.
+   */
+  capture?: 'environment' | 'user' | false;
+  /**
+   * `false` turns off inline cropping on an `image` field: the crop action
+   * is not drawn on the field's images. Cropping is on unless this is `false`.
+   */
+  crop?: boolean;
+  /**
+   * The name an empty `avatar` field draws its initials from (default: the
+   * field's `label`).
+   */
+  defaultName?: string;
+  /**
+   * Whether a `lookup` field offers to create the referenced record from an
+   * empty result. On by default for a user-facing reference; `false` turns
+   * the offer off.
+   */
+  allowCreate?: SpecField['allowCreate'];
+  /**
+   * Record field shown under each candidate's label in a `lookup` field's
+   * quick-select.
+   */
+  descriptionField?: SpecField['descriptionField'];
+  /**
+   * Record field each candidate of a `lookup` or `user` field is labelled
+   * by, in the quick-select and the browse-all dialog.
+   */
+  displayField?: SpecField['displayField'];
+  /**
+   * Record field a `lookup` field's pick commits as the value (default `id`):
+   * {@link LookupFieldMetadata.idField}.
+   */
+  idField?: LookupFieldMetadata['idField'];
+  /**
+   * Columns of a `lookup` field's browse-all dialog.
+   */
+  lookupColumns?: SpecField['lookupColumns'];
+  /**
+   * Base filters of every candidate query of a `lookup` or `user` field.
+   */
+  lookupFilters?: SpecField['lookupFilters'];
+  /**
+   * Page size of a `lookup` field's browse-all dialog (default 10).
+   */
+  lookupPageSize?: SpecField['lookupPageSize'];
+  /**
+   * Picker of a `lookup` or `user` field: `'search'` is the search-first
+   * people picker, which replaces the quick-select and the browse-all dialog:
+   * {@link UserFieldMetadata.picker}.
+   */
+  picker?: UserFieldMetadata['picker'];
+  /**
+   * Record fields shown beside each candidate of the search picker
+   * (`picker: 'search'`): {@link UserFieldMetadata.subtitle}.
+   */
+  subtitle?: UserFieldMetadata['subtitle'];
+  /**
+   * Record field each candidate of the search picker (`picker: 'search'`) of
+   * a `lookup` or `user` field draws its avatar image from (default `image`).
+   * Typed as the widgets read it: the spec's `FieldSchema` declares neither
+   * spelling, and {@link UserFieldMetadata} declares only the snake_case one,
+   * which this face refuses.
+   */
+  avatarField?: string;
 }
 
 /**

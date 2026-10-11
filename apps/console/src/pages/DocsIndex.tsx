@@ -9,6 +9,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, BookOpen, Loader2 } from 'lucide-react';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { DocShell } from './DocShell';
 import { useBookData } from './use-book-data';
 import { buildBookCards } from './book-nav';
@@ -23,6 +24,7 @@ import { buildBookCards } from './book-nav';
  * reader lives at `/docs/<slug>/<name>`.
  */
 export default function DocsIndex() {
+  const { t } = useObjectTranslation();
   const { books, docs, state, error } = useBookData();
 
   // Cards carry the book's url slug so links match the `/docs/:slug` route.
@@ -31,7 +33,7 @@ export default function DocsIndex() {
   if (state === 'loading') {
     return (
       <div className="flex h-full items-center justify-center p-10 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading documentation" />
+        <Loader2 className="h-5 w-5 animate-spin" aria-label={t('help.loadingDocumentation', { defaultValue: 'Loading documentation' })} />
       </div>
     );
   }

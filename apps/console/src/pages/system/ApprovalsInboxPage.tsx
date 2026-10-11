@@ -77,6 +77,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale, useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
+import { useMetadata } from '@object-ui/react';
 import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
 import { isExpandableFieldType } from '@object-ui/core';
 import { isSystemManagedField, type FieldMetadata } from '@object-ui/types';
@@ -213,18 +214,91 @@ function formatDate(s: string | null | undefined, locale: string): string {
   try { return new Date(s).toLocaleString(locale); } catch { return s; }
 }
 
+/** The approver prefix whose value is a position's machine NAME (ADR-0090 D3). */
+const POSITION_REF_PREFIX = 'position:';
+
 /**
  * Render an actor/approver identifier in a friendly form.
  *  - emails → shown as-is
  *  - `role:<name>` → shown as "Role: name"
+ *  - `position:<name>` → the position's label (objectui#12110 item 6), from
+ *    `positionLabels` when the caller has them, else the prettified name
  *  - opaque 16+ char IDs → truncated middle (e.g. `5aF9BX3J…wTk`)
+ *
+ * The position arm is finding C-18 of the HotCRM browser pass: a position
+ * reference carries a machine NAME, not an opaque id, yet the truncation arm
+ * below cut `position:sales_manager` to `positi…ager`. A name has prose to
+ * recover, so it is never truncated; see {@link usePositionLabels} for where
+ * the label comes from.
  */
-function formatIdentity(id: string | null | undefined): string {
+function formatIdentity(
+  id: string | null | undefined,
+  positionLabels?: ReadonlyMap<string, string>,
+): string {
   if (!id) return '—';
   if (id.includes('@')) return id;
   if (id.startsWith('role:')) return `Role: ${id.slice(5)}`;
+  if (id.startsWith(POSITION_REF_PREFIX) && id.length > POSITION_REF_PREFIX.length) {
+    const name = id.slice(POSITION_REF_PREFIX.length);
+    return positionLabels?.get(name) || prettifyMachineName(name);
+  }
   if (id.length > 14) return `${id.slice(0, 6)}…${id.slice(-4)}`;
   return id;
+}
+
+/** The empty answer, one object, so an unasked row hands back a stable value. */
+const NO_POSITION_LABELS: ReadonlyMap<string, string> = new Map();
+
+/**
+ * The labels of the `position:` approvers on `row` that the SERVER left
+ * unresolved (objectui#12110 item 6), keyed by position name.
+ *
+ * Read from the console's metadata store — the `position` registry, which
+ * ADR-0131 D3 makes positions' one home, through the same
+ * `useMetadata().ensureType('position')` read Setup's sharing-rule recipient
+ * picker makes (objectui#7611). The store fetches the type once per session
+ * and shares it, so this adds no request on a page that already read it, and
+ * it asks NOTHING when every approver is server-resolved or no approver is a
+ * position: `pending_approver_names` stays authoritative, as it is in
+ * {@link approverDisplay}.
+ *
+ * Keyed on a string of the names (AGENTS.md #10), and the store is read
+ * through a ref: its context value is rebuilt whenever any type it caches
+ * settles.
+ */
+function usePositionLabels(row: ApprovalRequestRow | null | undefined): ReadonlyMap<string, string> {
+  const store = useMetadata();
+  const storeRef = useRef(store);
+  // Synced in an effect, not during render; declared before the read below,
+  // so it runs first in the same commit.
+  useEffect(() => {
+    storeRef.current = store;
+  });
+  const wantedKey = (row?.pending_approvers ?? [])
+    .filter((a): a is string =>
+      typeof a === 'string' && a.startsWith(POSITION_REF_PREFIX) && !row?.pending_approver_names?.[a])
+    .join('|');
+  const [labels, setLabels] = useState<ReadonlyMap<string, string>>(NO_POSITION_LABELS);
+  useEffect(() => {
+    if (!wantedKey) return;
+    let cancelled = false;
+    storeRef.current.ensureType('position').then(
+      (items) => {
+        if (cancelled) return;
+        const next = new Map<string, string>();
+        for (const item of Array.isArray(items) ? items : []) {
+          const name = (item as { name?: unknown } | null)?.name;
+          const label = (item as { label?: unknown } | null)?.label;
+          if (typeof name === 'string' && typeof label === 'string' && label !== '') next.set(name, label);
+        }
+        setLabels(next);
+      },
+      // A store that cannot list positions leaves the prettified names.
+      () => {},
+    );
+    return () => { cancelled = true; };
+  }, [wantedKey]);
+  return labels;
 }
 
 /** `manager_review` → "Manager Review" (display fallback for legacy rows). */
@@ -246,8 +320,8 @@ function submitterDisplay(r: ApprovalRequestRow): string {
   return r.submitter_name || formatIdentity(r.submitter_id);
 }
 /** Approver chip text: server-resolved display name, else readable identity. */
-function approverDisplay(a: string, r: ApprovalRequestRow): string {
-  return r.pending_approver_names?.[a] || formatIdentity(a);
+function approverDisplay(a: string, r: ApprovalRequestRow, positionLabels?: ReadonlyMap<string, string>): string {
+  return r.pending_approver_names?.[a] || formatIdentity(a, positionLabels);
 }
 /** The group(s) a pending approver represents (会签), joined for display. */
 function approverGroup(a: string, r: ApprovalRequestRow): string | undefined {
@@ -265,11 +339,12 @@ function approverGroup(a: string, r: ApprovalRequestRow): string | undefined {
  */
 function approverChips(
   r: ApprovalRequestRow,
+  positionLabels?: ReadonlyMap<string, string>,
 ): Array<{ label: string; group?: string; count: number; title: string }> {
   const order: string[] = [];
   const byKey = new Map<string, { label: string; group?: string; count: number; title: string }>();
   for (const a of r.pending_approvers || []) {
-    const label = approverDisplay(a, r);
+    const label = approverDisplay(a, r, positionLabels);
     const group = approverGroup(a, r);
     const key = group ? `${label} ${group}` : label;
     const seen = byKey.get(key);
@@ -627,7 +702,23 @@ const AMOUNT_KEY_RE = /(amount|total|price|value|cost|sum|budget|salary|fee|reve
  * `defs` is the object's field declarations, which only the drawer has
  * (objectui#11677). When given, a key the object does not declare is not a
  * candidate, by the same rule as the drawer's field grid. The queue passes
- * nothing, which keeps today's choice.
+ * nothing.
+ *
+ * ## Which candidate leads (objectui#12110 item 6)
+ *
+ * The first key whose NAME matched {@link AMOUNT_KEY_RE} used to lead, zero or
+ * not. HotCRM's account (finding C-18 of the HotCRM browser pass) declares
+ * `annual_revenue` as a `currency` field and `child_account_revenue` as a
+ * `summary` roll-up of its children, and the drawer led with "Child Account
+ * Revenue 0". So, in order:
+ *
+ *  1. a field the object DECLARES as an amount — `type: 'currency'`, read off
+ *     `defs` — and among those the first non-zero one, else the first one: a
+ *     declared amount's zero is the record's amount;
+ *  2. else the first NAME match whose value is not zero. A name match is a
+ *     guess about what the key means, and a zero from a guessed key is the
+ *     headline the finding measured, so it never leads. Without `defs` (the
+ *     queue) every candidate is a name match.
  */
 function decisionAmountEntry(
   r: ApprovalRequestRow,
@@ -637,23 +728,32 @@ function decisionAmountEntry(
 ): { key: string; label: string; value: number; display: string } | null {
   const payload = r.payload;
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  let declaredZero: { key: string; label: string; value: number; display: string } | null = null;
+  let nameMatch: { key: string; label: string; value: number; display: string } | null = null;
   for (const [k, v] of Object.entries(payload as Record<string, unknown>)) {
     if (isBookkeepingKey(k, defs?.[k])) continue;
     if (hiddenKeys.has(k)) continue; // author declared `hidden: true` (#5565)
     if (defs && !defs[k]) continue; // not a field of this object (#11677)
-    if (!AMOUNT_KEY_RE.test(k)) continue;
+    const declaredAmount = defs?.[k]?.type === 'currency';
+    if (!declaredAmount && !AMOUNT_KEY_RE.test(k)) continue;
     const num = typeof v === 'number'
       ? v
       : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
     if (num == null || !Number.isFinite(num)) continue;
-    return {
+    const entry = {
       key: k,
       label: r.payload_labels?.[k] ?? prettifyKey(k),
       value: num,
       display: r.payload_display?.[k] ?? num.toLocaleString(locale),
     };
+    if (declaredAmount) {
+      if (num !== 0) return entry;
+      declaredZero ??= entry;
+    } else if (num !== 0) {
+      nameMatch ??= entry;
+    }
   }
-  return null;
+  return declaredZero ?? nameMatch;
 }
 
 /** The page's scoped translator, as the row cells receive it. */
@@ -1103,6 +1203,8 @@ export function ApprovalsInboxPage() {
    * before. See `useRequestFieldDefs` for the cost and the fail-open choice.
    */
   const requestFieldDefs = useRequestFieldDefs(selected?.object_name);
+  // The open request's position approvers, named (objectui#12110 item 6).
+  const selectedPositionLabels = usePositionLabels(selected);
   const { fieldLabel } = useSafeFieldLabel();
   // Approve/reject/reassign/send-back/… are server-declared actions rendered by
   // DeclaredActionsBar (objectui#2697 + framework#3300); their param dialog
@@ -2465,7 +2567,7 @@ export function ApprovalsInboxPage() {
                         {tr('waitingOn', 'Waiting on')}
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {approverChips(selected).map((chip, i) => (
+                        {approverChips(selected, selectedPositionLabels).map((chip, i) => (
                           <Badge key={`${chip.label}-${chip.group ?? ''}-${i}`} variant="outline" className="text-[11px]" title={chip.title}>
                             {chip.label}
                             {chip.group && (
@@ -2727,7 +2829,7 @@ export function ApprovalsInboxPage() {
                         {canRecall
                           ? tr('whyDisabledSubmitter', 'You submitted this request, so you can recall it — but only the assigned approvers can approve or reject.')
                           : tr('whyDisabled', 'Only the assigned approvers can act on this request. It is waiting on: {{who}}.', {
-                              who: (selected.pending_approvers || []).map(a => approverDisplay(a, selected)).join(', ') || '—',
+                              who: (selected.pending_approvers || []).map(a => approverDisplay(a, selected, selectedPositionLabels)).join(', ') || '—',
                             })}
                       </div>
                     )}

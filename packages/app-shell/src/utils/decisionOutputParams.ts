@@ -70,9 +70,107 @@ export const DECISION_OUTPUT_PARAM_PREFIX = 'outputs.';
  */
 const OUTPUT_LOOKUP_OBJECTS: Record<string, string> = {
   department: 'sys_business_unit',
-  position: 'sys_position',
   team: 'sys_team',
 };
+
+/**
+ * Catalog kinds: the output's candidates are the items of one metadata type in
+ * the environment registry, and the value handed to the flow is the item's
+ * machine name (objectui#7611).
+ *
+ * `position` lives here and not in {@link OUTPUT_LOOKUP_OBJECTS}: ADR-0131 D3
+ * gives positions one home, the registry, and D4 references a declared item by
+ * name. The spec says the same of this output (objectstack#22682, landed as
+ * objectstack#22710): a `position` decision output collects position machine
+ * names, which is what the engine's `resolveAs: 'position'` matches against
+ * `sys_user_position.position`. The `sys_position` lookup this entry replaces
+ * listed rows a fresh database no longer has, so the picker offered nothing.
+ *
+ * The read is the one `RecipientPickerField`'s registry kinds make: the
+ * console's metadata store, `ensureType(<type>)`, the same cached reader that
+ * serves apps and objects — see {@link readDecisionOutputRegistry}.
+ */
+const OUTPUT_REGISTRY_TYPES: Record<string, string> = {
+  position: 'position',
+};
+
+/**
+ * The registry items a decision surface read for the catalog kinds above,
+ * keyed by metadata type.
+ *
+ * A type that is ABSENT and a type that maps to `[]` are different facts, and
+ * {@link decisionOutputParams} keeps them apart: `[]` is an empty registry, so
+ * the output renders a picker with nothing to offer; an absent entry means no
+ * reader was available (no metadata store), and only that degrades the output
+ * to the free-text box an untyped output gets.
+ */
+export type DecisionOutputRegistry = Readonly<Record<string, readonly unknown[]>>;
+
+/** The one member of the metadata store this module reads. */
+export interface DecisionOutputRegistryReader {
+  ensureType: (type: string) => Promise<readonly unknown[]>;
+}
+
+/**
+ * Does any of these outputs list a registry?
+ *
+ * A decision surface asks this before it awaits
+ * {@link readDecisionOutputRegistry}, so a decision with no catalog output
+ * still dispatches in the click's own tick, as it did before catalog kinds
+ * existed; only a decision that has a registry to read waits for it.
+ */
+export function decisionOutputsReadRegistry(defs: DecisionOutputDef[]): boolean {
+  return defs.some((d) => !!(d?.type && OUTPUT_REGISTRY_TYPES[d.type]));
+}
+
+/**
+ * Read the registry items the given outputs list, once per metadata type.
+ *
+ * `null` reader (a surface outside a `<MetadataProvider>`) → `{}`: no type is
+ * read, and each catalog kind degrades as {@link DecisionOutputRegistry} says.
+ * A type whose read fails maps to `[]`, the same answer `RecipientPickerField`
+ * gives a failed registry read.
+ */
+export async function readDecisionOutputRegistry(
+  defs: DecisionOutputDef[],
+  reader: DecisionOutputRegistryReader | null | undefined,
+): Promise<DecisionOutputRegistry> {
+  if (!reader) return {};
+  const types = new Set<string>();
+  for (const d of defs) {
+    const type = d?.type ? OUTPUT_REGISTRY_TYPES[d.type] : undefined;
+    if (type) types.add(type);
+  }
+  const out: Record<string, readonly unknown[]> = {};
+  for (const type of types) {
+    try {
+      const items = await reader.ensureType(type);
+      out[type] = Array.isArray(items) ? items : [];
+    } catch {
+      out[type] = [];
+    }
+  }
+  return out;
+}
+
+/**
+ * Registry items → select options: the value is the item's machine name and
+ * the label its `label`, else its name. Items without a name are dropped, and
+ * the list is sorted by name — the same reading `RecipientPickerField` makes
+ * of the same registry.
+ */
+function registryOptions(items: readonly unknown[]): Array<{ value: string; label: string }> {
+  const named = items.filter(
+    (it): it is { name: string; label?: unknown } =>
+      it != null && typeof (it as { name?: unknown }).name === 'string' && !!(it as { name: string }).name,
+  );
+  return [...named]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((it) => ({
+      value: it.name,
+      label: typeof it.label === 'string' && it.label ? it.label : it.name,
+    }));
+}
 
 /**
  * Read the declared outputs off an approval request row. Prefers the typed
@@ -115,11 +213,18 @@ function humanizeKey(key: string): string {
  * nothing reads the outputs, so demanding routing data to say "no" would trap
  * the rejection). Marking it here is what turns the server's 400 into a
  * blocked Confirm button with the field flagged, instead of a round trip.
+ *
+ * A catalog kind (`position`) renders a `select` over the registry items the
+ * caller read with {@link readDecisionOutputRegistry} and passes as
+ * `registry`; its option values are machine names, so the decide body carries
+ * the names the engine routes by. `select` is a declared param type whose
+ * options travel through `resolveActionParams()` untouched, so no new param
+ * key is needed to get them to the widget.
  */
 export function decisionOutputParams(
   defs: DecisionOutputDef[],
   t: (key: string) => string,
-  opts: { decision?: 'approve' | 'reject' } = {},
+  opts: { decision?: 'approve' | 'reject'; registry?: DecisionOutputRegistry } = {},
 ): Array<Record<string, unknown>> {
   return defs.filter((d) => d && d.key).map((d) => {
     const base = {
@@ -131,6 +236,17 @@ export function decisionOutputParams(
       return {
         ...base,
         type: 'user',
+        multiple: d.multiple === true,
+        helpText: t('actions.decisionOutput.help'),
+      };
+    }
+    const registryType = d.type ? OUTPUT_REGISTRY_TYPES[d.type] : undefined;
+    const registryItems = registryType ? opts.registry?.[registryType] : undefined;
+    if (registryItems) {
+      return {
+        ...base,
+        type: 'select',
+        options: registryOptions(registryItems),
         multiple: d.multiple === true,
         helpText: t('actions.decisionOutput.help'),
       };

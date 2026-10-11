@@ -59,6 +59,13 @@ const FIELD_DEFAULTS: Record<string, string> = {
   // renderer so both cannot drift apart in a locale.
   'fields.options.empty': 'No options available',
   'fields.options.selectFirst': 'Select {{fields}} first',
+  // objectui#12145 — three widgets' accessible names: the crop dialog's
+  // preview canvas, the percent slider, and the record picker's grid. The
+  // grid borrows the command palette's `Records` key rather than adding a
+  // second key for the same name. Same values as the `en` pack.
+  'fields.image.cropPreview': 'Image crop preview',
+  'fields.percent.slider': 'Percentage',
+  'console.commandPalette.records': 'Records',
   // objectui#4026 — the separator between the controlling-field names that
   // fill `{{fields}}` of the two gate sentences above/below (`lookup.
   // selectFirst`, `fields.options.selectFirst`). It is a LOCALE property, not

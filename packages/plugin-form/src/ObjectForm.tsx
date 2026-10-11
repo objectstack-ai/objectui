@@ -1089,12 +1089,14 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
           // object-schema field, assigned above) and their `toDomProps`
           // whitelist does not forward `step`, so `NumberField`,
           // `CurrencyField` and `PercentField` each derive their own. What
-          // this key does reach is the form renderer's unregistered-widget
-          // fallback — a field whose declared `widget` names a component the
-          // app never registered — where the leftover props are spread onto
-          // the `<input>`. Both halves are pinned by
-          // `objectFormNumericStep-9574.test.tsx`, which measures the two
-          // routes side by side.
+          // this key does reach is the form renderer's built-in `input`
+          // control — a field whose declared `widget` is `input` — where the
+          // leftover props are spread onto the `<input>`. (A `widget` naming a
+          // component the app never registered used to reach a second such
+          // input; since objectui#12110 it degrades to the `type` renderer,
+          // as the spec's `widget` describes, i.e. to the registered widget.)
+          // Both halves are pinned by `objectFormNumericStep-9574.test.tsx`,
+          // which measures the two routes side by side.
           formField.step = typeof field.scale === 'number' ? Math.pow(10, -field.scale) : 'any';
         }
 

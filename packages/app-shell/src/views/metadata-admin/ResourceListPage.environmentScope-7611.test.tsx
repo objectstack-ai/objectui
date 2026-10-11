@@ -17,7 +17,10 @@
  *  - the active switch: per item, the activation ledger's state (no row is
  *    active) with no catalog row read, written through the activation door by
  *    name, the door's refusal shown in its own words, disabled for a caller
- *    who cannot author, and disabled with the reason on an audience anchor.
+ *    who cannot author, and disabled with the reason on an audience anchor;
+ *  - the Capabilities page (row 1b): the same scope lists the capability
+ *    registry read-only, with no switch, no ledger read and no row read — the
+ *    Setup target objectstack's `nav_capabilities` moves onto.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, cleanup, screen, waitFor, fireEvent } from '@testing-library/react';
@@ -37,6 +40,13 @@ const POSITIONS: Record<string, unknown>[] = [
   { name: 'auditor', label: 'Auditor', _packageId: PROJECT_PKG, _provenance: 'package' },
 ];
 
+/** The capability registry as a fresh showcase serves it: curated beside package-declared. */
+const CAPABILITIES: Record<string, unknown>[] = [
+  { name: 'manage_users', label: 'Manage Users', scope: 'platform', _packageId: 'com.objectstack.plugin-security', _provenance: 'package' },
+  { name: 'setup.access', label: 'Setup Access', scope: 'platform', _packageId: 'com.objectstack.plugin-security', _provenance: 'package' },
+  { name: 'showcase.export_data', label: 'Export Showcase Data', scope: 'org', _packageId: PROJECT_PKG, _provenance: 'package' },
+];
+
 const ITEMS: Record<string, unknown>[] = [
   { name: 'admin_full_access', label: 'Administrator', _packageId: 'com.objectstack.plugin-security', _provenance: 'package' },
   { name: 'showcase_auditor', label: 'Showcase Auditor', _packageId: PROJECT_PKG, _provenance: 'package' },
@@ -52,16 +62,20 @@ const CLIENT = {
         ? ITEMS
         : type === 'position'
           ? POSITIONS
-          : [],
+          : type === 'capability'
+            ? CAPABILITIES
+            : [],
 };
 
 const ENTRY = { type: TYPE, label: 'Permission Set', allowOrgOverride: false, allowRuntimeCreate: true };
 const POSITION_ENTRY = { type: 'position', label: 'Position', allowOrgOverride: false, allowRuntimeCreate: true };
+// The served `capability` entry: no runtime write channel at all (code-only, ADR-0126 §3).
+const CAPABILITY_ENTRY = { type: 'capability', label: 'Capability', allowOrgOverride: false, allowRuntimeCreate: false };
 
 vi.mock('./useMetadata', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useMetadataClient: () => CLIENT,
-  useMetadataTypes: () => ({ loading: false, error: null, entries: [ENTRY, POSITION_ENTRY] }),
+  useMetadataTypes: () => ({ loading: false, error: null, entries: [ENTRY, POSITION_ENTRY, CAPABILITY_ENTRY] }),
 }));
 
 vi.mock('./i18n', async (importOriginal) => ({
@@ -245,5 +259,23 @@ describe('the active switch (the activation ledger, through its door)', () => {
     await waitFor(() => expect(linkTo(container, 'showcase_auditor')).not.toBeNull());
     expect(screen.queryByTestId('catalog-active-showcase_auditor')).toBeNull();
     expect(requests.some((r) => r.url.includes('sys_metadata_activation'))).toBe(false);
+  });
+});
+
+describe('the Capabilities catalog page: the registry, read-only, with no switch (objectui#7611, row 1b)', () => {
+  it('lists every registry capability with no create, no status filter and no switch, and reads no ledger and no sys_capability row', async () => {
+    const { container } = mount('?scope=environment', 'capability');
+    await waitFor(() => expect(linkTo(container, 'manage_users')).not.toBeNull());
+    for (const name of ['manage_users', 'setup.access', 'showcase.export_data']) {
+      expect(linkTo(container, name)?.getAttribute('href')).toMatch(/\?scope=environment$/);
+    }
+    // Read-only: the type offers no runtime write channel, whoever the caller is.
+    expect(screen.queryByRole('button', { name: new RegExp(t('engine.list.create', 'en-US')) })).toBeNull();
+    // No switch: a capability has no activation (the door refuses the type).
+    expect(screen.queryByTestId('catalog-status-filter')).toBeNull();
+    for (const name of ['manage_users', 'setup.access', 'showcase.export_data']) {
+      expect(screen.queryByTestId(`catalog-active-${name}`)).toBeNull();
+    }
+    expect(requests.some((r) => /sys_metadata_activation|sys_capability/.test(r.url))).toBe(false);
   });
 });

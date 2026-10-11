@@ -54,10 +54,7 @@ const asItems: Envelope = (rows) => ({ items: rows, total: rows.length });
  * answers no positions).
  */
 const DIRECTORY: Record<string, Record<string, unknown>[]> = {
-  sys_permission_set: [{ id: 'ps_1', name: 'showcase_contributor' }],
-  sys_user_permission_set: [
-    { id: 'grant_1', permission_set_id: 'ps_1', permission_set: 'showcase_contributor', user_id: 'u_direct' },
-  ],
+  sys_user_permission_set: [{ id: 'grant_1', permission_set: 'showcase_contributor', user_id: 'u_direct' }],
   sys_user_position: [],
   sys_user: [{ id: 'u_direct', name: 'Direct Dana', email: 'dana@example.com' }],
 };
@@ -112,7 +109,7 @@ describe('AssignedUsersSection — the find() envelope it accepts (objectui#5945
 
   it('does NOT read `records` — not a QueryResult member', async () => {
     await renderThrough(asRecords);
-    // The permission set itself never resolved, so the section reports the
+    // The grant read's envelope was refused, so the section reports the
     // empty state. Before the fix this rendered `Direct Dana`.
     expect(screen.queryByText('Direct Dana')).toBeNull();
     await waitFor(() =>

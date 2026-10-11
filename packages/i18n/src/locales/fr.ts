@@ -13,7 +13,7 @@ const fr = {
       notRestored: 'Le serveur a accepté la demande mais n’a pas restauré votre session administrateur — vous incarnez toujours {{user}}. Déconnectez-vous puis reconnectez-vous pour y mettre fin.',
     },
   },
-  // objectui#2600 B5 — capability picker scope group headers (labels come from the sys_capability registry).
+  // objectui#2600 B5 — capability picker scope group headers (labels come from the capability registry).
   capability: {
     label: {
       manage_users: "Gérer les utilisateurs",
@@ -133,6 +133,7 @@ const fr = {
     itemCount_many: "{{count}} d'éléments",
     itemCount_other: "{{count}} éléments",
     toggleSidebar: "Basculer la barre latérale",
+    breadcrumb: "Fil d'Ariane",
     package: "Package",
     done: "Terminé",
     editInStudio: "Modifier dans Studio",
@@ -267,9 +268,13 @@ const fr = {
       remove: "Supprimer l'image {{index}}",
       enlarge: "Agrandir {{name}}",
       preview: "Aperçu de l'image",
+      cropPreview: "Aperçu du recadrage de l'image",
       previous: "Image précédente",
       next: "Image suivante",
       counter: "{{current}} / {{total}}",
+    },
+    percent: {
+      slider: "Pourcentage",
     },
     relativeDate: {
       overdue: "En retard de {{count}} j",
@@ -404,10 +409,15 @@ const fr = {
     selectAllRows: "Sélectionner toutes les lignes",
     expandRow: "Développer la ligne",
     collapseRow: "Réduire la ligne",
+    rowActions: "Actions de la ligne",
     hideColumn: "Masquer la colonne",
     freezeColumn: "Figer la colonne",
     unfreezeColumn: "Libérer la colonne",
     pageInfo: "Page {{current}} sur {{total}}",
+    firstPage: "Première page",
+    previousPage: "Page précédente",
+    nextPage: "Page suivante",
+    lastPage: "Dernière page",
     totalRecords: "{{count}} au total",
     noResults: "Aucun résultat",
     noResultsHint: "Essayez d'ajuster vos filtres ou vos termes de recherche.",
@@ -441,6 +451,7 @@ const fr = {
     bulkAllOnPage_other: "Les {{count}} éléments de cette page sont sélectionnés.",
     bulkSelectAllMatching: "Sélectionner les {{count}} correspondances",
     bulkAllMatchingSelected: "Les {{count}} enregistrements correspondants sont tous sélectionnés.",
+    bulkActions: "Actions groupées",
     bulk: {
       confirmDefault: "Ceci s'appliquera à {{count}} enregistrement(s).",
       confirmDefault_one: "Ceci s'appliquera à {{count}} enregistrement.",
@@ -1055,6 +1066,8 @@ const fr = {
   designer: {
     undo: "Annuler",
     redo: "Rétablir",
+    canvasMinimap: "Mini-carte du canevas",
+    versionHistory: "Historique des versions",
   },
   detail: {
     editInlineHint: "Double-cliquez pour modifier",
@@ -2576,6 +2589,7 @@ const fr = {
     appDocs: 'Documentation de cette app',
     allDocs: 'Toute la documentation',
     onlineDocs: 'Documentation en ligne',
+    loadingDocumentation: 'Chargement de la documentation',
   },
   sidebar: {
     packageManagement: "Gestion des packages",
@@ -3470,6 +3484,13 @@ const fr = {
       dismiss: "Ignorer",
       confirmedToast: "« {{set}} » est désormais accordé à {{anchor}}.",
       dismissedToast: "Suggestion pour « {{set}} » ignorée.",
+      guestUnsupported: "Impossible de l'accorder ici : les ensembles de la position Guest ne sont pas dérivés des suggestions acceptées.",
+      acceptedState: "« {{set}} » a été accepté pour tous les utilisateurs connectés (position Everyone).",
+      notInForceState: "« {{set}} » a été accepté, mais n'est pas encore en vigueur : la position Everyone n'a pas changé lors de cette requête. Le journal du serveur indique pourquoi.",
+      dismissedState: "« {{set}} » n'est pas accordé : la suggestion a été ignorée ou révoquée.",
+      revoke: "Révoquer",
+      revoking: "Révocation…",
+      revokedToast: "Acceptation de « {{set}} » révoquée.",
     },
     title: "Marketplace d'applications",
     subtitle: "Parcourez les applications approuvées publiées dans le catalogue ObjectStack. Cliquez sur une application pour voir les détails et l'installer dans l'un de vos environnements.",

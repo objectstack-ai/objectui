@@ -111,8 +111,9 @@ export function MarketplacePackagePage() {
   const displayLocale = useDisplayLocale();
   // ADR-0090 D5 — install-time suggested audience bindings ("this app
   // suggests granting <set> to Everyone"), surfaced right after a
-  // successful install into THIS runtime. Confirm/dismiss is admin-gated
-  // server-side; the panel renders nothing for non-admins.
+  // successful install into THIS runtime, with the deployment's decision on
+  // each. Accept/dismiss/revoke need `manage_metadata` server-side; the panel
+  // renders nothing for a caller without it (the list answers 403).
   const suggestionStrings: SuggestedBindingsStrings = {
     describe: (s: SuggestedBinding) =>
       t(s.anchor === 'guest' ? 'marketplace.suggestedBindings.promptGuest' : 'marketplace.suggestedBindings.promptEveryone', { set: s.permission_set_name }),
@@ -123,6 +124,17 @@ export function MarketplacePackagePage() {
       t('marketplace.suggestedBindings.confirmedToast', { set: s.permission_set_name, anchor: s.anchor }),
     dismissedToast: (s: SuggestedBinding) =>
       t('marketplace.suggestedBindings.dismissedToast', { set: s.permission_set_name }),
+    guestUnsupported: t('marketplace.suggestedBindings.guestUnsupported'),
+    acceptedState: (s: SuggestedBinding) =>
+      t('marketplace.suggestedBindings.acceptedState', { set: s.permission_set_name }),
+    notInForceState: (s: SuggestedBinding) =>
+      t('marketplace.suggestedBindings.notInForceState', { set: s.permission_set_name }),
+    dismissedState: (s: SuggestedBinding) =>
+      t('marketplace.suggestedBindings.dismissedState', { set: s.permission_set_name }),
+    revoke: t('marketplace.suggestedBindings.revoke'),
+    revoking: t('marketplace.suggestedBindings.revoking'),
+    revokedToast: (s: SuggestedBinding) =>
+      t('marketplace.suggestedBindings.revokedToast', { set: s.permission_set_name }),
   };
   const basePath = appName ? `/apps/${appName}` : '';
   const { refresh: refreshMetadata } = useMetadata();

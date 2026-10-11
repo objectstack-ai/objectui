@@ -1159,6 +1159,39 @@ export const FormFieldSchema = z.object({
   total_field: retiredGridFieldKey('total_field'),
   add_label: retiredGridFieldKey('add_label'),
   sort_field: retiredGridFieldKey('sort_field'),
+  // objectui#12130 — the rest of the field metadata the channel reads off the
+  // entry, measured at runtime (the census and effects pins under
+  // `examples/schema-catalog/test/`). The spec's `FieldSchema` members by
+  // reference; `idField` / `picker` / `subtitle` stated once from the field
+  // metadata types' members the TS twin carries by reference; `capture`,
+  // `crop`, `defaultName` and `avatarField` typed as the widget reads them.
+  // `defaultValue` and `defaultChecked` stay undeclared: no reader asks for
+  // either, and neither becomes the field's value (`FormSchema.defaultValues`
+  // does). `avatar_field` stays undeclared: the second spelling of
+  // `avatarField` (AGENTS.md #0.1). `step` stays undeclared too, open: see
+  // the TS twin.
+  language: stripImportedDefaults(SpecFieldSchema).shape.language,
+  maxSize: stripImportedDefaults(SpecFieldSchema).shape.maxSize,
+  capture: z.union([z.enum(['environment', 'user']), z.literal(false)]).optional()
+    .describe('Camera capture mode of a `file` field; `false` never offers a camera input; read only by the `file` widget'),
+  crop: z.boolean().optional()
+    .describe('`false` turns off inline cropping on an `image` field; read only by the `image` widget'),
+  defaultName: z.string().optional()
+    .describe('Name an empty `avatar` field draws its initials from; read only by the `avatar` widget'),
+  allowCreate: stripImportedDefaults(SpecFieldSchema).shape.allowCreate,
+  descriptionField: stripImportedDefaults(SpecFieldSchema).shape.descriptionField,
+  displayField: stripImportedDefaults(SpecFieldSchema).shape.displayField,
+  idField: z.string().optional()
+    .describe('Record field a `lookup` pick commits as the value (default `id`); read by the `lookup` widget'),
+  lookupColumns: stripImportedDefaults(SpecFieldSchema).shape.lookupColumns,
+  lookupFilters: stripImportedDefaults(SpecFieldSchema).shape.lookupFilters,
+  lookupPageSize: stripImportedDefaults(SpecFieldSchema).shape.lookupPageSize,
+  picker: z.enum(['search', 'default']).optional()
+    .describe('Picker of a `lookup` / `user` field: `search` is the search-first people picker; read by the `lookup` and `user` widgets'),
+  subtitle: z.array(z.string()).optional()
+    .describe('Record fields shown beside each candidate of the search picker; read by the `lookup` and `user` widgets'),
+  avatarField: z.string().optional()
+    .describe('Record field each candidate of the search picker draws its avatar image from (default `image`); read by the `lookup` and `user` widgets'),
 }).superRefine((field, ctx) => {
   // objectui#11070 round 13 — the spec's one cross-key rule on `scale`; see
   // CURRENCY_FIELD_SCALE_REFUSAL.

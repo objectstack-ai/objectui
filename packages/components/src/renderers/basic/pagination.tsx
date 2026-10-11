@@ -9,10 +9,28 @@
 import { ComponentRegistry } from '@object-ui/core';
 import type { PaginationSchema } from '@object-ui/types';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../../ui/pagination';
+import { createSafeTranslation } from '@object-ui/i18n';
 import React from 'react';
+
+/**
+ * objectui#12145 — the previous / next links' accessible names. The Shadcn
+ * primitives hard-code English ones (`ui/pagination.tsx` is a No-Touch zone,
+ * AGENTS.md commandment #7), and spread `props` after them, so this call site
+ * names them instead. The keys are the data table pager's (objectui#12124), the
+ * same two names; the rows are the `en` pack's values, served when no
+ * `I18nProvider` is mounted.
+ */
+const usePaginationTranslation = createSafeTranslation(
+  {
+    'table.previousPage': 'Previous page',
+    'table.nextPage': 'Next page',
+  },
+  'table.previousPage',
+);
 
 ComponentRegistry.register('pagination', 
   ({ schema, ...props }: { schema: PaginationSchema; [key: string]: any }) => {
+    const { t } = usePaginationTranslation();
     const { 
         'data-obj-id': dataObjId, 
         'data-obj-type': dataObjType,
@@ -62,6 +80,7 @@ ComponentRegistry.register('pagination',
           <PaginationItem>
             <PaginationPrevious 
               href="#" 
+              aria-label={t('table.previousPage')}
               onClick={(e) => handlePageChange(currentPage - 1, e)}
               className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
               aria-disabled={currentPage <= 1}
@@ -86,6 +105,7 @@ ComponentRegistry.register('pagination',
           <PaginationItem>
             <PaginationNext 
               href="#" 
+              aria-label={t('table.nextPage')}
               onClick={(e) => handlePageChange(currentPage + 1, e)}
               className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
               aria-disabled={currentPage >= totalPages}

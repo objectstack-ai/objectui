@@ -1643,9 +1643,15 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
         copied: labels?.copied ?? 'Copied',
         regenerate: labels?.regenerate ?? 'Regenerate',
         model: labels?.model ?? 'Model',
-        submit: labels?.submit ?? 'Submit',
+        // objectui#12145 — the composer's send / stop button and an
+        // attachment's remove button are icon-only, so these are their
+        // accessible names. With no host `labels` they read the pack: the
+        // console's own keys for the two names it already passes, and the
+        // record attachment list's key for the third — one key per name.
+        submit: labels?.submit ?? tt('console.ai.submit', 'Submit'),
         uploadFiles: labels?.uploadFiles ?? 'Upload files',
-        stopResponse: labels?.stopResponse ?? 'Stop response',
+        stopResponse: labels?.stopResponse ?? tt('console.ai.stopResponse', 'Stop response'),
+        removeAttachment: tt('detail.removeAttachment', 'Remove attachment'),
         sendFailedRateLimited:
           labels?.sendFailedRateLimited ??
           "You're sending messages too quickly. Your message is kept below — wait a moment and try again.",
@@ -3602,7 +3608,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
             {enableFileUpload ? (
               <PromptInputBody>
                 <PromptInputAttachments>
-                  {(attachment) => <PromptInputAttachment data={attachment} />}
+                  {(attachment) => <PromptInputAttachment data={attachment} removeLabel={L.removeAttachment} />}
                 </PromptInputAttachments>
               </PromptInputBody>
             ) : null}

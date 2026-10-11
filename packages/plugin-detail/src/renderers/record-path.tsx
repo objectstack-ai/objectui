@@ -424,8 +424,8 @@ export const RecordPathRenderer: React.FC<RecordPathRendererProps> = ({
           // read as "step N+1" in the forward path. That separation is PURELY
           // VISUAL, and deliberately carries no accessible name (objectui#5956).
           //
-          // It used to hold `aria-label="Alternative terminal stages"` on this
-          // bare `div`. A `div` has the `generic` role, which browsers do not
+          // It used to label this bare `div` "Alternative terminal stages"
+          // through ARIA. A `div` has the `generic` role, which browsers do not
           // expose an accessible name on, so that string reached nobody: it was
           // INERT, not merely untranslated, and translating it would have shipped
           // copy to ten packs that no user can hear. The two live options were to

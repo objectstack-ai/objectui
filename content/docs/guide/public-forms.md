@@ -265,7 +265,9 @@ spec-merging code path:
 
 URL parameters of the form `?prefill_<field>=<value>` populate the matching
 fields on mount; the rest of the chrome (label, section columns, post-submit
-behaviour) comes from the `FormView` spec itself.
+behaviour) comes from the `FormView` spec itself. The public page's heading is
+the form's `title`; a form with no title is headed by its object's label, and
+the object's API name is used only when the payload carries no label at all.
 
 For richer public forms with anti-spam, GDPR consent, prefill whitelisting
 and open-redirect protection, host `EmbeddableForm` directly inside your own

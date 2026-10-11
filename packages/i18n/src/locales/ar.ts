@@ -13,7 +13,7 @@ const ar = {
       notRestored: 'قبل الخادم الطلب لكنه لم يستعد جلسة المسؤول — ما زلت تنتحل هوية {{user}}. سجّل الخروج ثم الدخول مرة أخرى لإنهائها.',
     },
   },
-  // objectui#2600 B5 — capability picker scope group headers (labels come from the sys_capability registry).
+  // objectui#2600 B5 — capability picker scope group headers (labels come from the capability registry).
   capability: {
     label: {
       manage_users: "إدارة المستخدمين",
@@ -163,6 +163,7 @@ const ar = {
     itemCount_many: "{{count}} عنصرًا",
     itemCount_other: "{{count}} عنصر",
     toggleSidebar: "تبديل الشريط الجانبي",
+    breadcrumb: "مسار التنقل",
     package: "الحزمة",
     done: "تم",
     editInStudio: "التعديل في Studio",
@@ -297,9 +298,13 @@ const ar = {
       remove: "إزالة الصورة {{index}}",
       enlarge: "تكبير {{name}}",
       preview: "معاينة الصورة",
+      cropPreview: "معاينة قص الصورة",
       previous: "الصورة السابقة",
       next: "الصورة التالية",
       counter: "{{current}} / {{total}}",
+    },
+    percent: {
+      slider: "النسبة المئوية",
     },
     relativeDate: {
       overdue: "متأخر {{count}} يوم",
@@ -437,10 +442,15 @@ const ar = {
     selectAllRows: "تحديد جميع الصفوف",
     expandRow: "توسيع الصف",
     collapseRow: "طي الصف",
+    rowActions: "إجراءات الصف",
     hideColumn: "إخفاء العمود",
     freezeColumn: "تجميد العمود",
     unfreezeColumn: "إلغاء تجميد العمود",
     pageInfo: "صفحة {{current}} من {{total}}",
+    firstPage: "الصفحة الأولى",
+    previousPage: "الصفحة السابقة",
+    nextPage: "الصفحة التالية",
+    lastPage: "الصفحة الأخيرة",
     totalRecords: "{{count}} إجمالي",
     noResults: "لا نتائج",
     noResultsHint: "حاول تعديل الفلاتر أو مصطلحات البحث.",
@@ -486,6 +496,7 @@ const ar = {
     bulkAllOnPage_other: "تم تحديد جميع العناصر ({{count}}) في هذه الصفحة.",
     bulkSelectAllMatching: "تحديد كل النتائج المطابقة ({{count}})",
     bulkAllMatchingSelected: "تم تحديد جميع السجلات المطابقة ({{count}}).",
+    bulkActions: "إجراءات جماعية",
     bulk: {
       confirmDefault: "سيُطبَّق هذا على {{count}} من السجلات.",
       confirmDefault_zero: "سيُطبَّق هذا على {{count}} من السجلات.",
@@ -1151,6 +1162,8 @@ const ar = {
   designer: {
     undo: "تراجع",
     redo: "إعادة",
+    canvasMinimap: "الخريطة المصغرة للوحة",
+    versionHistory: "سجل الإصدارات",
   },
   detail: {
     editInlineHint: "انقر نقرًا مزدوجًا للتحرير",
@@ -2733,6 +2746,7 @@ const ar = {
     appDocs: 'وثائق هذا التطبيق',
     allDocs: 'كل الوثائق',
     onlineDocs: 'الوثائق عبر الإنترنت',
+    loadingDocumentation: 'جارٍ تحميل الوثائق',
   },
   sidebar: {
     packageManagement: "إدارة الحزم",
@@ -3675,6 +3689,13 @@ const ar = {
       dismiss: "تجاهل",
       confirmedToast: "تم الآن منح «{{set}}» إلى {{anchor}}.",
       dismissedToast: "تم تجاهل اقتراح «{{set}}».",
+      guestUnsupported: "لا يمكن المنح هنا: لا تُشتق مجموعات موضع Guest من الاقتراحات المقبولة.",
+      acceptedState: "تم قبول «{{set}}» لجميع المستخدمين المسجّلين (موضع Everyone).",
+      notInForceState: "تم قبول «{{set}}»، لكنه لم يسرِ بعد: لم يتغير موضع Everyone في هذا الطلب. يوضّح سجل الخادم السبب.",
+      dismissedState: "«{{set}}» غير ممنوح: تم تجاهل الاقتراح أو إلغاؤه.",
+      revoke: "إلغاء",
+      revoking: "جارٍ الإلغاء…",
+      revokedToast: "تم إلغاء قبول «{{set}}».",
     },
     title: "سوق التطبيقات",
     subtitle: "استعرض التطبيقات المعتمدة المنشورة في كتالوج ObjectStack. انقر على تطبيق لرؤية التفاصيل وتثبيته في أحد بيئاتك.",

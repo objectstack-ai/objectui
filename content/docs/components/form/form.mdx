@@ -33,15 +33,12 @@ interface FormField {
   
   // Options (for select, radio-group)
   options?: Array<{ value: string; label: string }>;
-  
-  // Default value
-  defaultValue?: any;
 }
 
 interface FormSchema {
   type: 'form';
   fields: FormField[];            // Form fields
-  defaultValues?: Record<string, any>;  // Initial values, keyed by field name
+  defaultValues?: Record<string, any>;  // Initial values, keyed by field name (a field has no default key of its own)
   submitLabel?: string;           // Submit button text (default 'Submit')
   
   // Events

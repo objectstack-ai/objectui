@@ -43,6 +43,7 @@ import {
 } from '@object-ui/components';
 import {
   ActionProvider,
+  MetadataCtx,
   useAction,
   useCapabilityGate,
   useCondition,
@@ -66,7 +67,12 @@ import { useAdapter } from '../providers/AdapterProvider.js';
 // 'authFetchSpy' before initialization`, the side effect running inside the
 // hoisted `@object-ui/auth` mock factory before the spy existed.
 import { useMetadataItem } from '@object-ui/react';
-import { decisionOutputDefs, decisionOutputParams } from '../utils/decisionOutputParams.js';
+import {
+  decisionOutputDefs,
+  decisionOutputParams,
+  decisionOutputsReadRegistry,
+  readDecisionOutputRegistry,
+} from '../utils/decisionOutputParams.js';
 import { getIcon } from '../utils/getIcon.js';
 import { isOverrideDecision, bypassedApproverNames } from '../utils/approvalOverride.js';
 import {
@@ -142,6 +148,20 @@ const DeclaredActionButton: React.FC<{
   // literal IS what renders, which is how English help text survived in a zh-CN
   // workspace (objectui#2762 P0-3).
   const { t } = useObjectTranslation();
+  // The console's metadata store, or `null` outside a `<MetadataProvider>` —
+  // the reader a catalog-kind decision output (`position`) lists the registry
+  // through (objectui#7611). Read raw rather than through `useMetadata()`,
+  // whose no-provider fallback answers every type with `[]`: an empty registry
+  // and an absent reader are different facts (`DecisionOutputRegistry`). Held
+  // in a ref and read at click time, so no callback keys on the store's
+  // context identity, which is rebuilt whenever any type it caches settles
+  // (AGENTS.md #10). The ref is synced after each commit rather than during
+  // render; a click always lands after one.
+  const metadataStore = React.useContext(MetadataCtx);
+  const metadataStoreRef = React.useRef(metadataStore);
+  React.useEffect(() => {
+    metadataStoreRef.current = metadataStore;
+  });
 
   const recordData = record != null && typeof record === 'object' ? (record as Record<string, any>) : {};
   /**
@@ -285,8 +305,19 @@ const DeclaredActionButton: React.FC<{
       // Widget mapping (typed picker vs free text) lives in the shared helper,
       // so the record header's Approve/Reject renders the same controls
       // (objectui#2955).
+      //
+      // A catalog kind (`position`) lists the registry, so its items are read
+      // before the params are built — once per type, from the store's
+      // session cache after the first read (objectui#7611). Only a decision
+      // that HAS a catalog output awaits that read; every other decision
+      // dispatches in the click's own tick, as before.
+      const outputDefs = decision ? decisionOutputDefs(recordData) : [];
+      const metadataStoreNow = metadataStoreRef.current;
+      const registry = metadataStoreNow && decisionOutputsReadRegistry(outputDefs)
+        ? await readDecisionOutputRegistry(outputDefs, metadataStoreNow)
+        : undefined;
       const outputParams = decision
-        ? decisionOutputParams(decisionOutputDefs(recordData), t, { decision })
+        ? decisionOutputParams(outputDefs, t, { decision, registry })
         : [];
       // Typed as the SEAM's contract, not as `any` and not cast to `ActionDef`
       // on the way out (objectui#5611). `overrideNotice` below is host-composed

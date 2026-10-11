@@ -17,7 +17,7 @@ import { ComponentRegistry, percentDisplayValue, type PercentScale, getRecordDis
 import { valueSchemaFor, resolveFieldScale } from '@objectstack/spec/data';
 import { useLocalization, useDisplayLocale, formatDisplayNumber } from '@object-ui/i18n';
 import { Badge, Avatar, AvatarImage, AvatarFallback, Button, Checkbox, EmptyValue, cn } from '@object-ui/components';
-import { Check, Copy, Phone as PhoneIcon, MapPin, CircleQuestionMark } from 'lucide-react';
+import { Check, Copy, Phone as PhoneIcon, MapPin, CircleQuestionMark, Star } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/react';
 import { SchemaRendererContext as _SchemaRendererContext } from '@object-ui/react';
 import { useRelatedRecordActions } from '@object-ui/react';
@@ -708,6 +708,48 @@ export function NumberCellRenderer({ value, field }: CellRendererProps): React.R
   const formatted = !isNaN(num) ? formatNumberFieldValue(num, field, locale) : String(safe);
 
   return <span className="tabular-nums">{formatted}</span>;
+}
+
+/**
+ * Rating field cell renderer — the star row `RatingField`'s read-only branch
+ * draws (objectui#12110 item 2, finding A-03 of the HotCRM browser pass).
+ *
+ * `rating` used to share `NumberCellRenderer`, so a list column, a detail row
+ * and a related list printed a bare `4` for a value the form draws as four of
+ * five stars. The scale is the field's declared `max`, read the way
+ * `RatingField` reads it, with `Field.rating`'s own default of 5 when none is
+ * declared. The value and the scale are the cell's accessible text.
+ *
+ * Module-private on purpose: reached through `getCellRenderer('rating')`, the
+ * one door every cell host already uses, so the package's export surface does
+ * not grow.
+ */
+function RatingCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
+  const safe = coerceToSafeValue(value);
+  // The same floor as `NumberCellRenderer` (objectui#8490): `[]` and `''`
+  // coerce to `''`, and `Number('')` is a zero the record never held.
+  if (isBlankCellText(safe)) return <EmptyValue />;
+  const num = Number(safe);
+  // Not a number: the text face the number cell gives it, and no star.
+  if (!Number.isFinite(num)) return <span className="tabular-nums">{String(safe)}</span>;
+  const declaredMax = (field as { max?: unknown } | undefined)?.max;
+  const max = typeof declaredMax === 'number' && declaredMax > 0 ? Math.floor(declaredMax) : 5;
+  const filled = Math.max(0, Math.min(max, Math.round(num)));
+  return (
+    <span className="inline-flex items-center gap-0.5" title={`${num} / ${max}`}>
+      {Array.from({ length: max }, (_, i) => (
+        <Star
+          key={i}
+          aria-hidden="true"
+          className={cn(
+            'h-3.5 w-3.5 shrink-0',
+            i < filled ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/40',
+          )}
+        />
+      ))}
+      <span className="sr-only">{`${num} / ${max}`}</span>
+    </span>
+  );
 }
 
 /**
@@ -3766,7 +3808,7 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     percent: PercentCellRenderer,
     progress: PercentCellRenderer,
     slider: NumberCellRenderer,
-    rating: NumberCellRenderer,
+    rating: RatingCellRenderer,
     boolean: BooleanCellRenderer,
     toggle: BooleanCellRenderer,
     date: DateCellRenderer,

@@ -14,11 +14,16 @@
  *  2. every edit emits a JSON-**string** array of names — byte-equivalent to
  *     the `sys_permission_set.system_permissions` textarea storage, so the
  *     round-trip through the picker never changes the on-disk shape.
+ *
+ * And, since objectui#7611, the property ADR-0131 D3/D7 adds: the options are
+ * the capability REGISTRY (the console metadata store's `capability` items),
+ * never `sys_capability` rows, and never a merge of the two.
  */
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { MetadataCtx, type MetadataContextValue } from '@object-ui/react';
 import { CapabilityMultiSelectField, parseCapabilityNames } from './CapabilityMultiSelectField';
 
 describe('parseCapabilityNames', () => {
@@ -55,18 +60,35 @@ const CAPS = [
   { name: 'manage_org_users', label: 'Manage Org Users', description: 'Org members', scope: 'org', active: true },
 ];
 
-function mockDataSource(rows = CAPS) {
+/** A console metadata store whose `capability` registry serves `items`. */
+function metadataStore(items: unknown[] = CAPS): MetadataContextValue & { ensureType: ReturnType<typeof vi.fn> } {
+  return {
+    apps: [], objects: [], dashboards: [], reports: [], pages: [],
+    loading: false, error: null,
+    refresh: async () => {}, invalidate: () => {},
+    ensureType: vi.fn().mockResolvedValue(items),
+    getItem: async () => null,
+    getItemsByType: () => [],
+  } as any;
+}
+
+/** Renders `ui` inside `store` (the registry reader), or bare when `null`. */
+function renderInStore(ui: React.ReactElement, store: MetadataContextValue | null = metadataStore()) {
+  return render(store ? <MetadataCtx.Provider value={store}>{ui}</MetadataCtx.Provider> : ui);
+}
+
+/** A data source answering `sys_capability` rows — which the picker must never ask. */
+function rowDataSource(rows: unknown[]) {
   return { find: vi.fn().mockResolvedValue({ data: rows }) } as any;
 }
 
 describe('CapabilityMultiSelectField', () => {
   it('renders capabilities grouped by scope with human labels', async () => {
-    render(
+    renderInStore(
       <CapabilityMultiSelectField
         value={'["studio.access"]'}
         onChange={vi.fn()}
         field={{ name: 'system_permissions' } as any}
-        dataSource={mockDataSource()}
       />,
     );
     // group headers
@@ -79,12 +101,11 @@ describe('CapabilityMultiSelectField', () => {
 
   it('emits a JSON-string array when a capability is toggled on', async () => {
     const onChange = vi.fn();
-    render(
+    renderInStore(
       <CapabilityMultiSelectField
         value={'["studio.access"]'}
         onChange={onChange}
         field={{ name: 'system_permissions' } as any}
-        dataSource={mockDataSource()}
       />,
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Manage Users' }));
@@ -98,12 +119,11 @@ describe('CapabilityMultiSelectField', () => {
 
   it('removes a capability (and keeps emitting a JSON string) when toggled off', async () => {
     const onChange = vi.fn();
-    render(
+    renderInStore(
       <CapabilityMultiSelectField
         value={'["studio.access","manage_users"]'}
         onChange={onChange}
         field={{ name: 'system_permissions' } as any}
-        dataSource={mockDataSource()}
       />,
     );
     // Chip labels now resolve through the i18n bundle (objectui#2600 B5), so an
@@ -117,12 +137,11 @@ describe('CapabilityMultiSelectField', () => {
   });
 
   it('preserves an unknown/legacy selected name not in the registry', async () => {
-    render(
+    renderInStore(
       <CapabilityMultiSelectField
         value={'["studio.access","legacy.custom"]'}
         onChange={vi.fn()}
         field={{ name: 'system_permissions' } as any}
-        dataSource={mockDataSource()}
       />,
     );
     // The unknown name still renders as a (selected) chip so it is not dropped.
@@ -131,12 +150,11 @@ describe('CapabilityMultiSelectField', () => {
   });
 
   it('renders selected labels as read-only badges when readonly', async () => {
-    render(
+    renderInStore(
       <CapabilityMultiSelectField
         value={'["studio.access"]'}
         onChange={vi.fn()}
         field={{ name: 'system_permissions' } as any}
-        dataSource={mockDataSource()}
         readonly
       />,
     );
@@ -148,21 +166,93 @@ describe('CapabilityMultiSelectField', () => {
   // objectui#2600 B5 — curated platform caps get a localized label; package/
   // admin-authored caps keep whatever label the registry served.
   it('localizes curated capability labels but preserves registry labels for others', async () => {
-    render(
+    renderInStore(
       <CapabilityMultiSelectField
         value={'[]'}
         onChange={vi.fn()}
         field={{ name: 'system_permissions' } as any}
-        dataSource={mockDataSource([
-          // Registry sends a shorter label; the curated client map wins.
-          { name: 'manage_org_users', label: 'Manage Org Users', description: 'Org members', scope: 'org', active: true },
-          // Not a curated platform capability — its registry label is kept.
-          { name: 'export_data', label: 'Export Data', description: 'Export', scope: 'org', active: true },
-        ])}
       />,
+      metadataStore([
+        // Registry sends a shorter label; the curated client map wins.
+        { name: 'manage_org_users', label: 'Manage Org Users', description: 'Org members', scope: 'org' },
+        // Not a curated platform capability — its registry label is kept.
+        { name: 'export_data', label: 'Export Data', description: 'Export', scope: 'org' },
+      ]),
     );
     expect(await screen.findByRole('button', { name: 'Manage Organization Users' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Manage Org Users' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Export Data' })).toBeInTheDocument();
+  });
+});
+
+/**
+ * objectui#7611 (ADR-0131 D3/D7) — the options are the capability REGISTRY: the
+ * console metadata store's `capability` items, which hold the platform's
+ * curated capabilities beside every package-declared one. Nothing writes a
+ * `sys_capability` row any more, so a picker that read rows offered only the
+ * set's own selections.
+ */
+describe('CapabilityMultiSelectField — the options are the capability registry (objectui#7611)', () => {
+  const REGISTRY = [
+    { name: 'manage_users', label: 'Manage Users', scope: 'platform', _packageId: 'com.objectstack.plugin-security' },
+    { name: 'setup.access', label: 'Setup Access', scope: 'platform', _packageId: 'com.objectstack.plugin-security' },
+    // Package-declared: no curated label exists for it, so its own label shows.
+    { name: 'showcase.export', label: 'Export Showcase Data', scope: 'org', _packageId: 'com.example.showcase' },
+  ];
+
+  it('lists the registry items, curated and package-declared, and never asks for sys_capability rows', async () => {
+    const store = metadataStore(REGISTRY);
+    const ds = rowDataSource([{ name: 'row_only_capability', label: 'Row Only Capability', scope: 'org', active: true }]);
+    renderInStore(
+      <CapabilityMultiSelectField
+        value={'[]'}
+        onChange={vi.fn()}
+        field={{ name: 'system_permissions' } as any}
+        dataSource={ds}
+      />,
+      store,
+    );
+
+    await waitFor(() => expect(store.ensureType).toHaveBeenCalledWith('capability'));
+    expect(await screen.findByRole('button', { name: 'Export Showcase Data' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Manage Users' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Setup Access' })).toBeInTheDocument();
+    // One source: a row the registry does not hold is not offered, and the
+    // data source is never asked, even when one is handed in.
+    expect(screen.queryByRole('button', { name: 'Row Only Capability' })).not.toBeInTheDocument();
+    expect(ds.find).not.toHaveBeenCalled();
+  });
+
+  it('adds a package-declared capability by its name', async () => {
+    const onChange = vi.fn();
+    renderInStore(
+      <CapabilityMultiSelectField
+        value={'["setup.access"]'}
+        onChange={onChange}
+        field={{ name: 'system_permissions' } as any}
+      />,
+      metadataStore(REGISTRY),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Export Showcase Data' }));
+    expect(JSON.parse(onChange.mock.calls[0][0])).toEqual(['setup.access', 'showcase.export']);
+  });
+
+  it('offers only the set\'s own selections, and loads nothing, when no metadata store is mounted', async () => {
+    const ds = rowDataSource([{ name: 'row_only_capability', label: 'Row Only Capability', scope: 'org', active: true }]);
+    renderInStore(
+      <CapabilityMultiSelectField
+        value={'["legacy.custom"]'}
+        onChange={vi.fn()}
+        field={{ name: 'system_permissions' } as any}
+        dataSource={ds}
+      />,
+      null,
+    );
+    // No registry reader: the granted name stays visible and selected, nothing
+    // else is offered, and the picker does not sit on a loading line.
+    expect(await screen.findByRole('button', { name: 'legacy.custom' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.queryByText('Loading capabilities…')).not.toBeInTheDocument();
+    expect(ds.find).not.toHaveBeenCalled();
   });
 });

@@ -198,6 +198,22 @@ function canStoreReaction(item: FeedItem): boolean {
   return item.type === 'comment';
 }
 
+/**
+ * Whether a feed row can take a reply (objectui#12144).
+ *
+ * A reply is a `sys_comment` row whose `parent_id` names the comment it
+ * answers, so only a `comment` row offers the reply input. A row read from
+ * `sys_activity` offers none: a reply there would store a comment whose parent
+ * is an activity, which no read shows under it. Same reasoning as
+ * {@link canStoreReaction}.
+ */
+function canTakeReply(item: FeedItem): boolean {
+  return item.type === 'comment';
+}
+
+/** The reply list a row shows while its `replyCount` is zero (objectui#12144). */
+const NO_REPLIES: FeedItem[] = [];
+
 function filterItems(items: FeedItem[], mode: FeedFilterMode): FeedItem[] {
   switch (mode) {
     case 'comments_only':
@@ -532,7 +548,14 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
                 const Icon = FEED_TYPE_ICONS[item.type] || Zap;
                 const colorClass =
                   FEED_TYPE_COLORS[item.type] || 'bg-gray-100 text-gray-600';
-                const replies = repliesByParent.get(item.id) ?? [];
+                // Threading (objectui#12144). The reply LIST shows only under a
+                // `replyCount` above zero, the one threading gate: the host that
+                // read the rows sets it. The reply INPUT does not wait for a
+                // first reply, so a comment with none offers it wherever the
+                // host hands over `onAddReply`.
+                const replies =
+                  (item.replyCount ?? 0) > 0 ? (repliesByParent.get(item.id) ?? NO_REPLIES) : NO_REPLIES;
+                const offersReply = !!onAddReply && canTakeReply(item);
                 // Undefined on a row that cannot store a reaction: no Add
                 // reaction button, and its chips render disabled (objectui#11035).
                 const toggleReaction =
@@ -631,12 +654,12 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
                     </div>
 
                     {/* Threading */}
-                    {enableThreading && (item.replyCount ?? 0) > 0 && (
+                    {enableThreading && (replies.length > 0 || offersReply) && (
                       <ThreadedReplies
                         parentItem={item}
                         replies={replies}
                         onAddReply={onAddReply}
-                        showReplyInput={!!onAddReply}
+                        showReplyInput={offersReply}
                       />
                     )}
                   </div>

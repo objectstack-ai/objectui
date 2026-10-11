@@ -632,6 +632,8 @@ const RECORD_PANEL = 'packages/plugin-detail/src/RecordDetailPanel.tsx';
 const OBJECT_GANTT = 'packages/plugin-gantt/src/ObjectGantt.tsx';
 const MASTER_DETAIL = 'packages/plugin-form/src/MasterDetailForm.tsx';
 const EXCEL_IMPORT_BAR = 'packages/app-shell/src/console/ai/ExcelImportBar.tsx';
+const RELATED_LIST = 'packages/plugin-detail/src/RelatedList.tsx';
+const RELATED_LIST_BLOCK = 'packages/plugin-detail/src/renderers/record-related-list.tsx';
 const ADAPTER = 'a DataSource implementation: it runs the writes its callers hand it';
 
 /**
@@ -740,12 +742,18 @@ const WRITE_SITES: Record<string, WriteSite> = {
     ...mapped(['recordEdit'], RECORD_PAGE, RECORD_DETAILS, DETAIL_SECTION, HEADER_HIGHLIGHT),
     note: 'the page and the record body read the object verdict; the details body and the highlights strip ask each field the row\'s field question (objectui#12103)',
   } as WriteSite,
+  // A related list's Add existing (objectui#12082, leg B): a link row of the
+  // list's own object (with a `linkField`) is a create of the child, and a
+  // re-parent of the picked record (without one) an update of the picked
+  // object — the rows a related list's "+ New" and row Edit read.
   'packages/plugin-detail/src/RelatedList.tsx :: RelatedList > handleAddRecords :: create':
-    unmapped("a related list's Add existing (picker) creates a junction row and reads no grant on it"),
+    mapped(['relatedNew'], RELATED_LIST),
   'packages/plugin-detail/src/RelatedList.tsx :: RelatedList > handleAddRecords :: update':
-    unmapped("a related list's Add existing (picker) re-parents the picked record and reads no update grant on it"),
-  'packages/plugin-detail/src/renderers/record-related-list.tsx :: RecordRelatedListBody :: delete':
-    unmapped("the related list's FALLBACK remove (an `add` config and no host handler mounted) deletes with no grant read; the host handler path is relatedRowDelete"),
+    mapped(['relatedRowEdit'], RELATED_LIST),
+  'packages/plugin-detail/src/renderers/record-related-list.tsx :: RecordRelatedListBody :: delete': {
+    ...mapped(['relatedRowDelete'], RELATED_LIST_BLOCK),
+    note: "the FALLBACK remove (an `add` config, no host delete) reads the same row the host's delete reads, so it never puts back a delete the host withheld",
+  } as WriteSite,
   // ── plugin-form ──
   'packages/plugin-form/src/DrawerForm.tsx :: DrawerForm > handleSubmit :: create': mapped(['createFormFields'], FIELD_WRITE_GATE),
   'packages/plugin-form/src/DrawerForm.tsx :: DrawerForm > handleSubmit :: update': mapped(['editFormFields'], FIELD_WRITE_GATE),
@@ -839,9 +847,6 @@ const UNMAPPED_BACKLOG: ReadonlySet<string> = new Set([
   'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > addHolders :: create',
   'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > removeHolder :: delete',
   'packages/plugin-designer/src/pages/DashboardDesignPage.tsx :: DashboardDesignPage > saveSchema :: update',
-  'packages/plugin-detail/src/RelatedList.tsx :: RelatedList > handleAddRecords :: create',
-  'packages/plugin-detail/src/RelatedList.tsx :: RelatedList > handleAddRecords :: update',
-  'packages/plugin-detail/src/renderers/record-related-list.tsx :: RecordRelatedListBody :: delete',
 ]);
 
 const isFn = (e: ts.Node | undefined): boolean => !!e && (ts.isArrowFunction(e) || ts.isFunctionExpression(e));

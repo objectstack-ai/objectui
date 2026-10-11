@@ -189,6 +189,28 @@ export const AFFORDANCE_GRANTS = {
   attachmentUpload: { crud: null, grant: 'create' },
   /** The record Attachments panel's per-row delete, asked of `sys_attachment`. */
   attachmentDelete: { crud: null, grant: 'delete' },
+  /**
+   * The record feed's comment composer and its reply composer, asked of
+   * `sys_comment`: each creates a comment row.
+   */
+  feedComment: { crud: 'create', grant: 'create' },
+  /**
+   * The record feed's reaction control, adding the caller's reaction (its Add
+   * button, or an emoji the caller has not reacted with), asked of
+   * `sys_comment_reaction`: it creates the caller's own reaction row.
+   */
+  feedReactionAdd: { crud: 'create', grant: 'create' },
+  /**
+   * The same control taking the caller's reaction back, asked of
+   * `sys_comment_reaction`: it deletes the caller's own reaction row.
+   */
+  feedReactionRemove: { crud: 'delete', grant: 'delete' },
+  /**
+   * The same control on a deployment with no `sys_comment_reaction` (the
+   * reactions column store), asked of `sys_comment`: a click updates the
+   * comment's `reactions` column.
+   */
+  feedReactionColumn: { crud: 'edit', grant: 'update' },
   /** A calendar's quick-create: an empty-day click, or a time-range drag in the week / day grid. */
   calendarQuickCreate: { crud: 'create', grant: 'create' },
   /** A calendar's drag-to-reschedule: moving or resizing an event writes its date fields. */

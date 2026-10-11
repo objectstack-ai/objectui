@@ -117,6 +117,13 @@ const EXPECTED_GRANT: Record<string, Grant> = {
   calendarQuickCreate: 'create',
   calendarReschedule: 'update',
   kanbanCardMove: 'update',
+  // The record feed's writes (the census backlog's leg B), each asked of the
+  // object it writes: a comment or reply, a reaction added or taken back, and
+  // a reaction on the column store.
+  feedComment: 'create',
+  feedReactionAdd: 'create',
+  feedReactionRemove: 'delete',
+  feedReactionColumn: 'update',
 };
 
 /** The field rows, and which grant their no-entry fallback reads. */
@@ -645,16 +652,20 @@ const WRITE_SITES: Record<string, WriteSite> = {
     mapped(['attachmentDelete'], 'packages/app-shell/src/views/RecordAttachmentsPanel.tsx'),
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > apiHandler :: update':
     outOfFamily("an authored action's executor on the record page: the action declares the write, and its own visibility / permissions gate it"),
+  // The record feed (objectui#12082, leg B): each write sits behind its own row,
+  // asked of the object it writes. Neither object is in the platform's
+  // `everyone` baseline — an application grants them — so a member could be
+  // offered a composer whose post the server refused.
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleAddComment :: create':
-    unmapped('the record feed\'s comment composer creates a sys_comment row and reads no grant on sys_comment'),
+    mapped(['feedComment'], RECORD_PAGE),
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleAddReply :: create':
-    unmapped('the record feed\'s reply composer creates a sys_comment row and reads no grant on sys_comment'),
+    mapped(['feedComment'], RECORD_PAGE),
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction :: update':
-    unmapped("the record feed's reaction toggle on a deployment with no sys_comment_reaction updates the sys_comment row's reactions and reads no grant on sys_comment"),
+    mapped(['feedReactionColumn'], RECORD_PAGE),
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction > write :: create':
-    unmapped("the record feed's reaction toggle creates the member's sys_comment_reaction row and reads no grant on sys_comment_reaction"),
+    mapped(['feedReactionAdd'], RECORD_PAGE),
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction > write :: delete':
-    unmapped("the record feed's reaction toggle deletes the member's sys_comment_reaction row and reads no grant on sys_comment_reaction"),
+    mapped(['feedReactionRemove'], RECORD_PAGE),
   'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > onClick :: delete':
     mapped(['recordDelete'], RECORD_PAGE),
   'packages/app-shell/src/views/RelatedRecordActionsBridge.tsx :: RelatedRecordActionsBridge > value > resolve :: delete':
@@ -823,11 +834,6 @@ const WRITE_SITES: Record<string, WriteSite> = {
  * done-when is a census with no `unmapped` entry, and then this list is empty.
  */
 const UNMAPPED_BACKLOG: ReadonlySet<string> = new Set([
-  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleAddComment :: create',
-  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleAddReply :: create',
-  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction :: update',
-  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction > write :: create',
-  'packages/app-shell/src/views/RecordDetailView.tsx :: RecordDetailView > handleToggleReaction > write :: delete',
   'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx :: AssignedUsersSection > addUsers :: create',
   'packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx :: AssignedUsersSection > removeUser :: delete',
   'packages/app-shell/src/views/metadata-admin/PositionHoldersSection.tsx :: PositionHoldersSection > addHolders :: create',

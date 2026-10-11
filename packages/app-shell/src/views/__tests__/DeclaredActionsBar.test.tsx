@@ -427,6 +427,32 @@ describe('DeclaredActionsBar chrome localization (objectui#2762)', () => {
     expect(params[0].reference).toBeUndefined();
   });
 
+  it('dispatches in the click\'s own tick when no output lists the registry (objectui#7611)', () => {
+    // Only a decision with a catalog output waits for the registry read; every
+    // other decision dispatches synchronously, as it did before — a store is
+    // mounted here, so it is the OUTPUTS that decide, not the store's absence.
+    const ensureType = vi.fn(async () => []);
+    const store = { ensureType } as unknown as React.ContextType<typeof MetadataCtx>;
+    render(
+      <MetadataCtx.Provider value={store}>
+        <DeclaredActionsBar
+          objectName="sys_approval_request"
+          record={{ ...REQUEST, decision_output_defs: [{ key: 'owning_team', type: 'team' }] }}
+          location="record_section"
+          actions={[{
+            name: 'approval_approve', type: 'api', label: 'Approve',
+            target: '/api/v1/approvals/requests/{id}/approve', locations: ['record_section'],
+          }] as any}
+        />
+      </MetadataCtx.Provider>,
+    );
+
+    fireEvent.click(screen.getByText('Approve'));
+
+    expect(executeSpy).toHaveBeenCalledTimes(1);
+    expect(ensureType).not.toHaveBeenCalled();
+  });
+
   it('localizes the decision-output help text', async () => {
     const decideAction = {
       name: 'approval_approve',

@@ -112,6 +112,18 @@ export interface DecisionOutputRegistryReader {
 }
 
 /**
+ * Does any of these outputs list a registry?
+ *
+ * A decision surface asks this before it awaits
+ * {@link readDecisionOutputRegistry}, so a decision with no catalog output
+ * still dispatches in the click's own tick, as it did before catalog kinds
+ * existed; only a decision that has a registry to read waits for it.
+ */
+export function decisionOutputsReadRegistry(defs: DecisionOutputDef[]): boolean {
+  return defs.some((d) => !!(d?.type && OUTPUT_REGISTRY_TYPES[d.type]));
+}
+
+/**
  * Read the registry items the given outputs list, once per metadata type.
  *
  * `null` reader (a surface outside a `<MetadataProvider>`) → `{}`: no type is

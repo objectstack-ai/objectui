@@ -25,6 +25,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   decisionOutputDefs,
   decisionOutputParams,
+  decisionOutputsReadRegistry,
   foldDecisionOutputs,
   readDecisionOutputRegistry,
 } from './decisionOutputParams';
@@ -251,6 +252,22 @@ describe('decisionOutputParams — a position output lists the registry (objectu
       rest: {},
       outputs: { parallel_positions: ['auditor', 'manager'] },
     });
+  });
+});
+
+describe('decisionOutputsReadRegistry (objectui#7611)', () => {
+  it('is true only when an output is a catalog kind', () => {
+    expect(decisionOutputsReadRegistry([{ key: 'a', type: 'team' }, { key: 'b', type: 'position' }])).toBe(true);
+    expect(
+      decisionOutputsReadRegistry([
+        { key: 'a', type: 'user' },
+        { key: 'b', type: 'department' },
+        { key: 'c', type: 'team' },
+        { key: 'd', type: 'text' },
+        { key: 'e' },
+      ]),
+    ).toBe(false);
+    expect(decisionOutputsReadRegistry([])).toBe(false);
   });
 });
 

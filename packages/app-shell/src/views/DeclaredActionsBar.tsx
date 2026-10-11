@@ -70,6 +70,7 @@ import { useMetadataItem } from '@object-ui/react';
 import {
   decisionOutputDefs,
   decisionOutputParams,
+  decisionOutputsReadRegistry,
   readDecisionOutputRegistry,
 } from '../utils/decisionOutputParams.js';
 import { getIcon } from '../utils/getIcon.js';
@@ -307,13 +308,16 @@ const DeclaredActionButton: React.FC<{
       //
       // A catalog kind (`position`) lists the registry, so its items are read
       // before the params are built — once per type, from the store's
-      // session cache after the first read (objectui#7611).
+      // session cache after the first read (objectui#7611). Only a decision
+      // that HAS a catalog output awaits that read; every other decision
+      // dispatches in the click's own tick, as before.
       const outputDefs = decision ? decisionOutputDefs(recordData) : [];
+      const metadataStoreNow = metadataStoreRef.current;
+      const registry = metadataStoreNow && decisionOutputsReadRegistry(outputDefs)
+        ? await readDecisionOutputRegistry(outputDefs, metadataStoreNow)
+        : undefined;
       const outputParams = decision
-        ? decisionOutputParams(outputDefs, t, {
-          decision,
-          registry: await readDecisionOutputRegistry(outputDefs, metadataStoreRef.current),
-        })
+        ? decisionOutputParams(outputDefs, t, { decision, registry })
         : [];
       // Typed as the SEAM's contract, not as `any` and not cast to `ActionDef`
       // on the way out (objectui#5611). `overrideNotice` below is host-composed

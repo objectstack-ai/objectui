@@ -30,7 +30,7 @@ vi.mock('@object-ui/fields', async (importOriginal) => {
   const { createElement } = await import('react');
   return {
     ...(await importOriginal<typeof import('@object-ui/fields')>()),
-    RecordPickerDialog: (props: { open: boolean; onSelectRecords?: (records: any[]) => void }) =>
+    RecordPickerDialog: (props: { open: boolean; onSelectRecords?: (records: unknown[]) => void }) =>
       props.open
         ? createElement('button', { type: 'button', onClick: () => props.onSelectRecords?.(pickedUsers) }, 'pick')
         : null,

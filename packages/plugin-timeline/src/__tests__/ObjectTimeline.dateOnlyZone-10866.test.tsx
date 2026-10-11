@@ -27,8 +27,9 @@
  * a date-only string is local midnight of the day it names, and a value with
  * a time part keeps its instant. The sort case holds one of each, because
  * only a mix can show the sort and the buckets disagreeing: the vertical
- * renderer groups ADJACENT items, so an order that disagrees with the buckets
- * reads as "Today" above "Earlier" (the past-day bucket, objectui#11676).
+ * renderer orders its groups by each group's earliest entry (objectui#12104),
+ * so an order that disagrees with the buckets reads as "Today" above
+ * "Earlier" (the past-day bucket, objectui#11676).
  *
  * ── ⚠️ The zone cases run ONLY when driven, in a FORKS child ────────────────
  * `process.env.TZ` written inside a test of the normal run does not move the

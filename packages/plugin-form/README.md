@@ -1111,7 +1111,7 @@ nothing:
 
 | Written on a form schema | What actually happens |
 |---|---|
-| `dataSource` | **Discarded.** The basic form strips it in both directions — `dataSource: _dataSource` in `stripRendererOnlyProps` and again in the renderer's own props destructure — so it never reaches a widget and never reaches the DOM. The adapter the fields receive is the context one |
+| `dataSource` | **Discarded.** The basic form drops it in both directions — the built-in branches hand their control an allowlist (`toFormControlDomProps`) that does not name it, and the renderer's own props destructure takes it off the node — so it never reaches a widget and never reaches the DOM. The adapter the fields receive is the context one |
 | `resource` | **Never read.** It is not declared on `FormSchema` or `ObjectFormSchema` at all. It used to exist elsewhere in the protocol — on `CRUDSchema`, where `CRUDBuilder` set it — but objectui#5373 retired both under ADR-0049, so today the key names nothing anywhere in this package's surface, and no form renderer reads it under any spelling |
 
 Both survived compilation while `FormSchema` and `ObjectFormSchema` extended a

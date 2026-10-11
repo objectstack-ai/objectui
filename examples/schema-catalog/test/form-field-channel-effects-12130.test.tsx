@@ -19,12 +19,17 @@
  * the case reads is there to change.
  *
  * It also measures the two keys objectui#12130 was filed for, `defaultChecked`
- * and `defaultValue`. The census records no read of either by name. They reach
- * a control only through the built-in branches' pass-through of leftover
- * entry keys, and neither becomes the field's VALUE: the box stays unchecked,
- * and the submitted payload carries no value, on every type measured here.
- * A form's initial values are `FormSchema.defaultValues`; each case's control
- * seeds the same value through it and reads it back from the same channels.
+ * and `defaultValue`. The census records no read of either by name, and
+ * neither becomes the field's VALUE: the box stays unchecked, and the
+ * submitted payload carries no value, on every type measured here. Neither is
+ * DRAWN either. Until objectui#12155 the built-in branches spread the entry's
+ * leftover keys onto their control, so a `textarea` showed a field-level
+ * `defaultValue` the form never submitted, and `defaultChecked` checked the
+ * hidden input behind a box that stayed unchecked. They now forward an
+ * allowlist, which `form-builtin-branch-dom-allowlist-12155.test.tsx`
+ * measures branch by branch. A form's initial values are
+ * `FormSchema.defaultValues`; each case's control seeds the same value
+ * through it and reads it back from the same channels.
  * The registry without `@object-ui/fields` is measured by
  * `form-field-channel-components-only-12130.test.tsx`.
  *
@@ -309,20 +314,31 @@ describe('a read field key changes what its widget does (objectui#12130)', () =>
 
 const toggle = (m: Awaited<ReturnType<typeof mount>>) => m.row().querySelector('[role=checkbox],[role=switch]');
 
+/**
+ * Whether any `<input>` in the row is checked, hidden ones included: Radix
+ * draws its box as a `button` and keeps a hidden native input beside it, which
+ * is where a stray `defaultChecked` landed (objectui#12155).
+ */
+const anyInputChecked = (m: Awaited<ReturnType<typeof mount>>) =>
+  [...m.row().querySelectorAll('input')].some((input) => input.checked);
+
 describe('`defaultChecked` on a form field is not honored: the box stays unchecked and submits false (objectui#12130)', () => {
   it.each(['checkbox', 'switch', 'boolean'])('%s', async (type) => {
     const control = await mount({ type }, { defaultValues: { f: true } });
     expect(toggle(control)?.getAttribute('aria-checked')).toBe('true');
+    expect(anyInputChecked(control)).toBe(true);
     expect((await control.submit())?.f).toBe(true);
     control.unmount();
 
     const withKey = await mount({ type, defaultChecked: true });
     expect(toggle(withKey)?.getAttribute('aria-checked')).toBe('false');
+    // Not drawn either, not even in the hidden input (objectui#12155).
+    expect(anyInputChecked(withKey)).toBe(false);
     expect((await withKey.submit())?.f).toBe(false);
   });
 });
 
-describe('`defaultValue` on a form field never becomes the submitted value (objectui#12130)', () => {
+describe('`defaultValue` on a form field is neither drawn nor submitted (objectui#12130, objectui#12155)', () => {
   const CASES: ReadonlyArray<readonly [string, unknown]> = [
     ['input', 'preset@x.co'],
     ['text', 'preset@x.co'],
@@ -334,13 +350,37 @@ describe('`defaultValue` on a form field never becomes the submitted value (obje
   ];
   const OPTIONS = [{ label: 'Alpha', value: 'a' }, { label: 'Beta', value: 'b' }];
 
+  /**
+   * Whether the row shows `value`: as the value of one of its text controls,
+   * or, for an option field, as the label its select trigger shows or the
+   * label of its checked radio. Radix's hidden radio inputs are left out: each
+   * carries its option's value whether or not it is chosen. The control leg of
+   * each case reads `true` here, so a `false` is a reading and not a blind
+   * spot.
+   */
+  const shows = (m: Awaited<ReturnType<typeof mount>>, value: unknown): boolean => {
+    const row = m.row();
+    const texts = [...row.querySelectorAll('input:not([type=radio]):not([type=checkbox]), textarea')]
+      .map((el) => (el as HTMLInputElement).value);
+    if (texts.includes(String(value))) return true;
+    const label = OPTIONS.find((option) => option.value === value)?.label;
+    if (!label) return false;
+    if (row.querySelector('[role=combobox]')?.textContent?.includes(label)) return true;
+    const radio = row.querySelector('[role=radio][aria-checked=true]');
+    return !!radio && !!row.querySelector(`label[for="${radio.id}"]`)?.textContent?.includes(label);
+  };
+
   it.each(CASES)('%s', async (type, value) => {
     const field = { type, ...(type === 'select' || type === 'radio' ? { options: OPTIONS } : {}) };
     const control = await mount(field, { defaultValues: { f: value } });
+    expect(shows(control, value)).toBe(true);
     expect((await control.submit())?.f).toEqual(value);
     control.unmount();
 
     const withKey = await mount({ ...field, defaultValue: value });
+    // The `textarea` branch drew it until objectui#12155: a value on screen
+    // that the submit below does not carry.
+    expect(shows(withKey, value)).toBe(false);
     expect((await withKey.submit())?.f).toBeUndefined();
   });
 });

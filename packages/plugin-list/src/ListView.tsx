@@ -1090,8 +1090,11 @@ const DEFAULT_LIST_DISPLAY_PAGE_SIZE = readSpecDisplayPageSize();
  * A fetch batch, ⛔ not a page size (objectui#9853, ruling 5824040487,
  * structure B): its value is kept, and it does not follow the display default,
  * so no view silently loses reachable records when the protocol's page size
- * moves. A DECLARED `pagination.pageSize` still sizes this fetch, as it always
- * has; only the undeclared fallback is split by kind.
+ * moves. A DECLARED `pagination.pageSize` still sizes this fetch on every
+ * view but a windowed calendar; only the undeclared fallback is split by kind.
+ * A calendar with a start date bound walks its visible days in steps of this
+ * batch whatever page size is declared, so a declared size no longer sizes its
+ * fetch (`calendarWindowed`, objectui#12081).
  *
  * Exported for pins that assert "the fetch batch" rather than its value
  * (objectui#9853, ruling record 5909000462); the package index does not

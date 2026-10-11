@@ -24,8 +24,11 @@
  *    window) keeps its fetch batch, value 100, so no view silently loses
  *    reachable records when the page size moves.
  *
- * A declared `pagination.pageSize` still sizes the window on every view, as it
- * always has (the CONTROL rows). The cost the split carries is pinned too: with
+ * A declared `pagination.pageSize` still sizes the window on every view but a
+ * windowed calendar, as it always has (the CONTROL rows). A calendar with a
+ * start date bound walks its visible days in steps of the fetch batch whatever
+ * page size is declared (objectui#12081; its row below asserts the walk). The
+ * cost the split carries is pinned too: with
  * no declared size, switching between the paged grid and an unpaged view moves
  * the window, so the fetch is re-issued (objectui#7394 pins that a DECLARED
  * size keeps one window across the same switch).

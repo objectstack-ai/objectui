@@ -474,7 +474,14 @@ Duplicate) only when the caller may create the CHILD object, and removing one
 only when they may delete it — the `relatedNew` and `relatedRowDelete` rows of the
 affordance-to-grant map in `@object-ui/core`, the same rows a related list reads
 for the same two writes. Its cells ask each column's field question, as the form
-layouts do. With no permission provider mounted both read open.
+layouts do. The child's own policy is read too: the panel hands the child
+object's schema to those two rows, so a child whose `userActions` close create or
+delete offers neither. With no permission provider mounted both read open.
+
+A `MasterDetailForm`'s line grids read the same two rows on the child object.
+Remove asks the delete grant on an edit form only: a create form saves the parent
+and one create per line, so a line removed before that first save is a draft,
+never a server delete, and stays removable for a caller who may only create.
 
 ## Examples
 

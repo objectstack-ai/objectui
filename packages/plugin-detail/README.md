@@ -363,6 +363,15 @@ delete action.
 delete action — which is what lets a row locked through a renderer's `lockField`
 open read-only without the panel knowing what a lock is.
 
+**…and a handler is a wiring, not a grant.** The inline edit is the `recordEdit`
+row of the affordance-to-grant map in `@object-ui/core` (objectui#12082), the row
+the record page reads for the same in-place edit: the object's policy (read off
+the `objectSchema` you pass), the effective API operation set and the caller's
+**update** grant. When it is closed the panel opens no inline-edit session, as if
+`onFieldSave` were absent; each field still asks its own field question. The
+delete action is `DetailView`'s own `recordDelete` read. With no permission
+provider mounted both read open.
+
 `RECORD_OVERLAY_DEFAULT_WIDTH` is exported alongside it and is the single code
 home of the default overlay width repo-wide. ⛔ Do not re-spell the literal at a
 call site.

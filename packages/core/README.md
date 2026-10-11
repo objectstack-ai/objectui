@@ -224,10 +224,15 @@ An affordance added later gets a row here and reads it through these functions;
 it does not spell its own `can(object, verb)`. That includes an affordance that
 reads NO grant at all — the calendar's quick-create and drag-to-reschedule
 (`calendarQuickCreate`, `calendarReschedule`) and the kanban card move
-(`kanbanCardMove`) were such affordances until they gained their rows. The map's
+(`kanbanCardMove`) were such affordances until they gained their rows. An
+affordance that writes with the same verb on the same object reuses that row:
+the record overlay's inline edit reads `recordEdit`, a gantt's bar edits and a
+grid's bulk field update read `rowEdit`, a gantt row's Delete reads `rowDelete`,
+and the AI build panel's spreadsheet import reads `listImport`. The map's
 enumeration pin in `@object-ui/plugin-form` (`affordanceGrantMap-12082.test.tsx`)
 also counts every write call site in the console tree and holds each to the row
-it sits behind, or to the reason it has none.
+it sits behind, or to the reason it has none — and, for a component whose write
+its host gates (the import wizard), holds every mount to reading the row.
 
 ### Undo snapshot for an update (`captureUpdateUndoData`)
 

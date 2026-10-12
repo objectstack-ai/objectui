@@ -432,7 +432,10 @@ function resolveSectionEntry(
     const member = findCustomFieldMember(ctx.customFields, fieldDef);
     if (member) return normalizeSectionField(member, ctx);
     const meta = ctx.objectSchema?.fields?.[fieldDef] as any;
-    return attachVisibility(fromObjectSchema(fieldDef, ctx), meta?.visible_on ?? meta?.visibleOn);
+    // The snake_case `visible_on` this read also took until objectui#12242 is
+    // retired with no alias (`FieldSchema` refuses it; its spelling is
+    // `visibleWhen`, which `fromObjectSchema` carries as the field-level rule).
+    return attachVisibility(fromObjectSchema(fieldDef, ctx), meta?.visibleOn);
   }
 
   const fd = fieldDef as Record<string, any>;

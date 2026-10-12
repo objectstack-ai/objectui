@@ -20,8 +20,9 @@
  * That verdict stands ("no gate"); only the silence ends.
  *
  * Every chain that reaches `attachVisibility` is pinned, because each reads a
- * different key: the object schema's `visible_on ?? visibleOn` behind a name
- * string, a spec form-view entry's `visibleWhen ?? visibleOn`, and an
+ * different key: the object schema's `visibleOn` behind a name string (its
+ * snake_case `visible_on` is not a chain since objectui#12242, pinned last), a
+ * spec form-view entry's `visibleWhen ?? visibleOn`, and an
  * already-built runtime field's own `visibleOn`. The last one is the exception
  * the card's reading did not draw: that field IS the output, so its blank is
  * not dropped at all. It reaches the form renderer, which evaluates it and
@@ -66,8 +67,6 @@ function ctxWith(name: string, meta: Record<string, unknown> = {}) {
 
 /** The chains into `attachVisibility` that DROP a blank, each handed the predicate under test. */
 const CHAINS: Array<readonly [string, (pred: unknown, name: string) => ReturnType<typeof normalizeSectionField>]> = [
-  ['a name string over the object schema’s visible_on', (pred, name) =>
-    normalizeSectionField(name, ctxWith(name, { visible_on: pred }))],
   ['a name string over the object schema’s visibleOn', (pred, name) =>
     normalizeSectionField(name, ctxWith(name, { visibleOn: pred }))],
   ['a form-view entry’s visibleWhen', (pred, name) =>
@@ -122,5 +121,29 @@ describe('a runtime FormField carrying its own blank visibleOn (objectui#11262)'
     const f = runtime("record.stage == 'won'", fresh('runtime'));
     expect((f as { visibleOn?: unknown }).visibleOn).toBe("record.stage == 'won'");
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('the retired snake_case `visible_on` is not a chain (objectui#12242)', () => {
+  // The row this file carried for `visible_on` pinned a branch objectui#12242
+  // deleted: the spec refuses the key by name (its spelling is `visibleWhen`),
+  // and `BaseFieldMetadata` types it `never`. So a predicate written under it
+  // gates nothing and is reported as nothing, written or blank alike.
+  it.each([
+    ['a written predicate', "record.stage == 'won'"],
+    ['a written envelope', { dialect: 'cel', source: "record.stage == 'won'" }],
+    ...BLANKS,
+  ] as const)('%s under `visible_on`: no view-level gate on the runtime field, and silent', (_label, pred) => {
+    const name = fresh('retired');
+    const f = normalizeSectionField(name, ctxWith(name, { visible_on: pred }));
+    expect(f.name).toBe(name);
+    expect((f as { visibleOn?: unknown }).visibleOn).toBeUndefined();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('control — the same predicate under the object schema’s `visibleOn` IS carried', () => {
+    const name = fresh('control');
+    const f = normalizeSectionField(name, ctxWith(name, { visibleOn: "record.stage == 'won'" }));
+    expect((f as { visibleOn?: unknown }).visibleOn).toBe("record.stage == 'won'");
   });
 });

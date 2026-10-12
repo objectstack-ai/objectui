@@ -1175,17 +1175,18 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
           formField.inputType = 'time';
         }
 
-        // Read-only fields for computed types
-        if (field.type === 'formula' || field.type === 'summary' || field.type === 'auto_number') {
+        // Read-only fields for computed types. `autonumber` is the spec's
+        // `FieldType` spelling, the one an object field carries; this gate
+        // read `auto_number` (the form's widget key, never a field type) until
+        // objectui#12242, so a spec auto-number field was never disabled here.
+        if (field.type === 'formula' || field.type === 'summary' || field.type === 'autonumber') {
           formField.disabled = true;
         }
 
-        // Conditional visibility (legacy snake_case `visible_on`) — carry it
-        // as `visibleOn` so the form renderer evaluates it with the canonical
-        // CEL engine; the old `visible()` closure was never called (#2212).
-        if (field.visible_on) {
-          (formField as any).visibleOn = field.visible_on;
-        }
+        // Conditional visibility is the spec's `visibleWhen`, carried above.
+        // The snake_case `visible_on` this builder also read until
+        // objectui#12242 is retired with no alias: `FieldSchema` refuses it by
+        // name (suggesting `visibleWhen`) and `BaseFieldMetadata` refuses it.
 
         return formField;
       }

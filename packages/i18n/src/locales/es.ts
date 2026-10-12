@@ -1998,7 +1998,6 @@ const es = {
     initializing: "Abriendo su consola…",
     breadcrumb: {
       dashboards: "Paneles",
-      pages: "Páginas",
       reports: "Informes",
       system: "Sistema",
       marketplace: "Marketplace",

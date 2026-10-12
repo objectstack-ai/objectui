@@ -1712,7 +1712,6 @@ const zh = {
     search: '搜索…',
     breadcrumb: {
       dashboards: '仪表盘',
-      pages: '页面',
       // objectui#6166 — 报表 here is a maintainer RULING (2026-08-25), not a
       // majority count. 报表 (tabular/data report) and 报告 (written/narrative
       // report) are NOT interchangeable, so this key holding 报告 against the

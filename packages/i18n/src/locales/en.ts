@@ -2016,7 +2016,6 @@ const en = {
     search: 'Search…',
     breadcrumb: {
       dashboards: 'Dashboards',
-      pages: 'Pages',
       reports: 'Reports',
       system: 'System',
       // The Setup system page segment after `System` (objectui#10900).

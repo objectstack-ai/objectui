@@ -627,11 +627,21 @@ describe('DashboardWidgetSchema pinned divergences', () => {
     }
   });
 
-  it('still accepts the legacy `component` envelope', () => {
+  it('still accepts the legacy `component` envelope, with the one node it takes (objectui#12163, ruling C)', () => {
+    const card = { type: 'metric-card', title: 'Revenue', value: '$1' };
     const parsed = DashboardWidgetSchema.parse({
-      id: 'w', component: { type: 'chart' }, layout: { x: 0, y: 0, w: 4, h: 3 },
+      id: 'w', component: card, layout: { x: 0, y: 0, w: 4, h: 3 },
     });
-    expect(parsed.component).toEqual({ type: 'chart' });
+    expect(parsed.component).toEqual(card);
+    // Any other node is refused by name, at the slot. Until objectui#12163 a `chart` node
+    // parsed here through a `BaseSchema` arm (this file never loads the `index.zod`
+    // barrel, so that arm's recursion point was unfilled, and the verdict said nothing
+    // about the published face); the refusal arm answers the same in any module graph.
+    const refused = DashboardWidgetSchema.safeParse({ id: 'w', component: { type: 'chart' }, layout: { x: 0, y: 0, w: 4, h: 3 } });
+    expect(refused.success).toBe(false);
+    const issues = refused.success ? [] : refused.error.issues;
+    expect(issues.map((issue) => [issue.code, issue.path.join('.')])).toEqual([['custom', 'component']]);
+    expect(issues[0]?.message).toContain('`chart` node');
   });
 });
 

@@ -2137,7 +2137,6 @@ const ar = {
     initializing: "جارٍ فتح وحدة التحكم…",
     breadcrumb: {
       dashboards: "لوحات المعلومات",
-      pages: "الصفحات",
       reports: "التقارير",
       system: "النظام",
       marketplace: "السوق",

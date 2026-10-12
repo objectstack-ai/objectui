@@ -1952,7 +1952,6 @@ const de = {
     initializing: "Ihre Konsole wird geöffnet…",
     breadcrumb: {
       dashboards: "Dashboards",
-      pages: "Seiten",
       reports: "Berichte",
       system: "System",
       marketplace: "Marktplatz",

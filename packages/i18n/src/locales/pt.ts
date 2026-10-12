@@ -1993,7 +1993,6 @@ const pt = {
     initializing: "Abrindo seu console…",
     breadcrumb: {
       dashboards: "Painéis",
-      pages: "Páginas",
       reports: "Relatórios",
       system: "Sistema",
       marketplace: "Marketplace",

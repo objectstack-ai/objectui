@@ -653,8 +653,12 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **6 entries** in `WiderThanDeclared`, **6 keys** across them, and **8 arms**
- *     under those keys — split **3** SCHEMA-NODE, **3** CONCRETE, **0** MIXED, **2** unions.
+ *   - **4 entries** in `WiderThanDeclared`, **4 keys** across them, and **4 arms**
+ *     under those keys — split **3** SCHEMA-NODE, **1** CONCRETE, **0** MIXED, **0** unions.
+ *     It read 6 / 6 / 8 — 3 / 3 / 0 / 2 — until objectui#12163 (ruling C) made the widget
+ *     `component` slot's second arm a refusal by name and narrowed its declaration to the
+ *     component arm: the two dashboard entries that objectui#11466 brought in (next
+ *     sentence) measured clean and LEFT together.
  *     It read 4 / 4 / 4 — 3 / 1 / 0 / 0 — until objectui#11466 typed `SchemaNode`'s object
  *     arm as the declared-node union: `complex.zod.ts#DashboardWidgetSchema`'s `component`
  *     (two CONCRETE arms, the mirror's `BaseSchema` fallback admitting any `type`) and,
@@ -2315,18 +2319,20 @@ interface KnownDrift {
    * The mirror is the STRICTER side here — narrowing the check would be wrong, widening
    * the TS declaration is the ADR-0049 question.
    *
-   * `component` — joined with objectui#8344, and the mirror is the stricter side here too.
-   * TS declares `SchemaNode` (`BaseSchema | string | number | boolean | null | undefined`);
-   * the mirror declares `BaseSchema` alone, so the five primitive arms are the drift. The
-   * key is the legacy `{ id, component, layout }` envelope's node slot, and it was spelled
-   * `SchemaNodeSchema` until #8344 redirected that const's component arm at
-   * `AnyComponentSchema`. This slot cannot follow it: `metric-card` is objectui's CLOSED
-   * widget-slot component extension (`DASHBOARD_COMPONENT_WIDGET_TYPES`), admitted by the
-   * 2026-08-14 ruling (objectstack#8593) and deliberately NOT an arm of the component
-   * union — `DashboardWidgetSlotComponentSchema` says the routing is "an internal property
-   * of the widget slot, not new authoring surface" — so following the redirect would have
-   * refused the very envelope this key exists for. ⇒ the slot names the passthrough the
-   * ruling assigns it, and the primitives it stops admitting land here.
+   * `component` — INTERFACE-TO-PASSTHROUGH since objectui#12163 (the class the
+   * `app.zod.ts#AppSchemaRendererNodeSchema` entry above describes), an artifact of this
+   * ratchet's assignability test and ⛔ not a narrowing a document can hit. Ruling C
+   * (comment 6121298298) gave the slot one accept set on both faces: the declaration is the
+   * component arm alone, `DashboardWidgetSlotComponentSchema`, and the mirror refuses every
+   * other node by name. That arm's declaration is an `interface` and its mirror is a
+   * `.passthrough()` object, so the interface is not assignable to the mirror's
+   * `[k: string]: unknown` input. Measured on the objectui#12163 branch: every member of the
+   * declaration is assignable to the mirror's, and a one-level anonymous copy of the
+   * declaration (`{ [P in keyof D]: D[P] }`) is assignable to the whole mirror input, so the
+   * residue is exactly the interface rule. Before objectui#12163 the key was ledgered here
+   * for the declaration's `SchemaNode` arm, whose five primitive arms the mirror's
+   * `BaseSchema` arm refused; that arm and its primitives left both faces, and the
+   * interface rule is what remains.
    *
    * ⚠️ This entry is the reason objectui#8344 could not read its own type-check as green:
    * the ledger is a TYPE MAP over the mirrors, so a `complex.zod.ts` edit moves a row
@@ -4000,28 +4006,14 @@ interface WiderThanDeclared {
    * not a separate finding; it leaves when that entry does.
    */
   'app.zod.ts#AppSchemaRendererNodeSchema': 'schema';
-  /**
-   * CONCRETE `widgets` (objectui#11466), RE-ENTERED after the history in the comment
-   * below, and inherited through the element: the widget arm's `component` slot, the
-   * `complex.zod.ts#DashboardWidgetSchema` entry next to it. Both arms of the element
-   * state a shape an author writes, so both verdicts are CONCRETE.
-   */
-  'complex.zod.ts#DashboardComponentSchema': 'widgets';
-  /**
-   * CONCRETE `component` (objectui#11466). A widget's `component` slot is
-   * `DashboardWidgetSlotComponentSchema | SchemaNode` on the declaration, and
-   * `SchemaNode`'s object arm became `DeclaredNode`, the union of the declared node types
-   * with no `type: string` arm. The mirror's slot still ends in the `BaseSchema` fallback
-   * (`z.union([DashboardWidgetSlotComponentSchema, BaseSchema])`), which admits any `type`
-   * string, so it accepts a `component` node the declaration refuses. That fallback STAYS,
-   * by objectui#8344's decision: the card that added the slot chose that arm on purpose,
-   * and objectui#8347's Q3 = A (the seat's ACCEPT `5977022487`) put the zod face out of
-   * that card's scope, so the TS index-signature removal left it untouched. ⛔ Not this
-   * ledger's to narrow: that is a mirror change, and no open card retires the arm. When a
-   * card does retire it, this entry and the `widgets` one above measure clean and are
-   * deleted (clause 4 above).
-   */
-  'complex.zod.ts#DashboardWidgetSchema': 'component';
+  // `complex.zod.ts#DashboardWidgetSchema` (`component`) and, inherited through the
+  // element, `complex.zod.ts#DashboardComponentSchema` (`widgets`) LEFT this ledger under
+  // objectui#12163 (ruling C, comment 6121298298). Both were CONCRETE: the slot's
+  // second arm was passthrough `BaseSchema`, which admitted any `type` string, so the
+  // mirror accepted a `component` node the declaration's `DeclaredNode` refused. The arm
+  // is now a refusal by name, and the declaration narrowed in the same change to the
+  // component arm alone, so the mirror accepts nothing here that the declaration
+  // refuses and both entries measured clean, as clause 4 above said they would.
   // `complex.zod.ts#ChatbotSchema` recorded `body` here (CONCRETE, and DISJOINT rather
   // than strictly wider — the pair carried a `KnownDrift` entry for the same key, one of
   // the measured cases where each face refuses something the other admits: the mirror
@@ -4252,13 +4244,9 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   // objectui#11515: the one arm is the app document, read wider through the
   // annotation the `areas` row above reaches (the ledger entry says so).
   'app.zod.ts#AppSchemaRendererNodeSchema::schema': ['SCHEMA-NODE'],
-  // objectui#11466: the element's two arms, the component node and the widget, each a
-  // shape an author writes. The widget arm is the one that reads wider, through its
-  // `component` slot's `BaseSchema` fallback (the next row).
-  'complex.zod.ts#DashboardComponentSchema::widgets': ['CONCRETE', 'CONCRETE'],
-  // objectui#11466: the slot's two arms, the widget slot's component arm and the
-  // `BaseSchema` fallback, which admits any `type` string.
-  'complex.zod.ts#DashboardWidgetSchema::component': ['CONCRETE', 'CONCRETE'],
+  // `complex.zod.ts#DashboardComponentSchema::widgets` and
+  // `complex.zod.ts#DashboardWidgetSchema::component` left with their ledger entries
+  // (objectui#12163).
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
   'objectql.zod.ts#ObjectGridSchema::objectName': ['CONCRETE'],
 };

@@ -1357,19 +1357,81 @@ const DashboardWidgetSlotComponentSchema = BaseSchema.extend({
   children: retirementTombstone(METRIC_CARD_NEITHER_CHANNEL),
 });
 
+/**
+ * objectui#12163 (ruling C, comment 6121298298): the rule and the fix the legacy envelope's
+ * `component` slot answers every node but a `metric-card` with. ONE string, carried into the
+ * parse-time message and the `.describe()` metadata, as in `tombstone.zod.ts`.
+ */
+const WIDGET_COMPONENT_SLOT_RULE =
+  'A dashboard widget\'s legacy `component` envelope takes a `metric-card` node only: it is the one '
+  + 'component node the 2026-08-14 slot ruling admits (objectstack#8593), and `@objectstack/spec` '
+  + 'declares neither this envelope nor a `custom` widget (objectui#12163). A dashboard widget binds a '
+  + 'dataset (ADR-0021): write the widget itself in the spec form, a chart-family `type` with `dataset`, '
+  + '`dimensions` and `values`, or put a `metric-card` node, with its `value`, in this slot.';
+
+/** What the refusal calls the authored value, so the issue names the node it refuses. */
+const slotNodeLabel = (input: unknown): string => {
+  if (typeof input === 'object' && input !== null && !Array.isArray(input)) {
+    const type = (input as { type?: unknown }).type;
+    return typeof type === 'string' ? `a \`${type}\` node` : 'a node with no `type`';
+  }
+  if (Array.isArray(input)) return 'a list';
+  return input === null ? 'a `null` value' : `a ${typeof input} value`;
+};
+
+/**
+ * The second arm of the legacy envelope's `component` slot (objectui#12163, ruling C): a refusal
+ * BY NAME of every node the routing step does not hand the component arm.
+ *
+ * ## What it replaces
+ *
+ * The arm was passthrough `BaseSchema`. The tolerant face admitted any node through it, and the
+ * strict face closed it to the ~21 base keys, so a `text` node's `content` (and a `statistic`
+ * node's `value`) was refused as an unrecognized key: the strict face told an author to empty a
+ * node, which is the objectui#5250 defect. Ruling C keeps the slot at what objectstack#8593
+ * admits, `metric-card`, and says so instead: one issue, code `custom`, at the slot's own path,
+ * naming the node it refuses and the fix. Both faces, because the faces differ only in unknown
+ * keys (objectui#5250 slice A) and this is a slot-membership rule; the TypeScript twin narrows in
+ * the same change, so the pair records no divergence.
+ *
+ * ## Why this primitive, measured on zod 4.6.5
+ *
+ *  - `z.custom<never>`, as `handlerKeyRefusal` spells a refusal arm: `z.input` is `never`, so
+ *    the slot's input type is the component arm's alone, the TypeScript twin's type.
+ *  - `abort: false`. A `z.custom` issue aborts by default, and zod's union answers with one arm
+ *    only when exactly one failing arm is not aborted. The component arm aborts on any node that
+ *    is not a `metric-card` (its closed `type`), so this arm's issue is the slot's whole answer:
+ *    no `invalid_union`, and nothing from the component arm (on the strict face that included
+ *    the misleading `unrecognized_keys`). With `abort` left on, the slot answered
+ *    `invalid_union` with both arms, the shape objectui#11709 measured and declined.
+ *  - ⛔ Not a `z.never` arm: its issue aborts too, with the same two-arm answer.
+ *
+ * The strict walker reports this arm as an opaque `custom` shape and leaves it as it is: it has
+ * no keys to close.
+ */
+const WidgetComponentSlotRefusal = z.custom<never>(() => false, {
+  abort: false,
+  error: (issue) => `REFUSED (objectui#12163) — ${slotNodeLabel(issue.input)} is not a node this slot takes. ${WIDGET_COMPONENT_SLOT_RULE}`,
+}).describe(WIDGET_COMPONENT_SLOT_RULE);
+
 /** The legacy envelope's `component` slot: the two arms, in the TypeScript twin's order. */
-type WidgetComponentSlot = z.ZodUnion<readonly [typeof DashboardWidgetSlotComponentSchema, typeof BaseSchema]>;
+type WidgetComponentSlot = z.ZodUnion<readonly [typeof DashboardWidgetSlotComponentSchema, typeof WidgetComponentSlotRefusal]>;
 
 /**
  * objectui#11709: the constructor of the legacy envelope's `component` slot. It is a
  * `z.union` of the same two arms, plus one routing step before the union runs. A node
  * whose `type` the FIRST arm declares is judged by that arm alone. Any other node goes
- * to the union exactly as before, so the accept set for every other `type` does not move.
+ * to the union exactly as before.
+ *
+ * ⚠️ Since objectui#12163 (ruling C) the second arm is {@link WidgetComponentSlotRefusal},
+ * which refuses every node by name, so "any other node" is refused, with one issue from
+ * that arm. This constructor did not change; the history below is written about the
+ * `BaseSchema` arm it routed around.
  *
  * ## Why the slot routes
  *
  * A plain union tries each arm, and the first arm with no issues wins. The second arm
- * is passthrough `BaseSchema`. It admits a node whatever its `type` says, so every
+ * was passthrough `BaseSchema`. It admitted a node whatever its `type` said, so every
  * `metric-card` the component arm refuses parsed through it. That was true for
  * `label`, `children` and an out-of-enum `trend`, and for a card with no `value`.
  * The arm's refusals therefore never reached `objectui validate`, while the strict face
@@ -1437,6 +1499,8 @@ const WidgetComponentSlotUnion = z.core.$constructor<WidgetComponentSlot>(
  *    no `value` parse here as a widget; see that schema's docblock.
  *  - `component` — the legacy `{ id, component: <SDUI node>, layout }` envelope,
  *    which the spec has no room for. Migration to the shorthand form is deferred.
+ *    It holds a `metric-card` node only, and refuses every other node by name
+ *    (objectui#12163, ruling C).
  *
  * ## `.strict()` — undeclared keys are REFUSED, not stripped (objectui#6002)
  *
@@ -1471,42 +1535,24 @@ export const DashboardWidgetSchema = specFieldsExcept(stripImportedDefaults(Spec
   id: z.string().optional().describe('Widget ID'),
   type: DashboardWidgetTypeSchema.optional()
     .describe('Widget visualization type — the spec families plus objectui\'s closed `list`/`custom` extension'),
-  // ⚠️ `BaseSchema`, ⛔ NOT `SchemaNodeSchema` (objectui#8344). The two were the
-  // same accept set until #8344 redirected the node recursion point at
-  // `AnyComponentSchema`, and this slot is the one place in the package where they
-  // must not be: `metric-card` is objectui's CLOSED widget-slot component
-  // extension (`DASHBOARD_COMPONENT_WIDGET_TYPES`), admitted by the 2026-08-14
-  // ruling (objectstack#8593) and DELIBERATELY not an arm of `AnyComponentSchema` —
-  // {@link DashboardWidgetSlotComponentSchema} says so in as many words: the
-  // routing is an internal property of the widget slot, "not new authoring
-  // surface". So the redirect would refuse `{ id, component: { type:
-  // 'metric-card', … }, layout }` — the legacy envelope this key exists FOR — and
-  // the only repair the card leaves open (a new arm) is the widening that ruling
-  // declined. ⇒ the slot names the passthrough the ruling assigns it instead of
-  // inheriting whatever the recursion point currently means. Pinned by
-  // `__tests__/dashboard-widget-strict-6002.test.ts`'s legacy-envelope case and by
-  // `__tests__/dashboard-widget-slot-component-arm-7952.test.ts`.
+  // objectui#12163 (ruling C, comment 6121298298): the slot takes a `metric-card` node
+  // and nothing else, on both faces and on the TypeScript twin
+  // (`component?: DashboardWidgetSlotComponentSchema`). It is the one component node
+  // the 2026-08-14 slot ruling admits (objectstack#8593); `metric-card` is
+  // DELIBERATELY not an arm of `AnyComponentSchema`, which is why this slot never
+  // took `SchemaNodeSchema` (objectui#8344). The README's legacy-envelope example
+  // writes one with its registered inputs (objectui#11467).
   //
-  // ⚠️ One measured delta from the old spelling, and it is the only one: a PRIMITIVE
-  // in this slot (`component: "text"`) was accepted through `SchemaNodeSchema` and is
-  // refused now. No corpus document, fixture or pin writes one, and the key is
-  // declared "Widget Component (legacy format)" — a node, never a scalar.
-  //
-  // objectui#11467: the slot's component arm comes FIRST, as on the TypeScript twin
-  // (`component?: DashboardWidgetSlotComponentSchema | SchemaNode`). A `metric-card`
-  // here is the same node the slot holds directly, and the README's legacy-envelope
-  // example writes one with its registered inputs. With `BaseSchema` alone the strict
-  // authoring face refused all five as unrecognized (`component.value` and the rest,
-  // measured at `d93e53f5`); the arm admits them, judged by their members. Every
-  // other component node (a `custom` widget's) still parses through `BaseSchema`.
-  //
-  // objectui#11709: a node whose `type` the arm declares is judged by the arm ALONE,
-  // with no `BaseSchema` fallback, so each key the arm refuses is refused here too,
-  // with the arm's own message (see `WidgetComponentSlotUnion` above). The passthrough
-  // stays for every other node.
+  // objectui#11709: a node whose `type` the component arm declares is judged by that
+  // arm ALONE, so each key the arm refuses is refused here too, with the arm's own
+  // message (see `WidgetComponentSlotUnion` above). Every other node, a primitive
+  // included, is refused by {@link WidgetComponentSlotRefusal}, one `custom` issue at
+  // this key naming the node and the fix. Until objectui#12163 that arm was
+  // passthrough `BaseSchema`: the tolerant face kept any node, and the strict face
+  // refused a `text` node's `content` as an unrecognized key.
   component: new WidgetComponentSlotUnion({
     type: 'union',
-    options: [DashboardWidgetSlotComponentSchema, BaseSchema],
+    options: [DashboardWidgetSlotComponentSchema, WidgetComponentSlotRefusal],
   }).optional()
     .describe('Widget Component (legacy format)'),
 }).strict()

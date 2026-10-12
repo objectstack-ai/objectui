@@ -1954,7 +1954,6 @@ const ja = {
     initializing: "コンソールを開いています…",
     breadcrumb: {
       dashboards: "ダッシュボード",
-      pages: "ページ",
       reports: "レポート",
       system: "システム",
       marketplace: "マーケットプレイス",

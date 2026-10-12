@@ -417,8 +417,9 @@ describe('objectui#11070 — the retired spellings stay refused on the strict fa
 
   // Round 6 (objectui#11228 ruling C): the inline dashboard dialect is RETIRED,
   // not declared. A widget binds a `dataset` and never carries rows, so these
-  // nine keys stay refused by name, and the catalog and docs no longer write
-  // them. ⛔ Declaring one reopens that ruling; it is not a fix to this list.
+  // nine keys stay refused by name (the three `component.*` ones with their node,
+  // below), and the catalog and docs no longer write them. ⛔ Declaring one
+  // reopens that ruling; it is not a fix to this list.
   const DASHBOARD_DIALECT: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
     ['options.data', { options: { data: [{ status: 'Paid', count: 47 }] } }],
     ['options.xField', { options: { xField: 'status' } }],
@@ -426,9 +427,15 @@ describe('objectui#11070 — the retired spellings stay refused on the strict fa
     ['options.value', { options: { value: '1,284' } }],
     ['options.description', { options: { description: 'Monthly revenue' } }],
     ['options.trend', { options: { trend: { value: 12, direction: 'up' } } }],
-    ['component.chartType', { component: { type: 'chart', chartType: 'area' } }],
-    ['component.xAxisKey', { component: { type: 'chart', xAxisKey: 'day' } }],
-    ['component.series', { component: { type: 'chart', series: [{ name: 'Sales' }] } }],
+  ];
+  // The dialect's other three keys were `widgets[].component.{chartType, xAxisKey, series}`:
+  // a `chart` node in the legacy envelope. Since objectui#12163 (ruling C, which agrees with
+  // objectui#11228 C) the envelope takes a `metric-card` node only, so such a node is refused
+  // as a NODE, by name, at the slot, rather than one key at a time.
+  const DASHBOARD_DIALECT_ENVELOPE: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
+    ['component.chartType', { type: 'chart', chartType: 'area' }],
+    ['component.xAxisKey', { type: 'chart', xAxisKey: 'day' }],
+    ['component.series', { type: 'chart', series: [{ name: 'Sales' }] }],
   ];
   const datasetWidget = { id: 'w', type: 'bar', dataset: 'invoices', dimensions: ['status'], values: ['count'] };
 
@@ -439,6 +446,22 @@ describe('objectui#11070 — the retired spellings stay refused on the strict fa
   it.each(DASHBOARD_DIALECT)('the inline dashboard dialect `widgets[].%s` is refused by name (objectui#11228 ruling C)', (key, extra) => {
     const doc = { type: 'dashboard', widgets: [{ ...datasetWidget, ...extra }] };
     expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).toContain(`widgets.0.${key}`);
+  });
+
+  it.each(DASHBOARD_DIALECT_ENVELOPE)('the inline dashboard dialect `widgets[].%s` is refused with its `chart` node, by name, at the slot (objectui#11228 C, objectui#12163 C)', (key, component) => {
+    const doc = { type: 'dashboard', widgets: [{ ...datasetWidget, component }] };
+    const slot: Issue[] = [];
+    const walk = (issues: Issue[] | null, prefix: PropertyKey[]) => {
+      for (const issue of issues ?? []) {
+        const path = [...prefix, ...issue.path];
+        if (path.map(String).join('.') === 'widgets.0.component') slot.push(issue);
+        for (const arm of issue.errors ?? []) walk(arm, path);
+      }
+    };
+    walk(issuesOf(StrictAnyComponentSchema, doc), []);
+    expect(slot.map((issue) => issue.code)).toEqual(['custom']);
+    expect((slot[0] as unknown as { message: string }).message).toContain('`chart` node');
+    expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).not.toContain(`widgets.0.${key}`);
   });
 
   // Round 12: objectui#11465 retired `position` with "delete the key" and

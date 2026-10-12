@@ -1995,7 +1995,6 @@ const fr = {
     initializing: "Ouverture de votre console…",
     breadcrumb: {
       dashboards: "Tableaux de bord",
-      pages: "Pages",
       reports: "Rapports",
       system: "Système",
       marketplace: "Marketplace",

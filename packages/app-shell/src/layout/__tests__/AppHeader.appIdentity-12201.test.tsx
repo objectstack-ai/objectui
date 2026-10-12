@@ -219,8 +219,9 @@ describe('inside an app the bar starts with the app pill (objectui#12201 item 4)
     mountApp();
     const pill = screen.getByTestId('app-switcher-stub');
     const separators = [...document.querySelectorAll('span[aria-hidden]')].filter((s) => s.textContent?.trim() === '/');
-    // `/apps/cloud_control/page/welcome` — two crumbs, Pages and Welcome.
-    expect(separators).toHaveLength(2);
+    // `/apps/cloud_control/page/welcome` — one crumb, Welcome: a page route
+    // carries no 「Pages」 type crumb (objectui#12198).
+    expect(separators).toHaveLength(1);
     for (const sep of separators) expect(follows(pill, sep)).toBe(true);
   });
 

@@ -1329,13 +1329,16 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       });
       const judged = launch.judged;
       // Paused at a `screen` node: FlowRunner renders the form + resumes, and
-      // refreshes on completion.
+      // refreshes on completion. The pause keeps the action's own toast
+      // silent, so its `successMessage` rides along to the run's completion
+      // (objectui#12234 — see FlowRunner's header).
       if (judged.followUp?.kind === 'screen') {
         setScreenFlow({
           flowName: launch.flowName,
           flowLabel: judged.followUp.flowLabel,
           runId: judged.followUp.runId,
           screen: judged.followUp.screen,
+          actionSuccessMessage: action.successMessage,
         });
       }
       // Ended `refused`: the Close-only notice carries the engine's sentence,

@@ -34,6 +34,7 @@
  */
 
 import { useSyncExternalStore, type ComponentType } from 'react';
+import { requestBuiltinDesigners } from './builtin-designers-loader.js';
 
 /**
  * Identifies a sub-element selected inside a preview surface.
@@ -132,7 +133,7 @@ export interface ObservableTypeRegistry<T> {
   set(type: string, value: T): void;
   /**
    * The entry for `type` as it is now. Like every read, it asks for the
-   * built-in designers ({@link deferBuiltinDesigners}).
+   * built-in designers (`./builtin-designers-loader.ts`).
    */
   get(type: string): T | undefined;
   /**
@@ -188,48 +189,6 @@ export function registerAsBuiltIns(register: () => void): void {
   }
 }
 
-/**
- * The function that loads and registers the built-in designers, once the
- * package entry has handed it over ({@link deferBuiltinDesigners}), and whether
- * anything has read a designer registry yet (objectui#12187).
- */
-let builtInsLoader: (() => Promise<void>) | null = null;
-let builtInsWanted = false;
-let builtInsRequested = false;
-
-/**
- * Load the built-in designers on the first READ of any of the three designer
- * registries, instead of on every page load (objectui#12187).
- *
- * The package entry used to start that load at its own module scope, so every
- * console page fetched every Preview and Inspector chunk, with the icons they
- * draw, before the page's content rendered, on routes that never read a
- * designer. The entry now passes the same loader here, and the loader runs
- * when a registry is first read: a reader hook subscribing, or a `get*` /
- * `list*` call. Importing the entry still registers every built-in designer
- * with no call from the host, which is the contract Ruling A on objectui#11798
- * holds the entry to; only the moment moves, from the entry's evaluation to
- * the first read. A reader that rendered first shows its "designer missing"
- * state and then the designer, as it already did while the chunk was loading.
- *
- * Without the entry nothing is handed over, so a module imported on its own
- * (a test of one surface) keeps empty registries until it registers something
- * itself, as before.
- *
- * Module-internal: the package entry does not re-export it.
- */
-export function deferBuiltinDesigners(load: () => Promise<void>): void {
-  builtInsLoader = load;
-  if (builtInsWanted) requestBuiltinDesigners();
-}
-
-function requestBuiltinDesigners(): void {
-  builtInsWanted = true;
-  if (builtInsRequested || builtInsLoader === null) return;
-  builtInsRequested = true;
-  void builtInsLoader();
-}
-
 export function createObservableTypeRegistry<T>(): ObservableTypeRegistry<T> {
   const entries = new Map<string, T>();
   const listeners = new Set<() => void>();
@@ -247,8 +206,9 @@ export function createObservableTypeRegistry<T>(): ObservableTypeRegistry<T> {
     };
   };
   // What the reader hooks subscribe with: a reader is a read, so it asks for
-  // the built-in designers (`deferBuiltinDesigners`). React subscribes after
-  // the commit, so the request is not a render-phase effect.
+  // the built-in designers (`./builtin-designers-loader.ts`, objectui#12187).
+  // React subscribes after the commit, so the request is not a render-phase
+  // effect.
   const subscribeReader = (listener: () => void): (() => void) => {
     requestBuiltinDesigners();
     return subscribe(listener);

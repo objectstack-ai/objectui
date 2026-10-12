@@ -380,7 +380,7 @@ import './views/nav-menu-renderer.js';
 // reads a bare import as "this module is not pure" and the whole eager closure
 // comes back. See the leaf's own header.
 import './views/metadata-admin/register-builtins.js';
-import { deferBuiltinDesigners } from './views/metadata-admin/preview-registry.js';
+import { deferBuiltinDesigners } from './views/metadata-admin/builtin-designers-loader.js';
 // The built-in metadata DESIGNERS (every Preview and Inspector) are registered
 // from a chunk of their own, so importing the package still registers them with
 // no action from the host — once the chunk has arrived rather than during this
@@ -394,7 +394,7 @@ import { deferBuiltinDesigners } from './views/metadata-admin/preview-registry.j
 // the first read of a designer registry runs it (objectui#12187). Run here, it
 // fetched every Preview and Inspector chunk, and the icons they draw, on every
 // console page, before a plain page route's content and with nothing on that
-// route reading a designer. See `deferBuiltinDesigners`.
+// route reading a designer. See `views/metadata-admin/builtin-designers-loader.ts`.
 //
 // ⛔ Keep this edge DYNAMIC. A static import of that module, or of the
 // previews/inspectors it registers, from anything this entry reaches statically

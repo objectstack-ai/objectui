@@ -5,8 +5,8 @@
  * check-test-shard-results -- the `Test` aggregator's verdict, taken one shard
  * at a time instead of from the matrix rollup.
  *
- *   node scripts/check-test-shard-results.mjs --shards 8 --job-name 'Test'
- *   node scripts/check-test-shard-results.mjs --shards 8 --fixture <path>
+ *   node scripts/check-test-shard-results.mjs --shards 12 --job-name 'Test'
+ *   node scripts/check-test-shard-results.mjs --shards 12 --fixture <path>
  *
  * Exit: 0 = a reading was taken and every shard reported `success`
  *       2 = the reading COULD NOT BE TAKEN -- never a pass

@@ -276,10 +276,10 @@ export const OPTIONAL_CONTEXTS = Object.freeze({
  * whichever shard happens to exist.
  */
 const COVERAGE_SHARD_NOT_A_GATE =
-  "ci.yml's coverage lane runs on the full battery's events only (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the `Test (shard N/8)` matrix, which reports through the `Test` aggregator above. ⛔ This lane's own 4-way sharding is unrelated to that matrix's width and objectui#9499 did not touch it.";
+  "ci.yml's coverage lane runs on the full battery's events only (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the `Test (shard N/12)` matrix, which reports through the `Test` aggregator above. ⛔ This lane's own 4-way sharding is unrelated to that matrix's width and objectui#9499 did not touch it.";
 
 /**
- * The eight PR test shards share one reason, spelled once. Every one of them is
+ * The twelve test shards share one reason, spelled once. Every one of them is
  * a real blocking leg — the difference from the coverage shards above is that
  * something else reports their verdict, not that they have none.
  *
@@ -301,20 +301,24 @@ const PR_TEST_SHARD_NOT_A_GATE =
  * defaulting into silence.
  */
 export const NOT_A_GATE = Object.freeze({
-  'Test (shard 1/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 2/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 3/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 4/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 5/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 6/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 7/8)': PR_TEST_SHARD_NOT_A_GATE,
-  'Test (shard 8/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 1/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 2/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 3/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 4/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 5/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 6/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 7/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 8/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 9/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 10/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 11/12)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 12/12)': PR_TEST_SHARD_NOT_A_GATE,
   'Test (dist pins)':
     "ci.yml's built-artifact pin lane, lifted out of the shard matrix by objectui#9499 (the lane itself is objectui#7183). Same reading as the shards above: it is blocking, and the `Test` aggregator asserts its result — `needs.test-dist-pins.result` is one job's own conclusion, so `skipped` is visible there without an API read — so the whole test lane still speaks through one required name.",
   dependabot:
     'This workflow itself. The gate runs inside this job, so requiring it would deadlock at its own deadline.',
   'Test (coverage)':
-    "ci.yml's full-battery lane (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges the four shard blob reports into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the `Test (shard N/8)` matrix, reported through the `Test` aggregator above.",
+    "ci.yml's full-battery lane (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges the four shard blob reports into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the `Test (shard N/12)` matrix, reported through the `Test` aggregator above.",
   'Test (coverage shard 1/4)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 2/4)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 3/4)': COVERAGE_SHARD_NOT_A_GATE,

@@ -75,8 +75,10 @@ function makeBackend(rows: Record<string, unknown>[] = DEPOTS) {
     objectName === REF ? { name: REF, fields: DEPOT_FIELDS } : undefined,
   );
   const create = vi.fn(async () => ({ id: 'new' }));
-  return { find, findOne, getObjectSchema, create, tops } as any;
+  return { find, findOne, getObjectSchema, create, tops };
 }
+
+type Backend = ReturnType<typeof makeBackend>;
 
 async function settle(): Promise<void> {
   for (let i = 0; i < 6; i++) {
@@ -86,10 +88,10 @@ async function settle(): Promise<void> {
   }
 }
 
-function mount(ds: any, field: Record<string, unknown>) {
+function mount(ds: Backend, field: Record<string, unknown>) {
   render(
-    <SchemaRendererContext.Provider value={{ dataSource: ds } as any}>
-      <LookupField value={undefined} onChange={() => {}} dataSource={ds} field={field as never} />
+    <SchemaRendererContext.Provider value={{ dataSource: ds } as never}>
+      <LookupField value={undefined} onChange={() => {}} dataSource={ds as never} field={field as never} />
     </SchemaRendererContext.Provider>,
   );
 }

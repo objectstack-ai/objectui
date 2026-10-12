@@ -258,7 +258,7 @@ Executes action schemas and returns directives:
 | `url` | Navigate to a URL |
 | `api` | Make an API request (AJAX) |
 | `modal` | Open a modal with a nested schema |
-| `flow` | Start a server-side flow by name (`target`). In the console, a click on a declared `type: 'flow'` action goes through the action endpoint, `POST /api/v1/actions/{object}/{action}`, so every server-side gate the action declares applies; a flow start that names no declared action (an inline page button, a dashboard header action) goes through `POST /api/v1/automation/{flow}/trigger`. A run that pauses at a `screen` node opens the flow runner |
+| `flow` | Start a server-side flow by name (`target`). In the console, a click on a declared `type: 'flow'` action goes through the action endpoint, `POST /api/v1/actions/{object}/{action}`, so every server-side gate the action declares applies; a flow start that names no declared action (an inline page button, a dashboard header action) goes through `POST /api/v1/automation/{flow}/trigger`. A run that pauses at a `screen` node opens the flow runner. Whether the run pauses or goes straight through, it closes on one success toast: the action's `successMessage`, else the flow's own `successMessage`, else a default sentence. A run that ends refused or fails shows no success toast |
 
 ### Server Action Dispatch (`serverActionHandler.ts`)
 

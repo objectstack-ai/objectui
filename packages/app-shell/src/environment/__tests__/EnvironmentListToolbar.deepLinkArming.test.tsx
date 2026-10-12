@@ -95,7 +95,6 @@ function mountStack(opts: {
   actions: any[];
   entitlements: EnvironmentEntitlementsState | null;
   held?: string[];
-  onUpgrade?: (spec: any) => void;
 }) {
   // The implementation spells out the `(action, ctx)` parameters `handlers`
   // entries are called with, even though it reads neither: a zero-arity
@@ -115,7 +114,6 @@ function mountStack(opts: {
         <EnvironmentListToolbar
           actions={opts.actions}
           entitlements={opts.entitlements}
-          onUpgrade={opts.onUpgrade ?? vi.fn()}
         />
       </ActionProvider>
     </I18nProvider>,
@@ -250,17 +248,14 @@ describe('EnvironmentListToolbar — the non-arming affordances read the same li
     // the create action (objectui#12190). With no create action on the bar
     // there is nothing for it to stand in for.
     const gatedCreate = { ...CREATE, requiredPermissions: ['manage_environments'] };
-    const onUpgrade = vi.fn();
     mountStack({
       actions: [REFRESH, gatedCreate],
       entitlements: st({ canCreateDevelopmentEnv: false, plan: 'free' }),
       held: ['view_environments'],
-      onUpgrade,
     });
 
     expect(screen.getByText('Refresh')).toBeTruthy();
     expect(screen.queryByTestId('environment-development-locked')).toBeNull();
-    expect(onUpgrade).not.toHaveBeenCalled();
   });
 
   it('…and still shows it when the caller holds the capability', () => {

@@ -20,6 +20,6 @@ A free-plan organization's environment list no longer offers a primary button th
 - Added `environment.developmentLocked`, the mark's text, with a `{{tier}}` placeholder that the toolbar fills from `planTier.teamAndUp`.
 - Removed `environment.addEnvironment`: its one reader was the retired button.
 
-**Exports.** No export of `@object-ui/app-shell` changes. The internal `upgradeDialogSpec` builder in `environment/entitlements.ts` is removed; it was never re-exported from the package entry.
+**Exports.** No export of `@object-ui/app-shell` changes. Two internal pieces the toolbar no longer uses are removed: the `upgradeDialogSpec` builder in `environment/entitlements.ts`, and the `onUpgrade` prop of the internal `EnvironmentListToolbar`, which `ObjectView` no longer passes. Neither was ever re-exported from the package entry.
 
 **Why `patch`.** It is a bug fix, and this repository scores a fix that adds or replaces locale-pack copy as `patch` (the changesets of objectui#11591, objectui#11659 and objectui#11717 did the same).

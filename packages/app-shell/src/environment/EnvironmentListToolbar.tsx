@@ -69,11 +69,7 @@ import { Lock } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { useNavRunAction } from '../hooks/useNavRunAction.js';
 import { resolveCtaHref } from './EnvironmentEntitlementDialog.js';
-import {
-  decideEnvironmentCta,
-  type EntitlementDialogSpec,
-  type EnvironmentEntitlementsState,
-} from './entitlements.js';
+import { decideEnvironmentCta, type EnvironmentEntitlementsState } from './entitlements.js';
 
 const CREATE_ACTION = 'create_environment';
 
@@ -197,13 +193,6 @@ interface Props {
    * "wait" (skeleton) and never "we gave up" (which must keep a usable button).
    */
   entitlements: EnvironmentEntitlementsState | null;
-  /**
-   * Not called: since objectui#12190 no affordance on this toolbar opens a
-   * dialog. Still declared because its one caller passes it; retiring the prop
-   * edits that caller, which was outside objectui#12190's claimed file surface
-   * and is reported on that card instead.
-   */
-  onUpgrade: (spec: EntitlementDialogSpec) => void;
 }
 
 export function EnvironmentListToolbar({ actions, entitlements }: Props) {

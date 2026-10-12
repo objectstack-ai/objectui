@@ -3,11 +3,10 @@
  * of a raw red error toast when an environment-create is gated by plan or
  * capacity (DEV_ENV_PLAN_LOCKED / DEV_ENV_LIMIT / PRODUCTION_ENV_LIMIT).
  *
- * Driven by a single {@link EntitlementDialogSpec}, opened from two places:
- *   • proactively, from the env-list toolbar (a free-plan org clicking
- *     "Add environment" — see EnvironmentListToolbar), and
- *   • reactively, from the action runtime's apiHandler when the create POST
- *     comes back with an entitlement 403 (the safety net).
+ * Driven by a single {@link EntitlementDialogSpec}, opened from one place: the
+ * action runtime's apiHandler, when the create POST comes back with an
+ * entitlement 403. The env-list toolbar opens no dialog: its plan-locked state
+ * draws a locked mark that links to the upgrade page instead (objectui#12190).
  *
  * The CTA renders as an anchor (not an SPA navigation) so a control-plane URL
  * lands on the control plane's own page regardless of the console's router.

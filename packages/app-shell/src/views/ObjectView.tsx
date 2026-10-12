@@ -1985,7 +1985,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // Environment list (sys_environment) is entitlement- + state-aware: born
     // with one production env per org, its single `create_environment` action
     // means different things — "Set up your production environment", "Add
-    // development environment", or an upgrade prompt — depending on org state.
+    // development environment", or a locked plan-tier mark linking to the
+    // upgrade page (objectui#12190) — depending on org state.
     // Resolved org-side here; the hook is a no-op for every other object.
     const isEnvironmentList = objectDef.name === 'sys_environment';
     const environmentEntitlements = useEnvironmentEntitlements({
@@ -3960,7 +3961,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                         <EnvironmentListToolbar
                           actions={localizedToolbarActions}
                           entitlements={environmentEntitlements}
-                          onUpgrade={actionRuntime.openEntitlementDialog}
                         />
                       ) : (
                       <SchemaRenderer schema={toolbarBar} />

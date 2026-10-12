@@ -199,6 +199,7 @@ const pt = {
     dialogDescriptionFallback: "Preencha os campos do formulário e depois envie ou cancele.",
     deniedDescription: "Você não tem permissão para editar este campo.",
     serverDefaultHint: "Definido automaticamente ao salvar.",
+    maxFileSize: "Tamanho máximo: {{size}}",
     masterDetail: {
       loadingColumns: "Carregando colunas…",
       subtotal: "Subtotal",
@@ -1989,8 +1990,7 @@ const pt = {
       },
     },
     title: "Console ObjectStack",
-    initializing: "Inicializando aplicação…",
-    loadingHint: "Configurar um novo ambiente pode levar alguns instantes.",
+    initializing: "Abrindo seu console…",
     breadcrumb: {
       dashboards: "Painéis",
       pages: "Páginas",
@@ -2037,11 +2037,6 @@ const pt = {
       decline: "Manter o padrão",
       confirm: "Definir fuso horário",
       saved: "Fuso horário do workspace definido como {{zone}}",
-    },
-    loadingSteps: {
-      connecting: "Conectando à fonte de dados",
-      loadingConfig: "Carregando configuração",
-      preparingWorkspace: "Preparando espaço de trabalho",
     },
     error: {
       connectionFailed: "Não é possível conectar ao servidor",

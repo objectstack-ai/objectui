@@ -325,11 +325,11 @@ describe('Complex & Relationship Widgets', () => {
             expect(onCreateNew).toHaveBeenCalledWith('');
         });
 
-        it('quick-creates via dataSource.create when allow_create is set', async () => {
+        it('quick-creates via dataSource.create when allowCreate is set', async () => {
             mockDataSource.find.mockResolvedValue({ data: [], total: 0 });
             mockDataSource.create.mockResolvedValue({ id: 'new-1', name: 'Acme' });
             const onChange = vi.fn();
-            const field = { ...dynamicField, allow_create: true } as any;
+            const field = { ...dynamicField, allowCreate: true } as any;
 
             render(<LookupField {...dynamicProps} field={field} onChange={onChange} />);
 
@@ -355,9 +355,9 @@ describe('Complex & Relationship Widgets', () => {
             });
         });
 
-        it('defaults inline-create ON for a user-facing relation (no allow_create needed)', async () => {
+        it('defaults inline-create ON for a user-facing relation (no allowCreate needed)', async () => {
             // dynamicField.reference === 'customers' (user-facing) with NO
-            // allow_create flag → the capability is ON by default (standard).
+            // allowCreate flag → the capability is ON by default (standard).
             mockDataSource.find.mockResolvedValue({ data: [], total: 0 });
             mockDataSource.create.mockResolvedValue({ id: 'new-2', name: 'Zeta' });
             const onChange = vi.fn();
@@ -389,9 +389,10 @@ describe('Complex & Relationship Widgets', () => {
             expect(screen.queryByText(/Create new/)).not.toBeInTheDocument();
         });
 
-        it('honors an explicit allow_create:false opt-out on a user-facing relation', async () => {
+        it('honors an explicit allowCreate:false opt-out on a user-facing relation', async () => {
             mockDataSource.find.mockResolvedValue({ data: [], total: 0 });
-            const field = { ...dynamicField, allow_create: false } as any;
+            // The spec's spelling, the only one read (objectui#12157).
+            const field = { ...dynamicField, allowCreate: false } as any;
 
             render(<LookupField {...dynamicProps} field={field} />);
             await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Select/i })); });

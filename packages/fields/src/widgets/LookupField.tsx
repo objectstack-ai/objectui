@@ -23,7 +23,7 @@ import { getRecentLookupIds, pushRecentLookupId } from './recentLookups.js';
 import { getPersonInitials } from './personDisplay.js';
 import { getCellRendererResolver } from './_cell-renderer-bridge.js';
 // The one place a lookup column's display value is decided — shared with the
-// "browse all records" picker (RecordPickerDialog) so a single `lookup_columns`
+// "browse all records" picker (RecordPickerDialog) so a single `lookupColumns`
 // declaration cannot render two different ways (objectui#5492).
 import {
   normalizeColumn,
@@ -327,16 +327,26 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // Inline quick-create — a STANDARD capability, default ON for user-facing
   // relations: an empty/zero-result picker offers to create the referenced
   // record (opening its create form; see handleCreateNew) so the first related
-  // record can be made right here. An explicit `allowCreate` (either casing)
-  // wins — set it `false` to opt a field out; system/user-directory references
-  // are excluded from the default (isUserFacingReference).
-  const explicitAllowCreate = fieldMeta?.allow_create ?? fieldMeta?.allowCreate;
+  // record can be made right here. An explicit `allowCreate` wins — set it
+  // `false` to opt a field out; system/user-directory references are excluded
+  // from the default (isUserFacingReference).
+  //
+  // `allowCreate`, `lookupColumns` and `lookupPageSize` are the spellings
+  // `@objectstack/spec`'s `FieldSchema` declares, and the only ones read here
+  // (objectui#12157). The snake_case twins `allow_create` / `lookup_columns` /
+  // `lookup_page_size` used to be read FIRST; they are retired, with no alias.
+  // A served def loses nothing: the ingestion fold (`normalizeSchemaReferenceKeys`,
+  // objectui#7650 ruling A) stamps a stored snake spelling onto its declared
+  // key for every object `ObjectStackAdapter.getObjectSchema` serves and
+  // `MetadataProvider` stores. A def handed to this widget any other way must
+  // spell the declared key.
+  const explicitAllowCreate = fieldMeta?.allowCreate;
   const allowCreate: boolean =
     explicitAllowCreate != null ? !!explicitAllowCreate : isUserFacingReference(referenceTo);
 
   // Enterprise Record Picker configuration
-  const lookupColumns: Array<string | LookupColumnDef> | undefined = fieldMeta?.lookup_columns ?? fieldMeta?.lookupColumns;
-  const lookupPageSize: number | undefined = fieldMeta?.lookup_page_size ?? fieldMeta?.lookupPageSize;
+  const lookupColumns: Array<string | LookupColumnDef> | undefined = fieldMeta?.lookupColumns;
+  const lookupPageSize: number | undefined = fieldMeta?.lookupPageSize;
   const lookupFilters: import('@object-ui/types').LookupFilterDef[] | undefined = fieldMeta?.lookupFilters;
 
   // Search-first PeoplePicker opt-in (user fields). When `picker === 'search'`
@@ -477,7 +487,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   }, [dataSource, referenceTo]);
 
   /**
-   * Picker columns. Honour explicit `lookup_columns` when authored; otherwise
+   * Picker columns. Honour explicit `lookupColumns` when authored; otherwise
    * derive a multi-column, disambiguating set from the referenced object's
    * schema so every lookup gets a useful picker with zero field-level config.
    */
@@ -506,7 +516,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * contract. It used to be two separate ad-hoc reads of the raw record — the
    * subtitle printed `record[descriptionField]` verbatim and the row's `title`
    * attribute concatenated `label: String(rawValue)` for every other column —
-   * so the same `lookup_columns` that the picker rendered as resolved names,
+   * so the same `lookupColumns` that the picker rendered as resolved names,
    * formatted dates and option labels came out here as bare foreign-key ids,
    * ISO timestamps and enum codes.
    *
@@ -1237,7 +1247,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * Compact one-line preview of an option's extra (non-display) columns.
    *
    * Every value goes through `renderLookupColumnValue` — the picker's renderer
-   * — so this line and the picker's table agree on one `lookup_columns`
+   * — so this line and the picker's table agree on one `lookupColumns`
    * declaration (objectui#5492). It replaces a `label: String(rawValue)`
    * concatenation that produced bare ids, raw ISO timestamps and enum codes.
    *

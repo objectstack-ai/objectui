@@ -7,7 +7,7 @@
  */
 
 /**
- * One `lookup_columns` declaration, two surfaces, one answer — objectui#5492.
+ * One `lookupColumns` declaration, two surfaces, one answer — objectui#5492.
  *
  * Reported from a real 17.1.0 deployment. A form's lookup field offers two
  * ways to pick a related record:
@@ -15,7 +15,7 @@
  *   the inline dropdown  — the quick-select popover under the field, and
  *   the browse-all picker — the RecordPickerDialog table behind "show all".
  *
- * Both read the SAME `lookup_columns` declaration, and they disagreed. The
+ * Both read the SAME `lookupColumns` declaration, and they disagreed. The
  * picker resolved every cell through the type-aware cell renderer; the
  * dropdown printed the raw stored value into its option subtitle and
  * concatenated `label: String(rawValue)` into the row's `title` attribute. So
@@ -65,7 +65,7 @@ const WORK_STEPS: Record<string, any> = {
 };
 
 /**
- * The referenced object's schema. `lookup_columns` names four of its fields;
+ * The referenced object's schema. `lookupColumns` names four of its fields;
  * three of them are exactly the types the report calls out.
  */
 const SCHEDULE_FIELDS: Record<string, any> = {
@@ -169,7 +169,8 @@ async function readInlineDropdown(stepId: string): Promise<Record<string, Column
         field={{
           reference: 'work_schedules',
           display_field: 'name',
-          lookup_columns: LOOKUP_COLUMNS,
+          // The spec's spelling, the only one the widget reads (objectui#12157).
+          lookupColumns: LOOKUP_COLUMNS,
         } as never}
       />
     </SchemaRendererContext.Provider>,

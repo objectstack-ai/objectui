@@ -214,6 +214,7 @@ const ru = {
     dialogDescriptionFallback: "Заполните поля формы, затем отправьте или отмените.",
     deniedDescription: "У вас нет прав на редактирование этого поля.",
     serverDefaultHint: "Задаётся автоматически при сохранении.",
+    maxFileSize: "Максимальный размер: {{size}}",
     masterDetail: {
       loadingColumns: "Загрузка столбцов…",
       subtotal: "Промежуточный итог",
@@ -2049,8 +2050,7 @@ const ru = {
       },
     },
     title: "Консоль ObjectStack",
-    initializing: "Инициализация приложения…",
-    loadingHint: "Настройка нового окружения может занять некоторое время.",
+    initializing: "Открытие консоли…",
     breadcrumb: {
       dashboards: "Панели",
       pages: "Страницы",
@@ -2098,11 +2098,6 @@ const ru = {
       decline: "Оставить по умолчанию",
       confirm: "Задать часовой пояс",
       saved: "Часовой пояс рабочего пространства: {{zone}}",
-    },
-    loadingSteps: {
-      connecting: "Подключение к источнику данных",
-      loadingConfig: "Загрузка конфигурации",
-      preparingWorkspace: "Подготовка рабочего пространства",
     },
     error: {
       connectionFailed: "Не удаётся подключиться к серверу",

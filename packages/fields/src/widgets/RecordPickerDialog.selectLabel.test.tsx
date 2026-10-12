@@ -18,7 +18,7 @@
  * With `fieldsMeta` (the referenced object's schema `fields` map) the dialog
  * enriches each column's field descriptor — options, currency, scale, … —
  * so select columns resolve their option labels, and string-authored
- * `lookup_columns` (no `type` on the column def) inherit the schema field's
+ * `lookupColumns` (no `type` on the column def) inherit the schema field's
  * type and format identically.
  */
 

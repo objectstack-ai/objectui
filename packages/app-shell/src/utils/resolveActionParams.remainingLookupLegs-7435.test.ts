@@ -29,9 +29,10 @@
  *   2. the field object `paramToField()` hands `ActionParamDialog`, which is
  *      what `LookupField` actually consumes. A value that reaches (1) but is
  *      dropped at (2) is not a fix, and only the second exit can say so.
- *      ⚠️ That bag is objectui's RUNTIME field metadata, whose spelling for
- *      these two members is `lookup_columns` / `lookup_page_size` — a different
- *      contract from the authored one, and deliberately not touched here.
+ *      ⭐ That bag spelled these two members `lookup_columns` /
+ *      `lookup_page_size` until objectui#12157, which retired `LookupField`'s
+ *      snake reads and moved this emit to the spec's `lookupColumns` /
+ *      `lookupPageSize` in the same change.
  *
  * Camel and snake fixtures carry DIFFERENT values on every key, so no assertion
  * can be satisfied by the wrong leg.
@@ -69,6 +70,7 @@ import {
   type ResolveActionParamsContext,
   type RawActionParam,
 } from '@object-ui/fields';
+import { normalizeSchemaReferenceKeys } from '@object-ui/core';
 import { paramToField } from './paramToField';
 
 /** The camel column list — kept by reference so identity is assertable. */
@@ -164,14 +166,14 @@ describe('resolveActionParams lookup group — the remaining declared spellings 
   it('a camel-authored `lookupColumns` REACHES the resolved param and the widget', () => {
     // Asserted by identity: the value is carried across, not cloned or reshaped.
     expect(resolved('camel').lookupColumns).toBe(CAMEL_COLUMNS);
-    // Exit 2 spells it `lookup_columns` — the runtime bag's own key, which
-    // `LookupField` reads. The VALUE is what this case is about.
-    expect(widgetField('camel').lookup_columns).toBe(CAMEL_COLUMNS);
+    // Exit 2 spells it `lookupColumns` too — the one key `LookupField` reads
+    // (objectui#12157). The VALUE is what this case is about.
+    expect(widgetField('camel').lookupColumns).toBe(CAMEL_COLUMNS);
   });
 
   it('a camel-authored `lookupPageSize` REACHES the resolved param and the widget', () => {
     expect(resolved('camel').lookupPageSize).toBe(CAMEL_PAGE_SIZE);
-    expect(widgetField('camel').lookup_page_size).toBe(CAMEL_PAGE_SIZE);
+    expect(widgetField('camel').lookupPageSize).toBe(CAMEL_PAGE_SIZE);
   });
 
   it('camel WINS over snake on both keys when both spellings are present', () => {
@@ -180,25 +182,65 @@ describe('resolveActionParams lookup group — the remaining declared spellings 
     const def = resolved('both');
     expect(def.lookupColumns).toBe(CAMEL_COLUMNS);
     expect(def.lookupPageSize).toBe(CAMEL_PAGE_SIZE);
-    expect(widgetField('both').lookup_columns).toBe(CAMEL_COLUMNS);
-    expect(widgetField('both').lookup_page_size).toBe(CAMEL_PAGE_SIZE);
+    expect(widgetField('both').lookupColumns).toBe(CAMEL_COLUMNS);
+    expect(widgetField('both').lookupPageSize).toBe(CAMEL_PAGE_SIZE);
   });
 });
 
-describe('resolveActionParams lookup group — the recorded dialect still resolves (objectui#7435)', () => {
-  // The snake legs are KEPT: a producer sweep found no in-repo producer and
-  // zero key-position occurrences in the producer repo (controls lit), but a
-  // sweep measures what is EMITTED TODAY, not what is ALREADY STORED — a
-  // document written before the key tightened (the serve path runs no parse)
-  // and a host `DataSource` that never reaches the adapter's normalisation are
-  // both invisible to it.
-  it('a `lookup_columns`-only def still reaches the picker', () => {
-    expect(resolved('snake').lookupColumns).toBe(SNAKE_COLUMNS);
-    expect(widgetField('snake').lookup_columns).toBe(SNAKE_COLUMNS);
+/**
+ * The snake-only def, built fresh per call: the fold MUTATES the def in place,
+ * and the module-level `OBJECTS` above must stay unfolded for the raw case.
+ * `SNAKE_COLUMNS` is carried by reference, so identity is assertable after the
+ * fold stamps it.
+ */
+const snakeObjects = () => [
+  {
+    name: 'quality_dispatch',
+    fields: {
+      snake: {
+        type: 'lookup',
+        label: 'Snake',
+        reference: 'sys_user',
+        lookup_columns: SNAKE_COLUMNS,
+        lookup_page_size: SNAKE_PAGE_SIZE,
+      },
+    },
+  },
+] as unknown as ResolveActionParamsContext['objects'];
+
+const resolvedFrom = (objects: ResolveActionParamsContext['objects']) =>
+  resolveActionParams([{ field: 'snake' }], { ...ctx(), objects })[0];
+
+describe('the recorded dialect reaches the picker through the ingestion fold, and only through it (objectui#12157)', () => {
+  // objectui#7435 KEPT the snake legs here for a document stored before the key
+  // tightened (the serve path runs no parse). objectui#7650 ruling A answered
+  // that premise with the ingestion fold, and objectui#12157 retired both legs
+  // on it, with no alias — the `display_field` route of objectui#11070 round 6.
+  it('a `lookup_columns` / `lookup_page_size`-only def handed in UNFOLDED reaches neither exit', () => {
+    // The break the changeset states: a host passing its own, unfolded
+    // `objects` loses the snake value. Pinned so a restored leg turns this red.
+    const def = resolvedFrom(snakeObjects());
+    expect(def.lookupColumns).toBeUndefined();
+    expect(def.lookupPageSize).toBeUndefined();
+    const bag = paramToField(def) as unknown as Record<string, unknown>;
+    expect(bag.lookupColumns).toBeUndefined();
+    expect(bag.lookupPageSize).toBeUndefined();
+    // …and no snake key is re-seeded onto the widget bag either.
+    expect(bag).not.toHaveProperty('lookup_columns');
+    expect(bag).not.toHaveProperty('lookup_page_size');
   });
 
-  it('a `lookup_page_size`-only def still reaches the picker', () => {
-    expect(resolved('snake').lookupPageSize).toBe(SNAKE_PAGE_SIZE);
-    expect(widgetField('snake').lookup_page_size).toBe(SNAKE_PAGE_SIZE);
+  it('the SAME def, folded at ingestion, reaches both exits with its stored values', () => {
+    // `normalizeSchemaReferenceKeys` is the pass `MetadataProvider` runs over
+    // every object it stores and `ObjectStackAdapter.getObjectSchema` runs on
+    // every schema it serves. This is the measurement the retirement rests on.
+    const objects = snakeObjects();
+    for (const o of objects) normalizeSchemaReferenceKeys(o);
+    const def = resolvedFrom(objects);
+    expect(def.lookupColumns).toBe(SNAKE_COLUMNS);
+    expect(def.lookupPageSize).toBe(SNAKE_PAGE_SIZE);
+    const bag = paramToField(def) as unknown as Record<string, unknown>;
+    expect(bag.lookupColumns).toBe(SNAKE_COLUMNS);
+    expect(bag.lookupPageSize).toBe(SNAKE_PAGE_SIZE);
   });
 });

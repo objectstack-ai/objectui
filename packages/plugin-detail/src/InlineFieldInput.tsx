@@ -559,15 +559,23 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
     //
     // The read side is `toDateInputValue`: a leading `YYYY-MM-DD` passes
     // through verbatim (an ISO timestamp is sliced to its date, as before),
-    // anything else goes through local calendar getters. The write side stays
-    // this editor's own: the widget hands back the control's `YYYY-MM-DD`,
-    // re-emitted as full ISO at local midnight so backend validation that
-    // expects ISO timestamps keeps working. Only a user edit emits.
+    // anything else goes through local calendar getters. The write side is
+    // this editor's own, and only a user edit emits: the widget hands back the
+    // control's `YYYY-MM-DD`.
+    //
+    // A `date` field writes that day UNCHANGED — the shape the Edit form
+    // writes (`DateField` is its widget too) and the one `@object-ui/core`'s
+    // native-date adapters keep for `date` (objectui#12206). It used to be
+    // re-emitted as local midnight in ISO; the server keeps a date-only
+    // field's UTC calendar day, so east of UTC that stored the day before.
+    // A `datetime` field still re-emits local midnight as an ISO instant,
+    // because its value IS an instant; objectui#12206 left that arm unchanged.
+    const isDateTime = editType === 'datetime';
     return (
       <DateField
         field={field as any}
         value={value}
-        onChange={(v: any) => onChange(v ? new Date(v + 'T00:00:00').toISOString() : v)}
+        onChange={(v: any) => onChange(isDateTime && v ? new Date(v + 'T00:00:00').toISOString() : v)}
         autoFocus={autoFocus}
         error={error}
       />

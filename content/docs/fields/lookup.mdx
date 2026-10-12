@@ -36,10 +36,10 @@ const accountId: LookupFieldMetadata = {
   idField: '_id',
   multiple: false,
   searchable: true,
-  allow_create: true,
+  allowCreate: true,
   // Record Picker dialog (Enterprise): columns accept a field name or a descriptor.
-  lookup_columns: ['name', { field: 'industry', label: 'Industry', width: '160px' }],
-  lookup_page_size: 10,
+  lookupColumns: ['name', { field: 'industry', label: 'Industry', width: '160px' }],
+  lookupPageSize: 10,
   lookupFilters: [{ field: 'active', operator: 'eq', value: true }],
 };
 ```
@@ -51,6 +51,16 @@ objectui's snake_case twin `reference_to`: the spec refuses it by name, and noth
 reads it. A stored object definition that still spells it is folded onto `reference`
 when it is served through the ObjectStack adapter; a definition handed to the widget
 any other way names no target — rename the key to `reference`.
+
+The quick-create switch and the Record Picker's configuration are `allowCreate`,
+`lookupColumns` and `lookupPageSize`, the spellings `FieldSchema` declares and the only
+ones the widget reads.
+[objectui#12157](https://github.com/objectstack-ai/objectui/issues/12157) retired
+objectui's snake_case twins `allow_create`, `lookup_columns` and `lookup_page_size`,
+with no alias: the spec refuses each of them, and nothing reads them. A stored object
+definition that still spells one is folded onto the declared key when it is served
+through the ObjectStack adapter or the console's metadata store; a definition handed
+to the widget any other way loses the setting — rename the key.
 
 When no data source is available the field falls back to a static option list:
 
@@ -156,7 +166,7 @@ The full **RecordPickerDialog** can be opened in two ways:
 2. **"Show All Results"** link inside the popover — shown when total records exceed the page size
 
 ```plaintext
-// Configure the Record Picker with lookup_columns
+// Configure the Record Picker with lookupColumns
 {
   type: 'lookup',
   name: 'order',
@@ -164,18 +174,18 @@ The full **RecordPickerDialog** can be opened in two ways:
   reference: 'orders',
   reference_field: 'order_number',
   descriptionField: 'customer_name',
-  lookup_columns: [
+  lookupColumns: [
     { field: 'order_number', label: 'Order #' },
     { field: 'customer_name', label: 'Customer' },
     { field: 'total_amount', label: 'Amount' },
     { field: 'status', label: 'Status' },
   ],
-  lookup_page_size: 15,
+  lookupPageSize: 15,
 }
 ```
 
 The Record Picker dialog provides:
-- **Multi-column table** with configurable columns via `lookup_columns`
+- **Multi-column table** with configurable columns via `lookupColumns`
 - **Search** with debounced server-side querying
 - **Column sorting** via clickable headers (sends `$orderby` to DataSource)
 - **Pagination** with page-by-page navigation
@@ -183,7 +193,7 @@ The Record Picker dialog provides:
 - **Single/Multi-select** with visual check indicators and confirmation flow
 - **Responsive layout** — Mobile-friendly width (95vw on small screens)
 - **Loading, error, and empty states**
-- Auto-inferred columns from `reference_field` when `lookup_columns` is not set
+- Auto-inferred columns from `reference_field` when `lookupColumns` is not set
 
 ## Lookup vs Master-Detail
 
@@ -223,7 +233,7 @@ import { LookupCellRenderer } from '@object-ui/fields';
 - **Loading/Error/Empty States**: Friendly feedback for all states
 - **Secondary Field Display**: Show description/subtitle per option
 - **Quick-Create Entry**: Optional "Create new" button when no results
-- **Configurable Columns**: `lookup_columns` for multi-column picker display
+- **Configurable Columns**: `lookupColumns` for multi-column picker display
 - **Base Filters**: `lookupFilters` to restrict selectable records
 - **Pagination**: Page-by-page navigation in Record Picker dialog
 - **Backward Compatible**: Falls back to static options when no DataSource

@@ -118,7 +118,7 @@ const PICKER_KEYS = [
  *
  * ⭐ `displayField` is camel for the same reason (objectui#11070 round 6): the
  * resolver's `display_field` leg is retired, so the snake row would produce
- * nothing.
+ * nothing. `lookupColumns` and `lookupPageSize` followed (objectui#12157).
  */
 const field = (type: string) => ({
   type,
@@ -128,9 +128,9 @@ const field = (type: string) => ({
   id_field: 'id',
   description_field: 'website',
   title_format: '{name}',
-  lookup_columns: ['name'],
+  lookupColumns: ['name'],
   lookup_filters: [['active', '=', true]],
-  lookup_page_size: 25,
+  lookupPageSize: 25,
   dependsOn: ['region'],
 });
 

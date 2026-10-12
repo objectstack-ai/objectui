@@ -86,7 +86,7 @@ test.describe('Console App – Smoke', () => {
    * Until objectui#4086 this test listed only the first two destinations, and
    * the boot splash it named is on screen for roughly 35 ms — measured against
    * this same production bundle at 30 ms polling granularity: blank until
-   * ~70 ms, the "Initializing application…" splash from ~70 ms, replaced by the
+   * ~70 ms, the boot splash (then "Initializing application…") from ~70 ms, replaced by the
    * sign-in screen from ~105 ms and never returning. So the assertion could
    * only ever pass by catching that window. On a runner where Playwright's
    * first poll landed after it, the expectation was ALREADY unsatisfiable and
@@ -109,7 +109,11 @@ test.describe('Console App – Smoke', () => {
     await page.goto(`${CONSOLE_BASE}/`);
 
     const appShell = page.locator('nav').first();
-    const loadingScreen = page.getByText(/Initializing|Loading|Connecting/i).first();
+    // The boot splash, matched by its language-independent marker rather than
+    // its copy: its line depends on the locale and is absent until the
+    // locale's catalogue lands, so a copy match can stop seeing the splash
+    // while it is on screen (objectui#12187).
+    const loadingScreen = page.locator('[data-boot-splash]').first();
     // The signed-out sign-in screen, matched structurally rather than by its
     // copy so a locale change cannot silently stop matching it: the auth-config
     // spinner it opens with, then the identifier field of whichever sign-in

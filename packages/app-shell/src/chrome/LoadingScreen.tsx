@@ -1,14 +1,13 @@
 
 import { Spinner, Button } from '@object-ui/components';
-import { Database, CheckCircle2, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
-import { useState, useEffect, useMemo } from 'react';
+import { Database, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { getProductName, getLogoUrl } from '../runtime-config.js';
-import { en as enLocale, getLoadedBuiltInLocales } from '@object-ui/i18n';
+import { en as enLocale, getLoadedBuiltInLocales, useObjectTranslation } from '@object-ui/i18n';
 
 interface LoadingScreenProps {
   /** Optional message override */
   message?: string;
-  /** When set, renders an error block instead of the step list */
+  /** When set, renders an error block instead of the spinner */
   error?: string | null;
   /** Optional retry callback; renders a Retry button when provided alongside `error` */
   onRetry?: () => void;
@@ -16,76 +15,88 @@ interface LoadingScreenProps {
   retrying?: boolean;
 }
 
-// Bootstrap-critical UI: must render before i18n is loaded (especially when the
-// server is unreachable, which is also when i18n can't load translations).
-// Do not use useObjectTranslation here — it can suspend on first render and
-// prevent the splash from rendering at all on a server-down boot. Keep a small
-// synchronous dictionary for the startup shell instead.
-// The product name is read from the runtime-config singleton (sync) so it
-// reflects server-pushed branding when available, falling back to 'ObjectOS'.
+// Bootstrap-critical UI: drawn on every full page load before the app's data
+// arrives, and on the server-down boot where nothing else loads. The product
+// name is read from the runtime-config singleton (sync) so it reflects
+// server-pushed branding when available, falling back to 'ObjectOS'.
 //
-// Indexed by the two-letter prefix across ALL built-in packs rather than a
-// `zh ? … : en` check: the previous form collapsed ten shipped languages into
-// two, so a ja/ko/de user saw English for the whole boot (objectui#2871).
+// ONE LINE, NO STEPS (objectui#12187). This screen used to walk three steps on
+// a 1200 ms timer that tracked no real work, under a line about "setting up a
+// new environment" that was never one. Both are gone: product name, one line,
+// a spinner.
 //
-// Each field falls back to `en` individually. A pack that is behind on some
-// `console.*` keys — several are, see objectui#2872 part (a) — must degrade to
-// English, not to `undefined`, which would render blank on the splash.
+// WHICH LANGUAGE. The I18nProvider's, read through `useObjectTranslation()`.
+// This used to read `document.documentElement.lang`, which the provider writes
+// in a passive effect — after its children's first render. So the first paint
+// read the document's static `lang="en"` on every browser, and the screen
+// stayed English until something re-rendered it: the step timer's first tick,
+// 1200 ms in. The provider's own state holds the resolved language on its first
+// render, and the hook re-renders this screen when the language changes or a
+// catalogue lands. `LoadingScreen.bootCopy-12187.test.tsx` pins the first
+// commit against a `zh-CN` browser with `<html lang="en">`.
 //
-// ⚠️ Reads the RESIDENT catalogues, not all ten (objectui#7479). `en` is
-// statically imported and always there; the other nine are fetched, and the
-// console awaits the active one before `createRoot().render()`, so this splash
-// still renders in the user's language. The behaviour that DOES change is the
-// boot where nothing awaited the catalogue: the splash shows English for the
-// few hundred milliseconds the fetch takes, and objectui#2871's ten languages
-// return the moment it lands. ⛔ Do not "fix" that by importing the ten packs
-// back in — that is the eager payload this card removed, restored for a
-// sub-second splash.
+// The hook does not suspend here: the provider's instance comes from
+// `createI18n`, which sets `react.useSuspense: false` for exactly the boot
+// suspension an earlier note on this file warned about, and the `Spinner`
+// below calls the same hook. Outside any provider it reports `en`, as it does
+// for every other renderer.
+//
+// NO ENGLISH BEFORE THE LOCALE. The copy is not read through `t()`: `t()`
+// answers a pack still in flight through `fallbackLng: 'en'`, which is the
+// English this screen must not show. It is read off the RESIDENT built-in
+// catalogue for the active language, as plain properties, and the line is
+// absent — not English — while that catalogue is not resident. The console
+// awaits the active catalogue before its first render (`preloadBootstrapLocale`,
+// objectui#7479), so there the line is present from the first paint; a host
+// that does not await shows the product name and the spinner until the
+// catalogue's store write re-renders this screen. ⛔ Do not "fix" that wait by
+// importing the ten packs back in — that is the eager payload objectui#7479
+// removed, and `check:eager-locale-catalogues` fails on it.
+//
+// The error block alone still degrades to `en` field by field: an error must
+// say something, and a pack behind on a `console.*` key must render English
+// there rather than `undefined` (objectui#2872 part (a)).
+//
+// THE MARKER. The root carries `data-boot-splash` in every state — loading,
+// `message` and error. (The pre-JS splash in `apps/console/index.html` is a
+// different element, `#boot-splash`, removed once React first commits.) It is this
+// screen's one language-independent hook: a readiness wait or a smoke test
+// that needs to know whether the splash is still up asks for that attribute,
+// never for the line, which is language-dependent by design and absent until
+// the active catalogue lands. A wait keyed on the copy passes at once while
+// the splash is still up (objectui#12187, round 2).
 type ConsoleStrings = typeof enLocale.console;
 
-function getStartupStrings(): ConsoleStrings {
-  const tag =
-    (typeof document !== 'undefined' ? document.documentElement.lang : '') ||
-    (typeof navigator !== 'undefined' ? navigator.language : '') ||
-    'en';
-  const base = tag.toLowerCase().split('-')[0];
+interface StartupStrings {
+  /** The one status line, or `null` while the active language's pack is not resident. */
+  line: string | null;
+  error: ConsoleStrings['error'];
+  actions: ConsoleStrings['actions'];
+}
+
+function getStartupStrings(language: string): StartupStrings {
+  const resident = getLoadedBuiltInLocales();
+  // Exact tag first, then its base language — the registry's own order. An
+  // empty language has resolved nothing, so it has no catalogue and no line.
   // `as unknown as` because a catalogue is typed by SHAPE here while
-  // `enLocale` carries `en`'s literal VALUES — the same cast `createI18n` and
-  // the old `builtInLocales` consumers made.
-  const catalogue = getLoadedBuiltInLocales()[base] as unknown as
-    | { console?: Partial<ConsoleStrings> }
-    | undefined;
+  // `enLocale` carries `en`'s literal VALUES — the same cast `createI18n` makes.
+  const catalogue = (
+    language ? (resident[language] ?? resident[language.toLowerCase().split('-')[0]]) : undefined
+  ) as unknown as { console?: Partial<ConsoleStrings> } | undefined;
   const pack = catalogue?.console;
-  if (!pack || pack === enLocale.console) return enLocale.console;
   return {
-    ...enLocale.console,
-    ...pack,
-    loadingSteps: { ...enLocale.console.loadingSteps, ...pack.loadingSteps },
-    error: { ...enLocale.console.error, ...pack.error },
-    actions: { ...enLocale.console.actions, ...pack.actions },
-  } as ConsoleStrings;
+    line: pack?.initializing ?? null,
+    error: { ...enLocale.console.error, ...pack?.error },
+    actions: { ...enLocale.console.actions, ...pack?.actions },
+  };
 }
 
 export function LoadingScreen({ message, error, onRetry, retrying }: LoadingScreenProps) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const strings = getStartupStrings();
-
-  const loadingSteps = useMemo(() => [
-    strings.loadingSteps.connecting,
-    strings.loadingSteps.loadingConfig,
-    strings.loadingSteps.preparingWorkspace,
-  ], [strings]);
-
-  useEffect(() => {
-    if (message || error) return; // skip auto-progression when overridden or in error state
-    const timer = setInterval(() => {
-      setCurrentStep((prev) => Math.min(prev + 1, loadingSteps.length - 1));
-    }, 1200);
-    return () => clearInterval(timer);
-  }, [message, error, loadingSteps.length]);
+  const { language } = useObjectTranslation();
+  const strings = getStartupStrings(language);
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-background">
+    <div data-boot-splash="" className="flex flex-col items-center justify-center h-screen bg-background">
       <div className="flex flex-col items-center gap-6">
         {/* Logo/Icon */}
         <div className="relative">
@@ -99,10 +110,10 @@ export function LoadingScreen({ message, error, onRetry, retrying }: LoadingScre
           </div>
         </div>
 
-        {/* Title */}
+        {/* Title. The line's height is reserved, so its arrival does not move the screen. */}
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">{getProductName()}</h1>
-          <p className="text-sm text-muted-foreground">{strings.initializing}</p>
+          <p className="min-h-5 text-sm text-muted-foreground">{strings.line}</p>
         </div>
 
         {/* Error block */}
@@ -150,28 +161,7 @@ export function LoadingScreen({ message, error, onRetry, retrying }: LoadingScre
             <span className="text-sm text-muted-foreground">{message}</span>
           </div>
         ) : (
-          <div className="flex flex-col gap-2 w-64">
-            {loadingSteps.map((step, index) => (
-              <div
-                key={step}
-                className="flex items-center gap-2.5 text-sm transition-opacity duration-300"
-                style={{ opacity: index <= currentStep ? 1 : 0.3 }}
-              >
-                {index < currentStep ? (
-                  <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                ) : index === currentStep ? (
-                  <Loader2 className="h-4 w-4 text-primary shrink-0 animate-spin" />
-                ) : (
-                  <div className="h-4 w-4 rounded-full border border-muted-foreground/30 shrink-0" />
-                )}
-                <span className={index <= currentStep ? 'text-foreground' : 'text-muted-foreground'}>
-                  {step}
-                </span>
-              </div>
-            ))}
-            {/* Reassure first-time users that a fresh environment can take a beat. */}
-            <p className="mt-1 text-xs text-muted-foreground">{strings.loadingHint}</p>
-          </div>
+          <Spinner className="h-5 w-5 text-primary" />
         )}
       </div>
     </div>

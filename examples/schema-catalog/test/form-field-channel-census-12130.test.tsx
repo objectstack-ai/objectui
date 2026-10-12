@@ -289,9 +289,9 @@ const CURRENCY = 'entry@i18n/src/currency.ts';
  */
 const LEDGER: Readonly<Record<string, LedgerRow>> = {
   // ── second spellings of a declared key: refused (AGENTS.md #0.1) ────────
-  allow_create: { readers: [LOOKUP], why: 'ALIAS of the spec\'s `allowCreate`, which this face declares; the widget reads it first.' },
-  lookup_columns: { readers: [LOOKUP], why: 'ALIAS of the spec\'s `lookupColumns`, which this face declares; the widget reads it first.' },
-  lookup_page_size: { readers: [LOOKUP], why: 'ALIAS of the spec\'s `lookupPageSize`, which this face declares; the widget reads it first.' },
+  // objectui#12157 removed the `allow_create`, `lookup_columns` and
+  // `lookup_page_size` rows: the `lookup` widget reads the spec's camelCase
+  // spellings alone now, so the census no longer records a read of them.
   reference_field: { readers: [LOOKUP, USER], why: 'ALIAS — the legacy fallback of `displayField`, which this face declares.' },
   avatar_field: {
     readers: [LOOKUP, USER],

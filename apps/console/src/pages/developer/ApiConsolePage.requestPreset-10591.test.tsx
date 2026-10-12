@@ -121,7 +121,6 @@ vi.mock('../../../../../packages/app-shell/src/providers/MetadataProvider', asyn
 }));
 
 import { DefaultAppContent, getMetadataPreview } from '@object-ui/app-shell';
-import { en } from '@object-ui/i18n';
 import { systemRoutes } from '../../AppContent';
 // Imported at module scope, not only reached through `lazy()`: the route table
 // and the registry both lazy-import this module, and ESM caches it by resolved
@@ -296,12 +295,22 @@ function toolPreviewHref(): string {
 }
 
 /**
- * The loading frames the console shows while a `React.lazy` on the route to the
- * API console is still pending: the boot screen (`LoadingScreen`, the fallback
- * of `systemRoutes`' `Suspense` and of app-shell's route `Suspense`) and the
- * registry key's own "Loading API console…" fallback.
+ * The boot screen (`LoadingScreen`, the fallback of `systemRoutes`' `Suspense`
+ * and of app-shell's route `Suspense`), found by its language-independent
+ * marker. ⛔ Never by its line: the line is language-dependent by design and
+ * absent until the active catalogue lands — under this file's translation
+ * double it is always empty — so a wait keyed on the copy passed at once with
+ * the splash still up, and the `findBy*` after it raced the loader on 1000 ms
+ * again (objectui#12187, round 2).
  */
-const LAZY_ROUTE_FRAMES = [en.console.initializing, 'Loading API console…'];
+const BOOT_SPLASH = '[data-boot-splash]';
+
+/**
+ * The page's own loading frame while a `React.lazy` on the route to the API
+ * console is still pending: the registry key's "Loading API console…"
+ * fallback.
+ */
+const LAZY_ROUTE_FRAMES = ['Loading API console…'];
 
 /**
  * Upper bound for {@link lazyRouteSettled}. Kept under the 15 s `testTimeout` of
@@ -329,6 +338,7 @@ const LAZY_ROUTE_BOUND_MS = 10_000;
 async function lazyRouteSettled() {
   await waitFor(
     () => {
+      expect(document.querySelector(BOOT_SPLASH), 'the boot splash is still up').toBeNull();
       for (const frame of LAZY_ROUTE_FRAMES) expect(screen.queryByText(frame)).not.toBeInTheDocument();
     },
     { timeout: LAZY_ROUTE_BOUND_MS },

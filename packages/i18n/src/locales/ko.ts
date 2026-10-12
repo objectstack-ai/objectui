@@ -194,6 +194,7 @@ const ko = {
     dialogDescriptionFallback: "양식 필드를 작성한 다음 제출하거나 취소하세요.",
     deniedDescription: "이 필드를 편집할 권한이 없습니다.",
     serverDefaultHint: "저장 시 자동으로 설정됩니다.",
+    maxFileSize: "최대 크기: {{size}}",
     masterDetail: {
       loadingColumns: "열 로드 중…",
       subtotal: "소계",
@@ -1948,8 +1949,7 @@ const ko = {
       },
     },
     title: "ObjectStack 콘솔",
-    initializing: "애플리케이션 초기화 중…",
-    loadingHint: "새 환경을 설정하는 데 시간이 조금 걸릴 수 있습니다.",
+    initializing: "콘솔을 여는 중…",
     breadcrumb: {
       dashboards: "대시보드",
       pages: "페이지",
@@ -1995,11 +1995,6 @@ const ko = {
       decline: "기본값 유지",
       confirm: "시간대 설정",
       saved: "워크스페이스 시간대를 {{zone}}(으)로 설정했습니다",
-    },
-    loadingSteps: {
-      connecting: "데이터 소스에 연결 중",
-      loadingConfig: "설정 로드 중",
-      preparingWorkspace: "워크스페이스 준비 중",
     },
     error: {
       connectionFailed: "서버에 연결할 수 없습니다",

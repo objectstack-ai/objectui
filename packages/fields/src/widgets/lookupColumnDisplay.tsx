@@ -10,7 +10,7 @@
  * The ONE place that answers "what does column C of a candidate record
  * display?" for a lookup field (objectui#5492).
  *
- * A lookup declares its columns once (`lookup_columns` / `lookupColumns`) and
+ * A lookup declares its columns once (`lookupColumns`) and
  * two surfaces consume that one declaration:
  *
  *   1. the inline dropdown under the form field (LookupField's popover), and
@@ -65,7 +65,7 @@ export type OptionTranslator = (
 ) => SchemaOption[];
 
 /**
- * Normalise a lookup_columns entry (string | LookupColumnDef) into a
+ * Normalise a lookupColumns entry (string | LookupColumnDef) into a
  * concrete LookupColumnDef object.
  */
 export function normalizeColumn(col: string | LookupColumnDef): LookupColumnDef {
@@ -121,7 +121,7 @@ export function resolveSchemaOptions(
  * an unresolved foreign-key id resolves to a name (#5492).
  *
  * Columns whose def carries no `type` inherit the schema field's type, so
- * string-authored `lookup_columns` format identically to object-authored ones.
+ * string-authored `lookupColumns` format identically to object-authored ones.
  */
 export function buildLookupColumnDescriptors(
   columns: LookupColumnDef[],

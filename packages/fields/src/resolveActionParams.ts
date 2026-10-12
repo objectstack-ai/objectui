@@ -412,6 +412,11 @@ interface RuntimeField {
   // stored `display_field` onto `displayField` on every object
   // `MetadataProvider` stores; only a host that hands this resolver its own,
   // unfolded `objects` loses the snake value.
+  //
+  // ⭐ objectui#12157 removed the `lookup_columns` and `lookup_page_size`
+  // members on the same ground: `lookupColumns` / `lookupPageSize` are read
+  // alone below, and the fold stamps either stored snake spelling onto its
+  // declared key.
   reference?: string;
   displayField?: string;
   reference_field?: string;
@@ -420,11 +425,9 @@ interface RuntimeField {
   description_field?: string;
   title_format?: string;
   lookupColumns?: unknown[];
-  lookup_columns?: unknown[];
   lookupFilters?: unknown[];
   lookup_filters?: unknown[];
   lookupPageSize?: number;
-  lookup_page_size?: number;
   dependsOn?: unknown[];
 }
 
@@ -751,14 +754,21 @@ export function resolveActionParam(
         // round's changeset states that break. `reference_field` keeps its
         // place behind it: `FieldSchema` declares no twin the fold could stamp
         // it onto, so the fold leaves it on the def as served.
+        //
+        // ⭐ objectui#12157 — `lookupColumns` and `lookupPageSize` read their
+        // declared spelling alone too, on the same ground as `displayField`:
+        // the `lookup_columns` / `lookup_page_size` legs are retired, with no
+        // alias, and `LookupField` retired its own reads of them in the same
+        // change. A def served through the fold loses nothing; a host that
+        // hands this resolver its own, unfolded `objects` loses the snake value.
         referenceTo: param.reference ?? field.reference,
         displayField: field.displayField ?? field.reference_field,
         idField: field.id_field,
         descriptionField: field.descriptionField ?? field.description_field,
         titleFormat: field.title_format,
-        lookupColumns: field.lookupColumns ?? field.lookup_columns,
+        lookupColumns: field.lookupColumns,
         lookupFilters: field.lookupFilters ?? field.lookup_filters,
-        lookupPageSize: field.lookupPageSize ?? field.lookup_page_size,
+        lookupPageSize: field.lookupPageSize,
         dependsOn: field.dependsOn,
       }
     : {};

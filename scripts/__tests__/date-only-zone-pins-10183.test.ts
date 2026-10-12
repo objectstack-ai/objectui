@@ -124,6 +124,9 @@ const PINS = [
   // objectui#10866, slice 6: a gantt move, end drag and group move shift every
   // value by calendar days and keep its wall-clock time across a DST change.
   'packages/plugin-gantt/src/__tests__/GanttView.moveCalendarDays-10866.test.tsx',
+  // objectui#12206: the record page's inline editor writes a `date` field as
+  // the plain day the Edit form writes, at UTC+8 and at UTC-5.
+  'packages/plugin-detail/src/__tests__/InlineFieldInput.dateOnlyWriteZone-12206.test.tsx',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

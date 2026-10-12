@@ -20,8 +20,8 @@ Connecting schema-driven rendering to a real or mock data backend. The DataSourc
 
 ⚠️ That column is the FETCH channel and nothing else. The **values a page's
 `${…}` expressions and `bind` paths read** arrive on a second, independent
-channel — the ambient scope a host publishes with `PredicateScopeProvider`
-(objectui#9308). `dataSource` publishes no expression root and answers no `bind`
+channel — the ambient scope a host publishes with `PredicateScopeProvider`.
+`dataSource` publishes no expression root and answers no `bind`
 path; keep the two apart when you wire a page.
 
 Components never import fetch libraries directly. They call the DataSource
@@ -192,8 +192,8 @@ access `staticData.customers` when given `bind: "customers"`.
 
 ⛔ Passing that same object as `SchemaRendererProvider`'s `dataSource` does
 **not** work and never warns: `dataSource` declares the `DataSource` adapter
-contract, it publishes no expression root, and `useDataScope` stopped walking it
-in objectui#9308. Every `bind` resolves `undefined` and every `${…}` on the
+contract, it publishes no expression root, and `useDataScope` no longer walks
+it. Every `bind` resolves `undefined` and every `${…}` on the
 page renders as its own source characters.
 
 ## ObjectStackAdapter
@@ -244,8 +244,7 @@ A component reads the `bind` field only if it calls `useDataScope`:
 
 Inside the component: `const data = useDataScope("customerNames")` resolves the
 `customerNames` array **from the ambient scope** a host published with
-`PredicateScopeProvider` — not from `SchemaRendererProvider`'s `dataSource`
-(objectui#9308).
+`PredicateScopeProvider` — not from `SchemaRendererProvider`'s `dataSource`.
 
 `useDataScope` is called by `list` and `tree-view` in `@object-ui/components`,
 and by the `object-*` widgets the plugin packages register (`object-grid`,
@@ -257,9 +256,9 @@ error, no warning, nothing in the console — except `data-table` (one warning, 
 takes its rows from an inline `data` array on the node, so a bound `data-table`
 renders a correct-looking header over an empty body: nothing is thrown and
 nothing on the page says why — the one signal is a `[ObjectUI] DataTable bind:`
-console warning (objectui#6575). Pointing the node's own `data` key at an
+console warning. Pointing the node's own `data` key at an
 expression (`"data": "${data.customers}"`) fails the same way, with its own
-console warning (`[ObjectUI] DataTable data:`, objectui#6665) — node keys are
+console warning (`[ObjectUI] DataTable data:`) — node keys are
 not expression-evaluated — so **the host resolves the array and puts it on the
 node**, as below. The one spelling that does carry a provider expression
 through is measured, with its open-question caveat, in
@@ -298,8 +297,8 @@ assumes a scope carrying `data: { metrics: { total: … } }`:
 }
 ```
 
-A `statistic` declares `label` / `value` / `description` as expression-bindable
-(objectui#4795), so these are evaluated on the node and read back. Host-resolved
+A `statistic` declares `label` / `value` / `description` as expression-bindable,
+so these are evaluated on the node and read back. Host-resolved
 literals work exactly as before:
 
 <!-- os:check -->
@@ -329,7 +328,7 @@ host connects its adapter, a widget test that drives `apiFetch` alone). The
 renderer itself already reads the member that way — `useDataScope` returns
 `undefined` when nothing is bound — so an unguarded call throws on its first use
 in exactly those places. Decide what the component shows while the adapter is
-absent (objectui#7912):
+absent:
 
 <!-- os:check -->
 ```typescript

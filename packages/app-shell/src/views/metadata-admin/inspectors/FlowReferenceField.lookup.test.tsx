@@ -52,12 +52,14 @@ vi.mock('@object-ui/react', async (importOriginal) => ({
 }));
 vi.mock('@object-ui/fields', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/fields')>()),
-  LookupField: (props: { field?: { reference?: string; idField?: string; multiple?: boolean } }) => (
+  LookupField: (props: { field?: { reference?: string; idField?: string; multiple?: boolean; allowCreate?: boolean } }) => (
     <div
       data-testid="record-lookup"
       data-object={props.field?.reference}
       data-value-field={props.field?.idField}
       data-multiple={String(props.field?.multiple ?? false)}
+      data-allow-create={String(props.field?.allowCreate)}
+      data-field-keys={Object.keys(props.field ?? {}).sort().join(' ')}
     />
   ),
 }));
@@ -123,6 +125,19 @@ describe('ReferenceCombobox — directory kinds (#3508)', () => {
     expect(cell.getAttribute('data-value-field')).toBe('id');
     expect(cell.getAttribute('data-multiple')).toBe('false');
     expect(screen.getByTitle('Enter value manually')).toBeInTheDocument();
+  });
+
+  it('opts the picker out of quick-create with the spec\'s `allowCreate: false`, and no snake twin (objectui#12157)', () => {
+    // `LookupField` reads `allowCreate` alone since objectui#12157; an emit left
+    // on `allow_create` would be read by nothing, and the widget's default
+    // (ON for a user-facing reference) would decide instead of this picker.
+    state.adapter = makeAdapter();
+    renderRef('team');
+    const cell = screen.getByTestId('record-lookup');
+    expect(cell.getAttribute('data-allow-create')).toBe('false');
+    const keys = (cell.getAttribute('data-field-keys') ?? '').split(' ');
+    expect(keys).toContain('allowCreate');
+    expect(keys).not.toContain('allow_create');
   });
 
   it('position lookups commit the machine NAME, not the row id', () => {

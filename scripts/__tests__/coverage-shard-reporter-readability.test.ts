@@ -9,8 +9,8 @@ import { parse as parseYaml } from 'yaml';
  *
  * ## What this guards, and why nothing else could
  *
- * `ci.yml`'s `test-coverage` job runs vitest four ways in parallel and merges
- * the four blob reports in the job below it, which is where the configured
+ * `ci.yml`'s `test-coverage` job runs vitest as a sharded matrix and merges
+ * every shard's blob report in the job below it, which is where the configured
  * coverage thresholds are enforced. A CLI `--reporter` **replaces** the
  * reporter set rather than adding to it, and vitest's resolution is:
  *
@@ -156,7 +156,7 @@ describe("ci.yml's coverage shards keep a red run readable", () => {
       offenders,
       'a sharded coverage leg no longer writes a blob report:\n' +
         offenders.map((o) => `  - ${o}`).join('\n') +
-        '\n\nThe `coverage-report` job merges the four blobs and enforces the configured thresholds over ' +
+        '\n\nThe `coverage-report` job merges every shard\'s blob and enforces the configured thresholds over ' +
         'the merged report — that is the whole reason the lane is sharded (objectui#5403). Restoring log ' +
         'readability by dropping the blob would trade an unreadable failure for an unevaluated coverage ' +
         'floor, which is the same defect wearing the other hat (objectui#9177).',

@@ -228,19 +228,23 @@ export const OPTIONAL_CONTEXTS = Object.freeze({
     "lockfile-dedupe.yml (objectui#8333) runs `pnpm dedupe --check`: the committed lockfile must already be deduped, so a dependency bump cannot leave a forked peer group behind for `Bundle Analysis` to misattribute to the bump. Blocking when it runs; its pull_request trigger is path-filtered to `pnpm-lock.yaml` plus its own runtime closure, so a change touching none of them does not report at all. ⚠️ Enrolled as blocking where its neighbour `Lockfile Integrity Check` deliberately is NOT, and the difference is the remedy: #8326's gate names a duplication and leaves the answer open (re-lock, pin, or accept), which is a judgement call its header reserves for the maintainer, while this one has exactly one mechanical remedy that pnpm itself prints — run `pnpm dedupe` and commit the lockfile, changing no declaration, range or override. Cost of enrolling it, measured on objectui#8333 before it was taken: green on `main` as it stands (objectui#9215 collapsed the accumulated duplication first), red on the same tree with `better-auth` bumped. ⇒ nothing currently mergeable is blocked by it, and what it defends is that objectui#9215's paydown does not silently accrue again. To stop it blocking, move this name to `NOT_A_GATE`; ⛔ removing it from both buckets fails the partition test instead.",
   'Hook Self-Tests':
     'hook-selftests.yml filters on paths: .claude/hooks/**, plus the workflow file itself (objectui#5754). Blocking when it runs (the PreToolUse guard self-test matrices must pass); a Dependabot dependency bump never touches .claude/hooks/**, so it normally does not report at all.',
+  'Regenerate the per-file test timings':
+    "test-shard-timings-refresh.yml filters its pull_request trigger on paths: the workflow file and the two scripts it loads (`scripts/test-file-timings.mjs`, `scripts/test-shard-partition.mjs`, objectui#12208). Blocking when it runs: the pull_request leg runs the selection, the artifact downloads and the regeneration on a real runner and skips only the push and the pull request, so an edit that breaks the refresh is red before it merges. It is OPTIONAL rather than required because that path filter means it does not report on a pull request that touches none of those files, which is every dependency bump that does not edit that workflow.",
   'Snapshot the board to the archive branch':
     "board-snapshot.yml filters on paths: the workflow file itself (objectui#9387; since objectui#10208 the archiver runs from an objectstack checkout, so no script of this repository is on that list). Blocking when it runs: the pull_request leg runs the archiver's own --self-test and then a capped `--dry-run` snapshot on a real runner, so a workflow edit that breaks the archiver's invocation is red before it merges. It is OPTIONAL rather than required because that path filter means it does not report at all on a pull request that does not touch that file, which is every Dependabot bump. ⛔ Not NOT_A_GATE: that bucket says a check cannot gate, and this one is the only thing in the repository that exercises the archiver's wiring before it merges.",
 });
 
 /**
- * The four coverage shards share one reason, spelled once (objectui#5403 split
- * the single `test-coverage` job into a 4-way matrix plus a merge job). They
- * are listed individually rather than matched by pattern, for the same reason
- * `REQUIRED_CONTEXTS` spells the four PR shards out: a pattern is satisfied by
- * whichever shard happens to exist.
+ * The coverage shards share one reason, spelled once (objectui#5403 split the
+ * single `test-coverage` job into a 4-way matrix plus a merge job;
+ * objectui#12256 widened it to 8). They are listed individually rather than
+ * matched by pattern, for the same reason the twelve PR shards below are: a
+ * pattern is satisfied by whichever shard happens to exist. The count is held
+ * to ci.yml's own matrix by the partition test in `dependabot-merge-gate.test.ts`,
+ * which expands the matrix and fails on any produced name this list lacks.
  */
 const COVERAGE_SHARD_NOT_A_GATE =
-  "ci.yml's coverage lane runs on the full battery's events only (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the `Test (shard N/12)` matrix, which reports through the `Test` aggregator above. ⛔ This lane's own 4-way sharding is unrelated to that matrix's width and objectui#9499 did not touch it.";
+  "ci.yml's coverage lane runs on the full battery's events only (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the `Test (shard N/12)` matrix, which reports through the `Test` aggregator above. ⛔ This lane's own sharding (4-way since objectui#5403, 8-way since objectui#12256) is unrelated to that matrix's width; objectui#9499 and objectui#12208 widened that matrix without touching this one.";
 
 /**
  * The twelve test shards share one reason, spelled once. Every one of them is
@@ -282,11 +286,15 @@ export const NOT_A_GATE = Object.freeze({
   dependabot:
     'This workflow itself. The gate runs inside this job, so requiring it would deadlock at its own deadline.',
   'Test (coverage)':
-    "ci.yml's full-battery lane (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges the four shard blob reports into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the `Test (shard N/12)` matrix, reported through the `Test` aggregator above.",
-  'Test (coverage shard 1/4)': COVERAGE_SHARD_NOT_A_GATE,
-  'Test (coverage shard 2/4)': COVERAGE_SHARD_NOT_A_GATE,
-  'Test (coverage shard 3/4)': COVERAGE_SHARD_NOT_A_GATE,
-  'Test (coverage shard 4/4)': COVERAGE_SHARD_NOT_A_GATE,
+    "ci.yml's full-battery lane (`push` and the hourly `schedule`, objectui#12214), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges every shard's blob report into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the `Test (shard N/12)` matrix, reported through the `Test` aggregator above.",
+  'Test (coverage shard 1/8)': COVERAGE_SHARD_NOT_A_GATE,
+  'Test (coverage shard 2/8)': COVERAGE_SHARD_NOT_A_GATE,
+  'Test (coverage shard 3/8)': COVERAGE_SHARD_NOT_A_GATE,
+  'Test (coverage shard 4/8)': COVERAGE_SHARD_NOT_A_GATE,
+  'Test (coverage shard 5/8)': COVERAGE_SHARD_NOT_A_GATE,
+  'Test (coverage shard 6/8)': COVERAGE_SHARD_NOT_A_GATE,
+  'Test (coverage shard 7/8)': COVERAGE_SHARD_NOT_A_GATE,
+  'Test (coverage shard 8/8)': COVERAGE_SHARD_NOT_A_GATE,
   'Spec Main Shape Gate':
     "spec-main-shape-gate.yml is ADVISORY on a pull request by ruling (objectui#12240: the maintainer's ruling B on objectui#12214's open question 1, ACCEPT 6123370050). It compiles this repository against `@objectstack/spec` built from objectstack `main`, so most of its reds name an objectstack commit rather than anything the pull request changed (measured on objectui#12214, not copied here), and its place in the two-speed doctrine (objectstack#22998) is the hourly `schedule` run on `main`, where a red is a main-red for the `domain:devx` lane. It still reports on every pull request and its verdict is real -- nothing it verifies changed and it carries no `continue-on-error` -- so a red here is ignored because the lane is advisory, never because the check cannot fail. It sat in `REQUIRED_CONTEXTS` from objectui#9969 (ruling A) to objectui#12240, the in-tree half of the maintainer's enrolment; ⛔ moving it back is the in-tree half of a re-enrolment, a ruling and not a tidy-up, and it puts the workflow back inside the `merge_group` floor `merge-queue-reporting.test.ts` derives from that list.",
   'Live E2E (informational)':

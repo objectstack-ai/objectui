@@ -273,7 +273,10 @@ A `text` field that stores the machine name of one registry item declares
 `field:<widget>`). The widget lists that registry through the data source's
 `listMetadataItems(type)`, shows each item's label beside its name, and writes
 the name only. A stored name the loaded registry lacks stays, flagged *not
-found*. When the adapter cannot list a registry, the list is empty, or the
+found*. `position-ref` leaves out the audience anchors (the spec's
+`AUDIENCE_ANCHOR_POSITIONS`: `everyone`, `guest`), because the server refuses
+an anchor as a grant target; a stored anchor still shows as its own option.
+When the adapter cannot list a registry, the list is empty, or the
 load fails, it is a text box that takes the typed name (a failure is shown with
 its cause). See
 [`content/docs/guide/fields.md`](../../content/docs/guide/fields.md).

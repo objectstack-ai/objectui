@@ -173,7 +173,10 @@ record form lists that registry instead of asking for a typed name:
 Like every `widget` value, the name is looked up as `field:<widget>`. Each item
 reads as its label beside its name, and the value written is the name alone: no
 label, no id. A stored name the registry does not list stays on screen, flagged
-*not found*, so a renamed or removed item is visible rather than dropped. The
+*not found*, so a renamed or removed item is visible rather than dropped.
+`position-ref` leaves out the audience anchors, the spec's
+`AUDIENCE_ANCHOR_POSITIONS` (`everyone`, `guest`), because the server refuses an
+anchor as a grant target; a stored anchor still shows as its own option. The
 list comes from the data source's `listMetadataItems(type)`. When the adapter
 has none, the list is empty, or the load fails, the field is a text box that
 takes the typed name; a failure is shown with its cause, and the box stays

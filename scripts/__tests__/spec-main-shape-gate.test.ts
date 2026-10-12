@@ -104,6 +104,61 @@ describe('the gate exists and is wired the way a requirable check has to be', ()
   });
 });
 
+describe('the spec is built only when objectstack main moved (objectui#12214)', () => {
+  /** One step of the stripped body, from its `- name:` line to the next one. */
+  function step(name: string): string {
+    const text = body();
+    const at = text.indexOf(`- name: ${name}`);
+    expect(at, `the workflow must still carry the step "${name}"`).toBeGreaterThan(-1);
+    const rest = text.slice(at + 1);
+    const next = rest.search(/^ {6}- name: /m);
+    return next === -1 ? rest : rest.slice(0, next);
+  }
+
+  it('runs hourly on main as well — the gate in the full battery', () => {
+    expect(body()).toMatch(/^ {2}schedule:\n {4}- cron: '[^']+'$/m);
+  });
+
+  it('reuses only an artifact a main run of THIS repository built, named by the resolved sha', () => {
+    // A pull request or queue build runs its own branch's YAML, so what it
+    // uploads is not evidence about a spec; a main run executes reviewed YAML.
+    const lookup = step('Look for the spec a main run already built at that commit');
+    expect(lookup).toContain('actions/artifacts?name=objectstack-spec-$UPSTREAM_SHA');
+    expect(lookup).toContain('.workflow_run.head_branch == "main"');
+    expect(lookup).toContain('(.workflow_run.repository_id | tostring) == $repo');
+    expect(lookup).toContain('.expired == false');
+    // A lookup that cannot be taken means BUILD.
+    expect(lookup).toMatch(/if ! curl[\s\S]*?echo "hit=false" >> "\$GITHUB_OUTPUT"/);
+    const download = step('Download that spec');
+    expect(download).toContain('name: objectstack-spec-${{ steps.upstream.outputs.sha }}');
+    expect(download).toContain('continue-on-error: true');
+  });
+
+  it('skips only the build on a reuse, never the install inject reads from', () => {
+    const build = step('Build @objectstack/spec from objectstack main');
+    expect(build).toContain("REUSED: ${{ steps.download.outcome == 'success' }}");
+    const install = build.indexOf('pnpm install --frozen-lockfile --filter @objectstack/spec...');
+    const skip = build.indexOf("if [ \"$REUSED\" = 'true' ]");
+    expect(install).toBeGreaterThan(-1);
+    expect(skip, 'the reuse branch must come AFTER the install').toBeGreaterThan(install);
+  });
+
+  it('refuses a reused tarball that does not record the sha this run resolved', () => {
+    const pack = step('Pack the built spec');
+    expect(pack).toContain('recorded=$(cat "$BUILT/sha.txt"');
+    expect(pack).toMatch(/if \[ "\$recorded" != "\$UPSTREAM_SHA" \] \|\| \[ "\$count" -ne 1 \]; then[\s\S]*?exit 1/);
+    expect(pack).toContain('echo "$UPSTREAM_SHA" > "$BUILT/sha.txt"');
+  });
+
+  it('publishes only from the scheduled main run, for a day, and the publish cannot speak for the verdict', () => {
+    const publish = step('Publish the built spec for runs at the same objectstack commit');
+    expect(publish).toContain("if: github.event_name == 'schedule' && steps.download.outcome != 'success'");
+    expect(publish).toContain('continue-on-error: true');
+    expect(publish).toContain('retention-days: 1');
+    expect(publish).toContain('name: objectstack-spec-${{ steps.upstream.outputs.sha }}');
+  });
+});
+
 describe('the two ways this gate could report a verdict it never took', () => {
   it('bypasses the turbo cache when it compiles', () => {
     // turbo's hash covers sources, the lockfile and a declared env list — never

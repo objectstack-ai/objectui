@@ -43,7 +43,7 @@ one has its own section below.
 | `readme-exports.yml` | README Export Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a `packages/**/README.md` imports a name from its own package that the package does not export, or the scan's population collapses |
 | `docs-route-eager-closure.yml` | Docs Route Eager Closure Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a package named in `apps/site/app/components/registerCatalogBlocks.ts` is not already reachable from the docs route's module graph (exit 1), or when the gate's own gauge cannot be trusted (exit 2) |
 | `line-citation-gate.yml` | Line Citation Gate | PR to `main`, `develop` — **no path filter**; manual | No — **report-only** while it beds in; it exits 0 whatever it finds, and exits 1 only when one of its own synthetic controls fails. It declares no `merge_group` trigger, so it cannot be a required context in its current state |
-| `spec-main-shape-gate.yml` | Spec Main Shape Gate | PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — a shape break is a real red naming the objectui file and the objectstack commit ([#9860](https://github.com/objectstack-ai/objectui/issues/9860)). The maintainer enrolled the context under [#9969](https://github.com/objectstack-ai/objectui/issues/9969)'s ruling A, and `scripts/dependabot-merge-gate.mjs` declares it in `REQUIRED_CONTEXTS`, so a Dependabot bump waits for it too |
+| `spec-main-shape-gate.yml` | Spec Main Shape Gate | PR to `main`, `develop` — **no path filter**; merge-queue builds; manual; hourly `schedule` on `main` | **Yes** — a shape break is a real red naming the objectui file and the objectstack commit ([#9860](https://github.com/objectstack-ai/objectui/issues/9860)). The maintainer enrolled the context under [#9969](https://github.com/objectstack-ai/objectui/issues/9969)'s ruling A, and `scripts/dependabot-merge-gate.mjs` declares it in `REQUIRED_CONTEXTS`, so a Dependabot bump waits for it too |
 | `governed-surface-guard.yml` | Governed Surface Queue Guard | PR to `main`, `develop` (incl. `ready_for_review`) — **no path filter**; merge-queue builds | **Yes on a queue build only** — a governed-surface diff with no authorized approval record (on any commit) is refused there, and so is any merge group whose queued pull requests still carry `needs:contract-review`; on the pull request itself it is deliberately green and prints an early warning |
 | `performance-budget.yml` | Bundle Analysis | Push / PR touching `packages/**`, `apps/console/**`, `pnpm-lock.yaml` | **Yes** — the console entry gzip budget |
 | `lockfile-integrity.yml` | Lockfile Integrity Check | PR to `main`, `develop` touching `pnpm-lock.yaml` or the gate's own two files; manual | No — **deliberately not a blocking context** ([#8326](https://github.com/objectstack-ai/objectui/issues/8326)); it names the packages and the Dependabot merge gate classifies it `NOT_A_GATE` |
@@ -2051,7 +2051,7 @@ Uses [Lychee](https://github.com/lycheeverse/lychee) with configuration from `ly
 
 ## Spec Main Shape Gate (`spec-main-shape-gate.yml`)
 
-**Trigger:** PR to `main`, `develop` — **no path filter**; merge-queue builds; manual.
+**Trigger:** PR to `main`, `develop` — **no path filter**; merge-queue builds; manual; hourly `schedule` on `main`.
 **Appears as:** Spec Main Shape Gate.
 
 It builds `@objectstack/spec` from objectstack `main` at a git sha and compiles this repository
@@ -2092,6 +2092,18 @@ carries the long version:
 objectstack repository root. A packed codeload tarball was measured against it and rejected: the
 tarball endpoint has no server-side path filter, so it ships the whole repository however little
 of it the job needs.
+
+**The spec is built only when objectstack `main` moved**
+([#12214](https://github.com/objectstack-ai/objectui/issues/12214)). The hourly `schedule` run on
+`main` — this gate's place in the full battery — publishes the spec it packed as the artifact
+`objectstack-spec-<sha>`, with the sha it was packed at, kept one day. Every other run first looks
+for that artifact at the sha it just resolved and injects it instead of building again; the clone
+and the spec's own install still run, because the injection reads the dependencies the spec's
+build resolved. Only an artifact from a `main` run of this repository is reused: a pull request or
+a queue build runs its own branch's workflow file, so what it could upload is not evidence about a
+spec. A failed lookup or download, or an artifact recording another sha, means *build*. What this
+saves is the build and the pack — the forced compile below is most of the job and is never cached;
+the measured split is on #12214's pull request, not restated here.
 
 **The compile is `TURBO_FORCE=true pnpm type-check --continue`, and every word of it is
 load-bearing.** That task dependsOn `^build`, so the job builds every workspace package against

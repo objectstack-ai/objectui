@@ -1,0 +1,34 @@
+{
+  "number": 12187,
+  "kind": "issue",
+  "title": "console: the boot screen tells every returning user it is \"setting up a new environment\" through three staged steps, and the cloud welcome page takes ~9 s warm / ~20 s cold to show content while still pulling per-icon and Studio-inspector chunks",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T05:30:00Z",
+  "updated_at": "2026-10-12T08:47:36Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12187",
+  "body": "Item 4 of objectstack-ai/cloud#2772. Filed from the cloud maintainer's session with the maintainer's agreement on 2026-10-12 (「同意」). ⛔ Not a claim.\n\n## Source\n\n2026-10-12 staging walk-through of the cloud console: `cloud.objectos.app`, org 「2531 hotcrm 验收」, owner account; cloud `63ea887f`, objectui pin `d758f2f2`. The pin already contains objectui#11798's merge `5d691334`.\n\n## What the user sees\n\nEvery full page load of the cloud console passes through the boot screen: product name, 「正在初始化应用程序…」, three staged steps (连接数据源 / 加载配置 / 准备工作区) and the line 「初始化新环境可能需要几秒钟。」 (en \"Setting up a new environment can take a few moments.\"). This is not a new environment, the steps are not real, and on the first cold load the copy rendered in English before the locale arrived.\n\n![boot screen](https://github.com/objectstack-ai/cloud/blob/fdd422db1e94a4190958fb770bd21ad1ae520e63/01-loading-screen.jpg?raw=true)\n\nMeasured on the cloud welcome page, warm tab (`performance.now()` since navigation start, polled until `main` exists):\n\n| metric | value |\n|---|---|\n| `main` appears | 8 867 ms |\n| DOMContentLoaded / load event | 951 ms |\n| resource entries at that moment | 250 |\n| network entries the pane had buffered | 499+ |\n| cold load (staging is no longer always-on, cloud#2766) | about 20 s |\n\nThe last requests before content are dozens of one-icon `vendor-icon-*.js` chunks and Studio inspector chunks (`HookDefaultInspector`, `ReportDefaultInspector`, `InterfaceListPage`, `default-inspector-registry`) on a page that is not Studio. `sys_user_preference` is read three times per load.\n\n## Mechanism (to confirm)\n\n- The boot screen and its copy are the console shell's (objectui#2628 introduced the screen; the strings are the \"Initializing application…\" family in `packages/i18n`).\n- objectui#11798 moved the Studio builder and chart engine off the eager path. The chunks above are still reached from a plain page route, presumably through the icon registry and the inspector registry, so the eager-closure budget does not see them. objectui#11762 (on hold) is about the budget line, not this.\n\n## Fix direction (recommended)\n\n1. Boot screen: product name plus one honest line (「正在打开你的控制台…」 / \"Opening your console…\"), no staged steps, no \"new environment\". Until the locale loads, show a neutral string, not English.\n2. Find what pulls the inspector chunks and the per-icon chunks on `/_console/apps/*/page/*` and split them by route; the icons the shell itself uses go in one chunk.\n3. One `sys_user_preference` read per load (share the query).\n\n## Acceptance\n\n1. Boot screen screenshots in zh-CN and en: one line, no steps, no \"new environment\"; the first cold load on a zh-CN browser is not English.\n2. Welcome page on staging, warm: `main` within 3 s, under 100 requests before content, no `*Inspector*` / `InterfaceListPage` chunk on a non-Studio route (network log attached).\n3. `sys_user_preference` requested once per load.\n\n## Related\n\nobjectui#11798 · objectui#11762 · objectui#2628 · objectui#11678 · objectstack-ai/cloud#2768 (the home page this screen fronts) · objectstack-ai/cloud#2766\n"
+}

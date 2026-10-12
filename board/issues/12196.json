@@ -1,0 +1,32 @@
+{
+  "number": 12196,
+  "kind": "pull_request",
+  "title": "fix(console): rename the timezone-prompt logic module so no module stem collides by case (objectui#12184)",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T07:03:54Z",
+  "updated_at": "2026-10-12T07:26:57Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12196",
+  "body": "Fixes #12184\n\nClause-②: no\n\n## What and why\n\n`apps/console/src/pages/settings/` held two modules whose extensionless stems differ only in case: `WorkspaceTimezonePrompt.tsx` (the dialog) and `workspaceTimezonePrompt.ts` (its logic), both from objectui#11758. TypeScript tries `.ts` before `.tsx`, so on a case-insensitive filesystem (macOS APFS by default) the import `./pages/settings/WorkspaceTimezonePrompt` landed on the logic file and `tsc` failed. Linux CI is case-sensitive and stayed green.\n\nAs triage `6118599573` directed, the logic module is renamed to `workspaceTimezonePromptLogic.ts` with `git mv` (similarity 100%, content byte-identical), and its readers follow. No behaviour, export or i18n key changes. The optional case-collision CI check is not taken: triage ruled that a new gate defaults to no.\n\n## Readers updated\n\nMeasured with `git grep -n workspaceTimezonePrompt` on base `26b0bd2`:\n\n- `WorkspaceTimezonePrompt.tsx`: the import of the logic module, and the doc comment that names the file (\"When to ask, and what to offer, is decided in ...\").\n- `__tests__/WorkspaceTimezonePrompt.test.tsx`: the import of `browserTimeZone`, `isAdmissibleZone`, `mayWrite` and `promptRecordKey`.\n- `pages/auth/SetupPage.tsx`: the import of `browserTimeZone`.\n- `packages/i18n/src/__tests__/machineLocaleCensus-9909.test.ts`: the declared-exemption row for `const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;` names the file by path. Only its `file` changes; `expression`, `count`, `verdict` and `reason` stay. The card does not list this reader.\n\nThe grep's other hits are i18n key names: `console.workspaceTimezonePrompt.*` in the ten locale packs, the dialog's `t()` calls, and the pending changeset `11758-workspace-timezone-prompt.md`. They are keys, not paths, and stay unchanged. A re-read of `main` before opening this PR found no new reader.\n\n## The stem pin (recorded here, not a gate)\n\nTriage's pin, `git ls-files apps/console | sort -f | uniq -di`, already prints nothing on `main`, because the two paths differ in extension as well as case. It cannot fail. The pin set by the claim `6119202194` strips the extension first:\n\n    git ls-files | sed -E 's/\\.(d\\.ts|tsx|ts|jsx|js|mjs|cjs|mts|cts)$//' | sort -f | uniq -di\n\n- **Before**, on `origin/main` `26b0bd2`: exactly one line, `apps/console/src/pages/settings/WorkspaceTimezonePrompt`.\n- **After**, on this branch's head `5a2a86c`: no output (0 lines).\n- **Control**, same run: the same pipeline over `git ls-tree -r --name-only 26b0bd2` still prints that one line. So the empty answer comes from the rename, not from a broken pipeline.\n\n## What this PR does not claim\n\nIt does not claim a macOS run. The failure needs a case-insensitive filesystem, and this change was verified on Linux. The evidence that the collision is gone is the pin above plus `type-check` for `@object-ui/console` passing. The macOS reading is the card's own: the reporter measured the same rename on macOS.\n\n## Verification, at head `5a2a86c`\n\n- ① `turbo run build --filter='@object-ui/console^...' --concurrency=2`, through the verify lock: `Tasks: 34 successful, 34 total`, `VERDICT command-exit 0`.\n- ② `pnpm --filter @object-ui/console type-check`, which echoed `tsc --noEmit && tsc -b tsconfig.node.json --force`: `VERDICT command-exit 0`. `tsc --listFilesOnly` shows the program includes `workspaceTimezonePromptLogic.ts`, the dialog, `SetupPage.tsx` and the dialog's test.\n- ② `pnpm exec vitest run` on four files: `WorkspaceTimezonePrompt.test.tsx`; `setupCreateTimezone-11908.test.tsx` and `authExitBasename.test.tsx` (the two tests that import `SetupPage`); and `machineLocaleCensus-9909.test.ts`. Result: `Test Files 4 passed (4)`, `Tests 44 passed (44)`.\n- **Census mechanism.** With the rename in place and the census row still naming the old path, the census goes red: `Tests 2 failed | 5 passed (7)`, in \"no call site passes nothing, ...\" and \"every declared exemption matches exactly the sites it declares\". The census reads files from disk, so the row has to follow the file.\n- ③ `pnpm check:unreferenced-sources`, `pnpm check:test-path-roots` and `pnpm check:vi-mock-specifiers`: exit 0 each.\n- ④ `node scripts/check-changeset-presence.mjs`, `pnpm check:changeset-claims`, `pnpm check:pending-changeset-literals`, `pnpm check:control-bytes` and `pnpm check:new-line-citations` (`VERDICT new-cross-file-line-citations: 0 new citation(s)`): exit 0 each.\n- **ESLint, narrowed to the five touched source files:** 5 files, 0 errors, 0 warnings, counted from `--format json`. For this diff the narrowing misses nothing. `eslint.config.js` extends `tseslint.configs.recommended` and sets no `parserOptions.project` or `projectService`, so type-aware linting is off. No rule under `eslint-rules/` reads the filesystem. So the diff cannot change a verdict on an untouched file. `pnpm lint` itself runs in CI.\n- `node scripts/check-governed-queue-guard.mjs --test` on the diff's paths: NOT GOVERNED.\n\n## Changeset\n\n`.changeset/12184-timezone-prompt-module-rename.md` declares `@object-ui/console` `patch`. `check-changeset-presence` counts two released packages, because the census test sits under `packages/i18n/src/`. The changeset declares only the console, as the claim set, because the i18n change is one test row and the fixed group bumps together.\n\n## Acceptance notes\n\n- Nothing found outside this card's scope. At `26b0bd2`, the stem pin shows no other case-only stem pair in the tree.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_016djJF12Qt14ejKR5Vjt4sK)_\n"
+}

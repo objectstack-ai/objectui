@@ -1,0 +1,32 @@
+{
+  "number": 12204,
+  "kind": "issue",
+  "title": "tooling(skills): check-doc-json-fences gains a skills/objectui/** leg — the strict authoring face judges the published guides' json/jsonc node documents, and the 8 deliberate counter-examples carry the gate's existing declaration",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:skills",
+    "pm:queue",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T07:39:13Z",
+  "updated_at": "2026-10-12T07:39:13Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12204",
+  "body": "Protects: the published `skills/objectui/**` catalog — the json/jsonc examples customer agents copy through `npx skills add`.\n\nFiling gate: ③ — maintainer direct order.\n\nProvenance: option B of objectui#12135, offered to the maintainer by name in the seat's 速读终稿 (objectui#12135 comment 6109023131: 「让同一个 checker 用严格面判 json 节点文档…按『新增门禁默认否』,你不点名席位不立卡」). The maintainer named it in live PM chat, session `session_01CinRQcE6T8SvMbhH8D3NhS` (skills seat 1), 2026-10-12, selecting verbatim 「B2:扩 doc-json 门禁一条腿(推荐)」, whose option text reads 「check-doc-json-fences 的 SCAN_SURFACE 加 skills/objectui/**,8 个反例用既有声明标记;os:check 与解析下限不动」.\n\n## Reading\n\nOn objectui `origin/main` `26b0bd2`:\n\n- `scripts/check-doc-json-fences.mjs` judges every json/jsonc NODE DOCUMENT on its `SCAN_SURFACE` (three legs: `content/docs`, the package READMEs, the root READMEs) with `StrictAnyComponentSchema` read from the BUILT `@object-ui/types` `./zod` entry — the face `objectui validate` uses, by construction. Its header excludes `skills/**` on purpose, pending exactly this ruling: 「`skills/**` is a governed, published surface whose fences belong to its owner (objectui#12135)」, and states the widening path: 「Widening is a change of `SCAN_SURFACE` and of the pages it would then read」. A deliberate non-document is declared by a marker line directly above its fence (`FRAGMENT_MARKER_EXAMPLES`: `doc-json: fragment —` plus a written reason), and every declaration is re-judged on every run — a declaration on a fence the face accepts is stale, a dangling one is reported, a reason that claims the fence was checked is refused.\n- `scripts/check-skill-examples.mjs` holds the 70 `os:check`-marked json/jsonc fences under `skills/**` to PARSE only (`MARKED_FLOOR` row `['json', 70]`, shrink-only); it judges no validity. ⛔ Untouched by this card: the markers stay, the floor stays.\n- PR objectui#12138 (merged `dca25aff`) measured the population with the doc-json predicate pointed at `skills/objectui/**`: 70 fences · 48 node documents · 18 with no `type` · 3 not an object · 1 unresolved `type`; the strict face refuses 8 after that repair, all deliberate counter-examples — 6 in `guides/schema-expressions.md` (lead-ins `// Evaluated, then dropped -- renders an empty card`, `// value is RETIRED from text…`, `// ❌ Renders two EMPTY li…`, `// ❌ Refused by name…`, `// ❌ Worse — evaluated inside the envelope…`, `// ❌ Object literals not supported`) and 2 in `rules/protocol.md` (`**❌ WRONG — renders an empty card**`, `**Example violation**`). Re-derive at the branch point; the table in that PR's body is a clue, not the spec.\n\n## Change\n\n1. `scripts/check-doc-json-fences.mjs`: a fourth `SCAN_SURFACE` leg — every `.md` under `skills/objectui/` — with its own anchor page (a page that must contribute a judged node document on every real run; `rules/protocol.md` qualifies today). Header: the exclusion sentence becomes the leg's entry; the \"NOT READ\" list drops `skills/**`.\n2. The 8 refused counter-examples: one declaration line directly above each fence, the gate's existing spelling, with a reason that says what the example deliberately shows (⛔ not a claim that it was checked). If the word `fragment` misdescribes a deliberately refused example, add ONE sibling keyword inside this gate (for instance `doc-json: refused —`) under the same re-judging rules — ⛔ not a second checker, ⛔ no change to `check-skill-examples.mjs`.\n3. `scripts/__tests__/check-doc-json-fences.test.ts`: the CLI-door parity pin covers the new leg; one case that an undeclared refused fence under `skills/objectui/` is red and a declared one is green.\n4. `.changeset/`: `skills/**` and `scripts/` are in no package's `files[]`; an empty-frontmatter changeset declares \"no release\". `doc-snippet-types.yml` already runs `check:doc-json` after building the face closure; confirm by reading it, no workflow change is expected.\n5. Gates: `pnpm check:doc-json` red before (the 8 undeclared refusals printed by name) and green after; `node scripts/check-skill-examples.mjs` unchanged at 70 marked / 70 parsed; `pnpm check:skill-eval-tokens`; the test file above.\n\n## Who acts\n\nThe `domain:skills` seat: `skills/**` is governed (Tier H — draft PR with the 维护者速读 draft; an authorized APPROVED review lands it); the script edit rides the same PR because the declarations and the leg must agree in one commit. Cross-lane: `scripts/check-doc-json-fences.mjs` is the devx @ objectui lane's file by path; the seat declares the touch on that seat's post. Serial behind the 41-site id cleanup card (same files: `guides/schema-expressions.md`, `rules/protocol.md`).\n\n## Dedup\n\nMCP issue search over objectstack-ai/objectui, open and closed, query \"check-doc-json-fences strict authoring face skills json fences scan surface skills/objectui leg widen\": 19 hits. Nearest: objectui#7359 (closed: created `check-skill-examples`), objectui#12131 (closed: the README legs), objectui#12135 (closed: the one refused ✅ example, repaired), objectui#7675 (closed, not planned: opt ts fences into skill-examples). None adds `skills/**` to the strict-face gate.\n\nRefs: objectui#12135 · objectui#5250 (the ruling that built the strict face and the JSON-fence gate on top of it)."
+}

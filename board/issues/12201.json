@@ -1,0 +1,32 @@
+{
+  "number": 12201,
+  "kind": "issue",
+  "title": "console: app identity moves into the top bar — the app icon sits left of the app name in the switcher pill, dropdown rows carry icons, the sidebar logo header goes, the phone drawer header shows icon + name, and the platform mark leaves app context (maintainer ruling 2026-10-12)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T07:32:30Z",
+  "updated_at": "2026-10-12T08:47:50Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12201",
+  "body": "Filing gate: a maintainer ruling in chat, 2026-10-12 — 「应用 logo 建议只需要一个尺寸，放在顶部导航的应用名称左侧」, then 「同意」 on the mock and on dropping the platform mark from app context. Filed from the cloud maintainer's session. ⛔ Not a claim.\n\n## What is wrong today\n\n`UnifiedSidebar` renders `branding.logo` as a 32 px `<img>` alone in a `SidebarHeader`, with no text (objectui#10827 gave the key its only reader). HotCRM's value is a square app icon, so a HotCRM environment shows an unlabeled orange tile in a 56 px header, 80 px below the ObjectOS platform mark and the 「HotCRM ▾」 switcher pill that already carry the identity. Two brand marks in one corner, neither saying what it is. On phones the top bar is hidden, so that tile is the only thing that says which app the user is in, and it still has no name.\n\n![HotCRM environment, sidebar logo header](https://github.com/objectstack-ai/cloud/blob/6723e99fcdcaeb4880d07c12e6bd46a04106abd8/14-hotcrm-env-console-sidebar-logo.webp?raw=true)\n\n## Ruling (maintainer, 2026-10-12)\n\n1. **One asset.** `branding.logo` is the app's square icon (1:1). Surfaces render it at the size they need: 22 px in the top bar pill, 22 px in the switcher dropdown, 26 px in the phone drawer, 40 px on marketplace cards. No second asset, no wordmark slot.\n2. **The icon sits left of the app name in the top-bar app switcher pill.** Every row of the switcher dropdown shows its app's icon. An app without `branding.logo` gets its `icon` (lucide name) drawn on a `primaryColor` tile at the same size, so every row has a glyph.\n3. **The sidebar logo header goes away** on desktop. On phones the drawer header shows icon + app name, in the place of the existing mobile-only Home row.\n4. **The platform mark leaves the top bar in app context.** The bar starts with the app pill. Platform surfaces (environment Home, settings) keep the ObjectOS mark. One brand mark per screen; the 「所有应用」 row in the switcher dropdown is the way back to Home.\n5. The PREVIEW stage chip moves to the right, beside the search box, so the bar's left edge is the app.\n6. **The Studio entry gets a label** (maintainer, 2026-10-12, 「同意」). The icon-only Hammer button (`data-testid=\"app-design-in-studio-button\"`, the ADR-0080 reverse bridge, admin + metadata-authoring gated) becomes an outline button 「编辑应用」 / \"Edit app\" with a pencil icon, placed at the left edge of the right-hand utility cluster; on narrow widths it collapses to the pencil with a tooltip. The same gate, the same deep link. The switcher dropdown gains a bottom row 「在 Studio 中编辑 <app>」 / \"Edit <app> in Studio\" next to 「所有应用」, admin-only, as the second path. 「系统设置」 stays listed as an app; Studio is never listed as one.\n\nMock (the maintainer's private design canvas; ask the maintainer for a render if needed): https://claude.ai/artifact/3RcJzvfgizHDpTsep32TAn — artboards: desktop top bar (tweak `platformLogo` to compare with/without the platform mark), switcher dropdown with fallback rows, phone drawer, icon candidates.\n\n## Where\n\n- `packages/app-shell/src/layout/UnifiedSidebar.tsx`: drop the `appLogo` `SidebarHeader`; the mobile sheet header becomes icon + name.\n- The top-bar app switcher pill and its dropdown (the component that renders 「HotCRM ▾」): icon before the label, icons per row, fallback tile.\n- Platform-mark visibility by context (app vs platform) in the top bar; PREVIEW chip placement.\n- `packages/app-shell/src/layout/AppHeader.tsx`: the Design-in-Studio button (label, pencil icon, responsive collapse); `AppSwitcher.tsx`: the admin-only Studio row.\n- Rider, same seat, a small separate PR in objectstack: the `@objectstack/spec` doc on `branding.logo` says \"1:1 square app icon, SVG preferred, at least 64 px\"; refuse a non-square value if the schema can express it, otherwise doc only.\n- HotCRM's own icon and color: objectstack-ai/hotcrm#2066 (filed with this card).\n\n## Acceptance\n\n1. HotCRM environment, desktop: the top bar reads ［icon］HotCRM ▾ / Leads / …; no sidebar header; no ObjectOS mark in the bar. Screenshots zh-CN and en.\n2. Environment Home: ObjectOS mark present, no app pill.\n3. Switcher dropdown: every app row has a glyph; an app without `branding.logo` shows the fallback tile.\n4. Phone (375 px): the drawer header shows icon + 「HotCRM」; nothing else in the drawer changes.\n5. Tests: `UnifiedSidebar` no longer renders `branding.logo`; the switcher renders it; the fallback path is covered.\n6. Admin: the top bar shows 「编辑应用」 with text at 1280 px and a pencil-only button with tooltip at 768 px; the switcher dropdown ends with 「在 Studio 中编辑 HotCRM」. Member: neither appears. The existing `AppHeader.designInStudioNeedsAuthoring-10899` test keeps passing against the new markup.\n\n## Related\n\nobjectui#10827 (the reader this card moves) · objectui#7256 · objectstack-ai/cloud#2772 (cloud console experience epic; this is its environment-side cousin) · objectstack-ai/cloud#2777 (the cloud home renders the same icon) · objectstack-ai/hotcrm#2066\n"
+}

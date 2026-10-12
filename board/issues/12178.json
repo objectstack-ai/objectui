@@ -1,0 +1,37 @@
+{
+  "number": 12178,
+  "kind": "issue",
+  "title": "objectui.org has not deployed since 2026-09-06: every Vercel production build fails to resolve @object-ui/example-schema-catalog, because the dashboard build command stopped building it when #7986 removed apps/site's prebuild hook",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "ci/cd",
+    "domain:devx",
+    "pm:awaiting-maintainer",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T03:10:59Z",
+  "updated_at": "2026-10-12T05:06:40Z",
+  "closed_at": "2026-10-12T05:06:40Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12178",
+  "body": "## What is broken\n\nThe live docs site **objectui.org is frozen at 2026-09-06**. Every production build of the Vercel project `objectui` (team `object-stack`, Root Directory `apps/site`) has failed since then, and every one of them is billed.\n\n- Last READY production deployment: `dpl_3MdnDUaYt1eXkRBLUrXcy9D2frA6`, 2026-09-06 07:20 UTC, commit `6bfe358247`.\n- First ERROR production deployment: `dpl_BZ1P3Ptn7GUGoe9inMScdPEBVeY2`, 2026-09-06 07:20 UTC, commit `bf914dc753` (#7986).\n- Latest ERROR production deployment when this was filed: `dpl_2UdnxRkKxEUrSksvEQC7ikeG3w23`, 2026-10-12 02:07 UTC, commit `2498a07538` (the current tip of `main`).\n- Read on 2026-10-12 from the Vercel API (`GET /v6/deployments?projectId=...&target=production&since=` the last READY): **2023 production deployments since the last READY one, all 2023 in state ERROR, one per `main` commit, median 4.6 build-minutes each, about 9,400 build-minutes in total.** That is a one-time reading, not a live count; re-run the same query to re-derive it.\n- The maintainer's Vercel bill puts this project at roughly **USD 55/month**, almost all of it \"Build CPU Minutes\" spent on these failing builds. Nothing was deployed for that spend.\n\nLog tail of `dpl_2UdnxRkKxEUrSksvEQC7ikeG3w23` (positions trimmed; the full log is `GET /v3/deployments/dpl_2UdnxRkKxEUrSksvEQC7ikeG3w23/events`):\n\n```\nRunning \"pnpm --filter '../../packages/*' -r build && pnpm build\"\n...\n../../packages/app-shell build: Done\n> @object-ui/site@3.1.0 build /vercel/path0/apps/site\n> next build\n▲ Next.js 16.3.6 (Turbopack)\n> Build error occurred\nError: Turbopack build failed with 3 errors:\n./apps/site/app/components/LiveSplitDemo.tsx\nError: Module not found: Can't resolve '@object-ui/example-schema-catalog'\n./apps/site/app/components/SchemaCatalogIndex.tsx\nError: Module not found: Can't resolve '@object-ui/example-schema-catalog'\n./apps/site/app/components/SchemaExample.tsx\nError: Module not found: Can't resolve '@object-ui/example-schema-catalog'\nError: Command \"pnpm --filter '../../packages/*' -r build && pnpm build\" exited with 1\n```\n\nThe first failing deployment (`dpl_BZ1P3Ptn7GUGoe9inMScdPEBVeY2`) fails with the same three `Module not found` errors.\n\n## Root cause\n\n1. All three components import from `@object-ui/example-schema-catalog` (`getExample` in SchemaExample.tsx and LiveSplitDemo.tsx, `allExamples` in SchemaCatalogIndex.tsx). That workspace package lives in `examples/schema-catalog`, and its `package.json` `exports[\".\"]` points only at `./dist/index.js` / `./dist/index.d.ts`, which exist only after its `build` script (`tsc`) has run.\n2. The Vercel project's **dashboard** build command is `pnpm --filter '../../packages/*' -r build && pnpm build`. The filter selects `packages/*` only, so it never builds `examples/schema-catalog`.\n3. Until 2026-09-06 that gap was covered by a `prebuild` script in `apps/site/package.json`, `pnpm --filter @object-ui/example-schema-catalog build`, which ran as the pre-hook of the second half of that command (`pnpm build` inside `apps/site`).\n4. #7986 (`bf914dc753`, merged 2026-09-06 07:05 UTC) deleted that hook on purpose, making turbo's `build.dependsOn: [\"^build\"]` the only source of build order. Every path in the repo moved to the turbo form, including the root `site:build` script (`turbo run build --filter=@object-ui/site`). The Vercel dashboard command lives outside the repo, so it was not updated.\n5. Result: on Vercel, `examples/schema-catalog/dist` never exists, and `next build` cannot resolve the package. The deployment boundary lines up exactly: the deployment for the commit before #7986 is READY, and the deployment for #7986 is the first ERROR.\n\n## Why CI's `Build Docs` stays green on the same commit\n\nCI does not build the same thing Vercel does. `ci.yml`'s `Build Docs` job runs `pnpm turbo run build --filter='@object-ui/site'`. turbo builds the site's whole workspace dependency closure first, and `@object-ui/example-schema-catalog` is a declared dependency of `@object-ui/site`, so turbo builds it. On `2498a07538`, the same commit as the latest failed Vercel deployment, push run 38194536766's `Build Docs` job built for real (`Tasks: 30 successful, 30 total`, `Cached: 7 cached, 30 total`, including `@object-ui/example-schema-catalog:build`) and passed. (#8647 is a different problem: there, `Build Docs` skipped the build on PRs. On `push` and `merge_group` runs it always builds.)\n\nSo a green `Build Docs` check has said nothing about the production deploy since 2026-09-06. The two use different commands, and only one of those commands is in the repo.\n\n## Fix\n\nBring the deploy's build command into the repo and make it the command CI already runs: add `apps/site/vercel.json` (Vercel reads it from the project's Root Directory, and it overrides the dashboard values) with `buildCommand` `cd ../.. && pnpm turbo run build --filter=@object-ui/site`, and keep `installCommand` at the current dashboard value, `pnpm i`. With that, CI's `Build Docs` and the deploy run the same command. The command also builds only the site's dependency closure instead of every package under `packages/`. That PR is linked below.\n\n⛔ Restoring the `prebuild` hook is not the fix: #7986 removed hand-listed build chains on purpose, and the `turbo build inputs` guard keeps their number at zero.\n\nRelated, separately: moving the docs deploy into a GitHub Actions workflow (free on this public repo) and turning Vercel's Git-triggered builds off. That PR is also linked below.\n\nClose this issue once a production deployment of the `objectui` project after the fix is READY and objectui.org shows post-2026-09-06 content. A merge on its own does not count.\n\n---\nFiled by a Claude Code agent session for the maintainer (the Vercel readings were taken through the maintainer's logged-in Vercel CLI token, using read-only API calls).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

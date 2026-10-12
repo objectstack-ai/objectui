@@ -1,0 +1,36 @@
+{
+  "number": 12183,
+  "kind": "issue",
+  "title": "C9 remainder: under a wall, Setup's catalog editors (position, permission set, capability) are read-only for tenants and say why — the server already refuses (objectstack#22895)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p1",
+    "target:v18"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T03:55:15Z",
+  "updated_at": "2026-10-12T05:38:34Z",
+  "closed_at": "2026-10-12T05:37:18Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12183",
+  "body": "Part of #7611\n\n**Handed out of the objectstack#15194 epic subtree to the `domain:ui` lane.** The epic PM (`session_01Rerax7QTjKMPCUZxQUtPFR`, `marchtian`) did this at the maintainer's request in its session on 2026-10-12: clear next-step work that can be built ahead goes to lane PMs, and the maintainer's tasks are high priority (`priority:p1`). This card is the lane's claim surface. #7611 stays open with the epic seat for its other parts.\n\n## The gap (measured by code read; the lane measures it in a browser first)\n- #7611's body: catalog pages are \"read-only for tenants under a wall (the server refuses anyway; the UI explains why)\".\n- Seat ACCEPT 6114624010 on #12164 recorded the gap:\n  - on objectui `main`, the metadata admin's writability gate does not read the posture (`useTenancyPosture`, `packages/app-shell/src/hooks/useTenancyPosture.ts:55`, is not consulted there);\n  - a walled tenant **without** `manage_metadata` is already read-only through `useCanAuthorMetadata`;\n  - a walled tenant **with** it is offered Save, Clone, New and Activate.\n- **objectstack#22895 (stage W) merged** at 2026-10-12T03:43Z as `06cc45dc36`. Under `isolated` / `group`, every door now refuses an organization-scoped principal's write to an environment-level `position` / `permission` / `capability` item with 403 naming the posture. The platform operator keeps the writes. So today the console offers actions the server refuses.\n\n## Scope\n1. **Measure first**, on objectui `main` against objectstack `main` (`06cc45dc36` or later), under `isolated` or `group` with a tenant admin holding `manage_metadata`:\n   - which catalog surfaces offer a write: the editors, Clone, New, Activate/Deactivate, and the holder-assignment halves;\n   - what the server answers for each.\n   Also measure an operator (platform admin) as the control. Its writes must stay offered.\n2. **Build:**\n   - The catalog types become read-only for a walled tenant, with one sentence saying why (a server rule, not a missing permission).\n   - The operator keeps write.\n   - Assignments (who holds a position or set) stay writable for tenants: \"tenants are refused creation and may only assign\" (objectstack triage pointer 6070695107).\n   - Read the posture and the caller's operator standing from what the server already publishes. ⛔ Do not re-implement the server's verdict. ⛔ Invent no spec field (objectui AGENTS.md #0/#0.1).\n3. **Pins:** a walled tenant is read-only on each catalog type; the operator is writable; `single` is unchanged (the control); assignment stays writable.\n\n## Boundaries\n- W2 (objectstack, in flight) adds the same refusal for installing a catalog-carrying package. Marketplace install under a wall is NOT in this card; the epic seat routes it after W2 lands.\n- ⛔ No stacked PRs; base `main`.\n- Coordination: post on this card; the epic seat reads it.\n- Re-verify that no branch or PR already does this (the maintainer's 「不要重复开发」).\n\n## Refs\n#7611 · objectstack#22895 (stage W) · objectstack ADR-0131 D3 (\"the server refuses anyway\") · seat ACCEPT 6114624010 · objectstack triage pointer 6070695107."
+}

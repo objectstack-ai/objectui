@@ -1,0 +1,37 @@
+{
+  "number": 12188,
+  "kind": "issue",
+  "title": "record page related list at phone width renders a lookup title as \"[object Object]\": the organization page's Members tab card shows \"[object Object]\" where the desktop grid shows the user's name",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T05:31:04Z",
+  "updated_at": "2026-10-12T08:09:46Z",
+  "closed_at": "2026-10-12T08:08:02Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12188",
+  "body": "Item 7 of objectstack-ai/cloud#2772. Filed from the cloud maintainer's session with the maintainer's agreement on 2026-10-12 (「同意」). ⛔ Not a claim.\n\n## Repro\n\nStaging cloud console (`cloud.objectos.app`, objectui pin `d758f2f2`), `/_console/apps/cloud_control/sys_organization/record/<orgId>`, Members tab, viewport 375×812: the member card's title reads `[object Object]`. The same row at desktop width shows 「JIANGUO Zhuang」. The role badge and the date render fine.\n\n![members tab at phone width](https://github.com/objectstack-ai/cloud/blob/fdd422db1e94a4190958fb770bd21ad1ae520e63/08-organization-record-mobile.jpg?raw=true)\n\n## Mechanism (to confirm)\n\nThe related list switches from the grid to a card layout under the phone breakpoint. The card's title takes the row's title field raw; `user` on `sys_member` is a lookup whose value is object-shaped after lookup resolution, so stringifying it prints `[object Object]`. The grid path formats lookups through the cell formatter; the card path does not.\n\n## Fix direction\n\nFormat the card title through the same cell formatter the grid uses (lookup → label, user → display name). Add a test with a lookup title field at phone width. Check the other card-shaped layouts (kanban, gallery, mobile list) for the same path. Precedent: objectui#8395 (DetailSection's copy wrote `[object Object]`).\n\n## Acceptance\n\n1. Members tab at 375 px shows the member's name; screenshot in zh-CN.\n2. A test covering a related-list card whose title field is a lookup.\n\n## Related\n\nobjectui#8395 · objectui#12104 · objectstack-ai/cloud#2266\n"
+}

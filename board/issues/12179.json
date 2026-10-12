@@ -1,0 +1,32 @@
+{
+  "number": 12179,
+  "kind": "pull_request",
+  "title": "fix(site): build the docs deploy with the command CI already runs, so the production build stops failing (objectui#12178)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T03:13:25Z",
+  "updated_at": "2026-10-12T04:10:51Z",
+  "closed_at": "2026-10-12T04:10:51Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/12179",
+  "body": "Refs: #12178\n\n## Why\n\nobjectui.org has not deployed since 2026-09-06. All 2023 Vercel production builds since then failed with `Module not found: Can't resolve '@object-ui/example-schema-catalog'`, about 9,400 billed build-minutes for nothing. #12178 has the deployment ids, the log excerpt, and the diagnosis:\n\n- The Vercel project's build command exists only in the dashboard: `pnpm --filter '../../packages/*' -r build && pnpm build`. It never builds `examples/schema-catalog`, whose `exports` resolve only into `dist/`.\n- Before #7986, `apps/site`'s `prebuild` hook built that package. #7986 removed the hook on purpose, so that turbo's `^build` is the only source of build order, and moved every in-repo path to the turbo form. The dashboard command was outside the repo and was not updated. The deployment for #7986's commit is the first ERROR. The one for the commit before it is the last READY.\n- CI's `Build Docs` stayed green on the same commits because it runs a different command: `pnpm turbo run build --filter='@object-ui/site'`. That command builds the site's whole dependency closure, schema catalog included.\n\n## What\n\nAdds `apps/site/vercel.json`. Vercel reads it from the project's Root Directory (`apps/site`), and its values override the dashboard settings.\n\n- `buildCommand`: `cd ../.. && pnpm turbo run build --filter=@object-ui/site`. This is the command `ci.yml`'s `Build Site` step runs, started from the repo root, and the same thing the root `site:build` script runs. It also builds only the site's dependency closure instead of every package under `packages/`.\n- `installCommand`: `pnpm i`, unchanged from the dashboard. It is now written down in the repo.\n\nNo changeset: `@object-ui/site` is in the changesets `ignore` list (the presence gate agrees). This does not touch any governed surface (`check-governed-queue-guard.mjs --test` says NOT GOVERNED).\n\n## How to verify\n\n- Before merge: the PR's Vercel preview is cancelled by the project's Ignored Build Step, which only builds production. So nothing on Vercel exercises this until after merge. The evidence that the command works is CI: on `2498a07538`, the same commit as the latest failed Vercel deployment, push run 38194536766's `Build Docs` job ran this command for real (`Tasks: 30 successful, 30 total`, including `@object-ui/example-schema-catalog:build`) and passed.\n- After merge: the next production deployment of the Vercel project `objectui` should be READY, and objectui.org should show post-2026-09-06 content. Only after seeing that should #12178 be shut, by hand; this PR deliberately carries no closing keyword.\n- One residual risk, not measured: Vercel's build machine is 4 cores and 8 GB, and turbo runs more tasks in parallel than the old `pnpm -r` did. If that production build fails on memory, this PR still holds, and the follow-up that moves the build onto GitHub Actions runners (16 GB, free on this public repo) covers it.\n\nFollow-up, separate PR: the docs deploy moves into a GitHub Actions workflow and Vercel's Git-triggered builds are turned off. That PR adds one key to this same file, so merge this one first.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n"
+}

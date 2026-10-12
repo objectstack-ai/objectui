@@ -1,0 +1,32 @@
+{
+  "number": 12198,
+  "kind": "issue",
+  "title": "The console breadcrumb on a page route adds a 「页面」/Pages crumb, a metadata-type word on a user page; and pin that a Cloud owner or member sees neither the Studio pencil nor the hammer (cloud#2777 item 4)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T07:05:55Z",
+  "updated_at": "2026-10-12T08:04:17Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12198",
+  "body": "Origin: filed by the cloud seat (`repo:cloud#1`) from objectstack-ai/cloud#2777 item 4, under the maintainer's ruling on objectstack-ai/cloud#2768 (`6118501670`, 「同意」). The ask in the card's words: user pages show no Studio pencil and no top-bar hammer (runtime screens carry no authoring handle), and the breadcrumb shows no 「页面」.\n\nDone when: a page route's breadcrumb no longer carries the `console.breadcrumb.pages` crumb, and tests pin that the pencil and the hammer are absent for a session holding `organization_admin` without `manage_metadata`, on objectui `main`.\n\nRouting (domain, type, priority) is objectui triage's. Read at objectui `26b0bd2d`.\n\n## What the code says today\n\n1. **The 「页面」 crumb is unconditional.** `packages/app-shell/src/layout/AppHeader.tsx:409-410`: on `routeType === 'page'` it pushes `{ label: t('console.breadcrumb.pages'), href: baseHref }` before the page's own crumb. On the Cloud home that reads 「云 / 页面 / 首页」 (the walkthrough screenshot on objectstack-ai/cloud#2768). 「页面」 names a metadata type, not a place the user went, and its link is the app's base.\n2. **The pencil.** `packages/app-shell/src/views/PageView.tsx:113`: `canEditInStudio = isAdmin && canAuthorMetadata && !!appName && !!pageName`.\n3. **The hammer.** `AppHeader.tsx:376-379`: `canDesignInStudio = isWorkspaceAdmin && canAuthorMetadata`. Its comment cites objectstack-ai/objectui#10899: on the cloud control plane the hammer opened the platform's own metadata to a signed-up customer.\n4. **Who holds `manage_metadata`.** `useCanAuthorMetadata` (`hooks/useCanAuthorMetadata.ts`) asks `hasCapabilities(['manage_metadata'])`. A hosted owner holds `organization_admin`, which withholds `manage_metadata` (ADR-0066, objectstack-ai/objectstack#8270). So by this reading a Cloud owner and a member should already see neither handle. The walkthrough's account may have been a platform admin; the seat cannot tell from code.\n5. **Fail-open.** The hook fails OPEN when the server never reported `systemPermissions`. The cloud control plane does serve `/api/v1/auth/me/permissions` (cloud `apps/cloud/server/index.ts:53`, `:102`).\n\n## Mechanism assumptions (for the dev to measure; falsifying is welcome)\n\n1. **The crumb.** Remove the `Pages` crumb on page routes, so the trail goes from the app to the page. Measure whether the dashboards branch (`AppHeader.tsx:395`, `console.breadcrumb.dashboards`) is the same class. If it is, name it in the report rather than widening this card. Update the breadcrumb tests that pin today's trail; do not weaken any other assertion.\n2. **The handles.** Pin with tests, for both the pencil and the hammer:\n   - a session with `organization_admin` and no `manage_metadata` sees neither;\n   - a plain member sees neither.\n   \n   If the measurement finds a path where a Cloud owner still sees either one (for example the fail-open branch on the control plane), report it with the path, and say which repo would carry the fix. Do not change the fail-open doctrine in this card.\n3. **No cloud or framework change** is expected. If one is needed, name it in the report; the seat files it.\n\n## Acceptance\n\nScreenshots on staging, an owner and a member with no pencil, no hammer and no 「页面」 crumb, are the maintainer's, on objectstack-ai/cloud#2777 after the next `.objectui-sha` move."
+}

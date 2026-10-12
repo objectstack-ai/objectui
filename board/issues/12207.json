@@ -1,0 +1,34 @@
+{
+  "number": 12207,
+  "kind": "issue",
+  "title": "console: a bulk action's lookup param bound through objectOverride renders as a free textbox — HotCRM's bulk 'Add to campaign' takes the campaign name as text, reports success, and writes orphan members",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T07:41:16Z",
+  "updated_at": "2026-10-12T07:52:49Z",
+  "closed_at": "2026-10-12T07:52:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12207",
+  "body": "Filing gate ①: a product defect, reproduced and measured. Source: 2026-10-12 hosted-shape browser pass of HotCRM 4.0.1 on a cloud rig at production v1.36.0's pins (objectui `d758f2f20d`, framework `56bf27affb`).\n\n## What happens\n\nHotCRM's lead action 加入营销活动 (`crm_lead.create_campaign`, `locations: [list_toolbar, list_item]`) declares one param that is bound to a lookup field on another object:\n```json\n{\"field\":\"crm_campaign\",\"objectOverride\":\"crm_campaign_member\",\"label\":\"营销活动\",\"required\":true}\n```\n\n- **Single-record dialog (row menu):** the param renders as a **lookup picker**, and the action works.\n- **Bulk dialog (select 1–2 rows → bulk bar → 加入营销活动):** the same param renders as a **plain textbox**.\n  - The tester typed the campaign's name (`T-hc-sales-Campaign A`, then its code `CPG-0008`). The confirm step listed raw record ids.\n  - 执行 reported **\"成功 2 / 2\"** (then \"成功 1 / 1\").\n- **What the server did with it** (`POST /api/v1/actions/crm_lead/create_campaign` body `{\"recordId\":\"…\",\"params\":{\"crm_campaign\":\"T-hc-sales-Campaign A\"}}` → 200):\n  - Answered `{\"campaignId\":\"T-hc-sales-Campaign A\",\"count\":1,\"ids\":[\"KlpjuftuQyw7uWBo\"]}`, i.e. it stored the typed text as the campaign id.\n  - The leads did not join the real campaign. The returned member ids read back as 404.\n  - The orphan rows keep breaking hooks afterwards. Server log: `campaign_member_metrics_refresh` and `campaign_lead_conversion_refresh` → `Record T-hc-sales-Campaign A not found in crm_campaign` / `Record CPG-0008 not found`.\n\nReproduced 2 of 2.\n\n## Three layers, each with its own gap (for triage to split)\n\n1. **objectui (this card):** the bulk dialog does not resolve a field-bound param through `objectOverride`, so a lookup becomes a free textbox. The single-record dialog resolves it.\n2. **framework, to check:** ADR-0104 D2's param contract enforces reference-id shape, yet a value with spaces passed for a lookup-bound param. Either enforcement does not resolve `objectOverride`, or it does not check that the reference resolves.\n3. **hotcrm:** the action body writes `crm_campaign_member` rows without checking that the campaign exists.\n\n## Acceptance\n\n1. The bulk dialog renders a field-bound lookup param (including `objectOverride`) with the same lookup picker as the single-record dialog.\n2. A value that names no campaign is refused before any row is written. Where layers 2 and 3 apply, file and track them on their own cards.\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

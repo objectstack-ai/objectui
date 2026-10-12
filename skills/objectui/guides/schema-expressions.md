@@ -56,7 +56,7 @@ this rule. The four cases that decide most schemas:
 `title` / `label` / `value` / `description` are template-evaluated on the types
 that declare them -- `statistic` (`label` / `value` / `description`), `card`
 (`title` / `description`), `button` (`label`) -- and read raw everywhere else.
-The set is closed and declared in `@objectstack/spec` (objectui#4795).
+The set is closed and declared in `@objectstack/spec`.
 
 ## Template expression syntax (`${}`)
 
@@ -150,7 +150,7 @@ template iteration" below.
 > **adapter** — the object a renderer calls `find()` on. The renderer used to
 > publish that adapter under the name `data`. An adapter answers no `data.*`
 > path an author would write, so that root was silently constant for every
-> conformant host, and objectui#9308 removed it (maintainer ruling 2026-09-13).
+> conformant host, and it has been removed (maintainer ruling 2026-09-13).
 >
 > **Re-check every gate you authored from an older copy of this page: the
 > verdict moved.** A root that is MISSING and a root that is PRESENT-but-empty
@@ -169,7 +169,7 @@ template iteration" below.
 > it flips the other way. The interpolation layer does not fail soft to
 > anything — it hands back the characters you typed, so a `content` built from
 > a missing root renders the literal text `${data.status == 'draft'}` to the
-> user. objectui#5454's reporter warns about the predicate case.
+> user. The node-gate diagnostic warns about the predicate case.
 >
 > ⛔ Re-publishing `data` through `PredicateScopeProvider` restores the old,
 > always-`false` verdict — it does not make the gate work. Give the gate a root
@@ -368,8 +368,8 @@ renders one entry per array element.
 
 ⛔ `bind` resolves against that same ambient scope — **not** against
 `SchemaRendererProvider`'s `dataSource`. That prop is the `DataSource` adapter,
-it has no member a `bind` path names, and objectui#9308 retired the walk over
-it. A `bind` on a page with no scope published above it resolves `undefined`,
+it has no member a `bind` path names, and the walk over it is retired. A
+`bind` on a page with no scope published above it resolves `undefined`,
 and each reader falls back to its own empty state.
 
 **Nested paths work:** `"bind": "app.settings.users"` resolves `scope.app.settings.users`.
@@ -386,7 +386,7 @@ error, no warning, nothing in the console — except `data-table` (one warning, 
 inline `data` array on the node and never calls `useDataScope`, so a `bind` on
 it resolves nothing: the table renders its header over the "No results found"
 empty state. Nothing is thrown and nothing on the page says why — the one
-signal is a `[ObjectUI] DataTable bind:` console warning (objectui#6575); on
+signal is a `[ObjectUI] DataTable bind:` console warning; on
 the page, a table that looks built and is blank is the whole failure.
 
 <!-- os:check -->

@@ -159,10 +159,13 @@ describe('the keys objectui#12130 measured not to work stay refused by name (obj
     })).toBeNull();
   });
 
-  // The snake_case spellings the `lookup` widget still reads before the spec's
-  // camelCase keys this card declares (the census ledger records the reads).
-  // `avatar_field` is the `lookup` and `user` widgets' first read of the
-  // search picker's `avatarField`, which this face declares camelCase only.
+  // The snake_case second spellings of keys this card declares camelCase.
+  // `allow_create`, `lookup_columns` and `lookup_page_size` are no longer read
+  // by any widget (objectui#12157 retired the `lookup` widget's reads of them);
+  // `reference_field` and `avatar_field` still are (the census ledger records
+  // the reads). `avatar_field` is the `lookup` and `user` widgets' first read
+  // of the search picker's `avatarField`, which this face declares camelCase
+  // only.
   const SECOND_SPELLINGS: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
     ['allow_create', { type: 'lookup', allow_create: false }],
     ['lookup_columns', { type: 'lookup', lookup_columns: ['name'] }],

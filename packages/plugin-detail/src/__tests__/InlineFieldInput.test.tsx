@@ -61,7 +61,7 @@ describe('InlineFieldInput', () => {
     expect(screen.queryByDisplayValue(/\[object Object\]/)).toBeNull();
   });
 
-  it('slices an ISO timestamp to YYYY-MM-DD for the date input and re-emits ISO on change', () => {
+  it('slices an ISO timestamp to YYYY-MM-DD for the date input and writes the picked day back unchanged (objectui#12206)', () => {
     const onChange = vi.fn();
     render(
       <InlineFieldInput
@@ -74,7 +74,25 @@ describe('InlineFieldInput', () => {
     expect(input).toBeInTheDocument();
     fireEvent.change(input, { target: { value: '2026-03-01' } });
     expect(onChange).toHaveBeenCalledTimes(1);
-    // Re-emitted as a full ISO timestamp (TZ-independent shape assertion).
+    // The plain day, as the Edit form writes it — never local midnight as an
+    // instant, which names the day before east of UTC. The zone cases are in
+    // `InlineFieldInput.dateOnlyWriteZone-12206.test.tsx`.
+    expect(onChange).toHaveBeenCalledWith('2026-03-01');
+  });
+
+  it('re-emits an ISO timestamp for a `datetime` field on change (that arm is unchanged by objectui#12206)', () => {
+    const onChange = vi.fn();
+    render(
+      <InlineFieldInput
+        field={{ name: 'due_at', type: 'datetime' }}
+        value="2026-02-14T14:46:20.862Z"
+        onChange={onChange}
+      />,
+    );
+    const input = screen.getByDisplayValue('2026-02-14');
+    fireEvent.change(input, { target: { value: '2026-03-01' } });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    // A full ISO timestamp (TZ-independent shape assertion).
     const arg = onChange.mock.calls[0][0];
     expect(typeof arg).toBe('string');
     expect(arg).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);

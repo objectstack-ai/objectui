@@ -529,6 +529,7 @@ ls <dir>/* | wc -l                                   # 两个数不等 ⇒ 工�
 
 - `.claude/skills/**` —— 内部 agent 工具,在 `.claude/**` 之内,**受管**。
 - `skills/**`(仓根,发布给使用者的那棵,如 `skills/objectui/`)—— **同样受管**,就是 `GOVERNED_SURFACES` 里的 `skills-catalog` 一项:只改 `skills/**` 的 PR 也**停在 draft 等一条获授权的批准**,⛔ 批准前不翻 ready、不入队。`.agents/skills/` 是 skill 的**安装位置**(内容由 `skills-lock.json` 还原,第三方的那些被 gitignore),不是规程文本,**不受管**。
+- 已发布的 `skills/**` **⛔ 不引任何 issue / PR 号**(维护者 2026-10-12 裁决;原则是 2026-08-12 的裁决,原文照录:「处理 issue 时犯的错应该总结成经验,保留 issue id没有意义,如果ai去查原始issue,得不偿失。」)。它的读者是客户的 agent,经 `npx skills add` 装进别人的仓库,没有任何工具能解一个 objectui 号 —— 数字只会引它去查(或编造)一段它追不到的历史,而且号会烂。一条教训写成**自含规则:失败形态 + 纪律 + 边界**;出处留在落地它的 PR 里;日期与「maintainer ruling YYYY-MM-DD」的措辞照留,`ADR-NNNN` 不是 issue 号,也照留。⚠️ 本仓没有门禁复核这一条(依诫条 #9 明说),兜底是上一条的受管面评审;复核它的命令是 `git grep -n -E '#[0-9]{3,}' -- 'skills/**'`,去掉 CSS 十六进制色值后应为空 —— 这里写的是命令,不是读数。
 
   两棵树名字像、内容都叫 skill,本段曾按「路径是不是以 `.claude/` 开头」把仓根那棵判成**不受管**、并要求照普通代码 PR 自行入队 —— **那是错的**,而且错在会被机械拒绝的方向上:`merge_group` 腿照样拒,照着那句话做的席位要赔上一整轮队列构建。判据以 `scripts/check-governed-queue-guard.mjs` 的 `GOVERNED_SURFACES` 为准,拿不准就直接问它:`node scripts/check-governed-queue-guard.mjs --test <paths…>`。
 

@@ -10,6 +10,7 @@ import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Combobox, EmptyValue, Input, cn } from '@object-ui/components';
 import { SchemaRendererContext } from '@object-ui/react';
+import { AUDIENCE_ANCHOR_POSITIONS } from '@objectstack/spec';
 import type { DataSource } from '@object-ui/types';
 import type { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
@@ -45,11 +46,20 @@ import { useFieldTranslation } from './useFieldTranslation.js';
  *  - LOADING — the stored name in a disabled box;
  *  - FAILED — a notice naming the failure and its cause, beside a text box that
  *    stays enabled, so a failed catalog does not also block the edit;
- *  - LOADED — empty: the same text box as IDLE; otherwise a searchable picker.
- *    A stored name the catalog does not list stays selectable as its own
- *    option, flagged "not found", so it is neither dropped nor read as a
- *    listed item. The flag is a claim about the registry's answer, so it is
- *    made only once the catalog has answered.
+ *  - LOADED — nothing a grant can name: the same text box as IDLE; otherwise
+ *    a searchable picker. A stored name the catalog does not list stays
+ *    selectable as its own option, flagged "not found", so it is neither
+ *    dropped nor read as a listed item. The flag is a claim about the
+ *    registry's answer, so it is made only once the catalog has answered.
+ *
+ * The picker OFFERS only what a grant can name (objectui#12200). A position
+ * grant cannot name an audience anchor — `everyone` or `guest` (ADR-0090
+ * D5/D9), held implicitly by every authenticated or anonymous principal — and
+ * the server refuses a `sys_user_position` row that does. So `position-ref`
+ * leaves the anchors out of its options ({@link nonGrantableNames}). A stored
+ * anchor is still the row's value: it stays on screen as its own option, by its
+ * label beside its name, and it is not flagged "not found", because the
+ * registry does list it.
  *
  * ⛔ No arm writes anything but a name the person picked or typed: no label,
  * no id, no first-item default.
@@ -88,6 +98,30 @@ function registryLister(dataSource: unknown): RegistryLister | null {
 function failureMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return typeof err === 'string' ? err : '';
+}
+
+const AUDIENCE_ANCHORS: ReadonlySet<string> = new Set(AUDIENCE_ANCHOR_POSITIONS);
+const NO_EXCLUSIONS: ReadonlySet<string> = new Set();
+
+/**
+ * The names of a registry type that a grant cannot name, which the picker
+ * therefore does not offer. For `position`, the audience anchors: the list is
+ * the spec's own `AUDIENCE_ANCHOR_POSITIONS`, read and never copied, so an
+ * anchor the spec adds is left out with no change here. Every other type
+ * excludes nothing: a permission set named like an anchor is an ordinary set.
+ *
+ * Imported statically from the spec's ROOT entry, as `@object-ui/auth` imports
+ * `BUILTIN_MEMBERSHIP_ROLES`, and not from `@objectstack/spec/identity`. The
+ * console builds this widget into an eager chunk (`ui-components`), so a
+ * static `/identity` import would carry that subpath's whole module into every
+ * page load; `pnpm check:eager-closure` is the instrument that weighs it. A
+ * lazy `import()` keeps that module out of the eager closure, but out of
+ * `pnpm check:spec-floors` too: that gate judges the `@objectstack/spec` floor
+ * from static imports only, and on the publish lane it reports a subpath it
+ * cannot judge as a finding.
+ */
+function nonGrantableNames(type: string): ReadonlySet<string> {
+  return type === 'position' ? AUDIENCE_ANCHORS : NO_EXCLUSIONS;
 }
 
 /** A settled answer, with the inputs it answers for. */
@@ -156,6 +190,7 @@ export function RegistryRefField({
   const { t } = useFieldTranslation();
   const dataSource = props.dataSource ?? ctx?.dataSource ?? null;
   const catalog = useRegistryCatalog(dataSource, registryType);
+  const excluded = nonGrantableNames(registryType);
   const current = typeof value === 'string' ? value : '';
   const testId = `registry-ref-${registryType}`;
 
@@ -225,11 +260,17 @@ export function RegistryRefField({
     );
   }
 
-  if (!listed || listed.length === 0) return typedName;
+  // What the picker offers: the listed items a grant can name.
+  const offered = (listed ?? []).filter((item) => !excluded.has(item.name));
+  if (offered.length === 0) return typedName;
 
-  const options = [...listed]
+  const options = offered
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((item) => ({ value: item.name, label: itemText(item) }));
+  // A stored name the picker does not offer stays its own option, so it is
+  // neither dropped nor replaced: a listed name a grant cannot name by its
+  // label beside its name, a name the registry lacks flagged "not found".
+  if (entry && excluded.has(entry.name)) options.unshift({ value: current, label: itemText(entry) });
   if (notFound) options.unshift({ value: current, label: notFoundText });
 
   // DOM pass-through onto the combobox trigger, the widget's focusable control

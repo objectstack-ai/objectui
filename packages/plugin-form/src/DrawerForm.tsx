@@ -548,20 +548,20 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
       // retains state for unmounted/disabled fields, so the render gate above
       // is not enough on its own (`80c54122e`).
-      const payload = sanitizeFormData(data, objectSchema, {
-        canEdit: fieldWriteGate(perms, schema.objectName, schema.mode),
-      });
+      const canEdit = fieldWriteGate(perms, schema.objectName, schema.mode);
+      const payload = sanitizeFormData(data, objectSchema, { canEdit });
       // Omit the fields the producer owns (#4069) — see
       // `omitServerResolvedDefaults` for why an empty key is not the same as
       // no key at insert time. Create only: on an edit form a cleared column is
       // a real removal. An EDIT writes only the fields that differ from the
       // record this form read (objectui#10156; `dirtyEditPayload` holds the
-      // rule, and sends whatever it cannot settle). Computed ONCE so every
-      // persistence route below — the host-owned seam included — writes the
-      // identical payload.
+      // rule, and sends whatever it cannot settle) — the owner included when
+      // the user changed it, which is why it is handed the values as well
+      // (objectui#12205). Computed ONCE so every persistence route below — the
+      // host-owned seam included — writes the identical payload.
       const writePayload = schema.mode === 'create'
         ? omitServerResolvedDefaults(payload, objectSchema)
-        : dirtyEditPayload(payload, loadedRecordRef.current, schema);
+        : dirtyEditPayload(payload, loadedRecordRef.current, schema, { values: data, objectSchema, canEdit });
 
       if (schema.submitHandler) {
         // The host owns persistence (e.g. MasterDetailForm batching the parent

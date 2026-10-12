@@ -12,7 +12,7 @@
  *
  * `renderCellContent`'s plain-text fallback runs whenever a column has no
  * usable field descriptor / cell renderer — the shape a string-authored
- * `lookup_columns` entry against an object with no `fieldsMeta` produces. For
+ * `lookupColumns` entry against an object with no `fieldsMeta` produces. For
  * an expanded Mongo value it did:
  *
  *     if (val.$date) return new Date(val.$date).toLocaleDateString();

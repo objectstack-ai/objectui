@@ -16,7 +16,16 @@
  * the reassignable ownership / tenancy FKs (`owner_id`,
  * `owning_business_unit_id`, `organization_id`, `tenant_id`, `company_id`,
  * `space`). They are not author-declared business data, and a form may never
- * write one.
+ * echo one back.
+ *
+ * One of them is also a value a user may set: the record's owner. The spec
+ * declares `owner_id` `system` but NOT `readonly`, because ownership is
+ * transferable from a form. It stays in this roster — an untouched owner is
+ * still never sent, and an auto-laid-out form still never renders it — and an
+ * EDIT adds it back only when the user changed it against the record the form
+ * read ({@link dirtyEditPayload}, objectui#12205). The rest of the family is
+ * not reassignable from a form: the spec declares the business-unit and tenant
+ * anchors `readonly`, so they stay refused even when they differ.
  *
  * ## Why one roster, and why it is THIS roster
  *
@@ -106,6 +115,10 @@ const COMPUTED_FIELD_TYPES = new Set([
  * - When `options.canEdit` is provided, drops every field that predicate
  *   refuses — the CALLER's field-level security, which no schema can answer.
  *
+ * Its output never carries the owner. An edit's changed owner is judged after
+ * this, against the record the form read, by {@link dirtyEditPayload}
+ * (objectui#12205) — the one place that can tell a change from an echo.
+ *
  * The two server-owned branches are separate on purpose and neither subsumes
  * the other: the name roster fires with no schema at all (an inline form passes
  * `null`), and the `system` flag fires for a name the roster has never heard
@@ -131,14 +144,38 @@ export function sanitizeFormData(
   objectSchema?: { fields?: Record<string, any> } | null,
   options?: { canEdit?: (fieldName: string) => boolean },
 ): Record<string, any> {
+  return stripUnwritable(data, objectSchema, options?.canEdit, false);
+}
+
+/**
+ * The record's owner — the one server-owned column an EDIT writes, and only
+ * when the user changed it (objectui#12205). It is a member of
+ * {@link SERVER_OWNED_FIELD_NAMES} and stays one; this name only marks which
+ * member {@link dirtyEditPayload} may add back. ⛔ Not a second strip list.
+ */
+const REASSIGNABLE_OWNER_FIELD = 'owner_id';
+
+/**
+ * The loop behind {@link sanitizeFormData}. `admitOwner` lets the owner past
+ * the two server-owned branches and nothing else: field-level security, the
+ * unknown-key strip and the computed / read-only branches still judge it, so
+ * an object that declares its owner `readonly`, or a caller who may not edit
+ * it, still never writes it. Only {@link dirtyEditPayload} passes `true`.
+ */
+function stripUnwritable(
+  data: Parameters<typeof sanitizeFormData>[0],
+  objectSchema: Parameters<typeof sanitizeFormData>[1],
+  canEdit: ((fieldName: string) => boolean) | undefined,
+  admitOwner: boolean,
+): ReturnType<typeof sanitizeFormData> {
   if (!data || typeof data !== 'object') return data;
 
-  const out: Record<string, any> = {};
+  const out: ReturnType<typeof sanitizeFormData> = {};
   const fields = objectSchema?.fields;
-  const canEdit = options?.canEdit;
 
   for (const [key, value] of Object.entries(data)) {
-    if (SERVER_OWNED_FIELD_NAMES.has(key)) continue;
+    const owner = admitOwner && key === REASSIGNABLE_OWNER_FIELD;
+    if (!owner && SERVER_OWNED_FIELD_NAMES.has(key)) continue;
 
     // Field-level security. Runs with or without a schema: an inline form
     // passes `null` for `objectSchema` and its caller is gated all the same.
@@ -152,7 +189,7 @@ export function sanitizeFormData(
       // the flag rather than only the roster is what stops the NEXT injected
       // column repeating objectui#10108 — the platform's ownership guard
       // refuses an echoed value the same way whatever it is called.
-      if (fieldDef.system === true) continue;
+      if (!owner && fieldDef.system === true) continue;
       const t = String(fieldDef.type || '').toLowerCase();
       if (COMPUTED_FIELD_TYPES.has(t)) continue;
       if (fieldDef.computed === true) continue;
@@ -302,17 +339,63 @@ function loadedRecordFor(
  *   real server record for `onSuccess`. Emitting no request instead would
  *   report success for a save no server saw, and that is the one outcome a
  *   wrong baseline must never be able to produce.
+ *
+ * ## The owner (objectui#12205)
+ *
+ * `payload` never carries the owner: `sanitizeFormData` drops it, because the
+ * platform refuses an echoed owner from every role without the transfer grant
+ * and cannot tell an echo from a transfer (objectui#10108). That drop also
+ * swallowed a REAL reassignment or clear — the form closed as if it saved and
+ * the record kept its owner. This is the one place that can tell the two
+ * apart, so `owner` hands it the values the form holds and the strip's own
+ * inputs, and the owner is added to the diff when, and only when:
+ *
+ * - a snapshot applies — with none, nothing proves the owner changed, so it
+ *   stays off the wire exactly as before;
+ * - the form holds a value for it (`undefined` is not a clear; a clear is
+ *   `null`) and {@link changedFields} reports it against the record read;
+ * - everything else `sanitizeFormData` asks still allows it: the caller's
+ *   field-level security, the object declaring it, and it not being
+ *   `readonly` or computed.
+ *
+ * The server stays the authority: a role without the transfer grant is refused
+ * with a 403, which the form shows as its error. A caller that passes no
+ * `owner` gets the diff it always got.
  */
 export function dirtyEditPayload(
   payload: Record<string, unknown>,
   snapshot: LoadedRecordSnapshot | null | undefined,
   target: EditSaveTarget,
+  owner?: EditOwnerSource | null,
 ): Record<string, unknown> {
   if (!payload || typeof payload !== 'object') return payload;
   const loaded = loadedRecordFor(snapshot, target);
   if (!loaded) return payload;
-  const changed = changedFields(payload, loaded);
+  const changed = { ...changedFields(payload, loaded), ...changedOwner(owner, loaded) };
   return Object.keys(changed).length > 0 ? changed : payload;
+}
+
+/** What an edit hands {@link dirtyEditPayload} so it can judge the owner. */
+export interface EditOwnerSource {
+  /** The values the form holds — BEFORE `sanitizeFormData`, which drops the owner. */
+  values: Record<string, unknown>;
+  /** The definition `payload` was sanitized against (`null` for inline members). */
+  objectSchema?: { fields?: Record<string, unknown> } | null;
+  /** The field-level verdict `payload` was sanitized with. */
+  canEdit?: (fieldName: string) => boolean;
+}
+
+/** `{ owner_id }` when the user changed the owner against `loaded`, else `{}`. */
+function changedOwner(
+  owner: EditOwnerSource | null | undefined,
+  loaded: Record<string, unknown>,
+): Record<string, unknown> {
+  const values = owner?.values;
+  if (!values || typeof values !== 'object') return {};
+  const value = values[REASSIGNABLE_OWNER_FIELD];
+  if (value === undefined) return {};
+  const writable = stripUnwritable({ [REASSIGNABLE_OWNER_FIELD]: value }, owner.objectSchema, owner.canEdit, true);
+  return changedFields(writable, loaded);
 }
 
 /**

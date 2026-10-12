@@ -347,7 +347,11 @@ export const RELATIONAL_META_READ_SET: Readonly<Record<string, RelationalMetaEnt
 
   // ── The picker's table ──────────────────────────────────────────────────
   lookupColumns: { verdict: 'spec', readers: LOOKUP_EDITOR_ONLY, note: "FieldSchema.lookupColumns. Added by objectui#6875, RETIRED from the copy set by objectui#7166 on the same measurement as `descriptionField`. Measured by rendering — the declared columns still shape the picker with this table unchanged." },
-  lookup_columns: { verdict: 'no-producer', readers: LOOKUP_EDITOR_ONLY, note: 'Runtime twin of `lookupColumns`, read but never producible. Not on FieldSchema. objectui#6875.' },
+  // ⭐ objectui#12157 removed the `lookup_columns` row here, and the
+  // `allow_create` / `lookup_page_size` rows of the no-producer group below.
+  // It is not a verdict change: `LookupField` reads the declared spellings
+  // alone now, and a row states that a swept consumer reads the key (the
+  // derivation test's orphan check fails on one that does not).
 
   // ── The picker's base scoping ───────────────────────────────────────────
   lookupFilters: { verdict: 'spec', readers: BOTH_EDITORS, note: "FieldSchema.lookupFilters. RETIRED from the copy set by objectui#7166: read off a field meta only by LookupField and UserField, both fed by the editor's schema spread. Measured by rendering — the declared filter still scopes the picker's candidates with this table unchanged." },
@@ -380,8 +384,6 @@ export const RELATIONAL_META_READ_SET: Readonly<Record<string, RelationalMetaEnt
   dependsOn: { verdict: 'spec', readers: LOOKUP_EDITOR_ONLY, note: 'FieldSchema.dependsOn — cascading picker filter. Same route, and it ARRIVES: the declared column renders the trigger, gated while a named parent is empty. Whether that gate can LIFT here is re-derived by `__tests__/gridDependentValues-7165.test.tsx`, not asserted in this sentence — the grid’s inline editor has supplied the dependent record since objectui#7165/#7188, closing objectui#2215’s grid-side residue (objectui#7154). The bulk action dialog’s half of that residue is objectui#8755.' },
 
   // ── Read on this path, no producer ──────────────────────────────────────
-  allow_create: { verdict: 'no-producer', readers: LOOKUP_EDITOR_ONLY, note: 'Runtime twin of `allowCreate`. Not on FieldSchema.' },
-  lookup_page_size: { verdict: 'no-producer', readers: LOOKUP_EDITOR_ONLY, note: 'Runtime twin of `lookupPageSize`. Not on FieldSchema.' },
   // ⭐ objectui#7357 removed the `depends_on` row. It is NOT a verdict change:
   // the key left this table because `LookupField` stopped reading it — the
   // snake_case twin was retired under ADR-0049 enforce-or-remove — and a row

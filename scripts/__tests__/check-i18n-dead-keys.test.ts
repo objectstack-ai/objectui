@@ -477,11 +477,11 @@ describe('both control groups from the card, measured on THIS repository (object
 
   /** Read by `packages/app-shell/src/chrome/LoadingScreen.tsx` through a local
    *  binding — the five the card measured, plus two more the leg turned up
-   *  that the card did not list (the same file reads them the same way). */
+   *  that the card did not list (the same file reads them the same way).
+   *  objectui#12187 retired the boot screen's step list, and the three
+   *  `loadingSteps` keys left the packs with it; the four below are what the
+   *  file still reads this way. */
   const READ_BY_PROPERTY_ACCESS = [
-    key('loadingSteps', 'connecting'),
-    key('loadingSteps', 'loadingConfig'),
-    key('loadingSteps', 'preparingWorkspace'),
     key('error', 'connectionFailed'),
     key('error', 'checkServer'),
     key('actions', 'retry'),

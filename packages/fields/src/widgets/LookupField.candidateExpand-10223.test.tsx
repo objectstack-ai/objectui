@@ -11,7 +11,7 @@
  *
  * Reported from a real deployment: a scheduling form's lookup to a
  * `task_version` object, whose `highlightFields` include the master_detail
- * field `task`. The lookup declares no `lookup_columns`, so the dropdown
+ * field `task`. The lookup declares no `lookupColumns`, so the dropdown
  * previews the first highlight columns — `task` among them. The candidate
  * query sent no `$expand`, every candidate's `task` came back as a bare
  * foreign key, and the lookup cell renderer resolved each one with its own
@@ -19,7 +19,7 @@
  * query. The display was right; the load was not.
  *
  * The fixture mirrors that shape: a full page of candidates, one master_detail
- * column inside the derived preview columns, no `lookup_columns`. What is
+ * column inside the derived preview columns, no `lookupColumns`. What is
  * pinned:
  *
  *  - the open costs ONE candidate query, and it carries `$expand` for exactly

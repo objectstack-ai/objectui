@@ -78,7 +78,7 @@ better-auth projects an app's own user columns onto this object, and no local
 type can enumerate them.
 
 ⛔ **There is no `roles` member.** The hand-copied `roles?: string[]` mirror was
-RETIRED with objectui#5424 (maintainer ruling 2026-08-22) once its last reader —
+RETIRED (maintainer ruling 2026-08-22) once its last reader —
 `AuthGuard`'s `requiredRoles` check — moved to `positions`. Framework ADR-0090
 D3 renamed `roles` → `positions` with no deprecation window, and the protocol-17
 session face emits no `roles` key at all. Reading `user.roles` now resolves
@@ -329,7 +329,7 @@ Then in schema — read each flag by the name you published it under:
 It carries the host's `DataSource` **adapter** — the object data renderers call
 `find()` on. The renderer used to publish that adapter under the expression root
 `data`; an adapter answers no `data.*` path an author would write, so that root
-was silently constant for every conformant host, and objectui#9308 removed it
+was silently constant for every conformant host, and it has been removed
 (maintainer ruling 2026-09-13). Inject the adapter for CRUD, publish a scope for
 expressions — two channels, on purpose.
 
@@ -364,7 +364,7 @@ So a gate whose flag never reached the scope hides the button for everyone,
 including the users who do hold the permission. Because the result no longer
 depends on the flag, flipping the user's permission to test it produces no change
 at all, and the most natural way to debug it gives no signal — a
-`… is not defined` console line is the only one, and objectui#5454's reporter
+`… is not defined` console line is the only one, and the node-gate diagnostic
 warns. Spelled `visible` the same miss flips the other way and the node is shown
 to everyone. A text key does not fail soft at all: `content` hands back the
 characters you typed, so a missing root renders the literal `${…}` on screen. The

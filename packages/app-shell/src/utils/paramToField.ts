@@ -160,9 +160,14 @@ export function paramToField(param: ActionParamDef): Record<string, any> {
       idField: param.idField,
       descriptionField: param.descriptionField,
       title_format: param.titleFormat,
-      lookup_columns: param.lookupColumns,
+      // ⭐ objectui#12157 — the spec's `lookupColumns` / `lookupPageSize`, the
+      // only spellings `LookupField` reads. This emit was the in-repo producer
+      // of `lookup_columns` / `lookup_page_size` on a widget field bag, so it
+      // moves with the reader: left snake, an action param's picker would lose
+      // its declared columns and page size without a word.
+      lookupColumns: param.lookupColumns,
       lookupFilters: param.lookupFilters,
-      lookup_page_size: param.lookupPageSize,
+      lookupPageSize: param.lookupPageSize,
       // ⭐ objectui#7357 retired `depends_on`, objectui's snake_case twin of
       // the spec's field-level cascade key. This emit was the ONE in-repo
       // framework producer of that spelling on a widget field-metadata bag —
@@ -185,8 +190,9 @@ export function paramToField(param: ActionParamDef): Record<string, any> {
       // carries a value, and the picker is narrowed by it on every surface.
       // ⛔ Do not restate the supply rule here; it is asked of that predicate.
       //
-      // The remaining snake members above are a different question
-      // (objectui#7155's ruling covered four keys and this was not one of them).
+      // The remaining snake member above, `title_format`, is a different
+      // question (objectui#7155's ruling covered four keys and this was not one
+      // of them; `FieldSchema` declares no field-level twin for it).
       dependsOn: param.dependsOn,
     });
   }

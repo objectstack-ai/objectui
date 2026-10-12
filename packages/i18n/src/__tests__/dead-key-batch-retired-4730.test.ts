@@ -143,33 +143,37 @@ const SURVIVING = [
  * out of the batch after reading their consumer.
  *
  * `packages/app-shell/src/chrome/LoadingScreen.tsx` is bootstrap-critical UI: it
- * must render before i18n loads (that is exactly when the server is
- * unreachable), so it deliberately does NOT call `useObjectTranslation`. Instead
- * it imports the packs directly (`import { en as enLocale, builtInLocales } from
- * '@object-ui/i18n'`) and reads them as PLAIN OBJECT PROPERTIES:
- * `strings.loadingSteps.connecting`, `strings.error.connectionFailed`, and so on.
+ * must render on the server-down boot, and must not show a pack still in
+ * flight through the `en` fallback, so it does NOT read its copy through
+ * `t()`. Instead it reads the resident packs directly (`en` and
+ * `getLoadedBuiltInLocales()` from `'@object-ui/i18n'`) as PLAIN OBJECT
+ * PROPERTIES: `pack?.initializing`, `strings.error.connectionFailed`, and so on.
+ * (It takes only the active LANGUAGE from `useObjectTranslation()` —
+ * objectui#12187.)
  *
  * That consumer is invisible to BOTH legs of the sweep's evidence standard:
  *
  *   - the AST pass only classifies `t()` / `tt()` calls, and there is no call;
  *   - the text safety net greps the FULL dotted key, and the full dotted key is
  *     never spelled — the namespace segment is bound to a local variable, so the
- *     source reads `strings.loadingSteps.connecting`, never
- *     `console.loadingSteps.connecting`.
+ *     source reads `strings.error.connectionFailed`, never
+ *     `console.error.connectionFailed`.
  *
  * A reverse sweep therefore reports this whole family as CONFIRMED dead, at the
  * strongest tier, with no hint that anything was missed. Deleting it ships a
  * blank splash screen in ten locales on exactly the server-down boot the screen
  * exists to explain. Pinned by name so the next sweep round cannot repeat it.
+ *
+ * The list is what LoadingScreen still reads. objectui#12187 retired the boot
+ * screen's step list and its hint line, and with them
+ * `console.loadingSteps.{connecting,loadingConfig,preparingWorkspace}` and
+ * `console.loadingHint`: those left every pack because their reader went, not
+ * because a sweep called them dead, so their rows left this list too.
  */
 const BLIND_SPOT_LIVE = [
-  'console.loadingSteps.connecting',
-  'console.loadingSteps.loadingConfig',
-  'console.loadingSteps.preparingWorkspace',
   'console.error.connectionFailed',
   'console.error.checkServer',
   'console.initializing',
-  'console.loadingHint',
   'console.actions.retry',
   'console.actions.retrying',
 ] as const;
@@ -257,9 +261,9 @@ describe('objectui#4730 dead-key batch is retired from the ten packs', () => {
     expect(
       missing,
       'A bootstrap string read by LoadingScreen.tsx is gone from a pack. ' +
-        'LoadingScreen deliberately does not call t() — it renders before i18n ' +
-        'loads — and reads these as object properties off the imported pack ' +
-        '(`strings.loadingSteps.connecting`). check-i18n-dead-keys.mjs reports ' +
+        'LoadingScreen deliberately does not call t() — it must not show a pack ' +
+        'in flight through the en fallback — and reads these as object properties ' +
+        'off the resident pack (`strings.error.connectionFailed`). check-i18n-dead-keys.mjs reports ' +
         'them CONFIRMED dead because the full dotted key is never spelled in ' +
         'source; that report is WRONG for this family. Deleting these renders a ' +
         'blank splash screen in ten locales on a server-down boot.',

@@ -123,11 +123,13 @@ describe('paramToField', () => {
   // Both readings are kept because the order matters — the emit had to move
   // BEFORE the supply existed, and it is what made the wiring a one-line
   // change. Pinned in `views/ActionParamDialog.lookupDependsOnReach-8672.test.tsx`.
-  // The remaining snake members below (`title_format`, `lookup_columns`,
-  // `lookup_page_size`) were outside both rulings and are unchanged — this
-  // mixed shape is deliberate, and asserting it keeps the two halves visibly
-  // separate. The target left that group in objectui#11070 round 4: the
-  // widgets read the spec's `reference` only, so that is what this emits.
+  // The remaining snake member below (`title_format`) was outside both
+  // rulings and is unchanged — this mixed shape is deliberate, and asserting
+  // it keeps the two halves visibly separate. The target left that group in
+  // objectui#11070 round 4: the widgets read the spec's `reference` only, so
+  // that is what this emits. ⭐ objectui#12157 moved `lookupColumns` and
+  // `lookupPageSize` across too, when `LookupField` retired its snake reads of
+  // them.
   it('maps the full lookup picker config to the field metadata the widgets read', () => {
     const field = paramToField(p({
       type: 'lookup',
@@ -150,9 +152,9 @@ describe('paramToField', () => {
       descriptionField: 'email',
       multiple: true,
       title_format: '{first_name} {last_name}',
-      lookup_columns: [{ field: 'name' }],
+      lookupColumns: [{ field: 'name' }],
       lookupFilters: [{ field: 'active', operator: '=', value: true }],
-      lookup_page_size: 25,
+      lookupPageSize: 25,
       dependsOn: ['org'],
     });
     // objectui#7357 — the emit moved, so pin that it MOVED rather than that it
@@ -160,6 +162,10 @@ describe('paramToField', () => {
     // emit that also carried `depends_on` would look green above while
     // re-seeding the retired dialect onto every action-param field bag.
     expect(field).not.toHaveProperty('depends_on');
+    // objectui#12157 — the same for the picker's columns and page size: the
+    // emit moved, it did not gain a second spelling.
+    expect(field).not.toHaveProperty('lookup_columns');
+    expect(field).not.toHaveProperty('lookup_page_size');
   });
 
   it('lookup param without a referenceTo target falls back to a text input (param-only fallback)', () => {

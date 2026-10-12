@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import { parse as parseYaml } from 'yaml';
 
 import {
@@ -143,14 +144,18 @@ describe('select-type-check-scope — the packages the repo-root programs need b
     expect(rootProgramPackages(repoRoot)).toEqual(ROOT_PROGRAM_PACKAGES);
   });
 
-  it('matches what the root setup files really import, so a new import is a new build', () => {
-    // The derivation reads `paths`; the setup files are what needs them. The
-    // root package.json declares no `@object-ui/*` dependency, so an import a
-    // `paths` entry does not map cannot resolve at all -- hold the two together.
+  it('matches what the root setup program really imports, so a new import is a new build', () => {
+    // The derivation reads `paths`; the program's files are what needs them.
+    // The root package.json declares no `@object-ui/*` dependency, so an import
+    // a `paths` entry does not map cannot resolve at all -- hold the two
+    // together. The files are the program's own root set, as `tsc -p` parses it.
+    const configPath = path.join(repoRoot, 'tsconfig.vitest-setup.json');
+    const read = ts.readConfigFile(configPath, ts.sys.readFile);
+    const { fileNames } = ts.parseJsonConfigFileContent(read.config, ts.sys, repoRoot, undefined, configPath);
+    expect(fileNames.length, 'tsconfig.vitest-setup.json resolves no file — the parse is broken').toBeGreaterThanOrEqual(4);
     const imported = new Set<string>();
-    for (const name of fs.readdirSync(repoRoot)) {
-      if (!/^vitest\.setup.*\.tsx?$/.test(name)) continue;
-      const text = fs.readFileSync(path.join(repoRoot, name), 'utf8');
+    for (const file of fileNames) {
+      const text = fs.readFileSync(file, 'utf8');
       for (const m of text.matchAll(/(?:from|import)\s+'(@object-ui\/[\w-]+)(?:\/[^']*)?'/g)) imported.add(m[1]);
     }
     expect(imported.size, 'no root setup file imports a workspace package — the scan is broken').toBeGreaterThan(0);
@@ -208,7 +213,7 @@ describe('select-type-check-scope — the verdict', () => {
   });
 
   it('names the root programs’ packages on an EMPTY affected set, the PR #12262 case (objectui#12272)', () => {
-    const none = run(['.github/workflows/spec-main-shape-gate.yml', 'content/docs/guide/ci-cd-pipeline.md'], () => []);
+    const none = run(['.github/workflows/spec-main-shape-gate.yml', 'scripts/__tests__/spec-main-shape-gate.test.ts'], () => []);
     expect(none.code).toBe(0);
     expect(none.lines.at(-1)).toBe('scope=affected');
     const tail = none.lines.slice(none.lines.findIndex((l) => l.startsWith('The repo-root programs')));

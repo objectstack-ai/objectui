@@ -20,8 +20,9 @@ The Location Field component provides an input for geographic coordinates, stori
 ## Field Schema
 
 A location field is authored as `LocationFieldMetadata` (`@object-ui/types`), which is
-the source of truth for the key set: it extends `BaseFieldMetadata` with the map's
-default zoom level.
+the source of truth for the key set: it adds no key of its own to `BaseFieldMetadata`.
+There is no zoom key: `@objectstack/spec`'s `FieldSchema` refuses `default_zoom` by
+name and the widget never read it, so `LocationFieldMetadata` refuses it at compile time.
 
 ```ts
 import type { LocationFieldMetadata } from '@object-ui/types';
@@ -32,7 +33,6 @@ const officeLocation: LocationFieldMetadata = {
   label: 'Office Location',
   placeholder: 'latitude, longitude',
   required: false,
-  default_zoom: 12,
 };
 ```
 

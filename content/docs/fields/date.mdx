@@ -17,7 +17,7 @@ The Date Field component provides a date picker for selecting dates and optional
 
 A date field is authored as `DateFieldMetadata` (`@object-ui/types`), which is the
 source of truth for the key set: it extends `BaseFieldMetadata` with a display format
-and the two range bounds.
+and the due/deadline flag.
 
 ```ts
 import type { DateFieldMetadata } from '@object-ui/types';
@@ -29,17 +29,18 @@ const closeDate: DateFieldMetadata = {
   placeholder: 'Pick a date',
   required: true,
   format: 'yyyy-MM-dd',
-  min_date: '2024-01-01',
-  max_date: '2030-12-31',
   dueLike: true,
 };
 ```
 
-The range bounds are `min_date` and `max_date` — the same spelling the datetime field
-uses, and so is `dueLike`: it marks the field as due/deadline-semantic, gating the
-relative "Overdue Nd" wording and the red styling. `datetime` is its own type with its
-own metadata (`DateTimeFieldMetadata`) and honours `dueLike` identically; see
+`dueLike` marks the field as due/deadline-semantic, gating the relative "Overdue Nd"
+wording and the red styling. `datetime` is its own type with its own metadata
+(`DateTimeFieldMetadata`) and honours `dueLike` identically; see
 [DateTime Field](/docs/fields/datetime).
+
+There is no date-range key. `@objectstack/spec`'s `FieldSchema` declares no date bound
+(its `min` / `max` are numbers) and refuses `min_date` / `max_date` by name, and no
+widget ever read them, so `DateFieldMetadata` refuses both at compile time.
 
 The value being edited, and the `className` / `disabled` a host supplies, are **not**
 metadata keys — they are runtime widget props. See [Field Widget Props](/docs/fields/widget-props).

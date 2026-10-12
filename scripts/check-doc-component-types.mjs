@@ -851,12 +851,11 @@ const DOC_TYPE_EXEMPTIONS = {
       'the reader to register this key, so it is unregistered here by design.',
   },
   'content/docs/fields/auto-number.mdx': {
-    auto_number:
+    autonumber:
       'FIELD type documented by this page: `AutoNumberFieldMetadata` (`FieldMetadata`, ' +
-      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
-      '`field:auto_number`. Not a node type. objectui#10859 batch 8 retired the bare `auto_number` ' +
-      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
-      'key.',
+      'packages/types/src/field-types.ts) declares the literal, the `@objectstack/spec` ' +
+      '`FieldType` spelling (objectui#12242, which retired `auto_number` as a field type), and the ' +
+      'form renders it through `field:auto_number`. Not a node type.',
   },
   'content/docs/fields/boolean.mdx': {
     boolean:
@@ -962,25 +961,30 @@ const DOC_TYPE_EXEMPTIONS = {
       'key.',
   },
   'content/docs/fields/object.mdx': {
-    array: 'JSON Schema property type inside a field\'s `schema.properties`, not a node type.',
-    string: 'JSON Schema property type inside a field\'s `schema.properties`, not a node type.',
-    boolean:
-      'JSON Schema property type inside an `object` field\'s `schema.properties`, the vocabulary ' +
-      'the `array` / `string` entries of this file already name. Not a node type. objectui#10859 ' +
-      'batch 8 retired the bare `boolean` field-widget fallback, which is the only reason this ' +
-      'value used to pass here as a registered key.',
+    array:
+      'JSON Schema property type inside the `schema` of the page\'s object-level `json_schema` ' +
+      'validation rule, not a node type.',
     number:
-      'JSON Schema property type inside an `object` field\'s `schema.properties`, the vocabulary ' +
-      'the `array` / `string` entries of this file already name. Not a node type. objectui#10859 ' +
-      'batch 8 retired the bare `number` field-widget fallback, which is the only reason this value ' +
-      'used to pass here as a registered key.',
+      'JSON Schema property type inside the `schema` of the page\'s object-level `json_schema` ' +
+      'validation rule, the vocabulary the `array` entry of this file already names. Not a node ' +
+      'type. objectui#10859 batch 8 retired the bare `number` field-widget fallback, which is the ' +
+      'only reason this value used to pass here as a registered key.',
     object:
-      'FIELD type documented by this page: `ObjectFieldMetadata` (`FieldMetadata`, ' +
-      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
-      '`field:object`. Not a node type. objectui#10859 batch 8 retired the bare `object` ' +
+      'JSON Schema `type` of the document and of a nested property inside the `schema` of the ' +
+      'page\'s object-level `json_schema` validation rule, the vocabulary the `array` / `number` ' +
+      'entries of this file already name. Not a node type, and since objectui#12242 not the field ' +
+      'type either: that is `json`, below. objectui#10859 batch 8 retired the bare `object` ' +
       'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
-      'key. The same spelling is also the JSON Schema `type` of a nested property inside ' +
-      '`schema.properties` on this page — two vocabularies, neither a node.',
+      'key.',
+    json:
+      'FIELD type documented by this page: `ObjectFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, the `@objectstack/spec` ' +
+      '`FieldType` spelling (objectui#12242), and the form renders it through `field:object`. Not ' +
+      'a node type.',
+    json_schema:
+      'Validation rule type: an entry of an object\'s `validations[]` (`@objectstack/spec`\'s ' +
+      '`JSONValidationSchema`), the object-level declaration of a JSON field\'s shape that replaced ' +
+      'the field-level `schema` key (objectui#12242). Not a node type.',
   },
   'content/docs/fields/percent.mdx': {
     percent:

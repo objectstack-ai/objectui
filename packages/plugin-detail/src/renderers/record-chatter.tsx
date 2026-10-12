@@ -290,6 +290,10 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
         onAddComment={discussion?.onAddComment as any}
         onAddReply={discussion?.onAddReply as any}
         onToggleReaction={discussion?.onToggleReaction as any}
+        // objectui#12268: same two handlers `record:activity` forwards, off the
+        // same context; the host decides who may be offered them.
+        onEditComment={discussion?.onEditComment}
+        onDeleteComment={discussion?.onDeleteComment}
         mentionSuggestions={mentionsEnabled ? (discussion?.mentionSuggestions as any) : undefined}
         onUploadAttachments={discussion?.onUploadAttachments as any}
         // objectui#11195: which of the host's two feed reads the server

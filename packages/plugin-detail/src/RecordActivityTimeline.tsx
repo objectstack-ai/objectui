@@ -35,6 +35,7 @@ import { ThreadedReplies } from './ThreadedReplies';
 import { SubscriptionToggle } from './SubscriptionToggle';
 import { RichTextCommentInput } from './RichTextCommentInput';
 import { CommentAttachment, type Attachment } from './CommentAttachment';
+import { CommentBody } from './CommentAuthorControls';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { useDetailTranslation } from './useDetailTranslation';
 
@@ -81,6 +82,19 @@ export interface RecordActivityTimelineProps {
   onAddReply?: (parentId: string | number, text: string) => void | Promise<void>;
   /** Called when user toggles a reaction */
   onToggleReaction?: (itemId: string | number, emoji: string) => void | Promise<void>;
+  /**
+   * Stores a new text for a comment the viewer wrote (objectui#12268). Offered
+   * on a `comment` row, or a reply, whose `authoredByViewer` the host set; the
+   * timeline never decides authorship itself. A rejection means the edit was
+   * not stored: the editor keeps the draft, and reporting why is the host's job.
+   */
+  onEditComment?: (itemId: string | number, text: string) => void | Promise<void>;
+  /**
+   * Deletes a comment the viewer wrote (objectui#12268), offered on the same
+   * rows. The host asks for confirmation first; a rejection means nothing was
+   * deleted.
+   */
+  onDeleteComment?: (itemId: string | number) => void | Promise<void>;
   /** Subscription state */
   subscription?: RecordSubscription;
   /** Called when user toggles subscription */
@@ -246,6 +260,8 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
   onAddComment,
   onAddReply,
   onToggleReaction,
+  onEditComment,
+  onDeleteComment,
   subscription,
   onToggleSubscription,
   collapseWhenEmpty = false,
@@ -603,12 +619,17 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
                           )}
                         </div>
 
-                        {/* Body text */}
-                        {item.body && (
-                          <p className="text-sm whitespace-pre-wrap break-words text-muted-foreground">
-                            {item.body}
-                          </p>
-                        )}
+                        {/* Body text, and the author's Edit and Delete on their own
+                            comment (objectui#12268). The host decides whose
+                            comment it is (`authoredByViewer`) and hands each
+                            handler over under the caller's grant; a row that
+                            offers neither renders the same paragraph as before. */}
+                        <CommentBody
+                          item={item}
+                          onEditComment={onEditComment}
+                          onDeleteComment={onDeleteComment}
+                          bodyClassName="text-sm whitespace-pre-wrap break-words text-muted-foreground"
+                        />
 
                         {/* Drill to source rich entity (ADR-0052 ActivityPointer) */}
                         {item.sourceObject && item.sourceId != null && (
@@ -660,6 +681,8 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
                         replies={replies}
                         onAddReply={onAddReply}
                         showReplyInput={offersReply}
+                        onEditComment={onEditComment}
+                        onDeleteComment={onDeleteComment}
                       />
                     )}
                   </div>

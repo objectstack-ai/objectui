@@ -15,6 +15,9 @@ import {
   FRAGMENT_MARKER_EXAMPLES,
   REFUSED_CONTROL,
   SCAN_SURFACE,
+  SKILLS_ANCHOR,
+  SKILLS_ROOT,
+  SKILL_OPT_IN_LINE,
   SURFACE_ANCHORS,
   analyze,
   classifyFence,
@@ -31,6 +34,9 @@ import {
   FRAGMENT_MARKER_EXAMPLES as SNIPPET_FRAGMENT_MARKER_EXAMPLES,
 } from '../check-doc-snippet-types.mjs';
 import { packageReadmePages as familyPackageReadmes, ROOT_PAGES as FAMILY_ROOT_PAGES } from '../check-doc-component-types.mjs';
+// The sibling gate over the skill bundle — imported HERE, never by the gate: the
+// gate spells its opt-in line itself, and this file pins the two spellings equal.
+import { MARKER as SKILL_EXAMPLES_MARKER, scanSkillFences } from '../check-skill-examples.mjs';
 
 /**
  * objectui#5250 — the JSON-fence gate the maintainer ruling orders "on top of"
@@ -128,6 +134,31 @@ describe('scanJsonFences — what the gate reads', () => {
     const aboveTs = scanJsonFences([marker, `${FENCE}ts`, 'x', FENCE].join('\n'));
     expect(aboveTs.markers.map((m) => m.consumed)).toEqual([false]);
   });
+
+  it('steps over the skill gate\'s opt-in line when it is directly above the fence — three contiguous lines at one depth, and nothing else (objectui#12204)', () => {
+    const decl = FRAGMENT_MARKER_EXAMPLES[1];
+    const optIn = SKILL_OPT_IN_LINE;
+    const attached = (lines: string[]) => {
+      const { fences, markers } = scanJsonFences(lines.join('\n'));
+      return { reason: fences[0]?.fragmentReason ?? null, consumed: markers.map((m) => m.consumed) };
+    };
+    const declared = { reason: expect.stringMatching(/not a complete, valid node document/), consumed: [true] };
+    const dangling = { reason: null, consumed: [false] };
+    // Measured on the tree before this rule: the trio did NOT attach — the
+    // declaration was dangling and its fence undeclared, so a page could not
+    // carry both gates' lines above one fence.
+    expect(attached([decl, optIn, `${FENCE}json`, '{}', FENCE])).toEqual(declared);
+    expect(attached([`> ${decl}`, `> ${optIn}`, `> ${FENCE}jsonc`, '> {}', `> ${FENCE}`])).toEqual(declared);
+    // Anything else between the declaration and the fence: a blank line, prose,
+    // a second opt-in line, an opt-in line that is not itself directly above
+    // the fence — and a declaration at another quote depth.
+    for (const between of [[decl, '', optIn], [decl, 'Prose.', optIn], [decl, optIn, optIn], [decl, optIn, '']]) {
+      expect(attached([...between, `${FENCE}json`, '{}', FENCE]), between.join(' | ')).toEqual(dangling);
+    }
+    expect(attached([decl, `> ${optIn}`, `> ${FENCE}json`, '> {}', `> ${FENCE}`])).toEqual(dangling);
+    // The opt-in line is transparent only above a fence this gate reads.
+    expect(attached([decl, optIn, `${FENCE}ts`, 'x', FENCE])).toEqual(dangling);
+  });
 });
 
 describe('the marker spelling is its own namespace', () => {
@@ -138,6 +169,13 @@ describe('the marker spelling is its own namespace', () => {
   it('is not the ts/tsx gate\'s marker, in either direction — that gate reports its marker above a json fence as stale', () => {
     for (const example of FRAGMENT_MARKER_EXAMPLES) expect(SNIPPET_FRAGMENT_MARKER.test(example)).toBe(false);
     for (const example of SNIPPET_FRAGMENT_MARKER_EXAMPLES) expect(FRAGMENT_MARKER.test(example)).toBe(false);
+  });
+
+  it('spells the skill gate\'s opt-in line exactly as that gate does — pinned here, not imported there (objectui#12204)', () => {
+    expect(SKILL_OPT_IN_LINE).toBe(SKILL_EXAMPLES_MARKER);
+    // The opt-in line is not a declaration for this gate, and a declaration is not an opt-in for that one.
+    expect(FRAGMENT_MARKER.test(SKILL_OPT_IN_LINE)).toBe(false);
+    for (const example of FRAGMENT_MARKER_EXAMPLES) expect(example.trim()).not.toBe(SKILL_EXAMPLES_MARKER);
   });
 });
 
@@ -222,9 +260,10 @@ describe('analyze — the verdicts, against the real face', () => {
     expect(run({ 'content/docs/a.mdx': fence('json', { type: 'button', label: 'Go' }) }, ['content/docs/anchor.mdx']).preconditions.map((p) => p.reason)).toEqual([
       'anchor-unread',
     ]);
-    // Only pages OFF the surface (objectui#12131): a record, a README below a
-    // package root, a CHANGELOG, a changeset and a skill page. Each holds a
-    // refused node document, so a leg that reached any of them would report it.
+    // Only pages OFF the surface (objectui#12131, objectui#12204): a record, a
+    // README below a package root, a CHANGELOG, a changeset, a skill page
+    // outside the published bundle and an internal skill. Each holds a refused
+    // node document, so a leg that reached any of them would report it.
     const refusedDoc = fence('json', { type: 'button', label: 'Go', nonsense: 1 });
     const empty = run({
       'docs/audits/2026-01-record.md': refusedDoc,
@@ -233,6 +272,7 @@ describe('analyze — the verdicts, against the real face', () => {
       'packages/demo/CHANGELOG.md': refusedDoc,
       '.changeset/a-change.md': refusedDoc,
       'skills/demo/README.md': refusedDoc,
+      '.claude/skills/demo/SKILL.md': refusedDoc,
     });
     expect(empty.documents).toEqual([]);
     expect(empty.findings).toEqual([]);
@@ -262,7 +302,8 @@ describe('the scan surface — the published READMEs (objectui#12131)', () => {
   it('walks the legs in their declared order and counts each leg\'s pages', () => {
     const r = run({ 'content/docs/a.mdx': acceptedDoc, 'packages/demo/README.md': acceptedDoc, 'README.md': acceptedDoc });
     expect(r.legs.map((l) => l.leg)).toEqual(SCAN_SURFACE.map((l) => l.leg));
-    expect(r.legs.map((l) => l.pages)).toEqual([['content/docs/a.mdx'], ['packages/demo/README.md'], ['README.md']]);
+    // The skills leg (objectui#12204) walks last and collects nothing in this fixture.
+    expect(r.legs.map((l) => l.pages)).toEqual([['content/docs/a.mdx'], ['packages/demo/README.md'], ['README.md'], []]);
     expect(r.documents).toEqual(['content/docs/a.mdx', 'packages/demo/README.md', 'README.md']);
     expect(r.accepted).toHaveLength(3);
   });
@@ -276,14 +317,15 @@ describe('the scan surface — the published READMEs (objectui#12131)', () => {
     expect(reasons(stale)).toEqual(['stale-fragment-marker']);
   });
 
-  it('ANTI-IDLE: every leg owes its anchor — a README leg that collected nothing is a precondition, never a green', () => {
-    const readmeAnchors = SURFACE_ANCHORS.filter((a) => a !== ANCHOR_DOCUMENT);
-    // Non-vacuous: both README legs exist, so there are anchors to fail.
-    expect(readmeAnchors).toContain('README.md');
-    expect(readmeAnchors.some((a) => /^packages\/[^/]+\/README\.md$/.test(a))).toBe(true);
+  it('ANTI-IDLE: every leg owes its anchor — a leg that collected nothing is a precondition, never a green', () => {
+    const otherAnchors = SURFACE_ANCHORS.filter((a) => a !== ANCHOR_DOCUMENT);
+    // Non-vacuous: both README legs and the skills leg exist, so there are anchors to fail.
+    expect(otherAnchors).toContain('README.md');
+    expect(otherAnchors.some((a) => /^packages\/[^/]+\/README\.md$/.test(a))).toBe(true);
+    expect(otherAnchors).toContain(SKILLS_ANCHOR);
     const r = run({ [ANCHOR_DOCUMENT]: acceptedDoc }, SURFACE_ANCHORS);
     expect(r.judged).toHaveLength(1);
-    expect(r.preconditions.map((p) => `${p.reason} ${p.site}`)).toEqual(readmeAnchors.map((a) => `anchor-unread ${a}`));
+    expect(r.preconditions.map((p) => `${p.reason} ${p.site}`)).toEqual(otherAnchors.map((a) => `anchor-unread ${a}`));
   });
 
   it('every leg names an anchor, and the anchors are one per leg', () => {
@@ -299,7 +341,101 @@ describe('the scan surface — the published READMEs (objectui#12131)', () => {
     expect(family.length, 'the family collected no package README').toBeGreaterThan(10);
     expect(docs.filter((d) => /^packages\/[^/]+\/README\.md$/.test(d))).toEqual(family);
     for (const name of FAMILY_ROOT_PAGES) expect(docs).toContain(name);
-    expect(docs.filter((d) => d.startsWith('docs/') || d.startsWith('skills/') || /CHANGELOG\.md$/.test(d))).toEqual([]);
+    expect(docs.filter((d) => d.startsWith('docs/') || /CHANGELOG\.md$/.test(d))).toEqual([]);
+  });
+});
+
+/**
+ * objectui#12204 — the published skill bundle joined the scan surface, on the
+ * owner's ruling. Every json/jsonc fence there carries `check-skill-examples`'s
+ * opt-in line directly above it, and that gate requires it exactly there; so a
+ * declaration for this gate sits directly above the opt-in line, and the walk
+ * steps over that one line and nothing else. Measured before the rule: the
+ * three-line shape did not attach, and the leg itself did not exist, so each
+ * test below goes RED against the gate as it was.
+ */
+describe('the scan surface — the published skill bundle (objectui#12204)', () => {
+  const refusedDoc = fence('json', { type: 'button', label: 'Go', action: { type: 'submit' } });
+  const acceptedDoc = fence('json', { type: 'button', label: 'Go' });
+  const optIn = SKILL_OPT_IN_LINE;
+  const declaration = FRAGMENT_MARKER_EXAMPLES[1];
+  const page = (...lines: string[]) => lines.join('\n');
+  const last = <T,>(xs: readonly T[]): T => xs[xs.length - 1];
+
+  it('RED: an undeclared refused node document under skills/objectui/ is red, and named', () => {
+    const r = run({ [ANCHOR_DOCUMENT]: acceptedDoc, 'skills/objectui/rules/protocol.md': page(optIn, refusedDoc) });
+    expect(reasons(r)).toEqual(['refused']);
+    // fixture-address: a page in the temp fixture tree this test writes, as the gate under test reports it
+    expect(r.findings[0].site).toBe('skills/objectui/rules/protocol.md:2');
+    expect(r.findings[0].issues).toEqual(['at (root): undeclared key "action"']);
+  });
+
+  it('GREEN: a declaration directly above the opt-in line that is directly above the fence declares it', () => {
+    const r = run({ 'skills/objectui/guides/a.md': page(declaration, optIn, refusedDoc) });
+    expect(r.findings).toEqual([]);
+    expect(r.declared).toHaveLength(1);
+    // Without an opt-in line the ordinary attachment rule applies there as anywhere.
+    const plain = run({ 'skills/objectui/guides/a.md': page(declaration, refusedDoc) });
+    expect(plain.findings).toEqual([]);
+    expect(plain.declared).toHaveLength(1);
+  });
+
+  it('a declaration separated from its fence by anything but that one opt-in line is dangling, and the fence stays refused', () => {
+    for (const between of [[declaration, '', optIn], [declaration, 'Lead-in prose.', optIn], [declaration, optIn, optIn], [declaration, optIn, '']]) {
+      const r = run({ 'skills/objectui/guides/a.md': page(...between, refusedDoc) });
+      expect(reasons(r), between.join(' | ')).toEqual(['dangling-fragment-marker', 'refused']);
+      expect(r.findings[0].detail).toMatch(/opt-in line/);
+    }
+  });
+
+  it('re-judges a declaration through the opt-in line as anywhere else — stale on an accepted fence, so the list can only shrink', () => {
+    expect(reasons(run({ 'skills/objectui/guides/a.md': page(declaration, optIn, acceptedDoc) }))).toEqual(['stale-fragment-marker']);
+  });
+
+  it('walks every .md page under skills/objectui/ in a stable order, as the last leg, and no other skills tree', () => {
+    const r = run({
+      [ANCHOR_DOCUMENT]: acceptedDoc,
+      'README.md': acceptedDoc,
+      'skills/objectui/rules/protocol.md': acceptedDoc,
+      'skills/objectui/SKILL.md': acceptedDoc,
+      'skills/objectui/guides/b.md': acceptedDoc,
+      'skills/objectui/guides/a.md': acceptedDoc,
+      'skills/objectui/evals/protocol.json': '{}',
+      'skills/other/README.md': refusedDoc,
+      '.claude/skills/demo/SKILL.md': refusedDoc,
+    });
+    expect(r.findings).toEqual([]);
+    expect(last(r.legs).leg).toBe(last(SCAN_SURFACE).leg);
+    expect(last(r.legs).pages).toEqual(['skills/objectui/SKILL.md', 'skills/objectui/guides/a.md', 'skills/objectui/guides/b.md', 'skills/objectui/rules/protocol.md']);
+    expect(r.documents.slice(-4)).toEqual(last(r.legs).pages);
+  });
+
+  it('ANTI-IDLE: the skills leg owes its anchor, and the anchor is a page on that leg', () => {
+    expect(SKILLS_ANCHOR.startsWith(`${SKILLS_ROOT}/`)).toBe(true);
+    expect(last(SURFACE_ANCHORS)).toBe(SKILLS_ANCHOR);
+    const r = run({ [ANCHOR_DOCUMENT]: acceptedDoc, 'skills/objectui/guides/a.md': acceptedDoc }, [SKILLS_ANCHOR]);
+    expect(r.judged).toHaveLength(2);
+    expect(r.preconditions.map((p) => `${p.reason} ${p.site}`)).toEqual([`anchor-unread ${SKILLS_ANCHOR}`]);
+  });
+
+  it('reads the real bundle: the leg collects skills/objectui/ and nothing else under skills/, with the anchor on it', () => {
+    const docs = listDocuments(repoRoot);
+    const skills = docs.filter((d) => d.startsWith('skills/'));
+    expect(skills.length, 'the skills leg collected no page').toBeGreaterThan(5);
+    expect(skills.every((d) => d.startsWith(`${SKILLS_ROOT}/`) && d.endsWith('.md'))).toBe(true);
+    expect(skills).toContain(SKILLS_ANCHOR);
+    expect(docs.filter((d) => d.startsWith('.claude/'))).toEqual([]);
+  });
+
+  it('this gate\'s declarations in the real bundle orphan none of the skill gate\'s opt-in lines', () => {
+    const r = analyze({ root: repoRoot, judge, tolerant, nodeTypes, parseJsonc });
+    const pages = new Set((r.declared as { doc: string }[]).map((d) => d.doc).filter((doc) => doc.startsWith(`${SKILLS_ROOT}/`)));
+    // Non-vacuous: the bundle carries declared counter-examples; none would make the loop below pass over nothing.
+    expect(pages.size, 'no declared fragment under the bundle').toBeGreaterThan(0);
+    for (const doc of pages) {
+      const scan = scanSkillFences(fs.readFileSync(path.join(repoRoot, doc), 'utf8'));
+      expect(scan.orphans, `${doc}: orphaned opt-in lines`).toEqual([]);
+    }
   });
 });
 

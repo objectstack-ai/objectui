@@ -116,6 +116,7 @@ predicates (`visibleWhen` / `visible` / `visibleOn` / `visibility` / `hidden` /
 console, with the migration, instead of gating nothing.
 
 **❌ WRONG — renders an empty card:**
+<!-- doc-json: fragment — deliberate counter-example: a title parked under props never reaches the card renderer, and props is no declared key -->
 <!-- os:check -->
 ```json
 {
@@ -169,6 +170,7 @@ key under `props` never reaches a `ui:*` / `page:*` renderer at all.
 **❌ FORBIDDEN:** Adding custom properties not defined in `@objectstack/spec`.
 
 **Example violation:**
+<!-- doc-json: fragment — deliberate counter-example: invented keys the spec does not declare; the complete node below writes columns and inline data -->
 <!-- os:check -->
 ```jsonc
 {

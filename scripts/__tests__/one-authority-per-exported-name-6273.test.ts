@@ -500,18 +500,27 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // `@object-ui/components`' `FormControlDomProps`; core is the one authority.
   // The two `toDomProps` functions keep their names — value names are outside
   // this gate's bound (objectui#6349, batch 11).
-  // ⚠️ `FilterBuilderCondition` / `FilterGroup` still carry two declarations,
-  // but no longer two unrelated shapes. objectui#7561 and objectui#9306 are
-  // closed: the maintainer's ruling on objectui#9306 (letter A, comment
-  // `5857342228`) landed as PR objectui#10823, and `@object-ui/components` now
-  // DERIVES both from `@object-ui/types`, restating only `operator` and `value`
-  // as named extensions on the row (and the row-typed `conditions` on the
-  // group). A derived declaration is still an authority to this gate, so both
-  // rows stay until a batch measures a rename against that ruling
-  // (objectui#6349, batch 3 parked them; batch 6 recorded the ruling).
-  ['FilterBuilderCondition', ['packages/components/src/custom/filter-builder.tsx', 'packages/types/src/complex.ts']],
-  ['FilterBuilderOperator', ['packages/components/src/custom/filter-builder.tsx', 'packages/types/src/complex.ts']],
-  ['FilterGroup', ['packages/components/src/custom/filter-builder.tsx', 'packages/types/src/complex.ts']],
+  // `FilterBuilderCondition` / `FilterGroup` sat here, colliding between
+  // `packages/components/src/custom/filter-builder.tsx` and
+  // `packages/types/src/complex.ts`. Batch 3 parked them; the maintainer's
+  // ruling on objectui#9306 (letter A, comment `5857342228`, landed as PR
+  // objectui#10823) made `@object-ui/types` the single name authority, and
+  // components DERIVED both from it, restating `operator` and `value` on the
+  // row as named extensions — but under the same two names, and a derived
+  // declaration is still an authority to this gate. Two meanings: the authored
+  // row and group, and the rows the shipped builder edits (operator widened by
+  // the opt-in `exists` / `notExists`, value required and narrowed), assignable
+  // in neither direction. RENAME branch: components' declarations now spell
+  // `FilterBuilderRow` / `FilterBuilderRowGroup`, carrying the ruled extensions
+  // unchanged, and its three in-repo readers re-point; types is the one
+  // authority for both names (objectui#6349, batch 12).
+  // `FilterBuilderOperator` sat here too, same pair of files. Two ruled
+  // meanings: `@object-ui/types`' was the spec's `ViewFilterOperator` (the
+  // protocol's ids) under a second name, components' is the builder's
+  // vocabulary, those ids plus the opt-in pair, which the objectui#9306 ruling
+  // names as exported by components. types' name had no reader through its
+  // entry, so it RETIRED: the authored row types `operator` with the spec's
+  // name, and components keeps `FilterBuilderOperator` (objectui#6349, batch 12).
   // `FormFieldSpec` / `FormSectionSpec` / `FormViewSpec` sat here, colliding
   // between `packages/app-shell/src/views/metadata-admin/form-spec.ts` and
   // `packages/react/src/spec-bridge/bridges/form-view.ts` — the second

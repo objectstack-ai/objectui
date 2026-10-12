@@ -479,32 +479,14 @@ export interface CalendarViewSchema extends BaseSchema {
 }
 
 /**
- * Filter operator — the spec's canonical view-filter vocabulary, taken BY
- * REFERENCE (`ViewFilterOperator`, the element type of `VIEW_FILTER_OPERATORS`
- * in `@objectstack/spec/ui`), so this declaration and its zod mirror
- * (`FilterOperatorSchema`, which is the spec rule's own operator member) state
- * one set (objectui#9559, ruling B).
- *
- * It used to be a 14-member local union that disagreed with BOTH the protocol
- * and the mirror: it carried `is_empty` / `is_not_empty` where the mirror
- * carried `is_null` / `is_not_null`, and neither face had `icontains`,
- * `before`, `after` or `between`.
- *
- * Canonical spellings only, deliberately narrower than what the mirror PARSES:
- * the mirror also accepts the spec's legacy aliases (`lessThan`, `gt`, …) and
- * normalises them to these members on parse, because stored metadata carries
- * them — but the spec marks that table a deprecated migration bridge that new
- * producers must not emit, and a type is what a new producer writes against.
- */
-export type FilterBuilderOperator = SpecViewFilterOperator;
-
-/**
  * Filter condition — one flat row of a {@link FilterGroup}.
  *
  * The single name authority for the builder's row (objectui#9306):
- * `@object-ui/components` derives its own `FilterBuilderCondition` from this
+ * `@object-ui/components` derives its `FilterBuilderRow` from this
  * declaration, restating only its two named extensions — `operator` (these
- * ids plus the opt-in `exists` / `notExists`) and a narrower `value`.
+ * ids plus the opt-in `exists` / `notExists`) and a narrower `value`. It
+ * carries a name of its own (objectui#6349, batch 12), so
+ * `FilterBuilderCondition` means this authored row and nothing else.
  */
 export interface FilterBuilderCondition {
   /**
@@ -515,7 +497,7 @@ export interface FilterBuilderCondition {
    * that reason; a CONDITION's `id` is the identity every affordance on the row
    * matches on — `removeCondition`, `updateCondition`, `changeOperator` and
    * `changeField` in `packages/components/src/custom/filter-builder.tsx`, plus
-   * the React `key`. The component's `FilterBuilderCondition` takes this member
+   * the React `key`. The component's `FilterBuilderRow` takes this member
    * from this declaration rather than restating it (objectui#9306), and
    * `addCondition` emits `crypto.randomUUID()`.
    *
@@ -533,9 +515,32 @@ export interface FilterBuilderCondition {
    */
   field: string;
   /**
-   * Filter operator
+   * Filter operator — the spec's canonical view-filter vocabulary, taken BY
+   * REFERENCE (`ViewFilterOperator`, the element type of
+   * `VIEW_FILTER_OPERATORS` in `@objectstack/spec/ui`), so this member and
+   * its zod mirror (`FilterOperatorSchema`, which is the spec rule's own
+   * operator member) state one set (objectui#9559, ruling B).
+   *
+   * It used to be typed by a 14-member local union that disagreed with BOTH
+   * the protocol and the mirror: it carried `is_empty` / `is_not_empty` where
+   * the mirror carried `is_null` / `is_not_null`, and neither face had
+   * `icontains`, `before`, `after` or `between`.
+   *
+   * Canonical spellings only, deliberately narrower than what the mirror
+   * PARSES: the mirror also accepts the spec's legacy aliases (`lessThan`,
+   * `gt`, …) and normalises them to these members on parse, because stored
+   * metadata carries them — but the spec marks that table a deprecated
+   * migration bridge that new producers must not emit, and a type is what a
+   * new producer writes against.
+   *
+   * Spelled with the spec's type directly. This package used to publish the
+   * same set as `FilterBuilderOperator`, a second name for the spec's type
+   * beside `@object-ui/components`' `FilterBuilderOperator` (these ids plus
+   * the opt-in pair); that name now means the builder's vocabulary only
+   * (objectui#6349, batch 12). Import `ViewFilterOperator` from
+   * `@objectstack/spec/ui` to name this set.
    */
-  operator: FilterBuilderOperator;
+  operator: SpecViewFilterOperator;
   /**
    * Filter value
    */
@@ -555,8 +560,9 @@ export interface FilterBuilderCondition {
  *
  * ONE level, never nested (objectui#9306, maintainer ruling 「A 撤掉嵌套声明」).
  * This declaration is the single name authority for the builder's group:
- * `@object-ui/components` derives its own `FilterGroup` from it rather than
- * declaring a second one.
+ * `@object-ui/components` derives its `FilterBuilderRowGroup` from it, under
+ * a name of its own (objectui#6349, batch 12), rather than declaring a second
+ * `FilterGroup`.
  */
 export interface FilterGroup {
   /**
@@ -564,7 +570,7 @@ export interface FilterGroup {
    *
    * OPTIONAL on purpose. `isValidGroup` never consults it and nothing reads
    * `filterGroup.id`; measured, deleting it from an authored group renders
-   * byte-identically. It is declared because the component's `FilterGroup`
+   * byte-identically. It is declared because the component's `FilterBuilderRowGroup`
    * (derived from this one) carries it, `EMPTY_GROUP` emits it and it round-trips out through
    * `onChange` — so a document that carries it should be TYPE-CHECKED on it
    * rather than admitted unvalidated.
@@ -780,9 +786,10 @@ export interface FilterField {
    * set and cannot drift apart again (objectui#10286, applying the
    * objectui#7759 ruling: where the spec declares a vocabulary, both faces
    * align to it — and for filter operators the spec's canonical words win).
-   * Until then this key restated `FilterBuilderOperator` below, which declares
-   * `is_empty` / `is_not_empty` where the mirror declared `is_null` /
-   * `is_not_null`, so each face refused a spelling the other accepted.
+   * Until then this key restated the row's local operator union of that time,
+   * which declared `is_empty` / `is_not_empty` where the mirror declared
+   * `is_null` / `is_not_null`, so each face refused a spelling the other
+   * accepted.
    *
    * ⚠️ Nothing renders this key today: the builder draws a field's operator
    * dropdown from its `type` alone (`operatorsForFieldType` in

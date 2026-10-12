@@ -21,7 +21,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { GroupingConfigSchema, ViewFilterRuleSchema } from '@objectstack/spec/ui';
-import type { FilterGroup, GroupingConfigValue, SortItem } from '@object-ui/components';
+import type { FilterBuilderRowGroup, GroupingConfigValue, SortItem } from '@object-ui/components';
 import {
   LIST_FILTER_PARAM,
   LIST_GROUP_PARAM,
@@ -43,12 +43,12 @@ function viaLink(params: URLSearchParams): URLSearchParams {
 }
 
 /** A row as the panel holds it, minus the id the read mints fresh. */
-const rowsOf = (group: FilterGroup | undefined) =>
+const rowsOf = (group: FilterBuilderRowGroup | undefined) =>
   group?.conditions.map(({ field, operator, value }) => ({ field, operator, value }));
 
 describe('the Filter panel round-trips through `uf__filter` (objectui#11860)', () => {
   it('an AND group of the operators the panel offers comes back row for row', () => {
-    const group: FilterGroup = {
+    const group: FilterBuilderRowGroup = {
       id: 'root',
       logic: 'and',
       conditions: [
@@ -80,7 +80,7 @@ describe('the Filter panel round-trips through `uf__filter` (objectui#11860)', (
   });
 
   it('an OR group keeps its logic', () => {
-    const group: FilterGroup = {
+    const group: FilterBuilderRowGroup = {
       logic: 'or',
       conditions: [
         { id: 'a', field: 'priority', operator: 'equals', value: 'urgent' },

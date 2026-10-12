@@ -33,7 +33,16 @@ import {
   FilterOperatorSchema,
 } from '../zod/complex.zod.js';
 import { safeValidateSchema } from '../zod/index.zod.js';
-import type { FilterBuilderOperator } from '../complex.js';
+import type { FilterBuilderCondition } from '../complex.js';
+import type * as Barrel from '../index.js';
+
+/**
+ * The TS face is the authored row's `operator` member, typed by the spec's own
+ * name. This package used to publish the same set as `FilterBuilderOperator`;
+ * that name retired here (objectui#6349, batch 12) and means
+ * `@object-ui/components`' builder vocabulary only.
+ */
+type RowOperator = FilterBuilderCondition['operator'];
 
 /* ── Type-level pins (invariant equality, house form) ─────────────────────── */
 
@@ -43,7 +52,12 @@ function expectType<T extends true>(_: T = true as T): void { /* compile-time on
 
 // Both faces state the protocol's canonical set, by reference. Fails to compile
 // if either drifts back to a local list.
-expectType<Equal<FilterBuilderOperator, ViewFilterOperator>>();
+expectType<Equal<RowOperator, ViewFilterOperator>>();
+// The retired name is not published from this package's root. The
+// `@ts-expect-error` IS the assertion: export the name again and this line
+// stops erroring, which fails the compile.
+// @ts-expect-error `FilterBuilderOperator` is not a name of @object-ui/types (objectui#6349)
+type RetiredOperatorName = Barrel.FilterBuilderOperator;
 expectType<Equal<z.output<typeof FilterOperatorSchema>, ViewFilterOperator>>();
 
 /** The spec rule's own operator member — the side this mirror must agree with. */
@@ -79,8 +93,8 @@ describe('objectui#9559 — the mirror is the protocol operator set (pin a)', ()
   it('the TS face is canonical-only (compile-time: refused by `tsc` when it is not)', () => {
     // A legacy alias is a read-side bridge, not a spelling a new producer may type.
     // @ts-expect-error — `lessThan` is a deprecated alias, not a canonical member
-    const aliasTyped: FilterBuilderOperator = 'lessThan';
-    const canonicalTyped: FilterBuilderOperator = 'less_than';
+    const aliasTyped: RowOperator = 'lessThan';
+    const canonicalTyped: RowOperator = 'less_than';
     expect([aliasTyped, canonicalTyped].length).toBe(2);
   });
 

@@ -2,41 +2,41 @@ import { describe, it, expect } from 'vitest';
 import { VALID_AST_OPERATORS, isFilterAST } from '@objectstack/spec/data';
 import { VALUELESS_FILTER_BUILDER_OPERATORS } from '@object-ui/components';
 import { convertFilterGroupToAST } from '../ListView';
-import type { FilterGroup } from '@object-ui/components';
+import type { FilterBuilderRowGroup } from '@object-ui/components';
 
 describe('convertFilterGroupToAST', () => {
   it('skips incomplete rows with an empty value (no filter, not `field = ""`)', () => {
-    const group: FilterGroup = {
+    const group: FilterBuilderRowGroup = {
       logic: 'and',
       conditions: [{ field: 'project_type', operator: 'equals', value: '' }],
-    } as FilterGroup;
+    } as FilterBuilderRowGroup;
     // Empty value → no condition emitted, so all rows show.
     expect(convertFilterGroupToAST(group)).toEqual([]);
   });
 
   it.each([undefined, null, '', []])('skips value %p', (value) => {
-    const group: FilterGroup = {
+    const group: FilterBuilderRowGroup = {
       logic: 'and',
       conditions: [{ field: 'x', operator: 'equals', value }],
-    } as unknown as FilterGroup;
+    } as unknown as FilterBuilderRowGroup;
     expect(convertFilterGroupToAST(group)).toEqual([]);
   });
 
   it('keeps rows with a real value', () => {
-    const group: FilterGroup = {
+    const group: FilterBuilderRowGroup = {
       logic: 'and',
       conditions: [{ field: 'x', operator: 'equals', value: 'foo' }],
-    } as FilterGroup;
+    } as FilterBuilderRowGroup;
     expect(convertFilterGroupToAST(group)).toEqual(['x', '=', 'foo']);
   });
 
   it('keeps isEmpty/isNotEmpty operators even though they carry no value', () => {
-    const group: FilterGroup = {
+    const group: FilterBuilderRowGroup = {
       logic: 'and',
       conditions: [{ field: 'x', operator: 'isEmpty', value: '' }],
       // `isEmpty` is a deprecated stored spelling, not a builder id: since
       // objectui#9306 the row type says so, hence the `unknown` hop.
-    } as unknown as FilterGroup;
+    } as unknown as FilterBuilderRowGroup;
     // The spec's `isempty`, lowered to `$empty` (objectui#10813) — it was an
     // equality to `null` before, a null-only test.
     expect(convertFilterGroupToAST(group)).toEqual(['x', 'isempty', null]);
@@ -49,23 +49,23 @@ describe('convertFilterGroupToAST', () => {
     // the builder draws no value input for `isNull` — there is nothing left
     // for the user to do. This emitted `[]` before the fix: no filter at all,
     // no error, every record returned while the panel showed a condition.
-    const group: FilterGroup = {
+    const group: FilterBuilderRowGroup = {
       logic: 'and',
       conditions: [{ field: 'closed_at', operator: 'isNull', value: '' }],
       // `isNull` is a deprecated stored spelling, not a builder id: since
       // objectui#9306 the row type says so, hence the `unknown` hop.
-    } as unknown as FilterGroup;
+    } as unknown as FilterBuilderRowGroup;
     expect(convertFilterGroupToAST(group)).toEqual(['closed_at', 'isnull', null]);
   });
 
   it('drops only the incomplete row in a mixed group', () => {
-    const group: FilterGroup = {
+    const group: FilterBuilderRowGroup = {
       logic: 'and',
       conditions: [
         { field: 'a', operator: 'equals', value: 'foo' },
         { field: 'b', operator: 'equals', value: '' },
       ],
-    } as FilterGroup;
+    } as FilterBuilderRowGroup;
     // Single surviving condition unwraps to the bare triplet.
     expect(convertFilterGroupToAST(group)).toEqual(['a', '=', 'foo']);
   });
@@ -120,7 +120,7 @@ describe('convertFilterGroupToAST — every value-less operator emits a real nod
     convertFilterGroupToAST({
       logic: 'and',
       conditions: [{ field: 'f', operator, value: '' }],
-    } as unknown as FilterGroup);
+    } as unknown as FilterBuilderRowGroup);
 
   it('pins exactly the shared value-less set, no more and no less', () => {
     expect(VALUELESS_FILTER_BUILDER_OPERATORS.size).toBeGreaterThan(0);
@@ -169,7 +169,7 @@ describe('convertFilterGroupToAST — every value-less operator emits a real nod
     const stale = convertFilterGroupToAST({
       logic: 'and',
       conditions: [{ field: 'f', operator: 'isNull', value: 'typed under equals' }],
-    } as unknown as FilterGroup);
+    } as unknown as FilterBuilderRowGroup);
     expect(stale).toEqual(['f', 'isnull', null]);
   });
 
@@ -180,7 +180,7 @@ describe('convertFilterGroupToAST — every value-less operator emits a real nod
         { field: 'stage', operator: 'equals', value: 'won' },
         { field: 'closed_at', operator: 'isNull', value: '' },
       ],
-    } as unknown as FilterGroup);
+    } as unknown as FilterBuilderRowGroup);
     expect(both).toEqual(['and', ['stage', '=', 'won'], ['closed_at', 'isnull', null]]);
     expect(isFilterAST(both)).toBe(true);
   });
@@ -209,7 +209,7 @@ describe('convertFilterGroupToAST — `between` needs both bounds', () => {
       conditions: [
         { field: 'declare_date', operator: 'between', value: ['2024-01-01', '2024-03-01'] },
       ],
-    } as unknown as FilterGroup);
+    } as unknown as FilterBuilderRowGroup);
     expect(ast).toEqual(['declare_date', 'between', ['2024-01-01', '2024-03-01']]);
     expect(isFilterAST(ast)).toBe(true);
   });
@@ -223,7 +223,7 @@ describe('convertFilterGroupToAST — `between` needs both bounds', () => {
     const ast = convertFilterGroupToAST({
       logic: 'and',
       conditions: [{ field: 'declare_date', operator: 'between', value }],
-    } as unknown as FilterGroup);
+    } as unknown as FilterBuilderRowGroup);
     // No filter at all — the same answer this function already gives a
     // half-typed `equals` row, rather than a filter the server will refuse.
     expect(ast).toEqual([]);
@@ -238,7 +238,7 @@ describe('convertFilterGroupToAST — `between` needs both bounds', () => {
         { field: 'stage', operator: 'equals', value: 'won' },
         { field: 'declare_date', operator: 'between', value: ['2024-01-01', ''] },
       ],
-    } as unknown as FilterGroup);
+    } as unknown as FilterBuilderRowGroup);
     expect(ast).toEqual(['stage', '=', 'won']);
     expect(isFilterAST(ast)).toBe(true);
   });
@@ -247,7 +247,7 @@ describe('convertFilterGroupToAST — `between` needs both bounds', () => {
     const ast = convertFilterGroupToAST({
       logic: 'and',
       conditions: [{ field: 'amount', operator: 'between', value: [0, 100] }],
-    } as unknown as FilterGroup);
+    } as unknown as FilterBuilderRowGroup);
     expect(ast).toEqual(['amount', 'between', [0, 100]]);
   });
 });

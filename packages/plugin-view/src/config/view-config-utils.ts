@@ -5,7 +5,7 @@
  * schema-driven config panel framework.
  */
 
-import type { FilterBuilderOperator, FilterGroup, SortItem } from '@object-ui/components';
+import type { FilterBuilderOperator, FilterBuilderRowGroup, SortItem } from '@object-ui/components';
 // The retirement gate (objectui#4914, ruling B). This package carries no
 // `@object-ui/fields` dependency — and does not gain one here — so it reads
 // the gate from its home in `@object-ui/core`, which `fields` re-exports
@@ -281,8 +281,8 @@ export function deriveFieldOptions(objectDef: { fields?: Record<string, any> }):
         }));
 }
 
-/** Convert draft filter → FilterGroup for FilterBuilder */
-export function toFilterGroup(draftFilter: any): FilterGroup {
+/** Convert draft filter → FilterBuilderRowGroup for FilterBuilder */
+export function toFilterGroup(draftFilter: any): FilterBuilderRowGroup {
     const parsed = parseSpecFilter(draftFilter);
     // The one place a stored (untyped) draft meets the builder's row type,
     // whose `operator` is `FilterBuilderOperator` rather than `string` since

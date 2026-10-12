@@ -90,7 +90,7 @@ import { describe, it, expect } from 'vitest';
 import { normalizeFilterOperator } from '@objectstack/spec/ui';
 import { isFilterAST } from '@objectstack/spec/data';
 import { VALUELESS_FILTER_BUILDER_OPERATORS } from '@object-ui/components';
-import type { FilterGroup } from '@object-ui/components';
+import type { FilterBuilderRowGroup } from '@object-ui/components';
 import { convertFilterGroupToAST } from '../ListView';
 
 /**
@@ -105,7 +105,7 @@ const emit = (operator: string, value: unknown = '') =>
     id: 'root',
     logic: 'and',
     conditions: [{ id: 'c1', field: 'title', operator, value }],
-  } as unknown as FilterGroup);
+  } as unknown as FilterBuilderRowGroup);
 
 /**
  * The card's measurement table, turned into a pin.
@@ -179,7 +179,7 @@ describe('objectui#9359 — one operator, one emitted node, whichever spelling i
         id: 'root',
         logic: 'and',
         conditions: [{ id: 'c1', field: 'title', operator }],
-      } as unknown as FilterGroup);
+      } as unknown as FilterBuilderRowGroup);
       expect(node.length, `a stored "${operator}" rule emitted nothing`).toBeGreaterThan(0);
     },
   );
@@ -215,7 +215,7 @@ describe('objectui#9359 — one operator, one emitted node, whichever spelling i
         { id: 'c1', field: 'stage', operator: 'equals', value: 'won' },
         { id: 'c2', field: 'closed_at', operator: 'is_null', value: '' },
       ],
-    } as unknown as FilterGroup);
+    } as unknown as FilterBuilderRowGroup);
     expect(both).toEqual(['and', ['stage', '=', 'won'], ['closed_at', 'isnull', null]]);
     expect(isFilterAST(both)).toBe(true);
   });

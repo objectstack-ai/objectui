@@ -396,7 +396,11 @@ export type {
   CalendarViewMode,
   CalendarEvent,
   CalendarViewSchema,
-  FilterBuilderOperator,
+  // ⛔ `FilterBuilderOperator` RETIRED from this package (objectui#6349,
+  // batch 12): it was the spec's `ViewFilterOperator` under a second name, beside
+  // `@object-ui/components`' own `FilterBuilderOperator`. The row's `operator`
+  // is typed by the spec's name; import `ViewFilterOperator` from
+  // `@objectstack/spec/ui`.
   FilterBuilderCondition,
   FilterGroup,
   FilterBuilderSchema,

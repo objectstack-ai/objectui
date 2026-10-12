@@ -10,7 +10,7 @@ import * as React from 'react';
 import { cn, Button, Input, Popover, PopoverContent, PopoverTrigger, FilterBuilder, SortBuilder, NavigationOverlay, GroupingEditor, RefreshIndicator, DataEmptyState, DataErrorState, resolveIcon, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import type { SortItem } from '@object-ui/components';
 import { Search, SlidersHorizontal, ArrowUpDown, X, EyeOff, Pencil, Group, Paintbrush, Inbox, Download, Rows4, Rows3, Rows2, Share2, Printer, Plus, Trash2, CheckSquare, AlertTriangle, ShieldAlert, RotateCw, Loader2, type LucideIcon } from 'lucide-react';
-import type { FilterGroup } from '@object-ui/components';
+import type { FilterBuilderRowGroup } from '@object-ui/components';
 import { VALUELESS_FILTER_BUILDER_OPERATORS, isFilterValueComplete } from '@object-ui/components';
 import { ViewSwitcherDropdown } from './ViewSwitcher';
 import { ViewSettingsPopover } from './components/ViewSettingsPopover';
@@ -321,15 +321,15 @@ export interface ListViewProps {
   /**
    * Fires with the advanced-filter group the toolbar's `FilterBuilder` emitted.
    *
-   * `FilterGroup` because that is what the one call site actually passes: the
+   * `FilterBuilderRowGroup` because that is what the one call site actually passes: the
    * builder's own `onChange` value, handed straight through beside
-   * `setCurrentFilters` — itself `React.useState<FilterGroup>`. Deliberately NOT
+   * `setCurrentFilters` — itself `React.useState<FilterBuilderRowGroup>`. Deliberately NOT
    * the filter AST `normalizeFilters` / `buildEffectiveFilter` speak: those run
    * later, on the query-building path, and nothing they produce reaches this
    * callback. A host receives the BUILDER's group verbatim, which is what lets
    * it round-trip back in through `initialFilters`.
    */
-  onFilterChange?: (filters: FilterGroup) => void;
+  onFilterChange?: (filters: FilterBuilderRowGroup) => void;
   /**
    * Fires with the view's sort after a builder edit, a header click or a
    * "reset to the view's default".
@@ -396,7 +396,7 @@ export interface ListViewProps {
    * later prop changes don't override in-flight user edits, so hosts remount
    * (via `key`) when they need to swap the restored value (view switch).
    */
-  initialFilters?: FilterGroup;
+  initialFilters?: FilterBuilderRowGroup;
   /** Initial search term to restore at mount (same one-shot semantics as `initialFilters`). */
   initialSearchTerm?: string;
   /** Called when the user asks for a new record (toolbar "+ New" and the empty-state CTA). */
@@ -753,7 +753,7 @@ export function normalizeFilters(filters: any[]): any[] {
  */
 export function buildEffectiveFilter(
   baseFilter: unknown,
-  currentFilters: FilterGroup,
+  currentFilters: FilterBuilderRowGroup,
   userFilterConditions: any[],
 ): any[] | Record<string, any> | undefined {
   const userFilter = convertFilterGroupToAST(currentFilters);
@@ -771,10 +771,10 @@ export function buildEffectiveFilter(
  * (`appliedFilters` / `appliedUserFilterConditions`, objectui#10512). Module
  * constants, so every render hands the fetch effect the same identity.
  */
-const WITHHELD_FILTER_GROUP: FilterGroup = { id: 'root', logic: 'and', conditions: [] };
+const WITHHELD_FILTER_GROUP: FilterBuilderRowGroup = { id: 'root', logic: 'and', conditions: [] };
 const WITHHELD_USER_FILTER_CONDITIONS: unknown[] = [];
 
-export function convertFilterGroupToAST(group: FilterGroup): any[] {
+export function convertFilterGroupToAST(group: FilterBuilderRowGroup): any[] {
   if (!group || !group.conditions || group.conditions.length === 0) return [];
 
   const conditions = group.conditions
@@ -1555,7 +1555,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
   const [showFilters, setShowFilters] = React.useState(false);
 
-  const [currentFilters, setCurrentFilters] = React.useState<FilterGroup>(() =>
+  const [currentFilters, setCurrentFilters] = React.useState<FilterBuilderRowGroup>(() =>
     initialFilters && Array.isArray(initialFilters.conditions)
       ? initialFilters
       : {

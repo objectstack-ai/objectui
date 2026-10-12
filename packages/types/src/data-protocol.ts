@@ -18,7 +18,9 @@
 
 // Import existing base types to avoid duplication
 import type { SortConfig as BaseSortConfig } from './objectql.js';
-import type { FilterBuilderOperator as BaseFilterOperator } from './complex.js';
+// The protocol's canonical view-filter operators, by the spec's own name: this
+// package no longer publishes a second name for them (objectui#6349, batch 12).
+import type { ViewFilterOperator as BaseFilterOperator } from '@objectstack/spec/ui';
 
 // Spec-owned vocabulary, bound rather than re-declared (objectstack#4115). The
 // spec exports these as zod schemas, not as types, so they are derived through

@@ -189,14 +189,17 @@ describe('objectui#8415 — the enforcement the declaration now matches, re-deri
     // component gets, by construction. What is pinned here is that the
     // derivation is still the one in place: `id` is NOT among the members the
     // component omits and restates, and no hand-written interface is back.
+    // The derived row is named `FilterBuilderRow` (objectui#6349, batch 12), so
+    // `FilterBuilderCondition` names this package's row only, and the
+    // component must not declare that name again in either form.
     // The component-side type pins live in
-    // `packages/components/src/__tests__/filter-builder-name-authority-9306.test.ts`.
+    // `packages/components/src/__tests__/filter-builder-name-authority-9306.test.tsx`.
     expect(readerSource).toContain('FilterBuilderCondition as AuthoredFilterBuilderCondition,\n');
     expect(readerSource).toContain('} from "@object-ui/types"');
     expect(readerSource).toContain(
-      'export interface FilterBuilderCondition\n  extends Omit<AuthoredFilterBuilderCondition, "operator" | "value"> {\n',
+      'export interface FilterBuilderRow\n  extends Omit<AuthoredFilterBuilderCondition, "operator" | "value"> {\n',
     );
-    expect(readerSource).not.toContain('export interface FilterBuilderCondition {');
+    expect(readerSource).not.toContain('export interface FilterBuilderCondition');
   });
 
   it('anti-vacuity for the source probes: a spelling that is NOT there reads false', () => {

@@ -48,11 +48,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
  * and `operator` here is the builder's own dropdown vocabulary
  * (`FILTER_BUILDER_OPERATORS`), not the spec's `$`-tokens.
  *
- * DERIVED from `@object-ui/types`, never declared a second time (objectui#9306,
- * which settles objectui#6349's two parked name-authority rows). That declaration is
- * the one name authority for the row; this one takes every member from it
- * (`id`, required since objectui#8415, and `field`) and restates exactly two,
- * each a named extension:
+ * DERIVED from `@object-ui/types`' `FilterBuilderCondition` (objectui#9306).
+ * That declaration is the one name authority for the row; this one takes every
+ * member from it (`id`, required since objectui#8415, and `field`) and restates
+ * exactly two, each a named extension:
  *
  *   - `operator` — {@link FilterBuilderOperator}: the protocol's ids, which is
  *     what the authority declares, plus the opt-in `exists` / `notExists` the
@@ -64,8 +63,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
  *     below that takes a row's value (`reshapeFilterValue`, `retypeFilterValue`,
  *     `narrowFilterValueToOptions`, …) is typed on this member, so `any` here
  *     would switch their checking off in silence.
+ *
+ * Its own NAME, not the authority's (objectui#6349, batch 12). Under the
+ * authority's name this was a second declaration of `FilterBuilderCondition`
+ * with a different shape: the two are assignable in neither direction (the
+ * operator blocks one way, the value's requiredness the other), so an
+ * auto-import picked one of two rows by package. `FilterBuilderCondition` now
+ * means the authored row in `@object-ui/types` only, and this specialisation
+ * is named for the builder that edits it.
  */
-export interface FilterBuilderCondition
+export interface FilterBuilderRow
   extends Omit<AuthoredFilterBuilderCondition, "operator" | "value"> {
   operator: FilterBuilderOperator
   value: string | number | boolean | (string | number | boolean)[]
@@ -74,7 +81,9 @@ export interface FilterBuilderCondition
 /**
  * The group the FilterBuilder edits: one `logic` over FLAT rows.
  *
- * DERIVED from `@object-ui/types` like the row above (objectui#9306). Only
+ * DERIVED from `@object-ui/types`' `FilterGroup` like the row above
+ * (objectui#9306), and named apart from it for the same reason
+ * (objectui#6349, batch 12): `FilterGroup` means the authored group only. Only
  * `conditions` is restated, to hold THIS package's row; `id` and `logic` are
  * the authority's own. So `id` is OPTIONAL here, as it is there: nothing in
  * this builder reads a group's `id`, `onChange` hands back whatever group the
@@ -86,8 +95,8 @@ export interface FilterBuilderCondition
  * and has no control that creates a group. The authority retired nested
  * sub-groups in the same change and its zod mirror refuses one by name.
  */
-export interface FilterGroup extends Omit<AuthoredFilterGroup, "conditions"> {
-  conditions: FilterBuilderCondition[]
+export interface FilterBuilderRowGroup extends Omit<AuthoredFilterGroup, "conditions"> {
+  conditions: FilterBuilderRow[]
 }
 
 export interface FilterBuilderProps {
@@ -103,8 +112,8 @@ export interface FilterBuilderProps {
     /** ID field on the referenced object (defaults to "id") */
     idField?: string
   }>
-  value?: FilterGroup
-  onChange?: (value: FilterGroup) => void
+  value?: FilterBuilderRowGroup
+  onChange?: (value: FilterBuilderRowGroup) => void
   className?: string
   showClearAll?: boolean
   /**
@@ -286,7 +295,7 @@ const FILTER_BUILDER_OPERATOR_IDS: ReadonlySet<string> = new Set(FILTER_BUILDER_
  * may hold (objectui#9306)?
  *
  * The narrowing a `string` needs before it can be written into a
- * {@link FilterBuilderCondition}: the operator Select hands back a `string`, and
+ * {@link FilterBuilderRow}: the operator Select hands back a `string`, and
  * {@link normalizeFilterBuilderOperator} answers one. Membership is read from
  * the list the dropdown renders, never restated.
  */
@@ -357,7 +366,7 @@ export function normalizeFilterBuilderOperator(operator: string): string {
  * already canonical (every group this builder emitted itself) is not re-created
  * on each prop pass.
  */
-function normalizeGroupOperators(group: FilterGroup): FilterGroup {
+function normalizeGroupOperators(group: FilterBuilderRowGroup): FilterBuilderRowGroup {
   let moved = false
   const conditions = group.conditions.map((c) => {
     if (!c || typeof c.operator !== "string") return c
@@ -496,9 +505,9 @@ export function filterValueArity(operator: string): FilterValueArity {
  * @internal exported for tests
  */
 export function reshapeFilterValue(
-  value: FilterBuilderCondition["value"],
+  value: FilterBuilderRow["value"],
   nextOperator: string,
-): FilterBuilderCondition["value"] {
+): FilterBuilderRow["value"] {
   switch (filterValueArity(nextOperator)) {
     case "list":
       return Array.isArray(value) ? value : normalizeToArray(value)
@@ -836,10 +845,10 @@ function convertScalarToFamily(
  * @internal exported for tests
  */
 export function retypeFilterValue(
-  value: FilterBuilderCondition["value"],
+  value: FilterBuilderRow["value"],
   fieldType: string | undefined,
   operator: string,
-): FilterBuilderCondition["value"] {
+): FilterBuilderRow["value"] {
   const family = valueFamilyForFieldType(fieldType)
 
   switch (filterValueArity(operator)) {
@@ -998,10 +1007,10 @@ function isOptionDrivenValueControl(
  * @internal exported for tests
  */
 export function narrowFilterValueToOptions(
-  value: FilterBuilderCondition["value"],
+  value: FilterBuilderRow["value"],
   field: OptionBearingField | undefined,
   operator: string,
-): FilterBuilderCondition["value"] {
+): FilterBuilderRow["value"] {
   if (!hasStaticOptionDomain(field)) return value
   if (!isOptionDrivenValueControl(field, operator)) return value
 
@@ -1069,7 +1078,7 @@ export function narrowFilterValueToOptions(
  */
 export function isFilterValueComplete(
   operator: string,
-  value: FilterBuilderCondition["value"] | undefined | null,
+  value: FilterBuilderRow["value"] | undefined | null,
 ): boolean {
   if (filterValueArity(operator) === "pair") {
     const bounds = normalizeToArray(value ?? "")
@@ -1084,7 +1093,7 @@ export function isFilterValueComplete(
 
 /** The two bounds a `pair` row edits, with the gaps filled in for rendering. */
 function toPairBounds(
-  value: FilterBuilderCondition["value"],
+  value: FilterBuilderRow["value"],
 ): [string | number | boolean, string | number | boolean] {
   const [min = "", max = ""] = normalizeToArray(value)
   return [min, max]
@@ -1303,7 +1312,7 @@ function offeredOperatorsForRow(
  * (objectui#4873).
  *
  * There are exactly three ways a row is unfilled: the seed `addCondition`
- * writes (`""`), a key an external `FilterGroup` never set (`undefined` /
+ * writes (`""`), a key an external `FilterBuilderRowGroup` never set (`undefined` /
  * `null`), and the empty shape `retypeFilterValue` clears to (`""`).
  * EVERYTHING else is a value the user chose — including the two falsy ones,
  * `false` and `0`.
@@ -1324,7 +1333,7 @@ function offeredOperatorsForRow(
  * they stay agreed.
  */
 function isValueUnset(
-  value: FilterBuilderCondition["value"] | undefined | null,
+  value: FilterBuilderRow["value"] | undefined | null,
 ): boolean {
   return value === undefined || value === null || value === ""
 }
@@ -1339,12 +1348,12 @@ function isValueUnset(
  * is the boolean Select's own item value so the trigger reads "False"; `0` →
  * `"0"`, which a number input shows as `0`.
  */
-function displayScalarValue(value: FilterBuilderCondition["value"]): string {
+function displayScalarValue(value: FilterBuilderRow["value"]): string {
   return isValueUnset(value) ? "" : String(value)
 }
 
 /** Normalize a filter value into an array for multi-select scenarios */
-function normalizeToArray(value: FilterBuilderCondition["value"]): (string | number | boolean)[] {
+function normalizeToArray(value: FilterBuilderRow["value"]): (string | number | boolean)[] {
   if (Array.isArray(value)) return value
   if (!isValueUnset(value)) return [value as string | number | boolean]
   return []
@@ -1352,21 +1361,21 @@ function normalizeToArray(value: FilterBuilderCondition["value"]): (string | num
 
 /**
  * Defensive guard — only accept an external `value` that matches the
- * `FilterGroup` shape. Reports/Views may persist filters in protocol-native
+ * `FilterBuilderRowGroup` shape. Reports/Views may persist filters in protocol-native
  * shapes (e.g. MongoDB-style `{field: value}` from `@objectstack/spec`)
  * which would otherwise crash the renderer once it reaches
  * `filterGroup.conditions.length`.
  */
-function isValidGroup(v: unknown): v is FilterGroup {
+function isValidGroup(v: unknown): v is FilterBuilderRowGroup {
   return (
     !!v &&
     typeof v === "object" &&
-    Array.isArray((v as FilterGroup).conditions) &&
-    ((v as FilterGroup).logic === "and" || (v as FilterGroup).logic === "or")
+    Array.isArray((v as FilterBuilderRowGroup).conditions) &&
+    ((v as FilterBuilderRowGroup).logic === "and" || (v as FilterBuilderRowGroup).logic === "or")
   )
 }
 
-const EMPTY_GROUP: FilterGroup = { id: "root", logic: "and", conditions: [] }
+const EMPTY_GROUP: FilterBuilderRowGroup = { id: "root", logic: "and", conditions: [] }
 
 function FilterBuilder({
   fields = [],
@@ -1385,7 +1394,7 @@ function FilterBuilder({
   // must not dirty the form that holds it, so the rewrite rides the author's
   // own next edit, exactly as the ruling orders ("accepted on read and
   // rewritten on write").
-  const [filterGroup, setFilterGroup] = React.useState<FilterGroup>(
+  const [filterGroup, setFilterGroup] = React.useState<FilterBuilderRowGroup>(
     isValidGroup(value) ? normalizeGroupOperators(value) : EMPTY_GROUP,
   )
 
@@ -1397,13 +1406,13 @@ function FilterBuilder({
     }
   }, [value])
 
-  const handleChange = (newGroup: FilterGroup) => {
+  const handleChange = (newGroup: FilterBuilderRowGroup) => {
     setFilterGroup(newGroup)
     onChange?.(newGroup)
   }
 
   const addCondition = () => {
-    const newCondition: FilterBuilderCondition = {
+    const newCondition: FilterBuilderRow = {
       id: crypto.randomUUID(),
       field: fields[0]?.value || "",
       operator: "equals",
@@ -1429,7 +1438,7 @@ function FilterBuilder({
     })
   }
 
-  const updateCondition = (conditionId: string, updates: Partial<FilterBuilderCondition>) => {
+  const updateCondition = (conditionId: string, updates: Partial<FilterBuilderRow>) => {
     handleChange({
       ...filterGroup,
       conditions: filterGroup.conditions.map((c) =>
@@ -1472,7 +1481,7 @@ function FilterBuilder({
   }
 
   // What the row's operator dropdown mounts — see `offeredOperatorsForRow`.
-  const getOperatorsForRow = (condition: FilterBuilderCondition) => {
+  const getOperatorsForRow = (condition: FilterBuilderRow) => {
     const field = fields.find((f) => f.value === condition.field)
     return offeredOperatorsForRow(field?.type, extraOperators, condition.operator)
   }
@@ -1484,7 +1493,7 @@ function FilterBuilder({
    * the hint names which empty value the extra pair counts. Nothing at all
    * when the dropdown offers at most one of them.
    */
-  const renderEmptyCheckHint = (condition: FilterBuilderCondition): React.ReactNode => {
+  const renderEmptyCheckHint = (condition: FilterBuilderRow): React.ReactNode => {
     const ids = new Set(getOperatorsForRow(condition).map((op) => op.value))
     if (!ids.has("is_empty") || !ids.has("is_null")) return null
     const field = fields.find((f) => f.value === condition.field)
@@ -1597,7 +1606,7 @@ function FilterBuilder({
     return FILTER_INPUT_TYPE_BY_FAMILY[valueFamilyForFieldType(field?.type)]
   }
 
-  const renderValueInput = (condition: FilterBuilderCondition) => {
+  const renderValueInput = (condition: FilterBuilderRow) => {
     const field = fields.find((f) => f.value === condition.field)
     // The spec's vocabulary, not a local literal — and folded through
     // `normalizeFilterBuilderOperator`, so the deprecated alias `notIn` gets
@@ -2212,9 +2221,9 @@ interface LookupValuePickerProps {
     displayField?: string
     idField?: string
   }
-  value: FilterBuilderCondition["value"]
+  value: FilterBuilderRow["value"]
   multiple: boolean
-  onChange: (value: FilterBuilderCondition["value"]) => void
+  onChange: (value: FilterBuilderRow["value"]) => void
 }
 
 function LookupValuePicker({ field, value, multiple, onChange }: LookupValuePickerProps) {

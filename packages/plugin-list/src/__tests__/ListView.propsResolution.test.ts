@@ -35,7 +35,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { ComponentProps } from 'react';
-import type { SortItem, FilterGroup } from '@object-ui/components';
+import type { SortItem, FilterBuilderRowGroup } from '@object-ui/components';
 import { ListView, type ListViewProps } from '../ListView';
 
 type Assert<T extends true> = T;
@@ -110,7 +110,7 @@ type _OnBulkDeleteIsDeclared = Assert<
 //    is handed and `filterPlatformSortableSort`'s return — generic in the
 //    element, so `SortItem[]` either way; `filters` is the toolbar
 //    `FilterBuilder`'s own `onChange` value passed straight through, which is
-//    why it is the builder's `FilterGroup` and NOT the later query-path AST.
+//    why it is the builder's `FilterBuilderRowGroup` and NOT the later query-path AST.
 //
 //    The `IsAny` halves are the discriminating ones, exactly as in pin 2: a
 //    re-widening to `any` must fail loudly here rather than silently
@@ -122,7 +122,7 @@ type _OnSortChangeParamIsNotAny = Assert<
   Equal<IsAny<Parameters<NonNullable<CallSiteProps['onSortChange']>>[0]>, false>
 >;
 type _OnFilterChangeIsDeclared = Assert<
-  Equal<CallSiteProps['onFilterChange'], ((filters: FilterGroup) => void) | undefined>
+  Equal<CallSiteProps['onFilterChange'], ((filters: FilterBuilderRowGroup) => void) | undefined>
 >;
 type _OnFilterChangeParamIsNotAny = Assert<
   Equal<IsAny<Parameters<NonNullable<CallSiteProps['onFilterChange']>>[0]>, false>

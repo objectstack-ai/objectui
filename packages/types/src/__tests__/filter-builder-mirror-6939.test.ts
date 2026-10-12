@@ -707,8 +707,10 @@ describe('objectui#6939 — the group shape is `{ id, logic, conditions }`', () 
     // identically; requiring it would invent a refusal.
     expect(FilterGroupSchema.safeParse({ logic: 'or', conditions: [] }).success).toBe(true);
     const src = readFileSync(join(REPO_ROOT, READER), 'utf8');
-    expect(src).toContain('Array.isArray((v as FilterGroup).conditions) &&');
-    expect(src).toContain('((v as FilterGroup).logic === "and" || (v as FilterGroup).logic === "or")');
+    // The component's group is `FilterBuilderRowGroup` (objectui#6349, batch 12),
+    // derived from this package's `FilterGroup`.
+    expect(src).toContain('Array.isArray((v as FilterBuilderRowGroup).conditions) &&');
+    expect(src).toContain('((v as FilterBuilderRowGroup).logic === "and" || (v as FilterBuilderRowGroup).logic === "or")');
   });
 
   it('`id` is DECLARED, so it is type-checked rather than admitted unvalidated', () => {

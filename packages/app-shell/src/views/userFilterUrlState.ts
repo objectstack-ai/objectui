@@ -29,9 +29,9 @@
  * | `uf__sort`   | the sort                                  | the spec `ListViewSchema.sort` array    |
  * | `uf__group`  | the toolbar grouping                      | the spec `GroupingConfig`               |
  *
- * - `uf__filter` is the FilterBuilder group (`FilterGroup`, `@object-ui/types`
- *   — `logic` is its own key) with every row folded to the spec's
- *   `ViewFilterRule` (`{ field, operator, value }`) through
+ * - `uf__filter` is the FilterBuilder group (`FilterBuilderRowGroup`, derived
+ *   from `@object-ui/types`' `FilterGroup` — `logic` is its own key) with
+ *   every row folded to the spec's `ViewFilterRule` (`{ field, operator, value }`) through
  *   `foldFilterGroupToSpecRules`, the fold "save as view" uses: blank and
  *   unfinished rows are not written, row ids are stripped, operators are
  *   canonical. The rule list alone is the shape `ListViewSchema.filter`
@@ -52,7 +52,7 @@
 
 import { GroupingConfigSchema, ListViewSchema, ViewFilterRuleSchema } from '@objectstack/spec/ui';
 import type { GroupingConfig, ViewFilterRule } from '@objectstack/spec/ui';
-import type { FilterGroup } from '@object-ui/components';
+import type { FilterBuilderRowGroup } from '@object-ui/components';
 import { toFilterGroup } from '@object-ui/plugin-view';
 import { foldFilterGroupToSpecRules } from './viewFilterFold.js';
 
@@ -140,7 +140,7 @@ export interface ListSortRule {
 /** The list state a URL carries, read by {@link parseListStateParams}. */
 export interface ListUrlState {
   /** The Filter panel's group, ready for `ListView`'s `initialFilters`. */
-  filters?: FilterGroup;
+  filters?: FilterBuilderRowGroup;
   /** The search term, ready for `ListView`'s `initialSearchTerm`. */
   search?: string;
   /** The sort, in the spec's `ListViewSchema.sort` shape. */
@@ -168,7 +168,7 @@ function parseJson(raw: string | null): unknown {
   }
 }
 
-function parseFilterParam(raw: string | null, acceptField: ListUrlFieldGate): FilterGroup | undefined {
+function parseFilterParam(raw: string | null, acceptField: ListUrlFieldGate): FilterBuilderRowGroup | undefined {
   const parsed = parseJson(raw);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
   const { logic, conditions } = parsed as { logic?: unknown; conditions?: unknown };
@@ -243,13 +243,13 @@ export function parseListStateParams(
 
 /** What a list reports to write: each piece present is written, `undefined` deletes. */
 export interface ListStatePatch {
-  filters?: FilterGroup | null;
+  filters?: FilterBuilderRowGroup | null;
   search?: string | null;
   sort?: ReadonlyArray<{ field: string; order: 'asc' | 'desc' }> | null;
   grouping?: GroupingConfig | null;
 }
 
-function serializeFilterGroup(group: FilterGroup | null | undefined): string | undefined {
+function serializeFilterGroup(group: FilterBuilderRowGroup | null | undefined): string | undefined {
   if (!group) return undefined;
   // Folded as AND so the fold judges the ROWS only; the group's own `logic`
   // travels beside them (see the module header).

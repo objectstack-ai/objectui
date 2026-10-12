@@ -119,63 +119,75 @@ interface Field {
 
 ### FilterGroup Type
 
+The schema's `value` is `FilterGroup` from `@object-ui/types`, the authored group.
+The React component's `value` / `onChange` use `FilterBuilderRowGroup` from
+`@object-ui/components`: the same group, derived from `FilterGroup`, whose rows
+are `FilterBuilderRow` (the builder's own operator ids and a required value).
+
 ```typescript
-interface FilterGroup {
-  id: string;                    // Group identifier
+interface FilterBuilderRowGroup {
+  id?: string;                   // Group identifier (optional: nothing reads it)
   logic: 'and' | 'or';          // Logic operator
-  conditions: FilterCondition[]; // Array of conditions
+  conditions: FilterBuilderRow[]; // Flat rows; a nested group is refused
 }
 
-interface FilterCondition {
-  id: string;                    // Condition identifier
+interface FilterBuilderRow {
+  id: string;                    // Row identifier (required)
   field: string;                 // Field value
-  operator: string;              // Operator (see below)
-  value: string | number | boolean; // Filter value
+  operator: FilterBuilderOperator; // Operator id (see below)
+  value: string | number | boolean | (string | number | boolean)[]; // Filter value
 }
 ```
 
 ## Operators
 
-The available operators change based on the field type:
+The available operators change based on the field type. Each is listed by the
+id a row stores, the protocol's canonical spelling (`@objectstack/spec`'s
+`ViewFilterOperator`). A filter stored with a legacy camelCase alias such as
+`notEquals` is still read and folded onto these ids; new filters store the ids
+below. The lists here are abridged: `operatorsForFieldType` in
+`src/custom/filter-builder.tsx` holds the complete per-type set, including the
+null checks and the opt-in `exists` / `notExists` (offered only through the
+`extraOperators` prop).
 
 ### Text Fields
 - `equals` - Equals
-- `notEquals` - Does not equal
+- `not_equals` - Does not equal
 - `contains` - Contains
-- `notContains` - Does not contain
-- `isEmpty` - Is empty
-- `isNotEmpty` - Is not empty
+- `not_contains` - Does not contain
+- `is_empty` - Is empty
+- `is_not_empty` - Is not empty
 
 ### Number Fields
 - `equals` - Equals
-- `notEquals` - Does not equal
-- `greaterThan` - Greater than
-- `lessThan` - Less than
-- `greaterOrEqual` - Greater than or equal
-- `lessOrEqual` - Less than or equal
-- `isEmpty` - Is empty
-- `isNotEmpty` - Is not empty
+- `not_equals` - Does not equal
+- `greater_than` - Greater than
+- `less_than` - Less than
+- `greater_than_or_equal` - Greater than or equal
+- `less_than_or_equal` - Less than or equal
+- `is_empty` - Is empty
+- `is_not_empty` - Is not empty
 
 ### Boolean Fields
 - `equals` - Equals
-- `notEquals` - Does not equal
+- `not_equals` - Does not equal
 
 ### Date Fields
 - `equals` - Equals
-- `notEquals` - Does not equal
+- `not_equals` - Does not equal
 - `before` - Before
 - `after` - After
 - `between` - Between
-- `isEmpty` - Is empty
-- `isNotEmpty` - Is not empty
+- `is_empty` - Is empty
+- `is_not_empty` - Is not empty
 
 ### Select Fields
 - `equals` - Equals
-- `notEquals` - Does not equal
+- `not_equals` - Does not equal
 - `in` - In
-- `notIn` - Not in
-- `isEmpty` - Is empty
-- `isNotEmpty` - Is not empty
+- `not_in` - Not in
+- `is_empty` - Is empty
+- `is_not_empty` - Is not empty
 
 ## Events
 

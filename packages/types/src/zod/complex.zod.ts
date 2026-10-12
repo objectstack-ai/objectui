@@ -311,9 +311,9 @@ export const CalendarViewSchema = BaseSchema.extend({
  *
  * ⚠️ A `ZodPipe` (preprocess into the enum), not a `ZodEnum`: the member list is
  * `FilterOperatorSchema.out.options`, and the input side takes any value so the
- * fold can run before the enum judges it. The TypeScript twin,
- * `FilterBuilderOperator` in `../complex.ts`, is the spec's `ViewFilterOperator`
- * taken by reference — the canonical spellings only, because the aliases are a
+ * fold can run before the enum judges it. The TypeScript twin, the
+ * `FilterBuilderCondition.operator` member in `../complex.ts`, is typed by the
+ * spec's `ViewFilterOperator` by reference — the canonical spellings only, because the aliases are a
  * read-side migration bridge the spec marks deprecated, not a vocabulary new
  * producers may emit.
  */
@@ -395,8 +395,10 @@ const FilterBuilderConditionObject = z.object({
   //   - the React `key` on the row;
   //   - eleven call sites that hand `condition.id` to one of those four.
   //
-  // The component's own exported `FilterBuilderCondition` declares it `string`,
-  // not `string | undefined`, and `addCondition` emits `crypto.randomUUID()`.
+  // The TypeScript twin, `FilterBuilderCondition.id` in `../complex.ts`, is a
+  // required `string`, not `string | undefined`. The component declares no
+  // `id` of its own: its `FilterBuilderRow` takes the member from that
+  // declaration (objectui#9306), and `addCondition` emits `crypto.randomUUID()`.
   //
   // ⭐ The narrowing refuses only what is ALREADY broken. Because a plain
   // `z.object` STRIPS undeclared keys, an author who correctly wrote `id` had
@@ -449,7 +451,7 @@ export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterB
  * same SHA-256). Requiring it would refuse a document the renderer draws
  * perfectly — a fresh instance of the exact class that ruling's eight groups
  * exist to close. Declared rather than dropped because the component's exported
- * `FilterGroup` carries it, `EMPTY_GROUP` emits it, every catalog entry authors
+ * `FilterBuilderRowGroup` carries it, `EMPTY_GROUP` emits it, every catalog entry authors
  * it, and it round-trips out through `onChange`; declaring it buys the type
  * check (`id: 42` now refuses) that an undeclared key would not get, since a
  * plain `z.object` strips unknown keys in silence.

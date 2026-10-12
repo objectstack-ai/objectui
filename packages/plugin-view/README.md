@@ -94,7 +94,7 @@ import {
   overlayWidthFor,
   RECORD_SURFACE_PAGE_THRESHOLD,
   deriveFieldOptions, // object fields -> picker options
-  toFilterGroup, // filter rules -> FilterGroup
+  toFilterGroup, // filter rules -> FilterBuilderRowGroup (from @object-ui/components)
   toSortItems, // sort config ({ field, order }) -> SortItem[]
   VIEW_TYPE_LABELS,
   VIEW_TYPE_OPTIONS,

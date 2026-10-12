@@ -14,7 +14,9 @@
  * genuinely the spec's and now carry its binding (`ShareLinkPermission`,
  * `ShareLinkAudience`, `ShareLink`, `SortItem`); two model something else
  * entirely and were renamed (`FilterCondition` → `FilterBuilderCondition`,
- * `Field` → `FieldContainer`).
+ * `Field` → `FieldContainer`). The builder row has since been renamed once more,
+ * to `FilterBuilderRow`, because `@object-ui/types` owns `FilterBuilderCondition`
+ * as the authored row this one derives from (objectui#6349, batch 12).
  *
  * `FilterCondition` is the case worth remembering. The tracking issue's own
  * cross-package guidance was WRONG about it once already: `@object-ui/app-shell`
@@ -52,7 +54,7 @@ import { resolve, dirname } from 'node:path';
 
 import type { ShareLink, ShareLinkAudience, ShareLinkPermission } from '../share/ShareDialog';
 import type { SortItem } from '../custom/sort-builder';
-import type { FilterBuilderCondition } from '../custom/filter-builder';
+import type { FilterBuilderRow } from '../custom/filter-builder';
 import type {
   ShareLink as SpecShareLink,
   ShareLinkAudience as SpecShareLinkAudience,
@@ -114,7 +116,7 @@ describe('the spec export-name probe itself works', () => {
 
 const RENAMES: Array<[local: string, formerly: string, specMeaning: string]> = [
   [
-    'FilterBuilderCondition',
+    'FilterBuilderRow',
     'FilterCondition',
     'the RECURSIVE ObjectQL predicate AST ($and / $or / $not over field operators)',
   ],
@@ -240,17 +242,17 @@ describe('SortItem extends the spec sort item by exactly the React key', () => {
   });
 });
 
-describe('FilterBuilderCondition is NOT the spec ObjectQL AST', () => {
+describe('FilterBuilderRow is NOT the spec ObjectQL AST', () => {
   it('is pinned at compile time', () => {
     // The spec's `FilterCondition` is recursive and carries an index signature,
     // so it absorbs almost anything — which is exactly why "are these the same
     // type?" cannot be answered by assignability here (objectstack#4075). What
     // distinguishes them is the branch keys: a builder row has none.
     type _SpecIsRecursive = Assert<Equal<'$and' extends keyof SpecFilterCondition ? true : false, true>>;
-    type _WeAreFlat = Assert<Equal<'$and' extends keyof FilterBuilderCondition ? true : false, false>>;
+    type _WeAreFlat = Assert<Equal<'$and' extends keyof FilterBuilderRow ? true : false, false>>;
 
     // A builder row is one field/operator/value line plus a React key.
-    type _RowKeys = Assert<Equal<keyof FilterBuilderCondition, 'id' | 'field' | 'operator' | 'value'>>;
+    type _RowKeys = Assert<Equal<keyof FilterBuilderRow, 'id' | 'field' | 'operator' | 'value'>>;
 
     expect(true).toBe(true);
   });

@@ -45,11 +45,20 @@ import { useFieldTranslation } from './useFieldTranslation.js';
  *  - LOADING — the stored name in a disabled box;
  *  - FAILED — a notice naming the failure and its cause, beside a text box that
  *    stays enabled, so a failed catalog does not also block the edit;
- *  - LOADED — empty: the same text box as IDLE; otherwise a searchable picker.
- *    A stored name the catalog does not list stays selectable as its own
- *    option, flagged "not found", so it is neither dropped nor read as a
- *    listed item. The flag is a claim about the registry's answer, so it is
- *    made only once the catalog has answered.
+ *  - LOADED — nothing a grant can name: the same text box as IDLE; otherwise
+ *    a searchable picker. A stored name the catalog does not list stays
+ *    selectable as its own option, flagged "not found", so it is neither
+ *    dropped nor read as a listed item. The flag is a claim about the
+ *    registry's answer, so it is made only once the catalog has answered.
+ *
+ * The picker OFFERS only what a grant can name (objectui#12200). A position
+ * grant cannot name an audience anchor — `everyone` or `guest` (ADR-0090
+ * D5/D9), held implicitly by every authenticated or anonymous principal — and
+ * the server refuses a `sys_user_position` row that does. So `position-ref`
+ * leaves the anchors out of its options ({@link nonGrantableNames}). A stored
+ * anchor is still the row's value: it stays on screen as its own option, by its
+ * label beside its name, and it is not flagged "not found", because the
+ * registry does list it.
  *
  * ⛔ No arm writes anything but a name the person picked or typed: no label,
  * no id, no first-item default.
@@ -90,11 +99,38 @@ function failureMessage(err: unknown): string {
   return typeof err === 'string' ? err : '';
 }
 
+const NO_EXCLUSIONS: ReadonlySet<string> = new Set();
+
+/**
+ * The names of a registry type that a grant cannot name, which the picker
+ * therefore does not offer. For `position`, the audience anchors: the list is
+ * the spec's own `AUDIENCE_ANCHOR_POSITIONS`, read and never copied, so an
+ * anchor the spec adds is left out with no change here. Every other type
+ * excludes nothing: a permission set named like an anchor is an ordinary set.
+ *
+ * Imported lazily, as the console's `audienceAnchorsOf` imports the same
+ * module: the console builds this widget into its eager `ui-components` chunk,
+ * and `@objectstack/spec/identity` is a lazy chunk of its own.
+ */
+async function nonGrantableNames(type: string): Promise<ReadonlySet<string>> {
+  if (type !== 'position') return NO_EXCLUSIONS;
+  const { AUDIENCE_ANCHOR_POSITIONS } = await import('@objectstack/spec/identity');
+  return new Set<string>(AUDIENCE_ANCHOR_POSITIONS);
+}
+
 /** A settled answer, with the inputs it answers for. */
 interface SettledCatalog {
   dataSource: unknown;
   type: string;
   state: RegistryCatalogState;
+  /** The listed names the picker does not offer ({@link nonGrantableNames}). */
+  excluded: ReadonlySet<string>;
+}
+
+/** The catalog's arm, and the names of it a grant cannot name. */
+interface RegistryCatalog {
+  catalog: RegistryCatalogState;
+  excluded: ReadonlySet<string>;
 }
 
 /**
@@ -106,21 +142,30 @@ interface SettledCatalog {
  * answer for exactly these inputs has not settled is LOADING. So an answer to
  * an older data source or type can never be shown as the current one, and the
  * effect only ever writes a settled answer.
+ *
+ * The catalog is LOADED only once the names a grant cannot name have settled
+ * too, so the picker never offers an anchor it is about to withdraw. A failure
+ * to read them is the catalog's FAILED arm, never an unfiltered list.
  */
-function useRegistryCatalog(dataSource: unknown, type: string): RegistryCatalogState {
+function useRegistryCatalog(dataSource: unknown, type: string): RegistryCatalog {
   const [settled, setSettled] = React.useState<SettledCatalog | null>(null);
 
   React.useEffect(() => {
     const source = registryLister(dataSource);
     if (!source) return;
     let cancelled = false;
-    source.listMetadataItems(type).then(
-      (items) => {
-        if (!cancelled) setSettled({ dataSource, type, state: { status: 'loaded', items } });
+    Promise.all([source.listMetadataItems(type), nonGrantableNames(type)]).then(
+      ([items, excluded]) => {
+        if (!cancelled) setSettled({ dataSource, type, state: { status: 'loaded', items }, excluded });
       },
       (err: unknown) => {
         if (!cancelled) {
-          setSettled({ dataSource, type, state: { status: 'error', message: failureMessage(err) } });
+          setSettled({
+            dataSource,
+            type,
+            state: { status: 'error', message: failureMessage(err) },
+            excluded: NO_EXCLUSIONS,
+          });
         }
       },
     );
@@ -129,8 +174,10 @@ function useRegistryCatalog(dataSource: unknown, type: string): RegistryCatalogS
     };
   }, [dataSource, type]);
 
-  if (!registryLister(dataSource)) return IDLE;
-  return settled && settled.dataSource === dataSource && settled.type === type ? settled.state : LOADING;
+  if (!registryLister(dataSource)) return { catalog: IDLE, excluded: NO_EXCLUSIONS };
+  return settled && settled.dataSource === dataSource && settled.type === type
+    ? { catalog: settled.state, excluded: settled.excluded }
+    : { catalog: LOADING, excluded: NO_EXCLUSIONS };
 }
 
 /** What one item reads as: its label beside its name, or the name alone. */
@@ -155,7 +202,7 @@ export function RegistryRefField({
   const ctx = React.useContext(SchemaRendererContext);
   const { t } = useFieldTranslation();
   const dataSource = props.dataSource ?? ctx?.dataSource ?? null;
-  const catalog = useRegistryCatalog(dataSource, registryType);
+  const { catalog, excluded } = useRegistryCatalog(dataSource, registryType);
   const current = typeof value === 'string' ? value : '';
   const testId = `registry-ref-${registryType}`;
 
@@ -225,11 +272,17 @@ export function RegistryRefField({
     );
   }
 
-  if (!listed || listed.length === 0) return typedName;
+  // What the picker offers: the listed items a grant can name.
+  const offered = (listed ?? []).filter((item) => !excluded.has(item.name));
+  if (offered.length === 0) return typedName;
 
-  const options = [...listed]
+  const options = offered
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((item) => ({ value: item.name, label: itemText(item) }));
+  // A stored name the picker does not offer stays its own option, so it is
+  // neither dropped nor replaced: a listed name a grant cannot name by its
+  // label beside its name, a name the registry lacks flagged "not found".
+  if (entry && excluded.has(entry.name)) options.unshift({ value: current, label: itemText(entry) });
   if (notFound) options.unshift({ value: current, label: notFoundText });
 
   // DOM pass-through onto the combobox trigger, the widget's focusable control

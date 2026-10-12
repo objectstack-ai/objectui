@@ -132,14 +132,14 @@ import { readFields } from './previews/object-fields-io.js';
 import { useRegisterAssistantEditor, type AssistantEditorContext } from '../../assistant/assistantBus.js';
 import { useRegisteredMetadataInspector } from './inspector-registry.js';
 import { useRegisteredMetadataDefaultInspector } from './default-inspector-registry.js';
-import { useMetadataLocale, t, tFormat, translateValidationMessage } from './i18n.js';
+import { useMetadataLocale, t, tFormat, translateMetadataType, translateValidationMessage } from './i18n.js';
 import { JsonSourceEditor } from './JsonSourceEditor.js';
 import { validateMetadataDraft, hasClientValidator, type DraftMode } from './clientValidation.js';
 import { describeIssuePath, issueSlicePath, issueSliceFingerprint } from './issuePath.js';
 import { buildCreateModeBody } from './createBody.js';
 import { errorCodeIs, errorCodeIsAnyOf } from '@object-ui/types';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
-import { environmentScopeSuffix, isEnvironmentScope } from './catalog-scope.js';
+import { environmentScopeSuffix, isEnvironmentScope, useWalledCatalogReadOnly } from './catalog-scope.js';
 import { PositionHoldersSection } from './PositionHoldersSection.js';
 
 /**
@@ -1456,10 +1456,32 @@ function MetadataResourceEditPageImpl({
       : !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
   const itemWritable = canWriteByType && (createMode || lockEditable);
 
+  // ── …and may THIS CALLER write it? The caller tier, decided here too ────
+  //
+  // objectui#7611 — the metadata door refuses every save without
+  // `manage_metadata` (measured on objectstack main: 403 "Saving a metadata
+  // item requires the `manage_metadata` capability."), so a caller without it
+  // gets the read-only page and the reason, not a Save that fails at the end.
+  // Unknown fails open (`useCanAuthorMetadata`).
+  //
+  // objectui#12183 — and under a wall the security catalog is the platform
+  // operator's: every door refuses a non-operator's write of a position,
+  // permission set or capability, `manage_metadata` or not (objectstack
+  // ADR-0131 D3, `catalog-scope.ts`). `walledDeciding` is the wall where it is
+  // the gate to NAME: where the item tier would otherwise admit the write.
+  //
+  // Hoisted above the designer auto-on effect below, which reads `canWrite`
+  // (objectui#7611 pointer 6117177535): reading the item tier alone, it put a
+  // caller the server refuses into design mode with nothing to save it with.
+  const canAuthor = useCanAuthorMetadata();
+  const walled = useWalledCatalogReadOnly(type);
+  const walledDeciding = walled && itemWritable;
+  const canWrite = itemWritable && canAuthor && !walled;
+
   // Auto-enable design mode for designer-capable types. We do this once
   // per (type,name) navigation so the user lands in the productive
-  // state instead of having to click "Edit". An item this page cannot
-  // write (`itemWritable` false) keeps the old behavior. The check happens inside
+  // state instead of having to click "Edit". An item this caller cannot
+  // write (`canWrite` false) keeps the old behavior. The check happens inside
   // the effect to avoid hook-order issues with the early `loading`
   // return below.
   const designerAutoOnRef = React.useRef<string | null>(null);
@@ -1471,14 +1493,15 @@ function MetadataResourceEditPageImpl({
     const key = `${type}/${name ?? ''}`;
     if (designerAutoOnRef.current === key) return;
     if (!registeredPreview) return;
-    // The item gate the Save gate below reads (`itemWritable`), not a copy
-    // of it. An in-place copy of the artifact heuristic answered differently
-    // from the Save gate for one item (objectui#4308), and a copy of the type
-    // half alone opened a sealed item in design mode (objectui#12169).
-    if (!itemWritable) return;
+    // The gate the Save button below reads (`canWrite`), not a copy of it. An
+    // in-place copy of the artifact heuristic answered differently from the
+    // Save gate for one item (objectui#4308), a copy of the type half alone
+    // opened a sealed item in design mode (objectui#12169), and the item tier
+    // alone opened it for a caller the server refuses (objectui#7611).
+    if (!canWrite) return;
     designerAutoOnRef.current = key;
     setEditing(true);
-  }, [type, name, createMode, embedded, loading, itemWritable, registeredPreview]);
+  }, [type, name, createMode, embedded, loading, canWrite, registeredPreview]);
 
   // Keyboard shortcut: Cmd/Ctrl+\ toggles the inspector. This is the
   // designer convention shared by Figma, VS Code (Cmd+B), Sketch — `\`
@@ -1892,8 +1915,9 @@ function MetadataResourceEditPageImpl({
 
   // The write gates — hoisted above the early `loading` return so the
   // auto-save / keyboard / blocker effects below can read them. The item
-  // half (`itemWritable`: the type tier and the served `editable`) is decided
-  // once, next to the designer auto-on effect above.
+  // half (`itemWritable`: the type tier and the served `editable`) and the
+  // caller half (`canWrite`) are decided once, next to the designer auto-on
+  // effect above.
   // ADR-0010 — server-computed lock flags. undefined means "no opinion"
   // (older server / non-lockable item) → preserve legacy behaviour.
   // `deletable` is the lock gate for BOTH verbs, not just the delete one:
@@ -1906,13 +1930,6 @@ function MetadataResourceEditPageImpl({
   const lockDeletable = layered?.deletable !== false;
   const lockReason = layered?.lockReason;
   const isLocked = layered?.lock && layered.lock !== 'none';
-  // objectui#7611 — the CALLER tier. The metadata door refuses every save
-  // without `manage_metadata` (measured on objectstack main: 403 "Saving a
-  // metadata item requires the `manage_metadata` capability."), so a caller
-  // without it gets the read-only page and the reason, not a Save that fails
-  // at the end. Unknown fails open (`useCanAuthorMetadata`).
-  const canAuthor = useCanAuthorMetadata();
-  const canWrite = itemWritable && canAuthor;
   const readOnly = !canWrite && !createMode;
   const envScope = isEnvironmentScope(searchParams);
   const scopeSuffix = environmentScopeSuffix(searchParams);
@@ -2087,8 +2104,9 @@ function MetadataResourceEditPageImpl({
   // specific item is locked because it comes from a code package, we
   // show a different message inviting the user to create their own.
   const showArtifactLockedBanner =
-    // objectui#7611 — and only for a caller who could author the new item.
-    readOnly && isArtifactItem && !!entry?.allowRuntimeCreate && canAuthor;
+    // objectui#7611 — and only for a caller who could author the new item
+    // (objectui#12183: under a wall, the operator).
+    readOnly && isArtifactItem && !!entry?.allowRuntimeCreate && canAuthor && !walled;
 
   // Preview tab — opt-in via `registerMetadataPreview()`. Hidden in
   // create mode (nothing to preview yet) and inside the embedded
@@ -2141,7 +2159,9 @@ function MetadataResourceEditPageImpl({
   // When the form is "live" but not yet in edit mode, it renders as
   // read-only. createMode is always editing; truly read-only types
   // (no allowEnvironmentOverlay) ignore the editing toggle entirely.
-  const formReadOnly = readOnly || (!editing && !createMode);
+  // objectui#12183 — the create form too: under a wall its Save is not offered,
+  // so its fields are not either.
+  const formReadOnly = readOnly || walledDeciding || (!editing && !createMode);
 
   // Note: URL `?tab=` deep-links were repurposed to open side-panel
   // sheets (Layers / References / Related). Anything else is ignored —
@@ -2449,7 +2469,7 @@ function MetadataResourceEditPageImpl({
             : 'p-6 space-y-6 max-w-7xl'
         }
       >
-        {(error || readOnly || hasDraft || isLocked) && (
+        {(error || readOnly || hasDraft || isLocked || walledDeciding) && (
           <div
             className={
               PreviewComponent
@@ -2537,7 +2557,24 @@ function MetadataResourceEditPageImpl({
                 this read-only notice is redundant (and its CTA has been
                 folded into the lock banner). Only render it for the
                 non-locked read-only cases. */}
-            {readOnly && !isLocked && !canAuthor && (
+            {/* objectui#12183 — under a wall the server rule is the reason,
+                not a missing permission: the capability does not admit a
+                tenant there. Shown on the create page too, whose Save the
+                wall withholds the same way. */}
+            {walledDeciding && (
+              <div
+                data-testid="walled-catalog-readonly-banner"
+                className="text-xs text-amber-800 border border-amber-300/70 bg-amber-50/70 rounded-md px-3 py-2.5 dark:text-amber-200 dark:border-amber-700/40 dark:bg-amber-950/20 flex items-start gap-2"
+              >
+                <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  {tFormat('engine.catalog.readOnly.walled', locale, {
+                    type: translateMetadataType(type, locale, entry?.label ?? type),
+                  })}
+                </span>
+              </div>
+            )}
+            {readOnly && !isLocked && !canAuthor && !walledDeciding && (
               <div
                 data-testid="capability-readonly-banner"
                 className="text-xs text-amber-800 border border-amber-300/70 bg-amber-50/70 rounded-md px-3 py-2.5 dark:text-amber-200 dark:border-amber-700/40 dark:bg-amber-950/20 flex items-start gap-2"
@@ -2546,7 +2583,7 @@ function MetadataResourceEditPageImpl({
                 <span>{t('engine.edit.capabilityReadOnly', locale)}</span>
               </div>
             )}
-            {readOnly && !isLocked && canAuthor && (
+            {readOnly && !isLocked && canAuthor && !walledDeciding && (
               <div data-testid="readonly-banner" className="text-xs text-amber-800 border border-amber-300/70 bg-amber-50/70 rounded-md px-3 py-2.5 dark:text-amber-200 dark:border-amber-700/40 dark:bg-amber-950/20 flex items-start gap-3">
                 <div className="flex-1">
                   {showArtifactLockedBanner ? (
@@ -3173,7 +3210,10 @@ function MetadataResourceEditPageImpl({
                 name={name}
                 client={client}
                 locale={locale}
-                onRollback={() => setReloadKey((k) => k + 1)}
+                // The rollback door asks the capability and wall verdicts the
+                // save door asks, so it is offered on Save's gate
+                // (objectui#12183: a walled tenant was offered it, refused).
+                onRollback={canWrite ? () => setReloadKey((k) => k + 1) : undefined}
                 rollbackLabel={t('engine.edit.rollback', locale)}
                 rollbackConfirm={(version) =>
                   t('engine.edit.rollbackConfirm', locale).replace(

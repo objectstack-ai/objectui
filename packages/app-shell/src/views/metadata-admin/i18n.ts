@@ -2501,6 +2501,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.readOnly': 'Read-only (this metadata type has no runtime write channel)',
   'perm.readOnly.hint':
     'The metadata-type registry declares both allowEnvironmentOverlay and allowRuntimeCreate false for this type, so the platform accepts no runtime write for it. Edit the source artifact and redeploy, or ask an operator for the documented OS_METADATA_WRITABLE escape hatch, which opens only the sets no package ships, never a set a package ships.',
+  // objectui#12183 — the WALL, a third reason: under `isolated` / `group` the
+  // security catalog is the platform operator's, and the doors refuse a
+  // tenant's write of a set whatever it holds. Its hint is the catalog's own
+  // walled sentence, `engine.catalog.readOnly.walled`.
+  'perm.readOnly.walled': 'Read-only (the platform operator defines this catalog)',
   // objectui#4518 — the ARTIFACT tier, the server's SECOND refusal. Distinct
   // from `perm.readOnly` above on purpose: the TYPE does have a runtime write
   // channel here (a brand-new set authored on this screen saves fine), so
@@ -5778,6 +5783,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // objectui#4518 —见 EN 表同键注释：这是服务端的第二道闸门（artifact 层），
   // 与上面的「类型没有写入通道」是两回事：该类型有运行时写入通道，被锁的是「这一个」
   // 由代码包提供的权限集。
+  'perm.readOnly.walled': '只读（此目录由平台运营方定义）',
   'perm.readOnly.artifact': '只读（该权限集由代码包提供）',
   // objectui#5987 — 见 EN 表同键注释：裁定的路径（克隆后自定义）放在最前。
   'perm.readOnly.artifact.hint':

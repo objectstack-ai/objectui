@@ -498,6 +498,17 @@ family for them: it uses the same metadata-admin list and editors at
   the operator defines them in Studio. In both cases the organization assigns
   them. The editors apply the caller gate in every scope, because the metadata
   door refuses that caller's save in every scope.
+  Under a wall (`isolated` or `group`) the catalog is the platform operator's
+  (objectstack ADR-0131 D3), and the server refuses anyone else's write of a
+  position, permission set or capability, `manage_metadata` included. So for a
+  caller who is not the operator, the list offers no create affordance and no
+  live active switch, and the editors offer no Save, Clone or rollback. The page
+  states that rule rather than a missing capability. The gate is
+  `walledCatalogReadOnly` in `catalog-scope.ts`. It reads the posture
+  (`features.tenancyPosture`) and the session's `isPlatformAdmin`, which is the
+  server's own `PLATFORM_ADMIN` rung. It applies in every scope, because the
+  server refuses a package-door draft of a catalog item the same way. Assigning
+  holders stays writable.
 - **The Setup half of an item.** It renders under the definition: a permission
   set's holders (`AssignedUsersSection`), and a position's holders
   (`PositionHoldersSection`). Both read and write assignment rows by the

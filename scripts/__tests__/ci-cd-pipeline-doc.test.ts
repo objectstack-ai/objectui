@@ -3568,6 +3568,13 @@ const SWEEP_DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
       'either.',
   ],
   [
+    'docs-deploy.yml: turbo run build',
+    'The job really runs it, but not in a `run:` step. `vercel build` runs it as the ' +
+      '`buildCommand` of `apps/site/vercel.json`, so the parser cannot see it on the workflow ' +
+      "side. The section names it to say the deploy builds exactly what `ci.yml`'s Build Docs " +
+      'job builds (objectui#12178).',
+  ],
+  [
     'docs-route-eager-closure.yml: scripts/dependabot-merge-gate.mjs',
     'Named as the registry whose `REQUIRED_CONTEXTS` declares this context blocking — the ' +
       'declaration, not a command.',

@@ -56,6 +56,7 @@ one has its own section below.
 | `changelog.yml` | Auto Changelog | Manual dispatch only — nothing triggers it automatically | n/a |
 | `shadcn-check.yml` | Check Shadcn Components | Weekly cron `0 9 * * 1`; manual | n/a |
 | `check-links.yml` | Check Links | Weekly cron `17 4 * * 0`; manual | n/a — reports, never gates |
+| `docs-deploy.yml` | Docs Deploy | 6-hourly cron `43 5,11,17,23 * * *`; manual | n/a — it deploys objectui.org and gates nothing. It goes **red** whenever the docs did not ship |
 | `published-dist-gate.yml` | Published Dist Tooling Scan | Nightly cron `41 3 * * *`; push to `main` touching the gate; manual | No — the blocking copy runs on the publish path, not here |
 | `spec-range-floors.yml` | Spec Range Floor Scan | Nightly cron `11 4 * * *`; push to `main` touching the gate; manual | No — the blocking copy runs on the publish path, not here |
 | `node-esm-load-gate.yml` | Node ESM Load Scan | Nightly cron `17 4 * * *`; push to `main` touching the gate; manual | No — the per-PR half is `pnpm check:esm-specifiers` in **Type Check** |
@@ -2654,6 +2655,35 @@ What follows for readers: the root `CHANGELOG.md` is a **periodically hand-curat
 an auto-maintained full history. The per-package `CHANGELOG.md` files that Changesets writes on
 each release commit are the source of truth for granular and current history.
 
+### Docs Deploy (`docs-deploy.yml`)
+
+**Trigger:** a 6-hourly cron (`43 5,11,17,23 * * *`) and manual dispatch. It has no `push` or
+pull-request leg.
+
+This workflow is the only way the docs site (`apps/site`, served at objectui.org) reaches
+production. It builds the site on a GitHub-hosted runner and uploads the result to the Vercel
+project as a prebuilt production deployment, using `vercel pull`, then `vercel build --prod`, then
+`vercel deploy --prebuilt --prod`. The CLI version is pinned in the workflow's
+`VERCEL_CLI_VERSION`. All three commands run from the repository root, because the Vercel
+project's Root Directory is `apps/site`. `apps/site/vercel.json` turns Vercel's Git-triggered
+deployments off (`git.deploymentEnabled: false`), so Vercel builds nothing when a branch is
+pushed. The same file holds the build command, `pnpm turbo run build --filter=@object-ui/site`
+run from the repository root, which is exactly what `ci.yml`'s **Build Docs** job runs. So a green
+**Build Docs** on `main` predicts a green build here.
+
+**Why it exists:** [#12178](https://github.com/objectstack-ai/objectui/issues/12178). Vercel build
+minutes were nearly the whole Vercel bill, and every production build from 2026-09-06 until that
+issue was fixed failed. Runners on this public repository cost nothing.
+
+**Freshness:** the published docs can be up to six hours behind `main`. To publish right away, use
+**Run workflow** on the workflow's Actions page (or `gh workflow run docs-deploy.yml --ref main`).
+
+**Failure direction:** a missing `VERCEL_TOKEN`, a run on any ref other than `main`, a failed build
+or a failed upload all turn the run **red** with an `::error::` that says which one. None of them
+is ever a skipped green, because a silent skip would stop the docs updating with nothing to show
+for it. `VERCEL_TOKEN` is given only to the `pull` and `deploy` steps. The build step runs the
+workspace install and build, including dependencies' install scripts, without it.
+
 ## Repository Maintenance
 
 ### Auto-Labeler (`labeler.yml`)
@@ -3291,6 +3321,7 @@ on:
 | `GITHUB_TOKEN` | All workflows | GitHub API access (automatic) |
 | `NPM_TOKEN` | `changeset-release.yml` | npm package publishing |
 | `CROSS_REPO_ISSUE_TOKEN` | `cross-repo-issue-closer.yml` | Closing issues in sibling repositories. `GITHUB_TOKEN` cannot do this — it is scoped to the repository running the workflow. When absent the workflow reports instead of closing. |
+| `VERCEL_TOKEN` | `docs-deploy.yml` | Vercel API token for the Object Stack team, used by `vercel pull` and `vercel deploy`. It is stored as an **organization** secret. If it is missing, the run fails red. |
 | `TURBO_TOKEN` | Build workflows | Turbo remote cache authentication |
 | `TURBO_TEAM` | Build workflows | Turbo remote cache team identifier |
 

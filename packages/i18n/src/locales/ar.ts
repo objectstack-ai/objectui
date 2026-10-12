@@ -2133,8 +2133,7 @@ const ar = {
       },
     },
     title: "وحدة تحكم ObjectStack",
-    initializing: "جارٍ تهيئة التطبيق…",
-    loadingHint: "قد يستغرق إعداد بيئة جديدة بعض الوقت.",
+    initializing: "جارٍ فتح وحدة التحكم…",
     breadcrumb: {
       dashboards: "لوحات المعلومات",
       pages: "الصفحات",
@@ -2184,11 +2183,6 @@ const ar = {
       decline: "الإبقاء على الافتراضي",
       confirm: "تعيين المنطقة الزمنية",
       saved: "تم تعيين المنطقة الزمنية لمساحة العمل إلى {{zone}}",
-    },
-    loadingSteps: {
-      connecting: "جارٍ الاتصال بمصدر البيانات",
-      loadingConfig: "جارٍ تحميل الإعدادات",
-      preparingWorkspace: "جارٍ تجهيز مساحة العمل",
     },
     error: {
       connectionFailed: "تعذّر الاتصال بالخادم",

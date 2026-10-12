@@ -2049,8 +2049,7 @@ const ru = {
       },
     },
     title: "Консоль ObjectStack",
-    initializing: "Инициализация приложения…",
-    loadingHint: "Настройка нового окружения может занять некоторое время.",
+    initializing: "Открытие консоли…",
     breadcrumb: {
       dashboards: "Панели",
       pages: "Страницы",
@@ -2098,11 +2097,6 @@ const ru = {
       decline: "Оставить по умолчанию",
       confirm: "Задать часовой пояс",
       saved: "Часовой пояс рабочего пространства: {{zone}}",
-    },
-    loadingSteps: {
-      connecting: "Подключение к источнику данных",
-      loadingConfig: "Загрузка конфигурации",
-      preparingWorkspace: "Подготовка рабочего пространства",
     },
     error: {
       connectionFailed: "Не удаётся подключиться к серверу",

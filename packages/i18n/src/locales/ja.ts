@@ -1950,8 +1950,7 @@ const ja = {
       },
     },
     title: "ObjectStack コンソール",
-    initializing: "アプリケーションを初期化中…",
-    loadingHint: "新しい環境のセットアップには少し時間がかかることがあります。",
+    initializing: "コンソールを開いています…",
     breadcrumb: {
       dashboards: "ダッシュボード",
       pages: "ページ",
@@ -1997,11 +1996,6 @@ const ja = {
       decline: "既定のままにする",
       confirm: "タイムゾーンを設定",
       saved: "ワークスペースのタイムゾーンを {{zone}} に設定しました",
-    },
-    loadingSteps: {
-      connecting: "データソースに接続中",
-      loadingConfig: "設定を読み込み中",
-      preparingWorkspace: "ワークスペースを準備中",
     },
     error: {
       connectionFailed: "サーバーに接続できません",

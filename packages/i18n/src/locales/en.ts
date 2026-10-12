@@ -2008,7 +2008,7 @@ const en = {
     savedViewsRefused: 'The server refused this request, so this list is empty because it could not be read — not because this object has no saved views. Sign in again, or ask an administrator for access.',
     savedViewsUnreadable: 'This list is empty because it could not be read, not because this object has no saved views. Try again, and report this if it keeps happening.',
     title: 'ObjectOS',
-    initializing: 'Initializing application…',
+    initializing: 'Opening your console…',
     search: 'Search…',
     breadcrumb: {
       dashboards: 'Dashboards',
@@ -2111,12 +2111,6 @@ const en = {
       confirm: 'Set timezone',
       saved: 'Workspace timezone set to {{zone}}',
     },
-    loadingSteps: {
-      connecting: 'Connecting to data source',
-      loadingConfig: 'Loading configuration',
-      preparingWorkspace: 'Preparing workspace',
-    },
-    loadingHint: 'Setting up a new environment can take a few moments.',
     error: {
       connectionFailed: 'Cannot connect to server',
       serverUnreachable: 'The server at {{url}} is unreachable.',

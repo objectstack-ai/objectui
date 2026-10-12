@@ -1994,8 +1994,7 @@ const es = {
       },
     },
     title: "Consola ObjectStack",
-    initializing: "Inicializando aplicación…",
-    loadingHint: "Configurar un entorno nuevo puede tardar unos momentos.",
+    initializing: "Abriendo su consola…",
     breadcrumb: {
       dashboards: "Paneles",
       pages: "Páginas",
@@ -2042,11 +2041,6 @@ const es = {
       decline: "Mantener la predeterminada",
       confirm: "Configurar zona horaria",
       saved: "Zona horaria del espacio de trabajo configurada en {{zone}}",
-    },
-    loadingSteps: {
-      connecting: "Conectando a la fuente de datos",
-      loadingConfig: "Cargando configuración",
-      preparingWorkspace: "Preparando espacio de trabajo",
     },
     error: {
       connectionFailed: "No se puede conectar al servidor",

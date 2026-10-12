@@ -64,13 +64,12 @@ describe('RedirectWithSplash', () => {
       </MemoryRouter>,
     );
 
-    // The real `LoadingScreen`, not a marker: its product name, its status line
-    // and its step list are exactly what the gate one state earlier was already
-    // painting, and the point of the fix is that those pixels do not change
-    // across the handoff.
+    // The real `LoadingScreen`, not a marker: its product name and its status
+    // line are exactly what the gate one state earlier was already painting,
+    // and the point of the fix is that those pixels do not change across the
+    // handoff.
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('ObjectOS');
-    expect(screen.getByText('Initializing application…')).toBeTruthy();
-    expect(screen.getByText('Connecting to data source')).toBeTruthy();
+    expect(screen.getByText('Opening your console…')).toBeTruthy();
 
     // ...and it is the full-viewport splash root, so nothing shows through
     // around it. Class names, not computed style — jsdom resolves no Tailwind

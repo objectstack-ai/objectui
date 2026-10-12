@@ -86,7 +86,7 @@ test.describe('Console App – Smoke', () => {
    * Until objectui#4086 this test listed only the first two destinations, and
    * the boot splash it named is on screen for roughly 35 ms — measured against
    * this same production bundle at 30 ms polling granularity: blank until
-   * ~70 ms, the "Initializing application…" splash from ~70 ms, replaced by the
+   * ~70 ms, the boot splash (then "Initializing application…") from ~70 ms, replaced by the
    * sign-in screen from ~105 ms and never returning. So the assertion could
    * only ever pass by catching that window. On a runner where Playwright's
    * first poll landed after it, the expectation was ALREADY unsatisfiable and

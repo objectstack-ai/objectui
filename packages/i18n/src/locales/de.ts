@@ -1948,8 +1948,7 @@ const de = {
       },
     },
     title: "ObjectStack Konsole",
-    initializing: "Anwendung wird initialisiert…",
-    loadingHint: "Die Einrichtung einer neuen Umgebung kann einen Moment dauern.",
+    initializing: "Ihre Konsole wird geöffnet…",
     breadcrumb: {
       dashboards: "Dashboards",
       pages: "Seiten",
@@ -1995,11 +1994,6 @@ const de = {
       decline: "Standard beibehalten",
       confirm: "Zeitzone festlegen",
       saved: "Zeitzone des Workspace auf {{zone}} festgelegt",
-    },
-    loadingSteps: {
-      connecting: "Verbindung zur Datenquelle herstellen",
-      loadingConfig: "Konfiguration laden",
-      preparingWorkspace: "Arbeitsbereich vorbereiten",
     },
     error: {
       connectionFailed: "Verbindung zum Server nicht möglich",

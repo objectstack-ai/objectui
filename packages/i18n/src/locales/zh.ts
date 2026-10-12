@@ -1707,7 +1707,7 @@ const zh = {
     savedViewsRefused: "服务器拒绝了此请求，因此该列表为空是因为读取失败，而不是因为该对象没有已保存的视图。请重新登录，或联系管理员申请访问权限。",
     savedViewsUnreadable: "该列表为空是因为读取失败，而不是因为该对象没有已保存的视图。请重试；如果反复出现，请反馈此问题。",
     title: 'ObjectStack 控制台',
-    initializing: '正在初始化应用程序…',
+    initializing: '正在打开你的控制台…',
     search: '搜索…',
     breadcrumb: {
       dashboards: '仪表盘',
@@ -1792,12 +1792,6 @@ const zh = {
       confirm: '设置时区',
       saved: '工作区时区已设置为 {{zone}}',
     },
-    loadingSteps: {
-      connecting: '正在连接数据源',
-      loadingConfig: '正在加载配置',
-      preparingWorkspace: '正在准备工作区',
-    },
-    loadingHint: '初始化新环境可能需要几秒钟。',
     error: {
       connectionFailed: '无法连接到服务器',
       serverUnreachable: '无法访问服务器 {{url}}。',

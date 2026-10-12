@@ -12,7 +12,8 @@
  *   viewer the top bar offers its Studio button to, 「Edit APP in Studio」 to
  *   the button's own target.
  *
- * Real subjects: `AppSwitcher`, `AppMark` and its colour derivation, the real
+ * Real subjects: `AppSwitcher`, `AppMark` and its colour derivation
+ * (`appTileColors`), the real
  * route matching and the real `useHomePath`. The dropdown primitives pass
  * through so the menu CONTENT renders without radix's open/close machinery —
  * the idiom of `AppSwitcher.publishState.test.tsx`.
@@ -22,23 +23,26 @@ import '@testing-library/jest-dom/vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import type { ReactNode } from 'react';
+
+type MockProps = Record<string, unknown> & { children?: ReactNode; onClick?: () => void; className?: string };
 
 vi.mock('@object-ui/components', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  DropdownMenu: (p: any) => <div>{p.children}</div>,
-  DropdownMenuTrigger: (p: any) => <div data-testid="app-switcher-trigger-slot">{p.children}</div>,
-  DropdownMenuContent: (p: any) => <div data-testid="app-switcher-menu">{p.children}</div>,
-  DropdownMenuItem: ({ onClick, children, asChild: _asChild, className: _c, ...rest }: any) => (
+  DropdownMenu: (p: MockProps) => <div>{p.children}</div>,
+  DropdownMenuTrigger: (p: MockProps) => <div data-testid="app-switcher-trigger-slot">{p.children}</div>,
+  DropdownMenuContent: (p: MockProps) => <div data-testid="app-switcher-menu">{p.children}</div>,
+  DropdownMenuItem: ({ onClick, children, asChild: _asChild, className: _c, ...rest }: MockProps) => (
     <div data-menu-row="" onClick={onClick} {...rest}>{children}</div>
   ),
-  DropdownMenuLabel: (p: any) => <div {...p} />,
+  DropdownMenuLabel: (p: MockProps) => <div {...p} />,
   DropdownMenuSeparator: () => <hr />,
 }));
 // `getIcon` wraps lucide's DynamicIcon (a per-icon dynamic import); stub it so
 // no unbounded module load races the assertions. The stub names the icon it
 // was asked for, so the tile can be read for WHICH glyph it drew.
 vi.mock('../../utils/getIcon', () => ({
-  getIcon: (name?: string) => (p: any) => <svg data-icon={name ?? '(none)'} className={p.className} />,
+  getIcon: (name?: string) => (p: MockProps) => <svg data-icon={name ?? '(none)'} className={p.className} />,
 }));
 
 vi.mock('@object-ui/i18n', async () => {
@@ -61,7 +65,7 @@ vi.mock('../../providers/MetadataProvider', () => ({
 }));
 
 import { AppSwitcher } from '../AppSwitcher';
-import { appTileColors } from '../AppMark';
+import { appTileColors } from '../appTileColors';
 
 const LOGO = 'https://cdn.example.test/hotcrm-icon.svg';
 const HOTCRM = { name: 'hotcrm', label: 'HotCRM', icon: 'flame', branding: { logo: LOGO, primaryColor: '#ea580c' } };

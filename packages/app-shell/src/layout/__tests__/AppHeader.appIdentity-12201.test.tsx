@@ -35,7 +35,9 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({}),
   useNavigate: () => vi.fn(),
   useSearchParams: () => [new URLSearchParams(), vi.fn()] as const,
-  Link: ({ children, to, ...p }: any) => <a href={String(to)} {...p}>{children}</a>,
+  Link: ({ children, to, ...p }: Record<string, unknown> & { children?: React.ReactNode }) => (
+    <a href={String(to)} {...p}>{children}</a>
+  ),
 }));
 
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
@@ -61,14 +63,13 @@ vi.mock('@object-ui/i18n', async (importOriginal) => ({
 
 vi.mock('@object-ui/components', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
-  const strip = (p: any) => {
-    const { asChild, variant, size, align, sideOffset, ...rest } = p ?? {};
-    return rest;
-  };
-  const Pass = ({ children, ...p }: any) => <div {...strip(p)}>{children}</div>;
+  type Props = Record<string, unknown> & { children?: React.ReactNode };
+  const Pass = ({ children, asChild: _a, variant: _v, size: _s, align: _al, sideOffset: _so, ...rest }: Props) => (
+    <div {...rest}>{children}</div>
+  );
   return {
     ...actual,
-    Button: ({ children, asChild, variant, size, ...p }: any) =>
+    Button: ({ children, asChild, variant, size, ...p }: Props) =>
       asChild ? (
         <span data-variant={variant} data-size={size} {...p}>{children}</span>
       ) : (

@@ -97,7 +97,7 @@ function WritabilityBadge({
     );
   }
 
-  if (entry?.allowOrgOverride) {
+  if (entry?.allowEnvironmentOverlay) {
     return (
       <Badge
         className={
@@ -108,7 +108,7 @@ function WritabilityBadge({
         }
         title={
           entry.overrideSource === 'env'
-            ? 'Writable via OBJECTSTACK_METADATA_WRITABLE env var'
+            ? 'Writable via the OS_METADATA_WRITABLE env var: it opens the items no package ships, never an item a package ships'
             : 'Writable per ADR-0005 overlay opt-in'
         }
       >

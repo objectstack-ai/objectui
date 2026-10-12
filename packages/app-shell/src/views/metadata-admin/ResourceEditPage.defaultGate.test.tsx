@@ -60,7 +60,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
     ...mod,
     useMetadataClient: () => mockClient,
     useMetadataTypes: () => ({
-      entries: [{ type: 'view', name: 'view', label: 'View', allowOrgOverride: true }],
+      entries: [{ type: 'view', name: 'view', label: 'View', allowEnvironmentOverlay: true }],
     }),
   };
 });

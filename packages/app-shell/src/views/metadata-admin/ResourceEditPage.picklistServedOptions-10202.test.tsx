@@ -70,7 +70,7 @@ const OBJECT_ENTRY = {
   type: 'object',
   name: 'object',
   label: 'Object',
-  allowOrgOverride: true,
+  allowEnvironmentOverlay: true,
   schema: { type: 'object', properties: { label: { type: 'string', title: 'Label' } } },
 };
 

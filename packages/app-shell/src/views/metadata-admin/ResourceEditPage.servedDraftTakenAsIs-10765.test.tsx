@@ -173,8 +173,8 @@ vi.mock('./useMetadata', async (importOriginal) => {
     useMetadataClient: () => mockClient,
     useMetadataTypes: () => ({
       entries: [
-        { type: 'report', name: 'report', label: 'Report', allowOrgOverride: true, schema: { required: [] } },
-        { type: 'page', name: 'page', label: 'Page', allowOrgOverride: true, schema: { required: [] } },
+        { type: 'report', name: 'report', label: 'Report', allowEnvironmentOverlay: true, schema: { required: [] } },
+        { type: 'page', name: 'page', label: 'Page', allowEnvironmentOverlay: true, schema: { required: [] } },
       ],
     }),
   };

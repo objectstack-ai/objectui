@@ -78,7 +78,7 @@ const HOOK_ENTRY = {
   name: 'hook',
   label: 'Hook',
   // What makes the item writable, and therefore what makes an Edit button exist.
-  allowOrgOverride: true,
+  allowEnvironmentOverlay: true,
   schema: {
     type: 'object',
     properties: {

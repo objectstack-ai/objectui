@@ -150,7 +150,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
           type: 'page',
           name: 'page',
           label: 'Page',
-          allowOrgOverride: true,
+          allowEnvironmentOverlay: true,
           // The most lenient server schema there can be — so nothing below is
           // an artefact of the client's own Zod pass finding something.
           schema: { required: [] },

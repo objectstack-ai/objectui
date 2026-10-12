@@ -42,8 +42,8 @@ vi.mock('./useMetadata', async (importOriginal) => {
       loading: false,
       error: null,
       entries: [
-        { type: 'position', name: 'position', label: 'Position', allowOrgOverride: false, allowRuntimeCreate: true, schema: SCHEMA },
-        { type: 'dashboard', name: 'dashboard', label: 'Dashboard', allowOrgOverride: false, allowRuntimeCreate: true, schema: SCHEMA },
+        { type: 'position', name: 'position', label: 'Position', allowEnvironmentOverlay: false, allowRuntimeCreate: true, schema: SCHEMA },
+        { type: 'dashboard', name: 'dashboard', label: 'Dashboard', allowEnvironmentOverlay: false, allowRuntimeCreate: true, schema: SCHEMA },
       ],
     }),
   };

@@ -126,7 +126,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
           type: 'page',
           name: 'page',
           label: 'Page',
-          allowOrgOverride: true,
+          allowEnvironmentOverlay: true,
           // The most lenient live server there can be. It is handed to the
           // cross-repo spec-skew cure, which only drops TOP-LEVEL absent
           // required fields — it structurally cannot suppress an

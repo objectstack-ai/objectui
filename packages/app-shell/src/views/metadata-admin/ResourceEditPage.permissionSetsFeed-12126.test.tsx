@@ -90,7 +90,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
           type: 'position',
           name: 'position',
           label: 'Position',
-          allowOrgOverride: false,
+          allowEnvironmentOverlay: false,
           allowRuntimeCreate: true,
           schema: SCHEMA,
           form: form.current,

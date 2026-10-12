@@ -103,7 +103,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
           type: 'page',
           name: 'page',
           label: 'Page',
-          allowOrgOverride: true,
+          allowEnvironmentOverlay: true,
           // The live server schema handed to the skew root-cure. `required: []`
           // is the most lenient server there can be; it still cannot suppress
           // an `unrecognized_keys` issue, whose path is empty.

@@ -108,7 +108,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
     useMetadataTypes: () => ({
       loading: false,
       entries: [
-        { type: 'doc', label: 'Documentation', domain: 'system', allowOrgOverride: false, allowRuntimeCreate: true, schema: DOC_JSON_SCHEMA },
+        { type: 'doc', label: 'Documentation', domain: 'system', allowEnvironmentOverlay: false, allowRuntimeCreate: true, schema: DOC_JSON_SCHEMA },
       ],
     }),
   };

@@ -18,7 +18,7 @@
  *      `}`
  *
  * The method's own doc states the split: "overlaying a packaged item" (requires
- * `allowOrgOverride`) vs "authoring a DB-only item" (requires only
+ * `allowEnvironmentOverlay`) vs "authoring a DB-only item" (requires only
  * `allowRuntimeCreate`). `permission` sits exactly in the gap — `false` /
  * `true` — so after #4446 opened the type tier, an environment-scope edit of a
  * CODE-DECLARED set rendered 207 live checkboxes and a Save button that failed
@@ -97,8 +97,8 @@ function makeClient() {
 
 // The stock-boot `permission` shape (objectstack#6483) unless a case says
 // otherwise: no per-org overlay, but runtime authoring is open.
-let typeFlags: { allowOrgOverride?: boolean; allowRuntimeCreate?: boolean } = {
-  allowOrgOverride: false,
+let typeFlags: { allowEnvironmentOverlay?: boolean; allowRuntimeCreate?: boolean } = {
+  allowEnvironmentOverlay: false,
   allowRuntimeCreate: true,
 };
 let clientImpl: any;
@@ -118,7 +118,7 @@ afterEach(() => {
   cleanup();
   codeLayer = null;
   provenance = undefined;
-  typeFlags = { allowOrgOverride: false, allowRuntimeCreate: true };
+  typeFlags = { allowEnvironmentOverlay: false, allowRuntimeCreate: true };
 });
 
 async function renderMatrix(props?: { packageId?: string; readOnly?: boolean }) {
@@ -151,7 +151,7 @@ const TYPE_CAPTION = /no runtime write channel/;
 describe('PermissionMatrixEditPage — the ARTIFACT tier locks an env-scope overlay (#4518)', () => {
   /**
    * RED-FIRST. Environment scope (no `packageId`) + a set a code package ships
-   * + `allowOrgOverride: false`. The server answers this write with
+   * + `allowEnvironmentOverlay: false`. The server answers this write with
    * 403 `not_overridable`; pre-fix the editor offered Save anyway.
    */
   it('code-declared set at environment scope is READ-ONLY — the server refuses this write', async () => {
@@ -184,11 +184,16 @@ describe('PermissionMatrixEditPage — the ARTIFACT tier locks an env-scope over
     // NOT the package wording either — no read-only PACKAGE is involved.
     expect(screen.queryByText('Read-only', { exact: true })).toBeNull();
 
-    // The hint carries the server's own reason and its own documented remedy,
-    // the same place the 403 text puts it.
-    expect(badge).toHaveAttribute('title', expect.stringContaining('allowOrgOverride'));
+    // The hint carries the server's own reason, the same place the 403 text
+    // puts it. It names the env hatch only to say the hatch does not open a set
+    // a package ships (ADR-0131 D6, objectui#12141): offered as a remedy here,
+    // it would send the operator to a door the server keeps shut.
+    expect(badge).toHaveAttribute('title', expect.stringContaining('allowEnvironmentOverlay'));
     expect(badge).toHaveAttribute('title', expect.stringContaining('not_overridable'));
-    expect(badge).toHaveAttribute('title', expect.stringContaining('OS_METADATA_WRITABLE'));
+    expect(badge).toHaveAttribute(
+      'title',
+      expect.stringContaining('OS_METADATA_WRITABLE escape hatch does not open a set a package ships'),
+    );
     // …and never in the label (objectui#4446's rule for this badge slot).
     expect(screen.queryByText(/OS_METADATA_WRITABLE/)).toBeNull();
   });
@@ -210,10 +215,10 @@ describe('PermissionMatrixEditPage — the ARTIFACT tier locks an env-scope over
   });
 
   it('an overlay-allowed type is still writable even when code-declared', async () => {
-    // `allowOrgOverride: true` IS permission to overlay a packaged item — the
+    // `allowEnvironmentOverlay: true` IS permission to overlay a packaged item — the
     // artifact tier's own condition (`artifactBacked && !overlayAllowed`) is
     // then false and the server accepts the write.
-    typeFlags = { allowOrgOverride: true, allowRuntimeCreate: false };
+    typeFlags = { allowEnvironmentOverlay: true, allowRuntimeCreate: false };
     codeLayer = { _packageId: 'com.example.showcase' };
     await renderMatrix();
 
@@ -226,7 +231,7 @@ describe('PermissionMatrixEditPage — the ARTIFACT tier locks an env-scope over
     // The server reaches `!overlayAllowed && !runtimeCreateAllowed` FIRST, and
     // "this type accepts no runtime write at all" is the honest reason; the
     // artifact tier is only the DECIDING gate where the type tier said yes.
-    typeFlags = { allowOrgOverride: false, allowRuntimeCreate: false };
+    typeFlags = { allowEnvironmentOverlay: false, allowRuntimeCreate: false };
     codeLayer = { _packageId: 'com.example.showcase' };
     await renderMatrix();
 
@@ -365,7 +370,7 @@ describe('PermissionMatrixEditPage — the artifact verdict asks ADR-0010 proven
    * RED on the sentinel-only predicate. The rehydration shape: the served
    * `code` layer carries a real package id, and only `provenance` says the
    * tenant authored it. The sentinel-only predicate called this an artifact,
-   * and `permission`'s `allowOrgOverride: false` then locked the whole matrix.
+   * and `permission`'s `allowEnvironmentOverlay: false` then locked the whole matrix.
    */
   it("a tenant's own set rehydrated under a REAL package id (provenance 'org') is EDITABLE", async () => {
     codeLayer = { _packageId: 'com.example.showcase', name: 'showcase_contributor' };
@@ -393,7 +398,7 @@ describe('PermissionMatrixEditPage — the artifact verdict asks ADR-0010 proven
   });
 
   it("a code-declared set (provenance 'package') is writable only where the type allows overlay", async () => {
-    typeFlags = { allowOrgOverride: true, allowRuntimeCreate: false };
+    typeFlags = { allowEnvironmentOverlay: true, allowRuntimeCreate: false };
     codeLayer = { _packageId: 'com.example.showcase', name: 'showcase_contributor' };
     provenance = 'package';
     await renderMatrix();

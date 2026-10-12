@@ -70,7 +70,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
           type: 'view',
           label: 'View',
           domain: 'ui',
-          allowOrgOverride: true,
+          allowEnvironmentOverlay: true,
           allowRuntimeCreate: true,
           schema: servedSchema,
           form: METADATA_FORM_REGISTRY.view,

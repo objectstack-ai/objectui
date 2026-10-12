@@ -5,7 +5,7 @@
  * resource route (ruling 6006062645 item (c)).
  *
  * The kind is package-owned: its `/meta/types` row declares
- * `allowRuntimeCreate: false` and `allowOrgOverride: false`, and the layered
+ * `allowRuntimeCreate: false` and `allowEnvironmentOverlay: false`, and the layered
  * read of a packaged list answers `lock: 'full'`, `editable: false`,
  * `deletable: false` (all measured on objectstack `main`). The generic list and
  * edit pages already honour that row, so this card adds no read-only mechanism
@@ -28,7 +28,7 @@ const PICKLIST_ENTRY = {
   label: 'Picklist',
   description: 'Shared option list that select fields reference by name',
   supportsOverlay: false,
-  allowOrgOverride: false,
+  allowEnvironmentOverlay: false,
   allowRuntimeCreate: false,
   supportsVersioning: false,
   domain: 'data',

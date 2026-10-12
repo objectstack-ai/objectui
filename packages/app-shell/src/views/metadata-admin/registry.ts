@@ -459,9 +459,9 @@ export function resolveResourceConfig(
     label?: string;
     description?: string;
     domain?: string;
-    allowOrgOverride?: boolean;
+    allowEnvironmentOverlay?: boolean;
   },
-): MetadataResourceConfig & { allowOrgOverride?: boolean } {
+): MetadataResourceConfig & { allowEnvironmentOverlay?: boolean } {
   const registered = REGISTRY.get(type) ?? { type };
   return {
     ...registered,
@@ -469,7 +469,7 @@ export function resolveResourceConfig(
     label: registered.label ?? serverEntry?.label ?? type,
     description: registered.description ?? serverEntry?.description,
     domain: (registered.domain ?? (serverEntry?.domain as MetadataDomain) ?? 'other'),
-    allowOrgOverride: serverEntry?.allowOrgOverride,
+    allowEnvironmentOverlay: serverEntry?.allowEnvironmentOverlay,
     defaultSchema: registered.defaultSchema,
   };
 }

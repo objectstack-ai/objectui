@@ -144,7 +144,7 @@ interface ObjectSummary {
  *      row under its REAL package id, so a tenant's own set reads back with a
  *      code-looking `_packageId`. With (1) alone this function called that set
  *      an artifact, and at the environment door — where `permission`'s
- *      `allowOrgOverride: false` then decides — the tenant's own matrix
+ *      `allowEnvironmentOverlay: false` then decides — the tenant's own matrix
  *      rendered read-only (objectui#4526). The framework fixed the same misread
  *      by asking provenance (`isTenantAuthored`, cloud#970), and the server's
  *      artifact lookup applies both exclusions.
@@ -262,7 +262,7 @@ export interface PermissionMatrixEditPageProps {
   /**
    * Host-level read-only gate — set by the Studio Access pillar when the
    * surrounding PACKAGE is read-only. Independent of the TYPE-level
-   * `allowOrgOverride` writability: either gate locks the matrix (checkboxes,
+   * `allowEnvironmentOverlay` writability: either gate locks the matrix (checkboxes,
    * bulk buttons, name/label, facets), hides Save, and shows the read-only
    * badge — the badge hint names the package as the reason when this gate
    * is the one that tripped.
@@ -302,17 +302,17 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // governs it (objectui#4446, #4518):
   //
   //  • TYPE gate — the metadata type must offer SOME runtime write channel.
-  //    That is the DISJUNCTION `allowOrgOverride || allowRuntimeCreate`, not
-  //    `allowOrgOverride` alone: those are two different doors, and this
-  //    editor's Save goes through the second one. `allowOrgOverride` is
+  //    That is the DISJUNCTION `allowEnvironmentOverlay || allowRuntimeCreate`, not
+  //    `allowEnvironmentOverlay` alone: those are two different doors, and this
+  //    editor's Save goes through the second one. `allowEnvironmentOverlay` is
   //    permission to OVERLAY a code-shipped item per org; `allowRuntimeCreate`
   //    is permission to author an item at runtime — which is what a save under
   //    a `packageId` does (`mode: 'draft'` + `packageId`, ADR-0086 P0/P2).
   //    The server's own gate is that same disjunction: `saveMetaItem` and
   //    `promoteDraftForPublish` refuse only when BOTH are false
   //    (`!isOverlayAllowed && !isRuntimeCreateAllowed`, metadata-protocol
-  //    `protocol.ts`). Gating on `allowOrgOverride` alone therefore locked a
-  //    surface the server accepts: `permission` is `allowOrgOverride: false`
+  //    `protocol.ts`). Gating on `allowEnvironmentOverlay` alone therefore locked a
+  //    surface the server accepts: `permission` is `allowEnvironmentOverlay: false`
   //    (ADR-0005 forbids per-org overlay of a packaged permission set — silent
   //    privilege drift) but `allowRuntimeCreate: true`, and objectstack `ee58392e1`
   //    kept that second door open on purpose ("Runtime-created sets … ride
@@ -322,7 +322,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   //    when either flag is true" — DirectoryPage:171/175, EmbeddedItemEditor:93
   //    and ResourceEditPage:1332 all already read it that way. Read the raw
   //    server `entry` like they do; `resolveResourceConfig` forwards
-  //    `allowOrgOverride` ONLY, so a `resolved.allowRuntimeCreate` would be
+  //    `allowEnvironmentOverlay` ONLY, so a `resolved.allowRuntimeCreate` would be
   //    silently `undefined`.
   //
   //  • ARTIFACT gate — the server's SECOND tier, added by objectui#4518. See
@@ -348,9 +348,9 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   //     }
   //
   // So for an item a code package SHIPS, `allowRuntimeCreate` is not enough —
-  // overwriting it is an OVERLAY, and overlaying needs `allowOrgOverride`. The
+  // overwriting it is an OVERLAY, and overlaying needs `allowEnvironmentOverlay`. The
   // method's own doc states the split: "overlaying a packaged item" (requires
-  // `allowOrgOverride`) vs "authoring a DB-only item" (requires only
+  // `allowEnvironmentOverlay`) vs "authoring a DB-only item" (requires only
   // `allowRuntimeCreate`). `permission` sits exactly in the gap — `false` /
   // `true` — so without this tier the matrix offered live checkboxes and a Save
   // button that failed at the end with a 403 instead of a surface that explains
@@ -391,8 +391,8 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // environment topology on the client, i.e. the probe the ruling forbids.
   const artifactTierApplies = !packageId && codeIsArtifact;
   const canWriteByType = artifactTierApplies
-    ? !!entry?.allowOrgOverride
-    : !!(entry?.allowOrgOverride || entry?.allowRuntimeCreate);
+    ? !!entry?.allowEnvironmentOverlay
+    : !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
   // objectui#7611 — the fourth gate, the CALLER: the metadata door refuses a
   // save without `manage_metadata` (measured on objectstack main: 403 "Saving a
   // metadata item requires the `manage_metadata` capability."), and so does the
@@ -419,7 +419,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // no runtime write channel at all", which is also the refusal the server
   // reaches first (`!overlayAllowed && !runtimeCreateAllowed`).
   const lockedByArtifactTier =
-    artifactTierApplies && !entry?.allowOrgOverride && !!entry?.allowRuntimeCreate && canAuthor;
+    artifactTierApplies && !entry?.allowEnvironmentOverlay && !!entry?.allowRuntimeCreate && canAuthor;
   const locale = useMetadataLocale();
   const t = React.useCallback((k: string) => translate(k, locale), [locale]);
   const OBJECT_ACTIONS = React.useMemo(() => getObjectActions(locale), [locale]);
@@ -1125,7 +1125,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
       //
       // Still the HOST gate only, deliberately — `WritabilityBadge` reads the
       // type flags itself, and its own read-only condition (`readOnly ||
-      // (!allowOrgOverride && !allowRuntimeCreate)`) is now exactly `!writable`
+      // (!allowEnvironmentOverlay && !allowRuntimeCreate)`) is now exactly `!writable`
       // above. Passing `!writable` here instead would collapse that to one
       // input but make a TYPE-gate lock claim the PACKAGE as its reason, since
       // this branch's tooltip is `engine.studio.pkg.readonlyHint` — trading the
@@ -1335,13 +1335,13 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
               //    DOES have a runtime write channel — a brand-new set authored
               //    here saves fine — it is this PARTICULAR set that is packaged.
               //  • type gate — the metadata type offers no runtime write
-              //    channel at all (`allowOrgOverride` AND `allowRuntimeCreate`
+              //    channel at all (`allowEnvironmentOverlay` AND `allowRuntimeCreate`
               //    both false). It used to read "OS_METADATA_WRITABLE not
               //    enabled", which blamed a deployment env var for what is a
               //    per-type registry declaration. That wording had NO reachable
               //    honest case: `OS_METADATA_WRITABLE` does not sit beside
-              //    `allowOrgOverride`, it FLIPS it — `getMetaTypes` emits
-              //    `allowOrgOverride: base.allowOrgOverride || isEnvOverridden`
+              //    `allowEnvironmentOverlay`, it FLIPS it — `getMetaTypes` emits
+              //    `allowEnvironmentOverlay: base.allowEnvironmentOverlay || isEnvOverridden`
               //    — so whenever the hatch is on for this type the surface is
               //    writable and this badge does not render. The env var is a
               //    documented REMEDY (it appears in the server's own 403 text),

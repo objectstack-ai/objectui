@@ -69,7 +69,7 @@ vi.mock('./useMetadata', () => ({
   useMetadataTypes: () => ({
     loading: false,
     error: null,
-    entries: [{ type: 'permission', label: 'Permission', allowOrgOverride: false, allowRuntimeCreate: true }],
+    entries: [{ type: 'permission', label: 'Permission', allowEnvironmentOverlay: false, allowRuntimeCreate: true }],
   }),
 }));
 // The environment scope mounts who-holds-it under the definition; its reads are

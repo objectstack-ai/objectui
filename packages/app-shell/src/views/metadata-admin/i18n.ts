@@ -2051,8 +2051,14 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.combo.useCustom': 'Use {value}',
   'engine.edit.overlay': 'overlay',
   'engine.edit.readOnlyBanner': 'Viewing in read-only mode. Click {edit} to make changes.',
+  // objectui#12141 — `{flag}` renders `OS_METADATA_WRITABLE`, the one spelling
+  // the server reads. The sentence used to offer a second remedy, a registry
+  // flip of the type's overlay flag, and nobody can perform it: the registry is
+  // a TypeScript literal in `@objectstack/spec` that no deployment edits. The
+  // hatch is named with its reach (ADR-0131 D6): it opens the type's items that
+  // no package ships, and never an item a package ships.
   'engine.edit.readOnlyTypeBanner':
-    'This metadata type is read-only for safety: it ships executable code or sensitive configuration and cannot be overlaid at runtime. Edit the source in your package and redeploy. To override this lock (use with caution), set {flag} to include {type}, or flip {override} in the registry.',
+    'This metadata type is read-only for safety: it ships executable code or sensitive configuration and cannot be overlaid at runtime. Edit the source in your package and redeploy. An operator can set {flag} to include {type} (use with caution); that opens only the items of this type that no package ships, never an item a package ships.',
   'engine.edit.artifactLockedBanner':
     'This {type} is provided by an installed package, so it is read-only at runtime. To change it, edit it in its source package and republish — or create a new {type} from scratch.',
   'engine.badge.createOnly': 'create-only',
@@ -2489,11 +2495,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // objectui#4446 — names the gate that actually tripped. The old wording
   // ("OS_METADATA_WRITABLE not enabled") blamed a deployment env var for a
   // per-type registry declaration, and had no reachable honest case: the env
-  // var FLIPS `allowOrgOverride` to true, so whenever it is on for this type
+  // var FLIPS `allowEnvironmentOverlay` to true, so whenever it is on for this type
   // the surface is writable and this badge never renders.
   'perm.readOnly': 'Read-only (this metadata type has no runtime write channel)',
   'perm.readOnly.hint':
-    'The metadata-type registry declares both allowOrgOverride and allowRuntimeCreate false for this type, so the platform accepts no runtime write for it. Edit the source artifact and redeploy, or ask an operator for the documented OS_METADATA_WRITABLE escape hatch.',
+    'The metadata-type registry declares both allowEnvironmentOverlay and allowRuntimeCreate false for this type, so the platform accepts no runtime write for it. Edit the source artifact and redeploy, or ask an operator for the documented OS_METADATA_WRITABLE escape hatch, which opens only the sets no package ships, never a set a package ships.',
   // objectui#4518 — the ARTIFACT tier, the server's SECOND refusal. Distinct
   // from `perm.readOnly` above on purpose: the TYPE does have a runtime write
   // channel here (a brand-new set authored on this screen saves fine), so
@@ -2503,10 +2509,15 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.readOnly.artifact': 'Read-only (this set is provided by a code package)',
   // objectui#5987 — the ruled path comes FIRST (maintainer ruling of
   // 2026-08-24, objectstack `e170b0ae5`: lock the base, clone to customize). The remedies that
-  // used to lead ("edit the source artifact and redeploy", a new runtime set,
-  // the operator hatch) stay, as the secondary routes they are.
+  // used to lead ("edit the source artifact and redeploy", a new runtime set)
+  // stay, as the secondary routes they are.
+  // objectui#12141 — the operator hatch is no longer one of them. ADR-0131 D6
+  // seals what a managed package ships: `OS_METADATA_WRITABLE` opens a type's
+  // items that no package ships, and no door admits a write onto a packaged
+  // set on it. The hint names the hatch only to say so, as the server's own
+  // refusal sentence does.
   'perm.readOnly.artifact.hint':
-    'A code package ships this permission set, so it is locked here: an environment-scope edit would overlay a packaged item, and the metadata-type registry declares allowOrgOverride false for permission (ADR-0005 forbids per-org overlay of a packaged set: silent privilege drift). The server refuses the write with 403 not_overridable. Clone to customize: the copy is an ordinary permission set authored in this environment, under a new name, that you edit here, and upgrades keep flowing to this base. Other routes: edit the source artifact and redeploy, create a new runtime set, or ask an operator for the documented OS_METADATA_WRITABLE escape hatch.',
+    'A code package ships this permission set, so it is locked here: an environment-scope edit would overlay a packaged item, and the metadata-type registry declares allowEnvironmentOverlay false for permission (ADR-0005 forbids per-org overlay of a packaged set: silent privilege drift). The server refuses the write with 403 not_overridable. Clone to customize: the copy is an ordinary permission set authored in this environment, under a new name, that you edit here, and upgrades keep flowing to this base. Other routes: edit the source artifact and redeploy, or create a new runtime set. The OS_METADATA_WRITABLE escape hatch does not open a set a package ships (ADR-0131 D6).',
   // objectui#5987 — "Clone to customize", the locked editor's primary action.
   // objectui#7611 — it asks for a new name and label (`PermissionSetCloneDialog.tsx`)
   // and calls the server's clone door (`permission-set-clone.ts`), which copies
@@ -5345,7 +5356,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.edit.overlay': '覆盖',
   'engine.edit.readOnlyBanner': '当前为只读模式。点击 {edit} 进行修改。',
   'engine.edit.readOnlyTypeBanner':
-    '出于安全考虑，此元数据类型为只读：它包含可执行代码或敏感配置，不允许在运行时通过覆盖层修改。请编辑包内源代码后重新部署。如需临时解除限制（请谨慎使用），可将 {flag} 设置为包含 {type}，或在注册表中开启 {override}。',
+    '出于安全考虑，此元数据类型为只读：它包含可执行代码或敏感配置，不允许在运行时通过覆盖层修改。请编辑包内源代码后重新部署。运维可将 {flag} 设置为包含 {type}（请谨慎使用）；这只会开放该类型中不由任何包提供的条目，永远不会开放由包提供的条目。',
   'engine.edit.artifactLockedBanner':
     '此 {type} 来自已安装的包，因此在运行时为只读。如需修改，请在其所属包的源中编辑并重新发布——或从零新建一个 {type}。',
   'engine.badge.createOnly': '仅可新建',
@@ -5761,14 +5772,14 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // objectui#4446 — 见 EN 表同键注释：旧文案把「每类型注册表声明」说成「部署环境变量未启用」。
   'perm.readOnly': '只读（该元数据类型没有运行时写入通道）',
   'perm.readOnly.hint':
-    '元数据类型注册表对该类型声明 allowOrgOverride 与 allowRuntimeCreate 均为 false，平台不接受它的任何运行时写入。请修改源工件后重新部署，或由运维启用有文档记载的 OS_METADATA_WRITABLE 逃生阀。',
+    '元数据类型注册表对该类型声明 allowEnvironmentOverlay 与 allowRuntimeCreate 均为 false，平台不接受它的任何运行时写入。请修改源工件后重新部署，或由运维启用有文档记载的 OS_METADATA_WRITABLE 逃生阀；它只会开放不由任何包提供的权限集，永远不会开放由包提供的权限集。',
   // objectui#4518 —见 EN 表同键注释：这是服务端的第二道闸门（artifact 层），
   // 与上面的「类型没有写入通道」是两回事：该类型有运行时写入通道，被锁的是「这一个」
   // 由代码包提供的权限集。
   'perm.readOnly.artifact': '只读（该权限集由代码包提供）',
   // objectui#5987 — 见 EN 表同键注释：裁定的路径（克隆后自定义）放在最前。
   'perm.readOnly.artifact.hint':
-    '该权限集由代码包提供，因此在此处被锁定：在环境作用域下编辑它属于覆盖（overlay）已打包的条目，而元数据类型注册表对 permission 声明 allowOrgOverride 为 false（ADR-0005 禁止对已打包权限集做按组织覆盖：会造成权限静默漂移）。服务端会以 403 not_overridable 拒绝该写入。请「克隆后自定义」：副本以新名称保存为本环境中创作的普通权限集、可在此编辑，升级会继续流向这个基线。其他途径：修改源工件后重新部署、新建一个运行时权限集，或由运维启用有文档记载的 OS_METADATA_WRITABLE 逃生阀。',
+    '该权限集由代码包提供，因此在此处被锁定：在环境作用域下编辑它属于覆盖（overlay）已打包的条目，而元数据类型注册表对 permission 声明 allowEnvironmentOverlay 为 false（ADR-0005 禁止对已打包权限集做按组织覆盖：会造成权限静默漂移）。服务端会以 403 not_overridable 拒绝该写入。请「克隆后自定义」：副本以新名称保存为本环境中创作的普通权限集、可在此编辑，升级会继续流向这个基线。其他途径：修改源工件后重新部署，或新建一个运行时权限集。OS_METADATA_WRITABLE 逃生阀不会开放由包提供的权限集（ADR-0131 D6）。',
   // objectui#5987 — 见 EN 表同键注释。
   'perm.clone.action': '克隆后自定义',
   'perm.clone.hint':

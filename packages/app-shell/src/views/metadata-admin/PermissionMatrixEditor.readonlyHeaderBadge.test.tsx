@@ -14,9 +14,9 @@
  * read-only-package tooltip. Both renderings answer "can you write this?" and
  * they disagreed, because they read different inputs:
  *
- *   • the CONTROLS read `!!resolved.allowOrgOverride && !readOnly` — the type
+ *   • the CONTROLS read `!!resolved.allowEnvironmentOverlay && !readOnly` — the type
  *     registry AND the host package gate;
- *   • the BADGE read `entry.allowOrgOverride` alone. `permission` was then one
+ *   • the BADGE read `entry.allowEnvironmentOverlay` alone. `permission` was then one
  *     of the 15 overlay-allowed types, so that flag was true and the badge said
  *     "writable" no matter which package you were in.
  *
@@ -30,19 +30,19 @@
  *
  * The paragraph above called the controls' formula "the right answer". That was
  * wrong on the type half, and this suite could not see it: every case here
- * drives the HOST gate (`readOnly` true/absent) with `allowOrgOverride: true`
+ * drives the HOST gate (`readOnly` true/absent) with `allowEnvironmentOverlay: true`
  * throughout, so it never rendered the one shape where the two disagree.
  *
  * `WritabilityBadge` is read-only exactly when
- * `readOnly || (!allowOrgOverride && !allowRuntimeCreate)`; the controls were
- * read-only when `readOnly || !allowOrgOverride`. The gap is precisely
- * `!allowOrgOverride && allowRuntimeCreate` — which is the stock-boot
- * `permission` shape today (objectstack#6483 set `allowOrgOverride: false` and
+ * `readOnly || (!allowEnvironmentOverlay && !allowRuntimeCreate)`; the controls were
+ * read-only when `readOnly || !allowEnvironmentOverlay`. The gap is precisely
+ * `!allowEnvironmentOverlay && allowRuntimeCreate` — which is the stock-boot
+ * `permission` shape today (objectstack#6483 set `allowEnvironmentOverlay: false` and
  * deliberately kept `allowRuntimeCreate: true`). There the badge said
  * "create-only" over 207 dead checkboxes.
  *
  * So the badge already consulted the full disjunction and the controls did not.
- * Fixing the controls (`allowOrgOverride || allowRuntimeCreate`) makes the two
+ * Fixing the controls (`allowEnvironmentOverlay || allowRuntimeCreate`) makes the two
  * predicates byte-identical rather than merely closer — the convergence is
  * pinned below, across all four states, so neither side can drift again.
  *
@@ -88,11 +88,11 @@ function makeClient() {
 // The type registry says this type IS overlay-allowed — the exact condition the
 // #4036 defect needed. (`permission` was in the server's overlay-allowed list
 // when this suite was written; objectstack#6483 has since flipped it to
-// `allowOrgOverride: false` + `allowRuntimeCreate: true`. These cases keep the
+// `allowEnvironmentOverlay: false` + `allowRuntimeCreate: true`. These cases keep the
 // original shape on purpose — it is the must-not-change control for #4446 —
 // while the convergence describe at the bottom drives the current one.)
-let typeFlags: { allowOrgOverride?: boolean; allowRuntimeCreate?: boolean } = {
-  allowOrgOverride: true,
+let typeFlags: { allowEnvironmentOverlay?: boolean; allowRuntimeCreate?: boolean } = {
+  allowEnvironmentOverlay: true,
 };
 
 vi.mock('./useMetadata', () => ({
@@ -109,7 +109,7 @@ import { PermissionMatrixEditPage } from './PermissionMatrixEditor';
 
 afterEach(() => {
   cleanup();
-  typeFlags = { allowOrgOverride: true };
+  typeFlags = { allowEnvironmentOverlay: true };
 });
 
 async function renderMatrix(props?: { readOnly?: boolean }) {
@@ -198,30 +198,30 @@ describe('PermissionMatrixEditPage — header writability badge vs the package g
 describe('PermissionMatrixEditPage — badge and controls read ONE predicate (#4446)', () => {
   const cases: Array<{
     label: string;
-    flags: { allowOrgOverride?: boolean; allowRuntimeCreate?: boolean };
+    flags: { allowEnvironmentOverlay?: boolean; allowRuntimeCreate?: boolean };
     readOnly?: boolean;
     expectWritable: boolean;
   }> = [
     {
       label: 'read-only package dominates both flags',
-      flags: { allowOrgOverride: true, allowRuntimeCreate: true },
+      flags: { allowEnvironmentOverlay: true, allowRuntimeCreate: true },
       readOnly: true,
       expectWritable: false,
     },
     {
       label: 'overlay-allowed type in a writable package',
-      flags: { allowOrgOverride: true, allowRuntimeCreate: false },
+      flags: { allowEnvironmentOverlay: true, allowRuntimeCreate: false },
       expectWritable: true,
     },
     {
       // The stock-boot `permission` shape — the #4446 defect.
       label: 'runtime-creatable-only type in a writable package',
-      flags: { allowOrgOverride: false, allowRuntimeCreate: true },
+      flags: { allowEnvironmentOverlay: false, allowRuntimeCreate: true },
       expectWritable: true,
     },
     {
       label: 'no write channel at all',
-      flags: { allowOrgOverride: false, allowRuntimeCreate: false },
+      flags: { allowEnvironmentOverlay: false, allowRuntimeCreate: false },
       expectWritable: false,
     },
   ];

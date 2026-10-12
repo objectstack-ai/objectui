@@ -104,7 +104,7 @@ vi.mock('./useMetadata', () => ({
   useMetadataTypes: () => ({
     loading: false,
     error: null,
-    entries: [{ type: 'field', label: 'Field', allowOrgOverride: true, schema: FIELD_SCHEMA }],
+    entries: [{ type: 'field', label: 'Field', allowEnvironmentOverlay: true, schema: FIELD_SCHEMA }],
   }),
 }));
 

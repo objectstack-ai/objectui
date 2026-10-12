@@ -168,11 +168,11 @@ export function MetadataDirectoryPage() {
   }, [scopedEntries]);
 
   const writableCount = scopedEntries.filter(
-    (e) => e.allowOrgOverride || e.allowRuntimeCreate,
+    (e) => e.allowEnvironmentOverlay || e.allowRuntimeCreate,
   ).length;
 
   const filtered = scopedEntries.filter((e) => {
-    if (writableOnly && !(e.allowOrgOverride || e.allowRuntimeCreate)) return false;
+    if (writableOnly && !(e.allowEnvironmentOverlay || e.allowRuntimeCreate)) return false;
     if (domainFilter !== 'all' && (e.domain ?? 'other') !== domainFilter) return false;
     if (query) {
       const q = query.toLowerCase();
@@ -455,7 +455,7 @@ function TypeTile({
               {lockedCount}
             </Badge>
           )}
-          {entry.allowOrgOverride ? (
+          {entry.allowEnvironmentOverlay ? (
             <Badge
               className={
                 'text-[10px] ' +
@@ -465,7 +465,7 @@ function TypeTile({
               }
               title={
                 entry.overrideSource === 'env'
-                  ? 'Writable via OBJECTSTACK_METADATA_WRITABLE env var'
+                  ? 'Writable via the OS_METADATA_WRITABLE env var: it opens the items no package ships, never an item a package ships'
                   : 'Writable per ADR-0005 overlay opt-in'
               }
             >

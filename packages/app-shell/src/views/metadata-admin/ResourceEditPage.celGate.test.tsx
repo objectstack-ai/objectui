@@ -52,10 +52,10 @@ vi.mock('./useMetadata', async (importOriginal) => {
   return {
     ...mod,
     useMetadataClient: () => mockClient,
-    // `allowOrgOverride` is what makes the item writable, and therefore what
+    // `allowEnvironmentOverlay` is what makes the item writable, and therefore what
     // makes a Save button exist at all.
     useMetadataTypes: () => ({
-      entries: [{ type: 'page', name: 'page', label: 'Page', allowOrgOverride: true }],
+      entries: [{ type: 'page', name: 'page', label: 'Page', allowEnvironmentOverlay: true }],
     }),
   };
 });

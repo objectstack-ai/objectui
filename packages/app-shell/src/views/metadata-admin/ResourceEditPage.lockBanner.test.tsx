@@ -78,7 +78,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
           type: 'object',
           name: 'object',
           label: 'Object',
-          allowOrgOverride: false,
+          allowEnvironmentOverlay: false,
           allowRuntimeCreate: true,
           schema: {
             type: 'object',

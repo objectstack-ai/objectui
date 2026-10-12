@@ -98,8 +98,8 @@ function makeClient() {
 }
 
 // The stock-boot `permission` shape (objectstack#6483) unless a case says otherwise.
-let typeFlags: { allowOrgOverride?: boolean; allowRuntimeCreate?: boolean } = {
-  allowOrgOverride: false,
+let typeFlags: { allowEnvironmentOverlay?: boolean; allowRuntimeCreate?: boolean } = {
+  allowEnvironmentOverlay: false,
   allowRuntimeCreate: true,
 };
 let clientImpl: any;
@@ -233,7 +233,7 @@ async function fillDialog(name = CLONE_NAME, label = CLONE_LABEL) {
 beforeEach(() => {
   codeLayerByName = { [BASE_SET]: { _packageId: 'com.example.showcase', name: BASE_SET } };
   saveImpl = async (_t, _n, payload) => payload;
-  typeFlags = { allowOrgOverride: false, allowRuntimeCreate: true };
+  typeFlags = { allowEnvironmentOverlay: false, allowRuntimeCreate: true };
   localeFixture = 'en-US';
   canAuthor = true;
   doorAnswer = okAnswer();
@@ -267,14 +267,19 @@ describe('PermissionMatrixEditPage — the locked editor offers Clone to customi
     const hint = badge.getAttribute('title') ?? '';
     const clone = hint.indexOf('Clone to customize');
     expect(clone).toBeGreaterThan(-1);
-    for (const secondary of ['redeploy', 'new runtime set', 'OS_METADATA_WRITABLE']) {
+    for (const secondary of ['redeploy', 'new runtime set']) {
       const at = hint.indexOf(secondary);
       expect(at, `"${secondary}" must be in the hint`).toBeGreaterThan(-1);
       expect(clone, `cloning must come before "${secondary}"`).toBeLessThan(at);
     }
+    // objectui#12141 — the env hatch is no longer a route: ADR-0131 D6 seals
+    // what a package ships, so the hint names it only to say it does not open
+    // this set, and never as something to ask an operator for.
+    expect(hint).toContain('OS_METADATA_WRITABLE escape hatch does not open a set a package ships');
+    expect(hint).not.toMatch(/ask an operator for the documented OS_METADATA_WRITABLE/);
     // The server's own reason and code are still stated (objectui#4518's pins
     // on this hint are unchanged).
-    expect(hint).toContain('allowOrgOverride');
+    expect(hint).toContain('allowEnvironmentOverlay');
     expect(hint).toContain('not_overridable');
   });
 
@@ -429,7 +434,7 @@ describe('PermissionMatrixEditPage — no clone prompt where the artifact tier i
   });
 
   it('a type with no runtime write channel is locked by the TYPE tier: nothing to clone into', async () => {
-    typeFlags = { allowOrgOverride: false, allowRuntimeCreate: false };
+    typeFlags = { allowEnvironmentOverlay: false, allowRuntimeCreate: false };
     await renderRouted();
 
     expect(screen.getByText(/no runtime write channel/)).toBeInTheDocument();
@@ -448,7 +453,7 @@ describe('PermissionMatrixEditPage — no clone prompt where the artifact tier i
 describe('PermissionMatrixEditPage — a save the server refuses as a packaged set shows the same guidance (objectui#5987 item 3)', () => {
   const SERVER_TEXT =
     "Metadata item 'permission/showcase_contributor' is provided by a code package and the type has not "
-    + 'opted into per-org overlay writes (allowOrgOverride=false). Edit the source artifact and redeploy, '
+    + 'opted into per-org overlay writes (allowEnvironmentOverlay=false). Edit the source artifact and redeploy, '
     + 'or set OS_METADATA_WRITABLE to grant a runtime escape hatch.';
 
   it('403 NOT_OVERRIDABLE at the environment door: guidance names cloning, the primary action is offered, the server sentence is kept', async () => {

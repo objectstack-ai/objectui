@@ -67,7 +67,7 @@ vi.mock('./useMetadata', () => ({
       {
         type: 'validation',
         label: 'Validation Rule',
-        allowOrgOverride: true,
+        allowEnvironmentOverlay: true,
         schema: VALIDATION_SCHEMA,
       },
     ],

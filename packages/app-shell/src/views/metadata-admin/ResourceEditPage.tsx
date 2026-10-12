@@ -734,7 +734,7 @@ function MetadataResourceEditPageImpl({
   // Form edit mode. The form is read-only by default — admins land in a
   // "view" state and must click Edit to mutate, mirroring the Salesforce /
   // Notion convention. createMode is always editing (you can't view what
-  // doesn't exist yet). Truly read-only types (no allowOrgOverride) stay
+  // doesn't exist yet). Truly read-only types (no allowEnvironmentOverlay) stay
   // read-only regardless.
   const [editing, setEditing] = React.useState<boolean>(!!createMode);
   // Currently selected sub-element (e.g. a dashboard widget). The
@@ -1332,7 +1332,7 @@ function MetadataResourceEditPageImpl({
 
   // ── Is this item a packaged ARTIFACT, or org-authored content? ────────
   // The two-tier authorization model (PR-10d.7) applies a different gate to
-  // each: overlaying a code-shipped artifact needs `allowOrgOverride`, while
+  // each: overlaying a code-shipped artifact needs `allowEnvironmentOverlay`, while
   // authoring org content needs only `allowRuntimeCreate`. Several call sites
   // below key off the answer, so it is derived ONCE here — the previous two
   // in-place copies are how the two drifted from the server (objectui#4308).
@@ -1439,8 +1439,8 @@ function MetadataResourceEditPageImpl({
     // this used to be an in-place copy of the artifact heuristic, so the two
     // could (and did) answer differently for one item (objectui#4308).
     const cw = isArtifactItem
-      ? !!entry?.allowOrgOverride
-      : !!(entry?.allowOrgOverride || entry?.allowRuntimeCreate);
+      ? !!entry?.allowEnvironmentOverlay
+      : !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
     if (!cw) return;
     designerAutoOnRef.current = key;
     setEditing(true);
@@ -1859,8 +1859,8 @@ function MetadataResourceEditPageImpl({
   // Two-tier authorization (PR-10d.7) — hoisted above the early `loading`
   // return so the auto-save / keyboard / blocker effects below can read
   // them. Recomputed cheaply on every render.
-  //   - artifact-backed items need allowOrgOverride
-  //   - org-authored items need allowOrgOverride OR allowRuntimeCreate
+  //   - artifact-backed items need allowEnvironmentOverlay
+  //   - org-authored items need allowEnvironmentOverlay OR allowRuntimeCreate
   //   - createMode is always writable (the server will gate on intent)
   // Which tier this item is in is decided once, next to the designer
   // auto-on effect above — see `isArtifactItem` for why a non-null `code`
@@ -1879,10 +1879,10 @@ function MetadataResourceEditPageImpl({
   const lockReason = layered?.lockReason;
   const isLocked = layered?.lock && layered.lock !== 'none';
   const canWriteByType = createMode
-    ? !!(entry?.allowOrgOverride || entry?.allowRuntimeCreate)
+    ? !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate)
     : isArtifactItem
-      ? !!entry?.allowOrgOverride
-      : !!(entry?.allowOrgOverride || entry?.allowRuntimeCreate);
+      ? !!entry?.allowEnvironmentOverlay
+      : !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
   // objectui#7611 — the CALLER tier. The metadata door refuses every save
   // without `manage_metadata` (measured on objectstack main: 403 "Saving a
   // metadata item requires the `manage_metadata` capability."), so a caller
@@ -2117,7 +2117,7 @@ function MetadataResourceEditPageImpl({
 
   // When the form is "live" but not yet in edit mode, it renders as
   // read-only. createMode is always editing; truly read-only types
-  // (no allowOrgOverride) ignore the editing toggle entirely.
+  // (no allowEnvironmentOverlay) ignore the editing toggle entirely.
   const formReadOnly = readOnly || (!editing && !createMode);
 
   // Note: URL `?tab=` deep-links were repurposed to open side-panel
@@ -2275,7 +2275,7 @@ function MetadataResourceEditPageImpl({
           - Form-only types: keep the Salesforce-style Edit / Cancel
             convention (View → click Edit → mutate → Save or Cancel).
           - createMode: always editing, Save only.
-          - Truly read-only types (no allowOrgOverride): no buttons. */}
+          - Truly read-only types (no allowEnvironmentOverlay): no buttons. */}
       {canWrite && !createMode && !editing && !PreviewComponent && (
         <Button size="sm" onClick={() => setEditing(true)} className="h-7">
           <Pencil className="h-3.5 w-3.5 mr-1" />
@@ -2538,16 +2538,21 @@ function MetadataResourceEditPageImpl({
                       })
                   ) : (
                     /* The platform i18n bundle ships `engine.edit.readOnlyTypeBanner`
-                       with `{flag} / {type} / {override}` placeholders so the
-                       monospace tokens are inlined inside the translated sentence
-                       in any locale. Splitting on the three tokens preserves the
-                       sentence order across translations. */
+                       with `{flag} / {type}` placeholders so the monospace
+                       tokens are inlined inside the translated sentence in any
+                       locale. Splitting on the two tokens preserves the
+                       sentence order across translations.
+                       objectui#12141 — `{flag}` is `OS_METADATA_WRITABLE`, the
+                       one spelling the server reads; the legacy
+                       `OBJECTSTACK_`-prefixed name it used to print is read by
+                       nothing. The banner no longer offers a registry flip:
+                       the registry is a TypeScript literal in
+                       `@objectstack/spec` that no deployment edits. */
                     t('engine.edit.readOnlyTypeBanner', locale)
-                      .split(/(\{flag\}|\{type\}|\{override\})/)
+                      .split(/(\{flag\}|\{type\})/)
                       .map((part, i) => {
-                        if (part === '{flag}') return <code key={i} className="font-mono">OBJECTSTACK_METADATA_WRITABLE</code>;
+                        if (part === '{flag}') return <code key={i} className="font-mono">OS_METADATA_WRITABLE</code>;
                         if (part === '{type}') return <code key={i} className="font-mono">{type}</code>;
-                        if (part === '{override}') return <code key={i} className="font-mono">allowOrgOverride</code>;
                         return <React.Fragment key={i}>{part}</React.Fragment>;
                       })
                   )}

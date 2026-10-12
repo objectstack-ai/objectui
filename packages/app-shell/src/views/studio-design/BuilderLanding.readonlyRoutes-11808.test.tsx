@@ -6,7 +6,7 @@
  *
  * ADR-0070 D4's Duplicate clones a writable base; a code or installed package
  * is customized by org overlay where the item's metadata type declares
- * `allowOrgOverride` (ADR-0005). Measured before this card: the read-only card
+ * `allowEnvironmentOverlay` (ADR-0005). Measured before this card: the read-only card
  * was one button that opened the package for browsing, with no route forward.
  *
  * The routes are read off the real `BuilderLanding` under a real router: the

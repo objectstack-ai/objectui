@@ -49,7 +49,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
     ...mod,
     useMetadataClient: () => mockClient,
     useMetadataTypes: () => ({
-      entries: [{ type: TYPE, name: TYPE, label: 'Gizmo', allowOrgOverride: true }],
+      entries: [{ type: TYPE, name: TYPE, label: 'Gizmo', allowEnvironmentOverlay: true }],
     }),
   };
 });

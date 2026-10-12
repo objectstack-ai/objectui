@@ -6,7 +6,7 @@
  * A picklist is one list of select options that fields on several objects name
  * with `picklist: 'NAME'` instead of carrying their own (`PicklistSchema`,
  * `@objectstack/spec` `data/picklist.zod.ts`). The kind is PACKAGE-OWNED: its
- * registry entry declares `allowRuntimeCreate: false` and `allowOrgOverride:
+ * registry entry declares `allowRuntimeCreate: false` and `allowEnvironmentOverlay:
  * false`, so the generic engine already offers no create and renders the item
  * read-only. This preview is the page's detail view and it is read-only too:
  * it offers no create, edit or delete of any kind, because the server refuses

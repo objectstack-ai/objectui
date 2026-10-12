@@ -59,7 +59,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
           type: 'app',
           name: 'app',
           label: 'App',
-          allowOrgOverride: typeTier.writable,
+          allowEnvironmentOverlay: typeTier.writable,
           allowRuntimeCreate: typeTier.writable,
         },
       ],

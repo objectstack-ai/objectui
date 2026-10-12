@@ -67,10 +67,10 @@ const CLIENT = {
             : [],
 };
 
-const ENTRY = { type: TYPE, label: 'Permission Set', allowOrgOverride: false, allowRuntimeCreate: true };
-const POSITION_ENTRY = { type: 'position', label: 'Position', allowOrgOverride: false, allowRuntimeCreate: true };
+const ENTRY = { type: TYPE, label: 'Permission Set', allowEnvironmentOverlay: false, allowRuntimeCreate: true };
+const POSITION_ENTRY = { type: 'position', label: 'Position', allowEnvironmentOverlay: false, allowRuntimeCreate: true };
 // The served `capability` entry: no runtime write channel at all (code-only, ADR-0126 §3).
-const CAPABILITY_ENTRY = { type: 'capability', label: 'Capability', allowOrgOverride: false, allowRuntimeCreate: false };
+const CAPABILITY_ENTRY = { type: 'capability', label: 'Capability', allowEnvironmentOverlay: false, allowRuntimeCreate: false };
 
 vi.mock('./useMetadata', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),

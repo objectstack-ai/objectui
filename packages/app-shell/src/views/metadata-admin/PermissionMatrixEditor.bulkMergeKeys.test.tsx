@@ -85,7 +85,7 @@ vi.mock('./useMetadata', () => ({
   useMetadataTypes: () => ({
     loading: false,
     error: null,
-    entries: [{ type: 'permission', label: 'Permission', allowOrgOverride: true }],
+    entries: [{ type: 'permission', label: 'Permission', allowEnvironmentOverlay: true }],
   }),
 }));
 vi.mock('./AssignedUsersSection', () => ({ AssignedUsersSection: () => null }));

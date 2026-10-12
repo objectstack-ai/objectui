@@ -38,7 +38,7 @@ const OBJECT_ENTRY = {
   name: 'object',
   label: 'Object',
   // What makes the item writable, and so what turns the designer on.
-  allowOrgOverride: true,
+  allowEnvironmentOverlay: true,
   schema: { type: 'object', properties: { label: { type: 'string', title: 'Label' } } },
 };
 

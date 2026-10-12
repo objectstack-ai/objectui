@@ -33,7 +33,7 @@
  * artifact reading rather than unlocking on a guess.
  *
  * `object` is the type under test because it is the type the card reports and
- * the one where the two tiers actually diverge: `allowOrgOverride: false` (the
+ * the one where the two tiers actually diverge: `allowEnvironmentOverlay: false` (the
  * server refuses overlays of packaged objects with `NOT_OVERRIDABLE`) with
  * `allowRuntimeCreate: true` (orgs author their own). A type with both flags
  * true would be writable under either tier and could not detect the bug.
@@ -63,7 +63,7 @@ const mockClient = {
 };
 
 // The registry entry for `object`: overlaying a PACKAGED object is refused by
-// the server (`allowOrgOverride: false`), authoring your own is not
+// the server (`allowEnvironmentOverlay: false`), authoring your own is not
 // (`allowRuntimeCreate: true`). Which of those two gates this page applies is
 // exactly what the tier test decides.
 vi.mock('./useMetadata', async (importOriginal) => {
@@ -79,7 +79,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
           type: 'object',
           name: 'object',
           label: 'Object',
-          allowOrgOverride: false,
+          allowEnvironmentOverlay: false,
           allowRuntimeCreate: true,
           schema: {
             type: 'object',

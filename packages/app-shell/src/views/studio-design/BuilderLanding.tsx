@@ -40,7 +40,7 @@ import { studioOrgScopePath } from './studioScope.js';
  * The overlay route is the package's metadata directory, scoped by its
  * `package` query parameter. It marks, per metadata type, whether the type
  * accepts an org overlay — the answer this page cannot give, because
- * `allowOrgOverride` belongs to the TYPE (ADR-0005), not to the package or the
+ * `allowEnvironmentOverlay` belongs to the TYPE (ADR-0005), not to the package or the
  * item, and `PkgEntry` does not say which types a package ships.
  */
 const MARKETPLACE_PATH = '/apps/setup/system/marketplace';
@@ -95,7 +95,7 @@ export function BuilderLanding(): React.ReactElement {
   // the "duplicate base" gesture, and drops the user straight into the copy's
   // builder. It is offered on writable bases only. A read-only code or
   // installed package is not a duplicate source: ADR-0070 D2 customizes it by
-  // org overlay, where the item's metadata type declares `allowOrgOverride`
+  // org overlay, where the item's metadata type declares `allowEnvironmentOverlay`
   // (ADR-0005), so its card points there instead (the read-only section
   // below). Home's "Start with a template" is not this gesture either: it
   // opens the marketplace.
@@ -307,7 +307,7 @@ export function BuilderLanding(): React.ReactElement {
       {/* objectui#11808 — a read-only package is not a dead end. ADR-0070 D2:
         * code and installed packages take no new items, and D4's Duplicate
         * clones a writable base, not them. They are customized by org overlay
-        * where the item's metadata type declares `allowOrgOverride` (ADR-0005),
+        * where the item's metadata type declares `allowEnvironmentOverlay` (ADR-0005),
         * so each card links to the package's metadata directory, which says
         * per type whether an overlay is accepted (see `overlayPath`). The
         * marketplace, which Home's "Start with a template" opens, is offered

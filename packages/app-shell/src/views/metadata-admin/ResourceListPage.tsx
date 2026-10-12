@@ -425,7 +425,7 @@ function DefaultMetadataList({ type, appName }: { type: string; appName?: string
   // in the environment scope — the caller holds the capability the metadata
   // door requires. The server refuses either way; this is the half that says
   // so before the click (objectui#7611, the #22621 → A parity gate).
-  const typeWritable = !!(entry?.allowOrgOverride || entry?.allowRuntimeCreate);
+  const typeWritable = !!(entry?.allowEnvironmentOverlay || entry?.allowRuntimeCreate);
   const canCreate = typeWritable && (!envScope || canAuthor);
   // Packages load only for the package scope; the environment scope never
   // waits on them.

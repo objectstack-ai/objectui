@@ -187,7 +187,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
     ...mod,
     useMetadataClient: () => mockClient,
     useMetadataTypes: () => ({
-      entries: [{ type: 'page', name: 'page', label: 'Page', allowOrgOverride: true, schema: { required: [] } }],
+      entries: [{ type: 'page', name: 'page', label: 'Page', allowEnvironmentOverlay: true, schema: { required: [] } }],
     }),
   };
 });

@@ -74,17 +74,28 @@ export interface RichMetadataTypeEntry {
   label?: string;
   description?: string;
   domain?: string;
-  allowOrgOverride?: boolean;
+  /**
+   * May an environment overlay an item of this type that a package ships?
+   * The server's `GET /meta/types` `entries[].allowEnvironmentOverlay`, the
+   * write gate for a packaged item (ADR-0131 D6). objectstack#22340 renamed
+   * the wire field from its per-org spelling; this is the only name read, with
+   * no fallback to the old one (objectui#12141).
+   */
+  allowEnvironmentOverlay?: boolean;
   /** Declarative type-level actions (GAP-1). Rendered by `MetadataTypeActions`. */
   actions?: MetadataTypeAction[];
   /**
    * Two-tier model (PR-10d.7): brand-new items of this type can be
-   * authored at runtime even when `allowOrgOverride` is false. UI
+   * authored at runtime even when `allowEnvironmentOverlay` is false. UI
    * affordances ("+ New", Save, Delete on DB-only items) should
    * activate when either flag is true.
    */
   allowRuntimeCreate?: boolean;
-  /** 'registry' = ADR opt-in; 'env' = unlocked via OBJECTSTACK_METADATA_WRITABLE. */
+  /**
+   * 'registry' = ADR opt-in; 'env' = elevated by the `OS_METADATA_WRITABLE`
+   * env var, which opens the type's items no package ships and never an item
+   * a package ships (ADR-0131 D6).
+   */
   overrideSource?: 'registry' | 'env';
   supportsOverlay?: boolean;
   loadOrder?: number;

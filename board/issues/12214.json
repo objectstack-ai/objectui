@@ -1,0 +1,35 @@
+{
+  "number": 12214,
+  "kind": "issue",
+  "title": "ci: two-speed CI for objectui — affected-only tests on PR and merge-queue runs, the full 8-shard suite and coverage on main's schedule, the spec shape gate cached by objectstack sha, eighteen one-check workflows folded into one (objectstack#22998)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:devx",
+    "priority:p1",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T08:58:55Z",
+  "updated_at": "2026-10-12T12:29:53Z",
+  "closed_at": "2026-10-12T12:26:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12214",
+  "body": "Protects: the merge queue's required contexts of this repository (`Test`, `Type Check`, `Lint` and the gate workflows), the published check-run names every PR and merge group of `@object-ui/*` passes through; this card keeps the names and cuts their wall and their run count.\n\nFiled by the director seat (summon #37, `session_01LqNgdPZB2Jnr5HpGbaqLeB`) on the maintainer's words, verbatim: 「我觉得能让整个车队提速的方案就是好方案，main 很多天才会发一个版本，我只要确保发版本之前做好各种测试就可以。」, 「然后 objectui cloud 仓库也要看一下，是否需要类似的方案。」 and 「三仓的 ci 优化卡你负责派发」. The doctrine is objectstack-ai/objectstack#22998 (two-speed CI); this card is its objectui execution. Filing gate ③: maintainer-directed. ⛔ Not a claim. Tier H: `.github/workflows/**` is a governed surface; the PR stays a draft until a `GOVERNED_APPROVERS` member approves it.\n\n## Measured on 2026-10-12 (the newest 1,000 completed runs, about one day; the jobs API)\n\n| job | runs | median | p90 |\n|---|---|---|---|\n| `CI :: Test (shard n/8)` | 27 each | 13.3–15.6 min | 15.7–17.9 |\n| `Spec Main Shape Gate` | 29 | 13.3 | 13.9 |\n| `CI :: Type Check` | 36 | 10.2 | 13.0 |\n| `CI :: Test (coverage shard n/4)`, `push` only | 9 each | 36.3–38.6 | 40.3 |\n| `Lint :: Lint` | 41 | 6.0 | 7.0 |\n| `Skill Examples`, `Doc Snippet Types`, `README Exports` | 41 each | 4.5–5.0 | 5.4 |\n| `CI :: Build Docs` | 36 | 2.9 | 5.3 |\n\n- A `CI` run on `pull_request` or `merge_group` walls at 17.8 min median (the test shards) and costs 123–132 runner-minutes; a `push` run walls at 40 min (coverage) and costs 151.\n- Eighteen one-check workflows (`Skills Paths`, `Skill Examples`, `Skill Eval Tokens`, `Shell Escape Residue`, `README Exports`, `Pre-Install Import Graph`, `Inert vi.mock Specifiers`, `Docs Route Eager Closure`, `Docs Links`, `Doc Snippet Types`, `Doc Fence Languages`, `Doc Example Ids`, `Doc Component Types`, `Control Bytes`, `Action Ref Convention`, `Governed Surface Guard`, `Changeset Presence`, `Spec Main Shape Gate`) each ran about 1,100 times in the trailing 7 days, each with its own checkout and setup; most take 0.2–0.5 min, three take 4.5–5 min.\n- `pnpm test --shard=i/8` shards the whole repository's vitest run by file on every PR; there is no affected-only path. 302 PRs merged in the trailing 7 days.\n- Job queue wait is 2–3 s median across the fleet (measured), so runner concurrency is not the constraint; wall and run count are.\n\n## What to build (one PR, Tier H, draft until approved)\n\n1. **Tests two-speed.** On `pull_request` and `merge_group`, run the tests of the packages affected by the diff (turbo `--affected` against the merge base, or vitest `related`/`changed` where the root config owns the run), still sharded; on `push` to `main` and on a `schedule` (hourly), run the full 8-shard suite and the 4-shard coverage. The `Test` aggregator keeps its name and its \"every shard reported success\" check (`scripts/check-test-shard-results.mjs`) on both speeds. Measure the PR wall before and after on your branch.\n2. **`Spec Main Shape Gate`** builds `@objectstack/spec` from objectstack `main` on every run (13.3 min). Cache the built spec tarball by the resolved objectstack `main` sha (actions/cache or an artifact keyed by sha), so a run only builds when `main` moved since the last build; keep the gate on every event.\n3. **One gates workflow.** Fold the one-check workflows into a single `Repo Gates` workflow with one checkout and one setup per run, the checks as steps or as a small matrix; keep every check's name as a step name and keep each check on the events it runs on today. ⛔ Do not fold `Governed Surface Guard` (it is a guard on the queue, kept separate on purpose) and do not fold `Changeset Presence` / `Changeset Guard` if `required-check-set-patrol` pins them by workflow name: read `scripts/check-required-check-set.mjs` first and keep every required check-run name byte-identical.\n4. **Lint** (6 min) stays as is; name it in the PR body as the next follow-up if it becomes the critical path after 1–3.\n\n## Acceptance\n- A product-only PR's checks all conclude within 8 minutes on three consecutive runs; `Test`, `Type Check` and `Lint` appear by name on the PR.\n- The hourly `schedule` run on `main` carries the full suite and coverage; `required-check-set-patrol` stays green.\n- The PR body carries the before/after wall and run counts, and the required-check names before and after (byte-identical).\n\nRelated: objectstack#22998 · objectstack#22991 · this repository's AGENTS.md merge-queue section · `scripts/check-required-check-set.mjs` · `scripts/check-test-shard-results.mjs`."
+}

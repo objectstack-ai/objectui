@@ -2,8 +2,8 @@
   "number": 12202,
   "kind": "issue",
   "title": "skills(objectui): the published guides cite 41 issue numbers across 13 files — rewrite each site as a self-contained rule (ids go; dates and ruling quotes stay) and state the rule in AGENTS.md",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:devpath",
     "documentation",
     "domain:skills",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-12T07:38:03Z",
-  "updated_at": "2026-10-12T08:34:16Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-12T09:19:20Z",
+  "closed_at": "2026-10-12T09:15:13Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12202",
   "body": "Filing gate: ③ — maintainer direct order.\n\nProvenance: the maintainer, live PM chat in session `session_01CinRQcE6T8SvMbhH8D3NhS` (skills seat 1), 2026-10-12, answering the seat's four-axis analysis of the inherited question 「我发先很多对外的 skills 中有issue id,是否建议删除,以及如何避免」. The two selections, verbatim: 「A:只删 id(推荐)」 (one Tier H docs PR rewrites the 41 sites as self-contained rules; ruling dates and the 「maintainer ruling」 wording stay) and, for prevention on this repository, 「不加,写成文规则(推荐)」 (no new gate here; one written rule in AGENTS.md; the governed-surface review is the backstop). The standing principle is the maintainer's 2026-08-12 ruling recorded in objectstack's `scripts/pm/check-skill-id-lint.mjs` header: 「处理 issue 时犯的错应该总结成经验,保留 issue id没有意义,如果ai去查原始issue,得不偿失。」\n\n## What is wrong\n\nReadings on objectui `origin/main` `26b0bd2` (2026-10-12T07:30Z), pattern `#[0-9]{3,}` (the pattern objectstack's id-lint enforces on its agent-protocol text), CSS hex colours excluded by eye: **41 lines in 13 files** under `skills/**` cite an issue or PR number. Per file: `rules/protocol.md` 14 · `guides/data-integration.md` 7 · `guides/plugin-development.md` 5 · `guides/schema-expressions.md` 5 · `guides/auth-permissions.md` 3 · `SKILL.md` 1 · `evals/protocol.json` 1 · `guides/app-composition.md` 1 · `guides/architecture.md` 1 · `guides/i18n.md` 1 · `guides/mobile.md` 1 · `guides/project-setup.md` 1 · `rules/styling.md` 1. Control: the same pattern on objectstack `skills/**` answers 0 files, so the instrument tells the two trees apart.\n\nNearly every site is a provenance parenthetical after a complete rule — `…renderer removed it (objectui#9308)`, `RETIRED with objectui#5424 (maintainer ruling 2026-08-22)`. A few use the number as the sentence's subject (`objectui#9308 retired the walk over it`, `objectui#7636 paid it first`); those need a rewritten sentence, not a deleted parenthesis. One cites `objectstack#5055`, one `PR #5184`, one sits inside an eval's `expected_output` string.\n\nThe reader of `skills/**` is a customer's agent, loaded through `npx skills add`. It has no tool that resolves an objectui issue number; the number invites it to dereference history it cannot follow (or will invent), and numbers rot (objectstack measured 13.1% of its own minted numbers as holes). A rule's provenance lives in the PR that landed it.\n\n## Change\n\n1. Every one of the 41 sites: rewrite the sentence as a self-contained rule — failure mode + discipline + boundary — with the issue/PR number removed. ⛔ Not a mechanical parenthesis strip: where the number is the subject, restate what the platform does. Dates and the words 「maintainer ruling YYYY-MM-DD」 STAY (the maintainer chose ids-only). Re-derive the site list at the branch point with `git grep -n -E '#[0-9]{3,}' -- 'skills/**'`, excluding hex-colour tokens; the target is 0 non-colour hits.\n2. `skills/objectui/evals/protocol.json`: the `expected_output` that names a number — reword so the scored expectation names the behaviour, not the card. `pnpm check:skill-eval-tokens` must stay green (every `must_contain` token still taught).\n3. `AGENTS.md` (governed): one or two lines, in the passage that describes `skills/**` as the published tree (around 「两棵 skills 树都受管」) or in §8 AI Workflow — the published skills cite no issue or PR numbers; a lesson is written as a self-contained rule; provenance stays in the landing PR. No new gate (ruled).\n4. Gates: `pnpm check:skill-eval-tokens`, `node scripts/check-skills-paths.mjs`, `node scripts/check-skill-examples.mjs` (no fence change is expected; run it to prove that), plus the changeset declaration — `skills/**` sits in no package's `files[]`, so an empty-frontmatter changeset is this repository's \"no release\" spelling.\n\n⛔ No fence content changes, no `os:check` marker changes, no script changes.\n\n## Who acts\n\nThe `domain:skills` seat (the lane spans both skill roots). `skills/**` and `AGENTS.md` are governed: Tier H — draft PR carrying the 维护者速读 draft; an authorized APPROVED review lands it. objectstack's half of the prevention ruling (widen its existing id-lint to its own `skills/**`) is a separate card on objectstack.\n\n## Dedup\n\nMCP issue search over objectstack-ai/objectui, open and closed, query \"published skills issue id citations remove objectui# numbers self-contained rules skills/objectui guides\": 58 hits. Nearest: objectui#11016 (a citation-correctness census, closed) and the content-correction cards objectui#11414 / objectui#9370 / objectui#11198 (each corrected one sentence; none removed numbers). None retires the citations.\n\nRefs: objectui#12135 (this lane's previous governed PR on the same tree) · objectstack `scripts/pm/check-skill-id-lint.mjs` (the principle's gate on the internal corpus)."

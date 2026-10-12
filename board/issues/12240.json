@@ -1,0 +1,35 @@
+{
+  "number": 12240,
+  "kind": "issue",
+  "title": "ci: Spec Main Shape Gate leaves the required set — hourly on main as part of the full battery, advisory on PRs; the required-check pin goes 8 → 7 and the maintainer removes the check from the ruleset (two-speed CI, objectstack#22998; ruled B)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:devx",
+    "priority:p1",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-12T11:28:02Z",
+  "updated_at": "2026-10-12T13:56:47Z",
+  "closed_at": "2026-10-12T13:38:10Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/12240",
+  "body": "Protects: this repository's required check set (ruleset 11776024), the published check-run names every PR and merge group of `@object-ui/*` passes through; this card removes one name from the set on the maintainer's ruling and keeps the other seven byte-identical.\n\nFiled by the director seat (summon #37, `session_01LqNgdPZB2Jnr5HpGbaqLeB`) on the maintainer's word 「我接受你的建议」 (2026-10-12) to the open question the objectui#12214 dev raised (report 6123124321, question 1): letter **B**. Filing gate ③: maintainer-directed. ⛔ Not a claim. The PR stays a draft for the maintainer (the CI cards' posture). Lands after objectui#12232, which edits `spec-main-shape-gate.yml`.\n\n## What is measured (the #12214 dev, the jobs API)\n- `Spec Main Shape Gate` walls 12.8 min median on `pull_request` and 13.3 on `merge_group` (13.7 on PR #12232's own run): build `@objectstack/spec` from objectstack `main` 1.3 min, pack 0.3, then a forced type-check of this repository against it 10.6–11.5 min. The inject step writes the sha and the injection time into the turbo-hashed marker, so the compile is never served from a cache, by design (its defence against a false green).\n- After #12232, this gate is the PR's critical path (13 min); `Type Check` (9.3–10.6, objectui#12222) is next.\n- The gate's verdict is about seven tenths objectstack's drift: objectstack `main` moves about 70 times a day, this repository pins objectstack by sha for its own `Type Check`, and the gate compiles against the unpinned `main`.\n\n## The ruling (B) and what to build\n1. The gate keeps running: hourly on `main`'s `schedule` (already added by #12232) as part of the full battery, and on `pull_request` / `merge_group` as an advisory check (it still posts its verdict; it no longer blocks). Nothing in its verification changes; the anti-false-green marker stays.\n2. `scripts/check-required-check-set.mjs` and its test: the required set becomes seven names (`Lint`, `Type Check`, `Build & E2E`, `Build Docs`, `Changeset Declaration`, `Test`, `Governed Surface Queue Guard`), `Spec Main Shape Gate` removed with a tombstone comment naming this card's ruling; `required-check-set-patrol` stays green on the new set.\n3. A red on the hourly gate is a main-red for the `domain:devx` @ objectui lane (objectstack#22998's rule): the lane's next PR carries the fix or the pin bump.\n4. **Maintainer's act, in the same sitting as the merge:** remove `Spec Main Shape Gate` from the required status checks of ruleset 11776024 (Settings → Rules → Rulesets → `main`). The PR body carries the before/after list.\n\nExpected: the PR wall drops from about 13 min to the `Type Check` bound (about 10 min, then lower with objectui#12222).\n\n## Acceptance\n- Three consecutive PRs: all required checks green within the `Type Check` bound; `Spec Main Shape Gate` still appears on the PR as a non-required check; the hourly run on `main` carries it.\n- The PR body lists the seven required names (byte-identical to the live ruleset after the maintainer's edit).\n\nRelated: objectui#12214 (PR #12232) · objectui#12222 · objectui#12208 · objectstack#22998 · `scripts/check-required-check-set.mjs`."
+}

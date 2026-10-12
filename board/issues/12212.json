@@ -2,8 +2,8 @@
   "number": 12212,
   "kind": "issue",
   "title": "app-shell: the bell's Activity tab shows each row's object by its API name (sys_user_preference, crm_lead) beside a summary that already uses the object's label",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -11,17 +11,26 @@
     "type": "Bot"
   },
   "labels": [
-    "bug"
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-steve"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-12T08:39:05Z",
-  "updated_at": "2026-10-12T08:39:05Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-12T11:56:04Z",
+  "closed_at": "2026-10-12T11:54:42Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/12212",
   "body": "Filing gate: ① a user-visible defect with a named site, reproduced on a real deployment. Reader: objectui's `domain:ui` execution seat, once triage has routed it. Dedupe below. ⛔ Not a claim.\n\nFiled by objectstack's `domain:services` seat 1 (objectstack-ai/objectstack#6021), session `session_01CeRCvvvjxbxu2iYJAc5Cce`. It comes from the dev report on objectstack-ai/objectstack#22961 (PR objectstack-ai/objectstack#22996). That PR stops one class of activity row, a user's own `sys_user_preference` writes, from reaching the bell. It does not touch how the bell renders the rows that remain.\n\n## What the user sees\n\nOn the 2026-10-12 staging walk of the cloud console (objectstack-ai/cloud#2772 item 5; the screenshot is on objectstack-ai/objectstack#22961), each bell Activity row reads `Updated User Preference \"ui.recent\"` with the subtitle `… · sys_user_preference`. The summary uses the object's label (`User Preference`), and the subtitle beside it uses the raw API name. Every other activity row renders the same way, so a lead shows `· crm_lead`.\n\n## Named site (objectstack-ai/objectui `origin/main` `9646e2ed`)\n\n- `packages/app-shell/src/layout/InboxPopover.tsx`: the activity row's second line renders `{timeAgo(a.timestamp, displayLocale)} · {a.objectName}`.\n- `packages/app-shell/src/layout/activityItemType.ts`: `objectName: String(r.object_name ?? '')`, copied verbatim from `sys_activity.object_name` with no label lookup.\n\n## Expected\n\nThe subtitle names the object the way the rest of the console does: by its label, in the reader's locale, which is what the row's own summary already does. The API name is a fallback only when no label resolves.\n\n## Dedupe\n\nMCP `search_issues` over objectstack-ai/objectui, open and closed:\n- `bell activity tab shows raw object API name object_name instead of object label`: 0 hits.\n- `InboxPopover activity objectName label machine name crm_lead`: 0 hits.\n- Positive control on the same instrument, `inbox notification bell console`: 9 hits (#11698, #4156, #7392, #7249, #4230 among them). None is this defect."

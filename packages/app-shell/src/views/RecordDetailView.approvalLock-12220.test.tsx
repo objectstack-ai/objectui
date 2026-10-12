@@ -128,12 +128,17 @@ const pendingRequest = (over: Record<string, unknown> = {}) => ({
 
 let listGets: string[];
 
+const jsonResponse = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
 /**
- * `list` is what the approvals list route answers: a row, `null` for the empty
- * 200 a composition without the approvals service sends, or a status for an
- * absent route.
+ * What the approvals list route answers: `{ row }` is a 200, with `row: null`
+ * for the empty list a composition without the approvals service sends;
+ * `{ absent }` is an absent route answering that status.
  */
-function stubApprovalsApi(list: Record<string, unknown> | null | { status: number }) {
+type ListAnswer = { row: Record<string, unknown> | null } | { absent: number };
+
+function stubApprovalsApi(answer: ListAnswer) {
   listGets = [];
   vi.stubGlobal(
     'fetch',
@@ -141,15 +146,13 @@ function stubApprovalsApi(list: Record<string, unknown> | null | { status: numbe
       const u = String(url);
       if (u.includes('/approvals/requests?object=')) {
         listGets.push(u);
-        if (list && 'status' in list && typeof list.status === 'number') {
-          return { ok: false, status: list.status, json: async () => ({ code: 'NOT_FOUND' }) } as any;
-        }
-        return { ok: true, status: 200, json: async () => ({ data: list ? [list] : [] }) } as any;
+        if ('absent' in answer) return jsonResponse(answer.absent, { code: 'NOT_FOUND' });
+        return jsonResponse(200, { data: answer.row ? [answer.row] : [] });
       }
-      if (list && !('status' in list && typeof list.status === 'number') && u.endsWith(`/approvals/requests/${REQUEST_ID}`)) {
-        return { ok: true, status: 200, json: async () => list } as any;
+      if ('row' in answer && answer.row && u.endsWith(`/approvals/requests/${REQUEST_ID}`)) {
+        return jsonResponse(200, answer.row);
       }
-      return { ok: true, status: 200, json: async () => ({ data: [] }) } as any;
+      return jsonResponse(200, { data: [] });
     }),
   );
 }
@@ -208,7 +211,7 @@ afterEach(() => {
 
 describe('record page approval lock follows the answered read (objectui#12220)', () => {
   it('a `pending` record whose approvals read answers 200 empty opens editable, with no band to thread', async () => {
-    stubApprovalsApi(null);
+    stubApprovalsApi({ row: null });
     renderRecordPage();
     const probe = await screen.findByTestId('inline-probe');
 
@@ -222,7 +225,7 @@ describe('record page approval lock follows the answered read (objectui#12220)',
   });
 
   it('a record with an open locking request stays locked', async () => {
-    stubApprovalsApi(pendingRequest());
+    stubApprovalsApi({ row: pendingRequest() });
     renderRecordPage();
     const probe = await screen.findByTestId('inline-probe');
 
@@ -234,7 +237,7 @@ describe('record page approval lock follows the answered read (objectui#12220)',
 
   for (const status of [404, 501]) {
     it(`with the approvals route absent (${status}), the column fallback still locks`, async () => {
-      stubApprovalsApi({ status });
+      stubApprovalsApi({ absent: status });
       renderRecordPage();
       const probe = await screen.findByTestId('inline-probe');
 
@@ -251,7 +254,7 @@ describe('record page approval lock follows the answered read (objectui#12220)',
   }
 
   it('control (objectui#2902): an open `lockRecord: false` request reads pending and editable over a `pending` column', async () => {
-    stubApprovalsApi(pendingRequest({ lock_record: false }));
+    stubApprovalsApi({ row: pendingRequest({ lock_record: false }) });
     renderRecordPage();
     const probe = await screen.findByTestId('inline-probe');
 

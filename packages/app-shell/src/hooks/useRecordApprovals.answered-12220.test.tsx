@@ -48,11 +48,10 @@ function stubFetch() {
       const u = String(url);
       gets.push(u);
       const r = await reply(u);
-      return {
-        ok: r.status >= 200 && r.status < 300,
+      return new Response(JSON.stringify(r.body), {
         status: r.status,
-        json: async () => r.body,
-      } as any;
+        headers: { 'content-type': 'application/json' },
+      });
     }),
   );
 }
